@@ -41,7 +41,6 @@ const mobileNav: MobileNavItem[] = [
     children: [
       { label: 'سجل الموظفين', href: '/hr/organization/employees', icon: Users },
       { label: 'المستخدمين', href: '/hr/organization/contacts', icon: UserCircle },
-      { label: 'الشركات', href: '/hr/organization/companies', icon: Building2 },
       { label: 'المسميات الوظيفية', href: '/hr/organization/job-titles', icon: Briefcase },
       { label: 'الفروع', href: '/hr/organization/branches', icon: Building2 },
       { label: 'الأقسام', href: '/hr/organization/departments', icon: Building2 },

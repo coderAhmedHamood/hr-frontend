@@ -40,7 +40,6 @@ import { useLogout } from '@/features/auth/hooks/use-logout';
 import { useAuthUserDisplay } from '@/features/auth/hooks/use-auth-user-display';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
 import { getBranchAccessLabel } from '@/features/auth/types/access-profile';
-import { CompanySwitcherMenuSection } from '@/components/layouts/company-switcher';
 import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 
 /* ── Icon registry ────────────────────────────────────────────────────── */
@@ -92,7 +91,6 @@ export const navConfig: NavItem[] = [
     groups: [{ items: [
       { label: 'سجل الموظفين',     href: '/hr/organization/employees',  icon: Users },
       { label: 'المستخدمين', href: '/hr/organization/contacts',    icon: UserCircle },
-      { label: 'الشركات', href: '/hr/organization/companies', icon: Building2 },
       { label: 'المسميات الوظيفية', href: '/hr/organization/job-titles', icon: Briefcase },
       { label: 'الفروع',           href: '/hr/organization/branches',   icon: Building2 },
       { label: 'الأقسام',          href: '/hr/organization/departments', icon: Building2 },
@@ -459,9 +457,6 @@ export function Topbar() {
                   ) : null}
                 </div>
               </DropdownMenuLabel>
-
-              <DropdownMenuSeparator />
-              <CompanySwitcherMenuSection />
 
               {(accessProfile?.companies.find((c) => c.companyId === defaultCompanyId)?.branches.length ?? 0) > 1 && (
                 <>
