@@ -1,0 +1,225 @@
+import { apiRequest, type PaginatedResult } from '@/features/hr/lib/api/client';
+import type {
+  ContractNature,
+  WorkArrangement,
+} from '@/features/hr/contracts/contract-templates/types/contract-template';
+
+export type { ContractNature, WorkArrangement };
+
+export type ContractStatus = 'draft' | 'pending_signature' | 'active' | 'expired' | 'terminated' | 'superseded' | 'cancelled';
+
+// ─── Contract Templates (re-export from page capsule) ─────────────────────────
+
+export { contractTemplatesApi } from '@/features/hr/contracts/contract-templates/lib/api/contract-templates';
+
+export type {
+  ContractTemplateDto as ApiContractTemplate,
+  ContractTemplateAllowanceLine as ApiTemplateAllowanceLine,
+  ContractTemplateArticleRef,
+  CreateContractTemplateDto,
+  UpdateContractTemplateDto,
+} from '@/features/hr/contracts/contract-templates/types/contract-template';
+
+// ─── Contract Articles ────────────────────────────────────────────────────────
+
+export type ApiContractArticle = {
+  id: string;
+  companyId: string;
+  code: string;
+  titleAr: string;
+  titleEn: string;
+  bodyAr: string;
+  bodyEn: string;
+  isBasic: boolean;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string;
+  updatedBy: string;
+};
+
+export type CreateContractArticleDto = {
+  companyId: string;
+  code: string;
+  titleAr: string;
+  titleEn?: string;
+  bodyAr?: string;
+  bodyEn?: string;
+  isBasic?: boolean;
+  sortOrder?: number;
+  isActive?: boolean;
+  createdBy?: string;
+};
+
+export type UpdateContractArticleDto = Partial<Omit<CreateContractArticleDto, 'companyId' | 'createdBy'>> & {
+  updatedBy?: string;
+};
+
+export const contractArticlesApi = {
+  list: (params?: {
+    companyId?: string;
+    isBasic?: boolean;
+    isActive?: boolean;
+    page?: number;
+    limit?: number;
+  }) =>
+    apiRequest<PaginatedResult<ApiContractArticle>>('/payroll/contract-articles', {
+      query: params as Record<string, string | number | boolean | null | undefined>,
+    }),
+
+  get: (id: string) =>
+    apiRequest<ApiContractArticle>(`/payroll/contract-articles/${id}`),
+
+  create: (body: CreateContractArticleDto) =>
+    apiRequest<ApiContractArticle>('/payroll/contract-articles', { method: 'POST', body }),
+
+  update: (id: string, body: UpdateContractArticleDto) =>
+    apiRequest<ApiContractArticle>(`/payroll/contract-articles/${id}`, { method: 'PATCH', body }),
+
+  delete: (id: string) =>
+    apiRequest<void>(`/payroll/contract-articles/${id}`, { method: 'DELETE' }),
+};
+
+// ─── Employee Contracts ───────────────────────────────────────────────────────
+
+export type ApiContractAllowanceLine = {
+  id: string;
+  allowanceTypeId: string;
+  allowanceTypeCode: string;
+  allowanceTypeNameAr: string;
+  amount: string;
+  sortOrder: number;
+};
+
+export type ApiContractArticleRef = {
+  id: string;
+  contractArticleId: string;
+  articleCode: string;
+  titleAr: string;
+  sortOrder: number;
+};
+
+export type ApiEmployeeContract = {
+  id: string;
+  companyId: string;
+  branchId: string | null;
+  branchNameAr: string;
+  employeeId: string;
+  employeeNameAr: string;
+  contractNumber: string;
+  contractTemplateId: string | null;
+  contractTemplateCode: string;
+  contractNature: ContractNature;
+  workArrangement: WorkArrangement;
+  startDate: string;
+  endDate: string;
+  probationDays: number;
+  annualLeaveDays: number;
+  baseSalary: string;
+  currency: string;
+  status: ContractStatus;
+  allowancesNote: string | null;
+  deductionsNote: string | null;
+  amendsContractId: string | null;
+  supersededByContractId: string | null;
+  earlyTerminationReason: string | null;
+  signedAt: string | null;
+  terminatedAt: string | null;
+  employeeSigned: boolean;
+  rejectionReason: string | null;
+  allowanceLines: ApiContractAllowanceLine[];
+  articles: ApiContractArticleRef[];
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string | null;
+  updatedBy: string | null;
+};
+
+export type CreateEmployeeContractDto = {
+  companyId: string;
+  employeeId: string;
+  branchId?: string;
+  contractTemplateId?: string;
+  applyTemplateDefaults?: boolean;
+  includeBasicArticles?: boolean;
+  contractNumber?: string;
+  contractNature?: ContractNature;
+  workArrangement?: WorkArrangement;
+  startDate: string;
+  endDate?: string;
+  probationDays?: number;
+  annualLeaveDays?: number;
+  baseSalary: number;
+  currency?: string;
+  status?: ContractStatus;
+  allowancesNote?: string;
+  deductionsNote?: string;
+  amendsContractId?: string;
+  articleIds?: string[];
+  allowanceLines?: { allowanceTypeId: string; amount: number; sortOrder?: number }[];
+  createdBy?: string;
+};
+
+export type UpdateEmployeeContractDto = {
+  branchId?: string | null;
+  contractNature?: ContractNature;
+  workArrangement?: WorkArrangement;
+  startDate?: string;
+  endDate?: string;
+  probationDays?: number;
+  annualLeaveDays?: number;
+  baseSalary?: number;
+  currency?: string;
+  status?: ContractStatus;
+  allowancesNote?: string | null;
+  deductionsNote?: string | null;
+  earlyTerminationReason?: string | null;
+  articleIds?: string[];
+  allowanceLines?: { allowanceTypeId: string; amount: number; sortOrder?: number }[];
+  updatedBy?: string;
+  /** Required when activating a contract that credits annualLeaveDays */
+  leaveTypeId?: string;
+};
+
+export type EmployeeContractDecisionDto = {
+  decision: 'accept' | 'reject';
+  rejectionReason?: string | null;
+  decidedBy?: string | null;
+};
+
+export const employeeContractsApi = {
+  list: (params?: {
+    companyId?: string;
+    employeeId?: string;
+    branchId?: string;
+    contractTemplateId?: string;
+    status?: string;
+    contractNature?: string;
+    workArrangement?: string;
+    contractNumber?: string;
+    page?: number;
+    limit?: number;
+  }) =>
+    apiRequest<PaginatedResult<ApiEmployeeContract>>('/payroll/contracts', {
+      query: params as Record<string, string | number | boolean | null | undefined>,
+    }),
+
+  get: (id: string) =>
+    apiRequest<ApiEmployeeContract>(`/payroll/contracts/${id}`),
+
+  create: (body: CreateEmployeeContractDto) =>
+    apiRequest<ApiEmployeeContract>('/payroll/contracts', { method: 'POST', body }),
+
+  update: (id: string, body: UpdateEmployeeContractDto) =>
+    apiRequest<ApiEmployeeContract>(`/payroll/contracts/${id}`, { method: 'PATCH', body }),
+
+  delete: (id: string) =>
+    apiRequest<void>(`/payroll/contracts/${id}`, { method: 'DELETE' }),
+
+  employeeDecision: (id: string, body: EmployeeContractDecisionDto) =>
+    apiRequest<ApiEmployeeContract>(`/payroll/contracts/${id}/employee-decision`, {
+      method: 'POST',
+      body,
+    }),
+};

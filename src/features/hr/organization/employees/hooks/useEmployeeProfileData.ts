@@ -1,63 +1,213 @@
 'use client';
 
 import * as React from 'react';
-import { getEmployee, getBranch, getDepartment, data } from '@/lib/data';
-import { withIds } from '@/lib/with-ids';
-import { useAttendanceStore } from '@/lib/attendance/store';
-import { useHRViolationCasesStore } from '@/lib/hr-discipline/violation-cases-store';
-import { useHRContractsStore } from '@/lib/contracts/contracts-store';
-import { useEmployeeRoseFormsStore } from '@/lib/employee-rose-forms/store';
-import { useEmployeeAuditLogStore, EMPTY_EMPLOYEE_AUDIT_LOG } from '@/lib/employee-audit-log/store';
-import { buildEmployeePayslipSeries } from '@/lib/payroll/employee-payslip-series';
-import type { Employee } from '@/types';
+import { useEmployeeProfileAttendance } from '@/features/hr/organization/employees/hooks/useEmployeeProfileAttendance';
+import { useServerDirectoryPagination } from '@/components/ui/paged-list';
+import { violationRecordsApi, type ViolationRecordResponseDto } from '@/features/hr/discipline/lib/api/violation-records';
+import { employeeContractsApi } from '@/features/hr/contracts/lib/contracts-api';
+import { mapEmployeeContractFromApi, type HRContractRecord } from '@/features/hr/contracts/lib/contracts-store';
+import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
+import type { Employee } from '@/features/hr/organization/employees/types';
+import type { EmployeeProfileSectionId } from '@/features/hr/organization/employees/constants/EmployeeProfileSections';
+import { payslipsApi } from '@/features/hr/payroll/lib/api/payslips';
+import type { Payslip } from '@/features/hr/payroll/types';
+import { employeePayslipsApi } from '@/features/hr/organization/employees/lib/api/employee-payslips';
+import {
+  mapEmployeePayslipHistoryItem,
+  mapPayslipListItem,
+} from '@/features/hr/organization/employees/services/employee-payslips.service';
 
-export function useEmployeeProfileData(employee: Employee) {
-  const branch = getBranch(employee.branchId);
-  const department = getDepartment(employee.departmentId);
-  const manager = employee.managerId ? getEmployee(employee.managerId) : null;
+export type EmployeePayslipCounts = {
+  totalPayslips: number;
+  draft: number;
+  approved: number;
+  paid: number;
+};
 
-  const { events, daySummaries, checkpointLinks, checkpoints, assignments, shiftTemplates } = useAttendanceStore();
-  const { cases: violationCases } = useHRViolationCasesStore();
-  const { contracts } = useHRContractsStore();
-  const hasHydrated = useEmployeeRoseFormsStore((s) => s.hasHydrated());
-  const rawRoseFormsCount = useEmployeeRoseFormsStore((s) => s.totalCountFor(employee.id));
-  // Avoid hydration mismatch by returning 0 until store is hydrated
-  const roseFormsCount = hasHydrated ? rawRoseFormsCount : 0;
-  const activityLogCount = useEmployeeAuditLogStore(
-    (s) => (s.byEmployee[employee.id] ?? EMPTY_EMPLOYEE_AUDIT_LOG).length,
+export type { ViolationRecordResponseDto };
+
+function mapViolationRecord(v: ViolationRecordResponseDto) {
+  const vt = v.violationType;
+  const normKind = (k: string | null | undefined): 'amount' | 'hours' | 'day' =>
+    k === 'amount' ? 'amount' : k === 'days' || k === 'day' ? 'day' : 'hours';
+  return {
+    id: v.id,
+    employeeId: v.employeeId,
+    recordNumber: v.recordNumber,
+    typeNameAr: vt?.nameAr || v.description || 'مخالفة',
+    typeCode: vt?.code ?? '',
+    date: v.violationDate,
+    description: v.description,
+    status: v.status ?? 'pending',
+    notes: v.notes ?? '',
+    attachmentsNote: v.attachmentsNote ?? '',
+    typeHasDeduction: vt?.hasDeduction ?? false,
+    typeDeductionValue: vt?.deductionValue ? Number(vt.deductionValue) : 0,
+    typeDeductionKind: normKind(vt?.deductionKind),
+    needsInvestigation: vt?.needsInvestigation ?? v.violationTypeNeedsInvestigation ?? false,
+    investigations: (v.investigations ?? []).map((inv) => ({
+      id: inv.id,
+      investigationDate: inv.investigationDate,
+      employeeStatement: inv.employeeStatement ?? '',
+      witnessStatement: inv.witnessStatement ?? '',
+      result: inv.result,
+      recommendation: inv.recommendation,
+      deductionKind: normKind(inv.deductionType),
+      deductionValue: inv.deductionValue ? Number(inv.deductionValue) : 0,
+    })),
+  };
+}
+
+export function useEmployeeProfileData(
+  employee: Employee,
+  activeSection: EmployeeProfileSectionId,
+) {
+  const companyId = useDefaultCompanyId();
+  const [employeeContracts, setEmployeeContracts] = React.useState<HRContractRecord[]>([]);
+  const [employeePayslipSeries, setEmployeePayslipSeries] = React.useState<Payslip[]>([]);
+  const [payslipCounts, setPayslipCounts] = React.useState<EmployeePayslipCounts | null>(null);
+  const [activityLogCount] = React.useState(0);
+  const [roseFormsCount] = React.useState(0);
+
+  const attendance = useEmployeeProfileAttendance(
+    employee,
+    companyId,
+    activeSection === 'attendance',
   );
 
-  const allEmployeeEvents = events.filter((e) => e.employeeId === employee.id);
-  const allEmployeeSummaries = daySummaries.filter((s) => s.employeeId === employee.id);
-  const employeeCheckpoints = checkpointLinks.filter((c) => c.employeeId === employee.id);
-  const employeeAssignments = assignments.filter((a) => a.targetType === 'employee' && a.targetId === employee.id);
-  const employeeViolations = violationCases.filter((v) => v.employeeId === employee.id);
-  const employeeContracts = contracts.filter((c) => c.employeeId === employee.id);
-  const employeeRequests = withIds(data.requests).filter((r) => r.employeeId === employee.id);
+  const loadViolationsPage = React.useCallback(async (page: number, pageSize: number) => {
+    const res = await violationRecordsApi.getAll({
+      employeeId: employee.id,
+      companyId: companyId ?? undefined,
+      page,
+      limit: pageSize,
+    });
+    return {
+      items: res.items,
+      total: res.pagination?.total ?? res.items.length,
+    };
+  }, [employee.id, companyId]);
 
-  const employeePayslipSeries = React.useMemo(
-    () => buildEmployeePayslipSeries(employee, data.payslips ?? []),
-    [employee],
+  const {
+    items: violationRecords,
+    loading: violationsLoading,
+    pagination: violationsPagination,
+    total: violationsTotal,
+  } = useServerDirectoryPagination<ViolationRecordResponseDto>(loadViolationsPage, {
+    enabled: activeSection === 'violations' && !!employee.id,
+    resetDeps: [employee.id, companyId],
+  });
+
+  React.useEffect(() => {
+    if (!employee.id || activeSection !== 'contracts' || !companyId) return;
+    let cancelled = false;
+    void employeeContractsApi
+      .list({ companyId, employeeId: employee.id, limit: 100 })
+      .then((res) => {
+        if (!cancelled) {
+          setEmployeeContracts(res.items.map(mapEmployeeContractFromApi));
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setEmployeeContracts([]);
+      });
+    return () => { cancelled = true; };
+  }, [employee.id, activeSection, companyId]);
+
+  React.useEffect(() => {
+    if (!employee.id || activeSection !== 'salary' || !companyId) return;
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const history = await employeePayslipsApi.getHistory(employee.id, { companyId });
+        if (cancelled) return;
+        setEmployeePayslipSeries(
+          history.payslipsHistory.map((item) => mapEmployeePayslipHistoryItem(item, employee.id)),
+        );
+        setPayslipCounts(history.counts);
+      } catch {
+        if (cancelled) return;
+        try {
+          const psRes = await payslipsApi.list({ companyId, employeeId: employee.id, limit: 200 });
+          if (cancelled) return;
+          const items = psRes.items.map(mapPayslipListItem);
+          setEmployeePayslipSeries(items);
+          setPayslipCounts({
+            totalPayslips: items.length,
+            draft: items.filter((p) => p.status === 'draft').length,
+            approved: items.filter((p) => p.status === 'approved').length,
+            paid: items.filter((p) => p.status === 'paid').length,
+          });
+        } catch {
+          if (!cancelled) {
+            setEmployeePayslipSeries([]);
+            setPayslipCounts(null);
+          }
+        }
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [employee.id, activeSection, companyId]);
+
+  const employeeAssignments = React.useMemo(
+    () =>
+      attendance.shiftAssignments.map((a) => ({
+        id: a.id,
+        templateId: a.shiftTemplateId,
+        templateNameAr: a.shiftTemplateNameAr,
+        templateColorHex: a.shiftTemplateColorHex,
+        openShiftHours: a.openShiftHours ?? undefined,
+        targetType: 'employee' as const,
+        targetId: a.employeeId,
+        targetLabel: employee.name,
+        effectiveFrom: a.effectiveFrom,
+        batchId: a.batchId ?? undefined,
+      })),
+    [attendance.shiftAssignments, employee.name],
+  );
+
+  const shiftTemplates = React.useMemo(
+    () =>
+      attendance.shiftTemplates.map((t) => ({
+        id: t.id,
+        nameAr: t.nameAr,
+        nameEn: t.nameEn ?? '',
+        colorHex: t.colorHex,
+        effectiveFrom: t.effectiveFrom,
+        isActive: t.isActive,
+        weekDays: t.weekDays,
+      })),
+    [attendance.shiftTemplates],
+  );
+
+  const allEmployeeEvents = attendance.employeeEvents;
+
+  const employeeViolations = React.useMemo(
+    () => violationRecords.map(mapViolationRecord),
+    [violationRecords],
   );
 
   return {
-    branch,
-    department,
-    manager,
-    events,
-    daySummaries,
-    checkpointLinks,
-    checkpoints,
-    assignments,
-    shiftTemplates,
+    branch: null as { id: string; name: string } | null,
+    department: null as { id: string; name: string } | null,
+    manager: null as { id: string; name: string } | null,
+    ...attendance,
     allEmployeeEvents,
-    allEmployeeSummaries,
-    employeeCheckpoints,
     employeeAssignments,
+    shiftTemplates,
+    employeeEvents: allEmployeeEvents,
+    employeeCheckpoints: attendance.checkpointLinks,
+    checkpoints: attendance.checkpoints,
+    linksLoadError: attendance.linksLoadError,
+    violationsLoading,
+    violationsPagination,
+    violationsTotal,
     employeeViolations,
     employeeContracts,
-    employeeRequests,
     employeePayslipSeries,
+    payslipCounts,
     roseFormsCount,
     activityLogCount,
   };

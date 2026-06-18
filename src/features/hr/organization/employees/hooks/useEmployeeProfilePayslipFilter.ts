@@ -1,8 +1,12 @@
 'use client';
 
 import * as React from 'react';
-import { PAYSLIP_MONTHS_AR, PAYSLIP_YEAR_OPTIONS } from '@/lib/payroll/employee-payslip-series';
-import type { Payslip } from '@/types';
+import type { Payslip } from '@/features/hr/payroll/types';
+
+const PAYSLIP_MONTHS_AR = [
+  'يناير','فبراير','مارس','أبريل','مايو','يونيو',
+  'يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر',
+] as const;
 
 export function useEmployeeProfilePayslipFilter(employeePayslipSeries: Payslip[]) {
   const payslipDistinctYears = React.useMemo(
@@ -10,10 +14,15 @@ export function useEmployeeProfilePayslipFilter(employeePayslipSeries: Payslip[]
     [employeePayslipSeries],
   );
 
+  // Derive available years from real data instead of a fixed range
+  const availableYears = React.useMemo(() => {
+    const years = [...new Set(employeePayslipSeries.map((p) => p.year))].sort((a, b) => b - a);
+    return years.length > 0 ? years : [new Date().getFullYear()];
+  }, [employeePayslipSeries]);
+
   const payslipPeriodOptions = React.useMemo(() => {
     const opts: { value: string; label: string }[] = [{ value: 'all', label: 'كل الكشوف' }];
-    const yearsDesc = [...PAYSLIP_YEAR_OPTIONS].sort((a, b) => b - a);
-    for (const y of yearsDesc) {
+    for (const y of availableYears) {
       opts.push({ value: `year:${y}`, label: `سنة ${y} — كل الأشهر` });
       for (let i = 11; i >= 0; i--) {
         const monthAr = PAYSLIP_MONTHS_AR[i];
@@ -24,7 +33,7 @@ export function useEmployeeProfilePayslipFilter(employeePayslipSeries: Payslip[]
       }
     }
     return opts;
-  }, []);
+  }, [availableYears]);
 
   const [payslipPeriod, setPayslipPeriod] = React.useState<string>('all');
 

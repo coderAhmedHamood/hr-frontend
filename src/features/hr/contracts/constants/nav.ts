@@ -1,11 +1,9 @@
 import type { LucideIcon } from 'lucide-react';
 import {
-  CalendarRange,
-  Banknote,
   FileSignature,
   BookOpen,
-  FileSpreadsheet,
-  UserCheck,
+  Coins,
+  FileStack,
 } from 'lucide-react';
 
 export type HRContractsNavItem = {
@@ -19,27 +17,24 @@ export type HRContractsNavGroup = {
   items: HRContractsNavItem[];
 };
 
-/** مصدر واحد لقائمة «الراتب والعقود» (الشريط الجانبي، الشريط العلوي، تنقل الصفحة). */
-export const hrContractsNavGroups: HRContractsNavGroup[] = [
-  {
-    labelAr: 'الراتب',
-    items: [
-      { slug: 'payroll-periods', labelAr: 'فترات الراتب', icon: CalendarRange },
-      { slug: 'employee-advances', labelAr: 'سلف الموظفين', icon: Banknote },
-    ],
-  },
+/** العقود فقط — للهيدر والشريط الجانبي. */
+export const hrContractsOnlyNavGroups: HRContractsNavGroup[] = [
   {
     labelAr: 'العقود',
     items: [
+      { slug: 'contract-templates', labelAr: 'قوالب العقود', icon: FileStack },
       { slug: 'employment', labelAr: 'عقود العمل', icon: FileSignature },
       { slug: 'articles', labelAr: 'مواد العقود', icon: BookOpen },
-    ],
-  },
-  {
-    labelAr: 'التقارير',
-    items: [
-      { slug: 'reports', labelAr: 'كشف مسيرات الرواتب', icon: FileSpreadsheet },
-      { slug: 'payroll-salary-approvals', labelAr: 'كشف موافقة الموظفين', icon: UserCheck },
+      { slug: 'allowance-types', labelAr: 'أنواع البدلات', icon: Coins },
     ],
   },
 ];
+
+const CONTRACTS_ONLY_SLUGS = new Set(
+  hrContractsOnlyNavGroups.flatMap((g) => g.items.map((i) => i.slug)),
+);
+
+export function isHrContractsOnlyNavPath(pathname: string): boolean {
+  const segment = pathname.replace(/^\/hr\/contracts\/?/, '').split('/')[0]?.split('?')[0];
+  return segment != null && CONTRACTS_ONLY_SLUGS.has(segment);
+}

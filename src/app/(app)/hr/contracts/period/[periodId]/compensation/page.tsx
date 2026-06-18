@@ -1,5 +1,9 @@
-import { CompensationReportRouteClient } from '@/features/hr/contracts/compensation/components/compensation-report-route-client';
+import { redirect } from 'next/navigation';
+import { hrPayrollPeriodCompensationHref } from '@/features/hr/payroll/constants/routes';
 
-export default function CompensationPage() {
-  return <CompensationReportRouteClient />;
+interface Props { params: Promise<{ periodId: string }> }
+
+export default async function LegacyContractsPeriodCompensationRedirectPage({ params }: Props) {
+  const { periodId } = await params;
+  redirect(hrPayrollPeriodCompensationHref(periodId));
 }

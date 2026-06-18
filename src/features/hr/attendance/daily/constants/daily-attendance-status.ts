@@ -1,4 +1,6 @@
 /** Visual keys for daily attendance UI (maps domain statuses). */
+import { STATUS_PILL, statusDotClass } from '@/shared/status-pill-classes';
+
 export const STATUS = {
   present: {
     label: 'حاضر',
@@ -25,10 +27,28 @@ export const STATUS = {
     bar: 'bg-warning/70',
   },
   holiday: {
-    label: 'عطلة',
-    color: 'bg-muted/50 text-muted-foreground border-border',
-    dot: 'bg-muted-foreground',
+    label: 'عطلة رسمية',
+    color: STATUS_PILL.gold,
+    dot: statusDotClass('gold'),
+    bar: 'bg-gold',
+  },
+  rest_day: {
+    label: 'يوم راحة',
+    color: STATUS_PILL.muted,
+    dot: statusDotClass('muted'),
     bar: 'bg-muted-foreground/50',
+  },
+  unscheduled: {
+    label: 'غير مجدول',
+    color: STATUS_PILL.muted,
+    dot: statusDotClass('muted'),
+    bar: 'bg-muted-foreground/40',
+  },
+  on_leave: {
+    label: 'إجازة',
+    color: STATUS_PILL.info,
+    dot: statusDotClass('info'),
+    bar: 'bg-primary',
   },
 } as const;
 
@@ -39,7 +59,10 @@ export const ATT_VISUAL_STATUS_ORDER: StatusVisualKey[] = [
   'late',
   'absent',
   'early_leave',
+  'on_leave',
   'holiday',
+  'rest_day',
+  'unscheduled',
 ];
 
 export const DEFAULT_ABSENT_DAY_HOURS = 8;

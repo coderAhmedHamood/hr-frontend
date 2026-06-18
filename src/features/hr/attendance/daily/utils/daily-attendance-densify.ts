@@ -1,5 +1,5 @@
 import { parseISO } from 'date-fns';
-import type { AttendanceDaySummary, DaySummaryStatus } from '@/lib/attendance/types';
+import type { AttendanceDaySummary, DaySummaryStatus } from '@/features/hr/attendance/lib/types';
 import { isFriday } from '@/features/hr/attendance/daily/utils/daily-attendance-format';
 
 /** لكل موظف وكل يوم في النطاق: سجل كامل — الجمعة عطلة، وغياب السجل يُعرض غائب */

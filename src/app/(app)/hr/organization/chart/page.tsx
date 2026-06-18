@@ -1,5 +1,5 @@
-import OrganizationPage from '@/features/hr/organization/components/organization-page';
+import OrganizationChartPage from '@/features/hr/organization/chart/components/organization-chart-page';
 
 export default function OrganizationChartRoutePage() {
-  return <OrganizationPage />;
+  return <OrganizationChartPage />;
 }

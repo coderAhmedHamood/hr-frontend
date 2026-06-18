@@ -1,8 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import type { Employee } from '@/types';
-import { cn } from '@/lib/utils';
+import type { Employee } from '@/features/hr/organization/employees/types';
+import { cn } from '@/shared/utils';
 import { Prop } from '@/features/hr/organization/employees/components/EmployeeProfilePrimitives';
 
 export type EmployeeProfileDraft = Employee;
@@ -20,6 +20,84 @@ type FieldProps<K extends keyof EmployeeProfileDraft> = {
   editingPersonal: boolean;
   updateField: <Key extends keyof EmployeeProfileDraft>(key: Key, value: EmployeeProfileDraft[Key]) => void;
 };
+
+function ProfileFieldShell({
+  icon: Icon,
+  label,
+  children,
+  editing = false,
+}: {
+  icon: React.ElementType;
+  label: string;
+  children: React.ReactNode;
+  editing?: boolean;
+}) {
+  return (
+    <div
+      className={cn(
+        'group flex flex-col gap-2 rounded-xl border bg-card p-3 shadow-soft transition-all',
+        editing
+          ? 'border-primary/30 ring-1 ring-primary/10 hover:border-primary/40'
+          : 'border-border hover:border-primary/20 hover:shadow-elevated',
+      )}
+    >
+      <div className="flex items-center gap-2 min-w-0">
+        <div
+          className={cn(
+            'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors',
+            editing ? 'bg-primary/15 text-primary' : 'bg-primary/10 text-primary group-hover:bg-primary/15',
+          )}
+        >
+          <Icon className="h-3.5 w-3.5" />
+        </div>
+        <label className="text-[11px] font-medium text-muted-foreground truncate">{label}</label>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+export function EmployeeProfileSelectField<K extends keyof EmployeeProfileDraft>({
+  field,
+  icon,
+  label,
+  options,
+  draft,
+  editingPersonal,
+  updateField,
+}: {
+  field: K;
+  icon: React.ElementType;
+  label: string;
+  options: { value: string; label: string }[];
+  draft: EmployeeProfileDraft;
+  editingPersonal: boolean;
+  updateField: <Key extends keyof EmployeeProfileDraft>(key: Key, value: EmployeeProfileDraft[Key]) => void;
+}) {
+  const value = draft[field];
+  const display = options.find((o) => o.value === String(value))?.label ?? String(value ?? '');
+
+  if (!editingPersonal) {
+    return <Prop icon={icon} label={label}>{display}</Prop>;
+  }
+
+  const selectId = `emp-field-${String(field)}`;
+
+  return (
+    <ProfileFieldShell icon={icon} label={label} editing>
+      <select
+        id={selectId}
+        value={String(value ?? '')}
+        onChange={(e) => updateField(field, e.target.value as EmployeeProfileDraft[K])}
+        className="w-full rounded-lg border border-border bg-muted/50 px-3 py-2 text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-colors cursor-pointer"
+      >
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>{o.label}</option>
+        ))}
+      </select>
+    </ProfileFieldShell>
+  );
+}
 
 export function EmployeeProfileField<K extends keyof EmployeeProfileDraft>({
   field,
@@ -41,27 +119,25 @@ export function EmployeeProfileField<K extends keyof EmployeeProfileDraft>({
     return <Prop icon={icon} label={label} mono={mono} accent={accent}>{display}</Prop>;
   }
 
+  const inputId = `emp-field-${String(field)}`;
+
   return (
-    <div className="group relative flex items-start gap-3 py-3 px-3.5 rounded-xl border border-primary/30 bg-card transition-all">
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-        {React.createElement(icon, { className: 'h-3.5 w-3.5' })}
-      </div>
-      <div className="flex-1 min-w-0">
-        <label className="text-[10px] uppercase tracking-[0.08em] text-muted-foreground/80 mb-1 font-medium block">{label}</label>
-        <input
-          type={type}
-          value={String(value ?? '')}
-          onChange={(e) => {
-            const v = type === 'number' ? Number(e.target.value) : e.target.value;
-            updateField(field, v as EmployeeProfileDraft[K]);
-          }}
-          dir={mono ? 'ltr' : undefined}
-          className={cn(
-            'w-full bg-transparent text-sm font-medium text-foreground border-0 border-b border-primary/30 px-0 py-0.5 focus:outline-none focus:border-primary transition-colors',
-            mono && 'font-mono text-xs',
-          )}
-        />
-      </div>
-    </div>
+    <ProfileFieldShell icon={icon} label={label} editing>
+      <input
+        id={inputId}
+        type={type}
+        value={String(value ?? '')}
+        onChange={(e) => {
+          const v = type === 'number' ? Number(e.target.value) : e.target.value;
+          updateField(field, v as EmployeeProfileDraft[K]);
+        }}
+        dir={mono ? 'ltr' : undefined}
+        className={cn(
+          'w-full rounded-lg border border-border bg-muted/50 px-3 py-2 text-sm font-medium text-foreground',
+          'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-colors',
+          mono && 'font-mono text-xs tracking-wide',
+        )}
+      />
+    </ProfileFieldShell>
   );
 }

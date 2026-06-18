@@ -1,9 +1,9 @@
 import { redirect } from 'next/navigation';
-import { hrContractsPeriodCompensationHref } from '@/features/hr/contracts/constants/routes';
+import { hrPayrollPeriodCompensationHref } from '@/features/hr/payroll/constants/routes';
 
 interface Props { params: Promise<{ periodId: string }> }
 
-export default async function PeriodRootPage({ params }: Props) {
+export default async function LegacyContractsPeriodRootRedirectPage({ params }: Props) {
   const { periodId } = await params;
-  redirect(hrContractsPeriodCompensationHref(periodId));
+  redirect(hrPayrollPeriodCompensationHref(periodId));
 }

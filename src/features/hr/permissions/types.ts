@@ -8,3 +8,13 @@ export type PermissionRole = {
   permissions: string[];
   color: PermissionRoleColorToken;
 };
+
+/** Alias for PermissionRole (legacy name). */
+export type Role = PermissionRole;
+
+export interface Permission {
+  id: string;
+  name: string;
+  resource: string;
+  actions: ('read' | 'create' | 'update' | 'delete' | 'approve')[];
+}

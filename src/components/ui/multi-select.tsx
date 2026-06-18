@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { ChevronDown, ListChecks, ListX, Search } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/shared/utils';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';

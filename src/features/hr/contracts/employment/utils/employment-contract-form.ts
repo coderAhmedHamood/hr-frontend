@@ -4,22 +4,13 @@ import type {
   HRContractNature,
   HRContractRecord,
   HRWorkArrangement,
-} from '@/lib/contracts/contracts-store';
+} from '@/features/hr/contracts/lib/contracts-store';
 import {
   CONTRACT_NATURE_LABELS,
   CONTRACT_STATUS_LABELS,
-} from '@/lib/contracts/contracts-store';
+} from '@/features/hr/contracts/lib/contracts-store';
 
 export const HR_CONTRACTS_MODE_PARAM = 'mode';
-export const CURRENCIES = ['SAR', 'USD', 'EUR', 'GBP'] as const;
-
-export function suggestContractNumber(): string {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `CL-${y}${m}${day}-${Math.floor(1000 + Math.random() * 9000)}`;
-}
 
 export type AllowanceLine = { allowanceTypeId: string; amount: string };
 
@@ -41,7 +32,15 @@ export type EmploymentContractFormValues = {
   articleIds: string[];
 };
 
-export function emptyEmploymentContractForm(): EmploymentContractFormValues {
+export function mergeEssentialArticleIds(
+  articleIds: string[],
+  essentialArticleIds: string[],
+): string[] {
+  if (essentialArticleIds.length === 0) return articleIds;
+  return [...new Set([...essentialArticleIds, ...articleIds])];
+}
+
+export function emptyEmploymentContractForm(essentialArticleIds: string[] = []): EmploymentContractFormValues {
   return {
     employeeId: '',
     contractNumber: '',
@@ -57,7 +56,7 @@ export function emptyEmploymentContractForm(): EmploymentContractFormValues {
     allowanceLines: [{ allowanceTypeId: '', amount: '' }],
     allowancesNote: '',
     deductionsNote: '',
-    articleIds: [],
+    articleIds: [...essentialArticleIds],
   };
 }
 
@@ -76,7 +75,9 @@ export function recordToEmploymentForm(r: HRContractRecord): EmploymentContractF
     templateId: r.templateId ?? '',
     allowanceLines:
       r.allowanceLines?.length > 0
-        ? r.allowanceLines.map((l) => ({ allowanceTypeId: l.allowanceTypeId, amount: String(l.amount) }))
+        ? r.allowanceLines
+            .sort((a, b) => a.sortOrder - b.sortOrder)
+            .map((l) => ({ allowanceTypeId: l.allowanceTypeId, amount: String(l.amount) }))
         : [{ allowanceTypeId: '', amount: '' }],
     allowancesNote: r.allowancesNote,
     deductionsNote: r.deductionsNote,
@@ -92,7 +93,7 @@ export function cloneEmploymentFormFromContract(
   return {
     ...merged,
     employeeId: preserveEmployeeId,
-    contractNumber: suggestContractNumber(),
+    contractNumber: '',
     templateId: source.templateId ?? '',
   };
 }
@@ -111,7 +112,9 @@ export function employmentFormToDraft(
         })();
   return {
     employeeId: v.employeeId,
-    contractNumber: v.contractNumber.trim(),
+    employeeNameAr: '',
+    branchNameAr: '',
+    contractNumber: v.contractNumber.trim() || '',
     contractType: v.contractType,
     workArrangement: v.workArrangement,
     startDate: v.startDate,
@@ -124,13 +127,22 @@ export function employmentFormToDraft(
     templateId: v.templateId || null,
     allowanceLines: v.allowanceLines
       .filter((l) => l.allowanceTypeId)
-      .map((l) => ({ allowanceTypeId: l.allowanceTypeId, amount: parseFloat(l.amount) || 0 })),
+      .map((l, i) => ({
+        allowanceTypeId: l.allowanceTypeId,
+        allowanceTypeNameAr: '',
+        allowanceTypeCode: '',
+        amount: parseFloat(l.amount) || 0,
+        sortOrder: i,
+      })),
     allowancesNote: v.allowancesNote,
     deductionsNote: v.deductionsNote,
     amendsContractId: null,
     supersededByContractId: null,
     earlyTerminationReason: null,
     articleIds: v.articleIds,
+    employeeSigned: false,
+    rejectionReason: null,
+    signedAt: null,
   };
 }
 

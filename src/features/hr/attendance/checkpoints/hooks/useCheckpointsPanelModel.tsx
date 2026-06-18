@@ -1,38 +1,71 @@
 'use client';
 
 import * as React from 'react';
-import type { AttendanceCheckInPoint } from '@/lib/attendance/types';
-import { useAttendanceStore } from '@/lib/attendance/store';
-import { genId } from '@/lib/attendance/utils';
+import type { AttendanceCheckInPoint } from '@/features/hr/attendance/lib/types';
 import { autosuggestQuery } from '@/components/here-map/components/geocoding';
 import type { GeocodingResult } from '@/components/here-map/types/types';
 import { CHECKPOINT_GEO_DEBOUNCE_MS, CHECKPOINT_GEO_MIN_QUERY_LEN } from '@/features/hr/attendance/checkpoints/constants/checkpoints-panel';
 import { validateCheckpointDraft } from '@/features/hr/attendance/checkpoints/utils/checkpoint-validate';
-import { publicConfig } from '@/lib/config';
+import { publicConfig } from '@/shared/config';
+import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
+import { useServerDirectoryPagination } from '@/components/ui/paged-list';
+import { checkInPointsApi } from '@/features/hr/attendance/lib/api/check-in-points';
+import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
+import {
+  createCheckInPoint,
+  deleteCheckInPoint,
+  mapCheckInPointResponse,
+  updateCheckInPoint,
+} from '@/features/hr/attendance/checkpoints/services/check-in-points.service';
+
+const r6 = (n: number) => parseFloat(n.toFixed(6));
 
 export function useCheckpointsPanelModel() {
-  const checkpoints = useAttendanceStore((s) => s.checkpoints);
-  const upsertCheckpoint = useAttendanceStore((s) => s.upsertCheckpoint);
-  const removeCheckpoint = useAttendanceStore((s) => s.removeCheckpoint);
-
+  const companyId = useDefaultCompanyId();
+  const [listError, setListError] = React.useState<string | null>(null);
   const [open, setOpen] = React.useState(false);
   const [draft, setDraft] = React.useState<AttendanceCheckInPoint | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [selected, setSelected] = React.useState<string | null>(null);
   const [geoQuery, setGeoQuery] = React.useState('');
   const justPickedRef = React.useRef(false);
-
   const [geoLoading, setGeoLoading] = React.useState(false);
   const [geoError, setGeoError] = React.useState<string | null>(null);
   const [geoSuggestions, setGeoSuggestions] = React.useState<GeocodingResult[]>([]);
+  const draftRef = React.useRef(draft);
+  React.useEffect(() => { draftRef.current = draft; }, [draft]);
+
+  const loadPage = React.useCallback(async (page: number, pageSize: number) => {
+    if (!companyId) return { items: [] as AttendanceCheckInPoint[], total: 0 };
+    setListError(null);
+    try {
+      const res = await checkInPointsApi.getAll({ companyId, page, limit: pageSize });
+      const items = res.items.map(mapCheckInPointResponse);
+      return { items, total: res.pagination.total };
+    } catch (err) {
+      const { displayMessage } = handleApiError(err, 'check-in-points.load');
+      setListError(displayMessage);
+      return { items: [], total: 0 };
+    }
+  }, [companyId]);
+
+  const {
+    items: checkpoints,
+    loading,
+    pagination,
+    reload,
+  } = useServerDirectoryPagination<AttendanceCheckInPoint>(loadPage, {
+    enabled: !!companyId,
+    resetDeps: [companyId],
+  });
 
   const openCreate = React.useCallback(() => {
     setDraft({
-      id: genId('cp'),
+      id: '',
       nameAr: '',
       nameEn: '',
-      latitude: 24.7136,
-      longitude: 46.6753,
+      latitude: 24.713600,
+      longitude: 46.675300,
       radiusMeters: 100,
       isActive: true,
     });
@@ -44,7 +77,7 @@ export function useCheckpointsPanelModel() {
   }, []);
 
   const openEdit = React.useCallback((c: AttendanceCheckInPoint) => {
-    setDraft({ ...c });
+    setDraft({ ...c, latitude: r6(c.latitude), longitude: r6(c.longitude) });
     setError(null);
     setGeoQuery('');
     setGeoError(null);
@@ -57,7 +90,7 @@ export function useCheckpointsPanelModel() {
     setDraft((d) => {
       if (!d) return d;
       if (!Number.isFinite(row.latitude) || !Number.isFinite(row.longitude)) return d;
-      return { ...d, latitude: row.latitude, longitude: row.longitude };
+      return { ...d, latitude: r6(row.latitude), longitude: r6(row.longitude) };
     });
     setGeoQuery(row.title);
     setGeoSuggestions([]);
@@ -94,7 +127,7 @@ export function useCheckpointsPanelModel() {
           setGeoLoading(false);
           return;
         }
-        const center = draft ? { lat: draft.latitude, lng: draft.longitude } : { lat: 24.7136, lng: 46.6753 };
+        const center = draftRef.current ? { lat: draftRef.current.latitude, lng: draftRef.current.longitude } : { lat: 24.7136, lng: 46.6753 };
         const rows = await autosuggestQuery(q, publicConfig.hereApiKey, center, 8);
         if (ac.signal.aborted) return;
         setGeoSuggestions(rows);
@@ -113,20 +146,63 @@ export function useCheckpointsPanelModel() {
       window.clearTimeout(timer);
       ac.abort();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- matches legacy: center uses latest draft when query fires
   }, [geoQuery, open]);
 
-  const save = React.useCallback(() => {
+  const save = React.useCallback(async () => {
     if (!draft) return;
     const err = validateCheckpointDraft(draft);
     if (err) {
       setError(err);
       return;
     }
-    upsertCheckpoint({ ...draft, nameEn: draft.nameAr.trim() });
-    setOpen(false);
-    setDraft(null);
-  }, [draft, upsertCheckpoint]);
+    if (!companyId) {
+      setError('تعذر تحديد الشركة');
+      return;
+    }
+    setError(null);
+    const nameAr = draft.nameAr.trim();
+    try {
+      if (draft.id) {
+        await updateCheckInPoint(draft.id, {
+          nameAr,
+          nameEn: nameAr,
+          latitude: draft.latitude,
+          longitude: draft.longitude,
+          radiusMeters: draft.radiusMeters,
+          isActive: draft.isActive,
+        });
+      } else {
+        await createCheckInPoint({
+          companyId,
+          nameAr,
+          nameEn: nameAr,
+          latitude: draft.latitude,
+          longitude: draft.longitude,
+          radiusMeters: draft.radiusMeters,
+          isActive: draft.isActive,
+        });
+      }
+      await reload();
+      setOpen(false);
+      setDraft(null);
+    } catch (apiErr) {
+      const { displayMessage } = handleApiError(apiErr, 'check-in-points.save');
+      setError(displayMessage);
+    }
+  }, [companyId, draft, reload]);
+
+  const removeCheckpoint = React.useCallback(
+    async (id: string) => {
+      try {
+        await deleteCheckInPoint(id);
+        await reload();
+      } catch (apiErr) {
+        const { displayMessage } = handleApiError(apiErr, 'check-in-points.delete');
+        setError(displayMessage);
+      }
+    },
+    [reload],
+  );
 
   const selectedPoint = selected ? checkpoints.find((p) => p.id === selected) ?? null : null;
 
@@ -136,6 +212,9 @@ export function useCheckpointsPanelModel() {
 
   return {
     checkpoints,
+    loading,
+    pagination,
+    listError,
     removeCheckpoint,
     open,
     setOpen,

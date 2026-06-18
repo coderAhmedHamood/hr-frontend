@@ -11,8 +11,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { useAtsStore } from '@/lib/ats/store';
-import type { AtsJob } from '@/lib/ats/types';
+import { useAtsStore } from '@/features/hr/recruitment/lib/ats/store';
+import type { AtsJob } from '@/features/hr/recruitment/lib/ats/types';
 import { QRCodeDialog } from '@/features/hr/recruitment/shared/qr-code-dialog';
 
 const JOB_TYPE_AR: Record<string, string> = {

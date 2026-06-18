@@ -22,9 +22,9 @@ export const PERMISSION_RESOURCES: PermissionResourceDef[] = [
 ];
 
 export const PERMISSION_ACTIONS = [
-  { id: 'view', label: 'عرض' },
+  { id: 'read', label: 'عرض' },
   { id: 'create', label: 'إنشاء' },
-  { id: 'edit', label: 'تعديل' },
+  { id: 'update', label: 'تعديل' },
   { id: 'delete', label: 'حذف' },
   { id: 'approve', label: 'موافقة' },
 ] as const;

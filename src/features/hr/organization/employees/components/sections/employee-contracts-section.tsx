@@ -3,16 +3,19 @@
 import Link from 'next/link';
 import { ExternalLink, FileSignature, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { StatusBadge } from '@/components/status-badge';
-import { formatCurrency, formatNumber, cn } from '@/lib/utils';
+import { StatusBadge } from '@/components/shared/status-badge';
+import { formatCurrency, formatNumber, cn } from '@/shared/utils';
 import { Empty, SectionH } from '@/features/hr/organization/employees/components/EmployeeProfilePrimitives';
 import type { EmployeeProfileModel } from '@/features/hr/organization/employees/hooks/useEmployeeProfileModel';
 import { hrContractsRoutes } from '@/features/hr/contracts/constants/routes';
 
-const ALLOW_LABELS: Record<string, string> = {
-  'halt-housing': 'سكن', 'halt-transport': 'مواصلات', 'halt-phone': 'هاتف',
-  'halt-food': 'غذاء', 'halt-field': 'ميدان', 'halt-risk': 'مخاطر', 'halt-gas': 'وقود',
-};
+import {
+  TEMPLATE_CONTRACT_NATURE_LABELS,
+  TEMPLATE_WORK_ARRANGEMENT_LABELS,
+} from '@/features/hr/contracts/contract-templates/constants/contract-template-options';
+
+const NATURE_LABELS: Record<string, string> = TEMPLATE_CONTRACT_NATURE_LABELS;
+const ARRANGEMENT_LABELS: Record<string, string> = TEMPLATE_WORK_ARRANGEMENT_LABELS;
 
 export function EmployeeContractsSection({ model }: { model: EmployeeProfileModel }) {
   const { employeeContracts } = model;
@@ -80,8 +83,30 @@ export function EmployeeContractsSection({ model }: { model: EmployeeProfileMode
                             <StatusBadge status={c.status} />
                           </div>
                           <p className="text-xs text-muted-foreground mt-0.5">
-                            {c.startDate} <span className="mx-1 opacity-40">←</span> {c.endDate}
+                            {c.startDate} <span className="mx-1 opacity-40">←</span> {c.endDate || 'غير محدد'}
                           </p>
+                          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                            {c.contractType && (
+                              <span className="rounded border border-border bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                                {NATURE_LABELS[c.contractType] ?? c.contractType}
+                              </span>
+                            )}
+                            {c.workArrangement && (
+                              <span className="rounded border border-border bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                                {ARRANGEMENT_LABELS[c.workArrangement] ?? c.workArrangement}
+                              </span>
+                            )}
+                            {c.annualLeaveDays != null && (
+                              <span className="rounded border border-border bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                                إجازة {c.annualLeaveDays}ي
+                              </span>
+                            )}
+                            {c.branchNameAr && (
+                              <span className="rounded border border-border bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                                {c.branchNameAr}
+                              </span>
+                            )}
+                          </div>
                           <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
                             <span className="text-xs text-muted-foreground">
                               أساسي: <span className="font-semibold text-foreground tabular-nums">{formatCurrency(c.baseSalary)}</span>
@@ -101,7 +126,7 @@ export function EmployeeContractsSection({ model }: { model: EmployeeProfileMode
                             <div className="mt-2 flex flex-wrap gap-1.5">
                               {c.allowanceLines.map((al, i) => (
                                 <span key={i} className="rounded border border-border bg-muted/60 px-2 py-0.5 text-[10px] text-muted-foreground">
-                                  {ALLOW_LABELS[al.allowanceTypeId] ?? al.allowanceTypeId} {formatNumber(al.amount)}
+                                  {al.allowanceTypeNameAr || al.allowanceTypeCode || 'بدل'} {formatNumber(al.amount)}
                                 </span>
                               ))}
                             </div>

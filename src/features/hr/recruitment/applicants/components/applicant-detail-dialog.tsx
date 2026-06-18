@@ -11,8 +11,8 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import type { RecruitmentApplicant, RecruitmentForm, RecruitmentFormFieldType } from '@/lib/recruitment/types';
-import { formatDate } from '@/lib/utils';
+import type { RecruitmentApplicant, RecruitmentForm, RecruitmentFormFieldType } from '@/features/hr/recruitment/lib/types';
+import { DisplayDate } from '@/components/ui/table-cells';
 
 const FIELD_ICONS: Record<RecruitmentFormFieldType, React.ElementType> = {
   text: Type,
@@ -70,7 +70,7 @@ export function ApplicantDetailDialog({ applicant, form, open, onOpenChange }: A
                 </Badge>
                 <Badge variant="outline" className="gap-1 text-[10px] font-normal text-muted-foreground">
                   <Calendar className="h-3 w-3" />
-                  {formatDate(applicant.submittedAt)}
+                  <DisplayDate value={applicant.submittedAt} mode="datetime" className="text-[10px] font-normal" />
                 </Badge>
               </div>
             </div>

@@ -1,0 +1,807 @@
+---
+description: Master reference rules for the HR Management frontend. Applied automatically to every new page, component, feature, or API integration task.
+globs: src/**/*.ts, src/**/*.tsx, src/**/*.css
+alwaysApply: true
+---
+
+# HR Frontend — Master Rules
+
+This file is the single source of truth for all frontend development decisions.
+Read it fully before writing any code, creating any file, or making any API call.
+
+---
+
+## 1. Project Identity
+
+- **Framework:** Next.js (App Router) + React + TypeScript
+- **Style:** Tailwind CSS v4 — RTL, Arabic-first (Cairo font)
+- **Server state:** TanStack Query v5
+- **Tables:** TanStack Table v8
+- **Forms:** React Hook Form + Zod
+- **UI state:** Zustand
+- **UI components:** Radix UI / shadcn
+- **Backend:** NestJS REST API — separate project
+- **Language:** Arabic-first UI, English code
+
+---
+
+## 2. Backend API Contract
+
+### 2.1 Base URL & Auth
+
+Every request must include:
+```
+Authorization: Bearer <access_token>
+```
+Set this once in the Axios instance interceptor. Never set it per-request.
+The token is a JWT with payload: `{ sub, email, tv, iat, exp }`.
+There is no refresh token. On logout the server invalidates the token by incrementing `tokenVersion`.
+
+### 2.2 Standard Response Shapes
+
+**Every** endpoint returns one of these three shapes. No exceptions.
+
+```typescript
+// Single item or action response
+interface ApiResponse<T> {
+  status: number;
+  message: string;
+  data: T | null;
+  error: null;
+}
+
+// Paginated list response
+interface PaginatedResponse<T> {
+  status: number;
+  message: string;
+  data: {
+    items: T[];
+    pagination: {
+      page: number;       // current page
+      limit: number;      // items per page
+      total: number;      // total items count
+      totalPages: number;
+    };
+  };
+  error: null;
+}
+
+// Error response
+interface ApiErrorResponse {
+  status: number;
+  message: string;
+  data: null;
+  error: {
+    code: string;                    // e.g. "BadRequestException"
+    details?: string | string[];     // validation messages
+  };
+}
+```
+
+Always use optional chaining when accessing response data:
+```typescript
+const items = response?.data?.items ?? [];
+const pagination = response?.data?.pagination;
+const record = response?.data;
+```
+
+### 2.3 Pagination
+
+- Type: **page / limit** (not cursor-based)
+- Default page: `1`
+- Default limit: `200`
+- Query params: `?page=1&limit=200`
+- Sorting: **NOT standardized** — hardcoded per endpoint on the backend. Do not add sort UI unless you confirm the specific endpoint supports it.
+
+### 2.4 Filtering by Module
+
+Always pass these filters as query params when available:
+
+| Module | Available filters |
+|---|---|
+| branches | `companyId` |
+| departments | `companyId`, `branchId` |
+| job-titles | `companyId` |
+| hr/employees | `companyId` |
+| attendance/check-in-points | `companyId`, `isActive` |
+| attendance/check-in-point-links | `companyId`, `employeeId`, `checkInPointId`, `linkActive` |
+| leaves/types | `companyId` |
+| leaves/public-holidays | `companyId` |
+| discipline/violation-types | `companyId`, `isActive` |
+| audit-logs | `companyId`, `branchId`, `search`, `occurredFrom`, `occurredTo`, date ranges |
+
+Date range format: ISO `2025-08-24T10:00:00Z` or `YYYY-MM-DD`.
+
+### 2.5 All Endpoints
+
+```
+AUTH
+  POST   /auth/login                                         public
+  GET    /auth/access-profile                                get permissions
+  POST   /auth/logout
+
+COMPANIES
+  GET    /companies
+  GET    /companies/:id
+  POST   /companies
+  PATCH  /companies/:id
+  DELETE /companies/:id
+
+BRANCHES
+  GET    /branches
+  GET    /branches/:id
+  POST   /branches
+  PATCH  /branches/:id
+  DELETE /branches/:id
+
+DEPARTMENTS
+  GET    /departments
+  GET    /departments/:id
+  POST   /departments
+  PATCH  /departments/:id
+  DELETE /departments/:id
+
+JOB TITLES
+  GET    /job-titles
+  GET    /job-titles/:id
+  POST   /job-titles
+  PATCH  /job-titles/:id
+  DELETE /job-titles/:id
+
+EMPLOYEES
+  GET    /hr/employees
+  GET    /hr/employees/:id
+  POST   /hr/employees
+  PATCH  /hr/employees/:id
+  DELETE /hr/employees/:id
+
+EMPLOYEE ASSIGNMENTS
+  GET    /hr/employees/:employeeId/assignments
+  GET    /hr/employees/:employeeId/assignments/:assignmentId
+  POST   /hr/employees/:employeeId/assignments
+  PATCH  /hr/employees/:employeeId/assignments/:assignmentId
+  DELETE /hr/employees/:employeeId/assignments/:assignmentId
+
+ATTENDANCE
+  GET    /attendance/check-in-points
+  GET    /attendance/check-in-points/:id
+  POST   /attendance/check-in-points
+  PATCH  /attendance/check-in-points/:id
+  DELETE /attendance/check-in-points/:id
+
+  GET    /attendance/check-in-point-links
+  GET    /attendance/check-in-point-links/:id
+  POST   /attendance/check-in-point-links
+  PATCH  /attendance/check-in-point-links/:id
+  DELETE /attendance/check-in-point-links/:id
+
+LEAVES
+  GET    /leaves/types
+  GET    /leaves/types/:id
+  POST   /leaves/types
+  PATCH  /leaves/types/:id
+  DELETE /leaves/types/:id
+
+  GET    /leaves/public-holidays
+  GET    /leaves/public-holidays/:id
+  POST   /leaves/public-holidays
+  PATCH  /leaves/public-holidays/:id
+  DELETE /leaves/public-holidays/:id
+
+DISCIPLINE
+  GET    /discipline/violation-types
+  GET    /discipline/violation-types/:id
+  POST   /discipline/violation-types
+  PATCH  /discipline/violation-types/:id
+  DELETE /discipline/violation-types/:id
+
+ROLES
+  GET    /roles
+  GET    /roles/:id
+  GET    /roles/:id/permissions
+  POST   /roles
+  PATCH  /roles/:id
+  DELETE /roles/:id
+  POST   /roles/:id/permissions
+  POST   /roles/:id/permissions/bulk
+  DELETE /roles/permissions/:id
+
+USERS
+  GET    /users
+  GET    /users/:id
+  POST   /users
+  PATCH  /users/:id
+  DELETE /users/:id
+  GET    /users/:id/roles
+  POST   /users/:id/roles
+  PATCH  /users/:id/roles/:assignmentId
+  DELETE /users/roles/:id
+  GET    /users/:id/permissions
+  POST   /users/:id/permissions
+  POST   /users/:id/permissions/bulk
+  PATCH  /users/:id/permissions/:overlayId
+  DELETE /users/permissions/:id
+
+PERMISSIONS
+  GET    /permissions
+  GET    /permissions/:id
+  POST   /permissions
+  PATCH  /permissions/:id
+  DELETE /permissions/:id
+
+APPLICATIONS
+  GET    /applications
+  GET    /applications/:id
+  POST   /applications
+  PATCH  /applications/:id
+  DELETE /applications/:id
+
+AUDIT LOGS
+  GET    /audit-logs
+  GET    /audit-logs/:id
+  POST   /audit-logs
+  POST   /audit-logs/bulk
+```
+
+**NOT IMPLEMENTED on backend (do not build UI for these until confirmed):**
+- Leave requests (full flow)
+- Attendance records / check-in logs
+- File uploads / avatar upload
+- WebSocket / real-time notifications
+
+### 2.6 Employee Entity Shape
+
+```typescript
+interface Employee {
+  id: string;
+  employeeCode: string;             // e.g. "EMP-001"
+  nameAr: string;                   // always present
+  nameEn: string | null;
+  email: string | null;
+  phone: string | null;
+  nationalId: string | null;
+  nationality: string | null;
+  avatar: string | null;            // URL or null
+  avatarHue: number | null;         // for generated avatar color
+  position: string | null;
+  managerId: string | null;
+  contractType: string | null;
+  contractStatus: string | null;
+  startDate: string | null;         // YYYY-MM-DD
+  endDate: string | null;
+  baseSalary: string;               // decimal as string e.g. "5000.00"
+  housingAllowance: string;
+  transportAllowance: string;
+  otherAllowances: string;
+  gosi: string;
+  bankAccount: string | null;
+  iban: string | null;
+  address: string | null;
+  gender: string | null;
+  birthDate: string | null;
+  maritalStatus: string | null;
+  assignedRoleId: string | null;
+  userId: string | null;
+  meta: Record<string, unknown> | null;
+  createdAt: string;
+  updatedAt: string;
+}
+```
+
+Salary fields are **strings** from the backend. Always `parseFloat()` before math or display.
+
+---
+
+## 3. Data Fetching Rules
+
+### 3.1 Service Layer
+
+Every feature has its own service file. No API calls inside components.
+
+```
+src/features/{module}/services/{module}.service.ts
+```
+
+```typescript
+// CORRECT — all API logic in service
+export const employeeService = {
+  getAll: (params: EmployeeListParams) =>
+    apiClient.get<PaginatedResponse<Employee>>('/hr/employees', { params }).then(r => r.data),
+
+  getById: (id: string) =>
+    apiClient.get<ApiResponse<Employee>>(`/hr/employees/${id}`).then(r => r.data),
+
+  create: (body: CreateEmployeeDto) =>
+    apiClient.post<ApiResponse<Employee>>('/hr/employees', body).then(r => r.data),
+
+  update: (id: string, body: UpdateEmployeeDto) =>
+    apiClient.patch<ApiResponse<Employee>>(`/hr/employees/${id}`, body).then(r => r.data),
+
+  remove: (id: string) =>
+    apiClient.delete<ApiResponse<void>>(`/hr/employees/${id}`).then(r => r.data),
+};
+```
+
+### 3.2 Query Keys
+
+```typescript
+['employees', { companyId, page, limit }]     // list
+['employees', id]                              // single
+['branches', { companyId, page, limit }]
+['departments', { companyId, branchId }]
+['roles', { page, limit }]
+['roles', roleId, 'permissions']              // nested
+['employee-assignments', employeeId]
+['user-roles', userId]
+['auth', 'access-profile']                   // permissions — fetched once
+```
+
+### 3.3 useQuery Pattern
+
+```typescript
+const { data, isLoading, isError } = useQuery({
+  queryKey: ['employees', { companyId, page, limit }],
+  queryFn: () => employeeService.getAll({ companyId, page, limit }),
+  staleTime: 2 * 60 * 1000,
+});
+
+const items = data?.data?.items ?? [];
+const pagination = data?.data?.pagination;
+```
+
+**staleTime by data type:**
+- Reference / lookup data (companies, branches, job-titles, leave-types): `5 * 60 * 1000`
+- Active records (employees, users, roles): `2 * 60 * 1000`
+- Frequently changing (audit-logs): `30 * 1000`
+
+### 3.4 useMutation Pattern
+
+```typescript
+const create = useMutation({
+  mutationFn: employeeService.create,
+  onSuccess: () => {
+    queryClient.invalidateQueries({ queryKey: ['employees'] });
+    toast.success('تم الحفظ بنجاح');
+  },
+  onError: (error: ApiErrorResponse) => {
+    const details = error.error?.details;
+    const msg = Array.isArray(details) ? details.join('، ') : (details ?? error.message);
+    toast.error(msg);
+  },
+});
+```
+
+### 3.5 Forbidden Fetching Patterns
+
+```typescript
+// NEVER — useEffect for data fetching
+useEffect(() => { fetch('/api/employees').then(...) }, []);
+
+// NEVER — fetch() inside components
+const res = await fetch('/hr/employees');
+
+// NEVER — manual loading state
+const [loading, setLoading] = useState(false);
+
+// NEVER — accessing data without optional chaining
+const items = data.data.items; // will throw if data is undefined
+```
+
+---
+
+## 4. Permission System
+
+### 4.1 Permission Format
+
+All permissions follow: `<module>.<resource>.<action>`
+
+```
+hr.employees.read       hr.employees.create    hr.employees.update    hr.employees.delete
+hr.leaves.read          hr.leaves.create       hr.leaves.update       hr.leaves.delete       hr.leaves.approve
+hr.attendance.read      hr.attendance.create   hr.attendance.update   hr.attendance.delete
+hr.contracts.read       hr.contracts.create    hr.contracts.update    hr.contracts.delete
+hr.discipline.read      hr.discipline.create   hr.discipline.update   hr.discipline.delete
+hr.recruitment.read     hr.recruitment.create  hr.recruitment.update  hr.recruitment.delete
+```
+
+### 4.2 Permission Source
+
+Fetched once after login from `GET /auth/access-profile`.
+Stored in Zustand auth store. Never refetched per component.
+
+The response provides:
+```typescript
+permissions: string[]         // granted permissions
+deniedPermissions: string[]   // explicitly denied — always takes priority over permissions
+```
+
+A permission present in both arrays is **DENIED**.
+
+### 4.3 useCan Hook
+
+Location: `src/hooks/usePermission.ts`
+
+```typescript
+export function useCan() {
+  const { permissions, deniedPermissions } = useAuthStore();
+  return (permission: string): boolean =>
+    !deniedPermissions.includes(permission) && permissions.includes(permission);
+}
+```
+
+### 4.4 UI Enforcement
+
+```tsx
+const can = useCan();
+
+// Hide element — preferred
+{can('hr.employees.create') && <Button>إضافة موظف</Button>}
+
+// Disable element — only when hiding is not appropriate
+<Button disabled={!can('hr.employees.update')}>تعديل</Button>
+
+// Page-level guard
+if (!can('hr.employees.read')) redirect('/unauthorized');
+
+// Reusable gate component
+<PermissionGate permission="hr.employees.delete">
+  <DeleteButton />
+</PermissionGate>
+```
+
+### 4.5 Table Row Actions
+
+Always filter actions by permission. Never show disabled actions in a dropdown:
+
+```typescript
+const actions = [
+  { label: 'عرض',  permission: 'hr.employees.read',   onClick: () => router.push(`/employees/${id}`) },
+  { label: 'تعديل', permission: 'hr.employees.update', onClick: () => openSheet(id) },
+  { label: 'حذف',  permission: 'hr.employees.delete',  onClick: () => openConfirm(id), destructive: true },
+].filter(({ permission }) => can(permission));
+```
+
+### 4.6 Forbidden Permission Patterns
+
+```typescript
+// NEVER — role-name checks
+if (user.role === 'admin') { ... }
+
+// NEVER — reading arrays directly in components
+if (permissions.includes('hr.employees.read')) { ... }
+// use useCan() instead — it checks deniedPermissions too
+
+// NEVER — trusting frontend permissions for destructive operations
+// Always let the backend validate — frontend checks are UI-only
+```
+
+---
+
+## 5. Forms
+
+### 5.1 File Location
+
+```
+src/features/{module}/schemas/{form-name}.schema.ts   — Zod schema + type
+src/features/{module}/components/{Action}{Entity}Form.tsx — form component
+```
+
+Always export both:
+```typescript
+export const createEmployeeSchema = z.object({ ... });
+export type CreateEmployeeFormData = z.infer<typeof createEmployeeSchema>;
+```
+
+### 5.2 Field Validation Rules (from confirmed backend DTOs)
+
+```typescript
+// Text fields
+nameAr:           z.string().min(1, 'مطلوب').max(255)
+nameEn:           z.string().max(255).nullish()
+email:            z.string().email('بريد إلكتروني غير صحيح').nullish()
+phone:            z.string().max(50).nullish()
+nationalId:       z.string().max(50).nullish()
+code:             z.string().min(1).max(50)          // for company/branch codes
+contractType:     z.string().max(32).nullish()
+contractStatus:   z.string().max(32).nullish()
+gender:           z.string().max(16).nullish()
+maritalStatus:    z.string().max(32).nullish()
+iban:             z.string().max(50).nullish()
+bankAccount:      z.string().max(100).nullish()
+
+// Dates — ISO string
+startDate:        z.string().nullish()
+endDate:          z.string().nullish()
+birthDate:        z.string().nullish()
+
+// Salary — coerce from input string to number, backend accepts number
+baseSalary:       z.coerce.number().min(0)
+housingAllowance: z.coerce.number().min(0).default(0)
+transportAllowance: z.coerce.number().min(0).default(0)
+otherAllowances:  z.coerce.number().min(0).default(0)
+gosi:             z.coerce.number().min(0).default(0)
+
+// UUIDs
+managerId:        z.string().uuid().nullish()
+assignedRoleId:   z.string().uuid().nullish()
+companyId:        z.string().uuid()
+branchId:         z.string().uuid().nullish()
+```
+
+### 5.3 Form → Mutation Connection
+
+```typescript
+const form = useForm<CreateEmployeeFormData>({
+  resolver: zodResolver(createEmployeeSchema),
+  defaultValues: { baseSalary: 0, housingAllowance: 0, ... },
+});
+
+const mutation = useMutation({
+  mutationFn: employeeService.create,
+  onSuccess: (res) => {
+    toast.success('تم الحفظ بنجاح');
+    queryClient.invalidateQueries({ queryKey: ['employees'] });
+    onSuccess?.(res.data);
+    form.reset();
+  },
+  onError: (err: ApiErrorResponse) => {
+    const details = err.error?.details;
+    toast.error(Array.isArray(details) ? details.join('، ') : (details ?? err.message));
+  },
+});
+
+const onSubmit = form.handleSubmit((values) => mutation.mutate(values));
+```
+
+### 5.4 Foreign Key Selects
+
+Always fetch options with useQuery inside the form:
+
+```typescript
+const { data: branches } = useQuery({
+  queryKey: ['branches', { companyId }],
+  queryFn: () => branchService.getAll({ companyId }),
+  enabled: !!companyId,
+  staleTime: 5 * 60 * 1000,
+});
+```
+
+### 5.5 Multi-step Forms
+
+Use multi-step when form has more than 8 fields.
+Manage step state with local `useState` — not Zustand.
+
+### 5.6 Forbidden Form Patterns
+
+```typescript
+// NEVER — uncontrolled inputs
+<input name="email" />
+
+// NEVER — manual form state
+const [name, setName] = useState('');
+
+// NEVER — validation outside Zod
+if (!email.includes('@')) setError('invalid');
+
+// NEVER — calling mutate outside handleSubmit
+onClick={() => mutation.mutate(formValues)}
+```
+
+---
+
+## 6. Tables
+
+### 6.1 Column File Location
+
+```
+src/features/{module}/components/{Module}Columns.tsx
+```
+
+### 6.2 Column Definition
+
+```typescript
+import { ColumnDef } from '@tanstack/react-table';
+
+export const employeeColumns: ColumnDef<Employee>[] = [
+  {
+    id: 'select',
+    header: ({ table }) => <Checkbox checked={table.getIsAllPageRowsSelected()} ... />,
+    cell: ({ row }) => <Checkbox checked={row.getIsSelected()} ... />,
+    enableSorting: false,
+    size: 40,
+  },
+  {
+    accessorKey: 'nameAr',
+    header: 'الاسم',
+    cell: ({ row }) => (
+      <EmployeeCell
+        name={row.original.nameAr}
+        code={row.original.employeeCode}
+        avatarHue={row.original.avatarHue}
+        avatar={row.original.avatar}
+      />
+    ),
+  },
+  {
+    id: 'actions',
+    cell: ({ row }) => <RowActionsMenu row={row.original} />,
+    size: 48,
+  },
+];
+```
+
+### 6.3 Salary Display
+
+Backend returns salary as string — always parse before display:
+
+```typescript
+new Intl.NumberFormat('ar-SA', { style: 'currency', currency: 'SAR' })
+  .format(parseFloat(row.original.baseSalary))
+```
+
+### 6.4 Pagination — Always Server-side
+
+Sync pagination state with URL:
+
+```typescript
+const [page, setPage] = useQueryState('page', parseAsInteger.withDefault(1));
+const [limit] = useQueryState('limit', parseAsInteger.withDefault(200));
+```
+
+### 6.5 Forbidden Table Patterns
+
+```typescript
+// NEVER — client-side filter of server data
+const filtered = items.filter(e => e.nameAr.includes(search));
+
+// NEVER — raw HTML tables
+<table><tr><td>...</td></tr></table>
+
+// NEVER — adding sort UI without confirming backend supports it
+// Sorting is hardcoded per endpoint — verify first
+```
+
+---
+
+## 7. RTL & Arabic UI
+
+### 7.1 Root Setup
+
+`src/app/layout.tsx` must have:
+```html
+<html lang="ar" dir="rtl">
+```
+
+### 7.2 Tailwind — Always Use Logical Properties
+
+| Forbidden | Correct |
+|---|---|
+| `ml-*` / `mr-*` | `ms-*` / `me-*` |
+| `pl-*` / `pr-*` | `ps-*` / `pe-*` |
+| `left-*` / `right-*` | `start-*` / `end-*` |
+| `text-left` | `text-start` |
+| `text-right` | `text-end` |
+| `border-l-*` | `border-s-*` |
+| `rounded-l-*` | `rounded-s-*` |
+
+Never use `style={{ marginLeft }}`, `style={{ paddingRight }}`, or `style={{ left }}` inline.
+
+### 7.3 Numbers
+
+```typescript
+// Currency amounts
+new Intl.NumberFormat('ar-SA', { style: 'currency', currency: 'SAR' }).format(amount)
+
+// Plain counts and IDs — Western numerals are acceptable
+// Employee codes, system IDs — always Western numerals
+```
+
+### 7.4 Dates
+
+```typescript
+import { format } from 'date-fns';
+import { ar } from 'date-fns/locale';
+
+format(new Date(dateStr), 'dd/MM/yyyy')                        // 24/08/2025
+format(new Date(dateStr), 'd MMMM yyyy', { locale: ar })      // ٢٤ أغسطس ٢٠٢٥
+```
+
+Hijri calendar: NOT IMPLEMENTED — do not add unless explicitly requested.
+
+### 7.5 Icon Mirroring
+
+```tsx
+// Directional icons must flip in RTL
+<ChevronRight className="rtl:rotate-180" />
+<ArrowRight className="rtl:rotate-180" />
+
+// Non-directional — never flip
+<Search /> <Bell /> <User /> <Settings /> <X /> <Check />
+```
+
+---
+
+## 8. Architecture Rules
+
+### 8.1 Feature Structure
+
+Every feature follows this structure — no exceptions:
+
+```
+src/features/{module}/
+  services/        {module}.service.ts       — all API calls
+  schemas/         {form}.schema.ts          — Zod schemas + types
+  components/      {Module}Columns.tsx       — table columns
+                   {Action}{Entity}Form.tsx  — forms
+                   {Module}Table.tsx         — table wrapper
+  hooks/           use{Module}.ts            — custom hooks (optional)
+  types/           {module}.types.ts         — TypeScript types
+```
+
+### 8.2 Component Rules
+
+- Maximum 300 lines per component — split if larger
+- Server Components by default — add `'use client'` only when needed
+- `'use client'` is required for: `useQuery`, `useMutation`, `useState`, `useForm`, event handlers
+- Never put business logic inside page files — delegate to feature components
+
+### 8.3 What Is NOT Implemented
+
+Do not build UI for these — they do not exist on the backend yet:
+
+- Leave requests (create / approve flow)
+- Attendance records and logs
+- File or avatar upload
+- WebSocket / real-time notifications
+- Hijri calendar
+- Refresh token / token renewal UI
+
+If a task requires one of these, stop and ask before building.
+
+---
+
+## 9. Error Handling
+
+### 9.1 API Errors
+
+```typescript
+// Always handle in onError of useMutation
+onError: (err: ApiErrorResponse) => {
+  const details = err.error?.details;
+  const message = Array.isArray(details)
+    ? details.join('، ')
+    : (details ?? err.message ?? 'حدث خطأ غير متوقع');
+  toast.error(message);
+}
+```
+
+### 9.2 Validation Errors
+
+Backend returns status `400` with `error.details` as `string[]`.
+Display inline via React Hook Form `setError` or as a toast — not both.
+
+### 9.3 Unauthorized (401)
+
+Redirect to login. Clear auth store.
+
+### 9.4 Forbidden (403)
+
+Show `/unauthorized` page. Do not show a toast.
+
+---
+
+## 10. Quick Reference Checklist
+
+Before submitting any new page or feature, verify:
+
+- [ ] API calls are in a service file — not in components or hooks
+- [ ] Response accessed with optional chaining (`data?.data?.items`)
+- [ ] Salary fields parsed with `parseFloat()` before display or math
+- [ ] Permission checked with `useCan()` before showing actions
+- [ ] Tailwind uses logical properties (`ms-`, `ps-`, `start-`)
+- [ ] `lang="ar" dir="rtl"` on root HTML
+- [ ] Zod schema exported alongside its inferred type
+- [ ] useMutation has both `onSuccess` (invalidate + toast) and `onError` (toast with details)
+- [ ] No UI built for unimplemented backend features
+- [ ] Component is under 300 lines
+

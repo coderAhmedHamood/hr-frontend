@@ -1,25 +1,41 @@
 'use client';
 
 import * as React from 'react';
-import { Plus, Pencil, Trash2, Filter } from 'lucide-react';
+import { Plus, Pencil, Trash2, Filter, ListChecks, Save, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { EntityFilterToolbar } from '@/components/ui/entity-filter-toolbar';
+import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { useEntityFilterSlot } from '@/components/entity-filter-slot-context';
+import { EntityFilterToolbar } from '@/components/ui/entity-filter-toolbar';
+import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
+import { useSetPageTitle } from '@/components/layouts/page-title-context';
+import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
+import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
 import {
-  MinimalDropdown, ConfirmationModal, HRSettingsFormDrawer,
-  FormField, ActiveBadge,
-} from '@/components/hr-requests/shared-ui';
-import { useHRConfigurationStore } from '@/lib/hr-requests/configuration-store';
-import { useHRApprovalAssignmentTemplatesStore } from '@/lib/hr-requests/approval-assignment-store';
-import type { HRRequestTypeEntity, HRRequestTypeCategory } from '@/lib/hr-requests/types';
+  Dialog, DialogContent, DialogTitle,
+} from '@/components/ui/dialog';
+import * as VisuallyHidden from '@radix-ui/react-visually-hidden';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
+import {
+  ConfirmationModal,
+  ActiveBadge,
+} from '@/features/hr/requests/components/shared-ui';
+import { useHRConfigurationStore } from '@/features/hr/requests/lib/configuration-store';
+import type { HRRequestTypeEntity, HRRequestTypeCategory } from '@/features/hr/requests/lib/types';
 import {
   HR_REQUEST_TYPE_ALL_DEPARTMENTS_ID,
   HR_REQUEST_TYPE_CATEGORIES,
   HR_REQUEST_TYPE_CATEGORY_LABELS_AR,
-} from '@/lib/hr-requests/types';
-import { cn } from '@/lib/utils';
+} from '@/features/hr/requests/lib/types';
+import { cn } from '@/shared/utils';
+import { DataTable, type ColumnDef } from '@/components/ui/data-table';
+import { DirectoryPagedViews, useServerDirectoryPagination } from '@/components/ui/paged-list';
+import { requestTypesApi } from '@/features/hr/requests/lib/api/request-types';
+import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
+import { mapApiRequestType } from '@/features/hr/requests/lib/configuration-store';
+import { TableRowActions } from '@/components/ui/table-cells';
 
 interface DraftForm {
   requestCategory: HRRequestTypeCategory;
@@ -29,7 +45,7 @@ interface DraftForm {
 }
 
 const EMPTY: DraftForm = {
-  requestCategory: 'leaves',
+  requestCategory: 'attendance',
   nameAr: '',
   sortOrder: 1,
   isActive: true,
@@ -46,11 +62,12 @@ const CATEGORY_FILTER_OPTIONS = [
 ];
 
 export function RequestTypesClient() {
-  const { departments, requestTypes, addRequestType, updateRequestType, deleteRequestType } = useHRConfigurationStore();
-  const approvalAssignmentTemplates = useHRApprovalAssignmentTemplatesStore(s => s.templates);
+  const companyId = useDefaultCompanyId();
+  const { departments, addRequestType, updateRequestType, deleteRequestType, fetchDepartments } = useHRConfigurationStore();
+
+  React.useEffect(() => { fetchDepartments(); }, [fetchDepartments]);
 
   const [layoutView, setLayoutView] = React.useState<'grid' | 'table'>('grid');
-  const filterDepts: string[] = [];
   const [typeStatusFilter, setTypeStatusFilter] = React.useState<string>('all');
   const [categoryFilter, setCategoryFilter] = React.useState<string>('all');
   const [drawerOpen, setDrawerOpen] = React.useState(false);
@@ -59,42 +76,49 @@ export function RequestTypesClient() {
   const [error, setError] = React.useState<string | null>(null);
   const [deleteId, setDeleteId] = React.useState<string | null>(null);
 
-  const activeDepts = departments.filter(d => d.isActive);
-  const afterSearch = React.useMemo(() => {
-    return requestTypes.filter((rt) => {
-      if (filterDepts.length && !filterDepts.includes(rt.departmentId)) return false;
-      return true;
-    });
-  }, [requestTypes, filterDepts]);
+  const loadPage = React.useCallback(async (page: number, pageSize: number) => {
+    if (!companyId) return { items: [] as HRRequestTypeEntity[], total: 0 };
+    try {
+      const res = await requestTypesApi.list({
+        companyId,
+        page,
+        limit: pageSize,
+        ...(categoryFilter !== 'all' ? { requestCategory: categoryFilter } : {}),
+        ...(typeStatusFilter === 'active' ? { isActive: true } : typeStatusFilter === 'inactive' ? { isActive: false } : {}),
+      });
+      const items = res.items.map(mapApiRequestType).sort((a, b) => a.sortOrder - b.sortOrder);
+      return { items, total: res.pagination.total };
+    } catch {
+      return { items: [], total: 0 };
+    }
+  }, [categoryFilter, companyId, typeStatusFilter]);
 
-  const afterCategoryFilter = React.useMemo(() => {
-    if (categoryFilter === 'all') return afterSearch;
-    return afterSearch.filter((rt) => rt.requestCategory === categoryFilter);
-  }, [afterSearch, categoryFilter]);
+  const {
+    items: requestTypes,
+    loading: listLoading,
+    pagination,
+    reload: reloadList,
+  } = useServerDirectoryPagination<HRRequestTypeEntity>(loadPage, {
+    enabled: !!companyId,
+    resetDeps: [companyId, categoryFilter, typeStatusFilter, layoutView],
+  });
+
+  const activeDepts = departments.filter(d => d.isActive);
 
   const typeStatusCounts = React.useMemo(() => ({
-    all: afterCategoryFilter.length,
-    active: afterCategoryFilter.filter((rt) => rt.isActive).length,
-    inactive: afterCategoryFilter.filter((rt) => !rt.isActive).length,
-  }), [afterCategoryFilter]);
+    all: pagination.total,
+    active: requestTypes.filter((rt) => rt.isActive).length,
+    inactive: requestTypes.filter((rt) => !rt.isActive).length,
+  }), [requestTypes, pagination.total]);
 
-  const filtered = React.useMemo(() => {
-    return afterCategoryFilter
-      .filter((rt) => {
-        if (typeStatusFilter === 'all') return true;
-        if (typeStatusFilter === 'active') return rt.isActive;
-        if (typeStatusFilter === 'inactive') return !rt.isActive;
-        return true;
-      })
-      .sort((a, b) => a.sortOrder - b.sortOrder);
-  }, [afterCategoryFilter, typeStatusFilter]);
+  const filtered = requestTypes;
 
-  const openCreate = () => {
+  const openCreate = React.useCallback(() => {
     setEditId(null);
     setDraft({ ...EMPTY, sortOrder: requestTypes.length + 1 });
     setError(null);
     setDrawerOpen(true);
-  };
+  }, [requestTypes.length]);
 
   const openEdit = (rt: HRRequestTypeEntity) => {
     setEditId(rt.id);
@@ -108,7 +132,7 @@ export function RequestTypesClient() {
     setDrawerOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!draft.nameAr.trim()) { setError('اسم نوع الطلب مطلوب'); return; }
     const base = {
       departmentId: HR_REQUEST_TYPE_ALL_DEPARTMENTS_ID,
@@ -118,18 +142,23 @@ export function RequestTypesClient() {
       isActive: draft.isActive,
       requestCategory: draft.requestCategory,
     };
-    if (editId) {
-      const existing = requestTypes.find(r => r.id === editId);
-      updateRequestType(editId, { ...base, subtypes: existing?.subtypes ?? [] });
-    } else {
-      addRequestType({
-        ...base,
-        subtypes: [],
-        approvalAssignmentTemplateId: null,
-        approvalStages: [],
-      });
+    try {
+      if (editId) {
+        const existing = requestTypes.find(r => r.id === editId);
+        await updateRequestType(editId, { ...base, subtypes: existing?.subtypes ?? [] });
+      } else {
+        await addRequestType({
+          ...base,
+          subtypes: [],
+          approvalAssignmentTemplateId: null,
+          approvalStages: [],
+        });
+      }
+      setDrawerOpen(false);
+      await reloadList();
+    } catch (e) {
+      setError((e as Error).message);
     }
-    setDrawerOpen(false);
   };
 
   const patch = <K extends keyof DraftForm>(k: K, v: DraftForm[K]) => setDraft(d => ({ ...d, [k]: v }));
@@ -138,6 +167,67 @@ export function RequestTypesClient() {
     if (id === HR_REQUEST_TYPE_ALL_DEPARTMENTS_ID) return 'جميع الأقسام';
     return activeDepts.find(d => d.id === id)?.nameAr ?? '—';
   };
+
+  const columns = React.useMemo((): ColumnDef<HRRequestTypeEntity>[] => [
+    {
+      key: 'department',
+      title: 'القسم',
+      className: 'text-muted-foreground',
+      render: (rt) => getDeptLabel(rt.departmentId),
+    },
+    {
+      key: 'name',
+      title: 'النوع',
+      className: 'font-medium',
+      render: (rt) => rt.nameAr,
+    },
+    {
+      key: 'category',
+      title: 'التصنيف',
+      className: 'text-muted-foreground',
+      render: (rt) => HR_REQUEST_TYPE_CATEGORY_LABELS_AR[rt.requestCategory],
+    },
+    {
+      key: 'status',
+      title: 'الحالة',
+      render: (rt) => <ActiveBadge active={rt.isActive} />,
+    },
+    {
+      key: 'actions',
+      title: 'إجراءات',
+      isActions: true,
+      headerClassName: 'w-28',
+      render: (rt) => (
+        <TableRowActions
+          menuItems={[
+            { label: 'تعديل', icon: <Pencil className="h-3.5 w-3.5" />, onClick: (e) => { e.stopPropagation(); openEdit(rt); } },
+            { label: 'حذف', icon: <Trash2 className="h-3.5 w-3.5" />, onClick: (e) => { e.stopPropagation(); setDeleteId(rt.id); }, destructive: true, separator: true },
+          ]}
+        />
+      ),
+    },
+  ], [activeDepts]);
+
+  const activeFilterCount = React.useMemo(() => {
+    let count = 0;
+    if (categoryFilter !== 'all') count++;
+    if (typeStatusFilter !== 'all') count++;
+    return count;
+  }, [categoryFilter, typeStatusFilter]);
+
+  useSetPageTitle({ titleAr: 'أنواع الطلبات', descriptionAr: 'تصنيفات ونماذج طلبات الموارد البشرية', iconName: 'ListChecks' });
+
+  usePageHeaderActions(
+    () => (
+      <div className="flex items-center gap-2">
+        <FilterToggleButton activeFilterCount={activeFilterCount} />
+        <Button variant="luxe" size="sm" className="h-8 gap-2" onClick={openCreate}>
+          <Plus className="h-4 w-4" /> نوع جديد
+        </Button>
+      </div>
+    ),
+    [activeFilterCount],
+  );
 
   useEntityFilterSlot(
     () => (
@@ -168,11 +258,6 @@ export function RequestTypesClient() {
             { value: 'grid', label: 'شبكة', icon: 'layout-grid' },
           ],
         }}
-        trailingActions={(
-          <Button variant="luxe" size="sm" className="h-8 gap-2" onClick={openCreate}>
-            <Plus className="h-4 w-4" /> نوع جديد
-          </Button>
-        )}
       />
     ),
     [
@@ -186,18 +271,19 @@ export function RequestTypesClient() {
   );
 
   return (
-    <div className="space-y-4">
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
 
-      {filtered.length === 0 ? (
+      {!listLoading && filtered.length === 0 && pagination.total === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/60 bg-muted/20 py-16 text-center">
           <Filter className="mb-3 h-10 w-10 text-muted-foreground/30" />
           <p className="text-sm text-muted-foreground">لا توجد أنواع. أضف نوعاً جديداً أو عدّل الفلاتر</p>
         </div>
-      ) : layoutView === 'grid' ? (
-        <>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {filtered.map(rt => {
-              const aaTpl = approvalAssignmentTemplates.find(t => t.id === rt.approvalAssignmentTemplateId);
+      ) : (
+        <DirectoryPagedViews items={filtered} serverPagination={pagination} loading={listLoading}>
+          {(pageItems) => (
+            layoutView === 'grid' ? (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {pageItems.map(rt => {
               return (
                 <div
                   key={rt.id}
@@ -215,9 +301,8 @@ export function RequestTypesClient() {
                     <span
                       className={cn(
                         'inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium',
-                        rt.requestCategory === 'leaves' && 'bg-success/15 text-success',
                         rt.requestCategory === 'attendance' && 'bg-primary/15 text-primary',
-                        rt.requestCategory === 'advances' && 'bg-gold/15 text-gold',
+                        rt.requestCategory === 'advance' && 'bg-gold/15 text-gold',
                       )}
                     >
                       {HR_REQUEST_TYPE_CATEGORY_LABELS_AR[rt.requestCategory]}
@@ -225,11 +310,6 @@ export function RequestTypesClient() {
                     <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground">
                       {rt.approvalStages?.length ?? 0} مرحلة
                     </span>
-                    {aaTpl ? (
-                      <span className="inline-flex items-center rounded-full bg-warning/15 px-2.5 py-0.5 text-[11px] font-medium text-warning">
-                        موافقات: {aaTpl.nameAr}
-                      </span>
-                    ) : null}
                   </div>
                   <div className="mt-auto flex gap-1 border-t border-border pt-3" onClick={e => e.stopPropagation()}>
                     <Button variant="ghost" size="sm" className="gap-1.5 flex-1" onClick={() => openEdit(rt)}>
@@ -243,80 +323,119 @@ export function RequestTypesClient() {
               );
             })}
           </div>
-        </>
-      ) : (
-        <div className="overflow-hidden rounded-lg border border-border bg-card shadow-soft">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border bg-muted/40 text-xs font-semibold text-muted-foreground">
-                  <th className="px-4 py-3 text-right">القسم</th>
-                  <th className="px-4 py-3 text-right">النوع</th>
-                  <th className="px-4 py-3 text-right">التصنيف</th>
-                  <th className="px-4 py-3 text-right">الحالة</th>
-                  <th className="px-4 py-3 text-left w-28">إجراءات</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((rt) => {
-                  return (
-                    <tr
-                      key={rt.id}
-                      className="border-b border-border/60 cursor-pointer hover:bg-muted/25"
-                      onClick={() => openEdit(rt)}
-                    >
-                      <td className="px-4 py-3 text-muted-foreground">{getDeptLabel(rt.departmentId)}</td>
-                      <td className="px-4 py-3 font-medium">{rt.nameAr}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{HR_REQUEST_TYPE_CATEGORY_LABELS_AR[rt.requestCategory]}</td>
-                      <td className="px-4 py-3"><ActiveBadge active={rt.isActive} /></td>
-                      <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex justify-end gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(rt)} aria-label="تعديل">
-                            <Pencil className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setDeleteId(rt.id)} aria-label="حذف">
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
+            ) : (
+        <DataTable
+          variant="directory"
+          alwaysShowTable
+          columns={columns}
+          data={pageItems}
+          keyExtractor={(rt) => rt.id}
+          onRowClick={openEdit}
+        />
+            )
+          )}
+        </DirectoryPagedViews>
       )}
 
-      {/* Drawer */}
-      <HRSettingsFormDrawer
-        open={drawerOpen} onOpenChange={v => setDrawerOpen(v)}
-        title={editId ? 'تعديل نوع الطلب' : 'إضافة نوع طلب'}
-        onSave={handleSave} error={error} size="lg"
-      >
-        <div className="flex items-center justify-end gap-2 border-b border-border pb-3 -mt-1 mb-1">
-          <span className="text-xs text-muted-foreground">نشط</span>
-          <div className="scale-90 origin-right">
-            <Switch checked={draft.isActive} onCheckedChange={(v) => patch('isActive', v)} />
-          </div>
-        </div>
-        <p className="text-[11px] text-muted-foreground mb-3">ينطبق نوع الطلب على جميع الأقسام.</p>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <FormField label="يندرج تحت" required span2>
-            <MinimalDropdown
-              value={draft.requestCategory}
-              onChange={(v) => patch('requestCategory', v as HRRequestTypeCategory)}
-              options={CATEGORY_DROPDOWN_OPTIONS}
-              placeholder="اختر التصنيف"
-            />
-          </FormField>
-          <FormField label="الاسم" required span2>
-            <Input value={draft.nameAr} onChange={e => patch('nameAr', e.target.value)} placeholder="طلب إجازة" />
-          </FormField>
-        </div>
-      </HRSettingsFormDrawer>
+      {/* Create / Edit dialog */}
+      <Dialog open={drawerOpen} onOpenChange={(o) => { if (!o) setDrawerOpen(false); }}>
+        <DialogContent
+          className="flex w-full max-w-md flex-col gap-0 overflow-hidden border-border p-0"
+          hideClose
+        >
+          <VisuallyHidden.Root>
+            <DialogTitle>{editId ? 'تعديل نوع الطلب' : 'نوع طلب جديد'}</DialogTitle>
+          </VisuallyHidden.Root>
 
-      <ConfirmationModal open={!!deleteId} onOpenChange={v => !v && setDeleteId(null)} title="حذف نوع الطلب" onConfirm={() => { if (deleteId) deleteRequestType(deleteId); setDeleteId(null); }} />
+          {/* Header */}
+          <div className="flex shrink-0 items-center justify-between border-b border-border bg-card px-5 py-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <ListChecks className="h-4.5 w-4.5" />
+              </div>
+              <div>
+                <h2 className="text-base font-semibold leading-tight">
+                  {editId ? 'تعديل نوع الطلب' : 'نوع طلب جديد'}
+                </h2>
+                <p className="text-xs text-muted-foreground">ينطبق على جميع الأقسام</p>
+              </div>
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted-foreground"
+              onClick={() => setDrawerOpen(false)}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+
+          {/* Body */}
+          <div className="flex flex-col gap-5 px-5 py-6">
+
+            {/* Name + Active toggle in one row */}
+            <div className="flex items-end gap-3">
+              <div className="flex-1 space-y-1.5">
+                <Label className="text-xs font-medium text-muted-foreground">
+                  الاسم <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  value={draft.nameAr}
+                  onChange={(e) => patch('nameAr', e.target.value)}
+                  placeholder="مثال: طلب إجازة سنوية"
+                  className="h-10"
+                  autoFocus
+                />
+              </div>
+                <Switch checked={draft.isActive} onCheckedChange={(v) => patch('isActive', v)} />
+            </div>
+
+            {/* Category */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-muted-foreground">
+                التصنيف <span className="text-destructive">*</span>
+              </Label>
+              <Select
+                value={draft.requestCategory}
+                onValueChange={(v) => patch('requestCategory', v as HRRequestTypeCategory)}
+              >
+                <SelectTrigger className="h-10">
+                  <SelectValue placeholder="اختر التصنيف…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {CATEGORY_DROPDOWN_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>
+                      {o.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {error && (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+                {error}
+              </div>
+            )}
+          </div>
+
+          {/* Footer */}
+          <div className="shrink-0 border-t border-border bg-card/80 px-5 py-4 backdrop-blur">
+            <div className="flex gap-2">
+              <Button variant="luxe" className="flex-1 gap-2" onClick={handleSave}>
+                <Save className="h-4 w-4" />
+                {editId ? 'حفظ التعديلات' : 'إضافة النوع'}
+              </Button>
+              <Button variant="outline" onClick={() => setDrawerOpen(false)}>
+                إلغاء
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <ConfirmationModal open={!!deleteId} onOpenChange={v => !v && setDeleteId(null)} title="حذف نوع الطلب" onConfirm={async () => { if (deleteId) { await deleteRequestType(deleteId); setDeleteId(null); await reloadList(); } }} />
     </div>
   );
 }

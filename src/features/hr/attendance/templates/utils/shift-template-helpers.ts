@@ -1,4 +1,4 @@
-import type { ShiftPeriod, ShiftTemplate, WeekDayIndex } from '@/lib/attendance/types';
+import type { ShiftPeriod, ShiftTemplate, WeekDayIndex } from '@/features/hr/attendance/lib/types';
 import { DAY_LABELS } from '@/features/hr/attendance/templates/constants/shift-templates-ui';
 
 export function toMinutes(t: string): number {

@@ -2,7 +2,7 @@
 @config '../../tailwind.config.js';
 
 @theme {
-  --color-gold: hsl(38 62% 52%);
+  --color-gold: hsl(39 45% 54%);
   --color-gold-foreground: hsl(180 25% 10%);
 }
 @import 'react-day-picker/style.css';
@@ -13,7 +13,6 @@
   max-width: min(var(--radix-popover-trigger-width), calc(100vw - 2rem));
 }
 .select-match-trigger {
-  height: var(--radix-select-trigger-height);
   width: 100%;
   min-width: var(--radix-select-trigger-width);
 }
@@ -111,9 +110,9 @@
     --primary-900: 175 60% 12%;
 
     /* Accent: Warm burnished gold */
-    --gold: 38 62% 52%;
+    --gold: 39 45% 54%;
     --gold-foreground: 180 25% 10%;
-    --color-gold: hsl(38 62% 52%);
+    --color-gold: hsl(39 45% 54%);
     --color-gold-foreground: hsl(180 25% 10%);
 
     --accent: 175 30% 92%;
@@ -287,43 +286,104 @@
     animation: shimmer 2s linear infinite;
   }
 
-  /* react-day-picker — only design tokens (see :root / .dark) */
-  .rose-rdp-calendar.rdp-root {
-    --rdp-accent-color: hsl(var(--primary));
-    --rdp-accent-background-color: hsl(var(--primary) / 0.14);
-    --rdp-day-height: 2.25rem;
-    --rdp-day-width: 2.25rem;
-    --rdp-day_button-height: 2.125rem;
-    --rdp-day_button-width: 2.125rem;
-    --rdp-day_button-border-radius: var(--radius);
-    --rdp-nav_button-height: 2.25rem;
-    --rdp-nav_button-width: 2.25rem;
-    --rdp-today-color: hsl(var(--primary));
+  /* ── react-day-picker overrides ─────────────────────────────────── */
+  .rdp-root {
+    --rdp-accent-color:              hsl(var(--primary));
+    --rdp-accent-background-color:   hsl(var(--primary) / 0.12);
+    --rdp-range_start-background:    hsl(var(--primary));
+    --rdp-range_start-color:         hsl(var(--primary-foreground));
+    --rdp-range_end-background:      hsl(var(--primary));
+    --rdp-range_end-color:           hsl(var(--primary-foreground));
+    --rdp-range_middle-background-color: hsl(var(--primary) / 0.12);
+    --rdp-range_middle-color:        hsl(var(--foreground));
+    --rdp-today-color:               hsl(var(--primary));
+    --rdp-day_button-border-radius:  9999px;
     margin: 0;
   }
 
-  .dark .rose-rdp-calendar.rdp-root {
-    --rdp-accent-background-color: hsl(var(--primary) / 0.22);
+  /* Today — ring outline circle */
+  .rdp-root .rdp-today:not(.rdp-selected) .rdp-day_button {
+    outline: 2px solid hsl(var(--primary));
+    outline-offset: -2px;
+    color: hsl(var(--primary));
+    font-weight: 700;
+    border-radius: 9999px;
   }
 
-  .rose-rdp-calendar .rdp-day_button:not([disabled]):hover {
-    @apply bg-accent text-accent-foreground;
+  /* Selected (single day or range endpoints) — filled circle */
+  .rdp-root .rdp-selected .rdp-day_button {
+    background-color: hsl(var(--primary));
+    color:            hsl(var(--primary-foreground));
+    border-radius:    9999px;
+    font-weight:      600;
   }
 
-  .rose-rdp-calendar .rdp-caption_label {
-    @apply text-foreground;
+  /* Range: start cell — right half filled (RTL: start is on the right) */
+  .rdp-root .rdp-range_start:not(.rdp-range_end) {
+    background: linear-gradient(to right, transparent 50%, hsl(var(--primary) / 0.12) 50%);
   }
 
-  .rose-rdp-calendar .rdp-weekday {
-    @apply text-muted-foreground;
+  /* Range: end cell — left half filled (RTL: end is on the left) */
+  .rdp-root .rdp-range_end:not(.rdp-range_start) {
+    background: linear-gradient(to left, transparent 50%, hsl(var(--primary) / 0.12) 50%);
   }
 
-  .rose-rdp-calendar .rdp-outside {
-    @apply text-muted-foreground;
+  /* Range: middle cells — full band */
+  .rdp-root .rdp-range_middle {
+    background-color: hsl(var(--primary) / 0.12);
+  }
+  .rdp-root .rdp-range_middle .rdp-day_button {
+    background-color: transparent !important;
+    color:            hsl(var(--foreground));
+    border-radius:    0;
+    width:            100%;
   }
 
-  .rose-rdp-calendar .rdp-disabled {
-    @apply text-muted-foreground opacity-50;
+  /* Hover */
+  .rdp-root .rdp-day_button:not([disabled]):hover {
+    background-color: hsl(var(--primary) / 0.12);
+    color:            hsl(var(--primary));
+    border-radius:    9999px;
+  }
+
+  /* Caption / month label */
+  .rdp-root .rdp-caption_label {
+    color:       hsl(var(--foreground));
+    font-weight: 600;
+    font-size:   0.875rem;
+  }
+
+  /* Weekday headers */
+  .rdp-root .rdp-weekday {
+    color:     hsl(var(--muted-foreground));
+    font-size: 0.6875rem;
+  }
+
+  /* Outside-month days */
+  .rdp-root .rdp-outside {
+    color:   hsl(var(--muted-foreground));
+    opacity: 0.4;
+  }
+
+  /* Disabled days */
+  .rdp-root .rdp-disabled {
+    color:   hsl(var(--muted-foreground));
+    opacity: 0.35;
+    cursor:  not-allowed;
+  }
+
+  /* Nav buttons */
+  .rdp-root .rdp-button_previous,
+  .rdp-root .rdp-button_next {
+    border:           1px solid hsl(var(--border));
+    border-radius:    9999px;
+    background-color: hsl(var(--background));
+    color:            hsl(var(--muted-foreground));
+  }
+  .rdp-root .rdp-button_previous:hover,
+  .rdp-root .rdp-button_next:hover {
+    background-color: hsl(var(--accent));
+    color:            hsl(var(--accent-foreground));
   }
 
 }

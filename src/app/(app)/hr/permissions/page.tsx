@@ -1,5 +1,6 @@
-import { PermissionsManagementPage } from '@/features/hr/permissions/components/permissions-management-page';
+import { redirect } from 'next/navigation';
+import { hrPermissionsRolesHref } from '@/features/hr/permissions/constants/routes';
 
-export default function PermissionsPage() {
-  return <PermissionsManagementPage />;
+export default function PermissionsIndexPage() {
+  redirect(hrPermissionsRolesHref());
 }

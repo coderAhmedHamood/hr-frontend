@@ -6,7 +6,7 @@ import { arSA } from 'date-fns/locale';
 import { CalendarDays, X } from 'lucide-react';
 import type { Matcher } from 'react-day-picker';
 
-import { cn, toWesternDigits } from '@/lib/utils';
+import { cn, toWesternDigits } from '@/shared/utils';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
@@ -86,7 +86,7 @@ export function SingleDatePicker({
   return (
     <div className={cn('w-full', wrapperClassName)}>
       {name ? <input type="hidden" name={name} value={value ?? ''} aria-hidden /> : null}
-      <Popover open={open} onOpenChange={setOpen}>
+      <Popover open={open} onOpenChange={setOpen} modal={false}>
         <PopoverTrigger asChild>
           <button
             id={id}
@@ -136,6 +136,7 @@ export function SingleDatePicker({
           sideOffset={8}
           collisionPadding={16}
           container={popoverContainer ?? undefined}
+          onOpenAutoFocus={(e) => e.preventDefault()}
         >
           <Calendar
             mode="single"

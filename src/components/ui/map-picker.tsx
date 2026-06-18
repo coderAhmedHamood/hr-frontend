@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import dynamic from 'next/dynamic';
-import { cn } from '@/lib/utils';
+import { cn } from '@/shared/utils';
 
 export interface MapPickerValue {
   latitude: number;
@@ -19,6 +19,8 @@ export interface MapPickerProps {
   maxRadius?: number;
   /** When false: read-only map (no click-to-move, no radius overlay, marker not draggable). */
   interactive?: boolean;
+  /** When false: hides the acceptance-radius circle and slider. Default true. */
+  showRadius?: boolean;
 }
 
 const InnerMap = dynamic(() => import('./map-picker-inner'), {
@@ -38,6 +40,7 @@ export function MapPicker({
   minRadius = 10,
   maxRadius = 2000,
   interactive = true,
+  showRadius = true,
 }: MapPickerProps) {
   return (
     <div
@@ -47,10 +50,9 @@ export function MapPicker({
       <InnerMap
         value={value}
         onChange={onChange}
-        minRadius={minRadius}
-        maxRadius={maxRadius}
         height={height}
         interactive={interactive}
+        showRadius={showRadius}
       />
     </div>
   );

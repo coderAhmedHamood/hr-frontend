@@ -6,6 +6,7 @@ import { EmployeeSalaryPayslipCards } from '@/features/hr/organization/employees
 export function EmployeeSalarySection({ model }: { model: EmployeeProfileModel }) {
   const {
     employeePayslipSeries,
+    payslipCounts,
     payslipDistinctYears,
     payslipPeriod,
     setPayslipPeriod,
@@ -17,6 +18,7 @@ export function EmployeeSalarySection({ model }: { model: EmployeeProfileModel }
     <section className="space-y-5">
       <EmployeeSalaryPayslipCards
         employeePayslipSeries={employeePayslipSeries}
+        payslipCounts={payslipCounts}
         payslipDistinctYears={payslipDistinctYears}
         payslipPeriod={payslipPeriod}
         setPayslipPeriod={setPayslipPeriod}

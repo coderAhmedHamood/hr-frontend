@@ -8,13 +8,13 @@ import {
   ShieldAlert, UserX, Timer, ArrowUpRight, ChevronLeft,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { data, getEmployee } from '@/lib/data';
-import { getInitials, cn, formatNumber, toWesternDigits } from '@/lib/utils';
-import { useSetPageTitle } from '@/components/page-title-context';
-import { useHRViolationCasesStore } from '@/lib/hr-discipline/violation-cases-store';
-import { useHRContractsStore } from '@/lib/contracts/contracts-store';
-import { MOCK_UNIFIED_LEAVES } from '@/lib/leaves/unified-mock';
+import { getInitials, cn, formatNumber, toWesternDigits } from '@/shared/utils';
+import { useSetPageTitle } from '@/components/layouts/page-title-context';
+import { useHRViolationCasesStore } from '@/features/hr/discipline/lib/violation-cases-store';
+import { useHRContractsStore } from '@/features/hr/contracts/lib/contracts-store';
+import { useEmployees } from '@/features/hr/organization/employees/hooks/useEmployees';
 import { hrContractsRoutes } from '@/features/hr/contracts/constants/routes';
+import { hrPayrollRoutes } from '@/features/hr/payroll/constants/routes';
 
 /* ─── Sparkline ──────────────────────────────────────────────────────────────── */
 function Sparkline({ values, color }: { values: number[]; color: string }) {
@@ -63,23 +63,20 @@ export function DashboardPage() {
 
   const { cases }     = useHRViolationCasesStore();
   const { contracts } = useHRContractsStore();
+  const { data: employeesResult } = useEmployees();
 
-  const totalEmployees  = data.company.totalEmployees;
-  const total           = data.attendanceToday.length;
-  const presentCount    = data.attendanceToday.filter(a => a.status === 'present').length;
-  const lateCount       = data.attendanceToday.filter(a => a.status === 'late').length;
-  const absentCount     = data.attendanceToday.filter(a => a.status === 'absent').length;
-  const attendanceRate  = total ? Math.round(((presentCount + lateCount) / total) * 100) : 0;
-  const pendingRequests = data.requests.filter(r => r.status === 'pending').length;
-
-  const lateEmployees = data.attendanceToday
-    .filter(a => a.status === 'late' || a.status === 'absent')
-    .map(a => ({ ...a, employee: getEmployee(a.employeeId)! }))
-    .filter(a => a.employee);
+  const totalEmployees  = employeesResult?.pagination?.total ?? 0;
+  const total           = 0;
+  const presentCount    = 0;
+  const lateCount       = 0;
+  const absentCount     = 0;
+  const attendanceRate  = 0;
+  const pendingRequests = 0;
+  const lateEmployees: { id: string; status: 'late' | 'absent'; lateMinutes?: number; employee: { name: string; avatar: string | null; position: string | null } }[] = [];
 
   const underReviewCases = cases.filter(c => c.status === 'under_review');
   const activeContracts  = contracts.filter(c => c.status === 'active').length;
-  const pendingLeaves    = MOCK_UNIFIED_LEAVES.filter(l => l.status === 'pending').length;
+  const pendingLeaves    = 0;
 
   const dateAr = toWesternDigits(
     new Intl.DateTimeFormat('ar-SA', {
@@ -148,7 +145,7 @@ export function DashboardPage() {
           {
             label: 'إجمالي الموظفين',
             value: formatNumber(totalEmployees),
-            sub: `${data.branches.length} فروع`,
+            sub: 'موظف',
             delta: '+4.2%', positive: true,
             icon: Users,
             href: '/hr/organization/employees',
@@ -363,7 +360,7 @@ export function DashboardPage() {
             ) : lateEmployees.slice(0, 5).map(item => (
               <div key={item.id} className="flex items-center gap-3 px-5 py-3.5 hover:bg-muted/30 transition-colors">
                 <Avatar className="h-8 w-8 shrink-0">
-                  <AvatarImage src={item.employee.avatar} />
+                  <AvatarImage src={item.employee.avatar ?? undefined} />
                   <AvatarFallback className="text-[11px] font-semibold bg-muted">
                     {getInitials(item.employee.name)}
                   </AvatarFallback>
@@ -397,7 +394,7 @@ export function DashboardPage() {
           {[
             { label: 'موظف جديد',       icon: UserPlus,     href: '/hr/organization/employees',   color: 'text-primary',                              bg: 'bg-primary/10',                              hoverBg: 'hover:bg-primary/15' },
             { label: 'طلب إجازة',        icon: CalendarDays, href: '/hr/leaves/leave-types',   color: 'text-primary',                              bg: 'bg-primary/10',                              hoverBg: 'hover:bg-primary/15' },
-            { label: 'الرواتب',          icon: Wallet,       href: hrContractsRoutes.root,             color: 'text-gold dark:text-gold',    bg: 'bg-gold/10 dark:bg-gold/15',      hoverBg: 'hover:bg-gold/20 dark:hover:bg-gold/25' },
+            { label: 'الرواتب',          icon: Wallet,       href: hrPayrollRoutes.root,             color: 'text-gold dark:text-gold',    bg: 'bg-gold/10 dark:bg-gold/15',      hoverBg: 'hover:bg-gold/20 dark:hover:bg-gold/25' },
             { label: 'تقرير حضور',       icon: Clock,        href: '/hr/attendance/daily', color: 'text-warning dark:text-warning',        bg: 'bg-warning/12 dark:bg-warning/18',          hoverBg: 'hover:bg-warning/20 dark:hover:bg-warning/25' },
             { label: 'هيكل تنظيمي',      icon: Building2,    href: '/hr/organization/chart',       color: 'text-primary',                              bg: 'bg-primary/10',                              hoverBg: 'hover:bg-primary/15' },
             { label: 'تحليل الإجازات',   icon: TrendingUp,   href: '/hr/leaves/analytics',      color: 'text-destructive dark:text-destructive',          bg: 'bg-destructive/10 dark:bg-destructive/15',            hoverBg: 'hover:bg-destructive/15 dark:hover:bg-destructive/20' },

@@ -1,15 +1,15 @@
 'use client';
 
 import * as React from 'react';
-import { sanitizePdfText } from '@/lib/pdf/sanitize-pdf-text';
+import { sanitizePdfText } from '@/components/pdf/lib/sanitize-pdf-text';
 import { RoseTradingLetterheadPrint } from '@/components/pdf/print/rose-trading-letterhead-print';
-import { getPdfLogoSrc } from '@/lib/pdf/pdf-logo-url';
+import { getPdfLogoSrc } from '@/components/pdf/lib/pdf-logo-url';
 import {
   RosePrintPairedTwoColumnRow,
   type RoseFormPdfEmployee,
 } from '@/components/pdf/rose-trading/rose-forms-records-print-html';
-import { ROSE_TRADING_COMPANY_AR_DEFAULT } from '@/lib/employee-rose-forms/types';
-import type { RoseClearanceRecord } from '@/lib/employee-rose-forms/types';
+import { ROSE_TRADING_COMPANY_AR_DEFAULT } from '@/features/hr/organization/employees/lib/employee-rose-forms/types';
+import type { RoseClearanceRecord } from '@/features/hr/organization/employees/lib/employee-rose-forms/types';
 
 const C = {
   primary: '#1a3d3a',

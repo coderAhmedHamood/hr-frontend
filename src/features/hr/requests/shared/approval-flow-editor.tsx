@@ -5,10 +5,10 @@ import { Plus, Trash2, ChevronUp, ChevronDown, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { MinimalDropdown, SearchableDropdown } from '@/components/hr-requests/shared-ui';
-import type { HRApprovalStage, HRApprovalStageMode } from '@/lib/hr-requests/types';
-import { useHREmployeeDirectoryStore } from '@/lib/hr-requests/employee-directory-store';
-import { cn } from '@/lib/utils';
+import { MinimalDropdown, SearchableDropdown } from '@/features/hr/requests/components/shared-ui';
+import type { HRApprovalStage, HRApprovalStageMode } from '@/features/hr/requests/lib/types';
+import { useHREmployeeDirectoryStore } from '@/features/hr/requests/lib/employee-directory-store';
+import { cn } from '@/shared/utils';
 
 function uid() { return `stage-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`; }
 

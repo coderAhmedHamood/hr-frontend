@@ -7,9 +7,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
-import { MinimalDropdown } from '@/components/hr-requests/shared-ui';
-import type { HRRequestFieldDefinition, HRRequestFieldKind, HRRequestFieldOption } from '@/lib/hr-requests/types';
-import { cn } from '@/lib/utils';
+import { MinimalDropdown } from '@/features/hr/requests/components/shared-ui';
+import type { HRRequestFieldDefinition, HRRequestFieldKind, HRRequestFieldOption } from '@/features/hr/requests/lib/types';
+import { cn } from '@/shared/utils';
 
 const KIND_LABELS: Record<HRRequestFieldKind, string> = {
   text: 'نص قصير', textarea: 'نص طويل', number: 'رقم', date: 'تاريخ',

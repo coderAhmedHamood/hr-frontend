@@ -1,6 +1,6 @@
 import { format, parseISO, isFriday } from 'date-fns';
 import { arSA } from 'date-fns/locale';
-import { toWesternDigits } from '@/lib/utils';
+import { toWesternDigits } from '@/shared/utils';
 
 const DAY_NAMES_AR: Record<number, string> = {
   0: 'الاثنين',

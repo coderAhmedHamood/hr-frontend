@@ -1,7 +1,11 @@
 'use client';
 
-import { Building2, Pencil, Trash2 } from 'lucide-react';
+import * as React from 'react';
+import { Building2, Eye, Pencil, Trash2 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { DataTable, type ColumnDef } from '@/components/ui/data-table';
+import { TableRowActions } from '@/components/ui/table-cells';
 import {
   DirectoryGrid,
   DirectoryGridCard,
@@ -10,87 +14,146 @@ import {
   DirectoryGridCardMeta,
   DirectoryGridCardMetaRow,
   DirectoryGridCardTitle,
-  DirectoryResultCount,
 } from '@/components/ui/directory-grid-card';
-import {
-  DirectoryTableActionsCell,
-  DirectoryTableBody,
-  DirectoryTableCell,
-  DirectoryTableContainer,
-  DirectoryTableHead,
-  DirectoryTableHeaderRow,
-  DirectoryTableRow,
-  DirectoryTable,
-} from '@/components/ui/directory-table';
-import { EmptyState } from '@/components/hr-requests/shared-ui';
+import { EmptyState } from '@/features/hr/requests/components/shared-ui';
+import { DirectoryPagedViews } from '@/components/ui/paged-list';
 import type { BranchesDirectoryModel } from '@/features/hr/organization/branches/hooks/useBranchesDirectoryModel';
+import type { BranchRow } from '@/features/hr/organization/branches/constants/branches-directory';
+
+function statusBadge(active: boolean) {
+  return active ? (
+    <Badge variant="outline" className="text-[10px] border-success/40 text-success dark:text-success">نشط</Badge>
+  ) : (
+    <Badge variant="outline" className="text-[10px] border-destructive/40 text-destructive">غير نشط</Badge>
+  );
+}
 
 export function BranchesListViews({ model }: { model: BranchesDirectoryModel }) {
-  const { filtered, layoutView, setViewBranch, openEdit, setConfirmId } = model;
+  const { filtered, layoutView, pagination, loading, setViewBranch, openEdit, setConfirmId, companyLabel } = model;
+
+  const columns = React.useMemo((): ColumnDef<BranchRow>[] => [
+    {
+      key: 'company',
+      title: 'الشركة',
+      className: 'text-muted-foreground',
+      render: (b) => companyLabel(b.companyId),
+    },
+    {
+      key: 'name',
+      title: 'الفرع',
+      render: (b) => (
+        <div className="flex flex-col gap-0.5">
+          <span className="font-medium">{b.name}</span>
+          {b.code ? <span className="text-[10px] text-muted-foreground" dir="ltr">{b.code}</span> : null}
+        </div>
+      ),
+    },
+    {
+      key: 'city',
+      title: 'المدينة',
+      className: 'text-muted-foreground',
+      render: (b) => b.city || '—',
+    },
+    {
+      key: 'manager',
+      title: 'المدير',
+      className: 'text-muted-foreground',
+      render: (b) => b.manager || '—',
+    },
+    {
+      key: 'phone',
+      title: 'الهاتف',
+      className: 'text-muted-foreground',
+      render: (b) => <span dir="ltr">{b.phone ?? b.mobile ?? '—'}</span>,
+    },
+    {
+      key: 'flags',
+      title: 'الحالة',
+      render: (b) => (
+        <div className="flex flex-wrap gap-1">
+          {statusBadge(b.isActive)}
+          {b.isHeadquarters ? (
+            <Badge variant="secondary" className="text-[10px]">المقر الرئيسي</Badge>
+          ) : null}
+        </div>
+      ),
+    },
+    {
+      key: 'actions',
+      title: 'إجراءات',
+      isActions: true,
+      headerClassName: 'text-start w-16',
+      render: (b) => (
+        <TableRowActions
+          menuItems={[
+            { label: 'تعديل', onClick: (e) => { e.stopPropagation(); openEdit(b); } },
+            { label: 'حذف', onClick: (e) => { e.stopPropagation(); setConfirmId(b.id); }, destructive: true, separator: true },
+          ]}
+        />
+      ),
+    },
+  ], [companyLabel, openEdit, setConfirmId]);
 
   return (
-    <>
-      <DirectoryResultCount>{model.branches.length} فرع</DirectoryResultCount>
-
-      {filtered.length === 0 ? (
-        <EmptyState icon={Building2} title="لا توجد فروع" description="لا توجد فروع في القائمة." />
-      ) : layoutView === 'grid' ? (
+    <DirectoryPagedViews
+      items={filtered}
+      serverPagination={pagination}
+      loading={loading}
+      empty={<EmptyState icon={Building2} title="لا توجد فروع" description="لا توجد فروع في القائمة." />}
+    >
+      {(pageItems) => layoutView === 'grid' ? (
         <DirectoryGrid>
-          {filtered.map((b) => (
+          {pageItems.map((b) => (
             <DirectoryGridCard key={b.id} interactive onClick={() => setViewBranch(b)}>
               <DirectoryGridCardHeader>
                 <DirectoryGridCardTitle>{b.name}</DirectoryGridCardTitle>
+                {b.isHeadquarters ? (
+                  <Badge variant="secondary" className="shrink-0 text-[10px]">المقر</Badge>
+                ) : null}
               </DirectoryGridCardHeader>
               <DirectoryGridCardMeta>
                 <DirectoryGridCardMetaRow>
-                  <span className="text-muted-foreground">المدينة</span>
-                  <span className="truncate font-medium">{b.city}</span>
+                  <span className="text-muted-foreground">الشركة</span>
+                  <span className="truncate font-medium">{companyLabel(b.companyId)}</span>
                 </DirectoryGridCardMetaRow>
+                <DirectoryGridCardMetaRow>
+                  <span className="text-muted-foreground">المدينة</span>
+                  <span className="truncate font-medium">{b.city || '—'}</span>
+                </DirectoryGridCardMetaRow>
+                {b.manager ? (
+                  <DirectoryGridCardMetaRow>
+                    <span className="text-muted-foreground">المدير</span>
+                    <span className="truncate">{b.manager}</span>
+                  </DirectoryGridCardMetaRow>
+                ) : null}
+                {(b.phone ?? b.email) ? (
+                  <DirectoryGridCardMetaRow dir="ltr">
+                    <span className="text-muted-foreground">تواصل</span>
+                    <span className="truncate">{b.phone ?? b.email}</span>
+                  </DirectoryGridCardMetaRow>
+                ) : null}
               </DirectoryGridCardMeta>
               <DirectoryGridCardFooter>
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(b)} aria-label="تعديل">
-                  <Pencil className="h-3.5 w-3.5" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-destructive hover:text-destructive"
-                  onClick={() => setConfirmId(b.id)}
-                  aria-label="حذف"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
+                {statusBadge(b.isActive)}
+                <div className="ms-auto flex gap-0.5">
+                  <Button variant="ghost" size="icon" className="h-7 w-7" title="عرض" onClick={() => setViewBranch(b)}><Eye className="h-4 w-4" /></Button>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" title="تعديل" onClick={() => openEdit(b)}><Pencil className="h-4 w-4" /></Button>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" title="حذف" onClick={() => setConfirmId(b.id)}><Trash2 className="h-4 w-4" /></Button>
+                </div>
               </DirectoryGridCardFooter>
             </DirectoryGridCard>
           ))}
         </DirectoryGrid>
       ) : (
-        <DirectoryTableContainer>
-          <DirectoryTable>
-            <DirectoryTableHeaderRow>
-              <DirectoryTableHead>الفرع</DirectoryTableHead>
-              <DirectoryTableHead>المدينة</DirectoryTableHead>
-              <DirectoryTableHead className="text-start w-28">إجراءات</DirectoryTableHead>
-            </DirectoryTableHeaderRow>
-            <DirectoryTableBody>
-              {filtered.map((b) => (
-                <DirectoryTableRow key={b.id} interactive onClick={() => setViewBranch(b)}>
-                  <DirectoryTableCell className="font-medium">{b.name}</DirectoryTableCell>
-                  <DirectoryTableCell className="text-muted-foreground">{b.city}</DirectoryTableCell>
-                  <DirectoryTableActionsCell>
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(b)} aria-label="تعديل">
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setConfirmId(b.id)} aria-label="حذف">
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </DirectoryTableActionsCell>
-                </DirectoryTableRow>
-              ))}
-            </DirectoryTableBody>
-          </DirectoryTable>
-        </DirectoryTableContainer>
+        <DataTable
+          variant="directory"
+          alwaysShowTable
+          columns={columns}
+          data={pageItems}
+          keyExtractor={(b) => b.id}
+          onRowClick={(b) => setViewBranch(b)}
+        />
       )}
-    </>
+    </DirectoryPagedViews>
   );
 }

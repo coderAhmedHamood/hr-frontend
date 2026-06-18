@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/shared/utils';
 
 /** Grid wrapper for directory / settings entity lists (contacts, branches, job titles, departments). */
 export function DirectoryGrid({

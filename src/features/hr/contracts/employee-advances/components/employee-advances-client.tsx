@@ -1,35 +1,51 @@
 'use client';
 
 import * as React from 'react';
-import { Plus, Banknote, Download } from 'lucide-react';
+import { Plus, Banknote, Download, CheckCircle2, XCircle, Send, CalendarDays, X } from 'lucide-react';
+import { DateRangePicker } from '@/components/ui/DateRangePicker';
+import { toast } from 'sonner';
+import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
+import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
 import { Button } from '@/components/ui/button';
 import { EntityFilterToolbar } from '@/components/ui/entity-filter-toolbar';
 import { Input } from '@/components/ui/input';
+import { DatePickerInput } from '@/components/ui/date-picker-input';
 import { Badge } from '@/components/ui/badge';
-import { SetPageTitle } from '@/components/set-page-title';
-import { useEntityFilterSlot } from '@/components/entity-filter-slot-context';
+import { SetPageTitle } from '@/components/layouts/set-page-title';
+import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
 import {
   HRSettingsFormDrawer, FormField, ConfirmationModal, EmptyState, SearchableDropdown, MinimalDropdown,
-} from '@/components/hr-requests/shared-ui';
+} from '@/features/hr/requests/components/shared-ui';
+import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
+import { duplicateAdvanceNumberMessage, isDuplicateAdvanceNumberError } from '@/features/hr/contracts/lib/employee-advance-errors';
 import {
   useHREmployeeAdvancesStore,
   ADVANCE_STATUS_LABELS,
+  ADVANCE_STATUS_FILTER_ORDER,
   ADVANCE_KIND_LABELS,
   REPAYMENT_MODE_LABELS,
+  EDITABLE_ADVANCE_STATUSES,
+  DELETABLE_ADVANCE_STATUSES,
   type HREmployeeAdvance,
   type HREmployeeAdvanceKind,
   type HREmployeeAdvanceRepaymentMode,
   type HREmployeeAdvanceStatus,
-} from '@/lib/contracts/employee-advances-store';
-import { useHREmployeeDirectoryStore } from '@/lib/hr-requests/employee-directory-store';
-import { cn, formatNumber } from '@/lib/utils';
+} from '@/features/hr/contracts/lib/employee-advances-store';
+import { useHREmployeeDirectoryStore } from '@/features/hr/requests/lib/employee-directory-store';
+import { cn, formatNumber } from '@/shared/utils';
+import { STATUS_PILL } from '@/shared/status-pill-classes';
 
 type StatusFilter = 'all' | HREmployeeAdvanceStatus;
 
 const STATUS_COLORS: Record<HREmployeeAdvanceStatus, string> = {
-  outstanding: 'text-amber-700 border-amber-200 bg-amber-50 dark:text-amber-400 dark:border-amber-800 dark:bg-amber-950/30',
-  repaid: 'text-emerald-700 border-emerald-200 bg-emerald-50 dark:text-emerald-400 dark:border-emerald-800 dark:bg-emerald-950/30',
-  cancelled: 'text-muted-foreground border-border bg-muted/40',
+  draft: STATUS_PILL.muted,
+  pending_approval: STATUS_PILL.pending,
+  approved: STATUS_PILL.approved,
+  rejected: STATUS_PILL.rejected,
+  disbursed: STATUS_PILL.info,
+  repaying: STATUS_PILL.warning,
+  fully_repaid: STATUS_PILL.approved,
+  cancelled: STATUS_PILL.cancelled,
 };
 
 type DraftForm = {
@@ -39,7 +55,6 @@ type DraftForm = {
   currency: string;
   advanceDate: string;
   note: string;
-  status: HREmployeeAdvanceStatus;
   advanceKind: HREmployeeAdvanceKind;
   repaymentMode: HREmployeeAdvanceRepaymentMode;
   repaymentMonths: string;
@@ -48,7 +63,7 @@ type DraftForm = {
 
 const EMPTY_FORM: DraftForm = {
   employeeId: '', employeeNameAr: '', amount: '', currency: 'SAR',
-  advanceDate: new Date().toISOString().slice(0, 10), note: '', status: 'outstanding',
+  advanceDate: new Date().toISOString().slice(0, 10), note: '',
   advanceKind: 'personal',
   repaymentMode: 'by_months',
   repaymentMonths: '12',
@@ -67,10 +82,25 @@ function repaymentLine(x: HREmployeeAdvance): string {
   return '—';
 }
 
+function isEditable(status: HREmployeeAdvanceStatus): boolean {
+  return EDITABLE_ADVANCE_STATUSES.includes(status);
+}
+
+function isDeletable(status: HREmployeeAdvanceStatus): boolean {
+  return DELETABLE_ADVANCE_STATUSES.includes(status);
+}
+
 export function EmployeeAdvancesClient() {
-  const { items, add, update, remove } = useHREmployeeAdvancesStore();
-  const allEmployees = useHREmployeeDirectoryStore(s => s.employees);
+  const {
+    items, add, update, remove, fetch: fetchAdvances,
+    submitForApproval, approve, reject,
+  } = useHREmployeeAdvancesStore();
+  const { employees: allEmployees, fetch: fetchEmployees } = useHREmployeeDirectoryStore();
   const employees = React.useMemo(() => allEmployees.filter(e => e.status === 'active'), [allEmployees]);
+
+  React.useEffect(() => {
+    if (allEmployees.length === 0) void fetchEmployees();
+  }, [allEmployees.length, fetchEmployees]);
 
   const empOptions = React.useMemo(() =>
     employees.map(e => ({ value: e.id, label: e.nameAr })),
@@ -79,56 +109,77 @@ export function EmployeeAdvancesClient() {
 
   const [statusFilter, setStatusFilter] = React.useState<StatusFilter>('all');
   const [selectedEmpIds, setSelectedEmpIds] = React.useState<Set<string>>(new Set());
+  const [dateBounds, setDateBounds] = React.useState<{ from: string; to: string }>({ from: '', to: '' });
+  const [datePickerOpen, setDatePickerOpen] = React.useState(false);
 
-  const empPickerList = React.useMemo(() => {
-    const map = new Map<string, string>();
-    for (const x of items) map.set(x.employeeId, x.employeeNameAr);
-    return [...map.entries()].map(([id, name]) => ({ id, name }));
-  }, [items]);
+  const empPickerList = React.useMemo(
+    () => employees.map(e => ({ id: e.id, name: e.nameAr })),
+    [employees],
+  );
 
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   const [editId, setEditId] = React.useState<string | null>(null);
   const [form, setForm] = React.useState<DraftForm>(EMPTY_FORM);
   const [error, setError] = React.useState<string | null>(null);
+  const [saving, setSaving] = React.useState(false);
   const [confirmId, setConfirmId] = React.useState<string | null>(null);
+  const [actionLoadingId, setActionLoadingId] = React.useState<string | null>(null);
 
-  const narrowedForStatus = React.useMemo(
-    () =>
-      items.filter((x) => {
-        const matchEmp = selectedEmpIds.size === 0 || selectedEmpIds.has(x.employeeId);
-        return matchEmp;
-      }),
-    [items, selectedEmpIds],
-  );
+  const fetchDebounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const advanceStatusCounts = React.useMemo((): Record<string, number> => ({
-    all: narrowedForStatus.length,
-    outstanding: narrowedForStatus.filter((x) => x.status === 'outstanding').length,
-    repaid: narrowedForStatus.filter((x) => x.status === 'repaid').length,
-    cancelled: narrowedForStatus.filter((x) => x.status === 'cancelled').length,
-  }), [narrowedForStatus]);
+  React.useEffect(() => {
+    const employeeId = selectedEmpIds.size === 1 ? [...selectedEmpIds][0] : undefined;
+    const status = statusFilter !== 'all' ? statusFilter : undefined;
+    const advanceDateFrom = dateBounds.from || undefined;
+    const advanceDateTo = dateBounds.to || undefined;
+    if (fetchDebounceRef.current) clearTimeout(fetchDebounceRef.current);
+    fetchDebounceRef.current = setTimeout(() => {
+      void fetchAdvances({ employeeId, status, advanceDateFrom, advanceDateTo }).catch((e) => {
+        handleApiError(e, 'employee-advances/fetch');
+      });
+    }, 400);
+    return () => {
+      if (fetchDebounceRef.current) clearTimeout(fetchDebounceRef.current);
+    };
+  }, [selectedEmpIds, statusFilter, dateBounds, fetchAdvances]);
+
+  const advanceStatusCounts = React.useMemo((): Record<string, number> => {
+    const counts: Record<string, number> = { all: items.length };
+    for (const key of ADVANCE_STATUS_FILTER_ORDER) {
+      counts[key] = items.filter((x) => x.status === key).length;
+    }
+    return counts;
+  }, [items]);
 
   const filtered = React.useMemo(
-    () =>
-      narrowedForStatus
-        .filter((x) => statusFilter === 'all' || x.status === statusFilter)
-        .sort((a, b) => b.advanceDate.localeCompare(a.advanceDate)),
-    [narrowedForStatus, statusFilter],
+    () => [...items].sort((a, b) => b.advanceDate.localeCompare(a.advanceDate)),
+    [items],
   );
 
-  const total = filtered.length;
+  const runAction = async (id: string, action: () => Promise<void>, successMessage: string) => {
+    setActionLoadingId(id);
+    try {
+      await action();
+      toast.success(successMessage);
+    } catch (e) {
+      handleApiError(e, 'employee-advances/action');
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
 
   const openCreate = () => {
     setEditId(null); setForm(EMPTY_FORM); setError(null); setDrawerOpen(true);
   };
+
   const openEdit = (id: string) => {
     const x = items.find(i => i.id === id);
-    if (!x) return;
+    if (!x || !isEditable(x.status)) return;
     setEditId(id);
     setForm({
       employeeId: x.employeeId, employeeNameAr: x.employeeNameAr,
       amount: String(x.amount), currency: x.currency,
-      advanceDate: x.advanceDate, note: x.note, status: x.status,
+      advanceDate: x.advanceDate, note: x.note,
       advanceKind: x.advanceKind,
       repaymentMode: x.repaymentMode,
       repaymentMonths: x.repaymentMonths != null ? String(x.repaymentMonths) : '12',
@@ -137,7 +188,7 @@ export function EmployeeAdvancesClient() {
     setError(null); setDrawerOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.employeeId) { setError('اختر الموظف'); return; }
     const amount = parseFloat(form.amount);
     if (!form.amount || isNaN(amount) || amount <= 0) { setError('المبلغ يجب أن يكون أكبر من صفر'); return; }
@@ -166,14 +217,33 @@ export function EmployeeAdvancesClient() {
     const payload = {
       employeeId: form.employeeId, employeeNameAr: form.employeeNameAr,
       amount, currency: form.currency,
-      advanceDate: form.advanceDate, note: form.note, status: form.status,
+      advanceDate: form.advanceDate, note: form.note,
       advanceKind: form.advanceKind,
       repaymentMode: form.repaymentMode,
       repaymentMonths,
       monthlyInstallmentAmount,
     };
-    if (editId) { update(editId, payload); } else { add(payload); }
-    setDrawerOpen(false);
+    try {
+      setSaving(true);
+      if (editId) {
+        await update(editId, payload);
+        toast.success('تم تحديث السلفة.');
+      } else {
+        await add(payload);
+        toast.success('تم إنشاء السلفة — قيد الموافقة.');
+      }
+      setDrawerOpen(false);
+    } catch (e) {
+      if (isDuplicateAdvanceNumberError(e)) {
+        setError(duplicateAdvanceNumberMessage());
+      } else if (e instanceof Error && e.message === duplicateAdvanceNumberMessage()) {
+        setError(e.message);
+      } else {
+        setError(handleApiError(e, 'employee-advances/save').displayMessage);
+      }
+    } finally {
+      setSaving(false);
+    }
   };
 
   const patch = (p: Partial<DraftForm>) => setForm(f => ({ ...f, ...p }));
@@ -184,8 +254,9 @@ export function EmployeeAdvancesClient() {
   };
 
   const downloadCsv = () => {
-    const rows = [['الموظف', 'المبلغ', 'العملة', 'نوع السلفة', 'آلية القسط', 'عدد الأشهر', 'القسط الشهري', 'التاريخ', 'الحالة', 'ملاحظة']];
+    const rows = [['رقم السلفة', 'الموظف', 'المبلغ', 'العملة', 'نوع السلفة', 'آلية القسط', 'عدد الأشهر', 'القسط الشهري', 'التاريخ', 'الحالة', 'ملاحظة']];
     filtered.forEach(x => rows.push([
+      x.advanceNumber,
       x.employeeNameAr,
       String(x.amount),
       x.currency,
@@ -204,6 +275,33 @@ export function EmployeeAdvancesClient() {
 
   const selectedEmpKey = React.useMemo(() => [...selectedEmpIds].sort().join(','), [selectedEmpIds]);
 
+  const activeFilterCount = (selectedEmpIds.size > 0 ? 1 : 0) + (statusFilter !== 'all' ? 1 : 0);
+
+  const statusFilterLabels = React.useMemo(
+    () => Object.fromEntries(
+      ADVANCE_STATUS_FILTER_ORDER.map((key) => [key, ADVANCE_STATUS_LABELS[key]]),
+    ) as Record<string, string>,
+    [],
+  );
+
+  usePageHeaderActions(
+    () => (
+      <div className="flex items-center gap-2">
+        <FilterToggleButton activeFilterCount={activeFilterCount} />
+        <Button variant="luxe" size="sm" className="h-8 gap-1.5 px-3 text-xs shadow-sm shrink-0" onClick={openCreate}>
+          <Plus className="h-3.5 w-3.5" />
+          سلفة جديدة
+        </Button>
+      </div>
+    ),
+    [activeFilterCount],
+  );
+
+  const hasDateFilter = Boolean(dateBounds.from || dateBounds.to);
+  const dateLabel = hasDateFilter
+    ? `${dateBounds.from || '…'} — ${dateBounds.to || '…'}`
+    : 'نطاق التاريخ';
+
   useEntityFilterSlot(
     () => (
       <EntityFilterToolbar
@@ -213,93 +311,180 @@ export function EmployeeAdvancesClient() {
         onSelectedEmpIdsChange={setSelectedEmpIds}
         statusFilter={statusFilter}
         onStatusFilterChange={(v) => setStatusFilter(v as StatusFilter)}
-        statusOrder={['outstanding', 'repaid', 'cancelled']}
-        statusLabels={{
-          outstanding: ADVANCE_STATUS_LABELS.outstanding,
-          repaid: ADVANCE_STATUS_LABELS.repaid,
-          cancelled: ADVANCE_STATUS_LABELS.cancelled,
-        }}
+        statusOrder={ADVANCE_STATUS_FILTER_ORDER}
+        statusLabels={statusFilterLabels}
         statusCounts={advanceStatusCounts}
         onDateBoundsChange={() => {}}
-        trailingActions={(
-          <>
-            {filtered.length > 0 && (
-              <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={downloadCsv}>
-                <Download className="h-3.5 w-3.5" />تصدير
-              </Button>
+        leadingFilters={
+          <div className="relative shrink-0">
+            <button
+              type="button"
+              onClick={() => setDatePickerOpen(true)}
+              className={cn(
+                'flex h-8 items-center gap-1.5 rounded-md border px-3 text-xs transition-colors',
+                hasDateFilter
+                  ? 'border-primary/40 bg-primary/5 text-primary hover:bg-primary/10'
+                  : 'border-input bg-background text-muted-foreground hover:bg-muted/40 hover:text-foreground',
+              )}
+              dir="ltr"
+            >
+              <CalendarDays className="h-3.5 w-3.5 shrink-0" />
+              <span className="max-w-[160px] truncate" dir="rtl">{dateLabel}</span>
+            </button>
+            {hasDateFilter && (
+              <button
+                type="button"
+                aria-label="مسح التاريخ"
+                onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                onClick={(e) => { e.stopPropagation(); setDateBounds({ from: '', to: '' }); }}
+                className="absolute -end-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full border border-border bg-background text-muted-foreground shadow-sm hover:bg-destructive/10 hover:text-destructive transition-colors"
+              >
+                <X className="h-2.5 w-2.5" />
+              </button>
             )}
-            <Button size="sm" className="h-8 gap-1.5" onClick={openCreate}>
-              <Plus className="h-4 w-4" />سلفة جديدة
+          </div>
+        }
+        trailingActions={
+          filtered.length > 0 ? (
+            <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={downloadCsv}>
+              <Download className="h-3.5 w-3.5" />تصدير
             </Button>
-          </>
-        )}
+          ) : undefined
+        }
       />
     ),
     [
       statusFilter,
       selectedEmpKey,
+      dateBounds,
+      hasDateFilter,
       advanceStatusCounts.all,
-      advanceStatusCounts.outstanding,
-      advanceStatusCounts.repaid,
-      advanceStatusCounts.cancelled,
+      advanceStatusCounts,
       filtered.length,
       empPickerList,
+      statusFilterLabels,
     ],
   );
 
   return (
     <>
-      <SetPageTitle titleAr="سلف الموظفين" descriptionAr="تسجيل وإدارة سلف الموظفين واسترداداتها." iconName="Banknote" />
+      <DateRangePicker
+        open={datePickerOpen}
+        onOpenChange={setDatePickerOpen}
+        value={dateBounds}
+        onApply={(range) => setDateBounds(range)}
+      />
 
-      <p className="text-sm text-muted-foreground">{total} سلفة</p>
+      <SetPageTitle titleAr="سلف الموظفين" descriptionAr="تسجيل وإدارة سلف الموظفين واعتمادها." iconName="Banknote" />
 
       {filtered.length === 0 ? (
         <EmptyState icon={Banknote} title="لا توجد سلف" description="أضف سلفة جديدة لموظف للبدء." />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {filtered.map(x => (
-            <div
-              key={x.id}
-              className="rounded-xl border border-border bg-card p-5 shadow-soft space-y-3 flex flex-col cursor-pointer"
-              onClick={() => openEdit(x.id)}
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="font-semibold truncate">{x.employeeNameAr}</p>
-                  <p className="font-mono text-[10px] text-muted-foreground mt-0.5">{x.advanceDate}</p>
+          {filtered.map(x => {
+            const loading = actionLoadingId === x.id;
+            const canSubmit = x.status === 'draft' || x.status === 'rejected';
+            const canDecide = x.status === 'pending_approval';
+
+            return (
+              <div
+                key={x.id}
+                className={cn(
+                  'rounded-lg border border-border bg-card p-3 shadow-soft space-y-2 flex flex-col',
+                  isEditable(x.status) && 'cursor-pointer',
+                )}
+                onClick={() => { if (isEditable(x.status)) openEdit(x.id); }}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-semibold truncate">{x.employeeNameAr}</p>
+                    <p className="font-mono text-[10px] text-muted-foreground mt-0.5" dir="ltr">{x.advanceNumber}</p>
+                    <p className="font-mono text-[10px] text-muted-foreground">{x.advanceDate}</p>
+                  </div>
+                  <Badge variant="outline" className={cn('shrink-0 text-[10px]', STATUS_COLORS[x.status])}>
+                    {ADVANCE_STATUS_LABELS[x.status]}
+                  </Badge>
                 </div>
-                <Badge variant="outline" className={cn('shrink-0 text-[10px]', STATUS_COLORS[x.status])}>
-                  {ADVANCE_STATUS_LABELS[x.status]}
-                </Badge>
+                <div className="flex flex-wrap gap-1">
+                  <Badge variant="secondary" className="text-[10px] font-normal">
+                    {ADVANCE_KIND_LABELS[x.advanceKind]}
+                  </Badge>
+                </div>
+                <div className="rounded-md border border-border/60 bg-muted/30 px-2 py-1.5 text-center">
+                  <p className="text-base font-bold tabular-nums text-foreground">
+                    {formatNumber(x.amount)}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">{x.currency}</p>
+                  <p className="text-[10px] leading-snug text-muted-foreground">{repaymentLine(x)}</p>
+                </div>
+                {x.note && (
+                  <p className="text-[11px] text-muted-foreground line-clamp-2">{x.note}</p>
+                )}
+                {x.approvedAt && (
+                  <p className="text-[10px] text-muted-foreground">
+                    تاريخ الاعتماد: {x.approvedAt.slice(0, 10)}
+                  </p>
+                )}
+                <div className="mt-auto flex flex-wrap items-center justify-end gap-1 border-t border-border pt-2" onClick={e => e.stopPropagation()}>
+                  {canSubmit && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 text-xs text-primary"
+                      disabled={loading}
+                      onClick={() => void runAction(x.id, () => submitForApproval(x.id), 'تم إرسال السلفة للموافقة.')}
+                    >
+                      <Send className="h-3 w-3 me-1" />
+                      إرسال للموافقة
+                    </Button>
+                  )}
+                  {canDecide && (
+                    <>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 text-xs text-success hover:text-success hover:bg-success/10"
+                        disabled={loading}
+                        title="موافقة"
+                        onClick={() => void runAction(x.id, () => approve(x.id), 'تم اعتماد السلفة.')}
+                      >
+                        <CheckCircle2 className="h-3.5 w-3.5 me-1" />
+                        موافقة
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 text-xs text-destructive hover:text-destructive"
+                        disabled={loading}
+                        title="رفض"
+                        onClick={() => void runAction(x.id, () => reject(x.id), 'تم رفض السلفة.')}
+                      >
+                        <XCircle className="h-3.5 w-3.5 me-1" />
+                        رفض
+                      </Button>
+                    </>
+                  )}
+                  {isEditable(x.status) && (
+                    <Button size="sm" variant="ghost" className="h-7 text-xs" disabled={loading} onClick={() => openEdit(x.id)}>
+                      تعديل
+                    </Button>
+                  )}
+                  {isDeletable(x.status) && (
+                    <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive hover:text-destructive" disabled={loading} onClick={() => setConfirmId(x.id)}>
+                      حذف
+                    </Button>
+                  )}
+                </div>
               </div>
-              <div className="flex flex-wrap gap-1">
-                <Badge variant="secondary" className="text-[10px] font-normal">
-                  {ADVANCE_KIND_LABELS[x.advanceKind]}
-                </Badge>
-              </div>
-              <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-center">
-                <p className="text-xl font-bold tabular-nums text-foreground">
-                  {formatNumber(x.amount)}
-                </p>
-                <p className="text-[10px] text-muted-foreground">{x.currency}</p>
-                <p className="mt-1 text-[10px] leading-snug text-muted-foreground">{repaymentLine(x)}</p>
-              </div>
-              {x.note && (
-                <p className="text-[11px] text-muted-foreground line-clamp-2">{x.note}</p>
-              )}
-              <div className="mt-auto flex items-center justify-end gap-1 border-t border-border pt-3" onClick={e => e.stopPropagation()}>
-                <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => openEdit(x.id)}>تعديل</Button>
-                <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive hover:text-destructive" onClick={() => setConfirmId(x.id)}>حذف</Button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
       <HRSettingsFormDrawer
         open={drawerOpen} onOpenChange={setDrawerOpen}
         title={editId ? 'تعديل السلفة' : 'سلفة جديدة'}
-        onSave={handleSave} error={error}
+        onSave={() => void handleSave()} saveDisabled={saving} error={error}
       >
         <FormField label="الموظف" required>
           <SearchableDropdown
@@ -307,6 +492,7 @@ export function EmployeeAdvancesClient() {
             onChange={handleEmployeeSelect}
             options={empOptions}
             placeholder="اختر الموظف…"
+            disabled={!!editId}
           />
         </FormField>
         <FormField label="المبلغ" required>
@@ -361,19 +547,13 @@ export function EmployeeAdvancesClient() {
           />
         </FormField>
         <FormField label="تاريخ السلفة" required>
-          <Input type="date" value={form.advanceDate} onChange={e => patch({ advanceDate: e.target.value })} />
+          <DatePickerInput value={form.advanceDate} onChange={(ymd) => patch({ advanceDate: ymd })} />
         </FormField>
-        <FormField label="الحالة">
-          <MinimalDropdown
-            value={form.status}
-            onChange={v => patch({ status: v as HREmployeeAdvanceStatus })}
-            options={[
-              { value: 'outstanding', label: ADVANCE_STATUS_LABELS.outstanding },
-              { value: 'repaid', label: ADVANCE_STATUS_LABELS.repaid },
-              { value: 'cancelled', label: ADVANCE_STATUS_LABELS.cancelled },
-            ]}
-          />
-        </FormField>
+        {!editId && (
+          <p className="col-span-2 text-[11px] text-muted-foreground">
+            تُنشأ السلفة الجديدة بحالة «قيد الموافقة» ويمكن اعتمادها أو رفضها مباشرة.
+          </p>
+        )}
         <FormField label="ملاحظة" span2>
           <Input value={form.note} onChange={e => patch({ note: e.target.value })} placeholder="ملاحظة اختيارية…" />
         </FormField>
@@ -386,7 +566,18 @@ export function EmployeeAdvancesClient() {
         description="هل أنت متأكد من حذف هذا السجل؟"
         confirmLabel="حذف"
         variant="destructive"
-        onConfirm={() => { if (confirmId) { remove(confirmId); setConfirmId(null); } }}
+        onConfirm={() => {
+          if (!confirmId) return;
+          void (async () => {
+            try {
+              await remove(confirmId);
+              toast.success('تم حذف السلفة.');
+              setConfirmId(null);
+            } catch (e) {
+              handleApiError(e, 'employee-advances/delete');
+            }
+          })();
+        }}
       />
     </>
   );

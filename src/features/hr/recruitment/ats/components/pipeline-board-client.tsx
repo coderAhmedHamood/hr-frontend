@@ -2,9 +2,11 @@
 
 import * as React from 'react';
 import { Users } from 'lucide-react';
-import { useAtsStore } from '@/lib/ats/store';
-import type { AtsPipelineStage } from '@/lib/ats/types';
-import { getApplicantName, getInitials } from '@/lib/ats/utils';
+import { useAtsStore } from '@/features/hr/recruitment/lib/ats/store';
+import type { AtsPipelineStage } from '@/features/hr/recruitment/lib/ats/types';
+import { getApplicantName, getInitials } from '@/features/hr/recruitment/lib/ats/utils';
+import { ATS_STAGE_BADGE, ATS_STAGE_LABELS, scoreBarTone } from '@/features/hr/recruitment/lib/ats/stage-styles';
+import { statusDotClass } from '@/shared/status-pill-classes';
 
 interface StageConfig {
   label: string;
@@ -14,13 +16,13 @@ interface StageConfig {
 }
 
 const STAGES: Record<AtsPipelineStage, StageConfig> = {
-  applied:   { label: 'تم التقديم', accent: 'border-t-slate-400',   pill: 'bg-slate-100 text-slate-700',   dot: 'bg-slate-400' },
-  screening: { label: 'الفرز',      accent: 'border-t-blue-400',    pill: 'bg-blue-50 text-blue-700',      dot: 'bg-blue-400' },
-  interview: { label: 'المقابلة',   accent: 'border-t-amber-400',   pill: 'bg-amber-50 text-amber-700',    dot: 'bg-amber-400' },
-  technical: { label: 'تقني',       accent: 'border-t-purple-400',  pill: 'bg-purple-50 text-purple-700',  dot: 'bg-purple-400' },
-  offer:     { label: 'العرض',      accent: 'border-t-emerald-400', pill: 'bg-emerald-50 text-emerald-700',dot: 'bg-emerald-400' },
-  hired:     { label: 'تم التعيين', accent: 'border-t-green-500',   pill: 'bg-green-50 text-green-700',    dot: 'bg-green-500' },
-  rejected:  { label: 'مرفوض',      accent: 'border-t-rose-400',    pill: 'bg-rose-50 text-rose-700',      dot: 'bg-rose-400' },
+  applied:   { label: ATS_STAGE_LABELS.applied,   accent: 'border-t-primary/50',    pill: ATS_STAGE_BADGE.applied,   dot: statusDotClass('info') },
+  screening: { label: ATS_STAGE_LABELS.screening, accent: 'border-t-primary/30',    pill: ATS_STAGE_BADGE.screening, dot: statusDotClass('calculated') },
+  interview: { label: ATS_STAGE_LABELS.interview, accent: 'border-t-gold/50',       pill: ATS_STAGE_BADGE.interview, dot: statusDotClass('gold') },
+  technical: { label: ATS_STAGE_LABELS.technical, accent: 'border-t-warning/50',    pill: ATS_STAGE_BADGE.technical, dot: statusDotClass('warning') },
+  offer:     { label: ATS_STAGE_LABELS.offer,     accent: 'border-t-success/50',    pill: ATS_STAGE_BADGE.offer,     dot: statusDotClass('approved') },
+  hired:     { label: ATS_STAGE_LABELS.hired,     accent: 'border-t-success',       pill: ATS_STAGE_BADGE.hired,     dot: statusDotClass('approved') },
+  rejected:  { label: ATS_STAGE_LABELS.rejected,  accent: 'border-t-destructive/50', pill: ATS_STAGE_BADGE.rejected, dot: statusDotClass('rejected') },
 };
 
 const STAGE_ORDER = Object.keys(STAGES) as AtsPipelineStage[];
@@ -116,17 +118,17 @@ export function PipelineBoardClient() {
                             {jobTitle && <p className="truncate text-[10px] text-muted-foreground">{jobTitle}</p>}
                           </div>
                         </div>
-                        {app.score && (
+                        {app.score ? (
                           <div className="mt-2 flex items-center gap-1.5">
                             <div className="h-1 flex-1 overflow-hidden rounded-full bg-muted">
                               <div
-                                className={`h-full rounded-full ${app.score.finalScore >= 75 ? 'bg-emerald-400' : app.score.finalScore >= 50 ? 'bg-amber-400' : 'bg-rose-400'}`}
+                                className={`h-full rounded-full ${scoreBarTone(app.score.finalScore).bar}`}
                                 style={{ width: `${app.score.finalScore}%` }}
                               />
                             </div>
                             <span className="text-[10px] font-bold tabular-nums text-muted-foreground">{app.score.finalScore}</span>
                           </div>
-                        )}
+                        ) : null}
                       </div>
                     );
                   })}

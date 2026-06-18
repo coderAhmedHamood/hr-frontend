@@ -1,4 +1,4 @@
-import type { ShiftPeriod, WeekDayIndex } from '@/lib/attendance/types';
+import type { ShiftPeriod, WeekDayIndex } from '@/features/hr/attendance/lib/types';
 
 export type ShiftGroup = {
   id: string;

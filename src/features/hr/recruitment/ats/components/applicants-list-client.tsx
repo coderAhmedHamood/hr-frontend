@@ -8,39 +8,24 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useAtsStore } from '@/lib/ats/store';
-import type { AtsPipelineStage } from '@/lib/ats/types';
-import { getApplicantName, getInitials } from '@/lib/ats/utils';
-import { formatDate } from '@/lib/utils';
+import { useAtsStore } from '@/features/hr/recruitment/lib/ats/store';
+import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
+import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
+import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
+import type { AtsPipelineStage } from '@/features/hr/recruitment/lib/ats/types';
+import { getApplicantName, getInitials } from '@/features/hr/recruitment/lib/ats/utils';
+import { ATS_STAGE_BADGE, ATS_STAGE_TABS, scoreBarTone, type AtsStageTab } from '@/features/hr/recruitment/lib/ats/stage-styles';
+import { DisplayDate } from '@/components/ui/table-cells';
 
 /* ─── Stage config ────────────────────────────────────────────── */
-type StageTab = AtsPipelineStage | 'all';
+type StageTab = AtsStageTab;
 
-const STAGES: { key: StageTab; label: string; pill: string; dot: string }[] = [
-  { key: 'all',       label: 'الكل',         pill: 'bg-slate-100/85 text-slate-700 data-[active=true]:bg-white data-[active=true]:border-slate-400/90 data-[active=true]:shadow-md',  dot: 'bg-slate-400' },
-  { key: 'applied',   label: 'تم التقديم',   pill: 'bg-sky-50 text-sky-800 data-[active=true]:bg-sky-100 data-[active=true]:border-sky-400/75 data-[active=true]:shadow-md',           dot: 'bg-sky-400' },
-  { key: 'screening', label: 'الفرز',        pill: 'bg-violet-50 text-violet-800 data-[active=true]:bg-violet-100 data-[active=true]:border-violet-400/75 data-[active=true]:shadow-md', dot: 'bg-violet-400' },
-  { key: 'interview', label: 'المقابلة',     pill: 'bg-amber-50 text-amber-900 data-[active=true]:bg-amber-100 data-[active=true]:border-amber-400/80 data-[active=true]:shadow-md',    dot: 'bg-amber-400' },
-  { key: 'technical', label: 'تقني',         pill: 'bg-purple-50 text-purple-800 data-[active=true]:bg-purple-100 data-[active=true]:border-purple-400/75 data-[active=true]:shadow-md', dot: 'bg-purple-400' },
-  { key: 'offer',     label: 'العرض',        pill: 'bg-teal-50 text-teal-800 data-[active=true]:bg-teal-100 data-[active=true]:border-teal-400/75 data-[active=true]:shadow-md',        dot: 'bg-teal-400' },
-  { key: 'hired',     label: 'تم التعيين',   pill: 'bg-emerald-50 text-emerald-800 data-[active=true]:bg-emerald-100 data-[active=true]:border-emerald-400/75 data-[active=true]:shadow-md', dot: 'bg-emerald-500' },
-  { key: 'rejected',  label: 'مرفوض',        pill: 'bg-rose-50 text-rose-800 data-[active=true]:bg-rose-100 data-[active=true]:border-rose-400/80 data-[active=true]:shadow-md',        dot: 'bg-rose-400' },
-];
-
-const STAGE_BADGE: Record<AtsPipelineStage, string> = {
-  applied:   'bg-sky-50 text-sky-700 border-sky-200',
-  screening: 'bg-violet-50 text-violet-700 border-violet-200',
-  interview: 'bg-amber-50 text-amber-700 border-amber-200',
-  technical: 'bg-purple-50 text-purple-700 border-purple-200',
-  offer:     'bg-teal-50 text-teal-700 border-teal-200',
-  hired:     'bg-emerald-50 text-emerald-700 border-emerald-200',
-  rejected:  'bg-rose-50 text-rose-700 border-rose-200',
-};
+const STAGES = ATS_STAGE_TABS;
+const STAGE_BADGE = ATS_STAGE_BADGE;
 
 /* ─── Score bar ───────────────────────────────────────────────── */
 function ScoreBar({ score }: { score: number }) {
-  const bar = score >= 75 ? 'bg-emerald-400' : score >= 50 ? 'bg-amber-400' : 'bg-rose-400';
-  const text = score >= 75 ? 'text-emerald-600' : score >= 50 ? 'text-amber-600' : 'text-rose-500';
+  const { bar, text } = scoreBarTone(score);
   return (
     <div className="flex items-center gap-1.5">
       <div className="h-1.5 w-14 overflow-hidden rounded-full bg-muted">
@@ -82,56 +67,66 @@ export function ApplicantsListClient() {
   }), [applicants, forms, search, stageTab, jobFilter, minScore]);
 
   const stageLabel = STAGES.find((s) => s.key === stageTab)?.label ?? '';
+  const hasActiveFilter = stageTab !== 'all' || jobFilter !== 'all' || !!minScore || !!search;
+
+  const activeFilterCount = (stageTab !== 'all' ? 1 : 0) + (jobFilter !== 'all' ? 1 : 0) + (!!minScore ? 1 : 0) + (!!search ? 1 : 0);
+
+  usePageHeaderActions(
+    () => <FilterToggleButton activeFilterCount={activeFilterCount} />,
+    [activeFilterCount],
+  );
+
+  useEntityFilterSlot(
+    () => (
+      <div className="rounded-xl border border-border/60 bg-card/80 px-3 py-2.5 shadow-sm backdrop-blur-sm sm:px-4 space-y-2">
+        <div className="flex flex-wrap gap-1.5">
+          {STAGES.map(({ key, label, pill, dot }) => {
+            const count = stageCounts[key] ?? 0;
+            const active = stageTab === key;
+            return (
+              <button
+                key={key}
+                data-active={active}
+                onClick={() => setStageTab(key)}
+                className={`inline-flex shrink-0 items-center gap-1.5 rounded-md border px-2.5 py-1 text-[11px] font-medium transition-all duration-100 border-transparent ${pill} ${active ? 'font-semibold ring-2 ring-offset-1 ring-offset-background' : 'hover:opacity-80'}`}
+              >
+                <span className={`h-1.5 w-1.5 rounded-full ${dot} ${active ? '' : 'opacity-60'}`} />
+                {label}
+                <span className="rounded bg-white/60 px-1.5 py-px font-mono text-[10px] tabular-nums">{count}</span>
+              </button>
+            );
+          })}
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="relative flex-1 min-w-0">
+            <Search className="absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input placeholder="بحث بالاسم…" value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 pr-8 text-xs" />
+          </div>
+          <Select value={jobFilter} onValueChange={setJobFilter}>
+            <SelectTrigger className="h-8 w-full text-xs sm:w-44"><SelectValue placeholder="الوظيفة" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">جميع الوظائف</SelectItem>
+              {jobs.map((j) => (<SelectItem key={j.id} value={j.id}>{j.title}</SelectItem>))}
+            </SelectContent>
+          </Select>
+          <div className="relative w-full sm:w-24">
+            <Star className="absolute right-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-gold" />
+            <Input type="number" min={0} max={100} placeholder="نقاط ≥" value={minScore} onChange={(e) => setMinScore(e.target.value)} className="h-8 pr-7 text-xs" />
+          </div>
+          {hasActiveFilter && (
+            <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs text-muted-foreground shrink-0"
+              onClick={() => { setStageTab('all'); setJobFilter('all'); setMinScore(''); setSearch(''); }}>
+              <X className="h-3.5 w-3.5" /> مسح
+            </Button>
+          )}
+        </div>
+      </div>
+    ),
+    [search, stageTab, jobFilter, minScore, stageCounts, jobs, hasActiveFilter],
+  );
 
   return (
     <div className="space-y-4 animate-fade-in">
-      {/* Stage tabs */}
-      <div className="flex flex-wrap gap-1.5">
-        {STAGES.map(({ key, label, pill, dot }) => {
-          const count = stageCounts[key] ?? 0;
-          const active = stageTab === key;
-          return (
-            <button
-              key={key}
-              data-active={active}
-              onClick={() => setStageTab(key)}
-              className={`inline-flex shrink-0 items-center gap-1.5 rounded-md border px-2.5 py-1 text-[11px] font-medium transition-all duration-100
-                border-transparent ${pill}
-                ${active ? 'font-semibold ring-2 ring-offset-1 ring-offset-background' : 'hover:opacity-80'}`}
-            >
-              <span className={`h-1.5 w-1.5 rounded-full ${dot} ${active ? '' : 'opacity-60'}`} />
-              {label}
-              <span className="rounded bg-white/60 px-1.5 py-px font-mono text-[10px] tabular-nums">{count}</span>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Search + filters row */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <div className="relative flex-1 min-w-0">
-          <Search className="absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-          <Input placeholder="بحث بالاسم…" value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 pr-8 text-xs" />
-        </div>
-        <Select value={jobFilter} onValueChange={setJobFilter}>
-          <SelectTrigger className="h-8 w-full text-xs sm:w-44"><SelectValue placeholder="الوظيفة" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">جميع الوظائف</SelectItem>
-            {jobs.map((j) => (<SelectItem key={j.id} value={j.id}>{j.title}</SelectItem>))}
-          </SelectContent>
-        </Select>
-        <div className="relative w-full sm:w-24">
-          <Star className="absolute right-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-amber-500" />
-          <Input type="number" min={0} max={100} placeholder="نقاط ≥" value={minScore} onChange={(e) => setMinScore(e.target.value)} className="h-8 pr-7 text-xs" />
-        </div>
-        {(stageTab !== 'all' || jobFilter !== 'all' || !!minScore || !!search) && (
-          <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs text-muted-foreground shrink-0"
-            onClick={() => { setStageTab('all'); setJobFilter('all'); setMinScore(''); setSearch(''); }}>
-            <X className="h-3.5 w-3.5" /> مسح
-          </Button>
-        )}
-      </div>
-
       {/* Cards grid */}
       {filtered.length === 0 ? (
         <Card>
@@ -174,7 +169,7 @@ export function ApplicantsListClient() {
                   <div className="mt-3 flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
                       <Calendar className="h-3 w-3" />
-                      {formatDate(app.submittedAt)}
+                      <DisplayDate value={app.submittedAt} mode="datetime" className="text-[11px]" />
                     </div>
                     {app.score ? (
                       <ScoreBar score={app.score.finalScore} />

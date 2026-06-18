@@ -1,4 +1,4 @@
-import type { ContractStatus, ContractType } from '@/types';
+import type { ContractStatus, ContractType } from '@/features/hr/contracts/types';
 
 export const CP_LINKS_ALL_DEPARTMENTS = 'all';
 

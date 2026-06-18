@@ -2,8 +2,8 @@
 
 import { Clock, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import type { ShiftTemplate } from '@/lib/attendance/types';
-import { cn } from '@/lib/utils';
+import type { ShiftTemplate } from '@/features/hr/attendance/lib/types';
+import { cn } from '@/shared/utils';
 import { DAY_LABELS, WEEK_ORDER } from '@/features/hr/attendance/templates/constants/shift-templates-ui';
 import { summarizeTemplate } from '@/features/hr/attendance/templates/utils/shift-template-helpers';
 

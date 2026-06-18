@@ -9,16 +9,20 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { SetPageTitle } from '@/components/set-page-title';
-import { usePageFilters } from '@/components/filter-panel-context';
+import { SetPageTitle } from '@/components/layouts/set-page-title';
+import { usePageFilters } from '@/components/layouts/filter-panel-context';
 import {
-  HRSettingsFormDrawer, FormField, ConfirmationModal, EmptyState, Pagination, ActiveBadge,
-} from '@/components/hr-requests/shared-ui';
+  HRSettingsFormDrawer, FormField, ConfirmationModal, EmptyState, ActiveBadge,
+} from '@/features/hr/requests/components/shared-ui';
+import { DirectoryPagedViews, useServerDirectoryPagination } from '@/components/ui/paged-list';
+import { contractArticlesApi } from '@/features/hr/contracts/lib/contracts-api';
+import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
+import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import {
   useHRContractArticlesStore, normalizeArticleBody,
   type HRContractArticle,
-} from '@/lib/contracts/contract-articles-store';
-import { cn } from '@/lib/utils';
+} from '@/features/hr/contracts/lib/contract-articles-store';
+import { cn } from '@/shared/utils';
 
 type DraftForm = {
   code: string;
@@ -35,7 +39,10 @@ function makeArticleCode() {
 }
 
 export function ContractArticlesClient() {
-  const { articles, add, update, remove } = useHRContractArticlesStore();
+  const { articles, add, update, remove, fetch: fetchArticles } = useHRContractArticlesStore();
+  const companyId = useDefaultCompanyId() ?? '';
+
+  React.useEffect(() => { fetchArticles(); }, []);
 
   const { values } = usePageFilters([
     {
@@ -54,29 +61,50 @@ export function ContractArticlesClient() {
   const kindFilter = (values.kind as string) || 'all';
   const activeOnly = (values.active as string) === 'active';
 
+  const loadPage = React.useCallback(async (page: number, pageSize: number) => {
+    if (!companyId) return { items: [] as HRContractArticle[], total: 0 };
+    try {
+      const res = await contractArticlesApi.list({
+        companyId,
+        page,
+        limit: pageSize,
+        ...(kindFilter === 'basic' ? { isBasic: true } : kindFilter === 'optional' ? { isBasic: false } : {}),
+        ...(activeOnly ? { isActive: true } : {}),
+      });
+      const items = res.items.map((a) => ({
+        id: a.id,
+        code: a.code,
+        title: a.titleAr,
+        body: normalizeArticleBody(a.bodyAr ?? ''),
+        isBasic: a.isBasic,
+        isActive: a.isActive,
+        updatedAt: a.updatedAt,
+      })).sort((a, b) => a.code.localeCompare(b.code));
+      return { items, total: res.pagination.total };
+    } catch (err) {
+      handleApiError(err, 'contract-articles.load');
+      return { items: [], total: 0 };
+    }
+  }, [activeOnly, companyId, kindFilter]);
+
+  const {
+    items: filtered,
+    loading: listLoading,
+    pagination,
+    reload: reloadArticles,
+  } = useServerDirectoryPagination<HRContractArticle>(loadPage, {
+    enabled: !!companyId,
+    resetDeps: [kindFilter, activeOnly],
+  });
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   const [editId, setEditId] = React.useState<string | null>(null);
   const [form, setForm] = React.useState<DraftForm>(EMPTY_FORM);
   const [error, setError] = React.useState<string | null>(null);
   const [confirmId, setConfirmId] = React.useState<string | null>(null);
   const [previewId, setPreviewId] = React.useState<string | null>(null);
-  const [page, setPage] = React.useState(1);
-  const perPage = 12;
 
-  const filtered = React.useMemo(() =>
-    articles
-      .filter(a => {
-        const matchK = kindFilter === 'all' || (kindFilter === 'basic' ? a.isBasic : !a.isBasic);
-        const matchA = !activeOnly || a.isActive;
-        return matchK && matchA;
-      })
-      .sort((a, b) => a.code.localeCompare(b.code)),
-    [articles, kindFilter, activeOnly],
-  );
-
-  const total = filtered.length;
-  const paged = filtered.slice((page - 1) * perPage, page * perPage);
-  const preview = previewId ? articles.find(a => a.id === previewId) : null;
+  const total = pagination.total;
+  const preview = previewId ? (filtered.find(a => a.id === previewId) ?? articles.find(a => a.id === previewId)) : null;
 
   const openCreate = () => {
     setEditId(null); setForm(EMPTY_FORM); setError(null); setDrawerOpen(true);
@@ -87,16 +115,22 @@ export function ContractArticlesClient() {
     setError(null); setDrawerOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.title.trim()) { setError('العنوان مطلوب'); return; }
     if (!form.body.trim()) { setError('نص المادة مطلوب'); return; }
-    const payload = { ...form, code: editId ? form.code : makeArticleCode() };
-    if (editId) {
-      update(editId, payload);
-    } else {
-      add(payload);
+    try {
+      const payload = { ...form, code: editId ? form.code : makeArticleCode() };
+      if (editId) {
+        await update(editId, payload);
+      } else {
+        await add(payload);
+      }
+      setDrawerOpen(false);
+      await reloadArticles();
+      void fetchArticles();
+    } catch (e) {
+      setError((e as Error).message);
     }
-    setDrawerOpen(false);
   };
 
   const patch = (p: Partial<DraftForm>) => setForm(f => ({ ...f, ...p }));
@@ -105,7 +139,7 @@ export function ContractArticlesClient() {
   const optionalCount = articles.filter(a => !a.isBasic && a.isActive).length;
 
   return (
-    <>
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <SetPageTitle titleAr="مواد العقود" descriptionAr="مكتبة البنود والمواد القانونية للعقود." iconName="BookOpen" />
 
       {/* ── Hero bar ── */}
@@ -131,11 +165,13 @@ export function ContractArticlesClient() {
         </Button>
       </div>
 
-      {paged.length === 0 ? (
+      {!listLoading && filtered.length === 0 && pagination.total === 0 ? (
         <EmptyState icon={BookOpen} title="لا توجد مواد" description="أضف مادة جديدة لمكتبة العقود." />
       ) : (
+        <DirectoryPagedViews items={filtered} serverPagination={pagination} loading={listLoading}>
+          {(pageItems) => (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 animate-fade-in">
-          {paged.map(a => (
+          {pageItems.map(a => (
             <Card
               key={a.id}
               className={cn(
@@ -212,12 +248,8 @@ export function ContractArticlesClient() {
             </Card>
           ))}
         </div>
-      )}
-
-      {total > perPage && (
-        <div className="mt-4">
-          <Pagination page={page} perPage={perPage} total={total} onPage={setPage} onPerPage={() => {}} />
-        </div>
+          )}
+        </DirectoryPagedViews>
       )}
 
       {/* ── Preview modal ── */}
@@ -317,8 +349,8 @@ export function ContractArticlesClient() {
         description="هل أنت متأكد من حذف هذه المادة من المكتبة؟"
         confirmLabel="حذف"
         variant="destructive"
-        onConfirm={() => { if (confirmId) { remove(confirmId); setConfirmId(null); } }}
+        onConfirm={async () => { if (confirmId) { await remove(confirmId); setConfirmId(null); } }}
       />
-    </>
+    </div>
   );
 }

@@ -6,8 +6,9 @@ import { Button } from '@/components/ui/button';
 import {
   EntityFilterToolbar,
   type EntityFilterToolbarHandle,
+  type EntityFilterInlineSelect,
 } from '@/components/ui/entity-filter-toolbar';
-import type { DateFilterTab } from '@/lib/hr-discipline/discipline-date-filter';
+import type { DateFilterTab } from '@/features/hr/discipline/lib/discipline-date-filter';
 
 export {
   DATE_TAB_BASE,
@@ -32,11 +33,11 @@ export interface DisciplineFilterToolbarProps {
   selectedEmpIds: Set<string>;
   onSelectedEmpIdsChange: (s: Set<string>) => void;
 
-  statusFilter: string;
-  onStatusFilterChange: (v: string) => void;
-  statusOrder: readonly string[];
-  statusLabels: Record<string, string>;
-  statusCounts: Record<string, number>;
+  statusFilter?: string;
+  onStatusFilterChange?: (v: string) => void;
+  statusOrder?: readonly string[];
+  statusLabels?: Record<string, string>;
+  statusCounts?: Record<string, number>;
 
   viewMode: DisciplineViewMode;
   onViewModeChange: (v: DisciplineViewMode) => void;
@@ -49,6 +50,9 @@ export interface DisciplineFilterToolbarProps {
 
   /** عناصر قبل منتقي الموظفين (مثل فئة السجل في سجل العمليات) */
   beforeEmployeePicker?: React.ReactNode;
+
+  /** فلاتر ثانوية في نافذة منبثقة "فلاتر" */
+  moreFilters?: readonly EntityFilterInlineSelect[];
 }
 
 export const DisciplineFilterToolbar = React.forwardRef<
@@ -63,17 +67,18 @@ export const DisciplineFilterToolbar = React.forwardRef<
     empPickerEmployees,
     selectedEmpIds,
     onSelectedEmpIdsChange,
-    statusFilter,
-    onStatusFilterChange,
-    statusOrder,
-    statusLabels,
-    statusCounts,
+    statusFilter = 'all',
+    onStatusFilterChange = () => {},
+    statusOrder = [],
+    statusLabels = {},
+    statusCounts = {},
     viewMode,
     onViewModeChange,
     onDateBoundsChange,
     onDateFilterMetaChange,
     toolbarExtraTrailing,
     beforeEmployeePicker,
+    moreFilters,
   },
   ref,
 ) {
@@ -93,6 +98,7 @@ export const DisciplineFilterToolbar = React.forwardRef<
       onDateBoundsChange={onDateBoundsChange}
       onDateFilterMetaChange={onDateFilterMetaChange}
       beforeEmployeePicker={beforeEmployeePicker}
+      moreFilters={moreFilters}
       dataView={{
         value: viewMode,
         onChange: (v) => onViewModeChange(v as DisciplineViewMode),

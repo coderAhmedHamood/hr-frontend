@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { Clock } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from './popover';
-import { cn } from '@/lib/utils';
+import { cn } from '@/shared/utils';
 
 function pad(n: number) { return String(n).padStart(2, '0'); }
 

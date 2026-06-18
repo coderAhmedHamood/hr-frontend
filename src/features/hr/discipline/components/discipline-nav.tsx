@@ -2,8 +2,8 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { hrDisciplineNavGroups } from '@/lib/hr-discipline/types';
-import { cn } from '@/lib/utils';
+import { hrDisciplineNavGroups } from '@/features/hr/discipline/lib/types';
+import { cn } from '@/shared/utils';
 import { hrDisciplineSectionHref, isDisciplineSectionPathActive } from '@/features/hr/discipline/constants/routes';
 
 export function DisciplineNav() {

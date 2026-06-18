@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { IBM_Plex_Sans_Arabic, Rubik } from 'next/font/google';
 import './globals.css';
-import { Providers } from '@/components/providers';
+import { Providers } from '@/components/layouts/providers';
 
 const bodyFont = IBM_Plex_Sans_Arabic({
   subsets: ['arabic', 'latin'],

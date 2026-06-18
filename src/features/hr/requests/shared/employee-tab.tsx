@@ -1,15 +1,17 @@
 'use client';
 
 import * as React from 'react';
-import { Plus, RefreshCw, Pencil, Trash2, Eye, ChevronRight, ChevronDown, User, SlidersHorizontal, X } from 'lucide-react';
+import { Plus, RefreshCw, Pencil, Trash2, ChevronRight, ChevronDown, User, SlidersHorizontal, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
-import { useHREmployeeDirectoryStore, type HREmployeeDirectoryRow, type HREmployeeStatus, type HREmployeeHierarchyRole } from '@/lib/hr-requests/employee-directory-store';
-import { useHRConfigurationStore } from '@/lib/hr-requests/configuration-store';
-import { buildEmployeeForest, HIERARCHY_ROLE_LABELS, STATUS_LABELS, STATUS_COLORS, type EmpTreeNode } from '@/lib/hr-requests/hierarchy-utils';
-import { MinimalDropdown, SearchableDropdown, ConfirmationModal, HRSettingsFormDrawer, FormField, EmptyState, Pagination } from '@/components/hr-requests/shared-ui';
-import { cn, formatDate, formatDateShort } from '@/lib/utils';
+import { useHREmployeeDirectoryStore, type HREmployeeDirectoryRow, type HREmployeeStatus, type HREmployeeHierarchyRole } from '@/features/hr/requests/lib/employee-directory-store';
+import { useHRConfigurationStore } from '@/features/hr/requests/lib/configuration-store';
+import { buildEmployeeForest, HIERARCHY_ROLE_LABELS, STATUS_LABELS, STATUS_COLORS, type EmpTreeNode } from '@/features/hr/requests/lib/hierarchy-utils';
+import { MinimalDropdown, SearchableDropdown, ConfirmationModal, HRSettingsFormDrawer, FormField, EmptyState, Pagination } from '@/features/hr/requests/components/shared-ui';
+import { DataTable, type ColumnDef } from '@/components/ui/data-table';
+import { TableDateCell, TableRowActions } from '@/components/ui/table-cells';
+import { cn, formatDate } from '@/shared/utils';
 
 const LS_VIEW = 'hr_employees_list_view_mode';
 const LS_PAGE = 'hr_employees_list_page';
@@ -124,7 +126,9 @@ interface Props { openEmployeeId?: string | null; onClearDeepLink: () => void; }
 
 export function EmployeeTab({ openEmployeeId, onClearDeepLink }: Props) {
   const { employees, addEmployee, updateEmployee, deleteEmployee } = useHREmployeeDirectoryStore();
-  const { departments } = useHRConfigurationStore();
+  const { departments, fetchDepartments } = useHRConfigurationStore();
+
+  React.useEffect(() => { fetchDepartments(); }, []);
 
   const [view, setView]           = React.useState<'list' | 'chart'>(() => (typeof window !== 'undefined' ? localStorage.getItem(LS_VIEW) as 'list' | 'chart' : null) ?? 'list');
   const [filterDept, setFilterDept]     = React.useState('all');
@@ -195,6 +199,73 @@ export function EmployeeTab({ openEmployeeId, onClearDeepLink }: Props) {
 
   const hasActiveFilters = filterDept !== 'all' || filterStatus !== 'all';
 
+  const columns = React.useMemo((): ColumnDef<HREmployeeDirectoryRow>[] => [
+    {
+      key: 'employee',
+      title: 'الموظف',
+      headerClassName: 'w-[22%]',
+      render: (emp) => (
+        <div className="flex min-w-0 items-center gap-2.5">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+            {emp.nameAr.split(' ').map(w => w[0]).slice(0, 2).join('')}
+          </div>
+          <div className="min-w-0">
+            <p className="truncate font-semibold">{emp.nameAr}</p>
+            <p className="truncate text-[11px] text-muted-foreground" dir="ltr">{emp.bridgeId}</p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'department',
+      title: 'القسم',
+      headerClassName: 'w-[14%]',
+      className: 'text-xs text-muted-foreground',
+      render: (emp) => <span className="line-clamp-2">{getDeptName(emp.departmentId)}</span>,
+    },
+    {
+      key: 'hierarchy',
+      title: 'المستوى',
+      headerClassName: 'w-[12%]',
+      className: 'text-xs',
+      render: (emp) => <span className="line-clamp-2">{HIERARCHY_ROLE_LABELS[emp.hierarchyRole]}</span>,
+    },
+    {
+      key: 'jobTitle',
+      title: 'المسمى',
+      headerClassName: 'w-[18%]',
+      className: 'text-xs',
+      render: (emp) => <span className="line-clamp-2">{emp.jobTitleAr}</span>,
+    },
+    {
+      key: 'hireDate',
+      title: 'تاريخ التعيين',
+      headerClassName: 'w-[14%]',
+      className: 'text-xs text-muted-foreground',
+      render: (emp) => <TableDateCell value={emp.hireDate} />,
+    },
+    {
+      key: 'status',
+      title: 'الحالة',
+      headerClassName: 'w-[12%]',
+      render: (emp) => <StatusBadge status={emp.status} />,
+    },
+    {
+      key: 'actions',
+      title: '',
+      isActions: true,
+      headerClassName: 'w-16 lg:w-20',
+      render: (emp) => (
+        <TableRowActions
+          menuItems={[
+            { label: 'تعديل', icon: <Pencil className="h-3.5 w-3.5" />, onClick: (e) => { e.stopPropagation(); openEdit(emp); } },
+            { label: 'حذف', icon: <Trash2 className="h-3.5 w-3.5" />, onClick: (e) => { e.stopPropagation(); setDeleteId(emp.id); }, destructive: true, separator: true },
+          ]}
+        />
+      ),
+    },
+  ], [getDeptName]);
+
   return (
     <div className="w-full min-w-0 space-y-3">
 
@@ -229,9 +300,6 @@ export function EmployeeTab({ openEmployeeId, onClearDeepLink }: Props) {
 
         <div className="hidden min-w-0 flex-1 sm:block" aria-hidden />
 
-        {/* Count */}
-        <span className="hidden sm:block text-xs text-muted-foreground">{filtered.length} موظف</span>
-
         {/* Refresh */}
         <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => { setRefreshing(true); setTimeout(() => setRefreshing(false), 700); }} disabled={refreshing}>
           <RefreshCw className={cn('h-3.5 w-3.5', refreshing && 'animate-spin')} />
@@ -264,7 +332,6 @@ export function EmployeeTab({ openEmployeeId, onClearDeepLink }: Props) {
             <MinimalDropdown value={filterDept} onChange={v => { setFilterDept(v); setPage(1); }} options={deptOptions} placeholder="القسم" />
             <MinimalDropdown value={filterStatus} onChange={v => { setFilterStatus(v); setPage(1); }} options={[{ value: 'all', label: 'جميع الحالات' }, ...STATUS_OPTIONS]} placeholder="الحالة" />
           </div>
-          <p className="text-xs text-muted-foreground">{filtered.length} موظف</p>
         </div>
       )}
 
@@ -275,51 +342,17 @@ export function EmployeeTab({ openEmployeeId, onClearDeepLink }: Props) {
             <EmptyState icon={User} title="لا يوجد موظفون" />
           ) : (
             <>
-              {/* Desktop table */}
-              <div className="hidden min-w-0 md:block md:overflow-x-auto">
-                <table className="w-full min-w-0 table-fixed text-sm">
-                  <thead>
-                    <tr className="border-b border-border bg-muted/40 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      <th className="w-[22%] px-3 py-3 text-right lg:px-4">الموظف</th>
-                      <th className="w-[14%] px-3 py-3 text-right lg:px-4">القسم</th>
-                      <th className="w-[12%] px-3 py-3 text-right lg:px-4">المستوى</th>
-                      <th className="w-[18%] px-3 py-3 text-right lg:px-4">المسمى</th>
-                      <th className="w-[14%] px-3 py-3 text-right lg:px-4">تاريخ التعيين</th>
-                      <th className="w-[12%] px-3 py-3 text-right lg:px-4">الحالة</th>
-                      <th className="w-16 px-2 py-3 lg:w-20 lg:px-4" />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {paginated.map(emp => (
-                      <tr key={emp.id} className="group border-b border-border/60 last:border-0 hover:bg-muted/20 transition-colors cursor-pointer" onClick={() => openView(emp)}>
-                        <td className="px-3 py-3 lg:px-4">
-                          <div className="flex min-w-0 items-center gap-2.5">
-                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-                              {emp.nameAr.split(' ').map(w => w[0]).slice(0, 2).join('')}
-                            </div>
-                            <div className="min-w-0">
-                              <p className="truncate font-semibold">{emp.nameAr}</p>
-                              <p className="truncate text-[11px] text-muted-foreground" dir="ltr">{emp.bridgeId}</p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-3 py-3 text-xs text-muted-foreground lg:px-4"><span className="line-clamp-2">{getDeptName(emp.departmentId)}</span></td>
-                        <td className="px-3 py-3 text-xs lg:px-4"><span className="line-clamp-2">{HIERARCHY_ROLE_LABELS[emp.hierarchyRole]}</span></td>
-                        <td className="px-3 py-3 text-xs lg:px-4"><span className="line-clamp-2">{emp.jobTitleAr}</span></td>
-                        <td className="px-3 py-3 text-xs text-muted-foreground lg:px-4">
-                          {emp.hireDate ? formatDateShort(emp.hireDate) : '—'}
-                        </td>
-                        <td className="px-3 py-3 lg:px-4"><StatusBadge status={emp.status} /></td>
-                        <td className="px-2 py-3 lg:px-4" onClick={e => e.stopPropagation()}>
-                          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(emp)}><Pencil className="h-3.5 w-3.5" /></Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => setDeleteId(emp.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="hidden min-w-0 md:block">
+                <DataTable
+                  variant="directory"
+                  alwaysShowTable
+                  tableClassName="min-w-0 table-fixed"
+                  className="border-0 shadow-none rounded-none"
+                  columns={columns}
+                  data={paginated}
+                  keyExtractor={(emp) => emp.id}
+                  onRowClick={openView}
+                />
               </div>
 
               {/* Mobile card list */}

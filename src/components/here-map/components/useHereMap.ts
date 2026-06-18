@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type RefObject } from "react";
-import { publicConfig } from '@/lib/config';
+import { publicConfig } from '@/shared/config';
 import { loadHereMapsSdk } from "./here-loader";
 import { RIYADH_CENTER, INITIAL_ZOOM } from "../constants/constants";
 import type { HereMapRefs, HereMapState } from "../types/types";

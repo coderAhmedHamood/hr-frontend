@@ -1,0 +1,21 @@
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-/api-backend}
+        NEXT_PUBLIC_HERE_API_KEY: ${NEXT_PUBLIC_HERE_API_KEY:-}
+        NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-}
+        NEXT_PUBLIC_ENV: ${NEXT_PUBLIC_ENV:-production}
+        # Server-side rewrite target; use host service name when backend runs in Docker.
+        BACKEND_URL: ${BACKEND_URL:-http://host.docker.internal:3000}
+    container_name: hr-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-3001}:3001"
+    environment:
+      PORT: 3001
+      HOSTNAME: 0.0.0.0
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

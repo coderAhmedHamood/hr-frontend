@@ -2,8 +2,8 @@
 
 import * as React from 'react';
 import { RoseTradingLetterheadPrint } from '@/components/pdf/print/rose-trading-letterhead-print';
-import { getPdfLogoSrc } from '@/lib/pdf/pdf-logo-url';
-import { sanitizePdfText } from '@/lib/pdf/sanitize-pdf-text';
+import { getPdfLogoSrc } from '@/components/pdf/lib/pdf-logo-url';
+import { sanitizePdfText } from '@/components/pdf/lib/sanitize-pdf-text';
 
 const CLEARANCE_LEGAL = `أقر أنا الموقعة أدناه بأنني تسلمت جميع مستحقاتي المالية والعينية الناشئة عن علاقة العمل مع مؤسسة روز للتجارة حتى تاريخ إخلاء الطرف، وبأن المؤسسة قد أدت ما عليها تجاهي بالكامل، وأبرئها إبراءً ذمة من أي التزامات أو مطالبات مستقبلية تخص فترة عملي لديها.`;
 

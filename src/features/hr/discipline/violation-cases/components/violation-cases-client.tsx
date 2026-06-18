@@ -2,208 +2,438 @@
 
 import * as React from 'react';
 import {
-  Plus, Eye, Trash2, Send, CheckCircle2, XCircle, Edit3, ShieldAlert, CalendarDays, User, FileDown, FileSpreadsheet,
+  Trash2, CalendarDays, CheckCircle2, XCircle, Edit3,
+  FileDown, FileSpreadsheet, Plus, AlertTriangle, Scale, Search,
 } from 'lucide-react';
+import {
+  EntityActionCard,
+  EntityActionCardChip,
+  EntityActionCardGrid,
+  EntityActionCardGridSkeleton,
+  type WorkflowStatusTone,
+} from '@/components/ui/entity-action-card';
 import { toast } from 'sonner';
+import { cn, formatDisplayDateTime } from '@/shared/utils';
+import { STATUS_PILL } from '@/shared/status-pill-classes';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { format, parse, isValid } from 'date-fns';
+import { arSA } from 'date-fns/locale';
+import { DatePickerInput } from '@/components/ui/date-picker-input';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Badge } from '@/components/ui/badge';
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter,
+  dialogFormFooterClass,
 } from '@/components/ui/dialog';
 import {
-  ConfirmationModal, HRSettingsFormDrawer, FormField,
-  EmptyState, SearchableDropdown,
-} from '@/components/hr-requests/shared-ui';
-import { useHRViolationCasesStore } from '@/lib/hr-discipline/violation-cases-store';
-import { useHRViolationTypesStore } from '@/lib/hr-discipline/violation-types-store';
-import { useHREmployeeDirectoryStore } from '@/lib/hr-requests/employee-directory-store';
-import type { HRViolationCaseRecord, HRViolationCaseStatus, HRApproverRole } from '@/lib/hr-discipline/types';
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
 import {
-  CASE_STATUS_LABELS,
-  CASE_STATUS_COLORS,
-  CASE_STATUS_FILTER_ORDER,
-  CASE_MAIN_FLOW,
-  caseMainFlowIndex,
-} from '@/lib/hr-discipline/types';
-import { cn, formatDate, formatTime } from '@/lib/utils';
-import { data } from '@/lib/data';
-import { PdfPreviewExportDialog } from '@/components/pdf/pdf-preview-export-dialog';
-import { ViolationCasesRegisterPrintHtml } from '@/components/pdf/print/violation-cases-register-print-html';
-import type { DateFilterTab } from '@/lib/hr-discipline/discipline-date-filter';
-import { matchesDateRange } from '@/lib/hr-discipline/discipline-date-filter';
+  ConfirmationModal, HRSettingsFormDrawer, FormField, EmptyState, SearchableDropdown,
+} from '@/features/hr/requests/components/shared-ui';
+import { useViolationCasesDirectoryModel } from '@/features/hr/discipline/violation-cases/hooks/useViolationCasesDirectoryModel';
+import type { ViolationCaseRecord } from '@/features/hr/discipline/violation-cases/hooks/useViolationCasesDirectoryModel';
+import type { ViolationRecordStatus } from '@/features/hr/discipline/lib/api/violation-records';
+import {
+  INVESTIGATION_DEDUCTION_TYPE_LABELS,
+  INVESTIGATION_RECOMMENDATION_LABELS,
+  INVESTIGATION_RESULT_LABELS,
+} from '@/features/hr/discipline/lib/types';
+import type { DateFilterTab } from '@/features/hr/discipline/lib/discipline-date-filter';
 import {
   DisciplineFilterToolbar,
   type DisciplineFilterToolbarHandle,
   type DisciplineViewMode,
 } from '@/features/hr/discipline/components/discipline-filter-toolbar';
-import { downloadXlsxFromAoA, type XlsxCell } from '@/lib/export/download-xlsx';
-import { useEntityFilterSlot } from '@/components/entity-filter-slot-context';
+import { PdfPreviewExportDialog } from '@/components/pdf/pdf-preview-export-dialog';
+import { ViolationCasesRegisterPrintHtml } from '@/components/pdf/print/violation-cases-register-print-html';
+import { downloadXlsxFromAoA, type XlsxCell } from '@/shared/export/download-xlsx';
+import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
+import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
+import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
+import { disciplineNoticesApi } from '@/features/hr/discipline/lib/api/discipline-notices';
+import { ViolationInvestigationDrawer } from '@/features/hr/discipline/investigations/dialogs/violation-investigation-drawer';
+import { disciplineAppealsApi } from '@/features/hr/discipline/lib/api/discipline-appeals';
+import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
+import { useAuthStore } from '@/features/auth/lib/auth-store';
+import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
+import { useDefaultCompany } from '@/features/hr/organization/hooks/useActiveCompany';
+import { DataTable, type ColumnDef } from '@/components/ui/data-table';
+import { TableDateCell, TableRowActions } from '@/components/ui/table-cells';
+import { DisciplineListViewport, DisciplinePaginatedList } from '@/features/hr/discipline/components/discipline-paginated-list';
 
-type StatusFilter = 'all' | HRViolationCaseStatus;
+// ─── Status config ────────────────────────────────────────────────────────────
 
-const APPROVER_LABEL_AR: Record<HRApproverRole, string> = {
-  manager: 'المدير المباشر',
-  hr: 'الموارد البشرية',
-  executive: 'التنفيذي',
+const STATUS_LABELS: Record<ViolationRecordStatus, string> = {
+  pending:    'قيد الانتظار',
+  approved:   'معتمد',
+  rejected:   'مرفوض',
+  needs_edit: 'يحتاج تعديل',
 };
 
-function CaseWorkflowStrip({ status }: { status: HRViolationCaseStatus }) {
-  if (status === 'rejected') {
-    return (
-      <div className="rounded-lg border border-red-200 bg-red-50/60 px-3 py-2 text-xs text-red-800 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300">
-        <span className="font-semibold">مسار مرفوض:</span> انتهت المخالفة بالرفض وسجّل في سجل الاعتماد.
-      </div>
-    );
-  }
-  const currentIdx = caseMainFlowIndex(status);
+const STATUS_COLORS: Record<ViolationRecordStatus, string> = {
+  pending:    'text-primary border-primary/25 bg-primary/5',
+  approved:   'text-success border-success/30 bg-success/10',
+  rejected:   'text-destructive border-destructive/30 bg-destructive/10',
+  needs_edit: 'text-warning border-warning/30 bg-warning/10',
+};
+
+const VIOLATION_STATUS_TONE: Record<ViolationRecordStatus, WorkflowStatusTone> = {
+  pending: 'pending',
+  approved: 'approved',
+  rejected: 'rejected',
+  needs_edit: 'warning',
+};
+
+const STATUS_ORDER: readonly ViolationRecordStatus[] = ['pending', 'approved', 'rejected', 'needs_edit'];
+type StatusFilter = 'all' | ViolationRecordStatus;
+
+function canMutateViolationCase(status: ViolationRecordStatus) {
+  return status === 'pending' || status === 'needs_edit';
+}
+
+function canAddDisciplineFollowUp(status: ViolationRecordStatus) {
+  return status !== 'approved';
+}
+
+// ─── Notice dialog (إنذار) ────────────────────────────────────────────────────
+
+type NoticeKind = 'verbal' | 'first' | 'second' | 'final';
+const NOTICE_KIND_LABELS: Record<NoticeKind, string> = {
+  verbal: 'شفهي', first: 'إنذار أول', second: 'إنذار ثاني', final: 'إنذار نهائي',
+};
+
+function NoticeDialog({
+  open, onClose, violationCase, companyId,
+}: {
+  open: boolean; onClose: () => void;
+  violationCase: ViolationCaseRecord | null;
+  companyId: string;
+}) {
+  const [kind, setKind] = React.useState<NoticeKind>('first');
+  const [date, setDate] = React.useState(() => new Date().toISOString().slice(0, 10));
+  const [reason, setReason] = React.useState('');
+  const [saving, setSaving] = React.useState(false);
+
+  React.useEffect(() => {
+    if (open) {
+      setKind('first');
+      setDate(new Date().toISOString().slice(0, 10));
+      setReason(violationCase ? `مخالفة: ${violationCase.typeNameAr} — ${violationCase.caseNumber}` : '');
+    }
+  }, [open, violationCase]);
+
+  const handleSave = async () => {
+    if (!violationCase || !companyId) return;
+    setSaving(true);
+    try {
+      await disciplineNoticesApi.create({
+        companyId,
+        employeeId: violationCase.employeeId,
+        noticeKind: kind,
+        reasonAr: reason.trim() || `مخالفة: ${violationCase.typeNameAr}`,
+        noticeDate: date,
+        violationRecordId: violationCase.id,
+      });
+      toast.success('تم إنشاء الإنذار');
+      onClose();
+    } catch { toast.error('فشل إنشاء الإنذار'); }
+    finally { setSaving(false); }
+  };
+
   return (
-    <div>
-      <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">مراحل مسار الطلب</p>
-      <div className="flex flex-wrap items-center gap-1.5" dir="rtl">
-        {CASE_MAIN_FLOW.map((step, i) => {
-          const done = i <= currentIdx;
-          const active = step === status;
-          return (
-            <span key={step} className="inline-flex items-center gap-1.5">
-              <span
-                className={cn(
-                  'rounded-full border px-2.5 py-0.5 text-[10px] font-medium transition-colors',
-                  done
-                    ? 'border-primary/35 bg-primary/10 text-primary'
-                    : 'border-border/80 bg-muted/25 text-muted-foreground',
-                  active && 'ring-2 ring-primary/25 ring-offset-1 ring-offset-background',
-                )}
-              >
-                {CASE_STATUS_LABELS[step]}
-              </span>
-              {i < CASE_MAIN_FLOW.length - 1 ? (
-                <span className={cn('text-[10px]', done ? 'text-primary/50' : 'text-muted-foreground/40')}>←</span>
-              ) : null}
-            </span>
-          );
-        })}
-      </div>
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-right text-base">
+            <AlertTriangle className="h-4 w-4 text-warning" />
+            إصدار إنذار
+          </DialogTitle>
+          <DialogDescription className="text-right text-xs text-muted-foreground">
+            {violationCase?.caseNumber} · {violationCase?.employeeNameAr}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 py-1">
+          <FormField label="نوع الإنذار" required>
+            <Select value={kind} onValueChange={(v) => setKind(v as NoticeKind)}>
+              <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {(Object.entries(NOTICE_KIND_LABELS) as [NoticeKind, string][]).map(([k, l]) => (
+                  <SelectItem key={k} value={k}>{l}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </FormField>
+          <FormField label="تاريخ الإنذار" required>
+            <DatePickerInput value={date} onChange={setDate} />
+          </FormField>
+          <FormField label="سبب الإنذار" required>
+            <textarea
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              className="flex min-h-[72px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            />
+          </FormField>
+        </div>
+        <DialogFooter className={dialogFormFooterClass}>
+          <Button onClick={handleSave} disabled={saving} className="gap-1.5">
+            {saving && <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />}
+            إصدار الإنذار
+          </Button>
+          <Button variant="outline" onClick={onClose}>إلغاء</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Appeal dialog (تظلم) ─────────────────────────────────────────────────────
+
+function AppealDialog({
+  open, onClose, violationCase, companyId,
+}: {
+  open: boolean; onClose: () => void;
+  violationCase: ViolationCaseRecord | null;
+  companyId: string;
+}) {
+  const [date, setDate] = React.useState(() => new Date().toISOString().slice(0, 10));
+  const [grounds, setGrounds] = React.useState('');
+  const [channel, setChannel] = React.useState<string>('written');
+  const [saving, setSaving] = React.useState(false);
+
+  React.useEffect(() => {
+    if (open) { setDate(new Date().toISOString().slice(0, 10)); setGrounds(''); setChannel('written'); }
+  }, [open]);
+
+  const handleSave = async () => {
+    if (!violationCase || !companyId) return;
+    if (!grounds.trim()) { toast.error('أسباب التظلم مطلوبة'); return; }
+    setSaving(true);
+    try {
+      await disciplineAppealsApi.create({
+        companyId,
+        violationRecordId: violationCase.id,
+        appealDate: date,
+        groundsAr: grounds.trim(),
+        channel: channel as 'in_person' | 'written' | 'email' | 'phone' | 'system',
+        status: 'pending',
+      });
+      toast.success('تم تقديم التظلم');
+      onClose();
+    } catch { toast.error('فشل تقديم التظلم'); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-right text-base">
+            <Scale className="h-4 w-4 text-primary" />
+            تقديم تظلم
+          </DialogTitle>
+          <DialogDescription className="text-right text-xs text-muted-foreground">
+            {violationCase?.caseNumber} · {violationCase?.employeeNameAr}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 py-1">
+          <FormField label="تاريخ التظلم" required>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className={cn('w-full justify-start gap-2 text-sm', !date && 'text-muted-foreground')}
+                >
+                  <CalendarDays className="h-4 w-4 shrink-0" />
+                  {date
+                    ? (() => {
+                        const d = parse(date, 'yyyy-MM-dd', new Date());
+                        return isValid(d) ? format(d, 'dd MMMM yyyy', { locale: arSA }) : date;
+                      })()
+                    : 'اختر التاريخ'}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={(() => {
+                    const d = parse(date, 'yyyy-MM-dd', new Date());
+                    return isValid(d) ? d : undefined;
+                  })()}
+                  onSelect={(day) => { if (day) setDate(format(day, 'yyyy-MM-dd')); }}
+                  defaultMonth={(() => {
+                    const d = parse(date, 'yyyy-MM-dd', new Date());
+                    return isValid(d) ? d : new Date();
+                  })()}
+                />
+              </PopoverContent>
+            </Popover>
+          </FormField>
+          <FormField label="قناة التظلم">
+            <Select value={channel} onValueChange={setChannel}>
+              <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="written">خطي</SelectItem>
+                <SelectItem value="in_person">شخصي</SelectItem>
+                <SelectItem value="email">بريد إلكتروني</SelectItem>
+                <SelectItem value="phone">هاتف</SelectItem>
+                <SelectItem value="system">النظام</SelectItem>
+              </SelectContent>
+            </Select>
+          </FormField>
+          <FormField label="أسباب التظلم" required>
+            <textarea
+              value={grounds}
+              onChange={(e) => setGrounds(e.target.value)}
+              placeholder="اكتب أسباب التظلم…"
+              className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            />
+          </FormField>
+        </div>
+        <DialogFooter className={dialogFormFooterClass}>
+          <Button variant="luxe" onClick={handleSave} disabled={saving} className="gap-1.5">
+            {saving && <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />}
+            تقديم التظلم
+          </Button>
+          <Button variant="outline" onClick={onClose}>إلغاء</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Type requirement badges ──────────────────────────────────────────────────
+
+function TypeRequirementBadges({ needsWarning, needsInvestigation }: { needsWarning: boolean; needsInvestigation: boolean }) {
+  if (!needsWarning && !needsInvestigation) return null;
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {needsInvestigation ? (
+        <span className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium', STATUS_PILL.info)}>
+          <Search className="h-3 w-3" />
+          يحتاج تحقيق
+        </span>
+      ) : null}
+      {needsWarning ? (
+        <span className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium', STATUS_PILL.warning)}>
+          <AlertTriangle className="h-3 w-3" />
+          يحتاج إنذار
+        </span>
+      ) : null}
     </div>
   );
 }
 
-interface DraftForm {
+// ─── Main component ───────────────────────────────────────────────────────────
+
+interface CreateForm {
   employeeId: string; date: string; violationTypeId: string;
   description: string; notes: string; attachmentsNote: string;
 }
-const EMPTY: DraftForm = { employeeId: '', date: '', violationTypeId: '', description: '', notes: '', attachmentsNote: '' };
+const CREATE_EMPTY: CreateForm = { employeeId: '', date: '', violationTypeId: '', description: '', notes: '', attachmentsNote: '' };
 
-function isViolationCaseRecord(c: unknown): c is HRViolationCaseRecord {
-  return (
-    c != null &&
-    typeof (c as HRViolationCaseRecord).id === 'string' &&
-    typeof (c as HRViolationCaseRecord).caseNumber === 'string' &&
-    typeof (c as HRViolationCaseRecord).employeeId === 'string'
-  );
-}
+interface EditForm { date: string; description: string; notes: string; attachmentsNote: string; }
 
 export function ViolationCasesClient() {
-  const { cases, add, submit, remove, approve, reject, requestEdit } = useHRViolationCasesStore();
-  const safeCases = React.useMemo(() => cases.filter(isViolationCaseRecord), [cases]);
-  const { types } = useHRViolationTypesStore();
-  const { activeEmployees } = useHREmployeeDirectoryStore();
+  const hook = useViolationCasesDirectoryModel();
+  const { employees, violationTypes, loading, listError, createCase, updateCase, decideCase, deleteCase, reload, setListFilters, items, pagination, filteredItems, sourceCases } = hook;
+  const companyId = useDefaultCompanyId() ?? '';
+  const { data: defaultCompany } = useDefaultCompany();
+  const companyNameAr = defaultCompany?.nameAr ?? '';
+  const companyNameEn = defaultCompany?.nameEn ?? '';
 
   const [selectedEmpIds, setSelectedEmpIds] = React.useState<Set<string>>(new Set());
-
-  const empPickerList = React.useMemo(() => {
-    const map = new Map<string, string>();
-    for (const c of safeCases) map.set(c.employeeId, c.employeeNameAr);
-    return [...map.entries()].map(([id, name]) => ({ id, name }));
-  }, [safeCases]);
-
-  const [drawerOpen, setDrawerOpen] = React.useState(false);
-  const [draft, setDraft] = React.useState<DraftForm>(EMPTY);
-  const [formError, setFormError] = React.useState<string | null>(null);
-  const [deleteId, setDeleteId] = React.useState<string | null>(null);
-  const [viewCase, setViewCase] = React.useState<HRViolationCaseRecord | null>(null);
-  const [rejectModal, setRejectModal] = React.useState<HRViolationCaseRecord | null>(null);
-  const [rejectNote, setRejectNote] = React.useState('');
-  const [editModal, setEditModal] = React.useState<HRViolationCaseRecord | null>(null);
-  const [editNote, setEditNote] = React.useState('');
   const [viewMode, setViewMode] = React.useState<DisciplineViewMode>('cards');
   const [statusFilter, setStatusFilter] = React.useState<StatusFilter>('all');
   const [dateBounds, setDateBounds] = React.useState({ from: '', to: '' });
-  const [dateMeta, setDateMeta] = React.useState<{ tab: DateFilterTab; hasRestriction: boolean }>({
-    tab: 'all',
-    hasRestriction: false,
-  });
+  const [dateMeta, setDateMeta] = React.useState<{ tab: DateFilterTab; hasRestriction: boolean }>({ tab: 'all', hasRestriction: false });
   const filterToolbarRef = React.useRef<DisciplineFilterToolbarHandle>(null);
+
   const [pdfOpen, setPdfOpen] = React.useState(false);
+  const [createOpen, setCreateOpen] = React.useState(false);
+  const [draft, setDraft] = React.useState<CreateForm>(CREATE_EMPTY);
+  const [saving, setSaving] = React.useState(false);
+  const [formError, setFormError] = React.useState<string | null>(null);
 
-  const onDateBoundsChange = React.useCallback((b: { from: string; to: string }) => {
-    setDateBounds(b);
-  }, []);
+  const [viewCase, setViewCase] = React.useState<ViolationCaseRecord | null>(null);
+  const [editCase, setEditCase] = React.useState<ViolationCaseRecord | null>(null);
+  const [editForm, setEditForm] = React.useState<EditForm>({ date: '', description: '', notes: '', attachmentsNote: '' });
+  const [editSaving, setEditSaving] = React.useState(false);
+  const [editError, setEditError] = React.useState<string | null>(null);
 
-  const onDateFilterMetaChange = React.useCallback((m: { tab: DateFilterTab; hasRestriction: boolean }) => {
-    setDateMeta(m);
-  }, []);
+  const [rejectCase, setRejectCase] = React.useState<ViolationCaseRecord | null>(null);
+  const [rejectNote, setRejectNote] = React.useState('');
+  const [deleteId, setDeleteId] = React.useState<string | null>(null);
 
-  const handleApprove = (c: HRViolationCaseRecord) => {
-    const role = c.requiredApprovers[c.currentApprovalIndex];
-    if (!role) { toast.error('لا يوجد دور معتمد للمخالفة'); return; }
-    const res = approve(c.id, role);
-    if (res.ok) toast.success(`تمت الموافقة على ${c.caseNumber}`);
-    else toast.error(res.error ?? 'خطأ');
-  };
+  // Post-create action dialogs
+  const [noticeCase, setNoticeCase] = React.useState<ViolationCaseRecord | null>(null);
+  const [investigationCase, setInvestigationCase] = React.useState<ViolationCaseRecord | null>(null);
+  const [appealCase, setAppealCase] = React.useState<ViolationCaseRecord | null>(null);
 
-  const handleReject = () => {
-    if (!rejectModal) return;
-    const role = rejectModal.requiredApprovers[rejectModal.currentApprovalIndex];
-    if (!role) { toast.error('لا يوجد دور معتمد للمخالفة'); return; }
-    const res = reject(rejectModal.id, role, rejectNote);
-    if (res.ok) toast.success('تم رفض المخالفة');
-    else toast.error(res.error ?? 'خطأ');
-    setRejectModal(null);
-    setRejectNote('');
-  };
+  const onDateBoundsChange = React.useCallback((b: { from: string; to: string }) => setDateBounds(b), []);
+  const onDateFilterMetaChange = React.useCallback((m: { tab: DateFilterTab; hasRestriction: boolean }) => setDateMeta(m), []);
 
-  const handleRequestEdit = () => {
-    if (!editModal) return;
-    if (!editNote.trim()) { toast.error('ملاحظة التعديل مطلوبة'); return; }
-    const role = editModal.requiredApprovers[editModal.currentApprovalIndex];
-    if (!role) { toast.error('لا يوجد دور معتمد للمخالفة'); return; }
-    const res = requestEdit(editModal.id, role, editNote);
-    if (res.ok) toast.success('تم إرسال طلب التعديل');
-    else toast.error(res.error ?? 'خطأ');
-    setEditModal(null);
-    setEditNote('');
-  };
-
-  const searchFiltered = React.useMemo(
-    () =>
-      safeCases.filter(
-        (c) => selectedEmpIds.size === 0 || selectedEmpIds.has(c.employeeId),
-      ),
-    [safeCases, selectedEmpIds],
+  // Selected type flags for the create form
+  const selectedType = React.useMemo(
+    () => violationTypes.find((t) => t.id === draft.violationTypeId) ?? null,
+    [violationTypes, draft.violationTypeId],
   );
 
-  const filtered = React.useMemo(
-    () => searchFiltered.filter((c) => matchesDateRange(c.date, dateBounds.from, dateBounds.to)),
-    [searchFiltered, dateBounds.from, dateBounds.to],
+  const empPickerList = React.useMemo(
+    () => employees.map((e) => ({ id: e.id, name: e.nameAr })),
+    [employees],
   );
+
+  // Debounced filter sync to model (employee, date, status)
+  const dateDebounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  React.useEffect(() => {
+    if (dateDebounceRef.current) clearTimeout(dateDebounceRef.current);
+    dateDebounceRef.current = setTimeout(() => {
+      setListFilters({
+        selectedEmpIds: [...selectedEmpIds],
+        statusFilter,
+        dateFrom: dateBounds.from,
+        dateTo: dateBounds.to,
+      });
+    }, 400);
+    return () => { if (dateDebounceRef.current) clearTimeout(dateDebounceRef.current); };
+  }, [selectedEmpIds, statusFilter, dateBounds.from, dateBounds.to, setListFilters]);
+
+  const listFiltered = filteredItems;
+
+  const statusCounts = React.useMemo(() => {
+    const counts: Record<string, number> = { all: sourceCases.length };
+    for (const s of STATUS_ORDER) counts[s] = 0;
+    for (const c of sourceCases) counts[c.status] = (counts[c.status] ?? 0) + 1;
+    return counts;
+  }, [sourceCases]);
 
   const dateRangeActive = dateMeta.hasRestriction;
+  const activeFilterCount = (selectedEmpIds.size > 0 ? 1 : 0) + (statusFilter !== 'all' ? 1 : 0) + (dateMeta.hasRestriction ? 1 : 0);
 
-  const listFiltered = React.useMemo(
-    () => filtered.filter((c) => statusFilter === 'all' || c.status === statusFilter),
-    [filtered, statusFilter],
+  usePageHeaderActions(
+    () => (
+      <div className="flex items-center gap-2">
+        <FilterToggleButton activeFilterCount={activeFilterCount} />
+        <Button variant="luxe" size="sm" className="h-8 gap-1.5 px-3 text-xs shadow-sm shrink-0"
+          onClick={() => { setDraft(CREATE_EMPTY); setFormError(null); setCreateOpen(true); }}>
+          <Plus className="h-3.5 w-3.5" />
+          مخالفة جديدة
+        </Button>
+      </div>
+    ),
+    [activeFilterCount],
   );
 
   const violationPdfRows = React.useMemo(
-    () =>
-      listFiltered.map((c) => ({
-        caseNumber: c.caseNumber,
-        employeeNameAr: c.employeeNameAr,
-        typeNameAr: c.typeNameAr,
-        date: c.date,
-        statusAr: CASE_STATUS_LABELS[c.status],
-        description: c.description,
-      })),
+    () => listFiltered.map((c) => ({
+      caseNumber: c.caseNumber, employeeNameAr: c.employeeNameAr,
+      typeNameAr: c.typeNameAr, date: c.date,
+      statusAr: STATUS_LABELS[c.status], description: c.description,
+    })),
     [listFiltered],
   );
 
@@ -211,121 +441,265 @@ export function ViolationCasesClient() {
     () =>
       violationPdfRows.length === 0 ? null : (
         <ViolationCasesRegisterPrintHtml
-          companyNameAr={data.company.name}
-          companyNameEn={data.company.nameEn}
+          companyNameAr={companyNameAr}
+          companyNameEn={companyNameEn}
           titleAr="سجل مخالفات الموظفين"
-          filterSummary={`الموظفون: ${selectedEmpIds.size === 0 ? 'الكل' : `${selectedEmpIds.size} محدد`} · الحالة: ${statusFilter === 'all' ? 'الكل' : CASE_STATUS_LABELS[statusFilter]} · التاريخ: ${dateBounds.from || dateBounds.to ? `${dateBounds.from || '…'} — ${dateBounds.to || '…'}` : 'كل الفترات'}`}
+          filterSummary={`الموظفون: ${selectedEmpIds.size === 0 ? 'الكل' : `${selectedEmpIds.size} محدد`} · الحالة: ${statusFilter === 'all' ? 'الكل' : STATUS_LABELS[statusFilter as ViolationRecordStatus]} · التاريخ: ${dateBounds.from || dateBounds.to ? `${dateBounds.from || '…'} — ${dateBounds.to || '…'}` : 'كل الفترات'}`}
           rows={violationPdfRows}
         />
       ),
     [violationPdfRows, selectedEmpIds.size, statusFilter, dateBounds.from, dateBounds.to],
   );
 
-  const violationPdfFileName = 'violation-cases.pdf';
-
-  const handleExportViolationExcel = React.useCallback(async () => {
-    if (listFiltered.length === 0) {
-      toast.error('لا توجد مخالفات للتصدير ضمن الفلاتر الحالية.');
-      return;
-    }
-    const header: XlsxCell[] = ['رقم القضية', 'الموظف', 'نوع المخالفة', 'التاريخ', 'الحالة', 'الوصف'];
+  const handleExportExcel = React.useCallback(async () => {
+    if (listFiltered.length === 0) { toast.error('لا توجد مخالفات للتصدير ضمن الفلاتر الحالية.'); return; }
     const rows: XlsxCell[][] = [
-      header,
-      ...listFiltered.map((c) => [
-        c.caseNumber,
-        c.employeeNameAr,
-        c.typeNameAr,
-        c.date,
-        CASE_STATUS_LABELS[c.status],
-        c.description,
-      ]),
+      ['رقم القضية', 'الموظف', 'نوع المخالفة', 'التاريخ', 'الحالة', 'الوصف'],
+      ...listFiltered.map((c) => [c.caseNumber, c.employeeNameAr, c.typeNameAr, c.date, STATUS_LABELS[c.status], c.description]),
     ];
     await downloadXlsxFromAoA('violation-cases.xlsx', 'المخالفات', rows);
     toast.success('تم تنزيل ملف Excel.');
   }, [listFiltered]);
 
-  const statusCounts = React.useMemo(() => {
-    const counts: Partial<Record<StatusFilter, number>> = { all: filtered.length };
-    for (const s of CASE_STATUS_FILTER_ORDER) counts[s] = 0;
-    for (const c of filtered) {
-      counts[c.status] = (counts[c.status] ?? 0) + 1;
-    }
-    return counts as Record<StatusFilter, number>;
-  }, [filtered]);
+  const empOptions = employees.map(e => ({ value: e.id, label: e.nameAr }));
+  const typeOptions = violationTypes.filter(t => t.isActive).map(t => ({ value: t.id, label: t.nameAr, sub: t.code }));
+  const setD = (patch: Partial<CreateForm>) => setDraft(d => ({ ...d, ...patch }));
 
-  const empOptions = activeEmployees.map(e => ({ value: e.id, label: e.nameAr, sub: e.jobTitleAr }));
-  const typeOptions = types.filter(t => t.isActive).map(t => ({ value: t.id, label: t.nameAr, sub: t.code }));
-
-  const set = (patch: Partial<DraftForm>) => setDraft(d => ({ ...d, ...patch }));
-
-  const handleSave = (andSubmit: boolean) => {
+  // After creating a violation, check if type needs notice/investigation and prompt
+  const handleCreate = async () => {
     setFormError(null);
-    if (!draft.employeeId) { setFormError('الموظف مطلوب'); return; }
-    if (!draft.violationTypeId) { setFormError('نوع المخالفة مطلوب'); return; }
-    if (!draft.date) { setFormError('التاريخ مطلوب'); return; }
+    if (!draft.employeeId)         { setFormError('الموظف مطلوب'); return; }
+    if (!draft.violationTypeId)    { setFormError('نوع المخالفة مطلوب'); return; }
+    if (!draft.date)               { setFormError('التاريخ مطلوب'); return; }
     if (!draft.description.trim()) { setFormError('الوصف مطلوب'); return; }
+    setSaving(true);
+    try {
+      await createCase({
+        employeeId: draft.employeeId,
+        violationTypeId: draft.violationTypeId,
+        date: draft.date,
+        description: draft.description,
+        notes: draft.notes || null,
+        attachmentsNote: draft.attachmentsNote || null,
+      });
+      toast.success('تم حفظ المخالفة');
+      setCreateOpen(false);
 
-    const vt = types.find(t => t.id === draft.violationTypeId)!;
-    const emp = activeEmployees.find(e => e.id === draft.employeeId)!;
-
-    const result = add({
-      employeeId: emp.id,
-      employeeNameAr: emp.nameAr,
-      employeeNameEn: emp.nameAr,
-      date: draft.date,
-      description: draft.description,
-      notes: draft.notes,
-      attachmentsNote: draft.attachmentsNote,
-      violationTypeId: vt.id,
-      typeCode: vt.code,
-      typeNameAr: vt.nameAr,
-      typeHasDeduction: vt.hasDeduction,
-      typeDeductionKind: vt.deductionKind,
-      typeDeductionValue: vt.deductionValue,
-      typeNeedsWarning: vt.needsWarning,
-      typeNeedsInvestigation: vt.needsInvestigation,
-      typeNeedsApproval: vt.needsApproval,
-      approvalTemplateId: vt.approvalTemplateId,
-    });
-
-    if (!result.ok) { setFormError(result.error ?? 'خطأ'); return; }
-
-    if (andSubmit && result.id) {
-      submit(result.id);
+      // After save, reload gives us the new case — find it from the updated list
+      // We use a small delay then open the contextual dialog
+      const type = violationTypes.find((t) => t.id === draft.violationTypeId);
+      if (type?.needsInvestigation || type?.needsWarning) {
+        toast.info(
+          type.needsInvestigation && type.needsWarning
+            ? 'هذا النوع يتطلب تحقيقاً وإنذاراً — يمكنك إضافتهما من البطاقة'
+            : type.needsInvestigation
+              ? 'هذا النوع يتطلب فتح تحقيق — يمكنك إضافته من البطاقة'
+              : 'هذا النوع يتطلب إصدار إنذار — يمكنك إضافته من البطاقة',
+          { duration: 5000 },
+        );
+      }
+      setDraft(CREATE_EMPTY);
+    } catch {
+      setFormError('حدث خطأ أثناء الحفظ');
+    } finally {
+      setSaving(false);
     }
-
-    toast.success(andSubmit ? 'تم حفظ المخالفة وتقديمها' : 'تم حفظ المسودة');
-    setDrawerOpen(false);
-    setDraft(EMPTY);
   };
+
+  const openEdit = (c: ViolationCaseRecord) => {
+    setEditCase(c);
+    setEditForm({ date: c.date, description: c.description, notes: c.notes ?? '', attachmentsNote: c.attachmentsNote ?? '' });
+    setEditError(null);
+  };
+
+  const handleEdit = async () => {
+    if (!editCase) return;
+    setEditError(null);
+    if (!editForm.description.trim()) { setEditError('الوصف مطلوب'); return; }
+    setEditSaving(true);
+    try {
+      await updateCase(editCase.id, {
+        violationDate: editForm.date,
+        description: editForm.description,
+        notes: editForm.notes || null,
+        attachmentsNote: editForm.attachmentsNote || null,
+      });
+      toast.success('تم تحديث المخالفة');
+      setEditCase(null);
+    } catch {
+      setEditError('حدث خطأ أثناء الحفظ');
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
+  const handleApprove = async (c: ViolationCaseRecord) => {
+    try {
+      await decideCase(c.id, { decision: 'approve' });
+      toast.success(`تمت الموافقة على ${c.caseNumber}`);
+    } catch (err) {
+      const { displayMessage } = handleApiError(err, 'violation-records.decide.approve');
+      toast.error(displayMessage);
+    }
+  };
+
+  const handleReject = async () => {
+    if (!rejectCase) return;
+    try {
+      await decideCase(rejectCase.id, { decision: 'reject', notes: rejectNote.trim() || null });
+      toast.success('تم رفض المخالفة');
+    } catch (err) {
+      const { displayMessage } = handleApiError(err, 'violation-records.decide.reject');
+      toast.error(displayMessage);
+    }
+    setRejectCase(null);
+    setRejectNote('');
+  };
+
+  const columns = React.useMemo((): ColumnDef<ViolationCaseRecord>[] => [
+    {
+      key: 'caseNumber',
+      title: 'الرقم',
+      headerClassName: 'whitespace-nowrap',
+      className: 'font-mono text-xs font-medium tabular-nums text-muted-foreground',
+      render: (c) => <span dir="ltr">{c.caseNumber}</span>,
+    },
+    {
+      key: 'employee',
+      title: 'الموظف',
+      headerClassName: 'whitespace-nowrap',
+      className: 'max-w-[10rem] truncate font-medium',
+      render: (c) => c.employeeNameAr,
+    },
+    {
+      key: 'type',
+      title: 'نوع المخالفة',
+      headerClassName: 'whitespace-nowrap',
+      className: 'max-w-[9rem] truncate text-xs text-muted-foreground',
+      render: (c) => c.typeNameAr,
+    },
+    {
+      key: 'date',
+      title: 'التاريخ',
+      headerClassName: 'whitespace-nowrap',
+      className: 'whitespace-nowrap font-mono text-xs tabular-nums',
+      render: (c) => <TableDateCell value={c.date} />,
+    },
+    {
+      key: 'description',
+      title: 'الوصف',
+      className: 'max-w-[14rem] truncate text-xs text-muted-foreground',
+      render: (c) => (
+        <span className="line-clamp-2" title={c.description || undefined}>{c.description || '—'}</span>
+      ),
+    },
+    {
+      key: 'status',
+      title: 'الحالة',
+      headerClassName: 'whitespace-nowrap',
+      render: (c) => (
+        <span className={cn('inline-flex rounded-full border px-2 py-0.5 text-[10px] font-medium', STATUS_COLORS[c.status])}>
+          {STATUS_LABELS[c.status]}
+        </span>
+      ),
+    },
+    {
+      key: 'requirements',
+      title: 'المتطلبات',
+      headerClassName: 'whitespace-nowrap',
+      render: (c) => {
+        return (
+          <div className="flex flex-wrap gap-1">
+            {c.typeNeedsInvestigation ? (
+              <Badge variant="outline" className={cn('text-[9px]', STATUS_PILL.info)}>تحقيق</Badge>
+            ) : null}
+            {c.hasInvestigations ? (
+              <Badge variant="outline" className={cn('text-[9px]', STATUS_PILL.calculated)}>
+                {c.investigationCount > 1 ? `${c.investigationCount} تحقيقات` : 'يوجد تحقيق'}
+              </Badge>
+            ) : null}
+            {c.typeNeedsWarning ? (
+              <Badge variant="outline" className={cn('text-[9px]', STATUS_PILL.warning)}>إنذار</Badge>
+            ) : null}
+          </div>
+        );
+      },
+    },
+    {
+      key: 'investigation',
+      title: 'آخر تحقيق',
+      headerClassName: 'whitespace-nowrap',
+      className: 'max-w-[10rem] text-xs text-muted-foreground',
+      render: (c) => {
+        if (!c.hasInvestigations) return '—';
+        const parts = [
+          c.latestInvestigationResult ? INVESTIGATION_RESULT_LABELS[c.latestInvestigationResult] : null,
+          c.latestInvestigationRecommendation
+            ? INVESTIGATION_RECOMMENDATION_LABELS[c.latestInvestigationRecommendation]
+            : null,
+        ].filter(Boolean);
+        return parts.length > 0 ? parts.join(' · ') : `${c.investigationCount} تحقيق`;
+      },
+    },
+    {
+      key: 'actions',
+      title: 'إجراءات',
+      isActions: true,
+      headerClassName: 'whitespace-nowrap',
+      render: (c) => {
+        const canMutate = canMutateViolationCase(c.status);
+        const canFollowUp = canAddDisciplineFollowUp(c.status);
+        const menuItems = [
+          ...(canMutate
+            ? [{ label: 'تعديل', onClick: () => openEdit(c), icon: <Edit3 className="h-3.5 w-3.5" /> }]
+            : []),
+          ...(canFollowUp && c.typeNeedsWarning
+            ? [{ label: 'إنذار', onClick: () => setNoticeCase(c), icon: <AlertTriangle className="h-3.5 w-3.5" /> }]
+            : []),
+          ...(canFollowUp && c.typeNeedsInvestigation
+            ? [{ label: 'تحقيق', onClick: () => setInvestigationCase(c), icon: <Search className="h-3.5 w-3.5" /> }]
+            : []),
+          ...(canFollowUp
+            ? [{ label: 'تظلم', onClick: () => setAppealCase(c), icon: <Scale className="h-3.5 w-3.5" /> }]
+            : []),
+          ...(canMutate
+            ? [{
+                label: 'حذف',
+                onClick: () => setDeleteId(c.id),
+                icon: <Trash2 className="h-3.5 w-3.5" />,
+                destructive: true,
+                separator: true,
+              }]
+            : []),
+        ];
+        return (
+          <TableRowActions
+            primaryActions={c.status === 'pending' ? [
+              { label: 'موافقة', variant: 'success', icon: <CheckCircle2 className="h-3.5 w-3.5" />, onClick: () => void handleApprove(c) },
+              { label: 'رفض', variant: 'destructive', icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { setRejectNote(''); setRejectCase(c); } },
+            ] : []}
+            menuItems={menuItems}
+          />
+        );
+      },
+    },
+  ], [violationTypes]);
 
   useEntityFilterSlot(
     () => (
       <DisciplineFilterToolbar
         ref={filterToolbarRef}
+        showPrimaryAction={false}
         primaryActionLabel="مخالفة جديدة"
-        onPrimaryAction={() => { setDraft(EMPTY); setFormError(null); setDrawerOpen(true); }}
+        onPrimaryAction={() => { setDraft(CREATE_EMPTY); setFormError(null); setCreateOpen(true); }}
         toolbarExtraTrailing={(
           <>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-8 gap-1.5 text-xs"
-              onClick={() => {
-                if (violationPdfRows.length === 0) {
-                  toast.error('لا توجد مخالفات للتصدير ضمن الفلاتر الحالية.');
-                  return;
-                }
-                setPdfOpen(true);
-              }}
-            >
-              <FileDown className="h-3.5 w-3.5" />
-              PDF
+            <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 text-xs"
+              onClick={() => { if (violationPdfRows.length === 0) { toast.error('لا توجد مخالفات للتصدير ضمن الفلاتر الحالية.'); return; } setPdfOpen(true); }}>
+              <FileDown className="h-3.5 w-3.5" /> PDF
             </Button>
-            <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 text-xs" onClick={() => void handleExportViolationExcel()}>
-              <FileSpreadsheet className="h-3.5 w-3.5" />
-              Excel
+            <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 text-xs" onClick={() => void handleExportExcel()}>
+              <FileSpreadsheet className="h-3.5 w-3.5" /> Excel
             </Button>
           </>
         )}
@@ -334,404 +708,372 @@ export function ViolationCasesClient() {
         onSelectedEmpIdsChange={setSelectedEmpIds}
         statusFilter={statusFilter}
         onStatusFilterChange={(v) => setStatusFilter(v as StatusFilter)}
-        statusOrder={CASE_STATUS_FILTER_ORDER}
-        statusLabels={CASE_STATUS_LABELS as unknown as Record<string, string>}
-        statusCounts={statusCounts as unknown as Record<string, number>}
+        statusOrder={STATUS_ORDER}
+        statusLabels={STATUS_LABELS as unknown as Record<string, string>}
+        statusCounts={statusCounts}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
         onDateBoundsChange={onDateBoundsChange}
         onDateFilterMetaChange={onDateFilterMetaChange}
       />
     ),
-    [
-      empPickerList,
-      selectedEmpIds,
-      statusFilter,
-      statusCounts,
-      viewMode,
-      listFiltered,
-      onDateBoundsChange,
-      onDateFilterMetaChange,
-    ],
+    [empPickerList, selectedEmpIds, statusFilter, statusCounts, viewMode, violationPdfRows, onDateBoundsChange, onDateFilterMetaChange],
   );
 
+  if (loading) {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col">
+        <EntityActionCardGridSkeleton count={6} />
+      </div>
+    );
+  }
+
+  if (listError) {
+    return <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-6 text-center text-sm text-destructive">{listError}</div>;
+  }
+
   return (
-    <div className="space-y-4">
-      <PdfPreviewExportDialog
-        open={pdfOpen}
-        onOpenChange={setPdfOpen}
-        title="معاينة تصدير سجل المخالفات"
-        fileName={violationPdfFileName}
-        printable={printable}
-      />
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
+      <PdfPreviewExportDialog open={pdfOpen} onOpenChange={setPdfOpen} title="معاينة تصدير سجل المخالفات" fileName="violation-cases.pdf" printable={printable} />
 
-      {searchFiltered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/60 bg-muted/20 py-16 text-center">
-          <ShieldAlert className="mb-3 h-10 w-10 text-muted-foreground/30" />
-          <p className="text-sm text-muted-foreground">لا توجد مخالفات ضمن الموظفين المحددين.</p>
-        </div>
-      ) : filtered.length === 0 ? (
+      <DisciplineListViewport>
+      {sourceCases.length === 0 && !loading ? (
+        <EmptyState title="لا توجد مخالفات مطابقة للفلاتر المحددة." />
+      ) : listFiltered.length === 0 && !loading ? (
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/60 bg-muted/20 py-14 text-center">
-          <ShieldAlert className="mb-3 h-10 w-10 text-muted-foreground/25" />
           <p className="text-sm text-muted-foreground">
-            {dateMeta.tab === 'today'
-              ? 'لا توجد مخالفات بتاريخ اليوم ضمن النتائج الحالية.'
-              : dateMeta.tab === 'week'
-                ? 'لا توجد مخالفات ضمن هذا الأسبوع (الأحد–السبت) ضمن النتائج الحالية.'
-                : dateMeta.tab === 'month'
-                  ? 'لا توجد مخالفات ضمن هذا الشهر ضمن النتائج الحالية.'
-                  : dateMeta.tab === 'custom' && dateRangeActive
-                    ? 'لا توجد مخالفات ضمن نطاق التاريخ المخصص مع عوامل البحث الحالية.'
-                    : 'لا توجد مخالفات ضمن النتائج الحالية.'}
+            لا توجد مخالفات بحالة «{STATUS_LABELS[statusFilter as ViolationRecordStatus]}».
           </p>
-          {dateRangeActive ? (
-            <Button variant="link" size="sm" className="mt-2 text-xs" onClick={() => filterToolbarRef.current?.resetDateFilter()}>
-              عرض كل الفترات
-            </Button>
-          ) : null}
-        </div>
-      ) : listFiltered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/60 bg-muted/20 py-14 text-center">
-          <ShieldAlert className="mb-3 h-10 w-10 text-muted-foreground/25" />
-          <p className="text-sm text-muted-foreground">لا توجد مخالفات ضمن مرحلة «{statusFilter === 'all' ? '' : CASE_STATUS_LABELS[statusFilter]}» مع عوامل البحث الحالية.</p>
-          <Button variant="link" size="sm" className="mt-2 text-xs" onClick={() => filterToolbarRef.current?.resetStatusFilter()}>
-            عرض الكل
-          </Button>
-        </div>
-      ) : viewMode === 'cards' ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {listFiltered.map((c) => {
-            const isUnderReview = c.status === 'under_review';
-            const isDraft = c.status === 'draft';
-            return (
-              <div
-                key={c.id}
-                role="button"
-                tabIndex={0}
-                onClick={() => setViewCase(c)}
-                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setViewCase(c); } }}
-                className="group relative overflow-hidden rounded-xl border border-border bg-card shadow-soft transition-all hover:-translate-y-0.5 hover:shadow-elevated cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-ring flex flex-col"
-              >
-                <div className={cn(
-                  'absolute -right-8 -top-8 h-24 w-24 rounded-full opacity-0 blur-2xl transition-opacity group-hover:opacity-10',
-                  isUnderReview ? 'bg-amber-500' : 'bg-primary',
-                )} />
-                <div className="relative p-5 flex flex-col flex-1">
-                  {/* Header */}
-                  <div className="flex items-start justify-between mb-4">
-                    <div className={cn(
-                      'flex h-10 w-10 items-center justify-center rounded-xl',
-                      isUnderReview ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400' : 'bg-primary/10 text-primary',
-                    )}>
-                      <ShieldAlert className="h-5 w-5" />
-                    </div>
-                    <span className={cn(
-                      'inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium shrink-0',
-                      CASE_STATUS_COLORS[c.status],
-                    )}>
-                      {CASE_STATUS_LABELS[c.status]}
-                    </span>
-                  </div>
-
-                  {/* Case number + employee */}
-                  <p className="font-mono text-[10px] font-bold text-muted-foreground/80 mb-0.5" dir="ltr">{c.caseNumber}</p>
-                  <h3 className="font-display text-base font-bold leading-snug mb-3 group-hover:text-primary transition-colors truncate flex items-center gap-1.5">
-                    <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                    <span className="truncate">{c.employeeNameAr}</span>
-                  </h3>
-
-                  {/* Tags */}
-                  <div className="flex flex-wrap gap-1.5 mb-3">
-                    <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary truncate max-w-full">
-                      {c.typeNameAr}
-                    </span>
-                    <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground" dir="ltr">
-                      <CalendarDays className="h-2.5 w-2.5" />
-                      {c.date}
-                    </span>
-                    {c.requiredApprovers.length > 1 && isUnderReview && (
-                      <span className="inline-flex items-center rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400">
-                        مرحلة {c.currentApprovalIndex + 1}/{c.requiredApprovers.length}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Description preview */}
-                  {c.description && (
-                    <p className="text-xs text-muted-foreground line-clamp-2 mb-4">{c.description}</p>
-                  )}
-
-                  {/* Approval action strip — only under_review */}
-                  {isUnderReview && (
-                    <div
-                      className="grid grid-cols-3 gap-1 rounded-lg border border-amber-500/20 bg-amber-500/5 p-1 mb-3"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 gap-1 px-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-500/10 hover:text-emerald-700 dark:text-emerald-400"
-                        onClick={() => handleApprove(c)}
-                      >
-                        <CheckCircle2 className="h-3.5 w-3.5" /> موافقة
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 gap-1 px-1 text-xs font-semibold text-red-700 hover:bg-red-500/10 hover:text-red-700 dark:text-red-400"
-                        onClick={() => { setRejectNote(''); setRejectModal(c); }}
-                      >
-                        <XCircle className="h-3.5 w-3.5" /> رفض
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 gap-1 px-1 text-xs font-semibold text-amber-700 hover:bg-amber-500/10 hover:text-amber-700 dark:text-amber-400"
-                        onClick={() => { setEditNote(''); setEditModal(c); }}
-                      >
-                        <Edit3 className="h-3.5 w-3.5" /> تعديل
-                      </Button>
-                    </div>
-                  )}
-
-                  {/* Footer */}
-                  <div
-                    className="mt-auto flex items-center gap-1 border-t border-border/60 pt-2"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <Button variant="ghost" size="sm" type="button" className="h-7 gap-1 px-2 text-xs flex-1" onClick={() => setViewCase(c)}>
-                      <Eye className="h-3 w-3" /> عرض
-                    </Button>
-                    {isDraft && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        type="button"
-                        className="h-7 gap-1 px-2 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-500/10"
-                        onClick={() => { submit(c.id); toast.success('تم تقديم المخالفة'); }}
-                      >
-                        <Send className="h-3 w-3" /> تقديم
-                      </Button>
-                    )}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      type="button"
-                      className="h-7 gap-1 px-2 text-xs text-destructive hover:text-destructive"
-                      onClick={() => setDeleteId(c.id)}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+          <Button variant="link" size="sm" className="mt-2 text-xs" onClick={() => filterToolbarRef.current?.resetStatusFilter()}>عرض الكل</Button>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-border shadow-sm">
-          <table className="w-full min-w-[760px] border-collapse text-sm">
-            <thead>
-              <tr className="border-b border-border bg-muted/50 text-right">
-                <th className="whitespace-nowrap p-3 text-xs font-semibold text-muted-foreground">الرقم</th>
-                <th className="whitespace-nowrap p-3 text-xs font-semibold text-muted-foreground">الموظف</th>
-                <th className="whitespace-nowrap p-3 text-xs font-semibold text-muted-foreground">نوع المخالفة</th>
-                <th className="whitespace-nowrap p-3 text-xs font-semibold text-muted-foreground">التاريخ</th>
-                <th className="whitespace-nowrap p-3 text-xs font-semibold text-muted-foreground">الحالة</th>
-                <th className="whitespace-nowrap p-3 text-xs font-semibold text-muted-foreground">مرحلة الاعتماد</th>
-                <th className="whitespace-nowrap p-3 text-xs font-semibold text-muted-foreground">إجراءات</th>
-              </tr>
-            </thead>
-            <tbody>
-              {listFiltered.map((c) => {
-                const isUnderReview = c.status === 'under_review';
-                const isDraft = c.status === 'draft';
-                return (
-                  <tr key={c.id} className="border-b border-border/70 transition-colors hover:bg-muted/25">
-                    <td className="p-3 font-mono text-xs font-medium tabular-nums text-muted-foreground" dir="ltr">{c.caseNumber}</td>
-                    <td className="max-w-[10rem] truncate p-3 font-medium">{c.employeeNameAr}</td>
-                    <td className="max-w-[9rem] truncate p-3 text-xs text-muted-foreground">{c.typeNameAr}</td>
-                    <td className="whitespace-nowrap p-3 font-mono text-xs tabular-nums" dir="ltr">{c.date}</td>
-                    <td className="p-3">
-                      <span className={cn('inline-flex rounded-full border px-2 py-0.5 text-[10px] font-medium', CASE_STATUS_COLORS[c.status])}>
-                        {CASE_STATUS_LABELS[c.status]}
+        <DisciplinePaginatedList pagination={pagination}>
+          {viewMode === 'cards' ? (
+          <EntityActionCardGrid>
+            {items.map((c) => {
+            const isPending = c.status === 'pending';
+            return (
+              <EntityActionCard
+                key={c.id}
+                onClick={() => setViewCase(c)}
+                reference={c.caseNumber}
+                title={c.employeeNameAr ?? '—'}
+                subtitle={c.typeNameAr}
+                description={c.description}
+                status={{
+                  label: STATUS_LABELS[c.status],
+                  tone: VIOLATION_STATUS_TONE[c.status],
+                }}
+                chips={
+                  <>
+                    <EntityActionCardChip className="font-mono tabular-nums">
+                      <span className="inline-flex items-center gap-1" dir="ltr">
+                        <CalendarDays className="h-3 w-3 shrink-0" />
+                        {c.date}
                       </span>
-                    </td>
-                    <td className="p-3 text-xs text-muted-foreground">
-                      {isUnderReview && c.requiredApprovers.length > 0
-                        ? `${c.currentApprovalIndex + 1} / ${c.requiredApprovers.length}`
-                        : '—'}
-                    </td>
-                    <td className="p-2">
-                      <div className="flex flex-wrap items-center justify-end gap-1">
-                        <Button variant="ghost" size="sm" className="h-8 gap-1 px-2 text-xs" type="button" onClick={() => setViewCase(c)}>
-                          <Eye className="h-3.5 w-3.5" /> عرض
+                    </EntityActionCardChip>
+                    {c.hasInvestigations && c.latestInvestigationResult ? (
+                      <EntityActionCardChip>
+                        {INVESTIGATION_RESULT_LABELS[c.latestInvestigationResult]}
+                      </EntityActionCardChip>
+                    ) : null}
+                    {c.latestInvestigationRecommendation ? (
+                      <EntityActionCardChip>
+                        {INVESTIGATION_RECOMMENDATION_LABELS[c.latestInvestigationRecommendation]}
+                      </EntityActionCardChip>
+                    ) : null}
+                  </>
+                }
+                footerNote={
+                  !isPending && (c.decidedAt || c.decisionNotes) ? (
+                    <div className="space-y-0.5 text-[11px] text-muted-foreground">
+                      {c.decidedAt ? (
+                        <p>
+                          <span className="text-foreground/80">تاريخ القرار: </span>
+                          {formatDisplayDateTime(c.decidedAt)}
+                        </p>
+                      ) : null}
+                      {c.decisionNotes ? (
+                        <p className="line-clamp-2" title={c.decisionNotes}>
+                          <span className="text-foreground/80">ملاحظات: </span>
+                          {c.decisionNotes}
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : undefined
+                }
+                workflow={
+                  isPending
+                    ? {
+                        showApproveReject: true,
+                        onApprove: () => void handleApprove(c),
+                        onReject: () => { setRejectNote(''); setRejectCase(c); },
+                      }
+                    : undefined
+                }
+                onEdit={canMutateViolationCase(c.status) ? () => openEdit(c) : undefined}
+                onDelete={canMutateViolationCase(c.status) ? () => setDeleteId(c.id) : undefined}
+                extraFooter={
+                  canAddDisciplineFollowUp(c.status) ? (
+                    <div className="flex gap-1">
+                      {c.typeNeedsWarning ? (
+                        <Button variant="ghost" size="sm" type="button"
+                          className="h-7 flex-1 gap-1 px-2 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
+                          onClick={() => setNoticeCase(c)}>
+                          <AlertTriangle className="h-3 w-3" /> إنذار
                         </Button>
-                        {isDraft && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 gap-1 px-2 text-xs text-blue-600 hover:bg-blue-500/10 hover:text-blue-700"
-                            type="button"
-                            onClick={() => { submit(c.id); toast.success('تم تقديم المخالفة'); }}
-                          >
-                            <Send className="h-3.5 w-3.5" /> تقديم
-                          </Button>
-                        )}
-                        {isUnderReview && (
-                          <>
-                            <Button variant="ghost" size="sm" className="h-8 gap-1 px-2 text-xs text-emerald-700 hover:bg-emerald-500/10" type="button" onClick={() => handleApprove(c)}>
-                              <CheckCircle2 className="h-3.5 w-3.5" /> موافقة
-                            </Button>
-                            <Button variant="ghost" size="sm" className="h-8 gap-1 px-2 text-xs text-red-700 hover:bg-red-500/10" type="button" onClick={() => { setRejectNote(''); setRejectModal(c); }}>
-                              <XCircle className="h-3.5 w-3.5" /> رفض
-                            </Button>
-                            <Button variant="ghost" size="sm" className="h-8 gap-1 px-2 text-xs text-amber-700 hover:bg-amber-500/10" type="button" onClick={() => { setEditNote(''); setEditModal(c); }}>
-                              <Edit3 className="h-3.5 w-3.5" /> تعديل
-                            </Button>
-                          </>
-                        )}
-                        <Button variant="ghost" size="sm" className="h-8 px-2 text-destructive hover:text-destructive" type="button" onClick={() => setDeleteId(c.id)}>
-                          <Trash2 className="h-3.5 w-3.5" />
+                      ) : null}
+                      {c.typeNeedsInvestigation ? (
+                        <Button variant="ghost" size="sm" type="button"
+                          className="h-7 flex-1 gap-1 px-2 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
+                          onClick={() => setInvestigationCase(c)}>
+                          <Search className="h-3 w-3" /> تحقيق
                         </Button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                      ) : null}
+                      <Button variant="ghost" size="sm" type="button"
+                        className="h-7 flex-1 gap-1 px-2 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
+                        onClick={() => setAppealCase(c)}>
+                        <Scale className="h-3 w-3" /> تظلم
+                      </Button>
+                    </div>
+                  ) : undefined
+                }
+              />
+            );
+            })}
+          </EntityActionCardGrid>
+          ) : (
+          <DataTable
+            variant="directory"
+            alwaysShowTable
+            tableClassName="min-w-[900px]"
+            columns={columns}
+            data={items}
+            keyExtractor={(c) => c.id}
+            onRowClick={(c) => setViewCase(c)}
+          />
+          )}
+        </DisciplinePaginatedList>
       )}
+      </DisciplineListViewport>
 
-      {/* Create Drawer */}
-      <HRSettingsFormDrawer
-        open={drawerOpen}
-        onOpenChange={setDrawerOpen}
-        title="مخالفة جديدة"
-        size="lg"
-        onSave={() => handleSave(false)}
-        saveLabel="حفظ مسودة"
-        error={formError}
-      >
+      {/* ── Create Drawer ── */}
+      <HRSettingsFormDrawer open={createOpen} onOpenChange={setCreateOpen} title="مخالفة جديدة" size="lg"
+        onSave={() => void handleCreate()} saveDisabled={saving} error={formError}>
         <FormField label="الموظف" required>
-          <SearchableDropdown value={draft.employeeId} onChange={v => set({ employeeId: v })} options={empOptions} placeholder="اختر الموظف…" />
+          <SearchableDropdown value={draft.employeeId} onChange={v => setD({ employeeId: v })} options={empOptions} placeholder="اختر الموظف…" />
         </FormField>
         <FormField label="نوع المخالفة" required>
-          <SearchableDropdown value={draft.violationTypeId} onChange={v => set({ violationTypeId: v })} options={typeOptions} placeholder="اختر نوع المخالفة…" />
+          <SearchableDropdown value={draft.violationTypeId} onChange={v => setD({ violationTypeId: v })} options={typeOptions} placeholder="اختر نوع المخالفة…" />
         </FormField>
+
+        {/* Live type requirement indicators */}
+        {selectedType && (selectedType.needsWarning || selectedType.needsInvestigation) && (
+          <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
+            <p className="text-xs font-medium text-muted-foreground">هذا النوع يتطلب:</p>
+            <TypeRequirementBadges needsWarning={selectedType.needsWarning} needsInvestigation={selectedType.needsInvestigation} />
+            <p className="text-[11px] text-muted-foreground">سيمكنك إضافتها بعد حفظ المخالفة من البطاقة.</p>
+          </div>
+        )}
+
         <FormField label="تاريخ المخالفة" required>
-          <Input type="date" value={draft.date} onChange={e => set({ date: e.target.value })} />
+          <DatePickerInput value={draft.date} onChange={(ymd) => setD({ date: ymd })} />
         </FormField>
         <FormField label="الوصف" required>
-          <textarea
-            value={draft.description}
-            onChange={e => set({ description: e.target.value })}
-            placeholder="اكتب وصف المخالفة…"
-            className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          />
+          <textarea value={draft.description} onChange={e => setD({ description: e.target.value })} placeholder="اكتب وصف المخالفة…"
+            className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
         </FormField>
         <FormField label="ملاحظات">
-          <textarea
-            value={draft.notes}
-            onChange={e => set({ notes: e.target.value })}
-            placeholder="ملاحظات إضافية…"
-            className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          />
+          <textarea value={draft.notes} onChange={e => setD({ notes: e.target.value })} placeholder="ملاحظات إضافية…"
+            className="flex min-h-[60px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
         </FormField>
         <FormField label="ملاحظة المرفقات">
-          <Input value={draft.attachmentsNote} onChange={e => set({ attachmentsNote: e.target.value })} placeholder="وصف المستندات المرفقة…" />
+          <Input value={draft.attachmentsNote} onChange={e => setD({ attachmentsNote: e.target.value })} placeholder="وصف المستندات المرفقة…" />
         </FormField>
-
       </HRSettingsFormDrawer>
 
+      {/* ── Edit Drawer ── */}
+      <HRSettingsFormDrawer open={!!editCase} onOpenChange={v => !v && setEditCase(null)}
+        title={`تعديل: ${editCase?.caseNumber ?? ''}`} size="lg"
+        onSave={() => void handleEdit()} saveDisabled={editSaving} error={editError}>
+        <FormField label="تاريخ المخالفة" required>
+          <DatePickerInput value={editForm.date} onChange={(ymd) => setEditForm(f => ({ ...f, date: ymd }))} />
+        </FormField>
+        <FormField label="الوصف" required>
+          <textarea value={editForm.description} onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))} placeholder="وصف المخالفة…"
+            className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+        </FormField>
+        <FormField label="ملاحظات">
+          <textarea value={editForm.notes} onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))} placeholder="ملاحظات إضافية…"
+            className="flex min-h-[60px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+        </FormField>
+        <FormField label="ملاحظة المرفقات">
+          <Input value={editForm.attachmentsNote} onChange={e => setEditForm(f => ({ ...f, attachmentsNote: e.target.value }))} placeholder="وصف المستندات المرفقة…" />
+        </FormField>
+      </HRSettingsFormDrawer>
+
+      {/* ── View Dialog ── */}
       <Dialog open={!!viewCase} onOpenChange={v => !v && setViewCase(null)}>
         <DialogContent className="sm:max-w-lg border-border">
           <DialogHeader>
             <DialogTitle className="font-display">{viewCase?.caseNumber}</DialogTitle>
-            <DialogDescription className="sr-only">تفاصيل المخالفة والموظف وحالة المسار.</DialogDescription>
+            <DialogDescription className="sr-only">تفاصيل المخالفة</DialogDescription>
           </DialogHeader>
           {viewCase && (
             <div className="space-y-4 text-sm">
-              <CaseWorkflowStrip status={viewCase.status} />
               <div className="grid grid-cols-2 gap-3">
                 <div><span className="text-muted-foreground text-xs">الموظف</span><p className="font-medium">{viewCase.employeeNameAr}</p></div>
                 <div><span className="text-muted-foreground text-xs">نوع المخالفة</span><p className="font-medium">{viewCase.typeNameAr}</p></div>
                 <div><span className="text-muted-foreground text-xs">التاريخ</span><p>{viewCase.date}</p></div>
                 <div>
-                  <span className="text-muted-foreground text-xs">الحالة الحالية</span>
-                  <p><span className={cn('inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium', CASE_STATUS_COLORS[viewCase.status])}>{CASE_STATUS_LABELS[viewCase.status]}</span></p>
+                  <span className="text-muted-foreground text-xs">الحالة</span>
+                  <p className="flex items-center gap-1.5">
+                    <span className={cn('inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium', STATUS_COLORS[viewCase.status])}>{STATUS_LABELS[viewCase.status]}</span>
+                    {viewCase.hasInvestigations ? (
+                      <span className={cn('inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium', STATUS_PILL.calculated)}>يوجد تحقيق</span>
+                    ) : null}
+                  </p>
                 </div>
               </div>
-              {viewCase.status === 'under_review' && viewCase.requiredApprovers.length > 0 && (
-                <p className="text-xs text-muted-foreground">
-                  مرحلة الاعتماد الحالية: <span className="font-mono font-semibold text-foreground">{viewCase.currentApprovalIndex + 1}</span> من{' '}
-                  <span className="font-mono font-semibold text-foreground">{viewCase.requiredApprovers.length}</span>
-                  {' '}({viewCase.requiredApprovers.map((r) => APPROVER_LABEL_AR[r]).join(' ← ')})
-                </p>
-              )}
+              {viewCase.typeNeedsInvestigation || viewCase.typeNeedsWarning ? (
+                <TypeRequirementBadges
+                  needsWarning={viewCase.typeNeedsWarning}
+                  needsInvestigation={viewCase.typeNeedsInvestigation}
+                />
+              ) : null}
               <div><span className="text-muted-foreground text-xs">الوصف</span><p className="mt-1">{viewCase.description}</p></div>
               {viewCase.notes && <div><span className="text-muted-foreground text-xs">ملاحظات</span><p className="mt-1">{viewCase.notes}</p></div>}
-              {viewCase.approvalLog.length > 0 && (
-                <div>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">سجل الاعتماد</p>
+              {viewCase.attachmentsNote && <div><span className="text-muted-foreground text-xs">المرفقات</span><p className="mt-1">{viewCase.attachmentsNote}</p></div>}
+              {viewCase.investigations.length > 0 ? (
+                <div className="space-y-2 rounded-lg border border-border bg-muted/15 p-3">
+                  <p className="text-xs font-semibold text-foreground">
+                    التحقيقات ({viewCase.investigationCount})
+                  </p>
                   <div className="space-y-2">
-                    {viewCase.approvalLog.map((entry, i) => (
-                      <div key={i} className="rounded-lg border border-border p-3 text-xs">
-                        <div className="flex items-center justify-between">
-                          <span className="font-medium capitalize">{entry.role}</span>
-                          <span className={cn('font-medium', entry.action === 'approved' ? 'text-emerald-600' : entry.action === 'rejected' ? 'text-red-600' : 'text-amber-600')}>{entry.action === 'approved' ? 'معتمد' : entry.action === 'rejected' ? 'مرفوض' : 'طلب تعديل'}</span>
+                    {viewCase.investigations.map((inv) => (
+                      <div key={inv.id} className="rounded-md border border-border/60 bg-background px-3 py-2 text-xs space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-mono tabular-nums" dir="ltr">{inv.investigationDate}</span>
+                          <Badge variant="outline" className="text-[10px]">
+                            {INVESTIGATION_RESULT_LABELS[inv.result]}
+                          </Badge>
+                          {inv.recommendation ? (
+                            <Badge variant="outline" className="text-[10px]">
+                              {INVESTIGATION_RECOMMENDATION_LABELS[inv.recommendation]}
+                            </Badge>
+                          ) : null}
                         </div>
-                        {entry.note && <p className="mt-1 text-muted-foreground">{entry.note}</p>}
-                        <p className="mt-1 text-muted-foreground">
-                          {formatDate(entry.at)} · {formatTime(entry.at)}
-                        </p>
+                        {inv.employeeStatement ? (
+                          <p><span className="text-muted-foreground">أقوال الموظف: </span>{inv.employeeStatement}</p>
+                        ) : null}
+                        {inv.witnessStatement ? (
+                          <p><span className="text-muted-foreground">أقوال الشهود: </span>{inv.witnessStatement}</p>
+                        ) : null}
+                        {inv.deductionType && inv.deductionValue ? (
+                          <p>
+                            <span className="text-muted-foreground">الاستقطاع: </span>
+                            {INVESTIGATION_DEDUCTION_TYPE_LABELS[inv.deductionType]} · {inv.deductionValue}
+                          </p>
+                        ) : null}
                       </div>
                     ))}
                   </div>
                 </div>
+              ) : null}
+              {(viewCase.decidedAt || viewCase.decisionNotes) && (
+                <div className="rounded-lg border border-border bg-muted/20 p-3 space-y-2">
+                  <p className="text-xs font-semibold text-muted-foreground">القرار</p>
+                  {viewCase.decidedAt && (
+                    <div><span className="text-muted-foreground text-xs">تاريخ القرار</span><p className="font-mono text-xs">{formatDisplayDateTime(viewCase.decidedAt)}</p></div>
+                  )}
+                  {viewCase.decisionNotes && (
+                    <div><span className="text-muted-foreground text-xs">ملاحظات القرار</span><p className="mt-0.5">{viewCase.decisionNotes}</p></div>
+                  )}
+                </div>
               )}
+              {viewCase.typeHasDeduction && viewCase.typeDeductionKind ? (
+                <div className="rounded-lg border border-border bg-muted/20 p-3 space-y-1">
+                  <p className="text-xs font-semibold text-foreground">خصم مالي</p>
+                  <p className="text-xs text-muted-foreground">
+                    <span className="font-medium text-foreground">النوع: </span>{viewCase.typeDeductionKind}
+                    {viewCase.typeDeductionValue && <><span className="mx-1">·</span><span className="font-medium text-foreground">القيمة: </span>{viewCase.typeDeductionValue}</>}
+                  </p>
+                </div>
+              ) : null}
+              {canAddDisciplineFollowUp(viewCase.status) ? (
+                <div className="flex flex-wrap gap-2 pt-1 border-t border-border">
+                  {viewCase.typeNeedsWarning ? (
+                    <Button size="sm" variant="outline" className="gap-1.5"
+                      onClick={() => { setViewCase(null); setNoticeCase(viewCase); }}>
+                      <AlertTriangle className="h-3.5 w-3.5" /> إصدار إنذار
+                    </Button>
+                  ) : null}
+                  {viewCase.typeNeedsInvestigation ? (
+                    <Button size="sm" variant="outline" className="gap-1.5"
+                      onClick={() => { setViewCase(null); setInvestigationCase(viewCase); }}>
+                      <Search className="h-3.5 w-3.5" /> فتح تحقيق
+                    </Button>
+                  ) : null}
+                  <Button size="sm" variant="outline" className="gap-1.5"
+                    onClick={() => { setViewCase(null); setAppealCase(viewCase); }}>
+                    <Scale className="h-3.5 w-3.5" /> تقديم تظلم
+                  </Button>
+                </div>
+              ) : null}
             </div>
           )}
         </DialogContent>
       </Dialog>
 
-      <ConfirmationModal
-        open={!!deleteId}
-        onOpenChange={v => !v && setDeleteId(null)}
-        onConfirm={() => { if (deleteId) { remove(deleteId); toast.success('تم الحذف'); setDeleteId(null); } }}
-        title="حذف المخالفة"
-      />
-
-      {/* Reject Modal */}
-      <Dialog open={!!rejectModal} onOpenChange={v => !v && setRejectModal(null)}>
+      {/* ── Reject Dialog ── */}
+      <Dialog open={!!rejectCase} onOpenChange={v => !v && setRejectCase(null)}>
         <DialogContent className="sm:max-w-sm border-border">
           <DialogHeader>
-            <DialogTitle>رفض المخالفة {rejectModal?.caseNumber}</DialogTitle>
+            <DialogTitle>رفض المخالفة {rejectCase?.caseNumber}</DialogTitle>
             <DialogDescription className="sr-only">أدخل سبب الرفض اختياريًا ثم أكّد.</DialogDescription>
           </DialogHeader>
           <Input value={rejectNote} onChange={e => setRejectNote(e.target.value)} placeholder="سبب الرفض (اختياري)…" />
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setRejectModal(null)}>إلغاء</Button>
-            <Button variant="destructive" onClick={handleReject}>تأكيد الرفض</Button>
+          <DialogFooter>
+            <Button variant="destructive" onClick={() => void handleReject()}>تأكيد الرفض</Button>
+            <Button variant="outline" onClick={() => setRejectCase(null)}>إلغاء</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Request Edit Modal */}
-      <Dialog open={!!editModal} onOpenChange={v => !v && setEditModal(null)}>
-        <DialogContent className="sm:max-w-sm border-border">
-          <DialogHeader>
-            <DialogTitle>طلب تعديل {editModal?.caseNumber}</DialogTitle>
-            <DialogDescription className="sr-only">صف الملاحظات المطلوبة للتعديل ثم أرسل الطلب.</DialogDescription>
-          </DialogHeader>
-          <Input value={editNote} onChange={e => setEditNote(e.target.value)} placeholder="ملاحظة التعديل المطلوب…" />
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setEditModal(null)}>إلغاء</Button>
-            <Button onClick={handleRequestEdit}>إرسال الطلب</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* ── Delete Confirm ── */}
+      <ConfirmationModal
+        open={!!deleteId}
+        onOpenChange={v => !v && setDeleteId(null)}
+        onConfirm={async () => {
+          if (deleteId) {
+            try { await deleteCase(deleteId); toast.success('تم الحذف'); } catch { toast.error('فشل الحذف'); }
+            setDeleteId(null);
+          }
+        }}
+        title="حذف المخالفة"
+      />
+
+      {/* ── Contextual dialogs ── */}
+      <NoticeDialog
+        open={!!noticeCase}
+        onClose={() => setNoticeCase(null)}
+        violationCase={noticeCase}
+        companyId={companyId}
+      />
+      <ViolationInvestigationDrawer
+        open={!!investigationCase}
+        onOpenChange={(open) => { if (!open) setInvestigationCase(null); }}
+        violationCase={investigationCase}
+        companyId={companyId}
+        employees={employees}
+        onSuccess={() => void reload()}
+      />
+      <AppealDialog
+        open={!!appealCase}
+        onClose={() => setAppealCase(null)}
+        violationCase={appealCase}
+        companyId={companyId}
+      />
     </div>
   );
 }

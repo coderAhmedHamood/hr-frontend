@@ -1,7 +1,7 @@
 'use client';
 
-import type { HRDisciplineSection } from '@/lib/hr-discipline/types';
-import { useSetPageTitle } from '@/components/page-title-context';
+import type { HRDisciplineSection } from '@/features/hr/discipline/lib/types';
+import { useSetPageTitle } from '@/components/layouts/page-title-context';
 import { ViolationTypesClient } from '@/features/hr/discipline/violation-types/components/violation-types-client';
 import { DisciplineApprovalClient } from '@/features/hr/discipline/approval-assignment/components/discipline-approval-client';
 import { ViolationCasesClient } from '@/features/hr/discipline/violation-cases/components/violation-cases-client';
@@ -11,7 +11,6 @@ import { InvestigationsClient } from '@/features/hr/discipline/investigations/co
 import { DeductionsClient } from '@/features/hr/discipline/deductions/components/deductions-client';
 import { AppealsClient } from '@/features/hr/discipline/appeals/components/appeals-client';
 import { DisciplineAuditLogClient } from '@/features/hr/discipline/audit-log/components/discipline-audit-log-client';
-
 interface Props {
   section: HRDisciplineSection;
   titleAr: string;
@@ -21,7 +20,7 @@ interface Props {
 export function HRDisciplineSectionRoot({ section, titleAr }: Props) {
   useSetPageTitle({ titleAr, descriptionAr: 'الانضباط الوظيفي وإدارة المخالفات', iconName: 'ShieldAlert' });
   return (
-    <div className="space-y-6">
+    <div className="flex min-h-0 flex-1 flex-col">
       {section === 'violation-types' && <ViolationTypesClient />}
       {section === 'approval-assignment' && <DisciplineApprovalClient />}
       {section === 'violation-cases' && <ViolationCasesClient />}

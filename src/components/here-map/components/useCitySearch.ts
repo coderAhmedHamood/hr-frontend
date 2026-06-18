@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback, type RefObject } from "react";
 import { geocodeQuery } from "./geocoding";
-import { publicConfig } from '@/lib/config';
+import { publicConfig } from '@/shared/config';
 import { SEARCH_DEBOUNCE_MS, FLY_ZOOM_OUT_LEVEL, FLY_DESTINATION_ZOOM } from "../constants/constants";
 import type { CitySearchState, GeocodingResult } from "../types/types";
 

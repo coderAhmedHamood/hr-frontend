@@ -1,55 +1,81 @@
 'use client';
 
-import { Building2, CalendarDays, Clock, MapPin, Trash2, Users } from 'lucide-react';
+import * as React from 'react';
+import { CalendarDays, Clock, Pencil, Trash2, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import type { ShiftAssignment, ShiftTemplate } from '@/lib/attendance/types';
+import { ConfirmationModal } from '@/features/hr/requests/components/shared-ui';
+
+type BatchRow = {
+  id: string;
+  targetLabel: string;
+  employeeCode: string;
+  isActive: boolean;
+  effectiveFrom: string;
+};
 
 type Batch = {
   batchId: string;
-  rows: ShiftAssignment[];
-  templateId: string | undefined;
+  templateName: string;
+  colorHex: string;
   effectiveFrom: string | undefined;
+  totalAssignments: number;
+  activeAssignments: number;
+  rows: BatchRow[];
 };
 
 export function AssignmentsBatchCard({
   batch,
-  shiftTemplates,
   onRemoveBatch,
+  onEditBatch,
+  onViewBatch,
 }: {
   batch: Batch;
-  shiftTemplates: ShiftTemplate[];
   onRemoveBatch: (batchId: string) => void;
+  onEditBatch: (batchId: string) => void;
+  onViewBatch: (batchId: string) => void;
 }) {
-  const { batchId, rows, templateId: tid, effectiveFrom: ef } = batch;
-  const tpl = shiftTemplates.find((t) => t.id === tid);
-  const targetType = rows[0]?.targetType;
-  const TypeIcon = targetType === 'department' ? Building2 : targetType === 'location' ? MapPin : Users;
-  const typeLabel = targetType === 'department' ? 'أقسام' : targetType === 'location' ? 'فروع' : 'موظفين';
-  const names = rows.map((r) => r.targetLabel).filter(Boolean);
-  const visibleNames = names.slice(0, 3);
-  const remaining = names.length - visibleNames.length;
+  const [confirmOpen, setConfirmOpen] = React.useState(false);
+  const { batchId, templateName, colorHex, effectiveFrom: ef, rows, activeAssignments, totalAssignments } = batch;
+
+  const visibleNames = rows.slice(0, 3).map((r) => r.targetLabel);
+  const remaining = rows.length - visibleNames.length;
 
   return (
-    <div className="group relative overflow-hidden rounded-xl border border-border bg-card shadow-soft transition-all hover:-translate-y-0.5 hover:shadow-elevated">
-      <div className="p-5">
+    <div
+      className="group relative cursor-pointer overflow-hidden rounded-xl border border-border bg-card shadow-soft transition-all hover:-translate-y-0.5 hover:shadow-elevated"
+      onClick={() => onViewBatch(batchId)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => e.key === 'Enter' && onViewBatch(batchId)}
+    >
+      {/* coloured top strip */}
+      <div
+        className="absolute inset-x-0 top-0 h-1 rounded-t-xl"
+        style={{ background: colorHex ? `#${colorHex.replace('#', '')}` : undefined }}
+      />
+
+      <div className="p-5 pt-6">
         <div className="mb-3 flex items-start justify-between">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+          <div
+            className="flex h-10 w-10 items-center justify-center rounded-xl text-white"
+            style={{ background: colorHex ? `#${colorHex.replace('#', '')}` : '#6366f1' }}
+          >
             <Clock className="h-5 w-5" />
           </div>
           <div className="flex items-center gap-1.5">
-            <TypeIcon className="h-3.5 w-3.5 text-muted-foreground" />
+            <Users className="h-3.5 w-3.5 text-muted-foreground" />
             <span className="text-xs text-muted-foreground">
-              {rows.length} {typeLabel}
+              {activeAssignments}/{totalAssignments} موظف
             </span>
           </div>
         </div>
 
         <h3 className="mb-0.5 truncate font-display text-base font-bold leading-snug transition-colors group-hover:text-primary">
-          {tpl?.nameAr ?? 'قالب محذوف'}
+          {templateName}
         </h3>
         <div className="mb-3 flex items-center gap-1 text-[11px] text-muted-foreground">
           <CalendarDays className="h-3 w-3 shrink-0" />
-          <span dir="ltr">{ef}</span>
+          <span dir="ltr">{ef ?? '—'}</span>
         </div>
 
         <div className="mb-4 flex flex-wrap gap-1">
@@ -68,20 +94,40 @@ export function AssignmentsBatchCard({
           )}
         </div>
 
-        <div className="flex items-center justify-end border-t border-border/60 pt-2" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="flex items-center justify-between border-t border-border/60 pt-2"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Button
+            variant="ghost"
+            size="sm"
+            type="button"
+            className="h-7 gap-1 px-2 text-xs"
+            onClick={() => onEditBatch(batchId)}
+          >
+            <Pencil className="h-3 w-3" /> تعديل
+          </Button>
           <Button
             variant="ghost"
             size="sm"
             type="button"
             className="h-7 gap-1 px-2 text-xs text-destructive hover:text-destructive"
-            onClick={() => {
-              if (window.confirm('حذف كل عناصر هذه الدفعة؟')) onRemoveBatch(batchId);
-            }}
+            onClick={() => setConfirmOpen(true)}
           >
             <Trash2 className="h-3 w-3" /> حذف الربط
           </Button>
         </div>
       </div>
+
+      <ConfirmationModal
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title="حذف الدفعة"
+        description="هل أنت متأكد من حذف كل عناصر هذه الدفعة؟ لا يمكن التراجع عن هذا الإجراء."
+        confirmLabel="حذف"
+        variant="destructive"
+        onConfirm={() => onRemoveBatch(batchId)}
+      />
     </div>
   );
 }

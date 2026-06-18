@@ -3,8 +3,8 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { AlertTriangle, Info } from 'lucide-react';
-import { useHRConfigurationStore } from '@/lib/hr-requests/configuration-store';
-import { hrRequestPath, HR_REQUEST_TYPE_ALL_DEPARTMENTS_ID } from '@/lib/hr-requests/types';
+import { useHRConfigurationStore } from '@/features/hr/requests/lib/configuration-store';
+import { hrRequestPath, HR_REQUEST_TYPE_ALL_DEPARTMENTS_ID } from '@/features/hr/requests/lib/types';
 
 interface Props {
   params: Promise<{ department: string; requestType: string }>;
@@ -52,11 +52,7 @@ export default function DepartmentRequestTypePage({ params }: Props) {
         <div className="space-y-1">
           <p className="text-sm font-semibold">قائمة الطلبات قيد التطوير</p>
           <p className="text-sm text-muted-foreground">
-            ستظهر هنا قائمة الطلبات المرتبطة بهذا النوع عند ربط النظام بواجهة برمجية (API). في الوقت الحالي، استخدم صفحة{' '}
-            <Link href="/hr/requests/general" className="text-primary hover:underline">
-              الطلبات العامة
-            </Link>{' '}
-            لعرض وإدارة جميع الطلبات.
+            ستظهر هنا قائمة الطلبات المرتبطة بهذا النوع عند ربط النظام بواجهة برمجية (API).
           </p>
         </div>
       </div>

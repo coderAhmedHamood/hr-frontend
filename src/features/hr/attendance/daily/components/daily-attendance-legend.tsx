@@ -1,6 +1,6 @@
 'use client';
 
-import { cn } from '@/lib/utils';
+import { cn } from '@/shared/utils';
 import { STATUS, type StatusVisualKey } from '@/features/hr/attendance/daily/constants/daily-attendance-status';
 
 export function DailyAttendanceLegend({ inline }: { inline?: boolean }) {

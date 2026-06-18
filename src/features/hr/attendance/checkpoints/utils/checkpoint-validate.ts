@@ -1,4 +1,4 @@
-import type { AttendanceCheckInPoint } from '@/lib/attendance/types';
+import type { AttendanceCheckInPoint } from '@/features/hr/attendance/lib/types';
 
 export function validateCheckpointDraft(draft: AttendanceCheckInPoint): string | null {
   if (!draft.nameAr.trim()) return 'اسم النقطة بالعربية مطلوب';

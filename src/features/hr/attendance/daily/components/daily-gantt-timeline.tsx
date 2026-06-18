@@ -1,9 +1,9 @@
 'use client';
 
 import * as React from 'react';
-import { cn } from '@/lib/utils';
-import type { AttendanceDaySummary, AttendanceEvent } from '@/lib/attendance/types';
-import { minutesFromMidnight, todayIso } from '@/lib/attendance/utils';
+import { cn } from '@/shared/utils';
+import type { AttendanceDaySummary, AttendanceEvent } from '@/features/hr/attendance/lib/types';
+import { minutesFromMidnight, todayIso } from '@/features/hr/attendance/lib/utils';
 import { cfgFor } from '@/features/hr/attendance/daily/utils/daily-attendance-status-resolve';
 import { fmtDayFull, minutesToHHMM } from '@/features/hr/attendance/daily/utils/daily-attendance-format';
 import { Clock3 } from 'lucide-react';

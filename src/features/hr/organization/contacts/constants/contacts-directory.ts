@@ -1,7 +1,19 @@
-import {
-  EXTERNAL_PARTY_KIND_LABELS,
-  type ExternalPartyKind,
-} from '@/lib/directory/external-contacts-store';
+export type ExternalPartyKind =
+  | 'customer'
+  | 'visitor'
+  | 'supplier'
+  | 'partner'
+  | 'sales_lead'
+  | 'other';
+
+export const EXTERNAL_PARTY_KIND_LABELS: Record<ExternalPartyKind, string> = {
+  customer: 'عميل',
+  visitor: 'زائر',
+  supplier: 'مورّد',
+  partner: 'شريك',
+  sales_lead: 'عميل محتمل',
+  other: 'أخرى',
+};
 
 export type ContactsKindFilter = 'all' | ExternalPartyKind;
 

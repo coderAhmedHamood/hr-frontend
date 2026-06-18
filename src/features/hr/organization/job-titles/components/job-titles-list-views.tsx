@@ -1,104 +1,117 @@
 'use client';
 
-import { Briefcase, Pencil, Trash2 } from 'lucide-react';
+import * as React from 'react';
+import { Briefcase, Eye, Pencil, Trash2 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { DataTable, type ColumnDef } from '@/components/ui/data-table';
+import { TableRowActions } from '@/components/ui/table-cells';
 import {
   DirectoryGrid,
   DirectoryGridCard,
   DirectoryGridCardFooter,
   DirectoryGridCardHeader,
   DirectoryGridCardTitle,
-  DirectoryResultCount,
 } from '@/components/ui/directory-grid-card';
-import {
-  DirectoryTableActionsCell,
-  DirectoryTableBody,
-  DirectoryTableCell,
-  DirectoryTableContainer,
-  DirectoryTableHead,
-  DirectoryTableHeaderRow,
-  DirectoryTableRow,
-  DirectoryTable,
-} from '@/components/ui/directory-table';
-import { EmptyState } from '@/components/hr-requests/shared-ui';
-import { getDepartment } from '@/lib/data';
-import type { JobTitleTemplateRecord } from '@/lib/directory/job-title-templates-store';
+import { EmptyState } from '@/features/hr/requests/components/shared-ui';
+import { DirectoryPagedViews } from '@/components/ui/paged-list';
 import type { JobTitlesDirectoryModel } from '@/features/hr/organization/job-titles/hooks/useJobTitlesDirectoryModel';
+import type { JobTitleTemplateRecord } from '@/features/hr/organization/job-titles/services/job-titles.service';
 
 export function JobTitlesListViews({ model }: { model: JobTitlesDirectoryModel }) {
-  const { templates, layoutView, setViewRow, openEdit, setConfirmId } = model;
+  const { templates, layoutView, pagination, loading, setViewRow, openEdit, setConfirmId, companyLabel } = model;
+
+  const columns = React.useMemo((): ColumnDef<JobTitleTemplateRecord>[] => [
+    {
+      key: 'company',
+      title: 'الشركة',
+      className: 'text-muted-foreground',
+      render: (row) => companyLabel(row.companyId),
+    },
+    {
+      key: 'titleAr',
+      title: 'المسمى الوظيفي',
+      render: (row) => (
+        <div className="flex flex-col gap-0.5">
+          <span className="font-medium">{row.titleAr}</span>
+        </div>
+      ),
+    },
+    {
+      key: 'description',
+      title: 'وصف',
+      className: 'max-w-[200px] truncate text-muted-foreground',
+      render: (row) => row.descriptionAr ?? '—',
+    },
+    {
+      key: 'status',
+      title: 'الحالة',
+      render: (row) => (
+        row.isActive ? (
+          <Badge variant="outline" className="text-[10px] border-success/40 text-success">نشط</Badge>
+        ) : (
+          <Badge variant="outline" className="text-[10px] border-destructive/40 text-destructive">غير نشط</Badge>
+        )
+      ),
+    },
+    {
+      key: 'actions',
+      title: 'إجراءات',
+      isActions: true,
+      headerClassName: 'text-start w-16',
+      render: (row) => (
+        <TableRowActions
+          menuItems={[
+            { label: 'تعديل', onClick: (e) => { e.stopPropagation(); openEdit(row); } },
+            { label: 'حذف', onClick: (e) => { e.stopPropagation(); setConfirmId(row.id); }, destructive: true, separator: true },
+          ]}
+        />
+      ),
+    },
+  ], [companyLabel, openEdit, setConfirmId]);
 
   return (
-    <>
-      <DirectoryResultCount>{templates.length} قالب مسمى</DirectoryResultCount>
-
-      {templates.length === 0 ? (
-        <EmptyState
-          icon={Briefcase}
-          title="لا توجد قوالب"
-          description="أضف مسميات وظيفية شائعة في شركتك لاستخدامها عند إضافة موظف."
-        />
-      ) : layoutView === 'grid' ? (
+    <DirectoryPagedViews
+      items={templates}
+      serverPagination={pagination}
+      loading={loading}
+      empty={<EmptyState icon={Briefcase} title="لا توجد قوالب" description="أضف مسميات وظيفية شائعة في شركتك." />}
+    >
+      {(pageItems) => layoutView === 'grid' ? (
         <DirectoryGrid>
-          {templates.map((row) => {
-            const dept = row.defaultDepartmentId ? getDepartment(row.defaultDepartmentId) : undefined;
-            return (
-              <DirectoryGridCard key={row.id} interactive onClick={() => setViewRow(row)}>
-                <DirectoryGridCardHeader>
-                  <DirectoryGridCardTitle className="leading-snug">{row.titleAr}</DirectoryGridCardTitle>
-                  <Briefcase className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-                </DirectoryGridCardHeader>
-                {dept && <p className="text-xs text-muted-foreground">قسم مقترح: {dept.name}</p>}
-                <DirectoryGridCardFooter>
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(row)} aria-label="تعديل">
-                    <Pencil className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-destructive hover:text-destructive"
-                    onClick={() => setConfirmId(row.id)}
-                    aria-label="حذف"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </DirectoryGridCardFooter>
-              </DirectoryGridCard>
-            );
-          })}
+          {pageItems.map((row) => (
+            <DirectoryGridCard key={row.id} interactive onClick={() => setViewRow(row)}>
+              <DirectoryGridCardHeader>
+                <DirectoryGridCardTitle className="leading-snug">{row.titleAr}</DirectoryGridCardTitle>
+                <Briefcase className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+              </DirectoryGridCardHeader>
+              {row.descriptionAr ? <p className="line-clamp-2 text-xs text-muted-foreground">{row.descriptionAr}</p> : null}
+              <p className="text-[10px] text-muted-foreground">{companyLabel(row.companyId)}</p>
+              <DirectoryGridCardFooter>
+                {row.isActive ? (
+                  <Badge variant="outline" className="text-[10px]">نشط</Badge>
+                ) : (
+                  <Badge variant="outline" className="text-[10px] text-destructive">غير نشط</Badge>
+                )}
+                <div className="ms-auto flex gap-0.5">
+                  <Button variant="ghost" size="icon" className="h-7 w-7" title="عرض" onClick={() => setViewRow(row)}><Eye className="h-4 w-4" /></Button>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" title="تعديل" onClick={() => openEdit(row)}><Pencil className="h-4 w-4" /></Button>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" title="حذف" onClick={() => setConfirmId(row.id)}><Trash2 className="h-4 w-4" /></Button>
+                </div>
+              </DirectoryGridCardFooter>
+            </DirectoryGridCard>
+          ))}
         </DirectoryGrid>
       ) : (
-        <DirectoryTableContainer>
-          <DirectoryTable>
-            <DirectoryTableHeaderRow>
-              <DirectoryTableHead>المسمى الوظيفي</DirectoryTableHead>
-              <DirectoryTableHead>القسم المقترح</DirectoryTableHead>
-              <DirectoryTableHead>وصف</DirectoryTableHead>
-              <DirectoryTableHead className="text-start w-28">إجراءات</DirectoryTableHead>
-            </DirectoryTableHeaderRow>
-            <DirectoryTableBody>
-              {templates.map((row) => {
-                const dept = row.defaultDepartmentId ? getDepartment(row.defaultDepartmentId) : undefined;
-                return (
-                  <DirectoryTableRow key={row.id} interactive onClick={() => setViewRow(row)}>
-                    <DirectoryTableCell className="font-medium">{row.titleAr}</DirectoryTableCell>
-                    <DirectoryTableCell className="text-muted-foreground">{dept?.name ?? '—'}</DirectoryTableCell>
-                    <DirectoryTableCell className="max-w-[240px] truncate text-muted-foreground">{row.descriptionAr ?? '—'}</DirectoryTableCell>
-                    <DirectoryTableActionsCell>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(row)} aria-label="تعديل">
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setConfirmId(row.id)} aria-label="حذف">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </DirectoryTableActionsCell>
-                  </DirectoryTableRow>
-                );
-              })}
-            </DirectoryTableBody>
-          </DirectoryTable>
-        </DirectoryTableContainer>
+        <DataTable
+          variant="directory"
+          alwaysShowTable
+          columns={columns}
+          data={pageItems}
+          keyExtractor={(row) => row.id}
+          onRowClick={(row) => setViewRow(row)}
+        />
       )}
-    </>
+    </DirectoryPagedViews>
   );
 }

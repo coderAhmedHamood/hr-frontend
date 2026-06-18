@@ -10,8 +10,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import type { RecruitmentForm } from '@/lib/recruitment/types';
-import { generateQrDataUrl, downloadQrCode, copyToClipboard, getPublicFormUrl } from '@/lib/recruitment/utils';
+import type { RecruitmentForm } from '@/features/hr/recruitment/lib/types';
+import { generateQrDataUrl, downloadQrCode, copyToClipboard, getPublicFormUrl } from '@/features/hr/recruitment/lib/utils';
 
 interface FormSharingToolsProps {
   form: RecruitmentForm;

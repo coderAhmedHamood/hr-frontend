@@ -1,37 +1,112 @@
 'use client';
 
 import * as React from 'react';
-import { FileDown, FileSpreadsheet } from 'lucide-react';
+import { FileDown, FileSpreadsheet, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { EntityFilterToolbar } from '@/components/ui/entity-filter-toolbar';
-import { useEntityFilterSlot } from '@/components/entity-filter-slot-context';
+import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
 import { AttendanceRegisterPrintHtml } from '@/components/pdf/print/attendance-register-print-html';
-import { hasDateRangeFilter, thisCalendarMonthYMD } from '@/lib/hr-discipline/discipline-date-filter';
-import { useAttendanceStore } from '@/lib/attendance/store';
-import type { AttendanceDaySummary } from '@/lib/attendance/types';
-import { enumerateDates } from '@/lib/attendance/utils';
-import { data } from '@/lib/data';
-import { downloadXlsxFromAoA, type XlsxCell } from '@/lib/export/download-xlsx';
+import { hasDateRangeFilter, thisCalendarMonthYMD, todayYMD } from '@/features/hr/discipline/lib/discipline-date-filter';
+import type { AttendanceDaySummary, AttendanceEvent } from '@/features/hr/attendance/lib/types';
+import { enumerateDates } from '@/features/hr/attendance/lib/utils';
+import { downloadXlsxFromAoA, type XlsxCell } from '@/shared/export/download-xlsx';
 import {
   ATT_VISUAL_STATUS_ORDER,
-  DEFAULT_ABSENT_DAY_HOURS,
   STATUS,
 } from '@/features/hr/attendance/daily/constants/daily-attendance-status';
-import { densifySummaries } from '@/features/hr/attendance/daily/utils/daily-attendance-densify';
 import { resolveVisualKey } from '@/features/hr/attendance/daily/utils/daily-attendance-status-resolve';
 import { minutesToHHMM } from '@/features/hr/attendance/daily/utils/daily-attendance-format';
+import { attendanceDaySummariesApi } from '@/features/hr/attendance/lib/api/attendance-day-summaries';
+import { attendanceEventsApi } from '@/features/hr/attendance/lib/api/attendance-events';
+import { companiesApi } from '@/features/hr/lib/api/companies';
+import { employeesApi } from '@/features/hr/organization/employees/lib/api/employees';
+import { useAuthStore } from '@/features/auth/lib/auth-store';
+import { getDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
+
+export type AttendanceViewMode = 'card' | 'table';
 
 export function useDailyAttendanceModel() {
-  const daySummaries = useAttendanceStore((s) => s.daySummaries);
-  const events = useAttendanceStore((s) => s.events);
+  const [daySummaries, setDaySummaries] = React.useState<AttendanceDaySummary[]>([]);
+  const [events, setEvents] = React.useState<AttendanceEvent[]>([]);
+  const [allEmployees, setAllEmployees] = React.useState<{ id: string; name: string }[]>([]);
+  const [companyNameAr, setCompanyNameAr] = React.useState('');
+  const [companyNameEn, setCompanyNameEn] = React.useState('');
 
   const [selectedEmpIds, setSelectedEmpIds] = React.useState<Set<string>>(new Set());
-  const [dateBounds, setDateBounds] = React.useState(() => thisCalendarMonthYMD());
+  const [dateBounds, setDateBounds] = React.useState(() => ({ from: todayYMD(), to: todayYMD() }));
   const [statusFilter, setStatusFilter] = React.useState<string>('all');
   const [pdfOpen, setPdfOpen] = React.useState(false);
+  const [recomputeOpen, setRecomputeOpen] = React.useState(false);
+  const [viewMode, setViewMode] = React.useState<AttendanceViewMode>('card');
 
-  const spanFromStore = React.useMemo(() => {
+  const { from: filterFrom, to: filterTo } = dateBounds;
+
+  // Load company info and employees for the default company
+  React.useEffect(() => {
+    const companyId = getDefaultCompanyId();
+    if (!companyId) return;
+    void Promise.allSettled([
+      companiesApi.getById(companyId),
+      employeesApi.getAll({ companyId, limit: 500 }),
+    ]).then(([companyRes, empRes]) => {
+      if (companyRes.status === 'fulfilled') {
+        const c = companyRes.value;
+        if (c) { setCompanyNameAr(c.nameAr); setCompanyNameEn(c.nameEn ?? ''); }
+      }
+      if (empRes.status === 'fulfilled') {
+        setAllEmployees(empRes.value.items.map((e) => ({ id: e.id, name: e.nameAr })));
+      }
+    });
+  }, []);
+
+  const reloadAttendanceData = React.useCallback(async (from: string, to: string) => {
+    try {
+      const [summRes, evtRes] = await Promise.all([
+        attendanceDaySummariesApi.getAll({ limit: 2000, from, to } as Parameters<typeof attendanceDaySummariesApi.getAll>[0]),
+        attendanceEventsApi.getAll({ limit: 2000, workDateFrom: from, workDateTo: to }),
+      ]);
+      setDaySummaries(
+        summRes.items.map((s) => ({
+          id: s.id,
+          employeeId: s.employeeId,
+          employeeName: s.employeeNameAr,
+          date: s.workDate,
+          templateId: s.shiftAssignmentId ?? null,
+          status: s.status as AttendanceDaySummary['status'],
+          lateMinutes: s.lateMinutes,
+          earlyLeaveMinutes: s.earlyLeaveMinutes,
+          overtimeMinutes: s.overtimeMinutes,
+          workedMinutes: s.workedMinutes,
+          notes: s.notes ?? undefined,
+          actualCheckInAt: (s as Record<string, unknown>).actualCheckInAt as string | null ?? null,
+          actualCheckOutAt: (s as Record<string, unknown>).actualCheckOutAt as string | null ?? null,
+          expectedStartAt: (s as Record<string, unknown>).expectedStartAt as string | null ?? null,
+          expectedEndAt: (s as Record<string, unknown>).expectedEndAt as string | null ?? null,
+        })),
+      );
+      setEvents(
+        evtRes.items.map((e) => ({
+          id: e.id,
+          employeeId: e.employeeId,
+          employeeName: e.employeeNameAr,
+          date: e.workDate,
+          type: e.eventType,
+          at: e.occurredAt,
+          source: e.source ?? 'manual_hr',
+        })) as AttendanceEvent[],
+      );
+    } catch { /* ignore */ }
+  }, []);
+
+  // Load day summaries & events when date range changes
+  React.useEffect(() => {
+    const from = filterFrom || todayYMD();
+    const to = filterTo || todayYMD();
+    void reloadAttendanceData(from, to);
+  }, [filterFrom, filterTo, reloadAttendanceData]);
+
+  const spanFromData = React.useMemo(() => {
     let lo = '';
     let hi = '';
     for (const s of daySummaries) {
@@ -43,19 +118,11 @@ export function useDailyAttendanceModel() {
   }, [daySummaries]);
 
   const { from, to } = React.useMemo(() => {
-    if (hasDateRangeFilter(dateBounds.from, dateBounds.to)) return dateBounds;
-    return spanFromStore;
-  }, [dateBounds, spanFromStore]);
+    if (hasDateRangeFilter(filterFrom, filterTo)) return dateBounds;
+    return spanFromData;
+  }, [dateBounds, spanFromData, filterFrom, filterTo]);
 
   const dates = React.useMemo(() => enumerateDates(from, to), [from, to]);
-
-  const allEmployees = React.useMemo(() => data.employees.map((e) => ({ id: e.id, name: e.name })), []);
-
-  const roster = React.useMemo(() => {
-    let emps = allEmployees;
-    if (selectedEmpIds.size > 0) emps = emps.filter((e) => selectedEmpIds.has(e.id));
-    return emps;
-  }, [allEmployees, selectedEmpIds]);
 
   const filtered = React.useMemo(
     () =>
@@ -81,7 +148,7 @@ export function useDailyAttendanceModel() {
     [events, from, to, selectedEmpIds],
   );
 
-  const denseSummaries = React.useMemo(() => densifySummaries(filtered, dates, roster), [filtered, dates, roster]);
+  const denseSummaries = filtered;
 
   const attendanceStatusLabels = React.useMemo(
     () => Object.fromEntries(ATT_VISUAL_STATUS_ORDER.map((k) => [k, STATUS[k].label])) as Record<string, string>,
@@ -102,10 +169,8 @@ export function useDailyAttendanceModel() {
     return denseSummaries.filter((s) => resolveVisualKey(s.status) === statusFilter);
   }, [denseSummaries, statusFilter]);
 
-  const eventsForView = React.useMemo(() => {
-    const keys = new Set(denseForView.map((s) => `${s.employeeId}|${s.date}`));
-    return eventsFiltered.filter((e) => keys.has(`${e.employeeId}|${e.date}`));
-  }, [eventsFiltered, denseForView]);
+  // Do NOT filter events by summaries — employees may have events without a day summary
+  const eventsForView = eventsFiltered;
 
   const attendancePdfRows = React.useMemo(
     () =>
@@ -123,8 +188,8 @@ export function useDailyAttendanceModel() {
     () =>
       attendancePdfRows.length === 0 ? null : (
         <AttendanceRegisterPrintHtml
-          companyNameAr={data.company.name}
-          companyNameEn={data.company.nameEn}
+          companyNameAr={companyNameAr}
+          companyNameEn={companyNameEn}
           titleAr="تقرير الحضور اليومي"
           periodDateFrom={from}
           periodDateTo={to}
@@ -136,7 +201,7 @@ export function useDailyAttendanceModel() {
           rows={attendancePdfRows}
         />
       ),
-    [attendancePdfRows, from, to, selectedEmpIds.size, statusFilter, attendanceStatusLabels],
+    [attendancePdfRows, from, to, selectedEmpIds.size, statusFilter, attendanceStatusLabels, companyNameAr, companyNameEn],
   );
 
   const attendancePdfFileName = `attendance-${from}-${to}.pdf`;
@@ -163,25 +228,13 @@ export function useDailyAttendanceModel() {
     toast.success('تم تنزيل ملف Excel.');
   }, [denseForView, from, to]);
 
-  const stats = React.useMemo(() => {
-    const workedM = denseForView.reduce((a, s) => a + s.workedMinutes, 0);
-    const lateM = denseForView.reduce((a, s) => a + s.lateMinutes, 0);
-    const absentDays = denseForView.filter((s) => resolveVisualKey(s.status) === 'absent').length;
-    const denom = denseForView.length || 1;
-    return {
-      workHours: workedM / 60,
-      lateHours: lateM / 60,
-      absentHours: absentDays * DEFAULT_ABSENT_DAY_HOURS,
-      avgWorkHours: workedM / 60 / denom,
-    };
-  }, [denseForView]);
 
   const selectedEmpKey = React.useMemo(() => [...selectedEmpIds].sort().join(','), [selectedEmpIds]);
 
   useEntityFilterSlot(
     () => (
       <EntityFilterToolbar
-        defaultDateFilterTab="month"
+        defaultDateFilterTab="today"
         empPickerEmployees={allEmployees}
         selectedEmpIds={selectedEmpIds}
         onSelectedEmpIdsChange={setSelectedEmpIds}
@@ -190,9 +243,19 @@ export function useDailyAttendanceModel() {
         statusOrder={ATT_VISUAL_STATUS_ORDER}
         statusLabels={attendanceStatusLabels}
         statusCounts={attendanceStatusCounts}
-        onDateBoundsChange={setDateBounds}
+        onDateBoundsChange={(b) => setDateBounds({ from: b.from || todayYMD(), to: b.to || todayYMD() })}
         trailingActions={(
           <>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 gap-1.5 text-xs"
+              onClick={() => setRecomputeOpen(true)}
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              تحديث البيانات
+            </Button>
             <Button
               type="button"
               variant="outline"
@@ -236,23 +299,37 @@ export function useDailyAttendanceModel() {
       attendanceStatusCounts.absent,
       attendanceStatusCounts.early_leave,
       attendanceStatusCounts.holiday,
-      attendanceStatusLabels,
-      attendancePdfRows.length,
-      handleExportAttendanceExcel,
-      allEmployees,
+      attendanceStatusCounts.rest_day,
+      attendanceStatusCounts.unscheduled,
+      attendanceStatusCounts.on_leave,
+      // allEmployees, handleExportAttendanceExcel, attendancePdfRows.length omitted —
+      // renderRef.current() always captures the latest values without needing re-registration.
     ],
   );
+
+  const refreshAfterRecompute = React.useCallback(() => {
+    const from = filterFrom || todayYMD();
+    const to = filterTo || todayYMD();
+    void reloadAttendanceData(from, to);
+  }, [filterFrom, filterTo, reloadAttendanceData]);
 
   return {
     from,
     to,
     dates,
+    dateBounds,
+    selectedEmpIds,
     denseForView,
     eventsForView,
-    stats,
+    allEmployees,
     attendancePrintable,
     attendancePdfFileName,
     pdfOpen,
     setPdfOpen,
+    recomputeOpen,
+    setRecomputeOpen,
+    refreshAfterRecompute,
+    viewMode,
+    setViewMode,
   };
 }

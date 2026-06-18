@@ -8,10 +8,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { useRecruitmentStore } from '@/lib/recruitment/store';
+import { useRecruitmentStore } from '@/features/hr/recruitment/lib/store';
 import { FormBuilderDialog } from '@/features/hr/recruitment/shared/form-builder-dialog';
 import { FormSharingTools } from '@/features/hr/recruitment/shared/form-sharing-tools';
-import type { RecruitmentForm } from '@/lib/recruitment/types';
+import type { RecruitmentForm } from '@/features/hr/recruitment/lib/types';
 
 export function RecruitmentAdminClient() {
   const router = useRouter();

@@ -4,35 +4,42 @@ import { MapPin, Navigation2, Pencil, Plus, Radio, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { MapPicker } from '@/components/ui/map-picker';
-import { cn } from '@/lib/utils';
+import { cn } from '@/shared/utils';
 import { useCheckpointsPanelModel } from '@/features/hr/attendance/checkpoints/hooks/useCheckpointsPanelModel';
+import { DirectoryPagedViews } from '@/components/ui/paged-list';
+import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { EmptyStateCard } from '@/components/shared/empty-state-card';
 import { CheckpointsEditDialog } from '@/features/hr/attendance/checkpoints/components/checkpoints-edit-dialog';
 
 export function CheckpointsPanel() {
   const model = useCheckpointsPanelModel();
-  const { checkpoints, removeCheckpoint, selected, setSelected, openCreate, openEdit, selectedPoint } = model;
+  const { checkpoints, pagination, loading, removeCheckpoint, selected, setSelected, openCreate, openEdit, selectedPoint } = model;
+
+  usePageHeaderActions(
+    () => (
+      <Button variant="luxe" size="sm" className="h-8 gap-1.5 px-3 text-xs shrink-0" type="button" onClick={openCreate}>
+        <Plus className="h-3.5 w-3.5" />
+        نقطة جديدة
+      </Button>
+    ),
+    [openCreate],
+  );
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-end">
-        <Button variant="luxe" className="shrink-0 gap-2" type="button" onClick={openCreate}>
-          <Plus className="h-4 w-4" />
-          نقطة جديدة
-        </Button>
-      </div>
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
 
-      <div className="space-y-3">
+      <div className="space-y-3 shrink-0">
         <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          النقاط (<span className="number-ar">{checkpoints.length}</span>)
+          النقاط (<span className="number-ar">{pagination.total}</span>)
         </p>
 
-        {checkpoints.length === 0 && (
+        {!loading && checkpoints.length === 0 && pagination.total === 0 ? (
           <EmptyStateCard icon={MapPin} title="لا توجد نقاط بعد" size="compact" />
-        )}
-
+        ) : (
+          <DirectoryPagedViews items={checkpoints} serverPagination={pagination} loading={loading}>
+            {(pageItems) => (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {checkpoints.map((p) => (
+          {pageItems.map((p) => (
             <div
               key={p.id}
               role="button"
@@ -113,6 +120,9 @@ export function CheckpointsPanel() {
             </div>
           ))}
         </div>
+            )}
+          </DirectoryPagedViews>
+        )}
 
         {checkpoints.length > 0 && !selectedPoint ? (
           <EmptyStateCard

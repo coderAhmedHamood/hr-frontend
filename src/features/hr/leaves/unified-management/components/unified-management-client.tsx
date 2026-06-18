@@ -2,32 +2,59 @@
 
 import * as React from 'react';
 import {
-  Plus, ChevronLeft, ChevronRight,
-  CheckCircle2, XCircle, Clock,
+  Plus,
+  CheckCircle2, XCircle, Clock, CalendarDays,
 } from 'lucide-react';
-import { format, addMonths, subMonths, parseISO, eachDayOfInterval, startOfMonth, endOfMonth, getDay, isValid } from 'date-fns';
-import { arSA } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { DataTable, type ColumnDef } from '@/components/ui/data-table';
+import { TableDateCell, TableRowActions } from '@/components/ui/table-cells';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SingleDatePicker } from '@/components/ui/single-date-picker';
-import { useEntityFilterSlot } from '@/components/entity-filter-slot-context';
-import { LeavesManagementToolbar } from '@/features/hr/leaves/components/leaves-management-toolbar';
-import { intervalOverlapsYmdRange } from '@/lib/hr-discipline/discipline-date-filter';
+import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
+import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
+import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
+import { EntityFilterToolbar } from '@/components/ui/entity-filter-toolbar';
+import { intervalOverlapsYmdRange } from '@/features/hr/discipline/lib/discipline-date-filter';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+  dialogFormFooterClass,
 } from '@/components/ui/dialog';
 import {
-  MOCK_UNIFIED_EMPLOYEES, MOCK_UNIFIED_LEAVES, MOCK_BALANCES, MOCK_BRANCHES, MOCK_DEPARTMENTS,
-  applyStepDecision, canActOnLeave, getApprovalStage, defaultPendingApprovalChain,
-  LEAVE_TYPE_LABELS, STATUS_LABELS,
-} from '@/lib/leaves/unified-mock';
-import type { UnifiedLeaveRecord, UnifiedLeaveType, LeaveStatus, UnifiedFilterState } from '@/lib/leaves/types';
-import { cn, toWesternDigits } from '@/lib/utils';
+  canActOnLeave, getApprovalStage,
+  LEAVE_TYPE_LABELS,
+} from '@/features/hr/leaves/unified-management/lib/leaves-utils';
+import { useEmployees } from '@/features/hr/organization/employees/hooks/useEmployees';
+import { branchesApi, type BranchResponseDto } from '@/features/hr/organization/lib/api/branches';
+import { resolveOrganizationScope } from '@/features/hr/organization/lib/api/organization-context';
+import type { UnifiedLeaveRecord, UnifiedLeaveType, LeaveStatus, UnifiedFilterState } from '@/features/hr/leaves/unified-management/types';
+import type { LeaveTypeResponseDto } from '@/features/hr/leaves/leave-types/lib/api/leave-types';
+import { loadCompanyLeaveTypes } from '@/features/hr/leaves/lib/leave-types-utils';
+import { pickDefaultLeaveRequestTypeId, loadLeaveRequestTypes } from '@/features/hr/requests/lib/load-leave-request-types';
+import {
+  leaveRequestsNewApi,
+  type ApiLeaveRequest,
+} from '@/features/hr/requests/lib/api/correction-requests';
+import type { ApiRequestType } from '@/features/hr/requests/lib/api/request-types';
+import { useAuthStore } from '@/features/auth/lib/auth-store';
+import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
+import { cn } from '@/shared/utils';
+import { toast } from 'sonner';
+import { DirectoryPagedViews, useServerDirectoryPagination } from '@/components/ui/paged-list';
+import { fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
+import {
+  EntityActionCard,
+  EntityActionCardChip,
+  EntityActionCardGrid,
+  EntityActionCardMetric,
+  EntityActionCardMetricDivider,
+  EntityActionCardMetricsRow,
+  EntityActionCardStatusBlock,
+  type WorkflowStatusTone,
+} from '@/components/ui/entity-action-card';
 
 // ─── Style config ─────────────────────────────────────────────────────────────
 
@@ -39,11 +66,18 @@ const TYPE_STYLE: Record<UnifiedLeaveType, { color: string; dot: string }> = {
   emergency: { color: 'bg-destructive/10 text-destructive border-destructive/30', dot: 'bg-destructive' },
 };
 
-const STATUS_STYLE: Record<LeaveStatus, { color: string; dot: string; label: string }> = {
-  pending:   { color: 'bg-gold/10 text-gold border-gold/30', dot: 'bg-gold', label: 'قيد الانتظار' },
-  approved:  { color: 'bg-success/10 text-success border-success/30', dot: 'bg-success', label: 'موافق عليه' },
-  rejected:  { color: 'bg-destructive/10 text-destructive border-destructive/30', dot: 'bg-destructive', label: 'مرفوض' },
-  cancelled: { color: 'bg-muted text-muted-foreground border-border', dot: 'bg-muted-foreground', label: 'ملغاة' },
+const LEAVE_STATUS_LABELS: Record<LeaveStatus, string> = {
+  pending: 'قيد الانتظار',
+  approved: 'موافق عليه',
+  rejected: 'مرفوض',
+  cancelled: 'ملغاة',
+};
+
+const LEAVE_STATUS_TONE: Record<LeaveStatus, WorkflowStatusTone> = {
+  pending: 'pending',
+  approved: 'approved',
+  rejected: 'rejected',
+  cancelled: 'muted',
 };
 
 // ─── Default filter state ─────────────────────────────────────────────────────
@@ -56,6 +90,158 @@ function wDays(start: string, end: string): number {
   return Math.max(1, Math.round((e - s) / 86400000) + 1);
 }
 
+const KNOWN_LEAVE_CODES = ['annual', 'sick', 'unpaid', 'maternity', 'emergency'];
+
+function resolveLeaveTypeCode(lt?: LeaveTypeResponseDto, subtypeSlug?: string | null): UnifiedLeaveType {
+  const code = lt?.code ?? subtypeSlug ?? '';
+  if (code && KNOWN_LEAVE_CODES.includes(code)) return code as UnifiedLeaveType;
+  return 'emergency';
+}
+
+function leaveTypeDisplayLabel(l: UnifiedLeaveRecord): string {
+  return l.leaveTypeName || l.subtypeNameAr || LEAVE_TYPE_LABELS[l.type] || '—';
+}
+
+function formatIsoDate(iso?: string | null): string | null {
+  if (!iso) return null;
+  return iso.slice(0, 10);
+}
+
+function employeeDisplayName(l: UnifiedLeaveRecord, employees: { id: string; nameAr: string }[]): string {
+  return l.employeeNameAr || employees.find((e) => e.id === l.employeeId)?.nameAr || l.employeeId;
+}
+
+function leaveStatusMeta(l: UnifiedLeaveRecord): { dateLabel?: string; dateValue?: string } {
+  if (l.status === 'pending') {
+    const submitted = formatIsoDate(l.submittedAt);
+    return submitted ? { dateLabel: 'تاريخ التقديم', dateValue: submitted } : {};
+  }
+  if (l.status === 'cancelled') {
+    const cancelled = formatIsoDate(l.cancelledAt);
+    return cancelled ? { dateLabel: 'تاريخ الإلغاء', dateValue: cancelled } : {};
+  }
+  if (l.status === 'approved' || l.status === 'rejected') {
+    const decided = formatIsoDate(l.decidedAt);
+    return decided ? { dateLabel: 'تاريخ القرار', dateValue: decided } : {};
+  }
+  return {};
+}
+
+function LeaveStatusBadge({ leave }: { leave: UnifiedLeaveRecord }) {
+  return (
+    <EntityActionCardStatusBlock
+      status={{
+        label: LEAVE_STATUS_LABELS[leave.status],
+        tone: LEAVE_STATUS_TONE[leave.status],
+      }}
+    />
+  );
+}
+
+function LeaveStatusBlock({ leave, compact = false }: { leave: UnifiedLeaveRecord; compact?: boolean }) {
+  const meta = leaveStatusMeta(leave);
+  return (
+    <EntityActionCardStatusBlock
+      status={{
+        label: LEAVE_STATUS_LABELS[leave.status],
+        tone: LEAVE_STATUS_TONE[leave.status],
+        meta: meta.dateValue ? (
+          <>
+            {meta.dateLabel}: <span className="font-mono text-foreground" dir="ltr">{meta.dateValue}</span>
+          </>
+        ) : leave.decisionNotesAr?.trim() ? (
+          <span className="line-clamp-2" title={leave.decisionNotesAr}>{leave.decisionNotesAr}</span>
+        ) : undefined,
+      }}
+      compact={compact}
+    />
+  );
+}
+
+function LeaveDecisionCell({
+  leave,
+  onApprove,
+  onReject,
+}: {
+  leave: UnifiedLeaveRecord;
+  onApprove: (l: UnifiedLeaveRecord) => void;
+  onReject: (l: UnifiedLeaveRecord) => void;
+}) {
+  const canAct = canActOnLeave(leave);
+  const meta = leaveStatusMeta(leave);
+
+  if (canAct) {
+    return (
+      <TableRowActions
+        primaryActions={[
+          {
+            label: 'موافقة',
+            variant: 'success',
+            icon: <CheckCircle2 className="h-3.5 w-3.5" />,
+            onClick: (e) => { e.stopPropagation(); onApprove(leave); },
+          },
+          {
+            label: 'رفض',
+            variant: 'destructive',
+            icon: <XCircle className="h-3.5 w-3.5" />,
+            onClick: (e) => { e.stopPropagation(); onReject(leave); },
+          },
+        ]}
+        menuItems={[]}
+      />
+    );
+  }
+
+  return (
+    <div className="min-w-[6.5rem] space-y-0.5 text-[10px]">
+      {meta.dateValue ? (
+        <>
+          <p className="text-muted-foreground">{meta.dateLabel}</p>
+          <p className="font-mono text-xs font-semibold tabular-nums text-foreground" dir="ltr">
+            {meta.dateValue}
+          </p>
+        </>
+      ) : (
+        <p className="text-muted-foreground">{LEAVE_STATUS_LABELS[leave.status]}</p>
+      )}
+      {leave.decisionNotesAr?.trim() ? (
+        <p className="line-clamp-2 text-muted-foreground" title={leave.decisionNotesAr}>
+          {leave.decisionNotesAr}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function mapApiLeave(r: ApiLeaveRequest, leaveTypes: LeaveTypeResponseDto[]): UnifiedLeaveRecord {
+  const lt = leaveTypes.find((t) => t.id === r.leaveTypeId);
+  const derivedType = resolveLeaveTypeCode(lt, r.subtypeSlug);
+  return {
+    id: r.id,
+    employeeId: r.employeeId,
+    employeeNameAr: r.employeeNameAr,
+    requestTypeId: r.requestTypeId,
+    requestTypeNameAr: r.requestTypeNameAr,
+    leaveTypeId: r.leaveTypeId,
+    leaveTypeName: r.leaveTypeNameAr || lt?.nameAr || r.leaveTypeId,
+    type: derivedType,
+    status: r.status,
+    start: r.startDate,
+    end: r.endDate,
+    requestBranchId: '',
+    workingDays: r.workingDays,
+    noteAr: r.reasonAr ?? undefined,
+    subtypeSlug: r.subtypeSlug,
+    subtypeNameAr: r.subtypeNameAr,
+    submittedAt: r.submittedAt,
+    decidedAt: r.decidedAt ?? undefined,
+    cancelledAt: r.cancelledAt ?? undefined,
+    decidedByEmployeeId: r.decidedByEmployeeId,
+    decisionNotesAr: r.decisionNotesAr ?? undefined,
+    approvalChain: [],
+  };
+}
+
 function leaveOverlapsYmdRange(leave: UnifiedLeaveRecord, from: string, to: string): boolean {
   return intervalOverlapsYmdRange(leave.start, leave.end, from, to);
 }
@@ -63,42 +249,72 @@ function leaveOverlapsYmdRange(leave: UnifiedLeaveRecord, from: string, to: stri
 const LEAVE_STATUS_TOOLBAR_ORDER: LeaveStatus[] = ['pending', 'approved', 'rejected', 'cancelled'];
 
 const LEAVE_STATUS_LABELS_FOR_TOOLBAR: Record<string, string> = {
-  pending: STATUS_STYLE.pending.label,
-  approved: STATUS_STYLE.approved.label,
-  rejected: STATUS_STYLE.rejected.label,
-  cancelled: STATUS_STYLE.cancelled.label,
+  pending: LEAVE_STATUS_LABELS.pending,
+  approved: LEAVE_STATUS_LABELS.approved,
+  rejected: LEAVE_STATUS_LABELS.rejected,
+  cancelled: LEAVE_STATUS_LABELS.cancelled,
 };
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function UnifiedManagementClient() {
-  const [leaves, setLeaves] = React.useState<UnifiedLeaveRecord[]>(() =>
-    MOCK_UNIFIED_LEAVES.map((l) => ({ ...l })),
-  );
+  const { data: employeesResult } = useEmployees();
+  const employeesList = React.useMemo(() => employeesResult?.items ?? [], [employeesResult]);
+
+  const companyId = useDefaultCompanyId();
+
+  const [branches, setBranches] = React.useState<BranchResponseDto[]>([]);
+  React.useEffect(() => {
+    void (async () => {
+      try {
+        const scope = await resolveOrganizationScope();
+        const res = await branchesApi.getAll(scope.companyId ? { companyId: scope.companyId, limit: 200 } : { limit: 200 });
+        setBranches(res.items.filter((b) => b.isActive));
+      } catch {
+        // silently ignore — branch filter stays empty
+      }
+    })();
+  }, []);
+
+  const [leaveTypes, setLeaveTypes] = React.useState<LeaveTypeResponseDto[]>([]);
+  const [leaveRequestTypes, setLeaveRequestTypes] = React.useState<ApiRequestType[]>([]);
+
+  const reloadLeaveTypes = React.useCallback(async () => {
+    if (!companyId) return;
+    try {
+      const ltRes = await loadCompanyLeaveTypes({ companyId, limit: 200, isActive: true });
+      setLeaveTypes(ltRes.items);
+      setLeaveRequestTypes(await loadLeaveRequestTypes(companyId));
+    } catch {
+      toast.error('فشل تحميل أنواع الإجازات');
+    }
+  }, [companyId]);
+
+  React.useEffect(() => {
+    void reloadLeaveTypes();
+  }, [reloadLeaveTypes]);
+
   const [branchId, setBranchId] = React.useState('all');
   const [departmentId, setDepartmentId] = React.useState('all');
   const [leaveType, setLeaveType] = React.useState<string>('all');
   const [approvalStageFilter, setApprovalStageFilter] = React.useState<string>('all');
 
   const branchInlineOptions = React.useMemo(
-    () => [{ value: 'all', label: 'جميع الفروع' }, ...MOCK_BRANCHES.map((b) => ({ value: b.id, label: b.nameAr }))],
-    [],
+    () => [{ value: 'all', label: 'جميع الفروع' }, ...branches.map((b) => ({ value: b.id, label: b.nameAr }))],
+    [branches],
   );
   const deptInlineOptions = React.useMemo(
-    () => [{ value: 'all', label: 'جميع الأقسام' }, ...MOCK_DEPARTMENTS.map((d) => ({ value: d.id, label: d.nameAr }))],
+    () => [{ value: 'all', label: 'جميع الأقسام' }],
     [],
   );
-  const typeInlineOptions = React.useMemo(
-    () => [
+  const typeInlineOptions = React.useMemo(() => {
+    const options = new Map<string, string>();
+    for (const lt of leaveTypes) options.set(lt.id, lt.nameAr);
+    return [
       { value: 'all', label: 'جميع الأنواع' },
-      { value: 'annual', label: 'سنوية' },
-      { value: 'sick', label: 'مرضية' },
-      { value: 'emergency', label: 'طارئة' },
-      { value: 'unpaid', label: 'بدون راتب' },
-      { value: 'maternity', label: 'أمومة' },
-    ],
-    [],
-  );
+      ...[...options.entries()].map(([value, label]) => ({ value, label })),
+    ];
+  }, [leaveTypes]);
   const stageInlineOptions = React.useMemo(
     () => [
       { value: 'all', label: 'الكل' },
@@ -115,8 +331,8 @@ export function UnifiedManagementClient() {
   const [dateBounds, setDateBounds] = React.useState<{ from: string; to: string }>({ from: '', to: '' });
 
   const empPickerList = React.useMemo(() =>
-    MOCK_UNIFIED_EMPLOYEES.map(e => ({ id: e.id, name: e.nameAr })),
-    [],
+    employeesList.map(e => ({ id: e.id, name: e.nameAr })),
+    [employeesList],
   );
 
   const filters: UnifiedFilterState = {
@@ -128,81 +344,162 @@ export function UnifiedManagementClient() {
     employeeIds: [...selectedEmpIds],
   };
 
-  const [view, setView] = React.useState<'table' | 'calendar'>('table');
-  const [calMonth, setCalMonth] = React.useState(() => new Date());
+  const [view, setView] = React.useState<'table' | 'card'>('table');
   const [detailLeave, setDetailLeave] = React.useState<UnifiedLeaveRecord | null>(null);
   const [addOpen, setAddOpen] = React.useState(false);
   const [editLeave, setEditLeave] = React.useState<UnifiedLeaveRecord | null>(null);
 
-  const statusCounts = React.useMemo(() => {
-    const empPick = [...selectedEmpIds];
-    const base = leaves.filter((l) => {
-      const emp = MOCK_UNIFIED_EMPLOYEES.find((e) => e.id === l.employeeId);
-      if (!emp) return false;
-      if (filters.branchId !== 'all' && emp.homeBranchId !== filters.branchId) return false;
-      if (filters.departmentId !== 'all' && emp.departmentId !== filters.departmentId) return false;
-      if (empPick.length > 0 && !empPick.includes(l.employeeId)) return false;
-      if (filters.type !== 'all' && l.type !== filters.type) return false;
-      if (filters.approvalStage !== 'all') {
-        const stage = getApprovalStage(l);
-        if (stage !== filters.approvalStage && !(filters.approvalStage === 'fully_approved' && stage === 'fully_approved')) return false;
-      }
-      if (!leaveOverlapsYmdRange(l, dateBounds.from, dateBounds.to)) return false;
-      return true;
-    });
-    return {
-      all: base.length,
-      pending: base.filter((l) => l.status === 'pending').length,
-      approved: base.filter((l) => l.status === 'approved').length,
-      rejected: base.filter((l) => l.status === 'rejected').length,
-      cancelled: base.filter((l) => l.status === 'cancelled').length,
-    };
-  }, [leaves, filters.branchId, filters.departmentId, filters.type, filters.approvalStage, selectedEmpIds, dateBounds.from, dateBounds.to]);
-
-  // Apply filters (شريط الأدوات: فترة + حالة + موظفون؛ اللوحة: فرع، قسم، نوع، مرحلة)
-  const filtered = React.useMemo(() => {
-    const empPick = [...selectedEmpIds];
-    return leaves.filter((l) => {
-      const emp = MOCK_UNIFIED_EMPLOYEES.find((e) => e.id === l.employeeId);
-      if (!emp) return false;
-      if (filters.branchId !== 'all' && emp.homeBranchId !== filters.branchId) return false;
-      if (filters.departmentId !== 'all' && emp.departmentId !== filters.departmentId) return false;
-      if (empPick.length > 0 && !empPick.includes(l.employeeId)) return false;
-      if (filters.status !== 'all' && l.status !== filters.status) return false;
-      if (filters.type !== 'all' && l.type !== filters.type) return false;
-      if (filters.approvalStage !== 'all') {
-        const stage = getApprovalStage(l);
-        if (stage !== filters.approvalStage && !(filters.approvalStage === 'fully_approved' && stage === 'fully_approved')) return false;
-      }
-      if (!leaveOverlapsYmdRange(l, dateBounds.from, dateBounds.to)) return false;
-      return true;
-    });
-  }, [leaves, filters.branchId, filters.departmentId, filters.status, filters.type, filters.approvalStage, selectedEmpIds, dateBounds.from, dateBounds.to]);
-
-  const updateLeave = (updated: UnifiedLeaveRecord) =>
-    setLeaves((ls) => ls.map((l) => l.id === updated.id ? updated : l));
-
-  const handleApprove = (leave: UnifiedLeaveRecord) => {
-    const updated = applyStepDecision(leave, 'approve');
-    updateLeave(updated);
-    if (detailLeave?.id === updated.id) setDetailLeave(updated);
-  };
-
-  const handleReject = (leave: UnifiedLeaveRecord) => {
-    const updated = applyStepDecision(leave, 'reject');
-    updateLeave(updated);
-    if (detailLeave?.id === updated.id) setDetailLeave(updated);
-  };
-
   const selectedEmpKey = React.useMemo(() => [...selectedEmpIds].sort().join(','), [selectedEmpIds]);
+
+  const bulkMode =
+    branchId !== 'all' ||
+    departmentId !== 'all' ||
+    approvalStageFilter !== 'all' ||
+    selectedEmpIds.size > 1;
+
+  const buildListQuery = React.useCallback((page: number, pageSize: number) => ({
+    companyId: companyId!,
+    page,
+    limit: pageSize,
+    ...(statusFilter !== 'all' ? { status: statusFilter } : {}),
+    ...(leaveType !== 'all' ? { leaveTypeId: leaveType } : {}),
+    ...(selectedEmpIds.size === 1 ? { employeeId: [...selectedEmpIds][0] } : {}),
+    ...(dateBounds.from ? { dateFrom: dateBounds.from } : {}),
+    ...(dateBounds.to ? { dateTo: dateBounds.to } : {}),
+  }), [companyId, statusFilter, leaveType, selectedEmpIds, dateBounds.from, dateBounds.to]);
+
+  const applyClientFilters = React.useCallback((items: UnifiedLeaveRecord[]) => {
+    const empPick = [...selectedEmpIds];
+    return items.filter((l) => {
+      if (empPick.length > 0 && !empPick.includes(l.employeeId)) return false;
+      if (branchId !== 'all' && l.requestBranchId !== branchId) return false;
+      if (approvalStageFilter !== 'all') {
+        const stage = getApprovalStage(l);
+        if (stage !== approvalStageFilter && !(approvalStageFilter === 'fully_approved' && stage === 'fully_approved')) return false;
+      }
+      if (!leaveOverlapsYmdRange(l, dateBounds.from, dateBounds.to)) return false;
+      return true;
+    });
+  }, [approvalStageFilter, branchId, dateBounds.from, dateBounds.to, selectedEmpIds]);
+
+  const loadPage = React.useCallback(async (page: number, pageSize: number) => {
+    if (!companyId) return { items: [] as UnifiedLeaveRecord[], total: 0 };
+    try {
+      const res = await leaveRequestsNewApi.list(buildListQuery(page, pageSize));
+      const mapped = res.items.map((r) => mapApiLeave(r, leaveTypes));
+      if (bulkMode) {
+        const items = applyClientFilters(mapped);
+        return { items, total: items.length };
+      }
+      return { items: mapped, total: res.pagination.total };
+    } catch {
+      toast.error('فشل تحميل طلبات الإجازات');
+      return { items: [], total: 0 };
+    }
+  }, [applyClientFilters, buildListQuery, bulkMode, companyId, leaveTypes]);
+
+  const loadBulk = React.useCallback(async () => {
+    if (!companyId) return { items: [] as UnifiedLeaveRecord[], total: 0 };
+    try {
+      const res = await fetchAllPaginatedItems((page, limit) =>
+        leaveRequestsNewApi.list({ ...buildListQuery(page, limit) }),
+      );
+      const mapped = res.items.map((r) => mapApiLeave(r, leaveTypes));
+      const items = applyClientFilters(mapped);
+      return { items, total: items.length };
+    } catch {
+      toast.error('فشل تحميل طلبات الإجازات');
+      return { items: [], total: 0 };
+    }
+  }, [applyClientFilters, buildListQuery, companyId, leaveTypes]);
+
+  const {
+    items: filtered,
+    loading: listLoading,
+    pagination,
+    reload: reloadLeaves,
+  } = useServerDirectoryPagination<UnifiedLeaveRecord>(loadPage, {
+    enabled: !!companyId,
+    bulkMode,
+    loadBulk: bulkMode ? loadBulk : undefined,
+    resetDeps: [companyId, branchId, departmentId, leaveType, approvalStageFilter, statusFilter, selectedEmpKey, dateBounds.from, dateBounds.to],
+  });
+
+  const statusCounts = React.useMemo(() => ({
+    all: pagination.total,
+    pending: filtered.filter((l) => l.status === 'pending').length,
+    approved: filtered.filter((l) => l.status === 'approved').length,
+    rejected: filtered.filter((l) => l.status === 'rejected').length,
+    cancelled: filtered.filter((l) => l.status === 'cancelled').length,
+  }), [filtered, pagination.total]);
+
+  const handleApprove = async (leave: UnifiedLeaveRecord) => {
+    const userId = useAuthStore.getState().user?.id ?? '';
+    try {
+      const updated = await leaveRequestsNewApi.decide(leave.id, {
+        decision: 'approve',
+        updatedBy: userId || undefined,
+      });
+      const mapped = mapApiLeave(updated, leaveTypes);
+      if (detailLeave?.id === leave.id) setDetailLeave(mapped);
+      await reloadLeaves();
+      toast.success('تمت الموافقة على الطلب');
+    } catch {
+      toast.error('فشل اعتماد الطلب');
+    }
+  };
+
+  const handleReject = async (leave: UnifiedLeaveRecord) => {
+    const userId = useAuthStore.getState().user?.id ?? '';
+    try {
+      const updated = await leaveRequestsNewApi.decide(leave.id, {
+        decision: 'reject',
+        updatedBy: userId || undefined,
+      });
+      const mapped = mapApiLeave(updated, leaveTypes);
+      if (detailLeave?.id === leave.id) setDetailLeave(mapped);
+      await reloadLeaves();
+      toast.message('تم رفض الطلب');
+    } catch {
+      toast.error('فشل رفض الطلب');
+    }
+  };
+
+  const activeFilterCount =
+    (branchId !== 'all' ? 1 : 0) + (departmentId !== 'all' ? 1 : 0) +
+    (leaveType !== 'all' ? 1 : 0) + (approvalStageFilter !== 'all' ? 1 : 0) +
+    (statusFilter !== 'all' ? 1 : 0) + (selectedEmpIds.size > 0 ? 1 : 0) +
+    (dateBounds.from !== '' ? 1 : 0);
+
+  const onAddClick = React.useCallback(() => { setEditLeave(null); setAddOpen(true); }, []);
+
+  usePageHeaderActions(
+    () => (
+      <div className="flex items-center gap-2">
+        <FilterToggleButton activeFilterCount={activeFilterCount} />
+        <Button
+          variant="luxe"
+          size="sm"
+          className="h-8 gap-1.5 px-3 text-xs shadow-sm"
+          onClick={onAddClick}
+        >
+          <Plus className="h-3.5 w-3.5" />
+          إضافة إجازة
+        </Button>
+      </div>
+    ),
+    [activeFilterCount],
+  );
 
   useEntityFilterSlot(
     () => (
-      <LeavesManagementToolbar
+      <EntityFilterToolbar
         inlineSelects={[
+          { id: 'type', value: leaveType, onChange: setLeaveType, placeholder: 'نوع الإجازة', options: typeInlineOptions },
+        ]}
+        moreFilters={[
           { id: 'branch', value: branchId, onChange: setBranchId, placeholder: 'الفرع', options: branchInlineOptions },
           { id: 'dept', value: departmentId, onChange: setDepartmentId, placeholder: 'القسم', options: deptInlineOptions },
-          { id: 'type', value: leaveType, onChange: setLeaveType, placeholder: 'نوع الإجازة', options: typeInlineOptions },
           { id: 'stage', value: approvalStageFilter, onChange: setApprovalStageFilter, placeholder: 'مرحلة الاعتماد', options: stageInlineOptions },
         ]}
         empPickerEmployees={empPickerList}
@@ -216,56 +513,45 @@ export function UnifiedManagementClient() {
         onDateBoundsChange={setDateBounds}
         dataView={{
           value: view,
-          onChange: (v) => setView(v as 'table' | 'calendar'),
+          onChange: (v) => setView(v as 'table' | 'card'),
           options: [
             { value: 'table', label: 'جدول', icon: 'list' },
-            { value: 'calendar', label: 'تقويم', icon: 'calendar-days' },
+            { value: 'card', label: 'بطاقات', icon: 'layout-grid' },
           ],
         }}
-        trailingActions={(
-          <Button variant="luxe" size="sm" className="h-8 gap-1 px-3 text-xs shadow-sm shrink-0" onClick={() => { setEditLeave(null); setAddOpen(true); }}>
-            <Plus className="h-3.5 w-3.5" />
-            إضافة إجازة
-          </Button>
-        )}
       />
     ),
     [
-      branchId,
-      departmentId,
-      leaveType,
-      approvalStageFilter,
-      statusFilter,
-      selectedEmpKey,
-      dateBounds.from,
-      dateBounds.to,
-      statusCounts.all,
-      statusCounts.pending,
-      statusCounts.approved,
-      statusCounts.rejected,
-      statusCounts.cancelled,
-      view,
-      empPickerList,
-      branchInlineOptions,
-      deptInlineOptions,
-      typeInlineOptions,
-      stageInlineOptions,
+      branchId, departmentId, leaveType, approvalStageFilter,
+      statusFilter, selectedEmpKey,
+      dateBounds.from, dateBounds.to,
+      statusCounts.all, statusCounts.pending, statusCounts.approved, statusCounts.rejected, statusCounts.cancelled,
+      view, empPickerList,
+      branchInlineOptions, deptInlineOptions, typeInlineOptions, stageInlineOptions,
     ],
   );
 
   return (
-    <div className="space-y-5 animate-fade-in">
+    <div className="flex min-h-0 flex-1 flex-col gap-5 animate-fade-in">
 
-      {/* Content */}
-      {view === 'table'
-        ? <LeaveTable leaves={filtered} onDetail={setDetailLeave} onApprove={handleApprove} onReject={handleReject} />
-        : <LeaveCalendar leaves={filtered} month={calMonth} onMonthChange={setCalMonth} onDetail={setDetailLeave} />
-      }
+      <DirectoryPagedViews
+        items={filtered}
+        serverPagination={pagination}
+        loading={listLoading}
+        resetDeps={[view, filters.branchId, filters.departmentId, filters.status, filters.type, filters.approvalStage, selectedEmpKey, dateBounds.from, dateBounds.to]}
+      >
+        {(pageItems) => (
+          view === 'table'
+            ? <LeaveTable leaves={pageItems} employees={employeesList} branches={branches} onDetail={setDetailLeave} onApprove={handleApprove} onReject={handleReject} />
+            : <LeaveCardGrid leaves={pageItems} employees={employeesList} onDetail={setDetailLeave} onApprove={handleApprove} onReject={handleReject} />
+        )}
+      </DirectoryPagedViews>
 
       {/* Detail dialog */}
       {detailLeave && (
         <LeaveDetailDialog
           leave={detailLeave}
+          employees={employeesList}
           open={!!detailLeave}
           onClose={() => setDetailLeave(null)}
           onApprove={() => handleApprove(detailLeave)}
@@ -278,10 +564,14 @@ export function UnifiedManagementClient() {
       <AddLeaveDialog
         open={addOpen}
         editLeave={editLeave}
+        employees={employeesList}
+        branches={branches}
+        leaveTypes={leaveTypes}
+        leaveRequestTypes={leaveRequestTypes}
+        companyId={companyId ?? ''}
         onClose={() => { setAddOpen(false); setEditLeave(null); }}
-        onSave={(l) => {
-          if (editLeave) updateLeave(l);
-          else setLeaves((ls) => [l, ...ls]);
+        onSave={async () => {
+          await reloadLeaves();
           setAddOpen(false);
           setEditLeave(null);
         }}
@@ -292,8 +582,10 @@ export function UnifiedManagementClient() {
 
 // ─── Leave table ──────────────────────────────────────────────────────────────
 
-function LeaveTable({ leaves, onDetail, onApprove, onReject }: {
+function LeaveTable({ leaves, employees, branches, onDetail, onApprove, onReject }: {
   leaves: UnifiedLeaveRecord[];
+  employees: { id: string; nameAr: string }[];
+  branches: BranchResponseDto[];
   onDetail: (l: UnifiedLeaveRecord) => void;
   onApprove: (l: UnifiedLeaveRecord) => void;
   onReject: (l: UnifiedLeaveRecord) => void;
@@ -303,15 +595,17 @@ function LeaveTable({ leaves, onDetail, onApprove, onReject }: {
       key: 'employee',
       title: 'الموظف',
       render: (l) => {
-        const emp = MOCK_UNIFIED_EMPLOYEES.find((e) => e.id === l.employeeId);
+        const name = employeeDisplayName(l, employees);
         return (
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-              {emp?.nameAr.charAt(0) ?? '?'}
+              {name.charAt(0) ?? '?'}
             </div>
             <div>
-              <p className="font-medium">{emp?.nameAr ?? l.employeeId}</p>
-              <p className="text-[10px] text-muted-foreground">{MOCK_DEPARTMENTS.find(d => d.id === emp?.departmentId)?.nameAr}</p>
+              <p className="font-medium">{name}</p>
+              {l.requestTypeNameAr ? (
+                <p className="text-[10px] text-muted-foreground">{l.requestTypeNameAr}</p>
+              ) : null}
             </div>
           </div>
         );
@@ -325,7 +619,7 @@ function LeaveTable({ leaves, onDetail, onApprove, onReject }: {
         return (
           <span className={cn('inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-medium', typeCfg.color)}>
             <span className={cn('h-1.5 w-1.5 rounded-full', typeCfg.dot)} />
-            {LEAVE_TYPE_LABELS[l.type]}
+            {leaveTypeDisplayLabel(l)}
           </span>
         );
       },
@@ -333,25 +627,17 @@ function LeaveTable({ leaves, onDetail, onApprove, onReject }: {
     {
       key: 'status',
       title: 'الحالة',
-      render: (l) => {
-        const statusCfg = STATUS_STYLE[l.status];
-        return (
-          <span className={cn('inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-medium', statusCfg.color)}>
-            <span className={cn('h-1.5 w-1.5 rounded-full', statusCfg.dot)} />
-            {statusCfg.label}
-          </span>
-        );
-      },
+      render: (l) => <LeaveStatusBadge leave={l} />,
     },
     {
       key: 'start',
       title: 'من',
-      render: (l) => <span className="font-mono text-xs" dir="ltr">{l.start}</span>,
+      render: (l) => <TableDateCell value={l.start} />,
     },
     {
       key: 'end',
       title: 'إلى',
-      render: (l) => <span className="font-mono text-xs" dir="ltr">{l.end}</span>,
+      render: (l) => <TableDateCell value={l.end} />,
     },
     {
       key: 'days',
@@ -362,30 +648,24 @@ function LeaveTable({ leaves, onDetail, onApprove, onReject }: {
       key: 'branch',
       title: 'الفرع',
       hideOnMobile: true,
-      render: (l) => {
-        const branch = MOCK_BRANCHES.find((b) => b.id === l.requestBranchId);
-        return <span className="text-xs text-muted-foreground">{branch?.nameAr}</span>;
-      },
+      render: (l) => <span className="text-xs text-muted-foreground">{branches.find((b) => b.id === l.requestBranchId)?.nameAr ?? l.requestBranchId ?? '—'}</span>,
+    },
+    {
+      key: 'note',
+      title: 'سبب الطلب',
+      hideOnMobile: true,
+      render: (l) => (
+        <span className="line-clamp-3 max-w-[14rem] text-xs text-muted-foreground" title={l.noteAr ?? undefined}>
+          {l.noteAr ?? '—'}
+        </span>
+      ),
     },
     {
       key: 'actions',
       title: 'قرار',
       isActions: true,
-      render: (l) => {
-        const canAct = canActOnLeave(l);
-        return canAct ? (
-          <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-            <Button variant="ghost" size="icon" className="h-7 w-7 text-success hover:bg-success/10 hover:text-success" onClick={(e) => { e.stopPropagation(); onApprove(l); }} aria-label="موافقة">
-              <CheckCircle2 className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={(e) => { e.stopPropagation(); onReject(l); }} aria-label="رفض">
-              <XCircle className="h-4 w-4" />
-            </Button>
-          </div>
-        ) : (
-          <span className="text-[10px] text-muted-foreground/50">—</span>
-        );
-      },
+      className: 'min-w-[7rem]',
+      render: (l) => <LeaveDecisionCell leave={l} onApprove={onApprove} onReject={onReject} />,
     },
   ];
 
@@ -397,36 +677,35 @@ function LeaveTable({ leaves, onDetail, onApprove, onReject }: {
       emptyText="لا توجد إجازات بهذه الفلاتر"
       onRowClick={onDetail}
       mobileCard={(l) => {
-        const emp = MOCK_UNIFIED_EMPLOYEES.find((e) => e.id === l.employeeId);
-        const dept = MOCK_DEPARTMENTS.find(d => d.id === emp?.departmentId);
+        const name = employeeDisplayName(l, employees);
         const typeCfg = TYPE_STYLE[l.type];
-        const statusCfg = STATUS_STYLE[l.status];
         const canAct = canActOnLeave(l);
         return (
           <div className="space-y-3">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2.5 min-w-0">
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
-                  {emp?.nameAr.charAt(0) ?? '?'}
+                  {name.charAt(0) ?? '?'}
                 </div>
                 <div className="min-w-0">
-                  <p className="font-semibold text-sm truncate">{emp?.nameAr ?? l.employeeId}</p>
-                  <p className="text-[11px] text-muted-foreground truncate">{dept?.nameAr}</p>
+                  <p className="font-semibold text-sm truncate">{name}</p>
                 </div>
               </div>
-              <span className={cn('inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-medium shrink-0', statusCfg.color)}>
-                <span className={cn('h-1.5 w-1.5 rounded-full', statusCfg.dot)} />
-                {statusCfg.label}
-              </span>
+              <LeaveStatusBlock leave={l} compact />
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               <span className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium', typeCfg.color)}>
                 <span className={cn('h-1.5 w-1.5 rounded-full', typeCfg.dot)} />
-                {LEAVE_TYPE_LABELS[l.type]}
+                {leaveTypeDisplayLabel(l)}
               </span>
               <span className="text-xs text-muted-foreground font-mono" dir="ltr">{l.start} → {l.end}</span>
               <span className="text-xs text-muted-foreground">{l.workingDays} أيام</span>
             </div>
+            {l.noteAr?.trim() ? (
+              <p className="line-clamp-2 text-xs text-muted-foreground text-right" title={l.noteAr}>
+                {l.noteAr}
+              </p>
+            ) : null}
             {canAct && (
               <div className="flex gap-2 pt-1" onClick={(e) => e.stopPropagation()}>
                 <Button variant="outline" size="sm" className="flex-1 gap-1.5 text-xs text-success border-success/40 hover:bg-success/10" onClick={(e) => { e.stopPropagation(); onApprove(l); }}>
@@ -444,107 +723,94 @@ function LeaveTable({ leaves, onDetail, onApprove, onReject }: {
   );
 }
 
-// ─── Calendar view ─────────────────────────────────────────────────────────────
+// ─── Card grid view ────────────────────────────────────────────────────────────
 
-function LeaveCalendar({ leaves, month, onMonthChange, onDetail }: {
+function LeaveCardGrid({ leaves, employees, onDetail, onApprove, onReject }: {
   leaves: UnifiedLeaveRecord[];
-  month: Date;
-  onMonthChange: (d: Date) => void;
+  employees: { id: string; nameAr: string }[];
   onDetail: (l: UnifiedLeaveRecord) => void;
+  onApprove: (l: UnifiedLeaveRecord) => void;
+  onReject: (l: UnifiedLeaveRecord) => void;
 }) {
-  const start = startOfMonth(month);
-  const end = endOfMonth(month);
-  const days = eachDayOfInterval({ start, end });
-  const firstDow = getDay(start); // 0=Sun
-
-  const leavesInMonth = React.useMemo(() =>
-    leaves.filter((l) => {
-      const s = new Date(l.start + 'T12:00:00');
-      const e = new Date(l.end + 'T12:00:00');
-      return s <= end && e >= start;
-    }),
-    [leaves, start, end],
-  );
-
-  function leavesOnDay(d: Date): UnifiedLeaveRecord[] {
-    const iso = format(d, 'yyyy-MM-dd');
-    return leavesInMonth.filter((l) => l.start <= iso && l.end >= iso);
+  if (leaves.length === 0) {
+    return (
+      <div className="flex flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-border py-16 text-center">
+        <CalendarDays className="h-10 w-10 text-muted-foreground/40" />
+        <p className="text-sm text-muted-foreground">لا توجد إجازات بهذه الفلاتر</p>
+      </div>
+    );
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-card shadow-soft">
-      {/* Month nav */}
-      <div className="flex items-center justify-between border-b border-border px-4 py-3">
-        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onMonthChange(subMonths(month, 1))}>
-          <ChevronRight className="h-4 w-4" />
-        </Button>
-        <span className="font-display font-semibold">{toWesternDigits(format(month, 'MMMM yyyy', { locale: arSA }))}</span>
-        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onMonthChange(addMonths(month, 1))}>
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-      </div>
-
-      {/* Day headers */}
-      <div className="grid grid-cols-7 border-b border-border bg-muted/30">
-        {['أحد','إثن','ثلا','أرب','خمس','جمع','سبت'].map((d) => (
-          <div key={d} className="py-2 text-center text-[11px] font-semibold text-muted-foreground">{d}</div>
-        ))}
-      </div>
-
-      {/* Grid */}
-      <div className="grid grid-cols-7">
-        {Array.from({ length: firstDow }).map((_, i) => (
-          <div key={`blank-${i}`} className="min-h-[80px] border-b border-l border-border/40 bg-muted/10" />
-        ))}
-        {days.map((d) => {
-          const dayLeaves = leavesOnDay(d);
-          const isToday = format(d, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
-          return (
-            <div key={d.toISOString()} className="min-h-[80px] border-b border-l border-border/40 p-1.5">
-              <span className={cn('mb-1 flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium', isToday && 'bg-primary text-primary-foreground')}>
-                {format(d, 'd')}
-              </span>
-              {dayLeaves.slice(0, 2).map((l) => {
-                const typeCfg = TYPE_STYLE[l.type];
-                const emp = MOCK_UNIFIED_EMPLOYEES.find((e) => e.id === l.employeeId);
-                return (
-                  <button key={l.id} type="button" onClick={() => onDetail(l)}
-                    className={cn('mb-0.5 flex w-full cursor-pointer items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] text-right hover:opacity-80 transition-opacity', typeCfg.color)}
-                  >
-                    <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', typeCfg.dot)} />
-                    <span className="truncate">{emp?.nameAr}</span>
-                  </button>
-                );
-              })}
-              {dayLeaves.length > 2 && (
-                <span className="px-1 text-[9px] text-muted-foreground">+{dayLeaves.length - 2} أكثر</span>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </div>
+    <EntityActionCardGrid>
+      {leaves.map((l) => {
+        const name = employeeDisplayName(l, employees);
+        const typeCfg = TYPE_STYLE[l.type];
+        const canAct = canActOnLeave(l);
+        const meta = leaveStatusMeta(l);
+        return (
+          <EntityActionCard
+            key={l.id}
+            onClick={() => onDetail(l)}
+            title={name}
+            subtitle={leaveTypeDisplayLabel(l)}
+            avatarLetter={name}
+            status={{
+              label: LEAVE_STATUS_LABELS[l.status],
+              tone: LEAVE_STATUS_TONE[l.status],
+              meta: meta.dateValue ? (
+                <>
+                  {meta.dateLabel}: <span className="font-mono text-foreground" dir="ltr">{meta.dateValue}</span>
+                </>
+              ) : undefined,
+            }}
+            chips={
+              <EntityActionCardChip className={typeCfg.color}>
+                <span className={cn('h-1.5 w-1.5 rounded-full', typeCfg.dot)} />
+                {leaveTypeDisplayLabel(l)}
+              </EntityActionCardChip>
+            }
+            metrics={
+              <EntityActionCardMetricsRow>
+                <EntityActionCardMetric label="من" value={l.start} dir="ltr" />
+                <EntityActionCardMetricDivider />
+                <EntityActionCardMetric label="إلى" value={l.end} dir="ltr" />
+                <EntityActionCardMetricDivider />
+                <EntityActionCardMetric label="أيام" value={l.workingDays} />
+              </EntityActionCardMetricsRow>
+            }
+            description={l.noteAr}
+            workflow={
+              canAct
+                ? {
+                    showApproveReject: true,
+                    onApprove: () => onApprove(l),
+                    onReject: () => onReject(l),
+                  }
+                : undefined
+            }
+          />
+        );
+      })}
+    </EntityActionCardGrid>
   );
 }
 
 // ─── Leave detail dialog ───────────────────────────────────────────────────────
 
-function LeaveDetailDialog({ leave, open, onClose, onApprove, onReject, onEdit }: {
+function LeaveDetailDialog({ leave, employees, open, onClose, onApprove, onReject, onEdit }: {
   leave: UnifiedLeaveRecord;
+  employees: { id: string; nameAr: string }[];
   open: boolean;
   onClose: () => void;
   onApprove: () => void;
   onReject: () => void;
   onEdit: () => void;
 }) {
-  const emp = MOCK_UNIFIED_EMPLOYEES.find((e) => e.id === leave.employeeId);
-  const dept = MOCK_DEPARTMENTS.find((d) => d.id === emp?.departmentId);
-  const branch = MOCK_BRANCHES.find((b) => b.id === leave.requestBranchId);
-  const balance = MOCK_BALANCES[leave.employeeId];
-  const bal = balance?.[leave.type];
+  const name = employeeDisplayName(leave, employees);
   const typeCfg = TYPE_STYLE[leave.type];
-  const statusCfg = STATUS_STYLE[leave.status];
   const canAct = canActOnLeave(leave);
+  const statusMeta = leaveStatusMeta(leave);
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
@@ -552,7 +818,7 @@ function LeaveDetailDialog({ leave, open, onClose, onApprove, onReject, onEdit }
         <div className="shrink-0 border-b border-border px-6 py-5">
           <DialogHeader>
             <DialogTitle className="font-display text-xl">تفاصيل الإجازة</DialogTitle>
-            <DialogDescription>{emp?.nameAr} · {LEAVE_TYPE_LABELS[leave.type]}</DialogDescription>
+            <DialogDescription>{name} · {leaveTypeDisplayLabel(leave)}</DialogDescription>
           </DialogHeader>
         </div>
 
@@ -560,34 +826,21 @@ function LeaveDetailDialog({ leave, open, onClose, onApprove, onReject, onEdit }
           {/* Employee & type/status */}
           <div className="flex items-center gap-3">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-lg font-bold text-primary">
-              {emp?.nameAr.charAt(0)}
+              {name.charAt(0)}
             </div>
             <div className="flex-1">
-              <p className="font-semibold">{emp?.nameAr}</p>
-              <p className="text-xs text-muted-foreground">{dept?.nameAr}</p>
+              <p className="font-semibold">{name}</p>
+              {leave.requestTypeNameAr ? (
+                <p className="text-xs text-muted-foreground">{leave.requestTypeNameAr}</p>
+              ) : null}
             </div>
             <span className={cn('inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium', typeCfg.color)}>
               <span className={cn('h-1.5 w-1.5 rounded-full', typeCfg.dot)} />
-              {LEAVE_TYPE_LABELS[leave.type]}
-            </span>
-            <span className={cn('inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium', statusCfg.color)}>
-              <span className={cn('h-1.5 w-1.5 rounded-full', statusCfg.dot)} />
-              {statusCfg.label}
+              {leaveTypeDisplayLabel(leave)}
             </span>
           </div>
 
-          {/* Balance */}
-          {bal && (
-            <div className="rounded-xl border border-border bg-muted/20 px-4 py-3">
-              <p className="text-xs text-muted-foreground">رصيد {LEAVE_TYPE_LABELS[leave.type]}</p>
-              <p className="mt-1 font-display text-xl font-bold number-ar">
-                {bal.used} <span className="text-sm font-normal text-muted-foreground">/ {bal.total} يوم</span>
-              </p>
-              <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-border">
-                <div className="h-full rounded-full bg-primary" style={{ width: `${bal.total > 0 ? (bal.used / bal.total) * 100 : 0}%` }} />
-              </div>
-            </div>
-          )}
+          <LeaveStatusBlock leave={leave} />
 
           {/* Dates */}
           <div className="grid grid-cols-3 gap-3">
@@ -603,62 +856,63 @@ function LeaveDetailDialog({ leave, open, onClose, onApprove, onReject, onEdit }
             ))}
           </div>
 
-          {/* Note */}
-          {(leave.noteAr || leave.noteEn) && (
+          {leave.noteAr ? (
             <div className="rounded-xl border border-border bg-muted/20 px-4 py-3">
-              <p className="text-xs font-semibold text-muted-foreground">ملاحظات</p>
-              {leave.noteAr && <p className="mt-1 text-sm">{leave.noteAr}</p>}
-              {leave.noteEn && <p className="text-xs text-muted-foreground" dir="ltr">{leave.noteEn}</p>}
+              <p className="text-xs font-semibold text-muted-foreground">سبب الطلب</p>
+              <p className="mt-1 text-sm">{leave.noteAr}</p>
             </div>
-          )}
+          ) : null}
 
           <Separator />
 
-          {/* Approval chain */}
           <div>
-            <p className="mb-3 text-sm font-semibold">سلسلة الاعتماد</p>
-            <div className="space-y-2">
-              {leave.approvalChain.map((step, i) => {
-                const icon = step.status === 'approved' ? <CheckCircle2 className="h-4 w-4 text-success" />
-                  : step.status === 'rejected' ? <XCircle className="h-4 w-4 text-destructive" />
-                  : step.status === 'pending' ? <Clock className="h-4 w-4 text-gold" />
-                  : <div className="h-4 w-4 rounded-full border-2 border-border" />;
-                return (
-                  <div key={step.id} className="flex items-center gap-3">
-                    <div className="flex flex-col items-center">
-                      {icon}
-                      {i < leave.approvalChain.length - 1 && <div className="mt-1 h-4 w-px bg-border" />}
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">{step.nameAr}</p>
-                      <p className="text-xs text-muted-foreground">{step.roleAr}</p>
-                      {step.decidedAt && (
-                        <p className="text-[10px] font-mono text-muted-foreground" dir="ltr">{step.decidedAt.slice(0, 10)}</p>
-                      )}
-                    </div>
-                    <span className={cn('text-[10px] font-medium',
-                      step.status === 'approved' ? 'text-success' :
-                      step.status === 'rejected' ? 'text-destructive' :
-                      step.status === 'pending' ? 'text-gold' : 'text-muted-foreground',
-                    )}>
-                      {step.status === 'approved' ? 'تمت الموافقة' : step.status === 'rejected' ? 'مرفوض' : step.status === 'pending' ? 'ينتظر القرار' : 'في الانتظار'}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
+            <p className="mb-3 text-sm font-semibold">القرار</p>
+            {leave.status === 'pending' ? (
+              <div className="space-y-2 rounded-xl border border-border bg-muted/20 px-4 py-3 text-sm">
+                <p className="flex items-center gap-2 text-muted-foreground">
+                  <Clock className="h-4 w-4 text-gold" />
+                  بانتظار الموافقة أو الرفض
+                </p>
+                {statusMeta.dateValue ? (
+                  <p className="text-muted-foreground">
+                    {statusMeta.dateLabel}:{' '}
+                    <span className="font-mono text-foreground" dir="ltr">{statusMeta.dateValue}</span>
+                  </p>
+                ) : null}
+              </div>
+            ) : (
+              <div className="space-y-2 rounded-xl border border-border bg-muted/20 px-4 py-3 text-sm">
+                {statusMeta.dateValue ? (
+                  <p className="text-muted-foreground">
+                    {statusMeta.dateLabel}:{' '}
+                    <span className="font-mono text-foreground" dir="ltr">{statusMeta.dateValue}</span>
+                  </p>
+                ) : null}
+                {leave.decisionNotesAr ? (
+                  <p className="text-muted-foreground">
+                    ملاحظات القرار: <span className="text-foreground">{leave.decisionNotesAr}</span>
+                  </p>
+                ) : (
+                  <p className="text-muted-foreground">
+                    {leave.status === 'approved' ? 'تمت الموافقة على الطلب' :
+                      leave.status === 'rejected' ? 'تم رفض الطلب' :
+                        leave.status === 'cancelled' ? 'تم إلغاء الطلب' : 'تم تسجيل القرار'}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
-        <DialogFooter className="shrink-0 flex-wrap gap-2 border-t border-border bg-muted/20 px-6 py-4 sm:justify-start sm:space-x-2 sm:space-x-reverse">
-          <Button variant="outline" onClick={onClose}>إغلاق</Button>
-          <Button variant="outline" onClick={onEdit}>تعديل</Button>
+        <DialogFooter className={dialogFormFooterClass}>
           {canAct && (
             <>
-              <Button variant="destructive" onClick={() => { onReject(); onClose(); }}>رفض</Button>
               <Button variant="luxe" onClick={() => { onApprove(); onClose(); }}>موافقة</Button>
+              <Button variant="destructive" onClick={() => { onReject(); onClose(); }}>رفض</Button>
             </>
           )}
+          <Button variant="outline" onClick={onEdit}>تعديل</Button>
+          <Button variant="outline" onClick={onClose}>إغلاق</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -667,57 +921,89 @@ function LeaveDetailDialog({ leave, open, onClose, onApprove, onReject, onEdit }
 
 // ─── Add/Edit leave dialog ────────────────────────────────────────────────────
 
-function AddLeaveDialog({ open, editLeave, onClose, onSave }: {
+function AddLeaveDialog({ open, editLeave, employees, branches, leaveTypes, leaveRequestTypes, companyId, onClose, onSave }: {
   open: boolean;
   editLeave: UnifiedLeaveRecord | null;
+  employees: { id: string; nameAr: string }[];
+  branches: BranchResponseDto[];
+  leaveTypes: LeaveTypeResponseDto[];
+  leaveRequestTypes: ApiRequestType[];
+  companyId: string;
   onClose: () => void;
-  onSave: (l: UnifiedLeaveRecord) => void;
+  onSave: () => Promise<void>;
 }) {
-  function lid() { return `lv-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`; }
-
   const [empId, setEmpId] = React.useState('');
   const [branchId, setBranchId] = React.useState('');
-  const [type, setType] = React.useState<UnifiedLeaveType>('annual');
+  const [requestTypeId, setRequestTypeId] = React.useState('');
+  const [leaveTypeId, setLeaveTypeId] = React.useState('');
   const [start, setStart] = React.useState('');
   const [end, setEnd] = React.useState('');
+  const [reasonAr, setReasonAr] = React.useState('');
   const [error, setError] = React.useState<string | null>(null);
+
+  const defaultRequestTypeId = pickDefaultLeaveRequestTypeId(leaveRequestTypes);
 
   React.useEffect(() => {
     if (open && editLeave) {
       setEmpId(editLeave.employeeId);
       setBranchId(editLeave.requestBranchId);
-      setType(editLeave.type);
+      setRequestTypeId(editLeave.requestTypeId ?? defaultRequestTypeId);
+      setLeaveTypeId(editLeave.leaveTypeId);
       setStart(editLeave.start);
       setEnd(editLeave.end);
+      setReasonAr(editLeave.noteAr ?? '');
     } else if (open) {
-      setEmpId(''); setBranchId(''); setType('annual'); setStart(''); setEnd('');
+      setEmpId('');
+      setBranchId('');
+      setRequestTypeId(defaultRequestTypeId);
+      setLeaveTypeId(leaveTypes[0]?.id ?? '');
+      setStart('');
+      setEnd('');
+      setReasonAr('');
     }
     setError(null);
-  }, [open, editLeave]);
+  }, [open, editLeave, leaveTypes, defaultRequestTypeId]);
 
-  const submit = () => {
-    if (!empId) { setError('اختر الموظف'); return; }
-    if (!start || !end) { setError('حدد تاريخ البداية والنهاية'); return; }
-    if (start > end) { setError('تاريخ البداية يجب أن يكون قبل النهاية'); return; }
-    const record: UnifiedLeaveRecord = editLeave
-      ? { ...editLeave, employeeId: empId, requestBranchId: branchId, type, start, end, workingDays: wDays(start, end) }
-      : {
-          id: lid(),
-          employeeId: empId,
-          type,
-          status: 'pending',
-          start,
-          end,
-          requestBranchId: branchId || MOCK_UNIFIED_EMPLOYEES.find(e => e.id === empId)?.homeBranchId || '',
+  const submit = async () => {
+    if (!empId || !leaveTypeId) { setError('اختر الموظف ونوع الإجازة'); return; }
+    if (!start || !end || start > end) { setError('تحقق من التواريخ'); return; }
+    if (!editLeave && reasonAr.trim().length < 3) {
+      setError('أدخل سبباً (3 أحرف على الأقل)');
+      return;
+    }
+    const userId = useAuthStore.getState().user?.id ?? '';
+    const resolvedRequestTypeId = requestTypeId || defaultRequestTypeId;
+    try {
+      if (editLeave) {
+        await leaveRequestsNewApi.update(editLeave.id, {
+          startDate: start,
+          endDate: end,
           workingDays: wDays(start, end),
-          noteAr: 'طلب إجازة جديد', noteEn: 'New leave request',
-          approvalChain: defaultPendingApprovalChain(),
-        };
-    onSave(record);
+          reasonAr: reasonAr.trim() || undefined,
+          updatedBy: userId,
+        });
+        toast.success('تم تحديث الطلب');
+      } else {
+        await leaveRequestsNewApi.create({
+          companyId,
+          employeeId: empId,
+          requestTypeId: resolvedRequestTypeId,
+          leaveTypeId,
+          startDate: start,
+          endDate: end,
+          workingDays: wDays(start, end),
+          reasonAr: reasonAr.trim(),
+          createdBy: userId,
+        });
+        toast.success('تم إنشاء الطلب');
+      }
+      await onSave();
+    } catch (e) {
+      setError((e as Error).message);
+    }
   };
 
-  const empOptions = MOCK_UNIFIED_EMPLOYEES.map((e) => ({ value: e.id, label: e.nameAr }));
-  const selEmp = MOCK_UNIFIED_EMPLOYEES.find(e => e.id === empId);
+  const empOptions = employees.map((e) => ({ value: e.id, label: e.nameAr }));
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
@@ -741,22 +1027,38 @@ function AddLeaveDialog({ open, editLeave, onClose, onSave }: {
 
           <div className="space-y-2">
             <Label>فرع الطلب</Label>
-            <Select value={branchId || (selEmp?.homeBranchId ?? '')} onValueChange={setBranchId}>
+            <Select value={branchId} onValueChange={setBranchId}>
               <SelectTrigger><SelectValue placeholder="اختر الفرع" /></SelectTrigger>
               <SelectContent>
-                {MOCK_BRANCHES.map((b) => <SelectItem key={b.id} value={b.id}>{b.nameAr}</SelectItem>)}
+                {branches.length === 0 ? (
+                  <SelectItem value="__none__" disabled>لا توجد فروع</SelectItem>
+                ) : (
+                  branches.map((b) => (
+                    <SelectItem key={b.id} value={b.id}>{b.nameAr}</SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
           </div>
 
           <div className="space-y-2">
-            <Label>نوع الإجازة</Label>
-            <Select value={type} onValueChange={(v) => setType(v as UnifiedLeaveType)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+            <Label>نوع الإجازة <span className="text-destructive">*</span></Label>
+            <Select value={leaveTypeId} onValueChange={setLeaveTypeId} disabled={!!editLeave}>
+              <SelectTrigger><SelectValue placeholder="اختر نوع الإجازة" /></SelectTrigger>
               <SelectContent>
-                {Object.entries(LEAVE_TYPE_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                {leaveTypes.map((lt) => <SelectItem key={lt.id} value={lt.id}>{lt.nameAr}</SelectItem>)}
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>السبب / الملاحظات {!editLeave ? <span className="text-destructive">*</span> : null}</Label>
+            <Textarea
+              value={reasonAr}
+              onChange={(e) => setReasonAr(e.target.value)}
+              placeholder="سبب طلب الإجازة…"
+              className="min-h-[72px] resize-none text-sm"
+            />
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
@@ -778,9 +1080,9 @@ function AddLeaveDialog({ open, editLeave, onClose, onSave }: {
 
           {error && <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-2.5 text-sm text-destructive">{error}</p>}
         </div>
-        <DialogFooter className="shrink-0 gap-2 border-t border-border bg-muted/20 px-6 py-4 sm:justify-start sm:space-x-2 sm:space-x-reverse">
+        <DialogFooter className={dialogFormFooterClass}>
+          <Button variant="luxe" onClick={() => void submit()}>{editLeave ? 'حفظ التعديلات' : 'إضافة الإجازة'}</Button>
           <Button variant="outline" onClick={onClose}>إلغاء</Button>
-          <Button variant="luxe" onClick={submit}>{editLeave ? 'حفظ التعديلات' : 'إضافة الإجازة'}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

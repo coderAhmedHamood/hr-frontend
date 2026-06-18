@@ -1,10 +1,10 @@
 'use client';
 
 import * as React from 'react';
-import { sanitizePdfText } from '@/lib/pdf/sanitize-pdf-text';
+import { sanitizePdfText } from '@/components/pdf/lib/sanitize-pdf-text';
 import { RoseTradingLetterheadPrint } from '@/components/pdf/print/rose-trading-letterhead-print';
-import { getPdfLogoSrc } from '@/lib/pdf/pdf-logo-url';
-import { PDF_PRINT_C } from '@/features/hr/contracts/reports/components/pdf-print-shared';
+import { getPdfLogoSrc } from '@/components/pdf/lib/pdf-logo-url';
+import { PDF_PRINT_C } from '@/features/hr/payroll/reports/components/pdf-print-shared';
 
 export type DisciplineCircularPrintHtmlProps = {
   logoSrc?: string;

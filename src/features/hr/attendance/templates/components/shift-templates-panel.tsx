@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Plus, Clock } from 'lucide-react';
+import { Plus, Clock, AlertTriangle, Trash2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -10,12 +10,12 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  dialogFormFooterClass,
 } from '@/components/ui/dialog';
 import { EmptyStateCard } from '@/components/shared/empty-state-card';
-import { defaultShiftPeriod, normalizeShiftTemplate } from '@/lib/attendance/defaults';
-import type { ShiftTemplate, WeekDayIndex } from '@/lib/attendance/types';
-import { useAttendanceStore } from '@/lib/attendance/store';
-import { genId } from '@/lib/attendance/utils';
+import { defaultShiftPeriod, normalizeShiftTemplate } from '@/features/hr/attendance/lib/defaults';
+import type { ShiftTemplate, WeekDayIndex } from '@/features/hr/attendance/lib/types';
+import { genId } from '@/features/hr/attendance/lib/utils';
 import { ShiftTemplateCard } from '@/features/hr/attendance/templates/components/shift-template-card';
 import { ShiftTemplateDialogForm } from '@/features/hr/attendance/templates/components/shift-template-dialog-form';
 import { DEFAULT_REST } from '@/features/hr/attendance/templates/constants/shift-templates-ui';
@@ -23,15 +23,87 @@ import {
   cloneTemplate,
   validateTemplate,
 } from '@/features/hr/attendance/templates/utils/shift-template-helpers';
+import { shiftTemplatesApi, type ShiftTemplateResponseDto } from '@/features/hr/attendance/lib/api/shift-templates';
+import { formatApiErrorForDisplay } from '@/features/hr/lib/api/global-error-handler';
+import { companiesApi } from '@/features/hr/lib/api/companies';
+import { getDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
+import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
+import { DirectoryPagedViews, useServerDirectoryPagination } from '@/components/ui/paged-list';
+
+function dtoToLocal(dto: ShiftTemplateResponseDto): ShiftTemplate {
+  return {
+    id: dto.id,
+    nameAr: dto.nameAr,
+    nameEn: dto.nameEn ?? '',
+    colorHex: dto.colorHex,
+    effectiveFrom: dto.effectiveFrom,
+    isActive: dto.isActive,
+    weekDays: dto.weekDays.map((wd) => ({
+      day: wd.day as WeekDayIndex,
+      isRest: wd.isRest,
+      periods: wd.periods.map((p) => ({
+        id: p.id ?? genId('per'),
+        startTime: p.startTime,
+        endTime: p.endTime,
+        breakEnabled: p.breakEnabled,
+        breakStart: p.breakStart ?? '',
+        breakEnd: p.breakEnd ?? '',
+        flexibilityEnabled: p.flexibilityEnabled,
+        flexibilityMinutes: p.flexibilityMinutes ?? 0,
+        checkIn: {
+          beforeStartMinutes: p.checkIn.beforeStartMinutes,
+          graceMinutes: p.checkIn.graceMinutes,
+          afterStartMinutes: p.checkIn.afterStartMinutes,
+        },
+        checkOut: {
+          beforeEndMinutes: p.checkOut.beforeEndMinutes,
+          allowedShortageMinutes: p.checkOut.allowedShortageMinutes,
+          afterEndMinutes: p.checkOut.afterEndMinutes,
+        },
+        checkOutNotRequired: p.checkOutNotRequired,
+        autoOvertime: p.autoOvertime,
+        strictMode: p.strictMode,
+        strictPenaltyWarning: p.strictPenaltyWarning,
+        strictPenaltyBalanceEnabled: p.strictPenaltyBalanceEnabled,
+        strictPenaltyBalanceDays: p.strictPenaltyBalanceDays,
+      })),
+    })),
+  };
+}
 
 export function ShiftTemplatesPanel() {
-  const shiftTemplates = useAttendanceStore((s) => s.shiftTemplates);
-  const upsertTemplate = useAttendanceStore((s) => s.upsertTemplate);
-  const removeTemplate = useAttendanceStore((s) => s.removeTemplate);
-
+  const [companyId, setCompanyId] = React.useState('');
   const [open, setOpen] = React.useState(false);
   const [draft, setDraft] = React.useState<ShiftTemplate | null>(null);
   const [error, setError] = React.useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = React.useState<ShiftTemplate | null>(null);
+  const [deleting, setDeleting] = React.useState(false);
+  const [deleteError, setDeleteError] = React.useState<string | null>(null);
+
+  const loadPage = React.useCallback(async (page: number, pageSize: number) => {
+    try {
+      const res = await shiftTemplatesApi.getAll(
+        companyId ? { companyId, page, limit: pageSize } : { page, limit: pageSize },
+      );
+      return { items: res.items.map(dtoToLocal), total: res.pagination.total };
+    } catch {
+      return { items: [] as ShiftTemplate[], total: 0 };
+    }
+  }, [companyId]);
+
+  const {
+    items: shiftTemplates,
+    loading,
+    pagination,
+    reload,
+  } = useServerDirectoryPagination<ShiftTemplate>(loadPage, {
+    enabled: !!companyId,
+    resetDeps: [companyId],
+  });
+
+  React.useEffect(() => {
+    setCompanyId(getDefaultCompanyId() ?? '');
+  }, []);
 
   const buildDefault = (): ShiftTemplate => {
     const per = defaultShiftPeriod(genId('per'));
@@ -50,59 +122,130 @@ export function ShiftTemplatesPanel() {
     };
   };
 
-  const openCreate = () => {
+  const openCreate = React.useCallback(() => {
     setDraft(buildDefault());
     setError(null);
     setOpen(true);
-  };
+  // buildDefault is a stable inner fn; its deps are stable constants + companyId
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId]);
 
-  const openEdit = (t: ShiftTemplate) => {
+  const openEdit = React.useCallback((t: ShiftTemplate) => {
     setDraft(normalizeShiftTemplate(cloneTemplate(t)));
     setError(null);
     setOpen(true);
-  };
-
-  const save = () => {
-    if (!draft) return;
-    const err = validateTemplate(draft);
-    if (err) {
-      setError(err);
-      return;
-    }
-    upsertTemplate({ ...draft, nameEn: draft.nameAr.trim() });
-    setOpen(false);
-    setDraft(null);
-  };
+  }, []);
 
   const isEdit = !!draft && shiftTemplates.some((x) => x.id === draft.id);
 
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-end">
-        <Button variant="luxe" className="shrink-0 gap-2" type="button" onClick={openCreate}>
-          <Plus className="h-4 w-4" /> قالب جديد
-        </Button>
-      </div>
+  const save = async () => {
+    if (!draft) return;
+    const err = validateTemplate(draft);
+    if (err) { setError(err); return; }
 
-      {shiftTemplates.length === 0 ? (
+    const weekDays = draft.weekDays.map((wd) => ({
+      day: wd.day,
+      isRest: wd.isRest,
+      periods: wd.periods.map((p) => ({
+        startTime: p.startTime,
+        endTime: p.endTime,
+        breakEnabled: p.breakEnabled,
+        breakStart: p.breakStart || null,
+        breakEnd: p.breakEnd || null,
+        flexibilityEnabled: p.flexibilityEnabled,
+        flexibilityMinutes: p.flexibilityMinutes || null,
+        checkIn: {
+          beforeStartMinutes: p.checkIn.beforeStartMinutes,
+          graceMinutes: p.checkIn.graceMinutes,
+          afterStartMinutes: p.checkIn.afterStartMinutes,
+        },
+        checkOut: {
+          beforeEndMinutes: p.checkOut.beforeEndMinutes,
+          allowedShortageMinutes: p.checkOut.allowedShortageMinutes,
+          afterEndMinutes: p.checkOut.afterEndMinutes,
+        },
+        checkOutNotRequired: p.checkOutNotRequired,
+        autoOvertime: p.autoOvertime,
+        strictMode: p.strictMode,
+        strictPenaltyWarning: p.strictPenaltyWarning,
+        strictPenaltyBalanceEnabled: p.strictPenaltyBalanceEnabled,
+        strictPenaltyBalanceDays: p.strictPenaltyBalanceDays,
+      })),
+    }));
+
+    try {
+      if (isEdit) {
+        await shiftTemplatesApi.update(draft.id, {
+          nameAr: draft.nameAr, nameEn: draft.nameEn,
+          colorHex: draft.colorHex, effectiveFrom: draft.effectiveFrom,
+          isActive: draft.isActive, weekDays,
+        });
+      } else {
+        await shiftTemplatesApi.create({
+          companyId, nameAr: draft.nameAr, nameEn: draft.nameEn,
+          colorHex: draft.colorHex, effectiveFrom: draft.effectiveFrom,
+          isActive: draft.isActive, weekDays,
+        });
+      }
+      await reload();
+      setOpen(false);
+      setDraft(null);
+    } catch (e) {
+      setError(formatApiErrorForDisplay(e));
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await shiftTemplatesApi.remove(deleteTarget.id);
+      await reload();
+      setDeleteTarget(null);
+    } catch (e) {
+      setDeleteError(formatApiErrorForDisplay(e));
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  usePageHeaderActions(
+    () => (
+      <Button variant="luxe" size="sm" className="h-8 gap-1.5 px-3 text-xs shrink-0" type="button" onClick={openCreate}>
+        <Plus className="h-3.5 w-3.5" /> قالب جديد
+      </Button>
+    ),
+    [openCreate],
+  );
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
+
+      {loading && shiftTemplates.length === 0 ? null : shiftTemplates.length === 0 && !loading ? (
         <EmptyStateCard
           icon={Clock}
           title="لا توجد قوالب بعد"
           description="أضف قالباً جديداً لتحديد أوقات الدوام"
         />
       ) : (
+        <DirectoryPagedViews items={shiftTemplates} serverPagination={pagination} loading={loading}>
+          {(pageItems) => (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {shiftTemplates.map((t) => (
+          {pageItems.map((t) => (
             <ShiftTemplateCard
               key={t.id}
               t={t}
               onEdit={() => openEdit(t)}
               onDelete={() => {
-                if (window.confirm('حذف القالب؟')) removeTemplate(t.id);
+                setDeleteError(null);
+                setDeleteTarget(t);
               }}
             />
           ))}
         </div>
+          )}
+        </DirectoryPagedViews>
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
@@ -113,7 +256,7 @@ export function ShiftTemplatesPanel() {
                 {isEdit ? 'تعديل القالب' : 'قالب دوام جديد'}
               </DialogTitle>
               <DialogDescription>
-                حدد أيام العمل ثم أدخل أوقات الدوام — تُطبَّق تلقائياً على جميع الأيام المحددة.
+                حدد أيام العمل ثم أدخل أوقات الدوام — تُطبَّق تلقائياً على جميع الأيام المحددة.
               </DialogDescription>
             </DialogHeader>
           </div>
@@ -129,12 +272,50 @@ export function ShiftTemplatesPanel() {
             </div>
           )}
 
-          <DialogFooter className="shrink-0 gap-2 border-t border-border bg-muted/20 px-6 py-4 sm:justify-start sm:space-x-2 sm:space-x-reverse">
+          <DialogFooter className={dialogFormFooterClass}>
+            <Button variant="luxe" type="button" onClick={() => void save()}>
+              حفظ القالب
+            </Button>
             <Button variant="outline" type="button" onClick={() => setOpen(false)}>
               إلغاء
             </Button>
-            <Button variant="luxe" type="button" onClick={save}>
-              حفظ القالب
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!deleteTarget}
+        onOpenChange={(v) => {
+          if (!v && !deleting) {
+            setDeleteTarget(null);
+            setDeleteError(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-sm border-border">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 font-display text-base">
+              <AlertTriangle className="h-4 w-4 text-destructive" />
+              حذف قالب الدوام
+            </DialogTitle>
+            <DialogDescription className="leading-relaxed">
+              هل أنت متأكد من حذف القالب{' '}
+              <span className="font-semibold text-foreground">{deleteTarget?.nameAr}</span>؟ لا يمكن
+              التراجع عن هذا الإجراء.
+            </DialogDescription>
+          </DialogHeader>
+          {deleteError && (
+            <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+              {deleteError}
+            </div>
+          )}
+          <DialogFooter className="pt-2">
+            <Button variant="destructive" onClick={() => void confirmDelete()} disabled={deleting} className="gap-2">
+              {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+              حذف
+            </Button>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={deleting}>
+              إلغاء
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -1,5 +1,6 @@
-import { PayrollPeriodsClient } from '@/features/hr/contracts/payroll-periods/components/payroll-periods-client';
+import { redirect } from 'next/navigation';
+import { hrPayrollRoutes } from '@/features/hr/payroll/constants/routes';
 
-export default function PayrollPeriodsPage() {
-  return <PayrollPeriodsClient />;
+export default function LegacyContractsPayrollPeriodsRedirectPage() {
+  redirect(hrPayrollRoutes.payrollPeriods);
 }

@@ -5,8 +5,8 @@ import Link from 'next/link';
 import { ChevronLeft } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { StatusBadge } from '@/components/status-badge';
-import { cn, getInitials } from '@/lib/utils';
+import { StatusBadge } from '@/components/shared/status-badge';
+import { cn, getInitials } from '@/shared/utils';
 import type { EmployeeProfileModel } from '@/features/hr/organization/employees/hooks/useEmployeeProfileModel';
 import { hrOrganizationRoutes } from '@/features/hr/organization/constants/routes';
 
@@ -27,7 +27,7 @@ export function EmployeeProfileShell({ model, children }: Props) {
   const showCount = (n: number | undefined) => countsReady && n !== undefined && n > 0;
 
   return (
-    <div dir="rtl" className="h-full flex flex-col overflow-hidden bg-background -mx-4 sm:-mx-6">
+    <div dir="rtl" className="flex min-h-0 flex-1 flex-col overflow-hidden bg-background -mx-4 sm:-mx-6">
       <div className="shrink-0 border-b border-border/60 bg-card/50 backdrop-blur-md">
         <div className="px-3 sm:px-6 h-12 flex items-center justify-between">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -89,29 +89,9 @@ export function EmployeeProfileShell({ model, children }: Props) {
         </div>
       </div>
 
-      <div className="flex-1 flex overflow-hidden">
-        <aside className="hidden md:flex w-72 lg:w-80 shrink-0 border-l border-border/60 bg-card/30 flex-col overflow-hidden">
-          <div className="p-5 border-b border-border/60">
-            <div className="flex items-start gap-3">
-              <Avatar className="h-14 w-14 ring-2 ring-background shadow-xs">
-                <AvatarImage src={employee.avatar} alt={employee.name} />
-                <AvatarFallback className="text-base font-arabic-display bg-primary text-primary-foreground">
-                  {getInitials(employee.name)}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex-1 min-w-0">
-                <h1 className="font-arabic-display text-lg font-semibold tracking-tight text-foreground truncate">
-                  {employee.name}
-                </h1>
-                <p className="text-xs text-muted-foreground truncate mt-0.5">{employee.position}</p>
-                <div className="mt-2 flex items-center gap-1.5">
-                  <StatusBadge status={employee.contractStatus} />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <nav className="flex-1 overflow-y-auto p-3">
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        <aside className="hidden md:flex w-72 lg:w-80 shrink-0 min-h-0 border-l border-border/60 bg-card/30 flex-col overflow-hidden">
+          <nav className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3">
             <div className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-2 px-2">
               الأقسام
             </div>
@@ -145,8 +125,11 @@ export function EmployeeProfileShell({ model, children }: Props) {
           </nav>
         </aside>
 
-        <main ref={contentRef} className="flex-1 overflow-y-auto">
-          <div className="max-w-5xl mx-auto px-3 sm:px-6 md:px-8 py-4 sm:py-5">{children}</div>
+        <main
+          ref={contentRef}
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-muted/20"
+        >
+          <div className="mx-auto max-w-5xl px-3 py-4 sm:px-6 sm:py-6 md:px-8">{children}</div>
         </main>
       </div>
     </div>

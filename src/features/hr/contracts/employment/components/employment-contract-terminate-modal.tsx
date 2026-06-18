@@ -37,12 +37,12 @@ export function EmploymentContractTerminateModal({
           <DialogDescription>أدخل سبب الإنهاء المبكر ثم أكّد الإجراء.</DialogDescription>
         </DialogHeader>
         <Input value={reason} onChange={(e) => onReasonChange(e.target.value)} placeholder="سبب الإنهاء…" />
-        <DialogFooter className="gap-2 sm:justify-start sm:space-x-2 sm:space-x-reverse">
-          <Button variant="outline" onClick={onCancel}>
-            إلغاء
-          </Button>
+        <DialogFooter>
           <Button variant="destructive" onClick={onConfirm}>
             إنهاء العقد
+          </Button>
+          <Button variant="outline" onClick={onCancel}>
+            إلغاء
           </Button>
         </DialogFooter>
       </DialogContent>

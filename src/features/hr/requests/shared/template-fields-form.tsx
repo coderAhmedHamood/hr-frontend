@@ -4,8 +4,8 @@ import * as React from 'react';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import type { HRRequestFieldDefinition, HRRequestTemplateEntity } from '@/lib/hr-requests/types';
-import { cn } from '@/lib/utils';
+import type { HRRequestFieldDefinition, HRRequestTemplateEntity } from '@/features/hr/requests/lib/types';
+import { cn } from '@/shared/utils';
 
 export type HRRequestTemplateFieldsFormValues = Record<string, unknown>;
 

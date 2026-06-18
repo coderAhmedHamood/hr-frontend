@@ -3,7 +3,6 @@
 import * as React from 'react';
 import {
   Check,
-  Clock,
   Layers,
   Link2,
   MapPinned,
@@ -16,24 +15,27 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { SingleDatePicker } from '@/components/ui/single-date-picker';
-import { cn } from '@/lib/utils';
-import type { AttendanceCheckInPoint, AttendanceCheckInPointLink, ShiftTemplate } from '@/lib/attendance/types';
+import { cn } from '@/shared/utils';
+import type { AttendanceCheckInPoint, AttendanceCheckInPointLink } from '@/features/hr/attendance/lib/types';
 
 export type EmployeeAttendanceDialogsProps = {
   employeeName: string;
   checkpoints: AttendanceCheckInPoint[];
-  shiftTemplates: ShiftTemplate[];
+  shiftTemplates: Array<{
+    id: string;
+    nameAr: string;
+    nameEn: string | null;
+    colorHex: string;
+    effectiveFrom: string;
+    isActive: boolean;
+  }>;
   employeeCheckpoints: AttendanceCheckInPointLink[];
   shiftOpen: boolean;
   setShiftOpen: (v: boolean) => void;
-  shiftMode: 'template' | 'open';
-  setShiftMode: (v: 'template' | 'open') => void;
   shiftTemplateId: string;
   setShiftTemplateId: (id: string) => void;
   shiftDate: string;
   setShiftDate: (v: string) => void;
-  shiftHours: string;
-  setShiftHours: (v: string) => void;
   shiftUnlinkTarget: string | null;
   setShiftUnlinkTarget: (v: string | null) => void;
   submitShift: () => void;
@@ -69,86 +71,49 @@ export function EmployeeAttendanceDialogs(p: EmployeeAttendanceDialogsProps) {
               </div>
               <div>
                 <DialogTitle className="text-base">ربط شيفت</DialogTitle>
-                <DialogDescription className="text-xs">حدد نوع الشيفت لـ {p.employeeName}</DialogDescription>
+                <DialogDescription className="text-xs">اختر قالب الدوام لـ {p.employeeName}</DialogDescription>
               </div>
             </div>
           </DialogHeader>
 
           <div className="px-5 py-4 space-y-4">
-            <div className="flex items-center gap-1 rounded-lg border border-border bg-muted/30 p-1">
-              <button
-                type="button"
-                className={cn('flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-all', p.shiftMode === 'template' ? 'bg-card shadow-xs text-foreground' : 'text-muted-foreground hover:text-foreground')}
-                onClick={() => p.setShiftMode('template')}
-              >
-                <Layers className="h-3.5 w-3.5" /> شيفت محدد
-              </button>
-              <button
-                type="button"
-                className={cn('flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-all', p.shiftMode === 'open' ? 'bg-card shadow-xs text-foreground' : 'text-muted-foreground hover:text-foreground')}
-                onClick={() => p.setShiftMode('open')}
-              >
-                <Clock className="h-3.5 w-3.5" /> شيفت مفتوح
-              </button>
-            </div>
-
             <div className="flex items-center gap-3">
               <Label className="shrink-0 text-xs">ساري من</Label>
               <SingleDatePicker value={p.shiftDate} onChange={p.setShiftDate} />
             </div>
 
-            {p.shiftMode === 'template' ? (
-              <div className="space-y-1.5">
-                <Label className="text-xs">اختر الشيفت</Label>
-                <div className="space-y-1 max-h-56 overflow-y-auto">
-                  {p.shiftTemplates.filter((t) => t.isActive).map((tpl) => {
-                    const sel = p.shiftTemplateId === tpl.id;
-                    return (
-                      <button
-                        key={tpl.id}
-                        type="button"
-                        onClick={() => p.setShiftTemplateId(tpl.id)}
-                        className={cn(
-                          'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-right text-sm transition-all',
-                          sel ? 'bg-primary/10' : 'hover:bg-muted/50',
-                        )}
+            <div className="space-y-1.5">
+              <Label className="text-xs">اختر الشيفت</Label>
+              <div className="space-y-1 max-h-56 overflow-y-auto">
+                {p.shiftTemplates.filter((t) => t.isActive).map((tpl) => {
+                  const sel = p.shiftTemplateId === tpl.id;
+                  return (
+                    <button
+                      key={tpl.id}
+                      type="button"
+                      onClick={() => p.setShiftTemplateId(tpl.id)}
+                      className={cn(
+                        'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-right text-sm transition-all',
+                        sel ? 'bg-primary/10' : 'hover:bg-muted/50',
+                      )}
+                    >
+                      <div
+                        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition-all"
+                        style={sel ? { borderColor: tpl.colorHex, background: tpl.colorHex } : { borderColor: `${tpl.colorHex}80` }}
                       >
-                        <div
-                          className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition-all"
-                          style={sel ? { borderColor: tpl.colorHex, background: tpl.colorHex } : { borderColor: `${tpl.colorHex}80` }}
-                        >
-                          {sel && <Check className="h-3 w-3 text-white" />}
-                        </div>
-                        <div className="h-3 w-3 rounded-full shrink-0" style={{ background: tpl.colorHex }} />
-                        <span className="flex-1 truncate font-medium">{tpl.nameAr}</span>
-                        <span className="text-[10px] text-muted-foreground font-mono" dir="ltr">{tpl.effectiveFrom}</span>
-                      </button>
-                    );
-                  })}
-                  {p.shiftTemplates.filter((t) => t.isActive).length === 0 && (
-                    <p className="py-4 text-center text-xs text-muted-foreground">لا توجد شيفتات نشطة</p>
-                  )}
-                </div>
+                        {sel && <Check className="h-3 w-3 text-white" />}
+                      </div>
+                      <div className="h-3 w-3 rounded-full shrink-0" style={{ background: tpl.colorHex }} />
+                      <span className="flex-1 truncate font-medium">{tpl.nameAr}</span>
+                      <span className="text-[10px] text-muted-foreground font-mono" dir="ltr">{tpl.effectiveFrom}</span>
+                    </button>
+                  );
+                })}
+                {p.shiftTemplates.filter((t) => t.isActive).length === 0 && (
+                  <p className="py-4 text-center text-xs text-muted-foreground">لا توجد شيفتات نشطة</p>
+                )}
               </div>
-            ) : (
-              <div className="space-y-2">
-                <Label className="text-xs">عدد ساعات العمل اليومية</Label>
-                <div className="relative">
-                  <Clock className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    type="number"
-                    min="1"
-                    max="24"
-                    step="0.5"
-                    value={p.shiftHours}
-                    onChange={(e) => p.setShiftHours(e.target.value)}
-                    placeholder="8"
-                    className="pr-9"
-                  />
-                </div>
-                <p className="text-[11px] text-muted-foreground">الموظف يعمل ساعات مرنة بدون شيفت ثابت</p>
-              </div>
-            )}
+            </div>
           </div>
 
           <div className="flex items-center justify-between border-t border-border bg-muted/20 px-5 py-3">
@@ -157,7 +122,7 @@ export function EmployeeAttendanceDialogs(p: EmployeeAttendanceDialogsProps) {
               variant="luxe"
               size="sm"
               onClick={p.submitShift}
-              disabled={p.shiftMode === 'template' && !p.shiftTemplateId}
+              disabled={!p.shiftTemplateId}
               className="gap-1.5"
             >
               <Layers className="h-3.5 w-3.5" /> ربط الشيفت
@@ -174,8 +139,7 @@ export function EmployeeAttendanceDialogs(p: EmployeeAttendanceDialogsProps) {
             </DialogTitle>
             <DialogDescription>هل تريد إزالة هذا الشيفت من الموظف؟</DialogDescription>
           </DialogHeader>
-          <DialogFooter className="gap-2 pt-1">
-            <Button variant="outline" size="sm" onClick={() => p.setShiftUnlinkTarget(null)}>إلغاء</Button>
+          <DialogFooter className="pt-2">
             <Button
               variant="destructive"
               size="sm"
@@ -189,6 +153,7 @@ export function EmployeeAttendanceDialogs(p: EmployeeAttendanceDialogsProps) {
             >
               <Unlink className="h-3.5 w-3.5" /> فك الربط
             </Button>
+            <Button variant="outline" size="sm" onClick={() => p.setShiftUnlinkTarget(null)}>إلغاء</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -313,8 +278,7 @@ export function EmployeeAttendanceDialogs(p: EmployeeAttendanceDialogsProps) {
             </DialogTitle>
             <DialogDescription>هل تريد فك ربط هذه النقطة من الموظف؟</DialogDescription>
           </DialogHeader>
-          <DialogFooter className="gap-2 pt-1">
-            <Button variant="outline" size="sm" onClick={() => p.setCpUnlinkTarget(null)}>إلغاء</Button>
+          <DialogFooter className="pt-2">
             <Button
               variant="destructive"
               size="sm"
@@ -327,6 +291,7 @@ export function EmployeeAttendanceDialogs(p: EmployeeAttendanceDialogsProps) {
             >
               <Unlink className="h-3.5 w-3.5" /> فك الربط
             </Button>
+            <Button variant="outline" size="sm" onClick={() => p.setCpUnlinkTarget(null)}>إلغاء</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

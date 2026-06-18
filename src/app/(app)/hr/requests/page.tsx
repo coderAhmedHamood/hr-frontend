@@ -1,2 +1,2 @@
 import { redirect } from 'next/navigation';
-export default function RequestsRoot() { redirect('/hr/requests/general'); }
+export default function RequestsRoot() { redirect('/hr/requests/attendance-corrections'); }

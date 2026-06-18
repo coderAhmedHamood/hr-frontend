@@ -1,9 +1,9 @@
 'use client';
 
 import * as React from 'react';
-import { sanitizePdfText } from '@/lib/pdf/sanitize-pdf-text';
+import { sanitizePdfText } from '@/components/pdf/lib/sanitize-pdf-text';
 import { RoseTradingLetterheadPrint } from '@/components/pdf/print/rose-trading-letterhead-print';
-import { getPdfLogoSrc } from '@/lib/pdf/pdf-logo-url';
+import { getPdfLogoSrc } from '@/components/pdf/lib/pdf-logo-url';
 
 const PAGE_STYLE: React.CSSProperties = {
   width: '210mm',

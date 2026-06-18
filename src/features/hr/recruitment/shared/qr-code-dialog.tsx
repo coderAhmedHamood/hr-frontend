@@ -5,8 +5,8 @@ import { Link, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import type { AtsJob } from '@/lib/ats/types';
-import { publicJobUrl, generateQRCode, copyToClipboard, downloadQR } from '@/lib/ats/utils';
+import type { AtsJob } from '@/features/hr/recruitment/lib/ats/types';
+import { publicJobUrl, generateQRCode, copyToClipboard, downloadQR } from '@/features/hr/recruitment/lib/ats/utils';
 
 interface QRCodeDialogProps {
   job: AtsJob | null;

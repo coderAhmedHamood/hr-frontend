@@ -1,6 +1,16 @@
 'use client';
 
 import * as React from 'react';
+import { Send } from 'lucide-react';
+import {
+  EntityActionCard,
+  EntityActionCardChip,
+  EntityActionCardGrid,
+  EntityActionCardMetric,
+  EntityActionCardMetricDivider,
+  EntityActionCardMetricsRow,
+  type WorkflowStatusTone,
+} from '@/components/ui/entity-action-card';
 import { Button } from '@/components/ui/button';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -8,22 +18,30 @@ import {
 import { Label } from '@/components/ui/label';
 import {
   EmptyState,
-} from '@/components/hr-requests/shared-ui';
-import { useHRDisciplinePayrollDeductionsStore } from '@/lib/hr-discipline/payroll-deductions-store';
+} from '@/features/hr/requests/components/shared-ui';
+import { useDisciplinePayrollDeductionsDirectoryModel } from '@/features/hr/discipline/deductions/hooks/useDisciplinePayrollDeductionsDirectoryModel';
 import {
   DEDUCTION_KIND_LABELS,
   DEDUCTION_STATUS_LABELS,
-} from '@/lib/hr-discipline/types';
-import type { HRDeductionStatus, HRViolationDeductionKind } from '@/lib/hr-discipline/types';
-import type { DateFilterTab } from '@/lib/hr-discipline/discipline-date-filter';
-import { dateToYMD, matchesDateRange } from '@/lib/hr-discipline/discipline-date-filter';
-import { cn, formatNumber } from '@/lib/utils';
+} from '@/features/hr/discipline/lib/types';
+import type { HRDeductionStatus, HRViolationDeductionKind } from '@/features/hr/discipline/lib/types';
+import type { DateFilterTab } from '@/features/hr/discipline/lib/discipline-date-filter';
+import { cn, formatNumber } from '@/shared/utils';
+import { STATUS_PILL } from '@/shared/status-pill-classes';
 import {
   DisciplineFilterToolbar,
   type DisciplineFilterToolbarHandle,
   type DisciplineViewMode,
 } from '@/features/hr/discipline/components/discipline-filter-toolbar';
-import { useEntityFilterSlot } from '@/components/entity-filter-slot-context';
+import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
+import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
+import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
+import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
+import { toast } from 'sonner';
+import { DataTable, type ColumnDef } from '@/components/ui/data-table';
+import { TableDateCell, TableRowActions, TableRowDetailDialog } from '@/components/ui/table-cells';
+import { DisciplineListViewport, DisciplinePaginatedList } from '@/features/hr/discipline/components/discipline-paginated-list';
+import type { HRDisciplinePayrollDeductionRecord } from '@/features/hr/discipline/lib/types';
 
 const DEDUCTION_STATUS_ORDER: readonly HRDeductionStatus[] = ['ready', 'posted', 'calculated', 'cancelled'];
 
@@ -36,21 +54,23 @@ const KIND_FILTER_OPTIONS: { value: KindFilter; label: string }[] = [
     .map(([value, label]) => ({ value: value as Exclude<HRViolationDeductionKind, 'none'>, label })),
 ];
 
-function createdAtToYmd(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  return dateToYMD(d);
-}
-
 const STATUS_COLORS: Record<HRDeductionStatus, string> = {
-  ready: 'text-blue-700 border-blue-200 bg-blue-50 dark:text-blue-400 dark:border-blue-800 dark:bg-blue-950/30',
-  posted: 'text-emerald-700 border-emerald-200 bg-emerald-50 dark:text-emerald-400 dark:border-emerald-800 dark:bg-emerald-950/30',
-  calculated: 'text-purple-700 border-purple-200 bg-purple-50 dark:text-purple-400 dark:border-purple-800 dark:bg-purple-950/30',
-  cancelled: 'text-muted-foreground border-border bg-muted/30',
+  ready: STATUS_PILL.info,
+  posted: STATUS_PILL.approved,
+  calculated: STATUS_PILL.calculated,
+  cancelled: STATUS_PILL.cancelled,
+};
+
+const DEDUCTION_STATUS_TONE: Record<HRDeductionStatus, WorkflowStatusTone> = {
+  ready: 'info',
+  posted: 'approved',
+  calculated: 'warning',
+  cancelled: 'muted',
 };
 
 export function DeductionsClient() {
-  const { deductions } = useHRDisciplinePayrollDeductionsStore();
+  const m = useDisciplinePayrollDeductionsDirectoryModel();
+  const { setListFilters, items, pagination, filteredItems, dateFilteredItems, sourceDeductions } = m;
 
   const [selectedEmpIds, setSelectedEmpIds] = React.useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = React.useState<DisciplineViewMode>('cards');
@@ -62,6 +82,17 @@ export function DeductionsClient() {
     hasRestriction: false,
   });
   const filterToolbarRef = React.useRef<DisciplineFilterToolbarHandle>(null);
+  const [detailRow, setDetailRow] = React.useState<HRDisciplinePayrollDeductionRecord | null>(null);
+
+  React.useEffect(() => {
+    setListFilters({
+      selectedEmpIds: [...selectedEmpIds],
+      statusFilter,
+      kindFilter,
+      dateFrom: dateBounds.from,
+      dateTo: dateBounds.to,
+    });
+  }, [selectedEmpIds, statusFilter, kindFilter, dateBounds.from, dateBounds.to, setListFilters]);
 
   const onDateBoundsChange = React.useCallback((b: { from: string; to: string }) => {
     setDateBounds(b);
@@ -71,45 +102,105 @@ export function DeductionsClient() {
     setDateMeta(m);
   }, []);
 
-  const empPickerList = React.useMemo(() => {
-    const map = new Map<string, string>();
-    for (const d of deductions) map.set(d.employeeId, d.employeeNameAr);
-    return [...map.entries()].map(([id, name]) => ({ id, name }));
-  }, [deductions]);
+  const empPickerList = React.useMemo(
+    () => m.employees.map((e) => ({ id: e.id, name: e.nameAr })),
+    [m.employees],
+  );
 
   const selectedEmpKey = React.useMemo(() => [...selectedEmpIds].sort().join(','), [selectedEmpIds]);
 
-  const searchFiltered = React.useMemo(
-    () => deductions.filter((d) => selectedEmpIds.size === 0 || selectedEmpIds.has(d.employeeId)),
-    [deductions, selectedEmpIds],
-  );
-
-  const dateFiltered = React.useMemo(
-    () =>
-      searchFiltered.filter((d) =>
-        matchesDateRange(createdAtToYmd(d.createdAt), dateBounds.from, dateBounds.to),
-      ),
-    [searchFiltered, dateBounds.from, dateBounds.to],
-  );
-
-  const kindFiltered = React.useMemo(
-    () => (kindFilter === 'all' ? dateFiltered : dateFiltered.filter((d) => d.deductionKind === kindFilter)),
-    [dateFiltered, kindFilter],
-  );
+  const dateFiltered = dateFilteredItems;
+  const listFiltered = filteredItems;
 
   const statusCounts = React.useMemo(() => {
-    const counts: Record<string, number> = { all: kindFiltered.length };
+    const counts: Record<string, number> = { all: dateFiltered.length };
     for (const s of DEDUCTION_STATUS_ORDER) counts[s] = 0;
-    for (const d of kindFiltered) counts[d.status] = (counts[d.status] ?? 0) + 1;
+    for (const d of dateFiltered) counts[d.status] = (counts[d.status] ?? 0) + 1;
     return counts;
-  }, [kindFiltered]);
-
-  const listFiltered = React.useMemo(
-    () => (statusFilter === 'all' ? kindFiltered : kindFiltered.filter((d) => d.status === statusFilter)),
-    [kindFiltered, statusFilter],
-  );
+  }, [dateFiltered]);
 
   const dateRangeActive = dateMeta.hasRestriction;
+
+  const activeFilterCount = (selectedEmpIds.size > 0 ? 1 : 0) + (statusFilter !== 'all' ? 1 : 0) + (kindFilter !== 'all' ? 1 : 0) + (dateMeta.hasRestriction ? 1 : 0);
+
+  usePageHeaderActions(
+    () => <FilterToggleButton activeFilterCount={activeFilterCount} />,
+    [activeFilterCount],
+  );
+
+  const handleSendToPayroll = React.useCallback(
+    async (id: string) => {
+      try {
+        await m.sendToPayroll(id);
+        toast.success('تم إرسال الاستقطاع إلى الرواتب');
+      } catch (err) {
+        const { displayMessage } = handleApiError(err, 'discipline-payroll-deductions.send');
+        toast.error(displayMessage);
+      }
+    },
+    [m],
+  );
+
+  const columns = React.useMemo((): ColumnDef<HRDisciplinePayrollDeductionRecord>[] => [
+    {
+      key: 'caseNumber',
+      title: 'القضية',
+      className: 'font-mono text-xs text-muted-foreground',
+      render: (d) => d.caseNumber,
+    },
+    {
+      key: 'employee',
+      title: 'الموظف',
+      className: 'font-medium',
+      render: (d) => d.employeeNameAr,
+    },
+    {
+      key: 'kind',
+      title: 'النوع',
+      className: 'text-muted-foreground',
+      render: (d) => DEDUCTION_KIND_LABELS[d.deductionKind],
+    },
+    {
+      key: 'month',
+      title: 'الشهر',
+      className: 'font-mono text-xs',
+      render: (d) => d.month,
+    },
+    {
+      key: 'status',
+      title: 'الحالة',
+      render: (d) => (
+        <span className={cn('inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium', STATUS_COLORS[d.status])}>
+          {DEDUCTION_STATUS_LABELS[d.status]}
+        </span>
+      ),
+    },
+    {
+      key: 'amount',
+      title: 'المبلغ',
+      className: 'font-semibold tabular-nums',
+      render: (d) => formatNumber(d.amount),
+    },
+    {
+      key: 'actions',
+      title: 'إجراءات',
+      isActions: true,
+      render: (d) => (
+        d.status === 'ready' ? (
+          <TableRowActions
+            primaryActions={[
+              {
+                label: 'إرسال للرواتب',
+                variant: 'primary',
+                icon: <Send className="h-3.5 w-3.5" />,
+                onClick: () => void handleSendToPayroll(d.id),
+              },
+            ]}
+          />
+        ) : null
+      ),
+    },
+  ], [handleSendToPayroll]);
 
   const kindSelect = (
     <div className="flex min-w-0 items-center gap-2">
@@ -117,7 +208,7 @@ export function DeductionsClient() {
         نوع الاستقطاع
       </Label>
       <Select value={kindFilter} onValueChange={(v) => setKindFilter(v as KindFilter)}>
-        <SelectTrigger id="deduction-kind-filter" className="h-8 max-w-[14rem] text-xs" dir="rtl">
+        <SelectTrigger id="deduction-kind-filter" className="h-8 max-w-56 text-xs" dir="rtl">
           <SelectValue placeholder="النوع" />
         </SelectTrigger>
         <SelectContent>
@@ -158,102 +249,120 @@ export function DeductionsClient() {
       kindFilter,
       statusCounts,
       viewMode,
-      kindFiltered.length,
+      dateFiltered.length,
       onDateBoundsChange,
       onDateFilterMetaChange,
     ],
   );
 
   return (
-    <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">{listFiltered.length} استقطاع</p>
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
+      {m.listError ? (
+        <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-2.5 text-sm text-destructive whitespace-pre-wrap">
+          {m.listError}
+        </p>
+      ) : null}
 
-      {deductions.length === 0 ? (
-        <EmptyState title="لا توجد استقطاعات" />
-      ) : searchFiltered.length === 0 ? (
-        <EmptyState title="لا توجد استقطاعات مطابقة للموظفين المحددين." />
-      ) : dateFiltered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/60 bg-muted/20 py-14 text-center px-4">
-          <p className="text-sm text-muted-foreground">
-            {dateMeta.tab === 'today'
-              ? 'لا توجد استقطاعات بتاريخ التسجيل ضمن اليوم ضمن النتائج الحالية.'
-              : dateMeta.tab === 'week'
-                ? 'لا توجد استقطاعات ضمن هذا الأسبوع ضمن النتائج الحالية.'
-                : dateMeta.tab === 'month'
-                  ? 'لا توجد استقطاعات ضمن هذا الشهر ضمن النتائج الحالية.'
-                  : dateMeta.tab === 'custom' && dateRangeActive
-                    ? 'لا توجد استقطاعات ضمن نطاق التاريخ المخصص مع عوامل التصفية الحالية.'
-                    : 'لا توجد استقطاعات ضمن الفترة المحددة.'}
-          </p>
-          {dateRangeActive ? (
-            <Button variant="link" size="sm" className="mt-2 text-xs" onClick={() => filterToolbarRef.current?.resetDateFilter()}>
-              عرض كل الفترات
-            </Button>
-          ) : null}
-        </div>
-      ) : listFiltered.length === 0 ? (
-        <EmptyState title="لا توجد استقطاعات مطابقة لحالة التصفية المحددة." />
-      ) : viewMode === 'list' ? (
-        <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-soft">
-          <table className="w-full min-w-[640px] border-collapse text-sm">
-            <thead>
-              <tr className="border-b border-border bg-muted/50 text-right">
-                <th className="p-3 font-semibold">القضية</th>
-                <th className="p-3 font-semibold">الموظف</th>
-                <th className="p-3 font-semibold">النوع</th>
-                <th className="p-3 font-semibold">الشهر</th>
-                <th className="p-3 font-semibold">الحالة</th>
-                <th className="p-3 font-semibold">المبلغ</th>
-              </tr>
-            </thead>
-            <tbody>
-              {listFiltered.map((d) => (
-                <tr key={d.id} className="border-b border-border/60">
-                  <td className="p-3 font-mono text-xs text-muted-foreground">{d.caseNumber}</td>
-                  <td className="p-3 font-medium">{d.employeeNameAr}</td>
-                  <td className="p-3 text-muted-foreground">{DEDUCTION_KIND_LABELS[d.deductionKind]}</td>
-                  <td className="p-3 font-mono text-xs">{d.month}</td>
-                  <td className="p-3">
-                    <span className={cn('inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium', STATUS_COLORS[d.status])}>
-                      {DEDUCTION_STATUS_LABELS[d.status]}
-                    </span>
-                  </td>
-                  <td className="p-3 font-semibold tabular-nums">{formatNumber(d.amount)} ر.س</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      <DisciplineListViewport>
+      {m.loading ? (
+        <p className="text-sm text-muted-foreground py-8 text-center">جاري التحميل...</p>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {listFiltered.map(d => (
-            <div key={d.id} className="rounded-xl border border-border bg-card p-5 shadow-soft space-y-3 flex flex-col">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="font-mono text-[10px] font-bold text-muted-foreground">{d.caseNumber}</p>
-                  <p className="font-semibold truncate mt-0.5">{d.employeeNameAr}</p>
-                </div>
-                <span className={cn('inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium shrink-0', STATUS_COLORS[d.status])}>
-                  {DEDUCTION_STATUS_LABELS[d.status]}
-                </span>
-              </div>
-              {d.reasonAr && <p className="text-xs text-muted-foreground line-clamp-2">{d.reasonAr}</p>}
-              <div className="flex flex-wrap gap-1.5">
-                <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground">
-                  {DEDUCTION_KIND_LABELS[d.deductionKind]}
-                </span>
-                <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground">
-                  {d.month}
-                </span>
-              </div>
-              <div className="mt-auto flex items-center justify-between border-t border-border pt-3">
-                <span className="text-[10px] text-muted-foreground">المبلغ</span>
-                <span className="font-semibold">{formatNumber(d.amount)} ر.س</span>
-              </div>
+        <>
+          {sourceDeductions.length === 0 ? (
+            <EmptyState title="لا توجد استقطاعات" />
+          ) : dateFiltered.length === 0 ? (
+            <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/60 bg-muted/20 py-14 text-center px-4">
+              <p className="text-sm text-muted-foreground">
+                {dateMeta.tab === 'today'
+                  ? 'لا توجد استقطاعات بتاريخ التسجيل ضمن اليوم ضمن النتائج الحالية.'
+                  : dateMeta.tab === 'week'
+                    ? 'لا توجد استقطاعات ضمن هذا الأسبوع ضمن النتائج الحالية.'
+                    : dateMeta.tab === 'month'
+                      ? 'لا توجد استقطاعات ضمن هذا الشهر ضمن النتائج الحالية.'
+                      : dateMeta.tab === 'custom' && dateRangeActive
+                        ? 'لا توجد استقطاعات ضمن نطاق التاريخ المخصص مع عوامل التصفية الحالية.'
+                        : 'لا توجد استقطاعات ضمن الفترة المحددة.'}
+              </p>
+              {dateRangeActive ? (
+                <Button variant="link" size="sm" className="mt-2 text-xs" onClick={() => filterToolbarRef.current?.resetDateFilter()}>
+                  عرض كل الفترات
+                </Button>
+              ) : null}
             </div>
-          ))}
-        </div>
+          ) : listFiltered.length === 0 ? (
+            <EmptyState title="لا توجد استقطاعات مطابقة للفلاتر المحددة." />
+          ) : (
+            <DisciplinePaginatedList pagination={pagination}>
+              {viewMode === 'list' ? (
+              <DataTable
+                variant="directory"
+                alwaysShowTable
+                tableClassName="min-w-[640px]"
+                columns={columns}
+                data={items}
+                keyExtractor={(d) => d.id}
+                onRowClick={(d) => setDetailRow(d)}
+              />
+              ) : (
+              <EntityActionCardGrid>
+                {items.map((d) => (
+                <EntityActionCard
+                  key={d.id}
+                  reference={d.caseNumber}
+                  title={d.employeeNameAr ?? '—'}
+                  status={{
+                    label: DEDUCTION_STATUS_LABELS[d.status],
+                    tone: DEDUCTION_STATUS_TONE[d.status],
+                  }}
+                  description={d.reasonAr}
+                  chips={
+                    <>
+                      <EntityActionCardChip>{DEDUCTION_KIND_LABELS[d.deductionKind]}</EntityActionCardChip>
+                      <EntityActionCardChip className="font-mono tabular-nums">{d.month}</EntityActionCardChip>
+                    </>
+                  }
+                  metrics={
+                    <EntityActionCardMetricsRow>
+                      <EntityActionCardMetric label="المبلغ" value={formatNumber(d.amount)} />
+                      <EntityActionCardMetricDivider />
+                      <EntityActionCardMetric label="الشهر" value={d.month} dir="ltr" />
+                    </EntityActionCardMetricsRow>
+                  }
+                  onClick={() => setDetailRow(d)}
+                  extraFooter={
+                    d.status === 'ready' ? (
+                      <Button size="sm" variant="outline" className="h-7 w-full text-[11px]" onClick={() => handleSendToPayroll(d.id)}>
+                        <Send className="h-3.5 w-3.5 me-1" />
+                        إرسال للرواتب
+                      </Button>
+                    ) : undefined
+                  }
+                />
+                ))}
+              </EntityActionCardGrid>
+              )}
+            </DisciplinePaginatedList>
+          )}
+        </>
       )}
+      </DisciplineListViewport>
+
+      <TableRowDetailDialog
+        open={detailRow != null}
+        onOpenChange={(o) => !o && setDetailRow(null)}
+        title="تفاصيل الاستقطاع"
+        fields={detailRow ? [
+          { label: 'القضية', value: detailRow.caseNumber },
+          { label: 'الموظف', value: detailRow.employeeNameAr },
+          { label: 'النوع', value: DEDUCTION_KIND_LABELS[detailRow.deductionKind] },
+          { label: 'الشهر', value: detailRow.month },
+          { label: 'الحالة', value: DEDUCTION_STATUS_LABELS[detailRow.status] },
+          { label: 'المبلغ', value: formatNumber(detailRow.amount) },
+          { label: 'السبب', value: detailRow.reasonAr || '—' },
+          { label: 'تاريخ التسجيل', value: <TableDateCell value={detailRow.createdAt} mode="datetime" /> },
+          { label: 'آخر تحديث', value: <TableDateCell value={detailRow.updatedAt} mode="datetime" /> },
+        ] : []}
+      />
     </div>
   );
 }

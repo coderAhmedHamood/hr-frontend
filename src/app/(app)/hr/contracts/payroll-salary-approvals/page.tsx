@@ -1,18 +1,6 @@
-import { Suspense } from 'react';
-import { PayrollSalaryApprovalClient } from '@/features/hr/contracts/payroll-salary-approvals/components/payroll-salary-approval-client';
+import { redirect } from 'next/navigation';
+import { hrPayrollRoutes } from '@/features/hr/payroll/constants/routes';
 
-export default function PayrollSalaryApprovalsPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="space-y-6 animate-pulse">
-          <div className="h-14 rounded-xl bg-muted/40" />
-          <div className="h-12 max-w-md rounded-lg bg-muted/30" />
-          <div className="h-48 rounded-xl bg-muted/30" />
-        </div>
-      }
-    >
-      <PayrollSalaryApprovalClient />
-    </Suspense>
-  );
+export default function LegacyContractsPayrollSalaryApprovalsRedirectPage() {
+  redirect(hrPayrollRoutes.payrollSalaryApprovals);
 }

@@ -6,10 +6,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
-import { defaultShiftPeriod } from '@/lib/attendance/defaults';
-import type { ShiftPeriod, ShiftTemplate, WeekDayIndex } from '@/lib/attendance/types';
-import { genId } from '@/lib/attendance/utils';
-import { cn } from '@/lib/utils';
+import { defaultShiftPeriod } from '@/features/hr/attendance/lib/defaults';
+import type { ShiftPeriod, ShiftTemplate, WeekDayIndex } from '@/features/hr/attendance/lib/types';
+import { genId } from '@/features/hr/attendance/lib/utils';
+import { cn } from '@/shared/utils';
 import {
   DAY_LABELS,
   GROUP_COLORS,
@@ -33,8 +33,25 @@ export function ShiftTemplateDialogForm({
   const [collapsedGroups, setCollapsedGroups] = React.useState<Set<string>>(new Set());
 
   const workDays = WEEK_ORDER.filter((d) => !draft.weekDays.find((w) => w.day === d)?.isRest);
-  const assignedDays = groups.flatMap((g) => g.days);
-  const unassignedDays = workDays.filter((d) => !assignedDays.includes(d));
+
+  const dayOwnerGroupId = React.useCallback(
+    (day: WeekDayIndex) => groups.find((g) => g.days.includes(day))?.id ?? null,
+    [groups],
+  );
+
+  const toggleDayInGroup = (day: WeekDayIndex, groupId: string) => {
+    const ownerId = dayOwnerGroupId(day);
+    if (ownerId === groupId) {
+      setGroups((gs) =>
+        gs.map((g) => (g.id === groupId ? { ...g, days: g.days.filter((d) => d !== day) } : g)),
+      );
+      return;
+    }
+    if (ownerId !== null) return;
+    setGroups((gs) =>
+      gs.map((g) => (g.id === groupId ? { ...g, days: [...g.days, day] } : g)),
+    );
+  };
 
   const toggleGroupCollapse = (id: string) =>
     setCollapsedGroups((prev) => {
@@ -106,15 +123,6 @@ export function ShiftTemplateDialogForm({
       ),
     );
 
-  const moveDay = (day: WeekDayIndex, toGroupId: string) =>
-    setGroups((gs) =>
-      gs.map((g) =>
-        g.id === toGroupId
-          ? { ...g, days: g.days.includes(day) ? g.days : [...g.days, day] }
-          : { ...g, days: g.days.filter((d) => d !== day) },
-      ),
-    );
-
   const addGroup = () => {
     const newGrp: ShiftGroup = { id: genId('grp'), days: [], periods: [defaultShiftPeriod(genId('per'))] };
     setGroups((gs) => [...gs, newGrp]);
@@ -167,7 +175,9 @@ export function ShiftTemplateDialogForm({
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm font-semibold">جداول الدوام</p>
-            <p className="text-[11px] text-muted-foreground">يمكنك إضافة جدول مختلف لمجموعة أيام معينة</p>
+            <p className="text-[11px] text-muted-foreground">
+              اختر الأيام لكل جدول — اليوم المحدّد في جدول يُعطَّل في الجداول الأخرى حتى تلغيه من جدوله
+            </p>
           </div>
           {groups.length < 3 && (
             <button
@@ -193,19 +203,22 @@ export function ShiftTemplateDialogForm({
 
           return (
             <div key={group.id} className="rounded-xl border border-border bg-card overflow-hidden shadow-sm">
-              <div className="flex w-full items-center gap-1 border-b border-border/60 bg-muted/20 pe-2">
+              <div className="flex w-full items-start gap-1 border-b border-border/60 bg-muted/20 pe-2">
                 <button
                   type="button"
-                  className="flex min-w-0 flex-1 items-center gap-2 px-4 py-3 text-start transition-colors hover:bg-muted/30"
+                  className="shrink-0 px-2 py-3 text-muted-foreground/60 transition-colors hover:text-muted-foreground"
                   onClick={() => toggleGroupCollapse(group.id)}
+                  aria-label={collapsed ? 'توسيع الجدول' : 'طي الجدول'}
                 >
                   <ChevronDown
                     className={cn(
-                      'h-3.5 w-3.5 shrink-0 text-muted-foreground/60 transition-transform duration-200',
+                      'h-3.5 w-3.5 transition-transform duration-200',
                       collapsed && '-rotate-90',
                     )}
                   />
-                  <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                </button>
+                <div className="flex min-w-0 flex-1 flex-col gap-2 py-2.5">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className={cn('text-[11px] font-semibold uppercase tracking-wide shrink-0', color.header)}>
                       {GROUP_LABELS[gi] ?? `الجدول ${gi + 1}`}
                     </span>
@@ -214,43 +227,47 @@ export function ShiftTemplateDialogForm({
                         {groupDurLabel} إجمالي
                       </span>
                     )}
-                    {group.days.length === 0 && (
-                      <span className="text-[11px] text-muted-foreground/50 italic">لا توجد أيام</span>
+                    {group.days.length > 0 && (
+                      <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                        {group.days.length} {group.days.length === 1 ? 'يوم' : 'أيام'}
+                      </span>
                     )}
-                    {group.days.map((d) => (
-                      <span
-                        key={d}
-                        className={cn(
-                          'inline-flex cursor-pointer items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors hover:opacity-70',
-                          color.pill,
-                        )}
-                        title="انقر لنقل هذا اليوم إلى الجدول التالي"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const nextGroup = groups[(gi + 1) % groups.length];
-                          if (nextGroup && nextGroup.id !== group.id) moveDay(d, nextGroup.id);
-                        }}
-                      >
-                        {DAY_LABELS[d]}
-                        {groups.length > 1 && <span className="text-[9px] opacity-50">↕</span>}
-                      </span>
-                    ))}
-                    {unassignedDays.map((d) => (
-                      <span
-                        key={d}
-                        className="inline-flex cursor-pointer items-center gap-1 rounded-full border border-dashed border-border/50 bg-muted/30 px-2 py-0.5 text-[11px] font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
-                        title="انقر لإضافة هذا اليوم لهذا الجدول"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          moveDay(d, group.id);
-                        }}
-                      >
-                        <Plus className="h-2.5 w-2.5" />
-                        {DAY_LABELS[d]}
-                      </span>
-                    ))}
                   </div>
-                </button>
+                  <div className="flex flex-wrap gap-1.5">
+                    {workDays.map((d) => {
+                      const ownerId = dayOwnerGroupId(d);
+                      const isSelectedHere = ownerId === group.id;
+                      const isTakenElsewhere = ownerId !== null && ownerId !== group.id;
+
+                      return (
+                        <button
+                          key={d}
+                          type="button"
+                          disabled={isTakenElsewhere}
+                          className={cn(
+                            'inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors',
+                            isSelectedHere && color.pill,
+                            !isSelectedHere &&
+                              !isTakenElsewhere &&
+                              'border-dashed border-border/50 bg-muted/30 text-muted-foreground hover:border-primary/40 hover:text-primary',
+                            isTakenElsewhere &&
+                              'cursor-not-allowed border-border/30 bg-muted/15 text-muted-foreground/35 opacity-60',
+                          )}
+                          title={
+                            isSelectedHere
+                              ? 'انقر لإلغاء تحديد هذا اليوم'
+                              : isTakenElsewhere
+                                ? `محدّد في ${GROUP_LABELS[groups.findIndex((g) => g.id === ownerId)] ?? 'جدول آخر'}`
+                                : 'انقر لإضافة هذا اليوم لهذا الجدول'
+                          }
+                          onClick={() => toggleDayInGroup(d, group.id)}
+                        >
+                          {DAY_LABELS[d]}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
                 {groups.length > 1 && (
                   <button
                     type="button"

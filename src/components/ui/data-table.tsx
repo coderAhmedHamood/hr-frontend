@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { ChevronRight, ChevronLeft } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/shared/utils';
 import { Button } from '@/components/ui/button';
 
 /* ── Column definition ───────────────────────────────────────────────── */
@@ -13,6 +13,8 @@ export interface ColumnDef<T> {
   headerClassName?: string;
   hideOnMobile?: boolean;
   isActions?: boolean;
+  /** Prevent row click when interacting with cell content (dropdowns, inputs). */
+  isInteractive?: boolean;
   render(row: T, index: number): React.ReactNode;
 }
 
@@ -26,12 +28,20 @@ interface DataTableProps<T> {
   mobileCard?(row: T): React.ReactNode;
   onRowClick?(row: T): void;
   className?: string;
+  /** Match legacy DirectoryTable styling (organization / discipline list views). */
+  variant?: 'default' | 'directory';
+  tableClassName?: string;
+  /** Always render the table (horizontal scroll on small screens) instead of mobile cards. */
+  alwaysShowTable?: boolean;
 }
 
 export function DataTable<T>({
   columns, data, keyExtractor, loading, emptyText = 'لا توجد بيانات',
-  mobileCard, onRowClick, className,
+  mobileCard, onRowClick, className, variant = 'default',
+  tableClassName, alwaysShowTable = false,
 }: DataTableProps<T>) {
+  const isDirectory = variant === 'directory';
+
   if (loading) {
     return (
       <div className="space-y-2">
@@ -50,61 +60,88 @@ export function DataTable<T>({
     );
   }
 
-  return (
-    <div className={cn('overflow-hidden rounded-xl border border-border bg-card shadow-soft', className)}>
-      {/* Desktop table */}
-      <div className="hidden overflow-x-auto md:block">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-border/60 bg-muted/30">
+  const headerRowClass = isDirectory
+    ? 'border-b border-border bg-muted/40 text-xs font-semibold text-muted-foreground'
+    : 'border-b border-border/60 bg-muted/30';
+
+  const headerCellClass = isDirectory
+    ? 'px-4 py-3 text-start'
+    : 'px-4 py-3 text-right text-[11px] font-bold uppercase tracking-[0.06em] text-muted-foreground/70';
+
+  const bodyRowClass = isDirectory
+    ? cn('border-b border-border/60', onRowClick && 'group cursor-pointer hover:bg-muted/25')
+    : cn('group transition-colors hover:bg-muted/20', onRowClick && 'cursor-pointer');
+
+  const tableShell = (
+    <div className={cn(alwaysShowTable ? 'overflow-x-auto' : 'hidden overflow-x-auto md:block')}>
+      <table className={cn('w-full text-sm', tableClassName)}>
+        <thead>
+          <tr className={headerRowClass}>
+            {columns.map(col => (
+              <th
+                key={col.key}
+                className={cn(headerCellClass, col.headerClassName)}
+              >
+                {col.title}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className={isDirectory ? undefined : 'divide-y divide-border/40'}>
+          {data.map((row, i) => (
+            <tr
+              key={keyExtractor(row)}
+              className={bodyRowClass}
+              onClick={() => onRowClick?.(row)}
+            >
               {columns.map(col => (
-                <th
+                <td
                   key={col.key}
                   className={cn(
-                    'px-4 py-3 text-right text-[11px] font-bold uppercase tracking-[0.06em] text-muted-foreground/70',
-                    col.headerClassName,
+                    'px-4 py-3',
+                    col.isActions && 'text-start w-28',
+                    col.className,
                   )}
+                  onClick={col.isActions || col.isInteractive ? (e) => e.stopPropagation() : undefined}
                 >
-                  {col.title}
-                </th>
+                  {col.isActions ? (
+                    <div className="flex justify-end gap-1">{col.render(row, i)}</div>
+                  ) : (
+                    <div>{col.render(row, i)}</div>
+                  )}
+                </td>
               ))}
             </tr>
-          </thead>
-          <tbody className="divide-y divide-border/40">
-            {data.map((row, i) => (
-              <tr key={keyExtractor(row)} className={cn('group transition-colors hover:bg-muted/20', onRowClick && 'cursor-pointer')} onClick={() => onRowClick?.(row)}>
-                {columns.map(col => (
-                  <td key={col.key} className={cn('px-4 py-3', col.className)}>
-                    <div className={cn(col.isActions && 'opacity-0 group-hover:opacity-100 transition-opacity')}>
-                      {col.render(row, i)}
-                    </div>
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 
-      {/* Mobile cards */}
-      <div className="divide-y divide-border/40 md:hidden">
-        {data.map((row, i) => (
-          <div key={keyExtractor(row)} className="p-4">
-            {mobileCard ? mobileCard(row) : (
-              <div className="space-y-2">
-                {columns.filter(c => !c.hideOnMobile).map(col => (
-                  <div key={col.key} className="flex items-center justify-between gap-2">
-                    <span className="text-[11px] font-semibold text-muted-foreground/70 uppercase tracking-wide shrink-0">
-                      {col.title}
-                    </span>
-                    <div className="text-sm">{col.render(row, i)}</div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
+  return (
+    <div className={cn('overflow-hidden rounded-xl border border-border bg-card shadow-soft', className)}>
+      {tableShell}
+
+      {!alwaysShowTable && (
+        <div className="divide-y divide-border/40 md:hidden">
+          {data.map((row, i) => (
+            <div key={keyExtractor(row)} className="p-4">
+              {mobileCard ? mobileCard(row) : (
+                <div className="space-y-2">
+                  {columns.filter(c => !c.hideOnMobile && !c.isActions).map(col => (
+                    <div key={col.key} className="flex items-center justify-between gap-2">
+                      <span className="text-[11px] font-semibold text-muted-foreground/70 uppercase tracking-wide shrink-0">
+                        {col.title}
+                      </span>
+                      <div className="text-sm">{col.render(row, i)}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

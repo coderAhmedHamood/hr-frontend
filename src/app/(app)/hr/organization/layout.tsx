@@ -1,7 +1,23 @@
+'use client';
+
 import * as React from 'react';
-import { SetPageTitle } from '@/components/set-page-title';
+import { usePathname } from 'next/navigation';
+import { SetPageTitle } from '@/components/layouts/set-page-title';
+
+const EMPLOYEE_DETAIL_PATH = /^\/hr\/organization\/employees\/[^/]+$/;
 
 export default function OrganizationModuleLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const isEmployeeDetail = EMPLOYEE_DETAIL_PATH.test(pathname ?? '');
+
+  if (isEmployeeDetail) {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        {children}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 animate-fade-in">
       <SetPageTitle

@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { isAttendanceSection } from '@/lib/attendance/types';
+import { isAttendanceSection } from '@/features/hr/attendance/lib/types';
 
 /** يحوّل الروابط القديمة `?section=` إلى المسار الجديد، ثم الافتراضي «daily». */
 export default async function HRAttendanceIndexPage({

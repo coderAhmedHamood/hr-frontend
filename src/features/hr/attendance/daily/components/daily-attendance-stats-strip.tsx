@@ -1,7 +1,7 @@
 'use client';
 
 import { Clock3, TrendingUp, Users, Timer } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/shared/utils';
 import { DEFAULT_ABSENT_DAY_HOURS } from '@/features/hr/attendance/daily/constants/daily-attendance-status';
 import { fmtDecimalHours } from '@/features/hr/attendance/daily/utils/daily-attendance-format';
 

@@ -1,32 +1,43 @@
 'use client';
 
 import * as React from 'react';
-import { CheckCircle2, Plus, XCircle } from 'lucide-react';
+import { Ban, CheckCircle2, Plus, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { DatePickerInput } from '@/components/ui/date-picker-input';
 import { Label } from '@/components/ui/label';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { DataTable, type ColumnDef } from '@/components/ui/data-table';
+import { DirectoryPagedViews, useServerDirectoryPagination } from '@/components/ui/paged-list';
+import { fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
+import { correctionRequestsApi } from '@/features/hr/requests/lib/api/correction-requests';
+import { mapCorrectionRequest } from '@/features/hr/requests/lib/attendance-correction-store';
+import { TableDateCell, TableRowActions, TableRowDetailDialog } from '@/components/ui/table-cells';
 import { EntityFilterToolbar } from '@/components/ui/entity-filter-toolbar';
-import { useEntityFilterSlot } from '@/components/entity-filter-slot-context';
+import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
+import { useSetPageTitle } from '@/components/layouts/page-title-context';
+import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
+import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
+import { Badge } from '@/components/ui/badge';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+  dialogFormFooterClass,
 } from '@/components/ui/dialog';
-import { FormField, EmptyState } from '@/components/hr-requests/shared-ui';
-import { matchesDateRange } from '@/lib/hr-discipline/discipline-date-filter';
-import { useHRConfigurationStore } from '@/lib/hr-requests/configuration-store';
-import { useHREmployeeDirectoryStore } from '@/lib/hr-requests/employee-directory-store';
+import { FormField, EmptyState } from '@/features/hr/requests/components/shared-ui';
+import { useHRConfigurationStore } from '@/features/hr/requests/lib/configuration-store';
+import { useHREmployeeDirectoryStore } from '@/features/hr/requests/lib/employee-directory-store';
+import { useAuthStore } from '@/features/auth/lib/auth-store';
+import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 import {
   useAttendanceCorrectionRequestsStore,
   attendanceCorrectionStatusLabelAr,
-} from '@/lib/hr-requests/attendance-correction-store';
-import type { AttendanceCorrectionRequest } from '@/lib/hr-requests/attendance-correction-types';
-import { ATTENDANCE_PREVIOUS_STATUS_PRESETS } from '@/lib/hr-requests/attendance-correction-types';
-import { cn } from '@/lib/utils';
+} from '@/features/hr/requests/lib/attendance-correction-store';
+import type { AttendanceCorrectionRequest } from '@/features/hr/requests/lib/attendance-correction-store';
+import { cn } from '@/shared/utils';
 
 const STATUS_ORDER: readonly string[] = ['pending', 'approved', 'rejected'];
 const STATUS_LABELS: Record<string, string> = {
@@ -35,16 +46,27 @@ const STATUS_LABELS: Record<string, string> = {
   rejected: 'مرفوض',
 };
 
+function to12h(t: string): string {
+  if (!t) return '—';
+  const [hStr, mStr] = t.split(':');
+  const h = parseInt(hStr ?? '0', 10);
+  const m = mStr ?? '00';
+  if (isNaN(h)) return t;
+  const period = h < 12 ? 'ص' : 'م';
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12}:${m} ${period}`;
+}
+
 function timeCell(a: string, b: string, labelA: string, labelB: string) {
   return (
     <div className="text-xs leading-relaxed space-y-0.5">
       <p>
         <span className="text-muted-foreground">{labelA}:</span>{' '}
-        <span className="font-mono tabular-nums" dir="ltr">{a || '—'}</span>
+        <span className="font-mono tabular-nums">{to12h(a)}</span>
       </p>
       <p>
         <span className="text-muted-foreground">{labelB}:</span>{' '}
-        <span className="font-mono tabular-nums" dir="ltr">{b || '—'}</span>
+        <span className="font-mono tabular-nums">{to12h(b)}</span>
       </p>
     </div>
   );
@@ -57,14 +79,26 @@ function statusBadgeClass(s: AttendanceCorrectionRequest['status']) {
 }
 
 export function AttendanceCorrectionRequestsClient() {
+  const companyId = useDefaultCompanyId();
   const departments = useHRConfigurationStore((s) => s.departments);
+  const { requestTypes, fetchRequestTypes, fetchDepartments } = useHRConfigurationStore();
   const employees = useHREmployeeDirectoryStore((s) => s.employees);
+  const fetchEmployees = useHREmployeeDirectoryStore((s) => s.fetch);
   const activeEmployees = React.useMemo(() => employees.filter((e) => e.status === 'active'), [employees]);
 
-  const items = useAttendanceCorrectionRequestsStore((s) => s.items);
-  const submit = useAttendanceCorrectionRequestsStore((s) => s.submit);
-  const approve = useAttendanceCorrectionRequestsStore((s) => s.approve);
-  const reject = useAttendanceCorrectionRequestsStore((s) => s.reject);
+  const { submit, approve, reject, cancel } = useAttendanceCorrectionRequestsStore();
+
+  React.useEffect(() => {
+    if (!companyId) return;
+    fetchRequestTypes();
+    fetchDepartments();
+    fetchEmployees();
+  }, [companyId]);
+
+  const attendanceRequestTypes = React.useMemo(
+    () => requestTypes.filter(rt => rt.isActive),
+    [requestTypes],
+  );
 
   const [appliedDept, setAppliedDept] = React.useState('all');
   const [selectedEmpIds, setSelectedEmpIds] = React.useState<Set<string>>(new Set());
@@ -73,102 +107,110 @@ export function AttendanceCorrectionRequestsClient() {
 
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [formEmpId, setFormEmpId] = React.useState('');
-  const [formApproverId, setFormApproverId] = React.useState('');
+  const [formRequestTypeId, setFormRequestTypeId] = React.useState('');
   const [formWorkDate, setFormWorkDate] = React.useState('');
-  const [formPrevIn, setFormPrevIn] = React.useState('');
-  const [formPrevOut, setFormPrevOut] = React.useState('');
   const [formCorrIn, setFormCorrIn] = React.useState('');
   const [formCorrOut, setFormCorrOut] = React.useState('');
-  const [formPrevStatus, setFormPrevStatus] = React.useState('');
   const [formReason, setFormReason] = React.useState('');
+  const [detailRow, setDetailRow] = React.useState<AttendanceCorrectionRequest | null>(null);
 
   const deptOptions = React.useMemo(
     () => [{ value: 'all', label: 'جميع الأقسام' }, ...departments.filter((d) => d.isActive).map((d) => ({ value: d.id, label: d.nameAr }))],
     [departments],
   );
 
-  const empPickerList = React.useMemo(() => {
-    const m = new Map<string, string>();
-    for (const r of items) m.set(r.employeeId, r.employeeNameAr);
-    return [...m.entries()].map(([id, name]) => ({ id, name }));
-  }, [items]);
+  const empPickerList = React.useMemo(
+    () => activeEmployees.map((e) => ({ id: e.id, name: e.nameAr })),
+    [activeEmployees],
+  );
 
-  const baseFiltered = React.useMemo(() => {
-    const picks = [...selectedEmpIds];
-    return items.filter((r) => {
-      if (appliedDept !== 'all' && r.departmentId !== appliedDept) return false;
-      if (picks.length > 0 && !picks.includes(r.employeeId)) return false;
-      if (!matchesDateRange(r.workDate, dateBounds.from, dateBounds.to)) return false;
-      return true;
-    });
-  }, [items, appliedDept, selectedEmpIds, dateBounds.from, dateBounds.to]);
+  const selectedEmpKey = React.useMemo(() => [...selectedEmpIds].sort().join(','), [selectedEmpIds]);
+  const bulkMode = appliedDept !== 'all' || selectedEmpIds.size > 1;
+
+  const buildListQuery = React.useCallback((page: number, pageSize: number) => ({
+    companyId: companyId!,
+    page,
+    limit: pageSize,
+    ...(statusFilter !== 'all' ? { status: statusFilter } : {}),
+    ...(dateBounds.from ? { workDateFrom: dateBounds.from } : {}),
+    ...(dateBounds.to ? { workDateTo: dateBounds.to } : {}),
+    ...(selectedEmpIds.size === 1 ? { employeeId: [...selectedEmpIds][0] } : {}),
+  }), [companyId, statusFilter, dateBounds.from, dateBounds.to, selectedEmpIds]);
+
+  const applyDeptFilter = React.useCallback((rows: AttendanceCorrectionRequest[]) => {
+    if (appliedDept === 'all') return rows;
+    const deptName = departments.find((d) => d.id === appliedDept)?.nameAr ?? appliedDept;
+    return rows.filter((r) => r.departmentNameAr === deptName);
+  }, [appliedDept, departments]);
+
+  const loadPage = React.useCallback(async (page: number, pageSize: number) => {
+    if (!companyId) return { items: [] as AttendanceCorrectionRequest[], total: 0 };
+    try {
+      const res = await correctionRequestsApi.list(buildListQuery(page, pageSize));
+      const items = applyDeptFilter(res.items.map(mapCorrectionRequest));
+      return { items, total: appliedDept === 'all' ? res.pagination.total : items.length };
+    } catch {
+      return { items: [], total: 0 };
+    }
+  }, [applyDeptFilter, appliedDept, buildListQuery, companyId]);
+
+  const loadBulk = React.useCallback(async () => {
+    if (!companyId) return { items: [] as AttendanceCorrectionRequest[], total: 0 };
+    const res = await fetchAllPaginatedItems((page, limit) => correctionRequestsApi.list(buildListQuery(page, limit)));
+    let items = res.items.map(mapCorrectionRequest);
+    if (selectedEmpIds.size > 1) {
+      items = items.filter((r) => selectedEmpIds.has(r.employeeId));
+    }
+    items = applyDeptFilter(items);
+    return { items, total: items.length };
+  }, [applyDeptFilter, buildListQuery, companyId, selectedEmpIds]);
+
+  const {
+    items: sorted,
+    loading: listLoading,
+    pagination,
+    reload: reloadList,
+  } = useServerDirectoryPagination<AttendanceCorrectionRequest>(loadPage, {
+    enabled: !!companyId,
+    bulkMode,
+    loadBulk: bulkMode ? loadBulk : undefined,
+    resetDeps: [companyId, appliedDept, statusFilter, dateBounds.from, dateBounds.to, selectedEmpKey],
+  });
 
   const statusCounts = React.useMemo(
     () => ({
-      all: baseFiltered.length,
-      pending: baseFiltered.filter((r) => r.status === 'pending').length,
-      approved: baseFiltered.filter((r) => r.status === 'approved').length,
-      rejected: baseFiltered.filter((r) => r.status === 'rejected').length,
+      all: pagination.total,
+      pending: sorted.filter((r) => r.status === 'pending').length,
+      approved: sorted.filter((r) => r.status === 'approved').length,
+      rejected: sorted.filter((r) => r.status === 'rejected').length,
     }),
-    [baseFiltered],
-  );
-
-  const filtered = React.useMemo(() => {
-    if (statusFilter === 'all') return baseFiltered;
-    return baseFiltered.filter((r) => r.status === statusFilter);
-  }, [baseFiltered, statusFilter]);
-
-  const sorted = React.useMemo(
-    () => [...filtered].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)),
-    [filtered],
+    [sorted, pagination.total],
   );
 
   const resetForm = React.useCallback(() => {
     setFormEmpId('');
-    setFormApproverId('');
+    setFormRequestTypeId('');
     setFormWorkDate('');
-    setFormPrevIn('');
-    setFormPrevOut('');
     setFormCorrIn('');
     setFormCorrOut('');
-    setFormPrevStatus('');
     setFormReason('');
   }, []);
 
   const openNew = React.useCallback(() => {
     resetForm();
-    if (activeEmployees.length) {
-      setFormEmpId(activeEmployees[0]!.id);
-      const mgr = activeEmployees.find((e) => e.hierarchyRole === 'dept_head' || e.hierarchyRole === 'gm') ?? activeEmployees[0];
-      setFormApproverId(mgr!.id);
-    }
+    if (activeEmployees.length) setFormEmpId(activeEmployees[0]!.id);
+    if (attendanceRequestTypes.length) setFormRequestTypeId(attendanceRequestTypes[0]!.id);
     setDialogOpen(true);
-  }, [activeEmployees, resetForm]);
+  }, [activeEmployees, attendanceRequestTypes, resetForm]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const emp = activeEmployees.find((x) => x.id === formEmpId);
-    const appr = activeEmployees.find((x) => x.id === formApproverId);
-    if (!emp || !appr) {
-      toast.error('اختر الموظف والمعتمد.');
-      return;
-    }
-    if (!formPrevStatus.trim()) {
-      toast.error('حدد الحالة السابقة للسجل.');
-      return;
-    }
-    const res = submit({
-      employeeId: emp.id,
-      employeeNameAr: emp.nameAr,
-      departmentId: emp.departmentId,
-      approverId: appr.id,
-      approverNameAr: appr.nameAr,
+    const res = await submit({
+      employeeId: formEmpId,
+      requestTypeId: formRequestTypeId,
       workDate: formWorkDate,
-      previousCheckIn: formPrevIn,
-      previousCheckOut: formPrevOut,
       correctedCheckIn: formCorrIn,
       correctedCheckOut: formCorrOut,
-      previousStatusAr: formPrevStatus.trim(),
       reasonAr: formReason.trim(),
     });
     if (res.ok === false) {
@@ -178,9 +220,32 @@ export function AttendanceCorrectionRequestsClient() {
     toast.success('تم تسجيل طلب التصحيح — قيد الموافقة.');
     resetForm();
     setDialogOpen(false);
+    await reloadList();
   };
 
-  const selectedEmpKey = React.useMemo(() => [...selectedEmpIds].sort().join(','), [selectedEmpIds]);
+  const activeFilterCount = React.useMemo(() => {
+    let count = 0;
+    if (appliedDept !== 'all') count++;
+    if (selectedEmpIds.size > 0) count++;
+    if (dateBounds.from || dateBounds.to) count++;
+    if (statusFilter !== 'all') count++;
+    return count;
+  }, [appliedDept, selectedEmpIds.size, dateBounds.from, dateBounds.to, statusFilter]);
+
+  useSetPageTitle({ titleAr: 'تصحيح الحضور', descriptionAr: 'طلبات تصحيح أوقات الحضور والانصراف', iconName: 'CalendarClock' });
+
+  usePageHeaderActions(
+    () => (
+      <div className="flex items-center gap-2">
+        <FilterToggleButton activeFilterCount={activeFilterCount} />
+        <Button variant="luxe" size="sm" className="h-8 gap-1.5 px-3 text-xs shadow-sm shrink-0" onClick={openNew}>
+          <Plus className="h-3.5 w-3.5" />
+          طلب تصحيح حضور
+        </Button>
+      </div>
+    ),
+    [activeFilterCount],
+  );
 
   useEntityFilterSlot(
     () => (
@@ -203,17 +268,11 @@ export function AttendanceCorrectionRequestsClient() {
         statusLabels={STATUS_LABELS}
         statusCounts={statusCounts}
         onDateBoundsChange={setDateBounds}
-        trailingActions={(
-          <Button variant="luxe" size="sm" className="h-8 gap-1.5 px-3 text-xs shadow-sm shrink-0" onClick={openNew}>
-            <Plus className="h-3.5 w-3.5" />
-            طلب تصحيح حضور
-          </Button>
-        )}
       />
     ),
     [
       appliedDept,
-      selectedEmpKey,
+      selectedEmpIds,
       statusFilter,
       dateBounds.from,
       dateBounds.to,
@@ -232,46 +291,30 @@ export function AttendanceCorrectionRequestsClient() {
       {
         key: 'emp',
         title: 'الموظف',
-        render: (r) => {
-          const d = departments.find((x) => x.id === r.departmentId);
-          return (
-            <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-                {r.employeeNameAr.charAt(0)}
-              </div>
-              <div>
-                <p className="font-medium text-sm">{r.employeeNameAr}</p>
-                <p className="text-[10px] text-muted-foreground">{d?.nameAr ?? r.departmentId}</p>
-              </div>
-            </div>
-          );
-        },
-      },
-      {
-        key: 'workDate',
-        title: 'تاريخ اليوم',
-        render: (r) => <span className="font-mono text-xs" dir="ltr">{r.workDate}</span>,
-      },
-      {
-        key: 'approver',
-        title: 'المعتمد (الموافقة)',
-        hideOnMobile: true,
         render: (r) => (
-          <div>
-            <p className="text-sm font-medium">{r.approverNameAr}</p>
-            <p className="text-[10px] font-mono text-muted-foreground" dir="ltr">{r.approverId}</p>
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+              {r.employeeNameAr.charAt(0)}
+            </div>
+            <div>
+              <p className="font-medium text-sm">{r.employeeNameAr}</p>
+              <p className="text-[10px] text-muted-foreground">{r.departmentNameAr || '—'}</p>
+            </div>
           </div>
         ),
       },
       {
-        key: 'prevTimes',
-        title: 'الحضور والانصراف (السابق)',
-        render: (r) => timeCell(r.previousCheckIn, r.previousCheckOut, 'حضور', 'انصراف'),
-      },
-      {
-        key: 'corrTimes',
-        title: 'بعد التصحيح',
-        render: (r) => timeCell(r.correctedCheckIn, r.correctedCheckOut, 'حضور', 'انصراف'),
+        key: 'requestType',
+        title: 'نوع الطلب',
+        hideOnMobile: true,
+        render: (r) => (
+          <div>
+            <p className="text-sm font-medium">{r.requestTypeNameAr}</p>
+            {r.subtypeNameAr ? (
+              <p className="text-[10px] text-muted-foreground">{r.subtypeNameAr}</p>
+            ) : null}
+          </div>
+        ),
       },
       {
         key: 'prevStatus',
@@ -295,46 +338,78 @@ export function AttendanceCorrectionRequestsClient() {
         render: (r) => <span className="text-xs text-muted-foreground line-clamp-2 max-w-[200px]">{r.reasonAr || '—'}</span>,
       },
       {
+        key: 'prevTimes',
+        title: 'قبل التصحيح',
+        render: (r) => timeCell(r.previousCheckIn, r.previousCheckOut, 'حضور', 'انصراف'),
+      },
+      {
+        key: 'corrTimes',
+        title: 'بعد التصحيح',
+        render: (r) => timeCell(r.correctedCheckIn, r.correctedCheckOut, 'حضور', 'انصراف'),
+      },
+      {
+        key: 'workDate',
+        title: 'تاريخ التصحيح',
+        render: (r) => <TableDateCell value={r.workDate} />,
+      },
+      {
         key: 'actions',
         title: 'إجراء',
         isActions: true,
         render: (r) => {
           if (r.status !== 'pending') {
-            return <span className="text-[10px] font-mono text-muted-foreground" dir="ltr">{r.decidedAt?.slice(0, 10) ?? '—'}</span>;
+            return <TableDateCell value={r.decidedAt} mode="datetime" />;
           }
           return (
-            <div className="flex gap-1" onClick={(ev) => ev.stopPropagation()}>
-              <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-emerald-600 hover:bg-emerald-500/10" title="موافقة" aria-label="موافقة" onClick={() => { approve(r.id); toast.success('تم اعتماد طلب التصحيح.'); }}>
-                <CheckCircle2 className="h-4 w-4" />
-              </Button>
-              <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10" title="رفض" aria-label="رفض" onClick={() => { reject(r.id); toast.message('تم رفض الطلب.'); }}>
-                <XCircle className="h-4 w-4" />
-              </Button>
-            </div>
+            <TableRowActions
+              primaryActions={[
+                {
+                  label: 'موافقة',
+                  variant: 'success',
+                  icon: <CheckCircle2 className="h-3.5 w-3.5" />,
+                  onClick: () => void approve(r.id).then(async () => { toast.success('تم اعتماد طلب التصحيح.'); await reloadList(); }),
+                },
+                {
+                  label: 'رفض',
+                  variant: 'destructive',
+                  icon: <XCircle className="h-3.5 w-3.5" />,
+                  onClick: () => void reject(r.id).then(async () => { toast.message('تم رفض الطلب.'); await reloadList(); }),
+                },
+              ]}
+              menuItems={[
+                {
+                  label: 'إلغاء',
+                  onClick: () => void cancel(r.id).then(async () => { toast.message('تم سحب الطلب.'); await reloadList(); }),
+                  icon: <Ban className="h-3.5 w-3.5" />,
+                  separator: true,
+                },
+              ]}
+            />
           );
         },
       },
     ],
-    [approve, departments, reject],
+    [approve, reject, cancel],
   );
 
   return (
-    <div className="space-y-5">
-      <p className="rounded-lg border border-border/60 bg-card/50 px-3 py-2 text-xs text-muted-foreground sm:text-sm">
-        يرفع الموظف طلب تصحيح لأوقات الحضور والانصراف مع <strong className="text-foreground">تحديد المعتمد</strong> و<strong className="text-foreground">الحالة السابقة</strong> في السجل،
-        ومقارنة الأوقات السابقة بالأوقات المطلوبة بعد التصحيح.
-      </p>
-
+    <div className="flex min-h-0 flex-1 flex-col gap-5">
       <div className="space-y-2">
-        <h2 className="font-display text-lg font-semibold text-foreground px-0.5">طلبات تصحيح الحضور</h2>
-        {sorted.length === 0 ? (
+        {!listLoading && sorted.length === 0 && pagination.total === 0 ? (
           <EmptyState title="لا توجد طلبات ضمن الفلاتر" />
         ) : (
+          <DirectoryPagedViews
+            items={sorted}
+            serverPagination={pagination}
+            loading={listLoading}
+          >
+            {(pageItems) => (
           <DataTable
             columns={columns}
-            data={sorted}
+            data={pageItems}
             keyExtractor={(r) => r.id}
             emptyText="لا توجد طلبات"
+            onRowClick={(r) => setDetailRow(r)}
             mobileCard={(r) => (
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between gap-2">
@@ -344,19 +419,22 @@ export function AttendanceCorrectionRequestsClient() {
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground font-mono" dir="ltr">{r.workDate}</p>
-                <p className="text-xs"><span className="text-muted-foreground">المعتمد:</span> {r.approverNameAr}</p>
+                <p className="text-xs"><span className="text-muted-foreground">نوع الطلب:</span> {r.requestTypeNameAr}{r.subtypeNameAr ? ` — ${r.subtypeNameAr}` : ''}</p>
                 {timeCell(r.previousCheckIn, r.previousCheckOut, 'سابق حضور', 'سابق انصراف')}
                 {timeCell(r.correctedCheckIn, r.correctedCheckOut, 'مصحح حضور', 'مصحح انصراف')}
                 <p className="text-xs"><span className="text-muted-foreground">الحالة السابقة:</span> {r.previousStatusAr}</p>
                 {r.status === 'pending' ? (
-                  <div className="flex gap-2 pt-1">
-                    <Button type="button" variant="outline" size="sm" className="flex-1 text-xs" onClick={() => { approve(r.id); toast.success('تم اعتماد طلب التصحيح.'); }}>موافقة</Button>
-                    <Button type="button" variant="outline" size="sm" className="flex-1 text-xs text-destructive" onClick={() => { reject(r.id); toast.message('تم رفض الطلب.'); }}>رفض</Button>
+                  <div className="flex gap-2 pt-1" onClick={(ev) => ev.stopPropagation()}>
+                    <Button type="button" variant="outline" size="sm" className="flex-1 text-xs" onClick={async () => { await approve(r.id); toast.success('تم اعتماد طلب التصحيح.'); }}>موافقة</Button>
+                    <Button type="button" variant="outline" size="sm" className="flex-1 text-xs text-destructive" onClick={async () => { await reject(r.id); toast.message('تم رفض الطلب.'); }}>رفض</Button>
+                    <Button type="button" variant="outline" size="sm" className="flex-1 text-xs text-amber-600" onClick={async (ev) => { ev.stopPropagation(); await cancel(r.id); toast.message('تم سحب الطلب.'); }}>إلغاء</Button>
                   </div>
                 ) : null}
               </div>
             )}
           />
+            )}
+          </DirectoryPagedViews>
         )}
       </div>
 
@@ -366,7 +444,7 @@ export function AttendanceCorrectionRequestsClient() {
             <DialogHeader>
               <DialogTitle>طلب تصحيح حضور</DialogTitle>
               <DialogDescription>
-                أدخل من سيوافق على الطلب، وأوقات الحضور والانصراف كما في السجل ثم الأوقات المصححة، والحالة السابقة للسجل.
+                أدخل الموظف وتاريخ التصحيح والأوقات المصححة وسبب الطلب.
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-2">
@@ -380,60 +458,66 @@ export function AttendanceCorrectionRequestsClient() {
                   </SelectContent>
                 </Select>
               </FormField>
-              <FormField label="المعتمد (من يوافق على الطلب)">
-                <Select value={formApproverId} onValueChange={setFormApproverId}>
-                  <SelectTrigger><SelectValue placeholder="اختر المعتمد…" /></SelectTrigger>
+              <FormField label="نوع الطلب">
+                <Select value={formRequestTypeId} onValueChange={setFormRequestTypeId}>
+                  <SelectTrigger><SelectValue placeholder="اختر نوع الطلب…" /></SelectTrigger>
                   <SelectContent>
-                    {activeEmployees.map((e) => (
-                      <SelectItem key={e.id} value={e.id}>{e.nameAr} — {e.jobTitleAr}</SelectItem>
-                    ))}
+                    {attendanceRequestTypes.length === 0 ? (
+                      <SelectItem value="__none__" disabled>لا توجد أنواع طلبات للحضور — أضفها من إعدادات أنواع الطلبات</SelectItem>
+                    ) : (
+                      attendanceRequestTypes.map((rt) => (
+                        <SelectItem key={rt.id} value={rt.id}>{rt.nameAr}</SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </FormField>
-              <FormField label="تاريخ اليوم المعني">
-                <Input type="date" value={formWorkDate} onChange={(e) => setFormWorkDate(e.target.value)} className="font-mono" dir="ltr" required />
+              <FormField label="تاريخ التصحيح">
+                <DatePickerInput value={formWorkDate} onChange={setFormWorkDate} />
               </FormField>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label className="text-xs font-medium">وقت الحضور السابق (كما في السجل)</Label>
-                  <Input type="time" value={formPrevIn} onChange={(e) => setFormPrevIn(e.target.value)} step={60} dir="ltr" />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-xs font-medium">وقت الانصراف السابق (كما في السجل)</Label>
-                  <Input type="time" value={formPrevOut} onChange={(e) => setFormPrevOut(e.target.value)} step={60} dir="ltr" />
-                </div>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label className="text-xs font-medium">وقت الحضور بعد التصحيح</Label>
+                  <Label className="text-xs font-medium">وقت الحضور الجديد</Label>
                   <Input type="time" value={formCorrIn} onChange={(e) => setFormCorrIn(e.target.value)} step={60} dir="ltr" />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-xs font-medium">وقت الانصراف بعد التصحيح</Label>
+                  <Label className="text-xs font-medium">وقت الانصراف الجديد  </Label>
                   <Input type="time" value={formCorrOut} onChange={(e) => setFormCorrOut(e.target.value)} step={60} dir="ltr" />
                 </div>
               </div>
-              <FormField label="الحالة السابقة للسجل">
-                <Select value={formPrevStatus} onValueChange={setFormPrevStatus}>
-                  <SelectTrigger><SelectValue placeholder="اختر وصف الحالة…" /></SelectTrigger>
-                  <SelectContent>
-                    {ATTENDANCE_PREVIOUS_STATUS_PRESETS.map((p) => (
-                      <SelectItem key={p.value} value={p.value}>{p.labelAr}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </FormField>
               <FormField label="سبب الطلب (اختياري)">
                 <Textarea value={formReason} onChange={(e) => setFormReason(e.target.value)} rows={3} placeholder="تفاصيل إضافية للمراجع…" />
               </FormField>
             </div>
-            <DialogFooter className="gap-2 sm:gap-0">
-              <Button type="button" variant="outline" onClick={() => { setDialogOpen(false); resetForm(); }}>إلغاء</Button>
+            <DialogFooter className={dialogFormFooterClass}>
               <Button type="submit" variant="luxe">تسجيل الطلب</Button>
+              <Button type="button" variant="outline" onClick={() => { setDialogOpen(false); resetForm(); }}>إلغاء</Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
+
+      <TableRowDetailDialog
+        open={detailRow != null}
+        onOpenChange={(o) => !o && setDetailRow(null)}
+        title="تفاصيل طلب تصحيح الحضور"
+        fields={detailRow ? [
+          { label: 'الموظف', value: detailRow.employeeNameAr },
+          { label: 'القسم', value: detailRow.departmentNameAr || '—' },
+          { label: 'نوع الطلب', value: detailRow.requestTypeNameAr },
+          { label: 'تاريخ التصحيح', value: <TableDateCell value={detailRow.workDate} /> },
+          { label: 'الحالة السابقة', value: detailRow.previousStatusAr },
+          { label: 'حالة الطلب', value: attendanceCorrectionStatusLabelAr(detailRow.status) },
+          { label: 'حضور سابق', value: to12h(detailRow.previousCheckIn) },
+          { label: 'انصراف سابق', value: to12h(detailRow.previousCheckOut) },
+          { label: 'حضور مصحح', value: to12h(detailRow.correctedCheckIn) },
+          { label: 'انصراف مصحح', value: to12h(detailRow.correctedCheckOut) },
+          { label: 'السبب', value: detailRow.reasonAr || '—' },
+          { label: 'ملاحظات القرار', value: detailRow.decisionNotesAr || '—' },
+          { label: 'تاريخ التقديم', value: <TableDateCell value={detailRow.createdAt} mode="datetime" /> },
+          { label: 'تاريخ القرار', value: <TableDateCell value={detailRow.decidedAt} mode="datetime" /> },
+        ] : []}
+      />
     </div>
   );
 }

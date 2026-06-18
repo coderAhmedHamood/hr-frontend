@@ -1,8 +1,8 @@
 'use client';
 
 import { CreditCard, Wallet } from 'lucide-react';
-import { formatCurrency } from '@/lib/utils';
-import { Prop, FieldGroup, SectionH } from '@/features/hr/organization/employees/components/EmployeeProfilePrimitives';
+import { formatCurrency } from '@/shared/utils';
+import { FieldGroup, SectionH } from '@/features/hr/organization/employees/components/EmployeeProfilePrimitives';
 import { EmployeeProfileField } from '@/features/hr/organization/employees/components/employee-profile-field';
 import type { EmployeeProfileModel } from '@/features/hr/organization/employees/hooks/useEmployeeProfileModel';
 
@@ -13,8 +13,8 @@ export function EmployeeFinancialSection({ model }: { model: EmployeeProfileMode
     <section>
       <SectionH icon={CreditCard} title="البيانات المالية" subtitle="الراتب والبدلات والحساب البنكي" />
 
-      <div className="relative overflow-hidden rounded-2xl border border-gold/20 bg-linear-to-bl from-gold/5 via-card to-card mb-8">
-        <div className="absolute inset-0 dotted-bg opacity-5" />
+      <div className="relative overflow-hidden rounded-2xl border border-gold/25 bg-card shadow-soft mb-8">
+        <div className="absolute inset-0 bg-linear-to-bl from-gold/8 via-transparent to-primary/5" />
         <div className="relative p-6">
           <div className="flex items-baseline justify-between mb-1">
             <span className="text-xs uppercase tracking-widest text-muted-foreground font-medium">
@@ -47,7 +47,6 @@ export function EmployeeFinancialSection({ model }: { model: EmployeeProfileMode
         <EmployeeProfileField draft={draft} editingPersonal={false} updateField={updateField} icon={Wallet} field="transportAllowance" label="بدل المواصلات" type="number" format={(v) => formatCurrency(v as number)} />
         <EmployeeProfileField draft={draft} editingPersonal={false} updateField={updateField} icon={Wallet} field="otherAllowances" label="بدلات أخرى" type="number" format={(v) => formatCurrency(v as number)} />
         <EmployeeProfileField draft={draft} editingPersonal={false} updateField={updateField} icon={Wallet} field="gosi" label="التأمينات (GOSI)" type="number" accent="destructive" format={(v) => `−${formatCurrency(v as number)}`} />
-        <Prop icon={Wallet} label="الصافي" accent="gold">{formatCurrency(netSalary)}</Prop>
       </FieldGroup>
 
       <FieldGroup title="الحساب البنكي">

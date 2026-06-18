@@ -2,7 +2,6 @@
 
 import * as React from 'react';
 import { CheckCircle2, Plus, XCircle } from 'lucide-react';
-import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -10,21 +9,20 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { DataTable, type ColumnDef } from '@/components/ui/data-table';
-import { FormField, EmptyState } from '@/components/hr-requests/shared-ui';
+import { TableDateCell, TableRowActions, TableRowDetailDialog } from '@/components/ui/table-cells';
+import { FormField, EmptyState } from '@/features/hr/requests/components/shared-ui';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+  dialogFormFooterClass,
 } from '@/components/ui/dialog';
-import { useEntityFilterSlot } from '@/components/entity-filter-slot-context';
-import { LeavesManagementToolbar } from '@/features/hr/leaves/components/leaves-management-toolbar';
-import { intervalOverlapsYmdRange } from '@/lib/hr-discipline/discipline-date-filter';
-import { cn, toWesternDigits } from '@/lib/utils';
-import {
-  MOCK_UNIFIED_EMPLOYEES,
-  MOCK_BRANCHES,
-  MOCK_DEPARTMENTS,
-} from '@/lib/leaves/unified-mock';
-import { useLeaveBalanceCreditStore } from '@/lib/leaves/leave-balance-credit-store';
-import type { LeaveBalanceCreditRequest } from '@/lib/leaves/types';
+import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
+import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
+import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
+import { EntityFilterToolbar } from '@/components/ui/entity-filter-toolbar';
+import { cn, toWesternDigits } from '@/shared/utils';
+import { DirectoryPagedViews } from '@/components/ui/paged-list';
+import { useLeaveBalanceCreditModel } from '@/features/hr/leaves/balance-credit/hooks/useLeaveBalanceCreditModel';
+import type { LeaveBalanceCreditRequest } from '@/features/hr/leaves/balance-credit/types';
 
 const CREDIT_STATUS_ORDER: readonly string[] = ['pending', 'approved', 'rejected'];
 
@@ -33,11 +31,6 @@ const CREDIT_STATUS_LABELS: Record<string, string> = {
   approved: 'تمت الموافقة',
   rejected: 'مرفوض',
 };
-
-function creditRequestInDateRange(r: LeaveBalanceCreditRequest, from: string, to: string): boolean {
-  const ymd = r.createdAt.slice(0, 10);
-  return intervalOverlapsYmdRange(ymd, ymd, from, to);
-}
 
 function statusBadgeClass(status: LeaveBalanceCreditRequest['status']) {
   if (status === 'pending') return 'bg-gold/15 text-gold border-gold/30';
@@ -50,148 +43,62 @@ function statusLabelAr(status: LeaveBalanceCreditRequest['status']) {
 }
 
 export function LeaveBalanceCreditClient() {
-  const balances = useLeaveBalanceCreditStore((s) => s.balances);
-  const creditRequests = useLeaveBalanceCreditStore((s) => s.creditRequests);
-  const submitCreditRequest = useLeaveBalanceCreditStore((s) => s.submitCreditRequest);
-  const approveCreditRequest = useLeaveBalanceCreditStore((s) => s.approveCreditRequest);
-  const rejectCreditRequest = useLeaveBalanceCreditStore((s) => s.rejectCreditRequest);
+  const m = useLeaveBalanceCreditModel();
+  const [detailRow, setDetailRow] = React.useState<LeaveBalanceCreditRequest | null>(null);
 
-  const [branchId, setBranchId] = React.useState('all');
-  const [departmentId, setDepartmentId] = React.useState('all');
-  const [selectedEmpIds, setSelectedEmpIds] = React.useState<Set<string>>(new Set());
-  const [statusFilter, setStatusFilter] = React.useState<string>('all');
-  const [dateBounds, setDateBounds] = React.useState<{ from: string; to: string }>({ from: '', to: '' });
+  const activeFilterCount = (m.branchId !== 'all' ? 1 : 0) + (m.departmentId !== 'all' ? 1 : 0) + (m.statusFilter !== 'all' ? 1 : 0) + (m.selectedEmpIds.size > 0 ? 1 : 0);
 
-  const [addOpen, setAddOpen] = React.useState(false);
-  const [employeeId, setEmployeeId] = React.useState('');
-  const [daysAddedRaw, setDaysAddedRaw] = React.useState('');
-  const [reasonAr, setReasonAr] = React.useState('');
-
-  const branchInlineOptions = React.useMemo(
-    () => [{ value: 'all', label: 'جميع الفروع' }, ...MOCK_BRANCHES.map((b) => ({ value: b.id, label: b.nameAr }))],
-    [],
+  usePageHeaderActions(
+    () => (
+      <div className="flex items-center gap-2">
+        <FilterToggleButton activeFilterCount={activeFilterCount} />
+        <Button
+          variant="luxe"
+          size="sm"
+          className="h-8 gap-1.5 px-3 text-xs shadow-sm shrink-0"
+          onClick={() => { m.resetAddForm(); m.setAddOpen(true); }}
+        >
+          <Plus className="h-3.5 w-3.5" />
+          طلب إضافة رصيد
+        </Button>
+      </div>
+    ),
+    [activeFilterCount, m.resetAddForm, m.setAddOpen],
   );
-  const deptInlineOptions = React.useMemo(
-    () => [{ value: 'all', label: 'جميع الأقسام' }, ...MOCK_DEPARTMENTS.map((d) => ({ value: d.id, label: d.nameAr }))],
-    [],
-  );
-
-  const empPickerList = React.useMemo(
-    () => MOCK_UNIFIED_EMPLOYEES.map((e) => ({ id: e.id, name: e.nameAr })),
-    [],
-  );
-
-  const selectedEmpKey = React.useMemo(() => [...selectedEmpIds].sort().join(','), [selectedEmpIds]);
-
-  const baseFiltered = React.useMemo(() => {
-    const empPick = [...selectedEmpIds];
-    return creditRequests.filter((r) => {
-      const emp = MOCK_UNIFIED_EMPLOYEES.find((e) => e.id === r.employeeId);
-      if (!emp) return false;
-      if (branchId !== 'all' && emp.homeBranchId !== branchId) return false;
-      if (departmentId !== 'all' && emp.departmentId !== departmentId) return false;
-      if (empPick.length > 0 && !empPick.includes(r.employeeId)) return false;
-      if (!creditRequestInDateRange(r, dateBounds.from, dateBounds.to)) return false;
-      return true;
-    });
-  }, [creditRequests, branchId, departmentId, selectedEmpIds, dateBounds.from, dateBounds.to]);
-
-  const statusCounts = React.useMemo(
-    () => ({
-      all: baseFiltered.length,
-      pending: baseFiltered.filter((r) => r.status === 'pending').length,
-      approved: baseFiltered.filter((r) => r.status === 'approved').length,
-      rejected: baseFiltered.filter((r) => r.status === 'rejected').length,
-    }),
-    [baseFiltered],
-  );
-
-  const filtered = React.useMemo(() => {
-    if (statusFilter === 'all') return baseFiltered;
-    return baseFiltered.filter((r) => r.status === statusFilter);
-  }, [baseFiltered, statusFilter]);
-
-  const sortedRequests = React.useMemo(
-    () => [...filtered].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)),
-    [filtered],
-  );
-
-  const resetAddForm = React.useCallback(() => {
-    setEmployeeId('');
-    setDaysAddedRaw('');
-    setReasonAr('');
-  }, []);
-
-  const handleDialogSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!employeeId) {
-      toast.error('اختر الموظف.');
-      return;
-    }
-    const emp = MOCK_UNIFIED_EMPLOYEES.find((x) => x.id === employeeId);
-    if (!emp) {
-      toast.error('الموظف غير موجود.');
-      return;
-    }
-    const days = Number.parseInt(daysAddedRaw.trim(), 10);
-    const res = submitCreditRequest({
-      employeeId,
-      employeeNameAr: emp.nameAr,
-      daysAdded: days,
-      reasonAr,
-    });
-    if (!res.ok) {
-      toast.error(res.error ?? 'تعذر الحفظ');
-      return;
-    }
-    toast.success('تم تسجيل الطلب — في الانتظار للموافقة.');
-    resetAddForm();
-    setAddOpen(false);
-  };
 
   useEntityFilterSlot(
     () => (
-      <LeavesManagementToolbar
+      <EntityFilterToolbar
         inlineSelects={[
-          { id: 'branch', value: branchId, onChange: setBranchId, placeholder: 'الفرع', options: branchInlineOptions },
-          { id: 'dept', value: departmentId, onChange: setDepartmentId, placeholder: 'القسم', options: deptInlineOptions },
+          { id: 'branch', value: m.branchId, onChange: m.setBranchId, placeholder: 'الفرع', options: m.branchInlineOptions },
+          { id: 'dept', value: m.departmentId, onChange: m.setDepartmentId, placeholder: 'القسم', options: m.deptInlineOptions },
         ]}
-        empPickerEmployees={empPickerList}
-        selectedEmpIds={selectedEmpIds}
-        onSelectedEmpIdsChange={setSelectedEmpIds}
-        statusFilter={statusFilter}
-        onStatusFilterChange={setStatusFilter}
+        empPickerEmployees={m.empPickerList}
+        selectedEmpIds={m.selectedEmpIds}
+        onSelectedEmpIdsChange={m.setSelectedEmpIds}
+        statusFilter={m.statusFilter}
+        onStatusFilterChange={m.setStatusFilter}
         statusOrder={CREDIT_STATUS_ORDER}
         statusLabels={CREDIT_STATUS_LABELS}
-        statusCounts={statusCounts}
-        onDateBoundsChange={setDateBounds}
-        trailingActions={(
-          <Button
-            variant="luxe"
-            size="sm"
-            className="h-8 gap-1 px-3 text-xs shadow-sm shrink-0"
-            onClick={() => { resetAddForm(); setAddOpen(true); }}
-          >
-            <Plus className="h-3.5 w-3.5" />
-            طلب إضافة رصيد
-          </Button>
-        )}
+        statusCounts={m.statusCounts}
+        onDateBoundsChange={m.setDateBounds}
+        trailingActions={undefined}
       />
     ),
     [
-      branchId,
-      departmentId,
-      statusFilter,
-      selectedEmpKey,
-      dateBounds.from,
-      dateBounds.to,
-      statusCounts.all,
-      statusCounts.pending,
-      statusCounts.approved,
-      statusCounts.rejected,
-      empPickerList,
-      branchInlineOptions,
-      deptInlineOptions,
+      m.branchId,
+      m.departmentId,
+      m.statusFilter,
+      m.selectedEmpKey,
+      m.dateBounds.from,
+      m.dateBounds.to,
+      m.statusCounts.all,
+      m.statusCounts.pending,
+      m.statusCounts.approved,
+      m.statusCounts.rejected,
+      m.empPickerList,
+      m.branchInlineOptions,
+      m.deptInlineOptions,
     ],
   );
 
@@ -200,24 +107,22 @@ export function LeaveBalanceCreditClient() {
       {
         key: 'employee',
         title: 'الموظف',
-        render: (r) => {
-          const emp = MOCK_UNIFIED_EMPLOYEES.find((e) => e.id === r.employeeId);
-          return (
-            <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-                {r.employeeNameAr.charAt(0)}
-              </div>
-              <div>
-                <p className="font-medium text-sm">{r.employeeNameAr}</p>
-                {emp ? (
-                  <p className="text-[10px] text-muted-foreground">
-                    {MOCK_DEPARTMENTS.find((d) => d.id === emp.departmentId)?.nameAr ?? emp.nameEn}
-                  </p>
-                ) : null}
-              </div>
+        render: (r) => (
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+              {(r?.employeeNameAr ?? '?').charAt(0)}
             </div>
-          );
-        },
+            <p className="font-medium text-sm">{r?.employeeNameAr ?? '—'}</p>
+          </div>
+        ),
+      },
+      {
+        key: 'leaveType',
+        title: 'نوع الإجازة',
+        hideOnMobile: true,
+        render: (r) => (
+          <span className="text-xs text-muted-foreground">{r.leaveTypeNameAr ?? '—'}</span>
+        ),
       },
       {
         key: 'days',
@@ -265,11 +170,7 @@ export function LeaveBalanceCreditClient() {
         title: 'التاريخ',
         className: 'align-top',
         hideOnMobile: true,
-        render: (r) => (
-          <span className="font-mono text-xs text-muted-foreground whitespace-nowrap" dir="ltr">
-            {r.createdAt.slice(0, 16).replace('T', ' ')}
-          </span>
-        ),
+        render: (r) => <TableDateCell value={r.createdAt} mode="datetime" />,
       },
       {
         key: 'actions',
@@ -277,84 +178,66 @@ export function LeaveBalanceCreditClient() {
         isActions: true,
         render: (r) => {
           if (r.status !== 'pending') {
-            return (
-              <span className="text-[10px] font-mono text-muted-foreground" dir="ltr">
-                {r.decidedAt ? r.decidedAt.slice(0, 10) : '—'}
-              </span>
-            );
+            return <TableDateCell value={r.decidedAt} mode="datetime" />;
           }
           return (
-            <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 text-success hover:bg-success/10 hover:text-success"
-                aria-label="موافقة"
-                title="موافقة"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  approveCreditRequest(r.id);
-                  toast.success('تمت الموافقة على الطلب وتحديث الرصيد السنوي.');
-                }}
-              >
-                <CheckCircle2 className="h-4 w-4" />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                aria-label="رفض"
-                title="رفض"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  rejectCreditRequest(r.id);
-                  toast.message('تم رفض الطلب.');
-                }}
-              >
-                <XCircle className="h-4 w-4" />
-              </Button>
-            </div>
+            <TableRowActions
+              primaryActions={[
+                {
+                  label: 'موافقة',
+                  variant: 'success',
+                  icon: <CheckCircle2 className="h-3.5 w-3.5" />,
+                  onClick: () => void m.approveCreditRequest(r.id),
+                },
+                {
+                  label: 'رفض',
+                  variant: 'destructive',
+                  icon: <XCircle className="h-3.5 w-3.5" />,
+                  onClick: () => void m.rejectCreditRequest(r.id),
+                },
+              ]}
+            />
           );
         },
       },
     ],
-    [approveCreditRequest, rejectCreditRequest],
+    [m.approveCreditRequest, m.rejectCreditRequest],
   );
 
-  const selectedBalance = employeeId ? balances[employeeId] : null;
-
   return (
-    <div className="space-y-5 animate-fade-in">
-      <p className="rounded-lg border border-border/60 bg-card/50 px-3 py-2 text-xs text-muted-foreground shadow-sm sm:text-sm">
-        تُضاف الأيام إلى <strong className="text-foreground">سقف الرصيد السنوي</strong> بعد الموافقة. الطلبات الجديدة بحالة{' '}
-        <strong className="text-foreground">في الانتظار</strong> حتى تصبح <strong className="text-foreground">تمت الموافقة</strong> أو تُرفض من الجدول.
-      </p>
+    <div className="flex min-h-0 flex-1 flex-col gap-5 animate-fade-in">
+      {m.listError ? (
+        <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-2.5 text-sm text-destructive whitespace-pre-wrap">{m.listError}</p>
+      ) : null}
 
       <div className="space-y-3">
-        <div className="flex flex-col gap-1 px-0.5 sm:flex-row sm:items-end sm:justify-between">
-          <h2 className="font-display text-lg font-semibold text-foreground">تقرير طلبات إضافة الرصيد</h2>
-          <p className="text-xs text-muted-foreground">من الأحدث؛ الموافقة تحدّث الرصيد السنوي فوراً.</p>
-        </div>
-
-        {sortedRequests.length === 0 ? (
+        {m.loading && m.sortedRequests.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-8 text-center">جاري التحميل...</p>
+        ) : m.sortedRequests.length === 0 && !m.loading ? (
           <EmptyState title="لا توجد طلبات ضمن الفلاتر" />
         ) : (
+          <DirectoryPagedViews
+            items={m.sortedRequests}
+            serverPagination={m.pagination}
+            loading={m.loading}
+            resetDeps={[m.branchId, m.departmentId, m.statusFilter, m.selectedEmpKey, m.dateBounds.from, m.dateBounds.to]}
+          >
+            {(pageItems) => (
           <DataTable
             columns={columns}
-            data={sortedRequests}
+            data={pageItems}
             keyExtractor={(r) => r.id}
             emptyText="لا توجد طلبات"
+            onRowClick={(r) => setDetailRow(r)}
             mobileCard={(r) => (
               <div className="space-y-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2.5 min-w-0">
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
-                      {r.employeeNameAr.charAt(0)}
+                      {(r?.employeeNameAr ?? '?').charAt(0)}
                     </div>
                     <div className="min-w-0">
-                      <p className="font-semibold text-sm truncate">{r.employeeNameAr}</p>
+                      <p className="font-semibold text-sm truncate">{r?.employeeNameAr ?? '—'}</p>
                       <p className="text-[11px] font-mono text-muted-foreground" dir="ltr">
                         {r.createdAt.slice(0, 16).replace('T', ' ')}
                       </p>
@@ -380,8 +263,9 @@ export function LeaveBalanceCreditClient() {
                   </span>
                 </div>
                 <p className="text-sm font-mono tabular-nums" dir="ltr">
-                  +{toWesternDigits(String(r.daysAdded))} يوماً (سنوي)
+                  +{toWesternDigits(String(r.daysAdded))} يوماً
                 </p>
+                <p className="text-[11px] text-muted-foreground">{r.leaveTypeNameAr ?? '—'}</p>
                 {r.reasonAr ? <p className="text-[11px] text-muted-foreground line-clamp-3">{r.reasonAr}</p> : null}
                 {r.status === 'pending' ? (
                   <div className="flex gap-2 pt-1">
@@ -390,10 +274,7 @@ export function LeaveBalanceCreditClient() {
                       variant="outline"
                       size="sm"
                       className="flex-1 gap-1.5 text-xs text-success border-success/40 hover:bg-success/10"
-                      onClick={() => {
-                        approveCreditRequest(r.id);
-                        toast.success('تمت الموافقة على الطلب وتحديث الرصيد السنوي.');
-                      }}
+                      onClick={() => void m.approveCreditRequest(r.id)}
                     >
                       <CheckCircle2 className="h-3.5 w-3.5" /> موافقة
                     </Button>
@@ -402,10 +283,7 @@ export function LeaveBalanceCreditClient() {
                       variant="outline"
                       size="sm"
                       className="flex-1 gap-1.5 text-xs text-destructive border-destructive/40 hover:bg-destructive/10"
-                      onClick={() => {
-                        rejectCreditRequest(r.id);
-                        toast.message('تم رفض الطلب.');
-                      }}
+                      onClick={() => void m.rejectCreditRequest(r.id)}
                     >
                       <XCircle className="h-3.5 w-3.5" /> رفض
                     </Button>
@@ -418,71 +296,104 @@ export function LeaveBalanceCreditClient() {
               </div>
             )}
           />
+            )}
+          </DirectoryPagedViews>
         )}
       </div>
 
-      <Dialog open={addOpen} onOpenChange={(o) => { if (!o) resetAddForm(); setAddOpen(o); }}>
+      <Dialog open={m.addOpen} onOpenChange={(o) => { if (!o) m.resetAddForm(); m.setAddOpen(o); }}>
         <DialogContent className="sm:max-w-md" dir="rtl">
-          <form onSubmit={handleDialogSubmit}>
+          <form onSubmit={m.handleDialogSubmit}>
             <DialogHeader>
               <DialogTitle>طلب إضافة رصيد</DialogTitle>
               <DialogDescription>
-                عدد الأيام المضافة إلى الرصيد السنوي، والوصف أو العنوان. يُسجَّل الطلب بحالة «في الانتظار» حتى الموافقة من التقرير.
+                اختر نوع الإجازة وعدد الأيام المضافة إلى رصيد الموظف. يُسجَّل الطلب بحالة «في الانتظار» حتى الموافقة.
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-2">
               <FormField label="الموظف">
-                <Select value={employeeId} onValueChange={setEmployeeId}>
+                <Select value={m.employeeId} onValueChange={m.setEmployeeId}>
                   <SelectTrigger className="h-10 w-full rounded-lg border-input bg-background">
                     <SelectValue placeholder="اختر الموظف…" />
                   </SelectTrigger>
                   <SelectContent>
-                    {MOCK_UNIFIED_EMPLOYEES.map((e) => (
-                      <SelectItem key={e.id} value={e.id}>{e.nameAr}</SelectItem>
+                    {m.empPickerList.map((e) => (
+                      <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </FormField>
-              {selectedBalance ? (
+              <FormField label="نوع الإجازة" required>
+                <Select value={m.leaveTypeId} onValueChange={m.setLeaveTypeId}>
+                  <SelectTrigger className="h-10 w-full rounded-lg border-input bg-background">
+                    <SelectValue placeholder="اختر نوع الإجازة…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {m.leaveTypes.map((t) => (
+                      <SelectItem key={t.id} value={t.id}>{t.nameAr}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </FormField>
+              {m.selectedBalance ? (
                 <p className="text-[11px] text-muted-foreground font-mono" dir="ltr">
-                  الرصيد السنوي الحالي: {toWesternDigits(String(selectedBalance.annual.used))}/
-                  {toWesternDigits(String(selectedBalance.annual.total))}
+                  الرصيد الحالي ({m.selectedLeaveTypeNameAr}): {toWesternDigits(String(m.selectedBalance.used))}/
+                  {toWesternDigits(String(m.selectedBalance.total))}
+                </p>
+              ) : m.employeeId && m.leaveTypeId ? (
+                <p className="text-[11px] text-muted-foreground">
+                  لا يوجد رصيد مسجّل لـ {m.selectedLeaveTypeNameAr} — سيُنشأ عند الموافقة.
                 </p>
               ) : null}
-              <FormField label="عدد الأيام المضافة إلى الرصيد (عام)">
+              <FormField label="عدد الأيام المضافة">
                 <Input
                   type="number"
                   min={1}
                   step={1}
                   inputMode="numeric"
                   placeholder="مثال: 3"
-                  value={daysAddedRaw}
-                  onChange={(ev) => setDaysAddedRaw(ev.target.value)}
+                  value={m.daysAddedRaw}
+                  onChange={(ev) => m.setDaysAddedRaw(ev.target.value)}
                   className="h-10 font-mono rounded-lg border-input bg-background"
                   dir="ltr"
                 />
               </FormField>
               <FormField label="الوصف أو العنوان">
                 <Textarea
-                  value={reasonAr}
-                  onChange={(e) => setReasonAr(e.target.value)}
+                  value={m.reasonAr}
+                  onChange={(e) => m.setReasonAr(e.target.value)}
                   placeholder="وصف مختصر أو عنوان الطلب…"
                   rows={3}
                   className="min-h-[88px] resize-none rounded-lg border-input bg-background"
                 />
               </FormField>
             </div>
-            <DialogFooter className="gap-2 sm:gap-0">
-              <Button type="button" variant="outline" onClick={() => { setAddOpen(false); resetAddForm(); }}>
-                إلغاء
-              </Button>
+            <DialogFooter className={dialogFormFooterClass}>
               <Button type="submit" variant="luxe">
                 تسجيل الطلب
+              </Button>
+              <Button type="button" variant="outline" onClick={() => { m.setAddOpen(false); m.resetAddForm(); }}>
+                إلغاء
               </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
+
+      <TableRowDetailDialog
+        open={detailRow != null}
+        onOpenChange={(o) => !o && setDetailRow(null)}
+        title="تفاصيل طلب إضافة الرصيد"
+        fields={detailRow ? [
+          { label: 'الموظف', value: detailRow.employeeNameAr },
+          { label: 'نوع الإجازة', value: detailRow.leaveTypeNameAr ?? '—' },
+          { label: 'عدد الأيام', value: `+${toWesternDigits(String(detailRow.daysAdded))}` },
+          { label: 'الوصف', value: detailRow.reasonAr || '—' },
+          { label: 'الحالة', value: statusLabelAr(detailRow.status) },
+          { label: 'تاريخ الطلب', value: <TableDateCell value={detailRow.createdAt} mode="datetime" /> },
+          { label: 'تاريخ القرار', value: <TableDateCell value={detailRow.decidedAt} mode="datetime" /> },
+        ] : []}
+      />
     </div>
   );
 }

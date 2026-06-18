@@ -1,8 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import { sanitizePdfText } from '@/lib/pdf/sanitize-pdf-text';
-import { ROSE_TRADING_EST } from '@/lib/pdf/rose-trading-est';
+import { sanitizePdfText } from '@/components/pdf/lib/sanitize-pdf-text';
+import { ROSE_TRADING_EST } from '@/components/pdf/lib/rose-trading-est';
 
 /** Letterhead accent — warm gold (print-safe) */
 const LETTERHEAD_GOLD = '#b8933e';

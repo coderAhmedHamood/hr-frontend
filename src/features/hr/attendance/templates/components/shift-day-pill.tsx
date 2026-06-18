@@ -1,7 +1,7 @@
 'use client';
 
-import type { WeekDayIndex } from '@/lib/attendance/types';
-import { cn } from '@/lib/utils';
+import type { WeekDayIndex } from '@/features/hr/attendance/lib/types';
+import { cn } from '@/shared/utils';
 import { DAY_LABELS } from '@/features/hr/attendance/templates/constants/shift-templates-ui';
 
 export function ShiftDayPill({

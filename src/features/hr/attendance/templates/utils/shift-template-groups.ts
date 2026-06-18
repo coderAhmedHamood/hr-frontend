@@ -1,6 +1,6 @@
-import { defaultShiftPeriod } from '@/lib/attendance/defaults';
-import type { ShiftTemplate, WeekDayIndex } from '@/lib/attendance/types';
-import { genId } from '@/lib/attendance/utils';
+import { defaultShiftPeriod } from '@/features/hr/attendance/lib/defaults';
+import type { ShiftTemplate, WeekDayIndex } from '@/features/hr/attendance/lib/types';
+import { genId } from '@/features/hr/attendance/lib/utils';
 import type { ShiftGroup } from '@/features/hr/attendance/templates/types/shift-template-editor';
 
 export function initGroups(template: ShiftTemplate): ShiftGroup[] {

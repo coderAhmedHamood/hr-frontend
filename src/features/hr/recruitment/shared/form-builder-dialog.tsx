@@ -11,6 +11,7 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
+  dialogFormFooterClass,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -18,8 +19,9 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import type { RecruitmentForm, RecruitmentFormField, RecruitmentFormFieldType } from '@/lib/recruitment/types';
-import { uid } from '@/lib/recruitment/utils';
+import type { RecruitmentForm, RecruitmentFormField, RecruitmentFormFieldType } from '@/features/hr/recruitment/lib/types';
+import { STATUS_PILL } from '@/shared/status-pill-classes';
+import { uid } from '@/features/hr/recruitment/lib/utils';
 
 const FIELD_TYPE_LABELS: Record<RecruitmentFormFieldType, string> = {
   text: 'نص',
@@ -29,10 +31,10 @@ const FIELD_TYPE_LABELS: Record<RecruitmentFormFieldType, string> = {
 };
 
 const FIELD_TYPE_COLORS: Record<RecruitmentFormFieldType, string> = {
-  text: 'bg-blue-50 text-blue-700 border-blue-200',
-  number: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  select: 'bg-amber-50 text-amber-700 border-amber-200',
-  file: 'bg-rose-50 text-rose-700 border-rose-200',
+  text: STATUS_PILL.info,
+  number: STATUS_PILL.approved,
+  select: STATUS_PILL.gold,
+  file: STATUS_PILL.rejected,
 };
 
 function SelectOptionsEditor({
@@ -310,9 +312,9 @@ export function FormBuilderDialog({ open, onOpenChange, existingForm, onSave }: 
           {error && <p className="text-sm text-destructive">{error}</p>}
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>إلغاء</Button>
+        <DialogFooter className={dialogFormFooterClass}>
           <Button variant="luxe" onClick={handleSave}>{existingForm ? 'حفظ التعديلات' : 'إنشاء النموذج'}</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>إلغاء</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

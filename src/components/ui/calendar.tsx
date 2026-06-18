@@ -11,11 +11,10 @@ import {
 } from 'react-day-picker';
 import { arSA } from 'date-fns/locale';
 
-import { cn, toWesternDigits } from '@/lib/utils';
+import { cn, toWesternDigits } from '@/shared/utils';
 
 export type CalendarProps = React.ComponentProps<typeof DayPicker>;
 
-/** Force Western digits (0–9) in grid while keeping Arabic month/weekday labels. */
 const LATIN_NUMERAL_FORMATTERS: NonNullable<CalendarProps['formatters']> = {
   formatDay: (date) => String(date.getDate()),
   formatCaption: (month, options, dateLib) =>
@@ -27,14 +26,15 @@ const LATIN_NUMERAL_FORMATTERS: NonNullable<CalendarProps['formatters']> = {
   formatWeekNumber: (weekNumber) => (weekNumber < 10 ? `0${weekNumber}` : `${weekNumber}`),
 };
 
-function Calendar({ className, classNames, locale = arSA, showOutsideDays = true, formatters, ...props }: CalendarProps) {
+function Calendar({ className, classNames, locale = arSA, showOutsideDays = true, formatters, weekStartsOn = 6, ...props }: CalendarProps & { weekStartsOn?: 0 | 1 | 2 | 3 | 4 | 5 | 6 }) {
   const defaults = getDefaultClassNames();
   return (
     <DayPicker
       locale={locale}
+      weekStartsOn={weekStartsOn}
       showOutsideDays={showOutsideDays}
       formatters={{ ...LATIN_NUMERAL_FORMATTERS, ...formatters }}
-      className={cn('rose-rdp-calendar', className)}
+      className={cn('p-2', className)}
       classNames={{ ...defaults, ...classNames }}
       {...props}
     />

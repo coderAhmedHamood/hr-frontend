@@ -3,44 +3,51 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { cn } from '@/shared/utils';
 
-export function fmtAttendanceHours(hours: number): string {
-  if (!Number.isFinite(hours) || hours === 0) return '0';
-  const rounded = Math.round(hours * 10) / 10;
-  const n = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
-  return `${n} س`;
-}
+const ACCENT_VALUE_STYLES = {
+  primary: 'text-primary bg-primary/5 border-primary/15',
+  gold: 'text-gold bg-gold/5 border-gold/20',
+  success: 'text-success bg-success/5 border-success/20',
+  warning: 'text-warning bg-warning/5 border-warning/20',
+  destructive: 'text-destructive bg-destructive/5 border-destructive/20',
+} as const;
+
+const ACCENT_TEXT_STYLES = {
+  primary: 'text-primary',
+  gold: 'text-gold',
+  success: 'text-success',
+  warning: 'text-warning',
+  destructive: 'text-destructive',
+} as const;
+
+type ProfileAccent = keyof typeof ACCENT_VALUE_STYLES;
 
 export function Prop({ icon: Icon, label, children, mono, accent }: {
   icon: React.ElementType;
   label: string;
   children: React.ReactNode;
   mono?: boolean;
-  accent?: 'primary' | 'gold' | 'success' | 'warning' | 'destructive';
+  accent?: ProfileAccent;
 }) {
   if (children === null || children === undefined || children === '' || children === false) return null;
-  const accentCls = {
-    primary: 'text-primary',
-    gold: 'text-gold',
-    success: 'text-success',
-    warning: 'text-warning',
-    destructive: 'text-destructive',
-  } as const;
+
   return (
-    <div className="group relative flex items-start gap-3 py-3 px-3.5 rounded-xl border border-border/50 bg-card hover:border-primary/30 hover:shadow-xs transition-all">
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted/60 text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary transition-colors">
-        <Icon className="h-3.5 w-3.5" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="text-[10px] uppercase tracking-[0.08em] text-muted-foreground/80 mb-0.5 font-medium">{label}</div>
-        <div className={cn(
-          'text-sm font-medium truncate min-w-0',
-          mono && 'font-mono text-xs',
-          accent ? accentCls[accent] : 'text-foreground',
-        )}>
-          {children}
+    <div className="group flex flex-col gap-2 rounded-xl border border-border bg-card p-3 shadow-soft transition-all hover:border-primary/20 hover:shadow-elevated">
+      <div className="flex items-center gap-2 min-w-0">
+        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary transition-colors group-hover:bg-primary/15">
+          <Icon className="h-3.5 w-3.5" />
         </div>
+        <div className="text-[11px] font-medium text-muted-foreground truncate">{label}</div>
+      </div>
+      <div
+        className={cn(
+          'rounded-lg border px-3 py-2 text-sm font-medium min-w-0 break-words',
+          mono && 'font-mono text-xs tracking-wide',
+          accent ? ACCENT_VALUE_STYLES[accent] : 'text-foreground bg-muted/50 border-border/70',
+        )}
+      >
+        {children}
       </div>
     </div>
   );
@@ -66,15 +73,22 @@ export function FieldGroup({ title, hint, children }: {
   children: React.ReactNode;
 }) {
   return (
-    <div className="mb-7 last:mb-0">
-      <div className="flex items-baseline justify-between mb-3">
-        <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-          {title}
-        </h3>
-        {hint && <span className="text-[10px] text-muted-foreground/60">{hint}</span>}
+    <div className="mb-8 last:mb-0">
+      <div className="flex items-center justify-between gap-3 mb-3.5 px-0.5">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <span className="h-4 w-1 shrink-0 rounded-full bg-primary" aria-hidden />
+          <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+        </div>
+        {hint ? (
+          <span className="shrink-0 rounded-full border border-border bg-muted/60 px-2.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+            {hint}
+          </span>
+        ) : null}
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
-        {children}
+      <div className="rounded-2xl border border-border/80 bg-card/80 p-3 sm:p-4 shadow-soft">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {children}
+        </div>
       </div>
     </div>
   );
@@ -84,7 +98,10 @@ export function ItemRow({ children, href }: {
   children: React.ReactNode;
   href?: string;
 }) {
-  const cls = 'group flex items-center justify-between gap-3 py-3 px-3 -mx-3 rounded-md border-b border-border/40 last:border-0 hover:bg-muted/40 transition-colors';
+  const cls = cn(
+    'group flex items-center justify-between gap-3 rounded-xl border border-border/70 bg-muted/30 px-3.5 py-3',
+    'transition-all hover:border-primary/20 hover:bg-card hover:shadow-xs',
+  );
   if (href) return <Link href={href} className={cn(cls, 'cursor-pointer')}>{children}</Link>;
   return <div className={cls}>{children}</div>;
 }
@@ -93,28 +110,22 @@ export function Stat({ value, label, sub, accent, icon: Icon }: {
   value: React.ReactNode;
   label: string;
   sub?: string;
-  accent?: 'gold' | 'success' | 'destructive' | 'warning' | 'primary';
+  accent?: ProfileAccent;
   icon?: React.ElementType;
 }) {
-  const accentCls = {
-    gold: 'text-gold border-gold/20 bg-gold/5',
-    success: 'text-success border-success/20 bg-success/5',
-    destructive: 'text-destructive border-destructive/20 bg-destructive/5',
-    warning: 'text-warning border-warning/20 bg-warning/5',
-    primary: 'text-primary border-primary/20 bg-primary/5',
-  } as const;
-  const valueColor = accent ? accentCls[accent].split(' ')[0] : 'text-foreground';
-  const cardBorder = accent ? accentCls[accent].split(' ').slice(1).join(' ') : 'border-border/50 bg-card';
+  const valueColor = accent ? ACCENT_TEXT_STYLES[accent] : 'text-foreground';
+  const cardStyle = accent ? ACCENT_VALUE_STYLES[accent] : 'border-border/70 bg-card text-foreground';
+
   return (
-    <div className={cn('relative rounded-xl border p-4 transition-all hover:shadow-xs', cardBorder)}>
-      <div className="flex items-center justify-between mb-2">
-        <div className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium">{label}</div>
-        {Icon && <Icon className={cn('h-3.5 w-3.5', valueColor, 'opacity-70')} />}
+    <div className={cn('relative flex flex-col gap-2 rounded-xl border p-4 shadow-soft transition-all hover:shadow-elevated', cardStyle)}>
+      <div className="flex items-center justify-between gap-2">
+        <div className="text-[11px] font-medium text-muted-foreground">{label}</div>
+        {Icon ? <Icon className={cn('h-3.5 w-3.5 opacity-70', valueColor)} /> : null}
       </div>
       <div className={cn('font-arabic-display text-2xl font-semibold tabular-nums leading-none', valueColor)}>
         {value}
       </div>
-      {sub && <div className="mt-1.5 text-[11px] text-muted-foreground">{sub}</div>}
+      {sub ? <div className="text-[11px] text-muted-foreground">{sub}</div> : null}
     </div>
   );
 }
@@ -125,9 +136,9 @@ export function Empty({ icon: Icon, text, action }: {
   action?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center gap-2.5 py-8 text-center text-muted-foreground border border-dashed border-border/60 rounded-xl bg-muted/20">
-      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-background/80 border border-border/50">
-        <Icon className="h-5 w-5 opacity-60" />
+    <div className="col-span-full flex flex-col items-center gap-3 rounded-2xl border border-dashed border-border bg-muted/25 px-6 py-10 text-center text-muted-foreground">
+      <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-border bg-card text-primary shadow-soft">
+        <Icon className="h-5 w-5" />
       </div>
       <p className="text-sm">{text}</p>
       {action}
@@ -167,11 +178,12 @@ export function LeaveBalanceCard({
   const barCls = accent === 'primary' ? 'bg-primary' : 'bg-success';
   const availTextCls = accent === 'primary' ? 'text-primary' : 'text-success';
   const availDotCls = accent === 'primary' ? 'bg-primary' : 'bg-success';
+
   return (
     <div className="rounded-2xl border border-border bg-card p-5 shadow-soft">
       <div className="flex items-center justify-between gap-3 border-b border-border pb-3" dir="rtl">
         <h3 className="min-w-0 text-right text-base font-semibold tracking-tight text-foreground">{title}</h3>
-        <span className="shrink-0 rounded-full border border-border bg-muted px-3 py-1 text-xs font-semibold tabular-nums text-muted-foreground">
+        <span className="shrink-0 rounded-full border border-border bg-muted/60 px-3 py-1 text-xs font-semibold tabular-nums text-muted-foreground">
           {year}
         </span>
       </div>

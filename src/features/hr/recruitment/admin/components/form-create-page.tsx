@@ -12,9 +12,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import type { RecruitmentFormField, RecruitmentFormFieldType } from '@/lib/recruitment/types';
-import { uid } from '@/lib/recruitment/utils';
-import { useRecruitmentStore } from '@/lib/recruitment/store';
+import type { RecruitmentFormField, RecruitmentFormFieldType } from '@/features/hr/recruitment/lib/types';
+import { uid } from '@/features/hr/recruitment/lib/utils';
+import { useRecruitmentStore } from '@/features/hr/recruitment/lib/store';
 
 const FIELD_TYPE_LABELS: Record<RecruitmentFormFieldType, string> = {
   text: 'نص',

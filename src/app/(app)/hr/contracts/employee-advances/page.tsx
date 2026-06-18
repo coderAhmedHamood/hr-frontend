@@ -1,5 +1,5 @@
-import { EmployeeAdvancesClient } from '@/features/hr/contracts/employee-advances/components/employee-advances-client';
+import { redirect } from 'next/navigation';
 
-export default function EmployeeAdvancesPage() {
-  return <EmployeeAdvancesClient />;
+export default function EmployeeAdvancesRedirectPage() {
+  redirect('/hr/requests/employee-advances');
 }

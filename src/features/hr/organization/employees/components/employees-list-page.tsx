@@ -5,5 +5,9 @@ import { EmployeesListViews } from '@/features/hr/organization/employees/compone
 
 export default function EmployeesListPage() {
   const model = useEmployeesListModel();
-  return <EmployeesListViews model={model} />;
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <EmployeesListViews model={model} />
+    </div>
+  );
 }

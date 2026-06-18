@@ -6,8 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { InfoTooltip } from '@/components/ui/tooltip';
-import type { ShiftPeriod } from '@/lib/attendance/types';
-import { cn } from '@/lib/utils';
+import type { ShiftPeriod } from '@/features/hr/attendance/lib/types';
+import { cn } from '@/shared/utils';
 import { ShiftMiniField } from '@/features/hr/attendance/templates/components/shift-mini-field';
 import { ShiftTimeline } from '@/features/hr/attendance/templates/components/shift-timeline';
 import { normalizeTimeInput } from '@/features/hr/attendance/templates/utils/shift-template-helpers';
@@ -119,39 +119,13 @@ export function ShiftScheduleForm({
                   onChange({ ...period, strictPenaltyBalanceDays: n });
                 }}
               />
-              <span className="text-xs text-muted-foreground whitespace-nowrap">يوم من الرصيد</span>
+              <span className="text-xs text-muted-foreground whitespace-nowrap">يوم من الراتب</span>
               <InfoTooltip
                 side="top"
                 content={
                   <>
                     يُخصم من راتب الموظف ما يعادل <strong>يوم عمل أو أكثر</strong> حسب الرقم الذي تدخله (مثلاً 1 =
                     راتب يوم، 2 = راتب يومين) عن <strong>كل غياب</strong> في هذه الفترة.
-                  </>
-                }
-              />
-            </div>
-
-            <span className="hidden h-5 w-px shrink-0 bg-border/70 md:block" aria-hidden />
-
-            <div className="flex min-h-8 shrink-0 items-center gap-1">
-              <Switch
-                id={`sp-vac-${period.id}`}
-                className="scale-90 shrink-0"
-                checked={period.strictPenaltyVacationEnabled}
-                onCheckedChange={(v) => onChange({ ...period, strictPenaltyVacationEnabled: v })}
-              />
-              <label
-                htmlFor={`sp-vac-${period.id}`}
-                className="flex cursor-pointer items-center gap-x-1 whitespace-nowrap text-[11px] sm:text-xs"
-              >
-                <span className="font-medium text-foreground">خصم</span>
-                <span className="text-muted-foreground">يوم من رصيد الإجازة</span>
-              </label>
-              <InfoTooltip
-                side="top"
-                content={
-                  <>
-                    يُخصم <strong>يوم واحد فقط</strong> من رصيد إجازة الموظف عند غيابه عن هذه الفترة (بدون إدخال يدوي).
                   </>
                 }
               />

@@ -1,4 +1,4 @@
-import type { WeekDayIndex } from '@/lib/attendance/types';
+import type { WeekDayIndex } from '@/features/hr/attendance/lib/types';
 
 export const DAY_LABELS: Record<WeekDayIndex, string> = {
   0: 'الأحد',

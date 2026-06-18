@@ -11,8 +11,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useAtsStore } from '@/lib/ats/store';
-import type { AtsFormField, AtsFormFieldType } from '@/lib/ats/types';
+import { useAtsStore } from '@/features/hr/recruitment/lib/ats/store';
+import type { AtsFormField, AtsFormFieldType } from '@/features/hr/recruitment/lib/ats/types';
 
 const FIELD_TYPE_ICONS: Record<AtsFormFieldType, React.ReactNode> = {
   text: <Briefcase className="h-3.5 w-3.5" />,

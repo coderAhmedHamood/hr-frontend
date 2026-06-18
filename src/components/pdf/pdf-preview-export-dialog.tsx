@@ -5,9 +5,10 @@ import { Download, FileText, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+  dialogFormFooterClass,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { exportDomToPdf } from '@/lib/pdf/exportDomToPdf';
+import { exportDomToPdf } from '@/components/pdf/lib/exportDomToPdf';
 
 type PdfPreviewExportDialogProps = {
   open: boolean;
@@ -83,10 +84,7 @@ export function PdfPreviewExportDialog({
           ) : null}
         </div>
 
-        <DialogFooter className="flex flex-row flex-wrap items-center justify-end gap-2 border-t border-border bg-muted/30 px-6 py-4">
-          <Button type="button" variant="outline" size="sm" onClick={() => onOpenChange(false)}>
-            إغلاق
-          </Button>
+        <DialogFooter className={dialogFormFooterClass}>
           {showPrintable ? (
             <Button
               type="button"
@@ -100,6 +98,9 @@ export function PdfPreviewExportDialog({
               {domExporting ? 'جارٍ التصدير…' : 'تحميل PDF'}
             </Button>
           ) : null}
+          <Button type="button" variant="outline" size="sm" onClick={() => onOpenChange(false)}>
+            إغلاق
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

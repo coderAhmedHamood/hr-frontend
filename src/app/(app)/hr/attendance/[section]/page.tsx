@@ -3,7 +3,7 @@ import {
   ATTENDANCE_SECTION_SLUGS,
   isAttendanceSection,
   type AttendanceSection,
-} from '@/lib/attendance/types';
+} from '@/features/hr/attendance/lib/types';
 import AttendancePage from '@/features/hr/attendance/components/attendance-page';
 
 export function generateStaticParams() {

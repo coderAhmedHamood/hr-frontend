@@ -3,8 +3,8 @@
 import * as React from 'react';
 import { ChevronDown, X } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
-import type { ShiftPeriod } from '@/lib/attendance/types';
-import { cn } from '@/lib/utils';
+import type { ShiftPeriod } from '@/features/hr/attendance/lib/types';
+import { cn } from '@/shared/utils';
 import { ShiftScheduleForm } from '@/features/hr/attendance/templates/components/shift-schedule-form';
 import { durationLabel } from '@/features/hr/attendance/templates/utils/shift-template-helpers';
 
@@ -56,11 +56,6 @@ export function ShiftPeriodRow({
               رصيد −{period.strictPenaltyBalanceDays}
             </span>
           )}
-          {period.strictMode && period.strictPenaltyVacationEnabled && (
-            <span className="hidden rounded-full bg-primary/15 px-2 py-0.5 text-[9px] font-semibold text-primary sm:inline">
-              إجازة −1
-            </span>
-          )}
           {period.strictMode && period.strictPenaltyWarning && (
             <span className="hidden rounded-full bg-warning/15 px-2 py-0.5 text-[9px] font-semibold text-warning sm:inline">
               إنذار
@@ -86,7 +81,6 @@ export function ShiftPeriodRow({
                   ? {
                       strictPenaltyWarning: false,
                       strictPenaltyBalanceEnabled: false,
-                      strictPenaltyVacationEnabled: false,
                     }
                   : {}),
               })

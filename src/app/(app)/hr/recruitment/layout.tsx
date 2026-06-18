@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { SetPageTitle } from '@/components/set-page-title';
+import { SetPageTitle } from '@/components/layouts/set-page-title';
 
 export default function RecruitmentLayout({ children }: { children: React.ReactNode }) {
   return (

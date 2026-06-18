@@ -1,7 +1,14 @@
 'use client';
 
 import { Input } from '@/components/ui/input';
-import { HRSettingsFormDrawer, FormField, ConfirmationModal } from '@/components/hr-requests/shared-ui';
+import { Switch } from '@/components/ui/switch';
+import {
+  HRSettingsFormDrawer,
+  FormField,
+  ConfirmationModal,
+  EmptyState,
+  SearchableDropdown,
+} from '@/features/hr/requests/components/shared-ui';
 import { useBranchesDirectoryModel } from '@/features/hr/organization/branches/hooks/useBranchesDirectoryModel';
 import { BranchesListViews } from '@/features/hr/organization/branches/components/branches-list-views';
 import { BranchDetailDialog } from '@/features/hr/organization/branches/dialogs/branch-detail-dialog';
@@ -10,8 +17,14 @@ export default function BranchesPage() {
   const model = useBranchesDirectoryModel();
 
   return (
-    <div className="space-y-4">
-      <BranchesListViews model={model} />
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
+      {model.loading ? (
+        <div className="py-12 text-center text-sm text-muted-foreground">جاري التحميل…</div>
+      ) : model.listError ? (
+        <EmptyState title="تعذر تحميل الفروع" description={model.listError} />
+      ) : (
+        <BranchesListViews model={model} />
+      )}
 
       <HRSettingsFormDrawer
         open={model.drawerOpen}
@@ -26,6 +39,26 @@ export default function BranchesPage() {
         <FormField label="المدينة" required>
           <Input value={model.form.city} onChange={(e) => model.patch({ city: e.target.value })} placeholder="الرياض" />
         </FormField>
+        <FormField label="مدير الفرع">
+          <SearchableDropdown
+            value={model.form.managerEmployeeId}
+            onChange={model.setManagerEmployee}
+            options={model.employeeOptions}
+            placeholder={model.employeesLoading ? 'جاري تحميل الموظفين…' : 'اختر مدير الفرع…'}
+            disabled={model.employeesLoading}
+            allowClear
+          />
+        </FormField>
+        <div className="flex items-center justify-between rounded-xl border border-border p-4">
+          <span className="text-sm">المقر الرئيسي</span>
+          <Switch checked={model.form.isHeadquarters} onCheckedChange={(v) => model.patch({ isHeadquarters: v })} />
+        </div>
+        {model.editId && (
+          <div className="flex items-center justify-between rounded-xl border border-border p-4">
+            <span className="text-sm">نشط</span>
+            <Switch checked={model.form.isActive} onCheckedChange={(v) => model.patch({ isActive: v })} />
+          </div>
+        )}
       </HRSettingsFormDrawer>
 
       <ConfirmationModal

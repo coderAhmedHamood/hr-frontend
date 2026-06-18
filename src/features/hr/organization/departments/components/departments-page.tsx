@@ -1,245 +1,118 @@
 'use client';
 
-import * as React from 'react';
-import { Plus, Pencil, Trash2, ChevronRight, Building2, Network } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Building2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
-import { useSetPageTitle } from '@/components/page-title-context';
-import { useEntityFilterSlot } from '@/components/entity-filter-slot-context';
-import { EntityFilterToolbar } from '@/components/ui/entity-filter-toolbar';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
 import {
   MinimalDropdown,
   ConfirmationModal,
   HRSettingsFormDrawer,
   FormField,
   EmptyState,
-  ActiveBadge,
-} from '@/components/hr-requests/shared-ui';
-import { useHRConfigurationStore } from '@/lib/hr-requests/configuration-store';
-import { buildDepartmentForest, flattenDepartmentsTree, getDescendantDepartmentIds } from '@/lib/hr-requests/hierarchy-utils';
-import type { HRDepartmentEntity } from '@/lib/hr-requests/types';
-import {
-  DirectoryGrid,
-  DirectoryGridCard,
-  DirectoryGridCardDecoration,
-  DirectoryGridCardEyebrow,
-  DirectoryGridCardFooter,
-  DirectoryGridCardHeading,
-  DirectoryGridCardIconWrap,
-  DirectoryGridCardMetaChips,
-} from '@/components/ui/directory-grid-card';
-import { cn } from '@/lib/utils';
-
-interface DraftForm {
-  nameAr: string;
-  parentId: string;
-  sortOrder: number;
-  isActive: boolean;
-}
-
-const EMPTY: DraftForm = { nameAr: '', parentId: '', sortOrder: 1, isActive: true };
+} from '@/features/hr/requests/components/shared-ui';
+import { cn } from '@/shared/utils';
+import { useDepartmentsDirectoryModel } from '@/features/hr/organization/departments/hooks/useDepartmentsDirectoryModel';
+import { DepartmentsListGrid } from '@/features/hr/organization/departments/components/departments-list-grid';
+import { DirectoryPagedViews } from '@/components/ui/paged-list';
 
 export default function DepartmentsPage() {
-  useSetPageTitle({ titleAr: 'الأقسام', descriptionAr: 'الهيكل التنظيمي وإدارة الأقسام', iconName: 'Building2' });
-
-  const { departments, addDepartment, updateDepartment, deleteDepartment } = useHRConfigurationStore();
-
-  const [drawerOpen, setDrawerOpen] = React.useState(false);
-  const [activeMode, setActiveMode] = React.useState<'all' | 'active'>('all');
-  const filterActive = activeMode === 'active';
-  const [editId, setEditId] = React.useState<string | null>(null);
-  const [draft, setDraft] = React.useState<DraftForm>(EMPTY);
-  const [formError, setFormError] = React.useState<string | null>(null);
-  const [deleteId, setDeleteId] = React.useState<string | null>(null);
-  const [deleteWarning, setDeleteWarning] = React.useState('');
-
-  const forest = React.useMemo(() => buildDepartmentForest(departments), [departments]);
-  const flat = React.useMemo(() => flattenDepartmentsTree(forest), [forest]);
-
-  const filtered = flat.filter((n) => {
-    if (filterActive && !n.dept.isActive) return false;
-    return true;
-  });
-
-  const openCreate = () => {
-    setEditId(null);
-    setDraft({ ...EMPTY, sortOrder: departments.length + 1 });
-    setFormError(null);
-    setDrawerOpen(true);
-  };
-
-  const openEdit = (dept: HRDepartmentEntity) => {
-    setEditId(dept.id);
-    setDraft({ nameAr: dept.nameAr, parentId: dept.parentId ?? '', sortOrder: dept.sortOrder, isActive: dept.isActive });
-    setFormError(null);
-    setDrawerOpen(true);
-  };
-
-  const handleSave = () => {
-    if (!draft.nameAr.trim()) {
-      setFormError('اسم القسم مطلوب');
-      return;
-    }
-    const payload = { ...draft, nameEn: draft.nameAr.trim(), parentId: draft.parentId || undefined };
-    const result = editId ? updateDepartment(editId, payload) : addDepartment({ ...payload, isActive: draft.isActive });
-    if (!result.ok) {
-      setFormError(result.error ?? 'خطأ');
-      return;
-    }
-    setDrawerOpen(false);
-  };
-
-  const confirmDelete = (id: string) => {
-    const descendants = getDescendantDepartmentIds(departments, id).length;
-    setDeleteWarning(
-      descendants > 0
-        ? `سيتم حذف ${descendants} قسم فرعي أيضاً وجميع أنواع الطلبات المرتبطة.`
-        : 'سيتم حذف القسم وجميع أنواع الطلبات المرتبطة به.',
-    );
-    setDeleteId(id);
-  };
-
-  const patch = <K extends keyof DraftForm>(k: K, v: DraftForm[K]) => setDraft((d) => ({ ...d, [k]: v }));
-
-  const excludeIds = editId ? new Set([editId, ...getDescendantDepartmentIds(departments, editId)]) : new Set<string>();
-  const parentOptions = [
-    { value: '', label: '— بدون أصل (قسم رئيسي) —' },
-    ...departments
-      .filter((d) => !excludeIds.has(d.id))
-      .map((d) => ({ value: d.id, label: `${'　'.repeat(d.parentId ? 1 : 0)}${d.nameAr}` })),
-  ];
-
-  useEntityFilterSlot(
-    () => (
-      <EntityFilterToolbar
-        showDateSection={false}
-        showStatusSection={false}
-        showEmployeePicker={false}
-        onDateBoundsChange={() => {}}
-        inlineSelects={[
-          {
-            id: 'active',
-            value: activeMode,
-            onChange: (v) => setActiveMode(v as 'all' | 'active'),
-            placeholder: 'العرض',
-            options: [
-              { value: 'all', label: 'كل الأقسام' },
-              { value: 'active', label: 'نشط فقط' },
-            ],
-          },
-        ]}
-        trailingActions={(
-          <Button variant="luxe" size="sm" className="h-8 shrink-0 gap-2" onClick={openCreate}>
-            <Plus className="h-4 w-4" /> قسم جديد
-          </Button>
-        )}
-      />
-    ),
-    [activeMode],
-  );
+  const model = useDepartmentsDirectoryModel();
 
   return (
-    <div className="w-full min-w-0 space-y-4 pt-2">
-      {filtered.length === 0 ? (
+    <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col gap-4 pt-2">
+      {model.loading ? (
+        <div className="py-12 text-center text-sm text-muted-foreground">جاري التحميل…</div>
+      ) : model.listError ? (
+        <EmptyState icon={Building2} title="تعذر تحميل الأقسام" description={model.listError} />
+      ) : model.filtered.length === 0 ? (
         <EmptyState icon={Building2} title="لا توجد أقسام" />
       ) : (
-        <DirectoryGrid variant="wide">
-          {filtered.map(({ dept, depth }) => {
-            const parent = departments.find((d) => d.id === dept.parentId);
-            const subDepts = departments.filter((d) => d.parentId === dept.id);
-            return (
-              <DirectoryGridCard key={dept.id} interactive hoverLift onClick={() => openEdit(dept)}>
-                <DirectoryGridCardDecoration />
-                <div className="relative mb-4 flex items-start justify-between">
-                  <DirectoryGridCardIconWrap active={dept.isActive}>
-                    <Building2 className="h-5 w-5" />
-                  </DirectoryGridCardIconWrap>
-                  <ActiveBadge active={dept.isActive} />
-                </div>
-
-                <div className="relative mb-4">
-                  {parent && (
-                    <DirectoryGridCardEyebrow>
-                      <Building2 className="h-3 w-3 shrink-0" />
-                      <span className="truncate">{parent.nameAr}</span>
-                    </DirectoryGridCardEyebrow>
-                  )}
-                  <DirectoryGridCardHeading>{dept.nameAr}</DirectoryGridCardHeading>
-                </div>
-
-                <DirectoryGridCardMetaChips>
-                  {subDepts.length > 0 && (
-                    <span className="flex items-center gap-1">
-                      <Network className="h-3.5 w-3.5" />
-                      {subDepts.length} فرعي
-                    </span>
-                  )}
-                  {depth > 0 && (
-                    <span className="flex items-center gap-1">
-                      <ChevronRight className="h-3.5 w-3.5" />
-                      مستوى {depth + 1}
-                    </span>
-                  )}
-                </DirectoryGridCardMetaChips>
-
-                <DirectoryGridCardFooter className="border-border/60 pt-2">
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(dept)} aria-label="تعديل">
-                    <Pencil className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-destructive hover:text-destructive"
-                    onClick={() => confirmDelete(dept.id)}
-                    aria-label="حذف"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </DirectoryGridCardFooter>
-              </DirectoryGridCard>
-            );
-          })}
-        </DirectoryGrid>
+        <DirectoryPagedViews
+          items={model.filtered}
+          serverPagination={model.pagination}
+          loading={model.loading}
+        >
+          {(pageItems) => (
+        <DepartmentsListGrid
+          departments={model.departments}
+          filtered={pageItems}
+          branchLabel={model.branchLabel}
+          companyLabel={model.companyLabel}
+          onEdit={model.openEdit}
+          onDelete={model.confirmDelete}
+        />
+          )}
+        </DirectoryPagedViews>
       )}
 
       <HRSettingsFormDrawer
-        open={drawerOpen}
-        onOpenChange={setDrawerOpen}
-        title={editId ? 'تعديل القسم' : 'إضافة قسم جديد'}
-        onSave={handleSave}
-        error={formError}
+        open={model.drawerOpen}
+        onOpenChange={model.setDrawerOpen}
+        title={model.editId ? 'تعديل القسم' : 'إضافة قسم جديد'}
+        onSave={model.handleSave}
+        error={model.formError}
       >
         <div className="grid gap-4 sm:grid-cols-2">
           <FormField label="الاسم" required span2>
-            <Input value={draft.nameAr} onChange={(e) => patch('nameAr', e.target.value)} placeholder="الموارد البشرية" />
+            <Input
+              value={model.draft.nameAr}
+              onChange={(e) => model.patch('nameAr', e.target.value)}
+              placeholder="الموارد البشرية"
+            />
           </FormField>
+          <FormField label="الفرع" required span2>
+            {model.editId ? (
+              <Input readOnly value={model.branchLabel(model.draft.branchId) ?? '—'} className="bg-muted/30" />
+            ) : (
+              <Select
+                value={model.draft.branchId || '_none'}
+                onValueChange={(v) => model.patch('branchId', v === '_none' ? '' : v)}
+              >
+                <SelectTrigger><SelectValue placeholder="اختر الفرع" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none">— اختر الفرع —</SelectItem>
+                  {model.formBranches.map((b) => (
+                    <SelectItem key={b.id} value={b.id}>{b.nameAr}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </FormField>
+         
           <FormField label="القسم الأصل" span2>
-            <MinimalDropdown value={draft.parentId} onChange={(v) => patch('parentId', v)} options={parentOptions} />
+            <MinimalDropdown
+              value={model.draft.parentId}
+              onChange={(v) => model.patch('parentId', v)}
+              options={model.parentOptions}
+              placeholder={model.parentPickerLoading ? 'جاري تحميل الأقسام…' : 'اختر القسم الأصل'}
+              disabled={model.parentPickerLoading}
+            />
           </FormField>
-          <FormField label="الحالة">
-            <label
-              className={cn(
-                'flex cursor-pointer items-center justify-between rounded-xl border-2 px-4 py-3 transition-all h-10',
-                draft.isActive ? 'border-primary/30 bg-primary/5' : 'border-border',
-              )}
-            >
-              <span className="text-sm font-medium">نشط</span>
-              <Switch checked={draft.isActive} onCheckedChange={(v) => patch('isActive', v)} />
-            </label>
-          </FormField>
+          {model.editId && (
+            <FormField label="الحالة">
+              <label
+                className={cn(
+                  'flex cursor-pointer items-center justify-between rounded-xl border-2 px-4 py-3 transition-all h-10',
+                  model.draft.isActive ? 'border-primary/30 bg-primary/5' : 'border-border',
+                )}
+              >
+                <span className="text-sm font-medium">نشط</span>
+                <Switch checked={model.draft.isActive} onCheckedChange={(v) => model.patch('isActive', v)} />
+              </label>
+            </FormField>
+          )}
         </div>
       </HRSettingsFormDrawer>
 
       <ConfirmationModal
-        open={!!deleteId}
-        onOpenChange={(v) => !v && setDeleteId(null)}
+        open={!!model.deleteId}
+        onOpenChange={(v) => !v && model.setDeleteId(null)}
         title="حذف القسم"
-        description={deleteWarning}
-        onConfirm={() => {
-          if (deleteId) deleteDepartment(deleteId);
-          setDeleteId(null);
-        }}
+        description={model.deleteWarning}
+        onConfirm={model.handleDelete}
       />
     </div>
   );

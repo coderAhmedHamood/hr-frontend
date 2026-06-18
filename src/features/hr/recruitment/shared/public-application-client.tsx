@@ -10,14 +10,15 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import Image from 'next/image';
-import { useRecruitmentStore } from '@/lib/recruitment/store';
-import { data } from '@/lib/data';
-import type { RecruitmentFormField } from '@/lib/recruitment/types';
+import { useRecruitmentStore } from '@/features/hr/recruitment/lib/store';
+import { useActiveCompany } from '@/features/hr/organization/hooks/useActiveCompany';
+import type { RecruitmentFormField } from '@/features/hr/recruitment/lib/types';
 
 export function PublicApplicationClient() {
   const params = useParams<{ formId: string }>();
   const formId = params.formId;
   const { forms, addApplicant } = useRecruitmentStore();
+  const { data: activeCompany } = useActiveCompany();
   const form = React.useMemo(() => forms.find((f) => f.id === formId), [forms, formId]);
 
   const [answers, setAnswers] = React.useState<Record<string, string>>({});
@@ -116,12 +117,12 @@ export function PublicApplicationClient() {
       <header className="border-b border-border bg-card/50 px-4 py-6">
         <div className="mx-auto max-w-xl">
           <div className="flex items-center gap-3">
-            {data.company.logo && (
-              <Image src={data.company.logo} alt={data.company.name} width={40} height={40} className="h-10 w-10 rounded-md object-cover" />
+            {activeCompany?.logoUrl && (
+              <Image src={activeCompany.logoUrl} alt={activeCompany.nameAr} width={40} height={40} className="h-10 w-10 rounded-md object-cover" />
             )}
             <div>
-              <h1 className="text-lg font-bold">{data.company.name}</h1>
-              <p className="text-xs text-muted-foreground">{data.company.tagline}</p>
+              <h1 className="text-lg font-bold">{activeCompany?.nameAr ?? ''}</h1>
+              <p className="text-xs text-muted-foreground">{activeCompany?.nameEn ?? ''}</p>
             </div>
           </div>
         </div>

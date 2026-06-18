@@ -6,13 +6,19 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { formatCurrency, cn } from '@/lib/utils';
+import { formatCurrency, cn } from '@/shared/utils';
 import { Empty } from '@/features/hr/organization/employees/components/EmployeeProfilePrimitives';
-import type { Payslip } from '@/types';
-import { hrContractsRoutes } from '@/features/hr/contracts/constants/routes';
+import type { Payslip } from '@/features/hr/payroll/types';
+import type { EmployeePayslipCounts } from '@/features/hr/organization/employees/hooks/useEmployeeProfileData';
+import {
+  PAYSLIP_STATUS_COLORS,
+  PAYSLIP_STATUS_LABELS,
+} from '@/features/hr/payroll/lib/api/payslips';
+import { hrPayrollRoutes } from '@/features/hr/payroll/constants/routes';
 
 type Props = {
   employeePayslipSeries: Payslip[];
+  payslipCounts: EmployeePayslipCounts | null;
   payslipDistinctYears: number;
   payslipPeriod: string;
   setPayslipPeriod: (v: string) => void;
@@ -22,6 +28,7 @@ type Props = {
 
 export function EmployeeSalaryPayslipCards({
   employeePayslipSeries,
+  payslipCounts,
   payslipDistinctYears,
   payslipPeriod,
   setPayslipPeriod,
@@ -56,6 +63,21 @@ export function EmployeeSalaryPayslipCards({
                       عرض {payslipsFiltered.length}
                     </Badge>
                   )}
+                  {payslipCounts && payslipCounts.draft > 0 && (
+                    <Badge className={cn('rounded-lg px-2.5 py-0.5 text-xs border', PAYSLIP_STATUS_COLORS.draft)}>
+                      {payslipCounts.draft} مسودة
+                    </Badge>
+                  )}
+                  {payslipCounts && payslipCounts.approved > 0 && (
+                    <Badge className={cn('rounded-lg px-2.5 py-0.5 text-xs border', PAYSLIP_STATUS_COLORS.approved)}>
+                      {payslipCounts.approved} معتمدة
+                    </Badge>
+                  )}
+                  {payslipCounts && payslipCounts.paid > 0 && (
+                    <Badge className={cn('rounded-lg px-2.5 py-0.5 text-xs border', PAYSLIP_STATUS_COLORS.paid)}>
+                      {payslipCounts.paid} مدفوعة
+                    </Badge>
+                  )}
                 </div>
               </div>
             </div>
@@ -79,7 +101,7 @@ export function EmployeeSalaryPayslipCards({
                 </Select>
               </div>
               <Button variant="outline" size="sm" className="h-10 w-full rounded-xl gap-2 border-border bg-background/80 shadow-xs lg:w-auto" asChild>
-                <Link href={hrContractsRoutes.payrollPeriods} className="inline-flex items-center justify-center">
+                <Link href={hrPayrollRoutes.payrollPeriods} className="inline-flex items-center justify-center">
                   <ExternalLink className="h-3.5 w-3.5" />
                   صفحة الرواتب
                 </Link>
@@ -104,8 +126,18 @@ export function EmployeeSalaryPayslipCards({
                   <div className="pointer-events-none absolute inset-0 bg-linear-to-bl from-gold/5 via-transparent to-primary/5 opacity-0 transition-opacity group-hover:opacity-100" aria-hidden />
                   <div className="relative flex flex-col gap-3">
                     <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <h3 className="text-base font-semibold text-foreground tracking-tight">{p.month}</h3>
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="text-base font-semibold text-foreground tracking-tight">{p.month}</h3>
+                          <Badge
+                            className={cn(
+                              'rounded-lg border px-2 py-0.5 text-[10px] font-semibold',
+                              PAYSLIP_STATUS_COLORS[p.status],
+                            )}
+                          >
+                            {PAYSLIP_STATUS_LABELS[p.status]}
+                          </Badge>
+                        </div>
                         <p className="text-[11px] text-muted-foreground mt-0.5 tabular-nums">{p.year}</p>
                       </div>
                       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary border border-primary/15">

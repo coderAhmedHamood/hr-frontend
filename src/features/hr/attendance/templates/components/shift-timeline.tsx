@@ -1,6 +1,6 @@
 'use client';
 
-import type { ShiftPeriod } from '@/lib/attendance/types';
+import type { ShiftPeriod } from '@/features/hr/attendance/lib/types';
 import { durationLabel, fmtMin, toMinutes } from '@/features/hr/attendance/templates/utils/shift-template-helpers';
 
 export function ShiftTimeline({ period, showWindows }: { period: ShiftPeriod; showWindows: boolean }) {
