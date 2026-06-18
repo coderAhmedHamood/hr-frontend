@@ -1,3 +1,4 @@
+import { getAccessTokenFromCookie } from '@/features/auth/lib/auth-cookie';
 import { publicConfig } from '@/shared/config';
 import type { ApiErrorEnvelope, ApiSuccessEnvelope } from '@/features/hr/lib/api/types';
 import { isApiErrorEnvelope, isApiSuccessEnvelope } from '@/features/hr/lib/api/types';
@@ -132,9 +133,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   if (body !== undefined) {
     headers['Content-Type'] = 'application/json';
   }
-  const token = typeof document !== 'undefined'
-    ? document.cookie.split('; ').find(r => r.startsWith('access_token='))?.slice('access_token='.length) ?? null
-    : null;
+  const token = getAccessTokenFromCookie();
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }

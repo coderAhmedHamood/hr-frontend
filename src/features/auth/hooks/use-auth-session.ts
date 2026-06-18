@@ -1,15 +1,11 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+import { hasAccessTokenCookie } from '@/features/auth/lib/auth-cookie';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
 import { authApi } from '@/features/auth/lib/api/auth';
 
 export const AUTH_ME_KEY = ['auth', 'me'] as const;
-
-function hasCookie(): boolean {
-  if (typeof document === 'undefined') return false;
-  return document.cookie.split('; ').some((c) => c.startsWith('access_token='));
-}
 
 export function useAuthSession() {
   const user = useAuthStore((s) => s.user);
@@ -23,7 +19,7 @@ export function useAuthSession() {
       return me;
     },
     // Skip the network call if the store is already populated
-    enabled: !user && hasCookie(),
+    enabled: !user && hasAccessTokenCookie(),
     retry: false,
     staleTime: Infinity,
     gcTime: Infinity,

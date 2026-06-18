@@ -2,7 +2,6 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -13,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Logo } from '@/components/layouts/logo';
 import { authApi } from '@/features/auth/lib/api/auth';
+import { setAccessTokenCookie } from '@/features/auth/lib/auth-cookie';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import { publicConfig } from '@/shared/config';
@@ -25,8 +25,19 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
+function resolvePostLoginPath(returnTo: string | null): string {
+  if (!returnTo || !returnTo.startsWith('/') || returnTo.startsWith('//')) {
+    return '/hr/dashboard';
+  }
+  return returnTo;
+}
+
+function getReturnToFromLocation(): string | null {
+  if (typeof window === 'undefined') return null;
+  return new URLSearchParams(window.location.search).get('returnTo');
+}
+
 export function LoginPage() {
-  const router = useRouter();
   const [showPassword, setShowPassword] = React.useState(false);
   const [rememberDevice, setRememberDevice] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
@@ -57,13 +68,19 @@ export function LoginPage() {
         email: values.email.trim().toLowerCase(),
         password: values.password,
       });
+
+      if (!result.access_token?.trim() || !result.user?.id) {
+        toast.error('استجابة تسجيل الدخول غير مكتملة');
+        return;
+      }
+
       useAuthStore.getState().setUser(result.user);
       useAuthStore.getState().setAccessProfile(result.accessProfile);
-      if (typeof document !== 'undefined') {
-        const maxAge = 7 * 24 * 60 * 60; // 7 days in seconds
-        document.cookie = `access_token=${result.access_token}; path=/; max-age=${maxAge}; SameSite=Lax`;
-      }
-      router.replace('/hr/dashboard');
+      setAccessTokenCookie(result.access_token);
+
+      const destination = resolvePostLoginPath(getReturnToFromLocation());
+      // Full navigation is more reliable than client routing across layout groups (Docker/production).
+      window.location.assign(destination);
     } catch (err) {
       const { displayMessage } = handleApiError(err, 'auth.login');
       toast.error(displayMessage);
@@ -163,8 +180,6 @@ export function LoginPage() {
             </div>
 
             <form
-              method="post"
-              action="/login"
               onSubmit={(event) => {
                 event.preventDefault();
                 void handleSubmit(onSubmit)(event);

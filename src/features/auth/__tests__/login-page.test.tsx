@@ -10,8 +10,16 @@ import { useAuthStore } from '@/features/auth/lib/auth-store';
 
 // ─── mocks ────────────────────────────────────────────────────────────────────
 jest.mock('next/navigation', () => ({
-  useRouter: () => ({ push: jest.fn() }),
+  useRouter: () => ({ push: jest.fn(), replace: jest.fn() }),
 }));
+
+const assignMock = jest.fn();
+beforeAll(() => {
+  Object.defineProperty(window, 'location', {
+    configurable: true,
+    value: { ...window.location, assign: assignMock },
+  });
+});
 
 jest.mock('@/features/auth/lib/api/auth', () => ({
   authApi: { login: jest.fn() },
