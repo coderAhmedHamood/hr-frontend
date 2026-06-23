@@ -16,6 +16,7 @@ import { EntityFilterToolbar } from '@/components/ui/entity-filter-toolbar';
 import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
+import { ArchiveScopeToggleButton } from '@/components/layouts/archive-scope-toggle-button';
 import { intervalOverlapsYmdRange } from '@/features/hr/discipline/lib/discipline-date-filter';
 import {
   HRSettingsFormDrawer, FormField, ConfirmationModal, EmptyState,
@@ -33,6 +34,12 @@ import { fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
 import { payrollPeriodsApi } from '@/features/hr/payroll/lib/api/payroll-periods';
 import { mapPayrollPeriodFromApi, type HRPayrollPeriodRecord } from '@/features/hr/payroll/lib/payroll-periods-store';
 import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
+import {
+  ORGANIZATION_ARCHIVE_SCOPE_DEFAULT,
+  ORGANIZATION_ARCHIVE_SCOPE_OPTIONS,
+  payrollListArchiveQuery,
+  type OrganizationArchiveScope,
+} from '@/features/hr/organization/lib/archive-scope';
 import { cn } from '@/shared/utils';
 
 type StatusFilter = 'all' | HRPayrollPeriodStatus;
@@ -80,6 +87,10 @@ export function PayrollPeriodsClient() {
 
   const statusFilter = (values.status as StatusFilter) || 'all';
 
+  const [archiveScope, setArchiveScope] = React.useState<OrganizationArchiveScope>(
+    ORGANIZATION_ARCHIVE_SCOPE_DEFAULT,
+  );
+
   const [dateBounds, setDateBounds] = React.useState({ from: '', to: '' });
   const hasDateFilter = Boolean(dateBounds.from || dateBounds.to);
   const bulkMode = hasDateFilter;
@@ -90,6 +101,7 @@ export function PayrollPeriodsClient() {
       companyId,
       page,
       limit: pageSize,
+      ...payrollListArchiveQuery(),
       ...(statusFilter !== 'all' ? { status: statusFilter } : {}),
     });
     let items = res.items.map(mapPayrollPeriodFromApi);
@@ -100,7 +112,7 @@ export function PayrollPeriodsClient() {
     }
     items.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     return { items, total: hasDateFilter ? items.length : res.pagination.total };
-  }, [companyId, dateBounds.from, dateBounds.to, hasDateFilter, statusFilter]);
+  }, [companyId, dateBounds.from, dateBounds.to, hasDateFilter, statusFilter, archiveScope]);
 
   const loadBulk = React.useCallback(async () => {
     if (!companyId) return { items: [] as HRPayrollPeriodRecord[], total: 0 };
@@ -108,6 +120,7 @@ export function PayrollPeriodsClient() {
       companyId,
       page,
       limit,
+      ...payrollListArchiveQuery(),
       ...(statusFilter !== 'all' ? { status: statusFilter } : {}),
     }));
     const items = res.items
@@ -115,7 +128,7 @@ export function PayrollPeriodsClient() {
       .filter((p) => intervalOverlapsYmdRange(p.periodStart, p.periodEnd, dateBounds.from, dateBounds.to))
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     return { items, total: items.length };
-  }, [companyId, dateBounds.from, dateBounds.to, statusFilter]);
+  }, [companyId, dateBounds.from, dateBounds.to, statusFilter, archiveScope]);
 
   const {
     items: filtered,
@@ -126,7 +139,7 @@ export function PayrollPeriodsClient() {
     enabled: !!companyId,
     bulkMode,
     loadBulk: bulkMode ? loadBulk : undefined,
-    resetDeps: [companyId, statusFilter, dateBounds.from, dateBounds.to],
+    resetDeps: [companyId, statusFilter, archiveScope, dateBounds.from, dateBounds.to],
   });
 
   const onDateBoundsChange = React.useCallback((b: { from: string; to: string }) => {
@@ -157,6 +170,7 @@ export function PayrollPeriodsClient() {
   usePageHeaderActions(
     () => (
       <div className="flex items-center gap-2">
+        <ArchiveScopeToggleButton scope={archiveScope} onScopeChange={setArchiveScope} />
         <FilterToggleButton activeFilterCount={activeFilterCount} />
         <Button variant="luxe" size="sm" className="h-8 gap-1.5 px-3 text-xs shadow-sm shrink-0" onClick={openCreate}>
           <Plus className="h-3.5 w-3.5" />
@@ -164,7 +178,7 @@ export function PayrollPeriodsClient() {
         </Button>
       </div>
     ),
-    [activeFilterCount],
+    [activeFilterCount, archiveScope],
   );
   const openEdit   = (id: string) => {
     const p = filtered.find(x => x.id === id);
@@ -218,11 +232,21 @@ export function PayrollPeriodsClient() {
         statusLabels={PERIOD_STATUS_LABELS}
         statusCounts={statusCounts}
         onDateBoundsChange={onDateBoundsChange}
+        inlineSelects={[
+          {
+            id: 'archive',
+            value: archiveScope,
+            onChange: (v) => setArchiveScope(v as OrganizationArchiveScope),
+            placeholder: 'العرض',
+            options: ORGANIZATION_ARCHIVE_SCOPE_OPTIONS.map((o) => ({ value: o.value, label: o.label })),
+          },
+        ]}
         trailingActions={undefined}
       />
     ),
     [
       statusFilter,
+      archiveScope,
       statusCounts.all,
       ...PERIOD_STATUS_ORDER.map(s => statusCounts[s]),
       dateBounds.from,

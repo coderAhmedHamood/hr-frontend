@@ -1,4 +1,5 @@
 import { apiRequest, type PaginatedResult } from '@/features/hr/lib/api/client';
+import type { OrganizationArchiveScope } from '@/features/hr/organization/lib/archive-scope';
 
 export type ShiftTemplatePeriodResponse = {
   id: string;
@@ -45,6 +46,7 @@ export type ShiftTemplateListQuery = {
   limit?: number;
   companyId?: string;
   isActive?: boolean;
+  archiveScope?: OrganizationArchiveScope;
 };
 
 type PeriodPayload = {

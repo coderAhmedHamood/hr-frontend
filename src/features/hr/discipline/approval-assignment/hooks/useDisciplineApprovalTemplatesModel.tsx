@@ -7,6 +7,12 @@ import { violationTypesApi } from '@/features/hr/discipline/lib/api/violation-ty
 import { employeesApi } from '@/features/hr/organization/employees/lib/api/employees';
 import { disciplineApprovalTemplatesApi } from '@/features/hr/discipline/lib/api/discipline-approval-templates';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
+import {
+  ORGANIZATION_ARCHIVE_SCOPE_DEFAULT,
+  organizationActiveListStatusQuery,
+  organizationListStatusQuery,
+  type OrganizationArchiveScope,
+} from '@/features/hr/organization/lib/archive-scope';
 import type {
   DisciplineApprovalTemplateResponseDto,
   CreateDisciplineApprovalTemplateDto,
@@ -25,6 +31,9 @@ export function useDisciplineApprovalTemplatesModel() {
   const [violationTypes, setViolationTypes] = React.useState<ViolationTypeOption[]>([]);
   const [employees, setEmployees] = React.useState<EmployeeOption[]>([]);
   const [listError, setListError] = React.useState<string | null>(null);
+  const [archiveScope, setArchiveScope] = React.useState<OrganizationArchiveScope>(
+    ORGANIZATION_ARCHIVE_SCOPE_DEFAULT,
+  );
 
   const loadPage = React.useCallback(async (page: number, pageSize: number) => {
     if (!companyId) return { items: [] as DisciplineApprovalTemplateResponseDto[], total: 0 };
@@ -33,6 +42,7 @@ export function useDisciplineApprovalTemplatesModel() {
         companyId,
         page,
         limit: pageSize,
+        ...organizationListStatusQuery(archiveScope),
       });
       setListError(null);
       return { items: tplRes.items, total: tplRes.pagination.total };
@@ -41,7 +51,7 @@ export function useDisciplineApprovalTemplatesModel() {
       setListError(displayMessage);
       return { items: [], total: 0 };
     }
-  }, [companyId]);
+  }, [companyId, archiveScope]);
 
   const {
     items: templates,
@@ -50,14 +60,14 @@ export function useDisciplineApprovalTemplatesModel() {
     reload: reloadList,
   } = useServerDirectoryPagination<DisciplineApprovalTemplateResponseDto>(loadPage, {
     enabled: !!companyId,
-    resetDeps: [companyId],
+    resetDeps: [companyId, archiveScope],
   });
 
   const reloadReferenceData = React.useCallback(async () => {
     if (!companyId) return;
     try {
       const [typesRes, empRes] = await Promise.all([
-        violationTypesApi.getAll({ companyId, limit: 200 }),
+        violationTypesApi.getAll({ companyId, limit: 200, ...organizationActiveListStatusQuery() }),
         employeesApi.getAll({ companyId, limit: 500 }),
       ]);
       setViolationTypes(
@@ -106,6 +116,8 @@ export function useDisciplineApprovalTemplatesModel() {
     loading,
     pagination,
     listError,
+    archiveScope,
+    setArchiveScope,
     createTemplate,
     updateTemplate,
     deleteTemplate,

@@ -8,6 +8,7 @@ import { shiftTemplatesApi, type ShiftTemplateResponseDto } from '@/features/hr/
 import { shiftAssignmentsApi, type GroupedByTemplateItem, type UnassignedEmployeeResponseDto } from '@/features/hr/attendance/lib/api/shift-assignments';
 import { fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
 import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
+import { organizationActiveListStatusQuery } from '@/features/hr/organization/lib/archive-scope';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import { toast } from 'sonner';
 
@@ -99,7 +100,7 @@ export function useAssignmentsPanelModel() {
 
   React.useEffect(() => {
     if (!companyId) return;
-    void shiftTemplatesApi.getAll({ limit: 200, companyId })
+    void shiftTemplatesApi.getAll({ limit: 200, companyId, ...organizationActiveListStatusQuery() })
       .then((res) => setShiftTemplates(res.items))
       .catch(() => setShiftTemplates([]));
   }, [companyId]);

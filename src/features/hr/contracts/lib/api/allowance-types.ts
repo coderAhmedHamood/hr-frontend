@@ -1,4 +1,5 @@
 import { apiRequest, type PaginatedResult } from '@/features/hr/lib/api/client';
+import type { OrganizationArchiveScope } from '@/features/hr/organization/lib/archive-scope';
 
 export type AllowanceCalculationType = 'fixed_amount' | 'percent_of_basic';
 
@@ -42,7 +43,13 @@ export type CreateAllowanceTypeDto = {
 export type UpdateAllowanceTypeDto = Partial<Omit<CreateAllowanceTypeDto, 'companyId'>>;
 
 export const allowanceTypesApi = {
-  getAll(params?: { companyId?: string; isActive?: boolean; page?: number; limit?: number }) {
+  getAll(params?: {
+    companyId?: string;
+    isActive?: boolean;
+    page?: number;
+    limit?: number;
+    archiveScope?: OrganizationArchiveScope;
+  }) {
     return apiRequest<PaginatedResult<AllowanceTypeDto>>('/payroll/allowance-types', { query: params });
   },
   getById(id: string) {

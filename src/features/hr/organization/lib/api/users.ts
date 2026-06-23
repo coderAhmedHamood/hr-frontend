@@ -1,5 +1,6 @@
 import { apiRequest, type PaginatedResult } from '@/features/hr/lib/api/client';
 import type { AccessProfile } from '@/features/auth/types/access-profile';
+import type { OrganizationArchiveScope } from '@/features/hr/organization/lib/archive-scope';
 
 export type UserCompanyLink = {
   id: string;
@@ -99,6 +100,7 @@ export type UpdateUserDto = {
 export type UsersListQuery = {
   page?: number;
   limit?: number;
+  archiveScope?: OrganizationArchiveScope;
 };
 
 export type SetDefaultCompanyDto = {

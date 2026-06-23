@@ -104,7 +104,7 @@ function resolveApiBaseUrl(configuredUrl: string) {
 }
 
 type RequestOptions = {
-  method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
+  method?: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
   query?: Record<string, QueryValue>;
   body?: unknown;
   signal?: AbortSignal;

@@ -1,4 +1,5 @@
 import { requestTypesApi, type ApiRequestType } from '@/features/hr/requests/lib/api/request-types';
+import { organizationActiveListStatusQuery } from '@/features/hr/organization/lib/archive-scope';
 
 export function isLeaveRequestType(rt: ApiRequestType): boolean {
   if (rt.isActive === false) return false;
@@ -53,8 +54,8 @@ export async function loadLeaveRequestTypes(companyId: string): Promise<ApiReque
     const primary = await requestTypesApi.list({
       companyId,
       requestCategory: 'leave',
-      isActive: true,
       limit: 200,
+      ...organizationActiveListStatusQuery(),
     });
     if (primary.items.length > 0) return primary.items;
   } catch {
@@ -62,7 +63,7 @@ export async function loadLeaveRequestTypes(companyId: string): Promise<ApiReque
   }
 
   try {
-    const all = await requestTypesApi.list({ companyId, limit: 200 });
+    const all = await requestTypesApi.list({ companyId, limit: 200, ...organizationActiveListStatusQuery() });
     const matched = all.items.filter(isLeaveRequestType);
     return matched.length > 0 ? matched : all.items.filter((rt) => rt.isActive !== false);
   } catch {

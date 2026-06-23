@@ -3,6 +3,10 @@ import {
   type LeaveTypeListQuery,
   type LeaveTypeResponseDto,
 } from '@/features/hr/leaves/leave-types/lib/api/leave-types';
+import {
+  organizationActiveListArchiveQuery,
+  organizationListArchiveQuery,
+} from '@/features/hr/organization/lib/archive-scope';
 
 export function filterActiveLeaveTypes(types: LeaveTypeResponseDto[]): LeaveTypeResponseDto[] {
   return types.filter((t) => t.isActive);
@@ -35,9 +39,12 @@ export function leaveTypeNameAr(
 }
 
 export async function loadCompanyLeaveTypes(query: LeaveTypeListQuery = { limit: 200 }) {
-  const { isActive: _wantActiveOnly, ...apiQuery } = query;
-  const res = await leaveTypesApi.getAll(apiQuery);
-  const items = _wantActiveOnly === false ? res.items : filterActiveLeaveTypes(res.items);
+  const { isActive: wantActiveOnly, archiveScope, ...rest } = query;
+  const res = await leaveTypesApi.getAll({
+    ...rest,
+    ...(archiveScope ? organizationListArchiveQuery(archiveScope) : organizationActiveListArchiveQuery()),
+  });
+  const items = wantActiveOnly === false ? res.items : filterActiveLeaveTypes(res.items);
   return {
     items,
     defaultLeaveTypeId: resolveDefaultLeaveTypeId(items),

@@ -20,6 +20,9 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useSetPageTitle } from '@/components/layouts/page-title-context';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
+import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
+import { ArchiveScopeToggleButton } from '@/components/layouts/archive-scope-toggle-button';
+import { EntityFilterToolbar } from '@/components/ui/entity-filter-toolbar';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
 import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
@@ -32,6 +35,12 @@ import { allowanceTypesApi,
 import { DataTable, type ColumnDef } from '@/components/ui/data-table';
 import { DirectoryPagedViews, useServerDirectoryPagination } from '@/components/ui/paged-list';
 import { TableRowActions } from '@/components/ui/table-cells';
+import {
+  ORGANIZATION_ARCHIVE_SCOPE_DEFAULT,
+  ORGANIZATION_ARCHIVE_SCOPE_OPTIONS,
+  payrollListArchiveQuery,
+  type OrganizationArchiveScope,
+} from '@/features/hr/organization/lib/archive-scope';
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -313,13 +322,21 @@ export function AllowanceTypesClient() {
 
   const companyId = useDefaultCompanyId() ?? '';
 
+  const [archiveScope, setArchiveScope] = React.useState<OrganizationArchiveScope>(
+    ORGANIZATION_ARCHIVE_SCOPE_DEFAULT,
+  );
   const [error, setError] = React.useState<string | null>(null);
   const [viewMode, setViewMode] = React.useState<'card' | 'table'>('card');
 
   const loadPage = React.useCallback(async (page: number, pageSize: number) => {
     if (!companyId) return { items: [] as AllowanceTypeDto[], total: 0 };
     try {
-      const res = await allowanceTypesApi.getAll({ companyId, page, limit: pageSize });
+      const res = await allowanceTypesApi.getAll({
+        companyId,
+        page,
+        limit: pageSize,
+        ...payrollListArchiveQuery(),
+      });
       setError(null);
       return { items: res.items, total: res.pagination.total };
     } catch (err) {
@@ -327,7 +344,7 @@ export function AllowanceTypesClient() {
       setError(displayMessage);
       return { items: [], total: 0 };
     }
-  }, [companyId]);
+  }, [companyId, archiveScope]);
 
   const {
     items,
@@ -336,7 +353,7 @@ export function AllowanceTypesClient() {
     reload: load,
   } = useServerDirectoryPagination<AllowanceTypeDto>(loadPage, {
     enabled: !!companyId,
-    resetDeps: [companyId, viewMode],
+    resetDeps: [companyId, viewMode, archiveScope],
   });
 
   const [formOpen, setFormOpen] = React.useState(false);
@@ -437,6 +454,7 @@ export function AllowanceTypesClient() {
   usePageHeaderActions(
     () => (
       <div className="flex items-center gap-2">
+        <ArchiveScopeToggleButton scope={archiveScope} onScopeChange={setArchiveScope} />
         {/* View toggle */}
         <div className="flex items-center gap-0.5 rounded-lg border border-border bg-muted/30 p-0.5">
           <button
@@ -461,7 +479,28 @@ export function AllowanceTypesClient() {
         </Button>
       </div>
     ),
-    [viewMode, setViewMode, setFormOpen],
+    [archiveScope, viewMode],
+  );
+
+  useEntityFilterSlot(
+    () => (
+      <EntityFilterToolbar
+        showDateSection={false}
+        showStatusSection={false}
+        showEmployeePicker={false}
+        onDateBoundsChange={() => {}}
+        inlineSelects={[
+          {
+            id: 'archive',
+            value: archiveScope,
+            onChange: (v) => setArchiveScope(v as OrganizationArchiveScope),
+            placeholder: 'العرض',
+            options: ORGANIZATION_ARCHIVE_SCOPE_OPTIONS.map((o) => ({ value: o.value, label: o.label })),
+          },
+        ]}
+      />
+    ),
+    [archiveScope],
   );
 
   return (

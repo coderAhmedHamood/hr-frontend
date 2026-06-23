@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
 import { getDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 import { disciplineApprovalTemplatesApi } from './api/discipline-approval-templates';
+import { organizationActiveListStatusQuery } from '@/features/hr/organization/lib/archive-scope';
 import type { DisciplineApprovalTemplateResponseDto } from './api/discipline-approval-templates';
 import type { HRApprovalAssignmentTemplate } from '@/features/hr/requests/lib/types';
 
@@ -56,7 +57,7 @@ export const useHRDisciplineApprovalAssignmentTemplatesStore = create<AAState>()
     if (!companyId) return;
     set({ isLoading: true, error: null });
     try {
-      const result = await disciplineApprovalTemplatesApi.getAll({ companyId, limit: 200 });
+      const result = await disciplineApprovalTemplatesApi.getAll({ companyId, limit: 200, ...organizationActiveListStatusQuery() });
       set({ templates: result.items.map(mapApi), isLoading: false });
     } catch (e) {
       set({ error: (e as Error).message, isLoading: false });

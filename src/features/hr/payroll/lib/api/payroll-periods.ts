@@ -1,4 +1,5 @@
 import { apiRequest, type PaginatedResult } from '@/features/hr/lib/api/client';
+import type { OrganizationArchiveScope } from '@/features/hr/organization/lib/archive-scope';
 
 export type PayrollPeriodStatusDto = 'draft' | 'open' | 'locked' | 'closed' | 'cancelled';
 
@@ -65,7 +66,15 @@ export type CreatePayrollPeriodDto = {
 export type UpdatePayrollPeriodDto = Partial<Omit<CreatePayrollPeriodDto, 'companyId'>>;
 
 export const payrollPeriodsApi = {
-  list: (params?: { companyId?: string; status?: string; periodYear?: number; periodMonth?: number; page?: number; limit?: number }) =>
+  list: (params?: {
+    companyId?: string;
+    status?: string;
+    periodYear?: number;
+    periodMonth?: number;
+    page?: number;
+    limit?: number;
+    archiveScope?: OrganizationArchiveScope;
+  }) =>
     apiRequest<PaginatedResult<PayrollPeriodResponseDto>>('/payroll/periods', { query: params }),
   get: (id: string) =>
     apiRequest<PayrollPeriodResponseDto>(`/payroll/periods/${id}`),

@@ -1,4 +1,5 @@
 import { apiRequest, type PaginatedResult } from '@/features/hr/lib/api/client';
+import type { OrganizationArchiveScope } from '@/features/hr/organization/lib/archive-scope';
 
 export type RequestTypeApprovalStage = {
   order: number;
@@ -65,6 +66,7 @@ export const requestTypesApi = {
     departmentId?: string;
     requestCategory?: string;
     isActive?: boolean;
+    archiveScope?: OrganizationArchiveScope;
     page?: number;
     limit?: number;
   }) =>

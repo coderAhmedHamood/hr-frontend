@@ -1,4 +1,5 @@
 import { apiRequest, type PaginatedResult } from '@/features/hr/lib/api/client';
+import type { OrganizationArchiveScope } from '@/features/hr/organization/lib/archive-scope';
 
 export type JobTitleResponseDto = {
   id: string;
@@ -31,6 +32,7 @@ export type JobTitleListQuery = {
   page?: number;
   limit?: number;
   companyId?: string;
+  archiveScope?: OrganizationArchiveScope;
 };
 
 export const jobTitlesApi = {

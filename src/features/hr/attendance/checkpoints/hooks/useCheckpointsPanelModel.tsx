@@ -12,6 +12,11 @@ import { useServerDirectoryPagination } from '@/components/ui/paged-list';
 import { checkInPointsApi } from '@/features/hr/attendance/lib/api/check-in-points';
 import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 import {
+  ORGANIZATION_ARCHIVE_SCOPE_DEFAULT,
+  organizationListStatusQuery,
+  type OrganizationArchiveScope,
+} from '@/features/hr/organization/lib/archive-scope';
+import {
   createCheckInPoint,
   deleteCheckInPoint,
   mapCheckInPointResponse,
@@ -22,6 +27,9 @@ const r6 = (n: number) => parseFloat(n.toFixed(6));
 
 export function useCheckpointsPanelModel() {
   const companyId = useDefaultCompanyId();
+  const [archiveScope, setArchiveScope] = React.useState<OrganizationArchiveScope>(
+    ORGANIZATION_ARCHIVE_SCOPE_DEFAULT,
+  );
   const [listError, setListError] = React.useState<string | null>(null);
   const [open, setOpen] = React.useState(false);
   const [draft, setDraft] = React.useState<AttendanceCheckInPoint | null>(null);
@@ -39,7 +47,12 @@ export function useCheckpointsPanelModel() {
     if (!companyId) return { items: [] as AttendanceCheckInPoint[], total: 0 };
     setListError(null);
     try {
-      const res = await checkInPointsApi.getAll({ companyId, page, limit: pageSize });
+      const res = await checkInPointsApi.getAll({
+        companyId,
+        page,
+        limit: pageSize,
+        ...organizationListStatusQuery(archiveScope),
+      });
       const items = res.items.map(mapCheckInPointResponse);
       return { items, total: res.pagination.total };
     } catch (err) {
@@ -47,7 +60,7 @@ export function useCheckpointsPanelModel() {
       setListError(displayMessage);
       return { items: [], total: 0 };
     }
-  }, [companyId]);
+  }, [companyId, archiveScope]);
 
   const {
     items: checkpoints,
@@ -56,7 +69,7 @@ export function useCheckpointsPanelModel() {
     reload,
   } = useServerDirectoryPagination<AttendanceCheckInPoint>(loadPage, {
     enabled: !!companyId,
-    resetDeps: [companyId],
+    resetDeps: [companyId, archiveScope],
   });
 
   const openCreate = React.useCallback(() => {
@@ -235,6 +248,8 @@ export function useCheckpointsPanelModel() {
     save,
     selectedPoint,
     setGeoSuggestions,
+    archiveScope,
+    setArchiveScope,
   };
 }
 

@@ -11,6 +11,7 @@ import {
 } from '@/features/hr/notifications/lib/api/notifications';
 import { resolveOrganizationScope } from '@/features/hr/organization/lib/api/organization-context';
 import { branchesApi } from '@/features/hr/organization/lib/api/branches';
+import { organizationActiveListStatusQuery } from '@/features/hr/organization/lib/archive-scope';
 import { departmentsApi } from '@/features/hr/organization/lib/api/departments';
 import { employeesApi } from '@/features/hr/organization/employees/lib/api/employees';
 import type { HRAdminNotificationRecord } from '@/features/hr/notifications/admin/constants/notification-labels';
@@ -102,12 +103,14 @@ export function useNotificationsAdminDirectoryModel() {
       setCompanyId(resolvedCompanyId);
 
       const [branchesRes, departmentsRes, employeesRes] = await Promise.all([
-        branchesApi.getAll(
-          resolvedCompanyId ? { companyId: resolvedCompanyId, limit: REFERENCE_LIMIT } : { limit: REFERENCE_LIMIT },
-        ),
-        departmentsApi.getAll(
-          resolvedCompanyId ? { companyId: resolvedCompanyId, limit: REFERENCE_LIMIT } : { limit: REFERENCE_LIMIT },
-        ),
+        branchesApi.getAll({
+          ...(resolvedCompanyId ? { companyId: resolvedCompanyId, limit: REFERENCE_LIMIT } : { limit: REFERENCE_LIMIT }),
+          ...organizationActiveListStatusQuery(),
+        }),
+        departmentsApi.getAll({
+          ...(resolvedCompanyId ? { companyId: resolvedCompanyId, limit: REFERENCE_LIMIT } : { limit: REFERENCE_LIMIT }),
+          ...organizationActiveListStatusQuery(),
+        }),
         employeesApi.getAll(
           resolvedCompanyId ? { companyId: resolvedCompanyId, limit: REFERENCE_LIMIT } : { limit: REFERENCE_LIMIT },
         ),

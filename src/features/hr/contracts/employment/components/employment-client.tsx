@@ -12,6 +12,7 @@ import { EntityFilterToolbar } from '@/components/ui/entity-filter-toolbar';
 import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
+import { ArchiveScopeToggleButton } from '@/components/layouts/archive-scope-toggle-button';
 import { usePageFilters } from '@/components/layouts/filter-panel-context';
 import {
   EmptyState,
@@ -69,6 +70,12 @@ import { getPdfLogoSrc } from '@/components/pdf/lib/pdf-logo-url';
 import { useActiveCompany } from '@/features/hr/organization/hooks/useActiveCompany';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
 import { getDefaultCompanyId, useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
+import {
+  ORGANIZATION_ARCHIVE_SCOPE_DEFAULT,
+  ORGANIZATION_ARCHIVE_SCOPE_OPTIONS,
+  payrollListArchiveQuery,
+  type OrganizationArchiveScope,
+} from '@/features/hr/organization/lib/archive-scope';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import { sendEmploymentContractCreatedNotification } from '@/features/hr/contracts/employment/services/contract-created-notification.service';
 
@@ -147,6 +154,10 @@ export function EmploymentContractsClient() {
   const statusFilter = (values.status as StatusFilter) || 'all';
   const kindFilter = (values.kind as KindFilter) || 'all';
 
+  const [archiveScope, setArchiveScope] = React.useState<OrganizationArchiveScope>(
+    ORGANIZATION_ARCHIVE_SCOPE_DEFAULT,
+  );
+
   const [selectedEmpIds, setSelectedEmpIds] = React.useState<Set<string>>(new Set());
 
   const empPickerList = React.useMemo(
@@ -161,10 +172,11 @@ export function EmploymentContractsClient() {
     companyId: companyId!,
     page,
     limit: pageSize,
+    ...payrollListArchiveQuery(),
     ...(statusFilter !== 'all' ? { status: statusFilter } : {}),
     ...(kindFilter !== 'all' ? { contractNature: kindFilter } : {}),
     ...(selectedEmpIds.size === 1 ? { employeeId: [...selectedEmpIds][0] } : {}),
-  }), [companyId, statusFilter, kindFilter, selectedEmpIds]);
+  }), [companyId, archiveScope, statusFilter, kindFilter, selectedEmpIds]);
 
   const loadPage = React.useCallback(async (page: number, pageSize: number) => {
     if (!companyId) return { items: [] as HRContractRecord[], total: 0 };
@@ -201,7 +213,7 @@ export function EmploymentContractsClient() {
     enabled: !!companyId,
     bulkMode,
     loadBulk: bulkMode ? loadBulk : undefined,
-    resetDeps: [companyId, statusFilter, kindFilter, selectedEmpKey],
+    resetDeps: [companyId, statusFilter, kindFilter, archiveScope, selectedEmpKey],
   });
 
   const [drawerOpen, setDrawerOpen] = React.useState(false);
@@ -397,6 +409,7 @@ export function EmploymentContractsClient() {
   usePageHeaderActions(
     () => (
       <div className="flex items-center gap-2">
+        <ArchiveScopeToggleButton scope={archiveScope} onScopeChange={setArchiveScope} />
         <FilterToggleButton activeFilterCount={activeFilterCount} />
         <Button variant="luxe" size="sm" className="h-8 gap-1.5 px-3 text-xs shadow-sm shrink-0" onClick={openCreate}>
           <Plus className="h-3.5 w-3.5" />
@@ -404,7 +417,7 @@ export function EmploymentContractsClient() {
         </Button>
       </div>
     ),
-    [activeFilterCount],
+    [activeFilterCount, archiveScope],
   );
 
   const openView = (c: HRContractRecord) => {
@@ -635,6 +648,13 @@ export function EmploymentContractsClient() {
         onDateBoundsChange={() => {}}
         inlineSelects={[
           {
+            id: 'archive',
+            value: archiveScope,
+            onChange: (v) => setArchiveScope(v as OrganizationArchiveScope),
+            placeholder: 'العرض',
+            options: ORGANIZATION_ARCHIVE_SCOPE_OPTIONS.map((o) => ({ value: o.value, label: o.label })),
+          },
+          {
             id: 'contract-kind',
             value: kindFilter,
             onChange: (v) => setValue('kind', v),
@@ -648,6 +668,7 @@ export function EmploymentContractsClient() {
     [
       statusFilter,
       kindFilter,
+      archiveScope,
       selectedEmpKey,
       statusCounts,
       empPickerList,

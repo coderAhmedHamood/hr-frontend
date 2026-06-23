@@ -8,6 +8,7 @@ import { requestTypesApi, type ApiRequestType } from './api/request-types';
 import { departmentsApi, type DepartmentResponseDto } from '@/features/hr/organization/lib/api/departments';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
 import { getDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
+import { organizationActiveListStatusQuery } from '@/features/hr/organization/lib/archive-scope';
 
 function uid() { return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`; }
 function now() { return new Date().toISOString(); }
@@ -101,7 +102,11 @@ export const useHRConfigurationStore = create<HRConfigState>()((set, get) => ({
         if (!companyId) return;
         set({ departmentsLoading: true });
         try {
-          const result = await departmentsApi.getAll({ companyId, limit: 500 });
+          const result = await departmentsApi.getAll({
+            companyId,
+            limit: 500,
+            ...organizationActiveListStatusQuery(),
+          });
           set({ departments: result.items.map(mapDepartment), departmentsLoading: false });
         } catch {
           set({ departmentsLoading: false });
@@ -115,7 +120,12 @@ export const useHRConfigurationStore = create<HRConfigState>()((set, get) => ({
         if (!companyId) return;
         set({ requestTypesLoading: true, requestTypesError: null });
         try {
-          const result = await requestTypesApi.list({ companyId, limit: 200, ...params });
+          const result = await requestTypesApi.list({
+            companyId,
+            limit: 200,
+            ...params,
+            ...organizationActiveListStatusQuery(),
+          });
           set({ requestTypes: result.items.map(mapApiRequestType), requestTypesLoading: false });
         } catch (e) {
           set({ requestTypesError: (e as Error).message, requestTypesLoading: false });

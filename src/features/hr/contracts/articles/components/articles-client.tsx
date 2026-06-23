@@ -11,6 +11,11 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { usePageFilters } from '@/components/layouts/filter-panel-context';
+import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
+import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
+import { ArchiveScopeToggleButton } from '@/components/layouts/archive-scope-toggle-button';
+import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
+import { EntityFilterToolbar } from '@/components/ui/entity-filter-toolbar';
 import {
   HRSettingsFormDrawer, FormField, ConfirmationModal, EmptyState, ActiveBadge,
 } from '@/features/hr/requests/components/shared-ui';
@@ -22,6 +27,13 @@ import {
   useHRContractArticlesStore, normalizeArticleBody,
   type HRContractArticle,
 } from '@/features/hr/contracts/lib/contract-articles-store';
+import {
+  ORGANIZATION_ARCHIVE_SCOPE_DEFAULT,
+  ORGANIZATION_ARCHIVE_SCOPE_OPTIONS,
+  filterRowsByArchiveScope,
+  payrollListArchiveQuery,
+  type OrganizationArchiveScope,
+} from '@/features/hr/organization/lib/archive-scope';
 import { cn } from '@/shared/utils';
 
 type DraftForm = {
@@ -42,6 +54,10 @@ export function ContractArticlesClient() {
   const { articles, add, update, remove, fetch: fetchArticles } = useHRContractArticlesStore();
   const companyId = useDefaultCompanyId() ?? '';
 
+  const [archiveScope, setArchiveScope] = React.useState<OrganizationArchiveScope>(
+    ORGANIZATION_ARCHIVE_SCOPE_DEFAULT,
+  );
+
   React.useEffect(() => { fetchArticles(); }, []);
 
   const { values } = usePageFilters([
@@ -52,14 +68,9 @@ export function ContractArticlesClient() {
         { value: 'optional', label: 'اختيارية' },
       ],
     },
-    {
-      key: 'active', label: 'الحالة', type: 'select',
-      options: [{ value: 'active', label: 'نشطة فقط' }],
-    },
   ]);
 
   const kindFilter = (values.kind as string) || 'all';
-  const activeOnly = (values.active as string) === 'active';
 
   const loadPage = React.useCallback(async (page: number, pageSize: number) => {
     if (!companyId) return { items: [] as HRContractArticle[], total: 0 };
@@ -68,10 +79,10 @@ export function ContractArticlesClient() {
         companyId,
         page,
         limit: pageSize,
+        ...payrollListArchiveQuery(),
         ...(kindFilter === 'basic' ? { isBasic: true } : kindFilter === 'optional' ? { isBasic: false } : {}),
-        ...(activeOnly ? { isActive: true } : {}),
       });
-      const items = res.items.map((a) => ({
+      const mapped = res.items.map((a) => ({
         id: a.id,
         code: a.code,
         title: a.titleAr,
@@ -79,13 +90,19 @@ export function ContractArticlesClient() {
         isBasic: a.isBasic,
         isActive: a.isActive,
         updatedAt: a.updatedAt,
-      })).sort((a, b) => a.code.localeCompare(b.code));
-      return { items, total: res.pagination.total };
+        isArchived: a.isArchived,
+      }));
+      const scoped = filterRowsByArchiveScope(mapped, archiveScope);
+      const items = scoped.sort((a, b) => a.code.localeCompare(b.code));
+      const total = archiveScope === 'active' && kindFilter === 'all'
+        ? res.pagination.total
+        : items.length;
+      return { items, total };
     } catch (err) {
       handleApiError(err, 'contract-articles.load');
       return { items: [], total: 0 };
     }
-  }, [activeOnly, companyId, kindFilter]);
+  }, [archiveScope, companyId, kindFilter]);
 
   const {
     items: filtered,
@@ -94,7 +111,7 @@ export function ContractArticlesClient() {
     reload: reloadArticles,
   } = useServerDirectoryPagination<HRContractArticle>(loadPage, {
     enabled: !!companyId,
-    resetDeps: [kindFilter, activeOnly],
+    resetDeps: [kindFilter, archiveScope],
   });
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   const [editId, setEditId] = React.useState<string | null>(null);
@@ -138,6 +155,42 @@ export function ContractArticlesClient() {
   const basicCount    = articles.filter(a => a.isBasic && a.isActive).length;
   const optionalCount = articles.filter(a => !a.isBasic && a.isActive).length;
 
+  const activeFilterCount = kindFilter !== 'all' ? 1 : 0;
+
+  usePageHeaderActions(
+    () => (
+      <div className="flex items-center gap-2">
+        <ArchiveScopeToggleButton scope={archiveScope} onScopeChange={setArchiveScope} />
+        <FilterToggleButton activeFilterCount={activeFilterCount} />
+        <Button onClick={openCreate} size="sm" className="h-8 gap-1.5">
+          <Plus className="h-4 w-4" />مادة جديدة
+        </Button>
+      </div>
+    ),
+    [archiveScope, activeFilterCount, openCreate],
+  );
+
+  useEntityFilterSlot(
+    () => (
+      <EntityFilterToolbar
+        showDateSection={false}
+        showStatusSection={false}
+        showEmployeePicker={false}
+        onDateBoundsChange={() => {}}
+        inlineSelects={[
+          {
+            id: 'archive',
+            value: archiveScope,
+            onChange: (v) => setArchiveScope(v as OrganizationArchiveScope),
+            placeholder: 'العرض',
+            options: ORGANIZATION_ARCHIVE_SCOPE_OPTIONS.map((o) => ({ value: o.value, label: o.label })),
+          },
+        ]}
+      />
+    ),
+    [archiveScope],
+  );
+
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <SetPageTitle titleAr="مواد العقود" descriptionAr="مكتبة البنود والمواد القانونية للعقود." iconName="BookOpen" />
@@ -160,9 +213,6 @@ export function ContractArticlesClient() {
             <Hash className="h-3 w-3" />{optionalCount} اختيارية
           </div>
         </div>
-        <Button onClick={openCreate} className="gap-1.5">
-          <Plus className="h-4 w-4" />مادة جديدة
-        </Button>
       </div>
 
       {!listLoading && filtered.length === 0 && pagination.total === 0 ? (

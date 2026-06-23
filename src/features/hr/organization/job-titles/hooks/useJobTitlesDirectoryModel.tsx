@@ -7,6 +7,7 @@ import { useSetPageTitle } from '@/components/layouts/page-title-context';
 import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
+import { ArchiveScopeToggleButton } from '@/components/layouts/archive-scope-toggle-button';
 import { EntityFilterToolbar } from '@/components/ui/entity-filter-toolbar';
 import { PermissionGate } from '@/components/shared/permission-gate';
 import { toast } from 'sonner';
@@ -14,6 +15,12 @@ import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 import { useDefaultCompany } from '@/features/hr/organization/hooks/useActiveCompany';
 import { jobTitlesApi, type CreateJobTitleDto, type JobTitleResponseDto, type UpdateJobTitleDto } from '@/features/hr/organization/lib/api/jobTitles';
+import {
+  ORGANIZATION_ARCHIVE_SCOPE_DEFAULT,
+  ORGANIZATION_ARCHIVE_SCOPE_OPTIONS,
+  organizationListStatusQuery,
+  type OrganizationArchiveScope,
+} from '@/features/hr/organization/lib/archive-scope';
 import { useServerDirectoryPagination } from '@/components/ui/paged-list';
 import {
   createJobTitle,
@@ -39,6 +46,9 @@ export function useJobTitlesDirectoryModel() {
 
   const [templates, setTemplates] = React.useState<JobTitleTemplateRecord[]>([]);
   const [listError, setListError] = React.useState<string | null>(null);
+  const [archiveScope, setArchiveScope] = React.useState<OrganizationArchiveScope>(
+    ORGANIZATION_ARCHIVE_SCOPE_DEFAULT,
+  );
   const [layoutView, setLayoutView] = React.useState<'grid' | 'table'>('table');
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   const [editId, setEditId] = React.useState<string | null>(null);
@@ -73,7 +83,12 @@ export function useJobTitlesDirectoryModel() {
   const loadPage = React.useCallback(async (page: number, pageSize: number) => {
     if (!defaultCompanyId) return { items: [] as JobTitleTemplateRecord[], total: 0 };
     try {
-      const res = await jobTitlesApi.getAll({ companyId: defaultCompanyId, page, limit: pageSize });
+      const res = await jobTitlesApi.getAll({
+        companyId: defaultCompanyId,
+        page,
+        limit: pageSize,
+        ...organizationListStatusQuery(archiveScope),
+      });
       setListError(null);
       const items = res.items.map((row, index) => mapTemplateRow(row, index, page, pageSize));
       setTemplates(items);
@@ -83,7 +98,7 @@ export function useJobTitlesDirectoryModel() {
       setListError(displayMessage);
       return { items: [], total: 0 };
     }
-  }, [defaultCompanyId]);
+  }, [defaultCompanyId, archiveScope]);
 
   const {
     items: pagedTemplates,
@@ -92,7 +107,7 @@ export function useJobTitlesDirectoryModel() {
     reload: reloadList,
   } = useServerDirectoryPagination<JobTitleTemplateRecord>(loadPage, {
     enabled: !!defaultCompanyId,
-    resetDeps: [defaultCompanyId, layoutView],
+    resetDeps: [defaultCompanyId, layoutView, archiveScope],
   });
 
   const patch = React.useCallback((p: Partial<JobTitleDraftForm>) => {
@@ -181,6 +196,7 @@ export function useJobTitlesDirectoryModel() {
   usePageHeaderActions(
     () => (
       <div className="flex items-center gap-2">
+        <ArchiveScopeToggleButton scope={archiveScope} onScopeChange={setArchiveScope} />
         <FilterToggleButton />
         <PermissionGate permission="hr.employees.create">
           <Button variant="luxe" size="sm" className="h-8 gap-2" onClick={openCreate}>
@@ -189,7 +205,7 @@ export function useJobTitlesDirectoryModel() {
         </PermissionGate>
       </div>
     ),
-    [openCreate],
+    [archiveScope, openCreate],
   );
 
   useEntityFilterSlot(
@@ -199,6 +215,15 @@ export function useJobTitlesDirectoryModel() {
         showStatusSection={false}
         showEmployeePicker={false}
         onDateBoundsChange={() => {}}
+        inlineSelects={[
+          {
+            id: 'archive',
+            value: archiveScope,
+            onChange: (v) => setArchiveScope(v as OrganizationArchiveScope),
+            placeholder: 'العرض',
+            options: ORGANIZATION_ARCHIVE_SCOPE_OPTIONS.map((o) => ({ value: o.value, label: o.label })),
+          },
+        ]}
         dataView={{
           value: layoutView,
           onChange: (v) => setLayoutView(v as 'grid' | 'table'),
@@ -209,7 +234,7 @@ export function useJobTitlesDirectoryModel() {
         }}
       />
     ),
-    [layoutView],
+    [archiveScope, layoutView],
   );
 
   return {

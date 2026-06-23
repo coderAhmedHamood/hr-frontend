@@ -16,7 +16,7 @@ import { DirectoryPagedViews, useServerDirectoryPagination } from '@/components/
 import { fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
 import { correctionRequestsApi } from '@/features/hr/requests/lib/api/correction-requests';
 import { mapCorrectionRequest } from '@/features/hr/requests/lib/attendance-correction-store';
-import { TableDateCell, TableRowActions, TableRowDetailDialog } from '@/components/ui/table-cells';
+import { TableDateCell, TableRowActions } from '@/components/ui/table-cells';
 import { EntityFilterToolbar } from '@/components/ui/entity-filter-toolbar';
 import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
 import { useSetPageTitle } from '@/components/layouts/page-title-context';
@@ -32,6 +32,16 @@ import { useHRConfigurationStore } from '@/features/hr/requests/lib/configuratio
 import { useHREmployeeDirectoryStore } from '@/features/hr/requests/lib/employee-directory-store';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
 import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
+import { useCurrentEmployee } from '@/features/hr/organization/employees/hooks/useCurrentEmployee';
+import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
+import { checkRequestApprovalAccess } from '@/features/hr/requests/lib/request-approval-access';
+import {
+  buildRequestCorrectionDecisionPayload,
+  canEmployeeActOnRequestApproval,
+  isEmployeeInRequestApproverStates,
+  isRequestFullyApproved,
+} from '@/features/hr/requests/lib/request-approver-states';
+import { RequestApproverStatesPanel } from '@/features/hr/requests/components/request-approver-states-panel';
 import {
   useAttendanceCorrectionRequestsStore,
   attendanceCorrectionStatusLabelAr,
@@ -80,6 +90,10 @@ function statusBadgeClass(s: AttendanceCorrectionRequest['status']) {
 
 export function AttendanceCorrectionRequestsClient() {
   const companyId = useDefaultCompanyId();
+  const authUser = useAuthStore((s) => s.user);
+  const { data: currentEmployee } = useCurrentEmployee();
+  const currentEmployeeId = currentEmployee?.id ?? null;
+  const updatedByActor = authUser?.id ?? undefined;
   const departments = useHRConfigurationStore((s) => s.departments);
   const { requestTypes, fetchRequestTypes, fetchDepartments } = useHRConfigurationStore();
   const employees = useHREmployeeDirectoryStore((s) => s.employees);
@@ -223,6 +237,74 @@ export function AttendanceCorrectionRequestsClient() {
     await reloadList();
   };
 
+  const handleApprove = React.useCallback(async (r: AttendanceCorrectionRequest) => {
+    if (!companyId || !currentEmployeeId) return;
+    try {
+      const access = await checkRequestApprovalAccess(
+        'attendance',
+        companyId,
+        currentEmployeeId,
+        r.approverStates,
+      );
+      if (!access.ok) {
+        toast.warning(access.message);
+        return;
+      }
+      const payload = buildRequestCorrectionDecisionPayload(
+        access.states,
+        currentEmployeeId,
+        'approve',
+        { updatedBy: updatedByActor },
+      );
+      await approve(r.id, payload);
+      if (payload.approverStates && isRequestFullyApproved(payload.approverStates)) {
+        toast.success('تم اعتماد طلب التصحيح نهائياً.');
+      } else {
+        toast.success('تم تسجيل موافقتك — بانتظار بقية المعتمدين.');
+      }
+      await reloadList();
+      setDetailRow(null);
+    } catch (err) {
+      const { displayMessage } = handleApiError(err, 'correction-requests.decide.approve');
+      toast.error(displayMessage);
+    }
+  }, [approve, companyId, currentEmployeeId, reloadList, updatedByActor]);
+
+  const handleReject = React.useCallback(async (r: AttendanceCorrectionRequest) => {
+    if (!companyId || !currentEmployeeId) return;
+    try {
+      const access = await checkRequestApprovalAccess(
+        'attendance',
+        companyId,
+        currentEmployeeId,
+        r.approverStates,
+      );
+      if (!access.ok) {
+        toast.warning(access.message);
+        return;
+      }
+      const payload = buildRequestCorrectionDecisionPayload(
+        access.states,
+        currentEmployeeId,
+        'reject',
+        { updatedBy: updatedByActor },
+      );
+      await reject(r.id, payload);
+      toast.message('تم رفض الطلب.');
+      await reloadList();
+      setDetailRow(null);
+    } catch (err) {
+      const { displayMessage } = handleApiError(err, 'correction-requests.decide.reject');
+      toast.error(displayMessage);
+    }
+  }, [companyId, currentEmployeeId, reject, reloadList, updatedByActor]);
+
+  const canShowApprovalActions = React.useCallback(
+    (r: AttendanceCorrectionRequest) =>
+      r.status === 'pending' && canEmployeeActOnRequestApproval(r.approverStates, currentEmployeeId),
+    [currentEmployeeId],
+  );
+
   const activeFilterCount = React.useMemo(() => {
     let count = 0;
     if (appliedDept !== 'all') count++;
@@ -360,6 +442,9 @@ export function AttendanceCorrectionRequestsClient() {
           if (r.status !== 'pending') {
             return <TableDateCell value={r.decidedAt} mode="datetime" />;
           }
+          if (!canShowApprovalActions(r)) {
+            return <span className="text-xs text-muted-foreground">—</span>;
+          }
           return (
             <TableRowActions
               primaryActions={[
@@ -367,29 +452,33 @@ export function AttendanceCorrectionRequestsClient() {
                   label: 'موافقة',
                   variant: 'success',
                   icon: <CheckCircle2 className="h-3.5 w-3.5" />,
-                  onClick: () => void approve(r.id).then(async () => { toast.success('تم اعتماد طلب التصحيح.'); await reloadList(); }),
+                  onClick: () => void handleApprove(r),
                 },
                 {
                   label: 'رفض',
                   variant: 'destructive',
                   icon: <XCircle className="h-3.5 w-3.5" />,
-                  onClick: () => void reject(r.id).then(async () => { toast.message('تم رفض الطلب.'); await reloadList(); }),
+                  onClick: () => void handleReject(r),
                 },
               ]}
-              menuItems={[
-                {
-                  label: 'إلغاء',
-                  onClick: () => void cancel(r.id).then(async () => { toast.message('تم سحب الطلب.'); await reloadList(); }),
-                  icon: <Ban className="h-3.5 w-3.5" />,
-                  separator: true,
-                },
-              ]}
+              menuItems={
+                !isEmployeeInRequestApproverStates(r.approverStates, currentEmployeeId)
+                  ? [
+                      {
+                        label: 'إلغاء',
+                        onClick: () => void cancel(r.id).then(async () => { toast.message('تم سحب الطلب.'); await reloadList(); }),
+                        icon: <Ban className="h-3.5 w-3.5" />,
+                        separator: true,
+                      },
+                    ]
+                  : []
+              }
             />
           );
         },
       },
     ],
-    [approve, reject, cancel],
+    [cancel, canShowApprovalActions, currentEmployeeId, handleApprove, handleReject, reloadList],
   );
 
   return (
@@ -423,11 +512,16 @@ export function AttendanceCorrectionRequestsClient() {
                 {timeCell(r.previousCheckIn, r.previousCheckOut, 'سابق حضور', 'سابق انصراف')}
                 {timeCell(r.correctedCheckIn, r.correctedCheckOut, 'مصحح حضور', 'مصحح انصراف')}
                 <p className="text-xs"><span className="text-muted-foreground">الحالة السابقة:</span> {r.previousStatusAr}</p>
-                {r.status === 'pending' ? (
+                <RequestApproverStatesPanel states={r.approverStates} compact className="border-0 bg-transparent p-0" />
+                {canShowApprovalActions(r) ? (
                   <div className="flex gap-2 pt-1" onClick={(ev) => ev.stopPropagation()}>
-                    <Button type="button" variant="outline" size="sm" className="flex-1 text-xs" onClick={async () => { await approve(r.id); toast.success('تم اعتماد طلب التصحيح.'); }}>موافقة</Button>
-                    <Button type="button" variant="outline" size="sm" className="flex-1 text-xs text-destructive" onClick={async () => { await reject(r.id); toast.message('تم رفض الطلب.'); }}>رفض</Button>
-                    <Button type="button" variant="outline" size="sm" className="flex-1 text-xs text-amber-600" onClick={async (ev) => { ev.stopPropagation(); await cancel(r.id); toast.message('تم سحب الطلب.'); }}>إلغاء</Button>
+                    <Button type="button" variant="outline" size="sm" className="flex-1 text-xs" onClick={() => void handleApprove(r)}>موافقة</Button>
+                    <Button type="button" variant="outline" size="sm" className="flex-1 text-xs text-destructive" onClick={() => void handleReject(r)}>رفض</Button>
+                  </div>
+                ) : null}
+                {r.status === 'pending' && !isEmployeeInRequestApproverStates(r.approverStates, currentEmployeeId) ? (
+                  <div className="pt-1" onClick={(ev) => ev.stopPropagation()}>
+                    <Button type="button" variant="outline" size="sm" className="w-full text-xs text-amber-600" onClick={async (ev) => { ev.stopPropagation(); await cancel(r.id); toast.message('تم سحب الطلب.'); await reloadList(); }}>إلغاء</Button>
                   </div>
                 ) : null}
               </div>
@@ -497,27 +591,42 @@ export function AttendanceCorrectionRequestsClient() {
         </DialogContent>
       </Dialog>
 
-      <TableRowDetailDialog
-        open={detailRow != null}
-        onOpenChange={(o) => !o && setDetailRow(null)}
-        title="تفاصيل طلب تصحيح الحضور"
-        fields={detailRow ? [
-          { label: 'الموظف', value: detailRow.employeeNameAr },
-          { label: 'القسم', value: detailRow.departmentNameAr || '—' },
-          { label: 'نوع الطلب', value: detailRow.requestTypeNameAr },
-          { label: 'تاريخ التصحيح', value: <TableDateCell value={detailRow.workDate} /> },
-          { label: 'الحالة السابقة', value: detailRow.previousStatusAr },
-          { label: 'حالة الطلب', value: attendanceCorrectionStatusLabelAr(detailRow.status) },
-          { label: 'حضور سابق', value: to12h(detailRow.previousCheckIn) },
-          { label: 'انصراف سابق', value: to12h(detailRow.previousCheckOut) },
-          { label: 'حضور مصحح', value: to12h(detailRow.correctedCheckIn) },
-          { label: 'انصراف مصحح', value: to12h(detailRow.correctedCheckOut) },
-          { label: 'السبب', value: detailRow.reasonAr || '—' },
-          { label: 'ملاحظات القرار', value: detailRow.decisionNotesAr || '—' },
-          { label: 'تاريخ التقديم', value: <TableDateCell value={detailRow.createdAt} mode="datetime" /> },
-          { label: 'تاريخ القرار', value: <TableDateCell value={detailRow.decidedAt} mode="datetime" /> },
-        ] : []}
-      />
+      <Dialog open={detailRow != null} onOpenChange={(o) => !o && setDetailRow(null)}>
+        <DialogContent className="max-w-lg" dir="rtl">
+          <DialogHeader>
+            <DialogTitle>تفاصيل طلب تصحيح الحضور</DialogTitle>
+          </DialogHeader>
+          {detailRow ? (
+            <div className="space-y-4">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div><p className="text-xs text-muted-foreground">الموظف</p><p className="text-sm font-medium">{detailRow.employeeNameAr}</p></div>
+                <div><p className="text-xs text-muted-foreground">القسم</p><p className="text-sm font-medium">{detailRow.departmentNameAr || '—'}</p></div>
+                <div><p className="text-xs text-muted-foreground">نوع الطلب</p><p className="text-sm font-medium">{detailRow.requestTypeNameAr}</p></div>
+                <div><p className="text-xs text-muted-foreground">تاريخ التصحيح</p><p className="text-sm font-medium"><TableDateCell value={detailRow.workDate} /></p></div>
+                <div><p className="text-xs text-muted-foreground">الحالة السابقة</p><p className="text-sm font-medium">{detailRow.previousStatusAr}</p></div>
+                <div><p className="text-xs text-muted-foreground">حالة الطلب</p><p className="text-sm font-medium">{attendanceCorrectionStatusLabelAr(detailRow.status)}</p></div>
+                <div><p className="text-xs text-muted-foreground">حضور سابق</p><p className="text-sm font-medium font-mono">{to12h(detailRow.previousCheckIn)}</p></div>
+                <div><p className="text-xs text-muted-foreground">انصراف سابق</p><p className="text-sm font-medium font-mono">{to12h(detailRow.previousCheckOut)}</p></div>
+                <div><p className="text-xs text-muted-foreground">حضور مصحح</p><p className="text-sm font-medium font-mono">{to12h(detailRow.correctedCheckIn)}</p></div>
+                <div><p className="text-xs text-muted-foreground">انصراف مصحح</p><p className="text-sm font-medium font-mono">{to12h(detailRow.correctedCheckOut)}</p></div>
+                <div className="sm:col-span-2"><p className="text-xs text-muted-foreground">السبب</p><p className="text-sm">{detailRow.reasonAr || '—'}</p></div>
+                <div className="sm:col-span-2"><p className="text-xs text-muted-foreground">ملاحظات القرار</p><p className="text-sm">{detailRow.decisionNotesAr || '—'}</p></div>
+              </div>
+              <RequestApproverStatesPanel states={detailRow.approverStates} />
+              {canShowApprovalActions(detailRow) ? (
+                <div className="flex flex-wrap gap-2 border-t border-border pt-3">
+                  <Button size="sm" variant="outline" className="gap-1.5 text-success border-success/30" onClick={() => void handleApprove(detailRow)}>
+                    <CheckCircle2 className="h-3.5 w-3.5" /> موافقة
+                  </Button>
+                  <Button size="sm" variant="outline" className="gap-1.5 text-destructive border-destructive/30" onClick={() => void handleReject(detailRow)}>
+                    <XCircle className="h-3.5 w-3.5" /> رفض
+                  </Button>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

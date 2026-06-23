@@ -7,15 +7,18 @@ import { useServerDirectoryPagination } from '@/components/ui/paged-list';
 import { resolveOrganizationScope } from '@/features/hr/organization/lib/api/organization-context';
 import { employeesApi } from '@/features/hr/organization/employees/lib/api/employees';
 import { violationTypesApi } from '@/features/hr/discipline/lib/api/violation-types';
+import { organizationActiveListStatusQuery } from '@/features/hr/organization/lib/archive-scope';
 import {
   violationRecordsApi,
   type ViolationInvestigationDto,
   type ViolationRecordResponseDto,
   type ViolationRecordStatus,
+  type ViolationApproverStatesSnapshot,
   type CreateViolationRecordDto,
   type UpdateViolationRecordDto,
   type DecideViolationRecordDto,
 } from '@/features/hr/discipline/lib/api/violation-records';
+import { normalizeViolationApproverStates } from '@/features/hr/discipline/lib/violation-approver-states';
 
 export type ViolationCaseRecord = {
   id: string;
@@ -38,6 +41,7 @@ export type ViolationCaseRecord = {
   hasInvestigations: boolean;
   decisionNotes: string | null;
   decidedAt: string | null;
+  approverStates: ViolationApproverStatesSnapshot | null;
   investigations: ViolationInvestigationDto[];
   investigationCount: number;
   latestInvestigationResult: ViolationInvestigationDto['result'] | null;
@@ -106,6 +110,7 @@ function mapRecord(
     hasInvestigations: dto.hasInvestigations ?? investigations.length > 0,
     decisionNotes: dto.decisionNotes ?? null,
     decidedAt: dto.decidedAt ?? null,
+    approverStates: normalizeViolationApproverStates(dto),
     investigations,
     investigationCount: investigations.length,
     latestInvestigationResult: latestInvestigation?.result ?? null,
@@ -156,7 +161,9 @@ export function useViolationCasesDirectoryModel() {
 
     const [employeesRes, typesRes] = await Promise.all([
       employeesApi.getAll(cid ? { companyId: cid, limit: 200 } : { limit: 200 }),
-      violationTypesApi.getAll(cid ? { companyId: cid, limit: 200 } : { limit: 200 }),
+      violationTypesApi.getAll(
+        cid ? { companyId: cid, limit: 200, ...organizationActiveListStatusQuery() } : { limit: 200, ...organizationActiveListStatusQuery() },
+      ),
     ]);
 
     const employeeItems = ensurePaginatedResult(employeesRes).items;

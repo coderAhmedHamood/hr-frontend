@@ -7,6 +7,7 @@ import { useServerDirectoryPagination } from '@/components/ui/paged-list';
 import type { AttendanceCheckInPoint } from '@/features/hr/attendance/lib/types';
 import { mapCheckInPointResponse } from '@/features/hr/attendance/checkpoints/services/check-in-points.service';
 import { checkInPointsApi } from '@/features/hr/attendance/lib/api/check-in-points';
+import { organizationActiveListStatusQuery } from '@/features/hr/organization/lib/archive-scope';
 import { createCheckInPointLinkBatch } from '@/features/hr/attendance/checkpoint-links/services/check-in-point-links.service';
 import { checkInPointLinksApi, type GroupedByPointItem } from '@/features/hr/attendance/lib/api/check-in-point-links';
 import { employeesApi, type EmployeeResponseDto } from '@/features/hr/organization/employees/lib/api/employees';
@@ -100,7 +101,7 @@ export function useCheckpointLinksPanelModel() {
   React.useEffect(() => {
     if (!companyId) return;
     void Promise.allSettled([
-      checkInPointsApi.getAll({ limit: 200, companyId }),
+      checkInPointsApi.getAll({ limit: 200, companyId, ...organizationActiveListStatusQuery() }),
       employeesApi.getAll({ limit: 500, companyId }),
     ]).then(([pointsRes, empRes]) => {
       if (pointsRes.status === 'fulfilled') setCheckpoints(pointsRes.value.items.map(mapCheckInPointResponse));

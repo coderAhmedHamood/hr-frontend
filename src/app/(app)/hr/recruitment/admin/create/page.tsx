@@ -1,5 +1,5 @@
-import { FormCreatePage } from '@/features/hr/recruitment/admin/components/form-create-page';
+import { redirect } from 'next/navigation';
 
-export default function RecruitmentCreatePage() {
-  return <FormCreatePage />;
+export default function RecruitmentAdminCreatePage() {
+  redirect('/hr/recruitment/ats-admin/jobs/create');
 }

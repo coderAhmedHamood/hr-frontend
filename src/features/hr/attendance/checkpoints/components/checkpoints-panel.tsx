@@ -8,6 +8,7 @@ import { cn } from '@/shared/utils';
 import { useCheckpointsPanelModel } from '@/features/hr/attendance/checkpoints/hooks/useCheckpointsPanelModel';
 import { DirectoryPagedViews } from '@/components/ui/paged-list';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
+import { ArchiveScopeToggleButton } from '@/components/layouts/archive-scope-toggle-button';
 import { EmptyStateCard } from '@/components/shared/empty-state-card';
 import { CheckpointsEditDialog } from '@/features/hr/attendance/checkpoints/components/checkpoints-edit-dialog';
 
@@ -17,12 +18,15 @@ export function CheckpointsPanel() {
 
   usePageHeaderActions(
     () => (
-      <Button variant="luxe" size="sm" className="h-8 gap-1.5 px-3 text-xs shrink-0" type="button" onClick={openCreate}>
-        <Plus className="h-3.5 w-3.5" />
-        نقطة جديدة
-      </Button>
+      <div className="flex items-center gap-2">
+        <ArchiveScopeToggleButton scope={model.archiveScope} onScopeChange={model.setArchiveScope} />
+        <Button variant="luxe" size="sm" className="h-8 gap-1.5 px-3 text-xs shrink-0" type="button" onClick={openCreate}>
+          <Plus className="h-3.5 w-3.5" />
+          نقطة جديدة
+        </Button>
+      </div>
     ),
-    [openCreate],
+    [model.archiveScope, openCreate],
   );
 
   return (

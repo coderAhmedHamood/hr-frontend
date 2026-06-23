@@ -36,41 +36,29 @@ export function formatApiErrorForDisplay(error: unknown): string {
   return String(error);
 }
 
-function logApiError(error: ApiError, context?: string) {
-  const label = context ? `[API Error] ${context}` : '[API Error]';
-  console.error(label, formatApiErrorForDisplay(error));
-}
-
 /**
- * Single entry for API failures. Logs full backend envelope, applies status rules,
- * optional toast. Returns backend-shaped message for UI (never a generic Arabic override).
+ * Single entry for API failures. Shows toast, applies status rules.
+ * Returns backend-shaped message for UI (never a generic Arabic override).
  */
 export function handleApiError(error: unknown, context?: string): ApiErrorHandleResult {
   if (!(error instanceof ApiError)) {
     const displayMessage = error instanceof Error ? error.message : String(error);
-    console.error(context ? `[API Error] ${context}` : '[API Error]', error);
+    toast.error(displayMessage);
     return { displayMessage, debugPayload: null, envelope: null, status: 0 };
   }
-
-  logApiError(error, context);
 
   const envelope = error.envelope;
   const status = error.status;
 
-  if (status === 401 && typeof window !== 'undefined') {
-    window.location.href = '/login';
-  } else if (status === 403) {
-    toast.error(envelope?.message ?? 'غير مصرح');
-  } else if (status >= 500) {
-    const toastMessage = isDuplicateAdvanceNumberError(error)
-      ? duplicateAdvanceNumberMessage()
-      : (envelope?.message ?? 'خطأ في الخادم');
-    toast.error(toastMessage);
-  }
-
   const displayMessage = isDuplicateAdvanceNumberError(error)
     ? duplicateAdvanceNumberMessage()
     : (envelope?.message?.trim() || error.message);
+
+  if (status === 401 && typeof window !== 'undefined') {
+    window.location.href = '/login';
+  } else {
+    toast.error(displayMessage);
+  }
   const debugPayload = isDevEnv() ? formatApiErrorForDisplay(error) : null;
 
   return { displayMessage, debugPayload, envelope, status };

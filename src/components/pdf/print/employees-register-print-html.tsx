@@ -13,7 +13,6 @@ export type EmployeeRegisterPrintRow = {
   branchCity: string;
   contractType: string;
   startDate: string;
-  baseSalary: string;
   statusAr: string;
 };
 
@@ -81,15 +80,14 @@ export const EmployeesRegisterPrintHtml = React.forwardRef<
 
           <div style={{ display: 'flex', flexDirection: 'row', backgroundColor: '#e8f2ef', border: '1px solid #94a3b8' }}>
             {[
-              { label: 'الموظف', width: '16%', align: 'right' as const, pad: true },
+              { label: 'الموظف', width: '18%', align: 'right' as const, pad: true },
               { label: 'الرقم', width: '9%', align: 'center' as const },
-              { label: 'المسمى', width: '14%', align: 'right' as const, pad: true },
-              { label: 'القسم', width: '12%', align: 'right' as const, pad: true },
-              { label: 'الفرع', width: '10%', align: 'right' as const, pad: true },
-              { label: 'العقد', width: '10%', align: 'center' as const },
+              { label: 'المسمى', width: '16%', align: 'right' as const, pad: true },
+              { label: 'القسم', width: '14%', align: 'right' as const, pad: true },
+              { label: 'الفرع', width: '11%', align: 'right' as const, pad: true },
+              { label: 'العقد', width: '11%', align: 'center' as const },
               { label: 'الالتحاق', width: '9%', align: 'center' as const },
-              { label: 'الراتب', width: '10%', align: 'center' as const },
-              { label: 'الحالة', width: '10%', align: 'center' as const },
+              { label: 'الحالة', width: '12%', align: 'center' as const },
             ].map((c, idx) => (
               <div
                 key={c.label}
@@ -123,31 +121,28 @@ export const EmployeesRegisterPrintHtml = React.forwardRef<
                   backgroundColor: ri % 2 === 1 ? '#fafafa' : '#fff',
                 }}
               >
-                <div style={{ width: '16%', boxSizing: 'border-box', padding: '4px 2px', fontSize: 7, textAlign: 'right', borderInlineStart: undefined, wordBreak: 'break-word' }}>
+                <div style={{ width: '18%', boxSizing: 'border-box', padding: '4px 2px', fontSize: 7, textAlign: 'right', borderInlineStart: undefined, wordBreak: 'break-word' }}>
                   {sanitizePdfText(r.name)}
                 </div>
                 <div style={{ width: '9%', boxSizing: 'border-box', padding: '4px 2px', fontSize: 7, textAlign: 'center', borderInlineStart: '1px solid #e2e8f0' }}>
                   <span dir="ltr">{sanitizePdfText(r.employeeCode)}</span>
                 </div>
-                <div style={{ width: '14%', boxSizing: 'border-box', padding: '4px 2px', fontSize: 6.5, textAlign: 'right', borderInlineStart: '1px solid #e2e8f0', wordBreak: 'break-word' }}>
+                <div style={{ width: '16%', boxSizing: 'border-box', padding: '4px 2px', fontSize: 6.5, textAlign: 'right', borderInlineStart: '1px solid #e2e8f0', wordBreak: 'break-word' }}>
                   {sanitizePdfText(r.position)}
                 </div>
-                <div style={{ width: '12%', boxSizing: 'border-box', padding: '4px 2px', fontSize: 6.5, textAlign: 'right', borderInlineStart: '1px solid #e2e8f0', wordBreak: 'break-word' }}>
+                <div style={{ width: '14%', boxSizing: 'border-box', padding: '4px 2px', fontSize: 6.5, textAlign: 'right', borderInlineStart: '1px solid #e2e8f0', wordBreak: 'break-word' }}>
                   {sanitizePdfText(r.department)}
                 </div>
-                <div style={{ width: '10%', boxSizing: 'border-box', padding: '4px 2px', fontSize: 6.5, textAlign: 'right', borderInlineStart: '1px solid #e2e8f0', wordBreak: 'break-word' }}>
+                <div style={{ width: '11%', boxSizing: 'border-box', padding: '4px 2px', fontSize: 6.5, textAlign: 'right', borderInlineStart: '1px solid #e2e8f0', wordBreak: 'break-word' }}>
                   {sanitizePdfText(r.branchCity)}
                 </div>
-                <div style={{ width: '10%', boxSizing: 'border-box', padding: '4px 2px', fontSize: 6.5, textAlign: 'center', borderInlineStart: '1px solid #e2e8f0', wordBreak: 'break-word' }}>
+                <div style={{ width: '11%', boxSizing: 'border-box', padding: '4px 2px', fontSize: 6.5, textAlign: 'center', borderInlineStart: '1px solid #e2e8f0', wordBreak: 'break-word' }}>
                   {sanitizePdfText(r.contractType)}
                 </div>
                 <div style={{ width: '9%', boxSizing: 'border-box', padding: '4px 2px', fontSize: 6.5, textAlign: 'center', borderInlineStart: '1px solid #e2e8f0' }}>
                   <span dir="ltr">{sanitizePdfText(r.startDate)}</span>
                 </div>
-                <div style={{ width: '10%', boxSizing: 'border-box', padding: '4px 2px', fontSize: 7, textAlign: 'center', borderInlineStart: '1px solid #e2e8f0' }}>
-                  <span dir="ltr">{sanitizePdfText(r.baseSalary)}</span>
-                </div>
-                <div style={{ width: '10%', boxSizing: 'border-box', padding: '4px 2px', fontSize: 6.5, textAlign: 'center', borderInlineStart: '1px solid #e2e8f0', wordBreak: 'break-word' }}>
+                <div style={{ width: '12%', boxSizing: 'border-box', padding: '4px 2px', fontSize: 6.5, textAlign: 'center', borderInlineStart: '1px solid #e2e8f0', wordBreak: 'break-word' }}>
                   {sanitizePdfText(r.statusAr)}
                 </div>
               </div>

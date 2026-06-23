@@ -1,7 +1,14 @@
 import { create } from 'zustand';
-import { correctionRequestsApi, type ApiCorrectionRequest, type CorrectionRequestStatus } from './api/correction-requests';
+import {
+  correctionRequestsApi,
+  type ApiCorrectionRequest,
+  type CorrectionDecisionDto,
+  type CorrectionRequestStatus,
+} from './api/correction-requests';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
 import { getDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
+import type { RequestApproverStatesSnapshot } from './api/request-approver-states-types';
+import { normalizeRequestApproverStates } from './request-approver-states';
 
 export type AttendanceCorrectionRequest = {
   id: string;
@@ -29,6 +36,7 @@ export type AttendanceCorrectionRequest = {
   createdAt: string;
   decidedAt: string | null;
   decidedByEmployeeId: string | null;
+  approverStates: RequestApproverStatesSnapshot | null;
 };
 
 function isoToTime(iso: string | null | undefined): string {
@@ -96,6 +104,7 @@ export function mapCorrectionRequest(r: ApiCorrectionRequest): AttendanceCorrect
     createdAt: r.createdAt,
     decidedAt: r.decidedAt,
     decidedByEmployeeId: r.decidedByEmployeeId,
+    approverStates: normalizeRequestApproverStates(r),
   };
 }
 
@@ -112,8 +121,8 @@ interface State {
     correctedCheckOut?: string;
     reasonAr?: string;
   }) => Promise<{ ok: true } | { ok: false; error: string }>;
-  approve: (id: string) => Promise<void>;
-  reject: (id: string) => Promise<void>;
+  approve: (id: string, payload: CorrectionDecisionDto) => Promise<void>;
+  reject: (id: string, payload: CorrectionDecisionDto) => Promise<void>;
   cancel: (id: string, notes?: string) => Promise<void>;
 }
 
@@ -158,21 +167,13 @@ export const useAttendanceCorrectionRequestsStore = create<State>()((set) => ({
     }
   },
 
-  approve: async (id) => {
-    const userId = useAuthStore.getState().user?.id ?? '';
-    const updated = await correctionRequestsApi.decide(id, {
-      decision: 'approve',
-      updatedBy: userId || undefined,
-    });
+  approve: async (id, payload) => {
+    const updated = await correctionRequestsApi.decide(id, payload);
     set(s => ({ items: s.items.map(r => r.id === id ? mapCorrectionRequest(updated) : r) }));
   },
 
-  reject: async (id) => {
-    const userId = useAuthStore.getState().user?.id ?? '';
-    const updated = await correctionRequestsApi.decide(id, {
-      decision: 'reject',
-      updatedBy: userId || undefined,
-    });
+  reject: async (id, payload) => {
+    const updated = await correctionRequestsApi.decide(id, payload);
     set(s => ({ items: s.items.map(r => r.id === id ? mapCorrectionRequest(updated) : r) }));
   },
 

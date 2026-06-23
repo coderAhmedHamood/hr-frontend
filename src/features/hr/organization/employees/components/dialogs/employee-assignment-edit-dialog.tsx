@@ -30,6 +30,7 @@ import {
 } from '@/features/hr/organization/employees/constants/employee-assignment-labels';
 import { departmentsApi, type DepartmentResponseDto } from '@/features/hr/organization/lib/api/departments';
 import { jobTitlesApi, type JobTitleResponseDto } from '@/features/hr/organization/lib/api/jobTitles';
+import { organizationActiveListStatusQuery } from '@/features/hr/organization/lib/archive-scope';
 import type { EmployeeProfileAssignmentsModel } from '@/features/hr/organization/employees/hooks/useEmployeeProfileAssignments';
 
 type EditForm = {
@@ -85,8 +86,8 @@ export function EmployeeAssignmentEditDialog({ model }: Props) {
     void (async () => {
       try {
         const [dp, jt] = await Promise.all([
-          departmentsApi.getAll({ companyId: editAssignment.companyId, limit: 200 }),
-          jobTitlesApi.getAll({ companyId: editAssignment.companyId, limit: 200 }),
+          departmentsApi.getAll({ companyId: editAssignment.companyId, limit: 200, ...organizationActiveListStatusQuery() }),
+          jobTitlesApi.getAll({ companyId: editAssignment.companyId, limit: 200, ...organizationActiveListStatusQuery() }),
         ]);
         setDepartments(dp.items);
         setJobTitles(jt.items.filter((j) => j.isActive));

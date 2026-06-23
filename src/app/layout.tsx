@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { IBM_Plex_Sans_Arabic, Rubik } from 'next/font/google';
 import './globals.css';
 import { Providers } from '@/components/layouts/providers';
+import { THEME_STORAGE_KEY } from '@/shared/constants/theme';
 
 const bodyFont = IBM_Plex_Sans_Arabic({
   subsets: ['arabic', 'latin'],
@@ -30,6 +31,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         className={`${bodyFont.variable} ${displayFont.variable} font-sans antialiased`}
         suppressHydrationWarning
       >
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var raw=localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)});if(!raw)return;var parsed=JSON.parse(raw);var mode=parsed.state&&parsed.state.mode;if(mode==='dark')document.documentElement.classList.add('dark');}catch(e){}})();`,
+          }}
+        />
         <Providers>{children}</Providers>
       </body>
     </html>

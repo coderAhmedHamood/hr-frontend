@@ -5,6 +5,7 @@ import {
   type ViolationTypeResponseDto,
 } from '@/features/hr/discipline/lib/api/violation-types';
 import { resolveOrganizationScope } from '@/features/hr/organization/lib/api/organization-context';
+import { organizationActiveListStatusQuery } from '@/features/hr/organization/lib/archive-scope';
 import type { HRViolationDeductionKind, HRViolationTypeRecord } from '@/features/hr/discipline/lib/types';
 import { parseCoord, toIso } from '@/features/hr/lib/map-dto';
 
@@ -35,7 +36,9 @@ export function mapViolationTypeResponse(dto: ViolationTypeResponseDto): HRViola
 export async function loadViolationTypes() {
   const scope = await resolveOrganizationScope();
   const res = await violationTypesApi.getAll(
-    scope.companyId ? { companyId: scope.companyId, limit: 200 } : { limit: 200 },
+    scope.companyId
+      ? { companyId: scope.companyId, limit: 200, ...organizationActiveListStatusQuery() }
+      : { limit: 200, ...organizationActiveListStatusQuery() },
   );
   return {
     items: res.items.map(mapViolationTypeResponse),

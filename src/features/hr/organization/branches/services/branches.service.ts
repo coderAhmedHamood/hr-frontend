@@ -4,6 +4,10 @@ import {
   type UpdateBranchDto,
 } from '@/features/hr/organization/lib/api/branches';
 import type { OrganizationScope } from '@/features/hr/organization/lib/api/organization-context';
+import {
+  organizationListStatusQuery,
+  type OrganizationArchiveScope,
+} from '@/features/hr/organization/lib/archive-scope';
 import { mapBranchResponse, type BranchRow } from '@/features/hr/organization/branches/constants/branches-directory';
 
 export type BranchesDirectoryData = {
@@ -11,9 +15,13 @@ export type BranchesDirectoryData = {
   scope: OrganizationScope;
 };
 
-export async function loadBranchesDirectory(companyId?: string | null): Promise<BranchesDirectoryData> {
+export async function loadBranchesDirectory(
+  companyId?: string | null,
+  archiveScope: OrganizationArchiveScope = 'active',
+): Promise<BranchesDirectoryData> {
   const res = await branchesApi.getAll({
     ...(companyId && companyId !== 'all' ? { companyId } : {}),
+    ...organizationListStatusQuery(archiveScope),
     limit: 200,
   });
   return {

@@ -18,6 +18,7 @@ import { MultiSelect, type MultiSelectOption } from '@/components/ui/multi-selec
 import { useDisciplineApprovalTemplatesModel } from '../hooks/useDisciplineApprovalTemplatesModel';
 import { DisciplineListViewport, DisciplinePaginatedList } from '@/features/hr/discipline/components/discipline-paginated-list';
 import type { ApprovalMode } from '../hooks/useDisciplineApprovalTemplatesModel';
+import { ArchiveScopeToggleButton } from '@/components/layouts/archive-scope-toggle-button';
 import { cn } from '@/shared/utils';
 
 const MODE_OPTIONS: { value: ApprovalMode; label: string }[] = [
@@ -45,8 +46,11 @@ function buildNameAr(linkedIds: string[], violationTypes: { id: string; nameAr: 
 }
 
 export function DisciplineApprovalClient() {
-  const { templates, violationTypes, employees, loading, listError, pagination, createTemplate, updateTemplate, deleteTemplate } =
-    useDisciplineApprovalTemplatesModel();
+  const {
+    templates, violationTypes, employees, loading, listError, pagination,
+    archiveScope, setArchiveScope,
+    createTemplate, updateTemplate, deleteTemplate,
+  } = useDisciplineApprovalTemplatesModel();
 
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   const [editId, setEditId] = React.useState<string | null>(null);
@@ -148,7 +152,8 @@ export function DisciplineApprovalClient() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
-      <div className="flex justify-end shrink-0">
+      <div className="flex justify-end shrink-0 gap-2">
+        <ArchiveScopeToggleButton scope={archiveScope} onScopeChange={setArchiveScope} />
         <Button variant="luxe" size="sm" onClick={openCreate}>
           <Plus className="h-4 w-4 ml-1" />إسناد جديد
         </Button>

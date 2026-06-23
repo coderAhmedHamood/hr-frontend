@@ -13,6 +13,7 @@ import {
 } from '@/features/hr/attendance/lib/api/attendance-events';
 import { employeesApi, type EmployeeResponseDto } from '@/features/hr/organization/employees/lib/api/employees';
 import { checkInPointsApi } from '@/features/hr/attendance/lib/api/check-in-points';
+import { organizationActiveListStatusQuery } from '@/features/hr/organization/lib/archive-scope';
 import { mapCheckInPointResponse } from '@/features/hr/attendance/checkpoints/services/check-in-points.service';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
 import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
@@ -59,7 +60,7 @@ export function useAttendanceEventsModel() {
     if (!companyId) return;
     void Promise.allSettled([
       employeesApi.getAll({ companyId, limit: 500 }),
-      checkInPointsApi.getAll({ limit: 200, companyId }),
+      checkInPointsApi.getAll({ limit: 200, companyId, ...organizationActiveListStatusQuery() }),
     ]).then(([empRes, cpRes]) => {
       if (empRes.status === 'fulfilled') setEmployees(empRes.value.items);
       if (cpRes.status === 'fulfilled') setCheckpoints(cpRes.value.items.map(mapCheckInPointResponse));

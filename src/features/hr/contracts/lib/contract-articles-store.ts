@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { contractArticlesApi, type ApiContractArticle } from './contracts-api';
-import { useAuthStore } from '@/features/auth/lib/auth-store';
+import { payrollListArchiveQuery } from '@/features/hr/organization/lib/archive-scope';
 import { getDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 
 export type HRContractArticle = {
@@ -50,7 +50,7 @@ export const useHRContractArticlesStore = create<State>()((set, get) => ({
     if (!companyId) return;
     set({ isLoading: true, error: null });
     try {
-      const result = await contractArticlesApi.list({ companyId, limit: 200 });
+      const result = await contractArticlesApi.list({ companyId, limit: 200, ...payrollListArchiveQuery() });
       set({ articles: result.items.map(mapApiArticle), isLoading: false });
     } catch (e) {
       set({ error: (e as Error).message, isLoading: false });

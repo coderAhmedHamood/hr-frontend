@@ -8,18 +8,25 @@ import { LoginPage } from '@/features/auth/components/login-page';
 import { authApi } from '@/features/auth/lib/api/auth';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
 
-// ─── mocks ────────────────────────────────────────────────────────────────────
+jest.mock('next/image', () => ({
+  __esModule: true,
+  default: ({
+    fill: _fill,
+    priority: _priority,
+    ...props
+  }: React.ImgHTMLAttributes<HTMLImageElement> & { fill?: boolean; priority?: boolean }) => {
+    // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text
+    return <img {...props} />;
+  },
+}));
+
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ push: jest.fn(), replace: jest.fn() }),
 }));
 
-const assignMock = jest.fn();
-beforeAll(() => {
-  Object.defineProperty(window, 'location', {
-    configurable: true,
-    value: { ...window.location, assign: assignMock },
-  });
-});
+jest.mock('@/features/hr/lib/api/global-error-handler', () => ({
+  handleApiError: jest.fn(),
+}));
 
 jest.mock('@/features/auth/lib/api/auth', () => ({
   authApi: { login: jest.fn() },
@@ -34,17 +41,22 @@ jest.mock('sonner', () => ({
 }));
 
 jest.mock('@/shared/config', () => ({
-  publicConfig: { apiUrl: '/api-backend' },
+  publicConfig: { apiUrl: '/api-backend', appName: 'نظام الموارد البشرية', appEnv: 'test' },
 }));
 
-// ─── helpers ──────────────────────────────────────────────────────────────────
 const mockLogin = authApi.login as jest.MockedFunction<typeof authApi.login>;
 
 function renderLoginPage() {
   return render(<LoginPage />);
 }
 
-// ─── tests ────────────────────────────────────────────────────────────────────
+async function fillLoginForm() {
+  await userEvent.clear(screen.getByLabelText(/البريد الإلكتروني/i));
+  await userEvent.type(screen.getByLabelText(/البريد الإلكتروني/i), 'admin@test.com');
+  await userEvent.clear(screen.getByLabelText(/كلمة المرور/i));
+  await userEvent.type(screen.getByLabelText(/كلمة المرور/i), 'Admin123!');
+}
+
 describe('LoginPage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -114,21 +126,24 @@ describe('LoginPage', () => {
   });
 
   it('shows loading state while submitting', async () => {
-    mockLogin.mockImplementation(() => new Promise(() => {})); // never resolves
+    mockLogin.mockImplementation(() => new Promise(() => {}));
     renderLoginPage();
+    await fillLoginForm();
     fireEvent.submit(screen.getByRole('button', { name: /تسجيل الدخول/i }).closest('form')!);
     await waitFor(() => {
       expect(screen.getByText(/جاري الدخول/i)).toBeInTheDocument();
     });
   });
 
-  it('shows toast error on failed login', async () => {
-    const { toast } = await import('sonner');
+  it('handles failed login via global error handler', async () => {
+    const { handleApiError } = await import('@/features/hr/lib/api/global-error-handler');
     mockLogin.mockRejectedValueOnce(new Error('Invalid credentials'));
     renderLoginPage();
+    await fillLoginForm();
     fireEvent.submit(screen.getByRole('button', { name: /تسجيل الدخول/i }).closest('form')!);
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalled();
+      expect(mockLogin).toHaveBeenCalled();
+      expect(handleApiError).toHaveBeenCalled();
     });
   });
 });

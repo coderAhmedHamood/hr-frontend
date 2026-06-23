@@ -12,6 +12,7 @@ import {
 import { useLeaveTypesPanelModel, getLeaveTypeProperty, type LeaveTypeProperty } from '@/features/hr/leaves/leave-types/hooks/useLeaveTypesPanelModel';
 import { DirectoryPagedViews } from '@/components/ui/paged-list';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
+import { ArchiveScopeToggleButton } from '@/components/layouts/archive-scope-toggle-button';
 import { cn } from '@/shared/utils';
 
 export function LeaveTypesPanel() {
@@ -19,12 +20,15 @@ export function LeaveTypesPanel() {
 
   usePageHeaderActions(
     () => (
-      <Button variant="luxe" size="sm" className="h-8 gap-1.5 px-3 text-xs" onClick={m.openCreate} disabled={m.loading}>
-        <Plus className="h-3.5 w-3.5" />
-        إضافة نوع إجازة
-      </Button>
+      <div className="flex items-center gap-2">
+        <ArchiveScopeToggleButton scope={m.archiveScope} onScopeChange={m.setArchiveScope} />
+        <Button variant="luxe" size="sm" className="h-8 gap-1.5 px-3 text-xs" onClick={m.openCreate} disabled={m.loading}>
+          <Plus className="h-3.5 w-3.5" />
+          إضافة نوع إجازة
+        </Button>
+      </div>
     ),
-    [m.openCreate, m.loading],
+    [m.archiveScope, m.openCreate, m.loading],
   );
 
   return (

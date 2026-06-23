@@ -32,6 +32,7 @@ import {
 import type { LeaveTypeResponseDto } from '@/features/hr/leaves/leave-types/lib/api/leave-types';
 import { branchesApi } from '@/features/hr/organization/lib/api/branches';
 import { departmentsApi } from '@/features/hr/organization/lib/api/departments';
+import { organizationActiveListStatusQuery } from '@/features/hr/organization/lib/archive-scope';
 import { employeesApi } from '@/features/hr/organization/employees/lib/api/employees';
 import { resolveOrganizationScope } from '@/features/hr/organization/lib/api/organization-context';
 
@@ -99,8 +100,8 @@ export function useLeaveBalanceCreditModel() {
         loadCompanyLeaveTypes(cid ? { companyId: cid, limit: 200, isActive: true } : { limit: 200, isActive: true }),
         employeeLeaveBalancesApi.getAll(listQuery),
         employeesApi.getAll(listQuery),
-        cid ? branchesApi.getAll({ companyId: cid, limit: 100 }) : branchesApi.getAll({ limit: 100 }),
-        cid ? departmentsApi.getAll({ companyId: cid, limit: 200 }) : departmentsApi.getAll({ limit: 200 }),
+        cid ? branchesApi.getAll({ companyId: cid, limit: 100, ...organizationActiveListStatusQuery() }) : branchesApi.getAll({ limit: 100, ...organizationActiveListStatusQuery() }),
+        cid ? departmentsApi.getAll({ companyId: cid, limit: 200, ...organizationActiveListStatusQuery() }) : departmentsApi.getAll({ limit: 200, ...organizationActiveListStatusQuery() }),
       ]);
 
       const employees = ensurePaginatedResult(employeesRes);

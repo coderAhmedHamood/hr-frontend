@@ -11,6 +11,7 @@ import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-con
 import { useSetPageTitle } from '@/components/layouts/page-title-context';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
+import { ArchiveScopeToggleButton } from '@/components/layouts/archive-scope-toggle-button';
 import {
   Dialog, DialogContent, DialogTitle,
 } from '@/components/ui/dialog';
@@ -34,6 +35,12 @@ import { DataTable, type ColumnDef } from '@/components/ui/data-table';
 import { DirectoryPagedViews, useServerDirectoryPagination } from '@/components/ui/paged-list';
 import { requestTypesApi } from '@/features/hr/requests/lib/api/request-types';
 import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
+import {
+  ORGANIZATION_ARCHIVE_SCOPE_DEFAULT,
+  ORGANIZATION_ARCHIVE_SCOPE_OPTIONS,
+  organizationListStatusQuery,
+  type OrganizationArchiveScope,
+} from '@/features/hr/organization/lib/archive-scope';
 import { mapApiRequestType } from '@/features/hr/requests/lib/configuration-store';
 import { TableRowActions } from '@/components/ui/table-cells';
 
@@ -68,7 +75,9 @@ export function RequestTypesClient() {
   React.useEffect(() => { fetchDepartments(); }, [fetchDepartments]);
 
   const [layoutView, setLayoutView] = React.useState<'grid' | 'table'>('grid');
-  const [typeStatusFilter, setTypeStatusFilter] = React.useState<string>('all');
+  const [archiveScope, setArchiveScope] = React.useState<OrganizationArchiveScope>(
+    ORGANIZATION_ARCHIVE_SCOPE_DEFAULT,
+  );
   const [categoryFilter, setCategoryFilter] = React.useState<string>('all');
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   const [editId, setEditId] = React.useState<string | null>(null);
@@ -84,14 +93,14 @@ export function RequestTypesClient() {
         page,
         limit: pageSize,
         ...(categoryFilter !== 'all' ? { requestCategory: categoryFilter } : {}),
-        ...(typeStatusFilter === 'active' ? { isActive: true } : typeStatusFilter === 'inactive' ? { isActive: false } : {}),
+        ...organizationListStatusQuery(archiveScope),
       });
       const items = res.items.map(mapApiRequestType).sort((a, b) => a.sortOrder - b.sortOrder);
       return { items, total: res.pagination.total };
     } catch {
       return { items: [], total: 0 };
     }
-  }, [categoryFilter, companyId, typeStatusFilter]);
+  }, [archiveScope, categoryFilter, companyId]);
 
   const {
     items: requestTypes,
@@ -100,16 +109,10 @@ export function RequestTypesClient() {
     reload: reloadList,
   } = useServerDirectoryPagination<HRRequestTypeEntity>(loadPage, {
     enabled: !!companyId,
-    resetDeps: [companyId, categoryFilter, typeStatusFilter, layoutView],
+    resetDeps: [companyId, categoryFilter, archiveScope, layoutView],
   });
 
   const activeDepts = departments.filter(d => d.isActive);
-
-  const typeStatusCounts = React.useMemo(() => ({
-    all: pagination.total,
-    active: requestTypes.filter((rt) => rt.isActive).length,
-    inactive: requestTypes.filter((rt) => !rt.isActive).length,
-  }), [requestTypes, pagination.total]);
 
   const filtered = requestTypes;
 
@@ -211,22 +214,23 @@ export function RequestTypesClient() {
   const activeFilterCount = React.useMemo(() => {
     let count = 0;
     if (categoryFilter !== 'all') count++;
-    if (typeStatusFilter !== 'all') count++;
+    if (archiveScope !== 'active') count++;
     return count;
-  }, [categoryFilter, typeStatusFilter]);
+  }, [archiveScope, categoryFilter]);
 
   useSetPageTitle({ titleAr: 'أنواع الطلبات', descriptionAr: 'تصنيفات ونماذج طلبات الموارد البشرية', iconName: 'ListChecks' });
 
   usePageHeaderActions(
     () => (
       <div className="flex items-center gap-2">
+        <ArchiveScopeToggleButton scope={archiveScope} onScopeChange={setArchiveScope} />
         <FilterToggleButton activeFilterCount={activeFilterCount} />
         <Button variant="luxe" size="sm" className="h-8 gap-2" onClick={openCreate}>
           <Plus className="h-4 w-4" /> نوع جديد
         </Button>
       </div>
     ),
-    [activeFilterCount],
+    [activeFilterCount, archiveScope, openCreate],
   );
 
   useEntityFilterSlot(
@@ -243,12 +247,14 @@ export function RequestTypesClient() {
             options: CATEGORY_FILTER_OPTIONS,
             className: 'min-w-[10.5rem]',
           },
+          {
+            id: 'archive',
+            value: archiveScope,
+            onChange: (v) => setArchiveScope(v as OrganizationArchiveScope),
+            placeholder: 'العرض',
+            options: ORGANIZATION_ARCHIVE_SCOPE_OPTIONS.map((o) => ({ value: o.value, label: o.label })),
+          },
         ]}
-        statusFilter={typeStatusFilter}
-        onStatusFilterChange={setTypeStatusFilter}
-        statusOrder={['active', 'inactive']}
-        statusLabels={{ active: 'نشط', inactive: 'غير نشط' }}
-        statusCounts={typeStatusCounts}
         onDateBoundsChange={() => {}}
         dataView={{
           value: layoutView,
@@ -261,11 +267,8 @@ export function RequestTypesClient() {
       />
     ),
     [
+      archiveScope,
       categoryFilter,
-      typeStatusFilter,
-      typeStatusCounts.all,
-      typeStatusCounts.active,
-      typeStatusCounts.inactive,
       layoutView,
     ],
   );

@@ -6,6 +6,7 @@ import {
   EntityActionCardChip,
   EntityActionCardGrid,
 } from '@/components/ui/entity-action-card';
+import { ArchiveScopeToggleButton } from '@/components/layouts/archive-scope-toggle-button';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -29,7 +30,8 @@ export function ViolationTypesClient() {
       {m.listError ? (
         <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-2.5 text-sm text-destructive whitespace-pre-wrap">{m.listError}</p>
       ) : null}
-      <div className="flex justify-end shrink-0">
+      <div className="flex justify-end shrink-0 gap-2">
+        <ArchiveScopeToggleButton scope={m.archiveScope} onScopeChange={m.setArchiveScope} />
         <Button variant="luxe" size="sm" onClick={m.openCreate} disabled={m.loading}>
           <Plus className="h-4 w-4 ml-1" />إضافة نوع
         </Button>

@@ -13,6 +13,9 @@ import {
 } from '@/components/ui/dialog';
 import { useSetPageTitle } from '@/components/layouts/page-title-context';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
+import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
+import { ArchiveScopeToggleButton } from '@/components/layouts/archive-scope-toggle-button';
+import { EntityFilterToolbar } from '@/components/ui/entity-filter-toolbar';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
 import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
@@ -24,6 +27,12 @@ import {
 } from '@/features/hr/contracts/contract-templates/constants/contract-template-options';
 import { ContractTemplateFormDialog } from '@/features/hr/contracts/contract-templates/dialogs/contract-template-form-dialog';
 import { DirectoryPagedViews, useServerDirectoryPagination } from '@/components/ui/paged-list';
+import {
+  ORGANIZATION_ARCHIVE_SCOPE_DEFAULT,
+  ORGANIZATION_ARCHIVE_SCOPE_OPTIONS,
+  payrollListArchiveQuery,
+  type OrganizationArchiveScope,
+} from '@/features/hr/organization/lib/archive-scope';
 
 function fmtSalary(amount: string | null | undefined, currency: string): string {
   if (!amount) return '—';
@@ -45,13 +54,21 @@ export function ContractTemplatesClient() {
 
   const companyId = useDefaultCompanyId() ?? '';
 
+  const [archiveScope, setArchiveScope] = React.useState<OrganizationArchiveScope>(
+    ORGANIZATION_ARCHIVE_SCOPE_DEFAULT,
+  );
   const [error, setError] = React.useState<string | null>(null);
 
   const loadPage = React.useCallback(async (page: number, pageSize: number) => {
     if (!companyId) return { items: [] as ContractTemplateDto[], total: 0 };
     setError(null);
     try {
-      const res = await contractTemplatesApi.list({ companyId, page, limit: pageSize });
+      const res = await contractTemplatesApi.list({
+        companyId,
+        page,
+        limit: pageSize,
+        ...payrollListArchiveQuery(),
+      });
       const items = [...res.items].sort(
         (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.nameAr.localeCompare(b.nameAr, 'ar'),
       );
@@ -61,7 +78,7 @@ export function ContractTemplatesClient() {
       setError(displayMessage);
       return { items: [], total: 0 };
     }
-  }, [companyId]);
+  }, [companyId, archiveScope]);
 
   const {
     items,
@@ -70,6 +87,7 @@ export function ContractTemplatesClient() {
     reload: load,
   } = useServerDirectoryPagination<ContractTemplateDto>(loadPage, {
     enabled: !!companyId,
+    resetDeps: [companyId, archiveScope],
   });
 
   const [formOpen, setFormOpen] = React.useState(false);
@@ -95,16 +113,40 @@ export function ContractTemplatesClient() {
 
   usePageHeaderActions(
     () => (
-      <Button
-        variant="luxe"
-        size="sm"
-        className="h-8 gap-1.5 px-3 text-xs"
-        onClick={() => { setEditItem(null); setFormOpen(true); }}
-      >
-        <Plus className="h-3.5 w-3.5" /> قالب جديد
-      </Button>
+      <div className="flex items-center gap-2">
+        <ArchiveScopeToggleButton scope={archiveScope} onScopeChange={setArchiveScope} />
+        <Button
+          variant="luxe"
+          size="sm"
+          className="h-8 gap-1.5 px-3 text-xs"
+          onClick={() => { setEditItem(null); setFormOpen(true); }}
+        >
+          <Plus className="h-3.5 w-3.5" /> قالب جديد
+        </Button>
+      </div>
     ),
-    [],
+    [archiveScope],
+  );
+
+  useEntityFilterSlot(
+    () => (
+      <EntityFilterToolbar
+        showDateSection={false}
+        showStatusSection={false}
+        showEmployeePicker={false}
+        onDateBoundsChange={() => {}}
+        inlineSelects={[
+          {
+            id: 'archive',
+            value: archiveScope,
+            onChange: (v) => setArchiveScope(v as OrganizationArchiveScope),
+            placeholder: 'العرض',
+            options: ORGANIZATION_ARCHIVE_SCOPE_OPTIONS.map((o) => ({ value: o.value, label: o.label })),
+          },
+        ]}
+      />
+    ),
+    [archiveScope],
   );
 
   return (

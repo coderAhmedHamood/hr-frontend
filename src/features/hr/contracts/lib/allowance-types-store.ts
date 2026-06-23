@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import { useAuthStore } from '@/features/auth/lib/auth-store';
 import { getDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
+import { payrollListArchiveQuery } from '@/features/hr/organization/lib/archive-scope';
 import { allowanceTypesApi, type AllowanceTypeDto } from './api/allowance-types';
 
 export type HRAllowanceTypeRecord = {
@@ -49,7 +49,7 @@ export const useHRAllowanceTypesStore = create<State>()((set) => ({
     if (!companyId) return;
     set({ isLoading: true, error: null });
     try {
-      const result = await allowanceTypesApi.getAll({ companyId, limit: 200 });
+      const result = await allowanceTypesApi.getAll({ companyId, limit: 200, ...payrollListArchiveQuery() });
       set({ items: result.items.map(mapApi), isLoading: false });
     } catch (e) {
       set({ error: (e as Error).message, isLoading: false });

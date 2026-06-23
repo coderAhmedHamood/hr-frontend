@@ -1,4 +1,5 @@
 import { apiRequest, type PaginatedResult } from '@/features/hr/lib/api/client';
+import type { OrganizationArchiveScope } from '@/features/hr/organization/lib/archive-scope';
 
 export type DepartmentResponseDto = {
   id: string;
@@ -41,6 +42,7 @@ export type DepartmentListQuery = {
   companyId?: string;
   branchId?: string;
   isActive?: boolean;
+  archiveScope?: OrganizationArchiveScope;
 };
 
 export const departmentsApi = {

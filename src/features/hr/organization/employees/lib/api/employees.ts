@@ -1,4 +1,5 @@
 import { apiRequest, type PaginatedResult } from '@/features/hr/lib/api/client';
+import type { OrganizationArchiveScope } from '@/features/hr/organization/lib/archive-scope';
 import type { UserResponseDto } from '@/features/hr/organization/lib/api/users';
 import type { EmployeeAssignmentResponseDto } from '@/features/hr/organization/employees/lib/api/employee-assignments';
 
@@ -123,6 +124,7 @@ export type EmployeeListQuery = {
   contractStatus?: string;
   startDateFrom?: string;
   startDateTo?: string;
+  archiveScope?: OrganizationArchiveScope;
 };
 
 export type CreateEmployeeUserAccountDto = {

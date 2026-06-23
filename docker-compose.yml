@@ -1,3 +1,5 @@
+# Local / staging — يعرض المنفذ 3001 على الـ host (بدون Traefik).
+# للإنتاج استخدم: npm run docker:prod:up
 services:
   frontend:
     build:
@@ -7,8 +9,7 @@ services:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-/api-backend}
         NEXT_PUBLIC_HERE_API_KEY: ${NEXT_PUBLIC_HERE_API_KEY:-}
         NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-}
-        NEXT_PUBLIC_ENV: ${NEXT_PUBLIC_ENV:-production}
-        # Server-side rewrite target; use host service name when backend runs in Docker.
+        NEXT_PUBLIC_ENV: ${NEXT_PUBLIC_ENV:-development}
         BACKEND_URL: ${BACKEND_URL:-http://host.docker.internal:3000}
     container_name: hr-frontend
     restart: unless-stopped

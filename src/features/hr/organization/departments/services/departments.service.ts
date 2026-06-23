@@ -5,6 +5,10 @@ import {
   type UpdateDepartmentDto,
 } from '@/features/hr/organization/lib/api/departments';
 import type { OrganizationScope } from '@/features/hr/organization/lib/api/organization-context';
+import {
+  organizationListStatusQuery,
+  type OrganizationArchiveScope,
+} from '@/features/hr/organization/lib/archive-scope';
 import { mapDepartmentResponse, type DepartmentRecord } from '@/features/hr/organization/departments/constants/departments-directory';
 
 export type DepartmentsDirectoryData = {
@@ -14,17 +18,18 @@ export type DepartmentsDirectoryData = {
 
 export async function loadDepartmentsDirectory(filters: {
   companyId?: string | null;
-  isActive?: boolean;
   /** Pass `null` to load all branches for the company. */
   branchId?: string | null;
+  archiveScope?: OrganizationArchiveScope;
 }): Promise<DepartmentsDirectoryData> {
   const branchId = filters.branchId && filters.branchId !== 'all' ? filters.branchId : undefined;
   const companyId = filters.companyId && filters.companyId !== 'all' ? filters.companyId : undefined;
+  const archiveScope = filters.archiveScope ?? 'active';
   const query: Parameters<typeof departmentsApi.getAll>[0] = {
     ...(companyId ? { companyId } : {}),
     ...(branchId ? { branchId } : {}),
+    ...organizationListStatusQuery(archiveScope),
   };
-  if (filters.isActive !== undefined) query.isActive = filters.isActive;
 
   const res = await departmentsApi.getAll({ ...query, limit: 200 });
 

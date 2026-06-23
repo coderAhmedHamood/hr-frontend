@@ -8,6 +8,7 @@ import { companiesApi } from '@/features/hr/organization/lib/api/companies';
 import { branchesApi } from '@/features/hr/organization/lib/api/branches';
 import { departmentsApi } from '@/features/hr/organization/lib/api/departments';
 import { jobTitlesApi } from '@/features/hr/organization/lib/api/jobTitles';
+import { organizationActiveListStatusQuery } from '@/features/hr/organization/lib/archive-scope';
 
 export type EnrichedEmployeeAssignment = EmployeeAssignmentResponseDto & {
   companyNameAr: string;
@@ -33,9 +34,9 @@ async function loadReferenceMaps(companyIds: string[]) {
   const [companiesRes, ...scopedResults] = await Promise.all([
     companiesApi.getAll({ limit: REFERENCE_LIMIT }),
     ...companyIds.flatMap((companyId) => [
-      branchesApi.getAll({ companyId, limit: REFERENCE_LIMIT }),
-      departmentsApi.getAll({ companyId, limit: REFERENCE_LIMIT }),
-      jobTitlesApi.getAll({ companyId, limit: REFERENCE_LIMIT }),
+      branchesApi.getAll({ companyId, limit: REFERENCE_LIMIT, ...organizationActiveListStatusQuery() }),
+      departmentsApi.getAll({ companyId, limit: REFERENCE_LIMIT, ...organizationActiveListStatusQuery() }),
+      jobTitlesApi.getAll({ companyId, limit: REFERENCE_LIMIT, ...organizationActiveListStatusQuery() }),
     ]),
   ]);
 

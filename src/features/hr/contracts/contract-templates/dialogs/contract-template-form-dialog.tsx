@@ -32,6 +32,7 @@ import {
 } from '@/features/hr/contracts/contract-templates/constants/contract-template-options';
 import { allowanceTypesApi, type AllowanceTypeDto } from '@/features/hr/contracts/lib/api/allowance-types';
 import { contractArticlesApi, type ApiContractArticle } from '@/features/hr/contracts/lib/contracts-api';
+import { payrollListArchiveQuery } from '@/features/hr/organization/lib/archive-scope';
 import {
   ContractTemplateAllowanceLinesEditor,
   type AllowanceLineDraft,
@@ -134,8 +135,8 @@ export function ContractTemplateFormDialog({ open, onOpenChange, editItem, compa
     setForm(editItem ? formFromDto(editItem) : EMPTY_FORM);
     setError(null);
     void Promise.all([
-      allowanceTypesApi.getAll({ companyId, isActive: true, limit: 200 }),
-      contractArticlesApi.list({ companyId, isActive: true, limit: 200 }),
+      allowanceTypesApi.getAll({ companyId, isActive: true, limit: 200, ...payrollListArchiveQuery() }),
+      contractArticlesApi.list({ companyId, isActive: true, limit: 200, ...payrollListArchiveQuery() }),
     ]).then(([allowances, arts]) => {
       setAllowanceTypes(allowances.items);
       setArticles(arts.items);

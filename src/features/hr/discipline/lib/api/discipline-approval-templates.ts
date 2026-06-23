@@ -1,4 +1,5 @@
 import { apiRequest, type PaginatedResult } from '@/features/hr/lib/api/client';
+import type { OrganizationArchiveScope } from '@/features/hr/organization/lib/archive-scope';
 
 export type ApprovalMode = 'sequential' | 'parallel' | 'any_one' | 'optional';
 
@@ -62,6 +63,7 @@ export type DisciplineApprovalTemplateListQuery = {
   limit?: number;
   companyId?: string;
   isActive?: boolean;
+  archiveScope?: OrganizationArchiveScope;
 };
 
 // keep old alias so hooks/components don't need rename
@@ -76,6 +78,11 @@ export const disciplineApprovalTemplatesApi = {
   },
   getById(id: string) {
     return apiRequest<DisciplineApprovalTemplateResponseDto>(`/discipline/approval-assignments/${id}`);
+  },
+  getByViolationType(violationTypeId: string) {
+    return apiRequest<DisciplineApprovalTemplateResponseDto>(
+      `/discipline/approval-assignments/by-violation-type/${violationTypeId}`,
+    );
   },
   create(payload: CreateDisciplineApprovalTemplateDto) {
     return apiRequest<DisciplineApprovalTemplateResponseDto>('/discipline/approval-assignments', {

@@ -9,7 +9,7 @@ import {
   LayoutGrid, MapPin, Link2, CalendarRange, Activity,
   ListChecks, ShieldCheck, LayoutList, CirclePlus, CalendarClock,
   ChevronDown, X, LifeBuoy, FileSpreadsheet, FileSignature,
-  UserCircle, Briefcase, UserPlus, Bell, Send, Inbox, KeyRound,
+  UserCircle, Briefcase, UserPlus, Bell, Send, Inbox,   KeyRound, Settings, Banknote,
 } from 'lucide-react';
 import { cn } from '@/shared/utils';
 import { Logo } from '@/components/layouts/logo';
@@ -21,6 +21,7 @@ import { hrContractsOnlyNavGroups } from '@/features/hr/contracts/constants/nav'
 import { hrPayrollSectionHref } from '@/features/hr/payroll/constants/routes';
 import { hrContractsSectionHref } from '@/features/hr/contracts/constants/routes';
 import { hrPermissionsNavGroups } from '@/features/hr/permissions/constants/nav';
+import { hrSettingsNavGroups } from '@/features/hr/settings/constants/nav';
 
 type MobileNavChild =
   | { label: string; href: string; icon?: React.ElementType; match?: 'exact' | 'prefix' }
@@ -73,7 +74,6 @@ const mobileNav: MobileNavItem[] = [
     key: 'leaves', label: 'الإجازات', icon: CalendarDays,
     children: [
       { label: 'التحليلات', href: '/hr/leaves/analytics', icon: BarChart3 },
-      { label: 'إدارة طلبات الإجازات', href: '/hr/requests/unified-management', icon: LayoutList, match: 'exact' },
       { label: 'إضافة رصيد إجازات', href: '/hr/leaves/balance-credit', icon: CirclePlus },
       { label: 'أنواع الإجازات', href: '/hr/leaves/leave-types', icon: ListChecks },
       { label: 'العطل الرسمية', href: '/hr/leaves/public-holidays', icon: CalendarDays },
@@ -84,6 +84,7 @@ const mobileNav: MobileNavItem[] = [
     children: [
       { label: 'تصحيح الحضور', href: '/hr/requests/attendance-corrections', icon: CalendarClock },
       { label: 'إدارة طلبات الإجازات', href: '/hr/requests/unified-management', icon: LayoutList, match: 'exact' },
+      { label: 'إدارة سلف الموظفين', href: '/hr/requests/employee-advances', icon: Banknote },
       { label: 'أنواع الطلبات', href: '/hr/requests/request-types', icon: ListChecks },
       { label: 'قوالب الموافقة', href: '/hr/requests/approval-assignment', icon: ShieldCheck },
     ],
@@ -134,6 +135,18 @@ const mobileNav: MobileNavItem[] = [
     label: 'الصلاحيات',
     icon: Shield,
     children: hrPermissionsNavGroups.flatMap((g) =>
+      g.items.map((item) => ({
+        label: item.labelAr,
+        href: item.href,
+        icon: item.icon,
+      })),
+    ),
+  },
+  {
+    key: 'settings',
+    label: 'الإعدادات',
+    icon: Settings,
+    children: hrSettingsNavGroups.flatMap((g) =>
       g.items.map((item) => ({
         label: item.labelAr,
         href: item.href,

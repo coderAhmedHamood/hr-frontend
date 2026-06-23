@@ -8,9 +8,9 @@ import { useSetPageTitle } from '@/components/layouts/page-title-context';
 import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
+import { ArchiveScopeToggleButton } from '@/components/layouts/archive-scope-toggle-button';
 import { Button } from '@/components/ui/button';
 import { EntityFilterToolbar } from '@/components/ui/entity-filter-toolbar';
-import { formatCurrency } from '@/shared/utils';
 import { hasDateRangeFilter } from '@/features/hr/discipline/lib/discipline-date-filter';
 import { EmployeesRegisterPrintHtml } from '@/components/pdf/print/employees-register-print-html';
 import { downloadXlsxFromAoA, type XlsxCell } from '@/shared/export/download-xlsx';
@@ -27,6 +27,13 @@ import { useActiveCompany } from '@/features/hr/organization/hooks/useActiveComp
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import { fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
 import { useServerDirectoryPagination } from '@/components/ui/paged-list';
+import {
+  ORGANIZATION_ARCHIVE_SCOPE_DEFAULT,
+  ORGANIZATION_ARCHIVE_SCOPE_OPTIONS,
+  organizationActiveListArchiveQuery,
+  organizationListArchiveQuery,
+  type OrganizationArchiveScope,
+} from '@/features/hr/organization/lib/archive-scope';
 
 function empStartYmd(e: EmployeeResponseDto): string {
   const s = e.startDate;
@@ -56,6 +63,9 @@ export function useEmployeesListModel() {
   const [newEmpOpen, setNewEmpOpen] = React.useState(false);
   const [dateBounds, setDateBounds] = React.useState({ from: '', to: '' });
   const [toolbarStatus, setToolbarStatus] = React.useState<string>('all');
+  const [archiveScope, setArchiveScope] = React.useState<OrganizationArchiveScope>(
+    ORGANIZATION_ARCHIVE_SCOPE_DEFAULT,
+  );
   const [selectedEmpIds, setSelectedEmpIds] = React.useState<Set<string>>(new Set());
   const [pdfOpen, setPdfOpen] = React.useState(false);
   const [deleteId, setDeleteId] = React.useState<string | null>(null);
@@ -70,8 +80,8 @@ export function useEmployeesListModel() {
   React.useEffect(() => {
     if (!companyId) return;
     void Promise.allSettled([
-      branchesApi.getAll({ limit: 200, companyId }),
-      departmentsApi.getAll({ limit: 200, companyId }),
+      branchesApi.getAll({ limit: 200, companyId, ...organizationActiveListArchiveQuery() }),
+      departmentsApi.getAll({ limit: 200, companyId, ...organizationActiveListArchiveQuery() }),
     ]).then(([branchesRes, deptsRes]) => {
       if (branchesRes.status === 'fulfilled') setBranches(branchesRes.value.items);
       if (deptsRes.status === 'fulfilled') setDepartments(deptsRes.value.items);
@@ -91,7 +101,8 @@ export function useEmployeesListModel() {
     ...(debouncedSearch.trim() ? { search: debouncedSearch.trim() } : {}),
     ...(dateBounds.from ? { startDateFrom: dateBounds.from } : {}),
     ...(dateBounds.to ? { startDateTo: dateBounds.to } : {}),
-  }), [companyId, branchFilter, deptFilter, toolbarStatus, debouncedSearch, dateBounds.from, dateBounds.to]);
+    ...organizationListArchiveQuery(archiveScope),
+  }), [companyId, branchFilter, deptFilter, toolbarStatus, debouncedSearch, dateBounds.from, dateBounds.to, archiveScope]);
 
   const loadPage = React.useCallback(async (page: number, pageSize: number) => {
     if (!companyId) return { items: [] as EmployeeResponseDto[], total: 0 };
@@ -135,7 +146,7 @@ export function useEmployeesListModel() {
     enabled: !!companyId,
     bulkMode,
     loadBulk: bulkMode ? loadBulk : undefined,
-    resetDeps: [companyId, branchFilter, deptFilter, toolbarStatus, debouncedSearch, dateBounds.from, dateBounds.to, selectedEmpKey, view],
+    resetDeps: [companyId, branchFilter, deptFilter, toolbarStatus, archiveScope, debouncedSearch, dateBounds.from, dateBounds.to, selectedEmpKey, view],
   });
 
   const getBranch = React.useCallback(
@@ -182,7 +193,6 @@ export function useEmployeesListModel() {
         branchCity: emp.branchNameAr ?? '—',
         contractType: CONTRACT_TYPE_AR[emp.contractType ?? ''] ?? emp.contractType ?? '—',
         startDate: empStartYmd(emp),
-        baseSalary: formatCurrency(parseFloat(emp.baseSalary ?? '0') || 0),
         statusAr: EMP_CONTRACT_STATUS_LABELS[emp.contractStatus ?? ''] ?? emp.contractStatus ?? '—',
       })),
     [filtered],
@@ -265,6 +275,7 @@ export function useEmployeesListModel() {
   usePageHeaderActions(
     () => (
       <div className="flex items-center gap-2">
+        <ArchiveScopeToggleButton scope={archiveScope} onScopeChange={setArchiveScope} />
         <FilterToggleButton />
         <Button variant="luxe" size="sm" className="h-8 gap-2" onClick={() => setNewEmpOpen(true)}>
           <Plus className="h-4 w-4" />
@@ -272,13 +283,20 @@ export function useEmployeesListModel() {
         </Button>
       </div>
     ),
-    [newEmpOpen],
+    [archiveScope, newEmpOpen],
   );
 
   useEntityFilterSlot(
     () => (
       <EntityFilterToolbar
         inlineSelects={[
+          {
+            id: 'archive',
+            value: archiveScope,
+            onChange: (v) => setArchiveScope(v as OrganizationArchiveScope),
+            placeholder: 'العرض',
+            options: ORGANIZATION_ARCHIVE_SCOPE_OPTIONS.map((o) => ({ value: o.value, label: o.label })),
+          },
           {
             id: 'branch',
             value: branchFilter,
@@ -338,6 +356,7 @@ export function useEmployeesListModel() {
       />
     ),
     [
+      archiveScope,
       branchFilter, deptFilter, view, toolbarStatus, selectedEmpKey,
       dateBounds.from, dateBounds.to,
       contractStatusCounts.all, contractStatusCounts.active,

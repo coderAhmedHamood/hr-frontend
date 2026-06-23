@@ -4,6 +4,10 @@ import {
   type JobTitleResponseDto,
   type UpdateJobTitleDto,
 } from '@/features/hr/organization/lib/api/jobTitles';
+import {
+  organizationListStatusQuery,
+  type OrganizationArchiveScope,
+} from '@/features/hr/organization/lib/archive-scope';
 
 export type JobTitleTemplateRecord = {
   id: string;
@@ -38,11 +42,16 @@ function mapTemplate(row: JobTitleResponseDto, index: number): JobTitleTemplateR
   };
 }
 
-export async function loadJobTitlesDirectory(companyId?: string | null): Promise<JobTitlesDirectoryData> {
+export async function loadJobTitlesDirectory(
+  companyId?: string | null,
+  archiveScope: OrganizationArchiveScope = 'active',
+): Promise<JobTitlesDirectoryData> {
   const scopedCompanyId = companyId && companyId !== 'all' ? companyId : undefined;
-  const jobs = await jobTitlesApi.getAll(
-    scopedCompanyId ? { companyId: scopedCompanyId, limit: 200 } : { limit: 200 },
-  );
+  const jobs = await jobTitlesApi.getAll({
+    ...(scopedCompanyId ? { companyId: scopedCompanyId } : {}),
+    ...organizationListStatusQuery(archiveScope),
+    limit: 200,
+  });
   return {
     templates: jobs.items.map(mapTemplate),
     scope: {

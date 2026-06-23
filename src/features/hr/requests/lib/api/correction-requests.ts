@@ -1,4 +1,7 @@
 import { apiRequest, type PaginatedResult } from '@/features/hr/lib/api/client';
+import type {
+  RequestApproverStatesSnapshot,
+} from '@/features/hr/requests/lib/api/request-approver-states-types';
 
 export type CorrectionRequestStatus = 'pending' | 'approved' | 'rejected' | 'cancelled';
 
@@ -23,6 +26,8 @@ export type ApiCorrectionRequest = {
   decisionNotesAr: string | null;
   attachments: unknown[];
   status: CorrectionRequestStatus;
+  approverStates?: RequestApproverStatesSnapshot | null;
+  approver_states?: RequestApproverStatesSnapshot | null;
   submittedAt: string;
   decidedAt: string | null;
   cancelledAt: string | null;
@@ -58,7 +63,8 @@ export type UpdateCorrectionRequestDto = {
 
 export type CorrectionDecisionDto = {
   decision: 'approve' | 'reject';
-  /** HR employee id — not the auth user id */
+  approverStates?: RequestApproverStatesSnapshot;
+  approverEmployeeId?: string;
   decidedByEmployeeId?: string;
   decisionNotesAr?: string;
   updatedBy?: string;
@@ -131,6 +137,8 @@ export type ApiLeaveRequest = {
   decisionNotesAr: string | null;
   attachments: unknown[];
   status: LeaveRequestStatusNew;
+  approverStates?: RequestApproverStatesSnapshot | null;
+  approver_states?: RequestApproverStatesSnapshot | null;
   submittedAt: string;
   decidedAt: string | null;
   cancelledAt: string | null;
@@ -157,7 +165,8 @@ export type CreateLeaveRequestNewDto = {
 
 export type LeaveDecisionDto = {
   decision: 'approve' | 'reject';
-  /** HR employee id — not the auth user id */
+  approverStates?: RequestApproverStatesSnapshot;
+  approverEmployeeId?: string;
   decidedByEmployeeId?: string;
   decisionNotesAr?: string;
   updatedBy?: string;

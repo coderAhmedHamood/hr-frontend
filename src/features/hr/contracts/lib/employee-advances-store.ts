@@ -4,6 +4,7 @@ import { getDefaultCompanyId } from '@/features/hr/organization/lib/default-comp
 import {
   employeeAdvancesApi,
   type EmployeeAdvanceResponseDto,
+  type EmployeeAdvanceDecisionDto,
   type AdvanceKindDto,
   type AdvanceStatusDto,
   type RepaymentModeDto,
@@ -12,6 +13,8 @@ import {
   duplicateAdvanceNumberMessage,
   isDuplicateAdvanceNumberError,
 } from './employee-advance-errors';
+import type { RequestApproverStatesSnapshot } from '@/features/hr/requests/lib/api/request-approver-states-types';
+import { normalizeRequestApproverStates } from '@/features/hr/requests/lib/request-approver-states';
 
 const CREATE_RETRY_ATTEMPTS = 3;
 const CREATE_RETRY_DELAY_MS = 200;
@@ -37,6 +40,9 @@ export type HREmployeeAdvance = {
   repaymentMonths: number | null;
   monthlyInstallmentAmount: number | null;
   approvedAt: string | null;
+  rejectedAt: string | null;
+  decisionNotes: string | null;
+  approverStates: RequestApproverStatesSnapshot | null;
   updatedAt: string;
 };
 
@@ -81,6 +87,9 @@ function mapApi(r: EmployeeAdvanceResponseDto): HREmployeeAdvance {
       ? parseFloat(r.monthlyInstallmentAmount)
       : null,
     approvedAt: r.approvedAt,
+    rejectedAt: r.rejectedAt ?? null,
+    decisionNotes: r.decisionNotes ?? null,
+    approverStates: normalizeRequestApproverStates(r),
     updatedAt: r.updatedAt,
   };
 }
@@ -101,12 +110,12 @@ type State = {
   isLoading: boolean;
   error: string | null;
   fetch: (params?: { employeeId?: string; status?: HREmployeeAdvanceStatus; advanceDateFrom?: string; advanceDateTo?: string }) => Promise<void>;
-  add: (a: Omit<HREmployeeAdvance, 'id' | 'advanceNumber' | 'approvedAt' | 'updatedAt' | 'status'>) => Promise<HREmployeeAdvance>;
+  add: (a: Omit<HREmployeeAdvance, 'id' | 'advanceNumber' | 'approvedAt' | 'updatedAt' | 'status' | 'approverStates' | 'rejectedAt' | 'decisionNotes'>) => Promise<HREmployeeAdvance>;
   update: (id: string, patch: Partial<Omit<HREmployeeAdvance, 'id' | 'advanceNumber' | 'approvedAt' | 'updatedAt'>>) => Promise<boolean>;
   remove: (id: string) => Promise<boolean>;
   submitForApproval: (id: string) => Promise<void>;
-  approve: (id: string) => Promise<void>;
-  reject: (id: string) => Promise<void>;
+  approve: (id: string, payload: EmployeeAdvanceDecisionDto) => Promise<void>;
+  reject: (id: string, payload: EmployeeAdvanceDecisionDto) => Promise<void>;
 };
 
 export const useHREmployeeAdvancesStore = create<State>()((set) => ({
@@ -197,13 +206,13 @@ export const useHREmployeeAdvancesStore = create<State>()((set) => ({
     set(s => ({ items: s.items.map(row => row.id === id ? mapApi(updated) : row) }));
   },
 
-  approve: async (id) => {
-    const updated = await employeeAdvancesApi.update(id, { status: 'approved' });
+  approve: async (id, payload) => {
+    const updated = await employeeAdvancesApi.decide(id, payload);
     set(s => ({ items: s.items.map(row => row.id === id ? mapApi(updated) : row) }));
   },
 
-  reject: async (id) => {
-    const updated = await employeeAdvancesApi.update(id, { status: 'rejected' });
+  reject: async (id, payload) => {
+    const updated = await employeeAdvancesApi.decide(id, payload);
     set(s => ({ items: s.items.map(row => row.id === id ? mapApi(updated) : row) }));
   },
 }));

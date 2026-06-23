@@ -1,0 +1,37 @@
+# Production: Next.js frontend only — Traefik يعمل مسبقاً على السيرفر (من الباكند).
+#
+# Public: https://portal.jgrabaya.com
+# لا ports على الـ host — Traefik يوجّه HTTPS داخلياً إلى المنفذ 3001
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://api.jgrabaya.com}
+        NEXT_PUBLIC_HERE_API_KEY: ${NEXT_PUBLIC_HERE_API_KEY:-}
+        NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-}
+        NEXT_PUBLIC_ENV: ${NEXT_PUBLIC_ENV:-production}
+        BACKEND_URL: ${BACKEND_URL:-https://api.jgrabaya.com}
+    container_name: hr-frontend-web
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      PORT: 3001
+      HOSTNAME: 0.0.0.0
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.portal.rule=Host(`${FRONTEND_DOMAIN:-portal.jgrabaya.com}`)
+      - traefik.http.routers.portal.entrypoints=websecure
+      - traefik.http.routers.portal.tls=true
+      - traefik.http.routers.portal.tls.certresolver=${TRAEFIK_CERT_RESOLVER:-letsencrypt}
+      - traefik.http.routers.portal.service=portal
+      - traefik.http.services.portal.loadbalancer.server.port=3001
+    networks:
+      - traefik
+
+networks:
+  traefik:
+    name: ${TRAEFIK_NETWORK:-traefik}
+    external: true

@@ -14,6 +14,7 @@ import {
 } from '@/features/hr/discipline/circulars/services/discipline-circulars.service';
 import { resolveOrganizationScope } from '@/features/hr/organization/lib/api/organization-context';
 import { branchesApi } from '@/features/hr/organization/lib/api/branches';
+import { organizationActiveListStatusQuery } from '@/features/hr/organization/lib/archive-scope';
 import { companiesApi } from '@/features/hr/organization/lib/api/companies';
 import { departmentsApi } from '@/features/hr/organization/lib/api/departments';
 import { employeesApi } from '@/features/hr/organization/employees/lib/api/employees';
@@ -130,12 +131,14 @@ export function useDisciplineCircularsDirectoryModel() {
 
       const [companiesRes, branchesRes, departmentsRes, employeesRes] = await Promise.all([
         companiesApi.getAll({ limit: 50 }),
-        branchesApi.getAll(
-          resolvedCompanyId ? { companyId: resolvedCompanyId, limit: PAGE_LIMIT } : { limit: PAGE_LIMIT },
-        ),
-        departmentsApi.getAll(
-          resolvedCompanyId ? { companyId: resolvedCompanyId, limit: PAGE_LIMIT } : { limit: PAGE_LIMIT },
-        ),
+        branchesApi.getAll({
+          ...(resolvedCompanyId ? { companyId: resolvedCompanyId, limit: PAGE_LIMIT } : { limit: PAGE_LIMIT }),
+          ...organizationActiveListStatusQuery(),
+        }),
+        departmentsApi.getAll({
+          ...(resolvedCompanyId ? { companyId: resolvedCompanyId, limit: PAGE_LIMIT } : { limit: PAGE_LIMIT }),
+          ...organizationActiveListStatusQuery(),
+        }),
         employeesApi.getAll(
           resolvedCompanyId ? { companyId: resolvedCompanyId, limit: PAGE_LIMIT } : { limit: PAGE_LIMIT },
         ),

@@ -348,7 +348,7 @@ export const EntityFilterToolbar = React.forwardRef<
             <SelectItem value="custom">مخصص…</SelectItem>
           </SelectWithClear>
         ) : null}
-        {showStatusSection ? (
+        {showStatusSection && statusOrder.length > 0 ? (
           <SelectWithClear
             value={statusSelectValue === 'all' ? '' : statusSelectValue}
             onValueChange={(v) => onStatusFilterChange(v || 'all')}

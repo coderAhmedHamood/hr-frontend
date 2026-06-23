@@ -5,6 +5,7 @@ import {
   type UpdateCheckInPointDto,
 } from '@/features/hr/attendance/lib/api/check-in-points';
 import type { AttendanceCheckInPoint } from '@/features/hr/attendance/lib/types';
+import { organizationActiveListStatusQuery } from '@/features/hr/organization/lib/archive-scope';
 import { parseCoord } from '@/features/hr/lib/map-dto';
 
 export function mapCheckInPointResponse(dto: CheckInPointResponseDto): AttendanceCheckInPoint {
@@ -20,7 +21,7 @@ export function mapCheckInPointResponse(dto: CheckInPointResponseDto): Attendanc
 }
 
 export async function loadCheckInPoints(companyId: string) {
-  const res = await checkInPointsApi.getAll({ companyId, limit: 200 });
+  const res = await checkInPointsApi.getAll({ companyId, limit: 200, ...organizationActiveListStatusQuery() });
   return { items: res.items.map(mapCheckInPointResponse) };
 }
 

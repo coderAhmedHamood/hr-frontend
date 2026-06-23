@@ -5,6 +5,7 @@ import { getDefaultCompanyId } from '@/features/hr/organization/lib/default-comp
 import type { BranchResponseDto } from '@/features/hr/organization/lib/api/branches';
 import type { CompanyResponseDto } from '@/features/hr/organization/lib/api/companies';
 import type { DepartmentResponseDto } from '@/features/hr/organization/lib/api/departments';
+import { organizationActiveListStatusQuery } from '@/features/hr/organization/lib/archive-scope';
 
 export type OrganizationChartData = {
   companies: CompanyResponseDto[];
@@ -20,8 +21,8 @@ export async function loadOrganizationChartData(): Promise<OrganizationChartData
 
   const [company, branchesRes, departmentsRes] = await Promise.all([
     companiesApi.getById(companyId).catch(() => null),
-    branchesApi.getAll({ companyId, limit: 200 }),
-    departmentsApi.getAll({ companyId, limit: 200 }),
+    branchesApi.getAll({ companyId, limit: 200, ...organizationActiveListStatusQuery() }),
+    departmentsApi.getAll({ companyId, limit: 200, ...organizationActiveListStatusQuery() }),
   ]);
 
   return {

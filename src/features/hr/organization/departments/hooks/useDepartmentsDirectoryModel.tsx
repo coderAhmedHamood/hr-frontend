@@ -7,6 +7,7 @@ import { useSetPageTitle } from '@/components/layouts/page-title-context';
 import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
+import { ArchiveScopeToggleButton } from '@/components/layouts/archive-scope-toggle-button';
 import { EntityFilterToolbar } from '@/components/ui/entity-filter-toolbar';
 import { PermissionGate } from '@/components/shared/permission-gate';
 import { branchesApi, type BranchResponseDto } from '@/features/hr/organization/lib/api/branches';
@@ -30,6 +31,12 @@ import {
   loadDepartmentsDirectory,
   updateDepartment,
 } from '@/features/hr/organization/departments/services/departments.service';
+import {
+  ORGANIZATION_ARCHIVE_SCOPE_DEFAULT,
+  ORGANIZATION_ARCHIVE_SCOPE_OPTIONS,
+  organizationActiveListStatusQuery,
+  type OrganizationArchiveScope,
+} from '@/features/hr/organization/lib/archive-scope';
 
 export function useDepartmentsDirectoryModel() {
   useSetPageTitle({ titleAr: 'الأقسام', descriptionAr: 'الهيكل التنظيمي وإدارة الأقسام', iconName: 'Building2' });
@@ -71,8 +78,9 @@ export function useDepartmentsDirectoryModel() {
   );
 
   const [drawerOpen, setDrawerOpen] = React.useState(false);
-  const [activeMode, setActiveMode] = React.useState<'all' | 'active'>('all');
-  const filterActive = activeMode === 'active';
+  const [archiveScope, setArchiveScope] = React.useState<OrganizationArchiveScope>(
+    ORGANIZATION_ARCHIVE_SCOPE_DEFAULT,
+  );
   const [editId, setEditId] = React.useState<string | null>(null);
   const [draft, setDraft] = React.useState<DepartmentDraftForm>(DEPARTMENT_EMPTY_FORM);
   const [formError, setFormError] = React.useState<string | null>(null);
@@ -91,11 +99,15 @@ export function useDepartmentsDirectoryModel() {
     try {
       const data = await loadDepartmentsDirectory({
         companyId: defaultCompanyId,
-        ...(filterActive ? { isActive: true } : {}),
+        archiveScope,
         branchId: branchFilter === 'all' ? null : branchFilter,
       });
       setDepartments(data.departments);
-      const branchRes = await branchesApi.getAll({ companyId: defaultCompanyId, limit: 200 });
+      const branchRes = await branchesApi.getAll({
+        companyId: defaultCompanyId,
+        limit: 200,
+        ...organizationActiveListStatusQuery(),
+      });
       setBranches(branchRes.items);
       const flat = flattenDepartmentsTree(buildDepartmentForest(data.departments));
       return { items: flat, total: flat.length };
@@ -104,7 +116,7 @@ export function useDepartmentsDirectoryModel() {
       setListError(displayMessage);
       return { items: [], total: 0 };
     }
-  }, [branchFilter, defaultCompanyId, filterActive]);
+  }, [archiveScope, branchFilter, defaultCompanyId]);
 
   const {
     items: filtered,
@@ -113,7 +125,7 @@ export function useDepartmentsDirectoryModel() {
     reload: reloadList,
   } = useServerDirectoryPagination<DeptTreeNode>(
     async () => ({ items: [], total: 0 }),
-    { bulkMode: true, loadBulk, enabled: !!defaultCompanyId, resetDeps: [defaultCompanyId, branchFilter, filterActive] },
+    { bulkMode: true, loadBulk, enabled: !!defaultCompanyId, resetDeps: [defaultCompanyId, branchFilter, archiveScope] },
   );
 
   const loadFormBranches = React.useCallback(async (companyId: string | null) => {
@@ -122,7 +134,11 @@ export function useDepartmentsDirectoryModel() {
       return;
     }
     try {
-      const branchRes = await branchesApi.getAll({ companyId, limit: 200 });
+      const branchRes = await branchesApi.getAll({
+        companyId,
+        limit: 200,
+        ...organizationActiveListStatusQuery(),
+      });
       setFormBranches(branchRes.items);
     } catch {
       setFormBranches([]);
@@ -144,6 +160,7 @@ export function useDepartmentsDirectoryModel() {
       const data = await loadDepartmentsDirectory({
         companyId: defaultCompanyId,
         branchId: draft.branchId,
+        archiveScope: 'active',
       });
       setParentPickerDepartments(data.departments);
     } catch {
@@ -285,6 +302,7 @@ export function useDepartmentsDirectoryModel() {
   usePageHeaderActions(
     () => (
       <div className="flex items-center gap-2">
+        <ArchiveScopeToggleButton scope={archiveScope} onScopeChange={setArchiveScope} />
         <FilterToggleButton />
         <PermissionGate permission="hr.employees.create">
           <Button variant="luxe" size="sm" className="h-8 shrink-0 gap-2" onClick={openCreate}>
@@ -293,7 +311,7 @@ export function useDepartmentsDirectoryModel() {
         </PermissionGate>
       </div>
     ),
-    [openCreate],
+    [archiveScope, openCreate],
   );
 
   useEntityFilterSlot(
@@ -312,19 +330,16 @@ export function useDepartmentsDirectoryModel() {
             options: branchSelectOptions,
           },
           {
-            id: 'active',
-            value: activeMode,
-            onChange: (v) => setActiveMode(v as 'all' | 'active'),
+            id: 'archive',
+            value: archiveScope,
+            onChange: (v) => setArchiveScope(v as OrganizationArchiveScope),
             placeholder: 'العرض',
-            options: [
-              { value: 'all', label: 'كل الأقسام' },
-              { value: 'active', label: 'نشط فقط' },
-            ],
+            options: ORGANIZATION_ARCHIVE_SCOPE_OPTIONS.map((o) => ({ value: o.value, label: o.label })),
           },
         ]}
       />
     ),
-    [activeMode, branchFilter, branchSelectOptions],
+    [archiveScope, branchFilter, branchSelectOptions],
   );
 
   return {

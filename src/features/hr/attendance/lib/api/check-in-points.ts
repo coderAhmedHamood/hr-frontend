@@ -1,4 +1,5 @@
 import { apiRequest, type PaginatedResult } from '@/features/hr/lib/api/client';
+import type { OrganizationArchiveScope } from '@/features/hr/organization/lib/archive-scope';
 
 export type CheckInPointResponseDto = {
   id: string;
@@ -32,6 +33,7 @@ export type CheckInPointListQuery = {
   limit?: number;
   companyId?: string;
   isActive?: boolean;
+  archiveScope?: OrganizationArchiveScope;
 };
 
 export const checkInPointsApi = {

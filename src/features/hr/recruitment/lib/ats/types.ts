@@ -1,5 +1,3 @@
-export type AtsRole = 'admin' | 'recruiter' | 'viewer';
-
 export type AtsJobType = 'full-time' | 'part-time' | 'contract' | 'internship';
 
 export type AtsPipelineStage =
@@ -13,22 +11,7 @@ export type AtsPipelineStage =
 
 export type AtsFormFieldType = 'text' | 'number' | 'select' | 'file';
 
-export interface AtsTenant {
-  id: string;
-  name: string;
-  slug: string;
-  logo: string;
-  createdAt: string;
-}
-
-export interface AtsUser {
-  id: string;
-  tenantId: string;
-  name: string;
-  email: string;
-  role: AtsRole;
-  createdAt: string;
-}
+export type AtsCoreFieldKey = 'applicantName' | 'residencyNumber';
 
 export interface AtsFormField {
   id: string;
@@ -36,11 +19,13 @@ export interface AtsFormField {
   label: string;
   required: boolean;
   options?: string[];
+  sortOrder?: number;
+  isCore?: boolean;
+  coreKey?: AtsCoreFieldKey;
 }
 
 export interface AtsForm {
   id: string;
-  tenantId: string;
   jobId: string;
   title: string;
   description: string;
@@ -50,7 +35,6 @@ export interface AtsForm {
 
 export interface AtsJob {
   id: string;
-  tenantId: string;
   title: string;
   slug: string;
   description: string;
@@ -58,6 +42,8 @@ export interface AtsJob {
   location: string;
   type: AtsJobType;
   isActive: boolean;
+  isArchived?: boolean;
+  archivedAt?: string | null;
   formId: string;
   createdAt: string;
 }
@@ -71,12 +57,15 @@ export interface AtsApplicantScore {
 
 export interface AtsApplicant {
   id: string;
-  tenantId: string;
   jobId: string;
   formId: string;
+  applicantName?: string | null;
+  residencyNumber?: string | null;
   answers: Record<string, string | undefined>;
   cvFileName?: string | null;
   cvFileData?: string | null;
+  isArchived?: boolean;
+  archivedAt?: string | null;
   pipelineStage: AtsPipelineStage;
   score?: AtsApplicantScore | null;
   submittedAt: string;
@@ -90,13 +79,4 @@ export interface AtsPipelineStageConfig {
 
 export interface AtsPipelineConfig {
   stages: AtsPipelineStageConfig[];
-}
-
-export interface AtsData {
-  tenants: AtsTenant[];
-  users: AtsUser[];
-  jobs: AtsJob[];
-  forms: AtsForm[];
-  applicants: AtsApplicant[];
-  pipelineConfig: AtsPipelineConfig;
 }

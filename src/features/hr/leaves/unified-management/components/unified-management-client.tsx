@@ -29,6 +29,7 @@ import {
 } from '@/features/hr/leaves/unified-management/lib/leaves-utils';
 import { useEmployees } from '@/features/hr/organization/employees/hooks/useEmployees';
 import { branchesApi, type BranchResponseDto } from '@/features/hr/organization/lib/api/branches';
+import { organizationActiveListStatusQuery } from '@/features/hr/organization/lib/archive-scope';
 import { resolveOrganizationScope } from '@/features/hr/organization/lib/api/organization-context';
 import type { UnifiedLeaveRecord, UnifiedLeaveType, LeaveStatus, UnifiedFilterState } from '@/features/hr/leaves/unified-management/types';
 import type { LeaveTypeResponseDto } from '@/features/hr/leaves/leave-types/lib/api/leave-types';
@@ -41,6 +42,15 @@ import {
 import type { ApiRequestType } from '@/features/hr/requests/lib/api/request-types';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
 import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
+import { useCurrentEmployee } from '@/features/hr/organization/employees/hooks/useCurrentEmployee';
+import { checkRequestApprovalAccess } from '@/features/hr/requests/lib/request-approval-access';
+import {
+  buildRequestCorrectionDecisionPayload,
+  isRequestFullyApproved,
+  normalizeRequestApproverStates,
+} from '@/features/hr/requests/lib/request-approver-states';
+import { RequestApproverStatesPanel } from '@/features/hr/requests/components/request-approver-states-panel';
+import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import { cn } from '@/shared/utils';
 import { toast } from 'sonner';
 import { DirectoryPagedViews, useServerDirectoryPagination } from '@/components/ui/paged-list';
@@ -160,14 +170,16 @@ function LeaveStatusBlock({ leave, compact = false }: { leave: UnifiedLeaveRecor
 
 function LeaveDecisionCell({
   leave,
+  currentEmployeeId,
   onApprove,
   onReject,
 }: {
   leave: UnifiedLeaveRecord;
+  currentEmployeeId: string | null;
   onApprove: (l: UnifiedLeaveRecord) => void;
   onReject: (l: UnifiedLeaveRecord) => void;
 }) {
-  const canAct = canActOnLeave(leave);
+  const canAct = canActOnLeave(leave, currentEmployeeId);
   const meta = leaveStatusMeta(leave);
 
   if (canAct) {
@@ -238,6 +250,7 @@ function mapApiLeave(r: ApiLeaveRequest, leaveTypes: LeaveTypeResponseDto[]): Un
     cancelledAt: r.cancelledAt ?? undefined,
     decidedByEmployeeId: r.decidedByEmployeeId,
     decisionNotesAr: r.decisionNotesAr ?? undefined,
+    approverStates: normalizeRequestApproverStates(r),
     approvalChain: [],
   };
 }
@@ -262,13 +275,20 @@ export function UnifiedManagementClient() {
   const employeesList = React.useMemo(() => employeesResult?.items ?? [], [employeesResult]);
 
   const companyId = useDefaultCompanyId();
+  const authUser = useAuthStore((s) => s.user);
+  const { data: currentEmployee } = useCurrentEmployee();
+  const currentEmployeeId = currentEmployee?.id ?? null;
+  const updatedByActor = authUser?.id ?? undefined;
 
   const [branches, setBranches] = React.useState<BranchResponseDto[]>([]);
   React.useEffect(() => {
     void (async () => {
       try {
         const scope = await resolveOrganizationScope();
-        const res = await branchesApi.getAll(scope.companyId ? { companyId: scope.companyId, limit: 200 } : { limit: 200 });
+        const res = await branchesApi.getAll({
+          ...(scope.companyId ? { companyId: scope.companyId, limit: 200 } : { limit: 200 }),
+          ...organizationActiveListStatusQuery(),
+        });
         setBranches(res.items.filter((b) => b.isActive));
       } catch {
         // silently ignore — branch filter stays empty
@@ -433,37 +453,69 @@ export function UnifiedManagementClient() {
     cancelled: filtered.filter((l) => l.status === 'cancelled').length,
   }), [filtered, pagination.total]);
 
-  const handleApprove = async (leave: UnifiedLeaveRecord) => {
-    const userId = useAuthStore.getState().user?.id ?? '';
+  const handleApprove = React.useCallback(async (leave: UnifiedLeaveRecord) => {
+    if (!companyId || !currentEmployeeId) return;
     try {
-      const updated = await leaveRequestsNewApi.decide(leave.id, {
-        decision: 'approve',
-        updatedBy: userId || undefined,
-      });
+      const access = await checkRequestApprovalAccess(
+        'leave',
+        companyId,
+        currentEmployeeId,
+        leave.approverStates,
+      );
+      if (!access.ok) {
+        toast.warning(access.message);
+        return;
+      }
+      const payload = buildRequestCorrectionDecisionPayload(
+        access.states,
+        currentEmployeeId,
+        'approve',
+        { updatedBy: updatedByActor },
+      );
+      const updated = await leaveRequestsNewApi.decide(leave.id, payload);
       const mapped = mapApiLeave(updated, leaveTypes);
       if (detailLeave?.id === leave.id) setDetailLeave(mapped);
       await reloadLeaves();
-      toast.success('تمت الموافقة على الطلب');
-    } catch {
-      toast.error('فشل اعتماد الطلب');
+      if (payload.approverStates && isRequestFullyApproved(payload.approverStates)) {
+        toast.success('تم اعتماد طلب الإجازة نهائياً.');
+      } else {
+        toast.success('تم تسجيل موافقتك — بانتظار بقية المعتمدين.');
+      }
+    } catch (err) {
+      const { displayMessage } = handleApiError(err, 'leave-requests.decide.approve');
+      toast.error(displayMessage);
     }
-  };
+  }, [companyId, currentEmployeeId, detailLeave?.id, leaveTypes, reloadLeaves, updatedByActor]);
 
-  const handleReject = async (leave: UnifiedLeaveRecord) => {
-    const userId = useAuthStore.getState().user?.id ?? '';
+  const handleReject = React.useCallback(async (leave: UnifiedLeaveRecord) => {
+    if (!companyId || !currentEmployeeId) return;
     try {
-      const updated = await leaveRequestsNewApi.decide(leave.id, {
-        decision: 'reject',
-        updatedBy: userId || undefined,
-      });
+      const access = await checkRequestApprovalAccess(
+        'leave',
+        companyId,
+        currentEmployeeId,
+        leave.approverStates,
+      );
+      if (!access.ok) {
+        toast.warning(access.message);
+        return;
+      }
+      const payload = buildRequestCorrectionDecisionPayload(
+        access.states,
+        currentEmployeeId,
+        'reject',
+        { updatedBy: updatedByActor },
+      );
+      const updated = await leaveRequestsNewApi.decide(leave.id, payload);
       const mapped = mapApiLeave(updated, leaveTypes);
       if (detailLeave?.id === leave.id) setDetailLeave(mapped);
       await reloadLeaves();
-      toast.message('تم رفض الطلب');
-    } catch {
-      toast.error('فشل رفض الطلب');
+      toast.message('تم رفض الطلب.');
+    } catch (err) {
+      const { displayMessage } = handleApiError(err, 'leave-requests.decide.reject');
+      toast.error(displayMessage);
     }
-  };
+  }, [companyId, currentEmployeeId, detailLeave?.id, leaveTypes, reloadLeaves, updatedByActor]);
 
   const activeFilterCount =
     (branchId !== 'all' ? 1 : 0) + (departmentId !== 'all' ? 1 : 0) +
@@ -542,8 +594,8 @@ export function UnifiedManagementClient() {
       >
         {(pageItems) => (
           view === 'table'
-            ? <LeaveTable leaves={pageItems} employees={employeesList} branches={branches} onDetail={setDetailLeave} onApprove={handleApprove} onReject={handleReject} />
-            : <LeaveCardGrid leaves={pageItems} employees={employeesList} onDetail={setDetailLeave} onApprove={handleApprove} onReject={handleReject} />
+            ? <LeaveTable leaves={pageItems} employees={employeesList} branches={branches} currentEmployeeId={currentEmployeeId} onDetail={setDetailLeave} onApprove={handleApprove} onReject={handleReject} />
+            : <LeaveCardGrid leaves={pageItems} employees={employeesList} currentEmployeeId={currentEmployeeId} onDetail={setDetailLeave} onApprove={handleApprove} onReject={handleReject} />
         )}
       </DirectoryPagedViews>
 
@@ -554,8 +606,6 @@ export function UnifiedManagementClient() {
           employees={employeesList}
           open={!!detailLeave}
           onClose={() => setDetailLeave(null)}
-          onApprove={() => handleApprove(detailLeave)}
-          onReject={() => handleReject(detailLeave)}
           onEdit={() => { setEditLeave(detailLeave); setAddOpen(true); setDetailLeave(null); }}
         />
       )}
@@ -582,10 +632,11 @@ export function UnifiedManagementClient() {
 
 // ─── Leave table ──────────────────────────────────────────────────────────────
 
-function LeaveTable({ leaves, employees, branches, onDetail, onApprove, onReject }: {
+function LeaveTable({ leaves, employees, branches, currentEmployeeId, onDetail, onApprove, onReject }: {
   leaves: UnifiedLeaveRecord[];
   employees: { id: string; nameAr: string }[];
   branches: BranchResponseDto[];
+  currentEmployeeId: string | null;
   onDetail: (l: UnifiedLeaveRecord) => void;
   onApprove: (l: UnifiedLeaveRecord) => void;
   onReject: (l: UnifiedLeaveRecord) => void;
@@ -665,7 +716,7 @@ function LeaveTable({ leaves, employees, branches, onDetail, onApprove, onReject
       title: 'قرار',
       isActions: true,
       className: 'min-w-[7rem]',
-      render: (l) => <LeaveDecisionCell leave={l} onApprove={onApprove} onReject={onReject} />,
+      render: (l) => <LeaveDecisionCell leave={l} currentEmployeeId={currentEmployeeId} onApprove={onApprove} onReject={onReject} />,
     },
   ];
 
@@ -679,7 +730,7 @@ function LeaveTable({ leaves, employees, branches, onDetail, onApprove, onReject
       mobileCard={(l) => {
         const name = employeeDisplayName(l, employees);
         const typeCfg = TYPE_STYLE[l.type];
-        const canAct = canActOnLeave(l);
+        const canAct = canActOnLeave(l, currentEmployeeId);
         return (
           <div className="space-y-3">
             <div className="flex items-center justify-between gap-2">
@@ -716,6 +767,7 @@ function LeaveTable({ leaves, employees, branches, onDetail, onApprove, onReject
                 </Button>
               </div>
             )}
+            <RequestApproverStatesPanel states={l.approverStates} compact className="border-0 bg-transparent p-0" />
           </div>
         );
       }}
@@ -725,9 +777,10 @@ function LeaveTable({ leaves, employees, branches, onDetail, onApprove, onReject
 
 // ─── Card grid view ────────────────────────────────────────────────────────────
 
-function LeaveCardGrid({ leaves, employees, onDetail, onApprove, onReject }: {
+function LeaveCardGrid({ leaves, employees, currentEmployeeId, onDetail, onApprove, onReject }: {
   leaves: UnifiedLeaveRecord[];
   employees: { id: string; nameAr: string }[];
+  currentEmployeeId: string | null;
   onDetail: (l: UnifiedLeaveRecord) => void;
   onApprove: (l: UnifiedLeaveRecord) => void;
   onReject: (l: UnifiedLeaveRecord) => void;
@@ -746,7 +799,7 @@ function LeaveCardGrid({ leaves, employees, onDetail, onApprove, onReject }: {
       {leaves.map((l) => {
         const name = employeeDisplayName(l, employees);
         const typeCfg = TYPE_STYLE[l.type];
-        const canAct = canActOnLeave(l);
+        const canAct = canActOnLeave(l, currentEmployeeId);
         const meta = leaveStatusMeta(l);
         return (
           <EntityActionCard
@@ -780,14 +833,34 @@ function LeaveCardGrid({ leaves, employees, onDetail, onApprove, onReject }: {
               </EntityActionCardMetricsRow>
             }
             description={l.noteAr}
-            workflow={
-              canAct
-                ? {
-                    showApproveReject: true,
-                    onApprove: () => onApprove(l),
-                    onReject: () => onReject(l),
-                  }
-                : undefined
+            children={
+              <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
+                {canAct ? (
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 flex-1 text-xs text-success border-success/30 hover:bg-success/10"
+                      onClick={() => onApprove(l)}
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5 me-1" />
+                      موافقة
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 flex-1 text-xs text-destructive border-destructive/30 hover:bg-destructive/10"
+                      onClick={() => onReject(l)}
+                    >
+                      <XCircle className="h-3.5 w-3.5 me-1" />
+                      رفض
+                    </Button>
+                  </div>
+                ) : null}
+                {l.approverStates ? (
+                  <RequestApproverStatesPanel states={l.approverStates} compact className="border-0 bg-transparent p-0" />
+                ) : null}
+              </div>
             }
           />
         );
@@ -798,18 +871,15 @@ function LeaveCardGrid({ leaves, employees, onDetail, onApprove, onReject }: {
 
 // ─── Leave detail dialog ───────────────────────────────────────────────────────
 
-function LeaveDetailDialog({ leave, employees, open, onClose, onApprove, onReject, onEdit }: {
+function LeaveDetailDialog({ leave, employees, open, onClose, onEdit }: {
   leave: UnifiedLeaveRecord;
   employees: { id: string; nameAr: string }[];
   open: boolean;
   onClose: () => void;
-  onApprove: () => void;
-  onReject: () => void;
   onEdit: () => void;
 }) {
   const name = employeeDisplayName(leave, employees);
   const typeCfg = TYPE_STYLE[leave.type];
-  const canAct = canActOnLeave(leave);
   const statusMeta = leaveStatusMeta(leave);
 
   return (
@@ -865,6 +935,8 @@ function LeaveDetailDialog({ leave, employees, open, onClose, onApprove, onRejec
 
           <Separator />
 
+          <RequestApproverStatesPanel states={leave.approverStates} />
+
           <div>
             <p className="mb-3 text-sm font-semibold">القرار</p>
             {leave.status === 'pending' ? (
@@ -905,12 +977,6 @@ function LeaveDetailDialog({ leave, employees, open, onClose, onApprove, onRejec
         </div>
 
         <DialogFooter className={dialogFormFooterClass}>
-          {canAct && (
-            <>
-              <Button variant="luxe" onClick={() => { onApprove(); onClose(); }}>موافقة</Button>
-              <Button variant="destructive" onClick={() => { onReject(); onClose(); }}>رفض</Button>
-            </>
-          )}
           <Button variant="outline" onClick={onEdit}>تعديل</Button>
           <Button variant="outline" onClick={onClose}>إغلاق</Button>
         </DialogFooter>

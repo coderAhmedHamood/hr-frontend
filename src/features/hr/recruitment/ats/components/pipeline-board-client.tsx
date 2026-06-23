@@ -1,12 +1,23 @@
 'use client';
 
 import * as React from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Users } from 'lucide-react';
-import { useAtsStore } from '@/features/hr/recruitment/lib/ats/store';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { toast } from 'sonner';
+import {
+  useRecruitmentApplicantsList,
+  useRecruitmentJobFormsMap,
+  useRecruitmentJobPipeline,
+  useRecruitmentJobsList,
+  useRecruitmentMutations,
+} from '@/features/hr/recruitment/hooks/useRecruitment';
+import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import type { AtsPipelineStage } from '@/features/hr/recruitment/lib/ats/types';
 import { getApplicantName, getInitials } from '@/features/hr/recruitment/lib/ats/utils';
 import { ATS_STAGE_BADGE, ATS_STAGE_LABELS, scoreBarTone } from '@/features/hr/recruitment/lib/ats/stage-styles';
 import { statusDotClass } from '@/shared/status-pill-classes';
+import { RecruitmentJobNav } from '@/features/hr/recruitment/ats/components/recruitment-job-nav';
 
 interface StageConfig {
   label: string;
@@ -28,10 +39,54 @@ const STAGES: Record<AtsPipelineStage, StageConfig> = {
 const STAGE_ORDER = Object.keys(STAGES) as AtsPipelineStage[];
 
 export function PipelineBoardClient() {
-  const { getTenantApplicants, getTenantJobs, getTenantForms, moveApplicantStage } = useAtsStore();
-  const applicants = getTenantApplicants();
-  const jobs = getTenantJobs();
-  const forms = getTenantForms();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const urlJobId = searchParams.get('jobId') ?? '';
+
+  const [jobFilter, setJobFilter] = React.useState<string>(urlJobId || 'all');
+  const { moveApplicantStage: moveStageMutation } = useRecruitmentMutations();
+  const { data: jobsData } = useRecruitmentJobsList();
+  const jobs = jobsData?.jobs ?? [];
+  const { formById } = useRecruitmentJobFormsMap(jobs.map((j) => j.id));
+
+  const { data: allApplicants = [] } = useRecruitmentApplicantsList(
+    jobFilter === 'all' ? {} : { jobId: jobFilter },
+  );
+  const { data: pipelineByJob } = useRecruitmentJobPipeline(
+    jobFilter !== 'all' ? jobFilter : undefined,
+  );
+
+  React.useEffect(() => {
+    if (urlJobId) setJobFilter(urlJobId);
+  }, [urlJobId]);
+
+  const applicantsByStage = React.useMemo(() => {
+    if (jobFilter !== 'all' && pipelineByJob) {
+      return pipelineByJob;
+    }
+    const grouped = {
+      applied: [],
+      screening: [],
+      interview: [],
+      technical: [],
+      offer: [],
+      hired: [],
+      rejected: [],
+    } as Record<AtsPipelineStage, typeof allApplicants>;
+    for (const app of allApplicants) {
+      grouped[app.pipelineStage]?.push(app);
+    }
+    return grouped;
+  }, [allApplicants, jobFilter, pipelineByJob]);
+
+  const updateJobFilter = (value: string) => {
+    setJobFilter(value);
+    const params = new URLSearchParams(searchParams.toString());
+    if (value === 'all') params.delete('jobId');
+    else params.set('jobId', value);
+    const qs = params.toString();
+    router.replace(qs ? `/hr/recruitment/ats-pipeline?${qs}` : '/hr/recruitment/ats-pipeline');
+  };
 
   const [draggingId, setDraggingId] = React.useState<string | null>(null);
   const [dropStage, setDropStage] = React.useState<AtsPipelineStage | null>(null);
@@ -47,21 +102,53 @@ export function PipelineBoardClient() {
     setDropStage(stage);
   };
 
-  const handleDrop = (e: React.DragEvent, stage: AtsPipelineStage) => {
+  const handleDrop = async (e: React.DragEvent, stage: AtsPipelineStage) => {
     e.preventDefault();
     const id = e.dataTransfer.getData('text/plain');
-    if (id) moveApplicantStage(id, stage);
+    if (id) {
+      try {
+        await moveStageMutation.mutateAsync({ id, dto: { pipelineStage: stage } });
+        toast.success(`تم نقل المتقدم إلى: ${ATS_STAGE_LABELS[stage]}`);
+      } catch (err) {
+        const { displayMessage } = handleApiError(err, 'recruitment.applicants.stage');
+        toast.error(displayMessage);
+      }
+    }
     setDraggingId(null);
     setDropStage(null);
   };
 
   const handleDragEnd = () => { setDraggingId(null); setDropStage(null); };
 
+  const selectedJob = jobFilter !== 'all' ? jobs.find((j) => j.id === jobFilter) : undefined;
+
   return (
     <div className="space-y-4 animate-fade-in">
-      <div>
-        <h2 className="text-lg font-semibold">مسار التوظيف</h2>
-        <p className="text-xs text-muted-foreground">اسحب البطاقات بين الأعمدة لتحديث المرحلة</p>
+      <RecruitmentJobNav
+        jobId={jobFilter !== 'all' ? jobFilter : undefined}
+        active="pipeline"
+      />
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-lg font-semibold">مسار التوظيف</h2>
+          <p className="text-xs text-muted-foreground">
+            {selectedJob
+              ? `متابعة متقدمين: ${selectedJob.title}`
+              : 'اسحب البطاقات بين الأعمدة لتحديث المرحلة'}
+          </p>
+        </div>
+        <Select value={jobFilter} onValueChange={updateJobFilter}>
+          <SelectTrigger className="h-9 w-full text-xs sm:w-56">
+            <SelectValue placeholder="تصفية حسب الوظيفة" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">جميع الوظائف</SelectItem>
+            {jobs.map((j) => (
+              <SelectItem key={j.id} value={j.id}>{j.title}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Board — horizontal scroll */}
@@ -69,7 +156,7 @@ export function PipelineBoardClient() {
         <div className="flex gap-3" style={{ minWidth: 'max-content' }}>
           {STAGE_ORDER.map((stage) => {
             const cfg = STAGES[stage];
-            const stageApps = applicants.filter((a) => a.pipelineStage === stage);
+            const stageApps = applicantsByStage[stage] ?? [];
             const isDropTarget = dropStage === stage && draggingId !== null;
 
             return (
@@ -94,7 +181,7 @@ export function PipelineBoardClient() {
                 {/* Cards */}
                 <div className="flex flex-1 flex-col gap-2 p-2 min-h-48">
                   {stageApps.map((app) => {
-                    const form = forms.find((f) => f.id === app.formId);
+                    const form = formById.get(app.formId);
                     const name = form ? getApplicantName(app, form.fields) : 'متقدم';
                     const initials = getInitials(name);
                     const jobTitle = jobs.find((j) => j.id === app.jobId)?.title;
@@ -106,8 +193,15 @@ export function PipelineBoardClient() {
                         draggable
                         onDragStart={(e) => handleDragStart(e, app.id)}
                         onDragEnd={handleDragEnd}
-                        className={`group rounded-lg border border-border bg-card px-3 py-2.5 shadow-soft transition-all select-none
-                          ${isDragging ? 'opacity-30 scale-95 rotate-1' : 'cursor-grab hover:shadow-elevated hover:-translate-y-px'}`}
+                        onClick={() => {
+                          const params = new URLSearchParams();
+                          if (jobFilter !== 'all') params.set('jobId', jobFilter);
+                          else params.set('jobId', app.jobId);
+                          params.set('detail', app.id);
+                          router.push(`/hr/recruitment/ats-applicants?${params.toString()}`);
+                        }}
+                        className={`group rounded-lg border border-border bg-card px-3 py-2.5 shadow-soft transition-all select-none cursor-pointer
+                          ${isDragging ? 'opacity-30 scale-95 rotate-1' : 'hover:shadow-elevated hover:-translate-y-px'}`}
                       >
                         <div className="flex items-center gap-2">
                           <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">
@@ -115,7 +209,9 @@ export function PipelineBoardClient() {
                           </div>
                           <div className="min-w-0">
                             <p className="truncate text-xs font-semibold leading-tight">{name}</p>
-                            {jobTitle && <p className="truncate text-[10px] text-muted-foreground">{jobTitle}</p>}
+                            {jobFilter === 'all' && jobTitle && (
+                              <p className="truncate text-[10px] text-muted-foreground">{jobTitle}</p>
+                            )}
                           </div>
                         </div>
                         {app.score ? (

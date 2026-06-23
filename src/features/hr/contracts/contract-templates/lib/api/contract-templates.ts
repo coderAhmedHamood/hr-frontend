@@ -1,4 +1,5 @@
 import { apiRequest, type PaginatedResult } from '@/features/hr/lib/api/client';
+import type { OrganizationArchiveScope } from '@/features/hr/organization/lib/archive-scope';
 import type {
   ContractTemplateDto,
   CreateContractTemplateDto,
@@ -13,6 +14,7 @@ export const contractTemplatesApi = {
     defaultWorkArrangement?: string;
     page?: number;
     limit?: number;
+    archiveScope?: OrganizationArchiveScope;
   }) =>
     apiRequest<PaginatedResult<ContractTemplateDto>>('/payroll/contract-templates', {
       query: params as Record<string, string | number | boolean | null | undefined>,

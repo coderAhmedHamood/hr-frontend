@@ -22,6 +22,7 @@ import { branchesApi, type BranchResponseDto } from '@/features/hr/organization/
 import { departmentsApi, type DepartmentResponseDto } from '@/features/hr/organization/lib/api/departments';
 import { companiesApi, type CompanyResponseDto } from '@/features/hr/organization/lib/api/companies';
 import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
+import { organizationActiveListStatusQuery } from '@/features/hr/organization/lib/archive-scope';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
 import { getCompanyAccessLabel } from '@/features/auth/types/access-profile';
 
@@ -147,8 +148,8 @@ export function NewEmployeeDrawer({ open, onOpenChange, onCreated }: Props) {
     void (async () => {
       try {
         const [br, dp] = await Promise.all([
-          branchesApi.getAll({ companyId: form.companyId, limit: 200 }),
-          departmentsApi.getAll({ companyId: form.companyId, limit: 200 }),
+          branchesApi.getAll({ companyId: form.companyId, limit: 200, ...organizationActiveListStatusQuery() }),
+          departmentsApi.getAll({ companyId: form.companyId, limit: 200, ...organizationActiveListStatusQuery() }),
         ]);
         if (!cancelled) {
           setBranches(br.items);

@@ -27,8 +27,9 @@ export function AppEntityFilterRegion({ className }: { className?: string }) {
   // filter bar in the same micro-task — no extra effect cycle needed.
   React.useLayoutEffect(() => {
     reRenderSlotRef.current = () => {
-      // Only open when content is being registered, not when it's cleared.
-      if (!excluded && renderFnRef.current !== null) setFilterPanelOpen(true);
+      if (!excluded && renderFnRef.current !== null) {
+        setFilterPanelOpen((prev) => prev || true);
+      }
       forceUpdate();
     };
     return () => { reRenderSlotRef.current = null; };

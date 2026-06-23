@@ -1,6 +1,25 @@
 import { apiRequest, type PaginatedResult } from '@/features/hr/lib/api/client';
+import type { ApprovalMode } from '@/features/hr/discipline/lib/api/discipline-approval-templates';
 
 export type ViolationRecordStatus = 'pending' | 'approved' | 'rejected' | 'needs_edit';
+
+export type ViolationApproverEntryStatus = 'pending' | 'approved' | 'rejected';
+
+export type ViolationApproverStateEntry = {
+  employeeId: string;
+  employeeNameAr: string;
+  sortOrder: number;
+  status: ViolationApproverEntryStatus;
+  decidedAt: string | null;
+  decidedBy: string | null;
+  notes: string | null;
+};
+
+export type ViolationApproverStatesSnapshot = {
+  assignmentId: string;
+  approvalMode: ApprovalMode;
+  approvers: ViolationApproverStateEntry[];
+};
 
 export type ViolationTypeSummaryDto = {
   id: string;
@@ -49,6 +68,8 @@ export type ViolationRecordResponseDto = {
   decisionNotes?: string | null;
   decidedAt?: string | null;
   decidedBy?: string | null;
+  approverStates?: ViolationApproverStatesSnapshot | null;
+  approver_states?: ViolationApproverStatesSnapshot | null;
   investigations?: ViolationInvestigationDto[];
   createdAt: string;
   updatedAt: string;
@@ -66,6 +87,8 @@ export type UpdateViolationRecordDto = {
 
 export type DecideViolationRecordDto = {
   decision: 'approve' | 'reject';
+  approverStates?: ViolationApproverStatesSnapshot;
+  approverEmployeeId?: string;
   notes?: string | null;
   decidedBy?: string | null;
 };

@@ -7,6 +7,7 @@ import { useSetPageTitle } from '@/components/layouts/page-title-context';
 import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
+import { ArchiveScopeToggleButton } from '@/components/layouts/archive-scope-toggle-button';
 import { EntityFilterToolbar } from '@/components/ui/entity-filter-toolbar';
 import { PermissionGate } from '@/components/shared/permission-gate';
 import { branchesApi } from '@/features/hr/organization/lib/api/branches';
@@ -23,6 +24,13 @@ import {
   type UpdateUserDto,
 } from '@/features/hr/organization/lib/api/users';
 import type { BranchResponseDto } from '@/features/hr/organization/lib/api/branches';
+import {
+  ORGANIZATION_ARCHIVE_SCOPE_DEFAULT,
+  ORGANIZATION_ARCHIVE_SCOPE_OPTIONS,
+  organizationActiveListStatusQuery,
+  organizationListStatusQuery,
+  type OrganizationArchiveScope,
+} from '@/features/hr/organization/lib/archive-scope';
 import {
   EMPTY_USER_FORM,
   userToDraftForm,
@@ -65,6 +73,9 @@ export function useContactsDirectoryModel() {
   const [listError, setListError] = React.useState<string | null>(null);
 
   const [layoutView, setLayoutView] = React.useState<'grid' | 'table'>('table');
+  const [archiveScope, setArchiveScope] = React.useState<OrganizationArchiveScope>(
+    ORGANIZATION_ARCHIVE_SCOPE_DEFAULT,
+  );
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   const [editId, setEditId] = React.useState<string | null>(null);
   const [form, setForm] = React.useState<UserDraftForm>(EMPTY_USER_FORM);
@@ -80,7 +91,7 @@ export function useContactsDirectoryModel() {
     }
     let cancelled = false;
     void branchesApi
-      .getAll({ companyId: defaultCompanyId, limit: 200 })
+      .getAll({ companyId: defaultCompanyId, limit: 200, ...organizationActiveListStatusQuery() })
       .then((res) => {
         if (!cancelled) setBranches(res.items);
       })
@@ -95,7 +106,9 @@ export function useContactsDirectoryModel() {
   const loadBulk = React.useCallback(async () => {
     setListError(null);
     try {
-      const res = await fetchAllPaginatedItems((page, limit) => usersApi.getAll({ page, limit }));
+      const res = await fetchAllPaginatedItems((page, limit) =>
+        usersApi.getAll({ page, limit, ...organizationListStatusQuery(archiveScope) }),
+      );
       const scopedUsers = defaultCompanyId
         ? res.items.filter((u) => userBelongsToCompany(u, defaultCompanyId))
         : res.items;
@@ -105,7 +118,7 @@ export function useContactsDirectoryModel() {
       setListError(displayMessage);
       return { items: [], total: 0 };
     }
-  }, [defaultCompanyId]);
+  }, [archiveScope, defaultCompanyId]);
 
   const {
     items: pagedUsers,
@@ -114,7 +127,7 @@ export function useContactsDirectoryModel() {
     reload: reloadList,
   } = useServerDirectoryPagination<UserRecord>(
     async () => ({ items: [], total: 0 }),
-    { bulkMode: true, loadBulk, resetDeps: [defaultCompanyId] },
+    { bulkMode: true, loadBulk, resetDeps: [defaultCompanyId, archiveScope] },
   );
 
   const patchUserInList = React.useCallback((updated: UserResponseDto) => {
@@ -214,6 +227,7 @@ export function useContactsDirectoryModel() {
   usePageHeaderActions(
     () => (
       <div className="flex items-center gap-2">
+        <ArchiveScopeToggleButton scope={archiveScope} onScopeChange={setArchiveScope} />
         <FilterToggleButton />
         <PermissionGate permission="hr.employees.create">
           <Button variant="luxe" size="sm" className="h-8 gap-2" onClick={openCreate}>
@@ -222,7 +236,7 @@ export function useContactsDirectoryModel() {
         </PermissionGate>
       </div>
     ),
-    [openCreate],
+    [archiveScope, openCreate],
   );
 
   useEntityFilterSlot(
@@ -232,6 +246,15 @@ export function useContactsDirectoryModel() {
         showStatusSection={false}
         showEmployeePicker={false}
         onDateBoundsChange={() => {}}
+        inlineSelects={[
+          {
+            id: 'archive',
+            value: archiveScope,
+            onChange: (v) => setArchiveScope(v as OrganizationArchiveScope),
+            placeholder: 'العرض',
+            options: ORGANIZATION_ARCHIVE_SCOPE_OPTIONS.map((o) => ({ value: o.value, label: o.label })),
+          },
+        ]}
         dataView={{
           value: layoutView,
           onChange: (v) => setLayoutView(v as 'grid' | 'table'),
@@ -242,7 +265,7 @@ export function useContactsDirectoryModel() {
         }}
       />
     ),
-    [layoutView],
+    [archiveScope, layoutView],
   );
 
   return {

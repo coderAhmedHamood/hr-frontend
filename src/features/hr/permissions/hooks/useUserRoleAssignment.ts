@@ -4,6 +4,7 @@ import * as React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { userRolesApi } from '@/features/hr/permissions/lib/api/user-roles';
 import { usersApi, type UserResponseDto } from '@/features/hr/organization/lib/api/users';
+import { organizationActiveListStatusQuery } from '@/features/hr/organization/lib/archive-scope';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 
 export function useUsersForRole(roleId: string | null) {
@@ -12,7 +13,7 @@ export function useUsersForRole(roleId: string | null) {
 
   const usersQuery = useQuery({
     queryKey: ['users', 'list'],
-    queryFn: () => usersApi.getAll({ limit: 200 }),
+    queryFn: () => usersApi.getAll({ limit: 200, ...organizationActiveListStatusQuery() }),
     staleTime: 5 * 60 * 1000,
   });
 
@@ -20,7 +21,7 @@ export function useUsersForRole(roleId: string | null) {
     queryKey: ['role-users', roleId],
     queryFn: async () => {
       if (!roleId) return { items: [] };
-      const all = await usersApi.getAll({ limit: 200 });
+      const all = await usersApi.getAll({ limit: 200, ...organizationActiveListStatusQuery() });
       const results = await Promise.all(
         all.items.map((u) =>
           userRolesApi.list(u.id).then((r) => ({ userId: u.id, assignments: r.items })),

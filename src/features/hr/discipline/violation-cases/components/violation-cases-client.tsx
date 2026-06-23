@@ -58,6 +58,15 @@ import { ViolationInvestigationDrawer } from '@/features/hr/discipline/investiga
 import { disciplineAppealsApi } from '@/features/hr/discipline/lib/api/discipline-appeals';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
+import { useCurrentEmployee } from '@/features/hr/organization/employees/hooks/useCurrentEmployee';
+import { checkViolationApprovalAccess } from '@/features/hr/discipline/lib/violation-approval-access';
+import {
+  buildViolationDecisionPayload,
+  canEmployeeActOnViolationApproval,
+  isEmployeeInViolationApproverStates,
+  isViolationFullyApproved,
+} from '@/features/hr/discipline/lib/violation-approver-states';
+import { ViolationApproverStatesPanel } from '@/features/hr/discipline/violation-cases/components/violation-approver-states-panel';
 import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 import { useDefaultCompany } from '@/features/hr/organization/hooks/useActiveCompany';
 import { DataTable, type ColumnDef } from '@/components/ui/data-table';
@@ -342,6 +351,10 @@ export function ViolationCasesClient() {
   const { employees, violationTypes, loading, listError, createCase, updateCase, decideCase, deleteCase, reload, setListFilters, items, pagination, filteredItems, sourceCases } = hook;
   const companyId = useDefaultCompanyId() ?? '';
   const { data: defaultCompany } = useDefaultCompany();
+  const { data: currentEmployee } = useCurrentEmployee();
+  const currentEmployeeId = currentEmployee?.id ?? null;
+  const authUser = useAuthStore((s) => s.user);
+  const decidedByActor = authUser?.email ?? authUser?.id ?? null;
   const companyNameAr = defaultCompany?.nameAr ?? '';
   const companyNameEn = defaultCompany?.nameEn ?? '';
 
@@ -533,20 +546,73 @@ export function ViolationCasesClient() {
     }
   };
 
-  const handleApprove = async (c: ViolationCaseRecord) => {
+  const requestViolationApprovalAccess = React.useCallback(async (c: ViolationCaseRecord) => {
+    const access = await checkViolationApprovalAccess(
+      c.violationTypeId,
+      currentEmployeeId,
+      c.approverStates,
+    );
+    if (!access.ok) {
+      toast.warning(access.message);
+      return null;
+    }
+    return access;
+  }, [currentEmployeeId]);
+
+  const handleApprove = React.useCallback(async (c: ViolationCaseRecord) => {
+    if (!currentEmployeeId) return;
     try {
-      await decideCase(c.id, { decision: 'approve' });
-      toast.success(`تمت الموافقة على ${c.caseNumber}`);
+      const access = await requestViolationApprovalAccess(c);
+      if (!access) return;
+      const payload = buildViolationDecisionPayload(
+        access.states,
+        currentEmployeeId,
+        'approve',
+        { decidedBy: decidedByActor },
+      );
+      await decideCase(c.id, payload);
+      const updatedStates = payload.approverStates;
+      if (updatedStates && isViolationFullyApproved(updatedStates)) {
+        toast.success(`تمت الموافقة النهائية على ${c.caseNumber}`);
+      } else {
+        toast.success('تم تسجيل موافقتك — بانتظار بقية المعتمدين');
+      }
     } catch (err) {
       const { displayMessage } = handleApiError(err, 'violation-records.decide.approve');
       toast.error(displayMessage);
     }
-  };
+  }, [currentEmployeeId, decideCase, decidedByActor, requestViolationApprovalAccess]);
+
+  const openRejectDialog = React.useCallback(async (c: ViolationCaseRecord) => {
+    try {
+      if (!(await requestViolationApprovalAccess(c))) return;
+      setRejectNote('');
+      setRejectCase(c);
+    } catch (err) {
+      const { displayMessage } = handleApiError(err, 'discipline-approval-assignments.by-violation-type');
+      toast.error(displayMessage);
+    }
+  }, [requestViolationApprovalAccess]);
 
   const handleReject = async () => {
-    if (!rejectCase) return;
+    if (!rejectCase || !currentEmployeeId) return;
     try {
-      await decideCase(rejectCase.id, { decision: 'reject', notes: rejectNote.trim() || null });
+      const access = await checkViolationApprovalAccess(
+        rejectCase.violationTypeId,
+        currentEmployeeId,
+        rejectCase.approverStates,
+      );
+      if (!access.ok) {
+        toast.warning(access.message);
+        return;
+      }
+      const payload = buildViolationDecisionPayload(
+        access.states,
+        currentEmployeeId,
+        'reject',
+        { notes: rejectNote, decidedBy: decidedByActor },
+      );
+      await decideCase(rejectCase.id, payload);
       toast.success('تم رفض المخالفة');
     } catch (err) {
       const { displayMessage } = handleApiError(err, 'violation-records.decide.reject');
@@ -649,20 +715,23 @@ export function ViolationCasesClient() {
       render: (c) => {
         const canMutate = canMutateViolationCase(c.status);
         const canFollowUp = canAddDisciplineFollowUp(c.status);
+        const isCurrentUserApprover = isEmployeeInViolationApproverStates(c.approverStates, currentEmployeeId);
+        const canCurrentUserApprove = canEmployeeActOnViolationApproval(c.approverStates, currentEmployeeId);
+        const showMutateActions = !isCurrentUserApprover;
         const menuItems = [
-          ...(canMutate
+          ...(showMutateActions && canMutate
             ? [{ label: 'تعديل', onClick: () => openEdit(c), icon: <Edit3 className="h-3.5 w-3.5" /> }]
             : []),
-          ...(canFollowUp && c.typeNeedsWarning
+          ...(showMutateActions && canFollowUp && c.typeNeedsWarning
             ? [{ label: 'إنذار', onClick: () => setNoticeCase(c), icon: <AlertTriangle className="h-3.5 w-3.5" /> }]
             : []),
-          ...(canFollowUp && c.typeNeedsInvestigation
+          ...(showMutateActions && canFollowUp && c.typeNeedsInvestigation
             ? [{ label: 'تحقيق', onClick: () => setInvestigationCase(c), icon: <Search className="h-3.5 w-3.5" /> }]
             : []),
-          ...(canFollowUp
+          ...(showMutateActions && canFollowUp
             ? [{ label: 'تظلم', onClick: () => setAppealCase(c), icon: <Scale className="h-3.5 w-3.5" /> }]
             : []),
-          ...(canMutate
+          ...(showMutateActions && canMutate
             ? [{
                 label: 'حذف',
                 onClick: () => setDeleteId(c.id),
@@ -674,16 +743,16 @@ export function ViolationCasesClient() {
         ];
         return (
           <TableRowActions
-            primaryActions={c.status === 'pending' ? [
+            primaryActions={c.status === 'pending' && canCurrentUserApprove ? [
               { label: 'موافقة', variant: 'success', icon: <CheckCircle2 className="h-3.5 w-3.5" />, onClick: () => void handleApprove(c) },
-              { label: 'رفض', variant: 'destructive', icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => { setRejectNote(''); setRejectCase(c); } },
+              { label: 'رفض', variant: 'destructive', icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => void openRejectDialog(c) },
             ] : []}
             menuItems={menuItems}
           />
         );
       },
     },
-  ], [violationTypes]);
+  ], [violationTypes, handleApprove, openRejectDialog, currentEmployeeId]);
 
   useEntityFilterSlot(
     () => (
@@ -717,7 +786,7 @@ export function ViolationCasesClient() {
         onDateFilterMetaChange={onDateFilterMetaChange}
       />
     ),
-    [empPickerList, selectedEmpIds, statusFilter, statusCounts, viewMode, violationPdfRows, onDateBoundsChange, onDateFilterMetaChange],
+    [empPickerList, selectedEmpIds, statusFilter, statusCounts, viewMode, onDateBoundsChange, onDateFilterMetaChange],
   );
 
   if (loading) {
@@ -752,6 +821,9 @@ export function ViolationCasesClient() {
           <EntityActionCardGrid>
             {items.map((c) => {
             const isPending = c.status === 'pending';
+            const isCurrentUserApprover = isEmployeeInViolationApproverStates(c.approverStates, currentEmployeeId);
+            const canCurrentUserApprove = canEmployeeActOnViolationApproval(c.approverStates, currentEmployeeId);
+            const showMutateActions = !isCurrentUserApprover;
             return (
               <EntityActionCard
                 key={c.id}
@@ -764,6 +836,11 @@ export function ViolationCasesClient() {
                   label: STATUS_LABELS[c.status],
                   tone: VIOLATION_STATUS_TONE[c.status],
                 }}
+                children={
+                  c.approverStates ? (
+                    <ViolationApproverStatesPanel states={c.approverStates} compact className="mt-2 border-0 bg-transparent p-0" />
+                  ) : undefined
+                }
                 chips={
                   <>
                     <EntityActionCardChip className="font-mono tabular-nums">
@@ -803,18 +880,18 @@ export function ViolationCasesClient() {
                   ) : undefined
                 }
                 workflow={
-                  isPending
+                  isPending && canCurrentUserApprove
                     ? {
                         showApproveReject: true,
                         onApprove: () => void handleApprove(c),
-                        onReject: () => { setRejectNote(''); setRejectCase(c); },
+                        onReject: () => void openRejectDialog(c),
                       }
                     : undefined
                 }
-                onEdit={canMutateViolationCase(c.status) ? () => openEdit(c) : undefined}
-                onDelete={canMutateViolationCase(c.status) ? () => setDeleteId(c.id) : undefined}
+                onEdit={showMutateActions && canMutateViolationCase(c.status) ? () => openEdit(c) : undefined}
+                onDelete={showMutateActions && canMutateViolationCase(c.status) ? () => setDeleteId(c.id) : undefined}
                 extraFooter={
-                  canAddDisciplineFollowUp(c.status) ? (
+                  showMutateActions && canAddDisciplineFollowUp(c.status) ? (
                     <div className="flex gap-1">
                       {c.typeNeedsWarning ? (
                         <Button variant="ghost" size="sm" type="button"
@@ -941,6 +1018,7 @@ export function ViolationCasesClient() {
                   needsInvestigation={viewCase.typeNeedsInvestigation}
                 />
               ) : null}
+              <ViolationApproverStatesPanel states={viewCase.approverStates} />
               <div><span className="text-muted-foreground text-xs">الوصف</span><p className="mt-1">{viewCase.description}</p></div>
               {viewCase.notes && <div><span className="text-muted-foreground text-xs">ملاحظات</span><p className="mt-1">{viewCase.notes}</p></div>}
               {viewCase.attachmentsNote && <div><span className="text-muted-foreground text-xs">المرفقات</span><p className="mt-1">{viewCase.attachmentsNote}</p></div>}
@@ -1000,7 +1078,19 @@ export function ViolationCasesClient() {
                   </p>
                 </div>
               ) : null}
-              {canAddDisciplineFollowUp(viewCase.status) ? (
+              {viewCase.status === 'pending' && canEmployeeActOnViolationApproval(viewCase.approverStates, currentEmployeeId) ? (
+                <div className="flex flex-wrap gap-2 pt-1 border-t border-border">
+                  <Button size="sm" variant="outline" className="gap-1.5 text-success border-success/30 hover:bg-success/10"
+                    onClick={() => void handleApprove(viewCase)}>
+                    <CheckCircle2 className="h-3.5 w-3.5" /> موافقة
+                  </Button>
+                  <Button size="sm" variant="outline" className="gap-1.5 text-destructive border-destructive/30 hover:bg-destructive/10"
+                    onClick={() => void openRejectDialog(viewCase)}>
+                    <XCircle className="h-3.5 w-3.5" /> رفض
+                  </Button>
+                </div>
+              ) : null}
+              {!isEmployeeInViolationApproverStates(viewCase.approverStates, currentEmployeeId) && canAddDisciplineFollowUp(viewCase.status) ? (
                 <div className="flex flex-wrap gap-2 pt-1 border-t border-border">
                   {viewCase.typeNeedsWarning ? (
                     <Button size="sm" variant="outline" className="gap-1.5"

@@ -1,10 +1,5 @@
-import * as React from 'react';
-import { ApplicantManagementClient } from '@/features/hr/recruitment/applicants/components/applicant-management-client';
+import { redirect } from 'next/navigation';
 
 export default function RecruitmentApplicantsPage() {
-  return (
-    <React.Suspense fallback={null}>
-      <ApplicantManagementClient />
-    </React.Suspense>
-  );
+  redirect('/hr/recruitment/ats-applicants');
 }

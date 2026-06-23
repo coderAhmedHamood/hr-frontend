@@ -38,13 +38,20 @@ export function useEntityFilterSlotRegion(): EntityFilterSlotContextValue {
   return ctx;
 }
 
+function serializeFilterSlotDeps(deps: React.DependencyList): string {
+  try {
+    return JSON.stringify(deps);
+  } catch {
+    return String(deps.length);
+  }
+}
+
 /**
  * Renders the filter toolbar into the app layout slot above the page body.
  *
  * The render function is stored in a ref (always current) and AppEntityFilterRegion
- * is told to re-render via a direct callback — no context state is mutated, so the
- * calling component never re-renders from the slot mechanism and infinite loops
- * caused by unstable dep references are impossible.
+ * is told to re-render via a direct callback only when `deps` meaningfully change —
+ * no context state is mutated, so unstable inline deps cannot cause infinite loops.
  */
 export function useEntityFilterSlot(render: () => React.ReactNode, deps: React.DependencyList): void {
   const { renderFnRef, reRenderSlotRef } = useEntityFilterSlotRegion();
@@ -52,17 +59,22 @@ export function useEntityFilterSlot(render: () => React.ReactNode, deps: React.D
   const renderRef = React.useRef(render);
   renderRef.current = render;
 
-  // Register/update the render fn and poke AppEntityFilterRegion to re-render.
-  React.useEffect(() => {
-    renderFnRef.current = () => renderRef.current();
-    reRenderSlotRef.current?.();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- caller supplies deps explicitly
-  }, [renderFnRef, reRenderSlotRef, ...deps]);
+  // Always keep the latest render closure without poking the slot region.
+  renderFnRef.current = () => renderRef.current();
 
-  // Clear the slot only on true component unmount.
+  const depsKey = serializeFilterSlotDeps(deps);
+  const lastDepsKeyRef = React.useRef<string | null>(null);
+
+  React.useEffect(() => {
+    if (lastDepsKeyRef.current === depsKey) return;
+    lastDepsKeyRef.current = depsKey;
+    reRenderSlotRef.current?.();
+  }, [depsKey, reRenderSlotRef]);
+
   React.useEffect(() => {
     return () => {
       renderFnRef.current = null;
+      lastDepsKeyRef.current = null;
       reRenderSlotRef.current?.();
     };
   }, [renderFnRef, reRenderSlotRef]);

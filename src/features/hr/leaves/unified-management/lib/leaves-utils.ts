@@ -1,4 +1,5 @@
 import type { UnifiedLeaveRecord, LeaveApprovalStep } from '@/features/hr/leaves/unified-management/types';
+import { canEmployeeActOnRequestApproval } from '@/features/hr/requests/lib/request-approver-states';
 
 export function defaultPendingApprovalChain(): LeaveApprovalStep[] {
   return [
@@ -32,13 +33,23 @@ export function applyStepDecision(
   return { ...leave, approvalChain: chain, status: 'approved' };
 }
 
-export function canActOnLeave(leave: UnifiedLeaveRecord): boolean {
-  return leave.status === 'pending';
+export function canActOnLeave(leave: UnifiedLeaveRecord, currentEmployeeId?: string | null): boolean {
+  if (leave.status !== 'pending') return false;
+  return canEmployeeActOnRequestApproval(leave.approverStates, currentEmployeeId);
 }
 
 export function getApprovalStage(leave: UnifiedLeaveRecord): 'fully_approved' | 'awaiting_first' | 'awaiting_second' | 'awaiting_third' | 'other' {
   if (leave.status === 'approved') return 'fully_approved';
-  if (leave.status === 'pending') return 'awaiting_first';
+  if (leave.status !== 'pending') return 'other';
+
+  const approvers = leave.approverStates?.approvers ?? [];
+  if (approvers.length === 0) return 'awaiting_first';
+
+  const pendingIdx = approvers.findIndex((a) => a.status === 'pending');
+  if (pendingIdx === -1) return 'fully_approved';
+  if (pendingIdx === 0) return 'awaiting_first';
+  if (pendingIdx === 1) return 'awaiting_second';
+  if (pendingIdx === 2) return 'awaiting_third';
   return 'other';
 }
 

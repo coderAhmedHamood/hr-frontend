@@ -1,4 +1,5 @@
 import { apiRequest, type PaginatedResult } from '@/features/hr/lib/api/client';
+import type { OrganizationArchiveScope } from '@/features/hr/organization/lib/archive-scope';
 
 export type RequestApprovalMode = 'sequential' | 'parallel' | 'any_one' | 'optional';
 
@@ -26,9 +27,13 @@ export type RequestApprovalTemplateResponseDto = {
   approvalMode: RequestApprovalMode;
   displayOrder: number;
   isActive: boolean;
+  isArchived?: boolean;
+  archivedAt?: string | null;
   notes: string | null;
   requestTypes: RequestApprovalAssignmentRequestType[];
   approvers: RequestApprovalAssignmentApprover[];
+  isCurrentUserApprover?: boolean;
+  currentUserEmployeeId?: string | null;
   createdAt: string;
   updatedAt: string;
   createdBy: string | null;
@@ -62,7 +67,13 @@ export type UpdateRequestApprovalTemplateDto = {
 export type RequestApprovalStage = never;
 
 export const requestApprovalTemplatesApi = {
-  getAll(query?: { companyId?: string; isActive?: boolean; limit?: number; page?: number }) {
+  getAll(query?: {
+    companyId?: string;
+    isActive?: boolean;
+    archiveScope?: OrganizationArchiveScope;
+    limit?: number;
+    page?: number;
+  }) {
     return apiRequest<PaginatedResult<RequestApprovalTemplateResponseDto>>(
       '/requests/approval-assignments',
       { query },
@@ -82,5 +93,11 @@ export const requestApprovalTemplatesApi = {
   },
   remove(id: string) {
     return apiRequest<void>(`/requests/approval-assignments/${id}`, { method: 'DELETE' });
+  },
+  getByRequestCategory(requestCategory: string, companyId: string) {
+    return apiRequest<RequestApprovalTemplateResponseDto>(
+      `/requests/approval-assignments/by-request-category/${requestCategory}`,
+      { query: { companyId } },
+    );
   },
 };

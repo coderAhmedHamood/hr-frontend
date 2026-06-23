@@ -13,6 +13,7 @@ import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-con
 import { useSetPageTitle } from '@/components/layouts/page-title-context';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
+import { ArchiveScopeToggleButton } from '@/components/layouts/archive-scope-toggle-button';
 import {
   ConfirmationModal, FormField,
   EmptyState, ActiveBadge, SearchableDropdown, MinimalDropdown,
@@ -21,6 +22,10 @@ import { MultiSelect, type MultiSelectOption } from '@/components/ui/multi-selec
 import { useApprovalAssignmentModel } from '@/features/hr/requests/approval-assignment/hooks/useApprovalAssignmentModel';
 import type { RequestApprovalMode } from '@/features/hr/requests/approval-assignment/hooks/useApprovalAssignmentModel';
 import { DirectoryPagedViews } from '@/components/ui/paged-list';
+import {
+  ORGANIZATION_ARCHIVE_SCOPE_OPTIONS,
+  type OrganizationArchiveScope,
+} from '@/features/hr/organization/lib/archive-scope';
 import { cn } from '@/shared/utils';
 
 const MODE_OPTIONS: { value: RequestApprovalMode; label: string }[] = [
@@ -50,7 +55,7 @@ function buildNameAr(linkedIds: string[], requestTypes: { id: string; nameAr: st
 export function ApprovalAssignmentClient() {
   const {
     templates, requestTypes, employees, loading, listError, pagination,
-    statusFilter, setStatusFilter,
+    archiveScope, setArchiveScope,
     createTemplate, updateTemplate, deleteTemplate,
   } = useApprovalAssignmentModel();
 
@@ -66,12 +71,6 @@ export function ApprovalAssignmentClient() {
   const [saving, setSaving] = React.useState(false);
   const [deleteId, setDeleteId] = React.useState<string | null>(null);
   const [dialogContentEl, setDialogContentEl] = React.useState<HTMLElement | null>(null);
-
-  const statusCounts = React.useMemo(() => ({
-    all: templates.length,
-    active: templates.filter((t) => t.isActive).length,
-    inactive: templates.filter((t) => !t.isActive).length,
-  }), [templates]);
 
   const filtered = templates;
 
@@ -109,17 +108,32 @@ export function ApprovalAssignmentClient() {
     });
   };
 
-  const openCreate = () => {
+  const openCreate = React.useCallback(() => {
     setEditId(null);
     setDraft({ linkedIds: [], approverIds: [], approvalMode: 'sequential', isActive: true });
     setError(null);
     setDialogOpen(true);
-  };
+  }, []);
+
+  const archiveFilterInlineSelects = React.useMemo(
+    () => [
+      {
+        id: 'archive',
+        value: archiveScope,
+        onChange: (v: string) => setArchiveScope(v as OrganizationArchiveScope),
+        placeholder: 'العرض',
+        options: ORGANIZATION_ARCHIVE_SCOPE_OPTIONS.map((o) => ({ value: o.value, label: o.label })),
+      },
+    ],
+    [archiveScope, setArchiveScope],
+  );
 
   const openEdit = (t: typeof templates[number]) => {
     setEditId(t.id);
     setDraft({
-      linkedIds: t.requestTypes.map((rt) => rt.requestTypeId),
+      linkedIds: t.requestTypes
+        .map((rt) => rt.requestTypeId)
+        .filter((id) => requestTypes.some((rt) => rt.id === id)),
       approverIds: [...t.approvers].sort((a, b) => a.sortOrder - b.sortOrder).map((a) => a.employeeId),
       approvalMode: t.approvalMode,
       isActive: t.isActive,
@@ -158,29 +172,27 @@ export function ApprovalAssignmentClient() {
   usePageHeaderActions(
     () => (
       <div className="flex items-center gap-2">
-        <FilterToggleButton activeFilterCount={statusFilter !== 'all' ? 1 : 0} />
+        <ArchiveScopeToggleButton scope={archiveScope} onScopeChange={setArchiveScope} />
+        <FilterToggleButton activeFilterCount={archiveScope !== 'active' ? 1 : 0} />
         <Button variant="luxe" size="sm" className="h-8 gap-2" onClick={openCreate}>
           <Plus className="h-4 w-4" /> إسناد جديد
         </Button>
       </div>
     ),
-    [statusFilter],
+    [archiveScope, openCreate],
   );
 
   useEntityFilterSlot(
     () => (
       <EntityFilterToolbar
         showDateSection={false}
+        showStatusSection={false}
         showEmployeePicker={false}
-        statusFilter={statusFilter}
-        onStatusFilterChange={(v) => setStatusFilter(v as typeof statusFilter)}
-        statusOrder={['active', 'inactive']}
-        statusLabels={{ active: 'نشط', inactive: 'غير نشط' }}
-        statusCounts={statusCounts}
+        inlineSelects={archiveFilterInlineSelects}
         onDateBoundsChange={() => {}}
       />
     ),
-    [statusFilter, statusCounts.all, statusCounts.active, statusCounts.inactive],
+    [archiveFilterInlineSelects],
   );
 
   if (loading) {

@@ -1,4 +1,5 @@
 import { apiRequest, type PaginatedResult } from '@/features/hr/lib/api/client';
+import type { OrganizationArchiveScope } from '@/features/hr/organization/lib/archive-scope';
 
 export type LeaveTypeResponseDto = {
   id: string;
@@ -40,6 +41,7 @@ export type LeaveTypeListQuery = {
   limit?: number;
   companyId?: string;
   isActive?: boolean;
+  archiveScope?: OrganizationArchiveScope;
 };
 
 export const leaveTypesApi = {

@@ -8,6 +8,7 @@ import { shiftTemplatesApi, type ShiftTemplateResponseDto } from '@/features/hr/
 import { shiftAssignmentsApi, type ShiftAssignmentResponseDto } from '@/features/hr/attendance/lib/api/shift-assignments';
 import { checkInPointLinksApi } from '@/features/hr/attendance/lib/api/check-in-point-links';
 import { checkInPointsApi } from '@/features/hr/attendance/lib/api/check-in-points';
+import { organizationActiveListStatusQuery } from '@/features/hr/organization/lib/archive-scope';
 import { mapCheckInPointLinkResponse } from '@/features/hr/attendance/checkpoint-links/services/check-in-point-links.service';
 import { mapCheckInPointResponse } from '@/features/hr/attendance/checkpoints/services/check-in-points.service';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
@@ -84,14 +85,14 @@ export function useEmployeeProfileAttendance(
 
     const catalogScope = catalogCompanyId ? { companyId: catalogCompanyId } : {};
 
-    const tmplRes = await shiftTemplatesApi.getAll({ ...catalogScope, limit: 100 });
+    const tmplRes = await shiftTemplatesApi.getAll({ ...catalogScope, limit: 100, ...organizationActiveListStatusQuery() });
 
     const linkPointIds = [...new Set(linksRes.items.map((l) => l.checkInPointId))];
     let checkpointItems: AttendanceCheckInPoint[] = [];
 
     if (linkPointIds.length > 0) {
       const pointsRes = catalogCompanyId
-        ? await checkInPointsApi.getAll({ companyId: catalogCompanyId, limit: 200 })
+        ? await checkInPointsApi.getAll({ companyId: catalogCompanyId, limit: 200, ...organizationActiveListStatusQuery() })
         : { items: [] as Awaited<ReturnType<typeof checkInPointsApi.getAll>>['items'] };
       const byId = new Map(pointsRes.items.map((p) => [p.id, mapCheckInPointResponse(p)]));
 
@@ -108,7 +109,7 @@ export function useEmployeeProfileAttendance(
       );
       checkpointItems = resolved.filter((p): p is AttendanceCheckInPoint => p != null);
     } else if (catalogCompanyId) {
-      const pointsRes = await checkInPointsApi.getAll({ companyId: catalogCompanyId, limit: 200 });
+      const pointsRes = await checkInPointsApi.getAll({ companyId: catalogCompanyId, limit: 200, ...organizationActiveListStatusQuery() });
       checkpointItems = pointsRes.items.map(mapCheckInPointResponse);
     }
 

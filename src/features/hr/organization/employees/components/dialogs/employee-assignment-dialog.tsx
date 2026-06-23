@@ -32,6 +32,7 @@ import { branchesApi, type BranchResponseDto } from '@/features/hr/organization/
 import { companiesApi, type CompanyResponseDto } from '@/features/hr/organization/lib/api/companies';
 import { departmentsApi, type DepartmentResponseDto } from '@/features/hr/organization/lib/api/departments';
 import { jobTitlesApi, type JobTitleResponseDto } from '@/features/hr/organization/lib/api/jobTitles';
+import { organizationActiveListStatusQuery } from '@/features/hr/organization/lib/archive-scope';
 import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
 import { getCompanyAccessLabel } from '@/features/auth/types/access-profile';
@@ -106,9 +107,9 @@ export function EmployeeAssignmentDialog({ employee, model }: Props) {
 
   const loadScopedOptions = React.useCallback(async (companyId: string) => {
     const [br, dp, jt] = await Promise.all([
-      branchesApi.getAll({ companyId, limit: 200 }),
-      departmentsApi.getAll({ companyId, limit: 200 }),
-      jobTitlesApi.getAll({ companyId, limit: 200 }),
+      branchesApi.getAll({ companyId, limit: 200, ...organizationActiveListStatusQuery() }),
+      departmentsApi.getAll({ companyId, limit: 200, ...organizationActiveListStatusQuery() }),
+      jobTitlesApi.getAll({ companyId, limit: 200, ...organizationActiveListStatusQuery() }),
     ]);
     setBranches(br.items);
     setDepartments(dp.items);

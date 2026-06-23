@@ -1,5 +1,5 @@
-import { RecruitmentAdminClient } from '@/features/hr/recruitment/admin/components/recruitment-admin-client';
+import { redirect } from 'next/navigation';
 
 export default function RecruitmentAdminPage() {
-  return <RecruitmentAdminClient />;
+  redirect('/hr/recruitment/ats-admin');
 }

@@ -7,6 +7,7 @@ import { useSetPageTitle } from '@/components/layouts/page-title-context';
 import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
+import { ArchiveScopeToggleButton } from '@/components/layouts/archive-scope-toggle-button';
 import { EntityFilterToolbar } from '@/components/ui/entity-filter-toolbar';
 import { PermissionGate } from '@/components/shared/permission-gate';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
@@ -14,6 +15,12 @@ import { employeesApi, type EmployeeResponseDto } from '@/features/hr/organizati
 import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 import { useDefaultCompany } from '@/features/hr/organization/hooks/useActiveCompany';
 import { branchesApi } from '@/features/hr/organization/lib/api/branches';
+import {
+  ORGANIZATION_ARCHIVE_SCOPE_DEFAULT,
+  ORGANIZATION_ARCHIVE_SCOPE_OPTIONS,
+  organizationListStatusQuery,
+  type OrganizationArchiveScope,
+} from '@/features/hr/organization/lib/archive-scope';
 import { useServerDirectoryPagination } from '@/components/ui/paged-list';
 import {
   createBranch,
@@ -37,6 +44,9 @@ export function useBranchesDirectoryModel() {
   const defaultCompanyId = useDefaultCompanyId();
   const { data: defaultCompany } = useDefaultCompany();
 
+  const [archiveScope, setArchiveScope] = React.useState<OrganizationArchiveScope>(
+    ORGANIZATION_ARCHIVE_SCOPE_DEFAULT,
+  );
   const [layoutView, setLayoutView] = React.useState<'grid' | 'table'>('grid');
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   const [editId, setEditId] = React.useState<string | null>(null);
@@ -59,7 +69,12 @@ export function useBranchesDirectoryModel() {
   const loadPage = React.useCallback(async (page: number, pageSize: number) => {
     if (!defaultCompanyId) return { items: [] as BranchRow[], total: 0 };
     try {
-      const res = await branchesApi.getAll({ companyId: defaultCompanyId, page, limit: pageSize });
+      const res = await branchesApi.getAll({
+        companyId: defaultCompanyId,
+        page,
+        limit: pageSize,
+        ...organizationListStatusQuery(archiveScope),
+      });
       setListError(null);
       return { items: res.items.map(mapBranchResponse), total: res.pagination.total };
     } catch (err) {
@@ -67,7 +82,7 @@ export function useBranchesDirectoryModel() {
       setListError(displayMessage);
       return { items: [], total: 0 };
     }
-  }, [defaultCompanyId]);
+  }, [defaultCompanyId, archiveScope]);
 
   const {
     items: branches,
@@ -76,7 +91,7 @@ export function useBranchesDirectoryModel() {
     reload: reloadList,
   } = useServerDirectoryPagination<BranchRow>(loadPage, {
     enabled: !!defaultCompanyId,
-    resetDeps: [defaultCompanyId, layoutView],
+    resetDeps: [defaultCompanyId, layoutView, archiveScope],
   });
 
   React.useEffect(() => {
@@ -202,6 +217,7 @@ export function useBranchesDirectoryModel() {
   usePageHeaderActions(
     () => (
       <div className="flex items-center gap-2">
+        <ArchiveScopeToggleButton scope={archiveScope} onScopeChange={setArchiveScope} />
         <FilterToggleButton />
         <PermissionGate permission="hr.employees.create">
           <Button variant="luxe" size="sm" className="h-8 gap-2" onClick={openCreate}>
@@ -210,7 +226,7 @@ export function useBranchesDirectoryModel() {
         </PermissionGate>
       </div>
     ),
-    [openCreate],
+    [archiveScope, openCreate],
   );
 
   useEntityFilterSlot(
@@ -220,6 +236,15 @@ export function useBranchesDirectoryModel() {
         showStatusSection={false}
         showEmployeePicker={false}
         onDateBoundsChange={() => {}}
+        inlineSelects={[
+          {
+            id: 'archive',
+            value: archiveScope,
+            onChange: (v) => setArchiveScope(v as OrganizationArchiveScope),
+            placeholder: 'العرض',
+            options: ORGANIZATION_ARCHIVE_SCOPE_OPTIONS.map((o) => ({ value: o.value, label: o.label })),
+          },
+        ]}
         dataView={{
           value: layoutView,
           onChange: (v) => setLayoutView(v as 'grid' | 'table'),
@@ -230,7 +255,7 @@ export function useBranchesDirectoryModel() {
         }}
       />
     ),
-    [layoutView],
+    [archiveScope, layoutView],
   );
 
   return {

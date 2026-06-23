@@ -14,6 +14,11 @@ import {
   mapViolationTypeResponse,
   updateViolationType,
 } from '@/features/hr/discipline/violation-types/services/violation-types.service';
+import {
+  ORGANIZATION_ARCHIVE_SCOPE_DEFAULT,
+  organizationListStatusQuery,
+  type OrganizationArchiveScope,
+} from '@/features/hr/organization/lib/archive-scope';
 
 export interface ViolationTypeDraftForm {
   code: string;
@@ -43,6 +48,9 @@ export function useViolationTypesDirectoryModel() {
   const [types, setTypes] = React.useState<HRViolationTypeRecord[]>([]);
   const [listError, setListError] = React.useState<string | null>(null);
   const [companyId, setCompanyId] = React.useState<string | null>(null);
+  const [archiveScope, setArchiveScope] = React.useState<OrganizationArchiveScope>(
+    ORGANIZATION_ARCHIVE_SCOPE_DEFAULT,
+  );
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   const [editId, setEditId] = React.useState<string | null>(null);
   const [draft, setDraft] = React.useState<ViolationTypeDraftForm>(EMPTY);
@@ -55,9 +63,10 @@ export function useViolationTypesDirectoryModel() {
       const scope = await resolveOrganizationScope();
       const cid = scope.companyId ?? null;
       setCompanyId(cid);
-      const res = await violationTypesApi.getAll(
-        cid ? { companyId: cid, page, limit: pageSize } : { page, limit: pageSize },
-      );
+      const res = await violationTypesApi.getAll({
+        ...(cid ? { companyId: cid, page, limit: pageSize } : { page, limit: pageSize }),
+        ...organizationListStatusQuery(archiveScope),
+      });
       const items = res.items.map(mapViolationTypeResponse);
       setTypes(items);
       return { items, total: res.pagination.total };
@@ -66,14 +75,16 @@ export function useViolationTypesDirectoryModel() {
       setListError(displayMessage);
       return { items: [], total: 0 };
     }
-  }, []);
+  }, [archiveScope]);
 
   const {
     items: pagedTypes,
     loading,
     pagination,
     reload,
-  } = useServerDirectoryPagination<HRViolationTypeRecord>(loadPage);
+  } = useServerDirectoryPagination<HRViolationTypeRecord>(loadPage, {
+    resetDeps: [archiveScope],
+  });
 
   const openCreate = React.useCallback(() => {
     setDraft(EMPTY);
@@ -186,5 +197,7 @@ export function useViolationTypesDirectoryModel() {
     set,
     handleSave,
     handleDelete,
+    archiveScope,
+    setArchiveScope,
   };
 }

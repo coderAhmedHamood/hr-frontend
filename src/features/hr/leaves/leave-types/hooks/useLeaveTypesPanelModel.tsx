@@ -13,6 +13,11 @@ import {
   mapLeaveTypeResponse,
   updateLeaveType,
 } from '@/features/hr/leaves/leave-types/services/leave-types.service';
+import {
+  ORGANIZATION_ARCHIVE_SCOPE_DEFAULT,
+  organizationListStatusQuery,
+  type OrganizationArchiveScope,
+} from '@/features/hr/organization/lib/archive-scope';
 
 export type LeaveTypeDraft = Omit<HRLeaveTypeRecord, 'id' | 'updatedAt'>;
 export type LeaveTypeProperty = 'paid' | 'deductsFromBalance';
@@ -37,6 +42,9 @@ export function useLeaveTypesPanelModel() {
   const [items, setItems] = React.useState<HRLeaveTypeRecord[]>([]);
   const [listError, setListError] = React.useState<string | null>(null);
   const [companyId, setCompanyId] = React.useState<string | null>(null);
+  const [archiveScope, setArchiveScope] = React.useState<OrganizationArchiveScope>(
+    ORGANIZATION_ARCHIVE_SCOPE_DEFAULT,
+  );
   const [open, setOpen] = React.useState(false);
   const [editId, setEditId] = React.useState<string | null>(null);
   const [draft, setDraft] = React.useState<LeaveTypeDraft>(EMPTY_DRAFT);
@@ -49,9 +57,10 @@ export function useLeaveTypesPanelModel() {
       const scope = await resolveOrganizationScope();
       const cid = scope.companyId ?? null;
       setCompanyId(cid);
-      const res = await leaveTypesApi.getAll(
-        cid ? { companyId: cid, page, limit: pageSize } : { page, limit: pageSize },
-      );
+      const res = await leaveTypesApi.getAll({
+        ...(cid ? { companyId: cid, page, limit: pageSize } : { page, limit: pageSize }),
+        ...organizationListStatusQuery(archiveScope),
+      });
       const mapped = res.items.map(mapLeaveTypeResponse).sort((a, b) => a.sortOrder - b.sortOrder);
       setItems(mapped);
       return { items: mapped, total: res.pagination.total };
@@ -60,14 +69,16 @@ export function useLeaveTypesPanelModel() {
       setListError(displayMessage);
       return { items: [], total: 0 };
     }
-  }, []);
+  }, [archiveScope]);
 
   const {
     items: sorted,
     loading,
     pagination,
     reload,
-  } = useServerDirectoryPagination<HRLeaveTypeRecord>(loadPage);
+  } = useServerDirectoryPagination<HRLeaveTypeRecord>(loadPage, {
+    resetDeps: [archiveScope],
+  });
 
   const openCreate = React.useCallback(() => {
     setEditId(null);
@@ -181,5 +192,7 @@ export function useLeaveTypesPanelModel() {
     setProperty,
     save,
     remove,
+    archiveScope,
+    setArchiveScope,
   };
 }

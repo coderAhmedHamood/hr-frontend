@@ -21,6 +21,7 @@ import { branchesApi } from '@/features/hr/organization/lib/api/branches';
 import { departmentsApi } from '@/features/hr/organization/lib/api/departments';
 import { employeesApi } from '@/features/hr/organization/employees/lib/api/employees';
 import { resolveOrganizationScope } from '@/features/hr/organization/lib/api/organization-context';
+import { organizationActiveListStatusQuery } from '@/features/hr/organization/lib/archive-scope';
 import { toIso } from '@/features/hr/lib/map-dto';
 
 export type LoadBalanceCreditParams = {
@@ -59,8 +60,8 @@ export async function loadBalanceCreditDirectory(params?: LoadBalanceCreditParam
       loadCompanyLeaveTypes(companyId ? { companyId, limit: 200, isActive: true } : { limit: 200, isActive: true }),
       employeeLeaveBalancesApi.getAll(listQuery),
       employeesApi.getAll(listQuery),
-      companyId ? branchesApi.getAll({ companyId, limit: 100 }) : branchesApi.getAll({ limit: 100 }),
-      companyId ? departmentsApi.getAll({ companyId, limit: 200 }) : departmentsApi.getAll({ limit: 200 }),
+      companyId ? branchesApi.getAll({ companyId, limit: 100, ...organizationActiveListStatusQuery() }) : branchesApi.getAll({ limit: 100, ...organizationActiveListStatusQuery() }),
+      companyId ? departmentsApi.getAll({ companyId, limit: 200, ...organizationActiveListStatusQuery() }) : departmentsApi.getAll({ limit: 200, ...organizationActiveListStatusQuery() }),
     ]);
 
   const credits = ensurePaginatedResult(creditsRes);

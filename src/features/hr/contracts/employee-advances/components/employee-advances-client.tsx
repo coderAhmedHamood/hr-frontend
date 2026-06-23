@@ -11,8 +11,21 @@ import { EntityFilterToolbar } from '@/components/ui/entity-filter-toolbar';
 import { Input } from '@/components/ui/input';
 import { DatePickerInput } from '@/components/ui/date-picker-input';
 import { Badge } from '@/components/ui/badge';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
+import { useAuthStore } from '@/features/auth/lib/auth-store';
+import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
+import { useCurrentEmployee } from '@/features/hr/organization/employees/hooks/useCurrentEmployee';
+import { checkRequestApprovalAccess } from '@/features/hr/requests/lib/request-approval-access';
+import {
+  buildEmployeeAdvanceDecisionPayload,
+  canEmployeeActOnRequestApproval,
+  isRequestFullyApproved,
+} from '@/features/hr/requests/lib/request-approver-states';
+import { RequestApproverStatesPanel } from '@/features/hr/requests/components/request-approver-states-panel';
 import {
   HRSettingsFormDrawer, FormField, ConfirmationModal, EmptyState, SearchableDropdown, MinimalDropdown,
 } from '@/features/hr/requests/components/shared-ui';
@@ -90,7 +103,17 @@ function isDeletable(status: HREmployeeAdvanceStatus): boolean {
   return DELETABLE_ADVANCE_STATUSES.includes(status);
 }
 
+function canOpenAdvanceDetail(status: HREmployeeAdvanceStatus): boolean {
+  return status === 'pending_approval' || status === 'approved' || status === 'rejected';
+}
+
 export function EmployeeAdvancesClient() {
+  const companyId = useDefaultCompanyId();
+  const authUser = useAuthStore((s) => s.user);
+  const { data: currentEmployee } = useCurrentEmployee();
+  const currentEmployeeId = currentEmployee?.id ?? null;
+  const decidedByActor = authUser?.id ?? undefined;
+
   const {
     items, add, update, remove, fetch: fetchAdvances,
     submitForApproval, approve, reject,
@@ -124,6 +147,7 @@ export function EmployeeAdvancesClient() {
   const [saving, setSaving] = React.useState(false);
   const [confirmId, setConfirmId] = React.useState<string | null>(null);
   const [actionLoadingId, setActionLoadingId] = React.useState<string | null>(null);
+  const [detailAdvance, setDetailAdvance] = React.useState<HREmployeeAdvance | null>(null);
 
   const fetchDebounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -166,6 +190,90 @@ export function EmployeeAdvancesClient() {
     } finally {
       setActionLoadingId(null);
     }
+  };
+
+  const handleApproveAdvance = React.useCallback(async (x: HREmployeeAdvance) => {
+    if (!companyId || !currentEmployeeId) return;
+    try {
+      const access = await checkRequestApprovalAccess(
+        'advance',
+        companyId,
+        currentEmployeeId,
+        x.approverStates,
+      );
+      if (!access.ok) {
+        toast.warning(access.message);
+        return;
+      }
+      const payload = buildEmployeeAdvanceDecisionPayload(
+        access.states,
+        currentEmployeeId,
+        'approve',
+        { decidedBy: decidedByActor },
+      );
+      setActionLoadingId(x.id);
+      await approve(x.id, payload);
+      if (payload.approverStates && isRequestFullyApproved(payload.approverStates)) {
+        toast.success('تم اعتماد السلفة نهائياً.');
+      } else {
+        toast.success('تم تسجيل موافقتك — بانتظار بقية المعتمدين.');
+      }
+      setDetailAdvance(null);
+    } catch (e) {
+      const { status, displayMessage } = handleApiError(e, 'employee-advances/decide.approve');
+      if (status === 404) {
+        toast.error('مسار موافقة السلف غير مفعّل على الخادم. يُرجى من فريق الباك تفعيل PATCH أو POST على /payroll/employee-advances/{id}/decision.');
+      } else {
+        toast.error(displayMessage);
+      }
+    } finally {
+      setActionLoadingId(null);
+    }
+  }, [approve, companyId, currentEmployeeId, decidedByActor]);
+
+  const handleRejectAdvance = React.useCallback(async (x: HREmployeeAdvance) => {
+    if (!companyId || !currentEmployeeId) return;
+    try {
+      const access = await checkRequestApprovalAccess(
+        'advance',
+        companyId,
+        currentEmployeeId,
+        x.approverStates,
+      );
+      if (!access.ok) {
+        toast.warning(access.message);
+        return;
+      }
+      const payload = buildEmployeeAdvanceDecisionPayload(
+        access.states,
+        currentEmployeeId,
+        'reject',
+        { decidedBy: decidedByActor },
+      );
+      setActionLoadingId(x.id);
+      await reject(x.id, payload);
+      toast.message('تم رفض السلفة.');
+      setDetailAdvance(null);
+    } catch (e) {
+      const { status, displayMessage } = handleApiError(e, 'employee-advances/decide.reject');
+      if (status === 404) {
+        toast.error('مسار موافقة السلف غير مفعّل على الخادم. يُرجى من فريق الباك تفعيل PATCH أو POST على /payroll/employee-advances/{id}/decision.');
+      } else {
+        toast.error(displayMessage);
+      }
+    } finally {
+      setActionLoadingId(null);
+    }
+  }, [companyId, currentEmployeeId, decidedByActor, reject]);
+
+  const canShowApprovalActions = React.useCallback(
+    (x: HREmployeeAdvance) =>
+      x.status === 'pending_approval' && canEmployeeActOnRequestApproval(x.approverStates, currentEmployeeId),
+    [currentEmployeeId],
+  );
+
+  const openAdvanceDetail = (x: HREmployeeAdvance) => {
+    setDetailAdvance(x);
   };
 
   const openCreate = () => {
@@ -384,16 +492,20 @@ export function EmployeeAdvancesClient() {
           {filtered.map(x => {
             const loading = actionLoadingId === x.id;
             const canSubmit = x.status === 'draft' || x.status === 'rejected';
-            const canDecide = x.status === 'pending_approval';
+            const openDetail = canOpenAdvanceDetail(x.status);
+            const openEditOnClick = isEditable(x.status) && x.status !== 'pending_approval';
 
             return (
               <div
                 key={x.id}
                 className={cn(
                   'rounded-lg border border-border bg-card p-3 shadow-soft space-y-2 flex flex-col',
-                  isEditable(x.status) && 'cursor-pointer',
+                  (openDetail || openEditOnClick) && 'cursor-pointer',
                 )}
-                onClick={() => { if (isEditable(x.status)) openEdit(x.id); }}
+                onClick={() => {
+                  if (openDetail) openAdvanceDetail(x);
+                  else if (openEditOnClick) openEdit(x.id);
+                }}
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
@@ -405,6 +517,30 @@ export function EmployeeAdvancesClient() {
                     {ADVANCE_STATUS_LABELS[x.status]}
                   </Badge>
                 </div>
+                {canShowApprovalActions(x) && (
+                  <div className="flex gap-2" onClick={e => e.stopPropagation()}>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 flex-1 text-xs text-success border-success/30 hover:bg-success/10"
+                      disabled={loading}
+                      onClick={() => void handleApproveAdvance(x)}
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5 me-1" />
+                      موافقة
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 flex-1 text-xs text-destructive border-destructive/30 hover:bg-destructive/10"
+                      disabled={loading}
+                      onClick={() => void handleRejectAdvance(x)}
+                    >
+                      <XCircle className="h-3.5 w-3.5 me-1" />
+                      رفض
+                    </Button>
+                  </div>
+                )}
                 <div className="flex flex-wrap gap-1">
                   <Badge variant="secondary" className="text-[10px] font-normal">
                     {ADVANCE_KIND_LABELS[x.advanceKind]}
@@ -425,6 +561,11 @@ export function EmployeeAdvancesClient() {
                     تاريخ الاعتماد: {x.approvedAt.slice(0, 10)}
                   </p>
                 )}
+                <RequestApproverStatesPanel
+                  states={x.approverStates}
+                  compact
+                  className="border-0 bg-transparent p-0"
+                />
                 <div className="mt-auto flex flex-wrap items-center justify-end gap-1 border-t border-border pt-2" onClick={e => e.stopPropagation()}>
                   {canSubmit && (
                     <Button
@@ -438,33 +579,7 @@ export function EmployeeAdvancesClient() {
                       إرسال للموافقة
                     </Button>
                   )}
-                  {canDecide && (
-                    <>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-7 text-xs text-success hover:text-success hover:bg-success/10"
-                        disabled={loading}
-                        title="موافقة"
-                        onClick={() => void runAction(x.id, () => approve(x.id), 'تم اعتماد السلفة.')}
-                      >
-                        <CheckCircle2 className="h-3.5 w-3.5 me-1" />
-                        موافقة
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-7 text-xs text-destructive hover:text-destructive"
-                        disabled={loading}
-                        title="رفض"
-                        onClick={() => void runAction(x.id, () => reject(x.id), 'تم رفض السلفة.')}
-                      >
-                        <XCircle className="h-3.5 w-3.5 me-1" />
-                        رفض
-                      </Button>
-                    </>
-                  )}
-                  {isEditable(x.status) && (
+                  {isEditable(x.status) && x.status !== 'pending_approval' && (
                     <Button size="sm" variant="ghost" className="h-7 text-xs" disabled={loading} onClick={() => openEdit(x.id)}>
                       تعديل
                     </Button>
@@ -579,6 +694,61 @@ export function EmployeeAdvancesClient() {
           })();
         }}
       />
+
+      <Dialog open={detailAdvance != null} onOpenChange={(o) => { if (!o) setDetailAdvance(null); }}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto" dir="rtl">
+          <DialogHeader>
+            <DialogTitle>تفاصيل السلفة</DialogTitle>
+          </DialogHeader>
+          {detailAdvance ? (
+            <div className="space-y-4">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <p className="text-xs text-muted-foreground">الموظف</p>
+                  <p className="text-sm font-medium">{detailAdvance.employeeNameAr}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">رقم السلفة</p>
+                  <p className="text-sm font-medium font-mono" dir="ltr">{detailAdvance.advanceNumber}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">المبلغ</p>
+                  <p className="text-sm font-medium tabular-nums">{formatNumber(detailAdvance.amount)} {detailAdvance.currency}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">تاريخ السلفة</p>
+                  <p className="text-sm font-medium font-mono">{detailAdvance.advanceDate}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">نوع السلفة</p>
+                  <p className="text-sm font-medium">{ADVANCE_KIND_LABELS[detailAdvance.advanceKind]}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">حالة السلفة</p>
+                  <p className="text-sm font-medium">{ADVANCE_STATUS_LABELS[detailAdvance.status]}</p>
+                </div>
+                <div className="sm:col-span-2">
+                  <p className="text-xs text-muted-foreground">آلية السداد</p>
+                  <p className="text-sm">{repaymentLine(detailAdvance)}</p>
+                </div>
+                {detailAdvance.note ? (
+                  <div className="sm:col-span-2">
+                    <p className="text-xs text-muted-foreground">ملاحظة</p>
+                    <p className="text-sm">{detailAdvance.note}</p>
+                  </div>
+                ) : null}
+                {detailAdvance.decisionNotes ? (
+                  <div className="sm:col-span-2">
+                    <p className="text-xs text-muted-foreground">ملاحظات القرار</p>
+                    <p className="text-sm">{detailAdvance.decisionNotes}</p>
+                  </div>
+                ) : null}
+              </div>
+              <RequestApproverStatesPanel states={detailAdvance.approverStates} />
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

@@ -27,7 +27,13 @@ import { shiftTemplatesApi, type ShiftTemplateResponseDto } from '@/features/hr/
 import { formatApiErrorForDisplay } from '@/features/hr/lib/api/global-error-handler';
 import { companiesApi } from '@/features/hr/lib/api/companies';
 import { getDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
+import {
+  ORGANIZATION_ARCHIVE_SCOPE_DEFAULT,
+  organizationListStatusQuery,
+  type OrganizationArchiveScope,
+} from '@/features/hr/organization/lib/archive-scope';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
+import { ArchiveScopeToggleButton } from '@/components/layouts/archive-scope-toggle-button';
 import { DirectoryPagedViews, useServerDirectoryPagination } from '@/components/ui/paged-list';
 
 function dtoToLocal(dto: ShiftTemplateResponseDto): ShiftTemplate {
@@ -73,6 +79,9 @@ function dtoToLocal(dto: ShiftTemplateResponseDto): ShiftTemplate {
 
 export function ShiftTemplatesPanel() {
   const [companyId, setCompanyId] = React.useState('');
+  const [archiveScope, setArchiveScope] = React.useState<OrganizationArchiveScope>(
+    ORGANIZATION_ARCHIVE_SCOPE_DEFAULT,
+  );
   const [open, setOpen] = React.useState(false);
   const [draft, setDraft] = React.useState<ShiftTemplate | null>(null);
   const [error, setError] = React.useState<string | null>(null);
@@ -82,14 +91,15 @@ export function ShiftTemplatesPanel() {
 
   const loadPage = React.useCallback(async (page: number, pageSize: number) => {
     try {
-      const res = await shiftTemplatesApi.getAll(
-        companyId ? { companyId, page, limit: pageSize } : { page, limit: pageSize },
-      );
+      const res = await shiftTemplatesApi.getAll({
+        ...(companyId ? { companyId, page, limit: pageSize } : { page, limit: pageSize }),
+        ...organizationListStatusQuery(archiveScope),
+      });
       return { items: res.items.map(dtoToLocal), total: res.pagination.total };
     } catch {
       return { items: [] as ShiftTemplate[], total: 0 };
     }
-  }, [companyId]);
+  }, [companyId, archiveScope]);
 
   const {
     items: shiftTemplates,
@@ -98,7 +108,7 @@ export function ShiftTemplatesPanel() {
     reload,
   } = useServerDirectoryPagination<ShiftTemplate>(loadPage, {
     enabled: !!companyId,
-    resetDeps: [companyId],
+    resetDeps: [companyId, archiveScope],
   });
 
   React.useEffect(() => {
@@ -212,11 +222,14 @@ export function ShiftTemplatesPanel() {
 
   usePageHeaderActions(
     () => (
-      <Button variant="luxe" size="sm" className="h-8 gap-1.5 px-3 text-xs shrink-0" type="button" onClick={openCreate}>
-        <Plus className="h-3.5 w-3.5" /> قالب جديد
-      </Button>
+      <div className="flex items-center gap-2">
+        <ArchiveScopeToggleButton scope={archiveScope} onScopeChange={setArchiveScope} />
+        <Button variant="luxe" size="sm" className="h-8 gap-1.5 px-3 text-xs shrink-0" type="button" onClick={openCreate}>
+          <Plus className="h-3.5 w-3.5" /> قالب جديد
+        </Button>
+      </div>
     ),
-    [openCreate],
+    [archiveScope, openCreate],
   );
 
   return (
