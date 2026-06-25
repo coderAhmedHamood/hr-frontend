@@ -9,11 +9,10 @@ import {
 import { Button } from '@/components/ui/button';
 import { EmployeePicker } from '@/components/ui/employee-picker';
 import { useHRPayrollPeriodsStore, PERIOD_STATUS_LABELS } from '@/features/hr/payroll/lib/payroll-periods-store';
-import { useHRContractsStore } from '@/features/hr/contracts/lib/contracts-store';
-import { useHRAllowanceTypesStore } from '@/features/hr/contracts/lib/allowance-types-store';
 import {
-  buildCompensationPreviews,
+  mapEmployeesPayrollSummaryToPreviews,
 } from '@/features/hr/payroll/lib/compensation-preview';
+import { useEmployeesPayrollSummary } from '@/features/hr/payroll/compensation/hooks/useEmployeesPayrollSummary';
 import { CompensationReportPanel } from '@/features/hr/payroll/compensation/components/compensation-report-panel';
 import { hrPayrollSalaryApprovalsQueryHref, hrPayrollRoutes } from '@/features/hr/payroll/constants/routes';
 import { MinimalDropdown } from '@/features/hr/requests/components/shared-ui';
@@ -24,12 +23,11 @@ const PERIOD_STATUS_LABEL = PERIOD_STATUS_LABELS;
 
 export function PayrollMultiPeriodExplorer() {
   const { periods } = useHRPayrollPeriodsStore();
-  const contracts    = useHRContractsStore(s => s.contracts);
-  const allowanceTypes = useHRAllowanceTypesStore(s => s.items);
 
   const [selectedId, setSelectedId] = React.useState<string | null>(
     () => periods[0]?.id ?? null,
   );
+  const { data: payrollSummary } = useEmployeesPayrollSummary(selectedId);
   const [empFilter, setEmpFilter] = React.useState<Set<string>>(() => new Set());
   const [downloading, setDownloading] = React.useState(false);
   const [pdfExporting, setPdfExporting] = React.useState(false);
@@ -42,13 +40,12 @@ export function PayrollMultiPeriodExplorer() {
   );
 
   const periodEmployees = React.useMemo(() => {
-    if (!selectedPeriod) return [] as { id: string; name: string }[];
-    const seen = new Map<string, string>();
-    for (const l of selectedPeriod.employmentLines) {
-      if (!seen.has(l.employeeId)) seen.set(l.employeeId, l.employeeNameAr);
-    }
-    return [...seen.entries()].map(([id, name]) => ({ id, name }));
-  }, [selectedPeriod]);
+    if (!payrollSummary) return [] as { id: string; name: string }[];
+    return payrollSummary.employees.map((row) => ({
+      id: row.employeeId,
+      name: row.employeeNameAr?.trim() || '—',
+    }));
+  }, [payrollSummary]);
 
   React.useEffect(() => {
     setEmpFilter(new Set());
@@ -63,18 +60,15 @@ export function PayrollMultiPeriodExplorer() {
   }, [selectedPeriod?.id, periodEmployees.length, empFilterKey]);
 
   const payrollPrintData = React.useMemo(() => {
-    if (!selectedPeriod) return null;
-    const getContract = (id: string) => contracts.find(c => c.id === id);
-    const getAlloType = (id: string) => allowanceTypes.find(a => a.id === id);
-    let previews = buildCompensationPreviews(selectedPeriod, getContract, getAlloType);
+    if (!selectedPeriod || !payrollSummary) return null;
+    let previews = mapEmployeesPayrollSummaryToPreviews(payrollSummary);
     if (employeeIdsForFilter?.length) {
       const allow = new Set(employeeIdsForFilter);
       previews = previews.filter(r => allow.has(r.employeeId));
     }
-    const branchName = selectedPeriod.employmentLines[0]?.departmentSnapshot ?? 'المقر الرئيسي';
     return {
       monthNameAr: selectedPeriod.nameAr || selectedPeriod.code,
-      branchNameAr: branchName,
+      branchNameAr: 'المقر الرئيسي',
       rows: previews.map((r, i) => ({
         no: i + 1,
         employeeName: r.namePrimary,
@@ -83,7 +77,7 @@ export function PayrollMultiPeriodExplorer() {
         totalSalary: r.lineNetSar,
       })),
     };
-  }, [selectedPeriod, contracts, allowanceTypes, employeeIdsForFilter]);
+  }, [selectedPeriod, payrollSummary, employeeIdsForFilter]);
 
   const handleDownloadPdf = React.useCallback(async () => {
     if (!payrollPrintData || !selectedPeriod) {
@@ -113,36 +107,32 @@ export function PayrollMultiPeriodExplorer() {
 
   /* ── Excel download ──────────────────────────────────────────────────── */
   const handleDownloadExcel = async () => {
-    if (!selectedPeriod) return;
-    setDownloading(true);
-    try {
-      const XLSX = await import('xlsx');
-      const wb = XLSX.utils.book_new();
+      if (!selectedPeriod || !payrollSummary) return;
+      setDownloading(true);
+      try {
+        const XLSX = await import('xlsx');
+        const wb = XLSX.utils.book_new();
 
-      const getContract  = (id: string) => contracts.find(c => c.id === id);
-      const getAlloType   = (id: string) => allowanceTypes.find(a => a.id === id);
-
-      let previews = buildCompensationPreviews(selectedPeriod, getContract, getAlloType);
-      if (employeeIdsForFilter?.length) {
-        const allow = new Set(employeeIdsForFilter);
-        previews = previews.filter(r => allow.has(r.employeeId));
-      }
-      const headers = [
-        '#', 'اسم الموظف', 'القسم', 'الراتب الأساسي', 'البدلات',
-        'مستحقات (أوفرتايم + مكافآت)', 'خصومات (غياب + تأخير + جزاءات)', 'الصافي',
-      ];
-      const rows = previews.map((r, i) => [
-        i + 1,
-        r.namePrimary,
-        selectedPeriod.employmentLines.find(l => l.id === r.lineId)?.departmentSnapshot ?? '',
-        r.baseSalary,
-        r.allowancesMonthlyTotal,
-        r.entitlementOvertimeSar + r.entitlementBonusSar,
-        r.dedAbsenceSar + r.dedLateSar + r.dedPenaltiesSar,
-        r.lineNetSar,
-      ]);
+        let previews = mapEmployeesPayrollSummaryToPreviews(payrollSummary);
+        if (employeeIdsForFilter?.length) {
+          const allow = new Set(employeeIdsForFilter);
+          previews = previews.filter(r => allow.has(r.employeeId));
+        }
+        const headers = [
+          '#', 'اسم الموظف', 'الراتب الأساسي', 'البدلات',
+          'مستحقات (أوفرتايم + مكافآت)', 'خصومات (غياب + تأخير + جزاءات)', 'الصافي',
+        ];
+        const rows = previews.map((r, i) => [
+          i + 1,
+          r.namePrimary,
+          r.baseSalary,
+          r.allowancesMonthlyTotal,
+          r.entitlementOvertimeSar + r.entitlementBonusSar,
+          r.dedAbsenceSar + r.dedLateSar + r.dedPenaltiesSar,
+          r.lineNetSar,
+        ]);
       const totalRow = [
-        '', 'المجموع', '',
+        '', 'المجموع',
         previews.reduce((s, r) => s + r.baseSalary, 0),
         previews.reduce((s, r) => s + r.allowancesMonthlyTotal, 0),
         previews.reduce((s, r) => s + r.entitlementOvertimeSar + r.entitlementBonusSar, 0),
@@ -151,7 +141,7 @@ export function PayrollMultiPeriodExplorer() {
       ];
       const ws = XLSX.utils.aoa_to_sheet([headers, ...rows, totalRow]);
       ws['!cols'] = [
-        { wch: 4 }, { wch: 22 }, { wch: 18 }, { wch: 14 }, { wch: 14 }, { wch: 28 }, { wch: 28 }, { wch: 14 },
+        { wch: 4 }, { wch: 22 }, { wch: 14 }, { wch: 14 }, { wch: 28 }, { wch: 28 }, { wch: 14 },
       ];
       XLSX.utils.book_append_sheet(wb, ws, (selectedPeriod.nameAr || selectedPeriod.code).slice(0, 31));
       XLSX.writeFile(wb, `payroll-${selectedPeriod.code}.xlsx`);

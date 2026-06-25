@@ -1,6 +1,11 @@
 import type { HRPayrollPeriodRecord, HRPayrollPeriodIncludeFlags, HRPayrollMonthlyInput } from './payroll-periods-store';
 import type { HRContractRecord } from '@/features/hr/contracts/lib/contracts-store';
 import type { HRAllowanceTypeRecord } from '@/features/hr/contracts/lib/allowance-types-store';
+import type {
+  PayrollPeriodEmployeeSummaryRowDto,
+  PayrollPeriodEmployeesSummaryResponseDto,
+  PayrollPeriodEmployeesSummaryTotalsDto,
+} from './api/payroll-periods';
 
 export function formatLatinNumber(n: number, fractionDigits = 0): string {
   return new Intl.NumberFormat('en-US', {
@@ -10,6 +15,116 @@ export function formatLatinNumber(n: number, fractionDigits = 0): string {
 }
 
 function round2(n: number) { return Math.round(n * 100) / 100; }
+
+function parseSummaryAmount(raw: string): number {
+  const n = parseFloat(raw);
+  return round2(Number.isFinite(n) ? n : 0);
+}
+
+/** Maps GET /payroll/periods/:id/employees-payroll-summary row → table preview model. */
+export function mapEmployeeSummaryRowToPreview(
+  row: PayrollPeriodEmployeeSummaryRowDto,
+): PayrollLineCompensationPreview {
+  return {
+    lineId: row.employeeId,
+    employeeId: row.employeeId,
+    namePrimary: row.employeeNameAr?.trim() || '—',
+    baseSalary: parseSummaryAmount(row.baseSalary),
+    allowancesMonthlyTotal: parseSummaryAmount(row.allowancesTotal),
+    allowanceLines: row.allowances.map((a) => ({
+      labelAr: a.allowanceTypeNameAr?.trim() || a.allowanceTypeCode?.trim() || '—',
+      amount: parseSummaryAmount(a.amount),
+    })),
+    entitlementOvertimeSar: parseSummaryAmount(row.overtime),
+    entitlementOvertimeHours: 0,
+    entitlementBonusSar: parseSummaryAmount(row.bonuses),
+    dedAbsenceDays: 0,
+    dedAbsenceSar: parseSummaryAmount(row.absence),
+    dedLateSar: parseSummaryAmount(row.lateness),
+    dedLateMinutes: 0,
+    dedPenaltiesSar: parseSummaryAmount(row.penalties),
+    dedAdvancesSar: parseSummaryAmount(row.advances),
+    manualAdditionSar: parseSummaryAmount(row.manualAddition),
+    manualDeductionSar: parseSummaryAmount(row.manualDeduction),
+    dedAdminSar: parseSummaryAmount(row.manualAddition) - parseSummaryAmount(row.manualDeduction),
+    grossSar: parseSummaryAmount(row.gross),
+    lineNetSar: parseSummaryAmount(row.net),
+  };
+}
+
+export function mapEmployeesPayrollSummaryToPreviews(
+  summary: PayrollPeriodEmployeesSummaryResponseDto,
+): PayrollLineCompensationPreview[] {
+  return summary.employees.map(mapEmployeeSummaryRowToPreview);
+}
+
+export function parseSummaryTotalsAmount(raw: string): number {
+  return parseSummaryAmount(raw);
+}
+
+export type PayrollSummaryFooterTotals = {
+  baseSalary: number;
+  allowancesTotal: number;
+  overtime: number;
+  bonuses: number;
+  advances: number;
+  absence: number;
+  lateness: number;
+  penalties: number;
+  manualAdminSigned: number;
+  gross: number;
+  net: number;
+};
+
+function mapSummaryTotalsDto(t: PayrollPeriodEmployeesSummaryTotalsDto): PayrollSummaryFooterTotals {
+  return {
+    baseSalary: parseSummaryTotalsAmount(t.baseSalary),
+    allowancesTotal: parseSummaryTotalsAmount(t.allowancesTotal),
+    overtime: parseSummaryTotalsAmount(t.overtime),
+    bonuses: parseSummaryTotalsAmount(t.bonuses),
+    advances: parseSummaryTotalsAmount(t.advances),
+    absence: parseSummaryTotalsAmount(t.absence),
+    lateness: parseSummaryTotalsAmount(t.lateness),
+    penalties: parseSummaryTotalsAmount(t.penalties),
+    manualAdminSigned:
+      parseSummaryTotalsAmount(t.manualAddition) - parseSummaryTotalsAmount(t.manualDeduction),
+    gross: parseSummaryTotalsAmount(t.gross),
+    net: parseSummaryTotalsAmount(t.net),
+  };
+}
+
+function sumPreviewRows(
+  previews: PayrollLineCompensationPreview[],
+  pick: (row: PayrollLineCompensationPreview) => number,
+): number {
+  return previews.reduce((sum, row) => sum + pick(row), 0);
+}
+
+/** Footer totals from API `totals`, or sum of backend row values when filtered. */
+export function resolvePayrollSummaryFooterTotals(
+  summary: PayrollPeriodEmployeesSummaryResponseDto | undefined,
+  previews: PayrollLineCompensationPreview[],
+  isFiltered: boolean,
+): PayrollSummaryFooterTotals | null {
+  if (!summary) return null;
+  if (!isFiltered && summary.totals) {
+    return mapSummaryTotalsDto(summary.totals);
+  }
+  if (previews.length === 0) return null;
+  return {
+    baseSalary: sumPreviewRows(previews, (r) => r.baseSalary),
+    allowancesTotal: sumPreviewRows(previews, (r) => r.allowancesMonthlyTotal),
+    overtime: sumPreviewRows(previews, (r) => r.entitlementOvertimeSar),
+    bonuses: sumPreviewRows(previews, (r) => r.entitlementBonusSar),
+    advances: sumPreviewRows(previews, (r) => r.dedAdvancesSar),
+    absence: sumPreviewRows(previews, (r) => r.dedAbsenceSar),
+    lateness: sumPreviewRows(previews, (r) => r.dedLateSar),
+    penalties: sumPreviewRows(previews, (r) => r.dedPenaltiesSar),
+    manualAdminSigned: sumPreviewRows(previews, (r) => r.dedAdminSar),
+    gross: sumPreviewRows(previews, (r) => r.grossSar),
+    net: sumPreviewRows(previews, (r) => r.lineNetSar),
+  };
+}
 
 export type PayrollLineCompensationPreview = {
   lineId: string;
@@ -27,7 +142,10 @@ export type PayrollLineCompensationPreview = {
   dedLateMinutes: number;
   dedPenaltiesSar: number;
   dedAdvancesSar: number;
+  manualAdditionSar: number;
+  manualDeductionSar: number;
   dedAdminSar: number;
+  grossSar: number;
   lineNetSar: number;
 };
 
@@ -268,7 +386,10 @@ export function buildCompensationPreviews(
       dedLateMinutes,
       dedPenaltiesSar,
       dedAdvancesSar,
+      manualAdditionSar: dedAdminSar > 0 ? dedAdminSar : 0,
+      manualDeductionSar: dedAdminSar < 0 ? -dedAdminSar : 0,
       dedAdminSar,
+      grossSar: lineNetSar,
       lineNetSar,
     };
   });

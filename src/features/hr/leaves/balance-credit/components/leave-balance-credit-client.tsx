@@ -109,7 +109,7 @@ export function LeaveBalanceCreditClient() {
         title: 'الموظف',
         render: (r) => (
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
               {(r?.employeeNameAr ?? '?').charAt(0)}
             </div>
             <p className="font-medium text-sm">{r?.employeeNameAr ?? '—'}</p>
@@ -138,7 +138,7 @@ export function LeaveBalanceCreditClient() {
         title: 'الوصف أو العنوان',
         hideOnMobile: true,
         render: (r) => (
-          <span className="text-xs text-muted-foreground line-clamp-2 max-w-[280px]">{r.reasonAr || '—'}</span>
+          <span className="text-xs text-muted-foreground   max-w-[280px]">{r.reasonAr || '—'}</span>
         ),
       },
       {

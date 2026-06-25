@@ -232,17 +232,18 @@ export const EntityFilterToolbar = React.forwardRef<
     () => (showDateSection ? effectiveDateRange(dateFilterTab, appliedCustomFrom, appliedCustomTo) : { from: '', to: '' }),
     [showDateSection, dateFilterTab, appliedCustomFrom, appliedCustomTo],
   );
+  const effectiveBoundsFrom = effectiveBounds.from;
+  const effectiveBoundsTo = effectiveBounds.to;
 
   const onDateBoundsChangeRef = React.useRef(onDateBoundsChange);
   onDateBoundsChangeRef.current = onDateBoundsChange;
   const lastEmittedBoundsKeyRef = React.useRef<string | null>(null);
   React.useEffect(() => {
-    const b = effectiveBounds;
-    const key = `${b.from}\u0000${b.to}`;
+    const key = `${effectiveBoundsFrom}\u0000${effectiveBoundsTo}`;
     if (lastEmittedBoundsKeyRef.current === key) return;
     lastEmittedBoundsKeyRef.current = key;
-    onDateBoundsChangeRef.current(b);
-  }, [effectiveBounds]);
+    onDateBoundsChangeRef.current({ from: effectiveBoundsFrom, to: effectiveBoundsTo });
+  }, [effectiveBoundsFrom, effectiveBoundsTo]);
 
   const onDateFilterMetaChangeRef = React.useRef(onDateFilterMetaChange);
   onDateFilterMetaChangeRef.current = onDateFilterMetaChange;
@@ -525,6 +526,17 @@ export const EntityFilterToolbar = React.forwardRef<
             </>
           )}
           {moreFiltersPopover}
+          {hasAnyActiveFilter && (
+            <button
+              type="button"
+              aria-label="مسح كل الفلاتر"
+              className="flex h-8 shrink-0 items-center gap-1 rounded-md px-2 text-xs text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+              onClick={clearAllFilters}
+            >
+              <X className="h-3.5 w-3.5" />
+              مسح الكل
+            </button>
+          )}
           {hasDataView && dataView ? (
             <div className="ms-auto">
               <Tabs value={dataView.value} onValueChange={dataView.onChange}>
@@ -540,20 +552,9 @@ export const EntityFilterToolbar = React.forwardRef<
             </div>
           ) : null}
           {trailingActions && (
-            <div className="ms-auto flex items-center gap-2">
+            <div className={cn('flex items-center gap-2', !hasDataView && 'ms-auto')}>
               {trailingActions}
             </div>
-          )}
-          {hasAnyActiveFilter && (
-            <button
-              type="button"
-              aria-label="مسح كل الفلاتر"
-              className="flex h-8 shrink-0 items-center gap-1 rounded-md px-2 text-xs text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
-              onClick={clearAllFilters}
-            >
-              <X className="h-3.5 w-3.5" />
-              مسح الكل
-            </button>
           )}
         </div>
       </div>

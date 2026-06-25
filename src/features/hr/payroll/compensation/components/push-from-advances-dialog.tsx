@@ -14,18 +14,9 @@ import {
   DialogTitle,
   dialogFormFooterClass,
 } from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { EmployeePicker } from '@/components/ui/employee-picker';
 import type { CompensationAdvancesPushOptions } from '@/features/hr/payroll/lib/compensation-preview';
-
-type EmployeeScope = 'all' | 'selected';
 
 type Props = {
   open: boolean;
@@ -76,7 +67,6 @@ export function PushFromAdvancesDialog({
   onConfirm,
 }: Props) {
   const [replaceExisting, setReplaceExisting] = React.useState(true);
-  const [scope, setScope] = React.useState<EmployeeScope>('all');
   const [selectedEmpIds, setSelectedEmpIds] = React.useState<Set<string>>(new Set());
 
   const defaultIdsKey = React.useMemo(
@@ -95,29 +85,20 @@ export function PushFromAdvancesDialog({
   React.useEffect(() => {
     if (!open) return;
     setReplaceExisting(true);
-    setScope(initialEmpIds.size > 0 ? 'selected' : 'all');
-    setSelectedEmpIds(new Set(initialEmpIds));
-  }, [open, initialEmpIds]);
-
-  const applyPageFilter = () => {
-    if (initialEmpIds.size === 0) {
-      toast.message('لا يوجد موظفون محددون في فلتر الصفحة.');
-      return;
+    if (initialEmpIds.size > 0) {
+      setSelectedEmpIds(new Set(initialEmpIds));
+    } else {
+      setSelectedEmpIds(new Set(allEmployeeIds));
     }
-    setScope('selected');
-    setSelectedEmpIds(new Set(initialEmpIds));
-  };
+  }, [open, initialEmpIds, allEmployeeIds]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    const employeeIds =
-      scope === 'all'
-        ? allEmployeeIds
-        : [...selectedEmpIds];
+    const employeeIds = [...selectedEmpIds];
 
     if (employeeIds.length === 0) {
-      toast.error('يرجى اختيار موظف واحد على الأقل، أو اختر «جميع الموظفين».');
+      toast.error('يرجى اختيار موظف واحد على الأقل.');
       return;
     }
 
@@ -151,52 +132,21 @@ export function PushFromAdvancesDialog({
           <div className="max-h-[min(70vh,520px)] overflow-y-auto px-6 py-2">
             <section className="rounded-xl border border-border/60 bg-card shadow-soft">
               <p className="border-b border-border/50 px-4 py-2.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-                نطاق الموظفين
+                الموظفون
               </p>
-              <div className="space-y-3 px-4 py-3">
-                <div className="space-y-2">
-                  <Label>تطبيق الدفع على</Label>
-                  <Select
-                    value={scope}
-                    disabled={fieldDisabled}
-                    onValueChange={v => setScope(v as EmployeeScope)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">جميع الموظفين ({employees.length})</SelectItem>
-                      <SelectItem value="selected">موظفون محددون</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                {scope === 'selected' ? (
-                  <div className="space-y-2">
-                    <EmployeePicker
-                      variant="form"
-                      selectionMode="target"
-                      employees={employees}
-                      selected={selectedEmpIds}
-                      onChange={setSelectedEmpIds}
-                    />
-                    {initialEmpIds.size > 0 ? (
-                      <Button
-                        type="button"
-                        variant="link"
-                        size="sm"
-                        className="h-auto p-0 text-xs text-primary"
-                        disabled={fieldDisabled}
-                        onClick={applyPageFilter}
-                      >
-                        استخدام فلتر الصفحة الحالي ({initialEmpIds.size})
-                      </Button>
-                    ) : null}
-                  </div>
-                ) : (
-                  <p className="text-xs text-muted-foreground">
-                    يُرحَّل قسط السلفة لكل موظف له سلفة مؤهلة ضمن الموظفين المحددين.
-                  </p>
-                )}
+              <div className="space-y-2 px-4 py-3">
+                <Label htmlFor="advances-employee-picker">اختر الموظفين</Label>
+                <EmployeePicker
+                  variant="form"
+                  selectionMode="target"
+                  employees={employees}
+                  selected={selectedEmpIds}
+                  onChange={setSelectedEmpIds}
+                  disabled={fieldDisabled}
+                />
+                <p className="text-xs text-muted-foreground">
+                  يُرحَّل قسط السلفة لكل موظف له سلفة مؤهلة ضمن المحددين ({employees.length} في الفترة).
+                </p>
               </div>
             </section>
 

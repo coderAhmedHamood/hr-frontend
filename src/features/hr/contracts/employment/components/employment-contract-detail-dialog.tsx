@@ -264,7 +264,7 @@ export function EmploymentContractDetailDialog({
                       .map((article) => (
                         <li key={article.id} className="py-2.5">
                           <div className="flex items-center gap-2">
-                            <span className="font-mono text-[10px] text-muted-foreground">{article.articleCode}</span>
+        <span className="font-mono text-[10px] text-muted-foreground">{article.articleCode}</span>
                           </div>
                           <p className="text-xs font-medium">{article.titleAr}</p>
                         </li>

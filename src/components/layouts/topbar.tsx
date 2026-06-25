@@ -37,7 +37,11 @@ import { hrContractsOnlyNavGroups, isHrContractsOnlyNavPath } from '@/features/h
 import { hrPayrollSectionHref } from '@/features/hr/payroll/constants/routes';
 import { hrContractsSectionHref } from '@/features/hr/contracts/constants/routes';
 import { hrPermissionsNavGroups, isHrPermissionsNavPath } from '@/features/hr/permissions/constants/nav';
-import { hrSettingsNavGroups, isHrSettingsNavPath } from '@/features/hr/settings/constants/nav';
+import {
+  hrOrganizationSettingsNavItems,
+  hrOrganizationStructureNavItems,
+  isHrOrganizationNavPath,
+} from '@/features/hr/organization/constants/nav';
 import { useLogout } from '@/features/auth/hooks/use-logout';
 import { useAuthUserDisplay } from '@/features/auth/hooks/use-auth-user-display';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
@@ -90,14 +94,24 @@ export const navConfig: NavItem[] = [
   { key: 'dashboard', label: 'الرئيسية', href: '/hr/dashboard', icon: LayoutDashboard },
   {
     key: 'employees', label: 'الهيكل الإداري', icon: Users,
-    groups: [{ items: [
-      { label: 'سجل الموظفين',     href: '/hr/organization/employees',  icon: Users },
-      { label: 'المستخدمين', href: '/hr/organization/contacts',    icon: UserCircle },
-      { label: 'المسميات الوظيفية', href: '/hr/organization/job-titles', icon: Briefcase },
-      { label: 'الفروع',           href: '/hr/organization/branches',   icon: Building2 },
-      { label: 'الأقسام',          href: '/hr/organization/departments', icon: Building2 },
-      { label: 'الهيكل التنظيمي', href: '/hr/organization/chart',       icon: Building2 },
-    ]}],
+    isActive: isHrOrganizationNavPath,
+    groups: [
+      {
+        items: hrOrganizationStructureNavItems.map((item) => ({
+          label: item.labelAr,
+          href: item.href,
+          icon: item.icon,
+        })),
+      },
+      {
+        labelAr: 'الإعدادات',
+        items: hrOrganizationSettingsNavItems.map((item) => ({
+          label: item.labelAr,
+          href: item.href,
+          icon: item.icon,
+        })),
+      },
+    ],
   },
   {
     key: 'recruitment', label: 'التوظيف', icon: UserPlus,
@@ -195,20 +209,6 @@ export const navConfig: NavItem[] = [
     icon: Shield,
     isActive: isHrPermissionsNavPath,
     groups: hrPermissionsNavGroups.map((g) => ({
-      labelAr: g.labelAr,
-      items: g.items.map((item) => ({
-        label: item.labelAr,
-        href: item.href,
-        icon: item.icon,
-      })),
-    })),
-  },
-  {
-    key: 'settings',
-    label: 'الإعدادات',
-    icon: Settings,
-    isActive: isHrSettingsNavPath,
-    groups: hrSettingsNavGroups.map((g) => ({
       labelAr: g.labelAr,
       items: g.items.map((item) => ({
         label: item.labelAr,

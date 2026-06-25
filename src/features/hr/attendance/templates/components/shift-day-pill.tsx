@@ -25,7 +25,7 @@ export function ShiftDayPill({
           : 'border-primary/40 bg-primary/10 text-primary shadow-sm shadow-primary/10',
       )}
     >
-      <span className="line-clamp-2 text-[10px] font-bold leading-tight">{DAY_LABELS[day]}</span>
+      <span className="  text-[10px] font-bold leading-tight">{DAY_LABELS[day]}</span>
       <span className={cn('h-1.5 w-1.5 rounded-full', isRest ? 'bg-muted-foreground/30' : 'bg-primary')} />
     </button>
   );

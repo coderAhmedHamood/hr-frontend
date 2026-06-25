@@ -21,7 +21,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useSetPageTitle } from '@/components/layouts/page-title-context';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
-import { ArchiveScopeToggleButton } from '@/components/layouts/archive-scope-toggle-button';
 import { EntityFilterToolbar } from '@/components/ui/entity-filter-toolbar';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
@@ -454,7 +453,6 @@ export function AllowanceTypesClient() {
   usePageHeaderActions(
     () => (
       <div className="flex items-center gap-2">
-        <ArchiveScopeToggleButton scope={archiveScope} onScopeChange={setArchiveScope} />
         {/* View toggle */}
         <div className="flex items-center gap-0.5 rounded-lg border border-border bg-muted/30 p-0.5">
           <button
@@ -479,7 +477,7 @@ export function AllowanceTypesClient() {
         </Button>
       </div>
     ),
-    [archiveScope, viewMode],
+    [viewMode],
   );
 
   useEntityFilterSlot(

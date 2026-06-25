@@ -656,7 +656,7 @@ export function ViolationCasesClient() {
       title: 'الوصف',
       className: 'max-w-[14rem] truncate text-xs text-muted-foreground',
       render: (c) => (
-        <span className="line-clamp-2" title={c.description || undefined}>{c.description || '—'}</span>
+        <span className=" " title={c.description || undefined}>{c.description || '—'}</span>
       ),
     },
     {
@@ -871,7 +871,7 @@ export function ViolationCasesClient() {
                         </p>
                       ) : null}
                       {c.decisionNotes ? (
-                        <p className="line-clamp-2" title={c.decisionNotes}>
+                        <p className=" " title={c.decisionNotes}>
                           <span className="text-foreground/80">ملاحظات: </span>
                           {c.decisionNotes}
                         </p>

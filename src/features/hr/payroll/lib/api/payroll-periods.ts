@@ -65,6 +65,63 @@ export type CreatePayrollPeriodDto = {
 
 export type UpdatePayrollPeriodDto = Partial<Omit<CreatePayrollPeriodDto, 'companyId'>>;
 
+export type PayrollPeriodAllowanceSummaryDto = {
+  allowanceTypeId: string | null;
+  allowanceTypeCode: string | null;
+  allowanceTypeNameAr: string | null;
+  amount: string;
+};
+
+export type PayrollPeriodEmployeeSummaryRowDto = {
+  rowNumber: number;
+  employeeId: string;
+  employeeNameAr: string | null;
+  allowances: PayrollPeriodAllowanceSummaryDto[];
+  allowancesTotal: string;
+  baseSalary: string;
+  overtime: string;
+  bonuses: string;
+  advances: string;
+  absence: string;
+  lateness: string;
+  penalties: string;
+  manualAddition: string;
+  manualDeduction: string;
+  gross: string;
+  net: string;
+  currency: string;
+  hasActiveContract: boolean;
+  hasMonthlyInputs: boolean;
+};
+
+export type PayrollPeriodEmployeesSummaryTotalsDto = {
+  allowancesTotal: string;
+  baseSalary: string;
+  overtime: string;
+  bonuses: string;
+  advances: string;
+  absence: string;
+  lateness: string;
+  penalties: string;
+  manualAddition: string;
+  manualDeduction: string;
+  gross: string;
+  net: string;
+};
+
+export type PayrollPeriodEmployeesSummaryResponseDto = {
+  payrollPeriodId: string;
+  companyId: string;
+  periodYear: number;
+  periodMonth: number;
+  startDate: string;
+  endDate: string;
+  currency: string;
+  employeesCount: number;
+  employees: PayrollPeriodEmployeeSummaryRowDto[];
+  totals: PayrollPeriodEmployeesSummaryTotalsDto;
+};
+
 export const payrollPeriodsApi = {
   list: (params?: {
     companyId?: string;
@@ -78,6 +135,10 @@ export const payrollPeriodsApi = {
     apiRequest<PaginatedResult<PayrollPeriodResponseDto>>('/payroll/periods', { query: params }),
   get: (id: string) =>
     apiRequest<PayrollPeriodResponseDto>(`/payroll/periods/${id}`),
+  getEmployeesPayrollSummary: (id: string) =>
+    apiRequest<PayrollPeriodEmployeesSummaryResponseDto>(
+      `/payroll/periods/${id}/employees-payroll-summary`,
+    ),
   create: (body: CreatePayrollPeriodDto) =>
     apiRequest<PayrollPeriodResponseDto>('/payroll/periods', { method: 'POST', body }),
   update: (id: string, body: UpdatePayrollPeriodDto) =>

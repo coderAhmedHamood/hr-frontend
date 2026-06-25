@@ -290,7 +290,7 @@ export function CheckpointLinksPanel() {
               <div className="flex flex-col overflow-hidden">
                 <div className="flex items-center justify-between border-b border-border bg-primary/5 px-4 py-2.5">
                   <div className="flex items-center gap-2">
-                    <Users className="h-4 w-4 text-primary" />
+        <Users className="h-4 w-4 text-primary" />
                     <span className="text-sm font-semibold">الموظفون</span>
                     {m.empSel.size > 0 && (
                       <Badge variant="subtle" className="number-ar text-[10px]">{m.empSel.size} محدد</Badge>
@@ -366,7 +366,7 @@ export function CheckpointLinksPanel() {
               <div className="flex flex-col overflow-hidden">
                 <div className="flex items-center justify-between border-b border-border bg-warning/5 px-4 py-2.5">
                   <div className="flex items-center gap-2">
-                    <MapPin className="h-4 w-4 text-warning" />
+        <MapPin className="h-4 w-4 text-warning" />
                     <span className="text-sm font-semibold">نقاط التسجيل</span>
                     {m.cpSel.size > 0 && (
                       <Badge variant="subtle" className="number-ar text-[10px]">{m.cpSel.size} محدد</Badge>
@@ -460,7 +460,7 @@ export function CheckpointLinksPanel() {
             {/* ساري من + summary — left side */}
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
-                <CalendarDays className="h-4 w-4 shrink-0 text-muted-foreground" />
+        <CalendarDays className="h-4 w-4 shrink-0 text-muted-foreground" />
                 <Label className="shrink-0 text-sm text-muted-foreground">ساري من</Label>
                 <div className="w-52">
                   <SingleDatePicker value={m.eff} onChange={m.setEff} />

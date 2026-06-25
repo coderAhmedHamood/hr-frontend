@@ -122,7 +122,7 @@ function AttendanceDayRow({ date, g }: { date: string; g: DayGroup }) {
             استراحة {brk}
           </p>
         ) : null}
-        {notes ? <p className="line-clamp-2 leading-relaxed text-foreground/80">{notes}</p> : null}
+        {notes ? <p className="  leading-relaxed text-foreground/80">{notes}</p> : null}
         {!location && !brk && !notes && !g.checkIn && !g.checkOut ? (
           <span className="text-muted-foreground/60">لا توجد حركات</span>
         ) : null}

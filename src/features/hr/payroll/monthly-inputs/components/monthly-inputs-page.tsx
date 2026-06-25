@@ -242,7 +242,7 @@ export function MonthlyInputsPage() {
       hideOnMobile: true,
       className: 'max-w-[12rem]',
       render: (row) => (
-        <span className="line-clamp-2 text-muted-foreground text-xs">{row.note ?? '—'}</span>
+        <span className="  text-muted-foreground text-xs">{row.note ?? '—'}</span>
       ),
     },
   ], []);

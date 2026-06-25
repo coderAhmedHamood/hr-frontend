@@ -21,7 +21,6 @@ import {
 } from '@/features/hr/recruitment/lib/archive-scope';
 import type { RecruitmentArchiveScope } from '@/features/hr/recruitment/lib/api/types';
 import { useRecruitmentApplicantsList, useRecruitmentJobsList, useRecruitmentMutations } from '@/features/hr/recruitment/hooks/useRecruitment';
-import { ArchiveScopeToggleButton } from '@/components/layouts/archive-scope-toggle-button';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 
 const JOB_TYPE_AR: Record<string, string> = {
@@ -105,9 +104,7 @@ export function AtsAdminClient() {
               onChange={(e) => setSearch(e.target.value)}
               className="pr-9"
             />
-          </div>
-          <ArchiveScopeToggleButton scope={archiveScope} onScopeChange={setArchiveScope} />
-        </div>
+          </div>        </div>
         <Button variant="luxe" size="sm" onClick={() => router.push('/hr/recruitment/ats-admin/jobs/create')}>
           <Plus className="h-4 w-4 me-1" /> وظيفة جديدة
         </Button>
@@ -167,7 +164,7 @@ export function AtsAdminClient() {
                     </div>
                   </button>
 
-                  <p className="line-clamp-2 text-xs text-muted-foreground leading-relaxed mb-3">{job.description}</p>
+                  <p className="  text-xs text-muted-foreground leading-relaxed mb-3">{job.description}</p>
 
                   <div className="mb-4 flex flex-wrap gap-1.5">
                     <Button variant="outline" size="sm" className="h-7 gap-1 text-[11px] px-2.5" onClick={() => router.push(routes.applicants)}>

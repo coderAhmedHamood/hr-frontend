@@ -74,6 +74,7 @@ export type CreateMonthlyInputDto = {
   sourceTable?: string;
   sourceId?: string;
   affectsSalary?: boolean;
+  createdBy?: string | null;
 };
 
 export type UpdateMonthlyInputDto = Partial<

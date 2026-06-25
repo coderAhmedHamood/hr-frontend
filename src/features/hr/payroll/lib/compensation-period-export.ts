@@ -4,10 +4,10 @@ import {
   editAmount,
   editSignedAmount,
   formatLatinNumber,
-  lineNetFromEditRow,
   type CompensationColumnVisibility,
   type CompensationEditValues,
   type PayrollLineCompensationPreview,
+  type PayrollSummaryFooterTotals,
 } from './compensation-preview';
 
 export type CompensationExportLine = {
@@ -48,6 +48,7 @@ function formatAllowancesCell(preview: PayrollLineCompensationPreview): string {
 export function buildCompensationExportTable(
   lines: CompensationExportLine[],
   cols: CompensationColumnVisibility,
+  footerTotals?: PayrollSummaryFooterTotals | null,
 ): CompensationExportTable {
   const headers: string[] = ['#', 'الموظف', 'البدلات (شهري)', 'الراتب الأساسي'];
   if (cols.colOvertime) headers.push('أوفر تايم');
@@ -79,35 +80,28 @@ export function buildCompensationExportTable(
   });
 
   const totalRow: (string | number)[] = ['المجموع الكلي', '', ''];
-  totalRow.push(lines.reduce((s, l) => s + l.preview.baseSalary, 0));
-  if (cols.colOvertime) totalRow.push(lines.reduce((s, l) => s + editAmount(l.edit.overtime), 0));
-  if (cols.colBonus) totalRow.push(lines.reduce((s, l) => s + editAmount(l.edit.bonus), 0));
-  if (cols.colDedAdvances) totalRow.push(lines.reduce((s, l) => s + editAmount(l.edit.advances), 0));
-  if (cols.colDedAbsence) totalRow.push(lines.reduce((s, l) => s + editAmount(l.edit.absenceSar), 0));
-  if (cols.colDedLate) totalRow.push(lines.reduce((s, l) => s + editAmount(l.edit.late), 0));
-  if (cols.colDedPenalties) totalRow.push(lines.reduce((s, l) => s + editAmount(l.edit.penalties), 0));
-  if (cols.colDedAdmin) totalRow.push(lines.reduce((s, l) => s + editSignedAmount(l.edit.admin), 0));
-  totalRow.push(lines.reduce((s, l) => s + l.net, 0));
+  totalRow.push(footerTotals?.baseSalary ?? lines.reduce((s, l) => s + l.preview.baseSalary, 0));
+  if (cols.colOvertime) totalRow.push(footerTotals?.overtime ?? lines.reduce((s, l) => s + editAmount(l.edit.overtime), 0));
+  if (cols.colBonus) totalRow.push(footerTotals?.bonuses ?? lines.reduce((s, l) => s + editAmount(l.edit.bonus), 0));
+  if (cols.colDedAdvances) totalRow.push(footerTotals?.advances ?? lines.reduce((s, l) => s + editAmount(l.edit.advances), 0));
+  if (cols.colDedAbsence) totalRow.push(footerTotals?.absence ?? lines.reduce((s, l) => s + editAmount(l.edit.absenceSar), 0));
+  if (cols.colDedLate) totalRow.push(footerTotals?.lateness ?? lines.reduce((s, l) => s + editAmount(l.edit.late), 0));
+  if (cols.colDedPenalties) totalRow.push(footerTotals?.penalties ?? lines.reduce((s, l) => s + editAmount(l.edit.penalties), 0));
+  if (cols.colDedAdmin) totalRow.push(footerTotals?.manualAdminSigned ?? lines.reduce((s, l) => s + editSignedAmount(l.edit.admin), 0));
+  totalRow.push(footerTotals?.net ?? lines.reduce((s, l) => s + l.net, 0));
 
   return { headers, rows, totalRow };
 }
 
 export function buildCompensationExportLines(
-  period: HRPayrollPeriodRecord,
   previews: PayrollLineCompensationPreview[],
-  edits: Record<string, CompensationEditValues>,
-  cols: CompensationColumnVisibility,
 ): CompensationExportLine[] {
-  return previews.map((row) => {
-    const edit = edits[row.lineId] ?? defaultEditRow(row);
-    const department = period.employmentLines.find(l => l.id === row.lineId)?.departmentSnapshot ?? '';
-    return {
-      preview: row,
-      edit,
-      net: lineNetFromEditRow(row.baseSalary, row.allowancesMonthlyTotal, edit, cols),
-      department,
-    };
-  });
+  return previews.map((row) => ({
+    preview: row,
+    edit: defaultEditRow(row),
+    net: row.lineNetSar,
+    department: '',
+  }));
 }
 
 export type CompensationPrintPayload = {
@@ -120,12 +114,12 @@ export function buildCompensationPrintPayload(
   period: HRPayrollPeriodRecord,
   lines: CompensationExportLine[],
   cols: CompensationColumnVisibility,
+  footerTotals?: PayrollSummaryFooterTotals | null,
 ): CompensationPrintPayload {
-  const branchName = period.employmentLines[0]?.departmentSnapshot ?? 'المقر الرئيسي';
   return {
     monthNameAr: period.nameAr || period.code,
-    branchNameAr: branchName,
-    table: buildCompensationExportTable(lines, cols),
+    branchNameAr: 'المقر الرئيسي',
+    table: buildCompensationExportTable(lines, cols, footerTotals),
   };
 }
 
@@ -133,10 +127,11 @@ export async function downloadCompensationExcel(
   period: HRPayrollPeriodRecord,
   lines: CompensationExportLine[],
   cols: CompensationColumnVisibility,
+  footerTotals?: PayrollSummaryFooterTotals | null,
 ): Promise<void> {
   const XLSX = await import('xlsx');
   const wb = XLSX.utils.book_new();
-  const { headers, rows, totalRow } = buildCompensationExportTable(lines, cols);
+  const { headers, rows, totalRow } = buildCompensationExportTable(lines, cols, footerTotals);
 
   const ws = XLSX.utils.aoa_to_sheet([headers, ...rows, totalRow]);
   ws['!cols'] = headers.map((_, i) => ({

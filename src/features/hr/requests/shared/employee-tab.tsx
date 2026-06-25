@@ -221,21 +221,21 @@ export function EmployeeTab({ openEmployeeId, onClearDeepLink }: Props) {
       title: 'القسم',
       headerClassName: 'w-[14%]',
       className: 'text-xs text-muted-foreground',
-      render: (emp) => <span className="line-clamp-2">{getDeptName(emp.departmentId)}</span>,
+      render: (emp) => <span className=" ">{getDeptName(emp.departmentId)}</span>,
     },
     {
       key: 'hierarchy',
       title: 'المستوى',
       headerClassName: 'w-[12%]',
       className: 'text-xs',
-      render: (emp) => <span className="line-clamp-2">{HIERARCHY_ROLE_LABELS[emp.hierarchyRole]}</span>,
+      render: (emp) => <span className=" ">{HIERARCHY_ROLE_LABELS[emp.hierarchyRole]}</span>,
     },
     {
       key: 'jobTitle',
       title: 'المسمى',
       headerClassName: 'w-[18%]',
       className: 'text-xs',
-      render: (emp) => <span className="line-clamp-2">{emp.jobTitleAr}</span>,
+      render: (emp) => <span className=" ">{emp.jobTitleAr}</span>,
     },
     {
       key: 'hireDate',
@@ -318,7 +318,7 @@ export function EmployeeTab({ openEmployeeId, onClearDeepLink }: Props) {
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">الفلاتر</span>
             <div className="flex items-center gap-2">
-              {hasActiveFilters && (
+        {hasActiveFilters && (
                 <button type="button" className="text-xs text-muted-foreground underline" onClick={() => { setFilterDept('all'); setFilterStatus('all'); setPage(1); }}>
                   مسح الكل
                 </button>

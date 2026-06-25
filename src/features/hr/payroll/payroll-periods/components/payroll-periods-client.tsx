@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   Plus, CalendarRange, BarChart2,
   ChevronRight, CheckCircle2,
@@ -16,7 +17,6 @@ import { EntityFilterToolbar } from '@/components/ui/entity-filter-toolbar';
 import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
-import { ArchiveScopeToggleButton } from '@/components/layouts/archive-scope-toggle-button';
 import { intervalOverlapsYmdRange } from '@/features/hr/discipline/lib/discipline-date-filter';
 import {
   HRSettingsFormDrawer, FormField, ConfirmationModal, EmptyState,
@@ -69,6 +69,7 @@ const EMPTY_DRAFT: HRPayrollPeriodDraft = {
 };
 
 export function PayrollPeriodsClient() {
+  const router = useRouter();
   const companyId = useDefaultCompanyId();
   const {
     add, update, remove,
@@ -143,7 +144,7 @@ export function PayrollPeriodsClient() {
   });
 
   const onDateBoundsChange = React.useCallback((b: { from: string; to: string }) => {
-    setDateBounds(b);
+    setDateBounds((prev) => (prev.from === b.from && prev.to === b.to ? prev : b));
   }, []);
 
   const [drawerOpen, setDrawerOpen] = React.useState(false);
@@ -153,6 +154,26 @@ export function PayrollPeriodsClient() {
   const [error, setError] = React.useState<string | null>(null);
   const [confirmId, setConfirmId] = React.useState<string | null>(null);
 
+  const archiveInlineSelects = React.useMemo(
+    () => [
+      {
+        id: 'archive',
+        value: archiveScope,
+        onChange: (v: string) => setArchiveScope(v as OrganizationArchiveScope),
+        placeholder: 'العرض',
+        options: ORGANIZATION_ARCHIVE_SCOPE_OPTIONS.map((o) => ({ value: o.value, label: o.label })),
+      },
+    ],
+    [archiveScope],
+  );
+
+  const openCreate = React.useCallback(() => {
+    setEditId(null);
+    setDraft(EMPTY_DRAFT);
+    setError(null);
+    setDrawerOpen(true);
+  }, []);
+
   const statusCounts = React.useMemo(() => {
     const counts: Record<string, number> = { all: pagination.total };
     for (const status of PERIOD_STATUS_ORDER) {
@@ -161,16 +182,11 @@ export function PayrollPeriodsClient() {
     return counts;
   }, [filtered, pagination.total]);
 
-  const total = filtered.length;
-
-  const openCreate = () => { setEditId(null); setDraft(EMPTY_DRAFT); setError(null); setDrawerOpen(true); };
-
-  const activeFilterCount = (statusFilter !== 'all' ? 1 : 0) + (values.dateFrom || values.dateTo ? 1 : 0);
+  const activeFilterCount = (statusFilter !== 'all' ? 1 : 0) + (dateBounds.from || dateBounds.to ? 1 : 0);
 
   usePageHeaderActions(
     () => (
       <div className="flex items-center gap-2">
-        <ArchiveScopeToggleButton scope={archiveScope} onScopeChange={setArchiveScope} />
         <FilterToggleButton activeFilterCount={activeFilterCount} />
         <Button variant="luxe" size="sm" className="h-8 gap-1.5 px-3 text-xs shadow-sm shrink-0" onClick={openCreate}>
           <Plus className="h-3.5 w-3.5" />
@@ -178,7 +194,7 @@ export function PayrollPeriodsClient() {
         </Button>
       </div>
     ),
-    [activeFilterCount, archiveScope],
+    [activeFilterCount, openCreate],
   );
   const openEdit   = (id: string) => {
     const p = filtered.find(x => x.id === id);
@@ -232,27 +248,11 @@ export function PayrollPeriodsClient() {
         statusLabels={PERIOD_STATUS_LABELS}
         statusCounts={statusCounts}
         onDateBoundsChange={onDateBoundsChange}
-        inlineSelects={[
-          {
-            id: 'archive',
-            value: archiveScope,
-            onChange: (v) => setArchiveScope(v as OrganizationArchiveScope),
-            placeholder: 'العرض',
-            options: ORGANIZATION_ARCHIVE_SCOPE_OPTIONS.map((o) => ({ value: o.value, label: o.label })),
-          },
-        ]}
+        inlineSelects={archiveInlineSelects}
         trailingActions={undefined}
       />
     ),
-    [
-      statusFilter,
-      archiveScope,
-      statusCounts.all,
-      ...PERIOD_STATUS_ORDER.map(s => statusCounts[s]),
-      dateBounds.from,
-      dateBounds.to,
-      total,
-    ],
+    [statusFilter, archiveScope, dateBounds.from, dateBounds.to],
   );
 
   const PeriodActions = ({ p }: { p: HRPayrollPeriodRecord }) => (
@@ -283,10 +283,9 @@ export function PayrollPeriodsClient() {
             <div
               key={p.id}
               className={cn(
-                'rounded-xl border border-border bg-card p-5 shadow-soft space-y-3 flex flex-col',
-                isPayrollPeriodEditable(p.status) ? 'cursor-pointer' : '',
+                'rounded-xl border border-border bg-card p-5 shadow-soft space-y-3 flex flex-col cursor-pointer',
               )}
-              onClick={() => { if (isPayrollPeriodEditable(p.status)) openEdit(p.id); }}
+              onClick={() => router.push(hrPayrollPeriodCompensationHref(p.id))}
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">

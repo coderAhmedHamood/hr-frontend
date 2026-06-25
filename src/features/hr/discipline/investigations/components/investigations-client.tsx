@@ -295,7 +295,7 @@ export function InvestigationsClient() {
       headerClassName: 'whitespace-nowrap',
       className: 'max-w-[14rem] text-xs text-muted-foreground',
       render: (inv) => (
-        <span className="line-clamp-2" title={inv.employeeStatement || undefined}>{inv.employeeStatement || '—'}</span>
+        <span className=" " title={inv.employeeStatement || undefined}>{inv.employeeStatement || '—'}</span>
       ),
     },
     {
@@ -304,7 +304,7 @@ export function InvestigationsClient() {
       headerClassName: 'whitespace-nowrap',
       className: 'max-w-[14rem] text-xs text-muted-foreground',
       render: (inv) => (
-        <span className="line-clamp-2" title={inv.witnessStatement || undefined}>{inv.witnessStatement || '—'}</span>
+        <span className=" " title={inv.witnessStatement || undefined}>{inv.witnessStatement || '—'}</span>
       ),
     },
     {
@@ -562,7 +562,7 @@ export function InvestigationsClient() {
               {inv.employeeStatement?.trim() ? (
                 <div className="space-y-0.5">
                   <p className="text-[10px] font-medium text-muted-foreground/80">أقوال الموظف</p>
-                  <p className="line-clamp-2 text-xs text-muted-foreground text-right" title={inv.employeeStatement}>
+                  <p className="  text-xs text-muted-foreground text-right" title={inv.employeeStatement}>
                     {inv.employeeStatement}
                   </p>
                 </div>
@@ -570,7 +570,7 @@ export function InvestigationsClient() {
               {inv.witnessStatement?.trim() ? (
                 <div className="space-y-0.5">
                   <p className="text-[10px] font-medium text-muted-foreground/80">أقوال الشهود</p>
-                  <p className="line-clamp-2 text-xs text-muted-foreground text-right" title={inv.witnessStatement}>
+                  <p className="  text-xs text-muted-foreground text-right" title={inv.witnessStatement}>
                     {inv.witnessStatement}
                   </p>
                 </div>

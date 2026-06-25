@@ -143,7 +143,7 @@ export function EmployeeRequestsSection({ model }: { model: EmployeeProfileModel
                         </p>
                       </div>
                       <div className="min-w-0">
-                        <p className="line-clamp-2 text-sm leading-relaxed text-foreground/90">
+                        <p className="  text-sm leading-relaxed text-foreground/90">
                           {req.title}
                         </p>
                       </div>

@@ -345,7 +345,7 @@ export function NotificationsAdminClient() {
         <div className="space-y-1">
           <span className="font-medium">{n.titleAr}</span>
           {n.bodyAr ? (
-            <p className="line-clamp-1 text-xs text-muted-foreground">{n.bodyAr}</p>
+            <p className="  text-xs text-muted-foreground">{n.bodyAr}</p>
           ) : null}
         </div>
       ),

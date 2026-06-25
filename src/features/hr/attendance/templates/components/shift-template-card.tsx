@@ -56,7 +56,7 @@ export function ShiftTemplateCard({
                   wd?.isRest ? 'bg-muted text-muted-foreground/40' : 'bg-primary/15 text-primary',
                 )}
               >
-                <span className="line-clamp-2 text-center">{DAY_LABELS[day]}</span>
+                <span className="  text-center">{DAY_LABELS[day]}</span>
               </div>
             );
           })}

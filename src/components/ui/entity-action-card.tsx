@@ -175,7 +175,7 @@ export function EntityActionCard({
         {chips ? <div className="flex flex-wrap gap-1.5">{chips}</div> : null}
         {metrics}
         {description?.trim() ? (
-          <p className="line-clamp-2 text-xs text-muted-foreground text-right" title={description}>
+          <p className="  text-xs text-muted-foreground text-right" title={description}>
             {description}
           </p>
         ) : null}

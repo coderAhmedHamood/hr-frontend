@@ -13,7 +13,6 @@ import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-con
 import { useSetPageTitle } from '@/components/layouts/page-title-context';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
-import { ArchiveScopeToggleButton } from '@/components/layouts/archive-scope-toggle-button';
 import {
   ConfirmationModal, FormField,
   EmptyState, ActiveBadge, SearchableDropdown, MinimalDropdown,
@@ -172,7 +171,6 @@ export function ApprovalAssignmentClient() {
   usePageHeaderActions(
     () => (
       <div className="flex items-center gap-2">
-        <ArchiveScopeToggleButton scope={archiveScope} onScopeChange={setArchiveScope} />
         <FilterToggleButton activeFilterCount={archiveScope !== 'active' ? 1 : 0} />
         <Button variant="luxe" size="sm" className="h-8 gap-2" onClick={openCreate}>
           <Plus className="h-4 w-4" /> إسناد جديد
@@ -192,7 +190,7 @@ export function ApprovalAssignmentClient() {
         onDateBoundsChange={() => {}}
       />
     ),
-    [archiveFilterInlineSelects],
+    [archiveScope],
   );
 
   if (loading) {

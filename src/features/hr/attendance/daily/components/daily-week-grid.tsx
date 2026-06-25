@@ -69,7 +69,7 @@ export function DailyWeekGrid({ summaries, dates }: { summaries: AttendanceDaySu
                 <tr key={idx} className="border-b border-border/50 transition-colors last:border-0 hover:bg-muted/20">
                   <td className="sticky right-0 z-10 bg-card px-5 py-3.5">
                     <div className="flex items-center gap-2">
-                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
                         {name.charAt(0)}
                       </div>
                       <span className="whitespace-nowrap text-sm font-medium">{name}</span>

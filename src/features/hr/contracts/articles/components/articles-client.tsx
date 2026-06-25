@@ -13,7 +13,6 @@ import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { usePageFilters } from '@/components/layouts/filter-panel-context';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
-import { ArchiveScopeToggleButton } from '@/components/layouts/archive-scope-toggle-button';
 import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
 import { EntityFilterToolbar } from '@/components/ui/entity-filter-toolbar';
 import {
@@ -160,14 +159,13 @@ export function ContractArticlesClient() {
   usePageHeaderActions(
     () => (
       <div className="flex items-center gap-2">
-        <ArchiveScopeToggleButton scope={archiveScope} onScopeChange={setArchiveScope} />
         <FilterToggleButton activeFilterCount={activeFilterCount} />
         <Button onClick={openCreate} size="sm" className="h-8 gap-1.5">
           <Plus className="h-4 w-4" />مادة جديدة
         </Button>
       </div>
     ),
-    [archiveScope, activeFilterCount, openCreate],
+    [activeFilterCount, openCreate],
   );
 
   useEntityFilterSlot(
@@ -261,7 +259,7 @@ export function ContractArticlesClient() {
                     <p className="font-semibold text-sm text-foreground leading-snug truncate">{a.title}</p>
 
                     {/* Body preview */}
-                    <p className="text-[11.5px] text-muted-foreground line-clamp-2 leading-relaxed">
+                    <p className="text-[11.5px] text-muted-foreground   leading-relaxed">
                       {a.body.slice(0, 140)}
                     </p>
                   </div>

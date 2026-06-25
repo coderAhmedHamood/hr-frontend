@@ -172,7 +172,7 @@ export function EmployeeAttendanceSection({ model }: { model: EmployeeProfileMod
       <div className="flex h-[68vh] min-h-[400px] shrink-0 flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm">
         <div className="flex shrink-0 flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-2">
-            <h3 className="text-sm font-semibold text-foreground">حركات الحضور</h3>
+        <h3 className="text-sm font-semibold text-foreground">حركات الحضور</h3>
             <Button variant="ghost" size="sm" className="h-7 gap-1 px-2 text-xs" asChild>
               <Link href="/hr/attendance/daily">
                 <ExternalLink className="h-3.5 w-3.5" />

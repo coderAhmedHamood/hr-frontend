@@ -63,7 +63,7 @@ export function ViolationApproverStatesPanel({
                   </p>
                 ) : null}
                 {a.notes ? (
-                  <p className="mt-1 text-[10px] text-muted-foreground line-clamp-2" title={a.notes}>
+                  <p className="mt-1 text-[10px] text-muted-foreground  " title={a.notes}>
                     {a.notes}
                   </p>
                 ) : null}

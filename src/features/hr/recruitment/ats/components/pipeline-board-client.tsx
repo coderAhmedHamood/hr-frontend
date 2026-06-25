@@ -170,7 +170,7 @@ export function PipelineBoardClient() {
                 {/* Column header */}
                 <div className="flex items-center justify-between px-3 py-2.5">
                   <div className="flex items-center gap-2">
-                    <span className={`h-2 w-2 rounded-full ${cfg.dot}`} />
+        <span className={`h-2 w-2 rounded-full ${cfg.dot}`} />
                     <span className="text-xs font-semibold">{cfg.label}</span>
                   </div>
                   <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${cfg.pill}`}>
@@ -204,7 +204,7 @@ export function PipelineBoardClient() {
                           ${isDragging ? 'opacity-30 scale-95 rotate-1' : 'hover:shadow-elevated hover:-translate-y-px'}`}
                       >
                         <div className="flex items-center gap-2">
-                          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">
+        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">
                             {initials}
                           </div>
                           <div className="min-w-0">

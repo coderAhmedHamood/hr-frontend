@@ -33,7 +33,6 @@ import {
   type OrganizationArchiveScope,
 } from '@/features/hr/organization/lib/archive-scope';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
-import { ArchiveScopeToggleButton } from '@/components/layouts/archive-scope-toggle-button';
 import { DirectoryPagedViews, useServerDirectoryPagination } from '@/components/ui/paged-list';
 
 function dtoToLocal(dto: ShiftTemplateResponseDto): ShiftTemplate {
@@ -222,14 +221,12 @@ export function ShiftTemplatesPanel() {
 
   usePageHeaderActions(
     () => (
-      <div className="flex items-center gap-2">
-        <ArchiveScopeToggleButton scope={archiveScope} onScopeChange={setArchiveScope} />
-        <Button variant="luxe" size="sm" className="h-8 gap-1.5 px-3 text-xs shrink-0" type="button" onClick={openCreate}>
+      <div className="flex items-center gap-2">        <Button variant="luxe" size="sm" className="h-8 gap-1.5 px-3 text-xs shrink-0" type="button" onClick={openCreate}>
           <Plus className="h-3.5 w-3.5" /> قالب جديد
         </Button>
       </div>
     ),
-    [archiveScope, openCreate],
+    [openCreate],
   );
 
   return (

@@ -377,7 +377,7 @@ export function AppealsClient() {
       key: 'grounds',
       title: 'أسباب التظلم',
       className: 'max-w-[16rem] text-xs text-muted-foreground',
-      render: (a) => <span className="line-clamp-2" title={a.grounds ?? undefined}>{a.grounds ?? '—'}</span>,
+      render: (a) => <span className=" " title={a.grounds ?? undefined}>{a.grounds ?? '—'}</span>,
     },
     {
       key: 'status',

@@ -180,7 +180,7 @@ export function DisciplineAuditLogClient() {
 
   const categorySelect = (
     <div className="flex items-center gap-2">
-      <label htmlFor="audit-log-category" className="text-[11px] text-muted-foreground whitespace-nowrap">فئة السجل</label>
+        <label htmlFor="audit-log-category" className="text-[11px] text-muted-foreground whitespace-nowrap">فئة السجل</label>
       <select
         id="audit-log-category"
         title="فئة السجل"
@@ -232,7 +232,7 @@ export function DisciplineAuditLogClient() {
       key: 'statusAfter',
       title: 'الحالة بعد العملية',
       className: 'text-xs text-muted-foreground max-w-[220px]',
-      render: (e) => <span className="line-clamp-2" title={e.recordStatusAfterAr}>{e.recordStatusAfterAr}</span>,
+      render: (e) => <span className=" " title={e.recordStatusAfterAr}>{e.recordStatusAfterAr}</span>,
     },
     {
       key: 'compare',

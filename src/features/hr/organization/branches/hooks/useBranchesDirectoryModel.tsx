@@ -7,7 +7,6 @@ import { useSetPageTitle } from '@/components/layouts/page-title-context';
 import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
-import { ArchiveScopeToggleButton } from '@/components/layouts/archive-scope-toggle-button';
 import { EntityFilterToolbar } from '@/components/ui/entity-filter-toolbar';
 import { PermissionGate } from '@/components/shared/permission-gate';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
@@ -217,7 +216,6 @@ export function useBranchesDirectoryModel() {
   usePageHeaderActions(
     () => (
       <div className="flex items-center gap-2">
-        <ArchiveScopeToggleButton scope={archiveScope} onScopeChange={setArchiveScope} />
         <FilterToggleButton />
         <PermissionGate permission="hr.employees.create">
           <Button variant="luxe" size="sm" className="h-8 gap-2" onClick={openCreate}>
@@ -226,7 +224,7 @@ export function useBranchesDirectoryModel() {
         </PermissionGate>
       </div>
     ),
-    [archiveScope, openCreate],
+    [openCreate],
   );
 
   useEntityFilterSlot(

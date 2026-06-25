@@ -106,12 +106,13 @@ export function PermissionsManagementPage() {
   async function handleDelete(roleId: string) {
     await remove.mutateAsync(roleId);
     setDeleteTarget(null);
+    if (editingRole?.id === roleId) {
+      setPanelOpen(false);
+      setEditingRole(null);
+    }
   }
 
   const isSaving = create.isPending || update.isPending;
-
-  // For the role card progress bar: count granted vs total app permissions
-  const appActionCount = appPermissions.filter((p) => p.nodeType === 'ACTION').length;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -136,13 +137,12 @@ export function PermissionsManagementPage() {
       {rolesLoading ? (
         <RolesGridSkeleton />
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {roles.map((role) => (
             <RoleCard
               key={role.id}
               role={role}
               grantedCount={grantedMap[role.id]?.length ?? 0}
-              totalCount={appActionCount}
               onEdit={openEdit}
               onDelete={setDeleteTarget}
             />
@@ -151,12 +151,12 @@ export function PermissionsManagementPage() {
           <button
             type="button"
             onClick={openCreate}
-            className="group flex min-h-[200px] flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-border bg-card/50 p-5 transition-colors hover:border-primary/40 hover:bg-primary/5"
+            className="group flex min-h-[72px] flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border bg-card/50 p-3 transition-colors hover:border-primary/40 hover:bg-primary/5"
           >
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-muted transition-colors group-hover:bg-primary/10">
-              <Plus className="h-6 w-6 text-muted-foreground group-hover:text-primary" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted transition-colors group-hover:bg-primary/10">
+              <Plus className="h-4 w-4 text-muted-foreground group-hover:text-primary" />
             </div>
-            <span className="text-sm font-medium text-muted-foreground group-hover:text-primary">
+            <span className="text-xs font-medium text-muted-foreground group-hover:text-primary">
               إضافة دور جديد
             </span>
           </button>
@@ -186,9 +186,9 @@ export function PermissionsManagementPage() {
 
 function RolesGridSkeleton() {
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {Array.from({ length: 3 }).map((_, i) => (
-        <div key={i} className="h-48 animate-pulse rounded-xl border border-border bg-muted/30" />
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <div key={i} className="h-[72px] animate-pulse rounded-lg border border-border bg-muted/30" />
       ))}
     </div>
   );

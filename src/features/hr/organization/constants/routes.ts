@@ -11,4 +11,8 @@ export const hrOrganizationRoutes = {
   departments: `${HR_ORGANIZATION_BASE}/departments`,
   /** شجرة الهيكل التنظيمي */
   chart: `${HR_ORGANIZATION_BASE}/chart`,
+  /** إعدادات الموارد البشرية والنظام */
+  pages: `${HR_ORGANIZATION_BASE}/pages`,
+  pagesHr: `${HR_ORGANIZATION_BASE}/pages/hr`,
+  pagesOrganization: `${HR_ORGANIZATION_BASE}/pages/organization`,
 } as const;

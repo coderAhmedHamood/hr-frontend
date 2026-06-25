@@ -2,14 +2,19 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, FileDown, FileSpreadsheet } from 'lucide-react';
+import { Plus, Download, FileDown, FileSpreadsheet } from 'lucide-react';
 import { toast } from 'sonner';
 import { useSetPageTitle } from '@/components/layouts/page-title-context';
 import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
-import { ArchiveScopeToggleButton } from '@/components/layouts/archive-scope-toggle-button';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { EntityFilterToolbar } from '@/components/ui/entity-filter-toolbar';
 import { hasDateRangeFilter } from '@/features/hr/discipline/lib/discipline-date-filter';
 import { EmployeesRegisterPrintHtml } from '@/components/pdf/print/employees-register-print-html';
@@ -275,15 +280,45 @@ export function useEmployeesListModel() {
   usePageHeaderActions(
     () => (
       <div className="flex items-center gap-2">
-        <ArchiveScopeToggleButton scope={archiveScope} onScopeChange={setArchiveScope} />
         <FilterToggleButton />
         <Button variant="luxe" size="sm" className="h-8 gap-2" onClick={() => setNewEmpOpen(true)}>
           <Plus className="h-4 w-4" />
           موظف جديد
         </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 w-8 shrink-0"
+              aria-label="تصدير سجل الموظفين"
+            >
+              <Download className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-44">
+            <DropdownMenuItem
+              onSelect={() => {
+                if (employeesPdfRows.length === 0) {
+                  toast.error('لا يوجد موظفون للتصدير ضمن الفلاتر الحالية.');
+                  return;
+                }
+                setPdfOpen(true);
+              }}
+            >
+              <FileDown className="h-4 w-4" />
+              PDF
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => void handleExportExcel()}>
+              <FileSpreadsheet className="h-4 w-4" />
+              Excel
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     ),
-    [archiveScope, newEmpOpen],
+    [employeesPdfRows.length, handleExportExcel],
   );
 
   useEntityFilterSlot(
@@ -329,30 +364,6 @@ export function useEmployeesListModel() {
             { value: 'grid', label: 'شبكة', icon: 'layout-grid' },
           ],
         }}
-        trailingActions={(
-          <>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-8 gap-2"
-              onClick={() => {
-                if (employeesPdfRows.length === 0) {
-                  toast.error('لا يوجد موظفون للتصدير ضمن الفلاتر الحالية.');
-                  return;
-                }
-                setPdfOpen(true);
-              }}
-            >
-              <FileDown className="h-4 w-4" />
-              PDF
-            </Button>
-            <Button type="button" variant="outline" size="sm" className="h-8 gap-2" onClick={() => void handleExportExcel()}>
-              <FileSpreadsheet className="h-4 w-4" />
-              Excel
-            </Button>
-          </>
-        )}
       />
     ),
     [
@@ -361,7 +372,6 @@ export function useEmployeesListModel() {
       dateBounds.from, dateBounds.to,
       contractStatusCounts.all, contractStatusCounts.active,
       contractStatusCounts.suspended, contractStatusCounts.ended,
-      employeesPdfRows.length, employeesFilterSummary, handleExportExcel,
       empPickerList, branchSelectOptions, deptSelectOptions,
     ],
   );

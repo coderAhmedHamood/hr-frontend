@@ -5,10 +5,12 @@ import { usePathname } from 'next/navigation';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
 
 const EMPLOYEE_DETAIL_PATH = /^\/hr\/organization\/employees\/[^/]+$/;
+const ORGANIZATION_PAGES_PATH = /^\/hr\/organization\/pages(?:\/|$)/;
 
 export default function OrganizationModuleLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isEmployeeDetail = EMPLOYEE_DETAIL_PATH.test(pathname ?? '');
+  const isPagesSection = ORGANIZATION_PAGES_PATH.test(pathname ?? '');
 
   if (isEmployeeDetail) {
     return (
@@ -16,6 +18,10 @@ export default function OrganizationModuleLayout({ children }: { children: React
         {children}
       </div>
     );
+  }
+
+  if (isPagesSection) {
+    return <>{children}</>;
   }
 
   return (

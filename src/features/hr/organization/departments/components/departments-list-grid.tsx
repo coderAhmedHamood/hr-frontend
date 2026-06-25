@@ -68,7 +68,7 @@ export function DepartmentsListGrid({
             </div>
 
             {record.description ? (
-              <p className="relative mb-1 line-clamp-1 text-xs text-muted-foreground">{record.description}</p>
+              <p className="relative mb-1   text-xs text-muted-foreground">{record.description}</p>
             ) : null}
 
             <DirectoryGridCardMetaChips className="pt-0.5 pb-1 gap-2">

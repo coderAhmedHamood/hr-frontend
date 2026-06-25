@@ -21,19 +21,21 @@ export function AppEntityFilterRegion({ className }: { className?: string }) {
   // context state change — the caller component never sees this re-render.
   const [, forceUpdate] = React.useReducer((n: number) => n + 1, 0);
 
-  // Register our forceUpdate before any useEffect in child components fire
-  // (useLayoutEffect runs before useEffect across the whole commit).
-  // Also wire setFilterPanelOpen so the first content registration opens the
-  // filter bar in the same micro-task — no extra effect cycle needed.
+  // Register forceUpdate only — do not call setFilterPanelOpen here. Opening the
+  // panel from this callback re-renders the whole provider tree (including pages
+  // with useEntityFilterSlot), which can retrigger slot effects and overflow depth.
   React.useLayoutEffect(() => {
-    reRenderSlotRef.current = () => {
-      if (!excluded && renderFnRef.current !== null) {
-        setFilterPanelOpen((prev) => prev || true);
-      }
-      forceUpdate();
-    };
+    reRenderSlotRef.current = forceUpdate;
     return () => { reRenderSlotRef.current = null; };
-  }, [reRenderSlotRef, renderFnRef, excluded, setFilterPanelOpen]);
+  }, [reRenderSlotRef, forceUpdate]);
+
+  const hasSlotContent = !excluded && renderFnRef.current !== null;
+
+  // Open the filter bar once when a page registers slot content (idempotent).
+  React.useEffect(() => {
+    if (!hasSlotContent) return;
+    setFilterPanelOpen((prev) => prev || true);
+  }, [hasSlotContent, setFilterPanelOpen]);
 
   // Clear slot when navigating to an excluded path.
   React.useEffect(() => {
@@ -41,7 +43,7 @@ export function AppEntityFilterRegion({ className }: { className?: string }) {
   }, [excluded, renderFnRef]);
 
   // Render the slot content fresh on every render (renderFnRef.current is always current).
-  const content = excluded ? null : (renderFnRef.current?.() ?? null);
+  const content = hasSlotContent ? (renderFnRef.current?.() ?? null) : null;
 
   if (excluded || !content || !filterPanelOpen) return null;
   return (

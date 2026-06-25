@@ -14,7 +14,6 @@ import {
 import { useSetPageTitle } from '@/components/layouts/page-title-context';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
-import { ArchiveScopeToggleButton } from '@/components/layouts/archive-scope-toggle-button';
 import { EntityFilterToolbar } from '@/components/ui/entity-filter-toolbar';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
@@ -114,7 +113,6 @@ export function ContractTemplatesClient() {
   usePageHeaderActions(
     () => (
       <div className="flex items-center gap-2">
-        <ArchiveScopeToggleButton scope={archiveScope} onScopeChange={setArchiveScope} />
         <Button
           variant="luxe"
           size="sm"
@@ -125,7 +123,7 @@ export function ContractTemplatesClient() {
         </Button>
       </div>
     ),
-    [archiveScope],
+    [],
   );
 
   useEntityFilterSlot(
@@ -258,7 +256,7 @@ export function ContractTemplatesClient() {
 
                   {/* description / hint if any */}
                   {(item.descriptionAr || item.allowancesHint) && (
-                    <p className="line-clamp-1 text-[10px] text-muted-foreground">
+                    <p className="  text-[10px] text-muted-foreground">
                       {item.descriptionAr || item.allowancesHint}
                     </p>
                   )}

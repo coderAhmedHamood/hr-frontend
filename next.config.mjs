@@ -72,7 +72,10 @@ const nextConfig = {
       { source: '/hr/job-titles', destination: '/hr/organization/job-titles', permanent: true },
       { source: '/organization', destination: '/hr/organization/chart', permanent: true },
       { source: '/permissions', destination: '/hr/permissions/roles', permanent: true },
-      { source: '/settings', destination: '/hr/settings', permanent: true },
+      { source: '/settings', destination: '/hr/organization/pages/hr', permanent: true },
+      { source: '/hr/settings', destination: '/hr/organization/pages/hr', permanent: true },
+      { source: '/hr/settings/hr', destination: '/hr/organization/pages/hr', permanent: true },
+      { source: '/hr/settings/organization', destination: '/hr/organization/pages/organization', permanent: true },
       { source: '/notifications', destination: '/hr/dashboard', permanent: true },
       { source: '/hr/notifications', destination: '/hr/dashboard', permanent: true },
     ];

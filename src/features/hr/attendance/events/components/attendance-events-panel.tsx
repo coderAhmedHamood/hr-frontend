@@ -252,7 +252,7 @@ function EventRow({
       {/* Employee + event */}
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <p className="truncate text-sm font-semibold">{event.employeeNameAr}</p>
+        <p className="truncate text-sm font-semibold">{event.employeeNameAr}</p>
           {event.isVoided && <Badge variant="secondary" className="shrink-0 text-[9px]">ملغى</Badge>}
         </div>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
@@ -406,7 +406,7 @@ export function AttendanceEventsPanel() {
             {/* Day header */}
             <div className="flex items-center justify-between border-b border-border bg-muted/30 px-4 py-2.5">
               <div className="flex items-center gap-2">
-                <span className="font-mono text-sm font-semibold" dir="ltr">{date}</span>
+        <span className="font-mono text-sm font-semibold" dir="ltr">{date}</span>
                 <Badge variant="subtle" className="number-ar text-[10px]">{dayEvents.length} حدث</Badge>
               </div>
               <div className="flex gap-2 text-[11px] text-muted-foreground">

@@ -375,7 +375,7 @@ export function AttendanceCorrectionRequestsClient() {
         title: 'الموظف',
         render: (r) => (
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
               {r.employeeNameAr.charAt(0)}
             </div>
             <div>
@@ -417,7 +417,7 @@ export function AttendanceCorrectionRequestsClient() {
         key: 'reason',
         title: 'السبب / الملاحظات',
         hideOnMobile: true,
-        render: (r) => <span className="text-xs text-muted-foreground line-clamp-2 max-w-[200px]">{r.reasonAr || '—'}</span>,
+        render: (r) => <span className="text-xs text-muted-foreground   max-w-[200px]">{r.reasonAr || '—'}</span>,
       },
       {
         key: 'prevTimes',

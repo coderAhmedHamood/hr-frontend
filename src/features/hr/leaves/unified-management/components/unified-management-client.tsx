@@ -160,7 +160,7 @@ function LeaveStatusBlock({ leave, compact = false }: { leave: UnifiedLeaveRecor
             {meta.dateLabel}: <span className="font-mono text-foreground" dir="ltr">{meta.dateValue}</span>
           </>
         ) : leave.decisionNotesAr?.trim() ? (
-          <span className="line-clamp-2" title={leave.decisionNotesAr}>{leave.decisionNotesAr}</span>
+          <span className=" " title={leave.decisionNotesAr}>{leave.decisionNotesAr}</span>
         ) : undefined,
       }}
       compact={compact}
@@ -217,7 +217,7 @@ function LeaveDecisionCell({
         <p className="text-muted-foreground">{LEAVE_STATUS_LABELS[leave.status]}</p>
       )}
       {leave.decisionNotesAr?.trim() ? (
-        <p className="line-clamp-2 text-muted-foreground" title={leave.decisionNotesAr}>
+        <p className="  text-muted-foreground" title={leave.decisionNotesAr}>
           {leave.decisionNotesAr}
         </p>
       ) : null}
@@ -649,7 +649,7 @@ function LeaveTable({ leaves, employees, branches, currentEmployeeId, onDetail, 
         const name = employeeDisplayName(l, employees);
         return (
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
               {name.charAt(0) ?? '?'}
             </div>
             <div>
@@ -753,7 +753,7 @@ function LeaveTable({ leaves, employees, branches, currentEmployeeId, onDetail, 
               <span className="text-xs text-muted-foreground">{l.workingDays} أيام</span>
             </div>
             {l.noteAr?.trim() ? (
-              <p className="line-clamp-2 text-xs text-muted-foreground text-right" title={l.noteAr}>
+              <p className="  text-xs text-muted-foreground text-right" title={l.noteAr}>
                 {l.noteAr}
               </p>
             ) : null}

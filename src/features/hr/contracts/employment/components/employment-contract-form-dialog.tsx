@@ -474,7 +474,7 @@ export function EmploymentContractFormDialog({
                             ) : null}
                           </div>
                           <p className="text-sm font-medium leading-snug">{a.title}</p>
-                          <p className="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground">{a.body.slice(0, 120)}</p>
+                          <p className="mt-0.5   text-[11px] text-muted-foreground">{a.body.slice(0, 120)}</p>
                         </div>
                       </label>
                     );

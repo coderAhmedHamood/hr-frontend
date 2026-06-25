@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { useAuthHydrated } from '@/features/auth/hooks/use-auth-hydrated';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
 import { authApi } from '@/features/auth/lib/api/auth';
 import type { AccessProfile } from '@/features/auth/types/access-profile';

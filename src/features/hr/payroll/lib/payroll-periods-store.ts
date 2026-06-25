@@ -463,15 +463,17 @@ export const useHRPayrollPeriodsStore = create<State>()((set, get) => ({
 
     const state = get();
     const period = state.periods.find(p => p.id === periodId);
-    const line = period?.employmentLines.find(l => l.id === lineId);
-    if (!line) return;
+    const line = period?.employmentLines.find(l => l.id === lineId || l.employeeId === lineId);
+    const employeeId = line?.employeeId ?? lineId;
+    const baseSalary = line?.baseSalarySnapshot ?? 0;
+    if (!employeeId) return;
 
     try {
       // Delete all existing backend inputs for this (period, employee) pair that came from the compensation panel
       const existing = await monthlyInputsApi.list({
         companyId,
         payrollPeriodId: periodId,
-        employeeId: line.employeeId,
+        employeeId,
         limit: 500,
       });
       const toDelete = existing.items.filter(
@@ -480,7 +482,6 @@ export const useHRPayrollPeriodsStore = create<State>()((set, get) => ({
       await Promise.all(toDelete.map(d => monthlyInputsApi.delete(d.id)));
 
       // Create new inputs
-      const baseSalary = line.baseSalarySnapshot;
       const creates = inputs
         .filter(i => (i.kind === 'other' ? i.value !== 0 : i.value > 0))
         .map(i => {
@@ -515,14 +516,14 @@ export const useHRPayrollPeriodsStore = create<State>()((set, get) => ({
           return monthlyInputsApi.create({
             companyId,
             payrollPeriodId: periodId,
-            employeeId: line.employeeId,
+            employeeId,
             inputKind,
             direction,
             amount,
             note: i.note || undefined,
             sourceKind: 'manual',
             sourceTable: 'frontend_compensation_panel',
-            sourceId: line.employeeId,
+            sourceId: employeeId,
           });
         });
 

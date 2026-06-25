@@ -111,7 +111,7 @@ export function PublicCareersClient() {
                   <div className="h-1 w-full bg-emerald-500/80" />
                   <CardContent className="p-5 space-y-3">
                     <div className="flex items-start justify-between gap-2">
-                      <h2 className="font-semibold leading-tight group-hover:text-primary transition-colors line-clamp-2">
+                      <h2 className="font-semibold leading-tight group-hover:text-primary transition-colors  ">
                         {job.title}
                       </h2>
                       <Badge variant="outline" className="shrink-0 text-[10px]">

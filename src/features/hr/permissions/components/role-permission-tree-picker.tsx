@@ -12,14 +12,9 @@ import {
   type PermissionTreeNode,
 } from '@/features/hr/permissions/utils/permission-tree';
 
-const ACTION_AR: Record<string, string> = {
-  read: 'عرض',
-  create: 'إنشاء',
-  update: 'تعديل',
-  delete: 'حذف',
-  approve: 'موافقة',
-  export: 'تصدير',
-};
+import {
+  permissionActionLabel,
+} from '@/features/hr/permissions/constants/permission-actions';
 
 type RowProps = {
   node: PermissionTreeNode;
@@ -87,7 +82,7 @@ function PermissionPickerRow({ node, depth = 0, selectedSet, onToggle }: RowProp
           <span className="truncate">{node.nameAr}</span>
           {node.nodeType === 'ACTION' && node.action && (
             <Badge variant="subtle" className="text-[10px]">
-              {ACTION_AR[node.action] ?? node.action}
+              {permissionActionLabel(node.action)}
             </Badge>
           )}
           {node.resource && (
@@ -176,25 +171,6 @@ export function RolePermissionTreePicker({ permissions, selectedIds, onChange }:
             onToggle={toggleIds}
           />
         ))}
-      </div>
-
-      <div className="flex items-center justify-between rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs">
-        <span className="text-muted-foreground">الصلاحيات المفعّلة</span>
-        <div className="flex items-center gap-1.5">
-          <span className="number-ar font-bold text-foreground">{selectedIds.length}</span>
-          <span className="text-muted-foreground">من</span>
-          <span className="number-ar text-muted-foreground">{allActionIds.length}</span>
-          <div className="mr-2 h-1.5 w-16 overflow-hidden rounded-full bg-muted">
-            <div
-              className="h-full rounded-full bg-primary transition-all"
-              style={{
-                width: allActionIds.length
-                  ? `${Math.round((selectedIds.length / allActionIds.length) * 100)}%`
-                  : '0%',
-              }}
-            />
-          </div>
-        </div>
       </div>
     </div>
   );

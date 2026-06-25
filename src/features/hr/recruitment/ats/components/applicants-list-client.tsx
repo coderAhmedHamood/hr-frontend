@@ -24,7 +24,6 @@ import {
 import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
-import { ArchiveScopeToggleButton } from '@/components/layouts/archive-scope-toggle-button';
 import {
   RECRUITMENT_ARCHIVE_SCOPE_DEFAULT,
   RECRUITMENT_ARCHIVE_SCOPE_OPTIONS,
@@ -142,11 +141,10 @@ export function ApplicantsListClient() {
   usePageHeaderActions(
     () => (
       <div className="flex items-center gap-2">
-        <ArchiveScopeToggleButton scope={archiveScope} onScopeChange={setArchiveScope} />
         <FilterToggleButton activeFilterCount={activeFilterCount} />
       </div>
     ),
-    [archiveScope, activeFilterCount],
+    [activeFilterCount],
   );
 
   useEntityFilterSlot(

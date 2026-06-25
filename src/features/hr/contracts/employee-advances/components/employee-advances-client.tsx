@@ -554,7 +554,7 @@ export function EmployeeAdvancesClient() {
                   <p className="text-[10px] leading-snug text-muted-foreground">{repaymentLine(x)}</p>
                 </div>
                 {x.note && (
-                  <p className="text-[11px] text-muted-foreground line-clamp-2">{x.note}</p>
+                  <p className="text-[11px] text-muted-foreground  ">{x.note}</p>
                 )}
                 {x.approvedAt && (
                   <p className="text-[10px] text-muted-foreground">

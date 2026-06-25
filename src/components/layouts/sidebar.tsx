@@ -9,7 +9,7 @@ import {
   LayoutGrid, MapPin, Link2, CalendarRange, Activity,
   ListChecks, ShieldCheck, LayoutList, CirclePlus, CalendarClock,
   ChevronDown, X, LifeBuoy, FileSpreadsheet, FileSignature,
-  UserCircle, Briefcase, UserPlus, Bell, Send, Inbox,   KeyRound, Settings, Banknote,
+  UserCircle, Briefcase, UserPlus, Bell, Send, Inbox,   KeyRound, Banknote,
 } from 'lucide-react';
 import { cn } from '@/shared/utils';
 import { Logo } from '@/components/layouts/logo';
@@ -21,7 +21,10 @@ import { hrContractsOnlyNavGroups } from '@/features/hr/contracts/constants/nav'
 import { hrPayrollSectionHref } from '@/features/hr/payroll/constants/routes';
 import { hrContractsSectionHref } from '@/features/hr/contracts/constants/routes';
 import { hrPermissionsNavGroups } from '@/features/hr/permissions/constants/nav';
-import { hrSettingsNavGroups } from '@/features/hr/settings/constants/nav';
+import {
+  hrOrganizationSettingsNavItems,
+  hrOrganizationStructureNavItems,
+} from '@/features/hr/organization/constants/nav';
 
 type MobileNavChild =
   | { label: string; href: string; icon?: React.ElementType; match?: 'exact' | 'prefix' }
@@ -40,12 +43,17 @@ const mobileNav: MobileNavItem[] = [
   {
     key: 'employees', label: 'الهيكل الإداري', href: '/hr/organization/employees', icon: Users,
     children: [
-      { label: 'سجل الموظفين', href: '/hr/organization/employees', icon: Users },
-      { label: 'المستخدمين', href: '/hr/organization/contacts', icon: UserCircle },
-      { label: 'المسميات الوظيفية', href: '/hr/organization/job-titles', icon: Briefcase },
-      { label: 'الفروع', href: '/hr/organization/branches', icon: Building2 },
-      { label: 'الأقسام', href: '/hr/organization/departments', icon: Building2 },
-      { label: 'الهيكل التنظيمي', href: '/hr/organization/chart', icon: Building2 },
+      ...hrOrganizationStructureNavItems.map((item) => ({
+        label: item.labelAr,
+        href: item.href,
+        icon: item.icon,
+      })),
+      { separator: true },
+      ...hrOrganizationSettingsNavItems.map((item) => ({
+        label: item.labelAr,
+        href: item.href,
+        icon: item.icon,
+      })),
     ],
   },
   {
@@ -135,18 +143,6 @@ const mobileNav: MobileNavItem[] = [
     label: 'الصلاحيات',
     icon: Shield,
     children: hrPermissionsNavGroups.flatMap((g) =>
-      g.items.map((item) => ({
-        label: item.labelAr,
-        href: item.href,
-        icon: item.icon,
-      })),
-    ),
-  },
-  {
-    key: 'settings',
-    label: 'الإعدادات',
-    icon: Settings,
-    children: hrSettingsNavGroups.flatMap((g) =>
       g.items.map((item) => ({
         label: item.labelAr,
         href: item.href,

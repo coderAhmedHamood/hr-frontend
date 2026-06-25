@@ -153,7 +153,7 @@ function PeriodCard({ period, index, offsetMinutes }: { period: DailyBreakdownPe
     <div className="space-y-3 rounded-xl border border-border bg-card p-3 shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <Layers className="h-3.5 w-3.5 text-muted-foreground" />
+        <Layers className="h-3.5 w-3.5 text-muted-foreground" />
           <span className="text-sm font-semibold">{periodLabel}</span>
           <span className="text-xs text-muted-foreground tabular-nums" dir="ltr">
             {trimTime(expected.startTime)} — {trimTime(expected.endTime)}
@@ -512,7 +512,7 @@ export function DailyDayDetailDialog({
                 {breakdown.unmatchedEvents.length > 0 ? (
                   <div className="space-y-2 rounded-xl border border-amber-500/30 bg-amber-500/5 p-3">
                     <div className="flex items-center gap-2">
-                      <Unlink className="h-4 w-4 text-amber-600" />
+        <Unlink className="h-4 w-4 text-amber-600" />
                       <p className="text-sm font-semibold text-amber-800">أحداث غير مرتبطة بفترة</p>
                     </div>
                     <p className="text-[11px] text-amber-700/90">

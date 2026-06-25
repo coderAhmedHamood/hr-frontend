@@ -85,7 +85,7 @@ export function JobTitlesListViews({ model }: { model: JobTitlesDirectoryModel }
                 <DirectoryGridCardTitle className="leading-snug">{row.titleAr}</DirectoryGridCardTitle>
                 <Briefcase className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
               </DirectoryGridCardHeader>
-              {row.descriptionAr ? <p className="line-clamp-2 text-xs text-muted-foreground">{row.descriptionAr}</p> : null}
+              {row.descriptionAr ? <p className="  text-xs text-muted-foreground">{row.descriptionAr}</p> : null}
               <p className="text-[10px] text-muted-foreground">{companyLabel(row.companyId)}</p>
               <DirectoryGridCardFooter>
                 {row.isActive ? (

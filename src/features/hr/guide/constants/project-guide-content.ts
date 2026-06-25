@@ -686,7 +686,7 @@ export const GUIDE_PAGES: GuidePage[] = [
     title: 'إعدادات الموارد البشرية',
     categoryId: 'settings',
     why: 'ضبط سلوك الإشعارات والسياسات العامة للنظام.',
-    systemHref: '/hr/settings/hr',
+    systemHref: '/hr/organization/pages/hr',
     systemHrefLabel: 'فتح إعدادات HR',
     blocks: [
       {

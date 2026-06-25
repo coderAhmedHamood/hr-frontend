@@ -12,7 +12,6 @@ import { EntityFilterToolbar } from '@/components/ui/entity-filter-toolbar';
 import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
-import { ArchiveScopeToggleButton } from '@/components/layouts/archive-scope-toggle-button';
 import { usePageFilters } from '@/components/layouts/filter-panel-context';
 import {
   EmptyState,
@@ -409,7 +408,6 @@ export function EmploymentContractsClient() {
   usePageHeaderActions(
     () => (
       <div className="flex items-center gap-2">
-        <ArchiveScopeToggleButton scope={archiveScope} onScopeChange={setArchiveScope} />
         <FilterToggleButton activeFilterCount={activeFilterCount} />
         <Button variant="luxe" size="sm" className="h-8 gap-1.5 px-3 text-xs shadow-sm shrink-0" onClick={openCreate}>
           <Plus className="h-3.5 w-3.5" />
@@ -417,7 +415,7 @@ export function EmploymentContractsClient() {
         </Button>
       </div>
     ),
-    [activeFilterCount, archiveScope],
+    [activeFilterCount, openCreate],
   );
 
   const openView = (c: HRContractRecord) => {

@@ -4,7 +4,7 @@ import {
   type PermissionResponseDto,
 } from '@/features/hr/permissions/lib/api/permissions';
 
-const PAGE_SIZE = 200;
+const PAGE_SIZE = 500;
 
 /** Loads every page from GET /permissions — backend paginates the catalog. */
 export async function loadAllPermissions(): Promise<PaginatedResult<PermissionResponseDto>> {
@@ -12,15 +12,19 @@ export async function loadAllPermissions(): Promise<PaginatedResult<PermissionRe
     await permissionsApi.getAll({ page: 1, limit: PAGE_SIZE }),
   );
 
-  const items = [...first.items];
   const totalPages = Math.max(first.pagination?.totalPages ?? 1, 1);
-
-  for (let page = 2; page <= totalPages; page++) {
-    const next = ensurePaginatedResult(
-      await permissionsApi.getAll({ page, limit: PAGE_SIZE }),
-    );
-    items.push(...next.items);
+  if (totalPages <= 1) {
+    return first;
   }
+
+  const pageNumbers = Array.from({ length: totalPages - 1 }, (_, index) => index + 2);
+  const rest = await Promise.all(
+    pageNumbers.map(async (page) =>
+      ensurePaginatedResult(await permissionsApi.getAll({ page, limit: PAGE_SIZE })),
+    ),
+  );
+
+  const items = [...first.items, ...rest.flatMap((page) => page.items)];
 
   return {
     items,
@@ -31,4 +35,9 @@ export async function loadAllPermissions(): Promise<PaginatedResult<PermissionRe
       totalPages: 1,
     },
   };
+}
+
+/** Single-request catalog load when total fits in one page (typical HR catalog). */
+export async function loadPermissionsCatalog(): Promise<PaginatedResult<PermissionResponseDto>> {
+  return loadAllPermissions();
 }
