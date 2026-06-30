@@ -1,15 +1,21 @@
 'use client';
 
 import * as React from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { useSetPageTitle } from '@/components/layouts/page-title-context';
+import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
+import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  ListFilterBar,
+  type ListFilterInlineSelect,
+} from '@/components/ui/list-filter-bar';
 import { useRoles } from '@/features/hr/permissions/hooks/useRoles';
-import { usePermissions } from '@/features/hr/permissions/hooks/usePermissions';
+import { usePermissions, filterPermissionIdsForApplication, resolveApplicationLabel } from '@/features/hr/permissions/hooks/usePermissions';
 import { useApplicationId } from '@/features/hr/permissions/hooks/useApplicationId';
 import { useRolePermissionsMap } from '@/features/hr/permissions/hooks/useRolePermissionsMap';
-
 import { useRolesMutations } from '@/features/hr/permissions/hooks/useRolesMutations';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import { loadRoleForEdit } from '@/features/hr/permissions/services/roles.service';
@@ -19,6 +25,18 @@ import { RoleFormPanel, type RoleFormValues } from '@/features/hr/permissions/co
 import { DeleteRoleDialog } from '@/features/hr/permissions/dialogs/delete-role-dialog';
 import type { RoleResponseDto } from '@/features/hr/permissions/lib/api/roles';
 import type { PermissionResponseDto } from '@/features/hr/permissions/lib/api/permissions';
+
+type RoleKindFilter = 'all' | 'system' | 'custom';
+
+function matchesRoleSearch(role: RoleResponseDto, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  const haystack = [role.nameAr, role.name, role.code, role.description]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+  return haystack.includes(q);
+}
 
 export function PermissionsManagementPage() {
   useSetPageTitle({ titleAr: 'الأدوار', descriptionAr: 'إنشاء الأدوار وربط الصلاحيات', iconName: 'Shield' });
@@ -47,24 +65,101 @@ export function PermissionsManagementPage() {
   const [panelLoading, setPanelLoading] = React.useState(false);
   const [initialValues, setInitialValues] = React.useState<RoleFormValues | null>(null);
   const [deleteTarget, setDeleteTarget] = React.useState<RoleResponseDto | null>(null);
+  const [search, setSearch] = React.useState('');
+  const [roleKind, setRoleKind] = React.useState<RoleKindFilter>('all');
+  const [roleApplicationId, setRoleApplicationId] = React.useState('');
 
   const isCatalogReady = !permissionsLoading && !permissionsError;
 
-  function openCreate() {
+  const effectiveRoleApplicationId =
+    roleApplicationId || editingRole?.applicationId || applicationId;
+  const roleApplicationLabel = React.useMemo(
+    () => resolveApplicationLabel(allPermissions, effectiveRoleApplicationId),
+    [allPermissions, effectiveRoleApplicationId],
+  );
+
+  const filteredRoles = React.useMemo(() => {
+    return roles.filter((role) => {
+      if (roleKind === 'system' && !role.isSystem) return false;
+      if (roleKind === 'custom' && role.isSystem) return false;
+      return matchesRoleSearch(role, search);
+    });
+  }, [roles, roleKind, search]);
+
+  const openCreate = React.useCallback(() => {
     void refetchPermissions();
     setEditingRole(null);
+    setRoleApplicationId(applicationId);
     setInitialValues(null);
     setPanelOpen(true);
-  }
+  }, [refetchPermissions, applicationId]);
+
+  usePageHeaderActions(
+    () => (
+      <Button
+        variant="luxe"
+        size="sm"
+        className="h-8 gap-1.5 px-3 text-xs shadow-sm shrink-0"
+        onClick={openCreate}
+      >
+        <Plus className="h-3.5 w-3.5" />
+        إضافة دور
+      </Button>
+    ),
+    [openCreate],
+  );
+
+  const inlineSelects = React.useMemo((): ListFilterInlineSelect[] => [
+    {
+      id: 'roleKind',
+      value: roleKind,
+      onChange: (v) => setRoleKind((v || 'all') as RoleKindFilter),
+      placeholder: 'نوع الدور',
+      className: 'w-[9rem]',
+      options: [
+        { value: 'all', label: 'كل الأدوار' },
+        { value: 'custom', label: 'أدوار مخصصة' },
+        { value: 'system', label: 'أدوار نظامية' },
+      ],
+    },
+  ], [roleKind]);
+
+  const searchFilter = (
+    <div className="relative w-full min-w-[12rem] max-w-xs">
+      <Search className="pointer-events-none absolute start-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+      <Input
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="بحث بالاسم أو الرمز…"
+        className="h-8 ps-8 text-xs"
+      />
+    </div>
+  );
+
+  useEntityFilterSlot(
+    () => (
+      <ListFilterBar
+        showDateSection={false}
+        showStatusSection={false}
+        leadingFilters={searchFilter}
+        inlineSelects={inlineSelects}
+        onDateBoundsChange={() => {}}
+      />
+    ),
+    [search, roleKind, inlineSelects],
+  );
 
   async function openEdit(role: RoleResponseDto) {
     void refetchPermissions();
     setEditingRole(role);
+    setRoleApplicationId(role.applicationId ?? applicationId);
     setInitialValues(null);
     setPanelOpen(true);
     setPanelLoading(true);
     try {
       const loaded = await loadRoleForEdit(role.id);
+      const appId = loaded.applicationId || role.applicationId || applicationId;
+      setRoleApplicationId(appId);
       setInitialValues({
         name: loaded.name,
         description: loaded.description,
@@ -80,20 +175,33 @@ export function PermissionsManagementPage() {
   }
 
   async function handleSave(values: RoleFormValues) {
+    const { allowed: permissionIds, rejected } = filterPermissionIdsForApplication(
+      values.permissionIds,
+      allPermissions,
+      effectiveRoleApplicationId,
+    );
+
+    if (rejected.length > 0) {
+      toast.error(
+        `لا يمكن حفظ ${rejected.length} صلاحية — هذا الدور يتبع تطبيق «${roleApplicationLabel || '…'}» فقط. لصلاحيات تطبيق آخر (مثل المستخدمون) عدّل دوراً من ذلك التطبيق.`,
+      );
+      return;
+    }
+
     try {
       if (editingRole) {
         await update.mutateAsync({
           roleId: editingRole.id,
           name: values.name,
           description: values.description,
-          permissionIds: values.permissionIds,
+          permissionIds,
         });
         toast.success('تم تحديث الدور والصلاحيات بنجاح');
       } else {
         await create.mutateAsync({
           name: values.name,
           description: values.description,
-          permissionIds: values.permissionIds,
+          permissionIds,
         });
         toast.success('تم إنشاء الدور وربط الصلاحيات بنجاح');
       }
@@ -104,6 +212,12 @@ export function PermissionsManagementPage() {
   }
 
   async function handleDelete(roleId: string) {
+    const target = roles.find((r) => r.id === roleId);
+    if (target?.isSystem) {
+      toast.error('لا يمكن حذف الأدوار النظامية');
+      setDeleteTarget(null);
+      return;
+    }
     await remove.mutateAsync(roleId);
     setDeleteTarget(null);
     if (editingRole?.id === roleId) {
@@ -115,30 +229,24 @@ export function PermissionsManagementPage() {
   const isSaving = create.isPending || update.isPending;
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="font-display text-2xl font-bold tracking-tight">الأدوار</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            أنشئ الأدوار وحدد الصلاحيات على كل مورد — تعيين الأدوار على الموظفين يتم من ملف الموظف
-          </p>
-        </div>
-        <Button variant="luxe" className="gap-2" onClick={openCreate}>
-          <Plus className="h-4 w-4" /> إضافة دور
-        </Button>
-      </div>
-
-      {permissionsError && (
+    <div className="flex min-h-0 flex-1 flex-col gap-4 animate-fade-in">
+      {permissionsError ? (
         <div className="rounded-xl border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">
           تعذّر تحميل قائمة الصلاحيات من الخادم. تأكد من تسجيل الدخول وأن الـ API يعمل.
         </div>
-      )}
+      ) : null}
 
       {rolesLoading ? (
         <RolesGridSkeleton />
+      ) : filteredRoles.length === 0 ? (
+        <div className="flex h-40 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-card/50 text-sm text-muted-foreground">
+          {search.trim() || roleKind !== 'all'
+            ? 'لا توجد أدوار مطابقة للفلاتر'
+            : 'لا توجد أدوار — أنشئ دوراً جديداً'}
+        </div>
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {roles.map((role) => (
+          {filteredRoles.map((role) => (
             <RoleCard
               key={role.id}
               role={role}
@@ -170,6 +278,7 @@ export function PermissionsManagementPage() {
         editingTitle={editingRole ? (editingRole.nameAr ?? editingRole.name ?? null) : null}
         initialValues={initialValues}
         availablePermissions={appPermissions}
+        applicationLabel={roleApplicationLabel}
         onOpenChange={setPanelOpen}
         onSave={handleSave}
       />

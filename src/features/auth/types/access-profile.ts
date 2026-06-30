@@ -19,6 +19,10 @@ export type CompanyAccess = {
   companyId: string;
   companyNameAr?: string;
   companyNameEn?: string | null;
+  companyLogoUrl?: string | null;
+  companyCommercialRegistrationNo?: string | null;
+  companyPrimaryColor?: string | null;
+  companySecondaryColor?: string | null;
   isDefault?: boolean;
   roles?: RoleAccess[];
   permissions: string[];

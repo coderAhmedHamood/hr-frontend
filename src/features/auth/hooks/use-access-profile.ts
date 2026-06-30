@@ -7,6 +7,7 @@ import type { AccessProfile } from '@/features/auth/types/access-profile';
 export const ACCESS_PROFILE_KEY = ['auth', 'access-profile'] as const;
 
 export function useAccessProfile() {
+  const hydrated = useAuthHydrated();
   const user = useAuthStore((s) => s.user);
   const accessProfile = useAuthStore((s) => s.accessProfile);
   const setAccessProfile = useAuthStore((s) => s.setAccessProfile);
@@ -18,7 +19,7 @@ export function useAccessProfile() {
       setAccessProfile(profile);
       return profile;
     },
-    enabled: !!user?.id && !accessProfile,
+    enabled: hydrated && !!user?.id && !accessProfile,
     staleTime: Infinity,
     gcTime: Infinity,
   });

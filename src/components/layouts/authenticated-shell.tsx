@@ -7,7 +7,7 @@ import { hasAccessTokenCookie } from '@/features/auth/lib/auth-cookie';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
 
 function AuthShellFrame({ children }: { children: ReactNode }) {
-  return <div className="flex min-h-full flex-col">{children}</div>;
+  return <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col">{children}</div>;
 }
 
 function AuthLoadingFallback() {

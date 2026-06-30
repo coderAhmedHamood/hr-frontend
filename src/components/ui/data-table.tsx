@@ -61,21 +61,21 @@ export function DataTable<T>({
   }
 
   const headerRowClass = isDirectory
-    ? 'border-b border-border bg-muted/40 text-xs font-semibold text-muted-foreground'
-    : 'border-b border-border/60 bg-muted/30';
+    ? 'border-b border-border text-xs font-semibold text-muted-foreground'
+    : 'border-b border-border/60';
 
   const headerCellClass = isDirectory
-    ? 'px-4 py-3 text-start'
-    : 'px-4 py-3 text-right text-[11px] font-bold uppercase tracking-[0.06em] text-muted-foreground/70';
+    ? 'sticky top-0 z-10 bg-muted px-4 py-3 text-start border-b border-border'
+    : 'sticky top-0 z-10 bg-card px-4 py-3 text-right text-[11px] font-bold uppercase tracking-[0.06em] text-muted-foreground/70 border-b border-border';
 
   const bodyRowClass = isDirectory
     ? cn('border-b border-border/60', onRowClick && 'group cursor-pointer hover:bg-muted/25')
     : cn('group transition-colors hover:bg-muted/20', onRowClick && 'cursor-pointer');
 
   const tableShell = (
-    <div className={cn(alwaysShowTable ? 'overflow-x-auto' : 'hidden overflow-x-auto md:block')}>
+    <div className={cn(alwaysShowTable ? 'min-w-0' : 'hidden min-w-0 md:block')}>
       <table className={cn('w-full text-sm', tableClassName)}>
-        <thead>
+        <thead className="isolate">
           <tr className={headerRowClass}>
             {columns.map(col => (
               <th
@@ -119,7 +119,7 @@ export function DataTable<T>({
   );
 
   return (
-    <div className={cn('overflow-hidden rounded-xl border border-border bg-card shadow-soft', className)}>
+    <div className={cn('min-w-0 rounded-xl border border-border bg-card shadow-soft', className)}>
       {tableShell}
 
       {!alwaysShowTable && (

@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { ChevronDown, Coffee } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import ModernTimePicker from '@/components/ui/modern-time-picker';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { InfoTooltip } from '@/components/ui/tooltip';
@@ -26,12 +27,10 @@ export function ShiftScheduleForm({
       <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-3">
         <div className="space-y-1.5">
           <Label className="text-xs text-muted-foreground">بداية الدوام</Label>
-          <Input
-            type="time"
-            step={60}
+          <ModernTimePicker
             value={period.startTime}
-            onChange={(e) => onChange({ ...period, startTime: normalizeTimeInput(e.target.value) })}
-            className="h-11 font-mono text-sm tabular-nums"
+            onChange={(v) => onChange({ ...period, startTime: normalizeTimeInput(v) })}
+            placeholder="00:00"
           />
         </div>
         <div className="flex flex-col items-center pb-2.5 text-muted-foreground/50 gap-0.5">
@@ -39,12 +38,10 @@ export function ShiftScheduleForm({
         </div>
         <div className="space-y-1.5">
           <Label className="text-xs text-muted-foreground">نهاية الدوام</Label>
-          <Input
-            type="time"
-            step={60}
+          <ModernTimePicker
             value={period.endTime}
-            onChange={(e) => onChange({ ...period, endTime: normalizeTimeInput(e.target.value) })}
-            className="h-11 font-mono text-sm tabular-nums"
+            onChange={(v) => onChange({ ...period, endTime: normalizeTimeInput(v) })}
+            placeholder="00:00"
           />
         </div>
       </div>
@@ -236,20 +233,18 @@ export function ShiftScheduleForm({
         </label>
         {period.breakEnabled && (
           <div className="flex shrink-0 flex-row flex-nowrap items-center gap-2">
-            <Input
-              type="time"
-              step={60}
+            <ModernTimePicker
               value={period.breakStart}
-              onChange={(e) => onChange({ ...period, breakStart: normalizeTimeInput(e.target.value) })}
-              className="h-9 w-auto min-w-[7.5rem] max-w-[9.5rem] shrink-0 font-mono text-sm tabular-nums"
+              onChange={(v) => onChange({ ...period, breakStart: normalizeTimeInput(v) })}
+              placeholder="00:00"
+              className="min-w-[7.5rem] max-w-[9.5rem] shrink-0"
             />
             <span className="shrink-0 text-muted-foreground/60 text-xs">—</span>
-            <Input
-              type="time"
-              step={60}
+            <ModernTimePicker
               value={period.breakEnd}
-              onChange={(e) => onChange({ ...period, breakEnd: normalizeTimeInput(e.target.value) })}
-              className="h-9 w-auto min-w-[7.5rem] max-w-[9.5rem] shrink-0 font-mono text-sm tabular-nums"
+              onChange={(v) => onChange({ ...period, breakEnd: normalizeTimeInput(v) })}
+              placeholder="00:00"
+              className="min-w-[7.5rem] max-w-[9.5rem] shrink-0"
             />
           </div>
         )}

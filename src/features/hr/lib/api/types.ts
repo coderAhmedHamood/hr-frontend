@@ -17,7 +17,7 @@ export type ApiErrorEnvelope = {
 export function isApiErrorEnvelope(payload: unknown): payload is ApiErrorEnvelope {
   if (!payload || typeof payload !== 'object') return false;
   const record = payload as Record<string, unknown>;
-  return record.data === null && 'status' in record && 'message' in record;
+  return record.data === null && 'status' in record && 'message' in record && 'error' in record && record.error !== undefined;
 }
 
 export function isApiSuccessEnvelope(payload: unknown): payload is ApiSuccessEnvelope {

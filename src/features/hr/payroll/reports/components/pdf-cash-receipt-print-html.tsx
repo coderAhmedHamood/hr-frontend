@@ -3,7 +3,6 @@
 import * as React from 'react';
 import { sanitizePdfText } from '@/components/pdf/lib/sanitize-pdf-text';
 import { RoseTradingLetterheadPrint } from '@/components/pdf/print/rose-trading-letterhead-print';
-import { getPdfLogoSrc } from '@/components/pdf/lib/pdf-logo-url';
 import { fmtPrintDate, fmtPrintNumber, PDF_PRINT_C, type CompanyInfo } from './pdf-print-shared';
 
 export type CashReceiptReason =
@@ -71,15 +70,9 @@ function LabeledField({ label, value, dir = 'rtl' }: { label: string; value: str
 
 export const CashReceiptPrintHtml = React.forwardRef<HTMLDivElement, CashReceiptPrintHtmlProps>(
   function CashReceiptPrintHtml(
-    { company, employeeNameAr, branchNameAr, amountNumeric, amountWritten, reason, reasonDetail, date, logoSrc: logoSrcProp },
+    { company, employeeNameAr, branchNameAr, amountNumeric, amountWritten, reason, reasonDetail, date },
     ref,
   ) {
-    const [logoSrc, setLogoSrc] = React.useState<string | undefined>(logoSrcProp);
-    React.useEffect(() => {
-      if (logoSrcProp) setLogoSrc(logoSrcProp);
-      else setLogoSrc(getPdfLogoSrc());
-    }, [logoSrcProp]);
-
     const amountNum = fmtPrintNumber(amountNumeric);
     const written = amountWritten?.trim() ? amountWritten : `${amountNum} ريال سعودي`;
 
@@ -100,7 +93,11 @@ export const CashReceiptPrintHtml = React.forwardRef<HTMLDivElement, CashReceipt
           minHeight: '297mm',
         }}
       >
-        <RoseTradingLetterheadPrint logoSrc={logoSrc} />
+        <RoseTradingLetterheadPrint
+          companyNameAr={company.nameAr}
+          companyNameEn={company.nameEn}
+          commercialReg={company.crNumber}
+        />
 
         <div style={{ fontSize: 14, fontWeight: 700, textAlign: 'center', marginBottom: 10, textDecoration: 'underline' }}>
           سند استلام نقدي

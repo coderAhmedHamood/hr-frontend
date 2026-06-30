@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/shared/utils';
+import { themeAvatarClassFromKey } from '@/shared/theme-avatar-palette';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -17,12 +18,12 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { useAuthStore } from '@/features/auth/lib/auth-store';
 import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
+import { fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
 import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
-import { EntityFilterToolbar } from '@/components/ui/entity-filter-toolbar';
+import { ListFilterBar } from '@/components/ui/list-filter-bar';
 import {
   leaveBalancesApi,
   type EmployeeLeaveBalanceGroupDto,
@@ -361,7 +362,7 @@ function EmployeeBalanceGroupCard({
 }) {
   const [expanded, setExpanded] = React.useState(false);
   const initials = group.employeeNameAr.split(' ').map((w) => w[0]).slice(0, 2).join('');
-  const hue = ((group.employeeId.charCodeAt(0) ?? 0) * 47) % 360;
+  const avatarClass = themeAvatarClassFromKey(group.employeeId);
   const p = pct(group.usedDays, group.totalDays);
   const danger = group.totalDays > 0 && p >= 90;
   const warn = group.totalDays > 0 && p >= 70;
@@ -375,8 +376,10 @@ function EmployeeBalanceGroupCard({
         aria-expanded={expanded}
       >
         <div
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white"
-          style={{ background: `hsl(${hue} 55% 45%)` }}
+          className={cn(
+            'flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold',
+            avatarClass,
+          )}
         >
           {initials}
         </div>
@@ -451,7 +454,7 @@ export function AnalyticsClient() {
   const [employees, setEmployees] = React.useState<EmployeeResponseDto[]>([]);
   const [metaLoading, setMetaLoading] = React.useState(true);
 
-  const [employeeFilter, setEmployeeFilter] = React.useState('all');
+  const [selectedEmpIds, setSelectedEmpIds] = React.useState<Set<string>>(new Set());
 
   const [formOpen, setFormOpen] = React.useState(false);
   const [dialogMode, setDialogMode] = React.useState<DialogMode>({ mode: 'create' });
@@ -474,6 +477,17 @@ export function AnalyticsClient() {
     })();
   }, [companyId]);
 
+  const selectedEmpKey = React.useMemo(() => [...selectedEmpIds].sort().join(','), [selectedEmpIds]);
+  const bulkMode = selectedEmpIds.size > 1;
+
+  const applyEmployeeFilter = React.useCallback(
+    (items: EmployeeLeaveBalanceGroupDto[]) => {
+      if (selectedEmpIds.size <= 1) return items;
+      return items.filter((g) => selectedEmpIds.has(g.employeeId));
+    },
+    [selectedEmpIds],
+  );
+
   const loadPage = React.useCallback(async (page: number, pageSize: number) => {
     if (!companyId) return { items: [] as EmployeeLeaveBalanceGroupDto[], total: 0 };
     try {
@@ -481,13 +495,32 @@ export function AnalyticsClient() {
         companyId,
         page,
         limit: pageSize,
-        ...(employeeFilter !== 'all' ? { employeeId: employeeFilter } : {}),
+        ...(selectedEmpIds.size === 1 ? { employeeId: [...selectedEmpIds][0] } : {}),
       });
-      return { items: res.items, total: res.pagination.total };
+      const items = applyEmployeeFilter(res.items);
+      return { items, total: res.pagination.total };
     } catch {
       return { items: [], total: 0 };
     }
-  }, [companyId, employeeFilter]);
+  }, [applyEmployeeFilter, companyId, selectedEmpIds]);
+
+  const loadBulk = React.useCallback(async () => {
+    if (!companyId) return { items: [] as EmployeeLeaveBalanceGroupDto[], total: 0 };
+    try {
+      const res = await fetchAllPaginatedItems((page, limit) =>
+        leaveBalancesApi.getAll({
+          companyId,
+          page,
+          limit,
+          ...(selectedEmpIds.size === 1 ? { employeeId: [...selectedEmpIds][0] } : {}),
+        }),
+      );
+      const items = applyEmployeeFilter(res.items);
+      return { items, total: items.length };
+    } catch {
+      return { items: [], total: 0 };
+    }
+  }, [applyEmployeeFilter, companyId, selectedEmpIds]);
 
   const {
     items: groups,
@@ -496,7 +529,9 @@ export function AnalyticsClient() {
     reload: reloadBalances,
   } = useServerDirectoryPagination<EmployeeLeaveBalanceGroupDto>(loadPage, {
     enabled: !!companyId && !metaLoading,
-    resetDeps: [companyId, employeeFilter],
+    bulkMode,
+    loadBulk: bulkMode ? loadBulk : undefined,
+    resetDeps: [companyId, selectedEmpKey],
   });
 
   const loading = metaLoading || listLoading;
@@ -519,40 +554,33 @@ export function AnalyticsClient() {
     setFormOpen(true);
   }, []);
 
+  const activeFilterCount = selectedEmpIds.size > 0 ? 1 : 0;
+
   usePageHeaderActions(
     () => (
-      <div className="flex items-center gap-2">
-        <FilterToggleButton />
+      <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
+        <FilterToggleButton activeFilterCount={activeFilterCount} />
         <Button type="button" variant="luxe" size="sm" className="h-8 gap-1.5 px-3 text-xs" onClick={openCreate}>
           <Plus className="h-3.5 w-3.5" />
           إضافة رصيد
         </Button>
       </div>
     ),
-    [openCreate],
-  );
-
-  const employeeFilterOptions = React.useMemo(
-    () => [
-      { value: 'all', label: 'كل الموظفين' },
-      ...employees.map((emp) => ({ value: emp.id, label: emp.nameAr })),
-    ],
-    [employees],
+    [activeFilterCount, openCreate],
   );
 
   useEntityFilterSlot(
     () => (
-      <EntityFilterToolbar
+      <ListFilterBar
         showDateSection={false}
         showStatusSection={false}
-        showEmployeePicker={false}
+        companyId={companyId}
+        selectedEmpIds={selectedEmpIds}
+        onSelectedEmpIdsChange={setSelectedEmpIds}
         onDateBoundsChange={() => {}}
-        inlineSelects={[
-          { id: 'employee', value: employeeFilter, onChange: setEmployeeFilter, placeholder: 'الموظف', options: employeeFilterOptions },
-        ]}
       />
     ),
-    [employeeFilter, employeeFilterOptions],
+    [selectedEmpKey, companyId],
   );
 
   const deleteEmpName = deleteTarget
@@ -573,7 +601,7 @@ export function AnalyticsClient() {
           </p>
         </div>
       ) : (
-        <DirectoryPagedViews items={groups} serverPagination={pagination} loading={loading} resetDeps={[employeeFilter]}>
+        <DirectoryPagedViews items={groups} serverPagination={pagination} loading={loading} resetDeps={[selectedEmpKey]}>
           {(pageItems) => (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
           {pageItems.map((group) => (

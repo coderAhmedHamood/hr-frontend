@@ -15,7 +15,7 @@ import {
   DirectoryGridCardMetaRow,
   DirectoryGridCardTitle,
 } from '@/components/ui/directory-grid-card';
-import { EmptyState } from '@/features/hr/requests/components/shared-ui';
+import { EmptyState } from '@/components/ui/shared-dialogs';
 import { DirectoryPagedViews } from '@/components/ui/paged-list';
 import { USER_TYPE_LABELS } from '@/features/hr/organization/contacts/hooks/useContactsDirectoryModel';
 import type { UserRecord, ContactsDirectoryModel } from '@/features/hr/organization/contacts/hooks/useContactsDirectoryModel';
@@ -49,7 +49,7 @@ function primaryBranchLabel(row: UserRecord, model: ContactsDirectoryModel) {
 }
 
 export function ContactsListViews({ model }: Props) {
-  const { users, loading, pagination, listError, layoutView, setViewRow, openEdit, setConfirmId, formatDate } = model;
+  const { users, loading, pagination, listError, layoutView, setViewRow, openEdit, setConfirmId, formatDate, perms } = model;
 
   const columns = React.useMemo((): ColumnDef<UserRecord>[] => [
     {
@@ -96,13 +96,22 @@ export function ContactsListViews({ model }: Props) {
         <TableRowActions
           menuItems={[
             { label: 'عرض التفاصيل', onClick: (e) => { e.stopPropagation(); setViewRow(row); } },
-            { label: 'تعديل', onClick: (e) => { e.stopPropagation(); openEdit(row); } },
-            { label: 'حذف', onClick: (e) => { e.stopPropagation(); setConfirmId(row.id); }, destructive: true, separator: true },
+            ...(perms.canUpdate
+              ? [{ label: 'تعديل', onClick: (e: React.MouseEvent) => { e.stopPropagation(); openEdit(row); } }]
+              : []),
+            ...(perms.canDelete
+              ? [{
+                  label: 'حذف',
+                  onClick: (e: React.MouseEvent) => { e.stopPropagation(); setConfirmId(row.id); },
+                  destructive: true,
+                  separator: true,
+                }]
+              : []),
           ]}
         />
       ),
     },
-  ], [formatDate, model, openEdit, setConfirmId, setViewRow]);
+  ], [formatDate, model, openEdit, perms.canDelete, perms.canUpdate, setConfirmId, setViewRow]);
 
   if (loading) {
     return (
@@ -136,6 +145,8 @@ export function ContactsListViews({ model }: Props) {
               key={row.id}
               row={row}
               model={model}
+              canUpdate={perms.canUpdate}
+              canDelete={perms.canDelete}
               onOpen={() => setViewRow(row)}
               onEdit={() => openEdit(row)}
               onDelete={() => setConfirmId(row.id)}
@@ -159,12 +170,16 @@ export function ContactsListViews({ model }: Props) {
 function UserGridCard({
   row,
   model,
+  canUpdate,
+  canDelete,
   onOpen,
   onEdit,
   onDelete,
 }: {
   row: UserRecord;
   model: ContactsDirectoryModel;
+  canUpdate: boolean;
+  canDelete: boolean;
   onOpen: () => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -199,8 +214,12 @@ function UserGridCard({
         {statusBadge(row)}
         <div className="ms-auto flex gap-0.5">
           <Button variant="ghost" size="icon" className="h-7 w-7" title="عرض" onClick={onOpen}><Eye className="h-4 w-4" /></Button>
-          <Button variant="ghost" size="icon" className="h-7 w-7" title="تعديل" onClick={onEdit}><Pencil className="h-4 w-4" /></Button>
-          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" title="حذف" onClick={onDelete}><Trash2 className="h-4 w-4" /></Button>
+          {canUpdate ? (
+            <Button variant="ghost" size="icon" className="h-7 w-7" title="تعديل" onClick={onEdit}><Pencil className="h-4 w-4" /></Button>
+          ) : null}
+          {canDelete ? (
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" title="حذف" onClick={onDelete}><Trash2 className="h-4 w-4" /></Button>
+          ) : null}
         </div>
       </DirectoryGridCardFooter>
     </DirectoryGridCard>

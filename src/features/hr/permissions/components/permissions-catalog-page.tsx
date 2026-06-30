@@ -6,14 +6,16 @@ import {
   ChevronDown,
   ChevronUp,
   KeyRound,
-  Layers,
   Loader2,
+  Plus,
   Search,
-  Shield,
 } from 'lucide-react';
 import { useSetPageTitle } from '@/components/layouts/page-title-context';
+import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
+import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { ListFilterBar } from '@/components/ui/list-filter-bar';
 import { cn } from '@/shared/utils';
 import { usePermissionsCatalog } from '@/features/hr/permissions/hooks/usePermissionsCatalog';
 import { PermissionsCatalogModuleCard } from '@/features/hr/permissions/components/permissions-catalog-module-card';
@@ -23,32 +25,10 @@ import {
   filterPermissionTree,
 } from '@/features/hr/permissions/utils/permission-tree';
 
-function CatalogStat({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: React.ElementType;
-  label: string;
-  value: number;
-}) {
-  return (
-    <div className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 shadow-soft">
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-        <Icon className="h-4 w-4" />
-      </div>
-      <div>
-        <p className="text-[11px] text-muted-foreground">{label}</p>
-        <p className="number-ar font-display text-lg font-bold leading-tight">{value}</p>
-      </div>
-    </div>
-  );
-}
-
 export function PermissionsCatalogPage() {
   useSetPageTitle({
     titleAr: 'الصلاحيات',
-    descriptionAr: 'دليل صلاحيات نظام الموارد البشرية',
+    descriptionAr: 'دليل صلاحيات النظام — جميع التطبيقات',
     iconName: 'Shield',
   });
 
@@ -72,9 +52,46 @@ export function PermissionsCatalogPage() {
     }
   }, [tree]);
 
-  const actionCount = permissions.filter((p) => p.nodeType === 'ACTION').length;
-  const groupCount = permissions.filter((p) => p.nodeType === 'GROUP').length;
-  const moduleCount = tree.length;
+  usePageHeaderActions(
+    () => (
+      <Button
+        variant="luxe"
+        size="sm"
+        className="h-8 gap-1.5 px-3 text-xs shadow-sm shrink-0"
+        asChild
+      >
+        <Link href={HR_PERMISSIONS_ROLES}>
+          <Plus className="h-3.5 w-3.5" />
+          إضافة دور
+        </Link>
+      </Button>
+    ),
+    [],
+  );
+
+  const searchFilter = (
+    <div className="relative w-full min-w-[12rem] max-w-sm">
+      <Search className="pointer-events-none absolute start-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+      <Input
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="بحث بالاسم، المورد، أو نوع الصلاحية…"
+        className="h-8 ps-8 text-xs"
+      />
+    </div>
+  );
+
+  useEntityFilterSlot(
+    () => (
+      <ListFilterBar
+        showDateSection={false}
+        showStatusSection={false}
+        leadingFilters={searchFilter}
+        onDateBoundsChange={() => {}}
+      />
+    ),
+    [search],
+  );
 
   function toggleModule(id: string) {
     setExpandedIds((prev) => {
@@ -96,24 +113,36 @@ export function PermissionsCatalogPage() {
   const allExpanded = filteredTree.length > 0 && filteredTree.every((node) => expandedIds.has(node.id));
 
   return (
-    <div className="space-y-5 animate-fade-in">
+    <div className="flex min-h-0 flex-1 flex-col gap-4 animate-fade-in">
       {isError ? (
         <div className="rounded-xl border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">
           تعذّر تحميل قائمة الصلاحيات. تأكد من تسجيل الدخول وأن الـ API يعمل.
         </div>
       ) : null}
 
-      <div className="w-full max-w-sm rounded-xl border border-border bg-card p-2.5 shadow-soft">
-        <div className="relative">
-          <Search className="pointer-events-none absolute start-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="بحث بالاسم، المورد، أو نوع الصلاحية…"
-            className="h-9 ps-8 text-sm"
-          />
+      {!isLoading && filteredTree.length > 0 ? (
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-7 gap-1 px-2.5 text-[11px]"
+            onClick={allExpanded ? collapseAll : expandAll}
+          >
+            {allExpanded ? (
+              <>
+                <ChevronUp className="h-3.5 w-3.5" />
+                طي الكل
+              </>
+            ) : (
+              <>
+                <ChevronDown className="h-3.5 w-3.5" />
+                توسيع الكل
+              </>
+            )}
+          </Button>
         </div>
-      </div>
+      ) : null}
 
       {isLoading ? (
         <div className="flex h-56 items-center justify-center rounded-xl border border-border bg-card shadow-soft">

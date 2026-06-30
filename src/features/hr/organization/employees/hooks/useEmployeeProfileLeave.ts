@@ -22,6 +22,7 @@ import type { ApiRequestType } from '@/features/hr/requests/lib/api/request-type
 import { getDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import { useServerDirectoryPagination } from '@/components/ui/paged-list';
+import { AR_LEAVE_STATUS_LABELS } from '@/shared/i18n/ar';
 
 export type { ApiLeaveRequest as LeaveRequestResponseDto, EmployeeLeaveBalanceResponseDto, LeaveTypeResponseDto };
 
@@ -55,12 +56,7 @@ const ACCENT_BY_CODE: Record<string, 'success' | 'primary'> = {
   sick: 'primary',
 };
 
-const LEAVE_STATUS_LABELS: Record<LeaveRequestStatusNew, string> = {
-  pending: 'قيد الانتظار',
-  approved: 'موافق عليه',
-  rejected: 'مرفوض',
-  cancelled: 'ملغاة',
-};
+const LEAVE_STATUS_LABELS: Record<LeaveRequestStatusNew, string> = AR_LEAVE_STATUS_LABELS;
 
 export function useEmployeeProfileLeave(employee: Employee, enabled = true) {
   const companyId = getDefaultCompanyId() ?? '';

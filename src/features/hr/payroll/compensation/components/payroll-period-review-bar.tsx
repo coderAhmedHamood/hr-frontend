@@ -62,10 +62,10 @@ export function PayrollPeriodReviewBar({
   return (
     <Card className="overflow-hidden border-primary/20 animate-fade-in">
       <div className="relative overflow-hidden bg-linear-to-b from-primary/6 to-card">
-        <div className="flex flex-wrap items-center gap-3 px-4 py-3" dir="rtl">
+        <div className="flex flex-col gap-3 px-4 py-3 lg:flex-row lg:items-center" dir="rtl">
           <p className="shrink-0 text-xs font-bold text-foreground">مسار المراجعة</p>
 
-          <div className="flex min-w-0 flex-1 items-center" dir="ltr">
+          <div className="flex min-w-0 items-center overflow-x-auto pb-0.5 lg:flex-1 lg:pb-0" dir="ltr">
             {REVIEW_STEPS.map((st, i) => {
               const done = isStepDone(period, st.key);
               const active = !period.isReviewCompleted && i === activeIdx;
@@ -76,31 +76,39 @@ export function PayrollPeriodReviewBar({
                   {i > 0 && (
                     <div
                       className={cn(
-                        'h-[2px] min-w-3 flex-1 rounded-full transition-all duration-500',
+                        'h-[2px] min-w-4 flex-1 rounded-full transition-all duration-500 lg:min-w-3',
                         filled || done ? 'bg-success' : 'bg-border',
                       )}
                     />
                   )}
-                  <div
-                    title={st.ar}
-                    className={cn(
-                      'flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 transition-all duration-300',
-                      done && 'border-success bg-success text-success-foreground shadow-soft',
-                      active && !done && 'border-primary bg-primary text-primary-foreground shadow-soft ring-2 ring-primary/20',
-                      !done && !active && 'border-border bg-muted/40 text-muted-foreground',
-                    )}
-                  >
-                    {done
-                      ? <Check className="h-4 w-4" strokeWidth={2.5} />
-                      : <StepIcon className="h-3.5 w-3.5" />
-                    }
+                  <div className="flex shrink-0 flex-col items-center gap-1 lg:flex-row lg:gap-0">
+                    <div
+                      title={st.ar}
+                      className={cn(
+                        'flex h-9 w-9 items-center justify-center rounded-full border-2 transition-all duration-300 lg:h-8 lg:w-8',
+                        done && 'border-success bg-success text-success-foreground shadow-soft',
+                        active && !done && 'border-primary bg-primary text-primary-foreground shadow-soft ring-2 ring-primary/20',
+                        !done && !active && 'border-border bg-muted/40 text-muted-foreground',
+                      )}
+                    >
+                      {done
+                        ? <Check className="h-4 w-4" strokeWidth={2.5} />
+                        : <StepIcon className="h-3.5 w-3.5" />
+                      }
+                    </div>
+                    <span className={cn(
+                      'max-w-[4.5rem] truncate text-center text-[9px] font-medium lg:hidden',
+                      active ? 'text-primary' : 'text-muted-foreground',
+                    )}>
+                      {st.ar.replace('مراجعة ', '')}
+                    </span>
                   </div>
                 </React.Fragment>
               );
             })}
           </div>
 
-          <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <div className="flex min-w-0 items-stretch gap-2 sm:items-center lg:shrink-0">
             {!period.isReviewCompleted && reviewable && (
               <>
                 <Button
@@ -110,7 +118,7 @@ export function PayrollPeriodReviewBar({
                   disabled={!canRevert || busy}
                   onClick={onRevert}
                   title={!canRevert ? 'لا توجد مرحلة سابقة للتراجع' : undefined}
-                  className="h-8 gap-1 px-2.5 text-xs"
+                  className="h-10 shrink-0 gap-1 px-2.5 text-xs lg:h-8"
                 >
                   {reverting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowRight className="h-3.5 w-3.5" />}
                   تراجع
@@ -121,10 +129,10 @@ export function PayrollPeriodReviewBar({
                   disabled={!canAdvance || busy}
                   onClick={onAdvance}
                   title={!hasLines ? 'أضف سجلات تشغيل أولاً' : undefined}
-                  className="h-8 gap-1 px-2.5 text-xs"
+                  className="h-10 min-w-0 flex-1 gap-1 px-2.5 text-xs lg:h-8 lg:flex-initial"
                 >
-                  {advancing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowLeft className="h-3.5 w-3.5" />}
-                  {advanceLabel(period.reviewStage)}
+                  {advancing ? <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" /> : <ArrowLeft className="h-3.5 w-3.5 shrink-0" />}
+                  <span className="truncate">{advanceLabel(period.reviewStage)}</span>
                 </Button>
               </>
             )}

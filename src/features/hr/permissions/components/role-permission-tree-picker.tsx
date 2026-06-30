@@ -23,11 +23,17 @@ type RowProps = {
   onToggle: (ids: string[], grant: boolean) => void;
 };
 
-function PermissionPickerRow({ node, depth = 0, selectedSet, onToggle }: RowProps) {
+function PermissionPickerRow({
+  node,
+  depth = 0,
+  selectedSet,
+  onToggle,
+}: RowProps) {
   const [open, setOpen] = React.useState(depth < 2);
   const isGroup = node.nodeType === 'GROUP';
   const hasChildren = node.children.length > 0;
   const actionIds = React.useMemo(() => collectActionIdsFromNode(node), [node]);
+
   const grantedCount = actionIds.filter((id) => selectedSet.has(id)).length;
   const allGranted = actionIds.length > 0 && grantedCount === actionIds.length;
   const someGranted = grantedCount > 0 && !allGranted;
@@ -67,7 +73,9 @@ function PermissionPickerRow({ node, depth = 0, selectedSet, onToggle }: RowProp
             )}
             aria-label={node.nameAr}
           >
-            {selectedSet.has(node.id) && <Check className="h-3 w-3 text-primary-foreground" />}
+            {selectedSet.has(node.id) && (
+              <Check className="h-3 w-3 text-primary-foreground" />
+            )}
           </button>
         ) : (
           <Switch
@@ -120,7 +128,11 @@ type Props = {
   onChange: (ids: string[]) => void;
 };
 
-export function RolePermissionTreePicker({ permissions, selectedIds, onChange }: Props) {
+export function RolePermissionTreePicker({
+  permissions,
+  selectedIds,
+  onChange,
+}: Props) {
   const tree = React.useMemo(() => buildPermissionTree(permissions), [permissions]);
   const selectedSet = React.useMemo(() => new Set(selectedIds), [selectedIds]);
   const allActionIds = React.useMemo(
@@ -145,7 +157,7 @@ export function RolePermissionTreePicker({ permissions, selectedIds, onChange }:
   if (permissions.length === 0) {
     return (
       <div className="flex h-24 items-center justify-center rounded-xl border border-dashed border-border text-sm text-muted-foreground">
-        لا توجد صلاحيات متاحة لهذا التطبيق
+        لا توجد صلاحيات
       </div>
     );
   }

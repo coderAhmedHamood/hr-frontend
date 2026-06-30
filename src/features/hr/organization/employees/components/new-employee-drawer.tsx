@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/select';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
-  dialogFormFooterClass,
+  DialogBody, dialogShellContentClass, dialogShellHeaderClass, dialogShellBodyClass, dialogFormFooterClass,
 } from '@/components/ui/dialog';
 import { cn } from '@/shared/utils';
 import { DatePickerInput } from '@/components/ui/date-picker-input';
@@ -21,6 +21,7 @@ import { employeesApi } from '@/features/hr/organization/employees/lib/api/emplo
 import { branchesApi, type BranchResponseDto } from '@/features/hr/organization/lib/api/branches';
 import { departmentsApi, type DepartmentResponseDto } from '@/features/hr/organization/lib/api/departments';
 import { companiesApi, type CompanyResponseDto } from '@/features/hr/organization/lib/api/companies';
+import { jobTitlesApi, type JobTitleResponseDto } from '@/features/hr/organization/lib/api/jobTitles';
 import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 import { organizationActiveListStatusQuery } from '@/features/hr/organization/lib/archive-scope';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
@@ -32,7 +33,7 @@ interface NewEmployeeForm {
   email: string; phone: string;
   nationalId: string; nationality: string;
   gender: string; birthDate: string; maritalStatus: string;
-  position: string; departmentId: string; branchId: string; managerId: string;
+  jobTitleId: string; departmentId: string; branchId: string; managerId: string;
   startDate: string;
   bankAccount: string; iban: string;
   address: string; emergencyContact: string;
@@ -43,7 +44,7 @@ const EMPTY_FORM: NewEmployeeForm = {
   companyId: '',
   nameAr: '', email: '', phone: '',
   nationalId: '', nationality: 'سعودي', gender: 'male', birthDate: '', maritalStatus: 'single',
-  position: '', departmentId: '', branchId: '', managerId: 'none',
+  jobTitleId: '', departmentId: '', branchId: '', managerId: 'none',
   startDate: '',
   bankAccount: '', iban: '',
   address: '', emergencyContact: '',
@@ -92,6 +93,7 @@ export function NewEmployeeDrawer({ open, onOpenChange, onCreated }: Props) {
   const [companies, setCompanies] = React.useState<CompanyResponseDto[]>([]);
   const [branches, setBranches] = React.useState<BranchResponseDto[]>([]);
   const [departments, setDepartments] = React.useState<DepartmentResponseDto[]>([]);
+  const [jobTitles, setJobTitles] = React.useState<JobTitleResponseDto[]>([]);
   const [loadingCompanies, setLoadingCompanies] = React.useState(false);
   const [loadingRefs, setLoadingRefs] = React.useState(false);
 
@@ -141,24 +143,28 @@ export function NewEmployeeDrawer({ open, onOpenChange, onCreated }: Props) {
     if (!open || !form.companyId) {
       setBranches([]);
       setDepartments([]);
+      setJobTitles([]);
       return;
     }
     let cancelled = false;
     setLoadingRefs(true);
     void (async () => {
       try {
-        const [br, dp] = await Promise.all([
+        const [br, dp, jt] = await Promise.all([
           branchesApi.getAll({ companyId: form.companyId, limit: 200, ...organizationActiveListStatusQuery() }),
           departmentsApi.getAll({ companyId: form.companyId, limit: 200, ...organizationActiveListStatusQuery() }),
+          jobTitlesApi.getAll({ companyId: form.companyId, limit: 200, ...organizationActiveListStatusQuery() }),
         ]);
         if (!cancelled) {
           setBranches(br.items);
           setDepartments(dp.items);
+          setJobTitles(jt.items.filter((j) => j.isActive));
         }
       } catch {
         if (!cancelled) {
           setBranches([]);
           setDepartments([]);
+          setJobTitles([]);
         }
       } finally {
         if (!cancelled) setLoadingRefs(false);
@@ -173,6 +179,7 @@ export function NewEmployeeDrawer({ open, onOpenChange, onCreated }: Props) {
       companyId,
       branchId: '',
       departmentId: '',
+      jobTitleId: '',
     }));
   };
 
@@ -200,6 +207,7 @@ export function NewEmployeeDrawer({ open, onOpenChange, onCreated }: Props) {
     if (!form.nameAr.trim()) e.nameAr = 'مطلوب';
     if (!form.startDate) e.startDate = 'مطلوب';
     if (!form.branchId) e.branchId = 'مطلوب';
+    if (!form.jobTitleId) e.jobTitleId = 'مطلوب';
     if (form.departmentId && !filteredDepartments.some((d) => d.id === form.departmentId)) {
       e.departmentId = 'القسم لا يتبع الفرع المختار';
     }
@@ -216,6 +224,7 @@ export function NewEmployeeDrawer({ open, onOpenChange, onCreated }: Props) {
 
     setSaving(true);
     setSaveError(null);
+    const selectedJobTitle = jobTitles.find((j) => j.id === form.jobTitleId);
     try {
       await employeesApi.create({
         employeeCode: `EMP-${Date.now()}`,
@@ -227,7 +236,7 @@ export function NewEmployeeDrawer({ open, onOpenChange, onCreated }: Props) {
         gender: form.gender || null,
         birthDate: form.birthDate || null,
         maritalStatus: form.maritalStatus || null,
-        position: form.position.trim() || null,
+        position: selectedJobTitle?.nameAr ?? selectedJobTitle?.nameEn ?? null,
         managerId: form.managerId !== 'none' ? form.managerId : null,
         startDate: form.startDate || null,
         bankAccount: form.bankAccount.trim() || null,
@@ -238,6 +247,7 @@ export function NewEmployeeDrawer({ open, onOpenChange, onCreated }: Props) {
         companyId: form.companyId,
         branchId: form.branchId,
         departmentId: form.departmentId || null,
+        jobTitleId: form.jobTitleId || null,
         assignmentIsPrimary: true,
       });
 
@@ -263,15 +273,13 @@ export function NewEmployeeDrawer({ open, onOpenChange, onCreated }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent ref={containerRef} className="flex max-h-[95vh] w-full max-w-2xl flex-col overflow-hidden border-border p-0">
-        <div className="shrink-0 border-b border-border px-6 py-5">
-          <DialogHeader>
-            <DialogTitle className="font-display text-xl">إضافة موظف جديد</DialogTitle>
-            <DialogDescription>أدخل بيانات الموظف الجديد. الحقول المميزة بـ * إلزامية.</DialogDescription>
-          </DialogHeader>
-        </div>
+      <DialogContent ref={containerRef} className={cn(dialogShellContentClass, 'max-w-2xl border-border')} dir="rtl">
+        <DialogHeader className={dialogShellHeaderClass}>
+          <DialogTitle className="font-display text-xl">إضافة موظف جديد</DialogTitle>
+          <DialogDescription>أدخل بيانات الموظف الجديد. الحقول المميزة بـ * إلزامية.</DialogDescription>
+        </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto px-6 py-6 space-y-8">
+        <DialogBody className={cn(dialogShellBodyClass, 'space-y-8')}>
 
           {/* Personal info */}
           <div className="space-y-4">
@@ -376,8 +384,29 @@ export function NewEmployeeDrawer({ open, onOpenChange, onCreated }: Props) {
                   <p className="text-[10px] text-muted-foreground">شركة واحدة مرتبطة بحسابك — تم اختيارها تلقائياً.</p>
                 ) : null}
               </Field>
-              <Field label="المسمى الوظيفي" span2>
-                <Input value={form.position} onChange={(e) => patch('position', e.target.value)} placeholder="مدير تطوير الأعمال" />
+              <Field label="المسمى الوظيفي" required span2>
+                <Select
+                  value={form.jobTitleId || '_none'}
+                  onValueChange={(v) => patch('jobTitleId', v === '_none' ? '' : v)}
+                  disabled={!form.companyId || loadingRefs}
+                >
+                  <SelectTrigger className={cn(errors.jobTitleId && 'border-destructive')}>
+                    <SelectValue placeholder={
+                      !form.companyId
+                        ? 'اختر الشركة أولاً'
+                        : loadingRefs
+                          ? 'جاري التحميل…'
+                          : 'اختر المسمى الوظيفي'
+                    } />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_none">— اختر المسمى الوظيفي —</SelectItem>
+                    {jobTitles.map((j) => (
+                      <SelectItem key={j.id} value={j.id}>{j.nameAr ?? j.nameEn ?? j.code}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {errors.jobTitleId && <p className="text-[11px] text-destructive">{errors.jobTitleId}</p>}
               </Field>
               <Field label="الفرع" required>
                 <Select
@@ -449,7 +478,7 @@ export function NewEmployeeDrawer({ open, onOpenChange, onCreated }: Props) {
               {saveError}
             </div>
           )}
-        </div>
+        </DialogBody>
 
         <DialogFooter className={dialogFormFooterClass}>
           <Button variant="luxe" type="button" onClick={() => void handleSave()} disabled={saving}>

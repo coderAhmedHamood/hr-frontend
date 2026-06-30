@@ -3,7 +3,7 @@
 import * as React from 'react';
 import {
   Plus,
-  CheckCircle2, XCircle, Clock, CalendarDays,
+  Clock, CalendarDays,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,26 +11,31 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { DataTable, type ColumnDef } from '@/components/ui/data-table';
-import { TableDateCell, TableRowActions } from '@/components/ui/table-cells';
+import { TableDateCell } from '@/components/ui/table-cells';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SingleDatePicker } from '@/components/ui/single-date-picker';
 import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
-import { EntityFilterToolbar } from '@/components/ui/entity-filter-toolbar';
+import { ListFilterBar, type ListFilterInlineSelect } from '@/components/ui/list-filter-bar';
 import { intervalOverlapsYmdRange } from '@/features/hr/discipline/lib/discipline-date-filter';
+import {
+  hrFiltersKey,
+  usePersistedEmpIdSet,
+  usePersistedFilterState,
+} from '@/features/hr/lib/use-persisted-filter-state';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
   dialogFormFooterClass,
 } from '@/components/ui/dialog';
 import {
-  canActOnLeave, getApprovalStage,
+  canShowLeaveApprovalActions, getApprovalStage,
   LEAVE_TYPE_LABELS,
 } from '@/features/hr/leaves/unified-management/lib/leaves-utils';
-import { useEmployees } from '@/features/hr/organization/employees/hooks/useEmployees';
+import { employeesApi, type EmployeeResponseDto } from '@/features/hr/organization/employees/lib/api/employees';
 import { branchesApi, type BranchResponseDto } from '@/features/hr/organization/lib/api/branches';
+import { departmentsApi, type DepartmentResponseDto } from '@/features/hr/organization/lib/api/departments';
 import { organizationActiveListStatusQuery } from '@/features/hr/organization/lib/archive-scope';
-import { resolveOrganizationScope } from '@/features/hr/organization/lib/api/organization-context';
 import type { UnifiedLeaveRecord, UnifiedLeaveType, LeaveStatus, UnifiedFilterState } from '@/features/hr/leaves/unified-management/types';
 import type { LeaveTypeResponseDto } from '@/features/hr/leaves/leave-types/lib/api/leave-types';
 import { loadCompanyLeaveTypes } from '@/features/hr/leaves/lib/leave-types-utils';
@@ -50,8 +55,11 @@ import {
   normalizeRequestApproverStates,
 } from '@/features/hr/requests/lib/request-approver-states';
 import { RequestApproverStatesPanel } from '@/features/hr/requests/components/request-approver-states-panel';
+import { RequestApproversInline } from '@/features/hr/requests/components/request-approvers-inline';
+import { RequestApprovalActionCell, RequestApprovalActionButtons } from '@/features/hr/requests/components/request-approval-actions';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import { cn } from '@/shared/utils';
+import { AR_LEAVE_STATUS_LABELS } from '@/shared/i18n/ar';
 import { toast } from 'sonner';
 import { DirectoryPagedViews, useServerDirectoryPagination } from '@/components/ui/paged-list';
 import { fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
@@ -76,12 +84,7 @@ const TYPE_STYLE: Record<UnifiedLeaveType, { color: string; dot: string }> = {
   emergency: { color: 'bg-destructive/10 text-destructive border-destructive/30', dot: 'bg-destructive' },
 };
 
-const LEAVE_STATUS_LABELS: Record<LeaveStatus, string> = {
-  pending: 'قيد الانتظار',
-  approved: 'موافق عليه',
-  rejected: 'مرفوض',
-  cancelled: 'ملغاة',
-};
+const LEAVE_STATUS_LABELS: Record<LeaveStatus, string> = AR_LEAVE_STATUS_LABELS;
 
 const LEAVE_STATUS_TONE: Record<LeaveStatus, WorkflowStatusTone> = {
   pending: 'pending',
@@ -179,49 +182,38 @@ function LeaveDecisionCell({
   onApprove: (l: UnifiedLeaveRecord) => void;
   onReject: (l: UnifiedLeaveRecord) => void;
 }) {
-  const canAct = canActOnLeave(leave, currentEmployeeId);
   const meta = leaveStatusMeta(leave);
 
-  if (canAct) {
+  if (leave.status !== 'pending') {
     return (
-      <TableRowActions
-        primaryActions={[
-          {
-            label: 'موافقة',
-            variant: 'success',
-            icon: <CheckCircle2 className="h-3.5 w-3.5" />,
-            onClick: (e) => { e.stopPropagation(); onApprove(leave); },
-          },
-          {
-            label: 'رفض',
-            variant: 'destructive',
-            icon: <XCircle className="h-3.5 w-3.5" />,
-            onClick: (e) => { e.stopPropagation(); onReject(leave); },
-          },
-        ]}
-        menuItems={[]}
-      />
+      <div className="min-w-[6.5rem] space-y-0.5 text-[10px]">
+        {meta.dateValue ? (
+          <>
+            <p className="text-muted-foreground">{meta.dateLabel}</p>
+            <p className="font-mono text-xs font-semibold tabular-nums text-foreground" dir="ltr">
+              {meta.dateValue}
+            </p>
+          </>
+        ) : (
+          <p className="text-muted-foreground">{LEAVE_STATUS_LABELS[leave.status]}</p>
+        )}
+        {leave.decisionNotesAr?.trim() ? (
+          <p className="  text-muted-foreground" title={leave.decisionNotesAr}>
+            {leave.decisionNotesAr}
+          </p>
+        ) : null}
+      </div>
     );
   }
 
   return (
-    <div className="min-w-[6.5rem] space-y-0.5 text-[10px]">
-      {meta.dateValue ? (
-        <>
-          <p className="text-muted-foreground">{meta.dateLabel}</p>
-          <p className="font-mono text-xs font-semibold tabular-nums text-foreground" dir="ltr">
-            {meta.dateValue}
-          </p>
-        </>
-      ) : (
-        <p className="text-muted-foreground">{LEAVE_STATUS_LABELS[leave.status]}</p>
-      )}
-      {leave.decisionNotesAr?.trim() ? (
-        <p className="  text-muted-foreground" title={leave.decisionNotesAr}>
-          {leave.decisionNotesAr}
-        </p>
-      ) : null}
-    </div>
+    <RequestApprovalActionCell
+      states={leave.approverStates}
+      currentEmployeeId={currentEmployeeId}
+      onApprove={() => onApprove(leave)}
+      onReject={() => onReject(leave)}
+      fallback={<span className="text-xs text-muted-foreground">—</span>}
+    />
   );
 }
 
@@ -245,6 +237,7 @@ function mapApiLeave(r: ApiLeaveRequest, leaveTypes: LeaveTypeResponseDto[]): Un
     noteAr: r.reasonAr ?? undefined,
     subtypeSlug: r.subtypeSlug,
     subtypeNameAr: r.subtypeNameAr,
+    departmentNameAr: r.departmentNameAr,
     submittedAt: r.submittedAt,
     decidedAt: r.decidedAt ?? undefined,
     cancelledAt: r.cancelledAt ?? undefined,
@@ -261,19 +254,11 @@ function leaveOverlapsYmdRange(leave: UnifiedLeaveRecord, from: string, to: stri
 
 const LEAVE_STATUS_TOOLBAR_ORDER: LeaveStatus[] = ['pending', 'approved', 'rejected', 'cancelled'];
 
-const LEAVE_STATUS_LABELS_FOR_TOOLBAR: Record<string, string> = {
-  pending: LEAVE_STATUS_LABELS.pending,
-  approved: LEAVE_STATUS_LABELS.approved,
-  rejected: LEAVE_STATUS_LABELS.rejected,
-  cancelled: LEAVE_STATUS_LABELS.cancelled,
-};
+const LEAVE_STATUS_LABELS_FOR_TOOLBAR: Record<string, string> = AR_LEAVE_STATUS_LABELS;
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function UnifiedManagementClient() {
-  const { data: employeesResult } = useEmployees();
-  const employeesList = React.useMemo(() => employeesResult?.items ?? [], [employeesResult]);
-
   const companyId = useDefaultCompanyId();
   const authUser = useAuthStore((s) => s.user);
   const { data: currentEmployee } = useCurrentEmployee();
@@ -281,51 +266,184 @@ export function UnifiedManagementClient() {
   const updatedByActor = authUser?.id ?? undefined;
 
   const [branches, setBranches] = React.useState<BranchResponseDto[]>([]);
-  React.useEffect(() => {
-    void (async () => {
+  const [departments, setDepartments] = React.useState<DepartmentResponseDto[]>([]);
+  const branchesLoadedRef = React.useRef<string | null>(null);
+  const departmentsLoadedRef = React.useRef<string | null>(null);
+  const branchesLoadRef = React.useRef<Promise<void> | null>(null);
+  const departmentsLoadRef = React.useRef<Promise<void> | null>(null);
+
+  const loadBranches = React.useCallback(async () => {
+    if (!companyId) return;
+    if (branchesLoadedRef.current === companyId) return;
+    if (branchesLoadRef.current) return branchesLoadRef.current;
+    branchesLoadRef.current = (async () => {
       try {
-        const scope = await resolveOrganizationScope();
         const res = await branchesApi.getAll({
-          ...(scope.companyId ? { companyId: scope.companyId, limit: 200 } : { limit: 200 }),
+          companyId,
+          limit: 200,
           ...organizationActiveListStatusQuery(),
         });
         setBranches(res.items.filter((b) => b.isActive));
+        branchesLoadedRef.current = companyId;
       } catch {
-        // silently ignore — branch filter stays empty
+        // branch filter stays empty until retry
+      } finally {
+        branchesLoadRef.current = null;
       }
     })();
-  }, []);
+    return branchesLoadRef.current;
+  }, [companyId]);
+
+  const loadDepartments = React.useCallback(async () => {
+    if (!companyId) return;
+    if (departmentsLoadedRef.current === companyId) return;
+    if (departmentsLoadRef.current) return departmentsLoadRef.current;
+    departmentsLoadRef.current = (async () => {
+      try {
+        const res = await departmentsApi.getAll({
+          companyId,
+          limit: 200,
+          ...organizationActiveListStatusQuery(),
+        });
+        setDepartments(res.items.filter((d) => d.isActive));
+        departmentsLoadedRef.current = companyId;
+      } catch {
+        // department filter stays empty until retry
+      } finally {
+        departmentsLoadRef.current = null;
+      }
+    })();
+    return departmentsLoadRef.current;
+  }, [companyId]);
 
   const [leaveTypes, setLeaveTypes] = React.useState<LeaveTypeResponseDto[]>([]);
   const [leaveRequestTypes, setLeaveRequestTypes] = React.useState<ApiRequestType[]>([]);
+  const leaveTypesLoadedRef = React.useRef<string | null>(null);
+  const leaveTypesLoadRef = React.useRef<Promise<void> | null>(null);
+  const addCatalogLoadedRef = React.useRef<string | null>(null);
 
-  const reloadLeaveTypes = React.useCallback(async () => {
+  const leaveTypesRef = React.useRef(leaveTypes);
+  leaveTypesRef.current = leaveTypes;
+
+  const loadLeaveTypesForFilter = React.useCallback(async () => {
     if (!companyId) return;
-    try {
-      const ltRes = await loadCompanyLeaveTypes({ companyId, limit: 200, isActive: true });
-      setLeaveTypes(ltRes.items);
-      setLeaveRequestTypes(await loadLeaveRequestTypes(companyId));
-    } catch {
-      toast.error('فشل تحميل أنواع الإجازات');
-    }
+    if (leaveTypesLoadedRef.current === companyId) return;
+    if (leaveTypesLoadRef.current) return leaveTypesLoadRef.current;
+    leaveTypesLoadRef.current = (async () => {
+      try {
+        const ltRes = await loadCompanyLeaveTypes({ companyId, limit: 200, isActive: true });
+        setLeaveTypes(ltRes.items);
+        leaveTypesLoadedRef.current = companyId;
+      } catch {
+        toast.error('فشل تحميل أنواع الإجازات');
+      } finally {
+        leaveTypesLoadRef.current = null;
+      }
+    })();
+    return leaveTypesLoadRef.current;
   }, [companyId]);
 
-  React.useEffect(() => {
-    void reloadLeaveTypes();
-  }, [reloadLeaveTypes]);
+  const employeesCacheRef = React.useRef<{ companyId: string; items: EmployeeResponseDto[] } | null>(null);
+  const employeesLoadRef = React.useRef<Promise<EmployeeResponseDto[]> | null>(null);
+  const [employeesList, setEmployeesList] = React.useState<EmployeeResponseDto[]>([]);
+  const [employeesLoading, setEmployeesLoading] = React.useState(false);
 
-  const [branchId, setBranchId] = React.useState('all');
-  const [departmentId, setDepartmentId] = React.useState('all');
-  const [leaveType, setLeaveType] = React.useState<string>('all');
-  const [approvalStageFilter, setApprovalStageFilter] = React.useState<string>('all');
+  const loadEmployees = React.useCallback(async (): Promise<EmployeeResponseDto[]> => {
+    if (!companyId) return [];
+    if (employeesCacheRef.current?.companyId === companyId) {
+      return employeesCacheRef.current.items;
+    }
+    if (employeesLoadRef.current) return employeesLoadRef.current;
+    employeesLoadRef.current = (async () => {
+      setEmployeesLoading(true);
+      try {
+        const res = await employeesApi.getAll({ companyId, limit: 500 });
+        employeesCacheRef.current = { companyId, items: res.items };
+        setEmployeesList(res.items);
+        return res.items;
+      } catch {
+        toast.error('فشل تحميل الموظفين');
+        return [];
+      } finally {
+        setEmployeesLoading(false);
+        employeesLoadRef.current = null;
+      }
+    })();
+    return employeesLoadRef.current;
+  }, [companyId]);
+
+  const ensureAddDialogData = React.useCallback(async () => {
+    if (!companyId) return;
+    const tasks: Promise<unknown>[] = [loadEmployees(), loadBranches()];
+    if (addCatalogLoadedRef.current !== companyId) {
+      tasks.push((async () => {
+        try {
+          const [ltRes, rtRes] = await Promise.all([
+            loadCompanyLeaveTypes({ companyId, limit: 200, isActive: true }),
+            loadLeaveRequestTypes(companyId),
+          ]);
+          setLeaveTypes(ltRes.items);
+          leaveTypesLoadedRef.current = companyId;
+          setLeaveRequestTypes(rtRes);
+          addCatalogLoadedRef.current = companyId;
+        } catch {
+          toast.error('فشل تحميل بيانات النموذج');
+        }
+      })());
+    }
+    await Promise.all(tasks);
+  }, [companyId, loadEmployees, loadBranches]);
+
+  React.useEffect(() => {
+    branchesLoadedRef.current = null;
+    departmentsLoadedRef.current = null;
+    leaveTypesLoadedRef.current = null;
+    addCatalogLoadedRef.current = null;
+    employeesCacheRef.current = null;
+    setBranches([]);
+    setDepartments([]);
+    setLeaveTypes([]);
+    setLeaveRequestTypes([]);
+    setEmployeesList([]);
+  }, [companyId]);
+
+  const [branchId, setBranchId] = usePersistedFilterState(
+    hrFiltersKey('requests', 'unified-management', companyId, 'branchId'),
+    'all',
+  );
+  const [departmentId, setDepartmentId] = usePersistedFilterState(
+    hrFiltersKey('requests', 'unified-management', companyId, 'departmentId'),
+    'all',
+  );
+  const [leaveType, setLeaveType] = usePersistedFilterState(
+    hrFiltersKey('requests', 'unified-management', companyId, 'leaveType'),
+    'all',
+  );
+  const [approvalStageFilter, setApprovalStageFilter] = usePersistedFilterState(
+    hrFiltersKey('requests', 'unified-management', companyId, 'approvalStageFilter'),
+    'all',
+  );
+
+  const handleBranchChange = React.useCallback((v: string) => {
+    setBranchId(v);
+    if (v !== 'all') void loadEmployees();
+  }, [loadEmployees]);
+
+  const handleDepartmentChange = React.useCallback((v: string) => {
+    setDepartmentId(v);
+    if (v !== 'all') void loadEmployees();
+  }, [loadEmployees]);
 
   const branchInlineOptions = React.useMemo(
     () => [{ value: 'all', label: 'جميع الفروع' }, ...branches.map((b) => ({ value: b.id, label: b.nameAr }))],
     [branches],
   );
   const deptInlineOptions = React.useMemo(
-    () => [{ value: 'all', label: 'جميع الأقسام' }],
-    [],
+    () => [
+      { value: 'all', label: 'جميع الأقسام' },
+      ...departments.map((d) => ({ value: d.id, label: d.nameAr })),
+    ],
+    [departments],
   );
   const typeInlineOptions = React.useMemo(() => {
     const options = new Map<string, string>();
@@ -346,12 +464,72 @@ export function UnifiedManagementClient() {
     [],
   );
 
-  const [selectedEmpIds, setSelectedEmpIds] = React.useState<Set<string>>(new Set());
-  const [statusFilter, setStatusFilter] = React.useState<string>('all');
-  const [dateBounds, setDateBounds] = React.useState<{ from: string; to: string }>({ from: '', to: '' });
+  const inlineSelects = React.useMemo((): ListFilterInlineSelect[] => [
+    {
+      id: 'branch',
+      value: branchId,
+      onChange: handleBranchChange,
+      onOpen: () => { void loadBranches(); },
+      placeholder: 'الفرع',
+      className: 'w-[9rem]',
+      options: branchInlineOptions,
+    },
+    {
+      id: 'dept',
+      value: departmentId,
+      onChange: handleDepartmentChange,
+      onOpen: () => { void loadDepartments(); },
+      placeholder: 'القسم',
+      className: 'w-[9rem]',
+      options: deptInlineOptions,
+    },
+    {
+      id: 'type',
+      value: leaveType,
+      onChange: setLeaveType,
+      onOpen: () => { void loadLeaveTypesForFilter(); },
+      placeholder: 'نوع الإجازة',
+      className: 'w-[9.5rem]',
+      options: typeInlineOptions,
+    },
+    {
+      id: 'stage',
+      value: approvalStageFilter,
+      onChange: setApprovalStageFilter,
+      placeholder: 'مرحلة الاعتماد',
+      className: 'w-[10rem]',
+      options: stageInlineOptions,
+    },
+  ], [
+    branchId,
+    departmentId,
+    leaveType,
+    approvalStageFilter,
+    handleBranchChange,
+    handleDepartmentChange,
+    loadBranches,
+    loadDepartments,
+    loadLeaveTypesForFilter,
+    branchInlineOptions,
+    deptInlineOptions,
+    typeInlineOptions,
+    stageInlineOptions,
+  ]);
 
-  const empPickerList = React.useMemo(() =>
-    employeesList.map(e => ({ id: e.id, name: e.nameAr })),
+  const [selectedEmpIds, setSelectedEmpIds] = usePersistedEmpIdSet(
+    hrFiltersKey('requests', 'unified-management', companyId, 'selectedEmpIds'),
+  );
+  const [statusFilter, setStatusFilter] = usePersistedFilterState(
+    hrFiltersKey('requests', 'unified-management', companyId, 'statusFilter'),
+    'all',
+  );
+  const [dateBounds, setDateBounds] = usePersistedFilterState(
+    hrFiltersKey('requests', 'unified-management', companyId, 'dateBounds'),
+    { from: '', to: '' },
+  );
+
+  const employeeById = React.useMemo(
+    () => new Map(employeesList.map((e) => [e.id, e])),
     [employeesList],
   );
 
@@ -364,7 +542,10 @@ export function UnifiedManagementClient() {
     employeeIds: [...selectedEmpIds],
   };
 
-  const [view, setView] = React.useState<'table' | 'card'>('table');
+  const [view, setView] = usePersistedFilterState<'table' | 'card'>(
+    hrFiltersKey('requests', 'unified-management', companyId, 'view'),
+    'table',
+  );
   const [detailLeave, setDetailLeave] = React.useState<UnifiedLeaveRecord | null>(null);
   const [addOpen, setAddOpen] = React.useState(false);
   const [editLeave, setEditLeave] = React.useState<UnifiedLeaveRecord | null>(null);
@@ -392,7 +573,9 @@ export function UnifiedManagementClient() {
     const empPick = [...selectedEmpIds];
     return items.filter((l) => {
       if (empPick.length > 0 && !empPick.includes(l.employeeId)) return false;
-      if (branchId !== 'all' && l.requestBranchId !== branchId) return false;
+      const emp = employeeById.get(l.employeeId);
+      if (branchId !== 'all' && emp?.branchId !== branchId) return false;
+      if (departmentId !== 'all' && emp?.departmentId !== departmentId) return false;
       if (approvalStageFilter !== 'all') {
         const stage = getApprovalStage(l);
         if (stage !== approvalStageFilter && !(approvalStageFilter === 'fully_approved' && stage === 'fully_approved')) return false;
@@ -400,13 +583,13 @@ export function UnifiedManagementClient() {
       if (!leaveOverlapsYmdRange(l, dateBounds.from, dateBounds.to)) return false;
       return true;
     });
-  }, [approvalStageFilter, branchId, dateBounds.from, dateBounds.to, selectedEmpIds]);
+  }, [approvalStageFilter, branchId, departmentId, dateBounds.from, dateBounds.to, employeeById, selectedEmpIds]);
 
   const loadPage = React.useCallback(async (page: number, pageSize: number) => {
     if (!companyId) return { items: [] as UnifiedLeaveRecord[], total: 0 };
     try {
       const res = await leaveRequestsNewApi.list(buildListQuery(page, pageSize));
-      const mapped = res.items.map((r) => mapApiLeave(r, leaveTypes));
+      const mapped = res.items.map((r) => mapApiLeave(r, leaveTypesRef.current));
       if (bulkMode) {
         const items = applyClientFilters(mapped);
         return { items, total: items.length };
@@ -416,7 +599,7 @@ export function UnifiedManagementClient() {
       toast.error('فشل تحميل طلبات الإجازات');
       return { items: [], total: 0 };
     }
-  }, [applyClientFilters, buildListQuery, bulkMode, companyId, leaveTypes]);
+  }, [applyClientFilters, buildListQuery, bulkMode, companyId]);
 
   const loadBulk = React.useCallback(async () => {
     if (!companyId) return { items: [] as UnifiedLeaveRecord[], total: 0 };
@@ -424,14 +607,14 @@ export function UnifiedManagementClient() {
       const res = await fetchAllPaginatedItems((page, limit) =>
         leaveRequestsNewApi.list({ ...buildListQuery(page, limit) }),
       );
-      const mapped = res.items.map((r) => mapApiLeave(r, leaveTypes));
+      const mapped = res.items.map((r) => mapApiLeave(r, leaveTypesRef.current));
       const items = applyClientFilters(mapped);
       return { items, total: items.length };
     } catch {
       toast.error('فشل تحميل طلبات الإجازات');
       return { items: [], total: 0 };
     }
-  }, [applyClientFilters, buildListQuery, companyId, leaveTypes]);
+  }, [applyClientFilters, buildListQuery, companyId]);
 
   const {
     items: filtered,
@@ -473,7 +656,7 @@ export function UnifiedManagementClient() {
         { updatedBy: updatedByActor },
       );
       const updated = await leaveRequestsNewApi.decide(leave.id, payload);
-      const mapped = mapApiLeave(updated, leaveTypes);
+      const mapped = mapApiLeave(updated, leaveTypesRef.current);
       if (detailLeave?.id === leave.id) setDetailLeave(mapped);
       await reloadLeaves();
       if (payload.approverStates && isRequestFullyApproved(payload.approverStates)) {
@@ -485,7 +668,7 @@ export function UnifiedManagementClient() {
       const { displayMessage } = handleApiError(err, 'leave-requests.decide.approve');
       toast.error(displayMessage);
     }
-  }, [companyId, currentEmployeeId, detailLeave?.id, leaveTypes, reloadLeaves, updatedByActor]);
+  }, [companyId, currentEmployeeId, detailLeave?.id, reloadLeaves, updatedByActor]);
 
   const handleReject = React.useCallback(async (leave: UnifiedLeaveRecord) => {
     if (!companyId || !currentEmployeeId) return;
@@ -507,7 +690,7 @@ export function UnifiedManagementClient() {
         { updatedBy: updatedByActor },
       );
       const updated = await leaveRequestsNewApi.decide(leave.id, payload);
-      const mapped = mapApiLeave(updated, leaveTypes);
+      const mapped = mapApiLeave(updated, leaveTypesRef.current);
       if (detailLeave?.id === leave.id) setDetailLeave(mapped);
       await reloadLeaves();
       toast.message('تم رفض الطلب.');
@@ -515,7 +698,7 @@ export function UnifiedManagementClient() {
       const { displayMessage } = handleApiError(err, 'leave-requests.decide.reject');
       toast.error(displayMessage);
     }
-  }, [companyId, currentEmployeeId, detailLeave?.id, leaveTypes, reloadLeaves, updatedByActor]);
+  }, [companyId, currentEmployeeId, detailLeave?.id, reloadLeaves, updatedByActor]);
 
   const activeFilterCount =
     (branchId !== 'all' ? 1 : 0) + (departmentId !== 'all' ? 1 : 0) +
@@ -523,11 +706,18 @@ export function UnifiedManagementClient() {
     (statusFilter !== 'all' ? 1 : 0) + (selectedEmpIds.size > 0 ? 1 : 0) +
     (dateBounds.from !== '' ? 1 : 0);
 
-  const onAddClick = React.useCallback(() => { setEditLeave(null); setAddOpen(true); }, []);
+  const onAddClick = React.useCallback(() => {
+    setEditLeave(null);
+    setAddOpen(true);
+  }, []);
+
+  React.useEffect(() => {
+    if (addOpen) void ensureAddDialogData();
+  }, [addOpen, ensureAddDialogData]);
 
   usePageHeaderActions(
     () => (
-      <div className="flex items-center gap-2">
+      <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
         <FilterToggleButton activeFilterCount={activeFilterCount} />
         <Button
           variant="luxe"
@@ -545,16 +735,12 @@ export function UnifiedManagementClient() {
 
   useEntityFilterSlot(
     () => (
-      <EntityFilterToolbar
-        inlineSelects={[
-          { id: 'type', value: leaveType, onChange: setLeaveType, placeholder: 'نوع الإجازة', options: typeInlineOptions },
-        ]}
-        moreFilters={[
-          { id: 'branch', value: branchId, onChange: setBranchId, placeholder: 'الفرع', options: branchInlineOptions },
-          { id: 'dept', value: departmentId, onChange: setDepartmentId, placeholder: 'القسم', options: deptInlineOptions },
-          { id: 'stage', value: approvalStageFilter, onChange: setApprovalStageFilter, placeholder: 'مرحلة الاعتماد', options: stageInlineOptions },
-        ]}
-        empPickerEmployees={empPickerList}
+      <ListFilterBar
+        optionalDateRange
+        periodValue={dateBounds}
+        onPeriodChange={setDateBounds}
+        inlineSelects={inlineSelects}
+        companyId={companyId}
         selectedEmpIds={selectedEmpIds}
         onSelectedEmpIdsChange={setSelectedEmpIds}
         statusFilter={statusFilter}
@@ -578,8 +764,7 @@ export function UnifiedManagementClient() {
       statusFilter, selectedEmpKey,
       dateBounds.from, dateBounds.to,
       statusCounts.all, statusCounts.pending, statusCounts.approved, statusCounts.rejected, statusCounts.cancelled,
-      view, empPickerList,
-      branchInlineOptions, deptInlineOptions, typeInlineOptions, stageInlineOptions,
+      view, companyId, inlineSelects,
     ],
   );
 
@@ -606,7 +791,6 @@ export function UnifiedManagementClient() {
           employees={employeesList}
           open={!!detailLeave}
           onClose={() => setDetailLeave(null)}
-          onEdit={() => { setEditLeave(detailLeave); setAddOpen(true); setDetailLeave(null); }}
         />
       )}
 
@@ -654,7 +838,9 @@ function LeaveTable({ leaves, employees, branches, currentEmployeeId, onDetail, 
             </div>
             <div>
               <p className="font-medium">{name}</p>
-              {l.requestTypeNameAr ? (
+              {l.departmentNameAr ? (
+                <p className="text-[10px] text-muted-foreground">{l.departmentNameAr}</p>
+              ) : l.requestTypeNameAr ? (
                 <p className="text-[10px] text-muted-foreground">{l.requestTypeNameAr}</p>
               ) : null}
             </div>
@@ -696,10 +882,22 @@ function LeaveTable({ leaves, employees, branches, currentEmployeeId, onDetail, 
       render: (l) => <span className="font-mono text-xs number-ar">{l.workingDays}</span>,
     },
     {
-      key: 'branch',
-      title: 'الفرع',
+      key: 'submitted',
+      title: 'تاريخ التقديم',
       hideOnMobile: true,
-      render: (l) => <span className="text-xs text-muted-foreground">{branches.find((b) => b.id === l.requestBranchId)?.nameAr ?? l.requestBranchId ?? '—'}</span>,
+      render: (l) => <TableDateCell value={l.submittedAt} mode="datetime" />,
+    },
+    {
+      key: 'approvers',
+      title: 'مسار الموافقة',
+      hideOnMobile: true,
+      render: (l) => <RequestApproversInline states={l.approverStates} />,
+    },
+    {
+      key: 'department',
+      title: 'القسم',
+      hideOnMobile: true,
+      render: (l) => <span className="text-xs text-muted-foreground">{l.departmentNameAr || '—'}</span>,
     },
     {
       key: 'note',
@@ -730,7 +928,7 @@ function LeaveTable({ leaves, employees, branches, currentEmployeeId, onDetail, 
       mobileCard={(l) => {
         const name = employeeDisplayName(l, employees);
         const typeCfg = TYPE_STYLE[l.type];
-        const canAct = canActOnLeave(l, currentEmployeeId);
+        const showApproval = canShowLeaveApprovalActions(l, currentEmployeeId);
         return (
           <div className="space-y-3">
             <div className="flex items-center justify-between gap-2">
@@ -757,17 +955,21 @@ function LeaveTable({ leaves, employees, branches, currentEmployeeId, onDetail, 
                 {l.noteAr}
               </p>
             ) : null}
-            {canAct && (
-              <div className="flex gap-2 pt-1" onClick={(e) => e.stopPropagation()}>
-                <Button variant="outline" size="sm" className="flex-1 gap-1.5 text-xs text-success border-success/40 hover:bg-success/10" onClick={(e) => { e.stopPropagation(); onApprove(l); }}>
-                  <CheckCircle2 className="h-3.5 w-3.5" /> موافقة
-                </Button>
-                <Button variant="outline" size="sm" className="flex-1 gap-1.5 text-xs text-destructive border-destructive/40 hover:bg-destructive/10" onClick={(e) => { e.stopPropagation(); onReject(l); }}>
-                  <XCircle className="h-3.5 w-3.5" /> رفض
-                </Button>
-              </div>
-            )}
-            <RequestApproverStatesPanel states={l.approverStates} compact className="border-0 bg-transparent p-0" />
+            {l.decisionNotesAr?.trim() ? (
+              <p className="text-xs text-muted-foreground text-right" title={l.decisionNotesAr}>
+                ملاحظات القرار: {l.decisionNotesAr}
+              </p>
+            ) : null}
+            <RequestApproversInline states={l.approverStates} />
+            {showApproval ? (
+              <RequestApprovalActionButtons
+                states={l.approverStates}
+                currentEmployeeId={currentEmployeeId}
+                onApprove={() => onApprove(l)}
+                onReject={() => onReject(l)}
+                compact
+              />
+            ) : null}
           </div>
         );
       }}
@@ -799,14 +1001,14 @@ function LeaveCardGrid({ leaves, employees, currentEmployeeId, onDetail, onAppro
       {leaves.map((l) => {
         const name = employeeDisplayName(l, employees);
         const typeCfg = TYPE_STYLE[l.type];
-        const canAct = canActOnLeave(l, currentEmployeeId);
+        const showApproval = canShowLeaveApprovalActions(l, currentEmployeeId);
         const meta = leaveStatusMeta(l);
         return (
           <EntityActionCard
             key={l.id}
             onClick={() => onDetail(l)}
             title={name}
-            subtitle={leaveTypeDisplayLabel(l)}
+            subtitle={l.departmentNameAr || l.requestTypeNameAr || leaveTypeDisplayLabel(l)}
             avatarLetter={name}
             status={{
               label: LEAVE_STATUS_LABELS[l.status],
@@ -818,10 +1020,17 @@ function LeaveCardGrid({ leaves, employees, currentEmployeeId, onDetail, onAppro
               ) : undefined,
             }}
             chips={
-              <EntityActionCardChip className={typeCfg.color}>
-                <span className={cn('h-1.5 w-1.5 rounded-full', typeCfg.dot)} />
-                {leaveTypeDisplayLabel(l)}
-              </EntityActionCardChip>
+              <>
+                <EntityActionCardChip className={typeCfg.color}>
+                  <span className={cn('h-1.5 w-1.5 rounded-full', typeCfg.dot)} />
+                  {leaveTypeDisplayLabel(l)}
+                </EntityActionCardChip>
+                {l.submittedAt ? (
+                  <EntityActionCardChip className="font-mono tabular-nums">
+                    <span dir="ltr">{formatIsoDate(l.submittedAt)}</span>
+                  </EntityActionCardChip>
+                ) : null}
+              </>
             }
             metrics={
               <EntityActionCardMetricsRow>
@@ -832,30 +1041,21 @@ function LeaveCardGrid({ leaves, employees, currentEmployeeId, onDetail, onAppro
                 <EntityActionCardMetric label="أيام" value={l.workingDays} />
               </EntityActionCardMetricsRow>
             }
-            description={l.noteAr}
+            description={
+              [l.noteAr, l.decisionNotesAr?.trim() ? `ملاحظات القرار: ${l.decisionNotesAr}` : '']
+                .filter(Boolean)
+                .join(' — ') || undefined
+            }
             children={
               <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
-                {canAct ? (
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-7 flex-1 text-xs text-success border-success/30 hover:bg-success/10"
-                      onClick={() => onApprove(l)}
-                    >
-                      <CheckCircle2 className="h-3.5 w-3.5 me-1" />
-                      موافقة
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-7 flex-1 text-xs text-destructive border-destructive/30 hover:bg-destructive/10"
-                      onClick={() => onReject(l)}
-                    >
-                      <XCircle className="h-3.5 w-3.5 me-1" />
-                      رفض
-                    </Button>
-                  </div>
+                {showApproval ? (
+                  <RequestApprovalActionButtons
+                    states={l.approverStates}
+                    currentEmployeeId={currentEmployeeId}
+                    onApprove={() => onApprove(l)}
+                    onReject={() => onReject(l)}
+                    compact
+                  />
                 ) : null}
                 {l.approverStates ? (
                   <RequestApproverStatesPanel states={l.approverStates} compact className="border-0 bg-transparent p-0" />
@@ -871,12 +1071,11 @@ function LeaveCardGrid({ leaves, employees, currentEmployeeId, onDetail, onAppro
 
 // ─── Leave detail dialog ───────────────────────────────────────────────────────
 
-function LeaveDetailDialog({ leave, employees, open, onClose, onEdit }: {
+function LeaveDetailDialog({ leave, employees, open, onClose }: {
   leave: UnifiedLeaveRecord;
   employees: { id: string; nameAr: string }[];
   open: boolean;
   onClose: () => void;
-  onEdit: () => void;
 }) {
   const name = employeeDisplayName(leave, employees);
   const typeCfg = TYPE_STYLE[leave.type];
@@ -977,7 +1176,6 @@ function LeaveDetailDialog({ leave, employees, open, onClose, onEdit }: {
         </div>
 
         <DialogFooter className={dialogFormFooterClass}>
-          <Button variant="outline" onClick={onEdit}>تعديل</Button>
           <Button variant="outline" onClick={onClose}>إغلاق</Button>
         </DialogFooter>
       </DialogContent>

@@ -40,6 +40,10 @@ export interface MultiSelectProps {
    * portals there; otherwise react-remove-scroll blocks wheel events on the list.
    */
   popoverPortalContainer?: HTMLElement | DocumentFragment | null;
+  /** Hold selection locally until user clicks apply — onChange fires once on apply only */
+  deferCommit?: boolean;
+  applyLabel?: string;
+  cancelLabel?: string;
 }
 
 export function MultiSelect({
@@ -58,13 +62,21 @@ export function MultiSelect({
   listMaxHeight = 'min(240px,40vh)',
   label,
   popoverPortalContainer,
+  deferCommit = false,
+  applyLabel = 'تطبيق',
+  cancelLabel = 'إلغاء',
 }: MultiSelectProps) {
   const [open, setOpen] = React.useState(false);
   const [q, setQ] = React.useState('');
+  const [pending, setPending] = React.useState<string[]>(value);
 
   React.useEffect(() => {
     if (!open) setQ('');
   }, [open]);
+
+  React.useEffect(() => {
+    if (!open) setPending(value);
+  }, [value, open]);
 
   const filtered = React.useMemo(() => {
     const t = q.trim().toLowerCase();
@@ -77,36 +89,82 @@ export function MultiSelect({
 
   const enabledAll = React.useMemo(() => options.filter((o) => !o.disabled), [options]);
 
-  const selectedSet = React.useMemo(() => new Set(value), [value]);
+  const openPopover = React.useCallback(
+    (next: boolean) => {
+      if (next) {
+        setPending(value);
+      }
+      setOpen(next);
+    },
+    [value],
+  );
+
+  const activeValue = deferCommit && open ? pending : value;
+  const selectedSet = React.useMemo(() => new Set(activeValue), [activeValue]);
+
+  const setSelection = React.useCallback(
+    (next: string[]) => {
+      if (deferCommit && open) {
+        setPending(next);
+        return;
+      }
+      onChange(next);
+    },
+    [deferCommit, open, onChange],
+  );
 
   const toggle = (v: string, checked: boolean) => {
     const opt = options.find((o) => o.value === v);
     if (opt?.disabled) return;
-    if (checked) onChange([...value, v]);
-    else onChange(value.filter((x) => x !== v));
+    if (checked) setSelection([...activeValue, v]);
+    else setSelection(activeValue.filter((x) => x !== v));
   };
 
   const selectAll = () => {
-    onChange(enabledAll.map((o) => o.value));
+    setSelection(enabledAll.map((o) => o.value));
   };
 
   const deselectAll = () => {
-    onChange([]);
+    setSelection([]);
+  };
+
+  const pendingDirty = React.useMemo(() => {
+    if (pending.length !== value.length) return true;
+    const saved = new Set(value);
+    return pending.some((id) => !saved.has(id));
+  }, [pending, value]);
+
+  const applyPending = () => {
+    if (pendingDirty) onChange(pending);
+    setOpen(false);
+  };
+
+  const cancelPending = () => {
+    setPending(value);
+    setOpen(false);
+  };
+
+  const handleOpenChange = (next: boolean) => {
+    if (deferCommit && !next && open) {
+      cancelPending();
+      return;
+    }
+    openPopover(next);
   };
 
   const summary =
-    value.length === 0 ? (
+    activeValue.length === 0 ? (
       <span className="text-muted-foreground">{placeholder}</span>
     ) : (
       <span className="font-medium text-foreground">
-        <span className="number-ar">{value.length}</span> محدد
+        <span className="number-ar">{activeValue.length}</span> محدد
       </span>
     );
 
   return (
     <div className={cn('space-y-2', className)}>
       {label ? <Label htmlFor={id}>{label}</Label> : null}
-      <Popover open={open} onOpenChange={setOpen} modal={false}>
+      <Popover open={open} onOpenChange={handleOpenChange} modal={false}>
         <PopoverTrigger asChild>
           <Button
             id={id}
@@ -127,8 +185,11 @@ export function MultiSelect({
         </PopoverTrigger>
         <PopoverContent
           align="end"
+          side="bottom"
+          sticky="partial"
+          collisionPadding={16}
           container={popoverPortalContainer ?? undefined}
-          className="popover-match-trigger min-w-[min(100%,280px)] max-w-[calc(100vw-2rem)] border-border p-0 shadow-luxe"
+          className="popover-match-trigger min-w-[min(100%,280px)] max-w-[calc(100vw-2rem)] overflow-hidden border-border p-0 shadow-luxe"
           onOpenAutoFocus={(e) => e.preventDefault()}
         >
           <div className="border-b border-border bg-muted/30 px-3 py-2">
@@ -158,7 +219,7 @@ export function MultiSelect({
                 variant="ghost"
                 className="h-8 gap-1.5 text-xs text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                 onClick={deselectAll}
-                disabled={value.length === 0}
+                disabled={activeValue.length === 0}
               >
                 <ListX className="h-3.5 w-3.5" />
                 {deselectAllLabel}
@@ -167,8 +228,10 @@ export function MultiSelect({
           </div>
           <Separator />
           <div
-            className="overflow-y-auto overscroll-contain p-1"
-            style={{ maxHeight: listMaxHeight }}
+            className="touch-pan-y overflow-y-auto overscroll-contain p-1"
+            style={{
+              maxHeight: `min(${listMaxHeight}, calc(var(--radix-popover-content-available-height, 70dvh) - 9rem))`,
+            }}
             role="listbox"
             aria-multiselectable
           >
@@ -206,6 +269,31 @@ export function MultiSelect({
               })
             )}
           </div>
+          {deferCommit ? (
+            <>
+              <Separator />
+              <div className="flex gap-2 p-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-9 flex-1 text-xs"
+                  disabled={!pendingDirty}
+                  onClick={applyPending}
+                >
+                  {applyLabel}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-9 flex-1 text-xs"
+                  onClick={cancelPending}
+                >
+                  {cancelLabel}
+                </Button>
+              </div>
+            </>
+          ) : null}
         </PopoverContent>
       </Popover>
     </div>

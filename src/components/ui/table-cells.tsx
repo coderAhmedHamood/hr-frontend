@@ -35,7 +35,7 @@ export function TableDateCell({
       <span className={baseClass} dir="rtl">
         <span dir="ltr">{parts.date}</span>
         <span>-</span>
-        <span dir="ltr">{parts.period}{parts.hours}:{parts.minutes}</span>
+        <span dir="ltr">{parts.hours}:{parts.minutes}{parts.period}</span>
       </span>
     );
   }

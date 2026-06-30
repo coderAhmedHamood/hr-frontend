@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { EmployeePicker } from '@/components/ui/employee-picker';
-import { FormField, HRSettingsFormDrawer, MinimalDropdown } from '@/features/hr/requests/components/shared-ui';
+import { FormField, HRSettingsFormDrawer, MinimalDropdown } from '@/components/ui/shared-dialogs';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import {
   NOTIFICATION_CATEGORY_FILTER_ORDER,

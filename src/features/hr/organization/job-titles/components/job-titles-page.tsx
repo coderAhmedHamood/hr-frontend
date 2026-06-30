@@ -3,13 +3,18 @@
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { HRSettingsFormDrawer, FormField, ConfirmationModal, EmptyState } from '@/features/hr/requests/components/shared-ui';
+import { HRSettingsFormDrawer, FormField, ConfirmationModal, EmptyState } from '@/components/ui/shared-dialogs';
+import { ForbiddenState } from '@/components/shared/forbidden-state';
 import { useJobTitlesDirectoryModel } from '@/features/hr/organization/job-titles/hooks/useJobTitlesDirectoryModel';
 import { JobTitlesListViews } from '@/features/hr/organization/job-titles/components/job-titles-list-views';
 import { JobTitleTemplateDetailDialog } from '@/features/hr/organization/job-titles/dialogs/job-title-template-detail-dialog';
 
 export default function JobTitlesPage() {
   const model = useJobTitlesDirectoryModel();
+
+  if (model.accessDenied) {
+    return <ForbiddenState />;
+  }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">

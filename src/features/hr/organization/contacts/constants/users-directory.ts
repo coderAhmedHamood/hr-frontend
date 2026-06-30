@@ -1,4 +1,5 @@
 import type { UserResponseDto, UserCompanyLink, UserBranchLink } from '@/features/hr/organization/lib/api/users';
+import { formatDisplayDateTime } from '@/shared/utils';
 
 export type UserDraftForm = {
   email: string;
@@ -95,5 +96,5 @@ export function branchLinkLabel(link: UserBranchLink): string {
 
 export function formatUserDate(iso: string | null | undefined): string {
   if (!iso) return '—';
-  return new Date(iso).toLocaleString('ar-SA');
+  return formatDisplayDateTime(iso);
 }

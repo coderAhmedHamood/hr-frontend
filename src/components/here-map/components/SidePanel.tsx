@@ -47,7 +47,7 @@ export function SidePanel({
           ].join(" ")}
         >
           <h1
-            className={`min-w-0 flex-1 truncate text-right text-sm font-bold text-primaryColor`}
+            className={`min-w-0 flex-1 truncate text-right text-sm font-bold text-primary`}
           >
             رسم الخرائط
           </h1>
@@ -56,7 +56,7 @@ export function SidePanel({
             onClick={() => setIsPanelOpen(false)}
             className={[
               "group flex size-9 shrink-0 items-center justify-center rounded-lg transition-all duration-200",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primaryColor/50 focus-visible:ring-offset-0",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-0",
               "active:scale-95",
               isDark
                 ? "text-slate-400 hover:bg-slate-700/80 hover:text-white"
@@ -66,7 +66,7 @@ export function SidePanel({
             aria-label="إخفاء اللوحة"
           >
             <X
-              className="size-[18px] transition-colors group-hover:text-primaryColor"
+              className="size-[18px] transition-colors group-hover:text-primary"
               strokeWidth={2.25}
             />
           </button>
@@ -78,7 +78,7 @@ export function SidePanel({
           className={[
             "group relative flex h-11 w-full flex-shrink-0 items-center justify-center border-b",
             "transition-colors duration-200",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primaryColor/50 focus-visible:ring-offset-0",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-0",
             "active:scale-[0.98]",
             isDark
               ? "border-slate-700/80 bg-slate-800/80 hover:bg-slate-700/40"
@@ -99,7 +99,7 @@ export function SidePanel({
             aria-hidden="true"
           >
             <PanelRightOpen
-              className="size-[18px] shrink-0 transition-colors group-hover:text-primaryColor"
+              className="size-[18px] shrink-0 transition-colors group-hover:text-primary"
               strokeWidth={2.25}
             />
           </span>
@@ -118,7 +118,7 @@ export function SidePanel({
                 onKeyDown={(e) => { if (e.key === "Enter") e.preventDefault(); }}
                 placeholder="ابحث عن مدينة أو موقع…"
                 aria-label="البحث عن مدينة"
-                className={`w-full rounded-md border px-2.5 py-2 text-xs focus:outline-none focus:border-primaryColor/60 text-right ${isDark
+                className={`w-full rounded-md border px-2.5 py-2 text-xs focus:outline-none focus:border-primary/60 text-right ${isDark
                   ? "border-slate-600 bg-slate-700 text-slate-200 placeholder-slate-500"
                   : "border-gray-300 bg-gray-50 text-gray-900 placeholder-gray-400"
                   }`}
@@ -148,8 +148,8 @@ export function SidePanel({
                       type="button"
                       onClick={() => onSearchSelect(result)}
                       className={`w-full text-right px-2.5 py-1.5 text-[11px] transition-colors border-b last:border-0 ${isDark
-                        ? "text-slate-200 hover:bg-primaryColor hover:text-white border-slate-600"
-                        : "text-gray-700 hover:bg-primaryColor hover:text-primaryColor border-gray-200"
+                        ? "text-slate-200 hover:bg-primary hover:text-white border-slate-600"
+                        : "text-gray-700 hover:bg-primary hover:text-primary border-gray-200"
                         }`}
                     >
                       {result.title}

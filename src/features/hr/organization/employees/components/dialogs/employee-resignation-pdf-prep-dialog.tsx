@@ -7,6 +7,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DatePickerInput } from '@/components/ui/date-picker-input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -123,24 +124,18 @@ export function EmployeeResignationPdfPrepDialog({
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="res-abs">تاريخ بداية الاستقالة</Label>
-              <Input
+              <DatePickerInput
                 id="res-abs"
-                type="date"
                 value={wizard.absenceStartIso}
-                onChange={(e) => patchWizard('absenceStartIso', e.target.value)}
-                className="font-mono"
-                dir="ltr"
+                onChange={(v) => patchWizard('absenceStartIso', v)}
               />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="res-foot-date">تاريخ التذييل</Label>
-              <Input
+              <DatePickerInput
                 id="res-foot-date"
-                type="date"
                 value={wizard.footerDateIso}
-                onChange={(e) => patchWizard('footerDateIso', e.target.value)}
-                className="font-mono"
-                dir="ltr"
+                onChange={(v) => patchWizard('footerDateIso', v)}
               />
             </div>
           </div>

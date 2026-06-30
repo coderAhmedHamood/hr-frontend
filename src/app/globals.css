@@ -13,8 +13,8 @@
   max-width: min(var(--radix-popover-trigger-width), calc(100vw - 2rem));
 }
 .select-match-trigger {
-  width: 100%;
-  min-width: var(--radix-select-trigger-width);
+  width: var(--radix-select-trigger-width);
+  max-width: calc(100vw - 2rem);
 }
 
 /* ── Radix UI enter/exit animation system ───────────────────────────────────
@@ -391,4 +391,16 @@
 @layer utilities {
   .text-balance { text-wrap: balance; }
   .number-ar { font-feature-settings: 'tnum', 'lnum'; }
+
+  .surface-radial-primary-end {
+    background-image: radial-gradient(circle at 80% 20%, hsl(var(--primary)) 0%, transparent 45%);
+  }
+
+  .surface-radial-primary-start {
+    background-image: radial-gradient(circle at 20% 50%, hsl(var(--primary)) 0%, transparent 50%);
+  }
+
+  .bg-shift-color {
+    background-color: var(--shift-color);
+  }
 }

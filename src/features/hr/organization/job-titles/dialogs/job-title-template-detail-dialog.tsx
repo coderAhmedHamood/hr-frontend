@@ -11,6 +11,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { DetailField } from '@/components/shared/detail-field';
+import { formatDisplayDateTime } from '@/shared/utils';
 import type { JobTitleTemplateRecord } from '@/features/hr/organization/job-titles/services/job-titles.service';
 
 type Props = {
@@ -39,7 +40,7 @@ export function JobTitleTemplateDetailDialog({ row, onOpenChange, onEdit }: Prop
             <DetailField label="الرمز" value={row.code} dir="ltr" />
             <DetailField label="الوصف" value={row.descriptionAr} />
             <DetailField label="ملاحظات" value={row.notes} />
-            <DetailField label="آخر تحديث" value={new Date(row.updatedAt).toLocaleString('ar-SA')} dir="ltr" />
+            <DetailField label="آخر تحديث" value={formatDisplayDateTime(row.updatedAt)} dir="ltr" />
           </div>
         )}
         <DialogFooter>

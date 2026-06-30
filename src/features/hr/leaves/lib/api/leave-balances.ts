@@ -1,66 +1,13 @@
 import { apiRequest, type PaginatedResult } from '@/features/hr/lib/api/client';
+import type { EmployeeLeaveBalanceTypeItemDto, EmployeeLeaveBalanceGroupDto, EmployeeLeaveBalanceResponseDto, LeaveBalanceListQuery, CreateLeaveBalanceDto, UpdateLeaveBalanceDto } from '@/features/hr/leaves/types/api/leave-balances';
+export type { EmployeeLeaveBalanceTypeItemDto, EmployeeLeaveBalanceGroupDto, EmployeeLeaveBalanceResponseDto, LeaveBalanceListQuery, CreateLeaveBalanceDto, UpdateLeaveBalanceDto } from '@/features/hr/leaves/types/api/leave-balances';
 
-export type EmployeeLeaveBalanceTypeItemDto = {
-  id: string;
-  leaveTypeId: string;
-  leaveTypeNameAr: string;
-  leaveTypeCode: string | null;
-  usedDays: number;
-  totalDays: number;
-  remainingDays: number;
-  createdAt: string;
-  updatedAt: string;
-  createdBy: string | null;
-  updatedBy: string | null;
-};
 
-export type EmployeeLeaveBalanceGroupDto = {
-  employeeId: string;
-  employeeNameAr: string;
-  companyId: string;
-  totalDays: number;
-  usedDays: number;
-  remainingDays: number;
-  leaveTypes: EmployeeLeaveBalanceTypeItemDto[];
-};
 
 /** Flat row shape used by create/update/getById and edit dialogs. */
-export type EmployeeLeaveBalanceResponseDto = {
-  id: string;
-  companyId: string;
-  employeeId: string;
-  leaveTypeId: string;
-  usedDays: number;
-  totalDays: number;
-  remainingDays: number;
-  createdAt: string;
-  updatedAt: string;
-  createdBy: string | null;
-  updatedBy: string | null;
-};
 
-export type LeaveBalanceListQuery = {
-  page?: number;
-  limit?: number;
-  companyId?: string;
-  employeeId?: string;
-  leaveTypeId?: string;
-};
 
-export type CreateLeaveBalanceDto = {
-  companyId: string;
-  employeeId: string;
-  leaveTypeId: string;
-  usedDays: number;
-  totalDays: number;
-  createdBy?: string;
-};
 
-export type UpdateLeaveBalanceDto = {
-  usedDays?: number;
-  totalDays?: number;
-  updatedBy?: string;
-};
 
 export function flattenLeaveBalanceGroups(
   groups: EmployeeLeaveBalanceGroupDto[],
@@ -99,3 +46,4 @@ export const leaveBalancesApi = {
     return apiRequest<void>(`/leaves/balances/${id}`, { method: 'DELETE' });
   },
 };
+

@@ -13,7 +13,7 @@ import {
   HRSettingsFormDrawer,
   FormField,
   ConfirmationModal,
-} from '@/features/hr/requests/components/shared-ui';
+} from '@/components/ui/shared-dialogs';
 import {
   useContactsDirectoryModel,
   USER_TYPE_OPTIONS,
@@ -23,9 +23,14 @@ import {
 } from '@/features/hr/organization/contacts/hooks/useContactsDirectoryModel';
 import { ContactsListViews } from '@/features/hr/organization/contacts/components/contacts-list-views';
 import { UserDetailDialog } from '@/features/hr/organization/contacts/dialogs/user-detail-dialog';
+import { ForbiddenState } from '@/components/shared/forbidden-state';
 
 export default function ContactsPage() {
   const model = useContactsDirectoryModel();
+
+  if (model.accessDenied) {
+    return <ForbiddenState />;
+  }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
@@ -103,16 +108,6 @@ export default function ContactsPage() {
           </FormField>
 
           {model.editId && (
-            <FormField label="معرّف الموظف">
-              <Input
-                dir="ltr"
-                value={model.form.employeeId}
-                onChange={(e) => model.patch({ employeeId: e.target.value })}
-              />
-            </FormField>
-          )}
-
-          {model.editId && (
             <FormField label="الحالة">
               <Select value={model.form.status} onValueChange={(v) => model.patch({ status: v })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
@@ -127,16 +122,6 @@ export default function ContactsPage() {
 
           {model.editId && (
             <>
-              <FormField label="اللغة">
-                <Select value={model.form.languageCode} onValueChange={(v) => model.patch({ languageCode: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {LANGUAGE_OPTIONS.map((o) => (
-                      <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </FormField>
 
               <FormField label="المنطقة الزمنية" span2>
                 <Select value={model.form.timezone} onValueChange={(v) => model.patch({ timezone: v })}>

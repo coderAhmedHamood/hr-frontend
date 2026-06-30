@@ -8,6 +8,7 @@ import type { HRDisciplineCircularAudience, HRDisciplineCircularRecord } from '@
 import {
   disciplineCircularsApi,
   type CreateDisciplineCircularDto,
+  type DisciplineCircularResponseDto,
 } from '@/features/hr/discipline/lib/api/discipline-circulars';
 import {
   mapDisciplineCircularResponse,
@@ -15,7 +16,6 @@ import {
 import { resolveOrganizationScope } from '@/features/hr/organization/lib/api/organization-context';
 import { branchesApi } from '@/features/hr/organization/lib/api/branches';
 import { organizationActiveListStatusQuery } from '@/features/hr/organization/lib/archive-scope';
-import { companiesApi } from '@/features/hr/organization/lib/api/companies';
 import { departmentsApi } from '@/features/hr/organization/lib/api/departments';
 import { employeesApi } from '@/features/hr/organization/employees/lib/api/employees';
 import { employeeAssignmentsApi } from '@/features/hr/organization/employees/lib/api/employee-assignments';
@@ -107,30 +107,66 @@ export function useDisciplineCircularsDirectoryModel() {
   const [employees, setEmployees] = React.useState<DisciplineEmployeeDirectoryEntry[]>([]);
   const [branchOptions, setBranchOptions] = React.useState<{ value: string; label: string }[]>([]);
   const [departmentOptions, setDepartmentOptions] = React.useState<{ value: string; label: string }[]>([]);
-  const [company, setCompany] = React.useState<{ id: string; nameAr: string; nameEn: string | null } | null>(null);
   const [companyId, setCompanyId] = React.useState<string | null>(null);
   const [listError, setListError] = React.useState<string | null>(null);
 
-  const branchNameByIdRef = React.useRef<Record<string, string>>({});
-  const departmentNameByIdRef = React.useRef<Record<string, string>>({});
   const allCircularsRef = React.useRef<HRDisciplineCircularRecord[]>([]);
   const employeesRef = React.useRef<DisciplineEmployeeDirectoryEntry[]>([]);
+  const originalDtosRef = React.useRef<DisciplineCircularResponseDto[]>([]);
   const cacheInvalidRef = React.useRef(true);
+  const fetchingRef = React.useRef(false);
+  const companyIdRef = React.useRef<string | null>(null);
+  const filterDirLoadedRef = React.useRef(false);
+  const filterDirLoadingRef = React.useRef(false);
 
   const employeeById = React.useMemo(
     () => new Map(employees.map((e) => [e.id, e])),
     [employees],
   );
 
-  const fetchDirectoryData = React.useCallback(async () => {
+  // Phase 1 — only fetch circulars. Branch/dept names are deferred to loadFilterDirectory.
+  // Circulars that target a specific branch/dept will show raw IDs until filter data loads.
+  const fetchCircularsData = React.useCallback(async () => {
+    if (fetchingRef.current) return;
+    fetchingRef.current = true;
     setListError(null);
     try {
       const scope = await resolveOrganizationScope();
       const resolvedCompanyId = scope.companyId ?? null;
+      companyIdRef.current = resolvedCompanyId;
       setCompanyId(resolvedCompanyId);
 
-      const [companiesRes, branchesRes, departmentsRes, employeesRes] = await Promise.all([
-        companiesApi.getAll({ limit: 50 }),
+      const res = await fetchAllPaginatedItems((page, limit) =>
+        disciplineCircularsApi.getAll(
+          resolvedCompanyId ? { companyId: resolvedCompanyId, page, limit } : { page, limit },
+        ),
+      );
+
+      // Store raw DTOs so loadFilterDirectory can re-map with names later
+      originalDtosRef.current = res.items;
+      const mapped = res.items.map((c) => mapDisciplineCircularResponse(c));
+      setAllCirculars(mapped);
+      allCircularsRef.current = mapped;
+      cacheInvalidRef.current = false;
+    } catch (err) {
+      const { displayMessage } = handleApiError(err, 'discipline-circulars.load');
+      setListError(displayMessage);
+      setAllCirculars([]);
+      allCircularsRef.current = [];
+    } finally {
+      fetchingRef.current = false;
+    }
+  }, []);
+
+  // Phase 2 — load filter reference data lazily (only when filter panel opens or drawer opens).
+  // Also re-maps circulars with proper branch/dept names.
+  const loadFilterDirectory = React.useCallback(async () => {
+    if (filterDirLoadedRef.current || filterDirLoadingRef.current) return;
+    filterDirLoadingRef.current = true;
+    try {
+      const resolvedCompanyId = companyIdRef.current;
+
+      const [branchesRes, departmentsRes, employeesRes] = await Promise.all([
         branchesApi.getAll({
           ...(resolvedCompanyId ? { companyId: resolvedCompanyId, limit: PAGE_LIMIT } : { limit: PAGE_LIMIT }),
           ...organizationActiveListStatusQuery(),
@@ -144,15 +180,6 @@ export function useDisciplineCircularsDirectoryModel() {
         ),
       ]);
 
-      const companies = ensurePaginatedResult(companiesRes).items;
-      const selectedCompany =
-        (resolvedCompanyId ? companies.find((c) => c.id === resolvedCompanyId) : companies[0]) ?? null;
-      setCompany(
-        selectedCompany
-          ? { id: selectedCompany.id, nameAr: selectedCompany.nameAr, nameEn: selectedCompany.nameEn }
-          : null,
-      );
-
       const branches = ensurePaginatedResult(branchesRes).items;
       const departments = ensurePaginatedResult(departmentsRes).items;
       setBranchOptions(branches.map((b) => ({ value: b.id, label: b.nameAr })));
@@ -160,11 +187,20 @@ export function useDisciplineCircularsDirectoryModel() {
 
       const branchNameById = Object.fromEntries(branches.map((b) => [b.id, b.nameAr]));
       const departmentNameById = Object.fromEntries(departments.map((d) => [d.id, d.nameAr]));
-      branchNameByIdRef.current = branchNameById;
-      departmentNameByIdRef.current = departmentNameById;
+
+      // Re-map circulars now that we have branch/dept names
+      if (originalDtosRef.current.length > 0) {
+        const remapped = originalDtosRef.current.map((c) =>
+          mapDisciplineCircularResponse(c, { branchNameById, departmentNameById }),
+        );
+        setAllCirculars(remapped);
+        allCircularsRef.current = remapped;
+      }
 
       const employeeItems = ensurePaginatedResult(employeesRes).items;
-      const activeEmployees = employeeItems.filter((e) => !e.contractStatus || e.contractStatus === 'active');
+      const activeEmployees = employeeItems.filter(
+        (e) => !e.contractStatus || e.contractStatus === 'active',
+      );
       const assignmentResults = await Promise.all(
         activeEmployees.map((emp) => employeeAssignmentsApi.getAll(emp.id).catch(() => [])),
       );
@@ -183,34 +219,22 @@ export function useDisciplineCircularsDirectoryModel() {
       });
       setEmployees(employeesWithAssignments);
       employeesRef.current = employeesWithAssignments;
-
-      const res = await fetchAllPaginatedItems((page, limit) =>
-        disciplineCircularsApi.getAll(
-          resolvedCompanyId ? { companyId: resolvedCompanyId, page, limit } : { page, limit },
-        ),
-      );
-      const mapped = res.items.map((c) =>
-        mapDisciplineCircularResponse(c, { branchNameById, departmentNameById }),
-      );
-      setAllCirculars(mapped);
-      allCircularsRef.current = mapped;
-      cacheInvalidRef.current = false;
-    } catch (err) {
-      const { displayMessage } = handleApiError(err, 'discipline-circulars.load');
-      setListError(displayMessage);
-      setAllCirculars([]);
-      allCircularsRef.current = [];
+      filterDirLoadedRef.current = true;
+    } catch {
+      // filter data is optional — page still works without it
+    } finally {
+      filterDirLoadingRef.current = false;
     }
   }, []);
 
   const loadBulk = React.useCallback(async () => {
     if (cacheInvalidRef.current || allCircularsRef.current.length === 0) {
-      await fetchDirectoryData();
+      await fetchCircularsData();
     }
     const employeeMap = new Map(employeesRef.current.map((e) => [e.id, e]));
     const filtered = filterCirculars(allCircularsRef.current, listFilters, employeeMap);
     return { items: filtered, total: filtered.length };
-  }, [fetchDirectoryData, listFilters]);
+  }, [fetchCircularsData, listFilters]);
 
   const {
     items,
@@ -254,6 +278,8 @@ export function useDisciplineCircularsDirectoryModel() {
 
   const reload = React.useCallback(async () => {
     cacheInvalidRef.current = true;
+    filterDirLoadedRef.current = false;
+    originalDtosRef.current = [];
     await reloadPaged();
   }, [reloadPaged]);
 
@@ -290,13 +316,13 @@ export function useDisciplineCircularsDirectoryModel() {
     employees,
     branchOptions,
     departmentOptions,
-    company,
     companyId,
     loading,
     pagination,
     listError,
     listFilters,
     setListFilters,
+    loadFilterDirectory,
     add,
     remove,
     markSent,

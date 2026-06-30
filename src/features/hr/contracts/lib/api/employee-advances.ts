@@ -17,6 +17,7 @@ export type EmployeeAdvanceResponseDto = {
   currency: string;
   advanceDate: string;
   note: string | null;
+  reasonAr: string | null;
   status: AdvanceStatusDto;
   advanceKind: AdvanceKindDto | null;
   repaymentMode: RepaymentModeDto | null;

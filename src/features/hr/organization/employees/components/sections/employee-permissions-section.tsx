@@ -2,52 +2,112 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { Check, Shield, Plus, X, Ban, ChevronDown, UserPlus } from 'lucide-react';
+import { Ban, Check, Plus, Shield, UserPlus, X } from 'lucide-react';
+import { CreateUserAttentionButton } from '@/features/hr/organization/employees/components/create-user-attention-button';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { MultiSelect, type MultiSelectOption } from '@/components/ui/multi-select';
 import { hrPermissionsHref } from '@/features/hr/permissions/constants/routes';
+import { RolesAssignmentEditor } from '@/features/hr/permissions/components/roles-assignment-editor';
+import { permissionLabel } from '@/features/hr/permissions/lib/permission-labels';
 import type { EmployeeProfileModel } from '@/features/hr/organization/employees/hooks/useEmployeeProfileModel';
 import type { PermissionResponseDto } from '@/features/hr/permissions/lib/api/permissions';
+import { cn } from '@/shared/utils';
 
-const RESOURCE_AR: Record<string, string> = {
-  employees: 'الموظفين',
-  attendance: 'الحضور',
-  requests: 'الطلبات',
-  payroll: 'الرواتب',
-  hr: 'الموارد البشرية',
-  reports: 'التقارير',
-  settings: 'الإعدادات',
-  leaves: 'الإجازات',
-  contracts: 'العقود',
-  organization: 'المنظمة',
-};
-const ACTION_AR: Record<string, string> = {
-  read: 'عرض',
-  create: 'إنشاء',
-  update: 'تعديل',
-  delete: 'حذف',
-  approve: 'موافقة',
-  export: 'تصدير',
-};
+function SummaryPill({
+  label,
+  value,
+  tone = 'default',
+}: {
+  label: string;
+  value: string;
+  tone?: 'default' | 'success' | 'warning';
+}) {
+  return (
+    <div className="rounded-xl border border-border/70 bg-background/80 px-3 py-2.5">
+      <p className="text-[10px] text-muted-foreground">{label}</p>
+      <p
+        className={cn(
+          'mt-0.5 text-sm font-semibold tabular-nums',
+          tone === 'success' && 'text-success',
+          tone === 'warning' && 'text-amber-600 dark:text-amber-400',
+        )}
+      >
+        {value}
+      </p>
+    </div>
+  );
+}
 
-function permLabel(p: PermissionResponseDto) {
-  const res = RESOURCE_AR[p.resource ?? ''] ?? p.resource ?? '';
-  const act = ACTION_AR[p.action ?? ''] ?? p.action ?? '';
-  return `${act}${res ? ` (${res})` : ''}`;
+function PermissionRow({
+  permission,
+  isDenied,
+  disabled,
+  onToggle,
+}: {
+  permission: PermissionResponseDto;
+  isDenied: boolean;
+  disabled: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <li
+      className={cn(
+        'flex flex-col gap-2 rounded-xl border px-3 py-2.5 transition-colors sm:flex-row sm:items-center sm:justify-between sm:gap-3',
+        isDenied ? 'border-destructive/30 bg-destructive/5' : 'border-border/60 bg-muted/10',
+      )}
+    >
+      <div className="flex min-w-0 items-start gap-2 sm:items-center">
+        {isDenied ? (
+          <Ban className="mt-0.5 h-3.5 w-3.5 shrink-0 text-destructive sm:mt-0" />
+        ) : (
+          <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success sm:mt-0" />
+        )}
+        <div className="min-w-0">
+          <p
+            className={cn(
+              'text-sm leading-snug',
+              isDenied ? 'line-through text-muted-foreground' : 'text-foreground',
+            )}
+          >
+            {permissionLabel(permission)}
+          </p>
+          <code className="mt-0.5 block truncate font-mono text-[10px] text-muted-foreground" dir="ltr">
+            {permission.code}
+          </code>
+        </div>
+      </div>
+      <Button
+        type="button"
+        variant={isDenied ? 'outline' : 'ghost'}
+        size="sm"
+        className={cn(
+          'h-8 w-full shrink-0 gap-1 text-xs sm:w-auto',
+          isDenied
+            ? 'border-success/30 text-success hover:bg-success/10'
+            : 'text-destructive hover:bg-destructive/10',
+        )}
+        disabled={disabled}
+        onClick={onToggle}
+      >
+        {isDenied ? (
+          <>
+            <Check className="h-3 w-3" /> استعادة
+          </>
+        ) : (
+          <>
+            <Ban className="h-3 w-3" /> حجب
+          </>
+        )}
+      </Button>
+    </li>
+  );
 }
 
 export function EmployeePermissionsSection({ model }: { model: EmployeeProfileModel }) {
   const {
     hasLinkedUser,
-    allRoles,
-    roleDraft,
-    setRoleDraft,
-    selectedRole,
-    roleDirty,
-    isSavingRole,
-    handleSaveRole,
+    assignedRoles,
     rolePermissions,
     overlayMap,
     extraAllowPermissions,
@@ -59,276 +119,249 @@ export function EmployeePermissionsSection({ model }: { model: EmployeeProfileMo
     setCreateUserOpen,
   } = model;
 
-  const [addingExtra, setAddingExtra] = React.useState(false);
-  const [extraPickId, setExtraPickId] = React.useState('');
+  const rolesEditorModel = {
+    allRoles: model.allRoles,
+    assignedRoles: model.assignedRoles,
+    assignedRoleIds: model.assignedRoleIds,
+    rolesAssignLoading: model.rolesAssignLoading,
+    isSyncingRoles: model.isSyncingRoles,
+    handleAssignedRolesChange: model.handleAssignedRolesChange,
+    hasLinkedUser,
+    rolePermissions,
+    extraAllowPermissions,
+    overlayMap,
+  };
 
-  // Permissions not already in role and not already granted as ALLOW overlay
+  const deniedCount = React.useMemo(
+    () => [...overlayMap.values()].filter((o) => o.effect === 'DENY').length,
+    [overlayMap],
+  );
+
   const grantablePermissions = React.useMemo(() => {
     const inRole = new Set(rolePermissions.map((p) => p.id));
     const alreadyAllowed = new Set(extraAllowPermissions.map((p) => p.id));
     return allActionPermissions.filter((p) => !inRole.has(p.id) && !alreadyAllowed.has(p.id));
   }, [allActionPermissions, rolePermissions, extraAllowPermissions]);
 
+  const extraPermissionOptions = React.useMemo((): MultiSelectOption[] => {
+    const merged = [...extraAllowPermissions, ...grantablePermissions];
+    const seen = new Set<string>();
+    return merged
+      .filter((p) => {
+        if (seen.has(p.id)) return false;
+        seen.add(p.id);
+        return true;
+      })
+      .map((p) => ({
+        value: p.id,
+        label: permissionLabel(p),
+        subtitle: p.code,
+      }));
+  }, [extraAllowPermissions, grantablePermissions]);
+
+  const extraPermissionIds = React.useMemo(
+    () => extraAllowPermissions.map((p) => p.id),
+    [extraAllowPermissions],
+  );
+
+  const handleExtraPermissionsChange = React.useCallback(
+    (nextIds: string[]) => {
+      const current = new Set(extraPermissionIds);
+      const next = new Set(nextIds);
+
+      for (const id of nextIds) {
+        if (!current.has(id)) handleGrantExtra(id);
+      }
+      for (const id of extraPermissionIds) {
+        if (!next.has(id)) {
+          const overlay = overlayMap.get(id);
+          if (overlay) handleRemoveOverlay(overlay.overlayId);
+        }
+      }
+    },
+    [extraPermissionIds, overlayMap, handleGrantExtra, handleRemoveOverlay],
+  );
+
   return (
-    <section className="space-y-5">
-      {/* ── Header card ──────────────────────────────────────────────── */}
-      <div className="relative overflow-hidden rounded-2xl border border-border/80 bg-card shadow-soft">
-        <div className="pointer-events-none absolute inset-0 dotted-bg opacity-30" aria-hidden />
-        <div className="relative flex flex-col gap-4 p-5 sm:p-6">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div className="flex items-start gap-4 min-w-0">
-              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary shadow-inner-soft">
-                <Shield className="h-6 w-6" />
-              </div>
-              <div className="min-w-0">
-                <h2 className="text-xl font-semibold tracking-tight text-foreground">صلاحيات الموظف</h2>
-                <p className="text-sm text-muted-foreground mt-1 leading-relaxed max-w-xl">
-                  عيّن دوراً للموظف ثم خصّص صلاحياته — يمكنك حجب أي صلاحية من الدور أو منح صلاحيات إضافية مباشرةً.{' '}
-                  <Link href={hrPermissionsHref()} className="font-medium text-primary underline-offset-4 hover:underline">
-                    إدارة الأدوار
-                  </Link>
-                </p>
-              </div>
-            </div>
+    <section className="space-y-4">
+      {/* ── Roles & overview ── */}
+      <div className="rounded-2xl border border-primary/15 bg-gradient-to-br from-primary/5 via-card to-card p-4 shadow-soft sm:p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <Shield className="h-5 w-5" />
           </div>
-
-          {!hasLinkedUser && (
-            <div className="rounded-xl border border-amber-300/50 bg-amber-50 dark:bg-amber-950/30 p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-center gap-2 text-sm font-medium text-amber-700 dark:text-amber-300">
-                <UserPlus className="h-4 w-4 shrink-0" />
-                هذا الموظف غير مرتبط بحساب مستخدم — أنشئ له حساباً لتفعيل الصلاحيات
-              </div>
-              <Button
-                type="button"
-                size="sm"
-                className="gap-2 bg-amber-600 hover:bg-amber-700 text-white shrink-0"
-                onClick={() => setCreateUserOpen(true)}
-              >
-                <UserPlus className="h-3.5 w-3.5" />
-                إنشاء حساب مستخدم
-              </Button>
-            </div>
-          )}
-
-          {/* Role picker */}
-          <div className="grid gap-4 lg:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="employee-role" className="text-xs font-medium text-muted-foreground">
-                الدور المعيّن
-              </Label>
-              <div className="flex gap-2">
-                <Select value={roleDraft} onValueChange={setRoleDraft} disabled={!hasLinkedUser}>
-                  <SelectTrigger id="employee-role" className="h-11 flex-1 rounded-xl border-border bg-background/90">
-                    <SelectValue placeholder="اختر الدور…" />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-72">
-                    {allRoles.map((r) => (
-                      <SelectItem key={r.id} value={r.id} className="text-sm">
-                        {r.nameAr}
-                        {r.isSystem && <span className="ml-2 text-[10px] text-muted-foreground">(نظامي)</span>}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button
-                  type="button"
-                  size="sm"
-                  className="h-11 gap-1.5 px-4"
-                  disabled={!roleDirty || !hasLinkedUser || isSavingRole}
-                  onClick={handleSaveRole}
-                >
-                  {isSavingRole ? (
-                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                  ) : (
-                    <Check className="h-4 w-4" />
-                  )}
-                  حفظ
-                </Button>
-              </div>
-              {selectedRole?.description && (
-                <p className="text-xs text-muted-foreground pt-1 leading-relaxed">
-                  {selectedRole.description}
-                </p>
-              )}
-            </div>
-
-            <div className="rounded-xl border border-border/70 bg-muted/20 p-4">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">ملخص</p>
-              <p className="text-sm text-foreground">
-                {rolePermissions.length > 0
-                  ? `${rolePermissions.length} صلاحية من الدور`
-                  : 'لم يُعيَّن دور بعد'}
-                {extraAllowPermissions.length > 0 && (
-                  <span className="text-success">
-                    {' '}+ {extraAllowPermissions.length} صلاحية إضافية
-                  </span>
-                )}
-              </p>
-              {overlayMap.size > 0 && (
-                <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                  {[...overlayMap.values()].filter((o) => o.effect === 'DENY').length} صلاحية محجوبة
-                </p>
-              )}
-            </div>
+          <div className="min-w-0 flex-1 text-right">
+            <h2 className="text-base font-semibold sm:text-lg">صلاحيات الموظف</h2>
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground sm:text-sm">
+              عيّن دوراً أو أكثر ثم خصّص الصلاحيات — يمكن حجب صلاحيات الأدوار أو منح صلاحيات إضافية.{' '}
+              <Link href={hrPermissionsHref()} className="font-medium text-primary hover:underline">
+                إدارة الأدوار
+              </Link>
+            </p>
           </div>
+        </div>
+
+        {!hasLinkedUser ? (
+          <div className="mt-4 flex flex-col gap-3 rounded-xl border border-amber-300/50 bg-amber-50 p-3 dark:bg-amber-950/30 sm:flex-row sm:items-center sm:justify-between sm:p-4">
+            <div className="flex items-start gap-2 text-sm font-medium text-amber-700 dark:text-amber-300">
+              <UserPlus className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>هذا الموظف غير مرتبط بحساب مستخدم — أنشئ له حساباً لتفعيل الصلاحيات</span>
+            </div>
+            <CreateUserAttentionButton className="w-full shrink-0 sm:w-auto" onClick={() => setCreateUserOpen(true)} />
+          </div>
+        ) : null}
+
+        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <SummaryPill
+            label="الأدوار"
+            value={assignedRoles.length > 0 ? String(assignedRoles.length) : '—'}
+          />
+          <SummaryPill
+            label="صلاحيات الأدوار"
+            value={rolePermissions.length > 0 ? String(rolePermissions.length) : '—'}
+          />
+          <SummaryPill
+            label="صلاحيات إضافية"
+            value={String(extraAllowPermissions.length)}
+            tone={extraAllowPermissions.length > 0 ? 'success' : 'default'}
+          />
+          <SummaryPill
+            label="محجوبة"
+            value={String(deniedCount)}
+            tone={deniedCount > 0 ? 'warning' : 'default'}
+          />
+        </div>
+
+        <div className="mt-4">
+          <RolesAssignmentEditor
+            model={rolesEditorModel}
+            rolesSelectId="employee-roles-multiselect"
+            disabled={!hasLinkedUser}
+            compact
+            hideSummary
+          />
         </div>
       </div>
 
-      {/* ── Role permissions with DENY toggle ────────────────────────── */}
-      {rolePermissions.length > 0 && (
-        <div className="rounded-2xl border border-border/80 bg-card p-5 sm:p-6 shadow-soft">
-          <h3 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-2">
-            <Shield className="h-4 w-4 text-primary shrink-0" />
-            صلاحيات الدور
-            <Badge variant="subtle" className="text-[10px]">{rolePermissions.length}</Badge>
-          </h3>
-          <p className="text-xs text-muted-foreground mb-4">
-            اضغط على «حجب» لإزالة صلاحية معينة من هذا الموظف دون تغيير الدور.
+      {/* ── Permissions detail ── */}
+      <div className="grid gap-4 xl:grid-cols-2">
+        <div className="rounded-2xl border border-border/70 bg-card p-4 shadow-soft sm:p-5">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h3 className="flex items-center gap-2 text-sm font-semibold">
+              <Shield className="h-4 w-4 text-primary" />
+              صلاحيات الأدوار
+              {rolePermissions.length > 0 ? (
+                <Badge variant="subtle" className="text-[10px]">
+                  {rolePermissions.length}
+                </Badge>
+              ) : null}
+            </h3>
+          </div>
+          <p className="mb-4 text-xs text-muted-foreground">
+            اضغط «حجب» لإزالة صلاحية من هذا الموظف دون تغيير الأدوار.
           </p>
-          <ul className="space-y-2 max-h-[min(52vh,480px)] overflow-y-auto overscroll-contain pr-1">
-            {rolePermissions.map((p) => {
-              const overlay = overlayMap.get(p.id);
-              const isDenied = overlay?.effect === 'DENY';
-              return (
-                <li
-                  key={p.id}
-                  className={`flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5 transition-colors ${
-                    isDenied
-                      ? 'border-destructive/30 bg-destructive/5'
-                      : 'border-border/60 bg-muted/10'
-                  }`}
-                >
-                  <div className="flex items-center gap-2 min-w-0">
-                    {isDenied ? (
-                      <Ban className="h-3.5 w-3.5 shrink-0 text-destructive" />
-                    ) : (
-                      <Check className="h-3.5 w-3.5 shrink-0 text-success" />
-                    )}
-                    <span className={`text-sm leading-snug ${isDenied ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
-                      {permLabel(p)}
-                    </span>
-                    <code className="text-[10px] text-muted-foreground font-mono hidden sm:block" dir="ltr">
-                      {p.code}
-                    </code>
-                  </div>
-                  <Button
-                    type="button"
-                    variant={isDenied ? 'outline' : 'ghost'}
-                    size="sm"
-                    className={`h-7 shrink-0 text-xs gap-1 ${
-                      isDenied
-                        ? 'border-success/30 text-success hover:bg-success/10'
-                        : 'text-destructive hover:bg-destructive/10'
-                    }`}
-                    disabled={!hasLinkedUser || isMutating}
-                    onClick={() => handleToggleDeny(p.id)}
-                  >
-                    {isDenied ? (
-                      <><Check className="h-3 w-3" /> استعادة</>
-                    ) : (
-                      <><Ban className="h-3 w-3" /> حجب</>
-                    )}
-                  </Button>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      )}
 
-      {/* ── Extra ALLOW grants ────────────────────────────────────────── */}
-      <div className="rounded-2xl border border-border/80 bg-card p-5 sm:p-6 shadow-soft">
-        <div className="flex items-center justify-between mb-1">
-          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-            <Plus className="h-4 w-4 text-success shrink-0" />
-            صلاحيات إضافية
-            {extraAllowPermissions.length > 0 && (
-              <Badge variant="subtle" className="text-[10px]">{extraAllowPermissions.length}</Badge>
-            )}
-          </h3>
-          {hasLinkedUser && grantablePermissions.length > 0 && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs gap-1"
-              onClick={() => setAddingExtra((v) => !v)}
-            >
-              <ChevronDown className={`h-3 w-3 transition-transform ${addingExtra ? 'rotate-180' : ''}`} />
-              إضافة صلاحية
-            </Button>
+          {rolePermissions.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-border/70 bg-muted/10 px-3 py-6 text-center text-sm text-muted-foreground">
+              {hasLinkedUser ? 'عيّن أدواراً لعرض صلاحياتها هنا.' : 'اربط الموظف بحساب مستخدم أولاً.'}
+            </p>
+          ) : (
+            <ul className="max-h-[min(52vh,420px)] space-y-2 overflow-y-auto overscroll-contain pr-1">
+              {rolePermissions.map((p) => {
+                const overlay = overlayMap.get(p.id);
+                const isDenied = overlay?.effect === 'DENY';
+                return (
+                  <PermissionRow
+                    key={p.id}
+                    permission={p}
+                    isDenied={isDenied}
+                    disabled={!hasLinkedUser || isMutating}
+                    onToggle={() => handleToggleDeny(p.id)}
+                  />
+                );
+              })}
+            </ul>
           )}
         </div>
-        <p className="text-xs text-muted-foreground mb-4">
-          صلاحيات تم منحها لهذا الموظف مباشرةً خارج نطاق الدور.
-        </p>
 
-        {addingExtra && (
-          <div className="flex gap-2 mb-4">
-            <Select value={extraPickId} onValueChange={setExtraPickId}>
-              <SelectTrigger className="h-9 flex-1 rounded-lg text-sm">
-                <SelectValue placeholder="اختر صلاحية للمنح…" />
-              </SelectTrigger>
-              <SelectContent className="max-h-64">
-                {grantablePermissions.map((p) => (
-                  <SelectItem key={p.id} value={p.id} className="text-sm">
-                    <span dir="ltr" className="font-mono text-[11px] text-muted-foreground">{p.code}</span>
-                    <span className="mr-2">{permLabel(p)}</span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button
-              type="button"
-              size="sm"
-              className="h-9 gap-1 text-xs"
-              disabled={!extraPickId || isMutating}
-              onClick={() => {
-                if (extraPickId) {
-                  handleGrantExtra(extraPickId);
-                  setExtraPickId('');
-                  setAddingExtra(false);
-                }
-              }}
-            >
-              <Check className="h-3.5 w-3.5" /> منح
-            </Button>
+        <div className="rounded-2xl border border-border/70 bg-card p-4 shadow-soft sm:p-5">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h3 className="flex items-center gap-2 text-sm font-semibold">
+              <Plus className="h-4 w-4 text-success" />
+              صلاحيات إضافية
+              {extraAllowPermissions.length > 0 ? (
+                <Badge variant="subtle" className="text-[10px]">
+                  {extraAllowPermissions.length}
+                </Badge>
+              ) : null}
+            </h3>
           </div>
-        )}
+          <p className="mb-4 text-xs text-muted-foreground">
+            صلاحيات ممنوحة مباشرةً خارج نطاق الأدوار — اختر من القائمة أو ألغِ التحديد لإزالتها.
+          </p>
 
-        {extraAllowPermissions.length === 0 ? (
-          <p className="text-sm text-muted-foreground py-2">لا توجد صلاحيات إضافية ممنوحة.</p>
-        ) : (
-          <ul className="space-y-2 max-h-64 overflow-y-auto overscroll-contain pr-1">
-            {extraAllowPermissions.map((p) => {
-              const overlay = overlayMap.get(p.id);
-              return (
-                <li
-                  key={p.id}
-                  className="flex items-center justify-between gap-3 rounded-lg border border-success/25 bg-success/5 px-3 py-2.5"
-                >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <Check className="h-3.5 w-3.5 shrink-0 text-success" />
-                    <span className="text-sm text-foreground leading-snug">{permLabel(p)}</span>
-                    <code className="text-[10px] text-muted-foreground font-mono hidden sm:block" dir="ltr">
-                      {p.code}
-                    </code>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 shrink-0 text-destructive hover:bg-destructive/10"
-                    disabled={!hasLinkedUser || isMutating}
-                    onClick={() => overlay && handleRemoveOverlay(overlay.overlayId)}
+          <MultiSelect
+            id="employee-extra-permissions"
+            label="منح صلاحيات إضافية"
+            options={extraPermissionOptions}
+            value={extraPermissionIds}
+            onChange={handleExtraPermissionsChange}
+            deferCommit
+            applyLabel="حفظ الصلاحيات"
+            placeholder={
+              !hasLinkedUser
+                ? 'اربط الموظف بحساب مستخدم أولاً'
+                : extraPermissionOptions.length === 0
+                  ? 'لا توجد صلاحيات متاحة'
+                  : 'اختر صلاحيات إضافية…'
+            }
+            searchPlaceholder="بحث في الصلاحيات…"
+            emptyMessage="لا توجد نتائج"
+            selectAllLabel="تحديد الكل"
+            deselectAllLabel="إلغاء الكل"
+            listMaxHeight="min(240px,40vh)"
+            disabled={!hasLinkedUser || isMutating || extraPermissionOptions.length === 0}
+            triggerClassName="h-10 rounded-xl bg-background"
+            className="mb-4"
+          />
+
+          {extraAllowPermissions.length === 0 ? (
+            <p className="text-sm text-muted-foreground">لا توجد صلاحيات إضافية ممنوحة.</p>
+          ) : (
+            <ul className="max-h-[min(40vh,320px)] space-y-2 overflow-y-auto overscroll-contain pr-1">
+              {extraAllowPermissions.map((p) => {
+                const overlay = overlayMap.get(p.id);
+                return (
+                  <li
+                    key={p.id}
+                    className="flex flex-col gap-2 rounded-xl border border-success/25 bg-success/5 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
                   >
-                    <X className="h-3.5 w-3.5" />
-                  </Button>
-                </li>
-              );
-            })}
-          </ul>
-        )}
+                    <div className="flex min-w-0 items-start gap-2 sm:items-center">
+                      <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success sm:mt-0" />
+                      <div className="min-w-0">
+                        <p className="text-sm leading-snug">{permissionLabel(p)}</p>
+                        <code className="mt-0.5 block truncate font-mono text-[10px] text-muted-foreground" dir="ltr">
+                          {p.code}
+                        </code>
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-full shrink-0 text-destructive hover:bg-destructive/10 sm:w-auto"
+                      disabled={!hasLinkedUser || isMutating}
+                      onClick={() => overlay && handleRemoveOverlay(overlay.overlayId)}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                      <span className="sm:sr-only">إزالة</span>
+                    </Button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
       </div>
     </section>
   );

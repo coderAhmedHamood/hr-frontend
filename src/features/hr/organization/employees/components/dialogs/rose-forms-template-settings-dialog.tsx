@@ -251,7 +251,7 @@ export function RoseFormsTemplateSettingsDialog({ open, onOpenChange, initialTab
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className={rosePrepDialogContentClass}>
         <DialogHeader className={rosePrepDialogHeaderClass}>
-          <DialogTitle className="font-display">إعدادات قوالب روز</DialogTitle>
+          <DialogTitle className="font-display">إعدادات القوالب</DialogTitle>
           <DialogDescription className="sr-only">تخصيص النصوص والحقول الافتراضية لنماذج الموارد البشرية</DialogDescription>
           <p className="text-xs text-muted-foreground">
             تُحفظ الإعدادات على هذا الجهاز وتُطبَّق على كل النماذج الجديدة.

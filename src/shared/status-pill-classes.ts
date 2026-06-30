@@ -93,3 +93,20 @@ export const STATUS_FILTER_TAB_TONES: FilterTabTone[] = [
 
 export const STATUS_COUNT_BADGE =
   'me-1.5 rounded-md bg-background/80 px-1.5 py-0.5 font-mono text-[10px] tabular-nums group-data-[state=active]:bg-background group-data-[state=active]:shadow-sm';
+
+/** Discipline violation record list badges (pending uses primary). */
+export const VIOLATION_RECORD_STATUS_PILL = {
+  pending: 'text-primary border-primary/25 bg-primary/5',
+  approved: STATUS_PILL.approved,
+  rejected: STATUS_PILL.rejected,
+  needs_edit: STATUS_PILL.warning,
+} as const;
+
+/** Discipline appeal status badges. */
+export const APPEAL_STATUS_PILL = {
+  pending: 'text-primary border-primary/25 bg-primary/5 dark:border-primary/40 dark:bg-primary/15',
+  under_review: 'text-warning border-warning/30 bg-warning/10 dark:border-warning/40 dark:bg-warning/10',
+  accepted: 'text-success border-success/30 bg-success/10 dark:border-success/40 dark:bg-success/10',
+  rejected: STATUS_PILL.rejected + ' dark:border-destructive/40 dark:bg-destructive/10',
+  withdrawn: STATUS_PILL.muted,
+} as const;

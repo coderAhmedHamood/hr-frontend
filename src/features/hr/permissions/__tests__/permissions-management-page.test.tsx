@@ -17,6 +17,14 @@ jest.mock('@/components/layouts/page-title-context', () => ({
   useSetPageTitle: jest.fn(),
 }));
 
+jest.mock('@/components/layouts/page-header-actions-context', () => ({
+  usePageHeaderActions: jest.fn(),
+}));
+
+jest.mock('@/components/layouts/entity-filter-slot-context', () => ({
+  useEntityFilterSlot: jest.fn(),
+}));
+
 const mockRoles = [
   {
     id: 'r1', nameAr: 'مدير الموارد البشرية', nameEn: 'HR Manager',
@@ -61,14 +69,18 @@ const mockPermissions = [
   },
 ];
 
-jest.mock('@/features/hr/permissions/hooks/usePermissions', () => ({
-  usePermissions: () => ({
-    data: { items: mockPermissions, applicationId: 'app-1' },
-    isLoading: false,
-    isError: false,
-    refetch: jest.fn(),
-  }),
-}));
+jest.mock('@/features/hr/permissions/hooks/usePermissions', () => {
+  const actual = jest.requireActual('@/features/hr/permissions/hooks/usePermissions');
+  return {
+    ...actual,
+    usePermissions: () => ({
+      data: { items: mockPermissions, applicationId: 'app-1' },
+      isLoading: false,
+      isError: false,
+      refetch: jest.fn(),
+    }),
+  };
+});
 
 jest.mock('@/features/hr/permissions/hooks/useApplicationId', () => ({
   useApplicationId: () => ({ applicationId: 'app-1', isLoading: false }),
@@ -116,12 +128,12 @@ function renderPage() {
 describe('PermissionsManagementPage', () => {
   beforeEach(() => jest.clearAllMocks());
 
-  it('renders the page heading', () => {
+  it('renders the page via layout title context', () => {
     renderPage();
-    expect(screen.getByText('الأدوار')).toBeInTheDocument();
+    expect(screen.getByText('مدير الموارد البشرية')).toBeInTheDocument();
   });
 
-  it('renders the add-role button', () => {
+  it('renders the add-role button in header', () => {
     renderPage();
     expect(screen.getAllByRole('button', { name: /إضافة دور/i }).length).toBeGreaterThanOrEqual(1);
   });

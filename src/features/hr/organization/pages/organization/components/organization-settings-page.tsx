@@ -19,7 +19,6 @@ import {
   SettingsPageError,
   SettingsPageLoading,
 } from '@/features/hr/organization/pages/_shared/components/settings-page-states';
-import { SettingsNav } from '@/features/hr/organization/pages/_shared/components/settings-nav';
 import { useOrganizationCompanySettings } from '@/features/hr/organization/pages/organization/hooks/useOrganizationSettings';
 import type {
   OrganizationCompanySettings,
@@ -133,8 +132,6 @@ export default function OrganizationSettingsPage() {
 
   return (
     <div className="space-y-4 sm:space-y-5">
-      <SettingsNav />
-
       <section className="overflow-hidden rounded-xl border border-border bg-card shadow-soft">
         <div className="border-b border-border/80 px-4 py-4 sm:px-5">
           <div className="flex items-start gap-3">
@@ -142,7 +139,7 @@ export default function OrganizationSettingsPage() {
               <Server className="h-4 w-4" />
             </div>
             <div>
-              <h3 className="font-display text-sm font-semibold sm:text-base">إعدادات النظام والمنظمة</h3>
+              <h3 className="font-display text-sm font-semibold sm:text-base">إعدادات النظام</h3>
               <p className="mt-0.5 text-xs text-muted-foreground">
                 اضبط خادم البريد وإشعارات المستخدمين ثم احفظ التغييرات.
               </p>
@@ -271,7 +268,7 @@ export default function OrganizationSettingsPage() {
           </Tabs>
         </div>
 
-        <div className="flex justify-end border-t border-border/80 bg-muted/10 px-4 py-3 sm:px-5">
+        <div className="flex justify-start border-t border-border/80 bg-muted/10 px-4 py-3 sm:px-5">
           <Button variant="luxe" className="gap-2" onClick={() => void handleSave()} disabled={update.isPending}>
             {update.isPending ? (
               <>

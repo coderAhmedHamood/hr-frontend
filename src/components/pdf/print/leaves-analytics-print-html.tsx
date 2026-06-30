@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { sanitizePdfText } from '@/components/pdf/lib/sanitize-pdf-text';
+import { formatDisplayDate } from '@/shared/utils';
 import { RoseTradingLetterheadPrint } from '@/components/pdf/print/rose-trading-letterhead-print';
 import { getPdfLogoSrc } from '@/components/pdf/lib/pdf-logo-url';
 
@@ -36,11 +37,7 @@ const PAGE_STYLE: React.CSSProperties = {
 
 function fmtGeneratedAt(label?: string): string {
   if (label?.trim()) return label.trim();
-  try {
-    return new Date().toLocaleDateString('ar-SA-u-ca-gregory', { dateStyle: 'medium' });
-  } catch {
-    return '';
-  }
+  return formatDisplayDate(new Date().toISOString());
 }
 
 export const LeavesAnalyticsPrintHtml = React.forwardRef<HTMLDivElement, LeavesAnalyticsPrintHtmlProps>(

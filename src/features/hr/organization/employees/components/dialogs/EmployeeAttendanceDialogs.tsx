@@ -117,7 +117,6 @@ export function EmployeeAttendanceDialogs(p: EmployeeAttendanceDialogsProps) {
           </div>
 
           <div className="flex items-center justify-between border-t border-border bg-muted/20 px-5 py-3">
-            <Button variant="outline" size="sm" onClick={() => p.setShiftOpen(false)}>إلغاء</Button>
             <Button
               variant="luxe"
               size="sm"
@@ -127,6 +126,7 @@ export function EmployeeAttendanceDialogs(p: EmployeeAttendanceDialogsProps) {
             >
               <Layers className="h-3.5 w-3.5" /> ربط الشيفت
             </Button>
+            <Button variant="outline" size="sm" onClick={() => p.setShiftOpen(false)}>إلغاء</Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -249,6 +249,13 @@ export function EmployeeAttendanceDialogs(p: EmployeeAttendanceDialogsProps) {
           </div>
 
           <div className="flex items-center justify-between border-t border-border bg-muted/20 px-5 py-3">
+            <div className="flex gap-2">
+              <Button variant="luxe" size="sm" onClick={p.submitCpLink} disabled={p.cpSel.size === 0}>
+                <Link2 className="h-3.5 w-3.5" /> ربط
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => p.setCpOpen(false)}>إلغاء</Button>
+              
+            </div>
             <p className="text-xs text-muted-foreground">
               {p.cpSel.size > 0
                 ? (
@@ -260,12 +267,7 @@ export function EmployeeAttendanceDialogs(p: EmployeeAttendanceDialogsProps) {
                 )
                 : 'اختر نقطة أو أكثر'}
             </p>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={() => p.setCpOpen(false)}>إلغاء</Button>
-              <Button variant="luxe" size="sm" onClick={p.submitCpLink} disabled={p.cpSel.size === 0}>
-                <Link2 className="h-3.5 w-3.5" /> ربط
-              </Button>
-            </div>
+            
           </div>
         </DialogContent>
       </Dialog>

@@ -1,64 +1,12 @@
 import { apiRequest, type PaginatedResult } from '@/features/hr/lib/api/client';
 import type { OrganizationArchiveScope } from '@/features/hr/organization/lib/archive-scope';
+import type { RequestTypeApprovalStage, RequestTypeSubtype, ApiRequestType, CreateRequestTypeDto, UpdateRequestTypeDto } from '@/features/hr/requests/types/api/request-types';
+export type { RequestTypeApprovalStage, RequestTypeSubtype, ApiRequestType, CreateRequestTypeDto, UpdateRequestTypeDto } from '@/features/hr/requests/types/api/request-types';
 
-export type RequestTypeApprovalStage = {
-  order: number;
-  nameAr: string;
-  nameEn?: string;
-  approverKind: 'manager' | 'hr' | 'specific';
-  approverIds?: string[];
-  isRequired?: boolean;
-  meta?: Record<string, unknown>;
-};
 
-export type RequestTypeSubtype = {
-  slug: string;
-  nameAr: string;
-  nameEn?: string;
-  sortOrder?: number;
-  isActive?: boolean;
-  meta?: Record<string, unknown>;
-};
 
-export type ApiRequestType = {
-  id: string;
-  companyId: string;
-  departmentId: string | null;
-  slug: string;
-  nameAr: string;
-  nameEn: string;
-  requestCategory: string;
-  approvalAssignmentTemplateId: string | null;
-  approvalStages: RequestTypeApprovalStage[];
-  subtypes: RequestTypeSubtype[];
-  sortOrder: number;
-  isActive: boolean;
-  notes: string;
-  createdAt: string;
-  updatedAt: string;
-  createdBy: string;
-  updatedBy: string;
-};
 
-export type CreateRequestTypeDto = {
-  companyId: string;
-  departmentId?: string | null;
-  slug?: string;
-  nameAr: string;
-  nameEn?: string;
-  requestCategory?: string;
-  approvalAssignmentTemplateId?: string | null;
-  approvalStages?: RequestTypeApprovalStage[];
-  subtypes?: RequestTypeSubtype[];
-  sortOrder?: number;
-  isActive?: boolean;
-  notes?: string;
-  createdBy?: string;
-};
 
-export type UpdateRequestTypeDto = Partial<Omit<CreateRequestTypeDto, 'companyId' | 'createdBy'>> & {
-  updatedBy?: string;
-};
 
 export const requestTypesApi = {
   list: (params?: {
@@ -86,3 +34,4 @@ export const requestTypesApi = {
   delete: (id: string) =>
     apiRequest<void>(`/requests/request-types/${id}`, { method: 'DELETE' }),
 };
+

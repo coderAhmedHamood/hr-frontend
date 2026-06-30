@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { MinimalDropdown } from '@/features/hr/requests/components/shared-ui';
+import { MinimalDropdown } from '@/components/ui/shared-dialogs';
 import { cn } from '@/shared/utils';
 
 export const DISCIPLINE_PAGE_SIZE_OPTIONS = [30, 60, 90, 120, 150] as const;

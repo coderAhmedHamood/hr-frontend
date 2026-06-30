@@ -18,12 +18,7 @@ import { Button } from '@/components/ui/button';
 import { usePublicRecruitmentJobsList } from '@/features/hr/recruitment/hooks/usePublicRecruitment';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 
-const JOB_TYPE_AR: Record<string, string> = {
-  'full-time': 'دوام كامل',
-  'part-time': 'دوام جزئي',
-  contract: 'عقد',
-  internship: 'تدريب',
-};
+import { JOB_TYPE_AR } from '@/features/hr/recruitment/ats/constants/ats-jobs-list';
 
 export function PublicCareersClient() {
   const [search, setSearch] = React.useState('');
@@ -44,8 +39,7 @@ export function PublicCareersClient() {
     <div className="space-y-8">
       <section className="relative overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-br from-primary/10 via-background to-background px-6 py-10 sm:px-10 sm:py-12">
         <div
-          className="pointer-events-none absolute inset-0 opacity-40"
-          style={{ backgroundImage: 'radial-gradient(circle at 80% 20%, hsl(var(--primary)) 0%, transparent 45%)' }}
+          className="pointer-events-none absolute inset-0 opacity-40 surface-radial-primary-end"
         />
         <div className="relative max-w-2xl">
           <Badge variant="secondary" className="mb-3 text-[10px]">بوابة التوظيف</Badge>

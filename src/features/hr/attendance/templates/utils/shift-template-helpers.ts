@@ -11,7 +11,7 @@ export function fmtMin(totalMin: number): string {
   return `${String(Math.floor(safe / 60)).padStart(2, '0')}:${String(safe % 60).padStart(2, '0')}`;
 }
 
-/** قيمة `<input type="time" />` → `HH:mm` للتخزين */
+/** قيمة ModernTimePicker → `HH:mm` للتخزين */
 export function normalizeTimeInput(raw: string): string {
   if (!raw?.trim()) return '00:00';
   const [hPart = '0', mPart = '0'] = raw.split(':');

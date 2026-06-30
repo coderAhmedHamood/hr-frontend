@@ -5,7 +5,6 @@ import type { Employee } from '@/features/hr/organization/employees/types';
 import { EMPLOYEE_PROFILE_SECTIONS } from '@/features/hr/organization/employees/constants/EmployeeProfileSections';
 import type { EmployeeProfileSectionId } from '@/features/hr/organization/employees/constants/EmployeeProfileSections';
 import { useEmployeeProfileData } from '@/features/hr/organization/employees/hooks/useEmployeeProfileData';
-import { useEmployeeProfilePayslipFilter } from '@/features/hr/organization/employees/hooks/useEmployeeProfilePayslipFilter';
 import { useEmployeeProfileLeave } from '@/features/hr/organization/employees/hooks/useEmployeeProfileLeave';
 import { useEmployeeProfilePersonal } from '@/features/hr/organization/employees/hooks/useEmployeeProfilePersonal';
 import { useEmployeeProfileRosePdf } from '@/features/hr/organization/employees/hooks/useEmployeeProfileRosePdf';
@@ -13,6 +12,7 @@ import { useEmployeeProfilePermissions } from '@/features/hr/organization/employ
 import { useEmployeeCreateUser } from '@/features/hr/organization/employees/hooks/useEmployeeCreateUser';
 import { useEmployeeProfileAssignments } from '@/features/hr/organization/employees/hooks/useEmployeeProfileAssignments';
 import { useEmployeeProfileRequests } from '@/features/hr/organization/employees/hooks/useEmployeeProfileRequests';
+import { useEmployeeProfileAuditLog } from '@/features/hr/organization/employees/hooks/useEmployeeProfileAuditLog';
 
 const SECTIONS = EMPLOYEE_PROFILE_SECTIONS;
 
@@ -28,7 +28,6 @@ export function useEmployeeProfileModel(employee: Employee, onUpdated?: (updated
   );
 
   const data = useEmployeeProfileData(employee, activeSection);
-  const payslip = useEmployeeProfilePayslipFilter(data.employeePayslipSeries);
   const leave = useEmployeeProfileLeave(employee, activeSection === 'leaves');
   const personal = useEmployeeProfilePersonal(employee, activeSection, onUpdated);
   const rose = useEmployeeProfileRosePdf(personal.draft);
@@ -36,6 +35,7 @@ export function useEmployeeProfileModel(employee: Employee, onUpdated?: (updated
   const createUser = useEmployeeCreateUser(employee, handleUserCreated);
   const assignments = useEmployeeProfileAssignments(employee, activeSection === 'employment');
   const requests = useEmployeeProfileRequests(employee, activeSection === 'requests');
+  const auditLog = useEmployeeProfileAuditLog(employee, activeSection === 'activity-log');
 
   React.useEffect(() => {
     contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
@@ -46,7 +46,7 @@ export function useEmployeeProfileModel(employee: Employee, onUpdated?: (updated
     violations: data.violationsTotal,
     contracts: data.employeeContracts.length,
     'rose-forms': data.roseFormsCount,
-    'activity-log': data.activityLogCount,
+    'activity-log': auditLog.auditCounts.total,
     salary: data.employeePayslipSeries.length,
     leaves: leave.totalLeaveRequestCount,
     employment: assignments.hrAssignments.length,
@@ -60,7 +60,6 @@ export function useEmployeeProfileModel(employee: Employee, onUpdated?: (updated
     contentRef,
     counts,
     ...data,
-    ...payslip,
     ...leave,
     ...personal,
     ...rose,
@@ -68,6 +67,7 @@ export function useEmployeeProfileModel(employee: Employee, onUpdated?: (updated
     ...createUser,
     ...assignments,
     ...requests,
+    ...auditLog,
   };
 }
 

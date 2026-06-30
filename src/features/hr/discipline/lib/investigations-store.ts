@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
 import { getDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 import { disciplineInvestigationsApi } from './api/discipline-investigations';
+import { ApiError } from '@/features/hr/lib/api/client';
 import type { DisciplineInvestigationResponseDto } from './api/discipline-investigations';
 import type { HRDisciplineInvestigationRecord, HRInvestigationRecommendation } from './types';
 
@@ -31,7 +32,7 @@ function mapApi(r: DisciplineInvestigationResponseDto): HRDisciplineInvestigatio
 interface InvestigationsState {
   investigations: HRDisciplineInvestigationRecord[];
   isLoading: boolean;
-  error: string | null;
+  error: { message: string; status: number } | null;
   fetch: () => Promise<void>;
   add: (d: Omit<HRDisciplineInvestigationRecord, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
   update: (id: string, patch: Partial<HRDisciplineInvestigationRecord>) => Promise<void>;
@@ -51,7 +52,7 @@ export const useHRDisciplineInvestigationsStore = create<InvestigationsState>()(
       const result = await disciplineInvestigationsApi.getAll({ companyId, limit: 200 });
       set({ investigations: result.items.map(mapApi), isLoading: false });
     } catch (e) {
-      set({ error: (e as Error).message, isLoading: false });
+      set({ error: { message: (e as Error).message, status: e instanceof ApiError ? e.status : 0 }, isLoading: false });
     }
   },
 

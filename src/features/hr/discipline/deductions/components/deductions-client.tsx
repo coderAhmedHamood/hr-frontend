@@ -18,14 +18,14 @@ import {
 import { Label } from '@/components/ui/label';
 import {
   EmptyState,
-} from '@/features/hr/requests/components/shared-ui';
+} from '@/components/ui/shared-dialogs';
 import { useDisciplinePayrollDeductionsDirectoryModel } from '@/features/hr/discipline/deductions/hooks/useDisciplinePayrollDeductionsDirectoryModel';
 import {
   DEDUCTION_KIND_LABELS,
   DEDUCTION_STATUS_LABELS,
 } from '@/features/hr/discipline/lib/types';
 import type { HRDeductionStatus, HRViolationDeductionKind } from '@/features/hr/discipline/lib/types';
-import type { DateFilterTab } from '@/features/hr/discipline/lib/discipline-date-filter';
+import { useDisciplineDateFilterState } from '@/features/hr/discipline/lib/use-discipline-date-filter-state';
 import { cn, formatNumber } from '@/shared/utils';
 import { STATUS_PILL } from '@/shared/status-pill-classes';
 import {
@@ -76,11 +76,7 @@ export function DeductionsClient() {
   const [viewMode, setViewMode] = React.useState<DisciplineViewMode>('cards');
   const [statusFilter, setStatusFilter] = React.useState<'all' | HRDeductionStatus>('all');
   const [kindFilter, setKindFilter] = React.useState<KindFilter>('all');
-  const [dateBounds, setDateBounds] = React.useState({ from: '', to: '' });
-  const [dateMeta, setDateMeta] = React.useState<{ tab: DateFilterTab; hasRestriction: boolean }>({
-    tab: 'all',
-    hasRestriction: false,
-  });
+  const { dateBounds, dateMeta, onDateBoundsChange, onDateFilterMetaChange } = useDisciplineDateFilterState();
   const filterToolbarRef = React.useRef<DisciplineFilterToolbarHandle>(null);
   const [detailRow, setDetailRow] = React.useState<HRDisciplinePayrollDeductionRecord | null>(null);
 
@@ -93,19 +89,6 @@ export function DeductionsClient() {
       dateTo: dateBounds.to,
     });
   }, [selectedEmpIds, statusFilter, kindFilter, dateBounds.from, dateBounds.to, setListFilters]);
-
-  const onDateBoundsChange = React.useCallback((b: { from: string; to: string }) => {
-    setDateBounds(b);
-  }, []);
-
-  const onDateFilterMetaChange = React.useCallback((m: { tab: DateFilterTab; hasRestriction: boolean }) => {
-    setDateMeta(m);
-  }, []);
-
-  const empPickerList = React.useMemo(
-    () => m.employees.map((e) => ({ id: e.id, name: e.nameAr })),
-    [m.employees],
-  );
 
   const selectedEmpKey = React.useMemo(() => [...selectedEmpIds].sort().join(','), [selectedEmpIds]);
 
@@ -204,9 +187,6 @@ export function DeductionsClient() {
 
   const kindSelect = (
     <div className="flex min-w-0 items-center gap-2">
-      <Label htmlFor="deduction-kind-filter" className="shrink-0 text-[11px] font-medium text-muted-foreground">
-        نوع الاستقطاع
-      </Label>
       <Select value={kindFilter} onValueChange={(v) => setKindFilter(v as KindFilter)}>
         <SelectTrigger id="deduction-kind-filter" className="h-8 max-w-56 text-xs" dir="rtl">
           <SelectValue placeholder="النوع" />
@@ -228,7 +208,7 @@ export function DeductionsClient() {
         primaryActionLabel=""
         onPrimaryAction={() => {}}
         beforeEmployeePicker={kindSelect}
-        empPickerEmployees={empPickerList}
+        companyId={m.companyId}
         selectedEmpIds={selectedEmpIds}
         onSelectedEmpIdsChange={setSelectedEmpIds}
         statusFilter={statusFilter}
@@ -243,7 +223,7 @@ export function DeductionsClient() {
       />
     ),
     [
-      empPickerList,
+      m.companyId,
       selectedEmpKey,
       statusFilter,
       kindFilter,

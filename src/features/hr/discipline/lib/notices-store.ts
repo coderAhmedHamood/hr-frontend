@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
 import { getDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 import { disciplineNoticesApi } from './api/discipline-notices';
+import { ApiError } from '@/features/hr/lib/api/client';
 import type { DisciplineNoticeResponseDto } from './api/discipline-notices';
 import type { HRDisciplineNoticeRecord, HRDisciplineNoticeKind } from './types';
 
@@ -22,7 +23,7 @@ function mapApi(r: DisciplineNoticeResponseDto): HRDisciplineNoticeRecord {
 interface NoticesState {
   notices: HRDisciplineNoticeRecord[];
   isLoading: boolean;
-  error: string | null;
+  error: { message: string; status: number } | null;
   fetch: () => Promise<void>;
   add: (d: Omit<HRDisciplineNoticeRecord, 'id' | 'createdAt'>) => Promise<void>;
   remove: (id: string) => Promise<void>;
@@ -41,7 +42,7 @@ export const useHRDisciplineNoticesStore = create<NoticesState>()((set) => ({
       const result = await disciplineNoticesApi.getAll({ companyId, limit: 200 });
       set({ notices: result.items.map(mapApi), isLoading: false });
     } catch (e) {
-      set({ error: (e as Error).message, isLoading: false });
+      set({ error: { message: (e as Error).message, status: e instanceof ApiError ? e.status : 0 }, isLoading: false });
     }
   },
 

@@ -2,7 +2,7 @@
 
 import { useSetPageTitle } from '@/components/layouts/page-title-context';
 import { OrganizationTreeNode } from '@/features/hr/organization/chart/components/organization-tree-node';
-import { EmptyState } from '@/features/hr/requests/components/shared-ui';
+import { EmptyState } from '@/components/ui/shared-dialogs';
 import { useOrganizationTreeModel } from '@/features/hr/organization/chart/hooks/useOrganizationTreeModel';
 
 export default function OrganizationChartPage() {

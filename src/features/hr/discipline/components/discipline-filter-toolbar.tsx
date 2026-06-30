@@ -4,10 +4,10 @@ import * as React from 'react';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
-  EntityFilterToolbar,
-  type EntityFilterToolbarHandle,
-  type EntityFilterInlineSelect,
-} from '@/components/ui/entity-filter-toolbar';
+  ListFilterBar,
+  type ListFilterBarHandle,
+  type ListFilterInlineSelect,
+} from '@/components/ui/list-filter-bar';
 import type { DateFilterTab } from '@/features/hr/discipline/lib/discipline-date-filter';
 
 export {
@@ -16,11 +16,11 @@ export {
   STATUS_COUNT_BADGE,
   STATUS_ALL_TRIGGER_CLASS,
   STATUS_CYCLE_TRIGGER_CLASSES,
-} from '@/components/ui/entity-filter-toolbar';
+} from '@/components/ui/list-filter-bar';
 
 export type DisciplineViewMode = 'cards' | 'list';
 
-export type DisciplineFilterToolbarHandle = EntityFilterToolbarHandle;
+export type DisciplineFilterToolbarHandle = ListFilterBarHandle;
 
 export interface DisciplineFilterToolbarProps {
   /** افتراضي true؛ عيّنها false لصفحات العرض فقط (مثل سجل العمليات) */
@@ -29,7 +29,10 @@ export interface DisciplineFilterToolbarProps {
   onPrimaryAction: () => void;
   primaryActionIcon?: React.ReactNode;
 
-  empPickerEmployees: { id: string; name: string }[];
+  /** Loads the standard employee picker when `empPickerEmployees` is omitted. */
+  companyId?: string | null;
+  /** Override picker options (e.g. audit log actors). */
+  empPickerEmployees?: { id: string; name: string }[];
   selectedEmpIds: Set<string>;
   onSelectedEmpIdsChange: (s: Set<string>) => void;
 
@@ -52,7 +55,7 @@ export interface DisciplineFilterToolbarProps {
   beforeEmployeePicker?: React.ReactNode;
 
   /** فلاتر ثانوية في نافذة منبثقة "فلاتر" */
-  moreFilters?: readonly EntityFilterInlineSelect[];
+  moreFilters?: readonly ListFilterInlineSelect[];
 }
 
 export const DisciplineFilterToolbar = React.forwardRef<
@@ -64,6 +67,7 @@ export const DisciplineFilterToolbar = React.forwardRef<
     primaryActionLabel,
     onPrimaryAction,
     primaryActionIcon,
+    companyId,
     empPickerEmployees,
     selectedEmpIds,
     onSelectedEmpIdsChange,
@@ -85,8 +89,9 @@ export const DisciplineFilterToolbar = React.forwardRef<
   const icon = primaryActionIcon ?? <Plus className="h-3.5 w-3.5 shrink-0" />;
 
   return (
-    <EntityFilterToolbar
+    <ListFilterBar
       ref={ref}
+      companyId={companyId}
       empPickerEmployees={empPickerEmployees}
       selectedEmpIds={selectedEmpIds}
       onSelectedEmpIdsChange={onSelectedEmpIdsChange}

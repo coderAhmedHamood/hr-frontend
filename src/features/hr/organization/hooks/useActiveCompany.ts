@@ -10,7 +10,7 @@ export function useActiveCompany() {
     queryKey: ['company', companyId],
     queryFn: () => companiesApi.getById(companyId!),
     enabled: !!companyId,
-    staleTime: Infinity,
+    staleTime: 60_000,
     gcTime: Infinity,
   });
 }

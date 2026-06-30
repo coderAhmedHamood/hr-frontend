@@ -3,6 +3,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useCallback, useState } from 'react';
+import { AUTH_SUCCESS_TOAST } from '@/features/auth/lib/auth-api-messages';
 import { ACCESS_PROFILE_KEY } from '@/features/auth/hooks/use-access-profile';
 import { AUTH_ME_KEY } from '@/features/auth/hooks/use-auth-session';
 import { authApi } from '@/features/auth/lib/api/auth';
@@ -20,9 +21,9 @@ export function useLogout() {
     setLoading(true);
     try {
       await authApi.logout();
+      toast.success(AUTH_SUCCESS_TOAST.logout);
     } catch (err) {
-      const { displayMessage } = handleApiError(err, 'auth.logout');
-      toast.error(displayMessage);
+      handleApiError(err, 'auth.logout');
     } finally {
       queryClient.removeQueries({ queryKey: ACCESS_PROFILE_KEY });
       queryClient.removeQueries({ queryKey: AUTH_ME_KEY });

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { STATUS_PILL } from '@/shared/status-pill-classes';
+import { AR_STATUS } from '@/shared/i18n/ar';
 import {
   TEMPLATE_CONTRACT_NATURE_LABELS,
   TEMPLATE_WORK_ARRANGEMENT_LABELS,
@@ -9,6 +10,7 @@ import type {
   WorkArrangement,
 } from '@/features/hr/contracts/contract-templates/types/contract-template';
 import { employeeContractsApi, type ApiEmployeeContract } from './contracts-api';
+import { ApiError } from '@/features/hr/lib/api/client';
 import { fetchAllEmployeeContracts } from './fetch-all-employee-contracts';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
 import { getDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
@@ -106,8 +108,9 @@ export function mapEmployeeContractFromApi(c: ApiEmployeeContract): HRContractRe
 
 interface HRContractsState {
   contracts: HRContractRecord[];
+  loadedCompanyId: string | null;
   isLoading: boolean;
-  error: string | null;
+  error: { message: string; status: number } | null;
   fetch: (params?: { employeeId?: string }) => Promise<void>;
   add: (data: HRContractDraft) => Promise<{ id: string; contractNumber: string }>;
   update: (id: string, patch: Partial<HRContractDraft>) => Promise<ActivateResult>;
@@ -120,21 +123,48 @@ interface HRContractsState {
   syncExpiredByEndDate: () => void;
 }
 
+let contractsFetchPromise: Promise<void> | null = null;
+
 export const useHRContractsStore = create<HRContractsState>()((set, get) => ({
   contracts: [],
+  loadedCompanyId: null,
   isLoading: false,
   error: null,
 
   fetch: async (params) => {
     const companyId = getDefaultCompanyId();
     if (!companyId) return;
-    set({ isLoading: true, error: null });
-    try {
-      const contracts = await fetchAllEmployeeContracts(params);
-      set({ contracts, isLoading: false });
-    } catch (e) {
-      set({ error: (e as Error).message, isLoading: false });
+
+    const scopedFetch = Boolean(params?.employeeId);
+    if (!scopedFetch) {
+      const { loadedCompanyId, isLoading } = get();
+      if (loadedCompanyId === companyId) return;
+      if (isLoading && contractsFetchPromise) return contractsFetchPromise;
     }
+
+    const run = async () => {
+      set({ isLoading: true, error: null });
+      try {
+        const contracts = await fetchAllEmployeeContracts(params);
+        set({
+          contracts,
+          loadedCompanyId: scopedFetch ? get().loadedCompanyId : companyId,
+          isLoading: false,
+        });
+      } catch (e) {
+        set({ error: { message: (e as Error).message, status: e instanceof ApiError ? e.status : 0 }, isLoading: false });
+      }
+    };
+
+    if (scopedFetch) {
+      await run();
+      return;
+    }
+
+    contractsFetchPromise = run().finally(() => {
+      contractsFetchPromise = null;
+    });
+    return contractsFetchPromise;
   },
 
   add: async (data) => {
@@ -320,13 +350,13 @@ export function workArrangementLabel(value: string): string {
 }
 
 export const CONTRACT_STATUS_LABELS: Record<HRContractLifecycleStatus, string> = {
-  draft: 'مسودة',
+  draft: AR_STATUS.draft,
   pending_signature: 'بانتظار الموافقة',
   active: 'نشط',
   expired: 'منتهي',
   terminated: 'مُنهى مبكراً',
   superseded: 'مستبدل',
-  cancelled: 'ملغى',
+  cancelled: AR_STATUS.cancelledShort,
 };
 
 export const CONTRACT_STATUS_COLORS: Record<HRContractLifecycleStatus, string> = {

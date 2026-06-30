@@ -69,16 +69,16 @@ export function formatDisplayDate(date: string | Date | null | undefined): strin
   return `${y}/${m}/${day}`;
 }
 
-/** Isolate Arabic period + digits so ص/م always appear before hours:minutes in RTL UI. */
+/** Isolate time digits + Arabic period so ص/م always appear after hours:minutes. */
 const LRI = '\u2066';
 const PDI = '\u2069';
 
 function formatArabicTime(hours24: number, hours12: number, minutes: string): string {
   const period = hours24 < 12 ? 'ص' : 'م';
-  return `${LRI}${period}${hours12}:${minutes}${PDI}`;
+  return `${LRI}${hours12}:${minutes}${period}${PDI}`;
 }
 
-/** App-wide datetime display: `2026/05/22-ص9:30` (RTL: time on the left, ص/م before hours) */
+/** App-wide datetime display: `2026/05/22-9:30ص` */
 export function formatDisplayDateTime(date: string | Date | null | undefined): string {
   if (!date) return '—';
   const d = typeof date === 'string' ? new Date(date) : date;

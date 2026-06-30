@@ -2,8 +2,8 @@
 
 import * as React from 'react';
 import { useSearchParams } from 'next/navigation';
-import { useAuthStore } from '@/features/auth/lib/auth-store';
 import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
+import { useServerDirectoryPagination } from '@/components/ui/paged-list';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import {
   monthlyInputsApi,
@@ -14,6 +14,29 @@ import {
 } from '@/features/hr/payroll/lib/api/monthly-inputs';
 import { payrollPeriodsApi, type PayrollPeriodResponseDto } from '@/features/hr/payroll/lib/api/payroll-periods';
 import { formatPayrollPeriodLabel } from '@/features/hr/payroll/monthly-inputs/constants/monthly-input-labels';
+
+const periodsCatalogCache = new Map<string, PayrollPeriodResponseDto[]>();
+let periodsCatalogInflight: { companyId: string; promise: Promise<PayrollPeriodResponseDto[]> } | null = null;
+
+async function loadPayrollPeriodsCatalog(companyId: string): Promise<PayrollPeriodResponseDto[]> {
+  const cached = periodsCatalogCache.get(companyId);
+  if (cached) return cached;
+  if (periodsCatalogInflight?.companyId === companyId) return periodsCatalogInflight.promise;
+
+  const promise = payrollPeriodsApi
+    .list({ companyId, limit: 200 })
+    .then((res) => {
+      periodsCatalogCache.set(companyId, res.items);
+      return res.items;
+    })
+    .catch(() => [] as PayrollPeriodResponseDto[])
+    .finally(() => {
+      if (periodsCatalogInflight?.companyId === companyId) periodsCatalogInflight = null;
+    });
+
+  periodsCatalogInflight = { companyId, promise };
+  return promise;
+}
 
 export type MonthlyInputsFilters = {
   payrollPeriodId: string;
@@ -27,11 +50,6 @@ export function useMonthlyInputsDirectoryModel() {
   const searchParams = useSearchParams();
   const companyId = useDefaultCompanyId();
 
-  const [items, setItems] = React.useState<MonthlyInputResponseDto[]>([]);
-  const [total, setTotal] = React.useState(0);
-  const [page, setPage] = React.useState(1);
-  const [limit, setLimit] = React.useState(30);
-  const [loading, setLoading] = React.useState(true);
   const [periods, setPeriods] = React.useState<PayrollPeriodResponseDto[]>([]);
   const [selectedEmpIds, setSelectedEmpIds] = React.useState<Set<string>>(new Set());
 
@@ -45,35 +63,33 @@ export function useMonthlyInputsDirectoryModel() {
 
   React.useEffect(() => {
     const periodFromUrl = searchParams.get('period');
-    if (periodFromUrl) {
-      setFilters((f) => ({ ...f, payrollPeriodId: periodFromUrl }));
-    }
+    if (!periodFromUrl) return;
+    setFilters((f) => (f.payrollPeriodId === periodFromUrl ? f : { ...f, payrollPeriodId: periodFromUrl }));
   }, [searchParams]);
 
   React.useEffect(() => {
-    if (!companyId) return;
-    void payrollPeriodsApi.list({ companyId, limit: 200 }).then((res) => {
-      setPeriods(res.items);
-    }).catch(() => {
+    if (!companyId) {
       setPeriods([]);
+      return;
+    }
+    let cancelled = false;
+    void loadPayrollPeriodsCatalog(companyId).then((items) => {
+      if (!cancelled) setPeriods(items);
     });
+    return () => {
+      cancelled = true;
+    };
   }, [companyId]);
 
   const employeeId = selectedEmpIds.size === 1 ? [...selectedEmpIds][0] : undefined;
 
-  const load = React.useCallback(async () => {
-    if (!companyId) {
-      setItems([]);
-      setTotal(0);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
+  const loadPage = React.useCallback(async (page: number, pageSize: number) => {
+    if (!companyId) return { items: [] as MonthlyInputResponseDto[], total: 0 };
     try {
       const res = await monthlyInputsApi.list({
         companyId,
         page,
-        limit,
+        limit: pageSize,
         ...(filters.payrollPeriodId !== 'all' ? { payrollPeriodId: filters.payrollPeriodId } : {}),
         ...(employeeId ? { employeeId } : {}),
         ...(filters.inputKind !== 'all' ? { inputKind: filters.inputKind } : {}),
@@ -82,24 +98,22 @@ export function useMonthlyInputsDirectoryModel() {
         ...(filters.affectsSalary === 'true' ? { affectsSalary: true } : {}),
         ...(filters.affectsSalary === 'false' ? { affectsSalary: false } : {}),
       });
-      setItems(res.items);
-      setTotal(res.pagination.total);
+      return { items: res.items, total: res.pagination.total };
     } catch (err) {
       handleApiError(err, 'monthly-inputs.load');
-      setItems([]);
-      setTotal(0);
-    } finally {
-      setLoading(false);
+      return { items: [], total: 0 };
     }
-  }, [companyId, employeeId, filters, limit, page]);
+  }, [companyId, employeeId, filters]);
 
-  React.useEffect(() => {
-    void load();
-  }, [load]);
-
-  React.useEffect(() => {
-    setPage(1);
-  }, [filters, employeeId, limit]);
+  const {
+    items,
+    loading,
+    pagination,
+    reload: reloadInputs,
+  } = useServerDirectoryPagination(loadPage, {
+    enabled: !!companyId,
+    resetDeps: [filters, employeeId],
+  });
 
   const periodOptions = React.useMemo(
     () => periods.map((p) => ({
@@ -134,11 +148,11 @@ export function useMonthlyInputsDirectoryModel() {
 
   return {
     items,
-    total,
-    page,
-    setPage,
-    limit,
-    setLimit,
+    total: pagination.total,
+    page: pagination.page,
+    setPage: pagination.setPage,
+    limit: pagination.pageSize,
+    setLimit: pagination.setPageSize,
     loading,
     filters,
     patchFilters,
@@ -147,6 +161,6 @@ export function useMonthlyInputsDirectoryModel() {
     setSelectedEmpIds,
     activeFilterCount,
     clearFilters,
-    reload: load,
+    reload: reloadInputs,
   };
 }

@@ -7,13 +7,18 @@ import {
   FormField,
   ConfirmationModal,
   EmptyState,
-} from '@/features/hr/requests/components/shared-ui';
+} from '@/components/ui/shared-dialogs';
+import { ForbiddenState } from '@/components/shared/forbidden-state';
 import { useCompaniesDirectoryModel } from '@/features/hr/organization/companies/hooks/useCompaniesDirectoryModel';
 import { CompaniesListViews } from '@/features/hr/organization/companies/components/companies-list-views';
 import { CompanyDetailDialog } from '@/features/hr/organization/companies/dialogs/company-detail-dialog';
 
 export default function CompaniesPage() {
   const model = useCompaniesDirectoryModel();
+
+  if (model.accessDenied) {
+    return <ForbiddenState />;
+  }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">

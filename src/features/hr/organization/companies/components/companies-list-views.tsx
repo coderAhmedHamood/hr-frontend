@@ -15,13 +15,13 @@ import {
   DirectoryGridCardMetaRow,
   DirectoryGridCardTitle,
 } from '@/components/ui/directory-grid-card';
-import { EmptyState } from '@/features/hr/requests/components/shared-ui';
+import { EmptyState } from '@/components/ui/shared-dialogs';
 import { DirectoryPagedViews } from '@/components/ui/paged-list';
 import type { CompanyRow } from '@/features/hr/organization/companies/constants/companies-directory';
 import type { CompaniesDirectoryModel } from '@/features/hr/organization/companies/hooks/useCompaniesDirectoryModel';
 
 export function CompaniesListViews({ model }: { model: CompaniesDirectoryModel }) {
-  const { companies, layoutView, pagination, loading, setViewRow, openEdit, setConfirmId } = model;
+  const { companies, layoutView, pagination, loading, setViewRow, openEdit, setConfirmId, perms } = model;
 
   const columns = React.useMemo((): ColumnDef<CompanyRow>[] => [
     {
@@ -70,13 +70,22 @@ export function CompaniesListViews({ model }: { model: CompaniesDirectoryModel }
       render: (row) => (
         <TableRowActions
           menuItems={[
-            { label: 'تعديل', onClick: (e) => { e.stopPropagation(); openEdit(row); } },
-            { label: 'حذف', onClick: (e) => { e.stopPropagation(); setConfirmId(row.id); }, destructive: true, separator: true },
+            ...(perms.canUpdate
+              ? [{ label: 'تعديل', onClick: (e: React.MouseEvent) => { e.stopPropagation(); openEdit(row); } }]
+              : []),
+            ...(perms.canDelete
+              ? [{
+                  label: 'حذف',
+                  onClick: (e: React.MouseEvent) => { e.stopPropagation(); setConfirmId(row.id); },
+                  destructive: true,
+                  separator: true,
+                }]
+              : []),
           ]}
         />
       ),
     },
-  ], [openEdit, setConfirmId]);
+  ], [openEdit, perms.canDelete, perms.canUpdate, setConfirmId]);
 
   if (!loading && companies.length === 0) {
     return <EmptyState icon={Building2} title="لا توجد شركات" description="أضف شركة جديدة للبدء." />;
@@ -114,8 +123,12 @@ export function CompaniesListViews({ model }: { model: CompaniesDirectoryModel }
           </DirectoryGridCardMeta>
           <DirectoryGridCardFooter>
             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setViewRow(row)}><Eye className="h-4 w-4" /></Button>
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(row)}><Pencil className="h-4 w-4" /></Button>
-            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setConfirmId(row.id)}><Trash2 className="h-4 w-4" /></Button>
+            {perms.canUpdate ? (
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(row)}><Pencil className="h-4 w-4" /></Button>
+            ) : null}
+            {perms.canDelete ? (
+              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setConfirmId(row.id)}><Trash2 className="h-4 w-4" /></Button>
+            ) : null}
           </DirectoryGridCardFooter>
         </DirectoryGridCard>
       ))}

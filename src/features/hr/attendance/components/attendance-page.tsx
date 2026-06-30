@@ -1,6 +1,5 @@
 'use client';
 
-import * as React from 'react';
 import { useSetPageTitle } from '@/components/layouts/page-title-context';
 import { ShiftTemplatesPanel } from '@/features/hr/attendance/templates/components/shift-templates-panel';
 import { AssignmentsPanel } from '@/features/hr/attendance/assignment/components/assignments-panel';
@@ -20,23 +19,8 @@ const SECTION_COPY: Record<AttendanceSection, { title: string; desc: string }> =
 };
 
 export default function AttendancePage({ section }: { section: AttendanceSection }) {
-  const [mounted, setMounted] = React.useState(false);
-  React.useEffect(() => {
-    setMounted(true);
-  }, []);
-
   const copy = SECTION_COPY[section];
   useSetPageTitle({ titleAr: 'إدارة الحضور', descriptionAr: copy.desc, iconName: 'Clock' });
-
-  if (!mounted) {
-    return (
-      <div className="space-y-6 animate-pulse">
-        <div className="h-24 rounded-lg bg-muted/40" />
-        <div className="h-12 rounded-full bg-muted/30" />
-        <div className="h-96 rounded-lg bg-muted/30" />
-      </div>
-    );
-  }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col animate-fade-in">

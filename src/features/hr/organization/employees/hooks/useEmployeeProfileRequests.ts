@@ -57,6 +57,27 @@ function mapWorkflowRequest(employeeId: string, row: WorkflowRequestSummaryDto):
   };
 }
 
+function normalizeCounts(counts?: WorkflowRequestsCounts | null): WorkflowRequestsCounts {
+  if (!counts) return EMPTY_COUNTS;
+  return {
+    total: counts.total ?? 0,
+    pending: counts.pending ?? 0,
+    approved: counts.approved ?? 0,
+    rejected: counts.rejected ?? 0,
+    cancelled: counts.cancelled ?? 0,
+  };
+}
+
+function mapSubmittedRequests(
+  employeeId: string,
+  rows: WorkflowRequestSummaryDto[] | undefined,
+  statusFilter: RequestStatusFilter,
+): EmployeeWorkflowRequest[] {
+  const mapped = (rows ?? []).map((row) => mapWorkflowRequest(employeeId, row));
+  if (statusFilter === 'all') return mapped;
+  return mapped.filter((row) => row.status === statusFilter);
+}
+
 export function useEmployeeProfileRequests(employee: Employee, listEnabled = true) {
   const [requestsError, setRequestsError] = React.useState<string | null>(null);
   const [requestsCounts, setRequestsCounts] = React.useState<WorkflowRequestsCounts>(EMPTY_COUNTS);
@@ -68,7 +89,7 @@ export function useEmployeeProfileRequests(employee: Employee, listEnabled = tru
     void employeeProfileApi
       .getRequests(employee.id, { page: 1, pageSize: 1 })
       .then((res) => {
-        if (!cancelled) setRequestsCounts(res.counts);
+        if (!cancelled) setRequestsCounts(normalizeCounts(res.counts));
       })
       .catch(() => {
         if (!cancelled) setRequestsCounts(EMPTY_COUNTS);
@@ -84,10 +105,23 @@ export function useEmployeeProfileRequests(employee: Employee, listEnabled = tru
         pageSize,
         ...(requestStatusFilter !== 'all' ? { status: requestStatusFilter } : {}),
       });
-      setRequestsCounts(res.counts);
+      setRequestsCounts(normalizeCounts(res.counts));
+
+      const filtered = mapSubmittedRequests(
+        employee.id,
+        res.submittedRequests,
+        requestStatusFilter,
+      );
+      const total = res.pagination?.total ?? filtered.length;
+
+      if (res.pagination) {
+        return { items: filtered, total };
+      }
+
+      const start = (page - 1) * pageSize;
       return {
-        items: res.submittedRequests.map((row) => mapWorkflowRequest(employee.id, row)),
-        total: res.pagination.total,
+        items: filtered.slice(start, start + pageSize),
+        total,
       };
     } catch (err) {
       const { displayMessage } = handleApiError(err, 'employee-profile.requests');

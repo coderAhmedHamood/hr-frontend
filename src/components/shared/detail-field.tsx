@@ -15,7 +15,7 @@ export function DetailField({ label, value, dir, className }: DetailFieldProps) 
   return (
     <div
       className={cn(
-        'flex flex-row-reverse items-start justify-between gap-3 border-t border-border pt-3 text-sm first:border-t-0 first:pt-0',
+        'flex  items-start justify-between gap-3 border-t border-border pt-3 text-sm first:border-t-0 first:pt-0',
         className,
       )}
     >

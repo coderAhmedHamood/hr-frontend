@@ -8,14 +8,14 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
-import { EntityFilterToolbar } from '@/components/ui/entity-filter-toolbar';
+import { ListFilterBar, type ListFilterInlineSelect } from '@/components/ui/list-filter-bar';
 import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
 import { usePageFilters } from '@/components/layouts/filter-panel-context';
 import {
   EmptyState,
-} from '@/features/hr/requests/components/shared-ui';
+} from '@/components/ui/shared-dialogs';
 import { DirectoryPagedViews, useServerDirectoryPagination } from '@/components/ui/paged-list';
 import { fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
 import { employeeContractsApi } from '@/features/hr/contracts/lib/contracts-api';
@@ -35,8 +35,8 @@ import {
 import { useHRContractTemplatesStore } from '@/features/hr/contracts/lib/contract-templates-store';
 import { contractTemplatesApi } from '@/features/hr/contracts/contract-templates/lib/api/contract-templates';
 import { applyContractTemplateToForm, computeTemplateEndDate } from '@/features/hr/contracts/employment/utils/apply-contract-template';
-import { useHRAllowanceTypesStore } from '@/features/hr/contracts/lib/allowance-types-store';
-import { useHRContractArticlesStore } from '@/features/hr/contracts/lib/contract-articles-store';
+import { useAllowanceTypes } from '@/features/hr/contracts/lib/hooks/use-allowance-types';
+import { useContractArticles } from '@/features/hr/contracts/lib/hooks/use-contract-articles';
 import { useHREmployeeDirectoryStore } from '@/features/hr/requests/lib/employee-directory-store';
 import { cn, formatNumber } from '@/shared/utils';
 import { hrContractsRoutes } from '@/features/hr/contracts/constants/routes';
@@ -65,10 +65,9 @@ import {
 } from '@/features/hr/contracts/employment/utils/contract-leave-credit';
 import { PdfPreviewExportDialog } from '@/components/pdf/pdf-preview-export-dialog';
 import { EmploymentContractPrintHtml } from '@/components/pdf/print/employment-contract-print-html';
-import { getPdfLogoSrc } from '@/components/pdf/lib/pdf-logo-url';
-import { useActiveCompany } from '@/features/hr/organization/hooks/useActiveCompany';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
 import { getDefaultCompanyId, useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
+import { getSessionCompanyDisplay } from '@/features/hr/organization/lib/session-company-display';
 import {
   ORGANIZATION_ARCHIVE_SCOPE_DEFAULT,
   ORGANIZATION_ARCHIVE_SCOPE_OPTIONS,
@@ -92,22 +91,31 @@ export function EmploymentContractsClient() {
   const searchParams = useSearchParams();
   const modeParam = searchParams.get(HR_CONTRACTS_MODE_PARAM);
 
-  const { data: activeCompany } = useActiveCompany();
   const companyId = useDefaultCompanyId();
   const { add, update, activate, employeeAccept, terminate, archive, createAmendmentDraft } = useHRContractsStore();
   const { templates, fetch: fetchTemplates } = useHRContractTemplatesStore();
-  const { items: allowanceTypes, fetch: fetchAllowanceTypes } = useHRAllowanceTypesStore();
-  const { articles, fetch: fetchArticles } = useHRContractArticlesStore();
-  const { employees: allEmployees, fetch: fetchEmployees } = useHREmployeeDirectoryStore();
+  const { data: allowanceTypes = [] } = useAllowanceTypes();
+  const { data: articles = [] } = useContractArticles();
+  const {
+    employees: allEmployees,
+    fetch: fetchEmployees,
+    isLoading: employeesLoading,
+  } = useHREmployeeDirectoryStore();
   const employees = React.useMemo(() => allEmployees.filter(e => e.status === 'active'), [allEmployees]);
 
-  React.useEffect(() => {
+  const ensureFormEmployeesLoaded = React.useCallback(() => {
     if (!companyId) return;
-    fetchTemplates();
-    fetchArticles();
-    fetchEmployees();
-    fetchAllowanceTypes();
-  }, [companyId, fetchTemplates, fetchArticles, fetchEmployees, fetchAllowanceTypes]);
+    const emps = useHREmployeeDirectoryStore.getState();
+    if (emps.loadedCompanyId === companyId && emps.employees.length > 0) return;
+    if (emps.isLoading) return;
+    void fetchEmployees();
+  }, [companyId, fetchEmployees]);
+
+  const ensureFormCatalogLoaded = React.useCallback(async () => {
+    if (!companyId) return;
+    const tpl = useHRContractTemplatesStore.getState();
+    if (tpl.templates.length === 0 && !tpl.isLoading) await fetchTemplates();
+  }, [companyId, fetchTemplates]);
 
   const essentialArticleIds = React.useMemo(
     () => articles.filter(a => a.isActive && a.isBasic).map(a => a.id),
@@ -158,11 +166,6 @@ export function EmploymentContractsClient() {
   );
 
   const [selectedEmpIds, setSelectedEmpIds] = React.useState<Set<string>>(new Set());
-
-  const empPickerList = React.useMemo(
-    () => allEmployees.map((e) => ({ id: e.id, name: e.nameAr })),
-    [allEmployees],
-  );
 
   const selectedEmpKey = React.useMemo(() => [...selectedEmpIds].sort().join(','), [selectedEmpIds]);
   const bulkMode = selectedEmpIds.size > 1;
@@ -233,6 +236,13 @@ export function EmploymentContractsClient() {
   const [copySourceContracts, setCopySourceContracts] = React.useState<HRContractRecord[]>([]);
 
   React.useEffect(() => {
+    if (drawerOpen) {
+      void ensureFormCatalogLoaded();
+      ensureFormEmployeesLoaded();
+    }
+  }, [drawerOpen, ensureFormCatalogLoaded, ensureFormEmployeesLoaded]);
+
+  React.useEffect(() => {
     if (!copyFromEmployeeId || !companyId) {
       setCopySourceContracts([]);
       return;
@@ -243,22 +253,23 @@ export function EmploymentContractsClient() {
       .catch(() => setCopySourceContracts([]));
   }, [copyFromEmployeeId, companyId]);
 
-  React.useEffect(() => {
-    if (drawerOpen && companyId && allowanceTypes.length === 0) {
-      void fetchAllowanceTypes();
-    }
-  }, [drawerOpen, companyId, allowanceTypes.length, fetchAllowanceTypes]);
-
   const [contractPdfOpen, setContractPdfOpen] = React.useState(false);
   const [contractPrintable, setContractPrintable] = React.useState<React.ReactElement | null>(null);
 
-  const getEmpName = (id: string) => allEmployees.find(e => e.id === id)?.nameAr ?? id;
+  const getEmpName = (id: string, fallback?: string) =>
+    fallback?.trim()
+    || allEmployees.find(e => e.id === id)?.nameAr
+    || id;
 
   React.useEffect(() => {
     if (!contractPdfOpen) setContractPrintable(null);
   }, [contractPdfOpen]);
 
-  const openEmploymentContractPdf = React.useCallback((source?: FormValues, employeeNameOverride?: string) => {
+  const openEmploymentContractPdf = React.useCallback(async (source?: FormValues, employeeNameOverride?: string) => {
+    await ensureFormCatalogLoaded();
+    ensureFormEmployeesLoaded();
+    const latestArticles = articles;
+    const latestAllowanceTypes = allowanceTypes;
     const values = source ?? form;
     if (!values.employeeId.trim()) {
       toast.error('اختر الموظف أولاً');
@@ -272,12 +283,12 @@ export function EmploymentContractsClient() {
     const allowanceRows = values.allowanceLines
       .filter((l) => l.allowanceTypeId.trim())
       .map((l) => ({
-        labelAr: allowanceTypes.find((a) => a.id === l.allowanceTypeId)?.nameAr ?? l.allowanceTypeId,
+        labelAr: latestAllowanceTypes.find((a) => a.id === l.allowanceTypeId)?.nameAr ?? l.allowanceTypeId,
         amount: String(l.amount || '0'),
       }));
     const selectedArticles = values.articleIds
-      .map((id) => articles.find((a) => a.id === id))
-      .filter(Boolean) as typeof articles;
+      .map((id) => latestArticles.find((a) => a.id === id))
+      .filter(Boolean) as typeof latestArticles;
 
     selectedArticles.sort((a, b) => {
       if (a!.isBasic !== b!.isBasic) return a!.isBasic ? -1 : 1;
@@ -291,14 +302,10 @@ export function EmploymentContractsClient() {
         `${(a.body || '').replace(/\s+/g, ' ').trim().slice(0, 480)}${(a.body?.length ?? 0) > 480 ? '…' : ''}`,
     }));
 
-    const company = {
-      nameAr: activeCompany?.nameAr ?? '',
-      nameEn: activeCompany?.nameEn ?? '',
-    };
+    const company = getSessionCompanyDisplay(companyId);
 
     const printable = (
       <EmploymentContractPrintHtml
-        logoSrc={getPdfLogoSrc()}
         company={company}
         employeeNameAr={empAr}
         contractNumber={values.contractNumber.trim() || '—'}
@@ -320,14 +327,19 @@ export function EmploymentContractsClient() {
     setContractPdfOpen(true);
   }, [
     form,
-    allowanceTypes,
     articles,
-    activeCompany,
+    allowanceTypes,
+    companyId,
+    ensureFormCatalogLoaded,
+    ensureFormEmployeesLoaded,
     getEmpName,
   ]);
 
   const openContractPdfFromRecord = React.useCallback((record: HRContractRecord) => {
-    openEmploymentContractPdf(recordToForm(record), record.employeeNameAr || getEmpName(record.employeeId));
+    void openEmploymentContractPdf(
+      recordToForm(record),
+      record.employeeNameAr || getEmpName(record.employeeId, record.employeeNameAr),
+    );
   }, [openEmploymentContractPdf, getEmpName]);
 
   const syncContractInStore = React.useCallback((record: HRContractRecord) => {
@@ -399,15 +411,15 @@ export function EmploymentContractsClient() {
     toast.success('تم نسخ بيانات العقد. راجع الموظف المستهدف والتواريخ ثم احفظ.');
   };
 
-  const openCreate = () => {
+  const openCreate = React.useCallback(() => {
     router.push(`${hrContractsRoutes.employment}?${HR_CONTRACTS_MODE_PARAM}=createContract`);
-  };
+  }, [router]);
 
   const activeFilterCount = (kindFilter !== 'all' ? 1 : 0) + (statusFilter !== 'all' ? 1 : 0) + (selectedEmpIds.size > 0 ? 1 : 0);
 
   usePageHeaderActions(
     () => (
-      <div className="flex items-center gap-2">
+      <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
         <FilterToggleButton activeFilterCount={activeFilterCount} />
         <Button variant="luxe" size="sm" className="h-8 gap-1.5 px-3 text-xs shadow-sm shrink-0" onClick={openCreate}>
           <Plus className="h-3.5 w-3.5" />
@@ -631,36 +643,42 @@ export function EmploymentContractsClient() {
     return counts;
   }, [filtered, pagination.total, employmentStatusOrder]);
 
+  const employmentInlineSelects = React.useMemo((): ListFilterInlineSelect[] => [
+    {
+      id: 'archive',
+      value: archiveScope,
+      onChange: (v) => setArchiveScope(v as OrganizationArchiveScope),
+      placeholder: 'العرض',
+      options: ORGANIZATION_ARCHIVE_SCOPE_OPTIONS.map((o) => ({ value: o.value, label: o.label })),
+    },
+    {
+      id: 'contract-kind',
+      value: kindFilter,
+      onChange: (v) => setValue('kind', v),
+      options: EMPLOYMENT_KIND_FILTER_OPTIONS.map(({ value, label }) => ({ value, label })),
+      placeholder: 'نوع العقد',
+    },
+  ], [archiveScope, kindFilter, setValue]);
+
+  const handleStatusFilterChange = React.useCallback(
+    (v: string) => setValue('status', v),
+    [setValue],
+  );
+
   useEntityFilterSlot(
     () => (
-      <EntityFilterToolbar
+      <ListFilterBar
         showDateSection={false}
-        empPickerEmployees={empPickerList}
+        companyId={companyId}
         selectedEmpIds={selectedEmpIds}
         onSelectedEmpIdsChange={setSelectedEmpIds}
         statusFilter={statusFilter}
-        onStatusFilterChange={(v) => setValue('status', v)}
+        onStatusFilterChange={handleStatusFilterChange}
         statusOrder={employmentStatusOrder}
         statusLabels={CONTRACT_STATUS_LABELS as unknown as Record<string, string>}
         statusCounts={statusCounts}
         onDateBoundsChange={() => {}}
-        inlineSelects={[
-          {
-            id: 'archive',
-            value: archiveScope,
-            onChange: (v) => setArchiveScope(v as OrganizationArchiveScope),
-            placeholder: 'العرض',
-            options: ORGANIZATION_ARCHIVE_SCOPE_OPTIONS.map((o) => ({ value: o.value, label: o.label })),
-          },
-          {
-            id: 'contract-kind',
-            value: kindFilter,
-            onChange: (v) => setValue('kind', v),
-            options: EMPLOYMENT_KIND_FILTER_OPTIONS.map(({ value, label }) => ({ value, label })),
-            placeholder: 'نوع العقد',
-          },
-        ]}
-        trailingActions={undefined}
+        inlineSelects={employmentInlineSelects}
       />
     ),
     [
@@ -669,8 +687,10 @@ export function EmploymentContractsClient() {
       archiveScope,
       selectedEmpKey,
       statusCounts,
-      empPickerList,
+      companyId,
       employmentStatusOrder,
+      employmentInlineSelects,
+      handleStatusFilterChange,
     ],
   );
 
@@ -731,7 +751,7 @@ export function EmploymentContractsClient() {
                     <User className="h-4 w-4" />
                   </div>
                   <div className="min-w-0">
-                    <p className="font-semibold truncate">{getEmpName(c.employeeId)}</p>
+                    <p className="font-semibold truncate">{c.employeeNameAr || getEmpName(c.employeeId, c.employeeNameAr)}</p>
                     <p className="font-mono text-[10px] text-muted-foreground">{c.contractNumber}</p>
                   </div>
                 </div>
@@ -803,7 +823,7 @@ export function EmploymentContractsClient() {
         copySourceContractOptions={copySourceContractOptions}
         getEmpName={getEmpName}
         onSave={() => { void handleSave(); }}
-        onPreviewPdf={() => openEmploymentContractPdf()}
+        onPreviewPdf={() => { void openEmploymentContractPdf(); }}
         onPatch={patch}
         onApplyTemplate={(id) => { void applyTemplate(id); }}
         onCopyFromEmployeeChange={(id) => { setCopyFromEmployeeId(id); setCopyFromContractId(''); }}

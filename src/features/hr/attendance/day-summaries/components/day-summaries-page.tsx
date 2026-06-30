@@ -10,25 +10,39 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
-import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
-import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { DataTable, type ColumnDef } from '@/components/ui/data-table';
 import { PagedListViewport, PaginatedListShell } from '@/components/ui/paged-list';
 import { TableDateCell } from '@/components/ui/table-cells';
-import { EmptyState } from '@/features/hr/requests/components/shared-ui';
+import { EmptyState } from '@/components/ui/shared-dialogs';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
 import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
-import type { DaySummaryResponseDto } from '@/features/hr/attendance/lib/api/attendance-day-summaries';
+import type { DaySummaryResponseDto } from '@/features/hr/attendance/types/api/attendance-day-summaries';
 import {
-  DAY_SUMMARY_STATUS_BADGE,
-  DAY_SUMMARY_STATUS_LABELS,
+  daySummaryStatusBadgeClass,
+  daySummaryStatusLabel,
 } from '@/features/hr/attendance/day-summaries/constants/day-summary-labels';
 import { useDaySummariesDirectoryModel } from '@/features/hr/attendance/day-summaries/hooks/useDaySummariesDirectoryModel';
+import { DaySummaryMetricCell } from '@/features/hr/attendance/day-summaries/components/day-summary-metric-cell';
+import { DaySummarySettleButton } from '@/features/hr/attendance/day-summaries/components/day-summary-settle-button';
+import { DaySummarySettleConfirmDialog } from '@/features/hr/attendance/day-summaries/components/day-summary-settle-confirm-dialog';
+import { DaySummaryOvertimePayrollToggle } from '@/features/hr/attendance/day-summaries/components/day-summary-overtime-payroll-toggle';
+import { buildSettleDaySummaryPayload } from '@/features/hr/attendance/day-summaries/utils/day-summary-settle';
+import { attendanceDaySummariesApi } from '@/features/hr/attendance/lib/api/attendance-day-summaries';
+import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
+import { toast } from 'sonner';
+import { formatDaySummaryMetric } from '@/features/hr/attendance/day-summaries/utils/day-summary-display';
+import { computePunchSpanMinutes } from '@/features/hr/attendance/day-summaries/utils/day-summary-metrics';
 import { RecomputeDaySummariesDialog } from '@/features/hr/attendance/daily/dialogs/recompute-day-summaries-dialog';
 import { minutesToHHMM } from '@/features/hr/attendance/daily/utils/daily-attendance-format';
 import { cn } from '@/shared/utils';
 
-function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
+function DetailRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: React.ReactNode;
+}) {
   return (
     <div className="grid grid-cols-[7rem_1fr] gap-2 border-b border-border/40 py-2 text-sm last:border-0">
       <span className="text-muted-foreground">{label}</span>
@@ -47,7 +61,7 @@ function DaySummaryDetailDialog({
   onOpenChange: (v: boolean) => void;
 }) {
   if (!row) return null;
-  const statusLabel = DAY_SUMMARY_STATUS_LABELS[row.status] ?? row.status;
+  const statusLabel = daySummaryStatusLabel(row.status);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -63,16 +77,41 @@ function DaySummaryDetailDialog({
           <DetailRow label="نهاية متوقعة" value={<TableDateCell value={row.expectedEndAt} mode="datetime" />} />
           <DetailRow label="تسجيل حضور" value={<TableDateCell value={row.actualCheckInAt} mode="datetime" />} />
           <DetailRow label="تسجيل انصراف" value={<TableDateCell value={row.actualCheckOutAt} mode="datetime" />} />
-          <DetailRow label="دقائق التأخير" value={minutesToHHMM(row.lateMinutes)} />
-          <DetailRow label="انصراف مبكر" value={minutesToHHMM(row.earlyLeaveMinutes)} />
-          <DetailRow label="ساعات العمل" value={minutesToHHMM(row.workedMinutes)} />
-          <DetailRow label="إضافي" value={minutesToHHMM(row.overtimeMinutes)} />
+          <DetailRow
+            label="مدة الحضور (بصمة)"
+            value={
+              computePunchSpanMinutes(row) != null
+                ? minutesToHHMM(computePunchSpanMinutes(row)!)
+                : '—'
+            }
+          />
+          <DetailRow label="متوقع" value={formatDaySummaryMetric(row, 'expected') ?? '—'} />
+          <DetailRow label="فعلي" value={formatDaySummaryMetric(row, 'total') ?? '—'} />
+          <DetailRow label="تأخير" value={formatDaySummaryMetric(row, 'late') ?? '00:00'} />
+          <DetailRow label="انصراف مبكر" value={formatDaySummaryMetric(row, 'earlyLeave') ?? '00:00'} />
+          <DetailRow label="إضافي" value={formatDaySummaryMetric(row, 'overtime') ?? '00:00'} />
+          <DetailRow
+            label="إضافي رواتب"
+            value={
+              row.overtimePayrollAllowed
+                ? `مسموح (${formatDaySummaryMetric(row, 'overtime') ?? '00:00'})`
+                : 'غير مسموح'
+            }
+          />
+          <DetailRow
+            label="تسوية"
+            value={
+              row.isSettled
+                ? `تمت (${row.settledMinutes ?? 0} د)`
+                : row.canSettle
+                  ? 'يمكن التسوية'
+                  : '—'
+            }
+          />
           <DetailRow label="تعديل يدوي" value={row.isManualOverride ? 'نعم' : 'لا'} />
           <DetailRow label="نهائي" value={row.isFinalized ? 'نعم' : 'لا'} />
           <DetailRow label="ملاحظات" value={row.notes} />
           <DetailRow label="آخر حساب" value={<TableDateCell value={row.computedAt} mode="datetime" />} />
-          <DetailRow label="أُنشئ" value={<TableDateCell value={row.createdAt} mode="datetime" />} />
-          <DetailRow label="آخر تحديث" value={<TableDateCell value={row.updatedAt} mode="datetime" />} />
         </div>
       </DialogContent>
     </Dialog>
@@ -81,12 +120,53 @@ function DaySummaryDetailDialog({
 
 export function DaySummariesPage() {
   const companyId = useDefaultCompanyId() ?? '';
+  const authUser = useAuthStore((s) => s.user);
+  const updatedByActor = authUser?.id ?? undefined;
   const model = useDaySummariesDirectoryModel();
   const [detailRow, setDetailRow] = React.useState<DaySummaryResponseDto | null>(null);
+  const [settleRow, setSettleRow] = React.useState<DaySummaryResponseDto | null>(null);
+  const [settling, setSettling] = React.useState(false);
+  const [overtimePayrollBusyId, setOvertimePayrollBusyId] = React.useState<string | null>(null);
 
-  usePageHeaderActions(
-    () => <FilterToggleButton />,
-    [],
+  const handleSettleConfirm = React.useCallback(async () => {
+    if (!settleRow) return;
+    setSettling(true);
+    try {
+      await attendanceDaySummariesApi.settle(
+        settleRow.id,
+        buildSettleDaySummaryPayload(updatedByActor),
+      );
+      toast.success('تمت تسوية الحضور من الإضافي');
+      setSettleRow(null);
+      await model.reload();
+    } catch (err) {
+      const { displayMessage } = handleApiError(err, 'day-summaries.settle');
+      toast.error(displayMessage);
+    } finally {
+      setSettling(false);
+    }
+  }, [model, settleRow, updatedByActor]);
+
+  const handleOvertimePayrollToggle = React.useCallback(
+    async (row: DaySummaryResponseDto, allowed: boolean) => {
+      setOvertimePayrollBusyId(row.id);
+      try {
+        await attendanceDaySummariesApi.setOvertimePayrollAllowed(row.id, {
+          allowed,
+          ...(updatedByActor ? { updatedBy: updatedByActor } : {}),
+        });
+        toast.success(
+          allowed ? 'تم السماح باحتساب الإضافي في الرواتب' : 'تم إلغاء السماح باحتساب الإضافي في الرواتب',
+        );
+        await model.reload();
+      } catch (err) {
+        const { displayMessage } = handleApiError(err, 'day-summaries.overtime-payroll');
+        toast.error(displayMessage);
+      } finally {
+        setOvertimePayrollBusyId(null);
+      }
+    },
+    [model, updatedByActor],
   );
 
   const columns = React.useMemo((): ColumnDef<DaySummaryResponseDto>[] => [
@@ -110,10 +190,10 @@ export function DaySummariesPage() {
           variant="outline"
           className={cn(
             'text-[10px] font-normal',
-            DAY_SUMMARY_STATUS_BADGE[row.status] ?? '',
+            daySummaryStatusBadgeClass(row.status),
           )}
         >
-          {DAY_SUMMARY_STATUS_LABELS[row.status] ?? row.status}
+          {daySummaryStatusLabel(row.status)}
         </Badge>
       ),
     },
@@ -130,15 +210,37 @@ export function DaySummariesPage() {
       render: (row) => <TableDateCell value={row.actualCheckOutAt} mode="datetime" />,
     },
     {
-      key: 'late',
-      title: 'تأخير',
+      key: 'expected',
+      title: 'متوقع',
       hideOnMobile: true,
-      render: (row) => minutesToHHMM(row.lateMinutes),
+      render: (row) => <DaySummaryMetricCell row={row} metric="expected" />,
     },
     {
-      key: 'worked',
-      title: 'عمل',
-      render: (row) => minutesToHHMM(row.workedMinutes),
+      key: 'total',
+      title: 'فعلي',
+      render: (row) => <DaySummaryMetricCell row={row} metric="total" />,
+    },
+    {
+      key: 'late',
+      title: 'تأخير',
+      render: (row) => (
+        <DaySummaryMetricCell row={row} metric="late" emptyWhenZero tone="warn" />
+      ),
+    },
+    {
+      key: 'earlyLeave',
+      title: 'انصراف مبكر',
+      hideOnMobile: true,
+      render: (row) => (
+        <DaySummaryMetricCell row={row} metric="earlyLeave" emptyWhenZero tone="warn" />
+      ),
+    },
+    {
+      key: 'overtime',
+      title: 'إضافي',
+      render: (row) => (
+        <DaySummaryMetricCell row={row} metric="overtime" emptyWhenZero tone="success" />
+      ),
     },
     {
       key: 'manual',
@@ -146,13 +248,38 @@ export function DaySummariesPage() {
       hideOnMobile: true,
       render: (row) => (row.isManualOverride ? 'نعم' : '—'),
     },
-  ], []);
+    {
+      key: 'overtimePayroll',
+      title: 'إضافي رواتب',
+      hideOnMobile: true,
+      isActions: true,
+      headerClassName: 'text-center',
+      className: 'text-center',
+      render: (row) => (
+        <DaySummaryOvertimePayrollToggle
+          row={row}
+          disabled={overtimePayrollBusyId === row.id}
+          onToggle={handleOvertimePayrollToggle}
+        />
+      ),
+    },
+    {
+      key: 'settle',
+      title: 'تسوية',
+      isActions: true,
+      headerClassName: 'text-center',
+      className: 'text-center',
+      render: (row) => (
+        <DaySummarySettleButton row={row} onRequestSettle={setSettleRow} />
+      ),
+    },
+  ], [handleOvertimePayrollToggle, overtimePayrollBusyId, setSettleRow]);
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <SetPageTitle
-        titleAr="ملخص الحضور اليومي"
-        descriptionAr="سجلات الحضور المحسوبة لكل موظف — إعادة الحساب من الأحداث والورديات."
+        titleAr="كشف الحضور"
+        descriptionAr="متوقع والفعلي مع تأخير، انصراف مبكر، وإضافي من الخادم."
         iconName="CalendarRange"
       />
 
@@ -160,7 +287,7 @@ export function DaySummariesPage() {
         <EmptyState
           icon={CalendarRange}
           title="لا توجد ملخصات"
-          description="غيّر نطاق التاريخ أو نفّذ «تحديث البيانات» لإعادة الحساب من الأحداث."
+          description="غيّر نطاق التاريخ أو نفّظ «تحديث البيانات» لإعادة الحساب من الأحداث."
         />
       ) : (
         <PagedListViewport>
@@ -190,6 +317,14 @@ export function DaySummariesPage() {
         row={detailRow}
         open={detailRow != null}
         onOpenChange={(v) => { if (!v) setDetailRow(null); }}
+      />
+
+      <DaySummarySettleConfirmDialog
+        row={settleRow}
+        open={settleRow != null}
+        onOpenChange={(v) => { if (!v) setSettleRow(null); }}
+        onConfirm={handleSettleConfirm}
+        submitting={settling}
       />
 
       {companyId ? (

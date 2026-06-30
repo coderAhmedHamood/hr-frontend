@@ -1,4 +1,3 @@
-import { ApiError } from '@/features/hr/lib/api/client';
 import {
   requestApprovalTemplatesApi,
   type RequestApprovalTemplateResponseDto,
@@ -10,6 +9,8 @@ import {
   getRequestApproverActionContext,
   isEmployeeAmongRequestApprovers,
 } from '@/features/hr/requests/lib/request-approver-states';
+import { checkApprovalAccess, type ApprovalAccessResult } from '@/shared/approval';
+import { AR_APPROVAL_ACCESS_MESSAGES } from '@/shared/i18n/ar';
 
 export type RequestApprovalAccessResult =
   | {
@@ -25,51 +26,15 @@ export async function checkRequestApprovalAccess(
   employeeId: string | null | undefined,
   existingStates: RequestApproverStatesSnapshot | null = null,
 ): Promise<RequestApprovalAccessResult> {
-  if (!employeeId) {
-    return {
-      ok: false,
-      message: 'لم يتم ربط حسابك بسجل موظف؛ لا يمكنك اعتماد أو رفض الطلبات.',
-    };
-  }
-
-  if (!companyId) {
-    return { ok: false, message: 'تعذر تحديد الشركة.' };
-  }
-
-  try {
-    const assignment = await requestApprovalTemplatesApi.getByRequestCategory(requestCategory, companyId);
-
-    if (!assignment.isActive) {
-      return {
-        ok: false,
-        message: 'إسناد الموافقة غير نشط لهذا النوع من الطلبات.',
-      };
-    }
-
-    if (!isEmployeeAmongRequestApprovers(assignment, employeeId)) {
-      return {
-        ok: false,
-        message: 'أنت لست ضمن المعتمدين المسندين لهذا النوع من الطلبات.',
-      };
-    }
-
-    const states = existingStates ?? buildRequestApproverStatesFromAssignment(assignment);
-    const action = getRequestApproverActionContext(states, employeeId);
-    if (!action.canAct) {
-      return {
-        ok: false,
-        message: action.reasonAr ?? 'لا يمكنك اتخاذ قرار على هذا الطلب الآن.',
-      };
-    }
-
-    return { ok: true, assignment, states };
-  } catch (err) {
-    if (err instanceof ApiError && err.status === 404) {
-      return {
-        ok: false,
-        message: 'لا يوجد إسناد موافقة لهذا النوع من الطلبات.',
-      };
-    }
-    throw err;
-  }
+  return checkApprovalAccess({
+    employeeId,
+    companyId,
+    existingStates,
+    messages: AR_APPROVAL_ACCESS_MESSAGES.request,
+    fetchAssignment: () => requestApprovalTemplatesApi.getByRequestCategory(requestCategory, companyId),
+    isActive: (assignment) => assignment.isActive,
+    isAmongApprovers: isEmployeeAmongRequestApprovers,
+    buildStates: buildRequestApproverStatesFromAssignment,
+    getActionContext: getRequestApproverActionContext,
+  }) as Promise<ApprovalAccessResult<RequestApprovalTemplateResponseDto, RequestApproverStatesSnapshot>>;
 }

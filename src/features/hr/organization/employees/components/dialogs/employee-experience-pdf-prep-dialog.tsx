@@ -7,6 +7,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DatePickerInput } from '@/components/ui/date-picker-input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -101,46 +102,34 @@ export function EmployeeExperiencePdfPrepDialog({
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="exp-start">تاريخ بداية الخدمة</Label>
-              <Input
+              <DatePickerInput
                 id="exp-start"
-                type="date"
                 value={wizard.serviceStartIso}
-                onChange={(e) => patchWizard('serviceStartIso', e.target.value)}
-                className="font-mono"
-                dir="ltr"
+                onChange={(v) => patchWizard('serviceStartIso', v)}
               />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="exp-end">تاريخ نهاية الخدمة</Label>
-              <Input
+              <DatePickerInput
                 id="exp-end"
-                type="date"
                 value={wizard.endDateIso}
-                onChange={(e) => patchWizard('endDateIso', e.target.value)}
-                className="font-mono"
-                dir="ltr"
+                onChange={(v) => patchWizard('endDateIso', v)}
               />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="exp-cert-date">تاريخ الشهادة</Label>
-              <Input
+              <DatePickerInput
                 id="exp-cert-date"
-                type="date"
                 value={wizard.certificateDateIso}
-                onChange={(e) => patchWizard('certificateDateIso', e.target.value)}
-                className="font-mono"
-                dir="ltr"
+                onChange={(v) => patchWizard('certificateDateIso', v)}
               />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="exp-foot-date">تاريخ التذييل</Label>
-              <Input
+              <DatePickerInput
                 id="exp-foot-date"
-                type="date"
                 value={wizard.footerDateIso}
-                onChange={(e) => patchWizard('footerDateIso', e.target.value)}
-                className="font-mono"
-                dir="ltr"
+                onChange={(v) => patchWizard('footerDateIso', v)}
               />
             </div>
           </div>

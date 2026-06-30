@@ -8,6 +8,7 @@ import { useSetPageTitle } from '@/components/layouts/page-title-context';
 import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
+import { PageHeaderPrimaryButton } from '@/components/layouts/page-header-primary-button';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -15,8 +16,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { EntityFilterToolbar } from '@/components/ui/entity-filter-toolbar';
-import { hasDateRangeFilter } from '@/features/hr/discipline/lib/discipline-date-filter';
+import { ListFilterBar } from '@/components/ui/list-filter-bar';
 import { EmployeesRegisterPrintHtml } from '@/components/pdf/print/employees-register-print-html';
 import { downloadXlsxFromAoA, type XlsxCell } from '@/shared/export/download-xlsx';
 import {
@@ -30,6 +30,8 @@ import { departmentsApi, type DepartmentResponseDto } from '@/features/hr/organi
 import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 import { useActiveCompany } from '@/features/hr/organization/hooks/useActiveCompany';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
+import { usePagePermissions } from '@/features/auth/permissions';
+import { EMPLOYEES_PAGE_PERMISSIONS } from '@/features/hr/organization/employees/permissions';
 import { fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
 import { useServerDirectoryPagination } from '@/components/ui/paged-list';
 import {
@@ -39,6 +41,11 @@ import {
   organizationListArchiveQuery,
   type OrganizationArchiveScope,
 } from '@/features/hr/organization/lib/archive-scope';
+import {
+  hrFiltersKey,
+  usePersistedEmpIdSet,
+  usePersistedFilterState,
+} from '@/features/hr/lib/use-persisted-filter-state';
 
 function empStartYmd(e: EmployeeResponseDto): string {
   const s = e.startDate;
@@ -51,6 +58,8 @@ export function useEmployeesListModel() {
   useSetPageTitle({ titleAr: 'الموظفين', descriptionAr: 'سجل وإدارة بيانات الموظفين', iconName: 'Users' });
   const router = useRouter();
   const companyId = useDefaultCompanyId();
+  const perms = usePagePermissions(EMPLOYEES_PAGE_PERMISSIONS);
+  const accessDenied = !perms.canRead;
   // company details are optional (used only for PDF header); 403 is silently ignored
   const { data: activeCompany } = useActiveCompany();
 
@@ -60,18 +69,32 @@ export function useEmployeesListModel() {
   const [listError, setListError] = React.useState<string | null>(null);
   const [totalCount, setTotalCount] = React.useState(0);
 
-  const [branchFilter, setBranchFilter] = React.useState('all');
-  const [deptFilter, setDeptFilter] = React.useState('all');
+  const [branchFilter, setBranchFilter] = usePersistedFilterState(
+    hrFiltersKey('organization', 'employees', companyId, 'branchFilter'),
+    'all',
+  );
+  const [deptFilter, setDeptFilter] = usePersistedFilterState(
+    hrFiltersKey('organization', 'employees', companyId, 'deptFilter'),
+    'all',
+  );
   const [search, setSearch] = React.useState('');
   const [debouncedSearch, setDebouncedSearch] = React.useState('');
-  const [view, setView] = React.useState<'table' | 'grid'>('table');
+  const [view, setView] = usePersistedFilterState<'table' | 'grid'>(
+    hrFiltersKey('organization', 'employees', companyId, 'view'),
+    'table',
+  );
   const [newEmpOpen, setNewEmpOpen] = React.useState(false);
-  const [dateBounds, setDateBounds] = React.useState({ from: '', to: '' });
-  const [toolbarStatus, setToolbarStatus] = React.useState<string>('all');
-  const [archiveScope, setArchiveScope] = React.useState<OrganizationArchiveScope>(
+  const [toolbarStatus, setToolbarStatus] = usePersistedFilterState(
+    hrFiltersKey('organization', 'employees', companyId, 'toolbarStatus'),
+    'all',
+  );
+  const [archiveScope, setArchiveScope] = usePersistedFilterState<OrganizationArchiveScope>(
+    hrFiltersKey('organization', 'employees', companyId, 'archiveScope'),
     ORGANIZATION_ARCHIVE_SCOPE_DEFAULT,
   );
-  const [selectedEmpIds, setSelectedEmpIds] = React.useState<Set<string>>(new Set());
+  const [selectedEmpIds, setSelectedEmpIds] = usePersistedEmpIdSet(
+    hrFiltersKey('organization', 'employees', companyId, 'selectedEmpIds'),
+  );
   const [pdfOpen, setPdfOpen] = React.useState(false);
   const [deleteId, setDeleteId] = React.useState<string | null>(null);
 
@@ -104,10 +127,8 @@ export function useEmployeesListModel() {
     ...(deptFilter !== 'all' ? { departmentId: deptFilter } : {}),
     ...(toolbarStatus !== 'all' ? { contractStatus: toolbarStatus } : {}),
     ...(debouncedSearch.trim() ? { search: debouncedSearch.trim() } : {}),
-    ...(dateBounds.from ? { startDateFrom: dateBounds.from } : {}),
-    ...(dateBounds.to ? { startDateTo: dateBounds.to } : {}),
     ...organizationListArchiveQuery(archiveScope),
-  }), [companyId, branchFilter, deptFilter, toolbarStatus, debouncedSearch, dateBounds.from, dateBounds.to, archiveScope]);
+  }), [companyId, branchFilter, deptFilter, toolbarStatus, debouncedSearch, archiveScope]);
 
   const loadPage = React.useCallback(async (page: number, pageSize: number) => {
     if (!companyId) return { items: [] as EmployeeResponseDto[], total: 0 };
@@ -148,10 +169,10 @@ export function useEmployeesListModel() {
     pagination,
     reload: reloadEmployees,
   } = useServerDirectoryPagination<EmployeeResponseDto>(loadPage, {
-    enabled: !!companyId,
+    enabled: !!companyId && perms.canRead,
     bulkMode,
     loadBulk: bulkMode ? loadBulk : undefined,
-    resetDeps: [companyId, branchFilter, deptFilter, toolbarStatus, archiveScope, debouncedSearch, dateBounds.from, dateBounds.to, selectedEmpKey, view],
+    resetDeps: [companyId, branchFilter, deptFilter, toolbarStatus, archiveScope, debouncedSearch, selectedEmpKey, view],
   });
 
   const getBranch = React.useCallback(
@@ -161,11 +182,6 @@ export function useEmployeesListModel() {
   const getDepartment = React.useCallback(
     (id: string | null | undefined) => departments.find((d) => d.id === id),
     [departments],
-  );
-
-  const empPickerList = React.useMemo(
-    () => employees.map((e) => ({ id: e.id, name: e.nameAr })),
-    [employees],
   );
 
   // Server handles filters; bulkMode applies multi-employee picker client-side
@@ -194,8 +210,6 @@ export function useEmployeesListModel() {
         name: emp.nameAr,
         employeeCode: emp.employeeCode,
         position: emp.position ?? '—',
-        department: emp.departmentNameAr ?? '—',
-        branchCity: emp.branchNameAr ?? '—',
         contractType: CONTRACT_TYPE_AR[emp.contractType ?? ''] ?? emp.contractType ?? '—',
         startDate: empStartYmd(emp),
         statusAr: EMP_CONTRACT_STATUS_LABELS[emp.contractStatus ?? ''] ?? emp.contractStatus ?? '—',
@@ -209,12 +223,9 @@ export function useEmployeesListModel() {
     if (deptFilter !== 'all') parts.push(`قسم: ${departments.find((d) => d.id === deptFilter)?.nameAr ?? deptFilter}`);
     if (search.trim()) parts.push(`بحث: ${search.trim()}`);
     parts.push(selectedEmpIds.size === 0 ? 'الموظفون: الكل (ضمن الفلاتر)' : `الموظفون: ${selectedEmpIds.size} محدد من القائمة`);
-    if (hasDateRangeFilter(dateBounds.from, dateBounds.to)) {
-      parts.push(`تاريخ الالتحاق: ${dateBounds.from} — ${dateBounds.to}`);
-    }
     parts.push(`حالة العقد: ${toolbarStatus === 'all' ? 'الكل' : (EMP_CONTRACT_STATUS_LABELS[toolbarStatus] ?? toolbarStatus)}`);
     return parts.join(' · ');
-  }, [branchFilter, deptFilter, search, selectedEmpIds.size, dateBounds.from, dateBounds.to, toolbarStatus, branches, departments]);
+  }, [branchFilter, deptFilter, search, selectedEmpIds.size, toolbarStatus, branches, departments]);
 
   const handleDelete = React.useCallback(async () => {
     if (!deleteId) return;
@@ -235,7 +246,7 @@ export function useEmployeesListModel() {
       return;
     }
     const rows: XlsxCell[][] = [[
-      'الموظف', 'رقم الموظف', 'المسمى', 'القسم', 'الفرع',
+      'الموظف', 'رقم الموظف', 'المسمى',
       'نوع العقد', 'تاريخ الالتحاق', 'حالة العقد',
     ]];
     for (const emp of filtered) {
@@ -243,8 +254,6 @@ export function useEmployeesListModel() {
         emp.nameAr,
         emp.employeeCode,
         emp.position ?? '—',
-        emp.departmentNameAr ?? '—',
-        emp.branchNameAr ?? '—',
         CONTRACT_TYPE_AR[emp.contractType ?? ''] ?? emp.contractType ?? '—',
         empStartYmd(emp),
         EMP_CONTRACT_STATUS_LABELS[emp.contractStatus ?? ''] ?? emp.contractStatus ?? '—',
@@ -279,12 +288,11 @@ export function useEmployeesListModel() {
 
   usePageHeaderActions(
     () => (
-      <div className="flex items-center gap-2">
+      <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
         <FilterToggleButton />
-        <Button variant="luxe" size="sm" className="h-8 gap-2" onClick={() => setNewEmpOpen(true)}>
-          <Plus className="h-4 w-4" />
+        <PageHeaderPrimaryButton icon={Plus} label="موظف جديد" onClick={() => setNewEmpOpen(true)}>
           موظف جديد
-        </Button>
+        </PageHeaderPrimaryButton>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
@@ -323,7 +331,8 @@ export function useEmployeesListModel() {
 
   useEntityFilterSlot(
     () => (
-      <EntityFilterToolbar
+      <ListFilterBar
+        showDateSection={false}
         inlineSelects={[
           {
             id: 'archive',
@@ -347,7 +356,7 @@ export function useEmployeesListModel() {
             options: deptSelectOptions,
           },
         ]}
-        empPickerEmployees={empPickerList}
+        companyId={companyId}
         selectedEmpIds={selectedEmpIds}
         onSelectedEmpIdsChange={setSelectedEmpIds}
         statusFilter={toolbarStatus}
@@ -355,7 +364,6 @@ export function useEmployeesListModel() {
         statusOrder={EMP_CONTRACT_STATUS_ORDER}
         statusLabels={EMP_CONTRACT_STATUS_LABELS}
         statusCounts={contractStatusCounts}
-        onDateBoundsChange={setDateBounds}
         dataView={{
           value: view,
           onChange: (v) => setView(v as 'table' | 'grid'),
@@ -369,15 +377,16 @@ export function useEmployeesListModel() {
     [
       archiveScope,
       branchFilter, deptFilter, view, toolbarStatus, selectedEmpKey,
-      dateBounds.from, dateBounds.to,
       contractStatusCounts.all, contractStatusCounts.active,
       contractStatusCounts.suspended, contractStatusCounts.ended,
-      empPickerList, branchSelectOptions, deptSelectOptions,
+      companyId, branchSelectOptions, deptSelectOptions,
     ],
   );
 
   return {
     router,
+    accessDenied,
+    perms,
     employees,
     filtered,
     loading,

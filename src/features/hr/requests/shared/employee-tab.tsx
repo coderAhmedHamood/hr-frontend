@@ -8,7 +8,7 @@ import { Separator } from '@/components/ui/separator';
 import { useHREmployeeDirectoryStore, type HREmployeeDirectoryRow, type HREmployeeStatus, type HREmployeeHierarchyRole } from '@/features/hr/requests/lib/employee-directory-store';
 import { useHRConfigurationStore } from '@/features/hr/requests/lib/configuration-store';
 import { buildEmployeeForest, HIERARCHY_ROLE_LABELS, STATUS_LABELS, STATUS_COLORS, type EmpTreeNode } from '@/features/hr/requests/lib/hierarchy-utils';
-import { MinimalDropdown, SearchableDropdown, ConfirmationModal, HRSettingsFormDrawer, FormField, EmptyState, Pagination } from '@/features/hr/requests/components/shared-ui';
+import { MinimalDropdown, SearchableDropdown, ConfirmationModal, HRSettingsFormDrawer, FormField, EmptyState, Pagination } from '@/components/ui/shared-dialogs';
 import { DataTable, type ColumnDef } from '@/components/ui/data-table';
 import { TableDateCell, TableRowActions } from '@/components/ui/table-cells';
 import { cn, formatDate } from '@/shared/utils';

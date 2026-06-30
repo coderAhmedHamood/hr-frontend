@@ -16,6 +16,12 @@ export type EmployeePickerProps = {
   employees: EmployeePickerOption[];
   selected: Set<string>;
   onChange: (s: Set<string>) => void;
+  /** Fired when the popover opens or closes. */
+  onOpenChange?: (open: boolean) => void;
+  /** Fired on trigger press — use to lazy-load options before the popover opens. */
+  onRequestLoad?: () => void;
+  /** Show a loading state while options are being fetched. */
+  loading?: boolean;
   /** Compact chip for toolbars; full-width field for forms and drawers. */
   variant?: 'toolbar' | 'form';
   /**
@@ -31,10 +37,19 @@ function useEmployeePickerState({
   employees,
   selected,
   onChange,
+  onOpenChange,
   selectionMode,
-}: Pick<EmployeePickerProps, 'employees' | 'selected' | 'onChange' | 'selectionMode'>) {
+}: Pick<EmployeePickerProps, 'employees' | 'selected' | 'onChange' | 'onOpenChange' | 'selectionMode'>) {
   const [open, setOpen] = React.useState(false);
   const [search, setSearch] = React.useState('');
+
+  const handleOpenChange = React.useCallback(
+    (next: boolean) => {
+      setOpen(next);
+      onOpenChange?.(next);
+    },
+    [onOpenChange],
+  );
 
   React.useEffect(() => {
     if (!open) setSearch('');
@@ -100,7 +115,7 @@ function useEmployeePickerState({
 
   return {
     open,
-    setOpen,
+    handleOpenChange,
     search,
     setSearch,
     safeEmployees,
@@ -162,22 +177,42 @@ export function EmployeePicker({
   employees,
   selected,
   onChange,
+  onOpenChange,
+  onRequestLoad,
+  loading = false,
   variant = 'toolbar',
   selectionMode = 'filter',
   className,
   disabled = false,
 }: EmployeePickerProps) {
-  const state = useEmployeePickerState({ employees, selected, onChange, selectionMode });
+  const state = useEmployeePickerState({ employees, selected, onChange, onOpenChange, selectionMode });
   const hasSelection = selected.size > 0 && !state.allSelected;
   const showMeta = variant === 'form';
 
+  const listContent = loading ? (
+    <p className="px-3 py-4 text-center text-xs text-muted-foreground">جاري التحميل…</p>
+  ) : state.filtered.length === 0 ? (
+    <p className="px-3 py-4 text-center text-xs text-muted-foreground">لا نتائج</p>
+  ) : (
+    state.filtered.map((emp) => (
+      <EmployeeRow
+        key={emp.id}
+        emp={emp}
+        isSelected={selected.has(emp.id)}
+        onToggle={() => state.toggle(emp.id)}
+        showMeta={showMeta}
+      />
+    ))
+  );
+
   if (variant === 'form') {
     return (
-      <Popover open={state.open} onOpenChange={state.setOpen}>
+      <Popover open={state.open} onOpenChange={state.handleOpenChange}>
         <PopoverTrigger asChild>
           <button
             type="button"
             disabled={disabled}
+            onPointerDown={() => onRequestLoad?.()}
             className={cn(
               'flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 text-sm transition-colors hover:border-ring disabled:cursor-not-allowed disabled:opacity-50',
               hasSelection ? 'text-foreground' : 'text-muted-foreground',
@@ -248,19 +283,7 @@ export function EmployeePicker({
           ) : null}
 
           <div className="max-h-60 overflow-y-auto py-1">
-            {state.filtered.length === 0 ? (
-              <p className="px-3 py-4 text-center text-xs text-muted-foreground">لا نتائج</p>
-            ) : (
-              state.filtered.map((emp) => (
-                <EmployeeRow
-                  key={emp.id}
-                  emp={emp}
-                  isSelected={selected.has(emp.id)}
-                  onToggle={() => state.toggle(emp.id)}
-                  showMeta={showMeta}
-                />
-              ))
-            )}
+            {listContent}
           </div>
 
           {hasSelection ? (
@@ -281,11 +304,12 @@ export function EmployeePicker({
   }
 
   return (
-    <Popover open={state.open} onOpenChange={state.setOpen}>
+    <Popover open={state.open} onOpenChange={state.handleOpenChange}>
       <PopoverTrigger asChild>
         <button
           type="button"
           disabled={disabled}
+          onPointerDown={() => onRequestLoad?.()}
           className={cn(
             'flex h-8 max-w-[10rem] shrink-0 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-medium transition-all disabled:cursor-not-allowed disabled:opacity-50',
             hasSelection
@@ -347,19 +371,7 @@ export function EmployeePicker({
         </button>
 
         <div className="max-h-56 overflow-y-auto py-1">
-          {state.filtered.length === 0 ? (
-            <p className="px-3 py-4 text-center text-xs text-muted-foreground">لا نتائج</p>
-          ) : (
-            state.filtered.map((emp) => (
-              <EmployeeRow
-                key={emp.id}
-                emp={emp}
-                isSelected={selected.has(emp.id)}
-                onToggle={() => state.toggle(emp.id)}
-                showMeta={false}
-              />
-            ))
-          )}
+          {listContent}
         </div>
 
         {hasSelection ? (

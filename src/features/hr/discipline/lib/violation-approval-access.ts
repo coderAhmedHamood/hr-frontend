@@ -1,4 +1,3 @@
-import { ApiError } from '@/features/hr/lib/api/client';
 import {
   disciplineApprovalTemplatesApi,
   type DisciplineApprovalTemplateResponseDto,
@@ -9,6 +8,8 @@ import {
   getViolationApproverActionContext,
   isEmployeeAmongViolationApprovers,
 } from '@/features/hr/discipline/lib/violation-approver-states';
+import { checkApprovalAccess, type ApprovalAccessResult } from '@/shared/approval';
+import { AR_APPROVAL_ACCESS_MESSAGES } from '@/shared/i18n/ar';
 
 export type ViolationApprovalAccessResult =
   | {
@@ -23,47 +24,14 @@ export async function checkViolationApprovalAccess(
   employeeId: string | null | undefined,
   existingStates: ViolationApproverStatesSnapshot | null = null,
 ): Promise<ViolationApprovalAccessResult> {
-  if (!employeeId) {
-    return {
-      ok: false,
-      message: 'لم يتم ربط حسابك بسجل موظف؛ لا يمكنك اعتماد أو رفض المخالفات.',
-    };
-  }
-
-  try {
-    const assignment = await disciplineApprovalTemplatesApi.getByViolationType(violationTypeId);
-
-    if (!assignment.isActive) {
-      return {
-        ok: false,
-        message: 'إسناد الموافقة غير نشط لهذا النوع من المخالفات.',
-      };
-    }
-
-    if (!isEmployeeAmongViolationApprovers(assignment, employeeId)) {
-      return {
-        ok: false,
-        message: 'أنت لست ضمن المعتمدين المسندين لهذا النوع من المخالفات.',
-      };
-    }
-
-    const states = existingStates ?? buildApproverStatesFromAssignment(assignment);
-    const action = getViolationApproverActionContext(states, employeeId);
-    if (!action.canAct) {
-      return {
-        ok: false,
-        message: action.reasonAr ?? 'لا يمكنك اتخاذ قرار على هذه المخالفة الآن.',
-      };
-    }
-
-    return { ok: true, assignment, states };
-  } catch (err) {
-    if (err instanceof ApiError && err.status === 404) {
-      return {
-        ok: false,
-        message: 'لا يوجد إسناد موافقة لهذا النوع من المخالفات.',
-      };
-    }
-    throw err;
-  }
+  return checkApprovalAccess({
+    employeeId,
+    existingStates,
+    messages: AR_APPROVAL_ACCESS_MESSAGES.violation,
+    fetchAssignment: () => disciplineApprovalTemplatesApi.getByViolationType(violationTypeId),
+    isActive: (assignment) => assignment.isActive,
+    isAmongApprovers: isEmployeeAmongViolationApprovers,
+    buildStates: buildApproverStatesFromAssignment,
+    getActionContext: getViolationApproverActionContext,
+  }) as Promise<ApprovalAccessResult<DisciplineApprovalTemplateResponseDto, ViolationApproverStatesSnapshot>>;
 }

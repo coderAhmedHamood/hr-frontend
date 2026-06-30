@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import {
@@ -13,6 +14,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/shared/utils';
 import { Logo } from '@/components/layouts/logo';
+import { useDefaultCompanyBranding } from '@/features/auth/hooks/use-default-company-branding';
 import { useSidebar } from '@/components/layouts/sidebar-context';
 import { hrDisciplineNavGroups } from '@/features/hr/discipline/lib/types';
 import { hrNotificationsNavGroups } from '@/features/hr/notifications/constants/nav';
@@ -153,6 +155,7 @@ const mobileNav: MobileNavItem[] = [
 ];
 
 function MobileDrawer({ onClose }: { onClose: () => void }) {
+  const { logoUrl, logoAlt } = useDefaultCompanyBranding();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [expanded, setExpanded] = React.useState<Set<string>>(new Set());
@@ -205,7 +208,7 @@ function MobileDrawer({ onClose }: { onClose: () => void }) {
       {/* Header */}
       <div className="flex items-center justify-between border-b border-sidebar-border/50 p-4">
         <div className="flex items-center gap-2.5">
-          <Logo size={30} />
+          <Logo size={30} src={logoUrl} alt={logoAlt} />
           <div className="flex flex-col leading-none">
             <span className="font-display text-base font-bold tracking-tight">روز</span>
             <span className="text-[9px] text-sidebar-foreground/60 tracking-[0.2em] uppercase">rose HR</span>
@@ -317,30 +320,62 @@ function MobileDrawer({ onClose }: { onClose: () => void }) {
 export function Sidebar() {
   const { open, setOpen } = useSidebar();
   const close = React.useCallback(() => setOpen(false), [setOpen]);
+  const [mounted, setMounted] = React.useState(false);
 
-  return (
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  React.useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') close();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [open, close]);
+
+  React.useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1024px)');
+    const onDesktop = () => {
+      if (mq.matches) setOpen(false);
+    };
+    onDesktop();
+    mq.addEventListener('change', onDesktop);
+    return () => mq.removeEventListener('change', onDesktop);
+  }, [setOpen]);
+
+  React.useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
+  if (!mounted || !open) return null;
+
+  return createPortal(
     <>
-      {/* Backdrop */}
       <div
-        className={cn(
-          'fixed inset-0 z-40 bg-black/50 backdrop-blur-sm transition-opacity duration-300 lg:hidden',
-          open ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none',
-        )}
+        className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm xl:hidden"
         onClick={close}
-        aria-hidden="true"
+        aria-hidden
       />
-
-      {/* Mobile drawer */}
       <aside
         className={cn(
-          'fixed inset-y-0 right-0 z-50 flex w-72 flex-col shadow-luxe transition-transform duration-300 ease-in-out lg:hidden',
-          open ? 'translate-x-0' : 'translate-x-full',
+          'fixed inset-y-0 right-0 z-50 flex w-[min(100vw-2rem,18rem)] max-w-[85vw] flex-col shadow-luxe xl:hidden',
         )}
+        role="dialog"
+        aria-modal="true"
+        aria-label="القائمة الرئيسية"
       >
         <React.Suspense fallback={null}>
           <MobileDrawer onClose={close} />
         </React.Suspense>
       </aside>
-    </>
+    </>,
+    document.body,
   );
 }

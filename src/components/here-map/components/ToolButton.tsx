@@ -15,8 +15,8 @@ export function ToolButton({ tool, isActive, onClick, isDark = true }: ToolButto
         "flex items-center gap-2 rounded-md px-2.5 py-2 text-right text-xs transition-all border w-full",
         isActive
           ? isDark
-            ? "bg-primaryColor border-primaryColor text-white shadow-md shadow-primaryColor/50"
-            : "bg-primaryColor border-primaryColor text-white shadow-md shadow-primaryColor/20"
+            ? "bg-primary border-primary text-white shadow-md shadow-primary/50"
+            : "bg-primary border-primary text-white shadow-md shadow-primary/20"
           : isDark
             ? "bg-slate-700/60 border-slate-600 text-slate-300 hover:bg-slate-600 hover:text-white"
             : "bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200 hover:text-gray-900",

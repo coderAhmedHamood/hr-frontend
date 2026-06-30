@@ -15,6 +15,8 @@ type Props = {
 };
 
 export function DeleteRoleDialog({ role, isDeleting, onConfirm, onClose }: Props) {
+  const isSystemRole = role?.isSystem === true;
+
   return (
     <Dialog open={!!role} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-sm">
@@ -23,24 +25,38 @@ export function DeleteRoleDialog({ role, isDeleting, onConfirm, onClose }: Props
             <AlertTriangle className="h-5 w-5" /> حذف الدور
           </DialogTitle>
           <DialogDescription className="pt-1 leading-relaxed">
-            هل أنت متأكد من حذف دور{' '}
-            <span className="font-semibold text-foreground">
-              &quot;{role?.nameAr ?? role?.name}&quot;
-            </span>
-            ؟ سيفقد المستخدمون المرتبطون به صلاحياتهم. لا يمكن التراجع عن هذا الإجراء.
+            {isSystemRole ? (
+              <>
+                دور{' '}
+                <span className="font-semibold text-foreground">
+                  &quot;{role?.nameAr ?? role?.name}&quot;
+                </span>{' '}
+                دور نظامي مدمج في التطبيق ولا يمكن حذفه. يمكنك إنشاء أدوار مخصصة بدلاً من ذلك.
+              </>
+            ) : (
+              <>
+                هل أنت متأكد من حذف دور{' '}
+                <span className="font-semibold text-foreground">
+                  &quot;{role?.nameAr ?? role?.name}&quot;
+                </span>
+                ؟ سيفقد المستخدمون المرتبطون به صلاحياتهم. لا يمكن التراجع عن هذا الإجراء.
+              </>
+            )}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter className="pt-2">
-          <Button
-            variant="destructive"
-            disabled={isDeleting}
-            onClick={() => role && onConfirm(role.id)}
-          >
-            <Trash2 className="h-4 w-4" />
-            {isDeleting ? 'جاري الحذف…' : 'حذف الدور'}
-          </Button>
+          {!isSystemRole ? (
+            <Button
+              variant="destructive"
+              disabled={isDeleting}
+              onClick={() => role && onConfirm(role.id)}
+            >
+              <Trash2 className="h-4 w-4" />
+              {isDeleting ? 'جاري الحذف…' : 'حذف الدور'}
+            </Button>
+          ) : null}
           <Button variant="outline" onClick={onClose} disabled={isDeleting}>
-            إلغاء
+            {isSystemRole ? 'حسناً' : 'إلغاء'}
           </Button>
         </DialogFooter>
       </DialogContent>

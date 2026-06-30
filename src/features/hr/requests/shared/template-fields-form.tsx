@@ -1,13 +1,26 @@
 'use client';
 
 import * as React from 'react';
-import { Input } from '@/components/ui/input';
+import ModernTimePicker from '@/components/ui/modern-time-picker';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import type { HRRequestFieldDefinition, HRRequestTemplateEntity } from '@/features/hr/requests/lib/types';
 import { cn } from '@/shared/utils';
 
 export type HRRequestTemplateFieldsFormValues = Record<string, unknown>;
+
+function splitDatetimeLocal(value: string): { date: string; time: string } {
+  if (!value?.trim()) return { date: '', time: '' };
+  const [date = '', time = ''] = value.split('T');
+  return { date, time: time.slice(0, 5) };
+}
+
+function joinDatetimeLocal(date: string, time: string): string {
+  if (!date && !time) return '';
+  if (!date) return time ? `T${time}` : '';
+  if (!time) return date;
+  return `${date}T${time}`;
+}
 
 export function validateTemplateRequired(fields: HRRequestFieldDefinition[], values: HRRequestTemplateFieldsFormValues): string | null {
   for (const f of fields) {
@@ -139,17 +152,36 @@ function FieldInput({ field, value, onChange }: { field: HRRequestFieldDefinitio
       return (
         <div className="space-y-1.5">
           {label}
-          <input type="time" className={base} value={(value as string) ?? ''} onChange={e => onChange(e.target.value)} dir="ltr" />
+          <ModernTimePicker
+            value={(value as string) ?? ''}
+            onChange={(v) => onChange(v)}
+            placeholder={field.placeholder ?? 'اختر الوقت'}
+          />
         </div>
       );
 
-    case 'datetime':
+    case 'datetime': {
+      const { date, time } = splitDatetimeLocal((value as string) ?? '');
       return (
         <div className="space-y-1.5">
           {label}
-          <input type="datetime-local" className={base} value={(value as string) ?? ''} onChange={e => onChange(e.target.value)} dir="ltr" />
+          <div className="grid gap-2 sm:grid-cols-2">
+            <input
+              type="date"
+              className={base}
+              value={date}
+              onChange={(e) => onChange(joinDatetimeLocal(e.target.value, time))}
+              dir="ltr"
+            />
+            <ModernTimePicker
+              value={time}
+              onChange={(t) => onChange(joinDatetimeLocal(date, t))}
+              placeholder={field.placeholder ?? 'اختر الوقت'}
+            />
+          </div>
         </div>
       );
+    }
 
     case 'email':
       return (

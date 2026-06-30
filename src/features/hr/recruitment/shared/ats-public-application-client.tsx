@@ -211,10 +211,7 @@ export function AtsPublicApplicationClient({ jobSlug }: PublicApplicationClientP
 
       <Card className="mb-6 overflow-hidden">
         <div className="relative bg-linear-to-br from-primary/10 via-primary/5 to-background px-6 pb-6 pt-8">
-          <div
-            className="absolute inset-0 opacity-10"
-            style={{ backgroundImage: 'radial-gradient(circle at 20% 50%, hsl(var(--primary)) 0%, transparent 50%)' }}
-          />
+          <div className="absolute inset-0 opacity-10 surface-radial-primary-start" />
           <div className="relative">
             <div className="flex items-center gap-2 mb-2">
               <Badge variant="secondary" className="text-[10px]">{JOB_TYPE_LABELS[job.type]}</Badge>

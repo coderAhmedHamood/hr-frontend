@@ -59,6 +59,7 @@ export type ViolationCaseType = {
 export type ViolationCaseListFilters = {
   selectedEmpIds: string[];
   statusFilter: 'all' | ViolationRecordStatus;
+  violationTypeFilter: string;
   dateFrom: string;
   dateTo: string;
 };
@@ -66,6 +67,7 @@ export type ViolationCaseListFilters = {
 const DEFAULT_LIST_FILTERS: ViolationCaseListFilters = {
   selectedEmpIds: [],
   statusFilter: 'all',
+  violationTypeFilter: 'all',
   dateFrom: '',
   dateTo: '',
 };
@@ -128,6 +130,7 @@ function applyViolationCaseClientFilters(
   return cases.filter((c) => {
     if (selected.size > 1 && !selected.has(c.employeeId)) return false;
     if (filters.statusFilter !== 'all' && c.status !== filters.statusFilter) return false;
+    if (filters.violationTypeFilter !== 'all' && c.violationTypeId !== filters.violationTypeFilter) return false;
     return true;
   });
 }
@@ -196,10 +199,11 @@ export function useViolationCasesDirectoryModel() {
       page,
       limit,
       ...(apiEmployeeId ? { employeeId: apiEmployeeId } : {}),
+      ...(listFilters.violationTypeFilter !== 'all' ? { violationTypeId: listFilters.violationTypeFilter } : {}),
       ...(listFilters.dateFrom ? { violationDateFrom: listFilters.dateFrom } : {}),
       ...(listFilters.dateTo ? { violationDateTo: listFilters.dateTo } : {}),
     }),
-    [apiEmployeeId, listFilters.dateFrom, listFilters.dateTo],
+    [apiEmployeeId, listFilters.dateFrom, listFilters.dateTo, listFilters.violationTypeFilter],
   );
 
   const mapItems = React.useCallback(
@@ -263,6 +267,7 @@ export function useViolationCasesDirectoryModel() {
       listFilters.dateFrom,
       listFilters.dateTo,
       listFilters.statusFilter,
+      listFilters.violationTypeFilter,
       listFilters.selectedEmpIds.join(','),
     ],
   });

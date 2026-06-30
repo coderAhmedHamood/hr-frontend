@@ -8,7 +8,7 @@ import {
   ShieldAlert, UserX, Timer, ArrowUpRight, ChevronLeft,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { getInitials, cn, formatNumber, toWesternDigits } from '@/shared/utils';
+import { getInitials, cn, formatNumber, formatDisplayDate } from '@/shared/utils';
 import { useSetPageTitle } from '@/components/layouts/page-title-context';
 import { useHRViolationCasesStore } from '@/features/hr/discipline/lib/violation-cases-store';
 import { useHRContractsStore } from '@/features/hr/contracts/lib/contracts-store';
@@ -17,7 +17,7 @@ import { hrContractsRoutes } from '@/features/hr/contracts/constants/routes';
 import { hrPayrollRoutes } from '@/features/hr/payroll/constants/routes';
 
 /* ─── Sparkline ──────────────────────────────────────────────────────────────── */
-function Sparkline({ values, color }: { values: number[]; color: string }) {
+function Sparkline({ values, className }: { values: number[]; className?: string }) {
   const max = Math.max(...values);
   const min = Math.min(...values);
   const range = max - min || 1;
@@ -26,32 +26,32 @@ function Sparkline({ values, color }: { values: number[]; color: string }) {
     .map((v, i) => `${(i / (values.length - 1)) * W},${H - ((v - min) / range) * (H - 2) - 1}`)
     .join(' ');
   return (
-    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} fill="none" className="overflow-visible opacity-80">
-      <polyline points={pts} stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} fill="none" className={cn('overflow-visible opacity-80', className)}>
+      <polyline points={pts} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
       <circle
         cx={(values.length - 1) / (values.length - 1) * W}
         cy={H - ((values[values.length - 1] - min) / range) * (H - 2) - 1}
-        r="2.5" fill={color}
+        r="2.5" fill="currentColor"
       />
     </svg>
   );
 }
 
 /* ─── Radial progress ────────────────────────────────────────────────────────── */
-function RadialProgress({ value, size = 80, stroke = 7, color }: {
-  value: number; size?: number; stroke?: number; color: string;
+function RadialProgress({ value, size = 80, stroke = 7, className }: {
+  value: number; size?: number; stroke?: number; className?: string;
 }) {
   const r = (size - stroke) / 2;
   const circ = 2 * Math.PI * r;
   const offset = circ - (value / 100) * circ;
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90">
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className={cn('-rotate-90', className)}>
       <circle cx={size / 2} cy={size / 2} r={r} strokeWidth={stroke} stroke="currentColor" className="text-border" fill="none" />
       <circle
         cx={size / 2} cy={size / 2} r={r} strokeWidth={stroke}
-        stroke={color} fill="none" strokeLinecap="round"
+        stroke="currentColor" fill="none" strokeLinecap="round"
         strokeDasharray={circ} strokeDashoffset={offset}
-        style={{ transition: 'stroke-dashoffset 0.6s ease' }}
+        className="transition-[stroke-dashoffset] duration-500 ease-out"
       />
     </svg>
   );
@@ -78,15 +78,7 @@ export function DashboardPage() {
   const activeContracts  = contracts.filter(c => c.status === 'active').length;
   const pendingLeaves    = 0;
 
-  const dateAr = toWesternDigits(
-    new Intl.DateTimeFormat('ar-SA', {
-      numberingSystem: 'latn',
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    }).format(new Date()),
-  );
+  const dateAr = formatDisplayDate(new Date().toISOString());
 
   return (
     <div className="space-y-5 animate-fade-in" dir="rtl">
@@ -94,19 +86,19 @@ export function DashboardPage() {
       {/* ════════════════════════════════════════════════════════════════
           HERO — gradient banner with greeting + live date
       ════════════════════════════════════════════════════════════════ */}
-      <div className="relative overflow-hidden rounded-2xl bg-[hsl(175,55%,14%)] text-white shadow-luxe">
+      <div className="relative overflow-hidden rounded-2xl bg-primary-900 text-primary-foreground shadow-luxe">
         {/* layered glow circles */}
-        <div className="pointer-events-none absolute -top-16 -right-16 h-56 w-56 rounded-full bg-[hsl(175,50%,30%)] opacity-20 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-10 left-10 h-40 w-40 rounded-full bg-[hsl(38,62%,52%)] opacity-10 blur-2xl" />
+        <div className="pointer-events-none absolute -top-16 -right-16 h-56 w-56 rounded-full bg-primary-500 opacity-20 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-10 left-10 h-40 w-40 rounded-full bg-gold opacity-10 blur-2xl" />
 
         <div className="relative flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
           {/* greeting */}
           <div>
-            <p className="text-[11px] font-medium tracking-widest uppercase text-white/50 mb-1">{dateAr}</p>
-            <h1 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-white leading-snug">
+            <p className="text-[11px] font-medium tracking-widest uppercase text-primary-foreground/50 mb-1">{dateAr}</p>
+            <h1 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-primary-foreground leading-snug">
               لوحة التحكم
             </h1>
-            <p className="mt-1 text-sm text-white/60">
+            <p className="mt-1 text-sm text-primary-foreground/60">
               {presentCount + lateCount} موظف حاضر اليوم من أصل {total}
             </p>
           </div>
@@ -114,16 +106,16 @@ export function DashboardPage() {
           {/* attendance ring + legend */}
           <div className="flex items-center gap-4">
             <div className="relative">
-              <RadialProgress value={attendanceRate} size={72} stroke={6} color="hsl(38,62%,52%)" />
+              <RadialProgress value={attendanceRate} size={72} stroke={6} className="text-gold" />
               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="font-display text-lg font-bold text-white leading-none">{attendanceRate}%</span>
-                <span className="text-[9px] text-white/50">حضور</span>
+                <span className="font-display text-lg font-bold text-primary-foreground leading-none">{attendanceRate}%</span>
+                <span className="text-[9px] text-primary-foreground/50">حضور</span>
               </div>
             </div>
             <div className="flex flex-col gap-1.5 text-[11px]">
-              <span className="flex items-center gap-1.5 text-white/80"><span className="h-2 w-2 rounded-full bg-success inline-block shrink-0" />{presentCount} حاضر</span>
-              <span className="flex items-center gap-1.5 text-white/80"><span className="h-2 w-2 rounded-full bg-warning inline-block shrink-0"   />{lateCount} متأخر</span>
-              <span className="flex items-center gap-1.5 text-white/80"><span className="h-2 w-2 rounded-full bg-destructive inline-block shrink-0"    />{absentCount} غائب</span>
+              <span className="flex items-center gap-1.5 text-primary-foreground/80"><span className="h-2 w-2 rounded-full bg-success inline-block shrink-0" />{presentCount} حاضر</span>
+              <span className="flex items-center gap-1.5 text-primary-foreground/80"><span className="h-2 w-2 rounded-full bg-warning inline-block shrink-0"   />{lateCount} متأخر</span>
+              <span className="flex items-center gap-1.5 text-primary-foreground/80"><span className="h-2 w-2 rounded-full bg-destructive inline-block shrink-0"    />{absentCount} غائب</span>
             </div>
           </div>
         </div>
@@ -133,7 +125,7 @@ export function DashboardPage() {
           <div className="bg-success transition-all" style={{ width: `${total ? (presentCount / total) * 100 : 0}%` }} />
           <div className="bg-warning transition-all"   style={{ width: `${total ? (lateCount    / total) * 100 : 0}%` }} />
           <div className="bg-destructive transition-all"    style={{ width: `${total ? (absentCount  / total) * 100 : 0}%` }} />
-          <div className="flex-1 bg-white/10" />
+          <div className="flex-1 bg-primary-foreground/10" />
         </div>
       </div>
 
@@ -153,7 +145,7 @@ export function DashboardPage() {
             accentLight: 'bg-primary/8 border-primary/20',
             iconBg: 'bg-primary/10 text-primary',
             valueColor: 'text-primary',
-            sparkColor: 'hsl(175,55%,22%)',
+            sparkClassName: 'text-primary-700',
           },
           {
             label: 'نسبة الحضور',
@@ -166,7 +158,7 @@ export function DashboardPage() {
             accentLight: 'bg-success/10 border-success/20 dark:bg-success/15 dark:border-success/25',
             iconBg: 'bg-success/15 text-success dark:bg-success/20 dark:text-success',
             valueColor: 'text-success dark:text-success',
-            sparkColor: 'hsl(var(--success))',
+            sparkClassName: 'text-success',
           },
           {
             label: 'إجازات معلقة',
@@ -179,7 +171,7 @@ export function DashboardPage() {
             accentLight: 'bg-primary/8 border-primary/20 dark:bg-primary/10 dark:border-primary/25',
             iconBg: 'bg-primary/12 text-primary-700 dark:bg-primary/20 dark:text-primary',
             valueColor: 'text-primary-700 dark:text-primary',
-            sparkColor: 'hsl(var(--primary))',
+            sparkClassName: 'text-primary',
           },
           {
             label: 'عقود نشطة',
@@ -192,7 +184,7 @@ export function DashboardPage() {
             accentLight: 'bg-gold/10 border-gold/25 dark:bg-gold/10 dark:border-gold/30',
             iconBg: 'bg-gold/15 text-gold dark:bg-gold/15 dark:text-gold',
             valueColor: 'text-gold dark:text-gold',
-            sparkColor: 'hsl(var(--gold))',
+            sparkClassName: 'text-gold',
           },
         ].map(k => (
           <Link
@@ -220,7 +212,7 @@ export function DashboardPage() {
 
             {/* footer: sparkline + delta */}
             <div className="mt-3 flex items-end justify-between">
-              <Sparkline values={k.sparkline} color={k.sparkColor} />
+              <Sparkline values={k.sparkline} className={k.sparkClassName} />
               {k.delta && (
                 <span className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 bg-success/15 text-success dark:bg-success/20 dark:text-success">
                   {k.delta}

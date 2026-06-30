@@ -12,13 +12,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DatePickerInput } from '@/components/ui/date-picker-input';
 import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
-import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
+import { usePageHeaderActions, usePageHeaderActionsState } from '@/components/layouts/page-header-actions-context';
 import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import {
   ConfirmationModal, HRSettingsFormDrawer, FormField,
   EmptyState,
-} from '@/features/hr/requests/components/shared-ui';
+} from '@/components/ui/shared-dialogs';
 import { Checkbox } from '@/components/ui/checkbox';
 import { EmployeePicker } from '@/components/ui/employee-picker';
 import { useDisciplineCircularsDirectoryModel } from '@/features/hr/discipline/circulars/hooks/useDisciplineCircularsDirectoryModel';
@@ -29,7 +29,7 @@ import {
   CIRCULAR_AUDIENCE_FILTER_ORDER,
 } from '@/features/hr/discipline/lib/types';
 import type { HRDisciplineCircularRecord } from '@/features/hr/discipline/lib/types';
-import type { DateFilterTab } from '@/features/hr/discipline/lib/discipline-date-filter';
+import { useDisciplineDateFilterState } from '@/features/hr/discipline/lib/use-discipline-date-filter-state';
 import {
   DisciplineFilterToolbar,
   type DisciplineFilterToolbarHandle,
@@ -67,16 +67,14 @@ function canMutateCircular(c: HRDisciplineCircularRecord) {
 export function CircularsClient() {
   const m = useDisciplineCircularsDirectoryModel();
   const { setListFilters } = m;
+  const { filterPanelOpen } = usePageHeaderActionsState();
 
   const [q, setQ] = React.useState('');
   const [selectedEmpIds, setSelectedEmpIds] = React.useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = React.useState<DisciplineViewMode>('cards');
   const [audienceFilter, setAudienceFilter] = React.useState<AudienceFilter>('all');
-  const [dateBounds, setDateBounds] = React.useState({ from: '', to: '' });
-  const [dateMeta, setDateMeta] = React.useState<{ tab: DateFilterTab; hasRestriction: boolean }>({ tab: 'all', hasRestriction: false });
+  const { dateBounds, dateMeta, onDateBoundsChange, onDateFilterMetaChange } = useDisciplineDateFilterState();
   const filterToolbarRef = React.useRef<DisciplineFilterToolbarHandle>(null);
-  const onDateBoundsChange = React.useCallback((b: { from: string; to: string }) => { setDateBounds(b); }, []);
-  const onDateFilterMetaChange = React.useCallback((m: { tab: DateFilterTab; hasRestriction: boolean }) => { setDateMeta(m); }, []);
 
   const empPickerList = React.useMemo(
     () => m.employees.map((e) => ({ id: e.id, name: e.nameAr })),
@@ -100,6 +98,14 @@ export function CircularsClient() {
     });
   }, [q, selectedEmpIds, audienceFilter, dateBounds.from, dateBounds.to, setListFilters]);
 
+  // Load filter reference data lazily: only when filter panel opens or drawer opens.
+  const loadFilterDirectory = m.loadFilterDirectory;
+  React.useEffect(() => {
+    if (filterPanelOpen || drawerOpen) {
+      void loadFilterDirectory();
+    }
+  }, [filterPanelOpen, drawerOpen, loadFilterDirectory]);
+
   const listFiltered = m.filteredItems;
   const filtered = m.dateFilteredItems;
   const searchFiltered = m.searchFilteredItems;
@@ -117,7 +123,7 @@ export function CircularsClient() {
 
   usePageHeaderActions(
     () => (
-      <div className="flex items-center gap-2">
+      <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
         <FilterToggleButton activeFilterCount={activeFilterCount} />
         <Button variant="luxe" size="sm" className="h-8 gap-1.5 px-3 text-xs shadow-sm shrink-0"
           onClick={() => { setDraft({ ...EMPTY, date: new Date().toISOString().slice(0, 10), executeSend: false }); setFormError(null); setDrawerOpen(true); }}>
@@ -151,7 +157,7 @@ export function CircularsClient() {
             />
           </div>
         )}
-        empPickerEmployees={empPickerList}
+        companyId={m.companyId}
         selectedEmpIds={selectedEmpIds}
         onSelectedEmpIdsChange={setSelectedEmpIds}
         statusFilter={audienceFilter}
@@ -165,7 +171,7 @@ export function CircularsClient() {
         onDateFilterMetaChange={onDateFilterMetaChange}
       />
     ),
-    [q, empPickerList, selectedEmpIds, audienceFilter, statusCounts, viewMode, onDateBoundsChange, onDateFilterMetaChange],
+    [q, m.companyId, selectedEmpIds, audienceFilter, statusCounts, viewMode, onDateBoundsChange, onDateFilterMetaChange],
   );
 
   const set = (patch: Partial<DraftForm>) => setDraft((d) => ({ ...d, ...patch }));
@@ -205,7 +211,7 @@ export function CircularsClient() {
     {
       key: 'body',
       title: 'النص',
-      className: 'max-w-[24rem] truncate text-xs text-muted-foreground',
+      className: 'max-w-[20rem] truncate text-xs text-muted-foreground',
       render: (c) => c.bodyAr,
     },
     {

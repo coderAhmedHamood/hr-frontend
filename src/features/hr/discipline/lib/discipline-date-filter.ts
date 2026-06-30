@@ -2,6 +2,13 @@
 
 export type DateFilterTab = 'all' | 'today' | 'week' | 'month' | 'custom';
 
+export const DEFAULT_DATE_FILTER_TAB: DateFilterTab = 'today';
+
+export const DEFAULT_DATE_FILTER_META = {
+  tab: DEFAULT_DATE_FILTER_TAB,
+  hasRestriction: true,
+} as const;
+
 export function recordDateComparable(dateStr: string): number | null {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr.trim());
   if (!m) return null;
@@ -43,6 +50,26 @@ export function thisCalendarMonthYMD(): { from: string; to: string } {
 
 export function hasDateRangeFilter(fromStr: string, toStr: string): boolean {
   return Boolean(fromStr.trim() || toStr.trim());
+}
+
+export const EMPTY_PERIOD_RANGE = { from: '', to: '' } as const;
+
+/** Whether the current period differs from the page default (for «مسح الكل»). */
+export function isPeriodFilterActive(
+  current: { from: string; to: string },
+  defaults: { from: string; to: string } = EMPTY_PERIOD_RANGE,
+): boolean {
+  return current.from !== defaults.from || current.to !== defaults.to;
+}
+
+/** Normalize picker output to a closed YMD interval (single-day when `to` omitted). */
+export function normalizePeriodRange(range: { from: string; to: string }): { from: string; to: string } | null {
+  const from = range.from?.trim() ?? '';
+  let to = range.to?.trim() ?? '';
+  if (!from) return null;
+  if (!to) to = from;
+  if (from > to) return { from: to, to: from };
+  return { from, to };
 }
 
 export function comparableRangeBounds(fromStr: string, toStr: string): { lo: number | null; hi: number | null } {
@@ -116,4 +143,8 @@ export function effectiveDateRange(tab: DateFilterTab, customFrom: string, custo
 export function dateFilterHasRestriction(tab: DateFilterTab, customFrom: string, customTo: string): boolean {
   const { from, to } = effectiveDateRange(tab, customFrom, customTo);
   return hasDateRangeFilter(from, to);
+}
+
+export function defaultDateFilterBounds(): { from: string; to: string } {
+  return effectiveDateRange(DEFAULT_DATE_FILTER_TAB, '', '');
 }

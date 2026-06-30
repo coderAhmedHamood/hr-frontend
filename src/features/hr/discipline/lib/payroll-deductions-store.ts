@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
 import { getDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 import { disciplinePayrollDeductionsApi } from './api/discipline-payroll-deductions';
+import { ApiError } from '@/features/hr/lib/api/client';
 import type { DisciplinePayrollDeductionResponseDto, PayrollDeductionTypeDto, PayrollDeductionStatusDto } from './api/discipline-payroll-deductions';
 import type { HRDisciplinePayrollDeductionRecord, HRViolationDeductionKind, HRDeductionStatus } from './types';
 
@@ -66,7 +67,7 @@ function mapApi(r: DisciplinePayrollDeductionResponseDto): HRDisciplinePayrollDe
 interface DedState {
   deductions: HRDisciplinePayrollDeductionRecord[];
   isLoading: boolean;
-  error: string | null;
+  error: { message: string; status: number } | null;
   fetch: () => Promise<void>;
   add: (d: Omit<HRDisciplinePayrollDeductionRecord, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
   update: (id: string, patch: Partial<HRDisciplinePayrollDeductionRecord>) => Promise<void>;
@@ -86,7 +87,7 @@ export const useHRDisciplinePayrollDeductionsStore = create<DedState>()((set) =>
       const result = await disciplinePayrollDeductionsApi.getAll({ companyId, limit: 200 });
       set({ deductions: result.items.map(mapApi), isLoading: false });
     } catch (e) {
-      set({ error: (e as Error).message, isLoading: false });
+      set({ error: { message: (e as Error).message, status: e instanceof ApiError ? e.status : 0 }, isLoading: false });
     }
   },
 

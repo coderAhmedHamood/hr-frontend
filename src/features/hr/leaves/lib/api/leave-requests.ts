@@ -1,30 +1,8 @@
 import { apiRequest, type PaginatedResult } from '@/features/hr/lib/api/client';
+import type { LeaveRequestStatus, LeaveRequestResponseDto, LeaveRequestListQuery, CreateLeaveRequestDto, UpdateLeaveRequestDto } from '@/features/hr/leaves/types/api/leave-requests';
+export type { LeaveRequestStatus, LeaveRequestResponseDto, LeaveRequestListQuery, CreateLeaveRequestDto, UpdateLeaveRequestDto } from '@/features/hr/leaves/types/api/leave-requests';
 
-export type LeaveRequestStatus =
-  | 'pending'
-  | 'approved'
-  | 'rejected'
-  | 'cancelled'
-  | 'under_review';
 
-export type LeaveRequestResponseDto = {
-  id: string;
-  companyId: string;
-  employeeId: string;
-  leaveTypeId: string;
-  employeeAssignmentId: string | null;
-  status: LeaveRequestStatus;
-  startDate: string | null;
-  endDate: string | null;
-  workingDays: number | null;
-  noteAr: string | null;
-  noteEn: string | null;
-  approvalChain: Record<string, unknown>[] | null;
-  createdAt: string;
-  updatedAt: string;
-  createdBy: string | null;
-  updatedBy: string | null;
-};
 
 /** Raw row from GET /requests/leave-requests */
 type ApiLeaveRequestRow = {
@@ -43,31 +21,8 @@ type ApiLeaveRequestRow = {
   updatedBy: string | null;
 };
 
-export type LeaveRequestListQuery = {
-  page?: number;
-  limit?: number;
-  companyId?: string;
-  employeeId?: string;
-  leaveTypeId?: string;
-  employeeAssignmentId?: string;
-  status?: LeaveRequestStatus;
-};
 
-export type CreateLeaveRequestDto = {
-  companyId: string;
-  employeeId: string;
-  leaveTypeId: string;
-  employeeAssignmentId?: string | null;
-  status?: LeaveRequestStatus;
-  startDate?: string | null;
-  endDate?: string | null;
-  workingDays?: number | null;
-  noteAr?: string | null;
-};
 
-export type UpdateLeaveRequestDto = Partial<
-  Pick<CreateLeaveRequestDto, 'status' | 'startDate' | 'endDate' | 'workingDays' | 'noteAr'>
->;
 
 function mapLeaveRequestRow(row: ApiLeaveRequestRow): LeaveRequestResponseDto {
   return {
@@ -90,9 +45,9 @@ function mapLeaveRequestRow(row: ApiLeaveRequestRow): LeaveRequestResponseDto {
   };
 }
 
-async function mapLeaveRequestPage(
+function mapLeaveRequestPage(
   result: PaginatedResult<ApiLeaveRequestRow>,
-): Promise<PaginatedResult<LeaveRequestResponseDto>> {
+): PaginatedResult<LeaveRequestResponseDto> {
   return {
     items: result.items.map(mapLeaveRequestRow),
     pagination: result.pagination,
@@ -142,3 +97,4 @@ export const leaveRequestsApi = {
     return apiRequest<void>(`/requests/leave-requests/${id}`, { method: 'DELETE' });
   },
 };
+

@@ -7,6 +7,7 @@ import {
   type ApiLeaveRequest,
   type ApiCorrectionRequest,
 } from './api/correction-requests';
+import { ApiError } from '@/features/hr/lib/api/client';
 import type {
   HRRequestSubmissionRecord,
   HRSubmissionApprovalStageState,
@@ -98,7 +99,7 @@ function mapCorrectionRequest(r: ApiCorrectionRequest): HRRequestSubmissionRecor
 interface SubmissionsState {
   submissions: HRRequestSubmissionRecord[];
   isLoading: boolean;
-  error: string | null;
+  error: { message: string; status: number } | null;
   fetch: () => Promise<void>;
   addSubmission: (data: Omit<HRRequestSubmissionRecord, 'id' | 'createdAt'>) => void;
   deleteSubmission: (id: string) => void;
@@ -129,7 +130,7 @@ export const useHRRequestSubmissionsStore = create<SubmissionsState>()((set) => 
       ].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
       set({ submissions, isLoading: false });
     } catch (e) {
-      set({ error: (e as Error).message, isLoading: false });
+      set({ error: { message: (e as Error).message, status: e instanceof ApiError ? e.status : 0 }, isLoading: false });
     }
   },
 

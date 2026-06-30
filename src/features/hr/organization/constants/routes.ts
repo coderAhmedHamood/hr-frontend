@@ -15,4 +15,5 @@ export const hrOrganizationRoutes = {
   pages: `${HR_ORGANIZATION_BASE}/pages`,
   pagesHr: `${HR_ORGANIZATION_BASE}/pages/hr`,
   pagesOrganization: `${HR_ORGANIZATION_BASE}/pages/organization`,
+  pagesCompany: `${HR_ORGANIZATION_BASE}/pages/company`,
 } as const;

@@ -1,7 +1,6 @@
 'use client';
 
 import {
-  X,
   Clock,
   Layers,
   Link2,
@@ -13,8 +12,8 @@ import {
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { SingleDatePicker } from '@/components/ui/single-date-picker';
-import { cn, formatDate } from '@/shared/utils';
+import { cn } from '@/shared/utils';
+import { EmployeeAttendanceDateFilter } from '@/features/hr/organization/employees/components/employee-attendance-date-filter';
 import { EmployeeAttendanceDialogs } from '@/features/hr/organization/employees/components/dialogs/EmployeeAttendanceDialogs';
 import { EmployeeAttendanceRecentEvents } from '@/features/hr/organization/employees/components/sections/employee-attendance-recent-events';
 import type { EmployeeProfileModel } from '@/features/hr/organization/employees/hooks/useEmployeeProfileModel';
@@ -22,10 +21,12 @@ import type { EmployeeProfileModel } from '@/features/hr/organization/employees/
 export function EmployeeAttendanceSection({ model }: { model: EmployeeProfileModel }) {
   const {
     employee,
-    attFrom,
-    setAttFrom,
-    attTo,
-    setAttTo,
+    dateFilterTab,
+    customFrom,
+    customTo,
+    setAttendanceDateFilterTab,
+    applyCustomAttendanceRange,
+    resetAttendanceDateFilter,
     effectiveRange,
     employeeAssignments,
     shiftTemplates,
@@ -169,7 +170,7 @@ export function EmployeeAttendanceSection({ model }: { model: EmployeeProfileMod
         </div>
       </div>
 
-      <div className="flex h-[68vh] min-h-[400px] shrink-0 flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+      <div className="flex flex-col rounded-xl border border-border bg-card shadow-sm">
         <div className="flex shrink-0 flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-2">
         <h3 className="text-sm font-semibold text-foreground">حركات الحضور</h3>
@@ -181,47 +182,20 @@ export function EmployeeAttendanceSection({ model }: { model: EmployeeProfileMod
             </Button>
           </div>
 
-          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-x-2 sm:gap-y-2">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
             <span className="shrink-0 text-xs font-medium text-muted-foreground">تصفية بالتاريخ:</span>
-            <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center sm:gap-2 lg:flex-initial">
-              <SingleDatePicker
-                value={attFrom}
-                onChange={setAttFrom}
-                placeholder="من تاريخ"
-                wrapperClassName="min-w-0 w-full sm:w-[10.5rem]"
-                className="h-8 min-w-0 text-xs"
-              />
-              <span className="hidden shrink-0 text-muted-foreground text-xs sm:inline" aria-hidden>←</span>
-              <SingleDatePicker
-                value={attTo}
-                onChange={setAttTo}
-                placeholder="إلى تاريخ"
-                wrapperClassName="min-w-0 w-full sm:w-[10.5rem]"
-                className="h-8 min-w-0 text-xs"
-              />
-              {(attFrom || attTo) && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAttFrom('');
-                    setAttTo('');
-                  }}
-                  className="flex shrink-0 items-center justify-center gap-1 rounded-lg px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
-                >
-                  <X className="h-3 w-3" />
-                  مسح
-                </button>
-              )}
-            </div>
-            {!attFrom && !attTo ? (
-              <span className="text-[10px] text-muted-foreground/70">
-                الفترة: {formatDate(effectiveRange.from)} ← {formatDate(effectiveRange.to)}
-              </span>
-            ) : null}
+            <EmployeeAttendanceDateFilter
+              tab={dateFilterTab}
+              customFrom={customFrom}
+              customTo={customTo}
+              onTabChange={setAttendanceDateFilterTab}
+              onCustomApply={applyCustomAttendanceRange}
+              onReset={resetAttendanceDateFilter}
+            />
           </div>
         </div>
 
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="px-4 pb-4 pt-3">
           <EmployeeAttendanceRecentEvents
             employeeEvents={employeeEvents}
             effectiveFrom={effectiveRange.from}

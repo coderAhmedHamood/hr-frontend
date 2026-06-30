@@ -2,11 +2,10 @@
 
 import * as React from 'react';
 import { useActiveCompany } from '@/features/hr/organization/hooks/useActiveCompany';
-import { getPdfLogoSrc } from '@/components/pdf/lib/pdf-logo-url';
+import { usePdfCompanyLetterhead } from '@/components/pdf/hooks/use-pdf-company-letterhead';
 import { RoseDocumentTemplatePrintHtml } from '@/components/pdf/rose-trading/rose-resignation-template-print-html';
 import { CashReceiptPrintHtml, type CashReceiptReason } from '@/features/hr/payroll/reports/components/pdf-cash-receipt-print-html';
 import type { EmployeeProfileDraft } from '@/features/hr/organization/employees/components/employee-profile-field';
-import { ROSE_TRADING_COMPANY_AR_DEFAULT } from '@/features/hr/organization/employees/lib/employee-rose-forms/types';
 import { buildResignationPrintModel } from '@/features/hr/organization/employees/lib/rose-document-templates/build-resignation-print-model';
 import { buildClearancePrintModel } from '@/features/hr/organization/employees/lib/rose-document-templates/build-clearance-print-model';
 import { buildSettlementPrintModel } from '@/features/hr/organization/employees/lib/rose-document-templates/build-settlement-print-model';
@@ -33,6 +32,7 @@ export type EmployeeProfileHrPdfPayload = {
 
 export function useEmployeeProfileRosePdf(draft: EmployeeProfileDraft) {
   const { data: activeCompany } = useActiveCompany();
+  const pdfCompany = usePdfCompanyLetterhead();
   const resignationTemplate = useRoseResignationTemplateStore((s) => s.template);
   const clearanceTemplate = useRoseClearanceTemplateStore((s) => s.template);
   const settlementTemplate = useRoseSettlementTemplateStore((s) => s.template);
@@ -45,9 +45,10 @@ export function useEmployeeProfileRosePdf(draft: EmployeeProfileDraft) {
   }), [draft]);
 
   const companyNames = React.useMemo(() => ({
-    nameAr: activeCompany?.nameAr ?? ROSE_TRADING_COMPANY_AR_DEFAULT,
-    nameEn: activeCompany?.nameEn ?? 'Rose Trading Est.',
-  }), [activeCompany]);
+    nameAr: activeCompany?.nameAr ?? pdfCompany.companyNameAr,
+    nameEn: activeCompany?.nameEn ?? pdfCompany.companyNameEn,
+    crNumber: activeCompany?.commercialRegistrationNo ?? pdfCompany.commercialReg,
+  }), [activeCompany, pdfCompany]);
 
   const [prepKind, setPrepKind] = React.useState<EmployeeHrPdfPrepKind>(null);
   const [resignationPrepOpen, setResignationPrepOpen] = React.useState(false);
@@ -57,11 +58,6 @@ export function useEmployeeProfileRosePdf(draft: EmployeeProfileDraft) {
   const [templateSettingsOpen, setTemplateSettingsOpen] = React.useState(false);
   const [templateSettingsTab, setTemplateSettingsTab] = React.useState<RoseFormKind>('resignation');
   const [preview, setPreview] = React.useState<EmployeeProfileHrPdfPayload | null>(null);
-  const [rosePdfLogo, setRosePdfLogo] = React.useState<string | undefined>(undefined);
-
-  React.useEffect(() => {
-    setRosePdfLogo(getPdfLogoSrc());
-  }, []);
 
   const closeHrPdfPreview = React.useCallback(() => {
     setPreview(null);
@@ -106,7 +102,6 @@ export function useEmployeeProfileRosePdf(draft: EmployeeProfileDraft) {
       setPreview({
         printable: (
           <RoseDocumentTemplatePrintHtml
-            logoSrc={rosePdfLogo}
             {...model}
           />
         ),
@@ -114,7 +109,7 @@ export function useEmployeeProfileRosePdf(draft: EmployeeProfileDraft) {
         fileName,
       });
     },
-    [rosePdfLogo],
+    [],
   );
 
   const applyResignationWizard = React.useCallback(
@@ -203,7 +198,11 @@ export function useEmployeeProfileRosePdf(draft: EmployeeProfileDraft) {
       setPreview({
         printable: (
           <CashReceiptPrintHtml
-            company={companyNames}
+            company={{
+              nameAr: companyNames.nameAr,
+              nameEn: companyNames.nameEn,
+              crNumber: companyNames.crNumber,
+            }}
             employeeNameAr={draft.name}
             branchNameAr={pdfCtx.branchNameAr}
             amountNumeric={receipt.amount}

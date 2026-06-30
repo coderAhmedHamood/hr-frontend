@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { type ReactNode, useLayoutEffect, useRef } from 'react';
-import { usePageHeaderActionsRegion } from '@/components/layouts/page-header-actions-context';
+import { usePageHeaderFilterRegion } from '@/components/layouts/page-header-actions-context';
 import { StickyPagination, DEFAULT_PAGE_SIZE } from '@/components/ui/sticky-pagination';
 import { cn } from '@/shared/utils';
 
@@ -65,7 +65,7 @@ export function useListPagination<T>(
 
 function useViewportFillHeight<T extends HTMLElement>(bottomGap = 16) {
   const ref = useRef<T>(null);
-  const { filterPanelOpen } = usePageHeaderActionsRegion();
+  const { filterPanelOpen } = usePageHeaderFilterRegion();
 
   useLayoutEffect(() => {
     const el = ref.current;
@@ -172,7 +172,7 @@ interface DirectoryPagedViewsProps<T> {
   loading?: boolean;
 }
 
-/** Paginated directory list with sticky footer (client- or server-side). */
+/** Paginated directory list — single page scroll (no nested viewport). */
 export function DirectoryPagedViews<T>({
   items,
   resetDeps,
@@ -187,16 +187,31 @@ export function DirectoryPagedViews<T>({
     if (!loading && items.length === 0 && serverPagination.total === 0 && empty) {
       return <>{empty}</>;
     }
+
+    const { page, pageSize, total, totalPages, setPage, setPageSize } = serverPagination;
+
+    if (loading && items.length === 0) {
+      return (
+        <div className="py-12 text-center text-sm text-muted-foreground">جاري التحميل…</div>
+      );
+    }
+
     return (
-      <PagedListViewport>
-        <PaginatedListShell pagination={serverPagination}>
-          {loading && items.length === 0 ? (
-            <div className="py-12 text-center text-sm text-muted-foreground">جاري التحميل…</div>
-          ) : (
-            children(items)
-          )}
-        </PaginatedListShell>
-      </PagedListViewport>
+      <div className="flex w-full min-w-0 flex-1 flex-col">
+        <div className="min-w-0">{children(items)}</div>
+        {total > 0 ? (
+          <div className="sticky bottom-2 z-10 mt-4 flex justify-center bg-gradient-to-t from-muted/30 via-background/90 to-transparent px-2 pb-1 pt-4">
+            <StickyPagination
+              page={page}
+              pageSize={pageSize}
+              total={total}
+              totalPages={totalPages}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+            />
+          </div>
+        ) : null}
+      </div>
     );
   }
 
@@ -205,9 +220,21 @@ export function DirectoryPagedViews<T>({
   if (items.length === 0 && empty) return <>{empty}</>;
 
   return (
-    <PagedListViewport>
-      <PaginatedListShell pagination={pagination}>{children(pagination.pageItems)}</PaginatedListShell>
-    </PagedListViewport>
+    <div className="flex w-full min-w-0 flex-1 flex-col">
+      <div className="min-w-0">{children(pagination.pageItems)}</div>
+      {pagination.total > 0 ? (
+        <div className="sticky bottom-2 z-10 mt-4 flex justify-center bg-gradient-to-t from-muted/30 via-background/90 to-transparent px-2 pb-1 pt-4">
+          <StickyPagination
+            page={pagination.page}
+            pageSize={pagination.pageSize}
+            total={pagination.total}
+            totalPages={pagination.totalPages}
+            onPageChange={pagination.setPage}
+            onPageSizeChange={pagination.setPageSize}
+          />
+        </div>
+      ) : null}
+    </div>
   );
 }
 

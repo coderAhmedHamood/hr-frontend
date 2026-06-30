@@ -239,11 +239,6 @@ export function useLeaveBalanceCreditModel() {
     await Promise.all([reloadMeta(), reloadList()]);
   }, [reloadList, reloadMeta]);
 
-  const empPickerList = React.useMemo(
-    () => employeeOptions.map((e) => ({ id: e.id, name: e.name })),
-    [employeeOptions],
-  );
-
   const baseFiltered = React.useMemo(() => sortedRequests, [sortedRequests]);
 
   const statusCounts = React.useMemo(
@@ -354,6 +349,7 @@ export function useLeaveBalanceCreditModel() {
     defaultLeaveTypeNameAr,
     selectedBalance,
     selectedLeaveTypeNameAr,
+    companyId,
     branchId,
     setBranchId,
     departmentId,
@@ -366,7 +362,7 @@ export function useLeaveBalanceCreditModel() {
     setDateBounds,
     branchInlineOptions,
     deptInlineOptions,
-    empPickerList,
+    employeeOptions,
     selectedEmpKey,
     statusCounts,
     addOpen,

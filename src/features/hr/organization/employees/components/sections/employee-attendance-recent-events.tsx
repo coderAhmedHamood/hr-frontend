@@ -1,13 +1,17 @@
 'use client';
 
 import * as React from 'react';
-import Link from 'next/link';
-import { Calendar, CheckCircle2, CircleDot, Clock, Coffee, ExternalLink, MapPin, Settings2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { cn, formatDate } from '@/shared/utils';
+import { Calendar, Clock, Coffee, MapPin } from 'lucide-react';
+import { formatDate } from '@/shared/utils';
 import { Empty } from '@/features/hr/organization/employees/components/EmployeeProfilePrimitives';
 import { EmployeeProfilePagedList } from '@/features/hr/organization/employees/components/employee-profile-paged-list';
 import type { AttendanceEventResponseDto } from '@/features/hr/attendance/lib/api/attendance-events';
+import {
+  ATTENDANCE_SOURCE_LABEL,
+  AttendancePunchPair,
+  durationBetweenIso,
+  formatIsoTimeAr,
+} from '@/features/hr/attendance/components/attendance-punch-pair';
 
 type Props = {
   employeeEvents: AttendanceEventResponseDto[];
@@ -15,35 +19,6 @@ type Props = {
   effectiveTo: string;
   loading?: boolean;
 };
-
-const SRC_LABEL: Record<string, string> = {
-  mobile_app: 'تطبيق',
-  web_portal: 'بوابة',
-  kiosk: 'كشك',
-  manual_hr: 'يدوي',
-  biometric: 'بصمة',
-  system: 'نظام',
-};
-
-function fmtTime(iso?: string | null): string {
-  if (!iso) return '—';
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return iso;
-  let h = d.getHours();
-  const m = d.getMinutes().toString().padStart(2, '0');
-  const period = h < 12 ? 'ص' : 'م';
-  h = h % 12 === 0 ? 12 : h % 12;
-  return `${h}:${m} ${period}`;
-}
-
-function durLabel(fromIso?: string | null, toIso?: string | null): string | null {
-  if (!fromIso || !toIso) return null;
-  const mins = (new Date(toIso).getTime() - new Date(fromIso).getTime()) / 60000;
-  if (!Number.isFinite(mins) || mins <= 0) return null;
-  const h = Math.floor(mins / 60);
-  const m = Math.round(mins % 60);
-  return h > 0 ? `${h}س${m > 0 ? ` ${m}د` : ''}` : `${m}د`;
-}
 
 type DayGroup = {
   checkIn?: AttendanceEventResponseDto;
@@ -68,70 +43,58 @@ function buildDayGroups(employeeEvents: AttendanceEventResponseDto[]): [string, 
 }
 
 function AttendanceDayRow({ date, g }: { date: string; g: DayGroup }) {
-  const dur = durLabel(g.checkIn?.occurredAt, g.checkOut?.occurredAt);
-  const brk = durLabel(g.breakStart?.occurredAt, g.breakEnd?.occurredAt);
+  const dur = durationBetweenIso(g.checkIn?.occurredAt, g.checkOut?.occurredAt);
+  const brk = durationBetweenIso(g.breakStart?.occurredAt, g.breakEnd?.occurredAt);
   const location = g.checkIn?.checkInPointNameAr ?? g.checkOut?.checkInPointNameAr ?? null;
-  const inSource = g.checkIn?.source ? SRC_LABEL[g.checkIn.source] ?? g.checkIn.source : null;
-  const outSource = g.checkOut?.source ? SRC_LABEL[g.checkOut.source] ?? g.checkOut.source : null;
+  const inSource = g.checkIn?.source ? ATTENDANCE_SOURCE_LABEL[g.checkIn.source] ?? g.checkIn.source : null;
+  const outSource = g.checkOut?.source ? ATTENDANCE_SOURCE_LABEL[g.checkOut.source] ?? g.checkOut.source : null;
   const notes = [g.checkIn?.notes, g.checkOut?.notes].filter(Boolean).join(' · ');
+  const hasPunches = Boolean(g.checkIn || g.checkOut);
+  const statusHint =
+    g.checkIn && !g.checkOut
+      ? 'لم يُسجّل خروج'
+      : !g.checkIn && g.checkOut
+        ? 'لم يُسجّل دخول'
+        : null;
 
   return (
-    <div className="grid gap-2 px-4 py-3 transition-colors hover:bg-muted/25 sm:grid-cols-[7.5rem_5rem_5rem_4rem_minmax(0,1fr)] sm:items-center sm:gap-3">
-      <div className="flex items-center gap-2 sm:block">
-        <Calendar className="h-3.5 w-3.5 shrink-0 text-muted-foreground sm:hidden" />
-        <span className="text-sm font-medium text-foreground">{formatDate(date)}</span>
-      </div>
-
-      <div className="flex items-center gap-2 sm:justify-center">
-        <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-success sm:hidden" />
-        <div className="min-w-0 sm:text-center">
-          <p className="font-mono text-sm font-semibold tabular-nums text-success">
-            {fmtTime(g.checkIn?.occurredAt)}
-          </p>
-          {inSource ? <p className="text-[10px] text-muted-foreground">{inSource}</p> : null}
+    <div className="px-3 py-3 transition-colors hover:bg-muted/25 sm:px-4">
+      <div className="flex flex-col gap-3 lg:grid lg:grid-cols-[7.5rem_minmax(0,1.4fr)_minmax(0,1fr)] lg:items-start lg:gap-4">
+        <div className="flex items-center gap-2 lg:pt-2">
+          <Calendar className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          <span className="text-sm font-semibold text-foreground">{formatDate(date)}</span>
         </div>
-      </div>
 
-      <div className="flex items-center gap-2 sm:justify-center">
-        <CircleDot className="h-3.5 w-3.5 shrink-0 text-warning sm:hidden" />
-        <div className="min-w-0 sm:text-center">
-          <p className="font-mono text-sm font-semibold tabular-nums text-warning">
-            {fmtTime(g.checkOut?.occurredAt)}
+        {hasPunches ? (
+          <AttendancePunchPair
+            checkInTime={formatIsoTimeAr(g.checkIn?.occurredAt)}
+            checkOutTime={formatIsoTimeAr(g.checkOut?.occurredAt)}
+            checkInSource={inSource}
+            checkOutSource={outSource}
+            duration={dur}
+          />
+        ) : (
+          <p className="rounded-xl border border-dashed border-border/60 bg-muted/15 px-3 py-4 text-center text-xs text-muted-foreground">
+            لا توجد حركات حضور في هذا اليوم
           </p>
-          {outSource ? <p className="text-[10px] text-muted-foreground">{outSource}</p> : null}
+        )}
+
+        <div className="min-w-0 space-y-1 text-xs text-muted-foreground lg:pt-2">
+          {statusHint ? <p className="font-medium text-warning">{statusHint}</p> : null}
+          {location ? (
+            <p className="flex items-center gap-1 truncate">
+              <MapPin className="h-3 w-3 shrink-0" />
+              <span className="truncate">{location}</span>
+            </p>
+          ) : null}
+          {brk ? (
+            <p className="flex items-center gap-1">
+              <Coffee className="h-3 w-3 shrink-0" />
+              استراحة {brk}
+            </p>
+          ) : null}
+          {notes ? <p className="leading-relaxed text-foreground/80">{notes}</p> : null}
         </div>
-      </div>
-
-      <div className="flex items-center gap-2 sm:justify-center">
-        <Clock className="h-3.5 w-3.5 shrink-0 text-primary/70 sm:hidden" />
-        <span className="font-mono text-sm font-semibold tabular-nums text-primary">
-          {dur ?? '—'}
-        </span>
-      </div>
-
-      <div className="min-w-0 space-y-0.5 text-xs text-muted-foreground">
-        {location ? (
-          <p className="flex items-center gap-1 truncate">
-            <MapPin className="h-3 w-3 shrink-0" />
-            <span className="truncate">{location}</span>
-          </p>
-        ) : null}
-        {brk ? (
-          <p className="flex items-center gap-1">
-            <Coffee className="h-3 w-3 shrink-0" />
-            استراحة {brk}
-          </p>
-        ) : null}
-        {notes ? <p className="  leading-relaxed text-foreground/80">{notes}</p> : null}
-        {!location && !brk && !notes && !g.checkIn && !g.checkOut ? (
-          <span className="text-muted-foreground/60">لا توجد حركات</span>
-        ) : null}
-        {g.checkIn && !g.checkOut ? (
-          <span className="text-warning">لم يُسجّل خروج</span>
-        ) : null}
-        {!g.checkIn && g.checkOut ? (
-          <span className="text-warning">لم يُسجّل دخول</span>
-        ) : null}
       </div>
     </div>
   );
@@ -147,18 +110,15 @@ export function EmployeeAttendanceRecentEvents({
 
   return (
     <EmployeeProfilePagedList
-      fillParent
       items={dayGroups}
       resetDeps={[effectiveFrom, effectiveTo, employeeEvents.length]}
       loading={loading}
       empty={<Empty icon={Clock} text="لا توجد حركات حضور حتى الآن" />}
       renderItems={(pageDays) => (
         <div className="overflow-hidden rounded-lg border border-border/50">
-          <div className="hidden border-b border-border/60 bg-muted/40 px-4 py-2 text-[11px] font-medium text-muted-foreground sm:grid sm:grid-cols-[7.5rem_5rem_5rem_4rem_minmax(0,1fr)] sm:gap-3">
+          <div className="hidden border-b border-border/60 bg-muted/40 px-4 py-2 text-[11px] font-medium text-muted-foreground lg:grid lg:grid-cols-[7.5rem_minmax(0,1.4fr)_minmax(0,1fr)] lg:gap-4">
             <span>التاريخ</span>
-            <span className="text-center">دخول</span>
-            <span className="text-center">خروج</span>
-            <span className="text-center">المدة</span>
+            <span>الدخول والخروج</span>
             <span>التفاصيل</span>
           </div>
           <div className="divide-y divide-border/60">

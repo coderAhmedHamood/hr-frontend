@@ -6,6 +6,24 @@ import {
   clearDefaultCompanyId,
   persistDefaultCompanyId,
 } from '@/features/hr/organization/lib/default-company-id';
+import {
+  clearPersistedCompanyThemeCssVars,
+  normalizeHexColor,
+  persistCompanyThemeCssVars,
+} from '@/shared/company-theme';
+
+function themeColorsFromProfile(profile: AccessProfile | null | undefined) {
+  if (!profile?.companies?.length) {
+    return { primary: null as string | null, secondary: null as string | null };
+  }
+  const companyId = profile.defaultCompanyId;
+  const company =
+    profile.companies.find((c) => c.companyId === companyId) ?? profile.companies[0] ?? null;
+  return {
+    primary: normalizeHexColor(company?.companyPrimaryColor),
+    secondary: normalizeHexColor(company?.companySecondaryColor),
+  };
+}
 
 interface AuthState {
   user: AuthUser | null;
@@ -31,6 +49,7 @@ export const useAuthStore = create<AuthState>()(
 
       setAccessProfile: (profile) => {
         persistDefaultCompanyId(profile.defaultCompanyId);
+        persistCompanyThemeCssVars(themeColorsFromProfile(profile));
         return set({
           accessProfile: profile,
           activeCompanyId: profile.defaultCompanyId,
@@ -43,6 +62,7 @@ export const useAuthStore = create<AuthState>()(
 
       clear: () => {
         clearDefaultCompanyId();
+        clearPersistedCompanyThemeCssVars();
         set({
           user: null,
           accessProfile: null,
@@ -53,7 +73,7 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'rose-hr-auth',
-      storage: createJSONStorage(() => sessionStorage),
+      storage: createJSONStorage(() => localStorage),
       // Only persist the data fields, not the action functions
       partialize: (state) => ({
         user: state.user,
@@ -64,6 +84,9 @@ export const useAuthStore = create<AuthState>()(
       onRehydrateStorage: () => (state) => {
         if (state?.accessProfile?.defaultCompanyId) {
           persistDefaultCompanyId(state.accessProfile.defaultCompanyId);
+        }
+        if (state?.accessProfile) {
+          persistCompanyThemeCssVars(themeColorsFromProfile(state.accessProfile));
         }
       },
     },

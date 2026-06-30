@@ -11,6 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { cn } from '@/shared/utils';
 
 const requestSchema = z.object({
   type: z.string().min(1, 'اختر نوع الطلب'),
@@ -23,12 +24,12 @@ const requestSchema = z.object({
 type RequestForm = z.infer<typeof requestSchema>;
 
 const requestTypes = [
-  { value: 'leave', label: 'إجازة', icon: CalendarDays, color: '#0f766e' },
-  { value: 'permission', label: 'استئذان', icon: Clock, color: '#ca8a04' },
-  { value: 'advance', label: 'سلفة مالية', icon: Wallet, color: '#be185d' },
-  { value: 'salary-letter', label: 'خطاب تعريف', icon: Mail, color: '#0891b2' },
-  { value: 'equipment', label: 'طلب معدات', icon: Package, color: '#7c3aed' },
-  { value: 'attendance-correction', label: 'تصحيح حضور', icon: FileText, color: '#c2410c' },
+  { value: 'leave', label: 'إجازة', icon: CalendarDays, iconClass: 'bg-primary/10 text-primary' },
+  { value: 'permission', label: 'استئذان', icon: Clock, iconClass: 'bg-gold/10 text-gold' },
+  { value: 'advance', label: 'سلفة مالية', icon: Wallet, iconClass: 'bg-destructive/10 text-destructive' },
+  { value: 'salary-letter', label: 'خطاب تعريف', icon: Mail, iconClass: 'bg-primary-500/10 text-primary-500' },
+  { value: 'equipment', label: 'طلب معدات', icon: Package, iconClass: 'bg-primary-700/10 text-primary-700' },
+  { value: 'attendance-correction', label: 'تصحيح حضور', icon: FileText, iconClass: 'bg-warning/10 text-warning' },
 ] as const;
 
 export function NewRequestDialog({
@@ -89,7 +90,7 @@ export function NewRequestDialog({
                   className="flex cursor-pointer flex-col items-center gap-2 rounded-md border border-border p-3 transition-all hover:border-gold/40 hover:bg-muted/30 has-[:checked]:border-gold has-[:checked]:bg-gold/5"
                 >
                   <input type="radio" value={t.value} {...register('type')} className="sr-only" />
-                  <div className="flex h-8 w-8 items-center justify-center rounded-md" style={{ background: `${t.color}20`, color: t.color }}>
+                  <div className={cn('flex h-8 w-8 items-center justify-center rounded-md', t.iconClass)}>
                     <t.icon className="h-4 w-4" />
                   </div>
                   <span className="text-xs font-medium">{t.label}</span>

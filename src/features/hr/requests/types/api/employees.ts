@@ -1,0 +1,21 @@
+export type EmployeeResponseDto = {
+  id: string;
+  employeeCode: string;
+  nameAr: string;
+  nameEn: string | null;
+  email: string | null;
+  phone: string | null;
+  nationalId: string | null;
+  nationality: string | null;
+  position: string | null;
+  managerId: string | null;
+  contractStatus: string | null;
+  startDate: string | null;
+  baseSalary: string;
+  avatar: string | null;
+  gender: string | null;
+  birthDate: string | null;
+  meta: Record<string, unknown> | null;
+  createdAt: string;
+  updatedAt: string;
+};

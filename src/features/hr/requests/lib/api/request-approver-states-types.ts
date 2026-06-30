@@ -1,24 +1,8 @@
 import type { RequestApprovalMode } from '@/features/hr/requests/lib/api/approval-templates';
+import type { RequestApproverEntryStatus, RequestApproverStateEntry, RequestApproverStatesSnapshot, RequestApproverStatesCarrier } from '@/features/hr/requests/types/api/request-approver-states-types';
+export type { RequestApproverEntryStatus, RequestApproverStateEntry, RequestApproverStatesSnapshot, RequestApproverStatesCarrier } from '@/features/hr/requests/types/api/request-approver-states-types';
 
-export type RequestApproverEntryStatus = 'pending' | 'approved' | 'rejected';
 
-export type RequestApproverStateEntry = {
-  employeeId: string;
-  employeeNameAr: string;
-  sortOrder: number;
-  status: RequestApproverEntryStatus;
-  decidedAt: string | null;
-  decidedBy: string | null;
-  notes: string | null;
-};
 
-export type RequestApproverStatesSnapshot = {
-  assignmentId: string;
-  approvalMode: RequestApprovalMode;
-  approvers: RequestApproverStateEntry[];
-};
 
-export type RequestApproverStatesCarrier = {
-  approverStates?: RequestApproverStatesSnapshot | null;
-  approver_states?: RequestApproverStatesSnapshot | null;
-};
+

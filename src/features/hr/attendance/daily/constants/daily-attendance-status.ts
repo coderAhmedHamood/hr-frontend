@@ -14,6 +14,12 @@ export const STATUS = {
     dot: 'bg-warning',
     bar: 'bg-warning',
   },
+  partial: {
+    label: 'حضور جزئي',
+    color: 'bg-warning/10 text-warning border-warning/30',
+    dot: 'bg-warning',
+    bar: 'bg-warning/70',
+  },
   absent: {
     label: 'غائب',
     color: 'bg-destructive/10 text-destructive border-destructive/30',
@@ -56,6 +62,7 @@ export type StatusVisualKey = keyof typeof STATUS;
 
 export const ATT_VISUAL_STATUS_ORDER: StatusVisualKey[] = [
   'present',
+  'partial',
   'late',
   'absent',
   'early_leave',

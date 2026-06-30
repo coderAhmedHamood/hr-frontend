@@ -12,14 +12,19 @@ import {
   HRSettingsFormDrawer,
   FormField,
   EmptyState,
-} from '@/features/hr/requests/components/shared-ui';
+} from '@/components/ui/shared-dialogs';
 import { cn } from '@/shared/utils';
+import { ForbiddenState } from '@/components/shared/forbidden-state';
 import { useDepartmentsDirectoryModel } from '@/features/hr/organization/departments/hooks/useDepartmentsDirectoryModel';
 import { DepartmentsListGrid } from '@/features/hr/organization/departments/components/departments-list-grid';
 import { DirectoryPagedViews } from '@/components/ui/paged-list';
 
 export default function DepartmentsPage() {
   const model = useDepartmentsDirectoryModel();
+
+  if (model.accessDenied) {
+    return <ForbiddenState />;
+  }
 
   return (
     <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col gap-4 pt-2">
@@ -41,6 +46,8 @@ export default function DepartmentsPage() {
           filtered={pageItems}
           branchLabel={model.branchLabel}
           companyLabel={model.companyLabel}
+          canUpdate={model.perms.canUpdate}
+          canDelete={model.perms.canDelete}
           onEdit={model.openEdit}
           onDelete={model.confirmDelete}
         />

@@ -20,9 +20,9 @@ export const ROSE_LANGUAGE_OPTIONS: { value: RoseDocumentLanguage; label: string
   { value: 'bilingual', label: 'ثنائي' },
 ];
 
-/** Flex shell so header/footer stay visible while body scrolls. */
+/** Flex shell so header/footer stay visible while body scrolls. Keep shell overflow-visible so portaled dropdowns are not clipped. */
 export const rosePrepDialogContentClass =
-  'top-[5vh] flex max-h-[90vh] max-w-2xl translate-y-0 flex-col gap-0 overflow-hidden border-border p-0';
+  'top-[5vh] flex max-h-[90vh] max-w-2xl translate-y-0 flex-col gap-0 overflow-visible border-border p-0';
 export const rosePrepDialogHeaderClass =
   'shrink-0 border-b border-border px-5 py-4 text-right';
 export const rosePrepDialogBodyClass =

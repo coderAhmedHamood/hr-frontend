@@ -18,7 +18,6 @@ export type ViolationCasesRegisterPrintHtmlProps = {
   companyNameAr: string;
   companyNameEn: string;
   titleAr: string;
-  filterSummary: string;
   rows: ViolationCasePrintRow[];
 };
 
@@ -62,7 +61,7 @@ const PAGE_STYLE: React.CSSProperties = {
 export const ViolationCasesRegisterPrintHtml = React.forwardRef<
   HTMLDivElement,
   ViolationCasesRegisterPrintHtmlProps
->(function ViolationCasesRegisterPrintHtml({ companyNameAr, companyNameEn, titleAr, filterSummary, rows }, ref) {
+>(function ViolationCasesRegisterPrintHtml({ companyNameAr, companyNameEn, titleAr, rows }, ref) {
   const [logoSrc, setLogoSrc] = React.useState<string | undefined>(undefined);
   React.useEffect(() => {
     setLogoSrc(getPdfLogoSrc());
@@ -89,11 +88,8 @@ export const ViolationCasesRegisterPrintHtml = React.forwardRef<
             companyNameEn={companyNameEn}
           />
 
-          <div style={{ fontSize: 12, fontWeight: 700, textAlign: 'center', marginBottom: 8, textDecoration: 'underline' }}>
+          <div style={{ fontSize: 12, fontWeight: 700, textAlign: 'center', marginBottom: 10, textDecoration: 'underline' }}>
             {sanitizePdfText(titleAr)}
-          </div>
-          <div style={{ fontSize: 8, color: '#444', textAlign: 'right', marginBottom: 8, lineHeight: 1.35 }}>
-            {sanitizePdfText(filterSummary)}
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'row', backgroundColor: '#e8f2ef', border: '1px solid #94a3b8' }}>

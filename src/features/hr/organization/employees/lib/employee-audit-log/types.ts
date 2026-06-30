@@ -30,10 +30,10 @@ export type EmployeeAuditRowInput = Omit<
 export const EMPLOYEE_AUDIT_SCOPE_LABELS: Record<EmployeeAuditScope, string> = {
   personal: 'البيانات الشخصية',
   permissions: 'صلاحيات الموظف',
-  'rose-resignation': 'نماذج روز — استقالة',
-  'rose-clearance': 'نماذج روز — إخلاء طرف',
-  'rose-settlement': 'نماذج روز — مخالصة',
-  'rose-experience': 'نماذج روز — شهادة خبرة',
+  'rose-resignation': 'نماذج — استقالة',
+  'rose-clearance': 'نماذج — إخلاء طرف',
+  'rose-settlement': 'نماذج — مخالصة',
+  'rose-experience': 'نماذج — شهادة خبرة',
 };
 
 export const EMPLOYEE_AUDIT_ACTION_LABELS: Record<EmployeeAuditAction, string> = {

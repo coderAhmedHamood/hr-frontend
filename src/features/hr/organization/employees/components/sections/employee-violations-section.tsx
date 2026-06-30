@@ -71,7 +71,7 @@ export function EmployeeViolationsSection({ model }: { model: EmployeeProfileMod
         </Button>
       </div>
 
-      <div className="flex h-[68vh] min-h-[400px] shrink-0 flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+      <div className="flex flex-col rounded-xl border border-border bg-card shadow-sm">
         <div className="flex shrink-0 items-center justify-between border-b border-border/60 bg-muted/20 px-4 py-3">
           <h3 className="text-sm font-semibold text-foreground">
             سجل المخالفات
@@ -81,9 +81,8 @@ export function EmployeeViolationsSection({ model }: { model: EmployeeProfileMod
           </h3>
         </div>
 
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="px-4 pb-4 pt-3">
           <EmployeeProfilePagedList
-            fillParent
             items={employeeViolations}
             serverPagination={violationsPagination}
             loading={violationsLoading}

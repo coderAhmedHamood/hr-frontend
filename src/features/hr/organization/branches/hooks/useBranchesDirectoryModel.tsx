@@ -7,8 +7,10 @@ import { useSetPageTitle } from '@/components/layouts/page-title-context';
 import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
-import { EntityFilterToolbar } from '@/components/ui/entity-filter-toolbar';
-import { PermissionGate } from '@/components/shared/permission-gate';
+import { ListFilterBar } from '@/components/ui/list-filter-bar';
+import { Can } from '@/components/shared/can';
+import { usePagePermissions } from '@/features/auth/permissions';
+import { BRANCHES_PAGE_PERMISSIONS } from '@/features/hr/organization/branches/permissions';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import { employeesApi, type EmployeeResponseDto } from '@/features/hr/organization/employees/lib/api/employees';
 import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
@@ -39,6 +41,9 @@ import {
 
 export function useBranchesDirectoryModel() {
   useSetPageTitle({ titleAr: 'الفروع', descriptionAr: 'إدارة فروع الشركة وتوزيع الموظفين.', iconName: 'Building2' });
+
+  const perms = usePagePermissions(BRANCHES_PAGE_PERMISSIONS);
+  const accessDenied = !perms.canRead;
 
   const defaultCompanyId = useDefaultCompanyId();
   const { data: defaultCompany } = useDefaultCompany();
@@ -89,7 +94,7 @@ export function useBranchesDirectoryModel() {
     pagination,
     reload: reloadList,
   } = useServerDirectoryPagination<BranchRow>(loadPage, {
-    enabled: !!defaultCompanyId,
+    enabled: !!defaultCompanyId && perms.canRead,
     resetDeps: [defaultCompanyId, layoutView, archiveScope],
   });
 
@@ -145,6 +150,7 @@ export function useBranchesDirectoryModel() {
   }, []);
 
   const openCreate = React.useCallback(() => {
+    if (!perms.canCreate) return;
     setEditId(null);
     setForm({
       ...BRANCH_EMPTY_FORM,
@@ -152,14 +158,15 @@ export function useBranchesDirectoryModel() {
     });
     setError(null);
     setDrawerOpen(true);
-  }, [defaultCompanyId]);
+  }, [defaultCompanyId, perms.canCreate]);
 
   const openEdit = React.useCallback((b: BranchRow) => {
+    if (!perms.canUpdate) return;
     setEditId(b.id);
     setForm(branchRowToDraftForm(b, employees));
     setError(null);
     setDrawerOpen(true);
-  }, [employees]);
+  }, [employees, perms.canUpdate]);
 
   React.useEffect(() => {
     if (!drawerOpen || !editId) return;
@@ -171,6 +178,7 @@ export function useBranchesDirectoryModel() {
   }, [drawerOpen, editId, employees]);
 
   const handleSave = React.useCallback(async () => {
+    if (editId ? !perms.canUpdate : !perms.canCreate) return;
     const companyId = defaultCompanyId ?? form.companyId;
     if (!form.name.trim()) {
       setError('اسم الفرع مطلوب');
@@ -198,10 +206,10 @@ export function useBranchesDirectoryModel() {
       const { displayMessage } = handleApiError(err, 'branches.save');
       setError(displayMessage);
     }
-  }, [editId, form, reloadList]);
+  }, [defaultCompanyId, editId, form, perms.canCreate, perms.canUpdate, reloadList]);
 
   const handleDelete = React.useCallback(async () => {
-    if (!confirmId) return;
+    if (!confirmId || !perms.canDelete) return;
     setError(null);
     try {
       await deleteBranch(confirmId);
@@ -211,25 +219,25 @@ export function useBranchesDirectoryModel() {
       const { displayMessage } = handleApiError(err, 'branches.delete');
       setError(displayMessage);
     }
-  }, [confirmId, reloadList]);
+  }, [confirmId, perms.canDelete, reloadList]);
 
   usePageHeaderActions(
     () => (
-      <div className="flex items-center gap-2">
+      <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
         <FilterToggleButton />
-        <PermissionGate permission="hr.employees.create">
+        <Can when={perms.canCreate}>
           <Button variant="luxe" size="sm" className="h-8 gap-2" onClick={openCreate}>
             <Plus className="h-4 w-4" /> فرع جديد
           </Button>
-        </PermissionGate>
+        </Can>
       </div>
     ),
-    [openCreate],
+    [openCreate, perms.canCreate],
   );
 
   useEntityFilterSlot(
     () => (
-      <EntityFilterToolbar
+      <ListFilterBar
         showDateSection={false}
         showStatusSection={false}
         showEmployeePicker={false}
@@ -257,6 +265,8 @@ export function useBranchesDirectoryModel() {
   );
 
   return {
+    perms,
+    accessDenied,
     layoutView,
     branches,
     filtered,

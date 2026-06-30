@@ -1,111 +1,128 @@
 'use client';
 
 import * as React from 'react';
-import { History, Search } from 'lucide-react';
-import { Input } from '@/components/ui/input';
+import { History, Loader2 } from 'lucide-react';
 import { Label } from '@/components/ui/label';
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select';
+import { DateRangeFilterTrigger } from '@/components/ui/date-range-filter-trigger';
+import type { PeriodRange } from '@/components/ui/list-filter-bar';
+import { FilterSelect } from '@/components/ui/select-with-clear';
 import { Badge } from '@/components/ui/badge';
 import { DataTable, type ColumnDef } from '@/components/ui/data-table';
 import { TableDateCell } from '@/components/ui/table-cells';
 import { cn } from '@/shared/utils';
-import { useEmployees } from '@/features/hr/organization/employees/hooks/useEmployees';
-import { useEmployeeAuditLogStore, EMPTY_EMPLOYEE_AUDIT_LOG } from '@/features/hr/organization/employees/lib/employee-audit-log/store';
-import { useEmployeeAuditActorStore, AUDIT_ACTOR_SYSTEM } from '@/features/hr/organization/employees/lib/employee-audit-log/actor-store';
-import {
-  EMPLOYEE_AUDIT_ACTION_LABELS,
-  EMPLOYEE_AUDIT_SCOPE_LABELS,
-  type EmployeeAuditAction,
-  type EmployeeAuditEntry,
-  type EmployeeAuditScope,
-} from '@/features/hr/organization/employees/lib/employee-audit-log/types';
+import { EmployeeProfilePagedList } from '@/features/hr/organization/employees/components/employee-profile-paged-list';
+import type {
+  AuditChangeSummaryDto,
+  AuditEntityScope,
+} from '@/features/hr/organization/employees/lib/api/employee-profile';
+import type { useEmployeeProfileAuditLog } from '@/features/hr/organization/employees/hooks/useEmployeeProfileAuditLog';
 
-const ALL_SCOPES: EmployeeAuditScope[] = [
-  'personal',
-  'permissions',
-  'rose-resignation',
-  'rose-clearance',
-  'rose-settlement',
-  'rose-experience',
+const AUDIT_SCOPE_LABELS: Record<AuditEntityScope, string> = {
+  employee: 'بيانات الموظف',
+  assignment: 'الإسناد',
+  contract: 'العقد',
+  payroll: 'الرواتب',
+  leave: 'الإجازات',
+  attendance: 'الحضور',
+  request: 'الطلبات',
+  violation: 'المخالفات',
+  advance: 'السلف',
+  other: 'أخرى',
+};
+
+const ALL_SCOPES: AuditEntityScope[] = [
+  'employee',
+  'assignment',
+  'contract',
+  'payroll',
+  'leave',
+  'attendance',
+  'request',
+  'violation',
+  'advance',
 ];
 
-const ALL_ACTIONS: EmployeeAuditAction[] = ['create', 'update', 'delete'];
+const ACTION_FILTER_OPTIONS = [
+  { value: 'all', label: 'الكل' },
+  { value: 'CREATE', label: 'إضافة' },
+  { value: 'UPDATE', label: 'تعديل' },
+  { value: 'DELETE', label: 'حذف' },
+];
 
-type Props = { targetEmployeeId: string };
+const SCOPE_FILTER_OPTIONS = [
+  { value: 'all', label: 'الكل' },
+  ...ALL_SCOPES.map((s) => ({ value: s, label: AUDIT_SCOPE_LABELS[s] })),
+];
 
-function actionBadgeVariant(a: EmployeeAuditAction): 'default' | 'secondary' | 'destructive' | 'outline' {
-  if (a === 'delete') return 'destructive';
-  if (a === 'create') return 'secondary';
+type AuditLogModel = ReturnType<typeof useEmployeeProfileAuditLog>;
+
+function actionBadgeVariant(action: string): 'default' | 'secondary' | 'destructive' | 'outline' {
+  const upper = action.toUpperCase();
+  if (upper === 'DELETE') return 'destructive';
+  if (upper === 'CREATE') return 'secondary';
   return 'outline';
 }
 
-export function EmployeeAuditLogPanel({ targetEmployeeId }: Props) {
-  const { data: employeesResult } = useEmployees();
-  const employees = employeesResult?.items ?? [];
-  const entries = useEmployeeAuditLogStore((s) => s.byEmployee[targetEmployeeId] ?? EMPTY_EMPLOYEE_AUDIT_LOG);
-  const actorId = useEmployeeAuditActorStore((s) => s.actorEmployeeId);
-  const setActorId = useEmployeeAuditActorStore((s) => s.setActorEmployeeId);
+function actionLabel(row: AuditChangeSummaryDto): string {
+  if (row.actionNameAr) return row.actionNameAr;
+  const upper = row.action.toUpperCase();
+  if (upper === 'CREATE') return 'إضافة';
+  if (upper === 'UPDATE') return 'تعديل';
+  if (upper === 'DELETE') return 'حذف';
+  return row.action;
+}
 
-  const [q, setQ] = React.useState('');
-  const [from, setFrom] = React.useState('');
-  const [to, setTo] = React.useState('');
-  const [scope, setScope] = React.useState<string>('all');
-  const [action, setAction] = React.useState<string>('all');
-  const [actorFilter, setActorFilter] = React.useState<string>('all');
+function formatValueSnapshot(
+  values: Record<string, unknown> | null,
+  fields: string[],
+): string {
+  if (!values) return '—';
+  const keys = fields.length > 0 ? fields : Object.keys(values);
+  if (keys.length === 0) return '—';
+  const subset = Object.fromEntries(keys.map((k) => [k, values[k]]));
+  const text = JSON.stringify(subset);
+  return text.length > 200 ? `${text.slice(0, 200)}…` : text;
+}
 
-  const actorOptions = React.useMemo(() => {
-    const ids = new Set<string>();
-    for (const e of entries) {
-      if (e.actorEmployeeId) ids.add(e.actorEmployeeId);
-      else ids.add(AUDIT_ACTOR_SYSTEM);
-    }
-    return [...ids];
-  }, [entries]);
+type Props = { audit: AuditLogModel };
 
-  const filtered = React.useMemo(() => {
-    const qn = q.trim().toLowerCase();
-    return entries.filter((e) => {
-      if (from && e.at.slice(0, 10) < from) return false;
-      if (to && e.at.slice(0, 10) > to) return false;
-      if (scope !== 'all' && e.scope !== scope) return false;
-      if (action !== 'all' && e.action !== action) return false;
-      if (actorFilter !== 'all') {
-        const key = e.actorEmployeeId ?? AUDIT_ACTOR_SYSTEM;
-        if (key !== actorFilter) return false;
-      }
-      if (qn) {
-        const hay = `${e.labelAr} ${e.fieldKey} ${EMPLOYEE_AUDIT_SCOPE_LABELS[e.scope]} ${e.actorNameAr}`.toLowerCase();
-        if (!hay.includes(qn)) return false;
-      }
-      return true;
-    });
-  }, [entries, q, from, to, scope, action, actorFilter]);
+export function EmployeeAuditLogPanel({ audit }: Props) {
+  const {
+    auditChanges,
+    auditLoading,
+    auditPagination,
+    auditError,
+    scopeFilter,
+    setScopeFilter,
+    actionFilter,
+    setActionFilter,
+    dateRange,
+    setDateRange,
+  } = audit;
 
-  const columns = React.useMemo((): ColumnDef<EmployeeAuditEntry>[] => [
+  const columns = React.useMemo((): ColumnDef<AuditChangeSummaryDto>[] => [
     {
-      key: 'at',
+      key: 'occurredAt',
       title: 'التاريخ والوقت',
       className: 'whitespace-nowrap align-top',
       headerClassName: 'whitespace-nowrap',
-      render: (e) => <TableDateCell value={e.at} mode="datetime" />,
+      render: (row) => <TableDateCell value={row.occurredAt} mode="datetime" />,
     },
     {
       key: 'actor',
       title: 'الفاعل',
       className: 'text-xs align-top',
       headerClassName: 'whitespace-nowrap',
-      render: (e) => e.actorNameAr,
+      render: (row) => row.actorName?.trim() || row.actorEmail?.trim() || 'النظام',
     },
     {
       key: 'action',
       title: 'الإجراء',
       className: 'align-top',
       headerClassName: 'whitespace-nowrap',
-      render: (e) => (
-        <Badge variant={actionBadgeVariant(e.action)} className="text-[10px] font-medium">
-          {EMPLOYEE_AUDIT_ACTION_LABELS[e.action]}
+      render: (row) => (
+        <Badge variant={actionBadgeVariant(row.action)} className="text-[10px] font-medium">
+          {actionLabel(row)}
         </Badge>
       ),
     },
@@ -114,38 +131,55 @@ export function EmployeeAuditLogPanel({ targetEmployeeId }: Props) {
       title: 'النطاق',
       className: 'text-xs text-muted-foreground align-top',
       headerClassName: 'whitespace-nowrap',
-      render: (e) => EMPLOYEE_AUDIT_SCOPE_LABELS[e.scope],
+      render: (row) => AUDIT_SCOPE_LABELS[row.scope] ?? row.scope,
     },
     {
-      key: 'field',
-      title: 'الحقل',
+      key: 'entity',
+      title: 'الكيان',
       className: 'align-top',
-      render: (e) => (
+      render: (row) => (
         <>
-          <div className="font-medium text-foreground text-xs">{e.labelAr}</div>
-          <div className="text-[10px] text-muted-foreground font-mono mt-0.5" dir="ltr">{e.fieldKey}</div>
+          <div className="font-medium text-foreground text-xs">
+            {row.entityDisplayName?.trim() || row.description?.trim() || '—'}
+          </div>
+          <div className="text-[10px] text-muted-foreground font-mono mt-0.5" dir="ltr">
+            {row.entityName}
+          </div>
         </>
       ),
     },
     {
-      key: 'oldValue',
+      key: 'changedFields',
+      title: 'الحقول المتغيرة',
+      className: 'text-xs align-top max-w-[200px]',
+      render: (row) =>
+        row.changedFields.length > 0 ? (
+          <span className="font-mono text-[10px] break-all" dir="ltr">
+            {row.changedFields.join(', ')}
+          </span>
+        ) : (
+          <span className="text-muted-foreground/50">—</span>
+        ),
+    },
+    {
+      key: 'oldValues',
       title: 'القيمة القديمة',
-      className: cn('text-xs break-words max-w-[280px] align-top'),
+      className: cn('text-xs break-words max-w-[280px] align-top font-mono'),
       headerClassName: 'min-w-[140px]',
-      render: (e) => (
-        <span className={e.oldValue ? 'text-foreground' : 'text-muted-foreground/50'}>
-          {e.oldValue || '—'}
+      render: (row) => (
+        <span className={row.oldValues ? 'text-foreground' : 'text-muted-foreground/50'} dir="ltr">
+          {formatValueSnapshot(row.oldValues, row.changedFields)}
         </span>
       ),
     },
     {
-      key: 'newValue',
+      key: 'newValues',
       title: 'القيمة الجديدة',
-      className: cn('text-xs break-words max-w-[280px] align-top'),
+      className: cn('text-xs break-words max-w-[280px] align-top font-mono'),
       headerClassName: 'min-w-[140px]',
-      render: (e) => (
-        <span className={e.newValue ? 'text-foreground' : 'text-muted-foreground/50'}>
-          {e.newValue || '—'}
+      render: (row) => (
+        <span className={row.newValues ? 'text-foreground' : 'text-muted-foreground/50'} dir="ltr">
+          {formatValueSnapshot(row.newValues, row.changedFields)}
         </span>
       ),
     },
@@ -163,93 +197,75 @@ export function EmployeeAuditLogPanel({ targetEmployeeId }: Props) {
             <div className="min-w-0">
               <h2 className="text-lg font-semibold tracking-tight text-foreground">سجل التغييرات</h2>
               <p className="text-sm text-muted-foreground mt-1 leading-relaxed max-w-2xl">
-                يُسجَّل كل إضافة أو تعديل أو حذف مع الفاعل والتاريخ والوقت، والقيمة القديمة والجديدة لكل حقل على حدة.
-                البحث النصي يشمل الوصف والنطاق والحقل واسم الفاعل فقط — دون مطابقة نص القيم القديمة أو الجديدة.
+                سجل النشاط لهذا الموظف — كل إضافة أو تعديل أو حذف على بياناته وعقوده ورواتبه وإجازاته
+                وحضوره وطلباته ومخالفاته، مع الفاعل والتاريخ والقيم القديمة والجديدة.
               </p>
             </div>
           </div>
         </div>
 
-        <div className="rounded-xl border border-border/70 bg-muted/15 p-4 space-y-3">
-          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">تسجيل الإجراءات باسم</div>
-          <Select value={actorId} onValueChange={setActorId}>
-            <SelectTrigger className="h-10 max-w-md rounded-lg bg-background">
-              <SelectValue placeholder="اختر الموظف" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={AUDIT_ACTOR_SYSTEM}>النظام (بدون مستخدم محدد)</SelectItem>
-              {employees.map((emp) => (
-                <SelectItem key={emp.id} value={emp.id}>
-                  {emp.nameAr} <span className="text-muted-foreground font-mono text-xs">({emp.employeeCode})</span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-          <div className="space-y-1.5 sm:col-span-2">
-            <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
-              <Search className="h-3.5 w-3.5" />
-              بحث (لا يشمل عمودي القيمة القديمة / الجديدة)
-            </Label>
-            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="مثال: بريد، استقالة، دور…" className="h-9" />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">من تاريخ</Label>
-            <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="h-9" dir="ltr" />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">إلى تاريخ</Label>
-            <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="h-9" dir="ltr" />
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="space-y-1.5 sm:col-span-2 lg:col-span-1">
+            <Label className="text-xs text-muted-foreground">الفترة</Label>
+            <DateRangeFilterTrigger
+              value={dateRange}
+              onChange={setDateRange}
+              placeholder="كل الفترات"
+              triggerClassName="h-9 w-full max-w-none text-xs"
+              allowEmpty
+            />
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">النطاق</Label>
-            <Select value={scope} onValueChange={setScope}>
-              <SelectTrigger className="h-9 bg-background"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">الكل</SelectItem>
-                {ALL_SCOPES.map((s) => (
-                  <SelectItem key={s} value={s}>{EMPLOYEE_AUDIT_SCOPE_LABELS[s]}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <FilterSelect
+              value={scopeFilter}
+              onValueChange={(v) => setScopeFilter(v as typeof scopeFilter)}
+              options={SCOPE_FILTER_OPTIONS}
+              placeholder="الكل"
+            />
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">نوع الإجراء</Label>
-            <Select value={action} onValueChange={setAction}>
-              <SelectTrigger className="h-9 bg-background"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">الكل</SelectItem>
-                {ALL_ACTIONS.map((a) => (
-                  <SelectItem key={a} value={a}>{EMPLOYEE_AUDIT_ACTION_LABELS[a]}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">الفاعل (المسجّل)</Label>
-            <Select value={actorFilter} onValueChange={setActorFilter}>
-              <SelectTrigger className="h-9 bg-background"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">الكل</SelectItem>
-                {actorOptions.map((id) => (
-                  <SelectItem key={id} value={id}>
-                    {id === AUDIT_ACTOR_SYSTEM ? 'النظام' : employees.find((e) => e.id === id)?.nameAr ?? id}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <FilterSelect
+              value={actionFilter}
+              onValueChange={setActionFilter}
+              options={ACTION_FILTER_OPTIONS}
+              placeholder="الكل"
+            />
           </div>
         </div>
 
-        <DataTable
-          columns={columns}
-          data={filtered}
-          keyExtractor={(e) => e.id}
-          emptyText="لا توجد سجلات مطابقة للفلتر."
-          tableClassName="min-w-[920px] text-right"
-        />
+        {auditError ? (
+          <p className="text-sm text-destructive">{auditError}</p>
+        ) : null}
+
+        {auditLoading && auditChanges.length === 0 ? (
+          <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            جاري تحميل سجل التغييرات…
+          </div>
+        ) : (
+          <EmployeeProfilePagedList
+            items={auditChanges}
+            serverPagination={auditPagination}
+            loading={auditLoading}
+            empty={
+              <p className="py-10 text-center text-sm text-muted-foreground">
+                لا توجد سجلات مطابقة للفلتر.
+              </p>
+            }
+            renderItems={(pageItems) => (
+              <DataTable
+                columns={columns}
+                data={pageItems}
+                keyExtractor={(row) => row.id}
+                emptyText="لا توجد سجلات مطابقة للفلتر."
+                alwaysShowTable
+                tableClassName="min-w-[1080px] text-right"
+              />
+            )}
+          />
+        )}
       </div>
     </div>
   );

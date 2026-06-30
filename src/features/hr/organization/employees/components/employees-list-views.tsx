@@ -1,9 +1,9 @@
 'use client';
 
 import * as React from 'react';
-import { Building2, Mail, Eye, Trash2 } from 'lucide-react';
+import { Mail, Eye, Trash2 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { ContractTypeLabel } from '@/components/shared/status-badge';
+import { ContractTypeLabel, StatusBadge } from '@/components/shared/status-badge';
 import { Button } from '@/components/ui/button';
 import { DataTable, type ColumnDef } from '@/components/ui/data-table';
 import { TableDateCell, TableRowActions } from '@/components/ui/table-cells';
@@ -18,8 +18,8 @@ import {
 } from '@/components/ui/directory-grid-card';
 import { NewEmployeeDrawer } from '@/features/hr/organization/employees/components/new-employee-drawer';
 import { PdfPreviewExportDialog } from '@/components/pdf/pdf-preview-export-dialog';
-import { ConfirmationModal } from '@/features/hr/requests/components/shared-ui';
-import { EmptyState } from '@/features/hr/requests/components/shared-ui';
+import { ConfirmationModal } from '@/components/ui/shared-dialogs';
+import { EmptyState } from '@/components/ui/shared-dialogs';
 import { DirectoryPagedViews } from '@/components/ui/paged-list';
 import { formatCurrency, getInitials } from '@/shared/utils';
 import type { EmployeesListModel } from '@/features/hr/organization/employees/hooks/useEmployeesListModel';
@@ -48,21 +48,30 @@ export function EmployeesListViews({ model }: Props) {
           </Avatar>
           <div className="min-w-0">
             <p className="font-semibold truncate">{emp.nameAr}</p>
-            {emp.position && <p className="text-xs text-muted-foreground truncate">{emp.position}</p>}
+            {emp.employeeCode && (
+              <p className="text-xs text-muted-foreground truncate font-mono">{emp.employeeCode}</p>
+            )}
           </div>
         </div>
       ),
     },
     {
-      key: 'department',
-      title: 'القسم / الفرع',
+      key: 'position',
+      title: 'المسمى',
       className: 'text-muted-foreground',
-      render: (emp) => emp.departmentNameAr ?? emp.branchNameAr ?? '—',
+      render: (emp) => emp.position ?? '—',
     },
     {
       key: 'contractType',
       title: 'نوع العقد',
       render: (emp) => <ContractTypeLabel type={emp.contractType ?? ''} />,
+    },
+    {
+      key: 'contractStatus',
+      title: 'حالة العقد',
+      render: (emp) => (
+        <StatusBadge status={emp.contractStatus ?? 'active'} className="text-[11px]" />
+      ),
     },
     {
       key: 'startDate',
@@ -199,10 +208,10 @@ function EmployeeGridCard({
             <span className="truncate">{emp.position}</span>
           </DirectoryGridCardMetaRow>
         )}
-        {(emp.departmentNameAr ?? emp.branchNameAr) && (
+        {emp.contractStatus && (
           <DirectoryGridCardMetaRow>
-            <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-            <span className="truncate text-muted-foreground">{emp.departmentNameAr ?? emp.branchNameAr}</span>
+            <span className="text-muted-foreground">حالة العقد</span>
+            <StatusBadge status={emp.contractStatus} className="text-[10px]" />
           </DirectoryGridCardMetaRow>
         )}
         {emp.email && (

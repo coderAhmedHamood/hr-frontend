@@ -37,7 +37,7 @@ export async function loadAllPermissions(): Promise<PaginatedResult<PermissionRe
   };
 }
 
-/** Single-request catalog load when total fits in one page (typical HR catalog). */
+/** Single-request catalog load (all applications). */
 export async function loadPermissionsCatalog(): Promise<PaginatedResult<PermissionResponseDto>> {
   return loadAllPermissions();
 }

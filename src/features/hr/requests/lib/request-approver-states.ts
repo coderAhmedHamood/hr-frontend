@@ -6,133 +6,65 @@ import type {
   RequestApproverStatesCarrier,
   RequestApproverStatesSnapshot,
 } from '@/features/hr/requests/lib/api/request-approver-states-types';
+import {
+  applyApproverDecision,
+  approvalModeLabelAr,
+  approverStatusLabelAr,
+  buildApproverStatesFromAssignment,
+  canEmployeeActOnApproval,
+  getApproverActionContext,
+  hasApprovalRejection,
+  isEmployeeAmongApprovers,
+  isEmployeeInApproverStates,
+  isFullyApproved,
+  normalizeApproverStates,
+} from '@/shared/approval';
+import { AR_APPROVAL_WORKFLOW_MESSAGES } from '@/shared/i18n/ar';
 
-const STATUS_LABELS: Record<RequestApproverEntryStatus, string> = {
-  pending: 'قيد الانتظار',
-  approved: 'معتمد',
-  rejected: 'مرفوض',
-};
-
-const MODE_LABELS: Record<RequestApprovalMode, string> = {
-  sequential: 'تتابعي',
-  parallel: 'متوازي',
-  any_one: 'موافقة أحد المعتمدين',
-  optional: 'اختياري',
-};
+const REQUEST_MESSAGES = AR_APPROVAL_WORKFLOW_MESSAGES.request;
 
 export function requestApproverStatusLabelAr(status: RequestApproverEntryStatus): string {
-  return STATUS_LABELS[status];
+  return approverStatusLabelAr(status);
 }
 
 export function requestApprovalModeLabelAr(mode: RequestApprovalMode): string {
-  return MODE_LABELS[mode];
+  return approvalModeLabelAr(mode);
 }
 
 export function isEmployeeAmongRequestApprovers(
   assignment: RequestApprovalTemplateResponseDto,
   employeeId: string,
 ): boolean {
-  return assignment.approvers.some((a) => a.employeeId === employeeId);
+  return isEmployeeAmongApprovers(assignment, employeeId);
 }
 
 export function normalizeRequestApproverStates(
   dto: RequestApproverStatesCarrier | null | undefined,
 ): RequestApproverStatesSnapshot | null {
-  const raw = dto?.approverStates ?? dto?.approver_states ?? null;
-  if (!raw || typeof raw !== 'object') return null;
-  const approvers = Array.isArray(raw.approvers) ? raw.approvers : [];
-  if (approvers.length === 0) return null;
-  return {
-    assignmentId: raw.assignmentId ?? '',
-    approvalMode: raw.approvalMode ?? 'sequential',
-    approvers: approvers.map((a, i) => normalizeApproverEntry(a, i)),
-  };
-}
-
-function normalizeApproverEntry(
-  entry: Partial<RequestApproverStateEntry>,
-  fallbackOrder: number,
-): RequestApproverStateEntry {
-  return {
-    employeeId: entry.employeeId ?? '',
-    employeeNameAr: entry.employeeNameAr ?? entry.employeeId ?? '—',
-    sortOrder: entry.sortOrder ?? fallbackOrder,
-    status: entry.status === 'approved' || entry.status === 'rejected' ? entry.status : 'pending',
-    decidedAt: entry.decidedAt ?? null,
-    decidedBy: entry.decidedBy ?? null,
-    notes: entry.notes ?? null,
-  };
+  return normalizeApproverStates(dto) as RequestApproverStatesSnapshot | null;
 }
 
 export function buildRequestApproverStatesFromAssignment(
   assignment: RequestApprovalTemplateResponseDto,
 ): RequestApproverStatesSnapshot {
-  return {
-    assignmentId: assignment.id,
-    approvalMode: assignment.approvalMode,
-    approvers: [...assignment.approvers]
-      .sort((a, b) => a.sortOrder - b.sortOrder)
-      .map((a) => ({
-        employeeId: a.employeeId,
-        employeeNameAr: a.employeeNameAr,
-        sortOrder: a.sortOrder,
-        status: 'pending' as const,
-        decidedAt: null,
-        decidedBy: null,
-        notes: null,
-      })),
-  };
-}
-
-function sortedApprovers(states: RequestApproverStatesSnapshot): RequestApproverStateEntry[] {
-  return [...states.approvers].sort((a, b) => a.sortOrder - b.sortOrder);
+  return buildApproverStatesFromAssignment(assignment) as RequestApproverStatesSnapshot;
 }
 
 export function isRequestFullyApproved(states: RequestApproverStatesSnapshot): boolean {
-  const approvers = sortedApprovers(states);
-  if (approvers.length === 0) return false;
-  if (states.approvalMode === 'any_one') {
-    return approvers.some((a) => a.status === 'approved');
-  }
-  return approvers.every((a) => a.status === 'approved');
+  return isFullyApproved(states);
 }
 
 function hasRequestApprovalRejection(states: RequestApproverStatesSnapshot): boolean {
-  return sortedApprovers(states).some((a) => a.status === 'rejected');
+  return hasApprovalRejection(states);
 }
+
+export { hasRequestApprovalRejection };
 
 export function getRequestApproverActionContext(
   states: RequestApproverStatesSnapshot,
   employeeId: string,
 ): { canAct: boolean; reasonAr: string | null } {
-  const approvers = sortedApprovers(states);
-  const idx = approvers.findIndex((a) => a.employeeId === employeeId);
-  if (idx === -1) {
-    return { canAct: false, reasonAr: 'أنت لست ضمن المعتمدين المسندين لهذا النوع من الطلبات.' };
-  }
-
-  const self = approvers[idx]!;
-  if (self.status !== 'pending') {
-    return { canAct: false, reasonAr: 'تم تسجيل قرارك مسبقاً على هذا الطلب.' };
-  }
-
-  if (hasRequestApprovalRejection(states)) {
-    return { canAct: false, reasonAr: 'تم رفض الطلب ولا يمكن اتخاذ قرار جديد.' };
-  }
-
-  if (states.approvalMode === 'any_one' && approvers.some((a) => a.status === 'approved')) {
-    return { canAct: false, reasonAr: 'تم اعتماد الطلب من معتمد آخر.' };
-  }
-
-  if (states.approvalMode === 'sequential') {
-    for (let i = 0; i < idx; i++) {
-      if (approvers[i]!.status !== 'approved') {
-        return { canAct: false, reasonAr: 'بانتظار موافقة المعتمدين السابقين في الترتيب.' };
-      }
-    }
-  }
-
-  return { canAct: true, reasonAr: null };
+  return getApproverActionContext(states, employeeId, REQUEST_MESSAGES);
 }
 
 export function applyRequestApproverDecision(
@@ -141,22 +73,7 @@ export function applyRequestApproverDecision(
   decision: 'approve' | 'reject',
   meta: { decidedBy: string | null; notes: string | null },
 ): RequestApproverStatesSnapshot {
-  const now = new Date().toISOString();
-  const status: RequestApproverEntryStatus = decision === 'approve' ? 'approved' : 'rejected';
-  return {
-    ...states,
-    approvers: states.approvers.map((a) =>
-      a.employeeId === employeeId
-        ? {
-            ...a,
-            status,
-            decidedAt: now,
-            decidedBy: meta.decidedBy,
-            notes: meta.notes,
-          }
-        : a,
-    ),
-  };
+  return applyApproverDecision(states, employeeId, decision, meta) as RequestApproverStatesSnapshot;
 }
 
 /** Payload لقرار موافقة/رفض طلب (حضور، إجازة، سلفة) */
@@ -217,14 +134,47 @@ export function canEmployeeActOnRequestApproval(
   states: RequestApproverStatesSnapshot | null | undefined,
   employeeId: string | null | undefined,
 ): boolean {
-  if (!states || !employeeId) return false;
-  return getRequestApproverActionContext(states, employeeId).canAct;
+  return canEmployeeActOnApproval(states, employeeId, REQUEST_MESSAGES);
 }
 
 export function isEmployeeInRequestApproverStates(
   states: RequestApproverStatesSnapshot | null | undefined,
   employeeId: string | null | undefined,
 ): boolean {
-  if (!states || !employeeId) return false;
-  return states.approvers.some((a) => a.employeeId === employeeId);
+  return isEmployeeInApproverStates(states, employeeId);
 }
+
+/** Whether approval order matters (sequential chain). */
+export function isSequentialRequestApproval(
+  states: RequestApproverStatesSnapshot | null | undefined,
+): boolean {
+  return states?.approvalMode === 'sequential';
+}
+
+/** UI state for approve/reject controls — shows disabled buttons while waiting in sequential mode. */
+export function getRequestApprovalUiState(
+  states: RequestApproverStatesSnapshot | null | undefined,
+  employeeId: string | null | undefined,
+): { showActions: boolean; canAct: boolean; reasonAr: string | null } {
+  if (!states || !employeeId) {
+    return { showActions: false, canAct: false, reasonAr: null };
+  }
+
+  if (!isEmployeeInRequestApproverStates(states, employeeId)) {
+    return { showActions: false, canAct: false, reasonAr: null };
+  }
+
+  const self = states.approvers.find((a) => a.employeeId === employeeId);
+  if (!self || self.status !== 'pending') {
+    return { showActions: false, canAct: false, reasonAr: null };
+  }
+
+  const ctx = getRequestApproverActionContext(states, employeeId);
+  return {
+    showActions: true,
+    canAct: ctx.canAct,
+    reasonAr: ctx.reasonAr,
+  };
+}
+
+export type { RequestApproverStateEntry };

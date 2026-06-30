@@ -8,7 +8,7 @@ export function resolveVisualKey(s: DaySummaryStatus): StatusVisualKey {
   if (s === 'on_leave') return 'on_leave';
   if (s === 'overtime') return 'present';
   if (s === 'incomplete') return 'absent';
-  if (s === 'present' || s === 'late' || s === 'absent' || s === 'early_leave') return s;
+  if (s === 'present' || s === 'partial' || s === 'late' || s === 'absent' || s === 'early_leave') return s;
   return 'present';
 }
 

@@ -27,35 +27,37 @@ export function EmployeeProfileShell({ model, children }: Props) {
   const showCount = (n: number | undefined) => countsReady && n !== undefined && n > 0;
 
   return (
-    <div dir="rtl" className="flex min-h-0 flex-1 flex-col overflow-hidden bg-background -mx-4 sm:-mx-6">
+    <div dir="rtl" className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background w-full">
       <div className="shrink-0 border-b border-border/60 bg-card/50 backdrop-blur-md">
-        <div className="px-3 sm:px-6 h-12 flex items-center justify-between">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Link href={hrOrganizationRoutes.employees} className="hover:text-foreground transition-colors flex items-center gap-1">
+        <div className="flex h-12 min-w-0 items-center justify-between px-4 sm:px-6">
+          <div className="flex min-w-0 items-center gap-2 text-sm text-muted-foreground">
+            <Link href={hrOrganizationRoutes.employees} className="flex shrink-0 items-center gap-1 transition-colors hover:text-foreground">
               <ChevronLeft className="h-3.5 w-3.5 rotate-180" />
               <span className="hidden sm:inline">الموظفون</span>
             </Link>
-            <span className="text-muted-foreground/40">/</span>
-            <span className="text-foreground font-medium truncate max-w-[140px] sm:max-w-[200px]">{employee.name}</span>
+            <span className="shrink-0 text-muted-foreground/40">/</span>
+            <span className="min-w-0 truncate font-medium text-foreground">{employee.name}</span>
           </div>
         </div>
       </div>
 
-      <div className="md:hidden shrink-0 border-b border-border/60 bg-card/30">
-        <div className="flex items-center gap-3 px-3 py-2.5 border-b border-border/40">
-          <Avatar className="h-9 w-9 ring-2 ring-background shadow-xs shrink-0">
+      <div className="shrink-0 border-b border-border/60 bg-card/30 md:hidden">
+        <div className="flex min-w-0 items-center gap-3 border-b border-border/40 px-4 py-2.5">
+          <Avatar className="h-9 w-9 shrink-0 shadow-xs ring-2 ring-background">
             <AvatarImage src={employee.avatar} alt={employee.name} />
-            <AvatarFallback className="text-xs font-arabic-display bg-primary text-primary-foreground">
+            <AvatarFallback className="bg-primary font-arabic-display text-xs text-primary-foreground">
               {getInitials(employee.name)}
             </AvatarFallback>
           </Avatar>
           <div className="min-w-0 flex-1">
-            <div className="text-sm font-semibold truncate">{employee.name}</div>
-            <div className="text-[11px] text-muted-foreground truncate">{employee.position}</div>
+            <div className="truncate text-sm font-semibold">{employee.name}</div>
+            <div className="truncate text-[11px] text-muted-foreground">{employee.position}</div>
           </div>
-          <StatusBadge status={employee.contractStatus} />
+          <div className="shrink-0">
+            <StatusBadge status={employee.contractStatus} />
+          </div>
         </div>
-        <div className="flex overflow-x-auto scrollbar-hide gap-0.5 px-2 py-1.5">
+        <div className="flex max-w-full gap-0.5 overflow-x-auto overscroll-x-contain px-4 py-1.5 scrollbar-hide">
           {SECTIONS.map((s) => {
             const isActive = activeSection === s.id;
             const count = counts[s.id];
@@ -89,8 +91,8 @@ export function EmployeeProfileShell({ model, children }: Props) {
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 overflow-hidden">
-        <aside className="hidden md:flex w-72 lg:w-80 shrink-0 min-h-0 border-l border-border/60 bg-card/30 flex-col overflow-hidden">
+      <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
+        <aside className="hidden min-h-0 w-72 shrink-0 flex-col overflow-hidden border-l border-border/60 bg-card/30 md:flex lg:w-80">
           <nav className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3">
             <div className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-2 px-2">
               الأقسام
@@ -127,9 +129,9 @@ export function EmployeeProfileShell({ model, children }: Props) {
 
         <main
           ref={contentRef}
-          className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-muted/20"
+          className="min-h-0 min-w-0 flex-1 overflow-auto overscroll-contain bg-muted/20"
         >
-          <div className="mx-auto max-w-5xl px-3 py-4 sm:px-6 sm:py-6 md:px-8">{children}</div>
+          <div className="mx-auto w-full min-w-0 max-w-5xl p-4 sm:p-6 md:px-8">{children}</div>
         </main>
       </div>
     </div>

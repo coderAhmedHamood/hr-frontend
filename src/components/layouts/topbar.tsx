@@ -24,9 +24,11 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useSidebar } from '@/components/layouts/sidebar-context';
 import { usePageTitle } from '@/components/layouts/page-title-context';
-import { usePageHeaderActionsRegion } from '@/components/layouts/page-header-actions-context';
+import { usePageHeaderActionsSlotRegion } from '@/components/layouts/page-header-actions-context';
+import { PageHeaderActionsRow } from '@/components/layouts/page-header-actions-row';
 import { FilterTrigger } from '@/components/layouts/filter-panel';
 import { Logo } from '@/components/layouts/logo';
+import { useDefaultCompanyBranding } from '@/features/auth/hooks/use-default-company-branding';
 import { NotificationBellPopover } from '@/features/hr/notifications/components/notification-bell-popover';
 import { cn } from '@/shared/utils';
 import { useThemeStore } from '@/shared/store/theme-store';
@@ -326,12 +328,28 @@ export function Topbar() {
     activeBranchId,
   } = useAuthUserDisplay();
   const defaultCompanyId = useDefaultCompanyId();
+  const { logoUrl, logoAlt } = useDefaultCompanyBranding();
   const setActiveContext = useAuthStore((s) => s.setActiveContext);
   const { toggle } = useSidebar();
   const { meta } = usePageTitle();
   const pathname = usePathname();
 
-  const { slot: headerActionsSlot } = usePageHeaderActionsRegion();
+  const { renderFnRef, reRenderSlotRef } = usePageHeaderActionsSlotRegion();
+  const [, forceHeaderActionsUpdate] = React.useReducer((n: number) => n + 1, 0);
+
+  React.useLayoutEffect(() => {
+    reRenderSlotRef.current = forceHeaderActionsUpdate;
+    return () => {
+      reRenderSlotRef.current = null;
+    };
+  }, [reRenderSlotRef]);
+
+  // Re-read header slot after route changes (Topbar renders before page children).
+  React.useLayoutEffect(() => {
+    forceHeaderActionsUpdate();
+  }, [pathname]);
+
+  const headerActionsSlot = renderFnRef.current?.() ?? null;
   const [activeMenu, setActiveMenu] = React.useState<string | null>(null);
   const closeTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const openMenu   = (key: string) => { if (closeTimer.current) clearTimeout(closeTimer.current); setActiveMenu(key); };
@@ -359,17 +377,13 @@ export function Topbar() {
 
         {/* Logo */}
         <Link href="/hr/dashboard" className="flex shrink-0 items-center gap-2.5 rounded-xl p-1.5 transition-colors hover:bg-muted/50">
-          <Logo size={28} />
-          <div className="hidden flex-col leading-none sm:flex">
-            <span className="font-display text-[15px] font-bold tracking-tight">روز</span>
-            <span className="text-[9px] font-medium tracking-[0.22em] text-muted-foreground uppercase">rose HR</span>
-          </div>
+          <Logo size={28} src={logoUrl} alt={logoAlt} />
         </Link>
 
-        <div className="mx-0.5 hidden h-5 w-px bg-border/70 lg:block" />
+        <div className="mx-0.5 hidden h-5 w-px bg-border/70 xl:block" />
 
         {/* Desktop nav */}
-        <nav className="hidden flex-1 items-center gap-0.5 lg:flex" aria-label="التنقل الرئيسي">
+        <nav className="hidden flex-1 items-center gap-0.5 xl:flex" aria-label="التنقل الرئيسي">
           {navConfig.map(item => {
             const active  = parentIsActive(pathname, item);
             const isOpen  = activeMenu === item.key;
@@ -422,7 +436,7 @@ export function Topbar() {
           })}
         </nav>
 
-        <div className="flex-1 lg:hidden" />
+        <div className="flex-1 xl:hidden" />
 
         {/* Actions */}
         <div className="flex shrink-0 items-center gap-0.5 sm:gap-1">
@@ -446,12 +460,6 @@ export function Topbar() {
                   {avatarUrl ? <AvatarImage src={avatarUrl} alt={displayName} /> : null}
                   <AvatarFallback>{avatarFallback}</AvatarFallback>
                 </Avatar>
-                <div className="hidden flex-col text-right leading-tight md:flex">
-                  <span className="text-[12px] font-semibold">{displayName}</span>
-                  {subtitle ? (
-                    <span className="text-[10px] text-muted-foreground">{subtitle}</span>
-                  ) : null}
-                </div>
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-72">
@@ -518,7 +526,7 @@ export function Topbar() {
           </DropdownMenu>
 
           {/* Mobile hamburger */}
-          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl lg:hidden" onClick={toggle} aria-label="القائمة">
+          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl xl:hidden" onClick={toggle} aria-label="القائمة">
             <Menu className="h-4 w-4" />
           </Button>
         </div>
@@ -527,27 +535,27 @@ export function Topbar() {
       {/* ── Row 2: page title + page-level actions ── */}
       <div
         className={cn(
-          'flex items-center justify-between gap-3 border-t px-4 py-2 sm:px-5 sm:py-2.5',
+          'flex flex-row flex-nowrap items-center justify-between gap-2 border-t px-3 py-2 sm:gap-3 sm:px-5 sm:py-2.5',
           'border-border/25 bg-white/55 backdrop-blur-sm dark:border-border/30 dark:bg-muted/15',
         )}
       >
         {/* Title + subtitle */}
         {meta.titleAr ? (
-          <div className="flex min-w-0 items-start gap-2.5">
-            {PageIcon && <PageIcon className="mt-0.5 h-4 w-4 shrink-0 text-primary" />}
-            <div className="min-w-0">
-              <h1 className="truncate text-base font-bold leading-tight tracking-tight text-foreground sm:text-[17px]">
+          <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden sm:items-start sm:gap-2.5">
+            {PageIcon && <PageIcon className="h-4 w-4 shrink-0 text-primary sm:mt-0.5" />}
+            <div className="min-w-0 flex-1">
+              <h1 className="truncate text-sm font-bold leading-tight tracking-tight text-foreground sm:text-[17px]">
                 {meta.titleAr}
               </h1>
               {meta.descriptionAr && (
-                <p className="mt-0.5 truncate text-[11px] leading-snug text-muted-foreground sm:text-xs">
+                <p className="mt-0.5 hidden truncate text-[11px] leading-snug text-muted-foreground sm:block sm:text-xs">
                   {meta.descriptionAr}
                 </p>
               )}
             </div>
           </div>
         ) : (
-          <div className="flex items-center gap-2.5">
+          <div className="flex min-w-0 flex-1 items-center gap-2.5">
             <div className="h-4 w-4 shrink-0 rounded bg-muted" />
             <div className="h-3 w-40 animate-pulse rounded-full bg-muted" />
           </div>
@@ -555,9 +563,7 @@ export function Topbar() {
 
         {/* Per-page actions (filter toggle, add button, …) */}
         {headerActionsSlot ? (
-          <div className="flex shrink-0 items-center gap-2">
-            {headerActionsSlot}
-          </div>
+          <PageHeaderActionsRow>{headerActionsSlot}</PageHeaderActionsRow>
         ) : null}
       </div>
     </header>

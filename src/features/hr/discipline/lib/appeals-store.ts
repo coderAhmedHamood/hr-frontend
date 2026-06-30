@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
 import { getDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 import { disciplineAppealsApi } from './api/discipline-appeals';
+import { ApiError } from '@/features/hr/lib/api/client';
 import type { DisciplineAppealResponseDto } from './api/discipline-appeals';
 import type { HRDisciplineAppealRecord, HRAppealChannel, HRAppealStatus } from './types';
 
@@ -25,7 +26,7 @@ function mapApi(r: DisciplineAppealResponseDto): HRDisciplineAppealRecord {
 interface AppealsState {
   appeals: HRDisciplineAppealRecord[];
   isLoading: boolean;
-  error: string | null;
+  error: { message: string; status: number } | null;
   fetch: () => Promise<void>;
   add: (d: Omit<HRDisciplineAppealRecord, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
   update: (id: string, patch: Partial<HRDisciplineAppealRecord>) => Promise<void>;
@@ -45,7 +46,7 @@ export const useHRDisciplineAppealsStore = create<AppealsState>()((set) => ({
       const result = await disciplineAppealsApi.getAll({ companyId, limit: 200 });
       set({ appeals: result.items.map(mapApi), isLoading: false });
     } catch (e) {
-      set({ error: (e as Error).message, isLoading: false });
+      set({ error: { message: (e as Error).message, status: e instanceof ApiError ? e.status : 0 }, isLoading: false });
     }
   },
 

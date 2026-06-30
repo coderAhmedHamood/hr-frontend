@@ -2,7 +2,6 @@
 
 import * as React from 'react';
 import { RefreshCw } from 'lucide-react';
-import { useAuthStore } from '@/features/auth/lib/auth-store';
 import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import {
@@ -10,28 +9,27 @@ import {
   type AttendanceDayStatus,
   type DaySummaryResponseDto,
 } from '@/features/hr/attendance/lib/api/attendance-day-summaries';
-import { employeesApi } from '@/features/hr/organization/employees/lib/api/employees';
+import { useEmployeeFilterPicker } from '@/features/hr/lib/use-employee-filter-picker';
 import {
-  AR_MONTH_NAMES,
   DAY_SUMMARY_STATUS_LABELS,
   DAY_SUMMARY_STATUS_ORDER,
 } from '@/features/hr/attendance/day-summaries/constants/day-summary-labels';
 import {
   currentYearMonth,
   monthDateBounds,
-  yearOptions,
 } from '@/features/hr/attendance/day-summaries/utils/month-date-range';
+import { isPeriodFilterActive, normalizePeriodRange } from '@/features/hr/discipline/lib/discipline-date-filter';
 import { Button } from '@/components/ui/button';
-import { DatePickerInput } from '@/components/ui/date-picker-input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { EntityFilterToolbar, type EntityFilterInlineSelect } from '@/components/ui/entity-filter-toolbar';
+import { ListFilterBar, type ListFilterInlineSelect } from '@/components/ui/list-filter-bar';
 import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
+import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
+import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
+import { recomputeTodayDaySummaries } from '@/features/hr/attendance/lib/api/recompute-today-day-summaries';
+import {
+  attendanceFiltersKey,
+  usePersistedEmpIdSet,
+  usePersistedFilterState,
+} from '@/features/hr/attendance/lib/use-persisted-filter-state';
 
 export type DaySummariesFilters = {
   status: 'all' | AttendanceDayStatus;
@@ -43,76 +41,55 @@ export function useDaySummariesDirectoryModel() {
   const initialYm = currentYearMonth();
   const initialBounds = monthDateBounds(initialYm.year, initialYm.month);
 
-  const [year, setYear] = React.useState(initialYm.year);
-  const [month, setMonth] = React.useState(initialYm.month);
-  const [from, setFrom] = React.useState(initialBounds.from);
-  const [to, setTo] = React.useState(initialBounds.to);
-  const [customRange, setCustomRange] = React.useState(false);
+  const [periodBounds, setPeriodBounds] = usePersistedFilterState(
+    attendanceFiltersKey('day-summaries', companyId, 'periodBounds'),
+    initialBounds,
+  );
+  const from = periodBounds.from;
+  const to = periodBounds.to;
 
   const [items, setItems] = React.useState<DaySummaryResponseDto[]>([]);
   const [total, setTotal] = React.useState(0);
   const [page, setPage] = React.useState(1);
   const [limit, setLimit] = React.useState(50);
   const [loading, setLoading] = React.useState(true);
-  const [selectedEmpIds, setSelectedEmpIds] = React.useState<Set<string>>(new Set());
-  const [allEmployees, setAllEmployees] = React.useState<{ id: string; name: string }[]>([]);
+  const [selectedEmpIds, setSelectedEmpIds] = usePersistedEmpIdSet(
+    attendanceFiltersKey('day-summaries', companyId, 'selectedEmpIds'),
+  );
+  const { employees: pickerEmployees } = useEmployeeFilterPicker(companyId);
+  const allEmployees = React.useMemo(
+    () => pickerEmployees.map((e) => ({ id: e.id, name: e.name })),
+    [pickerEmployees],
+  );
   const [recomputeOpen, setRecomputeOpen] = React.useState(false);
+  const pageEnterRecomputeDone = React.useRef(false);
 
-  const [filters, setFilters] = React.useState<DaySummariesFilters>({
-    status: 'all',
-    isManualOverride: 'all',
-  });
+  const [filters, setFilters] = usePersistedFilterState<DaySummariesFilters>(
+    attendanceFiltersKey('day-summaries', companyId, 'filters'),
+    {
+      status: 'all',
+      isManualOverride: 'all',
+    },
+  );
 
-  React.useEffect(() => {
-    if (!companyId) {
-      setAllEmployees([]);
-      return;
-    }
-    void employeesApi
-      .getAll({ companyId, limit: 500 })
-      .then((res) => {
-        setAllEmployees(res.items.map((e) => ({ id: e.id, name: e.nameAr })));
-      })
-      .catch((err) => {
-        handleApiError(err, 'day-summaries.employees');
-        setAllEmployees([]);
-      });
-  }, [companyId]);
-
-  const empPickerList = React.useMemo(() => allEmployees, [allEmployees]);
-
-  const applyMonthBounds = React.useCallback((y: number, m: number) => {
-    const bounds = monthDateBounds(y, m);
-    setFrom(bounds.from);
-    setTo(bounds.to);
-    setCustomRange(false);
+  const defaultPeriod = React.useMemo(() => {
+    const ym = currentYearMonth();
+    return monthDateBounds(ym.year, ym.month);
   }, []);
 
-  const onYearChange = (value: string) => {
-    const y = Number(value);
-    setYear(y);
-    if (!customRange) applyMonthBounds(y, month);
-  };
+  const onPeriodChange = React.useCallback((range: { from: string; to: string }) => {
+    const normalized = normalizePeriodRange(range);
+    if (!normalized) return;
+    setPeriodBounds(normalized);
+  }, [setPeriodBounds]);
 
-  const onMonthChange = (value: string) => {
-    const m = Number(value);
-    setMonth(m);
-    if (!customRange) applyMonthBounds(year, m);
-  };
+  const onPeriodFilterClear = React.useCallback(() => {
+    const ym = currentYearMonth();
+    const bounds = monthDateBounds(ym.year, ym.month);
+    setPeriodBounds(bounds);
+  }, [setPeriodBounds]);
 
-  const onFromChange = (value: string) => {
-    setFrom(value);
-    setCustomRange(true);
-  };
-
-  const onToChange = (value: string) => {
-    setTo(value);
-    setCustomRange(true);
-  };
-
-  const syncToSelectedMonth = () => {
-    applyMonthBounds(year, month);
-  };
+  const periodFilterActive = isPeriodFilterActive({ from, to }, defaultPeriod);
 
   const employeeId = selectedEmpIds.size === 1 ? [...selectedEmpIds][0] : undefined;
 
@@ -132,6 +109,11 @@ export function useDaySummariesDirectoryModel() {
 
     setLoading(true);
     try {
+      if (!pageEnterRecomputeDone.current) {
+        pageEnterRecomputeDone.current = true;
+        await recomputeTodayDaySummaries(companyId);
+      }
+
       const res = await attendanceDaySummariesApi.getAll({
         companyId,
         page: selectedEmpIds.size > 1 ? 1 : page,
@@ -175,58 +157,7 @@ export function useDaySummariesDirectoryModel() {
 
   const selectedEmpKey = React.useMemo(() => [...selectedEmpIds].sort().join(','), [selectedEmpIds]);
 
-  const yearMonthFilters = (
-    <div className="flex flex-wrap items-center gap-2">
-      <Select value={String(year)} onValueChange={onYearChange}>
-        <SelectTrigger className="h-8 w-[5.5rem] text-xs">
-          <SelectValue placeholder="السنة" />
-        </SelectTrigger>
-        <SelectContent>
-          {yearOptions(year).map((y) => (
-            <SelectItem key={y} value={String(y)}>{y}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <Select value={String(month)} onValueChange={onMonthChange}>
-        <SelectTrigger className="h-8 w-[7.5rem] text-xs">
-          <SelectValue placeholder="الشهر" />
-        </SelectTrigger>
-        <SelectContent>
-          {AR_MONTH_NAMES.map((label, i) => (
-            <SelectItem key={i + 1} value={String(i + 1)}>{label}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <div className="flex items-center gap-1.5">
-        <DatePickerInput
-          id="day-summaries-from"
-          value={from}
-          onChange={onFromChange}
-          className="h-8 w-[9.5rem] text-xs"
-        />
-        <span className="text-xs text-muted-foreground">—</span>
-        <DatePickerInput
-          id="day-summaries-to"
-          value={to}
-          onChange={onToChange}
-          className="h-8 w-[9.5rem] text-xs"
-        />
-      </div>
-      {customRange ? (
-        <Button
-          type="button"
-          variant="link"
-          size="sm"
-          className="h-8 px-1 text-xs text-primary"
-          onClick={syncToSelectedMonth}
-        >
-          مواءمة مع {AR_MONTH_NAMES[month - 1]} {year}
-        </Button>
-      ) : null}
-    </div>
-  );
-
-  const inlineSelects = React.useMemo((): EntityFilterInlineSelect[] => [
+  const inlineSelects = React.useMemo((): ListFilterInlineSelect[] => [
     {
       id: 'status',
       value: filters.status,
@@ -255,42 +186,56 @@ export function useDaySummariesDirectoryModel() {
     },
   ], [filters.isManualOverride, filters.status]);
 
+  const activeFilterCount =
+    (periodFilterActive ? 1 : 0)
+    + (selectedEmpIds.size > 0 ? 1 : 0)
+    + (filters.status !== 'all' ? 1 : 0)
+    + (filters.isManualOverride !== 'all' ? 1 : 0);
+
+  usePageHeaderActions(
+    () => (
+      <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
+        <FilterToggleButton activeFilterCount={activeFilterCount} />
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-8 gap-2"
+          onClick={() => setRecomputeOpen(true)}
+        >
+          <RefreshCw className="h-3.5 w-3.5" />
+          تحديث البيانات
+        </Button>
+      </div>
+    ),
+    [activeFilterCount],
+  );
+
   useEntityFilterSlot(
     () => (
-      <EntityFilterToolbar
-        showDateSection={false}
+      <ListFilterBar
         showStatusSection={false}
-        leadingFilters={yearMonthFilters}
-        empPickerEmployees={empPickerList}
+        periodValue={{ from, to }}
+        onPeriodChange={onPeriodChange}
+        defaultPeriod={defaultPeriod}
+        onPeriodFilterClear={onPeriodFilterClear}
+        empPickerEmployees={pickerEmployees}
         selectedEmpIds={selectedEmpIds}
         onSelectedEmpIdsChange={setSelectedEmpIds}
         inlineSelects={inlineSelects}
-        onDateBoundsChange={() => {}}
-        trailingActions={(
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-8 gap-1.5 text-xs"
-            onClick={() => setRecomputeOpen(true)}
-          >
-            <RefreshCw className="h-3.5 w-3.5" />
-            تحديث البيانات
-          </Button>
-        )}
       />
     ),
     [
-      year,
-      month,
       from,
       to,
-      customRange,
+      periodFilterActive,
       filters.status,
       filters.isManualOverride,
       selectedEmpKey,
-      empPickerList,
+      pickerEmployees,
       inlineSelects,
+      onPeriodChange,
+      onPeriodFilterClear,
     ],
   );
 

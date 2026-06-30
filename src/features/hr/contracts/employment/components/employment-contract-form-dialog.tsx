@@ -14,7 +14,7 @@ import {
   dialogFormFooterClass,
 } from '@/components/ui/dialog';
 import { SingleDatePicker } from '@/components/ui/single-date-picker';
-import { MinimalDropdown, SearchableDropdown } from '@/features/hr/requests/components/shared-ui';
+import { MinimalDropdown, SearchableDropdown } from '@/components/ui/shared-dialogs';
 import {
   CONTRACT_NATURE_DROPDOWN_OPTIONS,
   WORK_ARRANGEMENT_DROPDOWN_OPTIONS,

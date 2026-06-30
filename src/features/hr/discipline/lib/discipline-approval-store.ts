@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
 import { getDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 import { disciplineApprovalTemplatesApi } from './api/discipline-approval-templates';
+import { ApiError } from '@/features/hr/lib/api/client';
 import { organizationActiveListStatusQuery } from '@/features/hr/organization/lib/archive-scope';
 import type { DisciplineApprovalTemplateResponseDto } from './api/discipline-approval-templates';
 import type { HRApprovalAssignmentTemplate } from '@/features/hr/requests/lib/types';
@@ -40,7 +41,7 @@ export function disciplineApprovalLinkedIds(t: HRApprovalAssignmentTemplate): st
 interface AAState {
   templates: HRApprovalAssignmentTemplate[];
   isLoading: boolean;
-  error: string | null;
+  error: { message: string; status: number } | null;
   fetch: () => Promise<void>;
   add: (draft: Omit<HRApprovalAssignmentTemplate, 'id' | 'createdAt' | 'updatedAt'>) => Promise<{ ok: boolean; error?: string }>;
   update: (id: string, patch: Partial<Omit<HRApprovalAssignmentTemplate, 'id' | 'createdAt'>>) => Promise<{ ok: boolean; error?: string }>;
@@ -60,7 +61,7 @@ export const useHRDisciplineApprovalAssignmentTemplatesStore = create<AAState>()
       const result = await disciplineApprovalTemplatesApi.getAll({ companyId, limit: 200, ...organizationActiveListStatusQuery() });
       set({ templates: result.items.map(mapApi), isLoading: false });
     } catch (e) {
-      set({ error: (e as Error).message, isLoading: false });
+      set({ error: { message: (e as Error).message, status: e instanceof ApiError ? e.status : 0 }, isLoading: false });
     }
   },
 

@@ -9,12 +9,12 @@ import {
 } from '@/components/ui/entity-action-card';
 import { toast } from 'sonner';
 import { usePageFilters } from '@/components/layouts/filter-panel-context';
-import { EmptyState } from '@/features/hr/requests/components/shared-ui';
+import { EmptyState } from '@/components/ui/shared-dialogs';
 import { Button } from '@/components/ui/button';
 import { DataTable, type ColumnDef } from '@/components/ui/data-table';
 import { TableDateCell } from '@/components/ui/table-cells';
 import { DisciplineListViewport, DisciplinePaginatedList } from '@/features/hr/discipline/components/discipline-paginated-list';
-import { cn } from '@/shared/utils';
+import { cn, formatDisplayDateTime } from '@/shared/utils';
 import { useDefaultCompany } from '@/features/hr/organization/hooks/useActiveCompany';
 import type { HRDisciplineAuditCategory, HRDisciplineAuditAction } from '@/features/hr/discipline/lib/discipline-audit-log';
 import {
@@ -22,14 +22,23 @@ import {
   AUDIT_ACTION_LABELS_AR,
   AUDIT_CATEGORY_LABELS_AR,
 } from '@/features/hr/discipline/lib/discipline-audit-log';
-import type { DateFilterTab } from '@/features/hr/discipline/lib/discipline-date-filter';
 import { PdfPreviewExportDialog } from '@/components/pdf/pdf-preview-export-dialog';
 import { DisciplineAuditLogPrintHtml } from '@/components/pdf/print/discipline-audit-log-print-html';
 import {
-  DisciplineFilterToolbar,
-  type DisciplineFilterToolbarHandle,
-  type DisciplineViewMode,
-} from '@/features/hr/discipline/components/discipline-filter-toolbar';
+  ListFilterBar,
+  type ListFilterBarHandle,
+  type ListFilterInlineSelect,
+} from '@/components/ui/list-filter-bar';
+import { useDisciplineDateFilterState } from '@/features/hr/discipline/lib/use-discipline-date-filter-state';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
+import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
+import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
 import {
   useDisciplineAuditLogDirectoryModel,
   type AuditLogEntry,
@@ -37,17 +46,10 @@ import {
 
 type CatFilter = 'all' | HRDisciplineAuditCategory;
 type StatusFilter = 'all' | HRDisciplineAuditAction;
+type DisciplineViewMode = 'cards' | 'list';
 
 function formatOccurred(iso: string): string {
-  try {
-    const d = new Date(iso);
-    return new Intl.DateTimeFormat('ar-SA-u-ca-gregory', {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-    }).format(d);
-  } catch {
-    return iso;
-  }
+  return formatDisplayDateTime(iso);
 }
 
 function SnapshotComparisonTable({ previousSnapshotAr, currentSnapshotAr }: { previousSnapshotAr: string; currentSnapshotAr: string }) {
@@ -118,9 +120,8 @@ export function DisciplineAuditLogClient() {
   const [selectedActorIds, setSelectedActorIds] = React.useState<Set<string>>(new Set());
   const [statusFilter, setStatusFilter] = React.useState<StatusFilter>('all');
   const [viewMode, setViewMode] = React.useState<DisciplineViewMode>('list');
-  const [dateBounds, setDateBounds] = React.useState({ from: '', to: '' });
-  const [dateMeta, setDateMeta] = React.useState<{ tab: DateFilterTab; hasRestriction: boolean }>({ tab: 'all', hasRestriction: false });
-  const filterToolbarRef = React.useRef<DisciplineFilterToolbarHandle>(null);
+  const { dateBounds, dateMeta, setDateBounds, onDateBoundsChange, onDateFilterMetaChange } = useDisciplineDateFilterState();
+  const filterToolbarRef = React.useRef<ListFilterBarHandle>(null);
   const [pdfOpen, setPdfOpen] = React.useState(false);
   const [expandedSnapshots, setExpandedSnapshots] = React.useState<Set<string>>(() => new Set());
 
@@ -153,6 +154,29 @@ export function DisciplineAuditLogClient() {
     return counts;
   }, [dateFilteredItems]);
 
+  const dateRangeActive = dateMeta.hasRestriction;
+  const activeFilterCount =
+    (selectedActorIds.size > 0 ? 1 : 0)
+    + (statusFilter !== 'all' ? 1 : 0)
+    + (catFilter !== 'all' ? 1 : 0)
+    + (dateRangeActive ? 1 : 0);
+
+  const inlineSelects = React.useMemo((): ListFilterInlineSelect[] => [
+    {
+      id: 'category',
+      value: catFilter,
+      onChange: (v) => setCatFilter(v as CatFilter),
+      placeholder: 'فئة السجل',
+      className: 'w-[9.5rem]',
+      options: [
+        { value: 'all', label: 'كل الفئات' },
+        { value: 'violation_case', label: AUDIT_CATEGORY_LABELS_AR.violation_case },
+        { value: 'investigation', label: AUDIT_CATEGORY_LABELS_AR.investigation },
+        { value: 'appeal', label: AUDIT_CATEGORY_LABELS_AR.appeal },
+      ],
+    },
+  ], [catFilter]);
+
   const pdfRows = React.useMemo(
     () => listFiltered.map((e) => ({
       occurredAtDisplay: formatOccurred(e.occurredAt),
@@ -171,30 +195,68 @@ export function DisciplineAuditLogClient() {
         companyNameAr={companyNameAr}
         companyNameEn={companyNameEn}
         titleAr="سجل عمليات الانضباط الوظيفي"
-        filterSummary={`الفئة: ${catFilter === 'all' ? 'الكل' : AUDIT_CATEGORY_LABELS_AR[catFilter]} · المُعدّلون: ${selectedActorIds.size === 0 ? 'الكل' : `${selectedActorIds.size} محدد`} · نوع العملية: ${statusFilter === 'all' ? 'الكل' : AUDIT_ACTION_LABELS_AR[statusFilter]} · التاريخ: ${dateBounds.from || dateBounds.to ? `${dateBounds.from || '…'} — ${dateBounds.to || '…'}` : 'كل الفترات'}${qRaw.trim() ? ` · بحث: ${qRaw.trim()}` : ''}`}
         rows={pdfRows}
       />
     ),
-    [pdfRows, catFilter, selectedActorIds.size, statusFilter, dateBounds.from, dateBounds.to, qRaw],
+    [pdfRows, companyNameAr, companyNameEn],
   );
 
-  const categorySelect = (
-    <div className="flex items-center gap-2">
-        <label htmlFor="audit-log-category" className="text-[11px] text-muted-foreground whitespace-nowrap">فئة السجل</label>
-      <select
-        id="audit-log-category"
-        title="فئة السجل"
-        aria-label="فئة السجل"
-        value={catFilter}
-        onChange={(ev) => setCatFilter(ev.target.value as CatFilter)}
-        className="h-8 max-w-44 rounded-lg border border-input bg-background px-2 text-xs"
-      >
-        <option value="all">الكل</option>
-        <option value="violation_case">{AUDIT_CATEGORY_LABELS_AR.violation_case}</option>
-        <option value="investigation">{AUDIT_CATEGORY_LABELS_AR.investigation}</option>
-        <option value="appeal">{AUDIT_CATEGORY_LABELS_AR.appeal}</option>
-      </select>
-    </div>
+  usePageHeaderActions(
+    () => (
+      <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
+        <FilterToggleButton activeFilterCount={activeFilterCount} />
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button type="button" variant="outline" size="sm" className="h-8 w-8 shrink-0" aria-label="تصدير سجل العمليات">
+              <FileDown className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-44">
+            <DropdownMenuItem
+              onSelect={() => {
+                if (pdfRows.length === 0) {
+                  toast.error('لا توجد عمليات للتصدير ضمن الفلاتر الحالية.');
+                  return;
+                }
+                setPdfOpen(true);
+              }}
+            >
+              <FileDown className="h-4 w-4" />
+              PDF
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    ),
+    [activeFilterCount, pdfRows.length],
+  );
+
+  useEntityFilterSlot(
+    () => (
+      <ListFilterBar
+        ref={filterToolbarRef}
+        inlineSelects={inlineSelects}
+        empPickerEmployees={actorPickerList}
+        selectedEmpIds={selectedActorIds}
+        onSelectedEmpIdsChange={setSelectedActorIds}
+        statusFilter={statusFilter}
+        onStatusFilterChange={(v) => setStatusFilter(v as StatusFilter)}
+        statusOrder={AUDIT_ACTION_FILTER_ORDER}
+        statusLabels={AUDIT_ACTION_LABELS_AR as unknown as Record<string, string>}
+        statusCounts={statusCounts}
+        onDateBoundsChange={onDateBoundsChange}
+        onDateFilterMetaChange={onDateFilterMetaChange}
+        dataView={{
+          value: viewMode,
+          onChange: (v) => setViewMode(v as DisciplineViewMode),
+          options: [
+            { value: 'cards', label: 'بطاقات', icon: 'layout-grid' },
+            { value: 'list', label: 'قائمة', icon: 'list' },
+          ],
+        }}
+      />
+    ),
+    [actorPickerList, selectedActorIds, statusFilter, statusCounts, viewMode, inlineSelects, onDateBoundsChange, onDateFilterMetaChange],
   );
 
   const columns = React.useMemo((): ColumnDef<AuditLogEntry>[] => [
@@ -292,36 +354,6 @@ export function DisciplineAuditLogClient() {
     <div className="flex min-h-0 flex-1 flex-col gap-4">
       <PdfPreviewExportDialog open={pdfOpen} onOpenChange={setPdfOpen} title="معاينة تصدير سجل العمليات" fileName="discipline-audit-log.pdf" printable={printable} />
 
-      <DisciplineFilterToolbar
-        ref={filterToolbarRef}
-        showPrimaryAction={false}
-        primaryActionLabel=""
-        onPrimaryAction={() => {}}
-        beforeEmployeePicker={categorySelect}
-        toolbarExtraTrailing={(
-          <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 text-xs"
-            onClick={() => {
-              if (pdfRows.length === 0) { toast.error('لا توجد عمليات للتصدير ضمن الفلاتر الحالية.'); return; }
-              setPdfOpen(true);
-            }}
-          >
-            <FileDown className="h-3.5 w-3.5" />تصدير PDF
-          </Button>
-        )}
-        empPickerEmployees={actorPickerList}
-        selectedEmpIds={selectedActorIds}
-        onSelectedEmpIdsChange={setSelectedActorIds}
-        statusFilter={statusFilter}
-        onStatusFilterChange={(v) => setStatusFilter(v as StatusFilter)}
-        statusOrder={AUDIT_ACTION_FILTER_ORDER}
-        statusLabels={AUDIT_ACTION_LABELS_AR as unknown as Record<string, string>}
-        statusCounts={statusCounts}
-        viewMode={viewMode}
-        onViewModeChange={setViewMode}
-        onDateBoundsChange={setDateBounds}
-        onDateFilterMetaChange={setDateMeta}
-      />
-
       <DisciplineListViewport>
       {loading ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -342,8 +374,8 @@ export function DisciplineAuditLogClient() {
           ) : dateFilteredItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/60 bg-muted/20 py-14 text-center px-4">
               <p className="text-sm text-muted-foreground">لا توجد عمليات ضمن الفترة المحددة.</p>
-              {dateMeta.hasRestriction ? (
-                <Button variant="link" size="sm" className="mt-2 text-xs" onClick={() => filterToolbarRef.current?.resetDateFilter()}>
+              {dateRangeActive ? (
+                <Button variant="link" size="sm" className="mt-2 text-xs" onClick={() => setDateBounds({ from: '', to: '' })}>
                   عرض كل الفترات
                 </Button>
               ) : null}

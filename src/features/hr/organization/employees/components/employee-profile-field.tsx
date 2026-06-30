@@ -4,6 +4,14 @@ import * as React from 'react';
 import type { Employee } from '@/features/hr/organization/employees/types';
 import { cn } from '@/shared/utils';
 import { Prop } from '@/features/hr/organization/employees/components/EmployeeProfilePrimitives';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { DatePickerInput } from '@/components/ui/date-picker-input';
 
 export type EmployeeProfileDraft = Employee;
 
@@ -85,16 +93,24 @@ export function EmployeeProfileSelectField<K extends keyof EmployeeProfileDraft>
 
   return (
     <ProfileFieldShell icon={icon} label={label} editing>
-      <select
-        id={selectId}
+      <Select
         value={String(value ?? '')}
-        onChange={(e) => updateField(field, e.target.value as EmployeeProfileDraft[K])}
-        className="w-full rounded-lg border border-border bg-muted/50 px-3 py-2 text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-colors cursor-pointer"
+        onValueChange={(v) => updateField(field, v as EmployeeProfileDraft[K])}
       >
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>{o.label}</option>
-        ))}
-      </select>
+        <SelectTrigger
+          id={selectId}
+          className="h-10 w-full rounded-lg border-border bg-muted/50 text-sm font-medium shadow-none focus:ring-primary/20"
+        >
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((o) => (
+            <SelectItem key={o.value} value={o.value} className="text-sm">
+              {o.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </ProfileFieldShell>
   );
 }
@@ -120,6 +136,19 @@ export function EmployeeProfileField<K extends keyof EmployeeProfileDraft>({
   }
 
   const inputId = `emp-field-${String(field)}`;
+
+  if (type === 'date') {
+    return (
+      <ProfileFieldShell icon={icon} label={label} editing>
+        <DatePickerInput
+          id={inputId}
+          value={String(value ?? '')}
+          onChange={(v) => updateField(field, v as EmployeeProfileDraft[K])}
+          className="h-10 rounded-lg border-border bg-muted/50 font-medium shadow-none"
+        />
+      </ProfileFieldShell>
+    );
+  }
 
   return (
     <ProfileFieldShell icon={icon} label={label} editing>

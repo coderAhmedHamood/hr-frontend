@@ -31,7 +31,7 @@ import {
   TEMPLATE_WORK_ARRANGEMENT_LABELS,
 } from '@/features/hr/contracts/contract-templates/constants/contract-template-options';
 import { allowanceTypesApi, type AllowanceTypeDto } from '@/features/hr/contracts/lib/api/allowance-types';
-import { contractArticlesApi, type ApiContractArticle } from '@/features/hr/contracts/lib/contracts-api';
+import { useContractArticles } from '@/features/hr/contracts/lib/hooks/use-contract-articles';
 import { payrollListArchiveQuery } from '@/features/hr/organization/lib/archive-scope';
 import {
   ContractTemplateAllowanceLinesEditor,
@@ -124,26 +124,29 @@ type Props = {
 };
 
 export function ContractTemplateFormDialog({ open, onOpenChange, editItem, companyId, onSaved }: Props) {
+  const { data: catalogArticles = [] } = useContractArticles();
   const [form, setForm] = React.useState<DraftForm>(EMPTY_FORM);
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [allowanceTypes, setAllowanceTypes] = React.useState<AllowanceTypeDto[]>([]);
-  const [articles, setArticles] = React.useState<ApiContractArticle[]>([]);
+
+  const articles = React.useMemo(
+    () => catalogArticles.filter((a) => a.isActive).map((a) => ({
+      id: a.id,
+      code: a.code,
+      titleAr: a.title,
+    })),
+    [catalogArticles],
+  );
 
   React.useEffect(() => {
     if (!open || !companyId) return;
     setForm(editItem ? formFromDto(editItem) : EMPTY_FORM);
     setError(null);
-    void Promise.all([
-      allowanceTypesApi.getAll({ companyId, isActive: true, limit: 200, ...payrollListArchiveQuery() }),
-      contractArticlesApi.list({ companyId, isActive: true, limit: 200, ...payrollListArchiveQuery() }),
-    ]).then(([allowances, arts]) => {
-      setAllowanceTypes(allowances.items);
-      setArticles(arts.items);
-    }).catch(() => {
-      setAllowanceTypes([]);
-      setArticles([]);
-    });
+    void allowanceTypesApi
+      .getAll({ companyId, isActive: true, limit: 200, ...payrollListArchiveQuery() })
+      .then((allowances) => setAllowanceTypes(allowances.items))
+      .catch(() => setAllowanceTypes([]));
   }, [open, editItem, companyId]);
 
   const patch = (p: Partial<DraftForm>) => setForm((f) => ({ ...f, ...p }));

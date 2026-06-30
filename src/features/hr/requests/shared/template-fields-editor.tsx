@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
-import { MinimalDropdown } from '@/features/hr/requests/components/shared-ui';
+import { MinimalDropdown } from '@/components/ui/shared-dialogs';
 import type { HRRequestFieldDefinition, HRRequestFieldKind, HRRequestFieldOption } from '@/features/hr/requests/lib/types';
 import { cn } from '@/shared/utils';
 

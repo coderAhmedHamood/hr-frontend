@@ -1,48 +1,11 @@
 import { apiRequest, type PaginatedResult } from '@/features/hr/lib/api/client';
 import type { OrganizationArchiveScope } from '@/features/hr/organization/lib/archive-scope';
+import type { LeaveTypeResponseDto, CreateLeaveTypeDto, UpdateLeaveTypeDto, LeaveTypeListQuery } from '@/features/hr/leaves/types/api/leave-types';
+export type { LeaveTypeResponseDto, CreateLeaveTypeDto, UpdateLeaveTypeDto, LeaveTypeListQuery } from '@/features/hr/leaves/types/api/leave-types';
 
-export type LeaveTypeResponseDto = {
-  id: string;
-  companyId: string;
-  code: string;
-  nameAr: string;
-  nameEn: string | null;
-  paid: boolean;
-  deductsFromBalance: boolean;
-  requiresApproval: boolean;
-  maxDaysPerRequest: number | null;
-  sortOrder: number;
-  isActive: boolean;
-  notes: string | null;
-  createdAt: string;
-  updatedAt: string;
-  createdBy: string | null;
-  updatedBy: string | null;
-};
 
-export type CreateLeaveTypeDto = {
-  companyId: string;
-  code: string;
-  nameAr: string;
-  nameEn?: string | null;
-  paid?: boolean;
-  deductsFromBalance?: boolean;
-  requiresApproval?: boolean;
-  maxDaysPerRequest?: number | null;
-  sortOrder?: number;
-  isActive?: boolean;
-  notes?: string | null;
-};
 
-export type UpdateLeaveTypeDto = Omit<Partial<CreateLeaveTypeDto>, 'companyId'>;
 
-export type LeaveTypeListQuery = {
-  page?: number;
-  limit?: number;
-  companyId?: string;
-  isActive?: boolean;
-  archiveScope?: OrganizationArchiveScope;
-};
 
 export const leaveTypesApi = {
   getAll(query?: LeaveTypeListQuery) {
@@ -61,3 +24,4 @@ export const leaveTypesApi = {
     return apiRequest<void>(`/leaves/types/${id}`, { method: 'DELETE' });
   },
 };
+

@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
 import { getDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 import { violationTypesApi } from './api/violation-types';
+import { ApiError } from '@/features/hr/lib/api/client';
 import { organizationActiveListStatusQuery } from '@/features/hr/organization/lib/archive-scope';
 import type { ViolationTypeResponseDto } from './api/violation-types';
 import type { HRViolationTypeRecord } from './types';
@@ -28,7 +29,7 @@ function mapApi(r: ViolationTypeResponseDto): HRViolationTypeRecord {
 interface VTState {
   types: HRViolationTypeRecord[];
   isLoading: boolean;
-  error: string | null;
+  error: { message: string; status: number } | null;
   fetch: () => Promise<void>;
   add: (d: Omit<HRViolationTypeRecord, 'id' | 'updatedAt'>) => Promise<{ ok: boolean; error?: string }>;
   update: (id: string, d: Partial<Omit<HRViolationTypeRecord, 'id'>>) => Promise<{ ok: boolean; error?: string }>;
@@ -48,7 +49,7 @@ export const useHRViolationTypesStore = create<VTState>()((set) => ({
       const result = await violationTypesApi.getAll({ companyId, limit: 200, ...organizationActiveListStatusQuery() });
       set({ types: result.items.map(mapApi), isLoading: false });
     } catch (e) {
-      set({ error: (e as Error).message, isLoading: false });
+      set({ error: { message: (e as Error).message, status: e instanceof ApiError ? e.status : 0 }, isLoading: false });
     }
   },
 

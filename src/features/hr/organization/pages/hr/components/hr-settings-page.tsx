@@ -1,23 +1,19 @@
 'use client';
 
 import { toast } from 'sonner';
-import { useActiveCompany } from '@/features/hr/organization/hooks/useActiveCompany';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import { HR_NOTIFICATION_GROUPS } from '@/features/hr/organization/pages/_shared/constants/notification-groups';
 import { NotificationTogglesCard } from '@/features/hr/organization/pages/_shared/components/notification-toggles-card';
-import { SettingsCompanyBanner } from '@/features/hr/organization/pages/_shared/components/settings-company-banner';
 import {
   SettingsPageEmpty,
   SettingsPageError,
   SettingsPageLoading,
 } from '@/features/hr/organization/pages/_shared/components/settings-page-states';
-import { SettingsNav } from '@/features/hr/organization/pages/_shared/components/settings-nav';
 import { useHrCompanySettings } from '@/features/hr/organization/pages/hr/hooks/useHrSettings';
 import type { HrNotificationKey } from '@/features/hr/organization/pages/_shared/constants/notification-groups';
 import type { HrCompanySettings } from '@/features/hr/organization/pages/_shared/types/settings';
 
 export default function HrSettingsPage() {
-  const { data: company } = useActiveCompany();
   const { data: settings, isLoading, isError, error, update, companyId } = useHrCompanySettings();
 
   const handleToggle = async (key: string, value: boolean) => {
@@ -46,8 +42,6 @@ export default function HrSettingsPage() {
 
   return (
     <div className="space-y-4 sm:space-y-5">
-      <SettingsNav />
-
       <NotificationTogglesCard
         title="إشعارات الموارد البشرية"
         description="تحكم في الإشعارات المرسلة لأحداث HR: الانضباط، الرواتب، الحضور، الطلبات، والعقود."

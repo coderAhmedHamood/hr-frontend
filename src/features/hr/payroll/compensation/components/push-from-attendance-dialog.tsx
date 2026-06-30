@@ -142,7 +142,7 @@ export function PushFromAttendanceDialog({
                   دفع الحضور إلى المدخلات الشهرية
                 </DialogTitle>
                 <DialogDescription className="text-xs leading-relaxed text-muted-foreground">
-                  يحوّل ملخصات الحضور إلى مدخلات شهرية (غياب، تأخير، وأوفر تايم) ضمن فترة الراتب الحالية.
+                  يحوّل ملخصات الحضور إلى مدخلات شهرية. الغياب والتأخير يُطبَّقان تلقائياً حسب حالة اليوم؛ أوفر تايم اختياري.
                 </DialogDescription>
               </div>
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
@@ -168,21 +168,21 @@ export function PushFromAttendanceDialog({
                 />
                 <InlineSwitchRow
                   label="تطبيق أوفر تايم"
-                  hint="إضافة مبالغ العمل الإضافي من دقائق OT"
+                  hint="إضافة مبالغ العمل الإضافي (اختياري في الدفع)"
                   checked={options.applyOvertime}
                   disabled={fieldDisabled}
                   onCheckedChange={v => patch({ applyOvertime: v })}
                 />
                 <InlineSwitchRow
-                  label="تطبيق خصم الغياب"
-                  hint="خصم أيام الغياب المسجّلة في الحضور"
+                  label="خصم الغياب"
+                  hint="يُخصَم تلقائياً للأيام absent — فعّل لإرسال سعر يوم مخصص"
                   checked={options.applyAbsence}
                   disabled={fieldDisabled}
                   onCheckedChange={v => patch({ applyAbsence: v })}
                 />
                 <InlineSwitchRow
-                  label="تطبيق خصم التأخير"
-                  hint="خصم دقائق التأخير المسجّلة في الحضور"
+                  label="خصم التأخير"
+                  hint="يُخصَم تلقائياً للأيام late — فعّل لإرسال سعر دقيقة مخصص"
                   checked={options.applyLateness}
                   disabled={fieldDisabled}
                   onCheckedChange={v => patch({ applyLateness: v })}
@@ -198,7 +198,7 @@ export function PushFromAttendanceDialog({
                 <InlineInputRow
                   id="absence-rate"
                   label="سعر يوم الغياب"
-                  hint="افتراضي: الراتب ÷ 30"
+                  hint="سعر يوم مخصص (افتراضي: الراتب ÷ 30)"
                   placeholder="0.00"
                   value={options.absenceDailyRateOverride}
                   disabled={fieldDisabled || !options.applyAbsence}
@@ -207,7 +207,7 @@ export function PushFromAttendanceDialog({
                 <InlineInputRow
                   id="late-rate"
                   label="سعر دقيقة التأخير"
-                  hint="افتراضي: الراتب ÷ 30 ÷ 8 ÷ 60"
+                  hint="سعر دقيقة مخصص (افتراضي: الراتب ÷ 30 ÷ 8 ÷ 60)"
                   placeholder="0.00"
                   value={options.lateMinuteRateOverride}
                   disabled={fieldDisabled || !options.applyLateness}

@@ -2,8 +2,10 @@
 
 import * as React from 'react';
 import { CalendarDays, Clock, Pencil, Trash2, Users } from 'lucide-react';
+import { shiftColorStyle } from '@/shared/shift-color';
+import { cn } from '@/shared/utils';
 import { Button } from '@/components/ui/button';
-import { ConfirmationModal } from '@/features/hr/requests/components/shared-ui';
+import { ConfirmationModal } from '@/components/ui/shared-dialogs';
 
 type BatchRow = {
   id: string;
@@ -50,15 +52,21 @@ export function AssignmentsBatchCard({
     >
       {/* coloured top strip */}
       <div
-        className="absolute inset-x-0 top-0 h-1 rounded-t-xl"
-        style={{ background: colorHex ? `#${colorHex.replace('#', '')}` : undefined }}
+        className={cn(
+          'absolute inset-x-0 top-0 h-1 rounded-t-xl',
+          colorHex ? 'bg-shift-color' : 'bg-primary',
+        )}
+        style={shiftColorStyle(colorHex)}
       />
 
       <div className="p-5 pt-6">
         <div className="mb-3 flex items-start justify-between">
           <div
-            className="flex h-10 w-10 items-center justify-center rounded-xl text-white"
-            style={{ background: colorHex ? `#${colorHex.replace('#', '')}` : '#6366f1' }}
+            className={cn(
+              'flex h-10 w-10 items-center justify-center rounded-xl text-primary-foreground',
+              colorHex ? 'bg-shift-color' : 'bg-primary',
+            )}
+            style={shiftColorStyle(colorHex)}
           >
             <Clock className="h-5 w-5" />
           </div>

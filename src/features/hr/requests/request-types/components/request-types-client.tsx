@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { EntityFilterToolbar } from '@/components/ui/entity-filter-toolbar';
+import { ListFilterBar } from '@/components/ui/list-filter-bar';
 import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
 import { useSetPageTitle } from '@/components/layouts/page-title-context';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
@@ -21,7 +21,7 @@ import {
 import {
   ConfirmationModal,
   ActiveBadge,
-} from '@/features/hr/requests/components/shared-ui';
+} from '@/components/ui/shared-dialogs';
 import { useHRConfigurationStore } from '@/features/hr/requests/lib/configuration-store';
 import type { HRRequestTypeEntity, HRRequestTypeCategory } from '@/features/hr/requests/lib/types';
 import {
@@ -221,7 +221,7 @@ export function RequestTypesClient() {
 
   usePageHeaderActions(
     () => (
-      <div className="flex items-center gap-2">
+      <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
         <FilterToggleButton activeFilterCount={activeFilterCount} />
         <Button variant="luxe" size="sm" className="h-8 gap-2" onClick={openCreate}>
           <Plus className="h-4 w-4" /> نوع جديد
@@ -233,7 +233,7 @@ export function RequestTypesClient() {
 
   useEntityFilterSlot(
     () => (
-      <EntityFilterToolbar
+      <ListFilterBar
         showDateSection={false}
         showEmployeePicker={false}
         inlineSelects={[

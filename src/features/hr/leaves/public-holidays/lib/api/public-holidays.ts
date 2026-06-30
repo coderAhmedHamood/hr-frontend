@@ -1,41 +1,10 @@
 import { apiRequest, type PaginatedResult } from '@/features/hr/lib/api/client';
+import type { PublicHolidayResponseDto, CreatePublicHolidayDto, UpdatePublicHolidayDto, PublicHolidayListQuery } from '@/features/hr/leaves/types/api/public-holidays';
+export type { PublicHolidayResponseDto, CreatePublicHolidayDto, UpdatePublicHolidayDto, PublicHolidayListQuery } from '@/features/hr/leaves/types/api/public-holidays';
 
-export type PublicHolidayResponseDto = {
-  id: string;
-  companyId: string;
-  code: string;
-  nameAr: string;
-  nameEn: string | null;
-  monthDay: string;
-  recurring: boolean;
-  sortOrder: number;
-  isActive: boolean;
-  notes: string | null;
-  createdAt: string;
-  updatedAt: string;
-  createdBy: string | null;
-  updatedBy: string | null;
-};
 
-export type CreatePublicHolidayDto = {
-  companyId: string;
-  code: string;
-  nameAr: string;
-  nameEn?: string | null;
-  monthDay: string;
-  recurring?: boolean;
-  sortOrder?: number;
-  isActive?: boolean;
-  notes?: string | null;
-};
 
-export type UpdatePublicHolidayDto = Omit<Partial<CreatePublicHolidayDto>, 'companyId'>;
 
-export type PublicHolidayListQuery = {
-  page?: number;
-  limit?: number;
-  companyId?: string;
-};
 
 export const publicHolidaysApi = {
   getAll(query?: PublicHolidayListQuery) {
@@ -57,3 +26,4 @@ export const publicHolidaysApi = {
     return apiRequest<void>(`/leaves/public-holidays/${id}`, { method: 'DELETE' });
   },
 };
+

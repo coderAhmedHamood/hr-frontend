@@ -6,6 +6,9 @@ import type {
 import {
   INVESTIGATION_RECOMMENDATION_LABELS,
   INVESTIGATION_RESULT_LABELS,
+  normalizeInvestigationDeductionType,
+  formatInvestigationDeductionType,
+  formatInvestigationDeductionValue,
 } from '@/features/hr/discipline/lib/types';
 import { toIso } from '@/features/hr/lib/map-dto';
 import {
@@ -26,6 +29,12 @@ const DEDUCTION_TYPE_LABELS: Record<InvestigationDeductionTypeDto, string> = {
   hours: 'ساعات',
   fixed_amount: 'مبلغ ثابت',
 };
+
+function parseDeductionValue(raw: string | number | null | undefined): number | null {
+  if (raw == null || raw === '') return null;
+  const n = typeof raw === 'number' ? raw : Number(String(raw).trim());
+  return Number.isNaN(n) ? null : n;
+}
 
 export function mapInvestigationResult(
   result: InvestigationResultDto,
@@ -54,11 +63,12 @@ function buildRecommendationText(dto: DisciplineInvestigationResponseDto): strin
     return INVESTIGATION_RECOMMENDATION_LABELS.warning;
   }
   if (dto.recommendation === 'deduction') {
-    const label = dto.deductionType
-      ? DEDUCTION_TYPE_LABELS[dto.deductionType]
-      : INVESTIGATION_RECOMMENDATION_LABELS.deduction;
-    const value = dto.deductionValue ? Number(dto.deductionValue) : null;
-    return value ? `${label}: ${value}` : label;
+    const normalizedType = normalizeInvestigationDeductionType(dto.deductionType);
+    const label = normalizedType
+      ? DEDUCTION_TYPE_LABELS[normalizedType]
+      : formatInvestigationDeductionType(dto.deductionType) ?? INVESTIGATION_RECOMMENDATION_LABELS.deduction;
+    const value = parseDeductionValue(dto.deductionValue);
+    return value != null ? `${label}: ${formatInvestigationDeductionValue(value)}` : label;
   }
   return INVESTIGATION_RESULT_LABELS[mapInvestigationResult(dto.result)];
 }
@@ -86,8 +96,8 @@ export function mapDisciplineInvestigationResponse(
     result: mapInvestigationResult(dto.result),
     recommendation: buildRecommendationText(dto),
     recommendationType: (dto.recommendation ?? null) as HRInvestigationRecommendation | null,
-    deductionType: dto.deductionType ?? null,
-    deductionValue: dto.deductionValue != null ? Number(dto.deductionValue) : null,
+    deductionType: normalizeInvestigationDeductionType(dto.deductionType),
+    deductionValue: parseDeductionValue(dto.deductionValue),
     createdAt: toIso(dto.createdAt),
     updatedAt: toIso(dto.updatedAt),
   };

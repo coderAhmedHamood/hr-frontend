@@ -19,7 +19,7 @@ export type EmploymentContractPrintAllowanceRow = {
 
 export type EmploymentContractPrintHtmlProps = {
   logoSrc?: string;
-  company: { nameAr: string; nameEn: string };
+  company: { nameAr: string; nameEn?: string | null };
   employeeNameAr: string;
   contractNumber: string;
   natureLabelAr: string;
@@ -109,7 +109,7 @@ export const EmploymentContractPrintHtml = React.forwardRef<HTMLDivElement, Empl
           <RoseTradingLetterheadPrint
             logoSrc={logoSrc}
             companyNameAr={company.nameAr}
-            companyNameEn={company.nameEn}
+            companyNameEn={company.nameEn ?? undefined}
           />
 
           <div style={{ fontSize: 14, fontWeight: 700, textAlign: 'center', marginBottom: 10, textDecoration: 'underline' }}>

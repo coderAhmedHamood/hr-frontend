@@ -9,6 +9,7 @@ import { Topbar } from '@/components/layouts/topbar';
 import { FilterPanel } from '@/components/layouts/filter-panel';
 import { Toaster } from 'sonner';
 import { AuthenticatedShell } from '@/components/layouts/authenticated-shell';
+import { AppErrorBoundary } from '@/components/layouts/app-error-boundary';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -21,10 +22,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 <Topbar />
                 <Sidebar />
                 <FilterPanel />
-                <main className="flex flex-1 flex-col min-h-0 min-w-0 overflow-hidden p-4">
+                <main className="relative z-0 flex w-full min-w-0 flex-1 flex-col overflow-hidden p-4">
                   <AppEntityFilterRegion />
                   <div className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto">
+                    <AppErrorBoundary>
                     <AuthenticatedShell>{children}</AuthenticatedShell>
+                  </AppErrorBoundary>
                   </div>
                 </main>
                 <Toaster richColors position="top-right" dir="rtl" closeButton />

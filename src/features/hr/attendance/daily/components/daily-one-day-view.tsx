@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import {
-  Plus, X, AlertTriangle, Clock, LogIn, LogOut, Coffee,
+  Plus, X, Clock, LogIn, LogOut, Coffee,
   Loader2, ChevronDown,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -11,7 +11,6 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, dialogFormFooterClass } from '@/components/ui/dialog';
-import { useAuthStore } from '@/features/auth/lib/auth-store';
 import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 import {
   attendanceEventsApi,
@@ -20,6 +19,7 @@ import {
   type AttendanceEventSource,
 } from '@/features/hr/attendance/lib/api/attendance-events';
 import { Input } from '@/components/ui/input';
+import ModernTimePicker from '@/components/ui/modern-time-picker';
 import { Search } from 'lucide-react';
 import type { AttendanceDaySummary, AttendanceEvent } from '@/features/hr/attendance/lib/types';
 import { minutesFromMidnight } from '@/features/hr/attendance/lib/utils';
@@ -27,6 +27,9 @@ import { resolveVisualKey } from '@/features/hr/attendance/daily/utils/daily-att
 import { STATUS } from '@/features/hr/attendance/daily/constants/daily-attendance-status';
 import { fmtDayFull } from '@/features/hr/attendance/daily/utils/daily-attendance-format';
 import { DailyAttendanceLegend } from '@/features/hr/attendance/daily/components/daily-attendance-legend';
+import { DailyDayDetailDialog } from '@/features/hr/attendance/daily/components/daily-day-detail-dialog';
+import { useNextEventType } from '@/features/hr/attendance/daily/hooks/useNextEventType';
+import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 
 // ─── constants ─────────────────────────────────────────────────────────────────
 
@@ -70,6 +73,27 @@ function formatHoverTime12(mins: number): string {
     period = 'م';
   }
   return `${h12}:${String(minute).padStart(2, '0')} ${period}`;
+}
+
+function formatIsoTime12(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  return formatHoverTime12(minutesFromMidnight(iso));
+}
+
+function resolvePunchTimes(
+  summary: AttendanceDaySummary,
+  events: AttendanceEventResponseDto[],
+): { checkIn: string | null; checkOut: string | null } {
+  const active = events.filter((e) => !e.isVoided);
+  const checkInEvent = active.find((e) => e.eventType === 'check_in');
+  const checkOutEvent = [...active].reverse().find((e) => e.eventType === 'check_out');
+  const checkInIso = checkInEvent?.occurredAt ?? summary.actualCheckInAt ?? null;
+  const checkOutIso = checkOutEvent?.occurredAt ?? summary.actualCheckOutAt ?? null;
+
+  return {
+    checkIn: formatIsoTime12(checkInIso),
+    checkOut: formatIsoTime12(checkOutIso),
+  };
 }
 
 function HourAxis({ activeBucket }: { activeBucket: number | null }) {
@@ -164,6 +188,7 @@ const REGISTER_SUCCESS_MSG: Record<RegisterableEventType, string> = {
 // Status → timeline fill class (using Tailwind design-token colors)
 const STATUS_BAR_CLASS: Record<string, string> = {
   present:     'bg-success/20 border-success/40',
+  partial:     'bg-warning/20 border-warning/40',
   late:        'bg-warning/20 border-warning/40',
   absent:      'bg-destructive/15 border-destructive/30',
   early_leave: 'bg-warning/20 border-warning/40',
@@ -192,16 +217,15 @@ type TimelineMarker = {
 
 function EventTickMarker({
   marker,
-  onVoid,
+  onClick,
 }: {
   marker: TimelineMarker;
-  onVoid: (e: AttendanceEventResponseDto) => void;
+  onClick: () => void;
 }) {
   const style = getMarkerStyle(marker.eventType, marker.source);
   const label = EVENT_TYPE_META[marker.eventType]?.labelAr;
   const sourceLabel = marker.source ? SOURCE_LABEL[marker.source] : undefined;
-  const title = [label, marker.timeLabel, sourceLabel].filter(Boolean).join(' — ');
-  const voidable = !!marker.event;
+  const title = [label, marker.timeLabel, sourceLabel, '— انقر لعرض تفاصيل اليوم'].filter(Boolean).join(' ');
   const stackShift = marker.stackOffset ?? 0;
 
   const content = (
@@ -219,92 +243,19 @@ function EventTickMarker({
     </>
   );
 
-  if (!voidable) {
-    return (
-      <div
-        title={title}
-        className="pointer-events-none absolute bottom-0 top-0 z-[4] flex w-0 flex-col items-center"
-        style={{ insetInlineStart: pct(marker.mins), transform: `translateX(calc(-50% + ${stackShift}px))` }}
-      >
-        {content}
-      </div>
-    );
-  }
-
   return (
     <button
       type="button"
       title={title}
-      onClick={() => marker.event && onVoid(marker.event)}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
       className="group/tick absolute bottom-0 top-0 z-[4] flex w-0 cursor-pointer flex-col items-center opacity-90 transition-opacity hover:opacity-100"
       style={{ insetInlineStart: pct(marker.mins), transform: `translateX(calc(-50% + ${stackShift}px))` }}
     >
       {content}
     </button>
-  );
-}
-
-// ─── void dialog ───────────────────────────────────────────────────────────────
-
-function VoidDialog({
-  event, onClose, onVoided,
-}: {
-  event: AttendanceEventResponseDto | null;
-  onClose: () => void;
-  onVoided: (id: string) => void;
-}) {
-  const [reason, setReason] = React.useState('');
-  const [saving, setSaving] = React.useState(false);
-  React.useEffect(() => { if (event) setReason(''); }, [event]);
-
-  const handleVoid = async () => {
-    if (!event) return;
-    setSaving(true);
-    try {
-      await attendanceEventsApi.void(event.id, reason.trim() || 'تصحيح يدوي');
-      toast.success('تم إلغاء الحدث');
-      onVoided(event.id);
-      onClose();
-    } catch { toast.error('فشل إلغاء الحدث'); }
-    finally { setSaving(false); }
-  };
-
-  return (
-    <Dialog open={!!event} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-sm" dir="rtl">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-right text-base">
-            <AlertTriangle className="h-4 w-4 text-amber-500" />
-            إلغاء الحدث
-          </DialogTitle>
-        </DialogHeader>
-        {event && (
-          <div className="space-y-4 py-1">
-            <div className="rounded-lg border border-border bg-muted/40 px-3 py-2.5 text-sm space-y-1">
-              <p className="font-medium">{EVENT_TYPE_META[event.eventType]?.labelAr}</p>
-              <p className="font-mono text-xs text-muted-foreground" dir="ltr">{isoToHHMM(event.occurredAt)}</p>
-            </div>
-            <p className="text-xs text-muted-foreground">الحدث لن يُحذف — سيُعلَّم كملغى ويظل في السجل للمراجعة.</p>
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">سبب الإلغاء</Label>
-              <Textarea
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                placeholder="اختياري"
-                className="min-h-[56px] resize-none text-sm"
-              />
-            </div>
-          </div>
-        )}
-        <DialogFooter>
-          <Button variant="destructive" onClick={handleVoid} disabled={saving} className="gap-2">
-            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />}
-            تأكيد الإلغاء
-          </Button>
-          <Button variant="outline" onClick={onClose}>تراجع</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   );
 }
 
@@ -321,11 +272,11 @@ function pointerMinsFromRtlBar(el: HTMLElement, clientX: number): number {
 function TimelineBar({
   summary,
   events,
-  onVoid,
+  onOpenDayDetail,
 }: {
   summary: AttendanceDaySummary;
   events: AttendanceEventResponseDto[];
-  onVoid: (e: AttendanceEventResponseDto) => void;
+  onOpenDayDetail: () => void;
 }) {
   const trackRef = React.useRef<HTMLDivElement>(null);
   const [hoverMins, setHoverMins] = React.useState<number | null>(null);
@@ -453,7 +404,7 @@ function TimelineBar({
 
         {/* Check-in / check-out markers — one green line, one red line */}
         {markersWithStack.map((marker) => (
-          <EventTickMarker key={marker.id} marker={marker} onVoid={onVoid} />
+          <EventTickMarker key={marker.id} marker={marker} onClick={onOpenDayDetail} />
         ))}
 
         {/* Voided ticks */}
@@ -514,33 +465,125 @@ function NowCursor({ workDate }: { workDate: string }) {
 
 // ─── employee row ──────────────────────────────────────────────────────────────
 
-function EmployeeRow({
-  summary, events, workDate, companyId, onEventsChange, allEmployees,
-}: {
+type EmployeeRowProps = {
   summary: AttendanceDaySummary;
   events: AttendanceEventResponseDto[];
   workDate: string;
   companyId: string;
   onEventsChange: (employeeId: string, newEvents: AttendanceEventResponseDto[]) => void;
   allEmployees: { id: string; name: string }[];
-}) {
+  onOpenDayDetail: (summary: AttendanceDaySummary) => void;
+};
+
+function EmployeeMobileCard({
+  summary, events, workDate, companyId, onEventsChange, allEmployees, onOpenDayDetail,
+}: EmployeeRowProps) {
   const [addOpen, setAddOpen] = React.useState(false);
-  const [voidTarget, setVoidTarget] = React.useState<AttendanceEventResponseDto | null>(null);
+  const vk = resolveVisualKey(summary.status);
+  const cfg = STATUS[vk];
+  const { checkIn, checkOut } = resolvePunchTimes(summary, events);
+  const activeEvents = events.filter((e) => !e.isVoided);
+  const expectedIn = formatIsoTime12(summary.expectedStartAt);
+  const expectedOut = formatIsoTime12(summary.expectedEndAt);
+
+  const openDetail = React.useCallback(() => {
+    onOpenDayDetail(summary);
+  }, [onOpenDayDetail, summary]);
+
+  return (
+    <>
+      <div className="border-b border-border/50 last:border-0 lg:hidden">
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={openDetail}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDetail(); } }}
+          className="flex w-full flex-col gap-3 px-4 py-3.5 text-right transition-colors hover:bg-muted/20 active:bg-muted/30 cursor-pointer"
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <div className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
+                {summary.employeeName.charAt(0)}
+                <span className={cn('absolute -bottom-0.5 -end-0.5 h-2.5 w-2.5 rounded-full border-2 border-card', cfg.dot)} />
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold leading-tight">{summary.employeeName}</p>
+                <span className={cn('mt-1 inline-flex items-center gap-1 rounded-full border px-1.5 py-px text-[10px] font-medium', cfg.color)}>
+                  {cfg.label}
+                </span>
+              </div>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="h-8 w-8 shrink-0"
+              onClick={(e) => {
+                e.stopPropagation();
+                setAddOpen(true);
+              }}
+              title="تسجيل حدث"
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <div className="rounded-lg border border-border/60 bg-muted/15 px-3 py-2">
+              <p className="text-[10px] font-medium text-muted-foreground">دخول</p>
+              <p className="mt-0.5 font-mono text-sm font-semibold tabular-nums text-foreground" dir="ltr">
+                {checkIn ?? '—'}
+              </p>
+            </div>
+            <div className="rounded-lg border border-border/60 bg-muted/15 px-3 py-2">
+              <p className="text-[10px] font-medium text-muted-foreground">خروج</p>
+              <p className="mt-0.5 font-mono text-sm font-semibold tabular-nums text-foreground" dir="ltr">
+                {checkOut ?? '—'}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+            {expectedIn && expectedOut ? (
+              <span dir="ltr">الوردية: {expectedIn} – {expectedOut}</span>
+            ) : null}
+            {activeEvents.length > 0 ? (
+              <span>{activeEvents.length} {activeEvents.length === 1 ? 'حدث' : 'أحداث'}</span>
+            ) : null}
+            <span className="text-primary/80">انقر لعرض التفاصيل</span>
+          </div>
+        </div>
+      </div>
+
+      <RegisterEventComboDialog
+        open={addOpen}
+        onOpenChange={setAddOpen}
+        allEmployees={allEmployees}
+        defaultEmployeeId={summary.employeeId}
+        workDate={workDate}
+        companyId={companyId}
+        onCreated={(empId, evt) => onEventsChange(empId, [...events, evt])}
+      />
+    </>
+  );
+}
+
+function EmployeeDesktopRow({
+  summary, events, workDate, companyId, onEventsChange, allEmployees, onOpenDayDetail,
+}: EmployeeRowProps) {
+  const [addOpen, setAddOpen] = React.useState(false);
 
   const vk = resolveVisualKey(summary.status);
   const cfg = STATUS[vk];
 
-  const activeEvents = events.filter((e) => !e.isVoided);
-  const sorted = [...activeEvents].sort((a, b) => a.occurredAt.localeCompare(b.occurredAt));
-  const checkIn  = sorted.find((e) => e.eventType === 'check_in');
-  const checkOut = [...sorted].reverse().find((e) => e.eventType === 'check_out');
-
-  const handleVoided = (id: string) => onEventsChange(summary.employeeId, events.map((e) => e.id === id ? { ...e, isVoided: true } : e));
+  const openDetail = React.useCallback(() => {
+    onOpenDayDetail(summary);
+  }, [onOpenDayDetail, summary]);
 
   return (
     <>
-      <div className="group border-b border-border/50 last:border-0 transition-colors hover:bg-muted/20">
-        <div className="grid grid-cols-[11rem_minmax(0,1fr)_auto] items-center gap-3 px-4 py-3.5">
+      <div className="group hidden border-b border-border/50 last:border-0 transition-colors hover:bg-muted/20 lg:block">
+        <div className="grid grid-cols-[11rem_minmax(0,1fr)] items-center gap-3 px-4 py-3.5">
 
           {/* Avatar + name */}
           <div className="col-start-1 flex min-w-0 items-center gap-2.5">
@@ -560,9 +603,9 @@ function EmployeeRow({
           <div
             className="col-start-2 min-w-0"
             onDoubleClick={() => setAddOpen(true)}
-            title="انقر مرتين لتسجيل حدث"
+            title="انقر على حدث لعرض التفاصيل · انقر مرتين لتسجيل حدث"
           >
-            <TimelineBar summary={summary} events={events} onVoid={setVoidTarget} />
+            <TimelineBar summary={summary} events={events} onOpenDayDetail={openDetail} />
           </div>
         </div>
       </div>
@@ -576,7 +619,15 @@ function EmployeeRow({
         companyId={companyId}
         onCreated={(empId, evt) => onEventsChange(empId, [...events, evt])}
       />
-      <VoidDialog event={voidTarget} onClose={() => setVoidTarget(null)} onVoided={handleVoided} />
+    </>
+  );
+}
+
+function EmployeeRow(props: EmployeeRowProps) {
+  return (
+    <>
+      <EmployeeMobileCard {...props} />
+      <EmployeeDesktopRow {...props} />
     </>
   );
 }
@@ -610,18 +661,28 @@ export function RegisterEventComboDialog({
 
   const showDatePicker = availableDates && availableDates.length > 1;
 
+  const { loading: nextTypeLoading, nextEventType, message: nextTypeMessage } = useNextEventType({
+    employeeId: selectedId,
+    companyId,
+    workDate: selectedDate,
+    enabled: open && !!selectedId,
+  });
+
   // Reset all state whenever the dialog opens
   React.useEffect(() => {
     if (open) {
       setSearch('');
       setSelectedId(defaultEmployeeId ?? null);
       setSelectedDate(workDate);
-      setEventType('check_in');
       setTime(nowTimeLocal());
       setNotes('');
       setSaving(false);
     }
   }, [open, defaultEmployeeId, workDate]);
+
+  React.useEffect(() => {
+    if (open && selectedId) setEventType(nextEventType);
+  }, [open, selectedId, nextEventType]);
 
   const selectedName = allEmployees.find((e) => e.id === selectedId)?.name ?? '';
   const q = search.trim().toLowerCase();
@@ -640,8 +701,8 @@ export function RegisterEventComboDialog({
       toast.success(REGISTER_SUCCESS_MSG[eventType]);
       onCreated(selectedId, res);
       onOpenChange(false);
-    } catch {
-      toast.error('فشل تسجيل الحدث');
+    } catch (err) {
+      handleApiError(err, 'attendance/events');
     } finally {
       setSaving(false);
     }
@@ -717,28 +778,50 @@ export function RegisterEventComboDialog({
             <>
               <div className="space-y-1.5">
                 <Label className="text-xs font-medium text-muted-foreground">نوع الحدث</Label>
-                <div className="grid grid-cols-2 gap-2">
-                  {REGISTERABLE_EVENT_TYPES.map((t) => {
-                    const meta = REGISTER_EVENT_TYPE_META[t];
-                    const Icon = meta.icon;
-                    return (
-                      <button key={t} type="button" onClick={() => setEventType(t)}
-                        className={cn(
-                          'flex items-center gap-2 rounded-lg border px-3 py-2.5 text-xs font-medium transition-all',
-                          eventType === t
-                            ? 'border-primary bg-primary/8 text-primary shadow-sm ring-1 ring-primary/30'
-                            : 'border-border bg-card text-muted-foreground hover:bg-muted/40',
-                        )}
-                      >
-                        <Icon className="h-3.5 w-3.5 shrink-0" />{meta.labelAr}
-                      </button>
-                    );
-                  })}
-                </div>
+                {nextTypeLoading ? (
+                  <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/20 px-3 py-2.5 text-xs text-muted-foreground">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    جاري تحديد نوع الحدث القادم…
+                  </div>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-2 gap-2">
+                      {REGISTERABLE_EVENT_TYPES.map((t) => {
+                        const meta = REGISTER_EVENT_TYPE_META[t];
+                        const Icon = meta.icon;
+                        const isNext = t === nextEventType;
+                        return (
+                          <button
+                            key={t}
+                            type="button"
+                            disabled={!isNext}
+                            onClick={() => isNext && setEventType(t)}
+                            className={cn(
+                              'flex items-center gap-2 rounded-lg border px-3 py-2.5 text-xs font-medium transition-all',
+                              eventType === t
+                                ? 'border-primary bg-primary/8 text-primary shadow-sm ring-1 ring-primary/30'
+                                : 'border-border bg-card text-muted-foreground',
+                              !isNext && 'cursor-not-allowed opacity-40',
+                            )}
+                          >
+                            <Icon className="h-3.5 w-3.5 shrink-0" />{meta.labelAr}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {nextTypeMessage ? (
+                      <p className="text-[11px] leading-relaxed text-muted-foreground">{nextTypeMessage}</p>
+                    ) : null}
+                  </>
+                )}
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs font-medium text-muted-foreground">الوقت <span className="text-destructive">*</span></Label>
-                <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="h-10 font-mono" dir="ltr" />
+                <ModernTimePicker
+                  value={time}
+                  onChange={setTime}
+                  placeholder="اختر الوقت"
+                />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs font-medium text-muted-foreground">ملاحظة (اختياري)</Label>
@@ -749,7 +832,7 @@ export function RegisterEventComboDialog({
         </div>
 
         <DialogFooter className={dialogFormFooterClass}>
-          <Button onClick={handleSave} disabled={saving || !selectedId || !time} className="gap-2">
+          <Button onClick={handleSave} disabled={saving || !selectedId || !time || nextTypeLoading} className="gap-2">
             {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
             تسجيل
           </Button>
@@ -866,6 +949,19 @@ export function DailyOneDayView({
   const [headerEventsExpanded, setHeaderEventsExpanded] = React.useState(false);
   const [registerDialogOpen, setRegisterDialogOpen] = React.useState(false);
   const [registerDefaultEmpId, setRegisterDefaultEmpId] = React.useState<string | null>(null);
+  const [detailSummary, setDetailSummary] = React.useState<AttendanceDaySummary | null>(null);
+  const [detailOpen, setDetailOpen] = React.useState(false);
+
+  const openDayDetail = React.useCallback((summary: AttendanceDaySummary) => {
+    setDetailSummary(summary);
+    setDetailOpen(true);
+  }, []);
+
+  const summaryByEmployeeId = React.useMemo(() => {
+    const map = new Map<string, AttendanceDaySummary>();
+    for (const row of allRows) map.set(row.employeeId, row);
+    return map;
+  }, [allRows]);
 
   const allDayEvents = React.useMemo(() => {
     const items: { event: AttendanceEventResponseDto; employeeId: string; employeeName: string }[] = [];
@@ -886,6 +982,13 @@ export function DailyOneDayView({
 
   return (
     <div className="overflow-hidden rounded-xl border border-border bg-card shadow-soft" dir="rtl">
+      <DailyDayDetailDialog
+        summary={detailSummary}
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+        companyId={companyId}
+      />
+
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-muted/30 px-4 py-3">
         <div>
@@ -929,13 +1032,14 @@ export function DailyOneDayView({
             companyId={companyId}
             onEventsChange={handleEventsChange}
             allEmployees={allEmployees}
+            onOpenDayDetail={openDayDetail}
           />
         ))
       )}
 
       {headerEventsExpanded && allDayEvents.length > 0 && (
         <div className="border-t border-border/50 bg-muted/10 px-4 py-2" dir="rtl">
-          {allDayEvents.map(({ event, employeeName }, i) => {
+          {allDayEvents.map(({ event, employeeId, employeeName }, i) => {
             const meta = EVENT_TYPE_META[event.eventType];
             const Icon = meta.icon;
             const isCheckEvent = event.eventType === 'check_in' || event.eventType === 'check_out';
@@ -945,9 +1049,17 @@ export function DailyOneDayView({
             const dotColor = markerStyle?.lineColor ?? EVENT_TICK_COLOR[event.eventType];
             const sourceLabel = event.source ? SOURCE_LABEL[event.source] : undefined;
             return (
-              <div
+              <button
                 key={event.id}
-                className={cn('flex items-center justify-between gap-3 py-2 text-xs', i > 0 && 'border-t border-border/40')}
+                type="button"
+                onClick={() => {
+                  const rowSummary = summaryByEmployeeId.get(event.employeeId);
+                  if (rowSummary) openDayDetail(rowSummary);
+                }}
+                className={cn(
+                  'flex w-full items-center justify-between gap-3 py-2 text-xs text-right transition-colors hover:bg-muted/40',
+                  i > 0 && 'border-t border-border/40',
+                )}
               >
                 <div className="flex min-w-0 flex-1 items-center gap-2.5">
                   <div className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: dotColor }} />
@@ -959,7 +1071,7 @@ export function DailyOneDayView({
                   {sourceLabel && <span className="text-[10px] text-muted-foreground/80">{sourceLabel}</span>}
                   <span className="font-mono tabular-nums" dir="ltr">{isoToHHMM(event.occurredAt)}</span>
                 </div>
-              </div>
+              </button>
             );
           })}
         </div>
@@ -967,7 +1079,7 @@ export function DailyOneDayView({
 
       {/* Footer legend */}
       <div className="border-t border-border/50 px-4 py-2.5">
-        <DailyAttendanceLegend />
+        <DailyAttendanceLegend inline />
       </div>
 
       <RegisterEventComboDialog

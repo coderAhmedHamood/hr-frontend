@@ -9,9 +9,10 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DatePickerInput } from '@/components/ui/date-picker-input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { MinimalDropdown } from '@/features/hr/requests/components/shared-ui';
+import { MinimalDropdown } from '@/components/ui/shared-dialogs';
 import { REASON_LABELS, type CashReceiptReason } from '@/features/hr/payroll/reports/components/pdf-cash-receipt-print-html';
 
 type Props = {
@@ -83,7 +84,7 @@ export function EmployeeHrPdfPrepDialog({ open, prepKind, employee, onCancel, on
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="hr-c-dt">التاريخ</Label>
-            <Input id="hr-c-dt" type="date" value={cashDate} onChange={(e) => setCashDate(e.target.value)} className="font-mono" dir="ltr" />
+            <DatePickerInput id="hr-c-dt" value={cashDate} onChange={setCashDate} />
           </div>
         </div>
 

@@ -8,8 +8,13 @@ const config: Config = {
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
+    '^@test/(.*)$': '<rootDir>/test/$1',
   },
-  testMatch: ['**/__tests__/**/*.test.(ts|tsx)', '**/*.test.(ts|tsx)'],
+  testMatch: [
+    '**/__tests__/**/*.test.(ts|tsx)',
+    '**/*.test.(ts|tsx)',
+    'test/integration/**/*.integration.test.(ts|tsx)',
+  ],
   testPathIgnorePatterns: ['<rootDir>/.next/', '<rootDir>/node_modules/'],
   coverageProvider: 'v8',
 };

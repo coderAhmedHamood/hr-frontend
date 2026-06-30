@@ -51,7 +51,15 @@ export function FilterPanelProvider({ children }: { children: React.ReactNode })
   }, [pathname]);
 
   const setValue = React.useCallback((key: string, val: string | string[]) => {
-    setValues(prev => ({ ...prev, [key]: val }));
+    setValues(prev => {
+      const current = prev[key];
+      if (Array.isArray(val) && Array.isArray(current)) {
+        if (val.length === current.length && val.every((v, i) => v === current[i])) return prev;
+      } else if (current === val) {
+        return prev;
+      }
+      return { ...prev, [key]: val };
+    });
   }, []);
 
   const reset = React.useCallback(() => setValues({}), []);

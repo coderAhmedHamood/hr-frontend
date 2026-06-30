@@ -1,4 +1,5 @@
 import { apiRequest, type PaginatedResult } from '@/features/hr/lib/api/client';
+import { AR_STATUS } from '@/shared/i18n/ar';
 
 export type PayslipStatusDto = 'draft' | 'approved' | 'paid';
 
@@ -105,7 +106,7 @@ export function canSubmitPayslipEmployeeDecision(
 }
 
 export const PAYSLIP_STATUS_LABELS: Record<PayslipStatusDto, string> = {
-  draft: 'مسودة',
+  draft: AR_STATUS.draft,
   approved: 'معتمدة',
   paid: 'مدفوعة',
 };
@@ -120,7 +121,7 @@ export const PAYSLIP_STATUS_COLORS: Record<PayslipStatusDto, string> = {
 export const PAYSLIP_ACCEPTANCE_STATUS_LABELS: Record<PayslipAcceptanceStatusDto, string> = {
   pending: 'بانتظار اعتماد الموظف',
   accepted: 'اعتمد الموظف',
-  rejected: 'رفض الموظف',
+  rejected: AR_STATUS.rejected,
 };
 
 export const PAYSLIP_ACCEPTANCE_STATUS_COLORS: Record<PayslipAcceptanceStatusDto, string> = {

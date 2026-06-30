@@ -1,32 +1,11 @@
-export type RequestStatus = 'pending' | 'approved' | 'rejected' | 'in-review';
-export type RequestType =
-  | 'leave'
-  | 'permission'
-  | 'advance'
-  | 'salary-letter'
-  | 'equipment'
-  | 'attendance-correction';
+export * from './domain';
+export * from './attendance-correction';
+export * from './employee-directory';
+export * from './api/correction-requests';
+export * from './api/request-types';
+export * from './api/request-approver-states-types';
+export * from './api/approval-templates';
+export * from './api/employees';
 
-export interface Request {
-  id: string;
-  requestNumber: string;
-  employeeId: string;
-  type: RequestType;
-  title: string;
-  description: string;
-  status: RequestStatus;
-  submittedAt: string;
-  fromDate?: string;
-  toDate?: string;
-  amount?: number;
-  daysCount?: number;
-  timeline: {
-    id: string;
-    action: string;
-    by: string;
-    byRole: string;
-    at: string;
-    note?: string;
-  }[];
-  attachments?: string[];
-}
+// Legacy request entity types (kept for backward compatibility)
+export type { RequestStatus, RequestType, Request } from './legacy';

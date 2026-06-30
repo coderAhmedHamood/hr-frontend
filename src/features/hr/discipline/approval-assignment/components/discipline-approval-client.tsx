@@ -13,10 +13,11 @@ import { Switch } from '@/components/ui/switch';
 import {
   ConfirmationModal, HRSettingsFormDrawer, FormField,
   EmptyState, ActiveBadge, SearchableDropdown, MinimalDropdown,
-} from '@/features/hr/requests/components/shared-ui';
+} from '@/components/ui/shared-dialogs';
 import { MultiSelect, type MultiSelectOption } from '@/components/ui/multi-select';
 import { useDisciplineApprovalTemplatesModel } from '../hooks/useDisciplineApprovalTemplatesModel';
 import { DisciplineListViewport, DisciplinePaginatedList } from '@/features/hr/discipline/components/discipline-paginated-list';
+import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import type { ApprovalMode } from '../hooks/useDisciplineApprovalTemplatesModel';
 import { cn } from '@/shared/utils';
 
@@ -97,12 +98,12 @@ export function DisciplineApprovalClient() {
     });
   };
 
-  const openCreate = () => {
+  const openCreate = React.useCallback(() => {
     setEditId(null);
     setDraft({ linkedIds: [], approverIds: [], approvalMode: 'sequential', isActive: true });
     setError(null);
     setDrawerOpen(true);
-  };
+  }, []);
 
   const openEdit = (t: typeof templates[number]) => {
     setEditId(t.id);
@@ -141,6 +142,16 @@ export function DisciplineApprovalClient() {
     }
   };
 
+  usePageHeaderActions(
+    () => (
+      <Button variant="luxe" size="sm" className="h-8 gap-1.5 px-3 text-xs shadow-sm shrink-0" onClick={openCreate}>
+        <Plus className="h-3.5 w-3.5" />
+        إسناد جديد
+      </Button>
+    ),
+    [openCreate],
+  );
+
   if (loading) {
     return <EntityActionCardGridSkeleton count={4} />;
   }
@@ -151,12 +162,6 @@ export function DisciplineApprovalClient() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
-      <div className="flex justify-end shrink-0 gap-2">
-        <Button variant="luxe" size="sm" onClick={openCreate}>
-          <Plus className="h-4 w-4 ml-1" />إسناد جديد
-        </Button>
-      </div>
-
       <DisciplineListViewport>
       {templates.length === 0 ? (
         <EmptyState title="لا توجد إسنادات" description="اربط أنواع المخالفات بمعتمدين." />

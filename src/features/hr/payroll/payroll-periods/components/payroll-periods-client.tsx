@@ -13,14 +13,14 @@ import { DatePickerInput } from '@/components/ui/date-picker-input';
 import { Badge } from '@/components/ui/badge';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { usePageFilters } from '@/components/layouts/filter-panel-context';
-import { EntityFilterToolbar } from '@/components/ui/entity-filter-toolbar';
+import { ListFilterBar } from '@/components/ui/list-filter-bar';
 import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
 import { intervalOverlapsYmdRange } from '@/features/hr/discipline/lib/discipline-date-filter';
 import {
   HRSettingsFormDrawer, FormField, ConfirmationModal, EmptyState,
-} from '@/features/hr/requests/components/shared-ui';
+} from '@/components/ui/shared-dialogs';
 import {
   useHRPayrollPeriodsStore,
   PERIOD_STATUS_LABELS, PERIOD_STATUS_COLORS, PERIOD_STATUS_ORDER,
@@ -186,7 +186,7 @@ export function PayrollPeriodsClient() {
 
   usePageHeaderActions(
     () => (
-      <div className="flex items-center gap-2">
+      <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
         <FilterToggleButton activeFilterCount={activeFilterCount} />
         <Button variant="luxe" size="sm" className="h-8 gap-1.5 px-3 text-xs shadow-sm shrink-0" onClick={openCreate}>
           <Plus className="h-3.5 w-3.5" />
@@ -240,7 +240,7 @@ export function PayrollPeriodsClient() {
 
   useEntityFilterSlot(
     () => (
-      <EntityFilterToolbar
+      <ListFilterBar
         showEmployeePicker={false}
         statusFilter={statusFilter}
         onStatusFilterChange={(v) => setValue('status', v)}

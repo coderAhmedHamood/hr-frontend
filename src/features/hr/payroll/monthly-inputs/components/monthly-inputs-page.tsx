@@ -11,11 +11,10 @@ import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
-import { EntityFilterToolbar, type EntityFilterInlineSelect } from '@/components/ui/entity-filter-toolbar';
+import { ListFilterBar, type ListFilterInlineSelect } from '@/components/ui/list-filter-bar';
 import { DataTable, type ColumnDef } from '@/components/ui/data-table';
 import { PagedListViewport, PaginatedListShell } from '@/components/ui/paged-list';
-import { EmptyState } from '@/features/hr/requests/components/shared-ui';
-import { useHREmployeeDirectoryStore } from '@/features/hr/requests/lib/employee-directory-store';
+import { EmptyState } from '@/components/ui/shared-dialogs';
 import type { MonthlyInputResponseDto } from '@/features/hr/payroll/lib/api/monthly-inputs';
 import {
   MONTHLY_INPUT_DIRECTION_LABELS,
@@ -27,6 +26,7 @@ import {
   formatPayrollPeriodLabel,
 } from '@/features/hr/payroll/monthly-inputs/constants/monthly-input-labels';
 import { useMonthlyInputsDirectoryModel } from '@/features/hr/payroll/monthly-inputs/hooks/useMonthlyInputsDirectoryModel';
+import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 import { TableDateCell } from '@/components/ui/table-cells';
 import { cn } from '@/shared/utils';
 
@@ -81,19 +81,11 @@ export function MonthlyInputsPage() {
     activeFilterCount, clearFilters,
   } = useMonthlyInputsDirectoryModel();
 
-  const { employees: allEmployees, fetch: fetchEmployees } = useHREmployeeDirectoryStore();
-  React.useEffect(() => {
-    if (allEmployees.length === 0) void fetchEmployees();
-  }, [allEmployees.length, fetchEmployees]);
-
-  const empPickerList = React.useMemo(
-    () => allEmployees.filter((e) => e.status === 'active').map((e) => ({ id: e.id, name: e.nameAr })),
-    [allEmployees],
-  );
+  const companyId = useDefaultCompanyId();
 
   const [detailRow, setDetailRow] = React.useState<MonthlyInputResponseDto | null>(null);
 
-  const inlineSelects = React.useMemo((): EntityFilterInlineSelect[] => [
+  const inlineSelects = React.useMemo((): ListFilterInlineSelect[] => [
     {
       id: 'period',
       value: filters.payrollPeriodId,
@@ -155,17 +147,17 @@ export function MonthlyInputsPage() {
 
   useEntityFilterSlot(
     () => (
-      <EntityFilterToolbar
+      <ListFilterBar
         showDateSection={false}
         showStatusSection={false}
         inlineSelects={inlineSelects}
-        empPickerEmployees={empPickerList}
+        companyId={companyId}
         selectedEmpIds={selectedEmpIds}
         onSelectedEmpIdsChange={setSelectedEmpIds}
         onDateBoundsChange={() => {}}
       />
     ),
-    [inlineSelects, empPickerList, selectedEmpIds, setSelectedEmpIds],
+    [inlineSelects, companyId, selectedEmpIds, setSelectedEmpIds],
   );
 
   usePageHeaderActions(

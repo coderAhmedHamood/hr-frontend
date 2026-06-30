@@ -9,20 +9,17 @@ import { Empty } from '@/features/hr/organization/employees/components/EmployeeP
 import { EmployeeProfilePagedList } from '@/features/hr/organization/employees/components/employee-profile-paged-list';
 import type { EmployeeProfileModel } from '@/features/hr/organization/employees/hooks/useEmployeeProfileModel';
 import type { RequestStatusFilter } from '@/features/hr/organization/employees/hooks/useEmployeeProfileRequests';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { FilterSelect } from '@/components/ui/select-with-clear';
+import { AR_LEAVE_STATUS_LABELS } from '@/shared/i18n/ar';
 
-const STATUS_LABELS: Record<Exclude<RequestStatusFilter, 'all'>, string> = {
-  pending: 'قيد الانتظار',
-  approved: 'موافق عليه',
-  rejected: 'مرفوض',
-  cancelled: 'ملغاة',
-};
+const STATUS_LABELS: Record<Exclude<RequestStatusFilter, 'all'>, string> = AR_LEAVE_STATUS_LABELS;
+
+const REQUEST_STATUS_OPTIONS = [
+  { value: 'all', label: 'كل الحالات' },
+  ...(Object.entries(STATUS_LABELS) as [Exclude<RequestStatusFilter, 'all'>, string][]).map(
+    ([value, label]) => ({ value, label }),
+  ),
+];
 
 export function EmployeeRequestsSection({ model }: { model: EmployeeProfileModel }) {
   const {
@@ -73,39 +70,30 @@ export function EmployeeRequestsSection({ model }: { model: EmployeeProfileModel
         </div>
       ) : null}
 
-      <div className="flex h-[68vh] min-h-[400px] shrink-0 flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+      <div className="flex flex-col rounded-xl border border-border bg-card shadow-sm">
         <div className="flex shrink-0 flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <h3 className="text-sm font-semibold text-foreground">
             سجل الطلبات
             {hasRequestFilters ? (
               <span className="mr-2 text-xs font-normal text-muted-foreground">
-                ({requestsPagination.total} من {requestsCounts.total})
+                ({requestsPagination.total ?? 0} من {requestsCounts.total ?? 0})
               </span>
             ) : (
               <span className="mr-2 text-xs font-normal text-muted-foreground">
-                ({requestsCounts.total})
+                ({requestsCounts.total ?? 0})
               </span>
             )}
           </h3>
-          <Select
+          <FilterSelect
             value={requestStatusFilter}
             onValueChange={(v) => setRequestStatusFilter(v as RequestStatusFilter)}
-          >
-            <SelectTrigger className="h-8 w-[11rem] bg-background text-xs">
-              <SelectValue placeholder="الحالة" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">كل الحالات</SelectItem>
-              {(Object.entries(STATUS_LABELS) as [Exclude<RequestStatusFilter, 'all'>, string][]).map(([value, label]) => (
-                <SelectItem key={value} value={value}>{label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            options={REQUEST_STATUS_OPTIONS}
+            placeholder="اختر الحالة"
+          />
         </div>
 
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="px-4 pb-4 pt-3">
           <EmployeeProfilePagedList
-            fillParent
             items={employeeRequests}
             serverPagination={requestsPagination}
             loading={requestsLoading}

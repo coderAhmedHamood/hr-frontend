@@ -5,7 +5,7 @@ import { Plus, Trash2, ChevronUp, ChevronDown, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { MinimalDropdown, SearchableDropdown } from '@/features/hr/requests/components/shared-ui';
+import { MinimalDropdown, SearchableDropdown } from '@/components/ui/shared-dialogs';
 import type { HRApprovalStage, HRApprovalStageMode } from '@/features/hr/requests/lib/types';
 import { useHREmployeeDirectoryStore } from '@/features/hr/requests/lib/employee-directory-store';
 import { cn } from '@/shared/utils';

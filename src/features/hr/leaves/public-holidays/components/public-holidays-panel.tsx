@@ -2,7 +2,6 @@
 
 import { Plus, Pencil, Trash2, RefreshCw, Calendar as CalendarIcon } from 'lucide-react';
 import { format, parse, isValid } from 'date-fns';
-import { arSA } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -20,9 +19,13 @@ import {
 } from '@/features/hr/leaves/public-holidays/hooks/usePublicHolidaysPanelModel';
 import { DirectoryPagedViews } from '@/components/ui/paged-list';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
-import { cn } from '@/shared/utils';
+import { cn, formatDisplayDate } from '@/shared/utils';
 
-const MONTH_NAMES = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+function formatMonthDay(mmdd: string): string {
+  const m = /^(\d{2})-(\d{2})$/.exec(mmdd.trim());
+  if (!m) return formatDisplayDate(mmdd);
+  return `${m[1]}/${m[2]}`;
+}
 
 export function PublicHolidaysPanel() {
   const m = usePublicHolidaysPanelModel();
@@ -55,8 +58,8 @@ export function PublicHolidaysPanel() {
           {(pageItems) => (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {pageItems.map((item) => {
-              const [, dd] = item.date.split('-');
-              const monthName = MONTH_NAMES[(Number(item.date.split('-')[0]) || 1) - 1] ?? '';
+              const [mm, dd] = item.date.split('-');
+              const dateLabel = mm && dd ? `${mm}/${dd}` : formatMonthDay(item.date);
               return (
                 <div
                   key={item.id}
@@ -73,8 +76,7 @@ export function PublicHolidaysPanel() {
                         'flex h-12 w-12 flex-col items-center justify-center rounded-xl',
                         item.isActive ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground/60',
                       )}>
-                        <span className="font-display text-lg font-bold leading-none">{dd}</span>
-                        <span className="text-[9px] mt-0.5 font-medium">{monthName}</span>
+                        <span className="font-display text-sm font-bold leading-none font-mono tabular-nums" dir="ltr">{dateLabel}</span>
                       </div>
                       <span className={cn(
                         'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium',
@@ -141,12 +143,7 @@ export function PublicHolidaysPanel() {
                       className={cn('w-full justify-start gap-2 text-sm', !m.draft.date && 'text-muted-foreground')}
                     >
                       <CalendarIcon className="h-4 w-4 shrink-0" />
-                      {m.draft.date
-                        ? (() => {
-                            const d = parse(`2000-${m.draft.date}`, 'yyyy-MM-dd', new Date());
-                            return isValid(d) ? format(d, 'dd MMMM', { locale: arSA }) : m.draft.date;
-                          })()
-                        : 'اختر التاريخ'}
+                      {m.draft.date ? formatMonthDay(m.draft.date) : 'اختر التاريخ'}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">

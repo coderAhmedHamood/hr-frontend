@@ -2,7 +2,7 @@
 
 import { Input } from '@/components/ui/input';
 import { DatePickerInput } from '@/components/ui/date-picker-input';
-import { FormField, MinimalDropdown, SearchableDropdown } from '@/features/hr/requests/components/shared-ui';
+import { FormField, MinimalDropdown, SearchableDropdown } from '@/components/ui/shared-dialogs';
 import {
   INVESTIGATION_DEDUCTION_TYPE_OPTIONS,
   INVESTIGATION_RECOMMENDATION_OPTIONS,

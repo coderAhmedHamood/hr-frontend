@@ -13,7 +13,9 @@ import {
 } from '@/features/hr/discipline/lib/discipline-audit-log';
 import { dateToYMD, matchesDateRange } from '@/features/hr/discipline/lib/discipline-date-filter';
 
-const DISCIPLINE_ENTITY_NAMES = [
+const DISCIPLINE_ENTITY_PREFIX = 'hr_job_discipline_';
+
+const DISCIPLINE_ENTITY_NAMES = new Set([
   'hr_job_discipline_violation_records',
   'hr_job_discipline_notices',
   'hr_job_discipline_circulars',
@@ -21,7 +23,12 @@ const DISCIPLINE_ENTITY_NAMES = [
   'hr_job_discipline_appeals',
   'hr_job_discipline_payroll_deductions',
   'hr_job_discipline_approval_templates',
-];
+]);
+
+function isDisciplineAuditEntity(entityName: string): boolean {
+  const name = entityName.trim();
+  return name.startsWith(DISCIPLINE_ENTITY_PREFIX) || DISCIPLINE_ENTITY_NAMES.has(name);
+}
 
 const ENTITY_TO_CATEGORY: Record<string, HRDisciplineAuditCategory> = {
   hr_job_discipline_violation_records: 'violation_case',
@@ -138,34 +145,51 @@ export function useDisciplineAuditLogDirectoryModel() {
 
   const allEntriesRef = React.useRef<AuditLogEntry[]>([]);
   const cacheInvalidRef = React.useRef(true);
+  const fetchPromiseRef = React.useRef<Promise<void> | null>(null);
 
   const fetchAllEntries = React.useCallback(async () => {
-    setListError(null);
-    try {
-      const scope = await resolveOrganizationScope();
-      const cid = scope.companyId ?? undefined;
-      const allResults = await Promise.all(
-        DISCIPLINE_ENTITY_NAMES.map((entityName) =>
-          fetchAllPaginatedItems((page, limit) =>
-            auditLogsApi.getAll({ companyId: cid, entityName, page, limit }),
-          ).catch(() => ({ items: [] as AuditLogResponseDto[], total: 0 })),
-        ),
-      );
-      const all = allResults.flatMap((r) => r.items).map(dtoToEntry);
-      all.sort((a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime());
-      allEntriesRef.current = all;
-      setAllEntries(all);
-      cacheInvalidRef.current = false;
-    } catch (err) {
-      const { displayMessage } = handleApiError(err, 'audit-logs.load');
-      setListError(displayMessage);
-      allEntriesRef.current = [];
-      setAllEntries([]);
+    if (fetchPromiseRef.current) {
+      await fetchPromiseRef.current;
+      return;
     }
+
+    fetchPromiseRef.current = (async () => {
+      setListError(null);
+      try {
+        const scope = await resolveOrganizationScope();
+        const cid = scope.companyId ?? undefined;
+        if (!cid) {
+          allEntriesRef.current = [];
+          setAllEntries([]);
+          cacheInvalidRef.current = false;
+          return;
+        }
+
+        const res = await fetchAllPaginatedItems((page, limit) =>
+          auditLogsApi.getAll({ companyId: cid, page, limit }),
+        );
+        const all = res.items
+          .filter((dto) => isDisciplineAuditEntity(dto.entityName))
+          .map(dtoToEntry);
+        all.sort((a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime());
+        allEntriesRef.current = all;
+        setAllEntries(all);
+        cacheInvalidRef.current = false;
+      } catch (err) {
+        const { displayMessage } = handleApiError(err, 'audit-logs.load');
+        setListError(displayMessage);
+        allEntriesRef.current = [];
+        setAllEntries([]);
+      } finally {
+        fetchPromiseRef.current = null;
+      }
+    })();
+
+    await fetchPromiseRef.current;
   }, []);
 
   const loadBulk = React.useCallback(async () => {
-    if (cacheInvalidRef.current || allEntriesRef.current.length === 0) {
+    if (cacheInvalidRef.current) {
       await fetchAllEntries();
     }
     const filtered = applyAuditLogFilters(

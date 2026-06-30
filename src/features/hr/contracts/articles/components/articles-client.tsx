@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Plus, BookOpen, Star, Hash, Eye, Pencil, Trash2, X, CheckCircle2 } from 'lucide-react';
+import { Plus, BookOpen, Star, Eye, Pencil, Trash2, X, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -14,16 +14,16 @@ import { usePageFilters } from '@/components/layouts/filter-panel-context';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
 import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
-import { EntityFilterToolbar } from '@/components/ui/entity-filter-toolbar';
+import { ListFilterBar } from '@/components/ui/list-filter-bar';
 import {
   HRSettingsFormDrawer, FormField, ConfirmationModal, EmptyState, ActiveBadge,
-} from '@/features/hr/requests/components/shared-ui';
+} from '@/components/ui/shared-dialogs';
 import { DirectoryPagedViews, useServerDirectoryPagination } from '@/components/ui/paged-list';
 import { contractArticlesApi } from '@/features/hr/contracts/lib/contracts-api';
 import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import {
-  useHRContractArticlesStore, normalizeArticleBody,
+  normalizeArticleBody,
   type HRContractArticle,
 } from '@/features/hr/contracts/lib/contract-articles-store';
 import {
@@ -50,14 +50,11 @@ function makeArticleCode() {
 }
 
 export function ContractArticlesClient() {
-  const { articles, add, update, remove, fetch: fetchArticles } = useHRContractArticlesStore();
   const companyId = useDefaultCompanyId() ?? '';
 
   const [archiveScope, setArchiveScope] = React.useState<OrganizationArchiveScope>(
     ORGANIZATION_ARCHIVE_SCOPE_DEFAULT,
   );
-
-  React.useEffect(() => { fetchArticles(); }, []);
 
   const { values } = usePageFilters([
     {
@@ -120,7 +117,7 @@ export function ContractArticlesClient() {
   const [previewId, setPreviewId] = React.useState<string | null>(null);
 
   const total = pagination.total;
-  const preview = previewId ? (filtered.find(a => a.id === previewId) ?? articles.find(a => a.id === previewId)) : null;
+  const preview = previewId ? filtered.find(a => a.id === previewId) ?? null : null;
 
   const openCreate = () => {
     setEditId(null); setForm(EMPTY_FORM); setError(null); setDrawerOpen(true);
@@ -137,13 +134,25 @@ export function ContractArticlesClient() {
     try {
       const payload = { ...form, code: editId ? form.code : makeArticleCode() };
       if (editId) {
-        await update(editId, payload);
+        await contractArticlesApi.update(editId, {
+          code: payload.code.trim(),
+          titleAr: payload.title.trim(),
+          bodyAr: normalizeArticleBody(payload.body),
+          isBasic: payload.isBasic,
+          isActive: payload.isActive,
+        });
       } else {
-        await add(payload);
+        await contractArticlesApi.create({
+          companyId,
+          code: payload.code,
+          titleAr: payload.title.trim(),
+          bodyAr: normalizeArticleBody(payload.body),
+          isBasic: payload.isBasic,
+          isActive: payload.isActive,
+        });
       }
       setDrawerOpen(false);
       await reloadArticles();
-      void fetchArticles();
     } catch (e) {
       setError((e as Error).message);
     }
@@ -151,26 +160,23 @@ export function ContractArticlesClient() {
 
   const patch = (p: Partial<DraftForm>) => setForm(f => ({ ...f, ...p }));
 
-  const basicCount    = articles.filter(a => a.isBasic && a.isActive).length;
-  const optionalCount = articles.filter(a => !a.isBasic && a.isActive).length;
-
   const activeFilterCount = kindFilter !== 'all' ? 1 : 0;
 
   usePageHeaderActions(
     () => (
-      <div className="flex items-center gap-2">
+      <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
         <FilterToggleButton activeFilterCount={activeFilterCount} />
         <Button onClick={openCreate} size="sm" className="h-8 gap-1.5">
           <Plus className="h-4 w-4" />مادة جديدة
         </Button>
       </div>
     ),
-    [activeFilterCount, openCreate],
+    [archiveScope, activeFilterCount, openCreate],
   );
 
   useEntityFilterSlot(
     () => (
-      <EntityFilterToolbar
+      <ListFilterBar
         showDateSection={false}
         showStatusSection={false}
         showEmployeePicker={false}
@@ -202,13 +208,6 @@ export function ContractArticlesClient() {
           <div>
             <p className="text-xs text-muted-foreground">إجمالي المواد</p>
             <p className="text-2xl font-bold tabular-nums leading-none text-foreground">{total}</p>
-          </div>
-          <div className="mx-1 h-8 w-px bg-border hidden sm:block" />
-          <div className="hidden sm:flex items-center gap-1.5 rounded-lg border border-primary/20 bg-primary/6 px-2.5 py-1 text-xs font-medium text-primary">
-            <Star className="h-3 w-3" />{basicCount} أساسية
-          </div>
-          <div className="hidden sm:flex items-center gap-1.5 rounded-lg border border-border bg-muted/60 px-2.5 py-1 text-xs font-medium text-muted-foreground">
-            <Hash className="h-3 w-3" />{optionalCount} اختيارية
           </div>
         </div>
       </div>
@@ -397,7 +396,13 @@ export function ContractArticlesClient() {
         description="هل أنت متأكد من حذف هذه المادة من المكتبة؟"
         confirmLabel="حذف"
         variant="destructive"
-        onConfirm={async () => { if (confirmId) { await remove(confirmId); setConfirmId(null); } }}
+        onConfirm={async () => {
+          if (confirmId) {
+            await contractArticlesApi.delete(confirmId);
+            setConfirmId(null);
+            await reloadArticles();
+          }
+        }}
       />
     </div>
   );

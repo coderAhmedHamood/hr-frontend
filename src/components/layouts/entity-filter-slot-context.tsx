@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { usePageHeaderActionsSettersRef } from '@/components/layouts/page-header-actions-context';
 
 type EntityFilterSlotContextValue = {
   /** Holds the current render function registered by useEntityFilterSlot. */
@@ -14,14 +15,11 @@ type EntityFilterSlotContextValue = {
   reRenderSlotRef: React.MutableRefObject<(() => void) | null>;
 };
 
-// The context value object is created once and never replaced — consumers never
-// re-render because the context "changed".
 const EntityFilterSlotContext = React.createContext<EntityFilterSlotContextValue | null>(null);
 
 export function EntityFilterSlotProvider({ children }: { children: React.ReactNode }) {
   const renderFnRef = React.useRef<(() => React.ReactNode) | null>(null);
   const reRenderSlotRef = React.useRef<(() => void) | null>(null);
-  // useRef.current is stable across renders — the context value itself never changes.
   const value = React.useRef<EntityFilterSlotContextValue>({ renderFnRef, reRenderSlotRef }).current;
   return (
     <EntityFilterSlotContext.Provider value={value}>
@@ -40,7 +38,11 @@ export function useEntityFilterSlotRegion(): EntityFilterSlotContextValue {
 
 function serializeFilterSlotDeps(deps: React.DependencyList): string {
   try {
-    return JSON.stringify(deps);
+    return JSON.stringify(deps, (_key, value) => {
+      if (typeof value === 'function') return undefined;
+      if (React.isValidElement(value)) return undefined;
+      return value;
+    });
   } catch {
     return String(deps.length);
   }
@@ -48,34 +50,29 @@ function serializeFilterSlotDeps(deps: React.DependencyList): string {
 
 /**
  * Renders the filter toolbar into the app layout slot above the page body.
- *
- * The render function is stored in a ref (always current) and AppEntityFilterRegion
- * is told to re-render via a direct callback only when `deps` meaningfully change —
- * no context state is mutated, so unstable inline deps cannot cause infinite loops.
  */
 export function useEntityFilterSlot(render: () => React.ReactNode, deps: React.DependencyList): void {
   const { renderFnRef, reRenderSlotRef } = useEntityFilterSlotRegion();
+  const settersRef = usePageHeaderActionsSettersRef();
 
   const renderRef = React.useRef(render);
   renderRef.current = render;
 
-  // Always keep the latest render closure without poking the slot region.
-  renderFnRef.current = () => renderRef.current();
-
   const depsKey = serializeFilterSlotDeps(deps);
-  const lastDepsKeyRef = React.useRef<string | null>(null);
 
-  React.useEffect(() => {
-    if (lastDepsKeyRef.current === depsKey) return;
-    lastDepsKeyRef.current = depsKey;
+  const publishFilterSlot = React.useCallback(() => {
+    settersRef.current.setFilterPanelOpen(true);
     reRenderSlotRef.current?.();
-  }, [depsKey, reRenderSlotRef]);
+  }, [reRenderSlotRef, settersRef]);
 
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
+    renderFnRef.current = () => renderRef.current();
+    publishFilterSlot();
+
     return () => {
       renderFnRef.current = null;
-      lastDepsKeyRef.current = null;
       reRenderSlotRef.current?.();
+      settersRef.current.setFilterPanelOpen(false);
     };
-  }, [renderFnRef, reRenderSlotRef]);
+  }, [depsKey, publishFilterSlot, renderFnRef, reRenderSlotRef, settersRef]);
 }

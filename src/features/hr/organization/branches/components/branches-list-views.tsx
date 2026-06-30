@@ -15,7 +15,7 @@ import {
   DirectoryGridCardMetaRow,
   DirectoryGridCardTitle,
 } from '@/components/ui/directory-grid-card';
-import { EmptyState } from '@/features/hr/requests/components/shared-ui';
+import { EmptyState } from '@/components/ui/shared-dialogs';
 import { DirectoryPagedViews } from '@/components/ui/paged-list';
 import type { BranchesDirectoryModel } from '@/features/hr/organization/branches/hooks/useBranchesDirectoryModel';
 import type { BranchRow } from '@/features/hr/organization/branches/constants/branches-directory';
@@ -29,7 +29,7 @@ function statusBadge(active: boolean) {
 }
 
 export function BranchesListViews({ model }: { model: BranchesDirectoryModel }) {
-  const { filtered, layoutView, pagination, loading, setViewBranch, openEdit, setConfirmId, companyLabel } = model;
+  const { filtered, layoutView, pagination, loading, setViewBranch, openEdit, setConfirmId, companyLabel, perms } = model;
 
   const columns = React.useMemo((): ColumnDef<BranchRow>[] => [
     {
@@ -86,13 +86,22 @@ export function BranchesListViews({ model }: { model: BranchesDirectoryModel }) 
       render: (b) => (
         <TableRowActions
           menuItems={[
-            { label: 'تعديل', onClick: (e) => { e.stopPropagation(); openEdit(b); } },
-            { label: 'حذف', onClick: (e) => { e.stopPropagation(); setConfirmId(b.id); }, destructive: true, separator: true },
+            ...(perms.canUpdate
+              ? [{ label: 'تعديل', onClick: (e: React.MouseEvent) => { e.stopPropagation(); openEdit(b); } }]
+              : []),
+            ...(perms.canDelete
+              ? [{
+                  label: 'حذف',
+                  onClick: (e: React.MouseEvent) => { e.stopPropagation(); setConfirmId(b.id); },
+                  destructive: true,
+                  separator: true,
+                }]
+              : []),
           ]}
         />
       ),
     },
-  ], [companyLabel, openEdit, setConfirmId]);
+  ], [companyLabel, openEdit, perms.canDelete, perms.canUpdate, setConfirmId]);
 
   return (
     <DirectoryPagedViews
@@ -137,8 +146,12 @@ export function BranchesListViews({ model }: { model: BranchesDirectoryModel }) 
                 {statusBadge(b.isActive)}
                 <div className="ms-auto flex gap-0.5">
                   <Button variant="ghost" size="icon" className="h-7 w-7" title="عرض" onClick={() => setViewBranch(b)}><Eye className="h-4 w-4" /></Button>
-                  <Button variant="ghost" size="icon" className="h-7 w-7" title="تعديل" onClick={() => openEdit(b)}><Pencil className="h-4 w-4" /></Button>
-                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" title="حذف" onClick={() => setConfirmId(b.id)}><Trash2 className="h-4 w-4" /></Button>
+                  {perms.canUpdate ? (
+                    <Button variant="ghost" size="icon" className="h-7 w-7" title="تعديل" onClick={() => openEdit(b)}><Pencil className="h-4 w-4" /></Button>
+                  ) : null}
+                  {perms.canDelete ? (
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" title="حذف" onClick={() => setConfirmId(b.id)}><Trash2 className="h-4 w-4" /></Button>
+                  ) : null}
                 </div>
               </DirectoryGridCardFooter>
             </DirectoryGridCard>

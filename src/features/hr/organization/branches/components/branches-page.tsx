@@ -8,13 +8,18 @@ import {
   ConfirmationModal,
   EmptyState,
   SearchableDropdown,
-} from '@/features/hr/requests/components/shared-ui';
+} from '@/components/ui/shared-dialogs';
+import { ForbiddenState } from '@/components/shared/forbidden-state';
 import { useBranchesDirectoryModel } from '@/features/hr/organization/branches/hooks/useBranchesDirectoryModel';
 import { BranchesListViews } from '@/features/hr/organization/branches/components/branches-list-views';
 import { BranchDetailDialog } from '@/features/hr/organization/branches/dialogs/branch-detail-dialog';
 
 export default function BranchesPage() {
   const model = useBranchesDirectoryModel();
+
+  if (model.accessDenied) {
+    return <ForbiddenState />;
+  }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">

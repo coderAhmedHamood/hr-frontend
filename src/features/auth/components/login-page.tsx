@@ -2,16 +2,34 @@
 
 import * as React from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Eye, EyeOff, Lock, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Logo } from '@/components/layouts/logo';
+import {
+  persistLoginBranding,
+  useLoginPageBranding,
+} from '@/features/auth/hooks/use-default-company-branding';
+import {
+  buildAuthFlowHref,
+  readAuthFlowEmailFromParams,
+} from '@/features/auth/hooks/use-auth-flow-email';
+import { AUTH_SUCCESS_TOAST } from '@/features/auth/lib/auth-api-messages';
 import { authApi } from '@/features/auth/lib/api/auth';
 import { setAccessTokenCookie } from '@/features/auth/lib/auth-cookie';
+import {
+  buildLoginFormDefaults,
+  loadBrowserSavedCredentials,
+  loadRememberedLoginEmail,
+  persistRememberedLoginEmail,
+  storeBrowserCredentials,
+} from '@/features/auth/lib/login-remember';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import { publicConfig } from '@/shared/config';
@@ -25,7 +43,12 @@ const schema = z.object({
 type FormValues = z.infer<typeof schema>;
 
 function resolvePostLoginPath(returnTo: string | null): string {
-  if (!returnTo || !returnTo.startsWith('/') || returnTo.startsWith('//')) {
+  if (
+    !returnTo ||
+    !returnTo.startsWith('/') ||
+    returnTo.startsWith('//') ||
+    returnTo.startsWith('/login')
+  ) {
     return '/hr/dashboard';
   }
   return returnTo;
@@ -40,24 +63,53 @@ export function LoginPage() {
   const [showPassword, setShowPassword] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [hydrated, setHydrated] = React.useState(false);
+  const [rememberEmail, setRememberEmail] = React.useState(false);
 
   React.useEffect(() => {
     setHydrated(true);
+    setRememberEmail(!!loadRememberedLoginEmail());
   }, []);
 
   const {
     register,
     handleSubmit,
+    setValue,
+    watch,
     formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues:
-      process.env.NODE_ENV === 'development'
-        ? { email: 'admin@test.com', password: 'Admin123!' }
-        : { email: '', password: '' },
+    defaultValues: buildLoginFormDefaults(),
   });
 
+  React.useEffect(() => {
+    let cancelled = false;
+    const fromUrl =
+      typeof window !== 'undefined'
+        ? readAuthFlowEmailFromParams(new URLSearchParams(window.location.search))
+        : '';
+
+    if (fromUrl) {
+      setValue('email', fromUrl, { shouldDirty: false });
+    }
+
+    void (async () => {
+      const saved = await loadBrowserSavedCredentials();
+      if (cancelled || !saved) return;
+      if (!fromUrl) {
+        setValue('email', saved.email, { shouldDirty: false });
+      }
+      setValue('password', saved.password, { shouldDirty: false });
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [setValue]);
+
   const appTitle = publicConfig.appName.trim() || 'نظام الموارد البشرية';
+  const { logoUrl, logoAlt, companyNameAr } = useLoginPageBranding();
+  const welcomeTitle = hydrated ? (companyNameAr || appTitle) : appTitle;
+  const draftEmail = watch('email');
 
   const onSubmit = async (values: FormValues) => {
     if (!publicConfig.apiUrl) {
@@ -74,17 +126,26 @@ export function LoginPage() {
 
       if (!result.access_token?.trim() || !result.user?.id) {
         toast.error('استجابة تسجيل الدخول غير مكتملة');
+        setLoading(false);
         return;
       }
 
       useAuthStore.getState().setUser(result.user);
       useAuthStore.getState().setAccessProfile(result.accessProfile);
+      persistLoginBranding(result.accessProfile);
       setAccessTokenCookie(result.access_token);
 
+      const email = values.email.trim().toLowerCase();
+      persistRememberedLoginEmail(email, rememberEmail);
+      await storeBrowserCredentials(email, values.password);
+
       const destination = resolvePostLoginPath(getReturnToFromLocation());
-      window.location.assign(destination);
+      toast.success(AUTH_SUCCESS_TOAST.login);
+      window.setTimeout(() => {
+        window.location.assign(destination);
+      }, 400);
     } catch (err) {
-      handleApiError(err, 'auth.login');
+      handleApiError(err, 'auth.login', { suppressRedirect: true });
     } finally {
       setLoading(false);
     }
@@ -105,10 +166,10 @@ export function LoginPage() {
       <div className="relative z-10 flex min-h-screen items-center justify-center p-4">
         <div className="w-full max-w-[420px] rounded-[28px] border border-white/70 bg-gradient-to-b from-primary/10 via-white to-white p-8 shadow-elevated dark:border-border/50 dark:from-primary/15 dark:via-card dark:to-card sm:p-10">
           <div className="flex flex-col items-center space-y-4 text-center">
-            <Logo size={56} />
+            <Logo size={56} src={logoUrl} alt={logoAlt} />
             <div className="space-y-2">
               <h1 className="font-display text-3xl font-bold tracking-tight text-primary">تسجيل الدخول</h1>
-              <p className="text-sm text-muted-foreground">أهلاً بك في {appTitle}</p>
+              <p className="text-sm text-muted-foreground">أهلاً بك في {welcomeTitle}</p>
             </div>
           </div>
 
@@ -127,6 +188,7 @@ export function LoginPage() {
                 void handleSubmit(onSubmit)(event);
               }}
               className="mt-8 space-y-5"
+              autoComplete="on"
             >
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-sm font-medium text-foreground">
@@ -140,7 +202,7 @@ export function LoginPage() {
                     placeholder="your@email.com"
                     className="h-12 rounded-full border-border bg-background pe-4 ps-11 text-base shadow-soft"
                     dir="ltr"
-                    autoComplete="email"
+                    autoComplete="username"
                     {...register('email')}
                   />
                 </div>
@@ -148,9 +210,17 @@ export function LoginPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-sm font-medium text-foreground">
-                  كلمة المرور
-                </Label>
+                <div className="flex items-center justify-between gap-2">
+                  <Label htmlFor="password" className="text-sm font-medium text-foreground">
+                    كلمة المرور
+                  </Label>
+                  <Link
+                    href={buildAuthFlowHref('/login/forgot-password', draftEmail)}
+                    className="text-xs font-medium text-primary transition-colors hover:underline"
+                  >
+                    نسيت كلمة المرور؟
+                  </Link>
+                </div>
                 <div className="relative">
                   <Lock className="pointer-events-none absolute start-4 top-1/2 h-4 w-4 -translate-y-1/2 text-primary" />
                   <Input
@@ -174,6 +244,14 @@ export function LoginPage() {
                 {errors.password && <p className="text-xs text-destructive">{errors.password.message}</p>}
               </div>
 
+              <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
+                <Checkbox
+                  checked={rememberEmail}
+                  onCheckedChange={(checked) => setRememberEmail(checked === true)}
+                />
+                <span>تذكرني على هذا الجهاز</span>
+              </label>
+
               <Button
                 type="submit"
                 size="lg"
@@ -182,6 +260,16 @@ export function LoginPage() {
               >
                 {loading ? 'جاري الدخول...' : 'تسجيل الدخول'}
               </Button>
+
+              <p className="text-center text-xs text-muted-foreground">
+                حسابك غير مفعّل؟{' '}
+                <Link
+                  href={buildAuthFlowHref('/login/activate', draftEmail)}
+                  className="font-medium text-primary hover:underline"
+                >
+                  تفعيل الحساب
+                </Link>
+              </p>
             </form>
           )}
         </div>

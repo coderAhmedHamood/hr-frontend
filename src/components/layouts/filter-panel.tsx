@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { createPortal } from 'react-dom';
 import { X, RotateCcw, SlidersHorizontal } from 'lucide-react';
 import { useFilterPanel } from '@/components/layouts/filter-panel-context';
 import { Button } from '@/components/ui/button';
@@ -40,27 +41,39 @@ export function FilterTrigger() {
 /* ── Panel ────────────────────────────────────────────────────────────── */
 export function FilterPanel() {
   const { open, setOpen, fields, values, setValue, reset, activeCount } = useFilterPanel();
+  const [mounted, setMounted] = React.useState(false);
 
-  return (
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  React.useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
+  if (!mounted || !open) return null;
+
+  return createPortal(
     <>
-      {/* Backdrop */}
       <div
-        className={cn(
-          'fixed inset-0 z-40 bg-black/30 backdrop-blur-sm transition-opacity duration-300',
-          open ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none',
-        )}
+        className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm"
         onClick={() => setOpen(false)}
         aria-hidden
       />
 
-      {/* Slide-in panel from left */}
       <aside
         className={cn(
-          'fixed bottom-0 left-0 top-0 z-50 flex w-72 flex-col border-r border-border bg-background shadow-elevated',
-          'transition-transform duration-300 ease-out',
-          open ? 'translate-x-0' : '-translate-x-full',
+          'fixed inset-y-0 left-0 z-50 flex w-[min(100vw-2rem,18rem)] max-w-[85vw] flex-col',
+          'border-r border-border bg-background shadow-elevated',
         )}
         aria-label="لوحة الفلاتر"
+        role="dialog"
+        aria-modal="true"
       >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border/60 px-5 py-4">
@@ -203,6 +216,7 @@ export function FilterPanel() {
           </div>
         )}
       </aside>
-    </>
+    </>,
+    document.body,
   );
 }

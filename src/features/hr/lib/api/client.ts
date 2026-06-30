@@ -1,4 +1,5 @@
 import { getAccessTokenFromCookie } from '@/features/auth/lib/auth-cookie';
+import { resolveApiBaseUrl } from '@/shared/api-base-url';
 import { publicConfig } from '@/shared/config';
 import type { ApiErrorEnvelope, ApiSuccessEnvelope } from '@/features/hr/lib/api/types';
 import { isApiErrorEnvelope, isApiSuccessEnvelope } from '@/features/hr/lib/api/types';
@@ -83,26 +84,6 @@ function buildUrl(path: string, query?: Record<string, QueryValue>) {
   return `${urlBase}${normalizedPath}${buildQuery(query)}`;
 }
 
-function resolveApiBaseUrl(configuredUrl: string) {
-  if (typeof window === 'undefined') {
-    return configuredUrl;
-  }
-
-  const currentHost = window.location.hostname;
-  const isLocalPage = currentHost === 'localhost' || currentHost === '127.0.0.1' || currentHost === '::1';
-  if (isLocalPage) {
-    return configuredUrl;
-  }
-
-  try {
-    const apiHost = new URL(configuredUrl).hostname;
-    const isLocalApi = apiHost === 'localhost' || apiHost === '127.0.0.1' || apiHost === '::1';
-    return isLocalApi ? '/api-backend' : configuredUrl;
-  } catch {
-    return configuredUrl;
-  }
-}
-
 type RequestOptions = {
   method?: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
   query?: Record<string, QueryValue>;
@@ -148,6 +129,61 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   if (response.status === 204) {
     return undefined as T;
   }
+
+  let payload: unknown = null;
+  try {
+    payload = await response.json();
+  } catch {
+    payload = null;
+  }
+
+  if (!response.ok) {
+    let envelope: ApiErrorEnvelope;
+    if (isApiErrorEnvelope(payload)) {
+      envelope = payload;
+    } else if (payload && typeof payload === 'object') {
+      const body = payload as Record<string, unknown>;
+      const nestedMsg = body.message;
+      const message =
+        typeof nestedMsg === 'string'
+          ? nestedMsg
+          : Array.isArray(nestedMsg)
+            ? nestedMsg.map(String).join('; ')
+            : response.statusText || 'Request failed';
+      envelope = {
+        status: typeof body.status === 'number' ? body.status : response.status,
+        message,
+        data: null,
+        error: body.error ?? body,
+      };
+    } else {
+      envelope = {
+        status: response.status,
+        message: response.statusText || 'Request failed',
+        data: null,
+        error: payload,
+      };
+    }
+    throw new ApiError(envelope, response.status, payload);
+  }
+
+  return unwrapEnvelope<T>(payload);
+}
+
+/** Multipart upload (do not set Content-Type — browser sets boundary). */
+export async function apiFormRequest<T>(path: string, formData: FormData, signal?: AbortSignal): Promise<T> {
+  const headers: Record<string, string> = {};
+  const token = getAccessTokenFromCookie();
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  const response = await fetch(buildUrl(path), {
+    method: 'POST',
+    headers,
+    body: formData,
+    signal,
+    credentials: 'include',
+  });
 
   let payload: unknown = null;
   try {

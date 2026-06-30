@@ -42,7 +42,7 @@ export function resolvePermissionKeys(
 export type RoleFormData = {
   name: string;
   description: string;
-  /** Permission IDs (not string keys) — already scoped to the correct application */
+  /** Permission IDs selected for this role (any application) */
   permissionIds: string[];
   companyId: string;
   applicationId: string;
@@ -96,6 +96,7 @@ export async function updateRoleWithPermissions(
 
 export type RoleForEdit = {
   id: string;
+  applicationId: string;
   name: string;
   description: string;
   permissionIds: string[];
@@ -109,6 +110,7 @@ export async function loadRoleForEdit(roleId: string): Promise<RoleForEdit> {
 
   return {
     id: role.id,
+    applicationId: role.applicationId ?? '',
     name: role.nameAr ?? role.name ?? '',
     description: role.description ?? '',
     permissionIds: (permsResult.items ?? []).map((p) => p.permissionId),

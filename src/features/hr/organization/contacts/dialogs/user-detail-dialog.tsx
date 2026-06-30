@@ -2,7 +2,13 @@
 
 import * as React from 'react';
 import {
-  Building2, MapPin, Pencil, UserCircle, ShieldCheck, LogIn,
+  Building2,
+  Loader2,
+  MapPin,
+  Pencil,
+  Shield,
+  ShieldCheck,
+  UserCircle,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -13,16 +19,26 @@ import {
   DialogDescription,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { UserProfileTab } from '@/features/hr/organization/contacts/components/user-profile-tab';
 import { UserCompaniesPanel } from '@/features/hr/organization/contacts/components/user-companies-panel';
 import { UserBranchesPanel } from '@/features/hr/organization/contacts/components/user-branches-panel';
+import { UserPermissionsPanel } from '@/features/hr/organization/contacts/components/user-permissions-panel';
 import { useUserDetailModel } from '@/features/hr/organization/contacts/hooks/useUserDetailModel';
+import { useUserPermissionsModel } from '@/features/hr/organization/contacts/hooks/useUserPermissionsModel';
 import { USER_TYPE_LABELS } from '@/features/hr/organization/contacts/constants/users-directory';
-import { getInitials } from '@/shared/utils';
+import { cn, getInitials } from '@/shared/utils';
 import type { UserResponseDto } from '@/features/hr/organization/lib/api/users';
 import type { CompanyResponseDto } from '@/features/hr/organization/lib/api/companies';
 import type { BranchResponseDto } from '@/features/hr/organization/lib/api/branches';
+
+type DetailTab = 'profile' | 'permissions' | 'companies' | 'branches';
+
+const TABS: { id: DetailTab; label: string; icon: React.ElementType }[] = [
+  { id: 'profile', label: 'الملف الشخصي', icon: UserCircle },
+  { id: 'permissions', label: 'الصلاحيات', icon: Shield },
+  { id: 'companies', label: 'الشركات', icon: Building2 },
+  { id: 'branches', label: 'الفروع', icon: MapPin },
+];
 
 type Props = {
   user: UserResponseDto | null;
@@ -33,6 +49,20 @@ type Props = {
   onUserUpdated?: (user: UserResponseDto) => void;
 };
 
+function SidebarSkeleton() {
+  return (
+    <div className="flex flex-col items-center gap-4 px-6 py-8">
+      <div className="h-20 w-20 animate-pulse rounded-full bg-muted" />
+      <div className="h-5 w-36 animate-pulse rounded bg-muted" />
+      <div className="h-4 w-44 animate-pulse rounded bg-muted" />
+      <div className="flex gap-2">
+        <div className="h-5 w-14 animate-pulse rounded-full bg-muted" />
+        <div className="h-5 w-12 animate-pulse rounded-full bg-muted" />
+      </div>
+    </div>
+  );
+}
+
 export function UserDetailDialog({
   user,
   companies,
@@ -41,10 +71,13 @@ export function UserDetailDialog({
   onEdit,
   onUserUpdated,
 }: Props) {
-  const [tab, setTab] = React.useState('profile');
+  const [tab, setTab] = React.useState<DetailTab>('profile');
   const detail = useUserDetailModel(user?.id ?? null, { companies, branches }, onUserUpdated);
   const displayUser = detail.user ?? user;
+  const permissionsModel = useUserPermissionsModel(displayUser, tab === 'permissions' && !!displayUser);
   const displayName = displayUser?.fullNameAr ?? displayUser?.email ?? 'المستخدم';
+  const companyCount = displayUser?.companies.length ?? 0;
+  const branchCount = displayUser?.branches.length ?? 0;
 
   React.useEffect(() => {
     if (user) setTab('profile');
@@ -54,140 +87,151 @@ export function UserDetailDialog({
     <Dialog open={!!user} onOpenChange={(v) => !v && onOpenChange(false)}>
       <DialogContent
         dir="rtl"
-        className="!flex max-h-[90vh] !flex-col overflow-hidden border-border p-0 text-right sm:max-w-3xl [&>button]:left-4 [&>button]:end-auto"
+        className="flex max-h-[min(90vh,820px)] flex-col overflow-visible border-border p-0 sm:max-w-4xl [&>button]:start-4 [&>button]:end-auto"
       >
         <DialogTitle className="sr-only">{displayName}</DialogTitle>
-        <DialogDescription className="sr-only">تفاصيل المستخدم</DialogDescription>
+        <DialogDescription className="sr-only">تفاصيل المستخدم وصلاحياته</DialogDescription>
 
-        <div className="flex max-h-[90vh] flex-col gap-0 overflow-hidden">
+        <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+          {/* ── Sidebar ── */}
+          <aside className="flex shrink-0 flex-col border-b border-border bg-muted/25 lg:w-[17.5rem] lg:border-b-0 lg:border-s">
+            {displayUser ? (
+              <>
+                <div className="flex flex-col items-center px-6 pb-4 pt-8 text-center">
+                  <Avatar className="h-20 w-20 shadow-md ring-4 ring-background">
+                    {displayUser.avatarUrl ? (
+                      <AvatarImage src={displayUser.avatarUrl} alt={displayName} />
+                    ) : null}
+                    <AvatarFallback className="bg-primary/10 text-2xl font-semibold text-primary">
+                      {getInitials(displayName)}
+                    </AvatarFallback>
+                  </Avatar>
 
-        {/* ── Hero ─────────────────────────────────────────── */}
-        <div className="relative shrink-0 bg-gradient-to-l from-primary/8 via-primary/3 to-transparent px-6 pb-5 pt-12">
-          {displayUser ? (
-            <div className="flex items-start justify-between gap-4">
-             <div className="flex min-w-0 flex-1 items-start justify-end gap-4">
-                <div className="min-w-0 pt-0.5 text-right">
-                  <h2 className="truncate text-lg font-bold leading-tight">{displayName}</h2>
-                  <p className="mt-0.5 truncate text-sm text-muted-foreground" dir="ltr">
+                  <h2 className="mt-4 max-w-full truncate font-display text-lg font-bold leading-tight">
+                    {displayName}
+                  </h2>
+                  {displayUser.fullNameEn ? (
+                    <p className="mt-0.5 max-w-full truncate text-xs text-muted-foreground" dir="ltr">
+                      {displayUser.fullNameEn}
+                    </p>
+                  ) : null}
+                  <p className="mt-1 max-w-full truncate text-sm text-muted-foreground" dir="ltr">
                     {displayUser.email}
                   </p>
-                  <div className="mt-2 flex flex-wrap items-center justify-end gap-1.5">
-                    <Badge variant="outline" className="text-[10px]">
+
+                  <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5">
+                    <Badge variant="secondary" className="text-[10px] font-normal">
                       {USER_TYPE_LABELS[displayUser.userType ?? ''] ?? displayUser.userType ?? '—'}
                     </Badge>
                     {displayUser.isActive ? (
-                      <Badge variant="outline" className="border-success/40 bg-success/5 text-success">
+                      <Badge variant="outline" className="border-success/40 bg-success/5 text-[10px] text-success">
                         نشط
                       </Badge>
                     ) : (
-                      <Badge variant="outline" className="text-[10px] text-destructive">
+                      <Badge variant="outline" className="border-destructive/40 text-[10px] text-destructive">
                         غير نشط
                       </Badge>
                     )}
-                    {displayUser.isVerified && (
-                      <Badge variant="secondary" className="gap-0.5 text-[10px]">
-                        <ShieldCheck className="h-3 w-3" /> موثّق
+                    {displayUser.isVerified ? (
+                      <Badge variant="outline" className="gap-0.5 text-[10px]">
+                        <ShieldCheck className="h-3 w-3" />
+                        موثّق
                       </Badge>
-                    )}
-                    {displayUser.canSignIn && (
-                      <Badge variant="secondary" className="gap-0.5 text-[10px]">
-                        <LogIn className="h-3 w-3" /> يمكنه الدخول
-                      </Badge>
-                    )}
+                    ) : null}
                   </div>
                 </div>
 
-                <Avatar className="h-16 w-16 shrink-0 shadow-md ring-2 ring-border">
-                  {displayUser.avatarUrl
-                    ? <AvatarImage src={displayUser.avatarUrl} alt={displayName} />
-                    : null}
-                  <AvatarFallback className="text-xl font-semibold">
-                    {getInitials(displayName)}
-                  </AvatarFallback>
-                </Avatar>
-              </div>
-               <Button
-                size="sm"
-                variant="outline"
-                className="h-8 shrink-0 gap-1.5 self-start text-xs"
-                onClick={() => { onOpenChange(false); onEdit(displayUser); }}
-              >
-                <Pencil className="h-3 w-3" />
-                تعديل
-              </Button>
+                <nav className="flex gap-1 overflow-x-auto px-3 pb-3 lg:flex-col lg:overflow-visible lg:px-4 lg:pb-0">
+                  {TABS.map(({ id, label, icon: Icon }) => {
+                    const count = id === 'companies' ? companyCount : id === 'branches' ? branchCount : null;
+                    const active = tab === id;
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => setTab(id)}
+                        className={cn(
+                          'flex shrink-0 items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-sm transition-colors lg:w-full',
+                          active
+                            ? 'bg-primary text-primary-foreground shadow-sm'
+                            : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
+                        )}
+                      >
+                        <span className="flex items-center gap-2">
+                          <Icon className="h-4 w-4 shrink-0" />
+                          {label}
+                        </span>
+                        {count != null ? (
+                          <span
+                            className={cn(
+                              'rounded-full px-2 py-0.5 text-[10px] tabular-nums',
+                              active ? 'bg-primary-foreground/15' : 'bg-muted',
+                            )}
+                          >
+                            {count}
+                          </span>
+                        ) : null}
+                      </button>
+                    );
+                  })}
+                </nav>
 
-              
-            </div>
-          ) : (
-            <div className="flex items-start justify-between gap-4">
-              <div className="h-8 w-16 shrink-0 animate-pulse rounded bg-muted" />
-              <div className="flex flex-1 items-start justify-end gap-4">
-                <div className="space-y-2 pt-2 text-right">
-                  <div className="ms-auto h-5 w-40 animate-pulse rounded bg-muted" />
-                  <div className="ms-auto h-3.5 w-56 animate-pulse rounded bg-muted" />
-                  <div className="flex justify-end gap-1.5 pt-1">
-                    <div className="h-4 w-16 animate-pulse rounded-full bg-muted" />
-                    <div className="h-4 w-10 animate-pulse rounded-full bg-muted" />
-                  </div>
+                <div className="mt-auto hidden border-t border-border p-4 lg:block">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-9 w-full gap-2"
+                    onClick={() => {
+                      onOpenChange(false);
+                      onEdit(displayUser);
+                    }}
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                    تعديل المستخدم
+                  </Button>
                 </div>
-                <div className="h-16 w-16 shrink-0 animate-pulse rounded-full bg-muted" />
+              </>
+            ) : (
+              <SidebarSkeleton />
+            )}
+          </aside>
+
+          {/* ── Main ── */}
+          <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-visible">
+            {displayUser ? (
+              <>
+                <div className="flex shrink-0 items-center justify-between border-b border-border px-5 py-3 lg:hidden">
+                  <p className="text-sm font-medium text-muted-foreground">
+                    {TABS.find((t) => t.id === tab)?.label}
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 gap-1.5 text-xs"
+                    onClick={() => {
+                      onOpenChange(false);
+                      onEdit(displayUser);
+                    }}
+                  >
+                    <Pencil className="h-3 w-3" />
+                    تعديل
+                  </Button>
+                </div>
+
+                <div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-6">
+                  {tab === 'profile' ? <UserProfileTab user={displayUser} /> : null}
+                  {tab === 'permissions' ? <UserPermissionsPanel model={permissionsModel} /> : null}
+                  {tab === 'companies' ? <UserCompaniesPanel model={detail} /> : null}
+                  {tab === 'branches' ? <UserBranchesPanel model={detail} /> : null}
+                </div>
+              </>
+            ) : (
+              <div className="flex flex-1 flex-col items-center justify-center gap-3 py-20 text-muted-foreground">
+                <Loader2 className="h-6 w-6 animate-spin" />
+                <p className="text-sm">جاري تحميل بيانات المستخدم…</p>
               </div>
-            </div>
-          )}
-        </div>
-
-        {/* ── Tabs ─────────────────────────────────────────── */}
-        {displayUser ? (
-          <Tabs value={tab} onValueChange={setTab} className="flex min-h-0 flex-1 flex-col">
-            {/* Underline-style tab bar */}
-            <div className="shrink-0 border-b border-border px-4">
-              <TabsList
-                dir="rtl"
-                className="!flex h-11 w-full !justify-start gap-0 rounded-none bg-transparent p-0"
-              >
-                <TabsTrigger
-                  value="profile"
-                  className="h-11 gap-1.5 rounded-none border-b-2 border-transparent px-4 text-sm font-medium text-muted-foreground shadow-none transition-colors data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none"
-                >
-                  <UserCircle className="h-4 w-4" />
-                  الملف الشخصي
-                </TabsTrigger>
-                <TabsTrigger
-                  value="companies"
-                  className="h-11 gap-1.5 rounded-none border-b-2 border-transparent px-4 text-sm font-medium text-muted-foreground shadow-none transition-colors data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none"
-                >
-                  <Building2 className="h-4 w-4" />
-                  الشركات
-                </TabsTrigger>
-                <TabsTrigger
-                  value="branches"
-                  className="h-11 gap-1.5 rounded-none border-b-2 border-transparent px-4 text-sm font-medium text-muted-foreground shadow-none transition-colors data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none"
-                >
-                  <MapPin className="h-4 w-4" />
-                  الفروع
-                </TabsTrigger>
-              </TabsList>
-            </div>
-
-            {/* Scrollable content */}
-            <div className="min-h-0 flex-1 overflow-y-auto p-5">
-              <TabsContent value="profile" className="mt-0">
-                <UserProfileTab user={displayUser} />
-              </TabsContent>
-              <TabsContent value="companies" className="mt-0">
-                <UserCompaniesPanel model={detail} />
-              </TabsContent>
-              <TabsContent value="branches" className="mt-0">
-                <UserBranchesPanel model={detail} />
-              </TabsContent>
-            </div>
-          </Tabs>
-        ) : (
-          <div className="flex flex-1 items-center justify-center py-16 text-sm text-muted-foreground">
-            جاري التحميل…
+            )}
           </div>
-        )}
-
         </div>
       </DialogContent>
     </Dialog>

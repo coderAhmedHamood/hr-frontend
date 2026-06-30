@@ -2,7 +2,6 @@
 
 import * as React from 'react';
 import { RoseTradingLetterheadPrint } from '@/components/pdf/print/rose-trading-letterhead-print';
-import { getPdfLogoSrc } from '@/components/pdf/lib/pdf-logo-url';
 import {
   ROSE_DOCUMENT_PAGE_STYLE,
   RoseDocumentBlockView,
@@ -22,13 +21,7 @@ export const RoseDocumentTemplatePrintHtml = React.forwardRef<
   HTMLDivElement,
   RoseDocumentTemplatePrintHtmlProps
 >(function RoseDocumentTemplatePrintHtml(props, ref) {
-  const { logoSrc: logoSrcProp, language, companyNameAr, companyNameEn, blocks } = props;
-
-  const [logoSrc, setLogoSrc] = React.useState<string | undefined>(logoSrcProp);
-  React.useEffect(() => {
-    if (logoSrcProp) setLogoSrc(logoSrcProp);
-    else setLogoSrc(getPdfLogoSrc());
-  }, [logoSrcProp]);
+  const { language, companyNameAr, companyNameEn, blocks } = props;
 
   const titleBlock = blocks.find((b) => b.type === 'title');
   const contentBlocks = blocks.filter((b) => b.type !== 'title');
@@ -37,7 +30,6 @@ export const RoseDocumentTemplatePrintHtml = React.forwardRef<
   return (
     <div ref={ref} dir={root.dir} lang={root.lang} style={ROSE_DOCUMENT_PAGE_STYLE}>
       <RoseTradingLetterheadPrint
-        logoSrc={logoSrc}
         companyNameAr={companyNameAr}
         companyNameEn={companyNameEn}
       />

@@ -7,6 +7,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DatePickerInput } from '@/components/ui/date-picker-input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -118,13 +119,10 @@ export function EmployeeClearancePdfPrepDialog({
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="clr-foot-date">تاريخ التذييل</Label>
-              <Input
+              <DatePickerInput
                 id="clr-foot-date"
-                type="date"
                 value={wizard.footerDateIso}
-                onChange={(e) => patchWizard('footerDateIso', e.target.value)}
-                className="font-mono"
-                dir="ltr"
+                onChange={(v) => patchWizard('footerDateIso', v)}
               />
             </div>
           </div>

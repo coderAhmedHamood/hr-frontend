@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { contractTemplatesApi } from '@/features/hr/contracts/contract-templates/lib/api/contract-templates';
+import { ApiError } from '@/features/hr/lib/api/client';
 import type { ContractTemplateDto as ApiContractTemplate } from '@/features/hr/contracts/contract-templates/types/contract-template';
 import { getDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 import { payrollListArchiveQuery } from '@/features/hr/organization/lib/archive-scope';
@@ -54,7 +55,7 @@ function mapApiTemplate(t: ApiContractTemplate): HRContractTemplateRecord {
 interface State {
   templates: HRContractTemplateRecord[];
   isLoading: boolean;
-  error: string | null;
+  error: { message: string; status: number } | null;
   fetch: () => Promise<void>;
 }
 
@@ -71,7 +72,7 @@ export const useHRContractTemplatesStore = create<State>()((set) => ({
       const result = await contractTemplatesApi.list({ companyId, limit: 200, ...payrollListArchiveQuery() });
       set({ templates: result.items.map(mapApiTemplate), isLoading: false });
     } catch (e) {
-      set({ error: (e as Error).message, isLoading: false });
+      set({ error: { message: (e as Error).message, status: e instanceof ApiError ? e.status : 0 }, isLoading: false });
     }
   },
 }));

@@ -5,11 +5,13 @@ import { Plus, Loader2, LogIn, LogOut } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/shared/utils';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import ModernTimePicker from '@/components/ui/modern-time-picker';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, dialogFormFooterClass } from '@/components/ui/dialog';
 import { attendanceEventsApi, type AttendanceEventResponseDto } from '@/features/hr/attendance/lib/api/attendance-events';
+import { useNextEventType } from '@/features/hr/attendance/daily/hooks/useNextEventType';
+import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 
 const REGISTERABLE_EVENT_TYPES = ['check_in', 'check_out'] as const;
 type RegisterableEventType = (typeof REGISTERABLE_EVENT_TYPES)[number];
@@ -45,9 +47,20 @@ export function DailyRegisterEventDialog({ open, onOpenChange, employeeId, emplo
   const [notes, setNotes] = React.useState('');
   const [saving, setSaving] = React.useState(false);
 
+  const { loading: nextTypeLoading, nextEventType, message: nextTypeMessage } = useNextEventType({
+    employeeId,
+    companyId,
+    workDate,
+    enabled: open,
+  });
+
   React.useEffect(() => {
-    if (open) { setEventType('check_in'); setTime(nowTimeLocal()); setNotes(''); }
+    if (open) { setTime(nowTimeLocal()); setNotes(''); }
   }, [open]);
+
+  React.useEffect(() => {
+    if (open) setEventType(nextEventType);
+  }, [open, nextEventType]);
 
   const handleSave = async () => {
     if (!time) { toast.error('الوقت مطلوب'); return; }
@@ -67,8 +80,8 @@ export function DailyRegisterEventDialog({ open, onOpenChange, employeeId, emplo
       toast.success(REGISTER_SUCCESS_MSG[eventType]);
       onCreated?.(res);
       onOpenChange(false);
-    } catch {
-      toast.error('فشل تسجيل الحدث — تحقق من البيانات وأعد المحاولة');
+    } catch (err) {
+      handleApiError(err, 'attendance/events');
     } finally {
       setSaving(false);
     }
@@ -87,35 +100,50 @@ export function DailyRegisterEventDialog({ open, onOpenChange, employeeId, emplo
         <div className="space-y-4 py-1">
           <div className="space-y-1.5">
             <Label className="text-xs font-medium text-muted-foreground">نوع الحدث</Label>
-            <div className="grid grid-cols-2 gap-2">
-              {REGISTERABLE_EVENT_TYPES.map((t) => {
-                const m = REGISTER_EVENT_TYPE_META[t];
-                const Icon = m.icon;
-                return (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => setEventType(t)}
-                    className={cn(
-                      'flex items-center gap-2 rounded-lg border px-3 py-2.5 text-xs font-medium transition-all',
-                      eventType === t
-                        ? 'border-primary bg-primary/8 text-primary shadow-sm ring-1 ring-primary/30'
-                        : 'border-border bg-card text-muted-foreground hover:bg-muted/40',
-                    )}
-                  >
-                    <Icon className="h-3.5 w-3.5 shrink-0" />
-                    {m.labelAr}
-                  </button>
-                );
-              })}
-            </div>
+            {nextTypeLoading ? (
+              <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/20 px-3 py-2.5 text-xs text-muted-foreground">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                جاري تحديد نوع الحدث القادم…
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-2">
+                  {REGISTERABLE_EVENT_TYPES.map((t) => {
+                    const m = REGISTER_EVENT_TYPE_META[t];
+                    const Icon = m.icon;
+                    const isNext = t === nextEventType;
+                    return (
+                      <button
+                        key={t}
+                        type="button"
+                        disabled={!isNext}
+                        onClick={() => isNext && setEventType(t)}
+                        className={cn(
+                          'flex items-center gap-2 rounded-lg border px-3 py-2.5 text-xs font-medium transition-all',
+                          eventType === t
+                            ? 'border-primary bg-primary/8 text-primary shadow-sm ring-1 ring-primary/30'
+                            : 'border-border bg-card text-muted-foreground',
+                          !isNext && 'cursor-not-allowed opacity-40',
+                        )}
+                      >
+                        <Icon className="h-3.5 w-3.5 shrink-0" />
+                        {m.labelAr}
+                      </button>
+                    );
+                  })}
+                </div>
+                {nextTypeMessage ? (
+                  <p className="text-[11px] leading-relaxed text-muted-foreground">{nextTypeMessage}</p>
+                ) : null}
+              </>
+            )}
           </div>
 
           <div className="space-y-1.5">
             <Label className="text-xs font-medium text-muted-foreground">
               الوقت <span className="text-destructive">*</span>
             </Label>
-            <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="h-10 font-mono" dir="ltr" />
+            <ModernTimePicker value={time} onChange={setTime} placeholder="اختر الوقت" />
           </div>
 
           <div className="space-y-1.5">
@@ -130,7 +158,7 @@ export function DailyRegisterEventDialog({ open, onOpenChange, employeeId, emplo
         </div>
 
         <DialogFooter className={dialogFormFooterClass}>
-          <Button onClick={handleSave} disabled={saving} className="gap-2">
+          <Button onClick={handleSave} disabled={saving || nextTypeLoading} className="gap-2">
             {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
             تسجيل
           </Button>

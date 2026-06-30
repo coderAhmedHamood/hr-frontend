@@ -24,13 +24,13 @@ import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
 import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import {
-  EntityFilterToolbar,
-} from '@/components/ui/entity-filter-toolbar';
+  ListFilterBar,
+} from '@/components/ui/list-filter-bar';
 import { DataTable, type ColumnDef } from '@/components/ui/data-table';
 import { DirectoryPagedViews, useServerDirectoryPagination } from '@/components/ui/paged-list';
 import { fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
 import { TableRowActions } from '@/components/ui/table-cells';
-import { EmptyState, ConfirmationModal } from '@/features/hr/requests/components/shared-ui';
+import { EmptyState, ConfirmationModal } from '@/components/ui/shared-dialogs';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
 import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 import { useHREmployeeDirectoryStore } from '@/features/hr/requests/lib/employee-directory-store';
@@ -64,7 +64,7 @@ import { SendNotificationDrawer } from '@/features/hr/notifications/components/s
 import {
   usePayslipEmployeeDecision,
 } from '@/features/hr/payroll/components/payslip-employee-decision-actions';
-import { MinimalDropdown } from '@/features/hr/requests/components/shared-ui';
+import { MinimalDropdown } from '@/components/ui/shared-dialogs';
 import { cn } from '@/shared/utils';
 
 const PAYSLIP_STATUS_ORDER = ['all', 'draft', 'approved', 'paid'] as const;
@@ -263,19 +263,6 @@ export function PayrollSalaryApprovalClient() {
     return counts;
   }, [metaPayslips]);
 
-  const empPickerList = React.useMemo(() => {
-    const seen = new Map<string, string>();
-    for (const p of metaPayslips) {
-      if (!seen.has(p.employeeId)) seen.set(p.employeeId, p.employeeNameAr);
-    }
-    if (seen.size === 0) {
-      return allEmployees
-        .filter(e => e.status === 'active')
-        .map(e => ({ id: e.id, name: e.nameAr?.trim() || e.nameEn?.trim() || '—' }));
-    }
-    return [...seen.entries()].map(([id, name]) => ({ id, name }));
-  }, [metaPayslips, allEmployees]);
-
   const activeFilterCount =
     (statusFilter !== 'all' ? 1 : 0) + (selectedEmpIds.size > 0 ? 1 : 0);
 
@@ -289,20 +276,20 @@ export function PayrollSalaryApprovalClient() {
 
   useEntityFilterSlot(
     () => (
-      <EntityFilterToolbar
+      <ListFilterBar
         showDateSection={false}
         statusFilter={statusFilter}
         onStatusFilterChange={v => setStatusFilter(v as StatusFilter)}
         statusOrder={PAYSLIP_STATUS_ORDER}
         statusLabels={STATUS_TAB_LABELS}
         statusCounts={statusCounts}
-        empPickerEmployees={empPickerList}
+        companyId={companyId}
         selectedEmpIds={selectedEmpIds}
         onSelectedEmpIdsChange={setSelectedEmpIds}
         onDateBoundsChange={() => {}}
       />
     ),
-    [statusFilter, statusCounts, empPickerList, selectedEmpIds],
+    [statusFilter, statusCounts, companyId, selectedEmpIds],
   );
 
   const canFinalize = period
@@ -311,7 +298,7 @@ export function PayrollSalaryApprovalClient() {
 
   usePageHeaderActions(
     () => (
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
         <FilterToggleButton activeFilterCount={activeFilterCount} />
         <Button
           size="sm"

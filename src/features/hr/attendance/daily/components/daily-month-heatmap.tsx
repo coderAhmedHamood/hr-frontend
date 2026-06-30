@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { cn } from '@/shared/utils';
+import { themeAvatarClassFromKey } from '@/shared/theme-avatar-palette';
 import type { AttendanceDaySummary } from '@/features/hr/attendance/lib/types';
 import { todayIso } from '@/features/hr/attendance/lib/utils';
 import { cfgFor, resolveVisualKey } from '@/features/hr/attendance/daily/utils/daily-attendance-status-resolve';
@@ -213,8 +214,10 @@ function EmployeeCard({
       >
         {/* Avatar */}
         <div
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-[11px] font-bold text-white"
-          style={{ background: `hsl(${(row.name.charCodeAt(0) * 37) % 360} 55% 45%)` }}
+          className={cn(
+            'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-[11px] font-bold',
+            themeAvatarClassFromKey(row.name),
+          )}
         >
           {row.name.split(' ').map((w) => w[0]).slice(0, 2).join('')}
         </div>

@@ -2,66 +2,130 @@
 
 import * as React from 'react';
 
-type PageHeaderActionsCtxValue = {
-  slot: React.ReactNode | null;
-  setSlot: React.Dispatch<React.SetStateAction<React.ReactNode | null>>;
+type PageHeaderActionsSlotContextValue = {
+  renderFnRef: React.MutableRefObject<(() => React.ReactNode) | null>;
+  reRenderSlotRef: React.MutableRefObject<(() => void) | null>;
+};
+
+type PageHeaderFilterContextValue = {
   filterPanelOpen: boolean;
+};
+
+type PageHeaderActionsSetters = {
   setFilterPanelOpen: React.Dispatch<React.SetStateAction<boolean>>;
 };
 
-const PageHeaderActionsCtx = React.createContext<PageHeaderActionsCtxValue | null>(null);
+const PageHeaderActionsSlotContext =
+  React.createContext<PageHeaderActionsSlotContextValue | null>(null);
+
+const PageHeaderFilterContext =
+  React.createContext<PageHeaderFilterContextValue | null>(null);
+
+const PageHeaderActionsSettersRefContext =
+  React.createContext<React.MutableRefObject<PageHeaderActionsSetters> | null>(null);
+
+function serializeHeaderActionDeps(deps: React.DependencyList): string {
+  try {
+    return JSON.stringify(deps);
+  } catch {
+    return String(deps.length);
+  }
+}
 
 export function PageHeaderActionsProvider({ children }: { children: React.ReactNode }) {
-  const [slot, setSlot] = React.useState<React.ReactNode | null>(null);
+  const renderFnRef = React.useRef<(() => React.ReactNode) | null>(null);
+  const reRenderSlotRef = React.useRef<(() => void) | null>(null);
+  const slotValue = React.useRef<PageHeaderActionsSlotContextValue>({
+    renderFnRef,
+    reRenderSlotRef,
+  }).current;
+
   const [filterPanelOpen, setFilterPanelOpen] = React.useState(false);
-  const value = React.useMemo(
-    () => ({ slot, setSlot, filterPanelOpen, setFilterPanelOpen }),
-    [slot, filterPanelOpen],
+
+  const settersRef = React.useRef<PageHeaderActionsSetters>({ setFilterPanelOpen });
+  settersRef.current.setFilterPanelOpen = setFilterPanelOpen;
+
+  const filterValue = React.useMemo(
+    () => ({ filterPanelOpen }),
+    [filterPanelOpen],
   );
+
   return (
-    <PageHeaderActionsCtx.Provider value={value}>
-      {children}
-    </PageHeaderActionsCtx.Provider>
+    <PageHeaderActionsSlotContext.Provider value={slotValue}>
+      <PageHeaderActionsSettersRefContext.Provider value={settersRef}>
+        <PageHeaderFilterContext.Provider value={filterValue}>
+          {children}
+        </PageHeaderFilterContext.Provider>
+      </PageHeaderActionsSettersRefContext.Provider>
+    </PageHeaderActionsSlotContext.Provider>
   );
 }
 
-export function usePageHeaderActionsRegion() {
-  const ctx = React.useContext(PageHeaderActionsCtx);
-  if (!ctx) throw new Error('usePageHeaderActionsRegion must be used within PageHeaderActionsProvider');
+export function usePageHeaderActionsSlotRegion(): PageHeaderActionsSlotContextValue {
+  const ctx = React.useContext(PageHeaderActionsSlotContext);
+  if (!ctx) {
+    throw new Error(
+      'usePageHeaderActionsSlotRegion must be used within PageHeaderActionsProvider',
+    );
+  }
   return ctx;
+}
+
+export function usePageHeaderActionsState(): PageHeaderFilterContextValue {
+  const ctx = React.useContext(PageHeaderFilterContext);
+  if (!ctx) {
+    throw new Error('usePageHeaderActionsState must be used within PageHeaderActionsProvider');
+  }
+  return ctx;
+}
+
+export function usePageHeaderActionsSettersRef(): React.MutableRefObject<PageHeaderActionsSetters> {
+  const ctx = React.useContext(PageHeaderActionsSettersRefContext);
+  if (!ctx) {
+    throw new Error('usePageHeaderActionsSettersRef must be used within PageHeaderActionsProvider');
+  }
+  return ctx;
+}
+
+export function usePageHeaderFilterRegion(): PageHeaderFilterContextValue & PageHeaderActionsSetters {
+  const { filterPanelOpen } = usePageHeaderActionsState();
+  const settersRef = usePageHeaderActionsSettersRef();
+  return {
+    filterPanelOpen,
+    setFilterPanelOpen: settersRef.current.setFilterPanelOpen,
+  };
 }
 
 /**
  * Inject action buttons into topbar Row 2 from any page component.
  *
- * Intentionally uses two separate effects:
- * 1. Updates the slot whenever `deps` change (keeps button UI in sync).
- * 2. Cleans up slot + filter state only on unmount (navigation away).
- *
- * This avoids the bug where cleanup running on every dep-change would reset
- * `filterPanelOpen` back to false immediately after it was set to true.
+ * Registers in useLayoutEffect so the previous page's cleanup cannot wipe the
+ * new page's slot between render and effect (refs do not trigger re-renders).
  */
-export function usePageHeaderActions(render: () => React.ReactNode, deps: React.DependencyList): void {
-  const { setSlot, setFilterPanelOpen } = usePageHeaderActionsRegion();
+export function usePageHeaderActions(
+  render: () => React.ReactNode,
+  deps: React.DependencyList,
+): void {
+  const { renderFnRef, reRenderSlotRef } = usePageHeaderActionsSlotRegion();
+  const settersRef = usePageHeaderActionsSettersRef();
+
   const renderRef = React.useRef(render);
   renderRef.current = render;
 
-  const setSlotRef = React.useRef(setSlot);
-  setSlotRef.current = setSlot;
-  const setFilterPanelOpenRef = React.useRef(setFilterPanelOpen);
-  setFilterPanelOpenRef.current = setFilterPanelOpen;
+  const publish = React.useCallback(() => {
+    reRenderSlotRef.current?.();
+  }, [reRenderSlotRef]);
 
-  // Update slot whenever deps change (setSlot kept in ref to avoid infinite loop)
-  React.useEffect(() => {
-    setSlotRef.current(renderRef.current());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, deps);
+  const depsKey = serializeHeaderActionDeps(deps);
 
-  // Clean up only on unmount (page navigation)
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
+    renderFnRef.current = () => renderRef.current();
+    publish();
+
     return () => {
-      setSlotRef.current(null);
-      setFilterPanelOpenRef.current(false);
+      renderFnRef.current = null;
+      settersRef.current.setFilterPanelOpen(false);
+      reRenderSlotRef.current?.();
     };
-  }, []);
+  }, [depsKey, publish, renderFnRef, reRenderSlotRef, settersRef]);
 }

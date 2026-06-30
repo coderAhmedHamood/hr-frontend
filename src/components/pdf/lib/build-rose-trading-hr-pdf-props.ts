@@ -1,29 +1,6 @@
 import type { Employee } from '@/features/hr/organization/employees/types';
 import { ROSE_TRADING_COMPANY_AR_DEFAULT } from '@/features/hr/organization/employees/lib/employee-rose-forms/types';
-
-function toHijri(iso: string): string {
-  try {
-    return new Date(`${iso}T12:00:00`).toLocaleDateString('ar-SA-u-ca-islamic', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    });
-  } catch {
-    return '—';
-  }
-}
-
-function toGregorianAr(iso: string): string {
-  try {
-    return new Date(`${iso}T12:00:00`).toLocaleDateString('ar-SA-u-ca-gregory', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    });
-  } catch {
-    return iso;
-  }
-}
+import { formatDisplayDate } from '@/shared/utils';
 
 /** Salutation line for experience certificate from `Employee.gender`. */
 export function experienceRecipientLine(emp: Employee): string {
@@ -60,6 +37,7 @@ export function buildRoseTradingHrPdfProps(
   const certEnd =
     overrides?.certificateEndIso ?? employee.endDate ?? new Date().toISOString().slice(0, 10);
   const certIssue = overrides?.certificateIssueIso ?? new Date().toISOString().slice(0, 10);
+  const today = formatDisplayDate(new Date().toISOString().slice(0, 10));
 
   return {
     resignation: {
@@ -68,10 +46,10 @@ export function buildRoseTradingHrPdfProps(
       branchAr: branchNameAr,
       positionAr: employee.position,
       nationalityAr: employee.nationality,
-      absenceStartHijri: toHijri(absenceIso),
-      absenceStartGregorian: toGregorianAr(absenceIso),
+      absenceStartHijri: formatDisplayDate(absenceIso),
+      absenceStartGregorian: formatDisplayDate(absenceIso),
       footerApplicantName: employee.name,
-      footerDateGregorian: toGregorianAr(new Date().toISOString().slice(0, 10)),
+      footerDateGregorian: today,
       addressedToAr: overrides?.resignationAddressedToAr ?? '',
       reasonLinesAr: overrides?.resignationReasonLines,
     },
@@ -80,27 +58,27 @@ export function buildRoseTradingHrPdfProps(
       nationalId: employee.nationalId,
       reasonForClearanceAr: overrides?.clearanceReasonAr ?? 'إنهاء عقد العمل بالتراضي / انتهاء الخدمة — يُحدَّد نصياً عند الطباعة.',
       footerName: employee.name,
-      footerDateGregorian: toGregorianAr(new Date().toISOString().slice(0, 10)),
+      footerDateGregorian: today,
     },
     settlement: {
       employeeNameAr: employee.name,
       nationalityAr: employee.nationality,
       nationalId: employee.nationalId,
-      serviceStartGregorian: toGregorianAr(serviceStart),
-      serviceStartHijri: toHijri(serviceStart),
-      endDateGregorian: toGregorianAr(certEnd),
-      endDateHijri: toHijri(certEnd),
+      serviceStartGregorian: formatDisplayDate(serviceStart),
+      serviceStartHijri: formatDisplayDate(serviceStart),
+      endDateGregorian: formatDisplayDate(certEnd),
+      endDateHijri: formatDisplayDate(certEnd),
       footerName: employee.name,
-      footerDateGregorian: toGregorianAr(new Date().toISOString().slice(0, 10)),
+      footerDateGregorian: today,
     },
     experience: {
-      certificateDateGregorian: toGregorianAr(certIssue),
+      certificateDateGregorian: formatDisplayDate(certIssue),
       companyNameAr: ROSE_TRADING_COMPANY_AR_DEFAULT,
       recipientLineAr: experienceRecipientLine(employee),
       departmentAr: departmentNameAr,
       jobTitleAr: employee.position,
-      startDateGregorian: toGregorianAr(employee.startDate),
-      endDateGregorian: toGregorianAr(certEnd),
+      startDateGregorian: formatDisplayDate(employee.startDate),
+      endDateGregorian: formatDisplayDate(certEnd),
       workedVerbAr: (employee.gender === 'female' ? 'عملت' : 'عمل') as 'عمل' | 'عملت',
       performanceClosingAr:
         employee.gender === 'female'

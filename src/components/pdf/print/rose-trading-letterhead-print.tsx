@@ -2,6 +2,8 @@
 
 import * as React from 'react';
 import { sanitizePdfText } from '@/components/pdf/lib/sanitize-pdf-text';
+import { isDefaultPdfLogoSrc } from '@/components/pdf/lib/pdf-company-info';
+import { useResolvedPdfLetterhead } from '@/components/pdf/hooks/use-pdf-company-letterhead';
 import { ROSE_TRADING_EST } from '@/components/pdf/lib/rose-trading-est';
 
 /** Letterhead accent — warm gold (print-safe) */
@@ -9,11 +11,11 @@ const LETTERHEAD_GOLD = '#b8933e';
 
 export type RoseTradingLetterheadPrintProps = {
   logoSrc?: string;
-  /** Defaults to Rose Trading Arabic name */
+  /** Defaults to active company from backend */
   companyNameAr?: string;
-  /** Defaults to Rose Trading English name */
+  /** Defaults to active company from backend */
   companyNameEn?: string;
-  /** س.ت / C.R — defaults from `ROSE_TRADING_EST` */
+  /** س.ت / C.R — defaults from active company */
   commercialReg?: string;
 };
 
@@ -27,9 +29,16 @@ export function RoseTradingLetterheadPrint({
   companyNameEn,
   commercialReg,
 }: RoseTradingLetterheadPrintProps) {
-  const nameAr = sanitizePdfText(companyNameAr ?? ROSE_TRADING_EST.nameAr);
-  const nameEn = sanitizePdfText(companyNameEn ?? ROSE_TRADING_EST.nameEn);
-  const cr = (commercialReg ?? ROSE_TRADING_EST.crNumber).trim();
+  const letterhead = useResolvedPdfLetterhead({
+    companyNameAr,
+    companyNameEn,
+    commercialReg,
+    logoSrc: logoSrc && !isDefaultPdfLogoSrc(logoSrc) ? logoSrc : undefined,
+  });
+
+  const nameAr = sanitizePdfText(letterhead.companyNameAr || ROSE_TRADING_EST.nameAr);
+  const nameEn = sanitizePdfText(letterhead.companyNameEn || ROSE_TRADING_EST.nameEn);
+  const cr = letterhead.commercialReg.trim() || ROSE_TRADING_EST.crNumber;
 
   return (
     <div style={{ marginBottom: 16, paddingBottom: 12, borderBottom: `2px solid ${LETTERHEAD_GOLD}` }}>
@@ -93,10 +102,10 @@ export function RoseTradingLetterheadPrint({
             justifyContent: 'center',
           }}
         >
-          {logoSrc ? (
+          {letterhead.logoSrc ? (
             // eslint-disable-next-line @next/next/no-img-element -- html2canvas / print capture
             <img
-              src={logoSrc}
+              src={letterhead.logoSrc}
               alt=""
               width={72}
               height={72}

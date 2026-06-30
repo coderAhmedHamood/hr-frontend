@@ -59,7 +59,7 @@ function applyInvestigationClientFilters(
 ): HRDisciplineInvestigationRecord[] {
   const selected = new Set(filters.selectedEmpIds);
   return investigations.filter((inv) => {
-    if (selected.size > 1 && !selected.has(inv.employeeId)) return false;
+    if (selected.size > 0 && !selected.has(inv.employeeId)) return false;
     if (!matchesDateRange(inv.date, filters.dateFrom, filters.dateTo)) return false;
     if (filters.recommendationFilter !== 'all' && inv.recommendationType !== filters.recommendationFilter) {
       return false;

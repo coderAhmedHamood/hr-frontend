@@ -26,7 +26,7 @@ import { useCheckpointLinksPanelModel } from '@/features/hr/attendance/checkpoin
 import { DirectoryPagedViews } from '@/components/ui/paged-list';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { EmptyStateCard } from '@/components/shared/empty-state-card';
-import { ConfirmationModal } from '@/features/hr/requests/components/shared-ui';
+import { ConfirmationModal } from '@/components/ui/shared-dialogs';
 
 type CheckpointLinkRow = {
   id: string;

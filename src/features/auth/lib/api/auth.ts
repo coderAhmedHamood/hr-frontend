@@ -13,6 +13,21 @@ export type LoginResult = {
   accessProfile: AccessProfile;
 };
 
+export type AuthMessageResult = {
+  message: string;
+};
+
+export type ResetPasswordPayload = {
+  email: string;
+  code: string;
+  newPassword: string;
+};
+
+export type ActivateAccountPayload = {
+  email: string;
+  code: string;
+};
+
 export const authApi = {
   login(payload: LoginPayload) {
     return apiRequest<LoginResult>('/auth/login', { method: 'POST', body: payload });
@@ -30,6 +45,34 @@ export const authApi = {
     return apiRequest<AccessProfile>('/auth/access-profile', {
       method: 'POST',
       body: { userId },
+    });
+  },
+
+  forgotPassword(email: string) {
+    return apiRequest<AuthMessageResult>('/auth/forgot-password', {
+      method: 'POST',
+      body: { email },
+    });
+  },
+
+  resetPassword(payload: ResetPasswordPayload) {
+    return apiRequest<AuthMessageResult>('/auth/reset-password', {
+      method: 'POST',
+      body: payload,
+    });
+  },
+
+  requestActivation(email: string) {
+    return apiRequest<AuthMessageResult>('/auth/request-activation', {
+      method: 'POST',
+      body: { email },
+    });
+  },
+
+  activateAccount(payload: ActivateAccountPayload) {
+    return apiRequest<AuthMessageResult>('/auth/activate-account', {
+      method: 'POST',
+      body: payload,
     });
   },
 };

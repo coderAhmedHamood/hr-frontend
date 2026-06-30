@@ -28,13 +28,7 @@ import { recruitmentJobRoutes } from '@/features/hr/recruitment/lib/recruitment-
 import { RecruitmentJobNav } from '@/features/hr/recruitment/ats/components/recruitment-job-nav';
 import { QRCodeDialog } from '@/features/hr/recruitment/shared/qr-code-dialog';
 import { DisplayDate } from '@/components/ui/table-cells';
-
-const JOB_TYPE_AR: Record<string, string> = {
-  'full-time': 'دوام كامل',
-  'part-time': 'دوام جزئي',
-  contract: 'عقد',
-  internship: 'تدريب',
-};
+import { JOB_TYPE_AR } from '@/features/hr/recruitment/ats/constants/ats-jobs-list';
 
 const STAGE_ORDER: AtsPipelineStage[] = [
   'applied',

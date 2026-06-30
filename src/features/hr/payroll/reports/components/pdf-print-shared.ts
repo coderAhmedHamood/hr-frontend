@@ -1,4 +1,4 @@
-import { toWesternDigits } from '@/shared/utils';
+import { formatDisplayDate } from '@/shared/utils';
 
 export const PDF_PRINT_C = {
   primary: '#1a3a5c',
@@ -16,16 +16,5 @@ export function fmtPrintNumber(n: number): string {
 }
 
 export function fmtPrintDate(iso: string): string {
-  try {
-    return toWesternDigits(
-      new Date(iso).toLocaleDateString('ar-SA-u-ca-gregory', {
-        numberingSystem: 'latn',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      }),
-    );
-  } catch {
-    return iso;
-  }
+  return formatDisplayDate(iso) || iso;
 }

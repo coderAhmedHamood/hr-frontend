@@ -9,13 +9,7 @@ import { Empty, fmtLeaveBalance } from '@/features/hr/organization/employees/com
 import { EmployeeProfilePagedList } from '@/features/hr/organization/employees/components/employee-profile-paged-list';
 import type { EmployeeProfileModel } from '@/features/hr/organization/employees/hooks/useEmployeeProfileModel';
 import type { EmployeeLeaveBalanceCard } from '@/features/hr/organization/employees/hooks/useEmployeeProfileLeave';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { FilterSelect } from '@/components/ui/select-with-clear';
 
 function CompactLeaveBalance({
   card,
@@ -142,7 +136,7 @@ export function EmployeeLeavesSection({ model }: { model: EmployeeProfileModel }
         </div>
       )}
 
-      <div className="flex h-[68vh] min-h-[400px] shrink-0 flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+      <div className="flex flex-col rounded-xl border border-border bg-card shadow-sm">
         <div className="flex shrink-0 flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <h3 className="text-sm font-semibold text-foreground">
             طلبات الإجازة
@@ -157,32 +151,23 @@ export function EmployeeLeavesSection({ model }: { model: EmployeeProfileModel }
             )}
           </h3>
           <div className="flex flex-wrap gap-2">
-            <Select value={leaveTypeFilter} onValueChange={(v) => setLeaveTypeFilter(v as typeof leaveTypeFilter)}>
-              <SelectTrigger className="h-8 w-[11rem] bg-background text-xs">
-                <SelectValue placeholder="نوع الإجازة" />
-              </SelectTrigger>
-              <SelectContent>
-                {leaveTypeFilterOptions.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={leaveStatusFilter} onValueChange={(v) => setLeaveStatusFilter(v as typeof leaveStatusFilter)}>
-              <SelectTrigger className="h-8 w-[10rem] bg-background text-xs">
-                <SelectValue placeholder="الحالة" />
-              </SelectTrigger>
-              <SelectContent>
-                {leaveStatusFilterOptions.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <FilterSelect
+              value={leaveTypeFilter}
+              onValueChange={(v) => setLeaveTypeFilter(v as typeof leaveTypeFilter)}
+              options={leaveTypeFilterOptions}
+              placeholder="اختر نوع الإجازة"
+            />
+            <FilterSelect
+              value={leaveStatusFilter}
+              onValueChange={(v) => setLeaveStatusFilter(v as typeof leaveStatusFilter)}
+              options={leaveStatusFilterOptions}
+              placeholder="اختر الحالة"
+            />
           </div>
         </div>
 
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="px-4 pb-4 pt-3">
           <EmployeeProfilePagedList
-          fillParent
           items={filteredLeaveRequests}
           serverPagination={leaveRequestsPagination}
           loading={leaveRequestsLoading}

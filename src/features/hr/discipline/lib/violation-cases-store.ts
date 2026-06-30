@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
 import { getDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 import { violationRecordsApi } from './api/violation-records';
+import { ApiError } from '@/features/hr/lib/api/client';
 import type { ViolationRecordResponseDto } from './api/violation-records';
 import type { HRViolationCaseRecord } from './types';
 
@@ -39,7 +40,7 @@ function mapApi(r: ViolationRecordResponseDto): HRViolationCaseRecord {
 interface VCState {
   cases: HRViolationCaseRecord[];
   isLoading: boolean;
-  error: string | null;
+  error: { message: string; status: number } | null;
   fetch: (params?: { employeeId?: string }) => Promise<void>;
   add: (d: {
     employeeId: string;
@@ -70,7 +71,7 @@ export const useHRViolationCasesStore = create<VCState>()((set, get) => ({
       });
       set({ cases: result.items.map(mapApi), isLoading: false });
     } catch (e) {
-      set({ error: (e as Error).message, isLoading: false });
+      set({ error: { message: (e as Error).message, status: e instanceof ApiError ? e.status : 0 }, isLoading: false });
     }
   },
 

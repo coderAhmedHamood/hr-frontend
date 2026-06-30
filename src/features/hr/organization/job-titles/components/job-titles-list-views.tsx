@@ -13,13 +13,13 @@ import {
   DirectoryGridCardHeader,
   DirectoryGridCardTitle,
 } from '@/components/ui/directory-grid-card';
-import { EmptyState } from '@/features/hr/requests/components/shared-ui';
+import { EmptyState } from '@/components/ui/shared-dialogs';
 import { DirectoryPagedViews } from '@/components/ui/paged-list';
 import type { JobTitlesDirectoryModel } from '@/features/hr/organization/job-titles/hooks/useJobTitlesDirectoryModel';
 import type { JobTitleTemplateRecord } from '@/features/hr/organization/job-titles/services/job-titles.service';
 
 export function JobTitlesListViews({ model }: { model: JobTitlesDirectoryModel }) {
-  const { templates, layoutView, pagination, loading, setViewRow, openEdit, setConfirmId, companyLabel } = model;
+  const { templates, layoutView, pagination, loading, setViewRow, openEdit, setConfirmId, companyLabel, perms } = model;
 
   const columns = React.useMemo((): ColumnDef<JobTitleTemplateRecord>[] => [
     {
@@ -62,13 +62,22 @@ export function JobTitlesListViews({ model }: { model: JobTitlesDirectoryModel }
       render: (row) => (
         <TableRowActions
           menuItems={[
-            { label: 'تعديل', onClick: (e) => { e.stopPropagation(); openEdit(row); } },
-            { label: 'حذف', onClick: (e) => { e.stopPropagation(); setConfirmId(row.id); }, destructive: true, separator: true },
+            ...(perms.canUpdate
+              ? [{ label: 'تعديل', onClick: (e: React.MouseEvent) => { e.stopPropagation(); openEdit(row); } }]
+              : []),
+            ...(perms.canDelete
+              ? [{
+                  label: 'حذف',
+                  onClick: (e: React.MouseEvent) => { e.stopPropagation(); setConfirmId(row.id); },
+                  destructive: true,
+                  separator: true,
+                }]
+              : []),
           ]}
         />
       ),
     },
-  ], [companyLabel, openEdit, setConfirmId]);
+  ], [companyLabel, openEdit, perms.canDelete, perms.canUpdate, setConfirmId]);
 
   return (
     <DirectoryPagedViews
@@ -95,8 +104,12 @@ export function JobTitlesListViews({ model }: { model: JobTitlesDirectoryModel }
                 )}
                 <div className="ms-auto flex gap-0.5">
                   <Button variant="ghost" size="icon" className="h-7 w-7" title="عرض" onClick={() => setViewRow(row)}><Eye className="h-4 w-4" /></Button>
-                  <Button variant="ghost" size="icon" className="h-7 w-7" title="تعديل" onClick={() => openEdit(row)}><Pencil className="h-4 w-4" /></Button>
-                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" title="حذف" onClick={() => setConfirmId(row.id)}><Trash2 className="h-4 w-4" /></Button>
+                  {perms.canUpdate ? (
+                    <Button variant="ghost" size="icon" className="h-7 w-7" title="تعديل" onClick={() => openEdit(row)}><Pencil className="h-4 w-4" /></Button>
+                  ) : null}
+                  {perms.canDelete ? (
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" title="حذف" onClick={() => setConfirmId(row.id)}><Trash2 className="h-4 w-4" /></Button>
+                  ) : null}
                 </div>
               </DirectoryGridCardFooter>
             </DirectoryGridCard>

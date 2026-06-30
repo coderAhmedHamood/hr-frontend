@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/select';
 import { DataTable, type ColumnDef } from '@/components/ui/data-table';
 import { TableDateCell, TableRowActions, TableRowDetailDialog } from '@/components/ui/table-cells';
-import { FormField, EmptyState } from '@/features/hr/requests/components/shared-ui';
+import { FormField, EmptyState } from '@/components/ui/shared-dialogs';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
   dialogFormFooterClass,
@@ -18,24 +18,22 @@ import {
 import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
-import { EntityFilterToolbar } from '@/components/ui/entity-filter-toolbar';
+import { ListFilterBar } from '@/components/ui/list-filter-bar';
 import { cn, toWesternDigits } from '@/shared/utils';
+import { STATUS_PILL } from '@/shared/status-pill-classes';
+import { AR_LEAVE_BALANCE_CREDIT_STATUS_LABELS } from '@/shared/i18n/ar';
 import { DirectoryPagedViews } from '@/components/ui/paged-list';
 import { useLeaveBalanceCreditModel } from '@/features/hr/leaves/balance-credit/hooks/useLeaveBalanceCreditModel';
 import type { LeaveBalanceCreditRequest } from '@/features/hr/leaves/balance-credit/types';
 
 const CREDIT_STATUS_ORDER: readonly string[] = ['pending', 'approved', 'rejected'];
 
-const CREDIT_STATUS_LABELS: Record<string, string> = {
-  pending: 'في الانتظار',
-  approved: 'تمت الموافقة',
-  rejected: 'مرفوض',
-};
+const CREDIT_STATUS_LABELS: Record<string, string> = AR_LEAVE_BALANCE_CREDIT_STATUS_LABELS;
 
 function statusBadgeClass(status: LeaveBalanceCreditRequest['status']) {
-  if (status === 'pending') return 'bg-gold/15 text-gold border-gold/30';
-  if (status === 'approved') return 'bg-success/10 text-success border-success/30';
-  return 'bg-muted text-muted-foreground border-border';
+  if (status === 'pending') return STATUS_PILL.pending;
+  if (status === 'approved') return STATUS_PILL.approved;
+  return STATUS_PILL.rejected;
 }
 
 function statusLabelAr(status: LeaveBalanceCreditRequest['status']) {
@@ -50,7 +48,7 @@ export function LeaveBalanceCreditClient() {
 
   usePageHeaderActions(
     () => (
-      <div className="flex items-center gap-2">
+      <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
         <FilterToggleButton activeFilterCount={activeFilterCount} />
         <Button
           variant="luxe"
@@ -68,12 +66,12 @@ export function LeaveBalanceCreditClient() {
 
   useEntityFilterSlot(
     () => (
-      <EntityFilterToolbar
+      <ListFilterBar
         inlineSelects={[
           { id: 'branch', value: m.branchId, onChange: m.setBranchId, placeholder: 'الفرع', options: m.branchInlineOptions },
           { id: 'dept', value: m.departmentId, onChange: m.setDepartmentId, placeholder: 'القسم', options: m.deptInlineOptions },
         ]}
-        empPickerEmployees={m.empPickerList}
+        companyId={m.companyId}
         selectedEmpIds={m.selectedEmpIds}
         onSelectedEmpIdsChange={m.setSelectedEmpIds}
         statusFilter={m.statusFilter}
@@ -96,7 +94,7 @@ export function LeaveBalanceCreditClient() {
       m.statusCounts.pending,
       m.statusCounts.approved,
       m.statusCounts.rejected,
-      m.empPickerList,
+      m.companyId,
       m.branchInlineOptions,
       m.deptInlineOptions,
     ],
@@ -317,7 +315,7 @@ export function LeaveBalanceCreditClient() {
                     <SelectValue placeholder="اختر الموظف…" />
                   </SelectTrigger>
                   <SelectContent>
-                    {m.empPickerList.map((e) => (
+                    {m.employeeOptions.map((e) => (
                       <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>
                     ))}
                   </SelectContent>

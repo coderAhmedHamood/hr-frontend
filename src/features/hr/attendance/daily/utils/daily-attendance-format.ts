@@ -1,6 +1,5 @@
-import { format, parseISO, isFriday } from 'date-fns';
-import { arSA } from 'date-fns/locale';
-import { toWesternDigits } from '@/shared/utils';
+import { parseISO, isFriday } from 'date-fns';
+import { formatDisplayDate } from '@/shared/utils';
 
 const DAY_NAMES_AR: Record<number, string> = {
   0: 'الاثنين',
@@ -13,7 +12,8 @@ const DAY_NAMES_AR: Record<number, string> = {
 };
 
 export function fmtDayFull(iso: string) {
-  return format(parseISO(`${iso}T12:00:00`), 'EEEE', { locale: arSA });
+  const dow = parseISO(`${iso}T12:00:00`).getDay();
+  return DAY_NAMES_AR[dow] ?? '';
 }
 
 export function fmtDayShort(iso: string) {
@@ -22,11 +22,13 @@ export function fmtDayShort(iso: string) {
 }
 
 export function fmtDay(iso: string) {
-  return toWesternDigits(format(parseISO(iso), 'd', { locale: arSA }));
+  const match = iso.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (match) return String(Number(match[3]));
+  return formatDisplayDate(iso);
 }
 
 export function fmtFull(iso: string) {
-  return toWesternDigits(format(parseISO(`${iso}T12:00:00`), 'EEEE d MMMM yyyy', { locale: arSA }));
+  return formatDisplayDate(iso);
 }
 
 export function minutesToHHMM(m: number) {

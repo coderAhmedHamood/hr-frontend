@@ -15,7 +15,7 @@ const buttonVariants = cva(
         ghost: 'hover:bg-accent hover:text-accent-foreground',
         link: 'text-primary underline-offset-4 hover:underline',
         gold: 'bg-gold text-gold-foreground hover:bg-gold/90 shadow-soft font-semibold',
-        luxe: 'bg-gradient-to-b from-primary-700 to-primary-900 text-primary-foreground hover:from-primary-700 hover:to-primary shadow-elevated',
+        luxe: 'bg-gradient-to-b from-primary-700 to-primary text-primary-foreground hover:from-primary-500 hover:to-primary-700 shadow-elevated',
       },
       size: {
         default: 'h-10 px-5 py-2',

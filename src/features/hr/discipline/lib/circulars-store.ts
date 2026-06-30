@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
 import { getDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 import { disciplineCircularsApi } from './api/discipline-circulars';
+import { ApiError } from '@/features/hr/lib/api/client';
 import type { DisciplineCircularResponseDto, CircularAudienceTypeDto } from './api/discipline-circulars';
 import type { HRDisciplineCircularRecord, HRDisciplineCircularAudience } from './types';
 
@@ -62,7 +63,7 @@ function mapAudienceToBackend(d: Omit<HRDisciplineCircularRecord, 'id' | 'create
 interface CircularsState {
   circulars: HRDisciplineCircularRecord[];
   isLoading: boolean;
-  error: string | null;
+  error: { message: string; status: number } | null;
   fetch: () => Promise<void>;
   add: (d: Omit<HRDisciplineCircularRecord, 'id' | 'createdAt'>) => Promise<void>;
   remove: (id: string) => Promise<void>;
@@ -82,7 +83,7 @@ export const useHRDisciplineCircularsStore = create<CircularsState>()((set) => (
       const result = await disciplineCircularsApi.getAll({ companyId, limit: 200 });
       set({ circulars: result.items.map(mapApi), isLoading: false });
     } catch (e) {
-      set({ error: (e as Error).message, isLoading: false });
+      set({ error: { message: (e as Error).message, status: e instanceof ApiError ? e.status : 0 }, isLoading: false });
     }
   },
 

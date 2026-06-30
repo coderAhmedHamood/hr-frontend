@@ -1,4 +1,4 @@
-import { Bell, Briefcase, Building2, UserCircle, Users } from 'lucide-react';
+import { Bell, Briefcase, Building2, Landmark, UserCircle, Users } from 'lucide-react';
 import { HR_ORGANIZATION_BASE, hrOrganizationRoutes } from '@/features/hr/organization/constants/routes';
 
 export const hrOrganizationStructureNavItems = [
@@ -11,8 +11,9 @@ export const hrOrganizationStructureNavItems = [
 ] as const;
 
 export const hrOrganizationSettingsNavItems = [
+  { labelAr: 'إعدادات الشركة', href: hrOrganizationRoutes.pagesCompany, icon: Landmark },
   { labelAr: 'إعدادات الموارد البشرية', href: hrOrganizationRoutes.pagesHr, icon: Bell },
-  { labelAr: 'إعدادات النظام والمنظمة', href: hrOrganizationRoutes.pagesOrganization, icon: Building2 },
+  { labelAr: 'إعدادات النظام', href: hrOrganizationRoutes.pagesOrganization, icon: Building2 },
 ] as const;
 
 export function isHrOrganizationNavPath(pathname: string): boolean {

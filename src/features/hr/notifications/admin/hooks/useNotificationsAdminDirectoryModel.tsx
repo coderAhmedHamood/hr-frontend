@@ -186,10 +186,7 @@ export function useNotificationsAdminDirectoryModel() {
     (filters.category !== 'all' ? 1 : 0)
     + (filters.severity !== 'all' ? 1 : 0)
     + (dateBounds.from || dateBounds.to ? 1 : 0)
-    + (!filters.excludeExpired ? 1 : 0)
-    + (filters.sourceKind.trim() ? 1 : 0)
-    + (filters.sourceTable.trim() ? 1 : 0)
-    + (filters.sourceId.trim() ? 1 : 0);
+    + (!filters.excludeExpired ? 1 : 0);
 
   const clearFilters = React.useCallback(() => {
     setFilters(DEFAULT_FILTERS);

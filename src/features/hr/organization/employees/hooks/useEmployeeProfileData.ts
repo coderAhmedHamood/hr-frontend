@@ -66,7 +66,6 @@ export function useEmployeeProfileData(
   const [employeeContracts, setEmployeeContracts] = React.useState<HRContractRecord[]>([]);
   const [employeePayslipSeries, setEmployeePayslipSeries] = React.useState<Payslip[]>([]);
   const [payslipCounts, setPayslipCounts] = React.useState<EmployeePayslipCounts | null>(null);
-  const [activityLogCount] = React.useState(0);
   const [roseFormsCount] = React.useState(0);
 
   const attendance = useEmployeeProfileAttendance(
@@ -209,6 +208,5 @@ export function useEmployeeProfileData(
     employeePayslipSeries,
     payslipCounts,
     roseFormsCount,
-    activityLogCount,
   };
 }

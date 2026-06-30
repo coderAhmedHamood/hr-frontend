@@ -9,7 +9,6 @@ export type GenericRegisterPrintProps = {
   companyNameAr: string;
   companyNameEn: string;
   titleAr: string;
-  filterSummary: string;
   headers: string[];
   rows: string[][];
   landscape?: boolean;
@@ -40,7 +39,7 @@ const PAGE = {
 
 export const GenericRegisterPrintHtml = React.forwardRef<HTMLDivElement, GenericRegisterPrintProps>(
   function GenericRegisterPrintHtml(
-    { companyNameAr, companyNameEn, titleAr, filterSummary, headers, rows, landscape = false, rowsPerPage },
+    { companyNameAr, companyNameEn, titleAr, headers, rows, landscape = false, rowsPerPage },
     ref,
   ) {
     const [logoSrc, setLogoSrc] = React.useState<string | undefined>(undefined);
@@ -71,11 +70,8 @@ export const GenericRegisterPrintHtml = React.forwardRef<HTMLDivElement, Generic
               companyNameAr={companyNameAr}
               companyNameEn={companyNameEn}
             />
-            <div style={{ fontSize: 12, fontWeight: 700, textAlign: 'center', marginBottom: 8, textDecoration: 'underline' }}>
+            <div style={{ fontSize: 12, fontWeight: 700, textAlign: 'center', marginBottom: 10, textDecoration: 'underline' }}>
               {sanitizePdfText(titleAr)}
-            </div>
-            <div style={{ fontSize: 8, color: '#444', textAlign: 'right', marginBottom: 10, lineHeight: 1.35 }}>
-              {sanitizePdfText(filterSummary)}
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'row', backgroundColor: '#e8f2ef', border: '1px solid #94a3b8' }}>

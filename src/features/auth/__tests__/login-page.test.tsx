@@ -7,6 +7,7 @@ import userEvent from '@testing-library/user-event';
 import { LoginPage } from '@/features/auth/components/login-page';
 import { authApi } from '@/features/auth/lib/api/auth';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
+import { ApiError } from '@/features/hr/lib/api/client';
 
 jest.mock('next/image', () => ({
   __esModule: true,
@@ -25,15 +26,25 @@ jest.mock('next/navigation', () => ({
 }));
 
 jest.mock('@/features/hr/lib/api/global-error-handler', () => ({
-  handleApiError: jest.fn(),
+  handleApiError: jest.fn().mockReturnValue({ status: 0, displayMessage: '', debugPayload: null, envelope: null }),
 }));
 
 jest.mock('@/features/auth/lib/api/auth', () => ({
   authApi: { login: jest.fn() },
 }));
 
+const mockAuthState = {
+  setUser: jest.fn(),
+  setAccessProfile: jest.fn(),
+  accessProfile: null as { defaultCompanyId?: string } | null,
+  activeCompanyId: null as string | null,
+};
+
 jest.mock('@/features/auth/lib/auth-store', () => ({
-  useAuthStore: { getState: jest.fn(() => ({ setUser: jest.fn(), setAccessProfile: jest.fn() })) },
+  useAuthStore: Object.assign(
+    jest.fn((selector: (s: typeof mockAuthState) => unknown) => selector(mockAuthState)),
+    { getState: jest.fn(() => mockAuthState) },
+  ),
 }));
 
 jest.mock('sonner', () => ({
@@ -143,7 +154,50 @@ describe('LoginPage', () => {
     fireEvent.submit(screen.getByRole('button', { name: /تسجيل الدخول/i }).closest('form')!);
     await waitFor(() => {
       expect(mockLogin).toHaveBeenCalled();
-      expect(handleApiError).toHaveBeenCalled();
+      expect(handleApiError).toHaveBeenCalledWith(
+        expect.any(Error),
+        'auth.login',
+        { suppressRedirect: true },
+      );
+    });
+  });
+
+  it('shows wrong-credentials toast on 401 without redirect', async () => {
+    const { handleApiError: realHandleApiError } = jest.requireActual<
+      typeof import('@/features/hr/lib/api/global-error-handler')
+    >('@/features/hr/lib/api/global-error-handler');
+    const { handleApiError } = await import('@/features/hr/lib/api/global-error-handler');
+    const { toast } = await import('sonner');
+    (handleApiError as jest.Mock).mockImplementationOnce(realHandleApiError);
+
+    mockLogin.mockRejectedValueOnce(
+      new ApiError(
+        {
+          status: 401,
+          message: 'Invalid email or password',
+          data: null,
+          error: { message: 'Invalid email or password', error: 'Unauthorized', statusCode: 401 },
+        },
+        401,
+      ),
+    );
+
+    renderLoginPage();
+    await fillLoginForm();
+    fireEvent.submit(screen.getByRole('button', { name: /تسجيل الدخول/i }).closest('form')!);
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith('البريد الإلكتروني أو كلمة المرور غير صحيحة');
+    });
+  });
+
+  it('re-enables submit button after failed login', async () => {
+    mockLogin.mockRejectedValueOnce(new Error('fail'));
+    renderLoginPage();
+    await fillLoginForm();
+    fireEvent.submit(screen.getByRole('button', { name: /تسجيل الدخول/i }).closest('form')!);
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /تسجيل الدخول/i })).not.toBeDisabled();
     });
   });
 });

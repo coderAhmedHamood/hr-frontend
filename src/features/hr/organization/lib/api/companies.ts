@@ -17,6 +17,8 @@ export type CompanyResponseDto = {
   address: string | null;
   postalCode: string | null;
   logoUrl: string | null;
+  primaryColor: string | null;
+  secondaryColor: string | null;
   timezone: string;
   currencyCode: string;
   languageCode: string;
@@ -44,6 +46,8 @@ export type CreateCompanyDto = {
   address?: string | null;
   postalCode?: string | null;
   logoUrl?: string | null;
+  primaryColor?: string | null;
+  secondaryColor?: string | null;
   timezone?: string;
   currencyCode?: string;
   languageCode?: string;

@@ -33,5 +33,7 @@ export function usePageTitle() {
 
 export function useSetPageTitle(m: PageTitleMeta) {
   const { setMeta } = usePageTitle();
-  React.useEffect(() => { setMeta(m); }, [m.titleAr, m.descriptionAr, m.iconName, setMeta]);
+  React.useLayoutEffect(() => {
+    setMeta(m);
+  }, [m.titleAr, m.descriptionAr, m.iconName, setMeta]);
 }

@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import {
-  Trash2, CalendarDays, CheckCircle2, XCircle, Edit3,
+  Trash2, CalendarDays, Edit3,
   FileDown, FileSpreadsheet, Plus, AlertTriangle, Scale, Search,
 } from 'lucide-react';
 import {
@@ -13,12 +13,12 @@ import {
   type WorkflowStatusTone,
 } from '@/components/ui/entity-action-card';
 import { toast } from 'sonner';
-import { cn, formatDisplayDateTime } from '@/shared/utils';
-import { STATUS_PILL } from '@/shared/status-pill-classes';
+import { cn, formatDisplayDate, formatDisplayDateTime } from '@/shared/utils';
+import { AR_VIOLATION_RECORD_STATUS_LABELS } from '@/shared/i18n/ar';
+import { STATUS_PILL, VIOLATION_RECORD_STATUS_PILL } from '@/shared/status-pill-classes';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { format, parse, isValid } from 'date-fns';
-import { arSA } from 'date-fns/locale';
 import { DatePickerInput } from '@/components/ui/date-picker-input';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -32,7 +32,7 @@ import {
 } from '@/components/ui/select';
 import {
   ConfirmationModal, HRSettingsFormDrawer, FormField, EmptyState, SearchableDropdown,
-} from '@/features/hr/requests/components/shared-ui';
+} from '@/components/ui/shared-dialogs';
 import { useViolationCasesDirectoryModel } from '@/features/hr/discipline/violation-cases/hooks/useViolationCasesDirectoryModel';
 import type { ViolationCaseRecord } from '@/features/hr/discipline/violation-cases/hooks/useViolationCasesDirectoryModel';
 import type { ViolationRecordStatus } from '@/features/hr/discipline/lib/api/violation-records';
@@ -41,12 +41,18 @@ import {
   INVESTIGATION_RECOMMENDATION_LABELS,
   INVESTIGATION_RESULT_LABELS,
 } from '@/features/hr/discipline/lib/types';
-import type { DateFilterTab } from '@/features/hr/discipline/lib/discipline-date-filter';
 import {
-  DisciplineFilterToolbar,
-  type DisciplineFilterToolbarHandle,
-  type DisciplineViewMode,
-} from '@/features/hr/discipline/components/discipline-filter-toolbar';
+  ListFilterBar,
+  type ListFilterBarHandle,
+  type ListFilterInlineSelect,
+} from '@/components/ui/list-filter-bar';
+import { useDisciplineDateFilterState } from '@/features/hr/discipline/lib/use-discipline-date-filter-state';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { PdfPreviewExportDialog } from '@/components/pdf/pdf-preview-export-dialog';
 import { ViolationCasesRegisterPrintHtml } from '@/components/pdf/print/violation-cases-register-print-html';
 import { downloadXlsxFromAoA, type XlsxCell } from '@/shared/export/download-xlsx';
@@ -62,11 +68,16 @@ import { useCurrentEmployee } from '@/features/hr/organization/employees/hooks/u
 import { checkViolationApprovalAccess } from '@/features/hr/discipline/lib/violation-approval-access';
 import {
   buildViolationDecisionPayload,
-  canEmployeeActOnViolationApproval,
+  getViolationApprovalUiState,
   isEmployeeInViolationApproverStates,
   isViolationFullyApproved,
 } from '@/features/hr/discipline/lib/violation-approver-states';
 import { ViolationApproverStatesPanel } from '@/features/hr/discipline/violation-cases/components/violation-approver-states-panel';
+import {
+  ViolationApprovalActionButtons,
+  ViolationApprovalActionCell,
+} from '@/features/hr/discipline/violation-cases/components/violation-approval-actions';
+import { RequestApproversInline } from '@/features/hr/requests/components/request-approvers-inline';
 import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 import { useDefaultCompany } from '@/features/hr/organization/hooks/useActiveCompany';
 import { DataTable, type ColumnDef } from '@/components/ui/data-table';
@@ -75,19 +86,9 @@ import { DisciplineListViewport, DisciplinePaginatedList } from '@/features/hr/d
 
 // ─── Status config ────────────────────────────────────────────────────────────
 
-const STATUS_LABELS: Record<ViolationRecordStatus, string> = {
-  pending:    'قيد الانتظار',
-  approved:   'معتمد',
-  rejected:   'مرفوض',
-  needs_edit: 'يحتاج تعديل',
-};
+const STATUS_LABELS: Record<ViolationRecordStatus, string> = AR_VIOLATION_RECORD_STATUS_LABELS;
 
-const STATUS_COLORS: Record<ViolationRecordStatus, string> = {
-  pending:    'text-primary border-primary/25 bg-primary/5',
-  approved:   'text-success border-success/30 bg-success/10',
-  rejected:   'text-destructive border-destructive/30 bg-destructive/10',
-  needs_edit: 'text-warning border-warning/30 bg-warning/10',
-};
+const STATUS_COLORS: Record<ViolationRecordStatus, string> = VIOLATION_RECORD_STATUS_PILL;
 
 const VIOLATION_STATUS_TONE: Record<ViolationRecordStatus, WorkflowStatusTone> = {
   pending: 'pending',
@@ -98,6 +99,7 @@ const VIOLATION_STATUS_TONE: Record<ViolationRecordStatus, WorkflowStatusTone> =
 
 const STATUS_ORDER: readonly ViolationRecordStatus[] = ['pending', 'approved', 'rejected', 'needs_edit'];
 type StatusFilter = 'all' | ViolationRecordStatus;
+type ViolationViewMode = 'cards' | 'list';
 
 function canMutateViolationCase(status: ViolationRecordStatus) {
   return status === 'pending' || status === 'needs_edit';
@@ -257,12 +259,7 @@ function AppealDialog({
                   className={cn('w-full justify-start gap-2 text-sm', !date && 'text-muted-foreground')}
                 >
                   <CalendarDays className="h-4 w-4 shrink-0" />
-                  {date
-                    ? (() => {
-                        const d = parse(date, 'yyyy-MM-dd', new Date());
-                        return isValid(d) ? format(d, 'dd MMMM yyyy', { locale: arSA }) : date;
-                      })()
-                    : 'اختر التاريخ'}
+                  {date ? formatDisplayDate(date) : 'اختر التاريخ'}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
@@ -359,11 +356,11 @@ export function ViolationCasesClient() {
   const companyNameEn = defaultCompany?.nameEn ?? '';
 
   const [selectedEmpIds, setSelectedEmpIds] = React.useState<Set<string>>(new Set());
-  const [viewMode, setViewMode] = React.useState<DisciplineViewMode>('cards');
+  const [viewMode, setViewMode] = React.useState<ViolationViewMode>('cards');
   const [statusFilter, setStatusFilter] = React.useState<StatusFilter>('all');
-  const [dateBounds, setDateBounds] = React.useState({ from: '', to: '' });
-  const [dateMeta, setDateMeta] = React.useState<{ tab: DateFilterTab; hasRestriction: boolean }>({ tab: 'all', hasRestriction: false });
-  const filterToolbarRef = React.useRef<DisciplineFilterToolbarHandle>(null);
+  const [violationTypeFilter, setViolationTypeFilter] = React.useState('all');
+  const { dateBounds, dateMeta, onDateBoundsChange, onDateFilterMetaChange } = useDisciplineDateFilterState();
+  const filterToolbarRef = React.useRef<ListFilterBarHandle>(null);
 
   const [pdfOpen, setPdfOpen] = React.useState(false);
   const [createOpen, setCreateOpen] = React.useState(false);
@@ -386,36 +383,41 @@ export function ViolationCasesClient() {
   const [investigationCase, setInvestigationCase] = React.useState<ViolationCaseRecord | null>(null);
   const [appealCase, setAppealCase] = React.useState<ViolationCaseRecord | null>(null);
 
-  const onDateBoundsChange = React.useCallback((b: { from: string; to: string }) => setDateBounds(b), []);
-  const onDateFilterMetaChange = React.useCallback((m: { tab: DateFilterTab; hasRestriction: boolean }) => setDateMeta(m), []);
-
-  // Selected type flags for the create form
+  // Sync toolbar filters to list model
+  React.useEffect(() => {
+    setListFilters({
+      selectedEmpIds: [...selectedEmpIds],
+      statusFilter,
+      violationTypeFilter,
+      dateFrom: dateBounds.from,
+      dateTo: dateBounds.to,
+    });
+  }, [selectedEmpIds, statusFilter, violationTypeFilter, dateBounds.from, dateBounds.to, setListFilters]);
   const selectedType = React.useMemo(
     () => violationTypes.find((t) => t.id === draft.violationTypeId) ?? null,
     [violationTypes, draft.violationTypeId],
   );
 
-  const empPickerList = React.useMemo(
-    () => employees.map((e) => ({ id: e.id, name: e.nameAr })),
-    [employees],
+  const listFiltered = filteredItems;
+
+  const typeInlineOptions = React.useMemo(
+    () => [
+      { value: 'all', label: 'جميع الأنواع' },
+      ...violationTypes.filter((t) => t.isActive).map((t) => ({ value: t.id, label: t.nameAr })),
+    ],
+    [violationTypes],
   );
 
-  // Debounced filter sync to model (employee, date, status)
-  const dateDebounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-  React.useEffect(() => {
-    if (dateDebounceRef.current) clearTimeout(dateDebounceRef.current);
-    dateDebounceRef.current = setTimeout(() => {
-      setListFilters({
-        selectedEmpIds: [...selectedEmpIds],
-        statusFilter,
-        dateFrom: dateBounds.from,
-        dateTo: dateBounds.to,
-      });
-    }, 400);
-    return () => { if (dateDebounceRef.current) clearTimeout(dateDebounceRef.current); };
-  }, [selectedEmpIds, statusFilter, dateBounds.from, dateBounds.to, setListFilters]);
-
-  const listFiltered = filteredItems;
+  const inlineSelects = React.useMemo((): ListFilterInlineSelect[] => [
+    {
+      id: 'violationType',
+      value: violationTypeFilter,
+      onChange: setViolationTypeFilter,
+      placeholder: 'نوع المخالفة',
+      className: 'w-[10rem]',
+      options: typeInlineOptions,
+    },
+  ], [violationTypeFilter, typeInlineOptions]);
 
   const statusCounts = React.useMemo(() => {
     const counts: Record<string, number> = { all: sourceCases.length };
@@ -425,21 +427,11 @@ export function ViolationCasesClient() {
   }, [sourceCases]);
 
   const dateRangeActive = dateMeta.hasRestriction;
-  const activeFilterCount = (selectedEmpIds.size > 0 ? 1 : 0) + (statusFilter !== 'all' ? 1 : 0) + (dateMeta.hasRestriction ? 1 : 0);
-
-  usePageHeaderActions(
-    () => (
-      <div className="flex items-center gap-2">
-        <FilterToggleButton activeFilterCount={activeFilterCount} />
-        <Button variant="luxe" size="sm" className="h-8 gap-1.5 px-3 text-xs shadow-sm shrink-0"
-          onClick={() => { setDraft(CREATE_EMPTY); setFormError(null); setCreateOpen(true); }}>
-          <Plus className="h-3.5 w-3.5" />
-          مخالفة جديدة
-        </Button>
-      </div>
-    ),
-    [activeFilterCount],
-  );
+  const activeFilterCount =
+    (selectedEmpIds.size > 0 ? 1 : 0)
+    + (statusFilter !== 'all' ? 1 : 0)
+    + (violationTypeFilter !== 'all' ? 1 : 0)
+    + (dateRangeActive ? 1 : 0);
 
   const violationPdfRows = React.useMemo(
     () => listFiltered.map((c) => ({
@@ -448,20 +440,6 @@ export function ViolationCasesClient() {
       statusAr: STATUS_LABELS[c.status], description: c.description,
     })),
     [listFiltered],
-  );
-
-  const printable = React.useMemo(
-    () =>
-      violationPdfRows.length === 0 ? null : (
-        <ViolationCasesRegisterPrintHtml
-          companyNameAr={companyNameAr}
-          companyNameEn={companyNameEn}
-          titleAr="سجل مخالفات الموظفين"
-          filterSummary={`الموظفون: ${selectedEmpIds.size === 0 ? 'الكل' : `${selectedEmpIds.size} محدد`} · الحالة: ${statusFilter === 'all' ? 'الكل' : STATUS_LABELS[statusFilter as ViolationRecordStatus]} · التاريخ: ${dateBounds.from || dateBounds.to ? `${dateBounds.from || '…'} — ${dateBounds.to || '…'}` : 'كل الفترات'}`}
-          rows={violationPdfRows}
-        />
-      ),
-    [violationPdfRows, selectedEmpIds.size, statusFilter, dateBounds.from, dateBounds.to],
   );
 
   const handleExportExcel = React.useCallback(async () => {
@@ -473,6 +451,58 @@ export function ViolationCasesClient() {
     await downloadXlsxFromAoA('violation-cases.xlsx', 'المخالفات', rows);
     toast.success('تم تنزيل ملف Excel.');
   }, [listFiltered]);
+
+  usePageHeaderActions(
+    () => (
+      <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
+        <FilterToggleButton activeFilterCount={activeFilterCount} />
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button type="button" variant="outline" size="sm" className="h-8 w-8 shrink-0" aria-label="تصدير المخالفات">
+              <FileDown className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-44">
+            <DropdownMenuItem
+              onSelect={() => {
+                if (violationPdfRows.length === 0) {
+                  toast.error('لا توجد مخالفات للتصدير ضمن الفلاتر الحالية.');
+                  return;
+                }
+                setPdfOpen(true);
+              }}
+            >
+              <FileDown className="h-4 w-4" />
+              PDF
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => void handleExportExcel()}>
+              <FileSpreadsheet className="h-4 w-4" />
+              Excel
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <Button variant="luxe" size="sm" className="h-8 gap-1.5 px-3 text-xs shadow-sm shrink-0"
+          onClick={() => { setDraft(CREATE_EMPTY); setFormError(null); setCreateOpen(true); }}>
+          <Plus className="h-3.5 w-3.5" />
+          مخالفة جديدة
+        </Button>
+      </div>
+    ),
+    [activeFilterCount, handleExportExcel, violationPdfRows.length],
+  );
+
+  const printable = React.useMemo(
+    () =>
+      violationPdfRows.length === 0 ? null : (
+        <ViolationCasesRegisterPrintHtml
+          companyNameAr={companyNameAr}
+          companyNameEn={companyNameEn}
+          titleAr="سجل مخالفات الموظفين"
+          rows={violationPdfRows}
+        />
+      ),
+    [violationPdfRows, companyNameAr, companyNameEn],
+  );
 
   const empOptions = employees.map(e => ({ value: e.id, label: e.nameAr }));
   const typeOptions = violationTypes.filter(t => t.isActive).map(t => ({ value: t.id, label: t.nameAr, sub: t.code }));
@@ -676,6 +706,9 @@ export function ViolationCasesClient() {
       render: (c) => {
         return (
           <div className="flex flex-wrap gap-1">
+            {c.typeNeedsApproval ? (
+              <Badge variant="outline" className={cn('text-[9px]', STATUS_PILL.pending)}>موافقة</Badge>
+            ) : null}
             {c.typeNeedsInvestigation ? (
               <Badge variant="outline" className={cn('text-[9px]', STATUS_PILL.info)}>تحقيق</Badge>
             ) : null}
@@ -708,6 +741,22 @@ export function ViolationCasesClient() {
       },
     },
     {
+      key: 'approvers',
+      title: 'مسار الموافقة',
+      hideOnMobile: true,
+      render: (c) => <RequestApproversInline states={c.approverStates} />,
+    },
+    {
+      key: 'decisionNotes',
+      title: 'ملاحظات القرار',
+      hideOnMobile: true,
+      render: (c) => (
+        <span className="line-clamp-2 max-w-[12rem] text-xs text-muted-foreground" title={c.decisionNotes || undefined}>
+          {c.decisionNotes || '—'}
+        </span>
+      ),
+    },
+    {
       key: 'actions',
       title: 'إجراءات',
       isActions: true,
@@ -716,7 +765,7 @@ export function ViolationCasesClient() {
         const canMutate = canMutateViolationCase(c.status);
         const canFollowUp = canAddDisciplineFollowUp(c.status);
         const isCurrentUserApprover = isEmployeeInViolationApproverStates(c.approverStates, currentEmployeeId);
-        const canCurrentUserApprove = canEmployeeActOnViolationApproval(c.approverStates, currentEmployeeId);
+        const approvalUi = getViolationApprovalUiState(c.approverStates, currentEmployeeId);
         const showMutateActions = !isCurrentUserApprover;
         const menuItems = [
           ...(showMutateActions && canMutate
@@ -742,13 +791,19 @@ export function ViolationCasesClient() {
             : []),
         ];
         return (
-          <TableRowActions
-            primaryActions={c.status === 'pending' && canCurrentUserApprove ? [
-              { label: 'موافقة', variant: 'success', icon: <CheckCircle2 className="h-3.5 w-3.5" />, onClick: () => void handleApprove(c) },
-              { label: 'رفض', variant: 'destructive', icon: <XCircle className="h-3.5 w-3.5" />, onClick: () => void openRejectDialog(c) },
-            ] : []}
-            menuItems={menuItems}
-          />
+          <div className="flex items-start justify-end gap-1">
+            {c.status === 'pending' && approvalUi.showActions ? (
+              <ViolationApprovalActionCell
+                states={c.approverStates}
+                currentEmployeeId={currentEmployeeId}
+                onApprove={() => void handleApprove(c)}
+                onReject={() => void openRejectDialog(c)}
+              />
+            ) : null}
+            {menuItems.length > 0 ? (
+              <TableRowActions menuItems={menuItems} />
+            ) : null}
+          </div>
         );
       },
     },
@@ -756,23 +811,10 @@ export function ViolationCasesClient() {
 
   useEntityFilterSlot(
     () => (
-      <DisciplineFilterToolbar
+      <ListFilterBar
         ref={filterToolbarRef}
-        showPrimaryAction={false}
-        primaryActionLabel="مخالفة جديدة"
-        onPrimaryAction={() => { setDraft(CREATE_EMPTY); setFormError(null); setCreateOpen(true); }}
-        toolbarExtraTrailing={(
-          <>
-            <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 text-xs"
-              onClick={() => { if (violationPdfRows.length === 0) { toast.error('لا توجد مخالفات للتصدير ضمن الفلاتر الحالية.'); return; } setPdfOpen(true); }}>
-              <FileDown className="h-3.5 w-3.5" /> PDF
-            </Button>
-            <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 text-xs" onClick={() => void handleExportExcel()}>
-              <FileSpreadsheet className="h-3.5 w-3.5" /> Excel
-            </Button>
-          </>
-        )}
-        empPickerEmployees={empPickerList}
+        inlineSelects={inlineSelects}
+        companyId={companyId}
         selectedEmpIds={selectedEmpIds}
         onSelectedEmpIdsChange={setSelectedEmpIds}
         statusFilter={statusFilter}
@@ -780,13 +822,30 @@ export function ViolationCasesClient() {
         statusOrder={STATUS_ORDER}
         statusLabels={STATUS_LABELS as unknown as Record<string, string>}
         statusCounts={statusCounts}
-        viewMode={viewMode}
-        onViewModeChange={setViewMode}
         onDateBoundsChange={onDateBoundsChange}
         onDateFilterMetaChange={onDateFilterMetaChange}
+        dataView={{
+          value: viewMode,
+          onChange: (v) => setViewMode(v as ViolationViewMode),
+          options: [
+            { value: 'cards', label: 'بطاقات', icon: 'layout-grid' },
+            { value: 'list', label: 'قائمة', icon: 'list' },
+          ],
+        }}
       />
     ),
-    [empPickerList, selectedEmpIds, statusFilter, statusCounts, viewMode, onDateBoundsChange, onDateFilterMetaChange],
+    [
+      companyId,
+      selectedEmpIds,
+      statusFilter,
+      violationTypeFilter,
+      statusCounts,
+      viewMode,
+      dateMeta.hasRestriction,
+      inlineSelects,
+      onDateBoundsChange,
+      onDateFilterMetaChange,
+    ],
   );
 
   if (loading) {
@@ -822,7 +881,7 @@ export function ViolationCasesClient() {
             {items.map((c) => {
             const isPending = c.status === 'pending';
             const isCurrentUserApprover = isEmployeeInViolationApproverStates(c.approverStates, currentEmployeeId);
-            const canCurrentUserApprove = canEmployeeActOnViolationApproval(c.approverStates, currentEmployeeId);
+            const approvalUi = getViolationApprovalUiState(c.approverStates, currentEmployeeId);
             const showMutateActions = !isCurrentUserApprover;
             return (
               <EntityActionCard
@@ -831,14 +890,18 @@ export function ViolationCasesClient() {
                 reference={c.caseNumber}
                 title={c.employeeNameAr ?? '—'}
                 subtitle={c.typeNameAr}
-                description={c.description}
+                description={
+                  [c.description, c.decisionNotes?.trim() ? `ملاحظات القرار: ${c.decisionNotes}` : '']
+                    .filter(Boolean)
+                    .join(' — ') || undefined
+                }
                 status={{
                   label: STATUS_LABELS[c.status],
                   tone: VIOLATION_STATUS_TONE[c.status],
                 }}
                 children={
                   c.approverStates ? (
-                    <ViolationApproverStatesPanel states={c.approverStates} compact className="mt-2 border-0 bg-transparent p-0" />
+                    <RequestApproversInline states={c.approverStates} />
                   ) : undefined
                 }
                 chips={
@@ -880,11 +943,13 @@ export function ViolationCasesClient() {
                   ) : undefined
                 }
                 workflow={
-                  isPending && canCurrentUserApprove
+                  isPending && approvalUi.showActions
                     ? {
                         showApproveReject: true,
                         onApprove: () => void handleApprove(c),
                         onReject: () => void openRejectDialog(c),
+                        disabled: !approvalUi.canAct,
+                        waitingReason: approvalUi.reasonAr ?? undefined,
                       }
                     : undefined
                 }
@@ -923,7 +988,7 @@ export function ViolationCasesClient() {
           <DataTable
             variant="directory"
             alwaysShowTable
-            tableClassName="min-w-[900px]"
+            tableClassName="min-w-[1200px]"
             columns={columns}
             data={items}
             keyExtractor={(c) => c.id}
@@ -1078,17 +1143,13 @@ export function ViolationCasesClient() {
                   </p>
                 </div>
               ) : null}
-              {viewCase.status === 'pending' && canEmployeeActOnViolationApproval(viewCase.approverStates, currentEmployeeId) ? (
-                <div className="flex flex-wrap gap-2 pt-1 border-t border-border">
-                  <Button size="sm" variant="outline" className="gap-1.5 text-success border-success/30 hover:bg-success/10"
-                    onClick={() => void handleApprove(viewCase)}>
-                    <CheckCircle2 className="h-3.5 w-3.5" /> موافقة
-                  </Button>
-                  <Button size="sm" variant="outline" className="gap-1.5 text-destructive border-destructive/30 hover:bg-destructive/10"
-                    onClick={() => void openRejectDialog(viewCase)}>
-                    <XCircle className="h-3.5 w-3.5" /> رفض
-                  </Button>
-                </div>
+              {viewCase.status === 'pending' ? (
+                <ViolationApprovalActionButtons
+                  states={viewCase.approverStates}
+                  currentEmployeeId={currentEmployeeId}
+                  onApprove={() => void handleApprove(viewCase)}
+                  onReject={() => void openRejectDialog(viewCase)}
+                />
               ) : null}
               {!isEmployeeInViolationApproverStates(viewCase.approverStates, currentEmployeeId) && canAddDisciplineFollowUp(viewCase.status) ? (
                 <div className="flex flex-wrap gap-2 pt-1 border-t border-border">

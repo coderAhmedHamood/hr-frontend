@@ -6,7 +6,7 @@ import type { Matcher } from 'react-day-picker';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { cn } from '@/shared/utils';
+import { cn, formatDisplayDate } from '@/shared/utils';
 
 /** Convert YYYY-MM-DD → Date (local midnight). Returns undefined for empty / invalid. */
 function ymdToDate(ymd: string): Date | undefined {
@@ -26,7 +26,10 @@ function dateToYmd(d: Date): string {
 
 function formatDisplay(d: Date | undefined): string {
   if (!d) return '';
-  return d.toLocaleDateString('ar-SA', { year: 'numeric', month: 'short', day: 'numeric' });
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return formatDisplayDate(`${y}-${m}-${day}`);
 }
 
 export interface DatePickerInputProps {
@@ -43,8 +46,8 @@ export interface DatePickerInputProps {
   className?: string;
   id?: string;
   /**
-   * When used inside a Radix Dialog, pass the dialog content element so the calendar
-   * portals there; otherwise outside clicks close the dialog before a day is selected.
+   * Optional portal container for the popover (defaults to document body).
+   * Only pass a dialog element when you need wheel-scroll inside react-remove-scroll.
    */
   popoverContainer?: HTMLElement | DocumentFragment | null;
 }
@@ -88,7 +91,9 @@ export function DatePickerInput({
           )}
         >
           <CalendarDays className="h-4 w-4 shrink-0 opacity-60" />
-          {selected ? formatDisplay(selected) : placeholder}
+          <span className="font-mono tabular-nums" dir="ltr">
+            {selected ? formatDisplay(selected) : placeholder}
+          </span>
         </Button>
       </PopoverTrigger>
       <PopoverContent

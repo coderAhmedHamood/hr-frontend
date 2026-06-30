@@ -22,7 +22,7 @@ export const EMPLOYEE_PROFILE_SECTIONS = [
   { id: 'requests', label: 'الطلبات', icon: FileText },
   { id: 'violations', label: 'المخالفات', icon: AlertTriangle },
   { id: 'contracts', label: 'العقود', icon: FileSignature },
-  { id: 'rose-forms', label: 'نماذج روز للتجارة', icon: FileStack },
+  { id: 'rose-forms', label: 'النماذج الرسمية', icon: FileStack },
   { id: 'activity-log', label: 'سجل التغييرات', icon: History },
   { id: 'permissions', label: 'صلاحيات الموظف', icon: Shield },
   { id: 'salary', label: 'كشوف الرواتب', icon: Receipt },

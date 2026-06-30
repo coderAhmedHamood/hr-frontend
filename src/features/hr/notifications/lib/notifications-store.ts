@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
 import { getDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 import { notificationsApi, type InboxItemResponseDto } from './api/notifications';
+import { ApiError } from '@/features/hr/lib/api/client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -35,7 +36,7 @@ function mapApi(r: InboxItemResponseDto): HRNotificationRecord {
 interface NotificationsState {
   items: HRNotificationRecord[];
   isLoading: boolean;
-  error: string | null;
+  error: { message: string; status: number } | null;
   unreadTotal: number;
   fetch: (employeeId: string) => Promise<void>;
   markRead: (id: string) => Promise<void>;
@@ -71,7 +72,7 @@ export const useHRNotificationsStore = create<NotificationsState>()((set, get) =
         isLoading: false,
       });
     } catch (e) {
-      set({ error: (e as Error).message, isLoading: false });
+      set({ error: { message: (e as Error).message, status: e instanceof ApiError ? e.status : 0 }, isLoading: false });
     }
   },
 

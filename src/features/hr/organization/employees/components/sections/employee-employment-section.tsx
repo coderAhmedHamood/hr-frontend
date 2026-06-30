@@ -31,8 +31,7 @@ export function EmployeeEmploymentSection({ model }: { model: EmployeeProfileMod
         <Button
           type="button"
           size="sm"
-          variant="outline"
-          className="h-8 gap-1.5 text-xs shrink-0"
+          className="h-9 shrink-0 gap-2 shadow-sm"
           onClick={() => setAssignmentDialogOpen(true)}
         >
           <Plus className="h-3.5 w-3.5" />

@@ -16,15 +16,18 @@ export type PopoverContentProps = React.ComponentPropsWithoutRef<typeof PopoverP
 const PopoverContent = React.forwardRef<
   React.ElementRef<typeof PopoverPrimitive.Content>,
   PopoverContentProps
->(({ className, align = 'end', sideOffset = 6, collisionPadding = 8, container, ...props }, ref) => (
+>(({ className, align = 'end', side = 'bottom', sideOffset = 6, collisionPadding = 16, sticky = 'partial', container, ...props }, ref) => (
   <PopoverPrimitive.Portal container={container ?? undefined}>
     <PopoverPrimitive.Content
       ref={ref}
       align={align}
+      side={side}
       sideOffset={sideOffset}
       collisionPadding={collisionPadding}
+      sticky={sticky}
+      avoidCollisions
       className={cn(
-        'z-[60] rounded-lg border border-border bg-popover p-0 text-popover-foreground shadow-elevated outline-none',
+        'z-[200] rounded-lg border border-border bg-popover p-0 text-popover-foreground shadow-elevated outline-none',
         'radix-fade-zoom',
         className,
       )}

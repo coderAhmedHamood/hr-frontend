@@ -1,11 +1,1 @@
-export interface HRPublicHolidayRecord {
-  id: string;
-  code: string;
-  nameAr: string;
-  nameEn: string;
-  date: string;
-  recurring: boolean;
-  sortOrder: number;
-  isActive: boolean;
-  updatedAt: string;
-}
+export type { HRPublicHolidayRecord } from '@/features/hr/leaves/types/public-holidays';

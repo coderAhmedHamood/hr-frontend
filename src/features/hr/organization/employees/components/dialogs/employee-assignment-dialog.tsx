@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { DatePickerInput } from '@/components/ui/date-picker-input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -335,18 +335,16 @@ export function EmployeeAssignmentDialog({ employee, model }: Props) {
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>تاريخ البداية</Label>
-              <Input
-                type="date"
+              <DatePickerInput
                 value={form.startDate}
-                onChange={(e) => patch('startDate', e.target.value)}
+                onChange={(v) => patch('startDate', v)}
               />
             </div>
             <div className="space-y-2">
               <Label>تاريخ النهاية</Label>
-              <Input
-                type="date"
+              <DatePickerInput
                 value={form.endDate}
-                onChange={(e) => patch('endDate', e.target.value)}
+                onChange={(v) => patch('endDate', v)}
               />
             </div>
           </div>

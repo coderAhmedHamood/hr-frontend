@@ -416,7 +416,7 @@ const CompensationPrintHtml = dynamic(() => import('./compensation-print-html'),
 
 ```
 # .env file (committed to git):
-NEXT_PUBLIC_HERE_API_KEY=_wp5c7RJh-glowTGxHT5SmnpQ_KeShK5_Nqze8g7XvI
+NEXT_PUBLIC_HERE_API_KEY=<REDACTED — rotate key in HERE Developer Portal>
 ```
 
 The `.env` file is committed to the repository AND the same API key is published verbatim in `README.md` line 49. This key is now in git history and is publicly accessible to anyone with repository access.

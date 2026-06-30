@@ -26,7 +26,7 @@ import { RoseFormsTemplateSettingsDialog } from '@/features/hr/organization/empl
 import { EmployeeCreateUserDialog } from '@/features/hr/organization/employees/components/dialogs/employee-create-user-dialog';
 import { EmployeeAssignmentDialog } from '@/features/hr/organization/employees/components/dialogs/employee-assignment-dialog';
 import { EmployeeAssignmentEditDialog } from '@/features/hr/organization/employees/components/dialogs/employee-assignment-edit-dialog';
-import { ConfirmationModal } from '@/features/hr/requests/components/shared-ui';
+import { ConfirmationModal } from '@/components/ui/shared-dialogs';
 
 export function EmployeeProfileBody({ employee, onUpdated }: { employee: Employee; onUpdated?: (updated: Employee) => void }) {
   const model = useEmployeeProfileModel(employee, onUpdated);

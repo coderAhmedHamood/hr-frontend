@@ -7,8 +7,10 @@ import { useSetPageTitle } from '@/components/layouts/page-title-context';
 import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
-import { EntityFilterToolbar } from '@/components/ui/entity-filter-toolbar';
-import { PermissionGate } from '@/components/shared/permission-gate';
+import { ListFilterBar } from '@/components/ui/list-filter-bar';
+import { Can } from '@/components/shared/can';
+import { usePagePermissions } from '@/features/auth/permissions';
+import { DEPARTMENTS_PAGE_PERMISSIONS } from '@/features/hr/organization/departments/permissions';
 import { branchesApi, type BranchResponseDto } from '@/features/hr/organization/lib/api/branches';
 import { useServerDirectoryPagination } from '@/components/ui/paged-list';
 import type { DeptTreeNode } from '@/features/hr/requests/lib/hierarchy-utils';
@@ -39,6 +41,9 @@ import {
 
 export function useDepartmentsDirectoryModel() {
   useSetPageTitle({ titleAr: 'الأقسام', descriptionAr: 'الهيكل التنظيمي وإدارة الأقسام', iconName: 'Building2' });
+
+  const perms = usePagePermissions(DEPARTMENTS_PAGE_PERMISSIONS);
+  const accessDenied = !perms.canRead;
 
   const defaultCompanyId = useDefaultCompanyId();
   const { data: defaultCompany } = useDefaultCompany();
@@ -124,7 +129,7 @@ export function useDepartmentsDirectoryModel() {
     reload: reloadList,
   } = useServerDirectoryPagination<DeptTreeNode>(
     async () => ({ items: [], total: 0 }),
-    { bulkMode: true, loadBulk, enabled: !!defaultCompanyId, resetDeps: [defaultCompanyId, branchFilter, archiveScope] },
+    { bulkMode: true, loadBulk, enabled: !!defaultCompanyId && perms.canRead, resetDeps: [defaultCompanyId, branchFilter, archiveScope] },
   );
 
   const loadFormBranches = React.useCallback(async (companyId: string | null) => {
@@ -177,6 +182,7 @@ export function useDepartmentsDirectoryModel() {
   const forest = React.useMemo(() => buildDepartmentForest(departments), [departments]);
 
   const openCreate = React.useCallback(() => {
+    if (!perms.canCreate) return;
     setEditId(null);
     setDraft({
       ...DEPARTMENT_EMPTY_FORM,
@@ -186,9 +192,10 @@ export function useDepartmentsDirectoryModel() {
     });
     setFormError(null);
     setDrawerOpen(true);
-  }, [branchFilter, defaultCompanyId, departments.length]);
+  }, [branchFilter, defaultCompanyId, departments.length, perms.canCreate]);
 
   const openEdit = React.useCallback((dept: HRDepartmentEntity) => {
+    if (!perms.canUpdate) return;
     const record = dept as DepartmentRecord;
     setEditId(dept.id);
     setDraft({
@@ -201,7 +208,7 @@ export function useDepartmentsDirectoryModel() {
     });
     setFormError(null);
     setDrawerOpen(true);
-  }, []);
+  }, [perms.canUpdate]);
 
   const patch = React.useCallback(<K extends keyof DepartmentDraftForm>(k: K, v: DepartmentDraftForm[K]) => {
     setDraft((d) => {
@@ -213,6 +220,7 @@ export function useDepartmentsDirectoryModel() {
   }, []);
 
   const handleSave = React.useCallback(async () => {
+    if (editId ? !perms.canUpdate : !perms.canCreate) return;
     const companyId = defaultCompanyId ?? draft.companyId;
     if (!draft.nameAr.trim()) {
       setFormError('اسم القسم مطلوب');
@@ -249,10 +257,11 @@ export function useDepartmentsDirectoryModel() {
       const { displayMessage } = handleApiError(err, 'departments.save');
       setFormError(displayMessage);
     }
-  }, [defaultCompanyId, draft, editId, reloadList]);
+  }, [defaultCompanyId, draft, editId, perms.canCreate, perms.canUpdate, reloadList]);
 
   const confirmDelete = React.useCallback(
     (id: string) => {
+      if (!perms.canDelete) return;
       const descendants = getDescendantDepartmentIds(departments, id).length;
       setDeleteWarning(
         descendants > 0
@@ -261,11 +270,11 @@ export function useDepartmentsDirectoryModel() {
       );
       setDeleteId(id);
     },
-    [departments],
+    [departments, perms.canDelete],
   );
 
   const handleDelete = React.useCallback(async () => {
-    if (!deleteId) return;
+    if (!deleteId || !perms.canDelete) return;
     setFormError(null);
     try {
       await deleteDepartment(deleteId);
@@ -275,7 +284,7 @@ export function useDepartmentsDirectoryModel() {
       const { displayMessage } = handleApiError(err, 'departments.delete');
       setFormError(displayMessage);
     }
-  }, [deleteId, reloadList]);
+  }, [deleteId, perms.canDelete, reloadList]);
 
   const excludeIds = editId
     ? new Set([editId, ...getDescendantDepartmentIds(departments, editId)])
@@ -300,21 +309,21 @@ export function useDepartmentsDirectoryModel() {
 
   usePageHeaderActions(
     () => (
-      <div className="flex items-center gap-2">
+      <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
         <FilterToggleButton />
-        <PermissionGate permission="hr.employees.create">
+        <Can when={perms.canCreate}>
           <Button variant="luxe" size="sm" className="h-8 shrink-0 gap-2" onClick={openCreate}>
             <Plus className="h-4 w-4" /> قسم جديد
           </Button>
-        </PermissionGate>
+        </Can>
       </div>
     ),
-    [openCreate],
+    [openCreate, perms.canCreate],
   );
 
   useEntityFilterSlot(
     () => (
-      <EntityFilterToolbar
+      <ListFilterBar
         showDateSection={false}
         showStatusSection={false}
         showEmployeePicker={false}
@@ -341,6 +350,8 @@ export function useDepartmentsDirectoryModel() {
   );
 
   return {
+    perms,
+    accessDenied,
     departments,
     loading,
     pagination,

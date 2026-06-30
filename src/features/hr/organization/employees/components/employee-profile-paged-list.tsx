@@ -3,11 +3,8 @@
 import * as React from 'react';
 import { Loader2 } from 'lucide-react';
 import { cn } from '@/shared/utils';
-import {
-  useListPagination,
-  PaginatedListShell,
-  type PaginationBarState,
-} from '@/components/ui/paged-list';
+import { useListPagination, type PaginationBarState } from '@/components/ui/paged-list';
+import { StickyPagination } from '@/components/ui/sticky-pagination';
 
 type Props<T> = {
   items: T[];
@@ -16,11 +13,13 @@ type Props<T> = {
   renderItems: (pageItems: T[]) => React.ReactNode;
   serverPagination?: PaginationBarState;
   loading?: boolean;
-  /** When true, fills the parent flex container instead of a fixed 80vh. */
-  fillParent?: boolean;
   className?: string;
 };
 
+/**
+ * Paginated list for employee profile sections — content flows in the main page
+ * scroll (no nested viewport). Pagination sticks to the bottom while scrolling.
+ */
 export function EmployeeProfilePagedList<T>({
   items,
   resetDeps,
@@ -28,7 +27,6 @@ export function EmployeeProfilePagedList<T>({
   renderItems,
   serverPagination,
   loading = false,
-  fillParent = false,
   className,
 }: Props<T>) {
   const clientPagination = useListPagination(items, serverPagination ? undefined : resetDeps);
@@ -41,35 +39,34 @@ export function EmployeeProfilePagedList<T>({
   const setPageSize = serverPagination?.setPageSize ?? clientPagination.setPageSize;
   const pageItems = serverPagination ? items : clientPagination.pageItems;
 
-  const pagination: PaginationBarState = {
-    page,
-    pageSize,
-    total,
-    totalPages,
-    setPage,
-    setPageSize,
-  };
+  if (loading && pageItems.length === 0) {
+    return (
+      <div className={cn('flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground', className)}>
+        <Loader2 className="h-4 w-4 animate-spin" />
+        جاري التحميل…
+      </div>
+    );
+  }
+
+  if (!loading && total === 0 && empty) {
+    return <div className={cn('flex items-center justify-center py-10', className)}>{empty}</div>;
+  }
 
   return (
-    <div
-      className={cn(
-        'flex w-full min-h-0 flex-col overflow-hidden',
-        fillParent ? 'h-full min-h-0 flex-1' : 'h-[80vh]',
-        className,
-      )}
-    >
-      <PaginatedListShell pagination={pagination}>
-        {loading && pageItems.length === 0 ? (
-          <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            جاري التحميل…
-          </div>
-        ) : !loading && total === 0 && empty ? (
-          <div className="flex flex-1 items-center justify-center py-10">{empty}</div>
-        ) : (
-          renderItems(pageItems)
-        )}
-      </PaginatedListShell>
+    <div className={cn('flex w-full min-w-0 flex-col', className)}>
+      <div className="min-w-0">{renderItems(pageItems)}</div>
+      {total > 0 ? (
+        <div className="sticky bottom-2 z-10 mt-4 flex justify-center bg-gradient-to-t from-muted/30 via-background/90 to-transparent px-2 pb-1 pt-4">
+          <StickyPagination
+            page={page}
+            pageSize={pageSize}
+            total={total}
+            totalPages={totalPages}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
+        </div>
+      ) : null}
     </div>
   );
 }

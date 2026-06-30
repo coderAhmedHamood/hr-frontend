@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { AR_STATUS } from '@/shared/i18n/ar';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
 import { getDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 import {
@@ -13,6 +14,7 @@ import {
   duplicateAdvanceNumberMessage,
   isDuplicateAdvanceNumberError,
 } from './employee-advance-errors';
+import { ApiError } from '@/features/hr/lib/api/client';
 import type { RequestApproverStatesSnapshot } from '@/features/hr/requests/lib/api/request-approver-states-types';
 import { normalizeRequestApproverStates } from '@/features/hr/requests/lib/request-approver-states';
 
@@ -30,18 +32,24 @@ export type HREmployeeAdvance = {
   advanceNumber: string;
   employeeId: string;
   employeeNameAr: string;
+  branchNameAr: string | null;
   amount: number;
   currency: string;
   advanceDate: string;
   note: string;
+  reasonAr: string;
   status: HREmployeeAdvanceStatus;
   advanceKind: HREmployeeAdvanceKind;
   repaymentMode: HREmployeeAdvanceRepaymentMode;
   repaymentMonths: number | null;
   monthlyInstallmentAmount: number | null;
+  totalRepaidAmount: number;
+  remainingAmount: number;
   approvedAt: string | null;
   rejectedAt: string | null;
   decisionNotes: string | null;
+  disbursedAt: string | null;
+  createdAt: string;
   approverStates: RequestApproverStatesSnapshot | null;
   updatedAt: string;
 };
@@ -69,16 +77,20 @@ function mapRepaymentMode(m: RepaymentModeDto | null): HREmployeeAdvanceRepaymen
   return 'by_monthly_amount';
 }
 
-function mapApi(r: EmployeeAdvanceResponseDto): HREmployeeAdvance {
+export function mapEmployeeAdvanceFromApi(r: EmployeeAdvanceResponseDto): HREmployeeAdvance {
+  const note = (r.note ?? '').trim();
+  const reasonAr = (r.reasonAr ?? r.note ?? '').trim();
   return {
     id: r.id,
     advanceNumber: r.advanceNumber,
     employeeId: r.employeeId,
     employeeNameAr: r.employeeNameAr,
+    branchNameAr: r.branchNameAr ?? null,
     amount: parseFloat(r.amount) || 0,
     currency: r.currency,
     advanceDate: r.advanceDate,
-    note: r.note ?? '',
+    note,
+    reasonAr,
     status: r.status,
     advanceKind: mapKind(r.advanceKind),
     repaymentMode: mapRepaymentMode(r.repaymentMode),
@@ -86,9 +98,13 @@ function mapApi(r: EmployeeAdvanceResponseDto): HREmployeeAdvance {
     monthlyInstallmentAmount: r.monthlyInstallmentAmount != null
       ? parseFloat(r.monthlyInstallmentAmount)
       : null,
+    totalRepaidAmount: parseFloat(r.totalRepaidAmount) || 0,
+    remainingAmount: parseFloat(r.remainingAmount) || 0,
     approvedAt: r.approvedAt,
     rejectedAt: r.rejectedAt ?? null,
     decisionNotes: r.decisionNotes ?? null,
+    disbursedAt: r.disbursedAt,
+    createdAt: r.createdAt,
     approverStates: normalizeRequestApproverStates(r),
     updatedAt: r.updatedAt,
   };
@@ -108,10 +124,10 @@ function toBackendRepaymentMode(m: HREmployeeAdvanceRepaymentMode): RepaymentMod
 type State = {
   items: HREmployeeAdvance[];
   isLoading: boolean;
-  error: string | null;
+  error: { message: string; status: number } | null;
   fetch: (params?: { employeeId?: string; status?: HREmployeeAdvanceStatus; advanceDateFrom?: string; advanceDateTo?: string }) => Promise<void>;
-  add: (a: Omit<HREmployeeAdvance, 'id' | 'advanceNumber' | 'approvedAt' | 'updatedAt' | 'status' | 'approverStates' | 'rejectedAt' | 'decisionNotes'>) => Promise<HREmployeeAdvance>;
-  update: (id: string, patch: Partial<Omit<HREmployeeAdvance, 'id' | 'advanceNumber' | 'approvedAt' | 'updatedAt'>>) => Promise<boolean>;
+  add: (a: Omit<HREmployeeAdvance, 'id' | 'advanceNumber' | 'approvedAt' | 'updatedAt' | 'status' | 'approverStates' | 'rejectedAt' | 'decisionNotes' | 'reasonAr' | 'branchNameAr' | 'totalRepaidAmount' | 'remainingAmount' | 'disbursedAt' | 'createdAt'>) => Promise<HREmployeeAdvance>;
+  update: (id: string, patch: Partial<Omit<HREmployeeAdvance, 'id' | 'advanceNumber' | 'approvedAt' | 'updatedAt' | 'reasonAr'>>) => Promise<boolean>;
   remove: (id: string) => Promise<boolean>;
   submitForApproval: (id: string) => Promise<void>;
   approve: (id: string, payload: EmployeeAdvanceDecisionDto) => Promise<void>;
@@ -136,9 +152,9 @@ export const useHREmployeeAdvancesStore = create<State>()((set) => ({
         advanceDateTo: params?.advanceDateTo,
         limit: 200,
       });
-      set({ items: result.items.map(mapApi), isLoading: false });
+      set({ items: result.items.map(mapEmployeeAdvanceFromApi), isLoading: false });
     } catch (e) {
-      set({ error: (e as Error).message, isLoading: false });
+      set({ error: { message: (e as Error).message, status: e instanceof ApiError ? e.status : 0 }, isLoading: false });
       throw e;
     }
   },
@@ -163,7 +179,7 @@ export const useHREmployeeAdvancesStore = create<State>()((set) => ({
     for (let attempt = 0; attempt < CREATE_RETRY_ATTEMPTS; attempt += 1) {
       try {
         const created = await employeeAdvancesApi.create(body);
-        const mapped = mapApi(created);
+        const mapped = mapEmployeeAdvanceFromApi(created);
         set(s => ({ items: [mapped, ...s.items] }));
         return mapped;
       } catch (e) {
@@ -191,7 +207,7 @@ export const useHREmployeeAdvancesStore = create<State>()((set) => ({
       repaymentMonths: patch.repaymentMonths ?? undefined,
       monthlyInstallmentAmount: patch.monthlyInstallmentAmount ?? undefined,
     });
-    set(s => ({ items: s.items.map(row => row.id === id ? mapApi(updated) : row) }));
+    set(s => ({ items: s.items.map(row => row.id === id ? mapEmployeeAdvanceFromApi(updated) : row) }));
     return true;
   },
 
@@ -203,29 +219,29 @@ export const useHREmployeeAdvancesStore = create<State>()((set) => ({
 
   submitForApproval: async (id) => {
     const updated = await employeeAdvancesApi.update(id, { status: 'pending_approval' });
-    set(s => ({ items: s.items.map(row => row.id === id ? mapApi(updated) : row) }));
+    set(s => ({ items: s.items.map(row => row.id === id ? mapEmployeeAdvanceFromApi(updated) : row) }));
   },
 
   approve: async (id, payload) => {
     const updated = await employeeAdvancesApi.decide(id, payload);
-    set(s => ({ items: s.items.map(row => row.id === id ? mapApi(updated) : row) }));
+    set(s => ({ items: s.items.map(row => row.id === id ? mapEmployeeAdvanceFromApi(updated) : row) }));
   },
 
   reject: async (id, payload) => {
     const updated = await employeeAdvancesApi.decide(id, payload);
-    set(s => ({ items: s.items.map(row => row.id === id ? mapApi(updated) : row) }));
+    set(s => ({ items: s.items.map(row => row.id === id ? mapEmployeeAdvanceFromApi(updated) : row) }));
   },
 }));
 
 export const ADVANCE_STATUS_LABELS: Record<HREmployeeAdvanceStatus, string> = {
-  draft: 'مسودة',
-  pending_approval: 'قيد الموافقة',
-  approved: 'معتمد',
-  rejected: 'مرفوض',
+  draft: AR_STATUS.draft,
+  pending_approval: AR_STATUS.pendingApproval,
+  approved: AR_STATUS.approvedFormal,
+  rejected: AR_STATUS.rejected,
   disbursed: 'مصروف',
   repaying: 'قيد السداد',
   fully_repaid: 'مُسدَّدة',
-  cancelled: 'ملغاة',
+  cancelled: AR_STATUS.cancelled,
 };
 
 export const ADVANCE_STATUS_FILTER_ORDER: HREmployeeAdvanceStatus[] = [
@@ -250,3 +266,9 @@ export const REPAYMENT_MODE_LABELS: Record<HREmployeeAdvanceRepaymentMode, strin
   by_months: 'عدد أشهر محدد',
   by_monthly_amount: 'مبلغ شهري محدد',
 };
+
+export function advanceReasonText(
+  x: Pick<HREmployeeAdvance, 'reasonAr' | 'note'>,
+): string {
+  return (x.reasonAr || x.note || '').trim();
+}

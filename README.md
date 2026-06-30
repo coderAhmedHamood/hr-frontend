@@ -42,17 +42,21 @@
 
 ## Environment Variables
 
-Create a `.env` file in the project root:
+Copy `.env.example` to `.env` and fill in the values (`.env` is gitignored and must never be committed):
 
-```env
-NEXT_PUBLIC_API_URL=/api-backend
-NEXT_PUBLIC_HERE_API_KEY=_wp5c7RJh-glowTGxHT5SmnpQ_KeShK5_Nqze8g7XvI
-BACKEND_URL=http://localhost:3000
+```bash
+cp .env.example .env
 ```
 
+See `.env.example` for all variables. Required for local development:
+
 - `NEXT_PUBLIC_API_URL` — Base path for all API calls (rewritten to backend via Next.js rewrite)
-- `NEXT_PUBLIC_HERE_API_KEY` — HERE Maps API key for geolocation features
+- `NEXT_PUBLIC_HERE_API_KEY` — HERE Maps API key for geolocation features (obtain from [HERE Developer Portal](https://developer.here.com/))
 - `BACKEND_URL` — Server-side backend URL (used in Next.js rewrites; not exposed to browser)
+
+Optional dev-only variables (leave unset in production):
+
+- `NEXT_PUBLIC_DEV_LOGIN_EMAIL` / `NEXT_PUBLIC_DEV_LOGIN_PASSWORD` — Pre-fill the login form in `npm run dev` only
 
 ---
 
@@ -72,12 +76,6 @@ npm start
 # Lint
 npm run lint
 ```
-
-**Login credentials (demo — requires backend to be seeded):**
-- Email: `admin@test.com`
-- Password: `Admin123!`
-
-> The login page pre-fills these credentials automatically.
 
 ---
 
@@ -296,7 +294,7 @@ src/
 ### Public Routes
 | Route | Description |
 |-------|-------------|
-| `/login` | Login page (pre-filled with admin@test.com / Admin123!) |
+| `/login` | Login page |
 | `/f/[jobSlug]` | Public job listing page |
 | `/apply/[formId]` | Public job application form |
 

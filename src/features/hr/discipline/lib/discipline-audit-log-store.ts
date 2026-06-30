@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
 import { getDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 import { auditLogsApi } from './api/audit-logs';
+import { ApiError } from '@/features/hr/lib/api/client';
 import type { AuditLogResponseDto } from './api/audit-logs';
 import type { HRDisciplineAuditLogEntry } from './discipline-audit-log';
 
@@ -27,7 +28,7 @@ function mapApi(r: AuditLogResponseDto): HRDisciplineAuditLogEntry {
 interface AuditLogState {
   entries: HRDisciplineAuditLogEntry[];
   isLoading: boolean;
-  error: string | null;
+  error: { message: string; status: number } | null;
   fetch: () => Promise<void>;
   append: (payload: Omit<HRDisciplineAuditLogEntry, 'id' | 'occurredAt'>) => void;
 }
@@ -45,7 +46,7 @@ export const useHRDisciplineAuditLogStore = create<AuditLogState>()((set) => ({
       const result = await auditLogsApi.getAll({ companyId, moduleCode: 'discipline', limit: 200 });
       set({ entries: result.items.map(mapApi), isLoading: false });
     } catch (e) {
-      set({ error: (e as Error).message, isLoading: false });
+      set({ error: { message: (e as Error).message, status: e instanceof ApiError ? e.status : 0 }, isLoading: false });
     }
   },
 

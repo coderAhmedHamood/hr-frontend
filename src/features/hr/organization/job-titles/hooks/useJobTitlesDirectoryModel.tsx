@@ -7,8 +7,10 @@ import { useSetPageTitle } from '@/components/layouts/page-title-context';
 import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
-import { EntityFilterToolbar } from '@/components/ui/entity-filter-toolbar';
-import { PermissionGate } from '@/components/shared/permission-gate';
+import { ListFilterBar } from '@/components/ui/list-filter-bar';
+import { Can } from '@/components/shared/can';
+import { usePagePermissions } from '@/features/auth/permissions';
+import { JOB_TITLES_PAGE_PERMISSIONS } from '@/features/hr/organization/job-titles/permissions';
 import { toast } from 'sonner';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
@@ -39,6 +41,9 @@ export function useJobTitlesDirectoryModel() {
     descriptionAr: 'قوالب المسميات الاستخدام عند إنشاء موظف جديد — يمكن ربط قسم افتراضي اقتراحياً.',
     iconName: 'Briefcase',
   });
+
+  const perms = usePagePermissions(JOB_TITLES_PAGE_PERMISSIONS);
+  const accessDenied = !perms.canRead;
 
   const defaultCompanyId = useDefaultCompanyId();
   const { data: defaultCompany } = useDefaultCompany();
@@ -105,7 +110,7 @@ export function useJobTitlesDirectoryModel() {
     pagination,
     reload: reloadList,
   } = useServerDirectoryPagination<JobTitleTemplateRecord>(loadPage, {
-    enabled: !!defaultCompanyId,
+    enabled: !!defaultCompanyId && perms.canRead,
     resetDeps: [defaultCompanyId, layoutView, archiveScope],
   });
 
@@ -114,6 +119,7 @@ export function useJobTitlesDirectoryModel() {
   }, []);
 
   const openCreate = React.useCallback(() => {
+    if (!perms.canCreate) return;
     setEditId(null);
     setForm({
       ...JOB_TITLE_EMPTY_FORM,
@@ -121,9 +127,10 @@ export function useJobTitlesDirectoryModel() {
     });
     setError(null);
     setDrawerOpen(true);
-  }, [defaultCompanyId]);
+  }, [defaultCompanyId, perms.canCreate]);
 
   const openEdit = React.useCallback((row: JobTitleTemplateRecord) => {
+    if (!perms.canUpdate) return;
     setEditId(row.id);
     setForm({
       companyId: row.companyId,
@@ -134,9 +141,10 @@ export function useJobTitlesDirectoryModel() {
     });
     setError(null);
     setDrawerOpen(true);
-  }, []);
+  }, [perms.canUpdate]);
 
   const handleSave = React.useCallback(async () => {
+    if (editId ? !perms.canUpdate : !perms.canCreate) return;
     const titleAr = form.titleAr.trim();
     const companyId = defaultCompanyId ?? form.companyId;
 
@@ -177,10 +185,10 @@ export function useJobTitlesDirectoryModel() {
       const { displayMessage } = handleApiError(err, 'job-titles.save');
       setError(displayMessage);
     }
-  }, [defaultCompanyId, editId, form.companyId, form.descriptionAr, form.isActive, form.titleAr, reloadList]);
+  }, [defaultCompanyId, editId, form.companyId, form.descriptionAr, form.isActive, form.titleAr, perms.canCreate, perms.canUpdate, reloadList]);
 
   const handleDelete = React.useCallback(async () => {
-    if (!confirmId) return;
+    if (!confirmId || !perms.canDelete) return;
     try {
       await deleteJobTitle(confirmId);
       await reloadList();
@@ -190,25 +198,25 @@ export function useJobTitlesDirectoryModel() {
       const { displayMessage } = handleApiError(err, 'job-titles.delete');
       setError(displayMessage);
     }
-  }, [confirmId, reloadList]);
+  }, [confirmId, perms.canDelete, reloadList]);
 
   usePageHeaderActions(
     () => (
-      <div className="flex items-center gap-2">
+      <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
         <FilterToggleButton />
-        <PermissionGate permission="hr.employees.create">
+        <Can when={perms.canCreate}>
           <Button variant="luxe" size="sm" className="h-8 gap-2" onClick={openCreate}>
             <Plus className="h-4 w-4" /> قالب جديد
           </Button>
-        </PermissionGate>
+        </Can>
       </div>
     ),
-    [openCreate],
+    [openCreate, perms.canCreate],
   );
 
   useEntityFilterSlot(
     () => (
-      <EntityFilterToolbar
+      <ListFilterBar
         showDateSection={false}
         showStatusSection={false}
         showEmployeePicker={false}
@@ -236,6 +244,8 @@ export function useJobTitlesDirectoryModel() {
   );
 
   return {
+    perms,
+    accessDenied,
     templates: pagedTemplates,
     loading,
     pagination,

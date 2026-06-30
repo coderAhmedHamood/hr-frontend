@@ -3,9 +3,8 @@
 import * as React from 'react';
 import Link from 'next/link';
 import {
-  ArrowRight, Banknote, Check, FileSpreadsheet, FileText, Gavel, Loader2,
+  ArrowRight, FileSpreadsheet, FileText, Loader2,
   Users,
-  Upload,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -21,7 +20,7 @@ import {
 import {
   formatLatinNumber,
   mapEmployeesPayrollSummaryToPreviews,
-  parseOptionalPositiveRate,
+  buildAttendancePushToPayrollPayload,
   resolvePayrollSummaryFooterTotals,
   type CompensationColumnVisibility,
   type CompensationAdvancesPushOptions,
@@ -47,6 +46,7 @@ import { PushFromAttendanceDialog } from '@/features/hr/payroll/compensation/com
 import { PushFromAdvancesDialog } from '@/features/hr/payroll/compensation/components/push-from-advances-dialog';
 import { PushFromViolationsDialog } from '@/features/hr/payroll/compensation/components/push-from-violations-dialog';
 import { CompensationIncrementAdjustDialog, type IncrementAdjustDialogContext } from '@/features/hr/payroll/compensation/components/compensation-increment-adjust-dialog';
+import { CompensationDataToolbar } from '@/features/hr/payroll/compensation/components/compensation-data-toolbar';
 import { AdjustableAmountCell } from '@/features/hr/payroll/compensation/components/adjustable-amount-cell';
 import { createIncrementalMonthlyInput } from '@/features/hr/payroll/compensation/services/incremental-monthly-input.service';
 import { PayrollPeriodReviewBar } from '@/features/hr/payroll/compensation/components/payroll-period-review-bar';
@@ -60,12 +60,34 @@ import {
   downloadCompensationExcel,
   downloadCompensationPdf,
 } from '@/features/hr/payroll/lib/compensation-period-export';
-import { DirectoryPagedViews } from '@/components/ui/paged-list';
 
 function ReadOnlyAmountCell({ amount, colorClass }: { amount: number; colorClass?: string }) {
   return (
     <td className="border-e border-border/40 px-3 py-2 text-center font-mono tabular-nums text-[11.5px]">
       <span className={colorClass}>{formatLatinNumber(amount)}</span>
+    </td>
+  );
+}
+
+function AllowancesBreakdownCell({ row }: { row: PayrollLineCompensationPreview }) {
+  return (
+    <td className="border-e border-border/40 px-3 py-2 text-right">
+      {row.allowanceLines.length === 0 ? (
+        <span className="text-muted-foreground text-[10px]">—</span>
+      ) : (
+        <div className="space-y-0.5">
+          {row.allowanceLines.map((a) => (
+            <div key={a.labelAr} className="flex justify-between gap-2 text-[10px]">
+              <span className="text-muted-foreground">{a.labelAr}</span>
+              <span className="font-mono font-semibold tabular-nums text-primary">{formatLatinNumber(a.amount)}</span>
+            </div>
+          ))}
+          <div className="mt-0.5 flex items-center justify-between gap-1 border-t pt-1 text-right text-[10px] font-bold">
+            المجموع:
+            <span className="font-mono font-bold text-primary">{formatLatinNumber(row.allowancesMonthlyTotal)}</span>
+          </div>
+        </div>
+      )}
     </td>
   );
 }
@@ -148,6 +170,7 @@ export function CompensationReportPanel({
     () => (period ? periodToColumnVisibility(period) : DEFAULT_COMPENSATION_COLUMN_VISIBILITY),
     [period],
   );
+  const tableCols = embedded ? DEFAULT_COMPENSATION_COLUMN_VISIBILITY : cols;
 
   const filterKey = employeeIdsFilter?.length ? [...employeeIdsFilter].sort().join(',') : '';
   const previews = React.useMemo(() => {
@@ -247,7 +270,7 @@ export function CompensationReportPanel({
   const backBtn = (
     <Link
       href={backHref}
-      className="group inline-flex h-9 items-center gap-2 rounded-xl border border-border bg-card px-4 text-sm font-medium text-foreground/70 shadow-soft transition-all hover:border-primary/30 hover:bg-accent hover:text-primary"
+      className="group inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 text-sm font-medium text-foreground/70 shadow-soft transition-all hover:border-primary/30 hover:bg-accent hover:text-primary lg:h-9 lg:w-auto"
     >
       <ArrowRight className="h-4 w-4 shrink-0 transition-transform group-hover:translate-x-0.5" />
       العودة إلى فترات الراتب
@@ -443,25 +466,17 @@ export function CompensationReportPanel({
       ? employeeIdsFilter
       : periodEmployeeIds;
 
-    const absenceOverride = parseOptionalPositiveRate(pushOptions.absenceDailyRateOverride);
-    const lateOverride = parseOptionalPositiveRate(pushOptions.lateMinuteRateOverride);
-    const overtimeMultiplier = parseOptionalPositiveRate(pushOptions.overtimeMultiplier) ?? 1.5;
     const createdBy = useAuthStore.getState().user?.email ?? undefined;
 
     setPushing(true);
     try {
-      const result = await attendanceDaySummariesApi.pushToPayroll({
-        payrollPeriodId: period.id,
-        employeeIds,
-        replaceExisting: pushOptions.replaceExisting,
-        applyOvertime: pushOptions.applyOvertime,
-        applyAbsence: pushOptions.applyAbsence,
-        applyLateness: pushOptions.applyLateness,
-        ...(absenceOverride !== undefined ? { absenceDailyRateOverride: absenceOverride } : {}),
-        ...(lateOverride !== undefined ? { lateMinuteRateOverride: lateOverride } : {}),
-        overtimeMultiplier,
-        createdBy,
-      });
+      const result = await attendanceDaySummariesApi.pushToPayroll(
+        buildAttendancePushToPayrollPayload(pushOptions, {
+          payrollPeriodId: period.id,
+          employeeIds,
+          createdBy,
+        }),
+      );
 
       invalidatePayrollSummary();
       setPushDialogOpen(false);
@@ -567,15 +582,15 @@ export function CompensationReportPanel({
 
         {/* ══ BACK BUTTON ══ */}
         {!embedded && (
-          <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between">
             {backBtn}
             {hasLines && previews.length > 0 && (
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="grid grid-cols-2 gap-2 lg:flex lg:items-center">
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="h-9 gap-1.5 text-xs"
+                  className="h-10 gap-1.5 text-xs lg:h-9"
                   disabled={excelExporting || pdfExporting}
                   onClick={() => void handleDownloadExcel()}
                 >
@@ -588,7 +603,7 @@ export function CompensationReportPanel({
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="h-9 gap-1.5 text-xs"
+                  className="h-10 gap-1.5 text-xs lg:h-9"
                   disabled={excelExporting || pdfExporting}
                   onClick={() => void handleDownloadPdf()}
                 >
@@ -639,93 +654,16 @@ export function CompensationReportPanel({
         {/* ══ COLUMN TOGGLES + PUSH FROM ATTENDANCE ══ */}
         {!embedded && hasLines && (
           <>
-            <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card px-4 py-3 shadow-soft animate-fade-in">
-              <span className="text-xs font-semibold text-muted-foreground">إظهار الأعمدة</span>
-              <div className="h-5 w-px bg-border hidden sm:block" />
-
-              <span className="text-[10px] font-bold text-primary/80 uppercase tracking-wide">مستحقات</span>
-              {([
-                { k: 'colOvertime', label: 'أوفر تايم' },
-                { k: 'colBonus',    label: 'مكافآت' },
-              ] as { k: keyof CompensationColumnVisibility; label: string }[]).map(({ k, label }) => (
-                <button
-                  key={k}
-                  type="button"
-                  disabled={isReviewLocked || togglingCol !== null}
-                  onClick={() => toggleCol(k)}
-                  className={cn(
-                    'inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-[11px] font-medium transition-all duration-200',
-                    cols[k]
-                      ? 'bg-primary text-primary-foreground border-primary shadow-soft'
-                      : 'bg-card text-muted-foreground border-border hover:border-primary/40 hover:text-foreground',
-                  )}
-                >
-                  {cols[k] && <Check className="h-3 w-3" />}
-                  {label}
-                </button>
-              ))}
-
-              <div className="h-5 w-px bg-border" />
-              <span className="text-[10px] font-bold text-destructive/80 uppercase tracking-wide">خصومات</span>
-              {([
-                { k: 'colDedAdvances',  label: 'السلف' },
-                { k: 'colDedAbsence',   label: 'غياب' },
-                { k: 'colDedLate',      label: 'تأخير' },
-                { k: 'colDedPenalties', label: 'جزاءات' },
-                { k: 'colDedAdmin',     label: 'خصم او اضافة مباشرة' },
-              ] as { k: keyof CompensationColumnVisibility; label: string }[]).map(({ k, label }) => (
-                <button
-                  key={k}
-                  type="button"
-                  disabled={isReviewLocked || togglingCol !== null}
-                  onClick={() => toggleCol(k)}
-                  className={cn(
-                    'inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-[11px] font-medium transition-all duration-200',
-                    cols[k]
-                      ? 'bg-destructive/10 text-destructive border-destructive/30 shadow-soft'
-                      : 'bg-card text-muted-foreground border-border hover:border-destructive/30 hover:text-foreground',
-                  )}
-                >
-                  {cols[k] && <Check className="h-3 w-3" />}
-                  {label}
-                </button>
-              ))}
-
-              <div className="ms-auto flex shrink-0 flex-wrap items-center justify-end gap-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  disabled={isReviewLocked || pushing}
-                  onClick={() => setViolationsPushDialogOpen(true)}
-                  className="h-8 gap-1.5 border-destructive/30 text-xs text-destructive hover:bg-destructive/5 hover:text-destructive"
-                >
-                  <Gavel className="h-3.5 w-3.5" />
-                  دفع الجزاءات
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  disabled={isReviewLocked || pushing}
-                  onClick={() => setAdvancesPushDialogOpen(true)}
-                  className="h-8 gap-1.5 border-destructive/30 text-xs text-destructive hover:bg-destructive/5 hover:text-destructive"
-                >
-                  <Banknote className="h-3.5 w-3.5" />
-                  دفع السلف
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  disabled={isReviewLocked || pushing}
-                  onClick={() => setPushDialogOpen(true)}
-                  className="h-8 gap-1.5 text-xs"
-                >
-                  <Upload className="h-3.5 w-3.5" />
-                  دفع من الحضور
-                </Button>
-              </div>
-            </div>
+            <CompensationDataToolbar
+              cols={cols}
+              isReviewLocked={isReviewLocked}
+              togglingCol={togglingCol}
+              pushing={pushing}
+              onToggleCol={toggleCol}
+              onPushAttendance={() => setPushDialogOpen(true)}
+              onPushAdvances={() => setAdvancesPushDialogOpen(true)}
+              onPushViolations={() => setViolationsPushDialogOpen(true)}
+            />
 
             <PushFromAttendanceDialog
               open={pushDialogOpen}
@@ -789,35 +727,28 @@ export function CompensationReportPanel({
             </p>
           </div>
         ) : (
-          <DirectoryPagedViews
-            items={previews}
-            resetDeps={[period?.id, filterKey]}
-          >
-            {(pageItems) => (
           <div className="overflow-hidden rounded-2xl border border-border shadow-elevated animate-fade-in">
             <div className="overflow-x-auto">
-              <table className={cn('w-full border-collapse text-[11.5px]', embedded ? 'min-w-[680px]' : 'min-w-[860px]')}>
+              <table className={cn('w-full border-collapse text-[11.5px]', embedded ? 'min-w-[1080px]' : 'min-w-[860px]')}>
                 <thead className="sticky top-0 z-10">
                   <tr className="border-b border-border bg-gradient-to-b from-muted/80 to-muted/50 backdrop-blur-sm text-muted-foreground">
                     <th className="w-9 border-e border-border/60 px-2 py-3 text-center font-semibold">#</th>
                     <th className="min-w-[9.5rem] border-e border-border/60 px-3 py-3 text-right font-semibold">الموظف</th>
-                    {!embedded && <th className="min-w-[11rem] border-e border-border/60 px-3 py-3 text-right font-semibold">البدلات (شهري)</th>}
+                    <th className="min-w-[11rem] border-e border-border/60 px-3 py-3 text-right font-semibold">البدلات (شهري)</th>
                     <th className="min-w-[5.5rem] border-e border-border/60 px-3 py-3 text-center font-semibold">الراتب الأساسي</th>
-                    {embedded  && <th className="min-w-[5rem] border-e border-border/60 px-3 py-3 text-center font-semibold">البدلات</th>}
-                    {!embedded && cols.colOvertime   && <th className="min-w-[5rem] border-e border-border/60 px-3 py-3 text-center font-semibold text-primary/80">أوفر تايم</th>}
-                    {!embedded && cols.colBonus      && <th className="min-w-[4.5rem] border-e border-border/60 px-3 py-3 text-center font-semibold text-primary/80">مكافآت</th>}
-                    {embedded  && <th className="min-w-[5rem] border-e border-border/60 px-3 py-3 text-center font-semibold text-primary/80">مستحقات</th>}
-                    {!embedded && cols.colDedAdvances && <th className="min-w-[4.5rem] border-e border-border/60 px-3 py-3 text-center font-semibold text-destructive">السلف</th>}
-                    {!embedded && cols.colDedAbsence && <th className="min-w-[4.5rem] border-e border-border/60 px-3 py-3 text-center font-semibold text-warning">غياب</th>}
-                    {!embedded && cols.colDedLate    && <th className="min-w-[4.5rem] border-e border-border/60 px-3 py-3 text-center font-semibold text-destructive">تأخير</th>}
-                    {!embedded && cols.colDedPenalties&&<th className="min-w-[4.5rem] border-e border-border/60 px-3 py-3 text-center font-semibold text-destructive">جزاءات</th>}
-                    {!embedded && cols.colDedAdmin   && <th className="min-w-[4.5rem] border-e border-border/60 px-3 py-3 text-center font-semibold">خصم او اضافة مباشرة</th>}
-                    {embedded  && <th className="min-w-[5rem] border-e border-border/60 px-3 py-3 text-center font-semibold text-destructive/80">خصومات</th>}
+                    {tableCols.colOvertime && <th className="min-w-[5rem] border-e border-border/60 px-3 py-3 text-center font-semibold text-primary/80">أوفر تايم</th>}
+                    {tableCols.colBonus && <th className="min-w-[4.5rem] border-e border-border/60 px-3 py-3 text-center font-semibold text-primary/80">مكافآت</th>}
+                    {embedded && <th className="min-w-[5rem] border-e border-border/60 px-3 py-3 text-center font-semibold">الإجمالي</th>}
+                    {tableCols.colDedAdvances && <th className="min-w-[4.5rem] border-e border-border/60 px-3 py-3 text-center font-semibold text-destructive">السلف</th>}
+                    {tableCols.colDedAbsence && <th className="min-w-[4.5rem] border-e border-border/60 px-3 py-3 text-center font-semibold text-warning">غياب</th>}
+                    {tableCols.colDedLate && <th className="min-w-[4.5rem] border-e border-border/60 px-3 py-3 text-center font-semibold text-destructive">تأخير</th>}
+                    {tableCols.colDedPenalties && <th className="min-w-[4.5rem] border-e border-border/60 px-3 py-3 text-center font-semibold text-destructive">جزاءات</th>}
+                    {tableCols.colDedAdmin && <th className="min-w-[4.5rem] border-e border-border/60 px-3 py-3 text-center font-semibold">إضافة/خصم مباشر</th>}
                     <th className="min-w-[6rem] bg-primary/6 px-3 py-3 text-center font-bold text-primary">الصافي</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {pageItems.map((row, i) => (
+                  {previews.map((row, i) => (
                       <tr
                         key={row.lineId}
                         className="group border-b border-border/50 last:border-0 even:bg-muted/15 hover:bg-primary/4 transition-colors duration-150"
@@ -828,70 +759,58 @@ export function CompensationReportPanel({
                         <td className="border-e border-border/40 px-3 py-2 text-right">
                           <span className="font-semibold text-foreground">{row.namePrimary}</span>
                         </td>
-                        {!embedded && (
-                          <td className="border-e border-border/40 px-3 py-2 text-right">
-                            {row.allowanceLines.length === 0 ? (
-                              <span className="text-muted-foreground text-[10px]">—</span>
-                            ) : (
-                              <div className="space-y-0.5">
-                                {row.allowanceLines.map(a => (
-                                  <div key={a.labelAr} className="flex justify-between gap-2 text-[10px]">
-                                    <span className="text-muted-foreground">{a.labelAr}</span>
-                                    <span className="font-mono font-semibold tabular-nums text-primary">{fmt(a.amount)}</span>
-                                  </div>
-                                ))}
-                                <div className="mt-0.5 border-t pt-1 text-right text-[10px] font-bold flex items-center justify-between gap-1">
-                                  المجموع: 
-                                  <span className="font-mono font-bold text-primary">{fmt(row.allowancesMonthlyTotal)}</span>
-                                </div>
-                              </div>
-                            )}
-                          </td>
-                        )}
+                        <AllowancesBreakdownCell row={row} />
                         <td className="border-e border-border/40 px-3 py-2 text-center font-mono font-semibold tabular-nums">
                           {fmt(row.baseSalary)}
                         </td>
-                        {embedded && (
-                          <td className="border-e border-border/40 px-3 py-2 text-center font-mono tabular-nums">
-                            {fmt(row.allowancesMonthlyTotal)}
-                          </td>
-                        )}
-                        {!embedded && cols.colOvertime    && <ReadOnlyAmountCell amount={row.entitlementOvertimeSar} colorClass="text-primary" />}
-                        {!embedded && cols.colBonus && (
-                          <AdjustableAmountCell
-                            amount={row.entitlementBonusSar}
-                            colorClass="text-primary"
-                            disabled={isReviewLocked}
-                            onEditClick={() => openAdjustDialog(row, 'bonus')}
-                          />
-                        )}
-                        {embedded && (
-                          <td className="border-e border-border/40 px-3 py-2 text-center font-mono tabular-nums text-primary">
-                            {fmt(row.entitlementOvertimeSar + row.entitlementBonusSar)}
-                          </td>
-                        )}
-                        {!embedded && cols.colDedAdvances   && <ReadOnlyAmountCell amount={row.dedAdvancesSar} colorClass="text-destructive" />}
-                        {!embedded && cols.colDedAbsence  && <ReadOnlyAmountCell amount={row.dedAbsenceSar} colorClass="text-warning" />}
-                        {!embedded && cols.colDedLate     && <ReadOnlyAmountCell amount={row.dedLateSar} colorClass="text-destructive" />}
-                        {!embedded && cols.colDedPenalties&& <ReadOnlyAmountCell amount={row.dedPenaltiesSar} colorClass="text-destructive" />}
-                        {!embedded && cols.colDedAdmin && (
-                          <AdjustableAmountCell
-                            amount={row.dedAdminSar}
-                            colorClass={
-                              row.dedAdminSar > 0
-                                ? 'text-primary'
-                                : row.dedAdminSar < 0
-                                  ? 'text-destructive'
-                                  : 'text-muted-foreground'
-                            }
-                            disabled={isReviewLocked}
-                            onEditClick={() => openAdjustDialog(row, 'admin')}
-                          />
+                        {tableCols.colOvertime && <ReadOnlyAmountCell amount={row.entitlementOvertimeSar} colorClass="text-primary" />}
+                        {tableCols.colBonus && (
+                          embedded ? (
+                            <ReadOnlyAmountCell amount={row.entitlementBonusSar} colorClass="text-primary" />
+                          ) : (
+                            <AdjustableAmountCell
+                              amount={row.entitlementBonusSar}
+                              colorClass="text-primary"
+                              disabled={isReviewLocked}
+                              onEditClick={() => openAdjustDialog(row, 'bonus')}
+                            />
+                          )
                         )}
                         {embedded && (
-                          <td className="border-e border-border/40 px-3 py-2 text-center font-mono tabular-nums text-destructive">
-                            {fmt(row.dedAbsenceSar + row.dedLateSar + row.dedPenaltiesSar)}
+                          <td className="border-e border-border/40 px-3 py-2 text-center font-mono font-semibold tabular-nums">
+                            {fmt(row.grossSar)}
                           </td>
+                        )}
+                        {tableCols.colDedAdvances && <ReadOnlyAmountCell amount={row.dedAdvancesSar} colorClass="text-destructive" />}
+                        {tableCols.colDedAbsence && <ReadOnlyAmountCell amount={row.dedAbsenceSar} colorClass="text-warning" />}
+                        {tableCols.colDedLate && <ReadOnlyAmountCell amount={row.dedLateSar} colorClass="text-destructive" />}
+                        {tableCols.colDedPenalties && <ReadOnlyAmountCell amount={row.dedPenaltiesSar} colorClass="text-destructive" />}
+                        {tableCols.colDedAdmin && (
+                          embedded ? (
+                            <ReadOnlyAmountCell
+                              amount={row.dedAdminSar}
+                              colorClass={
+                                row.dedAdminSar > 0
+                                  ? 'text-primary'
+                                  : row.dedAdminSar < 0
+                                    ? 'text-destructive'
+                                    : 'text-muted-foreground'
+                              }
+                            />
+                          ) : (
+                            <AdjustableAmountCell
+                              amount={row.dedAdminSar}
+                              colorClass={
+                                row.dedAdminSar > 0
+                                  ? 'text-primary'
+                                  : row.dedAdminSar < 0
+                                    ? 'text-destructive'
+                                    : 'text-muted-foreground'
+                              }
+                              disabled={isReviewLocked}
+                              onEditClick={() => openAdjustDialog(row, 'admin')}
+                            />
+                          )
                         )}
                         <td className={cn(
                           'bg-primary/5 px-3 py-2 text-center font-mono font-bold tabular-nums',
@@ -902,50 +821,33 @@ export function CompensationReportPanel({
                       </tr>
                   ))}
                 </tbody>
-                {/* Totals footer */}
                 <tfoot>
                   <tr className="border-t-2 border-primary/20 bg-gradient-to-b from-primary/6 to-primary/3 font-bold text-[11.5px]">
-                    {embedded ? (
-                      <>
-                        <td colSpan={2} className="border-e border-border/60 px-3 py-3 text-right text-xs font-bold text-primary">المجموع الكلي</td>
-                        <td className="border-e border-border/60 px-3 py-3 text-center font-mono tabular-nums">{fmt(footerTotals?.baseSalary ?? 0)}</td>
-                        <td className="border-e border-border/60 px-3 py-3 text-center font-mono tabular-nums">{fmt(footerTotals?.allowancesTotal ?? 0)}</td>
-                        <td className="border-e border-border/60 px-3 py-3 text-center font-mono tabular-nums text-primary">{fmt((footerTotals?.overtime ?? 0) + (footerTotals?.bonuses ?? 0))}</td>
-                        <td className="border-e border-border/60 px-3 py-3 text-center font-mono tabular-nums text-destructive">{fmt((footerTotals?.absence ?? 0) + (footerTotals?.lateness ?? 0) + (footerTotals?.penalties ?? 0))}</td>
-                        <td className={cn('bg-primary/10 px-3 py-3 text-center font-mono font-extrabold tabular-nums text-sm', (footerTotals?.net ?? 0) < 0 ? 'text-destructive' : 'text-primary')}>
-                          {fmt(footerTotals?.net ?? 0)}
-                        </td>
-                      </>
-                    ) : (
-                      <>
-                        <td colSpan={3} className="border-e border-border/60 px-3 py-3 text-right text-xs font-bold text-primary">
-                          المجموع الكلي
-                        </td>
-                        <td className="border-e border-border/60 px-3 py-3 text-center font-mono tabular-nums">
-                          {fmt(footerTotals?.baseSalary ?? 0)}
-                        </td>
-                        {cols.colOvertime    && <td className="border-e border-border/60 px-3 py-3 text-center font-mono tabular-nums text-primary">{fmt(footerTotals?.overtime ?? 0)}</td>}
-                        {cols.colBonus       && <td className="border-e border-border/60 px-3 py-3 text-center font-mono tabular-nums text-primary">{fmt(footerTotals?.bonuses ?? 0)}</td>}
-                        {cols.colDedAdvances   && <td className="border-e border-border/60 px-3 py-3 text-center font-mono tabular-nums text-destructive">{fmt(footerTotals?.advances ?? 0)}</td>}
-                        {cols.colDedAbsence  && <td className="border-e border-border/60 px-3 py-3 text-center font-mono tabular-nums text-warning">{fmt(footerTotals?.absence ?? 0)}</td>}
-                        {cols.colDedLate     && <td className="border-e border-border/60 px-3 py-3 text-center font-mono tabular-nums text-destructive">{fmt(footerTotals?.lateness ?? 0)}</td>}
-                        {cols.colDedPenalties&& <td className="border-e border-border/60 px-3 py-3 text-center font-mono tabular-nums text-destructive">{fmt(footerTotals?.penalties ?? 0)}</td>}
-                        {cols.colDedAdmin    && <td className="border-e border-border/60 px-3 py-3 text-center font-mono tabular-nums text-muted-foreground">{fmt(footerTotals?.manualAdminSigned ?? 0)}</td>}
-                        <td className={cn(
-                          'bg-primary/10 px-3 py-3 text-center font-mono font-extrabold tabular-nums text-sm',
-                          (footerTotals?.net ?? 0) < 0 ? 'text-destructive' : 'text-primary',
-                        )}>
-                          {fmt(footerTotals?.net ?? 0)}
-                        </td>
-                      </>
-                    )}
+                    <td colSpan={3} className="border-e border-border/60 px-3 py-3 text-right text-xs font-bold text-primary">
+                      المجموع الكلي
+                    </td>
+                    <td className="border-e border-border/60 px-3 py-3 text-center font-mono tabular-nums">
+                      {fmt(footerTotals?.baseSalary ?? 0)}
+                    </td>
+                    {tableCols.colOvertime && <td className="border-e border-border/60 px-3 py-3 text-center font-mono tabular-nums text-primary">{fmt(footerTotals?.overtime ?? 0)}</td>}
+                    {tableCols.colBonus && <td className="border-e border-border/60 px-3 py-3 text-center font-mono tabular-nums text-primary">{fmt(footerTotals?.bonuses ?? 0)}</td>}
+                    {embedded && <td className="border-e border-border/60 px-3 py-3 text-center font-mono tabular-nums">{fmt(footerTotals?.gross ?? 0)}</td>}
+                    {tableCols.colDedAdvances && <td className="border-e border-border/60 px-3 py-3 text-center font-mono tabular-nums text-destructive">{fmt(footerTotals?.advances ?? 0)}</td>}
+                    {tableCols.colDedAbsence && <td className="border-e border-border/60 px-3 py-3 text-center font-mono tabular-nums text-warning">{fmt(footerTotals?.absence ?? 0)}</td>}
+                    {tableCols.colDedLate && <td className="border-e border-border/60 px-3 py-3 text-center font-mono tabular-nums text-destructive">{fmt(footerTotals?.lateness ?? 0)}</td>}
+                    {tableCols.colDedPenalties && <td className="border-e border-border/60 px-3 py-3 text-center font-mono tabular-nums text-destructive">{fmt(footerTotals?.penalties ?? 0)}</td>}
+                    {tableCols.colDedAdmin && <td className="border-e border-border/60 px-3 py-3 text-center font-mono tabular-nums text-muted-foreground">{fmt(footerTotals?.manualAdminSigned ?? 0)}</td>}
+                    <td className={cn(
+                      'bg-primary/10 px-3 py-3 text-center font-mono font-extrabold tabular-nums text-sm',
+                      (footerTotals?.net ?? 0) < 0 ? 'text-destructive' : 'text-primary',
+                    )}>
+                      {fmt(footerTotals?.net ?? 0)}
+                    </td>
                   </tr>
                 </tfoot>
               </table>
             </div>
           </div>
-            )}
-          </DirectoryPagedViews>
         )}
 
       </div>

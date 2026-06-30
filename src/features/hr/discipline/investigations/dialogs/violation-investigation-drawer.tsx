@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { toast } from 'sonner';
-import { HRSettingsFormDrawer } from '@/features/hr/requests/components/shared-ui';
+import { HRSettingsFormDrawer } from '@/components/ui/shared-dialogs';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import type { ViolationInvestigationDto } from '@/features/hr/discipline/lib/api/violation-records';
 import { InvestigationResultsFormFields } from '@/features/hr/discipline/investigations/components/investigation-results-form-fields';

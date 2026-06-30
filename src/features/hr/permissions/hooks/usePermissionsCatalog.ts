@@ -3,14 +3,14 @@
 import * as React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { loadPermissionsCatalog } from '@/features/hr/permissions/services/permissions.service';
-import { scopeToHrApplication } from '@/features/hr/permissions/hooks/usePermissions';
+import { resolveHrApplicationId } from '@/features/hr/permissions/hooks/usePermissions';
 
 function hasAuthToken(): boolean {
   if (typeof document === 'undefined') return false;
   return document.cookie.split('; ').some((c) => c.startsWith('access_token='));
 }
 
-/** Catalog page — one GET /permissions call (limit 500), scoped to HR, no /applications. */
+/** Catalog page — one GET /permissions call (limit 500), all applications. */
 export function usePermissionsCatalog() {
   const query = useQuery({
     queryKey: ['permissions', 'catalog'],
@@ -20,17 +20,18 @@ export function usePermissionsCatalog() {
     enabled: hasAuthToken(),
   });
 
-  const catalog = React.useMemo(
-    () => scopeToHrApplication(query.data?.items ?? []),
-    [query.data],
+  const items = query.data?.items ?? [];
+  const resolvedHrApplicationId = React.useMemo(
+    () => resolveHrApplicationId(items),
+    [items],
   );
 
   return {
     ...query,
     data: query.data
       ? {
-          items: catalog.items,
-          applicationId: catalog.resolvedApplicationId,
+          items,
+          applicationId: resolvedHrApplicationId,
         }
       : undefined,
   };

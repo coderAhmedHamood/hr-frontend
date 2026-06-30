@@ -38,6 +38,10 @@ export function DailySmartTimeline({
   const days = dates.length;
   const employeeRows = React.useMemo(() => {
     const m = new Map<string, string>();
+    // Single-day view: list all company employees even without punches so filters stay usable.
+    if (days === 1) {
+      for (const emp of allEmployees) m.set(emp.id, emp.name);
+    }
     for (const s of summaries) m.set(s.employeeId, s.employeeName);
     for (const e of events) {
       if (!m.has(e.employeeId)) {
@@ -47,7 +51,7 @@ export function DailySmartTimeline({
     return [...m.entries()]
       .map(([id, name]) => ({ id, name }))
       .sort((a, b) => a.name.localeCompare(b.name, 'ar'));
-  }, [summaries, events, allEmployees]);
+  }, [summaries, events, allEmployees, days]);
 
   if (days === 0) {
     return (

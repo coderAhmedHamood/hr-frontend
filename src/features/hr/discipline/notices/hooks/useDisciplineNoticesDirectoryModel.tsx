@@ -13,6 +13,7 @@ import {
   type CreateDisciplineNoticeDto,
 } from '@/features/hr/discipline/lib/api/discipline-notices';
 import type { HRDisciplineNoticeKind } from '@/features/hr/discipline/lib/types';
+import { NOTICE_KIND_LABELS } from '@/features/hr/discipline/lib/types';
 import { matchesDateRange } from '@/features/hr/discipline/lib/discipline-date-filter';
 
 export type NoticeEmployee = { id: string; nameAr: string };
@@ -23,6 +24,7 @@ export type NoticeRecord = {
   employeeId: string;
   employeeNameAr: string;
   kind: HRDisciplineNoticeKind;
+  kindLabel: string;
   reasonAr: string;
   date: string;
   linkedCaseId: string | null;
@@ -51,17 +53,35 @@ const NOTICE_KIND_MAP: Record<string, HRDisciplineNoticeKind> = {
   first: 'first',
   second: 'second',
   final: 'final',
+  'إنذار أول': 'first',
+  'إنذار ثانٍ': 'second',
+  'إنذار ثاني': 'second',
+  'إنذار نهائي': 'final',
+  شفهي: 'verbal',
 };
+
+function normalizeNoticeKind(raw: string): HRDisciplineNoticeKind {
+  const trimmed = raw.trim();
+  const mapped = NOTICE_KIND_MAP[trimmed];
+  if (mapped) return mapped;
+  if (/ثان/i.test(trimmed)) return 'second';
+  if (/أول|اول/i.test(trimmed)) return 'first';
+  if (/نهائي/i.test(trimmed)) return 'final';
+  if (/شفه/i.test(trimmed)) return 'verbal';
+  return 'verbal';
+}
 
 function mapNotice(
   dto: DisciplineNoticeResponseDto,
   employeesById: Map<string, string>,
 ): NoticeRecord {
+  const kind = normalizeNoticeKind(dto.noticeKind);
   return {
     id: dto.id,
     employeeId: dto.employeeId,
     employeeNameAr: employeesById.get(dto.employeeId) ?? dto.employeeId,
-    kind: NOTICE_KIND_MAP[dto.noticeKind] ?? 'verbal',
+    kind,
+    kindLabel: dto.noticeKind?.trim() || NOTICE_KIND_LABELS[kind],
     reasonAr: dto.reasonAr,
     date: dto.noticeDate,
     linkedCaseId: dto.violationRecordId,
@@ -78,7 +98,7 @@ function applyNoticeClientFilters(
 ): NoticeRecord[] {
   const selected = new Set(filters.selectedEmpIds);
   return notices.filter((n) => {
-    if (selected.size > 1 && !selected.has(n.employeeId)) return false;
+    if (selected.size > 0 && !selected.has(n.employeeId)) return false;
     if (!matchesDateRange(n.date, filters.dateFrom, filters.dateTo)) return false;
     if (filters.kindFilter !== 'all' && n.kind !== filters.kindFilter) return false;
     return true;
@@ -233,7 +253,7 @@ export function useDisciplineNoticesDirectoryModel() {
       const dto: CreateDisciplineNoticeDto = {
         companyId: cid,
         employeeId: payload.employeeId,
-        noticeKind: payload.kind,
+        noticeKind: NOTICE_KIND_LABELS[payload.kind],
         reasonAr: payload.reasonAr,
         noticeDate: payload.date,
         violationRecordId: payload.linkedCaseId ?? null,
