@@ -4,11 +4,8 @@ import { useAuthStore } from '@/features/auth/lib/auth-store';
 import { getDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 import {
   employeeAdvancesApi,
-  type EmployeeAdvanceResponseDto,
   type EmployeeAdvanceDecisionDto,
-  type AdvanceKindDto,
   type AdvanceStatusDto,
-  type RepaymentModeDto,
 } from './api/employee-advances';
 import {
   duplicateAdvanceNumberMessage,
@@ -16,7 +13,10 @@ import {
 } from './employee-advance-errors';
 import { ApiError } from '@/features/hr/lib/api/client';
 import type { RequestApproverStatesSnapshot } from '@/features/hr/requests/lib/api/request-approver-states-types';
-import { normalizeRequestApproverStates } from '@/features/hr/requests/lib/request-approver-states';
+import { mapEmployeeAdvanceFromApi } from './employee-advances-mapper';
+
+export { mapEmployeeAdvanceFromApi } from './employee-advances-mapper';
+export type { EmployeeNameLookup } from './employee-advances-mapper';
 
 const CREATE_RETRY_ATTEMPTS = 3;
 const CREATE_RETRY_DELAY_MS = 200;
@@ -66,57 +66,13 @@ export const DELETABLE_ADVANCE_STATUSES: HREmployeeAdvanceStatus[] = [
   'cancelled',
 ];
 
-function mapKind(k: AdvanceKindDto | null): HREmployeeAdvanceKind {
-  if (k === 'housing') return 'housing';
-  if (k === 'emergency') return 'urgent';
-  return 'personal';
-}
-
-function mapRepaymentMode(m: RepaymentModeDto | null): HREmployeeAdvanceRepaymentMode {
-  if (m === 'monthly_payroll') return 'by_months';
-  return 'by_monthly_amount';
-}
-
-export function mapEmployeeAdvanceFromApi(r: EmployeeAdvanceResponseDto): HREmployeeAdvance {
-  const note = (r.note ?? '').trim();
-  const reasonAr = (r.reasonAr ?? r.note ?? '').trim();
-  return {
-    id: r.id,
-    advanceNumber: r.advanceNumber,
-    employeeId: r.employeeId,
-    employeeNameAr: r.employeeNameAr,
-    branchNameAr: r.branchNameAr ?? null,
-    amount: parseFloat(r.amount) || 0,
-    currency: r.currency,
-    advanceDate: r.advanceDate,
-    note,
-    reasonAr,
-    status: r.status,
-    advanceKind: mapKind(r.advanceKind),
-    repaymentMode: mapRepaymentMode(r.repaymentMode),
-    repaymentMonths: r.repaymentMonths ?? null,
-    monthlyInstallmentAmount: r.monthlyInstallmentAmount != null
-      ? parseFloat(r.monthlyInstallmentAmount)
-      : null,
-    totalRepaidAmount: parseFloat(r.totalRepaidAmount) || 0,
-    remainingAmount: parseFloat(r.remainingAmount) || 0,
-    approvedAt: r.approvedAt,
-    rejectedAt: r.rejectedAt ?? null,
-    decisionNotes: r.decisionNotes ?? null,
-    disbursedAt: r.disbursedAt,
-    createdAt: r.createdAt,
-    approverStates: normalizeRequestApproverStates(r),
-    updatedAt: r.updatedAt,
-  };
-}
-
-function toBackendKind(k: HREmployeeAdvanceKind): AdvanceKindDto {
+function toBackendKind(k: HREmployeeAdvanceKind): import('./api/employee-advances').AdvanceKindDto {
   if (k === 'housing') return 'housing';
   if (k === 'urgent') return 'emergency';
   return 'salary_advance';
 }
 
-function toBackendRepaymentMode(m: HREmployeeAdvanceRepaymentMode): RepaymentModeDto {
+function toBackendRepaymentMode(m: HREmployeeAdvanceRepaymentMode): import('./api/employee-advances').RepaymentModeDto {
   if (m === 'by_months') return 'monthly_payroll';
   return 'flexible';
 }
@@ -152,7 +108,12 @@ export const useHREmployeeAdvancesStore = create<State>()((set) => ({
         advanceDateTo: params?.advanceDateTo,
         limit: 200,
       });
-      set({ items: result.items.map(mapEmployeeAdvanceFromApi), isLoading: false });
+      set({
+        items: result.items.map((item) =>
+          mapEmployeeAdvanceFromApi(item, { catalog: result.approvalAssignments }),
+        ),
+        isLoading: false,
+      });
     } catch (e) {
       set({ error: { message: (e as Error).message, status: e instanceof ApiError ? e.status : 0 }, isLoading: false });
       throw e;

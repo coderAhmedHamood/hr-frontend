@@ -335,7 +335,7 @@ export function DateRangePicker({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
         hideClose
-        className="max-w-[356px] gap-0 p-0 overflow-hidden rounded-2xl border border-border/60 shadow-2xl"
+        className="max-w-[356px] gap-0 p-0 overflow-visible rounded-2xl border border-border/60 shadow-2xl"
         dir="rtl"
       >
         <div className="relative">

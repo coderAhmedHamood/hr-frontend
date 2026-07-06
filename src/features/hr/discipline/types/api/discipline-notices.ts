@@ -31,4 +31,10 @@ export type DisciplineNoticeListQuery = {
   limit?: number;
   companyId?: string;
   employeeId?: string;
+  employeeIds?: string[];
+  violationRecordId?: string;
+  noticeKind?: string;
+  noticeKinds?: string[];
+  dateFrom?: string;
+  dateTo?: string;
 };

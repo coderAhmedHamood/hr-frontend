@@ -10,6 +10,7 @@ import {
   Loader2,
   ShieldAlert,
   Layers,
+  Lock,
   Unlink,
   Wrench,
 } from 'lucide-react';
@@ -18,6 +19,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
   dialogFormFooterClass,
 } from '@/components/ui/dialog';
@@ -40,9 +42,9 @@ import {
   formatMinutesAr,
 } from '@/features/hr/attendance/components/attendance-punch-pair';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
-import { toast } from 'sonner';
+import { DailyShiftCorrectionDialog } from '@/features/hr/attendance/daily/components/daily-shift-correction-dialog';
 
-const WEEKDAY_AR = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+export const WEEKDAY_AR = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
 
 const BREAKDOWN_STATUS: Record<string, { label: string; color: string; dot: string }> = {
   present: STATUS.present,
@@ -61,7 +63,7 @@ const EVENT_META: Record<AttendanceEventType, { labelAr: string; icon: React.Ele
   break_end: { labelAr: 'نهاية استراحة', icon: Coffee, color: 'text-orange-600' },
 };
 
-function defaultTimezoneOffsetMinutes() {
+export function defaultTimezoneOffsetMinutes() {
   return -new Date().getTimezoneOffset();
 }
 
@@ -96,7 +98,7 @@ function formatWallClock12(t: string | null | undefined) {
   return `${h12}:${mm} ${period}`;
 }
 
-function statusCfg(status: string) {
+export function statusCfg(status: string) {
   return BREAKDOWN_STATUS[status] ?? STATUS.unscheduled;
 }
 
@@ -132,7 +134,7 @@ function resolvePeriodActualDisplay(
   return { ...actual, checkInAt, checkOutAt };
 }
 
-function ActualRegistrationBlock({
+export function ActualRegistrationBlock({
   actual,
   offsetMinutes,
 }: {
@@ -166,7 +168,7 @@ function ActualRegistrationBlock({
 }
 
 /** Day-level actual when breakdown has no periods — from daily-breakdown unmatched + totals only. */
-function resolveDayActualWithoutPeriods(
+export function resolveDayActualWithoutPeriods(
   breakdown: DailyBreakdownResponseDto,
 ): PeriodActual | null {
   const checkInAt = punchAt(breakdown.unmatchedEvents, 'check_in', false);
@@ -187,7 +189,7 @@ function resolveDayActualWithoutPeriods(
   };
 }
 
-function StatChip({
+export function StatChip({
   label,
   value,
   tone = 'default',
@@ -224,7 +226,7 @@ function DetailRow({ label, value, hint }: { label: string; value: React.ReactNo
   );
 }
 
-function EventRow({ evt, offsetMinutes }: { evt: AttendanceEventResponseDto; offsetMinutes: number }) {
+export function EventRow({ evt, offsetMinutes }: { evt: AttendanceEventResponseDto; offsetMinutes: number }) {
   const meta = EVENT_META[evt.eventType];
   const Icon = meta.icon;
   const warning = evt.warningMessage ?? evt.exclusionMessage;
@@ -284,7 +286,7 @@ function WindowStatusBadge({
   );
 }
 
-function PeriodCard({
+export function PeriodCard({
   period,
   index,
   offsetMinutes,
@@ -308,7 +310,7 @@ function PeriodCard({
         <div className="flex items-center gap-2">
         <Layers className="h-3.5 w-3.5 text-muted-foreground" />
           <span className="text-sm font-semibold">{periodLabel}</span>
-          <span className="text-xs text-muted-foreground tabular-nums" >
+          <span className="text-xs text-muted-foreground" >
             {formatWallClock12(expected.startTime)} — {formatWallClock12(expected.endTime)}
           </span>
         </div>
@@ -465,7 +467,8 @@ export function DailyDayDetailDialog({
   const [registerOpen, setRegisterOpen] = React.useState(false);
   const [breakdown, setBreakdown] = React.useState<DailyBreakdownResponseDto | null>(null);
   const [loading, setLoading] = React.useState(false);
-  const [correctingIndex, setCorrectingIndex] = React.useState<number | null>(null);
+  const [correctionOpen, setCorrectionOpen] = React.useState(false);
+  const [correctionPeriodIndex, setCorrectionPeriodIndex] = React.useState<number | undefined>();
 
   const loadBreakdown = React.useCallback(async (opts?: { silent?: boolean }) => {
     if (!summary || !companyId) return;
@@ -486,63 +489,10 @@ export function DailyDayDetailDialog({
     }
   }, [summary, companyId]);
 
-  const correctPeriod = React.useCallback(
-    async (period: DailyBreakdownPeriod, periodIndex: number) => {
-      if (!summary || !companyId || !breakdown) return;
-
-      const { expected } = period;
-      const label =
-        breakdown.periods.length > 1 ? `وردية ${periodIndex + 1}` : 'الوردية';
-      const voidReason = `تصحيح ${label} — اختبار`;
-
-      setCorrectingIndex(periodIndex);
-      try {
-        const punchTypes = new Set<AttendanceEventType>(['check_in', 'check_out']);
-        const toVoid = [
-          ...period.events,
-          ...(breakdown.periods.length === 1 ? breakdown.unmatchedEvents : []),
-        ].filter((evt) => !evt.isVoided && punchTypes.has(evt.eventType));
-
-        for (const evt of toVoid) {
-          await attendanceEventsApi.void(evt.id, voidReason);
-        }
-
-        await attendanceEventsApi.create({
-          companyId,
-          employeeId: summary.employeeId,
-          eventType: 'check_in',
-          occurredAt: expected.startAt,
-          workDate: summary.date,
-          source: 'manual_hr',
-          periodSortOrder: expected.sortOrder,
-          notes: voidReason,
-        });
-
-        if (!expected.checkOutNotRequired && expected.endAt) {
-          await attendanceEventsApi.create({
-            companyId,
-            employeeId: summary.employeeId,
-            eventType: 'check_out',
-            occurredAt: expected.endAt,
-            workDate: summary.date,
-            source: 'manual_hr',
-            periodSortOrder: expected.sortOrder,
-            notes: voidReason,
-          });
-        }
-
-        toast.success(
-          `تم تصحيح ${label} (${trimTime(expected.startTime)} — ${trimTime(expected.endTime)})`,
-        );
-        await loadBreakdown({ silent: true });
-      } catch (err) {
-        handleApiError(err, 'attendance/events/correct-period');
-      } finally {
-        setCorrectingIndex(null);
-      }
-    },
-    [breakdown, companyId, loadBreakdown, summary],
-  );
+  const openCorrectionForPeriod = React.useCallback((periodIndex: number) => {
+    setCorrectionPeriodIndex(periodIndex);
+    setCorrectionOpen(true);
+  }, []);
 
   React.useEffect(() => {
     if (!open || !summary || !companyId) {
@@ -554,6 +504,7 @@ export function DailyDayDetailDialog({
 
   if (!summary) return null;
 
+  const isFinalized = Boolean(summary.isFinalized);
   const offsetMinutes = breakdown?.timezoneOffsetMinutes ?? defaultTimezoneOffsetMinutes();
   const dayCfg = breakdown ? statusCfg(breakdown.status) : STATUS.unscheduled;
   const totals = breakdown?.totals;
@@ -567,19 +518,21 @@ export function DailyDayDetailDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="flex max-h-[90vh] max-w-lg flex-col gap-0 overflow-hidden p-0" dir="rtl">
+        <DialogContent className="flex max-h-[90vh] max-w-lg flex-col gap-0 overflow-visible p-0" dir="rtl">
           <DialogHeader className="shrink-0 border-b border-border px-5 py-4 text-right">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <DialogTitle className="flex items-center gap-2 text-base">
                 <CalendarDays className="h-4 w-4 text-muted-foreground" />
                 تفاصيل يوم الحضور
               </DialogTitle>
+              <DialogDescription className="sr-only">
+                تفاصيل حضور {summary.employeeName} ليوم {summary.date}
+              </DialogDescription>
 
-              {!loading && breakdown && breakdown.periods.length > 0 && companyId ? (
+              {!loading && breakdown && breakdown.periods.length > 0 && companyId && !isFinalized ? (
                 <div className="flex flex-wrap gap-1.5 sm:justify-end">
                   {breakdown.periods.map((period, index) => {
                     const multi = breakdown.periods.length > 1;
-                    const busy = correctingIndex !== null;
                     return (
                       <Button
                         key={period.expected.periodId}
@@ -587,15 +540,10 @@ export function DailyDayDetailDialog({
                         variant="outline"
                         size="sm"
                         className="h-7 gap-1.5 border-primary/30 px-2.5 text-[11px] text-primary hover:bg-primary/5"
-                        disabled={busy}
                         title={`تصحيح ${multi ? `وردية ${index + 1}` : 'الوردية'} — ${trimTime(period.expected.startTime)} إلى ${trimTime(period.expected.endTime)}`}
-                        onClick={() => void correctPeriod(period, index)}
+                        onClick={() => openCorrectionForPeriod(index)}
                       >
-                        {correctingIndex === index ? (
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                        ) : (
-                          <Wrench className="h-3 w-3" />
-                        )}
+                        <Wrench className="h-3 w-3" />
                         تصحيح {multi ? `وردية ${index + 1}` : 'الوردية'}
                       </Button>
                     );
@@ -613,10 +561,18 @@ export function DailyDayDetailDialog({
                 {fmtFull(displayDate)}
                 {breakdown ? ` · ${WEEKDAY_AR[breakdown.weekDay] ?? ''}` : ''}
               </p>
-              <span className={cn('inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold', dayCfg.color)}>
-                <span className={cn('h-1.5 w-1.5 rounded-full', dayCfg.dot)} />
-                {dayCfg.label}
-              </span>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className={cn('inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold', dayCfg.color)}>
+                  <span className={cn('h-1.5 w-1.5 rounded-full', dayCfg.dot)} />
+                  {dayCfg.label}
+                </span>
+                {isFinalized ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-muted-foreground/30 bg-muted/30 px-2.5 py-0.5 text-xs font-semibold text-muted-foreground">
+                    <Lock className="h-3 w-3" />
+                    اليوم مقفل نهائياً
+                  </span>
+                ) : null}
+              </div>
             </div>
 
             {loading ? (
@@ -745,7 +701,7 @@ export function DailyDayDetailDialog({
             )}
           </div>
 
-          {companyId ? (
+          {companyId && !isFinalized ? (
             <DialogFooter className={dialogFormFooterClass}>
               <Button
                 type="button"
@@ -771,6 +727,24 @@ export function DailyDayDetailDialog({
           workDate={summary.date}
           companyId={companyId}
           onCreated={() => {
+            void loadBreakdown();
+          }}
+        />
+      ) : null}
+
+      {companyId ? (
+        <DailyShiftCorrectionDialog
+          open={correctionOpen}
+          onOpenChange={(open) => {
+            setCorrectionOpen(open);
+            if (!open) setCorrectionPeriodIndex(undefined);
+          }}
+          companyId={companyId}
+          employeeId={summary.employeeId}
+          employeeName={summary.employeeName}
+          workDate={summary.date}
+          periodIndex={correctionPeriodIndex}
+          onSuccess={() => {
             void loadBreakdown();
           }}
         />

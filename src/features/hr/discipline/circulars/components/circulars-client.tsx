@@ -14,6 +14,7 @@ import { DatePickerInput } from '@/components/ui/date-picker-input';
 import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
 import { usePageHeaderActions, usePageHeaderActionsState } from '@/components/layouts/page-header-actions-context';
 import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
+import { ForbiddenState } from '@/components/shared/forbidden-state';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import {
   ConfirmationModal, HRSettingsFormDrawer, FormField,
@@ -285,6 +286,10 @@ export function CircularsClient() {
       setFormError(displayMessage);
     }
   };
+
+  if (m.accessDenied) {
+    return <ForbiddenState title="لا تملك صلاحية الوصول للتعميمات" />;
+  }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">

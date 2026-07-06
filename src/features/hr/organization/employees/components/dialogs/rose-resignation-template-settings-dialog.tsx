@@ -59,7 +59,7 @@ export function RoseResignationTemplateSettingsDialog({ open, onOpenChange }: Pr
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] max-w-2xl overflow-hidden border-border p-0">
+      <DialogContent className="max-h-[90vh] max-w-2xl overflow-visible border-border p-0">
         <DialogHeader className="border-b border-border px-5 py-4 text-right">
           <DialogTitle className="font-display">إعدادات قالب الاستقالة</DialogTitle>
           <DialogDescription className="sr-only">

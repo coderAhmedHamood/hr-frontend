@@ -33,7 +33,7 @@ export function QRCodeDialog({ job, open, onOpenChange }: QRCodeDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md overflow-hidden">
+      <DialogContent className="max-w-md overflow-visible">
         <DialogHeader><DialogTitle>أدوات المشاركة</DialogTitle></DialogHeader>
         <div className="space-y-6 overflow-hidden">
           <div className="rounded-lg border border-border bg-muted/20 p-3">

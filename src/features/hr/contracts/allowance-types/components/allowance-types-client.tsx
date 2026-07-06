@@ -6,7 +6,8 @@ import {
   LayoutGrid, List,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { cn } from '@/shared/utils';
+import { MoneyAmount } from '@/components/ui/sar-amount';
+import { cn, formatNumber } from '@/shared/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -48,9 +49,15 @@ const CALC_TYPE_LABEL: Record<AllowanceCalculationType, string> = {
   percent_of_basic: 'نسبة من الأساسي',
 };
 
-function fmtAmount(item: AllowanceTypeDto): string {
+function fmtAmount(item: AllowanceTypeDto): React.ReactNode {
   if (item.calculationType === 'fixed_amount' && item.typicalAmount) {
-    return `${parseFloat(item.typicalAmount).toLocaleString('ar-SA')} ${item.currency}`;
+    return (
+      <MoneyAmount
+        value={parseFloat(item.typicalAmount)}
+        currency={item.currency}
+        fractionDigits={0}
+      />
+    );
   }
   if (item.calculationType === 'percent_of_basic' && item.typicalPercent) {
     return `${parseFloat(item.typicalPercent)}%`;

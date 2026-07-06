@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { EmployeePicker } from '@/components/ui/employee-picker';
+import { FILTER_PERMISSIONS } from '@/features/auth/permissions/filter-permissions';
 import { FormField, HRSettingsFormDrawer, MinimalDropdown } from '@/components/ui/shared-dialogs';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import {
@@ -232,6 +233,7 @@ export function SendNotificationDrawer({
           employees={employeeOptions}
           selected={form.employeeIds}
           onChange={(employeeIds) => setForm((f) => ({ ...f, employeeIds }))}
+          requirePermission={FILTER_PERMISSIONS.employee}
         />
       </FormField>
       <label className="flex cursor-pointer items-center gap-2 text-sm">
@@ -248,7 +250,7 @@ export function SendNotificationDrawer({
           <Input
             value={form.actionUrl}
             onChange={(e) => setForm((f) => ({ ...f, actionUrl: e.target.value }))}
-            placeholder="/hr/dashboard"
+            placeholder="/hr/organization/employees"
             dir="ltr"
           />
         </FormField>

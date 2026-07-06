@@ -17,7 +17,6 @@ import {
   EmptyState,
 } from '@/components/ui/shared-dialogs';
 import { DirectoryPagedViews, useServerDirectoryPagination } from '@/components/ui/paged-list';
-import { fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
 import { employeeContractsApi } from '@/features/hr/contracts/lib/contracts-api';
 import {
   useHRContractsStore,
@@ -38,6 +37,7 @@ import { applyContractTemplateToForm, computeTemplateEndDate } from '@/features/
 import { useAllowanceTypes } from '@/features/hr/contracts/lib/hooks/use-allowance-types';
 import { useContractArticles } from '@/features/hr/contracts/lib/hooks/use-contract-articles';
 import { useHREmployeeDirectoryStore } from '@/features/hr/requests/lib/employee-directory-store';
+import { MoneyAmount } from '@/components/ui/sar-amount';
 import { cn, formatNumber } from '@/shared/utils';
 import { hrContractsRoutes } from '@/features/hr/contracts/constants/routes';
 import {
@@ -53,13 +53,11 @@ import {
   EMPLOYMENT_KIND_FILTER_OPTIONS,
 } from '@/features/hr/contracts/employment/utils/employment-contract-form';
 import { EmploymentContractTerminateModal as TerminateModal } from '@/features/hr/contracts/employment/components/employment-contract-terminate-modal';
-import { EmploymentContractSignatureCard } from '@/features/hr/contracts/employment/components/employment-contract-signature-card';
 import { EmploymentContractDetailDialog } from '@/features/hr/contracts/employment/components/employment-contract-detail-dialog';
 import { EmploymentContractFormDialog } from '@/features/hr/contracts/employment/components/employment-contract-form-dialog';
 import { ContractLeaveTypePickerDialog } from '@/features/hr/contracts/employment/components/contract-leave-type-picker-dialog';
 import {
   canActivateEmploymentContract,
-  canRecordEmployeeContractAcceptance,
   contractCreditsLeaveDays,
   isTerminatedEmploymentContract,
 } from '@/features/hr/contracts/employment/utils/contract-leave-credit';
@@ -85,6 +83,13 @@ const formToDraft = employmentFormToDraft;
 type PanelMode = 'create' | 'edit';
 type StatusFilter = 'all' | HRContractLifecycleStatus;
 type KindFilter = 'all' | HRContractNature;
+type DraftFilter = 'all' | 'draft' | 'undraft';
+
+const DRAFT_FILTER_OPTIONS: { value: DraftFilter; label: string }[] = [
+  { value: 'all', label: 'الكل' },
+  { value: 'draft', label: 'مسودة' },
+  { value: 'undraft', label: 'غير مسودة' },
+];
 
 export function EmploymentContractsClient() {
   const router = useRouter();
@@ -92,7 +97,7 @@ export function EmploymentContractsClient() {
   const modeParam = searchParams.get(HR_CONTRACTS_MODE_PARAM);
 
   const companyId = useDefaultCompanyId();
-  const { add, update, activate, employeeAccept, terminate, archive, createAmendmentDraft } = useHRContractsStore();
+  const { add, update, activate, terminate, archive, createAmendmentDraft } = useHRContractsStore();
   const { templates, fetch: fetchTemplates } = useHRContractTemplatesStore();
   const { data: allowanceTypes = [] } = useAllowanceTypes();
   const { data: articles = [] } = useContractArticles();
@@ -156,10 +161,15 @@ export function EmploymentContractsClient() {
       key: 'kind', label: 'نوع العقد', type: 'select',
       options: EMPLOYMENT_KIND_FILTER_OPTIONS.map(({ value, label }) => ({ value, label })),
     },
+    {
+      key: 'draft', label: 'المسودات', type: 'select',
+      options: DRAFT_FILTER_OPTIONS,
+    },
   ]);
 
   const statusFilter = (values.status as StatusFilter) || 'all';
   const kindFilter = (values.kind as KindFilter) || 'all';
+  const draftFilter = (values.draft as DraftFilter) || 'all';
 
   const [archiveScope, setArchiveScope] = React.useState<OrganizationArchiveScope>(
     ORGANIZATION_ARCHIVE_SCOPE_DEFAULT,
@@ -168,7 +178,6 @@ export function EmploymentContractsClient() {
   const [selectedEmpIds, setSelectedEmpIds] = React.useState<Set<string>>(new Set());
 
   const selectedEmpKey = React.useMemo(() => [...selectedEmpIds].sort().join(','), [selectedEmpIds]);
-  const bulkMode = selectedEmpIds.size > 1;
 
   const buildListQuery = React.useCallback((page: number, pageSize: number) => ({
     companyId: companyId!,
@@ -177,8 +186,9 @@ export function EmploymentContractsClient() {
     ...payrollListArchiveQuery(),
     ...(statusFilter !== 'all' ? { status: statusFilter } : {}),
     ...(kindFilter !== 'all' ? { contractNature: kindFilter } : {}),
-    ...(selectedEmpIds.size === 1 ? { employeeId: [...selectedEmpIds][0] } : {}),
-  }), [companyId, archiveScope, statusFilter, kindFilter, selectedEmpIds]);
+    ...(draftFilter !== 'all' ? { isDraft: draftFilter === 'draft' } : {}),
+    ...(selectedEmpIds.size > 0 ? { employeeIds: [...selectedEmpIds] } : {}),
+  }), [companyId, archiveScope, statusFilter, kindFilter, draftFilter, selectedEmpIds]);
 
   const loadPage = React.useCallback(async (page: number, pageSize: number) => {
     if (!companyId) return { items: [] as HRContractRecord[], total: 0 };
@@ -191,21 +201,6 @@ export function EmploymentContractsClient() {
     }
   }, [buildListQuery, companyId]);
 
-  const loadBulk = React.useCallback(async () => {
-    if (!companyId) return { items: [] as HRContractRecord[], total: 0 };
-    try {
-      const res = await fetchAllPaginatedItems((page, limit) => employeeContractsApi.list(buildListQuery(page, limit)));
-      const scoped = selectedEmpIds.size > 0
-        ? res.items.filter((c) => selectedEmpIds.has(c.employeeId))
-        : res.items;
-      const items = scoped.map(mapEmployeeContractFromApi);
-      return { items, total: items.length };
-    } catch (err) {
-      handleApiError(err, 'contracts.list');
-      return { items: [], total: 0 };
-    }
-  }, [buildListQuery, companyId, selectedEmpIds]);
-
   const {
     items: filtered,
     loading: listLoading,
@@ -213,9 +208,7 @@ export function EmploymentContractsClient() {
     reload: reloadList,
   } = useServerDirectoryPagination<HRContractRecord>(loadPage, {
     enabled: !!companyId,
-    bulkMode,
-    loadBulk: bulkMode ? loadBulk : undefined,
-    resetDeps: [companyId, statusFilter, kindFilter, archiveScope, selectedEmpKey],
+    resetDeps: [companyId, statusFilter, kindFilter, draftFilter, archiveScope, selectedEmpKey],
   });
 
   const [drawerOpen, setDrawerOpen] = React.useState(false);
@@ -415,7 +408,7 @@ export function EmploymentContractsClient() {
     router.push(`${hrContractsRoutes.employment}?${HR_CONTRACTS_MODE_PARAM}=createContract`);
   }, [router]);
 
-  const activeFilterCount = (kindFilter !== 'all' ? 1 : 0) + (statusFilter !== 'all' ? 1 : 0) + (selectedEmpIds.size > 0 ? 1 : 0);
+  const activeFilterCount = (kindFilter !== 'all' ? 1 : 0) + (statusFilter !== 'all' ? 1 : 0) + (draftFilter !== 'all' ? 1 : 0) + (selectedEmpIds.size > 0 ? 1 : 0);
 
   usePageHeaderActions(
     () => (
@@ -526,14 +519,6 @@ export function EmploymentContractsClient() {
     await reloadList();
   };
 
-  const runEmployeeAccept = async (id: string) => {
-    const res = await employeeAccept(id);
-    if (!res.ok) throw new Error(res.message);
-    toast.success('تم تسجيل موافقة الموظف على العقد.');
-    setDetailRefreshKey((k) => k + 1);
-    await reloadList();
-  };
-
   const handleActivate = (contract: HRContractRecord) => {
     if (contractCreditsLeaveDays(contract)) {
       setLeavePicker({
@@ -543,10 +528,6 @@ export function EmploymentContractsClient() {
       return;
     }
     void runActivate(contract.id);
-  };
-
-  const handleEmployeeAccept = (contract: HRContractRecord) => {
-    void runEmployeeAccept(contract.id);
   };
 
   const handleLeavePickerConfirm = async (leaveTypeId: string) => {
@@ -658,7 +639,14 @@ export function EmploymentContractsClient() {
       options: EMPLOYMENT_KIND_FILTER_OPTIONS.map(({ value, label }) => ({ value, label })),
       placeholder: 'نوع العقد',
     },
-  ], [archiveScope, kindFilter, setValue]);
+    {
+      id: 'draft',
+      value: draftFilter,
+      onChange: (v) => setValue('draft', v),
+      options: DRAFT_FILTER_OPTIONS,
+      placeholder: 'المسودات',
+    },
+  ], [archiveScope, kindFilter, draftFilter, setValue]);
 
   const handleStatusFilterChange = React.useCallback(
     (v: string) => setValue('status', v),
@@ -684,6 +672,7 @@ export function EmploymentContractsClient() {
     [
       statusFilter,
       kindFilter,
+      draftFilter,
       archiveScope,
       selectedEmpKey,
       statusCounts,
@@ -705,16 +694,6 @@ export function EmploymentContractsClient() {
 
     return (
       <div className="flex items-center gap-1 flex-wrap" onClick={e => e.stopPropagation()}>
-        {canRecordEmployeeContractAcceptance(c) ? (
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-7 text-xs text-primary hover:text-primary"
-            onClick={() => handleEmployeeAccept(c)}
-          >
-            موافقة الموظف
-          </Button>
-        ) : null}
         {canActivateEmploymentContract(c) ? (
           <Button size="sm" variant="ghost" className="h-7 text-xs text-success hover:text-success" onClick={() => handleActivate(c)}>تفعيل</Button>
         ) : null}
@@ -776,15 +755,8 @@ export function EmploymentContractsClient() {
               </div>
               <div className="flex items-center gap-1 text-sm font-bold tabular-nums text-foreground">
                 <Coins className="h-3.5 w-3.5 text-gold" />
-                {formatNumber(c.baseSalary)}
-                <span className="text-[10px] font-normal text-muted-foreground">{c.currency}</span>
+                <MoneyAmount value={c.baseSalary} currency={c.currency} fractionDigits={0} className="text-sm font-bold" />
               </div>
-              <EmploymentContractSignatureCard
-                signed={c.employeeSigned}
-                rejectionReason={c.rejectionReason}
-                contractStatus={c.status}
-                variant="compact"
-              />
               <div className="mt-auto flex flex-wrap items-center justify-end gap-1 border-t border-border pt-3" onClick={e => e.stopPropagation()}>
                 <ContractActions c={c} />
               </div>

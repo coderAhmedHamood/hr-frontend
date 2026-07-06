@@ -14,7 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { SingleDatePicker } from '@/components/ui/single-date-picker';
+import { DatePickerInput } from '@/components/ui/date-picker-input';
 import { cn } from '@/shared/utils';
 import type { AttendanceCheckInPoint, AttendanceCheckInPointLink } from '@/features/hr/attendance/lib/types';
 
@@ -63,7 +63,7 @@ export function EmployeeAttendanceDialogs(p: EmployeeAttendanceDialogsProps) {
   return (
     <>
       <Dialog open={p.shiftOpen} onOpenChange={p.setShiftOpen}>
-        <DialogContent className="flex flex-col gap-0 overflow-hidden p-0 sm:max-w-sm">
+        <DialogContent className="flex flex-col gap-0 overflow-visible p-0 sm:max-w-sm">
           <DialogHeader className="border-b border-border px-5 py-4">
             <div className="flex items-center gap-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
@@ -79,7 +79,7 @@ export function EmployeeAttendanceDialogs(p: EmployeeAttendanceDialogsProps) {
           <div className="px-5 py-4 space-y-4">
             <div className="flex items-center gap-3">
               <Label className="shrink-0 text-xs">ساري من</Label>
-              <SingleDatePicker value={p.shiftDate} onChange={p.setShiftDate} />
+              <DatePickerInput value={p.shiftDate} onChange={p.setShiftDate} />
             </div>
 
             <div className="space-y-1.5">
@@ -159,7 +159,7 @@ export function EmployeeAttendanceDialogs(p: EmployeeAttendanceDialogsProps) {
       </Dialog>
 
       <Dialog open={p.cpOpen} onOpenChange={p.setCpOpen}>
-        <DialogContent className="flex max-h-[80vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-md">
+        <DialogContent className="flex max-h-[80vh] flex-col gap-0 overflow-visible p-0 sm:max-w-md">
           <DialogHeader className="border-b border-border px-5 py-4">
             <div className="flex items-center gap-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
@@ -175,7 +175,7 @@ export function EmployeeAttendanceDialogs(p: EmployeeAttendanceDialogsProps) {
           <div className="border-b border-border bg-muted/20 px-5 py-3">
             <div className="flex items-center gap-3">
               <Label className="shrink-0 text-xs">ساري من</Label>
-              <SingleDatePicker value={p.cpDate} onChange={p.setCpDate} />
+              <DatePickerInput value={p.cpDate} onChange={p.setCpDate} />
             </div>
           </div>
 

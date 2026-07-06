@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { User, Briefcase, Phone } from 'lucide-react';
+import { User, Briefcase, Phone, Asterisk } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -281,10 +281,35 @@ export function NewEmployeeDrawer({ open, onOpenChange, onCreated }: Props) {
 
         <DialogBody className={cn(dialogShellBodyClass, 'space-y-8')}>
 
-          {/* Personal info */}
+          {/* Required fields first */}
           <div className="space-y-4">
-            <SectionHeader icon={User} title="البيانات الشخصية" description="المعلومات الأساسية للموظف" />
+            <SectionHeader
+              icon={Asterisk}
+              title="البيانات الإلزامية"
+              description="يجب إكمال هذه الحقول لإضافة الموظف"
+            />
             <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="الشركة" required span2={companyOptions.length > 1}>
+                <Select
+                  value={form.companyId || '_none'}
+                  onValueChange={(v) => handleCompanyChange(v === '_none' ? '' : v)}
+                  disabled={loadingCompanies || companyOptions.length <= 1}
+                >
+                  <SelectTrigger className={cn(errors.companyId && 'border-destructive')}>
+                    <SelectValue placeholder={loadingCompanies ? 'جاري تحميل الشركات…' : 'اختر الشركة'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_none">— اختر الشركة —</SelectItem>
+                    {companyOptions.map((c) => (
+                      <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {errors.companyId && <p className="text-[11px] text-destructive">{errors.companyId}</p>}
+                {companyOptions.length <= 1 && form.companyId ? (
+                  <p className="text-[10px] text-muted-foreground">شركة واحدة مرتبطة بحسابك — تم اختيارها تلقائياً.</p>
+                ) : null}
+              </Field>
               <Field label="الاسم الكامل" required>
                 <Input
                   value={form.nameAr}
@@ -294,6 +319,72 @@ export function NewEmployeeDrawer({ open, onOpenChange, onCreated }: Props) {
                 />
                 {errors.nameAr && <p className="text-[11px] text-destructive">{errors.nameAr}</p>}
               </Field>
+              <Field label="الفرع" required>
+                <Select
+                  value={form.branchId || '_none'}
+                  onValueChange={(v) => handleBranchChange(v === '_none' ? '' : v)}
+                  disabled={!form.companyId || loadingRefs}
+                >
+                  <SelectTrigger className={cn(errors.branchId && 'border-destructive')}>
+                    <SelectValue placeholder={
+                      !form.companyId
+                        ? 'اختر الشركة أولاً'
+                        : loadingRefs
+                          ? 'جاري التحميل…'
+                          : 'اختر الفرع'
+                    } />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_none">— اختر الفرع —</SelectItem>
+                    {branches.map((b) => (
+                      <SelectItem key={b.id} value={b.id}>{b.nameAr}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {errors.branchId && <p className="text-[11px] text-destructive">{errors.branchId}</p>}
+              </Field>
+              <Field label="المسمى الوظيفي" required span2>
+                <Select
+                  value={form.jobTitleId || '_none'}
+                  onValueChange={(v) => patch('jobTitleId', v === '_none' ? '' : v)}
+                  disabled={!form.companyId || loadingRefs}
+                >
+                  <SelectTrigger className={cn(errors.jobTitleId && 'border-destructive')}>
+                    <SelectValue placeholder={
+                      !form.companyId
+                        ? 'اختر الشركة أولاً'
+                        : loadingRefs
+                          ? 'جاري التحميل…'
+                          : 'اختر المسمى الوظيفي'
+                    } />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_none">— اختر المسمى الوظيفي —</SelectItem>
+                    {jobTitles.map((j) => (
+                      <SelectItem key={j.id} value={j.id}>{j.nameAr ?? j.nameEn ?? j.code}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {errors.jobTitleId && <p className="text-[11px] text-destructive">{errors.jobTitleId}</p>}
+              </Field>
+              <Field label="تاريخ الالتحاق" required>
+                <DatePickerInput
+                  value={form.startDate}
+                  onChange={(v) => patch('startDate', v)}
+                  popoverContainer={containerRef.current}
+                  className={cn(errors.startDate && 'border-destructive')}
+                />
+                {errors.startDate && <p className="text-[11px] text-destructive">{errors.startDate}</p>}
+              </Field>
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Personal info (optional) */}
+          <div className="space-y-4">
+            <SectionHeader icon={User} title="البيانات الشخصية" description="معلومات إضافية (اختيارية)" />
+            <div className="grid gap-4 sm:grid-cols-2">
               <Field label="الجنس">
                 <Select value={form.gender} onValueChange={(v) => patch('gender', v)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
@@ -335,9 +426,9 @@ export function NewEmployeeDrawer({ open, onOpenChange, onCreated }: Props) {
 
           <Separator />
 
-          {/* Contact */}
+          {/* Contact (optional) */}
           <div className="space-y-4">
-            <SectionHeader icon={Phone} title="بيانات التواصل" />
+            <SectionHeader icon={Phone} title="بيانات التواصل" description="اختيارية" />
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="البريد الإلكتروني">
                 <Input dir="ltr" type="email" value={form.email} onChange={(e) => patch('email', e.target.value)} placeholder="name@company.sa" />
@@ -359,79 +450,10 @@ export function NewEmployeeDrawer({ open, onOpenChange, onCreated }: Props) {
 
           <Separator />
 
-          {/* Employment */}
+          {/* Additional employment (optional) */}
           <div className="space-y-4">
-            <SectionHeader icon={Briefcase} title="بيانات التوظيف" description="الشركة والمسمى الوظيفي والقسم والفرع" />
+            <SectionHeader icon={Briefcase} title="بيانات التوظيف الإضافية" description="اختيارية" />
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="الشركة" required span2={companyOptions.length > 1}>
-                <Select
-                  value={form.companyId || '_none'}
-                  onValueChange={(v) => handleCompanyChange(v === '_none' ? '' : v)}
-                  disabled={loadingCompanies || companyOptions.length <= 1}
-                >
-                  <SelectTrigger className={cn(errors.companyId && 'border-destructive')}>
-                    <SelectValue placeholder={loadingCompanies ? 'جاري تحميل الشركات…' : 'اختر الشركة'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="_none">— اختر الشركة —</SelectItem>
-                    {companyOptions.map((c) => (
-                      <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {errors.companyId && <p className="text-[11px] text-destructive">{errors.companyId}</p>}
-                {companyOptions.length <= 1 && form.companyId ? (
-                  <p className="text-[10px] text-muted-foreground">شركة واحدة مرتبطة بحسابك — تم اختيارها تلقائياً.</p>
-                ) : null}
-              </Field>
-              <Field label="المسمى الوظيفي" required span2>
-                <Select
-                  value={form.jobTitleId || '_none'}
-                  onValueChange={(v) => patch('jobTitleId', v === '_none' ? '' : v)}
-                  disabled={!form.companyId || loadingRefs}
-                >
-                  <SelectTrigger className={cn(errors.jobTitleId && 'border-destructive')}>
-                    <SelectValue placeholder={
-                      !form.companyId
-                        ? 'اختر الشركة أولاً'
-                        : loadingRefs
-                          ? 'جاري التحميل…'
-                          : 'اختر المسمى الوظيفي'
-                    } />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="_none">— اختر المسمى الوظيفي —</SelectItem>
-                    {jobTitles.map((j) => (
-                      <SelectItem key={j.id} value={j.id}>{j.nameAr ?? j.nameEn ?? j.code}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {errors.jobTitleId && <p className="text-[11px] text-destructive">{errors.jobTitleId}</p>}
-              </Field>
-              <Field label="الفرع" required>
-                <Select
-                  value={form.branchId || '_none'}
-                  onValueChange={(v) => handleBranchChange(v === '_none' ? '' : v)}
-                  disabled={!form.companyId || loadingRefs}
-                >
-                  <SelectTrigger className={cn(errors.branchId && 'border-destructive')}>
-                    <SelectValue placeholder={
-                      !form.companyId
-                        ? 'اختر الشركة أولاً'
-                        : loadingRefs
-                          ? 'جاري التحميل…'
-                          : 'اختر الفرع'
-                    } />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="_none">— اختر الفرع —</SelectItem>
-                    {branches.map((b) => (
-                      <SelectItem key={b.id} value={b.id}>{b.nameAr}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {errors.branchId && <p className="text-[11px] text-destructive">{errors.branchId}</p>}
-              </Field>
               <Field label="القسم">
                 <Select
                   value={form.departmentId || '_none'}
@@ -449,15 +471,6 @@ export function NewEmployeeDrawer({ open, onOpenChange, onCreated }: Props) {
                   </SelectContent>
                 </Select>
                 {errors.departmentId && <p className="text-[11px] text-destructive">{errors.departmentId}</p>}
-              </Field>
-              <Field label="تاريخ الالتحاق" required>
-                <DatePickerInput
-                  value={form.startDate}
-                  onChange={(v) => patch('startDate', v)}
-                  popoverContainer={containerRef.current}
-                  className={cn(errors.startDate && 'border-destructive')}
-                />
-                {errors.startDate && <p className="text-[11px] text-destructive">{errors.startDate}</p>}
               </Field>
               <Field label="الدور في النظام">
                 <Select value={form.role} onValueChange={(v) => patch('role', v)}>

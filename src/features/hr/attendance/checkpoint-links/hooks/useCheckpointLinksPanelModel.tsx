@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { toast } from 'sonner';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
+import { resolveDirectoryLoadFailure } from '@/features/hr/lib/api/directory-load-error';
 import { useServerDirectoryPagination } from '@/components/ui/paged-list';
 import type { AttendanceCheckInPoint } from '@/features/hr/attendance/lib/types';
 import { mapCheckInPointResponse } from '@/features/hr/attendance/checkpoints/services/check-in-points.service';
@@ -59,6 +60,7 @@ export function useCheckpointLinksPanelModel() {
   const [checkpoints, setCheckpoints] = React.useState<AttendanceCheckInPoint[]>([]);
   const [employees, setEmployees] = React.useState<EmployeeResponseDto[]>([]);
   const [listError, setListError] = React.useState<string | null>(null);
+  const [apiAccessDenied, setApiAccessDenied] = React.useState(false);
 
   const [open, setOpen] = React.useState(false);
   const [eff, setEff] = React.useState(() => new Date().toISOString().slice(0, 10));
@@ -80,10 +82,12 @@ export function useCheckpointLinksPanelModel() {
     setListError(null);
     try {
       const res = await checkInPointLinksApi.getGroupedByPoint({ companyId, page, limit: pageSize });
+      setApiAccessDenied(false);
       return { items: res.items.map(mapGroupedToBatch), total: res.pagination.total };
     } catch (err) {
-      const { displayMessage } = handleApiError(err, 'check-in-point-links.load');
-      setListError(displayMessage);
+      const failure = resolveDirectoryLoadFailure(err, 'check-in-point-links.load');
+      setApiAccessDenied(failure.accessDenied);
+      setListError(failure.listError);
       return { items: [], total: 0 };
     }
   }, [companyId]);
@@ -256,6 +260,7 @@ export function useCheckpointLinksPanelModel() {
     loading,
     pagination,
     listError,
+    accessDenied: apiAccessDenied,
     removeCheckpointLinkBatch,
     editBatch,
     openEditDialog,

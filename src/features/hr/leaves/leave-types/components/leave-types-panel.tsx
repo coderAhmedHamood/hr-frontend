@@ -10,6 +10,7 @@ import {
   dialogFormFooterClass,
 } from '@/components/ui/dialog';
 import { useLeaveTypesPanelModel, getLeaveTypeProperty, type LeaveTypeProperty } from '@/features/hr/leaves/leave-types/hooks/useLeaveTypesPanelModel';
+import { ForbiddenState } from '@/components/shared/forbidden-state';
 import { DirectoryPagedViews } from '@/components/ui/paged-list';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { cn } from '@/shared/utils';
@@ -28,6 +29,10 @@ export function LeaveTypesPanel() {
     ),
     [m.openCreate, m.loading],
   );
+
+  if (m.accessDenied) {
+    return <ForbiddenState title="لا تملك صلاحية الوصول لأنواع الإجازة" />;
+  }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
@@ -103,7 +108,7 @@ export function LeaveTypesPanel() {
       )}
 
       <Dialog open={m.open} onOpenChange={m.setOpen}>
-        <DialogContent className="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden border-border p-0">
+        <DialogContent className="flex max-h-[90vh] w-full max-w-lg flex-col overflow-visible border-border p-0">
           <div className="shrink-0 border-b border-border px-6 py-5">
             <DialogHeader>
               <DialogTitle className="font-display text-xl">{m.editId ? 'تعديل نوع الإجازة' : 'إضافة نوع إجازة'}</DialogTitle>

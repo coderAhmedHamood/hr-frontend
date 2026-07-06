@@ -8,6 +8,7 @@ import { CHECKPOINT_GEO_DEBOUNCE_MS, CHECKPOINT_GEO_MIN_QUERY_LEN } from '@/feat
 import { validateCheckpointDraft } from '@/features/hr/attendance/checkpoints/utils/checkpoint-validate';
 import { publicConfig } from '@/shared/config';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
+import { resolveDirectoryLoadFailure } from '@/features/hr/lib/api/directory-load-error';
 import { useServerDirectoryPagination } from '@/components/ui/paged-list';
 import { checkInPointsApi } from '@/features/hr/attendance/lib/api/check-in-points';
 import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
@@ -31,6 +32,7 @@ export function useCheckpointsPanelModel() {
     ORGANIZATION_ARCHIVE_SCOPE_DEFAULT,
   );
   const [listError, setListError] = React.useState<string | null>(null);
+  const [apiAccessDenied, setApiAccessDenied] = React.useState(false);
   const [open, setOpen] = React.useState(false);
   const [draft, setDraft] = React.useState<AttendanceCheckInPoint | null>(null);
   const [error, setError] = React.useState<string | null>(null);
@@ -54,10 +56,12 @@ export function useCheckpointsPanelModel() {
         ...organizationListStatusQuery(archiveScope),
       });
       const items = res.items.map(mapCheckInPointResponse);
+      setApiAccessDenied(false);
       return { items, total: res.pagination.total };
     } catch (err) {
-      const { displayMessage } = handleApiError(err, 'check-in-points.load');
-      setListError(displayMessage);
+      const failure = resolveDirectoryLoadFailure(err, 'check-in-points.load');
+      setApiAccessDenied(failure.accessDenied);
+      setListError(failure.listError);
       return { items: [], total: 0 };
     }
   }, [companyId, archiveScope]);
@@ -228,6 +232,7 @@ export function useCheckpointsPanelModel() {
     loading,
     pagination,
     listError,
+    accessDenied: apiAccessDenied,
     removeCheckpoint,
     open,
     setOpen,

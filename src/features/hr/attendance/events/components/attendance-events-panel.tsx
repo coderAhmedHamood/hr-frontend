@@ -6,7 +6,7 @@ import {
   MapPin, Clock, Smartphone, Monitor, Fingerprint, Bot, Globe, Pencil, Eye,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { cn } from '@/shared/utils';
+import { cn, formatTime } from '@/shared/utils';
 import { STATUS_PILL, statusDotClass } from '@/shared/status-pill-classes';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -19,6 +19,7 @@ import {
   dialogFormFooterClass,
 } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ForbiddenState } from '@/components/shared/forbidden-state';
 import { EmptyStateCard } from '@/components/shared/empty-state-card';
 import { useAttendanceEventsModel } from '@/features/hr/attendance/events/hooks/useAttendanceEventsModel';
 import { DirectoryPagedViews } from '@/components/ui/paged-list';
@@ -44,8 +45,7 @@ const SOURCE_META: Record<string, { label: string; icon: React.ElementType }> = 
 };
 
 function fmtTime(iso: string) {
-  const d = new Date(iso);
-  return d.toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit', hour12: true });
+  return formatTime(iso);
 }
 function nowTimeLocal() {
   const d = new Date();
@@ -332,6 +332,10 @@ export function AttendanceEventsPanel() {
     }
     return [...map.entries()].sort(([a], [b]) => b.localeCompare(a));
   }, []);
+
+  if (m.accessDenied) {
+    return <ForbiddenState title="لا تملك صلاحية الوصول لأحداث الحضور" />;
+  }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">

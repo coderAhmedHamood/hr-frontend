@@ -4,6 +4,7 @@ import * as React from 'react';
 import { Users, X, ChevronDown, Check } from 'lucide-react';
 import { cn } from '@/shared/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { useFilterPermission } from '@/features/auth/permissions/use-filter-permission';
 
 export type EmployeePickerOption = {
   id: string;
@@ -31,6 +32,8 @@ export type EmployeePickerProps = {
   selectionMode?: 'filter' | 'target';
   className?: string;
   disabled?: boolean;
+  /** When set, opening without this permission shows a toast and blocks the popover. */
+  requirePermission?: string;
 };
 
 function useEmployeePickerState({
@@ -39,16 +42,20 @@ function useEmployeePickerState({
   onChange,
   onOpenChange,
   selectionMode,
-}: Pick<EmployeePickerProps, 'employees' | 'selected' | 'onChange' | 'onOpenChange' | 'selectionMode'>) {
+  canOpen = () => true,
+}: Pick<EmployeePickerProps, 'employees' | 'selected' | 'onChange' | 'onOpenChange' | 'selectionMode'> & {
+  canOpen?: () => boolean;
+}) {
   const [open, setOpen] = React.useState(false);
   const [search, setSearch] = React.useState('');
 
   const handleOpenChange = React.useCallback(
     (next: boolean) => {
+      if (next && !canOpen()) return;
       setOpen(next);
       onOpenChange?.(next);
     },
-    [onOpenChange],
+    [canOpen, onOpenChange],
   );
 
   React.useEffect(() => {
@@ -184,8 +191,30 @@ export function EmployeePicker({
   selectionMode = 'filter',
   className,
   disabled = false,
+  requirePermission,
 }: EmployeePickerProps) {
-  const state = useEmployeePickerState({ employees, selected, onChange, onOpenChange, selectionMode });
+  const filterAccess = useFilterPermission(requirePermission);
+  const canOpenPicker = React.useCallback(() => {
+    if (requirePermission && !filterAccess.allowed) {
+      filterAccess.notifyDenied();
+      return false;
+    }
+    return true;
+  }, [filterAccess, requirePermission]);
+
+  const state = useEmployeePickerState({
+    employees,
+    selected,
+    onChange,
+    onOpenChange,
+    selectionMode,
+    canOpen: canOpenPicker,
+  });
+
+  const requestOpen = () => {
+    if (!canOpenPicker()) return;
+    onRequestLoad?.();
+  };
   const hasSelection = selected.size > 0 && !state.allSelected;
   const showMeta = variant === 'form';
 
@@ -212,7 +241,7 @@ export function EmployeePicker({
           <button
             type="button"
             disabled={disabled}
-            onPointerDown={() => onRequestLoad?.()}
+            onPointerDown={requestOpen}
             className={cn(
               'flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 text-sm transition-colors hover:border-ring disabled:cursor-not-allowed disabled:opacity-50',
               hasSelection ? 'text-foreground' : 'text-muted-foreground',
@@ -309,7 +338,7 @@ export function EmployeePicker({
         <button
           type="button"
           disabled={disabled}
-          onPointerDown={() => onRequestLoad?.()}
+          onPointerDown={requestOpen}
           className={cn(
             'flex h-8 max-w-[10rem] shrink-0 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-medium transition-all disabled:cursor-not-allowed disabled:opacity-50',
             hasSelection

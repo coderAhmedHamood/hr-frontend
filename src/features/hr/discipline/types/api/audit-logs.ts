@@ -25,8 +25,12 @@ export type AuditLogsListQuery = {
   companyId?: string;
   moduleCode?: string;
   entityName?: string;
+  entityNames?: string[];
   entityNameContains?: string;
+  actorUserId?: string;
+  actorNames?: string[];
   action?: string;
+  actions?: string[];
   occurredFrom?: string;
   occurredTo?: string;
   search?: string;

@@ -67,6 +67,10 @@ export type DisciplineInvestigationListQuery = {
   companyId?: string;
   violationRecordId?: string;
   subjectEmployeeId?: string;
+  subjectEmployeeIds?: string[];
   investigatorEmployeeId?: string;
   result?: InvestigationResultDto;
+  recommendation?: InvestigationRecommendationDto;
+  dateFrom?: string;
+  dateTo?: string;
 };

@@ -4,7 +4,8 @@ import Link from 'next/link';
 import { ExternalLink, FileSignature, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/shared/status-badge';
-import { formatCurrency, formatNumber, cn } from '@/shared/utils';
+import { MoneyAmount } from '@/components/ui/sar-amount';
+import { formatNumber, cn } from '@/shared/utils';
 import { Empty, SectionH } from '@/features/hr/organization/employees/components/EmployeeProfilePrimitives';
 import type { EmployeeProfileModel } from '@/features/hr/organization/employees/hooks/useEmployeeProfileModel';
 import { hrContractsRoutes } from '@/features/hr/contracts/constants/routes';
@@ -109,16 +110,16 @@ export function EmployeeContractsSection({ model }: { model: EmployeeProfileMode
                           </div>
                           <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
                             <span className="text-xs text-muted-foreground">
-                              أساسي: <span className="font-semibold text-foreground tabular-nums">{formatCurrency(c.baseSalary)}</span>
+                              أساسي: <MoneyAmount value={c.baseSalary} fractionDigits={0} className="font-semibold text-foreground" />
                             </span>
                             {allowTotal > 0 && (
                               <span className="text-xs text-muted-foreground">
-                                بدلات: <span className="font-semibold text-foreground tabular-nums">+{formatCurrency(allowTotal)}</span>
+                                بدلات: <MoneyAmount value={allowTotal} fractionDigits={0} prefix="+" className="font-semibold text-foreground" />
                               </span>
                             )}
                             {allowTotal > 0 && (
                               <span className="text-xs font-semibold text-primary tabular-nums">
-                                = {formatCurrency(c.baseSalary + allowTotal)} / شهر
+                                = <MoneyAmount value={c.baseSalary + allowTotal} fractionDigits={0} className="font-semibold text-primary" /> / شهر
                               </span>
                             )}
                           </div>

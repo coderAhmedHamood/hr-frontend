@@ -4,7 +4,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import {
-  BarChart2, Bell, Loader2, Lock, Receipt, Trash2, Undo2,
+  BarChart2, Bell, Loader2, Lock, Receipt,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -30,10 +30,9 @@ import { DataTable, type ColumnDef } from '@/components/ui/data-table';
 import { DirectoryPagedViews, useServerDirectoryPagination } from '@/components/ui/paged-list';
 import { fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
 import { TableRowActions } from '@/components/ui/table-cells';
-import { EmptyState, ConfirmationModal } from '@/components/ui/shared-dialogs';
+import { EmptyState } from '@/components/ui/shared-dialogs';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
 import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
-import { useHREmployeeDirectoryStore } from '@/features/hr/requests/lib/employee-directory-store';
 import {
   useHRPayrollPeriodsStore,
   PERIOD_STATUS_LABELS,
@@ -60,11 +59,14 @@ import {
   type PayslipStatusDto,
 } from '@/features/hr/payroll/lib/api/payslips';
 import { PayslipDetailDialog } from '@/features/hr/payroll/payroll-salary-approvals/components/payslip-detail-dialog';
+import { CompensationPeriodExportActions } from '@/features/hr/payroll/compensation/components/compensation-period-export-actions';
 import { SendNotificationDrawer } from '@/features/hr/notifications/components/send-notification-drawer';
 import {
   usePayslipEmployeeDecision,
 } from '@/features/hr/payroll/components/payslip-employee-decision-actions';
 import { MinimalDropdown } from '@/components/ui/shared-dialogs';
+import type { EmployeePickerOption } from '@/components/ui/employee-picker';
+import { fetchEmployeeFilterPickerOptions } from '@/features/hr/lib/use-employee-filter-picker';
 import { cn } from '@/shared/utils';
 
 const PAYSLIP_STATUS_ORDER = ['all', 'draft', 'approved', 'paid'] as const;
@@ -87,9 +89,27 @@ export function PayrollSalaryApprovalClient() {
   const user = useAuthStore(s => s.user);
 
   const periods = useHRPayrollPeriodsStore(s => s.periods);
-  const fetchPeriods = useHRPayrollPeriodsStore(s => s.fetch);
-  const allEmployees = useHREmployeeDirectoryStore(s => s.employees);
-  const fetchEmployees = useHREmployeeDirectoryStore(s => s.fetch);
+  const fetchPeriodCatalog = useHRPayrollPeriodsStore(s => s.fetchCatalog);
+  const refreshPeriodCatalog = useHRPayrollPeriodsStore(s => s.refreshCatalog);
+  const [empPickerEmployees, setEmpPickerEmployees] = React.useState<EmployeePickerOption[]>([]);
+  const [employeesLoading, setEmployeesLoading] = React.useState(false);
+  const employeesFetchStarted = React.useRef(false);
+
+  const loadEmployeePicker = React.useCallback(() => {
+    if (!companyId || employeesFetchStarted.current) return;
+    employeesFetchStarted.current = true;
+    setEmployeesLoading(true);
+    void fetchEmployeeFilterPickerOptions(companyId)
+      .then(setEmpPickerEmployees)
+      .catch(() => setEmpPickerEmployees([]))
+      .finally(() => setEmployeesLoading(false));
+  }, [companyId]);
+
+  React.useEffect(() => {
+    employeesFetchStarted.current = false;
+    setEmpPickerEmployees([]);
+    setEmployeesLoading(false);
+  }, [companyId]);
 
   const sortedPeriods = React.useMemo(
     () => [...periods].sort((a, b) => b.periodEnd.localeCompare(a.periodEnd)),
@@ -170,16 +190,12 @@ export function PayrollSalaryApprovalClient() {
 
   const [finalizeOpen, setFinalizeOpen] = React.useState(false);
   const [replaceExisting, setReplaceExisting] = React.useState(false);
-  const [deleteId, setDeleteId] = React.useState<string | null>(null);
   const [detailId, setDetailId] = React.useState<string | null>(null);
   const [detailOpen, setDetailOpen] = React.useState(false);
   const [notificationOpen, setNotificationOpen] = React.useState(false);
   const [decisionRefreshKey, setDecisionRefreshKey] = React.useState(0);
 
-  React.useEffect(() => { void fetchPeriods(); }, [fetchPeriods]);
-  React.useEffect(() => {
-    if (allEmployees.length === 0) void fetchEmployees();
-  }, [allEmployees.length, fetchEmployees]);
+  React.useEffect(() => { void fetchPeriodCatalog(); }, [fetchPeriodCatalog]);
 
   React.useEffect(() => {
     if (requestedPeriodId && sortedPeriods.some(p => p.id === requestedPeriodId)) {
@@ -217,6 +233,11 @@ export function PayrollSalaryApprovalClient() {
     [periodEmployees],
   );
 
+  const exportEmployeeIdsFilter = React.useMemo(() => {
+    if (selectedEmpIds.size === 0 || selectedEmpIds.size >= periodEmployees.length) return undefined;
+    return [...selectedEmpIds];
+  }, [selectedEmpIds, periodEmployees.length]);
+
   const notificationDefaults = React.useMemo(() => {
     if (!period) return undefined;
     return {
@@ -235,15 +256,10 @@ export function PayrollSalaryApprovalClient() {
 
   const loadPayslips = reloadPayslips;
 
-  const getDecisionActor = React.useCallback(() => {
-    const linked = user?.email
-      ? allEmployees.find(e => e.email?.toLowerCase() === user.email?.toLowerCase())
-      : undefined;
-    return {
-      name: linked?.nameAr?.trim() || linked?.nameEn?.trim() || user?.email || 'مسؤول',
-      email: user?.email,
-    };
-  }, [user, allEmployees]);
+  const getDecisionActor = React.useCallback(() => ({
+    name: user?.email || 'مسؤول',
+    email: user?.email,
+  }), [user]);
 
   const employeeDecision = usePayslipEmployeeDecision({
     channel: 'dashboard',
@@ -283,13 +299,15 @@ export function PayrollSalaryApprovalClient() {
         statusOrder={PAYSLIP_STATUS_ORDER}
         statusLabels={STATUS_TAB_LABELS}
         statusCounts={statusCounts}
-        companyId={companyId}
+        empPickerEmployees={empPickerEmployees}
+        employeePickerLoading={employeesLoading}
+        onEmployeePickerOpen={loadEmployeePicker}
         selectedEmpIds={selectedEmpIds}
         onSelectedEmpIdsChange={setSelectedEmpIds}
         onDateBoundsChange={() => {}}
       />
     ),
-    [statusFilter, statusCounts, companyId, selectedEmpIds],
+    [statusFilter, statusCounts, selectedEmpIds, empPickerEmployees, employeesLoading, loadEmployeePicker],
   );
 
   const canFinalize = period
@@ -300,6 +318,12 @@ export function PayrollSalaryApprovalClient() {
     () => (
       <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
         <FilterToggleButton activeFilterCount={activeFilterCount} />
+        <CompensationPeriodExportActions
+          periodId={periodId || null}
+          employeeIdsFilter={exportEmployeeIdsFilter}
+          lazyLoad
+          disabled={!periodId}
+        />
         <Button
           size="sm"
           variant="outline"
@@ -330,7 +354,7 @@ export function PayrollSalaryApprovalClient() {
         </Button>
       </div>
     ),
-    [canFinalize, busy, period?.isReviewCompleted, activeFilterCount, period, periodEmployees.length, companyId],
+    [canFinalize, busy, period?.isReviewCompleted, activeFilterCount, period, periodEmployees.length, companyId, periodId, exportEmployeeIdsFilter],
   );
 
   const handleFinalize = async () => {
@@ -344,7 +368,7 @@ export function PayrollSalaryApprovalClient() {
       });
       setFinalizeOpen(false);
       setReplaceExisting(false);
-      await fetchPeriods();
+      await refreshPeriodCatalog();
       await loadPayslips();
       toast.success(
         `تم اعتماد الفترة: ${result.generatedCount} مُولَّدة، ${result.approvedCount} معتمدة، ${result.totalPayslips} إجمالي.`,
@@ -364,21 +388,6 @@ export function PayrollSalaryApprovalClient() {
       toast.success(`تم تحديث حالة القسيمة إلى «${PAYSLIP_STATUS_LABELS[status]}».`);
     } catch (err) {
       handleApiError(err, 'payslips.update');
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!deleteId) return;
-    setBusy(deleteId);
-    try {
-      await payslipsApi.delete(deleteId);
-      setDeleteId(null);
-      await loadPayslips();
-      toast.success('تم حذف القسيمة.');
-    } catch (err) {
-      handleApiError(err, 'payslips.delete');
     } finally {
       setBusy(null);
     }
@@ -456,7 +465,6 @@ export function PayrollSalaryApprovalClient() {
       headerClassName: 'text-center',
       render: (row) => {
         const rowBusy = busy === row.id || employeeDecision.busyId === row.id;
-        const canDelete = row.status !== 'paid' && period && period.status !== 'closed' && period.status !== 'cancelled';
         const acceptanceActions = employeeDecision.canDecide(row)
           ? [
               { label: 'موافقة', variant: 'success' as const, onClick: () => employeeDecision.accept(row), disabled: rowBusy },
@@ -468,26 +476,12 @@ export function PayrollSalaryApprovalClient() {
           : row.status === 'approved'
             ? [{ label: 'دفع', variant: 'primary' as const, onClick: () => void updateStatus(row.id, 'paid'), disabled: rowBusy }]
             : undefined;
-        const menuItems = [
-          ...(row.status === 'approved'
-            ? [{ label: 'تراجع', onClick: () => { if (!rowBusy) void updateStatus(row.id, 'draft'); }, icon: <Undo2 className="h-3.5 w-3.5" /> }]
-            : []),
-          ...(canDelete
-            ? [{
-              label: 'حذف',
-              onClick: () => { if (!rowBusy) setDeleteId(row.id); },
-              icon: <Trash2 className="h-3.5 w-3.5" />,
-              destructive: true,
-              separator: row.status === 'approved',
-            }]
-            : []),
-        ];
         const mergedPrimary = [...acceptanceActions, ...(primaryActions ?? [])];
-        if (!mergedPrimary.length && !menuItems.length) return null;
-        return <TableRowActions primaryActions={mergedPrimary} menuItems={menuItems} />;
+        if (!mergedPrimary.length) return null;
+        return <TableRowActions primaryActions={mergedPrimary} />;
       },
     },
-  ], [busy, period, employeeDecision]);
+  ], [busy, employeeDecision]);
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -593,7 +587,7 @@ export function PayrollSalaryApprovalClient() {
       )}
 
       <Dialog open={finalizeOpen} onOpenChange={setFinalizeOpen}>
-        <DialogContent className="max-w-md gap-0 overflow-hidden border-border p-0" dir="rtl">
+        <DialogContent className="max-w-md gap-0 overflow-visible border-border p-0" dir="rtl">
           <div className="border-b border-border/60 bg-linear-to-b from-warning/8 to-transparent px-6 pb-4 pt-6">
             <DialogHeader className="space-y-2 text-right">
               <DialogTitle className="font-display text-base">اعتماد الفترة وقفلها</DialogTitle>
@@ -619,14 +613,6 @@ export function PayrollSalaryApprovalClient() {
         </DialogContent>
       </Dialog>
 
-      <ConfirmationModal
-        open={deleteId !== null}
-        onOpenChange={v => { if (!v) setDeleteId(null); }}
-        title="حذف القسيمة"
-        description="هل أنت متأكد من حذف هذه القسيمة؟ لا يمكن التراجع."
-        confirmLabel="حذف"
-        onConfirm={() => void handleDelete()}
-      />
 
       <PayslipDetailDialog
         payslipId={detailId}

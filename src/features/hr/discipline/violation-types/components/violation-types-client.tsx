@@ -13,6 +13,7 @@ import {
   ConfirmationModal, HRSettingsFormDrawer, FormField,
   EmptyState, ActiveBadge, MinimalDropdown,
 } from '@/components/ui/shared-dialogs';
+import { ForbiddenState } from '@/components/shared/forbidden-state';
 import { useViolationTypesDirectoryModel } from '@/features/hr/discipline/violation-types/hooks/useViolationTypesDirectoryModel';
 import { DisciplineListViewport, DisciplinePaginatedList } from '@/features/hr/discipline/components/discipline-paginated-list';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
@@ -34,6 +35,10 @@ export function ViolationTypesClient() {
     ),
     [m.loading, m.openCreate],
   );
+
+  if (m.accessDenied) {
+    return <ForbiddenState title="لا تملك صلاحية الوصول لأنواع المخالفات" />;
+  }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">

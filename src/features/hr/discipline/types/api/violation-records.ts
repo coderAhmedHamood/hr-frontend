@@ -1,4 +1,8 @@
 import type { ApprovalMode } from '@/features/hr/discipline/types/api/discipline-approval-templates';
+import type {
+  RequestApprovalAssignmentCatalogDto,
+  RequestApproverDecisionOverlayDto,
+} from '@/features/hr/requests/types/api/request-approver-states-types';
 
 export type ViolationRecordStatus = 'pending' | 'approved' | 'rejected' | 'needs_edit';
 
@@ -76,6 +80,23 @@ export type ViolationRecordResponseDto = {
   updatedBy: string | null;
 };
 
+/** List item — approval chain via catalog + overlay (same pattern as leaves/advances). */
+export type ViolationRecordListItemDto = ViolationRecordResponseDto & {
+  approvalAssignmentId?: string | null;
+  approverDecisions?: RequestApproverDecisionOverlayDto[] | null;
+};
+
+export type ViolationRecordListResponseDto = {
+  items: ViolationRecordListItemDto[];
+  approvalAssignments: RequestApprovalAssignmentCatalogDto[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+};
+
 export type UpdateViolationRecordDto = {
   violationDate?: string;
   description?: string;
@@ -92,11 +113,29 @@ export type DecideViolationRecordDto = {
   decidedBy?: string | null;
 };
 
+export type ViolationRecordByPeriodQuery = {
+  employeeId: string;
+  companyId: string;
+  startDate: string;
+  endDate: string;
+};
+
+export type ViolationRecordByPeriodResult = {
+  companyId: string;
+  employeeId: string;
+  startDate: string;
+  endDate: string;
+  totalRecords: number;
+  items: ViolationRecordResponseDto[];
+};
+
 export type ViolationRecordListQuery = {
   page?: number;
   limit?: number;
   companyId?: string;
   employeeId?: string;
+  employeeIds?: string[];
+  status?: ViolationRecordStatus;
   violationTypeId?: string;
   violationDateFrom?: string;
   violationDateTo?: string;

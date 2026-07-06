@@ -19,9 +19,10 @@ import {
 import { NewEmployeeDrawer } from '@/features/hr/organization/employees/components/new-employee-drawer';
 import { PdfPreviewExportDialog } from '@/components/pdf/pdf-preview-export-dialog';
 import { ConfirmationModal } from '@/components/ui/shared-dialogs';
+import { ForbiddenState } from '@/components/shared/forbidden-state';
 import { EmptyState } from '@/components/ui/shared-dialogs';
 import { DirectoryPagedViews } from '@/components/ui/paged-list';
-import { formatCurrency, getInitials } from '@/shared/utils';
+import { getInitials } from '@/shared/utils';
 import type { EmployeesListModel } from '@/features/hr/organization/employees/hooks/useEmployeesListModel';
 import { hrOrganizationRoutes } from '@/features/hr/organization/constants/routes';
 
@@ -30,7 +31,7 @@ type FilteredRow = EmployeesListModel['filtered'][number];
 
 export function EmployeesListViews({ model }: Props) {
   const {
-    router, employees, filtered, loading, pagination, listError,
+    router, employees, filtered, loading, pagination, listError, accessDenied,
     view, newEmpOpen, setNewEmpOpen, pdfOpen, setPdfOpen,
     employeesPrintable, reloadEmployees,
     deleteId, setDeleteId, handleDelete,
@@ -99,6 +100,10 @@ export function EmployeesListViews({ model }: Props) {
       ),
     },
   ], [setDeleteId]);
+
+  if (accessDenied) {
+    return <ForbiddenState />;
+  }
 
   if (loading) {
     return (

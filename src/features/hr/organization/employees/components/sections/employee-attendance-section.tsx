@@ -13,7 +13,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/shared/utils';
-import { EmployeeAttendanceDateFilter } from '@/features/hr/organization/employees/components/employee-attendance-date-filter';
+import { DateRangeFilterTrigger } from '@/components/ui/date-range-filter-trigger';
 import { EmployeeAttendanceDialogs } from '@/features/hr/organization/employees/components/dialogs/EmployeeAttendanceDialogs';
 import { EmployeeAttendanceRecentEvents } from '@/features/hr/organization/employees/components/sections/employee-attendance-recent-events';
 import type { EmployeeProfileModel } from '@/features/hr/organization/employees/hooks/useEmployeeProfileModel';
@@ -21,12 +21,8 @@ import type { EmployeeProfileModel } from '@/features/hr/organization/employees/
 export function EmployeeAttendanceSection({ model }: { model: EmployeeProfileModel }) {
   const {
     employee,
-    dateFilterTab,
-    customFrom,
-    customTo,
-    setAttendanceDateFilterTab,
-    applyCustomAttendanceRange,
-    resetAttendanceDateFilter,
+    dateBounds,
+    setAttendanceDateBounds,
     effectiveRange,
     employeeAssignments,
     shiftTemplates,
@@ -184,13 +180,9 @@ export function EmployeeAttendanceSection({ model }: { model: EmployeeProfileMod
 
           <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
             <span className="shrink-0 text-xs font-medium text-muted-foreground">تصفية بالتاريخ:</span>
-            <EmployeeAttendanceDateFilter
-              tab={dateFilterTab}
-              customFrom={customFrom}
-              customTo={customTo}
-              onTabChange={setAttendanceDateFilterTab}
-              onCustomApply={applyCustomAttendanceRange}
-              onReset={resetAttendanceDateFilter}
+            <DateRangeFilterTrigger
+              value={dateBounds}
+              onChange={setAttendanceDateBounds}
             />
           </div>
         </div>

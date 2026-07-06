@@ -15,6 +15,7 @@ import {
   EmptyState, ActiveBadge, SearchableDropdown, MinimalDropdown,
 } from '@/components/ui/shared-dialogs';
 import { MultiSelect, type MultiSelectOption } from '@/components/ui/multi-select';
+import { ForbiddenState } from '@/components/shared/forbidden-state';
 import { useDisciplineApprovalTemplatesModel } from '../hooks/useDisciplineApprovalTemplatesModel';
 import { DisciplineListViewport, DisciplinePaginatedList } from '@/features/hr/discipline/components/discipline-paginated-list';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
@@ -47,7 +48,7 @@ function buildNameAr(linkedIds: string[], violationTypes: { id: string; nameAr: 
 
 export function DisciplineApprovalClient() {
   const {
-    templates, violationTypes, employees, loading, listError, pagination,
+    templates, violationTypes, employees, loading, listError, accessDenied, pagination,
     archiveScope, setArchiveScope,
     createTemplate, updateTemplate, deleteTemplate,
   } = useDisciplineApprovalTemplatesModel();
@@ -63,7 +64,6 @@ export function DisciplineApprovalClient() {
   const [error, setError] = React.useState<string | null>(null);
   const [saving, setSaving] = React.useState(false);
   const [deleteId, setDeleteId] = React.useState<string | null>(null);
-  const [drawerContentEl, setDrawerContentEl] = React.useState<HTMLElement | null>(null);
 
   const usedViolationTypeIds = React.useMemo(() => {
     const set = new Set<string>();
@@ -152,6 +152,10 @@ export function DisciplineApprovalClient() {
     [openCreate],
   );
 
+  if (accessDenied) {
+    return <ForbiddenState title="لا تملك صلاحية الوصول لإسناد اعتماد المخالفات" />;
+  }
+
   if (loading) {
     return <EntityActionCardGridSkeleton count={4} />;
   }
@@ -214,7 +218,6 @@ export function DisciplineApprovalClient() {
         onSave={handleSave}
         saveDisabled={saving}
         error={error}
-        contentRef={setDrawerContentEl}
       >
         <FormField label="أنواع المخالفات" required>
           <MultiSelect
@@ -227,7 +230,6 @@ export function DisciplineApprovalClient() {
             selectAllLabel="تحديد الكل المتاح"
             deselectAllLabel="إلغاء التحديد"
             listMaxHeight="min(260px,40vh)"
-            popoverPortalContainer={drawerContentEl}
           />
         </FormField>
 

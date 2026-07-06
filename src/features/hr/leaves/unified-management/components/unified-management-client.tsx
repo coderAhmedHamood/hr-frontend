@@ -13,7 +13,7 @@ import { Separator } from '@/components/ui/separator';
 import { DataTable, type ColumnDef } from '@/components/ui/data-table';
 import { TableDateCell } from '@/components/ui/table-cells';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { SingleDatePicker } from '@/components/ui/single-date-picker';
+import { DatePickerInput } from '@/components/ui/date-picker-input';
 import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
@@ -50,10 +50,12 @@ import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-comp
 import { useCurrentEmployee } from '@/features/hr/organization/employees/hooks/useCurrentEmployee';
 import { checkRequestApprovalAccess } from '@/features/hr/requests/lib/request-approval-access';
 import {
+  buildRequestApproverStatesFromListItem,
   buildRequestCorrectionDecisionPayload,
   isRequestFullyApproved,
   normalizeRequestApproverStates,
 } from '@/features/hr/requests/lib/request-approver-states';
+import type { RequestApprovalAssignmentCatalogDto } from '@/features/hr/requests/types/api/request-approver-states-types';
 import { RequestApproverStatesPanel } from '@/features/hr/requests/components/request-approver-states-panel';
 import { RequestApproversInline } from '@/features/hr/requests/components/request-approvers-inline';
 import { RequestApprovalActionCell, RequestApprovalActionButtons } from '@/features/hr/requests/components/request-approval-actions';
@@ -62,7 +64,6 @@ import { cn } from '@/shared/utils';
 import { AR_LEAVE_STATUS_LABELS } from '@/shared/i18n/ar';
 import { toast } from 'sonner';
 import { DirectoryPagedViews, useServerDirectoryPagination } from '@/components/ui/paged-list';
-import { fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
 import {
   EntityActionCard,
   EntityActionCardChip,
@@ -217,7 +218,28 @@ function LeaveDecisionCell({
   );
 }
 
-function mapApiLeave(r: ApiLeaveRequest, leaveTypes: LeaveTypeResponseDto[]): UnifiedLeaveRecord {
+function resolveLeaveApproverStates(
+  r: ApiLeaveRequest,
+  approvalCatalog?: RequestApprovalAssignmentCatalogDto[],
+) {
+  if (approvalCatalog?.length) {
+    const fromList = buildRequestApproverStatesFromListItem(
+      {
+        approvalAssignmentId: r.approvalAssignmentId ?? null,
+        approverDecisions: r.approverDecisions ?? null,
+      },
+      approvalCatalog,
+    );
+    if (fromList) return fromList;
+  }
+  return normalizeRequestApproverStates(r);
+}
+
+function mapApiLeave(
+  r: ApiLeaveRequest,
+  leaveTypes: LeaveTypeResponseDto[],
+  approvalCatalog?: RequestApprovalAssignmentCatalogDto[],
+): UnifiedLeaveRecord {
   const lt = leaveTypes.find((t) => t.id === r.leaveTypeId);
   const derivedType = resolveLeaveTypeCode(lt, r.subtypeSlug);
   return {
@@ -243,7 +265,7 @@ function mapApiLeave(r: ApiLeaveRequest, leaveTypes: LeaveTypeResponseDto[]): Un
     cancelledAt: r.cancelledAt ?? undefined,
     decidedByEmployeeId: r.decidedByEmployeeId,
     decisionNotesAr: r.decisionNotesAr ?? undefined,
-    approverStates: normalizeRequestApproverStates(r),
+    approverStates: resolveLeaveApproverStates(r, approvalCatalog),
     approvalChain: [],
   };
 }
@@ -589,7 +611,7 @@ export function UnifiedManagementClient() {
     if (!companyId) return { items: [] as UnifiedLeaveRecord[], total: 0 };
     try {
       const res = await leaveRequestsNewApi.list(buildListQuery(page, pageSize));
-      const mapped = res.items.map((r) => mapApiLeave(r, leaveTypesRef.current));
+      const mapped = res.items.map((r) => mapApiLeave(r, leaveTypesRef.current, res.approvalAssignments));
       if (bulkMode) {
         const items = applyClientFilters(mapped);
         return { items, total: items.length };
@@ -604,10 +626,23 @@ export function UnifiedManagementClient() {
   const loadBulk = React.useCallback(async () => {
     if (!companyId) return { items: [] as UnifiedLeaveRecord[], total: 0 };
     try {
-      const res = await fetchAllPaginatedItems((page, limit) =>
-        leaveRequestsNewApi.list({ ...buildListQuery(page, limit) }),
-      );
-      const mapped = res.items.map((r) => mapApiLeave(r, leaveTypesRef.current));
+      const catalogById = new Map<string, RequestApprovalAssignmentCatalogDto>();
+      const rawItems: ApiLeaveRequest[] = [];
+      let page = 1;
+      const limit = 200;
+      let totalPages = 1;
+      do {
+        const res = await leaveRequestsNewApi.list({ ...buildListQuery(page, limit) });
+        for (const assignment of res.approvalAssignments) {
+          catalogById.set(assignment.id, assignment);
+        }
+        rawItems.push(...res.items);
+        totalPages = Math.max(res.pagination.totalPages, 1);
+        page += 1;
+      } while (page <= totalPages);
+
+      const catalog = [...catalogById.values()];
+      const mapped = rawItems.map((r) => mapApiLeave(r, leaveTypesRef.current, catalog));
       const items = applyClientFilters(mapped);
       return { items, total: items.length };
     } catch {
@@ -1083,7 +1118,7 @@ function LeaveDetailDialog({ leave, employees, open, onClose }: {
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden border-border p-0">
+      <DialogContent className="flex max-h-[90vh] w-full max-w-lg flex-col overflow-visible border-border p-0">
         <div className="shrink-0 border-b border-border px-6 py-5">
           <DialogHeader>
             <DialogTitle className="font-display text-xl">تفاصيل الإجازة</DialogTitle>
@@ -1271,7 +1306,7 @@ function AddLeaveDialog({ open, editLeave, employees, branches, leaveTypes, leav
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="flex max-h-[90vh] w-full max-w-md flex-col overflow-hidden border-border p-0">
+      <DialogContent className="flex max-h-[90vh] w-full max-w-md flex-col overflow-visible border-border p-0">
         <div className="shrink-0 border-b border-border px-6 py-5">
           <DialogHeader>
             <DialogTitle className="font-display text-xl">{editLeave ? 'تعديل الإجازة' : 'إضافة إجازة'}</DialogTitle>
@@ -1328,11 +1363,11 @@ function AddLeaveDialog({ open, editLeave, employees, branches, leaveTypes, leav
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>من <span className="text-destructive">*</span></Label>
-              <SingleDatePicker value={start} onChange={setStart} placeholder="تاريخ البداية" />
+              <DatePickerInput value={start} onChange={setStart} placeholder="تاريخ البداية" />
             </div>
             <div className="space-y-2">
               <Label>إلى <span className="text-destructive">*</span></Label>
-              <SingleDatePicker value={end} onChange={setEnd} placeholder="تاريخ النهاية" min={start} />
+              <DatePickerInput value={end} onChange={setEnd} placeholder="تاريخ النهاية" minDate={start || undefined} />
             </div>
           </div>
 

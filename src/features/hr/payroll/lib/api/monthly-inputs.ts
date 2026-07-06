@@ -61,6 +61,26 @@ export type MonthlyInputListQuery = {
   affectsSalary?: boolean;
 };
 
+export type MonthlyInputKindSummaryEmployeeDto = {
+  employeeId: string;
+  employeeNameAr: string | null;
+  totalAmount: string;
+  count: number;
+};
+
+export type MonthlyInputKindSummaryResponseDto = {
+  payrollPeriodId: string;
+  periodYear: number | null;
+  periodMonth: number | null;
+  inputKind: MonthlyInputKindDto;
+  direction: MonthlyInputDirectionDto;
+  currency: string;
+  totalAmount: string;
+  totalCount: number;
+  employeesCount: number;
+  byEmployee: MonthlyInputKindSummaryEmployeeDto[];
+};
+
 export type CreateMonthlyInputDto = {
   companyId: string;
   payrollPeriodId: string;
@@ -97,4 +117,29 @@ export const monthlyInputsApi = {
     }),
   delete: (id: string) =>
     apiRequest<void>(`/payroll/monthly-inputs/${id}`, { method: 'DELETE' }),
+
+  summarizeAbsence: (payrollPeriodId: string) =>
+    apiRequest<MonthlyInputKindSummaryResponseDto>(
+      `/payroll/monthly-inputs/summary/absence/${payrollPeriodId}`,
+    ),
+  summarizeLateness: (payrollPeriodId: string) =>
+    apiRequest<MonthlyInputKindSummaryResponseDto>(
+      `/payroll/monthly-inputs/summary/lateness/${payrollPeriodId}`,
+    ),
+  summarizeOvertime: (payrollPeriodId: string) =>
+    apiRequest<MonthlyInputKindSummaryResponseDto>(
+      `/payroll/monthly-inputs/summary/overtime/${payrollPeriodId}`,
+    ),
+  summarizeAdvances: (payrollPeriodId: string) =>
+    apiRequest<MonthlyInputKindSummaryResponseDto>(
+      `/payroll/monthly-inputs/summary/advances/${payrollPeriodId}`,
+    ),
+  summarizeBonuses: (payrollPeriodId: string) =>
+    apiRequest<MonthlyInputKindSummaryResponseDto>(
+      `/payroll/monthly-inputs/summary/bonuses/${payrollPeriodId}`,
+    ),
+  summarizePenalties: (payrollPeriodId: string) =>
+    apiRequest<MonthlyInputKindSummaryResponseDto>(
+      `/payroll/monthly-inputs/summary/penalties/${payrollPeriodId}`,
+    ),
 };

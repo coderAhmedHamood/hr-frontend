@@ -3,7 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import {
-  ArrowRight, FileSpreadsheet, FileText, Loader2,
+  ArrowRight, Loader2,
   Users,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -53,25 +53,52 @@ import { PayrollPeriodReviewBar } from '@/features/hr/payroll/compensation/compo
 import { CompleteReviewPayslipsDialog } from '@/features/hr/payroll/compensation/components/complete-review-payslips-dialog';
 import { sendPayslipGeneratedNotification } from '@/features/hr/payroll/compensation/services/payslip-notification.service';
 import { payslipsApi } from '@/features/hr/payroll/lib/api/payslips';
-import { CompensationPrintHtml } from '@/features/hr/payroll/compensation/components/compensation-print-html';
+import { CompensationPeriodExportActions } from '@/features/hr/payroll/compensation/components/compensation-period-export-actions';
+import { CompensationCellDetailDialog } from '@/features/hr/payroll/compensation/components/compensation-cell-detail-dialog';
 import {
-  buildCompensationExportLines,
-  buildCompensationPrintPayload,
-  downloadCompensationExcel,
-  downloadCompensationPdf,
-} from '@/features/hr/payroll/lib/compensation-period-export';
+  type CompensationCellDetailContext,
+  type CompensationDetailField,
+} from '@/features/hr/payroll/compensation/lib/compensation-cell-detail';
 
-function ReadOnlyAmountCell({ amount, colorClass }: { amount: number; colorClass?: string }) {
+function ReadOnlyAmountCell({
+  amount,
+  colorClass,
+  onOpenDetail,
+}: {
+  amount: number;
+  colorClass?: string;
+  onOpenDetail?: () => void;
+}) {
   return (
-    <td className="border-e border-border/40 px-3 py-2 text-center font-mono tabular-nums text-[11.5px]">
+    <td
+      className={cn(
+        'border-e border-border/40 px-3 py-2 text-center font-mono tabular-nums text-[11.5px]',
+        onOpenDetail && 'cursor-pointer select-none',
+      )}
+      onDoubleClick={onOpenDetail}
+      title={onOpenDetail ? 'انقر مرتين لعرض التفاصيل' : undefined}
+    >
       <span className={colorClass}>{formatLatinNumber(amount)}</span>
     </td>
   );
 }
 
-function AllowancesBreakdownCell({ row }: { row: PayrollLineCompensationPreview }) {
+function AllowancesBreakdownCell({
+  row,
+  onOpenDetail,
+}: {
+  row: PayrollLineCompensationPreview;
+  onOpenDetail?: () => void;
+}) {
   return (
-    <td className="border-e border-border/40 px-3 py-2 text-right">
+    <td
+      className={cn(
+        'border-e border-border/40 px-3 py-2 text-right',
+        onOpenDetail && 'cursor-pointer select-none',
+      )}
+      onDoubleClick={onOpenDetail}
+      title={onOpenDetail ? 'انقر مرتين لعرض التفاصيل' : undefined}
+    >
       {row.allowanceLines.length === 0 ? (
         <span className="text-muted-foreground text-[10px]">—</span>
       ) : (
@@ -112,6 +139,25 @@ function normalizePeriod(row: HRPayrollPeriodRecord): HRPayrollPeriodRecord {
 }
 
 const PERIOD_STATUS_BADGE: Record<string, string> = PERIOD_STATUS_COLORS;
+
+const COMPENSATION_TABLE_HEADER_CELL =
+  'sticky top-0 z-30 border-e border-border/60 bg-muted px-3 py-3';
+
+const COMPENSATION_TABLE_HEADER_ROW =
+  'border-b border-border bg-muted text-muted-foreground compensation-table-header-row-shadow';
+
+// No overflow wrapper here on purpose: scrolling (both axes) is owned by the
+// single ancestor set up in the render body below, so `position: sticky` on
+// thead binds to that one real scroll container instead of a second,
+// non-scrolling scroll-container ancestor (which would trap the sticky
+// calculation and stop the header from catching at the top).
+function CompensationTableShell({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="rounded-2xl border border-border shadow-elevated animate-fade-in">
+      {children}
+    </div>
+  );
+}
 
 export function CompensationReportPanel({
   periodId,
@@ -154,13 +200,10 @@ export function CompensationReportPanel({
   const [reviewAdvancing, setReviewAdvancing] = React.useState(false);
   const [reviewReverting, setReviewReverting] = React.useState(false);
   const [thirdReviewConfirmOpen, setThirdReviewConfirmOpen] = React.useState(false);
-  const [excelExporting, setExcelExporting] = React.useState(false);
-  const [pdfExporting, setPdfExporting] = React.useState(false);
-  const [pdfPrintMounted, setPdfPrintMounted] = React.useState(false);
-  const payrollPrintRef = React.useRef<HTMLDivElement>(null);
   const [togglingCol, setTogglingCol] = React.useState<keyof CompensationColumnVisibility | null>(null);
   const [adjustDialog, setAdjustDialog] = React.useState<IncrementAdjustDialogContext | null>(null);
   const [adjustSubmitting, setAdjustSubmitting] = React.useState(false);
+  const [cellDetailContext, setCellDetailContext] = React.useState<CompensationCellDetailContext | null>(null);
   const [mounted, setMounted] = React.useState(false);
   React.useEffect(() => { setMounted(true); }, []);
 
@@ -217,6 +260,22 @@ export function CompensationReportPanel({
     });
   }, [payrollSummary?.currency]);
 
+  const openCellDetail = React.useCallback((
+    row: PayrollLineCompensationPreview,
+    field: CompensationDetailField,
+  ) => {
+    if (embedded || !companyId || !periodId || !period || !payrollSummary) return;
+    setCellDetailContext({
+      periodId,
+      companyId,
+      currency: payrollSummary.currency ?? 'SAR',
+      periodStartDate: payrollSummary.startDate,
+      periodEndDate: payrollSummary.endDate,
+      row,
+      field,
+    });
+  }, [embedded, companyId, periodId, period, payrollSummary]);
+
   const handleIncrementAdjustConfirm = React.useCallback(async (payload: {
     amount: number;
     direction: 'addition' | 'deduction';
@@ -251,18 +310,6 @@ export function CompensationReportPanel({
       setAdjustSubmitting(false);
     }
   }, [adjustDialog, companyId, periodId, invalidatePayrollSummary]);
-
-  const exportLines = React.useMemo(
-    () => buildCompensationExportLines(previews),
-    [previews],
-  );
-
-  const payrollPrintData = React.useMemo(
-    () => (period && exportLines.length > 0
-      ? buildCompensationPrintPayload(period, exportLines, cols, footerTotals)
-      : null),
-    [period, exportLines, cols, footerTotals],
-  );
 
   const fmt = (n: number, f = 2) => formatLatinNumber(n, f);
   const backHref = hrPayrollRoutes.payrollPeriods;
@@ -318,50 +365,6 @@ export function CompensationReportPanel({
 
   const filterActive = Boolean(filterKey);
   const isReviewLocked = period.isReviewCompleted;
-
-  const handleDownloadExcel = async () => {
-    if (!hasLines || exportLines.length === 0) {
-      toast.error('لا توجد بيانات للتصدير.');
-      return;
-    }
-    setExcelExporting(true);
-    try {
-      await downloadCompensationExcel(period, exportLines, cols, footerTotals);
-      toast.success('تم تحميل ملف Excel.');
-    } catch (err) {
-      console.error(err);
-      toast.error('حدث خطأ أثناء إنشاء ملف Excel.');
-    } finally {
-      setExcelExporting(false);
-    }
-  };
-
-  const handleDownloadPdf = async () => {
-    if (!payrollPrintData || !period) {
-      toast.error('لا توجد بيانات للتصدير.');
-      return;
-    }
-    setPdfExporting(true);
-    setPdfPrintMounted(true);
-    try {
-      await new Promise<void>((resolve) => {
-        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
-      });
-      const el = payrollPrintRef.current;
-      if (!el) {
-        toast.error('تعذر العثور على منطقة الطباعة.');
-        return;
-      }
-      await downloadCompensationPdf(el, period.code);
-      toast.success('تم تحميل ملف PDF.');
-    } catch (err) {
-      console.error(err);
-      toast.error('حدث خطأ أثناء تصدير PDF.');
-    } finally {
-      setPdfExporting(false);
-      setPdfPrintMounted(false);
-    }
-  };
 
   const handleAdvanceReview = async () => {
     if (!period || !hasLines) {
@@ -517,7 +520,7 @@ export function CompensationReportPanel({
       setAdvancesPushDialogOpen(false);
 
       toast.success(
-        `تم دفع السلف: ${result.inputsCreated} مدخل جديد، ${result.inputsDeleted} محذوف، ${result.advancesProcessed} سلفة، إجمالي ${result.totalDeducted} ر.س.`,
+        `تم دفع السلف: ${result.inputsCreated} مدخل جديد، ${result.inputsDeleted} محذوف، ${result.advancesProcessed} سلفة، إجمالي ${result.totalDeducted}.`,
       );
     } catch (err) {
       handleApiError(err, 'compensation.push-from-advances');
@@ -552,7 +555,7 @@ export function CompensationReportPanel({
       setViolationsPushDialogOpen(false);
 
       toast.success(
-        `تم دفع الجزاءات: ${result.inputsCreated} مدخل جديد، ${result.inputsDeleted} محذوف، ${result.violationsProcessed} مخالفة، إجمالي ${result.totalDeducted} ر.س.`,
+        `تم دفع الجزاءات: ${result.inputsCreated} مدخل جديد، ${result.inputsDeleted} محذوف، ${result.violationsProcessed} مخالفة، إجمالي ${result.totalDeducted}.`,
       );
     } catch (err) {
       handleApiError(err, 'compensation.push-from-violations');
@@ -578,130 +581,114 @@ export function CompensationReportPanel({
     <>
       {!embedded && <SetPageTitle titleAr={`تقرير المستحقات — ${period.nameAr || period.code}`} iconName="CalendarRange" />}
 
-      <div className={cn('space-y-5 overflow-x-hidden transition-opacity duration-500', mounted ? 'opacity-100' : 'opacity-0')}>
+      <div className={cn(
+        'flex min-h-0 flex-1 flex-col transition-opacity duration-500',
+        mounted ? 'opacity-100' : 'opacity-0',
+      )}>
 
-        {/* ══ BACK BUTTON ══ */}
-        {!embedded && (
-          <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between">
-            {backBtn}
-            {hasLines && previews.length > 0 && (
-              <div className="grid grid-cols-2 gap-2 lg:flex lg:items-center">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-10 gap-1.5 text-xs lg:h-9"
-                  disabled={excelExporting || pdfExporting}
-                  onClick={() => void handleDownloadExcel()}
-                >
-                  {excelExporting
-                    ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    : <FileSpreadsheet className="h-3.5 w-3.5" />}
-                  تحميل Excel
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-10 gap-1.5 text-xs lg:h-9"
-                  disabled={excelExporting || pdfExporting}
-                  onClick={() => void handleDownloadPdf()}
-                >
-                  {pdfExporting
-                    ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    : <FileText className="h-3.5 w-3.5" />}
-                  تحميل PDF
-                </Button>
-              </div>
-            )}
-          </div>
-        )}
+        {/*
+          Single scroll container for chrome + table. Chrome scrolls away
+          normally as the user scrolls down; once the table's thead reaches
+          the top of this box it sticks there (position: sticky binds to the
+          nearest ancestor scroll container — keeping chrome and table in the
+          SAME container, instead of a separate fixed area above a boxed
+          table, is what makes the header "catch" instead of the whole table
+          living in its own mini scroll pane).
+        */}
+        <div className="min-h-0 flex-1 overflow-auto">
+        <div className="space-y-5">
+          {/* ══ BACK BUTTON ══ */}
+          {!embedded && (
+            <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between">
+              {backBtn}
+              {hasLines && previews.length > 0 && (
+                <CompensationPeriodExportActions
+                  periodId={periodId}
+                  employeeIdsFilter={employeeIdsFilter}
+                />
+              )}
+            </div>
+          )}
 
-        {pdfPrintMounted && payrollPrintData && (
-          <div
-            aria-hidden
-            className="pointer-events-none fixed start-0 top-0 -z-[9999] size-0 overflow-hidden"
-          >
-            <CompensationPrintHtml
-              ref={payrollPrintRef}
-              monthNameAr={payrollPrintData.monthNameAr}
-              branchNameAr={payrollPrintData.branchNameAr}
-              table={payrollPrintData.table}
+          {!embedded && (
+            <PayrollPeriodReviewBar
+              period={period}
+              hasLines={hasLines}
+              advancing={reviewAdvancing}
+              reverting={reviewReverting}
+              onAdvance={handleAdvanceReviewClick}
+              onRevert={() => void handleRevertReview()}
             />
-          </div>
-        )}
+          )}
 
-        {!embedded && (
-          <PayrollPeriodReviewBar
-            period={period}
-            hasLines={hasLines}
-            advancing={reviewAdvancing}
-            reverting={reviewReverting}
-            onAdvance={handleAdvanceReviewClick}
-            onRevert={() => void handleRevertReview()}
+          <CompleteReviewPayslipsDialog
+            open={thirdReviewConfirmOpen}
+            onOpenChange={setThirdReviewConfirmOpen}
+            periodLabel={`${period.nameAr} (${period.code})`}
+            employeeCount={payrollSummary?.employeesCount ?? previews.length}
+            busy={reviewAdvancing}
+            onConfirm={() => void handleConfirmThirdReviewAndGenerate()}
           />
-        )}
 
-        <CompleteReviewPayslipsDialog
-          open={thirdReviewConfirmOpen}
-          onOpenChange={setThirdReviewConfirmOpen}
-          periodLabel={`${period.nameAr} (${period.code})`}
-          employeeCount={payrollSummary?.employeesCount ?? previews.length}
-          busy={reviewAdvancing}
-          onConfirm={() => void handleConfirmThirdReviewAndGenerate()}
-        />
-
-        {/* ══ COLUMN TOGGLES + PUSH FROM ATTENDANCE ══ */}
-        {!embedded && hasLines && (
-          <>
-            <CompensationDataToolbar
-              cols={cols}
-              isReviewLocked={isReviewLocked}
-              togglingCol={togglingCol}
-              pushing={pushing}
-              onToggleCol={toggleCol}
-              onPushAttendance={() => setPushDialogOpen(true)}
-              onPushAdvances={() => setAdvancesPushDialogOpen(true)}
-              onPushViolations={() => setViolationsPushDialogOpen(true)}
+          {!embedded && (
+            <CompensationCellDetailDialog
+              context={cellDetailContext}
+              open={cellDetailContext !== null}
+              onOpenChange={(open) => { if (!open) setCellDetailContext(null); }}
             />
+          )}
 
-            <PushFromAttendanceDialog
-              open={pushDialogOpen}
-              onOpenChange={setPushDialogOpen}
-              pushing={pushing}
-              disabled={isReviewLocked}
-              onConfirm={options => void handlePushFromAttendance(options)}
-            />
+          {/* ══ COLUMN TOGGLES + PUSH FROM ATTENDANCE ══ */}
+          {!embedded && hasLines && (
+            <>
+              <CompensationDataToolbar
+                cols={cols}
+                isReviewLocked={isReviewLocked}
+                togglingCol={togglingCol}
+                pushing={pushing}
+                onToggleCol={toggleCol}
+                onPushAttendance={() => setPushDialogOpen(true)}
+                onPushAdvances={() => setAdvancesPushDialogOpen(true)}
+                onPushViolations={() => setViolationsPushDialogOpen(true)}
+              />
 
-            <PushFromAdvancesDialog
-              open={advancesPushDialogOpen}
-              onOpenChange={setAdvancesPushDialogOpen}
-              pushing={pushing}
-              disabled={isReviewLocked}
-              employees={pushDialogEmployees}
-              defaultEmployeeIds={employeeIdsFilter}
-              onConfirm={options => void handlePushFromAdvances(options)}
-            />
+              <PushFromAttendanceDialog
+                open={pushDialogOpen}
+                onOpenChange={setPushDialogOpen}
+                pushing={pushing}
+                disabled={isReviewLocked}
+                onConfirm={options => void handlePushFromAttendance(options)}
+              />
 
-            <PushFromViolationsDialog
-              open={violationsPushDialogOpen}
-              onOpenChange={setViolationsPushDialogOpen}
-              pushing={pushing}
-              disabled={isReviewLocked}
-              employees={pushDialogEmployees}
-              defaultEmployeeIds={employeeIdsFilter}
-              onConfirm={options => void handlePushFromViolations(options)}
-            />
+              <PushFromAdvancesDialog
+                open={advancesPushDialogOpen}
+                onOpenChange={setAdvancesPushDialogOpen}
+                pushing={pushing}
+                disabled={isReviewLocked}
+                employees={pushDialogEmployees}
+                defaultEmployeeIds={employeeIdsFilter}
+                onConfirm={options => void handlePushFromAdvances(options)}
+              />
 
-            <CompensationIncrementAdjustDialog
-              open={adjustDialog !== null}
-              context={adjustDialog}
-              submitting={adjustSubmitting}
-              onConfirm={(payload) => void handleIncrementAdjustConfirm(payload)}
-              onCancel={() => { if (!adjustSubmitting) setAdjustDialog(null); }}
-            />
-          </>
-        )}
+              <PushFromViolationsDialog
+                open={violationsPushDialogOpen}
+                onOpenChange={setViolationsPushDialogOpen}
+                pushing={pushing}
+                disabled={isReviewLocked}
+                employees={pushDialogEmployees}
+                defaultEmployeeIds={employeeIdsFilter}
+                onConfirm={options => void handlePushFromViolations(options)}
+              />
+
+              <CompensationIncrementAdjustDialog
+                open={adjustDialog !== null}
+                context={adjustDialog}
+                submitting={adjustSubmitting}
+                onConfirm={(payload) => void handleIncrementAdjustConfirm(payload)}
+                onCancel={() => { if (!adjustSubmitting) setAdjustDialog(null); }}
+              />
+            </>
+          )}
 
         {/* ══ TABLE / EMPTY STATE ══ */}
         {!hasLines ? (
@@ -727,24 +714,23 @@ export function CompensationReportPanel({
             </p>
           </div>
         ) : (
-          <div className="overflow-hidden rounded-2xl border border-border shadow-elevated animate-fade-in">
-            <div className="overflow-x-auto">
-              <table className={cn('w-full border-collapse text-[11.5px]', embedded ? 'min-w-[1080px]' : 'min-w-[860px]')}>
-                <thead className="sticky top-0 z-10">
-                  <tr className="border-b border-border bg-gradient-to-b from-muted/80 to-muted/50 backdrop-blur-sm text-muted-foreground">
-                    <th className="w-9 border-e border-border/60 px-2 py-3 text-center font-semibold">#</th>
-                    <th className="min-w-[9.5rem] border-e border-border/60 px-3 py-3 text-right font-semibold">الموظف</th>
-                    <th className="min-w-[11rem] border-e border-border/60 px-3 py-3 text-right font-semibold">البدلات (شهري)</th>
-                    <th className="min-w-[5.5rem] border-e border-border/60 px-3 py-3 text-center font-semibold">الراتب الأساسي</th>
-                    {tableCols.colOvertime && <th className="min-w-[5rem] border-e border-border/60 px-3 py-3 text-center font-semibold text-primary/80">أوفر تايم</th>}
-                    {tableCols.colBonus && <th className="min-w-[4.5rem] border-e border-border/60 px-3 py-3 text-center font-semibold text-primary/80">مكافآت</th>}
-                    {embedded && <th className="min-w-[5rem] border-e border-border/60 px-3 py-3 text-center font-semibold">الإجمالي</th>}
-                    {tableCols.colDedAdvances && <th className="min-w-[4.5rem] border-e border-border/60 px-3 py-3 text-center font-semibold text-destructive">السلف</th>}
-                    {tableCols.colDedAbsence && <th className="min-w-[4.5rem] border-e border-border/60 px-3 py-3 text-center font-semibold text-warning">غياب</th>}
-                    {tableCols.colDedLate && <th className="min-w-[4.5rem] border-e border-border/60 px-3 py-3 text-center font-semibold text-destructive">تأخير</th>}
-                    {tableCols.colDedPenalties && <th className="min-w-[4.5rem] border-e border-border/60 px-3 py-3 text-center font-semibold text-destructive">جزاءات</th>}
-                    {tableCols.colDedAdmin && <th className="min-w-[4.5rem] border-e border-border/60 px-3 py-3 text-center font-semibold">إضافة/خصم مباشر</th>}
-                    <th className="min-w-[6rem] bg-primary/6 px-3 py-3 text-center font-bold text-primary">الصافي</th>
+          <CompensationTableShell>
+                <table className={cn('w-full border-separate border-spacing-0 text-[11.5px]', embedded ? 'min-w-[1080px]' : 'min-w-[860px]')}>
+                <thead>
+                  <tr className={COMPENSATION_TABLE_HEADER_ROW}>
+                    <th className={cn(COMPENSATION_TABLE_HEADER_CELL, 'w-9 px-2 text-center font-semibold')}>#</th>
+                    <th className={cn(COMPENSATION_TABLE_HEADER_CELL, 'min-w-[9.5rem] text-right font-semibold')}>الموظف</th>
+                    <th className={cn(COMPENSATION_TABLE_HEADER_CELL, 'min-w-[11rem] text-right font-semibold')}>البدلات (شهري)</th>
+                    <th className={cn(COMPENSATION_TABLE_HEADER_CELL, 'min-w-[5.5rem] text-center font-semibold')}>الراتب الأساسي</th>
+                    {tableCols.colOvertime && <th className={cn(COMPENSATION_TABLE_HEADER_CELL, 'min-w-[5rem] text-center font-semibold text-primary/80')}>أوفر تايم</th>}
+                    {tableCols.colBonus && <th className={cn(COMPENSATION_TABLE_HEADER_CELL, 'min-w-[4.5rem] text-center font-semibold text-primary/80')}>مكافآت</th>}
+                    {embedded && <th className={cn(COMPENSATION_TABLE_HEADER_CELL, 'min-w-[5rem] text-center font-semibold')}>الإجمالي</th>}
+                    {tableCols.colDedAdvances && <th className={cn(COMPENSATION_TABLE_HEADER_CELL, 'min-w-[4.5rem] text-center font-semibold text-destructive')}>السلف</th>}
+                    {tableCols.colDedAbsence && <th className={cn(COMPENSATION_TABLE_HEADER_CELL, 'min-w-[4.5rem] text-center font-semibold text-warning')}>غياب</th>}
+                    {tableCols.colDedLate && <th className={cn(COMPENSATION_TABLE_HEADER_CELL, 'min-w-[4.5rem] text-center font-semibold text-destructive')}>تأخير</th>}
+                    {tableCols.colDedPenalties && <th className={cn(COMPENSATION_TABLE_HEADER_CELL, 'min-w-[4.5rem] text-center font-semibold text-destructive')}>جزاءات</th>}
+                    {tableCols.colDedAdmin && <th className={cn(COMPENSATION_TABLE_HEADER_CELL, 'min-w-[4.5rem] text-center font-semibold')}>إضافة/خصم مباشر</th>}
+                    <th className={cn(COMPENSATION_TABLE_HEADER_CELL, 'min-w-[6rem] text-center font-bold text-primary')}>الصافي</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -759,11 +745,27 @@ export function CompensationReportPanel({
                         <td className="border-e border-border/40 px-3 py-2 text-right">
                           <span className="font-semibold text-foreground">{row.namePrimary}</span>
                         </td>
-                        <AllowancesBreakdownCell row={row} />
-                        <td className="border-e border-border/40 px-3 py-2 text-center font-mono font-semibold tabular-nums">
+                        <AllowancesBreakdownCell
+                          row={row}
+                          onOpenDetail={!embedded ? () => openCellDetail(row, 'allowances') : undefined}
+                        />
+                        <td
+                          className={cn(
+                            'border-e border-border/40 px-3 py-2 text-center font-mono font-semibold tabular-nums',
+                            !embedded && 'cursor-pointer select-none',
+                          )}
+                          onDoubleClick={!embedded ? () => openCellDetail(row, 'baseSalary') : undefined}
+                          title={!embedded ? 'انقر مرتين لعرض التفاصيل' : undefined}
+                        >
                           {fmt(row.baseSalary)}
                         </td>
-                        {tableCols.colOvertime && <ReadOnlyAmountCell amount={row.entitlementOvertimeSar} colorClass="text-primary" />}
+                        {tableCols.colOvertime && (
+                          <ReadOnlyAmountCell
+                            amount={row.entitlementOvertimeSar}
+                            colorClass="text-primary"
+                            onOpenDetail={!embedded ? () => openCellDetail(row, 'overtime') : undefined}
+                          />
+                        )}
                         {tableCols.colBonus && (
                           embedded ? (
                             <ReadOnlyAmountCell amount={row.entitlementBonusSar} colorClass="text-primary" />
@@ -773,6 +775,7 @@ export function CompensationReportPanel({
                               colorClass="text-primary"
                               disabled={isReviewLocked}
                               onEditClick={() => openAdjustDialog(row, 'bonus')}
+                              onDoubleClick={() => openCellDetail(row, 'bonus')}
                             />
                           )
                         )}
@@ -781,10 +784,34 @@ export function CompensationReportPanel({
                             {fmt(row.grossSar)}
                           </td>
                         )}
-                        {tableCols.colDedAdvances && <ReadOnlyAmountCell amount={row.dedAdvancesSar} colorClass="text-destructive" />}
-                        {tableCols.colDedAbsence && <ReadOnlyAmountCell amount={row.dedAbsenceSar} colorClass="text-warning" />}
-                        {tableCols.colDedLate && <ReadOnlyAmountCell amount={row.dedLateSar} colorClass="text-destructive" />}
-                        {tableCols.colDedPenalties && <ReadOnlyAmountCell amount={row.dedPenaltiesSar} colorClass="text-destructive" />}
+                        {tableCols.colDedAdvances && (
+                          <ReadOnlyAmountCell
+                            amount={row.dedAdvancesSar}
+                            colorClass="text-destructive"
+                            onOpenDetail={!embedded ? () => openCellDetail(row, 'advances') : undefined}
+                          />
+                        )}
+                        {tableCols.colDedAbsence && (
+                          <ReadOnlyAmountCell
+                            amount={row.dedAbsenceSar}
+                            colorClass="text-warning"
+                            onOpenDetail={!embedded ? () => openCellDetail(row, 'absence') : undefined}
+                          />
+                        )}
+                        {tableCols.colDedLate && (
+                          <ReadOnlyAmountCell
+                            amount={row.dedLateSar}
+                            colorClass="text-destructive"
+                            onOpenDetail={!embedded ? () => openCellDetail(row, 'lateness') : undefined}
+                          />
+                        )}
+                        {tableCols.colDedPenalties && (
+                          <ReadOnlyAmountCell
+                            amount={row.dedPenaltiesSar}
+                            colorClass="text-destructive"
+                            onOpenDetail={!embedded ? () => openCellDetail(row, 'penalties') : undefined}
+                          />
+                        )}
                         {tableCols.colDedAdmin && (
                           embedded ? (
                             <ReadOnlyAmountCell
@@ -809,13 +836,19 @@ export function CompensationReportPanel({
                               }
                               disabled={isReviewLocked}
                               onEditClick={() => openAdjustDialog(row, 'admin')}
+                              onDoubleClick={() => openCellDetail(row, 'admin')}
                             />
                           )
                         )}
-                        <td className={cn(
-                          'bg-primary/5 px-3 py-2 text-center font-mono font-bold tabular-nums',
-                          row.lineNetSar < 0 ? 'text-destructive' : 'text-foreground',
-                        )}>
+                        <td
+                          className={cn(
+                            'bg-primary/5 px-3 py-2 text-center font-mono font-bold tabular-nums',
+                            row.lineNetSar < 0 ? 'text-destructive' : 'text-foreground',
+                            !embedded && 'cursor-pointer select-none',
+                          )}
+                          onDoubleClick={!embedded ? () => openCellDetail(row, 'net') : undefined}
+                          title={!embedded ? 'انقر مرتين لعرض التفاصيل' : undefined}
+                        >
                           {fmt(row.lineNetSar)}
                         </td>
                       </tr>
@@ -845,10 +878,11 @@ export function CompensationReportPanel({
                     </td>
                   </tr>
                 </tfoot>
-              </table>
-            </div>
-          </div>
+                </table>
+          </CompensationTableShell>
         )}
+        </div>
+        </div>
 
       </div>
     </>

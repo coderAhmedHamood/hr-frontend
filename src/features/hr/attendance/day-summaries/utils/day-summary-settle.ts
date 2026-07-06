@@ -5,52 +5,56 @@ import type {
 import { getDaySummaryMetricMinutes } from '@/features/hr/attendance/day-summaries/utils/day-summary-display';
 
 export type DaySummarySettlePlan = {
-  expectedMinutes: number;
-  totalMinutes: number;
-  overtimeMinutes: number;
   shortageMinutes: number;
+  outsidePeriodMinutes: number;
+  overtimeMinutes: number;
+  settleablePoolMinutes: number;
   transferMinutes: number;
   after: {
-    totalMinutes: number;
-    overtimeMinutes: number;
     shortageMinutes: number;
+    outsidePeriodMinutes: number;
+    overtimeMinutes: number;
   };
 };
 
 export function getDaySummaryShortageMinutes(row: DaySummaryResponseDto): number {
-  const fromTotals = row.dailyTotals?.minutes?.shortage;
-  if (typeof fromTotals === 'number' && Number.isFinite(fromTotals)) {
-    return fromTotals;
-  }
-  if (typeof row.shortageMinutes === 'number' && Number.isFinite(row.shortageMinutes)) {
-    return row.shortageMinutes;
-  }
-  const expected = getDaySummaryMetricMinutes(row, 'expected');
-  const total = getDaySummaryMetricMinutes(row, 'total');
-  return Math.max(0, expected - total);
+  return getDaySummaryMetricMinutes(row, 'shortage');
 }
 
-/** Transfer from overtime to actual until actual reaches expected (partial if overtime is insufficient). */
-export function computeDaySummarySettlePlan(row: DaySummaryResponseDto): DaySummarySettlePlan {
-  const expectedMinutes = getDaySummaryMetricMinutes(row, 'expected');
-  const totalMinutes = getDaySummaryMetricMinutes(row, 'total');
-  const overtimeMinutes = getDaySummaryMetricMinutes(row, 'overtime');
-  const shortageMinutes = getDaySummaryShortageMinutes(row);
+export function getDaySummaryOutsidePeriodMinutes(row: DaySummaryResponseDto): number {
+  return getDaySummaryMetricMinutes(row, 'outsidePeriods');
+}
 
-  const gapToExpected = Math.max(0, expectedMinutes - totalMinutes);
-  const transferMinutes = Math.min(overtimeMinutes, gapToExpected);
-  const afterTotal = totalMinutes + transferMinutes;
+export function getDaySummarySettleablePoolMinutes(row: DaySummaryResponseDto): number {
+  return (
+    getDaySummaryOutsidePeriodMinutes(row) +
+    getDaySummaryMetricMinutes(row, 'overtime')
+  );
+}
+
+/** Net shortage against overtime pool (outside + overtime). */
+export function computeDaySummarySettlePlan(row: DaySummaryResponseDto): DaySummarySettlePlan {
+  const shortageMinutes = getDaySummaryShortageMinutes(row);
+  const outsidePeriodMinutes = getDaySummaryOutsidePeriodMinutes(row);
+  const overtimeMinutes = getDaySummaryMetricMinutes(row, 'overtime');
+  const settleablePoolMinutes = outsidePeriodMinutes + overtimeMinutes;
+
+  const transferMinutes = Math.min(shortageMinutes, settleablePoolMinutes);
+  let remaining = transferMinutes;
+  const fromOutside = Math.min(remaining, outsidePeriodMinutes);
+  remaining -= fromOutside;
+  const fromOvertime = remaining;
 
   return {
-    expectedMinutes,
-    totalMinutes,
-    overtimeMinutes,
     shortageMinutes,
+    outsidePeriodMinutes,
+    overtimeMinutes,
+    settleablePoolMinutes,
     transferMinutes,
     after: {
-      totalMinutes: afterTotal,
-      overtimeMinutes: overtimeMinutes - transferMinutes,
-      shortageMinutes: Math.max(0, expectedMinutes - afterTotal),
+      shortageMinutes: shortageMinutes - transferMinutes,
+      outsidePeriodMinutes: outsidePeriodMinutes - fromOutside,
+      overtimeMinutes: Math.max(0, overtimeMinutes - fromOvertime),
     },
   };
 }
@@ -62,8 +66,8 @@ export function canSettleDaySummary(row: DaySummaryResponseDto): boolean {
   const plan = computeDaySummarySettlePlan(row);
   return (
     plan.transferMinutes > 0 &&
-    plan.totalMinutes < plan.expectedMinutes &&
-    plan.overtimeMinutes > 0 &&
+    plan.shortageMinutes > 0 &&
+    plan.settleablePoolMinutes > 0 &&
     !row.isSettled &&
     !row.isFinalized
   );

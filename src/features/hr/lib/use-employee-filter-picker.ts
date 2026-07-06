@@ -2,8 +2,9 @@
 
 import * as React from 'react';
 import type { EmployeePickerOption } from '@/components/ui/employee-picker';
+import { usePageAccess } from '@/features/auth/permissions/use-page-access';
+import { FILTER_PERMISSIONS } from '@/features/auth/permissions/filter-permissions';
 import { employeesApi } from '@/features/hr/organization/employees/lib/api/employees';
-import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 
 const DEFAULT_LIMIT = 500;
 
@@ -19,11 +20,12 @@ export function useEmployeeFilterPicker(
 ) {
   const limit = options?.limit ?? DEFAULT_LIMIT;
   const enabled = options?.enabled ?? Boolean(companyId);
+  const canReadEmployees = usePageAccess(FILTER_PERMISSIONS.employee);
   const [employees, setEmployees] = React.useState<EmployeePickerOption[]>([]);
   const [loading, setLoading] = React.useState(false);
 
   React.useEffect(() => {
-    if (!enabled || !companyId) {
+    if (!enabled || !companyId || !canReadEmployees) {
       setEmployees([]);
       setLoading(false);
       return;
@@ -45,9 +47,8 @@ export function useEmployeeFilterPicker(
           })),
         );
       })
-      .catch((err) => {
+      .catch(() => {
         if (cancelled) return;
-        handleApiError(err, 'employee-filter-picker.load');
         setEmployees([]);
       })
       .finally(() => {
@@ -57,7 +58,7 @@ export function useEmployeeFilterPicker(
     return () => {
       cancelled = true;
     };
-  }, [companyId, enabled, limit]);
+  }, [companyId, enabled, limit, canReadEmployees]);
 
   return { employees, loading };
 }
@@ -77,4 +78,13 @@ export function mapEmployeesToPickerOptions(
     departmentNameAr: e.departmentNameAr ?? undefined,
     branchNameAr: e.branchNameAr ?? undefined,
   }));
+}
+
+/** Lazy-load employee picker options (call from `onEmployeePickerOpen` only). */
+export async function fetchEmployeeFilterPickerOptions(
+  companyId: string,
+  limit = DEFAULT_LIMIT,
+): Promise<EmployeePickerOption[]> {
+  const res = await employeesApi.getAll({ companyId, limit });
+  return mapEmployeesToPickerOptions(res.items);
 }

@@ -30,9 +30,13 @@ import { departmentsApi, type DepartmentResponseDto } from '@/features/hr/organi
 import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 import { useActiveCompany } from '@/features/hr/organization/hooks/useActiveCompany';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
+import { resolveDirectoryLoadFailure } from '@/features/hr/lib/api/directory-load-error';
 import { usePagePermissions } from '@/features/auth/permissions';
-import { EMPLOYEES_PAGE_PERMISSIONS } from '@/features/hr/organization/employees/permissions';
-import { fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
+import { useFilterPermission } from '@/features/auth/permissions/use-filter-permission';
+import {
+  EMPLOYEES_FILTER_PERMISSIONS,
+  EMPLOYEES_PAGE_PERMISSIONS,
+} from '@/features/hr/organization/employees/permissions';
 import { useServerDirectoryPagination } from '@/components/ui/paged-list';
 import {
   ORGANIZATION_ARCHIVE_SCOPE_DEFAULT,
@@ -59,7 +63,10 @@ export function useEmployeesListModel() {
   const router = useRouter();
   const companyId = useDefaultCompanyId();
   const perms = usePagePermissions(EMPLOYEES_PAGE_PERMISSIONS);
-  const accessDenied = !perms.canRead;
+  const [apiAccessDenied, setApiAccessDenied] = React.useState(false);
+  const accessDenied = !perms.canRead || apiAccessDenied;
+  const branchFilterAccess = useFilterPermission(EMPLOYEES_FILTER_PERMISSIONS.branch);
+  const deptFilterAccess = useFilterPermission(EMPLOYEES_FILTER_PERMISSIONS.department);
   // company details are optional (used only for PDF header); 403 is silently ignored
   const { data: activeCompany } = useActiveCompany();
 
@@ -117,7 +124,6 @@ export function useEmployeesListModel() {
   }, [companyId]);
 
   const selectedEmpKey = React.useMemo(() => [...selectedEmpIds].sort().join(','), [selectedEmpIds]);
-  const bulkMode = selectedEmpIds.size > 1;
 
   const buildListQuery = React.useCallback((page: number, pageSize: number): Parameters<typeof employeesApi.getAll>[0] => ({
     page,
@@ -127,8 +133,9 @@ export function useEmployeesListModel() {
     ...(deptFilter !== 'all' ? { departmentId: deptFilter } : {}),
     ...(toolbarStatus !== 'all' ? { contractStatus: toolbarStatus } : {}),
     ...(debouncedSearch.trim() ? { search: debouncedSearch.trim() } : {}),
+    ...(selectedEmpIds.size > 0 ? { employeeIds: [...selectedEmpIds] } : {}),
     ...organizationListArchiveQuery(archiveScope),
-  }), [companyId, branchFilter, deptFilter, toolbarStatus, debouncedSearch, archiveScope]);
+  }), [companyId, branchFilter, deptFilter, toolbarStatus, debouncedSearch, archiveScope, selectedEmpIds]);
 
   const loadPage = React.useCallback(async (page: number, pageSize: number) => {
     if (!companyId) return { items: [] as EmployeeResponseDto[], total: 0 };
@@ -137,31 +144,15 @@ export function useEmployeesListModel() {
       const res = await employeesApi.getAll(buildListQuery(page, pageSize));
       setEmployees(res.items);
       setTotalCount(res.pagination.total);
+      setApiAccessDenied(false);
       return { items: res.items, total: res.pagination.total };
     } catch (err) {
-      const { displayMessage } = handleApiError(err, 'employees.load');
-      setListError(displayMessage);
+      const failure = resolveDirectoryLoadFailure(err, 'employees.load');
+      setApiAccessDenied(failure.accessDenied);
+      setListError(failure.listError);
       return { items: [], total: 0 };
     }
   }, [buildListQuery, companyId]);
-
-  const loadBulk = React.useCallback(async () => {
-    if (!companyId) return { items: [] as EmployeeResponseDto[], total: 0 };
-    setListError(null);
-    try {
-      const res = await fetchAllPaginatedItems((page, limit) => employeesApi.getAll(buildListQuery(page, limit)));
-      const scoped = selectedEmpIds.size > 0
-        ? res.items.filter((e) => selectedEmpIds.has(e.id))
-        : res.items;
-      setEmployees(res.items);
-      setTotalCount(res.total);
-      return { items: scoped, total: scoped.length };
-    } catch (err) {
-      const { displayMessage } = handleApiError(err, 'employees.load');
-      setListError(displayMessage);
-      return { items: [], total: 0 };
-    }
-  }, [buildListQuery, companyId, selectedEmpIds]);
 
   const {
     items: pagedEmployees,
@@ -170,8 +161,6 @@ export function useEmployeesListModel() {
     reload: reloadEmployees,
   } = useServerDirectoryPagination<EmployeeResponseDto>(loadPage, {
     enabled: !!companyId && perms.canRead,
-    bulkMode,
-    loadBulk: bulkMode ? loadBulk : undefined,
     resetDeps: [companyId, branchFilter, deptFilter, toolbarStatus, archiveScope, debouncedSearch, selectedEmpKey, view],
   });
 
@@ -184,15 +173,8 @@ export function useEmployeesListModel() {
     [departments],
   );
 
-  // Server handles filters; bulkMode applies multi-employee picker client-side
-  const filtered = React.useMemo(
-    () => (bulkMode ? pagedEmployees : (
-      selectedEmpIds.size === 1
-        ? pagedEmployees.filter((e) => selectedEmpIds.has(e.id))
-        : pagedEmployees
-    )),
-    [bulkMode, pagedEmployees, selectedEmpIds],
-  );
+  // Server applies all filters, including the multi-employee picker (employeeIds)
+  const filtered = pagedEmployees;
 
   const contractStatusCounts = React.useMemo(
     () => ({
@@ -344,14 +326,16 @@ export function useEmployeesListModel() {
           {
             id: 'branch',
             value: branchFilter,
-            onChange: setBranchFilter,
+            onChange: branchFilterAccess.guardOnChange(setBranchFilter),
+            onOpen: branchFilterAccess.guardOnOpen(),
             placeholder: 'الفرع',
             options: branchSelectOptions,
           },
           {
             id: 'dept',
             value: deptFilter,
-            onChange: setDeptFilter,
+            onChange: deptFilterAccess.guardOnChange(setDeptFilter),
+            onOpen: deptFilterAccess.guardOnOpen(),
             placeholder: 'القسم',
             options: deptSelectOptions,
           },
@@ -380,6 +364,7 @@ export function useEmployeesListModel() {
       contractStatusCounts.all, contractStatusCounts.active,
       contractStatusCounts.suspended, contractStatusCounts.ended,
       companyId, branchSelectOptions, deptSelectOptions,
+      branchFilterAccess.allowed, deptFilterAccess.allowed,
     ],
   );
 

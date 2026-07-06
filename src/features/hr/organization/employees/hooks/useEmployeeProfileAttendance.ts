@@ -16,9 +16,8 @@ import { fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
 import type { AttendanceCheckInPoint, AttendanceCheckInPointLink } from '@/features/hr/attendance/lib/types';
 import { employeeAssignmentsApi } from '@/features/hr/organization/employees/lib/api/employee-assignments';
 import {
-  DEFAULT_DATE_FILTER_TAB,
-  effectiveDateRange,
-  type DateFilterTab,
+  normalizePeriodRange,
+  todayYMD,
 } from '@/features/hr/discipline/lib/discipline-date-filter';
 import { resolvePrimaryAssignment } from '@/features/hr/organization/employees/services/employee-assignments.service';
 import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
@@ -59,33 +58,26 @@ export function useEmployeeProfileAttendance(
   const [checkpoints, setCheckpoints] = React.useState<AttendanceCheckInPoint[]>([]);
   const [checkpointLinks, setCheckpointLinks] = React.useState<AttendanceCheckInPointLink[]>([]);
 
-  const [dateFilterTab, setDateFilterTab] = React.useState<DateFilterTab>(DEFAULT_DATE_FILTER_TAB);
-  const [customFrom, setCustomFrom] = React.useState('');
-  const [customTo, setCustomTo] = React.useState('');
+  const [dateBounds, setDateBounds] = React.useState(() => ({
+    from: todayYMD(),
+    to: todayYMD(),
+  }));
 
   const effectiveRange = React.useMemo(
-    () => effectiveDateRange(dateFilterTab, customFrom, customTo),
-    [dateFilterTab, customFrom, customTo],
+    () => ({
+      from: dateBounds.from || todayYMD(),
+      to: dateBounds.to || todayYMD(),
+    }),
+    [dateBounds.from, dateBounds.to],
   );
 
-  const setAttendanceDateFilterTab = React.useCallback((tab: DateFilterTab) => {
-    setDateFilterTab(tab);
-    if (tab !== 'custom') {
-      setCustomFrom('');
-      setCustomTo('');
+  const setAttendanceDateBounds = React.useCallback((range: { from: string; to: string }) => {
+    const normalized = normalizePeriodRange(range);
+    if (normalized) {
+      setDateBounds(normalized);
+      return;
     }
-  }, []);
-
-  const applyCustomAttendanceRange = React.useCallback((range: { from: string; to: string }) => {
-    setCustomFrom(range.from);
-    setCustomTo(range.to);
-    setDateFilterTab('custom');
-  }, []);
-
-  const resetAttendanceDateFilter = React.useCallback(() => {
-    setDateFilterTab(DEFAULT_DATE_FILTER_TAB);
-    setCustomFrom('');
-    setCustomTo('');
+    setDateBounds({ from: todayYMD(), to: todayYMD() });
   }, []);
 
   const [attendanceEvents, setAttendanceEvents] = React.useState<AttendanceEventResponseDto[]>([]);
@@ -291,12 +283,8 @@ export function useEmployeeProfileAttendance(
   };
 
   return {
-    dateFilterTab,
-    customFrom,
-    customTo,
-    setAttendanceDateFilterTab,
-    applyCustomAttendanceRange,
-    resetAttendanceDateFilter,
+    dateBounds,
+    setAttendanceDateBounds,
     effectiveRange,
     attendanceEventsLoading,
     shiftTemplates,

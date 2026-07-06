@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
-import { fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
+import { resolveDirectoryLoadFailure } from '@/features/hr/lib/api/directory-load-error';
 import { useServerDirectoryPagination } from '@/components/ui/paged-list';
 import { resolveOrganizationScope } from '@/features/hr/organization/lib/api/organization-context';
 import { employeesApi } from '@/features/hr/organization/employees/lib/api/employees';
@@ -14,7 +14,6 @@ import {
 } from '@/features/hr/discipline/lib/api/discipline-notices';
 import type { HRDisciplineNoticeKind } from '@/features/hr/discipline/lib/types';
 import { NOTICE_KIND_LABELS } from '@/features/hr/discipline/lib/types';
-import { matchesDateRange } from '@/features/hr/discipline/lib/discipline-date-filter';
 
 export type NoticeEmployee = { id: string; nameAr: string };
 export type NoticeCase = { id: string; caseNumber: string; employeeId: string; employeeNameAr: string };
@@ -60,6 +59,14 @@ const NOTICE_KIND_MAP: Record<string, HRDisciplineNoticeKind> = {
   شفهي: 'verbal',
 };
 
+/** Raw notice_kind spelling variants written historically for each canonical kind. */
+const KIND_TO_RAW_VARIANTS: Record<HRDisciplineNoticeKind, string[]> = {
+  verbal: ['شفهي'],
+  first: ['إنذار أول'],
+  second: ['إنذار ثانٍ', 'إنذار ثاني'],
+  final: ['إنذار نهائي'],
+};
+
 function normalizeNoticeKind(raw: string): HRDisciplineNoticeKind {
   const trimmed = raw.trim();
   const mapped = NOTICE_KIND_MAP[trimmed];
@@ -92,40 +99,16 @@ function mapNotice(
   };
 }
 
-function applyNoticeClientFilters(
-  notices: NoticeRecord[],
-  filters: NoticeListFilters,
-): NoticeRecord[] {
-  const selected = new Set(filters.selectedEmpIds);
-  return notices.filter((n) => {
-    if (selected.size > 0 && !selected.has(n.employeeId)) return false;
-    if (!matchesDateRange(n.date, filters.dateFrom, filters.dateTo)) return false;
-    if (filters.kindFilter !== 'all' && n.kind !== filters.kindFilter) return false;
-    return true;
-  });
-}
-
 export function useDisciplineNoticesDirectoryModel() {
   const [listFilters, setListFilters] = React.useState<NoticeListFilters>(DEFAULT_LIST_FILTERS);
-  const [sourceNotices, setSourceNotices] = React.useState<NoticeRecord[]>([]);
   const [employees, setEmployees] = React.useState<NoticeEmployee[]>([]);
   const [cases, setCases] = React.useState<NoticeCase[]>([]);
   const [companyId, setCompanyId] = React.useState<string | null>(null);
   const [listError, setListError] = React.useState<string | null>(null);
+  const [apiAccessDenied, setApiAccessDenied] = React.useState(false);
 
   const companyIdRef = React.useRef<string | null>(null);
   const employeeMapRef = React.useRef<Map<string, string>>(new Map());
-
-  const bulkMode = Boolean(
-    listFilters.dateFrom
-    || listFilters.dateTo
-    || listFilters.kindFilter !== 'all'
-    || listFilters.selectedEmpIds.length > 1,
-  );
-
-  const apiEmployeeId = listFilters.selectedEmpIds.length === 1
-    ? listFilters.selectedEmpIds[0]
-    : undefined;
 
   const loadReferenceData = React.useCallback(async () => {
     const scope = await resolveOrganizationScope();
@@ -160,9 +143,12 @@ export function useDisciplineNoticesDirectoryModel() {
       companyId: companyIdRef.current!,
       page,
       limit,
-      ...(apiEmployeeId ? { employeeId: apiEmployeeId } : {}),
+      ...(listFilters.selectedEmpIds.length > 0 ? { employeeIds: listFilters.selectedEmpIds } : {}),
+      ...(listFilters.kindFilter !== 'all' ? { noticeKinds: KIND_TO_RAW_VARIANTS[listFilters.kindFilter] } : {}),
+      ...(listFilters.dateFrom ? { dateFrom: listFilters.dateFrom } : {}),
+      ...(listFilters.dateTo ? { dateTo: listFilters.dateTo } : {}),
     }),
-    [apiEmployeeId],
+    [listFilters],
   );
 
   const loadPage = React.useCallback(async (page: number, pageSize: number) => {
@@ -177,39 +163,15 @@ export function useDisciplineNoticesDirectoryModel() {
 
       const res = await disciplineNoticesApi.getAll(buildNoticesQuery(page, pageSize));
       const items = res.items.map((n) => mapNotice(n, employeeMapRef.current));
-      setSourceNotices(items);
-      const filtered = applyNoticeClientFilters(items, listFilters);
-      return { items: filtered, total: res.pagination.total };
+      setApiAccessDenied(false);
+      return { items, total: res.pagination.total };
     } catch (err) {
-      const { displayMessage } = handleApiError(err, 'discipline-notices.load');
-      setListError(displayMessage);
+      const failure = resolveDirectoryLoadFailure(err, 'discipline-notices.load');
+      setApiAccessDenied(failure.accessDenied);
+      setListError(failure.listError);
       return { items: [], total: 0 };
     }
-  }, [buildNoticesQuery, listFilters]);
-
-  const loadBulk = React.useCallback(async () => {
-    setListError(null);
-    try {
-      if (!companyIdRef.current) {
-        const scope = await resolveOrganizationScope();
-        companyIdRef.current = scope.companyId ?? null;
-        setCompanyId(companyIdRef.current);
-      }
-      if (!companyIdRef.current) return { items: [], total: 0 };
-
-      const res = await fetchAllPaginatedItems((page, limit) =>
-        disciplineNoticesApi.getAll(buildNoticesQuery(page, limit)),
-      );
-      const items = res.items.map((n) => mapNotice(n, employeeMapRef.current));
-      setSourceNotices(items);
-      const filtered = applyNoticeClientFilters(items, listFilters);
-      return { items: filtered, total: filtered.length };
-    } catch (err) {
-      const { displayMessage } = handleApiError(err, 'discipline-notices.load');
-      setListError(displayMessage);
-      return { items: [], total: 0 };
-    }
-  }, [buildNoticesQuery, listFilters]);
+  }, [buildNoticesQuery]);
 
   const {
     items,
@@ -217,11 +179,7 @@ export function useDisciplineNoticesDirectoryModel() {
     pagination,
     reload,
   } = useServerDirectoryPagination<NoticeRecord>(loadPage, {
-    bulkMode,
-    loadBulk: bulkMode ? loadBulk : undefined,
-    enabled: !!companyIdRef.current || true,
     resetDeps: [
-      apiEmployeeId,
       listFilters.dateFrom,
       listFilters.dateTo,
       listFilters.kindFilter,
@@ -229,15 +187,9 @@ export function useDisciplineNoticesDirectoryModel() {
     ],
   });
 
-  const filteredItems = React.useMemo(
-    () => applyNoticeClientFilters(sourceNotices, listFilters),
-    [listFilters, sourceNotices],
-  );
-
-  const dateFilteredItems = React.useMemo(
-    () => sourceNotices.filter((n) => matchesDateRange(n.date, listFilters.dateFrom, listFilters.dateTo)),
-    [listFilters.dateFrom, listFilters.dateTo, sourceNotices],
-  );
+  // Server applies all list filters now; kept as aliases for existing consumers.
+  const filteredItems = items;
+  const dateFilteredItems = items;
 
   const createNotice = React.useCallback(
     async (payload: {
@@ -277,13 +229,14 @@ export function useDisciplineNoticesDirectoryModel() {
     items,
     filteredItems,
     dateFilteredItems,
-    sourceNotices,
+    sourceNotices: items,
     employees,
     cases,
     companyId,
     loading,
     pagination,
     listError,
+    accessDenied: apiAccessDenied,
     listFilters,
     setListFilters,
     createNotice,

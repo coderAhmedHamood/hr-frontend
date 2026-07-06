@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
+import { resolveDirectoryLoadFailure } from '@/features/hr/lib/api/directory-load-error';
 import { useServerDirectoryPagination } from '@/components/ui/paged-list';
 import { publicHolidaysApi } from '@/features/hr/leaves/public-holidays/lib/api/public-holidays';
 import { resolveOrganizationScope } from '@/features/hr/organization/lib/api/organization-context';
@@ -28,6 +29,7 @@ const EMPTY_DRAFT: PublicHolidayDraft = {
 
 export function usePublicHolidaysPanelModel() {
   const [listError, setListError] = React.useState<string | null>(null);
+  const [apiAccessDenied, setApiAccessDenied] = React.useState(false);
   const [companyId, setCompanyId] = React.useState<string | null>(null);
   const [open, setOpen] = React.useState(false);
   const [editId, setEditId] = React.useState<string | null>(null);
@@ -45,10 +47,12 @@ export function usePublicHolidaysPanelModel() {
         cid ? { companyId: cid, page, limit: pageSize } : { page, limit: pageSize },
       );
       const mapped = res.items.map(mapPublicHolidayResponse).sort((a, b) => a.sortOrder - b.sortOrder);
+      setApiAccessDenied(false);
       return { items: mapped, total: res.pagination.total };
     } catch (err) {
-      const { displayMessage } = handleApiError(err, 'public-holidays.load');
-      setListError(displayMessage);
+      const failure = resolveDirectoryLoadFailure(err, 'public-holidays.load');
+      setApiAccessDenied(failure.accessDenied);
+      setListError(failure.listError);
       return { items: [], total: 0 };
     }
   }, []);
@@ -149,6 +153,7 @@ export function usePublicHolidaysPanelModel() {
     loading,
     pagination,
     listError,
+    accessDenied: apiAccessDenied,
     open,
     setOpen,
     editId,

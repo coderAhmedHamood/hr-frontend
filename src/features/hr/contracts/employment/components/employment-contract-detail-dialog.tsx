@@ -22,7 +22,8 @@ import {
 } from '@/features/hr/contracts/lib/contracts-store';
 import { EmploymentContractSignatureCard } from '@/features/hr/contracts/employment/components/employment-contract-signature-card';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
-import { cn, formatNumber } from '@/shared/utils';
+import { MoneyAmount } from '@/components/ui/sar-amount';
+import { cn } from '@/shared/utils';
 
 function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -115,7 +116,7 @@ export function EmploymentContractDetailDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden border-border p-0"
+        className="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-visible border-border p-0"
         dir="rtl"
       >
         <div className="shrink-0 border-b border-border/60 bg-linear-to-b from-primary/6 to-transparent px-6 pb-4 pt-6">
@@ -161,18 +162,16 @@ export function EmploymentContractDetailDialog({
                 <div className="rounded-xl border border-border/60 bg-card px-3 py-3 text-center">
                   <Coins className="mx-auto mb-1 h-4 w-4 text-gold" />
                   <p className="text-[10px] text-muted-foreground">الراتب الأساسي</p>
-                  <p className="mt-0.5 font-mono text-sm font-bold tabular-nums">
-                    {formatNumber(contract.baseSalary)}
+                  <p className="mt-0.5 font-mono text-sm font-bold">
+                    <MoneyAmount value={contract.baseSalary} currency={contract.currency} fractionDigits={0} />
                   </p>
-                  <p className="text-[10px] text-muted-foreground">{contract.currency}</p>
                 </div>
                 <div className="rounded-xl border border-border/60 bg-card px-3 py-3 text-center">
                   <Briefcase className="mx-auto mb-1 h-4 w-4 text-primary" />
                   <p className="text-[10px] text-muted-foreground">إجمالي البدلات</p>
-                  <p className="mt-0.5 font-mono text-sm font-bold tabular-nums">
-                    {formatNumber(allowanceTotal)}
+                  <p className="mt-0.5 font-mono text-sm font-bold">
+                    <MoneyAmount value={allowanceTotal} currency={contract.currency} fractionDigits={0} />
                   </p>
-                  <p className="text-[10px] text-muted-foreground">{contract.currency}</p>
                 </div>
                 <div className="col-span-2 rounded-xl border border-primary/20 bg-primary/5 px-3 py-3 text-center sm:col-span-1">
                   <CalendarRange className="mx-auto mb-1 h-4 w-4 text-primary" />
@@ -235,9 +234,12 @@ export function EmploymentContractDetailDialog({
                               <p className="font-mono text-[10px] text-muted-foreground">{line.allowanceTypeCode}</p>
                             ) : null}
                           </div>
-                          <span className="shrink-0 font-mono text-xs font-semibold tabular-nums">
-                            {formatNumber(Number(line.amount) || 0)} {contract.currency}
-                          </span>
+                          <MoneyAmount
+                            value={Number(line.amount) || 0}
+                            currency={contract.currency}
+                            fractionDigits={0}
+                            className="shrink-0 font-mono text-xs font-semibold"
+                          />
                         </li>
                       ))}
                   </ul>

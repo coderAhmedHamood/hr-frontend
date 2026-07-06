@@ -65,19 +65,21 @@ export function DaySummarySettleConfirmDialog({
   if (!row) return null;
 
   const plan = computeDaySummarySettlePlan(row);
-  const isPartial = plan.after.shortageMinutes > 0;
+  const partialShortage = plan.after.shortageMinutes > 0;
+  const surplusPool =
+    plan.after.outsidePeriodMinutes + plan.after.overtimeMinutes > 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md gap-0 overflow-hidden border-border p-0" dir="rtl">
+      <DialogContent className="max-w-md gap-0 overflow-visible border-border p-0" dir="rtl">
         <div className="border-b border-border/60 bg-linear-to-b from-primary/8 to-transparent px-6 pb-4 pt-6">
           <DialogHeader className="space-y-2 text-right">
             <DialogTitle className="font-display text-base">تسوية الحضور</DialogTitle>
             <DialogDescription className="text-xs leading-relaxed">
-              هل تريد تسوية الحضور من الإضافي؟ سيتم خصم{' '}
+              تسوية بين <span className="font-semibold text-destructive">النقص</span> و{' '}
+              <span className="font-semibold text-success">رصيد الإضافي</span> (خارج الفترات + إضافي): يُنقَل{' '}
               <span className="font-semibold text-foreground">{minutesToHHMM(plan.transferMinutes)}</span>{' '}
-              من الإضافي وإضافتها إلى الفعلي دون تجاوز المتوقع (
-              {minutesToHHMM(plan.expectedMinutes)}).
+              (أقلّ القيمتين).
             </DialogDescription>
           </DialogHeader>
         </div>
@@ -97,37 +99,50 @@ export function DaySummarySettleConfirmDialog({
               <span className="font-mono font-semibold tabular-nums text-primary">
                 {minutesToHHMM(plan.transferMinutes)}
               </span>{' '}
-              من الإضافي إلى الفعلي
+              من الإضافي → سد النقص
             </span>
           </div>
 
           <div className="grid grid-cols-3 gap-2">
-            <MetricPreview label="فعلي" before={plan.totalMinutes} after={plan.after.totalMinutes} />
-            <MetricPreview
-              label="إضافي"
-              before={plan.overtimeMinutes}
-              after={plan.after.overtimeMinutes}
-              tone="success"
-            />
             <MetricPreview
               label="نقص"
               before={plan.shortageMinutes}
               after={plan.after.shortageMinutes}
               tone="destructive"
             />
+            <MetricPreview
+              label="خارج الفترات"
+              before={plan.outsidePeriodMinutes}
+              after={plan.after.outsidePeriodMinutes}
+              tone="success"
+            />
+            <MetricPreview
+              label="إضافي"
+              before={plan.overtimeMinutes}
+              after={plan.after.overtimeMinutes}
+              tone="default"
+            />
           </div>
 
-          {isPartial ? (
+          {partialShortage ? (
             <p className="text-xs leading-relaxed text-muted-foreground">
-              الإضافي المتاح أقل من النقص — ستُسوّى جزئياً ويبقى نقص{' '}
+              رصيد الإضافي أقل من النقص — تسوية جزئية، يبقى نقص{' '}
               <span className="font-mono font-medium text-destructive">
                 {minutesToHHMM(plan.after.shortageMinutes)}
               </span>
               .
             </p>
+          ) : surplusPool ? (
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              بعد التسوية الكاملة للنقص، يبقى رصيد إضافي{' '}
+              <span className="font-mono font-medium text-success">
+                {minutesToHHMM(plan.after.outsidePeriodMinutes + plan.after.overtimeMinutes)}
+              </span>
+              .
+            </p>
           ) : (
             <p className="text-xs leading-relaxed text-muted-foreground">
-              بعد التسوية يصبح الفعلي مساوياً للمتوقع.
+              تسوية كاملة — لا نقص ولا رصيد خارج متبقٍ.
             </p>
           )}
         </div>

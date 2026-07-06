@@ -195,9 +195,11 @@ export const employeeContractsApi = {
   list: (params?: {
     companyId?: string;
     employeeId?: string;
+    employeeIds?: string[];
     branchId?: string;
     contractTemplateId?: string;
     status?: string;
+    isDraft?: boolean;
     contractNature?: string;
     workArrangement?: string;
     contractNumber?: string;
@@ -206,7 +208,7 @@ export const employeeContractsApi = {
     archiveScope?: OrganizationArchiveScope;
   }) =>
     apiRequest<PaginatedResult<ApiEmployeeContract>>('/payroll/contracts', {
-      query: params as Record<string, string | number | boolean | null | undefined>,
+      query: params as Record<string, string | number | boolean | null | undefined | string[]>,
     }),
 
   get: (id: string) =>

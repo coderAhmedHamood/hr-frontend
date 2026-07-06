@@ -1,25 +1,20 @@
 'use client';
 
 import * as React from 'react';
-import { Plus, Loader2, LogIn, LogOut } from 'lucide-react';
+import { Plus, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { cn } from '@/shared/utils';
 import { Button } from '@/components/ui/button';
 import ModernTimePicker from '@/components/ui/modern-time-picker';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, dialogFormFooterClass } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, dialogFormFooterClass } from '@/components/ui/dialog';
 import { attendanceEventsApi, type AttendanceEventResponseDto } from '@/features/hr/attendance/lib/api/attendance-events';
 import { useNextEventType } from '@/features/hr/attendance/daily/hooks/useNextEventType';
+import {
+  RegisterEventTypePicker,
+  type RegisterableEventType,
+} from '@/features/hr/attendance/daily/components/register-event-type-picker';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
-
-const REGISTERABLE_EVENT_TYPES = ['check_in', 'check_out'] as const;
-type RegisterableEventType = (typeof REGISTERABLE_EVENT_TYPES)[number];
-
-const REGISTER_EVENT_TYPE_META: Record<RegisterableEventType, { labelAr: string; icon: React.ElementType; color: string }> = {
-  check_in:  { labelAr: 'تسجيل حضور',   icon: LogIn,  color: 'text-emerald-700 bg-emerald-500/15 border-emerald-500/30' },
-  check_out: { labelAr: 'تسجيل انصراف', icon: LogOut, color: 'text-sky-700 bg-sky-500/15 border-sky-500/30' },
-};
 
 const REGISTER_SUCCESS_MSG: Record<RegisterableEventType, string> = {
   check_in:  'تم تسجيل الحضور بنجاح',
@@ -47,7 +42,7 @@ export function DailyRegisterEventDialog({ open, onOpenChange, employeeId, emplo
   const [notes, setNotes] = React.useState('');
   const [saving, setSaving] = React.useState(false);
 
-  const { loading: nextTypeLoading, nextEventType, message: nextTypeMessage } = useNextEventType({
+  const { loading: nextTypeLoading, nextEventType, message: nextTypeMessage, data: nextEventData } = useNextEventType({
     employeeId,
     companyId,
     workDate,
@@ -59,8 +54,8 @@ export function DailyRegisterEventDialog({ open, onOpenChange, employeeId, emplo
   }, [open]);
 
   React.useEffect(() => {
-    if (open) setEventType(nextEventType);
-  }, [open, nextEventType]);
+    if (open && !nextTypeLoading) setEventType(nextEventType);
+  }, [open, nextTypeLoading, nextEventType]);
 
   const handleSave = async () => {
     if (!time) { toast.error('الوقت مطلوب'); return; }
@@ -92,52 +87,20 @@ export function DailyRegisterEventDialog({ open, onOpenChange, employeeId, emplo
       <DialogContent className="max-w-sm border-border" dir="rtl">
         <DialogHeader>
           <DialogTitle className="text-right font-display text-base">تسجيل حدث حضور</DialogTitle>
-          <p className="text-xs text-muted-foreground text-right">
+          <DialogDescription className="text-xs text-muted-foreground text-right">
             {employeeName} · <span dir="ltr">{workDate}</span>
-          </p>
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-1">
-          <div className="space-y-1.5">
-            <Label className="text-xs font-medium text-muted-foreground">نوع الحدث</Label>
-            {nextTypeLoading ? (
-              <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/20 px-3 py-2.5 text-xs text-muted-foreground">
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                جاري تحديد نوع الحدث القادم…
-              </div>
-            ) : (
-              <>
-                <div className="grid grid-cols-2 gap-2">
-                  {REGISTERABLE_EVENT_TYPES.map((t) => {
-                    const m = REGISTER_EVENT_TYPE_META[t];
-                    const Icon = m.icon;
-                    const isNext = t === nextEventType;
-                    return (
-                      <button
-                        key={t}
-                        type="button"
-                        disabled={!isNext}
-                        onClick={() => isNext && setEventType(t)}
-                        className={cn(
-                          'flex items-center gap-2 rounded-lg border px-3 py-2.5 text-xs font-medium transition-all',
-                          eventType === t
-                            ? 'border-primary bg-primary/8 text-primary shadow-sm ring-1 ring-primary/30'
-                            : 'border-border bg-card text-muted-foreground',
-                          !isNext && 'cursor-not-allowed opacity-40',
-                        )}
-                      >
-                        <Icon className="h-3.5 w-3.5 shrink-0" />
-                        {m.labelAr}
-                      </button>
-                    );
-                  })}
-                </div>
-                {nextTypeMessage ? (
-                  <p className="text-[11px] leading-relaxed text-muted-foreground">{nextTypeMessage}</p>
-                ) : null}
-              </>
-            )}
-          </div>
+          <RegisterEventTypePicker
+            value={eventType}
+            onChange={setEventType}
+            nextEventType={nextEventType}
+            loading={nextTypeLoading}
+            message={nextTypeMessage}
+            nextEventData={nextEventData}
+          />
 
           <div className="space-y-1.5">
             <Label className="text-xs font-medium text-muted-foreground">

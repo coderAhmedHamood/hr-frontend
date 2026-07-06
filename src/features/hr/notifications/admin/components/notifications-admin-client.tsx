@@ -2,10 +2,14 @@
 
 import * as React from 'react';
 import {
+  Bell,
+  CheckCircle2,
+  Circle,
   Clock,
   Mail,
   Plus,
   Trash2,
+  Users,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -22,6 +26,8 @@ import {
 } from '@/components/ui/list-filter-bar';
 import { EMPTY_PERIOD_RANGE } from '@/features/hr/discipline/lib/discipline-date-filter';
 import { EmployeePicker } from '@/components/ui/employee-picker';
+import { DirectoryPageGate } from '@/components/shared/directory-page-gate';
+import { FILTER_PERMISSIONS } from '@/features/auth/permissions/filter-permissions';
 import { cn, formatDisplayDateTime } from '@/shared/utils';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import {
@@ -31,8 +37,8 @@ import {
   HRSettingsFormDrawer,
   MinimalDropdown,
 } from '@/components/ui/shared-dialogs';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { DataTable, type ColumnDef } from '@/components/ui/data-table';
+import { Dialog, DialogBody, DialogContent, DialogTitle, dialogShellBodyClass, dialogShellContentClass } from '@/components/ui/dialog';
+import { DataTable, AppPagination, usePagination, type ColumnDef } from '@/components/ui/data-table';
 import { PagedListViewport, PaginatedListShell } from '@/components/ui/paged-list';
 import { TableDateCell, TableRowActions } from '@/components/ui/table-cells';
 import { useNotificationsAdminDirectoryModel } from '@/features/hr/notifications/admin/hooks/useNotificationsAdminDirectoryModel';
@@ -388,12 +394,13 @@ export function NotificationsAdminClient() {
         iconName="Bell"
       />
 
-      {m.listError ? (
-        <div className="mb-4 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-          {m.listError}
-        </div>
-      ) : null}
-
+      <DirectoryPageGate
+        accessDenied={m.accessDenied}
+        listError={m.listError}
+        loading={m.loading && m.notifications.length === 0 && !m.accessDenied}
+        forbiddenTitle="لا تملك صلاحية الوصول لإدارة الإشعارات"
+        loadErrorTitle="تعذر تحميل الإشعارات"
+      >
       {!m.loading && m.notifications.length === 0 ? (
         <EmptyState
           title="لا توجد إشعارات"
@@ -427,6 +434,8 @@ export function NotificationsAdminClient() {
           </PaginatedListShell>
         </PagedListViewport>
       )}
+
+      </DirectoryPageGate>
 
       <HRSettingsFormDrawer
         open={drawerOpen}
@@ -481,6 +490,7 @@ export function NotificationsAdminClient() {
             employees={allEmployeeOptions}
             selected={form.employeeIds}
             onChange={(employeeIds) => setForm((f) => ({ ...f, employeeIds }))}
+            requirePermission={FILTER_PERMISSIONS.employee}
           />
         </FormField>
         <label className="flex cursor-pointer items-center gap-2 text-sm">
@@ -514,75 +524,144 @@ export function NotificationsAdminClient() {
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function ReadStatusBadge({ isRead }: { isRead: boolean }) {
+  if (isRead) {
+    return (
+      <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-success/25 bg-success/10 px-2 py-0.5 text-[11px] font-medium text-success">
+        <CheckCircle2 className="h-3 w-3" />
+        نعم
+      </span>
+    );
+  }
+
   return (
-    <div className="flex items-center justify-between gap-3">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-medium">{value}</span>
-    </div>
+    <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border bg-muted/60 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+      <Circle className="h-3 w-3" />
+      لا
+    </span>
   );
 }
 
-// ─── Recipient state helpers ──────────────────────────────────────────────────
+function buildRecipientColumns(showAcknowledgment: boolean): ColumnDef<NotificationRecipientDto>[] {
+  const headerClassName = 'bg-background shadow-none';
 
-// ─── Recipient columns ────────────────────────────────────────────────────────
-
-const RECIPIENT_COLUMNS: ColumnDef<NotificationRecipientDto>[] = [
-  {
-    key: 'employee',
-    title: 'الموظف',
-    render: (r) => (
-      <div>
-        <p className="font-medium leading-tight">{r.employeeNameAr || '—'}</p>
-        <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">{r.employeeCode || '—'}</p>
-      </div>
-    ),
-  },
-  {
-    key: 'email',
-    title: 'البريد الإلكتروني',
-    render: (r) =>
-      r.userEmail ? (
-        <span className="flex items-center gap-1 text-xs text-muted-foreground">
-          <Mail className="h-3 w-3 shrink-0 opacity-60" />
-          {r.userEmail}
-        </span>
-      ) : (
-        <span className="text-xs text-muted-foreground">—</span>
+  const columns: ColumnDef<NotificationRecipientDto>[] = [
+    {
+      key: 'employee',
+      title: 'الموظف',
+      headerClassName,
+      className: 'align-top',
+      render: (r) => (
+        <div>
+          <p className="font-medium leading-snug">{r.employeeNameAr || r.userFullNameAr || '—'}</p>
+          <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">{r.employeeCode || '—'}</p>
+        </div>
       ),
-  },
-  {
-    key: 'isRead',
-    title: 'مقروء',
-    render: (r) => r.isRead
-      ? <span className="inline-flex items-center rounded-full bg-success/10 px-2 py-0.5 text-[11px] font-medium text-success">نعم</span>
-      : <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">لا</span>,
-  },
-  {
-    key: 'deliveredAt',
-    title: 'وقت التسليم',
-    className: 'text-xs tabular-nums text-muted-foreground',
-    render: (r) => formatDisplayDateTime(r.deliveredAt),
-  },
-  {
-    key: 'readAt',
-    title: 'وقت القراءة',
-    className: 'text-xs tabular-nums text-muted-foreground',
-    render: (r) => formatDisplayDateTime(r.readAt),
-  },
-  {
-    key: 'acknowledgedAt',
-    title: 'وقت القبول',
-    className: 'text-xs tabular-nums text-muted-foreground',
-    render: (r) => formatDisplayDateTime(r.acknowledgedAt),
-  },
-  {
-    key: 'dismissedAt',
-    title: 'وقت الرفض',
-    className: 'text-xs tabular-nums text-muted-foreground',
-    render: (r) => formatDisplayDateTime(r.dismissedAt),
-  },
-];
+    },
+    {
+      key: 'email',
+      title: 'البريد الإلكتروني',
+      headerClassName,
+      className: 'align-top text-xs text-muted-foreground',
+      render: (r) =>
+        r.userEmail ? (
+          <span className="inline-flex items-start gap-1 break-all">
+            <Mail className="mt-0.5 h-3 w-3 shrink-0 opacity-60" />
+            <span>{r.userEmail}</span>
+          </span>
+        ) : (
+          <span>—</span>
+        ),
+    },
+    {
+      key: 'isRead',
+      title: 'مقروء',
+      headerClassName,
+      className: 'align-top',
+      render: (r) => <ReadStatusBadge isRead={r.isRead} />,
+    },
+    {
+      key: 'deliveredAt',
+      title: 'وقت التسليم',
+      headerClassName,
+      className: 'align-top text-xs tabular-nums text-muted-foreground',
+      render: (r) => formatDisplayDateTime(r.deliveredAt),
+    },
+    {
+      key: 'readAt',
+      title: 'وقت القراءة',
+      headerClassName,
+      className: 'align-top text-xs tabular-nums text-muted-foreground',
+      render: (r) => formatDisplayDateTime(r.readAt),
+    },
+  ];
+
+  if (showAcknowledgment) {
+    columns.push(
+      {
+        key: 'acknowledgedAt',
+        title: 'وقت القبول',
+        headerClassName,
+        className: 'align-top text-xs tabular-nums text-muted-foreground',
+        render: (r) => formatDisplayDateTime(r.acknowledgedAt),
+      },
+      {
+        key: 'dismissedAt',
+        title: 'وقت الرفض',
+        headerClassName,
+        className: 'align-top text-xs tabular-nums text-muted-foreground',
+        render: (r) => formatDisplayDateTime(r.dismissedAt),
+      },
+    );
+  }
+
+  return columns;
+}
+
+function RecipientMobileCard({
+  recipient,
+  showAcknowledgment,
+}: {
+  recipient: NotificationRecipientDto;
+  showAcknowledgment: boolean;
+}) {
+  const rows = [
+    { label: 'البريد الإلكتروني', value: recipient.userEmail ?? '—' },
+    { label: 'وقت التسليم', value: formatDisplayDateTime(recipient.deliveredAt) },
+    { label: 'وقت القراءة', value: formatDisplayDateTime(recipient.readAt) },
+  ];
+
+  if (showAcknowledgment) {
+    rows.push(
+      { label: 'وقت القبول', value: formatDisplayDateTime(recipient.acknowledgedAt) },
+      { label: 'وقت الرفض', value: formatDisplayDateTime(recipient.dismissedAt) },
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <p className="font-medium leading-snug">
+          {recipient.employeeNameAr || recipient.userFullNameAr || '—'}
+        </p>
+        <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">
+          {recipient.employeeCode || '—'}
+        </p>
+      </div>
+
+      <ReadStatusBadge isRead={recipient.isRead} />
+
+      <dl className="space-y-2 text-xs">
+        {rows.map((row) => (
+          <div key={row.label} className="grid gap-1">
+            <dt className="font-medium text-muted-foreground">{row.label}</dt>
+            <dd className="break-words text-foreground">{row.value}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  );
+}
 
 // ─── Detail dialog ────────────────────────────────────────────────────────────
 
@@ -612,87 +691,172 @@ function NotificationDetailDialog({
     return recipients;
   }, [recipients, readFilter]);
 
-  const d = detail;
+  const showAcknowledgment = record?.requiresAcknowledgment === true;
+
+  const recipientColumns = React.useMemo(
+    () => buildRecipientColumns(showAcknowledgment),
+    [showAcknowledgment],
+  );
+
+  const {
+    page,
+    setPage,
+    pageSize,
+    setPageSize,
+    slice: pagedRecipients,
+    total: filteredTotal,
+  } = usePagination(filteredRecipients, 10);
+
+  React.useEffect(() => { setPage(1); }, [readFilter, setPage]);
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="flex max-h-[90vh] max-w-4xl flex-col gap-0 overflow-hidden p-0" dir="rtl">
+      <DialogContent
+        className={cn(
+          dialogShellContentClass,
+          'overflow-hidden sm:rounded-2xl',
+          'w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)]',
+          'sm:w-[min(96vw,72rem)] sm:max-w-[min(96vw,72rem)]',
+          'lg:w-[min(94vw,84rem)] lg:max-w-[min(94vw,84rem)]',
+          'xl:w-[min(92vw,96rem)] xl:max-w-[min(92vw,96rem)]',
+        )}
+        dir="rtl"
+      >
+        <div className="relative shrink-0 overflow-hidden border-b border-border/50 bg-muted/20 px-5 pb-4 pt-6">
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-l from-primary/50 via-primary/20 to-transparent" />
 
-        {/* ── header ── */}
-        <DialogHeader className="shrink-0 border-b border-border bg-background px-6 pt-5 pb-4">
-          <DialogTitle className="text-base leading-snug">{record?.titleAr || '—'}</DialogTitle>
-          {record?.bodyAr ? (
-            <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{record.bodyAr}</p>
-          ) : null}
-          {/* badges + sent date in one row */}
-          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <Badge variant="secondary">{record ? NOTIFICATION_CATEGORY_LABELS[record.category] : '—'}</Badge>
-              <Badge variant="outline" className={record ? severityBadgeClass(record.severity) : ''}>
-                {record ? NOTIFICATION_SEVERITY_LABELS[record.severity] : '—'}
-              </Badge>
-              {record?.requiresAcknowledgment ? (
-                <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary text-[11px]">يتطلب إقراراً</Badge>
-              ) : null}
-              {record?.sourceKind ? (
-                <Badge variant="outline" className="font-mono text-[11px]">{record.sourceKind}</Badge>
+          <div className="flex items-start gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-background text-primary shadow-sm ring-1 ring-border/60">
+              <Bell className="h-4 w-4" />
+            </div>
+
+            <div className="min-w-0 flex-1 pe-8">
+              <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
+                <DialogTitle className="font-display text-base font-semibold leading-snug tracking-tight">
+                  {record?.titleAr || '—'}
+                </DialogTitle>
+
+                {record?.createdAt ? (
+                  <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border/60 bg-background/80 px-2 py-0.5 text-[10px] tabular-nums text-muted-foreground backdrop-blur-sm">
+                    <Clock className="h-3 w-3 shrink-0 opacity-70" />
+                    {formatDisplayDateTime(record.createdAt)}
+                  </span>
+                ) : null}
+              </div>
+
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                <Badge variant="secondary" className="h-5 rounded-md px-1.5 text-[10px] font-normal">
+                  {record ? NOTIFICATION_CATEGORY_LABELS[record.category] : '—'}
+                </Badge>
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    'h-5 rounded-md px-1.5 text-[10px] font-normal',
+                    record ? severityBadgeClass(record.severity) : '',
+                  )}
+                >
+                  {record ? NOTIFICATION_SEVERITY_LABELS[record.severity] : '—'}
+                </Badge>
+                {showAcknowledgment ? (
+                  <Badge
+                    variant="outline"
+                    className="h-5 rounded-md border-primary/25 bg-primary/5 px-1.5 text-[10px] font-normal text-primary"
+                  >
+                    يتطلب إقراراً
+                  </Badge>
+                ) : null}
+                {record?.sourceKind ? (
+                  <Badge
+                    variant="outline"
+                    className="h-5 rounded-md px-1.5 font-mono text-[10px] font-normal text-muted-foreground"
+                    title={record.sourceKind}
+                  >
+                    {record.sourceKind}
+                  </Badge>
+                ) : null}
+              </div>
+
+              {record?.bodyAr ? (
+                <p className="mt-2.5 rounded-lg border border-border/50 bg-background/70 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
+                  {record.bodyAr}
+                </p>
               ) : null}
             </div>
-            {record?.createdAt ? (
-              <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                <Clock className="h-3 w-3 shrink-0" />
-                {formatDisplayDateTime(record.createdAt)}
-              </span>
-            ) : null}
           </div>
-        </DialogHeader>
+        </div>
 
-        {/* ── scrollable body ── */}
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <DialogBody className={cn(dialogShellBodyClass, 'min-w-0 space-y-3 px-5 py-4')}>
           {loading ? (
-            <div className="flex items-center justify-center py-20 text-sm text-muted-foreground">جارٍ التحميل…</div>
+            <div className="flex items-center justify-center py-16 text-sm text-muted-foreground">
+              جارٍ التحميل…
+            </div>
           ) : (
-            <div className="px-6 py-5">
+            <>
+              <div className="space-y-2.5">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                    <Users className="h-3.5 w-3.5" />
+                    <span>المستلمون</span>
+                    <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-foreground">
+                      {filteredRecipients.length}
+                    </span>
+                  </div>
 
-              {/* ── recipients section ── */}
-              <div className="rounded-xl border border-border bg-muted/20">
-                <div className="flex items-center justify-between gap-4 border-b border-border px-4 py-3">
-                
-                  {/* read / unread filter */}
-                  <div className="flex items-center gap-1 border rounded-md p-0.5">
+                  <div className="inline-flex items-center rounded-md border border-border/60 bg-muted/20 p-0.5">
                     {(['all', 'read', 'unread'] as ReadFilter[]).map((f) => (
                       <button
                         key={f}
                         type="button"
                         onClick={() => setReadFilter(f)}
                         className={cn(
-                          'inline-flex h-6 items-center rounded-md px-2.5 text-[11px] font-medium transition-colors',
+                          'inline-flex h-6 items-center rounded px-2.5 text-[10px] font-medium transition-colors',
                           readFilter === f
-                            ? 'bg-foreground text-background'
-                            : 'text-muted-foreground hover:bg-muted',
+                            ? 'bg-background text-foreground shadow-sm'
+                            : 'text-muted-foreground hover:text-foreground',
                         )}
                       >
-                        {f === 'all' ? 'الكل' : f === 'read' ? 'قرأ' : 'لم يقرأ'}
+                        {f === 'all' ? 'الكل' : f === 'read' ? 'مقروء' : 'لم يُقرأ'}
                       </button>
                     ))}
                   </div>
                 </div>
-                <div className="p-2">
-                  <DataTable
-                    variant="directory"
-                    alwaysShowTable
-                    loading={false}
-                    columns={RECIPIENT_COLUMNS}
-                    data={filteredRecipients}
-                    keyExtractor={(r) => r.recipientId}
-                    emptyText="لا يوجد مستلمون"
-                  />
-                </div>
-              </div>
 
-            </div>
+                {filteredRecipients.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/60 bg-muted/10 py-12 text-center">
+                    <Users className="mb-2 h-8 w-8 text-muted-foreground/40" />
+                    <p className="text-sm font-medium text-muted-foreground">لا يوجد مستلمون</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <DataTable
+                      variant="directory"
+                      loading={false}
+                      columns={recipientColumns}
+                      data={pagedRecipients}
+                      keyExtractor={(r) => r.recipientId}
+                      emptyText="لا يوجد مستلمون"
+                      className="rounded-xl border border-border/60 bg-card shadow-none md:rounded-none md:border-0 md:bg-transparent"
+                      tableClassName="w-full"
+                      mobileCard={(r) => (
+                        <RecipientMobileCard recipient={r} showAcknowledgment={showAcknowledgment} />
+                      )}
+                    />
+                    {filteredTotal > pageSize ? (
+                      <AppPagination
+                        page={page}
+                        pageSize={pageSize}
+                        total={filteredTotal}
+                        onPageChange={setPage}
+                        onPageSizeChange={setPageSize}
+                        pageSizeOptions={[10, 20, 50]}
+                      />
+                    ) : null}
+                  </div>
+                )}
+              </div>
+            </>
           )}
-        </div>
+        </DialogBody>
       </DialogContent>
     </Dialog>
   );

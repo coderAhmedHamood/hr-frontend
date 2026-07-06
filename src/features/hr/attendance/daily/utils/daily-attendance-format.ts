@@ -1,14 +1,15 @@
 import { parseISO, isFriday } from 'date-fns';
 import { formatDisplayDate } from '@/shared/utils';
 
+/** JavaScript getDay(): 0=Sun … 6=Sat (Gregorian, local timezone). */
 const DAY_NAMES_AR: Record<number, string> = {
-  0: 'الاثنين',
-  1: 'الثلاثاء',
-  2: 'الأربعاء',
-  3: 'الخميس',
-  4: 'الجمعة',
-  5: 'السبت',
-  6: 'الأحد',
+  0: 'الأحد',
+  1: 'الاثنين',
+  2: 'الثلاثاء',
+  3: 'الأربعاء',
+  4: 'الخميس',
+  5: 'الجمعة',
+  6: 'السبت',
 };
 
 export function fmtDayFull(iso: string) {

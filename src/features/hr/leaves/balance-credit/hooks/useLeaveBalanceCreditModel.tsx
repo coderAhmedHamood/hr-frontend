@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { toast } from 'sonner';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
+import { resolveDirectoryLoadFailure } from '@/features/hr/lib/api/directory-load-error';
 import { useServerDirectoryPagination } from '@/components/ui/paged-list';
 import { ensurePaginatedResult, fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
 import { intervalOverlapsYmdRange } from '@/features/hr/discipline/lib/discipline-date-filter';
@@ -65,6 +66,7 @@ export function useLeaveBalanceCreditModel() {
     Record<string, Record<string, { used: number; total: number }>>
   >({});
   const [listError, setListError] = React.useState<string | null>(null);
+  const [apiAccessDenied, setApiAccessDenied] = React.useState(false);
   const [companyId, setCompanyId] = React.useState<string | null>(null);
   const [metaLoading, setMetaLoading] = React.useState(true);
 
@@ -196,10 +198,12 @@ export function useLeaveBalanceCreditModel() {
       const res = await balanceCreditsApi.getAll(buildListQuery(page, pageSize));
       const mapped = mapRows(res.items);
       const items = applyClientFilters(mapped);
+      setApiAccessDenied(false);
       return { items, total: res.pagination.total };
     } catch (err) {
-      const { displayMessage } = handleApiError(err, 'balance-credits.load');
-      setListError(displayMessage);
+      const failure = resolveDirectoryLoadFailure(err, 'balance-credits.load');
+      setApiAccessDenied(failure.accessDenied);
+      setListError(failure.listError);
       return { items: [], total: 0 };
     }
   }, [applyClientFilters, buildListQuery, companyId, mapRows]);
@@ -213,10 +217,12 @@ export function useLeaveBalanceCreditModel() {
       );
       const mapped = mapRows(res.items);
       const items = applyClientFilters(mapped).sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+      setApiAccessDenied(false);
       return { items, total: items.length };
     } catch (err) {
-      const { displayMessage } = handleApiError(err, 'balance-credits.load');
-      setListError(displayMessage);
+      const failure = resolveDirectoryLoadFailure(err, 'balance-credits.load');
+      setApiAccessDenied(failure.accessDenied);
+      setListError(failure.listError);
       return { items: [], total: 0 };
     }
   }, [applyClientFilters, buildListQuery, companyId, mapRows]);
@@ -343,6 +349,7 @@ export function useLeaveBalanceCreditModel() {
   return {
     loading,
     listError,
+    accessDenied: apiAccessDenied,
     sortedRequests,
     pagination,
     leaveTypes,

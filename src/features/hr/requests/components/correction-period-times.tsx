@@ -2,7 +2,6 @@
 
 import * as React from 'react';
 import { ArrowLeft } from 'lucide-react';
-import { formatTime } from '@/shared/utils';
 import { cn } from '@/shared/utils';
 import type { AttendanceCorrectionPeriod } from '@/features/hr/requests/lib/attendance-correction-store';
 
@@ -11,18 +10,56 @@ function periodBadgeLabel(index: number, total: number): string {
   return String(index + 1);
 }
 
-function formatClockValue(value: string | null | undefined): string {
-  if (!value) return '—';
+type ClockParts = { hours: number; minutes: string; period: 'ص' | 'م' };
+
+function parseClockValue(value: string | null | undefined): ClockParts | null {
+  if (!value) return null;
+
   if (/^\d{1,2}:\d{2}$/.test(value)) {
     const [hStr, mStr] = value.split(':');
-    const h = parseInt(hStr ?? '0', 10);
-    const m = mStr ?? '00';
-    if (isNaN(h)) return value;
-    const period = h < 12 ? 'ص' : 'م';
-    const h12 = h % 12 === 0 ? 12 : h % 12;
-    return `${h12}:${m} ${period}`;
+    const h24 = parseInt(hStr ?? '0', 10);
+    if (isNaN(h24)) return null;
+    return {
+      hours: h24 % 12 === 0 ? 12 : h24 % 12,
+      minutes: (mStr ?? '00').padStart(2, '0'),
+      period: h24 < 12 ? 'ص' : 'م',
+    };
   }
-  return formatTime(value);
+
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return null;
+  const h24 = d.getHours();
+  return {
+    hours: h24 % 12 || 12,
+    minutes: String(d.getMinutes()).padStart(2, '0'),
+    period: h24 < 12 ? 'ص' : 'م',
+  };
+}
+
+/** RTL-safe: digits on the right (read first), then ص/م on the left. */
+export function ArabicClockTime({
+  value,
+  className,
+}: {
+  value: string | null | undefined;
+  className?: string;
+}) {
+  const parts = parseClockValue(value);
+  if (!parts) {
+    return <span className={className}>{value?.trim() ? value : '—'}</span>;
+  }
+
+  return (
+    <span
+      className={cn('inline-flex items-baseline gap-0.5 font-mono tabular-nums', className)}
+      dir="rtl"
+    >
+      <span dir="ltr">
+        {parts.hours}:{parts.minutes}
+      </span>
+      <span>{parts.period}</span>
+    </span>
+  );
 }
 
 function CompactTimeRange({
@@ -30,21 +67,24 @@ function CompactTimeRange({
   end,
   className,
 }: {
-  start: string;
-  end: string;
+  start: string | null | undefined;
+  end: string | null | undefined;
   className?: string;
 }) {
   return (
     <span
       className={cn(
-        'inline-flex min-w-0 items-center gap-1 font-mono text-[11px] tabular-nums leading-none',
+        'inline-flex min-w-0 items-center gap-1 text-[11px] leading-none',
         className,
       )}
-      dir="ltr"
     >
-      <span className="truncate">{start}</span>
+      <span className="min-w-0 truncate">
+        <ArabicClockTime value={start} />
+      </span>
       <ArrowLeft className="h-3 w-3 shrink-0 text-muted-foreground/50" aria-hidden />
-      <span className="truncate">{end}</span>
+      <span className="min-w-0 truncate">
+        <ArabicClockTime value={end} />
+      </span>
     </span>
   );
 }
@@ -93,8 +133,8 @@ export function CorrectionTimesComparisonCell({
         <div className="flex items-center gap-1.5">
           <TimesBadge tone="muted">قبل</TimesBadge>
           <CompactTimeRange
-            start={formatClockValue(previousCheckIn)}
-            end={formatClockValue(previousCheckOut)}
+            start={previousCheckIn}
+            end={previousCheckOut}
             className="text-muted-foreground"
           />
         </div>
@@ -108,8 +148,8 @@ export function CorrectionTimesComparisonCell({
                 {periodBadgeLabel(i, correctedPeriods.length)}
               </TimesBadge>
               <CompactTimeRange
-                start={formatClockValue(p.checkInAt)}
-                end={formatClockValue(p.checkOutAt)}
+                start={p.checkInAt}
+                end={p.checkOutAt}
                 className="text-foreground"
               />
             </div>
@@ -139,10 +179,7 @@ export function CorrectionPeriodTimesCell({
           {periods.length > 1 ? (
             <TimesBadge tone="primary">{String(i + 1)}</TimesBadge>
           ) : null}
-          <CompactTimeRange
-            start={formatClockValue(p.checkInAt)}
-            end={formatClockValue(p.checkOutAt)}
-          />
+          <CompactTimeRange start={p.checkInAt} end={p.checkOutAt} />
         </div>
       ))}
     </div>
@@ -179,11 +216,15 @@ export function CorrectionTimesComparisonDetail({
             <span className="self-center font-medium text-muted-foreground">قبل</span>
             <div>
               <p className="text-[10px] text-muted-foreground">حضور</p>
-              <p className="font-mono text-sm">{formatClockValue(previousCheckIn)}</p>
+              <p className="text-sm">
+                <ArabicClockTime value={previousCheckIn} />
+              </p>
             </div>
             <div>
               <p className="text-[10px] text-muted-foreground">انصراف</p>
-              <p className="font-mono text-sm">{formatClockValue(previousCheckOut)}</p>
+              <p className="text-sm">
+                <ArabicClockTime value={previousCheckOut} />
+              </p>
             </div>
           </div>
         ) : null}
@@ -202,11 +243,15 @@ export function CorrectionTimesComparisonDetail({
             </span>
             <div>
               <p className="text-[10px] text-muted-foreground">حضور</p>
-              <p className="font-mono text-sm">{formatClockValue(p.checkInAt)}</p>
+              <p className="text-sm">
+                <ArabicClockTime value={p.checkInAt} />
+              </p>
             </div>
             <div>
               <p className="text-[10px] text-muted-foreground">انصراف</p>
-              <p className="font-mono text-sm">{formatClockValue(p.checkOutAt)}</p>
+              <p className="text-sm">
+                <ArabicClockTime value={p.checkOutAt} />
+              </p>
             </div>
           </div>
         ))}
@@ -246,11 +291,15 @@ export function CorrectionPeriodTimesDetail({
             </p>
             <div>
               <p className="text-[10px] text-muted-foreground">حضور</p>
-              <p className="text-sm font-medium font-mono">{formatClockValue(p.checkInAt)}</p>
+              <p className="text-sm font-medium">
+                <ArabicClockTime value={p.checkInAt} />
+              </p>
             </div>
             <div>
               <p className="text-[10px] text-muted-foreground">انصراف</p>
-              <p className="text-sm font-medium font-mono">{formatClockValue(p.checkOutAt)}</p>
+              <p className="text-sm font-medium">
+                <ArabicClockTime value={p.checkOutAt} />
+              </p>
             </div>
           </div>
         ))}

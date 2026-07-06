@@ -1,14 +1,18 @@
 'use client';
 
 import * as React from 'react';
+import { usePagePermissions } from '@/features/auth/permissions';
+import { resolveDirectoryLoadFailure } from '@/features/hr/lib/api/directory-load-error';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import { ensurePaginatedResult } from '@/features/hr/lib/api/client';
+import { loadFilterOptionsAll } from '@/features/hr/lib/load-filter-options';
 import {
   notificationsApi,
   type NotificationCategory,
   type NotificationSeverity,
   type SendNotificationDto,
 } from '@/features/hr/notifications/lib/api/notifications';
+import { NOTIFICATIONS_ADMIN_PAGE_PERMISSIONS } from '@/features/hr/notifications/admin/permissions';
 import { resolveOrganizationScope } from '@/features/hr/organization/lib/api/organization-context';
 import { branchesApi } from '@/features/hr/organization/lib/api/branches';
 import { organizationActiveListStatusQuery } from '@/features/hr/organization/lib/archive-scope';
@@ -75,6 +79,7 @@ function buildListParams(
 }
 
 export function useNotificationsAdminDirectoryModel() {
+  const perms = usePagePermissions(NOTIFICATIONS_ADMIN_PAGE_PERMISSIONS);
   const [notifications, setNotifications] = React.useState<HRAdminNotificationRecord[]>([]);
   const [total, setTotal] = React.useState(0);
   const [page, setPage] = React.useState(1);
@@ -94,7 +99,10 @@ export function useNotificationsAdminDirectoryModel() {
   }[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [listError, setListError] = React.useState<string | null>(null);
+  const [apiAccessDenied, setApiAccessDenied] = React.useState(false);
   const [referenceLoaded, setReferenceLoaded] = React.useState(false);
+
+  const accessDenied = !perms.canRead || apiAccessDenied;
 
   const loadReferenceData = React.useCallback(async () => {
     try {
@@ -102,28 +110,28 @@ export function useNotificationsAdminDirectoryModel() {
       const resolvedCompanyId = scope.companyId ?? null;
       setCompanyId(resolvedCompanyId);
 
-      const [branchesRes, departmentsRes, employeesRes] = await Promise.all([
-        branchesApi.getAll({
-          ...(resolvedCompanyId ? { companyId: resolvedCompanyId, limit: REFERENCE_LIMIT } : { limit: REFERENCE_LIMIT }),
-          ...organizationActiveListStatusQuery(),
-        }),
-        departmentsApi.getAll({
-          ...(resolvedCompanyId ? { companyId: resolvedCompanyId, limit: REFERENCE_LIMIT } : { limit: REFERENCE_LIMIT }),
-          ...organizationActiveListStatusQuery(),
-        }),
-        employeesApi.getAll(
-          resolvedCompanyId ? { companyId: resolvedCompanyId, limit: REFERENCE_LIMIT } : { limit: REFERENCE_LIMIT },
-        ),
-      ]);
+      const listQuery = {
+        ...(resolvedCompanyId ? { companyId: resolvedCompanyId, limit: REFERENCE_LIMIT } : { limit: REFERENCE_LIMIT }),
+        ...organizationActiveListStatusQuery(),
+      };
+
+      const refs = await loadFilterOptionsAll({
+        branches: () => branchesApi.getAll(listQuery),
+        departments: () => departmentsApi.getAll(listQuery),
+        employees: () =>
+          employeesApi.getAll(
+            resolvedCompanyId ? { companyId: resolvedCompanyId, limit: REFERENCE_LIMIT } : { limit: REFERENCE_LIMIT },
+          ),
+      });
 
       setBranchOptions(
-        ensurePaginatedResult(branchesRes).items.map((b) => ({ value: b.id, label: b.nameAr })),
+        ensurePaginatedResult(refs.branches).items.map((b) => ({ value: b.id, label: b.nameAr })),
       );
       setDepartmentOptions(
-        ensurePaginatedResult(departmentsRes).items.map((d) => ({ value: d.id, label: d.nameAr })),
+        ensurePaginatedResult(refs.departments).items.map((d) => ({ value: d.id, label: d.nameAr })),
       );
       setEmployeeOptions(
-        ensurePaginatedResult(employeesRes).items.map((e) => ({
+        ensurePaginatedResult(refs.employees).items.map((e) => ({
           value: e.id,
           label: e.nameAr ?? e.nameEn ?? e.id,
           branchId: e.branchId ?? undefined,
@@ -132,16 +140,22 @@ export function useNotificationsAdminDirectoryModel() {
           departmentNameAr: e.departmentNameAr ?? undefined,
         })),
       );
-      setReferenceLoaded(true);
-    } catch (e) {
-      setListError(handleApiError(e).displayMessage);
+    } catch {
+      // Reference data must never block the notifications list.
+    } finally {
       setReferenceLoaded(true);
     }
   }, []);
 
   const loadList = React.useCallback(async () => {
+    if (!perms.canRead) {
+      setLoading(false);
+      setApiAccessDenied(true);
+      return;
+    }
     setLoading(true);
     setListError(null);
+    setApiAccessDenied(false);
     try {
       const notifRes = await notificationsApi.list(
         buildListParams(companyId, filters, dateBounds, page, limit),
@@ -157,13 +171,15 @@ export function useNotificationsAdminDirectoryModel() {
       );
       setTotal(paginated.pagination.total);
     } catch (e) {
-      setListError(handleApiError(e).displayMessage);
+      const failure = resolveDirectoryLoadFailure(e, 'notifications-admin.load');
+      setApiAccessDenied(failure.accessDenied);
+      setListError(failure.listError);
       setNotifications([]);
       setTotal(0);
     } finally {
       setLoading(false);
     }
-  }, [companyId, dateBounds, filters, limit, page]);
+  }, [companyId, dateBounds, filters, limit, page, perms.canRead]);
 
   React.useEffect(() => {
     void loadReferenceData();
@@ -232,6 +248,8 @@ export function useNotificationsAdminDirectoryModel() {
     employeeOptions,
     loading,
     listError,
+    accessDenied,
+    perms,
     reload,
     sendNotification,
     deleteNotification,

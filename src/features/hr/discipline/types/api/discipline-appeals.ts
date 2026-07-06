@@ -51,5 +51,9 @@ export type DisciplineAppealListQuery = {
   companyId?: string;
   violationRecordId?: string;
   subjectEmployeeId?: string;
+  subjectEmployeeIds?: string[];
   status?: AppealStatusDto;
+  channel?: AppealChannelDto;
+  dateFrom?: string;
+  dateTo?: string;
 };

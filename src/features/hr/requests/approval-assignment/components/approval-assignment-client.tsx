@@ -18,6 +18,7 @@ import {
   EmptyState, ActiveBadge, SearchableDropdown, MinimalDropdown,
 } from '@/components/ui/shared-dialogs';
 import { MultiSelect, type MultiSelectOption } from '@/components/ui/multi-select';
+import { ForbiddenState } from '@/components/shared/forbidden-state';
 import { useApprovalAssignmentModel } from '@/features/hr/requests/approval-assignment/hooks/useApprovalAssignmentModel';
 import type { RequestApprovalMode } from '@/features/hr/requests/approval-assignment/hooks/useApprovalAssignmentModel';
 import { DirectoryPagedViews } from '@/components/ui/paged-list';
@@ -53,7 +54,7 @@ function buildNameAr(linkedIds: string[], requestTypes: { id: string; nameAr: st
 
 export function ApprovalAssignmentClient() {
   const {
-    templates, requestTypes, employees, loading, listError, pagination,
+    templates, requestTypes, employees, loading, listError, accessDenied, pagination,
     archiveScope, setArchiveScope,
     createTemplate, updateTemplate, deleteTemplate,
   } = useApprovalAssignmentModel();
@@ -69,7 +70,6 @@ export function ApprovalAssignmentClient() {
   const [error, setError] = React.useState<string | null>(null);
   const [saving, setSaving] = React.useState(false);
   const [deleteId, setDeleteId] = React.useState<string | null>(null);
-  const [dialogContentEl, setDialogContentEl] = React.useState<HTMLElement | null>(null);
 
   const filtered = templates;
 
@@ -193,6 +193,10 @@ export function ApprovalAssignmentClient() {
     [archiveScope],
   );
 
+  if (accessDenied) {
+    return <ForbiddenState title="لا تملك صلاحية الوصول لإسناد اعتماد الطلبات" />;
+  }
+
   if (loading) {
     return (
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -261,9 +265,8 @@ export function ApprovalAssignmentClient() {
 
       <Dialog open={dialogOpen} onOpenChange={(o) => { if (!o) setDialogOpen(false); }}>
         <DialogContent
-          className="flex h-[92vh] max-h-[92vh] w-[96vw] max-w-2xl flex-col gap-0 overflow-hidden border-border p-0"
+          className="flex h-[92vh] max-h-[92vh] w-[96vw] max-w-2xl flex-col gap-0 overflow-visible border-border p-0"
           hideClose
-          ref={(el) => setDialogContentEl(el)}
         >
           <VisuallyHidden.Root>
             <DialogTitle>{editId ? 'تعديل إسناد الموافقات' : 'إسناد موافقات جديد'}</DialogTitle>
@@ -311,7 +314,6 @@ export function ApprovalAssignmentClient() {
                 selectAllLabel="تحديد الكل المتاح"
                 deselectAllLabel="إلغاء التحديد"
                 listMaxHeight="min(260px,40vh)"
-                popoverPortalContainer={dialogContentEl}
               />
             </FormField>
 

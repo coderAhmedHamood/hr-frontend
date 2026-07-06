@@ -1,10 +1,10 @@
 'use client';
 
-import { useUserRolesPermissionsModel } from '@/features/hr/permissions/hooks/use-user-roles-permissions-model';
+import { useUserRolesPermissionsModel } from '@/components/shared/permissions/use-user-roles-permissions-model';
 import { resolveEmployeeCompanyId } from '@/features/hr/organization/employees/services/employee-company.service';
 import type { Employee } from '@/features/hr/organization/employees/types';
 
-export type { PermissionOverlay, UserAssignedRole } from '@/features/hr/permissions/hooks/use-user-roles-permissions-model';
+export type { PermissionOverlay, UserAssignedRole } from '@/components/shared/permissions/use-user-roles-permissions-model';
 
 export function useEmployeeProfilePermissions(employee: Employee, enabled = true) {
   const userId = employee.userId ?? null;

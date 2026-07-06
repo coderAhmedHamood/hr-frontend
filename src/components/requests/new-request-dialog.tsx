@@ -5,7 +5,7 @@ import { CalendarDays, Clock, FileText, Mail, Package, Wallet } from 'lucide-rea
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { SingleDatePicker } from '@/components/ui/single-date-picker';
+import { DatePickerInput } from '@/components/ui/date-picker-input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Controller, useForm, useWatch } from 'react-hook-form';
@@ -68,7 +68,6 @@ export function NewRequestDialog({
   }, [open, initialType, reset]);
 
   const onSubmit = (values: RequestForm) => {
-    console.log('New request:', values);
     reset();
     onOpenChange(false);
   };
@@ -113,8 +112,8 @@ export function NewRequestDialog({
                 name="fromDate"
                 control={control}
                 render={({ field }) => (
-                  <SingleDatePicker
-                    value={field.value}
+                  <DatePickerInput
+                    value={field.value ?? ''}
                     onChange={field.onChange}
                     placeholder="من…"
                   />
@@ -127,11 +126,11 @@ export function NewRequestDialog({
                 name="toDate"
                 control={control}
                 render={({ field }) => (
-                  <SingleDatePicker
-                    value={field.value}
+                  <DatePickerInput
+                    value={field.value ?? ''}
                     onChange={field.onChange}
                     placeholder="إلى…"
-                    min={fromDateVal || undefined}
+                    minDate={fromDateVal || undefined}
                   />
                 )}
               />

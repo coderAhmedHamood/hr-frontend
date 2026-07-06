@@ -8,10 +8,12 @@ import {
   type CorrectionRequestStatus,
 } from './api/correction-requests';
 import { ApiError } from '@/features/hr/lib/api/client';
+import { translateCorrectionRequestError } from '@/features/hr/requests/attendance-corrections/lib/correction-request-errors';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
 import { getDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
+import type { RequestApprovalAssignmentCatalogDto } from './api/correction-requests';
 import type { RequestApproverStatesSnapshot } from './api/request-approver-states-types';
-import { normalizeRequestApproverStates } from './request-approver-states';
+import { buildRequestApproverStatesFromListItem, normalizeRequestApproverStates } from './request-approver-states';
 import type {
   AttendanceCorrectionPeriod,
   AttendanceCorrectionRequest,
@@ -27,17 +29,6 @@ function isoToTime(iso: string | null | undefined): string {
   } catch {
     return '';
   }
-}
-
-function dateTimeIso(workDate: string, time: string): string | undefined {
-  if (!time) return undefined;
-  // Include local timezone offset so backend stores the correct instant
-  const d = new Date(`${workDate}T${time}:00`);
-  const off = -d.getTimezoneOffset();
-  const sign = off >= 0 ? '+' : '-';
-  const hh = String(Math.floor(Math.abs(off) / 60)).padStart(2, '0');
-  const mm = String(Math.abs(off) % 60).padStart(2, '0');
-  return `${workDate}T${time}:00${sign}${hh}:${mm}`;
 }
 
 const ATTENDANCE_STATUS_AR: Record<string, string> = {
@@ -60,19 +51,47 @@ function translateAttendanceStatus(s: string | null | undefined): string {
   return ATTENDANCE_STATUS_AR[s] ?? s;
 }
 
+function resolvePeriodPunches(
+  side: 'recorded' | 'corrected',
+  p: NonNullable<ApiCorrectionRequest['correctedTimes']>['periods'][number],
+): { checkInAt: string | null; checkOutAt: string | null } {
+  const nested = p[side];
+  if (nested) {
+    return {
+      checkInAt: nested.checkInAt ?? null,
+      checkOutAt: nested.checkOutAt ?? null,
+    };
+  }
+  if (side === 'corrected') {
+    return {
+      checkInAt: p.checkInAt ?? null,
+      checkOutAt: p.checkOutAt ?? null,
+    };
+  }
+  return { checkInAt: null, checkOutAt: null };
+}
+
 function mapCorrectedPeriods(r: ApiCorrectionRequest): AttendanceCorrectionPeriod[] {
   const fromNew = r.correctedTimes?.periods;
   if (fromNew?.length) {
-    return fromNew.map((p) => ({
-      periodId: p.periodId,
-      checkInAt: p.checkInAt,
-      checkOutAt: p.checkOutAt,
-    }));
+    return fromNew.map((p) => {
+      const recorded = resolvePeriodPunches('recorded', p);
+      const corrected = resolvePeriodPunches('corrected', p);
+      return {
+        periodId: p.periodId,
+        recordedCheckInAt: recorded.checkInAt,
+        recordedCheckOutAt: recorded.checkOutAt,
+        checkInAt: corrected.checkInAt,
+        checkOutAt: corrected.checkOutAt,
+      };
+    });
   }
 
   if (r.correctedCheckInAt || r.correctedCheckOutAt) {
     return [{
       periodId: 'period-1',
+      recordedCheckInAt: r.previousCheckInAt ?? null,
+      recordedCheckOutAt: r.previousCheckOutAt ?? null,
       checkInAt: r.correctedCheckInAt,
       checkOutAt: r.correctedCheckOutAt,
     }];
@@ -81,7 +100,27 @@ function mapCorrectedPeriods(r: ApiCorrectionRequest): AttendanceCorrectionPerio
   return [];
 }
 
-export function mapCorrectionRequest(r: ApiCorrectionRequest): AttendanceCorrectionRequest {
+function resolveCorrectionApproverStates(
+  r: ApiCorrectionRequest,
+  approvalCatalog?: RequestApprovalAssignmentCatalogDto[],
+): RequestApproverStatesSnapshot | null {
+  if (approvalCatalog?.length) {
+    const fromList = buildRequestApproverStatesFromListItem(
+      {
+        approvalAssignmentId: r.approvalAssignmentId ?? null,
+        approverDecisions: r.approverDecisions ?? null,
+      },
+      approvalCatalog,
+    );
+    if (fromList) return fromList;
+  }
+  return normalizeRequestApproverStates(r);
+}
+
+export function mapCorrectionRequest(
+  r: ApiCorrectionRequest,
+  approvalCatalog?: RequestApprovalAssignmentCatalogDto[],
+): AttendanceCorrectionRequest {
   const correctedPeriods = mapCorrectedPeriods(r);
   const firstPeriod = correctedPeriods[0];
 
@@ -110,7 +149,7 @@ export function mapCorrectionRequest(r: ApiCorrectionRequest): AttendanceCorrect
     createdAt: r.createdAt,
     decidedAt: r.decidedAt,
     decidedByEmployeeId: r.decidedByEmployeeId,
-    approverStates: normalizeRequestApproverStates(r),
+    approverStates: resolveCorrectionApproverStates(r, approvalCatalog),
   };
 }
 
@@ -123,8 +162,13 @@ interface State {
     employeeId: string;
     requestTypeId: string;
     workDate: string;
-    correctedCheckIn?: string;
-    correctedCheckOut?: string;
+    attendanceDaySummaryId?: string;
+    subtypeSlug?: string;
+    periods: Array<{
+      periodId: string;
+      checkInAt: string | null;
+      checkOutAt: string | null;
+    }>;
     reasonAr?: string;
   }) => Promise<{ ok: true } | { ok: false; error: string }>;
   approve: (id: string, payload: CorrectionDecisionDto) => Promise<void>;
@@ -143,7 +187,7 @@ export const useAttendanceCorrectionRequestsStore = create<State>()((set) => ({
     set({ isLoading: true, error: null });
     try {
       const result = await correctionRequestsApi.list({ companyId, limit: 200, ...params });
-      set({ items: result.items.map(mapCorrectionRequest), isLoading: false });
+      set({ items: result.items.map((r) => mapCorrectionRequest(r, result.approvalAssignments)), isLoading: false });
     } catch (e) {
       set({ error: { message: (e as Error).message, status: e instanceof ApiError ? e.status : 0 }, isLoading: false });
     }
@@ -155,21 +199,41 @@ export const useAttendanceCorrectionRequestsStore = create<State>()((set) => ({
     if (!input.employeeId.trim()) return { ok: false, error: 'اختر الموظف.' };
     if (!input.requestTypeId.trim()) return { ok: false, error: 'اختر نوع الطلب.' };
     if (!input.workDate.trim()) return { ok: false, error: 'أدخل تاريخ اليوم.' };
+
+    const hasCorrectedPunch = input.periods.some(
+      (p) => p.checkInAt || p.checkOutAt,
+    );
+    if (!hasCorrectedPunch) {
+      return { ok: false, error: 'أدخل وقت حضور أو انصراف مصحّحاً لفترة واحدة على الأقل.' };
+    }
+
+    const reasonAr = input.reasonAr?.trim() ?? '';
+    if (reasonAr.length < 3) {
+      return { ok: false, error: 'سبب الطلب مطلوب (٣ أحرف على الأقل).' };
+    }
+
     try {
       const created = await correctionRequestsApi.create({
         companyId,
         employeeId: input.employeeId,
         requestTypeId: input.requestTypeId,
         workDate: input.workDate,
-        correctedCheckInAt: dateTimeIso(input.workDate, input.correctedCheckIn ?? ''),
-        correctedCheckOutAt: dateTimeIso(input.workDate, input.correctedCheckOut ?? ''),
-        reasonAr: input.reasonAr,
+        ...(input.attendanceDaySummaryId ? { attendanceDaySummaryId: input.attendanceDaySummaryId } : {}),
+        ...(input.subtypeSlug ? { subtypeSlug: input.subtypeSlug } : {}),
+        correctedTimes: {
+          periods: input.periods.map((p) => ({
+            periodId: p.periodId,
+            checkInAt: p.checkInAt,
+            checkOutAt: p.checkOutAt,
+          })),
+        },
+        reasonAr,
         createdBy: userId,
       });
       set(s => ({ items: [mapCorrectionRequest(created), ...s.items] }));
       return { ok: true };
     } catch (e) {
-      return { ok: false, error: (e as Error).message };
+      return { ok: false, error: translateCorrectionRequestError(e) };
     }
   },
 

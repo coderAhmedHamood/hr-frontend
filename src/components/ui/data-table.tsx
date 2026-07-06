@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { ChevronRight, ChevronLeft } from 'lucide-react';
 import { cn } from '@/shared/utils';
+import { paginationItemCount } from '@/components/ui/sticky-pagination';
 import { Button } from '@/components/ui/button';
 
 /* ── Column definition ───────────────────────────────────────────────── */
@@ -65,8 +66,8 @@ export function DataTable<T>({
     : 'border-b border-border/60';
 
   const headerCellClass = isDirectory
-    ? 'sticky top-0 z-10 bg-muted px-4 py-3 text-start border-b border-border'
-    : 'sticky top-0 z-10 bg-card px-4 py-3 text-right text-[11px] font-bold uppercase tracking-[0.06em] text-muted-foreground/70 border-b border-border';
+    ? 'sticky top-0 z-10 whitespace-nowrap bg-muted px-4 py-3 text-start border-b border-border'
+    : 'sticky top-0 z-10 bg-card px-4 py-3 text-right text-[11px] font-bold uppercase tracking-[0.06em] text-muted-foreground/70 border-b border-border whitespace-nowrap';
 
   const bodyRowClass = isDirectory
     ? cn('border-b border-border/60', onRowClick && 'group cursor-pointer hover:bg-muted/25')
@@ -178,13 +179,14 @@ export function AppPagination({
 
   if (totalPages <= 1 && !onPageSizeChange) return null;
 
-  const start = (page - 1) * pageSize + 1;
-  const end   = Math.min(page * pageSize, total);
+  const { displayed, total: totalItems } = paginationItemCount(page, pageSize, total);
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 px-1 pt-3">
-      <p className="text-[12px] text-muted-foreground number-ar">
-        {start}–{end} من {total}
+      <p className="text-[12px] tabular-nums text-muted-foreground number-ar" dir="ltr">
+        <span className="text-foreground">{displayed}</span>
+        <span className="mx-0.5 text-muted-foreground/70">/</span>
+        <span>{totalItems}</span>
       </p>
 
       <div className="flex items-center gap-1">

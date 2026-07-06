@@ -1,14 +1,14 @@
 'use client';
 
 import * as React from 'react';
-import { cn } from '@/shared/utils';
+import { cn, formatTime24FromIso } from '@/shared/utils';
 import { themeAvatarClassFromKey } from '@/shared/theme-avatar-palette';
 import type { AttendanceDaySummary } from '@/features/hr/attendance/lib/types';
 import { todayIso } from '@/features/hr/attendance/lib/utils';
 import { cfgFor, resolveVisualKey } from '@/features/hr/attendance/daily/utils/daily-attendance-status-resolve';
 import { STATUS } from '@/features/hr/attendance/daily/constants/daily-attendance-status';
 import { fmtDay, fmtFull, minutesToHHMM } from '@/features/hr/attendance/daily/utils/daily-attendance-format';
-import { Clock3, TrendingUp } from 'lucide-react';
+import { Clock3 } from 'lucide-react';
 import { EmptyStateCard } from '@/components/shared/empty-state-card';
 import { DAILY_ATTENDANCE_NO_RECORDS } from '@/features/hr/attendance/daily/constants/daily-attendance-empty';
 import { DailyDayDetailDialog } from '@/features/hr/attendance/daily/components/daily-day-detail-dialog';
@@ -48,7 +48,6 @@ type EmpRow = {
   leaveDays: number;
   workedMinutes: number;
   lateMinutes: number;
-  attendanceRate: number;
 };
 
 function buildRows(summaries: AttendanceDaySummary[], dates: string[]): EmpRow[] {
@@ -61,7 +60,7 @@ function buildRows(summaries: AttendanceDaySummary[], dates: string[]): EmpRow[]
         name: s.employeeName,
         byDate: new Map(),
         presentDays: 0, lateDays: 0, absentDays: 0, earlyDays: 0, restDays: 0, leaveDays: 0,
-        workedMinutes: 0, lateMinutes: 0, attendanceRate: 0,
+        workedMinutes: 0, lateMinutes: 0,
       });
     }
     const row = m.get(s.employeeId)!;
@@ -76,36 +75,7 @@ function buildRows(summaries: AttendanceDaySummary[], dates: string[]): EmpRow[]
     row.workedMinutes += s.workedMinutes;
   }
 
-  const workingDays = dates.length;
-  for (const row of m.values()) {
-    const attended = row.presentDays + row.lateDays + row.earlyDays;
-    const denominator = workingDays - row.restDays - row.leaveDays;
-    row.attendanceRate = denominator > 0 ? Math.round((attended / denominator) * 100) : 100;
-  }
-
   return [...m.values()].sort((a, b) => a.name.localeCompare(b.name, 'ar'));
-}
-
-// ─── attendance rate ring ─────────────────────────────────────────────────────
-
-function RateRing({ rate }: { rate: number }) {
-  const r = 14;
-  const circ = 2 * Math.PI * r;
-  const dash = (rate / 100) * circ;
-  const color = rate >= 90 ? '#22c55e' : rate >= 70 ? '#f59e0b' : '#ef4444';
-
-  return (
-    <svg width="36" height="36" viewBox="0 0 36 36" className="shrink-0 -rotate-90">
-      <circle cx="18" cy="18" r={r} fill="none" stroke="currentColor" strokeWidth="3" className="text-border" />
-      <circle cx="18" cy="18" r={r} fill="none" stroke={color} strokeWidth="3"
-        strokeDasharray={`${dash} ${circ}`} strokeLinecap="round" />
-      <text x="18" y="18" dominantBaseline="middle" textAnchor="middle"
-        className="rotate-90 fill-foreground"
-        style={{ fontSize: 8, fontWeight: 700, transform: 'rotate(90deg)', transformOrigin: '18px 18px' }}>
-        {rate}%
-      </text>
-    </svg>
-  );
 }
 
 // ─── stat chip ────────────────────────────────────────────────────────────────
@@ -235,9 +205,6 @@ function EmployeeCard({
           </div>
         </div>
 
-        {/* Rate ring */}
-        <RateRing rate={row.attendanceRate} />
-
         {/* Hours */}
         <div className="hidden sm:flex flex-col items-end shrink-0 min-w-[56px]">
           <span className="text-xs font-bold tabular-nums text-foreground">
@@ -289,10 +256,6 @@ function EmployeeCard({
               <Clock3 className="h-3 w-3" />
               إجمالي العمل: <strong className="text-foreground ms-0.5 tabular-nums">{minutesToHHMM(row.workedMinutes)}</strong>
             </span>
-            <span className="flex items-center gap-1">
-              <TrendingUp className="h-3 w-3" />
-              نسبة الحضور: <strong className="text-foreground ms-0.5 tabular-nums">{row.attendanceRate}%</strong>
-            </span>
           </div>
         </div>
       )}
@@ -339,12 +302,8 @@ function TableView({
           {allRecords.map(({ row, date, summary }) => {
             const vk = resolveVisualKey(summary.status);
             const cfg = STATUS[vk];
-            const checkIn = summary.actualCheckInAt ? (() => {
-              try { return new Date(summary.actualCheckInAt!).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit', hour12: false }); } catch { return null; }
-            })() : null;
-            const checkOut = summary.actualCheckOutAt ? (() => {
-              try { return new Date(summary.actualCheckOutAt!).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit', hour12: false }); } catch { return null; }
-            })() : null;
+            const checkIn = formatTime24FromIso(summary.actualCheckInAt);
+            const checkOut = formatTime24FromIso(summary.actualCheckOutAt);
             const dow = DAY_NAMES_FULL[getDayOfWeek(date)];
             return (
               <tr
@@ -443,7 +402,7 @@ export function DailyMonthHeatmap({
 
       {/* Card view */}
       {viewMode === 'card' && (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {rows.map((row) => (
             <EmployeeCard key={row.id} row={row} dates={dates} onDayClick={handleDayClick} />
           ))}

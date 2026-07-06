@@ -228,7 +228,6 @@ export function PayrollPeriodsClient() {
   };
 
   const handleSave = async () => {
-    if (!draft.code.trim()) { setError('الكود مطلوب'); return; }
     if (!draft.nameAr.trim()) { setError('الاسم العربي مطلوب'); return; }
     if (!draft.periodStart || !draft.periodEnd) { setError('تواريخ الفترة مطلوبة'); return; }
     if (editId) { await update(editId, draft); } else { await add(draft); }
@@ -330,9 +329,6 @@ export function PayrollPeriodsClient() {
         onSave={handleSave} error={error}
         contentRef={setDrawerContentEl}
       >
-        <FormField label="الكود" required>
-          <Input value={draft.code} onChange={e => set({ code: e.target.value })} placeholder="مثال: PAY-2025-01" />
-        </FormField>
         <FormField label="الاسم العربي" required>
           <Input value={draft.nameAr} onChange={e => set({ nameAr: e.target.value })} placeholder="يناير 2025" />
         </FormField>

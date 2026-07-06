@@ -1,11 +1,13 @@
 import type { RequestApprovalTemplateResponseDto } from '@/features/hr/requests/lib/api/approval-templates';
 import type { RequestApprovalMode } from '@/features/hr/requests/lib/api/approval-templates';
 import type {
+  RequestApprovalAssignmentCatalogDto,
   RequestApproverEntryStatus,
   RequestApproverStateEntry,
   RequestApproverStatesCarrier,
   RequestApproverStatesSnapshot,
-} from '@/features/hr/requests/lib/api/request-approver-states-types';
+  RequestListItemApprovalOverlay,
+} from '@/features/hr/requests/types/api/request-approver-states-types';
 import {
   applyApproverDecision,
   approvalModeLabelAr,
@@ -42,6 +44,41 @@ export function normalizeRequestApproverStates(
   dto: RequestApproverStatesCarrier | null | undefined,
 ): RequestApproverStatesSnapshot | null {
   return normalizeApproverStates(dto) as RequestApproverStatesSnapshot | null;
+}
+
+function toRequestApproverEntryStatus(status: string): RequestApproverEntryStatus {
+  return status === 'approved' || status === 'rejected' ? status : 'pending';
+}
+
+/** Merge list-item overlay + shared catalog into approver states for approval UI. */
+export function buildRequestApproverStatesFromListItem(
+  item: RequestListItemApprovalOverlay,
+  catalog: RequestApprovalAssignmentCatalogDto[],
+): RequestApproverStatesSnapshot | null {
+  if (!item.approvalAssignmentId) return null;
+  const assignment = catalog.find((entry) => entry.id === item.approvalAssignmentId);
+  if (!assignment) return null;
+
+  const decisionByEmployee = new Map(
+    (item.approverDecisions ?? []).map((decision) => [decision.employeeId, decision]),
+  );
+
+  return {
+    assignmentId: assignment.id,
+    approvalMode: assignment.approvalMode,
+    approvers: assignment.approvers.map((approver) => {
+      const decision = decisionByEmployee.get(approver.employeeId);
+      return {
+        employeeId: approver.employeeId,
+        employeeNameAr: approver.employeeNameAr,
+        sortOrder: approver.sortOrder,
+        status: toRequestApproverEntryStatus(decision?.status ?? 'pending'),
+        decidedAt: decision?.decidedAt ?? null,
+        decidedBy: null,
+        notes: decision?.notes ?? null,
+      };
+    }),
+  };
 }
 
 export function buildRequestApproverStatesFromAssignment(
@@ -94,12 +131,21 @@ export function buildRequestDecisionPayload(
 
   return {
     decision,
+    /** Client-side preview only — backend recomputes approver_states. */
     approverStates: updatedStates,
     approverEmployeeId: employeeId,
     decidedByEmployeeId: employeeId,
     decisionNotesAr: notes ?? undefined,
     updatedBy: options.updatedBy ?? undefined,
   };
+}
+
+/** Strip fields the decision API computes server-side (ValidationPipe forbidNonWhitelisted). */
+export function toRequestDecisionApiBody<
+  T extends { approverStates?: unknown },
+>(body: T): Omit<T, 'approverStates'> {
+  const { approverStates: _removed, ...rest } = body;
+  return rest;
 }
 
 /** Payload قرار موافقة/رفض سلفة — يطابق API الرواتب */

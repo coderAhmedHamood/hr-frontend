@@ -2,6 +2,7 @@
 import * as React from 'react';
 import * as SelectPrimitive from '@radix-ui/react-select';
 import { Check, ChevronDown, ChevronUp } from 'lucide-react';
+import { useDialogPortalContainer } from '@/components/ui/dialog';
 import { cn } from '@/shared/utils';
 
 const Select = SelectPrimitive.Root;
@@ -31,11 +32,19 @@ const SelectTrigger = React.forwardRef<
 ));
 SelectTrigger.displayName = SelectPrimitive.Trigger.displayName;
 
+export type SelectContentProps = React.ComponentPropsWithoutRef<typeof SelectPrimitive.Content> & {
+  container?: HTMLElement | DocumentFragment | null;
+};
+
 const SelectContent = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Content>
->(({ className, children, position = 'popper', align = 'center', sideOffset = 4, collisionPadding = 16, ...props }, ref) => (
-  <SelectPrimitive.Portal>
+  SelectContentProps
+>(({ className, children, position = 'popper', align = 'center', sideOffset = 4, collisionPadding = 16, container, ...props }, ref) => {
+  const dialogContainer = useDialogPortalContainer();
+  const portalContainer = container ?? dialogContainer ?? undefined;
+
+  return (
+  <SelectPrimitive.Portal container={portalContainer}>
     <SelectPrimitive.Content
       ref={ref}
       dir="rtl"
@@ -54,7 +63,8 @@ const SelectContent = React.forwardRef<
       </SelectPrimitive.Viewport>
     </SelectPrimitive.Content>
   </SelectPrimitive.Portal>
-));
+  );
+});
 SelectContent.displayName = SelectPrimitive.Content.displayName;
 
 const SelectItem = React.forwardRef<

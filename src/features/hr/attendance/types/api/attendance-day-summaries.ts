@@ -81,10 +81,27 @@ export type DaySummaryListQuery = {
   limit?: number;
   companyId?: string;
   employeeId?: string;
+  employeeIds?: string[];
   status?: AttendanceDayStatus;
   from?: string;
   to?: string;
   isManualOverride?: boolean;
+};
+
+export type DaySummaryByPeriodQuery = {
+  employeeId: string;
+  companyId: string;
+  startDate: string;
+  endDate: string;
+};
+
+export type DaySummaryByPeriodResult = {
+  companyId: string;
+  employeeId: string;
+  startDate: string;
+  endDate: string;
+  totalDays: number;
+  items: DaySummaryResponseDto[];
 };
 
 export type UpdateDaySummaryDto = {

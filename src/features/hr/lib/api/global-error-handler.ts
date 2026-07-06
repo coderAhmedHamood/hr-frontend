@@ -9,6 +9,11 @@ import type { ApiErrorEnvelope } from '@/features/hr/lib/api/types';
 import { isApiErrorEnvelope } from '@/features/hr/lib/api/types';
 import { toast } from 'sonner';
 import { duplicateAdvanceNumberMessage, isDuplicateAdvanceNumberError } from '@/features/hr/contracts/lib/employee-advance-errors';
+import {
+  isCorrectionRequestContext,
+  translateCorrectionRequestMessage,
+} from '@/features/hr/requests/attendance-corrections/lib/correction-request-errors';
+import { reportError } from '@/shared/errors/report-error';
 
 export type ApiErrorHandleResult = {
   /** Human-readable backend message for toasts and inline UI. */
@@ -17,6 +22,7 @@ export type ApiErrorHandleResult = {
   debugPayload: string | null;
   envelope: ApiErrorEnvelope | null;
   status: number;
+  isForbidden: boolean;
 };
 
 function isDevEnv() {
@@ -48,26 +54,37 @@ export function formatApiErrorForDisplay(error: unknown): string {
 export function handleApiError(
   error: unknown,
   context?: string,
-  options?: { suppressRedirect?: boolean },
+  options?: { suppressRedirect?: boolean; surface?: 'page' | 'filter' | 'action' },
 ): ApiErrorHandleResult {
   if (!(error instanceof ApiError)) {
     const displayMessage = error instanceof Error ? error.message : String(error);
     toast.error(displayMessage);
-    return { displayMessage, debugPayload: null, envelope: null, status: 0 };
+    return { displayMessage, debugPayload: null, envelope: null, status: 0, isForbidden: false };
   }
 
   const envelope = error.envelope;
   const status = error.status;
+  const surface = options?.surface ?? 'action';
+  const isForbidden = status === 403;
 
   const rawMessage = isDuplicateAdvanceNumberError(error)
     ? duplicateAdvanceNumberMessage()
     : extractApiErrorMessage(envelope, error.message);
 
-  const displayMessage = status === 403
+  const displayMessage = isForbidden
     ? 'ليس لديك صلاحية للوصول إلى هذا المورد'
     : isDuplicateAdvanceNumberError(error)
       ? rawMessage
-      : resolveAuthDisplayMessage(rawMessage, context);
+      : isCorrectionRequestContext(context)
+        ? translateCorrectionRequestMessage(rawMessage)
+        : resolveAuthDisplayMessage(rawMessage, context);
+
+  // 5xx: same toast as always, plus route it into the shared logging pipeline (correlation
+  // id, dev/prod formatting) so backend failures show up alongside render/route crashes.
+  // 4xx never reaches here — those are expected, user-actionable outcomes, not incidents.
+  if (status >= 500) {
+    reportError(error, context ?? 'api-error');
+  }
 
   const authContext = isAuthApiContext(context);
   const suppressRedirect = Boolean(options?.suppressRedirect);
@@ -76,14 +93,17 @@ export function handleApiError(
     const returnTo = encodeURIComponent(window.location.pathname + window.location.search);
     window.location.replace(`/login?returnTo=${returnTo}`);
   } else {
-    const skipToast = status === 401 && suppressRedirect && !authContext;
+    const skipToast =
+      error.toastShown
+      || ((status === 401 && suppressRedirect && !authContext)
+      || (isForbidden && surface === 'page'));
     if (!skipToast) {
       toast.error(displayMessage);
     }
   }
   const debugPayload = isDevEnv() ? formatApiErrorForDisplay(error) : null;
 
-  return { displayMessage, debugPayload, envelope, status };
+  return { displayMessage, debugPayload, envelope, status, isForbidden };
 }
 
 export function toApiErrorEnvelope(payload: unknown, status: number, fallbackMessage: string): ApiErrorEnvelope {

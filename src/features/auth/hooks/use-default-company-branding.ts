@@ -129,7 +129,13 @@ export function useLoginPageBranding() {
   const [stored] = useState<StoredLoginBranding | null>(() => readStoredLoginBranding());
 
   return useMemo(() => {
-    if (session.logoUrl || session.primaryColor || session.secondaryColor) return session;
+    const sessionHasBranding =
+      session.logoUrl ||
+      session.companyNameAr ||
+      session.companyNameEn ||
+      session.primaryColor ||
+      session.secondaryColor;
+    if (sessionHasBranding) return session;
     if (stored) return brandingFromCompany(stored);
     return brandingFromCompany(null);
   }, [session, stored]);

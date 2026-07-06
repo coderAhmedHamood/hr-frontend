@@ -136,7 +136,7 @@ export function RecomputeDaySummariesDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="gap-0 overflow-hidden border-border p-0 sm:max-w-md">
+      <DialogContent className="gap-0 overflow-visible border-border p-0 sm:max-w-md">
         <div className="space-y-2 border-b border-border px-6 pb-4 pt-6">
           <DialogHeader className="space-y-2 text-right">
             <DialogTitle className="font-display text-lg">إعادة حساب ملخصات الحضور</DialogTitle>
@@ -203,7 +203,7 @@ export function RecomputeDaySummariesDialog({
                 استبدال التعديلات اليدوية
               </Label>
               <p className="text-xs text-muted-foreground">
-                إعادة الكتابة فوق الملخصات التي تم تعديلها يدوياً.
+                إعادة الكتابة فوق الملخصات التي عدّلها الموارد البشرية يدوياً (لا يشمل التسوية — تُلغى تلقائياً عند إعادة الحساب).
               </p>
             </div>
             <Switch

@@ -1,6 +1,8 @@
 import { apiRequest, type PaginatedResult } from '@/features/hr/lib/api/client';
 import type {
   AttendanceDayStatus,
+  DaySummaryByPeriodQuery,
+  DaySummaryByPeriodResult,
   DaySummaryDailyTotals,
   DaySummaryListQuery,
   DaySummaryResponseDto,
@@ -15,6 +17,8 @@ import type {
 
 export type {
   AttendanceDayStatus,
+  DaySummaryByPeriodQuery,
+  DaySummaryByPeriodResult,
   DaySummaryDailyTotals,
   DaySummaryListQuery,
   DaySummaryResponseDto,
@@ -69,5 +73,14 @@ export const attendanceDaySummariesApi = {
         body: payload,
       },
     );
+  },
+  lateDaysByPeriod(query: DaySummaryByPeriodQuery) {
+    return apiRequest<DaySummaryByPeriodResult>('/attendance/day-summaries/late-days/by-period', { query });
+  },
+  absentDaysByPeriod(query: DaySummaryByPeriodQuery) {
+    return apiRequest<DaySummaryByPeriodResult>('/attendance/day-summaries/absent-days/by-period', { query });
+  },
+  overtimeDaysByPeriod(query: DaySummaryByPeriodQuery) {
+    return apiRequest<DaySummaryByPeriodResult>('/attendance/day-summaries/overtime-days/by-period', { query });
   },
 };

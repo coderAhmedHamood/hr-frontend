@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
+import { resolveDirectoryLoadFailure } from '@/features/hr/lib/api/directory-load-error';
 import { useServerDirectoryPagination } from '@/components/ui/paged-list';
 import { leaveTypesApi } from '@/features/hr/leaves/leave-types/lib/api/leave-types';
 import { resolveOrganizationScope } from '@/features/hr/organization/lib/api/organization-context';
@@ -41,6 +42,7 @@ export function getLeaveTypeProperty(draft: LeaveTypeDraft): LeaveTypeProperty {
 export function useLeaveTypesPanelModel() {
   const [items, setItems] = React.useState<HRLeaveTypeRecord[]>([]);
   const [listError, setListError] = React.useState<string | null>(null);
+  const [apiAccessDenied, setApiAccessDenied] = React.useState(false);
   const [companyId, setCompanyId] = React.useState<string | null>(null);
   const [archiveScope, setArchiveScope] = React.useState<OrganizationArchiveScope>(
     ORGANIZATION_ARCHIVE_SCOPE_DEFAULT,
@@ -63,10 +65,12 @@ export function useLeaveTypesPanelModel() {
       });
       const mapped = res.items.map(mapLeaveTypeResponse).sort((a, b) => a.sortOrder - b.sortOrder);
       setItems(mapped);
+      setApiAccessDenied(false);
       return { items: mapped, total: res.pagination.total };
     } catch (err) {
-      const { displayMessage } = handleApiError(err, 'leave-types.load');
-      setListError(displayMessage);
+      const failure = resolveDirectoryLoadFailure(err, 'leave-types.load');
+      setApiAccessDenied(failure.accessDenied);
+      setListError(failure.listError);
       return { items: [], total: 0 };
     }
   }, [archiveScope]);
@@ -179,6 +183,7 @@ export function useLeaveTypesPanelModel() {
     loading,
     pagination,
     listError,
+    accessDenied: apiAccessDenied,
     open,
     setOpen,
     editId,

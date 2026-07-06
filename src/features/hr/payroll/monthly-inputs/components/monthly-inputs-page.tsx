@@ -22,11 +22,10 @@ import {
   MONTHLY_INPUT_KIND_ORDER,
   MONTHLY_INPUT_SOURCE_KIND_LABELS,
   MONTHLY_INPUT_SOURCE_KIND_ORDER,
-  formatAmount,
   formatPayrollPeriodLabel,
 } from '@/features/hr/payroll/monthly-inputs/constants/monthly-input-labels';
+import { MoneyAmount } from '@/components/ui/sar-amount';
 import { useMonthlyInputsDirectoryModel } from '@/features/hr/payroll/monthly-inputs/hooks/useMonthlyInputsDirectoryModel';
-import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 import { TableDateCell } from '@/components/ui/table-cells';
 import { cn } from '@/shared/utils';
 
@@ -58,7 +57,7 @@ function MonthlyInputDetailDialog({
           <DetailRow label="الفترة" value={formatPayrollPeriodLabel(row.periodYear, row.periodMonth)} />
           <DetailRow label="نوع المدخل" value={MONTHLY_INPUT_KIND_LABELS[row.inputKind] ?? row.inputKind} />
           <DetailRow label="الاتجاه" value={MONTHLY_INPUT_DIRECTION_LABELS[row.direction] ?? row.direction} />
-          <DetailRow label="المبلغ" value={formatAmount(row.amount, row.currency)} />
+          <DetailRow label="المبلغ" value={<MoneyAmount value={row.amount} currency={row.currency} />} />
           <DetailRow label="المصدر" value={row.sourceKind ? (MONTHLY_INPUT_SOURCE_KIND_LABELS[row.sourceKind] ?? row.sourceKind) : '—'} />
           <DetailRow label="جدول المصدر" value={row.sourceTable} />
           <DetailRow label="معرّف المصدر" value={row.sourceId} />
@@ -77,11 +76,10 @@ function MonthlyInputDetailDialog({
 export function MonthlyInputsPage() {
   const {
     items, total, page, setPage, limit, setLimit, loading,
-    filters, patchFilters, periodOptions, selectedEmpIds, setSelectedEmpIds,
+    filters, patchFilters, periodOptions, loadPeriods, selectedEmpIds, setSelectedEmpIds,
+    empPickerEmployees, employeePickerLoading, loadEmployeePicker,
     activeFilterCount, clearFilters,
   } = useMonthlyInputsDirectoryModel();
-
-  const companyId = useDefaultCompanyId();
 
   const [detailRow, setDetailRow] = React.useState<MonthlyInputResponseDto | null>(null);
 
@@ -90,6 +88,7 @@ export function MonthlyInputsPage() {
       id: 'period',
       value: filters.payrollPeriodId,
       onChange: (v) => patchFilters({ payrollPeriodId: v || 'all' }),
+      onOpen: loadPeriods,
       placeholder: 'فترة الراتب',
       className: 'w-[10rem]',
       options: [
@@ -143,7 +142,7 @@ export function MonthlyInputsPage() {
         { value: 'false', label: 'لا' },
       ],
     },
-  ], [filters, patchFilters, periodOptions]);
+  ], [filters, patchFilters, periodOptions, loadPeriods]);
 
   useEntityFilterSlot(
     () => (
@@ -151,13 +150,15 @@ export function MonthlyInputsPage() {
         showDateSection={false}
         showStatusSection={false}
         inlineSelects={inlineSelects}
-        companyId={companyId}
+        empPickerEmployees={empPickerEmployees}
+        employeePickerLoading={employeePickerLoading}
+        onEmployeePickerOpen={loadEmployeePicker}
         selectedEmpIds={selectedEmpIds}
         onSelectedEmpIdsChange={setSelectedEmpIds}
         onDateBoundsChange={() => {}}
       />
     ),
-    [inlineSelects, companyId, selectedEmpIds, setSelectedEmpIds],
+    [inlineSelects, empPickerEmployees, employeePickerLoading, loadEmployeePicker, selectedEmpIds, setSelectedEmpIds],
   );
 
   usePageHeaderActions(
@@ -205,9 +206,7 @@ export function MonthlyInputsPage() {
       key: 'amount',
       title: 'المبلغ',
       render: (row) => (
-        <span className="font-mono tabular-nums" dir="ltr">
-          {formatAmount(row.amount, row.currency)}
-        </span>
+        <MoneyAmount value={row.amount} currency={row.currency} className="font-mono" />
       ),
     },
     {

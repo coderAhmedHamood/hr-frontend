@@ -10,6 +10,7 @@ import type {
 
 export function formatLatinNumber(n: number, fractionDigits = 0): string {
   return new Intl.NumberFormat('en-US', {
+    numberingSystem: 'latn',
     minimumFractionDigits: fractionDigits,
     maximumFractionDigits: fractionDigits,
   }).format(n);

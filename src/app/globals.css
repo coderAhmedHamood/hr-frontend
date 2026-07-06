@@ -17,6 +17,37 @@
   max-width: calc(100vw - 2rem);
 }
 
+/* ── Compound shadows with nested hsl(var(...)) / alpha-slash / multi-layer commas ──
+   Written as plain CSS, not Tailwind arbitrary-value brackets — Turbopack's CSS
+   codegen corrupts those (mangled `hsl(var(-...` selectors, see radix-fade note above).
+   ─────────────────────────────────────────────────────────────────────────── */
+.topbar-shell-shadow {
+  box-shadow:
+    inset 0 1px 0 0 rgb(255 255 255 / 0.92),
+    0 10px 40px -18px hsl(var(--primary) / 0.09);
+}
+.compensation-table-header-row-shadow {
+  box-shadow: 0 1px 0 0 hsl(var(--border));
+}
+.tooltip-content-shadow {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+}
+.switch-track-shadow {
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+.switch-track-shadow[data-state='checked'] {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+.switch-thumb-ease {
+  transition-timing-function: cubic-bezier(0.33, 1, 0.68, 1);
+}
+.switch-thumb-ease[data-state='checked'] {
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+}
+.one-day-view-shadow {
+  box-shadow: 0 -6px 16px -8px rgba(0, 0, 0, 0.12);
+}
+
 /* ── Radix UI enter/exit animation system ───────────────────────────────────
    Defined as plain CSS — no Tailwind @utility directives — so Tailwind never
    generates data-[state=...] variant selectors that corrupt in Turbopack.
@@ -207,7 +238,9 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-feature-settings: 'ss01', 'cv11';
+    /* IBM Plex Sans Arabic swaps 0–9 to Arabic-Indic under lang=ar unless locl is off */
+    font-feature-settings: 'ss01', 'cv11', 'locl' 0, 'lnum' 1, 'tnum' 1;
+    font-variant-numeric: lining-nums tabular-nums;
     background-image:
       radial-gradient(circle at 0% 0%, hsl(var(--primary) / 0.03) 0%, transparent 50%),
       radial-gradient(circle at 100% 100%, hsl(var(--gold) / 0.04) 0%, transparent 50%);
@@ -386,11 +419,45 @@
     color:            hsl(var(--accent-foreground));
   }
 
+  /* DatePickerInput — keep table grid intact (no flex on table cells) */
+  .date-picker-calendar {
+    overflow: visible;
+  }
+  .date-picker-calendar .rdp-root {
+    overflow: visible;
+  }
+  .date-picker-calendar .rdp-months {
+    width: 100%;
+    max-width: none;
+    justify-content: center;
+  }
+  .date-picker-calendar .rdp-month_grid {
+    width: 100%;
+    table-layout: fixed;
+    margin-inline: auto;
+  }
+  .date-picker-calendar .rdp-weekday,
+  .date-picker-calendar .rdp-day {
+    width: 2.25rem;
+    min-width: 2.25rem;
+    max-width: 2.25rem;
+    text-align: center;
+    vertical-align: middle;
+    overflow: visible;
+  }
+  .date-picker-calendar .rdp-day_button {
+    margin-inline: auto;
+  }
+  .date-picker-calendar .rdp-today:not(.rdp-outside) .rdp-day_button,
+  .date-picker-calendar .rdp-selected .rdp-day_button {
+    overflow: visible;
+  }
+
 }
 
 @layer utilities {
   .text-balance { text-wrap: balance; }
-  .number-ar { font-feature-settings: 'tnum', 'lnum'; }
+  .number-ar { font-variant-numeric: lining-nums tabular-nums; font-feature-settings: 'locl' 0, 'lnum' 1, 'tnum' 1; }
 
   .surface-radial-primary-end {
     background-image: radial-gradient(circle at 80% 20%, hsl(var(--primary)) 0%, transparent 45%);

@@ -28,7 +28,7 @@ const TooltipContent = React.forwardRef<
         // Text
         'px-3.5 py-2.5 text-xs leading-relaxed text-popover-foreground',
         // Shadow
-        'shadow-[0_8px_24px_rgba(0,0,0,.14)]',
+        'tooltip-content-shadow',
         // Animation
         'data-[state=delayed-open]:animate-in data-[state=closed]:animate-out',
         'data-[state=delayed-open]:fade-in-0 data-[state=closed]:fade-out-0',

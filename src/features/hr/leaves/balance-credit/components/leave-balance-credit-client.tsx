@@ -22,6 +22,7 @@ import { ListFilterBar } from '@/components/ui/list-filter-bar';
 import { cn, toWesternDigits } from '@/shared/utils';
 import { STATUS_PILL } from '@/shared/status-pill-classes';
 import { AR_LEAVE_BALANCE_CREDIT_STATUS_LABELS } from '@/shared/i18n/ar';
+import { ForbiddenState } from '@/components/shared/forbidden-state';
 import { DirectoryPagedViews } from '@/components/ui/paged-list';
 import { useLeaveBalanceCreditModel } from '@/features/hr/leaves/balance-credit/hooks/useLeaveBalanceCreditModel';
 import type { LeaveBalanceCreditRequest } from '@/features/hr/leaves/balance-credit/types';
@@ -201,6 +202,10 @@ export function LeaveBalanceCreditClient() {
     ],
     [m.approveCreditRequest, m.rejectCreditRequest],
   );
+
+  if (m.accessDenied) {
+    return <ForbiddenState title="لا تملك صلاحية الوصول لطلبات إضافة الرصيد" />;
+  }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-5 animate-fade-in">

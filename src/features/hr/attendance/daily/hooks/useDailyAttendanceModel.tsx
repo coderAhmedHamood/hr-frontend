@@ -15,7 +15,7 @@ import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-con
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
 import { AttendanceRegisterPrintHtml } from '@/components/pdf/print/attendance-register-print-html';
-import { hasDateRangeFilter, normalizePeriodRange, thisCalendarMonthYMD, todayYMD } from '@/features/hr/discipline/lib/discipline-date-filter';
+import { normalizePeriodRange, todayYMD } from '@/features/hr/discipline/lib/discipline-date-filter';
 import type { AttendanceDaySummary, AttendanceEvent } from '@/features/hr/attendance/lib/types';
 import { enumerateDates } from '@/features/hr/attendance/lib/utils';
 import { downloadXlsxFromAoA, type XlsxCell } from '@/shared/export/download-xlsx';
@@ -28,7 +28,14 @@ import { minutesToHHMM } from '@/features/hr/attendance/daily/utils/daily-attend
 import { attendanceDaySummariesApi } from '@/features/hr/attendance/lib/api/attendance-day-summaries';
 import { attendanceEventsApi } from '@/features/hr/attendance/lib/api/attendance-events';
 import { recomputeTodayDaySummaries } from '@/features/hr/attendance/lib/api/recompute-today-day-summaries';
+import type {
+  AttendanceDayStatus,
+  DaySummaryListQuery,
+  DaySummaryResponseDto,
+} from '@/features/hr/attendance/types/api/attendance-day-summaries';
+import type { AttendanceEventResponseDto } from '@/features/hr/attendance/types/api/attendance-events';
 import { companiesApi } from '@/features/hr/lib/api/companies';
+import { resolveDirectoryLoadFailure } from '@/features/hr/lib/api/directory-load-error';
 import { useEmployeeFilterPicker } from '@/features/hr/lib/use-employee-filter-picker';
 import { getDefaultCompanyId, useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 import {
@@ -36,13 +43,81 @@ import {
   usePersistedEmpIdSet,
   usePersistedFilterState,
 } from '@/features/hr/attendance/lib/use-persisted-filter-state';
+import { useListPagination, type PaginationBarState } from '@/components/ui/paged-list';
 
 export type AttendanceViewMode = 'card' | 'table';
 
+const API_STATUS_FILTERS = new Set<string>([
+  'present',
+  'partial',
+  'late',
+  'absent',
+  'rest_day',
+  'unscheduled',
+  'holiday',
+  'on_leave',
+]);
+
+const COUNT_FETCH_PAGE_SIZE = 100;
+
+function mapDaySummary(s: DaySummaryResponseDto): AttendanceDaySummary {
+  return {
+    id: s.id,
+    employeeId: s.employeeId,
+    employeeName: s.employeeNameAr,
+    date: s.workDate,
+    templateId: s.shiftAssignmentId ?? null,
+    status: s.status as AttendanceDaySummary['status'],
+    lateMinutes: s.lateMinutes,
+    earlyLeaveMinutes: s.earlyLeaveMinutes,
+    overtimeMinutes: s.overtimeMinutes,
+    workedMinutes: s.workedMinutes,
+    notes: s.notes ?? undefined,
+    actualCheckInAt: s.actualCheckInAt ?? null,
+    actualCheckOutAt: s.actualCheckOutAt ?? null,
+    expectedStartAt: s.expectedStartAt ?? null,
+    expectedEndAt: s.expectedEndAt ?? null,
+    isFinalized: s.isFinalized,
+  };
+}
+
+function mapEvent(e: AttendanceEventResponseDto): AttendanceEvent {
+  return {
+    id: e.id,
+    employeeId: e.employeeId,
+    employeeName: e.employeeNameAr,
+    date: e.workDate,
+    type: e.eventType,
+    at: e.occurredAt,
+    source: e.source ?? 'manual_hr',
+  };
+}
+
+async function fetchAllDaySummaries(
+  baseQuery: Omit<DaySummaryListQuery, 'page' | 'limit'>,
+): Promise<AttendanceDaySummary[]> {
+  const all: AttendanceDaySummary[] = [];
+  let page = 1;
+
+  while (true) {
+    const res = await attendanceDaySummariesApi.getAll({
+      ...baseQuery,
+      page,
+      limit: COUNT_FETCH_PAGE_SIZE,
+    });
+    all.push(...res.items.map(mapDaySummary));
+    if (all.length >= res.pagination.total || res.items.length === 0) break;
+    page += 1;
+  }
+
+  return all;
+}
+
 export function useDailyAttendanceModel() {
   const companyId = useDefaultCompanyId();
-  const [daySummaries, setDaySummaries] = React.useState<AttendanceDaySummary[]>([]);
   const [events, setEvents] = React.useState<AttendanceEvent[]>([]);
+  const [eventsLoading, setEventsLoading] = React.useState(false);
+  const [listError, setListError] = React.useState<string | null>(null);
   const { employees: pickerEmployees } = useEmployeeFilterPicker(companyId);
   const allEmployees = React.useMemo(
     () => pickerEmployees.map((e) => ({ id: e.id, name: e.name })),
@@ -51,12 +126,17 @@ export function useDailyAttendanceModel() {
   const [companyNameAr, setCompanyNameAr] = React.useState('');
   const [companyNameEn, setCompanyNameEn] = React.useState('');
 
+  const todayPeriod = React.useMemo(() => {
+    const today = todayYMD();
+    return { from: today, to: today };
+  }, []);
+
   const [selectedEmpIds, setSelectedEmpIds] = usePersistedEmpIdSet(
     attendanceFiltersKey('daily', companyId, 'selectedEmpIds'),
   );
   const [dateBounds, setDateBounds] = usePersistedFilterState(
     attendanceFiltersKey('daily', companyId, 'dateBounds'),
-    { from: todayYMD(), to: todayYMD() },
+    todayPeriod,
   );
   const [statusFilter, setStatusFilter] = usePersistedFilterState(
     attendanceFiltersKey('daily', companyId, 'statusFilter'),
@@ -67,16 +147,18 @@ export function useDailyAttendanceModel() {
     'card',
   );
   const [pdfOpen, setPdfOpen] = React.useState(false);
+  const [exportPrintRows, setExportPrintRows] = React.useState<
+    { employeeName: string; date: string; statusLabel: string; worked: string; late: string }[]
+  >([]);
   const [recomputeOpen, setRecomputeOpen] = React.useState(false);
   const [registerOpen, setRegisterOpen] = React.useState(false);
 
   const { from: filterFrom, to: filterTo } = dateBounds;
 
-  // Load company info for the default company
   React.useEffect(() => {
-    const companyId = getDefaultCompanyId();
-    if (!companyId) return;
-    void companiesApi.getById(companyId).then((companyRes) => {
+    const id = getDefaultCompanyId();
+    if (!id) return;
+    void companiesApi.getById(id).then((companyRes) => {
       if (companyRes) {
         setCompanyNameAr(companyRes.nameAr);
         setCompanyNameEn(companyRes.nameEn ?? '');
@@ -84,130 +166,189 @@ export function useDailyAttendanceModel() {
     });
   }, []);
 
-  const reloadAttendanceData = React.useCallback(async (from: string, to: string) => {
-    try {
-      await recomputeTodayDaySummaries();
-      const [summRes, evtRes] = await Promise.all([
-        attendanceDaySummariesApi.getAll({ limit: 2000, from, to } as Parameters<typeof attendanceDaySummariesApi.getAll>[0]),
-        attendanceEventsApi.getAll({ limit: 2000, workDateFrom: from, workDateTo: to }),
-      ]);
-      setDaySummaries(
-        summRes.items.map((s) => ({
-          id: s.id,
-          employeeId: s.employeeId,
-          employeeName: s.employeeNameAr,
-          date: s.workDate,
-          templateId: s.shiftAssignmentId ?? null,
-          status: s.status as AttendanceDaySummary['status'],
-          lateMinutes: s.lateMinutes,
-          earlyLeaveMinutes: s.earlyLeaveMinutes,
-          overtimeMinutes: s.overtimeMinutes,
-          workedMinutes: s.workedMinutes,
-          notes: s.notes ?? undefined,
-          actualCheckInAt: (s as Record<string, unknown>).actualCheckInAt as string | null ?? null,
-          actualCheckOutAt: (s as Record<string, unknown>).actualCheckOutAt as string | null ?? null,
-          expectedStartAt: (s as Record<string, unknown>).expectedStartAt as string | null ?? null,
-          expectedEndAt: (s as Record<string, unknown>).expectedEndAt as string | null ?? null,
-        })),
-      );
-      setEvents(
-        evtRes.items.map((e) => ({
-          id: e.id,
-          employeeId: e.employeeId,
-          employeeName: e.employeeNameAr,
-          date: e.workDate,
-          type: e.eventType,
-          at: e.occurredAt,
-          source: e.source ?? 'manual_hr',
-        })) as AttendanceEvent[],
-      );
-    } catch { /* ignore */ }
-  }, []);
-
-  // Load day summaries & events when date range changes
-  React.useEffect(() => {
-    const from = filterFrom || todayYMD();
-    const to = filterTo || todayYMD();
-    void reloadAttendanceData(from, to);
-  }, [filterFrom, filterTo, reloadAttendanceData]);
-
-  const spanFromData = React.useMemo(() => {
-    let lo = '';
-    let hi = '';
-    for (const s of daySummaries) {
-      if (!lo || s.date < lo) lo = s.date;
-      if (!hi || s.date > hi) hi = s.date;
-    }
-    if (!lo) return thisCalendarMonthYMD();
-    return { from: lo, to: hi };
-  }, [daySummaries]);
-
-  const { from, to } = React.useMemo(() => {
-    if (hasDateRangeFilter(filterFrom, filterTo)) return dateBounds;
-    return spanFromData;
-  }, [dateBounds, spanFromData, filterFrom, filterTo]);
-
+  const from = filterFrom || todayYMD();
+  const to = filterTo || todayYMD();
   const dates = React.useMemo(() => enumerateDates(from, to), [from, to]);
+  const selectedEmpKey = React.useMemo(() => [...selectedEmpIds].sort().join(','), [selectedEmpIds]);
 
-  const filtered = React.useMemo(
-    () =>
-      daySummaries.filter(
-        (s) =>
-          s.date >= from &&
-          s.date <= to &&
-          (selectedEmpIds.size === 0 || selectedEmpIds.has(s.employeeId)),
-      ),
-    [daySummaries, from, to, selectedEmpIds],
+  // `/attendance/day-summaries` paginates raw (employeeId, workDate) rows, but this
+  // view paginates by EMPLOYEE (one card/row per employee spanning the whole date
+  // range). Paginating by raw row count would split a single employee's days across
+  // multiple server pages once the range spans more than a few days — so instead we
+  // paginate the (already-loaded, zero extra cost) company employee directory in
+  // memory first, then fetch exactly one page's worth of day-summaries — scoped to
+  // just that page's employee ids, for the whole date range — in a single request.
+  // Changing the page or page size only ever triggers that one scoped request, same
+  // as every other server-paginated directory in the app.
+  const employeeDirectory = React.useMemo(() => {
+    const list = selectedEmpIds.size > 0
+      ? allEmployees.filter((e) => selectedEmpIds.has(e.id))
+      : allEmployees;
+    return [...list].sort((a, b) => a.name.localeCompare(b.name, 'ar'));
+  }, [allEmployees, selectedEmpIds]);
+
+  const {
+    page,
+    setPage,
+    pageSize,
+    setPageSize,
+    pageItems: pageEmployeeRows,
+    total,
+    totalPages,
+  } = useListPagination(employeeDirectory, [companyId, selectedEmpKey]);
+
+  const pagination: PaginationBarState = React.useMemo(
+    () => ({ page, pageSize, total, totalPages, setPage, setPageSize }),
+    [page, pageSize, total, totalPages, setPage, setPageSize],
   );
 
-  const eventsFiltered = React.useMemo(
-    () =>
-      events.filter(
-        (e) =>
-          e != null &&
-          typeof e.id === 'string' &&
-          e.date >= from &&
-          e.date <= to &&
-          (selectedEmpIds.size === 0 || selectedEmpIds.has(e.employeeId)),
-      ),
-    [events, from, to, selectedEmpIds],
+  const pageEmployeeIdsKey = React.useMemo(
+    () => pageEmployeeRows.map((e) => e.id).sort().join(','),
+    [pageEmployeeRows],
   );
 
-  const denseSummaries = filtered;
+  const [pageSummaries, setPageSummaries] = React.useState<AttendanceDaySummary[]>([]);
+  const [summariesLoading, setSummariesLoading] = React.useState(false);
+  const summariesFetchGenRef = React.useRef(0);
+
+  const loadPageSummaries = React.useCallback(async () => {
+    if (!companyId || pageEmployeeIdsKey.length === 0) {
+      setPageSummaries([]);
+      return;
+    }
+
+    const gen = ++summariesFetchGenRef.current;
+    setListError(null);
+    setSummariesLoading(true);
+    const employeeIds = pageEmployeeIdsKey.split(',').filter(Boolean);
+    const query: DaySummaryListQuery = {
+      companyId,
+      from,
+      to,
+      employeeIds,
+      page: 1,
+      limit: Math.max(employeeIds.length * dates.length + 10, 50),
+    };
+    if (statusFilter !== 'all' && API_STATUS_FILTERS.has(statusFilter)) {
+      query.status = statusFilter as AttendanceDayStatus;
+    }
+
+    try {
+      await recomputeTodayDaySummaries(companyId).catch(() => {});
+      const res = await attendanceDaySummariesApi.getAll(query);
+      if (gen !== summariesFetchGenRef.current) return;
+      setPageSummaries(res.items.map(mapDaySummary));
+    } catch (err) {
+      if (gen !== summariesFetchGenRef.current) return;
+      const failure = resolveDirectoryLoadFailure(err, 'attendance/day-summaries.load');
+      setListError(failure.listError);
+      setPageSummaries([]);
+    } finally {
+      if (gen === summariesFetchGenRef.current) setSummariesLoading(false);
+    }
+  }, [companyId, from, to, pageEmployeeIdsKey, dates.length, statusFilter]);
+
+  React.useEffect(() => {
+    void loadPageSummaries();
+  }, [loadPageSummaries]);
+
+  const denseForView = React.useMemo(() => {
+    if (statusFilter === 'all') return pageSummaries;
+    return pageSummaries.filter((s) => resolveVisualKey(s.status) === statusFilter);
+  }, [pageSummaries, statusFilter]);
+
+  React.useEffect(() => {
+    if (!companyId || pageEmployeeIdsKey.length === 0) {
+      setEvents([]);
+      return;
+    }
+
+    const employeeIds = pageEmployeeIdsKey.split(',').filter(Boolean);
+    let cancelled = false;
+    setEventsLoading(true);
+
+    void attendanceEventsApi
+      .getAll({
+        companyId,
+        workDateFrom: from,
+        workDateTo: to,
+        employeeIds,
+        page: 1,
+        limit: Math.max(employeeIds.length * dates.length * 6, 50),
+      })
+      .then((res) => {
+        if (!cancelled) setEvents(res.items.map(mapEvent));
+      })
+      .catch(() => {
+        if (!cancelled) setEvents([]);
+      })
+      .finally(() => {
+        if (!cancelled) setEventsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [companyId, from, to, pageEmployeeIdsKey, dates.length]);
+
+  const eventsForView = events;
+
+  const reloadSummaries = React.useCallback(() => {
+    void loadPageSummaries();
+  }, [loadPageSummaries]);
 
   const attendanceStatusLabels = React.useMemo(
     () => Object.fromEntries(ATT_VISUAL_STATUS_ORDER.map((k) => [k, STATUS[k].label])) as Record<string, string>,
     [],
   );
 
+  // Page-scoped counts (same convention as other server-paginated directories in
+  // this app) — "all" reflects the true total from pagination; per-status tallies
+  // reflect the currently loaded page, not a separate full-range count fetch.
   const attendanceStatusCounts = React.useMemo(() => {
-    const counts: Record<string, number> = { all: denseSummaries.length };
+    const counts: Record<string, number> = { all: total };
     for (const k of ATT_VISUAL_STATUS_ORDER) counts[k] = 0;
-    for (const s of denseSummaries) {
+    for (const s of pageSummaries) {
       counts[resolveVisualKey(s.status)] += 1;
     }
     return counts;
-  }, [denseSummaries]);
+  }, [pageSummaries, total]);
 
-  const denseForView = React.useMemo(() => {
-    if (statusFilter === 'all') return denseSummaries;
-    return denseSummaries.filter((s) => resolveVisualKey(s.status) === statusFilter);
-  }, [denseSummaries, statusFilter]);
+  const fetchExportSummaries = React.useCallback(async () => {
+    if (!companyId) return [] as AttendanceDaySummary[];
+    const baseQuery: Omit<DaySummaryListQuery, 'page' | 'limit'> = { from, to, companyId };
+    if (selectedEmpIds.size > 0) baseQuery.employeeIds = [...selectedEmpIds];
+    if (statusFilter !== 'all' && API_STATUS_FILTERS.has(statusFilter)) {
+      baseQuery.status = statusFilter as AttendanceDayStatus;
+    }
+    const items = await fetchAllDaySummaries(baseQuery);
+    if (statusFilter === 'all') return items;
+    return items.filter((s) => resolveVisualKey(s.status) === statusFilter);
+  }, [companyId, from, to, selectedEmpIds, statusFilter]);
 
-  // Do NOT filter events by summaries — employees may have events without a day summary
-  const eventsForView = eventsFiltered;
+  const openPdfExport = React.useCallback(async () => {
+    try {
+      const rows = await fetchExportSummaries();
+      if (rows.length === 0) {
+        toast.error('لا توجد سجلات للتصدير ضمن الفلاتر الحالية.');
+        return;
+      }
+      setExportPrintRows(
+        rows.map((s) => ({
+          employeeName: s.employeeName,
+          date: s.date,
+          statusLabel: STATUS[resolveVisualKey(s.status)].label,
+          worked: minutesToHHMM(s.workedMinutes),
+          late: minutesToHHMM(s.lateMinutes),
+        })),
+      );
+      setPdfOpen(true);
+    } catch {
+      toast.error('تعذر تحضير تصدير PDF.');
+    }
+  }, [fetchExportSummaries]);
 
-  const attendancePdfRows = React.useMemo(
-    () =>
-      denseForView.map((s: AttendanceDaySummary) => ({
-        employeeName: s.employeeName,
-        date: s.date,
-        statusLabel: STATUS[resolveVisualKey(s.status)].label,
-        worked: minutesToHHMM(s.workedMinutes),
-        late: minutesToHHMM(s.lateMinutes),
-      })),
-    [denseForView],
-  );
+  const attendancePdfRows = exportPrintRows;
 
   const attendancePrintable = React.useMemo(
     () =>
@@ -232,31 +373,33 @@ export function useDailyAttendanceModel() {
   const attendancePdfFileName = `attendance-${from}-${to}.pdf`;
 
   const handleExportAttendanceExcel = React.useCallback(async () => {
-    if (denseForView.length === 0) {
-      toast.error('لا توجد سجلات للتصدير ضمن الفلاتر الحالية.');
-      return;
+    try {
+      const rows = await fetchExportSummaries();
+      if (rows.length === 0) {
+        toast.error('لا توجد سجلات للتصدير ضمن الفلاتر الحالية.');
+        return;
+      }
+      const sheet: XlsxCell[][] = [
+        ['الموظف', 'معرف الموظف', 'اليوم', 'الحالة', 'دقائق العمل', 'دقائق التأخير'],
+      ];
+      for (const s of rows) {
+        sheet.push([
+          s.employeeName,
+          s.employeeId,
+          s.date,
+          STATUS[resolveVisualKey(s.status)].label,
+          s.workedMinutes,
+          s.lateMinutes,
+        ]);
+      }
+      await downloadXlsxFromAoA(`attendance-${from}-${to}.xlsx`, 'الحضور', sheet);
+      toast.success('تم تنزيل ملف Excel.');
+    } catch {
+      toast.error('تعذر تصدير الحضور.');
     }
-    const rows: XlsxCell[][] = [
-      ['الموظف', 'معرف الموظف', 'اليوم', 'الحالة', 'دقائق العمل', 'دقائق التأخير'],
-    ];
-    for (const s of denseForView) {
-      rows.push([
-        s.employeeName,
-        s.employeeId,
-        s.date,
-        STATUS[resolveVisualKey(s.status)].label,
-        s.workedMinutes,
-        s.lateMinutes,
-      ]);
-    }
-    await downloadXlsxFromAoA(`attendance-${from}-${to}.xlsx`, 'الحضور', rows);
-    toast.success('تم تنزيل ملف Excel.');
-  }, [denseForView, from, to]);
+  }, [fetchExportSummaries, from, to]);
 
-
-  const selectedEmpKey = React.useMemo(() => [...selectedEmpIds].sort().join(','), [selectedEmpIds]);
-
-  const isDefaultDate = filterFrom === todayYMD() && filterTo === todayYMD();
+  const isDefaultDate = filterFrom === todayPeriod.from && filterTo === todayPeriod.to;
   const activeFilterCount =
     (statusFilter !== 'all' ? 1 : 0)
     + (selectedEmpIds.size > 0 ? 1 : 0)
@@ -293,15 +436,7 @@ export function useDailyAttendanceModel() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-44">
-            <DropdownMenuItem
-              onSelect={() => {
-                if (attendancePdfRows.length === 0) {
-                  toast.error('لا توجد سجلات للتصدير ضمن الفلاتر الحالية.');
-                  return;
-                }
-                setPdfOpen(true);
-              }}
-            >
+            <DropdownMenuItem onSelect={() => void openPdfExport()}>
               <FileDown className="h-4 w-4" />
               PDF
             </DropdownMenuItem>
@@ -313,7 +448,7 @@ export function useDailyAttendanceModel() {
         </DropdownMenu>
       </div>
     ),
-    [activeFilterCount, attendancePdfRows.length, handleExportAttendanceExcel],
+    [activeFilterCount, handleExportAttendanceExcel, openPdfExport],
   );
 
   useEntityFilterSlot(
@@ -327,13 +462,11 @@ export function useDailyAttendanceModel() {
         statusOrder={ATT_VISUAL_STATUS_ORDER}
         statusLabels={attendanceStatusLabels}
         statusCounts={attendanceStatusCounts}
-        onDateBoundsChange={(b) => {
+        periodValue={dateBounds}
+        defaultPeriod={todayPeriod}
+        onPeriodChange={(b) => {
           const normalized = normalizePeriodRange(b);
-          if (normalized) {
-            setDateBounds(normalized);
-            return;
-          }
-          setDateBounds({ from: todayYMD(), to: todayYMD() });
+          setDateBounds(normalized ?? todayPeriod);
         }}
         dataView={{
           value: viewMode,
@@ -352,6 +485,8 @@ export function useDailyAttendanceModel() {
       pickerEmployees.length,
       dateBounds.from,
       dateBounds.to,
+      todayPeriod.from,
+      todayPeriod.to,
       attendanceStatusCounts.all,
       attendanceStatusCounts.present,
       attendanceStatusCounts.late,
@@ -365,10 +500,8 @@ export function useDailyAttendanceModel() {
   );
 
   const refreshAfterRecompute = React.useCallback(() => {
-    const from = filterFrom || todayYMD();
-    const to = filterTo || todayYMD();
-    void reloadAttendanceData(from, to);
-  }, [filterFrom, filterTo, reloadAttendanceData]);
+    void reloadSummaries();
+  }, [reloadSummaries]);
 
   return {
     from,
@@ -390,5 +523,8 @@ export function useDailyAttendanceModel() {
     refreshAfterRecompute,
     viewMode,
     setViewMode,
+    pagination,
+    loading: summariesLoading || eventsLoading,
+    listError,
   };
 }

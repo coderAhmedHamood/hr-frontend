@@ -56,7 +56,7 @@ export function CompensationEditConfirmDialog({
   return (
     <Dialog open={open} onOpenChange={v => { if (!v) onCancel(); }}>
       <DialogContent
-        className="max-w-md gap-0 overflow-hidden border-border p-0"
+        className="max-w-md gap-0 overflow-visible border-border p-0"
         dir="rtl"
         onOpenAutoFocus={e => e.preventDefault()}
         onKeyDown={e => {

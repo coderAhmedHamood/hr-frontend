@@ -16,6 +16,7 @@ import {
   AtSign,
 } from 'lucide-react';
 import { CreateUserAttentionButton } from '@/features/hr/organization/employees/components/create-user-attention-button';
+import { EmployeeLinkUserDropdown } from '@/features/hr/organization/employees/components/employee-link-user-dropdown';
 import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/shared/status-badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -38,6 +39,10 @@ export function EmployeePersonalSection({ model }: { model: EmployeeProfileModel
     updateField,
     yearsOfService,
     setCreateUserOpen,
+    linkUserOptions,
+    usersLoading,
+    isLinkingUser,
+    handleLinkUser,
   } = model;
 
   const showCreateUser = !employee.hasUser;
@@ -89,10 +94,21 @@ export function EmployeePersonalSection({ model }: { model: EmployeeProfileModel
                 </span>
               </div>
               {showCreateUser ? (
-                <CreateUserAttentionButton
-                  className="mt-2 sm:mt-1.5"
-                  onClick={() => setCreateUserOpen(true)}
-                />
+                <div className="mt-3 space-y-2 border-t border-border/40 pt-3">
+                  <p className="text-[11px] leading-relaxed text-muted-foreground">
+                    الموظف غير مرتبط بحساب نظام. أنشئ حساباً جديداً أو اختر مستخدماً موجوداً.
+                  </p>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+                    <CreateUserAttentionButton onClick={() => setCreateUserOpen(true)} />
+                    <EmployeeLinkUserDropdown
+                      options={linkUserOptions}
+                      loading={usersLoading}
+                      linking={isLinkingUser}
+                      onSelect={handleLinkUser}
+                      className="sm:flex-1"
+                    />
+                  </div>
+                </div>
               ) : null}
             </div>
           </div>

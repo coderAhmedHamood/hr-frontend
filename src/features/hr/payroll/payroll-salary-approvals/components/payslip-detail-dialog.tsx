@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { DisplayDate } from '@/components/ui/table-cells';
-import { formatLatinNumber } from '@/features/hr/payroll/lib/compensation-preview';
+import { MoneyAmount } from '@/components/ui/sar-amount';
 import { MONTHLY_INPUT_KIND_LABELS } from '@/features/hr/payroll/monthly-inputs/constants/monthly-input-labels';
 import type { MonthlyInputKindDto } from '@/features/hr/payroll/lib/api/monthly-inputs';
 import {
@@ -29,8 +29,22 @@ import {
 import { cn } from '@/shared/utils';
 import { PayslipDetailDecisionFooter } from '@/features/hr/payroll/components/payslip-employee-decision-actions';
 
-function money(value: string | null | undefined): string {
-  return formatLatinNumber(parsePayslipMoney(value), 2);
+function PayslipMoney({
+  value,
+  currency,
+  className,
+}: {
+  value: string | null | undefined;
+  currency?: string;
+  className?: string;
+}) {
+  return (
+    <MoneyAmount
+      value={parsePayslipMoney(value)}
+      currency={currency}
+      className={cn('font-mono', className)}
+    />
+  );
 }
 
 function monthlyInputKindLabel(kind: unknown): string {
@@ -62,7 +76,7 @@ function BreakdownSection({
   );
 }
 
-function renderBreakdown(breakdown: Record<string, unknown> | null) {
+function renderBreakdown(breakdown: Record<string, unknown> | null, currency?: string) {
   if (!breakdown) {
     return <p className="text-xs text-muted-foreground">لا توجد تفاصيل إضافية.</p>;
   }
@@ -83,7 +97,7 @@ function renderBreakdown(breakdown: Record<string, unknown> | null) {
                 <span className="text-muted-foreground">
                   {PAYSLIP_BREAKDOWN_TOTAL_LABELS[key] ?? key}
                 </span>
-                <span className="font-mono tabular-nums">{money(String(val))}</span>
+                <PayslipMoney value={String(val)} currency={currency} />
               </div>
             ))}
           </div>
@@ -108,7 +122,7 @@ function renderBreakdown(breakdown: Record<string, unknown> | null) {
             {allowanceLines.map((line, i) => (
               <li key={i} className="flex justify-between gap-2">
                 <span>{String(line.allowanceTypeNameAr ?? line.allowanceTypeCode ?? '—')}</span>
-                <span className="font-mono tabular-nums">{money(String(line.amount))}</span>
+                <PayslipMoney value={String(line.amount)} currency={currency} />
               </li>
             ))}
           </ul>
@@ -124,7 +138,7 @@ function renderBreakdown(breakdown: Record<string, unknown> | null) {
                   {monthlyInputKindLabel(item.kind)}
                   {item.note ? ` — ${String(item.note)}` : ''}
                 </span>
-                <span className="font-mono tabular-nums text-primary">{money(String(item.amount))}</span>
+                <PayslipMoney value={String(item.amount)} currency={currency} className="text-primary" />
               </li>
             ))}
           </ul>
@@ -140,7 +154,7 @@ function renderBreakdown(breakdown: Record<string, unknown> | null) {
                   {monthlyInputKindLabel(item.kind)}
                   {item.note ? ` — ${String(item.note)}` : ''}
                 </span>
-                <span className="font-mono tabular-nums text-destructive">{money(String(item.amount))}</span>
+                <PayslipMoney value={String(item.amount)} currency={currency} className="text-destructive" />
               </li>
             ))}
           </ul>
@@ -198,7 +212,7 @@ export function PayslipDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] max-w-lg gap-0 overflow-hidden border-border p-0" dir="rtl">
+      <DialogContent className="max-h-[90vh] max-w-lg gap-0 overflow-visible border-border p-0" dir="rtl">
         <div className="border-b border-border/60 bg-linear-to-b from-primary/6 to-transparent px-6 pb-4 pt-6">
           <DialogHeader className="space-y-2 text-right">
             <DialogTitle className="font-display text-base">
@@ -276,12 +290,12 @@ export function PayslipDetailDialog({
                 ] as const).map(([label, val]) => (
                   <div key={label} className="rounded-lg border border-border/60 bg-card px-2.5 py-2 text-center">
                     <p className="text-[10px] text-muted-foreground">{label}</p>
-                    <p className="mt-0.5 font-mono font-semibold tabular-nums">{money(val)}</p>
+                    <PayslipMoney value={val} currency={payslip.currency} className="mt-0.5 font-semibold" />
                   </div>
                 ))}
                 <div className="col-span-2 rounded-lg border border-primary/25 bg-primary/8 px-2.5 py-2 text-center sm:col-span-3">
-                  <p className="text-[10px] font-bold text-primary">الصافي ({payslip.currency})</p>
-                  <p className="mt-0.5 font-mono text-lg font-bold tabular-nums text-primary">{money(payslip.net)}</p>
+                  <p className="text-[10px] font-bold text-primary">الصافي</p>
+                  <PayslipMoney value={payslip.net} currency={payslip.currency} className="mt-0.5 text-lg font-bold text-primary" />
                 </div>
               </div>
 
@@ -318,7 +332,7 @@ export function PayslipDetailDialog({
                 </p>
               )}
 
-              {renderBreakdown(payslip.breakdown)}
+              {renderBreakdown(payslip.breakdown, payslip.currency)}
 
               {onAccept && onReject && (
                 <PayslipDetailDecisionFooter

@@ -4,8 +4,8 @@ import * as React from 'react';
 import { Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
+import { resolveDirectoryLoadFailure } from '@/features/hr/lib/api/directory-load-error';
 import { useServerDirectoryPagination } from '@/components/ui/paged-list';
-import { fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
 import {
   attendanceEventsApi,
   type AttendanceEventResponseDto,
@@ -51,6 +51,7 @@ export function useAttendanceEventsModel() {
   const [employees, setEmployees] = React.useState<EmployeeResponseDto[]>([]);
   const [checkpoints, setCheckpoints] = React.useState<AttendanceCheckInPoint[]>([]);
   const [listError, setListError] = React.useState<string | null>(null);
+  const [apiAccessDenied, setApiAccessDenied] = React.useState(false);
 
   const [dateBounds, setDateBounds] = usePersistedFilterState(
     attendanceFiltersKey('events', companyId, 'dateBounds'),
@@ -86,7 +87,6 @@ export function useAttendanceEventsModel() {
   const from = dateBounds.from || todayYMD();
   const to = dateBounds.to || todayYMD();
   const selectedEmpKey = React.useMemo(() => [...selectedEmpIds].sort().join(','), [selectedEmpIds]);
-  const bulkMode = selectedEmpIds.size > 1;
 
   const buildListQuery = React.useCallback((page: number, pageSize: number): AttendanceEventListQuery => {
     const query: AttendanceEventListQuery = {
@@ -97,48 +97,25 @@ export function useAttendanceEventsModel() {
       includeVoided: includeVoided || undefined,
     };
     if (companyId) query.companyId = companyId;
-    if (selectedEmpIds.size === 1) query.employeeId = [...selectedEmpIds][0];
+    if (selectedEmpIds.size > 0) query.employeeIds = [...selectedEmpIds];
     if (eventTypeFilter !== 'all') query.eventType = eventTypeFilter as AttendanceEventType;
     return query;
   }, [companyId, from, to, includeVoided, selectedEmpIds, eventTypeFilter]);
-
-  const applyEmployeeFilter = React.useCallback(
-    (items: AttendanceEventResponseDto[]) => {
-      if (selectedEmpIds.size <= 1) return items;
-      return items.filter((e) => selectedEmpIds.has(e.employeeId));
-    },
-    [selectedEmpIds],
-  );
 
   const loadPage = React.useCallback(async (page: number, pageSize: number) => {
     if (!companyId) return { items: [] as AttendanceEventResponseDto[], total: 0 };
     setListError(null);
     try {
       const res = await attendanceEventsApi.getAll(buildListQuery(page, pageSize));
-      const items = applyEmployeeFilter(res.items);
-      return { items, total: res.pagination.total };
+      setApiAccessDenied(false);
+      return { items: res.items, total: res.pagination.total };
     } catch (err) {
-      const { displayMessage } = handleApiError(err, 'attendance-events.load');
-      setListError(displayMessage);
+      const failure = resolveDirectoryLoadFailure(err, 'attendance-events.load');
+      setApiAccessDenied(failure.accessDenied);
+      setListError(failure.listError);
       return { items: [], total: 0 };
     }
-  }, [applyEmployeeFilter, buildListQuery, companyId]);
-
-  const loadBulk = React.useCallback(async () => {
-    if (!companyId) return { items: [] as AttendanceEventResponseDto[], total: 0 };
-    setListError(null);
-    try {
-      const res = await fetchAllPaginatedItems((page, limit) =>
-        attendanceEventsApi.getAll(buildListQuery(page, limit)),
-      );
-      const items = applyEmployeeFilter(res.items);
-      return { items, total: items.length };
-    } catch (err) {
-      const { displayMessage } = handleApiError(err, 'attendance-events.load');
-      setListError(displayMessage);
-      return { items: [], total: 0 };
-    }
-  }, [applyEmployeeFilter, buildListQuery, companyId]);
+  }, [buildListQuery, companyId]);
 
   const {
     items: events,
@@ -147,8 +124,6 @@ export function useAttendanceEventsModel() {
     reload,
   } = useServerDirectoryPagination<AttendanceEventResponseDto>(loadPage, {
     enabled: !!companyId,
-    bulkMode,
-    loadBulk: bulkMode ? loadBulk : undefined,
     resetDeps: [companyId, from, to, selectedEmpKey, eventTypeFilter, includeVoided],
   });
 
@@ -276,6 +251,7 @@ export function useAttendanceEventsModel() {
     loading,
     pagination,
     listError,
+    accessDenied: apiAccessDenied,
     from,
     to,
     companyId,

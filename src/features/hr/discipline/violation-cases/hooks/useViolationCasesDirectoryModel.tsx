@@ -2,7 +2,9 @@
 
 import * as React from 'react';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
-import { ensurePaginatedResult, fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
+import { resolveDirectoryLoadFailure } from '@/features/hr/lib/api/directory-load-error';
+import { ensurePaginatedResult } from '@/features/hr/lib/api/client';
+import { loadFilterOptionsAll } from '@/features/hr/lib/load-filter-options';
 import { useServerDirectoryPagination } from '@/components/ui/paged-list';
 import { resolveOrganizationScope } from '@/features/hr/organization/lib/api/organization-context';
 import { employeesApi } from '@/features/hr/organization/employees/lib/api/employees';
@@ -11,14 +13,15 @@ import { organizationActiveListStatusQuery } from '@/features/hr/organization/li
 import {
   violationRecordsApi,
   type ViolationInvestigationDto,
-  type ViolationRecordResponseDto,
+  type ViolationRecordListItemDto,
   type ViolationRecordStatus,
   type ViolationApproverStatesSnapshot,
   type CreateViolationRecordDto,
   type UpdateViolationRecordDto,
   type DecideViolationRecordDto,
 } from '@/features/hr/discipline/lib/api/violation-records';
-import { normalizeViolationApproverStates } from '@/features/hr/discipline/lib/violation-approver-states';
+import { resolveViolationApproverStates } from '@/features/hr/discipline/lib/violation-records-mapper';
+import type { RequestApprovalAssignmentCatalogDto } from '@/features/hr/requests/types/api/request-approver-states-types';
 
 export type ViolationCaseRecord = {
   id: string;
@@ -84,9 +87,10 @@ function pickLatestInvestigation(investigations: ViolationInvestigationDto[]): V
 }
 
 function mapRecord(
-  dto: ViolationRecordResponseDto,
+  dto: ViolationRecordListItemDto,
   employeesById: Map<string, string>,
   typesById: Map<string, string>,
+  approvalCatalog?: RequestApprovalAssignmentCatalogDto[],
 ): ViolationCaseRecord {
   const vt = dto.violationType;
   const investigations = dto.investigations ?? [];
@@ -112,7 +116,7 @@ function mapRecord(
     hasInvestigations: dto.hasInvestigations ?? investigations.length > 0,
     decisionNotes: dto.decisionNotes ?? null,
     decidedAt: dto.decidedAt ?? null,
-    approverStates: normalizeViolationApproverStates(dto),
+    approverStates: resolveViolationApproverStates(dto, approvalCatalog),
     investigations,
     investigationCount: investigations.length,
     latestInvestigationResult: latestInvestigation?.result ?? null,
@@ -122,19 +126,6 @@ function mapRecord(
   };
 }
 
-function applyViolationCaseClientFilters(
-  cases: ViolationCaseRecord[],
-  filters: ViolationCaseListFilters,
-): ViolationCaseRecord[] {
-  const selected = new Set(filters.selectedEmpIds);
-  return cases.filter((c) => {
-    if (selected.size > 1 && !selected.has(c.employeeId)) return false;
-    if (filters.statusFilter !== 'all' && c.status !== filters.statusFilter) return false;
-    if (filters.violationTypeFilter !== 'all' && c.violationTypeId !== filters.violationTypeFilter) return false;
-    return true;
-  });
-}
-
 export function useViolationCasesDirectoryModel() {
   const [listFilters, setListFilters] = React.useState<ViolationCaseListFilters>(DEFAULT_LIST_FILTERS);
   const [sourceCases, setSourceCases] = React.useState<ViolationCaseRecord[]>([]);
@@ -142,19 +133,11 @@ export function useViolationCasesDirectoryModel() {
   const [violationTypes, setViolationTypes] = React.useState<ViolationCaseType[]>([]);
   const [companyId, setCompanyId] = React.useState<string | null>(null);
   const [listError, setListError] = React.useState<string | null>(null);
+  const [apiAccessDenied, setApiAccessDenied] = React.useState(false);
 
   const companyIdRef = React.useRef<string | null>(null);
   const employeeMapRef = React.useRef<Map<string, string>>(new Map());
   const typeMapRef = React.useRef<Map<string, string>>(new Map());
-
-  const bulkMode = Boolean(
-    listFilters.statusFilter !== 'all'
-    || listFilters.selectedEmpIds.length > 1,
-  );
-
-  const apiEmployeeId = listFilters.selectedEmpIds.length === 1
-    ? listFilters.selectedEmpIds[0]
-    : undefined;
 
   const loadReferenceData = React.useCallback(async () => {
     const scope = await resolveOrganizationScope();
@@ -162,15 +145,18 @@ export function useViolationCasesDirectoryModel() {
     setCompanyId(cid);
     companyIdRef.current = cid;
 
-    const [employeesRes, typesRes] = await Promise.all([
-      employeesApi.getAll(cid ? { companyId: cid, limit: 200 } : { limit: 200 }),
-      violationTypesApi.getAll(
-        cid ? { companyId: cid, limit: 200, ...organizationActiveListStatusQuery() } : { limit: 200, ...organizationActiveListStatusQuery() },
-      ),
-    ]);
+    const typesQuery = cid
+      ? { companyId: cid, limit: 200, ...organizationActiveListStatusQuery() }
+      : { limit: 200, ...organizationActiveListStatusQuery() };
+    const employeesQuery = cid ? { companyId: cid, limit: 200 } : { limit: 200 };
 
-    const employeeItems = ensurePaginatedResult(employeesRes).items;
-    const typeItems = ensurePaginatedResult(typesRes).items;
+    const refs = await loadFilterOptionsAll({
+      employees: () => employeesApi.getAll(employeesQuery),
+      violationTypes: () => violationTypesApi.getAll(typesQuery),
+    });
+
+    const employeeItems = ensurePaginatedResult(refs.employees).items;
+    const typeItems = ensurePaginatedResult(refs.violationTypes).items;
     const employeeMap = new Map(employeeItems.map((e) => [e.id, e.nameAr]));
     const typeMap = new Map(typeItems.map((t) => [t.id, t.nameAr]));
     employeeMapRef.current = employeeMap;
@@ -198,17 +184,24 @@ export function useViolationCasesDirectoryModel() {
       ...(companyIdRef.current ? { companyId: companyIdRef.current } : {}),
       page,
       limit,
-      ...(apiEmployeeId ? { employeeId: apiEmployeeId } : {}),
+      ...(listFilters.selectedEmpIds.length > 0 ? { employeeIds: listFilters.selectedEmpIds } : {}),
+      ...(listFilters.statusFilter !== 'all' ? { status: listFilters.statusFilter } : {}),
       ...(listFilters.violationTypeFilter !== 'all' ? { violationTypeId: listFilters.violationTypeFilter } : {}),
       ...(listFilters.dateFrom ? { violationDateFrom: listFilters.dateFrom } : {}),
       ...(listFilters.dateTo ? { violationDateTo: listFilters.dateTo } : {}),
     }),
-    [apiEmployeeId, listFilters.dateFrom, listFilters.dateTo, listFilters.violationTypeFilter],
+    [
+      listFilters.selectedEmpIds,
+      listFilters.statusFilter,
+      listFilters.dateFrom,
+      listFilters.dateTo,
+      listFilters.violationTypeFilter,
+    ],
   );
 
   const mapItems = React.useCallback(
-    (raw: ViolationRecordResponseDto[]) =>
-      raw.map((r) => mapRecord(r, employeeMapRef.current, typeMapRef.current)),
+    (raw: ViolationRecordListItemDto[], approvalCatalog?: RequestApprovalAssignmentCatalogDto[]) =>
+      raw.map((r) => mapRecord(r, employeeMapRef.current, typeMapRef.current, approvalCatalog)),
     [],
   );
 
@@ -221,38 +214,17 @@ export function useViolationCasesDirectoryModel() {
         setCompanyId(companyIdRef.current);
       }
       const res = await violationRecordsApi.getAll(buildRecordsQuery(page, pageSize));
-      const items = mapItems(res.items);
+      const items = mapItems(res.items, res.approvalAssignments);
       setSourceCases(items);
-      const filtered = applyViolationCaseClientFilters(items, listFilters);
-      return { items: bulkMode ? filtered : items, total: res.pagination.total };
+      setApiAccessDenied(false);
+      return { items, total: res.pagination.total };
     } catch (err) {
-      const { displayMessage } = handleApiError(err, 'violation-records.load');
-      setListError(displayMessage);
+      const failure = resolveDirectoryLoadFailure(err, 'violation-records.load');
+      setApiAccessDenied(failure.accessDenied);
+      setListError(failure.listError);
       return { items: [], total: 0 };
     }
-  }, [buildRecordsQuery, bulkMode, listFilters, mapItems]);
-
-  const loadBulk = React.useCallback(async () => {
-    setListError(null);
-    try {
-      if (!companyIdRef.current) {
-        const scope = await resolveOrganizationScope();
-        companyIdRef.current = scope.companyId ?? null;
-        setCompanyId(companyIdRef.current);
-      }
-      const res = await fetchAllPaginatedItems((page, limit) =>
-        violationRecordsApi.getAll(buildRecordsQuery(page, limit)),
-      );
-      const items = mapItems(res.items);
-      setSourceCases(items);
-      const filtered = applyViolationCaseClientFilters(items, listFilters);
-      return { items: filtered, total: filtered.length };
-    } catch (err) {
-      const { displayMessage } = handleApiError(err, 'violation-records.load');
-      setListError(displayMessage);
-      return { items: [], total: 0 };
-    }
-  }, [buildRecordsQuery, listFilters, mapItems]);
+  }, [buildRecordsQuery, mapItems]);
 
   const {
     items,
@@ -260,10 +232,7 @@ export function useViolationCasesDirectoryModel() {
     pagination,
     reload,
   } = useServerDirectoryPagination<ViolationCaseRecord>(loadPage, {
-    bulkMode,
-    loadBulk: bulkMode ? loadBulk : undefined,
     resetDeps: [
-      apiEmployeeId,
       listFilters.dateFrom,
       listFilters.dateTo,
       listFilters.statusFilter,
@@ -272,10 +241,8 @@ export function useViolationCasesDirectoryModel() {
     ],
   });
 
-  const filteredItems = React.useMemo(
-    () => applyViolationCaseClientFilters(sourceCases, listFilters),
-    [listFilters, sourceCases],
-  );
+  // Server applies all list filters now; kept as an alias for existing consumers.
+  const filteredItems = items;
 
   const createCase = React.useCallback(
     async (payload: {
@@ -337,6 +304,7 @@ export function useViolationCasesDirectoryModel() {
     loading,
     pagination,
     listError,
+    accessDenied: apiAccessDenied,
     listFilters,
     setListFilters,
     createCase,

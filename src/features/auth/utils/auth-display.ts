@@ -3,8 +3,6 @@ import type { AuthUser } from '@/features/auth/types/access-profile';
 export function getAuthDisplayName(user: AuthUser | null | undefined): string {
   const name = user?.fullNameAr?.trim() || user?.fullNameEn?.trim();
   if (name) return name;
-  if (user?.email) return user.email;
-  if (user?.phone) return user.phone;
   return 'مستخدم';
 }
 

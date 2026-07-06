@@ -35,11 +35,6 @@ export interface MultiSelectProps {
   listMaxHeight?: string;
   /** Optional label above trigger */
   label?: string;
-  /**
-   * When used inside a modal Radix Dialog, pass the dialog content element so the popover
-   * portals there; otherwise react-remove-scroll blocks wheel events on the list.
-   */
-  popoverPortalContainer?: HTMLElement | DocumentFragment | null;
   /** Hold selection locally until user clicks apply — onChange fires once on apply only */
   deferCommit?: boolean;
   applyLabel?: string;
@@ -61,7 +56,6 @@ export function MultiSelect({
   id,
   listMaxHeight = 'min(240px,40vh)',
   label,
-  popoverPortalContainer,
   deferCommit = false,
   applyLabel = 'تطبيق',
   cancelLabel = 'إلغاء',
@@ -188,7 +182,6 @@ export function MultiSelect({
           side="bottom"
           sticky="partial"
           collisionPadding={16}
-          container={popoverPortalContainer ?? undefined}
           className="popover-match-trigger min-w-[min(100%,280px)] max-w-[calc(100vw-2rem)] overflow-hidden border-border p-0 shadow-luxe"
           onOpenAutoFocus={(e) => e.preventDefault()}
         >

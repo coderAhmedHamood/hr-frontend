@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { Loader2, Receipt } from 'lucide-react';
+import { MoneyAmount } from '@/components/ui/sar-amount';
 import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
 import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
@@ -107,7 +108,7 @@ export function EmployeePendingPayslipsSection() {
                     قسيمة {periodLabel(row)}
                   </p>
                   <p className="mt-0.5 text-[11px] text-muted-foreground">
-                    الصافي: {row.net} {row.currency}
+                    الصافي: <MoneyAmount value={row.net} currency={row.currency} className="inline text-[11px]" />
                   </p>
                 </div>
                 <div className="flex shrink-0 gap-1">

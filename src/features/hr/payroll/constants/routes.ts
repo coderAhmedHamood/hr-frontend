@@ -13,7 +13,6 @@ export const hrPayrollRoutes = {
   payrollPeriods: hrPayrollSectionHref('payroll-periods'),
   monthlyInputs: hrPayrollSectionHref('monthly-inputs'),
   payrollSalaryApprovals: hrPayrollSectionHref('payroll-salary-approvals'),
-  reports: hrPayrollSectionHref('reports'),
 } as const;
 
 export function hrPayrollSalaryApprovalsQueryHref(periodId: string): string {

@@ -9,12 +9,26 @@ type Props = {
   colorClass?: string;
   disabled?: boolean;
   onEditClick: () => void;
+  onDoubleClick?: () => void;
 };
 
 /** Read-only amount with pen button — no inline number input (avoids scroll/arrow edits). */
-export function AdjustableAmountCell({ amount, colorClass, disabled, onEditClick }: Props) {
+export function AdjustableAmountCell({
+  amount,
+  colorClass,
+  disabled,
+  onEditClick,
+  onDoubleClick,
+}: Props) {
   return (
-    <td className="border-e border-border/40 px-1 py-1">
+    <td
+      className={cn(
+        'border-e border-border/40 px-1 py-1',
+        onDoubleClick && 'cursor-pointer select-none',
+      )}
+      onDoubleClick={onDoubleClick}
+      title={onDoubleClick ? 'انقر مرتين لعرض التفاصيل' : undefined}
+    >
       <div className="relative flex items-center justify-center gap-1 px-1">
         <span className={cn('font-mono tabular-nums text-[11.5px] font-medium', colorClass)}>
           {formatLatinNumber(amount)}

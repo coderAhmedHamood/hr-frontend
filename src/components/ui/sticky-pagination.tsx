@@ -15,6 +15,14 @@ const PAGE_SIZE_DROPDOWN_OPTIONS = DISCIPLINE_PAGE_SIZE_OPTIONS.map((n) => ({
   label: `${n}`,
 }));
 
+/** Items on the current page + full total (e.g. 33/200). */
+export function paginationItemCount(page: number, pageSize: number, total: number) {
+  if (total <= 0) return { displayed: 0, total: 0 };
+  const start = (page - 1) * pageSize;
+  const displayed = Math.min(pageSize, total - start);
+  return { displayed, total };
+}
+
 export interface StickyPaginationProps {
   page: number;
   pageSize: number;
@@ -51,6 +59,7 @@ export function StickyPagination({
   className,
 }: StickyPaginationProps) {
   const pages = React.useMemo(() => buildPageRange(page, totalPages), [page, totalPages]);
+  const { displayed, total: totalItems } = paginationItemCount(page, pageSize, total);
 
   const dropdownOptions = React.useMemo(
     () =>
@@ -72,6 +81,16 @@ export function StickyPagination({
         className,
       )}
     >
+      <span
+        className="shrink-0 text-[11px] font-medium tabular-nums text-muted-foreground"
+        dir="ltr"
+        aria-label={`${displayed} من ${totalItems}`}
+      >
+        <span className="text-foreground">{displayed}</span>
+        <span className="mx-0.5 text-muted-foreground/70">/</span>
+        <span>{totalItems}</span>
+      </span>
+
       <div className="flex items-center gap-0.5">
         <Button
           type="button"

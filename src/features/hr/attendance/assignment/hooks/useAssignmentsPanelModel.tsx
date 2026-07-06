@@ -66,7 +66,6 @@ export function useAssignmentsPanelModel() {
   const [loadingUnassigned, setLoadingUnassigned] = React.useState(false);
 
   const [open, setOpen] = React.useState(false);
-  const [dialogContentEl, setDialogContentEl] = React.useState<HTMLElement | null>(null);
   const [templateId, setTemplateId] = React.useState('');
   const [effectiveFrom, setEffectiveFrom] = React.useState(() => new Date().toISOString().slice(0, 10));
   const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set());
@@ -271,8 +270,6 @@ export function useAssignmentsPanelModel() {
     setEditIsActive,
     open,
     setOpen,
-    dialogContentEl,
-    setDialogContentEl,
     templateId,
     setTemplateId,
     effectiveFrom,

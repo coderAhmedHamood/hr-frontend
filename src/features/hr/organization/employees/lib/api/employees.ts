@@ -125,6 +125,7 @@ export type EmployeeListQuery = {
   startDateFrom?: string;
   startDateTo?: string;
   archiveScope?: OrganizationArchiveScope;
+  employeeIds?: string[];
 };
 
 export type CreateEmployeeUserAccountDto = {

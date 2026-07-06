@@ -13,6 +13,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { MoneyAmount } from '@/components/ui/sar-amount';
 import { formatDate, cn } from '@/shared/utils';
 import { Empty } from '@/features/hr/organization/employees/components/EmployeeProfilePrimitives';
 import { EmployeeProfilePagedList } from '@/features/hr/organization/employees/components/employee-profile-paged-list';
@@ -25,8 +26,11 @@ const STATUS_META: Record<string, { label: string; cls: string; dot: string }> =
   needs_edit: { label: 'يحتاج تعديل', cls: 'border-warning/30 bg-warning/10 text-warning', dot: 'bg-warning' },
 };
 
-function deductionLabel(value: number, kind: 'amount' | 'hours' | 'day'): string {
-  const unit = kind === 'amount' ? 'ريال' : kind === 'day' ? 'يوم' : 'ساعة';
+function deductionLabel(value: number, kind: 'amount' | 'hours' | 'day'): React.ReactNode {
+  if (kind === 'amount') {
+    return <MoneyAmount value={value} fractionDigits={0} />;
+  }
+  const unit = kind === 'day' ? 'يوم' : 'ساعة';
   return `${value} ${unit}`;
 }
 

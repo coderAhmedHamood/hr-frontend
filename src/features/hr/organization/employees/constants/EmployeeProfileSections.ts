@@ -1,7 +1,6 @@
 import {
   User,
   Briefcase,
-  CreditCard,
   Clock,
   Calendar,
   FileText,
@@ -16,7 +15,6 @@ import {
 export const EMPLOYEE_PROFILE_SECTIONS = [
   { id: 'personal', label: 'البيانات الشخصية', icon: User },
   { id: 'employment', label: 'بيانات التوظيف', icon: Briefcase },
-  { id: 'financial', label: 'البيانات المالية', icon: CreditCard },
   { id: 'attendance', label: 'الحضور والانصراف', icon: Clock },
   { id: 'leaves', label: 'الإجازات', icon: Calendar },
   { id: 'requests', label: 'الطلبات', icon: FileText },

@@ -49,7 +49,7 @@ function resolvePostLoginPath(returnTo: string | null): string {
     returnTo.startsWith('//') ||
     returnTo.startsWith('/login')
   ) {
-    return '/hr/dashboard';
+    return '/';
   }
   return returnTo;
 }

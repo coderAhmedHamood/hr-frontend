@@ -260,7 +260,7 @@ export function ShiftTemplatesPanel() {
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden border-border p-0">
+        <DialogContent className="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-visible border-border p-0">
           <div className="shrink-0 border-b border-border px-6 py-5">
             <DialogHeader>
               <DialogTitle className="font-display text-xl">

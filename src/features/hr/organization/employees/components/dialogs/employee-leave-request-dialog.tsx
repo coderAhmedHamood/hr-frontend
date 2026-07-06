@@ -22,8 +22,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { SingleDatePicker } from '@/components/ui/single-date-picker';
-import type { LeaveTypeResponseDto } from '@/features/hr/leaves/lib/api/leave-types';
+import { DatePickerInput } from '@/components/ui/date-picker-input';
+import type { EmployeeProfileLeaveTypeOption } from '@/features/hr/organization/employees/hooks/useEmployeeProfileLeave';
 import type { ApiRequestType } from '@/features/hr/requests/lib/api/request-types';
 import { leaveRequestsNewApi } from '@/features/hr/requests/lib/api/correction-requests';
 import {
@@ -46,7 +46,7 @@ export type EmployeeLeaveRequestDialogProps = {
   companyId: string;
   employeeId: string;
   employeeName: string;
-  leaveTypes: LeaveTypeResponseDto[];
+  leaveTypes: EmployeeProfileLeaveTypeOption[];
   leaveRequestTypes: ApiRequestType[];
   presetLeaveTypeId?: string | null;
   onSuccess: () => void;
@@ -139,7 +139,7 @@ export function EmployeeLeaveRequestDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[90vh] w-full max-w-md flex-col overflow-hidden border-border p-0">
+      <DialogContent className="flex max-h-[90vh] w-full max-w-md flex-col overflow-visible border-border p-0">
         <div className="shrink-0 border-b border-border px-6 py-5">
           <DialogHeader className="text-right">
             <DialogTitle className="font-display text-xl">طلب إجازة</DialogTitle>
@@ -177,19 +177,19 @@ export function EmployeeLeaveRequestDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label>من</Label>
-              <SingleDatePicker
-                value={startDate || undefined}
+              <DatePickerInput
+                value={startDate}
                 onChange={setStartDate}
                 placeholder="تاريخ البداية"
               />
             </div>
             <div className="space-y-2">
               <Label>إلى</Label>
-              <SingleDatePicker
-                value={endDate || undefined}
+              <DatePickerInput
+                value={endDate}
                 onChange={setEndDate}
                 placeholder="تاريخ النهاية"
-                min={startDate || undefined}
+                minDate={startDate || undefined}
               />
             </div>
           </div>

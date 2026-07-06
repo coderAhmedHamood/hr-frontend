@@ -62,6 +62,9 @@ export type DisciplinePayrollDeductionListQuery = {
   limit?: number;
   companyId?: string;
   employeeId?: string;
+  employeeIds?: string[];
+  createdFrom?: string;
+  createdTo?: string;
   violationRecordId?: string;
   payrollPeriod?: string;
   status?: PayrollDeductionStatusDto;

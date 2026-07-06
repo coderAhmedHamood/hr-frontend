@@ -29,3 +29,29 @@ export type RequestApproverStatesCarrier = {
   approver_states?: RequestApproverStatesSnapshot | null;
   approvalAssignment?: RequestApprovalAssignmentDto | null;
 };
+
+/** Catalog entry returned alongside list `items` (identity only — no decision). */
+export type RequestApprovalCatalogApproverDto = {
+  employeeId: string;
+  employeeNameAr: string;
+  sortOrder: number;
+};
+
+export type RequestApprovalAssignmentCatalogDto = {
+  id: string;
+  approvalMode: RequestApprovalMode;
+  approvers: RequestApprovalCatalogApproverDto[];
+};
+
+/** Per-approver decision overlay on list items. */
+export type RequestApproverDecisionOverlayDto = {
+  employeeId: string;
+  status: RequestApproverEntryStatus | 'cancelled';
+  decidedAt: string | null;
+  notes: string | null;
+};
+
+export type RequestListItemApprovalOverlay = {
+  approvalAssignmentId: string | null;
+  approverDecisions: RequestApproverDecisionOverlayDto[] | null;
+};

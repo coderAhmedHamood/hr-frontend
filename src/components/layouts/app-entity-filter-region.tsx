@@ -6,7 +6,7 @@ import { useEntityFilterSlotRegion } from '@/components/layouts/entity-filter-sl
 import { usePageHeaderActionsState } from '@/components/layouts/page-header-actions-context';
 import { cn } from '@/shared/utils';
 
-const EXCLUDED_FILTER_PREFIXES = ['/hr/dashboard'] as const;
+const EXCLUDED_FILTER_PREFIXES = [] as const;
 
 export function AppEntityFilterRegion({ className }: { className?: string }) {
   const pathname = usePathname();

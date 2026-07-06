@@ -49,7 +49,6 @@ export function PdfPreviewExportDialog({
       await exportDomToPdf(el, fileName);
       toast.success('تم تنزيل الملف');
     } catch (err) {
-      console.error(err);
       toast.error(err instanceof Error ? err.message : 'فشل تصدير PDF');
     } finally {
       setDomExporting(false);
@@ -60,7 +59,7 @@ export function PdfPreviewExportDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[90vh] max-w-4xl flex-col gap-0 overflow-hidden border-border p-0 sm:max-w-4xl">
+      <DialogContent className="flex max-h-[90vh] max-w-4xl flex-col gap-0 overflow-visible border-border p-0 sm:max-w-4xl">
         <DialogHeader className="border-b border-border px-6 py-4 text-right">
           <DialogTitle className="font-display text-lg">{title}</DialogTitle>
           <DialogDescription className="sr-only">

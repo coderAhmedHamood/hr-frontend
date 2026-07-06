@@ -1,7 +1,6 @@
 import type { LucideIcon } from 'lucide-react';
 import {
   CalendarRange,
-  FileSpreadsheet,
   UserCheck,
   Receipt,
 } from 'lucide-react';
@@ -29,8 +28,7 @@ export const hrPayrollNavGroups: HRPayrollNavGroup[] = [
   {
     labelAr: 'التقارير',
     items: [
-      { slug: 'reports', labelAr: 'كشف مسيرات الرواتب', icon: FileSpreadsheet },
-      { slug: 'payroll-salary-approvals', labelAr: 'كشف موافقة الموظفين', icon: UserCheck },
+      { slug: 'payroll-salary-approvals', labelAr: 'كشف مسيرات الرواتب', icon: UserCheck },
     ],
   },
 ];

@@ -7,6 +7,7 @@ import { violationTypesApi } from '@/features/hr/discipline/lib/api/violation-ty
 import { employeesApi } from '@/features/hr/organization/employees/lib/api/employees';
 import { disciplineApprovalTemplatesApi } from '@/features/hr/discipline/lib/api/discipline-approval-templates';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
+import { resolveDirectoryLoadFailure } from '@/features/hr/lib/api/directory-load-error';
 import {
   ORGANIZATION_ARCHIVE_SCOPE_DEFAULT,
   organizationActiveListStatusQuery,
@@ -31,6 +32,7 @@ export function useDisciplineApprovalTemplatesModel() {
   const [violationTypes, setViolationTypes] = React.useState<ViolationTypeOption[]>([]);
   const [employees, setEmployees] = React.useState<EmployeeOption[]>([]);
   const [listError, setListError] = React.useState<string | null>(null);
+  const [apiAccessDenied, setApiAccessDenied] = React.useState(false);
   const [archiveScope, setArchiveScope] = React.useState<OrganizationArchiveScope>(
     ORGANIZATION_ARCHIVE_SCOPE_DEFAULT,
   );
@@ -45,10 +47,12 @@ export function useDisciplineApprovalTemplatesModel() {
         ...organizationListStatusQuery(archiveScope),
       });
       setListError(null);
+      setApiAccessDenied(false);
       return { items: tplRes.items, total: tplRes.pagination.total };
     } catch (err) {
-      const { displayMessage } = handleApiError(err, 'discipline-approval-assignments.load');
-      setListError(displayMessage);
+      const failure = resolveDirectoryLoadFailure(err, 'discipline-approval-assignments.load');
+      setApiAccessDenied(failure.accessDenied);
+      setListError(failure.listError);
       return { items: [], total: 0 };
     }
   }, [companyId, archiveScope]);
@@ -116,6 +120,7 @@ export function useDisciplineApprovalTemplatesModel() {
     loading,
     pagination,
     listError,
+    accessDenied: apiAccessDenied,
     archiveScope,
     setArchiveScope,
     createTemplate,

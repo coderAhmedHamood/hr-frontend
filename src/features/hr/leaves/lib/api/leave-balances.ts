@@ -18,6 +18,8 @@ export function flattenLeaveBalanceGroups(
       companyId: group.companyId,
       employeeId: group.employeeId,
       leaveTypeId: lt.leaveTypeId,
+      leaveTypeNameAr: lt.leaveTypeNameAr,
+      leaveTypeCode: lt.leaveTypeCode,
       usedDays: lt.usedDays,
       totalDays: lt.totalDays,
       remainingDays: lt.remainingDays,

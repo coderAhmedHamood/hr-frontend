@@ -2,11 +2,11 @@
 
 export type DateFilterTab = 'all' | 'today' | 'week' | 'month' | 'custom';
 
-export const DEFAULT_DATE_FILTER_TAB: DateFilterTab = 'today';
+export const DEFAULT_DATE_FILTER_TAB: DateFilterTab = 'all';
 
 export const DEFAULT_DATE_FILTER_META = {
   tab: DEFAULT_DATE_FILTER_TAB,
-  hasRestriction: true,
+  hasRestriction: false,
 } as const;
 
 export function recordDateComparable(dateStr: string): number | null {

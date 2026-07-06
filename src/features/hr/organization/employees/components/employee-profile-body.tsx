@@ -6,7 +6,6 @@ import { useEmployeeProfileModel } from '@/features/hr/organization/employees/ho
 import { EmployeeProfileShell } from '@/features/hr/organization/employees/components/employee-profile-shell';
 import { EmployeePersonalSection } from '@/features/hr/organization/employees/components/sections/employee-personal-section';
 import { EmployeeEmploymentSection } from '@/features/hr/organization/employees/components/sections/employee-employment-section';
-import { EmployeeFinancialSection } from '@/features/hr/organization/employees/components/sections/employee-financial-section';
 import { EmployeeAttendanceSection } from '@/features/hr/organization/employees/components/sections/employee-attendance-section';
 import { EmployeeLeavesSection } from '@/features/hr/organization/employees/components/sections/employee-leaves-section';
 import { EmployeeRequestsSection } from '@/features/hr/organization/employees/components/sections/employee-requests-section';
@@ -36,7 +35,6 @@ export function EmployeeProfileBody({ employee, onUpdated }: { employee: Employe
       <EmployeeProfileShell model={model}>
         {model.activeSection === 'personal' && <EmployeePersonalSection model={model} />}
         {model.activeSection === 'employment' && <EmployeeEmploymentSection model={model} />}
-        {model.activeSection === 'financial' && <EmployeeFinancialSection model={model} />}
         {model.activeSection === 'attendance' && <EmployeeAttendanceSection model={model} />}
         {model.activeSection === 'leaves' && <EmployeeLeavesSection model={model} />}
         {model.activeSection === 'requests' && <EmployeeRequestsSection model={model} />}
@@ -44,7 +42,9 @@ export function EmployeeProfileBody({ employee, onUpdated }: { employee: Employe
         {model.activeSection === 'contracts' && <EmployeeContractsSection model={model} />}
         {model.activeSection === 'rose-forms' && <EmployeeRoseFormsSection model={model} />}
         {model.activeSection === 'activity-log' && <EmployeeActivityLogSection model={model} />}
-        {model.activeSection === 'permissions' && <EmployeePermissionsSection model={model} />}
+        {model.hasLinkedUser && model.activeSection === 'permissions' && (
+          <EmployeePermissionsSection model={model} />
+        )}
         {model.activeSection === 'salary' && <EmployeeSalarySection model={model} />}
       </EmployeeProfileShell>
 

@@ -27,6 +27,8 @@ export type EmployeeLeaveBalanceResponseDto = {
   companyId: string;
   employeeId: string;
   leaveTypeId: string;
+  leaveTypeNameAr?: string;
+  leaveTypeCode?: string | null;
   usedDays: number;
   totalDays: number;
   remainingDays: number;

@@ -30,6 +30,13 @@ import {
   usePersistedEmpIdSet,
   usePersistedFilterState,
 } from '@/features/hr/attendance/lib/use-persisted-filter-state';
+import { DaySummaryColumnsPicker } from '@/features/hr/attendance/day-summaries/components/day-summary-columns-picker';
+import {
+  DEFAULT_DAY_SUMMARY_COLUMN_VISIBILITY,
+  normalizeDaySummaryColumnVisibility,
+  type DaySummaryColumnVisibility,
+  type DaySummaryOptionalColumnKey,
+} from '@/features/hr/attendance/day-summaries/constants/day-summary-column-config';
 
 export type DaySummariesFilters = {
   status: 'all' | AttendanceDayStatus;
@@ -72,6 +79,27 @@ export function useDaySummariesDirectoryModel() {
     },
   );
 
+  const [columnVisibility, setColumnVisibility] = usePersistedFilterState<DaySummaryColumnVisibility>(
+    attendanceFiltersKey('day-summaries', companyId, 'columnVisibility'),
+    DEFAULT_DAY_SUMMARY_COLUMN_VISIBILITY,
+  );
+
+  const normalizedColumnVisibility = React.useMemo(
+    () => normalizeDaySummaryColumnVisibility(columnVisibility),
+    [columnVisibility],
+  );
+
+  const toggleColumnVisibility = React.useCallback((key: DaySummaryOptionalColumnKey) => {
+    setColumnVisibility((prev) => {
+      const next = normalizeDaySummaryColumnVisibility(prev);
+      return { ...next, [key]: !next[key] };
+    });
+  }, [setColumnVisibility]);
+
+  const resetColumnVisibility = React.useCallback(() => {
+    setColumnVisibility(DEFAULT_DAY_SUMMARY_COLUMN_VISIBILITY);
+  }, [setColumnVisibility]);
+
   const defaultPeriod = React.useMemo(() => {
     const ym = currentYearMonth();
     return monthDateBounds(ym.year, ym.month);
@@ -90,8 +118,6 @@ export function useDaySummariesDirectoryModel() {
   }, [setPeriodBounds]);
 
   const periodFilterActive = isPeriodFilterActive({ from, to }, defaultPeriod);
-
-  const employeeId = selectedEmpIds.size === 1 ? [...selectedEmpIds][0] : undefined;
 
   const load = React.useCallback(async () => {
     if (!companyId) {
@@ -116,24 +142,17 @@ export function useDaySummariesDirectoryModel() {
 
       const res = await attendanceDaySummariesApi.getAll({
         companyId,
-        page: selectedEmpIds.size > 1 ? 1 : page,
-        limit: selectedEmpIds.size > 1 ? 2000 : limit,
+        page,
+        limit,
         from,
         to,
-        ...(employeeId ? { employeeId } : {}),
+        ...(selectedEmpIds.size > 0 ? { employeeIds: [...selectedEmpIds] } : {}),
         ...(filters.status !== 'all' ? { status: filters.status } : {}),
         ...(filters.isManualOverride === 'true' ? { isManualOverride: true } : {}),
         ...(filters.isManualOverride === 'false' ? { isManualOverride: false } : {}),
       });
-    if (selectedEmpIds.size > 1) {
-      const filtered = res.items.filter((r) => selectedEmpIds.has(r.employeeId));
-      const start = (page - 1) * limit;
-      setItems(filtered.slice(start, start + limit));
-      setTotal(filtered.length);
-    } else {
       setItems(res.items);
       setTotal(res.pagination.total);
-    }
     } catch (err) {
       handleApiError(err, 'day-summaries.load');
       setItems([]);
@@ -141,21 +160,21 @@ export function useDaySummariesDirectoryModel() {
     } finally {
       setLoading(false);
     }
-  }, [companyId, employeeId, filters, from, limit, page, selectedEmpIds, to]);
+  }, [companyId, filters, from, limit, page, selectedEmpIds, to]);
 
   React.useEffect(() => {
     void load();
   }, [load]);
 
+  const selectedEmpKey = React.useMemo(() => [...selectedEmpIds].sort().join(','), [selectedEmpIds]);
+
   React.useEffect(() => {
     setPage(1);
-  }, [from, to, employeeId, filters.status, filters.isManualOverride, selectedEmpIds.size, limit]);
+  }, [from, to, selectedEmpKey, filters.status, filters.isManualOverride, limit]);
 
   const patchFilters = (patch: Partial<DaySummariesFilters>) => {
     setFilters((f) => ({ ...f, ...patch }));
   };
-
-  const selectedEmpKey = React.useMemo(() => [...selectedEmpIds].sort().join(','), [selectedEmpIds]);
 
   const inlineSelects = React.useMemo((): ListFilterInlineSelect[] => [
     {
@@ -195,6 +214,11 @@ export function useDaySummariesDirectoryModel() {
   usePageHeaderActions(
     () => (
       <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
+        <DaySummaryColumnsPicker
+          visibility={normalizedColumnVisibility}
+          onToggle={toggleColumnVisibility}
+          onReset={resetColumnVisibility}
+        />
         <FilterToggleButton activeFilterCount={activeFilterCount} />
         <Button
           type="button"
@@ -208,7 +232,7 @@ export function useDaySummariesDirectoryModel() {
         </Button>
       </div>
     ),
-    [activeFilterCount],
+    [activeFilterCount, normalizedColumnVisibility, resetColumnVisibility, toggleColumnVisibility],
   );
 
   useEntityFilterSlot(
@@ -254,5 +278,6 @@ export function useDaySummariesDirectoryModel() {
     recomputeOpen,
     setRecomputeOpen,
     reload: load,
+    columnVisibility: normalizedColumnVisibility,
   };
 }

@@ -26,6 +26,7 @@ import {
 import { DateRangeFilterTrigger } from '@/components/ui/date-range-filter-trigger';
 import { SelectWithClear } from '@/components/ui/select-with-clear';
 import { useEmployeeFilterPicker } from '@/features/hr/lib/use-employee-filter-picker';
+import { FILTER_PERMISSIONS } from '@/features/auth/permissions/filter-permissions';
 import type { EmployeePickerOption } from '@/components/ui/employee-picker';
 
 export type PeriodRange = { from: string; to: string };
@@ -110,6 +111,8 @@ export interface ListFilterBarProps {
   onSelectedEmpIdsChange?: (s: Set<string>) => void;
   onEmployeePickerOpen?: () => void;
   employeePickerLoading?: boolean;
+  /** Defaults to employee read; pass `null` when the picker is not the employee directory (e.g. audit actors). */
+  employeePickerRequirePermission?: string | null;
 
   statusFilter?: string;
   onStatusFilterChange?: (v: string) => void;
@@ -151,6 +154,7 @@ export const ListFilterBar = React.forwardRef<ListFilterBarHandle, ListFilterBar
       onSelectedEmpIdsChange = noopSetEmp,
       onEmployeePickerOpen,
       employeePickerLoading = false,
+      employeePickerRequirePermission,
       statusFilter = 'all',
       onStatusFilterChange = noopStatus,
       statusOrder = EMPTY_STATUS_ORDER_LIST,
@@ -164,7 +168,7 @@ export const ListFilterBar = React.forwardRef<ListFilterBarHandle, ListFilterBar
       showDateSection = true,
       showStatusSection = true,
       showEmployeePicker = true,
-      defaultDateFilterTab = 'today',
+      defaultDateFilterTab = 'all',
       trailingActions,
       leadingFilters,
       periodFilterActive = false,
@@ -178,8 +182,10 @@ export const ListFilterBar = React.forwardRef<ListFilterBarHandle, ListFilterBar
     },
     ref,
   ) {
+    const skipAutoEmployeeLoad =
+      empPickerEmployees !== undefined || onEmployeePickerOpen != null;
     const autoEmployeePicker = useEmployeeFilterPicker(
-      empPickerEmployees === undefined ? companyId : null,
+      skipAutoEmployeeLoad ? null : companyId,
     );
     const resolvedEmpPickerEmployees = empPickerEmployees ?? autoEmployeePicker.employees;
     const resolvedEmployeePickerLoading = employeePickerLoading || autoEmployeePicker.loading;
@@ -326,6 +332,11 @@ export const ListFilterBar = React.forwardRef<ListFilterBarHandle, ListFilterBar
             onChange={onSelectedEmpIdsChange}
             loading={resolvedEmployeePickerLoading}
             onRequestLoad={onEmployeePickerOpen}
+            requirePermission={
+              employeePickerRequirePermission === null
+                ? undefined
+                : (employeePickerRequirePermission ?? FILTER_PERMISSIONS.employee)
+            }
           />
         ) : null}
       </>

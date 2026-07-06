@@ -47,6 +47,11 @@ export type DisciplineCircularListQuery = {
   limit?: number;
   companyId?: string;
   sent?: boolean;
+  q?: string;
+  employeeIds?: string[];
+  audience?: CircularAudienceTypeDto;
+  dateFrom?: string;
+  dateTo?: string;
 };
 
 export type DisciplineCircularRecipientListQuery = {

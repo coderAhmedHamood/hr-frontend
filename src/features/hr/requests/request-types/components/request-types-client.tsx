@@ -341,7 +341,7 @@ export function RequestTypesClient() {
       {/* Create / Edit dialog */}
       <Dialog open={drawerOpen} onOpenChange={(o) => { if (!o) setDrawerOpen(false); }}>
         <DialogContent
-          className="flex w-full max-w-md flex-col gap-0 overflow-hidden border-border p-0"
+          className="flex w-full max-w-md flex-col gap-0 overflow-visible border-border p-0"
           hideClose
         >
           <VisuallyHidden.Root>

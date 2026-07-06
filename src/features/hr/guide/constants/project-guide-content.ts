@@ -112,7 +112,7 @@ export const GUIDE_PAGES: GuidePage[] = [
     categoryId: 'organization',
     why: 'الموظف ينتمي لفرع؛ الحضور والطلبات والتقارير تُفلتر حسب الفرع. يجب تعريف الفروع قبل الموظفين.',
     prerequisites: [],
-    systemHref: '/hr/organization/branches',
+    systemHref: '/system/organization/branches',
     systemHrefLabel: 'فتح صفحة الفروع',
     blocks: [
       {
@@ -142,7 +142,7 @@ export const GUIDE_PAGES: GuidePage[] = [
     categoryId: 'organization',
     why: 'تصنيف الموظفين والطلبات والتقارير حسب الهيكل الإداري. يُفضّل إنشاء الأقسام قبل إدخال الموظفين.',
     prerequisites: ['الفروع'],
-    systemHref: '/hr/organization/departments',
+    systemHref: '/system/organization/departments',
     systemHrefLabel: 'فتح صفحة الأقسام',
     blocks: [
       {
@@ -171,7 +171,7 @@ export const GUIDE_PAGES: GuidePage[] = [
     categoryId: 'organization',
     why: 'كل موظف يحتاج مسمى وظيفي في تعيينه الوظيفي والعقد. تعريف المسميات مسبقاً يوحّد البيانات.',
     prerequisites: [],
-    systemHref: '/hr/organization/job-titles',
+    systemHref: '/system/organization/job-titles',
     systemHrefLabel: 'فتح المسميات الوظيفية',
     blocks: [
       {
@@ -668,7 +668,7 @@ export const GUIDE_PAGES: GuidePage[] = [
     title: 'الصلاحيات والأدوار',
     categoryId: 'settings',
     why: 'تحديد من يرى أي صفحة ومن يستطيع التهيئة مقابل الاعتماد فقط.',
-    systemHref: '/hr/permissions/roles',
+    systemHref: '/system/permissions/roles',
     systemHrefLabel: 'فتح الأدوار والصلاحيات',
     blocks: [
       {
@@ -686,7 +686,7 @@ export const GUIDE_PAGES: GuidePage[] = [
     title: 'إعدادات الموارد البشرية',
     categoryId: 'settings',
     why: 'ضبط سلوك الإشعارات والسياسات العامة للنظام.',
-    systemHref: '/hr/organization/pages/hr',
+    systemHref: '/system/organization/pages/hr',
     systemHrefLabel: 'فتح إعدادات HR',
     blocks: [
       {

@@ -9,6 +9,13 @@ const DialogTrigger = DialogPrimitive.Trigger;
 const DialogPortal = DialogPrimitive.Portal;
 const DialogClose = DialogPrimitive.Close;
 
+/** Portal target for Select/Popover inside an open dialog (avoids clipping + scroll lock issues). */
+const DialogPortalContext = React.createContext<HTMLElement | null>(null);
+
+export function useDialogPortalContainer() {
+  return React.useContext(DialogPortalContext);
+}
+
 const DialogOverlay = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Overlay>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay>
@@ -38,11 +45,23 @@ export const dialogShellBodyClass =
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & { hideClose?: boolean }
->(({ className, children, hideClose, ...props }, ref) => (
+>(({ className, children, hideClose, ...props }, ref) => {
+  const [portalEl, setPortalEl] = React.useState<HTMLElement | null>(null);
+
+  const setRefs = React.useCallback(
+    (node: HTMLDivElement | null) => {
+      setPortalEl(node);
+      if (typeof ref === 'function') ref(node);
+      else if (ref) ref.current = node;
+    },
+    [ref],
+  );
+
+  return (
   <DialogPortal>
     <DialogOverlay />
     <DialogPrimitive.Content
-      ref={ref}
+      ref={setRefs}
       className={cn(
         'fixed left-1/2 top-1/2 z-50 flex w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4',
         'max-h-[min(90dvh,calc(100%-2rem))] overflow-visible',
@@ -51,7 +70,9 @@ const DialogContent = React.forwardRef<
       )}
       {...props}
     >
-      {children}
+      <DialogPortalContext.Provider value={portalEl}>
+        {children}
+      </DialogPortalContext.Provider>
       {!hideClose && (
         <DialogPrimitive.Close
           className={cn(
@@ -67,7 +88,8 @@ const DialogContent = React.forwardRef<
       )}
     </DialogPrimitive.Content>
   </DialogPortal>
-));
+  );
+});
 DialogContent.displayName = DialogPrimitive.Content.displayName;
 
 const DialogHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (

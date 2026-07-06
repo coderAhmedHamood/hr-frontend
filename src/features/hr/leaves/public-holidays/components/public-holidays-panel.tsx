@@ -17,6 +17,7 @@ import {
   usePublicHolidaysPanelModel,
   type PublicHolidayDraft,
 } from '@/features/hr/leaves/public-holidays/hooks/usePublicHolidaysPanelModel';
+import { ForbiddenState } from '@/components/shared/forbidden-state';
 import { DirectoryPagedViews } from '@/components/ui/paged-list';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { cn, formatDisplayDate } from '@/shared/utils';
@@ -39,6 +40,10 @@ export function PublicHolidaysPanel() {
     ),
     [m.openCreate, m.loading],
   );
+
+  if (m.accessDenied) {
+    return <ForbiddenState title="لا تملك صلاحية الوصول للعطل الرسمية" />;
+  }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
@@ -124,7 +129,7 @@ export function PublicHolidaysPanel() {
       )}
 
       <Dialog open={m.open} onOpenChange={m.setOpen}>
-        <DialogContent className="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden border-border p-0">
+        <DialogContent className="flex max-h-[90vh] w-full max-w-lg flex-col overflow-visible border-border p-0">
           <div className="shrink-0 border-b border-border px-6 py-5">
             <DialogHeader>
               <DialogTitle className="font-display text-xl">{m.editId ? 'تعديل العطلة الرسمية' : 'إضافة عطلة رسمية'}</DialogTitle>

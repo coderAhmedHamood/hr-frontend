@@ -17,6 +17,7 @@ import { cn, formatDisplayDate, formatDisplayDateTime } from '@/shared/utils';
 import { AR_VIOLATION_RECORD_STATUS_LABELS } from '@/shared/i18n/ar';
 import { STATUS_PILL, VIOLATION_RECORD_STATUS_PILL } from '@/shared/status-pill-classes';
 import { Button } from '@/components/ui/button';
+import { ForbiddenState } from '@/components/shared/forbidden-state';
 import { Input } from '@/components/ui/input';
 import { format, parse, isValid } from 'date-fns';
 import { DatePickerInput } from '@/components/ui/date-picker-input';
@@ -345,7 +346,7 @@ interface EditForm { date: string; description: string; notes: string; attachmen
 
 export function ViolationCasesClient() {
   const hook = useViolationCasesDirectoryModel();
-  const { employees, violationTypes, loading, listError, createCase, updateCase, decideCase, deleteCase, reload, setListFilters, items, pagination, filteredItems, sourceCases } = hook;
+  const { employees, violationTypes, loading, listError, accessDenied, createCase, updateCase, decideCase, deleteCase, reload, setListFilters, items, pagination, filteredItems, sourceCases } = hook;
   const companyId = useDefaultCompanyId() ?? '';
   const { data: defaultCompany } = useDefaultCompany();
   const { data: currentEmployee } = useCurrentEmployee();
@@ -658,7 +659,7 @@ export function ViolationCasesClient() {
       title: 'الرقم',
       headerClassName: 'whitespace-nowrap',
       className: 'font-mono text-xs font-medium tabular-nums text-muted-foreground',
-      render: (c) => <span dir="ltr">{c.caseNumber}</span>,
+      render: (c) => <span >{c.caseNumber}</span>,
     },
     {
       key: 'employee',
@@ -848,6 +849,10 @@ export function ViolationCasesClient() {
     ],
   );
 
+  if (accessDenied) {
+    return <ForbiddenState title="لا تملك صلاحية الوصول لسجل المخالفات" />;
+  }
+
   if (loading) {
     return (
       <div className="flex min-h-0 flex-1 flex-col">
@@ -901,7 +906,11 @@ export function ViolationCasesClient() {
                 }}
                 children={
                   c.approverStates ? (
-                    <RequestApproversInline states={c.approverStates} />
+                    <ViolationApproverStatesPanel
+                      states={c.approverStates}
+                      compact
+                      className="border-0 bg-transparent p-0"
+                    />
                   ) : undefined
                 }
                 chips={
@@ -1082,6 +1091,9 @@ export function ViolationCasesClient() {
                   needsWarning={viewCase.typeNeedsWarning}
                   needsInvestigation={viewCase.typeNeedsInvestigation}
                 />
+              ) : null}
+              {viewCase.approverStates ? (
+                <RequestApproversInline states={viewCase.approverStates} />
               ) : null}
               <ViolationApproverStatesPanel states={viewCase.approverStates} />
               <div><span className="text-muted-foreground text-xs">الوصف</span><p className="mt-1">{viewCase.description}</p></div>

@@ -16,7 +16,7 @@ import {
   dialogFormFooterClass,
 } from '@/components/ui/dialog';
 import { cn } from '@/shared/utils';
-import { formatLatinNumber } from '@/features/hr/payroll/lib/compensation-preview';
+import { MoneyAmount } from '@/components/ui/sar-amount';
 import type { IncrementAdjustField } from '@/features/hr/payroll/compensation/services/incremental-monthly-input.service';
 
 export type IncrementAdjustDialogContext = {
@@ -105,7 +105,7 @@ export function CompensationIncrementAdjustDialog({
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v && !submitting) onCancel(); }}>
-      <DialogContent className="max-w-md gap-0 overflow-hidden border-border p-0" dir="rtl">
+      <DialogContent className="max-w-md gap-0 overflow-visible border-border p-0" dir="rtl">
         <div className="border-b border-border/60 bg-linear-to-b from-primary/8 to-transparent px-6 pb-4 pt-6">
           <DialogHeader className="space-y-2 text-right">
             <DialogTitle className="font-display text-base">
@@ -122,14 +122,16 @@ export function CompensationIncrementAdjustDialog({
         <div className="space-y-4 px-6 py-5">
           <div className="rounded-xl border border-border/60 bg-muted/20 p-4 text-center">
             <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">الرصيد الحالي</p>
-            <p className={cn(
-              'mt-1 font-mono text-xl font-bold tabular-nums',
-              !isBonus && context.currentTotal > 0 && 'text-primary',
-              !isBonus && context.currentTotal < 0 && 'text-destructive',
-              (isBonus || context.currentTotal === 0) && 'text-foreground',
-            )}>
-              {formatLatinNumber(context.currentTotal, 2)} {context.currency}
-            </p>
+            <MoneyAmount
+              value={context.currentTotal}
+              currency={context.currency}
+              className={cn(
+                'mt-1 font-mono text-xl font-bold',
+                !isBonus && context.currentTotal > 0 && 'text-primary',
+                !isBonus && context.currentTotal < 0 && 'text-destructive',
+                (isBonus || context.currentTotal === 0) && 'text-foreground',
+              )}
+            />
           </div>
 
           {!isBonus && (
@@ -188,9 +190,11 @@ export function CompensationIncrementAdjustDialog({
           {increment != null && (
             <div className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-center">
               <p className="text-[10px] font-bold text-muted-foreground">الرصيد بعد العملية</p>
-              <p className="mt-1 font-mono text-lg font-bold tabular-nums text-primary">
-                {formatLatinNumber(projectedTotal, 2)} {context.currency}
-              </p>
+              <MoneyAmount
+                value={projectedTotal}
+                currency={context.currency}
+                className="mt-1 font-mono text-lg font-bold text-primary"
+              />
             </div>
           )}
 

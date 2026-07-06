@@ -30,7 +30,7 @@ export function DaySummarySettleButton({ row, onRequestSettle }: DaySummarySettl
       variant="outline"
       size="sm"
       className="h-7 gap-1 px-2 text-xs"
-      aria-label="تسوية الحضور من الإضافي"
+      aria-label="تسوية النقص من الإضافي"
       onClick={(e) => {
         e.stopPropagation();
         onRequestSettle(row);

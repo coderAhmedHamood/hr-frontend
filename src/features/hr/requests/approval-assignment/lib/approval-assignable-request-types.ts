@@ -21,7 +21,9 @@ function matchesCategorySlug(category: ApprovalAssignmentRequestCategory, slug: 
 
 export function isApprovalAssignableRequestType(rt: ApiRequestType): boolean {
   const category = rt.requestCategory?.trim().toLowerCase();
-  if (category && CATEGORY_SET.has(category)) return true;
+  if (category && (CATEGORY_SET.has(category) || category === 'attendance_correction')) {
+    return true;
+  }
 
   const slug = rt.slug?.trim().toLowerCase() ?? '';
   return APPROVAL_ASSIGNMENT_REQUEST_CATEGORIES.some((cat) => matchesCategorySlug(cat, slug));

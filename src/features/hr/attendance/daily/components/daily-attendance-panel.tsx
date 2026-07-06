@@ -54,6 +54,8 @@ export function DailyAttendancePanel() {
         dates={model.dates}
         viewMode={model.viewMode}
         allEmployees={model.allEmployees}
+        serverPagination={model.pagination}
+        loading={model.loading}
       />
     </div>
   );

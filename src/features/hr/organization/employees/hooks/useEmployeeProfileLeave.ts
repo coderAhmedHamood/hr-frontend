@@ -12,8 +12,6 @@ import {
   flattenLeaveBalanceGroups,
   type EmployeeLeaveBalanceResponseDto,
 } from '@/features/hr/leaves/lib/api/leave-balances';
-import type { LeaveTypeResponseDto } from '@/features/hr/leaves/lib/api/leave-types';
-import { loadCompanyLeaveTypes } from '@/features/hr/leaves/lib/leave-types-utils';
 import {
   leaveRequestTypesFromHistory,
   loadLeaveRequestTypes,
@@ -24,7 +22,13 @@ import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import { useServerDirectoryPagination } from '@/components/ui/paged-list';
 import { AR_LEAVE_STATUS_LABELS } from '@/shared/i18n/ar';
 
-export type { ApiLeaveRequest as LeaveRequestResponseDto, EmployeeLeaveBalanceResponseDto, LeaveTypeResponseDto };
+export type EmployeeProfileLeaveTypeOption = {
+  id: string;
+  nameAr: string;
+  code: string;
+};
+
+export type { ApiLeaveRequest as LeaveRequestResponseDto, EmployeeLeaveBalanceResponseDto };
 
 export type EmployeeLeaveBalanceCard = {
   leaveTypeId: string;
@@ -63,7 +67,6 @@ export function useEmployeeProfileLeave(employee: Employee, enabled = true) {
 
   const [totalLeaveRequestCount, setTotalLeaveRequestCount] = React.useState(0);
   const [leaveBalances, setLeaveBalances] = React.useState<EmployeeLeaveBalanceResponseDto[]>([]);
-  const [leaveTypes, setLeaveTypes] = React.useState<LeaveTypeResponseDto[]>([]);
   const [leaveRequestTypes, setLeaveRequestTypes] = React.useState<ApiRequestType[]>([]);
   const [leaveRequestOpen, setLeaveRequestOpen] = React.useState(false);
   const [presetLeaveTypeId, setPresetLeaveTypeId] = React.useState<string | null>(null);
@@ -78,7 +81,7 @@ export function useEmployeeProfileLeave(employee: Employee, enabled = true) {
     setLeavesError(null);
     try {
       const scopedCompanyId = companyId || undefined;
-      const [countRes, balRes, typesBundle, catalogRequestTypes] = await Promise.all([
+      const [countRes, balRes, catalogRequestTypes] = await Promise.all([
         leaveRequestsNewApi.list({
           employeeId: employee.id,
           companyId: scopedCompanyId,
@@ -89,13 +92,11 @@ export function useEmployeeProfileLeave(employee: Employee, enabled = true) {
           companyId: scopedCompanyId,
           limit: 50,
         }),
-        loadCompanyLeaveTypes({ companyId: scopedCompanyId, limit: 200 }),
         scopedCompanyId ? loadLeaveRequestTypes(scopedCompanyId) : Promise.resolve([] as ApiRequestType[]),
       ]);
 
       setTotalLeaveRequestCount(countRes.pagination?.total ?? countRes.items.length);
       setLeaveBalances(flattenLeaveBalanceGroups(balRes.items));
-      setLeaveTypes(typesBundle.items);
       setLeaveRequestTypes(
         catalogRequestTypes.length > 0
           ? catalogRequestTypes
@@ -146,32 +147,38 @@ export function useEmployeeProfileLeave(employee: Employee, enabled = true) {
     await reloadLeaveRequests();
   }, [reloadLeaves, reloadLeaveRequests]);
 
+  const leaveTypes = React.useMemo((): EmployeeProfileLeaveTypeOption[] => {
+    const byTypeId = new Map<string, EmployeeProfileLeaveTypeOption>();
+    for (const balance of leaveBalances) {
+      if (byTypeId.has(balance.leaveTypeId)) continue;
+      byTypeId.set(balance.leaveTypeId, {
+        id: balance.leaveTypeId,
+        nameAr: balance.leaveTypeNameAr ?? 'إجازة',
+        code: balance.leaveTypeCode ?? '',
+      });
+    }
+    return [...byTypeId.values()].sort((a, b) => a.nameAr.localeCompare(b.nameAr, 'ar'));
+  }, [leaveBalances]);
+
   const leaveBalanceCards = React.useMemo((): EmployeeLeaveBalanceCard[] => {
     const year = new Date().getFullYear();
-    const balanceByType = new Map(leaveBalances.map((b) => [b.leaveTypeId, b]));
-    const typeIds = new Set([
-      ...leaveTypes.map((t) => t.id),
-      ...leaveBalances.map((b) => b.leaveTypeId),
-    ]);
 
-    return [...typeIds].map((leaveTypeId) => {
-      const lt = leaveTypes.find((t) => t.id === leaveTypeId);
-      const bal = balanceByType.get(leaveTypeId);
-      const code = lt?.code ?? '';
+    return leaveBalances.map((bal) => {
+      const code = bal.leaveTypeCode ?? '';
       return {
-        leaveTypeId,
-        title: lt?.nameAr ?? 'إجازة',
+        leaveTypeId: bal.leaveTypeId,
+        title: bal.leaveTypeNameAr ?? 'إجازة',
         code,
         year,
-        entitled: bal?.totalDays ?? 0,
-        used: bal?.usedDays ?? 0,
-        available: bal?.remainingDays ?? 0,
-        yearEnd: bal?.remainingDays ?? 0,
+        entitled: bal.totalDays,
+        used: bal.usedDays,
+        available: bal.remainingDays,
+        yearEnd: bal.remainingDays,
         accent: ACCENT_BY_CODE[code] ?? 'primary',
-        hasBalanceRow: Boolean(bal),
+        hasBalanceRow: true,
       };
     }).sort((a, b) => a.title.localeCompare(b.title, 'ar'));
-  }, [leaveBalances, leaveTypes]);
+  }, [leaveBalances]);
 
   const leaveSummary = React.useMemo((): EmployeeLeaveSummary => {
     const pendingCount = filteredLeaveRequests.filter((r) => r.status === 'pending').length;

@@ -4,7 +4,8 @@ import Link from 'next/link';
 import { ExternalLink, Receipt, Wallet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { formatCurrency, cn } from '@/shared/utils';
+import { MoneyAmount } from '@/components/ui/sar-amount';
+import { cn, formatNumber } from '@/shared/utils';
 import { Empty } from '@/features/hr/organization/employees/components/EmployeeProfilePrimitives';
 import type { Payslip } from '@/features/hr/payroll/types';
 import {
@@ -87,9 +88,7 @@ export function EmployeeSalaryPayslipCards({ employeePayslipSeries }: Props) {
                   </div>
                   <div className="rounded-xl border border-gold/20 bg-gold/5 px-3 py-2.5">
                     <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">الصافي</p>
-                    <p className="font-arabic-display text-lg font-semibold tabular-nums text-gold leading-tight mt-1">
-                      {formatCurrency(p.net)}
-                    </p>
+                    <MoneyAmount value={p.net} className="font-arabic-display text-lg font-semibold text-gold leading-tight mt-1" />
                   </div>
                   <dl className="grid grid-cols-4 gap-1.5 text-center">
                     <div className="rounded-lg border border-border/50 bg-muted/30 px-1.5 py-2">

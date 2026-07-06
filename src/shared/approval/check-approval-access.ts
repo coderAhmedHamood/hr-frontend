@@ -1,5 +1,6 @@
 import { ApiError } from '@/features/hr/lib/api/client';
 import type { ApproverStatesSnapshot } from '@/shared/approval/types';
+import { isEmployeeInApproverStates } from '@/shared/approval/approver-states';
 
 export type ApprovalAccessMessages = {
   notLinked: string;
@@ -25,6 +26,28 @@ type CheckApprovalAccessParams<TAssignment, TStates extends ApproverStatesSnapsh
   buildStates: (assignment: TAssignment) => TStates;
   getActionContext: (states: TStates, employeeId: string) => { canAct: boolean; reasonAr: string | null };
 };
+
+function tryValidateExistingStates<TAssignment, TStates extends ApproverStatesSnapshot>(
+  employeeId: string,
+  existingStates: TStates | null | undefined,
+  messages: ApprovalAccessMessages,
+  getActionContext: (states: TStates, employeeId: string) => { canAct: boolean; reasonAr: string | null },
+): ApprovalAccessResult<TAssignment, TStates> | null {
+  if (!existingStates?.approvers?.length) {
+    return null;
+  }
+
+  if (!isEmployeeInApproverStates(existingStates, employeeId)) {
+    return { ok: false, message: messages.notAmongApprovers };
+  }
+
+  const action = getActionContext(existingStates, employeeId);
+  if (!action.canAct) {
+    return { ok: false, message: action.reasonAr ?? messages.cannotActFallback };
+  }
+
+  return { ok: true, assignment: {} as TAssignment, states: existingStates };
+}
 
 export async function checkApprovalAccess<TAssignment, TStates extends ApproverStatesSnapshot>(
   params: CheckApprovalAccessParams<TAssignment, TStates>,
@@ -69,6 +92,15 @@ export async function checkApprovalAccess<TAssignment, TStates extends ApproverS
     return { ok: true, assignment, states };
   } catch (err) {
     if (err instanceof ApiError && err.status === 404) {
+      const fromStates = tryValidateExistingStates<TAssignment, TStates>(
+        employeeId,
+        existingStates,
+        messages,
+        getActionContext,
+      );
+      if (fromStates) {
+        return fromStates;
+      }
       return { ok: false, message: messages.notFound };
     }
     throw err;

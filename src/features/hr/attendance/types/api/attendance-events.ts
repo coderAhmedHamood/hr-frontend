@@ -141,6 +141,7 @@ export type AttendanceEventListQuery = {
   limit?: number;
   companyId?: string;
   employeeId?: string;
+  employeeIds?: string[];
   workDateFrom?: string;
   workDateTo?: string;
   eventType?: AttendanceEventType;

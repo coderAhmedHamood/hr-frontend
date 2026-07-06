@@ -7,8 +7,10 @@ import { Input } from '@/components/ui/input';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
   dialogFormFooterClass,
+  useDialogPortalContainer,
 } from '@/components/ui/dialog';
 import { cn } from '@/shared/utils';
+import { paginationItemCount } from '@/components/ui/sticky-pagination';
 import * as PopoverPrimitive from '@radix-ui/react-popover';
 
 // ─── MinimalDropdown ──────────────────────────────────────────────────────────
@@ -39,6 +41,7 @@ export function MinimalDropdown({
   disabled,
 }: MinimalDropdownProps) {
   const [open, setOpen] = React.useState(false);
+  const dialogContainer = useDialogPortalContainer();
   const selected = options.find(o => o.value === value);
 
   return (
@@ -60,7 +63,7 @@ export function MinimalDropdown({
           <ChevronsUpDown className="h-4 w-4 shrink-0 text-muted-foreground" />
         </button>
       </PopoverPrimitive.Trigger>
-      <PopoverPrimitive.Portal>
+      <PopoverPrimitive.Portal container={dialogContainer ?? undefined}>
         <PopoverPrimitive.Content
           className={cn(
             'popover-match-trigger z-[200] max-h-64 min-w-[12rem] overflow-auto rounded-md border border-border bg-popover p-1 shadow-elevated',
@@ -112,11 +115,24 @@ export function MinimalDropdown({
 interface SearchableDropdownProps extends Omit<MinimalDropdownProps, 'onChange'> {
   onChange: (v: string) => void;
   allowClear?: boolean;
+  /** Scrollable list height (default max-h-52 ≈ 4 rows). */
+  listClassName?: string;
 }
 
-export function SearchableDropdown({ value, onChange, options, placeholder = 'ابحث أو اختر…', className, disabled, allowClear }: SearchableDropdownProps) {
+export function SearchableDropdown({
+  value,
+  onChange,
+  options,
+  placeholder = 'ابحث أو اختر…',
+  className,
+  contentClassName,
+  disabled,
+  allowClear,
+  listClassName,
+}: SearchableDropdownProps) {
   const [open, setOpen] = React.useState(false);
   const [q, setQ] = React.useState('');
+  const dialogContainer = useDialogPortalContainer();
   const selected = options.find(o => o.value === value);
   const filtered = q ? options.filter(o => o.label.toLowerCase().includes(q.toLowerCase()) || (o.sub?.toLowerCase().includes(q.toLowerCase()))) : options;
 
@@ -150,11 +166,16 @@ export function SearchableDropdown({ value, onChange, options, placeholder = 'ا
           </div>
         </button>
       </PopoverPrimitive.Trigger>
-      <PopoverPrimitive.Portal>
+      <PopoverPrimitive.Portal container={dialogContainer ?? undefined}>
         <PopoverPrimitive.Content
-          className="popover-match-trigger z-[200] min-w-[12rem] overflow-hidden rounded-md border border-border bg-popover shadow-elevated"
+          className={cn(
+            'popover-match-trigger z-[200] min-w-[12rem] overflow-hidden rounded-md border border-border bg-popover p-0 shadow-elevated',
+            contentClassName,
+          )}
           sideOffset={4}
-          collisionPadding={12}
+          collisionPadding={16}
+          avoidCollisions
+          onOpenAutoFocus={(e) => e.preventDefault()}
         >
           <div className="border-b border-border p-2">
             <div className="relative">
@@ -167,8 +188,19 @@ export function SearchableDropdown({ value, onChange, options, placeholder = 'ا
                 autoFocus
               />
             </div>
+            {options.length > 0 ? (
+              <p className="mt-1.5 text-center text-[10px] text-muted-foreground">
+                {filtered.length} / {options.length}
+              </p>
+            ) : null}
           </div>
-          <div className="max-h-52 overflow-auto">
+          <div
+            className={cn(
+              'max-h-52 overflow-y-auto overscroll-contain',
+              listClassName,
+            )}
+            onWheel={(e) => e.stopPropagation()}
+          >
             {filtered.map(opt => (
               <button
                 key={opt.value || '__empty__'}
@@ -328,9 +360,14 @@ export function EmptyState({ icon: Icon, title, description }: { icon?: React.El
 
 export function Pagination({ page, perPage, total, onPage, onPerPage }: { page: number; perPage: number; total: number; onPage: (n: number) => void; onPerPage: (n: number) => void }) {
   const pages = Math.max(1, Math.ceil(total / perPage));
+  const { displayed, total: totalItems } = paginationItemCount(page, perPage, total);
   return (
     <div className="flex min-w-0 flex-col gap-2 border-t border-border bg-muted/20 px-3 py-2.5 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-4">
-      <span className="min-w-0 text-center sm:text-right">عرض <strong className="text-foreground">{Math.min((page - 1) * perPage + 1, total)}–{Math.min(page * perPage, total)}</strong> من <strong className="text-foreground">{total}</strong></span>
+      <span className="min-w-0 text-center tabular-nums sm:text-right" dir="ltr">
+        <strong className="text-foreground">{displayed}</strong>
+        <span className="mx-0.5 text-muted-foreground/70">/</span>
+        <strong className="text-foreground">{totalItems}</strong>
+      </span>
       <div className="flex min-w-0 flex-wrap items-center justify-center gap-2 sm:justify-end">
         <select value={perPage} onChange={e => { onPerPage(Number(e.target.value)); onPage(1); }} className="max-w-full shrink-0 rounded border border-border bg-background px-2 py-1 text-xs focus:outline-none">
           {[10, 15, 20, 50].map(n => <option key={n} value={n}>{n} / صفحة</option>)}

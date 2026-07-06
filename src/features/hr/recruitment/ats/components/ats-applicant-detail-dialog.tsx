@@ -18,12 +18,14 @@ import { toast } from 'sonner';
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
   DialogTitle,
+  DialogBody,
+  dialogShellContentClass,
+  dialogShellBodyClass,
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
+import { cn } from '@/shared/utils';
 import {
   Select,
   SelectContent,
@@ -119,13 +121,13 @@ export function AtsApplicantDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl overflow-hidden p-0">
-        <div className="relative bg-gradient-to-br from-primary/10 via-primary/5 to-background px-6 pb-6 pt-8">
+      <DialogContent className={cn(dialogShellContentClass, 'max-w-xl')} dir="rtl">
+        <div className="relative shrink-0 bg-gradient-to-br from-primary/10 via-primary/5 to-background px-6 pb-5 pt-8">
           <div className="relative flex items-center gap-4">
             <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-primary/70 text-lg font-bold text-primary-foreground shadow-lg">
               {initials}
             </div>
-            <div className="min-w-0 flex-1">
+            <div className="min-w-0 flex-1 pe-8">
               <DialogTitle className="text-xl font-bold leading-tight">{name}</DialogTitle>
               <div className="mt-1.5 flex flex-wrap items-center gap-2">
                 {job && (
@@ -149,7 +151,7 @@ export function AtsApplicantDetailDialog({
           </div>
         </div>
 
-        <div className="px-6 pb-6 pt-2 space-y-5">
+        <DialogBody className={cn(dialogShellBodyClass, 'space-y-5')}>
           <div className="flex flex-wrap gap-2">
             <Button
               variant="outline"
@@ -206,7 +208,7 @@ export function AtsApplicantDetailDialog({
           </div>
 
           {applicant.score ? (
-            <div className="rounded-xl border border-border bg-muted/20 p-4 space-y-2">
+            <div className="space-y-2 rounded-xl border border-border bg-muted/20 p-4">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium">التقييم التلقائي</span>
                 <span className={`text-sm font-bold tabular-nums ${scoreBarTone(applicant.score.finalScore).text}`}>
@@ -241,33 +243,31 @@ export function AtsApplicantDetailDialog({
               return (
                 <div
                   key={field.id}
-                  className={`rounded-xl border p-4 ${hasValue ? 'bg-card border-border' : 'bg-muted/20 border-border/50'}`}
+                  className={`min-w-0 rounded-xl border p-4 ${hasValue ? 'border-border bg-card' : 'border-border/50 bg-muted/20'}`}
                 >
                   <div className="mb-2 flex items-center gap-2">
-                    <span className="flex h-6 w-6 items-center justify-center rounded-md border bg-muted/40 text-[10px]">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border bg-muted/40 text-[10px]">
                       <Icon className="h-3 w-3" />
                     </span>
-                    <span className="text-xs font-medium text-muted-foreground">{field.label}</span>
+                    <span className="truncate text-xs font-medium text-muted-foreground">{field.label}</span>
                   </div>
-                  <p className={`text-sm font-semibold ${hasValue ? 'text-foreground' : 'text-muted-foreground'}`}>
+                  <p className={`break-words text-sm font-semibold ${hasValue ? 'text-foreground' : 'text-muted-foreground'}`}>
                     {hasValue ? String(value) : '—'}
                   </p>
                 </div>
               );
             })}
           </div>
+        </DialogBody>
 
-          <Separator />
-
-          <div className="flex justify-between">
-            <Button variant="destructive" size="sm" className="gap-1.5 text-xs" onClick={handleDelete}>
-              <Trash2 className="h-3.5 w-3.5" />
-              أرشفة المتقدم
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
-              إغلاق
-            </Button>
-          </div>
+        <div className="flex shrink-0 items-center justify-between gap-3 border-t border-border bg-muted/10 px-6 py-4">
+          <Button variant="destructive" size="sm" className="gap-1.5 text-xs" onClick={handleDelete}>
+            <Trash2 className="h-3.5 w-3.5" />
+            أرشفة المتقدم
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
+            إغلاق
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

@@ -7,7 +7,6 @@ import { usePageHeaderActions } from '@/components/layouts/page-header-actions-c
 import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
 import { ListFilterBar } from '@/components/ui/list-filter-bar';
 import { EntityFilterSearchField } from '@/components/ui/entity-filter-search-field';
-import { EntityFilterScoreRange } from '@/components/ui/entity-filter-score-range';
 import type { AtsPipelineStage } from '@/features/hr/recruitment/lib/ats/types';
 import {
   RECRUITMENT_ARCHIVE_SCOPE_DEFAULT,
@@ -37,8 +36,6 @@ export function useAtsApplicantsListModel() {
   const [debouncedSearch, setDebouncedSearch] = React.useState('');
   const [stageFilter, setStageFilter] = React.useState<AtsApplicantStageFilter>('all');
   const [jobFilter, setJobFilter] = React.useState(urlJobId || 'all');
-  const [minScore, setMinScore] = React.useState('');
-  const [maxScore, setMaxScore] = React.useState('');
   const [dateBounds, setDateBounds] = React.useState({ from: '', to: '' });
   const [archiveScope, setArchiveScope] = React.useState<RecruitmentArchiveScope>(
     RECRUITMENT_ARCHIVE_SCOPE_DEFAULT,
@@ -68,13 +65,11 @@ export function useAtsApplicantsListModel() {
   const listQuery = React.useMemo(() => ({
     jobId: jobFilter !== 'all' ? jobFilter : undefined,
     pipelineStage: stageFilter !== 'all' ? (stageFilter as AtsPipelineStage) : undefined,
-    minScore: minScore ? Number(minScore) : undefined,
-    maxScore: maxScore ? Number(maxScore) : undefined,
     submittedFrom: dateBounds.from || undefined,
     submittedTo: dateBounds.to || undefined,
     search: debouncedSearch.trim() || undefined,
     archiveScope,
-  }), [jobFilter, stageFilter, minScore, maxScore, dateBounds.from, dateBounds.to, debouncedSearch, archiveScope]);
+  }), [jobFilter, stageFilter, dateBounds.from, dateBounds.to, debouncedSearch, archiveScope]);
 
   const { data: applicants = [], isLoading } = useRecruitmentApplicantsList(listQuery);
   const { data: detailApplicantFromApi } = useRecruitmentApplicant(detailId || undefined);
@@ -127,8 +122,6 @@ export function useAtsApplicantsListModel() {
     (search.trim() ? 1 : 0)
     + (stageFilter !== 'all' ? 1 : 0)
     + (jobFilter !== 'all' ? 1 : 0)
-    + (minScore ? 1 : 0)
-    + (maxScore ? 1 : 0)
     + (dateBounds.from || dateBounds.to ? 1 : 0)
     + (archiveScope !== RECRUITMENT_ARCHIVE_SCOPE_DEFAULT ? 1 : 0);
 
@@ -169,14 +162,6 @@ export function useAtsApplicantsListModel() {
             options: RECRUITMENT_ARCHIVE_SCOPE_OPTIONS.map((o) => ({ value: o.value, label: o.label })),
           },
         ]}
-        beforeEmployeePicker={(
-          <EntityFilterScoreRange
-            min={minScore}
-            max={maxScore}
-            onMinChange={setMinScore}
-            onMaxChange={setMaxScore}
-          />
-        )}
         statusFilter={stageFilter}
         onStatusFilterChange={(v) => setStageFilter(v as AtsApplicantStageFilter)}
         statusOrder={ATS_APPLICANT_STAGE_ORDER}
@@ -190,8 +175,6 @@ export function useAtsApplicantsListModel() {
       search,
       jobFilter,
       archiveScope,
-      minScore,
-      maxScore,
       stageFilter,
       stageCounts,
       jobSelectOptions,

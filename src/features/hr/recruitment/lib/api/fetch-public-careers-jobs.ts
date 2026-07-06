@@ -1,6 +1,8 @@
-import { ApiError, type PaginatedResult } from '@/features/hr/lib/api/client';
+import { ensurePaginatedResult, type PaginatedResult } from '@/features/hr/lib/api/client';
+import { extractApiErrorMessage } from '@/features/auth/lib/auth-api-messages';
 import { isApiErrorEnvelope, isApiSuccessEnvelope } from '@/features/hr/lib/api/types';
 import type { RecruitmentJob } from '@/features/hr/recruitment/lib/api/types';
+import { toast } from 'sonner';
 
 function unwrapData<T>(payload: unknown): T {
   if (payload && typeof payload === 'object' && isApiSuccessEnvelope(payload)) {
@@ -27,7 +29,12 @@ export async function fetchPublicCareersJobs(search?: string): Promise<Paginated
 
   if (!response.ok) {
     const envelope = payload && isApiErrorEnvelope(payload) ? payload : null;
-    throw new ApiError(envelope, response.status, payload);
+    const message = extractApiErrorMessage(
+      envelope,
+      response.statusText || 'Request failed',
+    );
+    toast.error(message);
+    return ensurePaginatedResult<RecruitmentJob>(undefined);
   }
 
   return unwrapData<PaginatedResult<RecruitmentJob>>(payload);

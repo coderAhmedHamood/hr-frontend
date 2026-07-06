@@ -5,8 +5,12 @@ export type AttendanceCorrectionRequestStatus = 'pending' | 'approved' | 'reject
 
 export type AttendanceCorrectionPeriod = {
   periodId: string;
+  /** Corrected punches (after). */
   checkInAt: string | null;
   checkOutAt: string | null;
+  /** Recorded punches (before) for this period. */
+  recordedCheckInAt: string | null;
+  recordedCheckOutAt: string | null;
 };
 
 export type AttendanceCorrectionRequest = {

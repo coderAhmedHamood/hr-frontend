@@ -4,21 +4,37 @@ import { minutesToHHMM } from '@/features/hr/attendance/daily/utils/daily-attend
 export type DaySummaryDailyMetricKey =
   | 'expected'
   | 'total'
+  | 'insidePeriods'
   | 'late'
   | 'earlyLeave'
+  | 'earlyArrival'
+  | 'shortage'
+  | 'outsidePeriods'
   | 'overtime';
 
 const MINUTES_FIELD: Record<
   DaySummaryDailyMetricKey,
   keyof Pick<
     DaySummaryResponseDto,
-    'expectedMinutes' | 'workedMinutes' | 'lateMinutes' | 'earlyLeaveMinutes' | 'overtimeMinutes'
+    | 'expectedMinutes'
+    | 'workedMinutes'
+    | 'workedMinutesInsidePeriods'
+    | 'lateMinutes'
+    | 'earlyLeaveMinutes'
+    | 'earlyArrivalMinutes'
+    | 'shortageMinutes'
+    | 'workedMinutesOutsidePeriods'
+    | 'overtimeMinutes'
   >
 > = {
   expected: 'expectedMinutes',
   total: 'workedMinutes',
+  insidePeriods: 'workedMinutesInsidePeriods',
   late: 'lateMinutes',
   earlyLeave: 'earlyLeaveMinutes',
+  earlyArrival: 'earlyArrivalMinutes',
+  shortage: 'shortageMinutes',
+  outsidePeriods: 'workedMinutesOutsidePeriods',
   overtime: 'overtimeMinutes',
 };
 
@@ -34,7 +50,17 @@ export function getDaySummaryMetricMinutes(
 
   const field = MINUTES_FIELD[key];
   const value = row[field];
-  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (key === 'shortage') {
+    const expected = getDaySummaryMetricMinutes(row, 'expected');
+    const total = getDaySummaryMetricMinutes(row, 'total');
+    return Math.max(0, expected - total);
+  }
+
+  return 0;
 }
 
 /** HH:MM display — prefers API `dailyTotals.display` (matches تفاصيل اليوم). */

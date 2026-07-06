@@ -1,17 +1,10 @@
 'use client';
 
 import * as React from 'react';
-import { Ban, CalendarDays, CheckCircle2, Plus, XCircle } from 'lucide-react';
+import { Ban, CalendarDays, CheckCircle2, Loader2, Plus, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import ModernTimePicker from '@/components/ui/modern-time-picker';
-import { Textarea } from '@/components/ui/textarea';
-import { DatePickerInput } from '@/components/ui/date-picker-input';
-import { Label } from '@/components/ui/label';
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select';
 import { DataTable, type ColumnDef } from '@/components/ui/data-table';
 import {
   EntityActionCard,
@@ -20,7 +13,6 @@ import {
   type WorkflowStatusTone,
 } from '@/components/ui/entity-action-card';
 import { DirectoryPagedViews, useServerDirectoryPagination } from '@/components/ui/paged-list';
-import { fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
 import { correctionRequestsApi } from '@/features/hr/requests/lib/api/correction-requests';
 import { mapCorrectionRequest } from '@/features/hr/requests/lib/attendance-correction-store';
 import { TableDateCell, TableRowActions } from '@/components/ui/table-cells';
@@ -31,17 +23,34 @@ import { usePageHeaderActions } from '@/components/layouts/page-header-actions-c
 import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
 import { Badge } from '@/components/ui/badge';
 import {
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
-  dialogFormFooterClass,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
 } from '@/components/ui/dialog';
-import { FormField, EmptyState } from '@/components/ui/shared-dialogs';
+import { EmptyState } from '@/components/ui/shared-dialogs';
+import { AttendanceCorrectionRequestDialog } from '@/features/hr/requests/attendance-corrections/components/attendance-correction-request-dialog';
+import {
+  attendanceEventsApi,
+  type DailyBreakdownResponseDto,
+} from '@/features/hr/attendance/lib/api/attendance-events';
+import {
+  ActualRegistrationBlock,
+  PeriodCard,
+  StatChip,
+  WEEKDAY_AR,
+  defaultTimezoneOffsetMinutes,
+  resolveDayActualWithoutPeriods,
+  statusCfg,
+} from '@/features/hr/attendance/daily/components/daily-day-detail-dialog';
+import { fmtFull, minutesToHHMM } from '@/features/hr/attendance/daily/utils/daily-attendance-format';
 import { useHRConfigurationStore } from '@/features/hr/requests/lib/configuration-store';
 import { useHREmployeeDirectoryStore } from '@/features/hr/requests/lib/employee-directory-store';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
 import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 import { useCurrentEmployee } from '@/features/hr/organization/employees/hooks/useCurrentEmployee';
-import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import { checkRequestApprovalAccess } from '@/features/hr/requests/lib/request-approval-access';
+import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import {
   buildRequestCorrectionDecisionPayload,
   getRequestApprovalUiState,
@@ -87,6 +96,92 @@ function statusBadgeClass(s: AttendanceCorrectionRequest['status']) {
   return 'bg-destructive/10 text-destructive border-destructive/30';
 }
 
+function DetailBreakdownPanel({ breakdown }: { breakdown: DailyBreakdownResponseDto }) {
+  const offsetMinutes = breakdown.timezoneOffsetMinutes;
+  const dayCfg = statusCfg(breakdown.status);
+  const { totals } = breakdown;
+  const dayActualWithoutPeriods =
+    breakdown.periods.length === 0 ? resolveDayActualWithoutPeriods(breakdown) : null;
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-xl border border-border bg-muted/10 px-4 py-3 space-y-1.5">
+        <p className="text-xs text-muted-foreground">
+          {fmtFull(breakdown.workDate)} · {WEEKDAY_AR[breakdown.weekDay] ?? ''}
+        </p>
+        <span className={cn('inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold', dayCfg.color)}>
+          <span className={cn('h-1.5 w-1.5 rounded-full', dayCfg.dot)} />
+          {dayCfg.label}
+        </span>
+      </div>
+
+      {breakdown.shiftTemplate ? (
+        <div className="flex items-center gap-3 rounded-xl border border-border/60 px-3 py-2.5">
+          <span
+            className="h-3 w-3 shrink-0 rounded-full"
+            style={{ backgroundColor: breakdown.shiftTemplate.colorHex ?? '#64748b' }}
+          />
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium">{breakdown.shiftTemplate.nameAr}</p>
+            {breakdown.shiftAssignment ? (
+              <p className="text-[11px] text-muted-foreground">
+                ساري من {breakdown.shiftAssignment.effectiveFrom}
+                {breakdown.shiftAssignment.effectiveTo ? ` إلى ${breakdown.shiftAssignment.effectiveTo}` : ''}
+              </p>
+            ) : null}
+          </div>
+        </div>
+      ) : breakdown.isUnscheduled ? (
+        <p className="rounded-xl border border-dashed border-border px-3 py-2 text-xs text-muted-foreground">
+          لا يوجد قالب دوام نشط لهذا اليوم
+        </p>
+      ) : null}
+
+      {totals ? (
+        <div className="space-y-2">
+          <p className="text-xs font-semibold text-muted-foreground">إجماليات اليوم</p>
+          <div className="grid grid-cols-3 gap-2">
+            <StatChip label="متوقع" value={minutesToHHMM(totals.expectedMinutes)} />
+            <StatChip label="فعلي" value={minutesToHHMM(totals.workedMinutes)} />
+            <StatChip label="داخل الفترات" value={minutesToHHMM(totals.workedMinutesInsidePeriods ?? 0)} />
+            <StatChip label="خارج الفترات" value={minutesToHHMM(totals.workedMinutesOutsidePeriods ?? 0)} />
+            <StatChip label="استراحات" value={minutesToHHMM(totals.breakMinutes)} />
+            <StatChip label="حضور مبكر" value={minutesToHHMM(totals.earlyArrivalMinutes ?? 0)} />
+            <StatChip label="تأخير" value={minutesToHHMM(totals.lateMinutes)} tone={totals.lateMinutes > 0 ? 'warn' : 'default'} />
+            <StatChip label="انصراف مبكر" value={minutesToHHMM(totals.earlyLeaveMinutes)} tone={totals.earlyLeaveMinutes > 0 ? 'warn' : 'default'} />
+            <StatChip label="إضافي" value={minutesToHHMM(totals.overtimeMinutes)} tone={totals.overtimeMinutes > 0 ? 'success' : 'default'} />
+            <StatChip label="نقص" value={minutesToHHMM(totals.shortageMinutes)} tone={totals.shortageMinutes > 0 ? 'danger' : 'default'} />
+          </div>
+          <div className="grid grid-cols-4 gap-2">
+            <StatChip label="فترات" value={String(totals.periodsTotal)} />
+            <StatChip label="حضر" value={String(totals.periodsAttended)} tone="success" />
+            <StatChip label="تأخر" value={String(totals.periodsLate)} tone="warn" />
+            <StatChip label="فائت" value={String(totals.periodsMissed)} tone="danger" />
+          </div>
+        </div>
+      ) : null}
+
+      {breakdown.periods.length > 0 ? (
+        <div className="space-y-3">
+          <p className="text-xs font-semibold text-muted-foreground">تحليل الفترات</p>
+          {breakdown.periods.map((period, index) => (
+            <PeriodCard
+              key={period.expected.periodId}
+              period={period}
+              index={index}
+              offsetMinutes={offsetMinutes}
+              unmatchedEvents={breakdown.unmatchedEvents}
+              singlePeriod={breakdown.periods.length === 1}
+            />
+          ))}
+        </div>
+      ) : dayActualWithoutPeriods ? (
+        <ActualRegistrationBlock actual={dayActualWithoutPeriods} offsetMinutes={offsetMinutes} />
+      ) : null}
+    </div>
+  );
+}
+
 export function AttendanceCorrectionRequestsClient() {
   const companyId = useDefaultCompanyId();
   const authUser = useAuthStore((s) => s.user);
@@ -94,24 +189,18 @@ export function AttendanceCorrectionRequestsClient() {
   const currentEmployeeId = currentEmployee?.id ?? null;
   const updatedByActor = authUser?.id ?? undefined;
   const departments = useHRConfigurationStore((s) => s.departments);
-  const { requestTypes, fetchRequestTypes, fetchDepartments } = useHRConfigurationStore();
+  const fetchDepartments = useHRConfigurationStore((s) => s.fetchDepartments);
   const employees = useHREmployeeDirectoryStore((s) => s.employees);
   const fetchEmployees = useHREmployeeDirectoryStore((s) => s.fetch);
   const activeEmployees = React.useMemo(() => employees.filter((e) => e.status === 'active'), [employees]);
 
-  const { submit, approve, reject, cancel } = useAttendanceCorrectionRequestsStore();
+  const { approve, reject, cancel } = useAttendanceCorrectionRequestsStore();
 
   React.useEffect(() => {
     if (!companyId) return;
-    fetchRequestTypes();
     fetchDepartments();
     fetchEmployees();
-  }, [companyId]);
-
-  const attendanceRequestTypes = React.useMemo(
-    () => requestTypes.filter(rt => rt.isActive),
-    [requestTypes],
-  );
+  }, [companyId, fetchDepartments, fetchEmployees]);
 
   const [appliedDept, setAppliedDept] = usePersistedFilterState(
     hrFiltersKey('requests', 'attendance-corrections', companyId, 'appliedDept'),
@@ -130,13 +219,40 @@ export function AttendanceCorrectionRequestsClient() {
   );
 
   const [dialogOpen, setDialogOpen] = React.useState(false);
-  const [formEmpId, setFormEmpId] = React.useState('');
-  const [formRequestTypeId, setFormRequestTypeId] = React.useState('');
-  const [formWorkDate, setFormWorkDate] = React.useState('');
-  const [formCorrIn, setFormCorrIn] = React.useState('');
-  const [formCorrOut, setFormCorrOut] = React.useState('');
-  const [formReason, setFormReason] = React.useState('');
   const [detailRow, setDetailRow] = React.useState<AttendanceCorrectionRequest | null>(null);
+  const [detailBreakdown, setDetailBreakdown] = React.useState<DailyBreakdownResponseDto | null>(null);
+  const [detailBreakdownLoading, setDetailBreakdownLoading] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!detailRow || !companyId) {
+      setDetailBreakdown(null);
+      return;
+    }
+    let cancelled = false;
+    setDetailBreakdownLoading(true);
+    attendanceEventsApi
+      .getDailyBreakdown({
+        employeeId: detailRow.employeeId,
+        workDate: detailRow.workDate,
+        companyId,
+        timezoneOffsetMinutes: defaultTimezoneOffsetMinutes(),
+      })
+      .then((data) => {
+        if (!cancelled) setDetailBreakdown(data);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          handleApiError(err, 'attendance/events/daily-breakdown');
+          setDetailBreakdown(null);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setDetailBreakdownLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [detailRow, companyId]);
   const [viewMode, setViewMode] = usePersistedFilterState<ViewMode>(
     hrFiltersKey('requests', 'attendance-corrections', companyId, 'viewMode'),
     'cards',
@@ -148,7 +264,6 @@ export function AttendanceCorrectionRequestsClient() {
   );
 
   const selectedEmpKey = React.useMemo(() => [...selectedEmpIds].sort().join(','), [selectedEmpIds]);
-  const bulkMode = appliedDept !== 'all' || selectedEmpIds.size > 1;
 
   const buildListQuery = React.useCallback((page: number, pageSize: number) => ({
     companyId: companyId!,
@@ -157,36 +272,20 @@ export function AttendanceCorrectionRequestsClient() {
     ...(statusFilter !== 'all' ? { status: statusFilter } : {}),
     ...(dateBounds.from ? { workDateFrom: dateBounds.from } : {}),
     ...(dateBounds.to ? { workDateTo: dateBounds.to } : {}),
-    ...(selectedEmpIds.size === 1 ? { employeeId: [...selectedEmpIds][0] } : {}),
-  }), [companyId, statusFilter, dateBounds.from, dateBounds.to, selectedEmpIds]);
-
-  const applyDeptFilter = React.useCallback((rows: AttendanceCorrectionRequest[]) => {
-    if (appliedDept === 'all') return rows;
-    const deptName = departments.find((d) => d.id === appliedDept)?.nameAr ?? appliedDept;
-    return rows.filter((r) => r.departmentNameAr === deptName);
-  }, [appliedDept, departments]);
+    ...(selectedEmpIds.size > 0 ? { employeeIds: [...selectedEmpIds] } : {}),
+    ...(appliedDept !== 'all' ? { departmentId: appliedDept } : {}),
+  }), [companyId, statusFilter, dateBounds.from, dateBounds.to, selectedEmpIds, appliedDept]);
 
   const loadPage = React.useCallback(async (page: number, pageSize: number) => {
     if (!companyId) return { items: [] as AttendanceCorrectionRequest[], total: 0 };
     try {
       const res = await correctionRequestsApi.list(buildListQuery(page, pageSize));
-      const items = applyDeptFilter(res.items.map(mapCorrectionRequest));
-      return { items, total: appliedDept === 'all' ? res.pagination.total : items.length };
+      const items = res.items.map((r) => mapCorrectionRequest(r, res.approvalAssignments));
+      return { items, total: res.pagination.total };
     } catch {
       return { items: [], total: 0 };
     }
-  }, [applyDeptFilter, appliedDept, buildListQuery, companyId]);
-
-  const loadBulk = React.useCallback(async () => {
-    if (!companyId) return { items: [] as AttendanceCorrectionRequest[], total: 0 };
-    const res = await fetchAllPaginatedItems((page, limit) => correctionRequestsApi.list(buildListQuery(page, limit)));
-    let items = res.items.map(mapCorrectionRequest);
-    if (selectedEmpIds.size > 1) {
-      items = items.filter((r) => selectedEmpIds.has(r.employeeId));
-    }
-    items = applyDeptFilter(items);
-    return { items, total: items.length };
-  }, [applyDeptFilter, buildListQuery, companyId, selectedEmpIds]);
+  }, [buildListQuery, companyId]);
 
   const {
     items: sorted,
@@ -195,8 +294,6 @@ export function AttendanceCorrectionRequestsClient() {
     reload: reloadList,
   } = useServerDirectoryPagination<AttendanceCorrectionRequest>(loadPage, {
     enabled: !!companyId,
-    bulkMode,
-    loadBulk: bulkMode ? loadBulk : undefined,
     resetDeps: [companyId, appliedDept, statusFilter, dateBounds.from, dateBounds.to, selectedEmpKey],
   });
 
@@ -210,41 +307,9 @@ export function AttendanceCorrectionRequestsClient() {
     [sorted, pagination.total],
   );
 
-  const resetForm = React.useCallback(() => {
-    setFormEmpId('');
-    setFormRequestTypeId('');
-    setFormWorkDate('');
-    setFormCorrIn('');
-    setFormCorrOut('');
-    setFormReason('');
-  }, []);
-
   const openNew = React.useCallback(() => {
-    resetForm();
-    if (activeEmployees.length) setFormEmpId(activeEmployees[0]!.id);
-    if (attendanceRequestTypes.length) setFormRequestTypeId(attendanceRequestTypes[0]!.id);
     setDialogOpen(true);
-  }, [activeEmployees, attendanceRequestTypes, resetForm]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const res = await submit({
-      employeeId: formEmpId,
-      requestTypeId: formRequestTypeId,
-      workDate: formWorkDate,
-      correctedCheckIn: formCorrIn,
-      correctedCheckOut: formCorrOut,
-      reasonAr: formReason.trim(),
-    });
-    if (res.ok === false) {
-      toast.error(res.error);
-      return;
-    }
-    toast.success('تم تسجيل طلب التصحيح — قيد الموافقة.');
-    resetForm();
-    setDialogOpen(false);
-    await reloadList();
-  };
+  }, []);
 
   const handleApprove = React.useCallback(async (r: AttendanceCorrectionRequest) => {
     if (!companyId || !currentEmployeeId) return;
@@ -630,72 +695,21 @@ export function AttendanceCorrectionRequestsClient() {
         )}
       </div>
 
-      <Dialog open={dialogOpen} onOpenChange={(o) => { if (!o) resetForm(); setDialogOpen(o); }}>
-        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto" dir="rtl">
-          <form onSubmit={handleSubmit}>
-            <DialogHeader>
-              <DialogTitle>طلب تصحيح حضور</DialogTitle>
-              <DialogDescription>
-                أدخل الموظف وتاريخ التصحيح والأوقات المصححة وسبب الطلب.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-2">
-              <FormField label="الموظف مقدّم الطلب">
-                <Select value={formEmpId} onValueChange={setFormEmpId}>
-                  <SelectTrigger><SelectValue placeholder="اختر الموظف…" /></SelectTrigger>
-                  <SelectContent>
-                    {activeEmployees.map((e) => (
-                      <SelectItem key={e.id} value={e.id}>{e.nameAr}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </FormField>
-              <FormField label="نوع الطلب">
-                <Select value={formRequestTypeId} onValueChange={setFormRequestTypeId}>
-                  <SelectTrigger><SelectValue placeholder="اختر نوع الطلب…" /></SelectTrigger>
-                  <SelectContent>
-                    {attendanceRequestTypes.length === 0 ? (
-                      <SelectItem value="__none__" disabled>لا توجد أنواع طلبات للحضور — أضفها من إعدادات أنواع الطلبات</SelectItem>
-                    ) : (
-                      attendanceRequestTypes.map((rt) => (
-                        <SelectItem key={rt.id} value={rt.id}>{rt.nameAr}</SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
-              </FormField>
-              <FormField label="تاريخ التصحيح">
-                <DatePickerInput value={formWorkDate} onChange={setFormWorkDate} />
-              </FormField>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label className="text-xs font-medium">وقت الحضور الجديد</Label>
-                  <ModernTimePicker value={formCorrIn} onChange={setFormCorrIn} placeholder="اختر الوقت" />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-xs font-medium">وقت الانصراف الجديد  </Label>
-                  <ModernTimePicker value={formCorrOut} onChange={setFormCorrOut} placeholder="اختر الوقت" />
-                </div>
-              </div>
-              <FormField label="سبب الطلب (اختياري)">
-                <Textarea value={formReason} onChange={(e) => setFormReason(e.target.value)} rows={3} placeholder="تفاصيل إضافية للمراجع…" />
-              </FormField>
-            </div>
-            <DialogFooter className={dialogFormFooterClass}>
-              <Button type="submit" variant="luxe">تسجيل الطلب</Button>
-              <Button type="button" variant="outline" onClick={() => { setDialogOpen(false); resetForm(); }}>إلغاء</Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <AttendanceCorrectionRequestDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        companyId={companyId ?? undefined}
+        employees={activeEmployees.map((e) => ({ id: e.id, nameAr: e.nameAr }))}
+        onSuccess={() => void reloadList()}
+      />
 
       <Dialog open={detailRow != null} onOpenChange={(o) => !o && setDetailRow(null)}>
-        <DialogContent className="max-w-lg" dir="rtl">
-          <DialogHeader>
+        <DialogContent className="flex max-h-[90vh] max-w-lg flex-col gap-0 overflow-visible p-0" dir="rtl">
+          <DialogHeader className="shrink-0 border-b border-border px-5 py-4 text-right">
             <DialogTitle>تفاصيل طلب تصحيح الحضور</DialogTitle>
           </DialogHeader>
           {detailRow ? (
-            <div className="space-y-4">
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4">
               <div className="grid gap-3 sm:grid-cols-2">
                 <div><p className="text-xs text-muted-foreground">الموظف</p><p className="text-sm font-medium">{detailRow.employeeNameAr}</p></div>
                 <div><p className="text-xs text-muted-foreground">القسم</p><p className="text-sm font-medium">{detailRow.departmentNameAr || '—'}</p></div>
@@ -712,6 +726,7 @@ export function AttendanceCorrectionRequestsClient() {
                 <div className="sm:col-span-2"><p className="text-xs text-muted-foreground">السبب</p><p className="text-sm">{detailRow.reasonAr || '—'}</p></div>
                 <div className="sm:col-span-2"><p className="text-xs text-muted-foreground">ملاحظات القرار</p><p className="text-sm">{detailRow.decisionNotesAr || '—'}</p></div>
               </div>
+
               <RequestApproverStatesPanel states={detailRow.approverStates} />
               {canShowApprovalActions(detailRow) ? (
                 <RequestApprovalActionButtons
@@ -721,6 +736,20 @@ export function AttendanceCorrectionRequestsClient() {
                   onReject={() => void handleReject(detailRow)}
                 />
               ) : null}
+
+              {/* Daily attendance breakdown for the corrected day */}
+              <div className="space-y-3 border-t border-border/60 pt-4">
+                <p className="text-xs font-semibold text-muted-foreground">تحليل يوم الحضور</p>
+                {detailBreakdownLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  </div>
+                ) : detailBreakdown ? (
+                  <DetailBreakdownPanel breakdown={detailBreakdown} />
+                ) : (
+                  <p className="py-4 text-center text-xs text-muted-foreground">تعذّر تحميل التحليل التفصيلي</p>
+                )}
+              </div>
             </div>
           ) : null}
         </DialogContent>

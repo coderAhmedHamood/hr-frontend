@@ -19,6 +19,7 @@ import { Label } from '@/components/ui/label';
 import {
   EmptyState,
 } from '@/components/ui/shared-dialogs';
+import { ForbiddenState } from '@/components/shared/forbidden-state';
 import { useDisciplinePayrollDeductionsDirectoryModel } from '@/features/hr/discipline/deductions/hooks/useDisciplinePayrollDeductionsDirectoryModel';
 import {
   DEDUCTION_KIND_LABELS,
@@ -234,6 +235,10 @@ export function DeductionsClient() {
       onDateFilterMetaChange,
     ],
   );
+
+  if (m.accessDenied) {
+    return <ForbiddenState title="لا تملك صلاحية الوصول لاستقطاعات الرواتب" />;
+  }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">

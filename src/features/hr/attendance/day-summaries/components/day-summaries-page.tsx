@@ -2,7 +2,6 @@
 
 import * as React from 'react';
 import { CalendarRange } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
   DialogContent,
@@ -10,7 +9,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
-import { DataTable, type ColumnDef } from '@/components/ui/data-table';
+import { DataTable } from '@/components/ui/data-table';
 import { PagedListViewport, PaginatedListShell } from '@/components/ui/paged-list';
 import { TableDateCell } from '@/components/ui/table-cells';
 import { EmptyState } from '@/components/ui/shared-dialogs';
@@ -18,14 +17,11 @@ import { useAuthStore } from '@/features/auth/lib/auth-store';
 import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 import type { DaySummaryResponseDto } from '@/features/hr/attendance/types/api/attendance-day-summaries';
 import {
-  daySummaryStatusBadgeClass,
   daySummaryStatusLabel,
 } from '@/features/hr/attendance/day-summaries/constants/day-summary-labels';
 import { useDaySummariesDirectoryModel } from '@/features/hr/attendance/day-summaries/hooks/useDaySummariesDirectoryModel';
-import { DaySummaryMetricCell } from '@/features/hr/attendance/day-summaries/components/day-summary-metric-cell';
-import { DaySummarySettleButton } from '@/features/hr/attendance/day-summaries/components/day-summary-settle-button';
+import { useDaySummaryTableColumns } from '@/features/hr/attendance/day-summaries/hooks/useDaySummaryTableColumns';
 import { DaySummarySettleConfirmDialog } from '@/features/hr/attendance/day-summaries/components/day-summary-settle-confirm-dialog';
-import { DaySummaryOvertimePayrollToggle } from '@/features/hr/attendance/day-summaries/components/day-summary-overtime-payroll-toggle';
 import { buildSettleDaySummaryPayload } from '@/features/hr/attendance/day-summaries/utils/day-summary-settle';
 import { attendanceDaySummariesApi } from '@/features/hr/attendance/lib/api/attendance-day-summaries';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
@@ -34,7 +30,6 @@ import { formatDaySummaryMetric } from '@/features/hr/attendance/day-summaries/u
 import { computePunchSpanMinutes } from '@/features/hr/attendance/day-summaries/utils/day-summary-metrics';
 import { RecomputeDaySummariesDialog } from '@/features/hr/attendance/daily/dialogs/recompute-day-summaries-dialog';
 import { minutesToHHMM } from '@/features/hr/attendance/daily/utils/daily-attendance-format';
-import { cn } from '@/shared/utils';
 
 function DetailRow({
   label,
@@ -89,6 +84,10 @@ function DaySummaryDetailDialog({
           <DetailRow label="فعلي" value={formatDaySummaryMetric(row, 'total') ?? '—'} />
           <DetailRow label="تأخير" value={formatDaySummaryMetric(row, 'late') ?? '00:00'} />
           <DetailRow label="انصراف مبكر" value={formatDaySummaryMetric(row, 'earlyLeave') ?? '00:00'} />
+          <DetailRow
+            label="نقص"
+            value={formatDaySummaryMetric(row, 'shortage') ?? '00:00'}
+          />
           <DetailRow label="إضافي" value={formatDaySummaryMetric(row, 'overtime') ?? '00:00'} />
           <DetailRow
             label="إضافي رواتب"
@@ -136,7 +135,7 @@ export function DaySummariesPage() {
         settleRow.id,
         buildSettleDaySummaryPayload(updatedByActor),
       );
-      toast.success('تمت تسوية الحضور من الإضافي');
+      toast.success('تمت تسوية النقص من الإضافي');
       setSettleRow(null);
       await model.reload();
     } catch (err) {
@@ -169,117 +168,18 @@ export function DaySummariesPage() {
     [model, updatedByActor],
   );
 
-  const columns = React.useMemo((): ColumnDef<DaySummaryResponseDto>[] => [
-    {
-      key: 'employee',
-      title: 'الموظف',
-      render: (row) => (
-        <span className="font-medium">{row.employeeNameAr ?? '—'}</span>
-      ),
-    },
-    {
-      key: 'workDate',
-      title: 'اليوم',
-      render: (row) => <TableDateCell value={row.workDate} />,
-    },
-    {
-      key: 'status',
-      title: 'الحالة',
-      render: (row) => (
-        <Badge
-          variant="outline"
-          className={cn(
-            'text-[10px] font-normal',
-            daySummaryStatusBadgeClass(row.status),
-          )}
-        >
-          {daySummaryStatusLabel(row.status)}
-        </Badge>
-      ),
-    },
-    {
-      key: 'checkIn',
-      title: 'حضور',
-      hideOnMobile: true,
-      render: (row) => <TableDateCell value={row.actualCheckInAt} mode="datetime" />,
-    },
-    {
-      key: 'checkOut',
-      title: 'انصراف',
-      hideOnMobile: true,
-      render: (row) => <TableDateCell value={row.actualCheckOutAt} mode="datetime" />,
-    },
-    {
-      key: 'expected',
-      title: 'متوقع',
-      hideOnMobile: true,
-      render: (row) => <DaySummaryMetricCell row={row} metric="expected" />,
-    },
-    {
-      key: 'total',
-      title: 'فعلي',
-      render: (row) => <DaySummaryMetricCell row={row} metric="total" />,
-    },
-    {
-      key: 'late',
-      title: 'تأخير',
-      render: (row) => (
-        <DaySummaryMetricCell row={row} metric="late" emptyWhenZero tone="warn" />
-      ),
-    },
-    {
-      key: 'earlyLeave',
-      title: 'انصراف مبكر',
-      hideOnMobile: true,
-      render: (row) => (
-        <DaySummaryMetricCell row={row} metric="earlyLeave" emptyWhenZero tone="warn" />
-      ),
-    },
-    {
-      key: 'overtime',
-      title: 'إضافي',
-      render: (row) => (
-        <DaySummaryMetricCell row={row} metric="overtime" emptyWhenZero tone="success" />
-      ),
-    },
-    {
-      key: 'manual',
-      title: 'يدوي',
-      hideOnMobile: true,
-      render: (row) => (row.isManualOverride ? 'نعم' : '—'),
-    },
-    {
-      key: 'overtimePayroll',
-      title: 'إضافي رواتب',
-      hideOnMobile: true,
-      isActions: true,
-      headerClassName: 'text-center',
-      className: 'text-center',
-      render: (row) => (
-        <DaySummaryOvertimePayrollToggle
-          row={row}
-          disabled={overtimePayrollBusyId === row.id}
-          onToggle={handleOvertimePayrollToggle}
-        />
-      ),
-    },
-    {
-      key: 'settle',
-      title: 'تسوية',
-      isActions: true,
-      headerClassName: 'text-center',
-      className: 'text-center',
-      render: (row) => (
-        <DaySummarySettleButton row={row} onRequestSettle={setSettleRow} />
-      ),
-    },
-  ], [handleOvertimePayrollToggle, overtimePayrollBusyId, setSettleRow]);
+  const columns = useDaySummaryTableColumns({
+    visibility: model.columnVisibility,
+    overtimePayrollBusyId,
+    onOvertimePayrollToggle: handleOvertimePayrollToggle,
+    onRequestSettle: setSettleRow,
+  });
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <SetPageTitle
         titleAr="كشف الحضور"
-        descriptionAr="متوقع والفعلي مع تأخير، انصراف مبكر، وإضافي من الخادم."
+        descriptionAr="اختر الأعمدة من أيقونة «الأعمدة» — الموظف واليوم والحالة ثابتة."
         iconName="CalendarRange"
       />
 

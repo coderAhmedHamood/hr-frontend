@@ -14,6 +14,8 @@ import {
 } from '@/features/hr/payroll/lib/api/monthly-inputs';
 import { payrollPeriodsApi, type PayrollPeriodResponseDto } from '@/features/hr/payroll/lib/api/payroll-periods';
 import { formatPayrollPeriodLabel } from '@/features/hr/payroll/monthly-inputs/constants/monthly-input-labels';
+import { fetchEmployeeFilterPickerOptions } from '@/features/hr/lib/use-employee-filter-picker';
+import type { EmployeePickerOption } from '@/components/ui/employee-picker';
 
 const periodsCatalogCache = new Map<string, PayrollPeriodResponseDto[]>();
 let periodsCatalogInflight: { companyId: string; promise: Promise<PayrollPeriodResponseDto[]> } | null = null;
@@ -51,7 +53,12 @@ export function useMonthlyInputsDirectoryModel() {
   const companyId = useDefaultCompanyId();
 
   const [periods, setPeriods] = React.useState<PayrollPeriodResponseDto[]>([]);
+  const periodsFetchStarted = React.useRef(false);
   const [selectedEmpIds, setSelectedEmpIds] = React.useState<Set<string>>(new Set());
+
+  const [empPickerEmployees, setEmpPickerEmployees] = React.useState<EmployeePickerOption[]>([]);
+  const [employeePickerLoading, setEmployeePickerLoading] = React.useState(false);
+  const employeesFetchStarted = React.useRef(false);
 
   const [filters, setFilters] = React.useState<MonthlyInputsFilters>(() => ({
     payrollPeriodId: searchParams.get('period') ?? 'all',
@@ -68,18 +75,32 @@ export function useMonthlyInputsDirectoryModel() {
   }, [searchParams]);
 
   React.useEffect(() => {
-    if (!companyId) {
-      setPeriods([]);
-      return;
-    }
-    let cancelled = false;
-    void loadPayrollPeriodsCatalog(companyId).then((items) => {
-      if (!cancelled) setPeriods(items);
-    });
-    return () => {
-      cancelled = true;
-    };
+    periodsFetchStarted.current = false;
+    setPeriods([]);
+    employeesFetchStarted.current = false;
+    setEmpPickerEmployees([]);
+    setEmployeePickerLoading(false);
   }, [companyId]);
+
+  const loadPeriods = React.useCallback(() => {
+    if (!companyId || periodsFetchStarted.current) return;
+    periodsFetchStarted.current = true;
+    void loadPayrollPeriodsCatalog(companyId).then(setPeriods);
+  }, [companyId]);
+
+  const loadEmployeePicker = React.useCallback(() => {
+    if (!companyId || employeesFetchStarted.current) return;
+    employeesFetchStarted.current = true;
+    setEmployeePickerLoading(true);
+    void fetchEmployeeFilterPickerOptions(companyId)
+      .then(setEmpPickerEmployees)
+      .catch(() => setEmpPickerEmployees([]))
+      .finally(() => setEmployeePickerLoading(false));
+  }, [companyId]);
+
+  React.useEffect(() => {
+    if (filters.payrollPeriodId !== 'all') loadPeriods();
+  }, [filters.payrollPeriodId, loadPeriods]);
 
   const employeeId = selectedEmpIds.size === 1 ? [...selectedEmpIds][0] : undefined;
 
@@ -157,8 +178,12 @@ export function useMonthlyInputsDirectoryModel() {
     filters,
     patchFilters,
     periodOptions,
+    loadPeriods,
     selectedEmpIds,
     setSelectedEmpIds,
+    empPickerEmployees,
+    employeePickerLoading,
+    loadEmployeePicker,
     activeFilterCount,
     clearFilters,
     reload: reloadInputs,

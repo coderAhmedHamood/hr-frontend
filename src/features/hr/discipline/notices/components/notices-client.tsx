@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DatePickerInput } from '@/components/ui/date-picker-input';
+import { ForbiddenState } from '@/components/shared/forbidden-state';
 import {
   ConfirmationModal, HRSettingsFormDrawer, FormField,
   EmptyState, MinimalDropdown, SearchableDropdown,
@@ -61,7 +62,7 @@ const EMPTY: DraftForm = { employeeId: '', kind: 'verbal', reasonAr: '', date: '
 
 export function NoticesClient() {
   const hook = useDisciplineNoticesDirectoryModel();
-  const { employees, cases, loading, listError, createNotice, deleteNotice, setListFilters, items, pagination, filteredItems, dateFilteredItems, sourceNotices, companyId } = hook;
+  const { employees, cases, loading, listError, accessDenied, createNotice, deleteNotice, setListFilters, items, pagination, filteredItems, dateFilteredItems, sourceNotices, companyId } = hook;
 
   const { data: defaultCompany } = useDefaultCompany();
   const companyNameAr = defaultCompany?.nameAr ?? '';
@@ -294,6 +295,10 @@ export function NoticesClient() {
     ),
     [companyId, selectedEmpIds, kindFilter, statusCounts, viewMode, onDateBoundsChange, onDateFilterMetaChange],
   );
+
+  if (accessDenied) {
+    return <ForbiddenState title="لا تملك صلاحية الوصول للإنذارات" />;
+  }
 
   if (loading) {
     return <EntityActionCardGridSkeleton count={6} />;

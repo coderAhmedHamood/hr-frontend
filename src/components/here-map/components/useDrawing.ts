@@ -725,7 +725,6 @@ export function useDrawing(refs: HereMapRefs): DrawingState {
         }
       });
     } catch (err) {
-      console.warn("[loadBoundary] failed:", err);
     }
   }, [mapRef, finalGroupRef, clearAllShapes]);
 

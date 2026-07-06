@@ -39,6 +39,7 @@ import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import { duplicateAdvanceNumberMessage, isDuplicateAdvanceNumberError } from '@/features/hr/contracts/lib/employee-advance-errors';
 import { employeeAdvancesApi } from '@/features/hr/contracts/lib/api/employee-advances';
 import { fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
+import type { RequestApprovalAssignmentCatalogDto } from '@/features/hr/requests/types/api/overtime-requests';
 import {
   useHREmployeeAdvancesStore,
   mapEmployeeAdvanceFromApi,
@@ -63,11 +64,10 @@ import {
   EntityActionCard,
   EntityActionCardChip,
   EntityActionCardGrid,
-  EntityActionCardMetric,
-  EntityActionCardMetricsRow,
   type WorkflowStatusTone,
 } from '@/components/ui/entity-action-card';
 import { TableDateCell, TableRowActions } from '@/components/ui/table-cells';
+import { SarAmount } from '@/components/ui/sar-amount';
 
 type ViewMode = 'cards' | 'list';
 
@@ -117,16 +117,127 @@ const EMPTY_FORM: DraftForm = {
   monthlyInstallment: '',
 };
 
-function repaymentLine(x: HREmployeeAdvance): string {
+function AdvanceRepaymentLine({ x, className }: { x: HREmployeeAdvance; className?: string }) {
   if (x.repaymentMode === 'by_months' && x.repaymentMonths != null && x.repaymentMonths > 0) {
-    const per = x.amount / x.repaymentMonths;
-    return `${x.repaymentMonths} شهر · ≈ ${formatNumber(Math.round(per * 100) / 100)} ${x.currency}/شهر`;
+    const per = x.monthlyInstallmentAmount != null && x.monthlyInstallmentAmount > 0
+      ? x.monthlyInstallmentAmount
+      : Math.round((x.amount / x.repaymentMonths) * 100) / 100;
+    return (
+      <span className={cn('inline-flex items-center gap-1 whitespace-nowrap', className)}>
+        <span>{x.repaymentMonths} شهر ·</span>
+        <SarAmount currency={x.currency} iconClassName="h-3 w-3" suffix="/شهر">
+          {formatNumber(per)}
+        </SarAmount>
+      </span>
+    );
   }
   if (x.repaymentMode === 'by_monthly_amount' && x.monthlyInstallmentAmount != null && x.monthlyInstallmentAmount > 0) {
     const approxMonths = Math.ceil(x.amount / x.monthlyInstallmentAmount);
-    return `${formatNumber(x.monthlyInstallmentAmount)} ${x.currency}/شهر · ~${approxMonths} شهر`;
+    return (
+      <span className={cn('inline-flex items-center gap-1 whitespace-nowrap', className)}>
+        <SarAmount currency={x.currency} iconClassName="h-3 w-3" suffix="/شهر">
+          {formatNumber(x.monthlyInstallmentAmount)}
+        </SarAmount>
+        <span>· {approxMonths} شهر</span>
+      </span>
+    );
   }
-  return '—';
+  return <span className={className}>—</span>;
+}
+
+function AdvanceMetricCell({
+  label,
+  value,
+}: {
+  label: string;
+  value: React.ReactNode;
+}) {
+  return (
+    <div className="min-w-0 text-start">
+      <p className="text-[9px] text-muted-foreground">{label}</p>
+      <div className="text-start text-xs font-bold leading-snug">{value}</div>
+    </div>
+  );
+}
+
+function AdvanceCardMetrics({ x }: { x: HREmployeeAdvance }) {
+  const showProgress = x.totalRepaidAmount > 0 || x.remainingAmount > 0;
+
+  return (
+    <div className="grid grid-cols-2 justify-items-start gap-x-4 gap-y-2.5 rounded-lg bg-muted/30 px-3 py-2.5 text-start">
+      <AdvanceMetricCell
+        label="المبلغ"
+        value={
+          <SarAmount currency={x.currency} className="font-mono">
+            {formatNumber(x.amount)}
+          </SarAmount>
+        }
+      />
+      <AdvanceMetricCell label="القسط" value={<AdvanceRepaymentLine x={x} />} />
+      {showProgress ? (
+        <>
+          <AdvanceMetricCell
+            label="السداد"
+            value={
+              <SarAmount currency={x.currency} className="font-mono">
+                {formatNumber(x.totalRepaidAmount)} / {formatNumber(x.amount)}
+              </SarAmount>
+            }
+          />
+          <AdvanceMetricCell
+            label="المتبقي"
+            value={
+              <SarAmount currency={x.currency} className="font-mono">
+                {formatNumber(x.remainingAmount)}
+              </SarAmount>
+            }
+          />
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+function AdvanceInstallmentTableCell({ x }: { x: HREmployeeAdvance }) {
+  if (
+    (x.repaymentMode !== 'by_months' || x.repaymentMonths == null || x.repaymentMonths <= 0)
+    && (x.repaymentMode !== 'by_monthly_amount' || x.monthlyInstallmentAmount == null || x.monthlyInstallmentAmount <= 0)
+  ) {
+    return <span className="text-xs text-muted-foreground">—</span>;
+  }
+
+  return (
+    <AdvanceRepaymentLine x={x} className="text-xs font-medium leading-snug text-foreground" />
+  );
+}
+
+function AdvancePaidTableCell({ x }: { x: HREmployeeAdvance }) {
+  const hasProgress =
+    x.totalRepaidAmount > 0
+    || x.remainingAmount > 0
+    || x.status === 'repaying'
+    || x.status === 'fully_repaid'
+    || x.status === 'disbursed';
+
+  if (!hasProgress) return <span className="text-xs text-muted-foreground">—</span>;
+
+  return (
+    <SarAmount currency={x.currency} className="whitespace-nowrap text-xs font-medium">
+      {formatNumber(x.totalRepaidAmount)} / {formatNumber(x.amount)}
+    </SarAmount>
+  );
+}
+
+function AdvanceRemainingTableCell({ x }: { x: HREmployeeAdvance }) {
+  if (x.remainingAmount <= 0) {
+    return <span className="text-xs text-muted-foreground">—</span>;
+  }
+
+  return (
+    <SarAmount currency={x.currency} className="whitespace-nowrap text-xs font-medium">
+      {formatNumber(x.remainingAmount)}
+    </SarAmount>
+  );
 }
 
 function isEditable(status: HREmployeeAdvanceStatus): boolean {
@@ -162,6 +273,24 @@ export function EmployeeAdvancesClient() {
   const empOptions = React.useMemo(() =>
     employees.map(e => ({ value: e.id, label: e.nameAr })),
     [employees],
+  );
+
+  const empPickerEmployees = React.useMemo(
+    () => employees.map((e) => ({ id: e.id, name: e.nameAr })),
+    [employees],
+  );
+
+  const employeeNameLookup = React.useCallback(
+    (employeeId: string) => employees.find((e) => e.id === employeeId)?.nameAr,
+    [employees],
+  );
+
+  const mapAdvanceRow = React.useCallback(
+    (
+      item: Parameters<typeof mapEmployeeAdvanceFromApi>[0],
+      catalog: RequestApprovalAssignmentCatalogDto[],
+    ) => mapEmployeeAdvanceFromApi(item, { catalog, employeeNameLookup }),
+    [employeeNameLookup],
   );
 
   const [statusFilter, setStatusFilter] = usePersistedFilterState<StatusFilter>(
@@ -214,32 +343,37 @@ export function EmployeeAdvancesClient() {
     try {
       const res = await employeeAdvancesApi.list(buildListQuery(page, pageSize));
       return {
-        items: sortAdvances(res.items.map(mapEmployeeAdvanceFromApi)),
+        items: sortAdvances(res.items.map((item) => mapAdvanceRow(item, res.approvalAssignments))),
         total: res.pagination.total,
       };
     } catch (e) {
       handleApiError(e, 'employee-advances/fetch');
       return { items: [], total: 0 };
     }
-  }, [buildListQuery, companyId, sortAdvances]);
+  }, [buildListQuery, companyId, mapAdvanceRow, sortAdvances]);
 
   const loadBulk = React.useCallback(async () => {
     if (!companyId) return { items: [] as HREmployeeAdvance[], total: 0 };
     try {
-      const res = await fetchAllPaginatedItems((page, limit) =>
-        employeeAdvancesApi.list(buildListQuery(page, limit)),
-      );
+      const catalogsById = new Map<string, RequestApprovalAssignmentCatalogDto>();
+      const res = await fetchAllPaginatedItems<HREmployeeAdvance>(async (page, limit) => {
+        const full = await employeeAdvancesApi.list(buildListQuery(page, limit));
+        full.approvalAssignments.forEach((a) => catalogsById.set(a.id, a));
+        const catalog = [...catalogsById.values()];
+        return {
+          items: full.items.map((item) => mapAdvanceRow(item, catalog)),
+          pagination: full.pagination,
+        };
+      });
       const items = sortAdvances(
-        res.items
-          .map(mapEmployeeAdvanceFromApi)
-          .filter((x) => selectedEmpIds.has(x.employeeId)),
+        res.items.filter((x) => selectedEmpIds.has(x.employeeId)),
       );
       return { items, total: items.length };
     } catch (e) {
       handleApiError(e, 'employee-advances/fetch');
       return { items: [], total: 0 };
     }
-  }, [buildListQuery, companyId, selectedEmpIds, sortAdvances]);
+  }, [buildListQuery, companyId, mapAdvanceRow, selectedEmpIds, sortAdvances]);
 
   const {
     items: sorted,
@@ -456,24 +590,33 @@ export function EmployeeAdvancesClient() {
       try {
         const res = bulkMode
           ? await loadBulk()
-          : await fetchAllPaginatedItems((page, limit) =>
-              employeeAdvancesApi.list(buildListQuery(page, limit)),
-            ).then((res) => ({
-              items: sortAdvances(res.items.map(mapEmployeeAdvanceFromApi)),
-              total: res.total,
-            }));
+          : await (async () => {
+              const catalogsById = new Map<string, RequestApprovalAssignmentCatalogDto>();
+              const fetched = await fetchAllPaginatedItems<HREmployeeAdvance>(async (page, limit) => {
+                const full = await employeeAdvancesApi.list(buildListQuery(page, limit));
+                full.approvalAssignments.forEach((a) => catalogsById.set(a.id, a));
+                const catalog = [...catalogsById.values()];
+                return {
+                  items: full.items.map((item) => mapAdvanceRow(item, catalog)),
+                  pagination: full.pagination,
+                };
+              });
+              return {
+                items: sortAdvances(fetched.items),
+                total: fetched.total,
+              };
+            })();
         exportRows = res.items;
       } catch (e) {
         handleApiError(e, 'employee-advances/export');
         return;
       }
     }
-    const rows = [['رقم السلفة', 'الموظف', 'المبلغ', 'العملة', 'نوع السلفة', 'آلية القسط', 'عدد الأشهر', 'القسط الشهري', 'التاريخ', 'الحالة', 'السبب']];
+    const rows = [['رقم السلفة', 'الموظف', 'المبلغ', 'نوع السلفة', 'آلية القسط', 'عدد الأشهر', 'القسط الشهري', 'التاريخ', 'الحالة', 'السبب']];
     exportRows.forEach(x => rows.push([
       x.advanceNumber,
       x.employeeNameAr,
       String(x.amount),
-      x.currency,
       ADVANCE_KIND_LABELS[x.advanceKind],
       REPAYMENT_MODE_LABELS[x.repaymentMode],
       x.repaymentMonths != null ? String(x.repaymentMonths) : '',
@@ -512,14 +655,18 @@ export function EmployeeAdvancesClient() {
     {
       key: 'amount',
       title: 'المبلغ',
+      className: 'whitespace-nowrap',
       render: (x) => (
-        <span className="tabular-nums font-medium">{formatNumber(x.amount)} {x.currency}</span>
+        <SarAmount currency={x.currency} className="font-medium">
+          {formatNumber(x.amount)}
+        </SarAmount>
       ),
     },
     {
       key: 'kind',
       title: 'النوع',
       hideOnMobile: true,
+      className: 'whitespace-nowrap',
       render: (x) => ADVANCE_KIND_LABELS[x.advanceKind],
     },
     {
@@ -534,37 +681,47 @@ export function EmployeeAdvancesClient() {
     {
       key: 'status',
       title: 'الحالة',
+      className: 'whitespace-nowrap',
       render: (x) => (
-        <Badge variant="outline" className={cn('text-[10px]', STATUS_COLORS[x.status])}>
+        <Badge variant="outline" className={cn('whitespace-nowrap text-[10px]', STATUS_COLORS[x.status])}>
           {ADVANCE_STATUS_LABELS[x.status]}
         </Badge>
       ),
     },
     {
-      key: 'repayment',
+      key: 'installment',
+      title: 'القسط',
+      hideOnMobile: true,
+      className: 'whitespace-nowrap',
+      render: (x) => <AdvanceInstallmentTableCell x={x} />,
+    },
+    {
+      key: 'paid',
       title: 'السداد',
       hideOnMobile: true,
-      render: (x) => (
-        <div className="text-xs text-muted-foreground space-y-0.5">
-          <p>{repaymentLine(x)}</p>
-          {(x.status === 'repaying' || x.status === 'fully_repaid' || x.remainingAmount > 0) ? (
-            <p className="tabular-nums" dir="ltr">
-              متبقي: {formatNumber(x.remainingAmount)} {x.currency}
-            </p>
-          ) : null}
-        </div>
-      ),
+      className: 'whitespace-nowrap',
+      render: (x) => <AdvancePaidTableCell x={x} />,
+    },
+    {
+      key: 'remaining',
+      title: 'المتبقي',
+      hideOnMobile: true,
+      className: 'whitespace-nowrap',
+      render: (x) => <AdvanceRemainingTableCell x={x} />,
     },
     {
       key: 'approvers',
       title: 'مسار الموافقة',
-      hideOnMobile: true,
+      headerClassName: 'whitespace-nowrap',
+      className: 'min-w-[14rem]',
       render: (x) => <RequestApproversInline states={x.approverStates} />,
     },
     {
       key: 'decisionNotes',
       title: 'ملاحظات القرار',
       hideOnMobile: true,
+      headerClassName: 'whitespace-nowrap min-w-[6.5rem]',
+      className: 'min-w-[6.5rem]',
       render: (x) => (
         <span className="line-clamp-2 max-w-[12rem] text-xs text-muted-foreground" title={x.decisionNotes || undefined}>
           {x.decisionNotes || '—'}
@@ -652,6 +809,7 @@ export function EmployeeAdvancesClient() {
         onPeriodChange={setDateBounds}
         onDateBoundsChange={setDateBounds}
         companyId={companyId}
+        empPickerEmployees={empPickerEmployees}
         selectedEmpIds={selectedEmpIds}
         onSelectedEmpIdsChange={setSelectedEmpIds}
         statusFilter={statusFilter}
@@ -679,6 +837,7 @@ export function EmployeeAdvancesClient() {
     [
       statusFilter,
       selectedEmpKey,
+      empPickerEmployees,
       dateBounds.from,
       dateBounds.to,
       advanceStatusCounts.all,
@@ -706,7 +865,7 @@ export function EmployeeAdvancesClient() {
               <DataTable
                 variant="directory"
                 alwaysShowTable
-                tableClassName="min-w-[1200px]"
+                tableClassName="min-w-[1280px]"
                 columns={columns}
                 data={pageItems}
                 keyExtractor={(x) => x.id}
@@ -749,16 +908,7 @@ export function EmployeeAdvancesClient() {
                     <EntityActionCardChip>{ADVANCE_KIND_LABELS[x.advanceKind]}</EntityActionCardChip>
                   </>
                 }
-                metrics={
-                  <EntityActionCardMetricsRow>
-                    <EntityActionCardMetric
-                      label="المبلغ"
-                      value={`${formatNumber(x.amount)} ${x.currency}`}
-                      dir="ltr"
-                    />
-                    <EntityActionCardMetric label="القسط" value={repaymentLine(x)} />
-                  </EntityActionCardMetricsRow>
-                }
+                metrics={<AdvanceCardMetrics x={x} />}
                 description={
                   [advanceReasonText(x), x.decisionNotes?.trim() ? `ملاحظات القرار: ${x.decisionNotes}` : '']
                     .filter(Boolean)
@@ -776,13 +926,10 @@ export function EmployeeAdvancesClient() {
                     : undefined
                 }
                 footerNote={
-                  x.approvedAt || x.disbursedAt || x.remainingAmount > 0 ? (
+                  x.approvedAt || x.disbursedAt ? (
                     <div className="space-y-0.5 text-[10px] text-muted-foreground">
                       {x.approvedAt ? <p>تاريخ الاعتماد: {x.approvedAt.slice(0, 10)}</p> : null}
                       {x.disbursedAt ? <p>تاريخ الصرف: {x.disbursedAt.slice(0, 10)}</p> : null}
-                      {x.remainingAmount > 0 ? (
-                        <p dir="ltr">متبقي: {formatNumber(x.remainingAmount)} {x.currency}</p>
-                      ) : null}
                     </div>
                   ) : undefined
                 }
@@ -815,7 +962,6 @@ export function EmployeeAdvancesClient() {
                   ) : undefined
                 }
               >
-                <RequestApproversInline states={x.approverStates} />
                 <RequestApproverStatesPanel
                   states={x.approverStates}
                   compact
@@ -892,7 +1038,10 @@ export function EmployeeAdvancesClient() {
           <MinimalDropdown
             value={form.currency}
             onChange={v => patch({ currency: v })}
-            options={[{ value: 'SAR', label: 'SAR' }, { value: 'USD', label: 'USD' }]}
+            options={[
+              { value: 'SAR', label: 'ريال سعودي' },
+              { value: 'USD', label: 'دولار أمريكي' },
+            ]}
           />
         </FormField>
         <FormField label="تاريخ السلفة" required>
@@ -952,7 +1101,9 @@ export function EmployeeAdvancesClient() {
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">المبلغ</p>
-                  <p className="text-sm font-medium tabular-nums">{formatNumber(detailAdvance.amount)} {detailAdvance.currency}</p>
+                  <SarAmount currency={detailAdvance.currency} className="text-sm font-medium">
+                    {formatNumber(detailAdvance.amount)}
+                  </SarAmount>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">تاريخ السلفة</p>
@@ -968,7 +1119,7 @@ export function EmployeeAdvancesClient() {
                 </div>
                 <div className="sm:col-span-2">
                   <p className="text-xs text-muted-foreground">آلية السداد</p>
-                  <p className="text-sm">{repaymentLine(detailAdvance)}</p>
+                  <AdvanceRepaymentLine x={detailAdvance} className="text-sm" />
                 </div>
                 {advanceReasonText(detailAdvance) ? (
                   <div className="sm:col-span-2">
@@ -976,10 +1127,28 @@ export function EmployeeAdvancesClient() {
                     <p className="text-sm">{advanceReasonText(detailAdvance)}</p>
                   </div>
                 ) : null}
-                {detailAdvance.remainingAmount > 0 ? (
+                {detailAdvance.totalRepaidAmount > 0 || detailAdvance.remainingAmount > 0 ? (
+                  <>
+                    <div>
+                      <p className="text-xs text-muted-foreground">المبلغ المسدّد</p>
+                      <SarAmount currency={detailAdvance.currency} className="text-sm font-medium">
+                        {formatNumber(detailAdvance.totalRepaidAmount)}
+                      </SarAmount>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">المبلغ المتبقي</p>
+                      <SarAmount currency={detailAdvance.currency} className="text-sm font-medium">
+                        {formatNumber(detailAdvance.remainingAmount)}
+                      </SarAmount>
+                    </div>
+                  </>
+                ) : null}
+                {detailAdvance.monthlyInstallmentAmount != null && detailAdvance.monthlyInstallmentAmount > 0 ? (
                   <div>
-                    <p className="text-xs text-muted-foreground">المبلغ المتبقي</p>
-                    <p className="text-sm font-medium tabular-nums">{formatNumber(detailAdvance.remainingAmount)} {detailAdvance.currency}</p>
+                    <p className="text-xs text-muted-foreground">القسط الشهري</p>
+                    <SarAmount currency={detailAdvance.currency} className="text-sm font-medium">
+                      {formatNumber(detailAdvance.monthlyInstallmentAmount!)}
+                    </SarAmount>
                   </div>
                 ) : null}
                 {detailAdvance.disbursedAt ? (

@@ -68,8 +68,8 @@ export function formatPayrollPeriodLabel(year: number | null, month: number | nu
   return name ? `${name} ${year}` : `${month}/${year}`;
 }
 
-export function formatAmount(amount: string | number, currency: string): string {
-  const n = typeof amount === 'string' ? parseFloat(amount) : amount;
-  if (Number.isNaN(n)) return '—';
-  return `${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
+import { formatMoneyDigits } from '@/shared/utils';
+
+export function formatAmount(amount: string | number, _currency?: string): string {
+  return formatMoneyDigits(amount, 2);
 }

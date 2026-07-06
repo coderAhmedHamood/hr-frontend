@@ -2,33 +2,37 @@
 
 import * as React from 'react';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
-import { fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
+import { resolveDirectoryLoadFailure } from '@/features/hr/lib/api/directory-load-error';
 import { useServerDirectoryPagination } from '@/components/ui/paged-list';
 import { resolveOrganizationScope } from '@/features/hr/organization/lib/api/organization-context';
 import { auditLogsApi, type AuditLogResponseDto } from '@/features/hr/discipline/lib/api/audit-logs';
 import type { HRDisciplineAuditCategory, HRDisciplineAuditAction } from '@/features/hr/discipline/lib/discipline-audit-log';
-import {
-  AUDIT_ACTION_LABELS_AR,
-  AUDIT_CATEGORY_LABELS_AR,
-} from '@/features/hr/discipline/lib/discipline-audit-log';
-import { dateToYMD, matchesDateRange } from '@/features/hr/discipline/lib/discipline-date-filter';
 
-const DISCIPLINE_ENTITY_PREFIX = 'hr_job_discipline_';
+const DISCIPLINE_ENTITY_CONTAINS = 'hr_job_discipline_';
 
-const DISCIPLINE_ENTITY_NAMES = new Set([
-  'hr_job_discipline_violation_records',
-  'hr_job_discipline_notices',
-  'hr_job_discipline_circulars',
-  'hr_job_discipline_investigations',
-  'hr_job_discipline_appeals',
-  'hr_job_discipline_payroll_deductions',
-  'hr_job_discipline_approval_templates',
-]);
+/** categories other than these map to the shared 'violation_case' bucket */
+const CATEGORY_TO_ENTITY_NAMES: Record<HRDisciplineAuditCategory, string[] | null> = {
+  investigation: ['hr_job_discipline_investigations'],
+  appeal: ['hr_job_discipline_appeals'],
+  violation_case: [
+    'hr_job_discipline_violation_records',
+    'hr_job_discipline_notices',
+    'hr_job_discipline_circulars',
+    'hr_job_discipline_payroll_deductions',
+    'hr_job_discipline_approval_templates',
+  ],
+};
 
-function isDisciplineAuditEntity(entityName: string): boolean {
-  const name = entityName.trim();
-  return name.startsWith(DISCIPLINE_ENTITY_PREFIX) || DISCIPLINE_ENTITY_NAMES.has(name);
-}
+const ACTION_TYPE_TO_RAW: Record<HRDisciplineAuditAction, string[]> = {
+  create: ['CREATE'],
+  update: ['UPDATE', 'PATCH'],
+  delete: ['DELETE', 'REMOVE'],
+  submit: ['SUBMIT'],
+  approve: ['APPROVE'],
+  reject: ['REJECT'],
+  request_edit: ['REQUEST_EDIT'],
+  payroll_posted: ['PAYROLL_POSTED'],
+};
 
 const ENTITY_TO_CATEGORY: Record<string, HRDisciplineAuditCategory> = {
   hr_job_discipline_violation_records: 'violation_case',
@@ -102,184 +106,144 @@ function dtoToEntry(dto: AuditLogResponseDto): AuditLogEntry {
   };
 }
 
-function occurredAtToYmd(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  return dateToYMD(d);
-}
-
-function applyAuditLogFilters(
-  entries: AuditLogEntry[],
-  filters: AuditLogListFilters,
-  actionLabels: Record<HRDisciplineAuditAction, string>,
-  categoryLabels: Record<HRDisciplineAuditCategory, string>,
-): AuditLogEntry[] {
-  const q = filters.q.trim().toLowerCase();
-  const selectedActors = new Set(filters.selectedActorIds);
-
-  const searchAndActorFiltered = entries.filter((e) => {
-    if (filters.catFilter !== 'all' && e.category !== filters.catFilter) return false;
-    if (selectedActors.size > 0 && !selectedActors.has(e.actorNameAr.trim())) return false;
-    if (!q) return true;
-    const hay = [
-      e.recordRefAr, e.actorNameAr, e.recordStatusAfterAr,
-      e.previousSnapshotAr, e.currentSnapshotAr, e.recordId,
-      categoryLabels[e.category], actionLabels[e.actionType],
-    ].join('\n').toLowerCase();
-    return hay.includes(q);
-  });
-
-  const dateFiltered = searchAndActorFiltered.filter((e) =>
-    matchesDateRange(occurredAtToYmd(e.occurredAt), filters.dateFrom, filters.dateTo),
-  );
-
-  return filters.statusFilter === 'all'
-    ? dateFiltered
-    : dateFiltered.filter((e) => e.actionType === filters.statusFilter);
-}
-
 export function useDisciplineAuditLogDirectoryModel() {
   const [listFilters, setListFilters] = React.useState<AuditLogListFilters>(DEFAULT_LIST_FILTERS);
-  const [allEntries, setAllEntries] = React.useState<AuditLogEntry[]>([]);
+  const [actorPickerList, setActorPickerList] = React.useState<{ id: string; name: string }[]>([]);
+  const [actorPickerLoading, setActorPickerLoading] = React.useState(false);
   const [listError, setListError] = React.useState<string | null>(null);
+  const [apiAccessDenied, setApiAccessDenied] = React.useState(false);
 
-  const allEntriesRef = React.useRef<AuditLogEntry[]>([]);
-  const cacheInvalidRef = React.useRef(true);
-  const fetchPromiseRef = React.useRef<Promise<void> | null>(null);
+  const companyIdRef = React.useRef<string | undefined>(undefined);
+  const actorDirLoadedRef = React.useRef(false);
+  const actorDirLoadingRef = React.useRef(false);
 
-  const fetchAllEntries = React.useCallback(async () => {
-    if (fetchPromiseRef.current) {
-      await fetchPromiseRef.current;
-      return;
-    }
+  const buildListQuery = React.useCallback((page: number, pageSize: number) => ({
+    page,
+    limit: pageSize,
+    ...(companyIdRef.current ? { companyId: companyIdRef.current } : {}),
+    entityNameContains: DISCIPLINE_ENTITY_CONTAINS,
+    ...(listFilters.q.trim() ? { search: listFilters.q.trim() } : {}),
+    ...(listFilters.catFilter !== 'all' && CATEGORY_TO_ENTITY_NAMES[listFilters.catFilter]
+      ? { entityNames: CATEGORY_TO_ENTITY_NAMES[listFilters.catFilter] as string[] }
+      : {}),
+    ...(listFilters.selectedActorIds.length > 0 ? { actorNames: listFilters.selectedActorIds } : {}),
+    ...(listFilters.statusFilter !== 'all' ? { actions: ACTION_TYPE_TO_RAW[listFilters.statusFilter] } : {}),
+    ...(listFilters.dateFrom ? { occurredFrom: listFilters.dateFrom } : {}),
+    ...(listFilters.dateTo ? { occurredTo: listFilters.dateTo } : {}),
+  }), [listFilters]);
 
-    fetchPromiseRef.current = (async () => {
-      setListError(null);
-      try {
+  const loadPage = React.useCallback(async (page: number, pageSize: number) => {
+    setListError(null);
+    try {
+      if (companyIdRef.current === undefined) {
         const scope = await resolveOrganizationScope();
-        const cid = scope.companyId ?? undefined;
-        if (!cid) {
-          allEntriesRef.current = [];
-          setAllEntries([]);
-          cacheInvalidRef.current = false;
-          return;
-        }
-
-        const res = await fetchAllPaginatedItems((page, limit) =>
-          auditLogsApi.getAll({ companyId: cid, page, limit }),
-        );
-        const all = res.items
-          .filter((dto) => isDisciplineAuditEntity(dto.entityName))
-          .map(dtoToEntry);
-        all.sort((a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime());
-        allEntriesRef.current = all;
-        setAllEntries(all);
-        cacheInvalidRef.current = false;
-      } catch (err) {
-        const { displayMessage } = handleApiError(err, 'audit-logs.load');
-        setListError(displayMessage);
-        allEntriesRef.current = [];
-        setAllEntries([]);
-      } finally {
-        fetchPromiseRef.current = null;
+        companyIdRef.current = scope.companyId ?? undefined;
       }
-    })();
-
-    await fetchPromiseRef.current;
-  }, []);
-
-  const loadBulk = React.useCallback(async () => {
-    if (cacheInvalidRef.current) {
-      await fetchAllEntries();
+      const res = await auditLogsApi.getAll(buildListQuery(page, pageSize));
+      const items = res.items.map(dtoToEntry);
+      setApiAccessDenied(false);
+      return { items, total: res.pagination.total };
+    } catch (err) {
+      const failure = resolveDirectoryLoadFailure(err, 'audit-logs.load');
+      setApiAccessDenied(failure.accessDenied);
+      setListError(failure.listError);
+      return { items: [], total: 0 };
     }
-    const filtered = applyAuditLogFilters(
-      allEntriesRef.current,
-      listFilters,
-      AUDIT_ACTION_LABELS_AR,
-      AUDIT_CATEGORY_LABELS_AR,
-    );
-    return { items: filtered, total: filtered.length };
-  }, [fetchAllEntries, listFilters]);
+  }, [buildListQuery]);
 
   const {
     items,
     loading,
     pagination,
-    reload: reloadPaged,
-  } = useServerDirectoryPagination<AuditLogEntry>(
-    async () => ({ items: [], total: 0 }),
-    {
-      bulkMode: true,
-      loadBulk,
-      resetDeps: [
-        listFilters.q,
-        listFilters.catFilter,
-        listFilters.selectedActorIds.join(','),
-        listFilters.statusFilter,
-        listFilters.dateFrom,
-        listFilters.dateTo,
-      ],
-    },
-  );
+    reload,
+  } = useServerDirectoryPagination<AuditLogEntry>(loadPage, {
+    resetDeps: [
+      listFilters.q,
+      listFilters.catFilter,
+      listFilters.selectedActorIds.join(','),
+      listFilters.statusFilter,
+      listFilters.dateFrom,
+      listFilters.dateTo,
+    ],
+  });
 
-  const reload = React.useCallback(async () => {
-    cacheInvalidRef.current = true;
-    await reloadPaged();
-  }, [reloadPaged]);
-
-  const actorPickerList = React.useMemo(() => {
-    const names = new Set<string>();
-    for (const e of allEntries) {
-      if (e.actorNameAr?.trim()) names.add(e.actorNameAr.trim());
-    }
-    return [...names].sort((a, b) => a.localeCompare(b, 'ar')).map((name) => ({ id: name, name }));
-  }, [allEntries]);
-
-  const searchFilteredItems = React.useMemo(() => {
-    const q = listFilters.q.trim().toLowerCase();
-    const selectedActors = new Set(listFilters.selectedActorIds);
-    return allEntries.filter((e) => {
-      if (listFilters.catFilter !== 'all' && e.category !== listFilters.catFilter) return false;
-      if (selectedActors.size > 0 && !selectedActors.has(e.actorNameAr.trim())) return false;
-      if (!q) return true;
-      const hay = [
-        e.recordRefAr, e.actorNameAr, e.recordStatusAfterAr,
-        e.previousSnapshotAr, e.currentSnapshotAr, e.recordId,
-        AUDIT_CATEGORY_LABELS_AR[e.category], AUDIT_ACTION_LABELS_AR[e.actionType],
-      ].join('\n').toLowerCase();
-      return hay.includes(q);
+  const mergeActorPickerEntries = React.useCallback((entries: Iterable<{ id: string; name: string }>) => {
+    setActorPickerList((prev) => {
+      const merged = new Map(prev.map((entry) => [entry.id, entry]));
+      for (const entry of entries) merged.set(entry.id, entry);
+      const next = [...merged.values()].sort((a, b) => a.name.localeCompare(b.name, 'ar'));
+      if (next.length === prev.length && next.every((entry, index) => entry.id === prev[index]?.id)) {
+        return prev;
+      }
+      return next;
     });
-  }, [allEntries, listFilters]);
+  }, []);
 
-  const dateFilteredItems = React.useMemo(
-    () => searchFilteredItems.filter((e) =>
-      matchesDateRange(occurredAtToYmd(e.occurredAt), listFilters.dateFrom, listFilters.dateTo),
-    ),
-    [listFilters.dateFrom, listFilters.dateTo, searchFilteredItems],
-  );
+  React.useEffect(() => {
+    const entries: { id: string; name: string }[] = [];
+    for (const item of items) {
+      const name = item.actorNameAr.trim();
+      if (!name || name === 'غير محدد') continue;
+      entries.push({ id: name, name });
+    }
+    if (entries.length > 0) mergeActorPickerEntries(entries);
+  }, [items, mergeActorPickerEntries]);
 
-  const filteredItems = React.useMemo(
-    () => applyAuditLogFilters(
-      allEntries,
-      listFilters,
-      AUDIT_ACTION_LABELS_AR,
-      AUDIT_CATEGORY_LABELS_AR,
-    ),
-    [allEntries, listFilters],
-  );
+  // Lazily loads a bounded, recent window of actor names for the filter picker
+  // (there is no dedicated distinct-actors endpoint — this is an approximation,
+  // not an exhaustive list of every actor that has ever appeared in the log).
+  const loadActorDirectory = React.useCallback(async () => {
+    if (actorDirLoadedRef.current || actorDirLoadingRef.current) return;
+    actorDirLoadingRef.current = true;
+    setActorPickerLoading(true);
+    try {
+      if (companyIdRef.current === undefined) {
+        const scope = await resolveOrganizationScope();
+        companyIdRef.current = scope.companyId ?? undefined;
+      }
+      const res = await auditLogsApi.getAll({
+        ...(companyIdRef.current ? { companyId: companyIdRef.current } : {}),
+        entityNameContains: DISCIPLINE_ENTITY_CONTAINS,
+        page: 1,
+        limit: 500,
+      });
+      const names = new Set<string>();
+      for (const dto of res.items) {
+        const name = (dto.actorName ?? dto.actorEmail ?? '').trim();
+        if (name) names.add(name);
+      }
+      mergeActorPickerEntries(
+        [...names].sort((a, b) => a.localeCompare(b, 'ar')).map((name) => ({ id: name, name })),
+      );
+      actorDirLoadedRef.current = true;
+    } catch {
+      // actor picker is optional — page still works without it
+    } finally {
+      actorDirLoadingRef.current = false;
+      setActorPickerLoading(false);
+    }
+  }, [mergeActorPickerEntries]);
+
+  // Server applies all list filters now; kept as aliases for existing consumers.
+  const filteredItems = items;
+  const dateFilteredItems = items;
+  const searchFilteredItems = items;
 
   return {
     items,
     filteredItems,
     dateFilteredItems,
     searchFilteredItems,
-    allEntries,
+    allEntries: items,
     actorPickerList,
+    actorPickerLoading,
     loading,
     pagination,
     listError,
+    accessDenied: apiAccessDenied,
     listFilters,
     setListFilters,
+    loadActorDirectory,
     reload,
   };
 }

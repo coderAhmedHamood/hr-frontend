@@ -7,11 +7,11 @@ import { CreateUserAttentionButton } from '@/features/hr/organization/employees/
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { MultiSelect, type MultiSelectOption } from '@/components/ui/multi-select';
-import { hrPermissionsHref } from '@/features/hr/permissions/constants/routes';
-import { RolesAssignmentEditor } from '@/features/hr/permissions/components/roles-assignment-editor';
-import { permissionLabel } from '@/features/hr/permissions/lib/permission-labels';
+import { systemPermissionsHref } from '@/features/system/permissions/constants/routes';
+import { RolesAssignmentEditor } from '@/components/shared/permissions/roles-assignment-editor';
+import { permissionLabel } from '@/components/shared/permissions/permission-labels';
 import type { EmployeeProfileModel } from '@/features/hr/organization/employees/hooks/useEmployeeProfileModel';
-import type { PermissionResponseDto } from '@/features/hr/permissions/lib/api/permissions';
+import type { PermissionResponseDto } from '@/features/system/permissions/lib/api/permissions';
 import { cn } from '@/shared/utils';
 
 function SummaryPill({
@@ -194,7 +194,7 @@ export function EmployeePermissionsSection({ model }: { model: EmployeeProfileMo
             <h2 className="text-base font-semibold sm:text-lg">صلاحيات الموظف</h2>
             <p className="mt-1 text-xs leading-relaxed text-muted-foreground sm:text-sm">
               عيّن دوراً أو أكثر ثم خصّص الصلاحيات — يمكن حجب صلاحيات الأدوار أو منح صلاحيات إضافية.{' '}
-              <Link href={hrPermissionsHref()} className="font-medium text-primary hover:underline">
+              <Link href={systemPermissionsHref()} className="font-medium text-primary hover:underline">
                 إدارة الأدوار
               </Link>
             </p>

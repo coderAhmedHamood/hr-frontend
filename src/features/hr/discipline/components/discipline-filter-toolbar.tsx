@@ -102,6 +102,8 @@ export const DisciplineFilterToolbar = React.forwardRef<
       statusCounts={statusCounts}
       onDateBoundsChange={onDateBoundsChange}
       onDateFilterMetaChange={onDateFilterMetaChange}
+      defaultDateFilterTab="all"
+      optionalDateRange
       beforeEmployeePicker={beforeEmployeePicker}
       moreFilters={moreFilters}
       dataView={{

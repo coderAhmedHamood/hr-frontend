@@ -96,15 +96,25 @@ export function EntityActionCardStatusBlock({ status, compact = false }: { statu
 
 export function EntityActionCardMetricsRow({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <div className={cn('flex items-center justify-between rounded-lg bg-muted/30 px-3 py-2', className)}>
+    <div className={cn('flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg bg-muted/30 px-3 py-2', className)}>
       {children}
     </div>
   );
 }
 
-export function EntityActionCardMetric({ label, value, dir }: { label: string; value: ReactNode; dir?: 'ltr' | 'rtl' }) {
+export function EntityActionCardMetric({
+  label,
+  value,
+  dir,
+  className,
+}: {
+  label: string;
+  value: ReactNode;
+  dir?: 'ltr' | 'rtl';
+  className?: string;
+}) {
   return (
-    <div className="text-center">
+    <div className={cn('text-center', className)}>
       <p className="text-[9px] text-muted-foreground">{label}</p>
       <p className={cn('text-xs font-bold', dir === 'ltr' ? 'font-mono' : '')} dir={dir}>
         {value}

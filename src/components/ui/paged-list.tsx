@@ -102,8 +102,17 @@ function useViewportFillHeight<T extends HTMLElement>(bottomGap = 16) {
 }
 
 /** List region sized to the viewport; pagination stays at the bottom. */
-export function PagedListViewport({ children, className }: { children: ReactNode; className?: string }) {
-  const ref = useViewportFillHeight<HTMLDivElement>(16);
+export function PagedListViewport({
+  children,
+  className,
+  bottomGap = 16,
+}: {
+  children: ReactNode;
+  className?: string;
+  /** Extra space reserved below the viewport (e.g. for a sticky pagination bar rendered after it). */
+  bottomGap?: number;
+}) {
+  const ref = useViewportFillHeight<HTMLDivElement>(bottomGap);
 
   return (
     <div ref={ref} className={cn('flex min-h-0 flex-col overflow-hidden', className)}>
@@ -200,7 +209,7 @@ export function DirectoryPagedViews<T>({
       <div className="flex w-full min-w-0 flex-1 flex-col">
         <div className="min-w-0">{children(items)}</div>
         {total > 0 ? (
-          <div className="sticky bottom-2 z-10 mt-4 flex justify-center bg-gradient-to-t from-muted/30 via-background/90 to-transparent px-2 pb-1 pt-4">
+          <div className="sticky bottom-0 z-10 flex justify-center px-2 py-1">
             <StickyPagination
               page={page}
               pageSize={pageSize}
@@ -223,7 +232,7 @@ export function DirectoryPagedViews<T>({
     <div className="flex w-full min-w-0 flex-1 flex-col">
       <div className="min-w-0">{children(pagination.pageItems)}</div>
       {pagination.total > 0 ? (
-        <div className="sticky bottom-2 z-10 mt-4 flex justify-center bg-gradient-to-t from-muted/30 via-background/90 to-transparent px-2 pb-1 pt-4">
+        <div className="sticky bottom-0 z-10 flex justify-center px-2 py-1">
           <StickyPagination
             page={pagination.page}
             pageSize={pagination.pageSize}
@@ -267,37 +276,44 @@ export function useServerDirectoryPagination<T>(
 
   const loadPageRef = useRef(loadPage);
   const loadBulkRef = useRef(options?.loadBulk);
+  const fetchGenRef = useRef(0);
   loadPageRef.current = loadPage;
   loadBulkRef.current = options?.loadBulk;
 
   const reloadBulk = React.useCallback(async () => {
     const loadBulkFn = loadBulkRef.current;
     if (!enabled || !bulkMode || !loadBulkFn) return;
+    const gen = ++fetchGenRef.current;
     setLoading(true);
     try {
       const res = await loadBulkFn();
+      if (gen !== fetchGenRef.current) return;
       setBulkItems(res.items);
       setTotal(res.total);
     } catch {
+      if (gen !== fetchGenRef.current) return;
       setBulkItems([]);
       setTotal(0);
     } finally {
-      setLoading(false);
+      if (gen === fetchGenRef.current) setLoading(false);
     }
   }, [bulkMode, enabled]);
 
   const reloadPage = React.useCallback(async () => {
     if (!enabled || bulkMode) return;
+    const gen = ++fetchGenRef.current;
     setLoading(true);
     try {
       const res = await loadPageRef.current(page, pageSize);
+      if (gen !== fetchGenRef.current) return;
       setItems(res.items);
       setTotal(res.total);
     } catch {
+      if (gen !== fetchGenRef.current) return;
       setItems([]);
       setTotal(0);
     } finally {
-      setLoading(false);
+      if (gen === fetchGenRef.current) setLoading(false);
     }
   }, [bulkMode, enabled, page, pageSize]);
 

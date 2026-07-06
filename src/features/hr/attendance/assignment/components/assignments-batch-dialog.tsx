@@ -21,8 +21,6 @@ export function AssignmentsBatchDialog({ model }: { model: AssignmentsPanelModel
   const {
     open,
     setOpen,
-    dialogContentEl,
-    setDialogContentEl,
     templateId,
     setTemplateId,
     effectiveFrom,
@@ -37,10 +35,7 @@ export function AssignmentsBatchDialog({ model }: { model: AssignmentsPanelModel
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent
-        ref={setDialogContentEl}
-        className="flex max-h-[92vh] flex-col gap-0  border-border p-0 sm:max-w-3xl"
-      >
+      <DialogContent className="flex max-h-[92vh] flex-col gap-0  border-border p-0 sm:max-w-3xl">
         <div className="shrink-0 space-y-2 border-b border-border px-6 pb-4 pt-6">
           <DialogHeader className="space-y-2 text-right">
             <DialogTitle className="font-display text-lg">ربط قالب بالموظفين</DialogTitle>
@@ -91,7 +86,6 @@ export function AssignmentsBatchDialog({ model }: { model: AssignmentsPanelModel
             selectAllLabel="تحديد الكل"
             deselectAllLabel="إلغاء التحديد"
             listMaxHeight="min(220px,36vh)"
-            popoverPortalContainer={dialogContentEl}
           />
         </div>
         <DialogFooter className={dialogFormFooterClass}>

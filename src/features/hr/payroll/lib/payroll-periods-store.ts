@@ -223,6 +223,8 @@ interface State {
   _rawInputs: Record<string, Record<string, MonthlyInputResponseDto[]>>;
   /** Period list only — for reports / dropdowns without loading all monthly inputs. */
   fetchCatalog: () => Promise<void>;
+  /** Reload period list without monthly inputs (e.g. after finalize). */
+  refreshCatalog: () => Promise<void>;
   fetch: () => Promise<void>;
   /** Fetch a single period by id when it is missing from the cached list (e.g. deep link refresh). */
   ensurePeriodLoaded: (id: string) => Promise<HRPayrollPeriodRecord | null>;
@@ -274,6 +276,27 @@ export const useHRPayrollPeriodsStore = create<State>()((set, get) => ({
     })();
 
     return periodsCatalogFetchPromise;
+  },
+
+  refreshCatalog: async () => {
+    const companyId = getDefaultCompanyId();
+    if (!companyId) return;
+
+    set({ isLoading: true, error: null });
+    try {
+      const periodsResult = await payrollPeriodsApi.list({ companyId, limit: 200 });
+      set({
+        periods: periodsResult.items.map(mapPayrollPeriodFromApi),
+        catalogCompanyId: companyId,
+        isLoading: false,
+      });
+    } catch (e) {
+      set({
+        error: { message: (e as Error).message, status: e instanceof ApiError ? e.status : 0 },
+        isLoading: false,
+        catalogCompanyId: null,
+      });
+    }
   },
 
   fetch: async () => {

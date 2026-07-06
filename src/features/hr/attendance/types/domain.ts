@@ -87,7 +87,7 @@ export interface ShiftAssignment {
   batchId?: string;
 }
 
-export type AttendanceEventType = 'check_in' | 'check_out';
+export type AttendanceEventType = 'check_in' | 'check_out' | 'break_start' | 'break_end';
 export type AttendanceEventSource = 'mobile_app' | 'web_portal' | 'kiosk' | 'manual_hr' | 'biometric' | 'system';
 
 export interface AttendanceEvent {
@@ -131,6 +131,8 @@ export interface AttendanceDaySummary {
   actualCheckOutAt?: string | null;
   expectedStartAt?: string | null;
   expectedEndAt?: string | null;
+  /** اليوم مقفل نهائياً — لا يمكن التصحيح أو تسجيل أحداث جديدة */
+  isFinalized?: boolean;
 }
 
 export interface DailyAttendanceSegment {

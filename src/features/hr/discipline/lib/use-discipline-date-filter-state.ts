@@ -3,14 +3,16 @@
 import * as React from 'react';
 import {
   DEFAULT_DATE_FILTER_META,
-  defaultDateFilterBounds,
+  EMPTY_PERIOD_RANGE,
   type DateFilterTab,
 } from '@/features/hr/discipline/lib/discipline-date-filter';
 
 export type DisciplineDateFilterMeta = { tab: DateFilterTab; hasRestriction: boolean };
 
 export function useDisciplineDateFilterState() {
-  const [dateBounds, setDateBounds] = React.useState(defaultDateFilterBounds);
+  const [dateBounds, setDateBounds] = React.useState<{ from: string; to: string }>(() => ({
+    ...EMPTY_PERIOD_RANGE,
+  }));
   const [dateMeta, setDateMeta] = React.useState<DisciplineDateFilterMeta>(() => ({
     ...DEFAULT_DATE_FILTER_META,
   }));

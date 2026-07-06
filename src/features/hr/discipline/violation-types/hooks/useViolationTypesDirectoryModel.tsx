@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { toast } from 'sonner';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
+import { resolveDirectoryLoadFailure } from '@/features/hr/lib/api/directory-load-error';
 import { useServerDirectoryPagination } from '@/components/ui/paged-list';
 import { violationTypesApi } from '@/features/hr/discipline/lib/api/violation-types';
 import { resolveOrganizationScope } from '@/features/hr/organization/lib/api/organization-context';
@@ -42,6 +43,7 @@ const EMPTY: ViolationTypeDraftForm = {
 export function useViolationTypesDirectoryModel() {
   const [types, setTypes] = React.useState<HRViolationTypeRecord[]>([]);
   const [listError, setListError] = React.useState<string | null>(null);
+  const [apiAccessDenied, setApiAccessDenied] = React.useState(false);
   const [companyId, setCompanyId] = React.useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   const [editId, setEditId] = React.useState<string | null>(null);
@@ -60,10 +62,12 @@ export function useViolationTypesDirectoryModel() {
       });
       const items = res.items.map(mapViolationTypeResponse);
       setTypes(items);
+      setApiAccessDenied(false);
       return { items, total: res.pagination.total };
     } catch (err) {
-      const { displayMessage } = handleApiError(err, 'violation-types.load');
-      setListError(displayMessage);
+      const failure = resolveDirectoryLoadFailure(err, 'violation-types.load');
+      setApiAccessDenied(failure.accessDenied);
+      setListError(failure.listError);
       return { items: [], total: 0 };
     }
   }, []);
@@ -174,6 +178,7 @@ export function useViolationTypesDirectoryModel() {
     loading,
     pagination,
     listError,
+    accessDenied: apiAccessDenied,
     drawerOpen,
     setDrawerOpen,
     editId,

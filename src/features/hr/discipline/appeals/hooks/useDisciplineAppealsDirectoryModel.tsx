@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
-import { fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
+import { resolveDirectoryLoadFailure } from '@/features/hr/lib/api/directory-load-error';
 import { useServerDirectoryPagination } from '@/components/ui/paged-list';
 import { resolveOrganizationScope } from '@/features/hr/organization/lib/api/organization-context';
 import { employeesApi } from '@/features/hr/organization/employees/lib/api/employees';
@@ -19,7 +19,6 @@ import {
   type AppealStatusDto,
 } from '@/features/hr/discipline/lib/api/discipline-appeals';
 import type { HRAppealChannel, HRAppealStatus } from '@/features/hr/discipline/lib/types';
-import { matchesDateRange } from '@/features/hr/discipline/lib/discipline-date-filter';
 import {
   sendAppealDecisionNotification,
   submitAppealDecision,
@@ -79,37 +78,17 @@ function mapAppeal(
   };
 }
 
-function applyAppealClientFilters(
-  appeals: AppealRecord[],
-  filters: AppealListFilters,
-): AppealRecord[] {
-  const selected = new Set(filters.selectedEmpIds);
-  return appeals.filter((a) => {
-    if (selected.size > 1 && !selected.has(a.employeeId)) return false;
-    return matchesDateRange(a.date, filters.dateFrom, filters.dateTo);
-  });
-}
-
 export function useDisciplineAppealsDirectoryModel() {
   const [listFilters, setListFilters] = React.useState<AppealListFilters>(DEFAULT_LIST_FILTERS);
-  const [sourceAppeals, setSourceAppeals] = React.useState<AppealRecord[]>([]);
   const [employees, setEmployees] = React.useState<AppealEmployee[]>([]);
   const [cases, setCases] = React.useState<AppealCase[]>([]);
   const [companyId, setCompanyId] = React.useState<string | null>(null);
   const [listError, setListError] = React.useState<string | null>(null);
+  const [apiAccessDenied, setApiAccessDenied] = React.useState(false);
 
   const employeeMapRef = React.useRef<Map<string, string>>(new Map());
   const companyIdRef = React.useRef<string | null>(null);
 
-  const bulkMode = Boolean(
-    listFilters.dateFrom
-    || listFilters.dateTo
-    || listFilters.selectedEmpIds.length > 1,
-  );
-
-  const apiEmployeeId = listFilters.selectedEmpIds.length === 1
-    ? listFilters.selectedEmpIds[0]
-    : undefined;
   const apiStatus = listFilters.statusFilter !== 'all'
     ? (listFilters.statusFilter as AppealStatusDto)
     : undefined;
@@ -147,10 +126,12 @@ export function useDisciplineAppealsDirectoryModel() {
       ...(companyIdRef.current ? { companyId: companyIdRef.current } : {}),
       page,
       limit,
-      ...(apiEmployeeId ? { subjectEmployeeId: apiEmployeeId } : {}),
+      ...(listFilters.selectedEmpIds.length > 0 ? { subjectEmployeeIds: listFilters.selectedEmpIds } : {}),
       ...(apiStatus ? { status: apiStatus } : {}),
+      ...(listFilters.dateFrom ? { dateFrom: listFilters.dateFrom } : {}),
+      ...(listFilters.dateTo ? { dateTo: listFilters.dateTo } : {}),
     }),
-    [apiEmployeeId, apiStatus],
+    [listFilters, apiStatus],
   );
 
   const loadPage = React.useCallback(async (page: number, pageSize: number) => {
@@ -163,37 +144,15 @@ export function useDisciplineAppealsDirectoryModel() {
       }
       const res = await disciplineAppealsApi.getAll(buildAppealsQuery(page, pageSize));
       const items = res.items.map((a) => mapAppeal(a, employeeMapRef.current));
-      setSourceAppeals(items);
-      const filtered = applyAppealClientFilters(items, listFilters);
-      return { items: filtered, total: res.pagination.total };
+      setApiAccessDenied(false);
+      return { items, total: res.pagination.total };
     } catch (err) {
-      const { displayMessage } = handleApiError(err, 'discipline-appeals.load');
-      setListError(displayMessage);
+      const failure = resolveDirectoryLoadFailure(err, 'discipline-appeals.load');
+      setApiAccessDenied(failure.accessDenied);
+      setListError(failure.listError);
       return { items: [], total: 0 };
     }
-  }, [buildAppealsQuery, listFilters]);
-
-  const loadBulk = React.useCallback(async () => {
-    setListError(null);
-    try {
-      if (!companyIdRef.current) {
-        const scope = await resolveOrganizationScope();
-        companyIdRef.current = scope.companyId ?? null;
-        setCompanyId(companyIdRef.current);
-      }
-      const res = await fetchAllPaginatedItems((page, limit) =>
-        disciplineAppealsApi.getAll(buildAppealsQuery(page, limit)),
-      );
-      const items = res.items.map((a) => mapAppeal(a, employeeMapRef.current));
-      setSourceAppeals(items);
-      const filtered = applyAppealClientFilters(items, listFilters);
-      return { items: filtered, total: filtered.length };
-    } catch (err) {
-      const { displayMessage } = handleApiError(err, 'discipline-appeals.load');
-      setListError(displayMessage);
-      return { items: [], total: 0 };
-    }
-  }, [buildAppealsQuery, listFilters]);
+  }, [buildAppealsQuery]);
 
   const {
     items,
@@ -201,10 +160,7 @@ export function useDisciplineAppealsDirectoryModel() {
     pagination,
     reload,
   } = useServerDirectoryPagination<AppealRecord>(loadPage, {
-    bulkMode,
-    loadBulk: bulkMode ? loadBulk : undefined,
     resetDeps: [
-      apiEmployeeId,
       apiStatus,
       listFilters.dateFrom,
       listFilters.dateTo,
@@ -212,10 +168,8 @@ export function useDisciplineAppealsDirectoryModel() {
     ],
   });
 
-  const filteredItems = React.useMemo(
-    () => applyAppealClientFilters(sourceAppeals, listFilters),
-    [listFilters, sourceAppeals],
-  );
+  // Server applies all list filters now; kept as an alias for existing consumers.
+  const filteredItems = items;
 
   const createAppeal = React.useCallback(
     async (payload: {
@@ -296,13 +250,14 @@ export function useDisciplineAppealsDirectoryModel() {
   return {
     items,
     filteredItems,
-    sourceAppeals,
+    sourceAppeals: items,
     employees,
     cases,
     companyId,
     loading,
     pagination,
     listError,
+    accessDenied: apiAccessDenied,
     listFilters,
     setListFilters,
     createAppeal,

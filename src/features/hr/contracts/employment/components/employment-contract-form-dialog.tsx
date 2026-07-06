@@ -13,7 +13,7 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
   dialogFormFooterClass,
 } from '@/components/ui/dialog';
-import { SingleDatePicker } from '@/components/ui/single-date-picker';
+import { DatePickerInput } from '@/components/ui/date-picker-input';
 import { MinimalDropdown, SearchableDropdown } from '@/components/ui/shared-dialogs';
 import {
   CONTRACT_NATURE_DROPDOWN_OPTIONS,
@@ -158,7 +158,7 @@ export function EmploymentContractFormDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="flex max-h-[95vh] w-full max-w-3xl flex-col overflow-hidden border-border p-0"
+        className="flex max-h-[95vh] w-full max-w-3xl flex-col overflow-visible border-border p-0"
         dir="rtl"
       >
         <div className="shrink-0 border-b border-border/60 bg-linear-to-b from-primary/8 via-primary/3 to-transparent px-6 pb-5 pt-6">
@@ -313,20 +313,20 @@ export function EmploymentContractFormDialog({
                   />
                 </Field>
                 <Field label="تاريخ البداية" required>
-                  <SingleDatePicker
-                    value={form.startDate || undefined}
+                  <DatePickerInput
+                    value={form.startDate}
                     onChange={(next) => onPatch({ startDate: next })}
                     placeholder="اختر تاريخ البداية"
-                    max={form.contractType === 'fixed_term' ? form.endDate || undefined : undefined}
+                    maxDate={form.contractType === 'fixed_term' ? form.endDate || undefined : undefined}
                   />
                 </Field>
                 {form.contractType === 'fixed_term' ? (
                   <Field label="تاريخ الانتهاء" required>
-                    <SingleDatePicker
-                      value={form.endDate || undefined}
+                    <DatePickerInput
+                      value={form.endDate}
                       onChange={(next) => onPatch({ endDate: next })}
                       placeholder="اختر تاريخ الانتهاء"
-                      min={form.startDate || undefined}
+                      minDate={form.startDate || undefined}
                     />
                   </Field>
                 ) : null}
