@@ -12,8 +12,10 @@ import {
   ListFilterBar,
 } from '@/components/ui/list-filter-bar';
 import { useRoles } from '@/features/system/permissions/hooks/useRoles';
-import { usePermissions } from '@/features/system/permissions/hooks/usePermissions';
-import { useApplicationId } from '@/features/system/permissions/hooks/useApplicationId';
+import {
+  useApplications,
+  resolveDefaultApplicationId,
+} from '@/features/system/permissions/hooks/useApplications';
 import { useRolePermissionsMap } from '@/features/system/permissions/hooks/useRolePermissionsMap';
 import { useRolesMutations } from '@/features/system/permissions/hooks/useRolesMutations';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
@@ -23,7 +25,6 @@ import { RoleCard } from '@/features/system/permissions/components/role-card';
 import { RoleFormPanel, type RoleFormValues } from '@/features/system/permissions/components/role-form-panel';
 import { DeleteRoleDialog } from '@/features/system/permissions/dialogs/delete-role-dialog';
 import type { RoleResponseDto } from '@/features/system/permissions/lib/api/roles';
-import type { PermissionResponseDto } from '@/features/system/permissions/lib/api/permissions';
 
 function matchesRoleSearch(role: RoleResponseDto, query: string): boolean {
   const q = query.trim().toLowerCase();
@@ -38,21 +39,11 @@ function matchesRoleSearch(role: RoleResponseDto, query: string): boolean {
 export function PermissionsManagementPage() {
   useSetPageTitle({ titleAr: 'الأدوار', descriptionAr: 'إنشاء الأدوار وربط الصلاحيات', iconName: 'Shield' });
 
-  const { applicationId: appFromApi } = useApplicationId();
+  const { applications, isLoading: applicationsLoading, isError: applicationsError } = useApplications();
   const { data: rolesResult, isLoading: rolesLoading } = useRoles();
-  const {
-    data: permissionsResult,
-    isLoading: permissionsLoading,
-    isError: permissionsError,
-    refetch: refetchPermissions,
-  } = usePermissions(appFromApi);
-
-  const allPermissions: PermissionResponseDto[] = permissionsResult?.items ?? [];
   const roles = rolesResult?.items ?? [];
   const roleIds = React.useMemo(() => roles.map((r) => r.id), [roles]);
   const { grantedMap } = useRolePermissionsMap(roleIds);
-
-  const appPermissions = allPermissions;
 
   const { create, update, remove } = useRolesMutations();
 
@@ -63,19 +54,16 @@ export function PermissionsManagementPage() {
   const [deleteTarget, setDeleteTarget] = React.useState<RoleResponseDto | null>(null);
   const [search, setSearch] = React.useState('');
 
-  const isCatalogReady = !permissionsLoading && !permissionsError;
-
   const filteredRoles = React.useMemo(
     () => roles.filter((role) => matchesRoleSearch(role, search)),
     [roles, search],
   );
 
   const openCreate = React.useCallback(() => {
-    void refetchPermissions();
     setEditingRole(null);
     setInitialValues(null);
     setPanelOpen(true);
-  }, [refetchPermissions]);
+  }, []);
 
   usePageHeaderActions(
     () => (
@@ -118,7 +106,6 @@ export function PermissionsManagementPage() {
   );
 
   async function openEdit(role: RoleResponseDto) {
-    void refetchPermissions();
     setEditingRole(role);
     setInitialValues(null);
     setPanelOpen(true);
@@ -128,6 +115,7 @@ export function PermissionsManagementPage() {
       setInitialValues({
         name: loaded.name,
         description: loaded.description,
+        applicationId: loaded.applicationId || resolveDefaultApplicationId(applications),
         permissionIds: loaded.permissionIds,
         color: coercePermissionRoleColorToken('primary'),
       });
@@ -139,7 +127,6 @@ export function PermissionsManagementPage() {
     }
   }
 
-  /** No client-side permission filtering — backend validates and returns errors. */
   async function handleSave(values: RoleFormValues) {
     try {
       if (editingRole) {
@@ -147,6 +134,7 @@ export function PermissionsManagementPage() {
           roleId: editingRole.id,
           name: values.name,
           description: values.description,
+          applicationId: values.applicationId,
           permissionIds: values.permissionIds,
         });
         toast.success('تم تحديث الدور والصلاحيات بنجاح');
@@ -154,6 +142,7 @@ export function PermissionsManagementPage() {
         await create.mutateAsync({
           name: values.name,
           description: values.description,
+          applicationId: values.applicationId,
           permissionIds: values.permissionIds,
         });
         toast.success('تم إنشاء الدور وربط الصلاحيات بنجاح');
@@ -165,12 +154,6 @@ export function PermissionsManagementPage() {
   }
 
   async function handleDelete(roleId: string) {
-    const target = roles.find((r) => r.id === roleId);
-    if (target?.isSystem) {
-      toast.error('لا يمكن حذف الأدوار النظامية');
-      setDeleteTarget(null);
-      return;
-    }
     await remove.mutateAsync(roleId);
     setDeleteTarget(null);
     if (editingRole?.id === roleId) {
@@ -183,9 +166,9 @@ export function PermissionsManagementPage() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4 animate-fade-in">
-      {permissionsError ? (
+      {applicationsError ? (
         <div className="rounded-xl border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-          تعذّر تحميل قائمة الصلاحيات من الخادم. تأكد من تسجيل الدخول وأن الـ API يعمل.
+          تعذّر تحميل قائمة التطبيقات من الخادم. تأكد من تسجيل الدخول وأن الـ API يعمل.
         </div>
       ) : null}
 
@@ -226,11 +209,12 @@ export function PermissionsManagementPage() {
 
       <RoleFormPanel
         open={panelOpen}
-        isLoading={panelLoading || !isCatalogReady}
+        isLoading={panelLoading || applicationsLoading}
         isSaving={isSaving}
+        isEditing={!!editingRole}
         editingTitle={editingRole ? (editingRole.nameAr ?? editingRole.name ?? null) : null}
         initialValues={initialValues}
-        availablePermissions={appPermissions}
+        applications={applications}
         onOpenChange={setPanelOpen}
         onSave={handleSave}
       />

@@ -69,6 +69,32 @@ const mockPermissions = [
   },
 ];
 
+jest.mock('@/features/system/permissions/hooks/useApplications', () => ({
+  useApplications: () => ({
+    applications: [
+      {
+        id: 'app-1',
+        code: 'hr',
+        nameAr: 'الموارد البشرية',
+        nameEn: 'Human Resources',
+        isActive: true,
+        status: 'active',
+      },
+    ],
+    isLoading: false,
+    isError: false,
+  }),
+  resolveDefaultApplicationId: () => 'app-1',
+}));
+
+jest.mock('@/features/system/permissions/hooks/usePermissionsByApplication', () => ({
+  usePermissionsByApplication: () => ({
+    items: mockPermissions,
+    isLoading: false,
+    isError: false,
+  }),
+}));
+
 jest.mock('@/features/system/permissions/hooks/usePermissions', () => {
   const actual = jest.requireActual('@/features/system/permissions/hooks/usePermissions');
   return {
@@ -108,7 +134,11 @@ jest.mock('@/features/system/permissions/hooks/useRolesMutations', () => ({
 
 jest.mock('@/features/system/permissions/services/roles.service', () => ({
   loadRoleForEdit: jest.fn().mockResolvedValue({
-    id: 'r1', name: 'مدير الموارد البشرية', description: 'يدير الموارد البشرية', permissionIds: [],
+    id: 'r1',
+    applicationId: 'app-1',
+    name: 'مدير الموارد البشرية',
+    description: 'يدير الموارد البشرية',
+    permissionIds: [],
   }),
   resolvePermissionIds: jest.fn().mockReturnValue([]),
   resolvePermissionKeys: jest.fn().mockReturnValue([]),
@@ -151,17 +181,17 @@ describe('PermissionsManagementPage', () => {
     });
   });
 
-  it('opens edit panel when a role card is clicked', async () => {
+  it('opens edit panel when edit button is clicked', async () => {
     renderPage();
-    await userEvent.click(screen.getByText('مدير الموارد البشرية'));
+    await userEvent.click(screen.getByRole('button', { name: /^تعديل$/i }));
     await waitFor(() => {
       expect(screen.getByText(/تعديل:/i)).toBeInTheDocument();
     });
   });
 
-  it('opens delete dialog when card delete button is clicked', async () => {
+  it('opens delete dialog when delete button is clicked', async () => {
     renderPage();
-    await userEvent.click(screen.getByRole('button', { name: /حذف مدير الموارد البشرية/i }));
+    await userEvent.click(screen.getByRole('button', { name: /^حذف$/i }));
     await waitFor(() => {
       expect(screen.getByText(/هل أنت متأكد من حذف/i)).toBeInTheDocument();
     });
@@ -188,6 +218,7 @@ describe('PermissionsManagementPage', () => {
       expect(mockCreateRole).toHaveBeenCalledWith({
         name: 'مشرف الفرع',
         description: '',
+        applicationId: 'app-1',
         permissionIds: ['perm-read'],
       });
     });

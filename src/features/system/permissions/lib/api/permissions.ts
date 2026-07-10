@@ -18,6 +18,7 @@ export type PermissionResponseDto = {
 export type PermissionListQuery = {
   limit?: number;
   page?: number;
+  applicationId?: string;
 };
 
 export const permissionsApi = {

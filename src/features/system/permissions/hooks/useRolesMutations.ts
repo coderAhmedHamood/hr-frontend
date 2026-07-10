@@ -4,24 +4,22 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
-import { useApplicationId } from '@/features/system/permissions/hooks/useApplicationId';
-import { usePermissions } from '@/features/system/permissions/hooks/usePermissions';
 import {
   createRoleWithPermissions,
   updateRoleWithPermissions,
   deleteRoleById,
 } from '@/features/system/permissions/services/roles.service';
 import { PERMISSIONS_KEYS } from '@/features/system/permissions/hooks/query-keys';
+import { getDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 
 export type SaveRoleInput = {
   name: string;
   description: string;
+  applicationId: string;
   permissionIds: string[];
 };
 
 export type UpdateRoleInput = SaveRoleInput & { roleId: string };
-
-import { getDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 
 function resolveCompanyId(): string {
   const { accessProfile } = useAuthStore.getState();
@@ -35,9 +33,6 @@ function resolveCompanyId(): string {
 export function useRolesMutations() {
   const queryClient = useQueryClient();
   const userEmail = useAuthStore((s) => s.user?.email ?? null);
-  const { applicationId: appFromApi } = useApplicationId();
-  const { data: permissionsResult } = usePermissions(appFromApi);
-  const applicationId = permissionsResult?.applicationId ?? appFromApi;
 
   function invalidateRoles() {
     void queryClient.invalidateQueries({ queryKey: PERMISSIONS_KEYS.roles });
@@ -45,10 +40,10 @@ export function useRolesMutations() {
   }
 
   const create = useMutation({
-    mutationFn: ({ name, description, permissionIds }: SaveRoleInput) => {
+    mutationFn: ({ name, description, applicationId, permissionIds }: SaveRoleInput) => {
       const companyId = resolveCompanyId();
       if (!applicationId) {
-        throw new Error('تعذّر تحديد تطبيق HR — تأكد من تحميل قائمة الصلاحيات');
+        throw new Error('اختر التطبيق الذي ينتمي إليه هذا الدور');
       }
       if (!companyId) {
         throw new Error('لم يتم تحديد الشركة النشطة — اختر شركة من القائمة العلوية');

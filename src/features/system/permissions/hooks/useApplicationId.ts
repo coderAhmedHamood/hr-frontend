@@ -1,9 +1,6 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
-import { ensurePaginatedResult } from '@/features/hr/lib/api/client';
-import { applicationsApi } from '@/features/system/permissions/lib/api/applications';
-import { PERMISSIONS_KEYS } from '@/features/system/permissions/hooks/query-keys';
+import { useApplications } from '@/features/system/permissions/hooks/useApplications';
 
 export type UseApplicationIdResult = {
   applicationId: string;
@@ -16,17 +13,10 @@ export type UseApplicationIdResult = {
  * Falls back to the first active application if none matches.
  */
 export function useApplicationId(): UseApplicationIdResult {
-  const { data, isLoading } = useQuery({
-    queryKey: PERMISSIONS_KEYS.applications,
-    queryFn: async () =>
-      ensurePaginatedResult(await applicationsApi.getAll({ limit: 50 })),
-    staleTime: 60 * 60 * 1000,
-  });
+  const { applications, isLoading } = useApplications();
 
-  const items = data?.items ?? [];
-  const hr = items.find((a) => a.code.toLowerCase() === 'hr' && a.isActive)
-    ?? items.find((a) => a.isActive)
-    ?? items[0];
+  const hr = applications.find((a) => a.code.toLowerCase() === 'hr')
+    ?? applications[0];
 
   return {
     applicationId: hr?.id ?? '',

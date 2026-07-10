@@ -5,8 +5,9 @@ export type ApplicationResponseDto = {
   code: string;
   nameAr: string;
   nameEn: string;
-  isActive: boolean;
-  status: string;
+  sortOrder?: number;
+  isActive?: boolean;
+  status?: string;
 };
 
 export const applicationsApi = {

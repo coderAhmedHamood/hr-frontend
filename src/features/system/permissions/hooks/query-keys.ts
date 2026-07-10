@@ -1,6 +1,8 @@
 export const PERMISSIONS_KEYS = {
   applications: ['applications'] as const,
   allPages: ['permissions', 'all-pages'] as const,
+  byApplication: (applicationId: string | null) =>
+    ['permissions', 'by-application', applicationId] as const,
   catalog: ['permissions', 'catalog'] as const,
   roles: ['roles'] as const,
   rolePermissionsAll: ['role-permissions'] as const,
