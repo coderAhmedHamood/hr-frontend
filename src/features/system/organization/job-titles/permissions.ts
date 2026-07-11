@@ -1,9 +1,7 @@
+import { SYSTEM_ORGANIZATION_PERMISSIONS } from '@/features/auth/permissions/codes';
 import type { PagePermissionDefs } from '@/features/auth/permissions/types';
 
 /** Permission codes for the job titles directory page. */
 export const JOB_TITLES_PAGE_PERMISSIONS = {
-  read: 'hr.organization.job-titles.read',
-  create: 'hr.organization.job-titles.create',
-  update: 'hr.organization.job-titles.update',
-  delete: 'hr.organization.job-titles.delete',
+  ...SYSTEM_ORGANIZATION_PERMISSIONS.jobTitles,
 } as const satisfies PagePermissionDefs;

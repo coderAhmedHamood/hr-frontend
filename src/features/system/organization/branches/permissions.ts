@@ -1,9 +1,7 @@
+import { SYSTEM_ORGANIZATION_PERMISSIONS } from '@/features/auth/permissions/codes';
 import type { PagePermissionDefs } from '@/features/auth/permissions/types';
 
 /** Permission codes for the branches directory page. */
 export const BRANCHES_PAGE_PERMISSIONS = {
-  read: 'hr.organization.branches.read',
-  create: 'hr.organization.branches.create',
-  update: 'hr.organization.branches.update',
-  delete: 'hr.organization.branches.delete',
+  ...SYSTEM_ORGANIZATION_PERMISSIONS.branches,
 } as const satisfies PagePermissionDefs;

@@ -48,8 +48,6 @@ export {
   USER_TYPE_LABELS,
   USER_TYPE_OPTIONS,
   USER_STATUS_OPTIONS,
-  LANGUAGE_OPTIONS,
-  TIMEZONE_OPTIONS,
 } from '@/features/system/organization/contacts/constants/users-directory';
 
 function userBelongsToCompany(user: UserRecord, companyId: string): boolean {
@@ -170,27 +168,29 @@ export function useContactsDirectoryModel() {
     setDrawerOpen(true);
   }, [perms.canUpdate]);
 
-  const branchesForDefault = React.useMemo(() => branches, [branches]);
-
   const buildPayloadBase = React.useCallback(() => ({
     email: form.email.trim(),
     fullNameAr: form.fullNameAr.trim() || null,
     phone: form.phone.trim() || null,
     userType: form.userType || null,
     defaultCompanyId: defaultCompanyId ?? (form.defaultCompanyId || null),
-    defaultBranchId: form.defaultBranchId || null,
-    employeeId: form.employeeId.trim() || null,
-    languageCode: form.languageCode || null,
-    timezone: form.timezone || null,
-    status: form.status || null,
-    isActive: form.isActive,
+    ...(editId
+      ? {
+          status: form.status || null,
+          isActive: form.isActive,
+        }
+      : {}),
     isVerified: form.isVerified,
-  }), [defaultCompanyId, form]);
+  }), [defaultCompanyId, editId, form]);
 
   const handleSave = React.useCallback(async () => {
     if (editId ? !perms.canUpdate : !perms.canCreate) return;
     if (!form.email.trim()) { setError('البريد الإلكتروني مطلوب'); return; }
     if (!editId && !form.password.trim()) { setError('كلمة المرور مطلوبة'); return; }
+    if (!editId && form.password.trim().length < 6) {
+      setError('كلمة المرور يجب أن تكون 6 أحرف على الأقل');
+      return;
+    }
     if (!defaultCompanyId && !editId) {
       setError('لم يتم تحديد الشركة الافتراضية. سجّل الدخول مرة أخرى.');
       return;
@@ -288,7 +288,6 @@ export function useContactsDirectoryModel() {
     users: pagedUsers,
     companies,
     branches,
-    branchesForDefault,
     loading,
     pagination,
     listError,

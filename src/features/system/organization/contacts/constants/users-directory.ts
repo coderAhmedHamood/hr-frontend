@@ -5,14 +5,9 @@ export type UserDraftForm = {
   email: string;
   password: string;
   fullNameAr: string;
-  fullNameEn: string;
   phone: string;
   userType: string;
   defaultCompanyId: string;
-  defaultBranchId: string;
-  employeeId: string;
-  languageCode: string;
-  timezone: string;
   status: string;
   isActive: boolean;
   isVerified: boolean;
@@ -22,26 +17,29 @@ export const EMPTY_USER_FORM: UserDraftForm = {
   email: '',
   password: '',
   fullNameAr: '',
-  fullNameEn: '',
   phone: '',
   userType: 'internal_employee',
   defaultCompanyId: '',
-  defaultBranchId: '',
-  employeeId: '',
-  languageCode: 'ar',
-  timezone: 'Asia/Riyadh',
   status: 'active',
   isActive: true,
   isVerified: false,
 };
 
+/** Matches backend `UserType` enum (`users.user_type`). */
 export const USER_TYPE_LABELS: Record<string, string> = {
   internal_employee: 'موظف داخلي',
-  external: 'مستخدم خارجي',
-  admin: 'مدير النظام',
+  external_customer: 'عميل خارجي',
+  supplier: 'مورد',
+  partner: 'شريك',
+  sales_rep_external: 'مندوب مبيعات خارجي',
+  visitor: 'زائر',
+  contractor: 'متعاقد',
+  pos_user: 'مستخدم نقطة بيع',
+  system_admin: 'مدير النظام',
   platform_admin: 'مدير المنصة',
-  supervisor: 'مشرف',
-  viewer: 'مستعرض',
+  support_user: 'دعم فني',
+  api_client: 'عميل API',
+  service_account: 'حساب خدمة',
 };
 
 export const USER_TYPE_OPTIONS = Object.entries(USER_TYPE_LABELS).map(([value, label]) => ({
@@ -56,30 +54,14 @@ export const USER_STATUS_OPTIONS = [
   { value: 'pending', label: 'قيد المراجعة' },
 ];
 
-export const LANGUAGE_OPTIONS = [
-  { value: 'ar', label: 'العربية' },
-  { value: 'en', label: 'English' },
-];
-
-export const TIMEZONE_OPTIONS = [
-  { value: 'Asia/Riyadh', label: 'Asia/Riyadh (الرياض)' },
-  { value: 'Asia/Dubai', label: 'Asia/Dubai' },
-  { value: 'UTC', label: 'UTC' },
-];
-
 export function userToDraftForm(user: UserResponseDto): UserDraftForm {
   return {
     email: user.email ?? '',
     password: '',
     fullNameAr: user.fullNameAr ?? '',
-    fullNameEn: user.fullNameEn ?? '',
     phone: user.phone ?? '',
     userType: user.userType ?? 'internal_employee',
     defaultCompanyId: user.defaultCompanyId ?? '',
-    defaultBranchId: user.defaultBranchId ?? '',
-    employeeId: user.employeeId ?? '',
-    languageCode: user.languageCode ?? 'ar',
-    timezone: user.timezone ?? 'Asia/Riyadh',
     status: user.status ?? 'active',
     isActive: user.isActive,
     isVerified: user.isVerified,

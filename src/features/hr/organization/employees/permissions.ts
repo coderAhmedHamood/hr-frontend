@@ -1,3 +1,4 @@
+import { SYSTEM_ORGANIZATION_PERMISSIONS } from '@/features/auth/permissions/codes';
 import type { PagePermissionDefs } from '@/features/auth/permissions/types';
 
 export const EMPLOYEES_PAGE_PERMISSIONS = {
@@ -13,6 +14,6 @@ export const EMPLOYEES_PAGE_PERMISSIONS = {
  * these must never lock the page — see `useFilterPermission`.
  */
 export const EMPLOYEES_FILTER_PERMISSIONS = {
-  branch: 'hr.organization.branches.read',
-  department: 'hr.organization.departments.read',
+  branch: SYSTEM_ORGANIZATION_PERMISSIONS.branches.read,
+  department: SYSTEM_ORGANIZATION_PERMISSIONS.departments.read,
 } as const;

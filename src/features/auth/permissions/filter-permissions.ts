@@ -1,3 +1,5 @@
+import { SYSTEM_ORGANIZATION_PERMISSIONS } from '@/features/auth/permissions/codes';
+
 /**
  * Common filter permission codes shared across list pages.
  * Feature-specific pages may still export their own
@@ -6,7 +8,7 @@
  * here.
  */
 export const FILTER_PERMISSIONS = {
-  branch: 'hr.organization.branches.read',
-  department: 'hr.organization.departments.read',
+  branch: SYSTEM_ORGANIZATION_PERMISSIONS.branches.read,
+  department: SYSTEM_ORGANIZATION_PERMISSIONS.departments.read,
   employee: 'hr.employees.read',
 } as const;

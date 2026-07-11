@@ -14,7 +14,7 @@ import { cn } from '@/shared/utils';
 export type PermissionFilterOption = { value: string; label: string };
 
 export type PermissionFilterProps = {
-  /** Permission code required to use this filter (e.g. `hr.organization.branches.read`). */
+  /** Permission code required to use this filter (e.g. `system.organization.branches.read`). */
   permission: string;
   label?: string;
   value: string;

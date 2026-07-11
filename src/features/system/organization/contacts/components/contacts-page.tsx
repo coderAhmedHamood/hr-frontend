@@ -18,8 +18,6 @@ import {
   useContactsDirectoryModel,
   USER_TYPE_OPTIONS,
   USER_STATUS_OPTIONS,
-  LANGUAGE_OPTIONS,
-  TIMEZONE_OPTIONS,
 } from '@/features/system/organization/contacts/hooks/useContactsDirectoryModel';
 import { ContactsListViews } from '@/features/system/organization/contacts/components/contacts-list-views';
 import { UserDetailDialog } from '@/features/system/organization/contacts/dialogs/user-detail-dialog';
@@ -92,22 +90,7 @@ export default function ContactsPage() {
             </Select>
           </FormField>
 
-          <FormField label="الفرع الافتراضي">
-            <Select
-              value={model.form.defaultBranchId || '_none'}
-              onValueChange={(v) => model.patch({ defaultBranchId: v === '_none' ? '' : v })}
-            >
-              <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="_none">— بدون —</SelectItem>
-                {model.branchesForDefault.map((b) => (
-                  <SelectItem key={b.id} value={b.id}>{b.nameAr}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </FormField>
-
-          {model.editId && (
+          {model.editId ? (
             <FormField label="الحالة">
               <Select value={model.form.status} onValueChange={(v) => model.patch({ status: v })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
@@ -118,23 +101,7 @@ export default function ContactsPage() {
                 </SelectContent>
               </Select>
             </FormField>
-          )}
-
-          {model.editId && (
-            <>
-
-              <FormField label="المنطقة الزمنية" span2>
-                <Select value={model.form.timezone} onValueChange={(v) => model.patch({ timezone: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {TIMEZONE_OPTIONS.map((o) => (
-                      <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </FormField>
-            </>
-          )}
+          ) : null}
         </div>
 
         <div className="mt-4 space-y-3">
