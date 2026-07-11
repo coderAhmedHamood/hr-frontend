@@ -16,7 +16,13 @@ import type { HRDisciplineNoticeKind } from '@/features/hr/discipline/lib/types'
 import { NOTICE_KIND_LABELS } from '@/features/hr/discipline/lib/types';
 
 export type NoticeEmployee = { id: string; nameAr: string };
-export type NoticeCase = { id: string; caseNumber: string; employeeId: string; employeeNameAr: string };
+export type NoticeCase = {
+  id: string;
+  caseNumber: string;
+  employeeId: string;
+  employeeNameAr: string;
+  violationTypeNameAr: string | null;
+};
 
 export type NoticeRecord = {
   id: string;
@@ -130,6 +136,7 @@ export function useDisciplineNoticesDirectoryModel() {
         caseNumber: r.recordNumber,
         employeeId: r.employeeId,
         employeeNameAr: employeeMap.get(r.employeeId) ?? r.employeeId,
+        violationTypeNameAr: r.violationType?.nameAr?.trim() || null,
       })),
     );
   }, []);

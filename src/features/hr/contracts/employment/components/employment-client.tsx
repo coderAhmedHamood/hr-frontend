@@ -148,7 +148,7 @@ export function EmploymentContractsClient() {
   );
   const [applyingTemplate, setApplyingTemplate] = React.useState(false);
   const allowanceOptions = React.useMemo(() =>
-    allowanceTypes.filter(a => a.isActive).map(a => ({ value: a.id, label: `${a.code} — ${a.nameAr}` })),
+    allowanceTypes.filter(a => a.isActive).map(a => ({ value: a.id, label: a.nameAr })),
     [allowanceTypes],
   );
 

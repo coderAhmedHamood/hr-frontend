@@ -125,7 +125,6 @@ export const navConfig: NavItem[] = [
       ]},
       { labelAr: 'الإعداد', items: [
         { label: 'أنواع الإجازات', href: '/hr/leaves/leave-types',     icon: ListChecks },
-        { label: 'العطل الرسمية',  href: '/hr/leaves/public-holidays', icon: CalendarDays },
       ]},
     ],
   },

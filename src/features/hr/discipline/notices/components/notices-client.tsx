@@ -106,7 +106,13 @@ export function NoticesClient() {
   const [detailRow, setDetailRow] = React.useState<NoticeRecord | null>(null);
 
   const empOptions = employees.map(e => ({ value: e.id, label: e.nameAr }));
-  const caseOptions = cases.map(c => ({ value: c.id, label: c.caseNumber, sub: c.employeeNameAr }));
+  const caseOptions = cases.map((c) => ({
+    value: c.id,
+    label: c.caseNumber,
+    sub: c.violationTypeNameAr
+      ? `${c.violationTypeNameAr} · ${c.employeeNameAr}`
+      : c.employeeNameAr,
+  }));
 
   const statusCounts = React.useMemo(() => {
     const counts: Record<string, number> = { all: filtered.length };

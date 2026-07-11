@@ -3,7 +3,6 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { ArrowLeft, LayoutGrid } from 'lucide-react';
-import { useAuthUserDisplay } from '@/features/auth/hooks/use-auth-user-display';
 import { useLoginPageBranding } from '@/features/auth/hooks/use-default-company-branding';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import {
@@ -29,7 +28,6 @@ function AppTile({
   const href = resolveApplicationLaunchPath(app);
   const tileClass = resolveApplicationTileClass(app, index);
   const surfaceAccent = resolveApplicationSurfaceAccent(index);
-  const nameEn = app.nameEn?.trim();
 
   return (
     <Link
@@ -57,16 +55,6 @@ function AppTile({
             <h3 className="truncate text-base font-bold tracking-tight text-foreground sm:text-lg">
               {app.nameAr}
             </h3>
-            {nameEn ? (
-              <p className="mt-0.5 truncate text-xs font-medium tracking-wide text-muted-foreground sm:text-sm" dir="ltr">
-                {nameEn}
-              </p>
-            ) : null}
-            {app.description ? (
-              <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
-                {app.description}
-              </p>
-            ) : null}
           </div>
 
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted/70 text-muted-foreground transition-all duration-300 group-hover:bg-primary group-hover:text-primary-foreground">
@@ -109,7 +97,6 @@ function CompanyHero({
 }
 
 export function AppsLauncherPage() {
-  const { displayName } = useAuthUserDisplay();
   const branding = useLoginPageBranding();
   const [apps, setApps] = React.useState<ApplicationResponseDto[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -133,8 +120,6 @@ export function AppsLauncherPage() {
     };
   }, []);
 
-  const greeting = displayName ? `مرحباً، ${displayName}` : 'مرحباً بك';
-
   return (
     <div className="relative flex min-h-full flex-1 flex-col overflow-hidden">
       <div aria-hidden className="pointer-events-none absolute inset-0 dotted-bg opacity-25" />
@@ -154,10 +139,7 @@ export function AppsLauncherPage() {
         />
 
         <div className="mb-10 w-full max-w-5xl text-center sm:mb-12">
-          <h1 className="font-arabic-display text-2xl font-bold tracking-tight text-foreground sm:text-3xl md:text-4xl">
-            {greeting}
-          </h1>
-          <p className="mx-auto mt-3 max-w-lg text-sm leading-relaxed text-muted-foreground sm:text-base">
+          <p className="mx-auto max-w-lg text-sm leading-relaxed text-muted-foreground sm:text-base">
             اختر التطبيق المناسب للبدء
           </p>
         </div>

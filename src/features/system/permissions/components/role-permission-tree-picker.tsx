@@ -15,6 +15,10 @@ import {
 import {
   permissionActionLabel,
 } from '@/features/system/permissions/constants/permission-actions';
+import {
+  PermissionPlatformIcons,
+  PermissionPlatformLegend,
+} from '@/features/system/permissions/components/permission-platform-icons';
 
 type RowProps = {
   node: PermissionTreeNode;
@@ -88,6 +92,13 @@ function PermissionPickerRow({
 
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
           <span className="truncate">{node.nameAr}</span>
+            {node.nodeType === 'ACTION' && node.code ? (
+              <PermissionPlatformIcons
+                code={node.code}
+                resource={node.resource}
+                action={node.action}
+              />
+            ) : null}
           {node.nodeType === 'ACTION' && node.action && (
             <Badge variant="subtle" className="text-[10px]">
               {permissionActionLabel(node.action)}
@@ -164,10 +175,13 @@ export function RolePermissionTreePicker({
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <span className="text-xs text-muted-foreground">
-          <span className="number-ar font-semibold text-foreground">{allActionIds.length}</span> صلاحية
-        </span>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="text-xs text-muted-foreground">
+            <span className="number-ar font-semibold text-foreground">{allActionIds.length}</span> صلاحية
+          </span>
+          <PermissionPlatformLegend />
+        </div>
         <div className="flex items-center gap-2.5">
           <span className="text-xs text-muted-foreground">تفعيل الكل</span>
           <Switch checked={isAllSelected} onCheckedChange={toggleAll} />

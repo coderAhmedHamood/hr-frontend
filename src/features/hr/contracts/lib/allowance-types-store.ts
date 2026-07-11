@@ -76,12 +76,10 @@ export const useHRAllowanceTypesStore = create<State>()((set, get) => ({
     const companyId = getDefaultCompanyId() ?? '';
     const created = await allowanceTypesApi.create({
       companyId,
-      code: data.code,
       nameAr: data.nameAr,
       nameEn: data.nameEn,
       calculationType: 'fixed_amount',
       typicalAmount: data.typicalAmount,
-      currency: data.currency,
       sortOrder: data.sortOrder,
       isActive: data.isActive,
     });
@@ -92,11 +90,9 @@ export const useHRAllowanceTypesStore = create<State>()((set, get) => ({
 
   update: async (id, patch) => {
     const updated = await allowanceTypesApi.update(id, {
-      code: patch.code,
       nameAr: patch.nameAr,
       nameEn: patch.nameEn,
       typicalAmount: patch.typicalAmount,
-      currency: patch.currency,
       sortOrder: patch.sortOrder,
       isActive: patch.isActive,
     });

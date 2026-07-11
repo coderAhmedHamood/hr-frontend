@@ -57,7 +57,6 @@ export type AllowanceLineInput = {
 
 export type CreateContractTemplateDto = {
   companyId: string;
-  code: string;
   nameAr: string;
   nameEn?: string | null;
   descriptionAr?: string | null;

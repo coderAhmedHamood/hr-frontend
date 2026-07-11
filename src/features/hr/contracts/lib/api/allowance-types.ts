@@ -26,13 +26,11 @@ export type AllowanceTypeDto = {
 
 export type CreateAllowanceTypeDto = {
   companyId: string;
-  code: string;
   nameAr: string;
   nameEn?: string | null;
   calculationType: AllowanceCalculationType;
   typicalAmount?: number | null;
   typicalPercent?: number | null;
-  currency?: string;
   isTaxable?: boolean;
   isIncludedInGosi?: boolean;
   sortOrder?: number;

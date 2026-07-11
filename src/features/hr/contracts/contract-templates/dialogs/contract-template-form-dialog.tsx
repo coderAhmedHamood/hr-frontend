@@ -39,7 +39,6 @@ import {
 } from '@/features/hr/contracts/contract-templates/dialogs/contract-template-allowance-lines-editor';
 
 type DraftForm = {
-  code: string;
   nameAr: string;
   nameEn: string;
   descriptionAr: string;
@@ -59,7 +58,6 @@ type DraftForm = {
 };
 
 const EMPTY_FORM: DraftForm = {
-  code: '',
   nameAr: '',
   nameEn: '',
   descriptionAr: '',
@@ -91,7 +89,6 @@ function normalizeArrangement(value: string): WorkArrangement {
 
 function formFromDto(dto: ContractTemplateDto): DraftForm {
   return {
-    code: dto.code,
     nameAr: dto.nameAr,
     nameEn: dto.nameEn ?? '',
     descriptionAr: dto.descriptionAr ?? '',
@@ -162,7 +159,6 @@ export function ContractTemplateFormDialog({ open, onOpenChange, editItem, compa
 
   const handleSave = async () => {
     if (!form.nameAr.trim()) { setError('الاسم العربي مطلوب'); return; }
-    if (!form.code.trim()) { setError('الكود مطلوب'); return; }
 
     const allowanceLines = form.allowanceLines
       .filter((l) => l.allowanceTypeId && l.amount !== '')
@@ -176,7 +172,6 @@ export function ContractTemplateFormDialog({ open, onOpenChange, editItem, compa
     setError(null);
     try {
       const base = {
-        code: form.code.trim(),
         nameAr: form.nameAr.trim(),
         nameEn: form.nameEn.trim() || null,
         descriptionAr: form.descriptionAr.trim() || null,
@@ -237,23 +232,9 @@ export function ContractTemplateFormDialog({ open, onOpenChange, editItem, compa
             <Input value={form.nameAr} onChange={(e) => patch({ nameAr: e.target.value })} className="h-9" />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-muted-foreground">
-                الكود <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                value={form.code}
-                onChange={(e) => patch({ code: e.target.value.toLowerCase().replace(/\s+/g, '-') })}
-                className="h-9 font-mono"
-                dir="ltr"
-                disabled={!!editItem}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-muted-foreground">الترتيب</Label>
-              <Input type="number" value={form.sortOrder} onChange={(e) => patch({ sortOrder: e.target.value })} className="h-9" dir="ltr" />
-            </div>
+          <div className="space-y-1.5 max-w-[140px]">
+            <Label className="text-xs font-medium text-muted-foreground">الترتيب</Label>
+            <Input type="number" value={form.sortOrder} onChange={(e) => patch({ sortOrder: e.target.value })} className="h-9" dir="ltr" />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
