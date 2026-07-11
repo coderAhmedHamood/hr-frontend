@@ -219,7 +219,7 @@ function notifyApiFailure(envelope: ApiErrorEnvelope, status: number): void {
       : extractApiErrorMessage(envelope, `HTTP ${status}`);
 
   if (status >= 500) {
-    reportError(new ApiError(envelope, status), 'api-error');
+    reportError(new ApiError(envelope, status), 'api-error', undefined, { skipToast: true });
   }
 
   if (status === 401 && typeof window !== 'undefined') {

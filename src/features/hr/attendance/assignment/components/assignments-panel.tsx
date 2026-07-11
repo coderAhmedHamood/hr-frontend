@@ -2,13 +2,11 @@
 
 import * as React from 'react';
 import { CalendarDays, Clock, Link2Off, Plus, Users } from 'lucide-react';
-import { format, parse, isValid } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { cn, formatDisplayDate } from '@/shared/utils';
+import { DatePickerInput } from '@/components/ui/date-picker-input';
+import { cn } from '@/shared/utils';
 import { shiftColorStyle } from '@/shared/shift-color';
 import { Badge } from '@/components/ui/badge';
 import { EmptyStateCard } from '@/components/shared/empty-state-card';
@@ -16,7 +14,7 @@ import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription,
   dialogFormFooterClass,
 } from '@/components/ui/dialog';
-import { ConfirmationModal } from '@/components/ui/shared-dialogs';
+import { ConfirmationModal, FormField } from '@/components/ui/shared-dialogs';
 import { useAssignmentsPanelModel } from '@/features/hr/attendance/assignment/hooks/useAssignmentsPanelModel';
 import { DirectoryPagedViews } from '@/components/ui/paged-list';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
@@ -199,42 +197,12 @@ export function AssignmentsPanel() {
               </DialogHeader>
 
               <div className="space-y-4 py-2">
-                <div className="space-y-2">
-                  <Label className="flex items-center gap-1.5 text-sm">
-                    <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
-                    تاريخ التطبيق
-                  </Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className={cn('w-full justify-start gap-2 text-sm', !model.editEffectiveFrom && 'text-muted-foreground')}
-                      >
-                        <CalendarDays className="h-4 w-4 shrink-0" />
-                        {model.editEffectiveFrom
-                          ? formatDisplayDate(model.editEffectiveFrom)
-                          : 'اختر التاريخ'}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={(() => {
-                          const d = parse(model.editEffectiveFrom, 'yyyy-MM-dd', new Date());
-                          return isValid(d) ? d : undefined;
-                        })()}
-                        onSelect={(day) => {
-                          if (day) model.setEditEffectiveFrom(format(day, 'yyyy-MM-dd'));
-                        }}
-                        defaultMonth={(() => {
-                          const d = parse(model.editEffectiveFrom, 'yyyy-MM-dd', new Date());
-                          return isValid(d) ? d : new Date();
-                        })()}
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
+                <FormField label="تاريخ التطبيق" required>
+                  <DatePickerInput
+                    value={model.editEffectiveFrom}
+                    onChange={model.setEditEffectiveFrom}
+                  />
+                </FormField>
 
                 <label className="flex cursor-pointer items-center justify-between rounded-xl border-2 px-4 py-3 transition-all border-border hover:bg-muted/20">
                   <span className="text-sm font-medium">مفعّل</span>

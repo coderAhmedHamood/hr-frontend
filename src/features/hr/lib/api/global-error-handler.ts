@@ -83,7 +83,7 @@ export function handleApiError(
   // id, dev/prod formatting) so backend failures show up alongside render/route crashes.
   // 4xx never reaches here — those are expected, user-actionable outcomes, not incidents.
   if (status >= 500) {
-    reportError(error, context ?? 'api-error');
+    reportError(error, context ?? 'api-error', undefined, { skipToast: true });
   }
 
   const authContext = isAuthApiContext(context);

@@ -19,10 +19,7 @@ import { STATUS_PILL, VIOLATION_RECORD_STATUS_PILL } from '@/shared/status-pill-
 import { Button } from '@/components/ui/button';
 import { ForbiddenState } from '@/components/shared/forbidden-state';
 import { Input } from '@/components/ui/input';
-import { format, parse, isValid } from 'date-fns';
 import { DatePickerInput } from '@/components/ui/date-picker-input';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Badge } from '@/components/ui/badge';
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter,
@@ -252,32 +249,7 @@ function AppealDialog({
         </DialogHeader>
         <div className="space-y-4 py-1">
           <FormField label="تاريخ التظلم" required>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className={cn('w-full justify-start gap-2 text-sm', !date && 'text-muted-foreground')}
-                >
-                  <CalendarDays className="h-4 w-4 shrink-0" />
-                  {date ? formatDisplayDate(date) : 'اختر التاريخ'}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={(() => {
-                    const d = parse(date, 'yyyy-MM-dd', new Date());
-                    return isValid(d) ? d : undefined;
-                  })()}
-                  onSelect={(day) => { if (day) setDate(format(day, 'yyyy-MM-dd')); }}
-                  defaultMonth={(() => {
-                    const d = parse(date, 'yyyy-MM-dd', new Date());
-                    return isValid(d) ? d : new Date();
-                  })()}
-                />
-              </PopoverContent>
-            </Popover>
+            <DatePickerInput value={date} onChange={setDate} />
           </FormField>
           <FormField label="قناة التظلم">
             <Select value={channel} onValueChange={setChannel}>

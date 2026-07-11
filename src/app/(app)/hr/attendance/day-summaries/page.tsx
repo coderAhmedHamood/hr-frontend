@@ -4,7 +4,8 @@ import { DaySummariesPage } from '@/features/hr/attendance/day-summaries/compone
 export default function AttendanceDaySummariesRoutePage() {
   return (
     <Suspense fallback={null}>
-      <DaySummariesPage />
+      <DaySummariesPage /> 
     </Suspense>
   );
 }
+ 

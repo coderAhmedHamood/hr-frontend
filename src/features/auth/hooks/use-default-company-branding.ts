@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import type { AccessProfile } from '@/features/auth/types/access-profile';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
+import { setDocumentFavicon } from '@/shared/set-document-favicon';
 import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 import { normalizeHexColor, persistCompanyThemeCssVars } from '@/shared/company-theme';
 import { LOGIN_BRANDING_STORAGE_KEY } from '@/shared/constants/branding';
@@ -173,5 +174,11 @@ export function patchDefaultCompanyBrandingInSession(
       ...profile,
       companies: updatedCompanies,
     });
+    const branding = brandingFromCompany(
+      updatedCompanies.find((c) => c.companyId === companyId) ?? null,
+    );
+    if (branding.logoUrl) {
+      setDocumentFavicon(branding.logoUrl);
+    }
   }
 }

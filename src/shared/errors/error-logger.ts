@@ -1,3 +1,4 @@
+import { toast } from 'sonner';
 import { publicConfig } from '@/shared/config';
 import type { NormalizedError } from '@/shared/errors/normalize-error';
 
@@ -18,12 +19,16 @@ export type ErrorLogEntry = {
   error: NormalizedError;
 };
 
+export type ErrorLogOptions = {
+  /** When true, skip toast — use when the caller already surfaced the message. */
+  skipToast?: boolean;
+};
+
 /**
- * Single sink for all error logging. Dev: full console trace. Prod: one structured
- * console line (safe for log aggregators) — swap the `// TODO Sentry` block for
- * `Sentry.captureException` once the SDK is added; call sites never change.
+ * Single sink for all error logging. Surfaces failures via toast in the browser;
+ * swap the `// TODO Sentry` block for `Sentry.captureException` once the SDK is added.
  */
-export function logError(error: NormalizedError, context?: string): ErrorLogEntry {
+export function logError(error: NormalizedError, context?: string, options?: ErrorLogOptions): ErrorLogEntry {
   const entry: ErrorLogEntry = {
     correlationId: error.digest ?? generateCorrelationId(),
     timestamp: new Date().toISOString(),
@@ -31,16 +36,12 @@ export function logError(error: NormalizedError, context?: string): ErrorLogEntr
     error,
   };
 
-  if (isDevEnv()) {
-    console.error(
-      `[error:${entry.correlationId}]${context ? ` (${context})` : ''} ${error.code} — ${error.message}`,
-      error.cause,
-    );
-    return entry;
+  if (!options?.skipToast && typeof window !== 'undefined') {
+    const toastMessage = isDevEnv() && context
+      ? `${error.message} (${context})`
+      : error.message;
+    toast.error(toastMessage);
   }
-
-  // Production: no stack traces, no raw `cause` in the console — just the structured summary.
-  console.error(`[error:${entry.correlationId}] ${error.code}${context ? ` (${context})` : ''}`);
 
   // TODO Sentry: Sentry.captureException(error.cause, { tags: { code: error.code, context }, fingerprint: [entry.correlationId] });
 

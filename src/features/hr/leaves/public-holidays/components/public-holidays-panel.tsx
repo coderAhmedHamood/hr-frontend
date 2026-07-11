@@ -1,18 +1,15 @@
 'use client';
 
 import { Plus, Pencil, Trash2, RefreshCw, Calendar as CalendarIcon } from 'lucide-react';
-import { format, parse, isValid } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { MonthDayPickerInput } from '@/features/hr/leaves/public-holidays/components/month-day-picker-input';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
-  dialogFormFooterClass,
 } from '@/components/ui/dialog';
+import { HRSettingsFormDrawer, FormField } from '@/components/ui/shared-dialogs';
 import {
   usePublicHolidaysPanelModel,
   type PublicHolidayDraft,
@@ -128,79 +125,43 @@ export function PublicHolidaysPanel() {
         </DirectoryPagedViews>
       )}
 
-      <Dialog open={m.open} onOpenChange={m.setOpen}>
-        <DialogContent className="flex max-h-[90vh] w-full max-w-lg flex-col overflow-visible border-border p-0">
-          <div className="shrink-0 border-b border-border px-6 py-5">
-            <DialogHeader>
-              <DialogTitle className="font-display text-xl">{m.editId ? 'تعديل العطلة الرسمية' : 'إضافة عطلة رسمية'}</DialogTitle>
-              <DialogDescription>التاريخ بصيغة MM-DD (الشهر-اليوم).</DialogDescription>
-            </DialogHeader>
-          </div>
-          <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2 sm:col-span-2">
-                <Label>التاريخ <span className="text-destructive">*</span></Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className={cn('w-full justify-start gap-2 text-sm', !m.draft.date && 'text-muted-foreground')}
-                    >
-                      <CalendarIcon className="h-4 w-4 shrink-0" />
-                      {m.draft.date ? formatMonthDay(m.draft.date) : 'اختر التاريخ'}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={(() => {
-                        const d = parse(`2000-${m.draft.date}`, 'yyyy-MM-dd', new Date());
-                        return isValid(d) ? d : undefined;
-                      })()}
-                      onSelect={(day) => {
-                        if (day) m.patch('date', format(day, 'MM-dd'));
-                      }}
-                      defaultMonth={(() => {
-                        const d = parse(`2000-${m.draft.date}`, 'yyyy-MM-dd', new Date());
-                        return isValid(d) ? d : new Date(2000, 0, 1);
-                      })()}
-                      fromYear={2000}
-                      toYear={2000}
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-              <div className="space-y-2 sm:col-span-2">
-                <Label>الاسم <span className="text-destructive">*</span></Label>
-                <Input value={m.draft.nameAr} onChange={(e) => m.patch('nameAr', e.target.value)} />
-              </div>
-            </div>
-            <Separator />
-            <div className="space-y-3">
-              {([
-                ['recurring', 'تتكرر سنوياً (نفس الشهر واليوم)'],
-                ['isActive', 'نشط'],
-              ] as [keyof PublicHolidayDraft, string][]).map(([key, label]) => (
-                <label key={key} className={cn(
-                  'flex cursor-pointer items-center justify-between rounded-xl border-2 px-4 py-3 transition-all',
-                  m.draft[key]
-                    ? 'border-primary/30 bg-primary/5'
-                    : 'border-border bg-muted/10 hover:border-border hover:bg-muted/20',
-                )}>
-                  <span className="text-sm font-medium">{label}</span>
-                  <Checkbox checked={m.draft[key] as boolean} onCheckedChange={(v) => m.patch(key, v === true)} />
-                </label>
-              ))}
-            </div>
-            {m.error && <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-2.5 text-sm text-destructive whitespace-pre-wrap">{m.error}</p>}
-          </div>
-          <DialogFooter className={dialogFormFooterClass}>
-            <Button variant="luxe" type="button" onClick={() => void m.save()}>{m.editId ? 'حفظ التعديلات' : 'إضافة العطلة'}</Button>
-            <Button variant="outline" type="button" onClick={() => m.setOpen(false)}>إلغاء</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <HRSettingsFormDrawer
+        open={m.open}
+        onOpenChange={m.setOpen}
+        title={m.editId ? 'تعديل العطلة الرسمية' : 'إضافة عطلة رسمية'}
+        description="اختر شهر ويوم العطلة الرسمية."
+        size="lg"
+        onSave={() => void m.save()}
+        saveLabel={m.editId ? 'حفظ التعديلات' : 'إضافة العطلة'}
+        error={m.error}
+      >
+        <FormField label="التاريخ" required>
+          <MonthDayPickerInput
+            value={m.draft.date}
+            onChange={(mmdd) => m.patch('date', mmdd)}
+          />
+        </FormField>
+        <FormField label="الاسم" required>
+          <Input value={m.draft.nameAr} onChange={(e) => m.patch('nameAr', e.target.value)} />
+        </FormField>
+        <Separator />
+        <div className="space-y-3">
+          {([
+            ['recurring', 'تتكرر سنوياً (نفس الشهر واليوم)'],
+            ['isActive', 'نشط'],
+          ] as [keyof PublicHolidayDraft, string][]).map(([key, label]) => (
+            <label key={key} className={cn(
+              'flex cursor-pointer items-center justify-between rounded-xl border-2 px-4 py-3 transition-all',
+              m.draft[key]
+                ? 'border-primary/30 bg-primary/5'
+                : 'border-border bg-muted/10 hover:border-border hover:bg-muted/20',
+            )}>
+              <span className="text-sm font-medium">{label}</span>
+              <Checkbox checked={m.draft[key] as boolean} onCheckedChange={(v) => m.patch(key, v === true)} />
+            </label>
+          ))}
+        </div>
+      </HRSettingsFormDrawer>
 
       <Dialog open={!!m.confirmId} onOpenChange={(o) => !o && m.setConfirmId(null)}>
         <DialogContent className="border-border sm:max-w-sm">

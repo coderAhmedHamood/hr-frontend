@@ -11,6 +11,23 @@ import {
   normalizeHexColor,
   persistCompanyThemeCssVars,
 } from '@/shared/company-theme';
+import { DEFAULT_APP_LOGO_PATH } from '@/shared/constants/branding';
+import { resolveUploadUrl } from '@/shared/resolve-upload-url';
+import { setDocumentFavicon } from '@/shared/set-document-favicon';
+
+function faviconFromProfile(profile: AccessProfile | null | undefined): string {
+  if (!profile?.companies?.length) return DEFAULT_APP_LOGO_PATH;
+  const companyId = profile.defaultCompanyId;
+  const company =
+    profile.companies.find((c) => c.companyId === companyId) ?? profile.companies[0] ?? null;
+  const rawLogo = company?.companyLogoUrl?.trim();
+  return rawLogo ? resolveUploadUrl(rawLogo) : DEFAULT_APP_LOGO_PATH;
+}
+
+function syncFaviconFromProfile(profile: AccessProfile | null | undefined): void {
+  if (typeof window === 'undefined') return;
+  setDocumentFavicon(faviconFromProfile(profile));
+}
 
 function themeColorsFromProfile(profile: AccessProfile | null | undefined) {
   if (!profile?.companies?.length) {
@@ -50,6 +67,7 @@ export const useAuthStore = create<AuthState>()(
       setAccessProfile: (profile) => {
         persistDefaultCompanyId(profile.defaultCompanyId);
         persistCompanyThemeCssVars(themeColorsFromProfile(profile));
+        syncFaviconFromProfile(profile);
         return set({
           accessProfile: profile,
           activeCompanyId: profile.defaultCompanyId,
@@ -63,6 +81,7 @@ export const useAuthStore = create<AuthState>()(
       clear: () => {
         clearDefaultCompanyId();
         clearPersistedCompanyThemeCssVars();
+        syncFaviconFromProfile(null);
         set({
           user: null,
           accessProfile: null,
@@ -87,6 +106,7 @@ export const useAuthStore = create<AuthState>()(
         }
         if (state?.accessProfile) {
           persistCompanyThemeCssVars(themeColorsFromProfile(state.accessProfile));
+          syncFaviconFromProfile(state.accessProfile);
         }
       },
     },
