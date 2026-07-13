@@ -3,6 +3,7 @@ import {
   type BalanceCreditRequestResponseDto,
   type BalanceCreditStatus,
   type CreateBalanceCreditRequestDto,
+  type CreateBulkBalanceCreditRequestDto,
 } from '@/features/hr/leaves/balance-credit/lib/api/balance-credits';
 import { employeeLeaveBalancesApi } from '@/features/hr/leaves/balance-credit/lib/api/employee-leave-balances';
 import {
@@ -20,6 +21,7 @@ import { ensurePaginatedResult } from '@/features/hr/lib/api/client';
 import { branchesApi } from '@/features/hr/organization/lib/api/branches';
 import { departmentsApi } from '@/features/hr/organization/lib/api/departments';
 import { employeesApi } from '@/features/hr/organization/employees/lib/api/employees';
+import { mapEmployeesToPickerOptions } from '@/features/hr/lib/use-employee-filter-picker';
 import { resolveOrganizationScope } from '@/features/hr/organization/lib/api/organization-context';
 import { organizationActiveListStatusQuery } from '@/features/hr/organization/lib/archive-scope';
 import { toIso } from '@/features/hr/lib/map-dto';
@@ -59,7 +61,7 @@ export async function loadBalanceCreditDirectory(params?: LoadBalanceCreditParam
       balanceCreditsApi.getAll({ ...(companyId ? { companyId } : {}), limit: 1000, ...(params?.employeeId ? { employeeId: params.employeeId } : {}), ...(params?.status ? { status: params.status } : {}) }),
       loadCompanyLeaveTypes(companyId ? { companyId, limit: 200, isActive: true } : { limit: 200, isActive: true }),
       employeeLeaveBalancesApi.getAll(listQuery),
-      employeesApi.getAll(listQuery),
+      employeesApi.getAll({ ...listQuery, ...organizationActiveListStatusQuery() }),
       companyId ? branchesApi.getAll({ companyId, limit: 100, ...organizationActiveListStatusQuery() }) : branchesApi.getAll({ limit: 100, ...organizationActiveListStatusQuery() }),
       companyId ? departmentsApi.getAll({ companyId, limit: 200, ...organizationActiveListStatusQuery() }) : departmentsApi.getAll({ limit: 200, ...organizationActiveListStatusQuery() }),
     ]);
@@ -72,13 +74,17 @@ export async function loadBalanceCreditDirectory(params?: LoadBalanceCreditParam
   const departments = ensurePaginatedResult(departmentsRes);
 
   const employeeNames = new Map(
-    employees.items.map((e) => [e.id, e.nameAr] as const),
+    employees.items.map((e) => [e.id, e.nameAr?.trim() || e.nameEn?.trim() || '—'] as const),
   );
 
   const employeeOptions: BalanceCreditEmployeeOption[] = employees.items.map((e) => ({
     id: e.id,
-    name: e.nameAr,
+    name: e.nameAr?.trim() || e.nameEn?.trim() || '—',
+    branchId: e.branchId ?? undefined,
+    departmentId: e.departmentId ?? undefined,
   }));
+
+  const employeePickerOptions = mapEmployeesToPickerOptions(employees.items);
 
   const branchOptions: BalanceCreditFilterOption[] = [
     { value: 'all', label: 'جميع الفروع' },
@@ -112,6 +118,7 @@ export async function loadBalanceCreditDirectory(params?: LoadBalanceCreditParam
     creditRequests: credits.items.map((row) => mapBalanceCreditResponse(row, employeeNames, leaveTypes)),
     balancesByEmployeeType,
     employeeOptions,
+    employeePickerOptions,
     branchOptions,
     departmentOptions,
     employeeById: new Map(employeeOptions.map((e) => [e.id, e])),
@@ -120,6 +127,10 @@ export async function loadBalanceCreditDirectory(params?: LoadBalanceCreditParam
 
 export async function createBalanceCreditRequest(payload: CreateBalanceCreditRequestDto) {
   return balanceCreditsApi.create(payload);
+}
+
+export async function createBulkBalanceCreditRequest(payload: CreateBulkBalanceCreditRequestDto) {
+  return balanceCreditsApi.bulkCreate(payload);
 }
 
 export async function approveBalanceCreditRequest(id: string) {

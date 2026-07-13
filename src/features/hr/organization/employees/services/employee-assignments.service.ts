@@ -22,10 +22,11 @@ const REFERENCE_LIMIT = 200;
 export function resolvePrimaryAssignment(
   assignments: EmployeeAssignmentResponseDto[],
 ): EmployeeAssignmentResponseDto | null {
+  const live = assignments.filter((a) => !a.isArchived);
   return (
-    assignments.find((a) => a.isPrimary && a.status === 'active')
-    ?? assignments.find((a) => a.status === 'active')
-    ?? assignments[0]
+    live.find((a) => a.isPrimary && a.status === 'active')
+    ?? live.find((a) => a.status === 'active')
+    ?? live[0]
     ?? null
   );
 }
@@ -82,12 +83,20 @@ function enrichRows(
   }));
 }
 
-/** Newest placements first; primary assignment pinned to top when active. */
+/** Live (non-archived) first, primary pinned, then newest; archived last by archive date. */
 export function sortAssignmentHistory(
   items: EnrichedEmployeeAssignment[],
 ): EnrichedEmployeeAssignment[] {
   return [...items].sort((a, b) => {
-    if (a.isPrimary !== b.isPrimary) return a.isPrimary ? -1 : 1;
+    if (a.isArchived !== b.isArchived) return a.isArchived ? 1 : -1;
+    if (!a.isArchived && !b.isArchived && a.isPrimary !== b.isPrimary) {
+      return a.isPrimary ? -1 : 1;
+    }
+    if (a.isArchived && b.isArchived) {
+      const aArch = a.archivedAt ?? a.updatedAt;
+      const bArch = b.archivedAt ?? b.updatedAt;
+      return bArch.localeCompare(aArch);
+    }
     const aKey = a.startDate ?? a.createdAt;
     const bKey = b.startDate ?? b.createdAt;
     return bKey.localeCompare(aKey);

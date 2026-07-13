@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { toast } from 'sonner';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import { resolveDirectoryLoadFailure } from '@/features/hr/lib/api/directory-load-error';
 import { useServerDirectoryPagination } from '@/components/ui/paged-list';
@@ -14,13 +15,14 @@ import {
   mapLeaveTypeResponse,
   updateLeaveType,
 } from '@/features/hr/leaves/leave-types/services/leave-types.service';
+import { isOfficialLeaveType } from '@/features/hr/leaves/leave-types/constants/official-leave-type-codes';
 import {
   ORGANIZATION_ARCHIVE_SCOPE_DEFAULT,
   organizationListStatusQuery,
   type OrganizationArchiveScope,
 } from '@/features/hr/organization/lib/archive-scope';
 
-export type LeaveTypeDraft = Omit<HRLeaveTypeRecord, 'id' | 'updatedAt'>;
+export type LeaveTypeDraft = Omit<HRLeaveTypeRecord, 'id' | 'updatedAt' | 'isSystem'>;
 export type LeaveTypeProperty = 'paid' | 'deductsFromBalance';
 
 const EMPTY_DRAFT: LeaveTypeDraft = {
@@ -102,7 +104,7 @@ export function useLeaveTypesPanelModel() {
       requiresApproval: item.requiresApproval,
       maxDaysPerRequest: item.maxDaysPerRequest,
       sortOrder: item.sortOrder,
-      isActive: true,
+      isActive: item.isActive,
     });
     setError(null);
     setOpen(true);
@@ -141,7 +143,7 @@ export function useLeaveTypesPanelModel() {
           requiresApproval: draft.requiresApproval,
           maxDaysPerRequest: draft.maxDaysPerRequest,
           sortOrder: draft.sortOrder,
-          isActive: true,
+          isActive: draft.isActive,
         });
       } else {
         await createLeaveType({
@@ -154,7 +156,7 @@ export function useLeaveTypesPanelModel() {
           requiresApproval: draft.requiresApproval,
           maxDaysPerRequest: draft.maxDaysPerRequest,
           sortOrder: draft.sortOrder,
-          isActive: true,
+          isActive: draft.isActive,
         });
       }
       await reload();
@@ -167,6 +169,12 @@ export function useLeaveTypesPanelModel() {
 
   const remove = React.useCallback(async () => {
     if (!confirmId) return;
+    const target = items.find((item) => item.id === confirmId);
+    if (target && isOfficialLeaveType(target)) {
+      setError('لا يمكن حذف نوع إجازة رسمي — يمكن إيقاف تفعيله فقط.');
+      setConfirmId(null);
+      return;
+    }
     try {
       await deleteLeaveType(confirmId);
       setConfirmId(null);
@@ -175,7 +183,23 @@ export function useLeaveTypesPanelModel() {
       const { displayMessage } = handleApiError(err, 'leave-types.delete');
       setError(displayMessage);
     }
-  }, [confirmId, reload]);
+  }, [confirmId, items, reload]);
+
+  const toggleActive = React.useCallback(async (item: HRLeaveTypeRecord, nextActive: boolean) => {
+    setError(null);
+    try {
+      await updateLeaveType(item.id, { isActive: nextActive });
+      await reload();
+      toast.success(nextActive ? 'تم تفعيل نوع الإجازة' : 'تم إيقاف تفعيل نوع الإجازة');
+    } catch (err) {
+      const { displayMessage } = handleApiError(err, 'leave-types.update');
+      setError(displayMessage);
+      toast.error(displayMessage);
+    }
+  }, [reload]);
+
+  const editingItem = editId ? items.find((item) => item.id === editId) ?? null : null;
+  const editingIsOfficial = editingItem ? isOfficialLeaveType(editingItem) : false;
 
   return {
     items,
@@ -197,6 +221,8 @@ export function useLeaveTypesPanelModel() {
     setProperty,
     save,
     remove,
+    toggleActive,
+    editingIsOfficial,
     archiveScope,
     setArchiveScope,
   };

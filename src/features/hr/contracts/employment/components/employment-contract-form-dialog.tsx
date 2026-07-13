@@ -173,8 +173,8 @@ export function EmploymentContractFormDialog({
                 </DialogTitle>
                 <DialogDescription className="mt-1 text-xs leading-relaxed">
                   {isCreate
-                    ? 'عبّئ بيانات العقد على مراحل — يمكنك البدء من قالب جاهز أو نسخ عقد موجود.'
-                    : 'عدّل بيانات المسودة ثم احفظ التغييرات.'}
+                    ? 'عبّئ بيانات العقد على مراحل — يُنشأ كمسودة ثم يُرسل للموظف للموافقة قبل التفعيل.'
+                    : 'عدّل البنود طالما الحالة مسودة أو بانتظار موافقة الموظف (قبل القبول).'}
                 </DialogDescription>
               </div>
             </div>

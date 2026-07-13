@@ -21,6 +21,7 @@ export function mapLeaveTypeResponse(dto: LeaveTypeResponseDto): HRLeaveTypeReco
     maxDaysPerRequest: dto.maxDaysPerRequest,
     sortOrder: dto.sortOrder,
     isActive: dto.isActive,
+    isSystem: dto.isSystem === true,
     updatedAt: toIso(dto.updatedAt),
   };
 }

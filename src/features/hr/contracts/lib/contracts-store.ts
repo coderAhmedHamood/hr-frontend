@@ -14,6 +14,10 @@ import { ApiError } from '@/features/hr/lib/api/client';
 import { fetchAllEmployeeContracts } from './fetch-all-employee-contracts';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
 import { getDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
+import {
+  resolveContractActions,
+  type ContractUiActions,
+} from '@/features/hr/contracts/lib/contract-actions';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -58,12 +62,19 @@ export type HRContractRecord = {
   annualLeaveDays: number | null;
   employeeSigned: boolean;
   rejectionReason: string | null;
+  signatureNoticeSent: boolean;
   signedAt: string | null;
+  terminatedAt: string | null;
+  actions: ContractUiActions;
   updatedAt: string;
 };
 
-export type HRContractDraft = Omit<HRContractRecord, 'id' | 'updatedAt'>;
+export type HRContractDraft = Omit<HRContractRecord, 'id' | 'updatedAt' | 'actions' | 'signatureNoticeSent' | 'terminatedAt'>;
 export type ActivateResult = { ok: true } | { ok: false; message: string };
+
+function actorEmail(): string | undefined {
+  return useAuthStore.getState().user?.email ?? undefined;
+}
 
 // ─── Mapping ──────────────────────────────────────────────────────────────────
 
@@ -99,7 +110,10 @@ export function mapEmployeeContractFromApi(c: ApiEmployeeContract): HRContractRe
     annualLeaveDays: c.annualLeaveDays ?? null,
     employeeSigned: c.employeeSigned ?? false,
     rejectionReason: c.rejectionReason ?? null,
+    signatureNoticeSent: c.signatureNoticeSent ?? false,
     signedAt: c.signedAt ?? null,
+    terminatedAt: c.terminatedAt ?? null,
+    actions: resolveContractActions(c),
     updatedAt: c.updatedAt,
   };
 }
@@ -115,9 +129,12 @@ interface HRContractsState {
   add: (data: HRContractDraft) => Promise<{ id: string; contractNumber: string }>;
   update: (id: string, patch: Partial<HRContractDraft>) => Promise<ActivateResult>;
   remove: (id: string) => Promise<ActivateResult>;
+  send: (id: string) => Promise<ActivateResult>;
   activate: (id: string, leaveTypeId?: string) => Promise<ActivateResult>;
   employeeAccept: (id: string) => Promise<ActivateResult>;
   terminate: (id: string, reason: string) => Promise<ActivateResult>;
+  cancel: (id: string) => Promise<ActivateResult>;
+  /** @deprecated استخدم cancel */
   archive: (id: string) => Promise<ActivateResult>;
   createAmendmentDraft: (activeContractId: string) => Promise<{ ok: true; id: string } | { ok: false; message: string }>;
   syncExpiredByEndDate: () => void;
@@ -183,7 +200,7 @@ export const useHRContractsStore = create<HRContractsState>()((set, get) => ({
       annualLeaveDays: data.annualLeaveDays ?? undefined,
       baseSalary: data.baseSalary,
       ...(currency && currency !== 'SAR' ? { currency } : {}),
-      status: data.status,
+      // الإنشاء يكون مسودة دائماً من الـ API
       allowancesNote: data.allowancesNote || undefined,
       deductionsNote: data.deductionsNote || undefined,
       amendsContractId: data.amendsContractId ?? undefined,
@@ -235,11 +252,26 @@ export const useHRContractsStore = create<HRContractsState>()((set, get) => ({
     }
   },
 
+  send: async (id) => {
+    try {
+      const updatedBy = actorEmail();
+      const updated = await employeeContractsApi.send(id, {
+        ...(updatedBy ? { updatedBy } : {}),
+      });
+      const row = mapEmployeeContractFromApi(updated);
+      set(s => ({ contracts: s.contracts.map(x => x.id === id ? row : x) }));
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, message: (e as Error).message };
+    }
+  },
+
   activate: async (id, leaveTypeId) => {
     try {
-      const updated = await employeeContractsApi.update(id, {
-        status: 'active',
+      const updatedBy = actorEmail();
+      const updated = await employeeContractsApi.activate(id, {
         ...(leaveTypeId ? { leaveTypeId } : {}),
+        ...(updatedBy ? { updatedBy } : {}),
       });
       const row = mapEmployeeContractFromApi(updated);
       set(s => ({ contracts: s.contracts.map(x => x.id === id ? row : x) }));
@@ -266,9 +298,11 @@ export const useHRContractsStore = create<HRContractsState>()((set, get) => ({
 
   terminate: async (id, reason) => {
     try {
+      const updatedBy = actorEmail();
       const updated = await employeeContractsApi.update(id, {
         status: 'terminated',
         earlyTerminationReason: reason.trim() || 'إنهاء مبكر',
+        ...(updatedBy ? { updatedBy } : {}),
       });
       const row = mapEmployeeContractFromApi(updated);
       set(s => ({ contracts: s.contracts.map(x => x.id === id ? row : x) }));
@@ -278,9 +312,13 @@ export const useHRContractsStore = create<HRContractsState>()((set, get) => ({
     }
   },
 
-  archive: async (id) => {
+  cancel: async (id) => {
     try {
-      const updated = await employeeContractsApi.update(id, { status: 'cancelled' });
+      const updatedBy = actorEmail();
+      const updated = await employeeContractsApi.update(id, {
+        status: 'cancelled',
+        ...(updatedBy ? { updatedBy } : {}),
+      });
       const row = mapEmployeeContractFromApi(updated);
       set(s => ({ contracts: s.contracts.map(x => x.id === id ? row : x) }));
       return { ok: true };
@@ -288,6 +326,8 @@ export const useHRContractsStore = create<HRContractsState>()((set, get) => ({
       return { ok: false, message: (e as Error).message };
     }
   },
+
+  archive: async (id) => get().cancel(id),
 
   createAmendmentDraft: async (activeContractId) => {
     let parent = get().contracts.find(x => x.id === activeContractId);

@@ -4,11 +4,17 @@ import type {
   ContractNature,
   WorkArrangement,
 } from '@/features/hr/contracts/contract-templates/types/contract-template';
+import type { EmployeeContractsListQuery } from '@/features/hr/contracts/lib/employee-contracts-list-query';
+import {
+  CONTRACT_NATURE,
+  CONTRACT_STATUS,
+  WORK_ARRANGEMENT,
+  type ContractStatus,
+} from '@/features/hr/contracts/lib/employee-contracts-list-query';
 
-export type { ContractNature, WorkArrangement };
-
-export type ContractStatus = 'draft' | 'pending_signature' | 'active' | 'expired' | 'terminated' | 'superseded' | 'cancelled';
-
+export type { ContractNature, WorkArrangement, ContractStatus };
+export { CONTRACT_NATURE, CONTRACT_STATUS, WORK_ARRANGEMENT };
+export type { EmployeeContractsListQuery };
 // ─── Contract Templates (re-export from page capsule) ─────────────────────────
 
 export { contractTemplatesApi } from '@/features/hr/contracts/contract-templates/lib/api/contract-templates';
@@ -103,6 +109,16 @@ export type ApiContractArticleRef = {
   sortOrder: number;
 };
 
+/** أعلام الواجهة من API — ابنِ الأزرار عليها وليس بتخمين الحالة فقط. */
+export type EmployeeContractActionsDto = {
+  canEditTerms: boolean;
+  canSendToEmployee: boolean;
+  canEmployeeDecide: boolean;
+  canActivate: boolean;
+  canCancel: boolean;
+  canClose: boolean;
+};
+
 export type ApiEmployeeContract = {
   id: string;
   companyId: string;
@@ -131,6 +147,8 @@ export type ApiEmployeeContract = {
   terminatedAt: string | null;
   employeeSigned: boolean;
   rejectionReason: string | null;
+  signatureNoticeSent?: boolean;
+  actions?: EmployeeContractActionsDto;
   allowanceLines: ApiContractAllowanceLine[];
   articles: ApiContractArticleRef[];
   createdAt: string;
@@ -181,8 +199,16 @@ export type UpdateEmployeeContractDto = {
   articleIds?: string[];
   allowanceLines?: { allowanceTypeId: string; amount: number; sortOrder?: number }[];
   updatedBy?: string;
-  /** Required when activating a contract that credits annualLeaveDays */
+};
+
+export type SendEmployeeContractDto = {
+  updatedBy?: string;
+};
+
+export type ActivateEmployeeContractDto = {
+  /** مطلوب إذا annualLeaveDays > 0 ولم يُضف الرصيد من قبل */
   leaveTypeId?: string;
+  updatedBy?: string;
 };
 
 export type EmployeeContractDecisionDto = {
@@ -192,21 +218,7 @@ export type EmployeeContractDecisionDto = {
 };
 
 export const employeeContractsApi = {
-  list: (params?: {
-    companyId?: string;
-    employeeId?: string;
-    employeeIds?: string[];
-    branchId?: string;
-    contractTemplateId?: string;
-    status?: string;
-    isDraft?: boolean;
-    contractNature?: string;
-    workArrangement?: string;
-    contractNumber?: string;
-    page?: number;
-    limit?: number;
-    archiveScope?: OrganizationArchiveScope;
-  }) =>
+  list: (params?: EmployeeContractsListQuery) =>
     apiRequest<PaginatedResult<ApiEmployeeContract>>('/payroll/contracts', {
       query: params as Record<string, string | number | boolean | null | undefined | string[]>,
     }),
@@ -222,6 +234,18 @@ export const employeeContractsApi = {
 
   delete: (id: string) =>
     apiRequest<void>(`/payroll/contracts/${id}`, { method: 'DELETE' }),
+
+  send: (id: string, body?: SendEmployeeContractDto) =>
+    apiRequest<ApiEmployeeContract>(`/payroll/contracts/${id}/send`, {
+      method: 'POST',
+      body: body ?? {},
+    }),
+
+  activate: (id: string, body?: ActivateEmployeeContractDto) =>
+    apiRequest<ApiEmployeeContract>(`/payroll/contracts/${id}/activate`, {
+      method: 'POST',
+      body: body ?? {},
+    }),
 
   employeeDecision: (id: string, body: EmployeeContractDecisionDto) =>
     apiRequest<ApiEmployeeContract>(`/payroll/contracts/${id}/employee-decision`, {

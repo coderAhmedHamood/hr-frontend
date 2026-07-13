@@ -1,15 +1,18 @@
 import { ensurePaginatedResult } from '@/features/hr/lib/api/client';
 import { getDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 import { employeeContractsApi } from '@/features/hr/contracts/lib/contracts-api';
+import {
+  buildEmployeeContractsListQuery,
+  type EmployeeContractsListFilters,
+} from '@/features/hr/contracts/lib/employee-contracts-list-query';
 import { mapEmployeeContractFromApi, type HRContractRecord } from '@/features/hr/contracts/lib/contracts-store';
 
 const PAGE_SIZE = 200;
 
-export type FetchEmployeeContractsParams = {
-  employeeId?: string;
-  status?: string;
-  contractNature?: string;
-};
+export type FetchEmployeeContractsParams = Omit<
+  EmployeeContractsListFilters,
+  'companyId' | 'page' | 'limit'
+>;
 
 /** Loads every page from GET /payroll/contracts for the active company. */
 export async function fetchAllEmployeeContracts(
@@ -19,12 +22,14 @@ export async function fetchAllEmployeeContracts(
   if (!companyId) return [];
 
   const first = ensurePaginatedResult(
-    await employeeContractsApi.list({
-      companyId,
-      page: 1,
-      limit: PAGE_SIZE,
-      ...params,
-    }),
+    await employeeContractsApi.list(
+      buildEmployeeContractsListQuery({
+        companyId,
+        page: 1,
+        limit: PAGE_SIZE,
+        ...params,
+      }),
+    ),
   );
 
   const items = [...first.items];
@@ -32,12 +37,14 @@ export async function fetchAllEmployeeContracts(
 
   for (let page = 2; page <= totalPages; page += 1) {
     const next = ensurePaginatedResult(
-      await employeeContractsApi.list({
-        companyId,
-        page,
-        limit: PAGE_SIZE,
-        ...params,
-      }),
+      await employeeContractsApi.list(
+        buildEmployeeContractsListQuery({
+          companyId,
+          page,
+          limit: PAGE_SIZE,
+          ...params,
+        }),
+      ),
     );
     items.push(...next.items);
   }

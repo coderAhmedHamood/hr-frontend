@@ -12,6 +12,7 @@ import { EmployeeRequestsSection } from '@/features/hr/organization/employees/co
 import { EmployeeViolationsSection } from '@/features/hr/organization/employees/components/sections/employee-violations-section';
 import { EmployeeContractsSection } from '@/features/hr/organization/employees/components/sections/employee-contracts-section';
 import { EmployeeRoseFormsSection } from '@/features/hr/organization/employees/components/sections/employee-rose-forms-section';
+import { EmployeeAttachmentsSection } from '@/features/hr/organization/employees/components/sections/employee-attachments-section';
 import { EmployeeActivityLogSection } from '@/features/hr/organization/employees/components/sections/employee-activity-log-section';
 import { EmployeePermissionsSection } from '@/features/hr/organization/employees/components/sections/employee-permissions-section';
 import { EmployeeSalarySection } from '@/features/hr/organization/employees/components/sections/employee-salary-section';
@@ -22,6 +23,8 @@ import { EmployeeClearancePdfPrepDialog } from '@/features/hr/organization/emplo
 import { EmployeeSettlementPdfPrepDialog } from '@/features/hr/organization/employees/components/dialogs/employee-settlement-pdf-prep-dialog';
 import { EmployeeExperiencePdfPrepDialog } from '@/features/hr/organization/employees/components/dialogs/employee-experience-pdf-prep-dialog';
 import { RoseFormsTemplateSettingsDialog } from '@/features/hr/organization/employees/components/dialogs/rose-forms-template-settings-dialog';
+import { EmployeeAttachmentUploadDialog } from '@/features/hr/organization/employees/components/dialogs/employee-attachment-upload-dialog';
+import { EmployeeAttachmentDetailDialog } from '@/features/hr/organization/employees/components/dialogs/employee-attachment-detail-dialog';
 import { EmployeeCreateUserDialog } from '@/features/hr/organization/employees/components/dialogs/employee-create-user-dialog';
 import { EmployeeAssignmentDialog } from '@/features/hr/organization/employees/components/dialogs/employee-assignment-dialog';
 import { EmployeeAssignmentEditDialog } from '@/features/hr/organization/employees/components/dialogs/employee-assignment-edit-dialog';
@@ -40,6 +43,7 @@ export function EmployeeProfileBody({ employee, onUpdated }: { employee: Employe
         {model.activeSection === 'requests' && <EmployeeRequestsSection model={model} />}
         {model.activeSection === 'violations' && <EmployeeViolationsSection model={model} />}
         {model.activeSection === 'contracts' && <EmployeeContractsSection model={model} />}
+        {model.activeSection === 'attachments' && <EmployeeAttachmentsSection model={model} />}
         {model.activeSection === 'rose-forms' && <EmployeeRoseFormsSection model={model} />}
         {model.activeSection === 'activity-log' && <EmployeeActivityLogSection model={model} />}
         {model.hasLinkedUser && model.activeSection === 'permissions' && (
@@ -133,6 +137,21 @@ export function EmployeeProfileBody({ employee, onUpdated }: { employee: Employe
         title={model.rosePdfPreviewPayload.title}
         fileName={model.rosePdfPreviewPayload.fileName}
         printable={model.rosePdfPreviewPayload.printable}
+      />
+
+      <EmployeeAttachmentUploadDialog
+        open={model.uploadOpen}
+        onOpenChange={model.setUploadOpen}
+        employeeName={model.employee.name}
+        onUpload={model.uploadAttachment}
+        onSuccess={() => void model.reloadAttachments()}
+      />
+
+      <EmployeeAttachmentDetailDialog
+        attachment={model.detailAttachment}
+        onOpenChange={(open) => {
+          if (!open) model.setDetailAttachment(null);
+        }}
       />
 
       <EmployeeLeaveRequestDialog

@@ -14,6 +14,7 @@ import { useEmployeeLinkUser } from '@/features/hr/organization/employees/hooks/
 import { useEmployeeProfileAssignments } from '@/features/hr/organization/employees/hooks/useEmployeeProfileAssignments';
 import { useEmployeeProfileRequests } from '@/features/hr/organization/employees/hooks/useEmployeeProfileRequests';
 import { useEmployeeProfileAuditLog } from '@/features/hr/organization/employees/hooks/useEmployeeProfileAuditLog';
+import { useEmployeeProfileAttachments } from '@/features/hr/organization/employees/hooks/useEmployeeProfileAttachments';
 
 const SECTIONS = EMPLOYEE_PROFILE_SECTIONS;
 
@@ -60,6 +61,7 @@ export function useEmployeeProfileModel(employee: Employee, onUpdated?: (updated
   const assignments = useEmployeeProfileAssignments(employee, activeSection === 'employment');
   const requests = useEmployeeProfileRequests(employee, activeSection === 'requests');
   const auditLog = useEmployeeProfileAuditLog(employee, activeSection === 'activity-log');
+  const attachments = useEmployeeProfileAttachments(employee, activeSection === 'attachments');
 
   React.useEffect(() => {
     contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
@@ -69,6 +71,7 @@ export function useEmployeeProfileModel(employee: Employee, onUpdated?: (updated
     requests: requests.requestsCounts.total,
     violations: data.violationsTotal,
     contracts: data.employeeContracts.length,
+    attachments: attachments.attachmentsTotal,
     'rose-forms': data.roseFormsCount,
     'activity-log': auditLog.auditCounts.total,
     salary: data.employeePayslipSeries.length,
@@ -96,6 +99,7 @@ export function useEmployeeProfileModel(employee: Employee, onUpdated?: (updated
     ...assignments,
     ...requests,
     ...auditLog,
+    ...attachments,
   };
 }
 

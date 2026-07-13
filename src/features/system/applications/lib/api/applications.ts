@@ -28,6 +28,7 @@ export const applicationsApi = {
 export function resolveApplicationLaunchPath(app: ApplicationResponseDto): string {
   const base = app.routePath?.trim();
   if (app.code === 'hr') return '/hr/organization/employees';
+  if (app.code === 'accounting') return '/accounting';
   if (app.code === 'system' && (!base || base === '/system')) {
     return resolveSystemAppLaunchPath();
   }

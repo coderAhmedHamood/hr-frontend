@@ -7,6 +7,9 @@ import { resolveDirectoryLoadFailure } from '@/features/hr/lib/api/directory-loa
 import { useServerDirectoryPagination } from '@/components/ui/paged-list';
 import { ensurePaginatedResult, fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
 import { intervalOverlapsYmdRange } from '@/features/hr/discipline/lib/discipline-date-filter';
+import type { EmployeePickerOption } from '@/components/ui/employee-picker';
+import { useAuthStore } from '@/features/auth/lib/auth-store';
+import { mapEmployeesToPickerOptions } from '@/features/hr/lib/use-employee-filter-picker';
 import type {
   BalanceCreditEmployeeOption,
   BalanceCreditFilterOption,
@@ -15,6 +18,7 @@ import type {
 import {
   approveBalanceCreditRequest,
   createBalanceCreditRequest,
+  createBulkBalanceCreditRequest,
   mapBalanceCreditResponse,
   type LoadBalanceCreditParams,
   rejectBalanceCreditRequest,
@@ -48,7 +52,9 @@ function creditRequestInDateRange(r: LeaveBalanceCreditRequest, from: string, to
 }
 
 export function useLeaveBalanceCreditModel() {
+  const createdBy = useAuthStore((s) => s.user?.email ?? s.accessProfile?.email ?? null);
   const [employeeOptions, setEmployeeOptions] = React.useState<BalanceCreditEmployeeOption[]>([]);
+  const [employeePickerOptions, setEmployeePickerOptions] = React.useState<EmployeePickerOption[]>([]);
   const [employeeById, setEmployeeById] = React.useState<Map<string, BalanceCreditEmployeeOption>>(
     () => new Map(),
   );
@@ -77,7 +83,7 @@ export function useLeaveBalanceCreditModel() {
   const [dateBounds, setDateBounds] = React.useState<{ from: string; to: string }>({ from: '', to: '' });
 
   const [addOpen, setAddOpen] = React.useState(false);
-  const [employeeId, setEmployeeId] = React.useState('');
+  const [formEmployeeIds, setFormEmployeeIds] = React.useState<Set<string>>(new Set());
   const [leaveTypeId, setLeaveTypeId] = React.useState('');
   const [daysAddedRaw, setDaysAddedRaw] = React.useState('');
   const [reasonAr, setReasonAr] = React.useState('');
@@ -101,7 +107,7 @@ export function useLeaveBalanceCreditModel() {
       const [typesRes, balancesRes, employeesRes, branchesRes, departmentsRes] = await Promise.all([
         loadCompanyLeaveTypes(cid ? { companyId: cid, limit: 200, isActive: true } : { limit: 200, isActive: true }),
         employeeLeaveBalancesApi.getAll(listQuery),
-        employeesApi.getAll(listQuery),
+        employeesApi.getAll({ ...listQuery, ...organizationActiveListStatusQuery() }),
         cid ? branchesApi.getAll({ companyId: cid, limit: 100, ...organizationActiveListStatusQuery() }) : branchesApi.getAll({ limit: 100, ...organizationActiveListStatusQuery() }),
         cid ? departmentsApi.getAll({ companyId: cid, limit: 200, ...organizationActiveListStatusQuery() }) : departmentsApi.getAll({ limit: 200, ...organizationActiveListStatusQuery() }),
       ]);
@@ -113,12 +119,13 @@ export function useLeaveBalanceCreditModel() {
 
       const options: BalanceCreditEmployeeOption[] = employees.items.map((e) => ({
         id: e.id,
-        name: e.nameAr,
+        name: e.nameAr?.trim() || e.nameEn?.trim() || '—',
         branchId: e.branchId ?? undefined,
         departmentId: e.departmentId ?? undefined,
       }));
 
       setEmployeeOptions(options);
+      setEmployeePickerOptions(mapEmployeesToPickerOptions(employees.items));
       setEmployeeById(new Map(options.map((e) => [e.id, e])));
       setBranchInlineOptions([
         { value: 'all', label: 'جميع الفروع' },
@@ -258,25 +265,30 @@ export function useLeaveBalanceCreditModel() {
   );
 
   const resetAddForm = React.useCallback(() => {
-    setEmployeeId('');
+    setFormEmployeeIds(new Set());
     setLeaveTypeId(defaultLeaveTypeId ?? '');
     setDaysAddedRaw('');
     setReasonAr('');
   }, [defaultLeaveTypeId]);
 
-  const openAddForEmployee = React.useCallback((id: string) => {
-    setEmployeeId(id);
+  const openAddDialog = React.useCallback((prefillEmployeeIds?: Iterable<string>) => {
+    const nextIds = prefillEmployeeIds ? new Set(prefillEmployeeIds) : new Set<string>();
+    setFormEmployeeIds(nextIds);
     setLeaveTypeId(defaultLeaveTypeId ?? '');
     setDaysAddedRaw('');
     setReasonAr('');
     setAddOpen(true);
   }, [defaultLeaveTypeId]);
 
+  const openAddForEmployee = React.useCallback((id: string) => {
+    openAddDialog([id]);
+  }, [openAddDialog]);
+
   const handleDialogSubmit = React.useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
-      if (!employeeId) {
-        toast.error('اختر الموظف.');
+      if (formEmployeeIds.size === 0) {
+        toast.error('اختر موظفاً واحداً على الأقل.');
         return;
       }
       if (!companyId || !leaveTypeId) {
@@ -288,16 +300,35 @@ export function useLeaveBalanceCreditModel() {
         toast.error('عدد الأيام يجب أن يكون 1 على الأقل.');
         return;
       }
+
+      const reason = reasonAr.trim() || null;
+      const employeeIds = [...formEmployeeIds];
+
       try {
-        await createBalanceCreditRequest({
-          companyId,
-          employeeId,
-          leaveTypeId,
-          daysAdded: days,
-          reasonAr: reasonAr.trim() || null,
-          status: 'pending',
-        });
-        toast.success('تم تسجيل الطلب — في الانتظار للموافقة.');
+        if (employeeIds.length === 1) {
+          await createBalanceCreditRequest({
+            companyId,
+            employeeId: employeeIds[0]!,
+            leaveTypeId,
+            daysAdded: days,
+            reasonAr: reason,
+            status: 'pending',
+            createdBy,
+          });
+          toast.success('تم تسجيل الطلب — في الانتظار للموافقة.');
+        } else {
+          const res = await createBulkBalanceCreditRequest({
+            companyId,
+            employeeIds,
+            leaveTypeId,
+            daysAdded: days,
+            reasonAr: reason,
+            status: 'pending',
+            createdBy,
+          });
+          const count = res.items?.length ?? employeeIds.length;
+          toast.success(`تم تسجيل ${count} طلب — في الانتظار للموافقة.`);
+        }
         resetAddForm();
         setAddOpen(false);
         await reload();
@@ -306,7 +337,7 @@ export function useLeaveBalanceCreditModel() {
         toast.error(displayMessage);
       }
     },
-    [companyId, daysAddedRaw, employeeId, leaveTypeId, reasonAr, reload, resetAddForm],
+    [companyId, createdBy, daysAddedRaw, formEmployeeIds, leaveTypeId, reasonAr, reload, resetAddForm],
   );
 
   const approveCreditRequest = React.useCallback(
@@ -337,8 +368,9 @@ export function useLeaveBalanceCreditModel() {
     [reload],
   );
 
-  const selectedBalance = employeeId && leaveTypeId
-    ? balancesByEmployeeType[employeeId]?.[leaveTypeId] ?? null
+  const singleFormEmployeeId = formEmployeeIds.size === 1 ? [...formEmployeeIds][0]! : '';
+  const selectedBalance = singleFormEmployeeId && leaveTypeId
+    ? balancesByEmployeeType[singleFormEmployeeId]?.[leaveTypeId] ?? null
     : null;
 
   const selectedLeaveTypeNameAr = React.useMemo(
@@ -370,12 +402,13 @@ export function useLeaveBalanceCreditModel() {
     branchInlineOptions,
     deptInlineOptions,
     employeeOptions,
+    employeePickerOptions,
     selectedEmpKey,
     statusCounts,
     addOpen,
     setAddOpen,
-    employeeId,
-    setEmployeeId,
+    formEmployeeIds,
+    setFormEmployeeIds,
     leaveTypeId,
     setLeaveTypeId,
     daysAddedRaw,
@@ -383,6 +416,7 @@ export function useLeaveBalanceCreditModel() {
     reasonAr,
     setReasonAr,
     resetAddForm,
+    openAddDialog,
     openAddForEmployee,
     handleDialogSubmit,
     approveCreditRequest,

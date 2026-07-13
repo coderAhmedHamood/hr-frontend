@@ -4,6 +4,7 @@ export type LeaveTypeResponseDto = {
   id: string;
   companyId: string;
   code: string;
+  codeNumber?: number | null;
   nameAr: string;
   nameEn: string | null;
   paid: boolean;
@@ -12,6 +13,9 @@ export type LeaveTypeResponseDto = {
   maxDaysPerRequest: number | null;
   sortOrder: number;
   isActive: boolean;
+  isSystem?: boolean;
+  isArchived?: boolean;
+  archivedAt?: string | null;
   notes: string | null;
   createdAt: string;
   updatedAt: string;

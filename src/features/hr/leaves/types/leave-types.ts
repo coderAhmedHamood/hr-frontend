@@ -9,5 +9,6 @@ export interface HRLeaveTypeRecord {
   maxDaysPerRequest: number | null;
   sortOrder: number;
   isActive: boolean;
+  isSystem: boolean;
   updatedAt: string;
 }

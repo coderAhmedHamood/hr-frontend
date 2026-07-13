@@ -57,8 +57,8 @@ export function CheckpointsEditDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       {/* Full-screen-ish dialog, two-column on md+ */}
       <DialogContent
-        className="flex h-[92vh] max-h-[92vh] w-[96vw] max-w-6xl flex-col gap-0 overflow-visible border-border p-0"
-        // hide the default close button — we render our own
+        className="flex h-[92vh] max-h-[92vh] w-[96vw] max-w-6xl flex-col gap-0 overflow-hidden border-border p-0"
+        dir="rtl"
         hideClose
       >
         <VisuallyHidden.Root>
@@ -100,8 +100,8 @@ export function CheckpointsEditDialog({
         {draft && (
           <div className="flex min-h-0 flex-1 flex-col md:flex-row">
 
-            {/* Left panel — form (independently scrollable) */}
-            <div className="flex w-full shrink-0 flex-col overflow-y-auto border-b border-border md:w-80 md:border-b-0 md:border-e md:border-border lg:w-96">
+            {/* Form panel — right side in RTL */}
+            <div className="order-2 flex w-full shrink-0 flex-col overflow-y-auto border-t border-border md:order-1 md:w-[min(100%,22rem)] md:border-s md:border-t-0 lg:w-96">
               <div className="flex flex-1 flex-col gap-5 p-5">
 
                 {/* Geo search */}
@@ -183,30 +183,47 @@ export function CheckpointsEditDialog({
                   />
                 </div>
 
-                {/* Coordinates */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-medium text-muted-foreground">خط العرض</Label>
-                    <Input
-                      type="text"
-                      inputMode="decimal"
-                      dir="ltr"
-                      className="h-10 font-mono text-xs"
-                      value={draft.latitude.toFixed(6)}
-                      onChange={(e) => { const n = parseFloat(e.target.value); if (Number.isFinite(n)) setDraft({ ...draft, latitude: parseFloat(n.toFixed(6)) }); }}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-medium text-muted-foreground">خط الطول</Label>
-                    <Input
-                      type="text"
-                      inputMode="decimal"
-                      dir="ltr"
-                      className="h-10 font-mono text-xs"
-                      value={draft.longitude.toFixed(6)}
-                      onChange={(e) => { const n = parseFloat(e.target.value); if (Number.isFinite(n)) setDraft({ ...draft, longitude: parseFloat(n.toFixed(6)) }); }}
-                    />
-                  </div>
+                {/* Coordinates — synced from map; manual override available */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium text-muted-foreground">الإحداثيات</Label>
+                  <p className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 font-mono text-[11px] tabular-nums text-muted-foreground" dir="ltr">
+                    {draft.latitude.toFixed(6)}, {draft.longitude.toFixed(6)}
+                  </p>
+                  <details className="group rounded-lg border border-border/50 bg-muted/10">
+                    <summary className="cursor-pointer px-3 py-2 text-[11px] text-muted-foreground transition-colors hover:text-foreground">
+                      تعديل يدوي للإحداثيات
+                    </summary>
+                    <div className="grid grid-cols-2 gap-2 border-t border-border/40 p-3 pt-2">
+                      <div className="space-y-1">
+                        <Label className="text-[10px] text-muted-foreground">خط العرض</Label>
+                        <Input
+                          type="text"
+                          inputMode="decimal"
+                          dir="ltr"
+                          className="h-9 font-mono text-xs"
+                          value={draft.latitude.toFixed(6)}
+                          onChange={(e) => {
+                            const n = parseFloat(e.target.value);
+                            if (Number.isFinite(n)) setDraft({ ...draft, latitude: parseFloat(n.toFixed(6)) });
+                          }}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[10px] text-muted-foreground">خط الطول</Label>
+                        <Input
+                          type="text"
+                          inputMode="decimal"
+                          dir="ltr"
+                          className="h-9 font-mono text-xs"
+                          value={draft.longitude.toFixed(6)}
+                          onChange={(e) => {
+                            const n = parseFloat(e.target.value);
+                            if (Number.isFinite(n)) setDraft({ ...draft, longitude: parseFloat(n.toFixed(6)) });
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </details>
                 </div>
 
                 {/* Radius */}
@@ -263,11 +280,14 @@ export function CheckpointsEditDialog({
               </div>
             </div>
 
-            {/* Right panel — map fills remaining space, no scroll interference */}
-            <div ref={mapPanelRef} className="relative min-h-[320px] flex-1 overflow-hidden bg-muted/10 md:min-h-0">
+            {/* Map — left side in RTL; shown first on mobile */}
+            <div
+              ref={mapPanelRef}
+              className="relative order-1 min-h-[42vh] shrink-0 overflow-hidden bg-muted/10 md:order-2 md:min-h-0 md:min-w-0 md:flex-1"
+            >
               <MapPicker
                 height={mapHeight}
-                className="rounded-none border-0 shadow-none"
+                className="h-full min-h-[42vh] rounded-none border-0 shadow-none md:min-h-0"
                 value={{
                   latitude: draft.latitude,
                   longitude: draft.longitude,
@@ -278,7 +298,6 @@ export function CheckpointsEditDialog({
                     ...draft,
                     latitude: parseFloat(v.latitude.toFixed(6)),
                     longitude: parseFloat(v.longitude.toFixed(6)),
-                    radiusMeters: v.radiusMeters,
                   })
                 }
                 interactive

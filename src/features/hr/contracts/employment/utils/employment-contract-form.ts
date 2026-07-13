@@ -1,13 +1,14 @@
+import {
+  CONTRACT_NATURE_LABELS,
+  CONTRACT_STATUS_LABELS,
+  WORK_ARRANGEMENT_LABELS,
+} from '@/features/hr/contracts/lib/contracts-store';
 import type {
   HRContractDraft,
   HRContractLifecycleStatus,
   HRContractNature,
   HRContractRecord,
   HRWorkArrangement,
-} from '@/features/hr/contracts/lib/contracts-store';
-import {
-  CONTRACT_NATURE_LABELS,
-  CONTRACT_STATUS_LABELS,
 } from '@/features/hr/contracts/lib/contracts-store';
 
 export const HR_CONTRACTS_MODE_PARAM = 'mode';
@@ -148,18 +149,29 @@ export function employmentFormToDraft(
 
 export type EmploymentStatusFilter = 'all' | HRContractLifecycleStatus;
 export type EmploymentKindFilter = 'all' | HRContractNature;
+export type EmploymentWorkArrangementFilter = 'all' | HRWorkArrangement;
 
 export const EMPLOYMENT_STATUS_FILTER_OPTIONS: { value: EmploymentStatusFilter; label: string }[] = [
   { value: 'all', label: 'كل الحالات' },
-  ...(Object.entries(CONTRACT_STATUS_LABELS) as [HRContractLifecycleStatus, string][]).map(([v, l]) => ({
-    value: v,
-    label: l,
-  })),
+  ...(Object.entries(CONTRACT_STATUS_LABELS) as [HRContractLifecycleStatus, string][])
+    .filter(([status]) => status !== 'superseded' && status !== 'cancelled')
+    .map(([value, label]) => ({ value, label })),
 ];
 
 export const EMPLOYMENT_KIND_FILTER_OPTIONS: { value: EmploymentKindFilter; label: string }[] = [
   { value: 'all', label: 'كل الأنواع' },
   ...(Object.entries(CONTRACT_NATURE_LABELS) as [HRContractNature, string][]).map(([v, l]) => ({
+    value: v,
+    label: l,
+  })),
+];
+
+export const EMPLOYMENT_WORK_ARRANGEMENT_FILTER_OPTIONS: {
+  value: EmploymentWorkArrangementFilter;
+  label: string;
+}[] = [
+  { value: 'all', label: 'كل أنظمة العمل' },
+  ...(Object.entries(WORK_ARRANGEMENT_LABELS) as [HRWorkArrangement, string][]).map(([v, l]) => ({
     value: v,
     label: l,
   })),

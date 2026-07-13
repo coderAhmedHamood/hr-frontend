@@ -24,6 +24,7 @@ import { STATUS_PILL } from '@/shared/status-pill-classes';
 import { AR_LEAVE_BALANCE_CREDIT_STATUS_LABELS } from '@/shared/i18n/ar';
 import { ForbiddenState } from '@/components/shared/forbidden-state';
 import { DirectoryPagedViews } from '@/components/ui/paged-list';
+import { EmployeePicker } from '@/components/ui/employee-picker';
 import { useLeaveBalanceCreditModel } from '@/features/hr/leaves/balance-credit/hooks/useLeaveBalanceCreditModel';
 import type { LeaveBalanceCreditRequest } from '@/features/hr/leaves/balance-credit/types';
 
@@ -55,14 +56,14 @@ export function LeaveBalanceCreditClient() {
           variant="luxe"
           size="sm"
           className="h-8 gap-1.5 px-3 text-xs shadow-sm shrink-0"
-          onClick={() => { m.resetAddForm(); m.setAddOpen(true); }}
+          onClick={() => m.openAddDialog(m.selectedEmpIds.size > 0 ? m.selectedEmpIds : undefined)}
         >
           <Plus className="h-3.5 w-3.5" />
           طلب إضافة رصيد
         </Button>
       </div>
     ),
-    [activeFilterCount, m.resetAddForm, m.setAddOpen],
+    [activeFilterCount, m.openAddDialog, m.selectedEmpIds],
   );
 
   useEntityFilterSlot(
@@ -73,6 +74,7 @@ export function LeaveBalanceCreditClient() {
           { id: 'dept', value: m.departmentId, onChange: m.setDepartmentId, placeholder: 'القسم', options: m.deptInlineOptions },
         ]}
         companyId={m.companyId}
+        empPickerEmployees={m.employeePickerOptions}
         selectedEmpIds={m.selectedEmpIds}
         onSelectedEmpIdsChange={m.setSelectedEmpIds}
         statusFilter={m.statusFilter}
@@ -98,6 +100,7 @@ export function LeaveBalanceCreditClient() {
       m.companyId,
       m.branchInlineOptions,
       m.deptInlineOptions,
+      m.employeePickerOptions,
     ],
   );
 
@@ -305,26 +308,29 @@ export function LeaveBalanceCreditClient() {
       </div>
 
       <Dialog open={m.addOpen} onOpenChange={(o) => { if (!o) m.resetAddForm(); m.setAddOpen(o); }}>
-        <DialogContent className="sm:max-w-md" dir="rtl">
+        <DialogContent className="sm:max-w-lg" dir="rtl">
           <form onSubmit={m.handleDialogSubmit}>
             <DialogHeader>
-              <DialogTitle>طلب إضافة رصيد</DialogTitle>
+              <DialogTitle>
+                {m.formEmployeeIds.size > 1 ? 'طلب إضافة رصيد جماعي' : 'طلب إضافة رصيد'}
+              </DialogTitle>
               <DialogDescription>
-                اختر نوع الإجازة وعدد الأيام المضافة إلى رصيد الموظف. يُسجَّل الطلب بحالة «في الانتظار» حتى الموافقة.
+                اختر الموظفين ونوع الإجازة وعدد الأيام المضافة. يُسجَّل الطلب بحالة «في الانتظار» حتى الموافقة.
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-2">
-              <FormField label="الموظف">
-                <Select value={m.employeeId} onValueChange={m.setEmployeeId}>
-                  <SelectTrigger className="h-10 w-full rounded-lg border-input bg-background">
-                    <SelectValue placeholder="اختر الموظف…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {m.employeeOptions.map((e) => (
-                      <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <FormField
+                label={`الموظفون${m.formEmployeeIds.size > 0 ? ` (${m.formEmployeeIds.size})` : ''}`}
+                required
+              >
+                <EmployeePicker
+                  variant="form"
+                  selectionMode="target"
+                  employees={m.employeePickerOptions}
+                  selected={m.formEmployeeIds}
+                  onChange={m.setFormEmployeeIds}
+                  loading={m.loading}
+                />
               </FormField>
               <FormField label="نوع الإجازة" required>
                 <Select value={m.leaveTypeId} onValueChange={m.setLeaveTypeId}>
@@ -338,14 +344,18 @@ export function LeaveBalanceCreditClient() {
                   </SelectContent>
                 </Select>
               </FormField>
-              {m.selectedBalance ? (
+              {m.formEmployeeIds.size === 1 && m.selectedBalance ? (
                 <p className="text-[11px] text-muted-foreground font-mono" dir="ltr">
                   الرصيد الحالي ({m.selectedLeaveTypeNameAr}): {toWesternDigits(String(m.selectedBalance.used))}/
                   {toWesternDigits(String(m.selectedBalance.total))}
                 </p>
-              ) : m.employeeId && m.leaveTypeId ? (
+              ) : m.formEmployeeIds.size === 1 && m.leaveTypeId ? (
                 <p className="text-[11px] text-muted-foreground">
                   لا يوجد رصيد مسجّل لـ {m.selectedLeaveTypeNameAr} — سيُنشأ عند الموافقة.
+                </p>
+              ) : m.formEmployeeIds.size > 1 ? (
+                <p className="text-[11px] text-muted-foreground">
+                  سيتم إنشاء طلب منفصل لكل موظف من بين {m.formEmployeeIds.size} موظفين محددين.
                 </p>
               ) : null}
               <FormField label="عدد الأيام المضافة">
@@ -373,7 +383,7 @@ export function LeaveBalanceCreditClient() {
             </div>
             <DialogFooter className={dialogFormFooterClass}>
               <Button type="submit" variant="luxe">
-                تسجيل الطلب
+                {m.formEmployeeIds.size > 1 ? `تسجيل ${m.formEmployeeIds.size} طلبات` : 'تسجيل الطلب'}
               </Button>
               <Button type="button" variant="outline" onClick={() => { m.setAddOpen(false); m.resetAddForm(); }}>
                 إلغاء

@@ -10,6 +10,7 @@ import {
   History,
   Shield,
   Receipt,
+  Paperclip,
 } from 'lucide-react';
 
 export const EMPLOYEE_PROFILE_SECTIONS = [
@@ -20,6 +21,7 @@ export const EMPLOYEE_PROFILE_SECTIONS = [
   { id: 'requests', label: 'الطلبات', icon: FileText },
   { id: 'violations', label: 'المخالفات', icon: AlertTriangle },
   { id: 'contracts', label: 'العقود', icon: FileSignature },
+  { id: 'attachments', label: 'المرفقات', icon: Paperclip },
   { id: 'rose-forms', label: 'النماذج الرسمية', icon: FileStack },
   { id: 'activity-log', label: 'سجل التغييرات', icon: History },
   { id: 'permissions', label: 'صلاحيات الموظف', icon: Shield },

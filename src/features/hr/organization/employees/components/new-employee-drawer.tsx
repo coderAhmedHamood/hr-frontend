@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { User, Briefcase, Phone, Asterisk } from 'lucide-react';
+import { User, Phone, Asterisk } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,7 +19,6 @@ import { DatePickerInput } from '@/components/ui/date-picker-input';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import { employeesApi } from '@/features/hr/organization/employees/lib/api/employees';
 import { branchesApi, type BranchResponseDto } from '@/features/hr/organization/lib/api/branches';
-import { departmentsApi, type DepartmentResponseDto } from '@/features/hr/organization/lib/api/departments';
 import { companiesApi, type CompanyResponseDto } from '@/features/hr/organization/lib/api/companies';
 import { jobTitlesApi, type JobTitleResponseDto } from '@/features/hr/organization/lib/api/jobTitles';
 import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
@@ -92,7 +91,6 @@ export function NewEmployeeDrawer({ open, onOpenChange, onCreated }: Props) {
 
   const [companies, setCompanies] = React.useState<CompanyResponseDto[]>([]);
   const [branches, setBranches] = React.useState<BranchResponseDto[]>([]);
-  const [departments, setDepartments] = React.useState<DepartmentResponseDto[]>([]);
   const [jobTitles, setJobTitles] = React.useState<JobTitleResponseDto[]>([]);
   const [loadingCompanies, setLoadingCompanies] = React.useState(false);
   const [loadingRefs, setLoadingRefs] = React.useState(false);
@@ -142,7 +140,6 @@ export function NewEmployeeDrawer({ open, onOpenChange, onCreated }: Props) {
   React.useEffect(() => {
     if (!open || !form.companyId) {
       setBranches([]);
-      setDepartments([]);
       setJobTitles([]);
       return;
     }
@@ -150,20 +147,17 @@ export function NewEmployeeDrawer({ open, onOpenChange, onCreated }: Props) {
     setLoadingRefs(true);
     void (async () => {
       try {
-        const [br, dp, jt] = await Promise.all([
+        const [br, jt] = await Promise.all([
           branchesApi.getAll({ companyId: form.companyId, limit: 200, ...organizationActiveListStatusQuery() }),
-          departmentsApi.getAll({ companyId: form.companyId, limit: 200, ...organizationActiveListStatusQuery() }),
           jobTitlesApi.getAll({ companyId: form.companyId, limit: 200, ...organizationActiveListStatusQuery() }),
         ]);
         if (!cancelled) {
           setBranches(br.items);
-          setDepartments(dp.items);
           setJobTitles(jt.items.filter((j) => j.isActive));
         }
       } catch {
         if (!cancelled) {
           setBranches([]);
-          setDepartments([]);
           setJobTitles([]);
         }
       } finally {
@@ -186,18 +180,11 @@ export function NewEmployeeDrawer({ open, onOpenChange, onCreated }: Props) {
   const patch = <K extends keyof NewEmployeeForm>(k: K, v: NewEmployeeForm[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
 
-  const filteredDepartments = React.useMemo(() => {
-    if (!form.branchId) return [];
-    return departments.filter((d) => d.branchId === form.branchId);
-  }, [departments, form.branchId]);
-
   const handleBranchChange = (branchId: string) => {
     setForm((f) => ({
       ...f,
       branchId,
-      departmentId: f.departmentId && departments.some((d) => d.id === f.departmentId && d.branchId === branchId)
-        ? f.departmentId
-        : '',
+      departmentId: '',
     }));
   };
 
@@ -208,9 +195,6 @@ export function NewEmployeeDrawer({ open, onOpenChange, onCreated }: Props) {
     if (!form.startDate) e.startDate = 'مطلوب';
     if (!form.branchId) e.branchId = 'مطلوب';
     if (!form.jobTitleId) e.jobTitleId = 'مطلوب';
-    if (form.departmentId && !filteredDepartments.some((d) => d.id === form.departmentId)) {
-      e.departmentId = 'القسم لا يتبع الفرع المختار';
-    }
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -444,44 +428,6 @@ export function NewEmployeeDrawer({ open, onOpenChange, onCreated }: Props) {
               </Field>
               <Field label="رقم الآيبان (IBAN)">
                 <Input dir="ltr" value={form.iban} onChange={(e) => patch('iban', e.target.value)} placeholder="SA1234567890123456789012" />
-              </Field>
-            </div>
-          </div>
-
-          <Separator />
-
-          {/* Additional employment (optional) */}
-          <div className="space-y-4">
-            <SectionHeader icon={Briefcase} title="بيانات التوظيف الإضافية" description="اختيارية" />
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="القسم">
-                <Select
-                  value={form.departmentId || '_none'}
-                  onValueChange={(v) => patch('departmentId', v === '_none' ? '' : v)}
-                  disabled={!form.branchId}
-                >
-                  <SelectTrigger className={cn(errors.departmentId && 'border-destructive')}>
-                    <SelectValue placeholder={form.branchId ? 'اختر القسم' : 'اختر الفرع أولاً'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="_none">— بدون قسم —</SelectItem>
-                    {filteredDepartments.map((d) => (
-                      <SelectItem key={d.id} value={d.id}>{d.nameAr}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {errors.departmentId && <p className="text-[11px] text-destructive">{errors.departmentId}</p>}
-              </Field>
-              <Field label="الدور في النظام">
-                <Select value={form.role} onValueChange={(v) => patch('role', v)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="employee">موظف</SelectItem>
-                    <SelectItem value="manager">مدير</SelectItem>
-                    <SelectItem value="hr-manager">مدير موارد بشرية</SelectItem>
-                    <SelectItem value="admin">مدير النظام</SelectItem>
-                  </SelectContent>
-                </Select>
               </Field>
             </div>
           </div>

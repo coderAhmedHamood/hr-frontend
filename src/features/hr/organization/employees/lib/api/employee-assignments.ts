@@ -13,6 +13,9 @@ export type EmployeeAssignmentResponseDto = {
   status: EmployeeAssignmentStatusDto;
   startDate: string | null;
   endDate: string | null;
+  isArchived: boolean;
+  archivedAt: string | null;
+  archivedReason: string | null;
   createdAt: string;
   updatedAt: string;
   createdBy: string | null;

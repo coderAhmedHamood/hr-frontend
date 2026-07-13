@@ -1,11 +1,22 @@
 import { apiRequest, type PaginatedResult } from '@/features/hr/lib/api/client';
-import type { BalanceCreditStatus, BalanceCreditRequestResponseDto, CreateBalanceCreditRequestDto, UpdateBalanceCreditRequestDto, BalanceCreditListQuery } from '@/features/hr/leaves/types/api/balance-credits';
-export type { BalanceCreditStatus, BalanceCreditRequestResponseDto, CreateBalanceCreditRequestDto, UpdateBalanceCreditRequestDto, BalanceCreditListQuery } from '@/features/hr/leaves/types/api/balance-credits';
-
-
-
-
-
+import type {
+  BalanceCreditStatus,
+  BalanceCreditRequestResponseDto,
+  BulkBalanceCreditRequestResponseDto,
+  CreateBalanceCreditRequestDto,
+  CreateBulkBalanceCreditRequestDto,
+  UpdateBalanceCreditRequestDto,
+  BalanceCreditListQuery,
+} from '@/features/hr/leaves/types/api/balance-credits';
+export type {
+  BalanceCreditStatus,
+  BalanceCreditRequestResponseDto,
+  BulkBalanceCreditRequestResponseDto,
+  CreateBalanceCreditRequestDto,
+  CreateBulkBalanceCreditRequestDto,
+  UpdateBalanceCreditRequestDto,
+  BalanceCreditListQuery,
+} from '@/features/hr/leaves/types/api/balance-credits';
 
 export const balanceCreditsApi = {
   getAll(query?: BalanceCreditListQuery) {
@@ -20,6 +31,12 @@ export const balanceCreditsApi = {
       body: payload,
     });
   },
+  bulkCreate(payload: CreateBulkBalanceCreditRequestDto) {
+    return apiRequest<BulkBalanceCreditRequestResponseDto>('/leaves/balance-credits/bulk', {
+      method: 'POST',
+      body: payload,
+    });
+  },
   update(id: string, payload: UpdateBalanceCreditRequestDto) {
     return apiRequest<BalanceCreditRequestResponseDto>(`/leaves/balance-credits/${id}`, {
       method: 'PATCH',
@@ -30,4 +47,3 @@ export const balanceCreditsApi = {
     return apiRequest<void>(`/leaves/balance-credits/${id}`, { method: 'DELETE' });
   },
 };
-

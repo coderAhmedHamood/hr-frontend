@@ -22,6 +22,21 @@ export type CreateBalanceCreditRequestDto = {
   daysAdded: number;
   reasonAr?: string | null;
   status?: BalanceCreditStatus;
+  createdBy?: string | null;
+};
+
+export type CreateBulkBalanceCreditRequestDto = {
+  companyId: string;
+  employeeIds: string[];
+  leaveTypeId: string;
+  daysAdded: number;
+  reasonAr?: string | null;
+  status?: BalanceCreditStatus;
+  createdBy?: string | null;
+};
+
+export type BulkBalanceCreditRequestResponseDto = {
+  items: BalanceCreditRequestResponseDto[];
 };
 
 export type UpdateBalanceCreditRequestDto = {

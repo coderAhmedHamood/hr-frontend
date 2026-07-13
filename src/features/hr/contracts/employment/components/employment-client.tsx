@@ -36,7 +36,7 @@ import { contractTemplatesApi } from '@/features/hr/contracts/contract-templates
 import { applyContractTemplateToForm, computeTemplateEndDate } from '@/features/hr/contracts/employment/utils/apply-contract-template';
 import { useAllowanceTypes } from '@/features/hr/contracts/lib/hooks/use-allowance-types';
 import { useContractArticles } from '@/features/hr/contracts/lib/hooks/use-contract-articles';
-import { useHREmployeeDirectoryStore } from '@/features/hr/requests/lib/employee-directory-store';
+import { useEmployees } from '@/features/hr/organization/employees/hooks/useEmployees';
 import { MoneyAmount } from '@/components/ui/sar-amount';
 import { cn, formatNumber } from '@/shared/utils';
 import { hrContractsRoutes } from '@/features/hr/contracts/constants/routes';
@@ -51,27 +51,22 @@ import {
   mergeEssentialArticleIds,
   EMPLOYMENT_STATUS_FILTER_OPTIONS,
   EMPLOYMENT_KIND_FILTER_OPTIONS,
+  EMPLOYMENT_WORK_ARRANGEMENT_FILTER_OPTIONS,
 } from '@/features/hr/contracts/employment/utils/employment-contract-form';
+import { buildEmployeeContractsListQuery } from '@/features/hr/contracts/lib/employee-contracts-list-query';
 import { EmploymentContractTerminateModal as TerminateModal } from '@/features/hr/contracts/employment/components/employment-contract-terminate-modal';
 import { EmploymentContractDetailDialog } from '@/features/hr/contracts/employment/components/employment-contract-detail-dialog';
 import { EmploymentContractFormDialog } from '@/features/hr/contracts/employment/components/employment-contract-form-dialog';
 import { ContractLeaveTypePickerDialog } from '@/features/hr/contracts/employment/components/contract-leave-type-picker-dialog';
 import {
-  canActivateEmploymentContract,
   contractCreditsLeaveDays,
-  isTerminatedEmploymentContract,
+  resolveContractActions,
 } from '@/features/hr/contracts/employment/utils/contract-leave-credit';
 import { PdfPreviewExportDialog } from '@/components/pdf/pdf-preview-export-dialog';
 import { EmploymentContractPrintHtml } from '@/components/pdf/print/employment-contract-print-html';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
 import { getDefaultCompanyId, useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 import { getSessionCompanyDisplay } from '@/features/hr/organization/lib/session-company-display';
-import {
-  ORGANIZATION_ARCHIVE_SCOPE_DEFAULT,
-  ORGANIZATION_ARCHIVE_SCOPE_OPTIONS,
-  payrollListArchiveQuery,
-  type OrganizationArchiveScope,
-} from '@/features/hr/organization/lib/archive-scope';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import { sendEmploymentContractCreatedNotification } from '@/features/hr/contracts/employment/services/contract-created-notification.service';
 
@@ -83,6 +78,7 @@ const formToDraft = employmentFormToDraft;
 type PanelMode = 'create' | 'edit';
 type StatusFilter = 'all' | HRContractLifecycleStatus;
 type KindFilter = 'all' | HRContractNature;
+type WorkFilter = 'all' | HRWorkArrangement;
 type DraftFilter = 'all' | 'draft' | 'undraft';
 
 const DRAFT_FILTER_OPTIONS: { value: DraftFilter; label: string }[] = [
@@ -97,24 +93,19 @@ export function EmploymentContractsClient() {
   const modeParam = searchParams.get(HR_CONTRACTS_MODE_PARAM);
 
   const companyId = useDefaultCompanyId();
-  const { add, update, activate, terminate, archive, createAmendmentDraft } = useHRContractsStore();
+  const { add, update, send, activate, terminate } = useHRContractsStore();
   const { templates, fetch: fetchTemplates } = useHRContractTemplatesStore();
   const { data: allowanceTypes = [] } = useAllowanceTypes();
   const { data: articles = [] } = useContractArticles();
-  const {
-    employees: allEmployees,
-    fetch: fetchEmployees,
-    isLoading: employeesLoading,
-  } = useHREmployeeDirectoryStore();
-  const employees = React.useMemo(() => allEmployees.filter(e => e.status === 'active'), [allEmployees]);
+  /** قائمة الموظفين من GET /hr/employees (employeesApi.getAll). */
+  const { data: employeesPage, refetch: refetchEmployees } = useEmployees();
+  const employees = employeesPage?.items ?? [];
 
   const ensureFormEmployeesLoaded = React.useCallback(() => {
     if (!companyId) return;
-    const emps = useHREmployeeDirectoryStore.getState();
-    if (emps.loadedCompanyId === companyId && emps.employees.length > 0) return;
-    if (emps.isLoading) return;
-    void fetchEmployees();
-  }, [companyId, fetchEmployees]);
+    if (employees.length > 0) return;
+    void refetchEmployees();
+  }, [companyId, employees.length, refetchEmployees]);
 
   const ensureFormCatalogLoaded = React.useCallback(async () => {
     if (!companyId) return;
@@ -135,7 +126,13 @@ export function EmploymentContractsClient() {
     [articles],
   );
 
-  const empOptions = React.useMemo(() => employees.map(e => ({ value: e.id, label: `${e.nameAr} — ${e.jobTitleAr}` })), [employees]);
+  const empLabel = (e: { nameAr: string; position?: string | null; employeeCode?: string }) =>
+    `${e.nameAr}${e.position ? ` — ${e.position}` : e.employeeCode ? ` — ${e.employeeCode}` : ''}`;
+
+  const empOptions = React.useMemo(
+    () => employees.map((e) => ({ value: e.id, label: empLabel(e) })),
+    [employees],
+  );
   const templateOptions = React.useMemo(
     () => [
       { value: '', label: 'بدون قالب' },
@@ -162,33 +159,44 @@ export function EmploymentContractsClient() {
       options: EMPLOYMENT_KIND_FILTER_OPTIONS.map(({ value, label }) => ({ value, label })),
     },
     {
+      key: 'work', label: 'نظام العمل', type: 'select',
+      options: EMPLOYMENT_WORK_ARRANGEMENT_FILTER_OPTIONS.map(({ value, label }) => ({ value, label })),
+    },
+    {
       key: 'draft', label: 'المسودات', type: 'select',
       options: DRAFT_FILTER_OPTIONS,
+    },
+    {
+      key: 'contractNumber',
+      label: 'رقم العقد',
+      type: 'text',
+      placeholder: 'بحث جزئي برقم العقد…',
     },
   ]);
 
   const statusFilter = (values.status as StatusFilter) || 'all';
   const kindFilter = (values.kind as KindFilter) || 'all';
+  const workFilter = (values.work as WorkFilter) || 'all';
   const draftFilter = (values.draft as DraftFilter) || 'all';
-
-  const [archiveScope, setArchiveScope] = React.useState<OrganizationArchiveScope>(
-    ORGANIZATION_ARCHIVE_SCOPE_DEFAULT,
-  );
+  const contractNumberFilter = typeof values.contractNumber === 'string' ? values.contractNumber : '';
 
   const [selectedEmpIds, setSelectedEmpIds] = React.useState<Set<string>>(new Set());
 
   const selectedEmpKey = React.useMemo(() => [...selectedEmpIds].sort().join(','), [selectedEmpIds]);
 
-  const buildListQuery = React.useCallback((page: number, pageSize: number) => ({
-    companyId: companyId!,
-    page,
-    limit: pageSize,
-    ...payrollListArchiveQuery(),
-    ...(statusFilter !== 'all' ? { status: statusFilter } : {}),
-    ...(kindFilter !== 'all' ? { contractNature: kindFilter } : {}),
-    ...(draftFilter !== 'all' ? { isDraft: draftFilter === 'draft' } : {}),
-    ...(selectedEmpIds.size > 0 ? { employeeIds: [...selectedEmpIds] } : {}),
-  }), [companyId, archiveScope, statusFilter, kindFilter, draftFilter, selectedEmpIds]);
+  const buildListQuery = React.useCallback((page: number, pageSize: number) => (
+    buildEmployeeContractsListQuery({
+      companyId: companyId!,
+      page,
+      limit: pageSize,
+      status: statusFilter,
+      draftMode: draftFilter,
+      contractNature: kindFilter,
+      workArrangement: workFilter,
+      contractNumber: contractNumberFilter,
+      employeeIds: selectedEmpIds,
+    })
+  ), [companyId, statusFilter, kindFilter, workFilter, draftFilter, contractNumberFilter, selectedEmpIds]);
 
   const loadPage = React.useCallback(async (page: number, pageSize: number) => {
     if (!companyId) return { items: [] as HRContractRecord[], total: 0 };
@@ -208,7 +216,15 @@ export function EmploymentContractsClient() {
     reload: reloadList,
   } = useServerDirectoryPagination<HRContractRecord>(loadPage, {
     enabled: !!companyId,
-    resetDeps: [companyId, statusFilter, kindFilter, draftFilter, archiveScope, selectedEmpKey],
+    resetDeps: [
+      companyId,
+      statusFilter,
+      kindFilter,
+      workFilter,
+      draftFilter,
+      contractNumberFilter,
+      selectedEmpKey,
+    ],
   });
 
   const [drawerOpen, setDrawerOpen] = React.useState(false);
@@ -251,7 +267,7 @@ export function EmploymentContractsClient() {
 
   const getEmpName = (id: string, fallback?: string) =>
     fallback?.trim()
-    || allEmployees.find(e => e.id === id)?.nameAr
+    || employees.find(e => e.id === id)?.nameAr
     || id;
 
   React.useEffect(() => {
@@ -345,7 +361,7 @@ export function EmploymentContractsClient() {
 
   const copySourceEmpOptions = React.useMemo(() => {
     const ids = new Set(filtered.map(c => c.employeeId));
-    return employees.filter(e => ids.has(e.id)).map(e => ({ value: e.id, label: `${e.nameAr} — ${e.jobTitleAr}` }));
+    return employees.filter(e => ids.has(e.id)).map(e => ({ value: e.id, label: empLabel(e) }));
   }, [filtered, employees]);
 
   const copySourceContractOptions = React.useMemo(() => {
@@ -408,7 +424,12 @@ export function EmploymentContractsClient() {
     router.push(`${hrContractsRoutes.employment}?${HR_CONTRACTS_MODE_PARAM}=createContract`);
   }, [router]);
 
-  const activeFilterCount = (kindFilter !== 'all' ? 1 : 0) + (statusFilter !== 'all' ? 1 : 0) + (draftFilter !== 'all' ? 1 : 0) + (selectedEmpIds.size > 0 ? 1 : 0);
+  const activeFilterCount = (kindFilter !== 'all' ? 1 : 0)
+    + (workFilter !== 'all' ? 1 : 0)
+    + (statusFilter !== 'all' ? 1 : 0)
+    + (draftFilter !== 'all' ? 1 : 0)
+    + (contractNumberFilter.trim() ? 1 : 0)
+    + (selectedEmpIds.size > 0 ? 1 : 0);
 
   usePageHeaderActions(
     () => (
@@ -429,6 +450,10 @@ export function EmploymentContractsClient() {
   };
 
   const openEditFromDetail = (c: HRContractRecord) => {
+    if (!resolveContractActions(c).canEditTerms) {
+      toast.error('تعديل البنود غير متاح في هذه المرحلة (بعد موافقة الموظف أو بعد التفعيل).');
+      return;
+    }
     setDetailContractId(null);
     setSelected(c);
     setForm({
@@ -438,23 +463,6 @@ export function EmploymentContractsClient() {
     setPanelMode('edit');
     setError(null);
     setDrawerOpen(true);
-  };
-
-  const openAmendment = async (c: HRContractRecord) => {
-    const res = await createAmendmentDraft(c.id);
-    if (!res.ok) { toast.error(res.message); return; }
-    const draft = useHRContractsStore.getState().contracts.find(x => x.id === res.id);
-    if (draft) {
-      setSelected(draft);
-      setForm({
-        ...recordToForm(draft),
-        articleIds: mergeEssentialArticleIds(draft.articleIds, essentialArticleIds),
-      });
-      setPanelMode('edit');
-      setError(null);
-      setDrawerOpen(true);
-    }
-    toast.success('تم إنشاء مسودة التعديل الرسمي.');
   };
 
   const handleSave = async () => {
@@ -501,6 +509,10 @@ export function EmploymentContractsClient() {
             : 'تم إنشاء العقد كمسودة.',
         );
       } else if (panelMode === 'edit' && selected) {
+        if (!resolveContractActions(selected).canEditTerms) {
+          setError('تعديل البنود غير متاح في هذه المرحلة.');
+          return;
+        }
         const res = await update(selected.id, formToDraft(payload, selected.status));
         if (!res.ok) { setError(res.message); return; }
       }
@@ -520,6 +532,10 @@ export function EmploymentContractsClient() {
   };
 
   const handleActivate = (contract: HRContractRecord) => {
+    if (!resolveContractActions(contract).canActivate) {
+      toast.error('التفعيل متاح فقط بعد موافقة الموظف (بانتظار التوقيع + موافقة).');
+      return;
+    }
     if (contractCreditsLeaveDays(contract)) {
       setLeavePicker({
         contractId: contract.id,
@@ -535,22 +551,36 @@ export function EmploymentContractsClient() {
     await runActivate(leavePicker.contractId, leaveTypeId);
   };
 
+  const handleSend = async (c: HRContractRecord) => {
+    if (!resolveContractActions(c).canSendToEmployee) {
+      toast.error('إرسال العقد للموظف غير متاح حالياً.');
+      return;
+    }
+    const res = await send(c.id);
+    if (!res.ok) toast.error(res.message);
+    else {
+      toast.success('تم إرسال العقد للموظف بانتظار الموافقة.');
+      setDetailRefreshKey((k) => k + 1);
+      await reloadList();
+    }
+  };
+
   const handleTerminate = async () => {
     if (!terminateId) return;
+    const target = filtered.find((c) => c.id === terminateId)
+      ?? useHRContractsStore.getState().contracts.find((c) => c.id === terminateId);
+    if (target && !resolveContractActions(target).canClose) {
+      toast.error('إغلاق العقد متاح فقط للعقود النشطة.');
+      setTerminateId(null);
+      setTerminateReason('');
+      return;
+    }
     const res = await terminate(terminateId, terminateReason);
     if (!res.ok) toast.error(res.message); else {
       toast.success('تم إنهاء العقد.');
       await reloadList();
     }
     setTerminateId(null); setTerminateReason('');
-  };
-
-  const handleArchive = async (id: string) => {
-    const res = await archive(id);
-    if (!res.ok) toast.error(res.message); else {
-      toast.success('تم أرشفة العقد.');
-      await reloadList();
-    }
   };
 
   const patch = (p: Partial<FormValues>) => setForm(f => ({ ...f, ...p }));
@@ -626,18 +656,18 @@ export function EmploymentContractsClient() {
 
   const employmentInlineSelects = React.useMemo((): ListFilterInlineSelect[] => [
     {
-      id: 'archive',
-      value: archiveScope,
-      onChange: (v) => setArchiveScope(v as OrganizationArchiveScope),
-      placeholder: 'العرض',
-      options: ORGANIZATION_ARCHIVE_SCOPE_OPTIONS.map((o) => ({ value: o.value, label: o.label })),
-    },
-    {
       id: 'contract-kind',
       value: kindFilter,
       onChange: (v) => setValue('kind', v),
       options: EMPLOYMENT_KIND_FILTER_OPTIONS.map(({ value, label }) => ({ value, label })),
       placeholder: 'نوع العقد',
+    },
+    {
+      id: 'work-arrangement',
+      value: workFilter,
+      onChange: (v) => setValue('work', v),
+      options: EMPLOYMENT_WORK_ARRANGEMENT_FILTER_OPTIONS.map(({ value, label }) => ({ value, label })),
+      placeholder: 'نظام العمل',
     },
     {
       id: 'draft',
@@ -646,7 +676,7 @@ export function EmploymentContractsClient() {
       options: DRAFT_FILTER_OPTIONS,
       placeholder: 'المسودات',
     },
-  ], [archiveScope, kindFilter, draftFilter, setValue]);
+  ], [kindFilter, workFilter, draftFilter, setValue]);
 
   const handleStatusFilterChange = React.useCallback(
     (v: string) => setValue('status', v),
@@ -672,8 +702,9 @@ export function EmploymentContractsClient() {
     [
       statusFilter,
       kindFilter,
+      workFilter,
       draftFilter,
-      archiveScope,
+      contractNumberFilter,
       selectedEmpKey,
       statusCounts,
       companyId,
@@ -684,22 +715,36 @@ export function EmploymentContractsClient() {
   );
 
   const ContractActions = ({ c }: { c: HRContractRecord }) => {
-    if (isTerminatedEmploymentContract(c)) {
-      return (
-        <div className="flex items-center gap-1 flex-wrap" onClick={e => e.stopPropagation()}>
-          <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => handleArchive(c.id)}>أرشفة</Button>
-        </div>
-      );
-    }
+    const actions = resolveContractActions(c);
 
     return (
       <div className="flex items-center gap-1 flex-wrap" onClick={e => e.stopPropagation()}>
-        {canActivateEmploymentContract(c) ? (
+        {actions.canEditTerms ? (
+          <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => openEditFromDetail(c)}>تعديل</Button>
+        ) : null}
+        {actions.canSendToEmployee ? (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 text-xs text-primary hover:text-primary"
+            onClick={() => { void handleSend(c); }}
+          >
+            إرسال
+          </Button>
+        ) : null}
+        {actions.canActivate ? (
           <Button size="sm" variant="ghost" className="h-7 text-xs text-success hover:text-success" onClick={() => handleActivate(c)}>تفعيل</Button>
         ) : null}
-        <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => openAmendment(c)}>تعديل رسمي</Button>
-        <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive hover:text-destructive" onClick={() => { setTerminateId(c.id); setTerminateReason(''); }}>إنهاء</Button>
-        <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => handleArchive(c.id)}>أرشفة</Button>
+        {actions.canClose ? (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 text-xs text-destructive hover:text-destructive"
+            onClick={() => { setTerminateId(c.id); setTerminateReason(''); }}
+          >
+            إنهاء
+          </Button>
+        ) : null}
       </div>
     );
   };
@@ -734,9 +779,18 @@ export function EmploymentContractsClient() {
                     <p className="font-mono text-[10px] text-muted-foreground">{c.contractNumber}</p>
                   </div>
                 </div>
-                <Badge variant="outline" className={cn('shrink-0 text-[10px]', CONTRACT_STATUS_COLORS[c.status])}>
-                  {CONTRACT_STATUS_LABELS[c.status]}
-                </Badge>
+                <div className="flex shrink-0 flex-col items-end gap-1">
+                  <Badge variant="outline" className={cn('text-[10px]', CONTRACT_STATUS_COLORS[c.status])}>
+                    {CONTRACT_STATUS_LABELS[c.status]}
+                  </Badge>
+                  {c.employeeSigned ? (
+                    <span className="text-[10px] font-medium text-success">وافق الموظف</span>
+                  ) : c.rejectionReason ? (
+                    <span className="text-[10px] font-medium text-destructive">رفض الموظف</span>
+                  ) : c.status === 'pending_signature' ? (
+                    <span className="text-[10px] text-muted-foreground">بانتظار الموظف</span>
+                  ) : null}
+                </div>
               </div>
               <div className="flex flex-wrap gap-1.5">
                 <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground">

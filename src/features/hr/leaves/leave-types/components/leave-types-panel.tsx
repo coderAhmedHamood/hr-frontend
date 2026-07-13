@@ -1,14 +1,17 @@
 'use client';
 
-import { Plus, Pencil, Trash2, Check, Minus, FileCheck } from 'lucide-react';
+import { Plus, Pencil, Trash2, Check, Minus, FileCheck, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import { HRSettingsFormDrawer, FormField } from '@/components/ui/shared-dialogs';
 import { useLeaveTypesPanelModel, getLeaveTypeProperty, type LeaveTypeProperty } from '@/features/hr/leaves/leave-types/hooks/useLeaveTypesPanelModel';
+import { isOfficialLeaveType } from '@/features/hr/leaves/leave-types/constants/official-leave-type-codes';
 import { ForbiddenState } from '@/components/shared/forbidden-state';
 import { DirectoryPagedViews } from '@/components/ui/paged-list';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
@@ -50,20 +53,36 @@ export function LeaveTypesPanel() {
         <DirectoryPagedViews items={m.sorted} serverPagination={m.pagination} loading={m.loading}>
           {(pageItems) => (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {pageItems.map((item) => (
+            {pageItems.map((item) => {
+              const official = isOfficialLeaveType(item);
+              return (
               <div
                 key={item.id}
                 role="button"
                 tabIndex={0}
                 onClick={() => m.openEdit(item)}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); m.openEdit(item); } }}
-                className="group relative overflow-hidden rounded-xl border border-border bg-card shadow-soft transition-all hover:-translate-y-0.5 hover:shadow-elevated cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className={cn(
+                  'group relative overflow-hidden rounded-xl border border-border bg-card shadow-soft transition-all hover:-translate-y-0.5 hover:shadow-elevated cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                  !item.isActive && 'opacity-80',
+                )}
               >
                 <div className="absolute -right-8 -top-8 h-24 w-24 rounded-full bg-primary opacity-0 blur-2xl transition-opacity group-hover:opacity-10" />
                 <div className="relative p-5">
-                  <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-start justify-between mb-4 gap-2">
                     <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
                       <FileCheck className="h-5 w-5" />
+                    </div>
+                    <div className="flex flex-wrap items-center justify-end gap-1.5">
+                      <Badge variant={item.isActive ? 'success' : 'secondary'} className="text-[9px] px-1.5 py-px">
+                        {item.isActive ? 'نشط' : 'موقوف'}
+                      </Badge>
+                      {official ? (
+                        <Badge variant="subtle" className="gap-1 text-[9px] px-1.5 py-px">
+                          <Shield className="h-3 w-3" />
+                          رسمي
+                        </Badge>
+                      ) : null}
                     </div>
                   </div>
                   <h3 className="font-display text-base font-bold leading-snug mb-3 group-hover:text-primary transition-colors truncate">
@@ -94,13 +113,26 @@ export function LeaveTypesPanel() {
                     <Button variant="ghost" size="sm" type="button" className="h-7 gap-1 px-2 text-xs" onClick={() => m.openEdit(item)}>
                       <Pencil className="h-3 w-3" /> تعديل
                     </Button>
-                    <Button variant="ghost" size="sm" type="button" className="h-7 gap-1 px-2 text-xs text-destructive hover:text-destructive" onClick={() => m.setConfirmId(item.id)}>
-                      <Trash2 className="h-3 w-3" /> حذف
-                    </Button>
+                    <label
+                      className="mr-auto flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-[11px] text-muted-foreground hover:bg-muted/40"
+                      title={item.isActive ? 'إيقاف التفعيل' : 'تفعيل النوع'}
+                    >
+                      <span>تفعيل</span>
+                      <Switch
+                        checked={item.isActive}
+                        onCheckedChange={(checked) => void m.toggleActive(item, checked)}
+                      />
+                    </label>
+                    {!official ? (
+                      <Button variant="ghost" size="sm" type="button" className="h-7 gap-1 px-2 text-xs text-destructive hover:text-destructive" onClick={() => m.setConfirmId(item.id)}>
+                        <Trash2 className="h-3 w-3" /> حذف
+                      </Button>
+                    ) : null}
                   </div>
                 </div>
               </div>
-            ))}
+            );
+            })}
           </div>
           )}
         </DirectoryPagedViews>
@@ -119,6 +151,17 @@ export function LeaveTypesPanel() {
         <FormField label="الاسم" required>
           <Input id="lt-name-ar" value={m.draft.nameAr} onChange={(e) => m.patch('nameAr', e.target.value)} />
         </FormField>
+        <label className="flex cursor-pointer items-center justify-between rounded-xl border border-border px-4 py-3 transition-all hover:bg-muted/20">
+          <div>
+            <p className="text-sm font-medium">نشط</p>
+            <p className="text-xs text-muted-foreground">
+              {m.editingIsOfficial
+                ? 'الأنواع الرسمية لا يمكن حذفها — يمكن إيقاف تفعيلها فقط'
+                : 'إيقاف النوع يمنع استخدامه في الطلبات الجديدة'}
+            </p>
+          </div>
+          <Switch checked={m.draft.isActive} onCheckedChange={(v) => m.patch('isActive', v)} />
+        </label>
         <Separator />
         <div className="space-y-3">
           <p className="text-sm font-semibold">الخصائص</p>
@@ -158,7 +201,10 @@ export function LeaveTypesPanel() {
         <DialogContent className="border-border sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>حذف نوع الإجازة</DialogTitle>
-            <DialogDescription>هل أنت متأكد من حذف هذا النوع؟ لا يمكن التراجع عن هذا الإجراء.</DialogDescription>
+            <DialogDescription>
+              هل أنت متأكد من حذف هذا النوع؟ لا يمكن التراجع عن هذا الإجراء.
+              الأنواع الرسمية التي أنشأها النظام لا يمكن حذفها.
+            </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="destructive" onClick={() => void m.remove()}>حذف</Button>

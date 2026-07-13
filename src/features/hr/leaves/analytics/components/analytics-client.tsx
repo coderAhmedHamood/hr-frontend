@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import {
-  Plus, Pencil, Trash2, Loader2, AlertTriangle, ChevronDown,
+  Plus, Loader2, ChevronDown,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/shared/utils';
@@ -10,7 +10,6 @@ import { themeAvatarClassFromKey } from '@/shared/theme-avatar-palette';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
   dialogFormFooterClass,
@@ -27,13 +26,11 @@ import { ListFilterBar } from '@/components/ui/list-filter-bar';
 import {
   leaveBalancesApi,
   type EmployeeLeaveBalanceGroupDto,
-  type EmployeeLeaveBalanceResponseDto,
   type EmployeeLeaveBalanceTypeItemDto,
   type CreateLeaveBalanceDto,
 } from '@/features/hr/leaves/lib/api/leave-balances';
 import type { LeaveTypeResponseDto } from '@/features/hr/leaves/leave-types/lib/api/leave-types';
 import {
-  leaveTypeNameAr,
   loadCompanyLeaveTypes,
   resolveDefaultLeaveTypeId,
 } from '@/features/hr/leaves/lib/leave-types-utils';
@@ -68,9 +65,7 @@ function BalanceBar({ used, total, color }: { used: number; total: number; color
 
 // ─── Create / Edit dialog ─────────────────────────────────────────────────────
 
-type DialogMode =
-  | { mode: 'create'; employeeId?: string }
-  | { mode: 'edit'; balance: EmployeeLeaveBalanceResponseDto };
+type DialogMode = { mode: 'create'; employeeId?: string };
 
 function BalanceFormDialog({
   open,
@@ -99,17 +94,10 @@ function BalanceFormDialog({
 
   React.useEffect(() => {
     if (!open) return;
-    if (dialogMode.mode === 'edit') {
-      setEmployeeId(dialogMode.balance.employeeId);
-      setLeaveTypeId(dialogMode.balance.leaveTypeId);
-      setTotalDays(String(dialogMode.balance.totalDays));
-      setUsedDays(String(dialogMode.balance.usedDays));
-    } else {
-      setEmployeeId(dialogMode.mode === 'create' ? (dialogMode.employeeId ?? '') : '');
-      setLeaveTypeId(defaultLeaveTypeId ?? '');
-      setTotalDays('');
-      setUsedDays('0');
-    }
+    setEmployeeId(dialogMode.employeeId ?? '');
+    setLeaveTypeId(defaultLeaveTypeId ?? '');
+    setTotalDays('');
+    setUsedDays('0');
   }, [open, dialogMode, defaultLeaveTypeId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -122,36 +110,28 @@ function BalanceFormDialog({
     }
     setSaving(true);
     try {
-      let saved: EmployeeLeaveBalanceResponseDto;
-      if (dialogMode.mode === 'create') {
-        const payload: CreateLeaveBalanceDto = { companyId, employeeId, leaveTypeId, totalDays: total, usedDays: used };
-        saved = await leaveBalancesApi.create(payload);
-        toast.success('تم إنشاء الرصيد');
-      } else {
-        saved = await leaveBalancesApi.update(dialogMode.balance.id, { totalDays: total, usedDays: used });
-        toast.success('تم تحديث الرصيد');
-      }
+      const payload: CreateLeaveBalanceDto = { companyId, employeeId, leaveTypeId, totalDays: total, usedDays: used };
+      await leaveBalancesApi.create(payload);
+      toast.success('تم إنشاء الرصيد');
       onSaved();
       onClose();
     } catch { toast.error('حدث خطأ أثناء الحفظ'); }
     finally { setSaving(false); }
   };
 
-  const isEdit = dialogMode.mode === 'edit';
-
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-w-md border-border">
         <DialogHeader>
           <DialogTitle className="text-right font-display text-base">
-            {isEdit ? 'تعديل رصيد إجازة' : 'إضافة رصيد إجازة'}
+            إضافة رصيد إجازة
           </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 py-1">
           {/* Employee */}
           <div className="space-y-1.5">
             <Label className="text-xs font-medium text-muted-foreground">الموظف</Label>
-            <Select value={employeeId} onValueChange={setEmployeeId} disabled={isEdit}>
+            <Select value={employeeId} onValueChange={setEmployeeId}>
               <SelectTrigger className="h-9 text-sm">
                 <SelectValue placeholder="اختر موظفاً..." />
               </SelectTrigger>
@@ -166,7 +146,7 @@ function BalanceFormDialog({
           {/* Leave type */}
           <div className="space-y-1.5">
             <Label className="text-xs font-medium text-muted-foreground">نوع الإجازة</Label>
-            <Select value={leaveTypeId} onValueChange={setLeaveTypeId} disabled={isEdit}>
+            <Select value={leaveTypeId} onValueChange={setLeaveTypeId}>
               <SelectTrigger className="h-9 text-sm">
                 <SelectValue placeholder="اختر نوع الإجازة..." />
               </SelectTrigger>
@@ -206,7 +186,7 @@ function BalanceFormDialog({
           <DialogFooter className={dialogFormFooterClass}>
             <Button type="submit" disabled={saving} className="gap-2">
               {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-              {isEdit ? 'حفظ التعديلات' : 'إنشاء الرصيد'}
+              إنشاء الرصيد
             </Button>
             <Button type="button" variant="outline" onClick={onClose}>إلغاء</Button>
           </DialogFooter>
@@ -216,113 +196,21 @@ function BalanceFormDialog({
   );
 }
 
-// ─── Delete dialog ────────────────────────────────────────────────────────────
-
-function DeleteDialog({
-  balance,
-  employeeName,
-  leaveTypeName,
-  onClose,
-  onDeleted,
-}: {
-  balance: EmployeeLeaveBalanceResponseDto | null;
-  employeeName: string;
-  leaveTypeName: string;
-  onClose: () => void;
-  onDeleted: () => void;
-}) {
-  const [deleting, setDeleting] = React.useState(false);
-
-  const handleDelete = async () => {
-    if (!balance) return;
-    setDeleting(true);
-    try {
-      await leaveBalancesApi.remove(balance.id);
-      toast.success('تم حذف الرصيد');
-      onDeleted();
-      onClose();
-    } catch { toast.error('فشل الحذف'); }
-    finally { setDeleting(false); }
-  };
-
-  return (
-    <Dialog open={!!balance} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-sm border-border">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-right font-display text-base">
-            <AlertTriangle className="h-4 w-4 text-destructive" />
-            حذف رصيد الإجازة
-          </DialogTitle>
-        </DialogHeader>
-        <p className="text-sm text-muted-foreground">
-          هل أنت متأكد من حذف رصيد <span className="font-semibold text-foreground">{leaveTypeName}</span> للموظف{' '}
-          <span className="font-semibold text-foreground">{employeeName}</span>؟ لا يمكن التراجع.
-        </p>
-        <DialogFooter>
-          <Button variant="destructive" onClick={handleDelete} disabled={deleting} className="gap-2">
-            {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
-            حذف
-          </Button>
-          <Button variant="outline" onClick={onClose}>إلغاء</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 // ─── Employee group card ───────────────────────────────────────────────────────
 
 function LeaveTypeRow({
   leaveType,
-  onEdit,
-  onDelete,
 }: {
   leaveType: EmployeeLeaveBalanceTypeItemDto;
-  onEdit: (balance: EmployeeLeaveBalanceResponseDto) => void;
-  onDelete: (balance: EmployeeLeaveBalanceResponseDto) => void;
 }) {
-  const flat: EmployeeLeaveBalanceResponseDto = {
-    id: leaveType.id,
-    companyId: '',
-    employeeId: '',
-    leaveTypeId: leaveType.leaveTypeId,
-    usedDays: leaveType.usedDays,
-    totalDays: leaveType.totalDays,
-    remainingDays: leaveType.remainingDays,
-    createdAt: leaveType.createdAt,
-    updatedAt: leaveType.updatedAt,
-    createdBy: leaveType.createdBy,
-    updatedBy: leaveType.updatedBy,
-  };
-
   const p = pct(leaveType.usedDays, leaveType.totalDays);
   const danger = p >= 90;
   const warn = p >= 70;
 
   return (
     <div className="border-t border-border/50 px-3.5 py-2.5 first:border-t-0">
-      <div className="mb-2 flex items-center justify-between gap-2">
+      <div className="mb-2">
         <p className="truncate text-xs font-medium text-foreground">{leaveType.leaveTypeNameAr}</p>
-        <div className="flex shrink-0 gap-0">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6 text-muted-foreground hover:text-primary"
-            onClick={() => onEdit(flat)}
-            aria-label="تعديل الرصيد"
-          >
-            <Pencil className="h-3 w-3" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6 text-destructive hover:bg-destructive/10"
-            onClick={() => onDelete(flat)}
-            aria-label="حذف الرصيد"
-          >
-            <Trash2 className="h-3 w-3" />
-          </Button>
-        </div>
       </div>
 
       <div className="grid grid-cols-3 divide-x divide-x-reverse divide-border/60 rounded-lg border border-border/50 bg-muted/20">
@@ -351,13 +239,9 @@ function LeaveTypeRow({
 
 function EmployeeBalanceGroupCard({
   group,
-  onEdit,
-  onDelete,
   onAddType,
 }: {
   group: EmployeeLeaveBalanceGroupDto;
-  onEdit: (balance: EmployeeLeaveBalanceResponseDto) => void;
-  onDelete: (balance: EmployeeLeaveBalanceResponseDto) => void;
   onAddType: (employeeId: string) => void;
 }) {
   const [expanded, setExpanded] = React.useState(false);
@@ -434,8 +318,6 @@ function EmployeeBalanceGroupCard({
             <LeaveTypeRow
               key={lt.id}
               leaveType={lt}
-              onEdit={(balance) => onEdit({ ...balance, employeeId: group.employeeId, companyId: group.companyId })}
-              onDelete={(balance) => onDelete({ ...balance, employeeId: group.employeeId, companyId: group.companyId })}
             />
           ))}
         </div>
@@ -458,7 +340,6 @@ export function AnalyticsClient() {
 
   const [formOpen, setFormOpen] = React.useState(false);
   const [dialogMode, setDialogMode] = React.useState<DialogMode>({ mode: 'create' });
-  const [deleteTarget, setDeleteTarget] = React.useState<EmployeeLeaveBalanceResponseDto | null>(null);
 
   React.useEffect(() => {
     if (!companyId) return;
@@ -540,15 +421,7 @@ export function AnalyticsClient() {
     await reloadBalances();
   };
 
-  const handleDeleted = async () => {
-    await reloadBalances();
-  };
-
   const openCreate = React.useCallback(() => { setDialogMode({ mode: 'create' }); setFormOpen(true); }, []);
-  const openEdit = React.useCallback((balance: EmployeeLeaveBalanceResponseDto) => {
-    setDialogMode({ mode: 'edit', balance });
-    setFormOpen(true);
-  }, []);
   const openAddForEmployee = React.useCallback((employeeId: string) => {
     setDialogMode({ mode: 'create', employeeId });
     setFormOpen(true);
@@ -583,11 +456,6 @@ export function AnalyticsClient() {
     [selectedEmpKey, companyId],
   );
 
-  const deleteEmpName = deleteTarget
-    ? (groups.find((g) => g.employeeId === deleteTarget.employeeId)?.employeeNameAr ?? '—')
-    : '';
-  const deleteLtName = deleteTarget ? leaveTypeNameAr(leaveTypes, deleteTarget.leaveTypeId) : '';
-
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-5">
       {loading && groups.length === 0 ? (
@@ -608,8 +476,6 @@ export function AnalyticsClient() {
             <EmployeeBalanceGroupCard
               key={group.employeeId}
               group={group}
-              onEdit={openEdit}
-              onDelete={setDeleteTarget}
               onAddType={openAddForEmployee}
             />
           ))}
@@ -627,13 +493,6 @@ export function AnalyticsClient() {
         companyId={companyId}
         onClose={() => setFormOpen(false)}
         onSaved={handleSaved}
-      />
-      <DeleteDialog
-        balance={deleteTarget}
-        employeeName={deleteEmpName}
-        leaveTypeName={deleteLtName}
-        onClose={() => setDeleteTarget(null)}
-        onDeleted={handleDeleted}
       />
     </div>
   );

@@ -21,6 +21,7 @@ import {
   type HRContractRecord,
 } from '@/features/hr/contracts/lib/contracts-store';
 import { EmploymentContractSignatureCard } from '@/features/hr/contracts/employment/components/employment-contract-signature-card';
+import { resolveContractActions } from '@/features/hr/contracts/lib/contract-actions';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import { MoneyAmount } from '@/components/ui/sar-amount';
 import { cn } from '@/shared/utils';
@@ -286,7 +287,7 @@ export function EmploymentContractDetailDialog({
 
         {contract ? (
           <DialogFooter className={dialogFormFooterClass}>
-            {onEditDraft ? (
+            {onEditDraft && resolveContractActions(contract).canEditTerms ? (
               <Button
                 type="button"
                 variant="secondary"
@@ -295,7 +296,7 @@ export function EmploymentContractDetailDialog({
                 onClick={() => onEditDraft(contract)}
               >
                 <PenLine className="h-3.5 w-3.5 shrink-0" />
-                تعديل المسودة
+                تعديل البنود
               </Button>
             ) : null}
             {onDownloadPdf ? (
