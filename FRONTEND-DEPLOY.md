@@ -5,7 +5,7 @@
 | الخدمة | الدومين | المنفذ داخل الـ container |
 |--------|---------|---------------------------|
 | API (الباكند) | `https://api.jgr.sa` | 3000 |
-| الفرونت (Next.js standalone) | `https://portal.jgr.sa` | **3001** |
+| الفرونت (Next.js standalone) | `https://jgr.sa` | **3001** |
 
 - Traefik **واحد** على السيرفر (لا تشغّل Traefik ثانياً من مشروع الفرونت).
 - **لا** تفتح منافذ `80:80` أو `443:443` على container الفرونت.
@@ -16,7 +16,7 @@
 ## 2) DNS
 
 ```
-portal.jgr.sa  → A → IP السيرفر
+jgr.sa  → A → IP السيرفر
 api.jgr.sa     → A → IP السيرفر   (الباكند)
 ```
 
@@ -25,7 +25,7 @@ api.jgr.sa     → A → IP السيرفر   (الباكند)
 انسخ `.env.production.example` إلى `.env.production` وعدّل عند الحاجة:
 
 ```env
-FRONTEND_DOMAIN=portal.jgr.sa
+FRONTEND_DOMAIN=jgr.sa
 NEXT_PUBLIC_API_URL=https://api.jgr.sa
 BACKEND_URL=https://api.jgr.sa
 TRAEFIK_NETWORK=traefik
@@ -35,7 +35,7 @@ TRAEFIK_CERT_RESOLVER=letsencrypt
 في الباكند `.env.production` (تأكد من CORS):
 
 ```env
-CORS_ORIGINS=https://portal.jgr.sa
+CORS_ORIGINS=https://jgr.sa
 ```
 
 ## 4) Dockerfile (Next.js standalone — بدون Nginx)
@@ -96,7 +96,7 @@ npm run docker:prod:up
 docker network connect traefik hr-frontend-web 2>/dev/null || true
 
 # 5) تحقق
-curl -I https://portal.jgr.sa
+curl -I https://jgr.sa
 curl -I https://api.jgr.sa
 ```
 
@@ -140,13 +140,13 @@ certificatesResolvers:
 | `port 80 already in use` | Traefik ثانٍ | لا تشغّل Traefik من الفرونت |
 | `client version 1.24 is too old` | Traefik قديم + Docker 29 | ترقية Traefik إلى v3.6.2 |
 | `network traefik not found` | الشبكة غير منشأة | `docker network create traefik` |
-| CORS error | الباكند لا يسمح بالدومين | أضف `https://portal.jgr.sa` في `CORS_ORIGINS` |
+| CORS error | الباكند لا يسمح بالدومين | أضف `https://jgr.sa` في `CORS_ORIGINS` |
 | API خاطئ | build بدون URL صحيح | مرّر `NEXT_PUBLIC_API_URL` في `build.args` |
 | 502 على الدومين | container ليس على شبكة traefik | `docker network connect traefik hr-frontend-web` |
 
 ## 11) معايير القبول (Checklist)
 
-- [ ] `https://portal.jgr.sa` يفتح بدون تحذير SSL
+- [ ] `https://jgr.sa` يفتح بدون تحذير SSL
 - [ ] `https://api.jgr.sa` يعمل منفصلاً
 - [ ] تسجيل الدخول والطلبات تذهب إلى `api.jgr.sa`
 - [ ] لا منافذ 80/443 على container الفرونت (`docker ps` — Ports فارغ)
@@ -159,6 +159,6 @@ certificatesResolvers:
 |---|---------|---------|
 | Container | `hr-backend-api` | `hr-frontend-web` |
 | Traefik router | `api` | `portal` |
-| Host rule | `api.jgr.sa` | `portal.jgr.sa` |
+| Host rule | `api.jgr.sa` | `jgr.sa` |
 | Port داخلي | 3000 | 3001 (Next.js) |
 | Traefik container | مرة واحدة على السيرفر | لا |

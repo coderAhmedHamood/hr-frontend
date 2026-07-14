@@ -1,6 +1,6 @@
 # Production: Next.js frontend only — Traefik يعمل مسبقاً على السيرفر (من الباكند).
 #
-# Public: https://portal.jgr.sa
+# Public: https://jgr.sa
 # لا ports على الـ host — Traefik يوجّه HTTPS داخلياً إلى المنفذ 3001
 services:
   web:
@@ -22,7 +22,7 @@ services:
       HOSTNAME: 0.0.0.0
     labels:
       - traefik.enable=true
-      - traefik.http.routers.portal.rule=Host(`${FRONTEND_DOMAIN:-portal.jgr.sa}`)
+      - traefik.http.routers.portal.rule=Host(`${FRONTEND_DOMAIN:-jgr.sa}`)
       - traefik.http.routers.portal.entrypoints=websecure
       - traefik.http.routers.portal.tls=true
       - traefik.http.routers.portal.tls.certresolver=${TRAEFIK_CERT_RESOLVER:-letsencrypt}
