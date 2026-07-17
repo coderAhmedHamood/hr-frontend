@@ -1,6 +1,9 @@
 /**
  * Mobile employee app (`hr-app-new`) permission mapping.
  * Matches API `resource` + `action` fields from GET /permissions.
+ *
+ * Keep in sync with Dio calls under `hr-app-new/lib` (auth, profile,
+ * attendance, leaves, requests, payroll, notifications, discipline).
  */
 
 /** Explicit overrides (e.g. codes without resource on GROUP nodes). */
@@ -9,6 +12,8 @@ export const MOBILE_PERMISSION_CODES = new Set<string>([
   'hr.employees.update',
   'hr.employees.profile.read',
   'hr.employees.profile.update',
+  /** Change password via PATCH /users/:id */
+  'system.users.update',
 ]);
 
 /**
@@ -16,6 +21,7 @@ export const MOBILE_PERMISSION_CODES = new Set<string>([
  * Admin-only actions (create/delete/export/approve on config modules) are excluded.
  */
 const MOBILE_EMPLOYEE_RESOURCE_ACTIONS: Readonly<Record<string, readonly string[]>> = {
+  users: ['update'],
   employees: ['read', 'update'],
   'employee-profile': ['read', 'update'],
   'attendance-events': ['read', 'create'],
@@ -42,8 +48,10 @@ const MOBILE_EMPLOYEE_RESOURCE_ACTIONS: Readonly<Record<string, readonly string[
   'payroll-periods': ['read'],
   'monthly-inputs': ['read'],
   'allowance-types': ['read'],
-  payslips: ['read', 'update'],
-  'employee-contracts': ['read', 'update'],
+  /** View payslips + employee accept/reject (`POST .../employee-decision`) */
+  payslips: ['read', 'approve'],
+  /** View contracts + employee sign/reject (`POST .../employee-decision`) */
+  'employee-contracts': ['read', 'approve'],
 };
 
 export function isMobilePermission(

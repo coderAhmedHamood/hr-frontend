@@ -106,6 +106,8 @@ export type ApiContractArticleRef = {
   contractArticleId: string;
   articleCode: string;
   titleAr: string;
+  bodyAr?: string | null;
+  isBasic?: boolean;
   sortOrder: number;
 };
 

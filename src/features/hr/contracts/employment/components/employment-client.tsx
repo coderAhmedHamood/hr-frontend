@@ -68,7 +68,6 @@ import { useAuthStore } from '@/features/auth/lib/auth-store';
 import { getDefaultCompanyId, useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 import { getSessionCompanyDisplay } from '@/features/hr/organization/lib/session-company-display';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
-import { sendEmploymentContractCreatedNotification } from '@/features/hr/contracts/employment/services/contract-created-notification.service';
 
 type FormValues = EmploymentContractFormValues;
 const recordToForm = recordToEmploymentForm;
@@ -481,32 +480,9 @@ export function EmploymentContractsClient() {
         articleIds: mergeEssentialArticleIds(form.articleIds, essentialArticleIds),
       };
       if (panelMode === 'create') {
-        const { id: contractId, contractNumber } = await add(formToDraft(payload, 'draft'));
-        const companyId = getDefaultCompanyId() ?? '';
-        const actor = useAuthStore.getState().user?.email ?? undefined;
-
-        let notificationSent = false;
-        if (companyId && form.employeeId) {
-          try {
-            await sendEmploymentContractCreatedNotification({
-              companyId,
-              contractId,
-              employeeId: form.employeeId,
-              contractNumber,
-              startDate: form.startDate,
-              createdBy: actor,
-            });
-            notificationSent = true;
-          } catch (notifErr) {
-            const { displayMessage } = handleApiError(notifErr, 'employment-contract.notification');
-            toast.error(`تم إنشاء العقد لكن فشل إرسال الإشعار: ${displayMessage}`);
-          }
-        }
-
+        await add(formToDraft(payload, 'draft'));
         toast.success(
-          notificationSent
-            ? `تم إنشاء العقد كمسودة — وتم إرسال إشعار إلى ${getEmpName(form.employeeId)}.`
-            : 'تم إنشاء العقد كمسودة.',
+          'تم إنشاء العقد كمسودة. أرسله للموظف عبر زر «إرسال» عند الجاهزية للتوقيع.',
         );
       } else if (panelMode === 'edit' && selected) {
         if (!resolveContractActions(selected).canEditTerms) {

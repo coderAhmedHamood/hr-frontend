@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Building2, Check, ImagePlus, Loader2 } from 'lucide-react';
+import { Building2, Check, ImagePlus, Loader2, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -43,12 +43,15 @@ function ColorField({
   label,
   value,
   onChange,
+  defaultHex,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
+  /** Fallback swatch when the field is empty (system default preview). */
+  defaultHex: string;
 }) {
-  const pickerValue = isValidHexColor(value) ? value : '#000000';
+  const pickerValue = isValidHexColor(value) ? value.trim() : defaultHex;
 
   return (
     <FormField label={label}>
@@ -65,7 +68,7 @@ function ColorField({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           className="h-9 font-mono"
-          placeholder="#0f766e"
+          placeholder={defaultHex}
         />
       </div>
     </FormField>
@@ -209,17 +212,38 @@ export function CompanySettingsTab() {
         </div>
 
         <div className="space-y-3">
-          <p className="text-xs font-semibold text-muted-foreground">ألوان الهوية</p>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs font-semibold text-muted-foreground">ألوان الهوية</p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 gap-1.5 text-xs"
+              disabled={!form.primaryColor.trim() && !form.secondaryColor.trim()}
+              onClick={() => {
+                patch({ primaryColor: '', secondaryColor: '' });
+                toast.message('تم استعادة الألوان الافتراضية للنظام — احفظ لتطبيق التغيير');
+              }}
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              استعادة الألوان الافتراضية
+            </Button>
+          </div>
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            عند التفريغ تُستخدم ألوان النظام العامة (بما في ذلك الوضع الداكن). عدّل الألوان ثم احفظ لتخصيص هوية الشركة.
+          </p>
           <div className="grid gap-3 sm:grid-cols-2">
             <ColorField
               label="اللون الأساسي"
               value={form.primaryColor}
               onChange={(primaryColor) => patch({ primaryColor })}
+              defaultHex="#154f4a"
             />
             <ColorField
               label="اللون الثانوي"
               value={form.secondaryColor}
               onChange={(secondaryColor) => patch({ secondaryColor })}
+              defaultHex="#f2ede6"
             />
           </div>
         </div>

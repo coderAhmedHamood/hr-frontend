@@ -57,7 +57,7 @@ export function CheckpointsEditDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       {/* Full-screen-ish dialog, two-column on md+ */}
       <DialogContent
-        className="flex h-[92vh] max-h-[92vh] w-[96vw] max-w-6xl flex-col gap-0 overflow-hidden border-border p-0"
+        className="flex h-[92vh] max-h-[92vh] w-[96vw] max-w-[96vw] flex-col gap-0 overflow-hidden border-border p-0 sm:max-w-7xl"
         dir="rtl"
         hideClose
       >
