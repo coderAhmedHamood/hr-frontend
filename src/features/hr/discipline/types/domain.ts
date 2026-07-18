@@ -127,7 +127,6 @@ export const hrDisciplineNavGroups: { labelAr: string; items: { slug: HRDiscipli
       { slug: 'circulars',        labelAr: 'التعميمات' },
       { slug: 'investigations',   labelAr: 'التحقيقات' },
       { slug: 'appeals',          labelAr: 'التظلمات' },
-      { slug: 'audit-log',        labelAr: 'سجل العمليات' },
     ],
   },
   {

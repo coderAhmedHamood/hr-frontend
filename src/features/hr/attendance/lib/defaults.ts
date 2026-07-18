@@ -1,11 +1,26 @@
 import type { CheckInWindowConfig, CheckOutWindowConfig, ShiftPeriod, ShiftTemplate, TemplateDayConfig, WeekDayIndex } from './types';
 
+/** نوافذ مخفية عن المستخدم في نموذج القالب — تُطبَّق دائمًا بهذه القيم. */
+export const HIDDEN_SHIFT_WINDOW_DEFAULTS = {
+  afterStartMinutes: 60,
+  beforeEndMinutes: 10,
+  afterEndMinutes: 120,
+} as const;
+
 export function defaultCheckInWindow(): CheckInWindowConfig {
-  return { beforeStartMinutes: 30, graceMinutes: 10, afterStartMinutes: 60 };
+  return {
+    beforeStartMinutes: 30,
+    graceMinutes: 10,
+    afterStartMinutes: HIDDEN_SHIFT_WINDOW_DEFAULTS.afterStartMinutes,
+  };
 }
 
 export function defaultCheckOutWindow(): CheckOutWindowConfig {
-  return { beforeEndMinutes: 10, allowedShortageMinutes: 15, afterEndMinutes: 120 };
+  return {
+    beforeEndMinutes: HIDDEN_SHIFT_WINDOW_DEFAULTS.beforeEndMinutes,
+    allowedShortageMinutes: 15,
+    afterEndMinutes: HIDDEN_SHIFT_WINDOW_DEFAULTS.afterEndMinutes,
+  };
 }
 
 export function defaultShiftPeriod(id: string): ShiftPeriod {
@@ -58,8 +73,17 @@ export function normalizeShiftPeriod(p: ShiftPeriod): ShiftPeriod {
   return {
     ...base,
     ...rest,
-    checkIn: { ...base.checkIn, ...p.checkIn },
-    checkOut: { ...base.checkOut, ...p.checkOut },
+    checkIn: {
+      ...base.checkIn,
+      ...p.checkIn,
+      afterStartMinutes: HIDDEN_SHIFT_WINDOW_DEFAULTS.afterStartMinutes,
+    },
+    checkOut: {
+      ...base.checkOut,
+      ...p.checkOut,
+      beforeEndMinutes: HIDDEN_SHIFT_WINDOW_DEFAULTS.beforeEndMinutes,
+      afterEndMinutes: HIDDEN_SHIFT_WINDOW_DEFAULTS.afterEndMinutes,
+    },
     strictMode: Boolean(p.strictMode),
     strictPenaltyWarning: Boolean(leg.strictPenaltyWarning ?? leg.strictAbsenceWarningEnabled),
     strictPenaltyBalanceEnabled: Boolean(leg.strictPenaltyBalanceEnabled ?? leg.strictAbsenceDeductEnabled),
