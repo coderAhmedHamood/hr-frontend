@@ -42,6 +42,7 @@ const attributeValueSchema = z.object({
   defaultExtraPrice: z.coerce.number().min(0).optional(),
   colorHex: z.string().trim().optional(),
   imageUrl: z.string().trim().optional(),
+  catalogAttributeValueId: z.string().optional(),
   extra: z.string().trim().optional(),
 });
 

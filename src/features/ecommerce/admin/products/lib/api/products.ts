@@ -12,14 +12,14 @@ import type {
   UpdateProductInput,
 } from '@/features/ecommerce/domain/types/product';
 import type { AdminProductsPort } from '@/features/ecommerce/domain/ports/catalog.ports';
-import { buildCombinationKey } from '@/features/ecommerce/admin/products/lib/product-variants';
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-function maybeCatalogValueId(clientId: string): string | null {
-  return UUID_RE.test(clientId) ? clientId : null;
+function isPersistedId(id: string | undefined): boolean {
+  return Boolean(id && UUID_RE.test(id));
 }
+
 type ProductDto = {
   id: string;
   companyId: string;
@@ -67,7 +67,6 @@ type ProductDto = {
 
 type MediaDto = {
   id: string;
-  productId: string;
   url: string;
   alt: string;
   type: MediaItem['type'];
@@ -79,7 +78,6 @@ type MediaDto = {
 
 type UomDto = {
   id: string;
-  productId: string;
   nameAr: string;
   uneceCode?: string | null;
   relativeQuantity: string | number;
@@ -88,19 +86,8 @@ type UomDto = {
   sortOrder?: number;
 };
 
-type AttrLineDto = {
-  id: string;
-  productId: string;
-  catalogAttributeId?: string | null;
-  nameAr: string;
-  displayType: ProductAttribute['displayType'];
-  createVariant: ProductAttribute['createVariant'];
-  sortOrder?: number;
-};
-
 type AttrValueDto = {
   id: string;
-  productAttributeLineId: string;
   catalogAttributeValueId?: string | null;
   nameAr: string;
   freeText?: string | null;
@@ -110,9 +97,26 @@ type AttrValueDto = {
   sortOrder?: number;
 };
 
+type AttrLineDto = {
+  id: string;
+  catalogAttributeId?: string | null;
+  nameAr: string;
+  displayType: ProductAttribute['displayType'];
+  createVariant: ProductAttribute['createVariant'];
+  sortOrder?: number;
+  values?: AttrValueDto[];
+};
+
+type VariantLinkDto = {
+  id: string;
+  productAttributeValueId: string;
+  attributeNameAr: string;
+  valueNameAr: string;
+  colorHex?: string | null;
+};
+
 type VariantDto = {
   id: string;
-  productId: string;
   combinationKey: string;
   sku: string;
   nameAr: string;
@@ -125,26 +129,109 @@ type VariantDto = {
   quantityCache: string | number;
   stockStatus: ProductVariant['stockStatus'];
   isActive: boolean;
+  attributeValueIds?: string[];
+  attributeLinks?: VariantLinkDto[];
 };
 
-type VariantAttrDto = {
-  id: string;
-  variantId: string;
-  productAttributeValueId: string;
-  attributeNameAr: string;
-  valueNameAr: string;
-  colorHex?: string | null;
+type ProductFullDto = ProductDto & {
+  media?: MediaDto[];
+  uomLines?: UomDto[];
+  attributes?: AttrLineDto[];
+  variants?: VariantDto[];
+  idMap?: Record<string, string>;
 };
 
-function mapCoreProduct(
-  dto: ProductDto,
-  extras?: {
-    media?: MediaItem[];
-    attributes?: ProductAttribute[];
-    variants?: ProductVariant[];
-    uomLines?: ProductUomLine[];
-  },
-): Product {
+function mapMedia(items: MediaDto[] | undefined): MediaItem[] {
+  return (items ?? [])
+    .slice()
+    .sort((a, b) => a.position - b.position)
+    .map((dto) => ({
+      id: dto.id,
+      url: dto.url,
+      alt: dto.alt ?? '',
+      type: dto.type,
+      position: dto.position,
+      isPrimary: dto.isPrimary,
+      width: dto.width ?? undefined,
+      height: dto.height ?? undefined,
+    }));
+}
+
+function mapUomLines(items: UomDto[] | undefined): ProductUomLine[] {
+  return (items ?? [])
+    .slice()
+    .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+    .map((dto) => ({
+      id: dto.id,
+      nameAr: dto.nameAr,
+      uneceCode: dto.uneceCode ?? undefined,
+      relativeQuantity: toNumber(dto.relativeQuantity, 1),
+      isReference: dto.isReference,
+      packagingType: dto.packagingType,
+    }));
+}
+
+function mapAttributes(items: AttrLineDto[] | undefined): ProductAttribute[] {
+  return (items ?? [])
+    .slice()
+    .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+    .map((line) => ({
+      id: line.id,
+      attributeId: line.catalogAttributeId ?? undefined,
+      nameAr: line.nameAr,
+      displayType: line.displayType,
+      createVariant: line.createVariant,
+      values: (line.values ?? [])
+        .slice()
+        .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+        .map(
+          (value): ProductAttributeValue => ({
+            id: value.id,
+            nameAr: value.nameAr,
+            freeText: value.freeText ?? undefined,
+            defaultExtraPrice: toOptionalNumber(value.defaultExtraPrice),
+            colorHex: value.colorHex ?? undefined,
+            imageUrl: value.imageUrl ?? undefined,
+            catalogAttributeValueId: value.catalogAttributeValueId ?? undefined,
+          }),
+        ),
+    }));
+}
+
+function mapVariants(items: VariantDto[] | undefined): ProductVariant[] {
+  return (items ?? []).map((dto) => {
+    const links = dto.attributeLinks ?? [];
+    const attributeValueIds =
+      dto.attributeValueIds ?? links.map((link) => link.productAttributeValueId);
+    return {
+      id: dto.id,
+      combinationKey: dto.combinationKey,
+      sku: dto.sku,
+      nameAr: dto.nameAr,
+      attributeValueIds,
+      attributeLabels: links.map((link) => ({
+        attributeNameAr: link.attributeNameAr,
+        valueNameAr: link.valueNameAr,
+        colorHex: link.colorHex ?? undefined,
+      })),
+      salePrice: {
+        amount: toNumber(dto.salePriceAmount),
+        currency: dto.salePriceCurrency || 'SAR',
+      },
+      costPrice: {
+        amount: toNumber(dto.costPriceAmount),
+        currency: dto.costPriceCurrency || 'SAR',
+      },
+      quantity: toNumber(dto.quantityCache),
+      stockStatus: dto.stockStatus,
+      barcode: dto.barcode ?? undefined,
+      imageUrl: dto.imageUrl ?? undefined,
+      isActive: dto.isActive,
+    };
+  });
+}
+
+function mapFullProduct(dto: ProductFullDto): Product {
   const currency = dto.priceCurrency || 'SAR';
   const costAmount = toOptionalNumber(dto.costPriceAmount);
   const compareAmount = toOptionalNumber(dto.compareAtPriceAmount);
@@ -180,7 +267,7 @@ function mapCoreProduct(
       compareAmount !== undefined
         ? { amount: compareAmount, currency: dto.compareAtPriceCurrency || currency }
         : undefined,
-    media: extras?.media ?? [],
+    media: mapMedia(dto.media),
     seo: {
       metaTitle: dto.seoMetaTitle ?? undefined,
       metaDescription: dto.seoMetaDescription ?? undefined,
@@ -198,16 +285,16 @@ function mapCoreProduct(
     posAvailable: dto.posAvailable,
     saleOk: dto.saleOk,
     purchaseOk: dto.purchaseOk,
-    attributes: extras?.attributes,
-    variants: extras?.variants,
-    uomLines: extras?.uomLines,
+    attributes: mapAttributes(dto.attributes),
+    variants: mapVariants(dto.variants),
+    uomLines: mapUomLines(dto.uomLines),
     createdAt: dto.createdAt,
     updatedAt: dto.updatedAt,
     archivedAt: dto.archivedAt ?? null,
   };
 }
 
-function toProductBody(input: CreateProductInput | UpdateProductInput, mode: 'create' | 'update') {
+function toHeaderBody(input: CreateProductInput | UpdateProductInput, mode: 'create' | 'update') {
   const body: Record<string, unknown> = {};
   if (mode === 'create' && 'companyId' in input) body.companyId = input.companyId;
   if (input.brandId !== undefined) body.brandId = input.brandId;
@@ -240,7 +327,6 @@ function toProductBody(input: CreateProductInput | UpdateProductInput, mode: 'cr
     body.trackInventory = input.inventory.trackInventory;
     body.lowStockThreshold = input.inventory.lowStockThreshold;
     body.allowBackorder = input.inventory.allowBackorder;
-    // quantityCache is backend-managed — do not send
   }
   if (input.weightKg !== undefined) body.weightKg = input.weightKg ?? null;
   if (input.dimensions !== undefined) {
@@ -262,398 +348,138 @@ function toProductBody(input: CreateProductInput | UpdateProductInput, mode: 'cr
   return body;
 }
 
-async function fetchMedia(productId: string): Promise<MediaItem[]> {
-  const result = await apiRequest<PaginatedResult<MediaDto>>('/inventory/product-media', {
-    query: { productId, page: 1, limit: 100, archiveScope: 'active' },
-  });
-  return (result.items ?? [])
-    .slice()
-    .sort((a, b) => a.position - b.position)
-    .map((dto) => ({
-      id: dto.id,
-      url: dto.url,
-      alt: dto.alt ?? '',
-      type: dto.type,
-      position: dto.position,
-      isPrimary: dto.isPrimary,
-      width: dto.width ?? undefined,
-      height: dto.height ?? undefined,
-    }));
+function refKey(id: string, prefix: string, index: number) {
+  return isPersistedId(id) ? id : id || `${prefix}-${index}`;
 }
 
-async function fetchUomLines(productId: string): Promise<ProductUomLine[]> {
-  const result = await apiRequest<PaginatedResult<UomDto>>('/inventory/product-uom-lines', {
-    query: { productId, page: 1, limit: 100, archiveScope: 'active' },
-  });
-  return (result.items ?? [])
-    .slice()
-    .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
-    .map((dto) => ({
-      id: dto.id,
-      nameAr: dto.nameAr,
-      uneceCode: dto.uneceCode ?? undefined,
-      relativeQuantity: toNumber(dto.relativeQuantity, 1),
-      isReference: dto.isReference,
-      packagingType: dto.packagingType,
-    }));
-}
+function toFullBody(input: CreateProductInput | UpdateProductInput, mode: 'create' | 'update') {
+  const body = toHeaderBody(input, mode);
 
-async function fetchAttributeValueDtos(productId: string): Promise<AttrValueDto[]> {
-  const result = await apiRequest<PaginatedResult<AttrValueDto>>(
-    '/inventory/product-attribute-values',
-    { query: { productId, page: 1, limit: 500, archiveScope: 'active' } },
-  );
-  return result.items ?? [];
-}
-
-async function fetchAttributes(productId: string): Promise<ProductAttribute[]> {
-  const lines = await apiRequest<PaginatedResult<AttrLineDto>>('/inventory/product-attribute-lines', {
-    query: { productId, page: 1, limit: 100, archiveScope: 'active' },
-  });
-  const values = await fetchAttributeValueDtos(productId);
-  const valuesByLine = new Map<string, ProductAttributeValue[]>();
-  for (const dto of values) {
-    const list = valuesByLine.get(dto.productAttributeLineId) ?? [];
-    list.push({
-      id: dto.id,
-      nameAr: dto.nameAr,
-      freeText: dto.freeText ?? undefined,
-      defaultExtraPrice: toOptionalNumber(dto.defaultExtraPrice),
-      colorHex: dto.colorHex ?? undefined,
-      imageUrl: dto.imageUrl ?? undefined,
-    });
-    valuesByLine.set(dto.productAttributeLineId, list);
-  }
-  return (lines.items ?? [])
-    .slice()
-    .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
-    .map((line) => ({
-      id: line.id,
-      attributeId: line.catalogAttributeId ?? undefined,
-      nameAr: line.nameAr,
-      displayType: line.displayType,
-      createVariant: line.createVariant,
-      values: valuesByLine.get(line.id) ?? [],
-    }));
-}
-
-function resolveProductAttributeValueId(
-  clientValueId: string,
-  lineValues: AttrValueDto[],
-  claimedServerIds: Set<string>,
-): AttrValueDto | undefined {
-  const byId = lineValues.find((item) => item.id === clientValueId && !claimedServerIds.has(item.id));
-  if (byId) return byId;
-  return lineValues.find(
-    (item) => item.catalogAttributeValueId === clientValueId && !claimedServerIds.has(item.id),
-  );
-}
-
-/**
- * Syncs product attribute lines/values and returns a map of
- * client-side value ids (often catalog-attribute-value ids) → product-attribute-value ids.
- */
-async function syncAttributes(
-  productId: string,
-  attributes: ProductAttribute[],
-): Promise<Map<string, string>> {
-  const valueIdMap = new Map<string, string>();
-  const existing = await fetchAttributes(productId);
-  const existingById = new Map(existing.map((item) => [item.id, item]));
-  const keep = new Set(attributes.map((item) => item.id).filter((id) => existingById.has(id)));
-
-  for (const item of existing) {
-    if (!keep.has(item.id)) {
-      await apiRequest<void>(`/inventory/product-attribute-lines/${item.id}`, { method: 'DELETE' });
-    }
-  }
-
-  for (const [lineIndex, attr] of attributes.entries()) {
-    let lineId = attr.id;
-    const lineBody = {
-      catalogAttributeId: attr.attributeId ?? null,
-      nameAr: attr.nameAr,
-      displayType: attr.displayType,
-      createVariant: attr.createVariant,
-      sortOrder: lineIndex,
-    };
-
-    if (existingById.has(attr.id)) {
-      await apiRequest(`/inventory/product-attribute-lines/${attr.id}`, {
-        method: 'PATCH',
-        body: lineBody,
-      });
-    } else {
-      const created = await apiRequest<AttrLineDto>('/inventory/product-attribute-lines', {
-        method: 'POST',
-        body: { productId, ...lineBody },
-      });
-      lineId = created.id;
-    }
-
-    const lineValueDtos = (await fetchAttributeValueDtos(productId)).filter(
-      (dto) => dto.productAttributeLineId === lineId,
-    );
-    const claimedServerIds = new Set<string>();
-    const keepServerIds = new Set<string>();
-
-    for (const [valueIndex, value] of attr.values.entries()) {
-      const valueBody = {
-        nameAr: value.nameAr,
-        freeText: value.freeText ?? null,
-        defaultExtraPrice: value.defaultExtraPrice ?? null,
-        colorHex: value.colorHex ?? null,
-        imageUrl: value.imageUrl ?? null,
-        sortOrder: valueIndex,
+  if (input.media !== undefined) {
+    body.media = input.media.map((item, index) => {
+      const persisted = mode === 'update' && isPersistedId(item.id);
+      return {
+        ...(persisted ? { id: item.id } : { clientKey: refKey(item.id, 'm', index) }),
+        url: item.url,
+        alt: item.alt ?? '',
+        type: item.type ?? 'image',
+        position: item.position ?? index,
+        isPrimary: item.isPrimary,
+        width: item.width ?? null,
+        height: item.height ?? null,
       };
-
-      const matched = resolveProductAttributeValueId(value.id, lineValueDtos, claimedServerIds);
-      if (matched) {
-        claimedServerIds.add(matched.id);
-        keepServerIds.add(matched.id);
-        await apiRequest(`/inventory/product-attribute-values/${matched.id}`, {
-          method: 'PATCH',
-          body: valueBody,
-        });
-        valueIdMap.set(value.id, matched.id);
-        continue;
-      }
-
-      const created = await apiRequest<AttrValueDto>('/inventory/product-attribute-values', {
-        method: 'POST',
-        body: {
-          productAttributeLineId: lineId,
-          catalogAttributeValueId: maybeCatalogValueId(value.id),
-          ...valueBody,
-        },
-      });
-      claimedServerIds.add(created.id);
-      keepServerIds.add(created.id);
-      lineValueDtos.push(created);
-      valueIdMap.set(value.id, created.id);
-    }
-
-    for (const dto of lineValueDtos) {
-      if (!keepServerIds.has(dto.id)) {
-        await apiRequest<void>(`/inventory/product-attribute-values/${dto.id}`, {
-          method: 'DELETE',
-        });
-      }
-    }
+    });
   }
 
-  return valueIdMap;
-}
-
-function remapVariantValueIds(
-  valueIds: string[],
-  valueIdMap: Map<string, string>,
-): string[] {
-  return valueIds.map((id) => valueIdMap.get(id) ?? id);
-}
-
-async function syncVariants(
-  productId: string,
-  variants: ProductVariant[],
-  valueIdMap: Map<string, string>,
-) {
-  const existing = await fetchVariants(productId);
-  const existingById = new Map(existing.map((item) => [item.id, item]));
-  const keep = new Set(variants.map((item) => item.id).filter((id) => existingById.has(id)));
-
-  for (const item of existing) {
-    if (!keep.has(item.id)) {
-      await apiRequest<void>(`/inventory/product-variants/${item.id}`, { method: 'DELETE' });
-    }
+  if (input.uomLines !== undefined) {
+    body.uomLines = input.uomLines.map((line, index) => {
+      const persisted = mode === 'update' && isPersistedId(line.id);
+      return {
+        ...(persisted ? { id: line.id } : { clientKey: refKey(line.id, 'u', index) }),
+        nameAr: line.nameAr,
+        uneceCode: line.uneceCode ?? null,
+        relativeQuantity: line.relativeQuantity,
+        isReference: line.isReference,
+        packagingType: line.packagingType,
+        sortOrder: index,
+      };
+    });
   }
 
-  for (const variant of variants) {
-    const productAttributeValueIds = remapVariantValueIds(variant.attributeValueIds, valueIdMap);
-    const body = {
-      combinationKey: buildCombinationKey(productAttributeValueIds),
-      sku: variant.sku,
-      nameAr: variant.nameAr,
-      barcode: variant.barcode ?? null,
-      imageUrl: variant.imageUrl ?? null,
-      salePriceAmount: variant.salePrice.amount,
-      salePriceCurrency: variant.salePrice.currency,
-      costPriceAmount: variant.costPrice.amount,
-      costPriceCurrency: variant.costPrice.currency,
-      stockStatus: variant.stockStatus,
-      isActive: variant.isActive,
-    };
+  if (input.attributes !== undefined) {
+    body.attributes = input.attributes.map((attr, attrIndex) => {
+      const linePersisted = mode === 'update' && isPersistedId(attr.id);
+      return {
+        ...(linePersisted ? { id: attr.id } : { clientKey: refKey(attr.id, 'a', attrIndex) }),
+        catalogAttributeId: attr.attributeId ?? null,
+        nameAr: attr.nameAr,
+        displayType: attr.displayType,
+        createVariant: attr.createVariant,
+        sortOrder: attrIndex,
+        values: attr.values.map((value, valueIndex) => {
+          const valuePersisted = mode === 'update' && isPersistedId(value.id);
+          const catalogAttributeValueId =
+            value.catalogAttributeValueId ??
+            (!valuePersisted && isPersistedId(value.id) ? value.id : null);
+          return {
+            ...(valuePersisted
+              ? { id: value.id }
+              : { clientKey: refKey(value.id, `v${attrIndex}`, valueIndex) }),
+            catalogAttributeValueId,
+            nameAr: value.nameAr,
+            freeText: value.freeText ?? null,
+            defaultExtraPrice: value.defaultExtraPrice ?? null,
+            colorHex: value.colorHex ?? null,
+            imageUrl: value.imageUrl ?? null,
+            sortOrder: valueIndex,
+          };
+        }),
+      };
+    });
+  }
 
-    let variantId = variant.id;
-    if (existingById.has(variant.id)) {
-      await apiRequest(`/inventory/product-variants/${variant.id}`, { method: 'PATCH', body });
-    } else {
-      // Also try match by remapped combination key (catalog ids → product value ids).
-      const byKey = existing.find((item) => item.combinationKey === body.combinationKey);
-      if (byKey) {
-        variantId = byKey.id;
-        await apiRequest(`/inventory/product-variants/${byKey.id}`, { method: 'PATCH', body });
-      } else {
-        const created = await apiRequest<VariantDto>('/inventory/product-variants', {
-          method: 'POST',
-          body: { productId, ...body },
-        });
-        variantId = created.id;
+  if (input.variants !== undefined) {
+    const valueKeyByFormId = new Map<string, string>();
+    for (const [attrIndex, attr] of (input.attributes ?? []).entries()) {
+      for (const [valueIndex, value] of attr.values.entries()) {
+        const valuePersisted = mode === 'update' && isPersistedId(value.id);
+        const key = valuePersisted
+          ? value.id
+          : refKey(value.id, `v${attrIndex}`, valueIndex);
+        valueKeyByFormId.set(value.id, key);
       }
     }
 
-    const existingLinks = await apiRequest<PaginatedResult<VariantAttrDto>>(
-      '/inventory/product-variant-attribute-values',
-      { query: { variantId, page: 1, limit: 100 } },
-    );
-    for (const link of existingLinks.items ?? []) {
-      await apiRequest<void>(`/inventory/product-variant-attribute-values/${link.id}`, {
-        method: 'DELETE',
-      });
-    }
-    for (const [index, productAttributeValueId] of productAttributeValueIds.entries()) {
-      const label = variant.attributeLabels[index];
-      await apiRequest('/inventory/product-variant-attribute-values', {
-        method: 'POST',
-        body: {
-          variantId,
-          productAttributeValueId,
-          attributeNameAr: label?.attributeNameAr,
-          valueNameAr: label?.valueNameAr,
-          colorHex: label?.colorHex ?? null,
-        },
-      });
-    }
+    body.variants = input.variants.map((variant, index) => {
+      const persisted = mode === 'update' && isPersistedId(variant.id);
+      const attributeValueIds: string[] = [];
+      const attributeValueClientKeys: string[] = [];
+
+      for (const formValueId of variant.attributeValueIds) {
+        const mapped = valueKeyByFormId.get(formValueId) ?? formValueId;
+        if (mode === 'update' && isPersistedId(formValueId) && mapped === formValueId) {
+          attributeValueIds.push(formValueId);
+        } else {
+          attributeValueClientKeys.push(mapped);
+        }
+      }
+
+      return {
+        ...(persisted ? { id: variant.id } : { clientKey: refKey(variant.id, 'var', index) }),
+        combinationKey: variant.combinationKey,
+        sku: variant.sku,
+        nameAr: variant.nameAr,
+        barcode: variant.barcode ?? null,
+        imageUrl: variant.imageUrl ?? null,
+        salePriceAmount: variant.salePrice.amount,
+        salePriceCurrency: variant.salePrice.currency,
+        costPriceAmount: variant.costPrice.amount,
+        costPriceCurrency: variant.costPrice.currency,
+        stockStatus: variant.stockStatus,
+        isActive: variant.isActive,
+        ...(attributeValueIds.length > 0 ? { attributeValueIds } : {}),
+        ...(attributeValueClientKeys.length > 0 ? { attributeValueClientKeys } : {}),
+      };
+    });
+  }
+
+  return body;
+}
+
+async function fetchProductFull(id: string): Promise<Product | null> {
+  try {
+    const dto = await apiRequest<ProductFullDto>(`/inventory/products/${id}/full`);
+    return dto?.id ? mapFullProduct(dto) : null;
+  } catch {
+    return null;
   }
 }
 
-async function syncNested(productId: string, input: CreateProductInput | UpdateProductInput) {
-  if (input.media) await syncMedia(productId, input.media);
-  if (input.uomLines) await syncUomLines(productId, input.uomLines);
-  const valueIdMap =
-    input.attributes !== undefined
-      ? await syncAttributes(productId, input.attributes)
-      : new Map<string, string>();
-  if (input.variants) await syncVariants(productId, input.variants, valueIdMap);
-}
-
-async function fetchVariants(productId: string): Promise<ProductVariant[]> {
-  const [variants, links] = await Promise.all([
-    apiRequest<PaginatedResult<VariantDto>>('/inventory/product-variants', {
-      query: { productId, page: 1, limit: 200, archiveScope: 'active' },
-    }),
-    apiRequest<PaginatedResult<VariantAttrDto>>('/inventory/product-variant-attribute-values', {
-      query: { productId, page: 1, limit: 500 },
-    }),
-  ]);
-
-  const linksByVariant = new Map<string, VariantAttrDto[]>();
-  for (const link of links.items ?? []) {
-    const list = linksByVariant.get(link.variantId) ?? [];
-    list.push(link);
-    linksByVariant.set(link.variantId, list);
-  }
-
-  return (variants.items ?? []).map((dto) => {
-    const attrs = linksByVariant.get(dto.id) ?? [];
-    return {
-      id: dto.id,
-      combinationKey: dto.combinationKey,
-      sku: dto.sku,
-      nameAr: dto.nameAr,
-      attributeValueIds: attrs.map((a) => a.productAttributeValueId),
-      attributeLabels: attrs.map((a) => ({
-        attributeNameAr: a.attributeNameAr,
-        valueNameAr: a.valueNameAr,
-        colorHex: a.colorHex ?? undefined,
-      })),
-      salePrice: {
-        amount: toNumber(dto.salePriceAmount),
-        currency: dto.salePriceCurrency || 'SAR',
-      },
-      costPrice: {
-        amount: toNumber(dto.costPriceAmount),
-        currency: dto.costPriceCurrency || 'SAR',
-      },
-      quantity: toNumber(dto.quantityCache),
-      stockStatus: dto.stockStatus,
-      barcode: dto.barcode ?? undefined,
-      imageUrl: dto.imageUrl ?? undefined,
-      isActive: dto.isActive,
-    };
+async function fetchListMedia(productId: string): Promise<MediaItem[]> {
+  const result = await apiRequest<PaginatedResult<MediaDto>>('/inventory/product-media', {
+    query: { productId, page: 1, limit: 20, archiveScope: 'active' },
   });
-}
-
-async function hydrateProduct(dto: ProductDto): Promise<Product> {
-  const [media, attributes, variants, uomLines] = await Promise.all([
-    fetchMedia(dto.id),
-    fetchAttributes(dto.id),
-    fetchVariants(dto.id),
-    fetchUomLines(dto.id),
-  ]);
-  return mapCoreProduct(dto, { media, attributes, variants, uomLines });
-}
-
-async function syncMedia(productId: string, media: MediaItem[]) {
-  const existing = await fetchMedia(productId);
-  const existingById = new Map(existing.map((item) => [item.id, item]));
-  const keep = new Set(media.map((item) => item.id).filter((id) => existingById.has(id)));
-
-  for (const item of existing) {
-    if (!keep.has(item.id)) {
-      await apiRequest<void>(`/inventory/product-media/${item.id}`, { method: 'DELETE' });
-    }
-  }
-
-  for (const [index, item] of media.entries()) {
-    const body = {
-      url: item.url,
-      alt: item.alt ?? '',
-      type: item.type ?? 'image',
-      position: item.position ?? index,
-      isPrimary: item.isPrimary,
-      width: item.width ?? null,
-      height: item.height ?? null,
-    };
-    if (existingById.has(item.id)) {
-      await apiRequest(`/inventory/product-media/${item.id}`, { method: 'PATCH', body });
-    } else if (item.url?.trim()) {
-      await apiRequest('/inventory/product-media', {
-        method: 'POST',
-        body: { productId, ...body },
-      });
-    }
-  }
-}
-
-async function syncUomLines(productId: string, lines: ProductUomLine[]) {
-  const existing = await fetchUomLines(productId);
-  const existingById = new Map(existing.map((item) => [item.id, item]));
-  const keep = new Set(lines.map((item) => item.id).filter((id) => existingById.has(id)));
-
-  for (const item of existing) {
-    if (!keep.has(item.id)) {
-      await apiRequest<void>(`/inventory/product-uom-lines/${item.id}`, { method: 'DELETE' });
-    }
-  }
-
-  for (const [index, line] of lines.entries()) {
-    const body = {
-      nameAr: line.nameAr,
-      uneceCode: line.uneceCode ?? null,
-      relativeQuantity: line.relativeQuantity,
-      isReference: line.isReference,
-      packagingType: line.packagingType,
-      sortOrder: index,
-    };
-    if (existingById.has(line.id)) {
-      await apiRequest(`/inventory/product-uom-lines/${line.id}`, { method: 'PATCH', body });
-    } else {
-      await apiRequest('/inventory/product-uom-lines', {
-        method: 'POST',
-        body: { productId, ...body },
-      });
-    }
-  }
+  return mapMedia(result.items);
 }
 
 export const productsApi: AdminProductsPort = {
@@ -675,11 +501,10 @@ export const productsApi: AdminProductsPort = {
       },
     });
 
-    // List view: hydrate media only for thumbnails; skip heavy attribute/variant trees.
     const items = await Promise.all(
       (result.items ?? []).map(async (dto) => {
-        const media = await fetchMedia(dto.id);
-        return mapCoreProduct(dto, { media });
+        const media = await fetchListMedia(dto.id);
+        return mapFullProduct({ ...dto, media, attributes: [], variants: [], uomLines: [] });
       }),
     );
 
@@ -707,12 +532,7 @@ export const productsApi: AdminProductsPort = {
   },
 
   async getById(_companyId, id) {
-    try {
-      const dto = await apiRequest<ProductDto>(`/inventory/products/${id}`);
-      return dto?.id ? hydrateProduct(dto) : null;
-    } catch {
-      return null;
-    }
+    return fetchProductFull(id);
   },
 
   async getBySlug(companyId, slug) {
@@ -720,32 +540,23 @@ export const productsApi: AdminProductsPort = {
       query: { companyId, slug, page: 1, limit: 1, archiveScope: 'all' },
     });
     const dto = result.items?.[0];
-    return dto ? hydrateProduct(dto) : null;
+    return dto?.id ? fetchProductFull(dto.id) : null;
   },
 
   async create(input: CreateProductInput) {
-    const dto = await apiRequest<ProductDto>('/inventory/products', {
+    const dto = await apiRequest<ProductFullDto>('/inventory/products/full', {
       method: 'POST',
-      body: toProductBody(input, 'create'),
+      body: toFullBody(input, 'create'),
     });
-    await syncNested(dto.id, input);
-    return hydrateProduct(dto);
+    return mapFullProduct(dto);
   },
 
   async update(_companyId, id, patch: UpdateProductInput) {
-    const body = toProductBody(patch, 'update');
-    let dto: ProductDto | null = null;
-    if (Object.keys(body).length > 0) {
-      dto = await apiRequest<ProductDto>(`/inventory/products/${id}`, {
-        method: 'PATCH',
-        body,
-      });
-    } else {
-      dto = await apiRequest<ProductDto>(`/inventory/products/${id}`);
-    }
-    if (!dto?.id) return null;
-    await syncNested(id, patch);
-    return hydrateProduct(dto);
+    const dto = await apiRequest<ProductFullDto>(`/inventory/products/${id}/full`, {
+      method: 'PATCH',
+      body: toFullBody(patch, 'update'),
+    });
+    return dto?.id ? mapFullProduct(dto) : null;
   },
 
   async remove(_companyId, id) {
@@ -766,12 +577,17 @@ export const productsApi: AdminProductsPort = {
       attributes: source.attributes?.map((attr) => ({
         ...attr,
         id: `tmp-${attr.id}`,
-        values: attr.values.map((value) => ({ ...value, id: `tmp-${value.id}` })),
+        values: attr.values.map((value) => ({
+          ...value,
+          id: `tmp-${value.id}`,
+          catalogAttributeValueId: value.catalogAttributeValueId,
+        })),
       })),
       variants: source.variants?.map((variant) => ({
         ...variant,
         id: `tmp-${variant.id}`,
         sku: `${variant.sku}-copy-${suffix}`,
+        attributeValueIds: variant.attributeValueIds.map((valueId) => `tmp-${valueId}`),
       })),
       uomLines: source.uomLines?.map((line) => ({ ...line, id: `tmp-${line.id}` })),
     });

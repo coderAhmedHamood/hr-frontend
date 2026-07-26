@@ -112,9 +112,10 @@ export function productToFormValues(product: Product): ProductFormInput {
     purchaseOk: product.purchaseOk ?? true,
     attributes: (product.attributes ?? []).map((attribute) => ({
       ...attribute,
-      values: attribute.values.map((value) =>
-        normalizeAttributeValue(value, attribute.displayType),
-      ),
+      values: attribute.values.map((value) => ({
+        ...normalizeAttributeValue(value, attribute.displayType),
+        catalogAttributeValueId: value.catalogAttributeValueId,
+      })),
     })),
     variants: (product.variants ?? []).map(variantToForm),
     uomLines:
