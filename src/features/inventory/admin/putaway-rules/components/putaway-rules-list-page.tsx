@@ -20,6 +20,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { AppPagination } from '@/components/ui/data-table';
+import { DEFAULT_PAGE_SIZE } from '@/components/ui/paged-list';
 import {
   Dialog,
   DialogContent,
@@ -82,6 +84,8 @@ export function PutawayRulesListPage() {
   const warehouseIdFilter = searchParams.get('warehouseId') ?? '';
 
   const [search, setSearch] = React.useState('');
+  const [page, setPage] = React.useState(1);
+  const [pageSize, setPageSize] = React.useState(DEFAULT_PAGE_SIZE);
   const [warehouseFilter, setWarehouseFilter] = React.useState(warehouseIdFilter);
   const [open, setOpen] = React.useState(false);
   const [draft, setDraft] = React.useState<Draft>(() => ({
@@ -94,7 +98,12 @@ export function PutawayRulesListPage() {
 
   React.useEffect(() => {
     setWarehouseFilter(warehouseIdFilter);
+    setPage(1);
   }, [warehouseIdFilter]);
+
+  React.useEffect(() => {
+    setPage(1);
+  }, [search, warehouseFilter, categoryIdFilter, productIdFilter]);
 
   React.useEffect(() => {
     setDraft((prev) => ({
@@ -115,7 +124,8 @@ export function PutawayRulesListPage() {
     categoryId: categoryIdFilter || undefined,
     productId: productIdFilter || undefined,
     warehouseId: warehouseFilter || undefined,
-    limit: 200,
+    page,
+    limit: pageSize,
   });
   const { data: locations = [] } = usePutawayLocationOptions(companyId);
   const { data: productsData } = useProducts({ companyId, limit: 200 });
@@ -328,6 +338,19 @@ export function PutawayRulesListPage() {
           </tbody>
         </table>
       </div>
+
+      {data ? (
+        <AppPagination
+          page={page}
+          pageSize={pageSize}
+          total={data.pagination.total}
+          onPageChange={setPage}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setPage(1);
+          }}
+        />
+      ) : null}
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className={cn(dialogShellContentClass, 'max-w-xl sm:max-w-xl')}>

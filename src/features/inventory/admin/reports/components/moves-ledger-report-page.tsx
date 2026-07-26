@@ -14,7 +14,8 @@ import type { InventoryLedgerEntry } from '@/features/inventory/domain/types/inv
 import type { WarehouseOperationKind } from '@/features/inventory/domain/types/warehouse';
 import { ListToolbar } from '@/components/ui/list-toolbar';
 import { Badge } from '@/components/ui/badge';
-import { DataTable, type ColumnDef } from '@/components/ui/data-table';
+import { DataTable, AppPagination, type ColumnDef } from '@/components/ui/data-table';
+import { DEFAULT_PAGE_SIZE } from '@/components/ui/paged-list';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -28,23 +29,32 @@ export function MovesLedgerReportPage() {
   const companyId = getInventoryCompanyId();
   const [searchInput, setSearchInput] = React.useState('');
   const [search, setSearch] = React.useState('');
+  const [page, setPage] = React.useState(1);
+  const [pageSize, setPageSize] = React.useState(DEFAULT_PAGE_SIZE);
   const [warehouseId, setWarehouseId] = React.useState('all');
   const [kind, setKind] = React.useState<'all' | WarehouseOperationKind>('all');
   const [dateFrom, setDateFrom] = React.useState('');
   const [dateTo, setDateTo] = React.useState('');
 
   React.useEffect(() => {
-    const t = setTimeout(() => setSearch(searchInput.trim()), 300);
+    const t = setTimeout(() => {
+      setSearch(searchInput.trim());
+      setPage(1);
+    }, 300);
     return () => clearTimeout(t);
   }, [searchInput]);
+
+  React.useEffect(() => {
+    setPage(1);
+  }, [warehouseId, kind, dateFrom, dateTo]);
 
   const { data, isLoading, isError } = useInventoryLedger({
     companyId,
     warehouseId: warehouseId === 'all' ? undefined : warehouseId,
     kind: kind === 'all' ? undefined : kind,
     search: search || undefined,
-    page: 1,
-    limit: 500,
+    page,
+    limit: pageSize,
   });
   const { data: warehousesData } = useWarehouses({ companyId, limit: 100 });
   const { data: locationsData } = useWarehouseLocations({ companyId, limit: 500 });
@@ -67,6 +77,8 @@ export function MovesLedgerReportPage() {
       return true;
     });
   }, [data?.items, dateFrom, dateTo]);
+
+  const total = dateFrom || dateTo ? rows.length : (data?.pagination.total ?? 0);
 
   const columns: ColumnDef<InventoryLedgerEntry>[] = [
     {
@@ -226,6 +238,17 @@ export function MovesLedgerReportPage() {
         keyExtractor={(row) => row.id}
         loading={isLoading}
         emptyText="لا توجد قيود بعد — صدّق مستندًا لتسجيل أول حركة."
+      />
+
+      <AppPagination
+        page={page}
+        pageSize={pageSize}
+        total={total}
+        onPageChange={setPage}
+        onPageSizeChange={(size) => {
+          setPageSize(size);
+          setPage(1);
+        }}
       />
     </div>
   );

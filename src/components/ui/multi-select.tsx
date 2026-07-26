@@ -182,7 +182,7 @@ export function MultiSelect({
           side="bottom"
           sticky="partial"
           collisionPadding={16}
-          className="popover-match-trigger min-w-[min(100%,280px)] max-w-[calc(100vw-2rem)] overflow-hidden border-border p-0 shadow-luxe"
+          className="popover-match-trigger popover-multi-select overflow-hidden border-border p-0 shadow-luxe"
           onOpenAutoFocus={(e) => e.preventDefault()}
         >
           <div className="border-b border-border bg-muted/30 px-3 py-2">

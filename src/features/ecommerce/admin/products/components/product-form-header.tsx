@@ -65,53 +65,59 @@ export function ProductFormHeader({
   }
 
   return (
-    <div className="flex flex-col gap-4 border-b border-border pb-5 lg:flex-row lg:items-start lg:gap-6">
-      <button
-        type="button"
-        onClick={pickImage}
-        className={cn(
-          'group relative mx-auto flex h-36 w-36 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-dashed border-border bg-muted/40 transition-colors hover:border-primary/40 hover:bg-muted/70 lg:mx-0',
-        )}
-        aria-label="إضافة صورة المنتج"
-      >
-        {imageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={imageUrl} alt="" className="h-full w-full object-cover" />
-        ) : (
-          <span className="flex flex-col items-center gap-1 text-muted-foreground">
-            <span className="relative">
-              <Camera className="h-8 w-8" />
-              <Plus className="absolute -end-2 -top-1 h-4 w-4 rounded-full bg-background text-foreground shadow-soft" />
+    <div className="space-y-4 border-b border-border pb-5">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-6">
+        <button
+          type="button"
+          onClick={pickImage}
+          className={cn(
+            'group relative mx-auto flex h-36 w-36 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-dashed border-border bg-muted/40 transition-colors hover:border-primary/40 hover:bg-muted/70 lg:mx-0',
+          )}
+          aria-label="إضافة صورة المنتج"
+        >
+          {imageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={imageUrl} alt="" className="h-full w-full object-cover" />
+          ) : (
+            <span className="flex flex-col items-center gap-1 text-muted-foreground">
+              <span className="relative">
+                <Camera className="h-8 w-8" />
+                <Plus className="absolute -end-2 -top-1 h-4 w-4 rounded-full bg-background text-foreground shadow-soft" />
+              </span>
+              <span className="text-xs">صورة المنتج</span>
             </span>
-            <span className="text-xs">صورة المنتج</span>
-          </span>
-        )}
-      </button>
+          )}
+        </button>
 
-      <div className="min-w-0 flex-1 space-y-3">
-        <div className="space-y-1.5">
-          <Input
-            id="product-name-ar"
-            placeholder="مثال: شطيرة برجر بالجبنة"
-            className="h-auto border-0 bg-transparent px-0 text-2xl font-semibold shadow-none focus-visible:ring-0"
-            {...register('nameAr')}
+        {relatedDocs && onRelatedDocSelect ? (
+          <ProductRelatedDocsBar
+            className="min-w-0 flex-1 shrink-0 justify-center lg:justify-end"
+            chips={relatedDocs}
+            activeKey={relatedDocsActiveKey}
+            onSelect={onRelatedDocSelect}
           />
-          {nameError ? <p className="text-xs text-destructive">{nameError}</p> : null}
-        </div>
-
-        <Label htmlFor="product-name-ar" className="sr-only">
-          اسم المنتج
-        </Label>
+        ) : (
+          <div className="min-w-0 flex-1" />
+        )}
       </div>
 
-      {relatedDocs && onRelatedDocSelect ? (
-        <ProductRelatedDocsBar
-          className="shrink-0 justify-center lg:justify-end"
-          chips={relatedDocs}
-          activeKey={relatedDocsActiveKey}
-          onSelect={onRelatedDocSelect}
+      <div className="space-y-1.5">
+        <Label htmlFor="product-name-ar" className="text-sm font-medium text-foreground">
+          اسم المنتج <span className="text-destructive">*</span>
+        </Label>
+        <Input
+          id="product-name-ar"
+          placeholder="مثال: شطيرة برجر بالجبنة"
+          className={cn(
+            'h-12 text-base font-semibold',
+            nameError && 'border-destructive focus-visible:ring-destructive',
+          )}
+          aria-invalid={Boolean(nameError)}
+          {...register('nameAr')}
         />
-      ) : null}
+        {nameError ? <p className="text-xs text-destructive">{nameError}</p> : null}
+        <p className="text-[11px] text-muted-foreground">الاسم العربي الظاهر في القوائم والمتجر.</p>
+      </div>
     </div>
   );
 }

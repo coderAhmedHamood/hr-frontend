@@ -134,7 +134,16 @@ export function SearchableDropdown({
   const [q, setQ] = React.useState('');
   const dialogContainer = useDialogPortalContainer();
   const selected = options.find(o => o.value === value);
-  const filtered = q ? options.filter(o => o.label.toLowerCase().includes(q.toLowerCase()) || (o.sub?.toLowerCase().includes(q.toLowerCase()))) : options;
+  const filtered = q
+    ? options.filter((o) => {
+        const needle = q.trim().toLowerCase();
+        if (!needle) return true;
+        return (
+          o.label.toLowerCase().includes(needle) ||
+          (o.sub?.toLowerCase().includes(needle) ?? false)
+        );
+      })
+    : options;
 
   return (
     <PopoverPrimitive.Root open={open} onOpenChange={(v) => { setOpen(v); if (!v) setQ(''); }} modal={false}>

@@ -18,7 +18,8 @@ import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { ListToolbar } from '@/components/ui/list-toolbar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { DataTable, type ColumnDef } from '@/components/ui/data-table';
+import { DataTable, AppPagination, usePagination, type ColumnDef } from '@/components/ui/data-table';
+import { DEFAULT_PAGE_SIZE } from '@/components/ui/paged-list';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const ALL_ROOTS = '__all__';
@@ -66,6 +67,15 @@ export function CategoriesListPage() {
     }
     return list;
   }, [items, byId, rootFilter]);
+
+  const {
+    page,
+    setPage,
+    pageSize,
+    setPageSize,
+    slice: pagedRows,
+    total,
+  } = usePagination(treeRows, DEFAULT_PAGE_SIZE);
 
   function openCreate() {
     setEditing(null);
@@ -206,10 +216,18 @@ export function CategoriesListPage() {
 
       <DataTable
         columns={columns}
-        data={treeRows}
+        data={pagedRows}
         keyExtractor={(category) => category.id}
         loading={isLoading}
         emptyText={t('catalog.empty')}
+      />
+
+      <AppPagination
+        page={page}
+        pageSize={pageSize}
+        total={total}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
       />
 
       <CategoryFormDialog

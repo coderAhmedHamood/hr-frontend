@@ -25,7 +25,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { DataTable, type ColumnDef } from '@/components/ui/data-table';
+import { DataTable, AppPagination, type ColumnDef } from '@/components/ui/data-table';
+import { DEFAULT_PAGE_SIZE } from '@/components/ui/paged-list';
 import {
   Dialog,
   DialogContent,
@@ -74,6 +75,8 @@ export function LocationsListPage() {
 
   const warehouseIdFilter = searchParams.get('warehouseId') ?? '';
   const search = searchParams.get('q') ?? '';
+  const page = Math.max(1, Number(searchParams.get('page')) || 1);
+  const pageSize = Number(searchParams.get('pageSize')) || DEFAULT_PAGE_SIZE;
 
   const [searchInput, setSearchInput] = React.useState(search);
   const [formWarehouseId, setFormWarehouseId] = React.useState(warehouseIdFilter);
@@ -83,7 +86,12 @@ export function LocationsListPage() {
   });
   const [toDelete, setToDelete] = React.useState<WarehouseLocation | null>(null);
 
-  function updateParams(next: { q?: string; warehouseId?: string }) {
+  function updateParams(next: {
+    q?: string;
+    warehouseId?: string;
+    page?: number;
+    pageSize?: number;
+  }) {
     const params = new URLSearchParams(searchParams.toString());
     if (next.q !== undefined) {
       if (next.q) params.set('q', next.q);
@@ -93,18 +101,30 @@ export function LocationsListPage() {
       if (next.warehouseId) params.set('warehouseId', next.warehouseId);
       else params.delete('warehouseId');
     }
+    if (next.page !== undefined) {
+      if (next.page > 1) params.set('page', String(next.page));
+      else params.delete('page');
+    }
+    if (next.pageSize !== undefined) {
+      if (next.pageSize !== DEFAULT_PAGE_SIZE) params.set('pageSize', String(next.pageSize));
+      else params.delete('pageSize');
+    }
     const qs = params.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   }
 
+  const searchRef = React.useRef(search);
+  const updateParamsRef = React.useRef(updateParams);
+  searchRef.current = search;
+  updateParamsRef.current = updateParams;
+
   React.useEffect(() => {
     const timeout = setTimeout(() => {
-      if (searchInput.trim() !== search) {
-        updateParams({ q: searchInput.trim() });
+      if (searchInput.trim() !== searchRef.current) {
+        updateParamsRef.current({ q: searchInput.trim(), page: 1 });
       }
     }, 300);
     return () => clearTimeout(timeout);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- URL sync debounce
   }, [searchInput]);
 
   const { data: warehousesData } = useWarehouses({ companyId, limit: 200 });
@@ -118,20 +138,29 @@ export function LocationsListPage() {
     companyId,
     warehouseId: warehouseIdFilter || undefined,
     search: search || undefined,
-    page: 1,
-    limit: 200,
+    page,
+    limit: pageSize,
   });
   const { create, update, remove } = useWarehouseLocationMutations();
   const locations = data?.items ?? [];
 
-  const parentOptions = locations.filter(
+  // Parent picker needs a broader location set than the current page.
+  const { data: allLocationsData } = useWarehouseLocations({
+    companyId,
+    warehouseId: formWarehouseId || warehouseIdFilter || undefined,
+    page: 1,
+    limit: 500,
+  });
+  const allLocationsForParents = allLocationsData?.items ?? locations;
+
+  const parentOptions = allLocationsForParents.filter(
     (location) =>
       location.id !== formState.location?.id &&
       (!formWarehouseId || location.warehouseId === formWarehouseId),
   );
   const nameById = React.useMemo(
-    () => new Map(locations.map((location) => [location.id, location.nameAr])),
-    [locations],
+    () => new Map(allLocationsForParents.map((location) => [location.id, location.nameAr])),
+    [allLocationsForParents],
   );
 
   const form = useForm<WarehouseLocationFormValues>({
@@ -275,7 +304,9 @@ export function LocationsListPage() {
         filters={
           <Select
             value={warehouseIdFilter || ALL_WAREHOUSES}
-            onValueChange={(value) => updateParams({ warehouseId: value === ALL_WAREHOUSES ? '' : value })}
+            onValueChange={(value) =>
+              updateParams({ warehouseId: value === ALL_WAREHOUSES ? '' : value, page: 1 })
+            }
           >
             <SelectTrigger aria-label="تصفية بالمستودع" className="w-full sm:w-56">
               <SelectValue placeholder="كل المستودعات" />
@@ -323,6 +354,16 @@ export function LocationsListPage() {
           warehouseIdFilter ? 'لا توجد مواقع لهذا المستودع بعد.' : 'لا توجد مواقع بعد. أضف موقعًا أو أنشئ مستودعًا.'
         }
       />
+
+      {data ? (
+        <AppPagination
+          page={page}
+          pageSize={pageSize}
+          total={data.pagination.total}
+          onPageChange={(nextPage) => updateParams({ page: nextPage })}
+          onPageSizeChange={(size) => updateParams({ pageSize: size, page: 1 })}
+        />
+      ) : null}
 
       <Dialog
         open={formState.open}

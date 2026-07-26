@@ -9,7 +9,8 @@ import { useWarehouseLocations } from '@/features/inventory/admin/locations/hook
 import { useProducts } from '@/features/ecommerce/admin/products/hooks/use-products';
 import { ListToolbar } from '@/components/ui/list-toolbar';
 import { Badge } from '@/components/ui/badge';
-import { DataTable, type ColumnDef } from '@/components/ui/data-table';
+import { DataTable, AppPagination, usePagination, type ColumnDef } from '@/components/ui/data-table';
+import { DEFAULT_PAGE_SIZE } from '@/components/ui/paged-list';
 import {
   Select,
   SelectContent,
@@ -131,6 +132,15 @@ export function StockOverviewReportPage() {
     return { onHand, low, out, products: filtered.length };
   }, [filtered]);
 
+  const {
+    page,
+    setPage,
+    pageSize,
+    setPageSize,
+    slice: pagedRows,
+    total,
+  } = usePagination(filtered, DEFAULT_PAGE_SIZE);
+
   const columns: ColumnDef<StockOverviewRow>[] = [
     {
       key: 'product',
@@ -251,10 +261,18 @@ export function StockOverviewReportPage() {
 
       <DataTable
         columns={columns}
-        data={filtered}
+        data={pagedRows}
         keyExtractor={(row) => row.key}
         loading={stockLoading || productsLoading}
         emptyText="لا توجد بيانات مخزون."
+      />
+
+      <AppPagination
+        page={page}
+        pageSize={pageSize}
+        total={total}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
       />
     </div>
   );

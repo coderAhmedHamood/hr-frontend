@@ -103,6 +103,20 @@ export function ProductGeneralTab({ control, errors, register, categories, brand
         />
       </EntityFormRow>
 
+      <EntityFormRow label="رمز المنتج (SKU) *" htmlFor="product-sku">
+        <Input
+          id="product-sku"
+          dir="ltr"
+          className="max-w-sm"
+          placeholder="مثال: BURGER-001"
+          {...register('sku')}
+        />
+        {errors.sku ? <p className="mt-1 text-xs text-destructive">{errors.sku.message}</p> : null}
+        <p className="mt-1 text-[11px] text-muted-foreground">
+          رمز فريد داخل الشركة للتعريف في المخزون والفواتير — يمكنك اختيار أي رمز مثل BURGER-001.
+        </p>
+      </EntityFormRow>
+
       <EntityFormRow label="سعر البيع" htmlFor="product-list-price">
         <div className="flex max-w-xs items-center gap-2">
           <Input
@@ -260,11 +274,6 @@ export function ProductGeneralTab({ control, errors, register, categories, brand
             )}
           />
         </div>
-      </EntityFormRow>
-
-      <EntityFormRow label="الرقم المرجعي" htmlFor="product-sku">
-        <Input id="product-sku" dir="ltr" className="max-w-sm" placeholder="TIPS" {...register('sku')} />
-        {errors.sku ? <p className="mt-1 text-xs text-destructive">{errors.sku.message}</p> : null}
       </EntityFormRow>
 
       <EntityFormRow label="الباركود" htmlFor="product-barcode">

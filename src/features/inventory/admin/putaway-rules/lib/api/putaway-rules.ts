@@ -1,8 +1,6 @@
-import { createMockRepository } from '@/features/ecommerce/shared/lib/mock/repository';
-import {
-  mockWarehouseLocationsStore,
-  mockWarehousesStore,
-} from '@/features/inventory/shared/lib/adapters/mock-inventory-store';
+import { apiRequest, type PaginatedResult } from '@/features/hr/lib/api/client';
+import { warehousesApi } from '@/features/inventory/admin/warehouses/lib/api/warehouses';
+import { warehouseLocationsApi } from '@/features/inventory/admin/locations/lib/api/warehouse-locations';
 import type {
   CreatePutawayRuleInput,
   PutawayLocationOption,
@@ -10,13 +8,13 @@ import type {
   PutawayRuleListQuery,
   UpdatePutawayRuleInput,
 } from '@/features/inventory/domain/types/putaway-rule';
-import putawaySeed from '@/features/inventory/shared/lib/mock/putaway-rules.json';
 
-const repository = createMockRepository<PutawayRule>(putawaySeed as PutawayRule[]);
-
-function newId(prefix: string) {
-  return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
-}
+type PutawayRuleDto = PutawayRule & {
+  isArchived?: boolean;
+  archivedAt?: string | null;
+  createdBy?: string | null;
+  updatedBy?: string | null;
+};
 
 function normalizeInput(input: CreatePutawayRuleInput): CreatePutawayRuleInput {
   if (input.appliesTo === 'product') {
@@ -28,56 +26,112 @@ function normalizeInput(input: CreatePutawayRuleInput): CreatePutawayRuleInput {
   return { ...input, productId: null, categoryId: null };
 }
 
+function mapRule(dto: PutawayRuleDto): PutawayRule {
+  return {
+    id: dto.id,
+    companyId: dto.companyId,
+    warehouseId: dto.warehouseId,
+    arriveLocationId: dto.arriveLocationId,
+    appliesTo: dto.appliesTo,
+    productId: dto.productId ?? null,
+    categoryId: dto.categoryId ?? null,
+    packagingType: dto.packagingType ?? null,
+    storeLocationId: dto.storeLocationId,
+    subLocationId: dto.subLocationId ?? null,
+    sequence: dto.sequence,
+    isActive: dto.isActive,
+    createdAt: dto.createdAt,
+    updatedAt: dto.updatedAt,
+  };
+}
+
+function toCreateBody(input: CreatePutawayRuleInput) {
+  const normalized = normalizeInput(input);
+  return {
+    companyId: normalized.companyId,
+    warehouseId: normalized.warehouseId,
+    arriveLocationId: normalized.arriveLocationId,
+    appliesTo: normalized.appliesTo,
+    productId: normalized.productId ?? null,
+    categoryId: normalized.categoryId ?? null,
+    packagingType: normalized.packagingType ?? null,
+    storeLocationId: normalized.storeLocationId,
+    subLocationId: normalized.subLocationId ?? null,
+    sequence: normalized.sequence,
+    isActive: normalized.isActive,
+  };
+}
+
+function toUpdateBody(patch: UpdatePutawayRuleInput) {
+  const normalized = patch.appliesTo
+    ? normalizeInput({ ...(patch as CreatePutawayRuleInput) })
+    : patch;
+  const body: Record<string, unknown> = {};
+  if (normalized.arriveLocationId !== undefined) body.arriveLocationId = normalized.arriveLocationId;
+  if (normalized.appliesTo !== undefined) body.appliesTo = normalized.appliesTo;
+  if (normalized.productId !== undefined) body.productId = normalized.productId;
+  if (normalized.categoryId !== undefined) body.categoryId = normalized.categoryId;
+  if (normalized.packagingType !== undefined) body.packagingType = normalized.packagingType;
+  if (normalized.storeLocationId !== undefined) body.storeLocationId = normalized.storeLocationId;
+  if (normalized.subLocationId !== undefined) body.subLocationId = normalized.subLocationId;
+  if (normalized.sequence !== undefined) body.sequence = normalized.sequence;
+  if (normalized.isActive !== undefined) body.isActive = normalized.isActive;
+  return body;
+}
+
 export const putawayRulesApi = {
-  getAll(query: PutawayRuleListQuery) {
-    return repository.list(
-      query,
-      (item, q) => {
-        if (q.productId && item.productId !== q.productId) return false;
-        if (q.categoryId && item.categoryId !== q.categoryId) return false;
-        if (q.warehouseId && item.warehouseId !== q.warehouseId) return false;
-        return true;
+  async getAll(query: PutawayRuleListQuery) {
+    const result = await apiRequest<PaginatedResult<PutawayRuleDto>>('/inventory/putaway-rules', {
+      query: {
+        companyId: query.companyId,
+        productId: query.productId,
+        categoryId: query.categoryId,
+        warehouseId: query.warehouseId,
+        page: query.page ?? 1,
+        limit: query.limit ?? 200,
+        archiveScope: 'active',
       },
-      (a, b) => {
-        const bySeq = (a.sequence ?? 10) - (b.sequence ?? 10);
-        if (bySeq !== 0) return bySeq;
-        return b.updatedAt.localeCompare(a.updatedAt);
-      },
-    );
-  },
-
-  getById(companyId: string, id: string) {
-    return repository.getById(companyId, id);
-  },
-
-  create(input: CreatePutawayRuleInput) {
-    const now = new Date().toISOString();
-    return repository.create({
-      ...normalizeInput(input),
-      id: newId('putaway'),
-      createdAt: now,
-      updatedAt: now,
     });
+    return {
+      items: (result.items ?? []).map(mapRule),
+      pagination: result.pagination,
+    };
   },
 
-  update(companyId: string, id: string, patch: UpdatePutawayRuleInput) {
-    const normalized = patch.appliesTo
-      ? normalizeInput({ ...(patch as CreatePutawayRuleInput) })
-      : patch;
-    return repository.update(companyId, id, {
-      ...normalized,
-      updatedAt: new Date().toISOString(),
+  async getById(_companyId: string, id: string) {
+    try {
+      const dto = await apiRequest<PutawayRuleDto>(`/inventory/putaway-rules/${id}`);
+      return dto?.id ? mapRule(dto) : null;
+    } catch {
+      return null;
+    }
+  },
+
+  async create(input: CreatePutawayRuleInput) {
+    const dto = await apiRequest<PutawayRuleDto>('/inventory/putaway-rules', {
+      method: 'POST',
+      body: toCreateBody(input),
     });
+    return mapRule(dto);
   },
 
-  remove(companyId: string, id: string) {
-    return repository.remove(companyId, id);
+  async update(_companyId: string, id: string, patch: UpdatePutawayRuleInput) {
+    const dto = await apiRequest<PutawayRuleDto>(`/inventory/putaway-rules/${id}`, {
+      method: 'PATCH',
+      body: toUpdateBody(patch),
+    });
+    return dto?.id ? mapRule(dto) : null;
+  },
+
+  async remove(_companyId: string, id: string) {
+    await apiRequest<void>(`/inventory/putaway-rules/${id}`, { method: 'DELETE' });
+    return true;
   },
 
   async listLocationOptions(companyId: string): Promise<PutawayLocationOption[]> {
     const [warehouses, locations] = await Promise.all([
-      mockWarehousesStore.list({ companyId, page: 1, limit: 200 }),
-      mockWarehouseLocationsStore.list({ companyId, page: 1, limit: 500 }),
+      warehousesApi.getAll({ companyId, page: 1, limit: 200 }),
+      warehouseLocationsApi.getAll({ companyId, page: 1, limit: 500 }),
     ]);
     const warehouseMap = new Map(warehouses.items.map((w) => [w.id, w]));
     return locations.items

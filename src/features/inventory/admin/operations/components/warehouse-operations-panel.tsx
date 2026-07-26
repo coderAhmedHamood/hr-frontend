@@ -29,7 +29,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { ListToolbar } from '@/components/ui/list-toolbar';
-import { DataTable, type ColumnDef } from '@/components/ui/data-table';
+import { DataTable, AppPagination, type ColumnDef } from '@/components/ui/data-table';
+import { DEFAULT_PAGE_SIZE } from '@/components/ui/paged-list';
 import {
   Dialog,
   DialogContent,
@@ -72,6 +73,8 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
   const companyId = getInventoryCompanyId();
   const [searchInput, setSearchInput] = React.useState('');
   const [search, setSearch] = React.useState('');
+  const [page, setPage] = React.useState(1);
+  const [pageSize, setPageSize] = React.useState(DEFAULT_PAGE_SIZE);
   const [filterWarehouseId, setFilterWarehouseId] = React.useState<string>('all');
   const [filterStatus, setFilterStatus] = React.useState<WarehouseOperationStatus | 'all'>('all');
   const [open, setOpen] = React.useState(false);
@@ -79,9 +82,16 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
   const [toDelete, setToDelete] = React.useState<WarehouseOperation | null>(null);
 
   React.useEffect(() => {
-    const timeout = setTimeout(() => setSearch(searchInput.trim()), 300);
+    const timeout = setTimeout(() => {
+      setSearch(searchInput.trim());
+      setPage(1);
+    }, 300);
     return () => clearTimeout(timeout);
   }, [searchInput]);
+
+  React.useEffect(() => {
+    setPage(1);
+  }, [filterWarehouseId, filterStatus, kind, warehouseId]);
 
   const listWarehouseId = scopedToWarehouse
     ? warehouseId
@@ -95,14 +105,15 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
     kind,
     status: filterStatus !== 'all' ? filterStatus : undefined,
     search: search || undefined,
-    page: 1,
-    limit: 100,
+    page,
+    limit: pageSize,
   });
   const { data: warehousesData } = useWarehouses({ companyId, limit: 100 });
   const allWarehouses = warehousesData?.items ?? [];
   const { data: productsData } = useProducts({ companyId, limit: 200, status: 'active' });
   const catalogProducts = productsData?.items ?? [];
-
+  const items = data?.items ?? [];
+  const total = data?.pagination.total ?? 0;
   const form = useForm<WarehouseOperationFormValues>({
     resolver: zodResolver(warehouseOperationFormSchema),
     defaultValues: WAREHOUSE_OPERATION_FORM_DEFAULT_VALUES,
@@ -148,7 +159,6 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
     [allWarehouses],
   );
 
-  const items = data?.items ?? [];
   const selectedOperation = selectedId ? (items.find((item) => item.id === selectedId) ?? null) : null;
 
   const { create, remove } = useWarehouseOperationMutations(effectiveWarehouseId || 'global', kind);
@@ -366,6 +376,19 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
         emptyText={meta.empty}
         onRowClick={(row) => setSelectedId(row.id)}
       />
+
+      {data ? (
+        <AppPagination
+          page={page}
+          pageSize={pageSize}
+          total={total}
+          onPageChange={setPage}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setPage(1);
+          }}
+        />
+      ) : null}
 
       <WarehouseOperationDetailDialog
         open={Boolean(selectedId)}

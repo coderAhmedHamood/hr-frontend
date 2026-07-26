@@ -1,14 +1,16 @@
 /**
- * The public storefront has no authenticated user session to read `activeCompanyId` from, and
- * there is no domain/tenant resolution yet (single company for now — see
- * `ecommerce-module-architecture` decisions). This is the ONLY hardcoded value in the storefront —
- * every brand/SEO/contact/theme/nav fact is read from the `CompanyConfig` this id resolves to
- * (see `get-storefront-company-config.ts`), never hardcoded in a component.
- *
- * When multi-tenant hosting exists, replace this function body with hostname-based tenant
- * resolution (see the deferred `middleware.ts` plan) — nothing else in the storefront needs to
- * change, since every storefront page already goes through `getStorefrontCompanyConfig()`.
+ * Prefer the logged-in default company (localStorage) when present; otherwise the
+ * seeded inventory company used by backend demo data. Safe for server loaders
+ * (no client-only imports).
  */
+import { INVENTORY_FALLBACK_COMPANY_ID } from '@/features/inventory/lib/company-constants';
+
+const DEFAULT_COMPANY_ID_STORAGE_KEY = 'rose-hr-default-company-id';
+
 export function getStorefrontCompanyId(): string {
-  return 'demo-company';
+  if (typeof window !== 'undefined') {
+    const fromStorage = localStorage.getItem(DEFAULT_COMPANY_ID_STORAGE_KEY);
+    if (fromStorage) return fromStorage;
+  }
+  return INVENTORY_FALLBACK_COMPANY_ID;
 }
