@@ -83,6 +83,16 @@ async function fetchLinesForOperations(
   const map = new Map<string, WarehouseOperationLine[]>();
   if (operationIds.length === 0) return map;
 
+  // Few operations: fetch by operationId (avoids dumping the whole company line table).
+  if (operationIds.length <= 8) {
+    await Promise.all(
+      operationIds.map(async (operationId) => {
+        map.set(operationId, await fetchLinesByOperationId(operationId));
+      }),
+    );
+    return map;
+  }
+
   const result = await apiRequest<PaginatedResult<OperationLineDto>>(
     '/inventory/warehouse-operation-lines',
     {
@@ -155,7 +165,12 @@ async function syncLines(
 
   const synced: WarehouseOperationLine[] = [];
   for (const line of nextLines) {
-    if (existingById.has(line.id)) {
+    const prev = existingById.get(line.id);
+    if (prev) {
+      if (isLineUnchanged(prev, line)) {
+        synced.push(prev);
+        continue;
+      }
       const dto = await apiRequest<OperationLineDto>(
         `/inventory/warehouse-operation-lines/${line.id}`,
         {
@@ -179,6 +194,20 @@ async function syncLines(
     }
   }
   return synced;
+}
+
+function isLineUnchanged(prev: WarehouseOperationLine, next: WarehouseOperationLine): boolean {
+  return (
+    prev.productId === next.productId &&
+    (prev.variantId ?? null) === (next.variantId ?? null) &&
+    prev.productName === next.productName &&
+    (prev.sku ?? null) === (next.sku ?? null) &&
+    Number(prev.demandQuantity ?? prev.quantity) === Number(next.demandQuantity ?? next.quantity) &&
+    Number(prev.quantity) === Number(next.quantity) &&
+    (prev.fromLocationId ?? null) === (next.fromLocationId ?? null) &&
+    (prev.toLocationId ?? null) === (next.toLocationId ?? null) &&
+    (prev.notes ?? null) === (next.notes ?? null)
+  );
 }
 
 export const warehouseOperationsApi: AdminWarehouseOperationsPort = {
@@ -293,6 +322,19 @@ export const warehouseOperationsApi: AdminWarehouseOperationsPort = {
       headerPatch.sourceDocument = patch.sourceDocument ?? null;
     }
 
+    // Sync lines BEFORE locking the operation (`done` / `cancelled`). Backend rejects
+    // line PATCH once status is done — that was causing false "done" + 400 on validate.
+    const linesEditable = before.status === 'draft' || before.status === 'ready';
+    let lines = before.lines;
+    if (patch.lines) {
+      if (!linesEditable) {
+        throw new Error(
+          `لا يمكن تعديل بنود عملية بحالة "${before.status}". احفظ البنود قبل التصديق.`,
+        );
+      }
+      lines = await syncLines(id, patch.lines);
+    }
+
     let dto: OperationDto = before as unknown as OperationDto;
     if (Object.keys(headerPatch).length > 0) {
       dto = await apiRequest<OperationDto>(`/inventory/warehouse-operations/${id}`, {
@@ -301,7 +343,6 @@ export const warehouseOperationsApi: AdminWarehouseOperationsPort = {
       });
     }
 
-    const lines = patch.lines ? await syncLines(id, patch.lines) : before.lines;
     const normalized = mapOperation(dto, lines);
 
     const wasDone = before.status === 'done';

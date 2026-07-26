@@ -11,6 +11,7 @@ import { useBrands } from '@/features/ecommerce/admin/brands/hooks/use-brands';
 import { useCategories } from '@/features/ecommerce/admin/categories/hooks/use-categories';
 import { usePutawayRules } from '@/features/inventory/admin/putaway-rules/hooks/use-putaway-rules';
 import { useWarehouseOperations } from '@/features/inventory/admin/operations/hooks/use-warehouse-operations';
+import { useProduct } from '@/features/ecommerce/admin/products/hooks/use-products';
 import { useProductMutations } from '@/features/ecommerce/admin/products/hooks/use-product-mutations';
 import {
   PRODUCT_FORM_DEFAULT_VALUES,
@@ -106,7 +107,14 @@ export function ProductFormDialog({ product, open, onOpenChange }: Props) {
     limit: 200,
   });
   const { create, update } = useProductMutations();
-  const isEditing = Boolean(product);
+  const isEditing = Boolean(product?.id);
+  const {
+    data: fullProduct,
+    isLoading: isLoadingFullProduct,
+    isError: isFullProductError,
+  } = useProduct(companyId, product?.id, { enabled: open && Boolean(product?.id) });
+  /** List rows omit attributes/variants; edit must wait for GET …/full. */
+  const resolvedProduct = isEditing ? (fullProduct ?? null) : null;
   const isSaving = create.isPending || update.isPending;
   const [activeTab, setActiveTab] = React.useState<FormTab>('general');
   const [activeRelatedDoc, setActiveRelatedDoc] = React.useState<ProductRelatedDocKey | null>(null);
@@ -127,20 +135,28 @@ export function ProductFormDialog({ product, open, onOpenChange }: Props) {
 
   React.useEffect(() => {
     if (!open) return;
-    form.reset(product ? productToFormValues(product) : PRODUCT_FORM_DEFAULT_VALUES);
     setActiveTab('general');
     setActiveRelatedDoc(null);
     setMoveRequestKind(null);
     setMovesListKind(null);
     setMovesHistoryOpen(false);
     setReplenishmentListOpen(false);
-  }, [open, product, form]);
+
+    if (!isEditing) {
+      form.reset(PRODUCT_FORM_DEFAULT_VALUES);
+      return;
+    }
+    if (fullProduct) {
+      form.reset(productToFormValues(fullProduct));
+    }
+  }, [open, isEditing, fullProduct, form]);
 
   const onSubmit = async (values: ProductFormValues) => {
     if (!companyId) return;
     let nextValues = ensureSlug(values);
-    if (product?.id) {
-      const onHand = await inventoryStockService.getOnHandByVariant(companyId, product.id);
+    const productId = product?.id;
+    if (productId) {
+      const onHand = await inventoryStockService.getOnHandByVariant(companyId, productId);
       nextValues = {
         ...nextValues,
         stockQuantity: onHand.total,
@@ -151,10 +167,12 @@ export function ProductFormDialog({ product, open, onOpenChange }: Props) {
         })),
       };
     }
-    const input = formValuesToCreateInput(nextValues, companyId, { existing: product });
+    const input = formValuesToCreateInput(nextValues, companyId, {
+      existing: resolvedProduct ?? product,
+    });
 
-    if (product) {
-      await update.mutateAsync({ companyId, id: product.id, patch: input });
+    if (productId) {
+      await update.mutateAsync({ companyId, id: productId, patch: input });
     } else {
       await create.mutateAsync(input);
     }
@@ -246,6 +264,14 @@ export function ProductFormDialog({ product, open, onOpenChange }: Props) {
             className="flex min-h-0 flex-1 flex-col"
           >
             <div className={cn(dialogShellBodyClass, 'space-y-5')}>
+              {isEditing && isLoadingFullProduct ? (
+                <p className="py-10 text-center text-sm text-muted-foreground">جاري تحميل المنتج والمتغيرات…</p>
+              ) : isEditing && isFullProductError ? (
+                <p className="py-10 text-center text-sm text-destructive">
+                  تعذر تحميل تفاصيل المنتج. أعد فتح النافذة أو حدّث الصفحة.
+                </p>
+              ) : (
+                <>
               <ProductFormHeader
                 control={form.control}
                 register={form.register}
@@ -368,10 +394,19 @@ export function ProductFormDialog({ product, open, onOpenChange }: Props) {
                   <ProductStorefrontTab errors={form.formState.errors} register={form.register} />
                 </TabsContent>
               </Tabs>
+                </>
+              )}
             </div>
 
             <DialogFooter className="shrink-0 gap-2 border-t border-border px-6 py-4 sm:justify-start">
-              <Button type="submit" disabled={isSaving || !companyId}>
+              <Button
+                type="submit"
+                disabled={
+                  isSaving ||
+                  !companyId ||
+                  (isEditing && (isLoadingFullProduct || isFullProductError || !fullProduct))
+                }
+              >
                 {isSaving ? 'جاري الحفظ…' : isEditing ? 'حفظ' : 'إنشاء المنتج'}
               </Button>
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>

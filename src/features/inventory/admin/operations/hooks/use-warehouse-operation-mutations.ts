@@ -46,15 +46,19 @@ export function useWarehouseOperationMutations(warehouseId: string, kind: Wareho
     }) => warehouseOperationsApi.update(companyId, id, patch),
     onSuccess: (_data, variables) => {
       invalidate(variables.companyId);
-      void queryClient.invalidateQueries({
-        queryKey: [variables.companyId, 'ecommerce', 'location-stock'],
-      });
-      void queryClient.invalidateQueries({
-        queryKey: [variables.companyId, 'ecommerce', 'inventory-ledger'],
-      });
-      void queryClient.invalidateQueries({
-        queryKey: [variables.companyId, 'ecommerce', 'products'],
-      });
+
+      // Stock / products only when validation (or undo/cancel) can change inventory.
+      if (variables.patch.status === 'done' || variables.patch.status === 'cancelled') {
+        void queryClient.invalidateQueries({
+          queryKey: [variables.companyId, 'ecommerce', 'location-stock'],
+        });
+        void queryClient.invalidateQueries({
+          queryKey: [variables.companyId, 'ecommerce', 'inventory-ledger'],
+        });
+        void queryClient.invalidateQueries({
+          queryKey: [variables.companyId, 'ecommerce', 'products'],
+        });
+      }
     },
     onError: (err) => {
       const { displayMessage } = handleApiError(err, 'ecommerce.warehouseOperations.update');

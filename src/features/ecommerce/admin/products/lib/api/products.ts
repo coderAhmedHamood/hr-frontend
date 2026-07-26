@@ -20,6 +20,14 @@ function isPersistedId(id: string | undefined): boolean {
   return Boolean(id && UUID_RE.test(id));
 }
 
+/** Empty / placeholder → null; non-UUID strings are cleared so Nest validation does not 400. */
+function normalizeOptionalUuid(value: string | null | undefined): string | null {
+  if (value == null) return null;
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === '__none__' || !UUID_RE.test(trimmed)) return null;
+  return trimmed;
+}
+
 type ProductDto = {
   id: string;
   companyId: string;
@@ -297,8 +305,8 @@ function mapFullProduct(dto: ProductFullDto): Product {
 function toHeaderBody(input: CreateProductInput | UpdateProductInput, mode: 'create' | 'update') {
   const body: Record<string, unknown> = {};
   if (mode === 'create' && 'companyId' in input) body.companyId = input.companyId;
-  if (input.brandId !== undefined) body.brandId = input.brandId;
-  if (input.categoryId !== undefined) body.categoryId = input.categoryId;
+  if (input.brandId !== undefined) body.brandId = normalizeOptionalUuid(input.brandId);
+  if (input.categoryId !== undefined) body.categoryId = normalizeOptionalUuid(input.categoryId);
   if (input.sku !== undefined) body.sku = input.sku;
   if (input.slug !== undefined) body.slug = input.slug || undefined;
   if (input.barcode !== undefined) body.barcode = input.barcode ?? null;

@@ -63,11 +63,15 @@ export function syncProductVariants(args: SyncArgs): ProductVariant[] {
 
   const combos = cartesian(valueSets);
   const existingByKey = new Map((args.existing ?? []).map((variant) => [variant.combinationKey, variant]));
+  // Backend may store client keys (e.g. "v-yellow") while the UI rebuilds keys from value UUIDs.
+  const existingByValueIds = new Map(
+    (args.existing ?? []).map((variant) => [buildCombinationKey(variant.attributeValueIds), variant]),
+  );
 
   return combos.map((combo) => {
     const attributeValueIds = combo.map((item) => item.valueId);
     const combinationKey = buildCombinationKey(attributeValueIds);
-    const existing = existingByKey.get(combinationKey);
+    const existing = existingByKey.get(combinationKey) ?? existingByValueIds.get(combinationKey);
     const labels = combo.map((item) => ({
       attributeNameAr: item.attributeNameAr,
       valueNameAr: item.valueNameAr,
@@ -85,9 +89,10 @@ export function syncProductVariants(args: SyncArgs): ProductVariant[] {
 
     return {
       id: existing?.id ?? newId('var'),
-      combinationKey,
+      // Preserve server combinationKey when present so PATCH /full does not treat the row as new.
+      combinationKey: existing?.combinationKey ?? combinationKey,
       sku: existing?.sku || `${args.productSku || 'SKU'}-${combo.map((c) => c.valueNameAr).join('-')}`.slice(0, 64),
-      nameAr: `${args.productNameAr || 'منتج'} (${labelSuffix})`,
+      nameAr: existing?.nameAr || `${args.productNameAr || 'منتج'} (${labelSuffix})`,
       attributeValueIds,
       attributeLabels: labels,
       salePrice: { amount: saleAmount, currency } satisfies Money,
@@ -111,7 +116,11 @@ export function resolveVariantBySelection(
 ): ProductVariant | undefined {
   if (variants.length === 0) return undefined;
   const key = buildCombinationKey(selectedValueIds);
-  return variants.find((variant) => variant.combinationKey === key && variant.isActive);
+  return variants.find(
+    (variant) =>
+      variant.isActive &&
+      (variant.combinationKey === key || buildCombinationKey(variant.attributeValueIds) === key),
+  );
 }
 
 export function cheapestActiveVariant(variants: ProductVariant[]): ProductVariant | undefined {

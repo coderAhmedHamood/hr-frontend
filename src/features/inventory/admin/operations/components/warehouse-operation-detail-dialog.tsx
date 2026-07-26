@@ -165,14 +165,19 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
     return `${locationName(line.fromLocationId)} ← ${locationName(line.toLocationId)}`;
   })();
 
-  async function savePatch(patch: Partial<WarehouseOperation>, successMessage: string) {
+  async function savePatch(
+    patch: Partial<WarehouseOperation> & { lines?: WarehouseOperation['lines'] },
+    successMessage: string,
+    options?: { includeLines?: boolean },
+  ) {
     if (!companyId || !operation) return;
+    const includeLines = options?.includeLines === true || patch.lines !== undefined;
     const updated = await update.mutateAsync({
       companyId,
       id: operation.id,
       patch: {
         ...patch,
-        lines: patch.lines ?? lines,
+        ...(includeLines ? { lines: patch.lines ?? lines } : {}),
         notes: notes.trim() || undefined,
         partnerName: partnerName.trim() || undefined,
         sourceDocument: sourceDocument.trim() || undefined,
@@ -189,6 +194,7 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
   }
 
   async function markReady() {
+    // Header only — avoid rewriting lines on every status change.
     await savePatch({ status: 'ready' }, 'تم تحديد المستند كجاهز');
   }
 
@@ -201,6 +207,7 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
       toast.error('تحقق من كميات البنود قبل التصديق.');
       return;
     }
+    // Lines first (while still ready), then status done — handled in API update order.
     await savePatch({ status: 'done', lines }, 'تم تصديق المستند');
   }
 
@@ -238,7 +245,7 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
   }
 
   async function saveDraftChanges() {
-    await savePatch({ status }, 'تم حفظ التعديلات');
+    await savePatch({ status, lines }, 'تم حفظ التعديلات');
   }
 
   return (
