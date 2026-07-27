@@ -44,7 +44,7 @@ type SyncArgs = {
  * Preserves sale/cost/qty/barcode/image for matching `combinationKey`.
  */
 export function syncProductVariants(args: SyncArgs): ProductVariant[] {
-  const currency = args.currency ?? 'SAR';
+  const currency = args.currency ?? 'YER';
   const variantAttrs = args.attributes.filter(
     (attribute) => attribute.createVariant !== 'never' && attribute.values.length > 0,
   );

@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Settings, Palette, Phone, Share2, Globe, Search } from 'lucide-react';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
-import { storefrontCompanyRepository } from '@/features/ecommerce/storefront/lib/repositories/company-repository';
+import { getCmsCompanyRecord, saveCmsCompanyRecord } from '@/features/ecommerce/admin/cms/shared/cms-actions';
 import type { CompanyConfigRecord } from '@/features/ecommerce/storefront/domain/company-config';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { Button } from '@/components/ui/button';
@@ -35,7 +35,7 @@ export function WebsiteSettingsPage() {
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: [...SETTINGS_QUERY_KEY, companyId],
     queryFn: async () => {
-      const record = await storefrontCompanyRepository.getRecordByCompanyId(companyId);
+      const record = await getCmsCompanyRecord(companyId);
       if (!record) throw new Error('COMPANY_NOT_FOUND');
       return record;
     },
@@ -47,7 +47,7 @@ export function WebsiteSettingsPage() {
   }, [data]);
 
   const save = useMutation({
-    mutationFn: (record: CompanyConfigRecord) => storefrontCompanyRepository.saveRecord(record),
+    mutationFn: (record: CompanyConfigRecord) => saveCmsCompanyRecord(record),
     onSuccess: (saved) => {
       queryClient.setQueryData([...SETTINGS_QUERY_KEY, companyId], saved);
       void queryClient.invalidateQueries({ queryKey: ['ecommerce-cms', 'company'] });
@@ -82,7 +82,7 @@ export function WebsiteSettingsPage() {
             {save.isPending ? tCommon('status.saving') : tCommon('actions.save')}
           </Button>
       </div>
-
+
 
       {isLoading ? (
         <div className="space-y-3">

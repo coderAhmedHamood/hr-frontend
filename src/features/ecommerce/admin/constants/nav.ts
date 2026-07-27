@@ -10,7 +10,6 @@ import {
   Navigation,
   FileText,
   Settings,
-  Image,
   Newspaper,
   CircleHelp,
   PanelBottom,
@@ -100,7 +99,6 @@ export const ecommerceAdminNavGroups: EcommerceAdminNavGroup[] = [
         items: [
           { labelKey: 'homepage', href: ecommerceAdminRoutes.homepage, icon: LayoutTemplate },
           { labelKey: 'navigation', href: ecommerceNavigationHref('header'), icon: Navigation },
-          { labelKey: 'banners', href: ecommerceAdminRoutes.banners, icon: Image },
         ],
       },
       {

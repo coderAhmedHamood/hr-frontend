@@ -126,7 +126,7 @@ export function ProductReplenishmentListDialog({
                           </p>
                           <p className="text-xs text-muted-foreground">
                             {warehouseName(op.warehouseId)} · الكمية المطلوبة: {qty} ·{' '}
-                            {new Date(op.occurredAt).toLocaleString('ar-SA')}
+                            {new Date(op.occurredAt).toLocaleString('ar-YE')}
                           </p>
                           {op.sourceDocument ? (
                             <p className="text-xs text-muted-foreground">{op.sourceDocument}</p>

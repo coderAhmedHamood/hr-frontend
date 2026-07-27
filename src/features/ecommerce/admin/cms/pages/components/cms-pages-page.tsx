@@ -5,15 +5,22 @@ import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
-import { storefrontContentRepository } from '@/features/ecommerce/storefront/lib/repositories/content-repository';
+import {
+  getCmsContentBundle,
+  saveCmsAbout,
+  saveCmsContact,
+  saveCmsLegalPage,
+} from '@/features/ecommerce/admin/cms/shared/cms-actions';
 import type {
   AboutPageContent,
   ContactPageContent,
   LegalPageContent,
   StorefrontContentBundle,
 } from '@/features/ecommerce/storefront/domain/content';
-import { BookOpen } from 'lucide-react';
+import { BookOpen, Save } from 'lucide-react';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
+import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
+import { PageHeaderPrimaryButton } from '@/components/layouts/page-header-primary-button';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -32,7 +39,7 @@ export function CmsPagesPage({ embedded = false }: { embedded?: boolean }) {
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: [...CMS_PAGES_QUERY_KEY, companyId],
     queryFn: async () => {
-      const bundle = await storefrontContentRepository.getContentBundle(companyId);
+      const bundle = await getCmsContentBundle(companyId);
       if (!bundle) throw new Error('CONTENT_NOT_FOUND');
       return {
         ...bundle,
@@ -49,7 +56,7 @@ export function CmsPagesPage({ embedded = false }: { embedded?: boolean }) {
   }, [data]);
 
   const saveAbout = useMutation({
-    mutationFn: (about: AboutPageContent) => storefrontContentRepository.saveAbout(companyId, about),
+    mutationFn: (about: AboutPageContent) => saveCmsAbout(companyId, about),
     onSuccess: (saved) => {
       queryClient.setQueryData<StorefrontContentBundle>([...CMS_PAGES_QUERY_KEY, companyId], (prev) =>
         prev ? { ...prev, about: saved } : prev,
@@ -61,8 +68,7 @@ export function CmsPagesPage({ embedded = false }: { embedded?: boolean }) {
   });
 
   const saveContact = useMutation({
-    mutationFn: (contact: ContactPageContent) =>
-      storefrontContentRepository.saveContact(companyId, contact),
+    mutationFn: (contact: ContactPageContent) => saveCmsContact(companyId, contact),
     onSuccess: (saved) => {
       queryClient.setQueryData<StorefrontContentBundle>([...CMS_PAGES_QUERY_KEY, companyId], (prev) =>
         prev ? { ...prev, contact: saved } : prev,
@@ -78,7 +84,7 @@ export function CmsPagesPage({ embedded = false }: { embedded?: boolean }) {
       const saved: LegalPageContent[] = [];
       for (const page of pages) {
         saved.push(
-          await storefrontContentRepository.saveLegalPage(companyId, {
+          await saveCmsLegalPage(companyId, {
             ...page,
             updatedAt: new Date().toISOString(),
           }),
@@ -105,25 +111,21 @@ export function CmsPagesPage({ embedded = false }: { embedded?: boolean }) {
     else void saveLegal.mutateAsync(draft.legal);
   }
 
+  usePageHeaderActions(
+    () => (
+      <PageHeaderPrimaryButton
+        icon={Save}
+        label={isSaving ? tCommon('status.saving') : tCommon('actions.save')}
+        disabled={!draft || isSaving}
+        onClick={handleSave}
+      />
+    ),
+    [draft, isSaving, activeTab, tCommon],
+  );
+
   return (
     <div className="flex flex-col gap-5">
-      {!embedded ? (
-        <>
-          <SetPageTitle titleAr={t('title')} iconName="BookOpen" />
-
-      <div className="flex flex-wrap justify-end gap-2">
-        <Button type="button" disabled={!draft || isSaving} onClick={handleSave}>
-                {isSaving ? tCommon('status.saving') : tCommon('actions.save')}
-              </Button>
-      </div>
-        </>
-      ) : (
-        <div className="flex justify-end">
-          <Button type="button" disabled={!draft || isSaving} onClick={handleSave}>
-            {isSaving ? tCommon('status.saving') : tCommon('actions.save')}
-          </Button>
-        </div>
-      )}
+      {!embedded ? <SetPageTitle titleAr={t('title')} descriptionAr={t('description')} iconName="BookOpen" /> : null}
 
       {isLoading ? (
         <div className="space-y-3">

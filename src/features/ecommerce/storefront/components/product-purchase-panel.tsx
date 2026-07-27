@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useFormatter, useTranslations } from 'next-intl';
 import type { StorefrontProduct } from '@/features/ecommerce/storefront/domain/storefront-models';
 import { buildCombinationKey } from '@/features/ecommerce/admin/products/lib/product-variants';
-import { useStorefrontCartUi } from '@/features/ecommerce/storefront/hooks/use-storefront-cart-ui';
+import { AddToCartButton } from '@/features/ecommerce/storefront/components/catalog/add-to-cart-button';
 import { cn } from '@/shared/utils';
 
 type Props = {
@@ -14,7 +14,6 @@ type Props = {
 export function ProductPurchasePanel({ product }: Props) {
   const t = useTranslations('storefront');
   const format = useFormatter();
-  const addItem = useStorefrontCartUi((state) => state.addItem);
 
   const hasVariants = product.variants.length > 0;
   const [selected, setSelected] = React.useState<Record<string, string>>(() => {
@@ -43,11 +42,6 @@ export function ProductPurchasePanel({ product }: Props) {
     setSelected((prev) => ({ ...prev, [attributeId]: valueId }));
   }
 
-  function handleAdd() {
-    if (!canOrder) return;
-    addItem(product.id, 1, activeVariant?.id);
-  }
-
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-baseline gap-3">
@@ -67,7 +61,7 @@ export function ProductPurchasePanel({ product }: Props) {
       <p className="text-sm text-muted-foreground">
         {t('products.sku')}: <span dir="ltr">{sku}</span>
         {hasVariants ? (
-          <span className="ms-2">· الكمية: {quantity}</span>
+          <span className="ms-2">· {t('cart.quantity')}: {quantity}</span>
         ) : null}
       </p>
 
@@ -99,8 +93,8 @@ export function ProductPurchasePanel({ product }: Props) {
                 >
                   {value.colorHex ? (
                     <span
-                      className="h-3 w-3 rounded-full border border-border"
-                      style={{ backgroundColor: value.colorHex }}
+                      className="h-3 w-3 rounded-full border border-border bg-[var(--swatch)]"
+                      style={{ ['--swatch' as string]: value.colorHex }}
                     />
                   ) : null}
                   {value.nameAr}
@@ -112,17 +106,16 @@ export function ProductPurchasePanel({ product }: Props) {
       ))}
 
       {hasVariants && !activeVariant ? (
-        <p className="text-xs text-destructive">اختر تركيبة متاحة لهذا المنتج.</p>
+        <p className="text-xs text-destructive">{t('products.variantUnavailable')}</p>
       ) : null}
 
-      <button
-        type="button"
-        disabled={!canOrder || (hasVariants && !activeVariant)}
-        onClick={handleAdd}
-        className="mt-2 inline-flex h-12 w-full items-center justify-center rounded-md bg-primary text-sm font-medium text-primary-foreground disabled:opacity-60 sm:w-auto sm:px-8"
-      >
-        {t('products.addToCart')}
-      </button>
+      <AddToCartButton
+        productId={product.id}
+        stockStatus={hasVariants && !activeVariant ? 'out_of_stock' : stockStatus}
+        variantId={activeVariant?.id}
+        variant="button"
+        className="mt-2 h-12 w-full sm:w-auto sm:min-w-48"
+      />
     </div>
   );
 }

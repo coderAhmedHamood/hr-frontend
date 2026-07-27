@@ -46,6 +46,15 @@ export function mapStorefrontCompanyConfig(
         links: group.links.map((link) => mapNavItem(link, locale)),
       })),
     },
+    announcement: {
+      enabled: record.announcement?.enabled ?? false,
+      message: resolveLocalizedText(
+        record.announcement?.message ?? { ar: '', en: '' },
+        locale,
+      ),
+      href: record.announcement?.href ?? null,
+      dismissible: record.announcement?.dismissible ?? true,
+    },
     currency: record.currency,
     timezone: record.timezone,
   };

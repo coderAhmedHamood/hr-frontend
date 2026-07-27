@@ -29,12 +29,10 @@ function parseAspectRatio(heightRatio: string): string {
 
 function HeroSlideFrame({
   slide,
-  layout,
   aspectRatio,
   isPriority,
 }: {
   slide: StorefrontHeroSlide;
-  layout: HeroCarouselLayout;
   aspectRatio: string;
   isPriority: boolean;
 }) {
@@ -44,9 +42,8 @@ function HeroSlideFrame({
   const frame = (
     <div
       className={cn(
-        'relative w-full max-w-full overflow-hidden bg-muted',
+        'relative w-full max-w-full overflow-hidden rounded-2xl bg-muted',
         'min-h-[200px] sm:min-h-[260px] md:min-h-[320px] lg:min-h-[380px]',
-        layout === 'contained' && 'rounded-2xl',
       )}
       style={{ aspectRatio }}
     >
@@ -114,16 +111,13 @@ export function HeroCarousel({
           controlsPlacement="overlay"
           className="w-full max-w-full"
           slideClassName={cn(
-            'w-full max-w-full overflow-hidden',
-            layout === 'contained' && 'rounded-2xl',
-            layout === 'full-bleed' && 'rounded-none',
-            'shadow-soft',
+            'w-full max-w-full overflow-hidden rounded-2xl shadow-soft',
           )}
           renderSlide={(activeIndex) => {
             const slide = slides[activeIndex];
             if (!slide) return null;
             return (
-              <HeroSlideFrame slide={slide} layout={layout} aspectRatio={aspectRatio} isPriority={activeIndex === 0} />
+              <HeroSlideFrame slide={slide} aspectRatio={aspectRatio} isPriority={activeIndex === 0} />
             );
           }}
         />

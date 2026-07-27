@@ -13,7 +13,7 @@
         "productId": "prod-1",
         "productNameAr": "سيروم سيرافي المرطب 30 مل",
         "quantity": 2,
-        "unitPrice": { "amount": 2.5, "currency": "SAR" },
+        "unitPrice": { "amount": 2.5, "currency": "YER" },
         "allocations": [
           {
             "id": "alloc-1a",
@@ -25,7 +25,7 @@
         "shipStatus": "shipped"
       }
     ],
-    "totalAmount": { "amount": 5, "currency": "SAR" },
+    "totalAmount": { "amount": 5, "currency": "YER" },
     "createdAt": "2026-06-20T08:00:00.000Z",
     "updatedAt": "2026-06-20T12:00:00.000Z"
   },
@@ -43,7 +43,7 @@
         "productId": "prod-2",
         "productNameAr": "كريم نيوتروجينا هايدرو بوست 50 مل",
         "quantity": 1,
-        "unitPrice": { "amount": 12, "currency": "SAR" },
+        "unitPrice": { "amount": 12, "currency": "YER" },
         "allocations": [
           {
             "id": "alloc-2a",
@@ -58,12 +58,12 @@
         "productId": "prod-3",
         "productNameAr": "أحمر شفاه ميبيلين مات",
         "quantity": 1,
-        "unitPrice": { "amount": 8, "currency": "SAR" },
+        "unitPrice": { "amount": 8, "currency": "YER" },
         "allocations": [],
         "shipStatus": "unassigned"
       }
     ],
-    "totalAmount": { "amount": 20, "currency": "SAR" },
+    "totalAmount": { "amount": 20, "currency": "YER" },
     "createdAt": "2026-06-21T08:00:00.000Z",
     "updatedAt": "2026-06-21T08:00:00.000Z"
   },
@@ -73,20 +73,20 @@
     "orderNumber": "ORD-1003",
     "customerId": "cust-3",
     "customerNameAr": "خالد الشامي",
-    "city": "الرياض",
-    "region": "المنطقة الوسطى",
+    "city": "صنعاء",
+    "region": "أمانة العاصمة",
     "status": "pending",
     "items": [
       {
         "productId": "prod-1",
         "productNameAr": "سيروم سيرافي المرطب 30 مل",
         "quantity": 5,
-        "unitPrice": { "amount": 2.5, "currency": "SAR" },
+        "unitPrice": { "amount": 2.5, "currency": "YER" },
         "allocations": [],
         "shipStatus": "unassigned"
       }
     ],
-    "totalAmount": { "amount": 12.5, "currency": "SAR" },
+    "totalAmount": { "amount": 12.5, "currency": "YER" },
     "createdAt": "2026-06-22T09:00:00.000Z",
     "updatedAt": "2026-06-22T09:00:00.000Z"
   }

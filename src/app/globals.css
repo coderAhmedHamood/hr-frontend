@@ -74,6 +74,59 @@
   padding-bottom: max(0.75rem, var(--store-safe-area-bottom));
 }
 
+/* Storefront toasts: styled toasts need real width (Arabic must not wrap per glyph).
+   Unstyled custom toasts (e.g. cart pill) stay content-sized. */
+[data-sonner-toaster].storefront-toaster {
+  --width: 20rem;
+  width: auto;
+}
+[data-sonner-toaster].storefront-toaster [data-sonner-toast][data-styled='true'] {
+  width: auto !important;
+  min-width: min(16rem, calc(100vw - 2rem));
+  max-width: min(22rem, calc(100vw - 2rem));
+}
+[data-sonner-toaster].storefront-toaster [data-sonner-toast][data-styled='true'] [data-title],
+[data-sonner-toaster].storefront-toaster [data-sonner-toast][data-styled='true'] [data-content] {
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: break-word;
+}
+[data-sonner-toaster].storefront-toaster [data-sonner-toast][data-styled='false'] {
+  width: fit-content !important;
+  min-width: 0 !important;
+  max-width: min(20rem, calc(100vw - 2rem));
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+@media (max-width: 600px) {
+  [data-sonner-toaster].storefront-toaster {
+    width: auto !important;
+    transform: none !important;
+  }
+  [data-sonner-toaster].storefront-toaster[data-x-position='right'] {
+    left: auto !important;
+    right: var(--mobile-offset-right, 16px) !important;
+  }
+  [data-sonner-toaster].storefront-toaster[data-x-position='left'] {
+    right: auto !important;
+    left: var(--mobile-offset-left, 16px) !important;
+  }
+  [data-sonner-toaster].storefront-toaster [data-sonner-toast][data-styled='true'] {
+    width: auto !important;
+    min-width: min(16rem, calc(100vw - 2rem));
+  }
+  [data-sonner-toaster].storefront-toaster[data-x-position='right'] [data-sonner-toast] {
+    left: auto !important;
+    right: 0 !important;
+  }
+  [data-sonner-toaster].storefront-toaster[data-x-position='left'] [data-sonner-toast] {
+    right: auto !important;
+    left: 0 !important;
+  }
+}
+
 /* Hide scrollbars — plain CSS (avoid Tailwind arbitrary property brackets;
    Turbopack corrupts those into invalid selectors during CSS codegen). */
 .scrollbar-none {

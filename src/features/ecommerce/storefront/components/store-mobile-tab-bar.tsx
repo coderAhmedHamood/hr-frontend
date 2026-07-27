@@ -5,6 +5,7 @@ import { Grid2X2, Home, ShoppingCart, User } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { Link, usePathname } from '@/i18n/navigation';
 import { useCartItemCount } from '@/features/ecommerce/storefront/hooks/use-storefront-cart-ui';
+import { useStorefrontCustomerUi } from '@/features/ecommerce/storefront/hooks/use-storefront-customer-ui';
 import { cn } from '@/shared/utils';
 
 type TabDef = {
@@ -32,9 +33,12 @@ const TABS: TabDef[] = [
   },
   {
     id: 'account',
-    href: '/login',
+    href: '/store/login',
     labelKey: 'account',
-    match: (pathname) => pathname.startsWith('/login'),
+    match: (pathname) =>
+      pathname.startsWith('/store/login') ||
+      pathname.startsWith('/store/account') ||
+      pathname.startsWith('/store/orders'),
     icon: User,
   },
   {
@@ -51,6 +55,7 @@ export function StoreMobileTabBar() {
   const tA11y = useTranslations('storefront.a11y');
   const pathname = usePathname();
   const cartCount = useCartItemCount();
+  const customer = useStorefrontCustomerUi((s) => s.customer);
 
   return (
     <nav
@@ -62,10 +67,11 @@ export function StoreMobileTabBar() {
         {TABS.map((tab) => {
           const active = tab.match(pathname);
           const Icon = tab.icon;
+          const href = tab.id === 'account' && customer ? '/store/account' : tab.href;
           return (
             <li key={tab.id} className="min-w-0">
               <Link
-                href={tab.href}
+                href={href}
                 prefetch={false}
                 aria-current={active ? 'page' : undefined}
                 className={cn(

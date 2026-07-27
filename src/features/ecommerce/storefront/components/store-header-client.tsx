@@ -13,6 +13,7 @@ import { StoreLocaleSwitcher } from '@/features/ecommerce/storefront/components/
 import { StoreCategoryNavBar, StoreMobileCategoryNav } from '@/features/ecommerce/storefront/components/store-mega-menu';
 import { useCartItemCount } from '@/features/ecommerce/storefront/hooks/use-storefront-cart-ui';
 import { useWishlistCount } from '@/features/ecommerce/storefront/hooks/use-storefront-wishlist-ui';
+import { useStorefrontCustomerUi } from '@/features/ecommerce/storefront/hooks/use-storefront-customer-ui';
 import { Link } from '@/i18n/navigation';
 import { isRtlLocale, type StorefrontLocale } from '@/i18n/routing';
 import { cn } from '@/shared/utils';
@@ -42,7 +43,7 @@ function HeaderIconLink({
   label,
   children,
 }: {
-  href: '/store/cart' | '/store/wishlist' | '/store/search';
+  href: '/store/cart' | '/store/wishlist' | '/store/search' | '/store/login' | '/store/account';
   label: string;
   children: React.ReactNode;
 }) {
@@ -74,6 +75,7 @@ function StoreMobileDrawer({
   brands: StorefrontBrand[];
 }) {
   const t = useTranslations('storefront');
+  const customer = useStorefrontCustomerUi((s) => s.customer);
   const [mounted, setMounted] = React.useState(false);
   const [entered, setEntered] = React.useState(false);
 
@@ -114,7 +116,7 @@ function StoreMobileDrawer({
         type="button"
         aria-label={t('a11y.closeMenu')}
         className={cn(
-          'fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm transition-opacity duration-300 ease-out',
+          'fixed inset-0 z-[60] bg-foreground/50 backdrop-blur-sm transition-opacity duration-300 ease-out',
           entered ? 'opacity-100' : 'opacity-0',
         )}
         onClick={onClose}
@@ -134,7 +136,7 @@ function StoreMobileDrawer({
         )}
       >
         <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-3">
-          <p className="truncate font-display text-sm font-semibold">{config.name}</p>
+          <p className="truncate font-display text-sm font-semibold text-foreground">{config.name}</p>
           <button
             type="button"
             className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
@@ -151,32 +153,13 @@ function StoreMobileDrawer({
             <StoreLocaleSwitcher tone="panel" />
           </div>
 
-          <div className="mb-3 flex flex-col gap-0.5">
-            <Link
-              href="/store/offers"
-              prefetch={false}
-              className="rounded-lg px-3 py-2.5 text-sm font-medium text-secondary transition-colors hover:bg-accent"
-              onClick={onClose}
-            >
-              {t('nav.offersZone')}
-            </Link>
-            <Link
-              href="/store/wholesale"
-              prefetch={false}
-              className="rounded-lg px-3 py-2.5 text-sm font-medium text-primary transition-colors hover:bg-accent"
-              onClick={onClose}
-            >
-              {t('nav.wholesale')}
-            </Link>
-          </div>
-
           <div className="flex flex-col gap-0.5">
             {config.navigation.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
                 prefetch={false}
-                className="rounded-lg px-3 py-2.5 text-sm text-foreground transition-colors hover:bg-accent"
+                className="rounded-lg px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted"
                 onClick={onClose}
               >
                 {item.label}
@@ -195,13 +178,13 @@ function StoreMobileDrawer({
 
         <div className="store-drawer-safe-pb shrink-0 border-t border-border bg-background px-3 py-3">
           <Link
-            href="/login"
+            href={customer ? '/store/account' : '/store/login'}
             prefetch={false}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-3 py-2.5 text-sm font-medium text-primary-foreground"
+            className="flex h-11 w-full items-center justify-center gap-2 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
             onClick={onClose}
           >
             <User className="h-4 w-4" aria-hidden />
-            {t('nav.login')}
+            {customer ? t('account.title') : t('nav.login')}
           </Link>
         </div>
       </nav>
@@ -214,11 +197,13 @@ export function StoreHeaderInteractive({ config, categories, brands, logo }: Sto
   const t = useTranslations('storefront');
   const locale = useLocale() as StorefrontLocale;
   const rtl = isRtlLocale(locale);
+  const customer = useStorefrontCustomerUi((s) => s.customer);
   const wishlistCount = useWishlistCount();
   const cartCount = useCartItemCount();
   const [mobileOpen, setMobileOpen] = React.useState(false);
 
   const closeMobile = React.useCallback(() => setMobileOpen(false), []);
+  const accountHref = customer ? '/store/account' : '/store/login';
 
   return (
     <>
@@ -266,7 +251,7 @@ export function StoreHeaderInteractive({ config, categories, brands, logo }: Sto
               <Link
                 href="/store/offers"
                 prefetch={false}
-                className="inline-flex shrink-0 items-center rounded-full bg-secondary/15 px-3.5 py-1.5 text-sm font-semibold text-secondary transition-colors hover:bg-secondary/25"
+                className="inline-flex shrink-0 items-center rounded-full border border-border bg-card px-3.5 py-1.5 text-sm font-medium text-foreground transition-colors hover:border-primary/40 hover:bg-muted/50"
               >
                 {t('nav.offersZone')}
               </Link>
@@ -280,6 +265,9 @@ export function StoreHeaderInteractive({ config, categories, brands, logo }: Sto
             </div>
 
             <div className="flex shrink-0 items-center gap-1">
+              <HeaderIconLink href={accountHref} label={t('nav.login')}>
+                <User className="h-5 w-5" aria-hidden />
+              </HeaderIconLink>
               <HeaderIconLink href="/store/cart" label={t('nav.cart')}>
                 <BadgeIcon count={cartCount}>
                   <ShoppingCart className="h-5 w-5" aria-hidden />

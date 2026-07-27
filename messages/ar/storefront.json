@@ -57,6 +57,8 @@
     "all": "الكل",
     "noResults": "لا توجد منتجات مطابقة.",
     "addToCart": "أضف إلى السلة",
+    "addedToCart": "تمت الإضافة إلى السلة",
+    "variantUnavailable": "اختر تركيبة متاحة لهذا المنتج.",
     "cartComingSoon": "سيتم تفعيل السلة قريبًا",
     "sku": "SKU",
     "sortBy": "ترتيب حسب",
@@ -75,6 +77,149 @@
     "quantity": "الكمية",
     "subtotal": "المجموع الفرعي"
   },
+  "checkout": {
+    "title": "إتمام الطلب",
+    "description": "أدخل عنوان التوصيل واختر طريقة الدفع ثم أكّد طلبك.",
+    "emptyCartHint": "أضف منتجات إلى السلة قبل إتمام الطلب.",
+    "steps": {
+      "address": "العنوان",
+      "payment": "الدفع",
+      "review": "مراجعة"
+    },
+    "addressTitle": "عنوان التوصيل",
+    "addressHint": "سنستخدم هذا العنوان لتوصيل طلبك.",
+    "paymentTitle": "طريقة الدفع",
+    "paymentHint": "اختر كيف تريد الدفع عند إتمام الطلب.",
+    "reviewTitle": "مراجعة الطلب",
+    "reviewHint": "تأكد من التفاصيل قبل تأكيد الطلب.",
+    "edit": "تعديل",
+    "summary": "ملخص الطلب",
+    "itemsInCart": "{count} منتجات في السلة",
+    "freeShippingUnlocked": "تهانينا! حصلت على شحن مجاني.",
+    "fullName": "الاسم الكامل",
+    "phone": "رقم الجوال",
+    "city": "المدينة",
+    "district": "الحي",
+    "street": "الشارع / التفصيل",
+    "notes": "ملاحظات للسائق (اختياري)",
+    "notesPlaceholder": "مثال: بجانب المسجد، الدور الثاني",
+    "shipping": "الشحن",
+    "freeShipping": "مجاني",
+    "freeShippingHint": "شحن مجاني للطلبات فوق {amount} ر.ي",
+    "continue": "متابعة",
+    "back": "رجوع",
+    "backToCart": "العودة للسلة",
+    "placeOrder": "تأكيد الدفع والطلب",
+    "placing": "جاري تأكيد الطلب...",
+    "placeSuccess": "تم تأكيد طلبك بنجاح",
+    "placeError": "تعذر إتمام الطلب. حاول مرة أخرى.",
+    "paymentMockHint": "الدفع الإلكتروني تجريبي حالياً — سيتم تأكيد الطلب فوراً بدون بوابة دفع حقيقية.",
+    "paymentMethods": {
+      "cash_on_delivery": {
+        "label": "الدفع عند الاستلام",
+        "description": "ادفع نقداً أو بالبطاقة عند وصول الطلب."
+      },
+      "card": {
+        "label": "بطاقة ائتمان / خصم",
+        "description": "Visa أو Mastercard (تجريبي)."
+      }
+    },
+    "errors": {
+      "required": "هذا الحقل مطلوب",
+      "phone": "أدخل رقم جوال صحيح"
+    }
+  },
+  "orders": {
+    "myOrdersTitle": "طلباتي",
+    "myOrdersDescription": "عرض طلباتك وتتبع حالتها.",
+    "lookupLabel": "البحث برقم الطلب",
+    "emptyTitle": "لا توجد طلبات بعد",
+    "emptyDescription": "عند إتمام طلب سيظهر هنا مع رقم التتبع.",
+    "itemsCount": "منتجات",
+    "trackingTitle": "تتبع الطلب",
+    "trackingDescription": "حالة الطلب {orderNumber}",
+    "orderNumber": "رقم الطلب",
+    "placedAt": "تاريخ الطلب: {date}",
+    "eta": "التوصيل المتوقع: {date}",
+    "currentStatus": "الحالة الحالية",
+    "statusNow": "الآن",
+    "shippingAddress": "عنوان التوصيل",
+    "payment": "الدفع",
+    "items": "المنتجات",
+    "backHome": "العودة للرئيسية",
+    "myAccount": "حسابي",
+    "status": {
+      "pending": "قيد الانتظار",
+      "confirmed": "تم التأكيد",
+      "processing": "قيد التجهيز",
+      "shipped": "تم الشحن",
+      "delivered": "تم التوصيل",
+      "cancelled": "ملغي"
+    },
+    "paymentStatus": {
+      "pending": "الدفع عند الاستلام",
+      "paid": "مدفوع",
+      "failed": "فشل الدفع",
+      "refunded": "مسترجع"
+    }
+  },
+  "login": {
+    "title": "تسجيل الدخول",
+    "eyebrow": "حساب المتجر",
+    "heroTitle": "سجّل دخولك لتتبع طلباتك بسهولة",
+    "heroDescription": "احفظ بياناتك، تابع حالة الشحن، وأكمل طلباتك بشكل أسرع في المرات القادمة.",
+    "benefitTrack": "تتبع الطلبات برقم الطلب",
+    "benefitFaster": "إتمام أسرع في المرة القادمة",
+    "formTitle": "مرحباً بك",
+    "formDescription": "أدخل اسمك ورقم جوالك للدخول إلى حساب المتجر.",
+    "name": "الاسم",
+    "phone": "رقم الجوال",
+    "email": "البريد الإلكتروني (اختياري)",
+    "submit": "تسجيل الدخول",
+    "submitting": "جاري الدخول...",
+    "success": "تم تسجيل الدخول",
+    "mockHint": "تسجيل دخول تجريبي للمتجر — بدون ربط بخلفية حقيقية حالياً.",
+    "continueGuest": "متابعة كزائر",
+    "errors": {
+      "required": "الاسم ورقم الجوال مطلوبان"
+    }
+  },
+  "account": {
+    "title": "حسابي",
+    "welcome": "مرحباً",
+    "hello": "مرحباً {name}!",
+    "edit": "تعديل",
+    "editProfile": "تعديل الملف الشخصي",
+    "save": "حفظ",
+    "profileSaved": "تم حفظ بياناتك",
+    "logout": "تسجيل الخروج",
+    "promoTitle": "توصيل مجاني للطلبات فوق 200 ر.ي",
+    "promoCta": "تصفّح العروض",
+    "sectionAccount": "حسابي",
+    "sectionSettings": "الإعدادات",
+    "comingSoon": "هذه الميزة قادمة قريباً",
+    "soon": "قريباً",
+    "countryYemen": "اليمن",
+    "trackTitle": "تتبع طلب",
+    "trackDescription": "أدخل رقم الطلب لعرض حالته وخطوات الشحن.",
+    "trackAction": "تتبع",
+    "quick": {
+      "orders": "طلباتي",
+      "ordersHint": "إدارة وتتبع",
+      "returns": "المرتجعات",
+      "returnsHint": "لا طلبات نشطة",
+      "credits": "رصيد المتجر",
+      "creditsHint": "0.00 ر.ي",
+      "wishlist": "المفضلة",
+      "wishlistHint": "{count} عناصر محفوظة"
+    },
+    "menu": {
+      "addresses": "العناوين",
+      "payments": "طرق الدفع",
+      "country": "الدولة",
+      "language": "اللغة"
+    }
+  },
   "wishlist": {
     "title": "المفضلة",
     "empty": "قائمة المفضلة فارغة",
@@ -84,6 +229,7 @@
   "footer": {
     "paymentMethods": "طرق الدفع",
     "categoryDirectory": "دليل التصنيفات",
+    "accountLinks": "حسابي",
     "cr": "السجل التجاري",
     "tagline": "تسوّق بثقة — منتجات مختارة وتجربة سلسة بالعربية والإنجليزية."
   },
@@ -182,7 +328,10 @@
     "carouselSlide": "الشريحة {number}",
     "carousel": "عرض شرائح الصور",
     "decreaseQuantity": "تقليل الكمية",
-    "increaseQuantity": "زيادة الكمية"
+    "increaseQuantity": "زيادة الكمية",
+    "announcement": "شريط الإعلانات",
+    "dismissAnnouncement": "إغلاق الإعلان",
+    "close": "إغلاق"
   },
   "breadcrumbs": {
     "home": "الرئيسية"
@@ -200,6 +349,7 @@
   "mobileTab": {
     "home": "الرئيسية",
     "categories": "الفئات",
+    "orders": "طلباتي",
     "account": "حسابي",
     "cart": "عربة التسوق"
   },

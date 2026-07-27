@@ -3,19 +3,22 @@
 import * as React from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { Navigation as NavigationIcon, Megaphone, Plus, Trash2 } from 'lucide-react';
+import { Megaphone, PanelBottom, PanelTop, Plus, Save, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
-import { storefrontCompanyRepository } from '@/features/ecommerce/storefront/lib/repositories/company-repository';
+import { getCmsCompanyRecord, saveCmsCompanyRecord } from '@/features/ecommerce/admin/cms/shared/cms-actions';
 import type {
   CompanyConfigRecord,
   CompanyNavItemRecord,
 } from '@/features/ecommerce/storefront/domain/company-config';
 import { NavigationFooterPanel } from '@/features/ecommerce/admin/cms/navigation/components/navigation-footer-panel';
+import { NavigationAnnouncementPanel } from '@/features/ecommerce/admin/cms/navigation/components/navigation-announcement-panel';
 import type { EcommerceNavigationTab } from '@/features/ecommerce/admin/constants/routes';
 import { ecommerceNavigationHref } from '@/features/ecommerce/admin/constants/routes';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
+import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
+import { PageHeaderPrimaryButton } from '@/components/layouts/page-header-primary-button';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -48,7 +51,7 @@ export function NavigationBuilderPage() {
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: [...NAV_QUERY_KEY, companyId],
     queryFn: async () => {
-      const record = await storefrontCompanyRepository.getRecordByCompanyId(companyId);
+      const record = await getCmsCompanyRecord(companyId);
       if (!record) throw new Error('COMPANY_NOT_FOUND');
       return record;
     },
@@ -61,7 +64,7 @@ export function NavigationBuilderPage() {
   }, [data]);
 
   const save = useMutation({
-    mutationFn: (record: CompanyConfigRecord) => storefrontCompanyRepository.saveRecord(record),
+    mutationFn: (record: CompanyConfigRecord) => saveCmsCompanyRecord(record),
     onSuccess: (saved) => {
       queryClient.setQueryData([...NAV_QUERY_KEY, companyId], saved);
       void queryClient.invalidateQueries({ queryKey: ['ecommerce-cms', 'company'] });
@@ -71,22 +74,23 @@ export function NavigationBuilderPage() {
     onError: () => toast.error(t('saveError')),
   });
 
+  usePageHeaderActions(
+    () => (
+      <PageHeaderPrimaryButton
+        icon={Save}
+        label={save.isPending ? tCommon('status.saving') : tCommon('actions.save')}
+        disabled={!draft || save.isPending}
+        onClick={() => {
+          if (draft) void save.mutateAsync(draft);
+        }}
+      />
+    ),
+    [draft, save.isPending, tCommon],
+  );
+
   return (
     <div className="flex flex-col gap-5">
-      <SetPageTitle titleAr={t('title')} iconName="Navigation" />
-
-      <div className="flex flex-wrap justify-end gap-2">
-        <Button
-            type="button"
-            disabled={!draft || save.isPending || tab === 'announcement'}
-            onClick={() => {
-              if (draft) void save.mutateAsync(draft);
-            }}
-          >
-            {save.isPending ? tCommon('status.saving') : tCommon('actions.save')}
-          </Button>
-      </div>
-
+      <SetPageTitle titleAr={t('title')} descriptionAr={t('description')} iconName="Navigation" />
 
       {isLoading ? (
         <div className="space-y-3">
@@ -115,9 +119,18 @@ export function NavigationBuilderPage() {
           className="w-full"
         >
           <TabsList className="flex h-auto flex-wrap">
-            <TabsTrigger value="header">{t('tabs.header')}</TabsTrigger>
-            <TabsTrigger value="footer">{t('tabs.footer')}</TabsTrigger>
-            <TabsTrigger value="announcement">{t('tabs.announcement')}</TabsTrigger>
+            <TabsTrigger value="header" className="gap-1.5">
+              <PanelTop className="h-3.5 w-3.5" />
+              {t('tabs.header')}
+            </TabsTrigger>
+            <TabsTrigger value="footer" className="gap-1.5">
+              <PanelBottom className="h-3.5 w-3.5" />
+              {t('tabs.footer')}
+            </TabsTrigger>
+            <TabsTrigger value="announcement" className="gap-1.5">
+              <Megaphone className="h-3.5 w-3.5" />
+              {t('tabs.announcement')}
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="header" className="mt-4 space-y-5">
@@ -141,17 +154,7 @@ export function NavigationBuilderPage() {
           </TabsContent>
 
           <TabsContent value="announcement" className="mt-4">
-            <Card>
-              <CardHeader className="flex flex-row items-center gap-3 space-y-0">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary-100 text-primary">
-                  <Megaphone className="h-5 w-5" />
-                </div>
-                <CardTitle className="text-base">{t('announcement.title')}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">{t('announcement.description')}</p>
-              </CardContent>
-            </Card>
+            <NavigationAnnouncementPanel draft={draft} onChange={setDraft} />
           </TabsContent>
         </Tabs>
       ) : null}
@@ -173,7 +176,7 @@ function NavListEditor({
   labels: { add: string; remove: string; labelAr: string; labelEn: string; href: string };
 }) {
   return (
-    <Card>
+    <Card className="rounded-2xl">
       <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
         <CardTitle className="text-base">{title}</CardTitle>
         <Button type="button" size="sm" variant="outline" onClick={() => onChange([...items, emptyNavItem()])}>

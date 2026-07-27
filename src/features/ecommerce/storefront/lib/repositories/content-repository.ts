@@ -28,11 +28,27 @@ import type {
   StorefrontContentBundle,
 } from '@/features/ecommerce/storefront/domain/content';
 
-const CONTENT_BY_COMPANY: Record<string, StorefrontContentBundle> = {
-  [contentSeed.companyId]: JSON.parse(JSON.stringify(contentSeed)) as StorefrontContentBundle,
+/** Shared across Server Actions + RSC (avoids duplicate module instances). */
+const globalForContent = globalThis as typeof globalThis & {
+  __ecommerceContentByCompany?: Record<string, StorefrontContentBundle>;
+  __ecommerceBlogPosts?: BlogPost[];
 };
 
-let BLOG_POSTS: BlogPost[] = JSON.parse(JSON.stringify(blogSeed)) as BlogPost[];
+const CONTENT_BY_COMPANY: Record<string, StorefrontContentBundle> =
+  globalForContent.__ecommerceContentByCompany ??
+  (globalForContent.__ecommerceContentByCompany = {
+    [contentSeed.companyId]: JSON.parse(JSON.stringify(contentSeed)) as StorefrontContentBundle,
+  });
+
+let BLOG_POSTS: BlogPost[] =
+  globalForContent.__ecommerceBlogPosts ??
+  (globalForContent.__ecommerceBlogPosts = JSON.parse(JSON.stringify(blogSeed)) as BlogPost[]);
+
+/** Keep the global pointer in sync when the blog array is replaced. */
+function setBlogPosts(next: BlogPost[]) {
+  BLOG_POSTS = next;
+  globalForContent.__ecommerceBlogPosts = next;
+}
 
 function getBundle(companyId: string): StorefrontContentBundle | null {
   return CONTENT_BY_COMPANY[companyId] ?? null;
@@ -173,7 +189,7 @@ export const storefrontContentRepository = {
 
   async deleteBlogPost(companyId: string, id: string): Promise<boolean> {
     const before = BLOG_POSTS.length;
-    BLOG_POSTS = BLOG_POSTS.filter((post) => !(post.companyId === companyId && post.id === id));
+    setBlogPosts(BLOG_POSTS.filter((post) => !(post.companyId === companyId && post.id === id)));
     return mockRepositoryDelay(BLOG_POSTS.length < before);
   },
 };

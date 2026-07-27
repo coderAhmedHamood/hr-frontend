@@ -5,7 +5,7 @@ import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
-import { storefrontCompanyRepository } from '@/features/ecommerce/storefront/lib/repositories/company-repository';
+import { getCmsCompanyRecord, saveCmsCompanyRecord } from '@/features/ecommerce/admin/cms/shared/cms-actions';
 import type { CompanyConfigRecord } from '@/features/ecommerce/storefront/domain/company-config';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { Button } from '@/components/ui/button';
@@ -25,7 +25,7 @@ export function SeoSettingsPage() {
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: [...SEO_QUERY_KEY, companyId],
     queryFn: async () => {
-      const record = await storefrontCompanyRepository.getRecordByCompanyId(companyId);
+      const record = await getCmsCompanyRecord(companyId);
       if (!record) throw new Error('COMPANY_NOT_FOUND');
       return record;
     },
@@ -37,7 +37,7 @@ export function SeoSettingsPage() {
   }, [data]);
 
   const save = useMutation({
-    mutationFn: (record: CompanyConfigRecord) => storefrontCompanyRepository.saveRecord(record),
+    mutationFn: (record: CompanyConfigRecord) => saveCmsCompanyRecord(record),
     onSuccess: (saved) => {
       queryClient.setQueryData([...SEO_QUERY_KEY, companyId], saved);
       void queryClient.invalidateQueries({ queryKey: ['ecommerce-cms', 'company'] });

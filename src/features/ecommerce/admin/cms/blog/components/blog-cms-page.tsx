@@ -2,13 +2,21 @@
 
 import * as React from 'react';
 import { useTranslations } from 'next-intl';
-import { FileStack, Pencil, Plus, Trash2 } from 'lucide-react';
+import { FileStack, Newspaper, Pencil, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
-import { storefrontContentRepository } from '@/features/ecommerce/storefront/lib/repositories/content-repository';
+import {
+  deleteCmsBlogPost,
+  listCmsBlogPosts,
+  saveCmsBlogPost,
+} from '@/features/ecommerce/admin/cms/shared/cms-actions';
 import type { BlogPost } from '@/features/ecommerce/storefront/domain/content';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
+import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
+import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
+import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
+import { PageHeaderPrimaryButton } from '@/components/layouts/page-header-primary-button';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -16,6 +24,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
+import { StatTile, StatTileGrid } from '@/components/ui/stat-tile';
+import { ListFilterBar } from '@/components/ui/list-filter-bar';
+import { EntityFilterSearchField } from '@/components/ui/entity-filter-search-field';
 import {
   Dialog,
   DialogContent,
@@ -50,16 +61,18 @@ export function BlogCmsPage({ embedded = false }: { embedded?: boolean }) {
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: [...BLOG_QUERY_KEY, companyId],
-    queryFn: () => storefrontContentRepository.listBlogPostsAdmin(companyId),
+    queryFn: () => listCmsBlogPosts(companyId),
   });
 
   const [editorOpen, setEditorOpen] = React.useState(false);
   const [draft, setDraft] = React.useState<BlogPost | null>(null);
   const [isNew, setIsNew] = React.useState(false);
   const [deleteTarget, setDeleteTarget] = React.useState<BlogPost | null>(null);
+  const [search, setSearch] = React.useState('');
+  const [statusFilter, setStatusFilter] = React.useState('all');
 
   const save = useMutation({
-    mutationFn: (post: BlogPost) => storefrontContentRepository.saveBlogPost(post),
+    mutationFn: (post: BlogPost) => saveCmsBlogPost(post),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: [...BLOG_QUERY_KEY, companyId] });
       setEditorOpen(false);
@@ -70,7 +83,7 @@ export function BlogCmsPage({ embedded = false }: { embedded?: boolean }) {
   });
 
   const remove = useMutation({
-    mutationFn: (post: BlogPost) => storefrontContentRepository.deleteBlogPost(companyId, post.id),
+    mutationFn: (post: BlogPost) => deleteCmsBlogPost(companyId, post.id),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: [...BLOG_QUERY_KEY, companyId] });
       setDeleteTarget(null);
@@ -91,27 +104,67 @@ export function BlogCmsPage({ embedded = false }: { embedded?: boolean }) {
     setEditorOpen(true);
   }
 
+  const posts = data ?? [];
+  const publishedCount = posts.filter((post) => post.isPublished).length;
+  const normalizedSearch = search.trim().toLowerCase();
+  const filteredPosts = posts.filter((post) => {
+    const matchesSearch =
+      !normalizedSearch ||
+      (post.title.ar || '').toLowerCase().includes(normalizedSearch) ||
+      (post.title.en || '').toLowerCase().includes(normalizedSearch) ||
+      post.slug.toLowerCase().includes(normalizedSearch);
+    const matchesStatus =
+      statusFilter === 'all' || (statusFilter === 'published' ? post.isPublished : !post.isPublished);
+    return matchesSearch && matchesStatus;
+  });
+
+  usePageHeaderActions(
+    () => (
+      <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
+        <FilterToggleButton />
+        <PageHeaderPrimaryButton icon={Plus} label={t('addPost')} onClick={openCreate} />
+      </div>
+    ),
+    [t],
+  );
+
+  useEntityFilterSlot(
+    () => (
+      <ListFilterBar
+        showDateSection={false}
+        showStatusSection={false}
+        showEmployeePicker={false}
+        leadingFilters={
+          <EntityFilterSearchField value={search} onChange={setSearch} placeholder={tCommon('actions.search')} />
+        }
+        inlineSelects={[
+          {
+            id: 'status',
+            value: statusFilter,
+            onChange: setStatusFilter,
+            placeholder: tCommon('actions.filter'),
+            options: [
+              { value: 'all', label: tCommon('actions.filter') },
+              { value: 'published', label: t('published') },
+              { value: 'draft', label: t('draft') },
+            ],
+          },
+        ]}
+      />
+    ),
+    [search, statusFilter, t, tCommon],
+  );
+
   return (
     <div className="flex flex-col gap-5">
-      {!embedded ? (
-        <>
-          <SetPageTitle titleAr={t('title')} iconName="FileStack" />
+      {!embedded ? <SetPageTitle titleAr={t('title')} descriptionAr={t('description')} iconName="FileStack" /> : null}
 
-      <div className="flex flex-wrap justify-end gap-2">
-        <Button type="button" onClick={openCreate}>
-                <Plus className="me-2 h-4 w-4" />
-                {t('addPost')}
-              </Button>
-      </div>
-        </>
-      ) : (
-        <div className="flex justify-end">
-          <Button type="button" onClick={openCreate}>
-            <Plus className="me-2 h-4 w-4" />
-            {t('addPost')}
-          </Button>
-        </div>
-      )}
+      {!isLoading ? (
+        <StatTileGrid className="sm:grid-cols-2">
+          <StatTile icon={Newspaper} label={t('title')} value={posts.length} tone="primary" />
+          <StatTile icon={Pencil} label={t('published')} value={publishedCount} tone="success" />
+        </StatTileGrid>
+      ) : null}
 
       {isLoading ? (
         <div className="space-y-3">
@@ -132,24 +185,36 @@ export function BlogCmsPage({ embedded = false }: { embedded?: boolean }) {
       ) : null}
 
       {data && data.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/60 bg-muted/20 py-16 text-center">
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border/60 bg-muted/20 py-16 text-center">
+          <FileStack className="mb-3 h-8 w-8 text-muted-foreground/50" />
+          <p className="text-sm font-medium text-muted-foreground">{t('empty')}</p>
+        </div>
+      ) : null}
+
+      {data && data.length > 0 && filteredPosts.length === 0 ? (
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border/60 bg-muted/20 py-16 text-center">
           <FileStack className="mb-3 h-8 w-8 text-muted-foreground/50" />
           <p className="text-sm font-medium text-muted-foreground">{t('empty')}</p>
         </div>
       ) : null}
 
       <ul className="flex flex-col gap-3">
-        {(data ?? []).map((post) => (
+        {filteredPosts.map((post) => (
           <li key={post.id}>
-            <Card className="transition-shadow hover:shadow-elevated">
+            <Card className="rounded-2xl transition-shadow hover:shadow-elevated">
               <CardContent className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="min-w-0 space-y-1.5">
-                  <p className="truncate font-medium text-foreground">{post.title.ar || post.title.en || '—'}</p>
-                  <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                    <span>{post.slug}</span>
-                    <Badge variant={post.isPublished ? 'success' : 'subtle'}>
-                      {post.isPublished ? t('published') : t('draft')}
-                    </Badge>
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-100 text-primary">
+                    <Newspaper className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0 space-y-1.5">
+                    <p className="truncate font-medium text-foreground">{post.title.ar || post.title.en || '—'}</p>
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                      <span>{post.slug}</span>
+                      <Badge variant={post.isPublished ? 'success' : 'subtle'}>
+                        {post.isPublished ? t('published') : t('draft')}
+                      </Badge>
+                    </div>
                   </div>
                 </div>
                 <div className="flex shrink-0 gap-2">

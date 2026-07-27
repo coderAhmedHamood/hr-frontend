@@ -114,7 +114,7 @@ export function ProductGeneralTab({ control, errors, register, categories, brand
             className="max-w-[8rem]"
             {...register('listPrice')}
           />
-          <span className="text-sm text-muted-foreground">ر.س</span>
+          <span className="text-sm text-muted-foreground">ر.ي</span>
         </div>
         {errors.listPrice ? <p className="mt-1 text-xs text-destructive">{errors.listPrice.message}</p> : null}
       </EntityFormRow>
@@ -130,7 +130,7 @@ export function ProductGeneralTab({ control, errors, register, categories, brand
             className="max-w-[8rem]"
             {...register('costPrice')}
           />
-          <span className="text-sm text-muted-foreground">ر.س</span>
+          <span className="text-sm text-muted-foreground">ر.ي</span>
         </div>
         {errors.costPrice ? <p className="mt-1 text-xs text-destructive">{errors.costPrice.message}</p> : null}
       </EntityFormRow>
@@ -147,7 +147,7 @@ export function ProductGeneralTab({ control, errors, register, categories, brand
             placeholder="اختياري"
             {...register('compareAtPrice')}
           />
-          <span className="text-sm text-muted-foreground">ر.س</span>
+          <span className="text-sm text-muted-foreground">ر.ي</span>
         </div>
         <p className="mt-1 text-xs text-muted-foreground">يُعرض كسعر قبل الخصم في المتجر عند تعبئته.</p>
       </EntityFormRow>

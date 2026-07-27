@@ -146,7 +146,7 @@ export function formValuesToCreateInput(
   }));
 
   const existing = options?.existing;
-  const currency = existing?.price.currency ?? 'SAR';
+  const currency = existing?.price.currency ?? 'YER';
 
   const synced = syncProductVariants({
     productNameAr: values.nameAr,
