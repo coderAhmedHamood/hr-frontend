@@ -7,7 +7,7 @@ import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/stor
 import { loadStorefrontHomepage } from '@/features/ecommerce/storefront/page-builder/services/page.service';
 import type { StorefrontLocale } from '@/i18n/routing';
 
-export const revalidate = 60;
+export const dynamic = 'force-dynamic';
 
 type Props = { params: Promise<{ locale: string }> };
 

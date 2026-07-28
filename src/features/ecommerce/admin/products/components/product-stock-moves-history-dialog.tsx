@@ -231,7 +231,7 @@ export function ProductStockMovesHistoryDialog({
                         onClick={() => setSelectedOp(row.operation)}
                       >
                         <td className="px-3 py-2.5 whitespace-nowrap text-muted-foreground">
-                          {new Date(row.occurredAt).toLocaleString('ar-SA', {
+                          {new Date(row.occurredAt).toLocaleString('ar-YE', {
                             day: 'numeric',
                             month: 'short',
                             hour: '2-digit',

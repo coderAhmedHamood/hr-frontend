@@ -298,7 +298,7 @@ export function StoreMobileCategoryNav({
                 <Link
                   href={`/store/categories/${category.slug}`}
                   prefetch={false}
-                  className="rounded-md px-3 py-2 text-sm font-medium text-primary hover:bg-accent"
+                  className="rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
                   onClick={onNavigate}
                 >
                   {t('home.browseProducts')}

@@ -6,6 +6,10 @@ import type {
 } from '@/features/ecommerce/storefront/domain/storefront-models';
 import { buildCategoryTree } from '@/features/ecommerce/storefront/utils/category-tree';
 import { StoreFooterUtilities } from '@/features/ecommerce/storefront/components/store-footer-utilities';
+import {
+  STOREFRONT_SOCIAL_ICONS,
+  type StorefrontSocialNetwork,
+} from '@/features/ecommerce/storefront/components/store-social-icons';
 import { Link } from '@/i18n/navigation';
 
 const SOCIAL_LABEL_KEYS = {
@@ -13,7 +17,7 @@ const SOCIAL_LABEL_KEYS = {
   twitter: 'socialTwitter',
   facebook: 'socialFacebook',
   whatsapp: 'socialWhatsapp',
-} as const;
+} as const satisfies Record<StorefrontSocialNetwork, string>;
 
 export async function StoreFooter({
   config,
@@ -28,8 +32,8 @@ export async function StoreFooter({
   return (
     <footer className="mt-auto border-t border-border bg-muted/40 text-foreground">
       <div className="mx-auto max-w-[1400px] px-4 py-12 sm:px-6">
-        <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-12">
-          <div className="flex flex-col gap-4 lg:col-span-4">
+        <div className="grid grid-cols-2 gap-x-6 gap-y-8 lg:grid-cols-12 lg:gap-10">
+          <div className="col-span-2 flex flex-col gap-4 lg:col-span-4">
             <p className="font-arabic-display text-xl font-bold text-foreground">{config.name}</p>
             <p className="max-w-sm text-sm leading-relaxed text-muted-foreground">{t('footer.tagline')}</p>
             <div className="flex flex-col gap-2 text-sm text-muted-foreground">
@@ -53,21 +57,22 @@ export async function StoreFooter({
               ) : null}
             </div>
             <div className="flex flex-wrap items-center gap-2 pt-1">
-              {(Object.entries(config.social) as [keyof typeof SOCIAL_LABEL_KEYS, string | undefined][])
-                .filter(([, url]) => Boolean(url))
+              {(Object.entries(config.social) as [StorefrontSocialNetwork, string | undefined][])
+                .filter((entry): entry is [StorefrontSocialNetwork, string] => Boolean(entry[1]))
                 .map(([network, url]) => {
-                  const labelKey = SOCIAL_LABEL_KEYS[network];
-                  const label = labelKey ? t(`a11y.${labelKey}`) : network;
+                  const Icon = STOREFRONT_SOCIAL_ICONS[network];
+                  if (!Icon) return null;
+                  const label = t(`a11y.${SOCIAL_LABEL_KEYS[network]}`);
                   return (
                     <a
                       key={network}
                       href={url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex h-9 items-center justify-center rounded-full border border-border bg-background px-3 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border bg-background text-muted-foreground transition-colors hover:border-primary/40 hover:bg-muted hover:text-foreground"
                       aria-label={label}
                     >
-                      {network}
+                      <Icon className="h-4 w-4" />
                     </a>
                   );
                 })}
@@ -92,6 +97,48 @@ export async function StoreFooter({
               </ul>
             </div>
           ))}
+
+          <div className="flex flex-col gap-3 lg:col-span-2">
+            <h3 className="text-sm font-semibold text-foreground">{t('footer.accountLinks')}</h3>
+            <ul className="flex flex-col gap-2">
+              <li>
+                <Link
+                  href="/store/orders"
+                  prefetch={false}
+                  className="text-sm text-muted-foreground transition-colors hover:text-primary"
+                >
+                  {t('orders.myOrdersTitle')}
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/store/account"
+                  prefetch={false}
+                  className="text-sm text-muted-foreground transition-colors hover:text-primary"
+                >
+                  {t('account.title')}
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/store/login"
+                  prefetch={false}
+                  className="text-sm text-muted-foreground transition-colors hover:text-primary"
+                >
+                  {t('nav.login')}
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/store/wishlist"
+                  prefetch={false}
+                  className="text-sm text-muted-foreground transition-colors hover:text-primary"
+                >
+                  {t('nav.wishlist')}
+                </Link>
+              </li>
+            </ul>
+          </div>
 
           <div className="flex flex-col gap-3 lg:col-span-2">
             <h3 className="text-sm font-semibold text-foreground">{t('nav.categories')}</h3>

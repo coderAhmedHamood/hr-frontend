@@ -20,7 +20,7 @@ export function absoluteUrl(path: string): string {
 }
 
 function ogLocale(locale: StorefrontLocale): string {
-  return locale === 'ar' ? 'ar_SA' : 'en_US';
+  return locale === 'ar' ? 'ar_YE' : 'en_US';
 }
 
 function localizedAlternates(href: `/store${string}`, locale: StorefrontLocale) {
@@ -324,6 +324,56 @@ export async function cartMetadata(config: StorefrontCompanyConfig, locale: Stor
   return {
     ...basePageMetadata(config, locale, t('cart.title'), t('cart.emptyDescription'), '/store/cart'),
     robots: { index: false, follow: true },
+  };
+}
+
+export async function checkoutMetadata(config: StorefrontCompanyConfig, locale: StorefrontLocale): Promise<Metadata> {
+  const t = await getTranslations({ locale, namespace: 'storefront' });
+  return {
+    ...basePageMetadata(config, locale, t('checkout.title'), t('checkout.description'), '/store/checkout'),
+    robots: { index: false, follow: false },
+  };
+}
+
+export async function storeLoginMetadata(config: StorefrontCompanyConfig, locale: StorefrontLocale): Promise<Metadata> {
+  const t = await getTranslations({ locale, namespace: 'storefront' });
+  return {
+    ...basePageMetadata(config, locale, t('login.title'), t('login.formDescription'), '/store/login'),
+    robots: { index: false, follow: false },
+  };
+}
+
+export async function storeAccountMetadata(config: StorefrontCompanyConfig, locale: StorefrontLocale): Promise<Metadata> {
+  const t = await getTranslations({ locale, namespace: 'storefront' });
+  return {
+    ...basePageMetadata(config, locale, t('account.title'), t('account.trackDescription'), '/store/account'),
+    robots: { index: false, follow: false },
+  };
+}
+
+export async function myOrdersMetadata(config: StorefrontCompanyConfig, locale: StorefrontLocale): Promise<Metadata> {
+  const t = await getTranslations({ locale, namespace: 'storefront' });
+  return {
+    ...basePageMetadata(config, locale, t('orders.myOrdersTitle'), t('orders.myOrdersDescription'), '/store/orders'),
+    robots: { index: false, follow: false },
+  };
+}
+
+export async function orderTrackingMetadata(
+  config: StorefrontCompanyConfig,
+  locale: StorefrontLocale,
+  orderNumber: string,
+): Promise<Metadata> {
+  const t = await getTranslations({ locale, namespace: 'storefront' });
+  return {
+    ...basePageMetadata(
+      config,
+      locale,
+      t('orders.trackingTitle'),
+      t('orders.trackingDescription', { orderNumber }),
+      `/store/orders/${orderNumber}`,
+    ),
+    robots: { index: false, follow: false },
   };
 }
 

@@ -10,7 +10,7 @@ const BASE_PRODUCT: Product = {
   slug: 'test-product',
   nameAr: 'منتج تجريبي',
   media: [],
-  price: { amount: 100, currency: 'SAR' },
+  price: { amount: 100, currency: 'YER' },
   categoryId: 'cat-1',
   brandId: 'brand-1',
   status: 'active',
@@ -141,8 +141,8 @@ describe('formValuesToCreateInput', () => {
       { ...BASE_VALUES, listPrice: 25.5, costPrice: 18 },
       'demo-company',
     );
-    expect(input.price).toEqual({ amount: 25.5, currency: 'SAR' });
-    expect(input.costPrice).toEqual({ amount: 18, currency: 'SAR' });
+    expect(input.price).toEqual({ amount: 25.5, currency: 'YER' });
+    expect(input.costPrice).toEqual({ amount: 18, currency: 'YER' });
   });
 
   it('maps invoice policy through to create input', () => {
@@ -158,8 +158,8 @@ describe('formValuesToCreateInput', () => {
       { ...BASE_VALUES, listPrice: 80, compareAtPrice: 120 },
       'demo-company',
     );
-    expect(input.price).toEqual({ amount: 80, currency: 'SAR' });
-    expect(input.compareAtPrice).toEqual({ amount: 120, currency: 'SAR' });
+    expect(input.price).toEqual({ amount: 80, currency: 'YER' });
+    expect(input.compareAtPrice).toEqual({ amount: 120, currency: 'YER' });
   });
 
   it('maps barcode, short description, purchaseOk, and logistics fields', () => {

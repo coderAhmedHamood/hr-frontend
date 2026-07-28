@@ -105,8 +105,8 @@ export function StoreCartClient() {
                       >
                         {label.colorHex ? (
                           <span
-                            className="h-2 w-2 rounded-full border border-border"
-                            style={{ backgroundColor: label.colorHex }}
+                            className="h-2 w-2 rounded-full border border-border bg-[var(--swatch)]"
+                            style={{ ['--swatch' as string]: label.colorHex }}
                           />
                         ) : null}
                         {label.valueNameAr}
@@ -147,14 +147,15 @@ export function StoreCartClient() {
       <aside className="h-fit rounded-xl border border-border bg-card p-6 shadow-soft">
         <h2 className="font-arabic-display text-lg font-semibold text-foreground">{t('cart.subtotal')}</h2>
         <p className="mt-2 text-2xl font-bold text-foreground">
-          {formatPrice(total, cartLines[0]?.product.price.currency ?? 'SAR')}
+          {formatPrice(total, cartLines[0]?.product.price.currency ?? 'YER')}
         </p>
-        <button
-          type="button"
+        <Link
+          href="/store/checkout"
+          prefetch={false}
           className="mt-6 flex h-11 w-full items-center justify-center rounded-lg bg-primary text-sm font-medium text-primary-foreground hover:bg-primary/90"
         >
           {t('cart.checkout')}
-        </button>
+        </Link>
         <Link href="/store/products" prefetch={false} className="mt-3 block text-center text-sm text-primary hover:underline">
           {t('cart.continueShopping')}
         </Link>

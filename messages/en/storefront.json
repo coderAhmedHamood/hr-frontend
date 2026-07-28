@@ -57,6 +57,8 @@
     "all": "All",
     "noResults": "No matching products.",
     "addToCart": "Add to cart",
+    "addedToCart": "Added to cart",
+    "variantUnavailable": "Choose an available combination for this product.",
     "cartComingSoon": "Cart coming soon",
     "sku": "SKU",
     "sortBy": "Sort by",
@@ -75,6 +77,149 @@
     "quantity": "Quantity",
     "subtotal": "Subtotal"
   },
+  "checkout": {
+    "title": "Checkout",
+    "description": "Add your delivery address, choose payment, then confirm your order.",
+    "emptyCartHint": "Add products to your cart before checking out.",
+    "steps": {
+      "address": "Address",
+      "payment": "Payment",
+      "review": "Review"
+    },
+    "addressTitle": "Delivery address",
+    "addressHint": "We’ll use this address to deliver your order.",
+    "paymentTitle": "Payment method",
+    "paymentHint": "Choose how you want to pay when placing the order.",
+    "reviewTitle": "Review order",
+    "reviewHint": "Confirm the details before placing your order.",
+    "edit": "Edit",
+    "summary": "Order summary",
+    "itemsInCart": "{count} items in cart",
+    "freeShippingUnlocked": "Nice! You’ve unlocked free shipping.",
+    "fullName": "Full name",
+    "phone": "Mobile number",
+    "city": "City",
+    "district": "District",
+    "street": "Street / details",
+    "notes": "Driver notes (optional)",
+    "notesPlaceholder": "e.g. next to the mosque, 2nd floor",
+    "shipping": "Shipping",
+    "freeShipping": "Free",
+    "freeShippingHint": "Free shipping on orders over YER {amount}",
+    "continue": "Continue",
+    "back": "Back",
+    "backToCart": "Back to cart",
+    "placeOrder": "Confirm & pay",
+    "placing": "Placing order...",
+    "placeSuccess": "Your order was placed successfully",
+    "placeError": "Could not place the order. Please try again.",
+    "paymentMockHint": "Online payment is mocked for now — the order is confirmed immediately without a real payment gateway.",
+    "paymentMethods": {
+      "cash_on_delivery": {
+        "label": "Cash on delivery",
+        "description": "Pay cash or card when your order arrives."
+      },
+      "card": {
+        "label": "Credit / debit card",
+        "description": "Visa or Mastercard (mock)."
+      }
+    },
+    "errors": {
+      "required": "This field is required",
+      "phone": "Enter a valid mobile number"
+    }
+  },
+  "orders": {
+    "myOrdersTitle": "My orders",
+    "myOrdersDescription": "View your orders and track their status.",
+    "lookupLabel": "Find by order number",
+    "emptyTitle": "No orders yet",
+    "emptyDescription": "When you place an order, it will show up here with a tracking number.",
+    "itemsCount": "items",
+    "trackingTitle": "Track order",
+    "trackingDescription": "Status for order {orderNumber}",
+    "orderNumber": "Order number",
+    "placedAt": "Placed on: {date}",
+    "eta": "Estimated delivery: {date}",
+    "currentStatus": "Current status",
+    "statusNow": "Now",
+    "shippingAddress": "Shipping address",
+    "payment": "Payment",
+    "items": "Items",
+    "backHome": "Back to home",
+    "myAccount": "My account",
+    "status": {
+      "pending": "Pending",
+      "confirmed": "Confirmed",
+      "processing": "Processing",
+      "shipped": "Shipped",
+      "delivered": "Delivered",
+      "cancelled": "Cancelled"
+    },
+    "paymentStatus": {
+      "pending": "Pay on delivery",
+      "paid": "Paid",
+      "failed": "Payment failed",
+      "refunded": "Refunded"
+    }
+  },
+  "login": {
+    "title": "Sign in",
+    "eyebrow": "Store account",
+    "heroTitle": "Sign in to track your orders easily",
+    "heroDescription": "Save your details, follow shipping status, and check out faster next time.",
+    "benefitTrack": "Track orders by order number",
+    "benefitFaster": "Faster checkout next time",
+    "formTitle": "Welcome",
+    "formDescription": "Enter your name and mobile number to access your store account.",
+    "name": "Name",
+    "phone": "Mobile number",
+    "email": "Email (optional)",
+    "submit": "Sign in",
+    "submitting": "Signing in...",
+    "success": "Signed in successfully",
+    "mockHint": "Demo storefront login — not connected to a real auth backend yet.",
+    "continueGuest": "Continue as guest",
+    "errors": {
+      "required": "Name and mobile number are required"
+    }
+  },
+  "account": {
+    "title": "My account",
+    "welcome": "Welcome",
+    "hello": "Hello {name}!",
+    "edit": "Edit",
+    "editProfile": "Edit profile",
+    "save": "Save",
+    "profileSaved": "Profile saved",
+    "logout": "Sign out",
+    "promoTitle": "Free delivery on orders over YER 200",
+    "promoCta": "Browse offers",
+    "sectionAccount": "My account",
+    "sectionSettings": "Settings",
+    "comingSoon": "This feature is coming soon",
+    "soon": "Soon",
+    "countryYemen": "Yemen",
+    "trackTitle": "Track an order",
+    "trackDescription": "Enter your order number to view status and shipping steps.",
+    "trackAction": "Track",
+    "quick": {
+      "orders": "Orders",
+      "ordersHint": "Manage & track",
+      "returns": "Returns",
+      "returnsHint": "0 active requests",
+      "credits": "Store credit",
+      "creditsHint": "YER 0.00",
+      "wishlist": "Wishlist",
+      "wishlistHint": "{count} saved items"
+    },
+    "menu": {
+      "addresses": "Addresses",
+      "payments": "Payments",
+      "country": "Country",
+      "language": "Language"
+    }
+  },
   "wishlist": {
     "title": "Wishlist",
     "empty": "Your wishlist is empty",
@@ -84,6 +229,7 @@
   "footer": {
     "paymentMethods": "Payment methods",
     "categoryDirectory": "Category directory",
+    "accountLinks": "My account",
     "cr": "Commercial registration",
     "tagline": "Shop with confidence — curated products and a smooth Arabic / English experience."
   },
@@ -182,7 +328,10 @@
     "carouselSlide": "Slide {number}",
     "carousel": "Image carousel",
     "decreaseQuantity": "Decrease quantity",
-    "increaseQuantity": "Increase quantity"
+    "increaseQuantity": "Increase quantity",
+    "announcement": "Announcement",
+    "dismissAnnouncement": "Dismiss announcement",
+    "close": "Close"
   },
   "breadcrumbs": {
     "home": "Home"
@@ -200,6 +349,7 @@
   "mobileTab": {
     "home": "Home",
     "categories": "Categories",
+    "orders": "Orders",
     "account": "Account",
     "cart": "Cart"
   },

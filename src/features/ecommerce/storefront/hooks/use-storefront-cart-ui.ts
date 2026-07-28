@@ -1,6 +1,7 @@
 'use client';
 
 import { create } from 'zustand';
+import { createJSONStorage, persist } from 'zustand/middleware';
 
 export type CartLine = {
   productId: string;
@@ -21,42 +22,53 @@ interface StorefrontCartUiState {
   clear: () => void;
 }
 
-export const useStorefrontCartUi = create<StorefrontCartUiState>((set, get) => ({
-  lines: [],
-  addItem: (productId, quantity = 1, variantId) => {
-    const key = lineKey(productId, variantId);
-    const existing = get().lines.find((line) => lineKey(line.productId, line.variantId) === key);
-    if (existing) {
-      set({
-        lines: get().lines.map((line) =>
-          lineKey(line.productId, line.variantId) === key
-            ? { ...line, quantity: line.quantity + quantity }
-            : line,
-        ),
-      });
-      return;
-    }
-    set({ lines: [...get().lines, { productId, variantId, quantity }] });
-  },
-  removeItem: (productId, variantId) =>
-    set({
-      lines: get().lines.filter((line) => lineKey(line.productId, line.variantId) !== lineKey(productId, variantId)),
+export const useStorefrontCartUi = create<StorefrontCartUiState>()(
+  persist(
+    (set, get) => ({
+      lines: [],
+      addItem: (productId, quantity = 1, variantId) => {
+        const key = lineKey(productId, variantId);
+        const existing = get().lines.find((line) => lineKey(line.productId, line.variantId) === key);
+        if (existing) {
+          set({
+            lines: get().lines.map((line) =>
+              lineKey(line.productId, line.variantId) === key
+                ? { ...line, quantity: line.quantity + quantity }
+                : line,
+            ),
+          });
+          return;
+        }
+        set({ lines: [...get().lines, { productId, variantId, quantity }] });
+      },
+      removeItem: (productId, variantId) =>
+        set({
+          lines: get().lines.filter(
+            (line) => lineKey(line.productId, line.variantId) !== lineKey(productId, variantId),
+          ),
+        }),
+      setQuantity: (productId, quantity, variantId) => {
+        if (quantity <= 0) {
+          get().removeItem(productId, variantId);
+          return;
+        }
+        set({
+          lines: get().lines.map((line) =>
+            lineKey(line.productId, line.variantId) === lineKey(productId, variantId)
+              ? { ...line, quantity }
+              : line,
+          ),
+        });
+      },
+      clear: () => set({ lines: [] }),
     }),
-  setQuantity: (productId, quantity, variantId) => {
-    if (quantity <= 0) {
-      get().removeItem(productId, variantId);
-      return;
-    }
-    set({
-      lines: get().lines.map((line) =>
-        lineKey(line.productId, line.variantId) === lineKey(productId, variantId)
-          ? { ...line, quantity }
-          : line,
-      ),
-    });
-  },
-  clear: () => set({ lines: [] }),
-}));
+    {
+      name: 'storefront-cart',
+      storage: createJSONStorage(() => localStorage),
+      partialize: (state) => ({ lines: state.lines }),
+    },
+  ),
+);
 
 export function useCartItemCount(): number {
   return useStorefrontCartUi((state) => state.lines.reduce((sum, line) => sum + line.quantity, 0));

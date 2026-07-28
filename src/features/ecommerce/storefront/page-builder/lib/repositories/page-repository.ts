@@ -8,7 +8,16 @@ import { pageRecordSchema } from '@/features/ecommerce/storefront/page-builder/s
 import homepagePageSeed from '@/features/ecommerce/storefront/page-builder/lib/mock/pages/homepage.json';
 import type { StorefrontLocale } from '@/i18n/routing';
 
-const PAGE_INDEX: Record<string, PageRecord> = {};
+/**
+ * Keep the mock index on globalThis so Server Actions and RSC loaders share
+ * one store (Next can otherwise instantiate this module twice).
+ */
+const globalForPages = globalThis as typeof globalThis & {
+  __ecommercePageIndex?: Record<string, PageRecord>;
+};
+
+const PAGE_INDEX: Record<string, PageRecord> =
+  globalForPages.__ecommercePageIndex ?? (globalForPages.__ecommercePageIndex = {});
 
 function pageKey(companyId: string, pageType: PageType): string {
   return `${companyId}:${pageType}`;
@@ -31,7 +40,9 @@ function registerPage(raw: unknown): void {
   PAGE_INDEX[slugKey(record.companyId, record.slug)] = record;
 }
 
-registerPage(homepagePageSeed);
+if (!PAGE_INDEX[pageKey('demo-company', 'homepage')]) {
+  registerPage(homepagePageSeed);
+}
 
 function cloneRecord(record: PageRecord): PageRecord {
   return JSON.parse(JSON.stringify(record)) as PageRecord;

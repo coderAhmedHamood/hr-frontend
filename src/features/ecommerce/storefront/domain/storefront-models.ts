@@ -109,6 +109,12 @@ export type StorefrontCompanyConfig = {
       links: StorefrontNavItem[];
     }[];
   };
+  announcement: {
+    enabled: boolean;
+    message: string;
+    href: `/store${string}` | '/store' | null;
+    dismissible: boolean;
+  };
   currency: string;
   timezone: string;
 };

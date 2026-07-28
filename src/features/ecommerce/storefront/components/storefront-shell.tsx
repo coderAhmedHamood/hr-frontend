@@ -1,6 +1,7 @@
 import { getLocale, getTranslations } from 'next-intl/server';
 import { Toaster } from 'sonner';
 import { JsonLd } from '@/features/ecommerce/storefront/components/json-ld';
+import { StoreChromeGate, isCheckoutPath } from '@/features/ecommerce/storefront/components/store-chrome-gate';
 import { StoreFooter } from '@/features/ecommerce/storefront/components/store-footer';
 import { StoreHeader } from '@/features/ecommerce/storefront/components/store-header';
 import { StoreMobileTabBar } from '@/features/ecommerce/storefront/components/store-mobile-tab-bar';
@@ -37,7 +38,29 @@ export async function StorefrontShell({ children }: { children: React.ReactNode 
       lang={storefrontLocale}
     >
       <JsonLd data={await organizationJsonLd(config, storefrontLocale)} />
-      <Toaster richColors position="top-center" dir={dir} closeButton />
+      <Toaster
+        className="storefront-toaster"
+        theme="system"
+        position={dir === 'rtl' ? 'top-right' : 'top-left'}
+        dir={dir}
+        offset={16}
+        gap={8}
+        visibleToasts={3}
+        style={{ ['--width' as string]: '20rem' }}
+        toastOptions={{
+          classNames: {
+            toast:
+              'group toast !min-w-[min(16rem,calc(100vw-2rem))] !max-w-[min(22rem,calc(100vw-2rem))] !w-auto !border-border !bg-card !text-foreground !shadow-soft !rounded-xl !px-3.5 !py-2.5 !gap-2 !text-sm',
+            title: '!text-sm !font-medium !text-foreground !whitespace-normal !break-normal',
+            description: '!text-xs !text-muted-foreground !whitespace-normal',
+            actionButton: '!bg-primary !text-primary-foreground',
+            cancelButton: '!bg-muted !text-muted-foreground',
+            closeButton: '!border-border !bg-card !text-muted-foreground',
+            success: '!border-border !bg-card !text-foreground',
+            error: '!border-destructive/30 !bg-card !text-foreground',
+          },
+        }}
+      />
       <a
         href="#store-main"
         className="sr-only focus:not-sr-only focus:absolute focus:start-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:text-primary-foreground"
@@ -51,9 +74,11 @@ export async function StorefrontShell({ children }: { children: React.ReactNode 
       >
         {children}
       </main>
-      <div className="store-footer-safe-pb">
-        <StoreFooter config={config} categories={categories} />
-      </div>
+      <StoreChromeGate match={isCheckoutPath}>
+        <div className="store-footer-safe-pb">
+          <StoreFooter config={config} categories={categories} />
+        </div>
+      </StoreChromeGate>
       <StoreMobileTabBar />
     </div>
   );

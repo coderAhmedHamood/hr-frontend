@@ -49,6 +49,15 @@ export type CompanySecondaryNavItemRecord = CompanyNavItemRecord & {
   highlight?: boolean;
 };
 
+/** Top-of-site announcement strip (above the header). */
+export type CompanyAnnouncementBarRecord = {
+  enabled: boolean;
+  message: LocalizableString;
+  /** Optional storefront link when the bar is clicked. */
+  href: `/store${string}` | '/store' | null;
+  dismissible: boolean;
+};
+
 /** Raw CMS company config — bilingual fields resolved at repository boundary. */
 export type CompanyConfigRecord = {
   id: string;
@@ -62,6 +71,7 @@ export type CompanyConfigRecord = {
   navigation: CompanyNavItemRecord[];
   secondaryNavigation: CompanySecondaryNavItemRecord[];
   footer: CompanyFooterConfigRecord;
+  announcement: CompanyAnnouncementBarRecord;
   defaultLocale: string;
   currency: string;
   timezone: string;
