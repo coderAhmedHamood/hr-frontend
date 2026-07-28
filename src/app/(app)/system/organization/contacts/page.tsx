@@ -1,5 +1,7 @@
-import ContactsPage from '@/features/system/organization/contacts/components/contacts-page';
+import { redirect } from 'next/navigation';
+import { systemOrganizationRoutes } from '@/features/system/organization/constants/routes';
 
-export default function SystemOrganizationContactsRoutePage() {
-  return <ContactsPage />;
+/** الرابط القديم `/system/organization/contacts` كان دليل المستخدمين — نُقل إلى `/users`. */
+export default function LegacySystemContactsRedirect() {
+  redirect(systemOrganizationRoutes.users);
 }

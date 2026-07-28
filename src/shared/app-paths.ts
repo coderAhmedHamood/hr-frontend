@@ -1,3 +1,4 @@
+import { isContactsAdminNavPath } from '@/features/contacts/admin/constants/nav';
 import { isEcommerceAdminNavPath } from '@/features/ecommerce/admin/constants/nav';
 import { isInventoryAdminNavPath } from '@/features/inventory/admin/constants/nav';
 
@@ -27,4 +28,9 @@ export function isEcommerceAppPath(pathname: string): boolean {
 /** True when the current route belongs to the standalone Inventory application. */
 export function isInventoryAppPath(pathname: string): boolean {
   return isInventoryAdminNavPath(pathname);
+}
+
+/** True when the current route belongs to the standalone Contacts (Partners) application. */
+export function isContactsAppPath(pathname: string): boolean {
+  return isContactsAdminNavPath(pathname);
 }

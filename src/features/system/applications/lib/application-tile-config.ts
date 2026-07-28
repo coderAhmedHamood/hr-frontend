@@ -1,6 +1,7 @@
 import type { LucideIcon } from 'lucide-react';
 import {
   Calculator,
+  ContactRound,
   LayoutGrid,
   Package,
   Settings,
@@ -16,6 +17,7 @@ const ICON_BY_KEY: Record<string, LucideIcon> = {
   'layout-grid': LayoutGrid,
   'shopping-cart': ShoppingCart,
   package: Package,
+  contact: ContactRound,
 };
 
 /** Design-token icon surfaces — no hardcoded palette colors. */
@@ -25,6 +27,7 @@ const TILE_BY_CODE: Record<string, { tileClass: string }> = {
   system: { tileClass: 'bg-gold text-gold-foreground shadow-soft' },
   ecommerce: { tileClass: 'bg-success text-success-foreground shadow-soft' },
   inventory: { tileClass: 'bg-accent text-accent-foreground shadow-soft' },
+  contacts: { tileClass: 'bg-primary text-primary-foreground shadow-soft' },
 };
 
 const FALLBACK_TILES = [
@@ -46,6 +49,7 @@ export function resolveApplicationIcon(app: ApplicationResponseDto): LucideIcon 
   if (key && ICON_BY_KEY[key]) return ICON_BY_KEY[key]!;
   if (app.code === 'ecommerce') return ShoppingCart;
   if (app.code === 'inventory') return Package;
+  if (app.code === 'contacts') return ContactRound;
   return LayoutGrid;
 }
 

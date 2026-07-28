@@ -72,9 +72,10 @@ const nextConfig = {
       { source: '/hr', destination: '/hr/organization/employees', permanent: false },
       { source: '/dashboard', destination: '/', permanent: true },
       { source: '/hr/dashboard', destination: '/hr/organization/employees', permanent: true },
-      { source: '/contacts', destination: '/system/organization/contacts', permanent: true },
-      { source: '/hr/contacts', destination: '/system/organization/contacts', permanent: true },
-      { source: '/hr/organization/contacts', destination: '/system/organization/contacts', permanent: true },
+      // `/contacts` is the standalone Partners app — do not redirect to System.
+      { source: '/hr/contacts', destination: '/system/organization/users', permanent: true },
+      { source: '/hr/organization/contacts', destination: '/system/organization/users', permanent: true },
+      { source: '/system/organization/contacts', destination: '/system/organization/users', permanent: true },
       { source: '/attendance', destination: '/hr/attendance', permanent: true },
       { source: '/job-titles', destination: '/system/organization/job-titles', permanent: true },
       { source: '/hr/job-titles', destination: '/system/organization/job-titles', permanent: true },

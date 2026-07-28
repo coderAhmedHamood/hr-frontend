@@ -12,7 +12,7 @@ import {
   Banknote, FileSignature, BookOpen, FileSpreadsheet, UserCircle, Briefcase, UserCheck, UserPlus,
   Coins, FileStack, Receipt, KeyRound, Settings, Timer,
   LayoutTemplate, Navigation, PanelBottom, PanelTop, Image, FileText, Newspaper,
-  CircleHelp, Search, ShoppingCart, Package, FolderTree, Tag, Globe, Megaphone,
+  CircleHelp, Search, ShoppingCart, Package, FolderTree, Tag, Globe, Megaphone, ContactRound,
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
@@ -50,6 +50,11 @@ import {
   inventoryAdminOverviewItem,
   flattenInventoryNavItems,
 } from '@/features/inventory/admin/constants/nav';
+import {
+  contactsAdminNavGroups,
+  contactsAdminOverviewItem,
+  flattenContactsNavItems,
+} from '@/features/contacts/admin/constants/nav';
 import { UserMenuDropdown } from '@/components/layouts/user-menu-dropdown';
 import { AppsLauncherButton } from '@/components/layouts/apps-launcher-button';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
@@ -58,6 +63,7 @@ import {
   isSystemAppPath,
   isEcommerceAppPath,
   isInventoryAppPath,
+  isContactsAppPath,
   isLauncherPath,
 } from '@/shared/app-paths';
 import { isModuleEnabledFor } from '@/shared/modules/registry';
@@ -71,7 +77,7 @@ export const PAGE_ICONS: Record<string, React.ElementType> = {
   CalendarClock, LayoutList, ListChecks, ShieldCheck,
   Coins, FileStack, Receipt, KeyRound,
   LayoutTemplate, Navigation, PanelBottom, PanelTop, Image, FileText, Newspaper,
-  CircleHelp, Search, ShoppingCart, Package, FolderTree, Tag, Globe, Megaphone,
+  CircleHelp, Search, ShoppingCart, Package, FolderTree, Tag, Globe, Megaphone, ContactRound,
 };
 
 /* ── Nav data ──────────────────────────────────────────────────────────── */
@@ -330,6 +336,46 @@ function buildInventoryNavConfig(): NavItem[] {
   return items;
 }
 
+/** جهات الاتصال | التهيئة */
+function buildContactsNavConfig(): NavItem[] {
+  const items: NavItem[] = [
+    {
+      key: 'contacts-overview',
+      label: contactsAdminOverviewItem.labelAr,
+      href: contactsAdminOverviewItem.href,
+      icon: contactsAdminOverviewItem.icon,
+      isActive: (pathname) => pathname === '/contacts',
+    },
+  ];
+
+  for (const group of contactsAdminNavGroups) {
+    const flat = flattenContactsNavItems(group);
+    if (flat.length === 0 || group.key === 'directory') continue;
+
+    items.push({
+      key: group.key,
+      label: group.labelAr,
+      icon: group.icon,
+      isActive: (pathname) =>
+        flat.some((item) => {
+          const base = item.href.split('?')[0]!;
+          return pathname === base || pathname.startsWith(`${base}/`);
+        }),
+      groups: [
+        {
+          items: flat.map((item) => ({
+            label: item.labelAr,
+            href: item.href,
+            icon: item.icon,
+          })),
+        },
+      ],
+    });
+  }
+
+  return items;
+}
+
 /* ── Helpers ─────────────────────────────────────────────────────────── */
 function parentIsActive(pathname: string, item: NavItem) {
   if (item.isActive) return item.isActive(pathname);
@@ -516,22 +562,27 @@ export function Topbar() {
   const activeCompanyId = useAuthStore((s) => s.activeCompanyId);
   const ecommerceEnabled = isModuleEnabledFor('ecommerce', activeCompanyId);
   const inventoryEnabled = isModuleEnabledFor('inventory', activeCompanyId);
+  const contactsEnabled = isModuleEnabledFor('contacts', activeCompanyId);
   const inEcommerceApp = ecommerceEnabled && isEcommerceAppPath(pathname);
   const inInventoryApp = inventoryEnabled && isInventoryAppPath(pathname);
-  const inAppShell = inHrApp || inSystemApp || inEcommerceApp || inInventoryApp;
+  const inContactsApp = contactsEnabled && isContactsAppPath(pathname);
+  const inAppShell = inHrApp || inSystemApp || inEcommerceApp || inInventoryApp || inContactsApp;
   const tEcommerceNav = useTranslations('ecommerceAdmin.nav');
   const ecommerceNavConfig = React.useMemo(
     () => buildEcommerceNavConfig((key) => tEcommerceNav(key as 'overview')),
     [tEcommerceNav],
   );
   const inventoryNavConfig = React.useMemo(() => buildInventoryNavConfig(), []);
+  const contactsNavConfig = React.useMemo(() => buildContactsNavConfig(), []);
   const activeNavConfig = inSystemApp
     ? systemNavConfig
-    : inInventoryApp
-      ? inventoryNavConfig
-      : inEcommerceApp
-        ? ecommerceNavConfig
-        : navConfig;
+    : inContactsApp
+      ? contactsNavConfig
+      : inInventoryApp
+        ? inventoryNavConfig
+        : inEcommerceApp
+          ? ecommerceNavConfig
+          : navConfig;
   const onLauncher = isLauncherPath(pathname);
   const PageIcon = meta.iconName ? PAGE_ICONS[meta.iconName] : null;
 

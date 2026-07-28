@@ -14,7 +14,7 @@ import {
   UserCircle, Briefcase, UserPlus, Bell, Send, Inbox,   KeyRound, Banknote, Timer, Settings,
 } from 'lucide-react';
 import { cn } from '@/shared/utils';
-import { isHrAppPath, isSystemAppPath, isEcommerceAppPath, isInventoryAppPath } from '@/shared/app-paths';
+import { isHrAppPath, isSystemAppPath, isEcommerceAppPath, isInventoryAppPath, isContactsAppPath } from '@/shared/app-paths';
 import { Logo } from '@/components/layouts/logo';
 import { useDefaultCompanyBranding } from '@/features/auth/hooks/use-default-company-branding';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
@@ -41,6 +41,11 @@ import {
   inventoryAdminOverviewItem,
   flattenInventoryNavItems,
 } from '@/features/inventory/admin/constants/nav';
+import {
+  contactsAdminNavGroups,
+  contactsAdminOverviewItem,
+  flattenContactsNavItems,
+} from '@/features/contacts/admin/constants/nav';
 import { isModuleEnabledFor } from '@/shared/modules/registry';
 
 type MobileNavChild =
@@ -254,6 +259,37 @@ function buildInventoryMobileNav(): MobileNavItem[] {
   return items;
 }
 
+function buildContactsMobileNav(): MobileNavItem[] {
+  const items: MobileNavItem[] = [
+    { key: 'apps', label: 'التطبيقات', href: '/', icon: LayoutGrid },
+    {
+      key: 'overview',
+      label: contactsAdminOverviewItem.labelAr,
+      href: contactsAdminOverviewItem.href,
+      icon: contactsAdminOverviewItem.icon,
+    },
+  ];
+
+  for (const group of contactsAdminNavGroups) {
+    if (group.key === 'directory') continue;
+    const flat = flattenContactsNavItems(group);
+    if (flat.length === 0) continue;
+    items.push({
+      key: group.key,
+      label: group.labelAr,
+      icon: group.icon,
+      children: flat.map((item) => ({
+        label: item.labelAr,
+        href: item.href,
+        icon: item.icon,
+        match: 'prefix' as const,
+      })),
+    });
+  }
+
+  return items;
+}
+
 function MobileDrawer({ items, onClose }: { items: MobileNavItem[]; onClose: () => void }) {
   const { logoUrl, logoAlt } = useDefaultCompanyBranding();
   const pathname = usePathname();
@@ -430,12 +466,14 @@ export function Sidebar() {
   const activeCompanyId = useAuthStore((s) => s.activeCompanyId);
   const ecommerceEnabled = isModuleEnabledFor('ecommerce', activeCompanyId);
   const inventoryEnabled = isModuleEnabledFor('inventory', activeCompanyId);
+  const contactsEnabled = isModuleEnabledFor('contacts', activeCompanyId);
   const tNav = useTranslations('ecommerceAdmin.nav');
 
   const inAppShell = isHrAppPath(pathname)
     || isSystemAppPath(pathname)
     || (ecommerceEnabled && isEcommerceAppPath(pathname))
-    || (inventoryEnabled && isInventoryAppPath(pathname));
+    || (inventoryEnabled && isInventoryAppPath(pathname))
+    || (contactsEnabled && isContactsAppPath(pathname));
 
   React.useEffect(() => {
     if (!inAppShell) setOpen(false);
@@ -479,11 +517,13 @@ export function Sidebar() {
 
   const navItems = isSystemAppPath(pathname)
     ? systemMobileNav
-    : inventoryEnabled && isInventoryAppPath(pathname)
-      ? buildInventoryMobileNav()
-      : ecommerceEnabled && isEcommerceAppPath(pathname)
-        ? buildEcommerceMobileNav((key) => tNav(key as 'overview'))
-        : mobileNav;
+    : contactsEnabled && isContactsAppPath(pathname)
+      ? buildContactsMobileNav()
+      : inventoryEnabled && isInventoryAppPath(pathname)
+        ? buildInventoryMobileNav()
+        : ecommerceEnabled && isEcommerceAppPath(pathname)
+          ? buildEcommerceMobileNav((key) => tNav(key as 'overview'))
+          : mobileNav;
 
   return createPortal(
     <>
