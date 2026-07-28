@@ -413,6 +413,9 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
                               {line.sku}
                             </div>
                           ) : null}
+                          <div className="mt-0.5 text-xs text-muted-foreground">
+                            {line.variantId ? 'متغير' : 'المنتج الأساسي'}
+                          </div>
                         </td>
                         <td className="px-3 py-2.5">
                           <Input

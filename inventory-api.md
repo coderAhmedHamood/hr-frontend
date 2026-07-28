@@ -3,6 +3,10 @@
 > مرجع الـ Backend لموديول المخزون. متوافق مع [`inventory-database-schema.md`](./inventory-database-schema.md).  
 > الحقول في الـ JSON تكون **camelCase** (مثل `companyId`)، بينما في قاعدة البيانات **snake_case** (مثل `company_id`).
 
+> **حفظ منتج بخصائص ومتغيرات؟** استخدم الواجهة المركّبة بدل عشرات الطلبات الذرّية:  
+> [`inventory-products-full-api.md`](./inventory-products-full-api.md)  
+> (`POST/GET/PATCH /inventory/products/…/full`)
+
 ---
 
 ## 1. أساسيات الربط
@@ -759,6 +763,33 @@
 | GET | `/inventory/warehouse-operation-lines/:id` | read | |
 | PATCH | `/inventory/warehouse-operation-lines/:id` | update | |
 | DELETE | `/inventory/warehouse-operation-lines/:id` | delete → 204 | |
+
+### سياسة المخزون: منتج أساسي vs متغيرات (تجديد المخزون)
+
+الـ API الحالي كافٍ عبر `productId` + `variantId`. السياسة المطبّقة على الـ Backend (**مرنة + منع المزج**):
+
+| الوضع | `variantId` | متى |
+|--------|-------------|-----|
+| منتج أساسي فقط | `null` | مسموح حتى لو للمنتج متغيرات نشطة |
+| حسب المتغيرات | uuid لمتغير | المتغير نشط ويتبع نفس `productId` |
+| مزج الاثنين لنفس المنتج في نفس العملية | — | **مرفوض** `400` |
+
+قواعد التحقق:
+
+1. إن وُجد `variantId` → يجب أن يكون لنفس `productId`، نشطًا وغير مؤرشف.
+2. إن وُجد `variantId` والمنتج بلا متغيرات نشطة → رفض.
+3. كل الأسطر النشطة لنفس `productId` داخل نفس `operationId` يجب أن تكون إما كلها `variantId: null` أو كلها بـ `variantId`.
+4. عند إنشاء قيد Ledger: `variantId` يجب أن يطابق سطر العملية (أو يُحذف من الـ body ليُورَث من السطر).
+
+رسالة الخطأ عند المزج:
+
+```json
+{
+  "message": "Product has variants; each line must include variantId (or use product-only mode with no variants on any line)"
+}
+```
+
+**ما يفعله الـ Frontend:** في حوار تجديد المخزون اعرض اختيارًا — «المنتج الأساسي فقط» أو «حسب المتغيرات» — وابنِ الأسطر وفق الوضع دون مزج في نفس العملية.
 
 ### Create Body
 
