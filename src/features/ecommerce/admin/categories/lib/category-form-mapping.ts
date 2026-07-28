@@ -26,7 +26,7 @@ export function formValuesToCreateCategoryInput(
     companyId,
     nameAr: values.nameAr.trim(),
     nameEn: values.nameEn?.trim() || undefined,
-    slug: values.slug.trim(),
+    slug: values.slug.trim() || '',
     description: values.description?.trim() || undefined,
     parentId: values.parentId,
     image: values.imageUrl

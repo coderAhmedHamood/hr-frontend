@@ -7,8 +7,7 @@
  * Flow for every mutation: Inventory Ledger (history) → LocationStock (live) → product qty cache.
  */
 import { locationStockApi } from '@/features/inventory/admin/stock/lib/api/location-stock';
-import { inventoryLedgerApi } from '@/features/inventory/admin/operations/lib/api/inventory-ledger';
-import type { InventoryLedgerEntry } from '@/features/inventory/domain/types/inventory-ledger';
+import { warehouseOperationsApi } from '@/features/inventory/admin/operations/lib/api/warehouse-operations';
 import type { WarehouseOperation } from '@/features/inventory/domain/types/warehouse';
 import {
   applyDoneOperationToStock,
@@ -41,23 +40,6 @@ function assertOperationLinesHaveProductId(operation: WarehouseOperation): void 
   }
 }
 
-async function appendLedgerAndAdjust(
-  drafts: Omit<InventoryLedgerEntry, 'id' | 'createdAt'>[],
-): Promise<void> {
-  if (drafts.length === 0) return;
-  await inventoryLedgerApi.append(drafts);
-  for (const entry of drafts) {
-    await locationStockApi.adjust({
-      companyId: entry.companyId,
-      productId: entry.productId,
-      variantId: entry.variantId,
-      warehouseId: entry.warehouseId,
-      locationId: entry.locationId,
-      delta: entry.quantityDelta,
-    });
-  }
-}
-
 export const inventoryStockService = {
   /** Validate warehouse document → ledger + LocationStock + product cache. */
   async applyDoneOperation(operation: WarehouseOperation): Promise<void> {
@@ -71,8 +53,7 @@ export const inventoryStockService = {
   },
 
   /**
-   * Sales fulfillment: deduct allocated stock via ledger (kind=issue).
-   * Replaces direct locationStockApi.deduct from orders.
+   * Sales fulfillment: create a done `issue` operation (real UUIDs) then post ledger.
    */
   async issueForShipment(input: IssueForShipmentInput): Promise<void> {
     if (!input.productId?.trim()) {
@@ -82,32 +63,43 @@ export const inventoryStockService = {
       throw new Error('لا توجد بنود صرف.');
     }
 
-    const now = new Date().toISOString();
-    const operationId = `sales-${input.orderId}`;
-    const drafts: Omit<InventoryLedgerEntry, 'id' | 'createdAt'>[] = [];
+    const positiveLines = input.lines.filter((line) => line.quantity > 0);
+    if (positiveLines.length === 0) {
+      throw new Error('لا توجد كميات صرف موجبة.');
+    }
 
-    for (const [index, line] of input.lines.entries()) {
-      if (line.quantity <= 0) continue;
-      drafts.push({
+    // One warehouse document per warehouse in the allocation.
+    const byWarehouse = new Map<string, ShipmentIssueLine[]>();
+    for (const line of positiveLines) {
+      const list = byWarehouse.get(line.warehouseId) ?? [];
+      list.push(line);
+      byWarehouse.set(line.warehouseId, list);
+    }
+
+    const now = new Date().toISOString();
+    for (const [warehouseId, lines] of byWarehouse) {
+      await warehouseOperationsApi.create({
         companyId: input.companyId,
-        occurredAt: now,
-        operationId,
-        operationLineId: `${operationId}-L${index + 1}`,
-        operationReference: `SO/${input.orderNumber}`,
+        warehouseId,
         kind: 'issue',
-        productId: input.productId,
-        productName: input.productName,
-        variantId: line.variantId ?? input.variantId,
-        sku: input.sku,
-        warehouseId: line.warehouseId,
-        locationId: line.locationId,
-        quantityDelta: -line.quantity,
+        reference: `SO/${input.orderNumber}`,
+        status: 'done',
+        occurredAt: now,
         sourceDocument: input.orderNumber,
         notes: `صرف شحن طلب ${input.orderNumber}`,
+        lines: lines.map((line, index) => ({
+          id: `tmp-sales-${index}`,
+          productId: input.productId,
+          productName: input.productName,
+          sku: input.sku,
+          variantId: line.variantId ?? input.variantId,
+          demandQuantity: line.quantity,
+          quantity: line.quantity,
+          fromLocationId: line.locationId,
+        })),
       });
     }
 
-    await appendLedgerAndAdjust(drafts);
     await syncProductQuantityFromWarehouse(input.companyId, input.productId);
   },
 

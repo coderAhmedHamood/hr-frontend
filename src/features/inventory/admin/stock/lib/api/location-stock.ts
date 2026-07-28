@@ -1,33 +1,11 @@
-import { createMockRepository } from '@/features/ecommerce/shared/lib/mock/repository';
-import {
-  mockWarehouseLocationsStore,
-  mockWarehousesStore,
-} from '@/features/inventory/shared/lib/adapters/mock-inventory-store';
+import { inventoryLedgerApi } from '@/features/inventory/admin/operations/lib/api/inventory-ledger';
+import { warehousesApi } from '@/features/inventory/admin/warehouses/lib/api/warehouses';
+import { warehouseLocationsApi } from '@/features/inventory/admin/locations/lib/api/warehouse-locations';
 import type {
   LocationStock,
   LocationStockListQuery,
   StockAvailabilityRow,
 } from '@/features/inventory/domain/types/location-stock';
-import locationStockSeed from '@/features/inventory/shared/lib/mock/location-stock.json';
-
-const repository = createMockRepository<LocationStock>(
-  (locationStockSeed as LocationStock[]).map((row) => ({
-    ...row,
-    reservedQuantity: row.reservedQuantity ?? 0,
-  })),
-);
-
-function delay<T>(value: T): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(value), 120));
-}
-
-function newId() {
-  return `ls-${Math.random().toString(36).slice(2, 10)}`;
-}
-
-function availableOf(row: LocationStock): number {
-  return Math.max(0, row.quantity - (row.reservedQuantity ?? 0));
-}
 
 export type LocationStockAdjustInput = {
   companyId: string;
@@ -49,36 +27,99 @@ export type LocationStockReserveInput = {
   delta: number;
 };
 
+type StockKey = string;
+
+function stockKey(parts: {
+  companyId: string;
+  productId: string;
+  variantId?: string;
+  warehouseId: string;
+  locationId: string;
+}): StockKey {
+  return [
+    parts.companyId,
+    parts.productId,
+    parts.variantId ?? '',
+    parts.warehouseId,
+    parts.locationId,
+  ].join('|');
+}
+
+/** Session-only reservations — backend has no location-stock / reserve API yet. */
+const reservedByKey = new Map<StockKey, number>();
+
+function availableOf(row: LocationStock): number {
+  return Math.max(0, row.quantity - (row.reservedQuantity ?? 0));
+}
+
 /**
- * Low-level LocationStock store.
- * Mutations (adjust / reserve / deduct) are for inventoryStockService only.
- * External modules (Sales, UI) must use inventoryStockService.
+ * Live balances derived from `/inventory/ledger-entries`.
+ * There is no location-stock API; ledger is the source of truth.
  */
 export const locationStockApi = {
   async list(query: LocationStockListQuery): Promise<LocationStock[]> {
-    const result = await repository.list(
-      { companyId: query.companyId, page: 1, limit: 500 },
-      (item, q) => {
-        if (query.productId && item.productId !== query.productId) return false;
-        if (query.variantId !== undefined) {
-          if (query.variantId === '') {
-            if (item.variantId) return false;
-          } else if (item.variantId !== query.variantId) {
-            return false;
-          }
+    const ledger = await inventoryLedgerApi.list({
+      companyId: query.companyId,
+      productId: query.productId,
+      warehouseId: query.warehouseId,
+      locationId: query.locationId,
+      page: 1,
+      limit: 500,
+    });
+
+    const aggregated = new Map<StockKey, LocationStock>();
+    for (const entry of ledger.items) {
+      if (query.variantId !== undefined) {
+        if (query.variantId === '') {
+          if (entry.variantId) continue;
+        } else if (entry.variantId !== query.variantId) {
+          continue;
         }
-        if (query.warehouseId && item.warehouseId !== query.warehouseId) return false;
-        if (query.locationId && item.locationId !== query.locationId) return false;
-        return item.companyId === q.companyId;
-      },
-    );
-    return result.items.map((row) => ({
-      ...row,
-      reservedQuantity: row.reservedQuantity ?? 0,
-    }));
+      }
+
+      const key = stockKey({
+        companyId: entry.companyId,
+        productId: entry.productId,
+        variantId: entry.variantId,
+        warehouseId: entry.warehouseId,
+        locationId: entry.locationId,
+      });
+      const existing = aggregated.get(key);
+      if (existing) {
+        existing.quantity += entry.quantityDelta;
+        existing.updatedAt =
+          entry.createdAt > existing.updatedAt ? entry.createdAt : existing.updatedAt;
+      } else {
+        aggregated.set(key, {
+          id: key,
+          companyId: entry.companyId,
+          productId: entry.productId,
+          variantId: entry.variantId,
+          warehouseId: entry.warehouseId,
+          locationId: entry.locationId,
+          quantity: entry.quantityDelta,
+          reservedQuantity: reservedByKey.get(key) ?? 0,
+          updatedAt: entry.createdAt,
+        });
+      }
+    }
+
+    return [...aggregated.values()]
+      .map((row) => ({
+        ...row,
+        reservedQuantity: reservedByKey.get(
+          stockKey({
+            companyId: row.companyId,
+            productId: row.productId,
+            variantId: row.variantId,
+            warehouseId: row.warehouseId,
+            locationId: row.locationId,
+          }),
+        ) ?? row.reservedQuantity ?? 0,
+      }))
+      .filter((row) => row.quantity !== 0 || (row.reservedQuantity ?? 0) !== 0);
   },
 
-  /** On-hand qty at internal warehouse locations only. */
   async getOnHandTotal(
     companyId: string,
     productId: string,
@@ -88,14 +129,13 @@ export const locationStockApi = {
     return summary.onHand;
   },
 
-  /** Totals keyed by variantId (empty string = product-level / no variant). */
   async getOnHandByVariant(
     companyId: string,
     productId: string,
   ): Promise<{ total: number; byVariant: Record<string, number> }> {
     const [stocks, locations] = await Promise.all([
       this.list({ companyId, productId }),
-      mockWarehouseLocationsStore.list({ companyId, page: 1, limit: 500 }),
+      warehouseLocationsApi.getAll({ companyId, page: 1, limit: 500 }),
     ]);
     const internalIds = new Set(
       locations.items.filter((location) => location.locationType === 'internal').map((l) => l.id),
@@ -111,7 +151,6 @@ export const locationStockApi = {
     return { total, byVariant };
   },
 
-  /** On Hand / Reserved / Available at internal locations. */
   async getStockSummary(
     companyId: string,
     productId: string,
@@ -123,7 +162,7 @@ export const locationStockApi = {
         productId,
         ...(options?.variantId !== undefined ? { variantId: options.variantId } : {}),
       }),
-      mockWarehouseLocationsStore.list({ companyId, page: 1, limit: 500 }),
+      warehouseLocationsApi.getAll({ companyId, page: 1, limit: 500 }),
     ]);
     const internalIds = new Set(
       locations.items.filter((location) => location.locationType === 'internal').map((l) => l.id),
@@ -141,8 +180,8 @@ export const locationStockApi = {
   async getAvailability(companyId: string, productId: string): Promise<StockAvailabilityRow[]> {
     const [stocks, warehouses, locations] = await Promise.all([
       this.list({ companyId, productId }),
-      mockWarehousesStore.list({ companyId, page: 1, limit: 200 }),
-      mockWarehouseLocationsStore.list({ companyId, page: 1, limit: 500 }),
+      warehousesApi.getAll({ companyId, page: 1, limit: 200 }),
+      warehouseLocationsApi.getAll({ companyId, page: 1, limit: 500 }),
     ]);
 
     const warehouseMap = new Map(warehouses.items.map((w) => [w.id, w]));
@@ -167,7 +206,12 @@ export const locationStockApi = {
       .sort((a, b) => b.availableQuantity - a.availableQuantity);
   },
 
+  /**
+   * No-op for live balances — ledger append already recorded the movement.
+   * Kept so applyDoneOperation can still call adjust without double-writing.
+   */
   async adjust(input: LocationStockAdjustInput): Promise<LocationStock> {
+    const key = stockKey(input);
     const stocks = await this.list({
       companyId: input.companyId,
       productId: input.productId,
@@ -177,33 +221,19 @@ export const locationStockApi = {
     const existing = stocks.find((row) =>
       input.variantId ? row.variantId === input.variantId : !row.variantId,
     );
-    const nextQty = (existing?.quantity ?? 0) + input.delta;
-    if (nextQty < 0) {
-      throw new Error('الكمية في الموقع غير كافية لإتمام الحركة.');
-    }
-    const now = new Date().toISOString();
-    if (existing) {
-      const updated = await repository.update(input.companyId, existing.id, {
-        quantity: nextQty,
-        updatedAt: now,
-      });
-      if (!updated) throw new Error('تعذر تحديث مخزون الموقع.');
-      return { ...updated, reservedQuantity: updated.reservedQuantity ?? 0 };
-    }
-    return repository.create({
-      id: newId(),
+    return {
+      id: existing?.id ?? key,
       companyId: input.companyId,
       productId: input.productId,
       variantId: input.variantId,
       warehouseId: input.warehouseId,
       locationId: input.locationId,
-      quantity: nextQty,
-      reservedQuantity: 0,
-      updatedAt: now,
-    });
+      quantity: (existing?.quantity ?? 0),
+      reservedQuantity: reservedByKey.get(key) ?? 0,
+      updatedAt: new Date().toISOString(),
+    };
   },
 
-  /** Reserve (+) or release (−) quantity without changing on-hand. */
   async reserve(input: LocationStockReserveInput): Promise<LocationStock> {
     const stocks = await this.list({
       companyId: input.companyId,
@@ -217,32 +247,24 @@ export const locationStockApi = {
     if (!existing) {
       throw new Error('لا يوجد رصيد في الموقع للحجز.');
     }
-    const nextReserved = (existing.reservedQuantity ?? 0) + input.delta;
+    const key = stockKey(input);
+    const nextReserved = (reservedByKey.get(key) ?? existing.reservedQuantity ?? 0) + input.delta;
     if (nextReserved < 0) {
       throw new Error('لا يمكن تحرير كمية محجوزة أكبر من المحجوز.');
     }
     if (nextReserved > existing.quantity) {
       throw new Error('الكمية المتاحة غير كافية للحجز.');
     }
-    const updated = await repository.update(input.companyId, existing.id, {
-      reservedQuantity: nextReserved,
-      updatedAt: new Date().toISOString(),
-    });
-    if (!updated) throw new Error('تعذر تحديث الحجز.');
-    return { ...updated, reservedQuantity: updated.reservedQuantity ?? 0 };
+    reservedByKey.set(key, nextReserved);
+    return { ...existing, reservedQuantity: nextReserved, updatedAt: new Date().toISOString() };
   },
 
-  /**
-   * @deprecated Do not call from Sales/UI. Use inventoryStockService.issueForShipment.
-   * Kept only so accidental callers fail loudly.
-   */
   async deduct(): Promise<void> {
     throw new Error(
       'locationStockApi.deduct محظور — استخدم inventoryStockService.issueForShipment.',
     );
   },
 
-  /** Quantity currently on hand at a location (for stock count theoretical). */
   async getQuantityAtLocation(
     companyId: string,
     productId: string,

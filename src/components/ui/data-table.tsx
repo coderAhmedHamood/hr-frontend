@@ -173,7 +173,7 @@ interface PaginationProps {
 
 export function AppPagination({
   page, pageSize, total, onPageChange, onPageSizeChange,
-  pageSizeOptions = [10, 20, 50],
+  pageSizeOptions = [10, 20, 30, 50],
 }: PaginationProps) {
   const totalPages = Math.ceil(total / pageSize);
 

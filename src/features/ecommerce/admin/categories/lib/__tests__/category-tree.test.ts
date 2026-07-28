@@ -1,4 +1,5 @@
 import {
+  collectDescendantIds,
   getCategoryDepth,
   getCategoryPath,
   sortCategoriesAsTree,
@@ -71,5 +72,10 @@ describe('category-tree', () => {
   it('sorts parents before children', () => {
     const shuffled = [sample[3]!, sample[1]!, sample[0]!, sample[2]!];
     expect(sortCategoriesAsTree(shuffled).map((item) => item.id)).toEqual(['r', 'a', 'b', 'c4']);
+  });
+
+  it('collects self and descendants for parent exclusion', () => {
+    expect([...collectDescendantIds('a', sample)].sort()).toEqual(['a', 'b', 'c4']);
+    expect([...collectDescendantIds('c4', sample)]).toEqual(['c4']);
   });
 });

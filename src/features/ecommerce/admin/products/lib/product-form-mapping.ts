@@ -28,6 +28,14 @@ function optionalPositive(value: number | undefined): number | undefined {
   return value;
 }
 
+/** Select "none" / empty → null so the API never receives "" or placeholders. */
+function optionalRelationId(value: string | null | undefined): string | null {
+  if (value == null) return null;
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === '__none__') return null;
+  return trimmed;
+}
+
 function variantToForm(variant: ProductVariant) {
   return {
     id: variant.id,
@@ -112,9 +120,10 @@ export function productToFormValues(product: Product): ProductFormInput {
     purchaseOk: product.purchaseOk ?? true,
     attributes: (product.attributes ?? []).map((attribute) => ({
       ...attribute,
-      values: attribute.values.map((value) =>
-        normalizeAttributeValue(value, attribute.displayType),
-      ),
+      values: attribute.values.map((value) => ({
+        ...normalizeAttributeValue(value, attribute.displayType),
+        catalogAttributeValueId: value.catalogAttributeValueId,
+      })),
     })),
     variants: (product.variants ?? []).map(variantToForm),
     uomLines:
@@ -187,8 +196,8 @@ export function formValuesToCreateInput(
     slug: values.slug,
     shortDescription: values.shortDescription || undefined,
     description: values.description || undefined,
-    categoryId: values.categoryId ?? null,
-    brandId: values.brandId ?? null,
+    categoryId: optionalRelationId(values.categoryId),
+    brandId: optionalRelationId(values.brandId),
     status: values.status,
     stockStatus,
     inventory: {

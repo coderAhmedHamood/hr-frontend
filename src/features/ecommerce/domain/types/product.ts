@@ -34,6 +34,8 @@ export type ProductAttributeValue = {
   defaultExtraPrice?: number;
   colorHex?: string;
   imageUrl?: string;
+  /** When applying from catalog before first save — not a product_attribute_values id. */
+  catalogAttributeValueId?: string;
   /** @deprecated Prefer colorHex / imageUrl */
   extra?: string;
 };

@@ -16,7 +16,8 @@ import {
   WAREHOUSE_OPERATION_KIND_META,
 } from '@/features/inventory/domain/constants/warehouse-operation-kinds';
 import type { WarehouseOperationKind } from '@/features/inventory/domain/types/warehouse';
-import { DataTable, type ColumnDef } from '@/components/ui/data-table';
+import { DataTable, AppPagination, usePagination, type ColumnDef } from '@/components/ui/data-table';
+import { DEFAULT_PAGE_SIZE } from '@/components/ui/paged-list';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -62,6 +63,15 @@ export function MovesAnalysisReportPage() {
     });
     return aggregateMovesByKindAndWarehouse(dated);
   }, [data?.items, locations, locationName, dateFrom, dateTo]);
+
+  const {
+    page,
+    setPage,
+    pageSize,
+    setPageSize,
+    slice: pagedRows,
+    total,
+  } = usePagination(rows, DEFAULT_PAGE_SIZE);
 
   const summary = React.useMemo(() => {
     return {
@@ -190,10 +200,18 @@ export function MovesAnalysisReportPage() {
 
       <DataTable
         columns={columns}
-        data={rows}
+        data={pagedRows}
         keyExtractor={(row) => row.key}
         loading={isLoading}
         emptyText="لا توجد حركات منتهية للتحليل."
+      />
+
+      <AppPagination
+        page={page}
+        pageSize={pageSize}
+        total={total}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
       />
     </div>
   );

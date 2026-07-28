@@ -30,6 +30,9 @@ import { cn } from '@/shared/utils';
 
 type VariantRow = ProductFormInput['variants'][number];
 
+/** Matches inventory-stock-mode-contract.md — never mix in one operation. */
+type StockLineMode = 'product' | 'variants';
+
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -46,12 +49,37 @@ type DraftLine = {
   key: string;
   nameAr: string;
   sku: string;
-  variantId?: string;
+  /** undefined/omitted only in UI draft; submit always sends null or uuid */
+  variantId: string | null;
   quantity: number;
 };
 
 function newLineId() {
   return `opl-${Math.random().toString(36).slice(2, 9)}`;
+}
+
+function activeVariants(variants: VariantRow[]): VariantRow[] {
+  return variants.filter((variant) => variant.isActive !== false);
+}
+
+function buildProductLine(productNameAr: string, productSku: string): DraftLine {
+  return {
+    key: 'product',
+    nameAr: productNameAr || 'المنتج الأساسي',
+    sku: productSku,
+    variantId: null,
+    quantity: 0,
+  };
+}
+
+function buildVariantLines(variants: VariantRow[], productSku: string): DraftLine[] {
+  return variants.map((variant, index) => ({
+    key: variant.id || `v-${index}`,
+    nameAr: variant.nameAr,
+    sku: variant.sku || productSku,
+    variantId: variant.id,
+    quantity: 0,
+  }));
 }
 
 export function ProductStockMoveRequestDialog({
@@ -69,9 +97,13 @@ export function ProductStockMoveRequestDialog({
   const { data: warehousesData } = useWarehouses({ companyId, limit: 100 });
   const warehouses = warehousesData?.items ?? [];
 
+  const selectableVariants = React.useMemo(() => activeVariants(variants), [variants]);
+  const hasVariants = selectableVariants.length > 0;
+
   const [warehouseId, setWarehouseId] = React.useState('');
   const [locationId, setLocationId] = React.useState('');
   const [toLocationId, setToLocationId] = React.useState('');
+  const [stockMode, setStockMode] = React.useState<StockLineMode>('product');
   const [lines, setLines] = React.useState<DraftLine[]>([]);
   const [saving, setSaving] = React.useState(false);
 
@@ -88,27 +120,15 @@ export function ProductStockMoveRequestDialog({
     if (!open) return;
     const firstWarehouse = warehouses[0]?.id ?? '';
     setWarehouseId((prev) => prev || firstWarehouse);
-    if (variants.length > 0) {
-      setLines(
-        variants.map((variant, index) => ({
-          key: variant.id || `v-${index}`,
-          nameAr: variant.nameAr,
-          sku: variant.sku || productSku,
-          variantId: variant.id,
-          quantity: 0,
-        })),
-      );
-    } else {
-      setLines([
-        {
-          key: 'product',
-          nameAr: productNameAr || 'المنتج',
-          sku: productSku,
-          quantity: 0,
-        },
-      ]);
-    }
-  }, [open, variants, productNameAr, productSku, warehouses]);
+    // Default: product-only when no variants; otherwise start on variants (user can switch).
+    const initialMode: StockLineMode = hasVariants ? 'variants' : 'product';
+    setStockMode(initialMode);
+    setLines(
+      initialMode === 'variants'
+        ? buildVariantLines(selectableVariants, productSku)
+        : [buildProductLine(productNameAr, productSku)],
+    );
+  }, [open, hasVariants, selectableVariants, productNameAr, productSku, warehouses]);
 
   React.useEffect(() => {
     if (!open || !warehouseId) return;
@@ -119,6 +139,15 @@ export function ProductStockMoveRequestDialog({
       locations.find((location) => location.id !== stockLoc?.id) ?? locations[0];
     setToLocationId(second?.id ?? stockLoc?.id ?? '');
   }, [open, warehouseId, locations]);
+
+  function applyStockMode(mode: StockLineMode) {
+    setStockMode(mode);
+    setLines(
+      mode === 'variants'
+        ? buildVariantLines(selectableVariants, productSku)
+        : [buildProductLine(productNameAr, productSku)],
+    );
+  }
 
   const kindMeta = WAREHOUSE_OPERATION_KIND_META[kind];
   const stockEffect = kindMeta.stockEffect;
@@ -147,14 +176,18 @@ export function ProductStockMoveRequestDialog({
       return;
     }
 
+    // Contract: all lines same mode — product → variantId null; variants → uuid only for qty > 0.
     const opLines = lines
       .filter((line) => line.quantity > 0)
       .map((line) => ({
         id: newLineId(),
-        productName: line.nameAr,
+        productName:
+          stockMode === 'product'
+            ? productNameAr || 'المنتج الأساسي'
+            : line.nameAr,
         sku: line.sku || undefined,
         productId,
-        variantId: line.variantId,
+        variantId: stockMode === 'product' ? null : line.variantId,
         demandQuantity: line.quantity,
         quantity: line.quantity,
         ...(stockEffect === 'inbound'
@@ -166,6 +199,11 @@ export function ProductStockMoveRequestDialog({
                 toLocationId: toLocationId || undefined,
               }),
       }));
+
+    if (stockMode === 'variants' && opLines.some((line) => !line.variantId)) {
+      toast.error('وضع المتغيرات يتطلب اختيار متغير لكل سطر.');
+      return;
+    }
 
     setSaving(true);
     try {
@@ -182,7 +220,7 @@ export function ProductStockMoveRequestDialog({
             : kind === 'issue'
               ? 'طلب توصيل يدوي'
               : 'حركة داخلية يدوية',
-        notes: `طلب ${kindMeta.labelAr} للمنتج ${productNameAr}`,
+        notes: `طلب ${kindMeta.labelAr} للمنتج ${productNameAr} (${stockMode === 'product' ? 'منتج أساسي' : 'متغيرات'})`,
         lines: opLines,
       });
       void queryClient.invalidateQueries({ queryKey: warehouseOperationsQueryKeys.root(companyId) });
@@ -275,11 +313,34 @@ export function ProductStockMoveRequestDialog({
             ) : null}
           </div>
 
+          {hasVariants ? (
+            <div className="space-y-1.5">
+              <Label>نطاق الكمية</Label>
+              <Select
+                value={stockMode}
+                onValueChange={(value) => applyStockMode(value as StockLineMode)}
+              >
+                <SelectTrigger aria-label="نطاق الكمية">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="product">المنتج الأساسي فقط</SelectItem>
+                  <SelectItem value="variants">حسب المتغيرات</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                لا يمكن مزج الوضعين في نفس الطلب. اختر أحدهما ثم أدخل الكميات.
+              </p>
+            </div>
+          ) : null}
+
           <div className="overflow-hidden rounded-lg border border-border">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/30 text-muted-foreground">
-                  <th className="px-3 py-2.5 text-start font-medium">المنتج / المتغير</th>
+                  <th className="px-3 py-2.5 text-start font-medium">
+                    {stockMode === 'variants' ? 'المتغير' : 'المنتج'}
+                  </th>
                   <th className="px-3 py-2.5 text-start font-medium">الكمية المطلوبة</th>
                 </tr>
               </thead>
@@ -291,6 +352,9 @@ export function ProductStockMoveRequestDialog({
                       <div className="text-xs text-muted-foreground" dir="ltr">
                         {line.sku}
                       </div>
+                      {stockMode === 'product' ? (
+                        <div className="mt-0.5 text-xs text-muted-foreground">منتج أساسي (بدون متغير)</div>
+                      ) : null}
                     </td>
                     <td className="px-3 py-2.5">
                       <Input

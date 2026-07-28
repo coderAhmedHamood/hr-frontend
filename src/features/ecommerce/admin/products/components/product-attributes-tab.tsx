@@ -39,6 +39,10 @@ function newLineId() {
   return `pline-${Math.random().toString(36).slice(2, 9)}`;
 }
 
+function newValueClientKey() {
+  return `pval-${Math.random().toString(36).slice(2, 9)}`;
+}
+
 function catalogToLine(attribute: CatalogAttribute): ProductAttributeLine {
   return {
     id: newLineId(),
@@ -49,7 +53,8 @@ function catalogToLine(attribute: CatalogAttribute): ProductAttributeLine {
     values: attribute.values.map((raw) => {
       const value = normalizeAttributeValue(raw, attribute.displayType);
       return {
-        id: value.id,
+        id: newValueClientKey(),
+        catalogAttributeValueId: value.id,
         nameAr: value.nameAr,
         freeText: value.freeText,
         defaultExtraPrice: value.defaultExtraPrice,
@@ -108,8 +113,18 @@ export function ProductAttributesTab({ control, errors, register, setValue, prod
 
   React.useEffect(() => {
     if (configureIndex === null || !configureLine) return;
+    if (configureCatalog) {
+      setSelectedValueIds(
+        new Set(
+          configureLine.values
+            .map((value) => value.catalogAttributeValueId)
+            .filter((id): id is string => Boolean(id)),
+        ),
+      );
+      return;
+    }
     setSelectedValueIds(new Set(configureLine.values.map((value) => value.id)));
-  }, [configureIndex, configureLine]);
+  }, [configureIndex, configureLine, configureCatalog]);
 
   function applyFromCatalog(attributeId: string) {
     const attribute = catalog.find((item) => item.id === attributeId);
@@ -124,35 +139,50 @@ export function ProductAttributesTab({ control, errors, register, setValue, prod
 
   function saveConfigure() {
     if (configureIndex === null || !configureLine) return;
-    const sourceValues = (configureCatalog?.values ?? configureLine.values) as Array<{
-      id: string;
-      nameAr: string;
-      freeText?: string;
-      defaultExtraPrice?: number;
-      colorHex?: string;
-      imageUrl?: string;
-      extra?: string;
-    }>;
-    const nextValues = sourceValues
-      .map((raw) => {
-        const value = normalizeAttributeValue(raw, configureLine.displayType);
-        return {
-          id: value.id,
-          nameAr: value.nameAr,
-          freeText: value.freeText,
-          defaultExtraPrice: value.defaultExtraPrice,
-          colorHex: value.colorHex,
-          imageUrl: value.imageUrl,
-        };
-      })
-      .filter((value) => selectedValueIds.has(value.id));
 
+    if (configureCatalog) {
+      const existingByCatalogId = new Map(
+        configureLine.values
+          .filter((value) => value.catalogAttributeValueId)
+          .map((value) => [value.catalogAttributeValueId!, value]),
+      );
+      const nextValues = configureCatalog.values
+        .filter((raw) => selectedValueIds.has(raw.id))
+        .map((raw) => {
+          const value = normalizeAttributeValue(raw, configureLine.displayType);
+          const existing = existingByCatalogId.get(value.id);
+          if (existing) {
+            return {
+              ...existing,
+              nameAr: value.nameAr,
+              freeText: value.freeText,
+              defaultExtraPrice: value.defaultExtraPrice,
+              colorHex: value.colorHex,
+              imageUrl: value.imageUrl,
+              catalogAttributeValueId: value.id,
+            };
+          }
+          return {
+            id: newValueClientKey(),
+            catalogAttributeValueId: value.id,
+            nameAr: value.nameAr,
+            freeText: value.freeText,
+            defaultExtraPrice: value.defaultExtraPrice,
+            colorHex: value.colorHex,
+            imageUrl: value.imageUrl,
+          };
+        });
+
+      if (nextValues.length === 0) return;
+      update(configureIndex, { ...configureLine, values: nextValues });
+      setConfigureIndex(null);
+      return;
+    }
+
+    const sourceValues = configureLine.values;
+    const nextValues = sourceValues.filter((value) => selectedValueIds.has(value.id));
     if (nextValues.length === 0) return;
-
-    update(configureIndex, {
-      ...configureLine,
-      values: nextValues,
-    });
+    update(configureIndex, { ...configureLine, values: nextValues });
     setConfigureIndex(null);
   }
 

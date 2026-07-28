@@ -9,4 +9,5 @@ import type { ProductListQuery } from '@/features/ecommerce/domain/types/product
 export const productsQueryKeys = {
   all: (companyId: string) => [companyId, 'ecommerce', 'products'] as const,
   list: (query: ProductListQuery) => [...productsQueryKeys.all(query.companyId), 'list', query] as const,
+  detail: (companyId: string, id: string) => [...productsQueryKeys.all(companyId), 'detail', id] as const,
 };

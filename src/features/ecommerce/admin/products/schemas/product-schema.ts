@@ -42,6 +42,7 @@ const attributeValueSchema = z.object({
   defaultExtraPrice: z.coerce.number().min(0).optional(),
   colorHex: z.string().trim().optional(),
   imageUrl: z.string().trim().optional(),
+  catalogAttributeValueId: z.string().optional(),
   extra: z.string().trim().optional(),
 });
 
@@ -87,7 +88,7 @@ const variantSchema = z.object({
 
 export const productFormSchema = z
   .object({
-    sku: z.string().trim(),
+    sku: z.string().trim().min(1, 'رمز المنتج (SKU) مطلوب'),
     nameAr: z.string().trim().min(1, 'اسم المنتج مطلوب'),
     nameEn: z.string().trim().optional(),
     slug: z

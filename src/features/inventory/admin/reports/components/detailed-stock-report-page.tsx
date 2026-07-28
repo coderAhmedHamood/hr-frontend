@@ -10,7 +10,8 @@ import { useProducts } from '@/features/ecommerce/admin/products/hooks/use-produ
 import type { WarehouseLocationType } from '@/features/inventory/domain/types/warehouse';
 import { ListToolbar } from '@/components/ui/list-toolbar';
 import { Badge } from '@/components/ui/badge';
-import { DataTable, type ColumnDef } from '@/components/ui/data-table';
+import { DataTable, AppPagination, usePagination, type ColumnDef } from '@/components/ui/data-table';
+import { DEFAULT_PAGE_SIZE } from '@/components/ui/paged-list';
 import {
   Select,
   SelectContent,
@@ -114,6 +115,15 @@ export function DetailedStockReportPage() {
       );
     });
   }, [rows, search, hideZero, locationType]);
+
+  const {
+    page,
+    setPage,
+    pageSize,
+    setPageSize,
+    slice: pagedRows,
+    total,
+  } = usePagination(filtered, DEFAULT_PAGE_SIZE);
 
   const columns: ColumnDef<DetailedStockRow>[] = [
     {
@@ -252,10 +262,18 @@ export function DetailedStockReportPage() {
 
       <DataTable
         columns={columns}
-        data={filtered}
+        data={pagedRows}
         keyExtractor={(row) => row.key}
         loading={isLoading}
         emptyText="لا توجد صفوف مخزون تفصيلي."
+      />
+
+      <AppPagination
+        page={page}
+        pageSize={pageSize}
+        total={total}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
       />
     </div>
   );
