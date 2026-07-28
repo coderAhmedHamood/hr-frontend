@@ -1,6 +1,10 @@
 'use client';
 
 import { SetPageTitle } from '@/components/layouts/set-page-title';
+import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
+import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
+import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
+import { PageHeaderPrimaryButton } from '@/components/layouts/page-header-primary-button';
 import * as React from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Pencil, Plus, Trash2, Package } from 'lucide-react';
@@ -11,14 +15,19 @@ import { useCategories } from '@/features/ecommerce/admin/categories/hooks/use-c
 import { useBrands } from '@/features/ecommerce/admin/brands/hooks/use-brands';
 import { ProductFormDialog } from '@/features/ecommerce/admin/products/components/product-form-dialog';
 import { DeleteProductDialog } from '@/features/ecommerce/admin/products/components/delete-product-dialog';
-import { ProductFiltersBar, type ProductFilters } from '@/features/ecommerce/admin/products/components/product-filters-bar';
+import { type ProductFilters } from '@/features/ecommerce/admin/products/components/product-filters-bar';
+import {
+  categoryFilterLabel,
+  sortCategoriesAsTree,
+} from '@/features/ecommerce/admin/categories/lib/category-tree';
 import { formatPrice } from '@/features/ecommerce/shared/utils/format-price';
-import { PRODUCT_STATUS_LABELS_AR } from '@/features/ecommerce/domain/constants/product-status';
-import { STOCK_STATUS_LABELS_AR } from '@/features/ecommerce/domain/constants/stock-status';
+import { PRODUCT_STATUS_LABELS_AR, PRODUCT_STATUS_OPTIONS } from '@/features/ecommerce/domain/constants/product-status';
+import { STOCK_STATUS_LABELS_AR, STOCK_STATUS_OPTIONS } from '@/features/ecommerce/domain/constants/stock-status';
 import type { Product, ProductListQuery } from '@/features/ecommerce/domain/types/product';
 import type { ProductStatus } from '@/features/ecommerce/domain/constants/product-status';
 import type { StockStatus } from '@/features/ecommerce/domain/constants/stock-status';
-import { ListToolbar } from '@/components/ui/list-toolbar';
+import { ListFilterBar } from '@/components/ui/list-filter-bar';
+import { EntityFilterSearchField } from '@/components/ui/entity-filter-search-field';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DataTable, AppPagination, type ColumnDef } from '@/components/ui/data-table';
@@ -38,6 +47,14 @@ const STOCK_BADGE_VARIANT: Record<StockStatus, 'success' | 'destructive' | 'warn
   preorder: 'warning',
   discontinued: 'outline',
 };
+
+const SORT_OPTIONS: { value: NonNullable<ProductListQuery['sort']>; labelAr: string }[] = [
+  { value: 'name', labelAr: 'الاسم' },
+  { value: 'price', labelAr: 'السعر' },
+  { value: 'stock', labelAr: 'الكمية' },
+  { value: 'createdAt', labelAr: 'تاريخ الإضافة' },
+  { value: 'updatedAt', labelAr: 'آخر تحديث' },
+];
 
 export function ProductsListPage() {
   const companyId = getStorefrontCompanyId();
@@ -118,6 +135,104 @@ export function ProductsListPage() {
     setProductToDelete(null);
   };
 
+  const categoryByIdMap = React.useMemo(
+    () => new Map((categoriesData?.items ?? []).map((category) => [category.id, category])),
+    [categoriesData],
+  );
+  const categoryOptions = React.useMemo(() => {
+    const ordered = sortCategoriesAsTree(categoriesData?.items ?? []);
+    return ordered.map((category) => ({
+      value: category.id,
+      label: categoryFilterLabel(category, categoryByIdMap),
+    }));
+  }, [categoriesData, categoryByIdMap]);
+
+  usePageHeaderActions(
+    () => (
+      <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
+        <FilterToggleButton />
+        <PageHeaderPrimaryButton icon={Plus} label="إضافة منتج" disabled={!companyId} onClick={openCreateDialog} />
+      </div>
+    ),
+    [companyId],
+  );
+
+  useEntityFilterSlot(
+    () => (
+      <ListFilterBar
+        showDateSection={false}
+        showStatusSection={false}
+        showEmployeePicker={false}
+        leadingFilters={
+          <EntityFilterSearchField
+            value={searchInput}
+            onChange={setSearchInput}
+            placeholder="ابحث بالاسم أو رمز المنتج…"
+          />
+        }
+        inlineSelects={[
+          {
+            id: 'categoryId',
+            value: filters.categoryId ?? 'all',
+            onChange: (value) => updateParams({ categoryId: value === 'all' ? undefined : value, page: 1 }),
+            placeholder: 'كل التصنيفات',
+            options: [{ value: 'all', label: 'كل التصنيفات' }, ...categoryOptions],
+          },
+          {
+            id: 'brandId',
+            value: filters.brandId ?? 'all',
+            onChange: (value) => updateParams({ brandId: value === 'all' ? undefined : value, page: 1 }),
+            placeholder: 'كل العلامات التجارية',
+            options: [
+              { value: 'all', label: 'كل العلامات التجارية' },
+              ...(brandsData?.items ?? []).map((brand) => ({ value: brand.id, label: brand.nameAr })),
+            ],
+          },
+          {
+            id: 'status',
+            value: filters.status ?? 'all',
+            onChange: (value) =>
+              updateParams({ status: value === 'all' ? undefined : (value as ProductFilters['status']), page: 1 }),
+            placeholder: 'كل الحالات',
+            options: [
+              { value: 'all', label: 'كل الحالات' },
+              ...PRODUCT_STATUS_OPTIONS.map((option) => ({ value: option.value, label: option.labelAr })),
+            ],
+          },
+          {
+            id: 'stockStatus',
+            value: filters.stockStatus ?? 'all',
+            onChange: (value) =>
+              updateParams({ stockStatus: value === 'all' ? undefined : (value as ProductFilters['stockStatus']), page: 1 }),
+            placeholder: 'كل حالات التوفر',
+            options: [
+              { value: 'all', label: 'كل حالات التوفر' },
+              ...STOCK_STATUS_OPTIONS.map((option) => ({ value: option.value, label: option.labelAr })),
+            ],
+          },
+        ]}
+        moreFilters={[
+          {
+            id: 'sort',
+            value: filters.sort ?? 'all',
+            onChange: (value) =>
+              updateParams({
+                sort: value === 'all' ? undefined : (value as ProductFilters['sort']),
+                sortDirection: filters.sortDirection ?? 'asc',
+                page: 1,
+              }),
+            placeholder: 'الترتيب الافتراضي',
+            options: [
+              { value: 'all', label: 'الترتيب الافتراضي' },
+              ...SORT_OPTIONS.map((option) => ({ value: option.value, label: option.labelAr })),
+            ],
+          },
+        ]}
+      />
+    ),
+    [searchInput, filters, categoryOptions, brandsData],
+  );
+
   const columns: ColumnDef<Product>[] = [
     {
       key: 'product',
@@ -183,26 +298,10 @@ export function ProductsListPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <SetPageTitle titleAr="المنتجات" iconName="Package" />
-
-      <ListToolbar
-        searchValue={searchInput}
-        onSearchChange={setSearchInput}
-        searchPlaceholder="ابحث بالاسم أو رمز المنتج…"
-        filters={
-          <ProductFiltersBar
-            filters={filters}
-            onChange={(next) => updateParams({ ...next, page: 1 })}
-            categories={categoriesData?.items}
-            brands={brandsData?.items}
-          />
-        }
-        actions={
-          <Button onClick={openCreateDialog} disabled={!companyId}>
-            <Plus className="h-4 w-4" />
-            إضافة منتج
-          </Button>
-        }
+      <SetPageTitle
+        titleAr="المنتجات"
+        descriptionAr="كتالوج منتجات المتجر — الأسعار والمخزون وحالة كل منتج."
+        iconName="Package"
       />
 
       {isError ? <p className="text-sm text-destructive">تعذر تحميل المنتجات.</p> : null}

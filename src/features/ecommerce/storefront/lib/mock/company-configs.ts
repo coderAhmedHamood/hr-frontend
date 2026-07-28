@@ -1,7 +1,11 @@
 import type { CompanyConfigRecord } from '@/features/ecommerce/storefront/domain/company-config';
+import {
+  LEGACY_STOREFRONT_COMPANY_ID,
+  STOREFRONT_FALLBACK_COMPANY_ID,
+} from '@/features/ecommerce/storefront/lib/storefront-company';
 
 const DEMO_COMPANY_SEED: CompanyConfigRecord = {
-  id: 'demo-company',
+  id: STOREFRONT_FALLBACK_COMPANY_ID,
   name: { ar: 'نضارة', en: 'Nadara Beauty' },
   logoUrl: null,
   faviconUrl: null,
@@ -44,7 +48,10 @@ const DEMO_COMPANY_SEED: CompanyConfigRecord = {
     { label: { ar: 'من نحن', en: 'About' }, href: '/store/about' },
     { label: { ar: 'تواصل', en: 'Contact' }, href: '/store/contact' },
   ],
-  secondaryNavigation: [],
+  secondaryNavigation: [
+    { label: { ar: 'منطقة العروض', en: 'Offers zone' }, href: '/store/offers', highlight: true },
+    { label: { ar: 'أسعار الجملة', en: 'Wholesale' }, href: '/store/wholesale' },
+  ],
   footer: {
     copyrightOwnerName: { ar: 'نضارة', en: 'Nadara Beauty' },
     commercialRegistration: '7014367010',
@@ -91,6 +98,32 @@ const DEMO_COMPANY_SEED: CompanyConfigRecord = {
     href: '/store/offers',
     dismissible: true,
   },
+  checkout: {
+    cities: [
+      'صنعاء',
+      'عدن',
+      'تعز',
+      'الحديدة',
+      'إب',
+      'ذمار',
+      'المكلا',
+      'سيئون',
+      'حجة',
+      'صعدة',
+      'مأرب',
+      'البيضاء',
+      'لحج',
+      'أبين',
+      'الضالع',
+      'شبوة',
+      'المحويت',
+      'عمران',
+    ],
+    defaultCity: 'صنعاء',
+    freeShippingThreshold: 200,
+    standardShippingFee: 25,
+    paymentMethods: ['cash_on_delivery', 'card'],
+  },
   defaultLocale: 'ar',
   currency: 'YER',
   timezone: 'Asia/Aden',
@@ -104,12 +137,23 @@ const globalForCompany = globalThis as typeof globalThis & {
 const COMPANY_CONFIGS: Record<string, CompanyConfigRecord> =
   globalForCompany.__ecommerceCompanyConfigs ??
   (globalForCompany.__ecommerceCompanyConfigs = {
-    'demo-company': JSON.parse(JSON.stringify(DEMO_COMPANY_SEED)) as CompanyConfigRecord,
+    [STOREFRONT_FALLBACK_COMPANY_ID]: JSON.parse(JSON.stringify(DEMO_COMPANY_SEED)) as CompanyConfigRecord,
   });
 
+// HMR: move legacy `demo-company` seed onto the UUID key.
+if (COMPANY_CONFIGS[LEGACY_STOREFRONT_COMPANY_ID] && !COMPANY_CONFIGS[STOREFRONT_FALLBACK_COMPANY_ID]) {
+  const legacy = COMPANY_CONFIGS[LEGACY_STOREFRONT_COMPANY_ID]!;
+  legacy.id = STOREFRONT_FALLBACK_COMPANY_ID;
+  COMPANY_CONFIGS[STOREFRONT_FALLBACK_COMPANY_ID] = legacy;
+  delete COMPANY_CONFIGS[LEGACY_STOREFRONT_COMPANY_ID];
+} else if (COMPANY_CONFIGS[LEGACY_STOREFRONT_COMPANY_ID]) {
+  delete COMPANY_CONFIGS[LEGACY_STOREFRONT_COMPANY_ID];
+}
+
 /** Migrate leftover Saudi demo values to Yemen after seed updates (HMR-safe). */
-if (COMPANY_CONFIGS['demo-company']) {
-  const demo = COMPANY_CONFIGS['demo-company']!;
+if (COMPANY_CONFIGS[STOREFRONT_FALLBACK_COMPANY_ID]) {
+  const demo = COMPANY_CONFIGS[STOREFRONT_FALLBACK_COMPANY_ID]!;
+  demo.id = STOREFRONT_FALLBACK_COMPANY_ID;
   const needsYemenMigrate =
     demo.currency === 'SAR' ||
     demo.contact.phone.includes('966') ||
@@ -133,6 +177,17 @@ if (COMPANY_CONFIGS['demo-company']) {
       JSON.stringify(DEMO_COMPANY_SEED.announcement),
     ) as CompanyConfigRecord['announcement'];
   }
+
+  if (!demo.checkout) {
+    demo.checkout = JSON.parse(
+      JSON.stringify(DEMO_COMPANY_SEED.checkout),
+    ) as CompanyConfigRecord['checkout'];
+  }
+  if (!demo.secondaryNavigation?.length) {
+    demo.secondaryNavigation = JSON.parse(
+      JSON.stringify(DEMO_COMPANY_SEED.secondaryNavigation),
+    ) as CompanyConfigRecord['secondaryNavigation'];
+  }
 }
 
 export function getCompanyConfigMock(companyId: string): CompanyConfigRecord | null {
@@ -144,6 +199,16 @@ export function getCompanyConfigMock(companyId: string): CompanyConfigRecord | n
       JSON.stringify(DEMO_COMPANY_SEED.announcement),
     ) as CompanyConfigRecord['announcement'];
   }
+  if (!cloned.checkout) {
+    cloned.checkout = JSON.parse(
+      JSON.stringify(DEMO_COMPANY_SEED.checkout),
+    ) as CompanyConfigRecord['checkout'];
+  }
+  if (!cloned.secondaryNavigation) {
+    cloned.secondaryNavigation = JSON.parse(
+      JSON.stringify(DEMO_COMPANY_SEED.secondaryNavigation),
+    ) as CompanyConfigRecord['secondaryNavigation'];
+  }
   return cloned;
 }
 
@@ -154,6 +219,14 @@ export function saveCompanyConfigMock(record: CompanyConfigRecord): CompanyConfi
     next.announcement = JSON.parse(
       JSON.stringify(DEMO_COMPANY_SEED.announcement),
     ) as CompanyConfigRecord['announcement'];
+  }
+  if (!next.checkout) {
+    next.checkout = JSON.parse(
+      JSON.stringify(DEMO_COMPANY_SEED.checkout),
+    ) as CompanyConfigRecord['checkout'];
+  }
+  if (!next.secondaryNavigation) {
+    next.secondaryNavigation = [];
   }
   COMPANY_CONFIGS[record.id] = next;
   return JSON.parse(JSON.stringify(COMPANY_CONFIGS[record.id])) as CompanyConfigRecord;

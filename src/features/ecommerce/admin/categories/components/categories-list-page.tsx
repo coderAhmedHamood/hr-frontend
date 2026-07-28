@@ -15,14 +15,16 @@ import {
 import { ecommerceAdminRoutes } from '@/features/ecommerce/admin/constants/routes';
 import type { Category } from '@/features/ecommerce/domain/types/category';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
-import { ListToolbar } from '@/components/ui/list-toolbar';
+import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
+import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
+import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
+import { PageHeaderPrimaryButton } from '@/components/layouts/page-header-primary-button';
+import { ListFilterBar } from '@/components/ui/list-filter-bar';
+import { EntityFilterSearchField } from '@/components/ui/entity-filter-search-field';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DataTable, AppPagination, usePagination, type ColumnDef } from '@/components/ui/data-table';
 import { DEFAULT_PAGE_SIZE } from '@/components/ui/paged-list';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-
-const ALL_ROOTS = '__all__';
 
 export function CategoriesListPage() {
   const companyId = getStorefrontCompanyId();
@@ -86,6 +88,52 @@ export function CategoriesListPage() {
     setEditing(category);
     setDialogOpen(true);
   }
+
+  usePageHeaderActions(
+    () => (
+      <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
+        <FilterToggleButton />
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="h-8 w-8"
+          aria-label={tCommon('actions.retry')}
+          onClick={() => void refetch()}
+        >
+          <RefreshCw className="h-3.5 w-3.5" />
+        </Button>
+        <PageHeaderPrimaryButton icon={Plus} label="إضافة تصنيف" onClick={openCreate} />
+      </div>
+    ),
+    [tCommon, refetch],
+  );
+
+  useEntityFilterSlot(
+    () => (
+      <ListFilterBar
+        showDateSection={false}
+        showStatusSection={false}
+        showEmployeePicker={false}
+        leadingFilters={
+          <EntityFilterSearchField value={search} onChange={setSearch} placeholder="ابحث بالاسم…" />
+        }
+        inlineSelects={[
+          {
+            id: 'root',
+            value: rootFilter || 'all',
+            onChange: (value) => setRootFilter(value === 'all' ? '' : value),
+            placeholder: 'كل الأشجار',
+            options: [
+              { value: 'all', label: 'كل الأشجار' },
+              ...roots.map((root) => ({ value: root.id, label: root.nameAr })),
+            ],
+          },
+        ]}
+      />
+    ),
+    [search, rootFilter, roots],
+  );
 
   const columns: ColumnDef<Category>[] = [
     {
@@ -175,41 +223,10 @@ export function CategoriesListPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <SetPageTitle titleAr={t('nav.categories')} iconName="FolderTree" />
-
-      <ListToolbar
-        searchValue={search}
-        onSearchChange={setSearch}
-        searchPlaceholder="ابحث بالاسم…"
-        filters={
-          <Select
-            value={rootFilter || ALL_ROOTS}
-            onValueChange={(value) => setRootFilter(value === ALL_ROOTS ? '' : value)}
-          >
-            <SelectTrigger className="w-full sm:w-56" aria-label="تصفية بالجذر">
-              <SelectValue placeholder="كل الأشجار" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL_ROOTS}>كل الأشجار</SelectItem>
-              {roots.map((root) => (
-                <SelectItem key={root.id} value={root.id}>
-                  {root.nameAr}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        }
-        actions={
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="icon" aria-label={tCommon('actions.retry')} onClick={() => void refetch()}>
-              <RefreshCw className="h-4 w-4" />
-            </Button>
-            <Button type="button" onClick={openCreate}>
-              <Plus className="me-1 h-4 w-4" />
-              إضافة تصنيف
-            </Button>
-          </div>
-        }
+      <SetPageTitle
+        titleAr={t('nav.categories')}
+        descriptionAr="تصنيفات المتجر الهرمية — الروابط، المنتجات المرتبطة، وحالة كل تصنيف."
+        iconName="FolderTree"
       />
 
       {isError ? <p className="text-sm text-destructive">{t('catalog.loadError')}</p> : null}

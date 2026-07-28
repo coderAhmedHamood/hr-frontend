@@ -1,6 +1,10 @@
 'use client';
 
 import { SetPageTitle } from '@/components/layouts/set-page-title';
+import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
+import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
+import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
+import { PageHeaderPrimaryButton } from '@/components/layouts/page-header-primary-button';
 import * as React from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
@@ -15,7 +19,8 @@ import {
   VARIANT_CREATION_OPTIONS,
 } from '@/features/ecommerce/admin/attributes/schemas/catalog-attribute-schema';
 import type { CatalogAttribute } from '@/features/ecommerce/domain/types/catalog-attribute';
-import { ListToolbar } from '@/components/ui/list-toolbar';
+import { ListFilterBar } from '@/components/ui/list-filter-bar';
+import { EntityFilterSearchField } from '@/components/ui/entity-filter-search-field';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DataTable, AppPagination, type ColumnDef } from '@/components/ui/data-table';
@@ -85,6 +90,35 @@ export function AttributesListPage() {
   const variantLabel = (value: CatalogAttribute['createVariant']) =>
     VARIANT_CREATION_OPTIONS.find((option) => option.value === value)?.labelAr ?? value;
 
+  usePageHeaderActions(
+    () => (
+      <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
+        <FilterToggleButton />
+        <PageHeaderPrimaryButton
+          icon={Plus}
+          label="جديد"
+          disabled={!companyId}
+          onClick={() => setFormState({ open: true, attribute: null })}
+        />
+      </div>
+    ),
+    [companyId],
+  );
+
+  useEntityFilterSlot(
+    () => (
+      <ListFilterBar
+        showDateSection={false}
+        showStatusSection={false}
+        showEmployeePicker={false}
+        leadingFilters={
+          <EntityFilterSearchField value={searchInput} onChange={setSearchInput} placeholder="ابحث باسم الخاصية…" />
+        }
+      />
+    ),
+    [searchInput],
+  );
+
   const columns: ColumnDef<CatalogAttribute>[] = [
     {
       key: 'name',
@@ -145,18 +179,10 @@ export function AttributesListPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <SetPageTitle titleAr="الخصائص" iconName="SlidersHorizontal" />
-
-      <ListToolbar
-        searchValue={searchInput}
-        onSearchChange={setSearchInput}
-        searchPlaceholder="ابحث باسم الخاصية…"
-        actions={
-          <Button onClick={() => setFormState({ open: true, attribute: null })} disabled={!companyId}>
-            <Plus className="h-4 w-4" />
-            جديد
-          </Button>
-        }
+      <SetPageTitle
+        titleAr="الخصائص"
+        descriptionAr="خصائص المنتجات المستخدمة لبناء المتغيّرات مثل المقاس واللون."
+        iconName="SlidersHorizontal"
       />
 
       {isError ? <p className="text-sm text-destructive">تعذر تحميل الخصائص.</p> : null}

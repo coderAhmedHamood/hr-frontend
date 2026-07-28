@@ -19,6 +19,7 @@ export type OrderLineItem = {
   unitPrice: Money;
   allocations: OrderLineAllocation[];
   shipStatus: OrderLineShipStatus;
+  imageUrl?: string | null;
 };
 
 export type Order = TenantScoped & {
@@ -33,6 +34,16 @@ export type Order = TenantScoped & {
   totalAmount: Money;
   createdAt: string;
   updatedAt: string;
+  /** Present for storefront checkouts synced into the admin dashboard. */
+  phone?: string;
+  shippingStreet?: string;
+  shippingDistrict?: string;
+  shippingNotes?: string;
+  paymentMethod?: 'cash_on_delivery' | 'card';
+  paymentStatus?: 'pending' | 'paid' | 'failed' | 'refunded';
+  subtotalAmount?: Money;
+  shippingFeeAmount?: Money;
+  source?: 'seed' | 'storefront';
 };
 
 export type OrderListQuery = {

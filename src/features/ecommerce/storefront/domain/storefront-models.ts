@@ -115,6 +115,13 @@ export type StorefrontCompanyConfig = {
     href: `/store${string}` | '/store' | null;
     dismissible: boolean;
   };
+  checkout: {
+    cities: string[];
+    defaultCity: string;
+    freeShippingThreshold: number;
+    standardShippingFee: number;
+    paymentMethods: Array<'cash_on_delivery' | 'card'>;
+  };
   currency: string;
   timezone: string;
 };

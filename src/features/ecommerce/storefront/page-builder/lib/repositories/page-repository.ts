@@ -40,7 +40,7 @@ function registerPage(raw: unknown): void {
   PAGE_INDEX[slugKey(record.companyId, record.slug)] = record;
 }
 
-if (!PAGE_INDEX[pageKey('demo-company', 'homepage')]) {
+if (!PAGE_INDEX[pageKey('76e5bc4f-5adb-434d-a886-bcff05a9680b', 'homepage')]) {
   registerPage(homepagePageSeed);
 }
 

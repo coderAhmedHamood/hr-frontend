@@ -40,7 +40,10 @@ export default async function Page({ searchParams }: { searchParams: SearchParam
   const { page, category, tag, sort } = await searchParams;
   const pageNumber = Math.max(1, Number(page) || 1);
 
-  const categoriesResult = await getStorefrontCategoriesList({ limit: 50 });
+  const [config, categoriesResult] = await Promise.all([
+    getStorefrontCompanyConfig(),
+    getStorefrontCategoriesList({ limit: 50 }),
+  ]);
   const categories = categoriesResult.items;
   const activeCategory = category ? categories.find((item) => item.slug === category) : undefined;
   const productsResult = await getStorefrontProductsList(
@@ -54,6 +57,7 @@ export default async function Page({ searchParams }: { searchParams: SearchParam
       tag={tag}
       sort={sort}
       categories={categories}
+      secondaryNavigation={config.secondaryNavigation}
       productsResult={productsResult}
     />
   );

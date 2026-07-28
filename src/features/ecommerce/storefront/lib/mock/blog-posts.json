@@ -1,7 +1,7 @@
 [
   {
     "id": "post-1",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "skincare-routine-basics",
     "title": {
       "ar": "روتين عناية بالبشرة في ٤ خطوات",
@@ -34,7 +34,7 @@
   },
   {
     "id": "post-2",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "makeup-kit-essentials",
     "title": {
       "ar": "أساسيات طقم المكياج اليومي",

@@ -1,5 +1,6 @@
 import { apiRequest, type PaginatedResult } from '@/features/hr/lib/api/client';
 import { toNumber, toOptionalNumber } from '@/features/inventory/lib/api/numbers';
+import { resolveStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
 import type { MediaItem } from '@/features/ecommerce/domain/types/common';
 import type {
   CreateProductInput,
@@ -492,9 +493,10 @@ async function fetchListMedia(productId: string): Promise<MediaItem[]> {
 
 export const productsApi: AdminProductsPort = {
   async getAll(query: ProductListQuery) {
+    const companyId = resolveStorefrontCompanyId(query.companyId);
     const result = await apiRequest<PaginatedResult<ProductDto>>('/inventory/products', {
       query: {
-        companyId: query.companyId,
+        companyId,
         search: query.search,
         categoryId: query.categoryId,
         brandId: query.brandId,
@@ -545,7 +547,13 @@ export const productsApi: AdminProductsPort = {
 
   async getBySlug(companyId, slug) {
     const result = await apiRequest<PaginatedResult<ProductDto>>('/inventory/products', {
-      query: { companyId, slug, page: 1, limit: 1, archiveScope: 'all' },
+      query: {
+        companyId: resolveStorefrontCompanyId(companyId),
+        slug,
+        page: 1,
+        limit: 1,
+        archiveScope: 'all',
+      },
     });
     const dto = result.items?.[0];
     return dto?.id ? fetchProductFull(dto.id) : null;
@@ -554,7 +562,10 @@ export const productsApi: AdminProductsPort = {
   async create(input: CreateProductInput) {
     const dto = await apiRequest<ProductFullDto>('/inventory/products/full', {
       method: 'POST',
-      body: toFullBody(input, 'create'),
+      body: toFullBody(
+        { ...input, companyId: resolveStorefrontCompanyId(input.companyId) },
+        'create',
+      ),
     });
     return mapFullProduct(dto);
   },

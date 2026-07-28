@@ -1,7 +1,7 @@
 [
   {
     "id": "prod-1",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "sku": "SKN-001",
     "slug": "cerave-hydrating-serum-30ml",
     "nameAr": "سيروم سيرافي المرطب 30 مل",
@@ -37,7 +37,7 @@
   },
   {
     "id": "prod-2",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "sku": "SKN-002",
     "slug": "neutrogena-hydro-boost-50ml",
     "nameAr": "كريم نيوتروجينا هايدرو بوست 50 مل",
@@ -72,7 +72,7 @@
   },
   {
     "id": "prod-3",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "sku": "MKP-001",
     "slug": "maybelline-matte-lipstick",
     "nameAr": "أحمر شفاه ميبيلين مات",
@@ -107,7 +107,7 @@
   },
   {
     "id": "prod-4",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "sku": "HR-001",
     "slug": "nourishing-hair-oil-100ml",
     "nameAr": "زيت شعر مغذّي 100 مل",
@@ -141,7 +141,7 @@
   },
   {
     "id": "prod-5",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "sku": "SKN-003",
     "slug": "the-ordinary-glycolic-toner-240ml",
     "nameAr": "تونر ذا أوردينري جليكوليك 240 مل",
@@ -176,7 +176,7 @@
   },
   {
     "id": "prod-6",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "sku": "SKN-004",
     "slug": "clay-face-mask-100g",
     "nameAr": "ماسك طين للوجه 100 جرام",
@@ -210,7 +210,7 @@
   },
   {
     "id": "prod-7",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "sku": "TLS-001",
     "slug": "pro-makeup-brush-set",
     "nameAr": "طقم فرش مكياج احترافي",
@@ -244,7 +244,7 @@
   },
   {
     "id": "prod-8",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "sku": "SKN-005",
     "slug": "loreal-gentle-cleanser-200ml",
     "nameAr": "غسول وجه لوريال اللطيف 200 مل",
@@ -279,7 +279,7 @@
   },
   {
     "id": "prod-9",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "sku": "HR-002",
     "slug": "dove-shampoo-400ml",
     "nameAr": "شامبو دوف 400 مل",
@@ -313,7 +313,7 @@
   },
   {
     "id": "prod-10",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "sku": "SKN-006",
     "slug": "micellar-water-400ml",
     "nameAr": "ماء ميسيلار منظّف 400 مل",
@@ -347,7 +347,7 @@
   },
   {
     "id": "prod-11",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "sku": "MKP-002",
     "slug": "eyeshadow-palette-12",
     "nameAr": "باليت ظلال عيون 12 لون",
@@ -381,7 +381,7 @@
   },
   {
     "id": "prod-12",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "sku": "SKN-007",
     "slug": "the-ordinary-caffeine-eye-serum",
     "nameAr": "سيروم عين كافيين ذا أوردينري",
@@ -416,7 +416,7 @@
   },
   {
     "id": "prod-13",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "sku": "HR-003",
     "slug": "nourishing-conditioner-250ml",
     "nameAr": "بلسم شعر مغذّي 250 مل",
@@ -449,7 +449,7 @@
   },
   {
     "id": "prod-14",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "sku": "TLS-002",
     "slug": "stainless-eyebrow-tweezers",
     "nameAr": "ملقط حواجب ستانلس",
@@ -482,7 +482,7 @@
   },
   {
     "id": "prod-15",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "sku": "SKN-008",
     "slug": "foaming-cleanser-oily-skin-150ml",
     "nameAr": "غسول رغوي للبشرة الدهنية 150 مل",
@@ -516,7 +516,7 @@
   },
   {
     "id": "prod-16",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "sku": "NL-001",
     "slug": "longwear-nail-polish",
     "nameAr": "طلاء أظافر ثابت",
@@ -549,7 +549,7 @@
   },
   {
     "id": "prod-led-bulb",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "sku": "TLS-003",
     "slug": "facial-steam-device",
     "nameAr": "جهاز بخار للوجه",
@@ -583,7 +583,7 @@
   },
   {
     "id": "prod-zero-cola",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "sku": "SKN-009",
     "slug": "cerave-hyaluronic-serum-30ml",
     "nameAr": "سيروم سيرافي هيالورونيك 30 مل",

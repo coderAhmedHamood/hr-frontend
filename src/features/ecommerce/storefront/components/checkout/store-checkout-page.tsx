@@ -1,9 +1,11 @@
 import { getTranslations } from 'next-intl/server';
 import { StoreBreadcrumbs } from '@/features/ecommerce/storefront/components/store-breadcrumbs';
 import { StoreCheckoutClient } from '@/features/ecommerce/storefront/components/checkout/store-checkout-client';
+import { getStorefrontCompanyConfig } from '@/features/ecommerce/storefront/lib/get-storefront-company-config';
 
 export async function StoreCheckoutPage() {
   const t = await getTranslations('storefront');
+  const config = await getStorefrontCompanyConfig();
 
   return (
     <div className="flex flex-col gap-5 pb-28 sm:pb-0">
@@ -20,7 +22,7 @@ export async function StoreCheckoutPage() {
         </h1>
         <p className="max-w-xl text-sm text-muted-foreground">{t('checkout.description')}</p>
       </header>
-      <StoreCheckoutClient />
+      <StoreCheckoutClient checkoutConfig={config.checkout} currency={config.currency} />
     </div>
   );
 }

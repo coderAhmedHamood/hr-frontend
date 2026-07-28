@@ -1,6 +1,10 @@
 import { inventoryLedgerApi } from '@/features/inventory/admin/operations/lib/api/inventory-ledger';
 import { warehousesApi } from '@/features/inventory/admin/warehouses/lib/api/warehouses';
 import { warehouseLocationsApi } from '@/features/inventory/admin/locations/lib/api/warehouse-locations';
+import {
+  getMockStockAvailability,
+  listMockLocationStock,
+} from '@/features/inventory/shared/lib/mock/mock-location-stock-store';
 import type {
   LocationStock,
   LocationStockListQuery,
@@ -58,17 +62,23 @@ function availableOf(row: LocationStock): number {
  */
 export const locationStockApi = {
   async list(query: LocationStockListQuery): Promise<LocationStock[]> {
-    const ledger = await inventoryLedgerApi.list({
-      companyId: query.companyId,
-      productId: query.productId,
-      warehouseId: query.warehouseId,
-      locationId: query.locationId,
-      page: 1,
-      limit: 500,
-    });
+    let ledgerItems: Awaited<ReturnType<typeof inventoryLedgerApi.list>>['items'] = [];
+    try {
+      const ledger = await inventoryLedgerApi.list({
+        companyId: query.companyId,
+        productId: query.productId,
+        warehouseId: query.warehouseId,
+        locationId: query.locationId,
+        page: 1,
+        limit: 500,
+      });
+      ledgerItems = ledger.items;
+    } catch {
+      ledgerItems = [];
+    }
 
     const aggregated = new Map<StockKey, LocationStock>();
-    for (const entry of ledger.items) {
+    for (const entry of ledgerItems) {
       if (query.variantId !== undefined) {
         if (query.variantId === '') {
           if (entry.variantId) continue;
@@ -104,7 +114,7 @@ export const locationStockApi = {
       }
     }
 
-    return [...aggregated.values()]
+    let rows = [...aggregated.values()]
       .map((row) => ({
         ...row,
         reservedQuantity: reservedByKey.get(
@@ -118,6 +128,17 @@ export const locationStockApi = {
         ) ?? row.reservedQuantity ?? 0,
       }))
       .filter((row) => row.quantity !== 0 || (row.reservedQuantity ?? 0) !== 0);
+
+    // Ecommerce demo catalog uses seeded JSON when the live ledger has no balances yet.
+    if (rows.length === 0) {
+      rows = listMockLocationStock(query.companyId, query.productId).filter((row) => {
+        if (query.warehouseId && row.warehouseId !== query.warehouseId) return false;
+        if (query.locationId && row.locationId !== query.locationId) return false;
+        return true;
+      });
+    }
+
+    return rows;
   },
 
   async getOnHandTotal(
@@ -178,32 +199,54 @@ export const locationStockApi = {
   },
 
   async getAvailability(companyId: string, productId: string): Promise<StockAvailabilityRow[]> {
-    const [stocks, warehouses, locations] = await Promise.all([
-      this.list({ companyId, productId }),
-      warehousesApi.getAll({ companyId, page: 1, limit: 200 }),
-      warehouseLocationsApi.getAll({ companyId, page: 1, limit: 500 }),
-    ]);
+    const mockRows = getMockStockAvailability(companyId, productId);
 
-    const warehouseMap = new Map(warehouses.items.map((w) => [w.id, w]));
-    const locationMap = new Map(locations.items.map((l) => [l.id, l]));
+    let stocks: LocationStock[] = [];
+    try {
+      stocks = await this.list({ companyId, productId });
+    } catch {
+      return mockRows;
+    }
 
-    return stocks
+    if (stocks.length === 0) {
+      return mockRows;
+    }
+
+    let warehouseMap = new Map<string, { nameAr: string }>();
+    let locationMap = new Map<string, { nameAr: string }>();
+    try {
+      const [warehouses, locations] = await Promise.all([
+        warehousesApi.getAll({ companyId, page: 1, limit: 200 }),
+        warehouseLocationsApi.getAll({ companyId, page: 1, limit: 500 }),
+      ]);
+      warehouseMap = new Map(warehouses.items.map((w) => [w.id, w]));
+      locationMap = new Map(locations.items.map((l) => [l.id, l]));
+    } catch {
+      // Fall through — names filled from mock seed below.
+    }
+
+    const mockByLocation = new Map(mockRows.map((row) => [row.locationId, row]));
+
+    const liveRows = stocks
       .filter((row) => row.quantity > 0 || (row.reservedQuantity ?? 0) > 0)
       .map((row) => {
         const warehouse = warehouseMap.get(row.warehouseId);
         const location = locationMap.get(row.locationId);
+        const mock = mockByLocation.get(row.locationId);
         const reservedQuantity = row.reservedQuantity ?? 0;
         return {
           warehouseId: row.warehouseId,
-          warehouseNameAr: warehouse?.nameAr ?? row.warehouseId,
+          warehouseNameAr: warehouse?.nameAr ?? mock?.warehouseNameAr ?? row.warehouseId,
           locationId: row.locationId,
-          locationNameAr: location?.nameAr ?? row.locationId,
+          locationNameAr: location?.nameAr ?? mock?.locationNameAr ?? row.locationId,
           quantity: row.quantity,
           reservedQuantity,
           availableQuantity: availableOf(row),
         };
       })
       .sort((a, b) => b.availableQuantity - a.availableQuantity);
+
+    return liveRows.length > 0 ? liveRows : mockRows;
   },
 
   /**

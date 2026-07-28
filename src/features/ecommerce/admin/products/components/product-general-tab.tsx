@@ -1,5 +1,7 @@
 'use client';
 
+import * as React from 'react';
+import { ChevronDown } from 'lucide-react';
 import { Controller, type Control, type FieldErrors, type UseFormRegister } from 'react-hook-form';
 import {
   PRODUCT_INVOICE_POLICY_OPTIONS,
@@ -8,7 +10,10 @@ import {
   PRODUCT_TYPE_OPTIONS,
   type ProductFormInput,
 } from '@/features/ecommerce/admin/products/schemas/product-schema';
-import { EntityFormRow } from '@/features/ecommerce/admin/shared/components/entity-form-row';
+import {
+  ProductFormField,
+  ProductFormSection,
+} from '@/features/ecommerce/admin/products/components/product-form-section';
 import type { Brand } from '@/features/ecommerce/domain/types/brand';
 import type { Category } from '@/features/ecommerce/domain/types/category';
 import { Input } from '@/components/ui/input';
@@ -28,319 +33,419 @@ type Props = {
 };
 
 export function ProductGeneralTab({ control, errors, register, categories, brands }: Props) {
+  const [showAdvanced, setShowAdvanced] = React.useState(false);
+
   return (
-    <div className="space-y-1">
-      <EntityFormRow label="نوع المنتج">
-        <Controller
-          control={control}
-          name="productType"
-          render={({ field }) => (
-            <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="نوع المنتج">
-              {PRODUCT_TYPE_OPTIONS.map((option) => {
-                const selected = field.value === option.value;
-                return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    role="radio"
-                    aria-checked={selected}
-                    onClick={() => field.onChange(option.value)}
-                    className={cn(
-                      'rounded-full border px-3 py-1.5 text-sm transition-colors',
-                      selected
-                        ? 'border-primary bg-primary/10 font-medium text-primary'
-                        : 'border-border bg-background text-muted-foreground hover:text-foreground',
-                    )}
-                  >
-                    {option.labelAr}
-                  </button>
-                );
-              })}
+    <div className="space-y-4">
+      <ProductFormSection
+        title="الأساسيات"
+        description="ما يحتاجه المنتج ليظهر ويُعرَّف في المخزون والمتجر."
+      >
+        <ProductFormField label="نوع المنتج">
+          <Controller
+            control={control}
+            name="productType"
+            render={({ field }) => (
+              <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="نوع المنتج">
+                {PRODUCT_TYPE_OPTIONS.map((option) => {
+                  const selected = field.value === option.value;
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      role="radio"
+                      aria-checked={selected}
+                      onClick={() => field.onChange(option.value)}
+                      className={cn(
+                        'rounded-xl border px-3 py-2.5 text-sm transition-all',
+                        selected
+                          ? 'border-primary bg-primary/10 font-semibold text-primary shadow-soft'
+                          : 'border-border bg-background text-muted-foreground hover:border-primary/30 hover:text-foreground',
+                      )}
+                    >
+                      {option.labelAr}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          />
+        </ProductFormField>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <ProductFormField
+            label="رمز المنتج (SKU)"
+            htmlFor="product-sku"
+            required
+            error={errors.sku?.message}
+            hint="رمز فريد داخل الشركة — مثال: SKN-001"
+          >
+            <Input
+              id="product-sku"
+              dir="ltr"
+              placeholder="SKN-001"
+              className="h-11"
+              {...register('sku')}
+            />
+          </ProductFormField>
+
+          <ProductFormField label="الحالة" htmlFor="product-status">
+            <Controller
+              control={control}
+              name="status"
+              render={({ field }) => (
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <SelectTrigger id="product-status" aria-label="الحالة" className="h-11">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PRODUCT_STATUS_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.labelAr}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+          </ProductFormField>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <ProductFormField label="الفئة" htmlFor="product-category">
+            <Controller
+              control={control}
+              name="categoryId"
+              render={({ field }) => (
+                <Select
+                  value={field.value ?? NO_VALUE}
+                  onValueChange={(value) => field.onChange(value === NO_VALUE ? undefined : value)}
+                >
+                  <SelectTrigger id="product-category" aria-label="الفئة" className="h-11">
+                    <SelectValue placeholder="اختر فئة" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NO_VALUE}>بدون فئة</SelectItem>
+                    {(categories ?? []).map((category) => (
+                      <SelectItem key={category.id} value={category.id}>
+                        {category.nameAr}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+          </ProductFormField>
+
+          <ProductFormField label="العلامة التجارية" htmlFor="product-brand">
+            <Controller
+              control={control}
+              name="brandId"
+              render={({ field }) => (
+                <Select
+                  value={field.value ?? NO_VALUE}
+                  onValueChange={(value) => field.onChange(value === NO_VALUE ? undefined : value)}
+                >
+                  <SelectTrigger id="product-brand" aria-label="العلامة التجارية" className="h-11">
+                    <SelectValue placeholder="بدون علامة تجارية" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NO_VALUE}>بدون علامة تجارية</SelectItem>
+                    {(brands ?? []).map((brand) => (
+                      <SelectItem key={brand.id} value={brand.id}>
+                        {brand.nameAr}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+          </ProductFormField>
+        </div>
+      </ProductFormSection>
+
+      <ProductFormSection title="التسعير" description="أسعار البيع والشراء بالريال اليمني.">
+        <div className="grid gap-4 sm:grid-cols-3">
+          <ProductFormField
+            label="سعر البيع"
+            htmlFor="product-list-price"
+            error={errors.listPrice?.message}
+          >
+            <div className="relative">
+              <Input
+                id="product-list-price"
+                type="number"
+                min={0}
+                step="0.01"
+                dir="ltr"
+                className="h-11 pe-12"
+                {...register('listPrice')}
+              />
+              <span className="pointer-events-none absolute inset-y-0 inset-e-3 flex items-center text-xs text-muted-foreground">
+                ر.ي
+              </span>
             </div>
-          )}
-        />
-      </EntityFormRow>
+          </ProductFormField>
 
-      <EntityFormRow label="سياسة الفوترة" htmlFor="product-invoice-policy">
-        <Controller
-          control={control}
-          name="invoicePolicy"
-          render={({ field }) => (
-            <Select value={field.value} onValueChange={field.onChange}>
-              <SelectTrigger id="product-invoice-policy" aria-label="سياسة الفوترة" className="max-w-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {PRODUCT_INVOICE_POLICY_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.labelAr}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-        />
-      </EntityFormRow>
+          <ProductFormField
+            label="سعر الشراء"
+            htmlFor="product-cost-price"
+            error={errors.costPrice?.message}
+          >
+            <div className="relative">
+              <Input
+                id="product-cost-price"
+                type="number"
+                min={0}
+                step="0.01"
+                dir="ltr"
+                className="h-11 pe-12"
+                {...register('costPrice')}
+              />
+              <span className="pointer-events-none absolute inset-y-0 inset-e-3 flex items-center text-xs text-muted-foreground">
+                ر.ي
+              </span>
+            </div>
+          </ProductFormField>
 
-      <EntityFormRow label="التتبع" htmlFor="product-tracking">
-        <Controller
-          control={control}
-          name="tracking"
-          render={({ field }) => (
-            <Select value={field.value} onValueChange={field.onChange}>
-              <SelectTrigger id="product-tracking" aria-label="التتبع" className="max-w-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {PRODUCT_TRACKING_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.labelAr}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-        />
-      </EntityFormRow>
-
-      <EntityFormRow label="رمز المنتج (SKU) *" htmlFor="product-sku">
-        <Input
-          id="product-sku"
-          dir="ltr"
-          className="max-w-sm"
-          placeholder="مثال: BURGER-001"
-          {...register('sku')}
-        />
-        {errors.sku ? <p className="mt-1 text-xs text-destructive">{errors.sku.message}</p> : null}
-        <p className="mt-1 text-[11px] text-muted-foreground">
-          رمز فريد داخل الشركة للتعريف في المخزون والفواتير — يمكنك اختيار أي رمز مثل BURGER-001.
-        </p>
-      </EntityFormRow>
-
-      <EntityFormRow label="سعر البيع" htmlFor="product-list-price">
-        <div className="flex max-w-xs items-center gap-2">
-          <Input
-            id="product-list-price"
-            type="number"
-            min={0}
-            step="0.01"
-            dir="ltr"
-            className="max-w-[8rem]"
-            {...register('listPrice')}
-          />
-          <span className="text-sm text-muted-foreground">ر.ي</span>
+          <ProductFormField
+            label="سعر المقارنة"
+            htmlFor="product-compare-at"
+            hint="يظهر كسعر قبل الخصم في المتجر."
+          >
+            <div className="relative">
+              <Input
+                id="product-compare-at"
+                type="number"
+                min={0}
+                step="0.01"
+                dir="ltr"
+                placeholder="اختياري"
+                className="h-11 pe-12"
+                {...register('compareAtPrice')}
+              />
+              <span className="pointer-events-none absolute inset-y-0 inset-e-3 flex items-center text-xs text-muted-foreground">
+                ر.ي
+              </span>
+            </div>
+          </ProductFormField>
         </div>
-        {errors.listPrice ? <p className="mt-1 text-xs text-destructive">{errors.listPrice.message}</p> : null}
-      </EntityFormRow>
+      </ProductFormSection>
 
-      <EntityFormRow label="سعر الشراء" htmlFor="product-cost-price">
-        <div className="flex max-w-xs items-center gap-2">
-          <Input
-            id="product-cost-price"
-            type="number"
-            min={0}
-            step="0.01"
-            dir="ltr"
-            className="max-w-[8rem]"
-            {...register('costPrice')}
-          />
-          <span className="text-sm text-muted-foreground">ر.ي</span>
+      <ProductFormSection title="قنوات البيع" description="أين يظهر المنتج ويُباع.">
+        <div className="grid gap-3 sm:grid-cols-3">
+          {(
+            [
+              {
+                name: 'saleOk' as const,
+                title: 'متاح للبيع',
+                hint: 'يظهر في المتجر وقنوات البيع',
+              },
+              {
+                name: 'purchaseOk' as const,
+                title: 'متاح للشراء',
+                hint: 'يمكن تموينه من الموردين',
+              },
+              {
+                name: 'posAvailable' as const,
+                title: 'نقطة البيع',
+                hint: 'متاح في شاشة الكاشير',
+              },
+            ] as const
+          ).map((item) => (
+            <Controller
+              key={item.name}
+              control={control}
+              name={item.name}
+              render={({ field }) => (
+                <label
+                  className={cn(
+                    'flex cursor-pointer items-start justify-between gap-3 rounded-xl border p-3 transition-colors',
+                    field.value ? 'border-primary/30 bg-primary/5' : 'border-border bg-background',
+                  )}
+                >
+                  <span className="min-w-0 space-y-0.5">
+                    <span className="block text-sm font-medium text-foreground">{item.title}</span>
+                    <span className="block text-[11px] text-muted-foreground">{item.hint}</span>
+                  </span>
+                  <Switch
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                    aria-label={item.title}
+                  />
+                </label>
+              )}
+            />
+          ))}
         </div>
-        {errors.costPrice ? <p className="mt-1 text-xs text-destructive">{errors.costPrice.message}</p> : null}
-      </EntityFormRow>
+      </ProductFormSection>
 
-      <EntityFormRow label="سعر المقارنة" htmlFor="product-compare-at">
-        <div className="flex max-w-xs items-center gap-2">
-          <Input
-            id="product-compare-at"
-            type="number"
-            min={0}
-            step="0.01"
-            dir="ltr"
-            className="max-w-[8rem]"
-            placeholder="اختياري"
-            {...register('compareAtPrice')}
+      <ProductFormSection title="الوصف" description="نصوص العرض في بطاقة المنتج والصفحة.">
+        <ProductFormField
+          label="وصف مختصر"
+          htmlFor="product-short-description"
+          hint="يظهر في بطاقات القوائم."
+        >
+          <Textarea
+            id="product-short-description"
+            rows={2}
+            className="resize-none"
+            {...register('shortDescription')}
           />
-          <span className="text-sm text-muted-foreground">ر.ي</span>
-        </div>
-        <p className="mt-1 text-xs text-muted-foreground">يُعرض كسعر قبل الخصم في المتجر عند تعبئته.</p>
-      </EntityFormRow>
+        </ProductFormField>
+        <ProductFormField label="الوصف الكامل" htmlFor="product-description">
+          <Textarea
+            id="product-description"
+            rows={4}
+            className="resize-none"
+            {...register('description')}
+          />
+        </ProductFormField>
+      </ProductFormSection>
 
-      <EntityFormRow label="الفئة" htmlFor="product-category">
-        <Controller
-          control={control}
-          name="categoryId"
-          render={({ field }) => (
-            <Select
-              value={field.value ?? NO_VALUE}
-              onValueChange={(value) => field.onChange(value === NO_VALUE ? undefined : value)}
-            >
-              <SelectTrigger id="product-category" aria-label="الفئة" className="max-w-sm">
-                <SelectValue placeholder="اختر فئة" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NO_VALUE}>بدون فئة</SelectItem>
-                {(categories ?? []).map((category) => (
-                  <SelectItem key={category.id} value={category.id}>
-                    {category.nameAr}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-        />
-      </EntityFormRow>
-
-      <EntityFormRow label="العلامة التجارية" htmlFor="product-brand">
-        <Controller
-          control={control}
-          name="brandId"
-          render={({ field }) => (
-            <Select
-              value={field.value ?? NO_VALUE}
-              onValueChange={(value) => field.onChange(value === NO_VALUE ? undefined : value)}
-            >
-              <SelectTrigger id="product-brand" aria-label="العلامة التجارية" className="max-w-sm">
-                <SelectValue placeholder="بدون علامة تجارية" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NO_VALUE}>بدون علامة تجارية</SelectItem>
-                {(brands ?? []).map((brand) => (
-                  <SelectItem key={brand.id} value={brand.id}>
-                    {brand.nameAr}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-        />
-      </EntityFormRow>
-
-      <EntityFormRow label="الحالة" htmlFor="product-status">
-        <Controller
-          control={control}
-          name="status"
-          render={({ field }) => (
-            <Select value={field.value} onValueChange={field.onChange}>
-              <SelectTrigger id="product-status" aria-label="الحالة" className="max-w-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {PRODUCT_STATUS_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.labelAr}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-        />
-      </EntityFormRow>
-
-      <EntityFormRow label="متاح للبيع">
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-sm text-muted-foreground">يظهر في قنوات البيع والمتجر</p>
-          <Controller
-            control={control}
-            name="saleOk"
-            render={({ field }) => (
-              <Switch checked={field.value} onCheckedChange={field.onChange} aria-label="متاح للبيع" />
+      <div className="overflow-hidden rounded-2xl border border-border/80">
+        <button
+          type="button"
+          onClick={() => setShowAdvanced((value) => !value)}
+          className="flex w-full items-center justify-between gap-3 bg-muted/20 px-4 py-3 text-start transition-colors hover:bg-muted/35 sm:px-5"
+          aria-expanded={showAdvanced}
+        >
+          <div>
+            <p className="text-sm font-semibold text-foreground">تفاصيل إضافية</p>
+            <p className="text-[11px] text-muted-foreground">
+              فوترة، تتبع، باركود، علامات، وأبعاد الشحن — اختيارية.
+            </p>
+          </div>
+          <ChevronDown
+            className={cn(
+              'h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200',
+              showAdvanced && 'rotate-180',
             )}
           />
-        </div>
-      </EntityFormRow>
+        </button>
 
-      <EntityFormRow label="متاح للشراء">
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-sm text-muted-foreground">يمكن تموينه وشراؤه من الموردين</p>
-          <Controller
-            control={control}
-            name="purchaseOk"
-            render={({ field }) => (
-              <Switch checked={field.value} onCheckedChange={field.onChange} aria-label="متاح للشراء" />
-            )}
-          />
-        </div>
-      </EntityFormRow>
+        {showAdvanced ? (
+          <div className="space-y-4 border-t border-border/70 p-4 sm:p-5">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <ProductFormField label="سياسة الفوترة" htmlFor="product-invoice-policy">
+                <Controller
+                  control={control}
+                  name="invoicePolicy"
+                  render={({ field }) => (
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger id="product-invoice-policy" aria-label="سياسة الفوترة" className="h-11">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PRODUCT_INVOICE_POLICY_OPTIONS.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.labelAr}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+              </ProductFormField>
 
-      <EntityFormRow label="نقطة البيع">
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-sm text-muted-foreground">متاح في شاشة الكاشير</p>
-          <Controller
-            control={control}
-            name="posAvailable"
-            render={({ field }) => (
-              <Switch checked={field.value} onCheckedChange={field.onChange} aria-label="نقطة البيع" />
-            )}
-          />
-        </div>
-      </EntityFormRow>
+              <ProductFormField label="التتبع" htmlFor="product-tracking">
+                <Controller
+                  control={control}
+                  name="tracking"
+                  render={({ field }) => (
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger id="product-tracking" aria-label="التتبع" className="h-11">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PRODUCT_TRACKING_OPTIONS.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.labelAr}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+              </ProductFormField>
+            </div>
 
-      <EntityFormRow label="الباركود" htmlFor="product-barcode">
-        <Input
-          id="product-barcode"
-          dir="ltr"
-          className="max-w-sm"
-          placeholder="مثلاً 6281000000000"
-          {...register('barcode')}
-        />
-      </EntityFormRow>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <ProductFormField label="الباركود" htmlFor="product-barcode">
+                <Input
+                  id="product-barcode"
+                  dir="ltr"
+                  placeholder="6281000000000"
+                  className="h-11"
+                  {...register('barcode')}
+                />
+              </ProductFormField>
 
-      <EntityFormRow label="علامات التصنيف" htmlFor="product-tags">
-        <Input
-          id="product-tags"
-          className="max-w-sm"
-          placeholder="مفصولة بفواصل — مثال: مطبخ، خشب"
-          {...register('tagsInput')}
-        />
-      </EntityFormRow>
+              <ProductFormField
+                label="علامات التصنيف"
+                htmlFor="product-tags"
+                hint="مفصولة بفواصل — مثال: best-seller، deals"
+              >
+                <Input
+                  id="product-tags"
+                  className="h-11"
+                  placeholder="best-seller, deals"
+                  {...register('tagsInput')}
+                />
+              </ProductFormField>
+            </div>
 
-      <div className="pt-4">
-        <p className="mb-1 text-sm font-semibold text-foreground">وصف مختصر</p>
-        <p className="mb-2 text-xs text-muted-foreground">يظهر في بطاقات المنتج والقوائم.</p>
-        <Textarea
-          id="product-short-description"
-          rows={2}
-          className="resize-none"
-          {...register('shortDescription')}
-        />
-      </div>
-
-      <div className="pt-4">
-        <p className="mb-1 text-sm font-semibold text-foreground">الوصف</p>
-        <p className="mb-2 text-xs text-muted-foreground">الوصف الكامل لصفحة المنتج.</p>
-        <Textarea id="product-description" rows={4} className="resize-none" {...register('description')} />
-      </div>
-
-      <div className="pt-4">
-        <p className="mb-1 text-sm font-semibold text-foreground">اللوجستيات</p>
-        <p className="mb-3 text-xs text-muted-foreground">اختياري — مفيد للشحن لاحقًا.</p>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="space-y-1.5">
-            <label htmlFor="product-weight" className="text-xs text-muted-foreground">
-              الوزن (كجم)
-            </label>
-            <Input id="product-weight" type="number" min={0} step="0.01" dir="ltr" {...register('weightKg')} />
+            <div>
+              <p className="mb-3 text-xs font-medium text-muted-foreground">أبعاد الشحن (اختياري)</p>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <ProductFormField label="الوزن (كجم)" htmlFor="product-weight">
+                  <Input
+                    id="product-weight"
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    dir="ltr"
+                    className="h-11"
+                    {...register('weightKg')}
+                  />
+                </ProductFormField>
+                <ProductFormField label="الطول (سم)" htmlFor="product-length">
+                  <Input
+                    id="product-length"
+                    type="number"
+                    min={0}
+                    step="0.1"
+                    dir="ltr"
+                    className="h-11"
+                    {...register('lengthCm')}
+                  />
+                </ProductFormField>
+                <ProductFormField label="العرض (سم)" htmlFor="product-width">
+                  <Input
+                    id="product-width"
+                    type="number"
+                    min={0}
+                    step="0.1"
+                    dir="ltr"
+                    className="h-11"
+                    {...register('widthCm')}
+                  />
+                </ProductFormField>
+                <ProductFormField label="الارتفاع (سم)" htmlFor="product-height">
+                  <Input
+                    id="product-height"
+                    type="number"
+                    min={0}
+                    step="0.1"
+                    dir="ltr"
+                    className="h-11"
+                    {...register('heightCm')}
+                  />
+                </ProductFormField>
+              </div>
+            </div>
           </div>
-          <div className="space-y-1.5">
-            <label htmlFor="product-length" className="text-xs text-muted-foreground">
-              الطول (سم)
-            </label>
-            <Input id="product-length" type="number" min={0} step="0.1" dir="ltr" {...register('lengthCm')} />
-          </div>
-          <div className="space-y-1.5">
-            <label htmlFor="product-width" className="text-xs text-muted-foreground">
-              العرض (سم)
-            </label>
-            <Input id="product-width" type="number" min={0} step="0.1" dir="ltr" {...register('widthCm')} />
-          </div>
-          <div className="space-y-1.5">
-            <label htmlFor="product-height" className="text-xs text-muted-foreground">
-              الارتفاع (سم)
-            </label>
-            <Input id="product-height" type="number" min={0} step="0.1" dir="ltr" {...register('heightCm')} />
-          </div>
-        </div>
+        ) : null}
       </div>
     </div>
   );

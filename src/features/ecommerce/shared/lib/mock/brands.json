@@ -1,7 +1,7 @@
 [
   {
     "id": "brand-almarai",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "the-ordinary",
     "nameAr": "ذا أوردينري",
     "nameEn": "The Ordinary",
@@ -14,7 +14,7 @@
   },
   {
     "id": "brand-pepsi",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "cerave",
     "nameAr": "سيرافي",
     "nameEn": "CeraVe",
@@ -26,7 +26,7 @@
   },
   {
     "id": "brand-lays",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "maybelline",
     "nameAr": "ميبيلين",
     "nameEn": "Maybelline",
@@ -38,7 +38,7 @@
   },
   {
     "id": "brand-nadec",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "neutrogena",
     "nameAr": "نيوتروجينا",
     "nameEn": "Neutrogena",
@@ -50,7 +50,7 @@
   },
   {
     "id": "brand-dove",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "dove",
     "nameAr": "دوف",
     "nameEn": "Dove",
@@ -62,7 +62,7 @@
   },
   {
     "id": "brand-tide",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "loreal-paris",
     "nameAr": "لوريال باريس",
     "nameEn": "L'Oréal Paris",

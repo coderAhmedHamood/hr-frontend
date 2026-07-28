@@ -1,7 +1,7 @@
 [
   {
     "id": "cat-bev",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "skincare",
     "nameAr": "العناية بالبشرة",
     "nameEn": "Skincare",
@@ -31,7 +31,7 @@
   },
   {
     "id": "cat-bev-soft",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "cleansers",
     "nameAr": "منظفات الوجه",
     "nameEn": "Cleansers",
@@ -56,7 +56,7 @@
   },
   {
     "id": "cat-bev-soft-cola",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "serums",
     "nameAr": "السيرومات",
     "nameEn": "Serums",
@@ -81,7 +81,7 @@
   },
   {
     "id": "cat-bev-soft-energy",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "exfoliating-cleansers",
     "nameAr": "منظفات مقشّرة",
     "nameEn": "Exfoliating cleansers",
@@ -106,7 +106,7 @@
   },
   {
     "id": "cat-bev-juice",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "moisturizers",
     "nameAr": "المرطبات",
     "nameEn": "Moisturizers",
@@ -131,7 +131,7 @@
   },
   {
     "id": "cat-bev-juice-orange",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "day-creams",
     "nameAr": "كريمات نهاريّة",
     "nameEn": "Day creams",
@@ -156,7 +156,7 @@
   },
   {
     "id": "cat-bev-water",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "toners",
     "nameAr": "التونر",
     "nameEn": "Toners",
@@ -181,7 +181,7 @@
   },
   {
     "id": "cat-bev-tea-coffee",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "eye-lip-care",
     "nameAr": "عناية العين والشفاه",
     "nameEn": "Eye & lip care",
@@ -206,7 +206,7 @@
   },
   {
     "id": "cat-bev-tea",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "eye-creams",
     "nameAr": "كريمات العين",
     "nameEn": "Eye creams",
@@ -231,7 +231,7 @@
   },
   {
     "id": "cat-bev-coffee",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "lip-balms",
     "nameAr": "مرطب الشفاه",
     "nameEn": "Lip balms",
@@ -256,7 +256,7 @@
   },
   {
     "id": "cat-snacks",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "makeup",
     "nameAr": "المكياج",
     "nameEn": "Makeup",
@@ -285,7 +285,7 @@
   },
   {
     "id": "cat-snacks-chips",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "lips",
     "nameAr": "الشفاه",
     "nameEn": "Lips",
@@ -310,7 +310,7 @@
   },
   {
     "id": "cat-snacks-chips-potato",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "matte-lipstick",
     "nameAr": "أحمر شفاه مات",
     "nameEn": "Matte lipstick",
@@ -335,7 +335,7 @@
   },
   {
     "id": "cat-snacks-nuts",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "eyes",
     "nameAr": "العيون",
     "nameEn": "Eyes",
@@ -360,7 +360,7 @@
   },
   {
     "id": "cat-snacks-biscuits",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "face-makeup",
     "nameAr": "مكياج الوجه",
     "nameEn": "Face makeup",
@@ -385,7 +385,7 @@
   },
   {
     "id": "cat-snacks-dates",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "nail-polish",
     "nameAr": "طلاء الأظافر",
     "nameEn": "Nail polish",
@@ -410,7 +410,7 @@
   },
   {
     "id": "cat-bakery",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "haircare",
     "nameAr": "العناية بالشعر",
     "nameEn": "Haircare",
@@ -439,7 +439,7 @@
   },
   {
     "id": "cat-bakery-bread",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "shampoo",
     "nameAr": "الشامبو",
     "nameEn": "Shampoo",
@@ -464,7 +464,7 @@
   },
   {
     "id": "cat-bakery-pastries",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "conditioner",
     "nameAr": "البلسم",
     "nameEn": "Conditioner",
@@ -489,7 +489,7 @@
   },
   {
     "id": "cat-bakery-sweets",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "hair-oils-masks",
     "nameAr": "زيوت وماسكات الشعر",
     "nameEn": "Hair oils & masks",
@@ -514,7 +514,7 @@
   },
   {
     "id": "cat-dairy",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "treatment",
     "nameAr": "علاجات البشرة",
     "nameEn": "Treatments",
@@ -543,7 +543,7 @@
   },
   {
     "id": "cat-dairy-milk",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "acids-toners",
     "nameAr": "أحماض وتونر",
     "nameEn": "Acids & toners",
@@ -568,7 +568,7 @@
   },
   {
     "id": "cat-dairy-yogurt",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "eye-serums",
     "nameAr": "سيروم العين",
     "nameEn": "Eye serums",
@@ -593,7 +593,7 @@
   },
   {
     "id": "cat-dairy-cheese",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "spot-treatments",
     "nameAr": "علاجات موضعية",
     "nameEn": "Spot treatments",
@@ -618,7 +618,7 @@
   },
   {
     "id": "cat-frozen",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "masks",
     "nameAr": "الماسكات",
     "nameEn": "Masks",
@@ -648,7 +648,7 @@
   },
   {
     "id": "cat-frozen-veg",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "clay-masks",
     "nameAr": "ماسكات الطين",
     "nameEn": "Clay masks",
@@ -673,7 +673,7 @@
   },
   {
     "id": "cat-frozen-meat",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "sheet-masks",
     "nameAr": "ماسكات الورق",
     "nameEn": "Sheet masks",
@@ -698,7 +698,7 @@
   },
   {
     "id": "cat-frozen-ready",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "overnight-masks",
     "nameAr": "ماسكات ليلية",
     "nameEn": "Overnight masks",
@@ -723,7 +723,7 @@
   },
   {
     "id": "cat-grocery",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "beauty-tools",
     "nameAr": "أدوات التجميل",
     "nameEn": "Beauty tools",
@@ -751,7 +751,7 @@
   },
   {
     "id": "cat-grocery-breakfast",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "brushes",
     "nameAr": "الفرش",
     "nameEn": "Brushes",
@@ -776,7 +776,7 @@
   },
   {
     "id": "cat-grocery-breakfast-cereal",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "face-brushes",
     "nameAr": "فرش الوجه",
     "nameEn": "Face brushes",
@@ -801,7 +801,7 @@
   },
   {
     "id": "cat-grocery-breakfast-jam",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "eye-brushes",
     "nameAr": "فرش العيون",
     "nameEn": "Eye brushes",
@@ -826,7 +826,7 @@
   },
   {
     "id": "cat-grocery-cooking",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "applicators",
     "nameAr": "أدوات التطبيق",
     "nameEn": "Applicators",
@@ -851,7 +851,7 @@
   },
   {
     "id": "cat-grocery-cooking-flour",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "sponges",
     "nameAr": "الإسفنج",
     "nameEn": "Sponges",
@@ -876,7 +876,7 @@
   },
   {
     "id": "cat-grocery-cooking-oil",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "tweezers",
     "nameAr": "الملاقط",
     "nameEn": "Tweezers",
@@ -901,7 +901,7 @@
   },
   {
     "id": "cat-grocery-spices",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "devices",
     "nameAr": "الأجهزة",
     "nameEn": "Devices",
@@ -926,7 +926,7 @@
   },
   {
     "id": "cat-grocery-spices-ground",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "facial-steamers",
     "nameAr": "أجهزة البخار",
     "nameEn": "Facial steamers",
@@ -951,7 +951,7 @@
   },
   {
     "id": "cat-grocery-canned",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "accessories",
     "nameAr": "إكسسوارات",
     "nameEn": "Accessories",
@@ -976,7 +976,7 @@
   },
   {
     "id": "cat-grocery-canned-pasta",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "mirrors",
     "nameAr": "مرايا",
     "nameEn": "Mirrors",
@@ -1001,7 +1001,7 @@
   },
   {
     "id": "cat-grocery-canned-rice",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "organizers",
     "nameAr": "منظمات",
     "nameEn": "Organizers",
@@ -1026,7 +1026,7 @@
   },
   {
     "id": "cat-grocery-canned-sauces",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "travel-kits",
     "nameAr": "طقم سفر",
     "nameEn": "Travel kits",
@@ -1051,7 +1051,7 @@
   },
   {
     "id": "cat-cleaning",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "face-wash",
     "nameAr": "غسول وتنظيف",
     "nameEn": "Face wash",
@@ -1080,7 +1080,7 @@
   },
   {
     "id": "cat-cleaning-laundry",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "gel-cleansers",
     "nameAr": "غسول جل",
     "nameEn": "Gel cleansers",
@@ -1105,7 +1105,7 @@
   },
   {
     "id": "cat-cleaning-home",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "micellar",
     "nameAr": "ميسيلار",
     "nameEn": "Micellar",
@@ -1130,7 +1130,7 @@
   },
   {
     "id": "cat-cleaning-paper",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "makeup-removers",
     "nameAr": "مزيلات المكياج",
     "nameEn": "Makeup removers",
@@ -1155,7 +1155,7 @@
   },
   {
     "id": "cat-personal",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "body-bath",
     "nameAr": "الجسم والاستحمام",
     "nameEn": "Body & bath",
@@ -1183,7 +1183,7 @@
   },
   {
     "id": "cat-personal-hair",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "body-hair",
     "nameAr": "شعر الجسم",
     "nameEn": "Body hair care",
@@ -1208,7 +1208,7 @@
   },
   {
     "id": "cat-personal-body",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "body-lotions",
     "nameAr": "لوشن الجسم",
     "nameEn": "Body lotions",
@@ -1233,7 +1233,7 @@
   },
   {
     "id": "cat-personal-oral",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "hand-care",
     "nameAr": "عناية اليدين",
     "nameEn": "Hand care",
@@ -1258,7 +1258,7 @@
   },
   {
     "id": "cat-bev-soft-cola-classic",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "hydrating-serums",
     "nameAr": "سيروم ترطيب",
     "nameEn": "Hydrating serums",
@@ -1283,7 +1283,7 @@
   },
   {
     "id": "cat-bev-soft-cola-zero",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "hyaluronic-serums",
     "nameAr": "سيروم هيالورونيك",
     "nameEn": "Hyaluronic serums",
@@ -1308,7 +1308,7 @@
   },
   {
     "id": "cat-home",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "devices-home",
     "nameAr": "أجهزة العناية",
     "nameEn": "Care devices",
@@ -1334,7 +1334,7 @@
   },
   {
     "id": "cat-home-lighting",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "facial-devices",
     "nameAr": "أجهزة الوجه",
     "nameEn": "Facial devices",
@@ -1359,7 +1359,7 @@
   },
   {
     "id": "cat-home-lighting-lamps",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "steam-devices",
     "nameAr": "أجهزة البخار المنزلي",
     "nameEn": "Home steam devices",
@@ -1384,7 +1384,7 @@
   },
   {
     "id": "cat-home-lighting-lamps-led",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "facial-steamers-led",
     "nameAr": "بخار الوجه",
     "nameEn": "Facial steamers",
@@ -1409,7 +1409,7 @@
   },
   {
     "id": "cat-home-lighting-lamps-halogen",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "slug": "led-masks",
     "nameAr": "ماسكات LED",
     "nameEn": "LED masks",

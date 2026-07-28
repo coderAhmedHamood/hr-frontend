@@ -1,7 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import { Check, Plus, X } from 'lucide-react';
+import Image from 'next/image';
+import { Check, ChevronDown, Package, Plus, X } from 'lucide-react';
 import {
   sumAllocationQty,
   validateAllocations,
@@ -10,6 +11,7 @@ import {
   useOrderFulfillmentMutations,
   useProductStockAvailability,
 } from '@/features/ecommerce/admin/orders/hooks/use-orders';
+import { formatPrice } from '@/features/ecommerce/shared/utils/format-price';
 import type { OrderLineItem } from '@/features/ecommerce/domain/types/order';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -43,13 +45,13 @@ function toDraftRows(line: OrderLineItem): DraftRow[] {
 }
 
 export function OrderLineShipPanel({ companyId, orderId, line }: Props) {
+  const [open, setOpen] = React.useState(false);
   const { data: availability = [], isLoading } = useProductStockAvailability(
     companyId,
     line.productId,
-    true,
+    open,
   );
   const { saveAllocations, shipLine } = useOrderFulfillmentMutations(companyId);
-  const [open, setOpen] = React.useState(line.shipStatus !== 'shipped');
   const [multi, setMulti] = React.useState(line.allocations.length > 1);
   const [rows, setRows] = React.useState<DraftRow[]>(() => toDraftRows(line));
   const [showAvailability, setShowAvailability] = React.useState(false);
@@ -58,6 +60,27 @@ export function OrderLineShipPanel({ companyId, orderId, line }: Props) {
     setRows(toDraftRows(line));
     setMulti(line.allocations.length > 1);
   }, [line]);
+
+  React.useEffect(() => {
+    if (availability.length === 0) return;
+    setRows((prev) => {
+      const needsFill = prev.some((row) => !row.locationId);
+      if (!needsFill) return prev;
+      const preferred =
+        availability.find((row) => (row.availableQuantity ?? row.quantity) >= line.quantity) ??
+        availability[0];
+      if (!preferred) return prev;
+      return prev.map((row) =>
+        row.locationId
+          ? row
+          : {
+              ...row,
+              locationId: preferred.locationId,
+              warehouseId: preferred.warehouseId,
+            },
+      );
+    });
+  }, [availability, line.quantity]);
 
   const availableByLocation = React.useMemo(
     () =>
@@ -154,25 +177,53 @@ export function OrderLineShipPanel({ companyId, orderId, line }: Props) {
           .join(' · ')
       : null;
 
+  const lineTotal = {
+    amount: line.unitPrice.amount * line.quantity,
+    currency: line.unitPrice.currency,
+  };
+
   return (
-    <div className="rounded-xl border border-border bg-card p-4">
+    <div className="overflow-hidden rounded-xl border border-border bg-card transition-colors hover:border-border/80">
       <button
         type="button"
-        className="flex w-full items-start justify-between gap-3 text-start"
+        className="flex w-full items-center gap-3 px-3 py-2.5 text-start"
         onClick={() => setOpen((value) => !value)}
       >
-        <div>
-          <p className="font-medium text-foreground">{line.productNameAr}</p>
-          <p className="text-xs text-muted-foreground">الكمية: {line.quantity}</p>
-          {summary && !open ? <p className="mt-1 text-xs text-muted-foreground">{summary}</p> : null}
+        <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-lg bg-muted">
+          {line.imageUrl ? (
+            <Image src={line.imageUrl} alt="" fill unoptimized className="object-cover" sizes="44px" />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+              <Package className="h-4 w-4" />
+            </div>
+          )}
         </div>
-        <Badge variant={isShipped ? 'success' : line.shipStatus === 'assigned' ? 'warning' : 'subtle'}>
+
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium text-foreground">{line.productNameAr}</p>
+          <p className="text-xs text-muted-foreground">
+            {line.quantity} × {formatPrice(line.unitPrice)}
+          </p>
+        </div>
+
+        <p className="hidden shrink-0 text-sm font-semibold tabular-nums text-foreground sm:block">
+          {formatPrice(lineTotal)}
+        </p>
+
+        <Badge
+          className="shrink-0"
+          variant={isShipped ? 'success' : line.shipStatus === 'assigned' ? 'warning' : 'subtle'}
+        >
           {isShipped ? 'تم الشحن' : progressLabel}
         </Badge>
+
+        <ChevronDown
+          className={cn('h-4 w-4 shrink-0 text-muted-foreground transition-transform', open && 'rotate-180')}
+        />
       </button>
 
       {open && !isShipped ? (
-        <div className="mt-4 space-y-3 border-t border-border pt-4">
+        <div className="space-y-3 border-t border-border px-3 pb-4 pt-4">
           <p className="text-sm font-medium">
             توزيع {line.productNameAr} ({line.quantity} قطعة)
           </p>
@@ -242,9 +293,11 @@ export function OrderLineShipPanel({ companyId, orderId, line }: Props) {
                     <SelectValue placeholder="اختر الموقع" />
                   </SelectTrigger>
                   <SelectContent>
-                    {availability.map((option) => (
+                    {availability
+                      .filter((option) => (option.availableQuantity ?? option.quantity) > 0)
+                      .map((option) => (
                       <SelectItem key={option.locationId} value={option.locationId}>
-                        {option.warehouseNameAr} / {option.locationNameAr} ({option.quantity})
+                        {option.warehouseNameAr} / {option.locationNameAr} ({option.availableQuantity ?? option.quantity})
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -287,9 +340,15 @@ export function OrderLineShipPanel({ companyId, orderId, line }: Props) {
             </Button>
           ) : null}
 
-          {!validation.ok && total > 0 ? (
+          {!validation.ok && total > 0 && rows.every((row) => row.locationId) ? (
             <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
               {validation.error}
+            </div>
+          ) : null}
+
+          {!isLoading && availability.length === 0 ? (
+            <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              لا توجد مواقع مخزون متاحة لهذا المنتج. أضف رصيدًا من المخازن أولًا.
             </div>
           ) : null}
 
@@ -321,8 +380,8 @@ export function OrderLineShipPanel({ companyId, orderId, line }: Props) {
       ) : null}
 
       {open && isShipped ? (
-        <p className={cn('mt-3 text-sm text-muted-foreground')}>
-          شُحن من: {summary ?? '—'}
+        <p className="border-t border-border px-3 py-3 text-sm text-muted-foreground">
+          شُحن من: {isLoading ? '…' : summary ?? '—'}
         </p>
       ) : null}
     </div>

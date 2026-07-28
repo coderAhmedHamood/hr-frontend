@@ -90,13 +90,18 @@ export const YEMEN_CITIES = [
   'عمران',
 ] as const;
 
+/** @deprecated Prefer company checkout settings from CMS. */
 export const FREE_SHIPPING_THRESHOLD_YER = 200;
+/** @deprecated Prefer company checkout settings from CMS. */
 export const STANDARD_SHIPPING_FEE_YER = 25;
 
-export function calculateShippingFee(subtotalAmount: number, currency = 'YER'): Money {
-  const amount =
-    currency === 'YER' && subtotalAmount >= FREE_SHIPPING_THRESHOLD_YER
-      ? 0
-      : STANDARD_SHIPPING_FEE_YER;
+export function calculateShippingFee(
+  subtotalAmount: number,
+  currency = 'YER',
+  options?: { freeShippingThreshold?: number; standardShippingFee?: number },
+): Money {
+  const freeThreshold = options?.freeShippingThreshold ?? FREE_SHIPPING_THRESHOLD_YER;
+  const standardFee = options?.standardShippingFee ?? STANDARD_SHIPPING_FEE_YER;
+  const amount = currency === 'YER' && subtotalAmount >= freeThreshold ? 0 : standardFee;
   return { amount, currency };
 }

@@ -1,4 +1,5 @@
 import { apiRequest, type PaginatedResult } from '@/features/hr/lib/api/client';
+import { resolveStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
 import type {
   Category,
   CategoryListQuery,
@@ -75,7 +76,7 @@ function mapCategory(dto: CategoryDto): Category {
 
 function toCreateBody(input: CreateCategoryInput) {
   return {
-    companyId: input.companyId,
+    companyId: resolveStorefrontCompanyId(input.companyId),
     parentId: input.parentId ?? null,
     slug: input.slug || undefined,
     nameAr: input.nameAr,
@@ -128,9 +129,10 @@ function toUpdateBody(patch: UpdateCategoryInput) {
 
 export const categoriesApi: AdminCategoriesPort = {
   async getAll(query: CategoryListQuery): Promise<PaginatedResult<Category>> {
+    const companyId = resolveStorefrontCompanyId(query.companyId);
     const result = await apiRequest<PaginatedResult<CategoryDto>>('/inventory/categories', {
       query: {
-        companyId: query.companyId,
+        companyId,
         search: query.search,
         parentId: query.parentId === null ? undefined : query.parentId,
         rootOnly: query.parentId === null ? true : undefined,
@@ -155,9 +157,10 @@ export const categoriesApi: AdminCategoriesPort = {
   },
 
   async getBySlug(companyId, slug) {
-    const result = await this.getAll({ companyId, page: 1, limit: 1 });
+    const resolvedCompanyId = resolveStorefrontCompanyId(companyId);
+    const result = await this.getAll({ companyId: resolvedCompanyId, page: 1, limit: 1 });
     const exact = await apiRequest<PaginatedResult<CategoryDto>>('/inventory/categories', {
-      query: { companyId, slug, page: 1, limit: 1, archiveScope: 'active' },
+      query: { companyId: resolvedCompanyId, slug, page: 1, limit: 1, archiveScope: 'active' },
     });
     const dto = exact.items?.[0];
     return dto ? mapCategory(dto) : result.items.find((item) => item.slug === slug) ?? null;

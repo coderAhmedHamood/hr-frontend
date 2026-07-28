@@ -1,7 +1,7 @@
 [
   {
     "id": "order-1",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "orderNumber": "ORD-1001",
     "customerId": "cust-1",
     "customerNameAr": "أحمد محمد",
@@ -31,7 +31,7 @@
   },
   {
     "id": "order-2",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "orderNumber": "ORD-1002",
     "customerId": "cust-2",
     "customerNameAr": "فاطمة علي",
@@ -69,7 +69,7 @@
   },
   {
     "id": "order-3",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "orderNumber": "ORD-1003",
     "customerId": "cust-3",
     "customerNameAr": "خالد الشامي",

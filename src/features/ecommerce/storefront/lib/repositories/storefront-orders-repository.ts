@@ -2,8 +2,11 @@ import type {
   PlaceOrderInput,
   StorefrontCustomerOrder,
   StorefrontOrderLine,
+  StorefrontOrderStatus,
 } from '@/features/ecommerce/storefront/domain/checkout';
 import { calculateShippingFee } from '@/features/ecommerce/storefront/domain/checkout';
+import { getCompanyConfigMock } from '@/features/ecommerce/storefront/lib/mock/company-configs';
+import { resolveStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
 import { mockRepositoryDelay } from '@/features/ecommerce/storefront/lib/repositories/mock-delay';
 
 const globalForOrders = globalThis as typeof globalThis & {
@@ -30,6 +33,10 @@ function addDaysIso(days: number): string {
   return date.toISOString();
 }
 
+function matchesCompany(orderCompanyId: string, companyId: string): boolean {
+  return resolveStorefrontCompanyId(orderCompanyId) === resolveStorefrontCompanyId(companyId);
+}
+
 /** Customer-facing storefront orders — mock in-memory store shared via globalThis. */
 export const storefrontOrdersRepository = {
   async placeOrder(input: PlaceOrderInput): Promise<StorefrontCustomerOrder> {
@@ -47,13 +54,17 @@ export const storefrontOrdersRepository = {
     }));
 
     const subtotalAmount = lines.reduce((sum, line) => sum + line.lineTotal.amount, 0);
-    const shippingFee = calculateShippingFee(subtotalAmount, currency);
+    const company = getCompanyConfigMock(input.companyId);
+    const shippingFee = calculateShippingFee(subtotalAmount, currency, {
+      freeShippingThreshold: company?.checkout?.freeShippingThreshold,
+      standardShippingFee: company?.checkout?.standardShippingFee,
+    });
     const now = new Date().toISOString();
     const isCod = input.paymentMethod === 'cash_on_delivery';
 
     const order: StorefrontCustomerOrder = {
       id: crypto.randomUUID(),
-      companyId: input.companyId,
+      companyId: resolveStorefrontCompanyId(input.companyId),
       orderNumber: nextOrderNumber(),
       status: 'confirmed',
       paymentMethod: input.paymentMethod,
@@ -78,13 +89,51 @@ export const storefrontOrdersRepository = {
   ): Promise<StorefrontCustomerOrder | null> {
     const order =
       ORDERS.find(
-        (item) => item.companyId === companyId && item.orderNumber === orderNumber,
+        (item) =>
+          matchesCompany(item.companyId, companyId) && item.orderNumber === orderNumber,
       ) ?? null;
     return mockRepositoryDelay(order ? clone(order) : null);
   },
 
   async listByCompany(companyId: string): Promise<StorefrontCustomerOrder[]> {
-    const items = ORDERS.filter((order) => order.companyId === companyId);
+    const items = ORDERS.filter((order) => matchesCompany(order.companyId, companyId));
     return mockRepositoryDelay(clone(items));
+  },
+
+  async updateStatus(
+    companyId: string,
+    orderNumber: string,
+    status: StorefrontOrderStatus,
+  ): Promise<StorefrontCustomerOrder | null> {
+    const index = ORDERS.findIndex(
+      (item) =>
+        matchesCompany(item.companyId, companyId) && item.orderNumber === orderNumber,
+    );
+    if (index === -1) return mockRepositoryDelay(null);
+
+    ORDERS[index] = {
+      ...ORDERS[index],
+      status,
+      updatedAt: new Date().toISOString(),
+    };
+    return mockRepositoryDelay(clone(ORDERS[index]));
+  },
+
+  async updateStatusById(
+    companyId: string,
+    orderId: string,
+    status: StorefrontOrderStatus,
+  ): Promise<StorefrontCustomerOrder | null> {
+    const index = ORDERS.findIndex(
+      (item) => matchesCompany(item.companyId, companyId) && item.id === orderId,
+    );
+    if (index === -1) return mockRepositoryDelay(null);
+
+    ORDERS[index] = {
+      ...ORDERS[index],
+      status,
+      updatedAt: new Date().toISOString(),
+    };
+    return mockRepositoryDelay(clone(ORDERS[index]));
   },
 };

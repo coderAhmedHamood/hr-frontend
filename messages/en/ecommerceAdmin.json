@@ -299,6 +299,7 @@
       "contact": "Contact",
       "social": "Social",
       "regional": "Regional",
+      "checkout": "Shipping & payment",
       "seo": "Default SEO"
     },
     "nameAr": "Store name (Arabic)",
@@ -318,6 +319,14 @@
     "twitter": "Twitter",
     "facebook": "Facebook",
     "whatsapp": "WhatsApp",
+    "freeShippingThreshold": "Free shipping threshold",
+    "standardShippingFee": "Standard shipping fee",
+    "defaultCity": "Default city",
+    "cities": "Delivery cities",
+    "citiesHint": "One city per line — shown on the checkout page.",
+    "paymentMethods": "Enabled payment methods",
+    "paymentCod": "Cash on delivery",
+    "paymentCard": "Card",
     "saveSuccess": "Settings saved.",
     "saveError": "Could not save settings.",
     "loadError": "Could not load settings."

@@ -1,7 +1,7 @@
 [
   {
     "id": "cust-1",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "nameAr": "عبدالله الحميري",
     "nameEn": "Abdullah Al-Himyari",
     "email": "abdullah@example.com",
@@ -15,7 +15,7 @@
   },
   {
     "id": "cust-2",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "nameAr": "سارة الشيباني",
     "nameEn": "Sarah Al-Shaibani",
     "email": "sarah@example.com",

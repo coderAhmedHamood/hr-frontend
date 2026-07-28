@@ -147,6 +147,19 @@ export function NavigationBuilderPage() {
                 href: t('href'),
               }}
             />
+            <NavListEditor
+              title={t('secondary')}
+              items={draft.secondaryNavigation}
+              emptyLabel={t('empty')}
+              onChange={(items) => setDraft({ ...draft, secondaryNavigation: items })}
+              labels={{
+                add: t('addItem'),
+                remove: t('removeItem'),
+                labelAr: t('labelAr'),
+                labelEn: t('labelEn'),
+                href: t('href'),
+              }}
+            />
           </TabsContent>
 
           <TabsContent value="footer" className="mt-4">

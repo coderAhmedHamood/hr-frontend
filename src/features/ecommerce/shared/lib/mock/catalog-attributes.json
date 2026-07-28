@@ -1,7 +1,7 @@
 [
   {
     "id": "attr-color",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "nameAr": "اللون",
     "displayType": "color",
     "createVariant": "always",
@@ -33,7 +33,7 @@
   },
   {
     "id": "attr-finish",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "nameAr": "الخامة",
     "displayType": "image",
     "createVariant": "dynamic",
@@ -58,7 +58,7 @@
   },
   {
     "id": "attr-size",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "nameAr": "المقاس",
     "displayType": "radio",
     "createVariant": "always",
@@ -73,7 +73,7 @@
   },
   {
     "id": "attr-material",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "nameAr": "المادة",
     "displayType": "select",
     "createVariant": "never",

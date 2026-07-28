@@ -299,6 +299,7 @@
       "contact": "التواصل",
       "social": "التواصل الاجتماعي",
       "regional": "إقليمي",
+      "checkout": "الشحن والدفع",
       "seo": "SEO الافتراضي"
     },
     "nameAr": "اسم المتجر (عربي)",
@@ -318,6 +319,14 @@
     "twitter": "تويتر",
     "facebook": "فيسبوك",
     "whatsapp": "واتساب",
+    "freeShippingThreshold": "حد الشحن المجاني",
+    "standardShippingFee": "رسوم الشحن القياسية",
+    "defaultCity": "المدينة الافتراضية",
+    "cities": "مدن التوصيل",
+    "citiesHint": "مدينة واحدة في كل سطر — تظهر في صفحة إتمام الطلب.",
+    "paymentMethods": "طرق الدفع المتاحة",
+    "paymentCod": "الدفع عند الاستلام",
+    "paymentCard": "بطاقة",
     "saveSuccess": "تم حفظ الإعدادات.",
     "saveError": "تعذر حفظ الإعدادات.",
     "loadError": "تعذر تحميل الإعدادات."

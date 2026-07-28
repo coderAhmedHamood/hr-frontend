@@ -1,6 +1,11 @@
 import { getLocale, getTranslations } from 'next-intl/server';
 import { PackageSearch } from 'lucide-react';
-import type { StorefrontCategory, StorefrontPaginated, StorefrontProduct } from '@/features/ecommerce/storefront/domain/storefront-models';
+import type {
+  StorefrontCategory,
+  StorefrontCompanyConfig,
+  StorefrontPaginated,
+  StorefrontProduct,
+} from '@/features/ecommerce/storefront/domain/storefront-models';
 import { ProductCard } from '@/features/ecommerce/storefront/components/product-card';
 import { ProductListingGrid } from '@/features/ecommerce/storefront/components/catalog/product-grid';
 import { StorePagination } from '@/features/ecommerce/storefront/components/store-pagination';
@@ -17,6 +22,7 @@ export async function ProductsBrowsePage({
   tag,
   sort,
   categories,
+  secondaryNavigation,
   productsResult,
 }: {
   page: number;
@@ -24,6 +30,7 @@ export async function ProductsBrowsePage({
   tag?: string;
   sort?: string;
   categories: StorefrontCategory[];
+  secondaryNavigation?: StorefrontCompanyConfig['secondaryNavigation'];
   productsResult: StorefrontPaginated<StorefrontProduct>;
 }) {
   const t = await getTranslations('storefront');
@@ -41,10 +48,17 @@ export async function ProductsBrowsePage({
         ]}
       />
 
-      <h1 className="font-arabic-display text-xl font-bold text-foreground sm:text-2xl">{t('products.title')}</h1>
+      <h1 className="font-arabic-display text-xl font-bold text-foreground sm:text-2xl">
+        {t('products.title')}
+      </h1>
 
       <div className="flex flex-col gap-6 lg:flex-row lg:gap-8">
-        <StorePlpSidebar categories={categories} activeCategorySlug={categorySlug} activeTag={tag} />
+        <StorePlpSidebar
+          categories={categories}
+          secondaryNavigation={secondaryNavigation}
+          activeCategorySlug={categorySlug}
+          activeTag={tag}
+        />
 
         <div className="min-w-0 flex-1">
           {products.length === 0 ? (

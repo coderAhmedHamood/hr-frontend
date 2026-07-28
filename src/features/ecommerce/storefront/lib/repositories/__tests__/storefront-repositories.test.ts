@@ -2,7 +2,7 @@ import { storefrontSearchRepository } from '@/features/ecommerce/storefront/lib/
 import { storefrontProductsRepository } from '@/features/ecommerce/storefront/lib/repositories/products-repository';
 
 const LOCALE = 'ar' as const;
-const COMPANY_ID = 'demo-company';
+const COMPANY_ID = '76e5bc4f-5adb-434d-a886-bcff05a9680b';
 
 describe('storefrontSearchRepository', () => {
   it('returns empty results for blank query', async () => {

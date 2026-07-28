@@ -55,6 +55,37 @@ export function mapStorefrontCompanyConfig(
       href: record.announcement?.href ?? null,
       dismissible: record.announcement?.dismissible ?? true,
     },
+    checkout: {
+      cities: record.checkout?.cities?.length
+        ? [...record.checkout.cities]
+        : [
+            'صنعاء',
+            'عدن',
+            'تعز',
+            'الحديدة',
+            'إب',
+            'ذمار',
+            'المكلا',
+            'سيئون',
+            'حجة',
+            'صعدة',
+            'مأرب',
+            'البيضاء',
+            'لحج',
+            'أبين',
+            'الضالع',
+            'شبوة',
+            'المحويت',
+            'عمران',
+          ],
+      defaultCity: record.checkout?.defaultCity || 'صنعاء',
+      freeShippingThreshold: record.checkout?.freeShippingThreshold ?? 200,
+      standardShippingFee: record.checkout?.standardShippingFee ?? 25,
+      paymentMethods:
+        record.checkout?.paymentMethods?.length > 0
+          ? [...record.checkout.paymentMethods]
+          : ['cash_on_delivery', 'card'],
+    },
     currency: record.currency,
     timezone: record.timezone,
   };

@@ -12,6 +12,8 @@ export type Customer = TenantScoped & {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  city?: string;
+  source?: 'seed' | 'storefront';
 };
 
 export type CustomerListQuery = {

@@ -3,7 +3,7 @@ import type { PageRecord } from '@/features/ecommerce/storefront/page-builder/do
 
 const samplePage: PageRecord = {
   id: '7c9e6679-7425-40de-944b-e07fc1f90ae7',
-  companyId: 'demo-company',
+  companyId: '76e5bc4f-5adb-434d-a886-bcff05a9680b',
   pageType: 'homepage',
   slug: 'home',
   displayName: { ar: 'الرئيسية', en: 'Home' },

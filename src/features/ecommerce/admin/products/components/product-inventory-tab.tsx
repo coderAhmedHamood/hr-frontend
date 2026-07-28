@@ -12,10 +12,14 @@ import {
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
 import { useProductOnHand, useProductStockSummary } from '@/features/inventory/admin/hooks/use-product-on-hand';
 import { STOCK_STATUS_OPTIONS, type ProductFormInput } from '@/features/ecommerce/admin/products/schemas/product-schema';
-import { EntityFormRow } from '@/features/ecommerce/admin/shared/components/entity-form-row';
+import {
+  ProductFormField,
+  ProductFormSection,
+} from '@/features/ecommerce/admin/products/components/product-form-section';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { cn } from '@/shared/utils';
 
 type Props = {
   control: Control<ProductFormInput>;
@@ -51,114 +55,123 @@ export function ProductInventoryTab({ control, errors, register, setValue, produ
   }, [productId, onHand, hasVariants, variantIdsKey, setValue]);
 
   return (
-    <div className="space-y-1">
-      <p className="mb-3 rounded-lg border border-border/70 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-        {productId
-          ? 'مصدر الحقيقة هو مخزون المواقع (LocationStock). كمية المنتج هنا مجرد عرض متزامن بعد تصديق الحركات.'
-          : 'احفظ المنتج أولًا ثم صدّق مستندات الاستلام في المستودع لتظهر كمية العرض هنا.'}
-      </p>
-
-      <EntityFormRow label="On Hand" htmlFor="product-stock">
-        <Input
-          id="product-stock"
-          type="number"
-          dir="ltr"
-          className="max-w-[8rem] bg-muted/40"
-          value={productId ? (isLoading ? '' : warehouseQty) : 0}
-          readOnly
-          disabled
-        />
-      </EntityFormRow>
-
-      {productId && summary ? (
-        <>
-          <EntityFormRow label="Reserved">
-            <Input
-              type="number"
-              dir="ltr"
-              className="max-w-[8rem] bg-muted/40"
-              value={summary.reserved}
-              readOnly
-              disabled
-            />
-          </EntityFormRow>
-          <EntityFormRow label="Available">
-            <Input
-              type="number"
-              dir="ltr"
-              className="max-w-[8rem] bg-muted/40 font-semibold"
-              value={summary.available}
-              readOnly
-              disabled
-            />
-            <p className="mt-1 text-xs text-muted-foreground">Available = On Hand − Reserved</p>
-          </EntityFormRow>
-        </>
-      ) : null}
-
-      <EntityFormRow label="حالة التوفر" htmlFor="product-availability">
-        <Controller
-          control={control}
-          name="stockStatus"
-          render={({ field }) => (
-            <Select value={field.value} onValueChange={field.onChange}>
-              <SelectTrigger id="product-availability" aria-label="حالة التوفر" className="max-w-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {STOCK_STATUS_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.labelAr}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-        />
-      </EntityFormRow>
-
-      <EntityFormRow label="تتبع المخزون">
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-sm text-muted-foreground">خصم الكمية عند البيع من مخزون المستودع</p>
-          <Controller
-            control={control}
-            name="trackInventory"
-            render={({ field }) => (
-              <Switch checked={field.value} onCheckedChange={field.onChange} aria-label="تتبع المخزون" />
-            )}
-          />
+    <div className="space-y-4">
+      <ProductFormSection
+        title="رصيد المخزون"
+        description={
+          productId
+            ? 'مصدر الحقيقة هو مخزون المواقع. الأرقام هنا للعرض بعد تصديق الحركات.'
+            : 'احفظ المنتج أولًا ثم صدّق مستندات الاستلام لتظهر الكميات هنا.'
+        }
+      >
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="rounded-xl border border-border bg-muted/30 p-3">
+            <p className="text-[11px] text-muted-foreground">المتاح فعليًا (On Hand)</p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums tracking-tight" dir="ltr">
+              {productId ? (isLoading ? '…' : warehouseQty) : 0}
+            </p>
+          </div>
+          {productId && summary ? (
+            <>
+              <div className="rounded-xl border border-border bg-muted/30 p-3">
+                <p className="text-[11px] text-muted-foreground">محجوز (Reserved)</p>
+                <p className="mt-1 text-2xl font-semibold tabular-nums tracking-tight" dir="ltr">
+                  {summary.reserved}
+                </p>
+              </div>
+              <div className="rounded-xl border border-primary/20 bg-primary/5 p-3">
+                <p className="text-[11px] text-muted-foreground">قابل للبيع (Available)</p>
+                <p className="mt-1 text-2xl font-semibold tabular-nums tracking-tight text-primary" dir="ltr">
+                  {summary.available}
+                </p>
+              </div>
+            </>
+          ) : null}
         </div>
-      </EntityFormRow>
+      </ProductFormSection>
 
-      <EntityFormRow label="حد المخزون المنخفض" htmlFor="product-low-stock">
-        <Input
-          id="product-low-stock"
-          type="number"
-          min={0}
-          step={1}
-          dir="ltr"
-          className="max-w-[8rem]"
-          {...register('lowStockThreshold', { valueAsNumber: true })}
-        />
-        {errors.lowStockThreshold ? (
-          <p className="mt-1 text-xs text-destructive">{errors.lowStockThreshold.message}</p>
-        ) : (
-          <p className="mt-1 text-xs text-muted-foreground">تنبيه عندما يصل On Hand إلى هذا الحد أو دونه.</p>
-        )}
-      </EntityFormRow>
+      <ProductFormSection title="إعدادات التوفر" description="حالة العرض وتنبيهات النفاد.">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <ProductFormField label="حالة التوفر" htmlFor="product-availability">
+            <Controller
+              control={control}
+              name="stockStatus"
+              render={({ field }) => (
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <SelectTrigger id="product-availability" aria-label="حالة التوفر" className="h-11">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {STOCK_STATUS_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.labelAr}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+          </ProductFormField>
 
-      <EntityFormRow label="السماح بالطلب عند النفاد">
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-sm text-muted-foreground">Backorder — البيع رغم نفاد المخزون</p>
-          <Controller
-            control={control}
-            name="allowBackorder"
-            render={({ field }) => (
-              <Switch checked={field.value} onCheckedChange={field.onChange} aria-label="السماح بالطلب عند النفاد" />
-            )}
-          />
+          <ProductFormField
+            label="حد المخزون المنخفض"
+            htmlFor="product-low-stock"
+            error={errors.lowStockThreshold?.message}
+            hint="تنبيه عندما يصل الرصيد إلى هذا الحد أو دونه."
+          >
+            <Input
+              id="product-low-stock"
+              type="number"
+              min={0}
+              step={1}
+              dir="ltr"
+              className="h-11 max-w-[10rem]"
+              {...register('lowStockThreshold', { valueAsNumber: true })}
+            />
+          </ProductFormField>
         </div>
-      </EntityFormRow>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          {(
+            [
+              {
+                name: 'trackInventory' as const,
+                title: 'تتبع المخزون',
+                hint: 'خصم الكمية عند البيع من مخزون المستودع',
+              },
+              {
+                name: 'allowBackorder' as const,
+                title: 'الطلب عند النفاد',
+                hint: 'السماح بالبيع رغم نفاد المخزون',
+              },
+            ] as const
+          ).map((item) => (
+            <Controller
+              key={item.name}
+              control={control}
+              name={item.name}
+              render={({ field }) => (
+                <label
+                  className={cn(
+                    'flex cursor-pointer items-start justify-between gap-3 rounded-xl border p-3 transition-colors',
+                    field.value ? 'border-primary/30 bg-primary/5' : 'border-border bg-background',
+                  )}
+                >
+                  <span className="min-w-0 space-y-0.5">
+                    <span className="block text-sm font-medium text-foreground">{item.title}</span>
+                    <span className="block text-[11px] text-muted-foreground">{item.hint}</span>
+                  </span>
+                  <Switch
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                    aria-label={item.title}
+                  />
+                </label>
+              )}
+            />
+          ))}
+        </div>
+      </ProductFormSection>
     </div>
   );
 }

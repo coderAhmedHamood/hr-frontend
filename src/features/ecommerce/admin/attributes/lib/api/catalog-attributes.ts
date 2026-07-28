@@ -1,5 +1,6 @@
 import { apiRequest, type PaginatedResult } from '@/features/hr/lib/api/client';
 import { toOptionalNumber } from '@/features/inventory/lib/api/numbers';
+import { resolveStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
 import {
   normalizeAttributeValue,
   type CatalogAttribute,
@@ -125,7 +126,7 @@ export const catalogAttributesApi = {
   async getAll(query: CatalogAttributeListQuery) {
     const result = await apiRequest<PaginatedResult<AttributeDto>>('/inventory/catalog-attributes', {
       query: {
-        companyId: query.companyId,
+        companyId: resolveStorefrontCompanyId(query.companyId),
         search: query.search,
         page: query.page ?? 1,
         limit: query.limit ?? 200,
@@ -149,7 +150,7 @@ export const catalogAttributesApi = {
     const dto = await apiRequest<AttributeDto>('/inventory/catalog-attributes', {
       method: 'POST',
       body: {
-        companyId: input.companyId,
+        companyId: resolveStorefrontCompanyId(input.companyId),
         nameAr: input.nameAr,
         displayType: input.displayType,
         createVariant: input.createVariant,

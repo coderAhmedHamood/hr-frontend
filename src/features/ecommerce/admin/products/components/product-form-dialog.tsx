@@ -40,11 +40,13 @@ import type { ProductRelatedDocKey } from '@/features/ecommerce/admin/products/c
 import { ecommerceAdminRoutes } from '@/features/ecommerce/admin/constants/routes';
 import type { Product } from '@/features/ecommerce/domain/types/product';
 import type { WarehouseOperationKind } from '@/features/inventory/domain/types/warehouse';
+import { Layers, Package, Ruler, Store, Warehouse } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogTitle,
   dialogShellBodyClass,
@@ -68,10 +70,18 @@ function ensureSlug(values: ProductFormValues): ProductFormValues {
   return { ...values, slug: fromSku || `product-${Date.now()}` };
 }
 
-const TAB_TRIGGER_CLASS =
-  'rounded-none border-b-2 border-transparent bg-transparent px-3 py-2.5 text-sm shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none';
+const FORM_TABS = [
+  { value: 'general', label: 'عام', icon: Package },
+  { value: 'attributes', label: 'خصائص', icon: Layers },
+  { value: 'availability', label: 'توفر', icon: Warehouse },
+  { value: 'units', label: 'وحدات', icon: Ruler },
+  { value: 'storefront', label: 'متجر', icon: Store },
+] as const;
 
-type FormTab = 'general' | 'attributes' | 'availability' | 'units' | 'storefront';
+const TAB_TRIGGER_CLASS =
+  'flex flex-1 items-center justify-center gap-1.5 rounded-xl px-2.5 py-2 text-xs font-medium text-muted-foreground shadow-none transition-all data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-soft sm:text-sm';
+
+type FormTab = (typeof FORM_TABS)[number]['value'];
 type MoveRequestKind = WarehouseOperationKind;
 
 export function ProductFormDialog({ product, open, onOpenChange }: Props) {
@@ -249,11 +259,16 @@ export function ProductFormDialog({ product, open, onOpenChange }: Props) {
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className={cn(dialogShellContentClass, 'max-w-4xl sm:max-w-4xl')}>
-          <div className={dialogShellHeaderClass}>
-            <DialogTitle className="text-base font-semibold">
+        <DialogContent className={cn(dialogShellContentClass, 'max-w-5xl sm:max-w-5xl')}>
+          <div className={cn(dialogShellHeaderClass, 'space-y-1')}>
+            <DialogTitle className="text-lg font-semibold tracking-tight">
               {isEditing ? 'تعديل المنتج' : 'منتج جديد'}
             </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground sm:text-sm">
+              {isEditing
+                ? 'حدّث بيانات المنتج، الخصائص، والتوفر من التبويبات.'
+                : 'ابدأ بالاسم والصورة والسعر — الخصائص والمخزون اختيارية لاحقًا.'}
+            </DialogDescription>
           </div>
 
           <form
@@ -263,155 +278,159 @@ export function ProductFormDialog({ product, open, onOpenChange }: Props) {
             }}
             className="flex min-h-0 flex-1 flex-col"
           >
-            <div className={cn(dialogShellBodyClass, 'space-y-5')}>
+            <div className={cn(dialogShellBodyClass, 'space-y-5 bg-muted/15')}>
               {isEditing && isLoadingFullProduct ? (
-                <p className="py-10 text-center text-sm text-muted-foreground">جاري تحميل المنتج والمتغيرات…</p>
+                <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
+                  <div className="h-8 w-8 animate-pulse rounded-full bg-muted" />
+                  <p className="text-sm text-muted-foreground">جاري تحميل المنتج والمتغيرات…</p>
+                </div>
               ) : isEditing && isFullProductError ? (
-                <p className="py-10 text-center text-sm text-destructive">
+                <p className="rounded-2xl border border-destructive/30 bg-destructive/5 px-4 py-10 text-center text-sm text-destructive">
                   تعذر تحميل تفاصيل المنتج. أعد فتح النافذة أو حدّث الصفحة.
                 </p>
               ) : (
                 <>
-              <ProductFormHeader
-                control={form.control}
-                register={form.register}
-                setValue={form.setValue}
-                nameError={form.formState.errors.nameAr?.message}
-                onRelatedDocSelect={onRelatedDoc}
-                relatedDocsActiveKey={activeRelatedDoc}
-                relatedDocs={[
-                  {
-                    key: 'variants',
-                    label: 'متغيرات المنتج',
-                    count: variantsCount,
-                    hint:
-                      variantsCount > 0
-                        ? 'عرض وتحرير أسعار وكميات المتغيرات'
-                        : 'أضف خصائص تُنشئ متغيرات لظهورها هنا',
-                  },
-                  {
-                    key: 'replenish',
-                    label: 'تجديد المخزون',
-                    count: replenishmentCount,
-                    hint: 'طلبات تجديد المخزون وحالاتها — أنشئ طلبًا ثم صدّقه من المستودع',
-                  },
-                  {
-                    key: 'receipts',
-                    label: 'الإدخالات',
-                    count: receiptsCount,
-                    hint: 'طلبات الاستلام الخاصة بهذا المنتج',
-                  },
-                  {
-                    key: 'issues',
-                    label: 'الإخراجات',
-                    count: issuesCount,
-                    hint: 'طلبات الصرف الخاصة بهذا المنتج',
-                  },
-                  {
-                    key: 'internals',
-                    label: 'داخلية',
-                    count: internalsCount,
-                    hint: 'الحركات الداخلية بين مواقع المستودع',
-                  },
-                  {
-                    key: 'moves',
-                    label: 'سجل الحركات',
-                    count: movesCount,
-                    hint: 'كل حركات المخزون المرتبطة بهذا المنتج',
-                  },
-                  {
-                    key: 'putaway',
-                    label: 'قواعد التخزين',
-                    count: putawayCount,
-                    hint: product?.id
-                      ? 'فتح قائمة قواعد التخزين لهذا المنتج'
-                      : 'احفظ المنتج أولًا لإضافة قواعد التخزين',
-                  },
-                ]}
-              />
+                  <ProductFormHeader
+                    control={form.control}
+                    register={form.register}
+                    setValue={form.setValue}
+                    nameError={form.formState.errors.nameAr?.message}
+                    isEditing={isEditing}
+                    onRelatedDocSelect={onRelatedDoc}
+                    relatedDocsActiveKey={activeRelatedDoc}
+                    relatedDocs={[
+                      {
+                        key: 'variants',
+                        label: 'متغيرات المنتج',
+                        count: variantsCount,
+                        hint:
+                          variantsCount > 0
+                            ? 'عرض وتحرير أسعار وكميات المتغيرات'
+                            : 'أضف خصائص تُنشئ متغيرات لظهورها هنا',
+                      },
+                      {
+                        key: 'replenish',
+                        label: 'تجديد المخزون',
+                        count: replenishmentCount,
+                        hint: 'طلبات تجديد المخزون وحالاتها — أنشئ طلبًا ثم صدّقه من المستودع',
+                      },
+                      {
+                        key: 'receipts',
+                        label: 'الإدخالات',
+                        count: receiptsCount,
+                        hint: 'طلبات الاستلام الخاصة بهذا المنتج',
+                      },
+                      {
+                        key: 'issues',
+                        label: 'الإخراجات',
+                        count: issuesCount,
+                        hint: 'طلبات الصرف الخاصة بهذا المنتج',
+                      },
+                      {
+                        key: 'internals',
+                        label: 'داخلية',
+                        count: internalsCount,
+                        hint: 'الحركات الداخلية بين مواقع المستودع',
+                      },
+                      {
+                        key: 'moves',
+                        label: 'سجل الحركات',
+                        count: movesCount,
+                        hint: 'كل حركات المخزون المرتبطة بهذا المنتج',
+                      },
+                      {
+                        key: 'putaway',
+                        label: 'قواعد التخزين',
+                        count: putawayCount,
+                        hint: product?.id
+                          ? 'فتح قائمة قواعد التخزين لهذا المنتج'
+                          : 'احفظ المنتج أولًا لإضافة قواعد التخزين',
+                      },
+                    ]}
+                  />
 
-              <Tabs
-                value={activeTab}
-                onValueChange={(value) => {
-                  setActiveTab(value as FormTab);
-                  if (value !== 'attributes') setActiveRelatedDoc(null);
-                }}
-                className="w-full"
-              >
-                <TabsList className="h-auto w-full justify-start gap-0 overflow-x-auto rounded-none border-b border-border bg-transparent p-0">
-                  <TabsTrigger value="general" className={TAB_TRIGGER_CLASS}>
-                    المعلومات العامة
-                  </TabsTrigger>
-                  <TabsTrigger value="attributes" className={TAB_TRIGGER_CLASS}>
-                    الخصائص والمتغيرات
-                  </TabsTrigger>
-                  <TabsTrigger value="availability" className={TAB_TRIGGER_CLASS}>
-                    التوفر
-                  </TabsTrigger>
-                  <TabsTrigger value="units" className={TAB_TRIGGER_CLASS}>
-                    الوحدات
-                  </TabsTrigger>
-                  <TabsTrigger value="storefront" className={TAB_TRIGGER_CLASS}>
-                    المتجر وSEO
-                  </TabsTrigger>
-                </TabsList>
+                  <Tabs
+                    value={activeTab}
+                    onValueChange={(value) => {
+                      setActiveTab(value as FormTab);
+                      if (value !== 'attributes') setActiveRelatedDoc(null);
+                    }}
+                    className="w-full space-y-4"
+                  >
+                    <TabsList className="grid h-auto w-full grid-cols-5 gap-1 rounded-2xl border border-border/80 bg-muted/40 p-1">
+                      {FORM_TABS.map((tab) => {
+                        const Icon = tab.icon;
+                        return (
+                          <TabsTrigger key={tab.value} value={tab.value} className={TAB_TRIGGER_CLASS}>
+                            <Icon className="hidden h-3.5 w-3.5 sm:block" />
+                            <span>{tab.label}</span>
+                          </TabsTrigger>
+                        );
+                      })}
+                    </TabsList>
 
-                <TabsContent value="general" className="mt-4">
-                  <ProductGeneralTab
-                    control={form.control}
-                    errors={form.formState.errors}
-                    register={form.register}
-                    categories={categoriesData?.items}
-                    brands={brandsData?.items}
-                  />
-                </TabsContent>
-                <TabsContent value="attributes" className="mt-4">
-                  <ProductAttributesTab
-                    control={form.control}
-                    errors={form.formState.errors}
-                    register={form.register}
-                    setValue={form.setValue}
-                    productId={product?.id}
-                  />
-                </TabsContent>
-                <TabsContent value="availability" className="mt-4">
-                  <ProductInventoryTab
-                    control={form.control}
-                    errors={form.formState.errors}
-                    register={form.register}
-                    setValue={form.setValue}
-                    productId={product?.id}
-                  />
-                </TabsContent>
-                <TabsContent value="units" className="mt-4">
-                  <ProductUnitsTab
-                    control={form.control}
-                    errors={form.formState.errors}
-                    setValue={form.setValue}
-                  />
-                </TabsContent>
-                <TabsContent value="storefront" className="mt-4">
-                  <ProductStorefrontTab errors={form.formState.errors} register={form.register} />
-                </TabsContent>
-              </Tabs>
+                    <TabsContent value="general" className="mt-0 focus-visible:outline-none">
+                      <ProductGeneralTab
+                        control={form.control}
+                        errors={form.formState.errors}
+                        register={form.register}
+                        categories={categoriesData?.items}
+                        brands={brandsData?.items}
+                      />
+                    </TabsContent>
+                    <TabsContent value="attributes" className="mt-0 focus-visible:outline-none">
+                      <ProductAttributesTab
+                        control={form.control}
+                        errors={form.formState.errors}
+                        register={form.register}
+                        setValue={form.setValue}
+                        productId={product?.id}
+                      />
+                    </TabsContent>
+                    <TabsContent value="availability" className="mt-0 focus-visible:outline-none">
+                      <ProductInventoryTab
+                        control={form.control}
+                        errors={form.formState.errors}
+                        register={form.register}
+                        setValue={form.setValue}
+                        productId={product?.id}
+                      />
+                    </TabsContent>
+                    <TabsContent value="units" className="mt-0 focus-visible:outline-none">
+                      <ProductUnitsTab
+                        control={form.control}
+                        errors={form.formState.errors}
+                        setValue={form.setValue}
+                      />
+                    </TabsContent>
+                    <TabsContent value="storefront" className="mt-0 focus-visible:outline-none">
+                      <ProductStorefrontTab errors={form.formState.errors} register={form.register} />
+                    </TabsContent>
+                  </Tabs>
                 </>
               )}
             </div>
 
-            <DialogFooter className="shrink-0 gap-2 border-t border-border px-6 py-4 sm:justify-start">
-              <Button
-                type="submit"
-                disabled={
-                  isSaving ||
-                  !companyId ||
-                  (isEditing && (isLoadingFullProduct || isFullProductError || !fullProduct))
-                }
-              >
-                {isSaving ? 'جاري الحفظ…' : isEditing ? 'حفظ' : 'إنشاء المنتج'}
-              </Button>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>
-                إلغاء
-              </Button>
+            <DialogFooter className="shrink-0 gap-2 border-t border-border bg-background px-4 py-4 sm:justify-between sm:px-6">
+              <p className="hidden text-[11px] text-muted-foreground sm:block">
+                الحقول بـ * مطلوبة — الباقي يمكن إكماله لاحقًا.
+              </p>
+              <div className="flex w-full gap-2 sm:w-auto">
+                <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>
+                  إلغاء
+                </Button>
+                <Button
+                  type="submit"
+                  className="min-w-28 flex-1 sm:flex-none"
+                  disabled={
+                    isSaving ||
+                    !companyId ||
+                    (isEditing && (isLoadingFullProduct || isFullProductError || !fullProduct))
+                  }
+                >
+                  {isSaving ? 'جاري الحفظ…' : isEditing ? 'حفظ التغييرات' : 'إنشاء المنتج'}
+                </Button>
+              </div>
             </DialogFooter>
           </form>
         </DialogContent>

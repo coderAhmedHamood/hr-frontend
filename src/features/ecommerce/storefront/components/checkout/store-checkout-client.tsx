@@ -18,11 +18,9 @@ import type {
   CheckoutAddressInput,
   CheckoutPaymentMethod,
 } from '@/features/ecommerce/storefront/domain/checkout';
-import {
-  FREE_SHIPPING_THRESHOLD_YER,
-  YEMEN_CITIES,
-  calculateShippingFee,
-} from '@/features/ecommerce/storefront/domain/checkout';
+import { calculateShippingFee } from '@/features/ecommerce/storefront/domain/checkout';
+import type { StorefrontCompanyConfig } from '@/features/ecommerce/storefront/domain/storefront-models';
+import { syncStorefrontOrderToAdminDashboard } from '@/features/ecommerce/shared/lib/admin-live-commerce';
 import { placeStorefrontOrder } from '@/features/ecommerce/storefront/lib/checkout-actions';
 import { rememberStorefrontOrderNumber } from '@/features/ecommerce/storefront/lib/order-history';
 import { useStorefrontCartProducts } from '@/features/ecommerce/storefront/hooks/use-storefront-cart-products';
@@ -54,16 +52,12 @@ const STEPS: { id: StepId; icon: typeof MapPin }[] = [
   { id: 'review', icon: ShieldCheck },
 ];
 
-const emptyAddress = (): CheckoutAddressInput => ({
-  fullName: '',
-  phone: '',
-  city: 'صنعاء',
-  district: '',
-  street: '',
-  notes: '',
-});
+type CheckoutClientProps = {
+  checkoutConfig: StorefrontCompanyConfig['checkout'];
+  currency: string;
+};
 
-export function StoreCheckoutClient() {
+export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }: CheckoutClientProps) {
   const t = useTranslations('storefront');
   const format = useFormatter();
   const locale = useLocale() as StorefrontLocale;
@@ -72,9 +66,22 @@ export function StoreCheckoutClient() {
   const clearCart = useStorefrontCartUi((s) => s.clear);
   const { data: products, isLoading, isError, refetch } = useStorefrontCartProducts();
 
+  const cities = checkoutConfig.cities;
+  const freeThreshold = checkoutConfig.freeShippingThreshold;
+  const paymentMethods = checkoutConfig.paymentMethods;
+
   const [step, setStep] = React.useState<StepId>('address');
-  const [address, setAddress] = React.useState<CheckoutAddressInput>(emptyAddress);
-  const [paymentMethod, setPaymentMethod] = React.useState<CheckoutPaymentMethod>('cash_on_delivery');
+  const [address, setAddress] = React.useState<CheckoutAddressInput>(() => ({
+    fullName: '',
+    phone: '',
+    city: checkoutConfig.defaultCity || cities[0] || 'صنعاء',
+    district: '',
+    street: '',
+    notes: '',
+  }));
+  const [paymentMethod, setPaymentMethod] = React.useState<CheckoutPaymentMethod>(
+    () => paymentMethods[0] ?? 'cash_on_delivery',
+  );
   const [submitting, setSubmitting] = React.useState(false);
   const [addressErrors, setAddressErrors] = React.useState<
     Partial<Record<keyof CheckoutAddressInput, string>>
@@ -100,12 +107,15 @@ export function StoreCheckoutClient() {
     lineName: string;
   }>;
 
-  const currency = cartLines[0]?.unitPrice.currency ?? 'YER';
+  const currency = cartLines[0]?.unitPrice.currency ?? storeCurrency ?? 'YER';
   const subtotal = cartLines.reduce((sum, item) => sum + item.unitPrice.amount * item.line.quantity, 0);
-  const shipping = calculateShippingFee(subtotal, currency);
+  const shipping = calculateShippingFee(subtotal, currency, {
+    freeShippingThreshold: freeThreshold,
+    standardShippingFee: checkoutConfig.standardShippingFee,
+  });
   const total = subtotal + shipping.amount;
   const itemCount = cartLines.reduce((sum, item) => sum + item.line.quantity, 0);
-  const freeShippingProgress = Math.min(100, (subtotal / FREE_SHIPPING_THRESHOLD_YER) * 100);
+  const freeShippingProgress = Math.min(100, (subtotal / Math.max(freeThreshold, 1)) * 100);
 
   function formatPrice(amount: number) {
     return format.number(amount, { style: 'currency', currency });
@@ -163,8 +173,22 @@ export function StoreCheckoutClient() {
         }),
       });
       rememberStorefrontOrderNumber(order.orderNumber);
+      syncStorefrontOrderToAdminDashboard(order);
       clearCart();
-      toast.success(t('checkout.placeSuccess'));
+      toast.custom(
+        () => (
+          <div
+            role="status"
+            className="pointer-events-auto inline-flex max-w-[min(100vw-2rem,22rem)] items-center gap-2.5 rounded-full border border-border bg-card px-4 py-2.5 text-sm text-foreground shadow-soft"
+          >
+            <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
+              <Check className="h-3.5 w-3.5" aria-hidden />
+            </span>
+            <span className="whitespace-nowrap font-medium">{t('checkout.placeSuccess')}</span>
+          </div>
+        ),
+        { duration: 2800, unstyled: true, className: '!w-auto !max-w-none !border-0 !bg-transparent !p-0 !shadow-none' },
+      );
       router.push(`/store/orders/${order.orderNumber}`);
     } catch {
       toast.error(t('checkout.placeError'));
@@ -286,7 +310,7 @@ export function StoreCheckoutClient() {
                     <SelectValue placeholder={t('checkout.city')} />
                   </SelectTrigger>
                   <SelectContent>
-                    {YEMEN_CITIES.map((city) => (
+                    {cities.map((city) => (
                       <SelectItem key={city} value={city}>
                         {city}
                       </SelectItem>
@@ -336,12 +360,8 @@ export function StoreCheckoutClient() {
               </div>
             </header>
             <div className="grid gap-3 p-5">
-              {(
-                [
-                  { id: 'cash_on_delivery' as const, icon: Truck },
-                  { id: 'card' as const, icon: CreditCard },
-                ]
-              ).map(({ id, icon: Icon }) => {
+              {paymentMethods.map((id) => {
+                const Icon = id === 'card' ? CreditCard : Truck;
                 const selected = paymentMethod === id;
                 return (
                   <button
@@ -531,7 +551,7 @@ export function StoreCheckoutClient() {
             {shipping.amount > 0 ? (
               <div className="space-y-1.5">
                 <div className="flex justify-between text-[11px] text-muted-foreground">
-                  <span>{t('checkout.freeShippingHint', { amount: FREE_SHIPPING_THRESHOLD_YER })}</span>
+                  <span>{t('checkout.freeShippingHint', { amount: freeThreshold })}</span>
                   <span>{Math.round(freeShippingProgress)}%</span>
                 </div>
                 <div className="h-1.5 overflow-hidden rounded-full bg-muted">

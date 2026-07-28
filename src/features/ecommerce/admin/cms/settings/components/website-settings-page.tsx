@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Settings, Palette, Phone, Share2, Globe, Search } from 'lucide-react';
+import { Settings, Palette, Phone, Share2, Globe, Search, Truck } from 'lucide-react';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
 import { getCmsCompanyRecord, saveCmsCompanyRecord } from '@/features/ecommerce/admin/cms/shared/cms-actions';
 import type { CompanyConfigRecord } from '@/features/ecommerce/storefront/domain/company-config';
@@ -123,6 +123,10 @@ export function WebsiteSettingsPage() {
             <TabsTrigger value="regional" className="gap-1.5">
               <Globe className="h-4 w-4" />
               {t('tabs.regional')}
+            </TabsTrigger>
+            <TabsTrigger value="checkout" className="gap-1.5">
+              <Truck className="h-4 w-4" />
+              {t('tabs.checkout')}
             </TabsTrigger>
             <TabsTrigger value="seo" className="gap-1.5">
               <Search className="h-4 w-4" />
@@ -273,6 +277,153 @@ export function WebsiteSettingsPage() {
                       <SelectItem value="en">en</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="checkout" className="mt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">{t('tabs.checkout')}</CardTitle>
+              </CardHeader>
+              <CardContent className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label>{t('freeShippingThreshold')}</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    dir="ltr"
+                    value={draft.checkout?.freeShippingThreshold ?? 200}
+                    onChange={(event) =>
+                      setDraft({
+                        ...draft,
+                        checkout: {
+                          ...(draft.checkout ?? {
+                            cities: [],
+                            defaultCity: '',
+                            freeShippingThreshold: 200,
+                            standardShippingFee: 25,
+                            paymentMethods: ['cash_on_delivery', 'card'],
+                          }),
+                          freeShippingThreshold: Number(event.target.value) || 0,
+                        },
+                      })
+                    }
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>{t('standardShippingFee')}</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    dir="ltr"
+                    value={draft.checkout?.standardShippingFee ?? 25}
+                    onChange={(event) =>
+                      setDraft({
+                        ...draft,
+                        checkout: {
+                          ...(draft.checkout ?? {
+                            cities: [],
+                            defaultCity: '',
+                            freeShippingThreshold: 200,
+                            standardShippingFee: 25,
+                            paymentMethods: ['cash_on_delivery', 'card'],
+                          }),
+                          standardShippingFee: Number(event.target.value) || 0,
+                        },
+                      })
+                    }
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>{t('defaultCity')}</Label>
+                  <Input
+                    value={draft.checkout?.defaultCity ?? ''}
+                    onChange={(event) =>
+                      setDraft({
+                        ...draft,
+                        checkout: {
+                          ...(draft.checkout ?? {
+                            cities: [],
+                            defaultCity: '',
+                            freeShippingThreshold: 200,
+                            standardShippingFee: 25,
+                            paymentMethods: ['cash_on_delivery', 'card'],
+                          }),
+                          defaultCity: event.target.value,
+                        },
+                      })
+                    }
+                  />
+                </div>
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label>{t('cities')}</Label>
+                  <Textarea
+                    rows={4}
+                    value={(draft.checkout?.cities ?? []).join('\n')}
+                    onChange={(event) =>
+                      setDraft({
+                        ...draft,
+                        checkout: {
+                          ...(draft.checkout ?? {
+                            cities: [],
+                            defaultCity: '',
+                            freeShippingThreshold: 200,
+                            standardShippingFee: 25,
+                            paymentMethods: ['cash_on_delivery', 'card'],
+                          }),
+                          cities: event.target.value
+                            .split('\n')
+                            .map((city) => city.trim())
+                            .filter(Boolean),
+                        },
+                      })
+                    }
+                  />
+                  <p className="text-xs text-muted-foreground">{t('citiesHint')}</p>
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label>{t('paymentMethods')}</Label>
+                  <div className="flex flex-wrap gap-3">
+                    {(
+                      [
+                        ['cash_on_delivery', t('paymentCod')],
+                        ['card', t('paymentCard')],
+                      ] as const
+                    ).map(([id, label]) => {
+                      const checked = (draft.checkout?.paymentMethods ?? []).includes(id);
+                      return (
+                        <label key={id} className="inline-flex items-center gap-2 text-sm">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(event) => {
+                              const current = draft.checkout?.paymentMethods ?? [];
+                              const paymentMethods = event.target.checked
+                                ? [...current.filter((m) => m !== id), id]
+                                : current.filter((m) => m !== id);
+                              setDraft({
+                                ...draft,
+                                checkout: {
+                                  ...(draft.checkout ?? {
+                                    cities: [],
+                                    defaultCity: '',
+                                    freeShippingThreshold: 200,
+                                    standardShippingFee: 25,
+                                    paymentMethods: [],
+                                  }),
+                                  paymentMethods:
+                                    paymentMethods.length > 0 ? paymentMethods : [id],
+                                },
+                              });
+                            }}
+                          />
+                          {label}
+                        </label>
+                      );
+                    })}
+                  </div>
                 </div>
               </CardContent>
             </Card>

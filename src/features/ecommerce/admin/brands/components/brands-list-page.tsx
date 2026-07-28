@@ -1,6 +1,10 @@
 'use client';
 
 import { SetPageTitle } from '@/components/layouts/set-page-title';
+import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
+import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
+import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
+import { PageHeaderPrimaryButton } from '@/components/layouts/page-header-primary-button';
 import * as React from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Pencil, Plus, Trash2, Tag } from 'lucide-react';
@@ -10,7 +14,8 @@ import { useBrandMutations } from '@/features/ecommerce/admin/brands/hooks/use-b
 import { BrandFormDialog } from '@/features/ecommerce/admin/brands/components/brand-form-dialog';
 import { DeleteBrandDialog } from '@/features/ecommerce/admin/brands/components/delete-brand-dialog';
 import type { Brand } from '@/features/ecommerce/domain/types/brand';
-import { ListToolbar } from '@/components/ui/list-toolbar';
+import { ListFilterBar } from '@/components/ui/list-filter-bar';
+import { EntityFilterSearchField } from '@/components/ui/entity-filter-search-field';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DataTable, AppPagination, type ColumnDef } from '@/components/ui/data-table';
@@ -77,6 +82,35 @@ export function BrandsListPage() {
     setBrandToDelete(null);
   };
 
+  usePageHeaderActions(
+    () => (
+      <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
+        <FilterToggleButton />
+        <PageHeaderPrimaryButton
+          icon={Plus}
+          label="إضافة علامة تجارية"
+          disabled={!companyId}
+          onClick={openCreateDialog}
+        />
+      </div>
+    ),
+    [companyId],
+  );
+
+  useEntityFilterSlot(
+    () => (
+      <ListFilterBar
+        showDateSection={false}
+        showStatusSection={false}
+        showEmployeePicker={false}
+        leadingFilters={
+          <EntityFilterSearchField value={searchInput} onChange={setSearchInput} placeholder="ابحث بالاسم…" />
+        }
+      />
+    ),
+    [searchInput],
+  );
+
   const columns: ColumnDef<Brand>[] = [
     {
       key: 'brand',
@@ -127,18 +161,10 @@ export function BrandsListPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <SetPageTitle titleAr="العلامات التجارية" iconName="Tag" />
-
-      <ListToolbar
-        searchValue={searchInput}
-        onSearchChange={setSearchInput}
-        searchPlaceholder="ابحث بالاسم…"
-        actions={
-          <Button onClick={openCreateDialog} disabled={!companyId}>
-            <Plus className="h-4 w-4" />
-            إضافة علامة تجارية
-          </Button>
-        }
+      <SetPageTitle
+        titleAr="العلامات التجارية"
+        descriptionAr="العلامات التجارية المرتبطة بمنتجات المتجر."
+        iconName="Tag"
       />
 
       {isError ? <p className="text-sm text-destructive">تعذر تحميل العلامات التجارية.</p> : null}

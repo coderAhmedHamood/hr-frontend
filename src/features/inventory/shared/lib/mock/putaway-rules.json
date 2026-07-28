@@ -1,7 +1,7 @@
 [
   {
     "id": "putaway-1",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "warehouseId": "wh-main",
     "arriveLocationId": "loc-main-vendors",
     "appliesTo": "product",
@@ -17,7 +17,7 @@
   },
   {
     "id": "putaway-2",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "warehouseId": "wh-main",
     "arriveLocationId": "loc-main-vendors",
     "appliesTo": "category",
@@ -33,7 +33,7 @@
   },
   {
     "id": "putaway-default-main",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "warehouseId": "wh-main",
     "arriveLocationId": "loc-main-vendors",
     "appliesTo": "all",
@@ -49,7 +49,7 @@
   },
   {
     "id": "putaway-3",
-    "companyId": "demo-company",
+    "companyId": "76e5bc4f-5adb-434d-a886-bcff05a9680b",
     "warehouseId": "wh-north",
     "arriveLocationId": "loc-north-vendors",
     "appliesTo": "all",

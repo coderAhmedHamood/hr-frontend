@@ -1,7 +1,12 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+﻿import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { inventoryStockService } from '@/features/inventory/services/inventory-stock.service';
 import { ordersApi } from '@/features/ecommerce/admin/orders/lib/api/orders';
-import type { OrderListQuery, SaveOrderLineAllocationsInput, ShipOrderLineInput } from '@/features/ecommerce/domain/types/order';
+import type {
+  OrderListQuery,
+  OrderStatus,
+  SaveOrderLineAllocationsInput,
+  ShipOrderLineInput,
+} from '@/features/ecommerce/domain/types/order';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import { toast } from 'sonner';
 
@@ -30,6 +35,22 @@ export function useProductStockAvailability(companyId: string, productId: string
     queryKey: stockAvailabilityQueryKeys.product(companyId, productId),
     queryFn: () => inventoryStockService.getAvailability(companyId, productId),
     enabled: Boolean(companyId && productId && enabled),
+  });
+}
+
+export function useUpdateOrderStatus(companyId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ orderId, status }: { orderId: string; status: OrderStatus }) =>
+      ordersApi.updateStatus(companyId, orderId, { status }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ordersQueryKeys.all });
+      toast.success('تم تحديث حالة الطلب — ستظهر للعميل في صفحة التتبع');
+    },
+    onError: (err) => {
+      handleApiError(err, 'ecommerce.orders.updateStatus');
+    },
   });
 }
 

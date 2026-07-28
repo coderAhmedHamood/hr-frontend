@@ -248,20 +248,27 @@ export function StoreHeaderInteractive({ config, categories, brands, logo }: Sto
             <div className="shrink-0">{logo}</div>
 
             <div className="flex min-w-0 flex-1 items-center gap-2">
-              <Link
-                href="/store/offers"
-                prefetch={false}
-                className="inline-flex shrink-0 items-center rounded-full border border-border bg-card px-3.5 py-1.5 text-sm font-medium text-foreground transition-colors hover:border-primary/40 hover:bg-muted/50"
-              >
-                {t('nav.offersZone')}
-              </Link>
-              <Link
-                href="/store/wholesale"
-                prefetch={false}
-                className="inline-flex shrink-0 items-center rounded-full border border-border bg-card px-3.5 py-1.5 text-sm font-medium text-foreground transition-colors hover:border-primary/40 hover:bg-muted/50"
-              >
-                {t('nav.wholesale')}
-              </Link>
+              {(config.secondaryNavigation.length > 0
+                ? config.secondaryNavigation
+                : [
+                    { label: t('nav.offersZone'), href: '/store/offers' as const },
+                    { label: t('nav.wholesale'), href: '/store/wholesale' as const },
+                  ]
+              ).map((item) => (
+                <Link
+                  key={`${item.href}-${item.label}`}
+                  href={item.href}
+                  prefetch={false}
+                  className={cn(
+                    'inline-flex shrink-0 items-center rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors',
+                    'highlight' in item && item.highlight
+                      ? 'border-primary/40 bg-primary/10 text-primary hover:bg-primary/15'
+                      : 'border-border bg-card text-foreground hover:border-primary/40 hover:bg-muted/50',
+                  )}
+                >
+                  {item.label}
+                </Link>
+              ))}
             </div>
 
             <div className="flex shrink-0 items-center gap-1">

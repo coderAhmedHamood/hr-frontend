@@ -6,6 +6,7 @@ import {
   PACKAGING_TYPE_OPTIONS,
   type ProductFormInput,
 } from '@/features/ecommerce/admin/products/schemas/product-schema';
+import { ProductFormSection } from '@/features/ecommerce/admin/products/components/product-form-section';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -32,24 +33,20 @@ export function ProductUnitsTab({ control, errors, setValue }: Props) {
   }
 
   return (
-    <div className="space-y-4">
-      <div>
-        <p className="text-sm font-semibold text-foreground">الوحدات والتغليف</p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          عرّف وحدة مرجعية (مثل القطعة) ثم عبوات أكبر (علبة، صندوق…) بكمية نسبية مرنة.
-        </p>
-      </div>
-
+    <ProductFormSection
+      title="الوحدات والتغليف"
+      description="وحدة مرجعية (مثل القطعة) ثم عبوات أكبر بكمية نسبية — قطعة، علبة، صندوق…"
+    >
       <div className="overflow-x-auto rounded-xl border border-border">
         <table className="w-full min-w-[720px] text-sm">
           <thead className="border-b border-border bg-muted/40 text-muted-foreground">
             <tr>
-              <th className="px-3 py-2 text-start font-medium">اسم الوحدة</th>
-              <th className="px-3 py-2 text-start font-medium">UN/ECE</th>
-              <th className="px-3 py-2 text-start font-medium">الكمية</th>
-              <th className="px-3 py-2 text-start font-medium">مرجعية</th>
-              <th className="px-3 py-2 text-start font-medium">نوع الطرد</th>
-              <th className="px-3 py-2" />
+              <th className="px-3 py-2.5 text-start font-medium">اسم الوحدة</th>
+              <th className="px-3 py-2.5 text-start font-medium">UN/ECE</th>
+              <th className="px-3 py-2.5 text-start font-medium">الكمية</th>
+              <th className="px-3 py-2.5 text-start font-medium">مرجعية</th>
+              <th className="px-3 py-2.5 text-start font-medium">نوع الطرد</th>
+              <th className="px-3 py-2.5" />
             </tr>
           </thead>
           <tbody>
@@ -60,7 +57,7 @@ export function ProductUnitsTab({ control, errors, setValue }: Props) {
                     control={control}
                     name={`uomLines.${index}.nameAr`}
                     render={({ field: nameField }) => (
-                      <Input placeholder="وحدات" value={nameField.value} onChange={nameField.onChange} />
+                      <Input placeholder="قطعة" value={nameField.value} onChange={nameField.onChange} />
                     )}
                   />
                 </td>
@@ -173,10 +170,7 @@ export function ProductUnitsTab({ control, errors, setValue }: Props) {
         إضافة وحدة / طرد
       </Button>
 
-      <p className="text-xs text-muted-foreground">
-        مثال: وحدة مرجعية «قطعة» بكمية 1، ثم «علبة» بكمية 12 — عند الاستلام والتسعير تُستخدم هذه النسبة بمرونة.
-      </p>
       <Label className="sr-only">وحدات المنتج</Label>
-    </div>
+    </ProductFormSection>
   );
 }

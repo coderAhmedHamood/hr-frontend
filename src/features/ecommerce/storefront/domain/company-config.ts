@@ -58,6 +58,17 @@ export type CompanyAnnouncementBarRecord = {
   dismissible: boolean;
 };
 
+export type CompanyCheckoutPaymentMethod = 'cash_on_delivery' | 'card';
+
+/** Checkout / shipping rules edited in Website Settings. */
+export type CompanyCheckoutConfigRecord = {
+  cities: string[];
+  defaultCity: string;
+  freeShippingThreshold: number;
+  standardShippingFee: number;
+  paymentMethods: CompanyCheckoutPaymentMethod[];
+};
+
 /** Raw CMS company config — bilingual fields resolved at repository boundary. */
 export type CompanyConfigRecord = {
   id: string;
@@ -72,6 +83,7 @@ export type CompanyConfigRecord = {
   secondaryNavigation: CompanySecondaryNavItemRecord[];
   footer: CompanyFooterConfigRecord;
   announcement: CompanyAnnouncementBarRecord;
+  checkout: CompanyCheckoutConfigRecord;
   defaultLocale: string;
   currency: string;
   timezone: string;

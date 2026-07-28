@@ -196,8 +196,15 @@ export function ProductAttributesTab({ control, errors, register, setValue, prod
   }
 
   return (
-    <div className="space-y-3">
-      <div className="overflow-hidden rounded-lg border border-border">
+    <div className="space-y-4">
+      <div className="rounded-2xl border border-border/80 bg-card/60 px-4 py-3 sm:px-5">
+        <p className="text-sm font-semibold text-foreground">الخصائص والمتغيرات</p>
+        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+          اختياري — اربط خصائص مثل اللون أو المقاس لإنشاء متغيرات SKU. المنتجات البسيطة يمكن تركها فارغة.
+        </p>
+      </div>
+
+      <div className="overflow-hidden rounded-2xl border border-border/80 bg-card/60">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/30 text-muted-foreground">

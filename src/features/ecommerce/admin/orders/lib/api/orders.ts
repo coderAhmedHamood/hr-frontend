@@ -1,9 +1,14 @@
-import { createMockRepository } from '@/features/ecommerce/shared/lib/mock/repository';
+﻿import { createMockRepository } from '@/features/ecommerce/shared/lib/mock/repository';
+import {
+  listLiveOrders,
+  upsertLiveOrder,
+} from '@/features/ecommerce/shared/lib/admin-live-commerce';
 import { inventoryStockService } from '@/features/inventory/services/inventory-stock.service';
 import {
   deriveLineShipStatus,
   validateAllocations,
 } from '@/features/ecommerce/admin/orders/lib/allocation-utils';
+import { syncStorefrontOrderStatus } from '@/features/ecommerce/storefront/lib/checkout-actions';
 import type { PaginatedResult } from '@/features/ecommerce/domain/types/common';
 import type {
   Order,
@@ -16,6 +21,25 @@ import type {
 import ordersSeed from '@/features/ecommerce/shared/lib/mock/orders.json';
 
 const repository = createMockRepository<Order>(ordersSeed as Order[]);
+
+const hydratedOrderIds = new Set<string>();
+
+async function hydrateLiveOrders(companyId: string): Promise<void> {
+  for (const order of listLiveOrders()) {
+    if (order.companyId !== companyId) continue;
+    if (hydratedOrderIds.has(order.id)) {
+      await repository.update(companyId, order.id, order);
+      continue;
+    }
+    const existing = await repository.getById(companyId, order.id);
+    if (existing) {
+      await repository.update(companyId, order.id, order);
+    } else {
+      await repository.create(order);
+    }
+    hydratedOrderIds.add(order.id);
+  }
+}
 
 function newAllocId() {
   return `alloc-${Math.random().toString(36).slice(2, 9)}`;
@@ -34,8 +58,26 @@ function deriveOrderStatus(order: Order): Order['status'] {
   return order.status === 'confirmed' ? 'confirmed' : 'pending';
 }
 
+async function persistOrder(order: Order | null): Promise<Order | null> {
+  if (!order) return null;
+  if (order.source === 'storefront' || order.orderNumber.startsWith('ND-')) {
+    upsertLiveOrder({ ...order, source: order.source ?? 'storefront' });
+    try {
+      await syncStorefrontOrderStatus({
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        status: order.status,
+      });
+    } catch {
+      /* storefront sync best-effort in mock mode */
+    }
+  }
+  return order;
+}
+
 export const ordersApi = {
-  getAll(query: OrderListQuery): Promise<PaginatedResult<Order>> {
+  async getAll(query: OrderListQuery): Promise<PaginatedResult<Order>> {
+    await hydrateLiveOrders(query.companyId);
     return repository.list(
       query,
       (item, q) => {
@@ -46,7 +88,8 @@ export const ordersApi = {
           return (
             item.orderNumber.toLowerCase().includes(search) ||
             item.customerNameAr.toLowerCase().includes(search) ||
-            (item.city?.toLowerCase().includes(search) ?? false)
+            (item.city?.toLowerCase().includes(search) ?? false) ||
+            (item.phone?.toLowerCase().includes(search) ?? false)
           );
         }
         return true;
@@ -55,15 +98,33 @@ export const ordersApi = {
     );
   },
 
-  getById(companyId: string, id: string) {
+  async getById(companyId: string, id: string) {
+    await hydrateLiveOrders(companyId);
     return repository.getById(companyId, id);
   },
 
-  updateStatus(companyId: string, id: string, input: UpdateOrderStatusInput) {
-    return repository.update(companyId, id, { ...input, updatedAt: new Date().toISOString() });
+  async updateStatus(companyId: string, id: string, input: UpdateOrderStatusInput) {
+    await hydrateLiveOrders(companyId);
+    const current = await repository.getById(companyId, id);
+    if (!current) throw new Error('الطلب غير موجود.');
+
+    const patch: Partial<Order> = {
+      status: input.status,
+      updatedAt: new Date().toISOString(),
+    };
+
+    if (input.status === 'shipped' || input.status === 'delivered') {
+      patch.items = current.items.map((item) =>
+        item.shipStatus === 'shipped' ? item : { ...item, shipStatus: 'shipped' as const },
+      );
+    }
+
+    const updated = await repository.update(companyId, id, patch);
+    return persistOrder(updated);
   },
 
   async saveLineAllocations(companyId: string, orderId: string, input: SaveOrderLineAllocationsInput) {
+    await hydrateLiveOrders(companyId);
     const order = await repository.getById(companyId, orderId);
     if (!order) throw new Error('الطلب غير موجود.');
 
@@ -73,7 +134,7 @@ export const ordersApi = {
 
     const availability = await inventoryStockService.getAvailability(companyId, input.productId);
     const availableByLocation = Object.fromEntries(
-      availability.map((row) => [row.locationId, row.availableQuantity]),
+      availability.map((row) => [row.locationId, row.availableQuantity ?? row.quantity]),
     );
 
     const validation = validateAllocations(line.quantity, input.allocations, availableByLocation);
@@ -102,10 +163,11 @@ export const ordersApi = {
       updatedAt: new Date().toISOString(),
     };
     next.status = deriveOrderStatus(next);
-    return repository.update(companyId, orderId, next);
+    return persistOrder(await repository.update(companyId, orderId, next));
   },
 
   async shipLine(companyId: string, orderId: string, input: ShipOrderLineInput) {
+    await hydrateLiveOrders(companyId);
     const order = await repository.getById(companyId, orderId);
     if (!order) throw new Error('الطلب غير موجود.');
 
@@ -115,7 +177,7 @@ export const ordersApi = {
 
     const availability = await inventoryStockService.getAvailability(companyId, input.productId);
     const availableByLocation = Object.fromEntries(
-      availability.map((row) => [row.locationId, row.availableQuantity]),
+      availability.map((row) => [row.locationId, row.availableQuantity ?? row.quantity]),
     );
     const validation = validateAllocations(line.quantity, line.allocations, availableByLocation);
     if (!validation.ok) throw new Error(validation.error ?? 'احفظ توزيعًا صحيحًا قبل الشحن.');
@@ -142,6 +204,6 @@ export const ordersApi = {
       updatedAt: new Date().toISOString(),
     };
     next.status = deriveOrderStatus(next);
-    return repository.update(companyId, orderId, next);
+    return persistOrder(await repository.update(companyId, orderId, next));
   },
 };
