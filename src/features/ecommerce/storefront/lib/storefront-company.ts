@@ -1,16 +1,10 @@
 /**
- * Prefer the logged-in default company (localStorage) when present; otherwise the
- * seeded inventory company used by backend demo data. Safe for server loaders
- * (no client-only imports).
+ * Ecommerce mock data is seeded under `demo-company` only.
+ * Do not use the ERP default company from localStorage — that UUID has no
+ * storefront/CMS seed and causes homepage 404 / CMS load failures.
  */
-import { INVENTORY_FALLBACK_COMPANY_ID } from '@/features/inventory/lib/company-constants';
-
-const DEFAULT_COMPANY_ID_STORAGE_KEY = 'rose-hr-default-company-id';
+export const STOREFRONT_FALLBACK_COMPANY_ID = 'demo-company';
 
 export function getStorefrontCompanyId(): string {
-  if (typeof window !== 'undefined') {
-    const fromStorage = localStorage.getItem(DEFAULT_COMPANY_ID_STORAGE_KEY);
-    if (fromStorage) return fromStorage;
-  }
-  return INVENTORY_FALLBACK_COMPANY_ID;
+  return STOREFRONT_FALLBACK_COMPANY_ID;
 }
