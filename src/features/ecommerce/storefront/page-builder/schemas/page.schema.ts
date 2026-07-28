@@ -168,7 +168,7 @@ export const flashSaleSectionSchema = sectionMetadataSchema.extend({
   style: sectionStyleCoreSchema.extend({
     layout: z.enum(FLASH_SALE_LAYOUTS),
   }),
-  dataSource: z.union([tagDataSourceSchema, queryDataSourceSchema]),
+  dataSource: z.union([manualDataSourceSchema, tagDataSourceSchema, queryDataSourceSchema]),
 });
 
 export const featuresGridSectionSchema = sectionMetadataSchema.extend({

@@ -39,7 +39,7 @@ export const FLASH_SALE_DEFINITION: SectionDefinition<'flash-sale'> = {
   defaultConfiguration: DEFAULT_CONFIGURATION,
   supportedLayouts: FLASH_SALE_LAYOUTS,
   supportedThemes: ['light', 'dark', 'system'],
-  supportedDataSources: ['tag', 'query'],
+  supportedDataSources: ['manual', 'tag', 'query'],
   supportedLocales: [...SUPPORTED_STOREFRONT_LOCALES],
   supportedDevices: { mobile: true, tablet: true, desktop: true },
   capabilities: {
@@ -82,6 +82,6 @@ export const FLASH_SALE_DEFINITION: SectionDefinition<'flash-sale'> = {
     themeField(),
     layoutField(FLASH_SALE_LAYOUTS),
     visibilityField(),
-    dataSourceField(['tag', 'query']),
+    dataSourceField(['manual', 'tag', 'query']),
   ],
 };
