@@ -3,9 +3,15 @@
 import * as React from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { Pencil, Plus, Tags, Trash2 } from 'lucide-react';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
-import { ListToolbar } from '@/components/ui/list-toolbar';
+import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
+import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
+import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
+import { PageHeaderPrimaryButton } from '@/components/layouts/page-header-primary-button';
+import { ListFilterBar } from '@/components/ui/list-filter-bar';
+import { EntityFilterSearchField } from '@/components/ui/entity-filter-search-field';
+import { StatTile, StatTileGrid } from '@/components/ui/stat-tile';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -143,27 +149,56 @@ export function PartnerCategoriesListPage() {
     setFormState({ open: false, category: null });
   };
 
-  return (
-    <div className="flex flex-col gap-5">
-      <SetPageTitle titleAr="تصنيفات جهات الاتصال" iconName="Tag" />
+  const items = data?.items ?? [];
+  const activeCount = items.filter((category) => category.isActive).length;
 
-      <ListToolbar
-        searchValue={searchInput}
-        onSearchChange={setSearchInput}
-        searchPlaceholder="ابحث في التصنيفات…"
-        actions={
-          <Button onClick={() => setFormState({ open: true, category: null })} disabled={!companyId}>
-            <Plus className="h-4 w-4" />
-            تصنيف جديد
-          </Button>
+  usePageHeaderActions(
+    () => (
+      <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
+        <FilterToggleButton />
+        <PageHeaderPrimaryButton
+          icon={Plus}
+          label="تصنيف جديد"
+          disabled={!companyId}
+          onClick={() => setFormState({ open: true, category: null })}
+        />
+      </div>
+    ),
+    [companyId],
+  );
+
+  useEntityFilterSlot(
+    () => (
+      <ListFilterBar
+        showDateSection={false}
+        showStatusSection={false}
+        showEmployeePicker={false}
+        leadingFilters={
+          <EntityFilterSearchField value={searchInput} onChange={setSearchInput} placeholder="ابحث في التصنيفات…" />
         }
       />
+    ),
+    [searchInput],
+  );
+
+  return (
+    <div className="flex flex-col gap-5">
+      <SetPageTitle
+        titleAr="تصنيفات جهات الاتصال"
+        descriptionAr="تصنيفات مخصصة لتجميع جهات الاتصال — مثل كبار العملاء أو الموردين المعتمدين."
+        iconName="Tag"
+      />
+
+      <StatTileGrid className="sm:grid-cols-2">
+        <StatTile icon={Tags} label="إجمالي التصنيفات" value={items.length} tone="primary" loading={isLoading} />
+        <StatTile icon={Tags} label="نشطة" value={activeCount} tone="success" loading={isLoading} />
+      </StatTileGrid>
 
       {isError ? <p className="text-sm text-destructive">تعذر تحميل التصنيفات.</p> : null}
 
       <DataTable
         columns={columns}
-        data={data?.items ?? []}
+        data={items}
         keyExtractor={(row) => row.id}
         loading={isLoading}
         emptyText="لا تصنيفات بعد. أضف VIP أو Supplier أو Customer…"

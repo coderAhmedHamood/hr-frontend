@@ -432,6 +432,41 @@ export function SectionDefinitionFields({ fields, value, onChange }: Props) {
       );
     }
 
+    if (field.control === 'newest-products-basic') {
+      const current = fieldValue as DataSourceConfig | undefined;
+      const limit = current && 'limit' in current ? current.limit : 10;
+      const tag = current && current.kind === 'query' ? current.tag ?? '' : '';
+
+      function patchQuery(next: { limit?: number; tag?: string }) {
+        patch(field.path, {
+          kind: 'query',
+          sort: 'createdAt',
+          sortDirection: 'desc',
+          categoryId: null,
+          limit: next.limit ?? limit,
+          tag: (next.tag ?? tag).trim() || null,
+        });
+      }
+
+      return (
+        <div key={field.key} className="space-y-3 rounded-lg border border-border bg-muted/10 p-3">
+          <Label>{label}</Label>
+          <div className="space-y-1.5">
+            <Label>{tFields('limit')}</Label>
+            <Input
+              type="number"
+              value={limit}
+              onChange={(event) => patchQuery({ limit: Number(event.target.value) || 1 })}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>{tFields('tag')}</Label>
+            <Input value={tag} onChange={(event) => patchQuery({ tag: event.target.value })} />
+          </div>
+        </div>
+      );
+    }
+
     if (field.control === 'slide-list') {
       const slides = (Array.isArray(fieldValue) ? fieldValue : []) as SlideDraft[];
       return (
@@ -477,17 +512,6 @@ export function SectionDefinitionFields({ fields, value, onChange }: Props) {
                   onChange={(event) => {
                     const next = [...slides];
                     next[index] = { ...slide, imageUrl: event.target.value };
-                    patch(field.path, next);
-                  }}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>{tFields('href')}</Label>
-                <Input
-                  value={slide.href ?? ''}
-                  onChange={(event) => {
-                    const next = [...slides];
-                    next[index] = { ...slide, href: event.target.value || undefined };
                     patch(field.path, next);
                   }}
                 />

@@ -5,14 +5,8 @@ import { heroCarouselSectionSchema } from '@/features/ecommerce/storefront/page-
 import {
   BASE_SECTION_CAPABILITIES,
   booleanField,
-  dataSourceField,
-  layoutField,
-  localizedSubtitleField,
-  localizedTitleField,
   numberField,
-  themeField,
   UI_STRINGS,
-  visibilityField,
 } from '@/features/ecommerce/storefront/page-builder/definitions/shared/field-builders';
 
 const DEFAULT_CONFIGURATION = {
@@ -70,8 +64,6 @@ export const HERO_CAROUSEL_DEFINITION: SectionDefinition<'hero-carousel'> = {
     supportsCountdown: false,
   },
   fields: [
-    localizedTitleField(false),
-    localizedSubtitleField(),
     {
       key: 'slides',
       path: 'content.slides',
@@ -84,19 +76,5 @@ export const HERO_CAROUSEL_DEFINITION: SectionDefinition<'hero-carousel'> = {
     },
     booleanField('autoplay', 'settings.autoplay', UI_STRINGS.fields.autoplay, 'settings', true),
     numberField('intervalMs', 'settings.intervalMs', UI_STRINGS.fields.intervalMs, 'settings', { min: 1000, max: 30000 }, 5000),
-    {
-      key: 'height',
-      path: 'style.height',
-      label: UI_STRINGS.fields.height,
-      control: 'text',
-      localized: false,
-      required: true,
-      group: 'style',
-      defaultValue: '21/7',
-    },
-    themeField(),
-    layoutField(HERO_CAROUSEL_LAYOUTS),
-    visibilityField(),
-    dataSourceField(['manual']),
   ],
 };

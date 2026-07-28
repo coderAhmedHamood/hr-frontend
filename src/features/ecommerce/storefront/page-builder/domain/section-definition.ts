@@ -35,6 +35,7 @@ export const FIELD_CONTROL_TYPES = [
   'brand-picker',
   'collection-picker',
   'data-source',
+  'newest-products-basic',
   'icon-picker',
   'datetime',
   'column-grid',

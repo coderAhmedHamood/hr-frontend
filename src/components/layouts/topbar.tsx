@@ -81,7 +81,13 @@ export const PAGE_ICONS: Record<string, React.ElementType> = {
 };
 
 /* ── Nav data ──────────────────────────────────────────────────────────── */
-type SubItem  = { label: string; href: string; icon?: React.ElementType };
+type SubItem = {
+  label: string;
+  href: string;
+  icon?: React.ElementType;
+  /** Mid-column section heading rendered above this item */
+  groupLabel?: string;
+};
 type NavGroup = { labelAr?: string; items: SubItem[] };
 type NavItem  = {
   key: string; label: string; href?: string;
@@ -288,6 +294,9 @@ function buildEcommerceNavConfig(tNav: (key: string) => string): NavItem[] {
             label: tNav(item.labelKey),
             href: item.href,
             icon: item.icon,
+            groupLabel: item.precedingSectionKey
+              ? tNav(`sections.${item.precedingSectionKey}`)
+              : undefined,
           })),
         })),
     });
@@ -413,17 +422,20 @@ function NavDropdownContent({
     return true;
   }
 
+  const totalItems = groups.reduce((sum, group) => sum + group.items.length, 0);
+  const useColumns = totalItems > 6;
+
   return (
     <div
       className={cn(
-        'nav-dropdown absolute right-0 top-[calc(100%+6px)] z-[200] min-w-[220px] rounded-2xl border border-border/60 bg-popover/95 p-2 shadow-elevated backdrop-blur-xl',
+        'nav-dropdown absolute right-0 top-[calc(100%+6px)] z-[200] rounded-2xl border border-border bg-popover p-2 shadow-elevated',
+        useColumns ? 'grid w-105 grid-cols-2 items-start gap-1' : 'min-w-60',
       )}
       onMouseEnter={onOpen}
       onMouseLeave={onClose}
     >
       {groups.map((group, gi) => (
-        <div key={gi} className="flex flex-col gap-0.5">
-          {gi > 0 && <div className="my-1 border-t border-border/40" />}
+        <div key={gi} className={cn('flex flex-col gap-0.5', !useColumns && gi > 0 && 'mt-1 border-t border-border/40 pt-1')}>
           {group.labelAr && (
             <p className="mb-1 px-3 pt-1 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground/50">
               {group.labelAr}
@@ -433,31 +445,37 @@ function NavDropdownContent({
             const SubIcon = sub.icon;
             const active  = subIsActive(sub.href);
             return (
-              <Link
-                key={sub.href}
-                href={sub.href}
-                className={cn(
-                  'group/sub relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-150',
-                  active
-                    ? 'bg-primary/10 text-primary font-semibold'
-                    : 'text-foreground/70 hover:bg-muted/70 hover:text-foreground',
-                )}
-              >
-                {active && (
-                  <span className="absolute inset-e-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-full bg-primary" />
-                )}
-                {SubIcon && (
-                  <span className={cn(
-                    'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors',
+              <React.Fragment key={sub.href}>
+                {sub.groupLabel ? (
+                  <p className="mb-1 mt-2 px-3 pt-1 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground/50 first:mt-0">
+                    {sub.groupLabel}
+                  </p>
+                ) : null}
+                <Link
+                  href={sub.href}
+                  className={cn(
+                    'group/sub relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-150',
                     active
-                      ? 'bg-primary/15 text-primary'
-                      : 'bg-muted/60 text-muted-foreground group-hover/sub:bg-primary/10 group-hover/sub:text-primary',
-                  )}>
-                    <SubIcon className="h-3.5 w-3.5" />
-                  </span>
-                )}
-                <span className="flex-1 leading-tight">{sub.label}</span>
-              </Link>
+                      ? 'bg-primary/10 text-primary font-semibold'
+                      : 'text-foreground/70 hover:bg-muted/70 hover:text-foreground',
+                  )}
+                >
+                  {active && (
+                    <span className="absolute inset-e-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-full bg-primary" />
+                  )}
+                  {SubIcon && (
+                    <span className={cn(
+                      'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors',
+                      active
+                        ? 'bg-primary/15 text-primary'
+                        : 'bg-muted/60 text-muted-foreground group-hover/sub:bg-primary/10 group-hover/sub:text-primary',
+                    )}>
+                      <SubIcon className="h-3.5 w-3.5" />
+                    </span>
+                  )}
+                  <span className="flex-1 leading-tight">{sub.label}</span>
+                </Link>
+              </React.Fragment>
             );
           })}
         </div>

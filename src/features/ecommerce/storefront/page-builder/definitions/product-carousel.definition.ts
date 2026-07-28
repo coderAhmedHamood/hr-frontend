@@ -5,13 +5,10 @@ import { productCarouselSectionSchema } from '@/features/ecommerce/storefront/pa
 import {
   BASE_SECTION_CAPABILITIES,
   booleanField,
-  dataSourceField,
-  layoutField,
   localizedSubtitleField,
   localizedTitleField,
-  themeField,
+  newestProductsField,
   UI_STRINGS,
-  visibilityField,
 } from '@/features/ecommerce/storefront/page-builder/definitions/shared/field-builders';
 
 const DEFAULT_CONFIGURATION = {
@@ -78,9 +75,6 @@ export const PRODUCT_CAROUSEL_DEFINITION: SectionDefinition<'product-carousel'> 
     booleanField('autoplay', 'settings.autoplay', UI_STRINGS.fields.autoplay, 'settings', false),
     booleanField('showPrice', 'settings.showPrice', UI_STRINGS.fields.showPrice, 'settings', true),
     booleanField('showBadge', 'settings.showBadge', UI_STRINGS.fields.showBadge, 'settings', false),
-    themeField(),
-    layoutField(PRODUCT_CAROUSEL_LAYOUTS),
-    visibilityField(),
-    dataSourceField(['manual', 'query', 'tag', 'category', 'collection', 'recommendation']),
+    newestProductsField(),
   ],
 };

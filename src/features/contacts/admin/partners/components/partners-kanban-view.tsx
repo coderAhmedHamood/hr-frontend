@@ -20,7 +20,7 @@ export function PartnersKanbanView({ partners, onOpen, onStatusChange }: Props) 
       {KANBAN_STATUSES.map((status) => {
         const column = partners.filter((p) => p.status === status);
         return (
-          <div key={status} className="flex min-h-[320px] flex-col rounded-xl border border-border bg-muted/20">
+          <div key={status} className="flex min-h-[320px] flex-col rounded-2xl border border-border bg-muted/20">
             <div className="flex items-center justify-between border-b border-border px-3 py-2.5">
               <h3 className="text-sm font-semibold text-foreground">{PARTNER_STATUS_LABELS[status]}</h3>
               <span className="rounded-full bg-background px-2 py-0.5 text-xs text-muted-foreground">
@@ -34,8 +34,8 @@ export function PartnersKanbanView({ partners, onOpen, onStatusChange }: Props) 
                   type="button"
                   onClick={() => onOpen(partner)}
                   className={cn(
-                    'rounded-lg border border-border bg-card p-3 text-start shadow-sm',
-                    'transition-colors hover:border-primary/40',
+                    'rounded-xl border border-border bg-card p-3 text-start shadow-soft',
+                    'transition-shadow hover:border-primary/40 hover:shadow-elevated',
                   )}
                 >
                   <div className="mb-2 flex items-center gap-2">

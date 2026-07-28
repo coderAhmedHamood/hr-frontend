@@ -10,6 +10,7 @@ export const UI_STRINGS = {
     layout: { ar: 'التخطيط', en: 'Layout' } satisfies LocalizableString,
     visibility: { ar: 'الظهور حسب الجهاز', en: 'Device visibility' } satisfies LocalizableString,
     dataSource: { ar: 'مصدر البيانات', en: 'Data source' } satisfies LocalizableString,
+    productsShown: { ar: 'المنتجات المعروضة', en: 'Products shown' } satisfies LocalizableString,
     viewAllHref: { ar: 'رابط عرض الكل', en: 'View all link' } satisfies LocalizableString,
     autoplay: { ar: 'تشغيل تلقائي', en: 'Autoplay' } satisfies LocalizableString,
     intervalMs: { ar: 'الفاصل الزمني (مللي ثانية)', en: 'Interval (ms)' } satisfies LocalizableString,
@@ -121,6 +122,23 @@ export function dataSourceField(allowedKinds: readonly string[]): FieldDefinitio
     required: true,
     group: 'dataSource',
     meta: { allowedKinds: allowedKinds as import('@/features/ecommerce/storefront/page-builder/domain/data-source').DataSourceKind[] },
+  };
+}
+
+/**
+ * Simplified stand-in for `dataSourceField` — always pulls the newest products
+ * (kind: 'query', sort: createdAt desc) so admins only see a limit + optional tag filter,
+ * not the full source-type/sort machinery.
+ */
+export function newestProductsField(): FieldDefinition {
+  return {
+    key: 'dataSource',
+    path: 'dataSource',
+    label: UI_STRINGS.fields.productsShown,
+    control: 'newest-products-basic',
+    localized: false,
+    required: true,
+    group: 'dataSource',
   };
 }
 

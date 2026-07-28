@@ -1,9 +1,19 @@
 'use client';
+
 import * as React from 'react';
 import * as TabsPrimitive from '@radix-ui/react-tabs';
 import { cn } from '@/shared/utils';
 
-const Tabs = TabsPrimitive.Root;
+type TabsRootProps = React.ComponentPropsWithoutRef<typeof TabsPrimitive.Root>;
+
+/**
+ * Radix Tabs defaults `dir` to `ltr` when unset, which breaks RTL UIs.
+ * Default to `rtl` (app default); callers can still pass `dir="ltr"` when needed.
+ */
+const Tabs = React.forwardRef<React.ElementRef<typeof TabsPrimitive.Root>, TabsRootProps>(
+  ({ dir = 'rtl', ...props }, ref) => <TabsPrimitive.Root ref={ref} dir={dir} {...props} />,
+);
+Tabs.displayName = TabsPrimitive.Root.displayName;
 
 const TabsList = React.forwardRef<
   React.ElementRef<typeof TabsPrimitive.List>,

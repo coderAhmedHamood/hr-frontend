@@ -6,15 +6,25 @@ import { useRouter } from 'next/navigation';
 import {
   ArrowRight,
   Building2,
+  CircleUserRound,
+  Clock,
+  CreditCard,
   Mail,
   MapPin,
+  Network,
+  Paperclip,
   Pencil,
   Phone,
   Plus,
+  StickyNote,
   Trash2,
+  Waypoints,
 } from 'lucide-react';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
+import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
+import { PageHeaderPrimaryButton } from '@/components/layouts/page-header-primary-button';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -96,6 +106,14 @@ export function PartnerDetailPage({ partnerId }: Props) {
     body: '',
   });
 
+  usePageHeaderActions(
+    () =>
+      partner ? (
+        <PageHeaderPrimaryButton icon={Pencil} label="تعديل" onClick={() => setEditOpen(true)} />
+      ) : null,
+    [partner],
+  );
+
   if (isLoading) {
     return <p className="text-sm text-muted-foreground">جاري تحميل جهة الاتصال…</p>;
   }
@@ -115,21 +133,21 @@ export function PartnerDetailPage({ partnerId }: Props) {
     <div className="flex flex-col gap-5">
       <SetPageTitle titleAr={partner.displayName} iconName="Users" />
 
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex items-start gap-3">
+      <Card className="rounded-2xl">
+        <CardContent className="flex flex-wrap items-start gap-3 py-4">
           <Button variant="ghost" size="icon" asChild aria-label="رجوع">
             <Link href={contactsAdminRoutes.partners}>
               <ArrowRight className="h-4 w-4" />
             </Link>
           </Button>
-          <span className="flex h-14 w-14 items-center justify-center rounded-full border border-border bg-muted text-lg font-semibold">
+          <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-border bg-muted text-lg font-semibold">
             {partner.isCompany ? (
               <Building2 className="h-5 w-5 text-muted-foreground" />
             ) : (
               partnerInitials(partner.displayName)
             )}
           </span>
-          <div className="space-y-1.5">
+          <div className="min-w-0 flex-1 space-y-1.5">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-xl font-semibold text-foreground">{partner.displayName}</h1>
               <PartnerStatusBadge status={partner.status} />
@@ -150,24 +168,47 @@ export function PartnerDetailPage({ partnerId }: Props) {
               ) : null}
             </div>
           </div>
-        </div>
-        <Button onClick={() => setEditOpen(true)}>
-          <Pencil className="h-4 w-4" />
-          تعديل
-        </Button>
-      </div>
+        </CardContent>
+      </Card>
 
       <Tabs defaultValue="general" className="w-full">
         <TabsList className="flex h-auto flex-wrap justify-start gap-1">
-          <TabsTrigger value="general">عام</TabsTrigger>
-          <TabsTrigger value="addresses">عناوين</TabsTrigger>
-          <TabsTrigger value="channels">وسائل الاتصال</TabsTrigger>
-          <TabsTrigger value="relations">علاقات</TabsTrigger>
-          <TabsTrigger value="financial">مالي</TabsTrigger>
-          <TabsTrigger value="activities">أنشطة</TabsTrigger>
-          <TabsTrigger value="notes">ملاحظات</TabsTrigger>
-          <TabsTrigger value="attachments">مرفقات</TabsTrigger>
-          <TabsTrigger value="related">سجلات مرتبطة</TabsTrigger>
+          <TabsTrigger value="general" className="gap-1.5">
+            <CircleUserRound className="h-3.5 w-3.5" />
+            عام
+          </TabsTrigger>
+          <TabsTrigger value="addresses" className="gap-1.5">
+            <MapPin className="h-3.5 w-3.5" />
+            عناوين
+          </TabsTrigger>
+          <TabsTrigger value="channels" className="gap-1.5">
+            <Phone className="h-3.5 w-3.5" />
+            وسائل الاتصال
+          </TabsTrigger>
+          <TabsTrigger value="relations" className="gap-1.5">
+            <Waypoints className="h-3.5 w-3.5" />
+            علاقات
+          </TabsTrigger>
+          <TabsTrigger value="financial" className="gap-1.5">
+            <CreditCard className="h-3.5 w-3.5" />
+            مالي
+          </TabsTrigger>
+          <TabsTrigger value="activities" className="gap-1.5">
+            <Clock className="h-3.5 w-3.5" />
+            أنشطة
+          </TabsTrigger>
+          <TabsTrigger value="notes" className="gap-1.5">
+            <StickyNote className="h-3.5 w-3.5" />
+            ملاحظات
+          </TabsTrigger>
+          <TabsTrigger value="attachments" className="gap-1.5">
+            <Paperclip className="h-3.5 w-3.5" />
+            مرفقات
+          </TabsTrigger>
+          <TabsTrigger value="related" className="gap-1.5">
+            <Network className="h-3.5 w-3.5" />
+            سجلات مرتبطة
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="general" className="mt-4 space-y-4">
