@@ -29,7 +29,7 @@ import type { StockStatus } from '@/features/ecommerce/domain/constants/stock-st
 import { ListFilterBar } from '@/components/ui/list-filter-bar';
 import { EntityFilterSearchField } from '@/components/ui/entity-filter-search-field';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { DataTable, AppPagination, type ColumnDef } from '@/components/ui/data-table';
 import { DEFAULT_PAGE_SIZE } from '@/components/ui/paged-list';
 
@@ -377,6 +377,83 @@ export function ProductsListPage() {
     },
   ];
 
+  function renderMobileCard(product: Product) {
+    const primaryImage = product.media.find((m) => m.isPrimary) ?? product.media[0];
+    const offerBadges = [
+      product.isNewProductActive ? { key: 'new', variant: 'subtle' as const, label: 'حديث' } : null,
+      product.isTodayDealActive ? { key: 'deal', variant: 'warning' as const, label: 'تخفيض اليوم' } : null,
+      product.isWholesale ? { key: 'wholesale', variant: 'outline' as const, label: 'جملة' } : null,
+      product.isDiscountActive
+        ? {
+            key: 'discount',
+            variant: 'destructive' as const,
+            label: `خصم${product.discountPercent != null ? ` ${product.discountPercent}%` : ''}`,
+          }
+        : null,
+    ].filter(Boolean) as Array<{ key: string; variant: BadgeProps['variant']; label: string }>;
+
+    return (
+      <div className="space-y-2.5">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted">
+            {primaryImage ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={primaryImage.url} alt={primaryImage.alt} className="h-full w-full object-cover" />
+            ) : (
+              <Package className="h-5 w-5 text-muted-foreground" />
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-medium text-foreground">{product.nameAr}</p>
+            <p className="text-xs text-muted-foreground" dir="ltr">
+              SKU: {product.sku}
+            </p>
+          </div>
+        </div>
+
+        {offerBadges.length > 0 ? (
+          <div className="flex flex-wrap gap-1.5">
+            {offerBadges.map((badge) => (
+              <Badge key={badge.key} variant={badge.variant}>
+                {badge.label}
+              </Badge>
+            ))}
+          </div>
+        ) : null}
+
+        <div className="flex items-center justify-between gap-3 rounded-lg bg-muted/40 px-2.5 py-1.5">
+          <div>
+            <p className="text-[11px] text-muted-foreground">السعر</p>
+            <p className="font-medium tabular-nums text-foreground">{formatPrice(product.price)}</p>
+          </div>
+          <div className="text-end">
+            <p className="text-[11px] text-muted-foreground">الكمية</p>
+            <p className="font-medium tabular-nums text-foreground">{product.inventory.quantity}</p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Badge variant={STOCK_BADGE_VARIANT[product.stockStatus]}>
+            {STOCK_STATUS_LABELS_AR[product.stockStatus]}
+          </Badge>
+          <Badge variant={STATUS_BADGE_VARIANT[product.status]}>{PRODUCT_STATUS_LABELS_AR[product.status]}</Badge>
+        </div>
+
+        <div
+          className="flex items-center justify-end gap-1 border-t border-border/60 pt-2"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <Button variant="ghost" size="icon" aria-label="تعديل المنتج" onClick={() => openEditDialog(product)}>
+            <Pencil className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="icon" aria-label="حذف المنتج" onClick={() => setProductToDelete(product)}>
+            <Trash2 className="h-4 w-4 text-destructive" />
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-5">
       <SetPageTitle
@@ -394,6 +471,7 @@ export function ProductsListPage() {
         loading={isLoading}
         emptyText="لا توجد منتجات بعد."
         onRowClick={openEditDialog}
+        mobileCard={renderMobileCard}
       />
 
       {data ? (

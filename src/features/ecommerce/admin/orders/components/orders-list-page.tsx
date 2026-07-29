@@ -31,8 +31,15 @@ import { StatTile, StatTileGrid } from '@/components/ui/stat-tile';
 import { DataTable, AppPagination, type ColumnDef } from '@/components/ui/data-table';
 import { DEFAULT_PAGE_SIZE } from '@/components/ui/paged-list';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { SlidePanel, SlidePanelContent } from '@/components/ui/slide-panel';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+  dialogShellBodyClass,
+  dialogShellContentClass,
+  dialogShellHeaderClass,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/shared/utils';
@@ -58,7 +65,6 @@ const ORDER_STATUS_LABELS_AR: Record<OrderStatus, string> = {
   refunded: 'مسترد',
 };
 
-const CLOSED_STATUSES: OrderStatus[] = ['delivered', 'cancelled', 'refunded'];
 const RETURNED_STATUSES: OrderStatus[] = ['cancelled', 'refunded'];
 
 const PAYMENT_LABELS: Record<string, string> = {
@@ -122,33 +128,6 @@ function formatDateTime(iso: string) {
     }).format(new Date(iso));
   } catch {
     return iso.slice(0, 16).replace('T', ' ');
-  }
-}
-
-type QuickTab = 'all' | 'unfulfilled' | 'unpaid' | 'open' | 'closed';
-
-const QUICK_TABS: Array<{ value: QuickTab; label: string }> = [
-  { value: 'all', label: 'الكل' },
-  { value: 'unfulfilled', label: 'غير مجهزة' },
-  { value: 'unpaid', label: 'غير مدفوعة' },
-  { value: 'open', label: 'مفتوحة' },
-  { value: 'closed', label: 'مغلقة' },
-];
-
-function matchesQuickTab(order: Order, tab: QuickTab): boolean {
-  switch (tab) {
-    case 'all':
-      return true;
-    case 'unfulfilled':
-      return orderFulfilmentState(order) !== 'fulfilled';
-    case 'unpaid':
-      return (order.paymentStatus ?? 'pending') !== 'paid';
-    case 'open':
-      return !CLOSED_STATUSES.includes(order.status);
-    case 'closed':
-      return CLOSED_STATUSES.includes(order.status);
-    default:
-      return true;
   }
 }
 
@@ -264,12 +243,13 @@ function OrderDetailPanel({
   const locationLabel = order ? [order.city, order.region].filter(Boolean).join(' • ') : '';
 
   return (
-    <SlidePanel open={open} onOpenChange={onOpenChange}>
-      <SlidePanelContent
-        size="xl"
-        title={order?.orderNumber}
-        description={order ? formatDateTime(order.createdAt) : undefined}
-      >
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className={cn(dialogShellContentClass, 'max-w-2xl sm:max-w-2xl')}>
+        <div className={dialogShellHeaderClass}>
+          <DialogTitle>{order?.orderNumber}</DialogTitle>
+          {order ? <DialogDescription>{formatDateTime(order.createdAt)}</DialogDescription> : null}
+        </div>
+        <div className={dialogShellBodyClass}>
         {order ? (
           <div className="space-y-5">
             <div className="flex flex-wrap items-center gap-2">
@@ -385,8 +365,9 @@ function OrderDetailPanel({
             <OrderItemsPanel order={order} companyId={companyId} />
           </div>
         ) : null}
-      </SlidePanelContent>
-    </SlidePanel>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -401,7 +382,6 @@ export function OrdersListPage() {
   const page = Math.max(1, Number(searchParams.get('page')) || 1);
   const pageSize = Number(searchParams.get('pageSize')) || DEFAULT_PAGE_SIZE;
   const selectedOrderId = searchParams.get('order') ?? '';
-  const quickTab = (searchParams.get('tab') as QuickTab | null) ?? 'all';
 
   const [searchInput, setSearchInput] = React.useState(search);
 
@@ -411,7 +391,6 @@ export function OrdersListPage() {
     page?: number;
     pageSize?: number;
     order?: string | null;
-    tab?: QuickTab;
   }) {
     const params = new URLSearchParams(searchParams.toString());
     if (next.q !== undefined) {
@@ -434,10 +413,7 @@ export function OrdersListPage() {
       if (next.order) params.set('order', next.order);
       else params.delete('order');
     }
-    if (next.tab !== undefined) {
-      if (next.tab && next.tab !== 'all') params.set('tab', next.tab);
-      else params.delete('tab');
-    }
+    params.delete('tab');
     const qs = params.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   }
@@ -480,7 +456,6 @@ export function OrdersListPage() {
   }, [refetch]);
 
   const items = data?.items ?? [];
-  const visibleItems = items.filter((order) => matchesQuickTab(order, quickTab));
   const selectedOrder = items.find((order) => order.id === selectedOrderId) ?? null;
 
   const total = data?.pagination.total ?? 0;
@@ -639,21 +614,11 @@ export function OrdersListPage() {
         />
       </StatTileGrid>
 
-      <Tabs value={quickTab} onValueChange={(value) => updateParams({ tab: value as QuickTab })}>
-        <TabsList>
-          {QUICK_TABS.map((tab) => (
-            <TabsTrigger key={tab.value} value={tab.value}>
-              {tab.label}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
-
       {isError ? <p className="text-sm text-destructive">تعذر تحميل الطلبات.</p> : null}
 
       <DataTable
         columns={columns}
-        data={visibleItems}
+        data={items}
         keyExtractor={(order) => order.id}
         loading={isLoading}
         emptyText="لا توجد طلبات مطابقة. أنشئ طلبًا من المتجر ليظهر هنا مباشرة."

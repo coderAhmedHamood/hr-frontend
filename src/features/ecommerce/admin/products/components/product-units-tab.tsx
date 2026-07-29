@@ -5,6 +5,7 @@ import { Controller, useFieldArray, type Control, type FieldErrors, type UseForm
 import {
   PACKAGING_TYPE_OPTIONS,
   type ProductFormInput,
+  type ProductFormValues,
 } from '@/features/ecommerce/admin/products/schemas/product-schema';
 import { ProductFormSection } from '@/features/ecommerce/admin/products/components/product-form-section';
 import { Button } from '@/components/ui/button';
@@ -14,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 
 type Props = {
-  control: Control<ProductFormInput>;
+  control: Control<ProductFormInput, unknown, ProductFormValues>;
   errors: FieldErrors<ProductFormInput>;
   setValue: UseFormSetValue<ProductFormInput>;
 };
