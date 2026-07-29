@@ -4,7 +4,6 @@ import type { SectionType } from '@/features/ecommerce/storefront/page-builder/d
 import { BannerSection } from '@/features/ecommerce/storefront/page-builder/components/sections/banner-section';
 import { BrandSliderSection } from '@/features/ecommerce/storefront/page-builder/components/sections/brand-slider-section';
 import { CategoryGridSection } from '@/features/ecommerce/storefront/page-builder/components/sections/category-grid-section';
-import { FeaturesGridSection } from '@/features/ecommerce/storefront/page-builder/components/sections/features-grid-section';
 import { FlashSaleSection } from '@/features/ecommerce/storefront/page-builder/components/sections/flash-sale-section';
 import { HeroCarouselSection } from '@/features/ecommerce/storefront/page-builder/components/sections/hero-carousel-section';
 import { ProductCarouselSection } from '@/features/ecommerce/storefront/page-builder/components/sections/product-carousel-section';
@@ -40,10 +39,7 @@ const SECTION_RENDER_REGISTRY: Record<SectionType, SectionRenderEntry> = {
     },
   },
   'features-grid': {
-    render: async (section) => {
-      if (section.type !== 'features-grid') return null;
-      return <FeaturesGridSection section={section} />;
-    },
+    render: async () => null,
   },
   'brand-slider': {
     render: async (section) => {

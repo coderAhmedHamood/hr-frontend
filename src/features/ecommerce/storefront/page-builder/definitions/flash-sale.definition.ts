@@ -4,14 +4,8 @@ import { SUPPORTED_STOREFRONT_LOCALES } from '@/features/ecommerce/storefront/pa
 import { flashSaleSectionSchema } from '@/features/ecommerce/storefront/page-builder/schemas/page.schema';
 import {
   BASE_SECTION_CAPABILITIES,
-  booleanField,
-  dataSourceField,
-  layoutField,
   localizedSubtitleField,
   localizedTitleField,
-  themeField,
-  UI_STRINGS,
-  visibilityField,
 } from '@/features/ecommerce/storefront/page-builder/definitions/shared/field-builders';
 
 const DEFAULT_CONFIGURATION = {
@@ -54,34 +48,5 @@ export const FLASH_SALE_DEFINITION: SectionDefinition<'flash-sale'> = {
     supportsBrands: false,
     supportsBanners: false,
   },
-  fields: [
-    localizedTitleField(true),
-    localizedSubtitleField(),
-    {
-      key: 'viewAllHref',
-      path: 'content.viewAllHref',
-      label: UI_STRINGS.fields.viewAllHref,
-      control: 'store-path',
-      localized: false,
-      required: false,
-      group: 'content',
-      defaultValue: null,
-    },
-    booleanField('showPrice', 'settings.showPrice', UI_STRINGS.fields.showPrice, 'settings', true),
-    booleanField('showCountdown', 'settings.showCountdown', UI_STRINGS.fields.showCountdown, 'settings', false),
-    {
-      key: 'endsAt',
-      path: 'settings.endsAt',
-      label: UI_STRINGS.fields.endsAt,
-      control: 'datetime',
-      localized: false,
-      required: false,
-      group: 'settings',
-      defaultValue: null,
-    },
-    themeField(),
-    layoutField(FLASH_SALE_LAYOUTS),
-    visibilityField(),
-    dataSourceField(['manual', 'tag', 'query']),
-  ],
+  fields: [localizedTitleField(true), localizedSubtitleField()],
 };

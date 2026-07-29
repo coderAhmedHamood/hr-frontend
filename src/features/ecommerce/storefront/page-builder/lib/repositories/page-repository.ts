@@ -48,6 +48,14 @@ function cloneRecord(record: PageRecord): PageRecord {
   return JSON.parse(JSON.stringify(record)) as PageRecord;
 }
 
+/** Drop retired section types so they no longer appear in CMS or storefront. */
+function withoutRetiredSections(record: PageRecord): PageRecord {
+  return {
+    ...record,
+    sections: record.sections.filter((section) => section.type !== 'features-grid'),
+  };
+}
+
 function isPubliclyVisible(record: PageRecord): boolean {
   return record.status === 'published';
 }
@@ -70,19 +78,19 @@ export const storefrontPageRepository: PageStorefrontPort & PageCmsPort = {
   ): Promise<StorefrontPage | null> {
     const record = PAGE_INDEX[pageKey(companyId, pageType)] ?? null;
     if (!record || !isPubliclyVisible(record)) return null;
-    return mockRepositoryDelay(mapStorefrontPage(record, locale));
+    return mockRepositoryDelay(mapStorefrontPage(withoutRetiredSections(record), locale));
   },
 
   async getBySlug(companyId: string, slug: string, locale: StorefrontLocale): Promise<StorefrontPage | null> {
     const record = PAGE_INDEX[slugKey(companyId, slug)] ?? null;
     if (!record || !isPubliclyVisible(record)) return null;
-    return mockRepositoryDelay(mapStorefrontPage(record, locale));
+    return mockRepositoryDelay(mapStorefrontPage(withoutRetiredSections(record), locale));
   },
 
   /** Admin / CMS — raw bilingual page document (no locale resolution). */
   async getRecordByPageType(companyId: string, pageType: PageType): Promise<PageRecord | null> {
     const record = PAGE_INDEX[pageKey(companyId, pageType)] ?? null;
-    return mockRepositoryDelay(record ? cloneRecord(record) : null);
+    return mockRepositoryDelay(record ? withoutRetiredSections(cloneRecord(record)) : null);
   },
 
   /**
@@ -91,7 +99,7 @@ export const storefrontPageRepository: PageStorefrontPort & PageCmsPort = {
    * Draft / archived saves stay invisible to storefront get* until published.
    */
   async saveRecord(input: PageRecord): Promise<PageRecord> {
-    const parsed = pageRecordSchema.safeParse(input);
+    const parsed = pageRecordSchema.safeParse(withoutRetiredSections(input));
     if (!parsed.success) {
       const error: PageSaveError = {
         code: 'VALIDATION_FAILED',

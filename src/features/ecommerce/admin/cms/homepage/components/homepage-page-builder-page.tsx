@@ -8,7 +8,6 @@ import {
   ArrowUp,
   ExternalLink,
   LayoutTemplate,
-  ListChecks,
   Pencil,
   Plus,
   Rocket,
@@ -33,12 +32,10 @@ import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-con
 import { PageHeaderPrimaryButton } from '@/components/layouts/page-header-primary-button';
 import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { StatTile, StatTileGrid } from '@/components/ui/stat-tile';
+import { Card, CardContent } from '@/components/ui/card';
 import { ListFilterBar } from '@/components/ui/list-filter-bar';
 import { EntityFilterSearchField } from '@/components/ui/entity-filter-search-field';
 import { Badge } from '@/components/ui/badge';
-import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import {
   Dialog,
@@ -47,14 +44,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
 
 function sectionDisplayName(section: SectionRecord, locale: string): string {
   const definition = getAllSectionDefinitions().find((item) => item.type === section.type);
@@ -71,7 +60,6 @@ function sectionStatusBadgeVariant(status: SectionRecord['status']): 'secondary'
 export function HomepagePageBuilderPage() {
   const companyId = getStorefrontCompanyId();
   const t = useTranslations('ecommerceAdmin.homepage');
-  const tModule = useTranslations('ecommerceAdmin.module');
   const tCommon = useTranslations('common');
   const locale = useLocale();
 
@@ -95,8 +83,6 @@ export function HomepagePageBuilderPage() {
 
   const definitions = getAllSectionDefinitions();
   const sections = draft ? [...draft.sections].sort((a, b) => a.order - b.order) : [];
-  const enabledCount = sections.filter((section) => section.enabled).length;
-  const publishedCount = sections.filter((section) => section.status === 'published').length;
 
   const normalizedSearch = search.trim().toLowerCase();
   const filteredSections = sections.filter((section) => {
@@ -206,14 +192,6 @@ export function HomepagePageBuilderPage() {
     <div className="flex flex-col gap-5">
       <SetPageTitle titleAr={t('title')} descriptionAr={t('description')} iconName="LayoutTemplate" />
 
-      {draft ? (
-        <StatTileGrid className="sm:grid-cols-3">
-          <StatTile icon={LayoutTemplate} label={t('sectionCount', { count: sections.length })} value={sections.length} tone="primary" />
-          <StatTile icon={ListChecks} label={t('enabled')} value={enabledCount} tone="success" />
-          <StatTile icon={Rocket} label={t('statuses.published')} value={publishedCount} tone="gold" />
-        </StatTileGrid>
-      ) : null}
-
       {dirty ? (
         <div className="flex items-center gap-2 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
           {t('unsavedHint')}
@@ -240,62 +218,6 @@ export function HomepagePageBuilderPage() {
 
       {draft ? (
         <>
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">{tModule('title')}</CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label>{t('displayName')} (AR)</Label>
-                <Input
-                  value={draft.displayName.ar}
-                  onChange={(event) =>
-                    updateDraft((current) => ({
-                      ...current,
-                      displayName: { ...current.displayName, ar: event.target.value },
-                    }))
-                  }
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>{t('displayName')} (EN)</Label>
-                <Input
-                  value={draft.displayName.en}
-                  onChange={(event) =>
-                    updateDraft((current) => ({
-                      ...current,
-                      displayName: { ...current.displayName, en: event.target.value },
-                    }))
-                  }
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>{t('pageStatus')}</Label>
-                <Select
-                  value={draft.status}
-                  onValueChange={(status) =>
-                    updateDraft((current) => ({
-                      ...current,
-                      status: status as PageRecord['status'],
-                    }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="draft">{t('statuses.draft')}</SelectItem>
-                    <SelectItem value="published">{t('statuses.published')}</SelectItem>
-                    <SelectItem value="archived">{t('statuses.archived')}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-end">
-                <p className="text-sm text-muted-foreground">{t('sectionCount', { count: sections.length })}</p>
-              </div>
-            </CardContent>
-          </Card>
-
           <h2 className="text-sm font-semibold text-foreground">{t('sectionPalette')}</h2>
 
           {sections.length === 0 ? (

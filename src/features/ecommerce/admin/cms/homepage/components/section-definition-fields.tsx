@@ -9,6 +9,7 @@ import { getValueAtPath, setValueAtPath } from '@/features/ecommerce/admin/cms/s
 import {
   CategoryMultiPicker,
   CategorySinglePicker,
+  ImagePicker,
   ProductMultiPicker,
   TagPicker,
 } from '@/features/ecommerce/admin/cms/homepage/components/section-entity-pickers';
@@ -360,6 +361,16 @@ export function SectionDefinitionFields({ fields, value, onChange }: Props) {
       metadata: [],
     };
     for (const field of fields) {
+      // Keep section editor focused: theme/layout/visibility/columns stay on defaults.
+      if (
+        field.key === 'viewAllHref' ||
+        field.control === 'theme' ||
+        field.control === 'layout' ||
+        field.control === 'visibility' ||
+        field.control === 'column-grid'
+      ) {
+        continue;
+      }
       groups[field.group].push(field);
     }
     return groups;
@@ -370,6 +381,16 @@ export function SectionDefinitionFields({ fields, value, onChange }: Props) {
   }
 
   function renderField(field: FieldDefinition) {
+    if (
+      field.key === 'viewAllHref' ||
+      field.control === 'theme' ||
+      field.control === 'layout' ||
+      field.control === 'visibility' ||
+      field.control === 'column-grid'
+    ) {
+      return null;
+    }
+
     const fieldValue = getValueAtPath(value, field.path);
     const label = resolveFieldLabel(field.label, locale);
 
@@ -408,17 +429,15 @@ export function SectionDefinitionFields({ fields, value, onChange }: Props) {
       );
     }
 
-    if (field.control === 'theme' || field.control === 'layout' || field.control === 'select' || field.control === 'link-target') {
+    if (field.control === 'select' || field.control === 'link-target') {
       const fromMeta =
         field.meta && 'options' in field.meta ? field.meta.options.map((option) => option.value) : [];
       const resolvedOptions =
         fromMeta.length > 0
           ? fromMeta
-          : field.control === 'theme'
-            ? ['light', 'dark', 'system']
-            : field.control === 'link-target'
-              ? ['_self', '_blank']
-              : [];
+          : field.control === 'link-target'
+            ? ['_self', '_blank']
+            : [];
 
       return (
         <div key={field.key} className="space-y-1.5">
@@ -438,34 +457,6 @@ export function SectionDefinitionFields({ fields, value, onChange }: Props) {
               ))}
             </SelectContent>
           </Select>
-        </div>
-      );
-    }
-
-    if (field.control === 'visibility') {
-      const visibility = (fieldValue as { mobile?: boolean; tablet?: boolean; desktop?: boolean }) ?? {
-        mobile: true,
-        tablet: true,
-        desktop: true,
-      };
-      return (
-        <div key={field.key} className="space-y-2 rounded-lg border border-border p-3">
-          <Label>{label}</Label>
-          {(
-            [
-              ['mobile', tFields('visibilityMobile')],
-              ['tablet', tFields('visibilityTablet')],
-              ['desktop', tFields('visibilityDesktop')],
-            ] as const
-          ).map(([key, deviceLabel]) => (
-            <div key={key} className="flex items-center justify-between gap-3">
-              <span className="text-sm text-muted-foreground">{deviceLabel}</span>
-              <Switch
-                checked={Boolean(visibility[key])}
-                onCheckedChange={(checked) => patch(field.path, { ...visibility, [key]: checked })}
-              />
-            </div>
-          ))}
         </div>
       );
     }
@@ -543,8 +534,6 @@ export function SectionDefinitionFields({ fields, value, onChange }: Props) {
                   {
                     id: crypto.randomUUID(),
                     imageUrl: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=1400&q=80',
-                    alt: { ar: '', en: '' },
-                    title: { ar: '', en: '' },
                   },
                 ])
               }
@@ -567,35 +556,15 @@ export function SectionDefinitionFields({ fields, value, onChange }: Props) {
               </div>
               <div className="space-y-1.5">
                 <Label>{tFields('imageUrl')}</Label>
-                <Input
+                <ImagePicker
                   value={slide.imageUrl}
-                  onChange={(event) => {
+                  onChange={(url) => {
                     const next = [...slides];
-                    next[index] = { ...slide, imageUrl: event.target.value };
+                    next[index] = { ...slide, imageUrl: url };
                     patch(field.path, next);
                   }}
                 />
               </div>
-              <LocalizedPair
-                labelAr={tFields('titleAr')}
-                labelEn={tFields('titleEn')}
-                value={slide.title}
-                onChange={(title) => {
-                  const next = [...slides];
-                  next[index] = { ...slide, title: title ?? undefined };
-                  patch(field.path, next);
-                }}
-              />
-              <LocalizedPair
-                labelAr={tFields('altAr')}
-                labelEn={tFields('altEn')}
-                value={slide.alt}
-                onChange={(alt) => {
-                  const next = [...slides];
-                  next[index] = { ...slide, alt: alt ?? undefined };
-                  patch(field.path, next);
-                }}
-              />
             </div>
           ))}
         </div>
@@ -689,12 +658,23 @@ export function SectionDefinitionFields({ fields, value, onChange }: Props) {
       );
     }
 
+    if (field.control === 'image') {
+      return (
+        <div key={field.key} className="space-y-1.5">
+          <Label>{label}</Label>
+          <ImagePicker
+            value={fieldValue == null ? null : String(fieldValue)}
+            onChange={(url) => patch(field.path, url)}
+          />
+        </div>
+      );
+    }
+
     if (
       field.control === 'text' ||
       field.control === 'textarea' ||
       field.control === 'url' ||
       field.control === 'store-path' ||
-      field.control === 'image' ||
       field.control === 'datetime'
     ) {
       const Field = field.control === 'textarea' ? Textarea : Input;

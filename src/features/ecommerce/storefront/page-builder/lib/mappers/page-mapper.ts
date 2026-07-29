@@ -138,6 +138,7 @@ export function mapFeatureItems(
 export function mapStorefrontPage(record: PageRecord, locale: StorefrontLocale): StorefrontPage {
   const sections = record.sections
     .filter((section) => section.enabled && section.status === 'published')
+    .filter((section) => section.type !== 'features-grid')
     .sort((a, b) => a.order - b.order || a.id.localeCompare(b.id))
     .map((section) => mapSectionRecord(section, locale))
     .filter((section): section is NormalizedSection => section !== null);

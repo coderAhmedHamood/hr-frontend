@@ -21,6 +21,12 @@ export type CatalogPickerProduct = {
   stockStatus?: 'in_stock' | 'out_of_stock' | 'preorder' | 'discontinued';
 };
 
+export type MediaLibraryImage = {
+  id: string;
+  url: string;
+  alt?: string | null;
+};
+
 export type CatalogPickerCategory = {
   id: string;
   slug: string;
@@ -192,6 +198,21 @@ export async function listCatalogPickerCategories(companyId: string): Promise<Ca
   if (fromMock.length > 0) return fromMock;
   const fromApi = await listInventoryCategories(resolved);
   return fromApi ?? [];
+}
+
+/**
+ * Media library images for the CMS image picker.
+ * Backend endpoint is not implemented yet — returns [] until a real
+ * "browse uploaded images" endpoint exists; the picker UI handles the empty state.
+ */
+export async function listMediaLibraryImages(companyId: string): Promise<MediaLibraryImage[]> {
+  const resolved = resolveStorefrontCompanyId(companyId);
+  const page = await fetchInventoryJson<{ items?: Array<{ id: string; url: string; alt?: string | null }> }>(
+    '/media/images',
+    { companyId: resolved, page: '1', limit: '200' },
+  );
+  if (!page?.items?.length) return [];
+  return page.items.map((item) => ({ id: item.id, url: item.url, alt: item.alt ?? null }));
 }
 
 /** Used by storefront resolvers — same precedence as pickers. */

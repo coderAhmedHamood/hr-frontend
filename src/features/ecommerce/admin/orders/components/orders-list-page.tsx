@@ -6,12 +6,13 @@ import { usePageHeaderActions } from '@/components/layouts/page-header-actions-c
 import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
 import * as React from 'react';
 import {
-  ChevronLeft,
   CreditCard,
-  ListOrdered,
+  Eye,
+  ListChecks,
   MapPin,
-  Package,
+  PackageCheck,
   Phone,
+  RotateCcw,
   ShoppingCart,
   Store,
   Truck,
@@ -27,19 +28,24 @@ import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { ListFilterBar } from '@/components/ui/list-filter-bar';
 import { EntityFilterSearchField } from '@/components/ui/entity-filter-search-field';
 import { StatTile, StatTileGrid } from '@/components/ui/stat-tile';
-import { AppPagination } from '@/components/ui/data-table';
+import { DataTable, AppPagination, type ColumnDef } from '@/components/ui/data-table';
 import { DEFAULT_PAGE_SIZE } from '@/components/ui/paged-list';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { SlidePanel, SlidePanelContent } from '@/components/ui/slide-panel';
+import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/shared/utils';
 
-const FILTER_PILLS: Array<{ value: '' | OrderStatus; label: string }> = [
-  { value: '', label: 'الكل' },
+const STATUS_FILTER_OPTIONS: Array<{ value: '' | OrderStatus; label: string }> = [
+  { value: '', label: 'كل الحالات التفصيلية' },
   { value: 'pending', label: 'قيد الانتظار' },
   { value: 'confirmed', label: 'مؤكد' },
   { value: 'processing', label: 'قيد التجهيز' },
   { value: 'shipped', label: 'تم الشحن' },
-  { value: 'delivered', label: 'مُسلَّم' },
+  { value: 'delivered', label: 'مُسلَّم' },
+  { value: 'cancelled', label: 'ملغي' },
+  { value: 'refunded', label: 'مسترد' },
 ];
 
 const ORDER_STATUS_LABELS_AR: Record<OrderStatus, string> = {
@@ -52,15 +58,8 @@ const ORDER_STATUS_LABELS_AR: Record<OrderStatus, string> = {
   refunded: 'مسترد',
 };
 
-const ORDER_STATUS_VARIANT: Record<OrderStatus, NonNullable<BadgeProps['variant']>> = {
-  pending: 'warning',
-  confirmed: 'outline',
-  processing: 'gold',
-  shipped: 'success',
-  delivered: 'success',
-  cancelled: 'destructive',
-  refunded: 'destructive',
-};
+const CLOSED_STATUSES: OrderStatus[] = ['delivered', 'cancelled', 'refunded'];
+const RETURNED_STATUSES: OrderStatus[] = ['cancelled', 'refunded'];
 
 const PAYMENT_LABELS: Record<string, string> = {
   cash_on_delivery: 'الدفع عند الاستلام',
@@ -74,6 +73,47 @@ const PAYMENT_STATUS_LABELS: Record<string, string> = {
   refunded: 'مسترد',
 };
 
+const PAYMENT_STATUS_VARIANT: Record<string, NonNullable<BadgeProps['variant']>> = {
+  pending: 'warning',
+  paid: 'success',
+  failed: 'destructive',
+  refunded: 'outline',
+};
+
+type FulfilmentState = 'fulfilled' | 'partial' | 'unfulfilled';
+
+const FULFILMENT_LABELS: Record<FulfilmentState, string> = {
+  fulfilled: 'تم التجهيز',
+  partial: 'تجهيز جزئي',
+  unfulfilled: 'لم يُجهز',
+};
+
+const FULFILMENT_VARIANT: Record<FulfilmentState, NonNullable<BadgeProps['variant']>> = {
+  fulfilled: 'success',
+  partial: 'warning',
+  unfulfilled: 'outline',
+};
+
+function orderFulfilmentState(order: Order): FulfilmentState {
+  if (order.items.length === 0) return 'unfulfilled';
+  const shippedCount = order.items.filter((line) => line.shipStatus === 'shipped').length;
+  if (shippedCount === order.items.length) return 'fulfilled';
+  if (shippedCount === 0) return 'unfulfilled';
+  return 'partial';
+}
+
+function itemCount(order: Order): number {
+  return order.items.reduce((sum, line) => sum + line.quantity, 0);
+}
+
+function formatShortDate(iso: string): string {
+  try {
+    return new Intl.DateTimeFormat('ar-YE', { dateStyle: 'medium' }).format(new Date(iso));
+  } catch {
+    return iso.slice(0, 10);
+  }
+}
+
 function formatDateTime(iso: string) {
   try {
     return new Intl.DateTimeFormat('ar-YE', {
@@ -85,187 +125,31 @@ function formatDateTime(iso: string) {
   }
 }
 
-function OrderCard({
-  order,
-  companyId,
-  expanded,
-  onToggle,
-}: {
-  order: Order;
-  companyId: string;
-  expanded: boolean;
-  onToggle: () => void;
-}) {
-  const locationLabel = [order.city, order.region].filter(Boolean).join(' • ');
-  const itemCount = order.items.reduce((sum, line) => sum + line.quantity, 0);
-  const updateStatus = useUpdateOrderStatus(companyId);
+type QuickTab = 'all' | 'unfulfilled' | 'unpaid' | 'open' | 'closed';
 
-  return (
-    <article
-      className={cn(
-        'overflow-hidden rounded-2xl border bg-card shadow-soft transition-shadow',
-        expanded ? 'border-primary/30 shadow-elevated' : 'border-border hover:border-border/80',
-      )}
-    >
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex w-full items-center gap-3 px-4 py-4 text-start transition-colors hover:bg-muted/30 sm:gap-4 sm:px-5"
-      >
-        <span
-          className={cn(
-            'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border bg-background text-muted-foreground transition-transform',
-            expanded && '-rotate-90',
-          )}
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </span>
+const QUICK_TABS: Array<{ value: QuickTab; label: string }> = [
+  { value: 'all', label: 'الكل' },
+  { value: 'unfulfilled', label: 'غير مجهزة' },
+  { value: 'unpaid', label: 'غير مدفوعة' },
+  { value: 'open', label: 'مفتوحة' },
+  { value: 'closed', label: 'مغلقة' },
+];
 
-        <div className="min-w-0 flex-1 space-y-1.5">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="font-semibold tracking-tight text-foreground" dir="ltr">
-              {order.orderNumber}
-            </span>
-            <Badge variant={ORDER_STATUS_VARIANT[order.status]}>
-              {ORDER_STATUS_LABELS_AR[order.status]}
-            </Badge>
-            {order.source === 'storefront' || order.orderNumber.startsWith('ND-') ? (
-              <Badge variant="subtle" className="gap-1">
-                <Store className="h-3 w-3" />
-                المتجر
-              </Badge>
-            ) : null}
-          </div>
-          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-            <span className="inline-flex items-center gap-1.5">
-              <User className="h-3.5 w-3.5 shrink-0" />
-              {order.customerNameAr}
-            </span>
-            {locationLabel ? (
-              <span className="inline-flex items-center gap-1.5">
-                <MapPin className="h-3.5 w-3.5 shrink-0" />
-                {locationLabel}
-              </span>
-            ) : null}
-            <span className="inline-flex items-center gap-1.5">
-              <Package className="h-3.5 w-3.5 shrink-0" />
-              {itemCount} قطعة
-            </span>
-          </p>
-        </div>
-
-        <div className="shrink-0 text-end">
-          <p className="text-base font-semibold tabular-nums text-foreground sm:text-lg">
-            {formatPrice(order.totalAmount)}
-          </p>
-          <p className="mt-0.5 text-xs text-muted-foreground">{formatDateTime(order.createdAt)}</p>
-        </div>
-      </button>
-
-      {expanded ? (
-        <div className="space-y-5 border-t border-border bg-linear-to-b from-muted/40 to-background px-4 py-5 sm:px-5">
-          <div className="flex flex-col gap-3 rounded-xl border border-border/80 bg-card p-4 sm:flex-row sm:items-end sm:justify-between">
-            <div className="space-y-1.5">
-              <Label htmlFor={`order-status-${order.id}`}>حالة الطلب (تظهر للعميل)</Label>
-              <p className="text-xs text-muted-foreground">
-                غيّر الحالة من هنا — مؤكد → قيد التجهيز → تم الشحن → تم التسليم. التحديث يظهر فورًا في صفحة تتبع الطلب في المتجر.
-              </p>
-            </div>
-            <Select
-              value={order.status}
-              disabled={updateStatus.isPending}
-              onValueChange={(value) => {
-                void updateStatus.mutateAsync({
-                  orderId: order.id,
-                  status: value as OrderStatus,
-                });
-              }}
-            >
-              <SelectTrigger id={`order-status-${order.id}`} className="w-full sm:w-56">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {(Object.keys(ORDER_STATUS_LABELS_AR) as OrderStatus[]).map((value) => (
-                  <SelectItem key={value} value={value}>
-                    {ORDER_STATUS_LABELS_AR[value]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            <div className="rounded-xl border border-border/80 bg-card p-4">
-              <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                <User className="h-3.5 w-3.5" />
-                العميل
-              </div>
-              <p className="font-medium text-foreground">{order.customerNameAr}</p>
-              {order.phone ? (
-                <p className="mt-1 inline-flex items-center gap-1.5 text-sm text-muted-foreground" dir="ltr">
-                  <Phone className="h-3.5 w-3.5" />
-                  {order.phone}
-                </p>
-              ) : null}
-            </div>
-
-            <div className="rounded-xl border border-border/80 bg-card p-4">
-              <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                <Truck className="h-3.5 w-3.5" />
-                الشحن
-              </div>
-              <p className="text-sm text-foreground">
-                {[order.city, order.shippingDistrict ?? order.region].filter(Boolean).join(' — ')}
-              </p>
-              {order.shippingStreet ? (
-                <p className="mt-1 text-sm text-muted-foreground">{order.shippingStreet}</p>
-              ) : null}
-              {order.shippingNotes ? (
-                <p className="mt-2 text-xs text-muted-foreground">ملاحظة: {order.shippingNotes}</p>
-              ) : null}
-            </div>
-
-            <div className="rounded-xl border border-border/80 bg-card p-4 sm:col-span-2 lg:col-span-1">
-              <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                <CreditCard className="h-3.5 w-3.5" />
-                الدفع
-              </div>
-              <p className="font-medium text-foreground">
-                {order.paymentMethod
-                  ? PAYMENT_LABELS[order.paymentMethod] ?? order.paymentMethod
-                  : '—'}
-              </p>
-              {order.paymentStatus ? (
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {PAYMENT_STATUS_LABELS[order.paymentStatus] ?? order.paymentStatus}
-                </p>
-              ) : null}
-              <div className="mt-3 space-y-1 border-t border-border/60 pt-3 text-sm">
-                {order.subtotalAmount ? (
-                  <div className="flex justify-between gap-3 text-muted-foreground">
-                    <span>المجموع الفرعي</span>
-                    <span className="tabular-nums">{formatPrice(order.subtotalAmount)}</span>
-                  </div>
-                ) : null}
-                {order.shippingFeeAmount ? (
-                  <div className="flex justify-between gap-3 text-muted-foreground">
-                    <span>الشحن</span>
-                    <span className="tabular-nums">{formatPrice(order.shippingFeeAmount)}</span>
-                  </div>
-                ) : null}
-                <div className="flex justify-between gap-3 font-semibold text-foreground">
-                  <span>الإجمالي</span>
-                  <span className="tabular-nums">{formatPrice(order.totalAmount)}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <OrderItemsPanel order={order} companyId={companyId} />
-        </div>
-      ) : null}
-    </article>
-  );
+function matchesQuickTab(order: Order, tab: QuickTab): boolean {
+  switch (tab) {
+    case 'all':
+      return true;
+    case 'unfulfilled':
+      return orderFulfilmentState(order) !== 'fulfilled';
+    case 'unpaid':
+      return (order.paymentStatus ?? 'pending') !== 'paid';
+    case 'open':
+      return !CLOSED_STATUSES.includes(order.status);
+    case 'closed':
+      return CLOSED_STATUSES.includes(order.status);
+    default:
+      return true;
+  }
 }
 
 const ITEMS_PAGE_SIZE = 8;
@@ -365,6 +249,147 @@ function OrderItemsPanel({ order, companyId }: { order: Order; companyId: string
   );
 }
 
+function OrderDetailPanel({
+  order,
+  companyId,
+  open,
+  onOpenChange,
+}: {
+  order: Order | null;
+  companyId: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const updateStatus = useUpdateOrderStatus(companyId);
+  const locationLabel = order ? [order.city, order.region].filter(Boolean).join(' • ') : '';
+
+  return (
+    <SlidePanel open={open} onOpenChange={onOpenChange}>
+      <SlidePanelContent
+        size="xl"
+        title={order?.orderNumber}
+        description={order ? formatDateTime(order.createdAt) : undefined}
+      >
+        {order ? (
+          <div className="space-y-5">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant={FULFILMENT_VARIANT[orderFulfilmentState(order)]}>
+                {FULFILMENT_LABELS[orderFulfilmentState(order)]}
+              </Badge>
+              <Badge variant={PAYMENT_STATUS_VARIANT[order.paymentStatus ?? 'pending']}>
+                {PAYMENT_STATUS_LABELS[order.paymentStatus ?? 'pending']}
+              </Badge>
+              {order.source === 'storefront' || order.orderNumber.startsWith('ND-') ? (
+                <Badge variant="subtle" className="gap-1">
+                  <Store className="h-3 w-3" />
+                  المتجر
+                </Badge>
+              ) : null}
+            </div>
+
+            <div className="flex flex-col gap-3 rounded-xl border border-border/80 bg-card p-4 sm:flex-row sm:items-end sm:justify-between">
+              <div className="space-y-1.5">
+                <Label htmlFor={`order-status-${order.id}`}>حالة الطلب (تظهر للعميل)</Label>
+                <p className="text-xs text-muted-foreground">
+                  غيّر الحالة من هنا — مؤكد → قيد التجهيز → تم الشحن → تم التسليم. التحديث يظهر فورًا في صفحة تتبع الطلب في المتجر.
+                </p>
+              </div>
+              <Select
+                value={order.status}
+                disabled={updateStatus.isPending}
+                onValueChange={(value) => {
+                  void updateStatus.mutateAsync({
+                    orderId: order.id,
+                    status: value as OrderStatus,
+                  });
+                }}
+              >
+                <SelectTrigger id={`order-status-${order.id}`} className="w-full sm:w-56">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(ORDER_STATUS_LABELS_AR) as OrderStatus[]).map((value) => (
+                    <SelectItem key={value} value={value}>
+                      {ORDER_STATUS_LABELS_AR[value]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="rounded-xl border border-border/80 bg-card p-4">
+                <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  <User className="h-3.5 w-3.5" />
+                  العميل
+                </div>
+                <p className="font-medium text-foreground">{order.customerNameAr}</p>
+                {order.phone ? (
+                  <p className="mt-1 inline-flex items-center gap-1.5 text-sm text-muted-foreground" dir="ltr">
+                    <Phone className="h-3.5 w-3.5" />
+                    {order.phone}
+                  </p>
+                ) : null}
+              </div>
+
+              <div className="rounded-xl border border-border/80 bg-card p-4">
+                <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  <Truck className="h-3.5 w-3.5" />
+                  الشحن
+                </div>
+                <p className="text-sm text-foreground">
+                  {[order.city, order.shippingDistrict ?? order.region].filter(Boolean).join(' — ') || locationLabel || '—'}
+                </p>
+                {order.shippingStreet ? (
+                  <p className="mt-1 text-sm text-muted-foreground">{order.shippingStreet}</p>
+                ) : null}
+                {order.shippingNotes ? (
+                  <p className="mt-2 text-xs text-muted-foreground">ملاحظة: {order.shippingNotes}</p>
+                ) : null}
+              </div>
+
+              <div className="rounded-xl border border-border/80 bg-card p-4 sm:col-span-2 lg:col-span-1">
+                <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  <CreditCard className="h-3.5 w-3.5" />
+                  الدفع
+                </div>
+                <p className="font-medium text-foreground">
+                  {order.paymentMethod ? PAYMENT_LABELS[order.paymentMethod] ?? order.paymentMethod : '—'}
+                </p>
+                {order.paymentStatus ? (
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {PAYMENT_STATUS_LABELS[order.paymentStatus] ?? order.paymentStatus}
+                  </p>
+                ) : null}
+                <div className="mt-3 space-y-1 border-t border-border/60 pt-3 text-sm">
+                  {order.subtotalAmount ? (
+                    <div className="flex justify-between gap-3 text-muted-foreground">
+                      <span>المجموع الفرعي</span>
+                      <span className="tabular-nums">{formatPrice(order.subtotalAmount)}</span>
+                    </div>
+                  ) : null}
+                  {order.shippingFeeAmount ? (
+                    <div className="flex justify-between gap-3 text-muted-foreground">
+                      <span>الشحن</span>
+                      <span className="tabular-nums">{formatPrice(order.shippingFeeAmount)}</span>
+                    </div>
+                  ) : null}
+                  <div className="flex justify-between gap-3 font-semibold text-foreground">
+                    <span>الإجمالي</span>
+                    <span className="tabular-nums">{formatPrice(order.totalAmount)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <OrderItemsPanel order={order} companyId={companyId} />
+          </div>
+        ) : null}
+      </SlidePanelContent>
+    </SlidePanel>
+  );
+}
+
 export function OrdersListPage() {
   const companyId = getStorefrontCompanyId();
   const router = useRouter();
@@ -375,7 +400,8 @@ export function OrdersListPage() {
   const status = (searchParams.get('status') as OrderStatus | null) ?? undefined;
   const page = Math.max(1, Number(searchParams.get('page')) || 1);
   const pageSize = Number(searchParams.get('pageSize')) || DEFAULT_PAGE_SIZE;
-  const expandedId = searchParams.get('order') ?? '';
+  const selectedOrderId = searchParams.get('order') ?? '';
+  const quickTab = (searchParams.get('tab') as QuickTab | null) ?? 'all';
 
   const [searchInput, setSearchInput] = React.useState(search);
 
@@ -385,6 +411,7 @@ export function OrdersListPage() {
     page?: number;
     pageSize?: number;
     order?: string | null;
+    tab?: QuickTab;
   }) {
     const params = new URLSearchParams(searchParams.toString());
     if (next.q !== undefined) {
@@ -406,6 +433,10 @@ export function OrdersListPage() {
     if (next.order !== undefined) {
       if (next.order) params.set('order', next.order);
       else params.delete('order');
+    }
+    if (next.tab !== undefined) {
+      if (next.tab && next.tab !== 'all') params.set('tab', next.tab);
+      else params.delete('tab');
     }
     const qs = params.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
@@ -448,8 +479,14 @@ export function OrdersListPage() {
     };
   }, [refetch]);
 
+  const items = data?.items ?? [];
+  const visibleItems = items.filter((order) => matchesQuickTab(order, quickTab));
+  const selectedOrder = items.find((order) => order.id === selectedOrderId) ?? null;
+
   const total = data?.pagination.total ?? 0;
-  const storefrontCount = (data?.items ?? []).filter((order) => order.source === 'storefront').length;
+  const unfulfilledCount = items.filter((order) => orderFulfilmentState(order) !== 'fulfilled').length;
+  const returnedCount = items.filter((order) => RETURNED_STATUSES.includes(order.status)).length;
+  const fulfilledCount = items.filter((order) => orderFulfilmentState(order) === 'fulfilled').length;
 
   usePageHeaderActions(() => <FilterToggleButton />, []);
 
@@ -466,15 +503,15 @@ export function OrdersListPage() {
             placeholder="بحث برقم الطلب أو اسم العميل أو الهاتف…"
           />
         }
-        inlineSelects={[
+        moreFilters={[
           {
             id: 'status',
             value: status ?? 'all',
             onChange: (value) => updateParams({ status: value === 'all' ? '' : value, page: 1 }),
-            placeholder: 'الحالة',
-            options: FILTER_PILLS.map((pill) => ({
-              value: pill.value === '' ? 'all' : pill.value,
-              label: pill.label,
+            placeholder: 'كل الحالات التفصيلية',
+            options: STATUS_FILTER_OPTIONS.map((option) => ({
+              value: option.value === '' ? 'all' : option.value,
+              label: option.label,
             })),
           },
         ]}
@@ -482,6 +519,92 @@ export function OrdersListPage() {
     ),
     [searchInput, status],
   );
+
+  const columns: ColumnDef<Order>[] = [
+    {
+      key: 'order',
+      title: 'الطلب',
+      render: (order) => (
+        <span className="font-semibold tracking-tight text-foreground" dir="ltr">
+          {order.orderNumber}
+        </span>
+      ),
+    },
+    {
+      key: 'date',
+      title: 'التاريخ',
+      render: (order) => <span className="text-sm text-muted-foreground">{formatShortDate(order.createdAt)}</span>,
+    },
+    {
+      key: 'customer',
+      title: 'العميل',
+      render: (order) => (
+        <div className="flex flex-col">
+          <span className="font-medium text-foreground">{order.customerNameAr}</span>
+          {order.city ? (
+            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+              <MapPin className="h-3 w-3" />
+              {order.city}
+            </span>
+          ) : null}
+        </div>
+      ),
+    },
+    {
+      key: 'payment',
+      title: 'الدفع',
+      render: (order) => (
+        <Badge variant={PAYMENT_STATUS_VARIANT[order.paymentStatus ?? 'pending']}>
+          {PAYMENT_STATUS_LABELS[order.paymentStatus ?? 'pending']}
+        </Badge>
+      ),
+    },
+    {
+      key: 'total',
+      title: 'الإجمالي',
+      render: (order) => <span className="font-semibold tabular-nums text-foreground">{formatPrice(order.totalAmount)}</span>,
+    },
+    {
+      key: 'delivery',
+      title: 'التوصيل',
+      hideOnMobile: true,
+      render: (order) => (
+        <span className="text-sm text-muted-foreground">
+          {[order.city, order.region].filter(Boolean).join(' — ') || '—'}
+        </span>
+      ),
+    },
+    {
+      key: 'items',
+      title: 'العناصر',
+      hideOnMobile: true,
+      render: (order) => <span className="text-sm tabular-nums text-muted-foreground">{itemCount(order)} قطعة</span>,
+    },
+    {
+      key: 'fulfilment',
+      title: 'التجهيز',
+      render: (order) => (
+        <Badge variant={FULFILMENT_VARIANT[orderFulfilmentState(order)]}>
+          {FULFILMENT_LABELS[orderFulfilmentState(order)]}
+        </Badge>
+      ),
+    },
+    {
+      key: 'actions',
+      title: '',
+      isActions: true,
+      render: (order) => (
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="عرض تفاصيل الطلب"
+          onClick={() => updateParams({ order: order.id })}
+        >
+          <Eye className="h-4 w-4" />
+        </Button>
+      ),
+    },
+  ];
 
   return (
     <div className="flex flex-col gap-6">
@@ -491,37 +614,52 @@ export function OrdersListPage() {
         iconName="ShoppingCart"
       />
 
-      <StatTileGrid className="sm:grid-cols-3">
+      <StatTileGrid className="sm:grid-cols-2 lg:grid-cols-4">
         <StatTile icon={ShoppingCart} label="إجمالي الطلبات" value={total} tone="primary" loading={isLoading} />
-        <StatTile icon={Store} label="من المتجر (هذه الصفحة)" value={storefrontCount} tone="success" loading={isLoading} />
         <StatTile
-          icon={ListOrdered}
-          label="الصفحة الحالية"
-          value={`${page} / ${data?.pagination.totalPages ?? 1}`}
+          icon={PackageCheck}
+          label="طلبات غير مجهزة (هذه الصفحة)"
+          value={unfulfilledCount}
           tone="gold"
+          loading={isLoading}
+        />
+        <StatTile
+          icon={RotateCcw}
+          label="طلبات مرتجعة/ملغاة (هذه الصفحة)"
+          value={returnedCount}
+          tone="destructive"
+          loading={isLoading}
+        />
+        <StatTile
+          icon={ListChecks}
+          label="طلبات مجهزة بالكامل (هذه الصفحة)"
+          value={fulfilledCount}
+          tone="success"
           loading={isLoading}
         />
       </StatTileGrid>
 
-      {isError ? <p className="text-sm text-destructive">تعذر تحميل الطلبات.</p> : null}
-      {isLoading ? <p className="text-sm text-muted-foreground">جاري التحميل…</p> : null}
+      <Tabs value={quickTab} onValueChange={(value) => updateParams({ tab: value as QuickTab })}>
+        <TabsList>
+          {QUICK_TABS.map((tab) => (
+            <TabsTrigger key={tab.value} value={tab.value}>
+              {tab.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
 
-      <div className="flex flex-col gap-3">
-        {(data?.items ?? []).map((order) => (
-          <OrderCard
-            key={order.id}
-            order={order}
-            companyId={companyId}
-            expanded={expandedId === order.id}
-            onToggle={() => updateParams({ order: expandedId === order.id ? null : order.id })}
-          />
-        ))}
-        {!isLoading && (data?.items.length ?? 0) === 0 ? (
-          <p className="rounded-2xl border border-dashed border-border px-4 py-14 text-center text-sm text-muted-foreground">
-            لا توجد طلبات مطابقة. أنشئ طلبًا من المتجر ليظهر هنا مباشرة.
-          </p>
-        ) : null}
-      </div>
+      {isError ? <p className="text-sm text-destructive">تعذر تحميل الطلبات.</p> : null}
+
+      <DataTable
+        columns={columns}
+        data={visibleItems}
+        keyExtractor={(order) => order.id}
+        loading={isLoading}
+        emptyText="لا توجد طلبات مطابقة. أنشئ طلبًا من المتجر ليظهر هنا مباشرة."
+        onRowClick={(order) => updateParams({ order: order.id })}
+        alwaysShowTable
+      />
 
       {data ? (
         <AppPagination
@@ -532,6 +670,15 @@ export function OrdersListPage() {
           onPageSizeChange={(size) => updateParams({ pageSize: size, page: 1 })}
         />
       ) : null}
+
+      <OrderDetailPanel
+        order={selectedOrder}
+        companyId={companyId}
+        open={Boolean(selectedOrder)}
+        onOpenChange={(open) => {
+          if (!open) updateParams({ order: null });
+        }}
+      />
     </div>
   );
 }

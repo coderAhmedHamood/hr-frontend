@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Pencil, Plus, Tags, Trash2 } from 'lucide-react';
+import { Pencil, Plus, Trash2 } from 'lucide-react';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
@@ -11,7 +11,6 @@ import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
 import { PageHeaderPrimaryButton } from '@/components/layouts/page-header-primary-button';
 import { ListFilterBar } from '@/components/ui/list-filter-bar';
 import { EntityFilterSearchField } from '@/components/ui/entity-filter-search-field';
-import { StatTile, StatTileGrid } from '@/components/ui/stat-tile';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -150,7 +149,6 @@ export function PartnerCategoriesListPage() {
   };
 
   const items = data?.items ?? [];
-  const activeCount = items.filter((category) => category.isActive).length;
 
   usePageHeaderActions(
     () => (
@@ -188,11 +186,6 @@ export function PartnerCategoriesListPage() {
         descriptionAr="تصنيفات مخصصة لتجميع جهات الاتصال — مثل كبار العملاء أو الموردين المعتمدين."
         iconName="Tag"
       />
-
-      <StatTileGrid className="sm:grid-cols-2">
-        <StatTile icon={Tags} label="إجمالي التصنيفات" value={items.length} tone="primary" loading={isLoading} />
-        <StatTile icon={Tags} label="نشطة" value={activeCount} tone="success" loading={isLoading} />
-      </StatTileGrid>
 
       {isError ? <p className="text-sm text-destructive">تعذر تحميل التصنيفات.</p> : null}
 

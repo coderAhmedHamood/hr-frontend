@@ -76,6 +76,7 @@ type ProductDto = {
 
 type MediaDto = {
   id: string;
+  productId: string;
   url: string;
   alt: string;
   type: MediaItem['type'];
@@ -484,11 +485,17 @@ async function fetchProductFull(id: string): Promise<Product | null> {
   }
 }
 
-async function fetchListMedia(productId: string): Promise<MediaItem[]> {
+async function fetchMediaByCompany(companyId: string): Promise<Map<string, MediaDto[]>> {
   const result = await apiRequest<PaginatedResult<MediaDto>>('/inventory/product-media', {
-    query: { productId, page: 1, limit: 20, archiveScope: 'active' },
+    query: { companyId, page: 1, limit: 2000, archiveScope: 'active' },
   });
-  return mapMedia(result.items);
+  const byProduct = new Map<string, MediaDto[]>();
+  for (const dto of result.items ?? []) {
+    const list = byProduct.get(dto.productId);
+    if (list) list.push(dto);
+    else byProduct.set(dto.productId, [dto]);
+  }
+  return byProduct;
 }
 
 export const productsApi: AdminProductsPort = {
@@ -511,12 +518,11 @@ export const productsApi: AdminProductsPort = {
       },
     });
 
-    const items = await Promise.all(
-      (result.items ?? []).map(async (dto) => {
-        const media = await fetchListMedia(dto.id);
-        return mapFullProduct({ ...dto, media, attributes: [], variants: [], uomLines: [] });
-      }),
-    );
+    const mediaByProduct = await fetchMediaByCompany(companyId);
+    const items = (result.items ?? []).map((dto) => {
+      const media = mediaByProduct.get(dto.id) ?? [];
+      return mapFullProduct({ ...dto, media, attributes: [], variants: [], uomLines: [] });
+    });
 
     if (query.sort) {
       const direction = query.sortDirection === 'desc' ? -1 : 1;

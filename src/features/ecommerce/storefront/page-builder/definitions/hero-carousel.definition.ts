@@ -17,7 +17,6 @@ const DEFAULT_CONFIGURATION = {
       {
         id: '00000000-0000-4000-8000-000000000001',
         imageUrl: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=1400&q=80',
-        alt: { ar: 'صورة ترويجية', en: 'Promotional image' },
       },
     ],
   },

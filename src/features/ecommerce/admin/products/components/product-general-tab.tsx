@@ -177,7 +177,7 @@ export function ProductGeneralTab({ control, errors, register, categories, brand
                 type="number"
                 min={0}
                 step="0.01"
-                dir="ltr"
+                dir="rtl"
                 className="h-11 pe-12"
                 {...register('listPrice')}
               />
@@ -198,7 +198,7 @@ export function ProductGeneralTab({ control, errors, register, categories, brand
                 type="number"
                 min={0}
                 step="0.01"
-                dir="ltr"
+                dir="rtl"
                 className="h-11 pe-12"
                 {...register('costPrice')}
               />
@@ -219,7 +219,7 @@ export function ProductGeneralTab({ control, errors, register, categories, brand
                 type="number"
                 min={0}
                 step="0.01"
-                dir="ltr"
+                dir="rtl"
                 placeholder="اختياري"
                 className="h-11 pe-12"
                 {...register('compareAtPrice')}

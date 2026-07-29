@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { Building2, Kanban, LayoutGrid, List, Pencil, Plus, Trash2, Truck, Users } from 'lucide-react';
+import { Kanban, LayoutGrid, List, Pencil, Plus, Trash2 } from 'lucide-react';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
@@ -10,7 +10,6 @@ import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
 import { PageHeaderPrimaryButton } from '@/components/layouts/page-header-primary-button';
 import { ListFilterBar } from '@/components/ui/list-filter-bar';
 import { EntityFilterSearchField } from '@/components/ui/entity-filter-search-field';
-import { StatTile, StatTileGrid } from '@/components/ui/stat-tile';
 import { Button } from '@/components/ui/button';
 import { DataTable, AppPagination, type ColumnDef } from '@/components/ui/data-table';
 import { DEFAULT_PAGE_SIZE } from '@/components/ui/paged-list';
@@ -203,10 +202,6 @@ export function PartnersListPage() {
     { mode: 'cards', icon: LayoutGrid, label: 'بطاقات' },
   ];
 
-  const items = data?.items ?? [];
-  const customerCount = items.filter((partner) => partner.isCustomer).length;
-  const vendorCount = items.filter((partner) => partner.isVendor).length;
-
   usePageHeaderActions(
     () => (
       <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
@@ -290,12 +285,6 @@ export function PartnersListPage() {
         descriptionAr="السجل المركزي لجهات الاتصال — العملاء والموردون والموظفون والجهات الداخلية."
         iconName="Users"
       />
-
-      <StatTileGrid className="sm:grid-cols-3">
-        <StatTile icon={Users} label="إجمالي جهات الاتصال (هذه الصفحة)" value={items.length} tone="primary" loading={isLoading} />
-        <StatTile icon={Building2} label="عملاء (هذه الصفحة)" value={customerCount} tone="success" loading={isLoading} />
-        <StatTile icon={Truck} label="موردون (هذه الصفحة)" value={vendorCount} tone="gold" loading={isLoading} />
-      </StatTileGrid>
 
       {!companyId ? (
         <p className="text-sm text-destructive">اختر شركة نشطة لعرض جهات الاتصال.</p>

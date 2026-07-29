@@ -412,13 +412,7 @@ export function ProductFormDialog({ product, open, onOpenChange }: Props) {
             </div>
 
             <DialogFooter className="shrink-0 gap-2 border-t border-border bg-background px-4 py-4 sm:justify-between sm:px-6">
-              <p className="hidden text-[11px] text-muted-foreground sm:block">
-                الحقول بـ * مطلوبة — الباقي يمكن إكماله لاحقًا.
-              </p>
               <div className="flex w-full gap-2 sm:w-auto">
-                <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>
-                  إلغاء
-                </Button>
                 <Button
                   type="submit"
                   className="min-w-28 flex-1 sm:flex-none"
@@ -430,7 +424,13 @@ export function ProductFormDialog({ product, open, onOpenChange }: Props) {
                 >
                   {isSaving ? 'جاري الحفظ…' : isEditing ? 'حفظ التغييرات' : 'إنشاء المنتج'}
                 </Button>
+                <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>
+                  إلغاء
+                </Button>
               </div>
+              <p className="hidden text-[11px] text-muted-foreground sm:block">
+                الحقول بـ * مطلوبة — الباقي يمكن إكماله لاحقًا.
+              </p>
             </DialogFooter>
           </form>
         </DialogContent>

@@ -7,12 +7,14 @@ import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/stor
 import {
   listCatalogPickerCategories,
   listCatalogPickerProducts,
+  listMediaLibraryImages,
   type CatalogPickerCategory,
   type CatalogPickerProduct,
 } from '@/features/ecommerce/admin/cms/homepage/lib/catalog-picker-actions';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
 import { cn } from '@/shared/utils';
 
 function matchesSearch(haystack: string, query: string): boolean {
@@ -307,6 +309,84 @@ function ProductOptionRow({
       </span>
       {selected ? <Check className="h-3.5 w-3.5 shrink-0" /> : null}
     </button>
+  );
+}
+
+/** Lets the admin choose an image from the media library instead of typing a URL. */
+export function ImagePicker({
+  value,
+  onChange,
+}: {
+  value: string | null | undefined;
+  onChange: (url: string) => void;
+}) {
+  const companyId = getStorefrontCompanyId();
+  const [open, setOpen] = React.useState(false);
+  const { data = [], isLoading } = useQuery({
+    queryKey: ['cms-media-picker', 'images', companyId],
+    queryFn: () => listMediaLibraryImages(companyId),
+    enabled: Boolean(companyId) && open,
+  });
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-3 rounded-xl border border-border p-2">
+        {value ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={value} alt="" className="h-14 w-24 shrink-0 rounded-lg object-cover" />
+        ) : (
+          <span className="flex h-14 w-24 shrink-0 items-center justify-center rounded-lg bg-muted text-[10px] text-muted-foreground">
+            بلا صورة
+          </span>
+        )}
+        <Button type="button" size="sm" variant="outline" onClick={() => setOpen((prev) => !prev)}>
+          اختيار من الصور
+        </Button>
+      </div>
+
+      {open ? (
+        <div className="space-y-2 rounded-xl border border-border p-3">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs font-medium">مكتبة الصور</Label>
+            <Button type="button" size="icon" variant="ghost" className="h-7 w-7" onClick={() => setOpen(false)}>
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+          {isLoading ? (
+            <p className="px-2 py-3 text-xs text-muted-foreground">جاري التحميل…</p>
+          ) : data.length === 0 ? (
+            <p className="px-2 py-3 text-xs text-muted-foreground">
+              لا تتوفر صور بعد — مكتبة الصور قيد الإعداد من الخادم.
+            </p>
+          ) : (
+            <div className="grid max-h-64 grid-cols-4 gap-2 overflow-y-auto">
+              {data.map((image) => (
+                <button
+                  key={image.id}
+                  type="button"
+                  onClick={() => {
+                    onChange(image.url);
+                    setOpen(false);
+                  }}
+                  className={cn(
+                    'relative overflow-hidden rounded-lg border-2 transition-colors',
+                    image.url === value ? 'border-primary' : 'border-transparent hover:border-primary/40',
+                  )}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={image.url} alt={image.alt ?? ''} className="aspect-square w-full object-cover" />
+                  {image.url === value ? (
+                    <span className="absolute inset-0 flex items-center justify-center bg-primary/20">
+                      <Check className="h-4 w-4 text-primary" />
+                    </span>
+                  ) : null}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : null}
+    </div>
   );
 }
 

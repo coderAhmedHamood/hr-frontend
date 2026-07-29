@@ -4,11 +4,8 @@ import { SUPPORTED_STOREFRONT_LOCALES } from '@/features/ecommerce/storefront/pa
 import { productCarouselSectionSchema } from '@/features/ecommerce/storefront/page-builder/schemas/page.schema';
 import {
   BASE_SECTION_CAPABILITIES,
-  booleanField,
-  dataSourceField,
   localizedSubtitleField,
   localizedTitleField,
-  UI_STRINGS,
 } from '@/features/ecommerce/storefront/page-builder/definitions/shared/field-builders';
 
 const DEFAULT_CONFIGURATION = {
@@ -59,22 +56,5 @@ export const PRODUCT_CAROUSEL_DEFINITION: SectionDefinition<'product-carousel'> 
     supportsBanners: false,
     supportsCountdown: false,
   },
-  fields: [
-    localizedTitleField(true),
-    localizedSubtitleField(),
-    {
-      key: 'viewAllHref',
-      path: 'content.viewAllHref',
-      label: UI_STRINGS.fields.viewAllHref,
-      control: 'store-path',
-      localized: false,
-      required: false,
-      group: 'content',
-      defaultValue: null,
-    },
-    booleanField('autoplay', 'settings.autoplay', UI_STRINGS.fields.autoplay, 'settings', false),
-    booleanField('showPrice', 'settings.showPrice', UI_STRINGS.fields.showPrice, 'settings', true),
-    booleanField('showBadge', 'settings.showBadge', UI_STRINGS.fields.showBadge, 'settings', false),
-    dataSourceField(['manual', 'category', 'tag', 'query']),
-  ],
+  fields: [localizedTitleField(true), localizedSubtitleField()],
 };

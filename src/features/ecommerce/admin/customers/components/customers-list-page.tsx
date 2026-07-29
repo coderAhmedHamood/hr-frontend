@@ -5,16 +5,7 @@ import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-con
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
 import * as React from 'react';
-import {
-  ChevronLeft,
-  Mail,
-  MapPin,
-  Package,
-  Phone,
-  Store,
-  User,
-  Users,
-} from 'lucide-react';
+import { Eye, MapPin, Package, Store, User, Users } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCustomers } from '@/features/ecommerce/admin/customers/hooks/use-customers';
 import { useOrders } from '@/features/ecommerce/admin/orders/hooks/use-orders';
@@ -27,9 +18,10 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ListFilterBar } from '@/components/ui/list-filter-bar';
 import { EntityFilterSearchField } from '@/components/ui/entity-filter-search-field';
 import { StatTile, StatTileGrid } from '@/components/ui/stat-tile';
-import { AppPagination } from '@/components/ui/data-table';
+import { DataTable, AppPagination, type ColumnDef } from '@/components/ui/data-table';
 import { DEFAULT_PAGE_SIZE } from '@/components/ui/paged-list';
-import { cn } from '@/shared/utils';
+import { SlidePanel, SlidePanelContent } from '@/components/ui/slide-panel';
+import { Button } from '@/components/ui/button';
 
 const ORDER_STATUS_LABELS_AR: Record<OrderStatus, string> = {
   pending: 'قيد الانتظار',
@@ -62,19 +54,19 @@ function formatDateTime(iso: string) {
   }
 }
 
-function CustomerCard({
+function CustomerDetailPanel({
   customer,
-  expanded,
-  onToggle,
+  open,
+  onOpenChange,
 }: {
-  customer: Customer;
-  expanded: boolean;
-  onToggle: () => void;
+  customer: Customer | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }) {
   const companyId = getStorefrontCompanyId();
   const { data: ordersData, isLoading: ordersLoading } = useOrders({
     companyId,
-    customerId: customer.id,
+    customerId: customer?.id ?? '',
     page: 1,
     limit: 20,
   });
@@ -82,150 +74,95 @@ function CustomerCard({
   const orders = ordersData?.items ?? [];
 
   return (
-    <article
-      className={cn(
-        'overflow-hidden rounded-2xl border bg-card shadow-soft transition-shadow',
-        expanded ? 'border-primary/30 shadow-elevated' : 'border-border',
-      )}
-    >
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex w-full items-center gap-3 px-4 py-4 text-start transition-colors hover:bg-muted/30 sm:gap-4 sm:px-5"
-      >
-        <span
-          className={cn(
-            'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border bg-background text-muted-foreground transition-transform',
-            expanded && '-rotate-90',
-          )}
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </span>
-
-        <Avatar className="h-11 w-11 shrink-0 border border-border">
-          <AvatarFallback className="bg-primary/10 text-primary">
-            {customer.nameAr.charAt(0)}
-          </AvatarFallback>
-        </Avatar>
-
-        <div className="min-w-0 flex-1 space-y-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="font-semibold text-foreground">{customer.nameAr}</span>
-            <Badge variant={customer.isActive ? 'success' : 'subtle'}>
-              {customer.isActive ? 'نشط' : 'غير نشط'}
-            </Badge>
-            {customer.source === 'storefront' ? (
-              <Badge variant="subtle" className="gap-1">
-                <Store className="h-3 w-3" />
-                المتجر
+    <SlidePanel open={open} onOpenChange={onOpenChange}>
+      <SlidePanelContent size="xl" title={customer?.nameAr} description={customer?.email}>
+        {customer ? (
+          <div className="space-y-5">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant={customer.isActive ? 'success' : 'subtle'}>
+                {customer.isActive ? 'نشط' : 'غير نشط'}
               </Badge>
-            ) : null}
-          </div>
-          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-            {customer.phone ? (
-              <span className="inline-flex items-center gap-1.5" dir="ltr">
-                <Phone className="h-3.5 w-3.5" />
-                {customer.phone}
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1.5" dir="ltr">
-                <Mail className="h-3.5 w-3.5" />
-                {customer.email}
-              </span>
-            )}
-            {customer.city ? (
-              <span className="inline-flex items-center gap-1.5">
-                <MapPin className="h-3.5 w-3.5" />
-                {customer.city}
-              </span>
-            ) : null}
-          </p>
-        </div>
+              {customer.source === 'storefront' ? (
+                <Badge variant="subtle" className="gap-1">
+                  <Store className="h-3 w-3" />
+                  المتجر
+                </Badge>
+              ) : null}
+            </div>
 
-        <div className="hidden shrink-0 text-end sm:block">
-          <p className="text-sm text-muted-foreground">{customer.ordersCount} طلب</p>
-          <p className="font-semibold tabular-nums text-foreground">
-            {formatPrice({ amount: customer.totalSpentAmount, currency: customer.currency })}
-          </p>
-        </div>
-      </button>
-
-      {expanded ? (
-        <div className="space-y-4 border-t border-border bg-linear-to-b from-muted/40 to-background px-4 py-5 sm:px-5">
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-xl border border-border/80 bg-card p-4">
-              <div className="mb-2 flex items-center gap-2 text-xs font-medium text-muted-foreground">
-                <User className="h-3.5 w-3.5" />
-                بيانات التواصل
-              </div>
-              <p className="font-medium text-foreground">{customer.nameAr}</p>
-              {customer.phone ? (
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="rounded-xl border border-border/80 bg-card p-4">
+                <div className="mb-2 flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                  <User className="h-3.5 w-3.5" />
+                  بيانات التواصل
+                </div>
+                <p className="font-medium text-foreground">{customer.nameAr}</p>
+                {customer.phone ? (
+                  <p className="mt-1 text-sm text-muted-foreground" dir="ltr">
+                    {customer.phone}
+                  </p>
+                ) : null}
                 <p className="mt-1 text-sm text-muted-foreground" dir="ltr">
-                  {customer.phone}
+                  {customer.email}
+                </p>
+              </div>
+              <div className="rounded-xl border border-border/80 bg-card p-4">
+                <div className="mb-2 flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                  <Package className="h-3.5 w-3.5" />
+                  ملخص المشتريات
+                </div>
+                <p className="text-2xl font-semibold tabular-nums">{customer.ordersCount}</p>
+                <p className="text-sm text-muted-foreground">عدد الطلبات</p>
+              </div>
+              <div className="rounded-xl border border-border/80 bg-card p-4">
+                <div className="mb-2 text-xs font-medium text-muted-foreground">إجمالي الإنفاق</div>
+                <p className="text-2xl font-semibold tabular-nums">
+                  {formatPrice({ amount: customer.totalSpentAmount, currency: customer.currency })}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  آخر تحديث {formatDateTime(customer.updatedAt)}
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <h3 className="mb-3 text-sm font-semibold text-foreground">طلبات العميل</h3>
+              {ordersLoading ? <p className="text-sm text-muted-foreground">جاري تحميل الطلبات…</p> : null}
+              {!ordersLoading && orders.length === 0 ? (
+                <p className="rounded-xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
+                  لا توجد طلبات لهذا العميل بعد.
                 </p>
               ) : null}
-              <p className="mt-1 text-sm text-muted-foreground" dir="ltr">
-                {customer.email}
-              </p>
-            </div>
-            <div className="rounded-xl border border-border/80 bg-card p-4">
-              <div className="mb-2 flex items-center gap-2 text-xs font-medium text-muted-foreground">
-                <Package className="h-3.5 w-3.5" />
-                ملخص المشتريات
-              </div>
-              <p className="text-2xl font-semibold tabular-nums">{customer.ordersCount}</p>
-              <p className="text-sm text-muted-foreground">عدد الطلبات</p>
-            </div>
-            <div className="rounded-xl border border-border/80 bg-card p-4">
-              <div className="mb-2 text-xs font-medium text-muted-foreground">إجمالي الإنفاق</div>
-              <p className="text-2xl font-semibold tabular-nums">
-                {formatPrice({ amount: customer.totalSpentAmount, currency: customer.currency })}
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                آخر تحديث {formatDateTime(customer.updatedAt)}
-              </p>
-            </div>
-          </div>
-
-          <div>
-            <h3 className="mb-3 text-sm font-semibold text-foreground">طلبات العميل</h3>
-            {ordersLoading ? (
-              <p className="text-sm text-muted-foreground">جاري تحميل الطلبات…</p>
-            ) : null}
-            {!ordersLoading && orders.length === 0 ? (
-              <p className="rounded-xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
-                لا توجد طلبات لهذا العميل بعد.
-              </p>
-            ) : null}
-            <div className="space-y-2">
-              {orders.map((order: Order) => (
-                <div
-                  key={order.id}
-                  className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/70 bg-card px-4 py-3"
-                >
-                  <div className="min-w-0 space-y-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-medium" dir="ltr">
-                        {order.orderNumber}
-                      </span>
-                      <Badge variant={ORDER_STATUS_VARIANT[order.status]}>
-                        {ORDER_STATUS_LABELS_AR[order.status]}
-                      </Badge>
+              <div className="space-y-2">
+                {orders.map((order: Order) => (
+                  <div
+                    key={order.id}
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/70 bg-card px-4 py-3"
+                  >
+                    <div className="min-w-0 space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-medium" dir="ltr">
+                          {order.orderNumber}
+                        </span>
+                        <Badge variant={ORDER_STATUS_VARIANT[order.status]}>
+                          {ORDER_STATUS_LABELS_AR[order.status]}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {formatDateTime(order.createdAt)}
+                        {order.city ? ` • ${order.city}` : ''}
+                        {` • ${order.items.length} منتج`}
+                      </p>
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      {formatDateTime(order.createdAt)}
-                      {order.city ? ` • ${order.city}` : ''}
-                      {` • ${order.items.length} منتج`}
-                    </p>
+                    <p className="font-semibold tabular-nums">{formatPrice(order.totalAmount)}</p>
                   </div>
-                  <p className="font-semibold tabular-nums">{formatPrice(order.totalAmount)}</p>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
-        </div>
-      ) : null}
-    </article>
+        ) : null}
+      </SlidePanelContent>
+    </SlidePanel>
   );
 }
 
@@ -238,7 +175,7 @@ export function CustomersListPage() {
   const search = searchParams.get('q') ?? '';
   const page = Math.max(1, Number(searchParams.get('page')) || 1);
   const pageSize = Number(searchParams.get('pageSize')) || DEFAULT_PAGE_SIZE;
-  const expandedId = searchParams.get('customer') ?? '';
+  const selectedCustomerId = searchParams.get('customer') ?? '';
 
   const [searchInput, setSearchInput] = React.useState(search);
 
@@ -309,6 +246,12 @@ export function CustomersListPage() {
     };
   }, [refetch]);
 
+  const items = data?.items ?? [];
+  const selectedCustomer = items.find((customer) => customer.id === selectedCustomerId) ?? null;
+  const total = data?.pagination.total ?? 0;
+  const activeCount = items.filter((customer) => customer.isActive).length;
+  const storefrontCount = items.filter((customer) => customer.source === 'storefront').length;
+
   usePageHeaderActions(() => <FilterToggleButton />, []);
 
   useEntityFilterSlot(
@@ -329,6 +272,80 @@ export function CustomersListPage() {
     [searchInput],
   );
 
+  const columns: ColumnDef<Customer>[] = [
+    {
+      key: 'customer',
+      title: 'العميل',
+      render: (customer) => (
+        <div className="flex items-center gap-3">
+          <Avatar className="h-9 w-9 shrink-0 border border-border">
+            <AvatarFallback className="bg-primary/10 text-primary">{customer.nameAr.charAt(0)}</AvatarFallback>
+          </Avatar>
+          <div className="flex min-w-0 flex-col">
+            <span className="font-medium text-foreground">{customer.nameAr}</span>
+            <span className="truncate text-xs text-muted-foreground" dir="ltr">
+              {customer.phone || customer.email}
+            </span>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'status',
+      title: 'الحالة',
+      render: (customer) => (
+        <Badge variant={customer.isActive ? 'success' : 'subtle'}>{customer.isActive ? 'نشط' : 'غير نشط'}</Badge>
+      ),
+    },
+    {
+      key: 'location',
+      title: 'الموقع',
+      hideOnMobile: true,
+      render: (customer) =>
+        customer.city ? (
+          <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
+            <MapPin className="h-3.5 w-3.5" />
+            {customer.city}
+          </span>
+        ) : (
+          <span className="text-sm text-muted-foreground">—</span>
+        ),
+    },
+    {
+      key: 'orders',
+      title: 'الطلبات',
+      render: (customer) => (
+        <span className="text-sm tabular-nums text-muted-foreground">
+          {customer.ordersCount > 0 ? `${customer.ordersCount} طلب` : '—'}
+        </span>
+      ),
+    },
+    {
+      key: 'spent',
+      title: 'إجمالي الإنفاق',
+      render: (customer) => (
+        <span className="font-semibold tabular-nums text-foreground">
+          {formatPrice({ amount: customer.totalSpentAmount, currency: customer.currency })}
+        </span>
+      ),
+    },
+    {
+      key: 'actions',
+      title: '',
+      isActions: true,
+      render: (customer) => (
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="عرض تفاصيل العميل"
+          onClick={() => updateParams({ customer: customer.id })}
+        >
+          <Eye className="h-4 w-4" />
+        </Button>
+      ),
+    },
+  ];
+
   return (
     <div className="flex flex-col gap-6">
       <SetPageTitle
@@ -337,37 +354,35 @@ export function CustomersListPage() {
         iconName="Users"
       />
 
-      <StatTileGrid className="sm:grid-cols-2">
-        <StatTile icon={Users} label="إجمالي العملاء" value={data?.pagination.total ?? 0} tone="primary" loading={isLoading} />
+      <StatTileGrid className="sm:grid-cols-3">
+        <StatTile icon={Users} label="إجمالي العملاء" value={total} tone="primary" loading={isLoading} />
+        <StatTile
+          icon={User}
+          label="نشطون (هذه الصفحة)"
+          value={activeCount}
+          tone="success"
+          loading={isLoading}
+        />
         <StatTile
           icon={Store}
-          label="من طلبات المتجر (هذه الصفحة)"
-          value={(data?.items ?? []).filter((c) => c.source === 'storefront').length}
-          tone="success"
+          label="من المتجر (هذه الصفحة)"
+          value={storefrontCount}
+          tone="gold"
           loading={isLoading}
         />
       </StatTileGrid>
 
       {isError ? <p className="text-sm text-destructive">تعذر تحميل العملاء.</p> : null}
-      {isLoading ? <p className="text-sm text-muted-foreground">جاري التحميل…</p> : null}
 
-      <div className="flex flex-col gap-3">
-        {(data?.items ?? []).map((customer) => (
-          <CustomerCard
-            key={customer.id}
-            customer={customer}
-            expanded={expandedId === customer.id}
-            onToggle={() =>
-              updateParams({ customer: expandedId === customer.id ? null : customer.id })
-            }
-          />
-        ))}
-        {!isLoading && (data?.items.length ?? 0) === 0 ? (
-          <p className="rounded-2xl border border-dashed border-border px-4 py-14 text-center text-sm text-muted-foreground">
-            لا يوجد عملاء بعد. سيظهر عملاؤك هنا بعد أول طلب من المتجر.
-          </p>
-        ) : null}
-      </div>
+      <DataTable
+        columns={columns}
+        data={items}
+        keyExtractor={(customer) => customer.id}
+        loading={isLoading}
+        emptyText="لا يوجد عملاء بعد. سيظهر عملاؤك هنا بعد أول طلب من المتجر."
+        onRowClick={(customer) => updateParams({ customer: customer.id })}
+        alwaysShowTable
+      />
 
       {data ? (
         <AppPagination
@@ -378,6 +393,14 @@ export function CustomersListPage() {
           onPageSizeChange={(size) => updateParams({ pageSize: size, page: 1 })}
         />
       ) : null}
+
+      <CustomerDetailPanel
+        customer={selectedCustomer}
+        open={Boolean(selectedCustomer)}
+        onOpenChange={(open) => {
+          if (!open) updateParams({ customer: null });
+        }}
+      />
     </div>
   );
 }
