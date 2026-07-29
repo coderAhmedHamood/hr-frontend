@@ -8,6 +8,8 @@ import * as React from 'react';
 import {
   CreditCard,
   Eye,
+  Kanban,
+  List,
   ListChecks,
   MapPin,
   PackageCheck,
@@ -20,9 +22,21 @@ import {
 } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { OrderLineShipPanel } from '@/features/ecommerce/admin/orders/components/order-line-ship-panel';
-import { useOrders, useUpdateOrderStatus } from '@/features/ecommerce/admin/orders/hooks/use-orders';
+import { OrderStatusStepper } from '@/features/ecommerce/admin/orders/components/order-status-stepper';
+import { OrdersKanbanView } from '@/features/ecommerce/admin/orders/components/orders-kanban-view';
+import {
+  useOrders,
+  useUpdateOrderPaymentStatus,
+  useUpdateOrderStatus,
+} from '@/features/ecommerce/admin/orders/hooks/use-orders';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
 import { formatPrice } from '@/features/ecommerce/shared/utils/format-price';
+import {
+  ORDER_STATUS_LABELS_AR,
+  ORDER_TERMINAL_STATUSES,
+  PAYMENT_METHOD_LABELS_AR,
+  PAYMENT_STATUS_LABELS_AR,
+} from '@/features/ecommerce/domain/constants/order-status';
 import type { Order, OrderStatus } from '@/features/ecommerce/domain/types/order';
 import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { ListFilterBar } from '@/components/ui/list-filter-bar';
@@ -30,7 +44,6 @@ import { EntityFilterSearchField } from '@/components/ui/entity-filter-search-fi
 import { StatTile, StatTileGrid } from '@/components/ui/stat-tile';
 import { DataTable, AppPagination, type ColumnDef } from '@/components/ui/data-table';
 import { DEFAULT_PAGE_SIZE } from '@/components/ui/paged-list';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Dialog,
   DialogContent,
@@ -41,43 +54,19 @@ import {
   dialogShellHeaderClass,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
 import { cn } from '@/shared/utils';
 
+type ViewMode = 'list' | 'kanban';
+
+const KANBAN_PAGE_SIZE = 100;
+
 const STATUS_FILTER_OPTIONS: Array<{ value: '' | OrderStatus; label: string }> = [
-  { value: '', label: 'كل الحالات التفصيلية' },
-  { value: 'pending', label: 'قيد الانتظار' },
-  { value: 'confirmed', label: 'مؤكد' },
-  { value: 'processing', label: 'قيد التجهيز' },
-  { value: 'shipped', label: 'تم الشحن' },
-  { value: 'delivered', label: 'مُسلَّم' },
-  { value: 'cancelled', label: 'ملغي' },
-  { value: 'refunded', label: 'مسترد' },
+  { value: '', label: 'كل الحالات' },
+  ...(Object.keys(ORDER_STATUS_LABELS_AR) as OrderStatus[]).map((value) => ({
+    value,
+    label: ORDER_STATUS_LABELS_AR[value],
+  })),
 ];
-
-const ORDER_STATUS_LABELS_AR: Record<OrderStatus, string> = {
-  pending: 'قيد الانتظار',
-  confirmed: 'مؤكد',
-  processing: 'قيد التجهيز',
-  shipped: 'تم الشحن',
-  delivered: 'تم التسليم',
-  cancelled: 'ملغي',
-  refunded: 'مسترد',
-};
-
-const RETURNED_STATUSES: OrderStatus[] = ['cancelled', 'refunded'];
-
-const PAYMENT_LABELS: Record<string, string> = {
-  cash_on_delivery: 'الدفع عند الاستلام',
-  card: 'بطاقة',
-};
-
-const PAYMENT_STATUS_LABELS: Record<string, string> = {
-  pending: 'بانتظار الدفع',
-  paid: 'مدفوع',
-  failed: 'فشل',
-  refunded: 'مسترد',
-};
 
 const PAYMENT_STATUS_VARIANT: Record<string, NonNullable<BadgeProps['variant']>> = {
   pending: 'warning',
@@ -240,7 +229,9 @@ function OrderDetailPanel({
   onOpenChange: (open: boolean) => void;
 }) {
   const updateStatus = useUpdateOrderStatus(companyId);
+  const updatePayment = useUpdateOrderPaymentStatus(companyId);
   const locationLabel = order ? [order.city, order.region].filter(Boolean).join(' • ') : '';
+  const flowBusy = updateStatus.isPending || updatePayment.isPending;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -256,8 +247,13 @@ function OrderDetailPanel({
               <Badge variant={FULFILMENT_VARIANT[orderFulfilmentState(order)]}>
                 {FULFILMENT_LABELS[orderFulfilmentState(order)]}
               </Badge>
+              {order.paymentMethod ? (
+                <Badge variant="subtle">
+                  {PAYMENT_METHOD_LABELS_AR[order.paymentMethod]}
+                </Badge>
+              ) : null}
               <Badge variant={PAYMENT_STATUS_VARIANT[order.paymentStatus ?? 'pending']}>
-                {PAYMENT_STATUS_LABELS[order.paymentStatus ?? 'pending']}
+                {PAYMENT_STATUS_LABELS_AR[order.paymentStatus ?? 'pending']}
               </Badge>
               {order.source === 'storefront' || order.orderNumber.startsWith('ND-') ? (
                 <Badge variant="subtle" className="gap-1">
@@ -267,35 +263,22 @@ function OrderDetailPanel({
               ) : null}
             </div>
 
-            <div className="flex flex-col gap-3 rounded-xl border border-border/80 bg-card p-4 sm:flex-row sm:items-end sm:justify-between">
-              <div className="space-y-1.5">
-                <Label htmlFor={`order-status-${order.id}`}>حالة الطلب (تظهر للعميل)</Label>
-                <p className="text-xs text-muted-foreground">
-                  غيّر الحالة من هنا — مؤكد → قيد التجهيز → تم الشحن → تم التسليم. التحديث يظهر فورًا في صفحة تتبع الطلب في المتجر.
-                </p>
-              </div>
-              <Select
-                value={order.status}
-                disabled={updateStatus.isPending}
-                onValueChange={(value) => {
-                  void updateStatus.mutateAsync({
-                    orderId: order.id,
-                    status: value as OrderStatus,
-                  });
-                }}
-              >
-                <SelectTrigger id={`order-status-${order.id}`} className="w-full sm:w-56">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {(Object.keys(ORDER_STATUS_LABELS_AR) as OrderStatus[]).map((value) => (
-                    <SelectItem key={value} value={value}>
-                      {ORDER_STATUS_LABELS_AR[value]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <OrderStatusStepper
+              order={order}
+              disabled={flowBusy}
+              onOrderStatusChange={(nextStatus) => {
+                void updateStatus.mutateAsync({
+                  orderId: order.id,
+                  status: nextStatus,
+                });
+              }}
+              onPaymentPaid={() => {
+                void updatePayment.mutateAsync({
+                  orderId: order.id,
+                  paymentStatus: 'paid',
+                });
+              }}
+            />
 
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               <div className="rounded-xl border border-border/80 bg-card p-4">
@@ -334,11 +317,11 @@ function OrderDetailPanel({
                   الدفع
                 </div>
                 <p className="font-medium text-foreground">
-                  {order.paymentMethod ? PAYMENT_LABELS[order.paymentMethod] ?? order.paymentMethod : '—'}
+                  {order.paymentMethod ? PAYMENT_METHOD_LABELS_AR[order.paymentMethod] : '—'}
                 </p>
                 {order.paymentStatus ? (
                   <p className="mt-1 text-sm text-muted-foreground">
-                    {PAYMENT_STATUS_LABELS[order.paymentStatus] ?? order.paymentStatus}
+                    {PAYMENT_STATUS_LABELS_AR[order.paymentStatus]}
                   </p>
                 ) : null}
                 <div className="mt-3 space-y-1 border-t border-border/60 pt-3 text-sm">
@@ -379,8 +362,12 @@ export function OrdersListPage() {
 
   const search = searchParams.get('q') ?? '';
   const status = (searchParams.get('status') as OrderStatus | null) ?? undefined;
+  const view: ViewMode = searchParams.get('view') === 'kanban' ? 'kanban' : 'list';
   const page = Math.max(1, Number(searchParams.get('page')) || 1);
-  const pageSize = Number(searchParams.get('pageSize')) || DEFAULT_PAGE_SIZE;
+  const pageSize =
+    view === 'kanban'
+      ? KANBAN_PAGE_SIZE
+      : Number(searchParams.get('pageSize')) || DEFAULT_PAGE_SIZE;
   const selectedOrderId = searchParams.get('order') ?? '';
 
   const [searchInput, setSearchInput] = React.useState(search);
@@ -388,6 +375,7 @@ export function OrdersListPage() {
   function updateParams(next: {
     q?: string;
     status?: string;
+    view?: ViewMode;
     page?: number;
     pageSize?: number;
     order?: string | null;
@@ -400,6 +388,10 @@ export function OrdersListPage() {
     if (next.status !== undefined) {
       if (next.status) params.set('status', next.status);
       else params.delete('status');
+    }
+    if (next.view !== undefined) {
+      if (next.view === 'kanban') params.set('view', 'kanban');
+      else params.delete('view');
     }
     if (next.page !== undefined) {
       if (next.page > 1) params.set('page', String(next.page));
@@ -435,10 +427,13 @@ export function OrdersListPage() {
   const { data, isLoading, isError, refetch } = useOrders({
     companyId,
     search: search || undefined,
-    status,
-    page,
+    status: view === 'kanban' ? undefined : status,
+    page: view === 'kanban' ? 1 : page,
     limit: pageSize,
   });
+
+  const updateStatus = useUpdateOrderStatus(companyId);
+  const updatePayment = useUpdateOrderPaymentStatus(companyId);
 
   React.useEffect(() => {
     const onStorage = (event: StorageEvent) => {
@@ -460,10 +455,38 @@ export function OrdersListPage() {
 
   const total = data?.pagination.total ?? 0;
   const unfulfilledCount = items.filter((order) => orderFulfilmentState(order) !== 'fulfilled').length;
-  const returnedCount = items.filter((order) => RETURNED_STATUSES.includes(order.status)).length;
+  const returnedCount = items.filter((order) => ORDER_TERMINAL_STATUSES.includes(order.status)).length;
   const fulfilledCount = items.filter((order) => orderFulfilmentState(order) === 'fulfilled').length;
 
-  usePageHeaderActions(() => <FilterToggleButton />, []);
+  const viewButtons: { mode: ViewMode; icon: typeof List; label: string }[] = [
+    { mode: 'list', icon: List, label: 'قائمة' },
+    { mode: 'kanban', icon: Kanban, label: 'كانبان' },
+  ];
+
+  usePageHeaderActions(
+    () => (
+      <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
+        <FilterToggleButton />
+        <div className="flex rounded-lg border border-border p-0.5">
+          {viewButtons.map(({ mode, icon: Icon, label }) => (
+            <Button
+              key={mode}
+              type="button"
+              size="sm"
+              variant="ghost"
+              className={cn('h-7 gap-1.5 px-2', view === mode && 'bg-muted')}
+              onClick={() => updateParams({ view: mode, page: 1, status: mode === 'kanban' ? '' : status ?? '' })}
+              aria-label={label}
+            >
+              <Icon className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">{label}</span>
+            </Button>
+          ))}
+        </div>
+      </div>
+    ),
+    [view, status],
+  );
 
   useEntityFilterSlot(
     () => (
@@ -478,21 +501,25 @@ export function OrdersListPage() {
             placeholder="بحث برقم الطلب أو اسم العميل أو الهاتف…"
           />
         }
-        moreFilters={[
-          {
-            id: 'status',
-            value: status ?? 'all',
-            onChange: (value) => updateParams({ status: value === 'all' ? '' : value, page: 1 }),
-            placeholder: 'كل الحالات التفصيلية',
-            options: STATUS_FILTER_OPTIONS.map((option) => ({
-              value: option.value === '' ? 'all' : option.value,
-              label: option.label,
-            })),
-          },
-        ]}
+        moreFilters={
+          view === 'kanban'
+            ? []
+            : [
+                {
+                  id: 'status',
+                  value: status ?? 'all',
+                  onChange: (value) => updateParams({ status: value === 'all' ? '' : value, page: 1 }),
+                  placeholder: 'كل الحالات',
+                  options: STATUS_FILTER_OPTIONS.map((option) => ({
+                    value: option.value === '' ? 'all' : option.value,
+                    label: option.label,
+                  })),
+                },
+              ]
+        }
       />
     ),
-    [searchInput, status],
+    [searchInput, status, view],
   );
 
   const columns: ColumnDef<Order>[] = [
@@ -526,12 +553,28 @@ export function OrdersListPage() {
       ),
     },
     {
+      key: 'status',
+      title: 'الحالة',
+      render: (order) => (
+        <Badge variant={ORDER_TERMINAL_STATUSES.includes(order.status) ? 'destructive' : 'subtle'}>
+          {ORDER_STATUS_LABELS_AR[order.status]}
+        </Badge>
+      ),
+    },
+    {
       key: 'payment',
       title: 'الدفع',
       render: (order) => (
-        <Badge variant={PAYMENT_STATUS_VARIANT[order.paymentStatus ?? 'pending']}>
-          {PAYMENT_STATUS_LABELS[order.paymentStatus ?? 'pending']}
-        </Badge>
+        <div className="flex flex-col gap-1">
+          {order.paymentMethod ? (
+            <span className="text-xs text-muted-foreground">
+              {PAYMENT_METHOD_LABELS_AR[order.paymentMethod]}
+            </span>
+          ) : null}
+          <Badge variant={PAYMENT_STATUS_VARIANT[order.paymentStatus ?? 'pending']}>
+            {PAYMENT_STATUS_LABELS_AR[order.paymentStatus ?? 'pending']}
+          </Badge>
+        </div>
       ),
     },
     {
@@ -585,7 +628,7 @@ export function OrdersListPage() {
     <div className="flex flex-col gap-6">
       <SetPageTitle
         titleAr="الطلبات"
-        descriptionAr="متابعة طلبات المتجر وحالتها وتجهيز الشحن لكل طلب."
+        descriptionAr="متابعة مسار الطلب من طلب العميل حتى التسليم — قائمة أو كانبان حسب الحالة."
         iconName="ShoppingCart"
       />
 
@@ -616,25 +659,47 @@ export function OrdersListPage() {
 
       {isError ? <p className="text-sm text-destructive">تعذر تحميل الطلبات.</p> : null}
 
-      <DataTable
-        columns={columns}
-        data={items}
-        keyExtractor={(order) => order.id}
-        loading={isLoading}
-        emptyText="لا توجد طلبات مطابقة. أنشئ طلبًا من المتجر ليظهر هنا مباشرة."
-        onRowClick={(order) => updateParams({ order: order.id })}
-        alwaysShowTable
-      />
-
-      {data ? (
-        <AppPagination
-          page={page}
-          pageSize={pageSize}
-          total={data.pagination.total}
-          onPageChange={(nextPage) => updateParams({ page: nextPage })}
-          onPageSizeChange={(size) => updateParams({ pageSize: size, page: 1 })}
+      {view === 'kanban' ? (
+        <OrdersKanbanView
+          orders={items}
+          onOpen={(order) => updateParams({ order: order.id })}
+          updatingOrderId={
+            updateStatus.isPending
+              ? updateStatus.variables?.orderId
+              : updatePayment.isPending
+                ? updatePayment.variables?.orderId
+                : null
+          }
+          onStatusChange={(order, nextStatus) => {
+            void updateStatus.mutateAsync({ orderId: order.id, status: nextStatus });
+          }}
+          onMarkPaid={(order) => {
+            void updatePayment.mutateAsync({ orderId: order.id, paymentStatus: 'paid' });
+          }}
         />
-      ) : null}
+      ) : (
+        <>
+          <DataTable
+            columns={columns}
+            data={items}
+            keyExtractor={(order) => order.id}
+            loading={isLoading}
+            emptyText="لا توجد طلبات مطابقة. أنشئ طلبًا من المتجر ليظهر هنا مباشرة."
+            onRowClick={(order) => updateParams({ order: order.id })}
+            alwaysShowTable
+          />
+
+          {data ? (
+            <AppPagination
+              page={page}
+              pageSize={pageSize}
+              total={data.pagination.total}
+              onPageChange={(nextPage) => updateParams({ page: nextPage })}
+              onPageSizeChange={(size) => updateParams({ pageSize: size, page: 1 })}
+            />
+          ) : null}
+        </>
+      )}
 
       <OrderDetailPanel
         order={selectedOrder}

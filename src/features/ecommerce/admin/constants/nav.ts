@@ -5,7 +5,6 @@ import {
   FolderTree,
   Tag,
   ShoppingCart,
-  Users,
   LayoutTemplate,
   FileText,
   Settings,
@@ -89,7 +88,6 @@ export const ecommerceAdminNavGroups: EcommerceAdminNavGroup[] = [
       {
         items: [
           { labelKey: 'orders', href: ecommerceAdminRoutes.orders, icon: ShoppingCart },
-          { labelKey: 'customers', href: ecommerceAdminRoutes.customers, icon: Users },
         ],
       },
     ],

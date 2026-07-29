@@ -54,6 +54,27 @@ export function useUpdateOrderStatus(companyId: string) {
   });
 }
 
+export function useUpdateOrderPaymentStatus(companyId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      orderId,
+      paymentStatus,
+    }: {
+      orderId: string;
+      paymentStatus: 'pending' | 'paid' | 'failed' | 'refunded';
+    }) => ordersApi.updatePaymentStatus(companyId, orderId, { paymentStatus }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ordersQueryKeys.all });
+      toast.success('تم تحديث حالة الدفع');
+    },
+    onError: (err) => {
+      handleApiError(err, 'ecommerce.orders.updatePaymentStatus');
+    },
+  });
+}
+
 export function useOrderFulfillmentMutations(companyId: string) {
   const queryClient = useQueryClient();
 

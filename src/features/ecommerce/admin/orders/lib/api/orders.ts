@@ -16,6 +16,7 @@ import type {
   OrderListQuery,
   SaveOrderLineAllocationsInput,
   ShipOrderLineInput,
+  UpdateOrderPaymentStatusInput,
   UpdateOrderStatusInput,
 } from '@/features/ecommerce/domain/types/order';
 import ordersSeed from '@/features/ecommerce/shared/lib/mock/orders.json';
@@ -108,6 +109,16 @@ export const ordersApi = {
     const current = await repository.getById(companyId, id);
     if (!current) throw new Error('الطلب غير موجود.');
 
+    if (
+      current.paymentMethod === 'card' &&
+      current.paymentStatus !== 'paid' &&
+      input.status !== 'pending' &&
+      input.status !== 'cancelled' &&
+      input.status !== 'refunded'
+    ) {
+      throw new Error('يجب تأكيد دفع الشبكة قبل متابعة مسار الطلب.');
+    }
+
     const patch: Partial<Order> = {
       status: input.status,
       updatedAt: new Date().toISOString(),
@@ -120,6 +131,18 @@ export const ordersApi = {
     }
 
     const updated = await repository.update(companyId, id, patch);
+    return persistOrder(updated);
+  },
+
+  async updatePaymentStatus(companyId: string, id: string, input: UpdateOrderPaymentStatusInput) {
+    await hydrateLiveOrders(companyId);
+    const current = await repository.getById(companyId, id);
+    if (!current) throw new Error('الطلب غير موجود.');
+
+    const updated = await repository.update(companyId, id, {
+      paymentStatus: input.paymentStatus,
+      updatedAt: new Date().toISOString(),
+    });
     return persistOrder(updated);
   },
 

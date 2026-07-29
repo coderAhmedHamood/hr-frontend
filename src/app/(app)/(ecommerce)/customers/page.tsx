@@ -1,5 +1,7 @@
-import { CustomersListPage } from '@/features/ecommerce/admin/customers/components/customers-list-page';
+import { redirect } from 'next/navigation';
+import { ecommerceAdminRoutes } from '@/features/ecommerce/admin/constants/routes';
 
-export default function Page() {
-  return <CustomersListPage />;
+/** Customers removed from store admin — orders carry buyer info inline. */
+export default function CustomersRedirectPage() {
+  redirect(ecommerceAdminRoutes.orders);
 }

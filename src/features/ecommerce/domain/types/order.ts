@@ -59,6 +59,10 @@ export type UpdateOrderStatusInput = {
   status: OrderStatus;
 };
 
+export type UpdateOrderPaymentStatusInput = {
+  paymentStatus: NonNullable<Order['paymentStatus']>;
+};
+
 export type SaveOrderLineAllocationsInput = {
   productId: string;
   allocations: Array<{

@@ -18,6 +18,7 @@ export const ecommerceAdminRoutes = {
   attributes: '/attributes',
   brands: '/brands',
   orders: '/orders',
+  /** @deprecated Removed from store admin nav; page redirects to orders. */
   customers: '/customers',
   /** @deprecated Use inventoryAdminRoutes */
   warehouses: inventoryAdminRoutes.warehouses,
