@@ -36,6 +36,9 @@ export const customersApi = {
     return repository.list(
       query,
       (item, q) => {
+        if (q.isActive !== undefined && item.isActive !== q.isActive) return false;
+        if (q.source && (item.source ?? 'seed') !== q.source) return false;
+        if (q.city && (item.city ?? '') !== q.city) return false;
         if (q.search) {
           const search = q.search.toLowerCase();
           return (

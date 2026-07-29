@@ -75,7 +75,7 @@ export function buildProductDisplay(product: StorefrontProduct): ProductDisplayM
     hasDeal && product.compareAtPrice
       ? Math.round(((product.compareAtPrice.amount - product.price.amount) / product.compareAtPrice.amount) * 100)
       : null;
-  const social = mockSocialProof(product.id);
+  const social = product.rating != null ? { rating: product.rating, reviewCount: product.reviewCount } : mockSocialProof(product.id);
 
   return {
     imageUrl,

@@ -33,7 +33,12 @@ export type ProductAttributeValue = {
   freeText?: string;
   defaultExtraPrice?: number;
   colorHex?: string;
+  /** @deprecated Prefer `images` — kept for variant swatches / legacy single-image callers. */
   imageUrl?: string;
+  /** Gallery shown on the storefront PDP when this value is selected (e.g. per-size or per-color shots). */
+  images?: MediaItem[];
+  /** Blurb shown alongside the gallery when this value is selected (e.g. "Best for oily skin"). */
+  description?: string;
   /** When applying from catalog before first save — not a product_attribute_values id. */
   catalogAttributeValueId?: string;
   /** @deprecated Prefer colorHex / imageUrl */
@@ -157,6 +162,9 @@ export type Product = TenantScoped &
     /** Generated sellable variants — empty when product has no variant-creating attributes. */
     variants?: ProductVariant[];
     uomLines?: ProductUomLine[];
+    /** Average customer rating (0–5). Absent/null until the product has reviews. */
+    rating?: number | null;
+    reviewCount?: number;
     createdAt: string;
     updatedAt: string;
     archivedAt?: string | null;

@@ -5,10 +5,8 @@ import { useLocale, useTranslations } from 'next-intl';
 import {
   ChevronRight,
   ClipboardList,
-  CreditCard,
   Globe,
   Languages,
-  MapPin,
   Pencil,
   Power,
   RefreshCcw,
@@ -109,21 +107,6 @@ export function StoreAccountClient() {
     },
   ];
 
-  const accountLinks = [
-    {
-      href: '/store/account' as const,
-      title: t('account.menu.addresses'),
-      icon: MapPin,
-      soon: true,
-    },
-    {
-      href: '/store/account' as const,
-      title: t('account.menu.payments'),
-      icon: CreditCard,
-      soon: true,
-    },
-  ];
-
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 pb-4">
       {/* Profile header */}
@@ -190,38 +173,6 @@ export function StoreAccountClient() {
             </Link>
           );
         })}
-      </section>
-
-      {/* My account list */}
-      <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-soft">
-        <h2 className="border-b border-border px-4 py-3 text-sm font-semibold text-foreground">
-          {t('account.sectionAccount')}
-        </h2>
-        <ul>
-          {accountLinks.map((item) => {
-            const Icon = item.icon;
-            return (
-              <li key={item.title} className="border-b border-border last:border-b-0">
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-3 px-4 py-3.5 text-start transition-colors hover:bg-muted/30"
-                  onClick={() => {
-                    if (item.soon) toast.message(t('account.comingSoon'));
-                  }}
-                >
-                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-primary">
-                    <Icon className="h-4 w-4" />
-                  </span>
-                  <span className="flex-1 text-sm font-medium text-foreground">{item.title}</span>
-                  {item.soon ? (
-                    <span className="text-[11px] text-muted-foreground">{t('account.soon')}</span>
-                  ) : null}
-                  <ChevronRight className="h-4 w-4 text-muted-foreground rtl:rotate-180" />
-                </button>
-              </li>
-            );
-          })}
-        </ul>
       </section>
 
       {/* Settings */}

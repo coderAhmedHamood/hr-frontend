@@ -44,6 +44,15 @@
     "badgeWholesale": "Wholesale",
     "sellingFast": "Selling out fast"
   },
+  "reviews": {
+    "title": "Ratings & Reviews",
+    "seeReviews": "Reviews",
+    "outOf5": "out of 5",
+    "basedOn": "Based on {count} ratings",
+    "verifiedPurchase": "Verified purchase",
+    "noReviews": "No reviews yet for this product.",
+    "starsCount": "{stars} stars"
+  },
   "offers": {
     "title": "Offers",
     "description": "Discounted products and limited-time deals for everyday shopping."
@@ -58,6 +67,7 @@
     "noResults": "No matching products.",
     "addToCart": "Add to cart",
     "addedToCart": "Added to cart",
+    "buyNow": "Buy now",
     "variantUnavailable": "Choose an available combination for this product.",
     "cartComingSoon": "Cart coming soon",
     "sku": "SKU",

@@ -76,6 +76,8 @@ function mapPickerProduct(
     tags: item.tags ?? [],
     metaTitle: name,
     metaDescription: name,
+    rating: null,
+    reviewCount: 0,
     attributes: [],
     variants: [],
   };

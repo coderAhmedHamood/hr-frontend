@@ -1,19 +1,32 @@
 'use client';
 
 import * as React from 'react';
+import { ShoppingBag } from 'lucide-react';
 import { useFormatter, useTranslations } from 'next-intl';
+import { useRouter } from '@/i18n/navigation';
 import type { StorefrontProduct } from '@/features/ecommerce/storefront/domain/storefront-models';
+import type { MediaItem } from '@/features/ecommerce/domain/types/common';
 import { buildCombinationKey } from '@/features/ecommerce/admin/products/lib/product-variants';
 import { AddToCartButton } from '@/features/ecommerce/storefront/components/catalog/add-to-cart-button';
+import { useStorefrontCartUi } from '@/features/ecommerce/storefront/hooks/use-storefront-cart-ui';
 import { cn } from '@/shared/utils';
+
+export type ActiveAttributeMedia = {
+  images: MediaItem[];
+  description?: string;
+};
 
 type Props = {
   product: StorefrontProduct;
+  /** Called when the customer picks a value that carries its own gallery/description. */
+  onActiveMediaChange?: (media: ActiveAttributeMedia) => void;
 };
 
-export function ProductPurchasePanel({ product }: Props) {
+export function ProductPurchasePanel({ product, onActiveMediaChange }: Props) {
   const t = useTranslations('storefront');
   const format = useFormatter();
+  const router = useRouter();
+  const setQuantity = useStorefrontCartUi((state) => state.setQuantity);
 
   const hasVariants = product.variants.length > 0;
   const [selected, setSelected] = React.useState<Record<string, string>>(() => {
@@ -40,6 +53,18 @@ export function ProductPurchasePanel({ product }: Props) {
 
   function selectValue(attributeId: string, valueId: string) {
     setSelected((prev) => ({ ...prev, [attributeId]: valueId }));
+    const attribute = product.attributes.find((item) => item.id === attributeId);
+    const value = attribute?.values.find((item) => item.id === valueId);
+    if (value?.images?.length) {
+      onActiveMediaChange?.({ images: value.images, description: value.description });
+    }
+  }
+
+  function handleBuyNow(event: React.MouseEvent) {
+    event.preventDefault();
+    if (hasVariants && !activeVariant) return;
+    setQuantity(product.id, 1, activeVariant?.id);
+    router.push('/store/checkout');
   }
 
   return (
@@ -109,13 +134,24 @@ export function ProductPurchasePanel({ product }: Props) {
         <p className="text-xs text-destructive">{t('products.variantUnavailable')}</p>
       ) : null}
 
-      <AddToCartButton
-        productId={product.id}
-        stockStatus={hasVariants && !activeVariant ? 'out_of_stock' : stockStatus}
-        variantId={activeVariant?.id}
-        variant="button"
-        className="mt-2 h-12 w-full sm:w-auto sm:min-w-48"
-      />
+      <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+        <AddToCartButton
+          productId={product.id}
+          stockStatus={hasVariants && !activeVariant ? 'out_of_stock' : stockStatus}
+          variantId={activeVariant?.id}
+          variant="button"
+          className="h-12 w-full sm:w-auto sm:min-w-48"
+        />
+        <button
+          type="button"
+          onClick={handleBuyNow}
+          disabled={!canOrder || (hasVariants && !activeVariant)}
+          className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-lg border-2 border-primary bg-transparent px-4 text-sm font-medium text-primary transition-colors hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:min-w-48"
+        >
+          <ShoppingBag className="h-4 w-4" aria-hidden />
+          {t('products.buyNow')}
+        </button>
+      </div>
     </div>
   );
 }

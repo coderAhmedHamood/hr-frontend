@@ -79,6 +79,8 @@ export function mapStorefrontProduct(product: Product, locale: StorefrontLocale)
     tags: product.tags ?? [],
     metaTitle: product.seo.metaTitle || name,
     metaDescription: product.seo.metaDescription || resolveDescription(product, locale),
+    rating: product.rating ?? null,
+    reviewCount: product.reviewCount ?? 0,
     attributes: (product.attributes ?? [])
       .filter((attribute) => attribute.createVariant !== 'never')
       .map((attribute) => ({
@@ -90,6 +92,8 @@ export function mapStorefrontProduct(product: Product, locale: StorefrontLocale)
           nameAr: value.nameAr,
           colorHex: value.colorHex,
           imageUrl: value.imageUrl,
+          images: value.images,
+          description: value.description,
         })),
       })),
     variants,
