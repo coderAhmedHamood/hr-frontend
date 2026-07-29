@@ -66,15 +66,18 @@ type ProductDto = {
   isNewProduct?: boolean;
   newUntil?: string | null;
   isTodayDeal?: boolean;
+  dealPriceAmount?: string | number | null;
   dealDays?: string | number | null;
   dealUntil?: string | null;
   isWholesale?: boolean;
   wholesalePriceAmount?: string | number | null;
+  wholesaleUntil?: string | null;
   isDiscounted?: boolean;
   discountPercent?: string | number | null;
   discountUntil?: string | null;
   isNewProductActive?: boolean;
   isTodayDealActive?: boolean;
+  isWholesaleActive?: boolean;
   isDiscountActive?: boolean;
   tags?: string[] | null;
   seoMetaTitle?: string | null;
@@ -311,6 +314,10 @@ function mapFullProduct(dto: ProductFullDto): Product {
     isNewProduct: Boolean(dto.isNewProduct),
     newUntil: dto.newUntil ?? null,
     isTodayDeal: Boolean(dto.isTodayDeal),
+    dealPrice: (() => {
+      const amount = toOptionalNumber(dto.dealPriceAmount);
+      return amount !== undefined ? { amount, currency } : undefined;
+    })(),
     dealDays: toOptionalNumber(dto.dealDays) ?? null,
     dealUntil: dto.dealUntil ?? null,
     isWholesale: Boolean(dto.isWholesale),
@@ -318,11 +325,13 @@ function mapFullProduct(dto: ProductFullDto): Product {
       const amount = toOptionalNumber(dto.wholesalePriceAmount);
       return amount !== undefined ? { amount, currency } : undefined;
     })(),
+    wholesaleUntil: dto.wholesaleUntil ?? null,
     isDiscounted: Boolean(dto.isDiscounted),
     discountPercent: toOptionalNumber(dto.discountPercent) ?? null,
     discountUntil: dto.discountUntil ?? null,
     isNewProductActive: Boolean(dto.isNewProductActive),
     isTodayDealActive: Boolean(dto.isTodayDealActive),
+    isWholesaleActive: Boolean(dto.isWholesaleActive),
     isDiscountActive: Boolean(dto.isDiscountActive),
     attributes: mapAttributes(dto.attributes),
     variants: mapVariants(dto.variants),
@@ -384,9 +393,11 @@ function toHeaderBody(input: CreateProductInput | UpdateProductInput, mode: 'cre
   }
   if (input.isTodayDeal !== undefined) {
     body.isTodayDeal = input.isTodayDeal;
+    body.dealPriceAmount = input.isTodayDeal ? (input.dealPrice?.amount ?? null) : null;
     body.dealDays = input.isTodayDeal ? (input.dealDays ?? null) : null;
     body.dealUntil = input.isTodayDeal ? (input.dealUntil ?? null) : null;
   } else {
+    if (input.dealPrice !== undefined) body.dealPriceAmount = input.dealPrice?.amount ?? null;
     if (input.dealDays !== undefined) body.dealDays = input.dealDays ?? null;
     if (input.dealUntil !== undefined) body.dealUntil = input.dealUntil ?? null;
   }
@@ -395,8 +406,12 @@ function toHeaderBody(input: CreateProductInput | UpdateProductInput, mode: 'cre
     body.wholesalePriceAmount = input.isWholesale
       ? (input.wholesalePrice?.amount ?? null)
       : null;
-  } else if (input.wholesalePrice !== undefined) {
-    body.wholesalePriceAmount = input.wholesalePrice?.amount ?? null;
+    body.wholesaleUntil = input.isWholesale ? (input.wholesaleUntil ?? null) : null;
+  } else {
+    if (input.wholesalePrice !== undefined) {
+      body.wholesalePriceAmount = input.wholesalePrice?.amount ?? null;
+    }
+    if (input.wholesaleUntil !== undefined) body.wholesaleUntil = input.wholesaleUntil ?? null;
   }
   if (input.isDiscounted !== undefined) {
     body.isDiscounted = input.isDiscounted;

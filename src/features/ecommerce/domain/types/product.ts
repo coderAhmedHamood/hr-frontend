@@ -138,16 +138,20 @@ export type Product = TenantScoped &
     isNewProduct?: boolean;
     newUntil?: string | null;
     isTodayDeal?: boolean;
+    /** Sale price while today’s deal is active — `price` remains the pre-deal list price. */
+    dealPrice?: Money;
     dealDays?: number | null;
     dealUntil?: string | null;
     isWholesale?: boolean;
     wholesalePrice?: Money;
+    wholesaleUntil?: string | null;
     isDiscounted?: boolean;
     discountPercent?: number | null;
     discountUntil?: string | null;
     /** Computed by backend for display/filter “active now”. */
     isNewProductActive?: boolean;
     isTodayDealActive?: boolean;
+    isWholesaleActive?: boolean;
     isDiscountActive?: boolean;
     attributes?: ProductAttribute[];
     /** Generated sellable variants — empty when product has no variant-creating attributes. */

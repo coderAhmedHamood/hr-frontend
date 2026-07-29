@@ -135,6 +135,14 @@ export const productFormSchema = z
     isNewProduct: z.boolean(),
     newUntil: z.string().optional(),
     isTodayDeal: z.boolean(),
+    dealPriceAmount: z.preprocess(
+      (value) => {
+        if (value === '' || value === null || value === undefined) return undefined;
+        const n = Number(value);
+        return Number.isFinite(n) ? n : undefined;
+      },
+      z.number().min(0).optional(),
+    ),
     dealDays: z.preprocess(
       (value) => {
         if (value === '' || value === null || value === undefined) return undefined;
@@ -153,6 +161,7 @@ export const productFormSchema = z
       },
       z.number().min(0).optional(),
     ),
+    wholesaleUntil: z.string().optional(),
     isDiscounted: z.boolean(),
     discountPercent: z.preprocess(
       (value) => {
@@ -175,6 +184,16 @@ export const productFormSchema = z
         message: 'يجب اختيار وحدة مرجعية واحدة فقط.',
         path: ['uomLines'],
       });
+    }
+    if (values.isTodayDeal) {
+      const dealPrice = Number(values.dealPriceAmount);
+      if (!Number.isFinite(dealPrice) || dealPrice < 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'أدخل سعر التخفيض عند تفعيل تخفيضات اليوم.',
+          path: ['dealPriceAmount'],
+        });
+      }
     }
     if (values.isWholesale) {
       const wholesale = Number(values.wholesalePriceAmount);
@@ -254,10 +273,12 @@ export const PRODUCT_FORM_DEFAULT_VALUES: ProductFormInput = {
   isNewProduct: false,
   newUntil: '',
   isTodayDeal: false,
+  dealPriceAmount: undefined,
   dealDays: undefined,
   dealUntil: '',
   isWholesale: false,
   wholesalePriceAmount: undefined,
+  wholesaleUntil: '',
   isDiscounted: false,
   discountPercent: undefined,
   discountUntil: '',

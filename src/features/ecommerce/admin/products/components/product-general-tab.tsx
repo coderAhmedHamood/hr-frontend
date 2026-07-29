@@ -301,7 +301,7 @@ export function ProductGeneralTab({ control, errors, register, categories, brand
                   <span className="min-w-0 space-y-0.5">
                     <span className="block text-sm font-medium text-foreground">تخفيضات اليوم</span>
                     <span className="block text-[11px] text-muted-foreground">
-                      مدة بالأيام أو تاريخ نهاية — أو كلاهما
+                      سعر التخفيض بجانب السعر الأساسي — والتاريخ اختياري
                     </span>
                   </span>
                   <Switch
@@ -311,11 +311,33 @@ export function ProductGeneralTab({ control, errors, register, categories, brand
                   />
                 </label>
                 {field.value ? (
-                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                    <ProductFormField
+                      label="سعر التخفيض"
+                      htmlFor="product-deal-price"
+                      error={errors.dealPriceAmount?.message}
+                      required
+                      hint="السعر الأساسي يبقى سعر البيع أعلاه"
+                    >
+                      <div className="relative">
+                        <Input
+                          id="product-deal-price"
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          dir="ltr"
+                          className="h-11 pe-12"
+                          {...register('dealPriceAmount')}
+                        />
+                        <span className="pointer-events-none absolute inset-y-0 inset-e-3 flex items-center text-xs text-muted-foreground">
+                          ر.ي
+                        </span>
+                      </div>
+                    </ProductFormField>
                     <ProductFormField
                       label="مدة التخفيض (أيام)"
                       htmlFor="product-deal-days"
-                      hint="إن وُجدت وحدها يُحسب تاريخ النهاية تلقائيًا"
+                      hint="اختياري — يُحسب تاريخ النهاية تلقائيًا"
                     >
                       <Input
                         id="product-deal-days"
@@ -331,7 +353,7 @@ export function ProductGeneralTab({ control, errors, register, categories, brand
                     <ProductFormField
                       label="ينتهي في"
                       htmlFor="product-deal-until"
-                      hint="اختياري"
+                      hint="اختياري — فارغ = بدون انتهاء"
                     >
                       <Controller
                         control={control}
@@ -366,7 +388,7 @@ export function ProductGeneralTab({ control, errors, register, categories, brand
                   <span className="min-w-0 space-y-0.5">
                     <span className="block text-sm font-medium text-foreground">أسعار جملة</span>
                     <span className="block text-[11px] text-muted-foreground">
-                      سعر الجملة بجانب السعر الأساسي
+                      سعر الجملة بجانب السعر الأساسي — والتاريخ اختياري
                     </span>
                   </span>
                   <Switch
@@ -376,7 +398,7 @@ export function ProductGeneralTab({ control, errors, register, categories, brand
                   />
                 </label>
                 {field.value ? (
-                  <div className="mt-3">
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
                     <ProductFormField
                       label="سعر الجملة"
                       htmlFor="product-wholesale-price"
@@ -397,6 +419,24 @@ export function ProductGeneralTab({ control, errors, register, categories, brand
                           ر.ي
                         </span>
                       </div>
+                    </ProductFormField>
+                    <ProductFormField
+                      label="ينتهي في"
+                      htmlFor="product-wholesale-until"
+                      hint="اختياري — فارغ = بدون انتهاء"
+                    >
+                      <Controller
+                        control={control}
+                        name="wholesaleUntil"
+                        render={({ field: dateField }) => (
+                          <DatePickerInput
+                            id="product-wholesale-until"
+                            value={dateField.value ?? ''}
+                            onChange={dateField.onChange}
+                            placeholder="بدون تاريخ انتهاء"
+                          />
+                        )}
+                      />
                     </ProductFormField>
                   </div>
                 ) : null}

@@ -304,7 +304,7 @@ export function ProductsListPage() {
                 {product.isTodayDealActive ? (
                   <Badge variant="warning">تخفيض اليوم</Badge>
                 ) : null}
-                {product.isWholesale ? (
+                {product.isWholesaleActive ? (
                   <Badge variant="outline">جملة</Badge>
                 ) : null}
                 {product.isDiscountActive ? (
@@ -323,8 +323,19 @@ export function ProductsListPage() {
       title: 'السعر',
       render: (product) => (
         <div className="flex flex-col gap-0.5">
-          <span className="font-medium tabular-nums">{formatPrice(product.price)}</span>
-          {product.isWholesale && product.wholesalePrice ? (
+          {product.isTodayDealActive && product.dealPrice ? (
+            <>
+              <span className="font-medium tabular-nums text-primary">
+                {formatPrice(product.dealPrice)}
+              </span>
+              <span className="text-xs text-muted-foreground tabular-nums line-through">
+                {formatPrice(product.price)}
+              </span>
+            </>
+          ) : (
+            <span className="font-medium tabular-nums">{formatPrice(product.price)}</span>
+          )}
+          {product.isWholesaleActive && product.wholesalePrice ? (
             <span className="text-xs text-muted-foreground tabular-nums">
               جملة: {formatPrice(product.wholesalePrice)}
             </span>

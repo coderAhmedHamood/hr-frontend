@@ -135,10 +135,12 @@ export function productToFormValues(product: Product): ProductFormInput {
     isNewProduct: product.isNewProduct ?? false,
     newUntil: isoToYmd(product.newUntil),
     isTodayDeal: product.isTodayDeal ?? false,
+    dealPriceAmount: product.dealPrice?.amount,
     dealDays: product.dealDays ?? undefined,
     dealUntil: isoToYmd(product.dealUntil),
     isWholesale: product.isWholesale ?? false,
     wholesalePriceAmount: product.wholesalePrice?.amount,
+    wholesaleUntil: isoToYmd(product.wholesaleUntil),
     isDiscounted: product.isDiscounted ?? false,
     discountPercent: product.discountPercent ?? undefined,
     discountUntil: isoToYmd(product.discountUntil),
@@ -256,6 +258,10 @@ export function formValuesToCreateInput(
     isNewProduct: values.isNewProduct,
     newUntil: values.isNewProduct ? ymdToIso(values.newUntil) : null,
     isTodayDeal: values.isTodayDeal,
+    dealPrice:
+      values.isTodayDeal && values.dealPriceAmount != null
+        ? { amount: values.dealPriceAmount, currency }
+        : undefined,
     dealDays: values.isTodayDeal && values.dealDays != null ? values.dealDays : null,
     dealUntil: values.isTodayDeal ? ymdToIso(values.dealUntil) : null,
     isWholesale: values.isWholesale,
@@ -263,6 +269,7 @@ export function formValuesToCreateInput(
       values.isWholesale && values.wholesalePriceAmount != null
         ? { amount: values.wholesalePriceAmount, currency }
         : undefined,
+    wholesaleUntil: values.isWholesale ? ymdToIso(values.wholesaleUntil) : null,
     isDiscounted: values.isDiscounted,
     discountPercent:
       values.isDiscounted && values.discountPercent != null ? values.discountPercent : null,
