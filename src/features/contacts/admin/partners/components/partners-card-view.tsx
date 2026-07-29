@@ -27,8 +27,8 @@ export function PartnersCardView({ partners, onOpen }: Props) {
           type="button"
           onClick={() => onOpen(partner)}
           className={cn(
-            'flex flex-col gap-3 rounded-xl border border-border bg-card p-4 text-start',
-            'transition-colors hover:border-primary/40 hover:bg-muted/30',
+            'flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 text-start shadow-soft',
+            'transition-shadow hover:border-primary/40 hover:shadow-elevated',
           )}
         >
           <div className="flex items-start gap-3">

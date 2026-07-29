@@ -1,50 +1,43 @@
 'use client';
 
 import * as React from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { Megaphone, PanelBottom, PanelTop, Plus, Save, Trash2 } from 'lucide-react';
+import { Save } from 'lucide-react';
 import { toast } from 'sonner';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
 import { getCmsCompanyRecord, saveCmsCompanyRecord } from '@/features/ecommerce/admin/cms/shared/cms-actions';
-import type {
-  CompanyConfigRecord,
-  CompanyNavItemRecord,
-} from '@/features/ecommerce/storefront/domain/company-config';
+import type { CompanyConfigRecord } from '@/features/ecommerce/storefront/domain/company-config';
 import { NavigationFooterPanel } from '@/features/ecommerce/admin/cms/navigation/components/navigation-footer-panel';
 import { NavigationAnnouncementPanel } from '@/features/ecommerce/admin/cms/navigation/components/navigation-announcement-panel';
 import type { EcommerceNavigationTab } from '@/features/ecommerce/admin/constants/routes';
-import { ecommerceNavigationHref } from '@/features/ecommerce/admin/constants/routes';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { PageHeaderPrimaryButton } from '@/components/layouts/page-header-primary-button';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent } from '@/components/ui/card';
 
 const NAV_QUERY_KEY = ['ecommerce-cms', 'company', 'navigation'] as const;
-const NAV_TABS: EcommerceNavigationTab[] = ['header', 'footer', 'announcement'];
+const NAV_TABS: EcommerceNavigationTab[] = ['footer', 'announcement'];
 
 function resolveNavigationTab(value: string | null): EcommerceNavigationTab {
   if (value && NAV_TABS.includes(value as EcommerceNavigationTab)) {
     return value as EcommerceNavigationTab;
   }
-  return 'header';
+  return 'footer';
 }
 
-function emptyNavItem(): CompanyNavItemRecord {
-  return { label: { ar: '', en: '' }, href: '/store' };
-}
-
+/**
+ * Appearance domain — Footer and Announcement.
+ * Active panel is deep-linked via `?tab=` from Website → Appearance nav items
+ * (no in-page tab bar — switch from the top nav).
+ */
 export function NavigationBuilderPage() {
   const companyId = getStorefrontCompanyId();
   const t = useTranslations('ecommerceAdmin.navigation');
   const tCommon = useTranslations('common');
   const queryClient = useQueryClient();
-  const router = useRouter();
   const searchParams = useSearchParams();
   const tab = resolveNavigationTab(searchParams.get('tab'));
 
@@ -88,9 +81,11 @@ export function NavigationBuilderPage() {
     [draft, save.isPending, tCommon],
   );
 
+  const titleKey = tab === 'announcement' ? 'tabs.announcement' : 'tabs.footer';
+
   return (
     <div className="flex flex-col gap-5">
-      <SetPageTitle titleAr={t('title')} descriptionAr={t('description')} iconName="Navigation" />
+      <SetPageTitle titleAr={t(titleKey)} descriptionAr={t('description')} iconName="Navigation" />
 
       {isLoading ? (
         <div className="space-y-3">
@@ -110,157 +105,12 @@ export function NavigationBuilderPage() {
         </Card>
       ) : null}
 
-      {draft ? (
-        <Tabs
-          value={tab}
-          onValueChange={(value) => {
-            router.replace(ecommerceNavigationHref(resolveNavigationTab(value)));
-          }}
-          className="w-full"
-        >
-          <TabsList className="flex h-auto flex-wrap">
-            <TabsTrigger value="header" className="gap-1.5">
-              <PanelTop className="h-3.5 w-3.5" />
-              {t('tabs.header')}
-            </TabsTrigger>
-            <TabsTrigger value="footer" className="gap-1.5">
-              <PanelBottom className="h-3.5 w-3.5" />
-              {t('tabs.footer')}
-            </TabsTrigger>
-            <TabsTrigger value="announcement" className="gap-1.5">
-              <Megaphone className="h-3.5 w-3.5" />
-              {t('tabs.announcement')}
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="header" className="mt-4 space-y-5">
-            <NavListEditor
-              title={t('primary')}
-              items={draft.navigation}
-              emptyLabel={t('empty')}
-              onChange={(navigation) => setDraft({ ...draft, navigation })}
-              labels={{
-                add: t('addItem'),
-                remove: t('removeItem'),
-                labelAr: t('labelAr'),
-                labelEn: t('labelEn'),
-                href: t('href'),
-              }}
-            />
-            <NavListEditor
-              title={t('secondary')}
-              items={draft.secondaryNavigation}
-              emptyLabel={t('empty')}
-              onChange={(items) => setDraft({ ...draft, secondaryNavigation: items })}
-              labels={{
-                add: t('addItem'),
-                remove: t('removeItem'),
-                labelAr: t('labelAr'),
-                labelEn: t('labelEn'),
-                href: t('href'),
-              }}
-            />
-          </TabsContent>
-
-          <TabsContent value="footer" className="mt-4">
-            <NavigationFooterPanel draft={draft} onChange={setDraft} />
-          </TabsContent>
-
-          <TabsContent value="announcement" className="mt-4">
-            <NavigationAnnouncementPanel draft={draft} onChange={setDraft} />
-          </TabsContent>
-        </Tabs>
+      {draft && tab === 'footer' ? (
+        <NavigationFooterPanel draft={draft} onChange={setDraft} />
+      ) : null}
+      {draft && tab === 'announcement' ? (
+        <NavigationAnnouncementPanel draft={draft} onChange={setDraft} />
       ) : null}
     </div>
-  );
-}
-
-function NavListEditor({
-  title,
-  items,
-  emptyLabel,
-  onChange,
-  labels,
-}: {
-  title: string;
-  items: CompanyNavItemRecord[];
-  emptyLabel: string;
-  onChange: (items: CompanyNavItemRecord[]) => void;
-  labels: { add: string; remove: string; labelAr: string; labelEn: string; href: string };
-}) {
-  return (
-    <Card className="rounded-2xl">
-      <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
-        <CardTitle className="text-base">{title}</CardTitle>
-        <Button type="button" size="sm" variant="outline" onClick={() => onChange([...items, emptyNavItem()])}>
-          <Plus className="me-2 h-4 w-4" />
-          {labels.add}
-        </Button>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {items.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/60 bg-muted/20 py-10 text-center">
-            <p className="text-sm text-muted-foreground">{emptyLabel}</p>
-          </div>
-        ) : null}
-        {items.map((item, index) => (
-          <div
-            key={`${item.href}-${index}`}
-            className="space-y-3 rounded-xl border border-border bg-card p-4 shadow-soft"
-          >
-            <div className="flex justify-end">
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                className="text-destructive hover:text-destructive"
-                onClick={() => onChange(items.filter((_, itemIndex) => itemIndex !== index))}
-              >
-                <Trash2 className="me-2 h-4 w-4" />
-                {labels.remove}
-              </Button>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label>{labels.labelAr}</Label>
-                <Input
-                  value={item.label.ar}
-                  onChange={(event) => {
-                    const next = [...items];
-                    next[index] = { ...item, label: { ...item.label, ar: event.target.value } };
-                    onChange(next);
-                  }}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>{labels.labelEn}</Label>
-                <Input
-                  value={item.label.en}
-                  onChange={(event) => {
-                    const next = [...items];
-                    next[index] = { ...item, label: { ...item.label, en: event.target.value } };
-                    onChange(next);
-                  }}
-                />
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label>{labels.href}</Label>
-              <Input
-                value={item.href}
-                onChange={(event) => {
-                  const next = [...items];
-                  next[index] = {
-                    ...item,
-                    href: event.target.value as CompanyNavItemRecord['href'],
-                  };
-                  onChange(next);
-                }}
-              />
-            </div>
-          </div>
-        ))}
-      </CardContent>
-    </Card>
   );
 }

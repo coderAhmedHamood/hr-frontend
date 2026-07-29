@@ -6,12 +6,9 @@ import {
   BASE_SECTION_CAPABILITIES,
   booleanField,
   dataSourceField,
-  layoutField,
   localizedSubtitleField,
   localizedTitleField,
-  themeField,
   UI_STRINGS,
-  visibilityField,
 } from '@/features/ecommerce/storefront/page-builder/definitions/shared/field-builders';
 
 const DEFAULT_CONFIGURATION = {
@@ -46,7 +43,7 @@ export const PRODUCT_CAROUSEL_DEFINITION: SectionDefinition<'product-carousel'> 
   defaultConfiguration: DEFAULT_CONFIGURATION,
   supportedLayouts: PRODUCT_CAROUSEL_LAYOUTS,
   supportedThemes: ['light', 'dark', 'system'],
-  supportedDataSources: ['manual', 'query', 'tag', 'category', 'collection', 'recommendation'],
+  supportedDataSources: ['manual', 'query', 'tag', 'category'],
   supportedLocales: [...SUPPORTED_STOREFRONT_LOCALES],
   supportedDevices: { mobile: true, tablet: true, desktop: true },
   capabilities: {
@@ -78,9 +75,6 @@ export const PRODUCT_CAROUSEL_DEFINITION: SectionDefinition<'product-carousel'> 
     booleanField('autoplay', 'settings.autoplay', UI_STRINGS.fields.autoplay, 'settings', false),
     booleanField('showPrice', 'settings.showPrice', UI_STRINGS.fields.showPrice, 'settings', true),
     booleanField('showBadge', 'settings.showBadge', UI_STRINGS.fields.showBadge, 'settings', false),
-    themeField(),
-    layoutField(PRODUCT_CAROUSEL_LAYOUTS),
-    visibilityField(),
-    dataSourceField(['manual', 'query', 'tag', 'category', 'collection', 'recommendation']),
+    dataSourceField(['manual', 'category', 'tag', 'query']),
   ],
 };

@@ -2,9 +2,15 @@
 
 import * as React from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { Kanban, LayoutGrid, List, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Building2, Kanban, LayoutGrid, List, Pencil, Plus, Trash2, Truck, Users } from 'lucide-react';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
-import { ListToolbar } from '@/components/ui/list-toolbar';
+import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
+import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
+import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
+import { PageHeaderPrimaryButton } from '@/components/layouts/page-header-primary-button';
+import { ListFilterBar } from '@/components/ui/list-filter-bar';
+import { EntityFilterSearchField } from '@/components/ui/entity-filter-search-field';
+import { StatTile, StatTileGrid } from '@/components/ui/stat-tile';
 import { Button } from '@/components/ui/button';
 import { DataTable, AppPagination, type ColumnDef } from '@/components/ui/data-table';
 import { DEFAULT_PAGE_SIZE } from '@/components/ui/paged-list';
@@ -16,13 +22,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { getContactsCompanyId } from '@/features/contacts/lib/company-id';
 import { contactsAdminRoutes } from '@/features/contacts/admin/constants/routes';
 import { usePartners } from '@/features/contacts/admin/partners/hooks/use-partners';
@@ -204,74 +203,99 @@ export function PartnersListPage() {
     { mode: 'cards', icon: LayoutGrid, label: 'بطاقات' },
   ];
 
+  const items = data?.items ?? [];
+  const customerCount = items.filter((partner) => partner.isCustomer).length;
+  const vendorCount = items.filter((partner) => partner.isVendor).length;
+
+  usePageHeaderActions(
+    () => (
+      <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
+        <FilterToggleButton />
+        <div className="flex rounded-lg border border-border p-0.5">
+          {viewButtons.map(({ mode, icon: Icon, label }) => (
+            <Button
+              key={mode}
+              type="button"
+              size="sm"
+              variant="ghost"
+              className={cn('h-7 gap-1.5 px-2', view === mode && 'bg-muted')}
+              onClick={() => updateParams({ view: mode, page: 1 })}
+              aria-label={label}
+            >
+              <Icon className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">{label}</span>
+            </Button>
+          ))}
+        </div>
+        <PageHeaderPrimaryButton
+          icon={Plus}
+          label="جهة اتصال جديدة"
+          disabled={!companyId}
+          onClick={() => setFormState({ open: true, partner: null })}
+        />
+      </div>
+    ),
+    [view, companyId],
+  );
+
+  useEntityFilterSlot(
+    () => (
+      <ListFilterBar
+        showDateSection={false}
+        showStatusSection={false}
+        showEmployeePicker={false}
+        leadingFilters={
+          <EntityFilterSearchField
+            value={searchInput}
+            onChange={setSearchInput}
+            placeholder="ابحث بالاسم أو الجوال أو البريد أو الرقم الضريبي…"
+          />
+        }
+        inlineSelects={[
+          {
+            id: 'role',
+            value: roleFilter,
+            onChange: (value) => updateParams({ role: value, page: 1 }),
+            placeholder: 'كل الأدوار',
+            options: [
+              { value: 'all', label: 'كل الأدوار' },
+              { value: 'customer', label: 'عملاء' },
+              { value: 'vendor', label: 'موردون' },
+              { value: 'employee', label: 'موظفون' },
+              { value: 'internal', label: 'داخلي' },
+            ],
+          },
+          {
+            id: 'status',
+            value: statusFilter,
+            onChange: (value) => updateParams({ status: value, page: 1 }),
+            placeholder: 'كل الحالات',
+            options: [
+              { value: 'all', label: 'كل الحالات' },
+              { value: 'draft', label: 'مسودة' },
+              { value: 'active', label: 'نشط' },
+              { value: 'inactive', label: 'غير نشط' },
+            ],
+          },
+        ]}
+      />
+    ),
+    [searchInput, roleFilter, statusFilter],
+  );
+
   return (
     <div className="flex flex-col gap-5">
-      <SetPageTitle titleAr="جهات الاتصال" iconName="Users" />
-
-      <ListToolbar
-        searchValue={searchInput}
-        onSearchChange={setSearchInput}
-        searchPlaceholder="ابحث بالاسم أو الجوال أو البريد أو الرقم الضريبي…"
-        actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex rounded-lg border border-border p-0.5">
-              {viewButtons.map(({ mode, icon: Icon, label }) => (
-                <Button
-                  key={mode}
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  className={cn('h-8 gap-1.5', view === mode && 'bg-muted')}
-                  onClick={() => updateParams({ view: mode, page: 1 })}
-                  aria-label={label}
-                >
-                  <Icon className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">{label}</span>
-                </Button>
-              ))}
-            </div>
-
-            <Select
-              value={roleFilter}
-              onValueChange={(value) => updateParams({ role: value, page: 1 })}
-            >
-              <SelectTrigger className="w-[140px]" aria-label="فلتر الدور">
-                <SelectValue placeholder="الدور" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">كل الأدوار</SelectItem>
-                <SelectItem value="customer">عملاء</SelectItem>
-                <SelectItem value="vendor">موردون</SelectItem>
-                <SelectItem value="employee">موظفون</SelectItem>
-                <SelectItem value="internal">داخلي</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select
-              value={statusFilter}
-              onValueChange={(value) => updateParams({ status: value, page: 1 })}
-            >
-              <SelectTrigger className="w-[130px]" aria-label="فلتر الحالة">
-                <SelectValue placeholder="الحالة" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">كل الحالات</SelectItem>
-                <SelectItem value="draft">مسودة</SelectItem>
-                <SelectItem value="active">نشط</SelectItem>
-                <SelectItem value="inactive">غير نشط</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Button
-              onClick={() => setFormState({ open: true, partner: null })}
-              disabled={!companyId}
-            >
-              <Plus className="h-4 w-4" />
-              جهة اتصال جديدة
-            </Button>
-          </div>
-        }
+      <SetPageTitle
+        titleAr="جهات الاتصال"
+        descriptionAr="السجل المركزي لجهات الاتصال — العملاء والموردون والموظفون والجهات الداخلية."
+        iconName="Users"
       />
+
+      <StatTileGrid className="sm:grid-cols-3">
+        <StatTile icon={Users} label="إجمالي جهات الاتصال (هذه الصفحة)" value={items.length} tone="primary" loading={isLoading} />
+        <StatTile icon={Building2} label="عملاء (هذه الصفحة)" value={customerCount} tone="success" loading={isLoading} />
+        <StatTile icon={Truck} label="موردون (هذه الصفحة)" value={vendorCount} tone="gold" loading={isLoading} />
+      </StatTileGrid>
 
       {!companyId ? (
         <p className="text-sm text-destructive">اختر شركة نشطة لعرض جهات الاتصال.</p>

@@ -7,7 +7,6 @@ import {
   ShoppingCart,
   Users,
   LayoutTemplate,
-  Navigation,
   FileText,
   Settings,
   Newspaper,
@@ -29,6 +28,11 @@ export type EcommerceAdminNavItem = {
   labelKey: string;
   href: string;
   icon: LucideIcon;
+  /**
+   * Optional mid-column section label (under `ecommerceAdmin.nav.sections.*`)
+   * rendered above this item — keeps related links in the same dropdown column.
+   */
+  precedingSectionKey?: 'content' | 'appearance' | 'catalogSetup';
 };
 
 export type EcommerceAdminNavSection = {
@@ -98,21 +102,12 @@ export const ecommerceAdminNavGroups: EcommerceAdminNavGroup[] = [
       {
         items: [
           { labelKey: 'homepage', href: ecommerceAdminRoutes.homepage, icon: LayoutTemplate },
-          { labelKey: 'navigation', href: ecommerceNavigationHref('header'), icon: Navigation },
-        ],
-      },
-      {
-        sectionKey: 'content',
-        items: [
-          { labelKey: 'contentPages', href: ecommerceContentHref('pages'), icon: FileText },
-          { labelKey: 'contentBlog', href: ecommerceContentHref('blog'), icon: Newspaper },
-          { labelKey: 'contentFaq', href: ecommerceContentHref('faq'), icon: CircleHelp },
-        ],
-      },
-      {
-        sectionKey: 'appearance',
-        items: [
-          { labelKey: 'appearanceFooter', href: ecommerceNavigationHref('footer'), icon: PanelBottom },
+          {
+            labelKey: 'appearanceFooter',
+            href: ecommerceNavigationHref('footer'),
+            icon: PanelBottom,
+            precedingSectionKey: 'appearance',
+          },
           {
             labelKey: 'appearanceAnnouncement',
             href: ecommerceNavigationHref('announcement'),
@@ -121,7 +116,13 @@ export const ecommerceAdminNavGroups: EcommerceAdminNavGroup[] = [
         ],
       },
       {
-        items: [{ labelKey: 'websiteSettings', href: ecommerceAdminRoutes.settings, icon: Settings }],
+        sectionKey: 'content',
+        items: [
+          { labelKey: 'contentPages', href: ecommerceContentHref('pages'), icon: FileText },
+          { labelKey: 'contentBlog', href: ecommerceContentHref('blog'), icon: Newspaper },
+          { labelKey: 'contentFaq', href: ecommerceContentHref('faq'), icon: CircleHelp },
+          { labelKey: 'websiteSettings', href: ecommerceAdminRoutes.settings, icon: Settings },
+        ],
       },
     ],
   },

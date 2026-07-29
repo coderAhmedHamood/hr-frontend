@@ -199,6 +199,9 @@ function buildEcommerceMobileNav(tNav: (key: string) => string): MobileNavItem[]
       if (section.items.length === 0) continue;
       if (children.length > 0) children.push({ separator: true });
       for (const item of section.items) {
+        if (item.precedingSectionKey && children.length > 0) {
+          children.push({ separator: true });
+        }
         children.push({
           label: tNav(item.labelKey),
           href: item.href,

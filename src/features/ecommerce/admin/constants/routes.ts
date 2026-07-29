@@ -34,13 +34,13 @@ export const ecommerceAdminRoutes = {
 } as const;
 
 export type EcommerceContentTab = 'pages' | 'blog' | 'faq';
-export type EcommerceNavigationTab = 'header' | 'footer' | 'announcement';
+export type EcommerceNavigationTab = 'footer' | 'announcement';
 
 export function ecommerceContentHref(tab: EcommerceContentTab = 'pages'): string {
   return `${ecommerceAdminRoutes.content}?tab=${tab}`;
 }
 
-export function ecommerceNavigationHref(tab: EcommerceNavigationTab = 'header'): string {
+export function ecommerceNavigationHref(tab: EcommerceNavigationTab = 'footer'): string {
   return `${ecommerceAdminRoutes.navigation}?tab=${tab}`;
 }
 

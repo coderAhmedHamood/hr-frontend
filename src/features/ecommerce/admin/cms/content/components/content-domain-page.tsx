@@ -1,16 +1,12 @@
 'use client';
 
-import * as React from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { BookOpen, CircleHelp, FileText, Newspaper } from 'lucide-react';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CmsPagesPage } from '@/features/ecommerce/admin/cms/pages/components/cms-pages-page';
 import { BlogCmsPage } from '@/features/ecommerce/admin/cms/blog/components/blog-cms-page';
 import { FaqCmsPage } from '@/features/ecommerce/admin/cms/faq/components/faq-cms-page';
 import type { EcommerceContentTab } from '@/features/ecommerce/admin/constants/routes';
-import { ecommerceContentHref } from '@/features/ecommerce/admin/constants/routes';
 
 const CONTENT_TABS: EcommerceContentTab[] = ['pages', 'blog', 'faq'];
 
@@ -22,50 +18,25 @@ function resolveContentTab(value: string | null): EcommerceContentTab {
 }
 
 /**
- * Content domain — Pages, Blog, and FAQ live here.
- * Deep-linked via `?tab=` from Website → Content nav items.
+ * Content domain — Pages, Blog, and FAQ.
+ * Active panel is deep-linked via `?tab=` from Website → Content nav items
+ * (no in-page tab bar — switch from the top nav).
  */
 export function ContentDomainPage() {
   const t = useTranslations('ecommerceAdmin.content');
-  const router = useRouter();
   const searchParams = useSearchParams();
   const tab = resolveContentTab(searchParams.get('tab'));
 
+  const titleKey =
+    tab === 'blog' ? 'tabs.blog' : tab === 'faq' ? 'tabs.faq' : 'tabs.pages';
+
   return (
     <div className="flex flex-col gap-5">
-      <SetPageTitle titleAr={t('title')} descriptionAr={t('description')} iconName="FileText" />
+      <SetPageTitle titleAr={t(titleKey)} descriptionAr={t('description')} iconName="FileText" />
 
-      <Tabs
-        value={tab}
-        onValueChange={(value) => {
-          router.replace(ecommerceContentHref(resolveContentTab(value)));
-        }}
-        className="w-full"
-      >
-        <TabsList className="flex h-auto flex-wrap">
-          <TabsTrigger value="pages" className="gap-1.5">
-            <BookOpen className="h-3.5 w-3.5" />
-            {t('tabs.pages')}
-          </TabsTrigger>
-          <TabsTrigger value="blog" className="gap-1.5">
-            <Newspaper className="h-3.5 w-3.5" />
-            {t('tabs.blog')}
-          </TabsTrigger>
-          <TabsTrigger value="faq" className="gap-1.5">
-            <CircleHelp className="h-3.5 w-3.5" />
-            {t('tabs.faq')}
-          </TabsTrigger>
-        </TabsList>
-        <TabsContent value="pages" className="mt-4">
-          <CmsPagesPage embedded />
-        </TabsContent>
-        <TabsContent value="blog" className="mt-4">
-          <BlogCmsPage embedded />
-        </TabsContent>
-        <TabsContent value="faq" className="mt-4">
-          <FaqCmsPage embedded />
-        </TabsContent>
-      </Tabs>
+      {tab === 'pages' ? <CmsPagesPage embedded /> : null}
+      {tab === 'blog' ? <BlogCmsPage embedded /> : null}
+      {tab === 'faq' ? <FaqCmsPage embedded /> : null}
     </div>
   );
 }
