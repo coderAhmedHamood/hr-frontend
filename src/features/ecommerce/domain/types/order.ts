@@ -46,11 +46,18 @@ export type Order = TenantScoped & {
   source?: 'seed' | 'storefront';
 };
 
+export type OrderFulfilmentFilter = 'fulfilled' | 'partial' | 'unfulfilled';
+
 export type OrderListQuery = {
   companyId: string;
   search?: string;
   status?: OrderStatus;
   customerId?: string;
+  paymentStatus?: 'pending' | 'paid' | 'failed' | 'refunded';
+  paymentMethod?: 'cash_on_delivery' | 'card';
+  fulfilment?: OrderFulfilmentFilter;
+  source?: 'seed' | 'storefront';
+  city?: string;
   page?: number;
   limit?: number;
 };

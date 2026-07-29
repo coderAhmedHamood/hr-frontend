@@ -37,7 +37,8 @@ import {
   PAYMENT_METHOD_LABELS_AR,
   PAYMENT_STATUS_LABELS_AR,
 } from '@/features/ecommerce/domain/constants/order-status';
-import type { Order, OrderStatus } from '@/features/ecommerce/domain/types/order';
+import type { Order, OrderFulfilmentFilter, OrderStatus } from '@/features/ecommerce/domain/types/order';
+import { getCompanyConfigMock } from '@/features/ecommerce/storefront/lib/mock/company-configs';
 import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { ListFilterBar } from '@/components/ui/list-filter-bar';
 import { EntityFilterSearchField } from '@/components/ui/entity-filter-search-field';
@@ -60,13 +61,54 @@ type ViewMode = 'list' | 'kanban';
 
 const KANBAN_PAGE_SIZE = 100;
 
-const STATUS_FILTER_OPTIONS: Array<{ value: '' | OrderStatus; label: string }> = [
-  { value: '', label: 'كل الحالات' },
+const STATUS_FILTER_OPTIONS: Array<{ value: 'all' | OrderStatus; label: string }> = [
+  { value: 'all', label: 'كل الحالات' },
   ...(Object.keys(ORDER_STATUS_LABELS_AR) as OrderStatus[]).map((value) => ({
     value,
     label: ORDER_STATUS_LABELS_AR[value],
   })),
 ];
+
+const PAYMENT_STATUS_FILTER_OPTIONS = [
+  { value: 'all', label: 'كل حالات الدفع' },
+  ...(Object.keys(PAYMENT_STATUS_LABELS_AR) as Array<keyof typeof PAYMENT_STATUS_LABELS_AR>).map(
+    (value) => ({
+      value,
+      label: PAYMENT_STATUS_LABELS_AR[value],
+    }),
+  ),
+] as const;
+
+const PAYMENT_METHOD_FILTER_OPTIONS = [
+  { value: 'all', label: 'كل طرق الدفع' },
+  ...(Object.keys(PAYMENT_METHOD_LABELS_AR) as Array<keyof typeof PAYMENT_METHOD_LABELS_AR>).map(
+    (value) => ({
+      value,
+      label: PAYMENT_METHOD_LABELS_AR[value],
+    }),
+  ),
+] as const;
+
+const FULFILMENT_FILTER_OPTIONS: Array<{ value: 'all' | OrderFulfilmentFilter; label: string }> = [
+  { value: 'all', label: 'كل حالات التجهيز' },
+  { value: 'unfulfilled', label: 'لم يُجهز' },
+  { value: 'partial', label: 'تجهيز جزئي' },
+  { value: 'fulfilled', label: 'تم التجهيز' },
+];
+
+const SOURCE_FILTER_OPTIONS = [
+  { value: 'all', label: 'كل المصادر' },
+  { value: 'storefront', label: 'المتجر' },
+  { value: 'seed', label: 'يدوي / تجريبي' },
+] as const;
+
+const VALID_ORDER_STATUSES = new Set<OrderStatus>(
+  Object.keys(ORDER_STATUS_LABELS_AR) as OrderStatus[],
+);
+const VALID_PAYMENT_STATUSES = new Set(Object.keys(PAYMENT_STATUS_LABELS_AR));
+const VALID_PAYMENT_METHODS = new Set(Object.keys(PAYMENT_METHOD_LABELS_AR));
+const VALID_FULFILMENTS = new Set<OrderFulfilmentFilter>(['fulfilled', 'partial', 'unfulfilled']);
+const VALID_SOURCES = new Set(['storefront', 'seed']);
 
 const PAYMENT_STATUS_VARIANT: Record<string, NonNullable<BadgeProps['variant']>> = {
   pending: 'warning',
@@ -361,7 +403,27 @@ export function OrdersListPage() {
   const searchParams = useSearchParams();
 
   const search = searchParams.get('q') ?? '';
-  const status = (searchParams.get('status') as OrderStatus | null) ?? undefined;
+  const statusParam = searchParams.get('status') ?? 'all';
+  const status = VALID_ORDER_STATUSES.has(statusParam as OrderStatus)
+    ? (statusParam as OrderStatus)
+    : undefined;
+  const paymentStatusParam = searchParams.get('paymentStatus') ?? 'all';
+  const paymentStatus = VALID_PAYMENT_STATUSES.has(paymentStatusParam)
+    ? (paymentStatusParam as 'pending' | 'paid' | 'failed' | 'refunded')
+    : undefined;
+  const paymentMethodParam = searchParams.get('paymentMethod') ?? 'all';
+  const paymentMethod = VALID_PAYMENT_METHODS.has(paymentMethodParam)
+    ? (paymentMethodParam as 'cash_on_delivery' | 'card')
+    : undefined;
+  const fulfilmentParam = searchParams.get('fulfilment') ?? 'all';
+  const fulfilment = VALID_FULFILMENTS.has(fulfilmentParam as OrderFulfilmentFilter)
+    ? (fulfilmentParam as OrderFulfilmentFilter)
+    : undefined;
+  const sourceParam = searchParams.get('source') ?? 'all';
+  const source = VALID_SOURCES.has(sourceParam)
+    ? (sourceParam as 'storefront' | 'seed')
+    : undefined;
+  const cityFilter = searchParams.get('city') ?? 'all';
   const view: ViewMode = searchParams.get('view') === 'kanban' ? 'kanban' : 'list';
   const page = Math.max(1, Number(searchParams.get('page')) || 1);
   const pageSize =
@@ -370,11 +432,24 @@ export function OrdersListPage() {
       : Number(searchParams.get('pageSize')) || DEFAULT_PAGE_SIZE;
   const selectedOrderId = searchParams.get('order') ?? '';
 
+  const cityOptions = React.useMemo(() => {
+    const cities = getCompanyConfigMock(companyId)?.checkout?.cities ?? [];
+    return [
+      { value: 'all', label: 'كل المدن' },
+      ...cities.map((city) => ({ value: city, label: city })),
+    ];
+  }, [companyId]);
+
   const [searchInput, setSearchInput] = React.useState(search);
 
   function updateParams(next: {
     q?: string;
     status?: string;
+    paymentStatus?: string;
+    paymentMethod?: string;
+    fulfilment?: string;
+    source?: string;
+    city?: string;
     view?: ViewMode;
     page?: number;
     pageSize?: number;
@@ -386,8 +461,30 @@ export function OrdersListPage() {
       else params.delete('q');
     }
     if (next.status !== undefined) {
-      if (next.status) params.set('status', next.status);
+      if (next.status && next.status !== 'all') params.set('status', next.status);
       else params.delete('status');
+    }
+    if (next.paymentStatus !== undefined) {
+      if (next.paymentStatus && next.paymentStatus !== 'all') {
+        params.set('paymentStatus', next.paymentStatus);
+      } else params.delete('paymentStatus');
+    }
+    if (next.paymentMethod !== undefined) {
+      if (next.paymentMethod && next.paymentMethod !== 'all') {
+        params.set('paymentMethod', next.paymentMethod);
+      } else params.delete('paymentMethod');
+    }
+    if (next.fulfilment !== undefined) {
+      if (next.fulfilment && next.fulfilment !== 'all') params.set('fulfilment', next.fulfilment);
+      else params.delete('fulfilment');
+    }
+    if (next.source !== undefined) {
+      if (next.source && next.source !== 'all') params.set('source', next.source);
+      else params.delete('source');
+    }
+    if (next.city !== undefined) {
+      if (next.city && next.city !== 'all') params.set('city', next.city);
+      else params.delete('city');
     }
     if (next.view !== undefined) {
       if (next.view === 'kanban') params.set('view', 'kanban');
@@ -428,6 +525,11 @@ export function OrdersListPage() {
     companyId,
     search: search || undefined,
     status: view === 'kanban' ? undefined : status,
+    paymentStatus: view === 'kanban' ? undefined : paymentStatus,
+    paymentMethod: view === 'kanban' ? undefined : paymentMethod,
+    fulfilment: view === 'kanban' ? undefined : fulfilment,
+    source: view === 'kanban' ? undefined : source,
+    city: view === 'kanban' || cityFilter === 'all' ? undefined : cityFilter,
     page: view === 'kanban' ? 1 : page,
     limit: pageSize,
   });
@@ -475,7 +577,7 @@ export function OrdersListPage() {
               size="sm"
               variant="ghost"
               className={cn('h-7 gap-1.5 px-2', view === mode && 'bg-muted')}
-              onClick={() => updateParams({ view: mode, page: 1, status: mode === 'kanban' ? '' : status ?? '' })}
+              onClick={() => updateParams({ view: mode, page: 1, status: mode === 'kanban' ? 'all' : status ?? 'all' })}
               aria-label={label}
             >
               <Icon className="h-3.5 w-3.5" />
@@ -501,25 +603,73 @@ export function OrdersListPage() {
             placeholder="بحث برقم الطلب أو اسم العميل أو الهاتف…"
           />
         }
-        moreFilters={
+        inlineSelects={
           view === 'kanban'
             ? []
             : [
                 {
                   id: 'status',
                   value: status ?? 'all',
-                  onChange: (value) => updateParams({ status: value === 'all' ? '' : value, page: 1 }),
+                  onChange: (value) => updateParams({ status: value, page: 1 }),
                   placeholder: 'كل الحالات',
-                  options: STATUS_FILTER_OPTIONS.map((option) => ({
-                    value: option.value === '' ? 'all' : option.value,
-                    label: option.label,
-                  })),
+                  options: STATUS_FILTER_OPTIONS,
+                },
+                {
+                  id: 'paymentStatus',
+                  value: paymentStatus ?? 'all',
+                  onChange: (value) => updateParams({ paymentStatus: value, page: 1 }),
+                  placeholder: 'كل حالات الدفع',
+                  options: [...PAYMENT_STATUS_FILTER_OPTIONS],
+                },
+                {
+                  id: 'fulfilment',
+                  value: fulfilment ?? 'all',
+                  onChange: (value) => updateParams({ fulfilment: value, page: 1 }),
+                  placeholder: 'كل حالات التجهيز',
+                  options: FULFILMENT_FILTER_OPTIONS,
+                },
+              ]
+        }
+        moreFilters={
+          view === 'kanban'
+            ? []
+            : [
+                {
+                  id: 'paymentMethod',
+                  value: paymentMethod ?? 'all',
+                  onChange: (value) => updateParams({ paymentMethod: value, page: 1 }),
+                  placeholder: 'كل طرق الدفع',
+                  options: [...PAYMENT_METHOD_FILTER_OPTIONS],
+                },
+                {
+                  id: 'source',
+                  value: source ?? 'all',
+                  onChange: (value) => updateParams({ source: value, page: 1 }),
+                  placeholder: 'كل المصادر',
+                  options: [...SOURCE_FILTER_OPTIONS],
+                },
+                {
+                  id: 'city',
+                  value: cityFilter,
+                  onChange: (value) => updateParams({ city: value, page: 1 }),
+                  placeholder: 'كل المدن',
+                  options: cityOptions,
                 },
               ]
         }
       />
     ),
-    [searchInput, status, view],
+    [
+      searchInput,
+      status,
+      paymentStatus,
+      paymentMethod,
+      fulfilment,
+      source,
+      cityFilter,
+      cityOptions,
+      view,
+    ],
   );
 
   const columns: ColumnDef<Order>[] = [

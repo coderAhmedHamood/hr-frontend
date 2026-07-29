@@ -44,6 +44,15 @@
     "badgeWholesale": "جملة",
     "sellingFast": "بتخلّص بسرعة"
   },
+  "reviews": {
+    "title": "التقييمات والمراجعات",
+    "seeReviews": "المراجعات",
+    "outOf5": "من 5",
+    "basedOn": "بناءً على {count} تقييم",
+    "verifiedPurchase": "عملية شراء موثّقة",
+    "noReviews": "لا توجد مراجعات بعد لهذا المنتج.",
+    "starsCount": "{stars} نجوم"
+  },
   "offers": {
     "title": "العروض",
     "description": "منتجات مخفّضة وعروض محدودة — وفّر على مشترياتك اليومية."
@@ -58,6 +67,7 @@
     "noResults": "لا توجد منتجات مطابقة.",
     "addToCart": "أضف إلى السلة",
     "addedToCart": "تمت الإضافة إلى السلة",
+    "buyNow": "اشترِ الآن",
     "variantUnavailable": "اختر تركيبة متاحة لهذا المنتج.",
     "cartComingSoon": "سيتم تفعيل السلة قريبًا",
     "sku": "SKU",

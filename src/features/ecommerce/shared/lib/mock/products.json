@@ -68,7 +68,185 @@
     "createdAt": "2026-03-02T08:00:00.000Z",
     "updatedAt": "2026-03-02T08:00:00.000Z",
     "archivedAt": null,
-    "compareAtPrice": { "amount": 95.0, "currency": "YER" }
+    "compareAtPrice": { "amount": 95.0, "currency": "YER" },
+    "rating": 4.6,
+    "reviewCount": 312,
+    "attributes": [
+      {
+        "id": "attr-size",
+        "nameAr": "الحجم",
+        "displayType": "radio",
+        "createVariant": "always",
+        "values": [
+          {
+            "id": "val-size-50",
+            "nameAr": "50 مل",
+            "description": "الحجم المثالي للاستخدام اليومي — يدوم حتى 6 أسابيع من الاستخدام المنتظم.",
+            "images": [
+              {
+                "id": "m2-size-50-1",
+                "url": "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=600&q=80",
+                "alt": "كريم نيوتروجينا 50 مل",
+                "type": "image",
+                "position": 0,
+                "isPrimary": true
+              },
+              {
+                "id": "m2-size-50-2",
+                "url": "https://images.unsplash.com/photo-1611930022073-b7a4ba5fcccd?w=600&q=80",
+                "alt": "كريم نيوتروجينا 50 مل — العبوة",
+                "type": "image",
+                "position": 1,
+                "isPrimary": false
+              }
+            ]
+          },
+          {
+            "id": "val-size-100",
+            "nameAr": "100 مل",
+            "description": "الحجم الاقتصادي العائلي — وفّر أكثر مع الاستخدام المكثف اليومي.",
+            "images": [
+              {
+                "id": "m2-size-100-1",
+                "url": "https://images.unsplash.com/photo-1571781926291-c477ebfd024b?w=600&q=80",
+                "alt": "كريم نيوتروجينا 100 مل",
+                "type": "image",
+                "position": 0,
+                "isPrimary": true
+              },
+              {
+                "id": "m2-size-100-2",
+                "url": "https://images.unsplash.com/photo-1598440947619-2c35bc9430c3?w=600&q=80",
+                "alt": "كريم نيوتروجينا 100 مل — العبوة",
+                "type": "image",
+                "position": 1,
+                "isPrimary": false
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "attr-formula",
+        "nameAr": "التركيبة",
+        "displayType": "radio",
+        "createVariant": "always",
+        "values": [
+          {
+            "id": "val-formula-gel",
+            "nameAr": "هلامي — للبشرة الدهنية",
+            "description": "قوام هلامي خفيف يمتص بسرعة دون لمعان، مثالي للبشرة الدهنية والمختلطة.",
+            "images": [
+              {
+                "id": "m2-gel-1",
+                "url": "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=600&q=80",
+                "alt": "قوام هلامي خفيف",
+                "type": "image",
+                "position": 0,
+                "isPrimary": true
+              },
+              {
+                "id": "m2-gel-2",
+                "url": "https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b?w=600&q=80",
+                "alt": "قوام هلامي على الجلد",
+                "type": "image",
+                "position": 1,
+                "isPrimary": false
+              }
+            ]
+          },
+          {
+            "id": "val-formula-cream",
+            "nameAr": "كريمي — للبشرة الجافة",
+            "description": "قوام كريمي غني يمنح ترطيبًا مكثفًا ويعزز حاجز البشرة الجافة.",
+            "images": [
+              {
+                "id": "m2-cream-1",
+                "url": "https://images.unsplash.com/photo-1585232351009-aa87416fca90?w=600&q=80",
+                "alt": "قوام كريمي غني",
+                "type": "image",
+                "position": 0,
+                "isPrimary": true
+              },
+              {
+                "id": "m2-cream-2",
+                "url": "https://images.unsplash.com/photo-1601049676869-702ea24cfd58?w=600&q=80",
+                "alt": "قوام كريمي على الجلد",
+                "type": "image",
+                "position": 1,
+                "isPrimary": false
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "variants": [
+      {
+        "id": "var-m2-50-gel",
+        "combinationKey": "val-formula-gel|val-size-50",
+        "sku": "SKN-002-50-GEL",
+        "nameAr": "كريم نيوتروجينا 50 مل — هلامي",
+        "attributeValueIds": ["val-size-50", "val-formula-gel"],
+        "attributeLabels": [
+          { "attributeNameAr": "الحجم", "valueNameAr": "50 مل" },
+          { "attributeNameAr": "التركيبة", "valueNameAr": "هلامي — للبشرة الدهنية" }
+        ],
+        "salePrice": { "amount": 79.0, "currency": "YER" },
+        "costPrice": { "amount": 50.0, "currency": "YER" },
+        "quantity": 22,
+        "stockStatus": "in_stock",
+        "isActive": true
+      },
+      {
+        "id": "var-m2-50-cream",
+        "combinationKey": "val-formula-cream|val-size-50",
+        "sku": "SKN-002-50-CRM",
+        "nameAr": "كريم نيوتروجينا 50 مل — كريمي",
+        "attributeValueIds": ["val-size-50", "val-formula-cream"],
+        "attributeLabels": [
+          { "attributeNameAr": "الحجم", "valueNameAr": "50 مل" },
+          { "attributeNameAr": "التركيبة", "valueNameAr": "كريمي — للبشرة الجافة" }
+        ],
+        "salePrice": { "amount": 79.0, "currency": "YER" },
+        "costPrice": { "amount": 50.0, "currency": "YER" },
+        "quantity": 18,
+        "stockStatus": "in_stock",
+        "isActive": true
+      },
+      {
+        "id": "var-m2-100-gel",
+        "combinationKey": "val-formula-gel|val-size-100",
+        "sku": "SKN-002-100-GEL",
+        "nameAr": "كريم نيوتروجينا 100 مل — هلامي",
+        "attributeValueIds": ["val-size-100", "val-formula-gel"],
+        "attributeLabels": [
+          { "attributeNameAr": "الحجم", "valueNameAr": "100 مل" },
+          { "attributeNameAr": "التركيبة", "valueNameAr": "هلامي — للبشرة الدهنية" }
+        ],
+        "salePrice": { "amount": 139.0, "currency": "YER" },
+        "costPrice": { "amount": 90.0, "currency": "YER" },
+        "quantity": 0,
+        "stockStatus": "out_of_stock",
+        "isActive": true
+      },
+      {
+        "id": "var-m2-100-cream",
+        "combinationKey": "val-formula-cream|val-size-100",
+        "sku": "SKN-002-100-CRM",
+        "nameAr": "كريم نيوتروجينا 100 مل — كريمي",
+        "attributeValueIds": ["val-size-100", "val-formula-cream"],
+        "attributeLabels": [
+          { "attributeNameAr": "الحجم", "valueNameAr": "100 مل" },
+          { "attributeNameAr": "التركيبة", "valueNameAr": "كريمي — للبشرة الجافة" }
+        ],
+        "salePrice": { "amount": 139.0, "currency": "YER" },
+        "costPrice": { "amount": 90.0, "currency": "YER" },
+        "quantity": 15,
+        "stockStatus": "in_stock",
+        "isActive": true
+      }
+    ]
   },
   {
     "id": "prod-3",

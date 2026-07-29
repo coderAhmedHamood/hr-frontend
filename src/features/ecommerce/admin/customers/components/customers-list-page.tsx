@@ -10,6 +10,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCustomers } from '@/features/ecommerce/admin/customers/hooks/use-customers';
 import { useOrders } from '@/features/ecommerce/admin/orders/hooks/use-orders';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
+import { getCompanyConfigMock } from '@/features/ecommerce/storefront/lib/mock/company-configs';
 import { formatPrice } from '@/features/ecommerce/shared/utils/format-price';
 import type { Customer } from '@/features/ecommerce/domain/types/customer';
 import type { Order, OrderStatus } from '@/features/ecommerce/domain/types/order';
@@ -187,14 +188,28 @@ export function CustomersListPage() {
   const searchParams = useSearchParams();
 
   const search = searchParams.get('q') ?? '';
+  const statusFilter = searchParams.get('status') ?? 'all';
+  const sourceFilter = searchParams.get('source') ?? 'all';
+  const cityFilter = searchParams.get('city') ?? 'all';
   const page = Math.max(1, Number(searchParams.get('page')) || 1);
   const pageSize = Number(searchParams.get('pageSize')) || DEFAULT_PAGE_SIZE;
   const selectedCustomerId = searchParams.get('customer') ?? '';
+
+  const cityOptions = React.useMemo(() => {
+    const cities = getCompanyConfigMock(companyId)?.checkout?.cities ?? [];
+    return [
+      { value: 'all', label: 'كل المدن' },
+      ...cities.map((city) => ({ value: city, label: city })),
+    ];
+  }, [companyId]);
 
   const [searchInput, setSearchInput] = React.useState(search);
 
   function updateParams(next: {
     q?: string;
+    status?: string;
+    source?: string;
+    city?: string;
     page?: number;
     pageSize?: number;
     customer?: string | null;
@@ -203,6 +218,18 @@ export function CustomersListPage() {
     if (next.q !== undefined) {
       if (next.q) params.set('q', next.q);
       else params.delete('q');
+    }
+    if (next.status !== undefined) {
+      if (next.status && next.status !== 'all') params.set('status', next.status);
+      else params.delete('status');
+    }
+    if (next.source !== undefined) {
+      if (next.source && next.source !== 'all') params.set('source', next.source);
+      else params.delete('source');
+    }
+    if (next.city !== undefined) {
+      if (next.city && next.city !== 'all') params.set('city', next.city);
+      else params.delete('city');
     }
     if (next.page !== undefined) {
       if (next.page > 1) params.set('page', String(next.page));
@@ -237,6 +264,12 @@ export function CustomersListPage() {
   const { data, isLoading, isError, refetch } = useCustomers({
     companyId,
     search: search || undefined,
+    isActive: statusFilter === 'active' ? true : statusFilter === 'inactive' ? false : undefined,
+    source:
+      sourceFilter === 'storefront' || sourceFilter === 'seed'
+        ? sourceFilter
+        : undefined,
+    city: cityFilter !== 'all' ? cityFilter : undefined,
     page,
     limit: pageSize,
   });
@@ -278,9 +311,42 @@ export function CustomersListPage() {
             placeholder="ابحث بالاسم أو الهاتف أو المدينة…"
           />
         }
+        inlineSelects={[
+          {
+            id: 'status',
+            value: statusFilter,
+            onChange: (value) => updateParams({ status: value, page: 1 }),
+            placeholder: 'كل الحالات',
+            options: [
+              { value: 'all', label: 'كل الحالات' },
+              { value: 'active', label: 'نشط' },
+              { value: 'inactive', label: 'غير نشط' },
+            ],
+          },
+          {
+            id: 'source',
+            value: sourceFilter,
+            onChange: (value) => updateParams({ source: value, page: 1 }),
+            placeholder: 'كل المصادر',
+            options: [
+              { value: 'all', label: 'كل المصادر' },
+              { value: 'storefront', label: 'المتجر' },
+              { value: 'seed', label: 'يدوي / تجريبي' },
+            ],
+          },
+        ]}
+        moreFilters={[
+          {
+            id: 'city',
+            value: cityFilter,
+            onChange: (value) => updateParams({ city: value, page: 1 }),
+            placeholder: 'كل المدن',
+            options: cityOptions,
+          },
+        ]}
       />
     ),
-    [searchInput],
+    [searchInput, statusFilter, sourceFilter, cityFilter, cityOptions],
   );
 
   const columns: ColumnDef<Customer>[] = [

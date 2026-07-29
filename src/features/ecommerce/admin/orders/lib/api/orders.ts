@@ -76,6 +76,14 @@ async function persistOrder(order: Order | null): Promise<Order | null> {
   return order;
 }
 
+function orderFulfilmentState(order: Order): 'fulfilled' | 'partial' | 'unfulfilled' {
+  if (order.items.length === 0) return 'unfulfilled';
+  const shippedCount = order.items.filter((line) => line.shipStatus === 'shipped').length;
+  if (shippedCount === order.items.length) return 'fulfilled';
+  if (shippedCount === 0) return 'unfulfilled';
+  return 'partial';
+}
+
 export const ordersApi = {
   async getAll(query: OrderListQuery): Promise<PaginatedResult<Order>> {
     await hydrateLiveOrders(query.companyId);
@@ -84,6 +92,16 @@ export const ordersApi = {
       (item, q) => {
         if (q.status && item.status !== q.status) return false;
         if (q.customerId && item.customerId !== q.customerId) return false;
+        if (q.paymentStatus && (item.paymentStatus ?? 'pending') !== q.paymentStatus) return false;
+        if (q.paymentMethod && (item.paymentMethod ?? 'cash_on_delivery') !== q.paymentMethod) {
+          return false;
+        }
+        if (q.source && (item.source ?? 'seed') !== q.source) return false;
+        if (q.city && (item.city ?? '') !== q.city) return false;
+        if (q.fulfilment) {
+          const fulfilment = orderFulfilmentState(item);
+          if (fulfilment !== q.fulfilment) return false;
+        }
         if (q.search) {
           const search = q.search.toLowerCase();
           return (

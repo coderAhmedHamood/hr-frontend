@@ -30,12 +30,21 @@ export type StorefrontProduct = {
   tags: string[];
   metaTitle: string;
   metaDescription: string;
+  rating: number | null;
+  reviewCount: number;
   /** Attribute lines for variant pickers (when product has variants). */
   attributes: Array<{
     id: string;
     nameAr: string;
     displayType: string;
-    values: Array<{ id: string; nameAr: string; colorHex?: string; imageUrl?: string }>;
+    values: Array<{
+      id: string;
+      nameAr: string;
+      colorHex?: string;
+      imageUrl?: string;
+      images?: MediaItem[];
+      description?: string;
+    }>;
   }>;
   variants: Array<{
     id: string;
