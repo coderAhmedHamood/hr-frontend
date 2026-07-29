@@ -63,6 +63,19 @@ type ProductDto = {
   posAvailable?: boolean;
   saleOk?: boolean;
   purchaseOk?: boolean;
+  isNewProduct?: boolean;
+  newUntil?: string | null;
+  isTodayDeal?: boolean;
+  dealDays?: string | number | null;
+  dealUntil?: string | null;
+  isWholesale?: boolean;
+  wholesalePriceAmount?: string | number | null;
+  isDiscounted?: boolean;
+  discountPercent?: string | number | null;
+  discountUntil?: string | null;
+  isNewProductActive?: boolean;
+  isTodayDealActive?: boolean;
+  isDiscountActive?: boolean;
   tags?: string[] | null;
   seoMetaTitle?: string | null;
   seoMetaDescription?: string | null;
@@ -294,6 +307,22 @@ function mapFullProduct(dto: ProductFullDto): Product {
     posAvailable: dto.posAvailable,
     saleOk: dto.saleOk,
     purchaseOk: dto.purchaseOk,
+    isNewProduct: Boolean(dto.isNewProduct),
+    newUntil: dto.newUntil ?? null,
+    isTodayDeal: Boolean(dto.isTodayDeal),
+    dealDays: toOptionalNumber(dto.dealDays) ?? null,
+    dealUntil: dto.dealUntil ?? null,
+    isWholesale: Boolean(dto.isWholesale),
+    wholesalePrice: (() => {
+      const amount = toOptionalNumber(dto.wholesalePriceAmount);
+      return amount !== undefined ? { amount, currency } : undefined;
+    })(),
+    isDiscounted: Boolean(dto.isDiscounted),
+    discountPercent: toOptionalNumber(dto.discountPercent) ?? null,
+    discountUntil: dto.discountUntil ?? null,
+    isNewProductActive: Boolean(dto.isNewProductActive),
+    isTodayDealActive: Boolean(dto.isTodayDealActive),
+    isDiscountActive: Boolean(dto.isDiscountActive),
     attributes: mapAttributes(dto.attributes),
     variants: mapVariants(dto.variants),
     uomLines: mapUomLines(dto.uomLines),
@@ -346,6 +375,36 @@ function toHeaderBody(input: CreateProductInput | UpdateProductInput, mode: 'cre
   if (input.posAvailable !== undefined) body.posAvailable = input.posAvailable;
   if (input.saleOk !== undefined) body.saleOk = input.saleOk;
   if (input.purchaseOk !== undefined) body.purchaseOk = input.purchaseOk;
+  if (input.isNewProduct !== undefined) {
+    body.isNewProduct = input.isNewProduct;
+    body.newUntil = input.isNewProduct ? (input.newUntil ?? null) : null;
+  } else if (input.newUntil !== undefined) {
+    body.newUntil = input.newUntil ?? null;
+  }
+  if (input.isTodayDeal !== undefined) {
+    body.isTodayDeal = input.isTodayDeal;
+    body.dealDays = input.isTodayDeal ? (input.dealDays ?? null) : null;
+    body.dealUntil = input.isTodayDeal ? (input.dealUntil ?? null) : null;
+  } else {
+    if (input.dealDays !== undefined) body.dealDays = input.dealDays ?? null;
+    if (input.dealUntil !== undefined) body.dealUntil = input.dealUntil ?? null;
+  }
+  if (input.isWholesale !== undefined) {
+    body.isWholesale = input.isWholesale;
+    body.wholesalePriceAmount = input.isWholesale
+      ? (input.wholesalePrice?.amount ?? null)
+      : null;
+  } else if (input.wholesalePrice !== undefined) {
+    body.wholesalePriceAmount = input.wholesalePrice?.amount ?? null;
+  }
+  if (input.isDiscounted !== undefined) {
+    body.isDiscounted = input.isDiscounted;
+    body.discountPercent = input.isDiscounted ? (input.discountPercent ?? null) : null;
+    body.discountUntil = input.isDiscounted ? (input.discountUntil ?? null) : null;
+  } else {
+    if (input.discountPercent !== undefined) body.discountPercent = input.discountPercent ?? null;
+    if (input.discountUntil !== undefined) body.discountUntil = input.discountUntil ?? null;
+  }
   if (input.tags !== undefined) body.tags = input.tags ?? null;
   if (input.seo !== undefined) {
     body.seoMetaTitle = input.seo.metaTitle ?? null;
@@ -505,6 +564,10 @@ export const productsApi: AdminProductsPort = {
         tags: query.tag,
         priceAmountMin: query.minPrice,
         priceAmountMax: query.maxPrice,
+        isNewProduct: query.isNewProduct === true ? true : undefined,
+        isTodayDeal: query.isTodayDeal === true ? true : undefined,
+        isWholesale: query.isWholesale === true ? true : undefined,
+        isDiscounted: query.isDiscounted === true ? true : undefined,
         page: query.page ?? 1,
         limit: query.limit ?? 200,
         archiveScope: query.status === 'archived' ? 'archived' : 'active',

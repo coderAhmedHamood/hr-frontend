@@ -28,6 +28,20 @@ function optionalPositive(value: number | undefined): number | undefined {
   return value;
 }
 
+/** ISO datetime → YYYY-MM-DD for date pickers. */
+function isoToYmd(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const match = /^(\d{4}-\d{2}-\d{2})/.exec(iso);
+  return match?.[1] ?? '';
+}
+
+/** YYYY-MM-DD → ISO midnight UTC, or null when empty (no expiry). */
+function ymdToIso(ymd: string | null | undefined): string | null {
+  const trimmed = ymd?.trim();
+  if (!trimmed) return null;
+  return `${trimmed}T00:00:00.000Z`;
+}
+
 /** Select "none" / empty → null so the API never receives "" or placeholders. */
 function optionalRelationId(value: string | null | undefined): string | null {
   if (value == null) return null;
@@ -118,6 +132,16 @@ export function productToFormValues(product: Product): ProductFormInput {
     posAvailable: product.posAvailable ?? false,
     saleOk: product.saleOk ?? true,
     purchaseOk: product.purchaseOk ?? true,
+    isNewProduct: product.isNewProduct ?? false,
+    newUntil: isoToYmd(product.newUntil),
+    isTodayDeal: product.isTodayDeal ?? false,
+    dealDays: product.dealDays ?? undefined,
+    dealUntil: isoToYmd(product.dealUntil),
+    isWholesale: product.isWholesale ?? false,
+    wholesalePriceAmount: product.wholesalePrice?.amount,
+    isDiscounted: product.isDiscounted ?? false,
+    discountPercent: product.discountPercent ?? undefined,
+    discountUntil: isoToYmd(product.discountUntil),
     attributes: (product.attributes ?? []).map((attribute) => ({
       ...attribute,
       values: attribute.values.map((value) => ({
@@ -229,6 +253,20 @@ export function formValuesToCreateInput(
     posAvailable: values.posAvailable,
     saleOk: values.saleOk,
     purchaseOk: values.purchaseOk,
+    isNewProduct: values.isNewProduct,
+    newUntil: values.isNewProduct ? ymdToIso(values.newUntil) : null,
+    isTodayDeal: values.isTodayDeal,
+    dealDays: values.isTodayDeal && values.dealDays != null ? values.dealDays : null,
+    dealUntil: values.isTodayDeal ? ymdToIso(values.dealUntil) : null,
+    isWholesale: values.isWholesale,
+    wholesalePrice:
+      values.isWholesale && values.wholesalePriceAmount != null
+        ? { amount: values.wholesalePriceAmount, currency }
+        : undefined,
+    isDiscounted: values.isDiscounted,
+    discountPercent:
+      values.isDiscounted && values.discountPercent != null ? values.discountPercent : null,
+    discountUntil: values.isDiscounted ? ymdToIso(values.discountUntil) : null,
     attributes: values.attributes,
     variants: synced,
     uomLines: values.uomLines.map((line) => ({

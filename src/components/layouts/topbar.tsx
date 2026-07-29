@@ -344,7 +344,8 @@ function buildContactsNavConfig(): NavItem[] {
       label: contactsAdminOverviewItem.labelAr,
       href: contactsAdminOverviewItem.href,
       icon: contactsAdminOverviewItem.icon,
-      isActive: (pathname) => pathname === '/contacts',
+      isActive: (pathname) =>
+        pathname === '/contacts' || pathname === '/contacts/list' || pathname.startsWith('/contacts/list'),
     },
   ];
 

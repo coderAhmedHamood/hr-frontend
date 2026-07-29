@@ -72,7 +72,10 @@ const nextConfig = {
       { source: '/hr', destination: '/hr/organization/employees', permanent: false },
       { source: '/dashboard', destination: '/', permanent: true },
       { source: '/hr/dashboard', destination: '/hr/organization/employees', permanent: true },
-      // `/contacts` is the standalone Partners app — do not redirect to System.
+      // Partners app lives under `/contacts/*`. Temporary (not permanent) so browsers can recover
+      // from any previously cached permanent redirect that pointed `/contacts` at System.
+      { source: '/contacts', destination: '/contacts/list', permanent: false },
+      // Legacy HR / System “contacts” = users directory (not Partners).
       { source: '/hr/contacts', destination: '/system/organization/users', permanent: true },
       { source: '/hr/organization/contacts', destination: '/system/organization/users', permanent: true },
       { source: '/system/organization/contacts', destination: '/system/organization/users', permanent: true },

@@ -132,6 +132,37 @@ export const productFormSchema = z
     posAvailable: z.boolean(),
     saleOk: z.boolean(),
     purchaseOk: z.boolean(),
+    isNewProduct: z.boolean(),
+    newUntil: z.string().optional(),
+    isTodayDeal: z.boolean(),
+    dealDays: z.preprocess(
+      (value) => {
+        if (value === '' || value === null || value === undefined) return undefined;
+        const n = Number(value);
+        return Number.isFinite(n) ? n : undefined;
+      },
+      z.number().int().min(1).optional(),
+    ),
+    dealUntil: z.string().optional(),
+    isWholesale: z.boolean(),
+    wholesalePriceAmount: z.preprocess(
+      (value) => {
+        if (value === '' || value === null || value === undefined) return undefined;
+        const n = Number(value);
+        return Number.isFinite(n) ? n : undefined;
+      },
+      z.number().min(0).optional(),
+    ),
+    isDiscounted: z.boolean(),
+    discountPercent: z.preprocess(
+      (value) => {
+        if (value === '' || value === null || value === undefined) return undefined;
+        const n = Number(value);
+        return Number.isFinite(n) ? n : undefined;
+      },
+      z.number().min(0).max(100).optional(),
+    ),
+    discountUntil: z.string().optional(),
     attributes: z.array(attributeSchema),
     variants: z.array(variantSchema),
     uomLines: z.array(uomLineSchema).min(1, 'أضف وحدة واحدة على الأقل'),
@@ -144,6 +175,26 @@ export const productFormSchema = z
         message: 'يجب اختيار وحدة مرجعية واحدة فقط.',
         path: ['uomLines'],
       });
+    }
+    if (values.isWholesale) {
+      const wholesale = Number(values.wholesalePriceAmount);
+      if (!Number.isFinite(wholesale) || wholesale < 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'أدخل سعر الجملة عند تفعيل أسعار الجملة.',
+          path: ['wholesalePriceAmount'],
+        });
+      }
+    }
+    if (values.isDiscounted) {
+      const percent = Number(values.discountPercent);
+      if (!Number.isFinite(percent) || percent < 0 || percent > 100) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'أدخل نسبة الخصم بين 0 و 100.',
+          path: ['discountPercent'],
+        });
+      }
     }
   });
 
@@ -200,6 +251,16 @@ export const PRODUCT_FORM_DEFAULT_VALUES: ProductFormInput = {
   posAvailable: false,
   saleOk: true,
   purchaseOk: true,
+  isNewProduct: false,
+  newUntil: '',
+  isTodayDeal: false,
+  dealDays: undefined,
+  dealUntil: '',
+  isWholesale: false,
+  wholesalePriceAmount: undefined,
+  isDiscounted: false,
+  discountPercent: undefined,
+  discountUntil: '',
   attributes: [],
   variants: [],
   uomLines: createDefaultUomLines(),

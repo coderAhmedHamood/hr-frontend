@@ -33,7 +33,18 @@ import { Badge } from '@/components/ui/badge';
 import { DataTable, AppPagination, type ColumnDef } from '@/components/ui/data-table';
 import { DEFAULT_PAGE_SIZE } from '@/components/ui/paged-list';
 
-const FILTER_KEYS = ['categoryId', 'brandId', 'status', 'stockStatus', 'sort', 'sortDirection'] as const;
+const FILTER_KEYS = [
+  'categoryId',
+  'brandId',
+  'status',
+  'stockStatus',
+  'sort',
+  'sortDirection',
+  'isNewProduct',
+  'isTodayDeal',
+  'isWholesale',
+  'isDiscounted',
+] as const;
 
 const STATUS_BADGE_VARIANT: Record<ProductStatus, 'success' | 'subtle' | 'outline'> = {
   active: 'success',
@@ -72,6 +83,10 @@ export function ProductsListPage() {
     stockStatus: (searchParams.get('stockStatus') as ProductFilters['stockStatus']) ?? undefined,
     sort: (searchParams.get('sort') as ProductFilters['sort']) ?? undefined,
     sortDirection: (searchParams.get('sortDirection') as ProductFilters['sortDirection']) ?? undefined,
+    isNewProduct: searchParams.get('isNewProduct') === 'true' ? true : undefined,
+    isTodayDeal: searchParams.get('isTodayDeal') === 'true' ? true : undefined,
+    isWholesale: searchParams.get('isWholesale') === 'true' ? true : undefined,
+    isDiscounted: searchParams.get('isDiscounted') === 'true' ? true : undefined,
   };
 
   const [searchInput, setSearchInput] = React.useState(search);
@@ -93,7 +108,8 @@ export function ProductsListPage() {
     for (const key of FILTER_KEYS) {
       if (key in next) {
         const value = next[key];
-        if (value) params.set(key, value);
+        if (value === true) params.set(key, 'true');
+        else if (typeof value === 'string' && value) params.set(key, value);
         else params.delete(key);
       }
     }
@@ -213,6 +229,35 @@ export function ProductsListPage() {
         ]}
         moreFilters={[
           {
+            id: 'offer',
+            value:
+              filters.isNewProduct
+                ? 'isNewProduct'
+                : filters.isTodayDeal
+                  ? 'isTodayDeal'
+                  : filters.isWholesale
+                    ? 'isWholesale'
+                    : filters.isDiscounted
+                      ? 'isDiscounted'
+                      : 'all',
+            onChange: (value) =>
+              updateParams({
+                isNewProduct: value === 'isNewProduct' ? true : undefined,
+                isTodayDeal: value === 'isTodayDeal' ? true : undefined,
+                isWholesale: value === 'isWholesale' ? true : undefined,
+                isDiscounted: value === 'isDiscounted' ? true : undefined,
+                page: 1,
+              }),
+            placeholder: 'كل العروض',
+            options: [
+              { value: 'all', label: 'كل العروض' },
+              { value: 'isNewProduct', label: 'منتج حديث' },
+              { value: 'isTodayDeal', label: 'تخفيضات اليوم' },
+              { value: 'isWholesale', label: 'أسعار جملة' },
+              { value: 'isDiscounted', label: 'خصومات' },
+            ],
+          },
+          {
             id: 'sort',
             value: filters.sort ?? 'all',
             onChange: (value) =>
@@ -249,9 +294,25 @@ export function ProductsListPage() {
                 <Package className="h-4 w-4 text-muted-foreground" />
               )}
             </div>
-            <div className="flex flex-col">
+            <div className="flex flex-col gap-1">
               <span className="font-medium text-foreground">{product.nameAr}</span>
               <span className="text-xs text-muted-foreground">SKU: {product.sku}</span>
+              <div className="flex flex-wrap gap-1">
+                {product.isNewProductActive ? (
+                  <Badge variant="subtle">حديث</Badge>
+                ) : null}
+                {product.isTodayDealActive ? (
+                  <Badge variant="warning">تخفيض اليوم</Badge>
+                ) : null}
+                {product.isWholesale ? (
+                  <Badge variant="outline">جملة</Badge>
+                ) : null}
+                {product.isDiscountActive ? (
+                  <Badge variant="destructive">
+                    خصم{product.discountPercent != null ? ` ${product.discountPercent}%` : ''}
+                  </Badge>
+                ) : null}
+              </div>
             </div>
           </div>
         );
@@ -260,7 +321,16 @@ export function ProductsListPage() {
     {
       key: 'price',
       title: 'السعر',
-      render: (product) => <span className="font-medium tabular-nums">{formatPrice(product.price)}</span>,
+      render: (product) => (
+        <div className="flex flex-col gap-0.5">
+          <span className="font-medium tabular-nums">{formatPrice(product.price)}</span>
+          {product.isWholesale && product.wholesalePrice ? (
+            <span className="text-xs text-muted-foreground tabular-nums">
+              جملة: {formatPrice(product.wholesalePrice)}
+            </span>
+          ) : null}
+        </div>
+      ),
     },
     {
       key: 'quantity',

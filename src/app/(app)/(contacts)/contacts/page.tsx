@@ -1,5 +1,7 @@
-import { PartnersListPage } from '@/features/contacts/admin/partners/components/partners-list-page';
+import { redirect } from 'next/navigation';
+import { contactsAdminRoutes } from '@/features/contacts/admin/constants/routes';
 
-export default function Page() {
-  return <PartnersListPage />;
+/** Bare `/contacts` → list entry (avoids relying on a poisoned browser 308 cache). */
+export default function ContactsIndexRedirect() {
+  redirect(contactsAdminRoutes.overview);
 }

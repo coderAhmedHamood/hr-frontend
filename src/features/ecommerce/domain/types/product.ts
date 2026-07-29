@@ -134,6 +134,21 @@ export type Product = TenantScoped &
     saleOk?: boolean;
     /** Can be purchased / replenished from vendors. */
     purchaseOk?: boolean;
+    /** Offer flags — optional end dates mean “no expiry”. */
+    isNewProduct?: boolean;
+    newUntil?: string | null;
+    isTodayDeal?: boolean;
+    dealDays?: number | null;
+    dealUntil?: string | null;
+    isWholesale?: boolean;
+    wholesalePrice?: Money;
+    isDiscounted?: boolean;
+    discountPercent?: number | null;
+    discountUntil?: string | null;
+    /** Computed by backend for display/filter “active now”. */
+    isNewProductActive?: boolean;
+    isTodayDealActive?: boolean;
+    isDiscountActive?: boolean;
     attributes?: ProductAttribute[];
     /** Generated sellable variants — empty when product has no variant-creating attributes. */
     variants?: ProductVariant[];
@@ -153,6 +168,11 @@ export type ProductListQuery = {
   stockStatus?: StockStatus;
   minPrice?: number;
   maxPrice?: number;
+  /** Active-now offer filters (`true` = flag on and not expired). */
+  isNewProduct?: boolean;
+  isTodayDeal?: boolean;
+  isWholesale?: boolean;
+  isDiscounted?: boolean;
   sort?: 'name' | 'price' | 'stock' | 'createdAt' | 'updatedAt';
   sortDirection?: 'asc' | 'desc';
   page?: number;
