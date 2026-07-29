@@ -8,7 +8,7 @@ import {
   type UseFormRegister,
   type UseFormSetValue,
 } from 'react-hook-form';
-import type { ProductFormInput } from '@/features/ecommerce/admin/products/schemas/product-schema';
+import type { ProductFormInput, ProductFormValues } from '@/features/ecommerce/admin/products/schemas/product-schema';
 import {
   ProductRelatedDocsBar,
   type ProductRelatedDocChip,
@@ -18,7 +18,7 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/shared/utils';
 
 type Props = {
-  control: Control<ProductFormInput>;
+  control: Control<ProductFormInput, unknown, ProductFormValues>;
   register: UseFormRegister<ProductFormInput>;
   setValue: UseFormSetValue<ProductFormInput>;
   nameError?: string;

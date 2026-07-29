@@ -2,7 +2,8 @@
 
 /**
  * SlidePanel — right-side slide-over panel built on Radix Dialog.
- * RTL-aware: slides in from the left in RTL contexts.
+ * This app is RTL-first (admin routes default to dir="rtl"), so the panel
+ * is anchored to the physical right edge and slides in from the right.
  */
 
 import * as React from 'react';
@@ -26,11 +27,14 @@ function SlidePanelOverlay({ className, ...props }: React.ComponentPropsWithoutR
   );
 }
 
-interface SlidePanelContentProps extends React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> {
-  size?: 'sm' | 'md' | 'lg' | 'xl';
-  title?: string;
-  description?: string;
+interface SlidePanelContentProps
+  extends Omit<React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>, 'title'> {
+  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl';
+  title?: React.ReactNode;
+  description?: React.ReactNode;
   footer?: React.ReactNode;
+  /** Override the default body padding — e.g. `p-0` when children manage their own layout/scroll. */
+  bodyClassName?: string;
 }
 
 const SIZE_CLASS = {
@@ -38,6 +42,10 @@ const SIZE_CLASS = {
   md: 'max-w-md',
   lg: 'max-w-lg',
   xl: 'max-w-2xl',
+  '2xl': 'max-w-3xl',
+  '3xl': 'max-w-4xl',
+  '4xl': 'max-w-5xl',
+  '5xl': 'max-w-6xl',
 };
 
 export function SlidePanelContent({
@@ -47,6 +55,7 @@ export function SlidePanelContent({
   title,
   description,
   footer,
+  bodyClassName,
   ...props
 }: SlidePanelContentProps) {
   return (
@@ -54,9 +63,9 @@ export function SlidePanelContent({
       <SlidePanelOverlay />
       <DialogPrimitive.Content
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex w-full flex-col bg-card shadow-luxe',
-          'border-r border-border',
-          'radix-slide-left duration-300 ease-in-out',
+          'fixed inset-y-0 right-0 z-50 flex w-full flex-col bg-card shadow-luxe',
+          'border-l border-border',
+          'radix-slide-right duration-300 ease-in-out',
           SIZE_CLASS[size],
           className,
         )}
@@ -84,7 +93,7 @@ export function SlidePanelContent({
         )}
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto px-6 py-5">
+        <div className={cn('flex-1 overflow-y-auto px-6 py-5', bodyClassName)}>
           {children}
         </div>
 

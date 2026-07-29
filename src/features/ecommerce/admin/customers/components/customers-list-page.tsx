@@ -5,7 +5,7 @@ import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-con
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
 import * as React from 'react';
-import { Eye, MapPin, Package, Store, User, Users } from 'lucide-react';
+import { Eye, MapPin, Package, Store, User } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCustomers } from '@/features/ecommerce/admin/customers/hooks/use-customers';
 import { useOrders } from '@/features/ecommerce/admin/orders/hooks/use-orders';
@@ -17,11 +17,19 @@ import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ListFilterBar } from '@/components/ui/list-filter-bar';
 import { EntityFilterSearchField } from '@/components/ui/entity-filter-search-field';
-import { StatTile, StatTileGrid } from '@/components/ui/stat-tile';
 import { DataTable, AppPagination, type ColumnDef } from '@/components/ui/data-table';
 import { DEFAULT_PAGE_SIZE } from '@/components/ui/paged-list';
-import { SlidePanel, SlidePanelContent } from '@/components/ui/slide-panel';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+  dialogShellBodyClass,
+  dialogShellContentClass,
+  dialogShellHeaderClass,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/shared/utils';
 
 const ORDER_STATUS_LABELS_AR: Record<OrderStatus, string> = {
   pending: 'قيد الانتظار',
@@ -74,8 +82,13 @@ function CustomerDetailPanel({
   const orders = ordersData?.items ?? [];
 
   return (
-    <SlidePanel open={open} onOpenChange={onOpenChange}>
-      <SlidePanelContent size="xl" title={customer?.nameAr} description={customer?.email}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className={cn(dialogShellContentClass, 'max-w-2xl sm:max-w-2xl')}>
+        <div className={dialogShellHeaderClass}>
+          <DialogTitle>{customer?.nameAr}</DialogTitle>
+          {customer ? <DialogDescription>{customer.email}</DialogDescription> : null}
+        </div>
+        <div className={dialogShellBodyClass}>
         {customer ? (
           <div className="space-y-5">
             <div className="flex flex-wrap items-center gap-2">
@@ -161,8 +174,9 @@ function CustomerDetailPanel({
             </div>
           </div>
         ) : null}
-      </SlidePanelContent>
-    </SlidePanel>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -248,9 +262,6 @@ export function CustomersListPage() {
 
   const items = data?.items ?? [];
   const selectedCustomer = items.find((customer) => customer.id === selectedCustomerId) ?? null;
-  const total = data?.pagination.total ?? 0;
-  const activeCount = items.filter((customer) => customer.isActive).length;
-  const storefrontCount = items.filter((customer) => customer.source === 'storefront').length;
 
   usePageHeaderActions(() => <FilterToggleButton />, []);
 
@@ -353,24 +364,6 @@ export function CustomersListPage() {
         descriptionAr="سجل عملاء المتجر — بيانات التواصل وملخص الطلبات والإنفاق لكل عميل."
         iconName="Users"
       />
-
-      <StatTileGrid className="sm:grid-cols-3">
-        <StatTile icon={Users} label="إجمالي العملاء" value={total} tone="primary" loading={isLoading} />
-        <StatTile
-          icon={User}
-          label="نشطون (هذه الصفحة)"
-          value={activeCount}
-          tone="success"
-          loading={isLoading}
-        />
-        <StatTile
-          icon={Store}
-          label="من المتجر (هذه الصفحة)"
-          value={storefrontCount}
-          tone="gold"
-          loading={isLoading}
-        />
-      </StatTileGrid>
 
       {isError ? <p className="text-sm text-destructive">تعذر تحميل العملاء.</p> : null}
 

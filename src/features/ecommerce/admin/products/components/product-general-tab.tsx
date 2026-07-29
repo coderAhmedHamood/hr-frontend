@@ -9,6 +9,7 @@ import {
   PRODUCT_TRACKING_OPTIONS,
   PRODUCT_TYPE_OPTIONS,
   type ProductFormInput,
+  type ProductFormValues,
 } from '@/features/ecommerce/admin/products/schemas/product-schema';
 import {
   ProductFormField,
@@ -26,7 +27,7 @@ import { cn } from '@/shared/utils';
 const NO_VALUE = '__none__';
 
 type Props = {
-  control: Control<ProductFormInput>;
+  control: Control<ProductFormInput, unknown, ProductFormValues>;
   errors: FieldErrors<ProductFormInput>;
   register: UseFormRegister<ProductFormInput>;
   categories: Category[] | undefined;

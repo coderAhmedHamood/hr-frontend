@@ -197,6 +197,15 @@
   animation: exit 0.3s ease forwards;
 }
 
+.radix-slide-right[data-state="open"] {
+  --_enter-tx: 100%;
+  animation: enter 0.3s ease forwards;
+}
+.radix-slide-right[data-state="closed"] {
+  --_exit-tx: 100%;
+  animation: exit 0.3s ease forwards;
+}
+
 @keyframes nav-dropdown-in {
   from { opacity: 0; transform: translateY(-8px) scale(0.97); }
   to   { opacity: 1; transform: translateY(0)   scale(1);    }

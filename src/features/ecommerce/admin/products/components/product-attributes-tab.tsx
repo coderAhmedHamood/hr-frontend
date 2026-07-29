@@ -5,7 +5,7 @@ import { GripVertical, Trash2 } from 'lucide-react';
 import { useFieldArray, useWatch, type Control, type FieldErrors, type UseFormRegister, type UseFormSetValue } from 'react-hook-form';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
 import { useCatalogAttributes } from '@/features/ecommerce/admin/attributes/hooks/use-catalog-attributes';
-import type { ProductFormInput } from '@/features/ecommerce/admin/products/schemas/product-schema';
+import type { ProductFormInput, ProductFormValues } from '@/features/ecommerce/admin/products/schemas/product-schema';
 import { ProductVariantsPanel } from '@/features/ecommerce/admin/products/components/product-variants-panel';
 import {
   normalizeAttributeValue,
@@ -26,7 +26,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { cn } from '@/shared/utils';
 
 type Props = {
-  control: Control<ProductFormInput>;
+  control: Control<ProductFormInput, unknown, ProductFormValues>;
   errors: FieldErrors<ProductFormInput>;
   register: UseFormRegister<ProductFormInput>;
   setValue: UseFormSetValue<ProductFormInput>;
