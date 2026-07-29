@@ -75,6 +75,9 @@ const nextConfig = {
       // Partners app lives under `/contacts/*`. Temporary (not permanent) so browsers can recover
       // from any previously cached permanent redirect that pointed `/contacts` at System.
       { source: '/contacts', destination: '/contacts/list', permanent: false },
+      // Store admin seed path → ecommerce admin shell (إدارة المتجر).
+      { source: '/store-admin', destination: '/overview', permanent: false },
+      { source: '/store-admin/:path*', destination: '/overview', permanent: false },
       // Legacy HR / System “contacts” = users directory (not Partners).
       { source: '/hr/contacts', destination: '/system/organization/users', permanent: true },
       { source: '/hr/organization/contacts', destination: '/system/organization/users', permanent: true },

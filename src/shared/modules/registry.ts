@@ -24,7 +24,7 @@ export const MODULE_REGISTRY: Record<ModuleId, ModuleDefinition> = {
   auth: { id: 'auth', labelAr: 'الدخول', installable: false },
   system: { id: 'system', labelAr: 'النظام', installable: false },
   hr: { id: 'hr', labelAr: 'الموارد البشرية', installable: true },
-  ecommerce: { id: 'ecommerce', labelAr: 'المتجر الإلكتروني', installable: true },
+  ecommerce: { id: 'ecommerce', labelAr: 'إدارة المتجر', installable: true },
   inventory: { id: 'inventory', labelAr: 'المخزون', installable: true },
   contacts: { id: 'contacts', labelAr: 'جهات الاتصال', installable: true },
 };
