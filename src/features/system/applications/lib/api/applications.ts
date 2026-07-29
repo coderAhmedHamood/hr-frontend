@@ -13,6 +13,8 @@ export type ApplicationResponseDto = {
   description: string | null;
   icon: string | null;
   routePath: string | null;
+  /** External URL (e.g. storefront). When set, launcher opens it instead of `routePath`. */
+  launchUrl?: string | null;
   sortOrder: number;
   isActive: boolean;
   status: string;
@@ -64,17 +66,19 @@ export function enrichLauncherApplications(
   const next = apps.map((app) => ({ ...app }));
   const codes = new Set(next.map((app) => normalizeAppCode(app.code)));
 
-  // Force Partners Master Data onto `/contacts` — never under `/system/...`.
+  // Normalize Partners Master Data onto `/contacts/list` — never under `/system/...`.
+  // Rewrite whenever the backend already granted the tile (do not depend on companyId timing).
   const contactsIdx = next.findIndex((app) => looksLikePartnersContactsApp(app));
-  if (contactsIdx >= 0 && isModuleEnabledFor('contacts', companyId)) {
+  if (contactsIdx >= 0) {
     const existing = next[contactsIdx]!;
     next[contactsIdx] = {
       ...existing,
       code: 'contacts',
       nameAr: MODULE_REGISTRY.contacts.labelAr,
       nameEn: existing.nameEn?.trim() || 'Contacts',
-      icon: existing.icon?.trim() || 'contact',
+      icon: existing.icon?.trim() || 'contacts',
       routePath: contactsAdminRoutes.overview,
+      launchUrl: null,
       isActive: true,
       status: existing.status || 'active',
     };
@@ -129,26 +133,51 @@ export function enrichLauncherApplications(
   return next.sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
-/** Where the app tile navigates — HR lands on employees list. */
+/** True when the app should open an absolute external URL (`launchUrl`). */
+export function resolveApplicationExternalUrl(app: ApplicationResponseDto): string | null {
+  const url = app.launchUrl?.trim();
+  if (!url) return null;
+  if (looksLikePartnersContactsApp(app)) return null;
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
+
+/** Where the app tile navigates inside this Next app (ignores external `launchUrl`). */
 export function resolveApplicationLaunchPath(app: ApplicationResponseDto): string {
   const code = normalizeAppCode(app.code);
   const base = app.routePath?.trim() ?? '';
 
-  // Standalone Contacts (Partners) — always top-level `/contacts`, never `/system/...`.
+  // Standalone Contacts (Partners) — `/contacts/list`, never `/system/...`.
   if (looksLikePartnersContactsApp(app)) {
     return contactsAdminRoutes.overview;
   }
 
   if (code === 'hr') return '/hr/organization/employees';
-  if (code === 'ecommerce') return ecommerceAdminRoutes.overview;
+  if (code === 'ecommerce' || code === 'store-admin') {
+    return base && base.startsWith('/') ? base : ecommerceAdminRoutes.overview;
+  }
   if (code === 'inventory') return inventoryAdminRoutes.overview;
   if (code === 'accounting') return '/accounting';
+  if (code === 'storefront') {
+    // Prefer launchUrl via resolveApplicationExternalUrl; internal fallback unused.
+    return base && base.startsWith('/') ? base : '/';
+  }
   if (code === 'system' && (!base || base === '/system' || isSystemUsersDirectoryPath(base))) {
     return resolveSystemAppLaunchPath();
   }
 
   // Mis-seeded path that pointed Partners at the old System users URL.
   if (isSystemUsersDirectoryPath(base) && /جهات الاتصال|contacts|partners/i.test(`${app.nameAr} ${app.nameEn}`)) {
+    return contactsAdminRoutes.overview;
+  }
+
+  // Backend may still seed `/contacts` — remapped entry avoids cached 308 poison.
+  if (base === '/contacts' || base === '/contacts/') {
     return contactsAdminRoutes.overview;
   }
 

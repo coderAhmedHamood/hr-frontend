@@ -8,6 +8,7 @@ import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import {
   applicationsApi,
   enrichLauncherApplications,
+  resolveApplicationExternalUrl,
   resolveApplicationLaunchPath,
   type ApplicationResponseDto,
 } from '@/features/system/applications/lib/api/applications';
@@ -27,35 +28,49 @@ function AppTile({
   index: number;
 }) {
   const Icon = resolveApplicationIcon(app);
-  const href = resolveApplicationLaunchPath(app);
+  const externalUrl = resolveApplicationExternalUrl(app);
+  const href = externalUrl ?? resolveApplicationLaunchPath(app);
   const tileClass = resolveApplicationTileClass(app, index);
   const surfaceAccent = resolveApplicationSurfaceAccent(index);
+  const isExternal = Boolean(externalUrl);
 
-  return (
-    <Link
-      href={href}
-      className="group flex w-[7.75rem] flex-col items-center gap-2.5 text-center outline-none focus-visible:rounded-xl focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:w-[8.75rem]"
+  const tileInner = (
+    <div
+      className={cn(
+        'flex w-full flex-col items-center gap-2.5 rounded-xl border border-border/70 bg-card/95 p-3.5 shadow-soft',
+        'transition-all duration-200 group-hover:-translate-y-0.5 group-hover:border-primary/25 group-hover:shadow-md',
+        surfaceAccent,
+      )}
     >
-      <div
+      <span
         className={cn(
-          'flex w-full flex-col items-center gap-2.5 rounded-xl border border-border/70 bg-card/95 p-3.5 shadow-soft',
-          'transition-all duration-200 group-hover:-translate-y-0.5 group-hover:border-primary/25 group-hover:shadow-md',
-          surfaceAccent,
+          'flex h-14 w-14 shrink-0 items-center justify-center rounded-xl transition-transform duration-200 group-hover:scale-105',
+          tileClass,
         )}
       >
-        <span
-          className={cn(
-            'flex h-14 w-14 shrink-0 items-center justify-center rounded-xl transition-transform duration-200 group-hover:scale-105',
-            tileClass,
-          )}
-        >
-          <Icon className="h-7 w-7" strokeWidth={1.75} />
-        </span>
+        <Icon className="h-7 w-7" strokeWidth={1.75} />
+      </span>
 
-        <h3 className="line-clamp-2 min-h-[2.5rem] text-sm font-bold leading-snug text-foreground">
-          {app.nameAr}
-        </h3>
-      </div>
+      <h3 className="line-clamp-2 min-h-[2.5rem] text-sm font-bold leading-snug text-foreground">
+        {app.nameAr}
+      </h3>
+    </div>
+  );
+
+  const className =
+    'group flex w-[7.75rem] flex-col items-center gap-2.5 text-center outline-none focus-visible:rounded-xl focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:w-[8.75rem]';
+
+  if (isExternal) {
+    return (
+      <a href={href} target="_blank" rel="noopener noreferrer" className={className}>
+        {tileInner}
+      </a>
+    );
+  }
+
+  return (
+    <Link href={href} className={className}>
+      {tileInner}
     </Link>
   );
 }
