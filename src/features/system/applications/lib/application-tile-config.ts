@@ -5,7 +5,9 @@ import {
   LayoutGrid,
   Package,
   Settings,
+  ShoppingBag,
   ShoppingCart,
+  Store,
   Users,
 } from 'lucide-react';
 import type { ApplicationResponseDto } from '@/features/system/applications/lib/api/applications';
@@ -16,8 +18,13 @@ const ICON_BY_KEY: Record<string, LucideIcon> = {
   settings: Settings,
   'layout-grid': LayoutGrid,
   'shopping-cart': ShoppingCart,
+  'store-admin': Store,
+  storefront: ShoppingBag,
+  store: Store,
   package: Package,
   contact: ContactRound,
+  contacts: ContactRound,
+  warehouse: Package,
 };
 
 /** Design-token icon surfaces — no hardcoded palette colors. */
@@ -25,7 +32,9 @@ const TILE_BY_CODE: Record<string, { tileClass: string }> = {
   hr: { tileClass: 'bg-primary text-primary-foreground shadow-soft' },
   accounting: { tileClass: 'bg-primary-700 text-primary-foreground shadow-soft' },
   system: { tileClass: 'bg-gold text-gold-foreground shadow-soft' },
-  ecommerce: { tileClass: 'bg-success text-success-foreground shadow-soft' },
+  'store-admin': { tileClass: 'bg-gold text-gold-foreground shadow-soft' },
+  ecommerce: { tileClass: 'bg-gold text-gold-foreground shadow-soft' },
+  storefront: { tileClass: 'bg-success text-success-foreground shadow-soft' },
   inventory: { tileClass: 'bg-accent text-accent-foreground shadow-soft' },
   contacts: { tileClass: 'bg-primary text-primary-foreground shadow-soft' },
 };
@@ -47,7 +56,8 @@ export const TILE_SURFACE_ACCENT = [
 export function resolveApplicationIcon(app: ApplicationResponseDto): LucideIcon {
   const key = app.icon?.trim().toLowerCase();
   if (key && ICON_BY_KEY[key]) return ICON_BY_KEY[key]!;
-  if (app.code === 'ecommerce') return ShoppingCart;
+  if (app.code === 'store-admin' || app.code === 'ecommerce') return Store;
+  if (app.code === 'storefront') return ShoppingBag;
   if (app.code === 'inventory') return Package;
   if (app.code === 'contacts') return ContactRound;
   return LayoutGrid;

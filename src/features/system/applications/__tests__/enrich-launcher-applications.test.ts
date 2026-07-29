@@ -18,34 +18,57 @@ describe('enrichLauncherApplications', () => {
     status: 'active',
   };
 
-  it('adds ecommerce when enabled and missing from backend list', () => {
+  it('adds store-admin (not ecommerce) when enabled and missing from backend list', () => {
     const apps = enrichLauncherApplications([hrApp], 'company-1');
-    expect(apps.some((app) => app.code === 'ecommerce')).toBe(true);
-    expect(resolveApplicationLaunchPath(apps.find((app) => app.code === 'ecommerce')!)).toBe('/overview');
+    expect(apps.some((app) => app.code === 'ecommerce')).toBe(false);
+    expect(apps.some((app) => app.code === 'store-admin')).toBe(true);
+    expect(resolveApplicationLaunchPath(apps.find((app) => app.code === 'store-admin')!)).toBe(
+      '/overview',
+    );
   });
 
   it('adds inventory when enabled and missing from backend list', () => {
     const apps = enrichLauncherApplications([hrApp], 'company-1');
     expect(apps.some((app) => app.code === 'inventory')).toBe(true);
-    expect(resolveApplicationLaunchPath(apps.find((app) => app.code === 'inventory')!)).toBe('/inventory');
+    expect(resolveApplicationLaunchPath(apps.find((app) => app.code === 'inventory')!)).toBe(
+      '/inventory',
+    );
   });
 
-  it('does not duplicate ecommerce when backend already returns it', () => {
-    const withEcommerce: ApplicationResponseDto = {
-      ...hrApp,
-      id: 'eco-1',
-      code: 'ecommerce',
-      nameAr: 'المتجر',
-      nameEn: 'Store',
-      routePath: '/overview',
-      sortOrder: 2,
-    };
-    const apps = enrichLauncherApplications([hrApp, withEcommerce], 'company-1');
-    expect(apps.filter((app) => app.code === 'ecommerce')).toHaveLength(1);
+  it('removes legacy ecommerce tile and keeps a single store-admin', () => {
+    const withBoth: ApplicationResponseDto[] = [
+      hrApp,
+      {
+        ...hrApp,
+        id: 'eco-1',
+        code: 'ecommerce',
+        nameAr: 'المتجر الإلكتروني',
+        nameEn: 'Online Store',
+        routePath: '/overview',
+        sortOrder: 2,
+      },
+      {
+        ...hrApp,
+        id: 'sa-1',
+        code: 'store-admin',
+        nameAr: 'إدارة المتجر',
+        nameEn: 'Store Admin',
+        routePath: '/store-admin',
+        sortOrder: 3,
+      },
+    ];
+    const apps = enrichLauncherApplications(withBoth, 'company-1');
+    expect(apps.filter((app) => app.code === 'ecommerce')).toHaveLength(0);
+    expect(apps.filter((app) => app.code === 'store-admin')).toHaveLength(1);
+    expect(apps.find((app) => app.code === 'store-admin')!.routePath).toBe('/overview');
+    expect(resolveApplicationLaunchPath(apps.find((app) => app.code === 'store-admin')!)).toBe(
+      '/overview',
+    );
   });
 
-  it('skips ecommerce when no company is selected', () => {
+  it('skips store-admin when no company is selected', () => {
     const apps = enrichLauncherApplications([hrApp], null);
+    expect(apps.some((app) => app.code === 'store-admin')).toBe(false);
     expect(apps.some((app) => app.code === 'ecommerce')).toBe(false);
     expect(apps.some((app) => app.code === 'inventory')).toBe(false);
     expect(apps.some((app) => app.code === 'contacts')).toBe(false);
@@ -54,7 +77,9 @@ describe('enrichLauncherApplications', () => {
   it('adds contacts when enabled and missing from backend list', () => {
     const apps = enrichLauncherApplications([hrApp], 'company-1');
     expect(apps.some((app) => app.code === 'contacts')).toBe(true);
-    expect(resolveApplicationLaunchPath(apps.find((app) => app.code === 'contacts')!)).toBe('/contacts/list');
+    expect(resolveApplicationLaunchPath(apps.find((app) => app.code === 'contacts')!)).toBe(
+      '/contacts/list',
+    );
   });
 
   it('rewrites backend contacts seed that pointed at system users directory', () => {
@@ -100,5 +125,16 @@ describe('enrichLauncherApplications', () => {
     const apps = enrichLauncherApplications([seeded], null);
     expect(apps.find((app) => app.code === 'contacts')!.routePath).toBe('/contacts/list');
     expect(resolveApplicationLaunchPath(apps[0]!)).toBe('/contacts/list');
+  });
+
+  it('maps store-admin /store-admin path to ecommerce overview', () => {
+    const app: ApplicationResponseDto = {
+      ...hrApp,
+      id: 'sa',
+      code: 'store-admin',
+      nameAr: 'إدارة المتجر',
+      routePath: '/store-admin',
+    };
+    expect(resolveApplicationLaunchPath(app)).toBe('/overview');
   });
 });

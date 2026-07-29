@@ -46,6 +46,21 @@ function looksLikePartnersContactsApp(app: ApplicationResponseDto): boolean {
   return /جهات الاتصال|^contacts$|^partners$/i.test(name);
 }
 
+/** Legacy duplicate of store admin — hide from launcher; content is under `store-admin`. */
+function isLegacyEcommerceAdminApp(app: ApplicationResponseDto): boolean {
+  const code = normalizeAppCode(app.code);
+  if (code === 'ecommerce') return true;
+  const name = `${app.nameAr ?? ''} ${app.nameEn ?? ''}`.trim();
+  return /المتجر الإلكتروني|online\s*store|e-?commerce/i.test(name);
+}
+
+function looksLikeStoreAdminApp(app: ApplicationResponseDto): boolean {
+  const code = normalizeAppCode(app.code);
+  if (code === 'store-admin' || code === 'storeadmin') return true;
+  const name = `${app.nameAr ?? ''} ${app.nameEn ?? ''}`.trim();
+  return /إدارة المتجر|store\s*admin/i.test(name);
+}
+
 function isSystemUsersDirectoryPath(path: string): boolean {
   return (
     path === '/system/organization/contacts' ||
@@ -57,17 +72,22 @@ function isSystemUsersDirectoryPath(path: string): boolean {
 
 /**
  * Supplements backend launcher tiles with frontend-registered installable modules
- * (e.g. ecommerce) until the applications catalog seeds them.
+ * until the applications catalog seeds them.
+ *
+ * Store back-office is a single tile: **إدارة المتجر** (`store-admin`).
+ * The legacy **المتجر الإلكتروني** (`ecommerce`) tile is removed; its UI is the same admin.
  */
 export function enrichLauncherApplications(
   apps: ApplicationResponseDto[],
   companyId: string | null | undefined,
 ): ApplicationResponseDto[] {
-  const next = apps.map((app) => ({ ...app }));
+  const next = apps
+    .map((app) => ({ ...app }))
+    .filter((app) => !isLegacyEcommerceAdminApp(app));
+
   const codes = new Set(next.map((app) => normalizeAppCode(app.code)));
 
   // Normalize Partners Master Data onto `/contacts/list` — never under `/system/...`.
-  // Rewrite whenever the backend already granted the tile (do not depend on companyId timing).
   const contactsIdx = next.findIndex((app) => looksLikePartnersContactsApp(app));
   if (contactsIdx >= 0) {
     const existing = next[contactsIdx]!;
@@ -98,15 +118,30 @@ export function enrichLauncherApplications(
     });
   }
 
-  if (!codes.has('ecommerce') && isModuleEnabledFor('ecommerce', companyId)) {
+  // Store admin = ecommerce admin UI at `/overview` (single launcher tile).
+  const storeAdminIdx = next.findIndex((app) => looksLikeStoreAdminApp(app));
+  if (storeAdminIdx >= 0) {
+    const existing = next[storeAdminIdx]!;
+    next[storeAdminIdx] = {
+      ...existing,
+      code: 'store-admin',
+      nameAr: MODULE_REGISTRY.ecommerce.labelAr,
+      nameEn: existing.nameEn?.trim() || 'Store Admin',
+      icon: existing.icon?.trim() || 'store-admin',
+      routePath: ecommerceAdminRoutes.overview,
+      launchUrl: null,
+      isActive: true,
+      status: existing.status || 'active',
+    };
+  } else if (isModuleEnabledFor('ecommerce', companyId)) {
     const maxSort = next.reduce((max, app) => Math.max(max, app.sortOrder), 0);
     next.push({
-      id: 'module-ecommerce',
-      code: 'ecommerce',
+      id: 'module-store-admin',
+      code: 'store-admin',
       nameAr: MODULE_REGISTRY.ecommerce.labelAr,
-      nameEn: 'Online Store',
+      nameEn: 'Store Admin',
       description: null,
-      icon: 'shopping-cart',
+      icon: 'store-admin',
       routePath: ecommerceAdminRoutes.overview,
       sortOrder: maxSort + 10,
       isActive: true,
@@ -138,6 +173,7 @@ export function resolveApplicationExternalUrl(app: ApplicationResponseDto): stri
   const url = app.launchUrl?.trim();
   if (!url) return null;
   if (looksLikePartnersContactsApp(app)) return null;
+  if (isLegacyEcommerceAdminApp(app) || looksLikeStoreAdminApp(app)) return null;
   try {
     const parsed = new URL(url);
     if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
@@ -158,27 +194,38 @@ export function resolveApplicationLaunchPath(app: ApplicationResponseDto): strin
   }
 
   if (code === 'hr') return '/hr/organization/employees';
-  if (code === 'ecommerce' || code === 'store-admin') {
-    return base && base.startsWith('/') ? base : ecommerceAdminRoutes.overview;
+
+  // Store back-office (إدارة المتجر) — always the ecommerce admin shell.
+  if (
+    code === 'store-admin' ||
+    code === 'storeadmin' ||
+    code === 'ecommerce' ||
+    looksLikeStoreAdminApp(app) ||
+    isLegacyEcommerceAdminApp(app)
+  ) {
+    return ecommerceAdminRoutes.overview;
   }
+
   if (code === 'inventory') return inventoryAdminRoutes.overview;
   if (code === 'accounting') return '/accounting';
   if (code === 'storefront') {
-    // Prefer launchUrl via resolveApplicationExternalUrl; internal fallback unused.
     return base && base.startsWith('/') ? base : '/';
   }
   if (code === 'system' && (!base || base === '/system' || isSystemUsersDirectoryPath(base))) {
     return resolveSystemAppLaunchPath();
   }
 
-  // Mis-seeded path that pointed Partners at the old System users URL.
   if (isSystemUsersDirectoryPath(base) && /جهات الاتصال|contacts|partners/i.test(`${app.nameAr} ${app.nameEn}`)) {
     return contactsAdminRoutes.overview;
   }
 
-  // Backend may still seed `/contacts` — remapped entry avoids cached 308 poison.
   if (base === '/contacts' || base === '/contacts/') {
     return contactsAdminRoutes.overview;
+  }
+
+  // Backend may still seed `/store-admin` — map to real admin routes.
+  if (base === '/store-admin' || base.startsWith('/store-admin/')) {
+    return ecommerceAdminRoutes.overview;
   }
 
   return base || '/';
