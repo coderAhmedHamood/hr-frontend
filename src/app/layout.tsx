@@ -35,6 +35,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <script
           id="theme-boot"
+          suppressHydrationWarning
           dangerouslySetInnerHTML={{
             __html: `${THEME_MODE_BOOT_SCRIPT}${LOCALE_DOCUMENT_BOOT_SCRIPT}${COMPANY_THEME_BOOT_SCRIPT}`,
           }}
