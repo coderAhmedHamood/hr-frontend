@@ -245,26 +245,18 @@ export function BlogCmsPage({ embedded = false }: { embedded?: boolean }) {
             <DialogTitle>{isNew ? t('addPost') : t('editPost')}</DialogTitle>
           </DialogHeader>
           {draft ? (
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4">
               <div className="space-y-1.5">
-                <Label>{t('titleAr')}</Label>
+                <Label>{t('postTitle')}</Label>
                 <Input
                   value={draft.title.ar}
-                  onChange={(event) =>
-                    setDraft({ ...draft, title: { ...draft.title, ar: event.target.value } })
-                  }
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    setDraft({ ...draft, title: { ar: value, en: value } });
+                  }}
                 />
               </div>
               <div className="space-y-1.5">
-                <Label>{t('titleEn')}</Label>
-                <Input
-                  value={draft.title.en}
-                  onChange={(event) =>
-                    setDraft({ ...draft, title: { ...draft.title, en: event.target.value } })
-                  }
-                />
-              </div>
-              <div className="space-y-1.5 sm:col-span-2">
                 <Label>{t('slug')}</Label>
                 <Input
                   value={draft.slug}
@@ -272,42 +264,27 @@ export function BlogCmsPage({ embedded = false }: { embedded?: boolean }) {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label>{t('excerptAr')}</Label>
+                <Label>{t('excerpt')}</Label>
                 <Textarea
                   value={draft.excerpt.ar}
-                  onChange={(event) =>
-                    setDraft({ ...draft, excerpt: { ...draft.excerpt, ar: event.target.value } })
-                  }
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    setDraft({ ...draft, excerpt: { ar: value, en: value } });
+                  }}
                 />
               </div>
               <div className="space-y-1.5">
-                <Label>{t('excerptEn')}</Label>
+                <Label>{t('body')}</Label>
                 <Textarea
-                  value={draft.excerpt.en}
-                  onChange={(event) =>
-                    setDraft({ ...draft, excerpt: { ...draft.excerpt, en: event.target.value } })
-                  }
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>{t('bodyAr')}</Label>
-                <Textarea
+                  rows={6}
                   value={draft.body.ar}
-                  onChange={(event) =>
-                    setDraft({ ...draft, body: { ...draft.body, ar: event.target.value } })
-                  }
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    setDraft({ ...draft, body: { ar: value, en: value } });
+                  }}
                 />
               </div>
               <div className="space-y-1.5">
-                <Label>{t('bodyEn')}</Label>
-                <Textarea
-                  value={draft.body.en}
-                  onChange={(event) =>
-                    setDraft({ ...draft, body: { ...draft.body, en: event.target.value } })
-                  }
-                />
-              </div>
-              <div className="space-y-1.5 sm:col-span-2">
                 <Label>{t('coverImageUrl')}</Label>
                 <Input
                   value={draft.coverImageUrl ?? ''}
@@ -315,30 +292,19 @@ export function BlogCmsPage({ embedded = false }: { embedded?: boolean }) {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label>{t('authorAr')}</Label>
+                <Label>{t('author')}</Label>
                 <Input
                   value={draft.authorName.ar}
-                  onChange={(event) =>
+                  onChange={(event) => {
+                    const value = event.target.value;
                     setDraft({
                       ...draft,
-                      authorName: { ...draft.authorName, ar: event.target.value },
-                    })
-                  }
+                      authorName: { ar: value, en: value },
+                    });
+                  }}
                 />
               </div>
-              <div className="space-y-1.5">
-                <Label>{t('authorEn')}</Label>
-                <Input
-                  value={draft.authorName.en}
-                  onChange={(event) =>
-                    setDraft({
-                      ...draft,
-                      authorName: { ...draft.authorName, en: event.target.value },
-                    })
-                  }
-                />
-              </div>
-              <div className="flex items-center gap-3 sm:col-span-2">
+              <div className="flex items-center gap-3">
                 <Switch
                   checked={draft.isPublished}
                   onCheckedChange={(checked) => setDraft({ ...draft, isPublished: checked })}

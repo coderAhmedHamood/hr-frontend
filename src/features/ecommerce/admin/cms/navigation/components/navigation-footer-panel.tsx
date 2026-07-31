@@ -1,17 +1,17 @@
 'use client';
 
-import * as React from 'react';
-import { useTranslations } from 'next-intl';
 import { FolderOpen, Link2, Plus, Trash2 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { cn } from '@/shared/utils';
 import type {
   CompanyConfigRecord,
   CompanyFooterLinkGroupRecord,
   CompanyNavItemRecord,
 } from '@/features/ecommerce/storefront/domain/company-config';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { cn } from '@/shared/utils';
 
 function emptyLink(): CompanyNavItemRecord {
   return { label: { ar: '', en: '' }, href: '/store' };
@@ -19,7 +19,7 @@ function emptyLink(): CompanyNavItemRecord {
 
 function emptyGroup(): CompanyFooterLinkGroupRecord {
   return {
-    id: crypto.randomUUID(),
+    id: `fg-${Date.now()}`,
     title: { ar: '', en: '' },
     links: [emptyLink()],
   };
@@ -38,44 +38,30 @@ export function NavigationFooterPanel({ draft, onChange }: Props) {
     onChange({ ...draft, footer: { ...draft.footer, ...patch } });
   }
 
-  function updateGroup(groupIndex: number, next: CompanyFooterLinkGroupRecord) {
+  function updateGroup(index: number, next: CompanyFooterLinkGroupRecord) {
     const linkGroups = [...draft.footer.linkGroups];
-    linkGroups[groupIndex] = next;
+    linkGroups[index] = next;
     updateFooter({ linkGroups });
   }
 
   return (
     <div className="space-y-6">
-      {/* Copyright — compact strip */}
       <section className="rounded-2xl border border-border/70 bg-card p-4 sm:p-5">
         <h3 className="mb-3 text-sm font-semibold text-foreground">{t('copyrightOwner')}</h3>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">{t('copyrightAr')}</Label>
-            <Input
-              value={draft.footer.copyrightOwnerName.ar}
-              onChange={(event) =>
-                updateFooter({
-                  copyrightOwnerName: { ...draft.footer.copyrightOwnerName, ar: event.target.value },
-                })
-              }
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">{t('copyrightEn')}</Label>
-            <Input
-              value={draft.footer.copyrightOwnerName.en}
-              onChange={(event) =>
-                updateFooter({
-                  copyrightOwnerName: { ...draft.footer.copyrightOwnerName, en: event.target.value },
-                })
-              }
-            />
-          </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs text-muted-foreground">{t('copyright')}</Label>
+          <Input
+            value={draft.footer.copyrightOwnerName.ar}
+            onChange={(event) => {
+              const value = event.target.value;
+              updateFooter({
+                copyrightOwnerName: { ar: value, en: value },
+              });
+            }}
+          />
         </div>
       </section>
 
-      {/* Link groups */}
       <section className="space-y-4">
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -108,11 +94,8 @@ export function NavigationFooterPanel({ draft, onChange }: Props) {
                 groupIndex={groupIndex}
                 labels={{
                   groupTitle: t('groupTitle'),
-                  groupTitleAr: t('groupTitleAr'),
-                  groupTitleEn: t('groupTitleEn'),
                   links: t('linksInGroup'),
-                  linkLabelAr: t('linkLabelAr'),
-                  linkLabelEn: t('linkLabelEn'),
+                  linkLabel: t('linkLabel'),
                   linkHref: t('linkHref'),
                   addLink: t('addLink'),
                   removeGroup: t('removeGroup'),
@@ -145,11 +128,8 @@ function FooterGroupCard({
   groupIndex: number;
   labels: {
     groupTitle: string;
-    groupTitleAr: string;
-    groupTitleEn: string;
     links: string;
-    linkLabelAr: string;
-    linkLabelEn: string;
+    linkLabel: string;
     linkHref: string;
     addLink: string;
     removeGroup: string;
@@ -159,11 +139,11 @@ function FooterGroupCard({
   onChange: (next: CompanyFooterLinkGroupRecord) => void;
   onRemove: () => void;
 }) {
-  const displayName = group.title.ar.trim() || group.title.en.trim() || `${labels.groupTitle} ${groupIndex + 1}`;
+  const displayName =
+    group.title.ar.trim() || group.title.en.trim() || `${labels.groupTitle} ${groupIndex + 1}`;
 
   return (
     <article className="flex flex-col overflow-hidden rounded-2xl border border-border/70 bg-card shadow-soft">
-      {/* Group header — عنوان المجموعة */}
       <header className="border-b border-border/60 bg-muted/25 px-4 py-3.5">
         <div className="mb-3 flex items-start justify-between gap-2">
           <div className="min-w-0">
@@ -184,33 +164,20 @@ function FooterGroupCard({
           </Button>
         </div>
 
-        <div className="grid gap-2">
-          <div className="space-y-1">
-            <Label className="text-[11px] text-muted-foreground">{labels.groupTitleAr}</Label>
-            <Input
-              className="h-9 bg-background"
-              value={group.title.ar}
-              placeholder={labels.groupTitleAr}
-              onChange={(event) =>
-                onChange({ ...group, title: { ...group.title, ar: event.target.value } })
-              }
-            />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-[11px] text-muted-foreground">{labels.groupTitleEn}</Label>
-            <Input
-              className="h-9 bg-background"
-              value={group.title.en}
-              placeholder={labels.groupTitleEn}
-              onChange={(event) =>
-                onChange({ ...group, title: { ...group.title, en: event.target.value } })
-              }
-            />
-          </div>
+        <div className="space-y-1">
+          <Label className="text-[11px] text-muted-foreground">{labels.groupTitle}</Label>
+          <Input
+            className="h-9 bg-background"
+            value={group.title.ar}
+            placeholder={labels.groupTitle}
+            onChange={(event) => {
+              const value = event.target.value;
+              onChange({ ...group, title: { ar: value, en: value } });
+            }}
+          />
         </div>
       </header>
 
-      {/* Links under the group */}
       <div className="flex flex-1 flex-col gap-2.5 p-3.5">
         <div className="flex items-center justify-between gap-2 px-0.5">
           <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
@@ -270,30 +237,17 @@ function FooterGroupCard({
                   <Input
                     className="h-8 text-sm"
                     value={link.label.ar}
-                    placeholder={labels.linkLabelAr}
+                    placeholder={labels.linkLabel}
                     onChange={(event) => {
+                      const value = event.target.value;
                       const links = [...group.links];
                       links[linkIndex] = {
                         ...link,
-                        label: { ...link.label, ar: event.target.value },
+                        label: { ar: value, en: value },
                       };
                       onChange({ ...group, links });
                     }}
-                    aria-label={labels.linkLabelAr}
-                  />
-                  <Input
-                    className="h-8 text-sm"
-                    value={link.label.en}
-                    placeholder={labels.linkLabelEn}
-                    onChange={(event) => {
-                      const links = [...group.links];
-                      links[linkIndex] = {
-                        ...link,
-                        label: { ...link.label, en: event.target.value },
-                      };
-                      onChange({ ...group, links });
-                    }}
-                    aria-label={labels.linkLabelEn}
+                    aria-label={labels.linkLabel}
                   />
                   <Input
                     className="h-8 font-mono text-xs text-muted-foreground"

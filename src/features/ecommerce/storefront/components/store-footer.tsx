@@ -1,10 +1,6 @@
 import { getTranslations } from 'next-intl/server';
 import { Mail, MapPin, Phone } from 'lucide-react';
-import type {
-  StorefrontCategory,
-  StorefrontCompanyConfig,
-} from '@/features/ecommerce/storefront/domain/storefront-models';
-import { buildCategoryTree } from '@/features/ecommerce/storefront/utils/category-tree';
+import type { StorefrontCompanyConfig } from '@/features/ecommerce/storefront/domain/storefront-models';
 import { StoreFooterUtilities } from '@/features/ecommerce/storefront/components/store-footer-utilities';
 import {
   STOREFRONT_SOCIAL_ICONS,
@@ -19,21 +15,39 @@ const SOCIAL_LABEL_KEYS = {
   whatsapp: 'socialWhatsapp',
 } as const satisfies Record<StorefrontSocialNetwork, string>;
 
+/** Account / auth destinations belong in the header icons — never in the footer. */
+const HEADER_ONLY_HREFS = new Set([
+  '/store/account',
+  '/store/login',
+  '/store/wishlist',
+  '/store/orders',
+  '/store/cart',
+]);
+
+function isFooterLink(href: string): boolean {
+  const path = href.split('?')[0] ?? href;
+  return !HEADER_ONLY_HREFS.has(path);
+}
+
 export async function StoreFooter({
   config,
-  categories,
 }: {
   config: StorefrontCompanyConfig;
-  categories: StorefrontCategory[];
 }) {
   const t = await getTranslations('storefront');
-  const { roots } = buildCategoryTree(categories);
+
+  const linkGroups = config.footer.linkGroups
+    .map((group) => ({
+      ...group,
+      links: group.links.filter((link) => isFooterLink(link.href)),
+    }))
+    .filter((group) => group.links.length > 0);
 
   return (
     <footer className="mt-auto border-t border-border bg-muted/40 text-foreground">
       <div className="mx-auto max-w-[1400px] px-4 py-12 sm:px-6">
-        <div className="grid grid-cols-2 gap-x-6 gap-y-8 lg:grid-cols-12 lg:gap-10">
-          <div className="col-span-2 flex flex-col gap-4 lg:col-span-4">
+        <div className="grid grid-cols-2 gap-x-6 gap-y-8 md:grid-cols-4 lg:grid-cols-4 lg:gap-10">
+          <div className="col-span-2 flex flex-col gap-4 md:col-span-1">
             <p className="font-arabic-display text-xl font-bold text-foreground">{config.name}</p>
             <p className="max-w-sm text-sm leading-relaxed text-muted-foreground">{t('footer.tagline')}</p>
             <div className="flex flex-col gap-2 text-sm text-muted-foreground">
@@ -79,8 +93,8 @@ export async function StoreFooter({
             </div>
           </div>
 
-          {config.footer.linkGroups.map((group) => (
-            <div key={group.id} className="flex flex-col gap-3 lg:col-span-2">
+          {linkGroups.map((group) => (
+            <div key={group.id} className="flex flex-col gap-3">
               <h3 className="text-sm font-semibold text-foreground">{group.title}</h3>
               <ul className="flex flex-col gap-2">
                 {group.links.map((link, linkIndex) => (
@@ -97,65 +111,6 @@ export async function StoreFooter({
               </ul>
             </div>
           ))}
-
-          <div className="flex flex-col gap-3 lg:col-span-2">
-            <h3 className="text-sm font-semibold text-foreground">{t('footer.accountLinks')}</h3>
-            <ul className="flex flex-col gap-2">
-              <li>
-                <Link
-                  href="/store/orders"
-                  prefetch={false}
-                  className="text-sm text-muted-foreground transition-colors hover:text-primary"
-                >
-                  {t('orders.myOrdersTitle')}
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/store/account"
-                  prefetch={false}
-                  className="text-sm text-muted-foreground transition-colors hover:text-primary"
-                >
-                  {t('account.title')}
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/store/login"
-                  prefetch={false}
-                  className="text-sm text-muted-foreground transition-colors hover:text-primary"
-                >
-                  {t('nav.login')}
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/store/wishlist"
-                  prefetch={false}
-                  className="text-sm text-muted-foreground transition-colors hover:text-primary"
-                >
-                  {t('nav.wishlist')}
-                </Link>
-              </li>
-            </ul>
-          </div>
-
-          <div className="flex flex-col gap-3 lg:col-span-2">
-            <h3 className="text-sm font-semibold text-foreground">{t('nav.categories')}</h3>
-            <ul className="flex flex-col gap-2">
-              {roots.slice(0, 7).map((root) => (
-                <li key={root.id}>
-                  <Link
-                    href={`/store/categories/${root.slug}`}
-                    prefetch={false}
-                    className="text-sm text-muted-foreground transition-colors hover:text-primary"
-                  >
-                    {root.name}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
         </div>
 
         <div className="mt-8 flex flex-col items-start justify-between gap-4 border-t border-border pt-6 sm:flex-row sm:items-center">

@@ -49,14 +49,99 @@ export type CompanySecondaryNavItemRecord = CompanyNavItemRecord & {
   highlight?: boolean;
 };
 
-/** Top-of-site announcement strip (above the header). */
-export type CompanyAnnouncementBarRecord = {
+export type CompanyAnnouncementHref = `/store${string}` | '/store' | null;
+
+/** One scrolling message inside the announcement bar. */
+export type CompanyAnnouncementItemRecord = {
+  id: string;
   enabled: boolean;
   message: LocalizableString;
-  /** Optional storefront link when the bar is clicked. */
-  href: `/store${string}` | '/store' | null;
-  dismissible: boolean;
+  /** Optional storefront link when this message is clicked. */
+  href: CompanyAnnouncementHref;
 };
+
+/**
+ * Top-of-site announcement strip (above the header).
+ * Multiple enabled messages scroll continuously (marquee).
+ */
+export type CompanyAnnouncementBarRecord = {
+  enabled: boolean;
+  items: CompanyAnnouncementItemRecord[];
+  dismissible: boolean;
+  /** Duration of one full marquee loop in milliseconds. */
+  speedMs: number;
+};
+
+export const DEFAULT_ANNOUNCEMENT_SPEED_MS = 28_000;
+export const MIN_ANNOUNCEMENT_SPEED_MS = 3_000;
+export const MAX_ANNOUNCEMENT_SPEED_MS = 120_000;
+
+export function clampAnnouncementSpeedMs(value: number | null | undefined): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return DEFAULT_ANNOUNCEMENT_SPEED_MS;
+  }
+  return Math.min(
+    MAX_ANNOUNCEMENT_SPEED_MS,
+    Math.max(MIN_ANNOUNCEMENT_SPEED_MS, Math.round(value)),
+  );
+}
+
+/** Legacy single-message shape — migrated via `normalizeAnnouncementBar`. */
+type LegacyAnnouncementBarRecord = {
+  enabled?: boolean;
+  message?: LocalizableString;
+  href?: CompanyAnnouncementHref;
+  dismissible?: boolean;
+  items?: CompanyAnnouncementItemRecord[];
+  speedMs?: number;
+};
+
+export function normalizeAnnouncementBar(
+  raw: LegacyAnnouncementBarRecord | CompanyAnnouncementBarRecord | null | undefined,
+): CompanyAnnouncementBarRecord {
+  const enabled = raw?.enabled ?? false;
+  const dismissible = raw?.dismissible ?? true;
+  const speedMs = clampAnnouncementSpeedMs(
+    (raw as LegacyAnnouncementBarRecord | undefined)?.speedMs,
+  );
+
+  if (raw?.items && Array.isArray(raw.items)) {
+    return {
+      enabled,
+      dismissible,
+      speedMs,
+      items: raw.items.map((item, index) => ({
+        id: item.id || `announcement-${index + 1}`,
+        enabled: item.enabled !== false,
+        message: {
+          ar: item.message?.ar ?? '',
+          en: item.message?.en ?? '',
+        },
+        href: item.href ?? null,
+      })),
+    };
+  }
+
+  const legacy = raw as LegacyAnnouncementBarRecord;
+  const message = legacy.message ?? { ar: '', en: '' };
+  const hasText = Boolean(message.ar?.trim() || message.en?.trim());
+
+  return {
+    enabled,
+    dismissible,
+    speedMs,
+    items: hasText
+      ? [
+          {
+            id: 'legacy-announcement-1',
+            enabled: true,
+            message: { ar: message.ar ?? '', en: message.en ?? '' },
+            href: legacy.href ?? null,
+          },
+        ]
+      : [],
+  };
+}
 
 export type CompanyCheckoutPaymentMethod = 'cash_on_delivery' | 'card';
 

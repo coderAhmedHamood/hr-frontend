@@ -3,11 +3,14 @@
 import * as React from 'react';
 import { X } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import { clampAnnouncementSpeedMs } from '@/features/ecommerce/storefront/domain/company-config';
 import type { StorefrontCompanyConfig } from '@/features/ecommerce/storefront/domain/storefront-models';
 import { Link } from '@/i18n/navigation';
 import { cn } from '@/shared/utils';
 
 const DISMISS_STORAGE_KEY = 'storefront-announcement-dismissed';
+
+type AnnouncementItem = StorefrontCompanyConfig['announcement']['items'][number];
 
 type Props = {
   announcement: StorefrontCompanyConfig['announcement'];
@@ -19,9 +22,12 @@ export function StoreAnnouncementBar({ announcement, className }: Props) {
   const [dismissed, setDismissed] = React.useState(false);
   const [ready, setReady] = React.useState(false);
 
+  const items = announcement.items;
+  const speedMs = clampAnnouncementSpeedMs(announcement.speedMs);
   const fingerprint = React.useMemo(
-    () => `${announcement.message}|${announcement.href ?? ''}`,
-    [announcement.message, announcement.href],
+    () =>
+      items.map((item) => `${item.id}:${item.message}|${item.href ?? ''}`).join('||'),
+    [items],
   );
 
   React.useEffect(() => {
@@ -34,7 +40,7 @@ export function StoreAnnouncementBar({ announcement, className }: Props) {
     setReady(true);
   }, [fingerprint]);
 
-  if (!announcement.enabled || !announcement.message.trim()) return null;
+  if (!announcement.enabled || items.length === 0) return null;
   if (!ready || dismissed) return null;
 
   function dismiss() {
@@ -46,37 +52,36 @@ export function StoreAnnouncementBar({ announcement, className }: Props) {
     setDismissed(true);
   }
 
-  const content = (
-    <span className="mx-auto block max-w-[1400px] px-10 text-center text-xs font-medium sm:text-sm">
-      {announcement.message}
-    </span>
-  );
-
   return (
     <div
       role="region"
       aria-label={t('a11y.announcement')}
-      className={cn(
-        'relative bg-primary text-primary-foreground',
-        className,
-      )}
+      className={cn('relative bg-primary text-primary-foreground', className)}
     >
-      {announcement.href ? (
-        <Link
-          href={announcement.href}
-          prefetch={false}
-          className="block py-2 transition-opacity hover:opacity-90"
+      <div className="storefront-announcement-marquee py-2">
+        <div
+          className="storefront-announcement-marquee__track"
+          style={{
+            ['--announcement-marquee-duration' as string]: `${speedMs}ms`,
+          }}
         >
-          {content}
-        </Link>
-      ) : (
-        <div className="py-2">{content}</div>
-      )}
+          {[...items, ...items].map((item, index) => (
+            <React.Fragment key={`${item.id}-${index}`}>
+              {index > 0 ? (
+                <span className="storefront-announcement-marquee__sep" aria-hidden>
+                  •
+                </span>
+              ) : null}
+              <AnnouncementMarqueeItem item={item} />
+            </React.Fragment>
+          ))}
+        </div>
+      </div>
 
       {announcement.dismissible ? (
         <button
           type="button"
-          className="absolute end-2 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-primary-foreground/80 transition-colors hover:bg-primary-foreground/15 hover:text-primary-foreground"
+          className="absolute end-2 top-1/2 z-10 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-primary-foreground/80 transition-colors hover:bg-primary-foreground/15 hover:text-primary-foreground"
           aria-label={t('a11y.dismissAnnouncement')}
           onClick={dismiss}
         >
@@ -85,4 +90,23 @@ export function StoreAnnouncementBar({ announcement, className }: Props) {
       ) : null}
     </div>
   );
+}
+
+function AnnouncementMarqueeItem({ item }: { item: AnnouncementItem }) {
+  const className =
+    'storefront-announcement-marquee__item text-xs font-medium sm:text-sm';
+
+  if (item.href) {
+    return (
+      <Link
+        href={item.href}
+        prefetch={false}
+        className={cn(className, 'transition-opacity hover:opacity-90')}
+      >
+        {item.message}
+      </Link>
+    );
+  }
+
+  return <span className={className}>{item.message}</span>;
 }

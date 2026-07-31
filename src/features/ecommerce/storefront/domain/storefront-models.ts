@@ -120,9 +120,14 @@ export type StorefrontCompanyConfig = {
   };
   announcement: {
     enabled: boolean;
-    message: string;
-    href: `/store${string}` | '/store' | null;
+    items: Array<{
+      id: string;
+      message: string;
+      href: `/store${string}` | '/store' | null;
+    }>;
     dismissible: boolean;
+    /** Duration of one full marquee loop in milliseconds. */
+    speedMs: number;
   };
   checkout: {
     cities: string[];

@@ -76,7 +76,7 @@ export async function StorefrontShell({ children }: { children: React.ReactNode 
       </main>
       <StoreChromeGate match={isCheckoutPath}>
         <div className="store-footer-safe-pb">
-          <StoreFooter config={config} categories={categories} />
+          <StoreFooter config={config} />
         </div>
       </StoreChromeGate>
       <StoreMobileTabBar />

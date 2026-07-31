@@ -47,7 +47,7 @@ export function SeoSettingsPage() {
     onError: () => toast.error(t('saveError')),
   });
 
-  function patchSeo(path: keyof CompanyConfigRecord['seo'], locale: 'ar' | 'en', value: string) {
+  function patchSeo(path: keyof CompanyConfigRecord['seo'], value: string) {
     if (!draft) return;
     const field = draft.seo[path];
     if (typeof field === 'string' || field === undefined) {
@@ -60,7 +60,7 @@ export function SeoSettingsPage() {
       ...draft,
       seo: {
         ...draft.seo,
-        [path]: { ...field, [locale]: value },
+        [path]: { ar: value, en: value },
       },
     });
   }
@@ -92,37 +92,28 @@ export function SeoSettingsPage() {
 
       {draft ? (
         <Card>
-          <CardContent className="grid gap-4 py-6 sm:grid-cols-2">
+          <CardContent className="grid gap-4 py-6">
             {(
               [
-                ['homeTitle', 'homeTitleAr', 'homeTitleEn'],
-                ['homeDescription', 'homeDescriptionAr', 'homeDescriptionEn'],
-                ['productsTitle', 'productsTitleAr', 'productsTitleEn'],
-                ['productsDescription', 'productsDescriptionAr', 'productsDescriptionEn'],
+                ['homeTitle', 'homeTitle'],
+                ['homeDescription', 'homeDescription'],
+                ['productsTitle', 'productsTitle'],
+                ['productsDescription', 'productsDescription'],
               ] as const
-            ).map(([key, arKey, enKey]) => {
+            ).map(([key, labelKey]) => {
               const value = draft.seo[key];
               const Field = key.includes('Description') ? Textarea : Input;
               return (
-                <React.Fragment key={key}>
-                  <div className="space-y-1.5">
-                    <Label>{t(arKey)}</Label>
-                    <Field
-                      value={typeof value === 'object' ? value.ar : ''}
-                      onChange={(event) => patchSeo(key, 'ar', event.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>{t(enKey)}</Label>
-                    <Field
-                      value={typeof value === 'object' ? value.en : ''}
-                      onChange={(event) => patchSeo(key, 'en', event.target.value)}
-                    />
-                  </div>
-                </React.Fragment>
+                <div key={key} className="space-y-1.5">
+                  <Label>{t(labelKey)}</Label>
+                  <Field
+                    value={typeof value === 'object' ? value.ar : ''}
+                    onChange={(event) => patchSeo(key, event.target.value)}
+                  />
+                </div>
               );
             })}
-            <div className="space-y-1.5 sm:col-span-2">
+            <div className="space-y-1.5">
               <Label>{t('defaultOgImage')}</Label>
               <Input
                 value={draft.seo.defaultOgImage ?? ''}

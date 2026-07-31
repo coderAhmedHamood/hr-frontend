@@ -214,6 +214,60 @@
   animation: nav-dropdown-in 0.18s cubic-bezier(0.2, 0, 0, 1) forwards;
 }
 
+/* Storefront announcement bar — continuous marquee of multiple messages */
+@keyframes storefront-announcement-marquee {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(-50%, 0, 0); }
+}
+
+.storefront-announcement-marquee {
+  overflow: hidden;
+  width: 100%;
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 1.5rem,
+    #000 calc(100% - 1.5rem),
+    transparent
+  );
+}
+
+.storefront-announcement-marquee__track {
+  display: flex;
+  width: max-content;
+  align-items: center;
+  gap: 3rem;
+  direction: ltr;
+  animation: storefront-announcement-marquee
+    var(--announcement-marquee-duration, 28000ms) linear infinite;
+  will-change: transform;
+}
+
+.storefront-announcement-marquee__item {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.storefront-announcement-marquee__sep {
+  flex-shrink: 0;
+  opacity: 0.55;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .storefront-announcement-marquee__track {
+    animation: none;
+    flex-wrap: wrap;
+    justify-content: center;
+    width: 100%;
+    gap: 1rem 2rem;
+    padding-inline: 2.5rem;
+  }
+
+  .storefront-announcement-marquee__sep {
+    display: none;
+  }
+}
+
 /* شريط انضباط (فترة + حالة + بطاقات/قائمة): تمييز غير النشط — لا نستخدم Tailwind لـ inactive لتجنب أخطاء Turbopack */
 .discipline-tab-trigger[data-state='inactive'],
 .discipline-toolbar-view-tab[data-state='inactive'] {

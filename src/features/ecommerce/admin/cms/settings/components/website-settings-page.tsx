@@ -59,16 +59,14 @@ export function WebsiteSettingsPage() {
 
   function patchSeo(
     path: 'homeTitle' | 'homeDescription' | 'productsTitle' | 'productsDescription',
-    locale: 'ar' | 'en',
     value: string,
   ) {
     if (!draft) return;
-    const field = draft.seo[path];
     setDraft({
       ...draft,
       seo: {
         ...draft.seo,
-        [path]: { ...field, [locale]: value },
+        [path]: { ar: value, en: value },
       },
     });
   }
@@ -140,18 +138,14 @@ export function WebsiteSettingsPage() {
                 <CardTitle className="text-base">{t('tabs.branding')}</CardTitle>
               </CardHeader>
               <CardContent className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label>{t('nameAr')}</Label>
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label>{t('name')}</Label>
                   <Input
                     value={draft.name.ar}
-                    onChange={(event) => setDraft({ ...draft, name: { ...draft.name, ar: event.target.value } })}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>{t('nameEn')}</Label>
-                  <Input
-                    value={draft.name.en}
-                    onChange={(event) => setDraft({ ...draft, name: { ...draft.name, en: event.target.value } })}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      setDraft({ ...draft, name: { ar: value, en: value } });
+                    }}
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -434,37 +428,28 @@ export function WebsiteSettingsPage() {
               <CardHeader>
                 <CardTitle className="text-base">{t('tabs.seo')}</CardTitle>
               </CardHeader>
-              <CardContent className="grid gap-4 sm:grid-cols-2">
+              <CardContent className="grid gap-4">
                 {(
                   [
-                    ['homeTitle', 'homeTitleAr', 'homeTitleEn', false],
-                    ['homeDescription', 'homeDescriptionAr', 'homeDescriptionEn', true],
-                    ['productsTitle', 'productsTitleAr', 'productsTitleEn', false],
-                    ['productsDescription', 'productsDescriptionAr', 'productsDescriptionEn', true],
+                    ['homeTitle', 'homeTitle', false],
+                    ['homeDescription', 'homeDescription', true],
+                    ['productsTitle', 'productsTitle', false],
+                    ['productsDescription', 'productsDescription', true],
                   ] as const
-                ).map(([key, arKey, enKey, multiline]) => {
+                ).map(([key, labelKey, multiline]) => {
                   const value = draft.seo[key];
                   const Field = multiline ? Textarea : Input;
                   return (
-                    <React.Fragment key={key}>
-                      <div className="space-y-1.5">
-                        <Label>{tSeo(arKey)}</Label>
-                        <Field
-                          value={value.ar}
-                          onChange={(event) => patchSeo(key, 'ar', event.target.value)}
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label>{tSeo(enKey)}</Label>
-                        <Field
-                          value={value.en}
-                          onChange={(event) => patchSeo(key, 'en', event.target.value)}
-                        />
-                      </div>
-                    </React.Fragment>
+                    <div key={key} className="space-y-1.5">
+                      <Label>{tSeo(labelKey)}</Label>
+                      <Field
+                        value={value.ar}
+                        onChange={(event) => patchSeo(key, event.target.value)}
+                      />
+                    </div>
                   );
                 })}
-                <div className="space-y-1.5 sm:col-span-2">
+                <div className="space-y-1.5">
                   <Label>{tSeo('defaultOgImage')}</Label>
                   <Input
                     value={draft.seo.defaultOgImage ?? ''}

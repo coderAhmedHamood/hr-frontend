@@ -49,7 +49,7 @@ function resolveFieldLabel(label: LocalizableString, locale: string): string {
 
 export function LocalizedPair({
   labelAr,
-  labelEn,
+  labelEn: _labelEn,
   value,
   onChange,
   multiline = false,
@@ -64,21 +64,15 @@ export function LocalizedPair({
   const Field = multiline ? Textarea : Input;
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
-      <div className="space-y-1.5">
-        <Label>{labelAr}</Label>
-        <Field
-          value={current.ar}
-          onChange={(event) => onChange({ ...current, ar: event.target.value })}
-        />
-      </div>
-      <div className="space-y-1.5">
-        <Label>{labelEn}</Label>
-        <Field
-          value={current.en}
-          onChange={(event) => onChange({ ...current, en: event.target.value })}
-        />
-      </div>
+    <div className="space-y-1.5">
+      <Label>{labelAr}</Label>
+      <Field
+        value={current.ar}
+        onChange={(event) => {
+          const next = event.target.value;
+          onChange({ ar: next, en: next });
+        }}
+      />
     </div>
   );
 }
@@ -398,8 +392,8 @@ export function SectionDefinitionFields({ fields, value, onChange }: Props) {
       return (
         <LocalizedPair
           key={field.key}
-          labelAr={`${label} (${tFields('localeAr')})`}
-          labelEn={`${label} (${tFields('localeEn')})`}
+          labelAr={label}
+          labelEn={label}
           value={fieldValue as LocalizableString | null | undefined}
           multiline={field.control === 'localized-textarea'}
           onChange={(next) => patch(field.path, next)}
@@ -632,8 +626,8 @@ export function SectionDefinitionFields({ fields, value, onChange }: Props) {
                 </Select>
               </div>
               <LocalizedPair
-                labelAr={tFields('titleAr')}
-                labelEn={tFields('titleEn')}
+                labelAr={tFields('title')}
+                labelEn={tFields('title')}
                 value={feature.title}
                 onChange={(title) => {
                   const next = [...features];
@@ -642,8 +636,8 @@ export function SectionDefinitionFields({ fields, value, onChange }: Props) {
                 }}
               />
               <LocalizedPair
-                labelAr={tFields('descriptionAr')}
-                labelEn={tFields('descriptionEn')}
+                labelAr={tFields('description')}
+                labelEn={tFields('description')}
                 value={feature.description}
                 multiline
                 onChange={(description) => {

@@ -1,4 +1,7 @@
-import type { CompanyConfigRecord } from '@/features/ecommerce/storefront/domain/company-config';
+import {
+  normalizeAnnouncementBar,
+  type CompanyConfigRecord,
+} from '@/features/ecommerce/storefront/domain/company-config';
 import type { StorefrontCompanyConfig, StorefrontNavItem } from '@/features/ecommerce/storefront/domain/storefront-models';
 import type { StorefrontLocale } from '@/i18n/routing';
 import { resolveLocalizedText } from '@/features/ecommerce/storefront/domain/localizable';
@@ -46,15 +49,22 @@ export function mapStorefrontCompanyConfig(
         links: group.links.map((link) => mapNavItem(link, locale)),
       })),
     },
-    announcement: {
-      enabled: record.announcement?.enabled ?? false,
-      message: resolveLocalizedText(
-        record.announcement?.message ?? { ar: '', en: '' },
-        locale,
-      ),
-      href: record.announcement?.href ?? null,
-      dismissible: record.announcement?.dismissible ?? true,
-    },
+    announcement: (() => {
+      const bar = normalizeAnnouncementBar(record.announcement);
+      return {
+        enabled: bar.enabled,
+        dismissible: bar.dismissible,
+        speedMs: bar.speedMs,
+        items: bar.items
+          .filter((item) => item.enabled && (item.message.ar.trim() || item.message.en.trim()))
+          .map((item) => ({
+            id: item.id,
+            message: resolveLocalizedText(item.message, locale),
+            href: item.href,
+          }))
+          .filter((item) => item.message.trim()),
+      };
+    })(),
     checkout: {
       cities: record.checkout?.cities?.length
         ? [...record.checkout.cities]

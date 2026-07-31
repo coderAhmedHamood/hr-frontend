@@ -8,8 +8,6 @@ import {
   LayoutTemplate,
   FileText,
   Settings,
-  Newspaper,
-  CircleHelp,
   PanelBottom,
   Megaphone,
   SlidersHorizontal,
@@ -118,8 +116,6 @@ export const ecommerceAdminNavGroups: EcommerceAdminNavGroup[] = [
         sectionKey: 'content',
         items: [
           { labelKey: 'contentPages', href: ecommerceContentHref('pages'), icon: FileText },
-          { labelKey: 'contentBlog', href: ecommerceContentHref('blog'), icon: Newspaper },
-          { labelKey: 'contentFaq', href: ecommerceContentHref('faq'), icon: CircleHelp },
           { labelKey: 'websiteSettings', href: ecommerceAdminRoutes.settings, icon: Settings },
         ],
       },

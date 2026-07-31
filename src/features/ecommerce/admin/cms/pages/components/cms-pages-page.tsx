@@ -4,9 +4,11 @@ import * as React from 'react';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { ArrowRight, Pencil, Save } from 'lucide-react';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
 import {
   getCmsContentBundle,
+  listCmsBlogPosts,
   saveCmsAbout,
   saveCmsContact,
   saveCmsLegalPage,
@@ -15,26 +17,91 @@ import type {
   AboutPageContent,
   ContactPageContent,
   LegalPageContent,
+  LegalPageSlug,
   StorefrontContentBundle,
 } from '@/features/ecommerce/storefront/domain/content';
-import { BookOpen, Save } from 'lucide-react';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { PageHeaderPrimaryButton } from '@/components/layouts/page-header-primary-button';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { DataTable, type ColumnDef } from '@/components/ui/data-table';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { CmsAboutTab } from '@/features/ecommerce/admin/cms/pages/components/cms-about-tab';
 import { CmsContactTab } from '@/features/ecommerce/admin/cms/pages/components/cms-contact-tab';
-import { CmsLegalTab, ensureLegalPages } from '@/features/ecommerce/admin/cms/pages/components/cms-legal-tab';
+import {
+  CmsLegalPageForm,
+  emptyLegalPage,
+  ensureLegalPages,
+  LEGAL_SLUGS,
+} from '@/features/ecommerce/admin/cms/pages/components/cms-legal-tab';
+import { BlogCmsPage } from '@/features/ecommerce/admin/cms/blog/components/blog-cms-page';
+import { FaqCmsPage } from '@/features/ecommerce/admin/cms/faq/components/faq-cms-page';
 
 const CMS_PAGES_QUERY_KEY = ['ecommerce-cms', 'content', 'pages'] as const;
+const BLOG_COUNT_QUERY_KEY = ['ecommerce-cms', 'content', 'blog', 'count'] as const;
 
-export function CmsPagesPage({ embedded = false }: { embedded?: boolean }) {
+export type CmsPagesPanel = 'list' | 'blog' | 'faq';
+
+type PageRowKind = 'about' | 'contact' | 'legal' | 'blog' | 'faq';
+
+type PageRow = {
+  id: string;
+  kind: PageRowKind;
+  slug?: LegalPageSlug;
+  titleKey: 'about' | 'contact' | 'blog' | 'faq' | LegalPageSlug;
+};
+
+type EditFormState =
+  | { kind: 'about'; draft: AboutPageContent }
+  | { kind: 'contact'; draft: ContactPageContent }
+  | { kind: 'legal'; slug: LegalPageSlug; draft: LegalPageContent };
+
+function buildPageRows(): PageRow[] {
+  return [
+    { id: 'about', kind: 'about', titleKey: 'about' },
+    { id: 'contact', kind: 'contact', titleKey: 'contact' },
+    ...LEGAL_SLUGS.map((slug) => ({
+      id: `legal-${slug}`,
+      kind: 'legal' as const,
+      slug,
+      titleKey: slug,
+    })),
+    { id: 'blog', kind: 'blog', titleKey: 'blog' },
+    { id: 'faq', kind: 'faq', titleKey: 'faq' },
+  ];
+}
+
+function typeBadgeKey(kind: PageRowKind): string {
+  if (kind === 'legal') return 'typeLegal';
+  if (kind === 'blog' || kind === 'faq') return 'typeDynamic';
+  return 'typePage';
+}
+
+type Props = {
+  embedded?: boolean;
+  initialPanel?: CmsPagesPanel;
+};
+
+export function CmsPagesPage({ embedded = false, initialPanel = 'list' }: Props) {
   const companyId = getStorefrontCompanyId();
   const t = useTranslations('ecommerceAdmin.cmsPages');
+  const tHome = useTranslations('ecommerceAdmin.homepage');
   const tCommon = useTranslations('common');
   const queryClient = useQueryClient();
+
+  const [panel, setPanel] = React.useState<CmsPagesPanel>(initialPanel);
+
+  React.useEffect(() => {
+    setPanel(initialPanel);
+  }, [initialPanel]);
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: [...CMS_PAGES_QUERY_KEY, companyId],
@@ -48,92 +115,212 @@ export function CmsPagesPage({ embedded = false }: { embedded?: boolean }) {
     },
   });
 
+  const { data: blogPosts } = useQuery({
+    queryKey: [...BLOG_COUNT_QUERY_KEY, companyId],
+    queryFn: () => listCmsBlogPosts(companyId),
+    enabled: panel === 'list',
+  });
+
   const [draft, setDraft] = React.useState<StorefrontContentBundle | null>(null);
-  const [activeTab, setActiveTab] = React.useState('about');
+  const [dirty, setDirty] = React.useState(false);
+  const [form, setForm] = React.useState<EditFormState | null>(null);
 
   React.useEffect(() => {
-    if (data) setDraft(structuredClone(data));
+    if (data) {
+      setDraft(structuredClone(data));
+      setDirty(false);
+    }
   }, [data]);
 
-  const saveAbout = useMutation({
-    mutationFn: (about: AboutPageContent) => saveCmsAbout(companyId, about),
-    onSuccess: (saved) => {
-      queryClient.setQueryData<StorefrontContentBundle>([...CMS_PAGES_QUERY_KEY, companyId], (prev) =>
-        prev ? { ...prev, about: saved } : prev,
-      );
-      setDraft((prev) => (prev ? { ...prev, about: saved } : prev));
-      toast.success(t('saveSuccess'));
-    },
-    onError: () => toast.error(t('saveError')),
-  });
-
-  const saveContact = useMutation({
-    mutationFn: (contact: ContactPageContent) => saveCmsContact(companyId, contact),
-    onSuccess: (saved) => {
-      queryClient.setQueryData<StorefrontContentBundle>([...CMS_PAGES_QUERY_KEY, companyId], (prev) =>
-        prev ? { ...prev, contact: saved } : prev,
-      );
-      setDraft((prev) => (prev ? { ...prev, contact: saved } : prev));
-      toast.success(t('saveSuccess'));
-    },
-    onError: () => toast.error(t('saveError')),
-  });
-
-  const saveLegal = useMutation({
-    mutationFn: async (pages: LegalPageContent[]) => {
-      const saved: LegalPageContent[] = [];
-      for (const page of pages) {
-        saved.push(
+  const save = useMutation({
+    mutationFn: async (bundle: StorefrontContentBundle) => {
+      const about = await saveCmsAbout(companyId, bundle.about);
+      const contact = await saveCmsContact(companyId, bundle.contact);
+      const legal: LegalPageContent[] = [];
+      for (const page of ensureLegalPages(bundle.legal)) {
+        legal.push(
           await saveCmsLegalPage(companyId, {
             ...page,
             updatedAt: new Date().toISOString(),
           }),
         );
       }
-      return saved;
+      return {
+        ...bundle,
+        about,
+        contact,
+        legal: ensureLegalPages(legal),
+      } satisfies StorefrontContentBundle;
     },
     onSuccess: (saved) => {
-      queryClient.setQueryData<StorefrontContentBundle>([...CMS_PAGES_QUERY_KEY, companyId], (prev) =>
-        prev ? { ...prev, legal: ensureLegalPages(saved) } : prev,
-      );
-      setDraft((prev) => (prev ? { ...prev, legal: ensureLegalPages(saved) } : prev));
+      queryClient.setQueryData([...CMS_PAGES_QUERY_KEY, companyId], saved);
+      setDraft(saved);
+      setDirty(false);
       toast.success(t('saveSuccess'));
     },
     onError: () => toast.error(t('saveError')),
   });
 
-  const isSaving = saveAbout.isPending || saveContact.isPending || saveLegal.isPending;
+  usePageHeaderActions(
+    () => {
+      if (panel !== 'list') return null;
+      return (
+        <PageHeaderPrimaryButton
+          icon={Save}
+          label={save.isPending ? tCommon('status.saving') : tCommon('actions.save')}
+          disabled={!draft || save.isPending || !dirty}
+          onClick={() => {
+            if (draft) void save.mutateAsync(draft);
+          }}
+        />
+      );
+    },
+    [draft, dirty, save.isPending, tCommon, panel],
+  );
 
-  function handleSave() {
-    if (!draft) return;
-    if (activeTab === 'about') void saveAbout.mutateAsync(draft.about);
-    else if (activeTab === 'contact') void saveContact.mutateAsync(draft.contact);
-    else void saveLegal.mutateAsync(draft.legal);
+  function pagePreview(row: PageRow): string {
+    if (!draft) return '';
+    if (row.kind === 'about') {
+      return draft.about.headline.ar.trim() || draft.about.intro.ar.trim();
+    }
+    if (row.kind === 'contact') {
+      return draft.contact.headline.ar.trim() || draft.contact.intro.ar.trim();
+    }
+    if (row.kind === 'blog') {
+      const count = blogPosts?.length ?? 0;
+      return t('blogPreview', { count });
+    }
+    if (row.kind === 'faq') {
+      return t('faqPreview', { count: draft.faq.length });
+    }
+    const page = draft.legal.find((item) => item.slug === row.slug);
+    return page?.title.ar.trim() || page?.body.ar.trim() || '';
   }
 
-  usePageHeaderActions(
-    () => (
-      <PageHeaderPrimaryButton
-        icon={Save}
-        label={isSaving ? tCommon('status.saving') : tCommon('actions.save')}
-        disabled={!draft || isSaving}
-        onClick={handleSave}
-      />
-    ),
-    [draft, isSaving, activeTab, tCommon],
-  );
+  function openEdit(row: PageRow) {
+    if (row.kind === 'blog') {
+      setPanel('blog');
+      return;
+    }
+    if (row.kind === 'faq') {
+      setPanel('faq');
+      return;
+    }
+    if (!draft) return;
+    if (row.kind === 'about') {
+      setForm({ kind: 'about', draft: structuredClone(draft.about) });
+      return;
+    }
+    if (row.kind === 'contact') {
+      setForm({ kind: 'contact', draft: structuredClone(draft.contact) });
+      return;
+    }
+    const page = draft.legal.find((item) => item.slug === row.slug) ?? emptyLegalPage(row.slug!);
+    setForm({
+      kind: 'legal',
+      slug: row.slug!,
+      draft: structuredClone(page),
+    });
+  }
+
+  function applyForm() {
+    if (!form || !draft) return;
+    if (form.kind === 'about') {
+      setDraft({ ...draft, about: form.draft });
+    } else if (form.kind === 'contact') {
+      setDraft({ ...draft, contact: form.draft });
+    } else {
+      setDraft({
+        ...draft,
+        legal: ensureLegalPages(
+          draft.legal.map((page) => (page.slug === form.slug ? form.draft : page)),
+        ),
+      });
+    }
+    setDirty(true);
+    setForm(null);
+  }
+
+  const rows = buildPageRows();
+
+  const columns: ColumnDef<PageRow>[] = [
+    {
+      key: 'title',
+      title: t('columnPage'),
+      render: (row) => (
+        <span className="text-sm font-medium text-foreground">{t(row.titleKey)}</span>
+      ),
+    },
+    {
+      key: 'preview',
+      title: t('columnPreview'),
+      render: (row) => (
+        <span className="line-clamp-2 text-sm text-muted-foreground">
+          {pagePreview(row) || t('noPreview')}
+        </span>
+      ),
+    },
+    {
+      key: 'type',
+      title: t('columnType'),
+      render: (row) => <Badge variant="subtle">{t(typeBadgeKey(row.kind))}</Badge>,
+    },
+    {
+      key: 'actions',
+      title: '',
+      isActions: true,
+      render: (row) => (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          aria-label={tCommon('actions.edit')}
+          onClick={() => openEdit(row)}
+        >
+          <Pencil className="h-4 w-4" />
+        </Button>
+      ),
+    },
+  ];
+
+  const dialogTitle =
+    form?.kind === 'about'
+      ? t('about')
+      : form?.kind === 'contact'
+        ? t('contact')
+        : form?.kind === 'legal'
+          ? t(form.slug)
+          : '';
+
+  if (panel === 'blog' || panel === 'faq') {
+    return (
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center gap-2">
+          <Button type="button" variant="outline" size="sm" onClick={() => setPanel('list')}>
+            <ArrowRight className="me-1.5 h-4 w-4" />
+            {t('backToPages')}
+          </Button>
+          <h2 className="text-sm font-semibold text-foreground">
+            {panel === 'blog' ? t('blog') : t('faq')}
+          </h2>
+        </div>
+        {panel === 'blog' ? <BlogCmsPage embedded /> : <FaqCmsPage embedded />}
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-5">
-      {!embedded ? <SetPageTitle titleAr={t('title')} descriptionAr={t('description')} iconName="BookOpen" /> : null}
+      {!embedded ? (
+        <SetPageTitle titleAr={t('title')} descriptionAr={t('description')} iconName="BookOpen" />
+      ) : null}
 
-      {isLoading ? (
-        <div className="space-y-3">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="h-24 animate-pulse rounded-xl bg-muted/50" />
-          ))}
+      {dirty ? (
+        <div className="flex items-center gap-2 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
+          {tHome('unsavedHint')}
         </div>
       ) : null}
+
       {isError ? (
         <Card>
           <CardContent className="flex items-center justify-between gap-3 py-6">
@@ -145,36 +332,55 @@ export function CmsPagesPage({ embedded = false }: { embedded?: boolean }) {
         </Card>
       ) : null}
 
-      {draft ? (
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList>
-            <TabsTrigger value="about">{t('about')}</TabsTrigger>
-            <TabsTrigger value="contact">{t('contact')}</TabsTrigger>
-            <TabsTrigger value="legal">{t('legal')}</TabsTrigger>
-          </TabsList>
+      <DataTable
+        columns={columns}
+        data={rows}
+        keyExtractor={(row) => row.id}
+        loading={isLoading || !draft}
+        emptyText={t('empty')}
+        alwaysShowTable
+      />
 
-          <TabsContent value="about" className="mt-4">
+      <Dialog
+        open={form !== null}
+        onOpenChange={(open) => {
+          if (!open) setForm(null);
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{dialogTitle}</DialogTitle>
+          </DialogHeader>
+
+          {form?.kind === 'about' ? (
             <CmsAboutTab
-              about={draft.about}
-              onChange={(about) => setDraft({ ...draft, about })}
+              about={form.draft}
+              onChange={(about) => setForm({ kind: 'about', draft: about })}
             />
-          </TabsContent>
-
-          <TabsContent value="contact" className="mt-4">
+          ) : null}
+          {form?.kind === 'contact' ? (
             <CmsContactTab
-              contact={draft.contact}
-              onChange={(contact) => setDraft({ ...draft, contact })}
+              contact={form.draft}
+              onChange={(contact) => setForm({ kind: 'contact', draft: contact })}
             />
-          </TabsContent>
+          ) : null}
+          {form?.kind === 'legal' ? (
+            <CmsLegalPageForm
+              page={form.draft}
+              onChange={(page) => setForm({ kind: 'legal', slug: form.slug, draft: page })}
+            />
+          ) : null}
 
-          <TabsContent value="legal" className="mt-4">
-            <CmsLegalTab
-              legal={draft.legal}
-              onChange={(legal) => setDraft({ ...draft, legal })}
-            />
-          </TabsContent>
-        </Tabs>
-      ) : null}
+          <DialogFooter className="gap-2">
+            <Button type="button" variant="outline" onClick={() => setForm(null)}>
+              {tCommon('actions.cancel')}
+            </Button>
+            <Button type="button" onClick={applyForm}>
+              {tCommon('actions.save')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

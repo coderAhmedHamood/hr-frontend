@@ -45,13 +45,12 @@ function getContentTitle(section: SectionRecord): LocalizableString {
 }
 
 function withArabicTitle(section: SectionRecord, titleAr: string): SectionRecord {
-  const current = getContentTitle(section);
   const trimmed = titleAr.trim();
   return {
     ...section,
     content: {
       ...(section.content as Record<string, unknown>),
-      title: trimmed ? { ar: trimmed, en: current.en || trimmed } : { ar: '', en: current.en || '' },
+      title: { ar: trimmed, en: trimmed },
     },
   } as SectionRecord;
 }
@@ -332,11 +331,11 @@ export function StoreSettingsPage() {
                 <p className="text-sm font-medium text-foreground">{form.typeLabel}</p>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="store-section-title">{t('titleAr')}</Label>
+                <Label htmlFor="store-section-title">{t('titleLabel')}</Label>
                 <Input
                   id="store-section-title"
                   value={form.titleAr}
-                  placeholder={t('titleArPlaceholder')}
+                  placeholder={t('titlePlaceholder')}
                   onChange={(event) => setForm({ ...form, titleAr: event.target.value })}
                 />
               </div>

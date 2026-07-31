@@ -1,4 +1,7 @@
-import type { CompanyConfigRecord } from '@/features/ecommerce/storefront/domain/company-config';
+import {
+  normalizeAnnouncementBar,
+  type CompanyConfigRecord,
+} from '@/features/ecommerce/storefront/domain/company-config';
 import {
   LEGACY_STOREFRONT_COMPANY_ID,
   STOREFRONT_FALLBACK_COMPANY_ID,
@@ -91,12 +94,37 @@ const DEMO_COMPANY_SEED: CompanyConfigRecord = {
   },
   announcement: {
     enabled: true,
-    message: {
-      ar: 'شحن مجاني للطلبات فوق 200 ر.ي داخل اليمن',
-      en: 'Free shipping on orders over YER 200 across Yemen',
-    },
-    href: '/store/offers',
     dismissible: true,
+    speedMs: 28_000,
+    items: [
+      {
+        id: 'ann-free-shipping',
+        enabled: true,
+        message: {
+          ar: 'شحن مجاني للطلبات فوق 200 ر.ي داخل اليمن',
+          en: 'Free shipping on orders over YER 200 across Yemen',
+        },
+        href: '/store/offers',
+      },
+      {
+        id: 'ann-new-arrivals',
+        enabled: true,
+        message: {
+          ar: 'وصل حديثاً — تصفح أحدث المنتجات',
+          en: 'Just arrived — browse the latest products',
+        },
+        href: '/store/products',
+      },
+      {
+        id: 'ann-support',
+        enabled: true,
+        message: {
+          ar: 'خدمة العملاء متاحة يومياً عبر واتساب',
+          en: 'Customer support available daily on WhatsApp',
+        },
+        href: null,
+      },
+    ],
   },
   checkout: {
     cities: [
@@ -198,6 +226,8 @@ export function getCompanyConfigMock(companyId: string): CompanyConfigRecord | n
     cloned.announcement = JSON.parse(
       JSON.stringify(DEMO_COMPANY_SEED.announcement),
     ) as CompanyConfigRecord['announcement'];
+  } else {
+    cloned.announcement = normalizeAnnouncementBar(cloned.announcement);
   }
   if (!cloned.checkout) {
     cloned.checkout = JSON.parse(
@@ -219,6 +249,8 @@ export function saveCompanyConfigMock(record: CompanyConfigRecord): CompanyConfi
     next.announcement = JSON.parse(
       JSON.stringify(DEMO_COMPANY_SEED.announcement),
     ) as CompanyConfigRecord['announcement'];
+  } else {
+    next.announcement = normalizeAnnouncementBar(next.announcement);
   }
   if (!next.checkout) {
     next.checkout = JSON.parse(
