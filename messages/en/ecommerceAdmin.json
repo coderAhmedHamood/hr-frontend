@@ -12,7 +12,8 @@
       "inventorySetup": "Inventory setup",
       "inventoryReports": "Inventory reports",
       "sales": "Sales",
-      "website": "Store settings"
+      "website": "Store settings",
+      "storeSettings": "Store settings"
     },
     "sections": {
       "content": "Content",
@@ -25,6 +26,7 @@
     "homepage": "Homepage",
     "banners": "Hero carousel",
     "storeSettings": "Homepage sections",
+    "homepageSections": "Homepage sections",
     "contentPages": "Pages",
     "contentBlog": "Blog",
     "contentFaq": "FAQ",

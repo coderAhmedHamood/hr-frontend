@@ -19,6 +19,7 @@ import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { PageHeaderPrimaryButton } from '@/components/layouts/page-header-primary-button';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -188,39 +189,27 @@ export function StoreSettingsPage() {
 
   const columns: ColumnDef<SectionRecord>[] = [
     {
-      key: 'type',
-      title: t('columnType'),
-      render: (section) => {
-        const definition = getSectionDefinition(section.type);
-        return (
-          <button
-            type="button"
-            className={`text-start font-medium hover:text-primary ${
-              section.enabled ? 'text-foreground' : 'text-muted-foreground'
-            }`}
-            onClick={() => openEdit(section)}
-          >
-            {definition.displayName.ar}
-          </button>
-        );
-      },
-    },
-    {
       key: 'title',
       title: t('columnTitle'),
       render: (section) => {
         const titleAr = getContentTitle(section).ar.trim();
         return (
-          <button
-            type="button"
-            className={`line-clamp-2 text-start text-sm font-medium hover:text-primary ${
+          <span
+            className={`line-clamp-2 text-sm font-medium ${
               section.enabled ? 'text-foreground' : 'text-muted-foreground'
             }`}
-            onClick={() => openEdit(section)}
           >
             {titleAr || t('noTitle')}
-          </button>
+          </span>
         );
+      },
+    },
+    {
+      key: 'type',
+      title: t('columnType'),
+      render: (section) => {
+        const definition = getSectionDefinition(section.type);
+        return <Badge variant="subtle">{definition.displayName.ar}</Badge>;
       },
     },
     {

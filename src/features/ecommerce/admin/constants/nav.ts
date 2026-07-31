@@ -41,7 +41,7 @@ export type EcommerceAdminNavSection = {
 };
 
 export type EcommerceAdminNavGroup = {
-  key: 'products' | 'catalogSetup' | 'sales' | 'website';
+  key: 'products' | 'catalogSetup' | 'sales' | 'storeSettings';
   labelKey: string;
   icon: LucideIcon;
   sections: EcommerceAdminNavSection[];
@@ -93,14 +93,14 @@ export const ecommerceAdminNavGroups: EcommerceAdminNavGroup[] = [
     ],
   },
   {
-    key: 'website',
-    labelKey: 'groups.website',
+    key: 'storeSettings',
+    labelKey: 'groups.storeSettings',
     icon: Settings,
     sections: [
       {
         items: [
           { labelKey: 'banners', href: ecommerceAdminRoutes.banners, icon: Image },
-          { labelKey: 'storeSettings', href: ecommerceAdminRoutes.storeSettings, icon: LayoutTemplate },
+          { labelKey: 'homepageSections', href: ecommerceAdminRoutes.storeSettings, icon: LayoutTemplate },
           {
             labelKey: 'appearanceFooter',
             href: ecommerceNavigationHref('footer'),
