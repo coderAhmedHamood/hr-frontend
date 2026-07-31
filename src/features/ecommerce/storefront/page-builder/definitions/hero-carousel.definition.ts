@@ -4,8 +4,6 @@ import { SUPPORTED_STOREFRONT_LOCALES } from '@/features/ecommerce/storefront/pa
 import { heroCarouselSectionSchema } from '@/features/ecommerce/storefront/page-builder/schemas/page.schema';
 import {
   BASE_SECTION_CAPABILITIES,
-  booleanField,
-  numberField,
   UI_STRINGS,
 } from '@/features/ecommerce/storefront/page-builder/definitions/shared/field-builders';
 
@@ -55,7 +53,7 @@ export const HERO_CAROUSEL_DEFINITION: SectionDefinition<'hero-carousel'> = {
     ...BASE_SECTION_CAPABILITIES,
     supportsTitle: true,
     supportsSubtitle: true,
-    supportsAutoplay: true,
+    supportsAutoplay: false,
     supportsBanners: true,
     supportsProducts: false,
     supportsCategories: false,
@@ -73,7 +71,5 @@ export const HERO_CAROUSEL_DEFINITION: SectionDefinition<'hero-carousel'> = {
       group: 'content',
       meta: { aspectRatio: '21/7', acceptsAltText: true, mobileVariant: true },
     },
-    booleanField('autoplay', 'settings.autoplay', UI_STRINGS.fields.autoplay, 'settings', true),
-    numberField('intervalMs', 'settings.intervalMs', UI_STRINGS.fields.intervalMs, 'settings', { min: 1000, max: 30000 }, 5000),
   ],
 };

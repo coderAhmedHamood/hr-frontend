@@ -9,6 +9,7 @@ import { inventoryAdminRoutes } from '@/features/inventory/admin/constants/route
 export const ecommerceAdminRoutes = {
   overview: '/overview',
   homepage: '/cms/homepage',
+  storeSettings: '/cms/store-settings',
   navigation: '/cms/navigation',
   banners: '/cms/banners',
   content: '/cms/content',

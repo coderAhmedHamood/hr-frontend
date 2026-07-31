@@ -1,5 +1,7 @@
-import { HomepagePageBuilderPage } from '@/features/ecommerce/admin/cms/homepage/components/homepage-page-builder-page';
+import { redirect } from 'next/navigation';
+import { ecommerceAdminRoutes } from '@/features/ecommerce/admin/constants/routes';
 
+/** Homepage builder moved into store settings + hero carousel pages. */
 export default function Page() {
-  return <HomepagePageBuilderPage />;
+  redirect(ecommerceAdminRoutes.storeSettings);
 }

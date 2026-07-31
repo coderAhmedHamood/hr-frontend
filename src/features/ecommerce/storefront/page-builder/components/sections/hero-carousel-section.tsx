@@ -10,7 +10,7 @@ export function HeroCarouselSection({ section }: { section: ResolvedHeroCarousel
       slides={slides}
       title={section.heading.title || undefined}
       subtitle={section.heading.subtitle || undefined}
-      autoplay={section.settings.autoplay}
+      autoplay
       intervalMs={section.settings.intervalMs}
       layout={section.style.layout}
       heightRatio={section.style.height}

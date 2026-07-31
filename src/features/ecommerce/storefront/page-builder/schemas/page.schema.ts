@@ -96,6 +96,7 @@ export const heroCarouselSectionSchema = sectionMetadataSchema.extend({
         z.object({
           id: z.string().uuid(),
           imageUrl: z.string().url(),
+          enabled: z.boolean().optional(),
           mobileImageUrl: z.string().url().optional(),
           title: localizableStringSchema.optional(),
           alt: localizableStringSchema.optional(),

@@ -109,18 +109,20 @@ export function mapHeroSlides(
   section: Extract<NormalizedSection, { type: 'hero-carousel' }>,
   locale: StorefrontLocale,
 ): StorefrontHeroSlide[] {
-  return section.content.slides.map((slide) => {
-    const title = resolveLocalizedOptional(slide.title, locale) ?? '';
-    const alt = resolveLocalizedOptional(slide.alt, locale) ?? title;
-    return {
-      id: slide.id,
-      imageUrl: slide.imageUrl,
-      mobileImageUrl: slide.mobileImageUrl ?? null,
-      title,
-      alt,
-      href: slide.href ?? null,
-    };
-  });
+  return section.content.slides
+    .filter((slide) => slide.enabled !== false)
+    .map((slide) => {
+      const title = resolveLocalizedOptional(slide.title, locale) ?? '';
+      const alt = resolveLocalizedOptional(slide.alt, locale) ?? title;
+      return {
+        id: slide.id,
+        imageUrl: slide.imageUrl,
+        mobileImageUrl: slide.mobileImageUrl ?? null,
+        title,
+        alt,
+        href: slide.href ?? null,
+      };
+    });
 }
 
 export function mapFeatureItems(

@@ -47,7 +47,7 @@ function resolveFieldLabel(label: LocalizableString, locale: string): string {
   return locale === 'en' ? label.en : label.ar;
 }
 
-function LocalizedPair({
+export function LocalizedPair({
   labelAr,
   labelEn,
   value,

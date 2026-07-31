@@ -12,9 +12,9 @@ import {
   CircleHelp,
   PanelBottom,
   Megaphone,
-  Globe,
   SlidersHorizontal,
   Library,
+  Image,
 } from 'lucide-react';
 import {
   ecommerceAdminRoutes,
@@ -95,11 +95,12 @@ export const ecommerceAdminNavGroups: EcommerceAdminNavGroup[] = [
   {
     key: 'website',
     labelKey: 'groups.website',
-    icon: Globe,
+    icon: Settings,
     sections: [
       {
         items: [
-          { labelKey: 'homepage', href: ecommerceAdminRoutes.homepage, icon: LayoutTemplate },
+          { labelKey: 'banners', href: ecommerceAdminRoutes.banners, icon: Image },
+          { labelKey: 'storeSettings', href: ecommerceAdminRoutes.storeSettings, icon: LayoutTemplate },
           {
             labelKey: 'appearanceFooter',
             href: ecommerceNavigationHref('footer'),
