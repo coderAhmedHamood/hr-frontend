@@ -19,6 +19,11 @@ export type CheckoutAddressInput = {
   district: string;
   street: string;
   notes?: string;
+  /** Precise delivery point picked on the map — optional, supplements the free-text fields. */
+  lat?: number;
+  lng?: number;
+  /** Formatted address string resolved by Google's geocoder for the picked point. */
+  mapAddress?: string;
 };
 
 export type CheckoutLineInput = {

@@ -30,6 +30,7 @@ import { ProductGridSkeleton } from '@/features/ecommerce/storefront/components/
 import { StoreErrorState } from '@/features/ecommerce/storefront/components/catalog/store-error-state';
 import { StoreEmptyState } from '@/features/ecommerce/storefront/components/store-empty-state';
 import { Button } from '@/components/ui/button';
+import { GoogleLocationPicker, type GoogleLocationValue } from '@/components/ui/google-location-picker';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -335,6 +336,26 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
                   className="h-11 rounded-xl"
                 />
               </Field>
+              <Field label={t('checkout.mapLocation')} className="sm:col-span-2">
+                <p className="-mt-1 mb-1.5 text-xs text-muted-foreground">{t('checkout.mapLocationHint')}</p>
+                <GoogleLocationPicker
+                  value={
+                    address.lat != null && address.lng != null
+                      ? { lat: address.lat, lng: address.lng, address: address.mapAddress ?? '' }
+                      : null
+                  }
+                  onLocationChange={(location: GoogleLocationValue) =>
+                    setAddress((prev) => ({
+                      ...prev,
+                      lat: location.lat,
+                      lng: location.lng,
+                      mapAddress: location.address,
+                    }))
+                  }
+                  height={280}
+                  className="rounded-xl"
+                />
+              </Field>
               <Field label={t('checkout.notes')} className="sm:col-span-2">
                 <Textarea
                   rows={3}
@@ -524,6 +545,11 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
                     {address.city} · {address.district}
                   </p>
                   <p className="mt-1 text-sm text-muted-foreground">{address.street}</p>
+                  {address.mapAddress ? (
+                    <p className="mt-1 truncate text-xs text-muted-foreground" dir="auto">
+                      📍 {address.mapAddress}
+                    </p>
+                  ) : null}
                 </div>
                 <div className="rounded-2xl bg-muted/30 p-4">
                   <div className="mb-2 flex items-center justify-between gap-2">

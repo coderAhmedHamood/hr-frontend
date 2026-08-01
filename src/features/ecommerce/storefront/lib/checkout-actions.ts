@@ -39,6 +39,9 @@ export async function placeStorefrontOrder(
       district: address.district.trim(),
       street: address.street.trim(),
       notes: address.notes?.trim() || undefined,
+      lat: address.lat,
+      lng: address.lng,
+      mapAddress: address.mapAddress?.trim() || undefined,
     },
   });
 }

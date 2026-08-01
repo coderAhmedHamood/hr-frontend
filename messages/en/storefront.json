@@ -110,6 +110,8 @@
     "city": "City",
     "district": "District",
     "street": "Street / details",
+    "mapLocation": "Pin your delivery location on the map (optional)",
+    "mapLocationHint": "Search your address or use your current location to help the driver find you.",
     "notes": "Driver notes (optional)",
     "notesPlaceholder": "e.g. next to the mosque, 2nd floor",
     "shipping": "Shipping",
