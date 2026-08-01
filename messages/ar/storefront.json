@@ -122,7 +122,11 @@
     "placing": "جاري تأكيد الطلب...",
     "placeSuccess": "تم تأكيد طلبك بنجاح",
     "placeError": "تعذر إتمام الطلب. حاول مرة أخرى.",
-    "paymentMockHint": "الدفع الإلكتروني تجريبي حالياً — سيتم تأكيد الطلب فوراً بدون بوابة دفع حقيقية.",
+    "paymentMockHint": "بعد إرفاق الإيصال يصل الطلب للمراجعة — يُجهَّز بعد تأكيد التحصيل من المتجر.",
+    "paymentProofHint": "إن دفعت عبر الشبكة أو التحويل، أرفق صورة الإيصال ليراجعها المتجر قبل التجهيز.",
+    "paymentProofLabel": "صورة إيصال الدفع (اختياري)",
+    "paymentProofAttached": "تم إرفاق إيصال الدفع",
+    "paymentProofRemove": "إزالة الصورة",
     "paymentMethods": {
       "cash_on_delivery": {
         "label": "الدفع عند الاستلام",
@@ -130,12 +134,14 @@
       },
       "card": {
         "label": "بطاقة ائتمان / خصم",
-        "description": "Visa أو Mastercard (تجريبي)."
+        "description": "Visa أو Mastercard أو تحويل شبكي مع إرفاق الإيصال."
       }
     },
     "errors": {
       "required": "هذا الحقل مطلوب",
-      "phone": "أدخل رقم جوال صحيح"
+      "phone": "أدخل رقم جوال صحيح",
+      "paymentProofType": "يرجى اختيار صورة فقط",
+      "paymentProofSize": "حجم الصورة يجب ألا يتجاوز 4 ميجابايت"
     }
   },
   "orders": {

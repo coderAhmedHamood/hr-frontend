@@ -3,6 +3,7 @@ import type { StorefrontLegalPage } from '@/features/ecommerce/storefront/domain
 import { StoreBreadcrumbs } from '@/features/ecommerce/storefront/components/store-breadcrumbs';
 import { JsonLd } from '@/features/ecommerce/storefront/components/json-ld';
 import { breadcrumbJsonLd } from '@/features/ecommerce/storefront/lib/seo';
+import { RichTextHtml } from '@/components/ui/rich-text-html';
 import type { StorefrontLocale } from '@/i18n/routing';
 
 export async function LegalPage({
@@ -32,7 +33,7 @@ export async function LegalPage({
         </p>
       </header>
 
-      <div className="max-w-3xl whitespace-pre-line text-sm leading-relaxed text-muted-foreground">{page.body}</div>
+      <RichTextHtml html={page.body} className="max-w-3xl" />
     </div>
   );
 }

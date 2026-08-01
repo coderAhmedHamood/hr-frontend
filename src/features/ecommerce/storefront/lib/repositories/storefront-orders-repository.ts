@@ -61,6 +61,9 @@ export const storefrontOrdersRepository = {
     });
     const now = new Date().toISOString();
     const isCod = input.paymentMethod === 'cash_on_delivery';
+    const paymentProofUrl = input.paymentProofUrl?.trim() || null;
+    // Card/network with a receipt stays pending until an admin reviews the proof.
+    const paymentStatus = isCod ? 'pending' : paymentProofUrl ? 'pending' : 'paid';
 
     const order: StorefrontCustomerOrder = {
       id: crypto.randomUUID(),
@@ -68,7 +71,8 @@ export const storefrontOrdersRepository = {
       orderNumber: nextOrderNumber(),
       status: 'confirmed',
       paymentMethod: input.paymentMethod,
-      paymentStatus: isCod ? 'pending' : 'paid',
+      paymentStatus,
+      paymentProofUrl,
       address: clone(input.address),
       lines,
       subtotal: { amount: subtotalAmount, currency },

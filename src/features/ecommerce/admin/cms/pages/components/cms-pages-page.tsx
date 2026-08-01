@@ -327,7 +327,7 @@ export function CmsPagesPage({ embedded = false, initialPanel = 'list' }: Props)
           if (!open) setForm(null);
         }}
       >
-        <DialogContent className="max-w-lg">
+        <DialogContent className={form?.kind === 'legal' ? 'max-w-3xl' : 'max-w-lg'}>
           <DialogHeader>
             <DialogTitle>{dialogTitle}</DialogTitle>
           </DialogHeader>

@@ -41,6 +41,8 @@ export type Order = TenantScoped & {
   shippingNotes?: string;
   paymentMethod?: 'cash_on_delivery' | 'card';
   paymentStatus?: 'pending' | 'paid' | 'failed' | 'refunded';
+  /** Transfer / card receipt image URL when the customer attached proof. */
+  paymentProofUrl?: string | null;
   subtotalAmount?: Money;
   shippingFeeAmount?: Money;
   source?: 'seed' | 'storefront';

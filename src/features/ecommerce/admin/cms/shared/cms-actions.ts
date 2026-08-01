@@ -14,6 +14,7 @@ import type { PageType } from '@/features/ecommerce/storefront/page-builder/doma
 import { storefrontCompanyRepository } from '@/features/ecommerce/storefront/lib/repositories/company-repository';
 import { storefrontContentRepository } from '@/features/ecommerce/storefront/lib/repositories/content-repository';
 import { storefrontPageRepository } from '@/features/ecommerce/storefront/page-builder/lib/repositories/page-repository';
+import { sanitizeRichHtml } from '@/shared/lib/sanitize-rich-html';
 import { routing } from '@/i18n/routing';
 
 /** Invalidate storefront caches so CMS saves appear on the live store. */
@@ -85,7 +86,15 @@ export async function saveCmsLegalPage(
   companyId: string,
   page: LegalPageContent,
 ): Promise<LegalPageContent> {
-  const saved = await storefrontContentRepository.saveLegalPage(companyId, page);
+  const sanitized: LegalPageContent = {
+    ...page,
+    body: {
+      ar: sanitizeRichHtml(page.body.ar),
+      en: sanitizeRichHtml(page.body.en),
+    },
+    updatedAt: new Date().toISOString(),
+  };
+  const saved = await storefrontContentRepository.saveLegalPage(companyId, sanitized);
   revalidateStorefront();
   return saved;
 }

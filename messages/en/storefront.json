@@ -122,7 +122,11 @@
     "placing": "Placing order...",
     "placeSuccess": "Your order was placed successfully",
     "placeError": "Could not place the order. Please try again.",
-    "paymentMockHint": "Online payment is mocked for now — the order is confirmed immediately without a real payment gateway.",
+    "paymentMockHint": "After you attach a receipt, the store reviews payment before preparing the order.",
+    "paymentProofHint": "If you paid by card or bank transfer, attach a receipt photo so the store can verify it before preparing.",
+    "paymentProofLabel": "Payment receipt photo (optional)",
+    "paymentProofAttached": "Payment receipt attached",
+    "paymentProofRemove": "Remove photo",
     "paymentMethods": {
       "cash_on_delivery": {
         "label": "Cash on delivery",
@@ -130,12 +134,14 @@
       },
       "card": {
         "label": "Credit / debit card",
-        "description": "Visa or Mastercard (mock)."
+        "description": "Visa, Mastercard, or transfer — attach a receipt for review."
       }
     },
     "errors": {
       "required": "This field is required",
-      "phone": "Enter a valid mobile number"
+      "phone": "Enter a valid mobile number",
+      "paymentProofType": "Please choose an image file",
+      "paymentProofSize": "Image must be 4 MB or smaller"
     }
   },
   "orders": {

@@ -118,7 +118,7 @@ export function enrichLauncherApplications(
     });
   }
 
-  // Store admin = ecommerce admin UI at `/overview` (single launcher tile).
+  // Store admin = ecommerce admin UI at `/orders` Kanban (single launcher tile).
   const storeAdminIdx = next.findIndex((app) => looksLikeStoreAdminApp(app));
   if (storeAdminIdx >= 0) {
     const existing = next[storeAdminIdx]!;
@@ -128,7 +128,7 @@ export function enrichLauncherApplications(
       nameAr: MODULE_REGISTRY.ecommerce.labelAr,
       nameEn: existing.nameEn?.trim() || 'Store Admin',
       icon: existing.icon?.trim() || 'store-admin',
-      routePath: ecommerceAdminRoutes.overview,
+      routePath: ecommerceAdminRoutes.orders,
       launchUrl: null,
       isActive: true,
       status: existing.status || 'active',
@@ -142,7 +142,7 @@ export function enrichLauncherApplications(
       nameEn: 'Store Admin',
       description: null,
       icon: 'store-admin',
-      routePath: ecommerceAdminRoutes.overview,
+      routePath: ecommerceAdminRoutes.orders,
       sortOrder: maxSort + 10,
       isActive: true,
       status: 'active',
@@ -195,7 +195,7 @@ export function resolveApplicationLaunchPath(app: ApplicationResponseDto): strin
 
   if (code === 'hr') return '/hr/organization/employees';
 
-  // Store back-office (إدارة المتجر) — always the ecommerce admin shell.
+  // Store back-office (إدارة المتجر) — orders Kanban is the home screen.
   if (
     code === 'store-admin' ||
     code === 'storeadmin' ||
@@ -203,7 +203,7 @@ export function resolveApplicationLaunchPath(app: ApplicationResponseDto): strin
     looksLikeStoreAdminApp(app) ||
     isLegacyEcommerceAdminApp(app)
   ) {
-    return ecommerceAdminRoutes.overview;
+    return ecommerceAdminRoutes.orders;
   }
 
   if (code === 'inventory') return inventoryAdminRoutes.overview;
@@ -223,9 +223,14 @@ export function resolveApplicationLaunchPath(app: ApplicationResponseDto): strin
     return contactsAdminRoutes.overview;
   }
 
-  // Backend may still seed `/store-admin` — map to real admin routes.
-  if (base === '/store-admin' || base.startsWith('/store-admin/')) {
-    return ecommerceAdminRoutes.overview;
+  // Backend may still seed `/store-admin` or `/overview` — map to orders home.
+  if (
+    base === '/store-admin' ||
+    base.startsWith('/store-admin/') ||
+    base === '/overview' ||
+    base.startsWith('/overview/')
+  ) {
+    return ecommerceAdminRoutes.orders;
   }
 
   return base || '/';

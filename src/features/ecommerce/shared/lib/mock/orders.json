@@ -5,9 +5,13 @@
     "orderNumber": "ORD-1001",
     "customerId": "cust-1",
     "customerNameAr": "أحمد محمد",
+    "phone": "+967770000001",
     "city": "صنعاء",
     "region": "المنطقة الشمالية",
     "status": "delivered",
+    "paymentMethod": "cash_on_delivery",
+    "paymentStatus": "paid",
+    "source": "seed",
     "items": [
       {
         "productId": "prod-1",
@@ -35,9 +39,14 @@
     "orderNumber": "ORD-1002",
     "customerId": "cust-2",
     "customerNameAr": "فاطمة علي",
+    "phone": "+967770000002",
     "city": "عدن",
     "region": "المنطقة الجنوبية",
     "status": "processing",
+    "paymentMethod": "card",
+    "paymentStatus": "paid",
+    "paymentProofUrl": "https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=800&q=80",
+    "source": "seed",
     "items": [
       {
         "productId": "prod-2",
@@ -73,9 +82,14 @@
     "orderNumber": "ORD-1003",
     "customerId": "cust-3",
     "customerNameAr": "خالد الشامي",
+    "phone": "+967770000003",
     "city": "صنعاء",
     "region": "أمانة العاصمة",
     "status": "pending",
+    "paymentMethod": "card",
+    "paymentStatus": "pending",
+    "paymentProofUrl": "https://images.unsplash.com/photo-1563013544-824ae1b704d3?w=800&q=80",
+    "source": "seed",
     "items": [
       {
         "productId": "prod-1",

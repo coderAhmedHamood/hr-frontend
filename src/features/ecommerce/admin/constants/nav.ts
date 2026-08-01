@@ -1,6 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
 import {
-  LayoutDashboard,
   Package,
   FolderTree,
   Tag,
@@ -38,16 +37,17 @@ export type EcommerceAdminNavSection = {
 };
 
 export type EcommerceAdminNavGroup = {
-  key: 'products' | 'catalogSetup' | 'sales' | 'storeSettings';
+  key: 'products' | 'catalogSetup' | 'storeSettings';
   labelKey: string;
   icon: LucideIcon;
   sections: EcommerceAdminNavSection[];
 };
 
+/** Primary home for store admin — orders Kanban. */
 export const ecommerceAdminOverviewItem: EcommerceAdminNavItem = {
-  labelKey: 'overview',
-  href: ecommerceAdminRoutes.overview,
-  icon: LayoutDashboard,
+  labelKey: 'orders',
+  href: ecommerceAdminRoutes.orders,
+  icon: ShoppingCart,
 };
 
 /** Ecommerce-only nav — inventory lives in the standalone Inventory app. */
@@ -73,18 +73,6 @@ export const ecommerceAdminNavGroups: EcommerceAdminNavGroup[] = [
           { labelKey: 'categories', href: ecommerceAdminRoutes.categories, icon: FolderTree },
           { labelKey: 'attributes', href: ecommerceAdminRoutes.attributes, icon: SlidersHorizontal },
           { labelKey: 'brands', href: ecommerceAdminRoutes.brands, icon: Tag },
-        ],
-      },
-    ],
-  },
-  {
-    key: 'sales',
-    labelKey: 'groups.sales',
-    icon: ShoppingCart,
-    sections: [
-      {
-        items: [
-          { labelKey: 'orders', href: ecommerceAdminRoutes.orders, icon: ShoppingCart },
         ],
       },
     ],

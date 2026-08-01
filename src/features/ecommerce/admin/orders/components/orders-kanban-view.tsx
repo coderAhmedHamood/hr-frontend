@@ -1,17 +1,17 @@
 'use client';
 
-import { MapPin } from 'lucide-react';
+import { Banknote, CreditCard, MapPin, Phone } from 'lucide-react';
 import type { Order, OrderStatus } from '@/features/ecommerce/domain/types/order';
 import {
   ORDER_KANBAN_STATUSES,
   ORDER_STATUS_LABELS_AR,
-  PAYMENT_METHOD_LABELS_AR,
-  PAYMENT_STATUS_LABELS_AR,
   canAdvanceOrderStatus,
   getOrderFlowNextStep,
+  getOrderPrepGuidance,
   isPaymentSettled,
   nextOrderPipelineStatus,
 } from '@/features/ecommerce/domain/constants/order-status';
+import { OrderPaymentProofThumb } from '@/features/ecommerce/admin/orders/components/order-payment-proof-thumb';
 import { formatPrice } from '@/features/ecommerce/shared/utils/format-price';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -41,7 +41,7 @@ export function OrdersKanbanView({
         return (
           <div
             key={status}
-            className="flex w-[min(100%,17.5rem)] shrink-0 flex-col rounded-2xl border border-border bg-muted/20"
+            className="flex w-[min(100%,18.5rem)] shrink-0 flex-col rounded-2xl border border-border bg-muted/20"
           >
             <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2.5">
               <h3 className="text-sm font-semibold text-foreground">{ORDER_STATUS_LABELS_AR[status]}</h3>
@@ -53,19 +53,30 @@ export function OrdersKanbanView({
             <div className="flex max-h-[min(70vh,36rem)] flex-1 flex-col gap-2 overflow-y-auto p-2">
               {column.map((order) => {
                 const flowNext = getOrderFlowNextStep(order);
+                const prep = getOrderPrepGuidance(order);
                 const needsPayment = flowNext?.kind === 'payment' && !isPaymentSettled(order);
                 const canMove =
                   Boolean(next) &&
                   onStatusChange &&
                   !needsPayment &&
                   canAdvanceOrderStatus(order, next!);
+                const isCard = prep.paymentMethod === 'card';
+                const PaymentIcon = isCard ? CreditCard : Banknote;
+                const proofUrl = order.paymentProofUrl?.trim() || null;
+                const phone = order.phone?.trim() || null;
 
                 return (
                   <div
                     key={order.id}
                     className={cn(
                       'rounded-xl border border-border bg-card p-3 shadow-soft',
-                      'transition-shadow hover:border-primary/40 hover:shadow-elevated',
+                      'border-s-[3px] transition-shadow hover:shadow-elevated',
+                      isCard
+                        ? 'border-s-sky-600 hover:border-sky-600/50'
+                        : 'border-s-teal-600 hover:border-teal-600/50',
+                      !prep.canPrepare && 'border-amber-500/45',
+                      isCard && !prep.canPrepare && 'bg-sky-500/[0.04]',
+                      !isCard && 'bg-teal-500/[0.03]',
                     )}
                   >
                     <button type="button" className="w-full text-start" onClick={() => onOpen(order)}>
@@ -78,24 +89,68 @@ export function OrdersKanbanView({
                         </Badge>
                       </div>
                       <p className="truncate text-sm font-medium text-foreground">{order.customerNameAr}</p>
+
+                      {phone ? (
+                        <a
+                          href={`tel:${phone.replace(/\s/g, '')}`}
+                          dir="ltr"
+                          className="mt-1.5 inline-flex max-w-full items-center gap-1.5 rounded-md bg-foreground/[0.04] px-1.5 py-1 text-sm font-semibold tabular-nums text-foreground hover:bg-primary/10 hover:text-primary"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Phone className="h-3.5 w-3.5 shrink-0 text-primary" />
+                          <span className="truncate">{phone}</span>
+                        </a>
+                      ) : (
+                        <p className="mt-1 text-[11px] text-muted-foreground">لا يوجد رقم جوال</p>
+                      )}
+
                       {order.city || order.region ? (
                         <p className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground">
                           <MapPin className="h-3 w-3" />
                           {[order.city, order.region].filter(Boolean).join(' — ')}
                         </p>
                       ) : null}
-                      <div className="mt-2 flex flex-wrap gap-1">
-                        {order.paymentMethod ? (
-                          <Badge variant="outline" className="text-[10px]">
-                            {PAYMENT_METHOD_LABELS_AR[order.paymentMethod]}
-                          </Badge>
+
+                      <div
+                        className={cn(
+                          'mt-2 flex items-start gap-2 rounded-lg border px-2 py-1.5',
+                          prep.canPrepare
+                            ? isCard
+                              ? 'border-sky-500/30 bg-sky-500/10'
+                              : 'border-teal-500/30 bg-teal-500/10'
+                            : 'border-amber-500/30 bg-amber-500/10',
+                        )}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p
+                            className={cn(
+                              'inline-flex items-center gap-1.5 text-[11px] font-semibold',
+                              prep.canPrepare
+                                ? isCard
+                                  ? 'text-sky-900 dark:text-sky-300'
+                                  : 'text-teal-900 dark:text-teal-300'
+                                : 'text-amber-800 dark:text-amber-300',
+                            )}
+                          >
+                            <PaymentIcon className="h-3.5 w-3.5 shrink-0" />
+                            {prep.methodLabel}
+                          </p>
+                          <p
+                            className={cn(
+                              'mt-0.5 text-[11px] leading-snug',
+                              prep.canPrepare
+                                ? isCard
+                                  ? 'text-sky-800/90 dark:text-sky-400/90'
+                                  : 'text-teal-800/90 dark:text-teal-400/90'
+                                : 'text-amber-700/90 dark:text-amber-400/90',
+                            )}
+                          >
+                            {prep.prepLabel}
+                          </p>
+                        </div>
+                        {proofUrl ? (
+                          <OrderPaymentProofThumb url={proofUrl} orderNumber={order.orderNumber} size="sm" />
                         ) : null}
-                        <Badge
-                          variant={isPaymentSettled(order) ? 'success' : 'warning'}
-                          className="text-[10px]"
-                        >
-                          {PAYMENT_STATUS_LABELS_AR[order.paymentStatus ?? 'pending']}
-                        </Badge>
                       </div>
                     </button>
 

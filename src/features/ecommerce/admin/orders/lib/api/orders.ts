@@ -9,6 +9,7 @@ import {
   validateAllocations,
 } from '@/features/ecommerce/admin/orders/lib/allocation-utils';
 import { syncStorefrontOrderStatus } from '@/features/ecommerce/storefront/lib/checkout-actions';
+import { resolveOrderPaymentMethod } from '@/features/ecommerce/domain/constants/order-status';
 import type { PaginatedResult } from '@/features/ecommerce/domain/types/common';
 import type {
   Order,
@@ -22,6 +23,14 @@ import type {
 import ordersSeed from '@/features/ecommerce/shared/lib/mock/orders.json';
 
 const repository = createMockRepository<Order>(ordersSeed as Order[]);
+
+function normalizeOrderPayment(order: Order): Order {
+  return {
+    ...order,
+    paymentMethod: resolveOrderPaymentMethod(order),
+    paymentStatus: order.paymentStatus ?? 'pending',
+  };
+}
 
 const hydratedOrderIds = new Set<string>();
 
@@ -87,13 +96,14 @@ function orderFulfilmentState(order: Order): 'fulfilled' | 'partial' | 'unfulfil
 export const ordersApi = {
   async getAll(query: OrderListQuery): Promise<PaginatedResult<Order>> {
     await hydrateLiveOrders(query.companyId);
-    return repository.list(
+    const result = await repository.list(
       query,
       (item, q) => {
+        const paymentMethod = resolveOrderPaymentMethod(item);
         if (q.status && item.status !== q.status) return false;
         if (q.customerId && item.customerId !== q.customerId) return false;
         if (q.paymentStatus && (item.paymentStatus ?? 'pending') !== q.paymentStatus) return false;
-        if (q.paymentMethod && (item.paymentMethod ?? 'cash_on_delivery') !== q.paymentMethod) {
+        if (q.paymentMethod && paymentMethod !== q.paymentMethod) {
           return false;
         }
         if (q.source && (item.source ?? 'seed') !== q.source) return false;
@@ -115,11 +125,16 @@ export const ordersApi = {
       },
       (a, b) => b.createdAt.localeCompare(a.createdAt),
     );
+    return {
+      ...result,
+      items: result.items.map(normalizeOrderPayment),
+    };
   },
 
   async getById(companyId: string, id: string) {
     await hydrateLiveOrders(companyId);
-    return repository.getById(companyId, id);
+    const order = await repository.getById(companyId, id);
+    return order ? normalizeOrderPayment(order) : null;
   },
 
   async updateStatus(companyId: string, id: string, input: UpdateOrderStatusInput) {
@@ -128,7 +143,7 @@ export const ordersApi = {
     if (!current) throw new Error('الطلب غير موجود.');
 
     if (
-      current.paymentMethod === 'card' &&
+      resolveOrderPaymentMethod(current) === 'card' &&
       current.paymentStatus !== 'paid' &&
       input.status !== 'pending' &&
       input.status !== 'cancelled' &&

@@ -82,6 +82,8 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
   const [paymentMethod, setPaymentMethod] = React.useState<CheckoutPaymentMethod>(
     () => paymentMethods[0] ?? 'cash_on_delivery',
   );
+  const [paymentProofUrl, setPaymentProofUrl] = React.useState<string | null>(null);
+  const [paymentProofName, setPaymentProofName] = React.useState<string | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
   const [addressErrors, setAddressErrors] = React.useState<
     Partial<Record<keyof CheckoutAddressInput, string>>
@@ -159,6 +161,7 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
         locale,
         address,
         paymentMethod,
+        paymentProofUrl: paymentMethod === 'card' ? paymentProofUrl : null,
         lines: cartLines.map(({ line, product, unitPrice, lineName }) => {
           const display = buildProductDisplay(product);
           return {
@@ -367,7 +370,13 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
                   <button
                     key={id}
                     type="button"
-                    onClick={() => setPaymentMethod(id)}
+                    onClick={() => {
+                      setPaymentMethod(id);
+                      if (id === 'cash_on_delivery') {
+                        setPaymentProofUrl(null);
+                        setPaymentProofName(null);
+                      }
+                    }}
                     className={cn(
                       'flex items-start gap-3 rounded-2xl border p-4 text-start transition-all',
                       selected
@@ -406,9 +415,75 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
                 );
               })}
               {paymentMethod !== 'cash_on_delivery' ? (
-                <p className="rounded-xl bg-muted/40 px-3.5 py-2.5 text-xs leading-relaxed text-muted-foreground">
-                  {t('checkout.paymentMockHint')}
-                </p>
+                <div className="space-y-3 rounded-2xl border border-border bg-muted/20 p-4">
+                  <p className="text-xs leading-relaxed text-muted-foreground">
+                    {t('checkout.paymentProofHint')}
+                  </p>
+                  <div>
+                    <Label htmlFor="payment-proof" className="text-sm font-medium">
+                      {t('checkout.paymentProofLabel')}
+                    </Label>
+                    <Input
+                      id="payment-proof"
+                      type="file"
+                      accept="image/*"
+                      className="mt-2 h-11 cursor-pointer rounded-xl file:me-3 file:rounded-lg file:border-0 file:bg-primary/10 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-primary"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) {
+                          setPaymentProofUrl(null);
+                          setPaymentProofName(null);
+                          return;
+                        }
+                        if (!file.type.startsWith('image/')) {
+                          toast.error(t('checkout.errors.paymentProofType'));
+                          e.target.value = '';
+                          return;
+                        }
+                        if (file.size > 4 * 1024 * 1024) {
+                          toast.error(t('checkout.errors.paymentProofSize'));
+                          e.target.value = '';
+                          return;
+                        }
+                        const reader = new FileReader();
+                        reader.onload = () => {
+                          const result = typeof reader.result === 'string' ? reader.result : null;
+                          setPaymentProofUrl(result);
+                          setPaymentProofName(file.name);
+                        };
+                        reader.readAsDataURL(file);
+                      }}
+                    />
+                    {paymentProofUrl ? (
+                      <div className="mt-3 flex items-center gap-3">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={paymentProofUrl}
+                          alt=""
+                          className="h-14 w-14 rounded-lg border border-border object-cover"
+                        />
+                        <div className="min-w-0">
+                          <p className="truncate text-xs font-medium text-foreground">
+                            {paymentProofName ?? t('checkout.paymentProofAttached')}
+                          </p>
+                          <button
+                            type="button"
+                            className="mt-1 text-xs text-destructive hover:underline"
+                            onClick={() => {
+                              setPaymentProofUrl(null);
+                              setPaymentProofName(null);
+                            }}
+                          >
+                            {t('checkout.paymentProofRemove')}
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                  <p className="text-[11px] leading-relaxed text-muted-foreground">
+                    {t('checkout.paymentMockHint')}
+                  </p>
+                </div>
               ) : null}
             </div>
           </section>
@@ -467,6 +542,17 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
                   <p className="mt-1 text-xs text-muted-foreground">
                     {t(`checkout.paymentMethods.${paymentMethod}.description`)}
                   </p>
+                  {paymentMethod === 'card' && paymentProofUrl ? (
+                    <div className="mt-3 flex items-center gap-2">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={paymentProofUrl}
+                        alt=""
+                        className="h-10 w-10 rounded-md border border-border object-cover"
+                      />
+                      <p className="text-xs text-muted-foreground">{t('checkout.paymentProofAttached')}</p>
+                    </div>
+                  ) : null}
                 </div>
               </div>
             </div>

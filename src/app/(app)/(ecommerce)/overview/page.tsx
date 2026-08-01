@@ -1,5 +1,7 @@
-import { EcommerceOverviewPage } from '@/features/ecommerce/admin/overview/components/ecommerce-overview-page';
+import { redirect } from 'next/navigation';
+import { ecommerceAdminRoutes } from '@/features/ecommerce/admin/constants/routes';
 
-export default function Page() {
-  return <EcommerceOverviewPage />;
+/** Legacy overview URL — store admin home is orders Kanban. */
+export default function EcommerceOverviewPage() {
+  redirect(ecommerceAdminRoutes.orders);
 }

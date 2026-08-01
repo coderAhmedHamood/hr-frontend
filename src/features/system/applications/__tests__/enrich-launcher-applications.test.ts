@@ -23,7 +23,7 @@ describe('enrichLauncherApplications', () => {
     expect(apps.some((app) => app.code === 'ecommerce')).toBe(false);
     expect(apps.some((app) => app.code === 'store-admin')).toBe(true);
     expect(resolveApplicationLaunchPath(apps.find((app) => app.code === 'store-admin')!)).toBe(
-      '/overview',
+      '/orders',
     );
   });
 
@@ -60,9 +60,9 @@ describe('enrichLauncherApplications', () => {
     const apps = enrichLauncherApplications(withBoth, 'company-1');
     expect(apps.filter((app) => app.code === 'ecommerce')).toHaveLength(0);
     expect(apps.filter((app) => app.code === 'store-admin')).toHaveLength(1);
-    expect(apps.find((app) => app.code === 'store-admin')!.routePath).toBe('/overview');
+    expect(apps.find((app) => app.code === 'store-admin')!.routePath).toBe('/orders');
     expect(resolveApplicationLaunchPath(apps.find((app) => app.code === 'store-admin')!)).toBe(
-      '/overview',
+      '/orders',
     );
   });
 
@@ -127,7 +127,7 @@ describe('enrichLauncherApplications', () => {
     expect(resolveApplicationLaunchPath(apps[0]!)).toBe('/contacts/list');
   });
 
-  it('maps store-admin /store-admin path to ecommerce overview', () => {
+  it('maps store-admin /store-admin path to orders home', () => {
     const app: ApplicationResponseDto = {
       ...hrApp,
       id: 'sa',
@@ -135,6 +135,6 @@ describe('enrichLauncherApplications', () => {
       nameAr: 'إدارة المتجر',
       routePath: '/store-admin',
     };
-    expect(resolveApplicationLaunchPath(app)).toBe('/overview');
+    expect(resolveApplicationLaunchPath(app)).toBe('/orders');
   });
 });

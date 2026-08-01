@@ -5,6 +5,7 @@ import type { LegalPageContent, LegalPageSlug } from '@/features/ecommerce/store
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { RichTextEditor } from '@/components/ui/rich-text-editor';
 
 export const LEGAL_SLUGS: LegalPageSlug[] = ['privacy', 'terms', 'returns'];
 
@@ -51,12 +52,10 @@ export function CmsLegalPageForm({ page, onChange }: Props) {
       </div>
       <div className="space-y-1.5">
         <Label>{t('sectionBody')}</Label>
-        <Textarea
-          rows={8}
+        <RichTextEditor
           value={page.body.ar}
-          onChange={(event) =>
-            onChange({ ...page, body: withMirroredEn(event.target.value) })
-          }
+          minHeightClassName="min-h-[200px]"
+          onChange={(html) => onChange({ ...page, body: withMirroredEn(html) })}
         />
       </div>
       <div className="space-y-1.5 border-t border-border/60 pt-3">

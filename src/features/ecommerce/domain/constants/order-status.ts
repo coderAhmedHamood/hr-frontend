@@ -93,11 +93,73 @@ export function isPaymentSettled(order: Pick<Order, 'paymentStatus'>): boolean {
   return order.paymentStatus === 'paid';
 }
 
+export function resolveOrderPaymentMethod(
+  order: Pick<Order, 'paymentMethod'>,
+): NonNullable<Order['paymentMethod']> {
+  return order.paymentMethod ?? 'cash_on_delivery';
+}
+
+export type OrderPrepGuidance = {
+  paymentMethod: NonNullable<Order['paymentMethod']>;
+  paid: boolean;
+  /** Reviewer may move the order into preparation / shipping. */
+  canPrepare: boolean;
+  methodLabel: string;
+  statusLabel: string;
+  /** Short line for Kanban / list. */
+  prepLabel: string;
+  /** Longer hint for order detail. */
+  prepHint: string;
+};
+
+/** Payment + prep guidance so reviewers know whether to prepare the order. */
+export function getOrderPrepGuidance(
+  order: Pick<Order, 'paymentMethod' | 'paymentStatus' | 'paymentProofUrl'>,
+): OrderPrepGuidance {
+  const paymentMethod = resolveOrderPaymentMethod(order);
+  const paid = isPaymentSettled(order);
+  const methodLabel = PAYMENT_METHOD_LABELS_AR[paymentMethod];
+  const statusLabel = PAYMENT_STATUS_LABELS_AR[order.paymentStatus ?? 'pending'];
+  const hasProof = Boolean(order.paymentProofUrl?.trim());
+
+  if (paymentMethod === 'card') {
+    return {
+      paymentMethod,
+      paid,
+      canPrepare: paid,
+      methodLabel,
+      statusLabel,
+      prepLabel: paid
+        ? 'جاهز للتجهيز'
+        : hasProof
+          ? 'راجع إيصال الشبكة'
+          : 'انتظر دفع الشبكة',
+      prepHint: paid
+        ? 'تم الدفع بالشبكة — يمكن تجهيز الطلب وشحنه.'
+        : hasProof
+          ? 'أرفق العميل صورة التحويل — راجع الإيصال ثم أكّد التحصيل قبل التجهيز.'
+          : 'الدفع بالشبكة لم يُؤكَّد بعد — لا تجهّز الطلب قبل التحصيل.',
+    };
+  }
+
+  return {
+    paymentMethod,
+    paid,
+    canPrepare: true,
+    methodLabel,
+    statusLabel,
+    prepLabel: paid ? 'كاش محصّل' : 'جهّز · التحصيل عند التسليم',
+    prepHint: paid
+      ? 'تم تحصيل الكاش عند الاستلام.'
+      : 'كاش عند الاستلام — جهّز الطلب ويُحصَّل المبلغ عند التسليم.',
+  };
+}
+
 /** Index of the active step in the payment-aware flow. */
 export function getOrderFlowCurrentIndex(order: Pick<Order, 'status' | 'paymentMethod' | 'paymentStatus'>): number {
   if (!isOrderPipelineStatus(order.status)) return -1;
 
-  const steps = buildOrderFlowSteps(order.paymentMethod);
+  const steps = buildOrderFlowSteps(resolveOrderPaymentMethod(order));
   const paid = isPaymentSettled(order);
   const statusIdx = orderPipelineIndex(order.status);
 
@@ -133,7 +195,7 @@ export function getOrderFlowNextStep(
   order: Pick<Order, 'status' | 'paymentMethod' | 'paymentStatus'>,
 ): OrderFlowStep | null {
   if (!isOrderPipelineStatus(order.status)) return null;
-  const steps = buildOrderFlowSteps(order.paymentMethod);
+  const steps = buildOrderFlowSteps(resolveOrderPaymentMethod(order));
   const current = getOrderFlowCurrentIndex(order);
   if (current < 0 || current >= steps.length - 1) return null;
   return steps[current + 1] ?? null;
@@ -151,7 +213,7 @@ export function canAdvanceOrderStatus(
   order: Pick<Order, 'paymentMethod' | 'paymentStatus'>,
   nextStatus: OrderStatus,
 ): boolean {
-  if (order.paymentMethod !== 'card') return true;
+  if (resolveOrderPaymentMethod(order) !== 'card') return true;
   if (isPaymentSettled(order)) return true;
   const nextIdx = orderPipelineIndex(nextStatus);
   // Allow staying on / returning to pending while unpaid

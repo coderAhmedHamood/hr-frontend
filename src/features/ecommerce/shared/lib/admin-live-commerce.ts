@@ -65,6 +65,7 @@ export function mapStorefrontOrderToAdmin(order: StorefrontCustomerOrder): Order
     shippingNotes: order.address.notes,
     paymentMethod: order.paymentMethod,
     paymentStatus: order.paymentStatus,
+    paymentProofUrl: order.paymentProofUrl ?? null,
     subtotalAmount: order.subtotal,
     shippingFeeAmount: order.shippingFee,
     source: 'storefront',

@@ -36,6 +36,8 @@ export type PlaceOrderInput = {
   locale: string;
   address: CheckoutAddressInput;
   paymentMethod: CheckoutPaymentMethod;
+  /** Optional payment receipt / transfer screenshot for card / network payments. */
+  paymentProofUrl?: string | null;
   lines: CheckoutLineInput[];
 };
 
@@ -50,6 +52,7 @@ export type StorefrontCustomerOrder = {
   status: StorefrontOrderStatus;
   paymentMethod: CheckoutPaymentMethod;
   paymentStatus: StorefrontPaymentStatus;
+  paymentProofUrl?: string | null;
   address: CheckoutAddressInput;
   lines: StorefrontOrderLine[];
   subtotal: Money;
