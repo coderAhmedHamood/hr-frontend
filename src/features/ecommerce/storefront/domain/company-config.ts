@@ -11,6 +11,8 @@ export type CompanySeoDefaultsRecord = {
   homeDescription: LocalizableString;
   productsTitle: LocalizableString;
   productsDescription: LocalizableString;
+  /** Search keywords for meta tags (comma-separated concepts stored as list). */
+  keywords?: string[];
   defaultOgImage?: string;
 };
 
@@ -20,12 +22,63 @@ export type CompanyContactInfo = {
   address?: string;
 };
 
-export type CompanySocialLinks = {
-  instagram?: string;
-  twitter?: string;
-  facebook?: string;
-  whatsapp?: string;
+export const COMPANY_SOCIAL_NETWORKS = [
+  'instagram',
+  'twitter',
+  'facebook',
+  'whatsapp',
+  'tiktok',
+  'youtube',
+  'snapchat',
+  'linkedin',
+] as const;
+
+export type CompanySocialNetwork = (typeof COMPANY_SOCIAL_NETWORKS)[number];
+
+export type CompanySocialLinkRecord = {
+  url: string;
+  enabled: boolean;
 };
+
+/** Social channels with URL + enable toggle. Legacy string URLs are normalized on read. */
+export type CompanySocialLinks = Partial<Record<CompanySocialNetwork, CompanySocialLinkRecord>>;
+
+type LegacySocialLinks = Partial<Record<CompanySocialNetwork, string | CompanySocialLinkRecord | null | undefined>>;
+
+export function normalizeSocialLinks(raw: LegacySocialLinks | null | undefined): CompanySocialLinks {
+  const next: CompanySocialLinks = {};
+  if (!raw) return next;
+  for (const network of COMPANY_SOCIAL_NETWORKS) {
+    const value = raw[network];
+    if (value == null) continue;
+    if (typeof value === 'string') {
+      const url = value.trim();
+      if (!url) continue;
+      next[network] = { url, enabled: true };
+      continue;
+    }
+    next[network] = {
+      url: value.url?.trim() ?? '',
+      enabled: value.enabled !== false,
+    };
+  }
+  return next;
+}
+
+/** Enabled channels with a URL — ready for storefront icons. */
+export function resolveEnabledSocialLinks(
+  social: CompanySocialLinks | LegacySocialLinks | null | undefined,
+): Partial<Record<CompanySocialNetwork, string>> {
+  const normalized = normalizeSocialLinks(social as LegacySocialLinks);
+  const result: Partial<Record<CompanySocialNetwork, string>> = {};
+  for (const network of COMPANY_SOCIAL_NETWORKS) {
+    const entry = normalized[network];
+    if (entry?.enabled && entry.url.trim()) {
+      result[network] = entry.url.trim();
+    }
+  }
+  return result;
+}
 
 export type CompanyNavItemRecord = {
   label: LocalizableString;

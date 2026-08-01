@@ -1,5 +1,6 @@
 import {
   normalizeAnnouncementBar,
+  resolveEnabledSocialLinks,
   type CompanyConfigRecord,
 } from '@/features/ecommerce/storefront/domain/company-config';
 import type { StorefrontCompanyConfig, StorefrontNavItem } from '@/features/ecommerce/storefront/domain/storefront-models';
@@ -30,10 +31,11 @@ export function mapStorefrontCompanyConfig(
       homeDescription: resolveLocalizedText(record.seo.homeDescription, locale),
       productsTitle: resolveLocalizedText(record.seo.productsTitle, locale),
       productsDescription: resolveLocalizedText(record.seo.productsDescription, locale),
+      keywords: record.seo.keywords ?? [],
       defaultOgImage: record.seo.defaultOgImage ?? null,
     },
     contact: record.contact,
-    social: record.social,
+    social: resolveEnabledSocialLinks(record.social),
     theme: record.theme,
     navigation: record.navigation.map((item) => mapNavItem(item, locale)),
     secondaryNavigation: record.secondaryNavigation.map((item) => ({

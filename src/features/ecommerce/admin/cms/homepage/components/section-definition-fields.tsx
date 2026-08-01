@@ -554,7 +554,7 @@ export function SectionDefinitionFields({ fields, value, onChange }: Props) {
                   value={slide.imageUrl}
                   onChange={(url) => {
                     const next = [...slides];
-                    next[index] = { ...slide, imageUrl: url };
+                    next[index] = { ...slide, imageUrl: url ?? '' };
                     patch(field.path, next);
                   }}
                 />

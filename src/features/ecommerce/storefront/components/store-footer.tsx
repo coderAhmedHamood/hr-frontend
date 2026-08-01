@@ -13,6 +13,10 @@ const SOCIAL_LABEL_KEYS = {
   twitter: 'socialTwitter',
   facebook: 'socialFacebook',
   whatsapp: 'socialWhatsapp',
+  tiktok: 'socialTiktok',
+  youtube: 'socialYoutube',
+  snapchat: 'socialSnapchat',
+  linkedin: 'socialLinkedin',
 } as const satisfies Record<StorefrontSocialNetwork, string>;
 
 type FooterCmsLink = {

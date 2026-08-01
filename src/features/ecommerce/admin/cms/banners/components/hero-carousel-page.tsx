@@ -445,7 +445,7 @@ export function HeroCarouselPage() {
                   onChange={(imageUrl) =>
                     setForm({
                       ...form,
-                      draft: { ...form.draft, imageUrl },
+                      draft: { ...form.draft, imageUrl: imageUrl ?? '' },
                     })
                   }
                 />

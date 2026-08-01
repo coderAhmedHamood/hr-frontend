@@ -4,26 +4,34 @@ import * as React from 'react';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Settings, Palette, Phone, Share2, Globe, Search, Truck } from 'lucide-react';
+import { Palette, Phone, Share2, Search, Truck } from 'lucide-react';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
 import { getCmsCompanyRecord, saveCmsCompanyRecord } from '@/features/ecommerce/admin/cms/shared/cms-actions';
-import type { CompanyConfigRecord } from '@/features/ecommerce/storefront/domain/company-config';
+import {
+  COMPANY_SOCIAL_NETWORKS,
+  normalizeSocialLinks,
+  type CompanyConfigRecord,
+  type CompanySocialNetwork,
+} from '@/features/ecommerce/storefront/domain/company-config';
+import { ImagePicker } from '@/features/ecommerce/admin/cms/homepage/components/section-entity-pickers';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
 
 const SETTINGS_QUERY_KEY = ['ecommerce-cms', 'company', 'settings'] as const;
+
+function parseKeywords(raw: string): string[] {
+  return raw
+    .split(/[,،\n]/)
+    .map((keyword) => keyword.trim())
+    .filter(Boolean);
+}
 
 export function WebsiteSettingsPage() {
   const companyId = getStorefrontCompanyId();
@@ -37,7 +45,14 @@ export function WebsiteSettingsPage() {
     queryFn: async () => {
       const record = await getCmsCompanyRecord(companyId);
       if (!record) throw new Error('COMPANY_NOT_FOUND');
-      return record;
+      return {
+        ...record,
+        social: normalizeSocialLinks(record.social),
+        seo: {
+          ...record.seo,
+          keywords: record.seo.keywords ?? [],
+        },
+      } satisfies CompanyConfigRecord;
     },
   });
 
@@ -47,11 +62,27 @@ export function WebsiteSettingsPage() {
   }, [data]);
 
   const save = useMutation({
-    mutationFn: (record: CompanyConfigRecord) => saveCmsCompanyRecord(record),
+    mutationFn: (record: CompanyConfigRecord) =>
+      saveCmsCompanyRecord({
+        ...record,
+        social: normalizeSocialLinks(record.social),
+        seo: {
+          ...record.seo,
+          keywords: (record.seo.keywords ?? []).map((keyword) => keyword.trim()).filter(Boolean),
+        },
+      }),
     onSuccess: (saved) => {
-      queryClient.setQueryData([...SETTINGS_QUERY_KEY, companyId], saved);
+      queryClient.setQueryData([...SETTINGS_QUERY_KEY, companyId], {
+        ...saved,
+        social: normalizeSocialLinks(saved.social),
+        seo: { ...saved.seo, keywords: saved.seo.keywords ?? [] },
+      });
       void queryClient.invalidateQueries({ queryKey: ['ecommerce-cms', 'company'] });
-      setDraft(saved);
+      setDraft({
+        ...saved,
+        social: normalizeSocialLinks(saved.social),
+        seo: { ...saved.seo, keywords: saved.seo.keywords ?? [] },
+      });
       toast.success(t('saveSuccess'));
     },
     onError: () => toast.error(t('saveError')),
@@ -71,16 +102,39 @@ export function WebsiteSettingsPage() {
     });
   }
 
+  function patchSocial(network: CompanySocialNetwork, patch: { url?: string; enabled?: boolean }) {
+    if (!draft) return;
+    const current = draft.social[network] ?? { url: '', enabled: false };
+    const next = {
+      url: patch.url ?? current.url,
+      enabled: patch.enabled ?? current.enabled,
+    };
+    setDraft({
+      ...draft,
+      social: {
+        ...draft.social,
+        [network]: next,
+      },
+    });
+  }
+
+  const keywordsText = (draft?.seo.keywords ?? []).join('، ');
+  const previewTitle = draft?.seo.homeTitle.ar.trim() || tSeo('previewTitleEmpty');
+  const previewDescription = draft?.seo.homeDescription.ar.trim() || tSeo('previewDescriptionEmpty');
+
   return (
     <div className="flex flex-col gap-5">
-      <SetPageTitle titleAr={t('title')} iconName="Settings" />
+      <SetPageTitle titleAr={t('title')} descriptionAr={t('description')} iconName="Settings" />
 
       <div className="flex flex-wrap justify-end gap-2">
-        <Button type="button" disabled={!draft || save.isPending} onClick={() => draft && void save.mutateAsync(draft)}>
-            {save.isPending ? tCommon('status.saving') : tCommon('actions.save')}
-          </Button>
+        <Button
+          type="button"
+          disabled={!draft || save.isPending}
+          onClick={() => draft && void save.mutateAsync(draft)}
+        >
+          {save.isPending ? tCommon('status.saving') : tCommon('actions.save')}
+        </Button>
       </div>
-
 
       {isLoading ? (
         <div className="space-y-3">
@@ -118,10 +172,6 @@ export function WebsiteSettingsPage() {
               <Share2 className="h-4 w-4" />
               {t('tabs.social')}
             </TabsTrigger>
-            <TabsTrigger value="regional" className="gap-1.5">
-              <Globe className="h-4 w-4" />
-              {t('tabs.regional')}
-            </TabsTrigger>
             <TabsTrigger value="checkout" className="gap-1.5">
               <Truck className="h-4 w-4" />
               {t('tabs.checkout')}
@@ -137,7 +187,7 @@ export function WebsiteSettingsPage() {
               <CardHeader>
                 <CardTitle className="text-base">{t('tabs.branding')}</CardTitle>
               </CardHeader>
-              <CardContent className="grid gap-4 sm:grid-cols-2">
+              <CardContent className="grid gap-5 sm:grid-cols-2">
                 <div className="space-y-1.5 sm:col-span-2">
                   <Label>{t('name')}</Label>
                   <Input
@@ -149,18 +199,20 @@ export function WebsiteSettingsPage() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>{t('logoUrl')}</Label>
-                  <Input
-                    value={draft.logoUrl ?? ''}
-                    onChange={(event) => setDraft({ ...draft, logoUrl: event.target.value || null })}
+                  <Label>{t('logo')}</Label>
+                  <ImagePicker
+                    value={draft.logoUrl}
+                    onChange={(logoUrl) => setDraft({ ...draft, logoUrl })}
                   />
+                  <p className="text-xs text-muted-foreground">{t('logoHint')}</p>
                 </div>
                 <div className="space-y-1.5">
-                  <Label>{t('faviconUrl')}</Label>
-                  <Input
-                    value={draft.faviconUrl ?? ''}
-                    onChange={(event) => setDraft({ ...draft, faviconUrl: event.target.value || null })}
+                  <Label>{t('favicon')}</Label>
+                  <ImagePicker
+                    value={draft.faviconUrl}
+                    onChange={(faviconUrl) => setDraft({ ...draft, faviconUrl })}
                   />
+                  <p className="text-xs text-muted-foreground">{t('faviconHint')}</p>
                 </div>
               </CardContent>
             </Card>
@@ -206,7 +258,10 @@ export function WebsiteSettingsPage() {
                     onChange={(event) =>
                       setDraft({
                         ...draft,
-                        footer: { ...draft.footer, commercialRegistration: event.target.value || undefined },
+                        footer: {
+                          ...draft.footer,
+                          commercialRegistration: event.target.value || undefined,
+                        },
                       })
                     }
                   />
@@ -220,58 +275,38 @@ export function WebsiteSettingsPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">{t('tabs.social')}</CardTitle>
+                <CardDescription>{t('socialHint')}</CardDescription>
               </CardHeader>
-              <CardContent className="grid gap-4 sm:grid-cols-2">
-                {(['instagram', 'twitter', 'facebook', 'whatsapp'] as const).map((key) => (
-                  <div key={key} className="space-y-1.5">
-                    <Label>{t(key)}</Label>
-                    <Input
-                      value={draft.social[key] ?? ''}
-                      onChange={(event) =>
-                        setDraft({ ...draft, social: { ...draft.social, [key]: event.target.value } })
-                      }
-                    />
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="regional" className="mt-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">{t('tabs.regional')}</CardTitle>
-              </CardHeader>
-              <CardContent className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label>{t('currency')}</Label>
-                  <Input
-                    value={draft.currency}
-                    onChange={(event) => setDraft({ ...draft, currency: event.target.value })}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>{t('timezone')}</Label>
-                  <Input
-                    value={draft.timezone}
-                    onChange={(event) => setDraft({ ...draft, timezone: event.target.value })}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>{t('defaultLocale')}</Label>
-                  <Select
-                    value={draft.defaultLocale}
-                    onValueChange={(defaultLocale) => setDraft({ ...draft, defaultLocale })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="ar">ar</SelectItem>
-                      <SelectItem value="en">en</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+              <CardContent className="space-y-3">
+                {COMPANY_SOCIAL_NETWORKS.map((network) => {
+                  const entry = draft.social[network] ?? { url: '', enabled: false };
+                  return (
+                    <div
+                      key={network}
+                      className="grid gap-3 rounded-xl border border-border/70 bg-muted/10 p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+                    >
+                      <div className="space-y-1.5">
+                        <Label>{t(network)}</Label>
+                        <Input
+                          dir="ltr"
+                          className="font-mono text-sm"
+                          placeholder={t('socialUrlPlaceholder')}
+                          value={entry.url}
+                          onChange={(event) => patchSocial(network, { url: event.target.value })}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between gap-3 sm:justify-end">
+                        <span className="text-xs text-muted-foreground">
+                          {entry.enabled ? t('socialEnabled') : t('socialDisabled')}
+                        </span>
+                        <Switch
+                          checked={entry.enabled}
+                          onCheckedChange={(enabled) => patchSocial(network, { enabled })}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
               </CardContent>
             </Card>
           </TabsContent>
@@ -395,8 +430,8 @@ export function WebsiteSettingsPage() {
                             onChange={(event) => {
                               const current = draft.checkout?.paymentMethods ?? [];
                               const paymentMethods = event.target.checked
-                                ? [...current.filter((m) => m !== id), id]
-                                : current.filter((m) => m !== id);
+                                ? [...current.filter((method) => method !== id), id]
+                                : current.filter((method) => method !== id);
                               setDraft({
                                 ...draft,
                                 checkout: {
@@ -407,8 +442,7 @@ export function WebsiteSettingsPage() {
                                     standardShippingFee: 25,
                                     paymentMethods: [],
                                   }),
-                                  paymentMethods:
-                                    paymentMethods.length > 0 ? paymentMethods : [id],
+                                  paymentMethods: paymentMethods.length > 0 ? paymentMethods : [id],
                                 },
                               });
                             }}
@@ -424,42 +458,137 @@ export function WebsiteSettingsPage() {
           </TabsContent>
 
           <TabsContent value="seo" className="mt-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">{t('tabs.seo')}</CardTitle>
-              </CardHeader>
-              <CardContent className="grid gap-4">
-                {(
-                  [
-                    ['homeTitle', 'homeTitle', false],
-                    ['homeDescription', 'homeDescription', true],
-                    ['productsTitle', 'productsTitle', false],
-                    ['productsDescription', 'productsDescription', true],
-                  ] as const
-                ).map(([key, labelKey, multiline]) => {
-                  const value = draft.seo[key];
-                  const Field = multiline ? Textarea : Input;
-                  return (
-                    <div key={key} className="space-y-1.5">
-                      <Label>{tSeo(labelKey)}</Label>
-                      <Field
-                        value={value.ar}
-                        onChange={(event) => patchSeo(key, event.target.value)}
-                      />
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)]">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">{t('tabs.seo')}</CardTitle>
+                  <CardDescription>{tSeo('formHint')}</CardDescription>
+                </CardHeader>
+                <CardContent className="grid gap-5">
+                  <section className="space-y-3 rounded-xl border border-border/70 p-4">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="subtle">{tSeo('sectionHome')}</Badge>
                     </div>
-                  );
-                })}
-                <div className="space-y-1.5">
-                  <Label>{tSeo('defaultOgImage')}</Label>
-                  <Input
-                    value={draft.seo.defaultOgImage ?? ''}
-                    onChange={(event) =>
-                      setDraft({ ...draft, seo: { ...draft.seo, defaultOgImage: event.target.value } })
-                    }
-                  />
-                </div>
-              </CardContent>
-            </Card>
+                    <div className="space-y-1.5">
+                      <Label>{tSeo('homeTitle')}</Label>
+                      <Input
+                        value={draft.seo.homeTitle.ar}
+                        maxLength={70}
+                        onChange={(event) => patchSeo('homeTitle', event.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">{tSeo('homeTitleHint')}</p>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>{tSeo('homeDescription')}</Label>
+                      <Textarea
+                        rows={3}
+                        value={draft.seo.homeDescription.ar}
+                        maxLength={170}
+                        onChange={(event) => patchSeo('homeDescription', event.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">{tSeo('homeDescriptionHint')}</p>
+                    </div>
+                  </section>
+
+                  <section className="space-y-3 rounded-xl border border-border/70 p-4">
+                    <Badge variant="subtle">{tSeo('sectionKeywords')}</Badge>
+                    <div className="space-y-1.5">
+                      <Label>{tSeo('keywords')}</Label>
+                      <Textarea
+                        rows={3}
+                        value={keywordsText}
+                        placeholder={tSeo('keywordsPlaceholder')}
+                        onChange={(event) =>
+                          setDraft({
+                            ...draft,
+                            seo: {
+                              ...draft.seo,
+                              keywords: parseKeywords(event.target.value),
+                            },
+                          })
+                        }
+                      />
+                      <p className="text-xs text-muted-foreground">{tSeo('keywordsHint')}</p>
+                      {(draft.seo.keywords ?? []).length > 0 ? (
+                        <div className="flex flex-wrap gap-1.5 pt-1">
+                          {(draft.seo.keywords ?? []).map((keyword) => (
+                            <Badge key={keyword} variant="subtle">
+                              {keyword}
+                            </Badge>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  </section>
+
+                  <section className="space-y-3 rounded-xl border border-border/70 p-4">
+                    <Badge variant="subtle">{tSeo('sectionProducts')}</Badge>
+                    <div className="space-y-1.5">
+                      <Label>{tSeo('productsTitle')}</Label>
+                      <Input
+                        value={draft.seo.productsTitle.ar}
+                        maxLength={70}
+                        onChange={(event) => patchSeo('productsTitle', event.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">{tSeo('productsTitleHint')}</p>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>{tSeo('productsDescription')}</Label>
+                      <Textarea
+                        rows={3}
+                        value={draft.seo.productsDescription.ar}
+                        maxLength={170}
+                        onChange={(event) => patchSeo('productsDescription', event.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">{tSeo('productsDescriptionHint')}</p>
+                    </div>
+                  </section>
+
+                  <section className="space-y-3 rounded-xl border border-border/70 p-4">
+                    <Badge variant="subtle">{tSeo('sectionShare')}</Badge>
+                    <div className="space-y-1.5">
+                      <Label>{tSeo('defaultOgImage')}</Label>
+                      <ImagePicker
+                        value={draft.seo.defaultOgImage}
+                        onChange={(defaultOgImage) =>
+                          setDraft({
+                            ...draft,
+                            seo: {
+                              ...draft.seo,
+                              defaultOgImage: defaultOgImage ?? undefined,
+                            },
+                          })
+                        }
+                      />
+                      <p className="text-xs text-muted-foreground">{tSeo('defaultOgImageHint')}</p>
+                    </div>
+                  </section>
+                </CardContent>
+              </Card>
+
+              <Card className="h-fit lg:sticky lg:top-4">
+                <CardHeader>
+                  <CardTitle className="text-base">{tSeo('previewTitle')}</CardTitle>
+                  <CardDescription>{tSeo('previewHint')}</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="rounded-xl border border-border bg-background p-4 shadow-soft">
+                    <p className="truncate text-base font-medium text-[#1a0dab]">{previewTitle}</p>
+                    <p className="mt-1 truncate text-xs text-[#006621]" dir="ltr">
+                      example.com/store
+                    </p>
+                    <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-muted-foreground">
+                      {previewDescription}
+                    </p>
+                  </div>
+                  <ul className="space-y-2 text-xs text-muted-foreground">
+                    <li>{tSeo('previewNoteTitle')}</li>
+                    <li>{tSeo('previewNoteDescription')}</li>
+                    <li>{tSeo('previewNoteKeywords')}</li>
+                  </ul>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
         </Tabs>
       ) : null}

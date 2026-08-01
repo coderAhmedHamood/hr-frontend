@@ -312,15 +312,18 @@ function ProductOptionRow({
   );
 }
 
-/** Lets the admin choose an image from the media library instead of typing a URL. */
+/** Lets the admin upload or choose an image instead of typing a URL. */
 export function ImagePicker({
   value,
   onChange,
+  clearable = true,
 }: {
   value: string | null | undefined;
-  onChange: (url: string) => void;
+  onChange: (url: string | null) => void;
+  clearable?: boolean;
 }) {
   const companyId = getStorefrontCompanyId();
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [open, setOpen] = React.useState(false);
   const { data = [], isLoading } = useQuery({
     queryKey: ['cms-media-picker', 'images', companyId],
@@ -328,9 +331,21 @@ export function ImagePicker({
     enabled: Boolean(companyId) && open,
   });
 
+  function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file || !file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === 'string' ? reader.result : null;
+      if (result) onChange(result);
+    };
+    reader.readAsDataURL(file);
+  }
+
   return (
     <div className="space-y-2">
-      <div className="flex items-center gap-3 rounded-xl border border-border p-2">
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border p-2">
         {value ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={value} alt="" className="h-14 w-24 shrink-0 rounded-lg object-cover" />
@@ -339,9 +354,26 @@ export function ImagePicker({
             بلا صورة
           </span>
         )}
-        <Button type="button" size="sm" variant="outline" onClick={() => setOpen((prev) => !prev)}>
-          اختيار من الصور
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" size="sm" variant="outline" onClick={() => fileInputRef.current?.click()}>
+            رفع صورة
+          </Button>
+          <Button type="button" size="sm" variant="outline" onClick={() => setOpen((prev) => !prev)}>
+            اختيار من الصور
+          </Button>
+          {clearable && value ? (
+            <Button type="button" size="sm" variant="ghost" onClick={() => onChange(null)}>
+              إزالة
+            </Button>
+          ) : null}
+        </div>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleFileChange}
+        />
       </div>
 
       {open ? (
@@ -356,7 +388,7 @@ export function ImagePicker({
             <p className="px-2 py-3 text-xs text-muted-foreground">جاري التحميل…</p>
           ) : data.length === 0 ? (
             <p className="px-2 py-3 text-xs text-muted-foreground">
-              لا تتوفر صور بعد — مكتبة الصور قيد الإعداد من الخادم.
+              لا تتوفر صور في المكتبة — استخدم «رفع صورة» لإضافة صورة الآن.
             </p>
           ) : (
             <div className="grid max-h-64 grid-cols-4 gap-2 overflow-y-auto">

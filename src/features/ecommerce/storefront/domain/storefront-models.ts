@@ -1,5 +1,5 @@
 import type { Inventory, MediaItem, Money, StockStatus, ProductStatus } from '@/features/ecommerce/domain/types';
-import type { CompanyThemeColors, CompanyContactInfo, CompanySocialLinks } from '@/features/ecommerce/storefront/domain/company-config';
+import type { CompanyThemeColors, CompanyContactInfo } from '@/features/ecommerce/storefront/domain/company-config';
 import type { LegalPageSlug } from '@/features/ecommerce/storefront/domain/content';
 
 export type StorefrontHomepageFeature = {
@@ -102,10 +102,11 @@ export type StorefrontCompanyConfig = {
     homeDescription: string;
     productsTitle: string;
     productsDescription: string;
+    keywords: string[];
     defaultOgImage: string | null;
   };
   contact: CompanyContactInfo;
-  social: CompanySocialLinks;
+  social: Partial<Record<import('@/features/ecommerce/storefront/domain/company-config').CompanySocialNetwork, string>>;
   theme: CompanyThemeColors;
   navigation: StorefrontNavItem[];
   secondaryNavigation: (StorefrontNavItem & { highlight?: boolean })[];

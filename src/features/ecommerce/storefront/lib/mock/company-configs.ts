@@ -1,5 +1,6 @@
 import {
   normalizeAnnouncementBar,
+  normalizeSocialLinks,
   type CompanyConfigRecord,
 } from '@/features/ecommerce/storefront/domain/company-config';
 import {
@@ -27,6 +28,14 @@ const DEMO_COMPANY_SEED: CompanyConfigRecord = {
       en: 'Browse cosmetics, skincare, and haircare from top beauty brands.',
     },
     defaultOgImage: 'https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=1200&q=80',
+    keywords: [
+      'تجميل',
+      'مكياج',
+      'عناية بالبشرة',
+      'نضارة',
+      'أدوات تجميل',
+      'توصيل اليمن',
+    ],
   },
   contact: {
     phone: '+967 770 000 000',
@@ -34,9 +43,14 @@ const DEMO_COMPANY_SEED: CompanyConfigRecord = {
     address: 'Sanaa, Yemen',
   },
   social: {
-    instagram: 'https://instagram.com/nadarabeauty',
-    twitter: 'https://twitter.com/nadarabeauty',
-    whatsapp: 'https://wa.me/967770000000',
+    instagram: { url: 'https://instagram.com/nadarabeauty', enabled: true },
+    twitter: { url: 'https://twitter.com/nadarabeauty', enabled: true },
+    whatsapp: { url: 'https://wa.me/967770000000', enabled: true },
+    facebook: { url: '', enabled: false },
+    tiktok: { url: '', enabled: false },
+    youtube: { url: '', enabled: false },
+    snapchat: { url: '', enabled: false },
+    linkedin: { url: '', enabled: false },
   },
   theme: {
     primary: '340 42% 32%',
@@ -193,13 +207,14 @@ if (COMPANY_CONFIGS[STOREFRONT_FALLBACK_COMPANY_ID]) {
 
   if (needsYemenMigrate) {
     demo.contact = JSON.parse(JSON.stringify(DEMO_COMPANY_SEED.contact)) as CompanyConfigRecord['contact'];
-    demo.social = {
+    demo.social = normalizeSocialLinks({
       ...demo.social,
       whatsapp: DEMO_COMPANY_SEED.social.whatsapp,
-    };
+    });
     demo.seo = {
       ...demo.seo,
       homeDescription: { ...DEMO_COMPANY_SEED.seo.homeDescription },
+      keywords: demo.seo.keywords ?? DEMO_COMPANY_SEED.seo.keywords,
     };
     demo.announcement = JSON.parse(
       JSON.stringify(DEMO_COMPANY_SEED.announcement),
@@ -239,6 +254,10 @@ export function getCompanyConfigMock(companyId: string): CompanyConfigRecord | n
       JSON.stringify(DEMO_COMPANY_SEED.secondaryNavigation),
     ) as CompanyConfigRecord['secondaryNavigation'];
   }
+  cloned.social = normalizeSocialLinks(cloned.social);
+  if (!cloned.seo.keywords) {
+    cloned.seo.keywords = [];
+  }
   return cloned;
 }
 
@@ -260,6 +279,10 @@ export function saveCompanyConfigMock(record: CompanyConfigRecord): CompanyConfi
   if (!next.secondaryNavigation) {
     next.secondaryNavigation = [];
   }
+  next.social = normalizeSocialLinks(next.social);
+  next.seo.keywords = (next.seo.keywords ?? [])
+    .map((keyword) => keyword.trim())
+    .filter(Boolean);
   COMPANY_CONFIGS[record.id] = next;
   return JSON.parse(JSON.stringify(COMPANY_CONFIGS[record.id])) as CompanyConfigRecord;
 }

@@ -37,10 +37,12 @@ export function storeHomeMetadata(config: StorefrontCompanyConfig, locale: Store
   const title = `${config.seo.homeTitle} | ${config.name}`;
   const description = config.seo.homeDescription;
   const path = localizedStorePath(locale, '/store');
+  const keywords = config.seo.keywords.filter(Boolean);
 
   return {
     title,
     description,
+    keywords: keywords.length > 0 ? keywords : undefined,
     alternates: localizedAlternates('/store', locale),
     icons: config.faviconUrl ? { icon: config.faviconUrl } : undefined,
     openGraph: {
@@ -69,6 +71,9 @@ export function productsBrowseMetadata(
   return {
     title,
     description,
+    keywords: config.seo.keywords.filter(Boolean).length
+      ? config.seo.keywords.filter(Boolean)
+      : undefined,
     alternates: localizedAlternates('/store/products', locale),
     robots: isCanonicalView ? undefined : { index: false, follow: true },
     openGraph: {
@@ -78,6 +83,7 @@ export function productsBrowseMetadata(
       siteName: config.name,
       type: 'website',
       locale: ogLocale(locale),
+      images: config.seo.defaultOgImage ? [{ url: config.seo.defaultOgImage }] : undefined,
     },
     twitter: { card: 'summary_large_image', title, description },
   };
