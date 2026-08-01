@@ -20,6 +20,10 @@ import { cn } from '@/shared/utils';
 type Props = {
   order: Pick<Order, 'status' | 'paymentMethod' | 'paymentStatus'>;
   disabled?: boolean;
+  /** Slimmer header — payment context lives outside the stepper. */
+  compact?: boolean;
+  /** Hide footer “تأكيد التحصيل” when a primary CTA exists above. */
+  hidePaymentConfirm?: boolean;
   onOrderStatusChange: (status: OrderStatus) => void;
   onPaymentPaid: () => void;
 };
@@ -28,7 +32,14 @@ type Props = {
  * Horizontal sequential status bar — fulfilment + payment.
  * شبكة: الدفع قبل التأكيد · كاش: الدفع بعد التسليم.
  */
-export function OrderStatusStepper({ order, disabled, onOrderStatusChange, onPaymentPaid }: Props) {
+export function OrderStatusStepper({
+  order,
+  disabled,
+  compact = false,
+  hidePaymentConfirm = false,
+  onOrderStatusChange,
+  onPaymentPaid,
+}: Props) {
   const paymentMethod = order.paymentMethod ?? 'cash_on_delivery';
   const steps = buildOrderFlowSteps(paymentMethod);
   const currentIndex = getOrderFlowCurrentIndex(order);
@@ -54,21 +65,29 @@ export function OrderStatusStepper({ order, disabled, onOrderStatusChange, onPay
   const PaymentIcon = paymentMethod === 'card' ? CreditCard : Banknote;
 
   return (
-    <div className="space-y-4 rounded-xl border border-border/80 bg-card p-4">
+    <div className={cn('space-y-4 rounded-xl border border-border/80 bg-card', compact ? 'p-3' : 'p-4')}>
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="space-y-0.5">
-          <p className="text-sm font-semibold text-foreground">مسار الطلب</p>
-          <p className="text-xs text-muted-foreground">
-            {paymentMethod === 'card'
-              ? 'شبكة: الدفع يظهر قبل تأكيد الطلب.'
-              : 'كاش عند الاستلام: الدفع يظهر كآخر مرحلة بعد التسليم.'}
+          <p className="text-sm font-semibold text-foreground">
+            {compact ? 'تحديث الحالة' : 'مسار الطلب'}
           </p>
-          <p className="inline-flex items-center gap-1.5 pt-1 text-xs font-medium text-foreground">
-            <PaymentIcon className="h-3.5 w-3.5 text-muted-foreground" />
-            نوع الدفع: {methodLabel}
-            <span className="text-muted-foreground">·</span>
-            {paid ? 'تم التحصيل' : 'لم يُحصَّل بعد'}
-          </p>
+          {!compact ? (
+            <>
+              <p className="text-xs text-muted-foreground">
+                {paymentMethod === 'card'
+                  ? 'شبكة: الدفع يظهر قبل تأكيد الطلب.'
+                  : 'كاش عند الاستلام: الدفع يظهر كآخر مرحلة بعد التسليم.'}
+              </p>
+              <p className="inline-flex items-center gap-1.5 pt-1 text-xs font-medium text-foreground">
+                <PaymentIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                نوع الدفع: {methodLabel}
+                <span className="text-muted-foreground">·</span>
+                {paid ? 'تم التحصيل' : 'لم يُحصَّل بعد'}
+              </p>
+            </>
+          ) : (
+            <p className="text-xs text-muted-foreground">اضغط خطوة أو استخدم «التالي» لنقل الطلب</p>
+          )}
         </div>
         {next && inPipeline ? (
           <Button type="button" size="sm" disabled={disabled} className="gap-1" onClick={applyNext}>
@@ -179,7 +198,7 @@ export function OrderStatusStepper({ order, disabled, onOrderStatusChange, onPay
             إعادة إلى المسار
           </Button>
         ) : null}
-        {inPipeline && !paid ? (
+        {inPipeline && !paid && !hidePaymentConfirm ? (
           <Button type="button" size="sm" variant="secondary" disabled={disabled} onClick={onPaymentPaid}>
             تأكيد التحصيل ({methodLabel})
           </Button>

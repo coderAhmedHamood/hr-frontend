@@ -17,7 +17,6 @@ import {
   Phone,
   RotateCcw,
   ShoppingCart,
-  Store,
   Truck,
   User,
 } from 'lucide-react';
@@ -35,6 +34,7 @@ import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/stor
 import { formatPrice } from '@/features/ecommerce/shared/utils/format-price';
 import {
   getOrderPrepGuidance,
+  isPaymentSettled,
   ORDER_STATUS_LABELS_AR,
   ORDER_TERMINAL_STATUSES,
   PAYMENT_METHOD_LABELS_AR,
@@ -173,7 +173,8 @@ function OrderItemsPanel({ order, companyId }: { order: Order; companyId: string
   const [statusFilter, setStatusFilter] = React.useState<'all' | 'pending' | 'shipped'>('all');
   const [visibleCount, setVisibleCount] = React.useState(ITEMS_PAGE_SIZE);
 
-  const shippedCount = order.items.filter((line) => line.shipStatus === 'shipped').length;
+  const preparedCount = order.items.filter((line) => line.shipStatus === 'shipped').length;
+  const pendingCount = order.items.length - preparedCount;
   const manyItems = order.items.length > ITEMS_PAGE_SIZE;
 
   const normalizedSearch = search.trim().toLowerCase();
@@ -189,19 +190,25 @@ function OrderItemsPanel({ order, companyId }: { order: Order; companyId: string
   return (
     <div>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold text-foreground">
-          منتجات الطلب
-          <span className="ms-1.5 font-normal text-muted-foreground">
-            ({shippedCount}/{order.items.length} تم شحنها)
-          </span>
-        </h3>
+        <div className="min-w-0 space-y-1.5">
+          <h3 className="text-sm font-semibold text-foreground">منتجات الطلب</h3>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Badge variant="success" className="tabular-nums">
+              {preparedCount} مجهّز
+            </Badge>
+            <Badge variant={pendingCount > 0 ? 'warning' : 'outline'} className="tabular-nums">
+              {pendingCount} لم يُجهَّز
+            </Badge>
+            <span className="text-xs text-muted-foreground">من {order.items.length}</span>
+          </div>
+        </div>
         {order.items.length > 1 ? (
           <div className="flex flex-wrap items-center gap-1.5">
             {(
               [
                 { value: 'all', label: 'الكل' },
-                { value: 'pending', label: 'لم يُشحن' },
-                { value: 'shipped', label: 'تم الشحن' },
+                { value: 'pending', label: 'لم يُجهَّز' },
+                { value: 'shipped', label: 'مجهّز' },
               ] as const
             ).map((pill) => (
               <button
@@ -276,192 +283,170 @@ function OrderDetailPanel({
 }) {
   const updateStatus = useUpdateOrderStatus(companyId);
   const updatePayment = useUpdateOrderPaymentStatus(companyId);
-  const locationLabel = order ? [order.city, order.region].filter(Boolean).join(' • ') : '';
   const flowBusy = updateStatus.isPending || updatePayment.isPending;
   const prep = order ? getOrderPrepGuidance(order) : null;
   const paymentMethod = order ? resolveOrderPaymentMethod(order) : null;
   const isCard = paymentMethod === 'card';
   const proofUrl = order?.paymentProofUrl?.trim() || null;
   const phone = order?.phone?.trim() || null;
+  const telHref = phone ? `tel:${phone.replace(/\s/g, '')}` : null;
+  const shipLine = order
+    ? [order.city, order.shippingDistrict ?? order.region].filter(Boolean).join(' — ')
+    : '';
+  const needsPaymentConfirm = Boolean(order && !isPaymentSettled(order));
+  const fulfilment = order ? orderFulfilmentState(order) : null;
+  const PaymentIcon = isCard ? CreditCard : Banknote;
+
+  async function markPaid() {
+    if (!order) return;
+    await updatePayment.mutateAsync({ orderId: order.id, paymentStatus: 'paid' });
+  }
+
+  async function advanceStatus(nextStatus: OrderStatus) {
+    if (!order) return;
+    await updateStatus.mutateAsync({ orderId: order.id, status: nextStatus });
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={cn(dialogShellContentClass, 'max-w-2xl sm:max-w-2xl')}>
+      <DialogContent className={cn(dialogShellContentClass, 'max-w-3xl sm:max-w-3xl')}>
         <div className={dialogShellHeaderClass}>
-          <DialogTitle>{order?.orderNumber}</DialogTitle>
-          {order ? <DialogDescription>{formatDateTime(order.createdAt)}</DialogDescription> : null}
-        </div>
-        <div className={dialogShellBodyClass}>
-        {order && prep && paymentMethod ? (
-          <div className="space-y-5">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge variant={FULFILMENT_VARIANT[orderFulfilmentState(order)]}>
-                {FULFILMENT_LABELS[orderFulfilmentState(order)]}
-              </Badge>
-              <Badge
-                variant="subtle"
-                className={cn(
-                  'gap-1',
-                  isCard
-                    ? 'border-sky-500/30 bg-sky-500/10 text-sky-900 dark:text-sky-200'
-                    : 'border-teal-500/30 bg-teal-500/10 text-teal-900 dark:text-teal-200',
-                )}
-              >
-                {isCard ? <CreditCard className="h-3 w-3" /> : <Banknote className="h-3 w-3" />}
-                {PAYMENT_METHOD_LABELS_AR[paymentMethod]}
-              </Badge>
-              <Badge variant={PAYMENT_STATUS_VARIANT[order.paymentStatus ?? 'pending']}>
-                {PAYMENT_STATUS_LABELS_AR[order.paymentStatus ?? 'pending']}
-              </Badge>
-              {order.source === 'storefront' || order.orderNumber.startsWith('ND-') ? (
-                <Badge variant="subtle" className="gap-1">
-                  <Store className="h-3 w-3" />
-                  المتجر
-                </Badge>
-              ) : null}
-            </div>
-
-            <div
-              className={cn(
-                'rounded-xl border px-3 py-2.5 text-sm',
-                prep.canPrepare
-                  ? isCard
-                    ? 'border-sky-500/30 bg-sky-500/10 text-sky-950 dark:text-sky-100'
-                    : 'border-teal-500/30 bg-teal-500/10 text-teal-950 dark:text-teal-100'
-                  : 'border-amber-500/35 bg-amber-500/10 text-amber-900 dark:text-amber-200',
-              )}
-            >
-              <p className="font-semibold">{prep.prepLabel}</p>
-              <p className="mt-0.5 text-sm opacity-90">{prep.prepHint}</p>
-            </div>
-
-            {phone ? (
-              <a
-                href={`tel:${phone.replace(/\s/g, '')}`}
-                dir="ltr"
-                className="flex items-center justify-between gap-3 rounded-xl border border-primary/25 bg-primary/5 px-4 py-3 transition-colors hover:bg-primary/10"
-              >
-                <span className="text-xs font-medium text-muted-foreground">جوال العميل — للتواصل السريع</span>
-                <span className="inline-flex items-center gap-2 text-base font-bold tabular-nums text-foreground">
-                  <Phone className="h-4 w-4 text-primary" />
-                  {phone}
-                </span>
-              </a>
-            ) : null}
-
-            <OrderStatusStepper
-              order={order}
-              disabled={flowBusy}
-              onOrderStatusChange={(nextStatus) => {
-                void updateStatus.mutateAsync({
-                  orderId: order.id,
-                  status: nextStatus,
-                });
-              }}
-              onPaymentPaid={() => {
-                void updatePayment.mutateAsync({
-                  orderId: order.id,
-                  paymentStatus: 'paid',
-                });
-              }}
-            />
-
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              <div className="rounded-xl border border-border/80 bg-card p-4">
-                <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  <User className="h-3.5 w-3.5" />
-                  العميل
+          {order && prep && paymentMethod ? (
+            <div className="space-y-3 pe-8">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <DialogTitle className="tracking-tight" dir="ltr">
+                    {order.orderNumber}
+                  </DialogTitle>
+                  <DialogDescription className="mt-0.5">
+                    {formatDateTime(order.createdAt)}
+                    {order.source === 'storefront' || order.orderNumber.startsWith('ND-')
+                      ? ' · المتجر'
+                      : null}
+                  </DialogDescription>
                 </div>
-                <p className="font-medium text-foreground">{order.customerNameAr}</p>
-                {phone ? (
-                  <a
-                    href={`tel:${phone.replace(/\s/g, '')}`}
-                    className="mt-2 inline-flex items-center gap-1.5 text-sm font-semibold tabular-nums text-primary hover:underline"
-                    dir="ltr"
-                  >
-                    <Phone className="h-3.5 w-3.5" />
-                    {phone}
-                  </a>
-                ) : (
-                  <p className="mt-1 text-sm text-muted-foreground">لا يوجد رقم جوال</p>
-                )}
-              </div>
-
-              <div className="rounded-xl border border-border/80 bg-card p-4">
-                <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  <Truck className="h-3.5 w-3.5" />
-                  الشحن
-                </div>
-                <p className="text-sm text-foreground">
-                  {[order.city, order.shippingDistrict ?? order.region].filter(Boolean).join(' — ') || locationLabel || '—'}
-                </p>
-                {order.shippingStreet ? (
-                  <p className="mt-1 text-sm text-muted-foreground">{order.shippingStreet}</p>
-                ) : null}
-                {order.shippingNotes ? (
-                  <p className="mt-2 text-xs text-muted-foreground">ملاحظة: {order.shippingNotes}</p>
-                ) : null}
-              </div>
-
-              <div
-                className={cn(
-                  'rounded-xl border p-4 sm:col-span-2 lg:col-span-1',
-                  isCard
-                    ? 'border-sky-500/25 bg-sky-500/[0.04]'
-                    : 'border-teal-500/25 bg-teal-500/[0.04]',
-                )}
-              >
-                <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  {isCard ? <CreditCard className="h-3.5 w-3.5" /> : <Banknote className="h-3.5 w-3.5" />}
-                  الدفع
-                </div>
-                <p className="font-medium text-foreground">
-                  {PAYMENT_METHOD_LABELS_AR[paymentMethod]}
-                </p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {PAYMENT_STATUS_LABELS_AR[order.paymentStatus ?? 'pending']}
-                </p>
-                {proofUrl ? (
-                  <div className="mt-3 flex items-center gap-3 border-t border-border/60 pt-3">
-                    <OrderPaymentProofThumb
-                      url={proofUrl}
-                      orderNumber={order.orderNumber}
-                      size="md"
-                    />
-                    <div className="min-w-0">
-                      <p className="text-xs font-semibold text-foreground">إيصال مرفق</p>
-                      <p className="mt-0.5 text-xs text-muted-foreground">اضغط للمعاينة والمراجعة</p>
-                    </div>
-                  </div>
-                ) : isCard ? (
-                  <p className="mt-3 border-t border-border/60 pt-3 text-xs text-muted-foreground">
-                    لم يُرفق إيصال دفع مع هذا الطلب
+                <div className="text-end">
+                  <p className="text-[11px] text-muted-foreground">الإجمالي</p>
+                  <p className="text-lg font-bold tabular-nums tracking-tight text-foreground">
+                    {formatPrice(order.totalAmount)}
                   </p>
-                ) : null}
-                <div className="mt-3 space-y-1 border-t border-border/60 pt-3 text-sm">
-                  {order.subtotalAmount ? (
-                    <div className="flex justify-between gap-3 text-muted-foreground">
-                      <span>المجموع الفرعي</span>
-                      <span className="tabular-nums">{formatPrice(order.subtotalAmount)}</span>
-                    </div>
-                  ) : null}
-                  {order.shippingFeeAmount ? (
-                    <div className="flex justify-between gap-3 text-muted-foreground">
-                      <span>الشحن</span>
-                      <span className="tabular-nums">{formatPrice(order.shippingFeeAmount)}</span>
-                    </div>
-                  ) : null}
-                  <div className="flex justify-between gap-3 font-semibold text-foreground">
-                    <span>الإجمالي</span>
-                    <span className="tabular-nums">{formatPrice(order.totalAmount)}</span>
-                  </div>
                 </div>
               </div>
-            </div>
 
-            <OrderItemsPanel order={order} companyId={companyId} />
-          </div>
-        ) : null}
+              {/* Customer at the head of the order */}
+              <div className="rounded-xl border border-border/70 bg-muted/25 px-3 py-2.5">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                  <p className="inline-flex items-center gap-1.5 text-sm font-bold text-foreground">
+                    <User className="h-3.5 w-3.5 text-muted-foreground" />
+                    {order.customerNameAr}
+                  </p>
+                  {telHref && phone ? (
+                    <a
+                      href={telHref}
+                      dir="ltr"
+                      className="inline-flex items-center gap-1.5 rounded-md bg-primary/10 px-2 py-0.5 text-sm font-bold tabular-nums text-primary hover:bg-primary/15"
+                    >
+                      <Phone className="h-3.5 w-3.5" />
+                      {phone}
+                    </a>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">لا يوجد جوال</span>
+                  )}
+                  {shipLine ? (
+                    <span className="inline-flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
+                      <Truck className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate">
+                        {shipLine}
+                        {order.shippingStreet ? ` · ${order.shippingStreet}` : ''}
+                      </span>
+                    </span>
+                  ) : null}
+                </div>
+                {order.shippingNotes ? (
+                  <p className="mt-1.5 text-xs text-muted-foreground">ملاحظة: {order.shippingNotes}</p>
+                ) : null}
+              </div>
+
+              {/* Compact payment row — no large banner; receipt as small icon */}
+              <div className="flex flex-wrap items-center gap-2">
+                <span
+                  className={cn(
+                    'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold',
+                    isCard
+                      ? 'border-sky-500/30 bg-sky-500/10 text-sky-900 dark:text-sky-200'
+                      : 'border-teal-500/30 bg-teal-500/10 text-teal-900 dark:text-teal-200',
+                  )}
+                >
+                  <PaymentIcon className="h-3.5 w-3.5" />
+                  {PAYMENT_METHOD_LABELS_AR[paymentMethod]}
+                </span>
+                <Badge variant={PAYMENT_STATUS_VARIANT[order.paymentStatus ?? 'pending']}>
+                  {PAYMENT_STATUS_LABELS_AR[order.paymentStatus ?? 'pending']}
+                </Badge>
+                {fulfilment ? (
+                  <Badge variant={FULFILMENT_VARIANT[fulfilment]}>{FULFILMENT_LABELS[fulfilment]}</Badge>
+                ) : null}
+                <span
+                  className={cn(
+                    'text-xs font-medium',
+                    prep.canPrepare
+                      ? 'text-teal-700 dark:text-teal-400'
+                      : 'text-amber-700 dark:text-amber-400',
+                  )}
+                >
+                  {prep.prepLabel}
+                </span>
+                {proofUrl ? (
+                  <OrderPaymentProofThumb
+                    url={proofUrl}
+                    orderNumber={order.orderNumber}
+                    size="sm"
+                    className="ms-auto"
+                  />
+                ) : null}
+                {needsPaymentConfirm ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    className={cn(!proofUrl && 'ms-auto')}
+                    disabled={flowBusy}
+                    onClick={() => void markPaid()}
+                  >
+                    تأكيد التحصيل
+                  </Button>
+                ) : null}
+              </div>
+            </div>
+          ) : (
+            <>
+              <DialogTitle>{order?.orderNumber}</DialogTitle>
+              {order ? <DialogDescription>{formatDateTime(order.createdAt)}</DialogDescription> : null}
+            </>
+          )}
+        </div>
+
+        <div className={dialogShellBodyClass}>
+          {order && prep && paymentMethod ? (
+            <div className="space-y-4">
+              {/* 1) Order path at the top */}
+              <OrderStatusStepper
+                order={order}
+                hidePaymentConfirm
+                disabled={flowBusy}
+                onOrderStatusChange={(nextStatus) => {
+                  void advanceStatus(nextStatus);
+                }}
+                onPaymentPaid={() => {
+                  void markPaid();
+                }}
+              />
+
+              {/* 2) Products — prepared vs not */}
+              <section className="rounded-2xl border border-border bg-card p-4">
+                <OrderItemsPanel order={order} companyId={companyId} />
+              </section>
+            </div>
+          ) : null}
         </div>
       </DialogContent>
     </Dialog>

@@ -212,9 +212,13 @@ export function OrderLineShipPanel({ companyId, orderId, line }: Props) {
 
         <Badge
           className="shrink-0"
-          variant={isShipped ? 'success' : line.shipStatus === 'assigned' ? 'warning' : 'subtle'}
+          variant={isShipped ? 'success' : line.shipStatus === 'assigned' || line.shipStatus === 'partial' ? 'warning' : 'outline'}
         >
-          {isShipped ? 'تم الشحن' : progressLabel}
+          {isShipped
+            ? 'مجهّز'
+            : line.shipStatus === 'assigned' || line.shipStatus === 'partial'
+              ? `قيد التجهيز ${progressLabel}`
+              : 'لم يُجهَّز'}
         </Badge>
 
         <ChevronDown
