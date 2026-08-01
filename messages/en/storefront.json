@@ -325,10 +325,13 @@
     "brands": "Brands"
   },
   "about": {
-    "title": "About us"
+    "title": "About us",
+    "storyTitle": "Our story & values",
+    "storyHint": "These sections are managed from the CMS dashboard."
   },
   "contact": {
     "title": "Contact us",
+    "formTitle": "Send a message",
     "formName": "Name",
     "formEmail": "Email",
     "formMessage": "Message",
@@ -338,10 +341,12 @@
     "phone": "Phone",
     "email": "Email",
     "address": "Address",
-    "hours": "Business hours"
+    "hours": "Business hours",
+    "map": "Our location on the map"
   },
   "faq": {
     "title": "Frequently asked questions",
+    "subtitle": "Quick answers to common questions — update them from the content CMS.",
     "empty": "No FAQs published yet."
   },
   "legal": {

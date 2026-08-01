@@ -12,7 +12,16 @@ const DEFAULT_CONFIGURATION = {
   content: { title: null, subtitle: null, viewAllHref: null },
   settings: { showPrice: true, showCountdown: false, endsAt: null },
   style: { theme: 'dark', layout: 'carousel', visibility: { mobile: true, tablet: true, desktop: true } },
-  dataSource: { kind: 'tag', tag: 'deals', limit: 10 },
+  dataSource: {
+    kind: 'query',
+    sort: 'createdAt',
+    sortDirection: 'desc',
+    limit: 10,
+    categoryId: null,
+    tag: null,
+    isNewProduct: null,
+    isTodayDeal: true,
+  },
 };
 
 export const FLASH_SALE_DEFINITION: SectionDefinition<'flash-sale'> = {

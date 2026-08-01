@@ -10,17 +10,9 @@ import {
   mapFeatureItems,
   mapHeroSlides,
 } from '@/features/ecommerce/storefront/page-builder/lib/mappers/page-mapper';
-import {
-  resolveCatalogCategoriesForStorefront,
-  resolveCatalogProductsForStorefront,
-  type CatalogPickerCategory,
-  type CatalogPickerProduct,
-} from '@/features/ecommerce/admin/cms/homepage/lib/catalog-picker-actions';
 import { storefrontBrandsRepository } from '@/features/ecommerce/storefront/lib/repositories/brands-repository';
-import type {
-  StorefrontCategory,
-  StorefrontProduct,
-} from '@/features/ecommerce/storefront/domain/storefront-models';
+import { storefrontCategoriesRepository } from '@/features/ecommerce/storefront/lib/repositories/categories-repository';
+import { storefrontProductsRepository } from '@/features/ecommerce/storefront/lib/repositories/products-repository';
 import type { StorefrontLocale } from '@/i18n/routing';
 
 export type SectionResolverContext = {
@@ -28,133 +20,80 @@ export type SectionResolverContext = {
   locale: StorefrontLocale;
 };
 
-function mapPickerProduct(
-  item: CatalogPickerProduct,
-  companyId: string,
-  locale: StorefrontLocale,
-): StorefrontProduct {
-  const name = locale === 'en' && item.nameEn ? item.nameEn : item.nameAr;
-  const currency = item.priceCurrency || 'YER';
-  const compareAt =
-    item.compareAtPriceAmount != null && item.compareAtPriceAmount > item.priceAmount
-      ? { amount: item.compareAtPriceAmount, currency }
-      : null;
-
-  return {
-    id: item.id,
-    companyId,
-    slug: item.slug || item.sku,
-    sku: item.sku,
-    name,
-    description: name,
-    brandId: null,
-    categoryId: item.categoryId ?? null,
-    status: 'active',
-    stockStatus: item.stockStatus ?? 'in_stock',
-    inventory: {
-      trackInventory: true,
-      quantity: 1,
-      lowStockThreshold: 0,
-      allowBackorder: false,
-    },
-    price: { amount: item.priceAmount, currency },
-    compareAtPrice: compareAt,
-    media: item.imageUrl
-      ? [
-          {
-            id: `${item.id}-img`,
-            url: item.imageUrl,
-            alt: name,
-            type: 'image' as const,
-            position: 0,
-            isPrimary: true,
-          },
-        ]
-      : [],
-    imageUrl: item.imageUrl ?? null,
-    imageAlt: name,
-    tags: item.tags ?? [],
-    metaTitle: name,
-    metaDescription: name,
-    rating: null,
-    reviewCount: 0,
-    attributes: [],
-    variants: [],
-  };
-}
-
-function mapPickerCategory(
-  item: CatalogPickerCategory,
-  companyId: string,
-  locale: StorefrontLocale,
-): StorefrontCategory {
-  const name = locale === 'en' && item.nameEn ? item.nameEn : item.nameAr;
-  return {
-    id: item.id,
-    companyId,
-    slug: item.slug,
-    name,
-    description: name,
-    parentId: item.parentId ?? null,
-    imageUrl: item.imageUrl ?? null,
-    imageAlt: name,
-    displayOrder: 0,
-    featuredBrandIds: [],
-    metaTitle: name,
-    metaDescription: name,
-  };
-}
-
 async function resolveProducts(ctx: SectionResolverContext, dataSource: DataSourceConfig) {
   const { companyId, locale } = ctx;
-  let items: CatalogPickerProduct[] = [];
 
   if (dataSource.kind === 'manual') {
-    items = await resolveCatalogProductsForStorefront(companyId, {
-      ids: dataSource.entityIds,
-      limit: dataSource.entityIds.length || 24,
-    });
-  } else if (dataSource.kind === 'tag') {
-    items = await resolveCatalogProductsForStorefront(companyId, {
+    return storefrontProductsRepository.getByIds(companyId, dataSource.entityIds, locale);
+  }
+
+  if (dataSource.kind === 'tag') {
+    const result = await storefrontProductsRepository.list({
+      companyId,
+      locale,
       tag: dataSource.tag,
       limit: dataSource.limit,
+      page: 1,
     });
-  } else if (dataSource.kind === 'query') {
+    return result.items;
+  }
+
+  if (dataSource.kind === 'query') {
     const sort = dataSource.sort === 'sales' ? 'createdAt' : dataSource.sort;
-    items = await resolveCatalogProductsForStorefront(companyId, {
+    const result = await storefrontProductsRepository.list({
+      companyId,
+      locale,
       limit: dataSource.limit,
+      page: 1,
       sort,
       sortDirection: dataSource.sortDirection,
       categoryId: dataSource.categoryId ?? undefined,
       tag: dataSource.tag ?? undefined,
+      isNewProduct: dataSource.isNewProduct === true ? true : undefined,
+      isTodayDeal: dataSource.isTodayDeal === true ? true : undefined,
     });
-  } else if (dataSource.kind === 'category') {
-    items = await resolveCatalogProductsForStorefront(companyId, {
+    return result.items;
+  }
+
+  if (dataSource.kind === 'category') {
+    const result = await storefrontProductsRepository.list({
+      companyId,
+      locale,
       categoryId: dataSource.categoryId,
       limit: dataSource.limit,
+      page: 1,
     });
-  } else if (dataSource.kind === 'recommendation') {
-    items = await resolveCatalogProductsForStorefront(companyId, {
+    return result.items;
+  }
+
+  if (dataSource.kind === 'recommendation') {
+    const result = await storefrontProductsRepository.list({
+      companyId,
+      locale,
       limit: dataSource.limit,
+      page: 1,
       sort: 'createdAt',
       sortDirection: 'desc',
     });
+    return result.items;
   }
 
-  return items.map((item) => mapPickerProduct(item, companyId, locale));
+  return [];
 }
 
 async function resolveCategories(ctx: SectionResolverContext, dataSource: DataSourceConfig) {
   const { companyId, locale } = ctx;
-  let items: CatalogPickerCategory[] = [];
+  const allResult = await storefrontCategoriesRepository.list({
+    companyId,
+    locale,
+    page: 1,
+    limit: 300,
+  });
+  const all = allResult.items;
 
   if (dataSource.kind === 'manual') {
-    const selected = await resolveCatalogCategoriesForStorefront(companyId, {
-      ids: dataSource.entityIds,
-      limit: Math.max(dataSource.entityIds.length, 50),
-    });
-    const all = await resolveCatalogCategoriesForStorefront(companyId, { limit: 300 });
-    const selectedIds = new Set(selected.map((item) => item.id));
+    const selectedIds = new Set(dataSource.entityIds);
+    const selected = all.filter((item) => selectedIds.has(item.id));
 
     // Include descendants of selected parents so drill-down still works.
     const include = new Set(selectedIds);
@@ -169,26 +108,25 @@ async function resolveCategories(ctx: SectionResolverContext, dataSource: DataSo
       }
     }
 
-    items = all
+    const items = all
       .filter((item) => include.has(item.id))
       .map((item) =>
         // Promote manually picked rows to roots so the grid always has a top level.
-        selectedIds.has(item.id)
-          ? { ...item, parentId: null }
-          : item,
+        selectedIds.has(item.id) ? { ...item, parentId: null } : item,
       );
 
     if (items.length === 0) {
-      items = selected.map((item) => ({ ...item, parentId: null }));
+      return selected.map((item) => ({ ...item, parentId: null }));
     }
-  } else if (dataSource.kind === 'collection' || dataSource.kind === 'query') {
-    const configuredLimit = dataSource.limit;
-    items = await resolveCatalogCategoriesForStorefront(companyId, {
-      limit: Math.max(configuredLimit, 200),
-    });
+    return items;
   }
 
-  return items.map((item) => mapPickerCategory(item, companyId, locale));
+  if (dataSource.kind === 'collection' || dataSource.kind === 'query') {
+    // Full adjacency list for drill-down; section limit applies to root display later.
+    return all.slice(0, Math.max(dataSource.limit, 200));
+  }
+
+  return [];
 }
 
 async function resolveBrands(ctx: SectionResolverContext, dataSource: DataSourceConfig) {

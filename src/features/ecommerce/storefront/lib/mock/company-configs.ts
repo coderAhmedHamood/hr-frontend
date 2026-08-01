@@ -111,6 +111,7 @@ const DEMO_COMPANY_SEED: CompanyConfigRecord = {
   announcement: {
     enabled: true,
     dismissible: true,
+    scrolling: true,
     speedMs: 28_000,
     items: [
       {

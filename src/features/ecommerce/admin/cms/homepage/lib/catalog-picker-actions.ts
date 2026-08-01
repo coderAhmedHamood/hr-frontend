@@ -1,7 +1,7 @@
 'use server';
 
 import { cookies } from 'next/headers';
-import { mockCategoriesStore, mockProductsStore } from '@/features/ecommerce/shared/lib/adapters/mock-catalog-store';
+import { mockProductsStore } from '@/features/ecommerce/shared/lib/adapters/mock-catalog-store';
 import { resolveStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
 import { resolveApiBaseUrl } from '@/shared/api-base-url';
 import { publicConfig } from '@/shared/config';
@@ -125,12 +125,15 @@ async function listInventoryProducts(companyId: string): Promise<CatalogPickerPr
 }
 
 async function listInventoryCategories(companyId: string): Promise<CatalogPickerCategory[] | null> {
-  const page = await fetchInventoryJson<{ items?: InventoryCategoryDto[] }>('/inventory/categories', {
-    companyId,
-    page: '1',
-    limit: '300',
-    archiveScope: 'active',
-  });
+  // Public endpoint — works for anonymous storefront + CMS without inventory token.
+  const page = await fetchInventoryJson<{ items?: InventoryCategoryDto[] }>(
+    '/public/inventory/categories',
+    {
+      companyId,
+      page: '1',
+      limit: '300',
+    },
+  );
   if (!page?.items?.length) return null;
   return page.items
     .filter((item) => item.isActive !== false)
@@ -165,20 +168,6 @@ async function listMockProducts(companyId: string): Promise<CatalogPickerProduct
   });
 }
 
-async function listMockCategories(companyId: string): Promise<CatalogPickerCategory[]> {
-  const result = await mockCategoriesStore.list({ companyId, page: 1, limit: 300 });
-  return result.items
-    .filter((item) => item.isActive)
-    .map((item) => ({
-      id: item.id,
-      slug: item.slug,
-      nameAr: item.nameAr,
-      nameEn: item.nameEn ?? null,
-      parentId: item.parentId ?? null,
-      imageUrl: item.image?.url ?? null,
-    }));
-}
-
 /** Products for section data-source pickers.
  * Frontend-first: mock catalog is the contract source so admin picks match storefront
  * (anonymous `/store` has no inventory auth). Inventory is used when mock is empty.
@@ -191,13 +180,10 @@ export async function listCatalogPickerProducts(companyId: string): Promise<Cata
   return fromApi ?? [];
 }
 
-/** Categories for section data-source pickers — same mock-first precedence as products. */
+/** Categories for section data-source pickers — public inventory categories only. */
 export async function listCatalogPickerCategories(companyId: string): Promise<CatalogPickerCategory[]> {
   const resolved = resolveStorefrontCompanyId(companyId);
-  const fromMock = await listMockCategories(resolved);
-  if (fromMock.length > 0) return fromMock;
-  const fromApi = await listInventoryCategories(resolved);
-  return fromApi ?? [];
+  return (await listInventoryCategories(resolved)) ?? [];
 }
 
 /**

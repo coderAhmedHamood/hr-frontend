@@ -4,7 +4,12 @@ import * as React from 'react';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowRight, Pencil, Save } from 'lucide-react';
+import {
+  ArrowRight,
+  BookOpen,
+  Pencil,
+  Save,
+} from 'lucide-react';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
 import {
   getCmsCompanyRecord,
@@ -36,9 +41,12 @@ import { DataTable, type ColumnDef } from '@/components/ui/data-table';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
-  DialogHeader,
   DialogTitle,
+  dialogShellBodyClass,
+  dialogShellContentClass,
+  dialogShellHeaderClass,
 } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { CmsAboutTab } from '@/features/ecommerce/admin/cms/pages/components/cms-about-tab';
@@ -50,6 +58,7 @@ import {
   LEGAL_SLUGS,
 } from '@/features/ecommerce/admin/cms/pages/components/cms-legal-tab';
 import { FaqCmsPage } from '@/features/ecommerce/admin/cms/faq/components/faq-cms-page';
+import { cn } from '@/shared/utils';
 
 const CMS_PAGES_QUERY_KEY = ['ecommerce-cms', 'content', 'pages'] as const;
 const CMS_COMPANY_QUERY_KEY = ['ecommerce-cms', 'company', 'pages-visibility'] as const;
@@ -368,12 +377,15 @@ export function CmsPagesPage({ embedded = false, initialPanel = 'list' }: Props)
   if (panel === 'faq') {
     return (
       <div className="flex flex-col gap-4">
-        <div className="flex items-center gap-2">
-          <Button type="button" variant="outline" size="sm" onClick={() => setPanel('list')}>
+        <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-border/70 bg-card px-4 py-3">
+          <Button type="button" variant="outline" size="sm" className="rounded-xl" onClick={() => setPanel('list')}>
             <ArrowRight className="me-1.5 h-4 w-4" />
             {t('backToPages')}
           </Button>
-          <h2 className="text-sm font-semibold text-foreground">{t('faq')}</h2>
+          <div className="min-w-0">
+            <h2 className="text-sm font-semibold text-foreground">{t('faq')}</h2>
+            <p className="text-xs text-muted-foreground">{t('editContentHint')}</p>
+          </div>
         </div>
         <FaqCmsPage embedded />
       </div>
@@ -389,8 +401,20 @@ export function CmsPagesPage({ embedded = false, initialPanel = 'list' }: Props)
         <SetPageTitle titleAr={t('title')} descriptionAr={t('description')} iconName="BookOpen" />
       ) : null}
 
+      <section className="rounded-2xl border border-border/70 bg-linear-to-l from-primary/6 via-card to-card px-5 py-4">
+        <div className="flex items-start gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <BookOpen className="h-5 w-5" aria-hidden />
+          </span>
+          <div className="min-w-0">
+            <h2 className="text-sm font-semibold text-foreground">{t('studioTitle')}</h2>
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{t('studioHint')}</p>
+          </div>
+        </div>
+      </section>
+
       {dirty ? (
-        <div className="flex items-center gap-2 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
+        <div className="flex items-center gap-2 rounded-xl border border-warning/30 bg-warning/10 px-3.5 py-2.5 text-xs text-warning">
           {tHome('unsavedHint')}
         </div>
       ) : null}
@@ -428,36 +452,42 @@ export function CmsPagesPage({ embedded = false, initialPanel = 'list' }: Props)
           if (!open) setForm(null);
         }}
       >
-        <DialogContent className={form?.kind === 'legal' ? 'max-w-3xl' : 'max-w-lg'}>
-          <DialogHeader>
+        <DialogContent
+          className={cn(
+            dialogShellContentClass,
+            form?.kind === 'legal' ? 'max-w-3xl sm:max-w-3xl' : 'max-w-2xl sm:max-w-2xl',
+          )}
+        >
+          <div className={dialogShellHeaderClass}>
             <DialogTitle>{dialogTitle}</DialogTitle>
-          </DialogHeader>
-
-          {form?.kind === 'about' ? (
-            <CmsAboutTab
-              about={form.draft}
-              onChange={(about) => setForm({ kind: 'about', draft: about })}
-            />
-          ) : null}
-          {form?.kind === 'contact' ? (
-            <CmsContactTab
-              contact={form.draft}
-              onChange={(contact) => setForm({ kind: 'contact', draft: contact })}
-            />
-          ) : null}
-          {form?.kind === 'legal' ? (
-            <CmsLegalPageForm
-              page={form.draft}
-              onChange={(page) => setForm({ kind: 'legal', slug: form.slug, draft: page })}
-            />
-          ) : null}
-
-          <DialogFooter className="gap-2">
-            <Button type="button" variant="outline" onClick={() => setForm(null)}>
+            <DialogDescription>{t('editDialogHint')}</DialogDescription>
+          </div>
+          <div className={dialogShellBodyClass}>
+            {form?.kind === 'about' ? (
+              <CmsAboutTab
+                about={form.draft}
+                onChange={(about) => setForm({ kind: 'about', draft: about })}
+              />
+            ) : null}
+            {form?.kind === 'contact' ? (
+              <CmsContactTab
+                contact={form.draft}
+                onChange={(contact) => setForm({ kind: 'contact', draft: contact })}
+              />
+            ) : null}
+            {form?.kind === 'legal' ? (
+              <CmsLegalPageForm
+                page={form.draft}
+                onChange={(page) => setForm({ kind: 'legal', slug: form.slug, draft: page })}
+              />
+            ) : null}
+          </div>
+          <DialogFooter className="gap-2 border-t border-border/70 px-5 py-4 sm:px-6">
+            <Button type="button" variant="outline" className="rounded-xl" onClick={() => setForm(null)}>
               {tCommon('actions.cancel')}
             </Button>
-            <Button type="button" onClick={applyForm}>
-              {tCommon('actions.save')}
+            <Button type="button" className="rounded-xl" onClick={applyForm}>
+              {t('applyContent')}
             </Button>
           </DialogFooter>
         </DialogContent>

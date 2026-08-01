@@ -2,23 +2,21 @@
 
 import * as React from 'react';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
+import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
+import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
+import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
 import { getInventoryCompanyId } from '@/features/inventory/lib/company-id';
 import { useLocationStockList } from '@/features/inventory/admin/hooks/use-product-on-hand';
 import { useWarehouses } from '@/features/inventory/admin/warehouses/hooks/use-warehouses';
 import { useWarehouseLocations } from '@/features/inventory/admin/locations/hooks/use-warehouse-locations';
 import { useProducts } from '@/features/ecommerce/admin/products/hooks/use-products';
 import type { WarehouseLocationType } from '@/features/inventory/domain/types/warehouse';
-import { ListToolbar } from '@/components/ui/list-toolbar';
 import { Badge } from '@/components/ui/badge';
-import { DataTable, AppPagination, usePagination, type ColumnDef } from '@/components/ui/data-table';
-import { DEFAULT_PAGE_SIZE } from '@/components/ui/paged-list';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { DataTable, usePagination, type ColumnDef } from '@/components/ui/data-table';
+import { DirectoryPagedViews, DEFAULT_PAGE_SIZE } from '@/components/ui/paged-list';
+import { ListFilterBar } from '@/components/ui/list-filter-bar';
+import { EntityFilterSearchField } from '@/components/ui/entity-filter-search-field';
+import { Button } from '@/components/ui/button';
 
 const LOCATION_TYPE_LABELS: Record<WarehouseLocationType, string> = {
   supplier: 'المورد',
@@ -125,6 +123,56 @@ export function DetailedStockReportPage() {
     total,
   } = usePagination(filtered, DEFAULT_PAGE_SIZE);
 
+  usePageHeaderActions(() => <FilterToggleButton />, []);
+
+  useEntityFilterSlot(
+    () => (
+      <ListFilterBar
+        showDateSection={false}
+        showStatusSection={false}
+        showEmployeePicker={false}
+        leadingFilters={
+          <EntityFilterSearchField
+            value={searchInput}
+            onChange={setSearchInput}
+            placeholder="ابحث بالمنتج أو الموقع…"
+          />
+        }
+        inlineSelects={[
+          {
+            id: 'warehouse',
+            value: warehouseId,
+            onChange: setWarehouseId,
+            placeholder: 'كل المستودعات',
+            options: [
+              { value: 'all', label: 'كل المستودعات' },
+              ...warehouses.map((warehouse) => ({ value: warehouse.id, label: warehouse.nameAr })),
+            ],
+          },
+          {
+            id: 'locationType',
+            value: locationType,
+            onChange: (value) => setLocationType(value as typeof locationType),
+            placeholder: 'كل الأنواع',
+            options: [
+              { value: 'all', label: 'كل الأنواع' },
+              ...(Object.keys(LOCATION_TYPE_LABELS) as WarehouseLocationType[]).map((type) => ({
+                value: type,
+                label: LOCATION_TYPE_LABELS[type],
+              })),
+            ],
+          },
+        ]}
+        trailingActions={
+          <Button type="button" variant="outline" size="sm" className="h-8" onClick={() => setHideZero((prev) => !prev)}>
+            {hideZero ? 'إخفاء الصفر: نعم' : 'إخفاء الصفر: لا'}
+          </Button>
+        }
+      />
+    ),
+    [searchInput, warehouseId, locationType, hideZero, warehouses],
+  );
+
   const columns: ColumnDef<DetailedStockRow>[] = [
     {
       key: 'warehouse',
@@ -204,77 +252,38 @@ export function DetailedStockReportPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <SetPageTitle titleAr="Detailed Stock" iconName="ClipboardList" />
-      <div className="space-y-1">
-        <h1 className="text-lg font-semibold">المخزون التفصيلي</h1>
-        <p className="text-sm text-muted-foreground">
-          كمية كل منتج في كل موقع تخزين — مستوى الصف التفصيلي للمخزون.
-        </p>
-      </div>
-
-      <ListToolbar
-        searchValue={searchInput}
-        onSearchChange={setSearchInput}
-        searchPlaceholder="ابحث بالمنتج أو الموقع…"
-        filters={
-          <div className="flex flex-wrap items-center gap-2">
-            <Select value={warehouseId} onValueChange={setWarehouseId}>
-              <SelectTrigger className="h-10 w-[160px]" aria-label="المستودع">
-                <SelectValue placeholder="المستودع" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">كل المستودعات</SelectItem>
-                {warehouses.map((warehouse) => (
-                  <SelectItem key={warehouse.id} value={warehouse.id}>
-                    {warehouse.nameAr}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select
-              value={locationType}
-              onValueChange={(value) => setLocationType(value as typeof locationType)}
-            >
-              <SelectTrigger className="h-10 w-[150px]" aria-label="نوع الموقع">
-                <SelectValue placeholder="نوع الموقع" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">كل الأنواع</SelectItem>
-                {(Object.keys(LOCATION_TYPE_LABELS) as WarehouseLocationType[]).map((type) => (
-                  <SelectItem key={type} value={type}>
-                    {LOCATION_TYPE_LABELS[type]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <button
-              type="button"
-              onClick={() => setHideZero((prev) => !prev)}
-              className="h-10 rounded-lg border border-border px-3 text-sm text-muted-foreground hover:text-foreground"
-            >
-              {hideZero ? 'إخفاء الصفر: نعم' : 'إخفاء الصفر: لا'}
-            </button>
-          </div>
-        }
+      <SetPageTitle
+        titleAr="Detailed Stock"
+        descriptionAr="كمية كل منتج في كل موقع تخزين — مستوى الصف التفصيلي للمخزون."
+        iconName="ClipboardList"
       />
 
       {isError ? <p className="text-sm text-destructive">تعذر تحميل المخزون التفصيلي.</p> : null}
 
-      <DataTable
-        columns={columns}
-        data={pagedRows}
-        keyExtractor={(row) => row.key}
+      <DirectoryPagedViews
+        items={pagedRows}
         loading={isLoading}
-        emptyText="لا توجد صفوف مخزون تفصيلي."
-      />
-
-      <AppPagination
-        page={page}
-        pageSize={pageSize}
-        total={total}
-        onPageChange={setPage}
-        onPageSizeChange={setPageSize}
-      />
+        serverPagination={{
+          page,
+          pageSize,
+          total,
+          totalPages: Math.max(1, Math.ceil(total / pageSize)),
+          setPage,
+          setPageSize,
+        }}
+      >
+        {(rowsPage) => (
+          <DataTable
+            variant="directory"
+            alwaysShowTable
+            columns={columns}
+            data={rowsPage}
+            keyExtractor={(row) => row.key}
+            loading={isLoading}
+            emptyText="لا توجد صفوف مخزون تفصيلي."
+          />
+        )}
+      </DirectoryPagedViews>
     </div>
   );
 }

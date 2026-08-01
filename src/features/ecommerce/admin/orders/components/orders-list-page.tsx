@@ -47,8 +47,8 @@ import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { ListFilterBar } from '@/components/ui/list-filter-bar';
 import { EntityFilterSearchField } from '@/components/ui/entity-filter-search-field';
 import { StatTile, StatTileGrid } from '@/components/ui/stat-tile';
-import { DataTable, AppPagination, type ColumnDef } from '@/components/ui/data-table';
-import { DEFAULT_PAGE_SIZE } from '@/components/ui/paged-list';
+import { DataTable, type ColumnDef } from '@/components/ui/data-table';
+import { DirectoryPagedViews, DEFAULT_PAGE_SIZE } from '@/components/ui/paged-list';
 import {
   Dialog,
   DialogContent,
@@ -242,9 +242,9 @@ function OrderItemsPanel({ order, companyId }: { order: Order; companyId: string
       ) : null}
 
       <div className="space-y-2">
-        {visibleItems.map((line) => (
+        {visibleItems.map((line, index) => (
           <OrderLineShipPanel
-            key={`${order.id}-${line.productId}-ship`}
+            key={`${order.id}-${line.productId}-${index}-ship`}
             companyId={companyId}
             orderId={order.id}
             line={line}
@@ -946,27 +946,34 @@ export function OrdersListPage() {
           }}
         />
       ) : (
-        <>
-          <DataTable
-            columns={columns}
-            data={items}
-            keyExtractor={(order) => order.id}
-            loading={isLoading}
-            emptyText="لا توجد طلبات مطابقة. أنشئ طلبًا من المتجر ليظهر هنا مباشرة."
-            onRowClick={(order) => updateParams({ order: order.id })}
-            alwaysShowTable
-          />
-
-          {data ? (
-            <AppPagination
-              page={page}
-              pageSize={pageSize}
-              total={data.pagination.total}
-              onPageChange={(nextPage) => updateParams({ page: nextPage })}
-              onPageSizeChange={(size) => updateParams({ pageSize: size, page: 1 })}
+        <DirectoryPagedViews
+          items={items}
+          loading={isLoading}
+          serverPagination={
+            data
+              ? {
+                  page,
+                  pageSize,
+                  total: data.pagination.total,
+                  totalPages: Math.max(1, Math.ceil(data.pagination.total / pageSize)),
+                  setPage: (nextPage) => updateParams({ page: nextPage }),
+                  setPageSize: (size) => updateParams({ pageSize: size, page: 1 }),
+                }
+              : undefined
+          }
+        >
+          {(ordersPage) => (
+            <DataTable
+              columns={columns}
+              data={ordersPage}
+              keyExtractor={(order) => order.id}
+              loading={isLoading}
+              emptyText="لا توجد طلبات مطابقة. أنشئ طلبًا من المتجر ليظهر هنا مباشرة."
+              onRowClick={(order) => updateParams({ order: order.id })}
+              alwaysShowTable
             />
-          ) : null}
-        </>
+          )}
+        </DirectoryPagedViews>
       )}
 
       <OrderDetailPanel

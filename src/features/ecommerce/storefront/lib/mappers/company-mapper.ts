@@ -73,6 +73,7 @@ export function mapStorefrontCompanyConfig(
       return {
         enabled: bar.enabled,
         dismissible: bar.dismissible,
+        scrolling: bar.scrolling,
         speedMs: bar.speedMs,
         items: bar.items
           .filter((item) => item.enabled && (item.message.ar.trim() || item.message.en.trim()))

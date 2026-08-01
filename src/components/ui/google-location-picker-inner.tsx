@@ -8,6 +8,7 @@ import { GooglePlaceAutocompleteInput } from '@/components/ui/google-place-autoc
 import { useGoogleReverseGeocode } from '@/components/ui/use-google-reverse-geocode';
 import { useCurrentGeolocation } from '@/components/ui/use-current-geolocation';
 import type { GoogleLocationValue } from '@/components/ui/google-location-picker';
+import { markGoogleMapsBillingDisabled } from '@/components/ui/google-maps-runtime';
 import { cn } from '@/shared/utils';
 
 type Props = {
@@ -18,6 +19,7 @@ type Props = {
   defaultZoom: number;
   height: number;
   interactive: boolean;
+  onRuntimeError?: () => void;
 };
 
 /** Recenters/pans the map imperatively whenever the marker position changes from outside a drag gesture. */
@@ -36,6 +38,24 @@ function MapRecenter({ position }: { position: { lat: number; lng: number } | nu
   return null;
 }
 
+/** Hide fullscreen + camera controls (cameraControl isn't tracked by @vis.gl setOptions whitelist). */
+function MapUiControls() {
+  const map = useMap();
+
+  React.useEffect(() => {
+    if (!map) return;
+    map.setOptions({
+      fullscreenControl: false,
+      cameraControl: false,
+      rotateControl: false,
+      streetViewControl: false,
+      mapTypeControl: false,
+    });
+  }, [map]);
+
+  return null;
+}
+
 export default function GoogleLocationPickerInner({
   value,
   onChange,
@@ -44,9 +64,44 @@ export default function GoogleLocationPickerInner({
   defaultZoom,
   height,
   interactive,
+  onRuntimeError,
 }: Props) {
   const { reverseGeocode } = useGoogleReverseGeocode();
   const { locate, isLocating, error: geolocationError } = useCurrentGeolocation();
+  const mapContainerRef = React.useRef<HTMLDivElement>(null);
+  const [hasRuntimeMapError, setHasRuntimeMapError] = React.useState(false);
+  const onRuntimeErrorRef = React.useRef(onRuntimeError);
+  onRuntimeErrorRef.current = onRuntimeError;
+
+  // The JS API renders billing/config errors (e.g. BillingNotEnabledMapError) as a raw,
+  // unstyled "This page can't load Google Maps correctly" dialog injected directly into the
+  // map div — there's no React-level callback for it. A MutationObserver watching for
+  // Google's `.gm-err-container` node is the documented workaround so we can unmount Maps
+  // and stop further console/API noise for the rest of the session.
+  React.useEffect(() => {
+    const container = mapContainerRef.current;
+    if (!container) return;
+
+    const fail = () => {
+      markGoogleMapsBillingDisabled();
+      setHasRuntimeMapError(true);
+      onRuntimeErrorRef.current?.();
+    };
+
+    if (container.querySelector('.gm-err-container')) {
+      fail();
+      return;
+    }
+
+    const observer = new MutationObserver(() => {
+      if (container.querySelector('.gm-err-container')) {
+        fail();
+        observer.disconnect();
+      }
+    });
+    observer.observe(container, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, []);
 
   const position = value ? { lat: value.lat, lng: value.lng } : defaultCenter;
 
@@ -72,11 +127,11 @@ export default function GoogleLocationPickerInner({
   }
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-3">
       {interactive ? (
-        <div className="flex flex-col gap-2 sm:flex-row">
+        <div className="flex flex-col gap-2.5">
           <GooglePlaceAutocompleteInput
-            className="flex-1"
+            className="w-full"
             placeholder="ابحث عن عنوان…"
             onPlaceSelect={(place) => void applyPoint(place.lat, place.lng, place.address)}
           />
@@ -85,7 +140,7 @@ export default function GoogleLocationPickerInner({
             variant="outline"
             onClick={() => void handleUseCurrentLocation()}
             disabled={isLocating}
-            className="shrink-0 gap-2"
+            className="h-11 w-full gap-2 rounded-xl border-border bg-background text-sm font-medium hover:bg-muted/40 sm:w-auto sm:self-start"
           >
             <LocateFixed className={cn('h-4 w-4', isLocating && 'animate-pulse')} aria-hidden />
             {isLocating ? 'جاري تحديد الموقع…' : 'استخدم موقعي الحالي'}
@@ -101,35 +156,51 @@ export default function GoogleLocationPickerInner({
         </p>
       ) : null}
 
-      <div className="w-full min-w-0 overflow-hidden rounded-lg border border-border" style={{ height }}>
-        <Map
-          mapId={mapId}
-          defaultCenter={defaultCenter}
-          defaultZoom={defaultZoom}
-          gestureHandling="greedy"
-          disableDefaultUI={false}
-          streetViewControl={false}
-          mapTypeControl={false}
-          onClick={(event) => {
-            if (!interactive || !event.detail.latLng) return;
-            void applyPoint(event.detail.latLng.lat, event.detail.latLng.lng);
-          }}
-        >
-          <MapRecenter position={value ? position : null} />
-          <AdvancedMarker
-            position={position}
-            draggable={interactive}
-            onDragEnd={(event) => {
-              const latLng = event.latLng;
-              if (!latLng) return;
-              void applyPoint(latLng.lat(), latLng.lng());
+      <div
+        ref={mapContainerRef}
+        className="relative w-full min-w-0 overflow-hidden rounded-xl border border-border bg-muted/20"
+        style={{ height }}
+      >
+        {hasRuntimeMapError ? (
+          <div className="flex h-full w-full flex-col items-center justify-center gap-1 bg-muted/40 p-4 text-center">
+            <p className="text-sm font-medium text-foreground">تعذر تحميل خريطة جوجل.</p>
+            <p className="text-xs text-muted-foreground">
+              يمكنك متابعة إدخال العنوان يدوياً في الحقول أعلاه.
+            </p>
+          </div>
+        ) : (
+          <Map
+            mapId={mapId}
+            defaultCenter={defaultCenter}
+            defaultZoom={defaultZoom}
+            gestureHandling="greedy"
+            zoomControl
+            streetViewControl={false}
+            mapTypeControl={false}
+            fullscreenControl={false}
+            rotateControl={false}
+            onClick={(event) => {
+              if (!interactive || !event.detail.latLng) return;
+              void applyPoint(event.detail.latLng.lat, event.detail.latLng.lng);
             }}
-          />
-        </Map>
+          >
+            <MapUiControls />
+            <MapRecenter position={value ? position : null} />
+            <AdvancedMarker
+              position={position}
+              draggable={interactive}
+              onDragEnd={(event) => {
+                const latLng = event.latLng;
+                if (!latLng) return;
+                void applyPoint(latLng.lat(), latLng.lng());
+              }}
+            />
+          </Map>
+        )}
       </div>
 
       {value ? (
-        <p className="truncate text-xs text-muted-foreground" dir="auto">
+        <p className="truncate text-xs leading-relaxed text-muted-foreground" dir="auto">
           {value.address || `${value.lat.toFixed(6)}, ${value.lng.toFixed(6)}`}
         </p>
       ) : null}

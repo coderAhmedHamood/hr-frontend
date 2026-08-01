@@ -1,7 +1,7 @@
 /**
  * Storefront catalog read ports — localized Storefront* models only.
  * Admin write ports: `@/features/ecommerce/domain/ports/catalog.ports`.
- * Both are backed by `mock-catalog-store` today.
+ * Categories/brands/products use public inventory APIs.
  */
 import type { ProductListQuery } from '@/features/ecommerce/domain/types/product';
 import type { CategoryListQuery } from '@/features/ecommerce/domain/types/category';

@@ -1,6 +1,10 @@
 'use client';
 
 import { SetPageTitle } from '@/components/layouts/set-page-title';
+import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
+import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
+import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
+import { PageHeaderPrimaryButton } from '@/components/layouts/page-header-primary-button';
 import * as React from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { MapPin, Pencil, Plus, Trash2, Warehouse } from 'lucide-react';
@@ -10,11 +14,12 @@ import { useWarehouseMutations } from '@/features/inventory/admin/warehouses/hoo
 import { WarehouseFormDialog } from '@/features/inventory/admin/warehouses/components/warehouse-form-dialog';
 import { inventoryAdminRoutes } from '@/features/inventory/admin/constants/routes';
 import type { Warehouse as WarehouseEntity } from '@/features/inventory/domain/types/warehouse';
-import { ListToolbar } from '@/components/ui/list-toolbar';
+import { ListFilterBar } from '@/components/ui/list-filter-bar';
+import { EntityFilterSearchField } from '@/components/ui/entity-filter-search-field';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { DataTable, AppPagination, type ColumnDef } from '@/components/ui/data-table';
-import { DEFAULT_PAGE_SIZE } from '@/components/ui/paged-list';
+import { DataTable, type ColumnDef } from '@/components/ui/data-table';
+import { DirectoryPagedViews, DEFAULT_PAGE_SIZE } from '@/components/ui/paged-list';
 import {
   Dialog,
   DialogContent,
@@ -80,6 +85,41 @@ export function WarehousesListPage() {
     limit: pageSize,
   });
   const { remove } = useWarehouseMutations();
+
+  usePageHeaderActions(
+    () => (
+      <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
+        <FilterToggleButton />
+        <PageHeaderPrimaryButton
+          icon={Plus}
+          label="إضافة مستودع"
+          disabled={!companyId}
+          onClick={() => setFormState({ open: true, warehouse: null })}
+        >
+          إضافة مستودع
+        </PageHeaderPrimaryButton>
+      </div>
+    ),
+    [companyId],
+  );
+
+  useEntityFilterSlot(
+    () => (
+      <ListFilterBar
+        showDateSection={false}
+        showStatusSection={false}
+        showEmployeePicker={false}
+        leadingFilters={
+          <EntityFilterSearchField
+            value={searchInput}
+            onChange={setSearchInput}
+            placeholder="ابحث بالاسم أو الرمز…"
+          />
+        }
+      />
+    ),
+    [searchInput],
+  );
 
   const columns: ColumnDef<WarehouseEntity>[] = [
     {
@@ -151,37 +191,36 @@ export function WarehousesListPage() {
     <div className="flex flex-col gap-5">
       <SetPageTitle titleAr="المخازن" iconName="Warehouse" />
 
-      <ListToolbar
-        searchValue={searchInput}
-        onSearchChange={setSearchInput}
-        searchPlaceholder="ابحث بالاسم أو الرمز…"
-        actions={
-          <Button onClick={() => setFormState({ open: true, warehouse: null })} disabled={!companyId}>
-            <Plus className="h-4 w-4" />
-            إضافة مستودع
-          </Button>
-        }
-      />
-
       {isError ? <p className="text-sm text-destructive">تعذر تحميل المستودعات.</p> : null}
 
-      <DataTable
-        columns={columns}
-        data={data?.items ?? []}
-        keyExtractor={(row) => row.id}
+      <DirectoryPagedViews
+        items={data?.items ?? []}
         loading={isLoading}
-        emptyText="لا توجد مستودعات بعد. أضف مستودعًا للبدء."
-      />
-
-      {data ? (
-        <AppPagination
-          page={page}
-          pageSize={pageSize}
-          total={data.pagination.total}
-          onPageChange={(nextPage) => updateParams({ page: nextPage })}
-          onPageSizeChange={(size) => updateParams({ pageSize: size, page: 1 })}
-        />
-      ) : null}
+        serverPagination={
+          data
+            ? {
+                page,
+                pageSize,
+                total: data.pagination.total,
+                totalPages: Math.max(1, Math.ceil(data.pagination.total / pageSize)),
+                setPage: (nextPage) => updateParams({ page: nextPage }),
+                setPageSize: (size) => updateParams({ pageSize: size, page: 1 }),
+              }
+            : undefined
+        }
+      >
+        {(rowsPage) => (
+          <DataTable
+            variant="directory"
+            alwaysShowTable
+            columns={columns}
+            data={rowsPage}
+            keyExtractor={(row) => row.id}
+            loading={isLoading}
+            emptyText="لا توجد مستودعات بعد. أضف مستودعًا للبدء."
+          />
+        )}
+      </DirectoryPagedViews>
 
       <WarehouseFormDialog
         open={formState.open}

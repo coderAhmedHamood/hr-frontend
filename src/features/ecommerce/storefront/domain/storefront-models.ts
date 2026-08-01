@@ -127,6 +127,8 @@ export type StorefrontCompanyConfig = {
       href: `/store${string}` | '/store' | null;
     }>;
     dismissible: boolean;
+    /** When false, messages stay static (no marquee). */
+    scrolling: boolean;
     /** Duration of one full marquee loop in milliseconds. */
     speedMs: number;
   };

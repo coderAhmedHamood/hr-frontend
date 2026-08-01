@@ -2,6 +2,7 @@
 'use client';
 
 import * as React from 'react';
+import { useLocale } from 'next-intl';
 import { useMapsLibrary } from '@vis.gl/react-google-maps';
 
 /**
@@ -10,6 +11,8 @@ import { useMapsLibrary } from '@vis.gl/react-google-maps';
  * lazily load the `geocoding` library.
  */
 export function useGoogleReverseGeocode() {
+  const locale = useLocale();
+  const language = locale.startsWith('ar') ? 'ar' : 'en';
   const geocodingLibrary = useMapsLibrary('geocoding');
   const [geocoder, setGeocoder] = React.useState<google.maps.Geocoder | null>(null);
   const [isGeocoding, setIsGeocoding] = React.useState(false);
@@ -24,7 +27,10 @@ export function useGoogleReverseGeocode() {
       if (!geocoder) return null;
       setIsGeocoding(true);
       try {
-        const { results } = await geocoder.geocode({ location: { lat, lng } });
+        const { results } = await geocoder.geocode({
+          location: { lat, lng },
+          language,
+        });
         return results[0]?.formatted_address ?? null;
       } catch {
         // Geocoding failures (ZERO_RESULTS, quota, network) shouldn't block picking a point —
@@ -34,7 +40,7 @@ export function useGoogleReverseGeocode() {
         setIsGeocoding(false);
       }
     },
-    [geocoder],
+    [geocoder, language],
   );
 
   return { reverseGeocode, isGeocoding, isReady: Boolean(geocoder) };

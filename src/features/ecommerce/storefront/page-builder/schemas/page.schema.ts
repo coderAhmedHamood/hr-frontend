@@ -73,6 +73,8 @@ export const queryDataSourceSchema = z.object({
   limit: z.number().int().min(1).max(24),
   categoryId: z.string().uuid().nullable(),
   tag: z.string().nullable(),
+  isNewProduct: z.boolean().nullable().optional(),
+  isTodayDeal: z.boolean().nullable().optional(),
 });
 
 export const recommendationDataSourceSchema = z.object({

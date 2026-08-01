@@ -2,22 +2,19 @@
 
 import * as React from 'react';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
+import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
+import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
+import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
 import { getInventoryCompanyId } from '@/features/inventory/lib/company-id';
 import { useLocationStockList } from '@/features/inventory/admin/hooks/use-product-on-hand';
 import { useWarehouses } from '@/features/inventory/admin/warehouses/hooks/use-warehouses';
 import { useWarehouseLocations } from '@/features/inventory/admin/locations/hooks/use-warehouse-locations';
 import { useProducts } from '@/features/ecommerce/admin/products/hooks/use-products';
-import { ListToolbar } from '@/components/ui/list-toolbar';
 import { Badge } from '@/components/ui/badge';
-import { DataTable, AppPagination, usePagination, type ColumnDef } from '@/components/ui/data-table';
-import { DEFAULT_PAGE_SIZE } from '@/components/ui/paged-list';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { DataTable, usePagination, type ColumnDef } from '@/components/ui/data-table';
+import { DirectoryPagedViews, DEFAULT_PAGE_SIZE } from '@/components/ui/paged-list';
+import { ListFilterBar } from '@/components/ui/list-filter-bar';
+import { EntityFilterSearchField } from '@/components/ui/entity-filter-search-field';
 
 type StockOverviewRow = {
   key: string;
@@ -141,6 +138,50 @@ export function StockOverviewReportPage() {
     total,
   } = usePagination(filtered, DEFAULT_PAGE_SIZE);
 
+  usePageHeaderActions(() => <FilterToggleButton />, []);
+
+  useEntityFilterSlot(
+    () => (
+      <ListFilterBar
+        showDateSection={false}
+        showStatusSection={false}
+        showEmployeePicker={false}
+        leadingFilters={
+          <EntityFilterSearchField
+            value={searchInput}
+            onChange={setSearchInput}
+            placeholder="ابحث بالمنتج أو SKU…"
+          />
+        }
+        inlineSelects={[
+          {
+            id: 'warehouse',
+            value: warehouseId,
+            onChange: setWarehouseId,
+            placeholder: 'كل المستودعات',
+            options: [
+              { value: 'all', label: 'كل المستودعات' },
+              ...warehouses.map((warehouse) => ({ value: warehouse.id, label: warehouse.nameAr })),
+            ],
+          },
+          {
+            id: 'stock',
+            value: stockFilter,
+            onChange: (value) => setStockFilter(value as typeof stockFilter),
+            placeholder: 'كل الحالات',
+            options: [
+              { value: 'all', label: 'كل الحالات' },
+              { value: 'in_stock', label: 'متوفر' },
+              { value: 'low', label: 'منخفض' },
+              { value: 'out', label: 'نفد' },
+            ],
+          },
+        ]}
+      />
+    ),
+    [searchInput, warehouseId, stockFilter, warehouses],
+  );
+
   const columns: ColumnDef<StockOverviewRow>[] = [
     {
       key: 'product',
@@ -205,13 +246,11 @@ export function StockOverviewReportPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <SetPageTitle titleAr="المخزون" iconName="Package" />
-      <div className="space-y-1">
-        <h1 className="text-lg font-semibold">تقرير المخزون</h1>
-        <p className="text-sm text-muted-foreground">
-          ملخص الكميات المتاحة لكل منتج من مواقع التخزين الداخلية.
-        </p>
-      </div>
+      <SetPageTitle
+        titleAr="المخزون"
+        descriptionAr="ملخص الكميات المتاحة لكل منتج من مواقع التخزين الداخلية."
+        iconName="Package"
+      />
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <SummaryCard label="منتجات" value={totals.products} />
@@ -220,60 +259,32 @@ export function StockOverviewReportPage() {
         <SummaryCard label="نفد" value={totals.out} />
       </div>
 
-      <ListToolbar
-        searchValue={searchInput}
-        onSearchChange={setSearchInput}
-        searchPlaceholder="ابحث بالمنتج أو SKU…"
-        filters={
-          <div className="flex flex-wrap gap-2">
-            <Select value={warehouseId} onValueChange={setWarehouseId}>
-              <SelectTrigger className="h-10 w-[160px]" aria-label="المستودع">
-                <SelectValue placeholder="المستودع" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">كل المستودعات</SelectItem>
-                {warehouses.map((warehouse) => (
-                  <SelectItem key={warehouse.id} value={warehouse.id}>
-                    {warehouse.nameAr}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select
-              value={stockFilter}
-              onValueChange={(value) => setStockFilter(value as typeof stockFilter)}
-            >
-              <SelectTrigger className="h-10 w-[150px]" aria-label="حالة المخزون">
-                <SelectValue placeholder="الحالة" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">كل الحالات</SelectItem>
-                <SelectItem value="in_stock">متوفر</SelectItem>
-                <SelectItem value="low">منخفض</SelectItem>
-                <SelectItem value="out">نفد</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        }
-      />
-
       {stockError ? <p className="text-sm text-destructive">تعذر تحميل بيانات المخزون.</p> : null}
 
-      <DataTable
-        columns={columns}
-        data={pagedRows}
-        keyExtractor={(row) => row.key}
+      <DirectoryPagedViews
+        items={pagedRows}
         loading={stockLoading || productsLoading}
-        emptyText="لا توجد بيانات مخزون."
-      />
-
-      <AppPagination
-        page={page}
-        pageSize={pageSize}
-        total={total}
-        onPageChange={setPage}
-        onPageSizeChange={setPageSize}
-      />
+        serverPagination={{
+          page,
+          pageSize,
+          total,
+          totalPages: Math.max(1, Math.ceil(total / pageSize)),
+          setPage,
+          setPageSize,
+        }}
+      >
+        {(rowsPage) => (
+          <DataTable
+            variant="directory"
+            alwaysShowTable
+            columns={columns}
+            data={rowsPage}
+            keyExtractor={(row) => row.key}
+            loading={stockLoading || productsLoading}
+            emptyText="لا توجد بيانات مخزون."
+          />
+        )}
+      </DirectoryPagedViews>
     </div>
   );
 }

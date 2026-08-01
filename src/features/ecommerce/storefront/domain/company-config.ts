@@ -115,12 +115,14 @@ export type CompanyAnnouncementItemRecord = {
 
 /**
  * Top-of-site announcement strip (above the header).
- * Multiple enabled messages scroll continuously (marquee).
+ * When `scrolling` is true, enabled messages run as a continuous marquee.
  */
 export type CompanyAnnouncementBarRecord = {
   enabled: boolean;
   items: CompanyAnnouncementItemRecord[];
   dismissible: boolean;
+  /** When false, messages stay static (no marquee). Defaults to true. */
+  scrolling: boolean;
   /** Duration of one full marquee loop in milliseconds. */
   speedMs: number;
 };
@@ -145,6 +147,7 @@ type LegacyAnnouncementBarRecord = {
   message?: LocalizableString;
   href?: CompanyAnnouncementHref;
   dismissible?: boolean;
+  scrolling?: boolean;
   items?: CompanyAnnouncementItemRecord[];
   speedMs?: number;
 };
@@ -154,6 +157,7 @@ export function normalizeAnnouncementBar(
 ): CompanyAnnouncementBarRecord {
   const enabled = raw?.enabled ?? false;
   const dismissible = raw?.dismissible ?? true;
+  const scrolling = raw?.scrolling !== false;
   const speedMs = clampAnnouncementSpeedMs(
     (raw as LegacyAnnouncementBarRecord | undefined)?.speedMs,
   );
@@ -162,6 +166,7 @@ export function normalizeAnnouncementBar(
     return {
       enabled,
       dismissible,
+      scrolling,
       speedMs,
       items: raw.items.map((item, index) => ({
         id: item.id || `announcement-${index + 1}`,
@@ -182,6 +187,7 @@ export function normalizeAnnouncementBar(
   return {
     enabled,
     dismissible,
+    scrolling,
     speedMs,
     items: hasText
       ? [

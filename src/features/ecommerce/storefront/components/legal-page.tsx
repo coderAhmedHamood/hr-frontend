@@ -22,18 +22,26 @@ export async function LegalPage({
   ];
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-8 pb-4">
       <JsonLd data={breadcrumbJsonLd(breadcrumbItems, locale)} />
       <StoreBreadcrumbs items={breadcrumbItems} />
 
-      <header>
-        <h1 className="font-arabic-display text-2xl font-bold text-foreground">{page.title}</h1>
-        <p className="mt-2 text-xs text-muted-foreground">
-          {t('legal.lastUpdated')}: {format.dateTime(new Date(page.updatedAt), { dateStyle: 'medium' })}
-        </p>
-      </header>
+      <article className="mx-auto w-full max-w-3xl">
+        <header className="rounded-3xl border border-border/70 bg-linear-to-bl from-primary/8 via-card to-card px-6 py-8 sm:px-8 sm:py-10">
+          <p className="text-xs font-semibold tracking-wide text-primary">{t(`legal.${page.slug}`)}</p>
+          <h1 className="mt-3 font-arabic-display text-3xl font-bold leading-tight tracking-tight text-foreground sm:text-4xl">
+            {page.title}
+          </h1>
+          <p className="mt-4 inline-flex items-center rounded-full border border-border/70 bg-background/80 px-3 py-1 text-xs text-muted-foreground">
+            {t('legal.lastUpdated')}:{' '}
+            <span className="ms-1 font-medium text-foreground">
+              {format.dateTime(new Date(page.updatedAt), { dateStyle: 'medium' })}
+            </span>
+          </p>
+        </header>
 
-      <RichTextHtml html={page.body} className="max-w-3xl" />
+        <RichTextHtml html={page.body} className="mt-6 max-w-3xl" />
+      </article>
     </div>
   );
 }

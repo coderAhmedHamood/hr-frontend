@@ -16,7 +16,8 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { DataTable, type ColumnDef } from '@/components/ui/data-table';
+import { DataTable, usePagination, type ColumnDef } from '@/components/ui/data-table';
+import { DirectoryPagedViews, DEFAULT_PAGE_SIZE } from '@/components/ui/paged-list';
 import {
   Dialog,
   DialogContent,
@@ -149,6 +150,14 @@ export function PartnerCategoriesListPage() {
   };
 
   const items = data?.items ?? [];
+  const {
+    page,
+    setPage,
+    pageSize,
+    setPageSize,
+    slice: pagedItems,
+    total,
+  } = usePagination(items, DEFAULT_PAGE_SIZE);
 
   usePageHeaderActions(
     () => (
@@ -189,13 +198,28 @@ export function PartnerCategoriesListPage() {
 
       {isError ? <p className="text-sm text-destructive">تعذر تحميل التصنيفات.</p> : null}
 
-      <DataTable
-        columns={columns}
-        data={items}
-        keyExtractor={(row) => row.id}
+      <DirectoryPagedViews
+        items={pagedItems}
         loading={isLoading}
-        emptyText="لا تصنيفات بعد. أضف VIP أو Supplier أو Customer…"
-      />
+        serverPagination={{
+          page,
+          pageSize,
+          total,
+          totalPages: Math.max(1, Math.ceil(total / pageSize)),
+          setPage,
+          setPageSize,
+        }}
+      >
+        {(rowsPage) => (
+          <DataTable
+            columns={columns}
+            data={rowsPage}
+            keyExtractor={(row) => row.id}
+            loading={isLoading}
+            emptyText="لا تصنيفات بعد. أضف VIP أو Supplier أو Customer…"
+          />
+        )}
+      </DirectoryPagedViews>
 
       <Dialog
         open={formState.open}

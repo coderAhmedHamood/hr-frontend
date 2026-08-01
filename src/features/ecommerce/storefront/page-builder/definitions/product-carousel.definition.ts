@@ -19,6 +19,8 @@ const DEFAULT_CONFIGURATION = {
     limit: 10,
     categoryId: null,
     tag: null,
+    isNewProduct: null,
+    isTodayDeal: null,
   },
 };
 

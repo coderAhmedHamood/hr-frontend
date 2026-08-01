@@ -2,9 +2,16 @@
 
 import * as React from 'react';
 import dynamic from 'next/dynamic';
+import { useLocale } from 'next-intl';
 import { APIProvider, APILoadingStatus, useApiLoadingStatus } from '@vis.gl/react-google-maps';
+import {
+  isGoogleMapsBillingDisabled,
+  markGoogleMapsBillingDisabled,
+  suppressGoogleMapsBillingConsoleErrors,
+} from '@/components/ui/google-maps-runtime';
 import { publicConfig } from '@/shared/config';
 import { cn } from '@/shared/utils';
+import type { StorefrontLocale } from '@/i18n/routing';
 
 /** Shape returned to the consumer on every location change (search, current-location, click, drag). */
 export interface GoogleLocationValue {
@@ -41,23 +48,55 @@ const InnerMap = dynamic(() => import('./google-location-picker-inner'), {
   ),
 });
 
-function LoadStatusGate({ children }: { children: React.ReactNode }) {
+function MapsUnavailableFallback({
+  className,
+  height = 280,
+}: {
+  className?: string;
+  height?: number;
+}) {
+  return (
+    <div
+      className={cn(
+        'flex w-full flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-border bg-muted/30 p-4 text-center',
+        className,
+      )}
+      style={{ minHeight: height }}
+    >
+      <p className="text-sm font-medium text-foreground">الخريطة غير متاحة حالياً</p>
+      <p className="max-w-sm text-xs leading-relaxed text-muted-foreground">
+        يمكنك إكمال العنوان يدوياً في الحقول أعلاه. فعّل الفوترة على مشروع Google Cloud لتفعيل الخريطة.
+      </p>
+    </div>
+  );
+}
+
+function LoadStatusGate({
+  children,
+  onFatal,
+}: {
+  children: React.ReactNode;
+  onFatal: () => void;
+}) {
   const status = useApiLoadingStatus();
 
+  React.useEffect(() => {
+    if (status === APILoadingStatus.FAILED || status === APILoadingStatus.AUTH_FAILURE) {
+      markGoogleMapsBillingDisabled();
+      onFatal();
+    }
+  }, [status, onFatal]);
+
   if (status === APILoadingStatus.FAILED || status === APILoadingStatus.AUTH_FAILURE) {
-    return (
-      <div className="flex h-64 w-full flex-col items-center justify-center gap-1 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-center">
-        <p className="text-sm font-medium text-destructive">تعذر تحميل خرائط جوجل.</p>
-        <p className="text-xs text-muted-foreground">
-          {status === APILoadingStatus.AUTH_FAILURE
-            ? 'مفتاح API غير صالح أو الخدمات المطلوبة غير مفعّلة على مشروع Google Cloud.'
-            : 'تحقق من اتصال الإنترنت وأعد المحاولة.'}
-        </p>
-      </div>
-    );
+    return null;
   }
 
   return <>{children}</>;
+}
+
+/** Maps JS API loads language once per script tag — remount provider when locale changes. */
+function mapsLanguageFromLocale(locale: string): string {
+  return locale.startsWith('ar') ? 'ar' : 'en';
 }
 
 export function GoogleLocationPicker({
@@ -70,25 +109,39 @@ export function GoogleLocationPicker({
   mapId = 'DEMO_MAP_ID',
   interactive = true,
 }: GoogleLocationPickerProps) {
+  const locale = useLocale() as StorefrontLocale;
+  const language = mapsLanguageFromLocale(locale);
   const apiKey = publicConfig.googleMapsApiKey;
+  const [mapsUnavailable, setMapsUnavailable] = React.useState(() => isGoogleMapsBillingDisabled());
+
+  React.useLayoutEffect(() => {
+    if (mapsUnavailable || !apiKey) return;
+    return suppressGoogleMapsBillingConsoleErrors();
+  }, [mapsUnavailable, apiKey]);
+
+  const handleMapsFatal = React.useCallback(() => {
+    markGoogleMapsBillingDisabled();
+    setMapsUnavailable(true);
+  }, []);
 
   if (!apiKey) {
-    if (process.env.NODE_ENV !== 'production') {
-      console.warn(
-        '[GoogleLocationPicker] NEXT_PUBLIC_GOOGLE_MAPS_API_KEY is not set — set it in .env.local. See .env.example.',
-      );
-    }
-    return (
-      <div className={cn('flex h-64 w-full items-center justify-center rounded-lg border border-dashed border-border bg-muted/30 p-4 text-center text-sm text-muted-foreground', className)}>
-        خرائط جوجل غير مُفعّلة — أضف NEXT_PUBLIC_GOOGLE_MAPS_API_KEY في إعدادات المشروع.
-      </div>
-    );
+    return <MapsUnavailableFallback className={className} height={height} />;
+  }
+
+  if (mapsUnavailable) {
+    return <MapsUnavailableFallback className={className} height={height} />;
   }
 
   return (
     <div className={cn('w-full min-w-0', className)}>
-      <APIProvider apiKey={apiKey} libraries={['places', 'geocoding', 'marker']}>
-        <LoadStatusGate>
+      <APIProvider
+        key={`gmaps-${language}`}
+        apiKey={apiKey}
+        language={language}
+        region="YE"
+        libraries={['places', 'geocoding', 'marker']}
+      >
+        <LoadStatusGate onFatal={handleMapsFatal}>
           <InnerMap
             value={value}
             onChange={onLocationChange}
@@ -97,6 +150,7 @@ export function GoogleLocationPicker({
             defaultZoom={defaultZoom}
             height={height}
             interactive={interactive}
+            onRuntimeError={handleMapsFatal}
           />
         </LoadStatusGate>
       </APIProvider>

@@ -226,8 +226,8 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
   const stepIndex = STEPS.findIndex((item) => item.id === step);
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start xl:grid-cols-[minmax(0,1fr)_24rem]">
-      <div className="min-w-0 space-y-5">
+    <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start xl:grid-cols-[minmax(0,1fr)_24rem]">
+      <div className="min-w-0 max-w-full space-y-5">
         {/* Progress */}
         <nav aria-label={t('checkout.title')} className="rounded-2xl border border-border bg-card px-3 py-4 sm:px-5">
           <ol className="relative grid grid-cols-3 gap-2">
@@ -274,25 +274,27 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
 
         {/* Address */}
         {step === 'address' ? (
-          <section className="overflow-hidden rounded-2xl border border-border bg-card">
-            <header className="flex items-center gap-3 border-b border-border px-5 py-4">
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
+          <section className="min-w-0 rounded-2xl border border-border bg-card">
+            <header className="flex items-center gap-3 border-b border-border/80 px-5 py-4 sm:px-6">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
                 <MapPin className="h-4 w-4" aria-hidden />
               </span>
-              <div>
-                <h2 className="font-arabic-display text-base font-semibold text-foreground sm:text-lg">
+              <div className="min-w-0">
+                <h2 className="font-arabic-display text-base font-semibold leading-snug text-foreground sm:text-lg">
                   {t('checkout.addressTitle')}
                 </h2>
-                <p className="text-xs text-muted-foreground">{t('checkout.addressHint')}</p>
+                <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                  {t('checkout.addressHint')}
+                </p>
               </div>
             </header>
-            <div className="grid gap-4 p-5 sm:grid-cols-2">
+            <div className="grid min-w-0 gap-5 p-5 sm:grid-cols-2 sm:gap-x-4 sm:gap-y-5 sm:p-6">
               <Field label={t('checkout.fullName')} error={addressErrors.fullName} className="sm:col-span-2">
                 <Input
                   value={address.fullName}
                   onChange={(e) => setAddress((prev) => ({ ...prev, fullName: e.target.value }))}
                   autoComplete="name"
-                  className="h-11 rounded-xl"
+                  className={checkoutFieldClassName}
                 />
               </Field>
               <Field label={t('checkout.phone')} error={addressErrors.phone}>
@@ -302,7 +304,7 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
                   onChange={(e) => setAddress((prev) => ({ ...prev, phone: e.target.value }))}
                   placeholder="77xxxxxxx"
                   autoComplete="tel"
-                  className="h-11 rounded-xl"
+                  className={cn(checkoutFieldClassName, 'text-right')}
                 />
               </Field>
               <Field label={t('checkout.city')} error={addressErrors.city}>
@@ -310,7 +312,7 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
                   value={address.city}
                   onValueChange={(city) => setAddress((prev) => ({ ...prev, city }))}
                 >
-                  <SelectTrigger className="h-11 rounded-xl">
+                  <SelectTrigger className={checkoutFieldClassName}>
                     <SelectValue placeholder={t('checkout.city')} />
                   </SelectTrigger>
                   <SelectContent>
@@ -326,18 +328,25 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
                 <Input
                   value={address.district}
                   onChange={(e) => setAddress((prev) => ({ ...prev, district: e.target.value }))}
-                  className="h-11 rounded-xl"
+                  className={checkoutFieldClassName}
                 />
               </Field>
               <Field label={t('checkout.street')} error={addressErrors.street} className="sm:col-span-2">
                 <Input
                   value={address.street}
                   onChange={(e) => setAddress((prev) => ({ ...prev, street: e.target.value }))}
-                  className="h-11 rounded-xl"
+                  className={checkoutFieldClassName}
                 />
               </Field>
-              <Field label={t('checkout.mapLocation')} className="sm:col-span-2">
-                <p className="-mt-1 mb-1.5 text-xs text-muted-foreground">{t('checkout.mapLocationHint')}</p>
+              <div className="min-w-0 space-y-2.5 p-0 sm:col-span-2 sm:p-3">
+                <div className="space-y-1">
+                  <Label className="text-sm font-medium leading-snug text-foreground">
+                    {t('checkout.mapLocation')}
+                  </Label>
+                  <p className="text-xs leading-relaxed text-muted-foreground">
+                    {t('checkout.mapLocationHint')}
+                  </p>
+                </div>
                 <GoogleLocationPicker
                   value={
                     address.lat != null && address.lng != null
@@ -353,16 +362,16 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
                     }))
                   }
                   height={280}
-                  className="rounded-xl"
+                  className="min-w-0 max-w-full"
                 />
-              </Field>
+              </div>
               <Field label={t('checkout.notes')} className="sm:col-span-2">
                 <Textarea
                   rows={3}
                   value={address.notes ?? ''}
                   onChange={(e) => setAddress((prev) => ({ ...prev, notes: e.target.value }))}
                   placeholder={t('checkout.notesPlaceholder')}
-                  className="rounded-xl"
+                  className="min-h-[6.5rem] w-full min-w-0 max-w-full rounded-xl border-input px-3.5 py-3 text-base leading-relaxed sm:text-sm"
                 />
               </Field>
             </div>
@@ -740,6 +749,9 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
   );
 }
 
+const checkoutFieldClassName =
+  'h-12 min-h-12 w-full min-w-0 max-w-full rounded-xl border-input bg-background px-3.5 py-0 text-base leading-normal sm:text-sm';
+
 function Field({
   label,
   error,
@@ -752,10 +764,10 @@ function Field({
   className?: string;
 }) {
   return (
-    <div className={cn('space-y-1.5', className)}>
-      <Label className="text-xs font-medium text-muted-foreground">{label}</Label>
+    <div className={cn('min-w-0 max-w-full space-y-2', className)}>
+      <Label className="block text-sm font-medium leading-snug text-foreground">{label}</Label>
       {children}
-      {error ? <p className="text-xs text-destructive">{error}</p> : null}
+      {error ? <p className="text-xs leading-relaxed text-destructive">{error}</p> : null}
     </div>
   );
 }

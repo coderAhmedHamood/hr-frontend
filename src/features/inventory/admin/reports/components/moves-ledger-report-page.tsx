@@ -2,6 +2,9 @@
 
 import * as React from 'react';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
+import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
+import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
+import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
 import { getInventoryCompanyId } from '@/features/inventory/lib/company-id';
 import { useInventoryLedger } from '@/features/inventory/admin/operations/hooks/use-inventory-ledger';
 import { useWarehouseLocations } from '@/features/inventory/admin/locations/hooks/use-warehouse-locations';
@@ -12,18 +15,12 @@ import {
 } from '@/features/inventory/domain/constants/warehouse-operation-kinds';
 import type { InventoryLedgerEntry } from '@/features/inventory/domain/types/inventory-ledger';
 import type { WarehouseOperationKind } from '@/features/inventory/domain/types/warehouse';
-import { ListToolbar } from '@/components/ui/list-toolbar';
 import { Badge } from '@/components/ui/badge';
-import { DataTable, AppPagination, type ColumnDef } from '@/components/ui/data-table';
-import { DEFAULT_PAGE_SIZE } from '@/components/ui/paged-list';
+import { DataTable, type ColumnDef } from '@/components/ui/data-table';
+import { DirectoryPagedViews, DEFAULT_PAGE_SIZE } from '@/components/ui/paged-list';
+import { ListFilterBar } from '@/components/ui/list-filter-bar';
+import { EntityFilterSearchField } from '@/components/ui/entity-filter-search-field';
 import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 
 export function MovesLedgerReportPage() {
   const companyId = getInventoryCompanyId();
@@ -79,6 +76,69 @@ export function MovesLedgerReportPage() {
   }, [data?.items, dateFrom, dateTo]);
 
   const total = dateFrom || dateTo ? rows.length : (data?.pagination.total ?? 0);
+
+  usePageHeaderActions(() => <FilterToggleButton />, []);
+
+  useEntityFilterSlot(
+    () => (
+      <ListFilterBar
+        showDateSection={false}
+        showStatusSection={false}
+        showEmployeePicker={false}
+        leadingFilters={
+          <EntityFilterSearchField
+            value={searchInput}
+            onChange={setSearchInput}
+            placeholder="ابحث بالمرجع أو المنتج…"
+          />
+        }
+        inlineSelects={[
+          {
+            id: 'warehouse',
+            value: warehouseId,
+            onChange: setWarehouseId,
+            placeholder: 'كل المستودعات',
+            options: [
+              { value: 'all', label: 'كل المستودعات' },
+              ...warehouses.map((warehouse) => ({ value: warehouse.id, label: warehouse.nameAr })),
+            ],
+          },
+          {
+            id: 'kind',
+            value: kind,
+            onChange: (value) => setKind(value as typeof kind),
+            placeholder: 'كل الأنواع',
+            options: [
+              { value: 'all', label: 'كل الأنواع' },
+              ...WAREHOUSE_OPERATION_KINDS.map((item) => ({
+                value: item,
+                label: WAREHOUSE_OPERATION_KIND_META[item].labelAr,
+              })),
+            ],
+          },
+        ]}
+        trailingActions={
+          <div className="flex items-center gap-2">
+            <Input
+              type="date"
+              className="h-8 w-[140px]"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              aria-label="من تاريخ"
+            />
+            <Input
+              type="date"
+              className="h-8 w-[140px]"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              aria-label="إلى تاريخ"
+            />
+          </div>
+        }
+      />
+    ),
+    [searchInput, warehouseId, kind, dateFrom, dateTo, warehouses],
+  );
 
   const columns: ColumnDef<InventoryLedgerEntry>[] = [
     {
@@ -162,13 +222,11 @@ export function MovesLedgerReportPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <SetPageTitle titleAr="سجل الحركات" iconName="FileText" />
-      <div className="space-y-1">
-        <h1 className="text-lg font-semibold">سجل الحركات (Inventory Ledger)</h1>
-        <p className="text-sm text-muted-foreground">
-          دفتر قيود ثابت — كل تصديق يكتب بنودًا غير قابلة للتعديل. التراجع يضيف قيود عكس.
-        </p>
-      </div>
+      <SetPageTitle
+        titleAr="سجل الحركات"
+        descriptionAr="دفتر قيود ثابت — كل تصديق يكتب بنودًا غير قابلة للتعديل. التراجع يضيف قيود عكس."
+        iconName="FileText"
+      />
 
       <div className="flex flex-wrap gap-2">
         <Badge variant="subtle">قيود: {rows.length}</Badge>
@@ -180,76 +238,35 @@ export function MovesLedgerReportPage() {
         </Badge>
       </div>
 
-      <ListToolbar
-        searchValue={searchInput}
-        onSearchChange={setSearchInput}
-        searchPlaceholder="ابحث بالمرجع أو المنتج…"
-        filters={
-          <div className="flex flex-wrap items-center gap-2">
-            <Select value={warehouseId} onValueChange={setWarehouseId}>
-              <SelectTrigger className="h-10 w-[150px]" aria-label="المستودع">
-                <SelectValue placeholder="المستودع" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">كل المستودعات</SelectItem>
-                {warehouses.map((warehouse) => (
-                  <SelectItem key={warehouse.id} value={warehouse.id}>
-                    {warehouse.nameAr}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={kind} onValueChange={(value) => setKind(value as typeof kind)}>
-              <SelectTrigger className="h-10 w-[150px]" aria-label="نوع الحركة">
-                <SelectValue placeholder="النوع" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">كل الأنواع</SelectItem>
-                {WAREHOUSE_OPERATION_KINDS.map((item) => (
-                  <SelectItem key={item} value={item}>
-                    {WAREHOUSE_OPERATION_KIND_META[item].labelAr}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Input
-              type="date"
-              className="h-10 w-[140px]"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-              aria-label="من تاريخ"
-            />
-            <Input
-              type="date"
-              className="h-10 w-[140px]"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-              aria-label="إلى تاريخ"
-            />
-          </div>
-        }
-      />
-
       {isError ? <p className="text-sm text-destructive">تعذر تحميل سجل الحركات.</p> : null}
 
-      <DataTable
-        columns={columns}
-        data={rows}
-        keyExtractor={(row) => row.id}
+      <DirectoryPagedViews
+        items={rows}
         loading={isLoading}
-        emptyText="لا توجد قيود بعد — صدّق مستندًا لتسجيل أول حركة."
-      />
-
-      <AppPagination
-        page={page}
-        pageSize={pageSize}
-        total={total}
-        onPageChange={setPage}
-        onPageSizeChange={(size) => {
-          setPageSize(size);
-          setPage(1);
+        serverPagination={{
+          page,
+          pageSize,
+          total,
+          totalPages: Math.max(1, Math.ceil(total / pageSize)),
+          setPage,
+          setPageSize: (size) => {
+            setPageSize(size);
+            setPage(1);
+          },
         }}
-      />
+      >
+        {(rowsPage) => (
+          <DataTable
+            variant="directory"
+            alwaysShowTable
+            columns={columns}
+            data={rowsPage}
+            keyExtractor={(row) => row.id}
+            loading={isLoading}
+            emptyText="لا توجد قيود بعد — صدّق مستندًا لتسجيل أول حركة."
+          />
+        )}
+      </DirectoryPagedViews>
     </div>
   );
 }

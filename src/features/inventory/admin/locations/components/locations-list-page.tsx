@@ -1,6 +1,10 @@
 'use client';
 
 import { SetPageTitle } from '@/components/layouts/set-page-title';
+import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
+import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
+import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
+import { PageHeaderPrimaryButton } from '@/components/layouts/page-header-primary-button';
 import * as React from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { MapPin, Pencil, Plus, Trash2, Warehouse } from 'lucide-react';
@@ -19,14 +23,15 @@ import {
 } from '@/features/inventory/admin/schemas/warehouse-schemas';
 import { inventoryAdminRoutes } from '@/features/inventory/admin/constants/routes';
 import type { WarehouseLocation, WarehouseLocationType } from '@/features/inventory/domain/types/warehouse';
-import { ListToolbar } from '@/components/ui/list-toolbar';
+import { ListFilterBar } from '@/components/ui/list-filter-bar';
+import { EntityFilterSearchField } from '@/components/ui/entity-filter-search-field';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { DataTable, AppPagination, type ColumnDef } from '@/components/ui/data-table';
-import { DEFAULT_PAGE_SIZE } from '@/components/ui/paged-list';
+import { DataTable, type ColumnDef } from '@/components/ui/data-table';
+import { DirectoryPagedViews, DEFAULT_PAGE_SIZE } from '@/components/ui/paged-list';
 import {
   Dialog,
   DialogContent,
@@ -38,7 +43,6 @@ import {
 } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-const ALL_WAREHOUSES = '__all__';
 const NO_PARENT = '__none__';
 
 const TYPE_LABEL: Record<WarehouseLocationType, string> = {
@@ -174,6 +178,64 @@ export function LocationsListPage() {
     setFormWarehouseId(formState.location?.warehouseId ?? warehouseIdFilter);
   }, [formState, form, warehouseIdFilter]);
 
+  usePageHeaderActions(
+    () => (
+      <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
+        <FilterToggleButton />
+        {warehouseIdFilter ? (
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8"
+            onClick={() => router.push(inventoryAdminRoutes.warehouseDetail(warehouseIdFilter))}
+          >
+            <Warehouse className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">المستودع</span>
+          </Button>
+        ) : null}
+        <PageHeaderPrimaryButton
+          icon={Plus}
+          label="إضافة موقع"
+          disabled={!companyId || warehouses.length === 0}
+          onClick={() => setFormState({ open: true, location: null })}
+        >
+          إضافة موقع
+        </PageHeaderPrimaryButton>
+      </div>
+    ),
+    [warehouseIdFilter, companyId, warehouses.length, router],
+  );
+
+  useEntityFilterSlot(
+    () => (
+      <ListFilterBar
+        showDateSection={false}
+        showStatusSection={false}
+        showEmployeePicker={false}
+        leadingFilters={
+          <EntityFilterSearchField
+            value={searchInput}
+            onChange={setSearchInput}
+            placeholder="ابحث في المواقع…"
+          />
+        }
+        inlineSelects={[
+          {
+            id: 'warehouse',
+            value: warehouseIdFilter || 'all',
+            onChange: (value) => updateParams({ warehouseId: value === 'all' ? '' : value, page: 1 }),
+            placeholder: 'كل المستودعات',
+            options: [
+              { value: 'all', label: 'كل المستودعات' },
+              ...warehouses.map((warehouse) => ({ value: warehouse.id, label: warehouse.nameAr })),
+            ],
+          },
+        ]}
+      />
+    ),
+    [searchInput, warehouseIdFilter, warehouses],
+  );
+
   const isSaving = create.isPending || update.isPending;
   const selectedWarehouseName = warehouseIdFilter
     ? warehouseNameById.get(warehouseIdFilter)
@@ -297,73 +359,38 @@ export function LocationsListPage() {
     <div className="flex flex-col gap-5">
       <SetPageTitle titleAr="المواقع" iconName="MapPin" />
 
-      <ListToolbar
-        searchValue={searchInput}
-        onSearchChange={setSearchInput}
-        searchPlaceholder="ابحث في المواقع…"
-        filters={
-          <Select
-            value={warehouseIdFilter || ALL_WAREHOUSES}
-            onValueChange={(value) =>
-              updateParams({ warehouseId: value === ALL_WAREHOUSES ? '' : value, page: 1 })
-            }
-          >
-            <SelectTrigger aria-label="تصفية بالمستودع" className="w-full sm:w-56">
-              <SelectValue placeholder="كل المستودعات" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL_WAREHOUSES}>كل المستودعات</SelectItem>
-              {warehouses.map((warehouse) => (
-                <SelectItem key={warehouse.id} value={warehouse.id}>
-                  {warehouse.nameAr}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        }
-        actions={
-          <div className="flex flex-wrap gap-2">
-            {warehouseIdFilter ? (
-              <Button
-                variant="outline"
-                onClick={() => router.push(inventoryAdminRoutes.warehouseDetail(warehouseIdFilter))}
-              >
-                <Warehouse className="h-4 w-4" />
-                المستودع
-              </Button>
-            ) : null}
-            <Button
-              onClick={() => setFormState({ open: true, location: null })}
-              disabled={!companyId || warehouses.length === 0}
-            >
-              <Plus className="h-4 w-4" />
-              إضافة موقع
-            </Button>
-          </div>
-        }
-      />
-
       {isError ? <p className="text-sm text-destructive">تعذر تحميل المواقع.</p> : null}
 
-      <DataTable
-        columns={columns}
-        data={locations}
-        keyExtractor={(row) => row.id}
+      <DirectoryPagedViews
+        items={locations}
         loading={isLoading}
-        emptyText={
-          warehouseIdFilter ? 'لا توجد مواقع لهذا المستودع بعد.' : 'لا توجد مواقع بعد. أضف موقعًا أو أنشئ مستودعًا.'
+        serverPagination={
+          data
+            ? {
+                page,
+                pageSize,
+                total: data.pagination.total,
+                totalPages: Math.max(1, Math.ceil(data.pagination.total / pageSize)),
+                setPage: (nextPage) => updateParams({ page: nextPage }),
+                setPageSize: (size) => updateParams({ pageSize: size, page: 1 }),
+              }
+            : undefined
         }
-      />
-
-      {data ? (
-        <AppPagination
-          page={page}
-          pageSize={pageSize}
-          total={data.pagination.total}
-          onPageChange={(nextPage) => updateParams({ page: nextPage })}
-          onPageSizeChange={(size) => updateParams({ pageSize: size, page: 1 })}
-        />
-      ) : null}
+      >
+        {(rowsPage) => (
+          <DataTable
+            variant="directory"
+            alwaysShowTable
+            columns={columns}
+            data={rowsPage}
+            keyExtractor={(row) => row.id}
+            loading={isLoading}
+            emptyText={
+              warehouseIdFilter ? 'لا توجد مواقع لهذا المستودع بعد.' : 'لا توجد مواقع بعد. أضف موقعًا أو أنشئ مستودعًا.'
+            }
+          />
+        )}
+      </DirectoryPagedViews>
 
       <Dialog
         open={formState.open}

@@ -40,8 +40,50 @@ function registerPage(raw: unknown): void {
   PAGE_INDEX[slugKey(record.companyId, record.slug)] = record;
 }
 
-if (!PAGE_INDEX[pageKey('76e5bc4f-5adb-434d-a886-bcff05a9680b', 'homepage')]) {
+const HOMEPAGE_KEY = pageKey('76e5bc4f-5adb-434d-a886-bcff05a9680b', 'homepage');
+if (!PAGE_INDEX[HOMEPAGE_KEY]) {
   registerPage(homepagePageSeed);
+} else {
+  const live = PAGE_INDEX[HOMEPAGE_KEY];
+  if (!live.sections.some((section) => section.type === 'brand-slider')) {
+    // Hot-reload / older in-memory homepage may predate the brands section.
+    const brandSlider = (homepagePageSeed as PageRecord).sections.find(
+      (section) => section.type === 'brand-slider',
+    );
+    if (brandSlider) {
+      live.sections.push(JSON.parse(JSON.stringify(brandSlider)) as PageRecord['sections'][number]);
+    }
+  }
+
+  // Migrate legacy homepage product sources → promo filters (once).
+  const seedById = new Map(
+    (homepagePageSeed as PageRecord).sections.map((section) => [section.id, section]),
+  );
+  for (const section of live.sections) {
+    const seed = seedById.get(section.id);
+    if (!seed) continue;
+
+    const needsLatestPromo =
+      section.type === 'product-carousel' &&
+      section.dataSource.kind === 'query' &&
+      !('isNewProduct' in section.dataSource) &&
+      seed.dataSource.kind === 'query' &&
+      seed.dataSource.isNewProduct === true;
+
+    const needsDealPromo =
+      section.type === 'flash-sale' &&
+      section.dataSource.kind === 'tag' &&
+      section.dataSource.tag === 'deals' &&
+      seed.dataSource.kind === 'query' &&
+      seed.dataSource.isTodayDeal === true;
+
+    if (needsLatestPromo || needsDealPromo) {
+      section.dataSource = JSON.parse(JSON.stringify(seed.dataSource));
+      if ('viewAllHref' in seed.content && 'viewAllHref' in section.content) {
+        section.content.viewAllHref = seed.content.viewAllHref;
+      }
+    }
+  }
 }
 
 function cloneRecord(record: PageRecord): PageRecord {

@@ -10,8 +10,8 @@ type SectionShellProps = {
 };
 
 function themeClasses(theme: SectionTheme): string {
-  if (theme === 'dark') return 'rounded-xl bg-card text-card-foreground';
-  if (theme === 'light') return 'bg-background text-foreground';
+  if (theme === 'dark') return 'rounded-xl text-card-foreground';
+  if (theme === 'light') return 'text-foreground';
   return '';
 }
 

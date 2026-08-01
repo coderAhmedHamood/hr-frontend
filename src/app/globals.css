@@ -253,6 +253,21 @@
   opacity: 0.55;
 }
 
+/* CMS / storefront toggle: keep messages static (no marquee) */
+.storefront-announcement-marquee--static {
+  mask-image: none;
+}
+.storefront-announcement-marquee--static .storefront-announcement-marquee__track {
+  animation: none;
+  will-change: auto;
+  flex-wrap: wrap;
+  justify-content: center;
+  width: 100%;
+  gap: 0.75rem 1.5rem;
+  padding-inline: 2.5rem;
+  direction: inherit;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .storefront-announcement-marquee__track {
     animation: none;

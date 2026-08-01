@@ -115,6 +115,8 @@ function DataSourceEditor({
           limit: 10,
           categoryId: null,
           tag: null,
+          isNewProduct: null,
+          isTodayDeal: null,
         });
         break;
       case 'recommendation':
@@ -301,6 +303,34 @@ function DataSourceEditor({
               allowClear
               onChange={(tag) => onChange({ ...value, tag: tag || null })}
             />
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={value.isNewProduct === true}
+                onChange={(event) =>
+                  onChange({
+                    ...value,
+                    isNewProduct: event.target.checked ? true : null,
+                  })
+                }
+              />
+              {locale === 'en' ? 'New products only' : 'منتجات حديثة فقط'}
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={value.isTodayDeal === true}
+                onChange={(event) =>
+                  onChange({
+                    ...value,
+                    isTodayDeal: event.target.checked ? true : null,
+                  })
+                }
+              />
+              {locale === 'en' ? 'Today’s deals only' : 'تخفيضات اليوم فقط'}
+            </label>
           </div>
         </>
       ) : null}

@@ -40,6 +40,10 @@ export type QueryDataSource = {
   limit: number;
   categoryId: string | null;
   tag: string | null;
+  /** Active “new product” promo flag (backend `isNewProduct`). */
+  isNewProduct?: boolean | null;
+  /** Active “today’s deal” promo flag (backend `isTodayDeal`). */
+  isTodayDeal?: boolean | null;
 };
 
 /** Future recommendation engine slot — not implemented server-side yet. */

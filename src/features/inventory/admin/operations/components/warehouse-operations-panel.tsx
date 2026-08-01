@@ -31,7 +31,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { ListToolbar } from '@/components/ui/list-toolbar';
 import { DataTable, AppPagination, type ColumnDef } from '@/components/ui/data-table';
-import { DEFAULT_PAGE_SIZE } from '@/components/ui/paged-list';
+import { DirectoryPagedViews, DEFAULT_PAGE_SIZE } from '@/components/ui/paged-list';
+import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
+import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
+import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
+import { PageHeaderPrimaryButton } from '@/components/layouts/page-header-primary-button';
+import { ListFilterBar } from '@/components/ui/list-filter-bar';
+import { EntityFilterSearchField } from '@/components/ui/entity-filter-search-field';
 import {
   Dialog,
   DialogContent,
@@ -180,6 +186,71 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
   const selectedOperation = selectedId ? (items.find((item) => item.id === selectedId) ?? null) : null;
 
   const { create, remove } = useWarehouseOperationMutations(effectiveWarehouseId || 'global', kind);
+
+  // Standalone inventory pages (kind pages) get the shared topbar add-button + collapsible
+  // filter bar pattern; the warehouse-detail embedded tab keeps its original inline toolbar
+  // untouched so this change stays scoped to the standalone pages only.
+  usePageHeaderActions(
+    () =>
+      scopedToWarehouse ? null : (
+        <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
+          <FilterToggleButton />
+          <PageHeaderPrimaryButton
+            icon={Plus}
+            label={meta.createLabel}
+            onClick={() => setOpen(true)}
+            disabled={!companyId || allWarehouses.length === 0}
+          >
+            {meta.createLabel}
+          </PageHeaderPrimaryButton>
+        </div>
+      ),
+    [scopedToWarehouse, meta.createLabel, companyId, allWarehouses.length],
+  );
+
+  useEntityFilterSlot(
+    () =>
+      scopedToWarehouse ? null : (
+        <ListFilterBar
+          showDateSection={false}
+          showStatusSection={false}
+          showEmployeePicker={false}
+          leadingFilters={
+            <EntityFilterSearchField
+              value={searchInput}
+              onChange={setSearchInput}
+              placeholder="ابحث بالمرجع أو المنتج…"
+            />
+          }
+          inlineSelects={[
+            {
+              id: 'warehouse',
+              value: filterWarehouseId,
+              onChange: setFilterWarehouseId,
+              placeholder: 'كل المستودعات',
+              options: [
+                { value: 'all', label: 'كل المستودعات' },
+                ...allWarehouses.map((warehouse) => ({ value: warehouse.id, label: warehouse.nameAr })),
+              ],
+            },
+            {
+              id: 'status',
+              value: filterStatus,
+              onChange: (value) => setFilterStatus(value as WarehouseOperationStatus | 'all'),
+              placeholder: 'كل الحالات',
+              options: [
+                { value: 'all', label: 'كل الحالات' },
+                ...(Object.keys(WAREHOUSE_OPERATION_STATUS_LABELS_AR) as WarehouseOperationStatus[]).map((status) => ({
+                  value: status,
+                  label: WAREHOUSE_OPERATION_STATUS_LABELS_AR[status],
+                })),
+              ],
+            },
+          ]}
+        />
+      ),
+    [scopedToWarehouse, searchInput, filterWarehouseId, filterStatus, allWarehouses],
+  );
 
   React.useEffect(() => {
     if (!open) return;
@@ -394,83 +465,8 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
     },
   ];
 
-  return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <ListToolbar
-          searchValue={searchInput}
-          onSearchChange={setSearchInput}
-          searchPlaceholder="ابحث بالمرجع أو المنتج…"
-          filters={
-            showFilters ? (
-              <div className="flex flex-wrap items-center gap-2">
-                <Select value={filterWarehouseId} onValueChange={setFilterWarehouseId}>
-                  <SelectTrigger className="h-10 w-[160px]" aria-label="تصفية المستودع">
-                    <SelectValue placeholder="المستودع" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">كل المستودعات</SelectItem>
-                    {allWarehouses.map((warehouse) => (
-                      <SelectItem key={warehouse.id} value={warehouse.id}>
-                        {warehouse.nameAr}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select
-                  value={filterStatus}
-                  onValueChange={(value) => setFilterStatus(value as WarehouseOperationStatus | 'all')}
-                >
-                  <SelectTrigger className="h-10 w-[140px]" aria-label="تصفية الحالة">
-                    <SelectValue placeholder="الحالة" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">كل الحالات</SelectItem>
-                    {(Object.keys(WAREHOUSE_OPERATION_STATUS_LABELS_AR) as WarehouseOperationStatus[]).map(
-                      (status) => (
-                        <SelectItem key={status} value={status}>
-                          {WAREHOUSE_OPERATION_STATUS_LABELS_AR[status]}
-                        </SelectItem>
-                      ),
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-            ) : undefined
-          }
-          actions={
-            <Button onClick={() => setOpen(true)} disabled={!companyId || allWarehouses.length === 0}>
-              <Plus className="h-4 w-4" />
-              {meta.createLabel}
-            </Button>
-          }
-        />
-      </div>
-
-      {isError ? <p className="text-sm text-destructive">تعذر تحميل {meta.title}.</p> : null}
-
-      <DataTable
-        columns={columns}
-        data={items}
-        keyExtractor={(row) => row.id}
-        loading={isLoading}
-        emptyText={meta.empty}
-        onRowClick={(row) => setSelectedId(row.id)}
-      />
-
-      {data ? (
-        <AppPagination
-          page={page}
-          pageSize={pageSize}
-          total={total}
-          onPageChange={setPage}
-          onPageSizeChange={(size) => {
-            setPageSize(size);
-            setPage(1);
-          }}
-        />
-      ) : null}
-
+  const dialogs = (
+    <>
       <WarehouseOperationDetailDialog
         open={Boolean(selectedId)}
         onOpenChange={(next) => {
@@ -484,7 +480,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
           <DialogHeader>
             <DialogTitle>{meta.createLabel}</DialogTitle>
             <DialogDescription>
-              يُنشأ المستند كمسودة، ثم يُحدَّد كجاهز ويُصدَّق من شاشة التفاصيل.
+              يُنشأ المستند كمسودة، ثم يُحدَّد كجاهز ويُصدَّق من شاشة التفاصيل.
             </DialogDescription>
           </DialogHeader>
           <form
@@ -849,6 +845,126 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </>
+  );
+
+  if (scopedToWarehouse) {
+    return (
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <ListToolbar
+            searchValue={searchInput}
+            onSearchChange={setSearchInput}
+            searchPlaceholder="ابحث بالمرجع أو المنتج…"
+            filters={
+              showFilters ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <Select value={filterWarehouseId} onValueChange={setFilterWarehouseId}>
+                    <SelectTrigger className="h-10 w-[160px]" aria-label="تصفية المستودع">
+                      <SelectValue placeholder="المستودع" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">كل المستودعات</SelectItem>
+                      {allWarehouses.map((warehouse) => (
+                        <SelectItem key={warehouse.id} value={warehouse.id}>
+                          {warehouse.nameAr}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select
+                    value={filterStatus}
+                    onValueChange={(value) => setFilterStatus(value as WarehouseOperationStatus | 'all')}
+                  >
+                    <SelectTrigger className="h-10 w-[140px]" aria-label="تصفية الحالة">
+                      <SelectValue placeholder="الحالة" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">كل الحالات</SelectItem>
+                      {(Object.keys(WAREHOUSE_OPERATION_STATUS_LABELS_AR) as WarehouseOperationStatus[]).map(
+                        (status) => (
+                          <SelectItem key={status} value={status}>
+                            {WAREHOUSE_OPERATION_STATUS_LABELS_AR[status]}
+                          </SelectItem>
+                        ),
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : undefined
+            }
+            actions={
+              <Button onClick={() => setOpen(true)} disabled={!companyId || allWarehouses.length === 0}>
+                <Plus className="h-4 w-4" />
+                {meta.createLabel}
+              </Button>
+            }
+          />
+        </div>
+
+        {isError ? <p className="text-sm text-destructive">تعذر تحميل {meta.title}.</p> : null}
+
+        <DataTable
+          columns={columns}
+          data={items}
+          keyExtractor={(row) => row.id}
+          loading={isLoading}
+          emptyText={meta.empty}
+          onRowClick={(row) => setSelectedId(row.id)}
+        />
+
+        {data ? (
+          <AppPagination
+            page={page}
+            pageSize={pageSize}
+            total={total}
+            onPageChange={setPage}
+            onPageSizeChange={(size) => {
+              setPageSize(size);
+              setPage(1);
+            }}
+          />
+        ) : null}
+
+        {dialogs}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      {isError ? <p className="text-sm text-destructive">تعذر تحميل {meta.title}.</p> : null}
+
+      <DirectoryPagedViews
+        items={items}
+        loading={isLoading}
+        serverPagination={{
+          page,
+          pageSize,
+          total,
+          totalPages: Math.max(1, Math.ceil(total / pageSize)),
+          setPage,
+          setPageSize: (size) => {
+            setPageSize(size);
+            setPage(1);
+          },
+        }}
+      >
+        {(pageItems) => (
+          <DataTable
+            variant="directory"
+            alwaysShowTable
+            columns={columns}
+            data={pageItems}
+            keyExtractor={(row) => row.id}
+            loading={isLoading}
+            emptyText={meta.empty}
+            onRowClick={(row) => setSelectedId(row.id)}
+          />
+        )}
+      </DirectoryPagedViews>
+
+      {dialogs}
     </div>
   );
 }

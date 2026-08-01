@@ -8,7 +8,7 @@ export async function StoreCheckoutPage() {
   const config = await getStorefrontCompanyConfig();
 
   return (
-    <div className="flex flex-col gap-5 pb-28 sm:pb-0">
+    <div className="flex min-w-0 flex-col gap-5 pb-28 sm:pb-0">
       <StoreBreadcrumbs
         items={[
           { name: t('breadcrumbs.home'), path: '/store' },

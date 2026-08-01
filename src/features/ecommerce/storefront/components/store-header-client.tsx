@@ -247,35 +247,7 @@ export function StoreHeaderInteractive({ config, categories, brands, logo }: Sto
           <div className="mx-auto flex max-w-[1400px] items-center gap-6 px-4 py-3 sm:px-6">
             <div className="shrink-0">{logo}</div>
 
-            <div className="flex min-w-0 flex-1 items-center gap-2">
-              {(config.secondaryNavigation.length > 0
-                ? config.secondaryNavigation
-                : [
-                    ...(config.storePages.offers
-                      ? [{ label: t('nav.offersZone'), href: '/store/offers' as const }]
-                      : []),
-                    ...(config.storePages.wholesale
-                      ? [{ label: t('nav.wholesale'), href: '/store/wholesale' as const }]
-                      : []),
-                  ]
-              ).map((item) => (
-                <Link
-                  key={`${item.href}-${item.label}`}
-                  href={item.href}
-                  prefetch={false}
-                  className={cn(
-                    'inline-flex shrink-0 items-center rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors',
-                    'highlight' in item && item.highlight
-                      ? 'border-primary/40 bg-primary/10 text-primary hover:bg-primary/15'
-                      : 'border-border bg-card text-foreground hover:border-primary/40 hover:bg-muted/50',
-                  )}
-                >
-                  {item.label}
-                </Link>
-              ))}
-            </div>
-
-            <div className="flex shrink-0 items-center gap-1">
+            <div className="ms-auto flex shrink-0 items-center gap-1">
               <HeaderIconLink href={accountHref} label={t('nav.login')}>
                 <User className="h-5 w-5" aria-hidden />
               </HeaderIconLink>
@@ -299,7 +271,22 @@ export function StoreHeaderInteractive({ config, categories, brands, logo }: Sto
           </div>
         </div>
 
-        <StoreCategoryNavBar categories={categories} brands={brands} />
+        <StoreCategoryNavBar
+          categories={categories}
+          brands={brands}
+          promoLinks={
+            config.secondaryNavigation.length > 0
+              ? config.secondaryNavigation
+              : [
+                  ...(config.storePages.offers
+                    ? [{ label: t('nav.offersZone'), href: '/store/offers' as const, highlight: true }]
+                    : []),
+                  ...(config.storePages.wholesale
+                    ? [{ label: t('nav.wholesale'), href: '/store/wholesale' as const }]
+                    : []),
+                ]
+          }
+        />
       </div>
 
       <StoreMobileDrawer

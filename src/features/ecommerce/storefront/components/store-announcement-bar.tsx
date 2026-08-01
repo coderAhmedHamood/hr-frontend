@@ -23,6 +23,7 @@ export function StoreAnnouncementBar({ announcement, className }: Props) {
   const [ready, setReady] = React.useState(false);
 
   const items = announcement.items;
+  const scrolling = announcement.scrolling !== false;
   const speedMs = clampAnnouncementSpeedMs(announcement.speedMs);
   const fingerprint = React.useMemo(
     () =>
@@ -52,20 +53,29 @@ export function StoreAnnouncementBar({ announcement, className }: Props) {
     setDismissed(true);
   }
 
+  const displayItems = scrolling ? [...items, ...items] : items;
+
   return (
     <div
       role="region"
       aria-label={t('a11y.announcement')}
       className={cn('relative bg-primary text-primary-foreground', className)}
     >
-      <div className="storefront-announcement-marquee py-2">
+      <div
+        className={cn(
+          'storefront-announcement-marquee py-2',
+          !scrolling && 'storefront-announcement-marquee--static',
+        )}
+      >
         <div
           className="storefront-announcement-marquee__track"
-          style={{
-            ['--announcement-marquee-duration' as string]: `${speedMs}ms`,
-          }}
+          style={
+            scrolling
+              ? { ['--announcement-marquee-duration' as string]: `${speedMs}ms` }
+              : undefined
+          }
         >
-          {[...items, ...items].map((item, index) => (
+          {displayItems.map((item, index) => (
             <React.Fragment key={`${item.id}-${index}`}>
               {index > 0 ? (
                 <span className="storefront-announcement-marquee__sep" aria-hidden>

@@ -30,8 +30,8 @@ import { ListFilterBar } from '@/components/ui/list-filter-bar';
 import { EntityFilterSearchField } from '@/components/ui/entity-filter-search-field';
 import { Button } from '@/components/ui/button';
 import { Badge, type BadgeProps } from '@/components/ui/badge';
-import { DataTable, AppPagination, type ColumnDef } from '@/components/ui/data-table';
-import { DEFAULT_PAGE_SIZE } from '@/components/ui/paged-list';
+import { DataTable, type ColumnDef } from '@/components/ui/data-table';
+import { DirectoryPagedViews, DEFAULT_PAGE_SIZE } from '@/components/ui/paged-list';
 
 const FILTER_KEYS = [
   'categoryId',
@@ -464,25 +464,34 @@ export function ProductsListPage() {
 
       {isError ? <p className="text-sm text-destructive">تعذر تحميل المنتجات.</p> : null}
 
-      <DataTable
-        columns={columns}
-        data={data?.items ?? []}
-        keyExtractor={(product) => product.id}
+      <DirectoryPagedViews
+        items={data?.items ?? []}
         loading={isLoading}
-        emptyText="لا توجد منتجات بعد."
-        onRowClick={openEditDialog}
-        mobileCard={renderMobileCard}
-      />
-
-      {data ? (
-        <AppPagination
-          page={page}
-          pageSize={pageSize}
-          total={data.pagination.total}
-          onPageChange={(nextPage) => updateParams({ page: nextPage })}
-          onPageSizeChange={(size) => updateParams({ pageSize: size, page: 1 })}
-        />
-      ) : null}
+        serverPagination={
+          data
+            ? {
+                page,
+                pageSize,
+                total: data.pagination.total,
+                totalPages: Math.max(1, Math.ceil(data.pagination.total / pageSize)),
+                setPage: (nextPage) => updateParams({ page: nextPage }),
+                setPageSize: (size) => updateParams({ pageSize: size, page: 1 }),
+              }
+            : undefined
+        }
+      >
+        {(pageItems) => (
+          <DataTable
+            columns={columns}
+            data={pageItems}
+            keyExtractor={(product) => product.id}
+            loading={isLoading}
+            emptyText="لا توجد منتجات بعد."
+            onRowClick={openEditDialog}
+            mobileCard={renderMobileCard}
+          />
+        )}
+      </DirectoryPagedViews>
 
       <ProductFormDialog
         open={formState.open}

@@ -4,7 +4,18 @@ import * as React from 'react';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { GalleryHorizontal, Palette, Phone, Share2, Search, Truck } from 'lucide-react';
+import {
+  CreditCard,
+  GalleryHorizontal,
+  Palette,
+  Phone,
+  Save,
+  Search,
+  Settings2,
+  Share2,
+  Truck,
+  Wallet,
+} from 'lucide-react';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
 import {
   getCmsCompanyRecord,
@@ -29,6 +40,9 @@ import type { PageRecord } from '@/features/ecommerce/storefront/page-builder/do
 import type { HeroCarouselSectionRecord } from '@/features/ecommerce/storefront/page-builder/domain/section-types';
 import { ImagePicker } from '@/features/ecommerce/admin/cms/homepage/components/section-entity-pickers';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
+import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
+import { PageHeaderPrimaryButton } from '@/components/layouts/page-header-primary-button';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -36,7 +50,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
+import { cn } from '@/shared/utils';
 
 const SETTINGS_QUERY_KEY = ['ecommerce-cms', 'company', 'settings'] as const;
 
@@ -48,6 +62,9 @@ function clampHeroIntervalMs(value: number | null | undefined): number {
   if (!Number.isFinite(value)) return DEFAULT_HERO_INTERVAL_MS;
   return Math.min(MAX_HERO_INTERVAL_MS, Math.max(MIN_HERO_INTERVAL_MS, Math.round(value!)));
 }
+
+const FIELD =
+  'h-11 min-h-11 w-full min-w-0 max-w-full rounded-xl border-input bg-background px-3.5 text-sm';
 
 function parseKeywords(raw: string): string[] {
   return raw
@@ -87,10 +104,65 @@ function withHeroInterval(page: PageRecord, intervalMs: number): PageRecord {
   return { ...page, updatedAt: now, sections };
 }
 
+function defaultCheckout(draft: CompanyConfigRecord) {
+  return (
+    draft.checkout ?? {
+      cities: [],
+      defaultCity: '',
+      freeShippingThreshold: 200,
+      standardShippingFee: 25,
+      paymentMethods: ['cash_on_delivery', 'card'] as Array<'cash_on_delivery' | 'card'>,
+    }
+  );
+}
+
+function SettingsPanel({
+  title,
+  description,
+  children,
+  className,
+}: {
+  title: string;
+  description?: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <section className={cn('rounded-2xl border border-border/70 bg-card', className)}>
+      <header className="border-b border-border/60 px-5 py-4 sm:px-6">
+        <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+        {description ? <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{description}</p> : null}
+      </header>
+      <div className="p-5 sm:p-6">{children}</div>
+    </section>
+  );
+}
+
+function Field({
+  label,
+  hint,
+  children,
+  className,
+}: {
+  label: string;
+  hint?: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={cn('space-y-2', className)}>
+      <Label className="text-sm font-medium text-foreground">{label}</Label>
+      {children}
+      {hint ? <p className="text-[11px] leading-relaxed text-muted-foreground">{hint}</p> : null}
+    </div>
+  );
+}
+
 export function WebsiteSettingsPage() {
   const companyId = getStorefrontCompanyId();
   const t = useTranslations('ecommerceAdmin.settings');
   const tSeo = useTranslations('ecommerceAdmin.seo');
+  const tHome = useTranslations('ecommerceAdmin.homepage');
   const tCommon = useTranslations('common');
   const queryClient = useQueryClient();
 
@@ -123,9 +195,13 @@ export function WebsiteSettingsPage() {
 
   const [draft, setDraft] = React.useState<CompanyConfigRecord | null>(null);
   const [heroIntervalMs, setHeroIntervalMs] = React.useState(DEFAULT_HERO_INTERVAL_MS);
+  const [dirty, setDirty] = React.useState(false);
 
   React.useEffect(() => {
-    if (data) setDraft(structuredClone(data));
+    if (data) {
+      setDraft(structuredClone(data));
+      setDirty(false);
+    }
   }, [data]);
 
   React.useEffect(() => {
@@ -175,17 +251,39 @@ export function WebsiteSettingsPage() {
         announcement: normalizeAnnouncementBar(company.announcement),
         seo: { ...company.seo, keywords: company.seo.keywords ?? [] },
       });
+      setDirty(false);
       toast.success(t('saveSuccess'));
     },
     onError: () => toast.error(t('saveError')),
   });
+
+  usePageHeaderActions(
+    () => (
+      <PageHeaderPrimaryButton
+        icon={Save}
+        label={save.isPending ? tCommon('status.saving') : tCommon('actions.save')}
+        disabled={!draft || save.isPending || !dirty}
+        onClick={() => {
+          if (draft) {
+            void save.mutateAsync({ company: draft, intervalMs: heroIntervalMs });
+          }
+        }}
+      />
+    ),
+    [draft, dirty, heroIntervalMs, save.isPending, tCommon],
+  );
+
+  function updateDraft(next: CompanyConfigRecord) {
+    setDraft(next);
+    setDirty(true);
+  }
 
   function patchSeo(
     path: 'homeTitle' | 'homeDescription' | 'productsTitle' | 'productsDescription',
     value: string,
   ) {
     if (!draft) return;
-    setDraft({
+    updateDraft({
       ...draft,
       seo: {
         ...draft.seo,
@@ -197,15 +295,14 @@ export function WebsiteSettingsPage() {
   function patchSocial(network: CompanySocialNetwork, patch: { url?: string; enabled?: boolean }) {
     if (!draft) return;
     const current = draft.social[network] ?? { url: '', enabled: false };
-    const next = {
-      url: patch.url ?? current.url,
-      enabled: patch.enabled ?? current.enabled,
-    };
-    setDraft({
+    updateDraft({
       ...draft,
       social: {
         ...draft.social,
-        [network]: next,
+        [network]: {
+          url: patch.url ?? current.url,
+          enabled: patch.enabled ?? current.enabled,
+        },
       },
     });
   }
@@ -214,7 +311,7 @@ export function WebsiteSettingsPage() {
     patch: Partial<CompanyConfigRecord['announcement']>,
   ) {
     if (!draft) return;
-    setDraft({
+    updateDraft({
       ...draft,
       announcement: {
         ...normalizeAnnouncementBar(draft.announcement),
@@ -233,98 +330,91 @@ export function WebsiteSettingsPage() {
     <div className="flex flex-col gap-5">
       <SetPageTitle titleAr={t('title')} descriptionAr={t('description')} iconName="Settings" />
 
-      <div className="flex flex-wrap justify-end gap-2">
-        <Button
-          type="button"
-          disabled={!draft || save.isPending}
-          onClick={() =>
-            draft &&
-            void save.mutateAsync({
-              company: draft,
-              intervalMs: heroIntervalMs,
-            })
-          }
-        >
-          {save.isPending ? tCommon('status.saving') : tCommon('actions.save')}
-        </Button>
-      </div>
+      <section className="rounded-2xl border border-border/70 bg-linear-to-l from-primary/6 via-card to-card px-5 py-4">
+        <div className="flex items-start gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <Settings2 className="h-5 w-5" aria-hidden />
+          </span>
+          <div className="min-w-0">
+            <h2 className="text-sm font-semibold text-foreground">{t('studioTitle')}</h2>
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{t('studioHint')}</p>
+          </div>
+        </div>
+      </section>
+
+      {dirty ? (
+        <div className="rounded-xl border border-warning/30 bg-warning/10 px-3.5 py-2.5 text-xs text-warning">
+          {tHome('unsavedHint')}
+        </div>
+      ) : null}
 
       {isLoading ? (
         <div className="space-y-3">
-          <div className="h-9 w-full max-w-md animate-pulse rounded-lg bg-muted/50" />
-          <div className="grid gap-3 sm:grid-cols-2">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="h-16 animate-pulse rounded-xl bg-muted/50" />
-            ))}
-          </div>
+          <div className="h-11 w-full max-w-xl animate-pulse rounded-xl bg-muted/50" />
+          <div className="h-64 animate-pulse rounded-2xl bg-muted/40" />
         </div>
       ) : null}
+
       {isError ? (
-        <Card>
-          <CardContent className="flex items-center justify-between gap-3 py-6">
-            <p className="text-sm text-destructive">{t('loadError')}</p>
-            <Button type="button" variant="outline" onClick={() => void refetch()}>
-              {tCommon('actions.retry')}
-            </Button>
-          </CardContent>
-        </Card>
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-destructive/25 bg-destructive/5 px-4 py-4">
+          <p className="text-sm text-destructive">{t('loadError')}</p>
+          <Button type="button" variant="outline" className="rounded-xl" onClick={() => void refetch()}>
+            {tCommon('actions.retry')}
+          </Button>
+        </div>
       ) : null}
 
       {draft && announcement ? (
         <Tabs defaultValue="branding" className="w-full">
-          <TabsList className="flex h-auto flex-wrap">
-            <TabsTrigger value="branding" className="gap-1.5">
-              <Palette className="h-4 w-4" />
-              {t('tabs.branding')}
-            </TabsTrigger>
-            <TabsTrigger value="bars" className="gap-1.5">
-              <GalleryHorizontal className="h-4 w-4" />
-              {t('tabs.bars')}
-            </TabsTrigger>
-            <TabsTrigger value="contact" className="gap-1.5">
-              <Phone className="h-4 w-4" />
-              {t('tabs.contact')}
-            </TabsTrigger>
-            <TabsTrigger value="social" className="gap-1.5">
-              <Share2 className="h-4 w-4" />
-              {t('tabs.social')}
-            </TabsTrigger>
-            <TabsTrigger value="checkout" className="gap-1.5">
-              <Truck className="h-4 w-4" />
-              {t('tabs.checkout')}
-            </TabsTrigger>
-            <TabsTrigger value="seo" className="gap-1.5">
-              <Search className="h-4 w-4" />
-              {t('tabs.seo')}
-            </TabsTrigger>
+          <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 rounded-2xl border border-border/70 bg-muted/30 p-1.5">
+            {(
+              [
+                ['branding', Palette, t('tabs.branding')],
+                ['bars', GalleryHorizontal, t('tabs.bars')],
+                ['contact', Phone, t('tabs.contact')],
+                ['social', Share2, t('tabs.social')],
+                ['checkout', Truck, t('tabs.checkout')],
+                ['seo', Search, t('tabs.seo')],
+              ] as const
+            ).map(([value, Icon, label]) => (
+              <TabsTrigger
+                key={value}
+                value={value}
+                className="gap-1.5 rounded-xl px-3 py-2 data-[state=active]:bg-card data-[state=active]:shadow-soft"
+              >
+                <Icon className="h-4 w-4" />
+                {label}
+              </TabsTrigger>
+            ))}
           </TabsList>
 
           <TabsContent value="branding" className="mt-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">{t('tabs.branding')}</CardTitle>
-              </CardHeader>
-              <CardContent className="grid gap-5 sm:grid-cols-2">
-                <div className="space-y-1.5 sm:col-span-2">
-                  <Label>{t('name')}</Label>
+            <SettingsPanel title={t('tabs.branding')} description={t('brandingHint')}>
+              <div className="grid gap-5 sm:grid-cols-2">
+                <Field label={t('name')} className="sm:col-span-2">
                   <Input
+                    className={FIELD}
                     value={draft.name.ar}
                     onChange={(event) => {
                       const value = event.target.value;
-                      setDraft({ ...draft, name: { ar: value, en: value } });
+                      updateDraft({ ...draft, name: { ar: value, en: value } });
                     }}
                   />
-                </div>
-                <div className="space-y-1.5 sm:col-span-2">
-                  <Label>{t('logo')}</Label>
+                </Field>
+                <Field label={t('logo')} hint={t('logoHint')}>
                   <ImagePicker
                     value={draft.logoUrl}
-                    onChange={(logoUrl) => setDraft({ ...draft, logoUrl })}
+                    onChange={(logoUrl) => updateDraft({ ...draft, logoUrl })}
                   />
-                  <p className="text-xs text-muted-foreground">{t('logoHint')}</p>
-                </div>
-              </CardContent>
-            </Card>
+                </Field>
+                <Field label={t('favicon')} hint={t('faviconHint')}>
+                  <ImagePicker
+                    value={draft.faviconUrl}
+                    onChange={(faviconUrl) => updateDraft({ ...draft, faviconUrl })}
+                  />
+                </Field>
+              </div>
+            </SettingsPanel>
           </TabsContent>
 
           <TabsContent value="bars" className="mt-4">
@@ -455,44 +545,56 @@ export function WebsiteSettingsPage() {
           </TabsContent>
 
           <TabsContent value="contact" className="mt-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">{t('tabs.contact')}</CardTitle>
-              </CardHeader>
-              <CardContent className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label>{t('phone')}</Label>
+            <SettingsPanel title={t('tabs.contact')} description={t('contactHint')}>
+              <div className="grid gap-5 sm:grid-cols-2">
+                <Field label={t('phone')}>
                   <Input
+                    dir="ltr"
+                    className={cn(FIELD, 'text-right')}
                     value={draft.contact.phone ?? ''}
                     onChange={(event) =>
-                      setDraft({ ...draft, contact: { ...draft.contact, phone: event.target.value } })
+                      updateDraft({
+                        ...draft,
+                        contact: { ...draft.contact, phone: event.target.value },
+                      })
                     }
                   />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>{t('email')}</Label>
+                </Field>
+                <Field label={t('email')}>
                   <Input
+                    dir="ltr"
+                    className={cn(FIELD, 'text-right')}
                     value={draft.contact.email ?? ''}
                     onChange={(event) =>
-                      setDraft({ ...draft, contact: { ...draft.contact, email: event.target.value } })
+                      updateDraft({
+                        ...draft,
+                        contact: { ...draft.contact, email: event.target.value },
+                      })
                     }
                   />
-                </div>
-                <div className="space-y-1.5 sm:col-span-2">
-                  <Label>{t('address')}</Label>
+                </Field>
+                <Field label={t('address')} className="sm:col-span-2">
                   <Input
+                    className={FIELD}
                     value={draft.contact.address ?? ''}
                     onChange={(event) =>
-                      setDraft({ ...draft, contact: { ...draft.contact, address: event.target.value } })
+                      updateDraft({
+                        ...draft,
+                        contact: { ...draft.contact, address: event.target.value },
+                      })
                     }
                   />
-                </div>
-                <div className="space-y-1.5 sm:col-span-2">
-                  <Label>{t('commercialRegistration')}</Label>
+                </Field>
+                <Field
+                  label={t('commercialRegistration')}
+                  hint={t('commercialRegistrationHint')}
+                  className="sm:col-span-2"
+                >
                   <Input
+                    className={FIELD}
                     value={draft.footer.commercialRegistration ?? ''}
                     onChange={(event) =>
-                      setDraft({
+                      updateDraft({
                         ...draft,
                         footer: {
                           ...draft.footer,
@@ -501,37 +603,31 @@ export function WebsiteSettingsPage() {
                       })
                     }
                   />
-                  <p className="text-xs text-muted-foreground">{t('commercialRegistrationHint')}</p>
-                </div>
-              </CardContent>
-            </Card>
+                </Field>
+              </div>
+            </SettingsPanel>
           </TabsContent>
 
           <TabsContent value="social" className="mt-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">{t('tabs.social')}</CardTitle>
-                <CardDescription>{t('socialHint')}</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
+            <SettingsPanel title={t('tabs.social')} description={t('socialHint')}>
+              <div className="space-y-3">
                 {COMPANY_SOCIAL_NETWORKS.map((network) => {
                   const entry = draft.social[network] ?? { url: '', enabled: false };
                   return (
                     <div
                       key={network}
-                      className="grid gap-3 rounded-xl border border-border/70 bg-muted/10 p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+                      className="grid gap-3 rounded-2xl border border-border/60 bg-muted/15 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end"
                     >
-                      <div className="space-y-1.5">
-                        <Label>{t(network)}</Label>
+                      <Field label={t(network)}>
                         <Input
                           dir="ltr"
-                          className="font-mono text-sm"
+                          className={cn(FIELD, 'font-mono')}
                           placeholder={t('socialUrlPlaceholder')}
                           value={entry.url}
                           onChange={(event) => patchSocial(network, { url: event.target.value })}
                         />
-                      </div>
-                      <div className="flex items-center justify-between gap-3 sm:justify-end">
+                      </Field>
+                      <div className="flex items-center justify-between gap-3 rounded-xl border border-border/50 bg-card px-3 py-2.5 sm:min-w-40">
                         <span className="text-xs text-muted-foreground">
                           {entry.enabled ? t('socialEnabled') : t('socialDisabled')}
                         </span>
@@ -543,101 +639,74 @@ export function WebsiteSettingsPage() {
                     </div>
                   );
                 })}
-              </CardContent>
-            </Card>
+              </div>
+            </SettingsPanel>
           </TabsContent>
 
           <TabsContent value="checkout" className="mt-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">{t('tabs.checkout')}</CardTitle>
-              </CardHeader>
-              <CardContent className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label>{t('freeShippingThreshold')}</Label>
+            <SettingsPanel title={t('tabs.checkout')} description={t('checkoutHint')}>
+              <div className="grid gap-5 sm:grid-cols-2">
+                <Field label={t('freeShippingThreshold')}>
                   <Input
                     type="number"
                     min={0}
                     dir="ltr"
+                    className={FIELD}
                     value={draft.checkout?.freeShippingThreshold ?? 200}
                     onChange={(event) =>
-                      setDraft({
+                      updateDraft({
                         ...draft,
                         checkout: {
-                          ...(draft.checkout ?? {
-                            cities: [],
-                            defaultCity: '',
-                            freeShippingThreshold: 200,
-                            standardShippingFee: 25,
-                            paymentMethods: ['cash_on_delivery', 'card'],
-                          }),
+                          ...defaultCheckout(draft),
                           freeShippingThreshold: Number(event.target.value) || 0,
                         },
                       })
                     }
                   />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>{t('standardShippingFee')}</Label>
+                </Field>
+                <Field label={t('standardShippingFee')}>
                   <Input
                     type="number"
                     min={0}
                     dir="ltr"
+                    className={FIELD}
                     value={draft.checkout?.standardShippingFee ?? 25}
                     onChange={(event) =>
-                      setDraft({
+                      updateDraft({
                         ...draft,
                         checkout: {
-                          ...(draft.checkout ?? {
-                            cities: [],
-                            defaultCity: '',
-                            freeShippingThreshold: 200,
-                            standardShippingFee: 25,
-                            paymentMethods: ['cash_on_delivery', 'card'],
-                          }),
+                          ...defaultCheckout(draft),
                           standardShippingFee: Number(event.target.value) || 0,
                         },
                       })
                     }
                   />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>{t('defaultCity')}</Label>
+                </Field>
+                <Field label={t('defaultCity')}>
                   <Input
+                    className={FIELD}
                     value={draft.checkout?.defaultCity ?? ''}
                     onChange={(event) =>
-                      setDraft({
+                      updateDraft({
                         ...draft,
                         checkout: {
-                          ...(draft.checkout ?? {
-                            cities: [],
-                            defaultCity: '',
-                            freeShippingThreshold: 200,
-                            standardShippingFee: 25,
-                            paymentMethods: ['cash_on_delivery', 'card'],
-                          }),
+                          ...defaultCheckout(draft),
                           defaultCity: event.target.value,
                         },
                       })
                     }
                   />
-                </div>
-                <div className="space-y-1.5 sm:col-span-2">
-                  <Label>{t('cities')}</Label>
+                </Field>
+                <Field label={t('cities')} hint={t('citiesHint')} className="sm:col-span-2">
                   <Textarea
                     rows={4}
+                    className="min-h-28 rounded-xl"
                     value={(draft.checkout?.cities ?? []).join('\n')}
                     onChange={(event) =>
-                      setDraft({
+                      updateDraft({
                         ...draft,
                         checkout: {
-                          ...(draft.checkout ?? {
-                            cities: [],
-                            defaultCity: '',
-                            freeShippingThreshold: 200,
-                            standardShippingFee: 25,
-                            paymentMethods: ['cash_on_delivery', 'card'],
-                          }),
+                          ...defaultCheckout(draft),
                           cities: event.target.value
                             .split('\n')
                             .map((city) => city.trim())
@@ -646,96 +715,95 @@ export function WebsiteSettingsPage() {
                       })
                     }
                   />
-                  <p className="text-xs text-muted-foreground">{t('citiesHint')}</p>
-                </div>
-                <div className="space-y-2 sm:col-span-2">
-                  <Label>{t('paymentMethods')}</Label>
-                  <div className="flex flex-wrap gap-3">
+                </Field>
+                <div className="space-y-3 sm:col-span-2">
+                  <Label className="text-sm font-medium text-foreground">{t('paymentMethods')}</Label>
+                  <div className="grid gap-3 sm:grid-cols-2">
                     {(
                       [
-                        ['cash_on_delivery', t('paymentCod')],
-                        ['card', t('paymentCard')],
+                        ['cash_on_delivery', t('paymentCod'), Wallet],
+                        ['card', t('paymentCard'), CreditCard],
                       ] as const
-                    ).map(([id, label]) => {
+                    ).map(([id, label, Icon]) => {
                       const checked = (draft.checkout?.paymentMethods ?? []).includes(id);
                       return (
-                        <label key={id} className="inline-flex items-center gap-2 text-sm">
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={(event) => {
-                              const current = draft.checkout?.paymentMethods ?? [];
-                              const paymentMethods = event.target.checked
-                                ? [...current.filter((method) => method !== id), id]
-                                : current.filter((method) => method !== id);
-                              setDraft({
-                                ...draft,
-                                checkout: {
-                                  ...(draft.checkout ?? {
-                                    cities: [],
-                                    defaultCity: '',
-                                    freeShippingThreshold: 200,
-                                    standardShippingFee: 25,
-                                    paymentMethods: [],
-                                  }),
-                                  paymentMethods: paymentMethods.length > 0 ? paymentMethods : [id],
-                                },
-                              });
-                            }}
-                          />
-                          {label}
-                        </label>
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => {
+                            const current = draft.checkout?.paymentMethods ?? [];
+                            const paymentMethods = checked
+                              ? current.filter((method) => method !== id)
+                              : [...current.filter((method) => method !== id), id];
+                            updateDraft({
+                              ...draft,
+                              checkout: {
+                                ...defaultCheckout(draft),
+                                paymentMethods: paymentMethods.length > 0 ? paymentMethods : [id],
+                              },
+                            });
+                          }}
+                          className={cn(
+                            'flex items-center gap-3 rounded-2xl border px-4 py-3 text-start transition-colors',
+                            checked
+                              ? 'border-primary/40 bg-primary/5 ring-1 ring-primary/20'
+                              : 'border-border/70 bg-muted/10 hover:border-primary/25',
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              'flex h-10 w-10 items-center justify-center rounded-xl',
+                              checked ? 'bg-primary text-primary-foreground' : 'bg-muted text-primary',
+                            )}
+                          >
+                            <Icon className="h-4 w-4" aria-hidden />
+                          </span>
+                          <span className="min-w-0 flex-1 text-sm font-medium text-foreground">{label}</span>
+                          <Switch checked={checked} tabIndex={-1} aria-hidden />
+                        </button>
                       );
                     })}
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </SettingsPanel>
           </TabsContent>
 
           <TabsContent value="seo" className="mt-4">
             <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)]">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">{t('tabs.seo')}</CardTitle>
-                  <CardDescription>{tSeo('formHint')}</CardDescription>
-                </CardHeader>
-                <CardContent className="grid gap-5">
-                  <section className="space-y-3 rounded-xl border border-border/70 p-4">
-                    <div className="flex items-center gap-2">
-                      <Badge variant="subtle">{tSeo('sectionHome')}</Badge>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label>{tSeo('homeTitle')}</Label>
+              <SettingsPanel title={t('tabs.seo')} description={tSeo('formHint')}>
+                <div className="grid gap-5">
+                  <div className="space-y-4 rounded-2xl border border-border/60 bg-muted/10 p-4">
+                    <Badge variant="subtle">{tSeo('sectionHome')}</Badge>
+                    <Field label={tSeo('homeTitle')} hint={tSeo('homeTitleHint')}>
                       <Input
+                        className={FIELD}
                         value={draft.seo.homeTitle.ar}
                         maxLength={70}
                         onChange={(event) => patchSeo('homeTitle', event.target.value)}
                       />
-                      <p className="text-xs text-muted-foreground">{tSeo('homeTitleHint')}</p>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label>{tSeo('homeDescription')}</Label>
+                    </Field>
+                    <Field label={tSeo('homeDescription')} hint={tSeo('homeDescriptionHint')}>
                       <Textarea
                         rows={3}
+                        className="rounded-xl"
                         value={draft.seo.homeDescription.ar}
                         maxLength={170}
                         onChange={(event) => patchSeo('homeDescription', event.target.value)}
                       />
-                      <p className="text-xs text-muted-foreground">{tSeo('homeDescriptionHint')}</p>
-                    </div>
-                  </section>
+                    </Field>
+                  </div>
 
-                  <section className="space-y-3 rounded-xl border border-border/70 p-4">
+                  <div className="space-y-4 rounded-2xl border border-border/60 bg-muted/10 p-4">
                     <Badge variant="subtle">{tSeo('sectionKeywords')}</Badge>
-                    <div className="space-y-1.5">
-                      <Label>{tSeo('keywords')}</Label>
+                    <Field label={tSeo('keywords')} hint={tSeo('keywordsHint')}>
                       <Textarea
                         rows={3}
+                        className="rounded-xl"
                         value={keywordsText}
                         placeholder={tSeo('keywordsPlaceholder')}
                         onChange={(event) =>
-                          setDraft({
+                          updateDraft({
                             ...draft,
                             seo: {
                               ...draft.seo,
@@ -744,50 +812,46 @@ export function WebsiteSettingsPage() {
                           })
                         }
                       />
-                      <p className="text-xs text-muted-foreground">{tSeo('keywordsHint')}</p>
-                      {(draft.seo.keywords ?? []).length > 0 ? (
-                        <div className="flex flex-wrap gap-1.5 pt-1">
-                          {(draft.seo.keywords ?? []).map((keyword) => (
-                            <Badge key={keyword} variant="subtle">
-                              {keyword}
-                            </Badge>
-                          ))}
-                        </div>
-                      ) : null}
-                    </div>
-                  </section>
+                    </Field>
+                    {(draft.seo.keywords ?? []).length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5">
+                        {(draft.seo.keywords ?? []).map((keyword) => (
+                          <Badge key={keyword} variant="subtle">
+                            {keyword}
+                          </Badge>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
 
-                  <section className="space-y-3 rounded-xl border border-border/70 p-4">
+                  <div className="space-y-4 rounded-2xl border border-border/60 bg-muted/10 p-4">
                     <Badge variant="subtle">{tSeo('sectionProducts')}</Badge>
-                    <div className="space-y-1.5">
-                      <Label>{tSeo('productsTitle')}</Label>
+                    <Field label={tSeo('productsTitle')} hint={tSeo('productsTitleHint')}>
                       <Input
+                        className={FIELD}
                         value={draft.seo.productsTitle.ar}
                         maxLength={70}
                         onChange={(event) => patchSeo('productsTitle', event.target.value)}
                       />
-                      <p className="text-xs text-muted-foreground">{tSeo('productsTitleHint')}</p>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label>{tSeo('productsDescription')}</Label>
+                    </Field>
+                    <Field label={tSeo('productsDescription')} hint={tSeo('productsDescriptionHint')}>
                       <Textarea
                         rows={3}
+                        className="rounded-xl"
                         value={draft.seo.productsDescription.ar}
                         maxLength={170}
                         onChange={(event) => patchSeo('productsDescription', event.target.value)}
                       />
-                      <p className="text-xs text-muted-foreground">{tSeo('productsDescriptionHint')}</p>
-                    </div>
-                  </section>
+                    </Field>
+                  </div>
 
-                  <section className="space-y-3 rounded-xl border border-border/70 p-4">
+                  <div className="space-y-4 rounded-2xl border border-border/60 bg-muted/10 p-4">
                     <Badge variant="subtle">{tSeo('sectionShare')}</Badge>
-                    <div className="space-y-1.5">
-                      <Label>{tSeo('defaultOgImage')}</Label>
+                    <Field label={tSeo('defaultOgImage')} hint={tSeo('defaultOgImageHint')}>
                       <ImagePicker
                         value={draft.seo.defaultOgImage}
                         onChange={(defaultOgImage) =>
-                          setDraft({
+                          updateDraft({
                             ...draft,
                             seo: {
                               ...draft.seo,
@@ -796,18 +860,17 @@ export function WebsiteSettingsPage() {
                           })
                         }
                       />
-                      <p className="text-xs text-muted-foreground">{tSeo('defaultOgImageHint')}</p>
-                    </div>
-                  </section>
-                </CardContent>
-              </Card>
+                    </Field>
+                  </div>
+                </div>
+              </SettingsPanel>
 
-              <Card className="h-fit lg:sticky lg:top-4">
-                <CardHeader>
-                  <CardTitle className="text-base">{tSeo('previewTitle')}</CardTitle>
-                  <CardDescription>{tSeo('previewHint')}</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
+              <aside className="h-fit rounded-2xl border border-border/70 bg-card lg:sticky lg:top-4">
+                <header className="border-b border-border/60 px-5 py-4">
+                  <h3 className="text-sm font-semibold text-foreground">{tSeo('previewTitle')}</h3>
+                  <p className="mt-1 text-xs text-muted-foreground">{tSeo('previewHint')}</p>
+                </header>
+                <div className="space-y-4 p-5">
                   <div className="rounded-xl border border-border bg-background p-4 shadow-soft">
                     <p className="truncate text-base font-medium text-[#1a0dab]">{previewTitle}</p>
                     <p className="mt-1 truncate text-xs text-[#006621]" dir="ltr">
@@ -817,13 +880,13 @@ export function WebsiteSettingsPage() {
                       {previewDescription}
                     </p>
                   </div>
-                  <ul className="space-y-2 text-xs text-muted-foreground">
+                  <ul className="space-y-2 text-xs leading-relaxed text-muted-foreground">
                     <li>{tSeo('previewNoteTitle')}</li>
                     <li>{tSeo('previewNoteDescription')}</li>
                     <li>{tSeo('previewNoteKeywords')}</li>
                   </ul>
-                </CardContent>
-              </Card>
+                </div>
+              </aside>
             </div>
           </TabsContent>
         </Tabs>

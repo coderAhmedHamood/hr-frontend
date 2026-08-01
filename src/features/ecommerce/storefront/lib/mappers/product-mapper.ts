@@ -42,7 +42,13 @@ export function mapStorefrontProduct(product: Product, locale: StorefrontLocale)
       isActive: variant.isActive,
     }));
   const cheapest = cheapestActiveVariant(product.variants ?? []);
-  const displayPrice = cheapest?.salePrice ?? product.price;
+  const basePrice = cheapest?.salePrice ?? product.price;
+  const dealActive = Boolean(product.isTodayDealActive && product.dealPrice);
+  const displayPrice = dealActive && product.dealPrice ? product.dealPrice : basePrice;
+  const compareAtPrice =
+    dealActive && product.dealPrice
+      ? basePrice
+      : (product.compareAtPrice ?? null);
   const hasInStockVariant = variants.some((variant) => variant.stockStatus === 'in_stock');
   const stockStatus =
     variants.length > 0
@@ -72,7 +78,7 @@ export function mapStorefrontProduct(product: Product, locale: StorefrontLocale)
           : product.inventory.quantity,
     },
     price: displayPrice,
-    compareAtPrice: product.compareAtPrice ?? null,
+    compareAtPrice,
     media: product.media,
     imageUrl: primary?.url ?? null,
     imageAlt: primary?.alt || name,

@@ -23,8 +23,8 @@ import { ListFilterBar } from '@/components/ui/list-filter-bar';
 import { EntityFilterSearchField } from '@/components/ui/entity-filter-search-field';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { DataTable, AppPagination, usePagination, type ColumnDef } from '@/components/ui/data-table';
-import { DEFAULT_PAGE_SIZE } from '@/components/ui/paged-list';
+import { DataTable, usePagination, type ColumnDef } from '@/components/ui/data-table';
+import { DirectoryPagedViews, DEFAULT_PAGE_SIZE } from '@/components/ui/paged-list';
 
 export function CategoriesListPage() {
   const companyId = getStorefrontCompanyId();
@@ -231,21 +231,28 @@ export function CategoriesListPage() {
 
       {isError ? <p className="text-sm text-destructive">{t('catalog.loadError')}</p> : null}
 
-      <DataTable
-        columns={columns}
-        data={pagedRows}
-        keyExtractor={(category) => category.id}
+      <DirectoryPagedViews
+        items={pagedRows}
         loading={isLoading}
-        emptyText={t('catalog.empty')}
-      />
-
-      <AppPagination
-        page={page}
-        pageSize={pageSize}
-        total={total}
-        onPageChange={setPage}
-        onPageSizeChange={setPageSize}
-      />
+        serverPagination={{
+          page,
+          pageSize,
+          total,
+          totalPages: Math.max(1, Math.ceil(total / pageSize)),
+          setPage,
+          setPageSize,
+        }}
+      >
+        {(rowsPage) => (
+          <DataTable
+            columns={columns}
+            data={rowsPage}
+            keyExtractor={(category) => category.id}
+            loading={isLoading}
+            emptyText={t('catalog.empty')}
+          />
+        )}
+      </DirectoryPagedViews>
 
       <CategoryFormDialog
         open={dialogOpen}

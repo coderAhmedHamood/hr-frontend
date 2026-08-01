@@ -9,7 +9,10 @@ import type {
   CompanyAnnouncementItemRecord,
   CompanyConfigRecord,
 } from '@/features/ecommerce/storefront/domain/company-config';
-import { normalizeAnnouncementBar } from '@/features/ecommerce/storefront/domain/company-config';
+import {
+  clampAnnouncementSpeedMs,
+  normalizeAnnouncementBar,
+} from '@/features/ecommerce/storefront/domain/company-config';
 import { ecommerceAdminRoutes } from '@/features/ecommerce/admin/constants/routes';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,6 +27,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { cn } from '@/shared/utils';
 
 function defaultAnnouncement(): CompanyAnnouncementBarRecord {
   return normalizeAnnouncementBar({
@@ -290,6 +294,7 @@ export function NavigationAnnouncementPanel({ draft, onChange }: Props) {
           <AnnouncementMarqueePreview
             messages={previewMessages}
             speedMs={announcement.speedMs}
+            scrolling={announcement.scrolling}
           />
         </div>
       ) : null}
@@ -377,19 +382,30 @@ export function NavigationAnnouncementPanel({ draft, onChange }: Props) {
 function AnnouncementMarqueePreview({
   messages,
   speedMs,
+  scrolling,
 }: {
   messages: string[];
   speedMs: number;
+  scrolling: boolean;
 }) {
-  const loop = [...messages, ...messages];
+  const display = scrolling ? [...messages, ...messages] : messages;
   const duration = `${clampAnnouncementSpeedMs(speedMs)}ms`;
   return (
-    <div className="storefront-announcement-marquee bg-primary py-2.5 text-primary-foreground">
+    <div
+      className={cn(
+        'storefront-announcement-marquee bg-primary py-2.5 text-primary-foreground',
+        !scrolling && 'storefront-announcement-marquee--static',
+      )}
+    >
       <div
         className="storefront-announcement-marquee__track"
-        style={{ ['--announcement-marquee-duration' as string]: duration }}
+        style={
+          scrolling
+            ? { ['--announcement-marquee-duration' as string]: duration }
+            : undefined
+        }
       >
-        {loop.map((message, index) => (
+        {display.map((message, index) => (
           <React.Fragment key={`${message}-${index}`}>
             {index > 0 ? (
               <span className="storefront-announcement-marquee__sep" aria-hidden>

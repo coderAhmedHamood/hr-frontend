@@ -112,7 +112,7 @@
       "content": {
         "title": { "ar": "أحدث المنتجات", "en": "Latest Products" },
         "subtitle": null,
-        "viewAllHref": "/store/products?sort=newest"
+        "viewAllHref": "/store/products?isNewProduct=true"
       },
       "settings": { "autoplay": false, "showPrice": true, "showBadge": false },
       "style": {
@@ -126,7 +126,9 @@
         "sortDirection": "desc",
         "limit": 10,
         "categoryId": null,
-        "tag": null
+        "tag": null,
+        "isNewProduct": true,
+        "isTodayDeal": null
       }
     },
     {
@@ -173,7 +175,7 @@
       "content": {
         "title": { "ar": "تخفيضات اليوم", "en": "Flash Sale" },
         "subtitle": { "ar": "لفترة محدودة", "en": "Limited time" },
-        "viewAllHref": "/store/products?tag=deals"
+        "viewAllHref": "/store/products?isTodayDeal=true"
       },
       "settings": { "showPrice": true, "showCountdown": false, "endsAt": null },
       "style": {
@@ -181,7 +183,45 @@
         "layout": "carousel",
         "visibility": { "mobile": true, "tablet": true, "desktop": true }
       },
-      "dataSource": { "kind": "tag", "tag": "deals", "limit": 10 }
+      "dataSource": {
+        "kind": "query",
+        "sort": "createdAt",
+        "sortDirection": "desc",
+        "limit": 10,
+        "categoryId": null,
+        "tag": null,
+        "isNewProduct": null,
+        "isTodayDeal": true
+      }
+    },
+    {
+      "id": "8df30ab9-0c6c-5a7b-b8c0-714b8111fcf1",
+      "type": "brand-slider",
+      "status": "published",
+      "enabled": true,
+      "order": 60,
+      "revision": 1,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-07-13T12:00:00.000Z",
+      "publishedAt": "2026-07-13T12:00:00.000Z",
+      "createdBy": null,
+      "updatedBy": null,
+      "content": {
+        "title": { "ar": "علاماتنا التجارية", "en": "Our Brands" },
+        "subtitle": null,
+        "viewAllHref": "/store/brands"
+      },
+      "settings": { "showLogo": true },
+      "style": {
+        "theme": "light",
+        "layout": "slider",
+        "visibility": { "mobile": true, "tablet": true, "desktop": true }
+      },
+      "dataSource": {
+        "kind": "collection",
+        "collectionId": "featured-brands",
+        "limit": 12
+      }
     }
   ]
 }

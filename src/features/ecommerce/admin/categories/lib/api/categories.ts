@@ -127,6 +127,9 @@ function toUpdateBody(patch: UpdateCategoryInput) {
   return body;
 }
 
+export { mapCategory };
+export type { CategoryDto };
+
 export const categoriesApi: AdminCategoriesPort = {
   async getAll(query: CategoryListQuery): Promise<PaginatedResult<Category>> {
     const companyId = resolveStorefrontCompanyId(query.companyId);
