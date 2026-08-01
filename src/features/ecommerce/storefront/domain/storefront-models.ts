@@ -178,20 +178,6 @@ export type StorefrontLegalPage = {
   updatedAt: string;
 };
 
-export type StorefrontBlogPost = {
-  id: string;
-  companyId: string;
-  slug: string;
-  title: string;
-  excerpt: string;
-  body: string;
-  coverImageUrl: string | null;
-  authorName: string;
-  publishedAt: string;
-  metaTitle: string;
-  metaDescription: string;
-};
-
 export type StorefrontPaginated<T> = {
   items: T[];
   pagination: {

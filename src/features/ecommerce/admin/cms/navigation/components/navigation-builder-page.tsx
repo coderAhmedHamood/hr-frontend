@@ -1,7 +1,6 @@
 'use client';
 
 import * as React from 'react';
-import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { Save } from 'lucide-react';
 import { toast } from 'sonner';
@@ -9,9 +8,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
 import { getCmsCompanyRecord, saveCmsCompanyRecord } from '@/features/ecommerce/admin/cms/shared/cms-actions';
 import type { CompanyConfigRecord } from '@/features/ecommerce/storefront/domain/company-config';
-import { NavigationFooterPanel } from '@/features/ecommerce/admin/cms/navigation/components/navigation-footer-panel';
 import { NavigationAnnouncementPanel } from '@/features/ecommerce/admin/cms/navigation/components/navigation-announcement-panel';
-import type { EcommerceNavigationTab } from '@/features/ecommerce/admin/constants/routes';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { PageHeaderPrimaryButton } from '@/components/layouts/page-header-primary-button';
@@ -19,27 +16,16 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 
 const NAV_QUERY_KEY = ['ecommerce-cms', 'company', 'navigation'] as const;
-const NAV_TABS: EcommerceNavigationTab[] = ['footer', 'announcement'];
-
-function resolveNavigationTab(value: string | null): EcommerceNavigationTab {
-  if (value && NAV_TABS.includes(value as EcommerceNavigationTab)) {
-    return value as EcommerceNavigationTab;
-  }
-  return 'footer';
-}
 
 /**
- * Appearance domain — Footer and Announcement.
- * Active panel is deep-linked via `?tab=` from Website → Appearance nav items
- * (no in-page tab bar — switch from the top nav).
+ * Appearance domain — Announcement bar.
+ * Footer links are fixed from CMS content pages on the storefront.
  */
 export function NavigationBuilderPage() {
   const companyId = getStorefrontCompanyId();
   const t = useTranslations('ecommerceAdmin.navigation');
   const tCommon = useTranslations('common');
   const queryClient = useQueryClient();
-  const searchParams = useSearchParams();
-  const tab = resolveNavigationTab(searchParams.get('tab'));
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: [...NAV_QUERY_KEY, companyId],
@@ -81,11 +67,13 @@ export function NavigationBuilderPage() {
     [draft, save.isPending, tCommon],
   );
 
-  const titleKey = tab === 'announcement' ? 'tabs.announcement' : 'tabs.footer';
-
   return (
     <div className="flex flex-col gap-5">
-      <SetPageTitle titleAr={t(titleKey)} descriptionAr={t('description')} iconName="Navigation" />
+      <SetPageTitle
+        titleAr={t('tabs.announcement')}
+        descriptionAr={t('description')}
+        iconName="Megaphone"
+      />
 
       {isLoading ? (
         <div className="space-y-3">
@@ -105,12 +93,7 @@ export function NavigationBuilderPage() {
         </Card>
       ) : null}
 
-      {draft && tab === 'footer' ? (
-        <NavigationFooterPanel draft={draft} onChange={setDraft} />
-      ) : null}
-      {draft && tab === 'announcement' ? (
-        <NavigationAnnouncementPanel draft={draft} onChange={setDraft} />
-      ) : null}
+      {draft ? <NavigationAnnouncementPanel draft={draft} onChange={setDraft} /> : null}
     </div>
   );
 }

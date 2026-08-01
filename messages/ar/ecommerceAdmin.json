@@ -28,7 +28,6 @@
     "storeSettings": "أقسام الصفحة الرئيسية",
     "homepageSections": "أقسام الصفحة الرئيسية",
     "contentPages": "الصفحات",
-    "contentBlog": "المدونة",
     "contentFaq": "الأسئلة الشائعة",
     "appearanceFooter": "التذييل",
     "appearanceAnnouncement": "شريط الإعلانات",
@@ -135,9 +134,8 @@
   },
   "navigation": {
     "title": "التنقل",
-    "description": "قوائم التذييل وشريط الإعلانات للمتجر.",
+    "description": "شريط الإعلانات أعلى المتجر.",
     "tabs": {
-      "footer": "التذييل",
       "announcement": "شريط الإعلانات"
     },
     "announcement": {
@@ -252,19 +250,17 @@
   },
   "content": {
     "title": "المحتوى",
-    "description": "صفحات المتجر والمدونة والأسئلة الشائعة — مكان واحد لمحتوى الموقع.",
+    "description": "صفحات المتجر والأسئلة الشائعة — مكان واحد لمحتوى الموقع.",
     "tabs": {
       "pages": "الصفحات",
-      "blog": "المدونة",
       "faq": "الأسئلة الشائعة"
     }
   },
   "cmsPages": {
     "title": "صفحات المحتوى",
-    "description": "تعديل صفحات المتجر والمدونة والأسئلة الشائعة والصفحات القانونية.",
+    "description": "تعديل صفحات المتجر والأسئلة الشائعة والصفحات القانونية.",
     "about": "من نحن",
     "contact": "تواصل",
-    "blog": "المدونة",
     "faq": "الأسئلة الشائعة",
     "legal": "الصفحات القانونية",
     "privacy": "الخصوصية",
@@ -278,7 +274,6 @@
     "typeLegal": "قانوني",
     "typeDynamic": "محتوى",
     "noPreview": "بدون محتوى",
-    "blogPreview": "{count} مقالات",
     "faqPreview": "{count} أسئلة",
     "backToPages": "العودة للصفحات",
     "saveSuccess": "تم حفظ المحتوى.",
@@ -309,34 +304,6 @@
     "sections": "الأقسام",
     "addSection": "إضافة قسم",
     "removeSection": "حذف القسم"
-  },
-  "blog": {
-    "title": "المدونة",
-    "description": "إدارة مقالات مدونة المتجر.",
-    "empty": "لا توجد مقالات بعد.",
-    "addPost": "إضافة مقال",
-    "editPost": "تعديل المقال",
-    "deletePost": "حذف المقال",
-    "postTitle": "العنوان",
-    "titleAr": "العنوان",
-    "titleEn": "العنوان",
-    "excerpt": "المقتطف",
-    "excerptAr": "المقتطف",
-    "excerptEn": "المقتطف",
-    "body": "المحتوى",
-    "bodyAr": "المحتوى",
-    "bodyEn": "المحتوى",
-    "slug": "الرابط المختصر",
-    "coverImageUrl": "رابط صورة الغلاف",
-    "author": "الكاتب",
-    "authorAr": "الكاتب",
-    "authorEn": "الكاتب",
-    "published": "منشور",
-    "draft": "مسودة",
-    "saveSuccess": "تم حفظ المقال.",
-    "saveError": "تعذر حفظ المقال.",
-    "loadError": "تعذر تحميل المقالات.",
-    "deleteSuccess": "تم حذف المقال."
   },
   "faq": {
     "title": "الأسئلة الشائعة",

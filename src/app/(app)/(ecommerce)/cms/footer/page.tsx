@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { ecommerceNavigationHref } from '@/features/ecommerce/admin/constants/routes';
 
-/** Footer belongs under Website → Appearance / Navigation — not a standalone page. */
+/** Legacy footer route — footer links come from CMS pages; announcement lives here. */
 export default function Page() {
-  redirect(ecommerceNavigationHref('footer'));
+  redirect(ecommerceNavigationHref('announcement'));
 }

@@ -7,7 +7,6 @@
     "search": "Search",
     "about": "About",
     "contact": "Contact",
-    "blog": "Blog",
     "faq": "FAQ",
     "login": "Sign in",
     "wishlist": "Wishlist",
@@ -241,7 +240,10 @@
     "categoryDirectory": "Category directory",
     "accountLinks": "My account",
     "cr": "Commercial registration",
-    "tagline": "Shop with confidence — curated products and a smooth Arabic / English experience."
+    "tagline": "Shop with confidence — curated products and a smooth Arabic / English experience.",
+    "groupCompany": "About the store",
+    "groupHelp": "Help",
+    "groupLegal": "Legal"
   },
   "categories": {
     "title": "Categories",
@@ -267,13 +269,6 @@
     "products": "Products",
     "categories": "Categories",
     "brands": "Brands"
-  },
-  "blog": {
-    "title": "Blog",
-    "readMore": "Read more",
-    "noPosts": "No posts yet.",
-    "backToBlog": "Back to blog",
-    "publishedAt": "Published on"
   },
   "about": {
     "title": "About us"
@@ -309,7 +304,6 @@
   },
   "seo": {
     "faqDescription": "Answers to the most common questions.",
-    "blogDescription": "Articles and tips from our team.",
     "brandsDescription": "Discover the brands available in our store.",
     "categoriesDescription": "Browse our products by category.",
     "searchDescription": "Search products, categories, and brands.",

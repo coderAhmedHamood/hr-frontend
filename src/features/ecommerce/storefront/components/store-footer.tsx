@@ -15,19 +15,44 @@ const SOCIAL_LABEL_KEYS = {
   whatsapp: 'socialWhatsapp',
 } as const satisfies Record<StorefrontSocialNetwork, string>;
 
-/** Account / auth destinations belong in the header icons — never in the footer. */
-const HEADER_ONLY_HREFS = new Set([
-  '/store/account',
-  '/store/login',
-  '/store/wishlist',
-  '/store/orders',
-  '/store/cart',
-]);
+type FooterCmsLink = {
+  href: '/store/about' | '/store/contact' | '/store/faq' | `/store/legal/${string}`;
+  labelKey: string;
+};
 
-function isFooterLink(href: string): boolean {
-  const path = href.split('?')[0] ?? href;
-  return !HEADER_ONLY_HREFS.has(path);
-}
+type FooterCmsGroup = {
+  id: string;
+  titleKey: string;
+  links: FooterCmsLink[];
+};
+
+/** Fixed CMS content pages — mirrors the admin content pages list. */
+const FOOTER_CMS_GROUPS: FooterCmsGroup[] = [
+  {
+    id: 'company',
+    titleKey: 'footer.groupCompany',
+    links: [
+      { href: '/store/about', labelKey: 'about.title' },
+      { href: '/store/contact', labelKey: 'contact.title' },
+    ],
+  },
+  {
+    id: 'help',
+    titleKey: 'footer.groupHelp',
+    links: [
+      { href: '/store/faq', labelKey: 'faq.title' },
+      { href: '/store/legal/returns', labelKey: 'legal.returns' },
+    ],
+  },
+  {
+    id: 'legal',
+    titleKey: 'footer.groupLegal',
+    links: [
+      { href: '/store/legal/terms', labelKey: 'legal.terms' },
+      { href: '/store/legal/privacy', labelKey: 'legal.privacy' },
+    ],
+  },
+];
 
 export async function StoreFooter({
   config,
@@ -35,13 +60,7 @@ export async function StoreFooter({
   config: StorefrontCompanyConfig;
 }) {
   const t = await getTranslations('storefront');
-
-  const linkGroups = config.footer.linkGroups
-    .map((group) => ({
-      ...group,
-      links: group.links.filter((link) => isFooterLink(link.href)),
-    }))
-    .filter((group) => group.links.length > 0);
+  const copyrightName = config.footer.copyrightOwnerName.trim() || config.name;
 
   return (
     <footer className="mt-auto border-t border-border bg-muted/40 text-foreground">
@@ -93,18 +112,18 @@ export async function StoreFooter({
             </div>
           </div>
 
-          {linkGroups.map((group) => (
+          {FOOTER_CMS_GROUPS.map((group) => (
             <div key={group.id} className="flex flex-col gap-3">
-              <h3 className="text-sm font-semibold text-foreground">{group.title}</h3>
+              <h3 className="text-sm font-semibold text-foreground">{t(group.titleKey)}</h3>
               <ul className="flex flex-col gap-2">
-                {group.links.map((link, linkIndex) => (
-                  <li key={`${group.id}-${linkIndex}`}>
+                {group.links.map((link) => (
+                  <li key={link.href}>
                     <Link
                       href={link.href}
                       prefetch={false}
                       className="text-sm text-muted-foreground transition-colors hover:text-primary"
                     >
-                      {link.label}
+                      {t(link.labelKey)}
                     </Link>
                   </li>
                 ))}
@@ -116,7 +135,7 @@ export async function StoreFooter({
         <div className="mt-8 flex flex-col items-start justify-between gap-4 border-t border-border pt-6 sm:flex-row sm:items-center">
           <StoreFooterUtilities />
           <div className="text-xs text-muted-foreground">
-            © {new Date().getFullYear()} {config.footer.copyrightOwnerName}
+            © {new Date().getFullYear()} {copyrightName}
             {config.footer.commercialRegistration ? (
               <span className="ms-2">
                 · {t('footer.cr')}: {config.footer.commercialRegistration}

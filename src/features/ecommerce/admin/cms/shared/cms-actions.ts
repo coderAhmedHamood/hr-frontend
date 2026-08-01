@@ -4,7 +4,6 @@ import { revalidatePath } from 'next/cache';
 import type { CompanyConfigRecord } from '@/features/ecommerce/storefront/domain/company-config';
 import type {
   AboutPageContent,
-  BlogPost,
   ContactPageContent,
   FaqItem,
   LegalPageContent,
@@ -52,7 +51,7 @@ export async function saveCmsCompanyRecord(record: CompanyConfigRecord): Promise
   return saved;
 }
 
-// ── Content (pages / FAQ / blog) ──────────────────────────────────────────────
+// ── Content (pages / FAQ) ─────────────────────────────────────────────────────
 
 export async function getCmsContentBundle(companyId: string): Promise<StorefrontContentBundle | null> {
   return storefrontContentRepository.getContentBundle(companyId);
@@ -89,20 +88,4 @@ export async function saveCmsLegalPage(
   const saved = await storefrontContentRepository.saveLegalPage(companyId, page);
   revalidateStorefront();
   return saved;
-}
-
-export async function listCmsBlogPosts(companyId: string): Promise<BlogPost[]> {
-  return storefrontContentRepository.listBlogPostsAdmin(companyId);
-}
-
-export async function saveCmsBlogPost(post: BlogPost): Promise<BlogPost> {
-  const saved = await storefrontContentRepository.saveBlogPost(post);
-  revalidateStorefront();
-  return saved;
-}
-
-export async function deleteCmsBlogPost(companyId: string, id: string): Promise<boolean> {
-  const removed = await storefrontContentRepository.deleteBlogPost(companyId, id);
-  revalidateStorefront();
-  return removed;
 }

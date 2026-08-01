@@ -28,7 +28,6 @@
     "storeSettings": "Homepage sections",
     "homepageSections": "Homepage sections",
     "contentPages": "Pages",
-    "contentBlog": "Blog",
     "contentFaq": "FAQ",
     "appearanceFooter": "Footer",
     "appearanceAnnouncement": "Announcement Bar",
@@ -135,9 +134,8 @@
   },
   "navigation": {
     "title": "Navigation",
-    "description": "Footer menus and announcement bar for the storefront.",
+    "description": "Announcement bar at the top of the storefront.",
     "tabs": {
-      "footer": "Footer",
       "announcement": "Announcement Bar"
     },
     "announcement": {
@@ -248,19 +246,17 @@
   },
   "content": {
     "title": "Content",
-    "description": "Storefront pages, blog posts, and FAQ — one place for website content.",
+    "description": "Storefront pages and FAQ — one place for website content.",
     "tabs": {
       "pages": "Pages",
-      "blog": "Blog",
       "faq": "FAQ"
     }
   },
   "cmsPages": {
     "title": "CMS pages",
-    "description": "Edit store pages, blog, FAQ, and legal content.",
+    "description": "Edit store pages, FAQ, and legal content.",
     "about": "About",
     "contact": "Contact",
-    "blog": "Blog",
     "faq": "FAQ",
     "legal": "Legal pages",
     "privacy": "Privacy",
@@ -274,7 +270,6 @@
     "typeLegal": "Legal",
     "typeDynamic": "Content",
     "noPreview": "No content",
-    "blogPreview": "{count} posts",
     "faqPreview": "{count} questions",
     "backToPages": "Back to pages",
     "saveSuccess": "Content saved.",
@@ -305,34 +300,6 @@
     "sections": "Sections",
     "addSection": "Add section",
     "removeSection": "Remove section"
-  },
-  "blog": {
-    "title": "Blog",
-    "description": "Manage storefront blog posts.",
-    "empty": "No blog posts yet.",
-    "addPost": "Add post",
-    "editPost": "Edit post",
-    "deletePost": "Delete post",
-    "postTitle": "Title",
-    "titleAr": "Title",
-    "titleEn": "Title",
-    "excerpt": "Excerpt",
-    "excerptAr": "Excerpt",
-    "excerptEn": "Excerpt",
-    "body": "Body",
-    "bodyAr": "Body",
-    "bodyEn": "Body",
-    "slug": "Slug",
-    "coverImageUrl": "Cover image URL",
-    "author": "Author",
-    "authorAr": "Author",
-    "authorEn": "Author",
-    "published": "Published",
-    "draft": "Draft",
-    "saveSuccess": "Blog post saved.",
-    "saveError": "Could not save blog post.",
-    "loadError": "Could not load blog posts.",
-    "deleteSuccess": "Blog post deleted."
   },
   "faq": {
     "title": "FAQ",

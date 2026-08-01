@@ -1,27 +1,21 @@
 import type { LegalPageSlug } from '@/features/ecommerce/storefront/domain/content';
 import type {
   StorefrontAboutContent,
-  StorefrontBlogPost,
   StorefrontContactContent,
   StorefrontFaqItem,
   StorefrontLegalPage,
-  StorefrontPaginated,
 } from '@/features/ecommerce/storefront/domain/storefront-models';
 import type { StorefrontLocale } from '@/i18n/routing';
 import {
   mapStorefrontAbout,
-  mapStorefrontBlogPost,
   mapStorefrontContact,
   mapStorefrontFaqItem,
   mapStorefrontLegal,
 } from '@/features/ecommerce/storefront/lib/mappers/content-mapper';
 import { mockRepositoryDelay } from '@/features/ecommerce/storefront/lib/repositories/mock-delay';
-import { normalizePaginated } from '@/features/ecommerce/storefront/lib/repositories/normalize';
 import contentSeed from '@/features/ecommerce/storefront/lib/mock/content-pages.json';
-import blogSeed from '@/features/ecommerce/storefront/lib/mock/blog-posts.json';
 import type {
   AboutPageContent,
-  BlogPost,
   ContactPageContent,
   FaqItem,
   LegalPageContent,
@@ -31,7 +25,6 @@ import type {
 /** Shared across Server Actions + RSC (avoids duplicate module instances). */
 const globalForContent = globalThis as typeof globalThis & {
   __ecommerceContentByCompany?: Record<string, StorefrontContentBundle>;
-  __ecommerceBlogPosts?: BlogPost[];
 };
 
 const CONTENT_BY_COMPANY: Record<string, StorefrontContentBundle> =
@@ -39,16 +32,6 @@ const CONTENT_BY_COMPANY: Record<string, StorefrontContentBundle> =
   (globalForContent.__ecommerceContentByCompany = {
     [contentSeed.companyId]: JSON.parse(JSON.stringify(contentSeed)) as StorefrontContentBundle,
   });
-
-let BLOG_POSTS: BlogPost[] =
-  globalForContent.__ecommerceBlogPosts ??
-  (globalForContent.__ecommerceBlogPosts = JSON.parse(JSON.stringify(blogSeed)) as BlogPost[]);
-
-/** Keep the global pointer in sync when the blog array is replaced. */
-function setBlogPosts(next: BlogPost[]) {
-  BLOG_POSTS = next;
-  globalForContent.__ecommerceBlogPosts = next;
-}
 
 function getBundle(companyId: string): StorefrontContentBundle | null {
   return CONTENT_BY_COMPANY[companyId] ?? null;
@@ -80,7 +63,7 @@ function ensureBundle(companyId: string): StorefrontContentBundle {
   return created;
 }
 
-/** Static CMS repository for about, contact, FAQ, legal, and blog — shared by storefront + admin. */
+/** Static CMS repository for about, contact, FAQ, and legal — shared by storefront + admin. */
 export const storefrontContentRepository = {
   async getAbout(companyId: string, locale: StorefrontLocale): Promise<StorefrontAboutContent | null> {
     const bundle = getBundle(companyId);
@@ -109,35 +92,6 @@ export const storefrontContentRepository = {
     const page = bundle?.legal.find((item) => item.slug === slug) ?? null;
     if (!page) return null;
     return mockRepositoryDelay(mapStorefrontLegal(page, locale));
-  },
-
-  async listBlogPosts(
-    companyId: string,
-    locale: StorefrontLocale,
-    options?: { page?: number; limit?: number },
-  ): Promise<StorefrontPaginated<StorefrontBlogPost>> {
-    const page = options?.page ?? 1;
-    const limit = options?.limit ?? 12;
-    const published = BLOG_POSTS.filter((post) => post.companyId === companyId && post.isPublished).sort(
-      (a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime(),
-    );
-    const total = published.length;
-    const totalPages = Math.max(Math.ceil(total / limit), 1);
-    const start = (page - 1) * limit;
-    const items = published.slice(start, start + limit).map((post) => mapStorefrontBlogPost(post, locale));
-    return mockRepositoryDelay(normalizePaginated({ items, pagination: { page, limit, total, totalPages } }));
-  },
-
-  async getBlogPostBySlug(
-    companyId: string,
-    slug: string,
-    locale: StorefrontLocale,
-  ): Promise<StorefrontBlogPost | null> {
-    const post = BLOG_POSTS.find(
-      (item) => item.companyId === companyId && item.slug === slug && item.isPublished,
-    );
-    if (!post) return null;
-    return mockRepositoryDelay(mapStorefrontBlogPost(post, locale));
   },
 
   // ── Admin CMS (raw bilingual records) ─────────────────────────────────────
@@ -171,25 +125,5 @@ export const storefrontContentRepository = {
     if (index === -1) bundle.legal.push(clone(page));
     else bundle.legal[index] = clone(page);
     return mockRepositoryDelay(clone(page));
-  },
-
-  async listBlogPostsAdmin(companyId: string): Promise<BlogPost[]> {
-    const posts = BLOG_POSTS.filter((post) => post.companyId === companyId).sort(
-      (a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime(),
-    );
-    return mockRepositoryDelay(clone(posts));
-  },
-
-  async saveBlogPost(input: BlogPost): Promise<BlogPost> {
-    const index = BLOG_POSTS.findIndex((post) => post.id === input.id);
-    if (index === -1) BLOG_POSTS.push(clone(input));
-    else BLOG_POSTS[index] = clone(input);
-    return mockRepositoryDelay(clone(input));
-  },
-
-  async deleteBlogPost(companyId: string, id: string): Promise<boolean> {
-    const before = BLOG_POSTS.length;
-    setBlogPosts(BLOG_POSTS.filter((post) => !(post.companyId === companyId && post.id === id)));
-    return mockRepositoryDelay(BLOG_POSTS.length < before);
   },
 };

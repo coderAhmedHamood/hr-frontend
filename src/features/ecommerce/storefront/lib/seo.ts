@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import { getTranslations } from 'next-intl/server';
 import type {
-  StorefrontBlogPost,
   StorefrontBrand,
   StorefrontCategory,
   StorefrontCompanyConfig,
@@ -271,35 +270,6 @@ export async function faqMetadata(config: StorefrontCompanyConfig, locale: Store
   return basePageMetadata(config, locale, title, t('faqDescription'), '/store/faq');
 }
 
-export async function blogMetadata(config: StorefrontCompanyConfig, locale: StorefrontLocale): Promise<Metadata> {
-  const t = await getTranslations({ locale, namespace: 'storefront' });
-  return basePageMetadata(config, locale, t('blog.title'), t('seo.blogDescription'), '/store/blog');
-}
-
-export function blogPostMetadata(post: StorefrontBlogPost, config: StorefrontCompanyConfig, locale: StorefrontLocale): Metadata {
-  const title = `${post.metaTitle} | ${config.name}`.slice(0, 60);
-  const description = post.metaDescription.slice(0, 160);
-  const href = `/store/blog/${post.slug}` as const;
-  const url = absoluteUrl(localizedStorePath(locale, href));
-
-  return {
-    title,
-    description,
-    alternates: localizedAlternates(href, locale),
-    openGraph: {
-      title,
-      description,
-      url,
-      siteName: config.name,
-      type: 'article',
-      locale: ogLocale(locale),
-      publishedTime: post.publishedAt,
-      authors: [post.authorName],
-    },
-    twitter: { card: 'summary', title, description },
-  };
-}
-
 export function legalMetadata(page: { metaTitle: string; metaDescription: string; slug: string; title: string }, config: StorefrontCompanyConfig, locale: StorefrontLocale): Metadata {
   const href = `/store/legal/${page.slug}` as `/store${string}`;
   return basePageMetadata(config, locale, page.metaTitle, page.metaDescription, href);
@@ -403,26 +373,6 @@ export function faqJsonLd(items: StorefrontFaqItem[], locale: StorefrontLocale) 
       name: item.question,
       acceptedAnswer: { '@type': 'Answer', text: item.answer },
     })),
-  };
-}
-
-export function articleJsonLd(post: StorefrontBlogPost, config: StorefrontCompanyConfig, locale: StorefrontLocale) {
-  const href = `/store/blog/${post.slug}` as const;
-  return {
-    '@context': 'https://schema.org',
-    '@type': 'Article',
-    headline: post.title,
-    description: post.excerpt,
-    datePublished: post.publishedAt,
-    inLanguage: locale,
-    image: post.coverImageUrl ?? undefined,
-    author: { '@type': 'Person', name: post.authorName },
-    publisher: {
-      '@type': 'Organization',
-      name: config.name,
-      logo: config.logoUrl ? { '@type': 'ImageObject', url: config.logoUrl } : undefined,
-    },
-    url: absoluteUrl(localizedStorePath(locale, href)),
   };
 }
 

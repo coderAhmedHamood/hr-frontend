@@ -104,9 +104,8 @@ const nextConfig = {
       { source: '/notifications', destination: '/hr/notifications/admin', permanent: true },
       { source: '/hr/notifications', destination: '/hr/notifications/admin', permanent: true },
       // Ecommerce Website CMS — shallow feature routes → Website group pages
-      { source: '/cms/footer', destination: '/cms/navigation?tab=footer', permanent: false },
+      { source: '/cms/footer', destination: '/cms/navigation?tab=announcement', permanent: false },
       { source: '/cms/pages', destination: '/cms/content?tab=pages', permanent: false },
-      { source: '/cms/blog', destination: '/cms/content?tab=blog', permanent: false },
       { source: '/cms/faq', destination: '/cms/content?tab=faq', permanent: false },
       { source: '/cms/seo', destination: '/cms/settings', permanent: false },
     ];

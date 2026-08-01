@@ -35,14 +35,14 @@ export const ecommerceAdminRoutes = {
   operationsForKind: inventoryAdminRoutes.operationsForKind,
 } as const;
 
-export type EcommerceContentTab = 'pages' | 'blog' | 'faq';
-export type EcommerceNavigationTab = 'footer' | 'announcement';
+export type EcommerceContentTab = 'pages' | 'faq';
+export type EcommerceNavigationTab = 'announcement';
 
 export function ecommerceContentHref(tab: EcommerceContentTab = 'pages'): string {
   return `${ecommerceAdminRoutes.content}?tab=${tab}`;
 }
 
-export function ecommerceNavigationHref(tab: EcommerceNavigationTab = 'footer'): string {
+export function ecommerceNavigationHref(tab: EcommerceNavigationTab = 'announcement'): string {
   return `${ecommerceAdminRoutes.navigation}?tab=${tab}`;
 }
 
@@ -50,7 +50,6 @@ export function ecommerceNavigationHref(tab: EcommerceNavigationTab = 'footer'):
 export const ecommerceAdminLegacyRoutes = {
   footer: '/cms/footer',
   cmsPages: '/cms/pages',
-  blog: '/cms/blog',
   faq: '/cms/faq',
   seo: '/cms/seo',
 } as const;

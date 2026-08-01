@@ -8,7 +8,6 @@ import { ArrowRight, Pencil, Save } from 'lucide-react';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
 import {
   getCmsContentBundle,
-  listCmsBlogPosts,
   saveCmsAbout,
   saveCmsContact,
   saveCmsLegalPage,
@@ -42,21 +41,19 @@ import {
   ensureLegalPages,
   LEGAL_SLUGS,
 } from '@/features/ecommerce/admin/cms/pages/components/cms-legal-tab';
-import { BlogCmsPage } from '@/features/ecommerce/admin/cms/blog/components/blog-cms-page';
 import { FaqCmsPage } from '@/features/ecommerce/admin/cms/faq/components/faq-cms-page';
 
 const CMS_PAGES_QUERY_KEY = ['ecommerce-cms', 'content', 'pages'] as const;
-const BLOG_COUNT_QUERY_KEY = ['ecommerce-cms', 'content', 'blog', 'count'] as const;
 
-export type CmsPagesPanel = 'list' | 'blog' | 'faq';
+export type CmsPagesPanel = 'list' | 'faq';
 
-type PageRowKind = 'about' | 'contact' | 'legal' | 'blog' | 'faq';
+type PageRowKind = 'about' | 'contact' | 'legal' | 'faq';
 
 type PageRow = {
   id: string;
   kind: PageRowKind;
   slug?: LegalPageSlug;
-  titleKey: 'about' | 'contact' | 'blog' | 'faq' | LegalPageSlug;
+  titleKey: 'about' | 'contact' | 'faq' | LegalPageSlug;
 };
 
 type EditFormState =
@@ -74,14 +71,13 @@ function buildPageRows(): PageRow[] {
       slug,
       titleKey: slug,
     })),
-    { id: 'blog', kind: 'blog', titleKey: 'blog' },
     { id: 'faq', kind: 'faq', titleKey: 'faq' },
   ];
 }
 
 function typeBadgeKey(kind: PageRowKind): string {
   if (kind === 'legal') return 'typeLegal';
-  if (kind === 'blog' || kind === 'faq') return 'typeDynamic';
+  if (kind === 'faq') return 'typeDynamic';
   return 'typePage';
 }
 
@@ -113,12 +109,6 @@ export function CmsPagesPage({ embedded = false, initialPanel = 'list' }: Props)
         legal: ensureLegalPages(bundle.legal),
       } satisfies StorefrontContentBundle;
     },
-  });
-
-  const { data: blogPosts } = useQuery({
-    queryKey: [...BLOG_COUNT_QUERY_KEY, companyId],
-    queryFn: () => listCmsBlogPosts(companyId),
-    enabled: panel === 'list',
   });
 
   const [draft, setDraft] = React.useState<StorefrontContentBundle | null>(null);
@@ -186,10 +176,6 @@ export function CmsPagesPage({ embedded = false, initialPanel = 'list' }: Props)
     if (row.kind === 'contact') {
       return draft.contact.headline.ar.trim() || draft.contact.intro.ar.trim();
     }
-    if (row.kind === 'blog') {
-      const count = blogPosts?.length ?? 0;
-      return t('blogPreview', { count });
-    }
     if (row.kind === 'faq') {
       return t('faqPreview', { count: draft.faq.length });
     }
@@ -198,10 +184,6 @@ export function CmsPagesPage({ embedded = false, initialPanel = 'list' }: Props)
   }
 
   function openEdit(row: PageRow) {
-    if (row.kind === 'blog') {
-      setPanel('blog');
-      return;
-    }
     if (row.kind === 'faq') {
       setPanel('faq');
       return;
@@ -292,7 +274,7 @@ export function CmsPagesPage({ embedded = false, initialPanel = 'list' }: Props)
           ? t(form.slug)
           : '';
 
-  if (panel === 'blog' || panel === 'faq') {
+  if (panel === 'faq') {
     return (
       <div className="flex flex-col gap-4">
         <div className="flex items-center gap-2">
@@ -300,11 +282,9 @@ export function CmsPagesPage({ embedded = false, initialPanel = 'list' }: Props)
             <ArrowRight className="me-1.5 h-4 w-4" />
             {t('backToPages')}
           </Button>
-          <h2 className="text-sm font-semibold text-foreground">
-            {panel === 'blog' ? t('blog') : t('faq')}
-          </h2>
+          <h2 className="text-sm font-semibold text-foreground">{t('faq')}</h2>
         </div>
-        {panel === 'blog' ? <BlogCmsPage embedded /> : <FaqCmsPage embedded />}
+        <FaqCmsPage embedded />
       </div>
     );
   }
