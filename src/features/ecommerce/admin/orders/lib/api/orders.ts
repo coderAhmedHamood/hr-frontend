@@ -108,6 +108,11 @@ export const ordersApi = {
         }
         if (q.source && (item.source ?? 'seed') !== q.source) return false;
         if (q.city && (item.city ?? '') !== q.city) return false;
+        if (q.dateFrom || q.dateTo) {
+          const day = item.createdAt.slice(0, 10);
+          if (q.dateFrom && day < q.dateFrom) return false;
+          if (q.dateTo && day > q.dateTo) return false;
+        }
         if (q.fulfilment) {
           const fulfilment = orderFulfilmentState(item);
           if (fulfilment !== q.fulfilment) return false;

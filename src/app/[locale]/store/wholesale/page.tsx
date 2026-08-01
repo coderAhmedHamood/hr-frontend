@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { notFound } from 'next/navigation';
 import { getTranslations } from 'next-intl/server';
 import { CatalogTagPage } from '@/features/ecommerce/storefront/components/catalog-tag-page';
 import { getStorefrontCompanyConfig } from '@/features/ecommerce/storefront/lib/get-storefront-company-config';
@@ -29,10 +30,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function Page({ searchParams }: Props) {
   const { page } = await searchParams;
   const pageNumber = Math.max(1, Number(page) || 1);
-  const [t, productsResult] = await Promise.all([
+  const [t, config, productsResult] = await Promise.all([
     getTranslations('storefront'),
+    getStorefrontCompanyConfig(),
     getStorefrontProductsList({ page: pageNumber, limit: PAGE_SIZE, tag: TAG }),
   ]);
+
+  if (!config.storePages.wholesale) notFound();
 
   return (
     <CatalogTagPage

@@ -207,6 +207,34 @@ export type CompanyCheckoutConfigRecord = {
   paymentMethods: CompanyCheckoutPaymentMethod[];
 };
 
+/** Catalog storefront pages that can be shown/hidden in navigation. */
+export type CompanyStorePagesVisibility = {
+  offers: boolean;
+  wholesale: boolean;
+};
+
+export const DEFAULT_STORE_PAGES_VISIBILITY: CompanyStorePagesVisibility = {
+  offers: true,
+  wholesale: true,
+};
+
+export function normalizeStorePagesVisibility(
+  raw: Partial<CompanyStorePagesVisibility> | null | undefined,
+): CompanyStorePagesVisibility {
+  return {
+    offers: raw?.offers !== false,
+    wholesale: raw?.wholesale !== false,
+  };
+}
+
+export function isStoreCatalogHref(
+  href: string,
+  page: keyof CompanyStorePagesVisibility,
+): boolean {
+  if (page === 'offers') return href.includes('/store/offers');
+  return href.includes('/store/wholesale');
+}
+
 /** Raw CMS company config — bilingual fields resolved at repository boundary. */
 export type CompanyConfigRecord = {
   id: string;
@@ -222,6 +250,8 @@ export type CompanyConfigRecord = {
   footer: CompanyFooterConfigRecord;
   announcement: CompanyAnnouncementBarRecord;
   checkout: CompanyCheckoutConfigRecord;
+  /** Show/hide offers & wholesale storefront pages in nav. */
+  storePages: CompanyStorePagesVisibility;
   defaultLocale: string;
   currency: string;
   timezone: string;

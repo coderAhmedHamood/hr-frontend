@@ -481,6 +481,8 @@ export function OrdersListPage() {
     ? (sourceParam as 'storefront' | 'seed')
     : undefined;
   const cityFilter = searchParams.get('city') ?? 'all';
+  const dateFrom = searchParams.get('dateFrom') ?? '';
+  const dateTo = searchParams.get('dateTo') ?? '';
   const view: ViewMode = searchParams.get('view') === 'list' ? 'list' : 'kanban';
   const page = Math.max(1, Number(searchParams.get('page')) || 1);
   const pageSize =
@@ -498,6 +500,10 @@ export function OrdersListPage() {
   }, [companyId]);
 
   const [searchInput, setSearchInput] = React.useState(search);
+  const datePeriod = React.useMemo(
+    () => ({ from: dateFrom, to: dateTo }),
+    [dateFrom, dateTo],
+  );
 
   function updateParams(next: {
     q?: string;
@@ -507,6 +513,8 @@ export function OrdersListPage() {
     fulfilment?: string;
     source?: string;
     city?: string;
+    dateFrom?: string;
+    dateTo?: string;
     view?: ViewMode;
     page?: number;
     pageSize?: number;
@@ -542,6 +550,14 @@ export function OrdersListPage() {
     if (next.city !== undefined) {
       if (next.city && next.city !== 'all') params.set('city', next.city);
       else params.delete('city');
+    }
+    if (next.dateFrom !== undefined) {
+      if (next.dateFrom) params.set('dateFrom', next.dateFrom);
+      else params.delete('dateFrom');
+    }
+    if (next.dateTo !== undefined) {
+      if (next.dateTo) params.set('dateTo', next.dateTo);
+      else params.delete('dateTo');
     }
     if (next.view !== undefined) {
       if (next.view === 'list') params.set('view', 'list');
@@ -582,11 +598,13 @@ export function OrdersListPage() {
     companyId,
     search: search || undefined,
     status: view === 'kanban' ? undefined : status,
-    paymentStatus: view === 'kanban' ? undefined : paymentStatus,
-    paymentMethod: view === 'kanban' ? undefined : paymentMethod,
-    fulfilment: view === 'kanban' ? undefined : fulfilment,
-    source: view === 'kanban' ? undefined : source,
-    city: view === 'kanban' || cityFilter === 'all' ? undefined : cityFilter,
+    paymentStatus,
+    paymentMethod,
+    fulfilment,
+    source,
+    city: cityFilter === 'all' ? undefined : cityFilter,
+    dateFrom: dateFrom || undefined,
+    dateTo: dateTo || undefined,
     page: view === 'kanban' ? 1 : page,
     limit: pageSize,
   });
@@ -650,9 +668,16 @@ export function OrdersListPage() {
   useEntityFilterSlot(
     () => (
       <ListFilterBar
-        showDateSection={false}
+        showDateSection
+        optionalDateRange
         showStatusSection={false}
         showEmployeePicker={false}
+        periodValue={datePeriod}
+        onPeriodChange={(range) =>
+          updateParams({ dateFrom: range.from, dateTo: range.to, page: 1 })
+        }
+        periodFilterActive={Boolean(dateFrom || dateTo)}
+        onPeriodFilterClear={() => updateParams({ dateFrom: '', dateTo: '', page: 1 })}
         leadingFilters={
           <EntityFilterSearchField
             value={searchInput}
@@ -660,60 +685,56 @@ export function OrdersListPage() {
             placeholder="بحث برقم الطلب أو اسم العميل أو الهاتف…"
           />
         }
-        inlineSelects={
-          view === 'kanban'
-            ? []
-            : [
+        inlineSelects={[
+          ...(view === 'list'
+            ? [
                 {
                   id: 'status',
                   value: status ?? 'all',
-                  onChange: (value) => updateParams({ status: value, page: 1 }),
+                  onChange: (value: string) => updateParams({ status: value, page: 1 }),
                   placeholder: 'كل الحالات',
                   options: STATUS_FILTER_OPTIONS,
                 },
-                {
-                  id: 'paymentStatus',
-                  value: paymentStatus ?? 'all',
-                  onChange: (value) => updateParams({ paymentStatus: value, page: 1 }),
-                  placeholder: 'كل حالات الدفع',
-                  options: [...PAYMENT_STATUS_FILTER_OPTIONS],
-                },
-                {
-                  id: 'fulfilment',
-                  value: fulfilment ?? 'all',
-                  onChange: (value) => updateParams({ fulfilment: value, page: 1 }),
-                  placeholder: 'كل حالات التجهيز',
-                  options: FULFILMENT_FILTER_OPTIONS,
-                },
               ]
-        }
-        moreFilters={
-          view === 'kanban'
-            ? []
-            : [
-                {
-                  id: 'paymentMethod',
-                  value: paymentMethod ?? 'all',
-                  onChange: (value) => updateParams({ paymentMethod: value, page: 1 }),
-                  placeholder: 'كل طرق الدفع',
-                  options: [...PAYMENT_METHOD_FILTER_OPTIONS],
-                },
-                {
-                  id: 'source',
-                  value: source ?? 'all',
-                  onChange: (value) => updateParams({ source: value, page: 1 }),
-                  placeholder: 'كل المصادر',
-                  options: [...SOURCE_FILTER_OPTIONS],
-                },
-                {
-                  id: 'city',
-                  value: cityFilter,
-                  onChange: (value) => updateParams({ city: value, page: 1 }),
-                  placeholder: 'كل المدن',
-                  options: cityOptions,
-                },
-              ]
-        }
+            : []),
+          {
+            id: 'paymentMethod',
+            value: paymentMethod ?? 'all',
+            onChange: (value) => updateParams({ paymentMethod: value, page: 1 }),
+            placeholder: 'كل طرق الدفع',
+            options: [...PAYMENT_METHOD_FILTER_OPTIONS],
+          },
+          {
+            id: 'paymentStatus',
+            value: paymentStatus ?? 'all',
+            onChange: (value) => updateParams({ paymentStatus: value, page: 1 }),
+            placeholder: 'كل حالات الدفع',
+            options: [...PAYMENT_STATUS_FILTER_OPTIONS],
+          },
+          {
+            id: 'fulfilment',
+            value: fulfilment ?? 'all',
+            onChange: (value) => updateParams({ fulfilment: value, page: 1 }),
+            placeholder: 'كل حالات التجهيز',
+            options: FULFILMENT_FILTER_OPTIONS,
+          },
+        ]}
+        moreFilters={[
+          {
+            id: 'source',
+            value: source ?? 'all',
+            onChange: (value) => updateParams({ source: value, page: 1 }),
+            placeholder: 'كل المصادر',
+            options: [...SOURCE_FILTER_OPTIONS],
+          },
+          {
+            id: 'city',
+            value: cityFilter,
+            onChange: (value) => updateParams({ city: value, page: 1 }),
+            placeholder: 'كل المدن',
+            options: cityOptions,
+          },
+        ]}
       />
     ),
     [
@@ -726,6 +747,9 @@ export function OrdersListPage() {
       cityFilter,
       cityOptions,
       view,
+      dateFrom,
+      dateTo,
+      datePeriod,
     ],
   );
 

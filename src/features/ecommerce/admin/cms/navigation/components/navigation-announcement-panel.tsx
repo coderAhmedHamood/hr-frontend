@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { ArrowDown, ArrowUp, Megaphone, Pencil, Plus, Trash2 } from 'lucide-react';
 import type {
@@ -8,11 +9,8 @@ import type {
   CompanyAnnouncementItemRecord,
   CompanyConfigRecord,
 } from '@/features/ecommerce/storefront/domain/company-config';
-import {
-  clampAnnouncementSpeedMs,
-  DEFAULT_ANNOUNCEMENT_SPEED_MS,
-  normalizeAnnouncementBar,
-} from '@/features/ecommerce/storefront/domain/company-config';
+import { normalizeAnnouncementBar } from '@/features/ecommerce/storefront/domain/company-config';
+import { ecommerceAdminRoutes } from '@/features/ecommerce/admin/constants/routes';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -276,48 +274,12 @@ export function NavigationAnnouncementPanel({ draft, onChange }: Props) {
           />
         )}
 
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <div className="space-y-1.5 rounded-xl border border-border/60 bg-muted/20 px-3 py-2.5">
-            <Label htmlFor="announcement-speed-ms">{t('speedMs')}</Label>
-            <Input
-              id="announcement-speed-ms"
-              dir="ltr"
-              type="number"
-              min={3000}
-              max={120000}
-              step={500}
-              className="font-mono text-sm"
-              value={announcement.speedMs}
-              placeholder={t('speedMsPlaceholder')}
-              onChange={(event) => {
-                const raw = event.target.value;
-                if (raw === '') {
-                  updateBar({ speedMs: DEFAULT_ANNOUNCEMENT_SPEED_MS });
-                  return;
-                }
-                const parsed = Number(raw);
-                if (!Number.isFinite(parsed)) return;
-                updateBar({ speedMs: Math.round(parsed) });
-              }}
-              onBlur={() => {
-                updateBar({
-                  speedMs: clampAnnouncementSpeedMs(announcement.speedMs),
-                });
-              }}
-            />
-            <p className="text-[11px] text-muted-foreground">{t('speedMsHint')}</p>
-          </div>
-          <div className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-muted/20 px-3 py-2.5">
-            <div>
-              <p className="text-sm font-medium text-foreground">{t('dismissible')}</p>
-              <p className="text-xs text-muted-foreground">{t('dismissibleHint')}</p>
-            </div>
-            <Switch
-              checked={announcement.dismissible}
-              onCheckedChange={(dismissible) => updateBar({ dismissible })}
-            />
-          </div>
-        </div>
+        <p className="mt-4 rounded-xl border border-border/60 bg-muted/20 px-3 py-2.5 text-xs text-muted-foreground">
+          {t('speedInSettings')}{' '}
+          <Link href={ecommerceAdminRoutes.settings} className="font-medium text-primary hover:underline">
+            {t('openSettings')}
+          </Link>
+        </p>
       </section>
 
       {announcement.enabled && previewMessages.length > 0 ? (

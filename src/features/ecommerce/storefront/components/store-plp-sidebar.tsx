@@ -10,22 +10,30 @@ import { cn } from '@/shared/utils';
 export async function StorePlpSidebar({
   categories,
   secondaryNavigation,
+  storePages,
   activeCategorySlug,
   activeTag,
 }: {
   categories: StorefrontCategory[];
   secondaryNavigation?: StorefrontCompanyConfig['secondaryNavigation'];
+  storePages?: StorefrontCompanyConfig['storePages'];
   activeCategorySlug?: string;
   activeTag?: string;
 }) {
   const t = await getTranslations('storefront');
   const { roots, childrenByParent } = buildCategoryTree(categories);
+  const showOffers = storePages?.offers !== false;
+  const showWholesale = storePages?.wholesale !== false;
   const shortcuts =
     secondaryNavigation && secondaryNavigation.length > 0
       ? secondaryNavigation
       : [
-          { label: t('offers.title'), href: '/store/offers' as const },
-          { label: t('wholesale.title'), href: '/store/wholesale' as const },
+          ...(showOffers
+            ? [{ label: t('offers.title'), href: '/store/offers' as const }]
+            : []),
+          ...(showWholesale
+            ? [{ label: t('wholesale.title'), href: '/store/wholesale' as const }]
+            : []),
         ];
 
   return (

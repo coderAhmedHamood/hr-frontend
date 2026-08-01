@@ -58,6 +58,7 @@ export default async function Page({ searchParams }: { searchParams: SearchParam
       sort={sort}
       categories={categories}
       secondaryNavigation={config.secondaryNavigation}
+      storePages={config.storePages}
       productsResult={productsResult}
     />
   );

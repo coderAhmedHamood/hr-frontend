@@ -251,8 +251,12 @@ export function StoreHeaderInteractive({ config, categories, brands, logo }: Sto
               {(config.secondaryNavigation.length > 0
                 ? config.secondaryNavigation
                 : [
-                    { label: t('nav.offersZone'), href: '/store/offers' as const },
-                    { label: t('nav.wholesale'), href: '/store/wholesale' as const },
+                    ...(config.storePages.offers
+                      ? [{ label: t('nav.offersZone'), href: '/store/offers' as const }]
+                      : []),
+                    ...(config.storePages.wholesale
+                      ? [{ label: t('nav.wholesale'), href: '/store/wholesale' as const }]
+                      : []),
                   ]
               ).map((item) => (
                 <Link

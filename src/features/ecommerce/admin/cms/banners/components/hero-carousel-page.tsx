@@ -45,6 +45,13 @@ import {
 } from '@/components/ui/dialog';
 
 const DEFAULT_INTERVAL_MS = 5000;
+const MIN_INTERVAL_MS = 1000;
+const MAX_INTERVAL_MS = 30_000;
+
+function clampIntervalMs(value: number | null | undefined): number {
+  if (!Number.isFinite(value)) return DEFAULT_INTERVAL_MS;
+  return Math.min(MAX_INTERVAL_MS, Math.max(MIN_INTERVAL_MS, Math.round(value!)));
+}
 
 function isSlideEnabled(slide: HeroCarouselSlideRecord): boolean {
   return slide.enabled !== false;
@@ -241,7 +248,7 @@ export function HeroCarouselPage() {
       },
       settings: {
         autoplay: true,
-        intervalMs: heroDraft.settings.intervalMs || DEFAULT_INTERVAL_MS,
+        intervalMs: clampIntervalMs(heroDraft.settings.intervalMs),
       },
       updatedAt: now,
       revision: heroDraft.revision + 1,
@@ -410,6 +417,50 @@ export function HeroCarouselPage() {
             <Button type="button" variant="outline" onClick={() => void refetch()}>
               {tCommon('actions.retry')}
             </Button>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {heroDraft ? (
+        <Card>
+          <CardContent className="grid gap-2 py-4 sm:max-w-md">
+            <Label htmlFor="hero-interval-ms">{t('intervalMs')}</Label>
+            <Input
+              id="hero-interval-ms"
+              dir="ltr"
+              type="number"
+              min={MIN_INTERVAL_MS}
+              max={MAX_INTERVAL_MS}
+              step={500}
+              className="font-mono text-sm"
+              value={heroDraft.settings.intervalMs || DEFAULT_INTERVAL_MS}
+              placeholder={t('intervalMsPlaceholder')}
+              onChange={(event) => {
+                const raw = event.target.value;
+                const parsed = raw === '' ? DEFAULT_INTERVAL_MS : Number(raw);
+                if (!Number.isFinite(parsed)) return;
+                setHeroDraft({
+                  ...heroDraft,
+                  settings: {
+                    ...heroDraft.settings,
+                    autoplay: true,
+                    intervalMs: Math.round(parsed),
+                  },
+                });
+                setDirty(true);
+              }}
+              onBlur={() => {
+                setHeroDraft({
+                  ...heroDraft,
+                  settings: {
+                    ...heroDraft.settings,
+                    autoplay: true,
+                    intervalMs: clampIntervalMs(heroDraft.settings.intervalMs),
+                  },
+                });
+              }}
+            />
+            <p className="text-[11px] text-muted-foreground">{t('intervalMsHint')}</p>
           </CardContent>
         </Card>
       ) : null}

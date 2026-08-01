@@ -7,7 +7,7 @@ import { Eye, EyeOff } from 'lucide-react';
 import { useStorefrontCustomerUi } from '@/features/ecommerce/storefront/hooks/use-storefront-customer-ui';
 import {
   isPartnerAuthHttpEnabled,
-  loginPartner,
+  registerPartner,
 } from '@/features/ecommerce/storefront/lib/api/partner-auth-api';
 import { PartnerAuthApiError } from '@/features/ecommerce/storefront/domain/partner-auth';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
@@ -17,13 +17,15 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Link, useRouter } from '@/i18n/navigation';
 
-export function StoreLoginClient() {
+export function StoreRegisterClient() {
   const t = useTranslations('storefront');
   const router = useRouter();
   const customer = useStorefrontCustomerUi((s) => s.customer);
   const setSession = useStorefrontCustomerUi((s) => s.setSession);
 
-  const [identifier, setIdentifier] = React.useState('');
+  const [name, setName] = React.useState('');
+  const [email, setEmail] = React.useState('');
+  const [mobile, setMobile] = React.useState('');
   const [password, setPassword] = React.useState('');
   const [showPassword, setShowPassword] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
@@ -36,26 +38,38 @@ export function StoreLoginClient() {
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
-    if (!identifier.trim() || !password) {
-      toast.error(t('login.errors.required'));
+
+    if (name.trim().length < 2) {
+      toast.error(t('register.errors.nameMin'));
+      return;
+    }
+    if (!email.trim() || !mobile.trim()) {
+      toast.error(t('register.errors.emailMobileRequired'));
+      return;
+    }
+    if (password.length < 6) {
+      toast.error(t('register.errors.passwordMin'));
       return;
     }
 
     setSubmitting(true);
     try {
-      const session = await loginPartner({
-        identifier: identifier.trim(),
-        password,
+      const session = await registerPartner({
         companyId: getStorefrontCompanyId(),
+        name: name.trim(),
+        email: email.trim(),
+        mobile: mobile.trim(),
+        password,
+        accountKind: 'customer',
       });
       setSession(session);
-      toast.success(session.message || t('login.success'));
+      toast.success(session.message || t('register.success'));
       router.push('/store/account');
     } catch (error) {
       const message =
         error instanceof PartnerAuthApiError
           ? error.message
-          : t('login.errors.generic');
+          : t('register.errors.generic');
       toast.error(message);
     } finally {
       setSubmitting(false);
@@ -64,56 +78,68 @@ export function StoreLoginClient() {
 
   return (
     <StoreAuthShell
-      eyebrow={t('login.eyebrow')}
-      title={t('login.formTitle')}
-      description={t('login.formDescription')}
+      eyebrow={t('register.eyebrow')}
+      title={t('register.formTitle')}
+      description={t('register.formDescription')}
       footer={
-        <div className="flex flex-col gap-2">
-          <p className="text-muted-foreground">
-            {t('login.noAccount')}{' '}
-            <Link href="/store/register" prefetch={false} className="font-medium text-primary hover:underline">
-              {t('login.createAccount')}
-            </Link>
-          </p>
-          <Link href="/store" prefetch={false} className="text-muted-foreground hover:text-foreground hover:underline">
-            {t('login.continueGuest')}
+        <p className="text-muted-foreground">
+          {t('register.hasAccount')}{' '}
+          <Link href="/store/login" prefetch={false} className="font-medium text-primary hover:underline">
+            {t('register.signIn')}
           </Link>
-        </div>
+        </p>
       }
     >
       <form className="space-y-4" onSubmit={(e) => void onSubmit(e)}>
         <div className="space-y-1.5">
-          <Label htmlFor="store-login-identifier">{t('login.identifier')}</Label>
+          <Label htmlFor="store-register-name">{t('register.name')}</Label>
           <Input
-            id="store-login-identifier"
+            id="store-register-name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            autoComplete="name"
+            required
+            minLength={2}
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="store-register-email">{t('register.email')}</Label>
+          <Input
+            id="store-register-email"
+            type="email"
             dir="ltr"
-            value={identifier}
-            onChange={(e) => setIdentifier(e.target.value)}
-            autoComplete="username"
-            placeholder={t('login.identifierPlaceholder')}
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            autoComplete="email"
+            placeholder="you@example.com"
             required
           />
         </div>
 
         <div className="space-y-1.5">
-          <div className="flex items-center justify-between gap-2">
-            <Label htmlFor="store-login-password">{t('login.password')}</Label>
-            <Link
-              href="/store/forgot-password"
-              prefetch={false}
-              className="text-xs text-muted-foreground hover:text-primary hover:underline"
-            >
-              {t('login.forgotPassword')}
-            </Link>
-          </div>
+          <Label htmlFor="store-register-mobile">{t('register.mobile')}</Label>
+          <Input
+            id="store-register-mobile"
+            dir="ltr"
+            value={mobile}
+            onChange={(e) => setMobile(e.target.value)}
+            autoComplete="tel"
+            placeholder="0501234567"
+            required
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="store-register-password">{t('register.password')}</Label>
           <div className="relative">
             <Input
-              id="store-login-password"
+              id="store-register-password"
               type={showPassword ? 'text' : 'password'}
               dir="ltr"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              autoComplete="current-password"
+              autoComplete="new-password"
               className="pe-10"
               required
               minLength={6}
@@ -127,15 +153,16 @@ export function StoreLoginClient() {
               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
           </div>
+          <p className="text-[11px] text-muted-foreground">{t('register.passwordHint')}</p>
         </div>
 
         <Button type="submit" className="h-11 w-full" disabled={submitting}>
-          {submitting ? t('login.submitting') : t('login.submit')}
+          {submitting ? t('register.submitting') : t('register.submit')}
         </Button>
       </form>
 
       {!isPartnerAuthHttpEnabled() ? (
-        <p className="mt-4 text-center text-xs text-muted-foreground">{t('login.mockHint')}</p>
+        <p className="mt-4 text-center text-xs text-muted-foreground">{t('register.mockHint')}</p>
       ) : null}
     </StoreAuthShell>
   );

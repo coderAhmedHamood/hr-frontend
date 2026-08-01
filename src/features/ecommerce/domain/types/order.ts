@@ -60,6 +60,9 @@ export type OrderListQuery = {
   fulfilment?: OrderFulfilmentFilter;
   source?: 'seed' | 'storefront';
   city?: string;
+  /** Inclusive YYYY-MM-DD on `createdAt` (local calendar day of the ISO timestamp). */
+  dateFrom?: string;
+  dateTo?: string;
   page?: number;
   limit?: number;
 };

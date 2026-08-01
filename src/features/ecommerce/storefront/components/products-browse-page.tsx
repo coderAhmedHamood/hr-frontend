@@ -23,6 +23,7 @@ export async function ProductsBrowsePage({
   sort,
   categories,
   secondaryNavigation,
+  storePages,
   productsResult,
 }: {
   page: number;
@@ -31,6 +32,7 @@ export async function ProductsBrowsePage({
   sort?: string;
   categories: StorefrontCategory[];
   secondaryNavigation?: StorefrontCompanyConfig['secondaryNavigation'];
+  storePages?: StorefrontCompanyConfig['storePages'];
   productsResult: StorefrontPaginated<StorefrontProduct>;
 }) {
   const t = await getTranslations('storefront');
@@ -56,6 +58,7 @@ export async function ProductsBrowsePage({
         <StorePlpSidebar
           categories={categories}
           secondaryNavigation={secondaryNavigation}
+          storePages={storePages}
           activeCategorySlug={categorySlug}
           activeTag={tag}
         />

@@ -4,15 +4,29 @@ import * as React from 'react';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Palette, Phone, Share2, Search, Truck } from 'lucide-react';
+import { GalleryHorizontal, Palette, Phone, Share2, Search, Truck } from 'lucide-react';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
-import { getCmsCompanyRecord, saveCmsCompanyRecord } from '@/features/ecommerce/admin/cms/shared/cms-actions';
+import {
+  getCmsCompanyRecord,
+  saveCmsCompanyRecord,
+  saveCmsPageRecord,
+} from '@/features/ecommerce/admin/cms/shared/cms-actions';
 import {
   COMPANY_SOCIAL_NETWORKS,
+  clampAnnouncementSpeedMs,
+  DEFAULT_ANNOUNCEMENT_SPEED_MS,
+  MAX_ANNOUNCEMENT_SPEED_MS,
+  MIN_ANNOUNCEMENT_SPEED_MS,
+  normalizeAnnouncementBar,
   normalizeSocialLinks,
   type CompanyConfigRecord,
   type CompanySocialNetwork,
 } from '@/features/ecommerce/storefront/domain/company-config';
+import { useHomepagePageRecord } from '@/features/ecommerce/admin/cms/homepage/hooks/use-homepage-page';
+import { homepageCmsQueryKeys } from '@/features/ecommerce/admin/cms/homepage/hooks/query-keys';
+import { createSectionFromDefinition } from '@/features/ecommerce/admin/cms/homepage/lib/create-section';
+import type { PageRecord } from '@/features/ecommerce/storefront/page-builder/domain/page-records';
+import type { HeroCarouselSectionRecord } from '@/features/ecommerce/storefront/page-builder/domain/section-types';
 import { ImagePicker } from '@/features/ecommerce/admin/cms/homepage/components/section-entity-pickers';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { Button } from '@/components/ui/button';
@@ -26,11 +40,51 @@ import { Badge } from '@/components/ui/badge';
 
 const SETTINGS_QUERY_KEY = ['ecommerce-cms', 'company', 'settings'] as const;
 
+const DEFAULT_HERO_INTERVAL_MS = 5000;
+const MIN_HERO_INTERVAL_MS = 1000;
+const MAX_HERO_INTERVAL_MS = 30_000;
+
+function clampHeroIntervalMs(value: number | null | undefined): number {
+  if (!Number.isFinite(value)) return DEFAULT_HERO_INTERVAL_MS;
+  return Math.min(MAX_HERO_INTERVAL_MS, Math.max(MIN_HERO_INTERVAL_MS, Math.round(value!)));
+}
+
 function parseKeywords(raw: string): string[] {
   return raw
     .split(/[,،\n]/)
     .map((keyword) => keyword.trim())
     .filter(Boolean);
+}
+
+function findHero(page: PageRecord | null | undefined): HeroCarouselSectionRecord | null {
+  if (!page) return null;
+  return (
+    page.sections.find(
+      (section): section is HeroCarouselSectionRecord => section.type === 'hero-carousel',
+    ) ?? null
+  );
+}
+
+function withHeroInterval(page: PageRecord, intervalMs: number): PageRecord {
+  const now = new Date().toISOString();
+  const existing = findHero(page);
+  const hero =
+    existing ??
+    (createSectionFromDefinition('hero-carousel', page.sections) as HeroCarouselSectionRecord);
+  const nextHero: HeroCarouselSectionRecord = {
+    ...hero,
+    settings: {
+      ...hero.settings,
+      autoplay: true,
+      intervalMs: clampHeroIntervalMs(intervalMs),
+    },
+    updatedAt: now,
+    revision: hero.revision + 1,
+  };
+  const sections = page.sections.some((section) => section.id === nextHero.id)
+    ? page.sections.map((section) => (section.id === nextHero.id ? nextHero : section))
+    : [nextHero, ...page.sections];
+  return { ...page, updatedAt: now, sections };
 }
 
 export function WebsiteSettingsPage() {
@@ -48,6 +102,11 @@ export function WebsiteSettingsPage() {
       return {
         ...record,
         social: normalizeSocialLinks(record.social),
+        announcement: normalizeAnnouncementBar(record.announcement),
+        storePages: {
+          offers: record.storePages?.offers !== false,
+          wholesale: record.storePages?.wholesale !== false,
+        },
         seo: {
           ...record.seo,
           keywords: record.seo.keywords ?? [],
@@ -56,32 +115,65 @@ export function WebsiteSettingsPage() {
     },
   });
 
+  const {
+    data: homepage,
+    isLoading: homepageLoading,
+    isError: homepageError,
+  } = useHomepagePageRecord(companyId);
+
   const [draft, setDraft] = React.useState<CompanyConfigRecord | null>(null);
+  const [heroIntervalMs, setHeroIntervalMs] = React.useState(DEFAULT_HERO_INTERVAL_MS);
+
   React.useEffect(() => {
     if (data) setDraft(structuredClone(data));
   }, [data]);
 
+  React.useEffect(() => {
+    const hero = findHero(homepage);
+    if (hero) setHeroIntervalMs(clampHeroIntervalMs(hero.settings.intervalMs));
+  }, [homepage]);
+
   const save = useMutation({
-    mutationFn: (record: CompanyConfigRecord) =>
-      saveCmsCompanyRecord({
-        ...record,
-        social: normalizeSocialLinks(record.social),
-        seo: {
-          ...record.seo,
-          keywords: (record.seo.keywords ?? []).map((keyword) => keyword.trim()).filter(Boolean),
+    mutationFn: async (input: { company: CompanyConfigRecord; intervalMs: number }) => {
+      const company = await saveCmsCompanyRecord({
+        ...input.company,
+        social: normalizeSocialLinks(input.company.social),
+        announcement: {
+          ...normalizeAnnouncementBar(input.company.announcement),
+          speedMs: clampAnnouncementSpeedMs(input.company.announcement.speedMs),
         },
-      }),
-    onSuccess: (saved) => {
+        seo: {
+          ...input.company.seo,
+          keywords: (input.company.seo.keywords ?? []).map((keyword) => keyword.trim()).filter(Boolean),
+        },
+      });
+
+      let savedPage: PageRecord | null = null;
+      if (homepage) {
+        savedPage = await saveCmsPageRecord(withHeroInterval(homepage, input.intervalMs));
+      }
+
+      return { company, page: savedPage };
+    },
+    onSuccess: ({ company, page }) => {
       queryClient.setQueryData([...SETTINGS_QUERY_KEY, companyId], {
-        ...saved,
-        social: normalizeSocialLinks(saved.social),
-        seo: { ...saved.seo, keywords: saved.seo.keywords ?? [] },
+        ...company,
+        social: normalizeSocialLinks(company.social),
+        announcement: normalizeAnnouncementBar(company.announcement),
+        seo: { ...company.seo, keywords: company.seo.keywords ?? [] },
       });
       void queryClient.invalidateQueries({ queryKey: ['ecommerce-cms', 'company'] });
+      if (page) {
+        queryClient.setQueryData(homepageCmsQueryKeys.record(companyId), page);
+        void queryClient.invalidateQueries({ queryKey: homepageCmsQueryKeys.all });
+        const hero = findHero(page);
+        if (hero) setHeroIntervalMs(clampHeroIntervalMs(hero.settings.intervalMs));
+      }
       setDraft({
-        ...saved,
-        social: normalizeSocialLinks(saved.social),
-        seo: { ...saved.seo, keywords: saved.seo.keywords ?? [] },
+        ...company,
+        social: normalizeSocialLinks(company.social),
+        announcement: normalizeAnnouncementBar(company.announcement),
+        seo: { ...company.seo, keywords: company.seo.keywords ?? [] },
       });
       toast.success(t('saveSuccess'));
     },
@@ -118,9 +210,24 @@ export function WebsiteSettingsPage() {
     });
   }
 
+  function patchAnnouncement(
+    patch: Partial<CompanyConfigRecord['announcement']>,
+  ) {
+    if (!draft) return;
+    setDraft({
+      ...draft,
+      announcement: {
+        ...normalizeAnnouncementBar(draft.announcement),
+        ...patch,
+      },
+    });
+  }
+
   const keywordsText = (draft?.seo.keywords ?? []).join('، ');
   const previewTitle = draft?.seo.homeTitle.ar.trim() || tSeo('previewTitleEmpty');
   const previewDescription = draft?.seo.homeDescription.ar.trim() || tSeo('previewDescriptionEmpty');
+  const announcement = draft ? normalizeAnnouncementBar(draft.announcement) : null;
+  const hasHero = Boolean(findHero(homepage));
 
   return (
     <div className="flex flex-col gap-5">
@@ -130,7 +237,13 @@ export function WebsiteSettingsPage() {
         <Button
           type="button"
           disabled={!draft || save.isPending}
-          onClick={() => draft && void save.mutateAsync(draft)}
+          onClick={() =>
+            draft &&
+            void save.mutateAsync({
+              company: draft,
+              intervalMs: heroIntervalMs,
+            })
+          }
         >
           {save.isPending ? tCommon('status.saving') : tCommon('actions.save')}
         </Button>
@@ -157,12 +270,16 @@ export function WebsiteSettingsPage() {
         </Card>
       ) : null}
 
-      {draft ? (
+      {draft && announcement ? (
         <Tabs defaultValue="branding" className="w-full">
           <TabsList className="flex h-auto flex-wrap">
             <TabsTrigger value="branding" className="gap-1.5">
               <Palette className="h-4 w-4" />
               {t('tabs.branding')}
+            </TabsTrigger>
+            <TabsTrigger value="bars" className="gap-1.5">
+              <GalleryHorizontal className="h-4 w-4" />
+              {t('tabs.bars')}
             </TabsTrigger>
             <TabsTrigger value="contact" className="gap-1.5">
               <Phone className="h-4 w-4" />
@@ -198,7 +315,7 @@ export function WebsiteSettingsPage() {
                     }}
                   />
                 </div>
-                <div className="space-y-1.5">
+                <div className="space-y-1.5 sm:col-span-2">
                   <Label>{t('logo')}</Label>
                   <ImagePicker
                     value={draft.logoUrl}
@@ -206,16 +323,135 @@ export function WebsiteSettingsPage() {
                   />
                   <p className="text-xs text-muted-foreground">{t('logoHint')}</p>
                 </div>
-                <div className="space-y-1.5">
-                  <Label>{t('favicon')}</Label>
-                  <ImagePicker
-                    value={draft.faviconUrl}
-                    onChange={(faviconUrl) => setDraft({ ...draft, faviconUrl })}
-                  />
-                  <p className="text-xs text-muted-foreground">{t('faviconHint')}</p>
-                </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="bars" className="mt-4">
+            <div className="grid gap-4">
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">{t('bars.announcementTitle')}</CardTitle>
+                  <CardDescription>{t('bars.announcementDescription')}</CardDescription>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="divide-y divide-border/70 border-t border-border/70">
+                    <div className="flex items-center justify-between gap-4 px-4 py-3.5 sm:px-6">
+                      <p className="text-sm font-medium text-foreground">
+                        {t('bars.announcementEnabled')}
+                      </p>
+                      <Switch
+                        checked={announcement.enabled}
+                        onCheckedChange={(enabled) => patchAnnouncement({ enabled })}
+                      />
+                    </div>
+                    <div className="flex flex-col gap-2 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:px-6">
+                      <div className="min-w-0 space-y-0.5">
+                        <Label htmlFor="settings-announcement-speed" className="text-sm font-medium">
+                          {t('bars.speedMs')}
+                        </Label>
+                        <p className="text-[11px] text-muted-foreground">{t('bars.speedMsHint')}</p>
+                      </div>
+                      <Input
+                        id="settings-announcement-speed"
+                        dir="ltr"
+                        type="number"
+                        min={MIN_ANNOUNCEMENT_SPEED_MS}
+                        max={MAX_ANNOUNCEMENT_SPEED_MS}
+                        step={500}
+                        className="w-full font-mono text-sm sm:w-40"
+                        value={announcement.speedMs}
+                        placeholder={t('bars.speedMsPlaceholder')}
+                        onChange={(event) => {
+                          const raw = event.target.value;
+                          if (raw === '') {
+                            patchAnnouncement({ speedMs: DEFAULT_ANNOUNCEMENT_SPEED_MS });
+                            return;
+                          }
+                          const parsed = Number(raw);
+                          if (!Number.isFinite(parsed)) return;
+                          patchAnnouncement({ speedMs: Math.round(parsed) });
+                        }}
+                        onBlur={() =>
+                          patchAnnouncement({
+                            speedMs: clampAnnouncementSpeedMs(announcement.speedMs),
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="flex items-center justify-between gap-4 px-4 py-3.5 sm:px-6">
+                      <div className="min-w-0 space-y-0.5">
+                        <p className="text-sm font-medium text-foreground">{t('bars.dismissible')}</p>
+                        <p className="text-xs text-muted-foreground">{t('bars.dismissibleHint')}</p>
+                      </div>
+                      <Switch
+                        checked={announcement.dismissible}
+                        onCheckedChange={(dismissible) => patchAnnouncement({ dismissible })}
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">{t('bars.heroTitle')}</CardTitle>
+                  <CardDescription>{t('bars.heroDescription')}</CardDescription>
+                </CardHeader>
+                <CardContent className="p-0">
+                  {homepageLoading ? (
+                    <div className="border-t border-border/70 px-4 py-3.5 sm:px-6">
+                      <div className="h-12 animate-pulse rounded-lg bg-muted/50" />
+                    </div>
+                  ) : homepageError || !homepage ? (
+                    <p className="border-t border-border/70 px-4 py-3.5 text-sm text-muted-foreground sm:px-6">
+                      {t('bars.heroMissing')}
+                    </p>
+                  ) : (
+                    <div className="divide-y divide-border/70 border-t border-border/70">
+                      <div className="flex flex-col gap-2 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:px-6">
+                        <div className="min-w-0 space-y-0.5">
+                          <Label htmlFor="settings-hero-interval" className="text-sm font-medium">
+                            {t('bars.heroIntervalMs')}
+                          </Label>
+                          <p className="text-[11px] text-muted-foreground">
+                            {t('bars.heroIntervalMsHint')}
+                          </p>
+                          {!hasHero ? (
+                            <p className="text-xs text-amber-700 dark:text-amber-400">
+                              {t('bars.heroMissing')}
+                            </p>
+                          ) : null}
+                        </div>
+                        <Input
+                          id="settings-hero-interval"
+                          dir="ltr"
+                          type="number"
+                          min={MIN_HERO_INTERVAL_MS}
+                          max={MAX_HERO_INTERVAL_MS}
+                          step={500}
+                          className="w-full font-mono text-sm sm:w-40"
+                          value={heroIntervalMs}
+                          placeholder={t('bars.heroIntervalMsPlaceholder')}
+                          disabled={!hasHero && !homepage}
+                          onChange={(event) => {
+                            const raw = event.target.value;
+                            if (raw === '') {
+                              setHeroIntervalMs(DEFAULT_HERO_INTERVAL_MS);
+                              return;
+                            }
+                            const parsed = Number(raw);
+                            if (!Number.isFinite(parsed)) return;
+                            setHeroIntervalMs(Math.round(parsed));
+                          }}
+                          onBlur={() => setHeroIntervalMs((value) => clampHeroIntervalMs(value))}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
 
           <TabsContent value="contact" className="mt-4">

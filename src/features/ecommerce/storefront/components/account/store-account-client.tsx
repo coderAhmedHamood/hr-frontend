@@ -13,10 +13,12 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useStorefrontCustomerUi } from '@/features/ecommerce/storefront/hooks/use-storefront-customer-ui';
+import { logoutPartner } from '@/features/ecommerce/storefront/lib/api/partner-auth-api';
 import { listRememberedStorefrontOrderNumbers } from '@/features/ecommerce/storefront/lib/order-history';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
   DialogContent,
@@ -26,7 +28,6 @@ import {
 } from '@/components/ui/dialog';
 import { Link, usePathname, useRouter } from '@/i18n/navigation';
 import type { StorefrontLocale } from '@/i18n/routing';
-
 function initialsFromName(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return '?';
@@ -40,14 +41,16 @@ export function StoreAccountClient() {
   const router = useRouter();
   const pathname = usePathname();
   const customer = useStorefrontCustomerUi((s) => s.customer);
-  const login = useStorefrontCustomerUi((s) => s.login);
-  const logout = useStorefrontCustomerUi((s) => s.logout);
+  const accessToken = useStorefrontCustomerUi((s) => s.accessToken);
+  const updateProfile = useStorefrontCustomerUi((s) => s.updateProfile);
+  const clearSession = useStorefrontCustomerUi((s) => s.clearSession);
   const [hydrated, setHydrated] = React.useState(false);
   const [orderCount, setOrderCount] = React.useState(0);
   const [editOpen, setEditOpen] = React.useState(false);
   const [editName, setEditName] = React.useState('');
   const [editPhone, setEditPhone] = React.useState('');
   const [editEmail, setEditEmail] = React.useState('');
+  const [loggingOut, setLoggingOut] = React.useState(false);
   const [localePending, startLocaleTransition] = React.useTransition();
 
   React.useEffect(() => {
@@ -75,13 +78,29 @@ export function StoreAccountClient() {
 
   function saveProfile(event: React.FormEvent) {
     event.preventDefault();
-    if (!editName.trim() || !editPhone.trim()) {
-      toast.error(t('login.errors.required'));
+    if (!editName.trim() || !editPhone.trim() || !editEmail.trim()) {
+      toast.error(t('register.errors.emailMobileRequired'));
       return;
     }
-    login({ name: editName, phone: editPhone, email: editEmail });
+    updateProfile({ name: editName, phone: editPhone, email: editEmail });
     setEditOpen(false);
     toast.success(t('account.profileSaved'));
+  }
+
+  async function handleLogout() {
+    setLoggingOut(true);
+    try {
+      if (accessToken) {
+        await logoutPartner(accessToken);
+      }
+    } catch {
+      /* still clear local session */
+    } finally {
+      clearSession();
+      toast.success(t('account.logout'));
+      router.push('/store/login');
+      setLoggingOut(false);
+    }
   }
 
   function switchLocale() {
@@ -90,6 +109,13 @@ export function StoreAccountClient() {
       router.replace(pathname, { locale: next });
     });
   }
+
+  const kindLabel =
+    customer.accountKind === 'vendor'
+      ? t('account.accountKindVendor')
+      : customer.accountKind === 'visitor'
+        ? t('account.accountKindVisitor')
+        : t('account.accountKindCustomer');
 
   const quickLinks = [
     {
@@ -109,18 +135,23 @@ export function StoreAccountClient() {
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 pb-4">
-      {/* Profile header */}
       <section className="rounded-2xl border border-border bg-card p-4 shadow-soft sm:p-5">
         <div className="flex items-center gap-3">
           <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-primary text-lg font-bold text-primary-foreground">
             {initialsFromName(customer.name)}
           </div>
           <div className="min-w-0 flex-1">
-            <h1 className="truncate font-arabic-display text-lg font-bold text-foreground sm:text-xl">
-              {t('account.hello', { name: customer.name })}
-            </h1>
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="truncate font-arabic-display text-lg font-bold text-foreground sm:text-xl">
+                {t('account.hello', { name: customer.name })}
+              </h1>
+              <Badge variant="subtle">{kindLabel}</Badge>
+            </div>
             <p className="mt-0.5 truncate text-sm text-muted-foreground" dir="ltr">
-              {customer.email || customer.phone}
+              {customer.email}
+            </p>
+            <p className="truncate text-sm text-muted-foreground" dir="ltr">
+              {customer.phone}
             </p>
           </div>
           <Button
@@ -134,9 +165,27 @@ export function StoreAccountClient() {
             {t('account.edit')}
           </Button>
         </div>
+
+        <dl className="mt-4 grid gap-2 border-t border-border pt-4 text-sm sm:grid-cols-2">
+          <div className="rounded-xl bg-muted/40 px-3 py-2">
+            <dt className="text-xs text-muted-foreground">{t('account.email')}</dt>
+            <dd className="mt-0.5 font-medium text-foreground" dir="ltr">
+              {customer.email || '—'}
+            </dd>
+          </div>
+          <div className="rounded-xl bg-muted/40 px-3 py-2">
+            <dt className="text-xs text-muted-foreground">{t('account.mobile')}</dt>
+            <dd className="mt-0.5 font-medium text-foreground" dir="ltr">
+              {customer.phone || '—'}
+            </dd>
+          </div>
+          <div className="rounded-xl bg-muted/40 px-3 py-2 sm:col-span-2">
+            <dt className="text-xs text-muted-foreground">{t('account.accountKind')}</dt>
+            <dd className="mt-0.5 font-medium text-foreground">{kindLabel}</dd>
+          </div>
+        </dl>
       </section>
 
-      {/* Promo strip */}
       <Link
         href="/store/offers"
         prefetch={false}
@@ -149,7 +198,6 @@ export function StoreAccountClient() {
         </span>
       </Link>
 
-      {/* Quick links */}
       <section className="grid grid-cols-2 gap-3">
         {quickLinks.map((item) => {
           const Icon = item.icon;
@@ -175,7 +223,6 @@ export function StoreAccountClient() {
         })}
       </section>
 
-      {/* Settings */}
       <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-soft">
         <h2 className="border-b border-border px-4 py-3 text-sm font-semibold text-foreground">
           {t('account.sectionSettings')}
@@ -218,13 +265,11 @@ export function StoreAccountClient() {
         type="button"
         variant="outline"
         className="h-12 w-full rounded-2xl border-destructive/30 text-destructive hover:bg-destructive/5 hover:text-destructive"
-        onClick={() => {
-          logout();
-          router.push('/store/login');
-        }}
+        disabled={loggingOut}
+        onClick={() => void handleLogout()}
       >
         <Power className="me-2 h-4 w-4" />
-        {t('account.logout')}
+        {loggingOut ? t('account.loggingOut') : t('account.logout')}
       </Button>
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
@@ -234,11 +279,11 @@ export function StoreAccountClient() {
           </DialogHeader>
           <form className="space-y-4" onSubmit={saveProfile}>
             <div className="space-y-1.5">
-              <Label htmlFor="edit-name">{t('login.name')}</Label>
+              <Label htmlFor="edit-name">{t('register.name')}</Label>
               <Input id="edit-name" value={editName} onChange={(e) => setEditName(e.target.value)} />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="edit-phone">{t('login.phone')}</Label>
+              <Label htmlFor="edit-phone">{t('account.mobile')}</Label>
               <Input
                 id="edit-phone"
                 dir="ltr"
@@ -247,7 +292,7 @@ export function StoreAccountClient() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="edit-email">{t('login.email')}</Label>
+              <Label htmlFor="edit-email">{t('account.email')}</Label>
               <Input
                 id="edit-email"
                 type="email"

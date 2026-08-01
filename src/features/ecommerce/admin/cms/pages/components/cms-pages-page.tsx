@@ -7,11 +7,18 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowRight, Pencil, Save } from 'lucide-react';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
 import {
+  getCmsCompanyRecord,
   getCmsContentBundle,
   saveCmsAbout,
+  saveCmsCompanyRecord,
   saveCmsContact,
   saveCmsLegalPage,
 } from '@/features/ecommerce/admin/cms/shared/cms-actions';
+import {
+  normalizeStorePagesVisibility,
+  type CompanyConfigRecord,
+  type CompanyStorePagesVisibility,
+} from '@/features/ecommerce/storefront/domain/company-config';
 import type {
   AboutPageContent,
   ContactPageContent,
@@ -33,6 +40,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Switch } from '@/components/ui/switch';
 import { CmsAboutTab } from '@/features/ecommerce/admin/cms/pages/components/cms-about-tab';
 import { CmsContactTab } from '@/features/ecommerce/admin/cms/pages/components/cms-contact-tab';
 import {
@@ -44,16 +52,18 @@ import {
 import { FaqCmsPage } from '@/features/ecommerce/admin/cms/faq/components/faq-cms-page';
 
 const CMS_PAGES_QUERY_KEY = ['ecommerce-cms', 'content', 'pages'] as const;
+const CMS_COMPANY_QUERY_KEY = ['ecommerce-cms', 'company', 'pages-visibility'] as const;
 
 export type CmsPagesPanel = 'list' | 'faq';
 
-type PageRowKind = 'about' | 'contact' | 'legal' | 'faq';
+type PageRowKind = 'about' | 'contact' | 'legal' | 'faq' | 'catalog';
 
 type PageRow = {
   id: string;
   kind: PageRowKind;
   slug?: LegalPageSlug;
-  titleKey: 'about' | 'contact' | 'faq' | LegalPageSlug;
+  catalogKey?: keyof CompanyStorePagesVisibility;
+  titleKey: 'about' | 'contact' | 'faq' | 'offers' | 'wholesale' | LegalPageSlug;
 };
 
 type EditFormState =
@@ -72,12 +82,15 @@ function buildPageRows(): PageRow[] {
       titleKey: slug,
     })),
     { id: 'faq', kind: 'faq', titleKey: 'faq' },
+    { id: 'offers', kind: 'catalog', catalogKey: 'offers', titleKey: 'offers' },
+    { id: 'wholesale', kind: 'catalog', catalogKey: 'wholesale', titleKey: 'wholesale' },
   ];
 }
 
 function typeBadgeKey(kind: PageRowKind): string {
   if (kind === 'legal') return 'typeLegal';
   if (kind === 'faq') return 'typeDynamic';
+  if (kind === 'catalog') return 'typeCatalog';
   return 'typePage';
 }
 
@@ -111,7 +124,25 @@ export function CmsPagesPage({ embedded = false, initialPanel = 'list' }: Props)
     },
   });
 
+  const {
+    data: company,
+    isLoading: companyLoading,
+    isError: companyError,
+    refetch: refetchCompany,
+  } = useQuery({
+    queryKey: [...CMS_COMPANY_QUERY_KEY, companyId],
+    queryFn: async () => {
+      const record = await getCmsCompanyRecord(companyId);
+      if (!record) throw new Error('COMPANY_NOT_FOUND');
+      return {
+        ...record,
+        storePages: normalizeStorePagesVisibility(record.storePages),
+      } satisfies CompanyConfigRecord;
+    },
+  });
+
   const [draft, setDraft] = React.useState<StorefrontContentBundle | null>(null);
+  const [storePages, setStorePages] = React.useState<CompanyStorePagesVisibility | null>(null);
   const [dirty, setDirty] = React.useState(false);
   const [form, setForm] = React.useState<EditFormState | null>(null);
 
@@ -121,6 +152,12 @@ export function CmsPagesPage({ embedded = false, initialPanel = 'list' }: Props)
       setDirty(false);
     }
   }, [data]);
+
+  React.useEffect(() => {
+    if (company) {
+      setStorePages(normalizeStorePagesVisibility(company.storePages));
+    }
+  }, [company]);
 
   const save = useMutation({
     mutationFn: async (bundle: StorefrontContentBundle) => {
@@ -151,6 +188,22 @@ export function CmsPagesPage({ embedded = false, initialPanel = 'list' }: Props)
     onError: () => toast.error(t('saveError')),
   });
 
+  const saveVisibility = useMutation({
+    mutationFn: async (next: CompanyStorePagesVisibility) => {
+      if (!company) throw new Error('COMPANY_NOT_FOUND');
+      return saveCmsCompanyRecord({
+        ...company,
+        storePages: normalizeStorePagesVisibility(next),
+      });
+    },
+    onSuccess: (saved) => {
+      queryClient.setQueryData([...CMS_COMPANY_QUERY_KEY, companyId], saved);
+      setStorePages(normalizeStorePagesVisibility(saved.storePages));
+      toast.success(t('visibilitySaveSuccess'));
+    },
+    onError: () => toast.error(t('visibilitySaveError')),
+  });
+
   usePageHeaderActions(
     () => {
       if (panel !== 'list') return null;
@@ -169,6 +222,10 @@ export function CmsPagesPage({ embedded = false, initialPanel = 'list' }: Props)
   );
 
   function pagePreview(row: PageRow): string {
+    if (row.kind === 'catalog') {
+      const visible = row.catalogKey ? storePages?.[row.catalogKey] : false;
+      return visible ? t('visibilityOn') : t('visibilityOff');
+    }
     if (!draft) return '';
     if (row.kind === 'about') {
       return draft.about.headline.ar.trim() || draft.about.intro.ar.trim();
@@ -184,6 +241,7 @@ export function CmsPagesPage({ embedded = false, initialPanel = 'list' }: Props)
   }
 
   function openEdit(row: PageRow) {
+    if (row.kind === 'catalog') return;
     if (row.kind === 'faq') {
       setPanel('faq');
       return;
@@ -223,6 +281,13 @@ export function CmsPagesPage({ embedded = false, initialPanel = 'list' }: Props)
     setForm(null);
   }
 
+  function toggleCatalogPage(key: keyof CompanyStorePagesVisibility, enabled: boolean) {
+    if (!storePages || saveVisibility.isPending) return;
+    const next = { ...storePages, [key]: enabled };
+    setStorePages(next);
+    void saveVisibility.mutateAsync(next);
+  }
+
   const rows = buildPageRows();
 
   const columns: ColumnDef<PageRow>[] = [
@@ -230,7 +295,12 @@ export function CmsPagesPage({ embedded = false, initialPanel = 'list' }: Props)
       key: 'title',
       title: t('columnPage'),
       render: (row) => (
-        <span className="text-sm font-medium text-foreground">{t(row.titleKey)}</span>
+        <div className="space-y-0.5">
+          <span className="text-sm font-medium text-foreground">{t(row.titleKey)}</span>
+          {row.kind === 'catalog' ? (
+            <p className="text-xs text-muted-foreground">{t('catalogHint')}</p>
+          ) : null}
+        </div>
       ),
     },
     {
@@ -248,20 +318,41 @@ export function CmsPagesPage({ embedded = false, initialPanel = 'list' }: Props)
       render: (row) => <Badge variant="subtle">{t(typeBadgeKey(row.kind))}</Badge>,
     },
     {
+      key: 'visibility',
+      title: t('columnVisibility'),
+      render: (row) => {
+        if (row.kind !== 'catalog' || !row.catalogKey) {
+          return <span className="text-xs text-muted-foreground">—</span>;
+        }
+        const checked = storePages?.[row.catalogKey] ?? true;
+        return (
+          <Switch
+            checked={checked}
+            disabled={!storePages || saveVisibility.isPending}
+            onCheckedChange={(enabled) => toggleCatalogPage(row.catalogKey!, enabled)}
+            aria-label={t('columnVisibility')}
+          />
+        );
+      },
+    },
+    {
       key: 'actions',
       title: '',
       isActions: true,
-      render: (row) => (
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          aria-label={tCommon('actions.edit')}
-          onClick={() => openEdit(row)}
-        >
-          <Pencil className="h-4 w-4" />
-        </Button>
-      ),
+      render: (row) =>
+        row.kind === 'catalog' ? (
+          <span className="inline-block w-9" />
+        ) : (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label={tCommon('actions.edit')}
+            onClick={() => openEdit(row)}
+          >
+            <Pencil className="h-4 w-4" />
+          </Button>
+        ),
     },
   ];
 
@@ -289,6 +380,9 @@ export function CmsPagesPage({ embedded = false, initialPanel = 'list' }: Props)
     );
   }
 
+  const loading = isLoading || companyLoading || !draft || !storePages;
+  const loadFailed = isError || companyError;
+
   return (
     <div className="flex flex-col gap-5">
       {!embedded ? (
@@ -301,11 +395,18 @@ export function CmsPagesPage({ embedded = false, initialPanel = 'list' }: Props)
         </div>
       ) : null}
 
-      {isError ? (
+      {loadFailed ? (
         <Card>
           <CardContent className="flex items-center justify-between gap-3 py-6">
             <p className="text-sm text-destructive">{t('loadError')}</p>
-            <Button type="button" variant="outline" onClick={() => void refetch()}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                void refetch();
+                void refetchCompany();
+              }}
+            >
               {tCommon('actions.retry')}
             </Button>
           </CardContent>
@@ -316,7 +417,7 @@ export function CmsPagesPage({ embedded = false, initialPanel = 'list' }: Props)
         columns={columns}
         data={rows}
         keyExtractor={(row) => row.id}
-        loading={isLoading || !draft}
+        loading={loading}
         emptyText={t('empty')}
         alwaysShowTable
       />

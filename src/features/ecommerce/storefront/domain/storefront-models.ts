@@ -137,6 +137,10 @@ export type StorefrontCompanyConfig = {
     standardShippingFee: number;
     paymentMethods: Array<'cash_on_delivery' | 'card'>;
   };
+  storePages: {
+    offers: boolean;
+    wholesale: boolean;
+  };
   currency: string;
   timezone: string;
 };

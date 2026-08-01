@@ -319,6 +319,34 @@ export async function storeLoginMetadata(config: StorefrontCompanyConfig, locale
   };
 }
 
+export async function storeRegisterMetadata(
+  config: StorefrontCompanyConfig,
+  locale: StorefrontLocale,
+): Promise<Metadata> {
+  const t = await getTranslations({ locale, namespace: 'storefront' });
+  return {
+    ...basePageMetadata(config, locale, t('register.title'), t('register.formDescription'), '/store/register'),
+    robots: { index: false, follow: false },
+  };
+}
+
+export async function storeForgotPasswordMetadata(
+  config: StorefrontCompanyConfig,
+  locale: StorefrontLocale,
+): Promise<Metadata> {
+  const t = await getTranslations({ locale, namespace: 'storefront' });
+  return {
+    ...basePageMetadata(
+      config,
+      locale,
+      t('forgotPassword.title'),
+      t('forgotPassword.description'),
+      '/store/forgot-password',
+    ),
+    robots: { index: false, follow: false },
+  };
+}
+
 export async function storeAccountMetadata(config: StorefrontCompanyConfig, locale: StorefrontLocale): Promise<Metadata> {
   const t = await getTranslations({ locale, namespace: 'storefront' });
   return {

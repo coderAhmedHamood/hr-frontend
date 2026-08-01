@@ -1,6 +1,8 @@
 import {
+  DEFAULT_STORE_PAGES_VISIBILITY,
   normalizeAnnouncementBar,
   normalizeSocialLinks,
+  normalizeStorePagesVisibility,
   type CompanyConfigRecord,
 } from '@/features/ecommerce/storefront/domain/company-config';
 import {
@@ -166,6 +168,7 @@ const DEMO_COMPANY_SEED: CompanyConfigRecord = {
     standardShippingFee: 25,
     paymentMethods: ['cash_on_delivery', 'card'],
   },
+  storePages: { ...DEFAULT_STORE_PAGES_VISIBILITY },
   defaultLocale: 'ar',
   currency: 'YER',
   timezone: 'Asia/Aden',
@@ -231,6 +234,7 @@ if (COMPANY_CONFIGS[STOREFRONT_FALLBACK_COMPANY_ID]) {
       JSON.stringify(DEMO_COMPANY_SEED.secondaryNavigation),
     ) as CompanyConfigRecord['secondaryNavigation'];
   }
+  demo.storePages = normalizeStorePagesVisibility(demo.storePages);
 }
 
 export function getCompanyConfigMock(companyId: string): CompanyConfigRecord | null {
@@ -254,6 +258,7 @@ export function getCompanyConfigMock(companyId: string): CompanyConfigRecord | n
       JSON.stringify(DEMO_COMPANY_SEED.secondaryNavigation),
     ) as CompanyConfigRecord['secondaryNavigation'];
   }
+  cloned.storePages = normalizeStorePagesVisibility(cloned.storePages);
   cloned.social = normalizeSocialLinks(cloned.social);
   if (!cloned.seo.keywords) {
     cloned.seo.keywords = [];
@@ -279,6 +284,7 @@ export function saveCompanyConfigMock(record: CompanyConfigRecord): CompanyConfi
   if (!next.secondaryNavigation) {
     next.secondaryNavigation = [];
   }
+  next.storePages = normalizeStorePagesVisibility(next.storePages);
   next.social = normalizeSocialLinks(next.social);
   next.seo.keywords = (next.seo.keywords ?? [])
     .map((keyword) => keyword.trim())

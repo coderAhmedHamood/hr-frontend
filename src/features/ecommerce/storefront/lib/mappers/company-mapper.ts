@@ -1,7 +1,10 @@
 import {
+  isStoreCatalogHref,
   normalizeAnnouncementBar,
+  normalizeStorePagesVisibility,
   resolveEnabledSocialLinks,
   type CompanyConfigRecord,
+  type CompanyStorePagesVisibility,
 } from '@/features/ecommerce/storefront/domain/company-config';
 import type { StorefrontCompanyConfig, StorefrontNavItem } from '@/features/ecommerce/storefront/domain/storefront-models';
 import type { StorefrontLocale } from '@/i18n/routing';
@@ -17,10 +20,18 @@ function mapNavItem(
   };
 }
 
+function isCatalogPageAllowed(href: string, storePages: CompanyStorePagesVisibility): boolean {
+  if (isStoreCatalogHref(href, 'offers')) return storePages.offers;
+  if (isStoreCatalogHref(href, 'wholesale')) return storePages.wholesale;
+  return true;
+}
+
 export function mapStorefrontCompanyConfig(
   record: CompanyConfigRecord,
   locale: StorefrontLocale,
 ): StorefrontCompanyConfig {
+  const storePages = normalizeStorePagesVisibility(record.storePages);
+
   return {
     id: record.id,
     name: resolveLocalizedText(record.name, locale),
@@ -37,18 +48,24 @@ export function mapStorefrontCompanyConfig(
     contact: record.contact,
     social: resolveEnabledSocialLinks(record.social),
     theme: record.theme,
-    navigation: record.navigation.map((item) => mapNavItem(item, locale)),
-    secondaryNavigation: record.secondaryNavigation.map((item) => ({
-      ...mapNavItem(item, locale),
-      highlight: item.highlight,
-    })),
+    navigation: record.navigation
+      .filter((item) => isCatalogPageAllowed(item.href, storePages))
+      .map((item) => mapNavItem(item, locale)),
+    secondaryNavigation: record.secondaryNavigation
+      .filter((item) => isCatalogPageAllowed(item.href, storePages))
+      .map((item) => ({
+        ...mapNavItem(item, locale),
+        highlight: item.highlight,
+      })),
     footer: {
       copyrightOwnerName: resolveLocalizedText(record.footer.copyrightOwnerName, locale),
       commercialRegistration: record.footer.commercialRegistration ?? null,
       linkGroups: record.footer.linkGroups.map((group) => ({
         id: group.id,
         title: resolveLocalizedText(group.title, locale),
-        links: group.links.map((link) => mapNavItem(link, locale)),
+        links: group.links
+          .filter((link) => isCatalogPageAllowed(link.href, storePages))
+          .map((link) => mapNavItem(link, locale)),
       })),
     },
     announcement: (() => {
@@ -98,6 +115,7 @@ export function mapStorefrontCompanyConfig(
           ? [...record.checkout.paymentMethods]
           : ['cash_on_delivery', 'card'],
     },
+    storePages,
     currency: record.currency,
     timezone: record.timezone,
   };
