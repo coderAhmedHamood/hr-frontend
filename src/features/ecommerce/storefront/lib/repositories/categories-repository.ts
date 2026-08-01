@@ -10,6 +10,7 @@ import {
   mapCategory,
   type CategoryDto,
 } from '@/features/ecommerce/admin/categories/lib/api/categories';
+import { logStorefrontApi } from '@/features/ecommerce/storefront/lib/debug-storefront-api';
 import { mapStorefrontCategories, mapStorefrontCategory } from '@/features/ecommerce/storefront/lib/mappers/category-mapper';
 import { resolveStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
 
@@ -53,10 +54,16 @@ async function publicCategoryRequest<T>(
       cache: 'no-store',
       headers: { Accept: 'application/json' },
     });
-    if (!response.ok) return null;
+    if (!response.ok) {
+      logStorefrontApi({ url, status: response.status, ok: false });
+      return null;
+    }
     const payload: unknown = await response.json();
-    return unwrapEnvelope<T>(payload);
-  } catch {
+    const data = unwrapEnvelope<T>(payload);
+    logStorefrontApi({ url, status: response.status, ok: true, data });
+    return data;
+  } catch (error) {
+    logStorefrontApi({ url, ok: false, error });
     return null;
   }
 }
