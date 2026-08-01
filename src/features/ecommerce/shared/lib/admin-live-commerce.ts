@@ -65,7 +65,17 @@ export function mapStorefrontOrderToAdmin(order: StorefrontCustomerOrder): Order
     shippingNotes: order.address.notes,
     paymentMethod: order.paymentMethod,
     paymentStatus: order.paymentStatus,
-    paymentProofUrl: order.paymentProofUrl ?? null,
+    paymentProofUrls: (() => {
+      const urls = [
+        ...(order.paymentProofUrls ?? []),
+        ...(order.paymentProofUrl ? [order.paymentProofUrl] : []),
+      ]
+        .map((url) => url.trim())
+        .filter(Boolean);
+      return Array.from(new Set(urls));
+    })(),
+    paymentProofUrl:
+      order.paymentProofUrls?.[0]?.trim() || order.paymentProofUrl?.trim() || null,
     subtotalAmount: order.subtotal,
     shippingFeeAmount: order.shippingFee,
     source: 'storefront',

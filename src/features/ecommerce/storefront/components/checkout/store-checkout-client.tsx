@@ -29,6 +29,10 @@ import { buildProductDisplay } from '@/features/ecommerce/storefront/lib/product
 import { ProductGridSkeleton } from '@/features/ecommerce/storefront/components/catalog/loading-skeleton';
 import { StoreErrorState } from '@/features/ecommerce/storefront/components/catalog/store-error-state';
 import { StoreEmptyState } from '@/features/ecommerce/storefront/components/store-empty-state';
+import {
+  MAX_PAYMENT_PROOF_BYTES,
+  MAX_PAYMENT_PROOF_FILES,
+} from '@/features/ecommerce/domain/lib/payment-proofs';
 import { Button } from '@/components/ui/button';
 import { GoogleLocationPicker, type GoogleLocationValue } from '@/components/ui/google-location-picker';
 import { Input } from '@/components/ui/input';
@@ -83,8 +87,9 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
   const [paymentMethod, setPaymentMethod] = React.useState<CheckoutPaymentMethod>(
     () => paymentMethods[0] ?? 'cash_on_delivery',
   );
-  const [paymentProofUrl, setPaymentProofUrl] = React.useState<string | null>(null);
-  const [paymentProofName, setPaymentProofName] = React.useState<string | null>(null);
+  const [paymentProofs, setPaymentProofs] = React.useState<Array<{ url: string; name: string }>>(
+    [],
+  );
   const [submitting, setSubmitting] = React.useState(false);
   const [addressErrors, setAddressErrors] = React.useState<
     Partial<Record<keyof CheckoutAddressInput, string>>
@@ -130,7 +135,11 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
     if (!address.phone.trim() || address.phone.replace(/\D/g, '').length < 9) {
       errors.phone = t('checkout.errors.phone');
     }
-    if (!address.city.trim()) errors.city = t('checkout.errors.required');
+    if (cities.length === 0) {
+      errors.city = t('checkout.errors.citiesUnavailable');
+    } else if (!address.city.trim() || !cities.includes(address.city)) {
+      errors.city = t('checkout.errors.cityRequired');
+    }
     if (!address.district.trim()) errors.district = t('checkout.errors.required');
     if (!address.street.trim()) errors.street = t('checkout.errors.required');
     setAddressErrors(errors);
@@ -162,7 +171,8 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
         locale,
         address,
         paymentMethod,
-        paymentProofUrl: paymentMethod === 'card' ? paymentProofUrl : null,
+        paymentProofUrls:
+          paymentMethod === 'card' ? paymentProofs.map((item) => item.url) : [],
         lines: cartLines.map(({ line, product, unitPrice, lineName }) => {
           const display = buildProductDisplay(product);
           return {
@@ -308,21 +318,27 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
                 />
               </Field>
               <Field label={t('checkout.city')} error={addressErrors.city}>
-                <Select
-                  value={address.city}
-                  onValueChange={(city) => setAddress((prev) => ({ ...prev, city }))}
-                >
-                  <SelectTrigger className={checkoutFieldClassName}>
-                    <SelectValue placeholder={t('checkout.city')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {cities.map((city) => (
-                      <SelectItem key={city} value={city}>
-                        {city}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {cities.length === 0 ? (
+                  <p className="rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2.5 text-sm text-destructive">
+                    {t('checkout.errors.citiesUnavailable')}
+                  </p>
+                ) : (
+                  <Select
+                    value={cities.includes(address.city) ? address.city : undefined}
+                    onValueChange={(city) => setAddress((prev) => ({ ...prev, city }))}
+                  >
+                    <SelectTrigger className={checkoutFieldClassName}>
+                      <SelectValue placeholder={t('checkout.cityPlaceholder')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {cities.map((city) => (
+                        <SelectItem key={city} value={city}>
+                          {city}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </Field>
               <Field label={t('checkout.district')} error={addressErrors.district}>
                 <Input
@@ -403,8 +419,7 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
                     onClick={() => {
                       setPaymentMethod(id);
                       if (id === 'cash_on_delivery') {
-                        setPaymentProofUrl(null);
-                        setPaymentProofName(null);
+                        setPaymentProofs([]);
                       }
                     }}
                     className={cn(
@@ -453,61 +468,87 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
                     <Label htmlFor="payment-proof" className="text-sm font-medium">
                       {t('checkout.paymentProofLabel')}
                     </Label>
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      {t('checkout.paymentProofLimit', {
+                        max: MAX_PAYMENT_PROOF_FILES,
+                        count: paymentProofs.length,
+                      })}
+                    </p>
                     <Input
                       id="payment-proof"
                       type="file"
                       accept="image/*"
+                      multiple
+                      disabled={paymentProofs.length >= MAX_PAYMENT_PROOF_FILES}
                       className="mt-2 h-11 cursor-pointer rounded-xl file:me-3 file:rounded-lg file:border-0 file:bg-primary/10 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-primary"
                       onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (!file) {
-                          setPaymentProofUrl(null);
-                          setPaymentProofName(null);
+                        const files = Array.from(e.target.files ?? []);
+                        e.target.value = '';
+                        if (files.length === 0) return;
+
+                        const remaining = MAX_PAYMENT_PROOF_FILES - paymentProofs.length;
+                        if (remaining <= 0) {
+                          toast.error(t('checkout.errors.paymentProofMax', { max: MAX_PAYMENT_PROOF_FILES }));
                           return;
                         }
-                        if (!file.type.startsWith('image/')) {
-                          toast.error(t('checkout.errors.paymentProofType'));
-                          e.target.value = '';
-                          return;
+
+                        const selected = files.slice(0, remaining);
+                        if (files.length > remaining) {
+                          toast.error(t('checkout.errors.paymentProofMax', { max: MAX_PAYMENT_PROOF_FILES }));
                         }
-                        if (file.size > 4 * 1024 * 1024) {
-                          toast.error(t('checkout.errors.paymentProofSize'));
-                          e.target.value = '';
-                          return;
+
+                        for (const file of selected) {
+                          if (!file.type.startsWith('image/')) {
+                            toast.error(t('checkout.errors.paymentProofType'));
+                            continue;
+                          }
+                          if (file.size > MAX_PAYMENT_PROOF_BYTES) {
+                            toast.error(t('checkout.errors.paymentProofSize'));
+                            continue;
+                          }
+                          const reader = new FileReader();
+                          reader.onload = () => {
+                            const result = typeof reader.result === 'string' ? reader.result : null;
+                            if (!result) return;
+                            setPaymentProofs((prev) => {
+                              if (prev.length >= MAX_PAYMENT_PROOF_FILES) return prev;
+                              return [...prev, { url: result, name: file.name }];
+                            });
+                          };
+                          reader.readAsDataURL(file);
                         }
-                        const reader = new FileReader();
-                        reader.onload = () => {
-                          const result = typeof reader.result === 'string' ? reader.result : null;
-                          setPaymentProofUrl(result);
-                          setPaymentProofName(file.name);
-                        };
-                        reader.readAsDataURL(file);
                       }}
                     />
-                    {paymentProofUrl ? (
-                      <div className="mt-3 flex items-center gap-3">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={paymentProofUrl}
-                          alt=""
-                          className="h-14 w-14 rounded-lg border border-border object-cover"
-                        />
-                        <div className="min-w-0">
-                          <p className="truncate text-xs font-medium text-foreground">
-                            {paymentProofName ?? t('checkout.paymentProofAttached')}
-                          </p>
-                          <button
-                            type="button"
-                            className="mt-1 text-xs text-destructive hover:underline"
-                            onClick={() => {
-                              setPaymentProofUrl(null);
-                              setPaymentProofName(null);
-                            }}
+                    {paymentProofs.length > 0 ? (
+                      <ul className="mt-3 space-y-2">
+                        {paymentProofs.map((proof, index) => (
+                          <li
+                            key={`${proof.name}-${index}`}
+                            className="flex items-center gap-3 rounded-xl border border-border/70 bg-card px-2.5 py-2"
                           >
-                            {t('checkout.paymentProofRemove')}
-                          </button>
-                        </div>
-                      </div>
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={proof.url}
+                              alt=""
+                              className="h-14 w-14 shrink-0 rounded-lg border border-border object-cover"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-xs font-medium text-foreground">
+                                {proof.name || t('checkout.paymentProofAttached')}
+                              </p>
+                              <button
+                                type="button"
+                                className="mt-1 text-xs text-destructive hover:underline"
+                                onClick={() =>
+                                  setPaymentProofs((prev) => prev.filter((_, i) => i !== index))
+                                }
+                              >
+                                {t('checkout.paymentProofRemove')}
+                              </button>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
                     ) : null}
                   </div>
                   <p className="text-[11px] leading-relaxed text-muted-foreground">
@@ -577,15 +618,22 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
                   <p className="mt-1 text-xs text-muted-foreground">
                     {t(`checkout.paymentMethods.${paymentMethod}.description`)}
                   </p>
-                  {paymentMethod === 'card' && paymentProofUrl ? (
-                    <div className="mt-3 flex items-center gap-2">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={paymentProofUrl}
-                        alt=""
-                        className="h-10 w-10 rounded-md border border-border object-cover"
-                      />
-                      <p className="text-xs text-muted-foreground">{t('checkout.paymentProofAttached')}</p>
+                  {paymentMethod === 'card' && paymentProofs.length > 0 ? (
+                    <div className="mt-3 space-y-2">
+                      <div className="flex flex-wrap gap-2">
+                        {paymentProofs.map((proof, index) => (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            key={`${proof.name}-${index}`}
+                            src={proof.url}
+                            alt=""
+                            className="h-10 w-10 rounded-md border border-border object-cover"
+                          />
+                        ))}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {t('checkout.paymentProofAttachedCount', { count: paymentProofs.length })}
+                      </p>
                     </div>
                   ) : null}
                 </div>

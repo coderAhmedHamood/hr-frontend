@@ -54,6 +54,10 @@
     "paymentMethod": "card",
     "paymentStatus": "paid",
     "paymentProofUrl": "https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=800&q=80",
+    "paymentProofUrls": [
+      "https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=800&q=80",
+      "https://images.unsplash.com/photo-1563013544-824ae1b704d3?w=800&q=80"
+    ],
     "source": "seed",
     "subtotalAmount": { "amount": 121, "currency": "YER" },
     "shippingFeeAmount": { "amount": 15, "currency": "YER" },

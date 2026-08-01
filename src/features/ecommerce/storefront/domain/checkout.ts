@@ -41,7 +41,12 @@ export type PlaceOrderInput = {
   locale: string;
   address: CheckoutAddressInput;
   paymentMethod: CheckoutPaymentMethod;
-  /** Optional payment receipt / transfer screenshot for card / network payments. */
+  /**
+   * Optional payment receipt / transfer screenshots for card / network payments.
+   * One or more image data-URLs / remote URLs.
+   */
+  paymentProofUrls?: string[];
+  /** @deprecated Prefer `paymentProofUrls`. */
   paymentProofUrl?: string | null;
   lines: CheckoutLineInput[];
 };
@@ -57,6 +62,8 @@ export type StorefrontCustomerOrder = {
   status: StorefrontOrderStatus;
   paymentMethod: CheckoutPaymentMethod;
   paymentStatus: StorefrontPaymentStatus;
+  paymentProofUrls?: string[];
+  /** @deprecated Prefer `paymentProofUrls`. */
   paymentProofUrl?: string | null;
   address: CheckoutAddressInput;
   lines: StorefrontOrderLine[];

@@ -108,6 +108,7 @@
     "fullName": "Full name",
     "phone": "Mobile number",
     "city": "City",
+    "cityPlaceholder": "Select a delivery city",
     "district": "District",
     "street": "Street / details",
     "mapLocation": "Pin your delivery location on the map (optional)",
@@ -125,9 +126,11 @@
     "placeSuccess": "Your order was placed successfully",
     "placeError": "Could not place the order. Please try again.",
     "paymentMockHint": "After you attach a receipt, the store reviews payment before preparing the order.",
-    "paymentProofHint": "If you paid by card or bank transfer, attach a receipt photo so the store can verify it before preparing.",
-    "paymentProofLabel": "Payment receipt photo (optional)",
+    "paymentProofHint": "If you paid by card or bank transfer, you can attach one or more receipt photos so the store can verify them before preparing.",
+    "paymentProofLabel": "Payment receipt photos (optional)",
+    "paymentProofLimit": "{count} of {max} attachments",
     "paymentProofAttached": "Payment receipt attached",
+    "paymentProofAttachedCount": "{count} attachments added",
     "paymentProofRemove": "Remove photo",
     "paymentMethods": {
       "cash_on_delivery": {
@@ -142,8 +145,11 @@
     "errors": {
       "required": "This field is required",
       "phone": "Enter a valid mobile number",
+      "cityRequired": "Please select a delivery city from the list",
+      "citiesUnavailable": "No delivery cities are available right now. Please contact the store.",
       "paymentProofType": "Please choose an image file",
-      "paymentProofSize": "Image must be 4 MB or smaller"
+      "paymentProofSize": "Image must be 4 MB or smaller",
+      "paymentProofMax": "Maximum {max} payment proof attachments"
     }
   },
   "orders": {

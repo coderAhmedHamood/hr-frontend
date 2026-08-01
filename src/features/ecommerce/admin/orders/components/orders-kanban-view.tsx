@@ -62,7 +62,6 @@ export function OrdersKanbanView({
                   canAdvanceOrderStatus(order, next!);
                 const isCard = prep.paymentMethod === 'card';
                 const PaymentIcon = isCard ? CreditCard : Banknote;
-                const proofUrl = order.paymentProofUrl?.trim() || null;
                 const phone = order.phone?.trim() || null;
 
                 return (
@@ -148,9 +147,12 @@ export function OrdersKanbanView({
                             {prep.prepLabel}
                           </p>
                         </div>
-                        {proofUrl ? (
-                          <OrderPaymentProofThumb url={proofUrl} orderNumber={order.orderNumber} size="sm" />
-                        ) : null}
+                        <OrderPaymentProofThumb
+                          urls={order.paymentProofUrls}
+                          url={order.paymentProofUrl}
+                          orderNumber={order.orderNumber}
+                          size="sm"
+                        />
                       </div>
                     </button>
 

@@ -39,6 +39,7 @@ import { createSectionFromDefinition } from '@/features/ecommerce/admin/cms/home
 import type { PageRecord } from '@/features/ecommerce/storefront/page-builder/domain/page-records';
 import type { HeroCarouselSectionRecord } from '@/features/ecommerce/storefront/page-builder/domain/section-types';
 import { ImagePicker } from '@/features/ecommerce/admin/cms/homepage/components/section-entity-pickers';
+import { CheckoutCitiesEditor } from '@/features/ecommerce/admin/cms/settings/components/checkout-cities-editor';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { PageHeaderPrimaryButton } from '@/components/layouts/page-header-primary-button';
@@ -682,40 +683,20 @@ export function WebsiteSettingsPage() {
                     }
                   />
                 </Field>
-                <Field label={t('defaultCity')}>
-                  <Input
-                    className={FIELD}
-                    value={draft.checkout?.defaultCity ?? ''}
-                    onChange={(event) =>
-                      updateDraft({
-                        ...draft,
-                        checkout: {
-                          ...defaultCheckout(draft),
-                          defaultCity: event.target.value,
-                        },
-                      })
-                    }
-                  />
-                </Field>
-                <Field label={t('cities')} hint={t('citiesHint')} className="sm:col-span-2">
-                  <Textarea
-                    rows={4}
-                    className="min-h-28 rounded-xl"
-                    value={(draft.checkout?.cities ?? []).join('\n')}
-                    onChange={(event) =>
-                      updateDraft({
-                        ...draft,
-                        checkout: {
-                          ...defaultCheckout(draft),
-                          cities: event.target.value
-                            .split('\n')
-                            .map((city) => city.trim())
-                            .filter(Boolean),
-                        },
-                      })
-                    }
-                  />
-                </Field>
+                <CheckoutCitiesEditor
+                  cities={draft.checkout?.cities ?? []}
+                  defaultCity={draft.checkout?.defaultCity ?? ''}
+                  onChange={({ cities, defaultCity }) =>
+                    updateDraft({
+                      ...draft,
+                      checkout: {
+                        ...defaultCheckout(draft),
+                        cities,
+                        defaultCity,
+                      },
+                    })
+                  }
+                />
                 <div className="space-y-3 sm:col-span-2">
                   <Label className="text-sm font-medium text-foreground">{t('paymentMethods')}</Label>
                   <div className="grid gap-3 sm:grid-cols-2">

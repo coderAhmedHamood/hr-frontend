@@ -114,13 +114,15 @@ export type OrderPrepGuidance = {
 
 /** Payment + prep guidance so reviewers know whether to prepare the order. */
 export function getOrderPrepGuidance(
-  order: Pick<Order, 'paymentMethod' | 'paymentStatus' | 'paymentProofUrl'>,
+  order: Pick<Order, 'paymentMethod' | 'paymentStatus' | 'paymentProofUrl' | 'paymentProofUrls'>,
 ): OrderPrepGuidance {
   const paymentMethod = resolveOrderPaymentMethod(order);
   const paid = isPaymentSettled(order);
   const methodLabel = PAYMENT_METHOD_LABELS_AR[paymentMethod];
   const statusLabel = PAYMENT_STATUS_LABELS_AR[order.paymentStatus ?? 'pending'];
-  const hasProof = Boolean(order.paymentProofUrl?.trim());
+  const hasProof = Boolean(
+    order.paymentProofUrls?.some((url) => url?.trim()) || order.paymentProofUrl?.trim(),
+  );
 
   if (paymentMethod === 'card') {
     return {

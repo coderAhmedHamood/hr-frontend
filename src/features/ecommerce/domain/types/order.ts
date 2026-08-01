@@ -41,7 +41,12 @@ export type Order = TenantScoped & {
   shippingNotes?: string;
   paymentMethod?: 'cash_on_delivery' | 'card';
   paymentStatus?: 'pending' | 'paid' | 'failed' | 'refunded';
-  /** Transfer / card receipt image URL when the customer attached proof. */
+  /**
+   * Transfer / card receipt image URLs (one or more).
+   * Prefer this over the legacy single `paymentProofUrl`.
+   */
+  paymentProofUrls?: string[];
+  /** @deprecated Use `paymentProofUrls` — kept for older seeds/API payloads. */
   paymentProofUrl?: string | null;
   subtotalAmount?: Money;
   shippingFeeAmount?: Money;

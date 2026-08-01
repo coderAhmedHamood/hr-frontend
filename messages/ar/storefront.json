@@ -108,6 +108,7 @@
     "fullName": "الاسم الكامل",
     "phone": "رقم الجوال",
     "city": "المدينة",
+    "cityPlaceholder": "اختر مدينة التوصيل",
     "district": "الحي",
     "street": "الشارع / التفصيل",
     "mapLocation": "حدد موقع التوصيل على الخريطة (اختياري)",
@@ -125,9 +126,11 @@
     "placeSuccess": "تم تأكيد طلبك بنجاح",
     "placeError": "تعذر إتمام الطلب. حاول مرة أخرى.",
     "paymentMockHint": "بعد إرفاق الإيصال يصل الطلب للمراجعة — يُجهَّز بعد تأكيد التحصيل من المتجر.",
-    "paymentProofHint": "إن دفعت عبر الشبكة أو التحويل، أرفق صورة الإيصال ليراجعها المتجر قبل التجهيز.",
-    "paymentProofLabel": "صورة إيصال الدفع (اختياري)",
+    "paymentProofHint": "إن دفعت عبر الشبكة أو التحويل، يمكنك إرفاق صورة أو أكثر من إيصالات التحويل ليراجعها المتجر قبل التجهيز.",
+    "paymentProofLabel": "صور إيصالات الدفع (اختياري)",
+    "paymentProofLimit": "{count} من {max} مرفقات",
     "paymentProofAttached": "تم إرفاق إيصال الدفع",
+    "paymentProofAttachedCount": "تم إرفاق {count} مرفقات",
     "paymentProofRemove": "إزالة الصورة",
     "paymentMethods": {
       "cash_on_delivery": {
@@ -142,8 +145,11 @@
     "errors": {
       "required": "هذا الحقل مطلوب",
       "phone": "أدخل رقم جوال صحيح",
+      "cityRequired": "يجب اختيار مدينة التوصيل من القائمة",
+      "citiesUnavailable": "لا توجد مدن توصيل متاحة حالياً. تواصل مع المتجر.",
       "paymentProofType": "يرجى اختيار صورة فقط",
-      "paymentProofSize": "حجم الصورة يجب ألا يتجاوز 4 ميجابايت"
+      "paymentProofSize": "حجم الصورة يجب ألا يتجاوز 4 ميجابايت",
+      "paymentProofMax": "الحد الأقصى {max} مرفقات لإثبات الدفع"
     }
   },
   "orders": {

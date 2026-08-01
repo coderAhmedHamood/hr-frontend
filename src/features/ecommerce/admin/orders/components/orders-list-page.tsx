@@ -287,7 +287,9 @@ function OrderDetailPanel({
   const prep = order ? getOrderPrepGuidance(order) : null;
   const paymentMethod = order ? resolveOrderPaymentMethod(order) : null;
   const isCard = paymentMethod === 'card';
-  const proofUrl = order?.paymentProofUrl?.trim() || null;
+  const hasProof = Boolean(
+    order?.paymentProofUrls?.some((url) => url?.trim()) || order?.paymentProofUrl?.trim(),
+  );
   const phone = order?.phone?.trim() || null;
   const telHref = phone ? `tel:${phone.replace(/\s/g, '')}` : null;
   const shipLine = order
@@ -396,9 +398,10 @@ function OrderDetailPanel({
                 >
                   {prep.prepLabel}
                 </span>
-                {proofUrl ? (
+                {hasProof ? (
                   <OrderPaymentProofThumb
-                    url={proofUrl}
+                    urls={order.paymentProofUrls}
+                    url={order.paymentProofUrl}
                     orderNumber={order.orderNumber}
                     size="sm"
                     className="ms-auto"
@@ -408,7 +411,7 @@ function OrderDetailPanel({
                   <Button
                     type="button"
                     size="sm"
-                    className={cn(!proofUrl && 'ms-auto')}
+                    className={cn(!hasProof && 'ms-auto')}
                     disabled={flowBusy}
                     onClick={() => void markPaid()}
                   >
@@ -809,7 +812,6 @@ export function OrdersListPage() {
       render: (order) => {
         const prep = getOrderPrepGuidance(order);
         const isCard = prep.paymentMethod === 'card';
-        const proofUrl = order.paymentProofUrl?.trim() || null;
         return (
           <div className="flex items-start gap-2">
             <div className="flex min-w-0 flex-col gap-1">
@@ -838,9 +840,12 @@ export function OrdersListPage() {
                 {prep.prepLabel}
               </span>
             </div>
-            {proofUrl ? (
-              <OrderPaymentProofThumb url={proofUrl} orderNumber={order.orderNumber} size="sm" />
-            ) : null}
+            <OrderPaymentProofThumb
+              urls={order.paymentProofUrls}
+              url={order.paymentProofUrl}
+              orderNumber={order.orderNumber}
+              size="sm"
+            />
           </div>
         );
       },
