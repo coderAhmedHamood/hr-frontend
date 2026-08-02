@@ -45,6 +45,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { storeLoginHref, storeRegisterHref } from '@/features/ecommerce/storefront/lib/store-auth-return';
 import { Link, useRouter } from '@/i18n/navigation';
 import { cn } from '@/shared/utils';
 import type { StorefrontLocale } from '@/i18n/routing';
@@ -70,7 +71,13 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
   const lines = useStorefrontCartUi((s) => s.lines);
   const clearCart = useStorefrontCartUi((s) => s.clear);
   const accessToken = useStorefrontCustomerUi((s) => s.accessToken);
+  const customer = useStorefrontCustomerUi((s) => s.customer);
   const { data: products, isLoading, isError, refetch } = useStorefrontCartProducts();
+  const [authReady, setAuthReady] = React.useState(false);
+
+  React.useEffect(() => {
+    setAuthReady(true);
+  }, []);
 
   const cities = checkoutConfig.cities;
   const freeThreshold = checkoutConfig.freeShippingThreshold;
@@ -95,6 +102,21 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
   const [addressErrors, setAddressErrors] = React.useState<
     Partial<Record<keyof CheckoutAddressInput, string>>
   >({});
+
+  React.useEffect(() => {
+    if (!authReady) return;
+    if (accessToken) return;
+    router.replace(storeLoginHref('/store/checkout'));
+  }, [authReady, accessToken, router]);
+
+  React.useEffect(() => {
+    if (!customer) return;
+    setAddress((prev) => ({
+      ...prev,
+      fullName: prev.fullName.trim() || customer.name || '',
+      phone: prev.phone.trim() || customer.phone || '',
+    }));
+  }, [customer]);
 
   const productById = new Map((products ?? []).map((product) => [product.id, product]));
   const cartLines = lines
@@ -162,6 +184,11 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
   }
 
   async function submitOrder() {
+    if (!accessToken) {
+      toast.error(t('checkout.loginRequiredToast'));
+      router.replace(storeLoginHref('/store/checkout'));
+      return;
+    }
     if (!validateAddress()) {
       setStep('address');
       return;
@@ -216,6 +243,29 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
     } finally {
       setSubmitting(false);
     }
+  }
+
+  if (!authReady || !accessToken) {
+    return (
+      <StoreEmptyState
+        icon={ShieldCheck}
+        title={t('checkout.loginRequiredTitle')}
+        description={t('checkout.loginRequiredDescription')}
+      >
+        <div className="flex flex-col items-center gap-2 sm:flex-row">
+          <Button asChild>
+            <Link href={storeLoginHref('/store/checkout')} prefetch={false}>
+              {t('checkout.loginRequiredAction')}
+            </Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href={storeRegisterHref('/store/checkout')} prefetch={false}>
+              {t('checkout.registerRequiredAction')}
+            </Link>
+          </Button>
+        </div>
+      </StoreEmptyState>
+    );
   }
 
   if (lines.length === 0) {

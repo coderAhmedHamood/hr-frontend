@@ -156,6 +156,7 @@ export function StoreCartClient() {
         >
           {t('cart.checkout')}
         </Link>
+        <p className="mt-2 text-center text-xs text-muted-foreground">{t('cart.checkoutLoginHint')}</p>
         <Link href="/store/products" prefetch={false} className="mt-3 block text-center text-sm text-primary hover:underline">
           {t('cart.continueShopping')}
         </Link>

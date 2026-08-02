@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { Eye, EyeOff } from 'lucide-react';
@@ -8,6 +9,10 @@ import { useStorefrontCustomerUi } from '@/features/ecommerce/storefront/hooks/u
 import { registerPartner } from '@/features/ecommerce/storefront/lib/api/partner-auth-api';
 import { PartnerAuthApiError } from '@/features/ecommerce/storefront/domain/partner-auth';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
+import {
+  resolveStoreAuthReturnTo,
+  storeLoginHref,
+} from '@/features/ecommerce/storefront/lib/store-auth-return';
 import { StoreAuthShell } from '@/features/ecommerce/storefront/components/auth/store-auth-shell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,6 +22,8 @@ import { Link, useRouter } from '@/i18n/navigation';
 export function StoreRegisterClient() {
   const t = useTranslations('storefront');
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const returnTo = resolveStoreAuthReturnTo(searchParams.get('returnTo'));
   const customer = useStorefrontCustomerUi((s) => s.customer);
   const setSession = useStorefrontCustomerUi((s) => s.setSession);
 
@@ -26,12 +33,17 @@ export function StoreRegisterClient() {
   const [password, setPassword] = React.useState('');
   const [showPassword, setShowPassword] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
+  const [hydrated, setHydrated] = React.useState(false);
 
   React.useEffect(() => {
-    if (customer) {
-      router.replace('/store/account');
+    setHydrated(true);
+  }, []);
+
+  React.useEffect(() => {
+    if (hydrated && customer) {
+      router.replace(returnTo);
     }
-  }, [customer, router]);
+  }, [hydrated, customer, router, returnTo]);
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -61,7 +73,7 @@ export function StoreRegisterClient() {
       });
       setSession(session);
       toast.success(session.message || t('register.success'));
-      router.push('/store/account');
+      router.push(returnTo);
     } catch (error) {
       const message =
         error instanceof PartnerAuthApiError
@@ -73,15 +85,21 @@ export function StoreRegisterClient() {
     }
   }
 
+  const checkoutReturn = returnTo.startsWith('/store/checkout');
+
   return (
     <StoreAuthShell
       eyebrow={t('register.eyebrow')}
       title={t('register.formTitle')}
-      description={t('register.formDescription')}
+      description={checkoutReturn ? t('register.checkoutRequiredHint') : t('register.formDescription')}
       footer={
         <p className="text-muted-foreground">
           {t('register.hasAccount')}{' '}
-          <Link href="/store/login" prefetch={false} className="font-medium text-primary hover:underline">
+          <Link
+            href={storeLoginHref(returnTo)}
+            prefetch={false}
+            className="font-medium text-primary hover:underline"
+          >
             {t('register.signIn')}
           </Link>
         </p>
@@ -99,7 +117,6 @@ export function StoreRegisterClient() {
             minLength={2}
           />
         </div>
-
         <div className="space-y-1.5">
           <Label htmlFor="store-register-email">{t('register.email')}</Label>
           <Input
@@ -109,11 +126,9 @@ export function StoreRegisterClient() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             autoComplete="email"
-            placeholder="you@example.com"
             required
           />
         </div>
-
         <div className="space-y-1.5">
           <Label htmlFor="store-register-mobile">{t('register.mobile')}</Label>
           <Input
@@ -122,11 +137,10 @@ export function StoreRegisterClient() {
             value={mobile}
             onChange={(e) => setMobile(e.target.value)}
             autoComplete="tel"
-            placeholder="0501234567"
             required
+            minLength={8}
           />
         </div>
-
         <div className="space-y-1.5">
           <Label htmlFor="store-register-password">{t('register.password')}</Label>
           <div className="relative">
@@ -145,7 +159,7 @@ export function StoreRegisterClient() {
               type="button"
               className="absolute end-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-muted-foreground hover:text-foreground"
               onClick={() => setShowPassword((v) => !v)}
-              aria-label={showPassword ? t('login.hidePassword') : t('login.showPassword')}
+              aria-label={showPassword ? t('register.hidePassword') : t('register.showPassword')}
             >
               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>

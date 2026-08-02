@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import { getTranslations } from 'next-intl/server';
 import { StoreBreadcrumbs } from '@/features/ecommerce/storefront/components/store-breadcrumbs';
 import { StoreRegisterClient } from '@/features/ecommerce/storefront/components/auth/store-register-client';
@@ -13,7 +14,9 @@ export async function StoreRegisterPage() {
           { name: t('register.title'), path: '/store/register' },
         ]}
       />
-      <StoreRegisterClient />
+      <Suspense fallback={<div className="h-64 animate-pulse rounded-2xl bg-muted/40" />}>
+        <StoreRegisterClient />
+      </Suspense>
     </div>
   );
 }

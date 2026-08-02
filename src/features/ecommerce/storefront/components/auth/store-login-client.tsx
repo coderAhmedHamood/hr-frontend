@@ -1,12 +1,18 @@
 'use client';
 
 import * as React from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { Eye, EyeOff } from 'lucide-react';
 import { useStorefrontCustomerUi } from '@/features/ecommerce/storefront/hooks/use-storefront-customer-ui';
-import { loginPartner } from '@/features/ecommerce/storefront/lib/api/partner-auth-api';import { PartnerAuthApiError } from '@/features/ecommerce/storefront/domain/partner-auth';
+import { loginPartner } from '@/features/ecommerce/storefront/lib/api/partner-auth-api';
+import { PartnerAuthApiError } from '@/features/ecommerce/storefront/domain/partner-auth';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
+import {
+  resolveStoreAuthReturnTo,
+  storeRegisterHref,
+} from '@/features/ecommerce/storefront/lib/store-auth-return';
 import { StoreAuthShell } from '@/features/ecommerce/storefront/components/auth/store-auth-shell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,6 +22,8 @@ import { Link, useRouter } from '@/i18n/navigation';
 export function StoreLoginClient() {
   const t = useTranslations('storefront');
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const returnTo = resolveStoreAuthReturnTo(searchParams.get('returnTo'));
   const customer = useStorefrontCustomerUi((s) => s.customer);
   const setSession = useStorefrontCustomerUi((s) => s.setSession);
 
@@ -23,12 +31,17 @@ export function StoreLoginClient() {
   const [password, setPassword] = React.useState('');
   const [showPassword, setShowPassword] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
+  const [hydrated, setHydrated] = React.useState(false);
 
   React.useEffect(() => {
-    if (customer) {
-      router.replace('/store/account');
+    setHydrated(true);
+  }, []);
+
+  React.useEffect(() => {
+    if (hydrated && customer) {
+      router.replace(returnTo);
     }
-  }, [customer, router]);
+  }, [hydrated, customer, router, returnTo]);
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -46,7 +59,7 @@ export function StoreLoginClient() {
       });
       setSession(session);
       toast.success(session.message || t('login.success'));
-      router.push('/store/account');
+      router.push(returnTo);
     } catch (error) {
       const message =
         error instanceof PartnerAuthApiError
@@ -58,22 +71,42 @@ export function StoreLoginClient() {
     }
   }
 
+  const checkoutReturn = returnTo.startsWith('/store/checkout');
+
   return (
     <StoreAuthShell
       eyebrow={t('login.eyebrow')}
       title={t('login.formTitle')}
-      description={t('login.formDescription')}
+      description={checkoutReturn ? t('login.checkoutRequiredHint') : t('login.formDescription')}
       footer={
         <div className="flex flex-col gap-2">
           <p className="text-muted-foreground">
             {t('login.noAccount')}{' '}
-            <Link href="/store/register" prefetch={false} className="font-medium text-primary hover:underline">
+            <Link
+              href={storeRegisterHref(returnTo)}
+              prefetch={false}
+              className="font-medium text-primary hover:underline"
+            >
               {t('login.createAccount')}
             </Link>
           </p>
-          <Link href="/store" prefetch={false} className="text-muted-foreground hover:text-foreground hover:underline">
-            {t('login.continueGuest')}
-          </Link>
+          {!checkoutReturn ? (
+            <Link
+              href="/store"
+              prefetch={false}
+              className="text-muted-foreground hover:text-foreground hover:underline"
+            >
+              {t('login.continueGuest')}
+            </Link>
+          ) : (
+            <Link
+              href="/store/cart"
+              prefetch={false}
+              className="text-muted-foreground hover:text-foreground hover:underline"
+            >
+              {t('login.backToCart')}
+            </Link>
+          )}
         </div>
       }
     >
