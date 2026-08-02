@@ -13,6 +13,7 @@ export const ecommerceAdminRoutes = {
   navigation: '/cms/navigation',
   banners: '/cms/banners',
   content: '/cms/content',
+  contactMessages: '/cms/contact-messages',
   settings: '/cms/settings',
   products: '/products',
   categories: '/categories',

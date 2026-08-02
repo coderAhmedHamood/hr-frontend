@@ -7,11 +7,16 @@ import type {
 } from '@/features/ecommerce/storefront/domain/checkout';
 import { storefrontOrdersRepository } from '@/features/ecommerce/storefront/lib/repositories/storefront-orders-repository';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
+import { StoreHttpError } from '@/features/ecommerce/storefront/lib/api/store-http';
 import type { OrderStatus } from '@/features/ecommerce/domain/types/order';
+
+export type PlaceStorefrontOrderResult =
+  | { ok: true; order: StorefrontCustomerOrder }
+  | { ok: false; error: string };
 
 export async function placeStorefrontOrder(
   input: Omit<PlaceOrderInput, 'companyId'>,
-): Promise<StorefrontCustomerOrder> {
+): Promise<PlaceStorefrontOrderResult> {
   const companyId = getStorefrontCompanyId();
   const address = input.address;
 
@@ -22,45 +27,70 @@ export async function placeStorefrontOrder(
     !address.district.trim() ||
     !address.street.trim()
   ) {
-    throw new Error('INVALID_ADDRESS');
+    return { ok: false, error: 'INVALID_ADDRESS' };
   }
 
   if (input.lines.length === 0) {
-    throw new Error('EMPTY_CART');
+    return { ok: false, error: 'EMPTY_CART' };
   }
 
-  return storefrontOrdersRepository.placeOrder({
-    ...input,
-    companyId,
-    address: {
-      fullName: address.fullName.trim(),
-      phone: address.phone.trim(),
-      city: address.city.trim(),
-      district: address.district.trim(),
-      street: address.street.trim(),
-      notes: address.notes?.trim() || undefined,
-      lat: address.lat,
-      lng: address.lng,
-      mapAddress: address.mapAddress?.trim() || undefined,
-    },
-  });
+  try {
+    const order = await storefrontOrdersRepository.placeOrder({
+      ...input,
+      companyId,
+      address: {
+        fullName: address.fullName.trim(),
+        phone: address.phone.trim(),
+        city: address.city.trim(),
+        district: address.district.trim(),
+        street: address.street.trim(),
+        notes: address.notes?.trim() || undefined,
+        lat: address.lat,
+        lng: address.lng,
+        mapAddress: address.mapAddress?.trim() || undefined,
+      },
+    });
+    return { ok: true, order };
+  } catch (error) {
+    if (error instanceof StoreHttpError) {
+      return { ok: false, error: error.message };
+    }
+    if (error instanceof Error && error.message) {
+      return { ok: false, error: error.message };
+    }
+    return { ok: false, error: 'ORDER_CREATE_FAILED' };
+  }
 }
 
 export async function getStorefrontOrderByNumber(
   orderNumber: string,
+  options?: { phone?: string | null; accessToken?: string | null },
 ): Promise<StorefrontCustomerOrder | null> {
   const companyId = getStorefrontCompanyId();
-  return storefrontOrdersRepository.getByOrderNumber(companyId, orderNumber);
+  return storefrontOrdersRepository.getByOrderNumber(companyId, orderNumber, options);
 }
 
 export async function getStorefrontOrdersByNumbers(
-  orderNumbers: string[],
+  lookups: Array<string | { orderNumber: string; phone?: string | null }>,
 ): Promise<StorefrontCustomerOrder[]> {
   const companyId = getStorefrontCompanyId();
-  const unique = [...new Set(orderNumbers.map((n) => n.trim()).filter(Boolean))];
+  const unique = new Map<string, { orderNumber: string; phone?: string | null }>();
+  for (const entry of lookups) {
+    if (typeof entry === 'string') {
+      const orderNumber = entry.trim();
+      if (orderNumber) unique.set(orderNumber, { orderNumber });
+    } else {
+      const orderNumber = entry.orderNumber.trim();
+      if (orderNumber) unique.set(orderNumber, { orderNumber, phone: entry.phone });
+    }
+  }
   const orders: StorefrontCustomerOrder[] = [];
-  for (const orderNumber of unique) {
-    const order = await storefrontOrdersRepository.getByOrderNumber(companyId, orderNumber);
+  for (const lookup of unique.values()) {
+    const order = await storefrontOrdersRepository.getByOrderNumber(
+      companyId,
+      lookup.orderNumber,
+      { phone: lookup.phone },
+    );
     if (order) orders.push(order);
   }
   return orders.sort(

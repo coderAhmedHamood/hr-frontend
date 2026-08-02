@@ -18,6 +18,7 @@ import { cn } from '@/shared/utils';
 
 type Props = {
   orderNumber: string;
+  phone?: string | null;
 };
 
 const TRACKING_STEPS: Array<{
@@ -37,10 +38,10 @@ function trackingIndex(status: StorefrontOrderStatus): number {
   return index === -1 ? 0 : index;
 }
 
-export async function StoreOrderTrackingPage({ orderNumber }: Props) {
+export async function StoreOrderTrackingPage({ orderNumber, phone }: Props) {
   const t = await getTranslations('storefront');
   const format = await getFormatter();
-  const order = await getStorefrontOrderByNumber(orderNumber);
+  const order = await getStorefrontOrderByNumber(orderNumber, { phone });
   if (!order) notFound();
 
   const currentIdx = trackingIndex(order.status);

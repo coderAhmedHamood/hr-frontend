@@ -1,6 +1,11 @@
 import { Star, BadgeCheck } from 'lucide-react';
 import { getTranslations, getLocale } from 'next-intl/server';
-import { buildProductReviews, buildReviewSummary } from '@/features/ecommerce/storefront/lib/reviews-mock';
+import {
+  buildBreakdownFromReviews,
+  fetchPublicProductReviews,
+} from '@/features/ecommerce/shared/lib/api/store-reviews-api';
+import { isStoreHttpEnabled } from '@/features/ecommerce/storefront/lib/api/store-http';
+import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
 import type { StorefrontLocale } from '@/i18n/routing';
 import { cn } from '@/shared/utils';
 
@@ -32,16 +37,52 @@ export async function ProductReviewsSection({
   const t = await getTranslations('storefront.reviews');
   const locale = (await getLocale()) as StorefrontLocale;
 
-  const average = rating ?? 0;
-  const summary = buildReviewSummary(productId, average, reviewCount);
-  const reviews = buildProductReviews(productId, average, reviewCount, 5);
-  const dateFormatter = new Intl.DateTimeFormat(locale === 'ar' ? 'ar-YE' : 'en-US', { dateStyle: 'medium' });
+  let average = rating ?? 0;
+  let summary = {
+    average,
+    total: reviewCount,
+    breakdown: ([5, 4, 3, 2, 1] as const).map((stars) => ({
+      stars,
+      count: 0,
+      percent: 0,
+    })),
+  };
+  let reviews: Awaited<ReturnType<typeof fetchPublicProductReviews>> = [];
+
+  if (isStoreHttpEnabled()) {
+    try {
+      const httpReviews = await fetchPublicProductReviews({
+        companyId: getStorefrontCompanyId(),
+        productId,
+        limit: 20,
+      });
+      const built = buildBreakdownFromReviews(httpReviews);
+      average = built.average || average;
+      summary = {
+        average: built.average || average,
+        total: built.total > 0 ? built.total : reviewCount,
+        breakdown: built.breakdown,
+      };
+      reviews = httpReviews.slice(0, 5);
+      if (built.total > 0) {
+        summary.total = built.total;
+      }
+    } catch (error) {
+      console.warn('[store] product reviews fetch failed', error);
+    }
+  }
+
+  const dateFormatter = new Intl.DateTimeFormat(locale === 'ar' ? 'ar-YE' : 'en-US', {
+    dateStyle: 'medium',
+  });
+
+  const showEmpty = summary.total === 0 && reviews.length === 0;
 
   return (
     <section id="reviews" className="scroll-mt-24 border-t border-border pt-8">
       <h2 className="mb-5 text-xl font-bold text-foreground">{t('title')}</h2>
 
-      {summary.total === 0 ? (
+      {showEmpty ? (
         <p className="text-sm text-muted-foreground">{t('noReviews')}</p>
       ) : (
         <div className="grid gap-8 md:grid-cols-[minmax(0,16rem)_1fr]">
@@ -81,7 +122,9 @@ export async function ProductReviewsSection({
                       </span>
                     ) : null}
                   </div>
-                  <span className="text-xs text-muted-foreground">{dateFormatter.format(new Date(review.date))}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {dateFormatter.format(new Date(review.date))}
+                  </span>
                 </div>
                 <Stars rating={review.rating} />
                 <p className="mt-2 text-sm leading-relaxed text-foreground">{review.comment}</p>

@@ -12,12 +12,14 @@ export function useHomepagePageMutations(companyId: string) {
   const save = useMutation({
     mutationFn: (record: PageRecord) => saveCmsPageRecord(record),
     onSuccess: (saved) => {
+      // Prefer the save response — do not immediately refetch (refetch can briefly
+      // fall back to the seed mock and wipe the just-saved hero slides).
       queryClient.setQueryData(homepageCmsQueryKeys.record(companyId), saved);
-      void queryClient.invalidateQueries({ queryKey: homepageCmsQueryKeys.all });
       toast.success(t('saveSuccess'));
     },
-    onError: () => {
-      toast.error(t('saveError'));
+    onError: (error) => {
+      const message = error instanceof Error && error.message.trim() ? error.message : t('saveError');
+      toast.error(message);
     },
   });
 

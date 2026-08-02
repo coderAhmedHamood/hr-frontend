@@ -20,11 +20,10 @@ import type {
 } from '@/features/ecommerce/storefront/domain/checkout';
 import { calculateShippingFee } from '@/features/ecommerce/storefront/domain/checkout';
 import type { StorefrontCompanyConfig } from '@/features/ecommerce/storefront/domain/storefront-models';
-import { syncStorefrontOrderToAdminDashboard } from '@/features/ecommerce/shared/lib/admin-live-commerce';
 import { placeStorefrontOrder } from '@/features/ecommerce/storefront/lib/checkout-actions';
-import { rememberStorefrontOrderNumber } from '@/features/ecommerce/storefront/lib/order-history';
 import { useStorefrontCartProducts } from '@/features/ecommerce/storefront/hooks/use-storefront-cart-products';
 import { useStorefrontCartUi } from '@/features/ecommerce/storefront/hooks/use-storefront-cart-ui';
+import { useStorefrontCustomerUi } from '@/features/ecommerce/storefront/hooks/use-storefront-customer-ui';
 import { buildProductDisplay } from '@/features/ecommerce/storefront/lib/product-display';
 import { ProductGridSkeleton } from '@/features/ecommerce/storefront/components/catalog/loading-skeleton';
 import { StoreErrorState } from '@/features/ecommerce/storefront/components/catalog/store-error-state';
@@ -69,6 +68,7 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
   const router = useRouter();
   const lines = useStorefrontCartUi((s) => s.lines);
   const clearCart = useStorefrontCartUi((s) => s.clear);
+  const accessToken = useStorefrontCustomerUi((s) => s.accessToken);
   const { data: products, isLoading, isError, refetch } = useStorefrontCartProducts();
 
   const cities = checkoutConfig.cities;
@@ -167,10 +167,11 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
     }
     setSubmitting(true);
     try {
-      const order = await placeStorefrontOrder({
+      const result = await placeStorefrontOrder({
         locale,
         address,
         paymentMethod,
+        accessToken,
         paymentProofUrls:
           paymentMethod === 'card' ? paymentProofs.map((item) => item.url) : [],
         lines: cartLines.map(({ line, product, unitPrice, lineName }) => {
@@ -186,8 +187,11 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
           };
         }),
       });
-      rememberStorefrontOrderNumber(order.orderNumber);
-      syncStorefrontOrderToAdminDashboard(order);
+      if (!result.ok) {
+        toast.error(result.error || t('checkout.placeError'));
+        return;
+      }
+      const order = result.order;
       clearCart();
       toast.custom(
         () => (
@@ -203,7 +207,9 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
         ),
         { duration: 2800, unstyled: true, className: '!w-auto !max-w-none !border-0 !bg-transparent !p-0 !shadow-none' },
       );
-      router.push(`/store/orders/${order.orderNumber}`);
+      router.push(
+        `/store/orders/${order.orderNumber}?phone=${encodeURIComponent(address.phone.trim())}`,
+      );
     } catch {
       toast.error(t('checkout.placeError'));
     } finally {

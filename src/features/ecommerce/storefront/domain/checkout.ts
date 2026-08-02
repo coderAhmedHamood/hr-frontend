@@ -48,6 +48,8 @@ export type PlaceOrderInput = {
   paymentProofUrls?: string[];
   /** @deprecated Prefer `paymentProofUrls`. */
   paymentProofUrl?: string | null;
+  /** Partner Bearer when the customer is logged in. */
+  accessToken?: string | null;
   lines: CheckoutLineInput[];
 };
 

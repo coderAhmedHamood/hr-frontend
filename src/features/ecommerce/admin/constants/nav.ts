@@ -11,6 +11,7 @@ import {
   SlidersHorizontal,
   Library,
   Image,
+  Mail,
 } from 'lucide-react';
 import {
   ecommerceAdminRoutes,
@@ -98,6 +99,11 @@ export const ecommerceAdminNavGroups: EcommerceAdminNavGroup[] = [
         sectionKey: 'content',
         items: [
           { labelKey: 'contentPages', href: ecommerceContentHref('pages'), icon: FileText },
+          {
+            labelKey: 'contactMessages',
+            href: ecommerceAdminRoutes.contactMessages,
+            icon: Mail,
+          },
           { labelKey: 'websiteSettings', href: ecommerceAdminRoutes.settings, icon: Settings },
         ],
       },

@@ -129,6 +129,8 @@ export function HeroCarouselPage() {
 
   React.useEffect(() => {
     if (!data) return;
+    // Never clobber in-progress edits when a background query updates.
+    if (dirty) return;
     const hadHero = data.sections.some((section) => section.type === 'hero-carousel');
     const { page, hero } = findOrCreateHero(structuredClone(data));
     setDraft(page);
@@ -140,7 +142,7 @@ export function HeroCarouselPage() {
       },
     });
     setDirty(!hadHero);
-  }, [data]);
+  }, [data, dirty]);
 
   const slides = heroDraft?.content.slides ?? [];
   const previewSlides = toPreviewSlides(slides);
@@ -226,53 +228,74 @@ export function HeroCarouselPage() {
     if (!form) return;
     const nextSlide = normalizeSlide(form.draft);
     if (!nextSlide.imageUrl.trim()) return;
-    if (form.index === null) {
-      updateSlides([...slides, nextSlide]);
-    } else {
-      const next = [...slides];
-      next[form.index] = nextSlide;
-      updateSlides(next);
-    }
+    const nextSlides =
+      form.index === null
+        ? [...slides, nextSlide]
+        : slides.map((slide, index) => (index === form.index ? nextSlide : slide));
+    if (!heroDraft || !draft) return;
+
+    const now = new Date().toISOString();
+    const nextHero: HeroCarouselSectionRecord = {
+      ...heroDraft,
+      content: { ...heroDraft.content, slides: nextSlides },
+      updatedAt: now,
+    };
+    setHeroDraft(nextHero);
     setForm(null);
+    setDirty(true);
+
+    // Persist immediately — dialog "حفظ" should write to the store API, not only local draft.
+    void persistWithHero(nextHero);
   }
 
-  async function persist() {
-    if (!draft || !heroDraft) return;
+  async function persistWithHero(nextHeroInput: HeroCarouselSectionRecord) {
+    if (!draft) return;
     const now = new Date().toISOString();
     const nextHero: SectionRecord = {
-      ...heroDraft,
+      ...nextHeroInput,
       enabled: true,
       content: {
-        ...heroDraft.content,
-        slides: heroDraft.content.slides.map(normalizeSlide),
+        ...nextHeroInput.content,
+        slides: nextHeroInput.content.slides.map(normalizeSlide),
       },
       settings: {
         autoplay: true,
-        intervalMs: clampIntervalMs(heroDraft.settings.intervalMs),
+        intervalMs: clampIntervalMs(nextHeroInput.settings.intervalMs),
       },
       updatedAt: now,
-      revision: heroDraft.revision + 1,
+      revision: nextHeroInput.revision + 1,
       status: 'published',
-      publishedAt: heroDraft.publishedAt ?? now,
+      publishedAt: nextHeroInput.publishedAt ?? now,
     };
     const nextPage: PageRecord = {
       ...draft,
+      status: 'published',
       updatedAt: now,
+      publishedAt: draft.publishedAt ?? now,
       sections: draft.sections.some((section) => section.id === nextHero.id)
         ? draft.sections.map((section) => (section.id === nextHero.id ? nextHero : section))
         : [nextHero, ...draft.sections],
     };
-    const saved = await save.mutateAsync(nextPage);
-    const { page, hero } = findOrCreateHero(structuredClone(saved));
-    setDraft(page);
-    setHeroDraft({
-      ...hero,
-      content: {
-        ...hero.content,
-        slides: hero.content.slides.map(normalizeSlide),
-      },
-    });
-    setDirty(false);
+    try {
+      const saved = await save.mutateAsync(nextPage);
+      const { page, hero } = findOrCreateHero(structuredClone(saved));
+      setDraft(page);
+      setHeroDraft({
+        ...hero,
+        content: {
+          ...hero.content,
+          slides: hero.content.slides.map(normalizeSlide),
+        },
+      });
+      setDirty(false);
+    } catch {
+      // Error toast is handled by the mutation.
+    }
+  }
+
+  async function persist() {
+    if (!heroDraft) return;
+    await persistWithHero(heroDraft);
   }
 
   const columns: ColumnDef<HeroCarouselSlideRecord>[] = [
@@ -545,10 +568,10 @@ export function HeroCarouselPage() {
             </Button>
             <Button
               type="button"
-              disabled={!form?.draft.imageUrl.trim()}
+              disabled={!form?.draft.imageUrl.trim() || save.isPending}
               onClick={saveSlideForm}
             >
-              {tCommon('actions.save')}
+              {save.isPending ? tCommon('status.saving') : tCommon('actions.save')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -591,10 +614,18 @@ export function HeroCarouselPage() {
             <Button
               type="button"
               variant="destructive"
+              disabled={save.isPending}
               onClick={() => {
-                if (toDeleteIndex === null) return;
-                updateSlides(slides.filter((_, index) => index !== toDeleteIndex));
+                if (toDeleteIndex === null || !heroDraft) return;
+                const nextSlides = slides.filter((_, index) => index !== toDeleteIndex);
+                const nextHero: HeroCarouselSectionRecord = {
+                  ...heroDraft,
+                  content: { ...heroDraft.content, slides: nextSlides },
+                };
+                setHeroDraft(nextHero);
                 setToDeleteIndex(null);
+                setDirty(true);
+                void persistWithHero(nextHero);
               }}
             >
               {tCommon('actions.delete')}

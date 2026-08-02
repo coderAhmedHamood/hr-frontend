@@ -126,7 +126,8 @@ async function publicProductRequest<T>(
 }
 
 function mapPublicProduct(dto: PublicProductDto): Product {
-  const currency = dto.priceCurrency || 'YER';
+  // Storefront is YER-only (matches store settings + order validation).
+  const currency = 'YER';
   const compareAmount =
     dto.compareAtPriceAmount != null && dto.compareAtPriceAmount !== ''
       ? toNumber(dto.compareAtPriceAmount)

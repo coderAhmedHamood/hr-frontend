@@ -2,7 +2,9 @@
 
 import { Heart } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import { useStorefrontCustomerUi } from '@/features/ecommerce/storefront/hooks/use-storefront-customer-ui';
 import { useStorefrontWishlistUi } from '@/features/ecommerce/storefront/hooks/use-storefront-wishlist-ui';
+import { useRouter } from '@/i18n/navigation';
 import { cn } from '@/shared/utils';
 
 type FavoriteButtonProps = {
@@ -21,13 +23,21 @@ const variantClasses = {
 
 export function FavoriteButton({ productId, variant = 'overlay', className }: FavoriteButtonProps) {
   const t = useTranslations('storefront');
+  const router = useRouter();
+  const accessToken = useStorefrontCustomerUi((state) => state.accessToken);
   const toggleWishlist = useStorefrontWishlistUi((state) => state.toggle);
   const isWishlisted = useStorefrontWishlistUi((state) => state.has(productId));
 
   return (
     <button
       type="button"
-      onClick={() => toggleWishlist(productId)}
+      onClick={() => {
+        if (!accessToken) {
+          router.push('/store/login');
+          return;
+        }
+        toggleWishlist(productId, accessToken);
+      }}
       className={cn(
         variantClasses[variant],
         isWishlisted ? 'text-destructive' : 'text-muted-foreground hover:text-destructive',

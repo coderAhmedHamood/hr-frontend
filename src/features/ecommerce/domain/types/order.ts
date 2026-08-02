@@ -13,7 +13,10 @@ export type OrderLineAllocation = {
 };
 
 export type OrderLineItem = {
+  /** Backend store_order_lines.id — required for allocation/ship APIs. */
+  lineId?: string;
   productId: string;
+  variantId?: string | null;
   productNameAr: string;
   quantity: number;
   unitPrice: Money;
@@ -74,10 +77,12 @@ export type OrderListQuery = {
 
 export type UpdateOrderStatusInput = {
   status: OrderStatus;
+  note?: string | null;
 };
 
 export type UpdateOrderPaymentStatusInput = {
   paymentStatus: NonNullable<Order['paymentStatus']>;
+  paymentProofUrl?: string | null;
 };
 
 export type SaveOrderLineAllocationsInput = {

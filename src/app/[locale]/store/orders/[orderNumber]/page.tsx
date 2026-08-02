@@ -6,7 +6,10 @@ import type { StorefrontLocale } from '@/i18n/routing';
 
 export const dynamic = 'force-dynamic';
 
-type Props = { params: Promise<{ locale: string; orderNumber: string }> };
+type Props = {
+  params: Promise<{ locale: string; orderNumber: string }>;
+  searchParams: Promise<{ phone?: string }>;
+};
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale, orderNumber } = await params;
@@ -14,7 +17,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return orderTrackingMetadata(config, locale as StorefrontLocale, orderNumber);
 }
 
-export default async function Page({ params }: Props) {
+export default async function Page({ params, searchParams }: Props) {
   const { orderNumber } = await params;
-  return <StoreOrderTrackingPage orderNumber={decodeURIComponent(orderNumber)} />;
+  const { phone } = await searchParams;
+  return (
+    <StoreOrderTrackingPage
+      orderNumber={decodeURIComponent(orderNumber)}
+      phone={phone?.trim() || null}
+    />
+  );
 }

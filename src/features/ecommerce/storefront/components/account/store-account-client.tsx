@@ -14,7 +14,6 @@ import {
 import { toast } from 'sonner';
 import { useStorefrontCustomerUi } from '@/features/ecommerce/storefront/hooks/use-storefront-customer-ui';
 import { logoutPartner } from '@/features/ecommerce/storefront/lib/api/partner-auth-api';
-import { listRememberedStorefrontOrderNumbers } from '@/features/ecommerce/storefront/lib/order-history';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -45,7 +44,6 @@ export function StoreAccountClient() {
   const updateProfile = useStorefrontCustomerUi((s) => s.updateProfile);
   const clearSession = useStorefrontCustomerUi((s) => s.clearSession);
   const [hydrated, setHydrated] = React.useState(false);
-  const [orderCount, setOrderCount] = React.useState(0);
   const [editOpen, setEditOpen] = React.useState(false);
   const [editName, setEditName] = React.useState('');
   const [editPhone, setEditPhone] = React.useState('');
@@ -55,7 +53,6 @@ export function StoreAccountClient() {
 
   React.useEffect(() => {
     setHydrated(true);
-    setOrderCount(listRememberedStorefrontOrderNumbers().length);
   }, []);
 
   React.useEffect(() => {
@@ -123,7 +120,7 @@ export function StoreAccountClient() {
       title: t('account.quick.orders'),
       subtitle: t('account.quick.ordersHint'),
       icon: ClipboardList,
-      meta: orderCount > 0 ? String(orderCount) : undefined,
+      meta: undefined,
     },
     {
       href: '/store/legal/returns' as const,

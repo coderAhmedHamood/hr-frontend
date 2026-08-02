@@ -6,27 +6,35 @@ import {
   type PartnerMePayload,
   type PartnerRegisterInput,
 } from '@/features/ecommerce/storefront/domain/partner-auth';
+import { resolveApiBaseUrl } from '@/shared/api-base-url';
+import { publicConfig } from '@/shared/config';
+import { unwrapApiEnvelope } from '@/features/ecommerce/storefront/lib/api/store-http';
 
 /**
- * Set `NEXT_PUBLIC_PARTNER_AUTH_HTTP=true` when the Nest Public - Partner Auth
- * endpoints are ready. Until then the UI runs against a local mock session.
+ * Partner auth per `store-frontend-endpoints.md` §4.
+ * Default on. Set `NEXT_PUBLIC_PARTNER_AUTH_HTTP=false` for local mock only.
  */
 function useHttp(): boolean {
-  return process.env.NEXT_PUBLIC_PARTNER_AUTH_HTTP === 'true';
+  return process.env.NEXT_PUBLIC_PARTNER_AUTH_HTTP !== 'false';
 }
 
 function apiBaseUrl(): string {
-  return (process.env.NEXT_PUBLIC_API_URL || '/api-backend').replace(/\/$/, '');
+  return resolveApiBaseUrl(publicConfig.apiUrl).replace(/\/$/, '');
 }
 
 async function parseError(response: Response): Promise<PartnerAuthApiError> {
   let message = 'Request failed';
   let code: string | undefined;
   try {
-    const body = (await response.json()) as { message?: string | string[]; code?: string };
+    const body = (await response.json()) as {
+      message?: string | string[];
+      code?: string;
+      error?: { message?: string; code?: string };
+    };
     if (Array.isArray(body.message)) message = body.message.join(' · ');
     else if (typeof body.message === 'string' && body.message.trim()) message = body.message;
-    code = body.code;
+    else if (typeof body.error?.message === 'string') message = body.error.message;
+    code = body.code ?? body.error?.code;
   } catch {
     /* ignore */
   }
@@ -54,7 +62,67 @@ async function partnerAuthFetch<T>(
 
   if (!response.ok) throw await parseError(response);
   if (response.status === 204) return undefined as T;
-  return (await response.json()) as T;
+
+  const payload = (await response.json()) as unknown;
+  const data = unwrapApiEnvelope<T>(payload);
+  if (data == null) {
+    throw new PartnerAuthApiError('Empty partner auth response', response.status);
+  }
+  return data;
+}
+
+type PartnerMeApiDto = {
+  userId: string;
+  partnerId: string;
+  companyId: string;
+  email?: string | null;
+  phone?: string | null;
+  fullNameAr?: string | null;
+  userType?: string | null;
+  partnerName?: string | null;
+  displayName?: string | null;
+  partnerStatus?: string | null;
+  isCustomer?: boolean;
+  isVendor?: boolean;
+  partnerEmail?: string | null;
+  partnerMobile?: string | null;
+  /** Legacy nested shape (if backend still returns it). */
+  user?: PartnerAuthSessionPayload['user'];
+  partner?: PartnerAuthSessionPayload['partner'];
+};
+
+function mapMePayload(dto: PartnerMeApiDto): PartnerMePayload {
+  if (dto.user && dto.partner) {
+    return {
+      userId: dto.userId,
+      partnerId: dto.partnerId,
+      companyId: dto.companyId,
+      user: dto.user,
+      partner: dto.partner,
+    };
+  }
+
+  return {
+    userId: dto.userId,
+    partnerId: dto.partnerId,
+    companyId: dto.companyId,
+    user: {
+      id: dto.userId,
+      email: dto.email ?? '',
+      phone: dto.phone ?? '',
+      fullNameAr: dto.fullNameAr ?? dto.displayName ?? dto.partnerName ?? '',
+      userType: dto.userType ?? 'customer',
+    },
+    partner: {
+      id: dto.partnerId,
+      name: dto.partnerName ?? dto.displayName ?? '',
+      displayName: dto.displayName ?? dto.partnerName ?? '',
+      isCustomer: dto.isCustomer ?? true,
+      isVendor: dto.isVendor ?? false,
+      email: dto.partnerEmail ?? dto.email ?? '',
+      mobile: dto.partnerMobile ?? dto.phone ?? '',
+    },
+  };
 }
 
 /* ── Mock (UI prep / offline demo) ───────────────────────────────────────── */
@@ -187,21 +255,26 @@ export async function loginPartner(input: PartnerLoginInput): Promise<PartnerAut
   if (!useHttp()) return mockLogin(input);
   return partnerAuthFetch<PartnerAuthSessionPayload>('/public/partners/auth/login', {
     method: 'POST',
-    body: JSON.stringify(input),
+    body: JSON.stringify({
+      identifier: input.identifier,
+      password: input.password,
+      ...(input.companyId ? { companyId: input.companyId } : {}),
+    }),
   });
 }
 
 export async function getPartnerMe(token: string): Promise<PartnerMePayload> {
   if (!useHttp()) return mockMe(token);
-  return partnerAuthFetch<PartnerMePayload>('/public/partners/auth/me', {
+  const dto = await partnerAuthFetch<PartnerMeApiDto>('/public/partners/auth/me', {
     method: 'GET',
     token,
   });
+  return mapMePayload(dto);
 }
 
 export async function logoutPartner(token: string): Promise<void> {
   if (!useHttp()) return mockLogout(token);
-  await partnerAuthFetch<void>('/public/partners/auth/logout', {
+  await partnerAuthFetch<{ success: boolean; message: string }>('/public/partners/auth/logout', {
     method: 'POST',
     token,
   });

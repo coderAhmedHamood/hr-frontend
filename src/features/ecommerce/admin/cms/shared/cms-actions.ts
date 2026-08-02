@@ -14,6 +14,7 @@ import type { PageType } from '@/features/ecommerce/storefront/page-builder/doma
 import { storefrontCompanyRepository } from '@/features/ecommerce/storefront/lib/repositories/company-repository';
 import { storefrontContentRepository } from '@/features/ecommerce/storefront/lib/repositories/content-repository';
 import { storefrontPageRepository } from '@/features/ecommerce/storefront/page-builder/lib/repositories/page-repository';
+import { ApiError } from '@/features/hr/lib/api/client';
 import { sanitizeRichHtml } from '@/shared/lib/sanitize-rich-html';
 import { routing } from '@/i18n/routing';
 
@@ -23,6 +24,14 @@ function revalidateStorefront() {
     revalidatePath(`/${locale}/store`, 'layout');
     revalidatePath(`/${locale}/store`);
   }
+}
+
+function toActionError(error: unknown): Error {
+  if (error instanceof ApiError) {
+    return new Error(error.message || `HTTP ${error.status}`);
+  }
+  if (error instanceof Error) return error;
+  return new Error('Unexpected CMS error');
 }
 
 // ── Page builder (homepage / banners) ────────────────────────────────────────
@@ -35,9 +44,13 @@ export async function getCmsPageRecord(
 }
 
 export async function saveCmsPageRecord(record: PageRecord): Promise<PageRecord> {
-  const saved = await storefrontPageRepository.saveRecord(record);
-  revalidateStorefront();
-  return saved;
+  try {
+    const saved = await storefrontPageRepository.saveRecord(record);
+    revalidateStorefront();
+    return saved;
+  } catch (error) {
+    throw toActionError(error);
+  }
 }
 
 // ── Company config (nav / footer / settings / SEO) ────────────────────────────
@@ -47,9 +60,13 @@ export async function getCmsCompanyRecord(companyId: string): Promise<CompanyCon
 }
 
 export async function saveCmsCompanyRecord(record: CompanyConfigRecord): Promise<CompanyConfigRecord> {
-  const saved = await storefrontCompanyRepository.saveRecord(record);
-  revalidateStorefront();
-  return saved;
+  try {
+    const saved = await storefrontCompanyRepository.saveRecord(record);
+    revalidateStorefront();
+    return saved;
+  } catch (error) {
+    throw toActionError(error);
+  }
 }
 
 // ── Content (pages / FAQ) ─────────────────────────────────────────────────────
@@ -62,24 +79,36 @@ export async function saveCmsAbout(
   companyId: string,
   about: AboutPageContent,
 ): Promise<AboutPageContent> {
-  const saved = await storefrontContentRepository.saveAbout(companyId, about);
-  revalidateStorefront();
-  return saved;
+  try {
+    const saved = await storefrontContentRepository.saveAbout(companyId, about);
+    revalidateStorefront();
+    return saved;
+  } catch (error) {
+    throw toActionError(error);
+  }
 }
 
 export async function saveCmsContact(
   companyId: string,
   contact: ContactPageContent,
 ): Promise<ContactPageContent> {
-  const saved = await storefrontContentRepository.saveContact(companyId, contact);
-  revalidateStorefront();
-  return saved;
+  try {
+    const saved = await storefrontContentRepository.saveContact(companyId, contact);
+    revalidateStorefront();
+    return saved;
+  } catch (error) {
+    throw toActionError(error);
+  }
 }
 
 export async function saveCmsFaq(companyId: string, faq: FaqItem[]): Promise<FaqItem[]> {
-  const saved = await storefrontContentRepository.saveFaq(companyId, faq);
-  revalidateStorefront();
-  return saved;
+  try {
+    const saved = await storefrontContentRepository.saveFaq(companyId, faq);
+    revalidateStorefront();
+    return saved;
+  } catch (error) {
+    throw toActionError(error);
+  }
 }
 
 export async function saveCmsLegalPage(
@@ -94,7 +123,27 @@ export async function saveCmsLegalPage(
     },
     updatedAt: new Date().toISOString(),
   };
-  const saved = await storefrontContentRepository.saveLegalPage(companyId, sanitized);
-  revalidateStorefront();
-  return saved;
+  try {
+    const saved = await storefrontContentRepository.saveLegalPage(companyId, sanitized);
+    revalidateStorefront();
+    return saved;
+  } catch (error) {
+    throw toActionError(error);
+  }
+}
+
+// ── Contact messages inbox ────────────────────────────────────────────────────
+
+export async function listCmsContactMessages(
+  companyId: string,
+  query?: { page?: number; limit?: number },
+) {
+  try {
+    const { fetchAdminContactMessages } = await import(
+      '@/features/ecommerce/shared/lib/api/store-content-api'
+    );
+    return await fetchAdminContactMessages(companyId, query);
+  } catch (error) {
+    throw toActionError(error);
+  }
 }

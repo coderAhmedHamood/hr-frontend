@@ -242,11 +242,11 @@ function mapVariants(items: VariantDto[] | undefined): ProductVariant[] {
       })),
       salePrice: {
         amount: toNumber(dto.salePriceAmount),
-        currency: dto.salePriceCurrency || 'SAR',
+        currency: dto.salePriceCurrency || 'YER',
       },
       costPrice: {
         amount: toNumber(dto.costPriceAmount),
-        currency: dto.costPriceCurrency || 'SAR',
+        currency: dto.costPriceCurrency || 'YER',
       },
       quantity: toNumber(dto.quantityCache),
       stockStatus: dto.stockStatus,
@@ -258,7 +258,7 @@ function mapVariants(items: VariantDto[] | undefined): ProductVariant[] {
 }
 
 function mapFullProduct(dto: ProductFullDto): Product {
-  const currency = dto.priceCurrency || 'SAR';
+  const currency = dto.priceCurrency || 'YER';
   const costAmount = toOptionalNumber(dto.costPriceAmount);
   const compareAmount = toOptionalNumber(dto.compareAtPriceAmount);
   return {
@@ -361,15 +361,16 @@ function toHeaderBody(input: CreateProductInput | UpdateProductInput, mode: 'cre
   if (input.invoicePolicy !== undefined) body.invoicePolicy = input.invoicePolicy;
   if (input.price !== undefined) {
     body.priceAmount = input.price.amount;
-    body.priceCurrency = input.price.currency;
+    // Store is YER-only — never persist other currencies.
+    body.priceCurrency = 'YER';
   }
   if (input.costPrice !== undefined) {
     body.costPriceAmount = input.costPrice?.amount ?? null;
-    body.costPriceCurrency = input.costPrice?.currency ?? null;
+    body.costPriceCurrency = input.costPrice ? 'YER' : null;
   }
   if (input.compareAtPrice !== undefined) {
     body.compareAtPriceAmount = input.compareAtPrice?.amount ?? null;
-    body.compareAtPriceCurrency = input.compareAtPrice?.currency ?? null;
+    body.compareAtPriceCurrency = input.compareAtPrice ? 'YER' : null;
   }
   if (input.inventory !== undefined) {
     body.trackInventory = input.inventory.trackInventory;
@@ -536,9 +537,9 @@ function toFullBody(input: CreateProductInput | UpdateProductInput, mode: 'creat
         barcode: variant.barcode ?? null,
         imageUrl: variant.imageUrl ?? null,
         salePriceAmount: variant.salePrice.amount,
-        salePriceCurrency: variant.salePrice.currency,
+        salePriceCurrency: 'YER',
         costPriceAmount: variant.costPrice.amount,
-        costPriceCurrency: variant.costPrice.currency,
+        costPriceCurrency: 'YER',
         stockStatus: variant.stockStatus,
         isActive: variant.isActive,
         ...(attributeValueIds.length > 0 ? { attributeValueIds } : {}),

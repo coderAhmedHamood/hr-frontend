@@ -42,7 +42,8 @@ import {
   resolveOrderPaymentMethod,
 } from '@/features/ecommerce/domain/constants/order-status';
 import type { Order, OrderFulfilmentFilter, OrderStatus } from '@/features/ecommerce/domain/types/order';
-import { getCompanyConfigMock } from '@/features/ecommerce/storefront/lib/mock/company-configs';
+import { getCmsCompanyRecord } from '@/features/ecommerce/admin/cms/shared/cms-actions';
+import { StoreBindingStorageCleaner } from '@/features/ecommerce/storefront/components/store-binding-storage-cleaner';
 import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { ListFilterBar } from '@/components/ui/list-filter-bar';
 import { EntityFilterSearchField } from '@/components/ui/entity-filter-search-field';
@@ -494,12 +495,27 @@ export function OrdersListPage() {
       : Number(searchParams.get('pageSize')) || DEFAULT_PAGE_SIZE;
   const selectedOrderId = searchParams.get('order') ?? '';
 
-  const cityOptions = React.useMemo(() => {
-    const cities = getCompanyConfigMock(companyId)?.checkout?.cities ?? [];
-    return [
-      { value: 'all', label: 'كل المدن' },
-      ...cities.map((city) => ({ value: city, label: city })),
-    ];
+  const [cityOptions, setCityOptions] = React.useState<Array<{ value: string; label: string }>>([
+    { value: 'all', label: 'كل المدن' },
+  ]);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    void getCmsCompanyRecord(companyId)
+      .then((record) => {
+        if (cancelled) return;
+        const cities = record?.checkout?.cities ?? [];
+        setCityOptions([
+          { value: 'all', label: 'كل المدن' },
+          ...cities.map((city) => ({ value: city, label: city })),
+        ]);
+      })
+      .catch(() => {
+        if (!cancelled) setCityOptions([{ value: 'all', label: 'كل المدن' }]);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [companyId]);
 
   const [searchInput, setSearchInput] = React.useState(search);
@@ -616,16 +632,9 @@ export function OrdersListPage() {
   const updatePayment = useUpdateOrderPaymentStatus(companyId);
 
   React.useEffect(() => {
-    const onStorage = (event: StorageEvent) => {
-      if (event.key === 'ecommerce-admin-live-orders' || event.key === null) {
-        void refetch();
-      }
-    };
-    window.addEventListener('storage', onStorage);
     const onFocus = () => void refetch();
     window.addEventListener('focus', onFocus);
     return () => {
-      window.removeEventListener('storage', onStorage);
       window.removeEventListener('focus', onFocus);
     };
   }, [refetch]);
@@ -899,6 +908,7 @@ export function OrdersListPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      <StoreBindingStorageCleaner />
       <SetPageTitle
         titleAr="الطلبات"
         descriptionAr="متابعة مسار الطلب من طلب العميل حتى التسليم — قائمة أو كانبان حسب الحالة."

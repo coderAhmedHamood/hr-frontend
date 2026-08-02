@@ -1,23 +1,25 @@
-export const STOREFRONT_ORDER_HISTORY_KEY = 'storefront-order-numbers';
+/**
+ * Order history localStorage removed (store-frontend-binding.md).
+ * Guest tracking is orderNumber + phone via public API only.
+ */
 
-export function rememberStorefrontOrderNumber(orderNumber: string) {
-  try {
-    const raw = localStorage.getItem(STOREFRONT_ORDER_HISTORY_KEY);
-    const list: string[] = raw ? (JSON.parse(raw) as string[]) : [];
-    const next = [orderNumber, ...list.filter((item) => item !== orderNumber)].slice(0, 20);
-    localStorage.setItem(STOREFRONT_ORDER_HISTORY_KEY, JSON.stringify(next));
-  } catch {
-    // ignore
-  }
+export type RememberedStorefrontOrder = {
+  orderNumber: string;
+  phone: string;
+};
+
+export function rememberStorefrontOrderNumber(_orderNumber: string, _phone?: string | null) {
+  // no-op — do not persist orders in localStorage
+}
+
+export function listRememberedStorefrontOrders(): RememberedStorefrontOrder[] {
+  return [];
 }
 
 export function listRememberedStorefrontOrderNumbers(): string[] {
-  try {
-    const raw = localStorage.getItem(STOREFRONT_ORDER_HISTORY_KEY);
-    if (!raw) return [];
-    const list = JSON.parse(raw) as unknown;
-    return Array.isArray(list) ? list.filter((item): item is string => typeof item === 'string') : [];
-  } catch {
-    return [];
-  }
+  return [];
+}
+
+export function findRememberedOrderPhone(_orderNumber: string): string | null {
+  return null;
 }

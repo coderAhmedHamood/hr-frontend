@@ -10,7 +10,8 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCustomers } from '@/features/ecommerce/admin/customers/hooks/use-customers';
 import { useOrders } from '@/features/ecommerce/admin/orders/hooks/use-orders';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
-import { getCompanyConfigMock } from '@/features/ecommerce/storefront/lib/mock/company-configs';
+import { getCmsCompanyRecord } from '@/features/ecommerce/admin/cms/shared/cms-actions';
+import { StoreBindingStorageCleaner } from '@/features/ecommerce/storefront/components/store-binding-storage-cleaner';
 import { formatPrice } from '@/features/ecommerce/shared/utils/format-price';
 import type { Customer } from '@/features/ecommerce/domain/types/customer';
 import type { Order, OrderStatus } from '@/features/ecommerce/domain/types/order';
@@ -195,12 +196,27 @@ export function CustomersListPage() {
   const pageSize = Number(searchParams.get('pageSize')) || DEFAULT_PAGE_SIZE;
   const selectedCustomerId = searchParams.get('customer') ?? '';
 
-  const cityOptions = React.useMemo(() => {
-    const cities = getCompanyConfigMock(companyId)?.checkout?.cities ?? [];
-    return [
-      { value: 'all', label: 'كل المدن' },
-      ...cities.map((city) => ({ value: city, label: city })),
-    ];
+  const [cityOptions, setCityOptions] = React.useState<Array<{ value: string; label: string }>>([
+    { value: 'all', label: 'كل المدن' },
+  ]);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    void getCmsCompanyRecord(companyId)
+      .then((record) => {
+        if (cancelled) return;
+        const cities = record?.checkout?.cities ?? [];
+        setCityOptions([
+          { value: 'all', label: 'كل المدن' },
+          ...cities.map((city) => ({ value: city, label: city })),
+        ]);
+      })
+      .catch(() => {
+        if (!cancelled) setCityOptions([{ value: 'all', label: 'كل المدن' }]);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [companyId]);
 
   const [searchInput, setSearchInput] = React.useState(search);
@@ -275,20 +291,9 @@ export function CustomersListPage() {
   });
 
   React.useEffect(() => {
-    const onStorage = (event: StorageEvent) => {
-      if (
-        event.key === 'ecommerce-admin-live-customers' ||
-        event.key === 'ecommerce-admin-live-orders' ||
-        event.key === null
-      ) {
-        void refetch();
-      }
-    };
-    window.addEventListener('storage', onStorage);
     const onFocus = () => void refetch();
     window.addEventListener('focus', onFocus);
     return () => {
-      window.removeEventListener('storage', onStorage);
       window.removeEventListener('focus', onFocus);
     };
   }, [refetch]);
@@ -425,6 +430,7 @@ export function CustomersListPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      <StoreBindingStorageCleaner />
       <SetPageTitle
         titleAr="العملاء"
         descriptionAr="سجل عملاء المتجر — بيانات التواصل وملخص الطلبات والإنفاق لكل عميل."

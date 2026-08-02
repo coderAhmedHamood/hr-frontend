@@ -1,4 +1,4 @@
-import { getAccessTokenFromCookie } from '@/features/auth/lib/auth-cookie';
+import { resolveAccessToken } from '@/features/auth/lib/auth-cookie';
 import { extractApiErrorMessage } from '@/features/auth/lib/auth-api-messages';
 import { resolveApiBaseUrl } from '@/shared/api-base-url';
 import { publicConfig } from '@/shared/config';
@@ -105,6 +105,12 @@ type RequestOptions = {
   query?: Record<string, QueryValue>;
   body?: unknown;
   signal?: AbortSignal;
+  /**
+   * When true, failed responses always throw `ApiError` (including GET).
+   * Use for single-resource store-admin reads where an empty paginated shell
+   * would be incorrect. List loaders should leave this unset.
+   */
+  throwOnError?: boolean;
 };
 
 function unwrapEnvelope<T>(payload: unknown): T {
@@ -125,12 +131,12 @@ function unwrapEnvelope<T>(payload: unknown): T {
 }
 
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { method = 'GET', query, body, signal } = options;
+  const { method = 'GET', query, body, signal, throwOnError = false } = options;
   const headers: Record<string, string> = {};
   if (body !== undefined) {
     headers['Content-Type'] = 'application/json';
   }
-  const token = getAccessTokenFromCookie();
+  const token = await resolveAccessToken();
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
@@ -160,6 +166,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
       response.status,
       payload,
       method,
+      throwOnError,
     );
   }
 
@@ -171,16 +178,17 @@ function handleApiResponseFailure<T>(
   status: number,
   payload: unknown,
   method: RequestOptions['method'],
+  throwOnError = false,
 ): T {
   notifyApiFailure(envelope, status);
 
   // Reads: toast only — return an empty paginated shell so list loaders never crash.
-  if (method === 'GET') {
+  if (method === 'GET' && !throwOnError) {
     return ensurePaginatedResult(undefined) as T;
   }
 
   const error = new ApiError(envelope, status, payload);
-  error.toastShown = true;
+  error.toastShown = typeof window !== 'undefined';
   throw error;
 }
 
@@ -222,7 +230,11 @@ function notifyApiFailure(envelope: ApiErrorEnvelope, status: number): void {
     reportError(new ApiError(envelope, status), 'api-error', undefined, { skipToast: true });
   }
 
-  if (status === 401 && typeof window !== 'undefined') {
+  // Sonner toast is client-only — calling it from RSC / server actions crashes
+  // and masks the real API error (seen as "toast.error is not a function").
+  if (typeof window === 'undefined') return;
+
+  if (status === 401) {
     const returnTo = encodeURIComponent(window.location.pathname + window.location.search);
     window.location.replace(`/login?returnTo=${returnTo}`);
     return;
@@ -234,7 +246,7 @@ function notifyApiFailure(envelope: ApiErrorEnvelope, status: number): void {
 /** Multipart upload (do not set Content-Type — browser sets boundary). */
 export async function apiFormRequest<T>(path: string, formData: FormData, signal?: AbortSignal): Promise<T> {
   const headers: Record<string, string> = {};
-  const token = getAccessTokenFromCookie();
+  const token = await resolveAccessToken();
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
@@ -281,7 +293,7 @@ export async function apiDownloadRequest(
   if (body !== undefined) {
     headers['Content-Type'] = 'application/json';
   }
-  const token = getAccessTokenFromCookie();
+  const token = await resolveAccessToken();
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }

@@ -5,6 +5,8 @@ import { StoreChromeGate, isCheckoutPath } from '@/features/ecommerce/storefront
 import { StoreFooter } from '@/features/ecommerce/storefront/components/store-footer';
 import { StoreHeader } from '@/features/ecommerce/storefront/components/store-header';
 import { StoreMobileTabBar } from '@/features/ecommerce/storefront/components/store-mobile-tab-bar';
+import { StoreBindingStorageCleaner } from '@/features/ecommerce/storefront/components/store-binding-storage-cleaner';
+import { StorefrontWishlistHydrator } from '@/features/ecommerce/storefront/components/storefront-wishlist-hydrator';
 import { getStorefrontBrandsList } from '@/features/ecommerce/storefront/lib/loaders/catalog-loaders';
 import { getStorefrontNavCategories } from '@/features/ecommerce/storefront/lib/loaders/storefront-loaders';
 import { getStorefrontCompanyConfig } from '@/features/ecommerce/storefront/lib/get-storefront-company-config';
@@ -38,6 +40,8 @@ export async function StorefrontShell({ children }: { children: React.ReactNode 
       lang={storefrontLocale}
     >
       <JsonLd data={await organizationJsonLd(config, storefrontLocale)} />
+      <StoreBindingStorageCleaner />
+      <StorefrontWishlistHydrator />
       <Toaster
         className="storefront-toaster"
         theme="system"

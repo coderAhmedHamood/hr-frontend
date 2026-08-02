@@ -12,8 +12,6 @@ import {
   mapStorefrontFaqItem,
   mapStorefrontLegal,
 } from '@/features/ecommerce/storefront/lib/mappers/content-mapper';
-import { mockRepositoryDelay } from '@/features/ecommerce/storefront/lib/repositories/mock-delay';
-import contentSeed from '@/features/ecommerce/storefront/lib/mock/content-pages.json';
 import type {
   AboutPageContent,
   ContactPageContent,
@@ -21,66 +19,40 @@ import type {
   LegalPageContent,
   StorefrontContentBundle,
 } from '@/features/ecommerce/storefront/domain/content';
+import {
+  fetchAdminContentBundle,
+  fetchPublicAbout,
+  fetchPublicContact,
+  fetchPublicFaq,
+  fetchPublicLegal,
+  isStoreHttpEnabled,
+  saveAdminAbout,
+  saveAdminContact,
+  saveAdminFaq,
+  saveAdminLegalPage,
+} from '@/features/ecommerce/shared/lib/api/store-content-api';
 
-/** Shared across Server Actions + RSC (avoids duplicate module instances). */
-const globalForContent = globalThis as typeof globalThis & {
-  __ecommerceContentByCompany?: Record<string, StorefrontContentBundle>;
-};
-
-const CONTENT_BY_COMPANY: Record<string, StorefrontContentBundle> =
-  globalForContent.__ecommerceContentByCompany ??
-  (globalForContent.__ecommerceContentByCompany = {
-    [contentSeed.companyId]: JSON.parse(JSON.stringify(contentSeed)) as StorefrontContentBundle,
-  });
-
-function getBundle(companyId: string): StorefrontContentBundle | null {
-  return CONTENT_BY_COMPANY[companyId] ?? null;
-}
-
-function clone<T>(value: T): T {
-  return JSON.parse(JSON.stringify(value)) as T;
-}
-
-function ensureBundle(companyId: string): StorefrontContentBundle {
-  const existing = CONTENT_BY_COMPANY[companyId];
-  if (existing) return existing;
-  const created: StorefrontContentBundle = {
-    companyId,
-    about: {
-      headline: { ar: '', en: '' },
-      intro: { ar: '', en: '' },
-      sections: [],
-      stats: [],
-    },
-    contact: {
-      headline: { ar: '', en: '' },
-      intro: { ar: '', en: '' },
-    },
-    faq: [],
-    legal: [],
-  };
-  CONTENT_BY_COMPANY[companyId] = created;
-  return created;
-}
-
-/** Static CMS repository for about, contact, FAQ, and legal — shared by storefront + admin. */
+/** HTTP-only CMS content — store-frontend-binding.md §3 / §8. No seed fallback. */
 export const storefrontContentRepository = {
   async getAbout(companyId: string, locale: StorefrontLocale): Promise<StorefrontAboutContent | null> {
-    const bundle = getBundle(companyId);
-    if (!bundle) return null;
-    return mockRepositoryDelay(mapStorefrontAbout(bundle.about, locale));
+    if (!isStoreHttpEnabled()) return null;
+    const about = await fetchPublicAbout(companyId);
+    return about ? mapStorefrontAbout(about, locale) : null;
   },
 
-  async getContact(companyId: string, locale: StorefrontLocale): Promise<StorefrontContactContent | null> {
-    const bundle = getBundle(companyId);
-    if (!bundle) return null;
-    return mockRepositoryDelay(mapStorefrontContact(bundle.contact, locale));
+  async getContact(
+    companyId: string,
+    locale: StorefrontLocale,
+  ): Promise<StorefrontContactContent | null> {
+    if (!isStoreHttpEnabled()) return null;
+    const contact = await fetchPublicContact(companyId);
+    return contact ? mapStorefrontContact(contact, locale) : null;
   },
 
   async getFaq(companyId: string, locale: StorefrontLocale): Promise<StorefrontFaqItem[]> {
-    const bundle = getBundle(companyId);
-    const items = bundle?.faq ?? [];
-    return mockRepositoryDelay(items.map((item) => mapStorefrontFaqItem(item, locale)));
+    if (!isStoreHttpEnabled()) return [];
+    const items = await fetchPublicFaq(companyId);
+    return items.map((item) => mapStorefrontFaqItem(item, locale));
   },
 
   async getLegalPage(
@@ -88,42 +60,33 @@ export const storefrontContentRepository = {
     slug: LegalPageSlug,
     locale: StorefrontLocale,
   ): Promise<StorefrontLegalPage | null> {
-    const bundle = getBundle(companyId);
-    const page = bundle?.legal.find((item) => item.slug === slug) ?? null;
-    if (!page) return null;
-    return mockRepositoryDelay(mapStorefrontLegal(page, locale));
+    if (!isStoreHttpEnabled()) return null;
+    const page = await fetchPublicLegal(companyId, slug);
+    return page ? mapStorefrontLegal(page, locale) : null;
   },
 
-  // ── Admin CMS (raw bilingual records) ─────────────────────────────────────
-
   async getContentBundle(companyId: string): Promise<StorefrontContentBundle | null> {
-    const bundle = getBundle(companyId);
-    return mockRepositoryDelay(bundle ? clone(bundle) : null);
+    if (!isStoreHttpEnabled()) return null;
+    return fetchAdminContentBundle(companyId);
   },
 
   async saveAbout(companyId: string, about: AboutPageContent): Promise<AboutPageContent> {
-    const bundle = ensureBundle(companyId);
-    bundle.about = clone(about);
-    return mockRepositoryDelay(clone(bundle.about));
+    if (!isStoreHttpEnabled()) throw new Error('STORE_HTTP_DISABLED');
+    return saveAdminAbout(companyId, about);
   },
 
   async saveContact(companyId: string, contact: ContactPageContent): Promise<ContactPageContent> {
-    const bundle = ensureBundle(companyId);
-    bundle.contact = clone(contact);
-    return mockRepositoryDelay(clone(bundle.contact));
+    if (!isStoreHttpEnabled()) throw new Error('STORE_HTTP_DISABLED');
+    return saveAdminContact(companyId, contact);
   },
 
   async saveFaq(companyId: string, faq: FaqItem[]): Promise<FaqItem[]> {
-    const bundle = ensureBundle(companyId);
-    bundle.faq = clone(faq);
-    return mockRepositoryDelay(clone(bundle.faq));
+    if (!isStoreHttpEnabled()) throw new Error('STORE_HTTP_DISABLED');
+    return saveAdminFaq(companyId, faq);
   },
 
   async saveLegalPage(companyId: string, page: LegalPageContent): Promise<LegalPageContent> {
-    const bundle = ensureBundle(companyId);
-    const index = bundle.legal.findIndex((item) => item.slug === page.slug);
-    if (index === -1) bundle.legal.push(clone(page));
-    else bundle.legal[index] = clone(page);
-    return mockRepositoryDelay(clone(page));
+    if (!isStoreHttpEnabled()) throw new Error('STORE_HTTP_DISABLED');
+    return saveAdminLegalPage(companyId, page);
   },
 };

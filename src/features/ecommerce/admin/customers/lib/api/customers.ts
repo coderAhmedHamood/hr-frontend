@@ -1,5 +1,4 @@
 import { createMockRepository } from '@/features/ecommerce/shared/lib/mock/repository';
-import { listLiveCustomers } from '@/features/ecommerce/shared/lib/admin-live-commerce';
 import type { PaginatedResult } from '@/features/ecommerce/domain/types/common';
 import type {
   Customer,
@@ -11,28 +10,12 @@ import customersSeed from '@/features/ecommerce/shared/lib/mock/customers.json';
 
 const repository = createMockRepository<Customer>(customersSeed as Customer[]);
 
-const hydratedCustomerIds = new Set<string>();
-
-async function hydrateLiveCustomers(companyId: string): Promise<void> {
-  for (const customer of listLiveCustomers()) {
-    if (customer.companyId !== companyId) continue;
-    if (hydratedCustomerIds.has(customer.id)) {
-      await repository.update(companyId, customer.id, customer);
-      continue;
-    }
-    const existing = await repository.getById(companyId, customer.id);
-    if (existing) {
-      await repository.update(companyId, customer.id, customer);
-    } else {
-      await repository.create(customer);
-    }
-    hydratedCustomerIds.add(customer.id);
-  }
-}
-
+/**
+ * Admin customers CRM — no localStorage live sync from storefront checkout.
+ * Storefront guests are not mirrored here; orders live in Nest store APIs.
+ */
 export const customersApi = {
   async getAll(query: CustomerListQuery): Promise<PaginatedResult<Customer>> {
-    await hydrateLiveCustomers(query.companyId);
     return repository.list(
       query,
       (item, q) => {
@@ -54,7 +37,6 @@ export const customersApi = {
     );
   },
   async getById(companyId: string, id: string) {
-    await hydrateLiveCustomers(companyId);
     return repository.getById(companyId, id);
   },
   create(input: CreateCustomerInput) {
