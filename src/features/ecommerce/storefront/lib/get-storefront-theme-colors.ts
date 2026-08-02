@@ -3,6 +3,7 @@ import { publicConfig } from '@/shared/config';
 import { buildCompanyThemeCssVars } from '@/shared/company-theme';
 import type { CompanyThemeColors } from '@/features/ecommerce/storefront/domain/company-config';
 import {
+  CUSTOM_STOREFRONT_FONT_ID,
   DEFAULT_STOREFRONT_TYPOGRAPHY,
   resolveStorefrontFontId,
   type StorefrontTypography,
@@ -14,14 +15,17 @@ type PublicCompanyBranding = {
   secondaryColor: string | null;
   bodyFont?: string | null;
   displayFont?: string | null;
+  bodyFontUrl?: string | null;
+  displayFontUrl?: string | null;
 };
 
 export type StorefrontBrandingResolved = {
   theme: CompanyThemeColors;
+  /** Full HSL-channel CSS vars for the store shell (`--primary`, scale, foregrounds, …). */
+  themeCssVars: Record<string, string>;
   typography: StorefrontTypography;
 };
 
-/** No-auth backend branding (admin-controlled) — falls back silently to CMS defaults. */
 async function fetchPublicCompanyBranding(companyId: string): Promise<PublicCompanyBranding | null> {
   const base = resolveApiBaseUrl(publicConfig.apiUrl).replace(/\/$/, '');
   try {
@@ -39,6 +43,29 @@ async function fetchPublicCompanyBranding(companyId: string): Promise<PublicComp
   }
 }
 
+function resolveTypography(
+  branding: PublicCompanyBranding | null,
+  defaults: StorefrontTypography,
+): StorefrontTypography {
+  const bodyFontId = resolveStorefrontFontId(branding?.bodyFont, defaults.bodyFontId);
+  const displayFontId = resolveStorefrontFontId(branding?.displayFont, defaults.displayFontId);
+  const bodyFontUrl = branding?.bodyFontUrl?.trim() || null;
+  const displayFontUrl = branding?.displayFontUrl?.trim() || null;
+
+  return {
+    bodyFontId:
+      bodyFontId === CUSTOM_STOREFRONT_FONT_ID && !bodyFontUrl
+        ? defaults.bodyFontId
+        : bodyFontId,
+    displayFontId:
+      displayFontId === CUSTOM_STOREFRONT_FONT_ID && !displayFontUrl
+        ? defaults.displayFontId
+        : displayFontId,
+    bodyFontUrl: bodyFontId === CUSTOM_STOREFRONT_FONT_ID ? bodyFontUrl : null,
+    displayFontUrl: displayFontId === CUSTOM_STOREFRONT_FONT_ID ? displayFontUrl : null,
+  };
+}
+
 /**
  * Storefront-only branding override — colors + fonts from the real backend.
  * Never affects the admin dashboard.
@@ -49,20 +76,18 @@ export async function applyRealBrandingTheme(
   defaultTypography: StorefrontTypography = DEFAULT_STOREFRONT_TYPOGRAPHY,
 ): Promise<StorefrontBrandingResolved> {
   const branding = await fetchPublicCompanyBranding(companyId);
-
-  const typography: StorefrontTypography = {
-    bodyFontId: resolveStorefrontFontId(
-      branding?.bodyFont,
-      defaultTypography.bodyFontId,
-    ),
-    displayFontId: resolveStorefrontFontId(
-      branding?.displayFont,
-      defaultTypography.displayFontId,
-    ),
-  };
+  const typography = resolveTypography(branding, defaultTypography);
 
   if (!branding || (!branding.primaryColor && !branding.secondaryColor)) {
-    return { theme: defaultTheme, typography };
+    return {
+      theme: defaultTheme,
+      themeCssVars: {
+        '--primary': defaultTheme.primary,
+        '--secondary': defaultTheme.secondary,
+        '--accent': defaultTheme.accent,
+      },
+      typography,
+    };
   }
 
   const vars = buildCompanyThemeCssVars({
@@ -76,6 +101,7 @@ export async function applyRealBrandingTheme(
       secondary: vars['--secondary'] ?? defaultTheme.secondary,
       accent: vars['--accent'] ?? defaultTheme.accent,
     },
+    themeCssVars: vars,
     typography,
   };
 }

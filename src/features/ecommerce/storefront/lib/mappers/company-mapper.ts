@@ -49,7 +49,7 @@ export function mapStorefrontCompanyConfig(
     contact: record.contact,
     social: resolveEnabledSocialLinks(record.social),
     theme: record.theme,
-    typography: DEFAULT_STOREFRONT_TYPOGRAPHY,
+    typography: { ...DEFAULT_STOREFRONT_TYPOGRAPHY },
     navigation: record.navigation
       .filter((item) => isCatalogPageAllowed(item.href, storePages))
       .map((item) => mapNavItem(item, locale)),

@@ -109,6 +109,8 @@ export type StorefrontCompanyConfig = {
   contact: CompanyContactInfo;
   social: Partial<Record<import('@/features/ecommerce/storefront/domain/company-config').CompanySocialNetwork, string>>;
   theme: CompanyThemeColors;
+  /** Runtime CSS variable overrides for the store shell (HSL channels). */
+  themeCssVars?: Record<string, string>;
   /** Curated Google Font preset ids — applied only under /store. */
   typography: StorefrontTypography;
   navigation: StorefrontNavItem[];

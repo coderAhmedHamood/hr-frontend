@@ -10,12 +10,17 @@ import { getStorefrontNavCategories } from '@/features/ecommerce/storefront/lib/
 import { getStorefrontCompanyConfig } from '@/features/ecommerce/storefront/lib/get-storefront-company-config';
 import { organizationJsonLd } from '@/features/ecommerce/storefront/lib/seo';
 import {
+  CUSTOM_BODY_FONT_FAMILY,
+  CUSTOM_DISPLAY_FONT_FAMILY,
+  CUSTOM_STOREFRONT_FONT_ID,
+  buildCustomFontFaceCss,
   buildGoogleFontsStylesheetUrl,
   resolveStorefrontFontId,
   storefrontFontFamilyCss,
   DEFAULT_STOREFRONT_BODY_FONT,
   DEFAULT_STOREFRONT_DISPLAY_FONT,
 } from '@/features/ecommerce/storefront/lib/storefront-fonts';
+import { resolveUploadUrl } from '@/shared/resolve-upload-url';
 import { isRtlLocale, type StorefrontLocale } from '@/i18n/routing';
 import type { CSSProperties } from 'react';
 
@@ -39,14 +44,28 @@ export async function StorefrontShell({ children }: { children: React.ReactNode 
     config.typography?.displayFontId,
     DEFAULT_STOREFRONT_DISPLAY_FONT,
   );
+  const bodyFontUrl = resolveUploadUrl(config.typography?.bodyFontUrl);
+  const displayFontUrl = resolveUploadUrl(config.typography?.displayFontUrl);
   const fontsHref = buildGoogleFontsStylesheetUrl([bodyFontId, displayFontId]);
+  const customFontCss = [
+    bodyFontId === CUSTOM_STOREFRONT_FONT_ID && bodyFontUrl
+      ? buildCustomFontFaceCss(CUSTOM_BODY_FONT_FAMILY, bodyFontUrl)
+      : '',
+    displayFontId === CUSTOM_STOREFRONT_FONT_ID && displayFontUrl
+      ? buildCustomFontFaceCss(CUSTOM_DISPLAY_FONT_FAMILY, displayFontUrl)
+      : '',
+  ]
+    .filter(Boolean)
+    .join('');
 
   const themeStyle = {
-    '--primary': config.theme.primary,
-    '--secondary': config.theme.secondary,
-    '--accent': config.theme.accent,
-    '--font-body': storefrontFontFamilyCss(bodyFontId),
-    '--font-display': storefrontFontFamilyCss(displayFontId),
+    ...(config.themeCssVars ?? {
+      '--primary': config.theme.primary,
+      '--secondary': config.theme.secondary,
+      '--accent': config.theme.accent,
+    }),
+    '--font-body': storefrontFontFamilyCss(bodyFontId, 'body'),
+    '--font-display': storefrontFontFamilyCss(displayFontId, 'display'),
   } as CSSProperties;
 
   return (
@@ -56,10 +75,15 @@ export async function StorefrontShell({ children }: { children: React.ReactNode 
       dir={dir}
       lang={storefrontLocale}
     >
-      {/* Dynamic store fonts — scoped via CSS vars on this root only */}
-      <link rel="preconnect" href="https://fonts.googleapis.com" />
-      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-      <link rel="stylesheet" href={fontsHref} />
+      {/* Dynamic store fonts — only selected Google/custom fonts load here */}
+      {fontsHref ? (
+        <>
+          <link rel="preconnect" href="https://fonts.googleapis.com" />
+          <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+          <link rel="stylesheet" href={fontsHref} />
+        </>
+      ) : null}
+      {customFontCss ? <style dangerouslySetInnerHTML={{ __html: customFontCss }} /> : null}
       <JsonLd data={await organizationJsonLd(config, storefrontLocale)} />
       <Toaster
         className="storefront-toaster"

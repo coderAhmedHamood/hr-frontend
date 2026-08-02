@@ -14,7 +14,12 @@ async function withBranding(config: StorefrontCompanyConfig): Promise<Storefront
     config.theme,
     config.typography ?? DEFAULT_STOREFRONT_TYPOGRAPHY,
   );
-  return { ...config, theme: branding.theme, typography: branding.typography };
+  return {
+    ...config,
+    theme: branding.theme,
+    themeCssVars: branding.themeCssVars,
+    typography: branding.typography,
+  };
 }
 
 export const getStorefrontCompanyConfig = cache(async (): Promise<StorefrontCompanyConfig> => {

@@ -23,6 +23,8 @@ export type CompanyResponseDto = {
   storefrontSecondaryColor: string | null;
   storefrontBodyFont: string | null;
   storefrontDisplayFont: string | null;
+  storefrontBodyFontUrl: string | null;
+  storefrontDisplayFontUrl: string | null;
   timezone: string;
   currencyCode: string;
   languageCode: string;
@@ -56,6 +58,8 @@ export type CreateCompanyDto = {
   storefrontSecondaryColor?: string | null;
   storefrontBodyFont?: string | null;
   storefrontDisplayFont?: string | null;
+  storefrontBodyFontUrl?: string | null;
+  storefrontDisplayFontUrl?: string | null;
   timezone?: string;
   currencyCode?: string;
   languageCode?: string;

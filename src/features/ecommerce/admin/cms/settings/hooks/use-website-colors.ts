@@ -11,6 +11,8 @@ type WebsiteBrandingPatch = Pick<
   | 'storefrontSecondaryColor'
   | 'storefrontBodyFont'
   | 'storefrontDisplayFont'
+  | 'storefrontBodyFontUrl'
+  | 'storefrontDisplayFontUrl'
 >;
 
 /**

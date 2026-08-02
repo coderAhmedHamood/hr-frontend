@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { toast } from 'sonner';
-import { Paintbrush, RotateCcw, Save, ShoppingBag } from 'lucide-react';
+import { Paintbrush, RotateCcw, Save, ShoppingBag, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,31 +15,50 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { isValidHexColor } from '@/shared/company-theme';
+import { uploadResponseToStoredPath } from '@/shared/resolve-upload-url';
+import { uploadsApi } from '@/features/hr/lib/api/uploads';
 import { useWebsiteThemeColors } from '@/features/ecommerce/admin/cms/settings/hooks/use-website-colors';
 import {
+  CUSTOM_STOREFRONT_FONT_ID,
   DEFAULT_STOREFRONT_BODY_FONT,
   DEFAULT_STOREFRONT_DISPLAY_FONT,
-  STOREFRONT_FONT_IDS,
   STOREFRONT_FONT_PRESETS,
+  STOREFRONT_GOOGLE_FONT_IDS,
   buildGoogleFontsStylesheetUrl,
   isStorefrontFontId,
   type StorefrontFontId,
 } from '@/features/ecommerce/storefront/lib/storefront-fonts';
 
-const PREVIEW_FONTS_HREF = buildGoogleFontsStylesheetUrl([...STOREFRONT_FONT_IDS]);
+const PREVIEW_FONTS_HREF = buildGoogleFontsStylesheetUrl([...STOREFRONT_GOOGLE_FONT_IDS]);
+const FONT_ACCEPT = '.woff2,.woff,.ttf,.otf,font/woff2,font/woff,font/ttf,font/otf';
 
 type BrandingState = {
   primaryColor: string;
   secondaryColor: string;
   bodyFont: StorefrontFontId;
   displayFont: StorefrontFontId;
+  bodyFontUrl: string | null;
+  displayFontUrl: string | null;
+};
+
+const DEFAULT_COLORS: Pick<BrandingState, 'primaryColor' | 'secondaryColor'> = {
+  primaryColor: '',
+  secondaryColor: '',
+};
+
+const DEFAULT_FONTS: Pick<
+  BrandingState,
+  'bodyFont' | 'displayFont' | 'bodyFontUrl' | 'displayFontUrl'
+> = {
+  bodyFont: DEFAULT_STOREFRONT_BODY_FONT,
+  displayFont: DEFAULT_STOREFRONT_DISPLAY_FONT,
+  bodyFontUrl: null,
+  displayFontUrl: null,
 };
 
 const EMPTY_BRANDING: BrandingState = {
-  primaryColor: '',
-  secondaryColor: '',
-  bodyFont: DEFAULT_STOREFRONT_BODY_FONT,
-  displayFont: DEFAULT_STOREFRONT_DISPLAY_FONT,
+  ...DEFAULT_COLORS,
+  ...DEFAULT_FONTS,
 };
 
 const DEFAULT_PREVIEW_PRIMARY = '#0f766e';
@@ -52,18 +71,25 @@ function toBrandingState(
         storefrontSecondaryColor: string | null;
         storefrontBodyFont?: string | null;
         storefrontDisplayFont?: string | null;
+        storefrontBodyFontUrl?: string | null;
+        storefrontDisplayFontUrl?: string | null;
       }
     | undefined,
 ): BrandingState {
+  const bodyFont = isStorefrontFontId(input?.storefrontBodyFont)
+    ? input.storefrontBodyFont
+    : DEFAULT_STOREFRONT_BODY_FONT;
+  const displayFont = isStorefrontFontId(input?.storefrontDisplayFont)
+    ? input.storefrontDisplayFont
+    : DEFAULT_STOREFRONT_DISPLAY_FONT;
+
   return {
     primaryColor: input?.storefrontPrimaryColor ?? '',
     secondaryColor: input?.storefrontSecondaryColor ?? '',
-    bodyFont: isStorefrontFontId(input?.storefrontBodyFont)
-      ? input.storefrontBodyFont
-      : DEFAULT_STOREFRONT_BODY_FONT,
-    displayFont: isStorefrontFontId(input?.storefrontDisplayFont)
-      ? input.storefrontDisplayFont
-      : DEFAULT_STOREFRONT_DISPLAY_FONT,
+    bodyFont,
+    displayFont,
+    bodyFontUrl: input?.storefrontBodyFontUrl ?? null,
+    displayFontUrl: input?.storefrontDisplayFontUrl ?? null,
   };
 }
 
@@ -101,16 +127,72 @@ function ColorField({
   );
 }
 
+function FontUploadField({
+  label,
+  fileNameHint,
+  uploading,
+  onUpload,
+  onClear,
+  hasFile,
+}: {
+  label: string;
+  fileNameHint: string;
+  uploading: boolean;
+  hasFile: boolean;
+  onUpload: (file: File) => void;
+  onClear: () => void;
+}) {
+  const inputRef = React.useRef<HTMLInputElement>(null);
+
+  return (
+    <div className="space-y-2 rounded-xl border border-dashed border-border/80 bg-muted/20 p-3">
+      <Label className="text-sm font-medium text-foreground">{label}</Label>
+      <p className="text-[11px] text-muted-foreground">{fileNameHint}</p>
+      <div className="flex flex-wrap gap-2">
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="gap-1.5 rounded-lg"
+          disabled={uploading}
+          onClick={() => inputRef.current?.click()}
+        >
+          <Upload className="h-3.5 w-3.5" />
+          {uploading ? '…' : label}
+        </Button>
+        {hasFile ? (
+          <Button type="button" size="sm" variant="ghost" className="rounded-lg" onClick={onClear}>
+            إزالة
+          </Button>
+        ) : null}
+      </div>
+      <input
+        ref={inputRef}
+        type="file"
+        accept={FONT_ACCEPT}
+        className="hidden"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          event.target.value = '';
+          if (file) onUpload(file);
+        }}
+      />
+    </div>
+  );
+}
+
 function FontField({
   label,
   value,
   onChange,
   locale,
+  customLabel,
 }: {
   label: string;
   value: StorefrontFontId;
   onChange: (value: StorefrontFontId) => void;
   locale: string;
+  customLabel: string;
 }) {
   return (
     <div className="space-y-2">
@@ -127,13 +209,13 @@ function FontField({
               </span>
             </SelectItem>
           ))}
+          <SelectItem value={CUSTOM_STOREFRONT_FONT_ID}>{customLabel}</SelectItem>
         </SelectContent>
       </Select>
     </div>
   );
 }
 
-/** Self-contained mock storefront card — draft colors/fonts only. Never touches the real app theme. */
 function StorePreviewMock({
   primaryColor,
   secondaryColor,
@@ -150,9 +232,14 @@ function StorePreviewMock({
   const primary = isValidHexColor(primaryColor) ? primaryColor : DEFAULT_PREVIEW_PRIMARY;
   const secondary = isValidHexColor(secondaryColor) ? secondaryColor : DEFAULT_PREVIEW_SECONDARY;
   const bodyFamily =
-    STOREFRONT_FONT_PRESETS.find((preset) => preset.id === bodyFont)?.family ?? 'IBM Plex Sans Arabic';
+    bodyFont === CUSTOM_STOREFRONT_FONT_ID
+      ? 'system-ui'
+      : (STOREFRONT_FONT_PRESETS.find((preset) => preset.id === bodyFont)?.family ??
+        'IBM Plex Sans Arabic');
   const displayFamily =
-    STOREFRONT_FONT_PRESETS.find((preset) => preset.id === displayFont)?.family ?? 'Rubik';
+    displayFont === CUSTOM_STOREFRONT_FONT_ID
+      ? 'system-ui'
+      : (STOREFRONT_FONT_PRESETS.find((preset) => preset.id === displayFont)?.family ?? 'Rubik');
 
   return (
     <div className="space-y-2">
@@ -192,14 +279,6 @@ function StorePreviewMock({
           >
             أضف إلى السلة
           </button>
-          <button
-            type="button"
-            tabIndex={-1}
-            className="w-full rounded-xl border px-4 py-2 text-sm font-semibold"
-            style={{ borderColor: secondary, color: secondary }}
-          >
-            اشترِ الآن
-          </button>
         </div>
       </div>
     </div>
@@ -214,6 +293,8 @@ export function WebsiteColorsPanel({ companyId }: { companyId: string }) {
 
   const [draft, setDraft] = React.useState<BrandingState>(EMPTY_BRANDING);
   const savedRef = React.useRef<BrandingState>(EMPTY_BRANDING);
+  const [uploadingBody, setUploadingBody] = React.useState(false);
+  const [uploadingDisplay, setUploadingDisplay] = React.useState(false);
 
   React.useEffect(() => {
     if (company) {
@@ -227,40 +308,87 @@ export function WebsiteColorsPanel({ companyId }: { companyId: string }) {
     draft.primaryColor !== savedRef.current.primaryColor ||
     draft.secondaryColor !== savedRef.current.secondaryColor ||
     draft.bodyFont !== savedRef.current.bodyFont ||
-    draft.displayFont !== savedRef.current.displayFont;
+    draft.displayFont !== savedRef.current.displayFont ||
+    draft.bodyFontUrl !== savedRef.current.bodyFontUrl ||
+    draft.displayFontUrl !== savedRef.current.displayFontUrl;
 
   function patch(next: Partial<BrandingState>) {
     setDraft((prev) => ({ ...prev, ...next }));
   }
 
-  async function handleSave() {
-    if (draft.primaryColor.trim() && !isValidHexColor(draft.primaryColor)) {
+  async function persist(next: BrandingState, successKey: 'saveSuccess' | 'resetColorsSuccess' | 'resetFontsSuccess') {
+    if (next.primaryColor.trim() && !isValidHexColor(next.primaryColor)) {
       toast.error(t('colors.invalidPrimary'));
-      return;
+      return false;
     }
-    if (draft.secondaryColor.trim() && !isValidHexColor(draft.secondaryColor)) {
+    if (next.secondaryColor.trim() && !isValidHexColor(next.secondaryColor)) {
       toast.error(t('colors.invalidSecondary'));
-      return;
+      return false;
+    }
+    if (next.bodyFont === CUSTOM_STOREFRONT_FONT_ID && !next.bodyFontUrl) {
+      toast.error(t('colors.customBodyRequired'));
+      return false;
+    }
+    if (next.displayFont === CUSTOM_STOREFRONT_FONT_ID && !next.displayFontUrl) {
+      toast.error(t('colors.customDisplayRequired'));
+      return false;
     }
 
     try {
       const updated = await update.mutateAsync({
-        storefrontPrimaryColor: draft.primaryColor.trim() || null,
-        storefrontSecondaryColor: draft.secondaryColor.trim() || null,
-        storefrontBodyFont: draft.bodyFont,
-        storefrontDisplayFont: draft.displayFont,
+        storefrontPrimaryColor: next.primaryColor.trim() || null,
+        storefrontSecondaryColor: next.secondaryColor.trim() || null,
+        storefrontBodyFont: next.bodyFont,
+        storefrontDisplayFont: next.displayFont,
+        storefrontBodyFontUrl:
+          next.bodyFont === CUSTOM_STOREFRONT_FONT_ID ? next.bodyFontUrl : null,
+        storefrontDisplayFontUrl:
+          next.displayFont === CUSTOM_STOREFRONT_FONT_ID ? next.displayFontUrl : null,
       });
-      const next = toBrandingState(updated);
-      savedRef.current = next;
-      setDraft(next);
-      toast.success(t('colors.saveSuccess'));
+      const saved = toBrandingState(updated);
+      savedRef.current = saved;
+      setDraft(saved);
+      toast.success(t(`colors.${successKey}`));
+      return true;
     } catch {
       toast.error(t('colors.saveError'));
+      return false;
     }
   }
 
-  function handleReset() {
-    setDraft(savedRef.current);
+  async function handleSave() {
+    await persist(draft, 'saveSuccess');
+  }
+
+  async function handleResetColors() {
+    const next = { ...draft, ...DEFAULT_COLORS };
+    setDraft(next);
+    await persist(next, 'resetColorsSuccess');
+  }
+
+  async function handleResetFonts() {
+    const next = { ...draft, ...DEFAULT_FONTS };
+    setDraft(next);
+    await persist(next, 'resetFontsSuccess');
+  }
+
+  async function uploadFont(role: 'body' | 'display', file: File) {
+    const setUploading = role === 'body' ? setUploadingBody : setUploadingDisplay;
+    setUploading(true);
+    try {
+      const uploaded = await uploadsApi.upload('other', file);
+      const path = uploadResponseToStoredPath(uploaded);
+      if (role === 'body') {
+        patch({ bodyFont: CUSTOM_STOREFRONT_FONT_ID, bodyFontUrl: path });
+      } else {
+        patch({ displayFont: CUSTOM_STOREFRONT_FONT_ID, displayFontUrl: path });
+      }
+      toast.success(t('colors.uploadSuccess'));
+    } catch {
+      toast.error(t('colors.uploadError'));
+    } finally {
+      setUploading(false);
+    }
   }
 
   if (isLoading) {
@@ -280,8 +408,7 @@ export function WebsiteColorsPanel({ companyId }: { companyId: string }) {
 
   return (
     <section className="rounded-2xl border border-border/70 bg-card">
-      {/* Load curated fonts so dropdown + preview render the real families */}
-      <link rel="stylesheet" href={PREVIEW_FONTS_HREF} />
+      {PREVIEW_FONTS_HREF ? <link rel="stylesheet" href={PREVIEW_FONTS_HREF} /> : null}
       <header className="flex items-start gap-3 border-b border-border/60 px-5 py-4 sm:px-6">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
           <Paintbrush className="h-5 w-5" aria-hidden />
@@ -294,33 +421,118 @@ export function WebsiteColorsPanel({ companyId }: { companyId: string }) {
 
       <div className="grid gap-6 p-5 sm:grid-cols-[minmax(0,1fr)_260px] sm:p-6">
         <div className="space-y-5">
-          <div className="grid gap-5 sm:grid-cols-2">
-            <ColorField
-              label={t('colors.primaryColor')}
-              value={draft.primaryColor}
-              onChange={(primaryColor) => patch({ primaryColor })}
-            />
-            <ColorField
-              label={t('colors.secondaryColor')}
-              value={draft.secondaryColor}
-              onChange={(secondaryColor) => patch({ secondaryColor })}
-            />
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                {t('colors.colorsSection')}
+              </p>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="gap-1.5 rounded-lg"
+                disabled={update.isPending}
+                onClick={() => void handleResetColors()}
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+                {t('colors.resetColors')}
+              </Button>
+            </div>
+            <div className="grid gap-5 sm:grid-cols-2">
+              <ColorField
+                label={t('colors.primaryColor')}
+                value={draft.primaryColor}
+                onChange={(primaryColor) => patch({ primaryColor })}
+              />
+              <ColorField
+                label={t('colors.secondaryColor')}
+                value={draft.secondaryColor}
+                onChange={(secondaryColor) => patch({ secondaryColor })}
+              />
+            </div>
           </div>
-          <div className="grid gap-5 sm:grid-cols-2">
-            <FontField
-              label={t('colors.bodyFont')}
-              value={draft.bodyFont}
-              onChange={(bodyFont) => patch({ bodyFont })}
-              locale={locale}
-            />
-            <FontField
-              label={t('colors.displayFont')}
-              value={draft.displayFont}
-              onChange={(displayFont) => patch({ displayFont })}
-              locale={locale}
-            />
+
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                {t('colors.fontsSection')}
+              </p>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="gap-1.5 rounded-lg"
+                disabled={update.isPending}
+                onClick={() => void handleResetFonts()}
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+                {t('colors.resetFonts')}
+              </Button>
+            </div>
+            <div className="grid gap-5 sm:grid-cols-2">
+              <FontField
+                label={t('colors.bodyFont')}
+                value={draft.bodyFont}
+                onChange={(bodyFont) =>
+                  patch({
+                    bodyFont,
+                    bodyFontUrl: bodyFont === CUSTOM_STOREFRONT_FONT_ID ? draft.bodyFontUrl : null,
+                  })
+                }
+                locale={locale}
+                customLabel={t('colors.customFont')}
+              />
+              <FontField
+                label={t('colors.displayFont')}
+                value={draft.displayFont}
+                onChange={(displayFont) =>
+                  patch({
+                    displayFont,
+                    displayFontUrl:
+                      displayFont === CUSTOM_STOREFRONT_FONT_ID ? draft.displayFontUrl : null,
+                  })
+                }
+                locale={locale}
+                customLabel={t('colors.customFont')}
+              />
+            </div>
+            {draft.bodyFont === CUSTOM_STOREFRONT_FONT_ID ||
+            draft.displayFont === CUSTOM_STOREFRONT_FONT_ID ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {draft.bodyFont === CUSTOM_STOREFRONT_FONT_ID ? (
+                  <FontUploadField
+                    label={t('colors.uploadBodyFont')}
+                    fileNameHint={
+                      draft.bodyFontUrl
+                        ? t('colors.uploadedFile', { file: draft.bodyFontUrl.split('/').pop() ?? '' })
+                        : t('colors.uploadHint')
+                    }
+                    uploading={uploadingBody}
+                    hasFile={Boolean(draft.bodyFontUrl)}
+                    onUpload={(file) => void uploadFont('body', file)}
+                    onClear={() => patch({ bodyFontUrl: null })}
+                  />
+                ) : null}
+                {draft.displayFont === CUSTOM_STOREFRONT_FONT_ID ? (
+                  <FontUploadField
+                    label={t('colors.uploadDisplayFont')}
+                    fileNameHint={
+                      draft.displayFontUrl
+                        ? t('colors.uploadedFile', {
+                            file: draft.displayFontUrl.split('/').pop() ?? '',
+                          })
+                        : t('colors.uploadHint')
+                    }
+                    uploading={uploadingDisplay}
+                    hasFile={Boolean(draft.displayFontUrl)}
+                    onUpload={(file) => void uploadFont('display', file)}
+                    onClear={() => patch({ displayFontUrl: null })}
+                  />
+                ) : null}
+              </div>
+            ) : null}
+            <p className="text-[11px] leading-relaxed text-muted-foreground">{t('colors.fontsHint')}</p>
           </div>
-          <p className="text-[11px] leading-relaxed text-muted-foreground">{t('colors.fontsHint')}</p>
         </div>
 
         <StorePreviewMock
@@ -334,27 +546,15 @@ export function WebsiteColorsPanel({ companyId }: { companyId: string }) {
 
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/60 px-5 py-4 sm:px-6">
         <p className="text-[11px] leading-relaxed text-muted-foreground">{t('colors.hint')}</p>
-        <div className="flex shrink-0 gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            className="gap-2 rounded-xl"
-            disabled={!dirty || update.isPending}
-            onClick={handleReset}
-          >
-            <RotateCcw className="h-4 w-4" />
-            {t('colors.reset')}
-          </Button>
-          <Button
-            type="button"
-            className="gap-2 rounded-xl"
-            disabled={!dirty || update.isPending}
-            onClick={() => void handleSave()}
-          >
-            <Save className="h-4 w-4" />
-            {update.isPending ? t('colors.saving') : t('colors.save')}
-          </Button>
-        </div>
+        <Button
+          type="button"
+          className="gap-2 rounded-xl"
+          disabled={!dirty || update.isPending}
+          onClick={() => void handleSave()}
+        >
+          <Save className="h-4 w-4" />
+          {update.isPending ? t('colors.saving') : t('colors.save')}
+        </Button>
       </div>
     </section>
   );
