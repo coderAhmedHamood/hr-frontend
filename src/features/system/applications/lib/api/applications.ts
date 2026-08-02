@@ -2,7 +2,6 @@ import { apiRequest, type PaginatedResult } from '@/features/hr/lib/api/client';
 import { ecommerceAdminRoutes } from '@/features/ecommerce/admin/constants/routes';
 import { inventoryAdminRoutes } from '@/features/inventory/admin/constants/routes';
 import { resolveSystemAppLaunchPath } from '@/features/system/constants/app-launch';
-import { isModuleEnabledFor, MODULE_REGISTRY } from '@/shared/modules/registry';
 
 export type ApplicationResponseDto = {
   id: string;
@@ -28,49 +27,14 @@ export const applicationsApi = {
 };
 
 /**
- * Supplements backend launcher tiles with frontend-registered installable modules
- * (e.g. ecommerce) until the applications catalog seeds them.
+ * Launcher tiles come only from `GET /applications/launcher`.
+ * Do not invent ecommerce/inventory tiles on the client — those apps appear when the backend seeds them.
  */
 export function enrichLauncherApplications(
   apps: ApplicationResponseDto[],
-  companyId: string | null | undefined,
+  _companyId?: string | null,
 ): ApplicationResponseDto[] {
-  const codes = new Set(apps.map((app) => app.code.trim().toLowerCase()));
-  const next = [...apps];
-
-  if (!codes.has('ecommerce') && isModuleEnabledFor('ecommerce', companyId)) {
-    const maxSort = next.reduce((max, app) => Math.max(max, app.sortOrder), 0);
-    next.push({
-      id: 'module-ecommerce',
-      code: 'ecommerce',
-      nameAr: MODULE_REGISTRY.ecommerce.labelAr,
-      nameEn: 'Online Store',
-      description: null,
-      icon: 'shopping-cart',
-      routePath: ecommerceAdminRoutes.overview,
-      sortOrder: maxSort + 10,
-      isActive: true,
-      status: 'active',
-    });
-  }
-
-  if (!codes.has('inventory') && isModuleEnabledFor('inventory', companyId)) {
-    const maxSort = next.reduce((max, app) => Math.max(max, app.sortOrder), 0);
-    next.push({
-      id: 'module-inventory',
-      code: 'inventory',
-      nameAr: MODULE_REGISTRY.inventory.labelAr,
-      nameEn: 'Inventory',
-      description: null,
-      icon: 'package',
-      routePath: inventoryAdminRoutes.overview,
-      sortOrder: maxSort + 10,
-      isActive: true,
-      status: 'active',
-    });
-  }
-
-  return next.sort((a, b) => a.sortOrder - b.sortOrder);
+  return [...apps].sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
 /** Where the app tile navigates — HR lands on employees list. */
