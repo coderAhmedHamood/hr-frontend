@@ -7,6 +7,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   CreditCard,
   GalleryHorizontal,
+  Paintbrush,
   Palette,
   Phone,
   Save,
@@ -39,6 +40,7 @@ import { createSectionFromDefinition } from '@/features/ecommerce/admin/cms/home
 import type { PageRecord } from '@/features/ecommerce/storefront/page-builder/domain/page-records';
 import type { HeroCarouselSectionRecord } from '@/features/ecommerce/storefront/page-builder/domain/section-types';
 import { ImagePicker } from '@/features/ecommerce/admin/cms/homepage/components/section-entity-pickers';
+import { WebsiteColorsPanel } from '@/features/ecommerce/admin/cms/settings/components/website-colors-panel';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { PageHeaderPrimaryButton } from '@/components/layouts/page-header-primary-button';
@@ -370,6 +372,7 @@ export function WebsiteSettingsPage() {
             {(
               [
                 ['branding', Palette, t('tabs.branding')],
+                ['colors', Paintbrush, t('tabs.colors')],
                 ['bars', GalleryHorizontal, t('tabs.bars')],
                 ['contact', Phone, t('tabs.contact')],
                 ['social', Share2, t('tabs.social')],
@@ -415,6 +418,10 @@ export function WebsiteSettingsPage() {
                 </Field>
               </div>
             </SettingsPanel>
+          </TabsContent>
+
+          <TabsContent value="colors" className="mt-4">
+            <WebsiteColorsPanel companyId={companyId} />
           </TabsContent>
 
           <TabsContent value="bars" className="mt-4">

@@ -9,6 +9,13 @@ import { getStorefrontBrandsList } from '@/features/ecommerce/storefront/lib/loa
 import { getStorefrontNavCategories } from '@/features/ecommerce/storefront/lib/loaders/storefront-loaders';
 import { getStorefrontCompanyConfig } from '@/features/ecommerce/storefront/lib/get-storefront-company-config';
 import { organizationJsonLd } from '@/features/ecommerce/storefront/lib/seo';
+import {
+  buildGoogleFontsStylesheetUrl,
+  resolveStorefrontFontId,
+  storefrontFontFamilyCss,
+  DEFAULT_STOREFRONT_BODY_FONT,
+  DEFAULT_STOREFRONT_DISPLAY_FONT,
+} from '@/features/ecommerce/storefront/lib/storefront-fonts';
 import { isRtlLocale, type StorefrontLocale } from '@/i18n/routing';
 import type { CSSProperties } from 'react';
 
@@ -24,19 +31,35 @@ export async function StorefrontShell({ children }: { children: React.ReactNode 
   const storefrontLocale = locale as StorefrontLocale;
   const dir = isRtlLocale(storefrontLocale) ? 'rtl' : 'ltr';
 
+  const bodyFontId = resolveStorefrontFontId(
+    config.typography?.bodyFontId,
+    DEFAULT_STOREFRONT_BODY_FONT,
+  );
+  const displayFontId = resolveStorefrontFontId(
+    config.typography?.displayFontId,
+    DEFAULT_STOREFRONT_DISPLAY_FONT,
+  );
+  const fontsHref = buildGoogleFontsStylesheetUrl([bodyFontId, displayFontId]);
+
   const themeStyle = {
     '--primary': config.theme.primary,
     '--secondary': config.theme.secondary,
     '--accent': config.theme.accent,
+    '--font-body': storefrontFontFamilyCss(bodyFontId),
+    '--font-display': storefrontFontFamilyCss(displayFontId),
   } as CSSProperties;
 
   return (
     <div
-      className="flex min-h-dvh flex-col overflow-x-clip bg-background p-0"
+      className="flex min-h-dvh flex-col overflow-x-clip bg-background p-0 font-sans"
       style={themeStyle}
       dir={dir}
       lang={storefrontLocale}
     >
+      {/* Dynamic store fonts — scoped via CSS vars on this root only */}
+      <link rel="preconnect" href="https://fonts.googleapis.com" />
+      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+      <link rel="stylesheet" href={fontsHref} />
       <JsonLd data={await organizationJsonLd(config, storefrontLocale)} />
       <Toaster
         className="storefront-toaster"
