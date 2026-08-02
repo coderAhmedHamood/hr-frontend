@@ -9,6 +9,7 @@ import {
 import type { StorefrontCompanyConfig, StorefrontNavItem } from '@/features/ecommerce/storefront/domain/storefront-models';
 import type { StorefrontLocale } from '@/i18n/routing';
 import { resolveLocalizedText } from '@/features/ecommerce/storefront/domain/localizable';
+import { DEFAULT_STOREFRONT_TYPOGRAPHY } from '@/features/ecommerce/storefront/lib/storefront-fonts';
 
 function mapNavItem(
   item: CompanyConfigRecord['navigation'][number],
@@ -48,6 +49,7 @@ export function mapStorefrontCompanyConfig(
     contact: record.contact,
     social: resolveEnabledSocialLinks(record.social),
     theme: record.theme,
+    typography: { ...DEFAULT_STOREFRONT_TYPOGRAPHY },
     navigation: record.navigation
       .filter((item) => isCatalogPageAllowed(item.href, storePages))
       .map((item) => mapNavItem(item, locale)),

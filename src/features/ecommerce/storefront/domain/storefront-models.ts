@@ -1,6 +1,7 @@
 import type { Inventory, MediaItem, Money, StockStatus, ProductStatus } from '@/features/ecommerce/domain/types';
 import type { CompanyThemeColors, CompanyContactInfo } from '@/features/ecommerce/storefront/domain/company-config';
 import type { LegalPageSlug } from '@/features/ecommerce/storefront/domain/content';
+import type { StorefrontTypography } from '@/features/ecommerce/storefront/lib/storefront-fonts';
 
 export type StorefrontHomepageFeature = {
   id: string;
@@ -108,6 +109,10 @@ export type StorefrontCompanyConfig = {
   contact: CompanyContactInfo;
   social: Partial<Record<import('@/features/ecommerce/storefront/domain/company-config').CompanySocialNetwork, string>>;
   theme: CompanyThemeColors;
+  /** Runtime CSS variable overrides for the store shell (HSL channels). */
+  themeCssVars?: Record<string, string>;
+  /** Curated Google Font preset ids — applied only under /store. */
+  typography: StorefrontTypography;
   navigation: StorefrontNavItem[];
   secondaryNavigation: (StorefrontNavItem & { highlight?: boolean })[];
   footer: {

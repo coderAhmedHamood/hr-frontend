@@ -19,6 +19,12 @@ export type CompanyResponseDto = {
   logoUrl: string | null;
   primaryColor: string | null;
   secondaryColor: string | null;
+  storefrontPrimaryColor: string | null;
+  storefrontSecondaryColor: string | null;
+  storefrontBodyFont: string | null;
+  storefrontDisplayFont: string | null;
+  storefrontBodyFontUrl: string | null;
+  storefrontDisplayFontUrl: string | null;
   timezone: string;
   currencyCode: string;
   languageCode: string;
@@ -48,6 +54,12 @@ export type CreateCompanyDto = {
   logoUrl?: string | null;
   primaryColor?: string | null;
   secondaryColor?: string | null;
+  storefrontPrimaryColor?: string | null;
+  storefrontSecondaryColor?: string | null;
+  storefrontBodyFont?: string | null;
+  storefrontDisplayFont?: string | null;
+  storefrontBodyFontUrl?: string | null;
+  storefrontDisplayFontUrl?: string | null;
   timezone?: string;
   currencyCode?: string;
   languageCode?: string;

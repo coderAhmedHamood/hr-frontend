@@ -11,6 +11,18 @@ import { getStorefrontBrandsList } from '@/features/ecommerce/storefront/lib/loa
 import { getStorefrontNavCategories } from '@/features/ecommerce/storefront/lib/loaders/storefront-loaders';
 import { getStorefrontCompanyConfig } from '@/features/ecommerce/storefront/lib/get-storefront-company-config';
 import { organizationJsonLd } from '@/features/ecommerce/storefront/lib/seo';
+import {
+  CUSTOM_BODY_FONT_FAMILY,
+  CUSTOM_DISPLAY_FONT_FAMILY,
+  CUSTOM_STOREFRONT_FONT_ID,
+  buildCustomFontFaceCss,
+  buildGoogleFontsStylesheetUrl,
+  resolveStorefrontFontId,
+  storefrontFontFamilyCss,
+  DEFAULT_STOREFRONT_BODY_FONT,
+  DEFAULT_STOREFRONT_DISPLAY_FONT,
+} from '@/features/ecommerce/storefront/lib/storefront-fonts';
+import { resolveUploadUrl } from '@/shared/resolve-upload-url';
 import { isRtlLocale, type StorefrontLocale } from '@/i18n/routing';
 import type { CSSProperties } from 'react';
 
@@ -26,19 +38,54 @@ export async function StorefrontShell({ children }: { children: React.ReactNode 
   const storefrontLocale = locale as StorefrontLocale;
   const dir = isRtlLocale(storefrontLocale) ? 'rtl' : 'ltr';
 
+  const bodyFontId = resolveStorefrontFontId(
+    config.typography?.bodyFontId,
+    DEFAULT_STOREFRONT_BODY_FONT,
+  );
+  const displayFontId = resolveStorefrontFontId(
+    config.typography?.displayFontId,
+    DEFAULT_STOREFRONT_DISPLAY_FONT,
+  );
+  const bodyFontUrl = resolveUploadUrl(config.typography?.bodyFontUrl);
+  const displayFontUrl = resolveUploadUrl(config.typography?.displayFontUrl);
+  const fontsHref = buildGoogleFontsStylesheetUrl([bodyFontId, displayFontId]);
+  const customFontCss = [
+    bodyFontId === CUSTOM_STOREFRONT_FONT_ID && bodyFontUrl
+      ? buildCustomFontFaceCss(CUSTOM_BODY_FONT_FAMILY, bodyFontUrl)
+      : '',
+    displayFontId === CUSTOM_STOREFRONT_FONT_ID && displayFontUrl
+      ? buildCustomFontFaceCss(CUSTOM_DISPLAY_FONT_FAMILY, displayFontUrl)
+      : '',
+  ]
+    .filter(Boolean)
+    .join('');
+
   const themeStyle = {
-    '--primary': config.theme.primary,
-    '--secondary': config.theme.secondary,
-    '--accent': config.theme.accent,
+    ...(config.themeCssVars ?? {
+      '--primary': config.theme.primary,
+      '--secondary': config.theme.secondary,
+      '--accent': config.theme.accent,
+    }),
+    '--font-body': storefrontFontFamilyCss(bodyFontId, 'body'),
+    '--font-display': storefrontFontFamilyCss(displayFontId, 'display'),
   } as CSSProperties;
 
   return (
     <div
-      className="flex min-h-dvh flex-col overflow-x-clip bg-background p-0"
+      className="flex min-h-dvh flex-col overflow-x-clip bg-background p-0 font-sans"
       style={themeStyle}
       dir={dir}
       lang={storefrontLocale}
     >
+      {/* Dynamic store fonts — only selected Google/custom fonts load here */}
+      {fontsHref ? (
+        <>
+          <link rel="preconnect" href="https://fonts.googleapis.com" />
+          <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+          <link rel="stylesheet" href={fontsHref} />
+        </>
+      ) : null}
+      {customFontCss ? <style dangerouslySetInnerHTML={{ __html: customFontCss }} /> : null}
       <JsonLd data={await organizationJsonLd(config, storefrontLocale)} />
       <StoreBindingStorageCleaner />
       <StorefrontWishlistHydrator />
