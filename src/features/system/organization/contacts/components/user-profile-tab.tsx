@@ -16,9 +16,11 @@ import {
 } from '@/features/system/organization/contacts/constants/users-directory';
 import type { UserResponseDto } from '@/features/hr/organization/lib/api/users';
 import { cn, formatDisplayDateTime } from '@/shared/utils';
+import { UserMobileSerialPanel } from '@/features/system/organization/contacts/components/user-mobile-serial-panel';
 
 type Props = {
   user: UserResponseDto;
+  onUserUpdated?: (user: UserResponseDto) => void;
 };
 
 function StatCard({
@@ -100,7 +102,7 @@ function Section({
   );
 }
 
-export function UserProfileTab({ user }: Props) {
+export function UserProfileTab({ user, onUserUpdated }: Props) {
   const statusLabel = user.status ?? '—';
   const canSignInLabel = user.canSignIn ? 'مسموح' : 'غير مسموح';
 
@@ -128,6 +130,8 @@ export function UserProfileTab({ user }: Props) {
         <InfoItem icon={Phone} label="الجوال" value={user.phone} dir="ltr" />
         <InfoItem icon={Globe} label="المنطقة الزمنية" value={user.timezone} dir="ltr" />
       </Section>
+
+      <UserMobileSerialPanel user={user} onUpdated={onUserUpdated} />
 
       <Section title="الأمان والصلاحيات">
         <InfoItem

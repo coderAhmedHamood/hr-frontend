@@ -32,7 +32,7 @@ import {
   isPdfAttachment,
 } from '@/features/hr/organization/employees/lib/employee-attachments-utils';
 import type { EmployeeAttachmentDto } from '@/features/hr/organization/employees/lib/api/employee-attachments';
-import { cn } from '@/shared/utils';
+import { statusPillClass } from '@/shared/status-pill-classes';
 
 const DOCUMENT_TYPE_FILTER_OPTIONS = [
   { value: 'all', label: 'كل الأنواع' },
@@ -85,150 +85,146 @@ export function EmployeeAttachmentsSection({ model }: { model: EmployeeProfileMo
   }
 
   return (
-    <section className="flex flex-col gap-4">
-      <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <h2 className="flex items-center gap-2 font-arabic-display text-lg font-semibold tracking-tight text-foreground">
-            <Paperclip className="h-5 w-5 shrink-0 text-primary" />
-            مرفقات الموظف
-          </h2>
-          <p className="mt-1 text-xs text-muted-foreground">
-            رفع وإدارة المستندات المرتبطة بالموظف — هوية، عقود، شهادات، وغيرها
-          </p>
-        </div>
-        <Button
-          variant="luxe"
-          size="sm"
-          className="h-9 shrink-0 gap-1.5 text-xs"
-          onClick={() => setUploadOpen(true)}
-        >
-          <Plus className="h-3.5 w-3.5" />
-          رفع مرفق
-        </Button>
-      </div>
-
-      {attachmentsError ? (
-        <div className="shrink-0 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          {attachmentsError}
-        </div>
-      ) : null}
-
-      <div className="flex flex-col rounded-xl border border-border bg-card shadow-sm">
-        <div className="flex shrink-0 flex-col gap-3 border-b border-border/60 bg-muted/20 px-4 py-3">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <h3 className="text-sm font-semibold text-foreground">
-              سجل المرفقات
-              <span className="mr-2 text-xs font-normal text-muted-foreground">
-                ({hasAttachmentFilters ? attachmentsPagination.total ?? 0 : attachmentsTotal})
-              </span>
-            </h3>
-            <div className="flex flex-wrap items-center gap-2">
-              <FilterSelect
-                value={archiveScope}
-                onValueChange={(v) => setArchiveScope(v as OrganizationArchiveScope)}
-                options={ORGANIZATION_ARCHIVE_SCOPE_OPTIONS.map((o) => ({
-                  value: o.value,
-                  label: o.label,
-                }))}
-                placeholder="العرض"
-              />
-              <FilterSelect
-                value={documentTypeFilter}
-                onValueChange={setDocumentTypeFilter}
-                options={DOCUMENT_TYPE_FILTER_OPTIONS}
-                placeholder="نوع المستند"
-              />
+    <section className="space-y-5">
+      <div className="relative overflow-hidden rounded-2xl border border-border/80 bg-card shadow-soft">
+        <div className="pointer-events-none absolute inset-0 dotted-bg opacity-20" aria-hidden />
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px gold-accent-line" aria-hidden />
+        <div className="relative p-5 sm:p-6 space-y-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex items-start gap-3 min-w-0">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
+                <Paperclip className="h-6 w-6" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h2 className="text-lg font-semibold tracking-tight text-foreground">
+                  مرفقات الموظف
+                </h2>
+                <p className="text-sm text-muted-foreground mt-1 leading-relaxed max-w-2xl">
+                  رفع وإدارة المستندات المرتبطة بالموظف — هوية، عقود، شهادات، وغيرها
+                </p>
+              </div>
             </div>
-          </div>
-
-          <div className="flex gap-2">
-            <div className="relative min-w-0 flex-1">
-              <Search className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={searchDraft}
-                onChange={(e) => setSearchDraft(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') applySearch();
-                }}
-                placeholder="بحث في الاسم أو الوصف أو اسم الملف…"
-                className="h-9 pr-9 text-sm"
-              />
-            </div>
-            <Button variant="outline" size="sm" className="h-9 shrink-0" onClick={applySearch}>
-              بحث
+            <Button
+              type="button"
+              variant="luxe"
+              size="sm"
+              className="h-9 shrink-0 gap-1.5 text-xs"
+              onClick={() => setUploadOpen(true)}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              رفع مرفق
             </Button>
           </div>
-        </div>
 
-        <div className="px-4 pb-4 pt-3">
-          <EmployeeProfilePagedList
-            items={employeeAttachments}
-            serverPagination={attachmentsPagination}
-            loading={attachmentsLoading}
-            empty={(
-              <Empty
-                icon={Paperclip}
-                text={
-                  hasAttachmentFilters
-                    ? 'لا توجد مرفقات مطابقة للفلتر الحالي'
-                    : `لا توجد مرفقات لـ ${employee.name}`
-                }
-              />
-            )}
-            renderItems={(pageItems) => (
-              <div className="overflow-hidden rounded-lg border border-border/50">
-                <div className="hidden border-b border-border/60 bg-muted/40 px-4 py-2 text-[11px] font-medium text-muted-foreground sm:grid sm:grid-cols-[minmax(0,1.4fr)_minmax(0,0.9fr)_minmax(0,0.8fr)_5.5rem] sm:gap-3">
-                  <span>المرفق</span>
-                  <span>النوع</span>
-                  <span>تاريخ الرفع</span>
-                  <span className="text-center">الحالة</span>
-                </div>
-                <div className="divide-y divide-border/60">
+          {attachmentsError ? (
+            <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+              {attachmentsError}
+            </div>
+          ) : null}
+
+          <div className="rounded-xl border border-border/70 bg-background/80 p-4 sm:p-5 space-y-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <h3 className="text-sm font-semibold text-foreground">
+                سجل المرفقات
+                <span className="mr-2 text-xs font-normal text-muted-foreground">
+                  ({hasAttachmentFilters ? attachmentsPagination.total ?? 0 : attachmentsTotal})
+                </span>
+              </h3>
+              <div className="flex flex-wrap items-center gap-2">
+                <FilterSelect
+                  value={archiveScope}
+                  onValueChange={(v) => setArchiveScope(v as OrganizationArchiveScope)}
+                  options={ORGANIZATION_ARCHIVE_SCOPE_OPTIONS.map((o) => ({
+                    value: o.value,
+                    label: o.label,
+                  }))}
+                  placeholder="العرض"
+                />
+                <FilterSelect
+                  value={documentTypeFilter}
+                  onValueChange={setDocumentTypeFilter}
+                  options={DOCUMENT_TYPE_FILTER_OPTIONS}
+                  placeholder="نوع المستند"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <div className="relative min-w-0 flex-1">
+                <Search className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={searchDraft}
+                  onChange={(e) => setSearchDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') applySearch();
+                  }}
+                  placeholder="بحث في الاسم أو الوصف أو اسم الملف…"
+                  className="h-9 pr-9 text-sm"
+                />
+              </div>
+              <Button variant="outline" size="sm" className="h-9 shrink-0" onClick={applySearch}>
+                بحث
+              </Button>
+            </div>
+
+            <EmployeeProfilePagedList
+              items={employeeAttachments}
+              serverPagination={attachmentsPagination}
+              loading={attachmentsLoading}
+              empty={(
+                <Empty
+                  icon={Paperclip}
+                  text={
+                    hasAttachmentFilters
+                      ? 'لا توجد مرفقات مطابقة للفلتر الحالي'
+                      : `لا توجد مرفقات لـ ${employee.name}`
+                  }
+                />
+              )}
+              renderItems={(pageItems) => (
+                <ul className="space-y-2">
                   {pageItems.map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => setDetailAttachment(item)}
-                      className={cn(
-                        'grid w-full gap-2 px-4 py-3 text-right transition-colors hover:bg-muted/25',
-                        'sm:grid-cols-[minmax(0,1.4fr)_minmax(0,0.9fr)_minmax(0,0.8fr)_5.5rem] sm:items-center sm:gap-3',
-                      )}
-                    >
-                      <div className="flex min-w-0 items-center gap-2.5">
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-primary/15 bg-primary/10 text-primary">
+                    <li key={item.id}>
+                      <button
+                        type="button"
+                        onClick={() => setDetailAttachment(item)}
+                        className="group flex w-full items-center gap-3 rounded-xl border border-border/70 bg-background p-3.5 text-start transition-colors hover:border-primary/30 hover:bg-muted/30"
+                      >
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-primary/20 bg-primary/10 text-primary">
                           <AttachmentIcon item={item} />
                         </div>
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium text-foreground">{item.name}</p>
-                          <p className="mt-0.5 truncate text-[11px] text-muted-foreground" dir="ltr">
-                            {item.originalFileName}
-                            {' · '}
-                            {formatAttachmentSize(item.sizeBytes)}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="truncate text-sm font-semibold text-foreground">
+                              {item.name}
+                            </p>
+                            <span className={statusPillClass(item.isArchived ? 'inactive' : 'active')}>
+                              {item.isArchived ? 'مؤرشف' : 'نشط'}
+                            </span>
+                            <Badge variant="secondary" className="text-[10px] font-normal">
+                              {employeeAttachmentDocumentTypeLabel(item.documentType)}
+                            </Badge>
+                          </div>
+                          <p className="mt-1 truncate text-xs text-muted-foreground">
+                            {employeeAttachmentUploadCategoryLabel(item.uploadCategory)}
                           </p>
+                          <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+                            <span dir="ltr" className="truncate">
+                              {item.originalFileName} · {formatAttachmentSize(item.sizeBytes)}
+                            </span>
+                            <DisplayDate value={item.createdAt} mode="datetime" />
+                          </div>
                         </div>
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-sm text-foreground/90">
-                          {employeeAttachmentDocumentTypeLabel(item.documentType)}
-                        </p>
-                        <p className="mt-0.5 text-[11px] text-muted-foreground">
-                          {employeeAttachmentUploadCategoryLabel(item.uploadCategory)}
-                        </p>
-                      </div>
-                      <div className="text-xs text-muted-foreground sm:text-sm">
-                        <DisplayDate value={item.createdAt} mode="datetime" />
-                      </div>
-                      <div className="flex sm:justify-center">
-                        <Badge variant={item.isArchived ? 'secondary' : 'success'} className="text-[9px]">
-                          {item.isArchived ? 'مؤرشف' : 'نشط'}
-                        </Badge>
-                      </div>
-                    </button>
+                        <span className="shrink-0 text-xs font-medium text-primary opacity-0 transition-opacity group-hover:opacity-100">
+                          فتح
+                        </span>
+                      </button>
+                    </li>
                   ))}
-                </div>
-              </div>
-            )}
-          />
+                </ul>
+              )}
+            />
+          </div>
         </div>
       </div>
     </section>

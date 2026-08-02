@@ -4,6 +4,7 @@ import * as React from 'react';
 import { sanitizePdfText } from '@/components/pdf/lib/sanitize-pdf-text';
 import { RoseTradingLetterheadPrint } from '@/components/pdf/print/rose-trading-letterhead-print';
 import { getPdfLogoSrc } from '@/components/pdf/lib/pdf-logo-url';
+import { RosePdfWatermark } from '@/components/pdf/rose-trading/rose-pdf-watermark';
 import type { CompensationExportTable } from '@/features/hr/payroll/lib/compensation-period-export';
 
 export type CompensationPrintHtmlProps = {
@@ -18,7 +19,7 @@ const CELL_BORDER = '1px solid #222';
 const TH_STYLE: React.CSSProperties = {
   border: CELL_BORDER,
   padding: '10px 8px',
-  fontSize: 9.5,
+  fontSize: 10.5,
   fontWeight: 700,
   textAlign: 'center',
   verticalAlign: 'middle',
@@ -29,7 +30,7 @@ const TH_STYLE: React.CSSProperties = {
 const TD_BASE: React.CSSProperties = {
   border: CELL_BORDER,
   padding: '10px 8px',
-  fontSize: 9.5,
+  fontSize: 10.5,
   verticalAlign: 'middle',
   lineHeight: 1.4,
 };
@@ -120,12 +121,13 @@ function AllowancesCellContent({ text }: { text: string }) {
 
 function columnWidth(header: string, colIdx: number, totalCols: number): string | undefined {
   if (colIdx === 0) return '4%';
-  if (colIdx === 1) return '12%';
-  if (header === 'البدلات (شهري)') return '16%';
-  if (header === 'الصافي') return '8%';
-  if (header === 'خصم او اضافة مباشرة') return '9%';
-  const numericCols = totalCols - 3;
-  if (numericCols > 0 && colIdx >= 3) return `${Math.floor(61 / numericCols)}%`;
+  if (colIdx === 1) return '11%';
+  if (header === 'البدلات (شهري)') return '15%';
+  if (header === 'الصافي') return '7%';
+  if (header === 'التوقيع') return '9%';
+  if (header === 'خصم او اضافة مباشرة') return '8%';
+  const numericCols = totalCols - 4;
+  if (numericCols > 0 && colIdx >= 3) return `${Math.floor(54 / numericCols)}%`;
   return undefined;
 }
 
@@ -146,6 +148,7 @@ export const CompensationPrintHtml = React.forwardRef<HTMLDivElement, Compensati
         dir="rtl"
         lang="ar"
         style={{
+          position: 'relative',
           width: '277mm',
           maxWidth: '100%',
           margin: '0 auto',
@@ -157,13 +160,16 @@ export const CompensationPrintHtml = React.forwardRef<HTMLDivElement, Compensati
           minHeight: '190mm',
           display: 'flex',
           flexDirection: 'column',
+          overflow: 'hidden',
         }}
       >
+        <RosePdfWatermark logoSrc={logoSrc} />
+        <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', flex: 1 }}>
         <RoseTradingLetterheadPrint logoSrc={logoSrc} />
 
         <div
           style={{
-            fontSize: 13,
+            fontSize: 15,
             fontWeight: 700,
             textAlign: 'center',
             marginTop: 12,
@@ -229,6 +235,19 @@ export const CompensationPrintHtml = React.forwardRef<HTMLDivElement, Compensati
                       </td>
                     );
                   }
+                  if (header === 'التوقيع') {
+                    return (
+                      <td
+                        key={colIdx}
+                        style={{
+                          ...TD_BASE,
+                          height: 36,
+                          minHeight: 36,
+                          backgroundColor: '#fafafa',
+                        }}
+                      />
+                    );
+                  }
                   const isNet = header === 'الصافي';
                   return (
                     <NumericCell
@@ -254,8 +273,20 @@ export const CompensationPrintHtml = React.forwardRef<HTMLDivElement, Compensati
               >
                 {formatCell(totalRow[0] ?? 'المجموع الكلي')}
               </td>
-              {totalRow.slice(labelColSpan).map((cell, i, arr) => {
-                const isNet = i === arr.length - 1;
+              {totalRow.slice(labelColSpan).map((cell, i) => {
+                const header = headers[labelColSpan + i] ?? '';
+                if (header === 'التوقيع') {
+                  return (
+                    <td
+                      key={i}
+                      style={{
+                        ...TD_BASE,
+                        backgroundColor: '#f5f5f5',
+                      }}
+                    />
+                  );
+                }
+                const isNet = header === 'الصافي';
                 return (
                   <NumericCell
                     key={i}
@@ -268,6 +299,7 @@ export const CompensationPrintHtml = React.forwardRef<HTMLDivElement, Compensati
             </tr>
           </tbody>
         </table>
+        </div>
       </div>
     );
   },

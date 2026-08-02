@@ -7,8 +7,26 @@ export function resolveApiBaseUrl(configuredUrl = publicConfig.apiUrl): string {
   }
 
   const currentHost = window.location.hostname;
-  const isLocalPage = currentHost === 'localhost' || currentHost === '127.0.0.1' || currentHost === '::1';
-  if (isLocalPage) {
+  const isLoopbackHost =
+    currentHost === 'localhost' ||
+    currentHost === '127.0.0.1' ||
+    currentHost === '::1';
+  // Android emulator reaches the host machine via 10.0.2.2 — never call
+  // `localhost` from that WebView (that would be the emulator itself).
+  if (currentHost === '10.0.2.2') {
+    try {
+      const apiHost = new URL(configuredUrl, window.location.origin).hostname;
+      const apiIsLoopback =
+        apiHost === 'localhost' || apiHost === '127.0.0.1' || apiHost === '::1';
+      if (apiIsLoopback || configuredUrl.startsWith('/')) {
+        return configuredUrl.startsWith('/') ? configuredUrl : '/api-backend';
+      }
+      return configuredUrl;
+    } catch {
+      return '/api-backend';
+    }
+  }
+  if (isLoopbackHost) {
     return configuredUrl;
   }
 

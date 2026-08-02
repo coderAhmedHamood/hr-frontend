@@ -153,6 +153,7 @@ export function PayrollPeriodsClient() {
   const [draft, setDraft] = React.useState<HRPayrollPeriodDraft>(EMPTY_DRAFT);
   const [error, setError] = React.useState<string | null>(null);
   const [confirmId, setConfirmId] = React.useState<string | null>(null);
+  const autoFilledEndRef = React.useRef(false);
 
   const archiveInlineSelects = React.useMemo(
     () => [
@@ -171,6 +172,7 @@ export function PayrollPeriodsClient() {
     setEditId(null);
     setDraft(EMPTY_DRAFT);
     setError(null);
+    autoFilledEndRef.current = false;
     setDrawerOpen(true);
   }, []);
 
@@ -224,6 +226,7 @@ export function PayrollPeriodsClient() {
       includePenalties: p.includePenalties,
       includeManualInputs: p.includeManualInputs,
     });
+    autoFilledEndRef.current = false;
     setError(null); setDrawerOpen(true);
   };
 
@@ -236,6 +239,27 @@ export function PayrollPeriodsClient() {
   };
 
   const set = (patch: Partial<HRPayrollPeriodDraft>) => setDraft(d => ({ ...d, ...patch }));
+
+  const lastDayOfMonthYmd = (ymd: string) => {
+    const [y, m] = ymd.split('-').map(Number);
+    const last = new Date(y, m, 0).getDate();
+    return `${y}-${String(m).padStart(2, '0')}-${String(last).padStart(2, '0')}`;
+  };
+
+  const onPeriodStartChange = (ymd: string) => {
+    if (!ymd) { set({ periodStart: ymd }); return; }
+    if (!draft.periodEnd || autoFilledEndRef.current) {
+      autoFilledEndRef.current = true;
+      set({ periodStart: ymd, periodEnd: lastDayOfMonthYmd(ymd) });
+    } else {
+      set({ periodStart: ymd });
+    }
+  };
+
+  const onPeriodEndChange = (ymd: string) => {
+    autoFilledEndRef.current = false;
+    set({ periodEnd: ymd });
+  };
 
   useEntityFilterSlot(
     () => (
@@ -261,8 +285,8 @@ export function PayrollPeriodsClient() {
           <BarChart2 className="h-3 w-3" />تقرير
         </Button>
       </Link>
-      {p.status === 'draft' && <Button size="sm" variant="ghost" className="h-7 text-xs text-success hover:text-success" onClick={() => openPeriod(p.id)}>فتح</Button>}
-      {p.status === 'open'  && <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => closePeriod(p.id)}>إغلاق</Button>}
+      {p.status === 'draft' && <Button size="sm" variant="ghost" className="h-7 text-xs text-success hover:text-success" onClick={async () => { await openPeriod(p.id); await reloadList(); }}>فتح</Button>}
+      {p.status === 'open'  && <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={async () => { await closePeriod(p.id); await reloadList(); }}>إغلاق</Button>}
       {isPayrollPeriodEditable(p.status) && <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => openEdit(p.id)}>تعديل</Button>}
       {p.status === 'draft' && <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive hover:text-destructive" onClick={() => setConfirmId(p.id)}>حذف</Button>}
     </div>
@@ -338,7 +362,7 @@ export function PayrollPeriodsClient() {
         <FormField label="بداية الفترة" required>
           <DatePickerInput
             value={draft.periodStart}
-            onChange={(ymd) => set({ periodStart: ymd })}
+            onChange={onPeriodStartChange}
             maxDate={draft.periodEnd || undefined}
             popoverContainer={drawerContentEl}
           />
@@ -346,7 +370,7 @@ export function PayrollPeriodsClient() {
         <FormField label="نهاية الفترة" required>
           <DatePickerInput
             value={draft.periodEnd}
-            onChange={(ymd) => set({ periodEnd: ymd })}
+            onChange={onPeriodEndChange}
             minDate={draft.periodStart || undefined}
             popoverContainer={drawerContentEl}
           />

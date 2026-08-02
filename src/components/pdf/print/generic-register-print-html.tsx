@@ -4,6 +4,7 @@ import * as React from 'react';
 import { sanitizePdfText } from '@/components/pdf/lib/sanitize-pdf-text';
 import { RoseTradingLetterheadPrint } from '@/components/pdf/print/rose-trading-letterhead-print';
 import { getPdfLogoSrc } from '@/components/pdf/lib/pdf-logo-url';
+import { RosePdfWatermark } from '@/components/pdf/rose-trading/rose-pdf-watermark';
 
 export type GenericRegisterPrintProps = {
   companyNameAr: string;
@@ -29,10 +30,12 @@ function clip(s: string, max: number): string {
 }
 
 const PAGE = {
+  position: 'relative' as const,
+  overflow: 'hidden' as const,
   backgroundColor: '#ffffff',
   padding: '26px 20px 48px',
   fontFamily: 'Arial, Helvetica, sans-serif',
-  fontSize: 7,
+  fontSize: 8,
   color: '#111',
   boxSizing: 'border-box' as const,
 };
@@ -65,12 +68,14 @@ export const GenericRegisterPrintHtml = React.forwardRef<HTMLDivElement, Generic
               borderBottom: pi < pages.length - 1 ? '1px dashed #ddd' : undefined,
             }}
           >
+            <RosePdfWatermark logoSrc={logoSrc} />
+            <div style={{ position: 'relative', zIndex: 1 }}>
             <RoseTradingLetterheadPrint
               logoSrc={logoSrc}
               companyNameAr={companyNameAr}
               companyNameEn={companyNameEn}
             />
-            <div style={{ fontSize: 12, fontWeight: 700, textAlign: 'center', marginBottom: 10, textDecoration: 'underline' }}>
+            <div style={{ fontSize: 14, fontWeight: 700, textAlign: 'center', marginBottom: 10, textDecoration: 'underline' }}>
               {sanitizePdfText(titleAr)}
             </div>
 
@@ -83,7 +88,7 @@ export const GenericRegisterPrintHtml = React.forwardRef<HTMLDivElement, Generic
                     boxSizing: 'border-box',
                     fontWeight: 700,
                     textAlign: 'center',
-                    fontSize: 7,
+                    fontSize: 8,
                     padding: '4px 2px',
                     borderInlineStart: i === 0 ? undefined : '1px solid #94a3b8',
                   }}
@@ -114,7 +119,7 @@ export const GenericRegisterPrintHtml = React.forwardRef<HTMLDivElement, Generic
                         width: colPct,
                         boxSizing: 'border-box',
                         padding: '4px 2px',
-                        fontSize: 6,
+                        fontSize: 7,
                         textAlign: 'center',
                         borderInlineStart: ci === 0 ? undefined : '1px solid #e2e8f0',
                         wordBreak: 'break-word',
@@ -127,9 +132,10 @@ export const GenericRegisterPrintHtml = React.forwardRef<HTMLDivElement, Generic
               ))
             )}
 
-            <div style={{ marginTop: 16, fontSize: 7, color: '#64748b', textAlign: 'center' }}>
+            <div style={{ marginTop: 16, fontSize: 8, color: '#64748b', textAlign: 'center' }}>
               صفحة {pi + 1} / {pages.length}
               {rows.length > 0 ? ` · إجمالي السجلات: ${rows.length}` : ''}
+            </div>
             </div>
           </div>
         ))}

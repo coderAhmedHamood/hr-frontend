@@ -58,7 +58,7 @@ export function EmployeeHrPdfPrepDialog({ open, prepKind, employee, onCancel, on
     <Dialog open={open} onOpenChange={(v) => { if (!v) onCancel(); }}>
       <DialogContent className="max-w-lg border-border">
         <DialogHeader className="text-right">
-          <DialogTitle className="font-display">سند استلام نقدي للراتب</DialogTitle>
+          <DialogTitle className="font-display">سند راتب</DialogTitle>
           <DialogDescription className="sr-only">أدخل الحقول المطلوبة ثم ولِّد المعاينة</DialogDescription>
           <p className="text-xs text-muted-foreground">
             تم التعبئة الأولية من بيانات الموظف: <span className="font-medium text-foreground">{employee.name}</span>
@@ -75,7 +75,7 @@ export function EmployeeHrPdfPrepDialog({ open, prepKind, employee, onCancel, on
             <Input id="hr-c-w" value={cashWritten} onChange={(e) => setCashWritten(e.target.value)} className="text-right" dir="rtl" />
           </div>
           <div className="space-y-1.5">
-            <Label>نوع الاستلام</Label>
+            <Label>نوع السند</Label>
             <MinimalDropdown value={cashReason} onChange={(v) => setCashReason(v as CashReceiptReason)} options={CASH_REASON_OPTIONS} />
           </div>
           <div className="space-y-1.5">

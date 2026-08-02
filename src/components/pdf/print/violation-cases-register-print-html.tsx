@@ -4,6 +4,7 @@ import * as React from 'react';
 import { sanitizePdfText } from '@/components/pdf/lib/sanitize-pdf-text';
 import { RoseTradingLetterheadPrint } from '@/components/pdf/print/rose-trading-letterhead-print';
 import { getPdfLogoSrc } from '@/components/pdf/lib/pdf-logo-url';
+import { RosePdfWatermark } from '@/components/pdf/rose-trading/rose-pdf-watermark';
 
 export type ViolationCasePrintRow = {
   caseNumber: string;
@@ -50,10 +51,12 @@ function isRow(r: unknown): r is ViolationCasePrintRow {
 }
 
 const PAGE_STYLE: React.CSSProperties = {
+  position: 'relative',
+  overflow: 'hidden',
   backgroundColor: '#ffffff',
   padding: '26px 20px 48px',
   fontFamily: 'Arial, Helvetica, sans-serif',
-  fontSize: 8,
+  fontSize: 9,
   color: '#111',
   boxSizing: 'border-box',
 };
@@ -82,13 +85,15 @@ export const ViolationCasesRegisterPrintHtml = React.forwardRef<
             borderBottom: pi < pages.length - 1 ? '1px dashed #ddd' : undefined,
           }}
         >
+          <RosePdfWatermark logoSrc={logoSrc} />
+          <div style={{ position: 'relative', zIndex: 1 }}>
           <RoseTradingLetterheadPrint
             logoSrc={logoSrc}
             companyNameAr={companyNameAr}
             companyNameEn={companyNameEn}
           />
 
-          <div style={{ fontSize: 12, fontWeight: 700, textAlign: 'center', marginBottom: 10, textDecoration: 'underline' }}>
+          <div style={{ fontSize: 14, fontWeight: 700, textAlign: 'center', marginBottom: 10, textDecoration: 'underline' }}>
             {sanitizePdfText(titleAr)}
           </div>
 
@@ -107,7 +112,7 @@ export const ViolationCasesRegisterPrintHtml = React.forwardRef<
                   boxSizing: 'border-box',
                   fontWeight: 700,
                   textAlign: c.align,
-                  fontSize: 8,
+                  fontSize: 9,
                   padding: c.pad ? '4px 4px' : '4px 2px',
                   borderInlineStart: idx === 0 ? undefined : '1px solid #94a3b8',
                   wordBreak: 'break-word',
@@ -131,24 +136,24 @@ export const ViolationCasesRegisterPrintHtml = React.forwardRef<
                 }}
               >
                 <div dir="rtl" style={{ display: 'flex', flexDirection: 'row' }}>
-                  <div style={{ width: '14%', boxSizing: 'border-box', padding: '4px 2px', fontSize: 7, textAlign: 'center' }}>
+                  <div style={{ width: '14%', boxSizing: 'border-box', padding: '4px 2px', fontSize: 8, textAlign: 'center' }}>
                     <span dir="ltr">{sanitizePdfText(r.caseNumber)}</span>
                   </div>
-                  <div style={{ width: '22%', boxSizing: 'border-box', padding: '4px 4px', fontSize: 7, textAlign: 'right', borderInlineStart: '1px solid #e2e8f0', wordBreak: 'break-word' }}>
+                  <div style={{ width: '22%', boxSizing: 'border-box', padding: '4px 4px', fontSize: 8, textAlign: 'right', borderInlineStart: '1px solid #e2e8f0', wordBreak: 'break-word' }}>
                     {sanitizePdfText(r.employeeNameAr)}
                   </div>
-                  <div style={{ width: '20%', boxSizing: 'border-box', padding: '4px 4px', fontSize: 7, textAlign: 'right', borderInlineStart: '1px solid #e2e8f0', wordBreak: 'break-word' }}>
+                  <div style={{ width: '20%', boxSizing: 'border-box', padding: '4px 4px', fontSize: 8, textAlign: 'right', borderInlineStart: '1px solid #e2e8f0', wordBreak: 'break-word' }}>
                     {sanitizePdfText(r.typeNameAr)}
                   </div>
-                  <div style={{ width: '12%', boxSizing: 'border-box', padding: '4px 2px', fontSize: 7, textAlign: 'center', borderInlineStart: '1px solid #e2e8f0' }}>
+                  <div style={{ width: '12%', boxSizing: 'border-box', padding: '4px 2px', fontSize: 8, textAlign: 'center', borderInlineStart: '1px solid #e2e8f0' }}>
                     <span dir="ltr">{sanitizePdfText(r.date)}</span>
                   </div>
-                  <div style={{ width: '18%', boxSizing: 'border-box', padding: '4px 2px', fontSize: 7, textAlign: 'center', borderInlineStart: '1px solid #e2e8f0', wordBreak: 'break-word' }}>
+                  <div style={{ width: '18%', boxSizing: 'border-box', padding: '4px 2px', fontSize: 8, textAlign: 'center', borderInlineStart: '1px solid #e2e8f0', wordBreak: 'break-word' }}>
                     {sanitizePdfText(r.statusAr)}
                   </div>
                 </div>
                 {r.description ? (
-                  <div style={{ padding: '2px 4px 6px', fontSize: 7, color: '#475569', textAlign: 'right', lineHeight: 1.35 }}>
+                  <div style={{ padding: '2px 4px 6px', fontSize: 8, color: '#475569', textAlign: 'right', lineHeight: 1.35 }}>
                     {sanitizePdfText(clip(r.description, 160))}
                   </div>
                 ) : null}
@@ -156,9 +161,10 @@ export const ViolationCasesRegisterPrintHtml = React.forwardRef<
             ))
           )}
 
-          <div style={{ marginTop: 16, fontSize: 7, color: '#64748b', textAlign: 'center' }}>
+          <div style={{ marginTop: 16, fontSize: 8, color: '#64748b', textAlign: 'center' }}>
             صفحة {pi + 1} / {pages.length}
             {cleanRows.length > 0 ? ` · إجمالي السجلات: ${cleanRows.length}` : ''}
+          </div>
           </div>
         </div>
       ))}

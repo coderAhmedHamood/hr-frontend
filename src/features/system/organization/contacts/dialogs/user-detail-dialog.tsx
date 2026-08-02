@@ -219,7 +219,14 @@ export function UserDetailDialog({
                 </div>
 
                 <div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-6">
-                  {tab === 'profile' ? <UserProfileTab user={displayUser} /> : null}
+                  {tab === 'profile' ? (
+                    <UserProfileTab
+                      user={displayUser}
+                      onUserUpdated={() => {
+                        void detail.reload();
+                      }}
+                    />
+                  ) : null}
                   {tab === 'permissions' ? <UserPermissionsPanel model={permissionsModel} /> : null}
                   {tab === 'companies' ? <UserCompaniesPanel model={detail} /> : null}
                   {tab === 'branches' ? <UserBranchesPanel model={detail} /> : null}

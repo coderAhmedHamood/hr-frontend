@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Loader2 } from 'lucide-react';
+import { ExternalLink, FileText, Loader2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { DisplayDate } from '@/components/ui/table-cells';
 import { MoneyAmount } from '@/components/ui/sar-amount';
 import { MONTHLY_INPUT_KIND_LABELS } from '@/features/hr/payroll/monthly-inputs/constants/monthly-input-labels';
@@ -26,6 +27,17 @@ import {
   payslipsApi,
   type PayslipResponseDto,
 } from '@/features/hr/payroll/lib/api/payslips';
+import {
+  employeeAttachmentsApi,
+  type EmployeeAttachmentDto,
+} from '@/features/hr/organization/employees/lib/api/employee-attachments';
+import {
+  employeeAttachmentDocumentTypeLabel,
+  SALARY_ATTACHMENT_DOCUMENT_TYPES,
+} from '@/features/hr/organization/employees/constants/employee-attachment-document-types';
+import { formatAttachmentSize } from '@/features/hr/organization/employees/lib/employee-attachments-utils';
+import { organizationListArchiveQuery } from '@/features/hr/organization/lib/archive-scope';
+import { resolveUploadUrl } from '@/shared/resolve-upload-url';
 import { cn } from '@/shared/utils';
 import { PayslipDetailDecisionFooter } from '@/features/hr/payroll/components/payslip-employee-decision-actions';
 
@@ -73,6 +85,106 @@ function BreakdownSection({
       <p className="text-xs font-bold text-foreground">{title}</p>
       {children}
     </div>
+  );
+}
+
+function PayslipAttachmentsSection({
+  companyId,
+  employeeId,
+}: {
+  companyId: string;
+  employeeId: string;
+}) {
+  const [items, setItems] = React.useState<EmployeeAttachmentDto[]>([]);
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (!companyId || !employeeId) {
+      setItems([]);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+
+    void employeeAttachmentsApi
+      .getAll({
+        companyId,
+        employeeId,
+        page: 1,
+        limit: 200,
+        ...organizationListArchiveQuery('active'),
+      })
+      .then((res) => {
+        if (cancelled) return;
+        const salaryTypes = new Set<string>(SALARY_ATTACHMENT_DOCUMENT_TYPES);
+        const filtered = res.items.filter(
+          (item) => item.documentType && salaryTypes.has(item.documentType),
+        );
+        setItems(filtered.length > 0 ? filtered : res.items.slice(0, 10));
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setItems([]);
+          setError('تعذر تحميل المرفقات');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [companyId, employeeId]);
+
+  return (
+    <BreakdownSection title="المرفقات">
+      {loading ? (
+        <div className="flex items-center justify-center gap-2 py-4 text-xs text-muted-foreground">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          جاري التحميل…
+        </div>
+      ) : error ? (
+        <p className="text-xs text-destructive">{error}</p>
+      ) : items.length === 0 ? (
+        <p className="text-xs text-muted-foreground">لا توجد مرفقات لهذا الموظف.</p>
+      ) : (
+        <ul className="space-y-2">
+          {items.map((item) => {
+            const fileUrl = resolveUploadUrl(item.url);
+            return (
+              <li
+                key={item.id}
+                className="flex items-start gap-2 rounded-lg border border-border/60 bg-background/80 px-2.5 py-2"
+              >
+                <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                  <FileText className="h-3.5 w-3.5" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-xs font-medium text-foreground">{item.name}</p>
+                  <p className="mt-0.5 flex flex-wrap gap-x-2 text-[10px] text-muted-foreground">
+                    <span>{employeeAttachmentDocumentTypeLabel(item.documentType)}</span>
+                    <span>{formatAttachmentSize(item.sizeBytes)}</span>
+                    <span>
+                      <DisplayDate value={item.createdAt} />
+                    </span>
+                  </p>
+                </div>
+                {fileUrl ? (
+                  <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0" asChild>
+                    <a href={fileUrl} target="_blank" rel="noopener noreferrer" title="فتح المرفق">
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </a>
+                  </Button>
+                ) : null}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </BreakdownSection>
   );
 }
 
@@ -333,6 +445,11 @@ export function PayslipDetailDialog({
               )}
 
               {renderBreakdown(payslip.breakdown, payslip.currency)}
+
+              <PayslipAttachmentsSection
+                companyId={payslip.companyId}
+                employeeId={payslip.employeeId}
+              />
 
               {onAccept && onReject && (
                 <PayslipDetailDecisionFooter

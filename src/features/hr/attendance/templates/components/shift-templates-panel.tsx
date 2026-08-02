@@ -13,7 +13,7 @@ import {
   dialogFormFooterClass,
 } from '@/components/ui/dialog';
 import { EmptyStateCard } from '@/components/shared/empty-state-card';
-import { defaultShiftPeriod, normalizeShiftTemplate } from '@/features/hr/attendance/lib/defaults';
+import { defaultShiftPeriod, HIDDEN_SHIFT_WINDOW_DEFAULTS, normalizeShiftTemplate } from '@/features/hr/attendance/lib/defaults';
 import type { ShiftTemplate, WeekDayIndex } from '@/features/hr/attendance/lib/types';
 import { genId } from '@/features/hr/attendance/lib/utils';
 import { ShiftTemplateCard } from '@/features/hr/attendance/templates/components/shift-template-card';
@@ -58,12 +58,12 @@ function dtoToLocal(dto: ShiftTemplateResponseDto): ShiftTemplate {
         checkIn: {
           beforeStartMinutes: p.checkIn.beforeStartMinutes,
           graceMinutes: p.checkIn.graceMinutes,
-          afterStartMinutes: p.checkIn.afterStartMinutes,
+          afterStartMinutes: HIDDEN_SHIFT_WINDOW_DEFAULTS.afterStartMinutes,
         },
         checkOut: {
-          beforeEndMinutes: p.checkOut.beforeEndMinutes,
+          beforeEndMinutes: HIDDEN_SHIFT_WINDOW_DEFAULTS.beforeEndMinutes,
           allowedShortageMinutes: p.checkOut.allowedShortageMinutes,
-          afterEndMinutes: p.checkOut.afterEndMinutes,
+          afterEndMinutes: HIDDEN_SHIFT_WINDOW_DEFAULTS.afterEndMinutes,
         },
         checkOutNotRequired: p.checkOutNotRequired,
         autoOvertime: p.autoOvertime,
@@ -166,12 +166,12 @@ export function ShiftTemplatesPanel() {
         checkIn: {
           beforeStartMinutes: p.checkIn.beforeStartMinutes,
           graceMinutes: p.checkIn.graceMinutes,
-          afterStartMinutes: p.checkIn.afterStartMinutes,
+          afterStartMinutes: HIDDEN_SHIFT_WINDOW_DEFAULTS.afterStartMinutes,
         },
         checkOut: {
-          beforeEndMinutes: p.checkOut.beforeEndMinutes,
+          beforeEndMinutes: HIDDEN_SHIFT_WINDOW_DEFAULTS.beforeEndMinutes,
           allowedShortageMinutes: p.checkOut.allowedShortageMinutes,
-          afterEndMinutes: p.checkOut.afterEndMinutes,
+          afterEndMinutes: HIDDEN_SHIFT_WINDOW_DEFAULTS.afterEndMinutes,
         },
         checkOutNotRequired: p.checkOutNotRequired,
         autoOvertime: p.autoOvertime,
