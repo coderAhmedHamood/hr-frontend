@@ -6,20 +6,23 @@ export type PartnerAuthUser = {
   email: string;
   phone: string;
   fullNameAr: string;
+  /** e.g. external_customer | supplier | visitor */
   userType: string;
 };
 
 export type PartnerAuthPartner = {
   id: string;
+  companyId: string;
   name: string;
   displayName: string;
   isCustomer: boolean;
   isVendor: boolean;
   email: string;
   mobile: string;
+  accountKind?: PartnerAccountKind;
 };
 
-/** Shared success payload from register / login. */
+/** Shared success payload from register / login (`data`). */
 export type PartnerAuthSessionPayload = {
   access_token: string;
   userId: string;
@@ -27,7 +30,7 @@ export type PartnerAuthSessionPayload = {
   companyId: string;
   user: PartnerAuthUser;
   partner: PartnerAuthPartner;
-  message?: string;
+  message?: string | null;
 };
 
 export type PartnerRegisterInput = {
@@ -36,11 +39,12 @@ export type PartnerRegisterInput = {
   email: string;
   mobile: string;
   password: string;
-  accountKind: PartnerAccountKind;
-  branchId?: string;
+  accountKind?: PartnerAccountKind;
+  branchId?: string | null;
 };
 
 export type PartnerLoginInput = {
+  /** Email or mobile */
   identifier: string;
   password: string;
   companyId?: string;
@@ -52,6 +56,7 @@ export type PartnerMePayload = {
   companyId: string;
   userId: string;
   partnerId: string;
+  partnerStatus?: string;
 };
 
 export class PartnerAuthApiError extends Error {

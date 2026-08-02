@@ -271,13 +271,18 @@ string عشري، مثال: `"12.5000"`.
 
 ## 5) مصادقة العميل — Partner Auth
 
+**Base:** `/public/partners/auth` · منفصل تماماً عن موظفين `/auth/login`  
+**JWT:** `typ=partner` · يُحفظ في الفرونت كـ `storefront-customer.accessToken`  
+**غير موجود بعد:** نسيت كلمة المرور · OTP · تفعيل بالبريد
+
 ### `POST /public/partners/auth/register` → 201
 
-**Body:** `{ companyId, name, email, mobile, password, accountKind?, branchId? }`
+**Body:** `{ companyId*, name*, email*, mobile*, password*, accountKind?, branchId? }`  
+`accountKind`: `customer` (افتراضي) | `vendor` | `visitor`
 
-### `POST /public/partners/auth/login`
+### `POST /public/partners/auth/login` → 200
 
-**Body:** `{ identifier, password, companyId? }`
+**Body:** `{ identifier*, password*, companyId? }` — `identifier` = إيميل أو جوال
 
 **`data` (register/login):**
 
@@ -291,7 +296,7 @@ string عشري، مثال: `"12.5000"`.
 }
 ```
 
-### `GET /public/partners/auth/me`
+### `GET /public/partners/auth/me` — Bearer partner
 
 ```ts
 {
@@ -301,9 +306,12 @@ string عشري، مثال: `"12.5000"`.
 }
 ```
 
-### `POST /public/partners/auth/logout`
+### `POST /public/partners/auth/logout` — Bearer partner
 
+يزنّد `tokenVersion` → يبطل التوكنات الحالية.  
 **`data`:** `{ success: true, message }`
+
+**بعد الدخول يُستخدم نفس التوكن لـ:** wishlist · ربط الطلب عند `POST /public/store/orders` · me · logout
 
 ---
 

@@ -31,6 +31,7 @@ import { StoreEmptyState } from '@/features/ecommerce/storefront/components/stor
 import {
   MAX_PAYMENT_PROOF_BYTES,
   MAX_PAYMENT_PROOF_FILES,
+  compressPaymentProofToDataUrl,
 } from '@/features/ecommerce/domain/lib/payment-proofs';
 import { Button } from '@/components/ui/button';
 import { GoogleLocationPicker, type GoogleLocationValue } from '@/components/ui/google-location-picker';
@@ -484,7 +485,6 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
                       id="payment-proof"
                       type="file"
                       accept="image/*"
-                      multiple
                       disabled={paymentProofs.length >= MAX_PAYMENT_PROOF_FILES}
                       className="mt-2 h-11 cursor-pointer rounded-xl file:me-3 file:rounded-lg file:border-0 file:bg-primary/10 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-primary"
                       onChange={(e) => {
@@ -492,37 +492,38 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
                         e.target.value = '';
                         if (files.length === 0) return;
 
-                        const remaining = MAX_PAYMENT_PROOF_FILES - paymentProofs.length;
-                        if (remaining <= 0) {
-                          toast.error(t('checkout.errors.paymentProofMax', { max: MAX_PAYMENT_PROOF_FILES }));
-                          return;
-                        }
-
-                        const selected = files.slice(0, remaining);
-                        if (files.length > remaining) {
-                          toast.error(t('checkout.errors.paymentProofMax', { max: MAX_PAYMENT_PROOF_FILES }));
-                        }
-
-                        for (const file of selected) {
-                          if (!file.type.startsWith('image/')) {
-                            toast.error(t('checkout.errors.paymentProofType'));
-                            continue;
+                        void (async () => {
+                          const remaining = MAX_PAYMENT_PROOF_FILES - paymentProofs.length;
+                          if (remaining <= 0) {
+                            toast.error(t('checkout.errors.paymentProofMax', { max: MAX_PAYMENT_PROOF_FILES }));
+                            return;
                           }
-                          if (file.size > MAX_PAYMENT_PROOF_BYTES) {
-                            toast.error(t('checkout.errors.paymentProofSize'));
-                            continue;
+
+                          const selected = files.slice(0, remaining);
+                          if (files.length > remaining) {
+                            toast.error(t('checkout.errors.paymentProofMax', { max: MAX_PAYMENT_PROOF_FILES }));
                           }
-                          const reader = new FileReader();
-                          reader.onload = () => {
-                            const result = typeof reader.result === 'string' ? reader.result : null;
-                            if (!result) return;
-                            setPaymentProofs((prev) => {
-                              if (prev.length >= MAX_PAYMENT_PROOF_FILES) return prev;
-                              return [...prev, { url: result, name: file.name }];
-                            });
-                          };
-                          reader.readAsDataURL(file);
-                        }
+
+                          for (const file of selected) {
+                            if (!file.type.startsWith('image/')) {
+                              toast.error(t('checkout.errors.paymentProofType'));
+                              continue;
+                            }
+                            if (file.size > MAX_PAYMENT_PROOF_BYTES) {
+                              toast.error(t('checkout.errors.paymentProofSize'));
+                              continue;
+                            }
+                            try {
+                              const result = await compressPaymentProofToDataUrl(file);
+                              setPaymentProofs((prev) => {
+                                if (prev.length >= MAX_PAYMENT_PROOF_FILES) return prev;
+                                return [...prev, { url: result, name: file.name }];
+                              });
+                            } catch {
+                              toast.error(t('checkout.errors.paymentProofType'));
+                            }
+                          }
+                        })();
                       }}
                     />
                     {paymentProofs.length > 0 ? (

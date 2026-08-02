@@ -11,12 +11,9 @@ import { publicConfig } from '@/shared/config';
 import { unwrapApiEnvelope } from '@/features/ecommerce/storefront/lib/api/store-http';
 
 /**
- * Partner auth per `store-frontend-endpoints.md` §4.
- * Default on. Set `NEXT_PUBLIC_PARTNER_AUTH_HTTP=false` for local mock only.
+ * Public Partner Auth — HTTP only.
+ * Base: `/public/partners/auth` (typ=partner) — separate from staff `/auth/login`.
  */
-function useHttp(): boolean {
-  return process.env.NEXT_PUBLIC_PARTNER_AUTH_HTTP !== 'false';
-}
 
 function apiBaseUrl(): string {
   return resolveApiBaseUrl(publicConfig.apiUrl).replace(/\/$/, '');
@@ -29,7 +26,7 @@ async function parseError(response: Response): Promise<PartnerAuthApiError> {
     const body = (await response.json()) as {
       message?: string | string[];
       code?: string;
-      error?: { message?: string; code?: string };
+      error?: { message?: string; code?: string; statusCode?: number };
     };
     if (Array.isArray(body.message)) message = body.message.join(' · ');
     else if (typeof body.message === 'string' && body.message.trim()) message = body.message;
@@ -71,6 +68,16 @@ async function partnerAuthFetch<T>(
   return data;
 }
 
+type PartnerSessionApiDto = {
+  access_token: string;
+  userId: string;
+  partnerId: string;
+  companyId: string;
+  user: PartnerAuthSessionPayload['user'];
+  partner: PartnerAuthSessionPayload['partner'] & { companyId?: string; accountKind?: string };
+  message?: string | null;
+};
+
 type PartnerMeApiDto = {
   userId: string;
   partnerId: string;
@@ -86,22 +93,37 @@ type PartnerMeApiDto = {
   isVendor?: boolean;
   partnerEmail?: string | null;
   partnerMobile?: string | null;
-  /** Legacy nested shape (if backend still returns it). */
-  user?: PartnerAuthSessionPayload['user'];
-  partner?: PartnerAuthSessionPayload['partner'];
 };
 
-function mapMePayload(dto: PartnerMeApiDto): PartnerMePayload {
-  if (dto.user && dto.partner) {
-    return {
-      userId: dto.userId,
-      partnerId: dto.partnerId,
-      companyId: dto.companyId,
-      user: dto.user,
-      partner: dto.partner,
-    };
-  }
+function mapSessionPayload(dto: PartnerSessionApiDto): PartnerAuthSessionPayload {
+  return {
+    access_token: dto.access_token,
+    userId: dto.userId,
+    partnerId: dto.partnerId,
+    companyId: dto.companyId,
+    user: {
+      id: dto.user.id,
+      email: dto.user.email ?? '',
+      phone: dto.user.phone ?? '',
+      fullNameAr: dto.user.fullNameAr ?? '',
+      userType: dto.user.userType ?? 'external_customer',
+    },
+    partner: {
+      id: dto.partner.id,
+      companyId: dto.partner.companyId ?? dto.companyId,
+      name: dto.partner.name ?? '',
+      displayName: dto.partner.displayName ?? dto.partner.name ?? '',
+      isCustomer: dto.partner.isCustomer ?? true,
+      isVendor: dto.partner.isVendor ?? false,
+      email: dto.partner.email ?? '',
+      mobile: dto.partner.mobile ?? '',
+      accountKind: dto.partner.accountKind as PartnerAuthSessionPayload['partner']['accountKind'],
+    },
+    message: dto.message ?? undefined,
+  };
+}
 
+function mapMePayload(dto: PartnerMeApiDto): PartnerMePayload {
   return {
     userId: dto.userId,
     partnerId: dto.partnerId,
@@ -111,10 +133,11 @@ function mapMePayload(dto: PartnerMeApiDto): PartnerMePayload {
       email: dto.email ?? '',
       phone: dto.phone ?? '',
       fullNameAr: dto.fullNameAr ?? dto.displayName ?? dto.partnerName ?? '',
-      userType: dto.userType ?? 'customer',
+      userType: dto.userType ?? 'external_customer',
     },
     partner: {
       id: dto.partnerId,
+      companyId: dto.companyId,
       name: dto.partnerName ?? dto.displayName ?? '',
       displayName: dto.displayName ?? dto.partnerName ?? '',
       isCustomer: dto.isCustomer ?? true,
@@ -122,149 +145,45 @@ function mapMePayload(dto: PartnerMeApiDto): PartnerMePayload {
       email: dto.partnerEmail ?? dto.email ?? '',
       mobile: dto.partnerMobile ?? dto.phone ?? '',
     },
+    partnerStatus: dto.partnerStatus ?? undefined,
   };
 }
 
-/* ── Mock (UI prep / offline demo) ───────────────────────────────────────── */
-
-type MockAccount = {
-  password: string;
-  session: PartnerAuthSessionPayload;
-};
-
-const globalForPartnerAuth = globalThis as typeof globalThis & {
-  __storefrontPartnerAuthAccounts?: Map<string, MockAccount>;
-};
-
-function mockStore(): Map<string, MockAccount> {
-  if (!globalForPartnerAuth.__storefrontPartnerAuthAccounts) {
-    globalForPartnerAuth.__storefrontPartnerAuthAccounts = new Map();
-  }
-  return globalForPartnerAuth.__storefrontPartnerAuthAccounts;
-}
-
-function keyFor(companyId: string, identifier: string): string {
-  return `${companyId}::${identifier.trim().toLowerCase()}`;
-}
-
-function buildMockSession(
-  input: Pick<PartnerRegisterInput, 'companyId' | 'name' | 'email' | 'mobile' | 'accountKind'>,
-): PartnerAuthSessionPayload {
-  const userId = crypto.randomUUID();
-  const partnerId = crypto.randomUUID();
-  const isCustomer = input.accountKind === 'customer';
-  const isVendor = input.accountKind === 'vendor';
-
-  return {
-    access_token: `mock-partner.${userId}`,
-    userId,
-    partnerId,
-    companyId: input.companyId,
-    user: {
-      id: userId,
-      email: input.email.trim(),
-      phone: input.mobile.trim(),
-      fullNameAr: input.name.trim(),
-      userType: input.accountKind,
-    },
-    partner: {
-      id: partnerId,
-      name: input.name.trim(),
-      displayName: input.name.trim(),
-      isCustomer,
-      isVendor,
-      email: input.email.trim(),
-      mobile: input.mobile.trim(),
-    },
-    message: 'تم إنشاء الحساب وتسجيل الدخول بنجاح.',
-  };
-}
-
-async function mockRegister(input: PartnerRegisterInput): Promise<PartnerAuthSessionPayload> {
-  await delay(350);
-  const emailKey = keyFor(input.companyId, input.email);
-  const mobileKey = keyFor(input.companyId, input.mobile);
-  if (mockStore().has(emailKey) || mockStore().has(mobileKey)) {
-    throw new PartnerAuthApiError('يوجد حساب مسجّل بهذا البريد أو الجوال مسبقاً.', 409);
-  }
-  if (input.name.trim().length < 2) {
-    throw new PartnerAuthApiError('الاسم يجب أن يكون حرفين على الأقل.', 400);
-  }
-  if (input.password.length < 6) {
-    throw new PartnerAuthApiError('كلمة المرور يجب أن تكون 6 أحرف على الأقل.', 400);
-  }
-
-  const session = buildMockSession(input);
-  const account = { password: input.password, session };
-  mockStore().set(emailKey, account);
-  mockStore().set(mobileKey, account);
-  return session;
-}
-
-async function mockLogin(input: PartnerLoginInput): Promise<PartnerAuthSessionPayload> {
-  await delay(350);
-  const companyId = input.companyId || getStorefrontCompanyId();
-  const account = mockStore().get(keyFor(companyId, input.identifier));
-  if (!account || account.password !== input.password) {
-    throw new PartnerAuthApiError('الإيميل/الجوال أو كلمة المرور غير صحيحة', 401, 'INVALID_CREDENTIALS');
-  }
-  return {
-    ...account.session,
-    access_token: `mock-partner.${account.session.userId}.${Date.now()}`,
-    message: 'تم تسجيل الدخول بنجاح.',
-  };
-}
-
-async function mockMe(token: string): Promise<PartnerMePayload> {
-  await delay(200);
-  for (const account of mockStore().values()) {
-    if (token.startsWith(`mock-partner.${account.session.userId}`)) {
-      return {
-        user: account.session.user,
-        partner: account.session.partner,
-        companyId: account.session.companyId,
-        userId: account.session.userId,
-        partnerId: account.session.partnerId,
-      };
-    }
-  }
-  throw new PartnerAuthApiError('الجلسة غير صالحة أو منتهية.', 401, 'UNAUTHORIZED');
-}
-
-async function mockLogout(_token: string): Promise<void> {
-  await delay(150);
-}
-
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-/* ── Public API ──────────────────────────────────────────────────────────── */
-
+/** POST /public/partners/auth/register → 201 */
 export async function registerPartner(
   input: PartnerRegisterInput,
 ): Promise<PartnerAuthSessionPayload> {
-  if (!useHttp()) return mockRegister(input);
-  return partnerAuthFetch<PartnerAuthSessionPayload>('/public/partners/auth/register', {
-    method: 'POST',
-    body: JSON.stringify(input),
-  });
-}
-
-export async function loginPartner(input: PartnerLoginInput): Promise<PartnerAuthSessionPayload> {
-  if (!useHttp()) return mockLogin(input);
-  return partnerAuthFetch<PartnerAuthSessionPayload>('/public/partners/auth/login', {
+  const dto = await partnerAuthFetch<PartnerSessionApiDto>('/public/partners/auth/register', {
     method: 'POST',
     body: JSON.stringify({
-      identifier: input.identifier,
+      companyId: input.companyId || getStorefrontCompanyId(),
+      name: input.name.trim(),
+      email: input.email.trim().toLowerCase(),
+      mobile: input.mobile.trim(),
       password: input.password,
-      ...(input.companyId ? { companyId: input.companyId } : {}),
+      accountKind: input.accountKind ?? 'customer',
+      branchId: input.branchId ?? null,
     }),
   });
+  return mapSessionPayload(dto);
 }
 
+/** POST /public/partners/auth/login → 200 */
+export async function loginPartner(input: PartnerLoginInput): Promise<PartnerAuthSessionPayload> {
+  const dto = await partnerAuthFetch<PartnerSessionApiDto>('/public/partners/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({
+      identifier: input.identifier.trim(),
+      password: input.password,
+      companyId: input.companyId || getStorefrontCompanyId(),
+    }),
+  });
+  return mapSessionPayload(dto);
+}
+
+/** GET /public/partners/auth/me — Bearer typ=partner */
 export async function getPartnerMe(token: string): Promise<PartnerMePayload> {
-  if (!useHttp()) return mockMe(token);
+  if (!token) throw new PartnerAuthApiError('PARTNER_TOKEN_REQUIRED', 401);
   const dto = await partnerAuthFetch<PartnerMeApiDto>('/public/partners/auth/me', {
     method: 'GET',
     token,
@@ -272,14 +191,11 @@ export async function getPartnerMe(token: string): Promise<PartnerMePayload> {
   return mapMePayload(dto);
 }
 
-export async function logoutPartner(token: string): Promise<void> {
-  if (!useHttp()) return mockLogout(token);
-  await partnerAuthFetch<{ success: boolean; message: string }>('/public/partners/auth/logout', {
+/** POST /public/partners/auth/logout — invalidates tokenVersion */
+export async function logoutPartner(token: string): Promise<{ success: boolean; message: string }> {
+  if (!token) throw new PartnerAuthApiError('PARTNER_TOKEN_REQUIRED', 401);
+  return partnerAuthFetch<{ success: boolean; message: string }>('/public/partners/auth/logout', {
     method: 'POST',
     token,
   });
-}
-
-export function isPartnerAuthHttpEnabled(): boolean {
-  return useHttp();
 }

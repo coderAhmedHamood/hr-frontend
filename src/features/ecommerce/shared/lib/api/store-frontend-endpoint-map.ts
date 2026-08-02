@@ -1,9 +1,8 @@
 /**
- * Map of `store-frontend-endpoints.md` → frontend modules.
- * Use this file to locate the implementation for each contract section.
- *
- * Contract: /store-frontend-endpoints.md
- * Toggle mocks: NEXT_PUBLIC_STORE_HTTP=false · NEXT_PUBLIC_PARTNER_AUTH_HTTP=false
+ * Map of store binding endpoints → frontend modules.
+ * Contract: /store-frontend-binding.md
+ * Store HTTP: NEXT_PUBLIC_STORE_HTTP=false disables store APIs (no mock).
+ * Partner auth is always HTTP (`/public/partners/auth`).
  */
 export const STORE_FRONTEND_ENDPOINT_MAP = {
   inventory: {

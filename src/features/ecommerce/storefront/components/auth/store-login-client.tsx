@@ -5,11 +5,7 @@ import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { Eye, EyeOff } from 'lucide-react';
 import { useStorefrontCustomerUi } from '@/features/ecommerce/storefront/hooks/use-storefront-customer-ui';
-import {
-  isPartnerAuthHttpEnabled,
-  loginPartner,
-} from '@/features/ecommerce/storefront/lib/api/partner-auth-api';
-import { PartnerAuthApiError } from '@/features/ecommerce/storefront/domain/partner-auth';
+import { loginPartner } from '@/features/ecommerce/storefront/lib/api/partner-auth-api';import { PartnerAuthApiError } from '@/features/ecommerce/storefront/domain/partner-auth';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
 import { StoreAuthShell } from '@/features/ecommerce/storefront/components/auth/store-auth-shell';
 import { Button } from '@/components/ui/button';
@@ -133,10 +129,6 @@ export function StoreLoginClient() {
           {submitting ? t('login.submitting') : t('login.submit')}
         </Button>
       </form>
-
-      {!isPartnerAuthHttpEnabled() ? (
-        <p className="mt-4 text-center text-xs text-muted-foreground">{t('login.mockHint')}</p>
-      ) : null}
     </StoreAuthShell>
   );
 }

@@ -32,6 +32,7 @@ interface StorefrontCustomerUiState {
 }
 
 function kindFromPayload(payload: PartnerAuthSessionPayload): PartnerAccountKind {
+  if (payload.partner.accountKind) return payload.partner.accountKind;
   if (payload.partner.isVendor) return 'vendor';
   if (payload.user.userType === 'visitor') return 'visitor';
   return 'customer';
