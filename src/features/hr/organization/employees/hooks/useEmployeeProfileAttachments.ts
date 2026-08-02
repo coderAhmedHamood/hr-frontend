@@ -14,6 +14,7 @@ import {
   type EmployeeAttachmentDto,
   type EmployeeAttachmentUploadInput,
 } from '@/features/hr/organization/employees/lib/api/employee-attachments';
+import { EMPLOYEE_ATTACHMENT_LIBRARY_GROUPS } from '@/features/hr/organization/employees/constants/employee-attachment-document-types';
 import { useServerDirectoryPagination } from '@/components/ui/paged-list';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 
@@ -26,6 +27,7 @@ export function useEmployeeProfileAttachments(employee: Employee, listEnabled = 
   const [archiveScope, setArchiveScope] = React.useState<OrganizationArchiveScope>(
     ORGANIZATION_ARCHIVE_SCOPE_DEFAULT,
   );
+  const [libraryGroup, setLibraryGroup] = React.useState<string>('all');
   const [documentTypeFilter, setDocumentTypeFilter] = React.useState<string>('all');
   const [search, setSearch] = React.useState('');
   const [uploadOpen, setUploadOpen] = React.useState(false);
@@ -58,25 +60,40 @@ export function useEmployeeProfileAttachments(employee: Employee, listEnabled = 
 
     setAttachmentsError(null);
     try {
+      const group = EMPLOYEE_ATTACHMENT_LIBRARY_GROUPS.find((g) => g.id === libraryGroup);
+      const groupTypes = group && group.id !== 'all' ? [...group.types] : [];
+
       const res = await employeeAttachmentsApi.getAll({
         companyId,
         employeeId: employee.id,
         page,
         limit: pageSize,
         ...organizationListArchiveQuery(archiveScope),
-        ...(documentTypeFilter !== 'all' ? { documentType: documentTypeFilter } : {}),
+        ...(documentTypeFilter !== 'all'
+          ? { documentType: documentTypeFilter }
+          : groupTypes.length > 0
+            ? { documentTypes: groupTypes.join(',') }
+            : {}),
         ...(search.trim() ? { search: search.trim() } : {}),
         sortBy: 'createdAt',
         sortDir: 'DESC',
       });
-      setAttachmentsTotal(res.pagination.total);
+      // Keep sidebar badge as unfiltered active-archive total; list total lives on pagination.
+      const isUnfilteredLibrary =
+        archiveScope === ORGANIZATION_ARCHIVE_SCOPE_DEFAULT
+        && libraryGroup === 'all'
+        && documentTypeFilter === 'all'
+        && !search.trim();
+      if (isUnfilteredLibrary) {
+        setAttachmentsTotal(res.pagination.total);
+      }
       return { items: res.items, total: res.pagination.total };
     } catch (err) {
       const { displayMessage } = handleApiError(err, 'employee-attachments.load');
       setAttachmentsError(displayMessage);
       return { items: [] as EmployeeAttachmentDto[], total: 0 };
     }
-  }, [archiveScope, companyId, documentTypeFilter, employee.id, search]);
+  }, [archiveScope, companyId, documentTypeFilter, employee.id, libraryGroup, search]);
 
   const {
     items: employeeAttachments,
@@ -85,7 +102,7 @@ export function useEmployeeProfileAttachments(employee: Employee, listEnabled = 
     reload: reloadAttachments,
   } = useServerDirectoryPagination<EmployeeAttachmentDto>(loadAttachmentsPage, {
     enabled: listEnabled && !!employee.id && !!companyId,
-    resetDeps: [employee.id, companyId, archiveScope, documentTypeFilter, search],
+    resetDeps: [employee.id, companyId, archiveScope, documentTypeFilter, libraryGroup, search],
   });
 
   const uploadAttachment = React.useCallback(
@@ -103,8 +120,21 @@ export function useEmployeeProfileAttachments(employee: Employee, listEnabled = 
 
   const hasAttachmentFilters =
     archiveScope !== ORGANIZATION_ARCHIVE_SCOPE_DEFAULT
+    || libraryGroup !== 'all'
     || documentTypeFilter !== 'all'
     || search.trim().length > 0;
+
+  const clearAttachmentFilters = React.useCallback(() => {
+    setLibraryGroup('all');
+    setDocumentTypeFilter('all');
+    setSearch('');
+    setArchiveScope(ORGANIZATION_ARCHIVE_SCOPE_DEFAULT);
+  }, []);
+
+  const setLibraryGroupAndResetType = React.useCallback((groupId: string) => {
+    setLibraryGroup(groupId);
+    setDocumentTypeFilter('all');
+  }, []);
 
   return {
     attachmentsCompanyId: companyId,
@@ -115,11 +145,14 @@ export function useEmployeeProfileAttachments(employee: Employee, listEnabled = 
     attachmentsError,
     archiveScope,
     setArchiveScope,
+    libraryGroup,
+    setLibraryGroup: setLibraryGroupAndResetType,
     documentTypeFilter,
     setDocumentTypeFilter,
     search,
     setSearch,
     hasAttachmentFilters,
+    clearAttachmentFilters,
     uploadOpen,
     setUploadOpen,
     detailAttachment,

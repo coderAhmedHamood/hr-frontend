@@ -20,7 +20,7 @@ export async function sendSalaryVoucherToEmployeeNotification(
     companyId: input.companyId,
     category: 'payroll',
     severity: 'info',
-    titleAr: `سند راتب — ${input.voucherNumber}`,
+    titleAr: 'سند راتب',
     bodyAr:
       'يرجى فتح سند الراتب، قراءته بالكامل، ثم تأكيده بالتوقيع (رسم أو رفع ملف موقّع).',
     audienceKind: 'employee',
@@ -47,7 +47,7 @@ export async function sendResignationToEmployeeNotification(
     companyId: input.companyId,
     category: 'contract',
     severity: 'info',
-    titleAr: `طلب استقالة — ${input.resignationNumber}`,
+    titleAr: 'طلب استقالة',
     bodyAr:
       'تم إرسال نموذج الاستقالة إليك. يرجى مراجعته والتوقيع (رسم أو رفع ملف موقّع).',
     audienceKind: 'employee',
@@ -74,7 +74,7 @@ export async function sendClearanceToEmployeeNotification(
     companyId: input.companyId,
     category: 'contract',
     severity: 'info',
-    titleAr: `إخلاء طرف — ${input.clearanceNumber}`,
+    titleAr: 'إخلاء طرف',
     bodyAr:
       'تم إرسال نموذج إخلاء الطرف إليك. يرجى مراجعته والتوقيع (رسم أو رفع ملف موقّع).',
     audienceKind: 'employee',
@@ -101,7 +101,7 @@ export async function sendSettlementToEmployeeNotification(
     companyId: input.companyId,
     category: 'announcement',
     severity: 'info',
-    titleAr: `مخالصة نهائية — ${input.referenceNo}`,
+    titleAr: 'مخالصة نهائية',
     bodyAr:
       'تم إرسال المخالصة النهائية إليك. يرجى مراجعتها والتوقيع (رسم أو رفع ملف موقّع).',
     audienceKind: 'employee',
@@ -128,7 +128,7 @@ export async function sendMobileCircularToEmployeeNotification(
     companyId: input.companyId,
     category: 'announcement',
     severity: 'info',
-    titleAr: `تعميم استخدام الجوال — ${input.circularNumber}`,
+    titleAr: 'تعميم استخدام الجوال',
     bodyAr:
       'تم إرسال تعميم استخدام الجوال إليك. يرجى قراءته بالكامل ثم التوقيع بالتعهد (رسم أو رفع ملف موقّع).',
     audienceKind: 'employee',

@@ -43,6 +43,7 @@ import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
 import { DataTable, type ColumnDef } from '@/components/ui/data-table';
 import { TableDateCell, TableRowActions, TableRowDetailDialog } from '@/components/ui/table-cells';
 import { DisciplineListViewport, DisciplinePaginatedList } from '@/features/hr/discipline/components/discipline-paginated-list';
+import { RelatedEmployeeAttachments } from '@/features/hr/organization/employees/components/related-employee-attachments';
 
 const KIND_OPTIONS = (Object.entries(NOTICE_KIND_LABELS) as [HRDisciplineNoticeKind, string][]).map(([v, l]) => ({ value: v, label: l }));
 
@@ -439,7 +440,16 @@ export function NoticesClient() {
             : []),
           { label: 'أُنشئ', value: <TableDateCell value={detailRow.createdAt} mode="datetime" /> },
         ] : []}
-      />
+      >
+        {detailRow ? (
+          <RelatedEmployeeAttachments
+            employeeId={detailRow.employeeId}
+            companyId={companyId}
+            preset="discipline"
+            title="آخر مرفقات الإنذارات"
+          />
+        ) : null}
+      </TableRowDetailDialog>
     </div>
   );
 }

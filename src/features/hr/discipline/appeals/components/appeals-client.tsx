@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { DataTable, type ColumnDef } from '@/components/ui/data-table';
 import { TableDateCell, TableRowActions, TableRowDetailDialog } from '@/components/ui/table-cells';
+import { RelatedEmployeeAttachments } from '@/features/hr/organization/employees/components/related-employee-attachments';
 import { Input } from '@/components/ui/input';
 import {
   ConfirmationModal, HRSettingsFormDrawer, FormField,
@@ -668,7 +669,15 @@ export function AppealsClient() {
           { label: 'تاريخ القرار', value: detailRow.decidedAt ? <TableDateCell value={detailRow.decidedAt} /> : '—' },
           { label: 'أسباب التظلم', value: detailRow.grounds || '—' },
         ] : []}
-      />
+      >
+        {detailRow ? (
+          <RelatedEmployeeAttachments
+            employeeId={detailRow.employeeId}
+            companyId={companyId}
+            preset="discipline"
+          />
+        ) : null}
+      </TableRowDetailDialog>
     </div>
   );
 }

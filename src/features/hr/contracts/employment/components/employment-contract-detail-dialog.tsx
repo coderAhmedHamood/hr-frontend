@@ -27,6 +27,8 @@ import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import { MoneyAmount } from '@/components/ui/sar-amount';
 import { resolveUploadUrl } from '@/shared/resolve-upload-url';
 import { cn } from '@/shared/utils';
+import { RelatedEmployeeAttachments } from '@/features/hr/organization/employees/components/related-employee-attachments';
+import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 
 function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -76,6 +78,7 @@ export function EmploymentContractDetailDialog({
   onLoaded,
   refreshKey = 0,
 }: Props) {
+  const companyId = useDefaultCompanyId() ?? '';
   const [contract, setContract] = React.useState<HRContractRecord | null>(null);
   const [articles, setArticles] = React.useState<ApiContractArticleRef[]>([]);
   const [loading, setLoading] = React.useState(false);
@@ -383,6 +386,13 @@ export function EmploymentContractDetailDialog({
                     لا يوجد ملف موقّع بعد — يظهر هنا بعد توقيع الموظف من الموبايل
                   </p>
                 )}
+                <div className="border-t border-border/40 py-3">
+                  <RelatedEmployeeAttachments
+                    employeeId={contract.employeeId}
+                    companyId={companyId}
+                    preset="contracts"
+                  />
+                </div>
               </Section>
 
               {contract.earlyTerminationReason ? (

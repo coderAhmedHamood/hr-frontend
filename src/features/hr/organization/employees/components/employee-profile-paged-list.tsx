@@ -3,8 +3,12 @@
 import * as React from 'react';
 import { Loader2 } from 'lucide-react';
 import { cn } from '@/shared/utils';
-import { useListPagination, type PaginationBarState } from '@/components/ui/paged-list';
-import { StickyPagination } from '@/components/ui/sticky-pagination';
+import {
+  PaginatedListShell,
+  PagedListViewport,
+  useListPagination,
+  type PaginationBarState,
+} from '@/components/ui/paged-list';
 
 type Props<T> = {
   items: T[];
@@ -17,8 +21,7 @@ type Props<T> = {
 };
 
 /**
- * Paginated list for employee profile sections — content flows in the main page
- * scroll (no nested viewport). Pagination sticks to the bottom while scrolling.
+ * Paginated list for employee profile sections — same shell as directory pages.
  */
 export function EmployeeProfilePagedList<T>({
   items,
@@ -31,12 +34,14 @@ export function EmployeeProfilePagedList<T>({
 }: Props<T>) {
   const clientPagination = useListPagination(items, serverPagination ? undefined : resetDeps);
 
-  const page = serverPagination?.page ?? clientPagination.page;
-  const pageSize = serverPagination?.pageSize ?? clientPagination.pageSize;
-  const total = serverPagination?.total ?? clientPagination.total;
-  const totalPages = serverPagination?.totalPages ?? clientPagination.totalPages;
-  const setPage = serverPagination?.setPage ?? clientPagination.setPage;
-  const setPageSize = serverPagination?.setPageSize ?? clientPagination.setPageSize;
+  const pagination: PaginationBarState = serverPagination ?? {
+    page: clientPagination.page,
+    pageSize: clientPagination.pageSize,
+    total: clientPagination.total,
+    totalPages: clientPagination.totalPages,
+    setPage: clientPagination.setPage,
+    setPageSize: clientPagination.setPageSize,
+  };
   const pageItems = serverPagination ? items : clientPagination.pageItems;
 
   if (loading && pageItems.length === 0) {
@@ -48,25 +53,15 @@ export function EmployeeProfilePagedList<T>({
     );
   }
 
-  if (!loading && total === 0 && empty) {
+  if (!loading && pagination.total === 0 && empty) {
     return <div className={cn('flex items-center justify-center py-10', className)}>{empty}</div>;
   }
 
   return (
-    <div className={cn('flex w-full min-w-0 flex-col', className)}>
-      <div className="min-w-0">{renderItems(pageItems)}</div>
-      {total > 0 ? (
-        <div className="sticky bottom-2 z-10 mt-4 flex justify-center bg-gradient-to-t from-muted/30 via-background/90 to-transparent px-2 pb-1 pt-4">
-          <StickyPagination
-            page={page}
-            pageSize={pageSize}
-            total={total}
-            totalPages={totalPages}
-            onPageChange={setPage}
-            onPageSizeChange={setPageSize}
-          />
-        </div>
-      ) : null}
-    </div>
+    <PagedListViewport className={cn('w-full min-w-0 flex-1', className)} bottomGap={0}>
+      <PaginatedListShell pagination={pagination}>
+        {renderItems(pageItems)}
+      </PaginatedListShell>
+    </PagedListViewport>
   );
 }
