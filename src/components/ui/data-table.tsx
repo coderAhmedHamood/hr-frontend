@@ -76,7 +76,7 @@ export function DataTable<T>({
   const tableShell = (
     <div className={cn(alwaysShowTable ? 'min-w-0' : 'hidden min-w-0 md:block')}>
       <table className={cn('w-full text-sm', tableClassName)}>
-        <thead className="isolate">
+        <thead>
           <tr className={headerRowClass}>
             {columns.map(col => (
               <th

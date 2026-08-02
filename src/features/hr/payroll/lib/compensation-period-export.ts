@@ -59,6 +59,7 @@ export function buildCompensationExportTable(
   if (cols.colDedPenalties) headers.push('جزاءات');
   if (cols.colDedAdmin) headers.push('خصم او اضافة مباشرة');
   headers.push('الصافي');
+  headers.push('التوقيع');
 
   const rows = lines.map((line, i) => {
     const r = line.preview;
@@ -76,6 +77,7 @@ export function buildCompensationExportTable(
     if (cols.colDedPenalties) row.push(editAmount(line.edit.penalties));
     if (cols.colDedAdmin) row.push(editSignedAmount(line.edit.admin));
     row.push(line.net);
+    row.push(''); // empty — employee signs on paper / printout
     return row;
   });
 
@@ -89,6 +91,7 @@ export function buildCompensationExportTable(
   if (cols.colDedPenalties) totalRow.push(footerTotals?.penalties ?? lines.reduce((s, l) => s + editAmount(l.edit.penalties), 0));
   if (cols.colDedAdmin) totalRow.push(footerTotals?.manualAdminSigned ?? lines.reduce((s, l) => s + editSignedAmount(l.edit.admin), 0));
   totalRow.push(footerTotals?.net ?? lines.reduce((s, l) => s + l.net, 0));
+  totalRow.push('');
 
   return { headers, rows, totalRow };
 }
@@ -134,8 +137,8 @@ export async function downloadCompensationExcel(
   const { headers, rows, totalRow } = buildCompensationExportTable(lines, cols, footerTotals);
 
   const ws = XLSX.utils.aoa_to_sheet([headers, ...rows, totalRow]);
-  ws['!cols'] = headers.map((_, i) => ({
-    wch: i === 1 ? 22 : i === 2 ? 28 : 14,
+  ws['!cols'] = headers.map((h, i) => ({
+    wch: i === 1 ? 22 : i === 2 ? 28 : h === 'التوقيع' ? 16 : 14,
   }));
   XLSX.utils.book_append_sheet(wb, ws, (period.nameAr || period.code).slice(0, 31));
   XLSX.writeFile(wb, `payroll-${period.code}.xlsx`);

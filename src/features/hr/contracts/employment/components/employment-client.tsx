@@ -36,6 +36,8 @@ import { contractTemplatesApi } from '@/features/hr/contracts/contract-templates
 import { applyContractTemplateToForm, computeTemplateEndDate } from '@/features/hr/contracts/employment/utils/apply-contract-template';
 import { useAllowanceTypes } from '@/features/hr/contracts/lib/hooks/use-allowance-types';
 import { useContractArticles } from '@/features/hr/contracts/lib/hooks/use-contract-articles';
+import type { HRContractArticle } from '@/features/hr/contracts/lib/contract-articles-store';
+import type { HRAllowanceTypeRecord } from '@/features/hr/contracts/lib/allowance-types-store';
 import { useEmployees } from '@/features/hr/organization/employees/hooks/useEmployees';
 import { MoneyAmount } from '@/components/ui/sar-amount';
 import { cn, formatNumber } from '@/shared/utils';
@@ -86,6 +88,11 @@ const DRAFT_FILTER_OPTIONS: { value: DraftFilter; label: string }[] = [
   { value: 'undraft', label: 'غير مسودة' },
 ];
 
+/** Stable fallbacks — inline `= []` / `?? []` create a new array every render and can loop effects. */
+const EMPTY_ALLOWANCE_TYPES: HRAllowanceTypeRecord[] = [];
+const EMPTY_ARTICLES: HRContractArticle[] = [];
+const EMPTY_EMPLOYEES: NonNullable<ReturnType<typeof useEmployees>['data']>['items'] = [];
+
 export function EmploymentContractsClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -94,11 +101,13 @@ export function EmploymentContractsClient() {
   const companyId = useDefaultCompanyId();
   const { add, update, send, activate, terminate } = useHRContractsStore();
   const { templates, fetch: fetchTemplates } = useHRContractTemplatesStore();
-  const { data: allowanceTypes = [] } = useAllowanceTypes();
-  const { data: articles = [] } = useContractArticles();
+  const { data: allowanceTypesData } = useAllowanceTypes();
+  const allowanceTypes = allowanceTypesData ?? EMPTY_ALLOWANCE_TYPES;
+  const { data: articlesData } = useContractArticles();
+  const articles = articlesData ?? EMPTY_ARTICLES;
   /** قائمة الموظفين من GET /hr/employees (employeesApi.getAll). */
   const { data: employeesPage, refetch: refetchEmployees } = useEmployees();
-  const employees = employeesPage?.items ?? [];
+  const employees = employeesPage?.items ?? EMPTY_EMPLOYEES;
 
   const ensureFormEmployeesLoaded = React.useCallback(() => {
     if (!companyId) return;
@@ -273,7 +282,18 @@ export function EmploymentContractsClient() {
     if (!contractPdfOpen) setContractPrintable(null);
   }, [contractPdfOpen]);
 
-  const openEmploymentContractPdf = React.useCallback(async (source?: FormValues, employeeNameOverride?: string) => {
+  const openEmploymentContractPdf = React.useCallback(async (
+    source?: FormValues,
+    employeeOverride?: {
+      nameAr?: string;
+      nationalId?: string | null;
+      nationality?: string | null;
+      gender?: string | null;
+      position?: string | null;
+      branchNameAr?: string | null;
+      city?: string | null;
+    },
+  ) => {
     await ensureFormCatalogLoaded();
     ensureFormEmployeesLoaded();
     const latestArticles = articles;
@@ -287,7 +307,16 @@ export function EmploymentContractsClient() {
       toast.error('حدّد تاريخ البداية لاستكمال نص العرض');
       return;
     }
-    const empAr = employeeNameOverride ?? getEmpName(values.employeeId);
+
+    const empFromList = employees.find((e) => e.id === values.employeeId);
+    const empAr =
+      employeeOverride?.nameAr?.trim()
+      || empFromList?.nameAr
+      || getEmpName(values.employeeId);
+    const genderRaw = employeeOverride?.gender ?? empFromList?.gender ?? null;
+    const employeeGender =
+      genderRaw === 'female' || genderRaw === 'male' ? genderRaw : null;
+
     const allowanceRows = values.allowanceLines
       .filter((l) => l.allowanceTypeId.trim())
       .map((l) => ({
@@ -306,19 +335,33 @@ export function EmploymentContractsClient() {
     const artLines = selectedArticles.map((a) => ({
       code: a.code,
       titleAr: a.title,
-      bodySnippet:
-        `${(a.body || '').replace(/\s+/g, ' ').trim().slice(0, 480)}${(a.body?.length ?? 0) > 480 ? '…' : ''}`,
+      bodyAr: (a.body || '').trim(),
     }));
 
     const company = getSessionCompanyDisplay(companyId);
+    const branchNameAr =
+      employeeOverride?.branchNameAr?.trim()
+      || empFromList?.branchNameAr
+      || null;
+    const workCityAr =
+      employeeOverride?.city?.trim()
+      || (empFromList as { city?: string | null } | undefined)?.city
+      || branchNameAr;
 
     const printable = (
       <EmploymentContractPrintHtml
         company={company}
         employeeNameAr={empAr}
+        employeeGender={employeeGender}
+        nationalId={employeeOverride?.nationalId ?? empFromList?.nationalId ?? null}
+        nationality={employeeOverride?.nationality ?? empFromList?.nationality ?? null}
+        jobTitleAr={employeeOverride?.position ?? empFromList?.position ?? null}
+        workCityAr={workCityAr}
+        branchNameAr={branchNameAr}
         contractNumber={values.contractNumber.trim() || '—'}
         natureLabelAr={contractNatureLabel(values.contractType)}
         arrangementLabelAr={workArrangementLabel(values.workArrangement)}
+        agreementDate={values.startDate}
         startDate={values.startDate}
         endDate={values.endDate}
         probationDaysLabel={values.probationDays.trim() ? `${values.probationDays} يوم` : 'بدون'}
@@ -338,17 +381,25 @@ export function EmploymentContractsClient() {
     articles,
     allowanceTypes,
     companyId,
+    employees,
     ensureFormCatalogLoaded,
     ensureFormEmployeesLoaded,
     getEmpName,
   ]);
 
   const openContractPdfFromRecord = React.useCallback((record: HRContractRecord) => {
-    void openEmploymentContractPdf(
-      recordToForm(record),
-      record.employeeNameAr || getEmpName(record.employeeId, record.employeeNameAr),
-    );
-  }, [openEmploymentContractPdf, getEmpName]);
+    const emp = employees.find((e) => e.id === record.employeeId);
+    const formValues = recordToForm(record);
+    void openEmploymentContractPdf(formValues, {
+      nameAr: record.employeeNameAr || emp?.nameAr || getEmpName(record.employeeId, record.employeeNameAr),
+      nationalId: emp?.nationalId,
+      nationality: emp?.nationality,
+      gender: emp?.gender,
+      position: emp?.position,
+      branchNameAr: record.branchNameAr || emp?.branchNameAr,
+      city: (emp as { city?: string | null } | undefined)?.city,
+    });
+  }, [openEmploymentContractPdf, getEmpName, employees]);
 
   const syncContractInStore = React.useCallback((record: HRContractRecord) => {
     useHRContractsStore.setState((s) => ({
@@ -375,14 +426,19 @@ export function EmploymentContractsClient() {
 
   /* ── URL mode sync ── */
   React.useEffect(() => {
-    if (modeParam === 'createContract') {
-      const f = emptyEmploymentContractForm(essentialArticleIds);
-      setSelected(null); setForm(f); setPanelMode('create'); setError(null);
-      setCopyFromEmployeeId(''); setCopyFromContractId('');
-      setDrawerOpen(true);
-    }
-  }, [modeParam, essentialArticleIds]);
+    if (modeParam !== 'createContract') return;
+    // Essentials are merged by the effect below once articles load — do not
+    // depend on essentialArticleIds here or unstable refs re-open/reset forever.
+    setSelected(null);
+    setForm(emptyEmploymentContractForm());
+    setPanelMode('create');
+    setError(null);
+    setCopyFromEmployeeId('');
+    setCopyFromContractId('');
+    setDrawerOpen(true);
+  }, [modeParam]);
 
+  const essentialArticleIdsKey = essentialArticleIds.join(',');
   React.useEffect(() => {
     if (!drawerOpen || essentialArticleIds.length === 0) return;
     setForm((f) => {
@@ -392,7 +448,8 @@ export function EmploymentContractsClient() {
       }
       return { ...f, articleIds: merged };
     });
-  }, [essentialArticleIds, drawerOpen]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- compare by value, not array identity
+  }, [essentialArticleIdsKey, drawerOpen]);
 
   const closeDrawer = () => {
     setDrawerOpen(false);

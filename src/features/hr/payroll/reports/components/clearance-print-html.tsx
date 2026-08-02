@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { RoseTradingLetterheadPrint } from '@/components/pdf/print/rose-trading-letterhead-print';
 import { getPdfLogoSrc } from '@/components/pdf/lib/pdf-logo-url';
+import { RosePdfWatermark } from '@/components/pdf/rose-trading/rose-pdf-watermark';
 import { formatDisplayDate } from '@/shared/utils';
 
 export type ClearancePrintProps = {
@@ -49,14 +50,14 @@ function InfoTable({ rows }: { rows: [string, string][] }) {
               backgroundColor: C.tableHead,
               padding: '5px 8px',
               borderLeft: `1px solid ${C.border}`,
-              fontSize: 7,
+              fontSize: 8,
               fontWeight: 700,
               textAlign: 'right',
             }}
           >
             {label}
           </div>
-          <div style={{ flex: 1, padding: '5px 8px', fontSize: 7, textAlign: 'right' }}>{value}</div>
+          <div style={{ flex: 1, padding: '5px 8px', fontSize: 8, textAlign: 'right' }}>{value}</div>
         </div>
       ))}
     </div>
@@ -79,6 +80,7 @@ export const ClearancePrintHtml = React.forwardRef<HTMLDivElement, ClearancePrin
         dir="rtl"
         lang="ar"
         style={{
+          position: 'relative',
           width: '210mm',
           maxWidth: '100%',
           margin: '0 auto',
@@ -86,11 +88,14 @@ export const ClearancePrintHtml = React.forwardRef<HTMLDivElement, ClearancePrin
           backgroundColor: '#ffffff',
           padding: '26px 20px 48px',
           fontFamily: 'Arial, Helvetica, sans-serif',
-          fontSize: 10.5,
+          fontSize: 12,
           color: '#111111',
           lineHeight: 1.5,
+          overflow: 'hidden',
         }}
       >
+        <RosePdfWatermark logoSrc={logoSrc} />
+        <div style={{ position: 'relative', zIndex: 1 }}>
         <RoseTradingLetterheadPrint
           logoSrc={logoSrc}
           companyNameAr={company.nameAr}
@@ -100,7 +105,7 @@ export const ClearancePrintHtml = React.forwardRef<HTMLDivElement, ClearancePrin
         <div style={{ marginBottom: 12, textAlign: 'center' }}>
           <div
             style={{
-              fontSize: 14,
+              fontSize: 16,
               fontWeight: 700,
               textDecoration: 'underline',
               fontFamily: 'Arial, Helvetica, sans-serif',
@@ -121,7 +126,7 @@ export const ClearancePrintHtml = React.forwardRef<HTMLDivElement, ClearancePrin
         >
           <p
             style={{
-              fontSize: 9,
+              fontSize: 10,
               textAlign: 'right',
               lineHeight: 1.8,
               fontWeight: 700,
@@ -131,13 +136,13 @@ export const ClearancePrintHtml = React.forwardRef<HTMLDivElement, ClearancePrin
             أقر أنا / ...........................................................................، الجنسية
             ..........................
           </p>
-          <p style={{ fontSize: 9, textAlign: 'right', lineHeight: 1.8, margin: '0 0 4px 0' }}>
+          <p style={{ fontSize: 10, textAlign: 'right', lineHeight: 1.8, margin: '0 0 4px 0' }}>
             بموجب بطاقة أحوال رقم (<span dir="ltr">{nationalId}</span>) الموقعة أدناه، اعتباراً من
           </p>
-          <p style={{ fontSize: 9, textAlign: 'right', lineHeight: 1.8, margin: '0 0 4px 0' }}>
+          <p style={{ fontSize: 10, textAlign: 'right', lineHeight: 1.8, margin: '0 0 4px 0' }}>
             تاريخ {fmtDate(endDate)} الموافق {fmtDate(endDate)}م قد وصلني جميع الأموال
           </p>
-          <p style={{ fontSize: 9, textAlign: 'right', lineHeight: 1.8, margin: 0 }}>
+          <p style={{ fontSize: 10, textAlign: 'right', lineHeight: 1.8, margin: 0 }}>
             والمبالغ المستحقة لي وكافة حقوقي على مختلف أنواعها وحتى إنهاء فترة خدمتي.
           </p>
         </div>
@@ -152,16 +157,16 @@ export const ClearancePrintHtml = React.forwardRef<HTMLDivElement, ClearancePrin
             fontFamily: 'Arial, Helvetica, sans-serif',
           }}
         >
-          <p style={{ fontSize: 9, textAlign: 'right', lineHeight: 2, margin: 0 }}>
+          <p style={{ fontSize: 10, textAlign: 'right', lineHeight: 2, margin: 0 }}>
             وتبعاً لذلك فإنني أبرئ ذمة مؤسسة {company.nameAr} للتجارة إبراءً شاملاً لا رجوع منه مطلقاً لأي
           </p>
-          <p style={{ fontSize: 9, textAlign: 'right', lineHeight: 2, margin: 0 }}>
+          <p style={{ fontSize: 10, textAlign: 'right', lineHeight: 2, margin: 0 }}>
             حق أو مطالبة حالية أو مستقبلية ومن أي نوع أو شكل كان.
           </p>
-          <p style={{ fontSize: 9, textAlign: 'right', lineHeight: 2, margin: '6px 0 0 0' }}>
+          <p style={{ fontSize: 10, textAlign: 'right', lineHeight: 2, margin: '6px 0 0 0' }}>
             وبذلك فإننا نبرئ ذمة الموظفة / الموظف المذكورة أعلاه إبراءً شاملاً لا رجوع منه مطلقاً لأي حق
           </p>
-          <p style={{ fontSize: 9, textAlign: 'right', lineHeight: 2, margin: 0 }}>
+          <p style={{ fontSize: 10, textAlign: 'right', lineHeight: 2, margin: 0 }}>
             أو مطالبة حالية أو مستقبلية ومن أي نوع أو شكل كان.
           </p>
         </div>
@@ -196,7 +201,7 @@ export const ClearancePrintHtml = React.forwardRef<HTMLDivElement, ClearancePrin
                 alignItems: 'flex-end',
               }}
             >
-              <span style={{ fontWeight: 700, fontSize: 7 }}>{lbl}</span>
+              <span style={{ fontWeight: 700, fontSize: 8 }}>{lbl}</span>
               <div
                 style={{
                   flex: 1,
@@ -205,7 +210,7 @@ export const ClearancePrintHtml = React.forwardRef<HTMLDivElement, ClearancePrin
                   borderBottom: `1px solid ${C.border}`,
                   minHeight: idx === 2 ? 'auto' : 1,
                   paddingBottom: idx === 2 ? 2 : 0,
-                  fontSize: 7,
+                  fontSize: 8,
                   textAlign: 'right',
                   fontFamily: 'Arial, Helvetica, sans-serif',
                 }}
@@ -223,13 +228,14 @@ export const ClearancePrintHtml = React.forwardRef<HTMLDivElement, ClearancePrin
             flexDirection: 'row',
             justifyContent: 'center',
             gap: 6,
-            fontSize: 7,
+            fontSize: 8,
             color: C.muted,
             textAlign: 'center',
             fontFamily: 'Arial, Helvetica, sans-serif',
           }}
         >
           هذه الوثيقة صادرة من نظام {company.nameAr} لإدارة الموارد البشرية — {fmtDate(date)}
+        </div>
         </div>
       </div>
     );

@@ -4,12 +4,17 @@ import * as React from 'react';
 import { sanitizePdfText } from '@/components/pdf/lib/sanitize-pdf-text';
 import { RoseTradingLetterheadPrint } from '@/components/pdf/print/rose-trading-letterhead-print';
 import { getPdfLogoSrc } from '@/components/pdf/lib/pdf-logo-url';
-import { fmtPrintDate, PDF_PRINT_C } from '@/features/hr/payroll/reports/components/pdf-print-shared';
+import { RosePdfWatermark } from '@/components/pdf/rose-trading/rose-pdf-watermark';
+import {
+  buildEmploymentContractPrintModel,
+  type EmploymentContractPrintModelInput,
+} from '@/components/pdf/print/build-employment-contract-print-model';
 
 export type EmploymentContractPrintArticleLine = {
   code: string;
   titleAr: string;
-  bodySnippet: string;
+  bodyAr?: string;
+  bodySnippet?: string;
 };
 
 export type EmploymentContractPrintAllowanceRow = {
@@ -20,10 +25,20 @@ export type EmploymentContractPrintAllowanceRow = {
 export type EmploymentContractPrintHtmlProps = {
   logoSrc?: string;
   company: { nameAr: string; nameEn?: string | null };
+  /** Optional — from company/settings, not a hardcoded person. */
+  employerRepresentativeName?: string | null;
+  employerRepresentativeTitle?: string | null;
   employeeNameAr: string;
+  employeeGender?: 'male' | 'female' | null;
+  nationalId?: string | null;
+  nationality?: string | null;
+  jobTitleAr?: string | null;
+  workCityAr?: string | null;
+  branchNameAr?: string | null;
   contractNumber: string;
   natureLabelAr: string;
   arrangementLabelAr: string;
+  agreementDate?: string;
   startDate: string;
   endDate: string;
   probationDaysLabel: string;
@@ -33,55 +48,191 @@ export type EmploymentContractPrintHtmlProps = {
   allowancesNote: string;
   deductionsNote: string;
   allowanceRows: EmploymentContractPrintAllowanceRow[];
+  /** Legal wording from selected catalog articles (dynamic). */
   articles: EmploymentContractPrintArticleLine[];
 };
 
+const ARTICLE_BAR_BG = '#e8e8e8';
+const ARTICLE_BAR_FG = '#111111';
+
 const PAGE_STYLE: React.CSSProperties = {
+  position: 'relative',
+  overflow: 'hidden',
   backgroundColor: '#ffffff',
-  padding: '26px 20px 48px',
+  padding: '20px 22px 40px',
   fontFamily: 'Arial, Helvetica, sans-serif',
-  fontSize: 9,
-  color: '#111',
+  fontSize: 12,
+  color: '#111111',
   boxSizing: 'border-box',
   minHeight: '297mm',
 };
 
-function RowKV({ label, value }: { label: string; value: string }) {
+function ArticleBlock({ title, body }: { title: string; body: string }) {
   return (
-    <div dir="rtl" style={{ display: 'flex', flexDirection: 'row', borderBottom: `0.5px solid ${PDF_PRINT_C.border}`, padding: '6px 0' }}>
-      <div style={{ width: '32%', fontSize: 9, fontWeight: 700, textAlign: 'right', paddingInlineEnd: 6, boxSizing: 'border-box' }}>
-        {sanitizePdfText(label)}
-        <span dir="ltr" style={{ unicodeBidi: 'embed' }}>
-          :
-        </span>
+    <div style={{ marginBottom: 8, pageBreakInside: 'avoid' }}>
+      <div
+        style={{
+          backgroundColor: ARTICLE_BAR_BG,
+          color: ARTICLE_BAR_FG,
+          padding: '5px 12px',
+          fontSize: 12.5,
+          fontWeight: 700,
+          textAlign: 'center',
+          lineHeight: 1.5,
+        }}
+      >
+        {sanitizePdfText(title)}
       </div>
-      <div style={{ flex: 1, fontSize: 9, textAlign: 'right', lineHeight: 1.55, wordBreak: 'break-word' }} dir="auto">
-        {sanitizePdfText(value || '—')}
+      {body.trim() ? (
+        <div
+          style={{
+            padding: '8px 4px 6px',
+            fontSize: 12,
+            lineHeight: 1.85,
+            textAlign: 'justify',
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+          }}
+        >
+          {sanitizePdfText(body)}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function CompensationBlock({
+  baseSalary,
+  currency,
+  allowanceRows,
+  allowancesNote,
+  deductionsNote,
+}: {
+  baseSalary: string;
+  currency: string;
+  allowanceRows: EmploymentContractPrintAllowanceRow[];
+  allowancesNote: string;
+  deductionsNote: string;
+}) {
+  const cur = sanitizePdfText(currency || 'SAR');
+  const rows = allowanceRows.filter((r) => r.labelAr.trim());
+  const allowancesParagraph = rows.length > 0
+    ? rows
+      .map((row) => `${sanitizePdfText(row.labelAr)} ${sanitizePdfText(row.amount || '0')} ${cur}`)
+      .join('، ')
+    : '—';
+
+  return (
+    <div style={{ marginBottom: 16, pageBreakInside: 'avoid' }}>
+      <div
+        style={{
+          backgroundColor: ARTICLE_BAR_BG,
+          color: ARTICLE_BAR_FG,
+          padding: '5px 12px',
+          fontSize: 12.5,
+          fontWeight: 700,
+          textAlign: 'center',
+          lineHeight: 1.5,
+          marginBottom: 8,
+        }}
+      >
+        التعويضات
+      </div>
+      <div style={{ fontSize: 12.5, lineHeight: 1.9, textAlign: 'justify' }}>
+        <p style={{ margin: '0 0 6px' }}>
+          <span style={{ fontWeight: 700 }}>الراتب الأساسي:</span>{' '}
+          {sanitizePdfText(baseSalary || '—')} {cur}
+        </p>
+        <p style={{ margin: '0 0 6px' }}>
+          <span style={{ fontWeight: 700 }}>البدلات:</span>{' '}
+          {allowancesParagraph}
+        </p>
+        {allowancesNote.trim() ? (
+          <p style={{ margin: '0 0 6px' }}>
+            <span style={{ fontWeight: 700 }}>ملاحظات البدلات:</span>{' '}
+            {sanitizePdfText(allowancesNote.trim())}
+          </p>
+        ) : null}
+        {deductionsNote.trim() ? (
+          <p style={{ margin: 0 }}>
+            <span style={{ fontWeight: 700 }}>ملاحظات الخصومات:</span>{' '}
+            {sanitizePdfText(deductionsNote.trim())}
+          </p>
+        ) : null}
       </div>
     </div>
   );
 }
 
-function LabeledField({ label, value }: { label: string; value: string }) {
+function SignatureFooter({ employeeRoleNounAr }: { employeeRoleNounAr: string }) {
   return (
-    <div style={{ marginTop: 10 }}>
-      <div style={{ fontSize: 9, fontWeight: 700, textAlign: 'right', marginBottom: 4 }}>{sanitizePdfText(label)}</div>
-      <div style={{ border: `0.75px solid ${PDF_PRINT_C.border}`, backgroundColor: '#fafafa', padding: 10, fontSize: 9, lineHeight: 1.7, textAlign: 'right', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-        {sanitizePdfText(value)}
+    <div
+      style={{
+        marginTop: 36,
+        display: 'flex',
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        gap: 40,
+        pageBreakInside: 'avoid',
+      }}
+    >
+      <div style={{ flex: 1, textAlign: 'center', fontSize: 13, fontWeight: 700 }}>
+        الطرف الأول /صاحب العمل
+      </div>
+      <div style={{ flex: 1, textAlign: 'center', fontSize: 13, fontWeight: 700 }}>
+        الطرف الثاني / {sanitizePdfText(employeeRoleNounAr)}
       </div>
     </div>
   );
+}
+
+function PartiesBlock({
+  lead,
+  party1,
+  party2,
+}: {
+  lead: string;
+  party1: string;
+  party2: string;
+}) {
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <div style={{ fontSize: 12.5, lineHeight: 1.85, textAlign: 'right', marginBottom: 6 }}>
+        {sanitizePdfText(lead)}
+      </div>
+      <div style={{ fontSize: 12.5, lineHeight: 1.9, textAlign: 'justify', marginBottom: 4 }}>
+        {sanitizePdfText(party1)}
+      </div>
+      <div style={{ fontSize: 12.5, lineHeight: 1.9, textAlign: 'justify' }}>
+        {sanitizePdfText(party2)}
+      </div>
+    </div>
+  );
+}
+
+function parseDaysFromLabel(label: string): string | null {
+  const m = label.match(/(\d+)/);
+  return m ? m[1] : null;
 }
 
 export const EmploymentContractPrintHtml = React.forwardRef<HTMLDivElement, EmploymentContractPrintHtmlProps>(
-  function EmploymentContractPrintHtml(
-    {
+  function EmploymentContractPrintHtml(props, ref) {
+    const {
       logoSrc: logoSrcProp,
       company,
+      employerRepresentativeName,
+      employerRepresentativeTitle,
       employeeNameAr,
+      employeeGender,
+      nationalId,
+      nationality,
+      jobTitleAr,
+      workCityAr,
+      branchNameAr,
       contractNumber,
       natureLabelAr,
       arrangementLabelAr,
+      agreementDate,
       startDate,
       endDate,
       probationDaysLabel,
@@ -92,84 +243,192 @@ export const EmploymentContractPrintHtml = React.forwardRef<HTMLDivElement, Empl
       deductionsNote,
       allowanceRows,
       articles,
-    },
-    ref,
-  ) {
+    } = props;
+
     const [logoSrc, setLogoSrc] = React.useState<string | undefined>(logoSrcProp);
     React.useEffect(() => {
       if (logoSrcProp) setLogoSrc(logoSrcProp);
       else setLogoSrc(getPdfLogoSrc());
     }, [logoSrcProp]);
 
-    const title = `عقد عمل رقم ${sanitizePdfText(contractNumber)}`;
+    const modelInput = React.useMemo((): EmploymentContractPrintModelInput => ({
+      companyNameAr: company.nameAr,
+      companyNameEn: company.nameEn,
+      employerRepresentativeName: employerRepresentativeName?.trim() || null,
+      employerRepresentativeTitle: employerRepresentativeTitle?.trim() || null,
+      employeeNameAr,
+      employeeGender,
+      nationalId,
+      nationality,
+      jobTitleAr,
+      workCityAr,
+      branchNameAr,
+      contractNumber,
+      natureLabelAr,
+      arrangementLabelAr,
+      agreementDateIso: agreementDate?.trim() || startDate,
+      startDate,
+      endDate,
+      probationDays: parseDaysFromLabel(probationDaysLabel),
+      annualLeaveDays: parseDaysFromLabel(annualLeaveDaysLabel),
+      baseSalary,
+      currency,
+      allowancesNote,
+      deductionsNote,
+      allowanceRows,
+      articles: articles.map((a) => ({
+        code: a.code,
+        titleAr: a.titleAr,
+        bodyAr: (a.bodyAr ?? a.bodySnippet ?? '').trim(),
+      })),
+    }), [
+      company.nameAr,
+      company.nameEn,
+      employerRepresentativeName,
+      employerRepresentativeTitle,
+      employeeNameAr,
+      employeeGender,
+      nationalId,
+      nationality,
+      jobTitleAr,
+      workCityAr,
+      branchNameAr,
+      contractNumber,
+      natureLabelAr,
+      arrangementLabelAr,
+      agreementDate,
+      startDate,
+      endDate,
+      probationDaysLabel,
+      annualLeaveDaysLabel,
+      baseSalary,
+      currency,
+      allowancesNote,
+      deductionsNote,
+      allowanceRows,
+      articles,
+    ]);
+
+    const model = React.useMemo(
+      () => buildEmploymentContractPrintModel(modelInput),
+      [modelInput],
+    );
+
+    const title = `عقــد عمل رقم(${sanitizePdfText(model.contractNumber)})`;
+    const hasAnnex = Boolean(model.annexPreambleAr.trim() || model.annexArticles.length > 0);
 
     return (
       <div ref={ref} dir="rtl" lang="ar" style={{ width: '210mm', maxWidth: '100%', margin: '0 auto' }}>
         <div style={PAGE_STYLE}>
-          <RoseTradingLetterheadPrint
-            logoSrc={logoSrc}
-            companyNameAr={company.nameAr}
-            companyNameEn={company.nameEn ?? undefined}
-          />
+          <RosePdfWatermark logoSrc={logoSrc} />
+          <div style={{ position: 'relative', zIndex: 1 }}>
+            <RoseTradingLetterheadPrint
+              logoSrc={logoSrc}
+              companyNameAr={company.nameAr}
+              companyNameEn={company.nameEn ?? undefined}
+            />
 
-          <div style={{ fontSize: 14, fontWeight: 700, textAlign: 'center', marginBottom: 10, textDecoration: 'underline' }}>
-            {title}
-          </div>
-
-          <div style={{ marginTop: 12 }}>
-            <RowKV label="المستفيد من العقد" value={employeeNameAr} />
-            <RowKV label="رقم العقد" value={contractNumber} />
-            <RowKV label="نوع العقد" value={natureLabelAr} />
-            <RowKV label="نمط الدوام" value={arrangementLabelAr} />
-            <RowKV label="تاريخ البداية" value={fmtPrintDate(startDate)} />
-            <RowKV label="تاريخ الانتهاء" value={fmtPrintDate(endDate)} />
-            <RowKV label="أيام التجربة" value={probationDaysLabel} />
-            <RowKV label="إجمالي أيام الإجازة السنوية (سنوياً)" value={annualLeaveDaysLabel} />
-            <RowKV label="الراتب الأساسي المتفق عليه" value={`${baseSalary} ${currency}`.trim()} />
-          </div>
-
-          {allowanceRows.length > 0 ? (
-            <div style={{ marginTop: 14 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, textAlign: 'right', marginBottom: 6 }}>البدلات المتفق عليها</div>
-              <div style={{ borderTop: `0.5px solid ${PDF_PRINT_C.border}` }}>
-                {allowanceRows.map((row, idx) => (
-                  <RowKV key={`${row.labelAr}-${idx}`} label={row.labelAr} value={`${row.amount} ${currency}`.trim()} />
-                ))}
-              </div>
+            <div
+              style={{
+                fontSize: 18,
+                fontWeight: 700,
+                textAlign: 'center',
+                marginTop: 4,
+                marginBottom: 14,
+                textDecoration: 'underline',
+              }}
+            >
+              {title}
             </div>
-          ) : null}
 
-          {allowancesNote.trim() || deductionsNote.trim() ? (
-            <div style={{ marginTop: 14 }}>
-              {allowancesNote.trim() ? <LabeledField label="ملاحظات البدلات" value={allowancesNote} /> : null}
-              {deductionsNote.trim() ? <LabeledField label="ملاحظات الخصومات" value={deductionsNote} /> : null}
-            </div>
-          ) : null}
+            <PartiesBlock
+              lead={model.agreementLeadAr}
+              party1={model.party1LineAr}
+              party2={model.party2LineAr}
+            />
 
-          {articles.length > 0 ? (
-            <div style={{ marginTop: 14 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, textAlign: 'right', marginBottom: 6 }}>مواد وبنود العقد</div>
-              {articles.map((a, i) => (
-                <div key={`${a.code}-${i}`} style={{ marginBottom: 10 }}>
-                  <div style={{ fontSize: 9, fontWeight: 700, textAlign: 'right', wordBreak: 'break-word' }}>
-                    {sanitizePdfText(`${i + 1}. ${a.code} — ${a.titleAr}`)}
-                  </div>
-                  <div style={{ fontSize: 8.5, textAlign: 'right', marginTop: 3, color: PDF_PRINT_C.muted, lineHeight: 1.6, wordBreak: 'break-word' }}>
-                    {sanitizePdfText(a.bodySnippet)}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : null}
+            <CompensationBlock
+              baseSalary={baseSalary}
+              currency={currency}
+              allowanceRows={allowanceRows}
+              allowancesNote={allowancesNote}
+              deductionsNote={deductionsNote}
+            />
 
-          <div style={{ marginTop: 20, borderTop: `0.75px solid ${PDF_PRINT_C.border}`, paddingTop: 10 }}>
-            <div style={{ fontSize: 8, textAlign: 'center', color: PDF_PRINT_C.muted }}>
-              هذا المستند صادر من نظام إدارة العقود — يُعتمَد بتوقيع الطرفين عند الإبرام وفق سياسات المنظمة.
-            </div>
+            {model.mainArticles.map((a, i) => (
+              <ArticleBlock
+                key={`${a.code}-${i}`}
+                title={a.titleAr.trim() || `المادة (${i + 1})`}
+                body={a.bodyAr}
+              />
+            ))}
+
+            <SignatureFooter employeeRoleNounAr={model.employeeRoleNounAr} />
           </div>
         </div>
+
+        {hasAnnex ? (
+          <div style={{ ...PAGE_STYLE, marginTop: 12 }}>
+            <RosePdfWatermark logoSrc={logoSrc} />
+            <div style={{ position: 'relative', zIndex: 1 }}>
+              <RoseTradingLetterheadPrint
+                logoSrc={logoSrc}
+                companyNameAr={company.nameAr}
+                companyNameEn={company.nameEn ?? undefined}
+              />
+
+              <div
+                style={{
+                  fontSize: 17,
+                  fontWeight: 700, 
+                  textAlign: 'center',
+                  marginTop: 4,
+                  marginBottom: 14,
+                  textDecoration: 'underline',
+                }}
+              >
+                {`ملحق لعقد العمل رقم (${sanitizePdfText(model.contractNumber)})`}
+              </div>
+
+              <PartiesBlock
+                lead={model.annexLeadAr}
+                party1={model.annexParty1LineAr}
+                party2={model.annexParty2LineAr}
+              />
+
+              {model.annexPreambleAr.trim() ? (
+                <ArticleBlock title="تمهيد" body={model.annexPreambleAr} />
+              ) : null}
+
+              {model.annexArticles.map((a, i) => (
+                <ArticleBlock
+                  key={`annex-${a.code}-${i}`}
+                  title={a.titleAr.trim() || `البند (${i + 1})`}
+                  body={a.bodyAr}
+                />
+              ))}
+
+              <div
+                style={{
+                  marginTop: 36,
+                  display: 'flex',
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  gap: 40,
+                  pageBreakInside: 'avoid',
+                }}
+              >
+                <div style={{ flex: 1, textAlign: 'center', fontSize: 13, fontWeight: 700 }}>
+                  الطرف الأول (صاحب العمل)
+                </div>
+                <div style={{ flex: 1, textAlign: 'center', fontSize: 13, fontWeight: 700 }}>
+                  الطرف الثاني ({sanitizePdfText(model.employeeRoleNounAr)})
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
     );
   },
 );
-

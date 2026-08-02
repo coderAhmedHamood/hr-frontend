@@ -63,6 +63,9 @@ export type HRContractRecord = {
   employeeSigned: boolean;
   rejectionReason: string | null;
   signatureNoticeSent: boolean;
+  signatureMethod: string | null;
+  signedAttachmentId: string | null;
+  signatureImageUrl: string | null;
   signedAt: string | null;
   terminatedAt: string | null;
   actions: ContractUiActions;
@@ -111,6 +114,9 @@ export function mapEmployeeContractFromApi(c: ApiEmployeeContract): HRContractRe
     employeeSigned: c.employeeSigned ?? false,
     rejectionReason: c.rejectionReason ?? null,
     signatureNoticeSent: c.signatureNoticeSent ?? false,
+    signatureMethod: c.signatureMethod ?? null,
+    signedAttachmentId: c.signedAttachmentId ?? null,
+    signatureImageUrl: c.signatureImageUrl ?? null,
     signedAt: c.signedAt ?? null,
     terminatedAt: c.terminatedAt ?? null,
     actions: resolveContractActions(c),

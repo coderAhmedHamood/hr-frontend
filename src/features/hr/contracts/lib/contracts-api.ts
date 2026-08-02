@@ -1,4 +1,4 @@
-import { apiRequest, type PaginatedResult } from '@/features/hr/lib/api/client';
+import { apiDownloadRequest, apiDownloadToDevice, apiRequest, type PaginatedResult } from '@/features/hr/lib/api/client';
 import type { OrganizationArchiveScope } from '@/features/hr/organization/lib/archive-scope';
 import type {
   ContractNature,
@@ -150,6 +150,9 @@ export type ApiEmployeeContract = {
   employeeSigned: boolean;
   rejectionReason: string | null;
   signatureNoticeSent?: boolean;
+  signatureMethod?: string | null;
+  signedAttachmentId?: string | null;
+  signatureImageUrl?: string | null;
   actions?: EmployeeContractActionsDto;
   allowanceLines: ApiContractAllowanceLine[];
   articles: ApiContractArticleRef[];
@@ -253,5 +256,15 @@ export const employeeContractsApi = {
     apiRequest<ApiEmployeeContract>(`/payroll/contracts/${id}/employee-decision`, {
       method: 'POST',
       body,
+    }),
+
+  downloadPdf: (id: string, fileName?: string) =>
+    apiDownloadToDevice(`/payroll/contracts/${id}/pdf`, {
+      defaultFileName: fileName ?? `employment-contract-${id}.pdf`,
+    }),
+
+  getPdf: (id: string, fileName?: string) =>
+    apiDownloadRequest(`/payroll/contracts/${id}/pdf`, {
+      defaultFileName: fileName ?? `employment-contract-${id}.pdf`,
     }),
 };

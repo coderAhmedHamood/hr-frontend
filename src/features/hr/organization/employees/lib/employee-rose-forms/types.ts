@@ -30,15 +30,29 @@ export interface RoseClearanceRecord {
   updatedAt: string;
 }
 
+export type RoseSettlementSendStatus = 'draft' | 'sent';
+
 export interface RoseSettlementRecord {
   id: string;
   employeeId: string;
+  /** رقم مرجعي للعرض في القائمة */
+  referenceNo: string;
   documentDate: string;
-  settlementPeriodAr: string;
-  salaryAndRightsAr: string;
-  deductionsAr: string;
-  netAmountAr: string;
-  declarationAr: string;
+  /** تاريخ هجري اختياري — يظهر على PDF */
+  documentDateHijri?: string | null;
+  /** لقطات تُطبع على PDF المخالصة */
+  employeeName: string;
+  nationality: string;
+  nationalId: string;
+  companyNameAr: string;
+  /** مسودة حتى يضغط المدير «إرسال للموظف» */
+  status?: RoseSettlementSendStatus;
+  /** حقول قديمة من التخزين المحلي — اختيارية للتوافق */
+  settlementPeriodAr?: string;
+  salaryAndRightsAr?: string;
+  deductionsAr?: string;
+  netAmountAr?: string;
+  declarationAr?: string;
   createdAt: string;
   updatedAt: string;
 }

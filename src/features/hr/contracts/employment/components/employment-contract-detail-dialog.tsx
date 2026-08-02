@@ -2,8 +2,9 @@
 
 import * as React from 'react';
 import {
-  Loader2, User, FileDown, PenLine, CalendarRange, Coins, Briefcase, FileText, Building2,
+  Loader2, User, FileDown, PenLine, CalendarRange, Coins, Briefcase, FileText, Building2, Eye, Download,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
   dialogFormFooterClass,
@@ -24,6 +25,7 @@ import { EmploymentContractSignatureCard } from '@/features/hr/contracts/employm
 import { resolveContractActions } from '@/features/hr/contracts/lib/contract-actions';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import { MoneyAmount } from '@/components/ui/sar-amount';
+import { resolveUploadUrl } from '@/shared/resolve-upload-url';
 import { cn } from '@/shared/utils';
 
 function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
@@ -78,12 +80,89 @@ export function EmploymentContractDetailDialog({
   const [articles, setArticles] = React.useState<ApiContractArticleRef[]>([]);
   const [loading, setLoading] = React.useState(false);
   const [loadError, setLoadError] = React.useState<string | null>(null);
+  const [attachmentPreviewOpen, setAttachmentPreviewOpen] = React.useState(false);
+  const [attachmentPreviewUrl, setAttachmentPreviewUrl] = React.useState<string | null>(null);
+  const [attachmentPreviewIsImage, setAttachmentPreviewIsImage] = React.useState(false);
+  const [attachmentPreviewLoading, setAttachmentPreviewLoading] = React.useState(false);
+  const [attachmentDownloading, setAttachmentDownloading] = React.useState(false);
+
+  const revokeAttachmentPreviewUrl = React.useCallback(() => {
+    setAttachmentPreviewUrl((prev) => {
+      if (prev?.startsWith('blob:')) URL.revokeObjectURL(prev);
+      return null;
+    });
+  }, []);
+
+  const closeAttachmentPreview = React.useCallback(() => {
+    setAttachmentPreviewOpen(false);
+    setAttachmentPreviewIsImage(false);
+    setAttachmentPreviewLoading(false);
+    revokeAttachmentPreviewUrl();
+  }, [revokeAttachmentPreviewUrl]);
+
+  const openSignedAttachmentPreview = React.useCallback(async () => {
+    if (!contract) return;
+    setAttachmentPreviewOpen(true);
+    setAttachmentPreviewLoading(true);
+    setAttachmentPreviewIsImage(false);
+    try {
+      // Prefer archived signed URL when it is a direct image/pdf upload.
+      if (contract.signatureImageUrl) {
+        const signedUrl = resolveUploadUrl(contract.signatureImageUrl);
+        if (signedUrl) {
+          const lower = signedUrl.toLowerCase();
+          const isImage = /\.(png|jpe?g|webp|gif)(\?|$)/.test(lower);
+          if (isImage) {
+            revokeAttachmentPreviewUrl();
+            setAttachmentPreviewIsImage(true);
+            setAttachmentPreviewUrl(signedUrl);
+            return;
+          }
+        }
+      }
+
+      const { blob } = await employeeContractsApi.getPdf(
+        contract.id,
+        `contract-signed-${contract.contractNumber}.pdf`,
+      );
+      const url = URL.createObjectURL(blob);
+      setAttachmentPreviewIsImage(blob.type.startsWith('image/'));
+      setAttachmentPreviewUrl((prev) => {
+        if (prev?.startsWith('blob:')) URL.revokeObjectURL(prev);
+        return url;
+      });
+    } catch (err) {
+      const { displayMessage } = handleApiError(err, 'employment-contract.attachment-preview');
+      toast.error(displayMessage);
+      closeAttachmentPreview();
+    } finally {
+      setAttachmentPreviewLoading(false);
+    }
+  }, [closeAttachmentPreview, contract, revokeAttachmentPreviewUrl]);
+
+  const downloadSignedAttachment = React.useCallback(async () => {
+    if (!contract) return;
+    setAttachmentDownloading(true);
+    try {
+      await employeeContractsApi.downloadPdf(
+        contract.id,
+        `contract-signed-${contract.contractNumber}.pdf`,
+      );
+      toast.success('تم تحميل عقد العمل الموقّع');
+    } catch (err) {
+      const { displayMessage } = handleApiError(err, 'employment-contract.attachment-download');
+      toast.error(displayMessage);
+    } finally {
+      setAttachmentDownloading(false);
+    }
+  }, [contract]);
 
   React.useEffect(() => {
     if (!open || !contractId) {
       setContract(null);
       setArticles([]);
       setLoadError(null);
+      closeAttachmentPreview();
       return;
     }
 
@@ -110,11 +189,14 @@ export function EmploymentContractDetailDialog({
       });
 
     return () => { cancelled = true; };
-  }, [open, contractId, refreshKey, onLoaded]);
+  }, [open, contractId, refreshKey, onLoaded, closeAttachmentPreview]);
+
+  const actions = contract ? resolveContractActions(contract) : null;
 
   const allowanceTotal = contract?.allowanceLines.reduce((sum, l) => sum + (Number(l.amount) || 0), 0) ?? 0;
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-visible border-border p-0"
@@ -267,7 +349,7 @@ export function EmploymentContractDetailDialog({
                       .map((article) => (
                         <li key={article.id} className="py-2.5">
                           <div className="flex items-center gap-2">
-        <span className="font-mono text-[10px] text-muted-foreground">{article.articleCode}</span>
+                            <span className="font-mono text-[10px] text-muted-foreground">{article.articleCode}</span>
                           </div>
                           <p className="text-xs font-medium">{article.titleAr}</p>
                         </li>
@@ -275,6 +357,33 @@ export function EmploymentContractDetailDialog({
                   </ul>
                 </Section>
               ) : null}
+
+              <Section title="المرفقات الخاصة بالعقد" icon={FileDown}>
+                {contract.employeeSigned && (contract.signedAttachmentId || contract.signatureImageUrl) ? (
+                  <div className="flex flex-wrap items-center justify-between gap-2 py-2.5">
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium text-foreground">عقد عمل موقّع</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        يظهر أيضاً في قسم المرفقات بملف الموظف
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 gap-1.5 text-xs"
+                      onClick={() => void openSignedAttachmentPreview()}
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                      معاينة
+                    </Button>
+                  </div>
+                ) : (
+                  <p className="py-2.5 text-xs text-muted-foreground">
+                    لا يوجد ملف موقّع بعد — يظهر هنا بعد توقيع الموظف من الموبايل
+                  </p>
+                )}
+              </Section>
 
               {contract.earlyTerminationReason ? (
                 <p className="rounded-xl border border-destructive/25 bg-destructive/5 px-4 py-3 text-xs text-destructive">
@@ -318,5 +427,67 @@ export function EmploymentContractDetailDialog({
         ) : null}
       </DialogContent>
     </Dialog>
+
+    <Dialog
+      open={attachmentPreviewOpen}
+      onOpenChange={(next) => {
+        if (!next) closeAttachmentPreview();
+      }}
+    >
+      <DialogContent className="max-w-4xl gap-3 sm:max-w-5xl">
+        <DialogHeader>
+          <DialogTitle>
+            {contract
+              ? `عقد عمل موقّع — ${contract.contractNumber}`
+              : 'عقد عمل موقّع'}
+          </DialogTitle>
+        </DialogHeader>
+        {attachmentPreviewLoading ? (
+          <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            جاري تحضير الملف…
+          </div>
+        ) : attachmentPreviewUrl ? (
+          <div className="space-y-3">
+            {attachmentPreviewIsImage ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={attachmentPreviewUrl}
+                alt="عقد عمل موقّع"
+                className="mx-auto max-h-[70vh] w-auto rounded-lg border border-border bg-muted/20 object-contain"
+              />
+            ) : (
+              <iframe
+                title="employment-contract-signed-pdf"
+                src={attachmentPreviewUrl}
+                className="h-[70vh] w-full rounded-lg border border-border bg-muted/20"
+              />
+            )}
+            <div className="flex justify-end">
+              <Button
+                type="button"
+                variant="luxe"
+                size="sm"
+                className="gap-1.5"
+                disabled={attachmentDownloading}
+                onClick={() => void downloadSignedAttachment()}
+              >
+                {attachmentDownloading ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Download className="h-3.5 w-3.5" />
+                )}
+                تحميل PDF
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <p className="py-10 text-center text-sm text-muted-foreground">
+            تعذر تحميل المعاينة
+          </p>
+        )}
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }

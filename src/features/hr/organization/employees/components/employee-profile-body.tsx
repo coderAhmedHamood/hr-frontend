@@ -17,12 +17,6 @@ import { EmployeeActivityLogSection } from '@/features/hr/organization/employees
 import { EmployeePermissionsSection } from '@/features/hr/organization/employees/components/sections/employee-permissions-section';
 import { EmployeeSalarySection } from '@/features/hr/organization/employees/components/sections/employee-salary-section';
 import type { Employee } from '@/features/hr/organization/employees/types';
-import { EmployeeHrPdfPrepDialog } from '@/features/hr/organization/employees/components/dialogs/employee-hr-pdf-prep-dialog';
-import { EmployeeResignationPdfPrepDialog } from '@/features/hr/organization/employees/components/dialogs/employee-resignation-pdf-prep-dialog';
-import { EmployeeClearancePdfPrepDialog } from '@/features/hr/organization/employees/components/dialogs/employee-clearance-pdf-prep-dialog';
-import { EmployeeSettlementPdfPrepDialog } from '@/features/hr/organization/employees/components/dialogs/employee-settlement-pdf-prep-dialog';
-import { EmployeeExperiencePdfPrepDialog } from '@/features/hr/organization/employees/components/dialogs/employee-experience-pdf-prep-dialog';
-import { RoseFormsTemplateSettingsDialog } from '@/features/hr/organization/employees/components/dialogs/rose-forms-template-settings-dialog';
 import { EmployeeAttachmentUploadDialog } from '@/features/hr/organization/employees/components/dialogs/employee-attachment-upload-dialog';
 import { EmployeeAttachmentDetailDialog } from '@/features/hr/organization/employees/components/dialogs/employee-attachment-detail-dialog';
 import { EmployeeCreateUserDialog } from '@/features/hr/organization/employees/components/dialogs/employee-create-user-dialog';
@@ -63,70 +57,6 @@ export function EmployeeProfileBody({ employee, onUpdated }: { employee: Employe
         description="سيُزال هذا الإسناد من سجل الموظف. لا يمكن التراجع."
         confirmLabel="حذف"
         variant="destructive"
-      />
-
-      <EmployeeHrPdfPrepDialog
-        open={model.hrPdfPrepKind != null}
-        prepKind={model.hrPdfPrepKind}
-        employee={model.employee}
-        onCancel={model.cancelHrPdfPrep}
-        onApplyCashReceipt={({ receipt }) =>
-          model.applyHrPdfPrepResult('cash-receipt', {}, receipt)
-        }
-      />
-
-      <EmployeeResignationPdfPrepDialog
-        open={model.resignationPrepOpen}
-        employee={model.employee}
-        branchNameAr={model.rosePdfBranchNameAr}
-        departmentNameAr={model.rosePdfDepartmentNameAr}
-        companyNameAr={model.rosePdfCompanyNameAr}
-        companyNameEn={model.rosePdfCompanyNameEn}
-        onCancel={model.cancelResignationPrep}
-        onApply={model.applyResignationWizard}
-        onOpenTemplateSettings={() => model.openRoseTemplateSettings('resignation')}
-      />
-
-      <EmployeeClearancePdfPrepDialog
-        open={model.clearancePrepOpen}
-        employee={model.employee}
-        branchNameAr={model.rosePdfBranchNameAr}
-        departmentNameAr={model.rosePdfDepartmentNameAr}
-        companyNameAr={model.rosePdfCompanyNameAr}
-        companyNameEn={model.rosePdfCompanyNameEn}
-        onCancel={model.cancelClearancePrep}
-        onApply={model.applyClearanceWizard}
-        onOpenTemplateSettings={() => model.openRoseTemplateSettings('clearance')}
-      />
-
-      <EmployeeSettlementPdfPrepDialog
-        open={model.settlementPrepOpen}
-        employee={model.employee}
-        branchNameAr={model.rosePdfBranchNameAr}
-        departmentNameAr={model.rosePdfDepartmentNameAr}
-        companyNameAr={model.rosePdfCompanyNameAr}
-        companyNameEn={model.rosePdfCompanyNameEn}
-        onCancel={model.cancelSettlementPrep}
-        onApply={model.applySettlementWizard}
-        onOpenTemplateSettings={() => model.openRoseTemplateSettings('settlement')}
-      />
-
-      <EmployeeExperiencePdfPrepDialog
-        open={model.experiencePrepOpen}
-        employee={model.employee}
-        branchNameAr={model.rosePdfBranchNameAr}
-        departmentNameAr={model.rosePdfDepartmentNameAr}
-        companyNameAr={model.rosePdfCompanyNameAr}
-        companyNameEn={model.rosePdfCompanyNameEn}
-        onCancel={model.cancelExperiencePrep}
-        onApply={model.applyExperienceWizard}
-        onOpenTemplateSettings={() => model.openRoseTemplateSettings('experience')}
-      />
-
-      <RoseFormsTemplateSettingsDialog
-        open={model.roseTemplateSettingsOpen}
-        onOpenChange={model.setRoseTemplateSettingsOpen}
-        initialTab={model.roseTemplateSettingsTab}
       />
 
       <PdfPreviewExportDialog

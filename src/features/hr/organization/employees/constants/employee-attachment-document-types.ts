@@ -3,12 +3,21 @@ export const EMPLOYEE_ATTACHMENT_DOCUMENT_TYPES = [
   { value: 'passport', label: 'جواز السفر' },
   { value: 'iqama', label: 'الإقامة' },
   { value: 'contract', label: 'عقد عمل' },
+  { value: 'contract_signed', label: 'عقد عمل موقّع' },
+  { value: 'cash_receipt_signed', label: 'سند راتب موقّع' },
+  { value: 'resignation_signed', label: 'استقالة موقّعة' },
+  { value: 'clearance_signed', label: 'إخلاء طرف موقّع' },
+  { value: 'mobile_circular_signed', label: 'تعميم جوال موقّع' },
   { value: 'certificate', label: 'شهادة' },
   { value: 'license', label: 'رخصة / تصريح' },
   { value: 'bank', label: 'مستند بنكي' },
+  { value: 'payslip', label: 'قسيمة راتب' },
   { value: 'medical', label: 'تقرير طبي' },
   { value: 'other', label: 'أخرى' },
 ] as const;
+
+/** Document types shown under employee salary / payslips section. */
+export const SALARY_ATTACHMENT_DOCUMENT_TYPES = ['payslip', 'bank'] as const;
 
 export type EmployeeAttachmentDocumentType =
   (typeof EMPLOYEE_ATTACHMENT_DOCUMENT_TYPES)[number]['value'];
