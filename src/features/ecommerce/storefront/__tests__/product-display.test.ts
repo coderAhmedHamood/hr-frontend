@@ -22,6 +22,8 @@ function makeProduct(overrides: Partial<StorefrontProduct> = {}): StorefrontProd
     tags: [],
     metaTitle: 'Test',
     metaDescription: 'Test',
+    rating: null,
+    reviewCount: 0,
     attributes: [],
     variants: [],
     ...overrides,
@@ -51,7 +53,13 @@ describe('buildProductDisplay', () => {
     );
     expect(display.promoBadge).toBe('best-seller');
     expect(display.sellingFast).toBe(true);
-    expect(display.rating).toBeGreaterThan(0);
+    expect(display.rating).toBeNull();
+  });
+
+  it('shows rating only when catalog provides ratingAvg', () => {
+    const display = buildProductDisplay(makeProduct({ rating: 4.5, reviewCount: 12 }));
+    expect(display.rating).toBe(4.5);
+    expect(display.reviewCount).toBe(12);
   });
 
   it('builds ordered gallery images from media', () => {

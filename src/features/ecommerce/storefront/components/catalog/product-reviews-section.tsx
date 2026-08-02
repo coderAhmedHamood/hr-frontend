@@ -47,26 +47,24 @@ export async function ProductReviewsSection({
       percent: 0,
     })),
   };
-  let reviews: Awaited<ReturnType<typeof fetchPublicProductReviews>> = [];
+  let reviews: Awaited<ReturnType<typeof fetchPublicProductReviews>>['items'] = [];
 
   if (isStoreHttpEnabled()) {
     try {
-      const httpReviews = await fetchPublicProductReviews({
+      const page = await fetchPublicProductReviews({
         companyId: getStorefrontCompanyId(),
         productId,
         limit: 20,
       });
-      const built = buildBreakdownFromReviews(httpReviews);
-      average = built.average || average;
+      const built = buildBreakdownFromReviews(page.items);
+      reviews = page.items.slice(0, 10);
+      const total = page.total > 0 ? page.total : reviewCount;
+      average = built.average > 0 ? built.average : (rating ?? 0);
       summary = {
-        average: built.average || average,
-        total: built.total > 0 ? built.total : reviewCount,
+        average,
+        total,
         breakdown: built.breakdown,
       };
-      reviews = httpReviews.slice(0, 5);
-      if (built.total > 0) {
-        summary.total = built.total;
-      }
     } catch (error) {
       console.warn('[store] product reviews fetch failed', error);
     }
@@ -126,8 +124,14 @@ export async function ProductReviewsSection({
                     {dateFormatter.format(new Date(review.date))}
                   </span>
                 </div>
-                <Stars rating={review.rating} />
-                <p className="mt-2 text-sm leading-relaxed text-foreground">{review.comment}</p>
+                {review.comment ? (
+                  <>
+                    <Stars rating={review.rating} />
+                    <p className="mt-2 text-sm leading-relaxed text-foreground">{review.comment}</p>
+                  </>
+                ) : (
+                  <Stars rating={review.rating} />
+                )}
               </li>
             ))}
           </ul>

@@ -26,7 +26,13 @@ export const STORE_FRONTEND_ENDPOINT_MAP = {
       'src/features/ecommerce/shared/lib/api/store-reviews-api.ts',
       'src/features/ecommerce/storefront/lib/repositories/search-repository.ts',
       'src/features/ecommerce/shared/lib/api/store-orders-api.ts',
+      'src/features/ecommerce/shared/lib/api/store-badges-api.ts',
     ],
+  },
+  badges: {
+    doc: 'GET /public/store/badges — header icon counts',
+    module: 'src/features/ecommerce/shared/lib/api/store-badges-api.ts',
+    ui: 'src/features/ecommerce/storefront/hooks/use-storefront-badges.ts',
   },
   wishlist: {
     doc: '# 3) مفضلة العميل',
@@ -56,5 +62,15 @@ export const STORE_FRONTEND_ENDPOINT_MAP = {
   adminOrders: {
     doc: '# 9) إدارة المتجر — الطلبات',
     module: 'src/features/ecommerce/shared/lib/api/store-orders-api.ts',
+  },
+  adminProductReviews: {
+    doc: 'Inventory staff — product reviews CRUD',
+    module: 'src/features/ecommerce/admin/reviews/lib/api/product-reviews-api.ts',
+    ui: 'src/features/ecommerce/admin/reviews/components/product-reviews-admin-page.tsx → /reviews',
+    paths: [
+      'GET|POST /inventory/product-reviews',
+      'GET|PATCH|DELETE /inventory/product-reviews/:id',
+      'GET /public/store/products/:productId/reviews',
+    ],
   },
 } as const;

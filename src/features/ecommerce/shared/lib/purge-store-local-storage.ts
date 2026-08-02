@@ -1,6 +1,6 @@
 /**
  * One-shot purge of store dual-path localStorage keys.
- * Kept: storefront-cart, storefront-customer (partner JWT).
+ * Kept: storefront-cart, storefront-wishlist (guest favorites), storefront-customer (partner JWT).
  * Removed: remembered orders + admin live commerce mirrors.
  */
 const PURGE_KEYS = [

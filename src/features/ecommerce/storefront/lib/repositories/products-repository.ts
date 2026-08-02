@@ -60,6 +60,8 @@ type PublicProductDto = {
   seoKeywords?: string[] | null;
   primaryImageUrl?: string | null;
   primaryImageAlt?: string | null;
+  ratingAvg?: string | number | null;
+  reviewCount?: string | number | null;
   archivedAt?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -207,6 +209,11 @@ function mapPublicProduct(dto: PublicProductDto): Product {
     isDiscountActive: Boolean(dto.isDiscountActive),
     attributes: [],
     variants: [],
+    rating:
+      dto.ratingAvg == null || dto.ratingAvg === ''
+        ? null
+        : toNumber(dto.ratingAvg),
+    reviewCount: Math.max(0, Math.floor(toNumber(dto.reviewCount))),
     createdAt: dto.createdAt,
     updatedAt: dto.updatedAt,
     archivedAt: dto.archivedAt ?? null,

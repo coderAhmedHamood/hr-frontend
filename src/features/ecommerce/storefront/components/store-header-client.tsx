@@ -11,8 +11,8 @@ import type {
 } from '@/features/ecommerce/storefront/domain/storefront-models';
 import { StoreLocaleSwitcher } from '@/features/ecommerce/storefront/components/store-locale-switcher';
 import { StoreCategoryNavBar, StoreMobileCategoryNav } from '@/features/ecommerce/storefront/components/store-mega-menu';
+import { useWishlistBadgeCount } from '@/features/ecommerce/storefront/hooks/use-storefront-badges';
 import { useCartItemCount } from '@/features/ecommerce/storefront/hooks/use-storefront-cart-ui';
-import { useWishlistCount } from '@/features/ecommerce/storefront/hooks/use-storefront-wishlist-ui';
 import { useStorefrontCustomerUi } from '@/features/ecommerce/storefront/hooks/use-storefront-customer-ui';
 import { Link } from '@/i18n/navigation';
 import { isRtlLocale, type StorefrontLocale } from '@/i18n/routing';
@@ -198,7 +198,8 @@ export function StoreHeaderInteractive({ config, categories, brands, logo }: Sto
   const locale = useLocale() as StorefrontLocale;
   const rtl = isRtlLocale(locale);
   const customer = useStorefrontCustomerUi((s) => s.customer);
-  const wishlistCount = useWishlistCount();
+  const wishlistCount = useWishlistBadgeCount();
+  /** cartCount from badges API is always null — sum quantities from localStorage. */
   const cartCount = useCartItemCount();
   const [mobileOpen, setMobileOpen] = React.useState(false);
 

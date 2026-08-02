@@ -15,7 +15,12 @@ export type StoreWishlistItemDto = {
   createdAt: string;
 };
 
-/** GET /public/store/wishlist — Partner JWT · binding §4 `{ items, pagination }`. */
+/**
+ * Partner JWT (`typ=partner`) — companyId/partnerId from token only.
+ * Table: `inventory_product_favorites`.
+ */
+
+/** GET /public/store/wishlist — `{ items, pagination }` */
 export async function fetchPartnerWishlist(token: string): Promise<StoreWishlistItemDto[]> {
   if (!token) return [];
   const page = await publicStoreRequest<unknown>('/public/store/wishlist', {
@@ -26,7 +31,7 @@ export async function fetchPartnerWishlist(token: string): Promise<StoreWishlist
   return unwrapStoreList<StoreWishlistItemDto>(page).items;
 }
 
-/** POST /public/store/wishlist → data is list shape after add. */
+/** POST /public/store/wishlist → 201 · body `{ productId }` · data = full list after add */
 export async function addPartnerWishlistItem(
   token: string,
   productId: string,
@@ -40,7 +45,7 @@ export async function addPartnerWishlistItem(
   return unwrapStoreList<StoreWishlistItemDto>(page).items;
 }
 
-/** DELETE /public/store/wishlist/:productId → 204 */
+/** DELETE /public/store/wishlist/:productId → 204 (`:productId` = product UUID) */
 export async function removePartnerWishlistItem(token: string, productId: string): Promise<void> {
   if (!token) throw new Error('PARTNER_TOKEN_REQUIRED');
   await publicStoreRequest(`/public/store/wishlist/${productId}`, {

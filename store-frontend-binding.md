@@ -184,6 +184,12 @@ string عشري، مثال: `"12.5000"`.
 
 ### `GET /public/store/products/:productId/reviews?companyId=&page=&limit=`
 
+- **Auth:** لا · يعيد فقط `approved` وغير المؤرشفة  
+- بطاقة المنتج: اعرض أيضاً `ratingAvg` / `reviewCount` من كتالوج Inventory  
+- **فجوة:** لا يوجد `POST /public/store/.../reviews` لكتابة العميل بعد  
+- **إدارة (موظف):** CRUD على `/inventory/product-reviews` — واجهة المتجر: `/reviews`  
+  صلاحيات: `inv.catalog.product-reviews.{create,read,update,delete}`
+
 ```ts
 {
   items: [{
@@ -246,7 +252,20 @@ string عشري، مثال: `"12.5000"`.
 
 ## 4) المفضلة — Partner JWT
 
-`Authorization: Bearer <partnerToken>` (`typ=partner`)
+جدول: `inventory_product_favorites` (`partner_id` + `product_id` + `company_id`)  
+`Authorization: Bearer <partnerToken>` (`typ=partner`)  
+`companyId` / `partnerId` من التوكن فقط — لا تُرسل في الـ body.
+
+**ضيف بدون حساب:** المفضلة محلياً في الفرونت (`storefront-wishlist`) — لا API.  
+بعد تسجيل الدخول: مزامنة المحلي → `POST` لكل منتج ناقص ثم `GET`.
+
+| Method | Path | الوظيفة |
+|--------|------|---------|
+| GET | `/public/store/wishlist` | جلب |
+| POST | `/public/store/wishlist` | إضافة `{ productId }` → 201 |
+| DELETE | `/public/store/wishlist/:productId` | حذف (معرّف المنتج) → 204 |
+
+أخطاء: `401` بدون/باطل · `403` توكن موظف · `404` منتج غير موجود / غير في المفضلة
 
 ### `GET /public/store/wishlist?page=&limit=`
 
@@ -266,6 +285,21 @@ string عشري، مثال: `"12.5000"`.
 **`data`:** نفس شكل القائمة أعلاه بعد الإضافة
 
 ### `DELETE /public/store/wishlist/:productId` → **204** (بدون body)
+
+### `GET /public/store/badges` — عدّادات أيقونات الهيدر
+
+Auth: Bearer شريك اختياري
+
+```ts
+{ wishlistCount: number, cartCount: null }
+```
+
+| الحقل | المصدر |
+|--------|--------|
+| `wishlistCount` | من السيرفر مع توكن شريك؛ بدون توكن = `0` |
+| `cartCount` | دائماً `null` — احسب السلة من `storefront-cart` في الفرونت |
+
+ضيف: اعرض عدّاد المفضلة من localStorage (`storefront-wishlist`) لأن الـ API يرجع `0`.
 
 ---
 

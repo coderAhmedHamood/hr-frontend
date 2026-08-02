@@ -12,6 +12,7 @@ import {
   Library,
   Image,
   Mail,
+  Star,
 } from 'lucide-react';
 import {
   ecommerceAdminRoutes,
@@ -59,7 +60,10 @@ export const ecommerceAdminNavGroups: EcommerceAdminNavGroup[] = [
     icon: Package,
     sections: [
       {
-        items: [{ labelKey: 'products', href: ecommerceAdminRoutes.products, icon: Package }],
+        items: [
+          { labelKey: 'products', href: ecommerceAdminRoutes.products, icon: Package },
+          { labelKey: 'reviews', href: ecommerceAdminRoutes.reviews, icon: Star },
+        ],
       },
     ],
   },

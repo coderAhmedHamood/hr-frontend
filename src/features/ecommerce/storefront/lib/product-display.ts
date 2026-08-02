@@ -16,21 +16,10 @@ export type ProductDisplayModel = {
   /** Tag-driven promo chip (best-seller / deals / wholesale). */
   promoBadge: 'best-seller' | 'deals' | 'wholesale' | null;
   sellingFast: boolean;
-  /** Deterministic mock social proof until catalog API provides ratings. */
-  rating: number;
+  /** From inventory `ratingAvg` / `reviewCount` — no mock fallback. */
+  rating: number | null;
   reviewCount: number;
 };
-
-function mockSocialProof(id: string): { rating: number; reviewCount: number } {
-  let hash = 0;
-  for (let index = 0; index < id.length; index += 1) {
-    hash = (hash + id.charCodeAt(index) * (index + 1)) % 997;
-  }
-  return {
-    rating: Math.round((3.8 + (hash % 12) / 10) * 10) / 10,
-    reviewCount: 40 + (hash % 2400),
-  };
-}
 
 function resolvePromoBadge(tags: string[]): 'best-seller' | 'deals' | 'wholesale' | null {
   const normalized = tags.map((tag) => tag.toLowerCase());
@@ -75,7 +64,6 @@ export function buildProductDisplay(product: StorefrontProduct): ProductDisplayM
     hasDeal && product.compareAtPrice
       ? Math.round(((product.compareAtPrice.amount - product.price.amount) / product.compareAtPrice.amount) * 100)
       : null;
-  const social = product.rating != null ? { rating: product.rating, reviewCount: product.reviewCount } : mockSocialProof(product.id);
 
   return {
     imageUrl,
@@ -86,8 +74,8 @@ export function buildProductDisplay(product: StorefrontProduct): ProductDisplayM
     discountPercent,
     promoBadge: resolvePromoBadge(product.tags),
     sellingFast: isSellingFast(product),
-    rating: social.rating,
-    reviewCount: social.reviewCount,
+    rating: product.rating != null && product.rating > 0 ? product.rating : null,
+    reviewCount: Math.max(0, product.reviewCount ?? 0),
   };
 }
 
