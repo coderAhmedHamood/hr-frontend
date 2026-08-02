@@ -4,6 +4,7 @@ import * as React from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import {
   LayoutDashboard, Users, Clock, CalendarDays, ClipboardList,
   ShieldAlert, Wallet, BarChart3, Building2, Shield,
@@ -13,9 +14,10 @@ import {
   UserCircle, Briefcase, UserPlus, Bell, Send, Inbox,   KeyRound, Banknote, Timer, Settings,
 } from 'lucide-react';
 import { cn } from '@/shared/utils';
-import { isHrAppPath, isSystemAppPath } from '@/shared/app-paths';
+import { isHrAppPath, isSystemAppPath, isEcommerceAppPath, isInventoryAppPath } from '@/shared/app-paths';
 import { Logo } from '@/components/layouts/logo';
 import { useDefaultCompanyBranding } from '@/features/auth/hooks/use-default-company-branding';
+import { useAuthStore } from '@/features/auth/lib/auth-store';
 import { useSidebar } from '@/components/layouts/sidebar-context';
 import { hrDisciplineNavGroups } from '@/features/hr/discipline/lib/types';
 import { hrNotificationsNavGroups } from '@/features/hr/notifications/constants/nav';
@@ -29,6 +31,17 @@ import {
   systemOrganizationSettingsNavItems,
   systemOrganizationStructureNavItems,
 } from '@/features/system/organization/constants/nav';
+import {
+  ecommerceAdminNavGroups,
+  ecommerceAdminOverviewItem,
+  flattenEcommerceNavItems,
+} from '@/features/ecommerce/admin/constants/nav';
+import {
+  inventoryAdminNavGroups,
+  inventoryAdminOverviewItem,
+  flattenInventoryNavItems,
+} from '@/features/inventory/admin/constants/nav';
+import { isModuleEnabledFor } from '@/shared/modules/registry';
 
 type MobileNavChild =
   | { label: string; href: string; icon?: React.ElementType; match?: 'exact' | 'prefix' }
@@ -160,6 +173,86 @@ const systemMobileNav: MobileNavItem[] = [
     ),
   },
 ];
+
+function buildEcommerceMobileNav(tNav: (key: string) => string): MobileNavItem[] {
+  const items: MobileNavItem[] = [
+    { key: 'apps', label: tNav('appsHome'), href: '/', icon: LayoutGrid },
+    {
+      key: 'overview',
+      label: tNav(ecommerceAdminOverviewItem.labelKey),
+      href: ecommerceAdminOverviewItem.href,
+      icon: ecommerceAdminOverviewItem.icon,
+    },
+  ];
+
+  for (const group of ecommerceAdminNavGroups) {
+    const flat = flattenEcommerceNavItems(group);
+    if (flat.length === 0) continue;
+
+    const children: MobileNavChild[] = [];
+    for (const section of group.sections) {
+      if (section.items.length === 0) continue;
+      if (children.length > 0) children.push({ separator: true });
+      for (const item of section.items) {
+        children.push({
+          label: tNav(item.labelKey),
+          href: item.href,
+          icon: item.icon,
+          match: item.href.includes('?') ? 'exact' : 'prefix',
+        });
+      }
+    }
+
+    items.push({
+      key: group.key,
+      label: tNav(group.labelKey),
+      icon: group.icon,
+      children,
+    });
+  }
+
+  return items;
+}
+
+function buildInventoryMobileNav(): MobileNavItem[] {
+  const items: MobileNavItem[] = [
+    { key: 'apps', label: 'التطبيقات', href: '/', icon: LayoutGrid },
+    {
+      key: 'overview',
+      label: inventoryAdminOverviewItem.labelAr,
+      href: inventoryAdminOverviewItem.href,
+      icon: inventoryAdminOverviewItem.icon,
+    },
+  ];
+
+  for (const group of inventoryAdminNavGroups) {
+    const flat = flattenInventoryNavItems(group);
+    if (flat.length === 0) continue;
+
+    const children: MobileNavChild[] = [];
+    for (const section of group.sections) {
+      if (section.items.length === 0) continue;
+      if (children.length > 0) children.push({ separator: true });
+      for (const item of section.items) {
+        children.push({
+          label: item.labelAr,
+          href: item.href,
+          icon: item.icon,
+          match: item.href.includes('?') ? 'exact' : 'prefix',
+        });
+      }
+    }
+
+    items.push({
+      key: group.key,
+      label: group.labelAr,
+      icon: group.icon,
+      children,
+    });
+  }
+
+  return items;
+}
 
 function MobileDrawer({ items, onClose }: { items: MobileNavItem[]; onClose: () => void }) {
   const { logoUrl, logoAlt } = useDefaultCompanyBranding();
@@ -334,8 +427,15 @@ export function Sidebar() {
   const { open, setOpen } = useSidebar();
   const close = React.useCallback(() => setOpen(false), [setOpen]);
   const [mounted, setMounted] = React.useState(false);
+  const activeCompanyId = useAuthStore((s) => s.activeCompanyId);
+  const ecommerceEnabled = isModuleEnabledFor('ecommerce', activeCompanyId);
+  const inventoryEnabled = isModuleEnabledFor('inventory', activeCompanyId);
+  const tNav = useTranslations('ecommerceAdmin.nav');
 
-  const inAppShell = isHrAppPath(pathname) || isSystemAppPath(pathname);
+  const inAppShell = isHrAppPath(pathname)
+    || isSystemAppPath(pathname)
+    || (ecommerceEnabled && isEcommerceAppPath(pathname))
+    || (inventoryEnabled && isInventoryAppPath(pathname));
 
   React.useEffect(() => {
     if (!inAppShell) setOpen(false);
@@ -377,7 +477,13 @@ export function Sidebar() {
 
   if (!mounted || !open) return null;
 
-  const navItems = isSystemAppPath(pathname) ? systemMobileNav : mobileNav;
+  const navItems = isSystemAppPath(pathname)
+    ? systemMobileNav
+    : inventoryEnabled && isInventoryAppPath(pathname)
+      ? buildInventoryMobileNav()
+      : ecommerceEnabled && isEcommerceAppPath(pathname)
+        ? buildEcommerceMobileNav((key) => tNav(key as 'overview'))
+        : mobileNav;
 
   return createPortal(
     <>

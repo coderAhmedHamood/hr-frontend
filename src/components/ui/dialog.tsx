@@ -31,9 +31,11 @@ const DialogOverlay = React.forwardRef<
 ));
 DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
 
+/** Shared viewport-safe max-height so it isn't duplicated ad hoc in dialogs that don't need the full header/body/footer shell below. */
+export const dialogMaxHeightClass = 'max-h-[min(90dvh,calc(100%-2rem))]';
+
 /** Viewport-safe shell for header + scrollable body + footer (pass `className` with `p-0`). */
-export const dialogShellContentClass =
-  'flex max-h-[min(90dvh,calc(100%-2rem))] w-full flex-col gap-0 overflow-visible p-0';
+export const dialogShellContentClass = `flex ${dialogMaxHeightClass} w-full flex-col gap-0 overflow-visible p-0`;
 
 export const dialogShellHeaderClass =
   'shrink-0 border-b border-border px-6 py-5 pe-12 text-right';

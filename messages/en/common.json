@@ -1,0 +1,58 @@
+{
+  "actions": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "create": "Create",
+    "edit": "Edit",
+    "delete": "Delete",
+    "confirm": "Confirm",
+    "close": "Close",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "search": "Search",
+    "filter": "Filter",
+    "clearFilters": "Clear filters",
+    "export": "Export",
+    "import": "Import",
+    "retry": "Retry",
+    "viewDetails": "View details"
+  },
+  "status": {
+    "loading": "Loading…",
+    "saving": "Saving…",
+    "deleting": "Deleting…",
+    "success": "Success",
+    "error": "Error",
+    "unexpectedError": "Something unexpected went wrong. Please try again."
+  },
+  "confirmation": {
+    "deleteTitle": "Confirm delete",
+    "deleteDescription": "Are you sure you want to delete \"{name}\"? This action cannot be undone.",
+    "unsavedChangesTitle": "Unsaved changes",
+    "unsavedChangesDescription": "You have unsaved changes. Do you want to leave without saving?"
+  },
+  "validation": {
+    "required": "This field is required",
+    "invalidEmail": "Invalid email address",
+    "invalidUrl": "Invalid URL",
+    "tooShort": "Value is too short",
+    "tooLong": "Value is too long",
+    "invalidNumber": "Invalid number",
+    "mustBePositive": "Value must be greater than zero"
+  },
+  "table": {
+    "noResults": "No results",
+    "noResultsForFilters": "No results match the current filters",
+    "rowsPerPage": "Rows per page",
+    "pageOf": "Page {page} of {total}",
+    "selectedCount": "{count} row(s) selected"
+  },
+  "fields": {
+    "name": "Name",
+    "description": "Description",
+    "status": "Status",
+    "createdAt": "Created at",
+    "updatedAt": "Updated at"
+  }
+}

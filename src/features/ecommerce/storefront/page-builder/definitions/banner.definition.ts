@@ -1,0 +1,120 @@
+import type { SectionDefinition } from '@/features/ecommerce/storefront/page-builder/domain/section-definition';
+import { BANNER_LAYOUTS } from '@/features/ecommerce/storefront/page-builder/domain/layout-types';
+import { SUPPORTED_STOREFRONT_LOCALES } from '@/features/ecommerce/storefront/page-builder/domain/section-definition';
+import { bannerSectionSchema } from '@/features/ecommerce/storefront/page-builder/schemas/page.schema';
+import {
+  BASE_SECTION_CAPABILITIES,
+  dataSourceField,
+  layoutField,
+  themeField,
+  UI_STRINGS,
+  visibilityField,
+} from '@/features/ecommerce/storefront/page-builder/definitions/shared/field-builders';
+
+const DEFAULT_CONFIGURATION = {
+  content: {
+    imageUrl: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=1400&q=80',
+    mobileImageUrl: null,
+    alt: { ar: 'بانر ترويجي', en: 'Promotional banner' },
+    href: '/store/products',
+    target: '_self',
+  },
+  settings: {},
+  style: { theme: 'system', layout: 'contained', visibility: { mobile: true, tablet: true, desktop: true } },
+  dataSource: { kind: 'manual', entityIds: [] },
+};
+
+export const BANNER_DEFINITION: SectionDefinition<'banner'> = {
+  id: 'banner',
+  type: 'banner',
+  displayName: { ar: 'بانر ترويجي', en: 'Promotional Banner' },
+  description: {
+    ar: 'صورة ترويجية كاملة العرض مع رابط ونص بديل متعدد اللغات.',
+    en: 'Full-width promotional image with link and localized alt text.',
+  },
+  icon: 'image',
+  category: 'promotions',
+  componentKey: 'banner',
+  validationSchemaId: 'storefront.section.banner.v1',
+  configurationSchemaId: 'storefront.section.banner.config.v1',
+  validationSchema: bannerSectionSchema,
+  configurationSchema: bannerSectionSchema,
+  defaultConfiguration: DEFAULT_CONFIGURATION,
+  supportedLayouts: BANNER_LAYOUTS,
+  supportedThemes: ['light', 'dark', 'system'],
+  supportedDataSources: ['manual'],
+  supportedLocales: [...SUPPORTED_STOREFRONT_LOCALES],
+  supportedDevices: { mobile: true, tablet: true, desktop: true },
+  capabilities: {
+    ...BASE_SECTION_CAPABILITIES,
+    supportsTitle: false,
+    supportsSubtitle: false,
+    supportsBanners: true,
+    supportsProducts: false,
+    supportsCategories: false,
+    supportsBrands: false,
+    supportsAutoplay: false,
+    supportsCountdown: false,
+  },
+  fields: [
+    {
+      key: 'imageUrl',
+      path: 'content.imageUrl',
+      label: UI_STRINGS.fields.imageUrl,
+      control: 'image',
+      localized: false,
+      required: true,
+      group: 'content',
+      meta: { aspectRatio: '21/7', acceptsAltText: true, mobileVariant: true },
+    },
+    {
+      key: 'mobileImageUrl',
+      path: 'content.mobileImageUrl',
+      label: UI_STRINGS.fields.mobileImageUrl,
+      control: 'image',
+      localized: false,
+      required: false,
+      group: 'content',
+      defaultValue: null,
+    },
+    {
+      key: 'alt',
+      path: 'content.alt',
+      label: UI_STRINGS.fields.alt,
+      control: 'localized-text',
+      localized: true,
+      required: true,
+      group: 'content',
+      validation: { maxLength: 200 },
+    },
+    {
+      key: 'href',
+      path: 'content.href',
+      label: UI_STRINGS.fields.href,
+      control: 'store-path',
+      localized: false,
+      required: true,
+      group: 'content',
+    },
+    {
+      key: 'target',
+      path: 'content.target',
+      label: UI_STRINGS.fields.target,
+      control: 'link-target',
+      localized: false,
+      required: true,
+      group: 'content',
+      defaultValue: '_self',
+      meta: {
+        options: [
+          { value: '_self', label: { ar: 'نفس النافذة', en: 'Same window' } },
+          { value: '_blank', label: { ar: 'نافذة جديدة', en: 'New window' } },
+        ],
+      },
+    },
+    themeField(),
+    layoutField(BANNER_LAYOUTS),
+    visibilityField(),
+    dataSourceField(['manual']),
+  ],
+};

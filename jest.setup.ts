@@ -1,5 +1,9 @@
 import '@testing-library/jest-dom';
 
+if (typeof globalThis.structuredClone !== 'function') {
+  globalThis.structuredClone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
+}
+
 // Browser APIs not available in jsdom
 global.ResizeObserver = class ResizeObserver {
   observe() {}
