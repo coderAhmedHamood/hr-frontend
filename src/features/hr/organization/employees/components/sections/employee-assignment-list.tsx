@@ -57,22 +57,14 @@ function AssignmentRow({
           <span className="text-foreground/80">الفرع:</span>
           {' '}
           {row.branchNameAr}
-          {row.departmentNameAr ? (
-            <>
-              <span className="mx-1 text-muted-foreground/40">·</span>
-              <span className="text-foreground/80">القسم:</span>
-              {' '}
-              {row.departmentNameAr}
-            </>
-          ) : null}
-          {row.jobTitleNameAr ? (
-            <>
-              <span className="mx-1 text-muted-foreground/40">·</span>
-              <span className="text-foreground/80">المسمى:</span>
-              {' '}
-              {row.jobTitleNameAr}
-            </>
-          ) : null}
+          <span className="mx-1 text-muted-foreground/40">·</span>
+          <span className="text-foreground/80">القسم:</span>
+          {' '}
+          {row.departmentNameAr?.trim() || '—'}
+          <span className="mx-1 text-muted-foreground/40">·</span>
+          <span className="text-foreground/80">المسمى:</span>
+          {' '}
+          {row.jobTitleNameAr?.trim() || '—'}
         </p>
         <p className="text-[11px] text-muted-foreground/80 tabular-nums">
           الفترة:

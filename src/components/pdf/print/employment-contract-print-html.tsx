@@ -124,20 +124,6 @@ function CompensationBlock({
 
   return (
     <div style={{ marginBottom: 16, pageBreakInside: 'avoid' }}>
-      <div
-        style={{
-          backgroundColor: ARTICLE_BAR_BG,
-          color: ARTICLE_BAR_FG,
-          padding: '5px 12px',
-          fontSize: 12.5,
-          fontWeight: 700,
-          textAlign: 'center',
-          lineHeight: 1.5,
-          marginBottom: 8,
-        }}
-      >
-        التعويضات
-      </div>
       <div style={{ fontSize: 12.5, lineHeight: 1.9, textAlign: 'justify' }}>
         <p style={{ margin: '0 0 6px' }}>
           <span style={{ fontWeight: 700 }}>الراتب الأساسي:</span>{' '}

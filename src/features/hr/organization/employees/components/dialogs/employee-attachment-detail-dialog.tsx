@@ -1,6 +1,6 @@
 'use client';
 
-import { Download, ExternalLink, FileText, ImageIcon } from 'lucide-react';
+import { Download, ExternalLink, Eye, FileText } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -33,37 +33,65 @@ export function EmployeeAttachmentDetailDialog({ attachment, onOpenChange }: Pro
   const open = attachment != null;
   const fileUrl = attachment ? resolveUploadUrl(attachment.url) : '';
   const tags = attachment?.tags ?? [];
+  const isImage = attachment ? isImageAttachment(attachment.mimeType) : false;
+  const isPdf = attachment ? isPdfAttachment(attachment.mimeType) : false;
+  const canPreviewInline = isImage || isPdf;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg border-border" dir="rtl">
+      <DialogContent
+        className={
+          canPreviewInline
+            ? 'flex max-h-[92vh] max-w-5xl flex-col gap-0 overflow-hidden border-border p-0 sm:max-w-5xl'
+            : 'max-w-lg border-border'
+        }
+        dir="rtl"
+      >
         {attachment ? (
           <>
-            <DialogHeader>
-              <DialogTitle className="font-display">{attachment.name}</DialogTitle>
+            <DialogHeader
+              className={
+                canPreviewInline
+                  ? 'border-b border-border px-6 py-4 text-right'
+                  : undefined
+              }
+            >
+              <DialogTitle className="font-display">
+                معاينة — {attachment.name}
+              </DialogTitle>
               <DialogDescription className="text-xs">
                 {attachment.originalFileName}
+                {' · '}
+                {employeeAttachmentDocumentTypeLabel(attachment.documentType)}
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-4 py-1">
-              {isImageAttachment(attachment.mimeType) ? (
+            <div
+              className={
+                canPreviewInline
+                  ? 'min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-4'
+                  : 'space-y-4 py-1'
+              }
+            >
+              {isImage ? (
                 <div className="overflow-hidden rounded-xl border border-border bg-muted/20">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={fileUrl}
                     alt={attachment.name}
-                    className="max-h-64 w-full object-contain"
+                    className="mx-auto max-h-[70vh] w-full object-contain"
                   />
                 </div>
+              ) : isPdf ? (
+                <iframe
+                  title={`معاينة ${attachment.name}`}
+                  src={fileUrl}
+                  className="h-[70vh] w-full rounded-xl border border-border bg-muted/20"
+                />
               ) : (
                 <div className="flex items-center gap-3 rounded-xl border border-border bg-muted/20 px-4 py-5">
                   <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                    {isPdfAttachment(attachment.mimeType) ? (
-                      <FileText className="h-6 w-6" />
-                    ) : (
-                      <ImageIcon className="h-6 w-6" />
-                    )}
+                    <FileText className="h-6 w-6" />
                   </div>
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium">{attachment.originalFileName}</p>
@@ -72,6 +100,9 @@ export function EmployeeAttachmentDetailDialog({ attachment, onOpenChange }: Pro
                       {' · '}
                       {formatAttachmentSize(attachment.sizeBytes)}
                     </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      لا تتوفر معاينة لهذا النوع — افتح الملف أو حمّله.
+                    </p>
                   </div>
                 </div>
               )}
@@ -79,7 +110,9 @@ export function EmployeeAttachmentDetailDialog({ attachment, onOpenChange }: Pro
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
                   <p className="text-[11px] text-muted-foreground">نوع المستند</p>
-                  <p className="font-medium">{employeeAttachmentDocumentTypeLabel(attachment.documentType)}</p>
+                  <p className="font-medium">
+                    {employeeAttachmentDocumentTypeLabel(attachment.documentType)}
+                  </p>
                 </div>
                 <div>
                   <p className="text-[11px] text-muted-foreground">الحجم</p>
@@ -93,7 +126,10 @@ export function EmployeeAttachmentDetailDialog({ attachment, onOpenChange }: Pro
                 </div>
                 <div>
                   <p className="text-[11px] text-muted-foreground">الحالة</p>
-                  <Badge variant={attachment.isArchived ? 'secondary' : 'success'} className="text-[10px]">
+                  <Badge
+                    variant={attachment.isArchived ? 'secondary' : 'success'}
+                    className="text-[10px]"
+                  >
                     {attachment.isArchived ? 'مؤرشف' : 'نشط'}
                   </Badge>
                 </div>
@@ -102,7 +138,9 @@ export function EmployeeAttachmentDetailDialog({ attachment, onOpenChange }: Pro
               {attachment.description ? (
                 <div>
                   <p className="text-[11px] text-muted-foreground">الوصف</p>
-                  <p className="mt-1 text-sm leading-relaxed text-foreground/90">{attachment.description}</p>
+                  <p className="mt-1 text-sm leading-relaxed text-foreground/90">
+                    {attachment.description}
+                  </p>
                 </div>
               ) : null}
 
@@ -117,8 +155,20 @@ export function EmployeeAttachmentDetailDialog({ attachment, onOpenChange }: Pro
               ) : null}
             </div>
 
-            <DialogFooter className="gap-2 sm:justify-start">
+            <DialogFooter
+              className={
+                canPreviewInline
+                  ? 'gap-2 border-t border-border px-6 py-4 sm:justify-start'
+                  : 'gap-2 sm:justify-start'
+              }
+            >
               <Button variant="luxe" size="sm" className="gap-1.5" asChild>
+                <a href={fileUrl} target="_blank" rel="noopener noreferrer">
+                  <Eye className="h-3.5 w-3.5" />
+                  معاينة في تبويب جديد
+                </a>
+              </Button>
+              <Button variant="outline" size="sm" className="gap-1.5" asChild>
                 <a href={fileUrl} target="_blank" rel="noopener noreferrer">
                   <ExternalLink className="h-3.5 w-3.5" />
                   فتح الملف
