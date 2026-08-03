@@ -1,4 +1,9 @@
-import { buildProductDisplay, hasProductDeal } from '@/features/ecommerce/storefront/lib/product-display';
+import {
+  buildProductDisplay,
+  getWarehouseOnHand,
+  hasProductDeal,
+  resolvePurchaseStockStatus,
+} from '@/features/ecommerce/storefront/lib/product-display';
 import type { StorefrontProduct } from '@/features/ecommerce/storefront/domain/storefront-models';
 
 function makeProduct(overrides: Partial<StorefrontProduct> = {}): StorefrontProduct {
@@ -82,5 +87,58 @@ describe('buildProductDisplay', () => {
 describe('hasProductDeal', () => {
   it('returns false when compareAt is missing', () => {
     expect(hasProductDeal(makeProduct({ compareAtPrice: null }))).toBe(false);
+  });
+});
+
+describe('getWarehouseOnHand', () => {
+  it('falls back to product qty when variants exist but none are stocked', () => {
+    const variant = {
+      id: 'v1',
+      combinationKey: 's',
+      sku: 'SKU-1-S',
+      nameAr: 'صغير',
+      attributeValueIds: ['a1'],
+      attributeLabels: [{ attributeNameAr: 'حجم', valueNameAr: 'صغير' }],
+      price: { amount: 65, currency: 'YER' as const },
+      quantity: 0,
+      stockStatus: 'out_of_stock' as const,
+      isActive: true,
+    };
+    const product = makeProduct({
+      inventory: { quantity: 210, trackInventory: true, lowStockThreshold: 10, allowBackorder: false },
+      variants: [variant],
+    });
+    expect(getWarehouseOnHand(product, variant)).toBe(210);
+    expect(resolvePurchaseStockStatus(product, variant)).toBe('in_stock');
+  });
+
+  it('uses zero for an unstocked variant when siblings have stock', () => {
+    const empty = {
+      id: 'v1',
+      combinationKey: 's',
+      sku: 'SKU-1-S',
+      nameAr: 'صغير',
+      attributeValueIds: ['a1'],
+      attributeLabels: [{ attributeNameAr: 'حجم', valueNameAr: 'صغير' }],
+      price: { amount: 65, currency: 'YER' as const },
+      quantity: 0,
+      stockStatus: 'out_of_stock' as const,
+      isActive: true,
+    };
+    const stocked = {
+      ...empty,
+      id: 'v2',
+      combinationKey: 'l',
+      sku: 'SKU-1-L',
+      nameAr: 'كبير',
+      quantity: 40,
+      stockStatus: 'in_stock' as const,
+    };
+    const product = makeProduct({
+      inventory: { quantity: 40, trackInventory: true, lowStockThreshold: 5, allowBackorder: false },
+      variants: [empty, stocked],
+    });
+    expect(getWarehouseOnHand(product, empty)).toBe(0);
+    expect(getWarehouseOnHand(product, stocked)).toBe(40);
   });
 });
