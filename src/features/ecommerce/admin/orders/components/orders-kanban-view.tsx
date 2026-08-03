@@ -65,7 +65,7 @@ export function OrdersKanbanView({
                 const phone = order.phone?.trim() || null;
 
                 return (
-                  <div
+                  <article
                     key={order.id}
                     className={cn(
                       'rounded-xl border border-border bg-card p-3 shadow-soft',
@@ -79,8 +79,16 @@ export function OrdersKanbanView({
                     )}
                   >
                     <div
-                      className="w-full cursor-pointer text-start"
+                      role="button"
+                      tabIndex={0}
+                      className="w-full cursor-pointer text-start outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       onClick={() => onOpen(order)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          onOpen(order);
+                        }
+                      }}
                     >
                       <div className="mb-1.5 flex items-start justify-between gap-2">
                         <span className="font-semibold tracking-tight" dir="ltr">
@@ -151,43 +159,45 @@ export function OrdersKanbanView({
                       </div>
                     </div>
 
-                    {order.paymentProofUrls?.length || order.paymentProofUrl ? (
-                      <div className="mt-2 flex justify-end" onClick={(e) => e.stopPropagation()}>
-                        <OrderPaymentProofThumb
-                          urls={order.paymentProofUrls}
-                          url={order.paymentProofUrl}
-                          orderNumber={order.orderNumber}
+                    <div className="mt-2 space-y-2">
+                      {order.paymentProofUrls?.length || order.paymentProofUrl ? (
+                        <div className="flex justify-end">
+                          <OrderPaymentProofThumb
+                            urls={order.paymentProofUrls}
+                            url={order.paymentProofUrl}
+                            orderNumber={order.orderNumber}
+                            size="sm"
+                          />
+                        </div>
+                      ) : null}
+
+                      {needsPayment && onMarkPaid ? (
+                        <Button
+                          type="button"
                           size="sm"
-                        />
-                      </div>
-                    ) : null}
+                          variant="secondary"
+                          className="w-full"
+                          disabled={updatingOrderId === order.id}
+                          onClick={() => onMarkPaid(order)}
+                        >
+                          تأكيد التحصيل
+                        </Button>
+                      ) : null}
 
-                    {needsPayment && onMarkPaid ? (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="secondary"
-                        className="mt-2 w-full"
-                        disabled={updatingOrderId === order.id}
-                        onClick={() => onMarkPaid(order)}
-                      >
-                        تأكيد التحصيل
-                      </Button>
-                    ) : null}
-
-                    {canMove ? (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        className="mt-2 w-full"
-                        disabled={updatingOrderId === order.id}
-                        onClick={() => onStatusChange?.(order, next!)}
-                      >
-                        نقل إلى: {ORDER_STATUS_LABELS_AR[next!]}
-                      </Button>
-                    ) : null}
-                  </div>
+                      {canMove ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="w-full"
+                          disabled={updatingOrderId === order.id}
+                          onClick={() => onStatusChange?.(order, next!)}
+                        >
+                          نقل إلى: {ORDER_STATUS_LABELS_AR[next!]}
+                        </Button>
+                      ) : null}
+                    </div>
+                  </article>
                 );
               })}
 
