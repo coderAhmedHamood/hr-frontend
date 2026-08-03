@@ -242,11 +242,29 @@ export const locationStockApi = {
           quantity: row.quantity,
           reservedQuantity,
           availableQuantity: availableOf(row),
-        };
-      })
-      .sort((a, b) => b.availableQuantity - a.availableQuantity);
+        } satisfies StockAvailabilityRow;
+      });
 
-    return liveRows.length > 0 ? liveRows : mockRows;
+    // Ledger may keep separate balances per variant at the same location — merge for
+    // fulfillment pickers (Select values / React keys must be unique by location).
+    const mergedByLocation = new Map<string, StockAvailabilityRow>();
+    for (const row of liveRows) {
+      const key = `${row.warehouseId}|${row.locationId}`;
+      const existing = mergedByLocation.get(key);
+      if (!existing) {
+        mergedByLocation.set(key, { ...row });
+        continue;
+      }
+      existing.quantity += row.quantity;
+      existing.reservedQuantity += row.reservedQuantity;
+      existing.availableQuantity += row.availableQuantity;
+    }
+
+    const aggregated = [...mergedByLocation.values()].sort(
+      (a, b) => b.availableQuantity - a.availableQuantity,
+    );
+
+    return aggregated.length > 0 ? aggregated : mockRows;
   },
 
   /**

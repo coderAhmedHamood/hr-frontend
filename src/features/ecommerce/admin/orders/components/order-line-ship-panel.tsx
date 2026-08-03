@@ -37,7 +37,7 @@ function toDraftRows(line: OrderLineItem): DraftRow[] {
     return [{ key: 'row-1', warehouseId: '', locationId: '', quantity: line.quantity }];
   }
   return line.allocations.map((allocation, index) => ({
-    key: allocation.id || `row-${index}`,
+    key: `${allocation.id || 'alloc'}-${index}`,
     warehouseId: allocation.warehouseId,
     locationId: allocation.locationId,
     quantity: allocation.quantity,
@@ -247,8 +247,8 @@ export function OrderLineShipPanel({ companyId, orderId, line }: Props) {
               ) : availability.length === 0 ? (
                 <p className="text-xs text-destructive">لا توجد كمية متاحة في المواقع.</p>
               ) : (
-                availability.map((row) => (
-                  <Badge key={row.locationId} variant="outline">
+                availability.map((row, index) => (
+                  <Badge key={`${row.warehouseId}-${row.locationId}-${index}`} variant="outline">
                     {row.warehouseNameAr} / {row.locationNameAr} ({row.quantity})
                   </Badge>
                 ))
@@ -299,8 +299,11 @@ export function OrderLineShipPanel({ companyId, orderId, line }: Props) {
                   <SelectContent>
                     {availability
                       .filter((option) => (option.availableQuantity ?? option.quantity) > 0)
-                      .map((option) => (
-                      <SelectItem key={option.locationId} value={option.locationId}>
+                      .map((option, index) => (
+                      <SelectItem
+                        key={`${option.warehouseId}-${option.locationId}-${index}`}
+                        value={option.locationId}
+                      >
                         {option.warehouseNameAr} / {option.locationNameAr} ({option.availableQuantity ?? option.quantity})
                       </SelectItem>
                     ))}
