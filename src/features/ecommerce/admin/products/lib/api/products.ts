@@ -1,6 +1,10 @@
 import { apiRequest, type PaginatedResult } from '@/features/hr/lib/api/client';
 import { toNumber, toOptionalNumber } from '@/features/inventory/lib/api/numbers';
 import { resolveStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
+import {
+  dedupeAttributeValues,
+  dedupeVariantsByCombinationKey,
+} from '@/features/ecommerce/admin/products/lib/product-variants';
 import type { MediaItem } from '@/features/ecommerce/domain/types/common';
 import type {
   CreateProductInput,
@@ -17,7 +21,8 @@ import type { AdminProductsPort } from '@/features/ecommerce/domain/ports/catalo
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-function isPersistedId(id: string | undefined): boolean {
+/** True when the id is a real DB UUID (not a client draft key like `pval-…`). */
+export function isPersistedId(id: string | undefined): boolean {
   return Boolean(id && UUID_RE.test(id));
 }
 
@@ -474,6 +479,7 @@ function toFullBody(input: CreateProductInput | UpdateProductInput, mode: 'creat
   if (input.attributes !== undefined) {
     body.attributes = input.attributes.map((attr, attrIndex) => {
       const linePersisted = mode === 'update' && isPersistedId(attr.id);
+      const uniqueValues = dedupeAttributeValues(attr.values);
       return {
         ...(linePersisted ? { id: attr.id } : { clientKey: refKey(attr.id, 'a', attrIndex) }),
         catalogAttributeId: attr.attributeId ?? null,
@@ -481,7 +487,7 @@ function toFullBody(input: CreateProductInput | UpdateProductInput, mode: 'creat
         displayType: attr.displayType,
         createVariant: attr.createVariant,
         sortOrder: attrIndex,
-        values: attr.values.map((value, valueIndex) => {
+        values: uniqueValues.map((value, valueIndex) => {
           const valuePersisted = mode === 'update' && isPersistedId(value.id);
           const catalogAttributeValueId =
             value.catalogAttributeValueId ??
@@ -506,7 +512,7 @@ function toFullBody(input: CreateProductInput | UpdateProductInput, mode: 'creat
   if (input.variants !== undefined) {
     const valueKeyByFormId = new Map<string, string>();
     for (const [attrIndex, attr] of (input.attributes ?? []).entries()) {
-      for (const [valueIndex, value] of attr.values.entries()) {
+      for (const [valueIndex, value] of dedupeAttributeValues(attr.values).entries()) {
         const valuePersisted = mode === 'update' && isPersistedId(value.id);
         const key = valuePersisted
           ? value.id
@@ -515,14 +521,18 @@ function toFullBody(input: CreateProductInput | UpdateProductInput, mode: 'creat
       }
     }
 
-    body.variants = input.variants.map((variant, index) => {
+    const uniqueVariants = dedupeVariantsByCombinationKey(input.variants);
+
+    body.variants = uniqueVariants.map((variant, index) => {
       const persisted = mode === 'update' && isPersistedId(variant.id);
       const attributeValueIds: string[] = [];
       const attributeValueClientKeys: string[] = [];
 
       for (const formValueId of variant.attributeValueIds) {
         const mapped = valueKeyByFormId.get(formValueId) ?? formValueId;
-        if (mode === 'update' && isPersistedId(formValueId) && mapped === formValueId) {
+        // Only real product-attribute-value UUIDs go in attributeValueIds.
+        // Everything else (pval-*, etc.) must be attributeValueClientKeys matching attributes[].values.
+        if (mode === 'update' && isPersistedId(formValueId) && isPersistedId(mapped) && mapped === formValueId) {
           attributeValueIds.push(formValueId);
         } else {
           attributeValueClientKeys.push(mapped);
@@ -540,7 +550,6 @@ function toFullBody(input: CreateProductInput | UpdateProductInput, mode: 'creat
         salePriceCurrency: 'YER',
         costPriceAmount: variant.costPrice.amount,
         costPriceCurrency: 'YER',
-        stockStatus: variant.stockStatus,
         isActive: variant.isActive,
         ...(attributeValueIds.length > 0 ? { attributeValueIds } : {}),
         ...(attributeValueClientKeys.length > 0 ? { attributeValueClientKeys } : {}),

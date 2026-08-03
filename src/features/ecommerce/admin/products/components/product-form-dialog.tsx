@@ -137,6 +137,8 @@ export function ProductFormDialog({ product, open, onOpenChange }: Props) {
     resolver: zodResolver(productFormSchema),
     defaultValues: PRODUCT_FORM_DEFAULT_VALUES,
   });
+  /** Hydrate from GET …/full once per open — avoid reset on refetch wiping unsaved attributes. */
+  const hydratedProductIdRef = React.useRef<string | null>(null);
 
   const variants = useWatch({ control: form.control, name: 'variants' }) ?? [];
   const variantsCount = variants.length;
@@ -144,7 +146,10 @@ export function ProductFormDialog({ product, open, onOpenChange }: Props) {
   const sku = useWatch({ control: form.control, name: 'sku' }) ?? '';
 
   React.useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      hydratedProductIdRef.current = null;
+      return;
+    }
     setActiveTab('general');
     setActiveRelatedDoc(null);
     setMoveRequestKind(null);
@@ -154,10 +159,12 @@ export function ProductFormDialog({ product, open, onOpenChange }: Props) {
 
     if (!isEditing) {
       form.reset(PRODUCT_FORM_DEFAULT_VALUES);
+      hydratedProductIdRef.current = null;
       return;
     }
-    if (fullProduct) {
+    if (fullProduct && hydratedProductIdRef.current !== fullProduct.id) {
       form.reset(productToFormValues(fullProduct));
+      hydratedProductIdRef.current = fullProduct.id;
     }
   }, [open, isEditing, fullProduct, form]);
 
@@ -384,6 +391,7 @@ export function ProductFormDialog({ product, open, onOpenChange }: Props) {
                         errors={form.formState.errors}
                         register={form.register}
                         setValue={form.setValue}
+                        getValues={form.getValues}
                         productId={product?.id}
                       />
                     </TabsContent>

@@ -39,9 +39,12 @@ export function ProductPurchasePanel({ product, onActiveMediaChange }: Props) {
   });
 
   const selectedValueIds = product.attributes.map((attribute) => selected[attribute.id]).filter(Boolean);
+  const selectedIdsKey = buildCombinationKey(selectedValueIds);
   const activeVariant = hasVariants
     ? product.variants.find(
-        (variant) => variant.combinationKey === buildCombinationKey(selectedValueIds),
+        (variant) =>
+          buildCombinationKey(variant.attributeValueIds) === selectedIdsKey ||
+          variant.combinationKey === selectedIdsKey,
       )
     : undefined;
 

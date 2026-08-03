@@ -1,5 +1,6 @@
 import {
   buildCombinationKey,
+  buildLabelCombinationKey,
   syncProductVariants,
 } from '@/features/ecommerce/admin/products/lib/product-variants';
 
@@ -18,7 +19,7 @@ describe('syncProductVariants', () => {
       },
     ];
 
-    const existingKey = buildCombinationKey(['v-red']);
+    const existingKey = buildLabelCombinationKey(['أحمر']);
     const first = syncProductVariants({
       productNameAr: 'تجربة',
       productSku: 'TEST',
@@ -49,6 +50,71 @@ describe('syncProductVariants', () => {
     expect(red?.quantity).toBe(7);
     expect(blue?.salePrice.amount).toBe(100);
     expect(blue?.nameAr).toContain('أزرق');
+    expect(blue?.combinationKey).toBe(buildLabelCombinationKey(['أزرق']));
+  });
+
+  it('uses Arabic label combination keys in attribute order', () => {
+    const variants = syncProductVariants({
+      productNameAr: 'غسول',
+      productSku: 'ND',
+      listPrice: 65,
+      costPrice: 35,
+      attributes: [
+        {
+          id: 'a-color',
+          nameAr: 'اللون',
+          displayType: 'color',
+          createVariant: 'always',
+          values: [{ id: 'c-yellow', nameAr: 'اصفر' }],
+        },
+        {
+          id: 'a-size',
+          nameAr: 'الحجم',
+          displayType: 'select',
+          createVariant: 'always',
+          values: [{ id: 's-small', nameAr: 'صغير' }],
+        },
+      ],
+    });
+    expect(variants).toHaveLength(1);
+    expect(variants[0]?.combinationKey).toBe('اصفر|صغير');
+    expect(buildCombinationKey(['c-yellow', 's-small'])).toBe('c-yellow|s-small');
+  });
+
+  it('dedupes duplicate value names so color×size does not repeat combinationKey', () => {
+    const variants = syncProductVariants({
+      productNameAr: 'غسول',
+      productSku: 'ND',
+      listPrice: 65,
+      costPrice: 35,
+      attributes: [
+        {
+          id: 'a-color',
+          nameAr: 'اللون',
+          displayType: 'color',
+          createVariant: 'always',
+          values: [
+            { id: 'c-yellow', nameAr: 'اصفر' },
+            { id: 'c-black', nameAr: 'أسود' },
+          ],
+        },
+        {
+          id: 'a-size',
+          nameAr: 'الحجم',
+          displayType: 'select',
+          createVariant: 'always',
+          values: [
+            { id: 's-small-1', nameAr: 'صغير' },
+            { id: 's-large', nameAr: 'كبير' },
+            { id: 's-small-2', nameAr: 'صغير' },
+          ],
+        },
+      ],
+    });
+    expect(variants).toHaveLength(4);
+    const keys = variants.map((variant) => variant.combinationKey);
+    expect(keys).toEqual(['اصفر|صغير', 'اصفر|كبير', 'أسود|صغير', 'أسود|كبير']);
+    expect(new Set(keys).size).toBe(keys.length);
   });
 
   it('returns empty when attributes do not create variants', () => {

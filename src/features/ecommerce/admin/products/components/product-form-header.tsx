@@ -38,7 +38,11 @@ export function ProductFormHeader({
   relatedDocsActiveKey,
   onRelatedDocSelect,
 }: Props) {
-  const { fields, append, update } = useFieldArray({ control, name: 'media' });
+  const { append, update } = useFieldArray({
+    control,
+    name: 'media',
+    keyName: '_key',
+  });
   const media = useWatch({ control, name: 'media' });
   const sku = useWatch({ control, name: 'sku' }) ?? '';
   const primary = media?.find((item) => item.isPrimary) ?? media?.[0];
@@ -50,23 +54,22 @@ export function ProductFormHeader({
     const url = nextUrl.trim();
     if (!url) return;
 
-    if (fields.length === 0) {
+    if (!media || media.length === 0) {
       append({ url, alt: '', isPrimary: true });
       return;
     }
 
-    const index = media?.findIndex((item) => item.isPrimary) ?? 0;
+    const index = media.findIndex((item) => item.isPrimary);
     const targetIndex = index >= 0 ? index : 0;
-    const current = fields[targetIndex];
+    const current = media[targetIndex];
     if (!current) {
       append({ url, alt: '', isPrimary: true });
       return;
     }
     update(targetIndex, { ...current, url, isPrimary: true });
-    fields.forEach((_, itemIndex) => {
+    media.forEach((item, itemIndex) => {
       if (itemIndex !== targetIndex) {
-        const item = fields[itemIndex];
-        if (item) update(itemIndex, { ...item, isPrimary: false });
+        update(itemIndex, { ...item, isPrimary: false });
       }
     });
     setValue(`media.${targetIndex}.url`, url, { shouldDirty: true });

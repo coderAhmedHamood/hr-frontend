@@ -25,7 +25,11 @@ function newUomId() {
 }
 
 export function ProductUnitsTab({ control, errors, setValue }: Props) {
-  const { fields, append, remove } = useFieldArray({ control, name: 'uomLines' });
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: 'uomLines',
+    keyName: '_key',
+  });
 
   function setReference(index: number) {
     fields.forEach((_, rowIndex) => {
@@ -52,7 +56,7 @@ export function ProductUnitsTab({ control, errors, setValue }: Props) {
           </thead>
           <tbody>
             {fields.map((field, index) => (
-              <tr key={field.id} className="border-b border-border last:border-0">
+              <tr key={field._key} className="border-b border-border last:border-0">
                 <td className="px-3 py-2">
                   <Controller
                     control={control}
