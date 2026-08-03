@@ -78,7 +78,10 @@ export function OrdersKanbanView({
                       !isCard && 'bg-teal-500/[0.03]',
                     )}
                   >
-                    <button type="button" className="w-full text-start" onClick={() => onOpen(order)}>
+                    <div
+                      className="w-full cursor-pointer text-start"
+                      onClick={() => onOpen(order)}
+                    >
                       <div className="mb-1.5 flex items-start justify-between gap-2">
                         <span className="font-semibold tracking-tight" dir="ltr">
                           {order.orderNumber}
@@ -112,7 +115,7 @@ export function OrdersKanbanView({
 
                       <div
                         className={cn(
-                          'mt-2 flex items-start gap-2 rounded-lg border px-2 py-1.5',
+                          'mt-2 rounded-lg border px-2 py-1.5',
                           prep.canPrepare
                             ? isCard
                               ? 'border-sky-500/30 bg-sky-500/10'
@@ -120,33 +123,36 @@ export function OrdersKanbanView({
                             : 'border-amber-500/30 bg-amber-500/10',
                         )}
                       >
-                        <div className="min-w-0 flex-1">
-                          <p
-                            className={cn(
-                              'inline-flex items-center gap-1.5 text-[11px] font-semibold',
-                              prep.canPrepare
-                                ? isCard
-                                  ? 'text-sky-900 dark:text-sky-300'
-                                  : 'text-teal-900 dark:text-teal-300'
-                                : 'text-amber-800 dark:text-amber-300',
-                            )}
-                          >
-                            <PaymentIcon className="h-3.5 w-3.5 shrink-0" />
-                            {prep.methodLabel}
-                          </p>
-                          <p
-                            className={cn(
-                              'mt-0.5 text-[11px] leading-snug',
-                              prep.canPrepare
-                                ? isCard
-                                  ? 'text-sky-800/90 dark:text-sky-400/90'
-                                  : 'text-teal-800/90 dark:text-teal-400/90'
-                                : 'text-amber-700/90 dark:text-amber-400/90',
-                            )}
-                          >
-                            {prep.prepLabel}
-                          </p>
-                        </div>
+                        <p
+                          className={cn(
+                            'inline-flex items-center gap-1.5 text-[11px] font-semibold',
+                            prep.canPrepare
+                              ? isCard
+                                ? 'text-sky-900 dark:text-sky-300'
+                                : 'text-teal-900 dark:text-teal-300'
+                              : 'text-amber-800 dark:text-amber-300',
+                          )}
+                        >
+                          <PaymentIcon className="h-3.5 w-3.5 shrink-0" />
+                          {prep.methodLabel}
+                        </p>
+                        <p
+                          className={cn(
+                            'mt-0.5 text-[11px] leading-snug',
+                            prep.canPrepare
+                              ? isCard
+                                ? 'text-sky-800/90 dark:text-sky-400/90'
+                                : 'text-teal-800/90 dark:text-teal-400/90'
+                              : 'text-amber-700/90 dark:text-amber-400/90',
+                          )}
+                        >
+                          {prep.prepLabel}
+                        </p>
+                      </div>
+                    </div>
+
+                    {order.paymentProofUrls?.length || order.paymentProofUrl ? (
+                      <div className="mt-2 flex justify-end" onClick={(e) => e.stopPropagation()}>
                         <OrderPaymentProofThumb
                           urls={order.paymentProofUrls}
                           url={order.paymentProofUrl}
@@ -154,7 +160,7 @@ export function OrdersKanbanView({
                           size="sm"
                         />
                       </div>
-                    </button>
+                    ) : null}
 
                     {needsPayment && onMarkPaid ? (
                       <Button
