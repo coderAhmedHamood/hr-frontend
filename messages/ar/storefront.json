@@ -68,6 +68,8 @@
     "addedToCart": "تمت الإضافة إلى السلة",
     "buyNow": "اشترِ الآن",
     "variantUnavailable": "اختر تركيبة متاحة لهذا المنتج.",
+    "orderWithVariants": "طلب بمتغيرات",
+    "orderDirect": "طلب مباشر (بدون متغير)",
     "cartComingSoon": "سيتم تفعيل السلة قريبًا",
     "sku": "SKU",
     "sortBy": "ترتيب حسب",
