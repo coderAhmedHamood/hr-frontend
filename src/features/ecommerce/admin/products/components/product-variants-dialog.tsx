@@ -1,7 +1,7 @@
 'use client';
 
 import { Layers, Save } from 'lucide-react';
-import type { Control, UseFormRegister, UseFormSetValue } from 'react-hook-form';
+import type { Control, UseFormGetValues, UseFormRegister, UseFormSetValue } from 'react-hook-form';
 import type { ProductFormInput, ProductFormValues } from '@/features/ecommerce/admin/products/schemas/product-schema';
 import { ProductVariantsPanel } from '@/features/ecommerce/admin/products/components/product-variants-panel';
 import {
@@ -22,6 +22,7 @@ type Props = {
   control: Control<ProductFormInput, unknown, ProductFormValues>;
   register: UseFormRegister<ProductFormInput>;
   setValue: UseFormSetValue<ProductFormInput>;
+  getValues: UseFormGetValues<ProductFormInput>;
   productId?: string | null;
   productNameAr: string;
   onSave?: () => void;
@@ -34,6 +35,7 @@ export function ProductVariantsDialog({
   control,
   register,
   setValue,
+  getValues,
   productId,
   productNameAr,
   onSave,
@@ -50,7 +52,13 @@ export function ProductVariantsDialog({
         </div>
 
         <div className={dialogShellBodyClass}>
-          <ProductVariantsPanel control={control} register={register} setValue={setValue} productId={productId} />
+          <ProductVariantsPanel
+            control={control}
+            register={register}
+            setValue={setValue}
+            getValues={getValues}
+            productId={productId}
+          />
         </div>
 
         <DialogFooter className="shrink-0 gap-2 border-t border-border px-6 py-4 sm:justify-start">

@@ -15,7 +15,7 @@ export function StorePlpSidebar({
   secondaryNavigation,
   storePages,
   activeCategorySlug,
-  activeTag: _activeTag,
+  activeTag,
 }: {
   categories: StorefrontCategory[];
   secondaryNavigation?: StorefrontCompanyConfig['secondaryNavigation'];

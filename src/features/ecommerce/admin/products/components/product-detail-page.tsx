@@ -384,6 +384,7 @@ export function ProductDetailPage({ productId }: Props) {
                   errors={form.formState.errors}
                   register={form.register}
                   setValue={form.setValue}
+                  getValues={form.getValues}
                   productId={product.id}
                 />
               </TabsContent>
@@ -478,6 +479,7 @@ export function ProductDetailPage({ productId }: Props) {
         control={form.control}
         register={form.register}
         setValue={form.setValue}
+        getValues={form.getValues}
         productId={product.id}
         productNameAr={nameAr || product.nameAr}
         onSave={submitForm}
