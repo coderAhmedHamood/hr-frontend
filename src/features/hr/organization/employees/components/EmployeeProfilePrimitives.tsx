@@ -30,7 +30,16 @@ export function Prop({ icon: Icon, label, children, mono, accent }: {
   mono?: boolean;
   accent?: ProfileAccent;
 }) {
-  if (children === null || children === undefined || children === '' || children === false) return null;
+  const isEmpty =
+    children === null ||
+    children === undefined ||
+    children === '' ||
+    children === false;
+  const display = isEmpty ? (
+    <span className="text-muted-foreground/70">—</span>
+  ) : (
+    children
+  );
 
   return (
     <div className="group flex flex-col gap-2 rounded-xl border border-border bg-card p-3 shadow-soft transition-all hover:border-primary/20 hover:shadow-elevated">
@@ -47,7 +56,7 @@ export function Prop({ icon: Icon, label, children, mono, accent }: {
           accent ? ACCENT_VALUE_STYLES[accent] : 'text-foreground bg-muted/50 border-border/70',
         )}
       >
-        {children}
+        {display}
       </div>
     </div>
   );

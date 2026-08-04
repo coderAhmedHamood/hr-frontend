@@ -24,5 +24,14 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     applyThemeClass(mode);
   }, [mode]);
 
+  React.useEffect(() => {
+    if (mode !== 'system') return;
+
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    const onChange = () => applyThemeClass('system');
+    media.addEventListener('change', onChange);
+    return () => media.removeEventListener('change', onChange);
+  }, [mode]);
+
   return children;
 }

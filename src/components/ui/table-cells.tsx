@@ -3,6 +3,7 @@
 import * as React from 'react';
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogHeader,
   DialogTitle,
@@ -75,26 +76,31 @@ export function TableRowDetailDialog({
   onOpenChange,
   title,
   fields,
+  children,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
   fields: { label: string; value: React.ReactNode }[];
+  children?: React.ReactNode;
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg" dir="rtl">
-        <DialogHeader>
+      <DialogContent className="max-w-lg gap-0 overflow-hidden" dir="rtl">
+        <DialogHeader className="pb-3">
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
-        <div className="grid gap-3 sm:grid-cols-2">
-          {fields.map((f) => (
-            <div key={f.label} className="min-w-0">
-              <p className="text-xs text-muted-foreground">{f.label}</p>
-              <div className="mt-0.5 text-sm font-medium break-words">{f.value}</div>
-            </div>
-          ))}
-        </div>
+        <DialogBody className="min-h-0 space-y-4 pe-1">
+          <div className="grid gap-3 sm:grid-cols-2">
+            {fields.map((f) => (
+              <div key={f.label} className="min-w-0">
+                <p className="text-xs text-muted-foreground">{f.label}</p>
+                <div className="mt-0.5 text-sm font-medium break-words">{f.value}</div>
+              </div>
+            ))}
+          </div>
+          {children ? <div className="border-t border-border/60 pt-4">{children}</div> : null}
+        </DialogBody>
       </DialogContent>
     </Dialog>
   );

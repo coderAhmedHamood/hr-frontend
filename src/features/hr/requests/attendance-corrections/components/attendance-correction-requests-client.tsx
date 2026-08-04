@@ -588,7 +588,7 @@ export function AttendanceCorrectionRequestsClient() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-5">
-      <div className="space-y-2">
+      <div className="flex min-h-0 flex-1 flex-col">
         {!listLoading && sorted.length === 0 && pagination.total === 0 ? (
           <EmptyState title="لا توجد طلبات ضمن الفلاتر" />
         ) : (

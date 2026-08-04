@@ -66,7 +66,7 @@ export function ShiftScheduleForm({
               />
             </div>
           </div>
-          <div className="flex flex-nowrap items-center gap-x-2 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:gap-x-3">
+          <div className="flex flex-nowrap items-center gap-x-2 overflow-x-auto pb-0.5 scrollbar-none sm:gap-x-3">
             <div className="flex min-h-8 shrink-0 items-center gap-1">
               <Switch
                 id={`sp-warn-${period.id}`}

@@ -21,7 +21,7 @@ export function PageHeaderActionsRow({
         /* Hide button/link labels on mobile — icons stay sized via explicit svg dimensions */
         'max-sm:[&_button]:text-[0px] max-sm:[&_a]:text-[0px]',
         'max-sm:[&_button_span]:hidden max-sm:[&_a_span]:hidden',
-        '[-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+        'scrollbar-none',
         className,
       )}
     >

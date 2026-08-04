@@ -61,6 +61,8 @@ export type EmployeeAttachmentListParams = {
   companyId?: string;
   employeeId?: string;
   documentType?: string;
+  /** Comma-separated types for library group filters. */
+  documentTypes?: string;
   uploadCategory?: string;
   mimeType?: string;
   name?: string;

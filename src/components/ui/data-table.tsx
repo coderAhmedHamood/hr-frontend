@@ -126,7 +126,11 @@ export function DataTable<T>({
       {!alwaysShowTable && (
         <div className="divide-y divide-border/40 md:hidden">
           {data.map((row, i) => (
-            <div key={keyExtractor(row)} className="p-4">
+            <div
+              key={keyExtractor(row)}
+              className={cn('p-4', onRowClick && 'cursor-pointer')}
+              onClick={() => onRowClick?.(row)}
+            >
               {mobileCard ? mobileCard(row) : (
                 <div className="space-y-2">
                   {columns.filter(c => !c.hideOnMobile && !c.isActions).map(col => (
@@ -137,6 +141,16 @@ export function DataTable<T>({
                       <div className="text-sm">{col.render(row, i)}</div>
                     </div>
                   ))}
+                  {columns.some(c => c.isActions) ? (
+                    <div
+                      className="flex justify-end gap-1 pt-1"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {columns.filter(c => c.isActions).map(col => (
+                        <React.Fragment key={col.key}>{col.render(row, i)}</React.Fragment>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
               )}
             </div>
