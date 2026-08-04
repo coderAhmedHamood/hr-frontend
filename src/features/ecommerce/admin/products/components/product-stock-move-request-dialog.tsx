@@ -361,7 +361,7 @@ export function ProductStockMoveRequestDialog({
                         type="number"
                         min={0}
                         step={1}
-                        dir="ltr"
+                        dir="rtl"
                         className="h-8 w-28"
                         value={line.quantity}
                         onChange={(event) => {

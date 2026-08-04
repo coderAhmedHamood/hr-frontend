@@ -6,17 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
-import {
-  ArrowRight,
-  Layers,
-  Package,
-  Ruler,
-  Save,
-  Settings,
-  Store,
-  Trash2,
-  Warehouse,
-} from 'lucide-react';
+import { Layers, Package, Ruler, Save, Settings, Store, Trash2, Warehouse } from 'lucide-react';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
@@ -36,7 +26,8 @@ import {
   formValuesToCreateInput,
   productToFormValues,
 } from '@/features/ecommerce/admin/products/lib/product-form-mapping';
-import { ProductFormHeader } from '@/features/ecommerce/admin/products/components/product-form-header';
+import { ProductDetailHero } from '@/features/ecommerce/admin/products/components/product-detail-hero';
+import { ProductRelatedDocsSidebar } from '@/features/ecommerce/admin/products/components/product-related-docs-sidebar';
 import { ProductGeneralTab } from '@/features/ecommerce/admin/products/components/product-general-tab';
 import { ProductAttributesTab } from '@/features/ecommerce/admin/products/components/product-attributes-tab';
 import { ProductInventoryTab } from '@/features/ecommerce/admin/products/components/product-inventory-tab';
@@ -50,17 +41,12 @@ import {
   isReplenishmentOperation,
   ProductReplenishmentListDialog,
 } from '@/features/ecommerce/admin/products/components/product-replenishment-list-dialog';
+import { ProductVariantsDialog } from '@/features/ecommerce/admin/products/components/product-variants-dialog';
 import { DeleteProductDialog } from '@/features/ecommerce/admin/products/components/delete-product-dialog';
 import type { ProductRelatedDocKey } from '@/features/ecommerce/admin/products/components/product-related-docs-bar';
 import { ecommerceAdminRoutes } from '@/features/ecommerce/admin/constants/routes';
-import { PRODUCT_STATUS_LABELS_AR } from '@/features/ecommerce/domain/constants/product-status';
-import { STOCK_STATUS_LABELS_AR } from '@/features/ecommerce/domain/constants/stock-status';
-import { formatPrice } from '@/features/ecommerce/shared/utils/format-price';
-import type { ProductStatus } from '@/features/ecommerce/domain/constants/product-status';
-import type { StockStatus } from '@/features/ecommerce/domain/constants/stock-status';
 import type { WarehouseOperationKind } from '@/features/inventory/domain/types/warehouse';
 import { Button } from '@/components/ui/button';
-import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 type Props = { productId: string };
@@ -77,17 +63,51 @@ const DETAIL_TABS = [
 
 type DetailTab = (typeof DETAIL_TABS)[number]['value'];
 
-const STATUS_BADGE_VARIANT: Record<ProductStatus, 'success' | 'subtle' | 'outline'> = {
-  active: 'success',
-  draft: 'subtle',
-  archived: 'outline',
-};
-
-const STOCK_BADGE_VARIANT: Record<StockStatus, 'success' | 'destructive' | 'warning' | 'outline'> = {
-  in_stock: 'success',
-  out_of_stock: 'destructive',
-  preorder: 'warning',
-  discontinued: 'outline',
+/** Maps top-level form fields to the tab that renders them, so a validation error can jump the user there. */
+const TAB_FIELDS: Record<DetailTab, string[]> = {
+  general: [
+    'sku',
+    'categoryId',
+    'brandId',
+    'status',
+    'listPrice',
+    'costPrice',
+    'compareAtPrice',
+    'productType',
+    'tracking',
+    'invoicePolicy',
+    'barcode',
+    'weightKg',
+    'lengthCm',
+    'widthCm',
+    'heightCm',
+    'shortDescription',
+    'description',
+    'tagsInput',
+  ],
+  attributes: ['attributes', 'variants'],
+  availability: ['stockStatus', 'stockQuantity', 'lowStockThreshold'],
+  units: ['uomLines'],
+  storefront: ['nameEn', 'slug', 'metaTitle', 'metaDescription'],
+  settings: [
+    'isNewProduct',
+    'newUntil',
+    'isTodayDeal',
+    'dealPriceAmount',
+    'dealDays',
+    'dealUntil',
+    'isWholesale',
+    'wholesalePriceAmount',
+    'wholesaleUntil',
+    'isDiscounted',
+    'discountPercent',
+    'discountUntil',
+    'saleOk',
+    'purchaseOk',
+    'posAvailable',
+    'trackInventory',
+    'allowBackorder',
+  ],
 };
 
 function ensureSlug(values: ProductFormValues): ProductFormValues {
@@ -122,6 +142,7 @@ export function ProductDetailPage({ productId }: Props) {
   const [movesListKind, setMovesListKind] = React.useState<MoveRequestKind | null>(null);
   const [movesHistoryOpen, setMovesHistoryOpen] = React.useState(false);
   const [replenishmentListOpen, setReplenishmentListOpen] = React.useState(false);
+  const [variantsDialogOpen, setVariantsDialogOpen] = React.useState(false);
   const [deleteOpen, setDeleteOpen] = React.useState(false);
 
   const form = useForm<ProductFormInput, unknown, ProductFormValues>({
@@ -136,33 +157,6 @@ export function ProductDetailPage({ productId }: Props) {
   React.useEffect(() => {
     if (product) form.reset(productToFormValues(product));
   }, [product, form]);
-
-  usePageHeaderActions(
-    () =>
-      product ? (
-        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5 text-destructive hover:bg-destructive/10"
-            onClick={() => setDeleteOpen(true)}
-          >
-            <Trash2 className="h-4 w-4" />
-            <span className="hidden sm:inline">حذف</span>
-          </Button>
-          <Button
-            size="sm"
-            className="gap-1.5"
-            disabled={form.formState.isSubmitting || update.isPending}
-            onClick={() => void form.handleSubmit(onSubmit)()}
-          >
-            <Save className="h-4 w-4" />
-            {update.isPending ? 'جاري الحفظ…' : 'حفظ التغييرات'}
-          </Button>
-        </div>
-      ) : null,
-    [product, form.formState.isSubmitting, update.isPending],
-  );
 
   const onSubmit = async (values: ProductFormValues) => {
     if (!companyId || !product) return;
@@ -179,8 +173,49 @@ export function ProductDetailPage({ productId }: Props) {
     };
     const input = formValuesToCreateInput(nextValues, companyId, { existing: product });
     await update.mutateAsync({ companyId, id: product.id, patch: input });
-    toast.success('تم حفظ التغييرات.');
   };
+
+  /**
+   * react-hook-form's handleSubmit silently no-ops on validation failure unless an
+   * invalid-handler is given — that made the save button look "broken" whenever a
+   * cross-field rule (e.g. deal price required when "تخفيضات اليوم" is on) failed on a
+   * tab the user wasn't currently viewing. Surface it and jump to the offending tab.
+   */
+  const onInvalid = (formErrors: typeof form.formState.errors) => {
+    const errorKeys = Object.keys(formErrors);
+    if (errorKeys.length === 0) return;
+    if (errorKeys.includes('nameAr')) {
+      toast.error('يرجى إدخال اسم المنتج أولًا.');
+      return;
+    }
+    const offendingTab = DETAIL_TABS.find((tab) => TAB_FIELDS[tab.value].some((key) => errorKeys.includes(key)));
+    if (offendingTab) {
+      setActiveTab(offendingTab.value);
+      toast.error(`تحقق من الحقول في تبويب «${offendingTab.label}» قبل الحفظ.`);
+      return;
+    }
+    toast.error('تحقق من الحقول المطلوبة قبل الحفظ.');
+  };
+
+  const submitForm = () => void form.handleSubmit(onSubmit, onInvalid)();
+
+  usePageHeaderActions(
+    () =>
+      product ? (
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-destructive hover:bg-destructive/10"
+            onClick={() => setDeleteOpen(true)}
+          >
+            <Trash2 className="h-4 w-4" />
+            <span className="hidden sm:inline">حذف</span>
+          </Button>
+        </div>
+      ) : null,
+    [product],
+  );
 
   const handleDeleteConfirm = async () => {
     if (!product) return;
@@ -192,11 +227,8 @@ export function ProductDetailPage({ productId }: Props) {
   function onRelatedDoc(key: ProductRelatedDocKey) {
     if (!product) return;
     if (key === 'variants') {
-      setActiveTab('attributes');
       setActiveRelatedDoc('variants');
-      requestAnimationFrame(() => {
-        document.getElementById('product-variants-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      });
+      setVariantsDialogOpen(true);
       return;
     }
     if (key === 'replenish') {
@@ -240,13 +272,14 @@ export function ProductDetailPage({ productId }: Props) {
 
   if (isLoadingProduct) {
     return (
-      <div className="space-y-5">
-        <div className="h-44 animate-pulse rounded-3xl bg-muted/60" />
-        <div className="h-11 animate-pulse rounded-xl bg-muted/50" />
-        <div className="grid gap-3 sm:grid-cols-2">
-          {Array.from({ length: 4 }).map((_, index) => (
-            <div key={index} className="h-24 animate-pulse rounded-2xl bg-muted/40" />
-          ))}
+      <div className="flex flex-col gap-5">
+        <div className="h-56 animate-pulse rounded-3xl bg-muted/60" />
+        <div className="grid gap-5 lg:grid-cols-12">
+          <div className="space-y-4 lg:col-span-8">
+            <div className="h-11 animate-pulse rounded-2xl bg-muted/50" />
+            <div className="h-64 animate-pulse rounded-2xl bg-muted/40" />
+          </div>
+          <div className="h-64 animate-pulse rounded-2xl bg-muted/40 lg:col-span-4" />
         </div>
       </div>
     );
@@ -267,199 +300,143 @@ export function ProductDetailPage({ productId }: Props) {
     );
   }
 
-  const offerBadges = [
-    product.isNewProductActive ? { key: 'new', variant: 'subtle' as const, label: 'حديث' } : null,
-    product.isTodayDealActive ? { key: 'deal', variant: 'warning' as const, label: 'تخفيض اليوم' } : null,
-    product.isWholesaleActive ? { key: 'wholesale', variant: 'outline' as const, label: 'جملة' } : null,
-    product.isDiscountActive
-      ? {
-          key: 'discount',
-          variant: 'destructive' as const,
-          label: `خصم${product.discountPercent != null ? ` ${product.discountPercent}%` : ''}`,
-        }
-      : null,
-  ].filter(Boolean) as Array<{ key: string; variant: BadgeProps['variant']; label: string }>;
+  const relatedDocsChips = [
+    {
+      key: 'variants' as const,
+      label: 'متغيرات المنتج',
+      count: variantsCount,
+      hint: variantsCount > 0 ? 'عرض وتحرير أسعار وكميات المتغيرات' : 'أضف خصائص تُنشئ متغيرات لظهورها هنا',
+    },
+    {
+      key: 'replenish' as const,
+      label: 'تجديد المخزون',
+      count: replenishmentCount,
+      hint: 'طلبات تجديد المخزون وحالاتها — أنشئ طلبًا ثم صدّقه من المستودع',
+    },
+    { key: 'receipts' as const, label: 'الإدخالات', count: receiptsCount, hint: 'طلبات الاستلام الخاصة بهذا المنتج' },
+    { key: 'issues' as const, label: 'الإخراجات', count: issuesCount, hint: 'طلبات الصرف الخاصة بهذا المنتج' },
+    {
+      key: 'internals' as const,
+      label: 'داخلية',
+      count: internalsCount,
+      hint: 'الحركات الداخلية بين مواقع المستودع',
+    },
+    { key: 'moves' as const, label: 'سجل الحركات', count: movesCount, hint: 'كل حركات المخزون المرتبطة بهذا المنتج' },
+    { key: 'putaway' as const, label: 'قواعد التخزين', count: putawayCount, hint: 'فتح قائمة قواعد التخزين لهذا المنتج' },
+  ];
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-5">
       <SetPageTitle titleAr={product.nameAr} iconName="Package" />
 
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          void form.handleSubmit(onSubmit)(e);
+          submitForm();
         }}
         className="flex flex-col gap-5"
       >
-        <ProductFormHeader
+        <ProductDetailHero
           control={form.control}
           register={form.register}
           setValue={form.setValue}
           nameError={form.formState.errors.nameAr?.message}
-          isEditing
-          onRelatedDocSelect={onRelatedDoc}
-          relatedDocsActiveKey={activeRelatedDoc}
-          topBar={
-            <>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-9 w-9 shrink-0 rounded-full border border-border/80 bg-background/80"
-                asChild
-                aria-label="رجوع"
-              >
-                <Link href={ecommerceAdminRoutes.products}>
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
-              </Button>
-
-              <div className="flex flex-wrap items-center gap-1.5">
-                <Badge variant={STATUS_BADGE_VARIANT[product.status]}>
-                  {PRODUCT_STATUS_LABELS_AR[product.status]}
-                </Badge>
-                <Badge variant={STOCK_BADGE_VARIANT[product.stockStatus]}>
-                  {STOCK_STATUS_LABELS_AR[product.stockStatus]}
-                </Badge>
-                {offerBadges.map((badge) => (
-                  <Badge key={badge.key} variant={badge.variant}>
-                    {badge.label}
-                  </Badge>
-                ))}
-              </div>
-
-              <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
-                <div className="inline-flex items-center gap-2 rounded-full border border-border/80 bg-background/90 px-3 py-1.5 text-sm">
-                  {product.isTodayDealActive && product.dealPrice ? (
-                    <>
-                      <span className="font-semibold tabular-nums text-primary">
-                        {formatPrice(product.dealPrice)}
-                      </span>
-                      <span className="tabular-nums text-muted-foreground line-through">
-                        {formatPrice(product.price)}
-                      </span>
-                    </>
-                  ) : (
-                    <span className="font-semibold tabular-nums text-foreground">
-                      {formatPrice(product.price)}
-                    </span>
-                  )}
-                </div>
-                <div className="inline-flex items-center gap-2 rounded-full border border-border/80 bg-background/90 px-3 py-1.5 text-sm text-muted-foreground">
-                  الكمية:{' '}
-                  <span className="font-medium tabular-nums text-foreground">{product.inventory.quantity}</span>
-                </div>
-              </div>
-            </>
-          }
-          relatedDocs={[
-            {
-              key: 'variants',
-              label: 'متغيرات المنتج',
-              count: variantsCount,
-              hint:
-                variantsCount > 0
-                  ? 'عرض وتحرير أسعار وكميات المتغيرات'
-                  : 'أضف خصائص تُنشئ متغيرات لظهورها هنا',
-            },
-            {
-              key: 'replenish',
-              label: 'تجديد المخزون',
-              count: replenishmentCount,
-              hint: 'طلبات تجديد المخزون وحالاتها — أنشئ طلبًا ثم صدّقه من المستودع',
-            },
-            {
-              key: 'receipts',
-              label: 'الإدخالات',
-              count: receiptsCount,
-              hint: 'طلبات الاستلام الخاصة بهذا المنتج',
-            },
-            {
-              key: 'issues',
-              label: 'الإخراجات',
-              count: issuesCount,
-              hint: 'طلبات الصرف الخاصة بهذا المنتج',
-            },
-            {
-              key: 'internals',
-              label: 'داخلية',
-              count: internalsCount,
-              hint: 'الحركات الداخلية بين مواقع المستودع',
-            },
-            {
-              key: 'moves',
-              label: 'سجل الحركات',
-              count: movesCount,
-              hint: 'كل حركات المخزون المرتبطة بهذا المنتج',
-            },
-            {
-              key: 'putaway',
-              label: 'قواعد التخزين',
-              count: putawayCount,
-              hint: 'فتح قائمة قواعد التخزين لهذا المنتج',
-            },
-          ]}
+          currency={product.price.currency}
         />
 
-        <Tabs
-          value={activeTab}
-          onValueChange={(value) => {
-            setActiveTab(value as DetailTab);
-            if (value !== 'attributes') setActiveRelatedDoc(null);
-          }}
-          className="w-full space-y-4"
-        >
-          <div className="sticky top-0 z-10 -mx-1 overflow-x-auto px-1 pb-1">
-            <TabsList className="inline-flex h-auto min-w-full w-max justify-start gap-1 rounded-2xl bg-muted/70 p-1.5">
-              {DETAIL_TABS.map(({ value, label, icon: Icon }) => (
-                <TabsTrigger
-                  key={value}
-                  value={value}
-                  className="h-9 gap-1.5 rounded-xl px-3 text-xs sm:text-sm data-[state=active]:shadow-soft"
-                >
-                  <Icon className="h-3.5 w-3.5" />
-                  {label}
-                </TabsTrigger>
-              ))}
-            </TabsList>
+        <div className="grid gap-5 lg:grid-cols-12">
+          <div className="min-w-0 lg:col-span-8">
+            <Tabs
+              value={activeTab}
+              onValueChange={(value) => {
+                setActiveTab(value as DetailTab);
+                if (value !== 'attributes') setActiveRelatedDoc(null);
+              }}
+              className="w-full space-y-4"
+            >
+              <div className="sticky top-0 z-10 -mx-1 overflow-x-auto rounded-2xl px-1 pb-1">
+                <TabsList className="inline-flex h-auto min-w-full w-max justify-start gap-1 rounded-2xl border border-border/60 bg-muted/70 p-1.5 backdrop-blur">
+                  {DETAIL_TABS.map(({ value, label, icon: Icon }) => (
+                    <TabsTrigger
+                      key={value}
+                      value={value}
+                      className="h-9 gap-1.5 rounded-xl px-3 text-xs sm:text-sm data-[state=active]:shadow-soft"
+                    >
+                      <Icon className="h-3.5 w-3.5" />
+                      {label}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </div>
+
+              <TabsContent value="general" className="mt-0 focus-visible:outline-none">
+                <ProductGeneralTab
+                  control={form.control}
+                  errors={form.formState.errors}
+                  register={form.register}
+                  categories={categoriesData?.items}
+                  brands={brandsData?.items}
+                />
+              </TabsContent>
+              <TabsContent value="attributes" className="mt-0 focus-visible:outline-none">
+                <ProductAttributesTab
+                  control={form.control}
+                  errors={form.formState.errors}
+                  register={form.register}
+                  setValue={form.setValue}
+                  productId={product.id}
+                />
+              </TabsContent>
+              <TabsContent value="availability" className="mt-0 focus-visible:outline-none">
+                <ProductInventoryTab
+                  control={form.control}
+                  errors={form.formState.errors}
+                  register={form.register}
+                  setValue={form.setValue}
+                  productId={product.id}
+                />
+              </TabsContent>
+              <TabsContent value="units" className="mt-0 focus-visible:outline-none">
+                <ProductUnitsTab control={form.control} errors={form.formState.errors} setValue={form.setValue} />
+              </TabsContent>
+              <TabsContent value="storefront" className="mt-0 focus-visible:outline-none">
+                <ProductStorefrontTab errors={form.formState.errors} register={form.register} />
+              </TabsContent>
+              <TabsContent value="settings" className="mt-0 focus-visible:outline-none">
+                <ProductSettingsTab control={form.control} errors={form.formState.errors} register={form.register} />
+              </TabsContent>
+            </Tabs>
           </div>
 
-          <TabsContent value="general" className="mt-0 focus-visible:outline-none">
-            <ProductGeneralTab
-              control={form.control}
-              errors={form.formState.errors}
-              register={form.register}
-              categories={categoriesData?.items}
-              brands={brandsData?.items}
-            />
-          </TabsContent>
-          <TabsContent value="attributes" className="mt-0 focus-visible:outline-none">
-            <ProductAttributesTab
-              control={form.control}
-              errors={form.formState.errors}
-              register={form.register}
-              setValue={form.setValue}
-              productId={product.id}
-            />
-          </TabsContent>
-          <TabsContent value="availability" className="mt-0 focus-visible:outline-none">
-            <ProductInventoryTab
-              control={form.control}
-              errors={form.formState.errors}
-              register={form.register}
-              setValue={form.setValue}
-              productId={product.id}
-            />
-          </TabsContent>
-          <TabsContent value="units" className="mt-0 focus-visible:outline-none">
-            <ProductUnitsTab control={form.control} errors={form.formState.errors} setValue={form.setValue} />
-          </TabsContent>
-          <TabsContent value="storefront" className="mt-0 focus-visible:outline-none">
-            <ProductStorefrontTab errors={form.formState.errors} register={form.register} />
-          </TabsContent>
-          <TabsContent value="settings" className="mt-0 focus-visible:outline-none">
-            <ProductSettingsTab control={form.control} errors={form.formState.errors} register={form.register} />
-          </TabsContent>
-        </Tabs>
+          <aside className="lg:col-span-4">
+            <div className="flex flex-col gap-4 lg:sticky lg:top-4">
+              <ProductRelatedDocsSidebar
+                chips={relatedDocsChips}
+                activeKey={activeRelatedDoc}
+                onSelect={onRelatedDoc}
+              />
+            </div>
+          </aside>
+        </div>
+
+        <div className="sticky bottom-0 z-10 flex items-center justify-between gap-3 rounded-2xl border border-border bg-background/95 px-4 py-3 shadow-soft backdrop-blur sm:px-5">
+          <div className="flex w-full gap-2 sm:w-auto">
+            <Button
+              type="submit"
+              className="min-w-32 flex-1 gap-1.5 sm:flex-none"
+              disabled={form.formState.isSubmitting || update.isPending}
+            >
+              <Save className="h-4 w-4" />
+              {update.isPending ? 'جاري الحفظ…' : 'حفظ التغييرات'}
+            </Button>
+            <Button type="button" variant="outline" asChild>
+              <Link href={ecommerceAdminRoutes.products}>إلغاء</Link>
+            </Button>
+          </div>
+          <p className="hidden text-[11px] text-muted-foreground sm:block">
+            التغييرات في كل التبويبات تُحفظ معًا عند الضغط على «حفظ التغييرات».
+          </p>
+        </div>
       </form>
 
       <ProductStockMoveRequestDialog
@@ -490,6 +467,21 @@ export function ProductDetailPage({ productId }: Props) {
           }
           setActiveRelatedDoc(null);
         }}
+      />
+
+      <ProductVariantsDialog
+        open={variantsDialogOpen}
+        onOpenChange={(next) => {
+          setVariantsDialogOpen(next);
+          if (!next && activeRelatedDoc === 'variants') setActiveRelatedDoc(null);
+        }}
+        control={form.control}
+        register={form.register}
+        setValue={form.setValue}
+        productId={product.id}
+        productNameAr={nameAr || product.nameAr}
+        onSave={submitForm}
+        isSaving={update.isPending}
       />
 
       <ProductReplenishmentListDialog

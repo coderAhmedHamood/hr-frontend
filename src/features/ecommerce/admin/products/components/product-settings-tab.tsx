@@ -24,7 +24,7 @@ export function ProductSettingsTab({ control, errors, register }: Props) {
         title="العروض والترويج"
         description="فعّل الخيارات حسب الحاجة. التواريخ اختيارية — اتركها فارغة ليستمر العرض بلا انتهاء."
       >
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2">
           <Controller
             control={control}
             name="isNewProduct"
@@ -112,7 +112,7 @@ export function ProductSettingsTab({ control, errors, register }: Props) {
                           type="number"
                           min={0}
                           step="0.01"
-                          dir="ltr"
+                          dir="rtl"
                           className="h-11 pe-12"
                           {...register('dealPriceAmount')}
                         />
@@ -131,7 +131,7 @@ export function ProductSettingsTab({ control, errors, register }: Props) {
                         type="number"
                         min={1}
                         step={1}
-                        dir="ltr"
+                        dir="rtl"
                         placeholder="اختياري"
                         className="h-11"
                         {...register('dealDays')}
@@ -198,7 +198,7 @@ export function ProductSettingsTab({ control, errors, register }: Props) {
                           type="number"
                           min={0}
                           step="0.01"
-                          dir="ltr"
+                          dir="rtl"
                           className="h-11 pe-12"
                           {...register('wholesalePriceAmount')}
                         />
@@ -268,7 +268,7 @@ export function ProductSettingsTab({ control, errors, register }: Props) {
                         min={0}
                         max={100}
                         step="0.01"
-                        dir="ltr"
+                        dir="rtl"
                         className="h-11"
                         {...register('discountPercent')}
                       />

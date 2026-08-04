@@ -109,13 +109,19 @@ export function ProductCardView({
               display.promoBadge === 'best-seller' && 'bg-primary',
               display.promoBadge === 'deals' && 'bg-secondary text-secondary-foreground',
               display.promoBadge === 'wholesale' && 'bg-foreground text-background',
+              display.promoBadge === 'new' && 'bg-emerald-700 text-white',
+              display.promoBadge === 'discount' && 'bg-amber-700 text-white',
             )}
           >
             {display.promoBadge === 'best-seller'
               ? t('components.badgeBestSeller')
               : display.promoBadge === 'wholesale'
                 ? t('components.badgeWholesale')
-                : t('components.badgeDeals')}
+                : display.promoBadge === 'new'
+                  ? t('components.badgeNew')
+                  : display.promoBadge === 'discount'
+                    ? t('components.badgeDiscount')
+                    : t('components.badgeDeals')}
           </span>
         ) : null}
 

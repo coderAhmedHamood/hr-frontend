@@ -1,5 +1,6 @@
 'use client';
 
+import { usePathname } from 'next/navigation';
 import type {
   StorefrontCategory,
   StorefrontCompanyConfig,
@@ -14,7 +15,7 @@ export function StorePlpSidebar({
   secondaryNavigation,
   storePages,
   activeCategorySlug,
-  activeTag,
+  activeTag: _activeTag,
 }: {
   categories: StorefrontCategory[];
   secondaryNavigation?: StorefrontCompanyConfig['secondaryNavigation'];
@@ -23,6 +24,7 @@ export function StorePlpSidebar({
   activeTag?: string;
 }) {
   const t = useTranslations('storefront');
+  const pathname = usePathname();
   const { roots, childrenByParent } = buildCategoryTree(categories);
   const showOffers = storePages?.offers !== false;
   const showWholesale = storePages?.wholesale !== false;
@@ -104,10 +106,10 @@ export function StorePlpSidebar({
           <div className="flex flex-col gap-1">
             <h3 className="mb-1 text-sm font-semibold text-foreground">{t('nav.offersZone')}</h3>
             {shortcuts.map((item) => {
-              const isOffers = item.href.includes('offers');
-              const isWholesale = item.href.includes('wholesale');
               const active =
-                (isOffers && activeTag === 'deals') || (isWholesale && activeTag === 'wholesale');
+                pathname.includes(item.href) ||
+                (item.href.includes('offers') && pathname.includes('/store/offers')) ||
+                (item.href.includes('wholesale') && pathname.includes('/store/wholesale'));
               return (
                 <Link
                   key={`${item.href}-${item.label}`}

@@ -5,7 +5,9 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 import type {
   PartnerAccountKind,
   PartnerAuthSessionPayload,
+  PartnerMePayload,
 } from '@/features/ecommerce/storefront/domain/partner-auth';
+import { writePartnerTokenCookie } from '@/features/ecommerce/storefront/lib/partner-token-cookie';
 
 export type StorefrontCustomerSession = {
   id: string;
@@ -21,24 +23,28 @@ export type StorefrontCustomerSession = {
 interface StorefrontCustomerUiState {
   customer: StorefrontCustomerSession | null;
   accessToken: string | null;
-  /** Apply a successful register/login (or /me) payload. */
+  /** Apply a successful register/login/profile payload. */
   setSession: (payload: PartnerAuthSessionPayload) => void;
-  /** Local profile tweak (demo) until a partner profile PATCH exists. */
-  updateProfile: (input: { name: string; phone: string; email: string }) => void;
+  /** Refresh local customer from GET /me (keeps current token). */
+  applyMe: (payload: PartnerMePayload) => void;
   clearSession: () => void;
   /** @deprecated use setSession — kept for older call sites during migration */
   login: (input: { name: string; phone: string; email: string }) => void;
   logout: () => void;
 }
 
-function kindFromPayload(payload: PartnerAuthSessionPayload): PartnerAccountKind {
-  if (payload.partner.accountKind) return payload.partner.accountKind;
+function kindFromPayload(payload: PartnerAuthSessionPayload | PartnerMePayload): PartnerAccountKind {
+  if ('access_token' in payload && payload.partner.accountKind) {
+    return payload.partner.accountKind;
+  }
   if (payload.partner.isVendor) return 'vendor';
   if (payload.user.userType === 'visitor') return 'visitor';
   return 'customer';
 }
 
-function sessionFromPayload(payload: PartnerAuthSessionPayload): StorefrontCustomerSession {
+function sessionFromPayload(
+  payload: PartnerAuthSessionPayload | PartnerMePayload,
+): StorefrontCustomerSession {
   return {
     id: payload.partnerId,
     userId: payload.userId,
@@ -56,24 +62,21 @@ export const useStorefrontCustomerUi = create<StorefrontCustomerUiState>()(
     (set, get) => ({
       customer: null,
       accessToken: null,
-      setSession: (payload) =>
+      setSession: (payload) => {
+        writePartnerTokenCookie(payload.access_token);
         set({
           accessToken: payload.access_token,
           customer: sessionFromPayload(payload),
-        }),
-      updateProfile: ({ name, phone, email }) => {
-        const current = get().customer;
-        if (!current) return;
-        set({
-          customer: {
-            ...current,
-            name: name.trim(),
-            phone: phone.trim(),
-            email: email.trim(),
-          },
         });
       },
-      clearSession: () => set({ customer: null, accessToken: null }),
+      applyMe: (payload) => {
+        if (!get().accessToken) return;
+        set({ customer: sessionFromPayload(payload) });
+      },
+      clearSession: () => {
+        writePartnerTokenCookie(null);
+        set({ customer: null, accessToken: null });
+      },
       login: ({ name, phone, email }) => {
         const companyId = get().customer?.companyId ?? '';
         set({
@@ -90,7 +93,10 @@ export const useStorefrontCustomerUi = create<StorefrontCustomerUiState>()(
           },
         });
       },
-      logout: () => set({ customer: null, accessToken: null }),
+      logout: () => {
+        writePartnerTokenCookie(null);
+        set({ customer: null, accessToken: null });
+      },
     }),
     {
       name: 'storefront-customer',
@@ -122,6 +128,9 @@ export const useStorefrontCustomerUi = create<StorefrontCustomerUiState>()(
             accountKind: c.accountKind ?? 'customer',
           },
         };
+      },
+      onRehydrateStorage: () => (state) => {
+        writePartnerTokenCookie(state?.accessToken ?? null);
       },
     },
   ),

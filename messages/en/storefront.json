@@ -41,6 +41,8 @@
     "badgeBestSeller": "Best products",
     "badgeDeals": "Deals",
     "badgeWholesale": "Wholesale",
+    "badgeNew": "New",
+    "badgeDiscount": "Sale",
     "sellingFast": "Selling out fast"
   },
   "reviews": {
@@ -266,7 +268,9 @@
     "edit": "Edit",
     "editProfile": "Edit profile",
     "save": "Save",
+    "saving": "Saving…",
     "profileSaved": "Profile saved",
+    "profileSaveFailed": "Could not save profile",
     "logout": "Sign out",
     "loggingOut": "Signing out...",
     "accountKind": "Account type",

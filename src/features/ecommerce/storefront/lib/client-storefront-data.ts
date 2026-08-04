@@ -116,11 +116,17 @@ export const clientStorefrontData = {
     return storefrontContentRepository.getLegalPage(getStorefrontCompanyId(), slug, locale);
   },
 
-  async getOrderByNumber(orderNumber: string, phone?: string | null) {
+  async getOrderByNumber(
+    orderNumber: string,
+    options?: { phone?: string | null; accessToken?: string | null },
+  ) {
     return storefrontOrdersRepository.getByOrderNumber(
       getStorefrontCompanyId(),
       orderNumber,
-      { phone },
+      {
+        phone: options?.phone,
+        accessToken: options?.accessToken,
+      },
     );
   },
 };

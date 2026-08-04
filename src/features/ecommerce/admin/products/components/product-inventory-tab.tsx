@@ -16,6 +16,7 @@ import {
   ProductFormField,
   ProductFormSection,
 } from '@/features/ecommerce/admin/products/components/product-form-section';
+import { ProductStatTile } from '@/features/ecommerce/admin/products/components/product-stat-tile';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
@@ -63,26 +64,15 @@ export function ProductInventoryTab({ control, errors, register, setValue, produ
         }
       >
         <div className="grid gap-3 sm:grid-cols-3">
-          <div className="rounded-xl border border-border bg-muted/30 p-3">
-            <p className="text-[11px] text-muted-foreground">المتاح فعليًا (On Hand)</p>
-            <p className="mt-1 text-2xl font-semibold tabular-nums tracking-tight" dir="ltr">
-              {productId ? (isLoading ? '…' : warehouseQty) : 0}
-            </p>
-          </div>
+          <ProductStatTile
+            size="lg"
+            label="المتاح فعليًا (On Hand)"
+            value={productId ? (isLoading ? '…' : warehouseQty) : 0}
+          />
           {productId && summary ? (
             <>
-              <div className="rounded-xl border border-border bg-muted/30 p-3">
-                <p className="text-[11px] text-muted-foreground">محجوز (Reserved)</p>
-                <p className="mt-1 text-2xl font-semibold tabular-nums tracking-tight" dir="ltr">
-                  {summary.reserved}
-                </p>
-              </div>
-              <div className="rounded-xl border border-primary/20 bg-primary/5 p-3">
-                <p className="text-[11px] text-muted-foreground">قابل للبيع (Available)</p>
-                <p className="mt-1 text-2xl font-semibold tabular-nums tracking-tight text-primary" dir="ltr">
-                  {summary.available}
-                </p>
-              </div>
+              <ProductStatTile size="lg" label="محجوز (Reserved)" value={summary.reserved} />
+              <ProductStatTile size="lg" accent label="قابل للبيع (Available)" value={summary.available} />
             </>
           ) : null}
         </div>
@@ -122,7 +112,7 @@ export function ProductInventoryTab({ control, errors, register, setValue, produ
               type="number"
               min={0}
               step={1}
-              dir="ltr"
+              dir="rtl"
               className="h-11 max-w-[10rem]"
               {...register('lowStockThreshold', { valueAsNumber: true })}
             />

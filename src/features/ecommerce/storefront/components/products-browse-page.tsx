@@ -16,13 +16,29 @@ import { StoreEmptyState } from '@/features/ecommerce/storefront/components/stor
 import { StorePlpSidebar } from '@/features/ecommerce/storefront/components/store-plp-sidebar';
 import { JsonLd } from '@/features/ecommerce/storefront/components/json-ld';
 import { collectionPageJsonLd } from '@/features/ecommerce/storefront/lib/seo-jsonld';
+import {
+  flagsToQueryRecord,
+  type ParsedStoreProductFlags,
+} from '@/features/ecommerce/storefront/lib/store-product-list-query';
 import type { StorefrontLocale } from '@/i18n/routing';
+
+function productsHeading(
+  t: ReturnType<typeof useTranslations<'storefront'>>,
+  flags: ParsedStoreProductFlags,
+): string {
+  if (flags.isNewProduct) return t('home.latestProducts');
+  if (flags.isTodayDeal) return t('home.dealsToday');
+  if (flags.isWholesale) return t('wholesale.title');
+  if (flags.isDiscounted) return t('nav.offersZone');
+  return t('products.title');
+}
 
 export function ProductsBrowsePage({
   page,
   categorySlug,
   tag,
   sort,
+  flags = {},
   categories,
   secondaryNavigation,
   storePages,
@@ -32,6 +48,7 @@ export function ProductsBrowsePage({
   categorySlug?: string;
   tag?: string;
   sort?: string;
+  flags?: ParsedStoreProductFlags;
   categories: StorefrontCategory[];
   secondaryNavigation?: StorefrontCompanyConfig['secondaryNavigation'];
   storePages?: StorefrontCompanyConfig['storePages'];
@@ -40,21 +57,20 @@ export function ProductsBrowsePage({
   const t = useTranslations('storefront');
   const locale = useLocale() as StorefrontLocale;
   const products = productsResult.items;
+  const title = productsHeading(t, flags);
 
   return (
     <div className="flex flex-col gap-6">
-      <JsonLd data={collectionPageJsonLd(t('products.title'), '/store/products', locale)} />
+      <JsonLd data={collectionPageJsonLd(title, '/store/products', locale)} />
 
       <StoreBreadcrumbs
         items={[
           { name: t('breadcrumbs.home'), path: '/store' },
-          { name: t('products.title'), path: '/store/products' },
+          { name: title, path: '/store/products' },
         ]}
       />
 
-      <h1 className="font-arabic-display text-xl font-bold text-foreground sm:text-2xl">
-        {t('products.title')}
-      </h1>
+      <h1 className="font-arabic-display text-xl font-bold text-foreground sm:text-2xl">{title}</h1>
 
       <div className="flex flex-col gap-6 lg:flex-row lg:gap-8">
         <StorePlpSidebar
@@ -78,7 +94,12 @@ export function ProductsBrowsePage({
 
           <StorePagination
             basePath="/store/products"
-            query={{ category: categorySlug, tag, sort }}
+            query={{
+              category: categorySlug,
+              tag,
+              sort,
+              ...flagsToQueryRecord(flags),
+            }}
             page={page}
             totalPages={productsResult.pagination.totalPages}
           />

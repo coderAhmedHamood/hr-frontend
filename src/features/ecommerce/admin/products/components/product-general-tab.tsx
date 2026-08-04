@@ -277,74 +277,80 @@ export function ProductGeneralTab({ control, errors, register, categories, brand
         </button>
 
         {showAdvanced ? (
-          <div className="space-y-4 border-t border-border/70 p-4 sm:p-5">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <ProductFormField label="سياسة الفوترة" htmlFor="product-invoice-policy">
-                <Controller
-                  control={control}
-                  name="invoicePolicy"
-                  render={({ field }) => (
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger id="product-invoice-policy" aria-label="سياسة الفوترة" className="h-11">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {PRODUCT_INVOICE_POLICY_OPTIONS.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.labelAr}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-              </ProductFormField>
+          <div className="space-y-5 border-t border-border/70 p-4 sm:p-5">
+            <div>
+              <p className="mb-3 text-xs font-medium text-muted-foreground">الفوترة والتتبع</p>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <ProductFormField label="سياسة الفوترة" htmlFor="product-invoice-policy">
+                  <Controller
+                    control={control}
+                    name="invoicePolicy"
+                    render={({ field }) => (
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <SelectTrigger id="product-invoice-policy" aria-label="سياسة الفوترة" className="h-11">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {PRODUCT_INVOICE_POLICY_OPTIONS.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.labelAr}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                </ProductFormField>
 
-              <ProductFormField label="التتبع" htmlFor="product-tracking">
-                <Controller
-                  control={control}
-                  name="tracking"
-                  render={({ field }) => (
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger id="product-tracking" aria-label="التتبع" className="h-11">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {PRODUCT_TRACKING_OPTIONS.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.labelAr}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-              </ProductFormField>
+                <ProductFormField label="التتبع" htmlFor="product-tracking">
+                  <Controller
+                    control={control}
+                    name="tracking"
+                    render={({ field }) => (
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <SelectTrigger id="product-tracking" aria-label="التتبع" className="h-11">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {PRODUCT_TRACKING_OPTIONS.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.labelAr}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                </ProductFormField>
+              </div>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <ProductFormField label="الباركود" htmlFor="product-barcode">
-                <Input
-                  id="product-barcode"
-                  dir="ltr"
-                  placeholder="6281000000000"
-                  className="h-11"
-                  {...register('barcode')}
-                />
-              </ProductFormField>
+            <div>
+              <p className="mb-3 text-xs font-medium text-muted-foreground">الترميز والعلامات</p>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <ProductFormField label="الباركود" htmlFor="product-barcode">
+                  <Input
+                    id="product-barcode"
+                    dir="ltr"
+                    placeholder="6281000000000"
+                    className="h-11"
+                    {...register('barcode')}
+                  />
+                </ProductFormField>
 
-              <ProductFormField
-                label="علامات التصنيف"
-                htmlFor="product-tags"
-                hint="مفصولة بفواصل — مثال: best-seller، deals"
-              >
-                <Input
-                  id="product-tags"
-                  className="h-11"
-                  placeholder="best-seller, deals"
-                  {...register('tagsInput')}
-                />
-              </ProductFormField>
+                <ProductFormField
+                  label="علامات التصنيف"
+                  htmlFor="product-tags"
+                  hint="مفصولة بفواصل — مثال: best-seller، deals"
+                >
+                  <Input
+                    id="product-tags"
+                    className="h-11"
+                    placeholder="best-seller, deals"
+                    {...register('tagsInput')}
+                  />
+                </ProductFormField>
+              </div>
             </div>
 
             <div>
@@ -356,7 +362,7 @@ export function ProductGeneralTab({ control, errors, register, categories, brand
                     type="number"
                     min={0}
                     step="0.01"
-                    dir="ltr"
+                    dir="rtl"
                     className="h-11"
                     {...register('weightKg')}
                   />
@@ -367,7 +373,7 @@ export function ProductGeneralTab({ control, errors, register, categories, brand
                     type="number"
                     min={0}
                     step="0.1"
-                    dir="ltr"
+                    dir="rtl"
                     className="h-11"
                     {...register('lengthCm')}
                   />
@@ -378,7 +384,7 @@ export function ProductGeneralTab({ control, errors, register, categories, brand
                     type="number"
                     min={0}
                     step="0.1"
-                    dir="ltr"
+                    dir="rtl"
                     className="h-11"
                     {...register('widthCm')}
                   />
@@ -389,7 +395,7 @@ export function ProductGeneralTab({ control, errors, register, categories, brand
                     type="number"
                     min={0}
                     step="0.1"
-                    dir="ltr"
+                    dir="rtl"
                     className="h-11"
                     {...register('heightCm')}
                   />

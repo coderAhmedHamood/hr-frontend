@@ -211,7 +211,7 @@ export function ProductVariantsPanel({ control, register, setValue, productId }:
                       type="number"
                       min={0}
                       step="0.01"
-                      dir="ltr"
+                      dir="rtl"
                       className="h-8 w-24"
                       {...register(`variants.${index}.salePrice`, { valueAsNumber: true })}
                     />
@@ -221,7 +221,7 @@ export function ProductVariantsPanel({ control, register, setValue, productId }:
                       type="number"
                       min={0}
                       step="0.01"
-                      dir="ltr"
+                      dir="rtl"
                       className="h-8 w-24"
                       {...register(`variants.${index}.costPrice`, { valueAsNumber: true })}
                     />
@@ -229,7 +229,7 @@ export function ProductVariantsPanel({ control, register, setValue, productId }:
                   <td className="px-3 py-2.5 align-middle">
                     <Input
                       type="number"
-                      dir="ltr"
+                      dir="rtl"
                       className="h-8 w-20 bg-muted/40"
                       value={
                         productId && onHand

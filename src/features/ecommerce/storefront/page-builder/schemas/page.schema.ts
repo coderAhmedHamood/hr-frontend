@@ -75,6 +75,8 @@ export const queryDataSourceSchema = z.object({
   tag: z.string().nullable(),
   isNewProduct: z.boolean().nullable().optional(),
   isTodayDeal: z.boolean().nullable().optional(),
+  isWholesale: z.boolean().nullable().optional(),
+  isDiscounted: z.boolean().nullable().optional(),
 });
 
 export const recommendationDataSourceSchema = z.object({

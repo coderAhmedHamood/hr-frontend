@@ -13,16 +13,21 @@ export type ProductDisplayModel = {
   outOfStock: boolean;
   hasDeal: boolean;
   discountPercent: number | null;
-  /** Tag-driven promo chip (best-seller / deals / wholesale). */
-  promoBadge: 'best-seller' | 'deals' | 'wholesale' | null;
+  /** Flag-driven promo chip (with tag fallback). */
+  promoBadge: 'new' | 'best-seller' | 'deals' | 'wholesale' | 'discount' | null;
   sellingFast: boolean;
   /** From inventory `ratingAvg` / `reviewCount` — no mock fallback. */
   rating: number | null;
   reviewCount: number;
 };
 
-function resolvePromoBadge(tags: string[]): 'best-seller' | 'deals' | 'wholesale' | null {
-  const normalized = tags.map((tag) => tag.toLowerCase());
+function resolvePromoBadge(product: StorefrontProduct): ProductDisplayModel['promoBadge'] {
+  if (product.isTodayDealActive) return 'deals';
+  if (product.isWholesaleActive) return 'wholesale';
+  if (product.isDiscountActive) return 'discount';
+  if (product.isNewProductActive) return 'new';
+
+  const normalized = product.tags.map((tag) => tag.toLowerCase());
   if (normalized.some((tag) => tag.includes('wholesale') || tag.includes('جملة'))) return 'wholesale';
   if (normalized.some((tag) => tag.includes('best'))) return 'best-seller';
   if (normalized.some((tag) => tag.includes('deal') || tag.includes('offer'))) return 'deals';
@@ -63,7 +68,9 @@ export function buildProductDisplay(product: StorefrontProduct): ProductDisplayM
   const discountPercent =
     hasDeal && product.compareAtPrice
       ? Math.round(((product.compareAtPrice.amount - product.price.amount) / product.compareAtPrice.amount) * 100)
-      : null;
+      : product.isDiscountActive && product.discountPercent != null
+        ? Math.round(product.discountPercent)
+        : null;
 
   return {
     imageUrl,
@@ -72,7 +79,7 @@ export function buildProductDisplay(product: StorefrontProduct): ProductDisplayM
     outOfStock,
     hasDeal,
     discountPercent,
-    promoBadge: resolvePromoBadge(product.tags),
+    promoBadge: resolvePromoBadge(product),
     sellingFast: isSellingFast(product),
     rating: product.rating != null && product.rating > 0 ? product.rating : null,
     reviewCount: Math.max(0, product.reviewCount ?? 0),

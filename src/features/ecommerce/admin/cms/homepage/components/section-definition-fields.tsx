@@ -117,6 +117,8 @@ function DataSourceEditor({
           tag: null,
           isNewProduct: null,
           isTodayDeal: null,
+          isWholesale: null,
+          isDiscounted: null,
         });
         break;
       case 'recommendation':
@@ -330,6 +332,32 @@ function DataSourceEditor({
                 }
               />
               {locale === 'en' ? 'Today’s deals only' : 'تخفيضات اليوم فقط'}
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={value.isWholesale === true}
+                onChange={(event) =>
+                  onChange({
+                    ...value,
+                    isWholesale: event.target.checked ? true : null,
+                  })
+                }
+              />
+              {locale === 'en' ? 'Wholesale only' : 'أسعار جملة فقط'}
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={value.isDiscounted === true}
+                onChange={(event) =>
+                  onChange({
+                    ...value,
+                    isDiscounted: event.target.checked ? true : null,
+                  })
+                }
+              />
+              {locale === 'en' ? 'Discounted only' : 'خصومات فقط'}
             </label>
           </div>
         </>

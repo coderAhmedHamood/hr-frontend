@@ -29,6 +29,13 @@ export type StorefrontProduct = {
   imageUrl: string | null;
   imageAlt: string;
   tags: string[];
+  /** Active promo flags from inventory (computed server-side). */
+  isNewProductActive?: boolean;
+  isTodayDealActive?: boolean;
+  isWholesaleActive?: boolean;
+  isDiscountActive?: boolean;
+  discountPercent?: number | null;
+  wholesalePrice?: Money | null;
   metaTitle: string;
   metaDescription: string;
   rating: number | null;

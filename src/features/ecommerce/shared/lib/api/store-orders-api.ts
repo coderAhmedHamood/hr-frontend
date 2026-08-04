@@ -21,6 +21,13 @@ import {
 } from '@/features/ecommerce/storefront/lib/api/store-http';
 import { resolvePaymentProofUrls } from '@/features/ecommerce/domain/lib/payment-proofs';
 
+type StorePaginatedMeta = {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+};
+
 type StoreOrderLineDto = {
   id: string;
   productId: string;
@@ -277,6 +284,37 @@ export async function fetchPublicStoreOrder(input: {
       nullOn404: true,
     },
   ).then((dto) => (dto ? mapStorefrontOrder(dto) : null));
+}
+
+/** GET /public/store/orders — partner Bearer required (typ=partner). */
+export async function fetchPartnerStoreOrders(input: {
+  accessToken: string;
+  page?: number;
+  limit?: number;
+  status?: string;
+}): Promise<{ items: StorefrontCustomerOrder[]; pagination: StorePaginatedMeta }> {
+  const page = await publicStoreRequest<{
+    items: StoreOrderDto[];
+    pagination: StorePaginatedMeta;
+  }>('/public/store/orders', {
+    token: input.accessToken,
+    query: {
+      page: input.page ?? 1,
+      limit: input.limit ?? 50,
+      status: input.status,
+    },
+  });
+  const items = page?.items ?? [];
+  const pagination = page?.pagination ?? {
+    page: 1,
+    limit: input.limit ?? 50,
+    total: items.length,
+    totalPages: 1,
+  };
+  return {
+    items: items.map(mapStorefrontOrder),
+    pagination,
+  };
 }
 
 export async function fetchAdminStoreOrders(

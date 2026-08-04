@@ -45,7 +45,7 @@ export function StoreFooter({
               {config.contact.phone ? (
                 <a href={`tel:${config.contact.phone}`} className="inline-flex items-center gap-2 hover:text-foreground">
                   <Phone className="h-4 w-4 shrink-0 text-primary" aria-hidden />
-                  {config.contact.phone}
+                  <span dir="ltr">{config.contact.phone}</span>
                 </a>
               ) : null}
               {config.contact.email ? (

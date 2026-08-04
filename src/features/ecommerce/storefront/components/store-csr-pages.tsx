@@ -18,7 +18,13 @@ import { StoreCheckoutPage } from '@/features/ecommerce/storefront/components/ch
 import { StoreCsrError, StoreCsrLoading } from '@/features/ecommerce/storefront/components/store-csr-status';
 import { StoreHomePageView } from '@/features/ecommerce/storefront/components/store-home-page';
 import { StoreOrderTrackingPage } from '@/features/ecommerce/storefront/components/orders/store-order-tracking-page';
+import {
+  resolveStoreProductsListQuery,
+  type ParsedStoreProductFlags,
+  type StoreProductFlagKey,
+} from '@/features/ecommerce/storefront/lib/store-product-list-query';
 import { clientStorefrontData } from '@/features/ecommerce/storefront/lib/client-storefront-data';
+import { useStorefrontCustomerUi } from '@/features/ecommerce/storefront/hooks/use-storefront-customer-ui';
 import type { LegalPageSlug } from '@/features/ecommerce/storefront/domain/content';
 import type { StorefrontCustomerOrder } from '@/features/ecommerce/storefront/domain/checkout';
 import type {
@@ -83,11 +89,13 @@ export function ProductsBrowsePageCsr({
   categorySlug,
   tag,
   sort,
+  flags = {},
 }: {
   page: number;
   categorySlug?: string;
   tag?: string;
   sort?: string;
+  flags?: ParsedStoreProductFlags;
 }) {
   const { data, error, loading } = useCsrLoad(
     async (locale) => {
@@ -101,22 +109,20 @@ export function ProductsBrowsePageCsr({
         ? categories.find((item) => item.slug === categorySlug)
         : undefined;
 
-      const base = { page, limit: 15, categoryId: activeCategory?.id, tag };
-      const query =
-        sort === 'newest'
-          ? { ...base, sort: 'createdAt' as const, sortDirection: 'desc' as const }
-          : sort === 'price-asc'
-            ? { ...base, sort: 'price' as const, sortDirection: 'asc' as const }
-            : sort === 'price-desc'
-              ? { ...base, sort: 'price' as const, sortDirection: 'desc' as const }
-              : sort === 'best-sellers'
-                ? { ...base, tag: tag ?? 'best-seller' }
-                : base;
-
-      const productsResult = await clientStorefrontData.getProducts(locale, query);
+      const productsResult = await clientStorefrontData.getProducts(
+        locale,
+        resolveStoreProductsListQuery({
+          page,
+          limit: 15,
+          categoryId: activeCategory?.id,
+          tag,
+          sort,
+          flags,
+        }),
+      );
       return { config, categories, productsResult };
     },
-    [page, categorySlug, tag, sort],
+    [page, categorySlug, tag, sort, flags.isNewProduct, flags.isTodayDeal, flags.isWholesale, flags.isDiscounted],
   );
 
   if (loading) return <StoreCsrLoading />;
@@ -128,6 +134,7 @@ export function ProductsBrowsePageCsr({
       categorySlug={categorySlug}
       tag={tag}
       sort={sort}
+      flags={flags}
       categories={data.categories}
       secondaryNavigation={data.config.secondaryNavigation}
       storePages={data.config.storePages}
@@ -244,33 +251,42 @@ export function CategoryDetailPageCsr({ slug, page }: { slug: string; page: numb
 }
 
 export function CatalogTagPageCsr({
-  tag,
   page,
   titleKey,
   descriptionKey,
   basePath,
   storePageKey,
+  flag,
 }: {
-  tag: string;
   page: number;
   titleKey: 'offers.title' | 'wholesale.title';
   descriptionKey: 'offers.description' | 'wholesale.description';
   basePath: '/store/offers' | '/store/wholesale';
   storePageKey: 'offers' | 'wholesale';
+  flag: StoreProductFlagKey;
 }) {
   const t = useTranslations('storefront');
   const router = useRouter();
+  const flags: ParsedStoreProductFlags = { [flag]: true };
   const { data, error, loading } = useCsrLoad(
     async (locale) => {
       const [config, productsResult] = await Promise.all([
         clientStorefrontData.getConfig(locale),
-        clientStorefrontData.getProducts(locale, { page, limit: 15, tag }),
+        clientStorefrontData.getProducts(
+          locale,
+          resolveStoreProductsListQuery({
+            page,
+            limit: 15,
+            flags,
+            sort: 'newest',
+          }),
+        ),
       ]);
       if (!config) throw new Error('Store config not found');
       if (!config.storePages[storePageKey]) throw new Error('NOT_FOUND');
       return { productsResult };
     },
-    [tag, page, storePageKey],
+    [page, storePageKey, flag],
   );
 
   React.useEffect(() => {
@@ -361,13 +377,17 @@ export function StoreOrderTrackingPageCsr({
   orderNumber: string;
   phone?: string | null;
 }) {
+  const accessToken = useStorefrontCustomerUi((s) => s.accessToken);
   const { data, error, loading } = useCsrLoad(
     async () => {
-      const order = await clientStorefrontData.getOrderByNumber(orderNumber, phone);
+      const order = await clientStorefrontData.getOrderByNumber(orderNumber, {
+        phone,
+        accessToken,
+      });
       if (!order) throw new Error('NOT_FOUND');
       return order as StorefrontCustomerOrder;
     },
-    [orderNumber, phone],
+    [orderNumber, phone, accessToken],
   );
   if (loading) return <StoreCsrLoading />;
   if (error === 'NOT_FOUND') notFound();

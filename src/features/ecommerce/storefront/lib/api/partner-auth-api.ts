@@ -5,6 +5,7 @@ import {
   type PartnerLoginInput,
   type PartnerMePayload,
   type PartnerRegisterInput,
+  type PartnerUpdateProfileInput,
 } from '@/features/ecommerce/storefront/domain/partner-auth';
 import { resolveApiBaseUrl } from '@/shared/api-base-url';
 import { publicConfig } from '@/shared/config';
@@ -189,6 +190,24 @@ export async function getPartnerMe(token: string): Promise<PartnerMePayload> {
     token,
   });
   return mapMePayload(dto);
+}
+
+/** PATCH /public/partners/auth/profile — Bearer typ=partner */
+export async function updatePartnerProfile(
+  token: string,
+  input: PartnerUpdateProfileInput,
+): Promise<PartnerAuthSessionPayload> {
+  if (!token) throw new PartnerAuthApiError('PARTNER_TOKEN_REQUIRED', 401);
+  const dto = await partnerAuthFetch<PartnerSessionApiDto>('/public/partners/auth/profile', {
+    method: 'PATCH',
+    token,
+    body: JSON.stringify({
+      name: input.name.trim(),
+      email: input.email.trim().toLowerCase(),
+      mobile: input.mobile.trim(),
+    }),
+  });
+  return mapSessionPayload(dto);
 }
 
 /** POST /public/partners/auth/logout — invalidates tokenVersion */

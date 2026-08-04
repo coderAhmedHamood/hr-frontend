@@ -6,6 +6,7 @@ import { orderTrackingMetadata } from '@/features/ecommerce/storefront/lib/seo';
 import { getStorefrontCompanyConfig } from '@/features/ecommerce/storefront/lib/get-storefront-company-config';
 import { getStorefrontOrderByNumber } from '@/features/ecommerce/storefront/lib/checkout-actions';
 import { isStorefrontCsrEnabled } from '@/features/ecommerce/storefront/lib/is-storefront-csr';
+import { readPartnerTokenCookie } from '@/features/ecommerce/storefront/lib/partner-token-cookie';
 import type { StorefrontLocale } from '@/i18n/routing';
 
 export const dynamic = 'force-dynamic';
@@ -32,7 +33,11 @@ export default async function Page({ params, searchParams }: Props) {
     return <StoreOrderTrackingPageCsr orderNumber={decoded} phone={phoneValue} />;
   }
 
-  const order = await getStorefrontOrderByNumber(decoded, { phone: phoneValue });
+  const accessToken = await readPartnerTokenCookie();
+  const order = await getStorefrontOrderByNumber(decoded, {
+    phone: phoneValue,
+    accessToken,
+  });
   if (!order) notFound();
   return <StoreOrderTrackingPage order={order} />;
 }

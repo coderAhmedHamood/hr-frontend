@@ -6,11 +6,11 @@ import { CatalogTagPageCsr } from '@/features/ecommerce/storefront/components/st
 import { getStorefrontCompanyConfig } from '@/features/ecommerce/storefront/lib/get-storefront-company-config';
 import { getStorefrontProductsList } from '@/features/ecommerce/storefront/lib/loaders/catalog-loaders';
 import { isStorefrontCsrEnabled } from '@/features/ecommerce/storefront/lib/is-storefront-csr';
+import { resolveStoreProductsListQuery } from '@/features/ecommerce/storefront/lib/store-product-list-query';
 
 export const revalidate = 60;
 
 const PAGE_SIZE = 15;
-const TAG = 'deals';
 
 type Props = {
   params: Promise<{ locale: string }>;
@@ -37,12 +37,12 @@ export default async function Page({ searchParams }: Props) {
   if (isStorefrontCsrEnabled()) {
     return (
       <CatalogTagPageCsr
-        tag={TAG}
         page={pageNumber}
         titleKey="offers.title"
         descriptionKey="offers.description"
         basePath="/store/offers"
         storePageKey="offers"
+        flag="isTodayDeal"
       />
     );
   }
@@ -50,7 +50,14 @@ export default async function Page({ searchParams }: Props) {
   const [t, config, productsResult] = await Promise.all([
     getTranslations('storefront'),
     getStorefrontCompanyConfig(),
-    getStorefrontProductsList({ page: pageNumber, limit: PAGE_SIZE, tag: TAG }),
+    getStorefrontProductsList(
+      resolveStoreProductsListQuery({
+        page: pageNumber,
+        limit: PAGE_SIZE,
+        flags: { isTodayDeal: true },
+        sort: 'newest',
+      }),
+    ),
   ]);
 
   if (!config.storePages.offers) notFound();

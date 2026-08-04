@@ -41,6 +41,8 @@
     "badgeBestSeller": "أفضل المنتجات",
     "badgeDeals": "عروض",
     "badgeWholesale": "جملة",
+    "badgeNew": "حديث",
+    "badgeDiscount": "خصم",
     "sellingFast": "بتخلّص بسرعة"
   },
   "reviews": {
@@ -266,7 +268,9 @@
     "edit": "تعديل",
     "editProfile": "تعديل الملف الشخصي",
     "save": "حفظ",
+    "saving": "جاري الحفظ...",
     "profileSaved": "تم حفظ بياناتك",
+    "profileSaveFailed": "تعذر حفظ الملف الشخصي",
     "logout": "تسجيل الخروج",
     "loggingOut": "جاري الخروج...",
     "accountKind": "نوع الحساب",

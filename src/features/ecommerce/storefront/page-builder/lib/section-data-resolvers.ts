@@ -51,6 +51,8 @@ async function resolveProducts(ctx: SectionResolverContext, dataSource: DataSour
       tag: dataSource.tag ?? undefined,
       isNewProduct: dataSource.isNewProduct === true ? true : undefined,
       isTodayDeal: dataSource.isTodayDeal === true ? true : undefined,
+      isWholesale: dataSource.isWholesale === true ? true : undefined,
+      isDiscounted: dataSource.isDiscounted === true ? true : undefined,
     });
     return result.items;
   }

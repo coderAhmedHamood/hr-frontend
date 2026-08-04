@@ -44,11 +44,23 @@ export function mapStorefrontProduct(product: Product, locale: StorefrontLocale)
   const cheapest = cheapestActiveVariant(product.variants ?? []);
   const basePrice = cheapest?.salePrice ?? product.price;
   const dealActive = Boolean(product.isTodayDealActive && product.dealPrice);
-  const displayPrice = dealActive && product.dealPrice ? product.dealPrice : basePrice;
-  const compareAtPrice =
-    dealActive && product.dealPrice
-      ? basePrice
-      : (product.compareAtPrice ?? null);
+  const discountActive =
+    Boolean(product.isDiscountActive) &&
+    product.discountPercent != null &&
+    product.discountPercent > 0 &&
+    product.discountPercent < 100;
+  let displayPrice = basePrice;
+  let compareAtPrice = product.compareAtPrice ?? null;
+
+  if (dealActive && product.dealPrice) {
+    displayPrice = product.dealPrice;
+    compareAtPrice = basePrice;
+  } else if (discountActive && product.discountPercent != null) {
+    const discountedAmount = Math.round(basePrice.amount * (1 - product.discountPercent / 100));
+    displayPrice = { ...basePrice, amount: discountedAmount };
+    compareAtPrice = basePrice;
+  }
+
   const hasInStockVariant = variants.some((variant) => variant.stockStatus === 'in_stock');
   const stockStatus =
     variants.length > 0
@@ -83,6 +95,12 @@ export function mapStorefrontProduct(product: Product, locale: StorefrontLocale)
     imageUrl: primary?.url ?? null,
     imageAlt: primary?.alt || name,
     tags: product.tags ?? [],
+    isNewProductActive: Boolean(product.isNewProductActive),
+    isTodayDealActive: Boolean(product.isTodayDealActive),
+    isWholesaleActive: Boolean(product.isWholesaleActive),
+    isDiscountActive: Boolean(product.isDiscountActive),
+    discountPercent: product.discountPercent ?? null,
+    wholesalePrice: product.wholesalePrice ?? null,
     metaTitle: product.seo.metaTitle || name,
     metaDescription: product.seo.metaDescription || resolveDescription(product, locale),
     rating: product.rating ?? null,

@@ -1,15 +1,9 @@
 'use client';
 
-import type { ReactNode } from 'react';
 import { Camera, ImagePlus } from 'lucide-react';
-import {
-  useFieldArray,
-  useWatch,
-  type Control,
-  type UseFormRegister,
-  type UseFormSetValue,
-} from 'react-hook-form';
+import { useWatch, type Control, type UseFormRegister, type UseFormSetValue } from 'react-hook-form';
 import type { ProductFormInput, ProductFormValues } from '@/features/ecommerce/admin/products/schemas/product-schema';
+import { useProductImageField } from '@/features/ecommerce/admin/products/hooks/use-product-image-field';
 import {
   ProductRelatedDocsBar,
   type ProductRelatedDocChip,
@@ -27,8 +21,6 @@ type Props = {
   relatedDocs?: ProductRelatedDocChip[];
   relatedDocsActiveKey?: ProductRelatedDocKey | null;
   onRelatedDocSelect?: (key: ProductRelatedDocKey) => void;
-  /** Extra row (back button, status badges, price/qty…) rendered above the image + name row, inside the same card. */
-  topBar?: ReactNode;
 };
 
 export function ProductFormHeader({
@@ -40,48 +32,13 @@ export function ProductFormHeader({
   relatedDocs,
   relatedDocsActiveKey,
   onRelatedDocSelect,
-  topBar,
 }: Props) {
-  const { fields, append, update } = useFieldArray({ control, name: 'media' });
-  const media = useWatch({ control, name: 'media' });
+  const { imageUrl, pickImage } = useProductImageField(control, setValue);
   const sku = useWatch({ control, name: 'sku' }) ?? '';
-  const primary = media?.find((item) => item.isPrimary) ?? media?.[0];
-  const imageUrl = primary?.url?.trim() ?? '';
-
-  function pickImage() {
-    const nextUrl = window.prompt('أدخل رابط صورة المنتج', imageUrl || 'https://');
-    if (nextUrl === null) return;
-    const url = nextUrl.trim();
-    if (!url) return;
-
-    if (fields.length === 0) {
-      append({ url, alt: '', isPrimary: true });
-      return;
-    }
-
-    const index = media?.findIndex((item) => item.isPrimary) ?? 0;
-    const targetIndex = index >= 0 ? index : 0;
-    const current = fields[targetIndex];
-    if (!current) {
-      append({ url, alt: '', isPrimary: true });
-      return;
-    }
-    update(targetIndex, { ...current, url, isPrimary: true });
-    fields.forEach((_, itemIndex) => {
-      if (itemIndex !== targetIndex) {
-        const item = fields[itemIndex];
-        if (item) update(itemIndex, { ...item, isPrimary: false });
-      }
-    });
-    setValue(`media.${targetIndex}.url`, url, { shouldDirty: true });
-  }
 
   return (
     <div className="space-y-4">
       <div className="overflow-hidden rounded-2xl border border-border/80 bg-linear-to-l from-muted/40 via-card to-card">
-        {topBar ? (
-          <div className="flex flex-wrap items-center gap-3 border-b border-border/70 px-4 py-3 sm:px-5">{topBar}</div>
-        ) : null}
         <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-stretch sm:gap-5 sm:p-5">
           <button
             type="button"

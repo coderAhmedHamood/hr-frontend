@@ -50,6 +50,12 @@ export type PartnerLoginInput = {
   companyId?: string;
 };
 
+export type PartnerUpdateProfileInput = {
+  name: string;
+  email: string;
+  mobile: string;
+};
+
 export type PartnerMePayload = {
   user: PartnerAuthUser;
   partner: PartnerAuthPartner;

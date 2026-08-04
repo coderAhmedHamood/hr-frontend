@@ -23,8 +23,6 @@ export const ecommerceAdminRoutes = {
   brands: '/brands',
   orders: '/orders',
   reviews: '/reviews',
-  /** @deprecated Removed from store admin nav; page redirects to orders. */
-  customers: '/customers',
   /** @deprecated Use inventoryAdminRoutes */
   warehouses: inventoryAdminRoutes.warehouses,
   warehouseDetail: inventoryAdminRoutes.warehouseDetail,
@@ -49,11 +47,3 @@ export function ecommerceContentHref(tab: EcommerceContentTab = 'pages'): string
 export function ecommerceNavigationHref(tab: EcommerceNavigationTab = 'announcement'): string {
   return `${ecommerceAdminRoutes.navigation}?tab=${tab}`;
 }
-
-/** Former shallow routes — kept only for redirects to domain pages. */
-export const ecommerceAdminLegacyRoutes = {
-  footer: '/cms/footer',
-  cmsPages: '/cms/pages',
-  faq: '/cms/faq',
-  seo: '/cms/seo',
-} as const;

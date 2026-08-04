@@ -106,8 +106,9 @@ export function productToFormValues(product: Product): ProductFormInput {
     description: product.description ?? '',
     categoryId: product.categoryId ?? undefined,
     brandId: product.brandId ?? undefined,
-    status: product.status,
-    stockStatus: product.stockStatus,
+    /** Legacy/imported rows can have a null status in the DB — never leave the required select empty. */
+    status: product.status ?? 'active',
+    stockStatus: product.stockStatus ?? 'in_stock',
     stockQuantity: product.inventory.quantity,
     trackInventory: product.inventory.trackInventory,
     allowBackorder: product.inventory.allowBackorder,

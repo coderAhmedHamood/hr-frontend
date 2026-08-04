@@ -5,13 +5,13 @@ import type {
 } from '@/features/ecommerce/storefront/domain/checkout';
 import { isStoreHttpEnabled } from '@/features/ecommerce/storefront/lib/api/store-http';
 import {
+  fetchPartnerStoreOrders,
   fetchPublicStoreOrder,
   placePublicStoreOrder,
 } from '@/features/ecommerce/shared/lib/api/store-orders-api';
 
 /**
  * Customer-facing storefront orders — HTTP only (store-frontend-binding.md §3).
- * No in-memory mock orders.
  */
 export const storefrontOrdersRepository = {
   async placeOrder(input: PlaceOrderInput): Promise<StorefrontCustomerOrder> {
@@ -38,8 +38,22 @@ export const storefrontOrdersRepository = {
     });
   },
 
+  async listForPartner(
+    accessToken: string,
+    options?: { page?: number; limit?: number; status?: string },
+  ): Promise<StorefrontCustomerOrder[]> {
+    if (!isStoreHttpEnabled() || !accessToken) return [];
+    const page = await fetchPartnerStoreOrders({
+      accessToken,
+      page: options?.page ?? 1,
+      limit: options?.limit ?? 50,
+      status: options?.status,
+    });
+    return page.items;
+  },
+
+  /** @deprecated Use listForPartner — company scope comes from the partner token. */
   async listByCompany(_companyId: string): Promise<StorefrontCustomerOrder[]> {
-    // No partner order-list API in binding — guest tracking is by orderNumber+phone.
     return [];
   },
 

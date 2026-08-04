@@ -5,34 +5,27 @@ import { productsBrowseMetadata } from '@/features/ecommerce/storefront/lib/seo'
 import { getStorefrontCompanyConfig } from '@/features/ecommerce/storefront/lib/get-storefront-company-config';
 import { getStorefrontCategoriesList, getStorefrontProductsList } from '@/features/ecommerce/storefront/lib/loaders/catalog-loaders';
 import { isStorefrontCsrEnabled } from '@/features/ecommerce/storefront/lib/is-storefront-csr';
+import {
+  parseStoreProductFlags,
+  resolveStoreProductsListQuery,
+  type StoreProductListSearchParams,
+} from '@/features/ecommerce/storefront/lib/store-product-list-query';
 import type { StorefrontLocale } from '@/i18n/routing';
 
 export const revalidate = 60;
 
 const PAGE_SIZE = 15;
 
-type SearchParams = Promise<{ page?: string; category?: string; tag?: string; sort?: string }>;
+type SearchParams = Promise<StoreProductListSearchParams>;
 type Props = { params: Promise<{ locale: string }>; searchParams: SearchParams };
-
-function resolveListQuery(
-  page: number,
-  categoryId?: string,
-  tag?: string,
-  sort?: string,
-) {
-  const base = { page, limit: PAGE_SIZE, categoryId, tag };
-  if (sort === 'newest') return { ...base, sort: 'createdAt' as const, sortDirection: 'desc' as const };
-  if (sort === 'price-asc') return { ...base, sort: 'price' as const, sortDirection: 'asc' as const };
-  if (sort === 'price-desc') return { ...base, sort: 'price' as const, sortDirection: 'desc' as const };
-  if (sort === 'best-sellers') return { ...base, tag: tag ?? 'best-seller' };
-  return base;
-}
 
 export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
   if (isStorefrontCsrEnabled()) return {};
-  const [{ locale }, { page, category, tag, sort }] = await Promise.all([params, searchParams]);
+  const [{ locale }, paramsRecord] = await Promise.all([params, searchParams]);
+  const { page, category, tag, sort, ...flagParams } = paramsRecord;
+  const flags = parseStoreProductFlags(flagParams);
   const config = await getStorefrontCompanyConfig();
-  const hasFilter = Boolean(category || tag || sort);
+  const hasFilter = Boolean(category || tag || sort || Object.keys(flags).length > 0);
   return productsBrowseMetadata(config, locale as StorefrontLocale, {
     page: Number(page) || 1,
     hasFilter,
@@ -40,8 +33,10 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
 }
 
 export default async function Page({ searchParams }: { searchParams: SearchParams }) {
-  const { page, category, tag, sort } = await searchParams;
+  const paramsRecord = await searchParams;
+  const { page, category, tag, sort, ...flagParams } = paramsRecord;
   const pageNumber = Math.max(1, Number(page) || 1);
+  const flags = parseStoreProductFlags(flagParams);
 
   if (isStorefrontCsrEnabled()) {
     return (
@@ -50,6 +45,7 @@ export default async function Page({ searchParams }: { searchParams: SearchParam
         categorySlug={category}
         tag={tag}
         sort={sort}
+        flags={flags}
       />
     );
   }
@@ -61,7 +57,14 @@ export default async function Page({ searchParams }: { searchParams: SearchParam
   const categories = categoriesResult.items;
   const activeCategory = category ? categories.find((item) => item.slug === category) : undefined;
   const productsResult = await getStorefrontProductsList(
-    resolveListQuery(pageNumber, activeCategory?.id, tag, sort),
+    resolveStoreProductsListQuery({
+      page: pageNumber,
+      limit: PAGE_SIZE,
+      categoryId: activeCategory?.id,
+      tag,
+      sort,
+      flags,
+    }),
   );
 
   return (
@@ -70,6 +73,7 @@ export default async function Page({ searchParams }: { searchParams: SearchParam
       categorySlug={category}
       tag={tag}
       sort={sort}
+      flags={flags}
       categories={categories}
       secondaryNavigation={config.secondaryNavigation}
       storePages={config.storePages}

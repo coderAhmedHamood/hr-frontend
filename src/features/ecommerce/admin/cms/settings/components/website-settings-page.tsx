@@ -510,26 +510,35 @@ export function WebsiteSettingsPage() {
                         ['card', t('paymentCard'), CreditCard],
                       ] as const
                     ).map(([id, label, Icon]) => {
-                      const checked = (draft.checkout?.paymentMethods ?? []).includes(id);
+                      const record = draft;
+                      const checked = (record.checkout?.paymentMethods ?? []).includes(id);
+                      function toggleMethod(nextChecked: boolean) {
+                        const current = record.checkout?.paymentMethods ?? [];
+                        const paymentMethods = nextChecked
+                          ? [...current.filter((method) => method !== id), id]
+                          : current.filter((method) => method !== id);
+                        updateDraft({
+                          ...record,
+                          checkout: {
+                            ...defaultCheckout(record),
+                            paymentMethods: paymentMethods.length > 0 ? paymentMethods : [id],
+                          },
+                        });
+                      }
                       return (
-                        <button
+                        <div
                           key={id}
-                          type="button"
-                          onClick={() => {
-                            const current = draft.checkout?.paymentMethods ?? [];
-                            const paymentMethods = checked
-                              ? current.filter((method) => method !== id)
-                              : [...current.filter((method) => method !== id), id];
-                            updateDraft({
-                              ...draft,
-                              checkout: {
-                                ...defaultCheckout(draft),
-                                paymentMethods: paymentMethods.length > 0 ? paymentMethods : [id],
-                              },
-                            });
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => toggleMethod(!checked)}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter' || event.key === ' ') {
+                              event.preventDefault();
+                              toggleMethod(!checked);
+                            }
                           }}
                           className={cn(
-                            'flex items-center gap-3 rounded-2xl border px-4 py-3 text-start transition-colors',
+                            'flex cursor-pointer items-center gap-3 rounded-2xl border px-4 py-3 text-start transition-colors',
                             checked
                               ? 'border-primary/40 bg-primary/5 ring-1 ring-primary/20'
                               : 'border-border/70 bg-muted/10 hover:border-primary/25',
@@ -544,8 +553,12 @@ export function WebsiteSettingsPage() {
                             <Icon className="h-4 w-4" aria-hidden />
                           </span>
                           <span className="min-w-0 flex-1 text-sm font-medium text-foreground">{label}</span>
-                          <Switch checked={checked} tabIndex={-1} aria-hidden />
-                        </button>
+                          <Switch
+                            checked={checked}
+                            onCheckedChange={toggleMethod}
+                            onClick={(event) => event.stopPropagation()}
+                          />
+                        </div>
                       );
                     })}
                   </div>

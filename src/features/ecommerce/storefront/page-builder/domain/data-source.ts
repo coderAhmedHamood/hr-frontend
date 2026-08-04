@@ -44,6 +44,10 @@ export type QueryDataSource = {
   isNewProduct?: boolean | null;
   /** Active “today’s deal” promo flag (backend `isTodayDeal`). */
   isTodayDeal?: boolean | null;
+  /** Active wholesale flag (backend `isWholesale`). */
+  isWholesale?: boolean | null;
+  /** Active discount flag (backend `isDiscounted`). */
+  isDiscounted?: boolean | null;
 };
 
 /** Future recommendation engine slot — not implemented server-side yet. */

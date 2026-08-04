@@ -1,23 +1,25 @@
 'use client';
 
 import * as React from 'react';
-import { useLocale, useTranslations } from 'next-intl';
+import { useTranslations } from 'next-intl';
 import {
   ChevronRight,
   ClipboardList,
-  Globe,
-  Languages,
   Pencil,
   Power,
   RefreshCcw,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useStorefrontCustomerUi } from '@/features/ecommerce/storefront/hooks/use-storefront-customer-ui';
-import { logoutPartner } from '@/features/ecommerce/storefront/lib/api/partner-auth-api';
+import {
+  getPartnerMe,
+  logoutPartner,
+  updatePartnerProfile,
+} from '@/features/ecommerce/storefront/lib/api/partner-auth-api';
+import { PartnerAuthApiError } from '@/features/ecommerce/storefront/domain/partner-auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
   DialogContent,
@@ -25,8 +27,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Link, usePathname, useRouter } from '@/i18n/navigation';
-import type { StorefrontLocale } from '@/i18n/routing';
+import { Link, useRouter } from '@/i18n/navigation';
+
 function initialsFromName(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return '?';
@@ -36,20 +38,19 @@ function initialsFromName(name: string): string {
 
 export function StoreAccountClient() {
   const t = useTranslations('storefront');
-  const locale = useLocale() as StorefrontLocale;
   const router = useRouter();
-  const pathname = usePathname();
   const customer = useStorefrontCustomerUi((s) => s.customer);
   const accessToken = useStorefrontCustomerUi((s) => s.accessToken);
-  const updateProfile = useStorefrontCustomerUi((s) => s.updateProfile);
+  const setSession = useStorefrontCustomerUi((s) => s.setSession);
+  const applyMe = useStorefrontCustomerUi((s) => s.applyMe);
   const clearSession = useStorefrontCustomerUi((s) => s.clearSession);
   const [hydrated, setHydrated] = React.useState(false);
   const [editOpen, setEditOpen] = React.useState(false);
   const [editName, setEditName] = React.useState('');
   const [editPhone, setEditPhone] = React.useState('');
   const [editEmail, setEditEmail] = React.useState('');
+  const [saving, setSaving] = React.useState(false);
   const [loggingOut, setLoggingOut] = React.useState(false);
-  const [localePending, startLocaleTransition] = React.useTransition();
 
   React.useEffect(() => {
     setHydrated(true);
@@ -60,6 +61,26 @@ export function StoreAccountClient() {
       router.replace('/store/login');
     }
   }, [hydrated, customer, router]);
+
+  React.useEffect(() => {
+    if (!hydrated || !accessToken) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const me = await getPartnerMe(accessToken);
+        if (!cancelled) applyMe(me);
+      } catch (err) {
+        if (cancelled) return;
+        if (err instanceof PartnerAuthApiError && (err.status === 401 || err.status === 403)) {
+          clearSession();
+          router.replace('/store/login');
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [hydrated, accessToken, applyMe, clearSession, router]);
 
   React.useEffect(() => {
     if (customer) {
@@ -73,15 +94,35 @@ export function StoreAccountClient() {
     return <div className="h-64 animate-pulse rounded-2xl bg-muted/40" />;
   }
 
-  function saveProfile(event: React.FormEvent) {
+  async function saveProfile(event: React.FormEvent) {
     event.preventDefault();
     if (!editName.trim() || !editPhone.trim() || !editEmail.trim()) {
       toast.error(t('register.errors.emailMobileRequired'));
       return;
     }
-    updateProfile({ name: editName, phone: editPhone, email: editEmail });
-    setEditOpen(false);
-    toast.success(t('account.profileSaved'));
+    if (!accessToken) {
+      toast.error(t('account.profileSaveFailed'));
+      return;
+    }
+    setSaving(true);
+    try {
+      const session = await updatePartnerProfile(accessToken, {
+        name: editName,
+        email: editEmail,
+        mobile: editPhone,
+      });
+      setSession(session);
+      setEditOpen(false);
+      toast.success(t('account.profileSaved'));
+    } catch (err) {
+      const message =
+        err instanceof PartnerAuthApiError
+          ? err.message
+          : t('account.profileSaveFailed');
+      toast.error(message);
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function handleLogout() {
@@ -99,20 +140,6 @@ export function StoreAccountClient() {
       setLoggingOut(false);
     }
   }
-
-  function switchLocale() {
-    const next = locale === 'ar' ? 'en' : 'ar';
-    startLocaleTransition(() => {
-      router.replace(pathname, { locale: next });
-    });
-  }
-
-  const kindLabel =
-    customer.accountKind === 'vendor'
-      ? t('account.accountKindVendor')
-      : customer.accountKind === 'visitor'
-        ? t('account.accountKindVisitor')
-        : t('account.accountKindCustomer');
 
   const quickLinks = [
     {
@@ -142,12 +169,11 @@ export function StoreAccountClient() {
               <h1 className="truncate font-arabic-display text-lg font-bold text-foreground sm:text-xl">
                 {t('account.hello', { name: customer.name })}
               </h1>
-              <Badge variant="subtle">{kindLabel}</Badge>
             </div>
-            <p className="mt-0.5 truncate text-sm text-muted-foreground" dir="ltr">
+            <p className="mt-0.5 truncate text-sm text-muted-foreground rtl:text-right" dir="ltr">
               {customer.email}
             </p>
-            <p className="truncate text-sm text-muted-foreground" dir="ltr">
+            <p className="truncate text-sm text-muted-foreground rtl:text-right" dir="ltr">
               {customer.phone}
             </p>
           </div>
@@ -162,25 +188,6 @@ export function StoreAccountClient() {
             {t('account.edit')}
           </Button>
         </div>
-
-        <dl className="mt-4 grid gap-2 border-t border-border pt-4 text-sm sm:grid-cols-2">
-          <div className="rounded-xl bg-muted/40 px-3 py-2">
-            <dt className="text-xs text-muted-foreground">{t('account.email')}</dt>
-            <dd className="mt-0.5 font-medium text-foreground" dir="ltr">
-              {customer.email || '—'}
-            </dd>
-          </div>
-          <div className="rounded-xl bg-muted/40 px-3 py-2">
-            <dt className="text-xs text-muted-foreground">{t('account.mobile')}</dt>
-            <dd className="mt-0.5 font-medium text-foreground" dir="ltr">
-              {customer.phone || '—'}
-            </dd>
-          </div>
-          <div className="rounded-xl bg-muted/40 px-3 py-2 sm:col-span-2">
-            <dt className="text-xs text-muted-foreground">{t('account.accountKind')}</dt>
-            <dd className="mt-0.5 font-medium text-foreground">{kindLabel}</dd>
-          </div>
-        </dl>
       </section>
 
       <Link
@@ -220,44 +227,6 @@ export function StoreAccountClient() {
         })}
       </section>
 
-      <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-soft">
-        <h2 className="border-b border-border px-4 py-3 text-sm font-semibold text-foreground">
-          {t('account.sectionSettings')}
-        </h2>
-        <ul>
-          <li className="border-b border-border">
-            <div className="flex items-center gap-3 px-4 py-3.5">
-              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-primary">
-                <Globe className="h-4 w-4" />
-              </span>
-              <span className="flex-1 text-sm font-medium text-foreground">
-                {t('account.menu.country')}
-              </span>
-              <span className="text-sm text-muted-foreground">{t('account.countryYemen')}</span>
-            </div>
-          </li>
-          <li>
-            <button
-              type="button"
-              disabled={localePending}
-              className="flex w-full items-center gap-3 px-4 py-3.5 text-start transition-colors hover:bg-muted/30 disabled:opacity-70"
-              onClick={switchLocale}
-            >
-              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-primary">
-                <Languages className="h-4 w-4" />
-              </span>
-              <span className="flex-1 text-sm font-medium text-foreground">
-                {t('account.menu.language')}
-              </span>
-              <span className="text-sm text-muted-foreground">
-                {locale === 'ar' ? t('locale.ar') : t('locale.en')}
-              </span>
-              <ChevronRight className="h-4 w-4 text-muted-foreground rtl:rotate-180" />
-            </button>
-          </li>
-        </ul>
-      </section>
-
       <Button
         type="button"
         variant="outline"
@@ -274,7 +243,7 @@ export function StoreAccountClient() {
           <DialogHeader>
             <DialogTitle>{t('account.editProfile')}</DialogTitle>
           </DialogHeader>
-          <form className="space-y-4" onSubmit={saveProfile}>
+          <form className="space-y-4" onSubmit={(e) => void saveProfile(e)}>
             <div className="space-y-1.5">
               <Label htmlFor="edit-name">{t('register.name')}</Label>
               <Input id="edit-name" value={editName} onChange={(e) => setEditName(e.target.value)} />
@@ -299,10 +268,12 @@ export function StoreAccountClient() {
               />
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setEditOpen(false)}>
+              <Button type="button" variant="outline" onClick={() => setEditOpen(false)} disabled={saving}>
                 {t('common.back')}
               </Button>
-              <Button type="submit">{t('account.save')}</Button>
+              <Button type="submit" disabled={saving}>
+                {saving ? t('account.saving') : t('account.save')}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>

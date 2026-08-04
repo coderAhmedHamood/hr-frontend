@@ -1,0 +1,168 @@
+'use client';
+
+import Link from 'next/link';
+import { ArrowRight, Camera, ImagePlus } from 'lucide-react';
+import { useWatch, type Control, type UseFormRegister, type UseFormSetValue } from 'react-hook-form';
+import type { ProductFormInput, ProductFormValues } from '@/features/ecommerce/admin/products/schemas/product-schema';
+import { useProductImageField } from '@/features/ecommerce/admin/products/hooks/use-product-image-field';
+import { ProductStatTile } from '@/features/ecommerce/admin/products/components/product-stat-tile';
+import { ecommerceAdminRoutes } from '@/features/ecommerce/admin/constants/routes';
+import { PRODUCT_STATUS_LABELS_AR, type ProductStatus } from '@/features/ecommerce/domain/constants/product-status';
+import { STOCK_STATUS_LABELS_AR, type StockStatus } from '@/features/ecommerce/domain/constants/stock-status';
+import { formatPrice } from '@/features/ecommerce/shared/utils/format-price';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Badge, type BadgeProps } from '@/components/ui/badge';
+import { cn } from '@/shared/utils';
+
+type Props = {
+  control: Control<ProductFormInput, unknown, ProductFormValues>;
+  register: UseFormRegister<ProductFormInput>;
+  setValue: UseFormSetValue<ProductFormInput>;
+  nameError?: string;
+  currency: string;
+};
+
+const STATUS_BADGE_VARIANT: Record<ProductStatus, BadgeProps['variant']> = {
+  active: 'success',
+  draft: 'subtle',
+  archived: 'outline',
+};
+
+const STOCK_BADGE_VARIANT: Record<StockStatus, BadgeProps['variant']> = {
+  in_stock: 'success',
+  out_of_stock: 'destructive',
+  preorder: 'warning',
+  discontinued: 'outline',
+};
+
+/** Modern, live-updating identity card for the product detail page — replaces the compact dialog header. */
+export function ProductDetailHero({ control, register, setValue, nameError, currency }: Props) {
+  const { imageUrl, pickImage } = useProductImageField(control, setValue);
+  const sku = useWatch({ control, name: 'sku' }) ?? '';
+  const status = useWatch({ control, name: 'status' });
+  const stockStatus = useWatch({ control, name: 'stockStatus' });
+  const stockQuantity = (useWatch({ control, name: 'stockQuantity' }) as number | undefined) ?? 0;
+  const listPrice = (useWatch({ control, name: 'listPrice' }) as number | undefined) ?? 0;
+  const isNewProduct = useWatch({ control, name: 'isNewProduct' });
+  const isTodayDeal = useWatch({ control, name: 'isTodayDeal' });
+  const dealPriceAmount = useWatch({ control, name: 'dealPriceAmount' }) as number | undefined;
+  const isWholesale = useWatch({ control, name: 'isWholesale' });
+  const isDiscounted = useWatch({ control, name: 'isDiscounted' });
+  const discountPercent = useWatch({ control, name: 'discountPercent' }) as number | undefined;
+
+  const offerBadges = [
+    isNewProduct ? { key: 'new', variant: 'subtle' as const, label: 'حديث' } : null,
+    isTodayDeal ? { key: 'deal', variant: 'warning' as const, label: 'تخفيض اليوم' } : null,
+    isWholesale ? { key: 'wholesale', variant: 'outline' as const, label: 'جملة' } : null,
+    isDiscounted
+      ? { key: 'discount', variant: 'destructive' as const, label: `خصم${discountPercent ? ` ${discountPercent}%` : ''}` }
+      : null,
+  ].filter(Boolean) as Array<{ key: string; variant: BadgeProps['variant']; label: string }>;
+
+  const hasDealPrice = isTodayDeal && dealPriceAmount != null && dealPriceAmount > 0;
+
+  return (
+    <section className="relative overflow-hidden rounded-3xl border border-border/70 bg-card">
+      <div
+        className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-linear-to-l from-primary/10 via-primary/5 to-transparent"
+        aria-hidden
+      />
+      <div className="relative flex flex-col gap-5 p-4 sm:p-6">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-fit gap-1.5 self-start text-muted-foreground hover:text-foreground"
+          asChild
+        >
+          <Link href={ecommerceAdminRoutes.products}>
+            <ArrowRight className="h-4 w-4" />
+            المنتجات
+          </Link>
+        </Button>
+
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
+          <button
+            type="button"
+            onClick={pickImage}
+            className="group relative mx-auto flex aspect-square w-28 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-dashed border-border bg-background/80 shadow-soft transition-all hover:border-primary/50 sm:mx-0 sm:w-32"
+            aria-label="تغيير صورة المنتج"
+          >
+            {imageUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={imageUrl} alt="" className="h-full w-full object-cover" />
+            ) : (
+              <span className="flex flex-col items-center gap-1.5 px-3 text-center text-muted-foreground">
+                <Camera className="h-6 w-6" />
+                <span className="text-[11px] font-medium">أضف صورة</span>
+              </span>
+            )}
+            <span className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-center gap-1 bg-foreground/70 py-1.5 text-[10px] font-medium text-background opacity-0 transition-opacity group-hover:opacity-100">
+              <ImagePlus className="h-3 w-3" />
+              تغيير
+            </span>
+          </button>
+
+          <div className="min-w-0 flex-1 space-y-3">
+            <div className="space-y-1.5">
+              <Input
+                placeholder="اسم المنتج بالعربية"
+                aria-label="اسم المنتج"
+                aria-invalid={Boolean(nameError)}
+                className={cn(
+                  'h-auto border-transparent bg-transparent px-0 text-2xl font-bold tracking-tight text-foreground shadow-none focus-visible:border-transparent focus-visible:ring-0 sm:text-[1.65rem]',
+                  nameError && 'text-destructive',
+                )}
+                {...register('nameAr')}
+              />
+              {nameError ? <p className="text-xs text-destructive">{nameError}</p> : null}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-1.5">
+              {sku ? (
+                <span
+                  className="inline-flex items-center rounded-full border border-border/80 bg-muted/40 px-2.5 py-1 text-[11px] font-medium text-muted-foreground"
+                  dir="ltr"
+                >
+                  SKU: {sku}
+                </span>
+              ) : null}
+              {status ? (
+                <Badge variant={STATUS_BADGE_VARIANT[status]}>{PRODUCT_STATUS_LABELS_AR[status]}</Badge>
+              ) : null}
+              {stockStatus ? (
+                <Badge variant={STOCK_BADGE_VARIANT[stockStatus]}>{STOCK_STATUS_LABELS_AR[stockStatus]}</Badge>
+              ) : null}
+              {offerBadges.map((badge) => (
+                <Badge key={badge.key} variant={badge.variant}>
+                  {badge.label}
+                </Badge>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-2 sm:gap-3">
+          <ProductStatTile
+            className="w-fit min-w-24 shrink-0"
+            label="سعر البيع"
+            accent={hasDealPrice}
+            value={
+              hasDealPrice ? (
+                <span className="flex items-baseline gap-1.5">
+                  <span>{formatPrice({ amount: dealPriceAmount as number, currency })}</span>
+                  <span className="text-xs font-normal text-muted-foreground line-through">
+                    {formatPrice({ amount: listPrice, currency })}
+                  </span>
+                </span>
+              ) : (
+                formatPrice({ amount: listPrice, currency })
+              )
+            }
+          />
+          <ProductStatTile className="w-fit min-w-24 shrink-0" label="الكمية" value={stockQuantity} />
+        </div>
+      </div>
+    </section>
+  );
+}

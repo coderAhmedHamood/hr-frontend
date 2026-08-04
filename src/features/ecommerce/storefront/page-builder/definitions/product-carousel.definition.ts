@@ -21,6 +21,8 @@ const DEFAULT_CONFIGURATION = {
     tag: null,
     isNewProduct: null,
     isTodayDeal: null,
+    isWholesale: null,
+    isDiscounted: null,
   },
 };
 
