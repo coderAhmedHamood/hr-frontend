@@ -7,10 +7,7 @@ type StorefrontPageProps = {
 };
 
 /** Generic CMS page — renders sections[] only; no section-type knowledge. */
-export async function StorefrontPage({ page }: StorefrontPageProps) {
-  const renderedSections = await Promise.all(
-    page.sections.map((section) => <SectionRenderer key={section.id} section={section} />),
-  );
+export function StorefrontPage({ page }: StorefrontPageProps) {
   const flushTop = page.sections[0]?.type === 'hero-carousel';
 
   return (
@@ -21,7 +18,9 @@ export async function StorefrontPage({ page }: StorefrontPageProps) {
       )}
     >
       <h1 className="sr-only">{page.seoTitle}</h1>
-      {renderedSections}
+      {page.sections.map((section) => (
+        <SectionRenderer key={section.id} section={section} />
+      ))}
     </div>
   );
 }

@@ -1,11 +1,13 @@
-import { getTranslations } from 'next-intl/server';
+'use client';
+
+import { useTranslations } from 'next-intl';
 import { ChevronLeft } from 'lucide-react';
 import { Link } from '@/i18n/navigation';
 
 export type BreadcrumbItem = { name: string; path: `/store${string}` };
 
-export async function StoreBreadcrumbs({ items }: { items: BreadcrumbItem[] }) {
-  const t = await getTranslations('storefront');
+export function StoreBreadcrumbs({ items }: { items: BreadcrumbItem[] }) {
+  const t = useTranslations('storefront');
 
   return (
     <nav aria-label={t('a11y.breadcrumbs')} className="flex flex-wrap items-center gap-1 text-sm text-muted-foreground">

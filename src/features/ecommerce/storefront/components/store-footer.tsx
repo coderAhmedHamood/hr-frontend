@@ -1,4 +1,6 @@
-import { getTranslations } from 'next-intl/server';
+'use client';
+
+import { useTranslations } from 'next-intl';
 import { Mail, MapPin, Phone } from 'lucide-react';
 import type { StorefrontCompanyConfig } from '@/features/ecommerce/storefront/domain/storefront-models';
 import { StoreFooterUtilities } from '@/features/ecommerce/storefront/components/store-footer-utilities';
@@ -19,52 +21,14 @@ const SOCIAL_LABEL_KEYS = {
   linkedin: 'socialLinkedin',
 } as const satisfies Record<StorefrontSocialNetwork, string>;
 
-type FooterCmsLink = {
-  href: '/store/about' | '/store/contact' | '/store/faq' | `/store/legal/${string}`;
-  labelKey: string;
-};
-
-type FooterCmsGroup = {
-  id: string;
-  titleKey: string;
-  links: FooterCmsLink[];
-};
-
-/** Fixed CMS content pages — mirrors the admin content pages list. */
-const FOOTER_CMS_GROUPS: FooterCmsGroup[] = [
-  {
-    id: 'company',
-    titleKey: 'footer.groupCompany',
-    links: [
-      { href: '/store/about', labelKey: 'about.title' },
-      { href: '/store/contact', labelKey: 'contact.title' },
-    ],
-  },
-  {
-    id: 'help',
-    titleKey: 'footer.groupHelp',
-    links: [
-      { href: '/store/faq', labelKey: 'faq.title' },
-      { href: '/store/legal/returns', labelKey: 'legal.returns' },
-    ],
-  },
-  {
-    id: 'legal',
-    titleKey: 'footer.groupLegal',
-    links: [
-      { href: '/store/legal/terms', labelKey: 'legal.terms' },
-      { href: '/store/legal/privacy', labelKey: 'legal.privacy' },
-    ],
-  },
-];
-
-export async function StoreFooter({
+export function StoreFooter({
   config,
 }: {
   config: StorefrontCompanyConfig;
 }) {
-  const t = await getTranslations('storefront');
+  const t = useTranslations('storefront');
   const copyrightName = config.footer.copyrightOwnerName.trim() || config.name;
+  const linkGroups = config.footer.linkGroups.filter((group) => group.links.length > 0);
 
   return (
     <footer className="mt-auto border-t border-border bg-muted/40 text-foreground">
@@ -72,7 +36,11 @@ export async function StoreFooter({
         <div className="grid grid-cols-2 gap-x-6 gap-y-8 md:grid-cols-4 lg:grid-cols-4 lg:gap-10">
           <div className="col-span-2 flex flex-col gap-4 md:col-span-1">
             <p className="font-arabic-display text-xl font-bold text-foreground">{config.name}</p>
-            <p className="max-w-sm text-sm leading-relaxed text-muted-foreground">{t('footer.tagline')}</p>
+            {config.footer.tagline.trim() ? (
+              <p className="max-w-sm text-sm leading-relaxed text-muted-foreground">
+                {config.footer.tagline}
+              </p>
+            ) : null}
             <div className="flex flex-col gap-2 text-sm text-muted-foreground">
               {config.contact.phone ? (
                 <a href={`tel:${config.contact.phone}`} className="inline-flex items-center gap-2 hover:text-foreground">
@@ -116,18 +84,18 @@ export async function StoreFooter({
             </div>
           </div>
 
-          {FOOTER_CMS_GROUPS.map((group) => (
+          {linkGroups.map((group) => (
             <div key={group.id} className="flex flex-col gap-3">
-              <h3 className="text-sm font-semibold text-foreground">{t(group.titleKey)}</h3>
+              <h3 className="text-sm font-semibold text-foreground">{group.title}</h3>
               <ul className="flex flex-col gap-2">
                 {group.links.map((link) => (
-                  <li key={link.href}>
+                  <li key={`${group.id}-${link.href}-${link.label}`}>
                     <Link
                       href={link.href}
                       prefetch={false}
                       className="text-sm text-muted-foreground transition-colors hover:text-primary"
                     >
-                      {t(link.labelKey)}
+                      {link.label}
                     </Link>
                   </li>
                 ))}

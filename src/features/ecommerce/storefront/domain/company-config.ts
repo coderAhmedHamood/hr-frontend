@@ -1,4 +1,5 @@
 import type { LocalizableString } from '@/features/ecommerce/storefront/domain/localizable';
+import type { StorefrontTypography } from '@/features/ecommerce/storefront/lib/storefront-fonts';
 
 export type CompanyThemeColors = {
   primary: string;
@@ -93,10 +94,79 @@ export type CompanyFooterLinkGroupRecord = {
 
 export type CompanyFooterConfigRecord = {
   copyrightOwnerName: LocalizableString;
+  /** Short blurb under the store name in the footer. */
+  tagline: LocalizableString;
   linkGroups: CompanyFooterLinkGroupRecord[];
   /** Commercial registration (CR) — edited under Website Settings, shown in footer copyright line. */
   commercialRegistration?: string;
 };
+
+export const STOREFRONT_MOBILE_TAB_ICONS = [
+  'home',
+  'categories',
+  'account',
+  'cart',
+  'search',
+  'wishlist',
+  'offers',
+  'products',
+] as const;
+
+export type StorefrontMobileTabIcon = (typeof STOREFRONT_MOBILE_TAB_ICONS)[number];
+
+export type CompanyMobileTabRecord = {
+  id: string;
+  enabled: boolean;
+  label: LocalizableString;
+  href: `/store${string}` | '/store';
+  icon: StorefrontMobileTabIcon;
+};
+
+export const DEFAULT_MOBILE_TABS: CompanyMobileTabRecord[] = [
+  {
+    id: 'home',
+    enabled: true,
+    label: { ar: 'الرئيسية', en: 'Home' },
+    href: '/store',
+    icon: 'home',
+  },
+  {
+    id: 'categories',
+    enabled: true,
+    label: { ar: 'التصنيفات', en: 'Categories' },
+    href: '/store/categories',
+    icon: 'categories',
+  },
+  {
+    id: 'account',
+    enabled: true,
+    label: { ar: 'حسابي', en: 'Account' },
+    href: '/store/login',
+    icon: 'account',
+  },
+  {
+    id: 'cart',
+    enabled: true,
+    label: { ar: 'السلة', en: 'Cart' },
+    href: '/store/cart',
+    icon: 'cart',
+  },
+];
+
+export function normalizeMobileTabs(
+  raw: CompanyMobileTabRecord[] | null | undefined,
+): CompanyMobileTabRecord[] {
+  if (!raw?.length) return DEFAULT_MOBILE_TABS.map((tab) => ({ ...tab, label: { ...tab.label } }));
+  return raw.map((tab, index) => ({
+    id: tab.id || `tab-${index + 1}`,
+    enabled: tab.enabled !== false,
+    label: { ar: tab.label?.ar ?? '', en: tab.label?.en ?? '' },
+    href: (tab.href?.startsWith('/store') ? tab.href : '/store') as `/store${string}` | '/store',
+    icon: STOREFRONT_MOBILE_TAB_ICONS.includes(tab.icon as StorefrontMobileTabIcon)
+      ? (tab.icon as StorefrontMobileTabIcon)
+      : 'home',
+  }));
+}
 
 export type CompanySecondaryNavItemRecord = CompanyNavItemRecord & {
   highlight?: boolean;
@@ -251,6 +321,8 @@ export type CompanyConfigRecord = {
   contact: CompanyContactInfo;
   social: CompanySocialLinks;
   theme: CompanyThemeColors;
+  /** Storefront Google Font / custom upload selection. */
+  typography: StorefrontTypography;
   navigation: CompanyNavItemRecord[];
   secondaryNavigation: CompanySecondaryNavItemRecord[];
   footer: CompanyFooterConfigRecord;
@@ -258,6 +330,8 @@ export type CompanyConfigRecord = {
   checkout: CompanyCheckoutConfigRecord;
   /** Show/hide offers & wholesale storefront pages in nav. */
   storePages: CompanyStorePagesVisibility;
+  /** Bottom mobile tab bar (enabled items only shown on storefront). */
+  mobileTabs: CompanyMobileTabRecord[];
   defaultLocale: string;
   currency: string;
   timezone: string;

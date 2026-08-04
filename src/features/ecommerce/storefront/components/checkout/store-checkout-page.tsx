@@ -1,11 +1,12 @@
-import { getTranslations } from 'next-intl/server';
+'use client';
+
+import { useTranslations } from 'next-intl';
 import { StoreBreadcrumbs } from '@/features/ecommerce/storefront/components/store-breadcrumbs';
 import { StoreCheckoutClient } from '@/features/ecommerce/storefront/components/checkout/store-checkout-client';
-import { getStorefrontCompanyConfig } from '@/features/ecommerce/storefront/lib/get-storefront-company-config';
+import type { StorefrontCompanyConfig } from '@/features/ecommerce/storefront/domain/storefront-models';
 
-export async function StoreCheckoutPage() {
-  const t = await getTranslations('storefront');
-  const config = await getStorefrontCompanyConfig();
+export function StoreCheckoutPage({ config }: { config: StorefrontCompanyConfig }) {
+  const t = useTranslations('storefront');
 
   return (
     <div className="flex min-w-0 flex-col gap-5 pb-28 sm:pb-0">

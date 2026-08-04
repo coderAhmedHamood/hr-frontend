@@ -4,11 +4,18 @@ import type {
   CompanySocialNetwork,
 } from '@/features/ecommerce/storefront/domain/company-config';
 import {
+  COMPANY_SOCIAL_NETWORKS,
+  DEFAULT_MOBILE_TABS,
   normalizeAnnouncementBar,
   normalizeSocialLinks,
   normalizeStorePagesVisibility,
 } from '@/features/ecommerce/storefront/domain/company-config';
 import { fromDecimalString, toDecimalString } from '@/features/ecommerce/storefront/lib/api/store-http';
+import {
+  DEFAULT_STOREFRONT_TYPOGRAPHY,
+  resolveStorefrontFontId,
+  CUSTOM_STOREFRONT_FONT_ID,
+} from '@/features/ecommerce/storefront/lib/storefront-fonts';
 
 export type StoreSettingsDto = {
   companyId: string;
@@ -35,6 +42,12 @@ export type StoreSettingsDto = {
   footerCopyrightOwnerAr: string;
   footerCopyrightOwnerEn: string;
   footerCommercialRegistration?: string | null;
+  footerTaglineAr?: string;
+  footerTaglineEn?: string;
+  bodyFont?: string;
+  displayFont?: string;
+  bodyFontUrl?: string | null;
+  displayFontUrl?: string | null;
   announcementEnabled: boolean;
   announcementDismissible: boolean;
   announcementScrolling: boolean;
@@ -125,6 +138,15 @@ export function mapStorefrontConfigDtoToRecord(dto: StorefrontConfigDto): Compan
       secondary: s.themeSecondary,
       accent: s.themeAccent,
     },
+    typography: {
+      bodyFontId: resolveStorefrontFontId(s.bodyFont, DEFAULT_STOREFRONT_TYPOGRAPHY.bodyFontId),
+      displayFontId: resolveStorefrontFontId(
+        s.displayFont,
+        DEFAULT_STOREFRONT_TYPOGRAPHY.displayFontId,
+      ),
+      bodyFontUrl: s.bodyFontUrl ?? null,
+      displayFontUrl: s.displayFontUrl ?? null,
+    },
     contact: {
       phone: s.contactPhone ?? undefined,
       email: s.contactEmail ?? undefined,
@@ -157,6 +179,10 @@ export function mapStorefrontConfigDtoToRecord(dto: StorefrontConfigDto): Compan
         ar: s.footerCopyrightOwnerAr,
         en: s.footerCopyrightOwnerEn,
       },
+      tagline: {
+        ar: s.footerTaglineAr ?? '',
+        en: s.footerTaglineEn ?? '',
+      },
       commercialRegistration: s.footerCommercialRegistration ?? undefined,
       linkGroups: [...dto.footerLinkGroups]
         .sort((a, b) => a.sortOrder - b.sortOrder)
@@ -171,6 +197,10 @@ export function mapStorefrontConfigDtoToRecord(dto: StorefrontConfigDto): Compan
             })),
         })),
     },
+    mobileTabs: DEFAULT_MOBILE_TABS.map((tab) => ({
+      ...tab,
+      label: { ...tab.label },
+    })),
     announcement: normalizeAnnouncementBar({
       enabled: s.announcementEnabled,
       dismissible: s.announcementDismissible,
@@ -232,6 +262,18 @@ export function mapRecordToUpdateSettingsDto(record: CompanyConfigRecord) {
     footerCopyrightOwnerAr: record.footer.copyrightOwnerName.ar,
     footerCopyrightOwnerEn: record.footer.copyrightOwnerName.en,
     footerCommercialRegistration: record.footer.commercialRegistration ?? null,
+    footerTaglineAr: record.footer.tagline?.ar ?? '',
+    footerTaglineEn: record.footer.tagline?.en ?? '',
+    bodyFont: record.typography?.bodyFontId ?? DEFAULT_STOREFRONT_TYPOGRAPHY.bodyFontId,
+    displayFont: record.typography?.displayFontId ?? DEFAULT_STOREFRONT_TYPOGRAPHY.displayFontId,
+    bodyFontUrl:
+      record.typography?.bodyFontId === CUSTOM_STOREFRONT_FONT_ID
+        ? (record.typography.bodyFontUrl ?? null)
+        : null,
+    displayFontUrl:
+      record.typography?.displayFontId === CUSTOM_STOREFRONT_FONT_ID
+        ? (record.typography.displayFontUrl ?? null)
+        : null,
     announcementEnabled: record.announcement.enabled,
     announcementDismissible: record.announcement.dismissible,
     announcementScrolling: record.announcement.scrolling !== false,
@@ -260,13 +302,17 @@ export function mapRecordToCheckoutCitiesPayload(record: CompanyConfigRecord) {
 export function mapRecordToSocialLinksPayload(record: CompanyConfigRecord) {
   const social = normalizeSocialLinks(record.social);
   return {
-    socialLinks: (Object.keys(social) as CompanySocialNetwork[])
-      .map((network) => {
-        const entry = social[network];
-        if (!entry) return null;
-        return { network, url: entry.url, enabled: entry.enabled !== false };
-      })
-      .filter(Boolean),
+    // Persist every known network so clearing/disabling in CMS fully replaces DB rows.
+    socialLinks: COMPANY_SOCIAL_NETWORKS.map((network) => {
+      const entry = social[network];
+      const url = entry?.url?.trim() ?? '';
+      return {
+        network,
+        url,
+        // Empty URL cannot appear on the storefront — keep disabled to match store behavior.
+        enabled: Boolean(entry?.enabled !== false && url),
+      };
+    }),
   };
 }
 

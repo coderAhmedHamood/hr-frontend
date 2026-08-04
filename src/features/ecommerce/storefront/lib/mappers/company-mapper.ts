@@ -9,7 +9,10 @@ import {
 import type { StorefrontCompanyConfig, StorefrontNavItem } from '@/features/ecommerce/storefront/domain/storefront-models';
 import type { StorefrontLocale } from '@/i18n/routing';
 import { resolveLocalizedText } from '@/features/ecommerce/storefront/domain/localizable';
-import { DEFAULT_STOREFRONT_TYPOGRAPHY } from '@/features/ecommerce/storefront/lib/storefront-fonts';
+import {
+  DEFAULT_STOREFRONT_TYPOGRAPHY,
+  resolveStorefrontFontId,
+} from '@/features/ecommerce/storefront/lib/storefront-fonts';
 
 function mapNavItem(
   item: CompanyConfigRecord['navigation'][number],
@@ -49,7 +52,18 @@ export function mapStorefrontCompanyConfig(
     contact: record.contact,
     social: resolveEnabledSocialLinks(record.social),
     theme: record.theme,
-    typography: { ...DEFAULT_STOREFRONT_TYPOGRAPHY },
+    typography: {
+      bodyFontId: resolveStorefrontFontId(
+        record.typography?.bodyFontId,
+        DEFAULT_STOREFRONT_TYPOGRAPHY.bodyFontId,
+      ),
+      displayFontId: resolveStorefrontFontId(
+        record.typography?.displayFontId,
+        DEFAULT_STOREFRONT_TYPOGRAPHY.displayFontId,
+      ),
+      bodyFontUrl: record.typography?.bodyFontUrl ?? null,
+      displayFontUrl: record.typography?.displayFontUrl ?? null,
+    },
     navigation: record.navigation
       .filter((item) => isCatalogPageAllowed(item.href, storePages))
       .map((item) => mapNavItem(item, locale)),
@@ -61,6 +75,10 @@ export function mapStorefrontCompanyConfig(
       })),
     footer: {
       copyrightOwnerName: resolveLocalizedText(record.footer.copyrightOwnerName, locale),
+      tagline: resolveLocalizedText(
+        record.footer.tagline ?? { ar: '', en: '' },
+        locale,
+      ),
       commercialRegistration: record.footer.commercialRegistration ?? null,
       linkGroups: record.footer.linkGroups.map((group) => ({
         id: group.id,

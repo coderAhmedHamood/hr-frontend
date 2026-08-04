@@ -1,5 +1,6 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import { Camera, ImagePlus } from 'lucide-react';
 import {
   useFieldArray,
@@ -26,6 +27,8 @@ type Props = {
   relatedDocs?: ProductRelatedDocChip[];
   relatedDocsActiveKey?: ProductRelatedDocKey | null;
   onRelatedDocSelect?: (key: ProductRelatedDocKey) => void;
+  /** Extra row (back button, status badges, price/qty…) rendered above the image + name row, inside the same card. */
+  topBar?: ReactNode;
 };
 
 export function ProductFormHeader({
@@ -37,6 +40,7 @@ export function ProductFormHeader({
   relatedDocs,
   relatedDocsActiveKey,
   onRelatedDocSelect,
+  topBar,
 }: Props) {
   const { fields, append, update } = useFieldArray({ control, name: 'media' });
   const media = useWatch({ control, name: 'media' });
@@ -75,6 +79,9 @@ export function ProductFormHeader({
   return (
     <div className="space-y-4">
       <div className="overflow-hidden rounded-2xl border border-border/80 bg-linear-to-l from-muted/40 via-card to-card">
+        {topBar ? (
+          <div className="flex flex-wrap items-center gap-3 border-b border-border/70 px-4 py-3 sm:px-5">{topBar}</div>
+        ) : null}
         <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-stretch sm:gap-5 sm:p-5">
           <button
             type="button"

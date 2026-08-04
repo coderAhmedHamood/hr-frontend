@@ -1,13 +1,15 @@
-import { getLocale, getTranslations } from 'next-intl/server';
+'use client';
+
+import { useLocale, useTranslations } from 'next-intl';
 import type { StorefrontAboutContent } from '@/features/ecommerce/storefront/domain/storefront-models';
 import { StoreBreadcrumbs } from '@/features/ecommerce/storefront/components/store-breadcrumbs';
 import { JsonLd } from '@/features/ecommerce/storefront/components/json-ld';
-import { breadcrumbJsonLd } from '@/features/ecommerce/storefront/lib/seo';
+import { breadcrumbJsonLd } from '@/features/ecommerce/storefront/lib/seo-jsonld';
 import type { StorefrontLocale } from '@/i18n/routing';
 
-export async function AboutPage({ content }: { content: StorefrontAboutContent }) {
-  const t = await getTranslations('storefront');
-  const locale = (await getLocale()) as StorefrontLocale;
+export function AboutPage({ content }: { content: StorefrontAboutContent }) {
+  const t = useTranslations('storefront');
+  const locale = useLocale() as StorefrontLocale;
 
   const breadcrumbItems = [
     { name: t('breadcrumbs.home'), path: '/store' as const },

@@ -10,45 +10,45 @@ import { ProductCarouselSection } from '@/features/ecommerce/storefront/page-bui
 import { SECTION_DEFINITION_REGISTRY } from '@/features/ecommerce/storefront/page-builder/lib/section-definition-registry';
 
 type SectionRenderEntry = {
-  render: (section: ResolvedSection) => Promise<ReactElement | null>;
+  render: (section: ResolvedSection) => ReactElement | null;
 };
 
 const SECTION_RENDER_REGISTRY: Record<SectionType, SectionRenderEntry> = {
   'hero-carousel': {
-    render: async (section) => {
+    render: (section) => {
       if (section.type !== 'hero-carousel') return null;
       return <HeroCarouselSection section={section} />;
     },
   },
   'category-grid': {
-    render: async (section) => {
+    render: (section) => {
       if (section.type !== 'category-grid') return null;
       return <CategoryGridSection section={section} />;
     },
   },
   'product-carousel': {
-    render: async (section) => {
+    render: (section) => {
       if (section.type !== 'product-carousel') return null;
       return <ProductCarouselSection section={section} />;
     },
   },
   'flash-sale': {
-    render: async (section) => {
+    render: (section) => {
       if (section.type !== 'flash-sale') return null;
       return <FlashSaleSection section={section} />;
     },
   },
   'features-grid': {
-    render: async () => null,
+    render: () => null,
   },
   'brand-slider': {
-    render: async (section) => {
+    render: (section) => {
       if (section.type !== 'brand-slider') return null;
       return <BrandSliderSection section={section} />;
     },
   },
   banner: {
-    render: async (section) => {
+    render: (section) => {
       if (section.type !== 'banner') return null;
       return <BannerSection section={section} />;
     },
@@ -60,7 +60,7 @@ export function getSectionRenderEntry(type: SectionType): SectionRenderEntry | n
   return SECTION_RENDER_REGISTRY[type] ?? null;
 }
 
-export async function renderSectionComponent(section: ResolvedSection): Promise<ReactElement | null> {
+export function renderSectionComponent(section: ResolvedSection): ReactElement | null {
   const entry = getSectionRenderEntry(section.type);
   if (!entry) return null;
   return entry.render(section);

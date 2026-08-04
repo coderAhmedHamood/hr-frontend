@@ -1,5 +1,8 @@
+'use client';
+
+import * as React from 'react';
 import { Star, BadgeCheck } from 'lucide-react';
-import { getTranslations, getLocale } from 'next-intl/server';
+import { useLocale, useTranslations } from 'next-intl';
 import {
   buildBreakdownFromReviews,
   fetchPublicProductReviews,
@@ -25,7 +28,9 @@ function Stars({ rating, size = 'sm' }: { rating: number; size?: 'sm' | 'md' }) 
   );
 }
 
-export async function ProductReviewsSection({
+type ReviewItem = Awaited<ReturnType<typeof fetchPublicProductReviews>>['items'][number];
+
+export function ProductReviewsSection({
   productId,
   rating,
   reviewCount,
@@ -34,41 +39,50 @@ export async function ProductReviewsSection({
   rating: number | null;
   reviewCount: number;
 }) {
-  const t = await getTranslations('storefront.reviews');
-  const locale = (await getLocale()) as StorefrontLocale;
+  const t = useTranslations('storefront.reviews');
+  const locale = useLocale() as StorefrontLocale;
 
-  let average = rating ?? 0;
-  let summary = {
-    average,
+  const [average, setAverage] = React.useState(rating ?? 0);
+  const [summary, setSummary] = React.useState({
+    average: rating ?? 0,
     total: reviewCount,
     breakdown: ([5, 4, 3, 2, 1] as const).map((stars) => ({
       stars,
       count: 0,
       percent: 0,
     })),
-  };
-  let reviews: Awaited<ReturnType<typeof fetchPublicProductReviews>>['items'] = [];
+  });
+  const [reviews, setReviews] = React.useState<ReviewItem[]>([]);
 
-  if (isStoreHttpEnabled()) {
-    try {
-      const page = await fetchPublicProductReviews({
-        companyId: getStorefrontCompanyId(),
-        productId,
-        limit: 20,
-      });
-      const built = buildBreakdownFromReviews(page.items);
-      reviews = page.items.slice(0, 10);
-      const total = page.total > 0 ? page.total : reviewCount;
-      average = built.average > 0 ? built.average : (rating ?? 0);
-      summary = {
-        average,
-        total,
-        breakdown: built.breakdown,
-      };
-    } catch (error) {
-      console.warn('[store] product reviews fetch failed', error);
-    }
-  }
+  React.useEffect(() => {
+    if (!isStoreHttpEnabled()) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const page = await fetchPublicProductReviews({
+          companyId: getStorefrontCompanyId(),
+          productId,
+          limit: 20,
+        });
+        if (cancelled) return;
+        const built = buildBreakdownFromReviews(page.items);
+        const total = page.total > 0 ? page.total : reviewCount;
+        const nextAverage = built.average > 0 ? built.average : (rating ?? 0);
+        setReviews(page.items.slice(0, 10));
+        setAverage(nextAverage);
+        setSummary({
+          average: nextAverage,
+          total,
+          breakdown: built.breakdown,
+        });
+      } catch (error) {
+        console.warn('[store] product reviews fetch failed', error);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [productId, rating, reviewCount]);
 
   const dateFormatter = new Intl.DateTimeFormat(locale === 'ar' ? 'ar-YE' : 'en-US', {
     dateStyle: 'medium',

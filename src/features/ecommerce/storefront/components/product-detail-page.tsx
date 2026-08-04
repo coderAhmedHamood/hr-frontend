@@ -1,8 +1,10 @@
-import { getTranslations } from 'next-intl/server';
+'use client';
+
+import { useLocale, useTranslations } from 'next-intl';
 import type { StorefrontCategory, StorefrontProduct } from '@/features/ecommerce/storefront/domain/storefront-models';
 import { StoreBreadcrumbs } from '@/features/ecommerce/storefront/components/store-breadcrumbs';
 import { JsonLd } from '@/features/ecommerce/storefront/components/json-ld';
-import { breadcrumbJsonLd, productJsonLd } from '@/features/ecommerce/storefront/lib/seo';
+import { breadcrumbJsonLd, productJsonLd } from '@/features/ecommerce/storefront/lib/seo-jsonld';
 import { ProductDetailInteractive } from '@/features/ecommerce/storefront/components/product-detail-interactive';
 import { ProductReviewsSection } from '@/features/ecommerce/storefront/components/catalog/product-reviews-section';
 import { ProductCard } from '@/features/ecommerce/storefront/components/product-card';
@@ -10,19 +12,19 @@ import {
   ProductCarousel,
   ProductCarouselItem,
 } from '@/features/ecommerce/storefront/components/catalog/product-carousel';
-import { getStorefrontProductsList } from '@/features/ecommerce/storefront/lib/loaders/catalog-loaders';
 import type { StorefrontLocale } from '@/i18n/routing';
-import { getLocale } from 'next-intl/server';
 
-export async function ProductDetailPage({
+export function ProductDetailPage({
   product,
   category,
+  relatedProducts = [],
 }: {
   product: StorefrontProduct;
   category: StorefrontCategory | null;
+  relatedProducts?: StorefrontProduct[];
 }) {
-  const t = await getTranslations('storefront');
-  const locale = (await getLocale()) as StorefrontLocale;
+  const t = useTranslations('storefront');
+  const locale = useLocale() as StorefrontLocale;
 
   const breadcrumbItems = [
     { name: t('breadcrumbs.home'), path: '/store' as const },
@@ -31,8 +33,7 @@ export async function ProductDetailPage({
     { name: product.name, path: `/store/products/${product.slug}` as const },
   ];
 
-  const bestSellers = await getStorefrontProductsList({ tag: 'best-seller', limit: 10 });
-  const bestSellerProducts = bestSellers.items.filter((item) => item.id !== product.id);
+  const bestSellerProducts = relatedProducts.filter((item) => item.id !== product.id);
 
   return (
     <div className="flex flex-col gap-10">

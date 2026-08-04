@@ -1,4 +1,6 @@
-import { getLocale, getTranslations } from 'next-intl/server';
+'use client';
+
+import { useLocale, useTranslations } from 'next-intl';
 import { PackageSearch } from 'lucide-react';
 import type {
   StorefrontCategory,
@@ -13,10 +15,10 @@ import { StoreBreadcrumbs } from '@/features/ecommerce/storefront/components/sto
 import { StoreEmptyState } from '@/features/ecommerce/storefront/components/store-empty-state';
 import { StorePlpSidebar } from '@/features/ecommerce/storefront/components/store-plp-sidebar';
 import { JsonLd } from '@/features/ecommerce/storefront/components/json-ld';
-import { collectionPageJsonLd } from '@/features/ecommerce/storefront/lib/seo';
+import { collectionPageJsonLd } from '@/features/ecommerce/storefront/lib/seo-jsonld';
 import type { StorefrontLocale } from '@/i18n/routing';
 
-export async function ProductsBrowsePage({
+export function ProductsBrowsePage({
   page,
   categorySlug,
   tag,
@@ -35,8 +37,8 @@ export async function ProductsBrowsePage({
   storePages?: StorefrontCompanyConfig['storePages'];
   productsResult: StorefrontPaginated<StorefrontProduct>;
 }) {
-  const t = await getTranslations('storefront');
-  const locale = (await getLocale()) as StorefrontLocale;
+  const t = useTranslations('storefront');
+  const locale = useLocale() as StorefrontLocale;
   const products = productsResult.items;
 
   return (

@@ -66,8 +66,7 @@ export function FaqCmsPage({ embedded = false }: { embedded?: boolean }) {
     queryKey: [...FAQ_QUERY_KEY, companyId],
     queryFn: async () => {
       const bundle = await getCmsContentBundle(companyId);
-      if (!bundle) throw new Error('CONTENT_NOT_FOUND');
-      return bundle.faq;
+      return bundle?.faq ?? [];
     },
   });
 

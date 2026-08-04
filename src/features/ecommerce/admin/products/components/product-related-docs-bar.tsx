@@ -86,7 +86,7 @@ export function ProductRelatedDocsBar({
 
       {open ? (
         <div
-          className="mt-2 flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="mt-2 flex gap-2 overflow-x-auto pb-1 scrollbar-none"
           role="toolbar"
           aria-label="مستندات المنتج"
         >

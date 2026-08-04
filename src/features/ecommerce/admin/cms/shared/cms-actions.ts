@@ -40,7 +40,15 @@ export async function getCmsPageRecord(
   companyId: string,
   pageType: PageType,
 ): Promise<PageRecord | null> {
-  return storefrontPageRepository.getRecordByPageType(companyId, pageType);
+  try {
+    return await storefrontPageRepository.getRecordByPageType(companyId, pageType);
+  } catch (error) {
+    // Settings (and soft UIs) only need pages when the role can read them — do not 500 the RSC action.
+    if (error instanceof ApiError && (error.status === 403 || error.status === 404)) {
+      return null;
+    }
+    throw toActionError(error);
+  }
 }
 
 export async function saveCmsPageRecord(record: PageRecord): Promise<PageRecord> {

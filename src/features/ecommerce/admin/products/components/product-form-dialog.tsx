@@ -29,6 +29,7 @@ import { ProductAttributesTab } from '@/features/ecommerce/admin/products/compon
 import { ProductInventoryTab } from '@/features/ecommerce/admin/products/components/product-inventory-tab';
 import { ProductStorefrontTab } from '@/features/ecommerce/admin/products/components/product-storefront-tab';
 import { ProductUnitsTab } from '@/features/ecommerce/admin/products/components/product-units-tab';
+import { ProductSettingsTab } from '@/features/ecommerce/admin/products/components/product-settings-tab';
 import { ProductStockMoveRequestDialog } from '@/features/ecommerce/admin/products/components/product-stock-move-request-dialog';
 import { ProductStockMovesListDialog } from '@/features/ecommerce/admin/products/components/product-stock-moves-list-dialog';
 import { ProductStockMovesHistoryDialog } from '@/features/ecommerce/admin/products/components/product-stock-moves-history-dialog';
@@ -40,7 +41,7 @@ import type { ProductRelatedDocKey } from '@/features/ecommerce/admin/products/c
 import { ecommerceAdminRoutes } from '@/features/ecommerce/admin/constants/routes';
 import type { Product } from '@/features/ecommerce/domain/types/product';
 import type { WarehouseOperationKind } from '@/features/inventory/domain/types/warehouse';
-import { Layers, Package, Ruler, Store, Warehouse } from 'lucide-react';
+import { Layers, Package, Ruler, Settings, Store, Warehouse } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -76,6 +77,7 @@ const FORM_TABS = [
   { value: 'availability', label: 'توفر', icon: Warehouse },
   { value: 'units', label: 'وحدات', icon: Ruler },
   { value: 'storefront', label: 'متجر', icon: Store },
+  { value: 'settings', label: 'الإعدادات', icon: Settings },
 ] as const;
 
 const TAB_TRIGGER_CLASS =
@@ -357,7 +359,7 @@ export function ProductFormDialog({ product, open, onOpenChange }: Props) {
                     }}
                     className="w-full space-y-4"
                   >
-                    <TabsList className="grid h-auto w-full grid-cols-5 gap-1 rounded-2xl border border-border/80 bg-muted/40 p-1">
+                    <TabsList className="grid h-auto w-full grid-cols-6 gap-1 rounded-2xl border border-border/80 bg-muted/40 p-1">
                       {FORM_TABS.map((tab) => {
                         const Icon = tab.icon;
                         return (
@@ -405,6 +407,13 @@ export function ProductFormDialog({ product, open, onOpenChange }: Props) {
                     </TabsContent>
                     <TabsContent value="storefront" className="mt-0 focus-visible:outline-none">
                       <ProductStorefrontTab errors={form.formState.errors} register={form.register} />
+                    </TabsContent>
+                    <TabsContent value="settings" className="mt-0 focus-visible:outline-none">
+                      <ProductSettingsTab
+                        control={form.control}
+                        errors={form.formState.errors}
+                        register={form.register}
+                      />
                     </TabsContent>
                   </Tabs>
                 </>

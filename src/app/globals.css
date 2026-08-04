@@ -143,6 +143,21 @@
   width: 0;
   height: 0;
 }
+
+/* Avoid Tailwind [&::-webkit-*] arbitrary variants — Turbopack corrupts them. */
+.webkit-details-marker-none::-webkit-details-marker {
+  display: none;
+}
+.webkit-spin-buttons-none::-webkit-inner-spin-button,
+.webkit-spin-buttons-none::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.webkit-spin-buttons-none {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
 .overflow-touch {
   -webkit-overflow-scrolling: touch;
 }

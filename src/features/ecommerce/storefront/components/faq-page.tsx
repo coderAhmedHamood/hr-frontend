@@ -1,15 +1,17 @@
-import { getLocale, getTranslations } from 'next-intl/server';
+'use client';
+
+import { useLocale, useTranslations } from 'next-intl';
 import { ChevronDown, HelpCircle } from 'lucide-react';
 import type { StorefrontFaqItem } from '@/features/ecommerce/storefront/domain/storefront-models';
 import { StoreBreadcrumbs } from '@/features/ecommerce/storefront/components/store-breadcrumbs';
 import { StoreEmptyState } from '@/features/ecommerce/storefront/components/store-empty-state';
 import { JsonLd } from '@/features/ecommerce/storefront/components/json-ld';
-import { breadcrumbJsonLd, faqJsonLd } from '@/features/ecommerce/storefront/lib/seo';
+import { breadcrumbJsonLd, faqJsonLd } from '@/features/ecommerce/storefront/lib/seo-jsonld';
 import type { StorefrontLocale } from '@/i18n/routing';
 
-export async function FaqPage({ items }: { items: StorefrontFaqItem[] }) {
-  const t = await getTranslations('storefront');
-  const locale = (await getLocale()) as StorefrontLocale;
+export function FaqPage({ items }: { items: StorefrontFaqItem[] }) {
+  const t = useTranslations('storefront');
+  const locale = useLocale() as StorefrontLocale;
 
   const breadcrumbItems = [
     { name: t('breadcrumbs.home'), path: '/store' as const },
@@ -43,7 +45,7 @@ export async function FaqPage({ items }: { items: StorefrontFaqItem[] }) {
               key={item.id}
               className="group overflow-hidden rounded-2xl border border-border/70 bg-card open:border-primary/25 open:shadow-soft"
             >
-              <summary className="flex cursor-pointer list-none items-start gap-3 px-5 py-4 marker:content-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 [&::-webkit-details-marker]:hidden">
+              <summary className="flex cursor-pointer list-none items-start gap-3 px-5 py-4 marker:content-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 webkit-details-marker-none">
                 <span className="mt-0.5 inline-flex h-7 min-w-7 items-center justify-center rounded-full bg-muted text-xs font-bold tabular-nums text-muted-foreground group-open:bg-primary/10 group-open:text-primary">
                   {String(index + 1).padStart(2, '0')}
                 </span>

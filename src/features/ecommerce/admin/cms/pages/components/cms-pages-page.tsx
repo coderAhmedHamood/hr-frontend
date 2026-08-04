@@ -7,8 +7,17 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowRight,
   BookOpen,
+  CheckCircle2,
+  CircleHelp,
+  FileText,
+  Mail,
   Pencil,
+  Percent,
+  Scale,
   Save,
+  Shield,
+  ShoppingBag,
+  Users,
 } from 'lucide-react';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
 import {
@@ -37,17 +46,6 @@ import { PageHeaderPrimaryButton } from '@/components/layouts/page-header-primar
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { DataTable, type ColumnDef } from '@/components/ui/data-table';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogTitle,
-  dialogShellBodyClass,
-  dialogShellContentClass,
-  dialogShellHeaderClass,
-} from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { CmsAboutTab } from '@/features/ecommerce/admin/cms/pages/components/cms-about-tab';
 import { CmsContactTab } from '@/features/ecommerce/admin/cms/pages/components/cms-contact-tab';
@@ -80,6 +78,8 @@ type EditFormState =
   | { kind: 'contact'; draft: ContactPageContent }
   | { kind: 'legal'; slug: LegalPageSlug; draft: LegalPageContent };
 
+type PageGroupId = 'store' | 'legal' | 'content' | 'catalog';
+
 function buildPageRows(): PageRow[] {
   return [
     { id: 'about', kind: 'about', titleKey: 'about' },
@@ -96,11 +96,23 @@ function buildPageRows(): PageRow[] {
   ];
 }
 
-function typeBadgeKey(kind: PageRowKind): string {
-  if (kind === 'legal') return 'typeLegal';
-  if (kind === 'faq') return 'typeDynamic';
-  if (kind === 'catalog') return 'typeCatalog';
-  return 'typePage';
+function groupForRow(row: PageRow): PageGroupId {
+  if (row.kind === 'legal') return 'legal';
+  if (row.kind === 'faq') return 'content';
+  if (row.kind === 'catalog') return 'catalog';
+  return 'store';
+}
+
+function rowIcon(row: PageRow) {
+  if (row.kind === 'about') return Users;
+  if (row.kind === 'contact') return Mail;
+  if (row.kind === 'faq') return CircleHelp;
+  if (row.kind === 'catalog') {
+    return row.catalogKey === 'offers' ? Percent : ShoppingBag;
+  }
+  if (row.slug === 'privacy') return Shield;
+  if (row.slug === 'terms') return Scale;
+  return FileText;
 }
 
 type Props = {
@@ -116,6 +128,7 @@ export function CmsPagesPage({ embedded = false, initialPanel = 'list' }: Props)
   const queryClient = useQueryClient();
 
   const [panel, setPanel] = React.useState<CmsPagesPanel>(initialPanel);
+  const [form, setForm] = React.useState<EditFormState | null>(null);
 
   React.useEffect(() => {
     setPanel(initialPanel);
@@ -125,10 +138,26 @@ export function CmsPagesPage({ embedded = false, initialPanel = 'list' }: Props)
     queryKey: [...CMS_PAGES_QUERY_KEY, companyId],
     queryFn: async () => {
       const bundle = await getCmsContentBundle(companyId);
-      if (!bundle) throw new Error('CONTENT_NOT_FOUND');
+      const resolved =
+        bundle ??
+        ({
+          companyId,
+          about: {
+            headline: { ar: '', en: '' },
+            intro: { ar: '', en: '' },
+            sections: [],
+            stats: [],
+          },
+          contact: {
+            headline: { ar: '', en: '' },
+            intro: { ar: '', en: '' },
+          },
+          faq: [],
+          legal: [],
+        } satisfies StorefrontContentBundle);
       return {
-        ...bundle,
-        legal: ensureLegalPages(bundle.legal),
+        ...resolved,
+        legal: ensureLegalPages(resolved.legal),
       } satisfies StorefrontContentBundle;
     },
   });
@@ -153,7 +182,6 @@ export function CmsPagesPage({ embedded = false, initialPanel = 'list' }: Props)
   const [draft, setDraft] = React.useState<StorefrontContentBundle | null>(null);
   const [storePages, setStorePages] = React.useState<CompanyStorePagesVisibility | null>(null);
   const [dirty, setDirty] = React.useState(false);
-  const [form, setForm] = React.useState<EditFormState | null>(null);
 
   React.useEffect(() => {
     if (data) {
@@ -215,7 +243,7 @@ export function CmsPagesPage({ embedded = false, initialPanel = 'list' }: Props)
 
   usePageHeaderActions(
     () => {
-      if (panel !== 'list') return null;
+      if (panel !== 'list' || form) return null;
       return (
         <PageHeaderPrimaryButton
           icon={Save}
@@ -227,7 +255,7 @@ export function CmsPagesPage({ embedded = false, initialPanel = 'list' }: Props)
         />
       );
     },
-    [draft, dirty, save.isPending, tCommon, panel],
+    [draft, dirty, save.isPending, tCommon, panel, form],
   );
 
   function pagePreview(row: PageRow): string {
@@ -246,12 +274,19 @@ export function CmsPagesPage({ embedded = false, initialPanel = 'list' }: Props)
       return t('faqPreview', { count: draft.faq.length });
     }
     const page = draft.legal.find((item) => item.slug === row.slug);
-    return page?.title.ar.trim() || page?.body.ar.trim() || '';
+    return page?.title.ar.trim() || page?.body.ar.replace(/<[^>]+>/g, '').trim() || '';
+  }
+
+  function hasContent(row: PageRow): boolean {
+    if (row.kind === 'catalog') return Boolean(row.catalogKey && storePages?.[row.catalogKey]);
+    if (row.kind === 'faq') return (draft?.faq.length ?? 0) > 0;
+    return Boolean(pagePreview(row).trim());
   }
 
   function openEdit(row: PageRow) {
     if (row.kind === 'catalog') return;
     if (row.kind === 'faq') {
+      setForm(null);
       setPanel('faq');
       return;
     }
@@ -298,74 +333,39 @@ export function CmsPagesPage({ embedded = false, initialPanel = 'list' }: Props)
   }
 
   const rows = buildPageRows();
-
-  const columns: ColumnDef<PageRow>[] = [
+  const groups: Array<{
+    id: PageGroupId;
+    title: string;
+    hint: string;
+    items: PageRow[];
+  }> = [
     {
-      key: 'title',
-      title: t('columnPage'),
-      render: (row) => (
-        <div className="space-y-0.5">
-          <span className="text-sm font-medium text-foreground">{t(row.titleKey)}</span>
-          {row.kind === 'catalog' ? (
-            <p className="text-xs text-muted-foreground">{t('catalogHint')}</p>
-          ) : null}
-        </div>
-      ),
+      id: 'store',
+      title: t('groupStore'),
+      hint: t('groupStoreHint'),
+      items: rows.filter((row) => groupForRow(row) === 'store'),
     },
     {
-      key: 'preview',
-      title: t('columnPreview'),
-      render: (row) => (
-        <span className="line-clamp-2 text-sm text-muted-foreground">
-          {pagePreview(row) || t('noPreview')}
-        </span>
-      ),
+      id: 'legal',
+      title: t('groupLegal'),
+      hint: t('groupLegalHint'),
+      items: rows.filter((row) => groupForRow(row) === 'legal'),
     },
     {
-      key: 'type',
-      title: t('columnType'),
-      render: (row) => <Badge variant="subtle">{t(typeBadgeKey(row.kind))}</Badge>,
+      id: 'content',
+      title: t('groupContent'),
+      hint: t('groupContentHint'),
+      items: rows.filter((row) => groupForRow(row) === 'content'),
     },
     {
-      key: 'visibility',
-      title: t('columnVisibility'),
-      render: (row) => {
-        if (row.kind !== 'catalog' || !row.catalogKey) {
-          return <span className="text-xs text-muted-foreground">—</span>;
-        }
-        const checked = storePages?.[row.catalogKey] ?? true;
-        return (
-          <Switch
-            checked={checked}
-            disabled={!storePages || saveVisibility.isPending}
-            onCheckedChange={(enabled) => toggleCatalogPage(row.catalogKey!, enabled)}
-            aria-label={t('columnVisibility')}
-          />
-        );
-      },
-    },
-    {
-      key: 'actions',
-      title: '',
-      isActions: true,
-      render: (row) =>
-        row.kind === 'catalog' ? (
-          <span className="inline-block w-9" />
-        ) : (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            aria-label={tCommon('actions.edit')}
-            onClick={() => openEdit(row)}
-          >
-            <Pencil className="h-4 w-4" />
-          </Button>
-        ),
+      id: 'catalog',
+      title: t('groupCatalog'),
+      hint: t('groupCatalogHint'),
+      items: rows.filter((row) => groupForRow(row) === 'catalog'),
     },
   ];
 
-  const dialogTitle =
+  const editorTitle =
     form?.kind === 'about'
       ? t('about')
       : form?.kind === 'contact'
@@ -373,6 +373,9 @@ export function CmsPagesPage({ embedded = false, initialPanel = 'list' }: Props)
         : form?.kind === 'legal'
           ? t(form.slug)
           : '';
+
+  const loading = isLoading || companyLoading;
+  const loadFailed = isError || companyError;
 
   if (panel === 'faq') {
     return (
@@ -392,8 +395,57 @@ export function CmsPagesPage({ embedded = false, initialPanel = 'list' }: Props)
     );
   }
 
-  const loading = isLoading || companyLoading || !draft || !storePages;
-  const loadFailed = isError || companyError;
+  if (form) {
+    return (
+      <div className="flex flex-col gap-4">
+        <section className="sticky top-13.5 z-20 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border/70 bg-card/95 px-4 py-3 shadow-soft backdrop-blur-md">
+          <div className="flex min-w-0 flex-wrap items-center gap-3">
+            <Button type="button" variant="outline" size="sm" className="rounded-xl" onClick={() => setForm(null)}>
+              <ArrowRight className="me-1.5 h-4 w-4" />
+              {t('backToPages')}
+            </Button>
+            <div className="min-w-0">
+              <h2 className="text-sm font-semibold text-foreground">{editorTitle}</h2>
+              <p className="text-xs text-muted-foreground">{t('studioEditorHint')}</p>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button type="button" variant="outline" className="rounded-xl" onClick={() => setForm(null)}>
+              {tCommon('actions.cancel')}
+            </Button>
+            <Button type="button" className="rounded-xl" onClick={applyForm}>
+              {t('applyContent')}
+            </Button>
+          </div>
+        </section>
+
+        <section className="overflow-hidden rounded-3xl border border-border/70 bg-card shadow-soft">
+          <div className="border-b border-border/60 bg-linear-to-l from-primary/8 via-card to-card px-5 py-5 sm:px-7">
+            <p className="text-xs font-medium uppercase tracking-[0.14em] text-primary/80">{t('studioEditorEyebrow')}</p>
+            <h3 className="mt-1 text-xl font-semibold tracking-tight text-foreground">{editorTitle}</h3>
+            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{t('editDialogHint')}</p>
+          </div>
+          <div className="px-5 py-6 sm:px-7">
+            {form.kind === 'about' ? (
+              <CmsAboutTab about={form.draft} onChange={(about) => setForm({ kind: 'about', draft: about })} />
+            ) : null}
+            {form.kind === 'contact' ? (
+              <CmsContactTab
+                contact={form.draft}
+                onChange={(contact) => setForm({ kind: 'contact', draft: contact })}
+              />
+            ) : null}
+            {form.kind === 'legal' ? (
+              <CmsLegalPageForm
+                page={form.draft}
+                onChange={(page) => setForm({ kind: 'legal', slug: form.slug, draft: page })}
+              />
+            ) : null}
+          </div>
+        </section>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-5">
@@ -401,17 +453,6 @@ export function CmsPagesPage({ embedded = false, initialPanel = 'list' }: Props)
         <SetPageTitle titleAr={t('title')} descriptionAr={t('description')} iconName="BookOpen" />
       ) : null}
 
-      <section className="rounded-2xl border border-border/70 bg-linear-to-l from-primary/6 via-card to-card px-5 py-4">
-        <div className="flex items-start gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-            <BookOpen className="h-5 w-5" aria-hidden />
-          </span>
-          <div className="min-w-0">
-            <h2 className="text-sm font-semibold text-foreground">{t('studioTitle')}</h2>
-            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{t('studioHint')}</p>
-          </div>
-        </div>
-      </section>
 
       {dirty ? (
         <div className="flex items-center gap-2 rounded-xl border border-warning/30 bg-warning/10 px-3.5 py-2.5 text-xs text-warning">
@@ -437,61 +478,92 @@ export function CmsPagesPage({ embedded = false, initialPanel = 'list' }: Props)
         </Card>
       ) : null}
 
-      <DataTable
-        columns={columns}
-        data={rows}
-        keyExtractor={(row) => row.id}
-        loading={loading}
-        emptyText={t('empty')}
-        alwaysShowTable
-      />
+      {loading ? (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, index) => (
+            <div key={index} className="h-40 animate-pulse rounded-3xl bg-muted/40" />
+          ))}
+        </div>
+      ) : (
+        <div className="space-y-7">
+          {groups.map((group) => (
+            <section key={group.id} className="space-y-3">
+              <header className="px-1">
+                <h3 className="text-sm font-semibold text-foreground">{group.title}</h3>
+                <p className="mt-0.5 text-xs text-muted-foreground">{group.hint}</p>
+              </header>
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {group.items.map((row) => {
+                  const Icon = rowIcon(row);
+                  const ready = hasContent(row);
+                  const preview = pagePreview(row);
+                  const isCatalog = row.kind === 'catalog';
 
-      <Dialog
-        open={form !== null}
-        onOpenChange={(open) => {
-          if (!open) setForm(null);
-        }}
-      >
-        <DialogContent
-          className={cn(
-            dialogShellContentClass,
-            form?.kind === 'legal' ? 'max-w-3xl sm:max-w-3xl' : 'max-w-2xl sm:max-w-2xl',
-          )}
-        >
-          <div className={dialogShellHeaderClass}>
-            <DialogTitle>{dialogTitle}</DialogTitle>
-            <DialogDescription>{t('editDialogHint')}</DialogDescription>
-          </div>
-          <div className={dialogShellBodyClass}>
-            {form?.kind === 'about' ? (
-              <CmsAboutTab
-                about={form.draft}
-                onChange={(about) => setForm({ kind: 'about', draft: about })}
-              />
-            ) : null}
-            {form?.kind === 'contact' ? (
-              <CmsContactTab
-                contact={form.draft}
-                onChange={(contact) => setForm({ kind: 'contact', draft: contact })}
-              />
-            ) : null}
-            {form?.kind === 'legal' ? (
-              <CmsLegalPageForm
-                page={form.draft}
-                onChange={(page) => setForm({ kind: 'legal', slug: form.slug, draft: page })}
-              />
-            ) : null}
-          </div>
-          <DialogFooter className="gap-2 border-t border-border/70 px-5 py-4 sm:px-6">
-            <Button type="button" variant="outline" className="rounded-xl" onClick={() => setForm(null)}>
-              {tCommon('actions.cancel')}
-            </Button>
-            <Button type="button" className="rounded-xl" onClick={applyForm}>
-              {t('applyContent')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+                  return (
+                    <article
+                      key={row.id}
+                      className={cn(
+                        'group relative flex min-h-42 flex-col overflow-hidden rounded-3xl border border-border/70 bg-card p-4 transition-all duration-200',
+                        !isCatalog && 'hover:border-primary/35 hover:shadow-soft',
+                      )}
+                    >
+                      <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-linear-to-b from-primary/6 to-transparent opacity-80" />
+                      <div className="relative flex items-start justify-between gap-3">
+                        <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary transition-colors group-hover:bg-primary/15">
+                          <Icon className="h-5 w-5" aria-hidden />
+                        </span>
+                        <Badge variant="subtle" className="rounded-lg">
+                          {ready ? (
+                            <span className="inline-flex items-center gap-1">
+                              <CheckCircle2 className="h-3 w-3 text-primary" />
+                              {isCatalog ? t('visibilityOn') : t('contentReady')}
+                            </span>
+                          ) : (
+                            t(isCatalog ? 'visibilityOff' : 'contentEmpty')
+                          )}
+                        </Badge>
+                      </div>
+
+                      <div className="relative mt-4 min-w-0 flex-1">
+                        <h4 className="text-sm font-semibold text-foreground">{t(row.titleKey)}</h4>
+                        <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+                          {isCatalog ? t('catalogHint') : preview || t('noPreview')}
+                        </p>
+                      </div>
+
+                      <div className="relative mt-4 flex items-center justify-between gap-2 border-t border-border/50 pt-3">
+                        {isCatalog && row.catalogKey ? (
+                          <>
+                            <span className="text-xs text-muted-foreground">{t('columnVisibility')}</span>
+                            <Switch
+                              checked={storePages?.[row.catalogKey] ?? true}
+                              disabled={!storePages || saveVisibility.isPending}
+                              onCheckedChange={(enabled) => toggleCatalogPage(row.catalogKey!, enabled)}
+                              aria-label={t('columnVisibility')}
+                            />
+                          </>
+                        ) : (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="rounded-xl"
+                            disabled={!draft}
+                            onClick={() => openEdit(row)}
+                          >
+                            <Pencil className="me-1.5 h-3.5 w-3.5" />
+                            {t('editPage')}
+                          </Button>
+                        )}
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            </section>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

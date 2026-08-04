@@ -23,6 +23,7 @@ import {
 import { formatPrice } from '@/features/ecommerce/shared/utils/format-price';
 import { PRODUCT_STATUS_LABELS_AR, PRODUCT_STATUS_OPTIONS } from '@/features/ecommerce/domain/constants/product-status';
 import { STOCK_STATUS_LABELS_AR, STOCK_STATUS_OPTIONS } from '@/features/ecommerce/domain/constants/stock-status';
+import { ecommerceAdminRoutes } from '@/features/ecommerce/admin/constants/routes';
 import type { Product, ProductListQuery } from '@/features/ecommerce/domain/types/product';
 import type { ProductStatus } from '@/features/ecommerce/domain/constants/product-status';
 import type { StockStatus } from '@/features/ecommerce/domain/constants/stock-status';
@@ -137,14 +138,11 @@ export function ProductsListPage() {
   const { data: brandsData } = useBrands({ companyId, limit: 100 });
   const { remove } = useProductMutations();
 
-  const [formState, setFormState] = React.useState<{ open: boolean; product: Product | null }>({
-    open: false,
-    product: null,
-  });
+  const [createOpen, setCreateOpen] = React.useState(false);
   const [productToDelete, setProductToDelete] = React.useState<Product | null>(null);
 
-  const openCreateDialog = () => setFormState({ open: true, product: null });
-  const openEditDialog = (product: Product) => setFormState({ open: true, product });
+  const openCreateDialog = () => setCreateOpen(true);
+  const goToProductDetail = (product: Product) => router.push(ecommerceAdminRoutes.productDetail(product.id));
 
   const handleDeleteConfirm = async (product: Product) => {
     await remove.mutateAsync({ companyId, id: product.id });
@@ -366,7 +364,7 @@ export function ProductsListPage() {
       isActions: true,
       render: (product) => (
         <>
-          <Button variant="ghost" size="icon" aria-label="تعديل المنتج" onClick={() => openEditDialog(product)}>
+          <Button variant="ghost" size="icon" aria-label="تعديل المنتج" onClick={() => goToProductDetail(product)}>
             <Pencil className="h-4 w-4" />
           </Button>
           <Button variant="ghost" size="icon" aria-label="حذف المنتج" onClick={() => setProductToDelete(product)}>
@@ -443,7 +441,7 @@ export function ProductsListPage() {
           className="flex items-center justify-end gap-1 border-t border-border/60 pt-2"
           onClick={(event) => event.stopPropagation()}
         >
-          <Button variant="ghost" size="icon" aria-label="تعديل المنتج" onClick={() => openEditDialog(product)}>
+          <Button variant="ghost" size="icon" aria-label="تعديل المنتج" onClick={() => goToProductDetail(product)}>
             <Pencil className="h-4 w-4" />
           </Button>
           <Button variant="ghost" size="icon" aria-label="حذف المنتج" onClick={() => setProductToDelete(product)}>
@@ -487,17 +485,13 @@ export function ProductsListPage() {
             keyExtractor={(product) => product.id}
             loading={isLoading}
             emptyText="لا توجد منتجات بعد."
-            onRowClick={openEditDialog}
+            onRowClick={goToProductDetail}
             mobileCard={renderMobileCard}
           />
         )}
       </DirectoryPagedViews>
 
-      <ProductFormDialog
-        open={formState.open}
-        product={formState.product}
-        onOpenChange={(open) => setFormState((s) => ({ ...s, open }))}
-      />
+      <ProductFormDialog open={createOpen} product={null} onOpenChange={setCreateOpen} />
       <DeleteProductDialog
         product={productToDelete}
         isDeleting={remove.isPending}

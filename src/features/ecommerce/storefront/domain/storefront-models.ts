@@ -117,6 +117,7 @@ export type StorefrontCompanyConfig = {
   secondaryNavigation: (StorefrontNavItem & { highlight?: boolean })[];
   footer: {
     copyrightOwnerName: string;
+    tagline: string;
     commercialRegistration: string | null;
     linkGroups: {
       id: string;

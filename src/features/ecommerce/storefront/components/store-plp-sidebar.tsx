@@ -1,13 +1,15 @@
+'use client';
+
 import type {
   StorefrontCategory,
   StorefrontCompanyConfig,
 } from '@/features/ecommerce/storefront/domain/storefront-models';
 import { buildCategoryTree } from '@/features/ecommerce/storefront/utils/category-tree';
-import { getTranslations } from 'next-intl/server';
+import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
 import { cn } from '@/shared/utils';
 
-export async function StorePlpSidebar({
+export function StorePlpSidebar({
   categories,
   secondaryNavigation,
   storePages,
@@ -20,7 +22,7 @@ export async function StorePlpSidebar({
   activeCategorySlug?: string;
   activeTag?: string;
 }) {
-  const t = await getTranslations('storefront');
+  const t = useTranslations('storefront');
   const { roots, childrenByParent } = buildCategoryTree(categories);
   const showOffers = storePages?.offers !== false;
   const showWholesale = storePages?.wholesale !== false;

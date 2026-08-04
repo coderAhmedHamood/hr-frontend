@@ -1,9 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import Link from 'next/link';
 import { useTranslations } from 'next-intl';
-import { ArrowDown, ArrowUp, Megaphone, Pencil, Plus, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, Pencil, Plus, Trash2 } from 'lucide-react';
 import type {
   CompanyAnnouncementBarRecord,
   CompanyAnnouncementItemRecord,
@@ -13,7 +12,6 @@ import {
   clampAnnouncementSpeedMs,
   normalizeAnnouncementBar,
 } from '@/features/ecommerce/storefront/domain/company-config';
-import { ecommerceAdminRoutes } from '@/features/ecommerce/admin/constants/routes';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -232,22 +230,67 @@ export function NavigationAnnouncementPanel({ draft, onChange }: Props) {
   return (
     <div className="space-y-5">
       <section className="rounded-2xl border border-border/70 bg-card p-4 sm:p-5">
-        <div className="mb-5 flex flex-wrap items-start gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-100 text-primary">
-            <Megaphone className="h-5 w-5" />
+        <div className="mb-5 grid gap-4 sm:grid-cols-2">
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-muted/15 px-3 py-2.5 sm:col-span-2">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-foreground">{t('title')}</p>
+              <p className="text-xs text-muted-foreground">{t('description')}</p>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <Label htmlFor="announcement-enabled" className="text-xs text-muted-foreground">
+                {announcement.enabled ? t('enabled') : t('disabled')}
+              </Label>
+              <Switch
+                id="announcement-enabled"
+                checked={announcement.enabled}
+                onCheckedChange={(enabled) => updateBar({ enabled })}
+              />
+            </div>
           </div>
-          <div className="min-w-0 flex-1">
-            <h3 className="text-sm font-semibold text-foreground">{t('title')}</h3>
-            <p className="mt-1 text-xs text-muted-foreground">{t('description')}</p>
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <Label htmlFor="announcement-enabled" className="text-xs text-muted-foreground">
-              {announcement.enabled ? t('enabled') : t('disabled')}
-            </Label>
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-muted/15 px-3 py-2.5">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-foreground">{t('dismissible')}</p>
+              <p className="text-xs text-muted-foreground">{t('dismissibleHint')}</p>
+            </div>
             <Switch
-              id="announcement-enabled"
-              checked={announcement.enabled}
-              onCheckedChange={(enabled) => updateBar({ enabled })}
+              checked={announcement.dismissible}
+              onCheckedChange={(dismissible) => updateBar({ dismissible })}
+            />
+          </div>
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-muted/15 px-3 py-2.5">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-foreground">{t('scrolling')}</p>
+              <p className="text-xs text-muted-foreground">{t('scrollingHint')}</p>
+            </div>
+            <Switch
+              checked={announcement.scrolling}
+              onCheckedChange={(scrolling) => updateBar({ scrolling })}
+            />
+          </div>
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label htmlFor="announcement-speed">{t('speedMs')}</Label>
+            <p className="text-[11px] text-muted-foreground">{t('speedMsHint')}</p>
+            <Input
+              id="announcement-speed"
+              dir="ltr"
+              type="number"
+              min={3000}
+              max={120000}
+              step={500}
+              className="max-w-xs font-mono text-sm"
+              value={announcement.speedMs}
+              placeholder={t('speedMsPlaceholder')}
+              onChange={(event) => {
+                const raw = event.target.value;
+                if (raw === '') {
+                  updateBar({ speedMs: 28_000 });
+                  return;
+                }
+                const parsed = Number(raw);
+                if (!Number.isFinite(parsed)) return;
+                updateBar({ speedMs: Math.round(parsed) });
+              }}
+              onBlur={() => updateBar({ speedMs: clampAnnouncementSpeedMs(announcement.speedMs) })}
             />
           </div>
         </div>
@@ -277,13 +320,6 @@ export function NavigationAnnouncementPanel({ draft, onChange }: Props) {
             alwaysShowTable
           />
         )}
-
-        <p className="mt-4 rounded-xl border border-border/60 bg-muted/20 px-3 py-2.5 text-xs text-muted-foreground">
-          {t('speedInSettings')}{' '}
-          <Link href={ecommerceAdminRoutes.settings} className="font-medium text-primary hover:underline">
-            {t('openSettings')}
-          </Link>
-        </p>
       </section>
 
       {announcement.enabled && previewMessages.length > 0 ? (

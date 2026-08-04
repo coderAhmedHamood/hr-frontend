@@ -6,7 +6,6 @@ import { toast } from 'sonner';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   CreditCard,
-  GalleryHorizontal,
   Paintbrush,
   Palette,
   Phone,
@@ -21,24 +20,15 @@ import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/stor
 import {
   getCmsCompanyRecord,
   saveCmsCompanyRecord,
-  saveCmsPageRecord,
 } from '@/features/ecommerce/admin/cms/shared/cms-actions';
 import {
   COMPANY_SOCIAL_NETWORKS,
-  clampAnnouncementSpeedMs,
-  DEFAULT_ANNOUNCEMENT_SPEED_MS,
-  MAX_ANNOUNCEMENT_SPEED_MS,
-  MIN_ANNOUNCEMENT_SPEED_MS,
   normalizeAnnouncementBar,
   normalizeSocialLinks,
   type CompanyConfigRecord,
   type CompanySocialNetwork,
 } from '@/features/ecommerce/storefront/domain/company-config';
-import { useHomepagePageRecord } from '@/features/ecommerce/admin/cms/homepage/hooks/use-homepage-page';
-import { homepageCmsQueryKeys } from '@/features/ecommerce/admin/cms/homepage/hooks/query-keys';
-import { createSectionFromDefinition } from '@/features/ecommerce/admin/cms/homepage/lib/create-section';
-import type { PageRecord } from '@/features/ecommerce/storefront/page-builder/domain/page-records';
-import type { HeroCarouselSectionRecord } from '@/features/ecommerce/storefront/page-builder/domain/section-types';
+import { DEFAULT_STOREFRONT_TYPOGRAPHY } from '@/features/ecommerce/storefront/lib/storefront-fonts';
 import { ImagePicker } from '@/features/ecommerce/admin/cms/homepage/components/section-entity-pickers';
 import { CheckoutCitiesEditor } from '@/features/ecommerce/admin/cms/settings/components/checkout-cities-editor';
 import { WebsiteColorsPanel } from '@/features/ecommerce/admin/cms/settings/components/website-colors-panel';
@@ -47,7 +37,6 @@ import { usePageHeaderActions } from '@/components/layouts/page-header-actions-c
 import { PageHeaderPrimaryButton } from '@/components/layouts/page-header-primary-button';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -57,15 +46,6 @@ import { cn } from '@/shared/utils';
 
 const SETTINGS_QUERY_KEY = ['ecommerce-cms', 'company', 'settings'] as const;
 
-const DEFAULT_HERO_INTERVAL_MS = 5000;
-const MIN_HERO_INTERVAL_MS = 1000;
-const MAX_HERO_INTERVAL_MS = 30_000;
-
-function clampHeroIntervalMs(value: number | null | undefined): number {
-  if (!Number.isFinite(value)) return DEFAULT_HERO_INTERVAL_MS;
-  return Math.min(MAX_HERO_INTERVAL_MS, Math.max(MIN_HERO_INTERVAL_MS, Math.round(value!)));
-}
-
 const FIELD =
   'h-11 min-h-11 w-full min-w-0 max-w-full rounded-xl border-input bg-background px-3.5 text-sm';
 
@@ -74,37 +54,6 @@ function parseKeywords(raw: string): string[] {
     .split(/[,،\n]/)
     .map((keyword) => keyword.trim())
     .filter(Boolean);
-}
-
-function findHero(page: PageRecord | null | undefined): HeroCarouselSectionRecord | null {
-  if (!page) return null;
-  return (
-    page.sections.find(
-      (section): section is HeroCarouselSectionRecord => section.type === 'hero-carousel',
-    ) ?? null
-  );
-}
-
-function withHeroInterval(page: PageRecord, intervalMs: number): PageRecord {
-  const now = new Date().toISOString();
-  const existing = findHero(page);
-  const hero =
-    existing ??
-    (createSectionFromDefinition('hero-carousel', page.sections) as HeroCarouselSectionRecord);
-  const nextHero: HeroCarouselSectionRecord = {
-    ...hero,
-    settings: {
-      ...hero.settings,
-      autoplay: true,
-      intervalMs: clampHeroIntervalMs(intervalMs),
-    },
-    updatedAt: now,
-    revision: hero.revision + 1,
-  };
-  const sections = page.sections.some((section) => section.id === nextHero.id)
-    ? page.sections.map((section) => (section.id === nextHero.id ? nextHero : section))
-    : [nextHero, ...page.sections];
-  return { ...page, updatedAt: now, sections };
 }
 
 function defaultCheckout(draft: CompanyConfigRecord) {
@@ -169,7 +118,12 @@ export function WebsiteSettingsPage() {
   const tCommon = useTranslations('common');
   const queryClient = useQueryClient();
 
-  const { data, isLoading, isError, refetch } = useQuery({
+  const {
+    data,
+    isLoading,
+    isError,
+    refetch,
+  } = useQuery({
     queryKey: [...SETTINGS_QUERY_KEY, companyId],
     queryFn: async () => {
       const record = await getCmsCompanyRecord(companyId);
@@ -178,6 +132,11 @@ export function WebsiteSettingsPage() {
         ...record,
         social: normalizeSocialLinks(record.social),
         announcement: normalizeAnnouncementBar(record.announcement),
+        typography: record.typography ?? { ...DEFAULT_STOREFRONT_TYPOGRAPHY },
+        footer: {
+          ...record.footer,
+          tagline: record.footer.tagline ?? { ar: '', en: '' },
+        },
         storePages: {
           offers: record.storePages?.offers !== false,
           wholesale: record.storePages?.wholesale !== false,
@@ -190,14 +149,7 @@ export function WebsiteSettingsPage() {
     },
   });
 
-  const {
-    data: homepage,
-    isLoading: homepageLoading,
-    isError: homepageError,
-  } = useHomepagePageRecord(companyId);
-
   const [draft, setDraft] = React.useState<CompanyConfigRecord | null>(null);
-  const [heroIntervalMs, setHeroIntervalMs] = React.useState(DEFAULT_HERO_INTERVAL_MS);
   const [dirty, setDirty] = React.useState(false);
 
   React.useEffect(() => {
@@ -207,34 +159,18 @@ export function WebsiteSettingsPage() {
     }
   }, [data]);
 
-  React.useEffect(() => {
-    const hero = findHero(homepage);
-    if (hero) setHeroIntervalMs(clampHeroIntervalMs(hero.settings.intervalMs));
-  }, [homepage]);
-
   const save = useMutation({
-    mutationFn: async (input: { company: CompanyConfigRecord; intervalMs: number }) => {
-      const company = await saveCmsCompanyRecord({
-        ...input.company,
-        social: normalizeSocialLinks(input.company.social),
-        announcement: {
-          ...normalizeAnnouncementBar(input.company.announcement),
-          speedMs: clampAnnouncementSpeedMs(input.company.announcement.speedMs),
-        },
+    mutationFn: async (companyInput: CompanyConfigRecord) =>
+      saveCmsCompanyRecord({
+        ...companyInput,
+        social: normalizeSocialLinks(companyInput.social),
+        announcement: normalizeAnnouncementBar(companyInput.announcement),
         seo: {
-          ...input.company.seo,
-          keywords: (input.company.seo.keywords ?? []).map((keyword) => keyword.trim()).filter(Boolean),
+          ...companyInput.seo,
+          keywords: (companyInput.seo.keywords ?? []).map((keyword) => keyword.trim()).filter(Boolean),
         },
-      });
-
-      let savedPage: PageRecord | null = null;
-      if (homepage) {
-        savedPage = await saveCmsPageRecord(withHeroInterval(homepage, input.intervalMs));
-      }
-
-      return { company, page: savedPage };
-    },
-    onSuccess: ({ company, page }) => {
+      }),
+    onSuccess: (company) => {
       queryClient.setQueryData([...SETTINGS_QUERY_KEY, companyId], {
         ...company,
         social: normalizeSocialLinks(company.social),
@@ -242,12 +178,6 @@ export function WebsiteSettingsPage() {
         seo: { ...company.seo, keywords: company.seo.keywords ?? [] },
       });
       void queryClient.invalidateQueries({ queryKey: ['ecommerce-cms', 'company'] });
-      if (page) {
-        queryClient.setQueryData(homepageCmsQueryKeys.record(companyId), page);
-        void queryClient.invalidateQueries({ queryKey: homepageCmsQueryKeys.all });
-        const hero = findHero(page);
-        if (hero) setHeroIntervalMs(clampHeroIntervalMs(hero.settings.intervalMs));
-      }
       setDraft({
         ...company,
         social: normalizeSocialLinks(company.social),
@@ -267,13 +197,11 @@ export function WebsiteSettingsPage() {
         label={save.isPending ? tCommon('status.saving') : tCommon('actions.save')}
         disabled={!draft || save.isPending || !dirty}
         onClick={() => {
-          if (draft) {
-            void save.mutateAsync({ company: draft, intervalMs: heroIntervalMs });
-          }
+          if (draft) void save.mutateAsync(draft);
         }}
       />
     ),
-    [draft, dirty, heroIntervalMs, save.isPending, tCommon],
+    [draft, dirty, save.isPending, tCommon],
   );
 
   function updateDraft(next: CompanyConfigRecord) {
@@ -298,27 +226,20 @@ export function WebsiteSettingsPage() {
   function patchSocial(network: CompanySocialNetwork, patch: { url?: string; enabled?: boolean }) {
     if (!draft) return;
     const current = draft.social[network] ?? { url: '', enabled: false };
+    const nextUrl = patch.url ?? current.url;
+    const nextEnabled =
+      patch.enabled !== undefined
+        ? patch.enabled
+        : current.enabled;
     updateDraft({
       ...draft,
       social: {
         ...draft.social,
         [network]: {
-          url: patch.url ?? current.url,
-          enabled: patch.enabled ?? current.enabled,
+          url: nextUrl,
+          // Enabling without a URL is a no-op on the storefront — keep UX honest.
+          enabled: nextEnabled && Boolean(nextUrl.trim()),
         },
-      },
-    });
-  }
-
-  function patchAnnouncement(
-    patch: Partial<CompanyConfigRecord['announcement']>,
-  ) {
-    if (!draft) return;
-    updateDraft({
-      ...draft,
-      announcement: {
-        ...normalizeAnnouncementBar(draft.announcement),
-        ...patch,
       },
     });
   }
@@ -326,24 +247,10 @@ export function WebsiteSettingsPage() {
   const keywordsText = (draft?.seo.keywords ?? []).join('، ');
   const previewTitle = draft?.seo.homeTitle.ar.trim() || tSeo('previewTitleEmpty');
   const previewDescription = draft?.seo.homeDescription.ar.trim() || tSeo('previewDescriptionEmpty');
-  const announcement = draft ? normalizeAnnouncementBar(draft.announcement) : null;
-  const hasHero = Boolean(findHero(homepage));
 
   return (
     <div className="flex flex-col gap-5">
       <SetPageTitle titleAr={t('title')} descriptionAr={t('description')} iconName="Settings" />
-
-      <section className="rounded-2xl border border-border/70 bg-linear-to-l from-primary/6 via-card to-card px-5 py-4">
-        <div className="flex items-start gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-            <Settings2 className="h-5 w-5" aria-hidden />
-          </span>
-          <div className="min-w-0">
-            <h2 className="text-sm font-semibold text-foreground">{t('studioTitle')}</h2>
-            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{t('studioHint')}</p>
-          </div>
-        </div>
-      </section>
 
       {dirty ? (
         <div className="rounded-xl border border-warning/30 bg-warning/10 px-3.5 py-2.5 text-xs text-warning">
@@ -367,14 +274,13 @@ export function WebsiteSettingsPage() {
         </div>
       ) : null}
 
-      {draft && announcement ? (
+      {draft ? (
         <Tabs defaultValue="branding" className="w-full">
           <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 rounded-2xl border border-border/70 bg-muted/30 p-1.5">
             {(
               [
                 ['branding', Palette, t('tabs.branding')],
                 ['colors', Paintbrush, t('tabs.colors')],
-                ['bars', GalleryHorizontal, t('tabs.bars')],
                 ['contact', Phone, t('tabs.contact')],
                 ['social', Share2, t('tabs.social')],
                 ['checkout', Truck, t('tabs.checkout')],
@@ -417,139 +323,30 @@ export function WebsiteSettingsPage() {
                     onChange={(faviconUrl) => updateDraft({ ...draft, faviconUrl })}
                   />
                 </Field>
+                <Field label={t('currency')} hint={t('currencyHint')} className="sm:col-span-2">
+                  <Input
+                    dir="ltr"
+                    className={FIELD}
+                    maxLength={8}
+                    value={draft.currency}
+                    onChange={(event) =>
+                      updateDraft({
+                        ...draft,
+                        currency: event.target.value.trim().toUpperCase() || 'YER',
+                      })
+                    }
+                  />
+                </Field>
               </div>
             </SettingsPanel>
           </TabsContent>
 
           <TabsContent value="colors" className="mt-4">
-            <WebsiteColorsPanel companyId={companyId} />
-          </TabsContent>
-
-          <TabsContent value="bars" className="mt-4">
-            <div className="grid gap-4">
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base">{t('bars.announcementTitle')}</CardTitle>
-                  <CardDescription>{t('bars.announcementDescription')}</CardDescription>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <div className="divide-y divide-border/70 border-t border-border/70">
-                    <div className="flex items-center justify-between gap-4 px-4 py-3.5 sm:px-6">
-                      <p className="text-sm font-medium text-foreground">
-                        {t('bars.announcementEnabled')}
-                      </p>
-                      <Switch
-                        checked={announcement.enabled}
-                        onCheckedChange={(enabled) => patchAnnouncement({ enabled })}
-                      />
-                    </div>
-                    <div className="flex flex-col gap-2 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:px-6">
-                      <div className="min-w-0 space-y-0.5">
-                        <Label htmlFor="settings-announcement-speed" className="text-sm font-medium">
-                          {t('bars.speedMs')}
-                        </Label>
-                        <p className="text-[11px] text-muted-foreground">{t('bars.speedMsHint')}</p>
-                      </div>
-                      <Input
-                        id="settings-announcement-speed"
-                        dir="ltr"
-                        type="number"
-                        min={MIN_ANNOUNCEMENT_SPEED_MS}
-                        max={MAX_ANNOUNCEMENT_SPEED_MS}
-                        step={500}
-                        className="w-full font-mono text-sm sm:w-40"
-                        value={announcement.speedMs}
-                        placeholder={t('bars.speedMsPlaceholder')}
-                        onChange={(event) => {
-                          const raw = event.target.value;
-                          if (raw === '') {
-                            patchAnnouncement({ speedMs: DEFAULT_ANNOUNCEMENT_SPEED_MS });
-                            return;
-                          }
-                          const parsed = Number(raw);
-                          if (!Number.isFinite(parsed)) return;
-                          patchAnnouncement({ speedMs: Math.round(parsed) });
-                        }}
-                        onBlur={() =>
-                          patchAnnouncement({
-                            speedMs: clampAnnouncementSpeedMs(announcement.speedMs),
-                          })
-                        }
-                      />
-                    </div>
-                    <div className="flex items-center justify-between gap-4 px-4 py-3.5 sm:px-6">
-                      <div className="min-w-0 space-y-0.5">
-                        <p className="text-sm font-medium text-foreground">{t('bars.dismissible')}</p>
-                        <p className="text-xs text-muted-foreground">{t('bars.dismissibleHint')}</p>
-                      </div>
-                      <Switch
-                        checked={announcement.dismissible}
-                        onCheckedChange={(dismissible) => patchAnnouncement({ dismissible })}
-                      />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base">{t('bars.heroTitle')}</CardTitle>
-                  <CardDescription>{t('bars.heroDescription')}</CardDescription>
-                </CardHeader>
-                <CardContent className="p-0">
-                  {homepageLoading ? (
-                    <div className="border-t border-border/70 px-4 py-3.5 sm:px-6">
-                      <div className="h-12 animate-pulse rounded-lg bg-muted/50" />
-                    </div>
-                  ) : homepageError || !homepage ? (
-                    <p className="border-t border-border/70 px-4 py-3.5 text-sm text-muted-foreground sm:px-6">
-                      {t('bars.heroMissing')}
-                    </p>
-                  ) : (
-                    <div className="divide-y divide-border/70 border-t border-border/70">
-                      <div className="flex flex-col gap-2 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:px-6">
-                        <div className="min-w-0 space-y-0.5">
-                          <Label htmlFor="settings-hero-interval" className="text-sm font-medium">
-                            {t('bars.heroIntervalMs')}
-                          </Label>
-                          <p className="text-[11px] text-muted-foreground">
-                            {t('bars.heroIntervalMsHint')}
-                          </p>
-                          {!hasHero ? (
-                            <p className="text-xs text-amber-700 dark:text-amber-400">
-                              {t('bars.heroMissing')}
-                            </p>
-                          ) : null}
-                        </div>
-                        <Input
-                          id="settings-hero-interval"
-                          dir="ltr"
-                          type="number"
-                          min={MIN_HERO_INTERVAL_MS}
-                          max={MAX_HERO_INTERVAL_MS}
-                          step={500}
-                          className="w-full font-mono text-sm sm:w-40"
-                          value={heroIntervalMs}
-                          placeholder={t('bars.heroIntervalMsPlaceholder')}
-                          disabled={!hasHero && !homepage}
-                          onChange={(event) => {
-                            const raw = event.target.value;
-                            if (raw === '') {
-                              setHeroIntervalMs(DEFAULT_HERO_INTERVAL_MS);
-                              return;
-                            }
-                            const parsed = Number(raw);
-                            if (!Number.isFinite(parsed)) return;
-                            setHeroIntervalMs(Math.round(parsed));
-                          }}
-                          onBlur={() => setHeroIntervalMs((value) => clampHeroIntervalMs(value))}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
+            <WebsiteColorsPanel
+              theme={draft.theme}
+              typography={draft.typography ?? { ...DEFAULT_STOREFRONT_TYPOGRAPHY }}
+              onChange={({ theme, typography }) => updateDraft({ ...draft, theme, typography })}
+            />
           </TabsContent>
 
           <TabsContent value="contact" className="mt-4">

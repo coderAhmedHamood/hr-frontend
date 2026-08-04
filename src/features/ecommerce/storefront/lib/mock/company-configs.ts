@@ -1,10 +1,12 @@
 import {
+  DEFAULT_MOBILE_TABS,
   DEFAULT_STORE_PAGES_VISIBILITY,
   normalizeAnnouncementBar,
   normalizeSocialLinks,
   normalizeStorePagesVisibility,
   type CompanyConfigRecord,
 } from '@/features/ecommerce/storefront/domain/company-config';
+import { DEFAULT_STOREFRONT_TYPOGRAPHY } from '@/features/ecommerce/storefront/lib/storefront-fonts';
 import {
   LEGACY_STOREFRONT_COMPANY_ID,
   STOREFRONT_FALLBACK_COMPANY_ID,
@@ -59,6 +61,7 @@ const DEMO_COMPANY_SEED: CompanyConfigRecord = {
     secondary: '18 45% 68%',
     accent: '340 28% 94%',
   },
+  typography: { ...DEFAULT_STOREFRONT_TYPOGRAPHY },
   navigation: [
     { label: { ar: 'الرئيسية', en: 'Home' }, href: '/store' },
     { label: { ar: 'المنتجات', en: 'Products' }, href: '/store/products' },
@@ -73,6 +76,10 @@ const DEMO_COMPANY_SEED: CompanyConfigRecord = {
   ],
   footer: {
     copyrightOwnerName: { ar: 'نضارة', en: 'Nadara Beauty' },
+    tagline: {
+      ar: 'تسوّق بثقة — منتجات مختارة وتجربة عربية / إنجليزية سلسة.',
+      en: 'Shop with confidence — curated products and a smooth Arabic / English experience.',
+    },
     commercialRegistration: '7014367010',
     linkGroups: [
       {
@@ -108,6 +115,7 @@ const DEMO_COMPANY_SEED: CompanyConfigRecord = {
       },
     ],
   },
+  mobileTabs: DEFAULT_MOBILE_TABS.map((tab) => ({ ...tab, label: { ...tab.label } })),
   announcement: {
     enabled: true,
     dismissible: true,
@@ -202,9 +210,9 @@ if (COMPANY_CONFIGS[STOREFRONT_FALLBACK_COMPANY_ID]) {
   demo.id = STOREFRONT_FALLBACK_COMPANY_ID;
   const needsYemenMigrate =
     demo.currency === 'SAR' ||
-    demo.contact.phone.includes('966') ||
-    demo.contact.address.toLowerCase().includes('saudi') ||
-    demo.contact.address.toLowerCase().includes('riyadh');
+    demo.contact.phone?.includes('966') === true ||
+    demo.contact.address?.toLowerCase().includes('saudi') === true ||
+    demo.contact.address?.toLowerCase().includes('riyadh') === true;
 
   demo.currency = DEMO_COMPANY_SEED.currency;
   demo.timezone = DEMO_COMPANY_SEED.timezone;

@@ -13,6 +13,7 @@ import {
   Image,
   Mail,
   Star,
+  PanelBottom,
 } from 'lucide-react';
 import {
   ecommerceAdminRoutes,
@@ -96,6 +97,11 @@ export const ecommerceAdminNavGroups: EcommerceAdminNavGroup[] = [
             href: ecommerceNavigationHref('announcement'),
             icon: Megaphone,
             precedingSectionKey: 'appearance',
+          },
+          {
+            labelKey: 'footer',
+            href: ecommerceAdminRoutes.footer,
+            icon: PanelBottom,
           },
         ],
       },

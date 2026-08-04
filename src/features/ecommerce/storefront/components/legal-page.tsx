@@ -1,20 +1,22 @@
-import { getFormatter, getTranslations } from 'next-intl/server';
+'use client';
+
+import { useFormatter, useTranslations } from 'next-intl';
 import type { StorefrontLegalPage } from '@/features/ecommerce/storefront/domain/storefront-models';
 import { StoreBreadcrumbs } from '@/features/ecommerce/storefront/components/store-breadcrumbs';
 import { JsonLd } from '@/features/ecommerce/storefront/components/json-ld';
-import { breadcrumbJsonLd } from '@/features/ecommerce/storefront/lib/seo';
+import { breadcrumbJsonLd } from '@/features/ecommerce/storefront/lib/seo-jsonld';
 import { RichTextHtml } from '@/components/ui/rich-text-html';
 import type { StorefrontLocale } from '@/i18n/routing';
 
-export async function LegalPage({
+export function LegalPage({
   page,
   locale,
 }: {
   page: StorefrontLegalPage;
   locale: StorefrontLocale;
 }) {
-  const t = await getTranslations('storefront');
-  const format = await getFormatter();
+  const t = useTranslations('storefront');
+  const format = useFormatter();
 
   const breadcrumbItems = [
     { name: t('breadcrumbs.home'), path: '/store' as const },

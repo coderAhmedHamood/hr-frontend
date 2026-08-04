@@ -1,19 +1,21 @@
+'use client';
+
 import type { ResolvedProductCarouselSection } from '@/features/ecommerce/storefront/page-builder/domain/page-models';
 import { ProductCard } from '@/features/ecommerce/storefront/components/product-card';
 import {
   ProductCarousel,
   ProductCarouselItem,
 } from '@/features/ecommerce/storefront/components/catalog/product-carousel';
-import { getTranslations } from 'next-intl/server';
+import { useTranslations } from 'next-intl';
 
-export async function ProductCarouselSection({ section }: { section: ResolvedProductCarouselSection }) {
+export function ProductCarouselSection({ section }: { section: ResolvedProductCarouselSection }) {
   const products = section.data.products;
+  const t = useTranslations('storefront');
   if (products.length === 0) return null;
 
   const title = section.heading.title;
   if (!title) return null;
 
-  const t = await getTranslations('storefront');
   const layout = section.style.layout;
 
   return (

@@ -164,12 +164,9 @@ export async function fetchAdminContentBundle(
 
   const faq = unwrapStoreList<FaqDto>(faqPage).items;
 
-  if (!about && !contact && faq.length === 0 && !privacy && !terms && !returns) {
-    return null;
-  }
-
   const legal = [privacy, terms, returns].filter(Boolean).map((item) => mapLegalDto(item!));
 
+  // Always return a CMS-editable shell — missing DB rows are normal before first save.
   return {
     companyId: id,
     about: about

@@ -17,9 +17,7 @@ import {
   ProductFormSection,
 } from '@/features/ecommerce/admin/products/components/product-form-section';
 import { Input } from '@/components/ui/input';
-import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { cn } from '@/shared/utils';
 
 type Props = {
   control: Control<ProductFormInput, unknown, ProductFormValues>;
@@ -129,47 +127,6 @@ export function ProductInventoryTab({ control, errors, register, setValue, produ
               {...register('lowStockThreshold', { valueAsNumber: true })}
             />
           </ProductFormField>
-        </div>
-
-        <div className="grid gap-3 sm:grid-cols-2">
-          {(
-            [
-              {
-                name: 'trackInventory' as const,
-                title: 'تتبع المخزون',
-                hint: 'خصم الكمية عند البيع من مخزون المستودع',
-              },
-              {
-                name: 'allowBackorder' as const,
-                title: 'الطلب عند النفاد',
-                hint: 'السماح بالبيع رغم نفاد المخزون',
-              },
-            ] as const
-          ).map((item) => (
-            <Controller
-              key={item.name}
-              control={control}
-              name={item.name}
-              render={({ field }) => (
-                <label
-                  className={cn(
-                    'flex cursor-pointer items-start justify-between gap-3 rounded-xl border p-3 transition-colors',
-                    field.value ? 'border-primary/30 bg-primary/5' : 'border-border bg-background',
-                  )}
-                >
-                  <span className="min-w-0 space-y-0.5">
-                    <span className="block text-sm font-medium text-foreground">{item.title}</span>
-                    <span className="block text-[11px] text-muted-foreground">{item.hint}</span>
-                  </span>
-                  <Switch
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                    aria-label={item.title}
-                  />
-                </label>
-              )}
-            />
-          ))}
         </div>
       </ProductFormSection>
     </div>

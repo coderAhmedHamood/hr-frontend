@@ -1,6 +1,7 @@
+'use client';
+
 import Image from 'next/image';
-import { getFormatter, getTranslations } from 'next-intl/server';
-import { notFound } from 'next/navigation';
+import { useFormatter, useTranslations } from 'next-intl';
 import {
   Check,
   Clock3,
@@ -11,14 +12,15 @@ import {
   Wallet,
 } from 'lucide-react';
 import { StoreBreadcrumbs } from '@/features/ecommerce/storefront/components/store-breadcrumbs';
-import { getStorefrontOrderByNumber } from '@/features/ecommerce/storefront/lib/checkout-actions';
-import type { StorefrontOrderStatus } from '@/features/ecommerce/storefront/domain/checkout';
+import type {
+  StorefrontCustomerOrder,
+  StorefrontOrderStatus,
+} from '@/features/ecommerce/storefront/domain/checkout';
 import { Link } from '@/i18n/navigation';
 import { cn } from '@/shared/utils';
 
 type Props = {
-  orderNumber: string;
-  phone?: string | null;
+  order: StorefrontCustomerOrder;
 };
 
 const TRACKING_STEPS: Array<{
@@ -38,11 +40,9 @@ function trackingIndex(status: StorefrontOrderStatus): number {
   return index === -1 ? 0 : index;
 }
 
-export async function StoreOrderTrackingPage({ orderNumber, phone }: Props) {
-  const t = await getTranslations('storefront');
-  const format = await getFormatter();
-  const order = await getStorefrontOrderByNumber(orderNumber, { phone });
-  if (!order) notFound();
+export function StoreOrderTrackingPage({ order }: Props) {
+  const t = useTranslations('storefront');
+  const format = useFormatter();
 
   const currentIdx = trackingIndex(order.status);
   const currency = order.total.currency;
@@ -69,7 +69,6 @@ export async function StoreOrderTrackingPage({ orderNumber, phone }: Props) {
         ]}
       />
 
-      {/* Hero */}
       <section className="overflow-hidden rounded-3xl border border-border bg-card shadow-soft">
         <div className="bg-gradient-to-br from-primary/12 via-card to-secondary/10 px-5 py-6 sm:px-8 sm:py-8">
           <div className="flex flex-wrap items-start justify-between gap-4">
@@ -98,7 +97,6 @@ export async function StoreOrderTrackingPage({ orderNumber, phone }: Props) {
           </div>
         </div>
 
-        {/* Timeline */}
         <div className="border-t border-border px-5 py-6 sm:px-8">
           <div className="relative mx-auto max-w-3xl">
             <div className="absolute start-[14px] top-3 bottom-3 w-px bg-border sm:start-0 sm:end-0 sm:top-5 sm:bottom-auto sm:h-0.5 sm:w-full" />
@@ -146,7 +144,6 @@ export async function StoreOrderTrackingPage({ orderNumber, phone }: Props) {
       </section>
 
       <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
-        {/* Items */}
         <section className="rounded-3xl border border-border bg-card p-5 shadow-soft sm:p-6">
           <div className="mb-4 flex items-center gap-2">
             <Package className="h-4 w-4 text-primary" />
@@ -194,7 +191,6 @@ export async function StoreOrderTrackingPage({ orderNumber, phone }: Props) {
           </ul>
         </section>
 
-        {/* Side details */}
         <div className="space-y-6">
           <section className="rounded-3xl border border-border bg-card p-5 shadow-soft sm:p-6">
             <div className="mb-3 flex items-center gap-2">

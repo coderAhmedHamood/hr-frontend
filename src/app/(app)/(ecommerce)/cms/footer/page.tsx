@@ -1,7 +1,5 @@
-import { redirect } from 'next/navigation';
-import { ecommerceNavigationHref } from '@/features/ecommerce/admin/constants/routes';
+import { FooterEditorPage } from '@/features/ecommerce/admin/cms/footer/components/footer-editor-page';
 
-/** Legacy footer route — footer links come from CMS pages; announcement lives here. */
 export default function Page() {
-  redirect(ecommerceNavigationHref('announcement'));
+  return <FooterEditorPage />;
 }

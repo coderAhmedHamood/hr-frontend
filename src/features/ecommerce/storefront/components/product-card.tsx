@@ -1,11 +1,13 @@
-import { getFormatter, getTranslations } from 'next-intl/server';
+'use client';
+
+import { useFormatter, useTranslations } from 'next-intl';
 import type { StockStatus } from '@/features/ecommerce/domain/constants/stock-status';
 import type { StorefrontProduct } from '@/features/ecommerce/storefront/domain/storefront-models';
 import { ProductCardView } from '@/features/ecommerce/storefront/components/product-card-view';
 
-export async function ProductCard({ product, brandName }: { product: StorefrontProduct; brandName?: string }) {
-  const t = await getTranslations('storefront');
-  const format = await getFormatter();
+export function ProductCard({ product, brandName }: { product: StorefrontProduct; brandName?: string }) {
+  const t = useTranslations('storefront');
+  const format = useFormatter();
   const hasDeal = product.compareAtPrice && product.compareAtPrice.amount > product.price.amount;
 
   return (

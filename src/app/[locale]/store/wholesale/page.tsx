@@ -2,8 +2,10 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { getTranslations } from 'next-intl/server';
 import { CatalogTagPage } from '@/features/ecommerce/storefront/components/catalog-tag-page';
+import { CatalogTagPageCsr } from '@/features/ecommerce/storefront/components/store-csr-pages';
 import { getStorefrontCompanyConfig } from '@/features/ecommerce/storefront/lib/get-storefront-company-config';
 import { getStorefrontProductsList } from '@/features/ecommerce/storefront/lib/loaders/catalog-loaders';
+import { isStorefrontCsrEnabled } from '@/features/ecommerce/storefront/lib/is-storefront-csr';
 
 export const revalidate = 60;
 
@@ -16,6 +18,7 @@ type Props = {
 };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  if (isStorefrontCsrEnabled()) return {};
   const { locale } = await params;
   const [t, config] = await Promise.all([
     getTranslations({ locale, namespace: 'storefront' }),
@@ -30,6 +33,20 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function Page({ searchParams }: Props) {
   const { page } = await searchParams;
   const pageNumber = Math.max(1, Number(page) || 1);
+
+  if (isStorefrontCsrEnabled()) {
+    return (
+      <CatalogTagPageCsr
+        tag={TAG}
+        page={pageNumber}
+        titleKey="wholesale.title"
+        descriptionKey="wholesale.description"
+        basePath="/store/wholesale"
+        storePageKey="wholesale"
+      />
+    );
+  }
+
   const [t, config, productsResult] = await Promise.all([
     getTranslations('storefront'),
     getStorefrontCompanyConfig(),

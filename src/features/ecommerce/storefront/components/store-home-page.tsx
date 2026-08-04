@@ -1,15 +1,21 @@
-import { getLocale } from 'next-intl/server';
+'use client';
+
+import { useLocale } from 'next-intl';
 import type { StorefrontPageView } from '@/features/ecommerce/storefront/page-builder/domain/page-models';
 import { StorefrontPage } from '@/features/ecommerce/storefront/page-builder/components/storefront-page';
 import { JsonLd } from '@/features/ecommerce/storefront/components/json-ld';
-import { getStorefrontCompanyConfig } from '@/features/ecommerce/storefront/lib/get-storefront-company-config';
-import { websiteJsonLd } from '@/features/ecommerce/storefront/lib/seo';
+import { websiteJsonLd } from '@/features/ecommerce/storefront/lib/seo-jsonld';
+import type { StorefrontCompanyConfig } from '@/features/ecommerce/storefront/domain/storefront-models';
 import type { StorefrontLocale } from '@/i18n/routing';
 
-/** Homepage route consumer — delegates rendering to the generic page builder. */
-export async function StoreHomePage({ page }: { page: StorefrontPageView }) {
-  const locale = (await getLocale()) as StorefrontLocale;
-  const config = await getStorefrontCompanyConfig();
+export function StoreHomePageView({
+  page,
+  config,
+}: {
+  page: StorefrontPageView;
+  config: StorefrontCompanyConfig;
+}) {
+  const locale = useLocale() as StorefrontLocale;
 
   return (
     <>

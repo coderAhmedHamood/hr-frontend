@@ -1,8 +1,10 @@
 import type { Metadata } from 'next';
 import { ProductsBrowsePage } from '@/features/ecommerce/storefront/components/products-browse-page';
+import { ProductsBrowsePageCsr } from '@/features/ecommerce/storefront/components/store-csr-pages';
 import { productsBrowseMetadata } from '@/features/ecommerce/storefront/lib/seo';
 import { getStorefrontCompanyConfig } from '@/features/ecommerce/storefront/lib/get-storefront-company-config';
 import { getStorefrontCategoriesList, getStorefrontProductsList } from '@/features/ecommerce/storefront/lib/loaders/catalog-loaders';
+import { isStorefrontCsrEnabled } from '@/features/ecommerce/storefront/lib/is-storefront-csr';
 import type { StorefrontLocale } from '@/i18n/routing';
 
 export const revalidate = 60;
@@ -27,6 +29,7 @@ function resolveListQuery(
 }
 
 export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
+  if (isStorefrontCsrEnabled()) return {};
   const [{ locale }, { page, category, tag, sort }] = await Promise.all([params, searchParams]);
   const config = await getStorefrontCompanyConfig();
   const hasFilter = Boolean(category || tag || sort);
@@ -39,6 +42,17 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
 export default async function Page({ searchParams }: { searchParams: SearchParams }) {
   const { page, category, tag, sort } = await searchParams;
   const pageNumber = Math.max(1, Number(page) || 1);
+
+  if (isStorefrontCsrEnabled()) {
+    return (
+      <ProductsBrowsePageCsr
+        page={pageNumber}
+        categorySlug={category}
+        tag={tag}
+        sort={sort}
+      />
+    );
+  }
 
   const [config, categoriesResult] = await Promise.all([
     getStorefrontCompanyConfig(),

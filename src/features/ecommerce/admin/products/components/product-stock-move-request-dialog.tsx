@@ -187,7 +187,7 @@ export function ProductStockMoveRequestDialog({
             : line.nameAr,
         sku: line.sku || undefined,
         productId,
-        variantId: stockMode === 'product' ? null : line.variantId,
+        variantId: stockMode === 'product' ? undefined : (line.variantId ?? undefined),
         demandQuantity: line.quantity,
         quantity: line.quantity,
         ...(stockEffect === 'inbound'

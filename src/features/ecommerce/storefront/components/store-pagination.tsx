@@ -1,4 +1,6 @@
-import { getTranslations } from 'next-intl/server';
+'use client';
+
+import { useTranslations } from 'next-intl';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Link } from '@/i18n/navigation';
 import { cn } from '@/shared/utils';
@@ -25,8 +27,8 @@ const navBtnClass =
   'flex h-9 w-9 items-center justify-center rounded-md border border-border text-sm hover:bg-accent';
 
 /** Plain crawlable `<a>` pagination links — never JS-only, per the SEO contract's Pagination SEO rule. */
-export async function StorePagination({ basePath, query, page, totalPages }: Props) {
-  const t = await getTranslations('storefront');
+export function StorePagination({ basePath, query, page, totalPages }: Props) {
+  const t = useTranslations('storefront');
 
   if (totalPages <= 1) return null;
 

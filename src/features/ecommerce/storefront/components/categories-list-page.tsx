@@ -1,16 +1,18 @@
-import { getLocale, getTranslations } from 'next-intl/server';
+'use client';
+
+import { useLocale, useTranslations } from 'next-intl';
 import { LayoutGrid } from 'lucide-react';
 import type { StorefrontCategory } from '@/features/ecommerce/storefront/domain/storefront-models';
 import { StoreBreadcrumbs } from '@/features/ecommerce/storefront/components/store-breadcrumbs';
 import { StoreEmptyState } from '@/features/ecommerce/storefront/components/store-empty-state';
 import { JsonLd } from '@/features/ecommerce/storefront/components/json-ld';
-import { collectionPageJsonLd } from '@/features/ecommerce/storefront/lib/seo';
+import { collectionPageJsonLd } from '@/features/ecommerce/storefront/lib/seo-jsonld';
 import { Link } from '@/i18n/navigation';
 import type { StorefrontLocale } from '@/i18n/routing';
 
-export async function CategoriesListPage({ categories }: { categories: StorefrontCategory[] }) {
-  const t = await getTranslations('storefront');
-  const locale = (await getLocale()) as StorefrontLocale;
+export function CategoriesListPage({ categories }: { categories: StorefrontCategory[] }) {
+  const t = useTranslations('storefront');
+  const locale = useLocale() as StorefrontLocale;
 
   return (
     <div className="flex flex-col gap-6">

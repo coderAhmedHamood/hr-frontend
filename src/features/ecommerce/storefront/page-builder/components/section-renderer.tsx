@@ -2,8 +2,8 @@ import type { ResolvedSection } from '@/features/ecommerce/storefront/page-build
 import { SectionShell } from '@/features/ecommerce/storefront/page-builder/components/section-shell';
 import { renderSectionComponent } from '@/features/ecommerce/storefront/page-builder/lib/section-registry';
 
-export async function SectionRenderer({ section }: { section: ResolvedSection }) {
-  const content = await renderSectionComponent(section);
+export function SectionRenderer({ section }: { section: ResolvedSection }) {
+  const content = renderSectionComponent(section);
   if (!content) return null;
 
   return (
