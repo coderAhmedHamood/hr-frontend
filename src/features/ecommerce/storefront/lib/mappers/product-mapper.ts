@@ -27,20 +27,6 @@ function resolveDescription(product: Product, locale: StorefrontLocale): string 
 export function mapStorefrontProduct(product: Product, locale: StorefrontLocale): StorefrontProduct {
   const primary = product.media.find((item) => item.isPrimary) ?? product.media[0] ?? null;
   const name = resolveName(product, locale);
-  const variants = (product.variants ?? [])
-    .filter((variant) => variant.isActive)
-    .map((variant) => ({
-      id: variant.id,
-      combinationKey: variant.combinationKey,
-      sku: variant.sku,
-      nameAr: variant.nameAr,
-      attributeValueIds: variant.attributeValueIds,
-      attributeLabels: variant.attributeLabels,
-      price: variant.salePrice,
-      quantity: variant.quantity,
-      stockStatus: variant.stockStatus,
-      isActive: variant.isActive,
-    }));
   const cheapest = cheapestActiveVariant(product.variants ?? []);
   const basePrice = cheapest?.salePrice ?? product.price;
   const dealActive = Boolean(product.isTodayDealActive && product.dealPrice);
@@ -49,24 +35,70 @@ export function mapStorefrontProduct(product: Product, locale: StorefrontLocale)
     product.discountPercent != null &&
     product.discountPercent > 0 &&
     product.discountPercent < 100;
-  let displayPrice = basePrice;
-  let compareAtPrice = product.compareAtPrice ?? null;
+  const discountedBase =
+    discountActive && product.discountPercent
+      ? {
+          amount: Math.max(
+            0,
+            Math.round(basePrice.amount * (1 - product.discountPercent / 100) * 100) / 100,
+          ),
+          currency: basePrice.currency,
+        }
+      : null;
+  const displayPrice =
+    dealActive && product.dealPrice
+      ? product.dealPrice
+      : (discountedBase ?? basePrice);
+  const compareAtPrice =
+    dealActive && product.dealPrice
+      ? basePrice
+      : discountedBase
+        ? basePrice
+        : (product.compareAtPrice ?? null);
+  const mappedVariants = (product.variants ?? [])
+    .filter((variant) => variant.isActive)
+    .map((variant) => {
+      const variantDiscounted =
+        discountActive && product.discountPercent
+          ? {
+              amount: Math.max(
+                0,
+                Math.round(variant.salePrice.amount * (1 - product.discountPercent / 100) * 100) /
+                  100,
+              ),
+              currency: variant.salePrice.currency,
+            }
+          : null;
+      return {
+        id: variant.id,
+        combinationKey: variant.combinationKey,
+        sku: variant.sku,
+        nameAr: variant.nameAr,
+        attributeValueIds: variant.attributeValueIds,
+        attributeLabels: variant.attributeLabels,
+        price:
+          dealActive && product.dealPrice
+            ? product.dealPrice
+            : (variantDiscounted ?? variant.salePrice),
+        quantity: variant.quantity,
+        stockStatus: variant.stockStatus,
+        isActive: variant.isActive,
+      };
+    });
 
-  if (dealActive && product.dealPrice) {
-    displayPrice = product.dealPrice;
-    compareAtPrice = basePrice;
-  } else if (discountActive && product.discountPercent != null) {
-    const discountedAmount = Math.round(basePrice.amount * (1 - product.discountPercent / 100));
-    displayPrice = { ...basePrice, amount: discountedAmount };
-    compareAtPrice = basePrice;
-  }
-
-  const hasInStockVariant = variants.some((variant) => variant.stockStatus === 'in_stock');
+  const variantQtySum = mappedVariants.reduce((sum, variant) => sum + variant.quantity, 0);
+  // Stock often stays on the template until posted per variant — keep product qty when
+  // variants exist but none have been allocated yet.
+  const inventoryQuantity =
+    mappedVariants.length > 0 && variantQtySum > 0
+      ? variantQtySum
+      : product.inventory.quantity;
+  const hasInStockVariant = mappedVariants.some((variant) => variant.stockStatus === 'in_stock');
   const stockStatus =
-    variants.length > 0
-      ? hasInStockVariant
+    mappedVariants.length > 0
+      ? inventoryQuantity > 0 || hasInStockVariant
         ? 'in_stock'
-        : variants.some((v) => v.stockStatus === 'preorder')
+        : mappedVariants.some((v) => v.stockStatus === 'preorder')
           ? 'preorder'
           : 'out_of_stock'
       : product.stockStatus;
@@ -84,10 +116,7 @@ export function mapStorefrontProduct(product: Product, locale: StorefrontLocale)
     stockStatus,
     inventory: {
       ...product.inventory,
-      quantity:
-        variants.length > 0
-          ? variants.reduce((sum, variant) => sum + variant.quantity, 0)
-          : product.inventory.quantity,
+      quantity: inventoryQuantity,
     },
     price: displayPrice,
     compareAtPrice,
@@ -120,7 +149,7 @@ export function mapStorefrontProduct(product: Product, locale: StorefrontLocale)
           description: value.description,
         })),
       })),
-    variants,
+    variants: mappedVariants,
   };
 }
 

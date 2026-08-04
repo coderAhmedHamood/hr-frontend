@@ -24,7 +24,11 @@ function newUomId() {
 }
 
 export function ProductUnitsTab({ control, errors, setValue }: Props) {
-  const { fields, append, remove } = useFieldArray({ control, name: 'uomLines' });
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: 'uomLines',
+    keyName: '_key',
+  });
 
   function setReference(index: number) {
     fields.forEach((_, rowIndex) => {
@@ -39,7 +43,7 @@ export function ProductUnitsTab({ control, errors, setValue }: Props) {
     >
       <div className="space-y-2">
         {fields.map((field, index) => (
-          <div key={field.id} className="rounded-2xl border border-border/80 bg-card/60 p-3 sm:p-3.5">
+          <div key={field._key} className="rounded-2xl border border-border/80 bg-card/60 p-3 sm:p-3.5">
             <div className="flex flex-wrap items-center gap-2.5">
               <Controller
                 control={control}

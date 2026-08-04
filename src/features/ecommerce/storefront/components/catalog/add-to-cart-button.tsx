@@ -13,6 +13,10 @@ type AddToCartButtonProps = {
   productId: string;
   stockStatus: StockStatus;
   variantId?: string;
+  /** Qty to add on first click (PDP). Defaults to 1. */
+  quantity?: number;
+  /** Warehouse / soft max when inventory is tracked. */
+  maxQuantity?: number;
   variant?: 'icon' | 'button' | 'quick';
   className?: string;
   onAdded?: () => void;
@@ -28,6 +32,8 @@ export function AddToCartButton({
   productId,
   stockStatus,
   variantId,
+  quantity: addQuantity = 1,
+  maxQuantity = 99,
   variant = 'icon',
   className,
   onAdded,
@@ -43,6 +49,7 @@ export function AddToCartButton({
   );
   const [hydrated, setHydrated] = React.useState(false);
   const outOfStock = stockStatus === 'out_of_stock' || stockStatus === 'discontinued';
+  const cappedMax = Math.max(1, maxQuantity);
 
   React.useEffect(() => {
     setHydrated(true);
@@ -81,7 +88,12 @@ export function AddToCartButton({
     event?.preventDefault();
     event?.stopPropagation();
     if (outOfStock) return;
-    addItem(productId, 1, variantId);
+    const next = Math.min(cappedMax, Math.max(1, addQuantity));
+    if (quantity > 0) {
+      setQuantity(productId, Math.min(cappedMax, quantity + next), variantId);
+    } else {
+      addItem(productId, next, variantId);
+    }
     notifyAdded();
     onAdded?.();
   }
@@ -95,6 +107,7 @@ export function AddToCartButton({
   function handleIncrement(event?: React.MouseEvent) {
     event?.preventDefault();
     event?.stopPropagation();
+    if (quantity >= cappedMax) return;
     setQuantity(productId, quantity + 1, variantId);
   }
 
@@ -124,7 +137,7 @@ export function AddToCartButton({
       <button
         type="button"
         onClick={handleIncrement}
-        disabled={quantity >= 99}
+        disabled={quantity >= cappedMax}
         className={cn(
           'inline-flex items-center justify-center text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50',
           btnSize,
@@ -149,7 +162,6 @@ export function AddToCartButton({
           event.stopPropagation();
         }}
       >
-        {/* RTL: + N − | LTR: − N + */}
         {isRtl ? increaseBtn : decreaseBtn}
         <span
           className={cn(

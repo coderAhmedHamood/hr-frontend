@@ -1,31 +1,44 @@
 'use client';
 
 import * as React from 'react';
-import { Camera } from 'lucide-react';
+import { Camera, CheckCircle2, Loader2, Save } from 'lucide-react';
 import {
   useFieldArray,
   useWatch,
   type Control,
+  type UseFormGetValues,
   type UseFormRegister,
   type UseFormSetValue,
 } from 'react-hook-form';
+import { toast } from 'sonner';
 import type { ProductFormInput, ProductFormValues } from '@/features/ecommerce/admin/products/schemas/product-schema';
-import { syncProductVariants } from '@/features/ecommerce/admin/products/lib/product-variants';
+import { syncProductVariants, dedupeAttributeValues } from '@/features/ecommerce/admin/products/lib/product-variants';
+import { formValuesToCreateInput, productToFormValues } from '@/features/ecommerce/admin/products/lib/product-form-mapping';
+import { isPersistedId } from '@/features/ecommerce/admin/products/lib/api/products';
+import { useProductMutations } from '@/features/ecommerce/admin/products/hooks/use-product-mutations';
 import { useProductOnHand } from '@/features/inventory/admin/hooks/use-product-on-hand';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { cn } from '@/shared/utils';
 
 type Props = {
   control: Control<ProductFormInput, unknown, ProductFormValues>;
   register: UseFormRegister<ProductFormInput>;
   setValue: UseFormSetValue<ProductFormInput>;
+  getValues: UseFormGetValues<ProductFormInput>;
   productId?: string | null;
 };
 
-export function ProductVariantsPanel({ control, register, setValue, productId }: Props) {
+export function ProductVariantsPanel({
+  control,
+  register,
+  setValue,
+  getValues,
+  productId,
+}: Props) {
   const companyId = getStorefrontCompanyId();
   const attributes = useWatch({ control, name: 'attributes' }) ?? [];
   const nameAr = useWatch({ control, name: 'nameAr' }) ?? '';
@@ -33,8 +46,17 @@ export function ProductVariantsPanel({ control, register, setValue, productId }:
   const listPrice = Number(useWatch({ control, name: 'listPrice' }) ?? 0);
   const costPrice = Number(useWatch({ control, name: 'costPrice' }) ?? 0);
   const variantsWatch = useWatch({ control, name: 'variants' }) ?? [];
-  const { fields, replace } = useFieldArray({ control, name: 'variants' });
+  const { fields, replace } = useFieldArray({
+    control,
+    name: 'variants',
+    keyName: '_key',
+  });
   const { data: onHand } = useProductOnHand(companyId, productId ?? undefined);
+  const { saveAttributesVariants } = useProductMutations();
+
+  const persistedCount = variantsWatch.filter((variant) => isPersistedId(variant.id)).length;
+  const draftCount = variantsWatch.length - persistedCount;
+  const allPersisted = variantsWatch.length > 0 && draftCount === 0;
 
   const signature = React.useMemo(
     () =>
@@ -58,12 +80,23 @@ export function ProductVariantsPanel({ control, register, setValue, productId }:
   );
 
   React.useEffect(() => {
+    let attributesNeedClean = false;
+    const cleanedAttributes = attributes.map((attribute) => {
+      const values = dedupeAttributeValues(attribute.values ?? []);
+      if (values.length !== (attribute.values?.length ?? 0)) attributesNeedClean = true;
+      return { ...attribute, values };
+    });
+    if (attributesNeedClean) {
+      setValue('attributes', cleanedAttributes, { shouldDirty: true });
+      return;
+    }
+
     const next = syncProductVariants({
       productNameAr: nameAr,
       productSku: sku,
       listPrice,
       costPrice,
-      attributes: attributes as Parameters<typeof syncProductVariants>[0]['attributes'],
+      attributes: cleanedAttributes as Parameters<typeof syncProductVariants>[0]['attributes'],
       existing: variantsWatch.map((variant) => ({
         id: variant.id,
         combinationKey: variant.combinationKey,
@@ -116,22 +149,112 @@ export function ProductVariantsPanel({ control, register, setValue, productId }:
     setValue(`variants.${index}.imageUrl`, url, { shouldDirty: true });
   }
 
+  async function handleSaveVariants() {
+    if (!companyId) {
+      toast.message('اختر الشركة أولاً');
+      return;
+    }
+    if (!productId) {
+      toast.message('احفظ المنتج أولاً ثم أضف المتغيرات');
+      return;
+    }
+    if (attributes.length === 0) {
+      toast.message('أضف خاصية واحدة على الأقل قبل حفظ المتغيرات');
+      return;
+    }
+    if (variantsWatch.length === 0) {
+      toast.message('لا توجد متغيرات للحفظ — تأكد أن الخاصية تُنشئ متغيرات');
+      return;
+    }
+
+    const values = getValues() as ProductFormValues;
+    const input = formValuesToCreateInput(values, companyId);
+    try {
+      const saved = await saveAttributesVariants.mutateAsync({
+        companyId,
+        id: productId,
+        patch: {
+          attributes: input.attributes,
+          variants: input.variants,
+        },
+      });
+      if (!saved) return;
+      const nextForm = productToFormValues(saved);
+      setValue('attributes', nextForm.attributes, { shouldDirty: false });
+      setValue('variants', nextForm.variants, { shouldDirty: false });
+    } catch {
+      // toast handled by mutation onError
+    }
+  }
+
+  const statusBadge =
+    variantsWatch.length === 0 ? null : allPersisted ? (
+      <Badge variant="subtle" className="gap-1 border-emerald-500/30 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300">
+        <CheckCircle2 className="h-3.5 w-3.5" />
+        محفوظة في قاعدة البيانات ({persistedCount})
+      </Badge>
+    ) : persistedCount > 0 ? (
+      <Badge variant="subtle" className="gap-1 border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-300">
+        محفوظ جزئياً: {persistedCount} / {variantsWatch.length}
+      </Badge>
+    ) : (
+      <Badge variant="subtle" className="gap-1 border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-300">
+        لم تُضف بعد ({draftCount} مسودة)
+      </Badge>
+    );
+
   if (fields.length === 0) {
     return (
-      <p className="text-xs text-muted-foreground">
-        عند ربط خصائص تُنشئ متغيرات، تظهر هنا صفوف لكل تركيبة — بسعر وكمية وباركود وصورة لكل متغير.
-      </p>
+      <div className="space-y-3 rounded-xl border border-dashed border-border px-4 py-5">
+        <p className="text-xs text-muted-foreground">
+          عند ربط خصائص تُنشئ متغيرات، تظهر هنا صفوف لكل تركيبة — بسعر وباركود وصورة لكل متغير.
+        </p>
+        <Button type="button" variant="secondary" disabled title="لا توجد متغيرات بعد">
+          إضافة المتغيرات
+        </Button>
+      </div>
     );
   }
 
   return (
-    <div className="space-y-2">
-      <div>
-        <p className="text-sm font-semibold text-foreground">متغيرات المنتج</p>
-        <p className="text-xs text-muted-foreground">
-          سعر البيع والشراء والباركود والصورة قابلة للتعديل. الكمية من مخزون المستودع بعد التصديق.
-        </p>
+    <div className="space-y-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-1.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-sm font-semibold text-foreground">متغيرات المنتج</p>
+            {statusBadge}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            عدّل الأسعار ثم اضغط «إضافة المتغيرات» لحفظها في قاعدة البيانات. الكمية من مخزون المستودع بعد التصديق.
+          </p>
+        </div>
+        <Button
+          type="button"
+          className="shrink-0 gap-2"
+          disabled={!productId || saveAttributesVariants.isPending || attributes.length === 0}
+          onClick={() => void handleSaveVariants()}
+          title={!productId ? 'احفظ المنتج أولاً' : undefined}
+        >
+          {saveAttributesVariants.isPending ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : allPersisted ? (
+            <Save className="h-4 w-4" />
+          ) : (
+            <Save className="h-4 w-4" />
+          )}
+          {saveAttributesVariants.isPending
+            ? 'جاري الإضافة…'
+            : allPersisted
+              ? 'تحديث المتغيرات'
+              : 'إضافة المتغيرات'}
+        </Button>
       </div>
+
+      {!productId ? (
+        <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-900 dark:text-amber-300">
+          احفظ المنتج من زر «إنشاء المنتج / حفظ التغييرات» أولاً، ثم ارجع هنا لإضافة المتغيرات إلى قاعدة البيانات.
+        </p>
+      ) : null}
 
       <div className="overflow-x-auto rounded-lg border border-border">
         <table className="w-full min-w-[980px] text-sm">
@@ -144,6 +267,7 @@ export function ProductVariantsPanel({ control, register, setValue, productId }:
               <th className="px-3 py-2.5 text-start font-medium">سعر البيع</th>
               <th className="px-3 py-2.5 text-start font-medium">التكلفة</th>
               <th className="px-3 py-2.5 text-start font-medium">الكمية</th>
+              <th className="px-3 py-2.5 text-start font-medium">الحالة</th>
               <th className="px-3 py-2.5 text-start font-medium">مفعّل</th>
             </tr>
           </thead>
@@ -151,8 +275,10 @@ export function ProductVariantsPanel({ control, register, setValue, productId }:
             {fields.map((field, index) => {
               const labels = variantsWatch[index]?.attributeLabels ?? field.attributeLabels;
               const imageUrl = variantsWatch[index]?.imageUrl?.trim() ?? '';
+              const rowId = variantsWatch[index]?.id ?? field.id;
+              const rowPersisted = isPersistedId(rowId);
               return (
-                <tr key={field.id} className="border-b border-border last:border-0">
+                <tr key={field._key} className="border-b border-border last:border-0">
                   <td className="px-3 py-2.5 align-middle">
                     <Button
                       type="button"
@@ -240,6 +366,16 @@ export function ProductVariantsPanel({ control, register, setValue, productId }:
                       disabled
                       title="من مخزون المستودع"
                     />
+                  </td>
+                  <td className="px-3 py-2.5 align-middle">
+                    {rowPersisted ? (
+                      <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 dark:text-emerald-400">
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        مضاف
+                      </span>
+                    ) : (
+                      <span className="text-xs font-medium text-amber-700 dark:text-amber-400">مسودة</span>
+                    )}
                   </td>
                   <td className="px-3 py-2.5 align-middle">
                     <Switch

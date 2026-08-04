@@ -10,7 +10,13 @@ import { QuantitySelector } from '@/features/ecommerce/storefront/components/cat
 import { StoreErrorState } from '@/features/ecommerce/storefront/components/catalog/store-error-state';
 import { useStorefrontCartProducts } from '@/features/ecommerce/storefront/hooks/use-storefront-cart-products';
 import { useStorefrontCartUi } from '@/features/ecommerce/storefront/hooks/use-storefront-cart-ui';
-import { buildProductDisplay, hasProductDeal } from '@/features/ecommerce/storefront/lib/product-display';
+import {
+  buildProductDisplay,
+  getOrderQuantityMax,
+  resolveDiscountPercent,
+  resolveLineCompareAtPrice,
+  resolveLineUnitPrice,
+} from '@/features/ecommerce/storefront/lib/product-display';
 import { StoreEmptyState } from '@/features/ecommerce/storefront/components/store-empty-state';
 import { Link } from '@/i18n/navigation';
 
@@ -30,9 +36,12 @@ export function StoreCartClient() {
       const variant = line.variantId
         ? product.variants.find((item) => item.id === line.variantId)
         : undefined;
-      const unitPrice = variant?.price ?? product.price;
+      const unitPrice = resolveLineUnitPrice(product, variant);
+      const compareAt = resolveLineCompareAtPrice(product, unitPrice);
+      const discountPercent = resolveDiscountPercent(unitPrice, compareAt);
+      const maxQty = getOrderQuantityMax(product, variant);
       const lineName = variant ? variant.nameAr : product.name;
-      return { line, product, variant, unitPrice, lineName };
+      return { line, product, variant, unitPrice, compareAt, discountPercent, maxQty, lineName };
     })
     .filter(
       (
@@ -42,6 +51,9 @@ export function StoreCartClient() {
         product: StorefrontProduct;
         variant: StorefrontProduct['variants'][number] | undefined;
         unitPrice: StorefrontProduct['price'];
+        compareAt: StorefrontProduct['compareAtPrice'];
+        discountPercent: number | null;
+        maxQty: number;
         lineName: string;
       } => Boolean(entry),
     );
@@ -77,9 +89,8 @@ export function StoreCartClient() {
   return (
     <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
       <ul className="flex flex-col gap-4">
-        {cartLines.map(({ line, product, unitPrice, lineName, variant }) => {
+        {cartLines.map(({ line, product, unitPrice, compareAt, discountPercent, maxQty, lineName, variant }) => {
           const display = buildProductDisplay(product);
-          const showCompare = !variant && hasProductDeal(product);
           const rowKey = line.variantId ? `${product.id}::${line.variantId}` : product.id;
           return (
             <li key={rowKey} className="flex gap-4 rounded-xl border border-border bg-card p-4">
@@ -117,16 +128,18 @@ export function StoreCartClient() {
                 <ProductPrice
                   price={formatPrice(unitPrice.amount, unitPrice.currency)}
                   compareAtPrice={
-                    showCompare && product.compareAtPrice
-                      ? formatPrice(product.compareAtPrice.amount, product.compareAtPrice.currency)
+                    compareAt
+                      ? formatPrice(compareAt.amount, compareAt.currency)
                       : undefined
                   }
+                  discountPercent={discountPercent}
                   size="sm"
                 />
                 <div className="flex flex-wrap items-center gap-3">
                   <span className="text-xs text-muted-foreground">{t('cart.quantity')}</span>
                   <QuantitySelector
                     value={line.quantity}
+                    max={Math.max(1, maxQty)}
                     onChange={(quantity) => setQuantity(product.id, quantity, line.variantId)}
                   />
                   <button

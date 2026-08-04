@@ -2,11 +2,20 @@
 
 import * as React from 'react';
 import { Check, GripVertical, Layers, Plus, Search, SlidersHorizontal, Trash2 } from 'lucide-react';
-import { useFieldArray, useWatch, type Control, type FieldErrors, type UseFormRegister, type UseFormSetValue } from 'react-hook-form';
+import {
+  useFieldArray,
+  useWatch,
+  type Control,
+  type FieldErrors,
+  type UseFormGetValues,
+  type UseFormRegister,
+  type UseFormSetValue,
+} from 'react-hook-form';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
 import { useCatalogAttributes } from '@/features/ecommerce/admin/attributes/hooks/use-catalog-attributes';
 import type { ProductFormInput, ProductFormValues } from '@/features/ecommerce/admin/products/schemas/product-schema';
 import { ProductVariantsPanel } from '@/features/ecommerce/admin/products/components/product-variants-panel';
+import { dedupeAttributeValues } from '@/features/ecommerce/admin/products/lib/product-variants';
 import {
   normalizeAttributeValue,
   type CatalogAttribute,
@@ -29,6 +38,7 @@ type Props = {
   errors: FieldErrors<ProductFormInput>;
   register: UseFormRegister<ProductFormInput>;
   setValue: UseFormSetValue<ProductFormInput>;
+  getValues: UseFormGetValues<ProductFormInput>;
   productId?: string | null;
 };
 
@@ -49,18 +59,20 @@ function catalogToLine(attribute: CatalogAttribute): ProductAttributeLine {
     nameAr: attribute.nameAr,
     displayType: attribute.displayType,
     createVariant: attribute.createVariant,
-    values: attribute.values.map((raw) => {
-      const value = normalizeAttributeValue(raw, attribute.displayType);
-      return {
-        id: newValueClientKey(),
-        catalogAttributeValueId: value.id,
-        nameAr: value.nameAr,
-        freeText: value.freeText,
-        defaultExtraPrice: value.defaultExtraPrice,
-        colorHex: value.colorHex,
-        imageUrl: value.imageUrl,
-      };
-    }),
+    values: dedupeAttributeValues(
+      attribute.values.map((raw) => {
+        const value = normalizeAttributeValue(raw, attribute.displayType);
+        return {
+          id: newValueClientKey(),
+          catalogAttributeValueId: value.id,
+          nameAr: value.nameAr,
+          freeText: value.freeText,
+          defaultExtraPrice: value.defaultExtraPrice,
+          colorHex: value.colorHex,
+          imageUrl: value.imageUrl,
+        };
+      }),
+    ),
   };
 }
 
@@ -89,10 +101,14 @@ function ValuePill({
   );
 }
 
-export function ProductAttributesTab({ control, errors, register, setValue, productId }: Props) {
+export function ProductAttributesTab({ control, errors, register, setValue, getValues, productId }: Props) {
   const companyId = getStorefrontCompanyId();
   const { data: catalogData, isLoading } = useCatalogAttributes({ companyId, limit: 100 });
-  const { fields, append, remove, move, update } = useFieldArray({ control, name: 'attributes' });
+  const { fields, append, remove, move, update } = useFieldArray({
+    control,
+    name: 'attributes',
+    keyName: '_key',
+  });
   const watched = useWatch({ control, name: 'attributes' }) ?? [];
 
   const catalog = (catalogData?.items ?? []).filter((item) => item.isActive);
@@ -104,7 +120,7 @@ export function ProductAttributesTab({ control, errors, register, setValue, prod
   const [configureIndex, setConfigureIndex] = React.useState<number | null>(null);
   const [dragIndex, setDragIndex] = React.useState<number | null>(null);
 
-  const configureLine = configureIndex !== null ? (watched[configureIndex] ?? fields[configureIndex]) : null;
+  const configureLine = configureIndex !== null ? watched[configureIndex] : null;
   const configureCatalog = configureLine?.attributeId
     ? catalog.find((item) => item.id === configureLine.attributeId)
     : undefined;
@@ -179,13 +195,18 @@ export function ProductAttributesTab({ control, errors, register, setValue, prod
         });
 
       if (nextValues.length === 0) return;
-      update(configureIndex, { ...configureLine, values: nextValues });
+      update(configureIndex, {
+        ...configureLine,
+        values: dedupeAttributeValues(nextValues),
+      });
       setConfigureIndex(null);
       return;
     }
 
     const sourceValues = configureLine.values;
-    const nextValues = sourceValues.filter((value) => selectedValueIds.has(value.id));
+    const nextValues = dedupeAttributeValues(
+      sourceValues.filter((value) => selectedValueIds.has(value.id)),
+    );
     if (nextValues.length === 0) return;
     update(configureIndex, { ...configureLine, values: nextValues });
     setConfigureIndex(null);
@@ -230,7 +251,7 @@ export function ProductAttributesTab({ control, errors, register, setValue, prod
             const line = watched[index] ?? field;
             return (
               <div
-                key={field.id}
+                key={field._key}
                 draggable
                 onDragStart={() => setDragIndex(index)}
                 onDragOver={(event) => event.preventDefault()}
@@ -419,7 +440,13 @@ export function ProductAttributesTab({ control, errors, register, setValue, prod
       </Dialog>
 
       <div className="pt-4" id="product-variants-panel">
-        <ProductVariantsPanel control={control} register={register} setValue={setValue} productId={productId} />
+        <ProductVariantsPanel
+          control={control}
+          register={register}
+          setValue={setValue}
+          getValues={getValues}
+          productId={productId}
+        />
       </div>
     </div>
   );

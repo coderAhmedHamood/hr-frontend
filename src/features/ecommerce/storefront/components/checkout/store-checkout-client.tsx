@@ -24,7 +24,7 @@ import { placeStorefrontOrder } from '@/features/ecommerce/storefront/lib/checko
 import { useStorefrontCartProducts } from '@/features/ecommerce/storefront/hooks/use-storefront-cart-products';
 import { useStorefrontCartUi } from '@/features/ecommerce/storefront/hooks/use-storefront-cart-ui';
 import { useStorefrontCustomerUi } from '@/features/ecommerce/storefront/hooks/use-storefront-customer-ui';
-import { buildProductDisplay } from '@/features/ecommerce/storefront/lib/product-display';
+import { buildProductDisplay, resolveDiscountPercent, resolveLineCompareAtPrice, resolveLineUnitPrice } from '@/features/ecommerce/storefront/lib/product-display';
 import { ProductGridSkeleton } from '@/features/ecommerce/storefront/components/catalog/loading-skeleton';
 import { StoreErrorState } from '@/features/ecommerce/storefront/components/catalog/store-error-state';
 import { StoreEmptyState } from '@/features/ecommerce/storefront/components/store-empty-state';
@@ -126,15 +126,19 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
       const variant = line.variantId
         ? product.variants.find((item) => item.id === line.variantId)
         : undefined;
-      const unitPrice = variant?.price ?? product.price;
+      const unitPrice = resolveLineUnitPrice(product, variant);
+      const compareAt = resolveLineCompareAtPrice(product, unitPrice);
+      const discountPercent = resolveDiscountPercent(unitPrice, compareAt);
       const lineName = variant ? variant.nameAr : product.name;
-      return { line, product, variant, unitPrice, lineName };
+      return { line, product, variant, unitPrice, compareAt, discountPercent, lineName };
     })
     .filter(Boolean) as Array<{
     line: (typeof lines)[number];
     product: NonNullable<ReturnType<typeof productById.get>>;
     variant: NonNullable<ReturnType<typeof productById.get>>['variants'][number] | undefined;
     unitPrice: NonNullable<ReturnType<typeof productById.get>>['price'];
+    compareAt: NonNullable<ReturnType<typeof productById.get>>['compareAtPrice'];
+    discountPercent: number | null;
     lineName: string;
   }>;
 
@@ -743,7 +747,7 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
           </div>
 
           <ul className="max-h-52 space-y-3 overflow-y-auto px-5 py-4">
-            {cartLines.map(({ line, product, unitPrice, lineName }) => {
+            {cartLines.map(({ line, product, unitPrice, compareAt, discountPercent, lineName }) => {
               const display = buildProductDisplay(product);
               const key = line.variantId ? `${product.id}::${line.variantId}` : product.id;
               return (
@@ -764,9 +768,19 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-xs font-medium text-foreground">{lineName}</p>
-                    <p className="text-[11px] text-muted-foreground tabular-nums">
-                      {formatPrice(unitPrice.amount)}
-                    </p>
+                    <div className="flex flex-wrap items-center gap-1.5 text-[11px] tabular-nums">
+                      <span className="font-medium text-foreground">{formatPrice(unitPrice.amount)}</span>
+                      {compareAt ? (
+                        <span className="text-muted-foreground line-through">
+                          {formatPrice(compareAt.amount)}
+                        </span>
+                      ) : null}
+                      {discountPercent ? (
+                        <span className="font-semibold text-secondary">
+                          {t('components.discount', { percent: discountPercent })}
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
                 </li>
               );

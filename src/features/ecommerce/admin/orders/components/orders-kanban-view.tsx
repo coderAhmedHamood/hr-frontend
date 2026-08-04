@@ -65,7 +65,7 @@ export function OrdersKanbanView({
                 const phone = order.phone?.trim() || null;
 
                 return (
-                  <div
+                  <article
                     key={order.id}
                     className={cn(
                       'rounded-xl border border-border bg-card p-3 shadow-soft',
@@ -78,7 +78,18 @@ export function OrdersKanbanView({
                       !isCard && 'bg-teal-500/[0.03]',
                     )}
                   >
-                    <button type="button" className="w-full text-start" onClick={() => onOpen(order)}>
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      className="w-full cursor-pointer text-start outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      onClick={() => onOpen(order)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          onOpen(order);
+                        }
+                      }}
+                    >
                       <div className="mb-1.5 flex items-start justify-between gap-2">
                         <span className="font-semibold tracking-tight" dir="ltr">
                           {order.orderNumber}
@@ -112,7 +123,7 @@ export function OrdersKanbanView({
 
                       <div
                         className={cn(
-                          'mt-2 flex items-start gap-2 rounded-lg border px-2 py-1.5',
+                          'mt-2 rounded-lg border px-2 py-1.5',
                           prep.canPrepare
                             ? isCard
                               ? 'border-sky-500/30 bg-sky-500/10'
@@ -120,68 +131,73 @@ export function OrdersKanbanView({
                             : 'border-amber-500/30 bg-amber-500/10',
                         )}
                       >
-                        <div className="min-w-0 flex-1">
-                          <p
-                            className={cn(
-                              'inline-flex items-center gap-1.5 text-[11px] font-semibold',
-                              prep.canPrepare
-                                ? isCard
-                                  ? 'text-sky-900 dark:text-sky-300'
-                                  : 'text-teal-900 dark:text-teal-300'
-                                : 'text-amber-800 dark:text-amber-300',
-                            )}
-                          >
-                            <PaymentIcon className="h-3.5 w-3.5 shrink-0" />
-                            {prep.methodLabel}
-                          </p>
-                          <p
-                            className={cn(
-                              'mt-0.5 text-[11px] leading-snug',
-                              prep.canPrepare
-                                ? isCard
-                                  ? 'text-sky-800/90 dark:text-sky-400/90'
-                                  : 'text-teal-800/90 dark:text-teal-400/90'
-                                : 'text-amber-700/90 dark:text-amber-400/90',
-                            )}
-                          >
-                            {prep.prepLabel}
-                          </p>
-                        </div>
-                        <OrderPaymentProofThumb
-                          urls={order.paymentProofUrls}
-                          url={order.paymentProofUrl}
-                          orderNumber={order.orderNumber}
-                          size="sm"
-                        />
+                        <p
+                          className={cn(
+                            'inline-flex items-center gap-1.5 text-[11px] font-semibold',
+                            prep.canPrepare
+                              ? isCard
+                                ? 'text-sky-900 dark:text-sky-300'
+                                : 'text-teal-900 dark:text-teal-300'
+                              : 'text-amber-800 dark:text-amber-300',
+                          )}
+                        >
+                          <PaymentIcon className="h-3.5 w-3.5 shrink-0" />
+                          {prep.methodLabel}
+                        </p>
+                        <p
+                          className={cn(
+                            'mt-0.5 text-[11px] leading-snug',
+                            prep.canPrepare
+                              ? isCard
+                                ? 'text-sky-800/90 dark:text-sky-400/90'
+                                : 'text-teal-800/90 dark:text-teal-400/90'
+                              : 'text-amber-700/90 dark:text-amber-400/90',
+                          )}
+                        >
+                          {prep.prepLabel}
+                        </p>
                       </div>
-                    </button>
+                    </div>
 
-                    {needsPayment && onMarkPaid ? (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="secondary"
-                        className="mt-2 w-full"
-                        disabled={updatingOrderId === order.id}
-                        onClick={() => onMarkPaid(order)}
-                      >
-                        تأكيد التحصيل
-                      </Button>
-                    ) : null}
+                    <div className="mt-2 space-y-2">
+                      {order.paymentProofUrls?.length || order.paymentProofUrl ? (
+                        <div className="flex justify-end">
+                          <OrderPaymentProofThumb
+                            urls={order.paymentProofUrls}
+                            url={order.paymentProofUrl}
+                            orderNumber={order.orderNumber}
+                            size="sm"
+                          />
+                        </div>
+                      ) : null}
 
-                    {canMove ? (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        className="mt-2 w-full"
-                        disabled={updatingOrderId === order.id}
-                        onClick={() => onStatusChange?.(order, next!)}
-                      >
-                        نقل إلى: {ORDER_STATUS_LABELS_AR[next!]}
-                      </Button>
-                    ) : null}
-                  </div>
+                      {needsPayment && onMarkPaid ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          className="w-full"
+                          disabled={updatingOrderId === order.id}
+                          onClick={() => onMarkPaid(order)}
+                        >
+                          تأكيد التحصيل
+                        </Button>
+                      ) : null}
+
+                      {canMove ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="w-full"
+                          disabled={updatingOrderId === order.id}
+                          onClick={() => onStatusChange?.(order, next!)}
+                        >
+                          نقل إلى: {ORDER_STATUS_LABELS_AR[next!]}
+                        </Button>
+                      ) : null}
+                    </div>
+                  </article>
                 );
               })}
 
