@@ -24,6 +24,7 @@ import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -83,6 +84,7 @@ export function StoreAccountAddressesClient() {
   const [form, setForm] = React.useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = React.useState(false);
   const [busyId, setBusyId] = React.useState<string | null>(null);
+  const [deleteTargetId, setDeleteTargetId] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     setHydrated(true);
@@ -199,12 +201,13 @@ export function StoreAccountAddressesClient() {
     }
   }
 
-  async function handleDelete(id: string) {
-    if (!accessToken) return;
-    if (!window.confirm(t('account.addresses.deleteConfirm'))) return;
+  async function confirmDelete() {
+    if (!accessToken || !deleteTargetId) return;
+    const id = deleteTargetId;
     setBusyId(id);
     try {
       await deletePartnerAddress(accessToken, id);
+      setDeleteTargetId(null);
       toast.success(t('account.addresses.deleted'));
       await reload();
     } catch (err) {
@@ -310,7 +313,7 @@ export function StoreAccountAddressesClient() {
                     size="icon"
                     className="text-destructive hover:bg-destructive/5"
                     disabled={busyId === address.id}
-                    onClick={() => void handleDelete(address.id)}
+                    onClick={() => setDeleteTargetId(address.id)}
                     aria-label={t('account.addresses.delete')}
                   >
                     <Trash2 className="h-4 w-4" />
@@ -327,6 +330,38 @@ export function StoreAccountAddressesClient() {
           {t('common.back')}
         </Link>
       </Button>
+
+      <Dialog
+        open={deleteTargetId != null}
+        onOpenChange={(open) => {
+          if (!open && busyId !== deleteTargetId) setDeleteTargetId(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('account.addresses.delete')}</DialogTitle>
+            <DialogDescription>{t('account.addresses.deleteConfirm')}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={busyId === deleteTargetId}
+              onClick={() => setDeleteTargetId(null)}
+            >
+              {t('common.cancel')}
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={busyId === deleteTargetId}
+              onClick={() => void confirmDelete()}
+            >
+              {busyId === deleteTargetId ? t('account.saving') : t('account.addresses.delete')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-md">

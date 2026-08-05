@@ -470,6 +470,7 @@
   },
   "common": {
     "back": "Back",
+    "cancel": "Cancel",
     "loading": "Loading…",
     "errorTitle": "Something went wrong",
     "errorDescription": "We could not load this page. Please try again.",

@@ -470,6 +470,7 @@
   },
   "common": {
     "back": "رجوع",
+    "cancel": "إلغاء",
     "loading": "جاري التحميل…",
     "errorTitle": "حدث خطأ",
     "errorDescription": "تعذّر تحميل هذه الصفحة. حاول مرة أخرى.",
