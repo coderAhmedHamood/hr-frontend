@@ -140,7 +140,7 @@ export function StoreAccountAddressesClient() {
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
-    if (!accessToken) return;
+    if (!accessToken || !customer?.partnerId) return;
     if (!form.city.trim() || !form.district.trim() || !form.street.trim()) {
       toast.error(t('checkout.errors.required'));
       return;
