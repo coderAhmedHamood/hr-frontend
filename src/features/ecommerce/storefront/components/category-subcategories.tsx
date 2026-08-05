@@ -9,9 +9,9 @@ export function CategorySubcategories({
 }: {
   subcategories: StorefrontCategory[];
 }) {
-  if (subcategories.length === 0) return null;
-
   const t = useTranslations('storefront.categories');
+
+  if (subcategories.length === 0) return null;
 
   return (
     <section className="flex flex-col gap-3 rounded-2xl border border-border/70 bg-muted/25 p-4">

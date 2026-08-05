@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl';
 import {
   ChevronRight,
   ClipboardList,
+  MapPin,
   Pencil,
   Power,
   RefreshCcw,
@@ -150,6 +151,12 @@ export function StoreAccountClient() {
       meta: undefined,
     },
     {
+      href: '/store/account/addresses' as const,
+      title: t('account.quick.addresses'),
+      subtitle: t('account.quick.addressesHint'),
+      icon: MapPin,
+    },
+    {
       href: '/store/legal/returns' as const,
       title: t('account.quick.returns'),
       subtitle: t('account.quick.returnsHint'),
@@ -202,7 +209,7 @@ export function StoreAccountClient() {
         </span>
       </Link>
 
-      <section className="grid grid-cols-2 gap-3">
+      <section className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {quickLinks.map((item) => {
           const Icon = item.icon;
           return (

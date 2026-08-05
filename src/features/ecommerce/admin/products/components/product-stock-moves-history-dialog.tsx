@@ -91,15 +91,14 @@ export function ProductStockMovesHistoryDialog({
   const [statusFilter, setStatusFilter] = React.useState<'all' | WarehouseOperationStatus>('all');
   const [selectedOp, setSelectedOp] = React.useState<WarehouseOperation | null>(null);
 
-  const { data, isLoading } = useWarehouseOperations({
-    companyId,
-    productId,
-    limit: 200,
-  });
-  const { data: locationsData } = useWarehouseLocations({
-    companyId,
-    limit: 500,
-  });
+  const { data, isLoading } = useWarehouseOperations(
+    { companyId, productId, limit: 200 },
+    { enabled: open },
+  );
+  const { data: locationsData } = useWarehouseLocations(
+    { companyId, limit: 500 },
+    { enabled: open },
+  );
   const locations = locationsData?.items ?? [];
   const locationName = React.useMemo(() => {
     const map = new Map(locations.map((item) => [item.id, item.nameAr || item.code]));

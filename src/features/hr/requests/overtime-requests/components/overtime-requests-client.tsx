@@ -239,10 +239,6 @@ export function OvertimeRequestsClient() {
     setApproveNotes('');
   }, [m.approveTarget]);
 
-  if (m.accessDenied) {
-    return <ForbiddenState title="لا تملك صلاحية الوصول لطلبات العمل الإضافي" />;
-  }
-
   const openApprove = (x: OvertimeRequestRecord) => {
     m.setDetailTarget(null);
     m.setApproveTarget(x);
@@ -401,6 +397,10 @@ export function OvertimeRequestsClient() {
       },
     },
   ], [m]);
+
+  if (m.accessDenied) {
+    return <ForbiddenState title="لا تملك صلاحية الوصول لطلبات العمل الإضافي" />;
+  }
 
   return (
     <>

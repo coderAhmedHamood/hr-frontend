@@ -1,7 +1,6 @@
 'use server';
 
 import { cookies } from 'next/headers';
-import { mockProductsStore } from '@/features/ecommerce/shared/lib/adapters/mock-catalog-store';
 import { resolveStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
 import { resolveApiBaseUrl } from '@/shared/api-base-url';
 import { publicConfig } from '@/shared/config';
@@ -147,35 +146,9 @@ async function listInventoryCategories(companyId: string): Promise<CatalogPicker
     }));
 }
 
-async function listMockProducts(companyId: string): Promise<CatalogPickerProduct[]> {
-  const result = await mockProductsStore.list({ companyId, page: 1, limit: 200, status: 'active' });
-  return result.items.map((product) => {
-    const primary = product.media.find((item) => item.isPrimary) ?? product.media[0];
-    return {
-      id: product.id,
-      sku: product.sku,
-      slug: product.slug,
-      nameAr: product.nameAr,
-      nameEn: product.nameEn ?? null,
-      imageUrl: primary?.url ?? null,
-      categoryId: product.categoryId ?? null,
-      tags: product.tags ?? [],
-      priceAmount: product.price.amount,
-      priceCurrency: product.price.currency,
-      compareAtPriceAmount: product.compareAtPrice?.amount ?? null,
-      stockStatus: product.stockStatus,
-    };
-  });
-}
-
-/** Products for section data-source pickers.
- * Frontend-first: mock catalog is the contract source so admin picks match storefront
- * (anonymous `/store` has no inventory auth). Inventory is used when mock is empty.
- */
+/** Products for section data-source pickers — always sourced from the inventory API. */
 export async function listCatalogPickerProducts(companyId: string): Promise<CatalogPickerProduct[]> {
   const resolved = resolveStorefrontCompanyId(companyId);
-  const fromMock = await listMockProducts(resolved);
-  if (fromMock.length > 0) return fromMock;
   const fromApi = await listInventoryProducts(resolved);
   return fromApi ?? [];
 }
@@ -188,13 +161,13 @@ export async function listCatalogPickerCategories(companyId: string): Promise<Ca
 
 /**
  * Media library images for the CMS image picker.
- * Backend endpoint is not implemented yet — returns [] until a real
- * "browse uploaded images" endpoint exists; the picker UI handles the empty state.
+ * Sourced from all product media across the catalog (`/inventory/product-media`),
+ * since there is no standalone media-upload entity.
  */
 export async function listMediaLibraryImages(companyId: string): Promise<MediaLibraryImage[]> {
   const resolved = resolveStorefrontCompanyId(companyId);
   const page = await fetchInventoryJson<{ items?: Array<{ id: string; url: string; alt?: string | null }> }>(
-    '/media/images',
+    '/inventory/product-media',
     { companyId: resolved, page: '1', limit: '200' },
   );
   if (!page?.items?.length) return [];

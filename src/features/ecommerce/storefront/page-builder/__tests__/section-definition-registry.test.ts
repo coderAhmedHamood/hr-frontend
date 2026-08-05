@@ -4,8 +4,6 @@ import {
   SECTION_DEFINITION_REGISTRY,
 } from '@/features/ecommerce/storefront/page-builder/lib/section-definition-registry';
 import { SECTION_TYPES } from '@/features/ecommerce/storefront/page-builder/domain/section-types';
-import homepagePageSeed from '@/features/ecommerce/storefront/page-builder/lib/mock/pages/homepage.json';
-import { pageRecordSchema } from '@/features/ecommerce/storefront/page-builder/schemas/page.schema';
 
 const SECTION_METADATA_STUB = {
   id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
@@ -66,9 +64,5 @@ describe('Section Definition Registry', () => {
       expect(definition.componentKey).toBe(type);
       expect(definition.id).toBe(type);
     }
-  });
-
-  it('validates homepage mock page JSON against pageRecordSchema', () => {
-    expect(() => pageRecordSchema.parse(homepagePageSeed)).not.toThrow();
   });
 });

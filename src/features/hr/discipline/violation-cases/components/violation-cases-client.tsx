@@ -876,15 +876,6 @@ export function ViolationCasesClient() {
                   label: STATUS_LABELS[c.status],
                   tone: VIOLATION_STATUS_TONE[c.status],
                 }}
-                children={
-                  c.approverStates ? (
-                    <ViolationApproverStatesPanel
-                      states={c.approverStates}
-                      compact
-                      className="border-0 bg-transparent p-0"
-                    />
-                  ) : undefined
-                }
                 chips={
                   <>
                     <EntityActionCardChip className="font-mono tabular-nums">
@@ -961,7 +952,15 @@ export function ViolationCasesClient() {
                     </div>
                   ) : undefined
                 }
-              />
+              >
+                {c.approverStates ? (
+                  <ViolationApproverStatesPanel
+                    states={c.approverStates}
+                    compact
+                    className="border-0 bg-transparent p-0"
+                  />
+                ) : undefined}
+              </EntityActionCard>
             );
             })}
           </EntityActionCardGrid>

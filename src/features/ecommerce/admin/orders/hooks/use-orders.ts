@@ -27,6 +27,11 @@ export function useOrders(query: OrderListQuery) {
     queryKey: ordersQueryKeys.list(query),
     queryFn: () => ordersApi.getAll(query),
     enabled: Boolean(query.companyId),
+    // Refresh on tab focus so newly placed orders show up — but only when
+    // the data is actually stale (respects the global staleTime), unlike a
+    // raw `window.addEventListener('focus', refetch)` which would refetch
+    // unconditionally on every focus event.
+    refetchOnWindowFocus: true,
   });
 }
 

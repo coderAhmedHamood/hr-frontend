@@ -14,10 +14,6 @@ import {
   reverseDoneOperationStock,
   syncProductQuantityFromWarehouse,
 } from '@/features/inventory/admin/operations/lib/apply-operation-stock';
-import {
-  deductMockLocationStock,
-  hasMockStockForProduct,
-} from '@/features/inventory/shared/lib/mock/mock-location-stock-store';
 
 export type ShipmentIssueLine = {
   warehouseId: string;
@@ -70,20 +66,6 @@ export const inventoryStockService = {
     const positiveLines = input.lines.filter((line) => line.quantity > 0);
     if (positiveLines.length === 0) {
       throw new Error('لا توجد كميات صرف موجبة.');
-    }
-
-    // Ecommerce demo catalog: deduct from seeded location-stock JSON when live ledger is empty.
-    if (hasMockStockForProduct(input.companyId, input.productId)) {
-      for (const line of positiveLines) {
-        deductMockLocationStock({
-          companyId: input.companyId,
-          productId: input.productId,
-          warehouseId: line.warehouseId,
-          locationId: line.locationId,
-          quantity: line.quantity,
-        });
-      }
-      return;
     }
 
     // One warehouse document per warehouse in the allocation.

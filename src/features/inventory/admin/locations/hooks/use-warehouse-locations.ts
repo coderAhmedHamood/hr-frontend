@@ -3,10 +3,13 @@ import { warehouseLocationsApi } from '@/features/inventory/admin/locations/lib/
 import { warehouseLocationsQueryKeys } from '@/features/inventory/admin/hooks/query-keys';
 import type { WarehouseLocationListQuery } from '@/features/inventory/domain/types/warehouse';
 
-export function useWarehouseLocations(query: WarehouseLocationListQuery) {
+export function useWarehouseLocations(
+  query: WarehouseLocationListQuery,
+  options?: { enabled?: boolean },
+) {
   return useQuery({
     queryKey: warehouseLocationsQueryKeys.list(query),
     queryFn: () => warehouseLocationsApi.getAll(query),
-    enabled: Boolean(query.companyId),
+    enabled: Boolean(query.companyId) && (options?.enabled ?? true),
   });
 }

@@ -21,6 +21,12 @@ import type {
 import { calculateShippingFee } from '@/features/ecommerce/storefront/domain/checkout';
 import type { StorefrontCompanyConfig } from '@/features/ecommerce/storefront/domain/storefront-models';
 import { placeStorefrontOrder } from '@/features/ecommerce/storefront/lib/checkout-actions';
+import {
+  createPartnerAddress,
+  formatPartnerAddressLine,
+  listPartnerAddresses,
+  type PartnerAddress,
+} from '@/features/ecommerce/storefront/lib/api/partner-addresses-api';
 import { useStorefrontCartProducts } from '@/features/ecommerce/storefront/hooks/use-storefront-cart-products';
 import { useStorefrontCartUi } from '@/features/ecommerce/storefront/hooks/use-storefront-cart-ui';
 import { useStorefrontCustomerUi } from '@/features/ecommerce/storefront/hooks/use-storefront-customer-ui';
@@ -102,6 +108,9 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
   const [addressErrors, setAddressErrors] = React.useState<
     Partial<Record<keyof CheckoutAddressInput, string>>
   >({});
+  const [savedAddresses, setSavedAddresses] = React.useState<PartnerAddress[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = React.useState<string | 'new'>('new');
+  const appliedDefaultAddressRef = React.useRef(false);
 
   React.useEffect(() => {
     if (!authReady) return;
@@ -117,6 +126,98 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
       phone: prev.phone.trim() || customer.phone || '',
     }));
   }, [customer]);
+
+  React.useEffect(() => {
+    if (!accessToken) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const result = await listPartnerAddresses(accessToken);
+        if (cancelled) return;
+        setSavedAddresses(result.items);
+        if (!appliedDefaultAddressRef.current && result.items.length > 0) {
+          const preferred =
+            result.items.find((item) => item.isDefault) ?? result.items[0]!;
+          appliedDefaultAddressRef.current = true;
+          setSelectedAddressId(preferred.id);
+          setAddress((prev) => ({
+            ...prev,
+            fullName: prev.fullName.trim() || customer?.name || '',
+            phone: prev.phone.trim() || customer?.phone || '',
+            city: preferred.city?.trim() || prev.city,
+            district: preferred.district?.trim() || '',
+            street: preferred.street?.trim() || '',
+            notes: preferred.notes?.trim() || '',
+            lat: preferred.latitude != null ? Number(preferred.latitude) : undefined,
+            lng: preferred.longitude != null ? Number(preferred.longitude) : undefined,
+          }));
+        }
+      } catch {
+        if (!cancelled) setSavedAddresses([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [accessToken, customer]);
+
+  function applySavedAddress(row: PartnerAddress) {
+    setSelectedAddressId(row.id);
+    setAddress((prev) => ({
+      ...prev,
+      fullName: prev.fullName.trim() || customer?.name || '',
+      phone: prev.phone.trim() || customer?.phone || '',
+      city: row.city?.trim() || prev.city,
+      district: row.district?.trim() || '',
+      street: row.street?.trim() || '',
+      notes: row.notes?.trim() || '',
+      lat: row.latitude != null ? Number(row.latitude) : undefined,
+      lng: row.longitude != null ? Number(row.longitude) : undefined,
+      mapAddress: undefined,
+    }));
+  }
+
+  function startNewAddress() {
+    setSelectedAddressId('new');
+    setAddress((prev) => ({
+      ...prev,
+      district: '',
+      street: '',
+      notes: '',
+      lat: undefined,
+      lng: undefined,
+      mapAddress: undefined,
+    }));
+  }
+
+  const showAddressForm = selectedAddressId === 'new' || savedAddresses.length === 0;
+  const selectedSaved =
+    selectedAddressId !== 'new'
+      ? savedAddresses.find((row) => row.id === selectedAddressId)
+      : undefined;
+
+  async function ensureAddressBookEntry() {
+    if (!accessToken || !customer?.partnerId || selectedAddressId !== 'new') return;
+    try {
+      const created = await createPartnerAddress(accessToken, {
+        partnerId: customer.partnerId,
+        addressType: 'shipping',
+        label: address.city,
+        city: address.city,
+        district: address.district,
+        street: address.street,
+        notes: address.notes ?? null,
+        latitude: address.lat ?? null,
+        longitude: address.lng ?? null,
+        isDefault: savedAddresses.length === 0,
+        countryCode: 'YE',
+      });
+      setSavedAddresses((prev) => [created, ...prev]);
+      setSelectedAddressId(created.id);
+    } catch {
+      /* order can still proceed with snapshot address */
+    }
+  }
 
   const productById = new Map((products ?? []).map((product) => [product.id, product]));
   const cartLines = lines
@@ -164,7 +265,12 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
     }
     if (cities.length === 0) {
       errors.city = t('checkout.errors.citiesUnavailable');
-    } else if (!address.city.trim() || !cities.includes(address.city)) {
+    } else if (!address.city.trim()) {
+      errors.city = t('checkout.errors.cityRequired');
+    } else if (
+      (selectedAddressId === 'new' || savedAddresses.length === 0) &&
+      !cities.includes(address.city)
+    ) {
       errors.city = t('checkout.errors.cityRequired');
     }
     if (!address.district.trim()) errors.district = t('checkout.errors.required');
@@ -176,6 +282,10 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
   function goNext() {
     if (step === 'address') {
       if (!validateAddress()) return;
+      if (selectedAddressId === 'new') {
+        void ensureAddressBookEntry().finally(() => setStep('payment'));
+        return;
+      }
       setStep('payment');
       return;
     }
@@ -350,16 +460,77 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
                 <MapPin className="h-4 w-4" aria-hidden />
               </span>
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <h2 className="font-arabic-display text-base font-semibold leading-snug text-foreground sm:text-lg">
-                  {t('checkout.addressTitle')}
+                  {t('checkout.chooseAddressTitle')}
                 </h2>
                 <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-                  {t('checkout.addressHint')}
+                  {t('checkout.chooseAddressHint')}
                 </p>
               </div>
+              <Link
+                href="/store/account/addresses"
+                prefetch={false}
+                className="shrink-0 text-xs font-medium text-primary hover:underline"
+              >
+                {t('checkout.manageAddresses')}
+              </Link>
             </header>
             <div className="grid min-w-0 gap-5 p-5 sm:grid-cols-2 sm:gap-x-4 sm:gap-y-5 sm:p-6">
+              <div className="space-y-2 sm:col-span-2">
+                <p className="text-sm font-medium text-foreground">
+                  {t('checkout.savedAddresses')}
+                </p>
+                {savedAddresses.length === 0 ? (
+                  <p className="rounded-xl border border-dashed border-border px-3 py-3 text-sm text-muted-foreground">
+                    {t('checkout.noSavedAddresses')}
+                  </p>
+                ) : (
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {savedAddresses.map((row) => {
+                      const active = selectedAddressId === row.id;
+                      return (
+                        <button
+                          key={row.id}
+                          type="button"
+                          onClick={() => applySavedAddress(row)}
+                          className={cn(
+                            'rounded-xl border px-3 py-3 text-start transition-colors',
+                            active
+                              ? 'border-primary bg-primary/5'
+                              : 'border-border hover:border-primary/40',
+                          )}
+                        >
+                          <p className="text-sm font-semibold text-foreground">
+                            {row.label || t('account.addresses.defaultLabel')}
+                            {row.isDefault ? (
+                              <span className="ms-2 text-[11px] font-medium text-primary">
+                                {t('account.addresses.defaultBadge')}
+                              </span>
+                            ) : null}
+                          </p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {formatPartnerAddressLine(row)}
+                          </p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={startNewAddress}
+                  className={cn(
+                    'mt-1 w-full rounded-xl border border-dashed px-3 py-3 text-start text-sm transition-colors',
+                    selectedAddressId === 'new'
+                      ? 'border-primary bg-primary/5 font-medium text-primary'
+                      : 'border-border text-muted-foreground hover:border-primary/40',
+                  )}
+                >
+                  {t('checkout.useNewAddress')}
+                </button>
+              </div>
+
               <Field label={t('checkout.fullName')} error={addressErrors.fullName} className="sm:col-span-2">
                 <Input
                   value={address.fullName}
@@ -368,7 +539,7 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
                   className={checkoutFieldClassName}
                 />
               </Field>
-              <Field label={t('checkout.phone')} error={addressErrors.phone}>
+              <Field label={t('checkout.phone')} error={addressErrors.phone} className="sm:col-span-2">
                 <Input
                   dir="ltr"
                   value={address.phone}
@@ -378,79 +549,95 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
                   className={cn(checkoutFieldClassName, 'text-right')}
                 />
               </Field>
-              <Field label={t('checkout.city')} error={addressErrors.city}>
-                {cities.length === 0 ? (
-                  <p className="rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2.5 text-sm text-destructive">
-                    {t('checkout.errors.citiesUnavailable')}
+
+              {!showAddressForm && selectedSaved ? (
+                <div className="rounded-xl border border-border bg-muted/20 px-4 py-3 sm:col-span-2">
+                  <p className="text-sm font-semibold text-foreground">
+                    {selectedSaved.label || t('account.addresses.defaultLabel')}
                   </p>
-                ) : (
-                  <Select
-                    value={cities.includes(address.city) ? address.city : undefined}
-                    onValueChange={(city) => setAddress((prev) => ({ ...prev, city }))}
-                  >
-                    <SelectTrigger className={checkoutFieldClassName}>
-                      <SelectValue placeholder={t('checkout.cityPlaceholder')} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {cities.map((city) => (
-                        <SelectItem key={city} value={city}>
-                          {city}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              </Field>
-              <Field label={t('checkout.district')} error={addressErrors.district}>
-                <Input
-                  value={address.district}
-                  onChange={(e) => setAddress((prev) => ({ ...prev, district: e.target.value }))}
-                  className={checkoutFieldClassName}
-                />
-              </Field>
-              <Field label={t('checkout.street')} error={addressErrors.street} className="sm:col-span-2">
-                <Input
-                  value={address.street}
-                  onChange={(e) => setAddress((prev) => ({ ...prev, street: e.target.value }))}
-                  className={checkoutFieldClassName}
-                />
-              </Field>
-              <div className="min-w-0 space-y-2.5 p-0 sm:col-span-2 sm:p-3">
-                <div className="space-y-1">
-                  <Label className="text-sm font-medium leading-snug text-foreground">
-                    {t('checkout.mapLocation')}
-                  </Label>
-                  <p className="text-xs leading-relaxed text-muted-foreground">
-                    {t('checkout.mapLocationHint')}
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {formatPartnerAddressLine(selectedSaved)}
                   </p>
                 </div>
-                <GoogleLocationPicker
-                  value={
-                    address.lat != null && address.lng != null
-                      ? { lat: address.lat, lng: address.lng, address: address.mapAddress ?? '' }
-                      : null
-                  }
-                  onLocationChange={(location: GoogleLocationValue) =>
-                    setAddress((prev) => ({
-                      ...prev,
-                      lat: location.lat,
-                      lng: location.lng,
-                      mapAddress: location.address,
-                    }))
-                  }
-                  height={280}
-                  className="min-w-0 max-w-full"
-                />
-              </div>
-              <Field label={t('checkout.notes')} className="sm:col-span-2">
-                <Textarea
-                  rows={3}
-                  value={address.notes ?? ''}
-                  onChange={(e) => setAddress((prev) => ({ ...prev, notes: e.target.value }))}
-                  placeholder={t('checkout.notesPlaceholder')}
-                  className="min-h-[6.5rem] w-full min-w-0 max-w-full rounded-xl border-input px-3.5 py-3 text-base leading-relaxed sm:text-sm"
-                />
-              </Field>
+              ) : null}
+
+              {showAddressForm ? (
+                <>
+                  <Field label={t('checkout.city')} error={addressErrors.city}>
+                    {cities.length === 0 ? (
+                      <p className="rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2.5 text-sm text-destructive">
+                        {t('checkout.errors.citiesUnavailable')}
+                      </p>
+                    ) : (
+                      <Select
+                        value={cities.includes(address.city) ? address.city : undefined}
+                        onValueChange={(city) => setAddress((prev) => ({ ...prev, city }))}
+                      >
+                        <SelectTrigger className={checkoutFieldClassName}>
+                          <SelectValue placeholder={t('checkout.cityPlaceholder')} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {cities.map((city) => (
+                            <SelectItem key={city} value={city}>
+                              {city}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </Field>
+                  <Field label={t('checkout.district')} error={addressErrors.district}>
+                    <Input
+                      value={address.district}
+                      onChange={(e) => setAddress((prev) => ({ ...prev, district: e.target.value }))}
+                      className={checkoutFieldClassName}
+                    />
+                  </Field>
+                  <Field label={t('checkout.street')} error={addressErrors.street} className="sm:col-span-2">
+                    <Input
+                      value={address.street}
+                      onChange={(e) => setAddress((prev) => ({ ...prev, street: e.target.value }))}
+                      className={checkoutFieldClassName}
+                    />
+                  </Field>
+                  <div className="min-w-0 space-y-2.5 p-0 sm:col-span-2 sm:p-3">
+                    <div className="space-y-1">
+                      <Label className="text-sm font-medium leading-snug text-foreground">
+                        {t('checkout.mapLocation')}
+                      </Label>
+                      <p className="text-xs leading-relaxed text-muted-foreground">
+                        {t('checkout.mapLocationHint')}
+                      </p>
+                    </div>
+                    <GoogleLocationPicker
+                      value={
+                        address.lat != null && address.lng != null
+                          ? { lat: address.lat, lng: address.lng, address: address.mapAddress ?? '' }
+                          : null
+                      }
+                      onLocationChange={(location: GoogleLocationValue) =>
+                        setAddress((prev) => ({
+                          ...prev,
+                          lat: location.lat,
+                          lng: location.lng,
+                          mapAddress: location.address,
+                        }))
+                      }
+                      height={280}
+                      className="min-w-0 max-w-full"
+                    />
+                  </div>
+                  <Field label={t('checkout.notes')} className="sm:col-span-2">
+                    <Textarea
+                      rows={3}
+                      value={address.notes ?? ''}
+                      onChange={(e) => setAddress((prev) => ({ ...prev, notes: e.target.value }))}
+                      placeholder={t('checkout.notesPlaceholder')}
+                      className="min-h-[6.5rem] w-full min-w-0 max-w-full rounded-xl border-input px-3.5 py-3 text-base leading-relaxed sm:text-sm"
+                    />
+                  </Field>
+                </>
+              ) : null}
             </div>
           </section>
         ) : null}
