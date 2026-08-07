@@ -43,6 +43,7 @@ import {
 import { usePartnerMutations } from '@/features/contacts/admin/partners/hooks/use-partner-mutations';
 import { usePartnerCategories } from '@/features/contacts/admin/categories/hooks/use-partner-categories';
 import { PartnerFormDialog } from '@/features/contacts/admin/partners/components/partner-form-dialog';
+import { PartnerStoreOrdersPanel } from '@/features/contacts/admin/partners/components/partner-store-orders-panel';
 import {
   PartnerRoleBadges,
   PartnerStatusBadge,
@@ -888,11 +889,14 @@ export function PartnerDetailPage({ partnerId }: Props) {
           </Panel>
         </TabsContent>
 
-        <TabsContent value="related" className="mt-0">
+        <TabsContent value="related" className="mt-0 space-y-4">
+          {companyId ? (
+            <PartnerStoreOrdersPanel companyId={companyId} partnerId={partnerId} />
+          ) : null}
+
           <Panel title="سجلات مرتبطة" description="روابط مستقبلية مع وحدات النظام الأخرى.">
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {[
-                { label: 'المبيعات', hint: 'طلبات البيع المرتبطة بـ partner_id' },
                 { label: 'المشتريات', hint: 'أوامر الشراء' },
                 { label: 'المخزون', hint: 'عمليات المستودع' },
                 { label: 'المحاسبة', hint: 'فواتير وقيود' },

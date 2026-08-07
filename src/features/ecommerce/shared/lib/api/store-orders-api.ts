@@ -78,6 +78,14 @@ type StoreOrderDto = {
   totalAmount: string;
   estimatedDeliveryAt?: string | null;
   lines: StoreOrderLineDto[];
+  statusHistory?: Array<{
+    id?: string;
+    fromStatus?: Order['status'] | null;
+    toStatus: Order['status'];
+    changedBy?: string | null;
+    note?: string | null;
+    createdAt: string;
+  }>;
   createdAt: string;
   updatedAt: string;
 };
@@ -119,6 +127,22 @@ function mapLine(dto: StoreOrderLineDto): OrderLineItem {
   };
 }
 
+function mapStatusHistory(
+  rows: StoreOrderDto['statusHistory'],
+): NonNullable<Order['statusHistory']> {
+  if (!rows?.length) return [];
+  return [...rows]
+    .map((row) => ({
+      id: row.id,
+      fromStatus: row.fromStatus ?? null,
+      toStatus: row.toStatus,
+      changedBy: row.changedBy ?? null,
+      note: row.note ?? null,
+      createdAt: row.createdAt,
+    }))
+    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+}
+
 function mapAdminOrder(dto: StoreOrderDto): Order {
   const proofUrls = resolvePaymentProofUrls({
     paymentProofUrls: dto.paymentProofUrls,
@@ -149,6 +173,7 @@ function mapAdminOrder(dto: StoreOrderDto): Order {
     subtotalAmount: { amount: fromDecimalString(dto.subtotalAmount), currency },
     shippingFeeAmount: { amount: fromDecimalString(dto.shippingFeeAmount), currency },
     source: dto.source ?? 'storefront',
+    statusHistory: mapStatusHistory(dto.statusHistory),
   };
 }
 
@@ -338,6 +363,7 @@ export async function fetchAdminStoreOrders(
       paymentMethod: query.paymentMethod,
       city: query.city,
       search: query.search,
+      partnerId: query.partnerId,
     },
   });
   const safe = ensurePaginatedResult(page);

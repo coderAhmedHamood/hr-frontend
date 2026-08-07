@@ -12,12 +12,14 @@ import {
   nextOrderPipelineStatus,
 } from '@/features/ecommerce/domain/constants/order-status';
 import { OrderPaymentProofThumb } from '@/features/ecommerce/admin/orders/components/order-payment-proof-thumb';
+import { OrderStatusHistoryButton } from '@/features/ecommerce/admin/orders/components/order-status-history-button';
 import { formatPrice } from '@/features/ecommerce/shared/utils/format-price';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/shared/utils';
 
 type Props = {
+  companyId: string;
   orders: Order[];
   onOpen: (order: Order) => void;
   onStatusChange?: (order: Order, status: OrderStatus) => void;
@@ -26,6 +28,7 @@ type Props = {
 };
 
 export function OrdersKanbanView({
+  companyId,
   orders,
   onOpen,
   onStatusChange,
@@ -91,9 +94,18 @@ export function OrdersKanbanView({
                       }}
                     >
                       <div className="mb-1.5 flex items-start justify-between gap-2">
-                        <span className="font-semibold tracking-tight" dir="ltr">
-                          {order.orderNumber}
-                        </span>
+                        <div className="flex min-w-0 items-center gap-0.5">
+                          <span className="font-semibold tracking-tight" dir="ltr">
+                            {order.orderNumber}
+                          </span>
+                          <OrderStatusHistoryButton
+                            companyId={companyId}
+                            orderId={order.id}
+                            orderNumber={order.orderNumber}
+                            history={order.statusHistory}
+                            className="h-7 w-7 shrink-0"
+                          />
+                        </div>
                         <Badge variant="subtle" className="shrink-0 tabular-nums">
                           {formatPrice(order.totalAmount)}
                         </Badge>

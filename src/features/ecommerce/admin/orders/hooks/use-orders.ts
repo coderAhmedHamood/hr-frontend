@@ -35,6 +35,24 @@ export function useOrders(query: OrderListQuery) {
   });
 }
 
+/** Lightweight list (no detail N+1) — partner profile / filtered summaries. */
+export function useOrdersList(query: OrderListQuery, enabled = true) {
+  return useQuery({
+    queryKey: [...ordersQueryKeys.list(query), 'summary'] as const,
+    queryFn: () => ordersApi.list(query),
+    enabled: Boolean(query.companyId && enabled),
+    refetchOnWindowFocus: true,
+  });
+}
+
+export function useOrderDetail(companyId: string, orderId: string | null) {
+  return useQuery({
+    queryKey: ordersQueryKeys.detail(companyId, orderId ?? ''),
+    queryFn: () => ordersApi.getById(companyId, orderId!),
+    enabled: Boolean(companyId && orderId),
+  });
+}
+
 export function useProductStockAvailability(companyId: string, productId: string, enabled = true) {
   return useQuery({
     queryKey: stockAvailabilityQueryKeys.product(companyId, productId),

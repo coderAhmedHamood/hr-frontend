@@ -22,14 +22,21 @@ export function PartnersCardView({ partners, onOpen }: Props) {
   return (
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
       {partners.map((partner) => (
-        <button
+        <div
           key={partner.id}
-          type="button"
-          onClick={() => onOpen(partner)}
           className={cn(
-            'flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 text-start shadow-soft',
+            'flex cursor-pointer flex-col gap-3 rounded-2xl border border-border bg-card p-4 text-start shadow-soft',
             'transition-shadow hover:border-primary/40 hover:shadow-elevated',
           )}
+          onClick={() => onOpen(partner)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              onOpen(partner);
+            }
+          }}
+          role="link"
+          tabIndex={0}
         >
           <div className="flex items-start gap-3">
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-border bg-muted text-sm font-semibold text-foreground">
@@ -67,7 +74,7 @@ export function PartnersCardView({ partners, onOpen }: Props) {
               </p>
             ) : null}
           </div>
-        </button>
+        </div>
       ))}
     </div>
   );

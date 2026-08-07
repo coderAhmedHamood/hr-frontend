@@ -25,6 +25,17 @@ export type OrderLineItem = {
   imageUrl?: string | null;
 };
 
+/** One status transition from `GET /store-admin/orders/:id` → `statusHistory`. */
+export type OrderStatusHistoryEntry = {
+  id?: string;
+  fromStatus: OrderStatus | null;
+  toStatus: OrderStatus;
+  /** Staff user UUID; null when changed from storefront / customer. */
+  changedBy: string | null;
+  note: string | null;
+  createdAt: string;
+};
+
 export type Order = TenantScoped & {
   id: string;
   orderNumber: string;
@@ -54,6 +65,8 @@ export type Order = TenantScoped & {
   subtotalAmount?: Money;
   shippingFeeAmount?: Money;
   source?: 'seed' | 'storefront';
+  /** Chronological status changes — present on full order detail only. */
+  statusHistory?: OrderStatusHistoryEntry[];
 };
 
 export type OrderFulfilmentFilter = 'fulfilled' | 'partial' | 'unfulfilled';
@@ -63,6 +76,8 @@ export type OrderListQuery = {
   search?: string;
   status?: OrderStatus;
   customerId?: string;
+  /** Filter by registered contacts partner (`store_orders.partner_id`). */
+  partnerId?: string;
   paymentStatus?: 'pending' | 'paid' | 'failed' | 'refunded';
   paymentMethod?: 'cash_on_delivery' | 'card';
   fulfilment?: OrderFulfilmentFilter;

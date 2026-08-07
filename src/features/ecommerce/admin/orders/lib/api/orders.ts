@@ -139,6 +139,16 @@ async function buildDeductBatches(
 
 /** Admin orders — HTTP only (store-frontend-binding.md). No mock / localStorage. */
 export const ordersApi = {
+  /** List page only (no per-row detail fetch). Use for partner panels / filters. */
+  async list(query: OrderListQuery): Promise<PaginatedResult<Order>> {
+    assertStoreHttp();
+    const page = await fetchAdminStoreOrders(query);
+    return {
+      ...page,
+      items: page.items.map(normalizeOrderPayment),
+    };
+  },
+
   async getAll(query: OrderListQuery): Promise<PaginatedResult<Order>> {
     assertStoreHttp();
     const page = await fetchAdminStoreOrders(query);
