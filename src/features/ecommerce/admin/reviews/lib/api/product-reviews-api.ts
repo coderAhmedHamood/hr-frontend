@@ -66,7 +66,7 @@ export const productReviewsApi = {
           rating: query.rating,
           ratingMin: query.ratingMin,
           ratingMax: query.ratingMax,
-          archiveScope: query.archiveScope,
+          archiveScope: query.archiveScope ?? 'active',
           search: query.search?.trim() || undefined,
         },
         throwOnError: true,

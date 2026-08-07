@@ -27,9 +27,9 @@ const REVIEWS_UPDATE = 'inv.catalog.product-reviews.update';
 const REVIEWS_DELETE = 'inv.catalog.product-reviews.delete';
 
 const STATUS_LABEL: Record<ProductReviewStatus, string> = {
-  pending: 'قيد المراجعة',
+  pending: 'بانتظار المراجعة',
   approved: 'معتمد',
-  rejected: 'مرفوض',
+  rejected: 'ملغى التفعيل',
 };
 
 type Props = {
@@ -69,6 +69,7 @@ export function ProductReviewsTab({ companyId, productId }: Props) {
     page,
     limit,
     status,
+    archiveScope: 'active',
   });
   const updateReview = useUpdateProductReview();
   const deleteReview = useDeleteProductReview();
@@ -120,9 +121,9 @@ export function ProductReviewsTab({ companyId, productId }: Props) {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">كل الحالات</SelectItem>
-              <SelectItem value="pending">قيد المراجعة</SelectItem>
+              <SelectItem value="pending">بانتظار المراجعة</SelectItem>
               <SelectItem value="approved">معتمد</SelectItem>
-              <SelectItem value="rejected">مرفوض</SelectItem>
+              <SelectItem value="rejected">ملغى التفعيل</SelectItem>
             </SelectContent>
           </Select>
           <Button
@@ -203,12 +204,13 @@ export function ProductReviewsTab({ companyId, productId }: Props) {
                           size="sm"
                           variant="outline"
                           disabled={updateReview.isPending}
+                          title="إلغاء التفعيل — يبقى ظاهرًا بحالة rejected"
                           onClick={() =>
                             updateReview.mutate({ id: review.id, patch: { status: 'rejected' } })
                           }
                         >
                           <X className="me-1 h-3.5 w-3.5" />
-                          رفض
+                          إلغاء التفعيل
                         </Button>
                       ) : null}
                     </Can>
@@ -219,13 +221,19 @@ export function ProductReviewsTab({ companyId, productId }: Props) {
                         variant="ghost"
                         className="text-destructive"
                         disabled={deleteReview.isPending}
+                        title="أرشفة ناعمة"
                         onClick={() => {
-                          if (window.confirm('أرشفة هذا التقييم؟')) {
+                          if (
+                            window.confirm(
+                              'أرشفة هذا التقييم؟ سيُخفى من القائمة النشطة.',
+                            )
+                          ) {
                             deleteReview.mutate(review.id);
                           }
                         }}
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
+                        <Trash2 className="me-1 h-3.5 w-3.5" />
+                        أرشفة
                       </Button>
                     </Can>
                   </div>

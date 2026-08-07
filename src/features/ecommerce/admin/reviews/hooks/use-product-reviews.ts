@@ -43,8 +43,12 @@ export function useUpdateProductReview() {
   return useMutation({
     mutationFn: ({ id, patch }: { id: string; patch: UpdateProductReviewInput }) =>
       productReviewsApi.update(id, patch),
-    onSuccess: async () => {
-      toast.success('تم تحديث التقييم');
+    onSuccess: async (_data, variables) => {
+      const status = variables.patch.status;
+      if (status === 'approved') toast.success('تم اعتماد التقييم');
+      else if (status === 'rejected') toast.success('تم إلغاء تفعيل التقييم');
+      else if (status === 'pending') toast.success('أُعيد التقييم إلى انتظار المراجعة');
+      else toast.success('تم تحديث التقييم');
       await qc.invalidateQueries({ queryKey: productReviewsQueryKeys.all });
     },
     onError: (error) => handleApiError(error),
