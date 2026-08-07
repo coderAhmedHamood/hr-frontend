@@ -49,6 +49,7 @@ export async function placeStorefrontOrder(
         lng: address.lng,
         mapAddress: address.mapAddress?.trim() || undefined,
       },
+      customerNote: input.customerNote?.trim() || null,
     });
     return { ok: true, order };
   } catch (error) {

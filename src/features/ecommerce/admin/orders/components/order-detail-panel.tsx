@@ -7,6 +7,7 @@ import { OrderPaymentProofThumb } from '@/features/ecommerce/admin/orders/compon
 import { OrderStatusHistoryButton } from '@/features/ecommerce/admin/orders/components/order-status-history-button';
 import { OrderStatusStepper } from '@/features/ecommerce/admin/orders/components/order-status-stepper';
 import {
+  useOrderDetail,
   useUpdateOrderPaymentStatus,
   useUpdateOrderStatus,
 } from '@/features/ecommerce/admin/orders/hooks/use-orders';
@@ -14,6 +15,9 @@ import { formatPrice } from '@/features/ecommerce/shared/utils/format-price';
 import {
   getOrderPrepGuidance,
   isPaymentSettled,
+  canTransitionOrderStatus,
+  ORDER_LINE_SHIP_STATUS_LABELS_AR,
+  ORDER_STATUS_LABELS_AR,
   PAYMENT_METHOD_LABELS_AR,
   PAYMENT_STATUS_LABELS_AR,
   resolveOrderPaymentMethod,
@@ -79,10 +83,14 @@ function OrderItemsPanel({ order, companyId }: { order: Order; companyId: string
   const [search, setSearch] = React.useState('');
   const [statusFilter, setStatusFilter] = React.useState<'all' | 'pending' | 'shipped'>('all');
   const [visibleCount, setVisibleCount] = React.useState(ITEMS_PAGE_SIZE);
+  const updateStatus = useUpdateOrderStatus(companyId);
 
-  const preparedCount = order.items.filter((line) => line.shipStatus === 'shipped').length;
-  const pendingCount = order.items.length - preparedCount;
+  const shippedCount = order.items.filter((line) => line.shipStatus === 'shipped').length;
+  const assignedCount = order.items.filter((line) => line.shipStatus === 'assigned').length;
+  const partialCount = order.items.filter((line) => line.shipStatus === 'partial').length;
+  const unassignedCount = order.items.filter((line) => line.shipStatus === 'unassigned').length;
   const manyItems = order.items.length > ITEMS_PAGE_SIZE;
+  const canPromoteOrder = canTransitionOrderStatus(order, 'shipped');
 
   const normalizedSearch = search.trim().toLowerCase();
   const filteredItems = order.items.filter((line) => {
@@ -103,11 +111,23 @@ function OrderItemsPanel({ order, companyId }: { order: Order; companyId: string
           <h3 className="text-sm font-semibold text-foreground">منتجات الطلب</h3>
           <div className="flex flex-wrap items-center gap-1.5">
             <Badge variant="success" className="tabular-nums">
-              {preparedCount} مجهّز
+              {shippedCount} {ORDER_LINE_SHIP_STATUS_LABELS_AR.shipped}
             </Badge>
-            <Badge variant={pendingCount > 0 ? 'warning' : 'outline'} className="tabular-nums">
-              {pendingCount} لم يُجهَّز
-            </Badge>
+            {assignedCount > 0 ? (
+              <Badge variant="secondary" className="tabular-nums">
+                {assignedCount} {ORDER_LINE_SHIP_STATUS_LABELS_AR.assigned}
+              </Badge>
+            ) : null}
+            {partialCount > 0 ? (
+              <Badge variant="warning" className="tabular-nums">
+                {partialCount} {ORDER_LINE_SHIP_STATUS_LABELS_AR.partial}
+              </Badge>
+            ) : null}
+            {unassignedCount > 0 ? (
+              <Badge variant="outline" className="tabular-nums">
+                {unassignedCount} {ORDER_LINE_SHIP_STATUS_LABELS_AR.unassigned}
+              </Badge>
+            ) : null}
             <span className="text-xs text-muted-foreground">من {order.items.length}</span>
           </div>
         </div>
@@ -116,8 +136,8 @@ function OrderItemsPanel({ order, companyId }: { order: Order; companyId: string
             {(
               [
                 { value: 'all', label: 'الكل' },
-                { value: 'pending', label: 'لم يُجهَّز' },
-                { value: 'shipped', label: 'مجهّز' },
+                { value: 'pending', label: 'غير مشحون' },
+                { value: 'shipped', label: 'تم الشحن' },
               ] as const
             ).map((pill) => (
               <button
@@ -138,6 +158,27 @@ function OrderItemsPanel({ order, companyId }: { order: Order; companyId: string
         ) : null}
       </div>
 
+      {canPromoteOrder ? (
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-teal-500/30 bg-teal-500/10 px-3 py-2.5">
+          <p className="text-sm text-teal-900 dark:text-teal-200">
+            كل الأصناف شُحنت — حالة الطلب ما زالت «{ORDER_STATUS_LABELS_AR[order.status]}».
+          </p>
+          <Button
+            type="button"
+            size="sm"
+            disabled={updateStatus.isPending}
+            onClick={() =>
+              void updateStatus.mutateAsync({
+                orderId: order.id,
+                status: 'shipped',
+              })
+            }
+          >
+            تحديث الطلب إلى: تم الشحن
+          </Button>
+        </div>
+      ) : null}
+
       {manyItems ? (
         <EntityFilterSearchField
           value={search}
@@ -156,6 +197,7 @@ function OrderItemsPanel({ order, companyId }: { order: Order; companyId: string
             key={`${order.id}-${line.productId}-${index}-ship`}
             companyId={companyId}
             orderId={order.id}
+            orderStatus={order.status}
             line={line}
           />
         ))}
@@ -180,7 +222,9 @@ function OrderItemsPanel({ order, companyId }: { order: Order; companyId: string
 }
 
 type OrderDetailPanelProps = {
-  order: Order | null;
+  order?: Order | null;
+  /** Used when list row is missing/stale — detail is fetched by id. */
+  orderId?: string | null;
   companyId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -189,12 +233,19 @@ type OrderDetailPanelProps = {
 };
 
 export function OrderDetailPanel({
-  order,
+  order: orderProp = null,
+  orderId: orderIdProp = null,
   companyId,
   open,
   onOpenChange,
-  loading = false,
+  loading: loadingProp = false,
 }: OrderDetailPanelProps) {
+  const orderId = orderIdProp || orderProp?.id || null;
+  const detailQuery = useOrderDetail(companyId, open ? orderId : null);
+  const order = detailQuery.data ?? orderProp;
+  const loading =
+    loadingProp || (Boolean(open && orderId) && detailQuery.isLoading && !order);
+
   const updateStatus = useUpdateOrderStatus(companyId);
   const updatePayment = useUpdateOrderPaymentStatus(companyId);
   const flowBusy = updateStatus.isPending || updatePayment.isPending;
@@ -218,9 +269,10 @@ export function OrderDetailPanel({
     await updatePayment.mutateAsync({ orderId: order.id, paymentStatus: 'paid' });
   }
 
-  async function advanceStatus(nextStatus: OrderStatus) {
+  async function advanceStatus(nextStatus: OrderStatus, note?: string | null) {
     if (!order || order.status === nextStatus) return;
-    await updateStatus.mutateAsync({ orderId: order.id, status: nextStatus });
+    if (!canTransitionOrderStatus(order, nextStatus)) return;
+    await updateStatus.mutateAsync({ orderId: order.id, status: nextStatus, note });
   }
 
   return (
@@ -291,8 +343,15 @@ export function OrderDetailPanel({
                     </span>
                   ) : null}
                 </div>
+                {order.customerNote ? (
+                  <p className="mt-1.5 text-xs text-muted-foreground">
+                    ملاحظة العميل: {order.customerNote}
+                  </p>
+                ) : null}
                 {order.shippingNotes ? (
-                  <p className="mt-1.5 text-xs text-muted-foreground">ملاحظة: {order.shippingNotes}</p>
+                  <p className="mt-1.5 text-xs text-muted-foreground">
+                    ملاحظة الشحن: {order.shippingNotes}
+                  </p>
                 ) : null}
               </div>
 
@@ -364,8 +423,8 @@ export function OrderDetailPanel({
                 order={order}
                 hidePaymentConfirm
                 disabled={flowBusy}
-                onOrderStatusChange={(nextStatus) => {
-                  void advanceStatus(nextStatus);
+                onOrderStatusChange={(nextStatus, note) => {
+                  void advanceStatus(nextStatus, note);
                 }}
                 onPaymentPaid={() => {
                   void markPaid();

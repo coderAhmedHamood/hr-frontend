@@ -2,11 +2,14 @@
 import { inventoryStockService } from '@/features/inventory/services/inventory-stock.service';
 import { ordersApi } from '@/features/ecommerce/admin/orders/lib/api/orders';
 import type {
+  Order,
   OrderListQuery,
   OrderStatus,
   SaveOrderLineAllocationsInput,
   ShipOrderLineInput,
+  UpdateOrderLineShipStatusInput,
 } from '@/features/ecommerce/domain/types/order';
+import type { PaginatedResult } from '@/features/ecommerce/domain/types/common';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import { toast } from 'sonner';
 
@@ -21,6 +24,25 @@ export const stockAvailabilityQueryKeys = {
   product: (companyId: string, productId: string) =>
     [...stockAvailabilityQueryKeys.all, companyId, productId] as const,
 };
+
+function syncOrderInCaches(
+  queryClient: ReturnType<typeof useQueryClient>,
+  companyId: string,
+  order: Order,
+) {
+  queryClient.setQueryData(ordersQueryKeys.detail(companyId, order.id), order);
+  queryClient.setQueriesData(
+    { queryKey: [...ordersQueryKeys.all, 'list'] },
+    (old: PaginatedResult<Order> | undefined) => {
+      if (!old?.items) return old;
+      const index = old.items.findIndex((item) => item.id === order.id);
+      if (index < 0) return old;
+      const items = old.items.slice();
+      items[index] = { ...items[index], ...order };
+      return { ...old, items };
+    },
+  );
+}
 
 export function useOrders(query: OrderListQuery) {
   return useQuery({
@@ -65,9 +87,17 @@ export function useUpdateOrderStatus(companyId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ orderId, status }: { orderId: string; status: OrderStatus }) =>
-      ordersApi.updateStatus(companyId, orderId, { status }),
-    onSuccess: async (_data, variables) => {
+    mutationFn: ({
+      orderId,
+      status,
+      note,
+    }: {
+      orderId: string;
+      status: OrderStatus;
+      note?: string | null;
+    }) => ordersApi.updateStatus(companyId, orderId, { status, note }),
+    onSuccess: async (order, variables) => {
+      syncOrderInCaches(queryClient, companyId, order);
       await queryClient.invalidateQueries({ queryKey: ordersQueryKeys.all });
       if (variables.status === 'cancelled' || variables.status === 'refunded') {
         toast.success('تم تحديث الحالة وإرجاع المخزون — راجع Console لنتيجة sale-restore');
@@ -94,7 +124,8 @@ export function useUpdateOrderPaymentStatus(companyId: string) {
       orderId: string;
       paymentStatus: 'pending' | 'paid' | 'failed' | 'refunded';
     }) => ordersApi.updatePaymentStatus(companyId, orderId, { paymentStatus }),
-    onSuccess: async () => {
+    onSuccess: async (order) => {
+      syncOrderInCaches(queryClient, companyId, order);
       await queryClient.invalidateQueries({ queryKey: ordersQueryKeys.all });
       toast.success('تم تحديث حالة الدفع');
     },
@@ -107,7 +138,8 @@ export function useUpdateOrderPaymentStatus(companyId: string) {
 export function useOrderFulfillmentMutations(companyId: string) {
   const queryClient = useQueryClient();
 
-  const invalidate = async () => {
+  const invalidate = async (order?: Order) => {
+    if (order) syncOrderInCaches(queryClient, companyId, order);
     await queryClient.invalidateQueries({ queryKey: ordersQueryKeys.all });
     await queryClient.invalidateQueries({ queryKey: stockAvailabilityQueryKeys.all });
   };
@@ -115,8 +147,8 @@ export function useOrderFulfillmentMutations(companyId: string) {
   const saveAllocations = useMutation({
     mutationFn: ({ orderId, input }: { orderId: string; input: SaveOrderLineAllocationsInput }) =>
       ordersApi.saveLineAllocations(companyId, orderId, input),
-    onSuccess: async () => {
-      await invalidate();
+    onSuccess: async (order) => {
+      await invalidate(order);
       toast.success('تم حفظ توزيع الشحن');
     },
     onError: (err) => {
@@ -127,14 +159,35 @@ export function useOrderFulfillmentMutations(companyId: string) {
   const shipLine = useMutation({
     mutationFn: ({ orderId, input }: { orderId: string; input: ShipOrderLineInput }) =>
       ordersApi.shipLine(companyId, orderId, input),
-    onSuccess: async () => {
-      await invalidate();
-      toast.success('تم تجهيز البند');
+    onSuccess: async (order) => {
+      await invalidate(order);
+      toast.success('تم شحن الصنف');
     },
     onError: (err) => {
       handleApiError(err, 'ecommerce.orders.shipLine');
     },
   });
 
-  return { saveAllocations, shipLine };
+  const updateLineShipStatus = useMutation({
+    mutationFn: ({
+      orderId,
+      input,
+    }: {
+      orderId: string;
+      input: UpdateOrderLineShipStatusInput;
+    }) => ordersApi.updateLineShipStatus(companyId, orderId, input),
+    onSuccess: async (order, variables) => {
+      await invalidate(order);
+      toast.success(
+        variables.input.shipStatus === 'shipped'
+          ? 'تم شحن الصنف'
+          : 'تم إرجاع حالة تجهيز الصنف',
+      );
+    },
+    onError: (err) => {
+      handleApiError(err, 'ecommerce.orders.updateLineShipStatus');
+    },
+  });
+
+  return { saveAllocations, shipLine, updateLineShipStatus };
 }

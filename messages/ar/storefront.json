@@ -131,6 +131,8 @@
     "mapLocationHint": "ابحث عن عنوانك أو استخدم موقعك الحالي لتسهيل الوصول إليك.",
     "notes": "ملاحظات للسائق (اختياري)",
     "notesPlaceholder": "مثال: بجانب المسجد، الدور الثاني",
+    "customerNote": "ملاحظة على الطلب (اختياري)",
+    "customerNotePlaceholder": "مثال: أريد تغليف هدية",
     "shipping": "الشحن",
     "freeShipping": "مجاني",
     "freeShippingHint": "شحن مجاني للطلبات فوق {amount} ر.ي",

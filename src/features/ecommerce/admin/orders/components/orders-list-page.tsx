@@ -11,12 +11,8 @@ import {
   Eye,
   Kanban,
   List,
-  ListChecks,
   MapPin,
-  PackageCheck,
   Phone,
-  RotateCcw,
-  ShoppingCart,
 } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { OrderDetailPanel } from '@/features/ecommerce/admin/orders/components/order-detail-panel';
@@ -44,7 +40,6 @@ import { StoreBindingStorageCleaner } from '@/features/ecommerce/storefront/comp
 import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { ListFilterBar } from '@/components/ui/list-filter-bar';
 import { EntityFilterSearchField } from '@/components/ui/entity-filter-search-field';
-import { StatTile, StatTileGrid } from '@/components/ui/stat-tile';
 import { DataTable, type ColumnDef } from '@/components/ui/data-table';
 import { DirectoryPagedViews, DEFAULT_PAGE_SIZE } from '@/components/ui/paged-list';
 import { Button } from '@/components/ui/button';
@@ -320,11 +315,6 @@ export function OrdersListPage() {
 
   const items = data?.items ?? [];
   const selectedOrder = items.find((order) => order.id === selectedOrderId) ?? null;
-
-  const total = data?.pagination.total ?? 0;
-  const unfulfilledCount = items.filter((order) => orderFulfilmentState(order) !== 'fulfilled').length;
-  const returnedCount = items.filter((order) => ORDER_TERMINAL_STATUSES.includes(order.status)).length;
-  const fulfilledCount = items.filter((order) => orderFulfilmentState(order) === 'fulfilled').length;
 
   const viewButtons: { mode: ViewMode; icon: typeof List; label: string }[] = [
     { mode: 'kanban', icon: Kanban, label: 'كانبان' },
@@ -602,31 +592,6 @@ export function OrdersListPage() {
         iconName="ShoppingCart"
       />
 
-      <StatTileGrid className="sm:grid-cols-2 lg:grid-cols-4">
-        <StatTile icon={ShoppingCart} label="إجمالي الطلبات" value={total} tone="primary" loading={isLoading} />
-        <StatTile
-          icon={PackageCheck}
-          label="طلبات غير مجهزة (هذه الصفحة)"
-          value={unfulfilledCount}
-          tone="gold"
-          loading={isLoading}
-        />
-        <StatTile
-          icon={RotateCcw}
-          label="طلبات مرتجعة/ملغاة (هذه الصفحة)"
-          value={returnedCount}
-          tone="destructive"
-          loading={isLoading}
-        />
-        <StatTile
-          icon={ListChecks}
-          label="طلبات مجهزة بالكامل (هذه الصفحة)"
-          value={fulfilledCount}
-          tone="success"
-          loading={isLoading}
-        />
-      </StatTileGrid>
-
       {isError ? <p className="text-sm text-destructive">تعذر تحميل الطلبات.</p> : null}
 
       {view === 'kanban' ? (
@@ -682,8 +647,9 @@ export function OrdersListPage() {
 
       <OrderDetailPanel
         order={selectedOrder}
+        orderId={selectedOrderId || null}
         companyId={companyId}
-        open={Boolean(selectedOrder)}
+        open={Boolean(selectedOrderId)}
         onOpenChange={(open) => {
           if (!open) updateParams({ order: null });
         }}

@@ -41,6 +41,8 @@ export type PlaceOrderInput = {
   locale: string;
   address: CheckoutAddressInput;
   paymentMethod: CheckoutPaymentMethod;
+  /** Customer-facing order note (gift wrap, timing, …) — separate from address.notes. */
+  customerNote?: string | null;
   /**
    * Optional payment receipt / transfer screenshots for card / network payments.
    * One or more image data-URLs / remote URLs.
@@ -67,6 +69,8 @@ export type StorefrontCustomerOrder = {
   paymentProofUrls?: string[];
   /** @deprecated Prefer `paymentProofUrls`. */
   paymentProofUrl?: string | null;
+  /** Customer note at place-order. */
+  customerNote?: string | null;
   address: CheckoutAddressInput;
   lines: StorefrontOrderLine[];
   subtotal: Money;

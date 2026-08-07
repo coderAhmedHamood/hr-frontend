@@ -131,6 +131,8 @@
     "mapLocationHint": "Search your address or use your current location to help the driver find you.",
     "notes": "Driver notes (optional)",
     "notesPlaceholder": "e.g. next to the mosque, 2nd floor",
+    "customerNote": "Order note (optional)",
+    "customerNotePlaceholder": "e.g. gift wrap please",
     "shipping": "Shipping",
     "freeShipping": "Free",
     "freeShippingHint": "Free shipping on orders over YER {amount}",

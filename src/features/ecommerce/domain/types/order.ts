@@ -53,6 +53,8 @@ export type Order = TenantScoped & {
   shippingStreet?: string;
   shippingDistrict?: string;
   shippingNotes?: string;
+  /** Free-text note from the customer at place-order (`customerNote`). */
+  customerNote?: string | null;
   paymentMethod?: 'cash_on_delivery' | 'card';
   paymentStatus?: 'pending' | 'paid' | 'failed' | 'refunded';
   /**
@@ -102,6 +104,8 @@ export type UpdateOrderPaymentStatusInput = {
 
 export type SaveOrderLineAllocationsInput = {
   productId: string;
+  /** Prefer when known — avoids ambiguous productId matches. */
+  lineId?: string;
   allocations: Array<{
     warehouseId: string;
     locationId: string;
@@ -111,10 +115,21 @@ export type SaveOrderLineAllocationsInput = {
 
 export type ShipOrderLineInput = {
   productId: string;
+  lineId?: string;
+  /** Optional staff note — recorded in statusHistory. */
+  note?: string | null;
   /** When provided, used for stock issue (avoids stale order refetch). */
   allocations?: Array<{
     warehouseId: string;
     locationId: string;
     quantity: number;
   }>;
+};
+
+export type UpdateOrderLineShipStatusInput = {
+  productId: string;
+  lineId?: string;
+  shipStatus: OrderLineShipStatus;
+  /** Optional staff note — recorded in statusHistory. */
+  note?: string | null;
 };

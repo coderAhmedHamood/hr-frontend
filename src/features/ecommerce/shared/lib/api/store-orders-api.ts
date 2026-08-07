@@ -17,7 +17,6 @@ import {
   fromDecimalString,
   isStoreHttpEnabled,
   publicStoreRequest,
-  toDecimalString,
 } from '@/features/ecommerce/storefront/lib/api/store-http';
 import { resolvePaymentProofUrls } from '@/features/ecommerce/domain/lib/payment-proofs';
 
@@ -69,6 +68,7 @@ type StoreOrderDto = {
   shipDistrict: string;
   shipStreet: string;
   shipNotes?: string | null;
+  customerNote?: string | null;
   shipLat?: number | null;
   shipLng?: number | null;
   shipMapAddress?: string | null;
@@ -122,7 +122,7 @@ function mapLine(dto: StoreOrderLineDto): OrderLineItem {
       locationId: row.locationId,
       quantity: fromDecimalString(row.quantity),
     })),
-    shipStatus: dto.shipStatus,
+    shipStatus: dto.shipStatus ?? 'unassigned',
     imageUrl: dto.imageUrl ?? null,
   };
 }
@@ -166,6 +166,7 @@ function mapAdminOrder(dto: StoreOrderDto): Order {
     shippingStreet: dto.shipStreet,
     shippingDistrict: dto.shipDistrict,
     shippingNotes: dto.shipNotes ?? undefined,
+    customerNote: dto.customerNote ?? null,
     paymentMethod: dto.paymentMethod,
     paymentStatus: dto.paymentStatus,
     paymentProofUrls: proofUrls,
@@ -213,6 +214,7 @@ function mapStorefrontOrder(dto: StoreOrderDto): StorefrontCustomerOrder {
     paymentStatus: dto.paymentStatus,
     paymentProofUrls: proofUrls,
     paymentProofUrl: proofUrls[0] ?? null,
+    customerNote: dto.customerNote ?? null,
     address: {
       fullName: dto.shipFullName,
       phone: dto.shipPhone,
@@ -270,6 +272,9 @@ export async function placePublicStoreOrder(
       paymentMethod: input.paymentMethod,
       paymentProofUrl: proofUrls[0] ?? null,
       locale: input.locale || 'ar',
+      ...(input.customerNote?.trim()
+        ? { customerNote: input.customerNote.trim() }
+        : {}),
       address: {
         fullName: input.address.fullName,
         phone: input.address.phone,
@@ -435,7 +440,7 @@ export async function saveAdminStoreLineAllocations(
   // Replace strategy: DELETE existing allocations then POST the new set.
   for (const allocation of existing) {
     if (!allocation.id) continue;
-    await apiRequest<StoreOrderDto>(
+    await apiRequest(
       `/store-admin/orders/${orderId}/lines/${lineId}/allocations/${allocation.id}`,
       {
         method: 'DELETE',
@@ -445,25 +450,24 @@ export async function saveAdminStoreLineAllocations(
     );
   }
 
-  let last: Order | null = null;
   for (const row of input.allocations) {
-    const dto = await apiRequest<StoreOrderDto>(
-      `/store-admin/orders/${orderId}/lines/${lineId}/allocations`,
-      {
-        method: 'POST',
-        throwOnError: true,
-        query: { companyId: company },
-        body: {
-          warehouseId: row.warehouseId,
-          locationId: row.locationId,
-          quantity: toDecimalString(row.quantity),
-        },
+    if (!row.warehouseId || !row.locationId || !(row.quantity > 0)) {
+      throw new Error('توزيع غير صالح: يلزم مستودع وموقع وكمية أكبر من صفر.');
+    }
+    await apiRequest(`/store-admin/orders/${orderId}/lines/${lineId}/allocations`, {
+      method: 'POST',
+      throwOnError: true,
+      query: { companyId: company },
+      // Backend expects numeric quantity (see store-admin allocations contract).
+      body: {
+        warehouseId: row.warehouseId,
+        locationId: row.locationId,
+        quantity: Number(row.quantity),
       },
-    );
-    last = mapAdminOrder(dto);
+    });
   }
 
-  if (last) return last;
+  // Always re-fetch full order — allocation POST/DELETE payloads are not reliable order DTOs.
   const order = await fetchAdminStoreOrder(companyId, orderId);
   if (!order) throw new Error('الطلب غير موجود.');
   return order;
@@ -486,22 +490,42 @@ export async function deleteAdminStoreLineAllocation(
   return mapAdminOrder(dto);
 }
 
+export async function updateAdminStoreLineShipStatus(
+  companyId: string,
+  orderId: string,
+  lineId: string,
+  shipStatus: OrderLineItem['shipStatus'],
+  note?: string | null,
+): Promise<Order> {
+  const trimmed = note?.trim();
+  await apiRequest(`/store-admin/orders/${orderId}/lines/${lineId}/ship-status`, {
+    method: 'PATCH',
+    throwOnError: true,
+    query: { companyId: resolveStorefrontCompanyId(companyId) },
+    body: {
+      shipStatus,
+      ...(trimmed ? { note: trimmed } : {}),
+    },
+  });
+  const order = await fetchAdminStoreOrder(companyId, orderId);
+  if (!order) throw new Error('الطلب غير موجود.');
+  return order;
+}
+
+/** @deprecated Prefer updateAdminStoreLineShipStatus — kept for callers that only mark shipped. */
 export async function shipAdminStoreLine(
   companyId: string,
   orderId: string,
   lineId: string,
   input: ShipOrderLineInput,
 ): Promise<Order> {
-  void input;
-  await apiRequest(`/store-admin/orders/${orderId}/lines/${lineId}/ship-status`, {
-    method: 'PATCH',
-    throwOnError: true,
-    query: { companyId: resolveStorefrontCompanyId(companyId) },
-    body: { shipStatus: 'shipped' },
-  });
-  const order = await fetchAdminStoreOrder(companyId, orderId);
-  if (!order) throw new Error('الطلب غير موجود.');
-  return order;
+  return updateAdminStoreLineShipStatus(
+    companyId,
+    orderId,
+    lineId,
+    'shipped',
+    input.note,
+  );
 }
 
 export function storeOrdersHttpEnabled(): boolean {

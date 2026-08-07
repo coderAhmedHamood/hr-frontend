@@ -5,7 +5,7 @@ import type { Order, OrderStatus } from '@/features/ecommerce/domain/types/order
 import {
   ORDER_KANBAN_STATUSES,
   ORDER_STATUS_LABELS_AR,
-  canAdvanceOrderStatus,
+  canTransitionOrderStatus,
   getOrderFlowNextStep,
   getOrderPrepGuidance,
   isPaymentSettled,
@@ -62,7 +62,7 @@ export function OrdersKanbanView({
                   Boolean(next) &&
                   onStatusChange &&
                   !needsPayment &&
-                  canAdvanceOrderStatus(order, next!);
+                  canTransitionOrderStatus(order, next!);
                 const isCard = prep.paymentMethod === 'card';
                 const PaymentIcon = isCard ? CreditCard : Banknote;
                 const phone = order.phone?.trim() || null;

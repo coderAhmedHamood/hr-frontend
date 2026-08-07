@@ -129,6 +129,7 @@ function PartnerStoreOrdersBody({ companyId, partnerId }: Props) {
       <OrderDetailPanel
         companyId={companyId}
         order={detailQuery.data ?? null}
+        orderId={selectedOrderId}
         loading={detailQuery.isLoading || detailQuery.isFetching}
         open={Boolean(selectedOrderId)}
         onOpenChange={(open) => {

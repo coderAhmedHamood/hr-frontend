@@ -7,6 +7,7 @@ import type {
   OrderStatus,
   SaveOrderLineAllocationsInput,
   ShipOrderLineInput,
+  UpdateOrderLineShipStatusInput,
   UpdateOrderPaymentStatusInput,
   UpdateOrderStatusInput,
 } from '@/features/ecommerce/domain/types/order';
@@ -16,6 +17,7 @@ import {
   saveAdminStoreLineAllocations,
   shipAdminStoreLine,
   storeOrdersHttpEnabled,
+  updateAdminStoreLineShipStatus,
   updateAdminStoreOrderPayment,
   updateAdminStoreOrderStatus,
 } from '@/features/ecommerce/shared/lib/api/store-orders-api';
@@ -137,6 +139,20 @@ async function buildDeductBatches(
   return [...byLocation.entries()].map(([locationId, lines]) => ({ locationId, lines }));
 }
 
+function resolveOrderLine(
+  order: Order,
+  input: { productId: string; lineId?: string },
+): OrderLineItem {
+  const line = input.lineId
+    ? order.items.find((item) => item.lineId === input.lineId)
+    : order.items.find((item) => item.productId === input.productId);
+  if (!line) throw new Error('بند الطلب غير موجود.');
+  if (!line.lineId) {
+    throw new Error('معرّف بند الطلب غير متوفر. حدّث الصفحة ثم أعد المحاولة.');
+  }
+  return line;
+}
+
 /** Admin orders — HTTP only (store-frontend-binding.md). No mock / localStorage. */
 export const ordersApi = {
   /** List page only (no per-row detail fetch). Use for partner panels / filters. */
@@ -237,13 +253,9 @@ export const ordersApi = {
     assertStoreHttp();
     const order = await fetchAdminStoreOrder(companyId, orderId);
     if (!order) throw new Error('الطلب غير موجود.');
-    const line = order.items.find((item) => item.productId === input.productId);
-    if (!line) throw new Error('بند الطلب غير موجود.');
-    if (!line.lineId) {
-      throw new Error('معرّف بند الطلب غير متوفر. حدّث الصفحة ثم أعد المحاولة.');
-    }
+    const line = resolveOrderLine(order, input);
     return normalizeOrderPayment(
-      await saveAdminStoreLineAllocations(companyId, orderId, line.lineId, input),
+      await saveAdminStoreLineAllocations(companyId, orderId, line.lineId!, input),
     );
   },
 
@@ -252,15 +264,34 @@ export const ordersApi = {
     assertStoreHttp();
     const order = await fetchAdminStoreOrder(companyId, orderId);
     if (!order) throw new Error('الطلب غير موجود.');
-    const line = order.items.find((item) => item.productId === input.productId);
-    if (!line) throw new Error('بند الطلب غير موجود.');
-    if (!line.lineId) {
-      throw new Error('معرّف بند الطلب غير متوفر. حدّث الصفحة ثم أعد المحاولة.');
-    }
+    const line = resolveOrderLine(order, input);
     if (line.shipStatus === 'shipped') {
       return normalizeOrderPayment(order);
     }
 
-    return normalizeOrderPayment(await shipAdminStoreLine(companyId, orderId, line.lineId, input));
+    return normalizeOrderPayment(await shipAdminStoreLine(companyId, orderId, line.lineId!, input));
+  },
+
+  async updateLineShipStatus(
+    companyId: string,
+    orderId: string,
+    input: UpdateOrderLineShipStatusInput,
+  ) {
+    assertStoreHttp();
+    const order = await fetchAdminStoreOrder(companyId, orderId);
+    if (!order) throw new Error('الطلب غير موجود.');
+    const line = resolveOrderLine(order, input);
+    if (line.shipStatus === input.shipStatus) {
+      return normalizeOrderPayment(order);
+    }
+    return normalizeOrderPayment(
+      await updateAdminStoreLineShipStatus(
+        companyId,
+        orderId,
+        line.lineId!,
+        input.shipStatus,
+        input.note,
+      ),
+    );
   },
 };

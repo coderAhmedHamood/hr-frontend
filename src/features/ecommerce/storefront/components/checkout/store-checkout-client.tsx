@@ -98,6 +98,7 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
     street: '',
     notes: '',
   }));
+  const [customerNote, setCustomerNote] = React.useState('');
   const [paymentMethod, setPaymentMethod] = React.useState<CheckoutPaymentMethod>(
     () => paymentMethods[0] ?? 'cash_on_delivery',
   );
@@ -313,6 +314,7 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
         locale,
         address,
         paymentMethod,
+        customerNote: customerNote.trim() || null,
         accessToken,
         paymentProofUrls:
           paymentMethod === 'card' ? paymentProofs.map((item) => item.url) : [],
@@ -634,6 +636,15 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
                       onChange={(e) => setAddress((prev) => ({ ...prev, notes: e.target.value }))}
                       placeholder={t('checkout.notesPlaceholder')}
                       className="min-h-[6.5rem] w-full min-w-0 max-w-full rounded-xl border-input px-3.5 py-3 text-base leading-relaxed sm:text-sm"
+                    />
+                  </Field>
+                  <Field label={t('checkout.customerNote')} className="sm:col-span-2">
+                    <Textarea
+                      rows={2}
+                      value={customerNote}
+                      onChange={(e) => setCustomerNote(e.target.value)}
+                      placeholder={t('checkout.customerNotePlaceholder')}
+                      className="min-h-[4.5rem] w-full min-w-0 max-w-full rounded-xl border-input px-3.5 py-3 text-base leading-relaxed sm:text-sm"
                     />
                   </Field>
                 </>
