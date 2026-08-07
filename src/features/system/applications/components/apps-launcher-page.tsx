@@ -138,11 +138,11 @@ export function AppsLauncherPage() {
     (async () => {
       setLoading(true);
       try {
-        const items = await applicationsApi.getLauncher();
-        if (!cancelled) setApps(enrichLauncherApplications(items, activeCompanyId));
+        const result = await applicationsApi.getAll({ page: 1, limit: 200 });
+        if (!cancelled) setApps(enrichLauncherApplications(result.items, activeCompanyId));
       } catch (err) {
         handleApiError(err, 'applications.launcher');
-        if (!cancelled) setApps(enrichLauncherApplications([], activeCompanyId));
+        if (!cancelled) setApps([]);
       } finally {
         if (!cancelled) setLoading(false);
       }
