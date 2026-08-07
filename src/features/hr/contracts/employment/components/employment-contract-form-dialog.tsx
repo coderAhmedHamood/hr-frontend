@@ -2,8 +2,8 @@
 
 import * as React from 'react';
 import {
-  Bell, Briefcase, CalendarRange, Coins, Copy, FileDown, FileSignature,
-  FileText, Layers, Plus, ScrollText, Trash2, User,
+  Bell, Briefcase, Coins, Copy, FileDown, FileSignature,
+  Layers, Plus, ScrollText, Trash2, User,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

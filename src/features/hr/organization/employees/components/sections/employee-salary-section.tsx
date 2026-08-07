@@ -6,7 +6,12 @@ import { EmployeeSalaryPayslipCards } from '@/features/hr/organization/employees
 export function EmployeeSalarySection({ model }: { model: EmployeeProfileModel }) {
   return (
     <section className="space-y-5">
-      <EmployeeSalaryPayslipCards employeePayslipSeries={model.employeePayslipSeries} />
+      <EmployeeSalaryPayslipCards
+        employeePayslipSeries={model.employeePayslipSeries}
+        salaryAttachments={model.salaryAttachments}
+        salaryAttachmentsLoading={model.salaryAttachmentsLoading}
+        onOpenAttachment={model.setDetailAttachment}
+      />
     </section>
   );
 }

@@ -8,8 +8,21 @@ import { ApiError } from '@/features/hr/lib/api/client';
 
 export interface HRNotificationRecord {
   id: string;
+  notificationId: string;
   titleAr: string;
   bodyAr?: string;
+  category: string;
+  severity: string;
+  actionUrl?: string | null;
+  actionLabelAr?: string | null;
+  requiresAcknowledgment: boolean;
+  state: string;
+  isRead: boolean;
+  companyNameAr?: string;
+  employeeNameAr?: string;
+  employeeCode?: string | null;
+  triggeredByNameAr?: string | null;
+  sourceKind?: string | null;
   recipientEmployeeId: string;
   createdAt: string;
   readAt: string | null;
@@ -22,8 +35,21 @@ export interface HRNotificationRecord {
 function mapApi(r: InboxItemResponseDto): HRNotificationRecord {
   return {
     id: r.recipientId, // use recipientId as the local ID for mutations
+    notificationId: r.notificationId,
     titleAr: r.titleAr,
     bodyAr: r.bodyAr ?? undefined,
+    category: r.category,
+    severity: r.severity,
+    actionUrl: r.actionUrl,
+    actionLabelAr: r.actionLabelAr,
+    requiresAcknowledgment: r.requiresAcknowledgment,
+    state: r.state,
+    isRead: r.isRead,
+    companyNameAr: r.companyNameAr,
+    employeeNameAr: r.employeeNameAr,
+    employeeCode: r.employeeCode,
+    triggeredByNameAr: r.triggeredByNameAr,
+    sourceKind: r.sourceKind,
     recipientEmployeeId: r.employeeId,
     createdAt: r.createdAt,
     readAt: r.readAt,
@@ -82,13 +108,31 @@ export const useHRNotificationsStore = create<NotificationsState>()((set, get) =
     try {
       const updated = await notificationsApi.markRead(item.recipientEmployeeId, id);
       set(s => ({
-        items: s.items.map(x => x.id === id ? { ...x, readAt: updated.readAt } : x),
+        items: s.items.map(x =>
+          x.id === id
+            ? {
+                ...x,
+                readAt: updated.readAt,
+                isRead: updated.isRead,
+                state: updated.state,
+              }
+            : x,
+        ),
         unreadTotal: Math.max(0, s.unreadTotal - (item.readAt ? 0 : 1)),
       }));
     } catch {
       // optimistic fallback — update locally so UI stays responsive
       set(s => ({
-        items: s.items.map(x => x.id === id ? { ...x, readAt: x.readAt ?? new Date().toISOString() } : x),
+        items: s.items.map(x =>
+          x.id === id
+            ? {
+                ...x,
+                readAt: x.readAt ?? new Date().toISOString(),
+                isRead: true,
+                state: 'read',
+              }
+            : x,
+        ),
       }));
     }
   },
@@ -97,13 +141,24 @@ export const useHRNotificationsStore = create<NotificationsState>()((set, get) =
     const item = get().items.find(x => x.id === id);
     if (!item) return;
     try {
-      await notificationsApi.markUnread(item.recipientEmployeeId, id);
+      const updated = await notificationsApi.markUnread(item.recipientEmployeeId, id);
       set(s => ({
-        items: s.items.map(x => x.id === id ? { ...x, readAt: null } : x),
+        items: s.items.map(x =>
+          x.id === id
+            ? {
+                ...x,
+                readAt: null,
+                isRead: updated.isRead,
+                state: updated.state,
+              }
+            : x,
+        ),
       }));
     } catch {
       set(s => ({
-        items: s.items.map(x => x.id === id ? { ...x, readAt: null } : x),
+        items: s.items.map(x =>
+          x.id === id ? { ...x, readAt: null, isRead: false, state: 'delivered' } : x,
+        ),
       }));
     }
   },

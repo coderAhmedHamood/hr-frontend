@@ -16,6 +16,12 @@ import {
   mapEmployeePayslipHistoryItem,
   mapPayslipListItem,
 } from '@/features/hr/organization/employees/services/employee-payslips.service';
+import {
+  employeeAttachmentsApi,
+  type EmployeeAttachmentDto,
+} from '@/features/hr/organization/employees/lib/api/employee-attachments';
+import { SALARY_ATTACHMENT_DOCUMENT_TYPES } from '@/features/hr/organization/employees/constants/employee-attachment-document-types';
+import { organizationListArchiveQuery } from '@/features/hr/organization/lib/archive-scope';
 
 export type EmployeePayslipCounts = {
   totalPayslips: number;
@@ -66,6 +72,8 @@ export function useEmployeeProfileData(
   const [employeeContracts, setEmployeeContracts] = React.useState<HRContractRecord[]>([]);
   const [employeePayslipSeries, setEmployeePayslipSeries] = React.useState<Payslip[]>([]);
   const [payslipCounts, setPayslipCounts] = React.useState<EmployeePayslipCounts | null>(null);
+  const [salaryAttachments, setSalaryAttachments] = React.useState<EmployeeAttachmentDto[]>([]);
+  const [salaryAttachmentsLoading, setSalaryAttachmentsLoading] = React.useState(false);
   const [roseFormsCount] = React.useState(0);
 
   const attendance = useEmployeeProfileAttendance(
@@ -118,26 +126,32 @@ export function useEmployeeProfileData(
     let cancelled = false;
 
     void (async () => {
+      // Preferred path for salaries: GET /payroll/payslips?employeeId=
       try {
-        const history = await employeePayslipsApi.getHistory(employee.id, { companyId });
+        const psRes = await payslipsApi.list({
+          companyId,
+          employeeId: employee.id,
+          page: 1,
+          limit: 200,
+        });
         if (cancelled) return;
-        setEmployeePayslipSeries(
-          history.payslipsHistory.map((item) => mapEmployeePayslipHistoryItem(item, employee.id)),
-        );
-        setPayslipCounts(history.counts);
+        const items = psRes.items.map(mapPayslipListItem);
+        setEmployeePayslipSeries(items);
+        setPayslipCounts({
+          totalPayslips: psRes.pagination.total || items.length,
+          draft: items.filter((p) => p.status === 'draft').length,
+          approved: items.filter((p) => p.status === 'approved').length,
+          paid: items.filter((p) => p.status === 'paid').length,
+        });
       } catch {
         if (cancelled) return;
         try {
-          const psRes = await payslipsApi.list({ companyId, employeeId: employee.id, limit: 200 });
+          const history = await employeePayslipsApi.getHistory(employee.id, { companyId });
           if (cancelled) return;
-          const items = psRes.items.map(mapPayslipListItem);
-          setEmployeePayslipSeries(items);
-          setPayslipCounts({
-            totalPayslips: items.length,
-            draft: items.filter((p) => p.status === 'draft').length,
-            approved: items.filter((p) => p.status === 'approved').length,
-            paid: items.filter((p) => p.status === 'paid').length,
-          });
+          setEmployeePayslipSeries(
+            history.payslipsHistory.map((item) => mapEmployeePayslipHistoryItem(item, employee.id)),
+          );
+          setPayslipCounts(history.counts);
         } catch {
           if (!cancelled) {
             setEmployeePayslipSeries([]);
@@ -146,6 +160,39 @@ export function useEmployeeProfileData(
         }
       }
     })();
+
+    return () => { cancelled = true; };
+  }, [employee.id, activeSection, companyId]);
+
+  React.useEffect(() => {
+    if (!employee.id || activeSection !== 'salary' || !companyId) {
+      setSalaryAttachments([]);
+      return;
+    }
+    let cancelled = false;
+    setSalaryAttachmentsLoading(true);
+
+    void employeeAttachmentsApi
+      .getAll({
+        companyId,
+        employeeId: employee.id,
+        page: 1,
+        limit: 200,
+        ...organizationListArchiveQuery('active'),
+      })
+      .then((res) => {
+        if (cancelled) return;
+        const salaryTypes = new Set<string>(SALARY_ATTACHMENT_DOCUMENT_TYPES);
+        setSalaryAttachments(
+          res.items.filter((item) => item.documentType && salaryTypes.has(item.documentType)),
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setSalaryAttachments([]);
+      })
+      .finally(() => {
+        if (!cancelled) setSalaryAttachmentsLoading(false);
+      });
 
     return () => { cancelled = true; };
   }, [employee.id, activeSection, companyId]);
@@ -207,6 +254,8 @@ export function useEmployeeProfileData(
     employeeContracts,
     employeePayslipSeries,
     payslipCounts,
+    salaryAttachments,
+    salaryAttachmentsLoading,
     roseFormsCount,
   };
 }

@@ -8,7 +8,7 @@ import {
   dialogFormFooterClass,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { exportDomToPdf } from '@/components/pdf/lib/exportDomToPdf';
+import { exportDomToPdf, type ExportDomToPdfOptions } from '@/components/pdf/lib/exportDomToPdf';
 
 type PdfPreviewExportDialogProps = {
   open: boolean;
@@ -18,6 +18,8 @@ type PdfPreviewExportDialogProps = {
   /** Printable HTML subtree; must be a forwardRef root (ref is attached for html2pdf export). */
   printable: React.ReactElement | null;
   emptyMessage?: string;
+  /** PDF page orientation (default portrait). */
+  orientation?: ExportDomToPdfOptions['orientation'];
 };
 
 export function PdfPreviewExportDialog({
@@ -27,6 +29,7 @@ export function PdfPreviewExportDialog({
   fileName,
   printable,
   emptyMessage = 'لا توجد بيانات للتصدير ضمن الفلاتر الحالية.',
+  orientation = 'portrait',
 }: PdfPreviewExportDialogProps) {
   const printableRef = React.useRef<HTMLDivElement>(null);
   const [domExporting, setDomExporting] = React.useState(false);
@@ -46,20 +49,27 @@ export function PdfPreviewExportDialog({
     }
     setDomExporting(true);
     try {
-      await exportDomToPdf(el, fileName);
+      await exportDomToPdf(el, fileName, { orientation });
       toast.success('تم تنزيل الملف');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'فشل تصدير PDF');
     } finally {
       setDomExporting(false);
     }
-  }, [fileName]);
+  }, [fileName, orientation]);
 
   const showPrintable = Boolean(open && printable && printableNode);
+  const isLandscape = orientation === 'landscape';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[90vh] max-w-4xl flex-col gap-0 overflow-visible border-border p-0 sm:max-w-4xl">
+      <DialogContent
+        className={
+          isLandscape
+            ? 'flex max-h-[90vh] max-w-6xl flex-col gap-0 overflow-visible border-border p-0 sm:max-w-6xl'
+            : 'flex max-h-[90vh] max-w-4xl flex-col gap-0 overflow-visible border-border p-0 sm:max-w-4xl'
+        }
+      >
         <DialogHeader className="border-b border-border px-6 py-4 text-right">
           <DialogTitle className="font-display text-lg">{title}</DialogTitle>
           <DialogDescription className="sr-only">

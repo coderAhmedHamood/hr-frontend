@@ -66,6 +66,7 @@ import { DataTable, type ColumnDef } from '@/components/ui/data-table';
 import { TableDateCell, TableRowActions, TableRowDetailDialog } from '@/components/ui/table-cells';
 import { DisciplineListViewport, DisciplinePaginatedList } from '@/features/hr/discipline/components/discipline-paginated-list';
 import type { HRDisciplineInvestigationRecord } from '@/features/hr/discipline/lib/types';
+import { RelatedEmployeeAttachments } from '@/features/hr/organization/employees/components/related-employee-attachments';
 
 type ResultFilter = 'all' | HRInvestigationResult;
 
@@ -731,7 +732,15 @@ export function InvestigationsClient() {
           { label: 'أقوال الموظف', value: detailRow.employeeStatement || '—' },
           { label: 'أقوال الشهود', value: detailRow.witnessStatement || '—' },
         ] : []}
-      />
+      >
+        {detailRow ? (
+          <RelatedEmployeeAttachments
+            employeeId={detailRow.employeeId}
+            companyId={m.companyId}
+            preset="discipline"
+          />
+        ) : null}
+      </TableRowDetailDialog>
     </div>
   );
 }

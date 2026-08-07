@@ -6,139 +6,99 @@ import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { DatePickerInput } from '@/components/ui/date-picker-input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
-  RoseDocumentEmployeeFieldsPanel,
-  RoseDocumentLanguagePicker,
   rosePrepDialogBodyClass,
   rosePrepDialogContentClass,
   rosePrepDialogFooterClass,
   rosePrepDialogHeaderClass,
-  useRoseMergePreviewCtx,
 } from '@/features/hr/organization/employees/components/dialogs/rose-document-prep-shared';
-import { createDefaultClearanceWizard } from '@/features/hr/organization/employees/lib/rose-document-templates/build-clearance-print-model';
-import { useRoseClearanceTemplateStore } from '@/features/hr/organization/employees/lib/rose-document-templates/clearance-template-store';
-import type {
-  ClearanceWizardPayload,
-  RoseMergeFieldKey,
-} from '@/features/hr/organization/employees/lib/rose-document-templates/types';
+import { todayIsoDate } from '@/features/hr/organization/employees/lib/rose-document-templates/format-document-dates';
+
+export type SimpleClearanceWizardPayload = {
+  reasonLines: string[];
+  footerDateIso: string;
+};
 
 type Props = {
   open: boolean;
   employee: Employee;
-  branchNameAr: string;
-  departmentNameAr: string;
-  companyNameAr: string;
-  companyNameEn: string;
   onCancel: () => void;
-  onApply: (wizard: ClearanceWizardPayload) => void;
-  onOpenTemplateSettings: () => void;
+  onApply: (wizard: SimpleClearanceWizardPayload) => void;
 };
 
 export function EmployeeClearancePdfPrepDialog({
   open,
   employee,
-  branchNameAr,
-  departmentNameAr,
-  companyNameAr,
-  companyNameEn,
   onCancel,
   onApply,
-  onOpenTemplateSettings,
 }: Props) {
-  const template = useRoseClearanceTemplateStore((s) => s.template);
-  const [wizard, setWizard] = React.useState<ClearanceWizardPayload>(() =>
-    createDefaultClearanceWizard(employee, template),
-  );
+  const [reasonText, setReasonText] = React.useState('');
+  const [footerDateIso, setFooterDateIso] = React.useState(todayIsoDate);
 
   React.useEffect(() => {
     if (!open) return;
-    setWizard(createDefaultClearanceWizard(employee, template));
-  }, [open, employee, template]);
-
-  const mergePreviewCtx = useRoseMergePreviewCtx(
-    employee, branchNameAr, departmentNameAr, companyNameAr, companyNameEn,
-    { footerDateIso: wizard.footerDateIso },
-  );
-
-  const patchWizard = <K extends keyof ClearanceWizardPayload>(key: K, value: ClearanceWizardPayload[K]) =>
-    setWizard((w) => ({ ...w, [key]: value }));
-
-  const setFieldVisible = (key: RoseMergeFieldKey, visible: boolean) =>
-    setWizard((w) => ({ ...w, fieldVisibility: { ...w.fieldVisibility, [key]: visible } }));
-
-  const setFieldOverride = (key: RoseMergeFieldKey, value: string) =>
-    setWizard((w) => ({ ...w, fieldOverrides: { ...w.fieldOverrides, [key]: value } }));
+    setReasonText('');
+    setFooterDateIso(todayIsoDate());
+  }, [open, employee.id]);
 
   if (!open) return null;
+
+  const handleApply = () => {
+    const lines = reasonText
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter(Boolean);
+    onApply({
+      reasonLines: lines.length > 0 ? lines : ['', '', ''],
+      footerDateIso,
+    });
+  };
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onCancel(); }}>
       <DialogContent className={rosePrepDialogContentClass}>
         <DialogHeader className={rosePrepDialogHeaderClass}>
-          <DialogTitle className="font-display">بيانات نموذج إخلاء الطرف</DialogTitle>
-          <DialogDescription className="sr-only">تخصيص النموذج ثم إنشاء المعاينة</DialogDescription>
+          <DialogTitle className="font-display">نموذج إخلاء طرف</DialogTitle>
+          <DialogDescription className="sr-only">أدخل الأسباب ثم أنشئ المعاينة</DialogDescription>
           <p className="text-xs text-muted-foreground">
             الموظف: <span className="font-medium text-foreground">{employee.name}</span>
+            {employee.nationalId ? (
+              <>
+                {' · '}
+                هوية: <span className="font-mono text-foreground" dir="ltr">{employee.nationalId}</span>
+              </>
+            ) : null}
           </p>
         </DialogHeader>
 
         <div className={rosePrepDialogBodyClass}>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <RoseDocumentLanguagePicker value={wizard.language} onChange={(v) => patchWizard('language', v)} />
-            <Button type="button" variant="outline" size="sm" className="h-8 text-xs" onClick={onOpenTemplateSettings}>
-              إعدادات القالب
-            </Button>
+          <div className="space-y-1.5">
+            <Label htmlFor="clr-reasons">الأسباب (سطر لكل سبب — اختياري)</Label>
+            <Textarea
+              id="clr-reasons"
+              value={reasonText}
+              onChange={(e) => setReasonText(e.target.value)}
+              rows={4}
+              placeholder={'استقالة\nانتهاء العقد\n…'}
+              className="resize-y text-right text-sm"
+              dir="rtl"
+            />
           </div>
-
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label htmlFor="clr-reason-ar">سبب إخلاء الطرف (عربي)</Label>
-              <Textarea
-                id="clr-reason-ar"
-                value={wizard.reasonTextAr}
-                onChange={(e) => patchWizard('reasonTextAr', e.target.value)}
-                rows={3}
-                className="resize-y text-right text-sm"
-                dir="rtl"
-              />
-            </div>
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label htmlFor="clr-reason-en">Reason for clearance (English)</Label>
-              <Textarea
-                id="clr-reason-en"
-                value={wizard.reasonTextEn}
-                onChange={(e) => patchWizard('reasonTextEn', e.target.value)}
-                rows={3}
-                className="resize-y text-sm"
-                dir="ltr"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="clr-foot-date">تاريخ التذييل</Label>
-              <DatePickerInput
-                id="clr-foot-date"
-                value={wizard.footerDateIso}
-                onChange={(v) => patchWizard('footerDateIso', v)}
-              />
-            </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="clr-foot-date">التاريخ</Label>
+            <DatePickerInput
+              id="clr-foot-date"
+              value={footerDateIso}
+              onChange={(v) => setFooterDateIso(v || todayIsoDate())}
+            />
           </div>
-
-          <RoseDocumentEmployeeFieldsPanel
-            fieldVisibility={wizard.fieldVisibility}
-            fieldOverrides={wizard.fieldOverrides}
-            mergePreviewCtx={mergePreviewCtx}
-            onVisibilityChange={setFieldVisible}
-            onOverrideChange={setFieldOverride}
-            visibleFieldKeys={template.fieldSlots.map((s) => s.fieldKey)}
-          />
         </div>
 
         <DialogFooter className={rosePrepDialogFooterClass}>
-          <Button type="button" variant="luxe" onClick={() => onApply(wizard)}>إنشاء معاينة PDF</Button>
+          <Button type="button" variant="luxe" onClick={handleApply}>إنشاء معاينة PDF</Button>
           <Button type="button" variant="outline" onClick={onCancel}>إلغاء</Button>
         </DialogFooter>
       </DialogContent>

@@ -77,7 +77,7 @@ export function StickyPagination({
       role="navigation"
       aria-label="التصفح بين الصفحات"
       className={cn(
-        'flex shrink-0 items-center justify-center gap-3 rounded-xl border border-border/70 bg-card/95 px-3 py-1.5 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-card/80',
+        'flex shrink-0 items-center justify-center gap-2.5 rounded-xl border border-border/70 bg-card/95 px-2.5 py-0.5 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-card/80',
         className,
       )}
     >

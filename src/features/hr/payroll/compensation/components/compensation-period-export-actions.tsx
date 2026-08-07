@@ -10,6 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { PdfPreviewExportDialog } from '@/components/pdf/pdf-preview-export-dialog';
 import { useEmployeesPayrollSummary } from '@/features/hr/payroll/compensation/hooks/useEmployeesPayrollSummary';
 import { usePayrollPeriod } from '@/features/hr/payroll/compensation/hooks/usePayrollPeriod';
 import { CompensationPrintHtml } from '@/features/hr/payroll/compensation/components/compensation-print-html';
@@ -17,7 +18,6 @@ import {
   buildCompensationExportLines,
   buildCompensationPrintPayload,
   downloadCompensationExcel,
-  downloadCompensationPdf,
 } from '@/features/hr/payroll/lib/compensation-period-export';
 import {
   mapEmployeesPayrollSummaryToPreviews,
@@ -60,17 +60,17 @@ export function CompensationPeriodExportActions({
   ariaLabel = 'تصدير مسير الرواتب',
 }: Props) {
   const [exportMenuOpen, setExportMenuOpen] = React.useState(false);
-  const summaryEnabled = Boolean(periodId) && (!lazyLoad || exportMenuOpen);
+  const [excelExporting, setExcelExporting] = React.useState(false);
+  const [pdfPreviewOpen, setPdfPreviewOpen] = React.useState(false);
+
+  /** Keep summary/period queries alive while menu/preview/export are active. */
+  const keepDataLoaded = exportMenuOpen || excelExporting || pdfPreviewOpen;
+  const summaryEnabled = Boolean(periodId) && (!lazyLoad || keepDataLoaded);
   const { data: payrollSummary, isFetching: summaryLoading } = useEmployeesPayrollSummary(
     periodId,
     { enabled: summaryEnabled },
   );
   const { data: periodRaw } = usePayrollPeriod(summaryEnabled ? periodId : null);
-
-  const [excelExporting, setExcelExporting] = React.useState(false);
-  const [pdfExporting, setPdfExporting] = React.useState(false);
-  const [pdfPrintMounted, setPdfPrintMounted] = React.useState(false);
-  const payrollPrintRef = React.useRef<HTMLDivElement>(null);
 
   const period = React.useMemo(
     () => (periodRaw ? normalizePeriod(periodRaw) : null),
@@ -113,8 +113,27 @@ export function CompensationPeriodExportActions({
     [period, exportLines, cols, footerTotals],
   );
 
-  const exporting = excelExporting || pdfExporting;
-  const triggerDisabled = disabled || !periodId || exporting;
+  const printable = React.useMemo(() => {
+    if (!payrollPrintData) return null;
+    return (
+      <CompensationPrintHtml
+        monthNameAr={payrollPrintData.monthNameAr}
+        branchNameAr={payrollPrintData.branchNameAr}
+        table={payrollPrintData.table}
+      />
+    );
+  }, [payrollPrintData]);
+
+  const pdfFileName = period ? `payroll-${period.code}.pdf` : 'payroll.pdf';
+  const triggerDisabled = disabled || !periodId || excelExporting;
+
+  const handleOpenPdfPreview = () => {
+    if (!payrollPrintData || !period) {
+      toast.error('لا توجد بيانات للتصدير.');
+      return;
+    }
+    setPdfPreviewOpen(true);
+  };
 
   const handleDownloadExcel = async () => {
     if (!period || !hasLines || exportLines.length === 0) {
@@ -132,32 +151,6 @@ export function CompensationPeriodExportActions({
     }
   };
 
-  const handleDownloadPdf = async () => {
-    if (!payrollPrintData || !period) {
-      toast.error('لا توجد بيانات للتصدير.');
-      return;
-    }
-    setPdfExporting(true);
-    setPdfPrintMounted(true);
-    try {
-      await new Promise<void>((resolve) => {
-        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
-      });
-      const el = payrollPrintRef.current;
-      if (!el) {
-        toast.error('تعذر العثور على منطقة الطباعة.');
-        return;
-      }
-      await downloadCompensationPdf(el, period.code);
-      toast.success('تم تحميل ملف PDF.');
-    } catch {
-      toast.error('حدث خطأ أثناء تصدير PDF.');
-    } finally {
-      setPdfExporting(false);
-      setPdfPrintMounted(false);
-    }
-  };
-
   return (
     <>
       <div className={className}>
@@ -170,23 +163,25 @@ export function CompensationPeriodExportActions({
               className={cn('h-8 w-8 shrink-0', buttonClassName)}
               disabled={triggerDisabled}
               aria-label={ariaLabel}
-              title={lazyLoad && !exportMenuOpen ? 'فتح القائمة لتحميل بيانات التصدير' : (!hasLines && periodId ? 'لا توجد بيانات مسير لهذه الفترة' : undefined)}
+              title={lazyLoad && !exportMenuOpen && !pdfPreviewOpen
+                ? 'فتح القائمة لتحميل بيانات التصدير'
+                : (!hasLines && periodId ? 'لا توجد بيانات مسير لهذه الفترة' : undefined)}
             >
-              {(exporting || summaryLoading)
+              {(excelExporting || summaryLoading)
                 ? <Loader2 className="h-4 w-4 animate-spin" />
                 : <FileDown className="h-4 w-4" />}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-44">
             <DropdownMenuItem
-              disabled={!period || !hasLines || exporting || summaryLoading}
-              onSelect={() => void handleDownloadPdf()}
+              disabled={!period || !hasLines || excelExporting || summaryLoading}
+              onSelect={() => handleOpenPdfPreview()}
             >
               <FileDown className="h-4 w-4" />
               PDF
             </DropdownMenuItem>
             <DropdownMenuItem
-              disabled={!period || !hasLines || exporting || summaryLoading}
+              disabled={!period || !hasLines || excelExporting || summaryLoading}
               onSelect={() => void handleDownloadExcel()}
             >
               <FileSpreadsheet className="h-4 w-4" />
@@ -196,19 +191,15 @@ export function CompensationPeriodExportActions({
         </DropdownMenu>
       </div>
 
-      {pdfPrintMounted && payrollPrintData ? (
-        <div
-          aria-hidden
-          className="pointer-events-none fixed start-0 top-0 -z-[9999] size-0 overflow-hidden"
-        >
-          <CompensationPrintHtml
-            ref={payrollPrintRef}
-            monthNameAr={payrollPrintData.monthNameAr}
-            branchNameAr={payrollPrintData.branchNameAr}
-            table={payrollPrintData.table}
-          />
-        </div>
-      ) : null}
+      <PdfPreviewExportDialog
+        open={pdfPreviewOpen}
+        onOpenChange={setPdfPreviewOpen}
+        title="معاينة مسير رواتب العاملين"
+        fileName={pdfFileName}
+        printable={printable}
+        orientation="landscape"
+        emptyMessage="لا توجد بيانات مسير للتصدير في هذه الفترة."
+      />
     </>
   );
 }

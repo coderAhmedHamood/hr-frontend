@@ -4,6 +4,7 @@ import * as React from 'react';
 import { sanitizePdfText } from '@/components/pdf/lib/sanitize-pdf-text';
 import { RoseTradingLetterheadPrint } from '@/components/pdf/print/rose-trading-letterhead-print';
 import { getPdfLogoSrc } from '@/components/pdf/lib/pdf-logo-url';
+import { RosePdfWatermark } from '@/components/pdf/rose-trading/rose-pdf-watermark';
 import {
   RosePrintPairedTwoColumnRow,
   type RoseFormPdfEmployee,
@@ -27,7 +28,7 @@ function CellValue({ value }: { value: string }) {
       style={{
         width: '72%',
         boxSizing: 'border-box',
-        fontSize: 8.5,
+        fontSize: 9.5,
         color: '#334155',
         lineHeight: 1.4,
         textAlign: 'right',
@@ -57,7 +58,7 @@ function TableRow({ label, value }: { label: string; value: string; last?: boole
         style={{
           width: '28%',
           boxSizing: 'border-box',
-          fontSize: 8.5,
+          fontSize: 9.5,
           fontWeight: 700,
           color: C.primary,
           textAlign: 'right',
@@ -111,24 +112,28 @@ export const RoseClearanceRecordPrintHtml = React.forwardRef<
         dir="rtl"
         lang="ar"
         style={{
+          position: 'relative',
           width: '210mm',
           maxWidth: '100%',
           margin: '0 auto',
           boxSizing: 'border-box',
           backgroundColor: C.bg,
           padding: '28px 24px 44px',
-          fontSize: 10,
+          fontSize: 11,
           color: '#1e293b',
           display: 'flex',
           flexDirection: 'column',
           minHeight: '297mm',
           fontFamily: 'Arial, Helvetica, sans-serif',
+          overflow: 'hidden',
         }}
       >
+        <RosePdfWatermark logoSrc={logoSrc} />
+        <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', flex: 1 }}>
         <RoseTradingLetterheadPrint logoSrc={logoSrc} companyNameAr={ar} companyNameEn={en} />
         <div
           style={{
-            fontSize: 12,
+            fontSize: 14,
             fontWeight: 700,
             marginTop: 4,
             marginBottom: 14,
@@ -202,7 +207,7 @@ export const RoseClearanceRecordPrintHtml = React.forwardRef<
         <p
           style={{
             marginTop: 12,
-            fontSize: 9.5,
+            fontSize: 10.5,
             lineHeight: 1.55,
             textAlign: 'right',
             color: '#1e293b',
@@ -224,10 +229,10 @@ export const RoseClearanceRecordPrintHtml = React.forwardRef<
           }}
         >
           <div style={{ width: '42%', borderTop: `0.5px solid ${C.muted}`, paddingTop: 6 }}>
-            <div style={{ fontSize: 8, color: C.muted, textAlign: 'center' }}>ختم وتوقيع الجهة</div>
+            <div style={{ fontSize: 9, color: C.muted, textAlign: 'center' }}>ختم وتوقيع الجهة</div>
           </div>
           <div style={{ width: '42%', borderTop: `0.5px solid ${C.muted}`, paddingTop: 6 }}>
-            <div style={{ fontSize: 8, color: C.muted, textAlign: 'center' }}>توقيع الموظف</div>
+            <div style={{ fontSize: 9, color: C.muted, textAlign: 'center' }}>توقيع الموظف</div>
           </div>
         </div>
 
@@ -237,7 +242,7 @@ export const RoseClearanceRecordPrintHtml = React.forwardRef<
           style={{
             marginTop: 'auto',
             paddingTop: 10,
-            fontSize: 8,
+            fontSize: 9,
             color: C.muted,
             textAlign: 'center',
             borderTop: `1px solid ${C.border}`,
@@ -249,6 +254,7 @@ export const RoseClearanceRecordPrintHtml = React.forwardRef<
           <span dir="rtl"> / </span>
           <span dir="ltr">1</span>
         </footer>
+        </div>
       </div>
     );
   },

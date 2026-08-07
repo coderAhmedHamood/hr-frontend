@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
 import { Bell, Check, CheckCheck, ListX, Circle, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -13,6 +14,14 @@ import {
 } from '@/features/hr/notifications/lib/notifications-store';
 import { useCurrentEmployee } from '@/features/hr/organization/employees/hooks/useCurrentEmployee';
 import { EmployeePendingPayslipsSection } from '@/features/hr/payroll/components/employee-pending-payslips-section';
+import {
+  NOTIFICATION_CATEGORY_LABELS,
+  NOTIFICATION_SEVERITY_LABELS,
+} from '@/features/hr/notifications/admin/constants/notification-labels';
+import type {
+  NotificationCategory,
+  NotificationSeverity,
+} from '@/features/hr/notifications/lib/api/notifications';
 
 export function NotificationBellPopover() {
   const { items, markRead, markUnread, markAllReadForRecipient, dismissFromInbox, dismissAllVisibleForRecipient } =
@@ -53,7 +62,7 @@ export function NotificationBellPopover() {
           ) : null}
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-[min(100vw-2rem,380px)] p-0 overflow-hidden" dir="rtl">
+      <PopoverContent align="end" className="w-[min(100vw-2rem,420px)] p-0 overflow-hidden" dir="rtl">
         <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2.5">
           <p className="text-sm font-semibold text-foreground">التنبيهات</p>
           <div className="flex flex-wrap items-center justify-end gap-1">
@@ -87,43 +96,72 @@ export function NotificationBellPopover() {
 
         <EmployeePendingPayslipsSection />
 
-        <div className="max-h-[min(60vh,320px)] overflow-y-auto">
+        <div className="max-h-[min(60vh,380px)] overflow-y-auto">
           {inbox.length === 0 ? (
             <div className="py-10 text-center text-sm text-muted-foreground">لا توجد تنبيهات في صندوقك</div>
           ) : (
             <ul className="divide-y divide-border/60">
-              {inbox.map((n) => (
-                <li key={n.id} className="flex gap-2 px-3 py-2.5 hover:bg-muted/40">
-                  <button
-                    type="button"
-                    className={cn(
-                      'mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border transition-colors',
-                      n.readAt
-                        ? 'border-success/30 bg-success/10 text-success'
-                        : 'border-border bg-muted/50 text-muted-foreground hover:border-primary/40',
-                    )}
-                    title={n.readAt ? 'تعليم كغير مقروء' : 'تعليم كمقروء'}
-                    onClick={() => (n.readAt ? markUnread(n.id) : markRead(n.id))}
-                  >
-                    {n.readAt ? <Check className="h-4 w-4" /> : <Circle className="h-4 w-4" />}
-                  </button>
-                  <div className="min-w-0 flex-1 text-right">
-                    <div className="flex items-start justify-between gap-2">
-                      <p className={cn('text-sm font-medium leading-snug', !n.readAt && 'text-foreground')}>{n.titleAr}</p>
-                      <button
-                        type="button"
-                        className="shrink-0 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-destructive"
-                        title="إزالة من القائمة"
-                        onClick={() => dismissFromInbox(n.id)}
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
+              {inbox.map((n) => {
+                const categoryLabel =
+                  NOTIFICATION_CATEGORY_LABELS[n.category as NotificationCategory] ?? n.category;
+                const severityLabel =
+                  NOTIFICATION_SEVERITY_LABELS[n.severity as NotificationSeverity] ?? n.severity;
+                return (
+                  <li key={n.id} className="flex gap-2 px-3 py-2.5 hover:bg-muted/40">
+                    <button
+                      type="button"
+                      className={cn(
+                        'mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border transition-colors',
+                        n.readAt
+                          ? 'border-success/30 bg-success/10 text-success'
+                          : 'border-border bg-muted/50 text-muted-foreground hover:border-primary/40',
+                      )}
+                      title={n.readAt ? 'تحديد كغير مقروء' : 'تحديد كمقروء'}
+                      onClick={() => (n.readAt ? markUnread(n.id) : markRead(n.id))}
+                    >
+                      {n.readAt ? <Check className="h-4 w-4" /> : <Circle className="h-4 w-4" />}
+                    </button>
+                    <div className="min-w-0 flex-1 text-right">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className={cn('text-sm font-medium leading-snug', !n.readAt && 'text-foreground')}>
+                          {n.titleAr}
+                        </p>
+                        <button
+                          type="button"
+                          className="shrink-0 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-destructive"
+                          title="إزالة من القائمة"
+                          onClick={() => dismissFromInbox(n.id)}
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                      {n.bodyAr ? (
+                        <p className="mt-0.5 text-[11px] text-muted-foreground leading-relaxed">{n.bodyAr}</p>
+                      ) : null}
+                      <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground">
+                        <span className="rounded-md bg-muted/70 px-1.5 py-0.5">{categoryLabel}</span>
+                        <span className="rounded-md bg-muted/70 px-1.5 py-0.5">{severityLabel}</span>
+                        {n.companyNameAr ? (
+                          <span className="rounded-md bg-muted/70 px-1.5 py-0.5">{n.companyNameAr}</span>
+                        ) : null}
+                      </div>
+                      {n.triggeredByNameAr ? (
+                        <p className="mt-1 text-[10px] text-muted-foreground">بواسطة: {n.triggeredByNameAr}</p>
+                      ) : null}
+                      {n.actionUrl ? (
+                        <Link
+                          href={n.actionUrl}
+                          className="mt-1 inline-block text-[11px] text-primary hover:underline"
+                          onClick={() => setOpen(false)}
+                        >
+                          {n.actionLabelAr?.trim() || 'عرض التفاصيل'}
+                        </Link>
+                      ) : null}
+                      <DisplayDate value={n.createdAt} mode="datetime" className="mt-1 text-[10px]" />
                     </div>
-                    {n.bodyAr ? <p className="mt-0.5 text-[11px] text-muted-foreground  ">{n.bodyAr}</p> : null}
-                    <DisplayDate value={n.createdAt} mode="datetime" className="mt-1 text-[10px]" />
-                  </div>
-                </li>
-              ))}
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>

@@ -81,7 +81,7 @@ export function DataTable<T>({
       )}
     >
       <table className={cn('w-full text-sm', tableClassName)}>
-        <thead className="isolate">
+        <thead>
           <tr className={headerRowClass}>
             {columns.map(col => (
               <th

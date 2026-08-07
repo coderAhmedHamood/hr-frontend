@@ -63,7 +63,20 @@ export function useListPagination<T>(
   };
 }
 
-function useViewportFillHeight<T extends HTMLElement>(bottomGap = 16) {
+/** Bottom edge of the nearest overflow container (app shell scroll area), else the window. */
+function containmentBottom(el: HTMLElement): number {
+  let node: HTMLElement | null = el.parentElement;
+  while (node && node !== document.documentElement) {
+    const { overflowY } = getComputedStyle(node);
+    if (overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'hidden') {
+      return node.getBoundingClientRect().bottom;
+    }
+    node = node.parentElement;
+  }
+  return window.innerHeight;
+}
+
+function useViewportFillHeight<T extends HTMLElement>(bottomGap = 0) {
   const ref = useRef<T>(null);
   const { filterPanelOpen } = usePageHeaderFilterRegion();
 
@@ -73,8 +86,12 @@ function useViewportFillHeight<T extends HTMLElement>(bottomGap = 16) {
 
     const sync = () => {
       const top = el.getBoundingClientRect().top;
-      const height = Math.max(160, window.innerHeight - top - bottomGap);
+      const bottom = containmentBottom(el);
+      // Floor so we never overflow the shell and create a page scrollbar.
+      const height = Math.max(160, Math.floor(bottom - top - bottomGap));
       el.style.height = `${height}px`;
+      el.style.maxHeight = `${height}px`;
+      el.style.minHeight = `${height}px`;
     };
 
     sync();
@@ -101,15 +118,15 @@ function useViewportFillHeight<T extends HTMLElement>(bottomGap = 16) {
   return ref;
 }
 
-/** List region sized to the viewport; pagination stays at the bottom. */
+/** List region sized to the app content area; pagination stays at the bottom (no page scroll). */
 export function PagedListViewport({
   children,
   className,
-  bottomGap = 16,
+  bottomGap = 0,
 }: {
   children: ReactNode;
   className?: string;
-  /** Extra space reserved below the viewport (e.g. for a sticky pagination bar rendered after it). */
+  /** Gap (px) between list bottom and the content-shell bottom. */
   bottomGap?: number;
 }) {
   const ref = useViewportFillHeight<HTMLDivElement>(bottomGap);
@@ -121,50 +138,82 @@ export function PagedListViewport({
   );
 }
 
+/** Shared sticky pagination bar (same UI on every directory / timeline page). */
+export function paginationBar(
+  pagination: PaginationBarState,
+  pageSizeOptions?: readonly number[],
+): ReactNode {
+  if (pagination.total <= 0) return null;
+  return (
+    <StickyPagination
+      page={pagination.page}
+      pageSize={pagination.pageSize}
+      total={pagination.total}
+      totalPages={pagination.totalPages}
+      onPageChange={pagination.setPage}
+      onPageSizeChange={pagination.setPageSize}
+      pageSizeOptions={pageSizeOptions}
+    />
+  );
+}
+
 interface PagedShellProps {
   children: ReactNode;
   footer?: ReactNode;
   className?: string;
+  /**
+   * When false, the content region does not scroll (child manages its own scroll),
+   * e.g. daily one-day attendance view.
+   */
+  contentScroll?: boolean;
 }
 
-export function PagedShell({ children, footer, className }: PagedShellProps) {
+/**
+ * Canonical list shell: scrollable body + fixed footer row at the bottom of a
+ * height-bounded parent (`PagedListViewport` or `h-full` flex child).
+ */
+export function PagedShell({
+  children,
+  footer,
+  className,
+  contentScroll = true,
+}: PagedShellProps) {
   return (
-    <div className={cn('flex min-h-0 flex-1 flex-col gap-2 overflow-hidden', className)}>
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">{children}</div>
-      {footer ? <div className="shrink-0 pt-0">{footer}</div> : null}
+    <div className={cn('flex h-full min-h-0 flex-1 flex-col overflow-hidden', className)}>
+      <div
+        className={cn(
+          'min-h-0 flex-1',
+          contentScroll ? 'overflow-y-auto overscroll-contain' : 'overflow-hidden',
+        )}
+      >
+        {children}
+      </div>
+      {footer ? (
+        <div className="flex shrink-0 justify-center px-2 py-0">
+          {footer}
+        </div>
+      ) : null}
     </div>
   );
-}
-
-export interface PaginationBarState {
-  page: number;
-  pageSize: number;
-  total: number;
-  totalPages: number;
-  setPage: (page: number) => void;
-  setPageSize: (size: number) => void;
 }
 
 interface PaginatedListShellProps {
   pagination: PaginationBarState;
   children: ReactNode;
+  contentScroll?: boolean;
+  className?: string;
 }
 
-export function PaginatedListShell({ pagination, children }: PaginatedListShellProps) {
+/** Standard paginated page body — always pair with `PagedListViewport` (or equivalent height). */
+export function PaginatedListShell({
+  pagination,
+  children,
+  contentScroll = true,
+  className,
+}: PaginatedListShellProps) {
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
-      <PagedShell
-        footer={
-          <StickyPagination
-            page={pagination.page}
-            pageSize={pagination.pageSize}
-            total={pagination.total}
-            totalPages={pagination.totalPages}
-            onPageChange={pagination.setPage}
-            onPageSizeChange={pagination.setPageSize}
-          />
-        }
-      >
+    <div className={cn('flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden', className)}>
+      <PagedShell footer={paginationBar(pagination)} contentScroll={contentScroll}>
         {children}
       </PagedShell>
     </div>
@@ -181,7 +230,10 @@ interface DirectoryPagedViewsProps<T> {
   loading?: boolean;
 }
 
-/** Paginated directory list — single page scroll (no nested viewport). */
+/**
+ * Paginated directory list — same layout as daily attendance / discipline:
+ * `PagedListViewport` + `PaginatedListShell` (footer pinned to bottom of viewport).
+ */
 export function DirectoryPagedViews<T>({
   items,
   resetDeps,
@@ -197,8 +249,6 @@ export function DirectoryPagedViews<T>({
       return <>{empty}</>;
     }
 
-    const { page, pageSize, total, totalPages, setPage, setPageSize } = serverPagination;
-
     if (loading && items.length === 0) {
       return (
         <div className="py-12 text-center text-sm text-muted-foreground">جاري التحميل…</div>
@@ -206,44 +256,31 @@ export function DirectoryPagedViews<T>({
     }
 
     return (
-      <div className="flex w-full min-w-0 flex-1 flex-col">
-        <div className="min-w-0">{children(items)}</div>
-        {total > 0 ? (
-          <div className="sticky bottom-0 z-10 flex justify-center px-2 py-1">
-            <StickyPagination
-              page={page}
-              pageSize={pageSize}
-              total={total}
-              totalPages={totalPages}
-              onPageChange={setPage}
-              onPageSizeChange={setPageSize}
-            />
-          </div>
-        ) : null}
-      </div>
+      <PagedListViewport className="w-full min-w-0 flex-1">
+        <PaginatedListShell pagination={serverPagination}>
+          {children(items)}
+        </PaginatedListShell>
+      </PagedListViewport>
     );
   }
 
-  const pagination = clientPagination;
-
   if (items.length === 0 && empty) return <>{empty}</>;
 
+  const pagination: PaginationBarState = {
+    page: clientPagination.page,
+    pageSize: clientPagination.pageSize,
+    total: clientPagination.total,
+    totalPages: clientPagination.totalPages,
+    setPage: clientPagination.setPage,
+    setPageSize: clientPagination.setPageSize,
+  };
+
   return (
-    <div className="flex w-full min-w-0 flex-1 flex-col">
-      <div className="min-w-0">{children(pagination.pageItems)}</div>
-      {pagination.total > 0 ? (
-        <div className="sticky bottom-0 z-10 flex justify-center px-2 py-1">
-          <StickyPagination
-            page={pagination.page}
-            pageSize={pagination.pageSize}
-            total={pagination.total}
-            totalPages={pagination.totalPages}
-            onPageChange={pagination.setPage}
-            onPageSizeChange={pagination.setPageSize}
-          />
-        </div>
-      ) : null}
-    </div>
+    <PagedListViewport className="w-full min-w-0 flex-1">
+      <PaginatedListShell pagination={pagination}>
+        {children(clientPagination.pageItems)}
+      </PaginatedListShell>
+    </PagedListViewport>
   );
 }
 
@@ -394,7 +431,7 @@ interface ServerPaginationBarProps {
   pageSizeOptions?: readonly number[];
 }
 
-/** Sticky footer for server-paginated tables. */
+/** Sticky footer for server-paginated tables — same bar as `paginationBar`. */
 export function ServerPaginationBar({
   page,
   pageSize,
@@ -404,17 +441,8 @@ export function ServerPaginationBar({
   pageSizeOptions,
 }: ServerPaginationBarProps) {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  if (total === 0) return null;
-
-  return (
-    <StickyPagination
-      page={page}
-      pageSize={pageSize}
-      total={total}
-      totalPages={totalPages}
-      onPageChange={onPageChange}
-      onPageSizeChange={onPageSizeChange}
-      pageSizeOptions={pageSizeOptions}
-    />
+  return paginationBar(
+    { page, pageSize, total, totalPages, setPage: onPageChange, setPageSize: onPageSizeChange },
+    pageSizeOptions,
   );
 }

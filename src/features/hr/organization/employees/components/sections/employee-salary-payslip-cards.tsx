@@ -1,11 +1,13 @@
 'use client';
 
+import * as React from 'react';
 import Link from 'next/link';
-import { ExternalLink, Receipt, Wallet } from 'lucide-react';
+import { ExternalLink, FileText, Loader2, Paperclip, Receipt, Wallet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { MoneyAmount } from '@/components/ui/sar-amount';
-import { cn, formatNumber } from '@/shared/utils';
+import { DisplayDate } from '@/components/ui/table-cells';
+import { cn } from '@/shared/utils';
 import { Empty } from '@/features/hr/organization/employees/components/EmployeeProfilePrimitives';
 import type { Payslip } from '@/features/hr/payroll/types';
 import {
@@ -13,12 +15,26 @@ import {
   PAYSLIP_STATUS_LABELS,
 } from '@/features/hr/payroll/lib/api/payslips';
 import { hrPayrollRoutes } from '@/features/hr/payroll/constants/routes';
+import { PayslipDetailDialog } from '@/features/hr/payroll/payroll-salary-approvals/components/payslip-detail-dialog';
+import type { EmployeeAttachmentDto } from '@/features/hr/organization/employees/lib/api/employee-attachments';
+import { formatAttachmentSize } from '@/features/hr/organization/employees/lib/employee-attachments-utils';
+import { employeeAttachmentDocumentTypeLabel } from '@/features/hr/organization/employees/constants/employee-attachment-document-types';
 
 type Props = {
   employeePayslipSeries: Payslip[];
+  salaryAttachments: EmployeeAttachmentDto[];
+  salaryAttachmentsLoading: boolean;
+  onOpenAttachment?: (item: EmployeeAttachmentDto) => void;
 };
 
-export function EmployeeSalaryPayslipCards({ employeePayslipSeries }: Props) {
+export function EmployeeSalaryPayslipCards({
+  employeePayslipSeries,
+  salaryAttachments,
+  salaryAttachmentsLoading,
+  onOpenAttachment,
+}: Props) {
+  const [selectedPayslipId, setSelectedPayslipId] = React.useState<string | null>(null);
+
   const yearRange = (() => {
     if (employeePayslipSeries.length === 0) return null;
     const years = employeePayslipSeries.map((p) => p.year);
@@ -40,8 +56,8 @@ export function EmployeeSalaryPayslipCards({ employeePayslipSeries }: Props) {
               <h2 className="text-xl font-semibold tracking-tight text-foreground">كشوف الرواتب</h2>
               <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
                 {yearRange
-                  ? `سجل شهري للموظف — ${yearRange}`
-                  : 'سجل شهري لكشوف رواتب الموظف'}
+                  ? `قسائم الراتب من payroll/payslips — ${yearRange}`
+                  : 'قسائم راتب الموظف عبر مسار الرواتب'}
               </p>
             </div>
           </div>
@@ -58,10 +74,12 @@ export function EmployeeSalaryPayslipCards({ employeePayslipSeries }: Props) {
         <div className="max-h-[min(72vh,820px)] overflow-y-auto overscroll-contain rounded-3xl border border-border/50 bg-muted/20 p-1 sm:p-5">
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
             {employeePayslipSeries.map((p) => (
-              <article
+              <button
                 key={p.id}
+                type="button"
+                onClick={() => setSelectedPayslipId(p.id)}
                 className={cn(
-                  'group relative overflow-hidden rounded-2xl border border-border/70 bg-card p-4 shadow-xs transition-all duration-200',
+                  'group relative overflow-hidden rounded-2xl border border-border/70 bg-card p-4 text-right shadow-xs transition-all duration-200',
                   'hover:-translate-y-0.5 hover:border-primary/20 hover:shadow-md',
                 )}
               >
@@ -116,14 +134,70 @@ export function EmployeeSalaryPayslipCards({ employeePayslipSeries }: Props) {
                       <dd className={cn('font-arabic-display text-xs font-semibold tabular-nums mt-1', p.absentDays > 0 ? 'text-destructive' : 'text-muted-foreground')}>{p.absentDays}</dd>
                     </div>
                   </dl>
+                  <p className="text-[10px] text-muted-foreground">اضغط لعرض تفاصيل القسيمة</p>
                 </div>
-              </article>
+              </button>
             ))}
           </div>
         </div>
       ) : (
-        <Empty icon={Receipt} text="لا توجد كشوف رواتب" />
+        <Empty icon={Receipt} text="لا توجد قسائم راتب لهذا الموظف" />
       )}
+
+      <div className="rounded-2xl border border-border/70 bg-card p-4 sm:p-5 space-y-3">
+        <div className="flex items-center gap-2">
+          <Paperclip className="h-4 w-4 text-primary" />
+          <div className="min-w-0">
+            <h3 className="text-sm font-semibold text-foreground">مرفقات الراتب</h3>
+            <p className="text-[11px] text-muted-foreground">
+              من employee-attachments — أنواع: قسيمة راتب / مستند بنكي
+            </p>
+          </div>
+        </div>
+
+        {salaryAttachmentsLoading ? (
+          <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            جاري تحميل المرفقات…
+          </div>
+        ) : salaryAttachments.length === 0 ? (
+          <Empty icon={FileText} text="لا توجد مرفقات راتب مرتبطة" />
+        ) : (
+          <ul className="space-y-2">
+            {salaryAttachments.map((item) => (
+              <li key={item.id}>
+                <button
+                  type="button"
+                  onClick={() => onOpenAttachment?.(item)}
+                  className="flex w-full items-start gap-3 rounded-xl border border-border/70 bg-background p-3 text-right transition-colors hover:border-primary/30 hover:bg-muted/30"
+                >
+                  <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-primary/20 bg-primary/10 text-primary">
+                    <FileText className="h-4 w-4" />
+                  </span>
+                  <span className="min-w-0 flex-1 space-y-0.5">
+                    <span className="block truncate text-sm font-medium text-foreground">{item.name}</span>
+                    <span className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
+                      <span>{employeeAttachmentDocumentTypeLabel(item.documentType)}</span>
+                      <span>{formatAttachmentSize(item.sizeBytes)}</span>
+                      <span>
+                        <DisplayDate value={item.createdAt} mode="datetime" />
+                      </span>
+                    </span>
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <PayslipDetailDialog
+        payslipId={selectedPayslipId}
+        open={!!selectedPayslipId}
+        onOpenChange={(open) => {
+          if (!open) setSelectedPayslipId(null);
+        }}
+      />
     </>
   );
 }

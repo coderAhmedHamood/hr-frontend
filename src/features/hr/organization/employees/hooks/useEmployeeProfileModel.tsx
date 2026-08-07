@@ -1,9 +1,11 @@
 'use client';
 
 import * as React from 'react';
+import { useSearchParams } from 'next/navigation';
 import type { Employee } from '@/features/hr/organization/employees/types';
 import { EMPLOYEE_PROFILE_SECTIONS } from '@/features/hr/organization/employees/constants/EmployeeProfileSections';
 import type { EmployeeProfileSectionId } from '@/features/hr/organization/employees/constants/EmployeeProfileSections';
+import { EMPLOYEE_ATTACHMENT_LIBRARY_GROUPS } from '@/features/hr/organization/employees/constants/employee-attachment-document-types';
 import { useEmployeeProfileData } from '@/features/hr/organization/employees/hooks/useEmployeeProfileData';
 import { useEmployeeProfileLeave } from '@/features/hr/organization/employees/hooks/useEmployeeProfileLeave';
 import { useEmployeeProfilePersonal } from '@/features/hr/organization/employees/hooks/useEmployeeProfilePersonal';
@@ -18,15 +20,33 @@ import { useEmployeeProfileAttachments } from '@/features/hr/organization/employ
 
 const SECTIONS = EMPLOYEE_PROFILE_SECTIONS;
 
+function parseProfileSection(value: string | null): EmployeeProfileSectionId | null {
+  if (!value) return null;
+  return SECTIONS.some((s) => s.id === value) ? (value as EmployeeProfileSectionId) : null;
+}
+
+function parseLibraryGroup(value: string | null): string | null {
+  if (!value) return null;
+  return EMPLOYEE_ATTACHMENT_LIBRARY_GROUPS.some((g) => g.id === value) ? value : null;
+}
+
 function employeeHasLinkedUser(employee: Employee): boolean {
   return employee.hasUser ?? !!employee.userId;
 }
 
 export function useEmployeeProfileModel(employee: Employee, onUpdated?: (updated: Employee) => void) {
-  const [activeSection, setActiveSection] = React.useState<EmployeeProfileSectionId>('personal');
+  const searchParams = useSearchParams();
+  const sectionFromUrl = parseProfileSection(searchParams.get('section'));
+  const [activeSection, setActiveSection] = React.useState<EmployeeProfileSectionId>(
+    () => sectionFromUrl ?? 'personal',
+  );
   const contentRef = React.useRef<HTMLElement | null>(null);
 
   const hasLinkedUser = employeeHasLinkedUser(employee);
+
+  React.useEffect(() => {
+    if (sectionFromUrl) setActiveSection(sectionFromUrl);
+  }, [sectionFromUrl]);
 
   const visibleSections = React.useMemo(
     () => (hasLinkedUser
@@ -62,6 +82,17 @@ export function useEmployeeProfileModel(employee: Employee, onUpdated?: (updated
   const requests = useEmployeeProfileRequests(employee, activeSection === 'requests');
   const auditLog = useEmployeeProfileAuditLog(employee, activeSection === 'activity-log');
   const attachments = useEmployeeProfileAttachments(employee, activeSection === 'attachments');
+
+  React.useEffect(() => {
+    const group = parseLibraryGroup(searchParams.get('libraryGroup'));
+    if (group) attachments.setLibraryGroup(group);
+    const documentType = searchParams.get('documentType');
+    if (documentType && documentType !== 'all') {
+      attachments.setDocumentTypeFilter(documentType);
+    }
+    // Apply deep-link filters once per URL change — not when setters identity changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: URL is the source of truth here
+  }, [searchParams]);
 
   React.useEffect(() => {
     contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });

@@ -24,9 +24,13 @@ export type InboxItemResponseDto = {
   recipientId: string;
   notificationId: string;
   companyId: string;
+  companyNameAr: string;
   employeeId: string;
+  employeeNameAr: string;
+  employeeCode: string | null;
   category: NotificationCategory;
   severity: NotificationSeverity;
+  audienceKind: NotificationAudienceKind;
   titleAr: string;
   bodyAr: string | null;
   titleEn: string | null;
@@ -38,14 +42,19 @@ export type InboxItemResponseDto = {
   actionLabelAr: string | null;
   requiresAcknowledgment: boolean;
   expiresAt: string | null;
+  triggeredByUserId: string | null;
   triggeredByNameAr: string | null;
+  createdBy: string | null;
   deliveryChannel: string;
+  state: string;
+  isRead: boolean;
   deliveredAt: string;
   readAt: string | null;
   dismissedAt: string | null;
   acknowledgedAt: string | null;
   archivedAt: string | null;
   createdAt: string;
+  updatedAt: string;
 };
 
 export type NotificationAudienceEmployeeDto = {

@@ -133,8 +133,8 @@ export function PushFromAttendanceDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg gap-0 overflow-visible border-border p-0" dir="rtl">
-        <div className="border-b border-border/60 bg-linear-to-b from-primary/5 to-transparent px-6 pb-4 pt-6">
+      <DialogContent className="flex max-w-lg flex-col gap-0 overflow-visible border-border p-0" dir="rtl">
+        <div className="shrink-0 border-b border-border/60 bg-linear-to-b from-primary/5 to-transparent px-6 pb-4 pt-6">
           <DialogHeader className="space-y-2 text-right">
             <div className="flex items-start justify-between gap-3">
               <div className="space-y-1">
@@ -152,8 +152,8 @@ export function PushFromAttendanceDialog({
           </DialogHeader>
         </div>
 
-        <form onSubmit={handleSubmit}>
-          <div className="max-h-[min(70vh,520px)] overflow-y-auto px-6 py-2">
+        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+          <div className="min-h-0 flex-1 overflow-y-auto px-6 py-2">
             <section className="rounded-xl border border-border/60 bg-card shadow-soft">
               <p className="border-b border-border/50 px-4 py-2.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
                 خيارات الدفع

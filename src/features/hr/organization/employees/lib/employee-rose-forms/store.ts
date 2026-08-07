@@ -200,7 +200,14 @@ export const useEmployeeRoseFormsStore = create<State>()(
       addSettlement: (employeeId, input) => {
         const id = genId('rose-set');
         const t = nowIso();
-        const row: RoseSettlementRecord = { ...input, id, employeeId, createdAt: t, updatedAt: t };
+        const row: RoseSettlementRecord = {
+          ...input,
+          id,
+          employeeId,
+          status: input.status ?? 'draft',
+          createdAt: t,
+          updatedAt: t,
+        };
         set((s) => {
           const prev = s.buckets[employeeId] ?? EMPTY_BUCKET;
           return {

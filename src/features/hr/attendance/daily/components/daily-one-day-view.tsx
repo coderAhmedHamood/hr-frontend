@@ -190,6 +190,23 @@ const STATUS_BAR_CLASS: Record<string, string> = {
 
 function pct(mins: number) { return minsToPct(mins); }
 
+/** Keep centered badges from overflowing the track at day start/end (RTL: end = physical left). */
+const EDGE_ALIGN_MINS = 90;
+
+function edgeCrossAlign(mins: number): 'items-start' | 'items-end' | 'items-center' {
+  if (mins <= EDGE_ALIGN_MINS) return 'items-start'; // day start → physical right in RTL → hang inward
+  if (mins >= TOTAL_MINS - EDGE_ALIGN_MINS) return 'items-end'; // day end → physical left → hang inward
+  return 'items-center';
+}
+
+function hoverLabelPosition(hoverMins: number): React.CSSProperties {
+  const leftPct = ((TOTAL_MINS - hoverMins) / TOTAL_MINS) * 100;
+  const edgePct = (EDGE_ALIGN_MINS / TOTAL_MINS) * 100;
+  if (leftPct <= edgePct) return { left: 0, transform: 'translateX(0)' };
+  if (leftPct >= 100 - edgePct) return { left: '100%', transform: 'translateX(-100%)' };
+  return { left: `${leftPct}%`, transform: 'translateX(-50%)' };
+}
+
 function isoToHHMM(iso: string): string {
   const d = new Date(iso);
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
@@ -241,8 +258,14 @@ function EventTickMarker({
         e.stopPropagation();
         onClick();
       }}
-      className="group/tick absolute bottom-0 top-0 z-[4] flex w-0 cursor-pointer flex-col items-center opacity-90 transition-opacity hover:opacity-100"
-      style={{ insetInlineStart: pct(marker.mins), transform: `translateX(calc(-50% + ${stackShift}px))` }}
+      className={cn(
+        'group/tick absolute bottom-0 top-0 z-[4] flex w-0 cursor-pointer flex-col opacity-90 transition-opacity hover:opacity-100 hover:z-[6]',
+        edgeCrossAlign(marker.mins),
+      )}
+      style={{
+        insetInlineStart: pct(marker.mins),
+        transform: stackShift ? `translateX(${stackShift}px)` : undefined,
+      }}
     >
       {content}
     </button>
@@ -337,11 +360,11 @@ function TimelineBar({
       onPointerMove={(e) => updateHover(e.clientX)}
       onPointerLeave={() => setHoverMins(null)}
     >
-      {/* Hover time card — floats above the bar without reserving row height */}
+      {/* Hover time card — floats above the bar; edge-clamped so it never clips */}
       {hoverMins !== null && (
         <div
-          className="pointer-events-none absolute -top-7 z-[3] whitespace-nowrap rounded-md border border-border bg-popover px-2 py-0.5 text-[11px] font-medium text-popover-foreground shadow-elevated"
-          style={{ left: minsToPct(TOTAL_MINS - hoverMins), transform: 'translateX(-50%)' }}
+          className="pointer-events-none absolute -top-7 z-20 whitespace-nowrap rounded-md border border-border bg-popover px-2 py-0.5 text-[11px] font-medium text-popover-foreground shadow-elevated"
+          style={hoverLabelPosition(hoverMins)}
         >
           <span className="font-mono tabular-nums text-primary">{formatHoverTime12(hoverMins)}</span>
         </div>
@@ -367,7 +390,7 @@ function TimelineBar({
         {/* Hover position — dotted vertical line */}
         {hoverMins !== null && (
           <div
-            className="pointer-events-none absolute top-0 z-[2] h-full w-0 border-s-2 border-dotted border-primary/75"
+            className="pointer-events-none absolute top-0 z-10 h-full w-0 border-s-2 border-dotted border-primary/75"
             style={{ insetInlineStart: minsToPct(hoverMins) }}
           />
         )}
@@ -438,7 +461,10 @@ function NowCursor({ workDate }: { workDate: string }) {
 
   return (
     <div
-      className="pointer-events-none absolute bottom-0 top-0 z-[5] flex w-0 -translate-x-1/2 flex-col items-center"
+      className={cn(
+        'pointer-events-none absolute bottom-0 top-0 z-[5] flex w-0 flex-col',
+        edgeCrossAlign(nowMins),
+      )}
       style={{ insetInlineStart: pct(nowMins) }}
     >
       <span className="shrink-0 rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px] font-semibold tabular-nums leading-none text-muted-foreground shadow-sm">
@@ -585,9 +611,9 @@ function EmployeeDesktopRow({
             </div>
           </div>
 
-          {/* 24h timeline */}
+          {/* 24h timeline — top padding leaves room for the floating hover time badge */}
           <div
-            className="col-start-2 min-w-0"
+            className="col-start-2 min-w-0 pt-7"
             onDoubleClick={() => setAddOpen(true)}
             title="انقر على حدث لعرض التفاصيل · انقر مرتين لتسجيل حدث"
           >

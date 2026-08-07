@@ -164,30 +164,10 @@ export function ShiftScheduleForm({
                 </>
               }
             />
-            <ShiftMiniField
-              label="بعد بداية الدوام (د)"
-              value={period.checkIn.afterStartMinutes}
-              onChange={(v) => onChange({ ...period, checkIn: { ...period.checkIn, afterStartMinutes: v } })}
-              tooltip={
-                <>
-                  <strong className="mb-1 block">آخر قبول للدخول</strong>بعدها الموظف غائب.
-                </>
-              }
-            />
           </div>
 
           <div className="rounded-xl border border-border/60 bg-muted/10 p-3 space-y-2">
             <p className="text-[11px] font-semibold uppercase tracking-wider text-primary/70">نافذة الخروج</p>
-            <ShiftMiniField
-              label="قبل نهاية الدوام (د)"
-              value={period.checkOut.beforeEndMinutes}
-              onChange={(v) => onChange({ ...period, checkOut: { ...period.checkOut, beforeEndMinutes: v } })}
-              tooltip={
-                <>
-                  <strong className="mb-1 block">الخروج المبكر المسموح</strong>دقائق قبل نهاية الدوام يمكن البصمة فيها.
-                </>
-              }
-            />
             <ShiftMiniField
               label="نقص مسموح (د)"
               value={period.checkOut.allowedShortageMinutes}
@@ -195,17 +175,6 @@ export function ShiftScheduleForm({
               tooltip={
                 <>
                   <strong className="mb-1 block">فترة سماح</strong>الخروج بهذا القدر قبل نهاية الدوام لا يُعدّ مخالفة.
-                </>
-              }
-            />
-            <ShiftMiniField
-              label="بعد نهاية الدوام (د)"
-              value={period.checkOut.afterEndMinutes}
-              onChange={(v) => onChange({ ...period, checkOut: { ...period.checkOut, afterEndMinutes: v } })}
-              tooltip={
-                <>
-                  <strong className="mb-1 block">آخر قبول لتسجيل الخروج</strong>دقائق بعد نهاية الدوام تُقبل فيها بصمة
-                  الخروج.
                 </>
               }
             />

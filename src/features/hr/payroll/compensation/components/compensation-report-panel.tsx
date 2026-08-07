@@ -51,7 +51,14 @@ import { AdjustableAmountCell } from '@/features/hr/payroll/compensation/compone
 import { createIncrementalMonthlyInput } from '@/features/hr/payroll/compensation/services/incremental-monthly-input.service';
 import { PayrollPeriodReviewBar } from '@/features/hr/payroll/compensation/components/payroll-period-review-bar';
 import { CompleteReviewPayslipsDialog } from '@/features/hr/payroll/compensation/components/complete-review-payslips-dialog';
-import { sendPayslipGeneratedNotification } from '@/features/hr/payroll/compensation/services/payslip-notification.service';
+import {
+  deliveryIncludesPayslipNotify,
+  deliveryIncludesPdfSign,
+  sendCashReceiptSignatureNotification,
+  sendPayslipGeneratedNotification,
+} from '@/features/hr/payroll/compensation/services/payslip-notification.service';
+import { cashReceiptVouchersApi } from '@/features/hr/organization/employees/lib/api/cash-receipt-vouchers';
+import type { PayrollNotifyDeliveryMode } from '@/features/hr/organization/employees/lib/api/cash-receipt-vouchers';
 import { payslipsApi } from '@/features/hr/payroll/lib/api/payslips';
 import { CompensationPeriodExportActions } from '@/features/hr/payroll/compensation/components/compensation-period-export-actions';
 import { CompensationCellDetailDialog } from '@/features/hr/payroll/compensation/components/compensation-cell-detail-dialog';
@@ -396,7 +403,9 @@ export function CompensationReportPanel({
     void handleAdvanceReview();
   };
 
-  const handleConfirmThirdReviewAndGenerate = async () => {
+  const handleConfirmThirdReviewAndGenerate = async (
+    deliveryMode: PayrollNotifyDeliveryMode,
+  ) => {
     if (!period) return;
     setReviewAdvancing(true);
     try {
@@ -408,24 +417,60 @@ export function CompensationReportPanel({
         payrollPeriodId: period.id,
         generatedBy: actor,
       });
+      // Only this explicit /notifications send — generate and advance stay silent.
       const employeeIds = created.length > 0
         ? created.map((p) => p.employeeId)
         : periodEmployeeIds;
 
-      let notificationSent = false;
-      if (companyId && employeeIds.length > 0) {
-        try {
-          await sendPayslipGeneratedNotification({
-            companyId,
-            periodId: period.id,
-            periodNameAr: period.nameAr,
-            employeeIds,
-            createdBy: actor,
-          });
-          notificationSent = true;
-        } catch (notifErr) {
-          const { displayMessage } = handleApiError(notifErr, 'compensation.payslip-notification');
-          toast.error(`تم إنشاء القسائم لكن فشل إرسال الإشعار: ${displayMessage}`);
+      const uniqueEmployeeIds = [...new Set(employeeIds.filter(Boolean))];
+      let notificationParts: string[] = [];
+
+      if (companyId && uniqueEmployeeIds.length > 0) {
+        if (deliveryIncludesPdfSign(deliveryMode)) {
+          try {
+            const bulk = await cashReceiptVouchersApi.bulkIssueForPayroll({
+              companyId,
+              payrollPeriodId: period.id,
+              employeeIds: uniqueEmployeeIds,
+              createdBy: actor,
+            });
+            await sendCashReceiptSignatureNotification({
+              companyId,
+              periodId: period.id,
+              periodNameAr: period.nameAr,
+              employeeIds: uniqueEmployeeIds,
+              createdBy: actor,
+            });
+            notificationParts.push(
+              `سند راتب: ${bulk.created} سنداً` +
+                (bulk.skipped > 0 ? ` (تخطّي ${bulk.skipped})` : ''),
+            );
+          } catch (pdfErr) {
+            const { displayMessage } = handleApiError(
+              pdfErr,
+              'compensation.cash-receipt-signature',
+            );
+            toast.error(`تم إنشاء القسائم لكن فشل سند الراتب/إشعاره: ${displayMessage}`);
+          }
+        }
+
+        if (deliveryIncludesPayslipNotify(deliveryMode)) {
+          try {
+            await sendPayslipGeneratedNotification({
+              companyId,
+              periodId: period.id,
+              periodNameAr: period.nameAr,
+              employeeIds: uniqueEmployeeIds,
+              createdBy: actor,
+            });
+            notificationParts.push(`إشعار قسيمة إلى ${uniqueEmployeeIds.length} موظفاً`);
+          } catch (notifErr) {
+            const { displayMessage } = handleApiError(
+              notifErr,
+              'compensation.payslip-notification',
+            );
+            toast.error(`تم إنشاء القسائم لكن فشل إرسال إشعار القسيمة: ${displayMessage}`);
+          }
         }
       }
 
@@ -433,9 +478,8 @@ export function CompensationReportPanel({
       const payslipMessage = created.length > 0
         ? `تم إتمام المراجعة الثالثة وإنشاء ${created.length} قسيمة مسودة.`
         : 'تم إتمام المراجعة الثالثة — لم يُنشأ أي قسيمة جديدة (قد تكون موجودة مسبقاً).';
-      const notificationMessage = notificationSent
-        ? ` تم إرسال إشعار إلى ${[...new Set(employeeIds)].length} موظفاً.`
-        : '';
+      const notificationMessage =
+        notificationParts.length > 0 ? ` ${notificationParts.join(' · ')}.` : '';
       toast.success(`${payslipMessage}${notificationMessage}`);
     } catch (err) {
       handleApiError(err, 'compensation.review-advance-generate');
@@ -627,7 +671,7 @@ export function CompensationReportPanel({
             periodLabel={`${period.nameAr} (${period.code})`}
             employeeCount={payrollSummary?.employeesCount ?? previews.length}
             busy={reviewAdvancing}
-            onConfirm={() => void handleConfirmThirdReviewAndGenerate()}
+            onConfirm={(mode) => void handleConfirmThirdReviewAndGenerate(mode)}
           />
 
           {!embedded && (

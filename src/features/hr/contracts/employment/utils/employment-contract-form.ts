@@ -142,6 +142,9 @@ export function employmentFormToDraft(
     earlyTerminationReason: null,
     articleIds: v.articleIds,
     employeeSigned: false,
+    signatureMethod: null,
+    signedAttachmentId: null,
+    signatureImageUrl: null,
     rejectionReason: null,
     signedAt: null,
   };

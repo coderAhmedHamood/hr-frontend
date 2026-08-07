@@ -55,6 +55,8 @@ export type UserResponseDto = {
   timezone: string | null;
   lastLoginAt: string | null;
   passwordChangedAt?: string | null;
+  /** Bound mobile device serial — null when cleared / not bound yet. */
+  mobileSerialNumber?: string | null;
   notes: string | null;
   employeeId: string | null;
   createdAt: string;
@@ -111,6 +113,14 @@ export type SetDefaultCompanyDto = {
   companyId: string;
 };
 
+/** Admin emergency: clear or force mobile serial binding. */
+export type ResetMobileSerialDto = {
+  /** `null` clears the serial (skip verification). A non-empty string forces that device. */
+  mobileSerialNumber?: string | null;
+  /** Defaults to true on the backend when omitted. */
+  invalidateSessions?: boolean;
+};
+
 export const usersApi = {
   getAll(query?: UsersListQuery) {
     return apiRequest<PaginatedResult<UserResponseDto>>('/users', { query });
@@ -130,6 +140,12 @@ export const usersApi = {
   setDefaultCompany(userId: string, payload: SetDefaultCompanyDto) {
     return apiRequest<AccessProfile>(`/users/${userId}/default-company`, {
       method: 'PATCH',
+      body: payload,
+    });
+  },
+  resetMobileSerial(userId: string, payload: ResetMobileSerialDto = {}) {
+    return apiRequest<UserResponseDto>(`/users/${userId}/mobile-serial/reset`, {
+      method: 'POST',
       body: payload,
     });
   },

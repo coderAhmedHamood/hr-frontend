@@ -22,7 +22,7 @@ import { Input } from '@/components/ui/input';
 import { DatePickerInput } from '@/components/ui/date-picker-input';
 import { Badge } from '@/components/ui/badge';
 import {
-  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter,
+  Dialog, DialogBody, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter,
   dialogFormFooterClass,
 } from '@/components/ui/dialog';
 import {
@@ -77,6 +77,7 @@ import {
 } from '@/features/hr/discipline/violation-cases/components/violation-approval-actions';
 import { RequestApproversInline } from '@/features/hr/requests/components/request-approvers-inline';
 import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
+import { RelatedEmployeeAttachments } from '@/features/hr/organization/employees/components/related-employee-attachments';
 import { useDefaultCompany } from '@/features/hr/organization/hooks/useActiveCompany';
 import { DataTable, type ColumnDef } from '@/components/ui/data-table';
 import { TableDateCell, TableRowActions } from '@/components/ui/table-cells';
@@ -1036,13 +1037,13 @@ export function ViolationCasesClient() {
 
       {/* ── View Dialog ── */}
       <Dialog open={!!viewCase} onOpenChange={v => !v && setViewCase(null)}>
-        <DialogContent className="sm:max-w-lg border-border">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-lg border-border gap-0 overflow-hidden">
+          <DialogHeader className="pb-3">
             <DialogTitle className="font-display">{viewCase?.caseNumber}</DialogTitle>
             <DialogDescription className="sr-only">تفاصيل المخالفة</DialogDescription>
           </DialogHeader>
-          {viewCase && (
-            <div className="space-y-4 text-sm">
+          {viewCase ? (
+            <DialogBody className="min-h-0 space-y-4 pe-1 text-sm">
               <div className="grid grid-cols-2 gap-3">
                 <div><span className="text-muted-foreground text-xs">الموظف</span><p className="font-medium">{viewCase.employeeNameAr}</p></div>
                 <div><span className="text-muted-foreground text-xs">نوع المخالفة</span><p className="font-medium">{viewCase.typeNameAr}</p></div>
@@ -1067,9 +1068,20 @@ export function ViolationCasesClient() {
                 <RequestApproversInline states={viewCase.approverStates} />
               ) : null}
               <ViolationApproverStatesPanel states={viewCase.approverStates} />
-              <div><span className="text-muted-foreground text-xs">الوصف</span><p className="mt-1">{viewCase.description}</p></div>
-              {viewCase.notes && <div><span className="text-muted-foreground text-xs">ملاحظات</span><p className="mt-1">{viewCase.notes}</p></div>}
-              {viewCase.attachmentsNote && <div><span className="text-muted-foreground text-xs">المرفقات</span><p className="mt-1">{viewCase.attachmentsNote}</p></div>}
+              <div><span className="text-muted-foreground text-xs">الوصف</span><p className="mt-1 break-words">{viewCase.description}</p></div>
+              {viewCase.notes && <div><span className="text-muted-foreground text-xs">ملاحظات</span><p className="mt-1 break-words">{viewCase.notes}</p></div>}
+              {viewCase.attachmentsNote && (
+                <div>
+                  <span className="text-muted-foreground text-xs">ملاحظة المرفقات</span>
+                  <p className="mt-1 break-words">{viewCase.attachmentsNote}</p>
+                </div>
+              )}
+              <RelatedEmployeeAttachments
+                employeeId={viewCase.employeeId}
+                companyId={companyId}
+                preset="discipline"
+                title="آخر مرفقات المخالفات والإنذارات"
+              />
               {viewCase.investigations.length > 0 ? (
                 <div className="space-y-2 rounded-lg border border-border bg-muted/15 p-3">
                   <p className="text-xs font-semibold text-foreground">
@@ -1135,7 +1147,7 @@ export function ViolationCasesClient() {
                 />
               ) : null}
               {!isEmployeeInViolationApproverStates(viewCase.approverStates, currentEmployeeId) && canAddDisciplineFollowUp(viewCase.status) ? (
-                <div className="flex flex-wrap gap-2 pt-1 border-t border-border">
+                <div className="flex flex-wrap gap-2 border-t border-border pt-3">
                   {viewCase.typeNeedsWarning ? (
                     <Button size="sm" variant="outline" className="gap-1.5"
                       onClick={() => { setViewCase(null); setNoticeCase(viewCase); }}>
@@ -1154,8 +1166,8 @@ export function ViolationCasesClient() {
                   </Button>
                 </div>
               ) : null}
-            </div>
-          )}
+            </DialogBody>
+          ) : null}
         </DialogContent>
       </Dialog>
 

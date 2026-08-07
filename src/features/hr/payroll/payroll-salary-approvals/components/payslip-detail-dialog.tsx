@@ -26,6 +26,7 @@ import {
   payslipsApi,
   type PayslipResponseDto,
 } from '@/features/hr/payroll/lib/api/payslips';
+import { RelatedEmployeeAttachments } from '@/features/hr/organization/employees/components/related-employee-attachments';
 import { cn } from '@/shared/utils';
 import { PayslipDetailDecisionFooter } from '@/features/hr/payroll/components/payslip-employee-decision-actions';
 
@@ -333,6 +334,14 @@ export function PayslipDetailDialog({
               )}
 
               {renderBreakdown(payslip.breakdown, payslip.currency)}
+
+              <BreakdownSection title="المرفقات">
+                <RelatedEmployeeAttachments
+                  employeeId={payslip.employeeId}
+                  companyId={payslip.companyId}
+                  preset="payroll"
+                />
+              </BreakdownSection>
 
               {onAccept && onReject && (
                 <PayslipDetailDecisionFooter

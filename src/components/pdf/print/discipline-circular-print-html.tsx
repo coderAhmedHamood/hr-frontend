@@ -4,6 +4,7 @@ import * as React from 'react';
 import { sanitizePdfText } from '@/components/pdf/lib/sanitize-pdf-text';
 import { RoseTradingLetterheadPrint } from '@/components/pdf/print/rose-trading-letterhead-print';
 import { getPdfLogoSrc } from '@/components/pdf/lib/pdf-logo-url';
+import { RosePdfWatermark } from '@/components/pdf/rose-trading/rose-pdf-watermark';
 import { PDF_PRINT_C } from '@/features/hr/payroll/reports/components/pdf-print-shared';
 
 export type DisciplineCircularPrintHtmlProps = {
@@ -18,10 +19,12 @@ export type DisciplineCircularPrintHtmlProps = {
 };
 
 const PAGE_STYLE: React.CSSProperties = {
+  position: 'relative',
+  overflow: 'hidden',
   backgroundColor: '#ffffff',
   padding: '26px 20px 48px',
   fontFamily: 'Arial, Helvetica, sans-serif',
-  fontSize: 9,
+  fontSize: 10,
   color: '#111',
   boxSizing: 'border-box',
   minHeight: '297mm',
@@ -45,13 +48,15 @@ export const DisciplineCircularPrintHtml = React.forwardRef<HTMLDivElement, Disc
     return (
       <div ref={ref} dir="rtl" lang="ar" style={{ width: '210mm', maxWidth: '100%', margin: '0 auto' }}>
         <div style={PAGE_STYLE}>
+          <RosePdfWatermark logoSrc={logoSrc} />
+          <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', flex: 1 }}>
           <RoseTradingLetterheadPrint
             logoSrc={logoSrc}
             companyNameAr={company.nameAr}
             companyNameEn={company.nameEn}
           />
 
-          <div style={{ fontSize: 14, fontWeight: 700, textAlign: 'center', marginBottom: 10, textDecoration: 'underline' }}>
+          <div style={{ fontSize: 16, fontWeight: 700, textAlign: 'center', marginBottom: 10, textDecoration: 'underline' }}>
             تعميم
           </div>
 
@@ -67,17 +72,17 @@ export const DisciplineCircularPrintHtml = React.forwardRef<HTMLDivElement, Disc
               marginTop: 8,
             }}
           >
-            <div style={{ flex: 1, fontSize: 10, fontWeight: 700, textAlign: 'right', wordBreak: 'break-word' }}>
+            <div style={{ flex: 1, fontSize: 11, fontWeight: 700, textAlign: 'right', wordBreak: 'break-word' }}>
               {head}
             </div>
-            <div style={{ flexShrink: 0, fontSize: 9, color: '#444', textAlign: 'left' }}>
+            <div style={{ flexShrink: 0, fontSize: 10, color: '#444', textAlign: 'left' }}>
               <span dir="ltr">{sanitizePdfText(issuedDate)}</span>
             </div>
           </div>
 
           <div style={{ marginTop: 10 }}>
-            <div style={{ fontSize: 9, fontWeight: 700, textAlign: 'right', marginBottom: 4 }}>الفئة المستهدفة</div>
-            <div style={{ fontSize: 9.5, textAlign: 'right', lineHeight: 1.55, color: '#222' }}>
+            <div style={{ fontSize: 10, fontWeight: 700, textAlign: 'right', marginBottom: 4 }}>الفئة المستهدفة</div>
+            <div style={{ fontSize: 10.5, textAlign: 'right', lineHeight: 1.55, color: '#222' }}>
               {sanitizePdfText(audienceSummaryAr)}
             </div>
           </div>
@@ -89,7 +94,7 @@ export const DisciplineCircularPrintHtml = React.forwardRef<HTMLDivElement, Disc
               border: `0.75px solid ${PDF_PRINT_C.border}`,
               borderRadius: 2,
               padding: 12,
-              fontSize: 10,
+              fontSize: 11,
               lineHeight: 1.8,
               textAlign: 'right',
               color: '#111',
@@ -103,9 +108,10 @@ export const DisciplineCircularPrintHtml = React.forwardRef<HTMLDivElement, Disc
           <div style={{ flex: 1, minHeight: 10 }} aria-hidden />
 
           <div style={{ marginTop: 18, borderTop: `0.75px solid ${PDF_PRINT_C.border}`, paddingTop: 8 }}>
-            <div style={{ fontSize: 8, textAlign: 'center', color: PDF_PRINT_C.muted }}>
+            <div style={{ fontSize: 9, textAlign: 'center', color: PDF_PRINT_C.muted }}>
               {sanitizePdfText(sendFooterAr ?? '— مستند نظام الانضباط الإداري —')}
             </div>
+          </div>
           </div>
         </div>
       </div>
