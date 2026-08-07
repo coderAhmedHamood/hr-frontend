@@ -48,10 +48,13 @@ function toDraftRows(line: OrderLineItem): DraftRow[] {
 
 export function OrderLineShipPanel({ companyId, orderId, line }: Props) {
   const [open, setOpen] = React.useState(false);
+  const isShipped = line.shipStatus === 'shipped';
+  const needsStockContext = open || isShipped;
+
   const { data: product } = useQuery({
     queryKey: ['ecommerce', 'products', 'track-inventory', companyId, line.productId],
     queryFn: () => productsApi.getById(companyId, line.productId),
-    enabled: open && Boolean(companyId && line.productId),
+    enabled: needsStockContext && Boolean(companyId && line.productId),
     staleTime: 60_000,
   });
   const trackInventory = product?.inventory.trackInventory ?? true;
@@ -59,7 +62,7 @@ export function OrderLineShipPanel({ companyId, orderId, line }: Props) {
   const { data: availability = [], isLoading } = useProductStockAvailability(
     companyId,
     line.productId,
-    open && trackInventory,
+    needsStockContext && trackInventory,
   );
   const { saveAllocations, shipLine } = useOrderFulfillmentMutations(companyId);
   const [multi, setMulti] = React.useState(line.allocations.length > 1);
@@ -115,7 +118,6 @@ export function OrderLineShipPanel({ companyId, orderId, line }: Props) {
 
   const assignedQty = sumAllocationQty(line.allocations);
   const progressLabel = `${assignedQty}/${line.quantity}`;
-  const isShipped = line.shipStatus === 'shipped';
   const isSaving = saveAllocations.isPending || shipLine.isPending;
   const canShipWithoutAlloc =
     !trackInventory || line.shipStatus === 'assigned' || line.shipStatus === 'partial';
@@ -190,22 +192,43 @@ export function OrderLineShipPanel({ companyId, orderId, line }: Props) {
     setOpen(false);
   }
 
-  const summary =
-    line.allocations.length > 0
-      ? line.allocations
-          .map((allocation) => {
-            const match = availability.find((row) => row.locationId === allocation.locationId);
-            return match
-              ? `${match.warehouseNameAr} (${allocation.quantity})`
-              : `${allocation.locationId} (${allocation.quantity})`;
-          })
-          .join(' · ')
-      : null;
+  const shippedFromLabels = React.useMemo(() => {
+    if (!isShipped) return [];
+    if (line.allocations.length === 0) {
+      return [trackInventory ? '—' : 'بدون خصم مخزون'];
+    }
+    return line.allocations.map((allocation) => {
+      const match = availability.find((row) => row.locationId === allocation.locationId);
+      const warehouseName = match?.warehouseNameAr ?? 'مستودع';
+      return `${warehouseName} (${allocation.quantity})`;
+    });
+  }, [availability, isShipped, line.allocations, trackInventory]);
 
   const lineTotal = {
     amount: line.unitPrice.amount * line.quantity,
     currency: line.unitPrice.currency,
   };
+
+  const shippedFromBadges = isShipped ? (
+    <div className="flex flex-wrap gap-1.5">
+      {isLoading && shippedFromLabels.length === 0 ? (
+        <Badge variant="success" className="max-w-full truncate border-success/30 bg-success/15 font-medium">
+          شُحن من: …
+        </Badge>
+      ) : (
+        shippedFromLabels.map((label, index) => (
+          <Badge
+            key={`${label}-${index}`}
+            variant="success"
+            className="max-w-full truncate border-success/30 bg-success/15 font-medium"
+            title={`شُحن من: ${label}`}
+          >
+            شُحن من: {label}
+          </Badge>
+        ))
+      )}
+    </div>
+  ) : null;
 
   return (
     <div className="overflow-hidden rounded-xl border border-border bg-card transition-colors hover:border-border/80">
@@ -224,11 +247,12 @@ export function OrderLineShipPanel({ companyId, orderId, line }: Props) {
           )}
         </div>
 
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 space-y-1">
           <p className="truncate text-sm font-medium text-foreground">{line.productNameAr}</p>
           <p className="text-xs text-muted-foreground">
             {line.quantity} × {formatPrice(line.unitPrice)}
           </p>
+          {!open ? shippedFromBadges : null}
         </div>
 
         <p className="hidden shrink-0 text-sm font-semibold tabular-nums text-foreground sm:block">
@@ -440,9 +464,7 @@ export function OrderLineShipPanel({ companyId, orderId, line }: Props) {
       ) : null}
 
       {open && isShipped ? (
-        <p className="border-t border-border px-3 py-3 text-sm text-muted-foreground">
-          شُحن من: {isLoading ? '…' : summary ?? (trackInventory ? '—' : 'بدون خصم مخزون')}
-        </p>
+        <div className="border-t border-border px-3 py-3">{shippedFromBadges}</div>
       ) : null}
     </div>
   );
