@@ -185,8 +185,21 @@ export const locationStockApi = {
     return { onHand, reserved, available: Math.max(0, onHand - reserved) };
   },
 
-  async getAvailability(companyId: string, productId: string): Promise<StockAvailabilityRow[]> {
-    const stocks = await this.list({ companyId, productId });
+  async getAvailability(
+    companyId: string,
+    productId: string,
+    options?: { variantId?: string | null },
+  ): Promise<StockAvailabilityRow[]> {
+    // When variantId is provided (including null → base product), scope stock to that SKU.
+    // Omitting options keeps legacy “all variants merged” behavior for callers that need totals.
+    const scoped = options !== undefined;
+    const variantKey = scoped ? options.variantId?.trim() || '' : undefined;
+
+    const stocks = await this.list({
+      companyId,
+      productId,
+      ...(variantKey !== undefined ? { variantId: variantKey } : {}),
+    });
     if (stocks.length === 0) return [];
 
     const [warehouses, locations] = await Promise.all([
@@ -213,24 +226,28 @@ export const locationStockApi = {
         } satisfies StockAvailabilityRow;
       });
 
-    // Ledger may keep separate balances per variant at the same location — merge for
-    // fulfillment pickers (Select values / React keys must be unique by location).
-    const mergedByLocation = new Map<string, StockAvailabilityRow>();
-    for (const row of liveRows) {
-      const key = `${row.warehouseId}|${row.locationId}`;
-      const existing = mergedByLocation.get(key);
-      if (!existing) {
-        mergedByLocation.set(key, { ...row });
-        continue;
+    // Same location can appear once after filtering; merge only if unscoped (all variants).
+    if (!scoped) {
+      const mergedByLocation = new Map<string, StockAvailabilityRow>();
+      for (const row of liveRows) {
+        const key = `${row.warehouseId}|${row.locationId}`;
+        const existing = mergedByLocation.get(key);
+        if (!existing) {
+          mergedByLocation.set(key, { ...row });
+          continue;
+        }
+        existing.quantity += row.quantity;
+        existing.reservedQuantity += row.reservedQuantity;
+        existing.availableQuantity += row.availableQuantity;
       }
-      existing.quantity += row.quantity;
-      existing.reservedQuantity += row.reservedQuantity;
-      existing.availableQuantity += row.availableQuantity;
+      return [...mergedByLocation.values()].sort(
+        (a, b) => b.availableQuantity - a.availableQuantity,
+      );
     }
 
-    return [...mergedByLocation.values()].sort(
-      (a, b) => b.availableQuantity - a.availableQuantity,
-    );
+    return liveRows
+      .filter((row) => row.availableQuantity > 0)
+      .sort((a, b) => b.availableQuantity - a.availableQuantity);
   },
 
   /**

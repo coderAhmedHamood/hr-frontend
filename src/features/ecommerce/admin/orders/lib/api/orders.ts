@@ -24,7 +24,6 @@ import {
 import { inventoryLedgerApi } from '@/features/inventory/admin/operations/lib/api/inventory-ledger';
 import {
   resolveDefaultWhStockLocationId,
-  resolveSaleRestoreLocationId,
   type SaleStockLineInput,
   type SaleStockDeductResult,
   type SaleStockRestoreResult,
@@ -55,16 +54,6 @@ function assertStoreHttp(): void {
   }
 }
 
-function toSaleLines(items: Array<Pick<OrderLineItem, 'productId' | 'variantId' | 'quantity'>>): SaleStockLineInput[] {
-  return items
-    .filter((item) => item.quantity > 0 && Boolean(item.productId))
-    .map((item) => ({
-      productId: item.productId,
-      variantId: item.variantId ?? null,
-      quantity: item.quantity,
-    }));
-}
-
 function summarizeSaleLines(result: SaleStockDeductResult | SaleStockRestoreResult): string {
   const ref = result.operationReference ?? '—';
   const counts = result.lines.reduce(
@@ -78,30 +67,83 @@ function summarizeSaleLines(result: SaleStockDeductResult | SaleStockRestoreResu
   return `${ref} · ${parts.join(' · ') || 'لا بنود'}`;
 }
 
+/** Ledger issue rows for this order — used to recover variantId / location on restore. */
+async function listOrderSaleDeductEntries(companyId: string, orderNumber: string, productId: string) {
+  const page = await inventoryLedgerApi.list({
+    companyId,
+    productId,
+    search: orderNumber,
+    page: 1,
+    limit: 100,
+  });
+  return page.items.filter(
+    (entry) =>
+      entry.sourceDocument === orderNumber &&
+      entry.productId === productId &&
+      entry.quantityDelta < 0,
+  );
+}
+
+/**
+ * Backend requires variantId when the product has variants.
+ * Prefer the order line value; else recover from the prior sale-deduct ledger row.
+ */
+async function ensureSaleLinesVariantIds(
+  companyId: string,
+  orderNumber: string,
+  lines: SaleStockLineInput[],
+): Promise<SaleStockLineInput[]> {
+  const resolved: SaleStockLineInput[] = [];
+  const consumedLedgerIds = new Set<string>();
+
+  for (const line of lines) {
+    if (line.variantId) {
+      resolved.push(line);
+      continue;
+    }
+
+    const deducts = await listOrderSaleDeductEntries(companyId, orderNumber, line.productId);
+    const match =
+      deducts.find(
+        (entry) =>
+          Boolean(entry.variantId) &&
+          !consumedLedgerIds.has(entry.id) &&
+          Math.abs(entry.quantityDelta) === line.quantity,
+      ) ??
+      deducts.find((entry) => Boolean(entry.variantId) && !consumedLedgerIds.has(entry.id));
+
+    if (match?.variantId) {
+      consumedLedgerIds.add(match.id);
+      resolved.push({ ...line, variantId: match.variantId });
+      continue;
+    }
+
+    const { byVariant } = await inventoryStockService.getOnHandByVariant(companyId, line.productId);
+    const hasVariants = Object.keys(byVariant).some((key) => key !== '');
+    if (hasVariants) {
+      throw new Error(
+        `المنتج يتطلب variantId لخصم/إرجاع المخزون، لكن بند الطلب لا يحتوي متغيرًا. رقم الطلب: ${orderNumber}`,
+      );
+    }
+
+    resolved.push({ ...line, variantId: null });
+  }
+
+  return resolved;
+}
+
 /** True if a prior sale deduct already posted for this order number. */
 async function orderAlreadyDeducted(companyId: string, order: Order): Promise<boolean> {
   const productIds = [...new Set(order.items.map((item) => item.productId).filter(Boolean))];
   for (const productId of productIds) {
-    const page = await inventoryLedgerApi.list({
-      companyId,
-      productId,
-      search: order.orderNumber,
-      page: 1,
-      limit: 50,
-    });
-    const hasIssue = page.items.some(
-      (entry) =>
-        entry.sourceDocument === order.orderNumber &&
-        entry.productId === productId &&
-        entry.quantityDelta < 0,
-    );
-    if (hasIssue) return true;
+    const deducts = await listOrderSaleDeductEntries(companyId, order.orderNumber, productId);
+    if (deducts.length > 0) return true;
   }
   return false;
 }
 
 /**
- * Group order lines by warehouse location (allocations if present, else default WH/Stock).
+ * Group order lines by warehouse location (allocations if present, else prior deduct location / default WH/Stock).
  */
 async function buildDeductBatches(
   companyId: string,
@@ -115,13 +157,16 @@ async function buildDeductBatches(
 
     const allocs = item.allocations.filter((row) => row.quantity > 0 && row.locationId);
     if (allocs.length === 0) {
-      const list = byLocation.get(defaultLocationId) ?? [];
+      const deducts = await listOrderSaleDeductEntries(companyId, order.orderNumber, item.productId);
+      const ledgerLocationId =
+        deducts.find((entry) => entry.locationId)?.locationId ?? defaultLocationId;
+      const list = byLocation.get(ledgerLocationId) ?? [];
       list.push({
         productId: item.productId,
-        variantId: item.variantId ?? null,
+        variantId: item.variantId?.trim() || null,
         quantity: item.quantity,
       });
-      byLocation.set(defaultLocationId, list);
+      byLocation.set(ledgerLocationId, list);
       continue;
     }
 
@@ -129,7 +174,7 @@ async function buildDeductBatches(
       const list = byLocation.get(row.locationId) ?? [];
       list.push({
         productId: item.productId,
-        variantId: item.variantId ?? null,
+        variantId: item.variantId?.trim() || null,
         quantity: row.quantity,
       });
       byLocation.set(row.locationId, list);
@@ -202,13 +247,18 @@ export const ordersApi = {
         const batches = await buildDeductBatches(companyId, order);
         for (const batch of batches) {
           if (batch.lines.length === 0) continue;
+          const lines = await ensureSaleLinesVariantIds(
+            companyId,
+            order.orderNumber,
+            batch.lines,
+          );
           const deductResult = await inventoryStockService.saleDeduct({
             companyId,
             locationId: batch.locationId,
             sourceDocument: order.orderNumber,
             partnerName: order.customerNameAr,
             notes: `صرف عند شحن الطلب ${order.orderNumber}`,
-            lines: batch.lines,
+            lines,
           });
           console.log('[orders] sale-deduct on status=shipped', deductResult);
           toast.message(`خصم مخزون: ${summarizeSaleLines(deductResult)}`);
@@ -216,28 +266,37 @@ export const ordersApi = {
       }
     }
 
-    // إرجاع عند الإلغاء / الاسترداد (الباك اند أيضاً؛ المصدر يمنع التكرار)
+    // إرجاع عند الإلغاء / الاسترداد — فقط إن وُجد خصم سابق، مع نفس variantId لبند الطلب
     if (RESTORE_STATUSES.includes(input.status) && !RESTORE_STATUSES.includes(order.status)) {
-      const lines = toSaleLines(order.items);
-      if (lines.length > 0) {
-        const locationId =
-          order.items.flatMap((item) => item.allocations).find((row) => row.locationId)?.locationId ??
-          (await resolveSaleRestoreLocationId(
+      const deducted = await orderAlreadyDeducted(companyId, order);
+      if (!deducted) {
+        console.log('[orders] sale-restore skipped — no prior deduct for', order.orderNumber);
+      } else {
+        const batches = await buildDeductBatches(companyId, order);
+        for (const batch of batches) {
+          if (batch.lines.length === 0) continue;
+          // Prefer lines[].variantId from GET order; fill gaps from prior sale-deduct ledger.
+          const lines = await ensureSaleLinesVariantIds(companyId, order.orderNumber, batch.lines);
+          console.log('[orders] sale-restore payload', {
+            orderNumber: order.orderNumber,
+            locationId: batch.locationId,
+            lines: lines.map((line) => ({
+              productId: line.productId,
+              variantId: line.variantId,
+              quantity: line.quantity,
+            })),
+          });
+          const restoreResult = await inventoryStockService.saleRestore({
             companyId,
-            order.orderNumber,
-            order.items.map((item) => item.productId),
-          ));
-
-        const restoreResult = await inventoryStockService.saleRestore({
-          companyId,
-          locationId,
-          sourceDocument: order.orderNumber,
-          notes: `إرجاع طلب ${order.orderNumber} — ${input.status}`,
-          partnerName: order.customerNameAr,
-          lines,
-        });
-        console.log('[orders] sale-restore result', restoreResult);
-        toast.message(`إرجاع مخزون: ${summarizeSaleLines(restoreResult)}`);
+            locationId: batch.locationId,
+            sourceDocument: order.orderNumber,
+            notes: `إرجاع طلب ${order.orderNumber} — ${input.status}`,
+            partnerName: order.customerNameAr,
+            lines,
+          });
+          console.log('[orders] sale-restore result', restoreResult);
+          toast.message(`إرجاع مخزون: ${summarizeSaleLines(restoreResult)}`);
+        }
       }
     }
 

@@ -16,10 +16,13 @@ export const productReviewsQueryKeys = {
   list: (query: ProductReviewListQuery) => [...productReviewsQueryKeys.all, 'list', query] as const,
 };
 
-export function useProductReviews(query: ProductReviewListQuery) {
+export function useProductReviews(query: ProductReviewListQuery, enabled = true) {
   return useQuery({
     queryKey: productReviewsQueryKeys.list(query),
     queryFn: () => productReviewsApi.list(query),
+    enabled:
+      enabled &&
+      Boolean(query.productId || query.partnerId || query.page != null || query.search),
   });
 }
 

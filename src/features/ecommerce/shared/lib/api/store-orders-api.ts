@@ -17,6 +17,7 @@ import {
   fromDecimalString,
   isStoreHttpEnabled,
   publicStoreRequest,
+  toDecimalString,
 } from '@/features/ecommerce/storefront/lib/api/store-http';
 import { resolvePaymentProofUrls } from '@/features/ecommerce/domain/lib/payment-proofs';
 
@@ -458,11 +459,11 @@ export async function saveAdminStoreLineAllocations(
       method: 'POST',
       throwOnError: true,
       query: { companyId: company },
-      // Backend expects numeric quantity (see store-admin allocations contract).
       body: {
         warehouseId: row.warehouseId,
         locationId: row.locationId,
-        quantity: Number(row.quantity),
+        // Backend validates: "quantity must be a number string" (e.g. "1" / "1.0000").
+        quantity: toDecimalString(row.quantity),
       },
     });
   }

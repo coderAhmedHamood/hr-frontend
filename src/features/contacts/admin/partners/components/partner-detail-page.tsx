@@ -18,6 +18,8 @@ import {
   Pencil,
   Phone,
   Plus,
+  ShoppingBag,
+  Star,
   StickyNote,
   Trash2,
   Waypoints,
@@ -44,6 +46,7 @@ import { usePartnerMutations } from '@/features/contacts/admin/partners/hooks/us
 import { usePartnerCategories } from '@/features/contacts/admin/categories/hooks/use-partner-categories';
 import { PartnerFormDialog } from '@/features/contacts/admin/partners/components/partner-form-dialog';
 import { PartnerStoreOrdersPanel } from '@/features/contacts/admin/partners/components/partner-store-orders-panel';
+import { PartnerProductReviewsPanel } from '@/features/contacts/admin/partners/components/partner-product-reviews-panel';
 import {
   PartnerRoleBadges,
   PartnerStatusBadge,
@@ -75,6 +78,8 @@ const DETAIL_TABS = [
   { value: 'activities', label: 'أنشطة', icon: Clock },
   { value: 'notes', label: 'ملاحظات', icon: StickyNote },
   { value: 'attachments', label: 'مرفقات', icon: Paperclip },
+  { value: 'orders', label: 'طلبات المتجر', icon: ShoppingBag },
+  { value: 'reviews', label: 'تقييمات', icon: Star },
   { value: 'related', label: 'مرتبط', icon: Network },
 ] as const;
 
@@ -889,11 +894,23 @@ export function PartnerDetailPage({ partnerId }: Props) {
           </Panel>
         </TabsContent>
 
-        <TabsContent value="related" className="mt-0 space-y-4">
+        <TabsContent value="orders" className="mt-0 space-y-4">
           {companyId ? (
             <PartnerStoreOrdersPanel companyId={companyId} partnerId={partnerId} />
-          ) : null}
+          ) : (
+            <EmptyInline message="اختر شركة لعرض طلبات المتجر." />
+          )}
+        </TabsContent>
 
+        <TabsContent value="reviews" className="mt-0 space-y-4">
+          {companyId ? (
+            <PartnerProductReviewsPanel companyId={companyId} partnerId={partnerId} />
+          ) : (
+            <EmptyInline message="اختر شركة لعرض التقييمات." />
+          )}
+        </TabsContent>
+
+        <TabsContent value="related" className="mt-0 space-y-4">
           <Panel title="سجلات مرتبطة" description="روابط مستقبلية مع وحدات النظام الأخرى.">
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {[

@@ -17,6 +17,7 @@ import { formatPrice } from '@/features/ecommerce/shared/utils/format-price';
 import { ORDER_LINE_SHIP_STATUS_LABELS_AR } from '@/features/ecommerce/domain/constants/order-status';
 import type { Order, OrderLineItem, OrderLineShipStatus } from '@/features/ecommerce/domain/types/order';
 import { isOrderFulfilmentLocked } from '@/features/ecommerce/domain/constants/order-status';
+import { inventoryStockService } from '@/features/inventory/services/inventory-stock.service';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge, type BadgeProps } from '@/components/ui/badge';
@@ -73,12 +74,26 @@ export function OrderLineShipPanel({ companyId, orderId, orderStatus, line }: Pr
     staleTime: 60_000,
   });
   const trackInventory = product?.inventory.trackInventory ?? true;
+  const lineVariantId = line.variantId ?? null;
 
   const { data: availability = [], isLoading } = useProductStockAvailability(
     companyId,
     line.productId,
     needsStockContext && trackInventory,
+    lineVariantId,
   );
+  const { data: onHandByVariant } = useQuery({
+    queryKey: ['ecommerce', 'stock-by-variant', companyId, line.productId],
+    queryFn: () => inventoryStockService.getOnHandByVariant(companyId, line.productId),
+    enabled: needsStockContext && trackInventory && Boolean(companyId && line.productId && lineVariantId),
+    staleTime: 60_000,
+  });
+  const thisVariantOnHand = lineVariantId
+    ? onHandByVariant?.byVariant[lineVariantId] ?? 0
+    : 0;
+  const otherVariantsOnHand = onHandByVariant
+    ? Math.max(0, onHandByVariant.total - thisVariantOnHand)
+    : 0;
   const selectableAvailability = React.useMemo(
     () =>
       lockedWarehouseId
@@ -86,6 +101,11 @@ export function OrderLineShipPanel({ companyId, orderId, orderStatus, line }: Pr
         : availability,
     [availability, lockedWarehouseId],
   );
+  const variantOutOfStockHint =
+    Boolean(lineVariantId) &&
+    !isLoading &&
+    selectableAvailability.length === 0 &&
+    otherVariantsOnHand > 0;
   const { saveAllocations, shipLine } = useOrderFulfillmentMutations(companyId);
   const [multi, setMulti] = React.useState(line.allocations.length > 1);
   const [rows, setRows] = React.useState<DraftRow[]>(() => toDraftRows(line));
@@ -335,6 +355,7 @@ export function OrderLineShipPanel({ companyId, orderId, orderStatus, line }: Pr
           <p className="truncate text-sm font-medium text-foreground">{line.productNameAr}</p>
           <p className="text-xs text-muted-foreground">
             {line.quantity} × {formatPrice(line.unitPrice)}
+            {lineVariantId ? ' · متغير' : ''}
           </p>
           {!open ? shippedFromBadges : null}
         </div>
@@ -381,12 +402,18 @@ export function OrderLineShipPanel({ companyId, orderId, orderStatus, line }: Pr
             </div>
           ) : (
             <p className="text-xs text-muted-foreground">
-              خصم المخزون يتم عند تغيير حالة الطلب إلى «تم الشحن». التوزيع هنا للتجهيز فقط.
-              {lockedWarehouseId
-                ? ' · التخصيص مقيّد بنفس المستودع لأول تخصيص.'
-                : ''}
+              خصم المخزون يتم عند تغيير حالة الطلب إلى «تم الشحن». التوزيع هنا للتجهيز فقط
+              {lineVariantId ? ' · التوفر حسب متغير هذا البند فقط.' : ' · التوفر للمنتج الأساسي.'}
+              {lockedWarehouseId ? ' · التخصيص مقيّد بنفس المستودع لأول تخصيص.' : ''}
             </p>
           )}
+
+          {variantOutOfStockHint ? (
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-950 dark:text-amber-100">
+              نفد مخزون هذا المتغير في المواقع. يوجد حوالي {otherVariantsOnHand} قطعة من متغيرات
+              أخرى لنفس المنتج — لا يمكن تجهيز هذا البند منها.
+            </div>
+          ) : null}
 
           {trackInventory ? (
             <>
@@ -514,7 +541,9 @@ export function OrderLineShipPanel({ companyId, orderId, orderStatus, line }: Pr
 
               {!isLoading && selectableAvailability.length === 0 ? (
                 <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                  لا توجد مواقع مخزون متاحة لهذا المنتج. أضف رصيدًا من المخازن أولًا.
+                  {variantOutOfStockHint
+                    ? 'لا مواقع متاحة لهذا المتغير. أضف رصيدًا للمتغير المطلوب أو اختر بديلاً من الطلب.'
+                    : 'لا توجد مواقع مخزون متاحة لهذا الصنف. أضف رصيدًا من المخازن أولًا.'}
                 </div>
               ) : null}
 

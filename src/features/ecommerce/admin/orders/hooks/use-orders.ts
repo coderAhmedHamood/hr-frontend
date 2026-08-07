@@ -21,8 +21,8 @@ export const ordersQueryKeys = {
 
 export const stockAvailabilityQueryKeys = {
   all: ['ecommerce', 'stock-availability'] as const,
-  product: (companyId: string, productId: string) =>
-    [...stockAvailabilityQueryKeys.all, companyId, productId] as const,
+  product: (companyId: string, productId: string, variantId: string | null = null) =>
+    [...stockAvailabilityQueryKeys.all, companyId, productId, variantId] as const,
 };
 
 function syncOrderInCaches(
@@ -75,10 +75,19 @@ export function useOrderDetail(companyId: string, orderId: string | null) {
   });
 }
 
-export function useProductStockAvailability(companyId: string, productId: string, enabled = true) {
+export function useProductStockAvailability(
+  companyId: string,
+  productId: string,
+  enabled = true,
+  variantId?: string | null,
+) {
+  const scopedVariantId = variantId ?? null;
   return useQuery({
-    queryKey: stockAvailabilityQueryKeys.product(companyId, productId),
-    queryFn: () => inventoryStockService.getAvailability(companyId, productId),
+    queryKey: stockAvailabilityQueryKeys.product(companyId, productId, scopedVariantId),
+    queryFn: () =>
+      inventoryStockService.getAvailability(companyId, productId, {
+        variantId: scopedVariantId,
+      }),
     enabled: Boolean(companyId && productId && enabled),
   });
 }

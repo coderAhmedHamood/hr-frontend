@@ -25,9 +25,14 @@ export type InventoryProductReview = {
 export type ProductReviewListQuery = {
   page?: number;
   limit?: number;
+  companyId?: string;
   productId?: string;
   partnerId?: string;
   status?: ProductReviewStatus | 'all';
+  rating?: number;
+  ratingMin?: number;
+  ratingMax?: number;
+  archiveScope?: 'active' | 'archived' | 'all';
   search?: string;
 };
 
@@ -54,9 +59,14 @@ export const productReviewsApi = {
         query: {
           page: query.page ?? 1,
           limit: query.limit ?? 50,
+          companyId: query.companyId || undefined,
           productId: query.productId || undefined,
           partnerId: query.partnerId || undefined,
           status: query.status && query.status !== 'all' ? query.status : undefined,
+          rating: query.rating,
+          ratingMin: query.ratingMin,
+          ratingMax: query.ratingMax,
+          archiveScope: query.archiveScope,
           search: query.search?.trim() || undefined,
         },
         throwOnError: true,
