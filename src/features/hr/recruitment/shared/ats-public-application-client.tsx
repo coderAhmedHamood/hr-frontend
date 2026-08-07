@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Upload, Send, MapPin, Briefcase, Star, UserCircle } from 'lucide-react';
 import { toast } from 'sonner';
@@ -140,7 +141,7 @@ export function AtsPublicApplicationClient({ jobSlug }: PublicApplicationClientP
         <h1 className="text-2xl font-bold">الوظيفة غير موجودة</h1>
         <p className="text-muted-foreground">قد تمت إزالة هذه الوظيفة أو إيقافها.</p>
         <Button variant="outline" size="sm" asChild>
-          <a href="/careers">العودة إلى الوظائف المتاحة</a>
+          <Link href="/careers">العودة إلى الوظائف المتاحة</Link>
         </Button>
       </div>
     );
@@ -205,7 +206,7 @@ export function AtsPublicApplicationClient({ jobSlug }: PublicApplicationClientP
     <div key={`apply-${jobSlug}`} className="mx-auto max-w-2xl">
       <div className="mb-4">
         <Button variant="ghost" size="sm" className="text-xs text-muted-foreground" asChild>
-          <a href="/careers">← جميع الوظائف</a>
+          <Link href="/careers">← جميع الوظائف</Link>
         </Button>
       </div>
 
@@ -290,7 +291,7 @@ export function AtsPublicApplicationClient({ jobSlug }: PublicApplicationClientP
             )}
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" asChild>
-                <a href="/careers">إلغاء</a>
+                <Link href="/careers">إلغاء</Link>
               </Button>
               <Button type="submit" variant="luxe" disabled={submitting}>
                 <Send className="h-4 w-4 me-1" />

@@ -1,6 +1,7 @@
 'use client';
 
 import { ReactNode, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useAccessProfile } from '@/features/auth/hooks/use-access-profile';
 import { useAuthSession } from '@/features/auth/hooks/use-auth-session';
 import { hasAccessTokenCookie } from '@/features/auth/lib/auth-cookie';
@@ -74,9 +75,9 @@ export function AuthenticatedShell({ children }: { children: ReactNode }) {
       <AuthShellFrame>
         <div className="flex min-h-[40vh] flex-col items-center justify-center gap-2 text-muted-foreground">
           <p>انتهت الجلسة أو لم يتم تسجيل الدخول.</p>
-          <a href="/login" className="text-primary underline-offset-4 hover:underline">
+          <Link href="/login" className="text-primary underline-offset-4 hover:underline">
             تسجيل الدخول
-          </a>
+          </Link>
         </div>
       </AuthShellFrame>
     );

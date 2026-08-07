@@ -613,7 +613,7 @@ export function OrdersListPage() {
     return () => clearTimeout(timeout);
   }, [searchInput]);
 
-  const { data, isLoading, isError, refetch } = useOrders({
+  const { data, isLoading, isError } = useOrders({
     companyId,
     search: search || undefined,
     status: view === 'kanban' ? undefined : status,
@@ -630,14 +630,6 @@ export function OrdersListPage() {
 
   const updateStatus = useUpdateOrderStatus(companyId);
   const updatePayment = useUpdateOrderPaymentStatus(companyId);
-
-  React.useEffect(() => {
-    const onFocus = () => void refetch();
-    window.addEventListener('focus', onFocus);
-    return () => {
-      window.removeEventListener('focus', onFocus);
-    };
-  }, [refetch]);
 
   const items = data?.items ?? [];
   const selectedOrder = items.find((order) => order.id === selectedOrderId) ?? null;

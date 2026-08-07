@@ -3,11 +3,11 @@ import { warehousesApi } from '@/features/inventory/admin/warehouses/lib/api/war
 import { warehousesQueryKeys } from '@/features/inventory/admin/hooks/query-keys';
 import type { WarehouseListQuery } from '@/features/inventory/domain/types/warehouse';
 
-export function useWarehouses(query: WarehouseListQuery) {
+export function useWarehouses(query: WarehouseListQuery, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: warehousesQueryKeys.list(query),
     queryFn: () => warehousesApi.getAll(query),
-    enabled: Boolean(query.companyId),
+    enabled: Boolean(query.companyId) && (options?.enabled ?? true),
   });
 }
 

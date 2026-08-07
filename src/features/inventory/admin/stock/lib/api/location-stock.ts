@@ -1,10 +1,6 @@
 import { inventoryLedgerApi } from '@/features/inventory/admin/operations/lib/api/inventory-ledger';
 import { warehousesApi } from '@/features/inventory/admin/warehouses/lib/api/warehouses';
 import { warehouseLocationsApi } from '@/features/inventory/admin/locations/lib/api/warehouse-locations';
-import {
-  getMockStockAvailability,
-  listMockLocationStock,
-} from '@/features/inventory/shared/lib/mock/mock-location-stock-store';
 import type {
   LocationStock,
   LocationStockListQuery,
@@ -129,15 +125,6 @@ export const locationStockApi = {
       }))
       .filter((row) => row.quantity !== 0 || (row.reservedQuantity ?? 0) !== 0);
 
-    // Ecommerce demo catalog uses seeded JSON when the live ledger has no balances yet.
-    if (rows.length === 0) {
-      rows = listMockLocationStock(query.companyId, query.productId).filter((row) => {
-        if (query.warehouseId && row.warehouseId !== query.warehouseId) return false;
-        if (query.locationId && row.locationId !== query.locationId) return false;
-        return true;
-      });
-    }
-
     return rows;
   },
 
@@ -199,46 +186,27 @@ export const locationStockApi = {
   },
 
   async getAvailability(companyId: string, productId: string): Promise<StockAvailabilityRow[]> {
-    const mockRows = getMockStockAvailability(companyId, productId);
+    const stocks = await this.list({ companyId, productId });
+    if (stocks.length === 0) return [];
 
-    let stocks: LocationStock[] = [];
-    try {
-      stocks = await this.list({ companyId, productId });
-    } catch {
-      return mockRows;
-    }
-
-    if (stocks.length === 0) {
-      return mockRows;
-    }
-
-    let warehouseMap = new Map<string, { nameAr: string }>();
-    let locationMap = new Map<string, { nameAr: string }>();
-    try {
-      const [warehouses, locations] = await Promise.all([
-        warehousesApi.getAll({ companyId, page: 1, limit: 200 }),
-        warehouseLocationsApi.getAll({ companyId, page: 1, limit: 500 }),
-      ]);
-      warehouseMap = new Map(warehouses.items.map((w) => [w.id, w]));
-      locationMap = new Map(locations.items.map((l) => [l.id, l]));
-    } catch {
-      // Fall through — names filled from mock seed below.
-    }
-
-    const mockByLocation = new Map(mockRows.map((row) => [row.locationId, row]));
+    const [warehouses, locations] = await Promise.all([
+      warehousesApi.getAll({ companyId, page: 1, limit: 200 }),
+      warehouseLocationsApi.getAll({ companyId, page: 1, limit: 500 }),
+    ]);
+    const warehouseMap = new Map(warehouses.items.map((w) => [w.id, w]));
+    const locationMap = new Map(locations.items.map((l) => [l.id, l]));
 
     const liveRows = stocks
       .filter((row) => row.quantity > 0 || (row.reservedQuantity ?? 0) > 0)
       .map((row) => {
         const warehouse = warehouseMap.get(row.warehouseId);
         const location = locationMap.get(row.locationId);
-        const mock = mockByLocation.get(row.locationId);
         const reservedQuantity = row.reservedQuantity ?? 0;
         return {
           warehouseId: row.warehouseId,
-          warehouseNameAr: warehouse?.nameAr ?? mock?.warehouseNameAr ?? row.warehouseId,
+          warehouseNameAr: warehouse?.nameAr ?? row.warehouseId,
           locationId: row.locationId,
-          locationNameAr: location?.nameAr ?? mock?.locationNameAr ?? row.locationId,
+          locationNameAr: location?.nameAr ?? row.locationId,
           quantity: row.quantity,
           reservedQuantity,
           availableQuantity: availableOf(row),
@@ -260,11 +228,9 @@ export const locationStockApi = {
       existing.availableQuantity += row.availableQuantity;
     }
 
-    const aggregated = [...mergedByLocation.values()].sort(
+    return [...mergedByLocation.values()].sort(
       (a, b) => b.availableQuantity - a.availableQuantity,
     );
-
-    return aggregated.length > 0 ? aggregated : mockRows;
   },
 
   /**

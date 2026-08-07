@@ -59,12 +59,11 @@ export function ProductReplenishmentListDialog({
   const companyId = getStorefrontCompanyId();
   const [selected, setSelected] = React.useState<WarehouseOperation | null>(null);
 
-  const { data, isLoading } = useWarehouseOperations({
-    companyId,
-    productId,
-    limit: 100,
-  });
-  const { data: warehousesData } = useWarehouses({ companyId, limit: 100 });
+  const { data, isLoading } = useWarehouseOperations(
+    { companyId, productId, limit: 100 },
+    { enabled: open },
+  );
+  const { data: warehousesData } = useWarehouses({ companyId, limit: 100 }, { enabled: open });
   const warehouseName = React.useMemo(() => {
     const map = new Map((warehousesData?.items ?? []).map((item) => [item.id, item.nameAr]));
     return (id: string) => map.get(id) ?? id;

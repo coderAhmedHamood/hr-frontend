@@ -34,8 +34,8 @@ export const MODULE_REGISTRY: Record<ModuleId, ModuleDefinition> = {
  * Stubbed to "always enabled" until the backend exposes per-company installed-module state.
  */
 export function isModuleEnabledFor(moduleId: ModuleId, companyId: string | null | undefined): boolean {
-  const module = MODULE_REGISTRY[moduleId];
-  if (!module.installable) return true;
+  const definition = MODULE_REGISTRY[moduleId];
+  if (!definition.installable) return true;
   if (!companyId) return false;
   return true;
 }

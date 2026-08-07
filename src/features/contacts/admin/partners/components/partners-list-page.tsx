@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { Kanban, LayoutGrid, List, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Eye, Kanban, LayoutGrid, List, Pencil, Plus, Trash2 } from 'lucide-react';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
@@ -180,6 +180,9 @@ export function PartnersListPage() {
       isActions: true,
       render: (row) => (
         <>
+          <Button variant="ghost" size="icon" aria-label="عرض التفاصيل" onClick={() => openPartner(row)}>
+            <Eye className="h-4 w-4" />
+          </Button>
           <Button
             variant="ghost"
             size="icon"
@@ -314,6 +317,7 @@ export function PartnersListPage() {
               data={rowsPage}
               keyExtractor={(row) => row.id}
               loading={isLoading}
+              onRowClick={openPartner}
               emptyText="لا توجد جهات اتصال بعد. أنشئ جهة اتصال لتكون المرجع المركزي للنظام."
             />
           )}

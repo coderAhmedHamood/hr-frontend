@@ -3,12 +3,15 @@ import { warehouseOperationsApi } from '@/features/inventory/admin/operations/li
 import { warehouseOperationsQueryKeys } from '@/features/inventory/admin/hooks/query-keys';
 import type { WarehouseOperationListQuery } from '@/features/inventory/domain/types/warehouse';
 
-export function useWarehouseOperations(query: WarehouseOperationListQuery) {
+export function useWarehouseOperations(
+  query: WarehouseOperationListQuery,
+  options?: { enabled?: boolean },
+) {
   return useQuery({
     queryKey: warehouseOperationsQueryKeys.list(query),
     queryFn: () => warehouseOperationsApi.getAll(query),
-    enabled: Boolean(
-      query.companyId && (query.warehouseId || query.productId || query.kind || query.all),
-    ),
+    enabled:
+      Boolean(query.companyId && (query.warehouseId || query.productId || query.kind || query.all)) &&
+      (options?.enabled ?? true),
   });
 }

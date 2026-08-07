@@ -130,9 +130,8 @@ export function ProductDetailPage({ productId }: Props) {
     isError: isProductError,
   } = useProduct(companyId, productId);
   const { data: putawayData } = usePutawayRules({ companyId, productId, limit: 1 });
-  const { data: receiptsData } = useWarehouseOperations({ companyId, productId, kind: 'receipt', limit: 100 });
-  const { data: issuesData } = useWarehouseOperations({ companyId, productId, kind: 'issue', limit: 100 });
-  const { data: internalsData } = useWarehouseOperations({ companyId, productId, kind: 'internal', limit: 100 });
+  // receipts/issues/internals counts are derived from allMovesData below (client-side
+  // filter by kind) instead of 3 separate kind-filtered fetches of the same records.
   const { data: allMovesData } = useWarehouseOperations({ companyId, productId, limit: 200 });
   const { update, remove } = useProductMutations();
 
@@ -261,11 +260,12 @@ export function ProductDetailPage({ productId }: Props) {
   }
 
   const putawayCount = putawayData?.pagination.total ?? putawayData?.items.length ?? 0;
-  const receiptsCount = receiptsData?.pagination.total ?? receiptsData?.items.length ?? 0;
-  const replenishmentCount = (allMovesData?.items ?? []).filter(isReplenishmentOperation).length;
-  const issuesCount = issuesData?.pagination.total ?? issuesData?.items.length ?? 0;
-  const internalsCount = internalsData?.pagination.total ?? internalsData?.items.length ?? 0;
-  const movesCount = (allMovesData?.items ?? []).reduce(
+  const allMoves = allMovesData?.items ?? [];
+  const receiptsCount = allMoves.filter((op) => op.kind === 'receipt').length;
+  const replenishmentCount = allMoves.filter(isReplenishmentOperation).length;
+  const issuesCount = allMoves.filter((op) => op.kind === 'issue').length;
+  const internalsCount = allMoves.filter((op) => op.kind === 'internal').length;
+  const movesCount = allMoves.reduce(
     (sum, op) => sum + op.lines.filter((line) => !line.productId || line.productId === product?.id).length,
     0,
   );

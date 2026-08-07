@@ -1081,23 +1081,22 @@ function LeaveCardGrid({ leaves, employees, currentEmployeeId, onDetail, onAppro
                 .filter(Boolean)
                 .join(' — ') || undefined
             }
-            children={
-              <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
-                {showApproval ? (
-                  <RequestApprovalActionButtons
-                    states={l.approverStates}
-                    currentEmployeeId={currentEmployeeId}
-                    onApprove={() => onApprove(l)}
-                    onReject={() => onReject(l)}
-                    compact
-                  />
-                ) : null}
-                {l.approverStates ? (
-                  <RequestApproverStatesPanel states={l.approverStates} compact className="border-0 bg-transparent p-0" />
-                ) : null}
-              </div>
-            }
-          />
+          >
+            <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
+              {showApproval ? (
+                <RequestApprovalActionButtons
+                  states={l.approverStates}
+                  currentEmployeeId={currentEmployeeId}
+                  onApprove={() => onApprove(l)}
+                  onReject={() => onReject(l)}
+                  compact
+                />
+              ) : null}
+              {l.approverStates ? (
+                <RequestApproverStatesPanel states={l.approverStates} compact className="border-0 bg-transparent p-0" />
+              ) : null}
+            </div>
+          </EntityActionCard>
         );
       })}
     </EntityActionCardGrid>
