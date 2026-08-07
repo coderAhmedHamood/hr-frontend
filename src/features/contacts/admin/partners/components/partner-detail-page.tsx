@@ -11,6 +11,7 @@ import {
   CreditCard,
   ExternalLink,
   Globe,
+  Heart,
   Mail,
   MapPin,
   Network,
@@ -47,6 +48,7 @@ import { usePartnerCategories } from '@/features/contacts/admin/categories/hooks
 import { PartnerFormDialog } from '@/features/contacts/admin/partners/components/partner-form-dialog';
 import { PartnerStoreOrdersPanel } from '@/features/contacts/admin/partners/components/partner-store-orders-panel';
 import { PartnerProductReviewsPanel } from '@/features/contacts/admin/partners/components/partner-product-reviews-panel';
+import { PartnerProductFavoritesPanel } from '@/features/contacts/admin/partners/components/partner-product-favorites-panel';
 import {
   PartnerRoleBadges,
   PartnerStatusBadge,
@@ -80,6 +82,7 @@ const DETAIL_TABS = [
   { value: 'attachments', label: 'مرفقات', icon: Paperclip },
   { value: 'orders', label: 'طلبات المتجر', icon: ShoppingBag },
   { value: 'reviews', label: 'تقييمات', icon: Star },
+  { value: 'favorites', label: 'المفضلة', icon: Heart },
   { value: 'related', label: 'مرتبط', icon: Network },
 ] as const;
 
@@ -907,6 +910,14 @@ export function PartnerDetailPage({ partnerId }: Props) {
             <PartnerProductReviewsPanel companyId={companyId} partnerId={partnerId} />
           ) : (
             <EmptyInline message="اختر شركة لعرض التقييمات." />
+          )}
+        </TabsContent>
+
+        <TabsContent value="favorites" className="mt-0 space-y-4">
+          {companyId ? (
+            <PartnerProductFavoritesPanel companyId={companyId} partnerId={partnerId} />
+          ) : (
+            <EmptyInline message="اختر شركة لعرض المفضلة." />
           )}
         </TabsContent>
 
