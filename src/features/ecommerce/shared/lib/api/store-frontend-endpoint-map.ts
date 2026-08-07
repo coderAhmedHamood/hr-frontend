@@ -78,6 +78,7 @@ export const STORE_FRONTEND_ENDPOINT_MAP = {
       'GET|POST /inventory/product-reviews',
       'GET|PATCH|DELETE /inventory/product-reviews/:id',
       'GET /public/store/products/:productId/reviews',
+      'POST /api/store/product-reviews (Next proxy → public POST or staff token)',
     ],
   },
 } as const;

@@ -21,6 +21,7 @@ import type {
 import { calculateShippingFee } from '@/features/ecommerce/storefront/domain/checkout';
 import type { StorefrontCompanyConfig } from '@/features/ecommerce/storefront/domain/storefront-models';
 import { placeStorefrontOrder } from '@/features/ecommerce/storefront/lib/checkout-actions';
+import { PartnerAuthApiError } from '@/features/ecommerce/storefront/domain/partner-auth';
 import {
   createPartnerAddress,
   formatPartnerAddressLine,
@@ -78,11 +79,15 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
   const clearCart = useStorefrontCartUi((s) => s.clear);
   const accessToken = useStorefrontCustomerUi((s) => s.accessToken);
   const customer = useStorefrontCustomerUi((s) => s.customer);
+  const clearSession = useStorefrontCustomerUi((s) => s.clearSession);
   const { data: products, isLoading, isError, refetch } = useStorefrontCartProducts();
   const [authReady, setAuthReady] = React.useState(false);
 
   React.useEffect(() => {
-    setAuthReady(true);
+    const finish = () => setAuthReady(true);
+    const unsub = useStorefrontCustomerUi.persist.onFinishHydration(finish);
+    if (useStorefrontCustomerUi.persist.hasHydrated()) finish();
+    return unsub;
   }, []);
 
   const cities = checkoutConfig.cities;
@@ -110,6 +115,8 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
     Partial<Record<keyof CheckoutAddressInput, string>>
   >({});
   const [savedAddresses, setSavedAddresses] = React.useState<PartnerAddress[]>([]);
+  const [addressesLoading, setAddressesLoading] = React.useState(false);
+  const [addressesError, setAddressesError] = React.useState<string | null>(null);
   const [selectedAddressId, setSelectedAddressId] = React.useState<string | 'new'>('new');
   const appliedDefaultAddressRef = React.useRef(false);
 
@@ -128,42 +135,59 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
     }));
   }, [customer]);
 
-  React.useEffect(() => {
+  const loadSavedAddresses = React.useCallback(async () => {
     if (!accessToken) return;
-    let cancelled = false;
-    void (async () => {
-      try {
-        const result = await listPartnerAddresses(accessToken);
-        if (cancelled) return;
-        setSavedAddresses(result.items);
-        if (!appliedDefaultAddressRef.current && result.items.length > 0) {
-          const preferred =
-            result.items.find((item) => item.isDefault) ?? result.items[0]!;
-          appliedDefaultAddressRef.current = true;
-          setSelectedAddressId(preferred.id);
-          setAddress((prev) => ({
-            ...prev,
-            fullName: prev.fullName.trim() || customer?.name || '',
-            phone: prev.phone.trim() || customer?.phone || '',
-            city: preferred.city?.trim() || prev.city,
-            district: preferred.district?.trim() || '',
-            street: preferred.street?.trim() || '',
-            notes: preferred.notes?.trim() || '',
-            lat: preferred.latitude != null ? Number(preferred.latitude) : undefined,
-            lng: preferred.longitude != null ? Number(preferred.longitude) : undefined,
-          }));
-        }
-      } catch {
-        if (!cancelled) setSavedAddresses([]);
+    setAddressesLoading(true);
+    setAddressesError(null);
+    try {
+      const result = await listPartnerAddresses(accessToken, {
+        partnerId: customer?.partnerId,
+        companyId: customer?.companyId || undefined,
+        limit: 100,
+      });
+      const sorted = [...result.items].sort((a, b) => {
+        if (a.isDefault !== b.isDefault) return a.isDefault ? -1 : 1;
+        const rank = (type: string) => (type === 'shipping' ? 0 : type === 'main' ? 1 : 2);
+        return rank(a.addressType) - rank(b.addressType);
+      });
+      setSavedAddresses(sorted);
+      if (!appliedDefaultAddressRef.current && sorted.length > 0) {
+        const preferred = sorted.find((item) => item.isDefault) ?? sorted[0]!;
+        appliedDefaultAddressRef.current = true;
+        setSelectedAddressId(preferred.id);
+        setAddress((prev) => ({
+          ...prev,
+          fullName: prev.fullName.trim() || customer?.name || '',
+          phone: prev.phone.trim() || customer?.phone || '',
+          city: preferred.city?.trim() || prev.city,
+          district: preferred.district?.trim() || '',
+          street: preferred.street?.trim() || '',
+          notes: preferred.notes?.trim() || '',
+          lat: preferred.latitude != null ? Number(preferred.latitude) : undefined,
+          lng: preferred.longitude != null ? Number(preferred.longitude) : undefined,
+        }));
       }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [accessToken, customer]);
+    } catch (err) {
+      if (err instanceof PartnerAuthApiError && (err.status === 401 || err.status === 403)) {
+        clearSession();
+        router.replace(storeLoginHref('/store/checkout'));
+        return;
+      }
+      setSavedAddresses([]);
+      setAddressesError(t('checkout.addressesLoadFailed'));
+    } finally {
+      setAddressesLoading(false);
+    }
+  }, [accessToken, clearSession, customer, router, t]);
+
+  React.useEffect(() => {
+    if (!authReady || !accessToken) return;
+    void loadSavedAddresses();
+  }, [authReady, accessToken, loadSavedAddresses]);
 
   function applySavedAddress(row: PartnerAddress) {
     setSelectedAddressId(row.id);
+    setAddressErrors({});
     setAddress((prev) => ({
       ...prev,
       fullName: prev.fullName.trim() || customer?.name || '',
@@ -180,6 +204,7 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
 
   function startNewAddress() {
     setSelectedAddressId('new');
+    setAddressErrors({});
     setAddress((prev) => ({
       ...prev,
       district: '',
@@ -483,7 +508,24 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
                 <p className="text-sm font-medium text-foreground">
                   {t('checkout.savedAddresses')}
                 </p>
-                {savedAddresses.length === 0 ? (
+                {addressesLoading ? (
+                  <div className="space-y-2">
+                    {Array.from({ length: 2 }).map((_, index) => (
+                      <div key={index} className="h-16 animate-pulse rounded-xl bg-muted/50" />
+                    ))}
+                  </div>
+                ) : addressesError ? (
+                  <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-3 text-sm text-destructive">
+                    {addressesError}
+                    <button
+                      type="button"
+                      className="ms-2 underline"
+                      onClick={() => void loadSavedAddresses()}
+                    >
+                      {t('checkout.retryAddresses')}
+                    </button>
+                  </div>
+                ) : savedAddresses.length === 0 ? (
                   <p className="rounded-xl border border-dashed border-border px-3 py-3 text-sm text-muted-foreground">
                     {t('checkout.noSavedAddresses')}
                   </p>
@@ -512,7 +554,7 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
                             ) : null}
                           </p>
                           <p className="mt-1 text-xs text-muted-foreground">
-                            {formatPartnerAddressLine(row)}
+                            {formatPartnerAddressLine(row) || t('checkout.incompleteAddress')}
                           </p>
                         </button>
                       );
@@ -560,6 +602,11 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
                   <p className="mt-1 text-sm text-muted-foreground">
                     {formatPartnerAddressLine(selectedSaved)}
                   </p>
+                  {(addressErrors.district || addressErrors.street || addressErrors.city) && (
+                    <p className="mt-2 text-xs text-destructive">
+                      {t('checkout.savedAddressIncomplete')}
+                    </p>
+                  )}
                 </div>
               ) : null}
 
@@ -638,17 +685,18 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
                       className="min-h-[6.5rem] w-full min-w-0 max-w-full rounded-xl border-input px-3.5 py-3 text-base leading-relaxed sm:text-sm"
                     />
                   </Field>
-                  <Field label={t('checkout.customerNote')} className="sm:col-span-2">
-                    <Textarea
-                      rows={2}
-                      value={customerNote}
-                      onChange={(e) => setCustomerNote(e.target.value)}
-                      placeholder={t('checkout.customerNotePlaceholder')}
-                      className="min-h-[4.5rem] w-full min-w-0 max-w-full rounded-xl border-input px-3.5 py-3 text-base leading-relaxed sm:text-sm"
-                    />
-                  </Field>
                 </>
               ) : null}
+
+              <Field label={t('checkout.customerNote')} className="sm:col-span-2">
+                <Textarea
+                  rows={2}
+                  value={customerNote}
+                  onChange={(e) => setCustomerNote(e.target.value)}
+                  placeholder={t('checkout.customerNotePlaceholder')}
+                  className="min-h-[4.5rem] w-full min-w-0 max-w-full rounded-xl border-input px-3.5 py-3 text-base leading-relaxed sm:text-sm"
+                />
+              </Field>
             </div>
           </section>
         ) : null}
@@ -916,7 +964,12 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
             </Button>
           )}
           {step !== 'review' ? (
-            <Button type="button" className="min-w-36 rounded-xl" onClick={goNext}>
+            <Button
+              type="button"
+              className="min-w-36 rounded-xl"
+              onClick={goNext}
+              disabled={step === 'address' && addressesLoading}
+            >
               {t('checkout.continue')}
             </Button>
           ) : (
@@ -1047,7 +1100,12 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
             </Button>
           )}
           {step !== 'review' ? (
-            <Button type="button" className="flex-1 rounded-xl" onClick={goNext}>
+            <Button
+              type="button"
+              className="flex-1 rounded-xl"
+              onClick={goNext}
+              disabled={step === 'address' && addressesLoading}
+            >
               {t('checkout.continue')}
             </Button>
           ) : (

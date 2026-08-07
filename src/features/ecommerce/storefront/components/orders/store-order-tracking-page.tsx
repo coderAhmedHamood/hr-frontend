@@ -12,6 +12,7 @@ import {
   Wallet,
 } from 'lucide-react';
 import { StoreBreadcrumbs } from '@/features/ecommerce/storefront/components/store-breadcrumbs';
+import { OrderDeliveredReviews } from '@/features/ecommerce/storefront/components/orders/order-delivered-reviews';
 import type {
   StorefrontCustomerOrder,
   StorefrontOrderStatus,
@@ -252,6 +253,8 @@ export function StoreOrderTrackingPage({ order }: Props) {
           </section>
         </div>
       </div>
+
+      <OrderDeliveredReviews order={order} />
 
       <div className="flex flex-wrap gap-3">
         <Link

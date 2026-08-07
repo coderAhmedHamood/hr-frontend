@@ -93,14 +93,26 @@ const BASE = '/contacts/partner-addresses';
 
 export async function listPartnerAddresses(
   token: string,
+  query?: {
+    partnerId?: string;
+    companyId?: string;
+    addressType?: PartnerAddressType;
+    page?: number;
+    limit?: number;
+  },
 ): Promise<StorePaginated<PartnerAddress>> {
-  const data = await addressesFetch<unknown>(
-    `${BASE}?limit=100&archiveScope=active`,
-    {
-      method: 'GET',
-      token,
-    },
-  );
+  const params = new URLSearchParams();
+  params.set('page', String(query?.page ?? 1));
+  params.set('limit', String(query?.limit ?? 100));
+  params.set('archiveScope', 'active');
+  if (query?.partnerId) params.set('partnerId', query.partnerId);
+  if (query?.companyId) params.set('companyId', query.companyId);
+  if (query?.addressType) params.set('addressType', query.addressType);
+
+  const data = await addressesFetch<unknown>(`${BASE}?${params.toString()}`, {
+    method: 'GET',
+    token,
+  });
   return unwrapStoreList<PartnerAddress>(data);
 }
 

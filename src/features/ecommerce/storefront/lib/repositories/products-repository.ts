@@ -110,6 +110,10 @@ type PublicProductDto = {
   primaryImageAlt?: string | null;
   ratingAvg?: string | number | null;
   reviewCount?: string | number | null;
+  /** Some payloads use nested / alternate keys. */
+  rating?: string | number | null;
+  rating_avg?: string | number | null;
+  review_count?: string | number | null;
   archivedAt?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -313,9 +317,16 @@ function mapPublicProduct(dto: PublicProductDto): Product {
     isDiscountActive: Boolean(dto.isDiscountActive),
     attributes: mapPublicAttributes(dto.attributes),
     variants: mapPublicVariants(dto.variants),
-    rating:
-      dto.ratingAvg == null || dto.ratingAvg === '' ? null : toNumber(dto.ratingAvg),
-    reviewCount: Math.max(0, Math.floor(toNumber(dto.reviewCount))),
+    rating: (() => {
+      const raw = dto.ratingAvg ?? dto.rating_avg ?? dto.rating;
+      if (raw == null || raw === '') return null;
+      const value = toNumber(raw);
+      return Number.isFinite(value) ? value : null;
+    })(),
+    reviewCount: Math.max(
+      0,
+      Math.floor(toNumber(dto.reviewCount ?? dto.review_count ?? 0)),
+    ),
     createdAt: dto.createdAt,
     updatedAt: dto.updatedAt,
     archivedAt: dto.archivedAt ?? null,

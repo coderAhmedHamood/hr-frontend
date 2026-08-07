@@ -24,17 +24,21 @@ export function ProductDetailInteractive({ product }: { product: StorefrontProdu
       <div className="flex flex-col gap-4">
         <div className="space-y-1.5">
           <h1 className="text-2xl font-bold text-foreground">{product.name}</h1>
-          {product.rating ? (
-            <a
-              href="#reviews"
-              className="inline-flex w-fit items-center gap-1.5 rounded-full transition-opacity hover:opacity-75"
-            >
-              <ProductRating rating={product.rating} reviewCount={product.reviewCount} variant="stars" size="md" />
-              <span className="text-sm font-medium text-primary underline-offset-2 hover:underline">
-                {t('seeReviews')}
-              </span>
-            </a>
-          ) : null}
+          <a
+            href="#reviews"
+            className="inline-flex w-fit items-center gap-1.5 rounded-full transition-opacity hover:opacity-75"
+          >
+            <ProductRating
+              rating={product.rating && product.rating > 0 ? product.rating : 0}
+              reviewCount={product.reviewCount}
+              variant="stars"
+              size="md"
+              allowEmpty
+            />
+            <span className="text-sm font-medium text-primary underline-offset-2 hover:underline">
+              {t('seeReviews')}
+            </span>
+          </a>
         </div>
 
         {product.description ? (

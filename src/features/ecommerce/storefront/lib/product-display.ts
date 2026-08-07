@@ -82,7 +82,7 @@ export function buildProductDisplay(product: StorefrontProduct): ProductDisplayM
     promoBadge: resolvePromoBadge(product),
     sellingFast: isSellingFast(product),
     rating: product.rating != null && product.rating > 0 ? product.rating : null,
-    reviewCount: Math.max(0, product.reviewCount ?? 0),
+    reviewCount: Math.max(0, Math.floor(Number(product.reviewCount ?? 0) || 0)),
   };
 }
 

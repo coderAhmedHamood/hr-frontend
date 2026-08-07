@@ -13,6 +13,7 @@ import {
   DEFAULT_STOREFRONT_TYPOGRAPHY,
   resolveStorefrontFontId,
 } from '@/features/ecommerce/storefront/lib/storefront-fonts';
+import { resolveFooterLinkGroups } from '@/features/ecommerce/storefront/lib/store-footer-defaults';
 
 function mapNavItem(
   item: CompanyConfigRecord['navigation'][number],
@@ -80,7 +81,7 @@ export function mapStorefrontCompanyConfig(
         locale,
       ),
       commercialRegistration: record.footer.commercialRegistration ?? null,
-      linkGroups: record.footer.linkGroups.map((group) => ({
+      linkGroups: resolveFooterLinkGroups(record.footer.linkGroups).map((group) => ({
         id: group.id,
         title: resolveLocalizedText(group.title, locale),
         links: group.links

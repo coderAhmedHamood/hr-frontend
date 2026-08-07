@@ -33,8 +33,8 @@ export function StoreFooter({
   return (
     <footer className="mt-auto border-t border-border bg-muted/40 text-foreground">
       <div className="mx-auto max-w-[1400px] px-4 py-12 sm:px-6">
-        <div className="grid grid-cols-2 gap-x-6 gap-y-8 md:grid-cols-4 lg:grid-cols-4 lg:gap-10">
-          <div className="col-span-2 flex flex-col gap-4 md:col-span-1">
+        <div className="grid grid-cols-2 gap-x-6 gap-y-8 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 lg:gap-10">
+          <div className="col-span-2 flex flex-col gap-4 sm:col-span-3 md:col-span-1 lg:col-span-2">
             <p className="font-arabic-display text-xl font-bold text-foreground">{config.name}</p>
             {config.footer.tagline.trim() ? (
               <p className="max-w-sm text-sm leading-relaxed text-muted-foreground">
@@ -85,11 +85,13 @@ export function StoreFooter({
           </div>
 
           {linkGroups.map((group) => (
-            <div key={group.id} className="flex flex-col gap-3">
+            <div key={group.id} className="flex min-w-0 flex-col gap-3">
               <h3 className="text-sm font-semibold text-foreground">{group.title}</h3>
               <ul className="flex flex-col gap-2">
-                {group.links.map((link) => (
-                  <li key={`${group.id}-${link.href}-${link.label}`}>
+                {group.links
+                  .filter((link) => link.label.trim() && link.href.trim())
+                  .map((link, index) => (
+                  <li key={`${group.id}-${link.href}-${index}`}>
                     <Link
                       href={link.href}
                       prefetch={false}

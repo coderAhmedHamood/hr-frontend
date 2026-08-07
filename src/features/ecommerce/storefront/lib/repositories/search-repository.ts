@@ -44,6 +44,8 @@ type StoreSearchProductDto = {
   seoMetaDescription?: string | null;
   ratingAvg?: string | number | null;
   reviewCount?: string | number | null;
+  rating_avg?: string | number | null;
+  review_count?: string | number | null;
 };
 
 type StoreSearchCategoryDto = {
@@ -166,8 +168,13 @@ function mapSearchProduct(
     tags: dto.tags ?? [],
     metaTitle: dto.seoMetaTitle || name,
     metaDescription: dto.seoMetaDescription || '',
-    rating: dto.ratingAvg == null ? null : fromDecimalString(dto.ratingAvg),
-    reviewCount: Math.max(0, Math.floor(fromDecimalString(dto.reviewCount))),
+    rating: (() => {
+      const raw = dto.ratingAvg ?? dto.rating_avg ?? null;
+      if (raw == null || raw === '') return null;
+      const value = fromDecimalString(raw);
+      return Number.isFinite(value) && value > 0 ? value : null;
+    })(),
+    reviewCount: Math.max(0, Math.floor(fromDecimalString(dto.reviewCount ?? dto.review_count ?? 0))),
     attributes: [],
     variants: [],
   };

@@ -45,7 +45,12 @@ export function ProductDetailPage({
         <ProductDetailInteractive product={product} />
       </div>
 
-      <ProductReviewsSection productId={product.id} rating={product.rating} reviewCount={product.reviewCount} />
+      <ProductReviewsSection
+        productId={product.id}
+        companyId={product.companyId}
+        rating={product.rating}
+        reviewCount={product.reviewCount}
+      />
 
       {bestSellerProducts.length > 0 ? (
         <ProductCarousel title={t('home.bestSellers')} viewAllHref="/store/products?tag=best-seller" viewAllLabel={t('home.viewAll')}>

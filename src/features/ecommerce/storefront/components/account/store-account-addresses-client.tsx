@@ -106,7 +106,11 @@ export function StoreAccountAddressesClient() {
     if (!accessToken) return;
     setLoading(true);
     try {
-      const result = await listPartnerAddresses(accessToken);
+      const result = await listPartnerAddresses(accessToken, {
+        partnerId: customer?.partnerId,
+        companyId: customer?.companyId || undefined,
+        limit: 100,
+      });
       setAddresses(result.items);
     } catch (err) {
       if (handleAuthError(err)) return;
@@ -115,7 +119,7 @@ export function StoreAccountAddressesClient() {
     } finally {
       setLoading(false);
     }
-  }, [accessToken, handleAuthError, t]);
+  }, [accessToken, customer?.companyId, customer?.partnerId, handleAuthError, t]);
 
   React.useEffect(() => {
     if (!hydrated) return;
