@@ -44,9 +44,15 @@ export function useUpdateOrderStatus(companyId: string) {
   return useMutation({
     mutationFn: ({ orderId, status }: { orderId: string; status: OrderStatus }) =>
       ordersApi.updateStatus(companyId, orderId, { status }),
-    onSuccess: async () => {
+    onSuccess: async (_data, variables) => {
       await queryClient.invalidateQueries({ queryKey: ordersQueryKeys.all });
-      toast.success('تم تحديث حالة الطلب — ستظهر للعميل في صفحة التتبع');
+      if (variables.status === 'cancelled' || variables.status === 'refunded') {
+        toast.success('تم تحديث الحالة وإرجاع المخزون — راجع Console لنتيجة sale-restore');
+      } else if (variables.status === 'shipped') {
+        toast.success('تم الشحن وخصم المخزون — راجع Console لنتيجة sale-deduct');
+      } else {
+        toast.success('تم تحديث حالة الطلب — ستظهر للعميل في صفحة التتبع');
+      }
     },
     onError: (err) => {
       handleApiError(err, 'ecommerce.orders.updateStatus');
@@ -100,7 +106,7 @@ export function useOrderFulfillmentMutations(companyId: string) {
       ordersApi.shipLine(companyId, orderId, input),
     onSuccess: async () => {
       await invalidate();
-      toast.success('تم شحن المنتج وخصم الكمية من المواقع');
+      toast.success('تم تجهيز البند');
     },
     onError: (err) => {
       handleApiError(err, 'ecommerce.orders.shipLine');

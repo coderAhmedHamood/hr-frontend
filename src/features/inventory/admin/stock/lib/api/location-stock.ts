@@ -322,7 +322,7 @@ export const locationStockApi = {
 
   async deduct(): Promise<void> {
     throw new Error(
-      'locationStockApi.deduct محظور — استخدم inventoryStockService.issueForShipment.',
+      'locationStockApi.deduct محظور — استخدم inventoryStockService.saleDeduct أو issueForShipment.',
     );
   },
 

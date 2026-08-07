@@ -267,6 +267,13 @@ export const warehouseOperationsApi: AdminWarehouseOperationsPort = {
 
   async create(input: CreateWarehouseOperationInput) {
     assertLinesLinkedToProduct(input.lines);
+    // Backend blocks line POST when status is done/cancelled — create as draft first,
+    // then promote after lines exist (same pattern as the validate UI).
+    const requestedStatus = input.status;
+    const createStatus = requestedStatus === 'done' || requestedStatus === 'cancelled'
+      ? 'draft'
+      : requestedStatus;
+
     const dto = await apiRequest<OperationDto>('/inventory/warehouse-operations', {
       method: 'POST',
       body: {
@@ -275,7 +282,7 @@ export const warehouseOperationsApi: AdminWarehouseOperationsPort = {
         destinationWarehouseId: input.destinationWarehouseId ?? null,
         kind: input.kind,
         reference: input.reference || null,
-        status: input.status,
+        status: createStatus,
         occurredAt: input.occurredAt,
         notes: input.notes ?? null,
         partnerName: input.partnerName ?? null,
@@ -293,11 +300,17 @@ export const warehouseOperationsApi: AdminWarehouseOperationsPort = {
       );
     }
 
-    const operation = mapOperation(dto, lines);
-    if (operation.status === 'done') {
-      await (await stockService()).applyDoneOperation(operation);
+    if (requestedStatus === 'done' || requestedStatus === 'cancelled') {
+      const updated = await this.update(input.companyId, dto.id, {
+        status: requestedStatus,
+      });
+      if (!updated) {
+        throw new Error('تعذر تصديق مستند المخزون بعد إنشاء البنود.');
+      }
+      return updated;
     }
-    return operation;
+
+    return mapOperation(dto, lines);
   },
 
   async update(companyId, id, patch: UpdateWarehouseOperationInput) {

@@ -243,6 +243,10 @@ string عشري، مثال: `"12.5000"`.
 
 **`data`:** طلب كامل — انظر § شكل الطلب
 
+**خصم المخزون:** لا يعتمد الفرونت على خصم تلقائي عند إنشاء الطلب (يُوقَف من الباك اند).  
+الخصم من لوحة الإدارة عند حالة **`shipped`** عبر `POST /inventory/stock/sale-deduct`، أو يدوياً في أي وقت عبر `inventoryStockService.saleDeduct`.  
+**الإرجاع:** عند `cancelled` / `refunded` عبر `sale-restore` (تلقائي باك اند + استدعاء فرونت)، أو يدوياً في أي وقت.
+
 ### `GET /public/store/orders/:orderNumber?companyId=&phone=`
 
 - ضيف: `phone` إلزامي · شريك: توكن بدل الهاتف  
@@ -455,6 +459,37 @@ Base: `/store-admin/companies/:companyId`
 | POST | `.../:id/lines/:lineId/allocations` | `{ warehouseId, locationId, quantity }` |
 | DELETE | `.../allocations/:allocationId` | — |
 | PATCH | `.../lines/:lineId/ship-status` | `{ shipStatus }` |
+
+> خصم المخزون: عند تغيير حالة الطلب إلى `shipped` (وليس عند زر تجهيز البند).  
+> إلغاء/استرداد: `sale-restore` مع `sourceDocument = orderNumber`.
+
+### `POST /inventory/stock/sale-deduct` → 201
+
+صلاحية: `inv.warehouse.ledger.create`  
+خصم يدوي في أي وقت، ويُستدعى من الفرونت عند حالة الطلب `shipped`.
+
+```ts
+{
+  companyId, locationId, sourceDocument?,
+  lines: [{ productId, variantId?, quantity }]
+}
+// data: { movement:'sale_deduct', operationId, operationReference, locationId, warehouseId,
+//   lines: [{ productId, variantId, quantity, status: 'deducted'|'skipped_no_track', ledgerEntryId, onHandAfter }] }
+```
+
+فرونت: `saleStockApi.deduct` · `inventoryStockService.saleDeduct`  
+يُستدعى من `ordersApi.updateStatus` عند الانتقال إلى `shipped`.
+
+### `POST /inventory/stock/sale-restore` → 201
+
+عكس الخصم (`kind=receipt`). نفس شكل الـ body. يُفضَّل نفس `locationId` + `sourceDocument`.
+
+```ts
+// data: { movement:'sale_restore', … status: 'restored'|'skipped_no_track' }
+```
+
+فرونت: `saleStockApi.restore` · `inventoryStockService.saleRestore`  
+يُستدعى من `ordersApi.updateStatus` عند `cancelled` / `refunded`.
 
 ---
 

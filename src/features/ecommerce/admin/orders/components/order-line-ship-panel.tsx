@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import Image from 'next/image';
+import { useQuery } from '@tanstack/react-query';
 import { Check, ChevronDown, Package, Plus, X } from 'lucide-react';
 import {
   sumAllocationQty,
@@ -11,6 +12,7 @@ import {
   useOrderFulfillmentMutations,
   useProductStockAvailability,
 } from '@/features/ecommerce/admin/orders/hooks/use-orders';
+import { productsApi } from '@/features/ecommerce/admin/products/lib/api/products';
 import { formatPrice } from '@/features/ecommerce/shared/utils/format-price';
 import type { OrderLineItem } from '@/features/ecommerce/domain/types/order';
 import { Button } from '@/components/ui/button';
@@ -46,10 +48,18 @@ function toDraftRows(line: OrderLineItem): DraftRow[] {
 
 export function OrderLineShipPanel({ companyId, orderId, line }: Props) {
   const [open, setOpen] = React.useState(false);
+  const { data: product } = useQuery({
+    queryKey: ['ecommerce', 'products', 'track-inventory', companyId, line.productId],
+    queryFn: () => productsApi.getById(companyId, line.productId),
+    enabled: open && Boolean(companyId && line.productId),
+    staleTime: 60_000,
+  });
+  const trackInventory = product?.inventory.trackInventory ?? true;
+
   const { data: availability = [], isLoading } = useProductStockAvailability(
     companyId,
     line.productId,
-    open,
+    open && trackInventory,
   );
   const { saveAllocations, shipLine } = useOrderFulfillmentMutations(companyId);
   const [multi, setMulti] = React.useState(line.allocations.length > 1);
@@ -62,7 +72,7 @@ export function OrderLineShipPanel({ companyId, orderId, line }: Props) {
   }, [line]);
 
   React.useEffect(() => {
-    if (availability.length === 0) return;
+    if (!trackInventory || availability.length === 0) return;
     setRows((prev) => {
       const needsFill = prev.some((row) => !row.locationId);
       if (!needsFill) return prev;
@@ -80,7 +90,7 @@ export function OrderLineShipPanel({ companyId, orderId, line }: Props) {
             },
       );
     });
-  }, [availability, line.quantity]);
+  }, [availability, line.quantity, trackInventory]);
 
   const availableByLocation = React.useMemo(
     () =>
@@ -91,20 +101,24 @@ export function OrderLineShipPanel({ companyId, orderId, line }: Props) {
   );
 
   const total = sumAllocationQty(rows);
-  const validation = validateAllocations(
-    line.quantity,
-    rows.map((row) => ({
-      warehouseId: row.warehouseId,
-      locationId: row.locationId,
-      quantity: row.quantity,
-    })),
-    availableByLocation,
-  );
+  const validation = trackInventory
+    ? validateAllocations(
+        line.quantity,
+        rows.map((row) => ({
+          warehouseId: row.warehouseId,
+          locationId: row.locationId,
+          quantity: row.quantity,
+        })),
+        availableByLocation,
+      )
+    : { ok: true as const };
 
   const assignedQty = sumAllocationQty(line.allocations);
   const progressLabel = `${assignedQty}/${line.quantity}`;
   const isShipped = line.shipStatus === 'shipped';
   const isSaving = saveAllocations.isPending || shipLine.isPending;
+  const canShipWithoutAlloc =
+    !trackInventory || line.shipStatus === 'assigned' || line.shipStatus === 'partial';
 
   function updateRow(key: string, patch: Partial<DraftRow>) {
     setRows((prev) =>
@@ -124,14 +138,19 @@ export function OrderLineShipPanel({ companyId, orderId, line }: Props) {
     setMulti(nextMulti);
     if (!nextMulti) {
       setRows((prev) => {
-        const first = prev[0] ?? { key: 'row-1', warehouseId: '', locationId: '', quantity: line.quantity };
+        const first = prev[0] ?? {
+          key: 'row-1',
+          warehouseId: '',
+          locationId: '',
+          quantity: line.quantity,
+        };
         return [{ ...first, quantity: line.quantity, key: 'row-1' }];
       });
     }
   }
 
   async function onSave() {
-    if (!validation.ok) return;
+    if (!trackInventory || !validation.ok) return;
     await saveAllocations.mutateAsync({
       orderId,
       input: {
@@ -146,21 +165,28 @@ export function OrderLineShipPanel({ companyId, orderId, line }: Props) {
   }
 
   async function onShip() {
-    if (line.shipStatus !== 'assigned' && line.shipStatus !== 'partial') {
-      if (!validation.ok) return;
-      await saveAllocations.mutateAsync({
+    if (trackInventory) {
+      if (!validation.ok && line.shipStatus !== 'assigned' && line.shipStatus !== 'partial') {
+        return;
+      }
+      const allocations = rows.map((row) => ({
+        warehouseId: row.warehouseId,
+        locationId: row.locationId,
+        quantity: row.quantity,
+      }));
+      if (line.shipStatus !== 'assigned' && line.shipStatus !== 'partial') {
+        await saveAllocations.mutateAsync({
+          orderId,
+          input: { productId: line.productId, allocations },
+        });
+      }
+      await shipLine.mutateAsync({
         orderId,
-        input: {
-          productId: line.productId,
-          allocations: rows.map((row) => ({
-            warehouseId: row.warehouseId,
-            locationId: row.locationId,
-            quantity: row.quantity,
-          })),
-        },
+        input: { productId: line.productId, allocations },
       });
+    } else {
+      await shipLine.mutateAsync({ orderId, input: { productId: line.productId } });
     }
-    await shipLine.mutateAsync({ orderId, input: { productId: line.productId } });
     setOpen(false);
   }
 
@@ -169,10 +195,9 @@ export function OrderLineShipPanel({ companyId, orderId, line }: Props) {
       ? line.allocations
           .map((allocation) => {
             const match = availability.find((row) => row.locationId === allocation.locationId);
-            const label = match
+            return match
               ? `${match.warehouseNameAr} (${allocation.quantity})`
               : `${allocation.locationId} (${allocation.quantity})`;
-            return label;
           })
           .join(' · ')
       : null;
@@ -212,7 +237,13 @@ export function OrderLineShipPanel({ companyId, orderId, line }: Props) {
 
         <Badge
           className="shrink-0"
-          variant={isShipped ? 'success' : line.shipStatus === 'assigned' || line.shipStatus === 'partial' ? 'warning' : 'outline'}
+          variant={
+            isShipped
+              ? 'success'
+              : line.shipStatus === 'assigned' || line.shipStatus === 'partial'
+                ? 'warning'
+                : 'outline'
+          }
         >
           {isShipped
             ? 'مجهّز'
@@ -232,149 +263,171 @@ export function OrderLineShipPanel({ companyId, orderId, line }: Props) {
             توزيع {line.productNameAr} ({line.quantity} قطعة)
           </p>
 
-          <button
-            type="button"
-            className="text-xs font-medium text-primary hover:underline"
-            onClick={() => setShowAvailability((value) => !value)}
-          >
-            {showAvailability ? 'إخفاء التوفر' : 'عرض توفر المواقع'}
-          </button>
-
-          {showAvailability ? (
-            <div className="flex flex-wrap gap-2">
-              {isLoading ? (
-                <p className="text-xs text-muted-foreground">جاري التحميل…</p>
-              ) : availability.length === 0 ? (
-                <p className="text-xs text-destructive">لا توجد كمية متاحة في المواقع.</p>
-              ) : (
-                availability.map((row, index) => (
-                  <Badge key={`${row.warehouseId}-${row.locationId}-${index}`} variant="outline">
-                    {row.warehouseNameAr} / {row.locationNameAr} ({row.quantity})
-                  </Badge>
-                ))
-              )}
+          {!trackInventory ? (
+            <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
+              تتبع المخزون معطّل لهذا المنتج — لا يُخصم من المستودع.
             </div>
-          ) : null}
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              خصم المخزون يتم عند تغيير حالة الطلب إلى «تم الشحن». التوزيع هنا للتجهيز فقط.
+            </p>
+          )}
 
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              size="sm"
-              variant={multi ? 'outline' : 'default'}
-              onClick={() => setMode(false)}
-            >
-              موقع واحد
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant={multi ? 'default' : 'outline'}
-              onClick={() => setMode(true)}
-            >
-              مواقع متعددة
-            </Button>
-          </div>
+          {trackInventory ? (
+            <>
+              <button
+                type="button"
+                className="text-xs font-medium text-primary hover:underline"
+                onClick={() => setShowAvailability((value) => !value)}
+              >
+                {showAvailability ? 'إخفاء التوفر' : 'عرض توفر المواقع'}
+              </button>
 
-          <div className="space-y-2">
-            {rows.map((row) => (
-              <div key={row.key} className="flex flex-wrap items-center gap-2">
-                <Input
-                  type="number"
-                  min={1}
-                  dir="ltr"
-                  className="w-20"
-                  value={row.quantity}
-                  onChange={(event) =>
-                    updateRow(row.key, { quantity: Math.max(0, Number(event.target.value) || 0) })
-                  }
-                  disabled={!multi && rows.length === 1}
-                />
-                <Select
-                  value={row.locationId || undefined}
-                  onValueChange={(value) => updateRow(row.key, { locationId: value })}
+              {showAvailability ? (
+                <div className="flex flex-wrap gap-2">
+                  {isLoading ? (
+                    <p className="text-xs text-muted-foreground">جاري التحميل…</p>
+                  ) : availability.length === 0 ? (
+                    <p className="text-xs text-destructive">لا توجد كمية متاحة في المواقع.</p>
+                  ) : (
+                    availability.map((row, index) => (
+                      <Badge key={`${row.warehouseId}-${row.locationId}-${index}`} variant="outline">
+                        {row.warehouseNameAr} / {row.locationNameAr} ({row.quantity})
+                      </Badge>
+                    ))
+                  )}
+                </div>
+              ) : null}
+
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={multi ? 'outline' : 'default'}
+                  onClick={() => setMode(false)}
                 >
-                  <SelectTrigger className="min-w-[14rem] flex-1" aria-label="اختر الموقع">
-                    <SelectValue placeholder="اختر الموقع" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availability
-                      .filter((option) => (option.availableQuantity ?? option.quantity) > 0)
-                      .map((option, index) => (
-                      <SelectItem
-                        key={`${option.warehouseId}-${option.locationId}-${index}`}
-                        value={option.locationId}
-                      >
-                        {option.warehouseNameAr} / {option.locationNameAr} ({option.availableQuantity ?? option.quantity})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {multi ? (
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="ghost"
-                    aria-label="حذف الصف"
-                    onClick={() => setRows((prev) => prev.filter((item) => item.key !== row.key))}
-                    disabled={rows.length <= 1}
-                  >
-                    <X className="h-4 w-4 text-destructive" />
-                  </Button>
-                ) : null}
+                  موقع واحد
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={multi ? 'default' : 'outline'}
+                  onClick={() => setMode(true)}
+                >
+                  مواقع متعددة
+                </Button>
               </div>
-            ))}
-          </div>
 
-          {multi ? (
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() =>
-                setRows((prev) => [
-                  ...prev,
-                  {
-                    key: `row-${Math.random().toString(36).slice(2, 7)}`,
-                    warehouseId: '',
-                    locationId: '',
-                    quantity: 1,
-                  },
-                ])
-              }
-            >
-              <Plus className="me-1 h-3.5 w-3.5" />
-              موقع
-            </Button>
-          ) : null}
+              <div className="space-y-2">
+                {rows.map((row) => (
+                  <div key={row.key} className="flex flex-wrap items-center gap-2">
+                    <Input
+                      type="number"
+                      min={1}
+                      dir="ltr"
+                      className="w-20"
+                      value={row.quantity}
+                      onChange={(event) =>
+                        updateRow(row.key, { quantity: Math.max(0, Number(event.target.value) || 0) })
+                      }
+                      disabled={!multi && rows.length === 1}
+                    />
+                    <Select
+                      value={row.locationId || undefined}
+                      onValueChange={(value) => updateRow(row.key, { locationId: value })}
+                    >
+                      <SelectTrigger className="min-w-[14rem] flex-1" aria-label="اختر الموقع">
+                        <SelectValue placeholder="اختر الموقع" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availability
+                          .filter((option) => (option.availableQuantity ?? option.quantity) > 0)
+                          .map((option, index) => (
+                            <SelectItem
+                              key={`${option.warehouseId}-${option.locationId}-${index}`}
+                              value={option.locationId}
+                            >
+                              {option.warehouseNameAr} / {option.locationNameAr} (
+                              {option.availableQuantity ?? option.quantity})
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                    {multi ? (
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        aria-label="حذف الصف"
+                        onClick={() => setRows((prev) => prev.filter((item) => item.key !== row.key))}
+                        disabled={rows.length <= 1}
+                      >
+                        <X className="h-4 w-4 text-destructive" />
+                      </Button>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
 
-          {!validation.ok && total > 0 && rows.every((row) => row.locationId) ? (
-            <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-              {validation.error}
-            </div>
-          ) : null}
+              {multi ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    setRows((prev) => [
+                      ...prev,
+                      {
+                        key: `row-${Math.random().toString(36).slice(2, 7)}`,
+                        warehouseId: '',
+                        locationId: '',
+                        quantity: 1,
+                      },
+                    ])
+                  }
+                >
+                  <Plus className="me-1 h-3.5 w-3.5" />
+                  موقع
+                </Button>
+              ) : null}
 
-          {!isLoading && availability.length === 0 ? (
-            <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-              لا توجد مواقع مخزون متاحة لهذا المنتج. أضف رصيدًا من المخازن أولًا.
-            </div>
-          ) : null}
+              {!validation.ok && total > 0 && rows.every((row) => row.locationId) ? (
+                <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                  {'error' in validation ? validation.error : null}
+                </div>
+              ) : null}
 
-          {validation.ok ? (
-            <div className="rounded-lg border border-success/30 bg-success/10 px-3 py-2 text-sm text-success">
-              التوزيع يغطي الكمية المطلوبة ({total}/{line.quantity}).
-            </div>
+              {!isLoading && availability.length === 0 ? (
+                <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                  لا توجد مواقع مخزون متاحة لهذا المنتج. أضف رصيدًا من المخازن أولًا.
+                </div>
+              ) : null}
+
+              {validation.ok ? (
+                <div className="rounded-lg border border-success/30 bg-success/10 px-3 py-2 text-sm text-success">
+                  التوزيع يغطي الكمية المطلوبة ({total}/{line.quantity}).
+                </div>
+              ) : null}
+            </>
           ) : null}
 
           <div className="flex flex-wrap gap-2 pt-1">
-            <Button type="button" size="sm" disabled={!validation.ok || isSaving} onClick={() => void onSave()}>
-              <Check className="me-1 h-3.5 w-3.5" />
-              حفظ
-            </Button>
+            {trackInventory ? (
+              <Button
+                type="button"
+                size="sm"
+                disabled={!validation.ok || isSaving}
+                onClick={() => void onSave()}
+              >
+                <Check className="me-1 h-3.5 w-3.5" />
+                حفظ
+              </Button>
+            ) : null}
             <Button
               type="button"
               size="sm"
               variant="secondary"
-              disabled={isSaving || (!validation.ok && line.shipStatus !== 'assigned')}
+              disabled={isSaving || (!validation.ok && !canShipWithoutAlloc)}
               onClick={() => void onShip()}
             >
               تم الشحن
@@ -388,7 +441,7 @@ export function OrderLineShipPanel({ companyId, orderId, line }: Props) {
 
       {open && isShipped ? (
         <p className="border-t border-border px-3 py-3 text-sm text-muted-foreground">
-          شُحن من: {isLoading ? '…' : summary ?? '—'}
+          شُحن من: {isLoading ? '…' : summary ?? (trackInventory ? '—' : 'بدون خصم مخزون')}
         </p>
       ) : null}
     </div>

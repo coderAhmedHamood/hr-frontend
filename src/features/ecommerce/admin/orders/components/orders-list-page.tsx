@@ -306,7 +306,7 @@ function OrderDetailPanel({
   }
 
   async function advanceStatus(nextStatus: OrderStatus) {
-    if (!order) return;
+    if (!order || order.status === nextStatus) return;
     await updateStatus.mutateAsync({ orderId: order.id, status: nextStatus });
   }
 
@@ -954,6 +954,7 @@ export function OrdersListPage() {
                 : null
           }
           onStatusChange={(order, nextStatus) => {
+            if (order.status === nextStatus) return;
             void updateStatus.mutateAsync({ orderId: order.id, status: nextStatus });
           }}
           onMarkPaid={(order) => {

@@ -62,6 +62,13 @@ export const STORE_FRONTEND_ENDPOINT_MAP = {
   adminOrders: {
     doc: '# 9) إدارة المتجر — الطلبات',
     module: 'src/features/ecommerce/shared/lib/api/store-orders-api.ts',
+    note: 'Stock deduct when admin sets status=shipped. Restore on cancelled/refunded.',
+  },
+  saleStock: {
+    doc: 'POST /inventory/stock/sale-deduct | sale-restore',
+    module: 'src/features/inventory/admin/stock/lib/api/sale-stock-api.ts',
+    service: 'inventoryStockService.saleDeduct / saleRestore',
+    note: 'Ship → sale-deduct (skip if already at place-order). Cancel/refund → sale-restore.',
   },
   adminProductReviews: {
     doc: 'Inventory staff — product reviews CRUD',

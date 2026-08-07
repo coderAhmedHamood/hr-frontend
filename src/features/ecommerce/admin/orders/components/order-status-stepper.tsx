@@ -49,9 +49,11 @@ export function OrderStatusStepper({
 
   function applyStep(step: OrderFlowStep) {
     if (step.kind === 'payment') {
+      if (paid) return;
       onPaymentPaid();
       return;
     }
+    if (step.status === order.status) return;
     if (!canAdvanceOrderStatus(order, step.status)) return;
     onOrderStatusChange(step.status);
   }
@@ -120,10 +122,16 @@ export function OrderStatusStepper({
                   )}
                   <button
                     type="button"
-                    disabled={disabled || blocked}
+                    disabled={disabled || blocked || active}
                     aria-current={active ? 'step' : undefined}
                     aria-label={step.label}
-                    title={blocked ? 'أكمل دفع الشبكة أولًا' : step.label}
+                    title={
+                      blocked
+                        ? 'أكمل دفع الشبكة أولًا'
+                        : active
+                          ? 'الخطوة الحالية'
+                          : step.label
+                    }
                     onClick={() => applyStep(step)}
                     className={cn(
                       'flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-xs font-semibold transition-colors',
@@ -134,6 +142,7 @@ export function OrderStatusStepper({
                           ? 'border-amber-500 bg-amber-500/15 text-amber-700 ring-2 ring-amber-500/25 dark:text-amber-400'
                           : 'border-primary bg-primary/15 text-primary ring-2 ring-primary/25'),
                       upcoming && 'border-border bg-background text-muted-foreground hover:border-primary/40',
+                      active && 'cursor-default',
                       (disabled || blocked) && 'cursor-not-allowed opacity-60',
                     )}
                   >

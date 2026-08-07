@@ -7,6 +7,11 @@
  * Flow for every mutation: Inventory Ledger (history) → LocationStock (live) → product qty cache.
  */
 import { locationStockApi } from '@/features/inventory/admin/stock/lib/api/location-stock';
+import {
+  saleStockApi,
+  type SaleStockDeductInput,
+  type SaleStockMutationInput,
+} from '@/features/inventory/admin/stock/lib/api/sale-stock-api';
 import { warehouseOperationsApi } from '@/features/inventory/admin/operations/lib/api/warehouse-operations';
 import type { WarehouseOperation } from '@/features/inventory/domain/types/warehouse';
 import {
@@ -14,10 +19,6 @@ import {
   reverseDoneOperationStock,
   syncProductQuantityFromWarehouse,
 } from '@/features/inventory/admin/operations/lib/apply-operation-stock';
-import {
-  deductMockLocationStock,
-  hasMockStockForProduct,
-} from '@/features/inventory/shared/lib/mock/mock-location-stock-store';
 
 export type ShipmentIssueLine = {
   warehouseId: string;
@@ -57,7 +58,24 @@ export const inventoryStockService = {
   },
 
   /**
-   * Sales fulfillment: create a done `issue` operation (real UUIDs) then post ledger.
+   * Preferred sales path — POST /inventory/stock/sale-deduct.
+   * Respects trackInventory / variants / allowBackorder on the backend.
+   */
+  async saleDeduct(input: SaleStockDeductInput) {
+    return saleStockApi.deduct(input);
+  },
+
+  /**
+   * Reverse a prior sale deduct — POST /inventory/stock/sale-restore.
+   * Prefer same locationId + sourceDocument (orderNumber) as the original deduct.
+   */
+  async saleRestore(input: SaleStockMutationInput) {
+    return saleStockApi.restore(input);
+  },
+
+  /**
+   * Legacy multi-location issue docs (admin fulfillment tooling).
+   * Prefer `saleDeduct` for single-location sales.
    */
   async issueForShipment(input: IssueForShipmentInput): Promise<void> {
     if (!input.productId?.trim()) {
@@ -72,20 +90,6 @@ export const inventoryStockService = {
       throw new Error('لا توجد كميات صرف موجبة.');
     }
 
-    // Ecommerce demo catalog: deduct from seeded location-stock JSON when live ledger is empty.
-    if (hasMockStockForProduct(input.companyId, input.productId)) {
-      for (const line of positiveLines) {
-        deductMockLocationStock({
-          companyId: input.companyId,
-          productId: input.productId,
-          warehouseId: line.warehouseId,
-          locationId: line.locationId,
-          quantity: line.quantity,
-        });
-      }
-      return;
-    }
-
     // One warehouse document per warehouse in the allocation.
     const byWarehouse = new Map<string, ShipmentIssueLine[]>();
     for (const line of positiveLines) {
@@ -95,16 +99,20 @@ export const inventoryStockService = {
     }
 
     const now = new Date().toISOString();
+    let warehouseIndex = 0;
     for (const [warehouseId, lines] of byWarehouse) {
+      warehouseIndex += 1;
+      // Unique reference per warehouse doc (company reference is unique).
+      const reference = `SO/${input.orderNumber}/${input.productId.slice(0, 8)}/W${warehouseIndex}`;
       await warehouseOperationsApi.create({
         companyId: input.companyId,
         warehouseId,
         kind: 'issue',
-        reference: `SO/${input.orderNumber}`,
+        reference,
         status: 'done',
         occurredAt: now,
         sourceDocument: input.orderNumber,
-        notes: `صرف شحن طلب ${input.orderNumber}`,
+        notes: `صرف شحن طلب ${input.orderNumber} — ${input.productName}`,
         lines: lines.map((line, index) => ({
           id: `tmp-sales-${index}`,
           productId: input.productId,

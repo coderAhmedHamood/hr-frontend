@@ -96,4 +96,10 @@ export type SaveOrderLineAllocationsInput = {
 
 export type ShipOrderLineInput = {
   productId: string;
+  /** When provided, used for stock issue (avoids stale order refetch). */
+  allocations?: Array<{
+    warehouseId: string;
+    locationId: string;
+    quantity: number;
+  }>;
 };

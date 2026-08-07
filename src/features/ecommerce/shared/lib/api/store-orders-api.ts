@@ -264,6 +264,12 @@ export async function placePublicStoreOrder(
     },
   });
   if (!dto) throw new Error('ORDER_CREATE_FAILED');
+  // Stock is deducted by admin when order status → shipped (not at place-order).
+  console.log('[orders] place-order created (no frontend stock deduct)', {
+    orderNumber: dto.orderNumber,
+    id: dto.id,
+    status: dto.status,
+  });
   return mapStorefrontOrder(dto);
 }
 
