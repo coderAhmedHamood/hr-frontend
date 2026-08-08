@@ -1,6 +1,7 @@
 import { resolveOrderPaymentMethod } from '@/features/ecommerce/domain/constants/order-status';
 import type { PaginatedResult } from '@/features/ecommerce/domain/types/common';
 import type {
+  CreateStoreOrderAttachmentInput,
   Order,
   OrderLineItem,
   OrderListQuery,
@@ -10,8 +11,12 @@ import type {
   UpdateOrderLineShipStatusInput,
   UpdateOrderPaymentStatusInput,
   UpdateOrderStatusInput,
+  UpdateStoreOrderAttachmentInput,
 } from '@/features/ecommerce/domain/types/order';
 import {
+  addAdminStoreOrderAttachment,
+  deleteAdminStoreOrderAttachment,
+  updateAdminStoreOrderAttachment,
   fetchAdminStoreOrder,
   fetchAdminStoreOrders,
   saveAdminStoreLineAllocations,
@@ -351,6 +356,36 @@ export const ordersApi = {
         input.shipStatus,
         input.note,
       ),
+    );
+  },
+
+  async addAttachment(
+    companyId: string,
+    orderId: string,
+    input: CreateStoreOrderAttachmentInput,
+  ) {
+    assertStoreHttp();
+    return normalizeOrderPayment(
+      await addAdminStoreOrderAttachment(companyId, orderId, input),
+    );
+  },
+
+  async updateAttachment(
+    companyId: string,
+    orderId: string,
+    attachmentId: string,
+    input: UpdateStoreOrderAttachmentInput,
+  ) {
+    assertStoreHttp();
+    return normalizeOrderPayment(
+      await updateAdminStoreOrderAttachment(companyId, orderId, attachmentId, input),
+    );
+  },
+
+  async removeAttachment(companyId: string, orderId: string, attachmentId: string) {
+    assertStoreHttp();
+    return normalizeOrderPayment(
+      await deleteAdminStoreOrderAttachment(companyId, orderId, attachmentId),
     );
   },
 };

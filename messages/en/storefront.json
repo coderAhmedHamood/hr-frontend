@@ -178,6 +178,9 @@
     "paymentProofAttached": "Payment receipt attached",
     "paymentProofAttachedCount": "{count} attachments added",
     "paymentProofRemove": "Remove photo",
+    "attachmentsLabel": "Order attachments (optional)",
+    "attachmentsHint": "Attach images or PDF files related to your order — {count} of {max}.",
+    "attachmentsRemove": "Remove attachment",
     "paymentMethods": {
       "cash_on_delivery": {
         "label": "Cash on delivery",
@@ -195,7 +198,10 @@
       "citiesUnavailable": "No delivery cities are available right now. Please contact the store.",
       "paymentProofType": "Please choose an image file",
       "paymentProofSize": "Image must be 4 MB or smaller",
-      "paymentProofMax": "Maximum {max} payment proof attachments"
+      "paymentProofMax": "Maximum {max} payment proof attachments",
+      "attachmentsMax": "Maximum {max} order attachments",
+      "attachmentSize": "File is too large",
+      "attachmentType": "Could not attach the file"
     }
   },
   "orders": {
@@ -223,6 +229,7 @@
     "shippingAddress": "Shipping address",
     "payment": "Payment",
     "items": "Items",
+    "attachments": "Attachments",
     "backHome": "Back to home",
     "myAccount": "My account",
     "status": {

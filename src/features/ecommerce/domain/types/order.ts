@@ -25,6 +25,45 @@ export type OrderLineItem = {
   imageUrl?: string | null;
 };
 
+/**
+ * File attached to a store order — uploaded by the customer at checkout,
+ * or added later by staff from the admin dashboard.
+ */
+export type StoreOrderAttachment = {
+  id: string;
+  fileName: string;
+  fileUrl: string;
+  mimeType: string | null;
+  /** bigint serialized as string, e.g. "84213". */
+  sizeBytes: string | null;
+  label: string | null;
+  /** false = internal (staff-only). Customer responses only ever return true. */
+  visibleToCustomer: boolean;
+  /** "storefront" for customer uploads, or the staff user id. */
+  uploadedBy: string | null;
+  createdAt: string;
+};
+
+/** Body for adding an attachment (customer place-order item, or admin POST). */
+export type CreateStoreOrderAttachmentInput = {
+  fileName: string;
+  fileUrl: string;
+  mimeType?: string | null;
+  sizeBytes?: number | null;
+  label?: string | null;
+  /** Admin only — default true. Set false for an internal, customer-hidden file. */
+  visibleToCustomer?: boolean;
+};
+
+/** Body for PATCH — toggle customer visibility and/or edit the label (admin only). */
+export type UpdateStoreOrderAttachmentInput = {
+  label?: string | null;
+  visibleToCustomer?: boolean;
+};
+
+/** Server-side attachment filter for admin order detail. */
+export type OrderAttachmentVisibilityFilter = 'all' | 'visible' | 'hidden';
+
 /** One status transition from `GET /store-admin/orders/:id` → `statusHistory`. */
 export type OrderStatusHistoryEntry = {
   id?: string;
@@ -69,6 +108,8 @@ export type Order = TenantScoped & {
   source?: 'seed' | 'storefront';
   /** Chronological status changes — present on full order detail only. */
   statusHistory?: OrderStatusHistoryEntry[];
+  /** Files attached to the order (customer + staff). Present on detail responses. */
+  attachments?: StoreOrderAttachment[];
 };
 
 export type OrderFulfilmentFilter = 'fulfilled' | 'partial' | 'unfulfilled';

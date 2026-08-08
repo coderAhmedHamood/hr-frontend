@@ -5,12 +5,18 @@ import { useFormatter, useTranslations } from 'next-intl';
 import {
   Check,
   Clock3,
+  FileText,
   MapPin,
   Package,
   PackageCheck,
+  Paperclip,
   Truck,
   Wallet,
 } from 'lucide-react';
+import {
+  formatAttachmentSize,
+  isImageMime,
+} from '@/features/ecommerce/domain/lib/order-attachments';
 import { StoreBreadcrumbs } from '@/features/ecommerce/storefront/components/store-breadcrumbs';
 import { OrderDeliveredReviews } from '@/features/ecommerce/storefront/components/orders/order-delivered-reviews';
 import type {
@@ -53,6 +59,10 @@ export function StoreOrderTrackingPage({ order }: Props) {
   function formatPrice(amount: number) {
     return format.number(amount, { style: 'currency', currency });
   }
+
+  const visibleAttachments = (order.attachments ?? []).filter(
+    (attachment) => attachment.visibleToCustomer !== false,
+  );
 
   const orderPath = `/store/orders/${order.orderNumber}` as const;
   const placedAt = format.dateTime(new Date(order.createdAt), {
@@ -253,6 +263,56 @@ export function StoreOrderTrackingPage({ order }: Props) {
           </section>
         </div>
       </div>
+
+      {visibleAttachments.length > 0 ? (
+        <section className="rounded-3xl border border-border bg-card p-5 shadow-soft sm:p-6">
+          <div className="mb-4 flex items-center gap-2">
+            <Paperclip className="h-4 w-4 text-primary" />
+            <h2 className="font-arabic-display text-base font-semibold">
+              {t('orders.attachments')}
+            </h2>
+            <span className="ms-auto rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
+              {visibleAttachments.length}
+            </span>
+          </div>
+          <ul className="grid gap-3 sm:grid-cols-2">
+            {visibleAttachments.map((attachment) => {
+              const size = formatAttachmentSize(attachment.sizeBytes);
+              return (
+                <li key={attachment.id}>
+                  <a
+                    href={attachment.fileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-3 rounded-2xl border border-border/70 bg-muted/15 p-3 transition-colors hover:border-primary/40"
+                  >
+                    {isImageMime(attachment.mimeType) ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={attachment.fileUrl}
+                        alt=""
+                        className="h-14 w-14 shrink-0 rounded-xl border border-border object-cover"
+                      />
+                    ) : (
+                      <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-border bg-background text-muted-foreground">
+                        <FileText className="h-6 w-6" />
+                      </span>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-foreground" dir="auto">
+                        {attachment.label || attachment.fileName}
+                      </p>
+                      {size ? (
+                        <p className="mt-0.5 text-xs tabular-nums text-muted-foreground">{size}</p>
+                      ) : null}
+                    </div>
+                  </a>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ) : null}
 
       <OrderDeliveredReviews order={order} />
 

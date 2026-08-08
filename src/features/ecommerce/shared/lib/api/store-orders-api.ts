@@ -1,12 +1,16 @@
 import { apiRequest, ensurePaginatedResult, type PaginatedResult } from '@/features/hr/lib/api/client';
 import type {
+  CreateStoreOrderAttachmentInput,
   Order,
+  OrderAttachmentVisibilityFilter,
   OrderListQuery,
   OrderLineItem,
   SaveOrderLineAllocationsInput,
   ShipOrderLineInput,
+  StoreOrderAttachment,
   UpdateOrderPaymentStatusInput,
   UpdateOrderStatusInput,
+  UpdateStoreOrderAttachmentInput,
 } from '@/features/ecommerce/domain/types/order';
 import type {
   PlaceOrderInput,
@@ -49,6 +53,18 @@ type StoreOrderLineDto = {
   }>;
 };
 
+type StoreOrderAttachmentDto = {
+  id: string;
+  fileName: string;
+  fileUrl: string;
+  mimeType?: string | null;
+  sizeBytes?: string | number | null;
+  label?: string | null;
+  visibleToCustomer?: boolean | null;
+  uploadedBy?: string | null;
+  createdAt: string;
+};
+
 type StoreOrderDto = {
   id: string;
   companyId: string;
@@ -87,6 +103,7 @@ type StoreOrderDto = {
     note?: string | null;
     createdAt: string;
   }>;
+  attachments?: StoreOrderAttachmentDto[] | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -126,6 +143,23 @@ function mapLine(dto: StoreOrderLineDto): OrderLineItem {
     shipStatus: dto.shipStatus ?? 'unassigned',
     imageUrl: dto.imageUrl ?? null,
   };
+}
+
+function mapAttachments(
+  rows: StoreOrderAttachmentDto[] | null | undefined,
+): StoreOrderAttachment[] {
+  if (!rows?.length) return [];
+  return rows.map((row) => ({
+    id: row.id,
+    fileName: row.fileName,
+    fileUrl: row.fileUrl,
+    mimeType: row.mimeType ?? null,
+    sizeBytes: row.sizeBytes == null ? null : String(row.sizeBytes),
+    label: row.label ?? null,
+    visibleToCustomer: row.visibleToCustomer ?? true,
+    uploadedBy: row.uploadedBy ?? null,
+    createdAt: row.createdAt,
+  }));
 }
 
 function mapStatusHistory(
@@ -176,6 +210,7 @@ function mapAdminOrder(dto: StoreOrderDto): Order {
     shippingFeeAmount: { amount: fromDecimalString(dto.shippingFeeAmount), currency },
     source: dto.source ?? 'storefront',
     statusHistory: mapStatusHistory(dto.statusHistory),
+    attachments: mapAttachments(dto.attachments),
   };
 }
 
@@ -249,6 +284,7 @@ function mapStorefrontOrder(dto: StoreOrderDto): StorefrontCustomerOrder {
     createdAt: dto.createdAt,
     updatedAt: dto.updatedAt,
     estimatedDeliveryAt: dto.estimatedDeliveryAt ?? dto.createdAt,
+    attachments: mapAttachments(dto.attachments),
   };
 }
 
@@ -295,6 +331,17 @@ export async function placePublicStoreOrder(
         variantId: line.variantId ?? null,
         quantity: line.quantity,
       })),
+      ...(input.attachments?.length
+        ? {
+            attachments: input.attachments.slice(0, 20).map((attachment) => ({
+              fileName: attachment.fileName,
+              fileUrl: attachment.fileUrl,
+              mimeType: attachment.mimeType ?? null,
+              sizeBytes: attachment.sizeBytes ?? null,
+              label: attachment.label ?? null,
+            })),
+          }
+        : {}),
     },
   });
   if (!dto) throw new Error('ORDER_CREATE_FAILED');
@@ -382,11 +429,21 @@ export async function fetchAdminStoreOrders(
   };
 }
 
-export async function fetchAdminStoreOrder(companyId: string, id: string): Promise<Order | null> {
+export async function fetchAdminStoreOrder(
+  companyId: string,
+  id: string,
+  options?: { attachments?: OrderAttachmentVisibilityFilter },
+): Promise<Order | null> {
   try {
     const dto = await apiRequest<StoreOrderDto>(`/store-admin/orders/${id}`, {
       throwOnError: true,
-      query: { companyId: resolveStorefrontCompanyId(companyId) },
+      query: {
+        companyId: resolveStorefrontCompanyId(companyId),
+        attachments:
+          options?.attachments && options.attachments !== 'all'
+            ? options.attachments
+            : undefined,
+      },
     });
     return mapAdminOrder(dto);
   } catch {
@@ -530,6 +587,71 @@ export async function shipAdminStoreLine(
     'shipped',
     input.note,
   );
+}
+
+/** POST /store-admin/orders/:id/attachments → returns the full updated order. */
+export async function addAdminStoreOrderAttachment(
+  companyId: string,
+  orderId: string,
+  input: CreateStoreOrderAttachmentInput,
+): Promise<Order> {
+  const dto = await apiRequest<StoreOrderDto>(`/store-admin/orders/${orderId}/attachments`, {
+    method: 'POST',
+    throwOnError: true,
+    query: { companyId: resolveStorefrontCompanyId(companyId) },
+    body: {
+      fileName: input.fileName,
+      fileUrl: input.fileUrl,
+      mimeType: input.mimeType ?? null,
+      sizeBytes: input.sizeBytes ?? null,
+      label: input.label ?? null,
+      ...(input.visibleToCustomer === undefined
+        ? {}
+        : { visibleToCustomer: input.visibleToCustomer }),
+    },
+  });
+  return mapAdminOrder(dto);
+}
+
+/** PATCH /store-admin/orders/:id/attachments/:attachmentId → returns the full order. */
+export async function updateAdminStoreOrderAttachment(
+  companyId: string,
+  orderId: string,
+  attachmentId: string,
+  input: UpdateStoreOrderAttachmentInput,
+): Promise<Order> {
+  const dto = await apiRequest<StoreOrderDto>(
+    `/store-admin/orders/${orderId}/attachments/${attachmentId}`,
+    {
+      method: 'PATCH',
+      throwOnError: true,
+      query: { companyId: resolveStorefrontCompanyId(companyId) },
+      body: {
+        ...(input.label === undefined ? {} : { label: input.label }),
+        ...(input.visibleToCustomer === undefined
+          ? {}
+          : { visibleToCustomer: input.visibleToCustomer }),
+      },
+    },
+  );
+  return mapAdminOrder(dto);
+}
+
+/** DELETE /store-admin/orders/:id/attachments/:attachmentId → returns the full order. */
+export async function deleteAdminStoreOrderAttachment(
+  companyId: string,
+  orderId: string,
+  attachmentId: string,
+): Promise<Order> {
+  const dto = await apiRequest<StoreOrderDto>(
+    `/store-admin/orders/${orderId}/attachments/${attachmentId}`,
+    {
+      method: 'DELETE',
+      throwOnError: true,
+      query: { companyId: resolveStorefrontCompanyId(companyId) },
+    },
+  );
+  return mapAdminOrder(dto);
 }
 
 export function storeOrdersHttpEnabled(): boolean {

@@ -88,8 +88,12 @@ export type ProductVariant = {
   quantity: number;
   stockStatus: StockStatus;
   barcode?: string;
-  /** Variant gallery image (URL). */
+  /** Variant description (storefront). */
+  description?: string;
+  /** Variant primary image (URL) — equals `images[0]` when a gallery is set. */
   imageUrl?: string;
+  /** Variant image gallery (ordered). */
+  images?: MediaItem[];
   isActive: boolean;
 };
 

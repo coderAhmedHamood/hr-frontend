@@ -178,6 +178,9 @@
     "paymentProofAttached": "تم إرفاق إيصال الدفع",
     "paymentProofAttachedCount": "تم إرفاق {count} مرفقات",
     "paymentProofRemove": "إزالة الصورة",
+    "attachmentsLabel": "مرفقات الطلب (اختياري)",
+    "attachmentsHint": "أرفق صوراً أو ملفات PDF تخص الطلب — {count} من {max}.",
+    "attachmentsRemove": "إزالة المرفق",
     "paymentMethods": {
       "cash_on_delivery": {
         "label": "الدفع عند الاستلام",
@@ -195,7 +198,10 @@
       "citiesUnavailable": "لا توجد مدن توصيل متاحة حالياً. تواصل مع المتجر.",
       "paymentProofType": "يرجى اختيار صورة فقط",
       "paymentProofSize": "حجم الصورة يجب ألا يتجاوز 4 ميجابايت",
-      "paymentProofMax": "الحد الأقصى {max} مرفقات لإثبات الدفع"
+      "paymentProofMax": "الحد الأقصى {max} مرفقات لإثبات الدفع",
+      "attachmentsMax": "الحد الأقصى {max} مرفقات للطلب",
+      "attachmentSize": "حجم الملف كبير جداً",
+      "attachmentType": "تعذّر إرفاق الملف"
     }
   },
   "orders": {
@@ -223,6 +229,7 @@
     "shippingAddress": "عنوان التوصيل",
     "payment": "الدفع",
     "items": "المنتجات",
+    "attachments": "المرفقات",
     "backHome": "العودة للرئيسية",
     "myAccount": "حسابي",
     "status": {

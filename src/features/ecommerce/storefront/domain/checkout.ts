@@ -1,4 +1,8 @@
 import type { Money } from '@/features/ecommerce/domain/types/common';
+import type {
+  CreateStoreOrderAttachmentInput,
+  StoreOrderAttachment,
+} from '@/features/ecommerce/domain/types/order';
 
 export type CheckoutPaymentMethod = 'cash_on_delivery' | 'card';
 
@@ -54,6 +58,8 @@ export type PlaceOrderInput = {
   paymentProofUrls?: string[];
   /** @deprecated Prefer `paymentProofUrls`. */
   paymentProofUrl?: string | null;
+  /** Optional files the customer attaches to the order (≤ 20). */
+  attachments?: CreateStoreOrderAttachmentInput[];
   /** Partner Bearer when the customer is logged in. */
   accessToken?: string | null;
   lines: CheckoutLineInput[];
@@ -75,6 +81,8 @@ export type StorefrontCustomerOrder = {
   paymentProofUrl?: string | null;
   /** Customer note at place-order. */
   customerNote?: string | null;
+  /** Files attached to the order (customer + staff). */
+  attachments?: StoreOrderAttachment[];
   address: CheckoutAddressInput;
   lines: StorefrontOrderLine[];
   subtotal: Money;

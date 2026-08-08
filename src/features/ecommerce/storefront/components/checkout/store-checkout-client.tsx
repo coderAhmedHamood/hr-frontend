@@ -7,8 +7,10 @@ import {
   Check,
   ChevronLeft,
   CreditCard,
+  FileText,
   MapPin,
   PackageSearch,
+  Paperclip,
   ShieldCheck,
   Truck,
   Wallet,
@@ -40,6 +42,14 @@ import {
   MAX_PAYMENT_PROOF_FILES,
   compressPaymentProofToDataUrl,
 } from '@/features/ecommerce/domain/lib/payment-proofs';
+import {
+  MAX_ORDER_ATTACHMENTS,
+  MAX_ORDER_ATTACHMENT_BYTES,
+  ORDER_ATTACHMENT_ACCEPT,
+  fileToOrderAttachment,
+  isImageMime,
+} from '@/features/ecommerce/domain/lib/order-attachments';
+import type { CreateStoreOrderAttachmentInput } from '@/features/ecommerce/domain/types/order';
 import { Button } from '@/components/ui/button';
 import { GoogleLocationPicker, type GoogleLocationValue } from '@/components/ui/google-location-picker';
 import { Input } from '@/components/ui/input';
@@ -125,6 +135,10 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
   const [paymentProofs, setPaymentProofs] = React.useState<Array<{ url: string; name: string }>>(
     [],
   );
+  const [orderAttachments, setOrderAttachments] = React.useState<CreateStoreOrderAttachmentInput[]>(
+    [],
+  );
+  const [attachmentsBusy, setAttachmentsBusy] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
   const [addressErrors, setAddressErrors] = React.useState<
     Partial<Record<keyof CheckoutAddressInput, string>>
@@ -311,6 +325,37 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
     return format.number(amount, { style: 'currency', currency });
   }
 
+  async function addOrderAttachments(files: File[]) {
+    const remaining = MAX_ORDER_ATTACHMENTS - orderAttachments.length;
+    if (remaining <= 0) {
+      toast.error(t('checkout.errors.attachmentsMax', { max: MAX_ORDER_ATTACHMENTS }));
+      return;
+    }
+    const selected = files.slice(0, remaining);
+    if (files.length > remaining) {
+      toast.error(t('checkout.errors.attachmentsMax', { max: MAX_ORDER_ATTACHMENTS }));
+    }
+    setAttachmentsBusy(true);
+    try {
+      for (const file of selected) {
+        if (file.size > MAX_ORDER_ATTACHMENT_BYTES) {
+          toast.error(t('checkout.errors.attachmentSize'));
+          continue;
+        }
+        try {
+          const input = await fileToOrderAttachment(file);
+          setOrderAttachments((prev) =>
+            prev.length >= MAX_ORDER_ATTACHMENTS ? prev : [...prev, input],
+          );
+        } catch {
+          toast.error(t('checkout.errors.attachmentType'));
+        }
+      }
+    } finally {
+      setAttachmentsBusy(false);
+    }
+  }
+
   function validateAddress(): boolean {
     const errors: Partial<Record<keyof CheckoutAddressInput, string>> = {};
     if (!address.fullName.trim()) errors.fullName = t('checkout.errors.required');
@@ -378,7 +423,8 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
         accessToken,
         paymentProofUrls:
           paymentMethod === 'card' ? paymentProofs.map((item) => item.url) : [],
-        lines: cartLines.map(({ line, product, unitPrice, lineName }) => {
+        attachments: orderAttachments,
+        lines: cartLines.map(({ line, product, unitPrice, lineName, variant }) => {
           const display = buildProductDisplay(product);
           return {
             productId: product.id,
@@ -387,7 +433,7 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
             productSlug: product.slug,
             quantity: line.quantity,
             unitPrice,
-            imageUrl: display.imageUrl,
+            imageUrl: variant?.imageUrl ?? variant?.images?.[0]?.url ?? display.imageUrl,
           };
         }),
       });
@@ -941,6 +987,72 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
                   </p>
                 </div>
               ) : null}
+
+              <div className="space-y-3 rounded-2xl border border-border bg-muted/20 p-4">
+                <div className="flex items-center gap-2">
+                  <Paperclip className="h-4 w-4 text-primary" />
+                  <Label htmlFor="order-attachments" className="text-sm font-medium">
+                    {t('checkout.attachmentsLabel')}
+                  </Label>
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  {t('checkout.attachmentsHint', {
+                    max: MAX_ORDER_ATTACHMENTS,
+                    count: orderAttachments.length,
+                  })}
+                </p>
+                <Input
+                  id="order-attachments"
+                  type="file"
+                  multiple
+                  accept={ORDER_ATTACHMENT_ACCEPT}
+                  disabled={attachmentsBusy || orderAttachments.length >= MAX_ORDER_ATTACHMENTS}
+                  className="h-11 cursor-pointer rounded-xl file:me-3 file:rounded-lg file:border-0 file:bg-primary/10 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-primary"
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files ?? []);
+                    e.target.value = '';
+                    if (files.length === 0) return;
+                    void addOrderAttachments(files);
+                  }}
+                />
+                {orderAttachments.length > 0 ? (
+                  <ul className="space-y-2">
+                    {orderAttachments.map((attachment, index) => (
+                      <li
+                        key={`${attachment.fileName}-${index}`}
+                        className="flex items-center gap-3 rounded-xl border border-border/70 bg-card px-2.5 py-2"
+                      >
+                        {isImageMime(attachment.mimeType) ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={attachment.fileUrl}
+                            alt=""
+                            className="h-12 w-12 shrink-0 rounded-lg border border-border object-cover"
+                          />
+                        ) : (
+                          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-border bg-muted text-muted-foreground">
+                            <FileText className="h-5 w-5" />
+                          </span>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-xs font-medium text-foreground" dir="auto">
+                            {attachment.fileName}
+                          </p>
+                          <button
+                            type="button"
+                            className="mt-1 text-xs text-destructive hover:underline"
+                            onClick={() =>
+                              setOrderAttachments((prev) => prev.filter((_, i) => i !== index))
+                            }
+                          >
+                            {t('checkout.attachmentsRemove')}
+                          </button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
             </div>
           </section>
         ) : null}
@@ -1076,16 +1188,17 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
           </div>
 
           <ul className="max-h-52 space-y-3 overflow-y-auto px-5 py-4">
-            {cartLines.map(({ line, product, unitPrice, compareAt, discountPercent, lineName }) => {
+            {cartLines.map(({ line, product, unitPrice, compareAt, discountPercent, lineName, variant }) => {
               const display = buildProductDisplay(product);
+              const rowImageUrl = variant?.imageUrl ?? variant?.images?.[0]?.url ?? display.imageUrl;
               const key = line.variantId ? `${product.id}::${line.variantId}` : product.id;
               return (
                 <li key={key} className="flex items-center gap-3">
                   <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-muted">
-                    {display.imageUrl ? (
+                    {rowImageUrl ? (
                       <Image
-                        src={display.imageUrl}
-                        alt={display.imageAlt}
+                        src={rowImageUrl}
+                        alt={lineName}
                         fill
                         unoptimized
                         className="object-contain p-1"

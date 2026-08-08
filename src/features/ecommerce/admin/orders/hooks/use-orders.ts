@@ -2,12 +2,14 @@
 import { inventoryStockService } from '@/features/inventory/services/inventory-stock.service';
 import { ordersApi } from '@/features/ecommerce/admin/orders/lib/api/orders';
 import type {
+  CreateStoreOrderAttachmentInput,
   Order,
   OrderListQuery,
   OrderStatus,
   SaveOrderLineAllocationsInput,
   ShipOrderLineInput,
   UpdateOrderLineShipStatusInput,
+  UpdateStoreOrderAttachmentInput,
 } from '@/features/ecommerce/domain/types/order';
 import type { PaginatedResult } from '@/features/ecommerce/domain/types/common';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
@@ -199,4 +201,69 @@ export function useOrderFulfillmentMutations(companyId: string) {
   });
 
   return { saveAllocations, shipLine, updateLineShipStatus };
+}
+
+export function useOrderAttachmentMutations(companyId: string) {
+  const queryClient = useQueryClient();
+
+  const invalidate = async (order: Order) => {
+    syncOrderInCaches(queryClient, companyId, order);
+    await queryClient.invalidateQueries({ queryKey: ordersQueryKeys.all });
+  };
+
+  const add = useMutation({
+    mutationFn: ({
+      orderId,
+      input,
+    }: {
+      orderId: string;
+      input: CreateStoreOrderAttachmentInput;
+    }) => ordersApi.addAttachment(companyId, orderId, input),
+    onSuccess: async (order) => {
+      await invalidate(order);
+      toast.success('تم إضافة المرفق');
+    },
+    onError: (err) => {
+      handleApiError(err, 'ecommerce.orders.addAttachment');
+    },
+  });
+
+  const update = useMutation({
+    mutationFn: ({
+      orderId,
+      attachmentId,
+      input,
+    }: {
+      orderId: string;
+      attachmentId: string;
+      input: UpdateStoreOrderAttachmentInput;
+    }) => ordersApi.updateAttachment(companyId, orderId, attachmentId, input),
+    onSuccess: async (order, variables) => {
+      await invalidate(order);
+      toast.success(
+        variables.input.visibleToCustomer === false
+          ? 'تم إخفاء المرفق عن العميل'
+          : variables.input.visibleToCustomer === true
+            ? 'تم إظهار المرفق للعميل'
+            : 'تم تحديث المرفق',
+      );
+    },
+    onError: (err) => {
+      handleApiError(err, 'ecommerce.orders.updateAttachment');
+    },
+  });
+
+  const remove = useMutation({
+    mutationFn: ({ orderId, attachmentId }: { orderId: string; attachmentId: string }) =>
+      ordersApi.removeAttachment(companyId, orderId, attachmentId),
+    onSuccess: async (order) => {
+      await invalidate(order);
+      toast.success('تم حذف المرفق');
+    },
+    onError: (err) => {
+      handleApiError(err, 'ecommerce.orders.removeAttachment');
+    },
+  });
+
+  return { add, update, remove };
 }
