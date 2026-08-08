@@ -279,6 +279,9 @@ export async function placePublicStoreOrder(
       address: {
         fullName: input.address.fullName,
         phone: input.address.phone,
+        countryId: input.address.countryId ?? null,
+        cityId: input.address.cityId ?? null,
+        districtId: input.address.districtId ?? null,
         city: input.address.city,
         district: input.address.district,
         street: input.address.street,

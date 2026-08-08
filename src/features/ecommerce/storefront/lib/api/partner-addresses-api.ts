@@ -24,6 +24,9 @@ export type PartnerAddressInput = {
   addressType?: PartnerAddressType;
   label?: string | null;
   isDefault?: boolean;
+  countryId?: string | null;
+  cityId?: string | null;
+  districtId?: string | null;
   countryCode?: string | null;
   state?: string | null;
   city?: string | null;
@@ -128,7 +131,10 @@ export async function createPartnerAddress(
       addressType: input.addressType ?? 'shipping',
       label: input.label?.trim() || null,
       isDefault: input.isDefault ?? false,
-      countryCode: input.countryCode ?? 'YE',
+      countryId: input.countryId ?? null,
+      cityId: input.cityId ?? null,
+      districtId: input.districtId ?? null,
+      countryCode: input.countryCode ?? (input.countryId ? null : 'YE'),
       state: input.state ?? null,
       city: input.city?.trim() || null,
       district: input.district?.trim() || null,
@@ -154,6 +160,9 @@ export async function updatePartnerAddress(
       ...(input.addressType !== undefined ? { addressType: input.addressType } : {}),
       ...(input.label !== undefined ? { label: input.label?.trim() || null } : {}),
       ...(input.isDefault !== undefined ? { isDefault: input.isDefault } : {}),
+      ...(input.countryId !== undefined ? { countryId: input.countryId } : {}),
+      ...(input.cityId !== undefined ? { cityId: input.cityId } : {}),
+      ...(input.districtId !== undefined ? { districtId: input.districtId } : {}),
       ...(input.countryCode !== undefined ? { countryCode: input.countryCode } : {}),
       ...(input.state !== undefined ? { state: input.state } : {}),
       ...(input.city !== undefined ? { city: input.city?.trim() || null } : {}),

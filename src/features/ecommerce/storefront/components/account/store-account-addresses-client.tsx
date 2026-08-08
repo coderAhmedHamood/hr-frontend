@@ -16,7 +16,13 @@ import {
   type PartnerAddress,
 } from '@/features/ecommerce/storefront/lib/api/partner-addresses-api';
 import { storeLoginHref } from '@/features/ecommerce/storefront/lib/store-auth-return';
+import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
 import { StoreEmptyState } from '@/features/ecommerce/storefront/components/store-empty-state';
+import {
+  GeoCascadeSelect,
+  type GeoCascadeValue,
+} from '@/features/system/organization/geo/components/geo-cascade-select';
+import { usePublicGeoCountries } from '@/features/system/organization/geo/hooks/use-geo';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -34,6 +40,9 @@ import { cn } from '@/shared/utils';
 
 type FormState = {
   label: string;
+  countryId: string | null;
+  cityId: string | null;
+  districtId: string | null;
   city: string;
   district: string;
   street: string;
@@ -44,6 +53,9 @@ type FormState = {
 
 const EMPTY_FORM: FormState = {
   label: '',
+  countryId: null,
+  cityId: null,
+  districtId: null,
   city: '',
   district: '',
   street: '',
@@ -56,6 +68,9 @@ function toForm(address?: PartnerAddress | null): FormState {
   if (!address) return EMPTY_FORM;
   return {
     label: address.label ?? '',
+    countryId: address.countryId ?? null,
+    cityId: address.cityId ?? null,
+    districtId: address.districtId ?? null,
     city: address.city ?? '',
     district: address.district ?? '',
     street: address.street ?? '',
@@ -75,6 +90,9 @@ export function StoreAccountAddressesClient() {
   const customer = useStorefrontCustomerUi((s) => s.customer);
   const accessToken = useStorefrontCustomerUi((s) => s.accessToken);
   const clearSession = useStorefrontCustomerUi((s) => s.clearSession);
+  const companyId = getStorefrontCompanyId();
+  const { data: geoCountries = [] } = usePublicGeoCountries(companyId, Boolean(companyId));
+  const useGeoCascade = geoCountries.length > 0;
 
   const [hydrated, setHydrated] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
@@ -145,6 +163,12 @@ export function StoreAccountAddressesClient() {
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     if (!accessToken || !customer?.partnerId) return;
+    if (useGeoCascade) {
+      if (!form.countryId || !form.cityId || !form.districtId) {
+        toast.error(t('checkout.errors.required'));
+        return;
+      }
+    }
     if (!form.city.trim() || !form.district.trim() || !form.street.trim()) {
       toast.error(t('checkout.errors.required'));
       return;
@@ -153,13 +177,16 @@ export function StoreAccountAddressesClient() {
     const payload = {
       addressType: 'shipping' as const,
       label: form.label || t('account.addresses.defaultLabel'),
+      countryId: form.countryId,
+      cityId: form.cityId,
+      districtId: form.districtId,
       city: form.city,
       district: form.district,
       street: form.street,
       building: form.building || null,
       notes: form.notes || null,
       isDefault: form.isDefault,
-      countryCode: 'YE',
+      countryCode: form.countryId ? null : 'YE',
     };
 
     setSaving(true);
@@ -384,24 +411,57 @@ export function StoreAccountAddressesClient() {
                 placeholder={t('account.addresses.labelPlaceholder')}
               />
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="addr-city">{t('checkout.city')}</Label>
-              <Input
-                id="addr-city"
-                value={form.city}
-                onChange={(e) => setForm((prev) => ({ ...prev, city: e.target.value }))}
-                required
+            {useGeoCascade ? (
+              <GeoCascadeSelect
+                companyId={companyId}
+                mode="public"
+                value={{
+                  countryId: form.countryId,
+                  cityId: form.cityId,
+                  districtId: form.districtId,
+                  countryCode: null,
+                  city: form.city,
+                  district: form.district,
+                }}
+                onChange={(geo: GeoCascadeValue) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    countryId: geo.countryId,
+                    cityId: geo.cityId,
+                    districtId: geo.districtId,
+                    city: geo.city,
+                    district: geo.district,
+                  }))
+                }
+                labels={{
+                  country: t('checkout.country'),
+                  city: t('checkout.city'),
+                  district: t('checkout.district'),
+                }}
+                className="sm:grid-cols-1"
               />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="addr-district">{t('checkout.district')}</Label>
-              <Input
-                id="addr-district"
-                value={form.district}
-                onChange={(e) => setForm((prev) => ({ ...prev, district: e.target.value }))}
-                required
-              />
-            </div>
+            ) : (
+              <>
+                <div className="space-y-1.5">
+                  <Label htmlFor="addr-city">{t('checkout.city')}</Label>
+                  <Input
+                    id="addr-city"
+                    value={form.city}
+                    onChange={(e) => setForm((prev) => ({ ...prev, city: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="addr-district">{t('checkout.district')}</Label>
+                  <Input
+                    id="addr-district"
+                    value={form.district}
+                    onChange={(e) => setForm((prev) => ({ ...prev, district: e.target.value }))}
+                    required
+                  />
+                </div>
+              </>
+            )}
             <div className="space-y-1.5">
               <Label htmlFor="addr-street">{t('checkout.street')}</Label>
               <Input

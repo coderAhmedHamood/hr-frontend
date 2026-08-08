@@ -15,6 +15,10 @@ export type StorefrontPaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded'
 export type CheckoutAddressInput = {
   fullName: string;
   phone: string;
+  /** Preferred geo IDs for store orders (must be showInStore). */
+  countryId?: string | null;
+  cityId?: string | null;
+  districtId?: string | null;
   city: string;
   district: string;
   street: string;

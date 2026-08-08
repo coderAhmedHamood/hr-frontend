@@ -146,6 +146,7 @@
     "fullName": "Full name",
     "phone": "Mobile number",
     "city": "City",
+    "country": "Country",
     "cityPlaceholder": "Select a delivery city",
     "district": "District",
     "street": "Street / details",

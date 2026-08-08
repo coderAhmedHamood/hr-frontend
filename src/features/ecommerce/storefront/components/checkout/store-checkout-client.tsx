@@ -53,6 +53,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { storeLoginHref, storeRegisterHref } from '@/features/ecommerce/storefront/lib/store-auth-return';
+import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
+import {
+  GeoCascadeSelect,
+  type GeoCascadeValue,
+} from '@/features/system/organization/geo/components/geo-cascade-select';
+import { usePublicGeoCountries } from '@/features/system/organization/geo/hooks/use-geo';
 import { Link, useRouter } from '@/i18n/navigation';
 import { cn } from '@/shared/utils';
 import type { StorefrontLocale } from '@/i18n/routing';
@@ -93,11 +99,20 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
   const cities = checkoutConfig.cities;
   const freeThreshold = checkoutConfig.freeShippingThreshold;
   const paymentMethods = checkoutConfig.paymentMethods;
+  const companyId = getStorefrontCompanyId();
+  const { data: geoCountries = [], isLoading: geoCountriesLoading } = usePublicGeoCountries(
+    companyId,
+    Boolean(companyId),
+  );
+  const useGeoCascade = geoCountries.length > 0;
 
   const [step, setStep] = React.useState<StepId>('address');
   const [address, setAddress] = React.useState<CheckoutAddressInput>(() => ({
     fullName: '',
     phone: '',
+    countryId: null,
+    cityId: null,
+    districtId: null,
     city: checkoutConfig.defaultCity || cities[0] || 'صنعاء',
     district: '',
     street: '',
@@ -159,6 +174,9 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
           ...prev,
           fullName: prev.fullName.trim() || customer?.name || '',
           phone: prev.phone.trim() || customer?.phone || '',
+          countryId: preferred.countryId ?? null,
+          cityId: preferred.cityId ?? null,
+          districtId: preferred.districtId ?? null,
           city: preferred.city?.trim() || prev.city,
           district: preferred.district?.trim() || '',
           street: preferred.street?.trim() || '',
@@ -192,6 +210,9 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
       ...prev,
       fullName: prev.fullName.trim() || customer?.name || '',
       phone: prev.phone.trim() || customer?.phone || '',
+      countryId: row.countryId ?? null,
+      cityId: row.cityId ?? null,
+      districtId: row.districtId ?? null,
       city: row.city?.trim() || prev.city,
       district: row.district?.trim() || '',
       street: row.street?.trim() || '',
@@ -207,6 +228,10 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
     setAddressErrors({});
     setAddress((prev) => ({
       ...prev,
+      countryId: null,
+      cityId: null,
+      districtId: null,
+      city: useGeoCascade ? '' : checkoutConfig.defaultCity || cities[0] || prev.city,
       district: '',
       street: '',
       notes: '',
@@ -229,6 +254,9 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
         partnerId: customer.partnerId,
         addressType: 'shipping',
         label: address.city,
+        countryId: address.countryId ?? null,
+        cityId: address.cityId ?? null,
+        districtId: address.districtId ?? null,
         city: address.city,
         district: address.district,
         street: address.street,
@@ -236,7 +264,7 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
         latitude: address.lat ?? null,
         longitude: address.lng ?? null,
         isDefault: savedAddresses.length === 0,
-        countryCode: 'YE',
+        countryCode: address.countryId ? null : 'YE',
       });
       setSavedAddresses((prev) => [created, ...prev]);
       setSelectedAddressId(created.id);
@@ -289,7 +317,13 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
     if (!address.phone.trim() || address.phone.replace(/\D/g, '').length < 9) {
       errors.phone = t('checkout.errors.phone');
     }
-    if (cities.length === 0) {
+    if (useGeoCascade) {
+      if (!address.countryId) errors.city = t('checkout.errors.cityRequired');
+      else if (!address.cityId || !address.city.trim()) errors.city = t('checkout.errors.cityRequired');
+      if (!address.districtId || !address.district.trim()) {
+        errors.district = t('checkout.errors.required');
+      }
+    } else if (cities.length === 0) {
       errors.city = t('checkout.errors.citiesUnavailable');
     } else if (!address.city.trim()) {
       errors.city = t('checkout.errors.cityRequired');
@@ -298,8 +332,9 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
       !cities.includes(address.city)
     ) {
       errors.city = t('checkout.errors.cityRequired');
+    } else if (!address.district.trim()) {
+      errors.district = t('checkout.errors.required');
     }
-    if (!address.district.trim()) errors.district = t('checkout.errors.required');
     if (!address.street.trim()) errors.street = t('checkout.errors.required');
     setAddressErrors(errors);
     return Object.keys(errors).length === 0;
@@ -612,36 +647,79 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
 
               {showAddressForm ? (
                 <>
-                  <Field label={t('checkout.city')} error={addressErrors.city}>
-                    {cities.length === 0 ? (
-                      <p className="rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2.5 text-sm text-destructive">
-                        {t('checkout.errors.citiesUnavailable')}
-                      </p>
-                    ) : (
-                      <Select
-                        value={cities.includes(address.city) ? address.city : undefined}
-                        onValueChange={(city) => setAddress((prev) => ({ ...prev, city }))}
-                      >
-                        <SelectTrigger className={checkoutFieldClassName}>
-                          <SelectValue placeholder={t('checkout.cityPlaceholder')} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {cities.map((city) => (
-                            <SelectItem key={city} value={city}>
-                              {city}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                  </Field>
-                  <Field label={t('checkout.district')} error={addressErrors.district}>
-                    <Input
-                      value={address.district}
-                      onChange={(e) => setAddress((prev) => ({ ...prev, district: e.target.value }))}
-                      className={checkoutFieldClassName}
-                    />
-                  </Field>
+                  {useGeoCascade ? (
+                    <div className="sm:col-span-2">
+                      <GeoCascadeSelect
+                        companyId={companyId}
+                        mode="public"
+                        value={{
+                          countryId: address.countryId ?? null,
+                          cityId: address.cityId ?? null,
+                          districtId: address.districtId ?? null,
+                          countryCode: null,
+                          city: address.city,
+                          district: address.district,
+                        }}
+                        onChange={(geo: GeoCascadeValue) =>
+                          setAddress((prev) => ({
+                            ...prev,
+                            countryId: geo.countryId,
+                            cityId: geo.cityId,
+                            districtId: geo.districtId,
+                            city: geo.city,
+                            district: geo.district,
+                          }))
+                        }
+                        labels={{
+                          country: t('checkout.country'),
+                          city: t('checkout.city'),
+                          district: t('checkout.district'),
+                        }}
+                      />
+                      {(addressErrors.city || addressErrors.district) && (
+                        <p className="mt-1.5 text-xs text-destructive">
+                          {addressErrors.city || addressErrors.district}
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <>
+                      <Field label={t('checkout.city')} error={addressErrors.city}>
+                        {geoCountriesLoading ? (
+                          <p className="text-sm text-muted-foreground">…</p>
+                        ) : cities.length === 0 ? (
+                          <p className="rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2.5 text-sm text-destructive">
+                            {t('checkout.errors.citiesUnavailable')}
+                          </p>
+                        ) : (
+                          <Select
+                            value={cities.includes(address.city) ? address.city : undefined}
+                            onValueChange={(city) => setAddress((prev) => ({ ...prev, city }))}
+                          >
+                            <SelectTrigger className={checkoutFieldClassName}>
+                              <SelectValue placeholder={t('checkout.cityPlaceholder')} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {cities.map((city) => (
+                                <SelectItem key={city} value={city}>
+                                  {city}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      </Field>
+                      <Field label={t('checkout.district')} error={addressErrors.district}>
+                        <Input
+                          value={address.district}
+                          onChange={(e) =>
+                            setAddress((prev) => ({ ...prev, district: e.target.value }))
+                          }
+                          className={checkoutFieldClassName}
+                        />
+                      </Field>
+                    </>
+                  )}
                   <Field label={t('checkout.street')} error={addressErrors.street} className="sm:col-span-2">
                     <Input
                       value={address.street}
