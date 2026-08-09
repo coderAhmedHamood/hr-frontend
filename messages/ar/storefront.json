@@ -176,17 +176,42 @@
     "paymentProofAttached": "تم إرفاق إيصال الدفع",
     "paymentProofAttachedCount": "تم إرفاق {count} مرفقات",
     "paymentProofRemove": "إزالة الصورة",
+    "paymentAccountTitle": "حساب الدفع",
+    "paymentAccountHint": "اختر الحساب الذي ستحوّل إليه ثم أرفق الإيصال إن لزم.",
+    "paymentAccountLoading": "جاري تحميل الحسابات…",
+    "paymentAccountOptionalEmpty": "لا توجد حسابات لهذا النوع حالياً — يمكنك المتابعة بدون اختيار.",
+    "paymentAccountSelected": "الحساب: {name}",
     "attachmentsLabel": "مرفقات الطلب (اختياري)",
     "attachmentsHint": "أرفق صوراً أو ملفات PDF تخص الطلب — {count} من {max}.",
     "attachmentsRemove": "إزالة المرفق",
     "paymentMethods": {
       "cash_on_delivery": {
         "label": "الدفع عند الاستلام",
-        "description": "ادفع نقداً أو بالبطاقة عند وصول الطلب."
+        "description": "ادفع نقداً عند وصول الطلب."
+      },
+      "cash": {
+        "label": "نقدي",
+        "description": "ادفع نقداً في نقطة الاستلام المحددة."
+      },
+      "bank": {
+        "label": "تحويل بنكي",
+        "description": "حوّل إلى الحساب البنكي ثم أرفق إيصال التحويل."
+      },
+      "network": {
+        "label": "شبكة تحويل",
+        "description": "حوّل عبر الشبكة المحلية ثم أرفق الإيصال."
+      },
+      "wallet": {
+        "label": "محفظة إلكترونية",
+        "description": "حوّل عبر المحفظة ثم أرفق إيصال التحويل."
       },
       "card": {
         "label": "بطاقة ائتمان / خصم",
-        "description": "Visa أو Mastercard أو تحويل شبكي مع إرفاق الإيصال."
+        "description": "Visa أو Mastercard أو بوابة بطاقة."
+      },
+      "other": {
+        "label": "طريقة أخرى",
+        "description": "اتبع تعليمات المتجر لإتمام الدفع."
       }
     },
     "errors": {
@@ -197,6 +222,8 @@
       "paymentProofType": "يرجى اختيار صورة فقط",
       "paymentProofSize": "حجم الصورة يجب ألا يتجاوز 4 ميجابايت",
       "paymentProofMax": "الحد الأقصى {max} مرفقات لإثبات الدفع",
+      "paymentAccountRequired": "اختر حساب الدفع للمتابعة",
+      "paymentAccountUnavailable": "لا يوجد حساب دفع متاح لهذه الطريقة. تواصل مع المتجر.",
       "attachmentsMax": "الحد الأقصى {max} مرفقات للطلب",
       "attachmentSize": "حجم الملف كبير جداً",
       "attachmentType": "تعذّر إرفاق الملف"

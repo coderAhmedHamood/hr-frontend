@@ -176,17 +176,42 @@
     "paymentProofAttached": "Payment receipt attached",
     "paymentProofAttachedCount": "{count} attachments added",
     "paymentProofRemove": "Remove photo",
+    "paymentAccountTitle": "Payment account",
+    "paymentAccountHint": "Pick the account you will pay to, then attach a receipt if needed.",
+    "paymentAccountLoading": "Loading accounts…",
+    "paymentAccountOptionalEmpty": "No accounts for this method right now — you can continue without selecting one.",
+    "paymentAccountSelected": "Account: {name}",
     "attachmentsLabel": "Order attachments (optional)",
     "attachmentsHint": "Attach images or PDF files related to your order — {count} of {max}.",
     "attachmentsRemove": "Remove attachment",
     "paymentMethods": {
       "cash_on_delivery": {
         "label": "Cash on delivery",
-        "description": "Pay cash or card when your order arrives."
+        "description": "Pay cash when your order arrives."
+      },
+      "cash": {
+        "label": "Cash",
+        "description": "Pay cash at the designated pickup point."
+      },
+      "bank": {
+        "label": "Bank transfer",
+        "description": "Transfer to the bank account and attach the receipt."
+      },
+      "network": {
+        "label": "Local transfer network",
+        "description": "Pay via the local network and attach the receipt."
+      },
+      "wallet": {
+        "label": "E-wallet",
+        "description": "Transfer via wallet and attach the receipt."
       },
       "card": {
         "label": "Credit / debit card",
-        "description": "Visa, Mastercard, or transfer — attach a receipt for review."
+        "description": "Visa, Mastercard, or a card gateway."
+      },
+      "other": {
+        "label": "Other",
+        "description": "Follow the store instructions to complete payment."
       }
     },
     "errors": {
@@ -197,6 +222,8 @@
       "paymentProofType": "Please choose an image file",
       "paymentProofSize": "Image must be 4 MB or smaller",
       "paymentProofMax": "Maximum {max} payment proof attachments",
+      "paymentAccountRequired": "Select a payment account to continue",
+      "paymentAccountUnavailable": "No payment account is available for this method. Please contact the store.",
       "attachmentsMax": "Maximum {max} order attachments",
       "attachmentSize": "File is too large",
       "attachmentType": "Could not attach the file"

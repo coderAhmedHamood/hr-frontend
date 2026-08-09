@@ -1,5 +1,9 @@
 import type { Inventory, MediaItem, Money, StockStatus, ProductStatus } from '@/features/ecommerce/domain/types';
-import type { CompanyThemeColors, CompanyContactInfo } from '@/features/ecommerce/storefront/domain/company-config';
+import type {
+  CompanyCheckoutPaymentMethod,
+  CompanyThemeColors,
+  CompanyContactInfo,
+} from '@/features/ecommerce/storefront/domain/company-config';
 import type { LegalPageSlug } from '@/features/ecommerce/storefront/domain/content';
 import type { StorefrontTypography } from '@/features/ecommerce/storefront/lib/storefront-fonts';
 
@@ -154,7 +158,7 @@ export type StorefrontCompanyConfig = {
   checkout: {
     cities: string[];
     defaultCity: string;
-    paymentMethods: Array<'cash_on_delivery' | 'card'>;
+    paymentMethods: CompanyCheckoutPaymentMethod[];
   };
   storePages: {
     offers: boolean;
