@@ -278,8 +278,6 @@ export type CompanyCheckoutPaymentMethod = 'cash_on_delivery' | 'card';
 export type CompanyCheckoutConfigRecord = {
   cities: string[];
   defaultCity: string;
-  freeShippingThreshold: number;
-  standardShippingFee: number;
   paymentMethods: CompanyCheckoutPaymentMethod[];
 };
 

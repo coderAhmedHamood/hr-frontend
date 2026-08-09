@@ -21,6 +21,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/shared/utils';
+import { isMultiLangEnabled } from '@/i18n/locale-flags';
 
 const NO_VALUE = '__none__';
 
@@ -251,6 +252,46 @@ export function ProductGeneralTab({ control, errors, register, categories, brand
             rows={4}
             className="resize-none"
             {...register('description')}
+          />
+        </ProductFormField>
+      </ProductFormSection>
+
+      <ProductFormSection
+        title="عرض المتجر"
+        description="الرابط المختصر لصفحة المنتج وإعدادات تحسين محركات البحث."
+      >
+        <div className="grid gap-4 sm:grid-cols-2">
+          <ProductFormField
+            label="الرابط المختصر (Slug)"
+            htmlFor="product-slug"
+            error={errors.slug?.message}
+            hint="أحرف إنجليزية صغيرة وأرقام وشرطات فقط. يُولَّد تلقائيًا إن تُرك فارغًا."
+          >
+            <Input
+              id="product-slug"
+              dir="ltr"
+              className="h-11"
+              placeholder="cerave-hydrating-serum"
+              {...register('slug')}
+            />
+          </ProductFormField>
+
+          {isMultiLangEnabled ? (
+            <ProductFormField label="الاسم الإنجليزي" htmlFor="product-name-en">
+              <Input id="product-name-en" className="h-11" dir="ltr" {...register('nameEn')} />
+            </ProductFormField>
+          ) : null}
+        </div>
+
+        <ProductFormField label="عنوان SEO" htmlFor="product-meta-title">
+          <Input id="product-meta-title" className="h-11" {...register('metaTitle')} />
+        </ProductFormField>
+        <ProductFormField label="وصف SEO" htmlFor="product-meta-description">
+          <Textarea
+            id="product-meta-description"
+            rows={3}
+            className="resize-none"
+            {...register('metaDescription')}
           />
         </ProductFormField>
       </ProductFormSection>

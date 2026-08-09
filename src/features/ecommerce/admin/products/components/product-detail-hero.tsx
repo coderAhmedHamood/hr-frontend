@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowRight, Camera, ImagePlus } from 'lucide-react';
+import { ArrowRight, Camera, ImagePlus, Loader2 } from 'lucide-react';
 import { useWatch, type Control, type UseFormRegister, type UseFormSetValue } from 'react-hook-form';
 import type { ProductFormInput, ProductFormValues } from '@/features/ecommerce/admin/products/schemas/product-schema';
 import { useProductImageField } from '@/features/ecommerce/admin/products/hooks/use-product-image-field';
@@ -38,7 +38,7 @@ const STOCK_BADGE_VARIANT: Record<StockStatus, BadgeProps['variant']> = {
 
 /** Modern, live-updating identity card for the product detail page — replaces the compact dialog header. */
 export function ProductDetailHero({ control, register, setValue, nameError, currency }: Props) {
-  const { imageUrl, pickImage } = useProductImageField(control, setValue);
+  const { imageUrl, pickImage, uploading } = useProductImageField(control, setValue);
   const sku = useWatch({ control, name: 'sku' }) ?? '';
   const status = useWatch({ control, name: 'status' });
   const stockStatus = useWatch({ control, name: 'stockStatus' });
@@ -84,11 +84,14 @@ export function ProductDetailHero({ control, register, setValue, nameError, curr
         <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
           <button
             type="button"
-            onClick={pickImage}
-            className="group relative mx-auto flex aspect-square w-28 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-dashed border-border bg-background/80 shadow-soft transition-all hover:border-primary/50 sm:mx-0 sm:w-32"
+            onClick={() => void pickImage()}
+            disabled={uploading}
+            className="group relative mx-auto flex aspect-square w-28 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-dashed border-border bg-background/80 shadow-soft transition-all hover:border-primary/50 disabled:opacity-70 sm:mx-0 sm:w-32"
             aria-label="تغيير صورة المنتج"
           >
-            {imageUrl ? (
+            {uploading ? (
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            ) : imageUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={imageUrl} alt="" className="h-full w-full object-cover" />
             ) : (

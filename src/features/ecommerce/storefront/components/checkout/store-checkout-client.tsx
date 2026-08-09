@@ -108,7 +108,6 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
   }, []);
 
   const cities = checkoutConfig.cities;
-  const freeThreshold = checkoutConfig.freeShippingThreshold;
   const paymentMethods = checkoutConfig.paymentMethods;
   const companyId = getStorefrontCompanyId();
   const { data: geoCountries = [], isLoading: geoCountriesLoading } = usePublicGeoCountries(
@@ -314,13 +313,9 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
 
   const currency = cartLines[0]?.unitPrice.currency ?? storeCurrency ?? 'YER';
   const subtotal = cartLines.reduce((sum, item) => sum + item.unitPrice.amount * item.line.quantity, 0);
-  const shipping = calculateShippingFee(subtotal, currency, {
-    freeShippingThreshold: freeThreshold,
-    standardShippingFee: checkoutConfig.standardShippingFee,
-  });
+  const shipping = calculateShippingFee(subtotal, currency);
   const total = subtotal + shipping.amount;
   const itemCount = cartLines.reduce((sum, item) => sum + item.line.quantity, 0);
-  const freeShippingProgress = Math.min(100, (subtotal / Math.max(freeThreshold, 1)) * 100);
 
   function formatPrice(amount: number) {
     return format.number(amount, { style: 'currency', currency });
@@ -1235,25 +1230,6 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
           </ul>
 
           <div className="space-y-3 border-t border-border px-5 py-4">
-            {shipping.amount > 0 ? (
-              <div className="space-y-1.5">
-                <div className="flex justify-between text-[11px] text-muted-foreground">
-                  <span>{t('checkout.freeShippingHint', { amount: freeThreshold })}</span>
-                  <span>{Math.round(freeShippingProgress)}%</span>
-                </div>
-                <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-                  <div
-                    className="h-full rounded-full bg-secondary transition-[width] duration-300"
-                    style={{ ['--progress' as string]: `${freeShippingProgress}%`, width: 'var(--progress)' }}
-                  />
-                </div>
-              </div>
-            ) : (
-              <p className="rounded-xl bg-secondary/10 px-3 py-2 text-xs font-medium text-secondary">
-                {t('checkout.freeShippingUnlocked')}
-              </p>
-            )}
-
             <dl className="space-y-2.5 text-sm">
               <div className="flex justify-between gap-3">
                 <dt className="text-muted-foreground">{t('cart.subtotal')}</dt>

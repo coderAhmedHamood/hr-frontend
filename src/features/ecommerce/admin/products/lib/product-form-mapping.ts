@@ -64,6 +64,12 @@ function variantToForm(variant: ProductVariant) {
     stockStatus: variant.stockStatus,
     barcode: variant.barcode ?? '',
     imageUrl: variant.imageUrl ?? '',
+    images:
+      variant.images && variant.images.length > 0
+        ? variant.images.map((item) => item.url)
+        : variant.imageUrl
+          ? [variant.imageUrl]
+          : [],
     isActive: variant.isActive,
   };
 }
@@ -90,7 +96,15 @@ function formVariantToDomain(
           ? 'in_stock'
           : 'out_of_stock',
     barcode: variant.barcode || undefined,
-    imageUrl: variant.imageUrl?.trim() || undefined,
+    imageUrl: (variant.images?.[0] ?? variant.imageUrl)?.trim() || undefined,
+    images: (variant.images ?? []).filter((url) => url.trim().length > 0).map((url, index) => ({
+      id: `variant-image-${index}`,
+      url,
+      alt: '',
+      type: 'image' as const,
+      position: index,
+      isPrimary: index === 0,
+    })),
     isActive: variant.isActive,
   };
 }

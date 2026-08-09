@@ -154,8 +154,6 @@ export type StorefrontCompanyConfig = {
   checkout: {
     cities: string[];
     defaultCity: string;
-    freeShippingThreshold: number;
-    standardShippingFee: number;
     paymentMethods: Array<'cash_on_delivery' | 'card'>;
   };
   storePages: {

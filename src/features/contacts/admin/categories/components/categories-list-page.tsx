@@ -18,6 +18,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { DataTable, usePagination, type ColumnDef } from '@/components/ui/data-table';
 import { DirectoryPagedViews, DEFAULT_PAGE_SIZE } from '@/components/ui/paged-list';
+import { isMultiLangEnabled } from '@/i18n/locale-flags';
 import {
   Dialog,
   DialogContent,
@@ -248,9 +249,11 @@ export function PartnerCategoriesListPage() {
                   {...form.register('slug')}
                 />
               </EntityFormRow>
-              <EntityFormRow label="الاسم الإنجليزي" htmlFor="cat-en">
-                <Input id="cat-en" dir="ltr" {...form.register('nameEn')} />
-              </EntityFormRow>
+              {isMultiLangEnabled ? (
+                <EntityFormRow label="الاسم الإنجليزي" htmlFor="cat-en">
+                  <Input id="cat-en" dir="ltr" {...form.register('nameEn')} />
+                </EntityFormRow>
+              ) : null}
               <EntityFormRow label="اللون" htmlFor="cat-color">
                 <Input id="cat-color" dir="ltr" placeholder="#0d9488" {...form.register('color')} />
               </EntityFormRow>

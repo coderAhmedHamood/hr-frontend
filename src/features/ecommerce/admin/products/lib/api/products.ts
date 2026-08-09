@@ -153,6 +153,7 @@ type VariantDto = {
   nameAr: string;
   barcode?: string | null;
   imageUrl?: string | null;
+  images?: string[] | null;
   salePriceAmount: string | number;
   salePriceCurrency: string;
   costPriceAmount: string | number;
@@ -257,6 +258,14 @@ function mapVariants(items: VariantDto[] | undefined): ProductVariant[] {
       stockStatus: dto.stockStatus,
       barcode: dto.barcode ?? undefined,
       imageUrl: dto.imageUrl ?? undefined,
+      images: (dto.images ?? []).filter(Boolean).map((url, index) => ({
+        id: `variant-image-${dto.id}-${index}`,
+        url,
+        alt: '',
+        type: 'image' as const,
+        position: index,
+        isPrimary: index === 0,
+      })),
       isActive: dto.isActive,
     };
   });
@@ -545,7 +554,8 @@ function toFullBody(input: CreateProductInput | UpdateProductInput, mode: 'creat
         sku: variant.sku,
         nameAr: variant.nameAr,
         barcode: variant.barcode ?? null,
-        imageUrl: variant.imageUrl ?? null,
+        imageUrl: variant.images?.[0]?.url ?? variant.imageUrl ?? null,
+        images: variant.images && variant.images.length > 0 ? variant.images.map((item) => item.url) : [],
         salePriceAmount: variant.salePrice.amount,
         salePriceCurrency: 'YER',
         costPriceAmount: variant.costPrice.amount,

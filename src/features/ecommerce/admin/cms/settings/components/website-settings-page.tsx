@@ -61,8 +61,6 @@ function defaultCheckout(draft: CompanyConfigRecord) {
     draft.checkout ?? {
       cities: [],
       defaultCity: '',
-      freeShippingThreshold: 200,
-      standardShippingFee: 25,
       paymentMethods: ['cash_on_delivery', 'card'] as Array<'cash_on_delivery' | 'card'>,
     }
   );
@@ -450,43 +448,7 @@ export function WebsiteSettingsPage() {
 
           <TabsContent value="checkout" className="mt-4">
             <SettingsPanel title={t('tabs.checkout')} description={t('checkoutHint')}>
-              <div className="grid gap-5 sm:grid-cols-2">
-                <Field label={t('freeShippingThreshold')}>
-                  <Input
-                    type="number"
-                    min={0}
-                    dir="ltr"
-                    className={FIELD}
-                    value={draft.checkout?.freeShippingThreshold ?? 200}
-                    onChange={(event) =>
-                      updateDraft({
-                        ...draft,
-                        checkout: {
-                          ...defaultCheckout(draft),
-                          freeShippingThreshold: Number(event.target.value) || 0,
-                        },
-                      })
-                    }
-                  />
-                </Field>
-                <Field label={t('standardShippingFee')}>
-                  <Input
-                    type="number"
-                    min={0}
-                    dir="ltr"
-                    className={FIELD}
-                    value={draft.checkout?.standardShippingFee ?? 25}
-                    onChange={(event) =>
-                      updateDraft({
-                        ...draft,
-                        checkout: {
-                          ...defaultCheckout(draft),
-                          standardShippingFee: Number(event.target.value) || 0,
-                        },
-                      })
-                    }
-                  />
-                </Field>
+              <div className="grid gap-5">
                 <CheckoutCitiesEditor
                   cities={draft.checkout?.cities ?? []}
                   defaultCity={draft.checkout?.defaultCity ?? ''}
@@ -501,7 +463,7 @@ export function WebsiteSettingsPage() {
                     })
                   }
                 />
-                <div className="space-y-3 sm:col-span-2">
+                <div className="space-y-3">
                   <Label className="text-sm font-medium text-foreground">{t('paymentMethods')}</Label>
                   <div className="grid gap-3 sm:grid-cols-2">
                     {(

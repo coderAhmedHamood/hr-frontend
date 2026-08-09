@@ -130,8 +130,6 @@ export function mapStorefrontCompanyConfig(
             'عمران',
           ],
       defaultCity: record.checkout?.defaultCity || 'صنعاء',
-      freeShippingThreshold: record.checkout?.freeShippingThreshold ?? 200,
-      standardShippingFee: record.checkout?.standardShippingFee ?? 25,
       paymentMethods:
         record.checkout?.paymentMethods?.length > 0
           ? [...record.checkout.paymentMethods]

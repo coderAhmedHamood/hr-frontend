@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DataTable, type ColumnDef } from '@/components/ui/data-table';
 import { DirectoryPagedViews, DEFAULT_PAGE_SIZE } from '@/components/ui/paged-list';
+import { isMultiLangEnabled } from '@/i18n/locale-flags';
 
 export function BrandsListPage() {
   const companyId = getStorefrontCompanyId();
@@ -127,7 +128,9 @@ export function BrandsListPage() {
           </div>
           <div className="flex flex-col">
             <span className="font-medium text-foreground">{brand.nameAr}</span>
-            {brand.nameEn ? <span className="text-xs text-muted-foreground">{brand.nameEn}</span> : null}
+            {isMultiLangEnabled && brand.nameEn ? (
+              <span className="text-xs text-muted-foreground">{brand.nameEn}</span>
+            ) : null}
           </div>
         </div>
       ),

@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Camera, CheckCircle2, Loader2, Save } from 'lucide-react';
+import { CheckCircle2, Loader2, Save } from 'lucide-react';
 import {
   useFieldArray,
   useWatch,
@@ -13,6 +13,7 @@ import {
 import { toast } from 'sonner';
 import type { ProductFormInput, ProductFormValues } from '@/features/ecommerce/admin/products/schemas/product-schema';
 import { syncProductVariants, dedupeAttributeValues } from '@/features/ecommerce/admin/products/lib/product-variants';
+import { ProductVariantImageGallery } from '@/features/ecommerce/admin/products/components/product-variant-image-gallery';
 import { formValuesToCreateInput, productToFormValues } from '@/features/ecommerce/admin/products/lib/product-form-mapping';
 import { isPersistedId } from '@/features/ecommerce/admin/products/lib/api/products';
 import { useProductMutations } from '@/features/ecommerce/admin/products/hooks/use-product-mutations';
@@ -22,7 +23,6 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { cn } from '@/shared/utils';
 
 type Props = {
   control: Control<ProductFormInput, unknown, ProductFormValues>;
@@ -141,12 +141,9 @@ export function ProductVariantsPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [signature, replace, setValue]);
 
-  function pickVariantImage(index: number) {
-    const current = variantsWatch[index]?.imageUrl?.trim() ?? '';
-    const nextUrl = window.prompt('أدخل رابط صورة المتغير', current || 'https://');
-    if (nextUrl === null) return;
-    const url = nextUrl.trim();
-    setValue(`variants.${index}.imageUrl`, url, { shouldDirty: true });
+  function setVariantImages(index: number, images: string[]) {
+    setValue(`variants.${index}.images`, images, { shouldDirty: true });
+    setValue(`variants.${index}.imageUrl`, images[0] ?? '', { shouldDirty: true });
   }
 
   async function handleSaveVariants() {
@@ -274,27 +271,16 @@ export function ProductVariantsPanel({
           <tbody>
             {fields.map((field, index) => {
               const labels = variantsWatch[index]?.attributeLabels ?? field.attributeLabels;
-              const imageUrl = variantsWatch[index]?.imageUrl?.trim() ?? '';
+              const images = variantsWatch[index]?.images ?? [];
               const rowId = variantsWatch[index]?.id ?? field.id;
               const rowPersisted = isPersistedId(rowId);
               return (
                 <tr key={field._key} className="border-b border-border last:border-0">
                   <td className="px-3 py-2.5 align-middle">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className={cn('h-12 w-12 overflow-hidden p-0')}
-                      onClick={() => pickVariantImage(index)}
-                      aria-label="صورة المتغير"
-                    >
-                      {imageUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={imageUrl} alt="" className="h-full w-full object-cover" />
-                      ) : (
-                        <Camera className="h-4 w-4 text-muted-foreground" />
-                      )}
-                    </Button>
+                    <ProductVariantImageGallery
+                      images={images}
+                      onChange={(next) => setVariantImages(index, next)}
+                    />
                     <input type="hidden" {...register(`variants.${index}.imageUrl`)} />
                   </td>
                   <td className="px-3 py-2.5 align-middle">
