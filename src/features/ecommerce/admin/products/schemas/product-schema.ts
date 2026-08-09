@@ -83,6 +83,7 @@ const variantSchema = z.object({
   stockStatus: z.enum(['in_stock', 'out_of_stock', 'preorder', 'discontinued']),
   barcode: z.string().trim().optional(),
   imageUrl: z.string().trim().optional(),
+  images: z.array(z.string().trim()).optional(),
   isActive: z.boolean(),
 });
 

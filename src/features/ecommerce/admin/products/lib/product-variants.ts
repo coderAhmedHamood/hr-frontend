@@ -167,6 +167,7 @@ export function syncProductVariants(args: SyncArgs): ProductVariant[] {
       stockStatus,
       barcode: existing?.barcode,
       imageUrl: existing?.imageUrl,
+      images: existing?.images,
       isActive: existing?.isActive ?? true,
     };
   });

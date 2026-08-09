@@ -25,6 +25,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DataTable, usePagination, type ColumnDef } from '@/components/ui/data-table';
 import { DirectoryPagedViews, DEFAULT_PAGE_SIZE } from '@/components/ui/paged-list';
+import { isMultiLangEnabled } from '@/i18n/locale-flags';
 
 export function CategoriesListPage() {
   const companyId = getStorefrontCompanyId();
@@ -159,7 +160,9 @@ export function CategoriesListPage() {
               <p className="text-xs text-muted-foreground" title={meta.pathLabel}>
                 {meta.pathLabel}
               </p>
-              {category.nameEn ? <span className="text-xs text-muted-foreground">{category.nameEn}</span> : null}
+              {isMultiLangEnabled && category.nameEn ? (
+                <span className="text-xs text-muted-foreground">{category.nameEn}</span>
+              ) : null}
             </div>
           </div>
         );

@@ -62,8 +62,6 @@ function defaultCheckout(draft: CompanyConfigRecord) {
     draft.checkout ?? {
       cities: [],
       defaultCity: '',
-      freeShippingThreshold: 200,
-      standardShippingFee: 25,
       paymentMethods: ['cash_on_delivery', 'card'] as Array<'cash_on_delivery' | 'card'>,
     }
   );
@@ -512,7 +510,7 @@ export function WebsiteSettingsPage() {
                     })
                   }
                 />
-                <div className="space-y-3 sm:col-span-2">
+                <div className="space-y-3">
                   <Label className="text-sm font-medium text-foreground">{t('paymentMethods')}</Label>
                   <div className="grid gap-3 sm:grid-cols-2">
                     {(

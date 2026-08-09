@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
-import { Layers, Package, Ruler, Save, Settings, Star, Store, Trash2, Warehouse } from 'lucide-react';
+import { Layers, Package, Ruler, Save, Settings, Star, Trash2, Warehouse } from 'lucide-react';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
@@ -31,7 +31,6 @@ import { ProductRelatedDocsSidebar } from '@/features/ecommerce/admin/products/c
 import { ProductGeneralTab } from '@/features/ecommerce/admin/products/components/product-general-tab';
 import { ProductAttributesTab } from '@/features/ecommerce/admin/products/components/product-attributes-tab';
 import { ProductInventoryTab } from '@/features/ecommerce/admin/products/components/product-inventory-tab';
-import { ProductStorefrontTab } from '@/features/ecommerce/admin/products/components/product-storefront-tab';
 import { ProductReviewsTab } from '@/features/ecommerce/admin/products/components/product-reviews-tab';
 import { ProductUnitsTab } from '@/features/ecommerce/admin/products/components/product-units-tab';
 import { ProductSettingsTab } from '@/features/ecommerce/admin/products/components/product-settings-tab';
@@ -58,7 +57,6 @@ const DETAIL_TABS = [
   { value: 'attributes', label: 'خصائص', icon: Layers },
   { value: 'availability', label: 'توفر', icon: Warehouse },
   { value: 'units', label: 'وحدات', icon: Ruler },
-  { value: 'storefront', label: 'متجر', icon: Store },
   { value: 'reviews', label: 'تقييمات', icon: Star },
   { value: 'settings', label: 'الإعدادات', icon: Settings },
 ] as const;
@@ -86,11 +84,14 @@ const TAB_FIELDS: Record<DetailTab, string[]> = {
     'shortDescription',
     'description',
     'tagsInput',
+    'nameEn',
+    'slug',
+    'metaTitle',
+    'metaDescription',
   ],
   attributes: ['attributes', 'variants'],
   availability: ['stockStatus', 'stockQuantity', 'lowStockThreshold'],
   units: ['uomLines'],
-  storefront: ['nameEn', 'slug', 'metaTitle', 'metaDescription'],
   reviews: [],
   settings: [
     'isNewProduct',
@@ -402,9 +403,6 @@ export function ProductDetailPage({ productId }: Props) {
               </TabsContent>
               <TabsContent value="units" className="mt-0 focus-visible:outline-none">
                 <ProductUnitsTab control={form.control} errors={form.formState.errors} setValue={form.setValue} />
-              </TabsContent>
-              <TabsContent value="storefront" className="mt-0 focus-visible:outline-none">
-                <ProductStorefrontTab errors={form.formState.errors} register={form.register} />
               </TabsContent>
               <TabsContent value="reviews" className="mt-0 focus-visible:outline-none">
                 <ProductReviewsTab companyId={companyId} productId={product.id} />

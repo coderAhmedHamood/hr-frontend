@@ -1,6 +1,6 @@
 import { apiFormRequest } from '@/features/hr/lib/api/client';
 
-export type UploadCategory = 'image' | 'pdf' | 'document' | 'other';
+export type UploadCategory = 'image' | 'pdf' | 'document' | 'other' | 'products';
 
 export type UploadResponseDto = {
   category: UploadCategory;

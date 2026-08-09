@@ -27,7 +27,6 @@ import { ProductFormHeader } from '@/features/ecommerce/admin/products/component
 import { ProductGeneralTab } from '@/features/ecommerce/admin/products/components/product-general-tab';
 import { ProductAttributesTab } from '@/features/ecommerce/admin/products/components/product-attributes-tab';
 import { ProductInventoryTab } from '@/features/ecommerce/admin/products/components/product-inventory-tab';
-import { ProductStorefrontTab } from '@/features/ecommerce/admin/products/components/product-storefront-tab';
 import { ProductUnitsTab } from '@/features/ecommerce/admin/products/components/product-units-tab';
 import { ProductSettingsTab } from '@/features/ecommerce/admin/products/components/product-settings-tab';
 import { ProductStockMoveRequestDialog } from '@/features/ecommerce/admin/products/components/product-stock-move-request-dialog';
@@ -41,7 +40,7 @@ import type { ProductRelatedDocKey } from '@/features/ecommerce/admin/products/c
 import { ecommerceAdminRoutes } from '@/features/ecommerce/admin/constants/routes';
 import type { Product } from '@/features/ecommerce/domain/types/product';
 import type { WarehouseOperationKind } from '@/features/inventory/domain/types/warehouse';
-import { Layers, Package, Ruler, Settings, Store, Warehouse } from 'lucide-react';
+import { Layers, Package, Ruler, Settings, Warehouse } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -76,7 +75,6 @@ const FORM_TABS = [
   { value: 'attributes', label: 'خصائص', icon: Layers },
   { value: 'availability', label: 'توفر', icon: Warehouse },
   { value: 'units', label: 'وحدات', icon: Ruler },
-  { value: 'storefront', label: 'متجر', icon: Store },
   { value: 'settings', label: 'الإعدادات', icon: Settings },
 ] as const;
 
@@ -412,9 +410,6 @@ export function ProductFormDialog({ product, open, onOpenChange }: Props) {
                         errors={form.formState.errors}
                         setValue={form.setValue}
                       />
-                    </TabsContent>
-                    <TabsContent value="storefront" className="mt-0 focus-visible:outline-none">
-                      <ProductStorefrontTab errors={form.formState.errors} register={form.register} />
                     </TabsContent>
                     <TabsContent value="settings" className="mt-0 focus-visible:outline-none">
                       <ProductSettingsTab

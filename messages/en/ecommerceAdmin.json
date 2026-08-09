@@ -528,8 +528,6 @@
     "youtube": "YouTube",
     "snapchat": "Snapchat",
     "linkedin": "LinkedIn",
-    "freeShippingThreshold": "Free shipping threshold",
-    "standardShippingFee": "Standard shipping fee",
     "defaultCity": "Default city",
     "cities": "Delivery cities",
     "citiesHint": "Cities customers can select when placing an order. The default city is pre-selected at checkout.",

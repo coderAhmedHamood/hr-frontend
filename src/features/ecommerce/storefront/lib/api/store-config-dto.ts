@@ -10,7 +10,6 @@ import {
   normalizeSocialLinks,
   normalizeStorePagesVisibility,
 } from '@/features/ecommerce/storefront/domain/company-config';
-import { fromDecimalString, toDecimalString } from '@/features/ecommerce/storefront/lib/api/store-http';
 import {
   DEFAULT_STOREFRONT_TYPOGRAPHY,
   resolveStorefrontFontId,
@@ -53,8 +52,6 @@ export type StoreSettingsDto = {
   announcementScrolling: boolean;
   announcementSpeedMs: number;
   checkoutDefaultCity: string;
-  checkoutFreeShippingThreshold: string;
-  checkoutStandardShippingFee: string;
   checkoutPaymentMethods: CompanyCheckoutPaymentMethod[];
   storePageOffersEnabled: boolean;
   storePageWholesaleEnabled: boolean;
@@ -220,8 +217,6 @@ export function mapStorefrontConfigDtoToRecord(dto: StorefrontConfigDto): Compan
         .sort((a, b) => a.sortOrder - b.sortOrder)
         .map((city) => city.name),
       defaultCity: s.checkoutDefaultCity,
-      freeShippingThreshold: fromDecimalString(s.checkoutFreeShippingThreshold, 200),
-      standardShippingFee: fromDecimalString(s.checkoutStandardShippingFee, 25),
       paymentMethods:
         s.checkoutPaymentMethods?.length > 0
           ? [...s.checkoutPaymentMethods]
@@ -279,8 +274,6 @@ export function mapRecordToUpdateSettingsDto(record: CompanyConfigRecord) {
     announcementScrolling: record.announcement.scrolling !== false,
     announcementSpeedMs: record.announcement.speedMs,
     checkoutDefaultCity: record.checkout.defaultCity,
-    checkoutFreeShippingThreshold: toDecimalString(record.checkout.freeShippingThreshold),
-    checkoutStandardShippingFee: toDecimalString(record.checkout.standardShippingFee),
     checkoutPaymentMethods: record.checkout.paymentMethods,
     storePageOffersEnabled: record.storePages.offers,
     storePageWholesaleEnabled: record.storePages.wholesale,

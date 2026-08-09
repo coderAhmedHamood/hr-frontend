@@ -44,6 +44,7 @@ import {
   dialogShellHeaderClass,
 } from '@/components/ui/dialog';
 import { cn } from '@/shared/utils';
+import { isMultiLangEnabled } from '@/i18n/locale-flags';
 
 type Props = {
   category?: Category | null;
@@ -99,7 +100,11 @@ export function CategoryFormDialog({ category, categories = [], open, onOpenChan
         return {
           value: item.id,
           label: categoryFilterLabel(item, byId),
-          sub: [path.depth > 1 ? path.pathLabel : null, item.nameEn?.trim() || null, item.slug]
+          sub: [
+            path.depth > 1 ? path.pathLabel : null,
+            isMultiLangEnabled ? item.nameEn?.trim() || null : null,
+            item.slug,
+          ]
             .filter(Boolean)
             .join(' · '),
         };
@@ -204,10 +209,12 @@ export function CategoryFormDialog({ category, categories = [], open, onOpenChan
 
             <div className="space-y-4">
               <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label htmlFor="nameEn">الاسم (إنجليزي)</Label>
-                  <Input id="nameEn" {...form.register('nameEn')} />
-                </div>
+                {isMultiLangEnabled ? (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="nameEn">الاسم (إنجليزي)</Label>
+                    <Input id="nameEn" {...form.register('nameEn')} />
+                  </div>
+                ) : null}
                 <div className="space-y-1.5">
                   <Label htmlFor="slug">الرابط المختصر</Label>
                   <Input id="slug" dir="ltr" {...form.register('slug')} />

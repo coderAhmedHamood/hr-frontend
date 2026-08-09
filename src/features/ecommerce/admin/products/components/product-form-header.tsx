@@ -1,6 +1,6 @@
 'use client';
 
-import { Camera, ImagePlus } from 'lucide-react';
+import { Camera, ImagePlus, Loader2 } from 'lucide-react';
 import { useWatch, type Control, type UseFormRegister, type UseFormSetValue } from 'react-hook-form';
 import type { ProductFormInput, ProductFormValues } from '@/features/ecommerce/admin/products/schemas/product-schema';
 import { useProductImageField } from '@/features/ecommerce/admin/products/hooks/use-product-image-field';
@@ -33,7 +33,7 @@ export function ProductFormHeader({
   relatedDocsActiveKey,
   onRelatedDocSelect,
 }: Props) {
-  const { imageUrl, pickImage } = useProductImageField(control, setValue);
+  const { imageUrl, pickImage, uploading } = useProductImageField(control, setValue);
   const sku = useWatch({ control, name: 'sku' }) ?? '';
 
   return (
@@ -42,13 +42,16 @@ export function ProductFormHeader({
         <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-stretch sm:gap-5 sm:p-5">
           <button
             type="button"
-            onClick={pickImage}
+            onClick={() => void pickImage()}
+            disabled={uploading}
             className={cn(
-              'group relative mx-auto flex aspect-square w-36 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-dashed border-border bg-background/80 transition-all hover:border-primary/50 hover:shadow-soft sm:mx-0 sm:w-40',
+              'group relative mx-auto flex aspect-square w-36 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-dashed border-border bg-background/80 transition-all hover:border-primary/50 hover:shadow-soft disabled:opacity-70 sm:mx-0 sm:w-40',
             )}
             aria-label="إضافة صورة المنتج"
           >
-            {imageUrl ? (
+            {uploading ? (
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            ) : imageUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={imageUrl} alt="" className="h-full w-full object-cover" />
             ) : (

@@ -142,7 +142,6 @@
     "edit": "Edit",
     "summary": "Order summary",
     "itemsInCart": "{count} items in cart",
-    "freeShippingUnlocked": "Nice! You’ve unlocked free shipping.",
     "fullName": "Full name",
     "phone": "Mobile number",
     "city": "City",
@@ -158,7 +157,6 @@
     "customerNotePlaceholder": "e.g. gift wrap please",
     "shipping": "Shipping",
     "freeShipping": "Free",
-    "freeShippingHint": "Free shipping on orders over YER {amount}",
     "continue": "Continue",
     "back": "Back",
     "backToCart": "Back to cart",
@@ -389,7 +387,9 @@
     "emptyDescription": "Save products you like by tapping the heart icon.",
     "browseProducts": "Browse products",
     "guestHint": "Saved on this device only. Sign in to sync with your account.",
-    "loginToSync": "Sign in to sync"
+    "loginToSync": "Sign in to sync",
+    "clearAll": "Clear all",
+    "clearAllConfirm": "Remove all items from your wishlist? This cannot be undone."
   },
   "footer": {
     "paymentMethods": "Payment methods",

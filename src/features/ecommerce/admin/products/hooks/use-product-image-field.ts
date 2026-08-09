@@ -1,5 +1,8 @@
+import * as React from 'react';
 import { useFieldArray, useWatch, type Control, type UseFormSetValue } from 'react-hook-form';
 import type { ProductFormInput, ProductFormValues } from '@/features/ecommerce/admin/products/schemas/product-schema';
+import { pickAndUploadProductImage } from '@/features/ecommerce/admin/products/lib/pick-product-image';
+import { resolveUploadUrl } from '@/shared/resolve-upload-url';
 
 /** Shared primary-image read/write logic for the product form header and detail hero. */
 export function useProductImageField(
@@ -10,11 +13,12 @@ export function useProductImageField(
   const media = useWatch({ control, name: 'media' });
   const primary = media?.find((item) => item.isPrimary) ?? media?.[0];
   const imageUrl = primary?.url?.trim() ?? '';
+  const [uploading, setUploading] = React.useState(false);
 
-  function pickImage() {
-    const nextUrl = window.prompt('أدخل رابط صورة المنتج', imageUrl || 'https://');
-    if (nextUrl === null) return;
-    const url = nextUrl.trim();
+  async function pickImage() {
+    setUploading(true);
+    const url = await pickAndUploadProductImage();
+    setUploading(false);
     if (!url) return;
 
     if (fields.length === 0) {
@@ -39,5 +43,5 @@ export function useProductImageField(
     setValue(`media.${targetIndex}.url`, url, { shouldDirty: true });
   }
 
-  return { imageUrl, pickImage };
+  return { imageUrl: resolveUploadUrl(imageUrl), pickImage, uploading };
 }
