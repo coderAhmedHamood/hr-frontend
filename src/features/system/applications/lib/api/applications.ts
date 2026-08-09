@@ -3,7 +3,6 @@ import { contactsAdminRoutes } from '@/features/contacts/admin/constants/routes'
 import { ecommerceAdminRoutes } from '@/features/ecommerce/admin/constants/routes';
 import { inventoryAdminRoutes } from '@/features/inventory/admin/constants/routes';
 import { resolveSystemAppLaunchPath } from '@/features/system/constants/app-launch';
-import { isModuleEnabledFor, MODULE_REGISTRY } from '@/shared/modules/registry';
 
 export type ApplicationResponseDto = {
   id: string;
@@ -25,7 +24,7 @@ export const applicationsApi = {
     return apiRequest<ApplicationResponseDto[]>('/applications/launcher');
   },
 
-  getAll(query?: { limit?: number }) {
+  getAll(query?: { page?: number; limit?: number }) {
     return apiRequest<PaginatedResult<ApplicationResponseDto>>('/applications', { query });
   },
 };
@@ -71,101 +70,19 @@ function isSystemUsersDirectoryPath(path: string): boolean {
 }
 
 /**
- * Supplements backend launcher tiles with frontend-registered installable modules
- * until the applications catalog seeds them.
- *
- * Store back-office is a single tile: **إدارة المتجر** (`store-admin`).
- * The legacy **المتجر الإلكتروني** (`ecommerce`) tile is removed; its UI is the same admin.
+ * Launcher tiles come only from the applications catalog (`GET /applications`).
+ * Do not invent contacts / store-admin / inventory tiles on the client.
+ * Only drops the legacy `ecommerce` duplicate (same UI as `store-admin`).
  */
 export function enrichLauncherApplications(
   apps: ApplicationResponseDto[],
-  companyId: string | null | undefined,
+  _companyId?: string | null,
 ): ApplicationResponseDto[] {
-  const next = apps
-    .map((app) => ({ ...app }))
-    .filter((app) => !isLegacyEcommerceAdminApp(app));
-
-  const codes = new Set(next.map((app) => normalizeAppCode(app.code)));
-
-  // Normalize Partners Master Data onto `/contacts/list` — never under `/system/...`.
-  const contactsIdx = next.findIndex((app) => looksLikePartnersContactsApp(app));
-  if (contactsIdx >= 0) {
-    const existing = next[contactsIdx]!;
-    next[contactsIdx] = {
-      ...existing,
-      code: 'contacts',
-      nameAr: MODULE_REGISTRY.contacts.labelAr,
-      nameEn: existing.nameEn?.trim() || 'Contacts',
-      icon: existing.icon?.trim() || 'contacts',
-      routePath: contactsAdminRoutes.overview,
-      launchUrl: null,
-      isActive: true,
-      status: existing.status || 'active',
-    };
-  } else if (!codes.has('contacts') && !codes.has('partners') && isModuleEnabledFor('contacts', companyId)) {
-    const maxSort = next.reduce((max, app) => Math.max(max, app.sortOrder), 0);
-    next.push({
-      id: 'module-contacts',
-      code: 'contacts',
-      nameAr: MODULE_REGISTRY.contacts.labelAr,
-      nameEn: 'Contacts',
-      description: null,
-      icon: 'contact',
-      routePath: contactsAdminRoutes.overview,
-      sortOrder: maxSort + 10,
-      isActive: true,
-      status: 'active',
-    });
-  }
-
-  // Store admin = ecommerce admin UI at `/orders` Kanban (single launcher tile).
-  const storeAdminIdx = next.findIndex((app) => looksLikeStoreAdminApp(app));
-  if (storeAdminIdx >= 0) {
-    const existing = next[storeAdminIdx]!;
-    next[storeAdminIdx] = {
-      ...existing,
-      code: 'store-admin',
-      nameAr: MODULE_REGISTRY.ecommerce.labelAr,
-      nameEn: existing.nameEn?.trim() || 'Store Admin',
-      icon: existing.icon?.trim() || 'store-admin',
-      routePath: ecommerceAdminRoutes.orders,
-      launchUrl: null,
-      isActive: true,
-      status: existing.status || 'active',
-    };
-  } else if (isModuleEnabledFor('ecommerce', companyId)) {
-    const maxSort = next.reduce((max, app) => Math.max(max, app.sortOrder), 0);
-    next.push({
-      id: 'module-store-admin',
-      code: 'store-admin',
-      nameAr: MODULE_REGISTRY.ecommerce.labelAr,
-      nameEn: 'Store Admin',
-      description: null,
-      icon: 'store-admin',
-      routePath: ecommerceAdminRoutes.orders,
-      sortOrder: maxSort + 10,
-      isActive: true,
-      status: 'active',
-    });
-  }
-
-  if (!codes.has('inventory') && isModuleEnabledFor('inventory', companyId)) {
-    const maxSort = next.reduce((max, app) => Math.max(max, app.sortOrder), 0);
-    next.push({
-      id: 'module-inventory',
-      code: 'inventory',
-      nameAr: MODULE_REGISTRY.inventory.labelAr,
-      nameEn: 'Inventory',
-      description: null,
-      icon: 'package',
-      routePath: inventoryAdminRoutes.overview,
-      sortOrder: maxSort + 10,
-      isActive: true,
-      status: 'active',
-    });
-  }
-
-  return next.sort((a, b) => a.sortOrder - b.sortOrder);
+  return apps
+    .filter((app) => app.isActive !== false)
+    .filter((app) => !isLegacyEcommerceAdminApp(app))
+    .slice()
+    .sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
 /** True when the app should open an absolute external URL (`launchUrl`). */

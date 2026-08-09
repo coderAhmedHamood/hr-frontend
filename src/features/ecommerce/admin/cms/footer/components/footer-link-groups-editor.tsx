@@ -2,14 +2,29 @@
 
 import * as React from 'react';
 import { useTranslations } from 'next-intl';
-import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, Plus, Sparkles, Trash2 } from 'lucide-react';
 import type {
   CompanyFooterLinkGroupRecord,
   CompanyNavItemRecord,
 } from '@/features/ecommerce/storefront/domain/company-config';
+import {
+  asStoreHref,
+  buildDefaultStoreFooterLinkGroups,
+  findFooterPagePresetByHref,
+  navItemFromPreset,
+  STORE_FOOTER_PAGE_PRESETS,
+  type StoreFooterPagePresetId,
+} from '@/features/ecommerce/storefront/lib/store-footer-defaults';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 function newId(prefix: string) {
   return `${prefix}-${crypto.randomUUID().slice(0, 8)}`;
@@ -52,6 +67,17 @@ export function FooterLinkGroupsEditor({
     });
   }
 
+  function applyPagePreset(
+    groupIndex: number,
+    linkIndex: number,
+    presetId: StoreFooterPagePresetId | 'custom',
+  ) {
+    if (presetId === 'custom') return;
+    const preset = STORE_FOOTER_PAGE_PRESETS.find((item) => item.id === presetId);
+    if (!preset) return;
+    patchLink(groupIndex, linkIndex, navItemFromPreset(preset));
+  }
+
   function moveGroup(index: number, delta: number) {
     const next = index + delta;
     if (next < 0 || next >= groups.length) return;
@@ -61,14 +87,46 @@ export function FooterLinkGroupsEditor({
     onChange(copy);
   }
 
+  function insertStorePages() {
+    const defaults = buildDefaultStoreFooterLinkGroups().map((group) => ({
+      ...group,
+      id: newId('group'),
+    }));
+    onChange(groups.length === 0 ? defaults : [...groups, ...defaults]);
+  }
+
   return (
     <div className="space-y-4">
-      <p className="text-xs leading-relaxed text-muted-foreground">{t('linkGroupsHint')}</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <p className="max-w-2xl text-xs leading-relaxed text-muted-foreground">
+          {t('linkGroupsHint')}
+        </p>
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          className="gap-1.5 rounded-xl"
+          onClick={insertStorePages}
+        >
+          <Sparkles className="h-4 w-4" />
+          {t('insertStorePages')}
+        </Button>
+      </div>
 
       {groups.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-border/70 px-4 py-8 text-center text-sm text-muted-foreground">
-          {t('empty')}
-        </p>
+        <div className="rounded-xl border border-dashed border-border/70 px-4 py-8 text-center">
+          <p className="text-sm text-muted-foreground">{t('empty')}</p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="mt-3 gap-1.5 rounded-xl"
+            onClick={insertStorePages}
+          >
+            <Sparkles className="h-4 w-4" />
+            {t('insertStorePages')}
+          </Button>
+        </div>
       ) : null}
 
       {groups.map((group, groupIndex) => (
@@ -142,54 +200,80 @@ export function FooterLinkGroupsEditor({
             {group.links.length === 0 ? (
               <p className="text-xs text-muted-foreground">{t('emptyLinks')}</p>
             ) : null}
-            {group.links.map((link, linkIndex) => (
-              <div
-                key={`${group.id}-${linkIndex}`}
-                className="grid gap-2 rounded-xl border border-border/60 bg-card p-3 sm:grid-cols-[1fr_1fr_1.2fr_auto]"
-              >
-                <Input
-                  placeholder={t('linkLabelAr')}
-                  value={link.label.ar}
-                  onChange={(event) =>
-                    patchLink(groupIndex, linkIndex, {
-                      label: { ...link.label, ar: event.target.value, en: event.target.value },
-                    })
-                  }
-                />
-                <Input
-                  placeholder={t('linkLabelEn')}
-                  value={link.label.en}
-                  onChange={(event) =>
-                    patchLink(groupIndex, linkIndex, {
-                      label: { ...link.label, en: event.target.value },
-                    })
-                  }
-                />
-                <Input
-                  placeholder={t('linkHref')}
-                  value={link.href}
-                  onChange={(event) => {
-                    const href = event.target.value.trim();
-                    patchLink(groupIndex, linkIndex, {
-                      href: (href.startsWith('/store') ? href : '/store') as `/store${string}` | '/store',
-                    });
-                  }}
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-9 w-9 text-destructive"
-                  onClick={() =>
-                    patchGroup(groupIndex, {
-                      links: group.links.filter((_, i) => i !== linkIndex),
-                    })
-                  }
+            {group.links.map((link, linkIndex) => {
+              const matched = findFooterPagePresetByHref(link.href);
+              const pageValue = matched?.id ?? 'custom';
+              return (
+                <div
+                  key={`${group.id}-${linkIndex}`}
+                  className="grid gap-2 rounded-xl border border-border/60 bg-card p-3 sm:grid-cols-[minmax(0,11rem)_1fr_1fr_1.1fr_auto]"
                 >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
+                  <Select
+                    value={pageValue}
+                    onValueChange={(value) =>
+                      applyPagePreset(
+                        groupIndex,
+                        linkIndex,
+                        value as StoreFooterPagePresetId | 'custom',
+                      )
+                    }
+                  >
+                    <SelectTrigger aria-label={t('linkPage')}>
+                      <SelectValue placeholder={t('linkPage')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {STORE_FOOTER_PAGE_PRESETS.map((preset) => (
+                        <SelectItem key={preset.id} value={preset.id}>
+                          {preset.label.ar}
+                        </SelectItem>
+                      ))}
+                      <SelectItem value="custom">{t('linkPageCustom')}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    placeholder={t('linkLabelAr')}
+                    value={link.label.ar}
+                    onChange={(event) =>
+                      patchLink(groupIndex, linkIndex, {
+                        label: { ...link.label, ar: event.target.value, en: event.target.value },
+                      })
+                    }
+                  />
+                  <Input
+                    placeholder={t('linkLabelEn')}
+                    value={link.label.en}
+                    onChange={(event) =>
+                      patchLink(groupIndex, linkIndex, {
+                        label: { ...link.label, en: event.target.value },
+                      })
+                    }
+                  />
+                  <Input
+                    placeholder={t('linkHref')}
+                    dir="ltr"
+                    value={link.href}
+                    onChange={(event) =>
+                      patchLink(groupIndex, linkIndex, {
+                        href: asStoreHref(event.target.value),
+                      })
+                    }
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9 text-destructive"
+                    onClick={() =>
+                      patchGroup(groupIndex, {
+                        links: group.links.filter((_, i) => i !== linkIndex),
+                      })
+                    }
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              );
+            })}
             <Button
               type="button"
               variant="outline"

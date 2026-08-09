@@ -58,11 +58,15 @@ function toBody(input: SaleStockMutationInput) {
     partnerName: input.partnerName ?? null,
     notes: input.notes ?? null,
     createdBy: input.createdBy ?? null,
-    lines: input.lines.map((line) => ({
-      productId: line.productId,
-      variantId: line.variantId ?? null,
-      quantity: line.quantity,
-    })),
+    lines: input.lines.map((line) => {
+      const variantId = line.variantId?.trim() || null;
+      return {
+        productId: line.productId,
+        quantity: line.quantity,
+        // With-variants products: required. Without: omit null so backend treats as product-level.
+        ...(variantId ? { variantId } : {}),
+      };
+    }),
   };
 }
 

@@ -11,6 +11,7 @@ import {
   CreditCard,
   ExternalLink,
   Globe,
+  Heart,
   Mail,
   MapPin,
   Network,
@@ -18,6 +19,8 @@ import {
   Pencil,
   Phone,
   Plus,
+  ShoppingBag,
+  Star,
   StickyNote,
   Trash2,
   Waypoints,
@@ -43,6 +46,13 @@ import {
 import { usePartnerMutations } from '@/features/contacts/admin/partners/hooks/use-partner-mutations';
 import { usePartnerCategories } from '@/features/contacts/admin/categories/hooks/use-partner-categories';
 import { PartnerFormDialog } from '@/features/contacts/admin/partners/components/partner-form-dialog';
+import { PartnerStoreOrdersPanel } from '@/features/contacts/admin/partners/components/partner-store-orders-panel';
+import { PartnerProductReviewsPanel } from '@/features/contacts/admin/partners/components/partner-product-reviews-panel';
+import { PartnerProductFavoritesPanel } from '@/features/contacts/admin/partners/components/partner-product-favorites-panel';
+import {
+  GeoCascadeSelect,
+  type GeoCascadeValue,
+} from '@/features/system/organization/geo/components/geo-cascade-select';
 import {
   PartnerRoleBadges,
   PartnerStatusBadge,
@@ -74,6 +84,9 @@ const DETAIL_TABS = [
   { value: 'activities', label: 'أنشطة', icon: Clock },
   { value: 'notes', label: 'ملاحظات', icon: StickyNote },
   { value: 'attachments', label: 'مرفقات', icon: Paperclip },
+  { value: 'orders', label: 'طلبات المتجر', icon: ShoppingBag },
+  { value: 'reviews', label: 'تقييمات', icon: Star },
+  { value: 'favorites', label: 'المفضلة', icon: Heart },
   { value: 'related', label: 'مرتبط', icon: Network },
 ] as const;
 
@@ -102,8 +115,12 @@ export function PartnerDetailPage({ partnerId }: Props) {
   const [addressForm, setAddressForm] = React.useState({
     addressType: 'main' as PartnerAddressType,
     city: '',
-    street: '',
     district: '',
+    street: '',
+    countryId: null as string | null,
+    cityId: null as string | null,
+    districtId: null as string | null,
+    countryCode: null as string | null,
   });
   const [channelForm, setChannelForm] = React.useState({
     channelType: 'mobile' as PartnerChannelType,
@@ -384,6 +401,17 @@ export function PartnerDetailPage({ partnerId }: Props) {
                         .filter(Boolean)
                         .join('، ') || '—'}
                     </p>
+                    {address.countryId || address.cityId || address.districtId ? (
+                      <p className="ps-10 text-[11px] text-muted-foreground/80" dir="ltr">
+                        {[
+                          address.countryId ? `country:${address.countryId.slice(0, 8)}` : null,
+                          address.cityId ? `city:${address.cityId.slice(0, 8)}` : null,
+                          address.districtId ? `district:${address.districtId.slice(0, 8)}` : null,
+                        ]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </p>
+                    ) : null}
                   </div>
                   <Button
                     variant="ghost"
@@ -421,21 +449,39 @@ export function PartnerDetailPage({ partnerId }: Props) {
                   </SelectContent>
                 </Select>
                 <Input
-                  placeholder="المدينة"
-                  value={addressForm.city}
-                  onChange={(e) => setAddressForm((s) => ({ ...s, city: e.target.value }))}
-                />
-                <Input
-                  placeholder="الحي"
-                  value={addressForm.district}
-                  onChange={(e) => setAddressForm((s) => ({ ...s, district: e.target.value }))}
-                />
-                <Input
                   placeholder="الشارع"
+                  className="sm:col-span-3"
                   value={addressForm.street}
                   onChange={(e) => setAddressForm((s) => ({ ...s, street: e.target.value }))}
                 />
               </div>
+              {companyId ? (
+                <div className="mt-3">
+                  <GeoCascadeSelect
+                    companyId={companyId}
+                    mode="admin"
+                    value={{
+                      countryId: addressForm.countryId,
+                      cityId: addressForm.cityId,
+                      districtId: addressForm.districtId,
+                      countryCode: addressForm.countryCode,
+                      city: addressForm.city,
+                      district: addressForm.district,
+                    }}
+                    onChange={(geo: GeoCascadeValue) =>
+                      setAddressForm((s) => ({
+                        ...s,
+                        countryId: geo.countryId,
+                        cityId: geo.cityId,
+                        districtId: geo.districtId,
+                        countryCode: geo.countryCode,
+                        city: geo.city,
+                        district: geo.district,
+                      }))
+                    }
+                  />
+                </div>
+              ) : null}
               <div className="mt-3 flex justify-start">
                 <Button
                   className="shrink-0"
@@ -445,13 +491,26 @@ export function PartnerDetailPage({ partnerId }: Props) {
                       .mutateAsync({
                         partnerId,
                         addressType: addressForm.addressType,
+                        countryId: addressForm.countryId,
+                        cityId: addressForm.cityId,
+                        districtId: addressForm.districtId,
+                        countryCode: addressForm.countryCode,
                         city: addressForm.city || null,
                         district: addressForm.district || null,
                         street: addressForm.street || null,
                         isDefault: true,
                       })
                       .then(() =>
-                        setAddressForm({ addressType: 'main', city: '', street: '', district: '' }),
+                        setAddressForm({
+                          addressType: 'main',
+                          street: '',
+                          countryId: null,
+                          cityId: null,
+                          districtId: null,
+                          countryCode: null,
+                          city: '',
+                          district: '',
+                        }),
                       )
                   }
                 >
@@ -888,11 +947,34 @@ export function PartnerDetailPage({ partnerId }: Props) {
           </Panel>
         </TabsContent>
 
-        <TabsContent value="related" className="mt-0">
+        <TabsContent value="orders" className="mt-0 space-y-4">
+          {companyId ? (
+            <PartnerStoreOrdersPanel companyId={companyId} partnerId={partnerId} />
+          ) : (
+            <EmptyInline message="اختر شركة لعرض طلبات المتجر." />
+          )}
+        </TabsContent>
+
+        <TabsContent value="reviews" className="mt-0 space-y-4">
+          {companyId ? (
+            <PartnerProductReviewsPanel companyId={companyId} partnerId={partnerId} />
+          ) : (
+            <EmptyInline message="اختر شركة لعرض التقييمات." />
+          )}
+        </TabsContent>
+
+        <TabsContent value="favorites" className="mt-0 space-y-4">
+          {companyId ? (
+            <PartnerProductFavoritesPanel companyId={companyId} partnerId={partnerId} />
+          ) : (
+            <EmptyInline message="اختر شركة لعرض المفضلة." />
+          )}
+        </TabsContent>
+
+        <TabsContent value="related" className="mt-0 space-y-4">
           <Panel title="سجلات مرتبطة" description="روابط مستقبلية مع وحدات النظام الأخرى.">
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {[
-                { label: 'المبيعات', hint: 'طلبات البيع المرتبطة بـ partner_id' },
                 { label: 'المشتريات', hint: 'أوامر الشراء' },
                 { label: 'المخزون', hint: 'عمليات المستودع' },
                 { label: 'المحاسبة', hint: 'فواتير وقيود' },

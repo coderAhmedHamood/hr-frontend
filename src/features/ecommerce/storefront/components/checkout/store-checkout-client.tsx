@@ -7,8 +7,10 @@ import {
   Check,
   ChevronLeft,
   CreditCard,
+  FileText,
   MapPin,
   PackageSearch,
+  Paperclip,
   ShieldCheck,
   Truck,
   Wallet,
@@ -21,6 +23,7 @@ import type {
 import { calculateShippingFee } from '@/features/ecommerce/storefront/domain/checkout';
 import type { StorefrontCompanyConfig } from '@/features/ecommerce/storefront/domain/storefront-models';
 import { placeStorefrontOrder } from '@/features/ecommerce/storefront/lib/checkout-actions';
+import { PartnerAuthApiError } from '@/features/ecommerce/storefront/domain/partner-auth';
 import {
   createPartnerAddress,
   formatPartnerAddressLine,
@@ -39,6 +42,15 @@ import {
   MAX_PAYMENT_PROOF_FILES,
   compressPaymentProofToDataUrl,
 } from '@/features/ecommerce/domain/lib/payment-proofs';
+import {
+  MAX_ORDER_ATTACHMENTS,
+  MAX_ORDER_ATTACHMENT_BYTES,
+  ORDER_ATTACHMENT_ACCEPT,
+  OrderAttachmentError,
+  fileToOrderAttachment,
+  isImageMime,
+} from '@/features/ecommerce/domain/lib/order-attachments';
+import type { CreateStoreOrderAttachmentInput } from '@/features/ecommerce/domain/types/order';
 import { Button } from '@/components/ui/button';
 import { GoogleLocationPicker, type GoogleLocationValue } from '@/components/ui/google-location-picker';
 import { Input } from '@/components/ui/input';
@@ -52,6 +64,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { storeLoginHref, storeRegisterHref } from '@/features/ecommerce/storefront/lib/store-auth-return';
+import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
+import {
+  GeoCascadeSelect,
+  type GeoCascadeValue,
+} from '@/features/system/organization/geo/components/geo-cascade-select';
+import { usePublicGeoCountries } from '@/features/system/organization/geo/hooks/use-geo';
 import { Link, useRouter } from '@/i18n/navigation';
 import { cn } from '@/shared/utils';
 import type { StorefrontLocale } from '@/i18n/routing';
@@ -78,37 +96,57 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
   const clearCart = useStorefrontCartUi((s) => s.clear);
   const accessToken = useStorefrontCustomerUi((s) => s.accessToken);
   const customer = useStorefrontCustomerUi((s) => s.customer);
+  const clearSession = useStorefrontCustomerUi((s) => s.clearSession);
   const { data: products, isLoading, isError, refetch } = useStorefrontCartProducts();
   const [authReady, setAuthReady] = React.useState(false);
 
   React.useEffect(() => {
-    setAuthReady(true);
+    const finish = () => setAuthReady(true);
+    const unsub = useStorefrontCustomerUi.persist.onFinishHydration(finish);
+    if (useStorefrontCustomerUi.persist.hasHydrated()) finish();
+    return unsub;
   }, []);
 
   const cities = checkoutConfig.cities;
   const freeThreshold = checkoutConfig.freeShippingThreshold;
   const paymentMethods = checkoutConfig.paymentMethods;
+  const companyId = getStorefrontCompanyId();
+  const { data: geoCountries = [], isLoading: geoCountriesLoading } = usePublicGeoCountries(
+    companyId,
+    Boolean(companyId),
+  );
+  const useGeoCascade = geoCountries.length > 0;
 
   const [step, setStep] = React.useState<StepId>('address');
   const [address, setAddress] = React.useState<CheckoutAddressInput>(() => ({
     fullName: '',
     phone: '',
+    countryId: null,
+    cityId: null,
+    districtId: null,
     city: checkoutConfig.defaultCity || cities[0] || 'صنعاء',
     district: '',
     street: '',
     notes: '',
   }));
+  const [customerNote, setCustomerNote] = React.useState('');
   const [paymentMethod, setPaymentMethod] = React.useState<CheckoutPaymentMethod>(
     () => paymentMethods[0] ?? 'cash_on_delivery',
   );
   const [paymentProofs, setPaymentProofs] = React.useState<Array<{ url: string; name: string }>>(
     [],
   );
+  const [orderAttachments, setOrderAttachments] = React.useState<CreateStoreOrderAttachmentInput[]>(
+    [],
+  );
+  const [attachmentsBusy, setAttachmentsBusy] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
   const [addressErrors, setAddressErrors] = React.useState<
     Partial<Record<keyof CheckoutAddressInput, string>>
   >({});
   const [savedAddresses, setSavedAddresses] = React.useState<PartnerAddress[]>([]);
+  const [addressesLoading, setAddressesLoading] = React.useState(false);
+  const [addressesError, setAddressesError] = React.useState<string | null>(null);
   const [selectedAddressId, setSelectedAddressId] = React.useState<string | 'new'>('new');
   const appliedDefaultAddressRef = React.useRef(false);
 
@@ -127,46 +165,69 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
     }));
   }, [customer]);
 
-  React.useEffect(() => {
+  const loadSavedAddresses = React.useCallback(async () => {
     if (!accessToken) return;
-    let cancelled = false;
-    void (async () => {
-      try {
-        const result = await listPartnerAddresses(accessToken);
-        if (cancelled) return;
-        setSavedAddresses(result.items);
-        if (!appliedDefaultAddressRef.current && result.items.length > 0) {
-          const preferred =
-            result.items.find((item) => item.isDefault) ?? result.items[0]!;
-          appliedDefaultAddressRef.current = true;
-          setSelectedAddressId(preferred.id);
-          setAddress((prev) => ({
-            ...prev,
-            fullName: prev.fullName.trim() || customer?.name || '',
-            phone: prev.phone.trim() || customer?.phone || '',
-            city: preferred.city?.trim() || prev.city,
-            district: preferred.district?.trim() || '',
-            street: preferred.street?.trim() || '',
-            notes: preferred.notes?.trim() || '',
-            lat: preferred.latitude != null ? Number(preferred.latitude) : undefined,
-            lng: preferred.longitude != null ? Number(preferred.longitude) : undefined,
-          }));
-        }
-      } catch {
-        if (!cancelled) setSavedAddresses([]);
+    setAddressesLoading(true);
+    setAddressesError(null);
+    try {
+      const result = await listPartnerAddresses(accessToken, {
+        partnerId: customer?.partnerId,
+        companyId: customer?.companyId || undefined,
+        limit: 100,
+      });
+      const sorted = [...result.items].sort((a, b) => {
+        if (a.isDefault !== b.isDefault) return a.isDefault ? -1 : 1;
+        const rank = (type: string) => (type === 'shipping' ? 0 : type === 'main' ? 1 : 2);
+        return rank(a.addressType) - rank(b.addressType);
+      });
+      setSavedAddresses(sorted);
+      if (!appliedDefaultAddressRef.current && sorted.length > 0) {
+        const preferred = sorted.find((item) => item.isDefault) ?? sorted[0]!;
+        appliedDefaultAddressRef.current = true;
+        setSelectedAddressId(preferred.id);
+        setAddress((prev) => ({
+          ...prev,
+          fullName: prev.fullName.trim() || customer?.name || '',
+          phone: prev.phone.trim() || customer?.phone || '',
+          countryId: preferred.countryId ?? null,
+          cityId: preferred.cityId ?? null,
+          districtId: preferred.districtId ?? null,
+          city: preferred.city?.trim() || prev.city,
+          district: preferred.district?.trim() || '',
+          street: preferred.street?.trim() || '',
+          notes: preferred.notes?.trim() || '',
+          lat: preferred.latitude != null ? Number(preferred.latitude) : undefined,
+          lng: preferred.longitude != null ? Number(preferred.longitude) : undefined,
+        }));
       }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [accessToken, customer]);
+    } catch (err) {
+      if (err instanceof PartnerAuthApiError && (err.status === 401 || err.status === 403)) {
+        clearSession();
+        router.replace(storeLoginHref('/store/checkout'));
+        return;
+      }
+      setSavedAddresses([]);
+      setAddressesError(t('checkout.addressesLoadFailed'));
+    } finally {
+      setAddressesLoading(false);
+    }
+  }, [accessToken, clearSession, customer, router, t]);
+
+  React.useEffect(() => {
+    if (!authReady || !accessToken) return;
+    void loadSavedAddresses();
+  }, [authReady, accessToken, loadSavedAddresses]);
 
   function applySavedAddress(row: PartnerAddress) {
     setSelectedAddressId(row.id);
+    setAddressErrors({});
     setAddress((prev) => ({
       ...prev,
       fullName: prev.fullName.trim() || customer?.name || '',
       phone: prev.phone.trim() || customer?.phone || '',
+      countryId: row.countryId ?? null,
+      cityId: row.cityId ?? null,
+      districtId: row.districtId ?? null,
       city: row.city?.trim() || prev.city,
       district: row.district?.trim() || '',
       street: row.street?.trim() || '',
@@ -179,8 +240,13 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
 
   function startNewAddress() {
     setSelectedAddressId('new');
+    setAddressErrors({});
     setAddress((prev) => ({
       ...prev,
+      countryId: null,
+      cityId: null,
+      districtId: null,
+      city: useGeoCascade ? '' : checkoutConfig.defaultCity || cities[0] || prev.city,
       district: '',
       street: '',
       notes: '',
@@ -203,6 +269,9 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
         partnerId: customer.partnerId,
         addressType: 'shipping',
         label: address.city,
+        countryId: address.countryId ?? null,
+        cityId: address.cityId ?? null,
+        districtId: address.districtId ?? null,
         city: address.city,
         district: address.district,
         street: address.street,
@@ -210,7 +279,7 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
         latitude: address.lat ?? null,
         longitude: address.lng ?? null,
         isDefault: savedAddresses.length === 0,
-        countryCode: 'YE',
+        countryCode: address.countryId ? null : 'YE',
       });
       setSavedAddresses((prev) => [created, ...prev]);
       setSelectedAddressId(created.id);
@@ -257,13 +326,54 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
     return format.number(amount, { style: 'currency', currency });
   }
 
+  async function addOrderAttachments(files: File[]) {
+    const remaining = MAX_ORDER_ATTACHMENTS - orderAttachments.length;
+    if (remaining <= 0) {
+      toast.error(t('checkout.errors.attachmentsMax', { max: MAX_ORDER_ATTACHMENTS }));
+      return;
+    }
+    const selected = files.slice(0, remaining);
+    if (files.length > remaining) {
+      toast.error(t('checkout.errors.attachmentsMax', { max: MAX_ORDER_ATTACHMENTS }));
+    }
+    setAttachmentsBusy(true);
+    try {
+      for (const file of selected) {
+        if (file.size > MAX_ORDER_ATTACHMENT_BYTES) {
+          toast.error(t('checkout.errors.attachmentSize'));
+          continue;
+        }
+        try {
+          const input = await fileToOrderAttachment(file);
+          setOrderAttachments((prev) =>
+            prev.length >= MAX_ORDER_ATTACHMENTS ? prev : [...prev, input],
+          );
+        } catch (error) {
+          toast.error(
+            error instanceof OrderAttachmentError
+              ? error.message
+              : t('checkout.errors.attachmentType'),
+          );
+        }
+      }
+    } finally {
+      setAttachmentsBusy(false);
+    }
+  }
+
   function validateAddress(): boolean {
     const errors: Partial<Record<keyof CheckoutAddressInput, string>> = {};
     if (!address.fullName.trim()) errors.fullName = t('checkout.errors.required');
     if (!address.phone.trim() || address.phone.replace(/\D/g, '').length < 9) {
       errors.phone = t('checkout.errors.phone');
     }
-    if (cities.length === 0) {
+    if (useGeoCascade) {
+      if (!address.countryId) errors.city = t('checkout.errors.cityRequired');
+      else if (!address.cityId || !address.city.trim()) errors.city = t('checkout.errors.cityRequired');
+      if (!address.districtId || !address.district.trim()) {
+        errors.district = t('checkout.errors.required');
+      }
+    } else if (cities.length === 0) {
       errors.city = t('checkout.errors.citiesUnavailable');
     } else if (!address.city.trim()) {
       errors.city = t('checkout.errors.cityRequired');
@@ -272,8 +382,9 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
       !cities.includes(address.city)
     ) {
       errors.city = t('checkout.errors.cityRequired');
+    } else if (!address.district.trim()) {
+      errors.district = t('checkout.errors.required');
     }
-    if (!address.district.trim()) errors.district = t('checkout.errors.required');
     if (!address.street.trim()) errors.street = t('checkout.errors.required');
     setAddressErrors(errors);
     return Object.keys(errors).length === 0;
@@ -313,10 +424,12 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
         locale,
         address,
         paymentMethod,
+        customerNote: customerNote.trim() || null,
         accessToken,
         paymentProofUrls:
           paymentMethod === 'card' ? paymentProofs.map((item) => item.url) : [],
-        lines: cartLines.map(({ line, product, unitPrice, lineName }) => {
+        attachments: orderAttachments,
+        lines: cartLines.map(({ line, product, unitPrice, lineName, variant }) => {
           const display = buildProductDisplay(product);
           return {
             productId: product.id,
@@ -325,7 +438,7 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
             productSlug: product.slug,
             quantity: line.quantity,
             unitPrice,
-            imageUrl: display.imageUrl,
+            imageUrl: variant?.imageUrl ?? variant?.images?.[0]?.url ?? display.imageUrl,
           };
         }),
       });
@@ -481,7 +594,24 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
                 <p className="text-sm font-medium text-foreground">
                   {t('checkout.savedAddresses')}
                 </p>
-                {savedAddresses.length === 0 ? (
+                {addressesLoading ? (
+                  <div className="space-y-2">
+                    {Array.from({ length: 2 }).map((_, index) => (
+                      <div key={index} className="h-16 animate-pulse rounded-xl bg-muted/50" />
+                    ))}
+                  </div>
+                ) : addressesError ? (
+                  <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-3 text-sm text-destructive">
+                    {addressesError}
+                    <button
+                      type="button"
+                      className="ms-2 underline"
+                      onClick={() => void loadSavedAddresses()}
+                    >
+                      {t('checkout.retryAddresses')}
+                    </button>
+                  </div>
+                ) : savedAddresses.length === 0 ? (
                   <p className="rounded-xl border border-dashed border-border px-3 py-3 text-sm text-muted-foreground">
                     {t('checkout.noSavedAddresses')}
                   </p>
@@ -510,7 +640,7 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
                             ) : null}
                           </p>
                           <p className="mt-1 text-xs text-muted-foreground">
-                            {formatPartnerAddressLine(row)}
+                            {formatPartnerAddressLine(row) || t('checkout.incompleteAddress')}
                           </p>
                         </button>
                       );
@@ -558,41 +688,89 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
                   <p className="mt-1 text-sm text-muted-foreground">
                     {formatPartnerAddressLine(selectedSaved)}
                   </p>
+                  {(addressErrors.district || addressErrors.street || addressErrors.city) && (
+                    <p className="mt-2 text-xs text-destructive">
+                      {t('checkout.savedAddressIncomplete')}
+                    </p>
+                  )}
                 </div>
               ) : null}
 
               {showAddressForm ? (
                 <>
-                  <Field label={t('checkout.city')} error={addressErrors.city}>
-                    {cities.length === 0 ? (
-                      <p className="rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2.5 text-sm text-destructive">
-                        {t('checkout.errors.citiesUnavailable')}
-                      </p>
-                    ) : (
-                      <Select
-                        value={cities.includes(address.city) ? address.city : undefined}
-                        onValueChange={(city) => setAddress((prev) => ({ ...prev, city }))}
-                      >
-                        <SelectTrigger className={checkoutFieldClassName}>
-                          <SelectValue placeholder={t('checkout.cityPlaceholder')} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {cities.map((city) => (
-                            <SelectItem key={city} value={city}>
-                              {city}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                  </Field>
-                  <Field label={t('checkout.district')} error={addressErrors.district}>
-                    <Input
-                      value={address.district}
-                      onChange={(e) => setAddress((prev) => ({ ...prev, district: e.target.value }))}
-                      className={checkoutFieldClassName}
-                    />
-                  </Field>
+                  {useGeoCascade ? (
+                    <div className="sm:col-span-2">
+                      <GeoCascadeSelect
+                        companyId={companyId}
+                        mode="public"
+                        value={{
+                          countryId: address.countryId ?? null,
+                          cityId: address.cityId ?? null,
+                          districtId: address.districtId ?? null,
+                          countryCode: null,
+                          city: address.city,
+                          district: address.district,
+                        }}
+                        onChange={(geo: GeoCascadeValue) =>
+                          setAddress((prev) => ({
+                            ...prev,
+                            countryId: geo.countryId,
+                            cityId: geo.cityId,
+                            districtId: geo.districtId,
+                            city: geo.city,
+                            district: geo.district,
+                          }))
+                        }
+                        labels={{
+                          country: t('checkout.country'),
+                          city: t('checkout.city'),
+                          district: t('checkout.district'),
+                        }}
+                      />
+                      {(addressErrors.city || addressErrors.district) && (
+                        <p className="mt-1.5 text-xs text-destructive">
+                          {addressErrors.city || addressErrors.district}
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <>
+                      <Field label={t('checkout.city')} error={addressErrors.city}>
+                        {geoCountriesLoading ? (
+                          <p className="text-sm text-muted-foreground">…</p>
+                        ) : cities.length === 0 ? (
+                          <p className="rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2.5 text-sm text-destructive">
+                            {t('checkout.errors.citiesUnavailable')}
+                          </p>
+                        ) : (
+                          <Select
+                            value={cities.includes(address.city) ? address.city : undefined}
+                            onValueChange={(city) => setAddress((prev) => ({ ...prev, city }))}
+                          >
+                            <SelectTrigger className={checkoutFieldClassName}>
+                              <SelectValue placeholder={t('checkout.cityPlaceholder')} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {cities.map((city) => (
+                                <SelectItem key={city} value={city}>
+                                  {city}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      </Field>
+                      <Field label={t('checkout.district')} error={addressErrors.district}>
+                        <Input
+                          value={address.district}
+                          onChange={(e) =>
+                            setAddress((prev) => ({ ...prev, district: e.target.value }))
+                          }
+                          className={checkoutFieldClassName}
+                        />
+                      </Field>
+                    </>
+                  )}
                   <Field label={t('checkout.street')} error={addressErrors.street} className="sm:col-span-2">
                     <Input
                       value={address.street}
@@ -638,6 +816,16 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
                   </Field>
                 </>
               ) : null}
+
+              <Field label={t('checkout.customerNote')} className="sm:col-span-2">
+                <Textarea
+                  rows={2}
+                  value={customerNote}
+                  onChange={(e) => setCustomerNote(e.target.value)}
+                  placeholder={t('checkout.customerNotePlaceholder')}
+                  className="min-h-[4.5rem] w-full min-w-0 max-w-full rounded-xl border-input px-3.5 py-3 text-base leading-relaxed sm:text-sm"
+                />
+              </Field>
             </div>
           </section>
         ) : null}
@@ -804,6 +992,72 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
                   </p>
                 </div>
               ) : null}
+
+              <div className="space-y-3 rounded-2xl border border-border bg-muted/20 p-4">
+                <div className="flex items-center gap-2">
+                  <Paperclip className="h-4 w-4 text-primary" />
+                  <Label htmlFor="order-attachments" className="text-sm font-medium">
+                    {t('checkout.attachmentsLabel')}
+                  </Label>
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  {t('checkout.attachmentsHint', {
+                    max: MAX_ORDER_ATTACHMENTS,
+                    count: orderAttachments.length,
+                  })}
+                </p>
+                <Input
+                  id="order-attachments"
+                  type="file"
+                  multiple
+                  accept={ORDER_ATTACHMENT_ACCEPT}
+                  disabled={attachmentsBusy || orderAttachments.length >= MAX_ORDER_ATTACHMENTS}
+                  className="h-11 cursor-pointer rounded-xl file:me-3 file:rounded-lg file:border-0 file:bg-primary/10 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-primary"
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files ?? []);
+                    e.target.value = '';
+                    if (files.length === 0) return;
+                    void addOrderAttachments(files);
+                  }}
+                />
+                {orderAttachments.length > 0 ? (
+                  <ul className="space-y-2">
+                    {orderAttachments.map((attachment, index) => (
+                      <li
+                        key={`${attachment.fileName}-${index}`}
+                        className="flex items-center gap-3 rounded-xl border border-border/70 bg-card px-2.5 py-2"
+                      >
+                        {isImageMime(attachment.mimeType) ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={attachment.fileUrl}
+                            alt=""
+                            className="h-12 w-12 shrink-0 rounded-lg border border-border object-cover"
+                          />
+                        ) : (
+                          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-border bg-muted text-muted-foreground">
+                            <FileText className="h-5 w-5" />
+                          </span>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-xs font-medium text-foreground" dir="auto">
+                            {attachment.fileName}
+                          </p>
+                          <button
+                            type="button"
+                            className="mt-1 text-xs text-destructive hover:underline"
+                            onClick={() =>
+                              setOrderAttachments((prev) => prev.filter((_, i) => i !== index))
+                            }
+                          >
+                            {t('checkout.attachmentsRemove')}
+                          </button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
             </div>
           </section>
         ) : null}
@@ -905,7 +1159,12 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
             </Button>
           )}
           {step !== 'review' ? (
-            <Button type="button" className="min-w-36 rounded-xl" onClick={goNext}>
+            <Button
+              type="button"
+              className="min-w-36 rounded-xl"
+              onClick={goNext}
+              disabled={step === 'address' && addressesLoading}
+            >
               {t('checkout.continue')}
             </Button>
           ) : (
@@ -934,16 +1193,17 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
           </div>
 
           <ul className="max-h-52 space-y-3 overflow-y-auto px-5 py-4">
-            {cartLines.map(({ line, product, unitPrice, compareAt, discountPercent, lineName }) => {
+            {cartLines.map(({ line, product, unitPrice, compareAt, discountPercent, lineName, variant }) => {
               const display = buildProductDisplay(product);
+              const rowImageUrl = variant?.imageUrl ?? variant?.images?.[0]?.url ?? display.imageUrl;
               const key = line.variantId ? `${product.id}::${line.variantId}` : product.id;
               return (
                 <li key={key} className="flex items-center gap-3">
                   <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-muted">
-                    {display.imageUrl ? (
+                    {rowImageUrl ? (
                       <Image
-                        src={display.imageUrl}
-                        alt={display.imageAlt}
+                        src={rowImageUrl}
+                        alt={lineName}
                         fill
                         unoptimized
                         className="object-contain p-1"
@@ -1036,7 +1296,12 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
             </Button>
           )}
           {step !== 'review' ? (
-            <Button type="button" className="flex-1 rounded-xl" onClick={goNext}>
+            <Button
+              type="button"
+              className="flex-1 rounded-xl"
+              onClick={goNext}
+              disabled={step === 'address' && addressesLoading}
+            >
               {t('checkout.continue')}
             </Button>
           ) : (

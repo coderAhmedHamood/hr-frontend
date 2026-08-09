@@ -4,6 +4,8 @@ export type ProductReview = {
   rating: number;
   date: string;
   comment: string;
+  title?: string;
+  body?: string;
   verified: boolean;
 };
 

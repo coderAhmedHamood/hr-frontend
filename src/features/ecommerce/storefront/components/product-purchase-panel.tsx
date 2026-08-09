@@ -125,6 +125,30 @@ export function ProductPurchasePanel({ product, onActiveMediaChange }: Props) {
     setOrderQty((prev) => Math.min(Math.max(1, prev), maxQty));
   }, [maxQty, activeVariant?.id, orderMode]);
 
+  // Swap the gallery + blurb to the active variant's own image/description.
+  React.useEffect(() => {
+    if (!useVariants || !activeVariant) return;
+    const variantMedia: MediaItem[] = activeVariant.images?.length
+      ? activeVariant.images
+      : activeVariant.imageUrl
+        ? [
+            {
+              id: `${activeVariant.id}-img`,
+              url: activeVariant.imageUrl,
+              alt: activeVariant.nameAr,
+              type: 'image',
+              position: 0,
+              isPrimary: true,
+            },
+          ]
+        : [];
+    if (variantMedia.length > 0 || activeVariant.description) {
+      onActiveMediaChange?.({ images: variantMedia, description: activeVariant.description });
+    }
+    // onActiveMediaChange is a stable setter from the parent.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeVariant?.id, useVariants]);
+
   function selectValue(attributeId: string, valueId: string) {
     setSelected((prev) => ({ ...prev, [attributeId]: valueId }));
     const attribute = product.attributes.find((item) => item.id === attributeId);
@@ -289,7 +313,14 @@ export function ProductPurchasePanel({ product, onActiveMediaChange }: Props) {
         : null}
 
       {useVariants && activeVariant ? (
-        <p className="text-xs text-muted-foreground">{activeVariant.nameAr}</p>
+        <div className="space-y-1.5 rounded-lg border border-border/70 bg-muted/20 p-3">
+          <p className="text-sm font-semibold text-foreground">{activeVariant.nameAr}</p>
+          {activeVariant.description ? (
+            <p className="whitespace-pre-line text-xs leading-relaxed text-muted-foreground">
+              {activeVariant.description}
+            </p>
+          ) : null}
+        </div>
       ) : null}
 
       <div className="space-y-2">

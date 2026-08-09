@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { Eye, Kanban, LayoutGrid, List, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Eye, LayoutGrid, List, Pencil, Plus, Trash2 } from 'lucide-react';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
@@ -27,7 +27,6 @@ import { usePartners } from '@/features/contacts/admin/partners/hooks/use-partne
 import { usePartnerMutations } from '@/features/contacts/admin/partners/hooks/use-partner-mutations';
 import { PartnerFormDialog } from '@/features/contacts/admin/partners/components/partner-form-dialog';
 import { PartnersCardView } from '@/features/contacts/admin/partners/components/partners-card-view';
-import { PartnersKanbanView } from '@/features/contacts/admin/partners/components/partners-kanban-view';
 import {
   PartnerRoleBadges,
   PartnerStatusBadge,
@@ -35,7 +34,7 @@ import {
 import type { Partner, PartnerStatus } from '@/features/contacts/domain/types/partner';
 import { cn } from '@/shared/utils';
 
-type ViewMode = 'list' | 'kanban' | 'cards';
+type ViewMode = 'list' | 'cards';
 
 export function PartnersListPage() {
   const companyId = getContactsCompanyId();
@@ -46,7 +45,8 @@ export function PartnersListPage() {
   const search = searchParams.get('q') ?? '';
   const page = Math.max(1, Number(searchParams.get('page')) || 1);
   const pageSize = Number(searchParams.get('pageSize')) || DEFAULT_PAGE_SIZE;
-  const view = (searchParams.get('view') as ViewMode) || 'list';
+  const rawView = searchParams.get('view');
+  const view: ViewMode = rawView === 'cards' ? 'cards' : 'list';
   const roleFilter = searchParams.get('role') ?? 'all';
   const statusFilter = (searchParams.get('status') as PartnerStatus | 'all') || 'all';
 
@@ -99,6 +99,11 @@ export function PartnersListPage() {
   searchRef.current = search;
   updateParamsRef.current = updateParams;
 
+  // Legacy `?view=kanban` → list (status-column board removed).
+  React.useEffect(() => {
+    if (rawView === 'kanban') updateParamsRef.current({ view: 'list', page: 1 });
+  }, [rawView]);
+
   React.useEffect(() => {
     const timeout = setTimeout(() => {
       if (searchInput.trim() !== searchRef.current) {
@@ -121,7 +126,7 @@ export function PartnersListPage() {
   };
 
   const { data, isLoading, isError } = usePartners(listQuery);
-  const { remove, update } = usePartnerMutations(companyId);
+  const { remove } = usePartnerMutations(companyId);
 
   const openPartner = (partner: Partner) => {
     router.push(contactsAdminRoutes.partnerDetail(partner.id));
@@ -201,7 +206,6 @@ export function PartnersListPage() {
 
   const viewButtons: { mode: ViewMode; icon: typeof List; label: string }[] = [
     { mode: 'list', icon: List, label: 'قائمة' },
-    { mode: 'kanban', icon: Kanban, label: 'كانبان' },
     { mode: 'cards', icon: LayoutGrid, label: 'بطاقات' },
   ];
 
@@ -329,20 +333,6 @@ export function PartnersListPage() {
           <p className="text-sm text-muted-foreground">جاري التحميل…</p>
         ) : (
           <PartnersCardView partners={data?.items ?? []} onOpen={openPartner} />
-        )
-      ) : null}
-
-      {view === 'kanban' ? (
-        isLoading ? (
-          <p className="text-sm text-muted-foreground">جاري التحميل…</p>
-        ) : (
-          <PartnersKanbanView
-            partners={data?.items ?? []}
-            onOpen={openPartner}
-            onStatusChange={(partner, status) => {
-              void update.mutateAsync({ id: partner.id, patch: { status } });
-            }}
-          />
         )
       ) : null}
 

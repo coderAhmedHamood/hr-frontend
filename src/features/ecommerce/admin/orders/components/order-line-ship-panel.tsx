@@ -14,12 +14,16 @@ import {
 } from '@/features/ecommerce/admin/orders/hooks/use-orders';
 import { productsApi } from '@/features/ecommerce/admin/products/lib/api/products';
 import { formatPrice } from '@/features/ecommerce/shared/utils/format-price';
-import type { OrderLineItem } from '@/features/ecommerce/domain/types/order';
+import { ORDER_LINE_SHIP_STATUS_LABELS_AR } from '@/features/ecommerce/domain/constants/order-status';
+import type { Order, OrderLineItem, OrderLineShipStatus } from '@/features/ecommerce/domain/types/order';
+import { isOrderFulfilmentLocked } from '@/features/ecommerce/domain/constants/order-status';
+import { inventoryStockService } from '@/features/inventory/services/inventory-stock.service';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
+import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/shared/utils';
+import { toast } from 'sonner';
 
 type DraftRow = {
   key: string;
@@ -31,7 +35,16 @@ type DraftRow = {
 type Props = {
   companyId: string;
   orderId: string;
+  /** Parent order status — locks fulfilment when shipped/delivered/cancelled/refunded. */
+  orderStatus: Order['status'];
   line: OrderLineItem;
+};
+
+const SHIP_STATUS_BADGE_VARIANT: Record<OrderLineShipStatus, NonNullable<BadgeProps['variant']>> = {
+  unassigned: 'outline',
+  partial: 'warning',
+  assigned: 'secondary',
+  shipped: 'success',
 };
 
 function toDraftRows(line: OrderLineItem): DraftRow[] {
@@ -46,10 +59,13 @@ function toDraftRows(line: OrderLineItem): DraftRow[] {
   }));
 }
 
-export function OrderLineShipPanel({ companyId, orderId, line }: Props) {
+export function OrderLineShipPanel({ companyId, orderId, orderStatus, line }: Props) {
   const [open, setOpen] = React.useState(false);
+  const [staffNote, setStaffNote] = React.useState('');
   const isShipped = line.shipStatus === 'shipped';
+  const fulfilmentLocked = isOrderFulfilmentLocked(orderStatus) || isShipped;
   const needsStockContext = open || isShipped;
+  const lockedWarehouseId = line.allocations[0]?.warehouseId ?? '';
 
   const { data: product } = useQuery({
     queryKey: ['ecommerce', 'products', 'track-inventory', companyId, line.productId],
@@ -58,49 +74,93 @@ export function OrderLineShipPanel({ companyId, orderId, line }: Props) {
     staleTime: 60_000,
   });
   const trackInventory = product?.inventory.trackInventory ?? true;
+  const lineVariantId = line.variantId ?? null;
 
   const { data: availability = [], isLoading } = useProductStockAvailability(
     companyId,
     line.productId,
     needsStockContext && trackInventory,
+    lineVariantId,
   );
+  const { data: onHandByVariant } = useQuery({
+    queryKey: ['ecommerce', 'stock-by-variant', companyId, line.productId],
+    queryFn: () => inventoryStockService.getOnHandByVariant(companyId, line.productId),
+    enabled: needsStockContext && trackInventory && Boolean(companyId && line.productId && lineVariantId),
+    staleTime: 60_000,
+  });
+  const thisVariantOnHand = lineVariantId
+    ? onHandByVariant?.byVariant[lineVariantId] ?? 0
+    : 0;
+  const otherVariantsOnHand = onHandByVariant
+    ? Math.max(0, onHandByVariant.total - thisVariantOnHand)
+    : 0;
+  const selectableAvailability = React.useMemo(
+    () =>
+      lockedWarehouseId
+        ? availability.filter((row) => row.warehouseId === lockedWarehouseId)
+        : availability,
+    [availability, lockedWarehouseId],
+  );
+  const variantOutOfStockHint =
+    Boolean(lineVariantId) &&
+    !isLoading &&
+    selectableAvailability.length === 0 &&
+    otherVariantsOnHand > 0;
   const { saveAllocations, shipLine } = useOrderFulfillmentMutations(companyId);
   const [multi, setMulti] = React.useState(line.allocations.length > 1);
   const [rows, setRows] = React.useState<DraftRow[]>(() => toDraftRows(line));
   const [showAvailability, setShowAvailability] = React.useState(false);
 
+  const allocationsSyncKey = line.allocations
+    .map((row) => `${row.id}:${row.warehouseId}:${row.locationId}:${row.quantity}`)
+    .join('|');
+
   React.useEffect(() => {
     setRows(toDraftRows(line));
     setMulti(line.allocations.length > 1);
-  }, [line]);
+  }, [line.lineId, line.shipStatus, line.quantity, allocationsSyncKey]);
 
   React.useEffect(() => {
-    if (!trackInventory || availability.length === 0) return;
+    if (!trackInventory || selectableAvailability.length === 0) return;
     setRows((prev) => {
-      const needsFill = prev.some((row) => !row.locationId);
-      if (!needsFill) return prev;
+      let changed = false;
       const preferred =
-        availability.find((row) => (row.availableQuantity ?? row.quantity) >= line.quantity) ??
-        availability[0];
-      if (!preferred) return prev;
-      return prev.map((row) =>
-        row.locationId
-          ? row
-          : {
-              ...row,
-              locationId: preferred.locationId,
-              warehouseId: preferred.warehouseId,
-            },
-      );
+        selectableAvailability.find(
+          (row) => (row.availableQuantity ?? row.quantity) >= line.quantity,
+        ) ?? selectableAvailability[0];
+
+      const next = prev.map((row) => {
+        if (row.locationId && !row.warehouseId) {
+          const found = selectableAvailability.find((item) => item.locationId === row.locationId);
+          if (found) {
+            changed = true;
+            return { ...row, warehouseId: found.warehouseId };
+          }
+        }
+        if (!row.locationId && preferred) {
+          changed = true;
+          return {
+            ...row,
+            locationId: preferred.locationId,
+            warehouseId: preferred.warehouseId,
+          };
+        }
+        return row;
+      });
+
+      return changed ? next : prev;
     });
-  }, [availability, line.quantity, trackInventory]);
+  }, [selectableAvailability, line.quantity, trackInventory]);
 
   const availableByLocation = React.useMemo(
     () =>
       Object.fromEntries(
-        availability.map((row) => [row.locationId, row.availableQuantity ?? row.quantity]),
+        selectableAvailability.map((row) => [
+          row.locationId,
+          row.availableQuantity ?? row.quantity,
+        ]),
       ),
-    [availability],
+    [selectableAvailability],
   );
 
   const total = sumAllocationQty(rows);
@@ -113,6 +173,7 @@ export function OrderLineShipPanel({ companyId, orderId, line }: Props) {
           quantity: row.quantity,
         })),
         availableByLocation,
+        { lockedWarehouseId },
       )
     : { ok: true as const };
 
@@ -128,7 +189,9 @@ export function OrderLineShipPanel({ companyId, orderId, line }: Props) {
         if (row.key !== key) return row;
         const next = { ...row, ...patch };
         if (patch.locationId) {
-          const found = availability.find((item) => item.locationId === patch.locationId);
+          const found = selectableAvailability.find(
+            (item) => item.locationId === patch.locationId,
+          );
           if (found) next.warehouseId = found.warehouseId;
         }
         return next;
@@ -152,23 +215,46 @@ export function OrderLineShipPanel({ companyId, orderId, line }: Props) {
   }
 
   async function onSave() {
-    if (!trackInventory || !validation.ok) return;
-    await saveAllocations.mutateAsync({
-      orderId,
-      input: {
-        productId: line.productId,
-        allocations: rows.map((row) => ({
-          warehouseId: row.warehouseId,
-          locationId: row.locationId,
-          quantity: row.quantity,
-        })),
-      },
-    });
+    if (fulfilmentLocked) {
+      toast.error('لا يمكن تعديل التجهيز بعد شحن الصنف أو قفل الطلب.');
+      return;
+    }
+    if (!trackInventory) return;
+    if (!validation.ok) {
+      toast.error('error' in validation && validation.error ? validation.error : 'أكمل توزيع الكمية أولاً');
+      return;
+    }
+    if (!line.lineId) {
+      toast.error('معرّف بند الطلب غير متوفر. حدّث الصفحة ثم أعد المحاولة.');
+      return;
+    }
+    try {
+      await saveAllocations.mutateAsync({
+        orderId,
+        input: {
+          productId: line.productId,
+          lineId: line.lineId,
+          allocations: rows.map((row) => ({
+            warehouseId: row.warehouseId,
+            locationId: row.locationId,
+            quantity: row.quantity,
+          })),
+        },
+      });
+    } catch {
+      // toast handled by mutation onError
+    }
   }
 
   async function onShip() {
+    if (fulfilmentLocked) {
+      toast.error('لا يمكن تغيير حالة تجهيز الصنف بعد القفل.');
+      return;
+    }
+    const note = staffNote.trim() || null;
     if (trackInventory) {
       if (!validation.ok && line.shipStatus !== 'assigned' && line.shipStatus !== 'partial') {
+        toast.error('error' in validation && validation.error ? validation.error : 'أكمل توزيع الكمية أولاً');
         return;
       }
       const allocations = rows.map((row) => ({
@@ -176,20 +262,38 @@ export function OrderLineShipPanel({ companyId, orderId, line }: Props) {
         locationId: row.locationId,
         quantity: row.quantity,
       }));
-      if (line.shipStatus !== 'assigned' && line.shipStatus !== 'partial') {
-        await saveAllocations.mutateAsync({
+      try {
+        if (line.shipStatus !== 'assigned' && line.shipStatus !== 'partial') {
+          if (!line.lineId) {
+            toast.error('معرّف بند الطلب غير متوفر. حدّث الصفحة ثم أعد المحاولة.');
+            return;
+          }
+          await saveAllocations.mutateAsync({
+            orderId,
+            input: { productId: line.productId, lineId: line.lineId, allocations },
+          });
+        }
+        await shipLine.mutateAsync({
           orderId,
-          input: { productId: line.productId, allocations },
+          input: { productId: line.productId, lineId: line.lineId, allocations, note },
         });
+        setStaffNote('');
+        setOpen(false);
+      } catch {
+        // toast handled by mutation onError
       }
-      await shipLine.mutateAsync({
-        orderId,
-        input: { productId: line.productId, allocations },
-      });
     } else {
-      await shipLine.mutateAsync({ orderId, input: { productId: line.productId } });
+      try {
+        await shipLine.mutateAsync({
+          orderId,
+          input: { productId: line.productId, lineId: line.lineId, note },
+        });
+        setStaffNote('');
+        setOpen(false);
+      } catch {
+        // toast handled by mutation onError
+      }
     }
-    setOpen(false);
   }
 
   const shippedFromLabels = React.useMemo(() => {
@@ -251,6 +355,7 @@ export function OrderLineShipPanel({ companyId, orderId, line }: Props) {
           <p className="truncate text-sm font-medium text-foreground">{line.productNameAr}</p>
           <p className="text-xs text-muted-foreground">
             {line.quantity} × {formatPrice(line.unitPrice)}
+            {lineVariantId ? ' · متغير' : ''}
           </p>
           {!open ? shippedFromBadges : null}
         </div>
@@ -259,21 +364,11 @@ export function OrderLineShipPanel({ companyId, orderId, line }: Props) {
           {formatPrice(lineTotal)}
         </p>
 
-        <Badge
-          className="shrink-0"
-          variant={
-            isShipped
-              ? 'success'
-              : line.shipStatus === 'assigned' || line.shipStatus === 'partial'
-                ? 'warning'
-                : 'outline'
-          }
-        >
-          {isShipped
-            ? 'مجهّز'
-            : line.shipStatus === 'assigned' || line.shipStatus === 'partial'
-              ? `قيد التجهيز ${progressLabel}`
-              : 'لم يُجهَّز'}
+        <Badge className="shrink-0" variant={SHIP_STATUS_BADGE_VARIANT[line.shipStatus]}>
+          {ORDER_LINE_SHIP_STATUS_LABELS_AR[line.shipStatus]}
+          {line.shipStatus === 'partial' || line.shipStatus === 'assigned'
+            ? ` ${progressLabel}`
+            : ''}
         </Badge>
 
         <ChevronDown
@@ -281,7 +376,21 @@ export function OrderLineShipPanel({ companyId, orderId, line }: Props) {
         />
       </button>
 
-      {open && !isShipped ? (
+      {open && fulfilmentLocked ? (
+        <div className="space-y-3 border-t border-border px-3 py-3">
+          {shippedFromBadges}
+          <p className="text-xs text-muted-foreground">
+            {isShipped
+              ? 'الصنف مشحون — لا يمكن إعادة تجهيزه أو تغيير حالته.'
+              : 'الطلب مقفول (مشحون/مسلم/ملغي/مسترد) — لا يمكن تعديل التخصيص أو حالة الأصناف.'}
+          </p>
+          <Button type="button" size="sm" variant="ghost" onClick={() => setOpen(false)}>
+            إغلاق
+          </Button>
+        </div>
+      ) : null}
+
+      {open && !fulfilmentLocked ? (
         <div className="space-y-3 border-t border-border px-3 pb-4 pt-4">
           <p className="text-sm font-medium">
             توزيع {line.productNameAr} ({line.quantity} قطعة)
@@ -293,9 +402,18 @@ export function OrderLineShipPanel({ companyId, orderId, line }: Props) {
             </div>
           ) : (
             <p className="text-xs text-muted-foreground">
-              خصم المخزون يتم عند تغيير حالة الطلب إلى «تم الشحن». التوزيع هنا للتجهيز فقط.
+              خصم المخزون يتم عند تغيير حالة الطلب إلى «تم الشحن». التوزيع هنا للتجهيز فقط
+              {lineVariantId ? ' · التوفر حسب متغير هذا البند فقط.' : ' · التوفر للمنتج الأساسي.'}
+              {lockedWarehouseId ? ' · التخصيص مقيّد بنفس المستودع لأول تخصيص.' : ''}
             </p>
           )}
+
+          {variantOutOfStockHint ? (
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-950 dark:text-amber-100">
+              نفد مخزون هذا المتغير في المواقع. يوجد حوالي {otherVariantsOnHand} قطعة من متغيرات
+              أخرى لنفس المنتج — لا يمكن تجهيز هذا البند منها.
+            </div>
+          ) : null}
 
           {trackInventory ? (
             <>
@@ -311,10 +429,10 @@ export function OrderLineShipPanel({ companyId, orderId, line }: Props) {
                 <div className="flex flex-wrap gap-2">
                   {isLoading ? (
                     <p className="text-xs text-muted-foreground">جاري التحميل…</p>
-                  ) : availability.length === 0 ? (
+                  ) : selectableAvailability.length === 0 ? (
                     <p className="text-xs text-destructive">لا توجد كمية متاحة في المواقع.</p>
                   ) : (
-                    availability.map((row, index) => (
+                    selectableAvailability.map((row, index) => (
                       <Badge key={`${row.warehouseId}-${row.locationId}-${index}`} variant="outline">
                         {row.warehouseNameAr} / {row.locationNameAr} ({row.quantity})
                       </Badge>
@@ -364,7 +482,7 @@ export function OrderLineShipPanel({ companyId, orderId, line }: Props) {
                         <SelectValue placeholder="اختر الموقع" />
                       </SelectTrigger>
                       <SelectContent>
-                        {availability
+                        {selectableAvailability
                           .filter((option) => (option.availableQuantity ?? option.quantity) > 0)
                           .map((option, index) => (
                             <SelectItem
@@ -403,7 +521,7 @@ export function OrderLineShipPanel({ companyId, orderId, line }: Props) {
                       ...prev,
                       {
                         key: `row-${Math.random().toString(36).slice(2, 7)}`,
-                        warehouseId: '',
+                        warehouseId: lockedWarehouseId || '',
                         locationId: '',
                         quantity: 1,
                       },
@@ -421,9 +539,11 @@ export function OrderLineShipPanel({ companyId, orderId, line }: Props) {
                 </div>
               ) : null}
 
-              {!isLoading && availability.length === 0 ? (
+              {!isLoading && selectableAvailability.length === 0 ? (
                 <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                  لا توجد مواقع مخزون متاحة لهذا المنتج. أضف رصيدًا من المخازن أولًا.
+                  {variantOutOfStockHint
+                    ? 'لا مواقع متاحة لهذا المتغير. أضف رصيدًا للمتغير المطلوب أو اختر بديلاً من الطلب.'
+                    : 'لا توجد مواقع مخزون متاحة لهذا الصنف. أضف رصيدًا من المخازن أولًا.'}
                 </div>
               ) : null}
 
@@ -434,6 +554,13 @@ export function OrderLineShipPanel({ companyId, orderId, line }: Props) {
               ) : null}
             </>
           ) : null}
+
+          <Input
+            value={staffNote}
+            onChange={(event) => setStaffNote(event.target.value)}
+            placeholder="ملاحظة التجهيز (اختياري) — تُسجَّل في سجل الحالة"
+            maxLength={500}
+          />
 
           <div className="flex flex-wrap gap-2 pt-1">
             {trackInventory ? (
@@ -454,17 +581,13 @@ export function OrderLineShipPanel({ companyId, orderId, line }: Props) {
               disabled={isSaving || (!validation.ok && !canShipWithoutAlloc)}
               onClick={() => void onShip()}
             >
-              تم الشحن
+              تم الشحن للصنف
             </Button>
             <Button type="button" size="sm" variant="outline" onClick={() => setOpen(false)}>
               إغلاق
             </Button>
           </div>
         </div>
-      ) : null}
-
-      {open && isShipped ? (
-        <div className="border-t border-border px-3 py-3">{shippedFromBadges}</div>
       ) : null}
     </div>
   );

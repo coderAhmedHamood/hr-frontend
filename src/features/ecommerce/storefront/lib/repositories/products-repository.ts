@@ -1,5 +1,6 @@
 import { resolveApiBaseUrl } from '@/shared/api-base-url';
 import { publicConfig } from '@/shared/config';
+import type { MediaItem } from '@/features/ecommerce/domain/types/common';
 import type { Product, ProductAttribute, ProductVariant } from '@/features/ecommerce/domain/types/product';
 import type { StorefrontLocale } from '@/i18n/routing';
 import type { StorefrontPaginated, StorefrontProduct } from '@/features/ecommerce/storefront/domain/storefront-models';
@@ -46,8 +47,10 @@ type PublicVariantDto = {
   combinationKey: string;
   sku: string;
   nameAr: string;
+  description?: string | null;
   barcode?: string | null;
   imageUrl?: string | null;
+  images?: string[] | null;
   salePriceAmount: string | number;
   salePriceCurrency?: string;
   costPriceAmount?: string | number;
@@ -110,6 +113,10 @@ type PublicProductDto = {
   primaryImageAlt?: string | null;
   ratingAvg?: string | number | null;
   reviewCount?: string | number | null;
+  /** Some payloads use nested / alternate keys. */
+  rating?: string | number | null;
+  rating_avg?: string | number | null;
+  review_count?: string | number | null;
   archivedAt?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -196,6 +203,29 @@ function mapPublicAttributes(items: PublicAttrLineDto[] | undefined): ProductAtt
     }));
 }
 
+/** Build an ordered MediaItem gallery from a variant's image URLs. */
+function toVariantMedia(
+  images: string[] | null | undefined,
+  imageUrl: string | null | undefined,
+  alt: string,
+): { imageUrl?: string; images?: MediaItem[] } {
+  const urls = (images ?? []).map((url) => url?.trim()).filter((url): url is string => Boolean(url));
+  const primary = imageUrl?.trim() || urls[0];
+  const ordered = urls.length > 0 ? urls : primary ? [primary] : [];
+  if (ordered.length === 0) return {};
+  return {
+    imageUrl: primary,
+    images: ordered.map((url, index) => ({
+      id: `variant-img-${index}`,
+      url,
+      alt,
+      type: 'image' as const,
+      position: index,
+      isPrimary: index === 0,
+    })),
+  };
+}
+
 function mapPublicVariants(items: PublicVariantDto[] | undefined): ProductVariant[] {
   return (items ?? []).map((dto) => {
     const links = dto.attributeLinks ?? [];
@@ -224,10 +254,118 @@ function mapPublicVariants(items: PublicVariantDto[] | undefined): ProductVarian
       quantity: toNumber(dto.quantityCache),
       stockStatus: dto.stockStatus,
       barcode: dto.barcode ?? undefined,
-      imageUrl: dto.imageUrl ?? undefined,
+      description: dto.description ?? undefined,
+      ...toVariantMedia(dto.images, dto.imageUrl, dto.nameAr),
       isActive: dto.isActive,
     };
   });
+}
+
+/** Shape of `GET /public/inventory/products/:productId/variants` items. */
+type PublicStoreVariantDto = {
+  id: string;
+  productId: string;
+  combinationKey: string;
+  sku: string;
+  nameAr: string;
+  description?: string | null;
+  imageUrl?: string | null;
+  images?: string[] | null;
+  salePriceAmount: string | number;
+  salePriceCurrency?: string;
+  stockStatus: ProductVariant['stockStatus'];
+  attributes?: Array<{
+    valueId: string;
+    attributeNameAr: string;
+    valueNameAr: string;
+    colorHex?: string | null;
+  }>;
+};
+
+/**
+ * Map the public store variants payload into the product catalog graph
+ * (variants + the attribute pickers derived from each variant's attributes).
+ */
+function mapPublicStoreVariantGraph(
+  items: PublicStoreVariantDto[],
+  productPrice: Product['price'],
+): { variants: ProductVariant[]; attributes: ProductAttribute[] } {
+  const attrOrder: string[] = [];
+  const attrValues = new Map<string, Map<string, { nameAr: string; colorHex?: string }>>();
+
+  for (const dto of items) {
+    for (const attr of dto.attributes ?? []) {
+      if (!attrValues.has(attr.attributeNameAr)) {
+        attrValues.set(attr.attributeNameAr, new Map());
+        attrOrder.push(attr.attributeNameAr);
+      }
+      const values = attrValues.get(attr.attributeNameAr)!;
+      if (!values.has(attr.valueId)) {
+        values.set(attr.valueId, {
+          nameAr: attr.valueNameAr,
+          colorHex: attr.colorHex ?? undefined,
+        });
+      }
+    }
+  }
+
+  const attributes: ProductAttribute[] = attrOrder.map((nameAr) => {
+    const values = attrValues.get(nameAr)!;
+    const hasColor = [...values.values()].some((value) => Boolean(value.colorHex));
+    return {
+      id: `attr:${nameAr}`,
+      nameAr,
+      displayType: hasColor ? 'color' : 'select',
+      createVariant: 'always',
+      values: [...values.entries()].map(([id, value]) => ({
+        id,
+        nameAr: value.nameAr,
+        colorHex: value.colorHex,
+      })),
+    };
+  });
+
+  const variants: ProductVariant[] = items.map((dto) => {
+    const links = dto.attributes ?? [];
+    const saleAmount = toNumber(dto.salePriceAmount);
+    const currency = dto.salePriceCurrency || productPrice.currency;
+    return {
+      id: dto.id,
+      combinationKey: dto.combinationKey,
+      sku: dto.sku,
+      nameAr: dto.nameAr,
+      attributeValueIds: links.map((link) => link.valueId),
+      attributeLabels: links.map((link) => ({
+        attributeNameAr: link.attributeNameAr,
+        valueNameAr: link.valueNameAr,
+        colorHex: link.colorHex ?? undefined,
+      })),
+      // "0.0000" means "use the product base price".
+      salePrice: saleAmount > 0 ? { amount: saleAmount, currency } : productPrice,
+      costPrice: { amount: 0, currency },
+      quantity: 0,
+      stockStatus: dto.stockStatus,
+      description: dto.description ?? undefined,
+      ...toVariantMedia(dto.images, dto.imageUrl, dto.nameAr),
+      isActive: true,
+    };
+  });
+
+  return { variants, attributes };
+}
+
+/** Public (no-auth) variants for a product — titles, descriptions, and images. */
+async function fetchPublicStoreVariantGraph(
+  companyId: string,
+  productId: string,
+  productPrice: Product['price'],
+): Promise<{ variants: ProductVariant[]; attributes: ProductAttribute[] } | null> {
+  const data = await publicProductRequest<PublicStoreVariantDto[]>(
+    `/public/inventory/products/${encodeURIComponent(productId)}/variants`,
+    { companyId },
+  );
+  if (!Array.isArray(data) || data.length === 0) return null;
+  return mapPublicStoreVariantGraph(data, productPrice);
 }
 
 function mapPublicProduct(dto: PublicProductDto): Product {
@@ -313,9 +451,16 @@ function mapPublicProduct(dto: PublicProductDto): Product {
     isDiscountActive: Boolean(dto.isDiscountActive),
     attributes: mapPublicAttributes(dto.attributes),
     variants: mapPublicVariants(dto.variants),
-    rating:
-      dto.ratingAvg == null || dto.ratingAvg === '' ? null : toNumber(dto.ratingAvg),
-    reviewCount: Math.max(0, Math.floor(toNumber(dto.reviewCount))),
+    rating: (() => {
+      const raw = dto.ratingAvg ?? dto.rating_avg ?? dto.rating;
+      if (raw == null || raw === '') return null;
+      const value = toNumber(raw);
+      return Number.isFinite(value) ? value : null;
+    })(),
+    reviewCount: Math.max(
+      0,
+      Math.floor(toNumber(dto.reviewCount ?? dto.review_count ?? 0)),
+    ),
     createdAt: dto.createdAt,
     updatedAt: dto.updatedAt,
     archivedAt: dto.archivedAt ?? null,
@@ -335,6 +480,19 @@ async function withCatalogGraph(
     (product.attributes?.length ?? 0) > 0 || (product.variants?.length ?? 0) > 0;
   if (hasGraph) {
     return mapStorefrontProduct(product, locale);
+  }
+
+  // Prefer the public (no-auth) variants endpoint — works for anonymous shoppers.
+  try {
+    const graph = await fetchPublicStoreVariantGraph(companyId, product.id, product.price);
+    if (graph && graph.variants.length > 0) {
+      return mapStorefrontProduct(
+        { ...product, attributes: graph.attributes, variants: graph.variants },
+        locale,
+      );
+    }
+  } catch {
+    // fall through to the authenticated full-product graph
   }
 
   try {

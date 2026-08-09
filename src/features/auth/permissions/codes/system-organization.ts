@@ -33,4 +33,22 @@ export const SYSTEM_ORGANIZATION_PERMISSIONS = {
     update: 'system.organization.job-titles.update',
     delete: 'system.organization.job-titles.delete',
   },
+  geoCountries: {
+    read: 'system.organization.geo-countries.read',
+    create: 'system.organization.geo-countries.create',
+    update: 'system.organization.geo-countries.update',
+    delete: 'system.organization.geo-countries.delete',
+  },
+  geoCities: {
+    read: 'system.organization.geo-cities.read',
+    create: 'system.organization.geo-cities.create',
+    update: 'system.organization.geo-cities.update',
+    delete: 'system.organization.geo-cities.delete',
+  },
+  geoDistricts: {
+    read: 'system.organization.geo-districts.read',
+    create: 'system.organization.geo-districts.create',
+    update: 'system.organization.geo-districts.update',
+    delete: 'system.organization.geo-districts.delete',
+  },
 } as const;

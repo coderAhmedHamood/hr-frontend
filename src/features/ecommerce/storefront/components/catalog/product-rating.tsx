@@ -11,6 +11,8 @@ type ProductRatingProps = {
   className?: string;
   /** Noon-like compact pill with single star + score. */
   variant?: 'stars' | 'pill';
+  /** When true, render empty stars instead of hiding (product detail link). */
+  allowEmpty?: boolean;
 };
 
 function formatReviewCount(count: number): string {
@@ -27,12 +29,20 @@ export function ProductRating({
   size = 'sm',
   className,
   variant = 'pill',
+  allowEmpty = false,
 }: ProductRatingProps) {
   const t = useTranslations('storefront.components');
 
-  if (rating === null || rating <= 0) {
+  const count = Math.max(0, reviewCount ?? 0);
+  const hasScore = rating != null && Number.isFinite(rating) && rating > 0;
+  const hasCount = count > 0;
+
+  if (!hasScore && !hasCount && !allowEmpty) {
     return null;
   }
+
+  const safeRating = hasScore ? Number(rating) : 0;
+  const displayScore = hasScore ? safeRating.toFixed(1) : hasCount ? '—' : '0.0';
 
   if (variant === 'pill') {
     return (
@@ -42,24 +52,27 @@ export function ProductRating({
           size === 'sm' ? 'text-xs' : 'text-sm',
           className,
         )}
-        aria-label={t('ratingLabel', { rating: rating.toFixed(1) })}
+        aria-label={t('ratingLabel', { rating: hasScore ? safeRating.toFixed(1) : '0' })}
       >
         <Star className="h-3 w-3 fill-secondary text-secondary" aria-hidden />
-        <span className="font-semibold text-foreground">{rating.toFixed(1)}</span>
-        {reviewCount && reviewCount > 0 ? (
-          <span className="text-muted-foreground">{t('reviewCount', { count: formatReviewCount(reviewCount) })}</span>
+        <span className="font-semibold tabular-nums text-foreground">{displayScore}</span>
+        {hasCount ? (
+          <span className="text-muted-foreground">{t('reviewCount', { count: formatReviewCount(count) })}</span>
         ) : null}
       </div>
     );
   }
 
   const stars = Array.from({ length: 5 }, (_, index) => {
-    const filled = rating >= index + 1;
+    const filled = safeRating >= index + 1;
     return { filled };
   });
 
   return (
-    <div className={cn('flex items-center gap-1.5', className)} aria-label={t('ratingLabel', { rating: rating.toFixed(1) })}>
+    <div
+      className={cn('flex items-center gap-1.5', className)}
+      aria-label={t('ratingLabel', { rating: hasScore ? safeRating.toFixed(1) : '0' })}
+    >
       <div className="flex items-center gap-0.5" aria-hidden>
         {stars.map((star, index) => (
           <Star
@@ -72,9 +85,14 @@ export function ProductRating({
           />
         ))}
       </div>
-      {reviewCount && reviewCount > 0 ? (
+      {hasScore ? (
+        <span className={cn('font-semibold tabular-nums text-foreground', size === 'sm' ? 'text-xs' : 'text-sm')}>
+          {safeRating.toFixed(1)}
+        </span>
+      ) : null}
+      {hasCount ? (
         <span className={cn('text-muted-foreground', size === 'sm' ? 'text-xs' : 'text-sm')}>
-          {t('reviewCount', { count: formatReviewCount(reviewCount) })}
+          {t('reviewCount', { count: formatReviewCount(count) })}
         </span>
       ) : null}
     </div>

@@ -91,12 +91,14 @@ export function StoreCartClient() {
       <ul className="flex flex-col gap-4">
         {cartLines.map(({ line, product, unitPrice, compareAt, discountPercent, maxQty, lineName, variant }) => {
           const display = buildProductDisplay(product);
+          const imageUrl = variant?.imageUrl ?? variant?.images?.[0]?.url ?? display.imageUrl;
+          const imageAlt = variant ? lineName : display.imageAlt;
           const rowKey = line.variantId ? `${product.id}::${line.variantId}` : product.id;
           return (
             <li key={rowKey} className="flex gap-4 rounded-xl border border-border bg-card p-4">
               <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-muted">
-                {display.imageUrl ? (
-                  <Image src={display.imageUrl} alt={display.imageAlt} fill unoptimized sizes="80px" className="object-contain p-1" />
+                {imageUrl ? (
+                  <Image src={imageUrl} alt={imageAlt} fill unoptimized sizes="80px" className="object-contain p-1" />
                 ) : (
                   <div className="flex h-full items-center justify-center text-muted-foreground">
                     <PackageSearch className="h-6 w-6" aria-hidden />

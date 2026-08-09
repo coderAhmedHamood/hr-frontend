@@ -1,4 +1,8 @@
 import type { Money } from '@/features/ecommerce/domain/types/common';
+import type {
+  CreateStoreOrderAttachmentInput,
+  StoreOrderAttachment,
+} from '@/features/ecommerce/domain/types/order';
 
 export type CheckoutPaymentMethod = 'cash_on_delivery' | 'card';
 
@@ -15,6 +19,10 @@ export type StorefrontPaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded'
 export type CheckoutAddressInput = {
   fullName: string;
   phone: string;
+  /** Preferred geo IDs for store orders (must be showInStore). */
+  countryId?: string | null;
+  cityId?: string | null;
+  districtId?: string | null;
   city: string;
   district: string;
   street: string;
@@ -41,6 +49,8 @@ export type PlaceOrderInput = {
   locale: string;
   address: CheckoutAddressInput;
   paymentMethod: CheckoutPaymentMethod;
+  /** Customer-facing order note (gift wrap, timing, …) — separate from address.notes. */
+  customerNote?: string | null;
   /**
    * Optional payment receipt / transfer screenshots for card / network payments.
    * One or more image data-URLs / remote URLs.
@@ -48,6 +58,8 @@ export type PlaceOrderInput = {
   paymentProofUrls?: string[];
   /** @deprecated Prefer `paymentProofUrls`. */
   paymentProofUrl?: string | null;
+  /** Optional files the customer attaches to the order (≤ 20). */
+  attachments?: CreateStoreOrderAttachmentInput[];
   /** Partner Bearer when the customer is logged in. */
   accessToken?: string | null;
   lines: CheckoutLineInput[];
@@ -67,6 +79,12 @@ export type StorefrontCustomerOrder = {
   paymentProofUrls?: string[];
   /** @deprecated Prefer `paymentProofUrls`. */
   paymentProofUrl?: string | null;
+  /** Customer note at place-order. */
+  customerNote?: string | null;
+  /** Store note — present only when staff made it visible to the customer. */
+  staffNote?: string | null;
+  /** Files attached to the order (customer + staff). */
+  attachments?: StoreOrderAttachment[];
   address: CheckoutAddressInput;
   lines: StorefrontOrderLine[];
   subtotal: Money;

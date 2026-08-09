@@ -1,12 +1,17 @@
 import { apiRequest, ensurePaginatedResult, type PaginatedResult } from '@/features/hr/lib/api/client';
 import type {
+  CreateStoreOrderAttachmentInput,
   Order,
+  OrderAttachmentVisibilityFilter,
   OrderListQuery,
   OrderLineItem,
   SaveOrderLineAllocationsInput,
   ShipOrderLineInput,
+  StoreOrderAttachment,
   UpdateOrderPaymentStatusInput,
+  UpdateOrderStaffNoteInput,
   UpdateOrderStatusInput,
+  UpdateStoreOrderAttachmentInput,
 } from '@/features/ecommerce/domain/types/order';
 import type {
   PlaceOrderInput,
@@ -49,6 +54,18 @@ type StoreOrderLineDto = {
   }>;
 };
 
+type StoreOrderAttachmentDto = {
+  id: string;
+  fileName: string;
+  fileUrl: string;
+  mimeType?: string | null;
+  sizeBytes?: string | number | null;
+  label?: string | null;
+  visibleToCustomer?: boolean | null;
+  uploadedBy?: string | null;
+  createdAt: string;
+};
+
 type StoreOrderDto = {
   id: string;
   companyId: string;
@@ -69,6 +86,9 @@ type StoreOrderDto = {
   shipDistrict: string;
   shipStreet: string;
   shipNotes?: string | null;
+  customerNote?: string | null;
+  staffNote?: string | null;
+  staffNoteVisibleToCustomer?: boolean | null;
   shipLat?: number | null;
   shipLng?: number | null;
   shipMapAddress?: string | null;
@@ -78,6 +98,15 @@ type StoreOrderDto = {
   totalAmount: string;
   estimatedDeliveryAt?: string | null;
   lines: StoreOrderLineDto[];
+  statusHistory?: Array<{
+    id?: string;
+    fromStatus?: Order['status'] | null;
+    toStatus: Order['status'];
+    changedBy?: string | null;
+    note?: string | null;
+    createdAt: string;
+  }>;
+  attachments?: StoreOrderAttachmentDto[] | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -114,9 +143,42 @@ function mapLine(dto: StoreOrderLineDto): OrderLineItem {
       locationId: row.locationId,
       quantity: fromDecimalString(row.quantity),
     })),
-    shipStatus: dto.shipStatus,
+    shipStatus: dto.shipStatus ?? 'unassigned',
     imageUrl: dto.imageUrl ?? null,
   };
+}
+
+function mapAttachments(
+  rows: StoreOrderAttachmentDto[] | null | undefined,
+): StoreOrderAttachment[] {
+  if (!rows?.length) return [];
+  return rows.map((row) => ({
+    id: row.id,
+    fileName: row.fileName,
+    fileUrl: row.fileUrl,
+    mimeType: row.mimeType ?? null,
+    sizeBytes: row.sizeBytes == null ? null : String(row.sizeBytes),
+    label: row.label ?? null,
+    visibleToCustomer: row.visibleToCustomer ?? true,
+    uploadedBy: row.uploadedBy ?? null,
+    createdAt: row.createdAt,
+  }));
+}
+
+function mapStatusHistory(
+  rows: StoreOrderDto['statusHistory'],
+): NonNullable<Order['statusHistory']> {
+  if (!rows?.length) return [];
+  return [...rows]
+    .map((row) => ({
+      id: row.id,
+      fromStatus: row.fromStatus ?? null,
+      toStatus: row.toStatus,
+      changedBy: row.changedBy ?? null,
+      note: row.note ?? null,
+      createdAt: row.createdAt,
+    }))
+    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 }
 
 function mapAdminOrder(dto: StoreOrderDto): Order {
@@ -142,6 +204,9 @@ function mapAdminOrder(dto: StoreOrderDto): Order {
     shippingStreet: dto.shipStreet,
     shippingDistrict: dto.shipDistrict,
     shippingNotes: dto.shipNotes ?? undefined,
+    customerNote: dto.customerNote ?? null,
+    staffNote: dto.staffNote ?? null,
+    staffNoteVisibleToCustomer: dto.staffNoteVisibleToCustomer ?? false,
     paymentMethod: dto.paymentMethod,
     paymentStatus: dto.paymentStatus,
     paymentProofUrls: proofUrls,
@@ -149,6 +214,8 @@ function mapAdminOrder(dto: StoreOrderDto): Order {
     subtotalAmount: { amount: fromDecimalString(dto.subtotalAmount), currency },
     shippingFeeAmount: { amount: fromDecimalString(dto.shippingFeeAmount), currency },
     source: dto.source ?? 'storefront',
+    statusHistory: mapStatusHistory(dto.statusHistory),
+    attachments: mapAttachments(dto.attachments),
   };
 }
 
@@ -188,6 +255,8 @@ function mapStorefrontOrder(dto: StoreOrderDto): StorefrontCustomerOrder {
     paymentStatus: dto.paymentStatus,
     paymentProofUrls: proofUrls,
     paymentProofUrl: proofUrls[0] ?? null,
+    customerNote: dto.customerNote ?? null,
+    staffNote: dto.staffNote ?? null,
     address: {
       fullName: dto.shipFullName,
       phone: dto.shipPhone,
@@ -221,6 +290,7 @@ function mapStorefrontOrder(dto: StoreOrderDto): StorefrontCustomerOrder {
     createdAt: dto.createdAt,
     updatedAt: dto.updatedAt,
     estimatedDeliveryAt: dto.estimatedDeliveryAt ?? dto.createdAt,
+    attachments: mapAttachments(dto.attachments),
   };
 }
 
@@ -245,9 +315,15 @@ export async function placePublicStoreOrder(
       paymentMethod: input.paymentMethod,
       paymentProofUrl: proofUrls[0] ?? null,
       locale: input.locale || 'ar',
+      ...(input.customerNote?.trim()
+        ? { customerNote: input.customerNote.trim() }
+        : {}),
       address: {
         fullName: input.address.fullName,
         phone: input.address.phone,
+        countryId: input.address.countryId ?? null,
+        cityId: input.address.cityId ?? null,
+        districtId: input.address.districtId ?? null,
         city: input.address.city,
         district: input.address.district,
         street: input.address.street,
@@ -261,6 +337,17 @@ export async function placePublicStoreOrder(
         variantId: line.variantId ?? null,
         quantity: line.quantity,
       })),
+      ...(input.attachments?.length
+        ? {
+            attachments: input.attachments.slice(0, 20).map((attachment) => ({
+              fileName: attachment.fileName,
+              fileUrl: attachment.fileUrl,
+              mimeType: attachment.mimeType ?? null,
+              sizeBytes: attachment.sizeBytes ?? null,
+              label: attachment.label ?? null,
+            })),
+          }
+        : {}),
     },
   });
   if (!dto) throw new Error('ORDER_CREATE_FAILED');
@@ -338,6 +425,7 @@ export async function fetchAdminStoreOrders(
       paymentMethod: query.paymentMethod,
       city: query.city,
       search: query.search,
+      partnerId: query.partnerId,
     },
   });
   const safe = ensurePaginatedResult(page);
@@ -347,11 +435,21 @@ export async function fetchAdminStoreOrders(
   };
 }
 
-export async function fetchAdminStoreOrder(companyId: string, id: string): Promise<Order | null> {
+export async function fetchAdminStoreOrder(
+  companyId: string,
+  id: string,
+  options?: { attachments?: OrderAttachmentVisibilityFilter },
+): Promise<Order | null> {
   try {
     const dto = await apiRequest<StoreOrderDto>(`/store-admin/orders/${id}`, {
       throwOnError: true,
-      query: { companyId: resolveStorefrontCompanyId(companyId) },
+      query: {
+        companyId: resolveStorefrontCompanyId(companyId),
+        attachments:
+          options?.attachments && options.attachments !== 'all'
+            ? options.attachments
+            : undefined,
+      },
     });
     return mapAdminOrder(dto);
   } catch {
@@ -409,7 +507,7 @@ export async function saveAdminStoreLineAllocations(
   // Replace strategy: DELETE existing allocations then POST the new set.
   for (const allocation of existing) {
     if (!allocation.id) continue;
-    await apiRequest<StoreOrderDto>(
+    await apiRequest(
       `/store-admin/orders/${orderId}/lines/${lineId}/allocations/${allocation.id}`,
       {
         method: 'DELETE',
@@ -419,25 +517,24 @@ export async function saveAdminStoreLineAllocations(
     );
   }
 
-  let last: Order | null = null;
   for (const row of input.allocations) {
-    const dto = await apiRequest<StoreOrderDto>(
-      `/store-admin/orders/${orderId}/lines/${lineId}/allocations`,
-      {
-        method: 'POST',
-        throwOnError: true,
-        query: { companyId: company },
-        body: {
-          warehouseId: row.warehouseId,
-          locationId: row.locationId,
-          quantity: toDecimalString(row.quantity),
-        },
+    if (!row.warehouseId || !row.locationId || !(row.quantity > 0)) {
+      throw new Error('توزيع غير صالح: يلزم مستودع وموقع وكمية أكبر من صفر.');
+    }
+    await apiRequest(`/store-admin/orders/${orderId}/lines/${lineId}/allocations`, {
+      method: 'POST',
+      throwOnError: true,
+      query: { companyId: company },
+      body: {
+        warehouseId: row.warehouseId,
+        locationId: row.locationId,
+        // Backend validates: "quantity must be a number string" (e.g. "1" / "1.0000").
+        quantity: toDecimalString(row.quantity),
       },
-    );
-    last = mapAdminOrder(dto);
+    });
   }
 
-  if (last) return last;
+  // Always re-fetch full order — allocation POST/DELETE payloads are not reliable order DTOs.
   const order = await fetchAdminStoreOrder(companyId, orderId);
   if (!order) throw new Error('الطلب غير موجود.');
   return order;
@@ -460,22 +557,127 @@ export async function deleteAdminStoreLineAllocation(
   return mapAdminOrder(dto);
 }
 
+export async function updateAdminStoreLineShipStatus(
+  companyId: string,
+  orderId: string,
+  lineId: string,
+  shipStatus: OrderLineItem['shipStatus'],
+  note?: string | null,
+): Promise<Order> {
+  const trimmed = note?.trim();
+  await apiRequest(`/store-admin/orders/${orderId}/lines/${lineId}/ship-status`, {
+    method: 'PATCH',
+    throwOnError: true,
+    query: { companyId: resolveStorefrontCompanyId(companyId) },
+    body: {
+      shipStatus,
+      ...(trimmed ? { note: trimmed } : {}),
+    },
+  });
+  const order = await fetchAdminStoreOrder(companyId, orderId);
+  if (!order) throw new Error('الطلب غير موجود.');
+  return order;
+}
+
+/** @deprecated Prefer updateAdminStoreLineShipStatus — kept for callers that only mark shipped. */
 export async function shipAdminStoreLine(
   companyId: string,
   orderId: string,
   lineId: string,
   input: ShipOrderLineInput,
 ): Promise<Order> {
-  void input;
-  await apiRequest(`/store-admin/orders/${orderId}/lines/${lineId}/ship-status`, {
+  return updateAdminStoreLineShipStatus(
+    companyId,
+    orderId,
+    lineId,
+    'shipped',
+    input.note,
+  );
+}
+
+/** POST /store-admin/orders/:id/attachments → returns the full updated order. */
+export async function addAdminStoreOrderAttachment(
+  companyId: string,
+  orderId: string,
+  input: CreateStoreOrderAttachmentInput,
+): Promise<Order> {
+  const dto = await apiRequest<StoreOrderDto>(`/store-admin/orders/${orderId}/attachments`, {
+    method: 'POST',
+    throwOnError: true,
+    query: { companyId: resolveStorefrontCompanyId(companyId) },
+    body: {
+      fileName: input.fileName,
+      fileUrl: input.fileUrl,
+      mimeType: input.mimeType ?? null,
+      sizeBytes: input.sizeBytes ?? null,
+      label: input.label ?? null,
+      ...(input.visibleToCustomer === undefined
+        ? {}
+        : { visibleToCustomer: input.visibleToCustomer }),
+    },
+  });
+  return mapAdminOrder(dto);
+}
+
+/** PATCH /store-admin/orders/:id/attachments/:attachmentId → returns the full order. */
+export async function updateAdminStoreOrderAttachment(
+  companyId: string,
+  orderId: string,
+  attachmentId: string,
+  input: UpdateStoreOrderAttachmentInput,
+): Promise<Order> {
+  const dto = await apiRequest<StoreOrderDto>(
+    `/store-admin/orders/${orderId}/attachments/${attachmentId}`,
+    {
+      method: 'PATCH',
+      throwOnError: true,
+      query: { companyId: resolveStorefrontCompanyId(companyId) },
+      body: {
+        ...(input.label === undefined ? {} : { label: input.label }),
+        ...(input.visibleToCustomer === undefined
+          ? {}
+          : { visibleToCustomer: input.visibleToCustomer }),
+      },
+    },
+  );
+  return mapAdminOrder(dto);
+}
+
+/** DELETE /store-admin/orders/:id/attachments/:attachmentId → returns the full order. */
+export async function deleteAdminStoreOrderAttachment(
+  companyId: string,
+  orderId: string,
+  attachmentId: string,
+): Promise<Order> {
+  const dto = await apiRequest<StoreOrderDto>(
+    `/store-admin/orders/${orderId}/attachments/${attachmentId}`,
+    {
+      method: 'DELETE',
+      throwOnError: true,
+      query: { companyId: resolveStorefrontCompanyId(companyId) },
+    },
+  );
+  return mapAdminOrder(dto);
+}
+
+/** PATCH /store-admin/orders/:id/staff-note → returns the full updated order. */
+export async function updateAdminStoreOrderStaffNote(
+  companyId: string,
+  orderId: string,
+  input: UpdateOrderStaffNoteInput,
+): Promise<Order> {
+  const dto = await apiRequest<StoreOrderDto>(`/store-admin/orders/${orderId}/staff-note`, {
     method: 'PATCH',
     throwOnError: true,
     query: { companyId: resolveStorefrontCompanyId(companyId) },
-    body: { shipStatus: 'shipped' },
+    body: {
+      ...(input.staffNote === undefined ? {} : { staffNote: input.staffNote }),
+      ...(input.visibleToCustomer === undefined
+        ? {}
+        : { visibleToCustomer: input.visibleToCustomer }),
+    },
   });
-  const order = await fetchAdminStoreOrder(companyId, orderId);
-  if (!order) throw new Error('الطلب غير موجود.');
-  return order;
+  return mapAdminOrder(dto);
 }
 
 export function storeOrdersHttpEnabled(): boolean {

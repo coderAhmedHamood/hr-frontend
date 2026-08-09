@@ -1,4 +1,4 @@
-import { Bell, Briefcase, Building2, Landmark, UserCircle } from 'lucide-react';
+import { Bell, Briefcase, Building2, Landmark, MapPinned, UserCircle } from 'lucide-react';
 import { SYSTEM_ORGANIZATION_BASE, systemOrganizationRoutes } from '@/features/system/organization/constants/routes';
 
 export const systemOrganizationStructureNavItems = [
@@ -7,6 +7,7 @@ export const systemOrganizationStructureNavItems = [
   { labelAr: 'الفروع', href: systemOrganizationRoutes.branches, icon: Building2 },
   { labelAr: 'الأقسام', href: systemOrganizationRoutes.departments, icon: Building2 },
   { labelAr: 'الهيكل التنظيمي', href: systemOrganizationRoutes.chart, icon: Building2 },
+  { labelAr: 'المواقع الجغرافية', href: systemOrganizationRoutes.geo, icon: MapPinned },
 ] as const;
 
 export const systemOrganizationSettingsNavItems = [

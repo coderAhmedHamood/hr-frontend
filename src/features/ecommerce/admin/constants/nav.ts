@@ -14,6 +14,7 @@ import {
   Mail,
   Star,
   PanelBottom,
+  BarChart3,
 } from 'lucide-react';
 import {
   ecommerceAdminRoutes,
@@ -40,7 +41,7 @@ export type EcommerceAdminNavSection = {
 };
 
 export type EcommerceAdminNavGroup = {
-  key: 'products' | 'catalogSetup' | 'storeSettings';
+  key: 'products' | 'catalogSetup' | 'storeSettings' | 'sales';
   labelKey: string;
   icon: LucideIcon;
   sections: EcommerceAdminNavSection[];
@@ -55,6 +56,18 @@ export const ecommerceAdminOverviewItem: EcommerceAdminNavItem = {
 
 /** Ecommerce-only nav — inventory lives in the standalone Inventory app. */
 export const ecommerceAdminNavGroups: EcommerceAdminNavGroup[] = [
+  {
+    key: 'sales',
+    labelKey: 'groups.sales',
+    icon: BarChart3,
+    sections: [
+      {
+        items: [
+          { labelKey: 'salesReports', href: ecommerceAdminRoutes.salesReports, icon: BarChart3 },
+        ],
+      },
+    ],
+  },
   {
     key: 'products',
     labelKey: 'groups.products',

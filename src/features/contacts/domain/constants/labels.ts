@@ -61,5 +61,3 @@ export const PARTNER_ACTIVITY_STATUS_LABELS: Record<PartnerActivityStatus, strin
   done: 'منجز',
   cancelled: 'ملغى',
 };
-
-export const KANBAN_STATUSES: PartnerStatus[] = ['draft', 'active', 'inactive'];

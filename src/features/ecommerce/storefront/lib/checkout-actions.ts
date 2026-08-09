@@ -41,6 +41,9 @@ export async function placeStorefrontOrder(
       address: {
         fullName: address.fullName.trim(),
         phone: address.phone.trim(),
+        countryId: address.countryId ?? null,
+        cityId: address.cityId ?? null,
+        districtId: address.districtId ?? null,
         city: address.city.trim(),
         district: address.district.trim(),
         street: address.street.trim(),
@@ -49,6 +52,7 @@ export async function placeStorefrontOrder(
         lng: address.lng,
         mapAddress: address.mapAddress?.trim() || undefined,
       },
+      customerNote: input.customerNote?.trim() || null,
     });
     return { ok: true, order };
   } catch (error) {

@@ -59,6 +59,12 @@ export type StorefrontProduct = {
     combinationKey: string;
     sku: string;
     nameAr: string;
+    /** Variant description shown when this variant is selected. */
+    description?: string;
+    /** Variant primary image. */
+    imageUrl?: string;
+    /** Variant image gallery (swaps the PDP gallery on selection). */
+    images?: MediaItem[];
     attributeValueIds: string[];
     attributeLabels: Array<{ attributeNameAr: string; valueNameAr: string; colorHex?: string }>;
     price: Money;

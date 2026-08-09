@@ -9,6 +9,7 @@ import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/stor
 import { getCmsCompanyRecord, saveCmsCompanyRecord } from '@/features/ecommerce/admin/cms/shared/cms-actions';
 import type { CompanyConfigRecord } from '@/features/ecommerce/storefront/domain/company-config';
 import { FooterLinkGroupsEditor } from '@/features/ecommerce/admin/cms/footer/components/footer-link-groups-editor';
+import { buildDefaultStoreFooterLinkGroups } from '@/features/ecommerce/storefront/lib/store-footer-defaults';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { PageHeaderPrimaryButton } from '@/components/layouts/page-header-primary-button';
@@ -37,7 +38,12 @@ export function FooterEditorPage() {
   const [draft, setDraft] = React.useState<CompanyConfigRecord | null>(null);
 
   React.useEffect(() => {
-    if (data) setDraft(structuredClone(data));
+    if (!data) return;
+    const next = structuredClone(data);
+    if (!next.footer.linkGroups.some((group) => group.links.some((link) => link.href))) {
+      next.footer.linkGroups = buildDefaultStoreFooterLinkGroups();
+    }
+    setDraft(next);
   }, [data]);
 
   const save = useMutation({

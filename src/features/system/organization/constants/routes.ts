@@ -12,6 +12,8 @@ export const systemOrganizationRoutes = {
   departments: `${SYSTEM_ORGANIZATION_BASE}/departments`,
   /** شجرة الهيكل التنظيمي */
   chart: `${SYSTEM_ORGANIZATION_BASE}/chart`,
+  /** المواقع الجغرافية — دول / مدن / أحياء */
+  geo: `${SYSTEM_ORGANIZATION_BASE}/geo`,
   /** إعدادات الموارد البشرية والنظام */
   pages: `${SYSTEM_ORGANIZATION_BASE}/pages`,
   pagesHr: `${SYSTEM_ORGANIZATION_BASE}/pages/hr`,

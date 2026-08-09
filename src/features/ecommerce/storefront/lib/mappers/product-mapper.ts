@@ -74,6 +74,9 @@ export function mapStorefrontProduct(product: Product, locale: StorefrontLocale)
         combinationKey: variant.combinationKey,
         sku: variant.sku,
         nameAr: variant.nameAr,
+        description: variant.description,
+        imageUrl: variant.imageUrl,
+        images: variant.images,
         attributeValueIds: variant.attributeValueIds,
         attributeLabels: variant.attributeLabels,
         price:

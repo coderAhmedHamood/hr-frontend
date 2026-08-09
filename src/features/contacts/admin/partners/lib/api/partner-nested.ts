@@ -34,6 +34,9 @@ export const partnerAddressesApi = {
     addressType?: PartnerAddressType;
     label?: string | null;
     isDefault?: boolean;
+    countryId?: string | null;
+    cityId?: string | null;
+    districtId?: string | null;
     countryCode?: string | null;
     state?: string | null;
     city?: string | null;

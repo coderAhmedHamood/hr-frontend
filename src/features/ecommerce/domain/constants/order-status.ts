@@ -1,4 +1,4 @@
-import type { Order, OrderStatus } from '@/features/ecommerce/domain/types/order';
+import type { Order, OrderLineShipStatus, OrderStatus } from '@/features/ecommerce/domain/types/order';
 
 /** Full lifecycle from customer request through delivery (+ terminal sides). */
 export const ORDER_STATUS_LABELS_AR: Record<OrderStatus, string> = {
@@ -9,6 +9,14 @@ export const ORDER_STATUS_LABELS_AR: Record<OrderStatus, string> = {
   delivered: 'تم التسليم',
   cancelled: 'ملغي',
   refunded: 'مسترد',
+};
+
+/** Line-level fulfilment (`lines[].shipStatus`) — independent of order `status`. */
+export const ORDER_LINE_SHIP_STATUS_LABELS_AR: Record<OrderLineShipStatus, string> = {
+  unassigned: 'لم يُجهَّز',
+  partial: 'تجهيز جزئي',
+  assigned: 'جاهز / مخصّص',
+  shipped: 'تم الشحن',
 };
 
 export const PAYMENT_METHOD_LABELS_AR: Record<'cash_on_delivery' | 'card', string> = {
@@ -38,8 +46,70 @@ export const ORDER_PIPELINE_STATUSES: OrderStatus[] = [
 /** Terminal statuses outside the main forward path. */
 export const ORDER_TERMINAL_STATUSES: OrderStatus[] = ['cancelled', 'refunded'];
 
+/**
+ * Backend-controlled order status transitions (no arbitrary jumps).
+ * `shipped` additionally requires every line `shipStatus === 'shipped'`.
+ */
+export const ORDER_STATUS_TRANSITIONS: Record<OrderStatus, readonly OrderStatus[]> = {
+  pending: ['confirmed', 'processing', 'cancelled'],
+  confirmed: ['processing', 'pending', 'cancelled'],
+  processing: ['shipped', 'confirmed', 'pending', 'cancelled'],
+  shipped: ['delivered', 'refunded'],
+  delivered: ['refunded'],
+  cancelled: [],
+  refunded: [],
+};
+
+/** Order statuses that lock line allocations + shipStatus edits. */
+export const ORDER_FULFILMENT_LOCKED_STATUSES: readonly OrderStatus[] = [
+  'shipped',
+  'delivered',
+  'cancelled',
+  'refunded',
+];
+
 /** Kanban columns: fulfilment pipeline + ملغي. */
 export const ORDER_KANBAN_STATUSES: OrderStatus[] = [...ORDER_PIPELINE_STATUSES, 'cancelled'];
+
+export function isOrderFulfilmentLocked(status: OrderStatus): boolean {
+  return ORDER_FULFILMENT_LOCKED_STATUSES.includes(status);
+}
+
+export function allOrderLinesShipped(
+  order: Pick<Order, 'items'>,
+): boolean {
+  return order.items.length > 0 && order.items.every((line) => line.shipStatus === 'shipped');
+}
+
+export function getAllowedOrderStatusTransitions(
+  order: Pick<Order, 'status' | 'items' | 'paymentMethod' | 'paymentStatus'>,
+): OrderStatus[] {
+  const allowed = ORDER_STATUS_TRANSITIONS[order.status] ?? [];
+  return allowed.filter((next) => {
+    if (next === 'shipped' && !allOrderLinesShipped(order)) return false;
+    return canAdvanceOrderStatus(order, next);
+  });
+}
+
+export function canTransitionOrderStatus(
+  order: Pick<Order, 'status' | 'items' | 'paymentMethod' | 'paymentStatus'>,
+  nextStatus: OrderStatus,
+): boolean {
+  if (order.status === nextStatus) return false;
+  return getAllowedOrderStatusTransitions(order).includes(nextStatus);
+}
+
+/** True when moving backward on the pipeline or to a terminal cancel/refund. */
+export function isOrderStatusNoteRecommended(
+  from: OrderStatus,
+  to: OrderStatus,
+): boolean {
+  if (to === 'cancelled' || to === 'refunded') return true;
+  const fromIdx = orderPipelineIndex(from);
+  const toIdx = orderPipelineIndex(to);
+  if (fromIdx >= 0 && toIdx >= 0 && toIdx < fromIdx) return true;
+  return false;
+}
 
 export type OrderFlowStep =
   | { id: string; kind: 'order'; status: OrderStatus; label: string }
@@ -210,7 +280,10 @@ export function nextOrderPipelineStatus(status: OrderStatus): OrderStatus | null
   return ORDER_PIPELINE_STATUSES[index + 1]!;
 }
 
-/** Card orders must be paid before confirmation. */
+/**
+ * Card orders must be paid before moving past pending.
+ * Combine with `canTransitionOrderStatus` for full backend-aligned checks.
+ */
 export function canAdvanceOrderStatus(
   order: Pick<Order, 'paymentMethod' | 'paymentStatus'>,
   nextStatus: OrderStatus,
@@ -218,6 +291,7 @@ export function canAdvanceOrderStatus(
   if (resolveOrderPaymentMethod(order) !== 'card') return true;
   if (isPaymentSettled(order)) return true;
   const nextIdx = orderPipelineIndex(nextStatus);
-  // Allow staying on / returning to pending while unpaid
+  // Allow staying on / returning to pending while unpaid; cancel always ok if transition allows
+  if (nextStatus === 'cancelled') return true;
   return nextIdx <= orderPipelineIndex('pending');
 }
