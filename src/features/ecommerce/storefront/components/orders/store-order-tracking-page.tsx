@@ -10,6 +10,7 @@ import {
   Package,
   PackageCheck,
   Paperclip,
+  StickyNote,
   Truck,
   Wallet,
 } from 'lucide-react';
@@ -263,6 +264,20 @@ export function StoreOrderTrackingPage({ order }: Props) {
           </section>
         </div>
       </div>
+
+      {order.staffNote ? (
+        <section className="rounded-3xl border border-primary/20 bg-primary/[0.04] p-5 shadow-soft sm:p-6">
+          <div className="mb-3 flex items-center gap-2">
+            <StickyNote className="h-4 w-4 text-primary" />
+            <h2 className="font-arabic-display text-base font-semibold">
+              {t('orders.storeNote')}
+            </h2>
+          </div>
+          <p className="whitespace-pre-wrap text-sm text-foreground" dir="auto">
+            {order.staffNote}
+          </p>
+        </section>
+      ) : null}
 
       {visibleAttachments.length > 0 ? (
         <section className="rounded-3xl border border-border bg-card p-5 shadow-soft sm:p-6">

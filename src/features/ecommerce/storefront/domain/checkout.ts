@@ -81,6 +81,8 @@ export type StorefrontCustomerOrder = {
   paymentProofUrl?: string | null;
   /** Customer note at place-order. */
   customerNote?: string | null;
+  /** Store note — present only when staff made it visible to the customer. */
+  staffNote?: string | null;
   /** Files attached to the order (customer + staff). */
   attachments?: StoreOrderAttachment[];
   address: CheckoutAddressInput;

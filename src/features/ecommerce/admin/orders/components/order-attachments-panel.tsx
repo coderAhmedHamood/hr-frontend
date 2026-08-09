@@ -18,6 +18,7 @@ import {
   MAX_ORDER_ATTACHMENTS,
   MAX_ORDER_ATTACHMENT_BYTES,
   ORDER_ATTACHMENT_ACCEPT,
+  OrderAttachmentError,
   fileToOrderAttachment,
   formatAttachmentSize,
   isImageMime,
@@ -86,8 +87,10 @@ export function OrderAttachmentsPanel({
           orderId: order.id,
           input: { ...input, visibleToCustomer: !addAsInternal },
         });
-      } catch {
-        toast.error(`تعذر رفع ${file.name}`);
+      } catch (error) {
+        toast.error(
+          error instanceof OrderAttachmentError ? error.message : `تعذر رفع ${file.name}`,
+        );
       }
     }
   }

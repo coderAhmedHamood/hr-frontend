@@ -230,6 +230,7 @@
     "payment": "Payment",
     "items": "Items",
     "attachments": "Attachments",
+    "storeNote": "Note from the store",
     "backHome": "Back to home",
     "myAccount": "My account",
     "status": {

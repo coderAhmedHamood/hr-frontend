@@ -9,6 +9,7 @@ import type {
   SaveOrderLineAllocationsInput,
   ShipOrderLineInput,
   UpdateOrderLineShipStatusInput,
+  UpdateOrderStaffNoteInput,
   UpdateStoreOrderAttachmentInput,
 } from '@/features/ecommerce/domain/types/order';
 import type { PaginatedResult } from '@/features/ecommerce/domain/types/common';
@@ -266,4 +267,37 @@ export function useOrderAttachmentMutations(companyId: string) {
   });
 
   return { add, update, remove };
+}
+
+export function useUpdateOrderStaffNote(companyId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      orderId,
+      input,
+    }: {
+      orderId: string;
+      input: UpdateOrderStaffNoteInput;
+    }) => ordersApi.updateStaffNote(companyId, orderId, input),
+    onSuccess: async (order, variables) => {
+      syncOrderInCaches(queryClient, companyId, order);
+      await queryClient.invalidateQueries({ queryKey: ordersQueryKeys.all });
+      const cleared =
+        variables.input.staffNote !== undefined &&
+        (variables.input.staffNote ?? '').trim().length === 0;
+      toast.success(
+        cleared
+          ? 'تم مسح ملاحظة المتجر'
+          : variables.input.visibleToCustomer === true
+            ? 'تم حفظ الملاحظة وإظهارها للعميل'
+            : variables.input.visibleToCustomer === false
+              ? 'تم حفظ الملاحظة وإخفاؤها عن العميل'
+              : 'تم حفظ ملاحظة المتجر',
+      );
+    },
+    onError: (err) => {
+      handleApiError(err, 'ecommerce.orders.updateStaffNote');
+    },
+  });
 }

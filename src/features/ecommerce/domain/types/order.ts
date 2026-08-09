@@ -61,6 +61,14 @@ export type UpdateStoreOrderAttachmentInput = {
   visibleToCustomer?: boolean;
 };
 
+/** Body for PATCH /store-admin/orders/:id/staff-note (all fields optional). */
+export type UpdateOrderStaffNoteInput = {
+  /** Text (≤ 4000). Send "" or null to clear (also resets visibility to false). */
+  staffNote?: string | null;
+  /** Toggle whether the customer can see the note. */
+  visibleToCustomer?: boolean;
+};
+
 /** Server-side attachment filter for admin order detail. */
 export type OrderAttachmentVisibilityFilter = 'all' | 'visible' | 'hidden';
 
@@ -94,6 +102,10 @@ export type Order = TenantScoped & {
   shippingNotes?: string;
   /** Free-text note from the customer at place-order (`customerNote`). */
   customerNote?: string | null;
+  /** Single staff note on the order (admin sees always; customer only when visible). */
+  staffNote?: string | null;
+  /** Whether the staff note is shown to the customer (admin view only). */
+  staffNoteVisibleToCustomer?: boolean;
   paymentMethod?: 'cash_on_delivery' | 'card';
   paymentStatus?: 'pending' | 'paid' | 'failed' | 'refunded';
   /**

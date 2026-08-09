@@ -9,6 +9,7 @@ import type {
   ShipOrderLineInput,
   StoreOrderAttachment,
   UpdateOrderPaymentStatusInput,
+  UpdateOrderStaffNoteInput,
   UpdateOrderStatusInput,
   UpdateStoreOrderAttachmentInput,
 } from '@/features/ecommerce/domain/types/order';
@@ -86,6 +87,8 @@ type StoreOrderDto = {
   shipStreet: string;
   shipNotes?: string | null;
   customerNote?: string | null;
+  staffNote?: string | null;
+  staffNoteVisibleToCustomer?: boolean | null;
   shipLat?: number | null;
   shipLng?: number | null;
   shipMapAddress?: string | null;
@@ -202,6 +205,8 @@ function mapAdminOrder(dto: StoreOrderDto): Order {
     shippingDistrict: dto.shipDistrict,
     shippingNotes: dto.shipNotes ?? undefined,
     customerNote: dto.customerNote ?? null,
+    staffNote: dto.staffNote ?? null,
+    staffNoteVisibleToCustomer: dto.staffNoteVisibleToCustomer ?? false,
     paymentMethod: dto.paymentMethod,
     paymentStatus: dto.paymentStatus,
     paymentProofUrls: proofUrls,
@@ -251,6 +256,7 @@ function mapStorefrontOrder(dto: StoreOrderDto): StorefrontCustomerOrder {
     paymentProofUrls: proofUrls,
     paymentProofUrl: proofUrls[0] ?? null,
     customerNote: dto.customerNote ?? null,
+    staffNote: dto.staffNote ?? null,
     address: {
       fullName: dto.shipFullName,
       phone: dto.shipPhone,
@@ -651,6 +657,26 @@ export async function deleteAdminStoreOrderAttachment(
       query: { companyId: resolveStorefrontCompanyId(companyId) },
     },
   );
+  return mapAdminOrder(dto);
+}
+
+/** PATCH /store-admin/orders/:id/staff-note → returns the full updated order. */
+export async function updateAdminStoreOrderStaffNote(
+  companyId: string,
+  orderId: string,
+  input: UpdateOrderStaffNoteInput,
+): Promise<Order> {
+  const dto = await apiRequest<StoreOrderDto>(`/store-admin/orders/${orderId}/staff-note`, {
+    method: 'PATCH',
+    throwOnError: true,
+    query: { companyId: resolveStorefrontCompanyId(companyId) },
+    body: {
+      ...(input.staffNote === undefined ? {} : { staffNote: input.staffNote }),
+      ...(input.visibleToCustomer === undefined
+        ? {}
+        : { visibleToCustomer: input.visibleToCustomer }),
+    },
+  });
   return mapAdminOrder(dto);
 }
 

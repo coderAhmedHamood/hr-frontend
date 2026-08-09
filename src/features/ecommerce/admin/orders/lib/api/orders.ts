@@ -10,6 +10,7 @@ import type {
   ShipOrderLineInput,
   UpdateOrderLineShipStatusInput,
   UpdateOrderPaymentStatusInput,
+  UpdateOrderStaffNoteInput,
   UpdateOrderStatusInput,
   UpdateStoreOrderAttachmentInput,
 } from '@/features/ecommerce/domain/types/order';
@@ -24,6 +25,7 @@ import {
   storeOrdersHttpEnabled,
   updateAdminStoreLineShipStatus,
   updateAdminStoreOrderPayment,
+  updateAdminStoreOrderStaffNote,
   updateAdminStoreOrderStatus,
 } from '@/features/ecommerce/shared/lib/api/store-orders-api';
 import { inventoryLedgerApi } from '@/features/inventory/admin/operations/lib/api/inventory-ledger';
@@ -386,6 +388,13 @@ export const ordersApi = {
     assertStoreHttp();
     return normalizeOrderPayment(
       await deleteAdminStoreOrderAttachment(companyId, orderId, attachmentId),
+    );
+  },
+
+  async updateStaffNote(companyId: string, orderId: string, input: UpdateOrderStaffNoteInput) {
+    assertStoreHttp();
+    return normalizeOrderPayment(
+      await updateAdminStoreOrderStaffNote(companyId, orderId, input),
     );
   },
 };

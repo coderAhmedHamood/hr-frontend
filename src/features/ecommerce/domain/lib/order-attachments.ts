@@ -5,8 +5,19 @@ import type { CreateStoreOrderAttachmentInput } from '@/features/ecommerce/domai
 export const MAX_ORDER_ATTACHMENTS = 20;
 /** Original file size cap (per file) before encoding. */
 export const MAX_ORDER_ATTACHMENT_BYTES = 5 * 1024 * 1024;
+/**
+ * Non-image files (e.g. PDF) can't be compressed and are embedded as a data URL,
+ * so keep the *original* size low enough that base64 (+~33%) stays under the
+ * request body limit and the server doesn't reject the whole order with a 413.
+ */
+export const MAX_ORDER_ATTACHMENT_FILE_BYTES = 3 * 1024 * 1024;
+/** Hard cap on the encoded data URL length actually sent to the API. */
+export const MAX_ORDER_ATTACHMENT_ENCODED_BYTES = 5 * 1024 * 1024;
 /** File picker accept list — images + PDF cover the common receipt/ID cases. */
 export const ORDER_ATTACHMENT_ACCEPT = 'image/*,application/pdf';
+
+/** Thrown by `fileToOrderAttachment` with a user-facing Arabic message. */
+export class OrderAttachmentError extends Error {}
 
 export function isImageMime(mime?: string | null): boolean {
   return Boolean(mime && mime.startsWith('image/'));
@@ -47,9 +58,27 @@ export async function fileToOrderAttachment(
   label?: string | null,
 ): Promise<CreateStoreOrderAttachmentInput> {
   const isImage = file.type.startsWith('image/');
+
+  // Non-image files are embedded uncompressed, so cap the raw size up front.
+  if (!isImage && file.size > MAX_ORDER_ATTACHMENT_FILE_BYTES) {
+    throw new OrderAttachmentError(
+      `${file.name}: حجم الملف كبير جداً (الحد ${formatAttachmentSize(
+        MAX_ORDER_ATTACHMENT_FILE_BYTES,
+      )} لملفات PDF).`,
+    );
+  }
+
   const fileUrl = isImage
     ? await compressPaymentProofToDataUrl(file)
     : await readFileAsDataUrl(file);
+
+  // Final guard: the encoded payload is what actually hits the request body limit.
+  if (fileUrl.length > MAX_ORDER_ATTACHMENT_ENCODED_BYTES) {
+    throw new OrderAttachmentError(
+      `${file.name}: تعذّر رفع الملف — الحجم بعد الترميز كبير جداً. جرّب ملفاً أصغر.`,
+    );
+  }
+
   const trimmedLabel = label?.trim();
   return {
     fileName: file.name.slice(0, 255),

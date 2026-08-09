@@ -46,6 +46,7 @@ import {
   MAX_ORDER_ATTACHMENTS,
   MAX_ORDER_ATTACHMENT_BYTES,
   ORDER_ATTACHMENT_ACCEPT,
+  OrderAttachmentError,
   fileToOrderAttachment,
   isImageMime,
 } from '@/features/ecommerce/domain/lib/order-attachments';
@@ -347,8 +348,12 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
           setOrderAttachments((prev) =>
             prev.length >= MAX_ORDER_ATTACHMENTS ? prev : [...prev, input],
           );
-        } catch {
-          toast.error(t('checkout.errors.attachmentType'));
+        } catch (error) {
+          toast.error(
+            error instanceof OrderAttachmentError
+              ? error.message
+              : t('checkout.errors.attachmentType'),
+          );
         }
       }
     } finally {

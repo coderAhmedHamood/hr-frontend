@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { Banknote, CreditCard, Phone, Truck, User } from 'lucide-react';
 import { OrderAttachmentsPanel } from '@/features/ecommerce/admin/orders/components/order-attachments-panel';
+import { OrderStaffNotePanel } from '@/features/ecommerce/admin/orders/components/order-staff-note-panel';
 import { OrderLineShipPanel } from '@/features/ecommerce/admin/orders/components/order-line-ship-panel';
 import { OrderPaymentProofThumb } from '@/features/ecommerce/admin/orders/components/order-payment-proof-thumb';
 import { OrderStatusHistoryButton } from '@/features/ecommerce/admin/orders/components/order-status-history-button';
@@ -438,6 +439,10 @@ export function OrderDetailPanel({
 
               <section className="rounded-2xl border border-border bg-card p-4">
                 <OrderAttachmentsPanel order={order} companyId={companyId} />
+              </section>
+
+              <section className="rounded-2xl border border-border bg-card p-4">
+                <OrderStaffNotePanel order={order} companyId={companyId} />
               </section>
             </div>
           ) : null}
