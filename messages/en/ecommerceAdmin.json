@@ -435,9 +435,10 @@
     "studioHint": "Update branding, contact, locations, shipping, and SEO from one place. Save from the page header after editing.",
     "brandingHint": "Store name, logo, and favicon as visitors see them.",
     "contactHint": "Contact details and commercial registration shown in the store and footer.",
-    "checkoutHint": "Delivery cities, shipping fees, and payment methods on checkout.",
+    "checkoutHint": "Payment methods and the legacy plain city list. City/district shipping fees are managed under Delivery rates.",
     "locationsHint": "Activate seeded countries for this company, then add cities and districts under them. Storefront visibility follows country activation.",
-    "locationsCheckoutNote": "Preferred shipping lists come from the Locations tab: activate a country, then add cities/districts. The plain city list below is legacy compatibility only.",
+    "locationsCheckoutNote": "Preferred shipping lists come from the Locations tab. Delivery rates by city/district are managed under Delivery rates. The plain city list below is legacy compatibility only.",
+    "deliveryRatesHint": "Price shipping by city or district (or groups). At checkout, district rates win over city rates; otherwise the fee is zero.",
     "colorsHint": "Colors and fonts control the public store look — buttons, links, accents, and typography. They never affect the admin dashboard.",
     "tabs": {
       "branding": "Branding",
@@ -446,6 +447,7 @@
       "contact": "Contact",
       "social": "Social",
       "locations": "Locations",
+      "deliveryRates": "Delivery rates",
       "checkout": "Shipping & payment",
       "seo": "Search engines (SEO)"
     },
