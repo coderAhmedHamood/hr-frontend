@@ -430,12 +430,14 @@
   },
   "settings": {
     "title": "Website settings",
-    "description": "Branding, contact, social channels, shipping, and search-engine data.",
+    "description": "Branding, contact, locations, social channels, shipping, and search-engine data.",
     "studioTitle": "Store settings hub",
-    "studioHint": "Update branding, contact, shipping, and SEO from one place. Save from the page header after editing.",
+    "studioHint": "Update branding, contact, locations, shipping, and SEO from one place. Save from the page header after editing.",
     "brandingHint": "Store name, logo, and favicon as visitors see them.",
     "contactHint": "Contact details and commercial registration shown in the store and footer.",
     "checkoutHint": "Delivery cities, shipping fees, and payment methods on checkout.",
+    "locationsHint": "Activate seeded countries for this company, then add cities and districts under them. Storefront visibility follows country activation.",
+    "locationsCheckoutNote": "Preferred shipping lists come from the Locations tab: activate a country, then add cities/districts. The plain city list below is legacy compatibility only.",
     "colorsHint": "Colors and fonts control the public store look — buttons, links, accents, and typography. They never affect the admin dashboard.",
     "tabs": {
       "branding": "Branding",
@@ -443,6 +445,7 @@
       "mobile": "Mobile tabs",
       "contact": "Contact",
       "social": "Social",
+      "locations": "Locations",
       "checkout": "Shipping & payment",
       "seo": "Search engines (SEO)"
     },

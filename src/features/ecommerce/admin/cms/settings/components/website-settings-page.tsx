@@ -6,12 +6,12 @@ import { toast } from 'sonner';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   CreditCard,
+  MapPinned,
   Paintbrush,
   Palette,
   Phone,
   Save,
   Search,
-  Settings2,
   Share2,
   Truck,
   Wallet,
@@ -32,6 +32,7 @@ import { DEFAULT_STOREFRONT_TYPOGRAPHY } from '@/features/ecommerce/storefront/l
 import { ImagePicker } from '@/features/ecommerce/admin/cms/homepage/components/section-entity-pickers';
 import { CheckoutCitiesEditor } from '@/features/ecommerce/admin/cms/settings/components/checkout-cities-editor';
 import { WebsiteColorsPanel } from '@/features/ecommerce/admin/cms/settings/components/website-colors-panel';
+import GeoLocationsPage from '@/features/system/organization/geo/components/geo-locations-page';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { PageHeaderPrimaryButton } from '@/components/layouts/page-header-primary-button';
@@ -283,6 +284,7 @@ export function WebsiteSettingsPage() {
                 ['colors', Paintbrush, t('tabs.colors')],
                 ['contact', Phone, t('tabs.contact')],
                 ['social', Share2, t('tabs.social')],
+                ['locations', MapPinned, t('tabs.locations')],
                 ['checkout', Truck, t('tabs.checkout')],
                 ['seo', Search, t('tabs.seo')],
               ] as const
@@ -448,8 +450,17 @@ export function WebsiteSettingsPage() {
             </SettingsPanel>
           </TabsContent>
 
+          <TabsContent value="locations" className="mt-4">
+            <SettingsPanel title={t('tabs.locations')} description={t('locationsHint')}>
+              <GeoLocationsPage embedded companyId={companyId} />
+            </SettingsPanel>
+          </TabsContent>
+
           <TabsContent value="checkout" className="mt-4">
             <SettingsPanel title={t('tabs.checkout')} description={t('checkoutHint')}>
+              <div className="mb-4 rounded-xl border border-primary/20 bg-primary/[0.04] px-3.5 py-2.5 text-xs leading-relaxed text-muted-foreground">
+                {t('locationsCheckoutNote')}
+              </div>
               <div className="grid gap-5 sm:grid-cols-2">
                 <Field label={t('freeShippingThreshold')}>
                   <Input

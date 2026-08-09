@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Archive, MapPinned, Pencil, Plus, Store } from 'lucide-react';
+import { Archive, MapPinned, Pencil, Plus, RotateCcw } from 'lucide-react';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { Can } from '@/components/shared/can';
 import { ForbiddenState } from '@/components/shared/forbidden-state';
@@ -27,52 +27,64 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useCan } from '@/features/auth/hooks/use-can';
 import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
+import { ApiError } from '@/features/hr/lib/api/client';
+import { toast } from 'sonner';
 import {
+  useCompanyGeoCountries,
   useCreateGeoCity,
-  useCreateGeoCountry,
   useCreateGeoDistrict,
   useDeleteGeoCity,
-  useDeleteGeoCountry,
   useDeleteGeoDistrict,
   useGeoCities,
   useGeoCountries,
   useGeoDistricts,
+  useRestoreGeoCity,
+  useRestoreGeoDistrict,
   useUpdateGeoCity,
-  useUpdateGeoCountry,
   useUpdateGeoDistrict,
 } from '@/features/system/organization/geo/hooks/use-geo';
-import type { ArchiveScope, GeoCity, GeoCountry, GeoDistrict } from '@/features/system/organization/geo/lib/api/geo-api';
+import { GeoCompanyCountriesPanel } from '@/features/system/organization/geo/components/geo-company-countries-panel';
+import { geoCitiesApi, geoDistrictsApi } from '@/features/system/organization/geo/lib/api/geo-api';
+import type { ArchiveScope, GeoCity, GeoDistrict } from '@/features/system/organization/geo/lib/api/geo-api';
 import {
   GEO_CITIES_PERMISSIONS,
   GEO_COUNTRIES_PERMISSIONS,
   GEO_DISTRICTS_PERMISSIONS,
 } from '@/features/system/organization/geo/permissions';
+import { cn } from '@/shared/utils';
 
 type EntityForm = {
-  code: string;
   nameAr: string;
   nameEn: string;
   sortOrder: string;
   isActive: boolean;
-  showInStore: boolean;
   countryId: string;
   cityId: string;
 };
 
 const EMPTY_FORM: EntityForm = {
-  code: '',
   nameAr: '',
   nameEn: '',
   sortOrder: '0',
   isActive: true,
-  showInStore: false,
   countryId: '',
   cityId: '',
 };
 
-export default function GeoLocationsPage() {
+type Props = {
+  /** When true, omit page chrome (used inside store website settings). */
+  embedded?: boolean;
+  /** Override tenant scope (defaults to the signed-in default company). */
+  companyId?: string | null;
+};
+
+export default function GeoLocationsPage({
+  embedded = false,
+  companyId: companyIdProp,
+}: Props) {
   const can = useCan();
-  const companyId = useDefaultCompanyId();
+  const defaultCompanyId = useDefaultCompanyId();
+  const companyId = companyIdProp || defaultCompanyId;
   const canReadAny =
     can(GEO_COUNTRIES_PERMISSIONS.read) ||
     can(GEO_CITIES_PERMISSIONS.read) ||
@@ -86,23 +98,12 @@ export default function GeoLocationsPage() {
 
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [editTarget, setEditTarget] = React.useState<
-    | { kind: 'country'; row: GeoCountry }
     | { kind: 'city'; row: GeoCity }
     | { kind: 'district'; row: GeoDistrict }
     | null
   >(null);
   const [form, setForm] = React.useState<EntityForm>(EMPTY_FORM);
 
-  const countriesQuery = useGeoCountries(
-    {
-      companyId: companyId || undefined,
-      page: 1,
-      limit: 100,
-      archiveScope,
-      search: search || undefined,
-    },
-    Boolean(companyId) && can(GEO_COUNTRIES_PERMISSIONS.read) && tab === 'countries',
-  );
   const citiesQuery = useGeoCities(
     {
       companyId: companyId || undefined,
@@ -131,6 +132,7 @@ export default function GeoLocationsPage() {
     { companyId: companyId || undefined, page: 1, limit: 200, archiveScope: 'active' },
     Boolean(companyId),
   );
+  const companyCountries = useCompanyGeoCountries(companyId || '', Boolean(companyId));
   const filterCities = useGeoCities(
     {
       companyId: companyId || undefined,
@@ -142,15 +144,14 @@ export default function GeoLocationsPage() {
     Boolean(companyId && (tab === 'cities' || tab === 'districts')),
   );
 
-  const createCountry = useCreateGeoCountry();
-  const updateCountry = useUpdateGeoCountry();
-  const deleteCountry = useDeleteGeoCountry();
   const createCity = useCreateGeoCity();
   const updateCity = useUpdateGeoCity();
   const deleteCity = useDeleteGeoCity();
+  const restoreCity = useRestoreGeoCity();
   const createDistrict = useCreateGeoDistrict();
   const updateDistrict = useUpdateGeoDistrict();
   const deleteDistrict = useDeleteGeoDistrict();
+  const restoreDistrict = useRestoreGeoDistrict();
 
   const countryNameById = React.useMemo(() => {
     const map = new Map<string, string>();
@@ -159,6 +160,28 @@ export default function GeoLocationsPage() {
     }
     return map;
   }, [filterCountries.data?.items]);
+
+  const countryCodeById = React.useMemo(() => {
+    const map = new Map<string, string>();
+    for (const row of filterCountries.data?.items ?? []) {
+      map.set(row.id, row.code.trim().toUpperCase());
+    }
+    return map;
+  }, [filterCountries.data?.items]);
+
+  /** Whether a catalog country is activated for the store via company-countries. */
+  const storeActiveByCountryId = React.useMemo(() => {
+    const activeCodes = new Set(
+      (companyCountries.data ?? [])
+        .filter((link) => link.showInStore)
+        .map((link) => link.countryCode.trim().toUpperCase()),
+    );
+    const map = new Map<string, boolean>();
+    for (const [id, code] of countryCodeById) {
+      map.set(id, activeCodes.has(code));
+    }
+    return map;
+  }, [companyCountries.data, countryCodeById]);
 
   const cityNameById = React.useMemo(() => {
     const map = new Map<string, string>();
@@ -171,34 +194,39 @@ export default function GeoLocationsPage() {
     return map;
   }, [filterCities.data?.items, citiesQuery.data?.items]);
 
+  const cityCountryIdById = React.useMemo(() => {
+    const map = new Map<string, string>();
+    for (const row of filterCities.data?.items ?? []) {
+      map.set(row.id, row.countryId);
+    }
+    for (const row of citiesQuery.data?.items ?? []) {
+      map.set(row.id, row.countryId);
+    }
+    return map;
+  }, [filterCities.data?.items, citiesQuery.data?.items]);
+
+  function inheritShowInStoreForCountry(countryId: string): boolean {
+    return storeActiveByCountryId.get(countryId) === true;
+  }
+
+  function inheritShowInStoreForCity(cityId: string): boolean {
+    const countryId = cityCountryIdById.get(cityId);
+    return countryId ? inheritShowInStoreForCountry(countryId) : false;
+  }
+
   function openCreate() {
+    if (tab === 'countries') return;
     setEditTarget(null);
     setForm({
       ...EMPTY_FORM,
       countryId: selectedCountryId !== 'all' ? selectedCountryId : '',
       cityId: selectedCityId !== 'all' ? selectedCityId : '',
-      code: tab === 'countries' ? 'YE' : '',
     });
     setDialogOpen(true);
   }
 
-  function openEdit(
-    kind: 'country' | 'city' | 'district',
-    row: GeoCountry | GeoCity | GeoDistrict,
-  ) {
-    if (kind === 'country') {
-      const country = row as GeoCountry;
-      setEditTarget({ kind, row: country });
-      setForm({
-        ...EMPTY_FORM,
-        code: country.code,
-        nameAr: country.nameAr,
-        nameEn: country.nameEn ?? '',
-        sortOrder: String(country.sortOrder),
-        isActive: country.isActive,
-        showInStore: country.showInStore,
-      });
-    } else if (kind === 'city') {
+  function openEdit(kind: 'city' | 'district', row: GeoCity | GeoDistrict) {
+    if (kind === 'city') {
       const city = row as GeoCity;
       setEditTarget({ kind, row: city });
       setForm({
@@ -207,7 +235,6 @@ export default function GeoLocationsPage() {
         nameEn: city.nameEn ?? '',
         sortOrder: String(city.sortOrder),
         isActive: city.isActive,
-        showInStore: city.showInStore,
         countryId: city.countryId,
       });
     } else {
@@ -219,7 +246,6 @@ export default function GeoLocationsPage() {
         nameEn: district.nameEn ?? '',
         sortOrder: String(district.sortOrder),
         isActive: district.isActive,
-        showInStore: district.showInStore,
         cityId: district.cityId,
       });
     }
@@ -231,33 +257,9 @@ export default function GeoLocationsPage() {
     if (!companyId || !form.nameAr.trim()) return;
     const sortOrder = Number(form.sortOrder) || 0;
 
-    if (tab === 'countries') {
-      if (editTarget?.kind === 'country') {
-        await updateCountry.mutateAsync({
-          id: editTarget.row.id,
-          patch: {
-            code: form.code,
-            nameAr: form.nameAr,
-            nameEn: form.nameEn || null,
-            sortOrder,
-            isActive: form.isActive,
-            showInStore: form.showInStore,
-          },
-        });
-      } else {
-        if (!form.code.trim()) return;
-        await createCountry.mutateAsync({
-          companyId,
-          code: form.code,
-          nameAr: form.nameAr,
-          nameEn: form.nameEn || null,
-          sortOrder,
-          isActive: form.isActive,
-          showInStore: form.showInStore,
-        });
-      }
-    } else if (tab === 'cities') {
+    if (tab === 'cities') {
       if (!form.countryId) return;
+      const showInStore = inheritShowInStoreForCountry(form.countryId);
       if (editTarget?.kind === 'city') {
         await updateCity.mutateAsync({
           id: editTarget.row.id,
@@ -267,7 +269,7 @@ export default function GeoLocationsPage() {
             nameEn: form.nameEn || null,
             sortOrder,
             isActive: form.isActive,
-            showInStore: form.showInStore,
+            showInStore,
           },
         });
       } else {
@@ -278,11 +280,12 @@ export default function GeoLocationsPage() {
           nameEn: form.nameEn || null,
           sortOrder,
           isActive: form.isActive,
-          showInStore: form.showInStore,
+          showInStore,
         });
       }
-    } else {
+    } else if (tab === 'districts') {
       if (!form.cityId) return;
+      const showInStore = inheritShowInStoreForCity(form.cityId);
       if (editTarget?.kind === 'district') {
         await updateDistrict.mutateAsync({
           id: editTarget.row.id,
@@ -292,7 +295,7 @@ export default function GeoLocationsPage() {
             nameEn: form.nameEn || null,
             sortOrder,
             isActive: form.isActive,
-            showInStore: form.showInStore,
+            showInStore,
           },
         });
       } else {
@@ -303,83 +306,73 @@ export default function GeoLocationsPage() {
           nameEn: form.nameEn || null,
           sortOrder,
           isActive: form.isActive,
-          showInStore: form.showInStore,
+          showInStore,
         });
       }
     }
     setDialogOpen(false);
   }
 
-  async function toggleShowInStore(
-    kind: 'country' | 'city' | 'district',
-    id: string,
-    next: boolean,
-  ) {
-    if (kind === 'country') await updateCountry.mutateAsync({ id, patch: { showInStore: next } });
-    else if (kind === 'city') await updateCity.mutateAsync({ id, patch: { showInStore: next } });
-    else await updateDistrict.mutateAsync({ id, patch: { showInStore: next } });
-  }
-
   if (!canReadAny) return <ForbiddenState />;
 
   const saving =
-    createCountry.isPending ||
-    updateCountry.isPending ||
     createCity.isPending ||
     updateCity.isPending ||
     createDistrict.isPending ||
     updateDistrict.isPending;
 
   const createPerm =
-    tab === 'countries'
-      ? GEO_COUNTRIES_PERMISSIONS.create
-      : tab === 'cities'
-        ? GEO_CITIES_PERMISSIONS.create
-        : GEO_DISTRICTS_PERMISSIONS.create;
+    tab === 'cities' ? GEO_CITIES_PERMISSIONS.create : GEO_DISTRICTS_PERMISSIONS.create;
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4">
-      <SetPageTitle
-        titleAr="المواقع الجغرافية"
-        descriptionAr="دول → مدن → أحياء. فعّل «ظهور بالمتجر» لتظهر في قوائم الشحن والـ checkout."
-        iconName="MapPin"
-      />
+    <div className={cn('flex min-h-0 flex-1 flex-col gap-4', embedded && 'gap-3')}>
+      {!embedded ? (
+        <SetPageTitle
+          titleAr="المواقع الجغرافية"
+          descriptionAr="فعّل الدولة للشركة، ثم أضف مدناً وأحياء تحتها. الظهور في المتجر يتبع تفعيل الدولة."
+          iconName="MapPin"
+        />
+      ) : null}
 
       {!companyId ? (
         <p className="text-sm text-muted-foreground">اختر شركة أولاً لإدارة المواقع.</p>
       ) : (
         <>
           <div className="flex flex-wrap items-end gap-3">
-            <div className="space-y-1.5">
-              <Label>الأرشفة</Label>
-              <Select
-                value={archiveScope}
-                onValueChange={(v) => setArchiveScope(v as ArchiveScope)}
-              >
-                <SelectTrigger className="w-40">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">النشطة</SelectItem>
-                  <SelectItem value="archived">المؤرشفة</SelectItem>
-                  <SelectItem value="all">الكل</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="min-w-[12rem] flex-1 space-y-1.5">
-              <Label>بحث</Label>
-              <Input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="اسم أو رمز…"
-              />
-            </div>
-            <Can permission={createPerm}>
-              <Button className="ms-auto" onClick={openCreate}>
-                <Plus className="me-1.5 h-4 w-4" />
-                إضافة
-              </Button>
-            </Can>
+            {tab !== 'countries' ? (
+              <>
+                <div className="space-y-1.5">
+                  <Label>الأرشفة</Label>
+                  <Select
+                    value={archiveScope}
+                    onValueChange={(v) => setArchiveScope(v as ArchiveScope)}
+                  >
+                    <SelectTrigger className="w-40">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">النشطة</SelectItem>
+                      <SelectItem value="archived">المؤرشفة</SelectItem>
+                      <SelectItem value="all">الكل</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="min-w-[12rem] flex-1 space-y-1.5">
+                  <Label>بحث</Label>
+                  <Input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="اسم…"
+                  />
+                </div>
+                <Can permission={createPerm}>
+                  <Button className="ms-auto" onClick={openCreate}>
+                    <Plus className="me-1.5 h-4 w-4" />
+                    {tab === 'cities' ? 'إضافة مدينة' : 'إضافة حي'}
+                  </Button>
+                </Can>
+              </>
+            ) : null}
           </div>
 
           <Tabs
@@ -387,38 +380,20 @@ export default function GeoLocationsPage() {
             onValueChange={(v) => setTab(v as typeof tab)}
             className="flex min-h-0 flex-1 flex-col gap-4"
           >
-            <TabsList className="w-fit">
-              <TabsTrigger value="countries">الدول</TabsTrigger>
-              <TabsTrigger value="cities">المدن</TabsTrigger>
-              <TabsTrigger value="districts">الأحياء</TabsTrigger>
+            <TabsList className="h-auto w-fit flex-wrap">
+              <TabsTrigger value="countries">الدول (تفعيل)</TabsTrigger>
+              <TabsTrigger value="cities">المدن (إضافة)</TabsTrigger>
+              <TabsTrigger value="districts">الأحياء (إضافة)</TabsTrigger>
             </TabsList>
 
             <TabsContent value="countries" className="mt-0 space-y-3">
-              <EntityTable
-                loading={countriesQuery.isLoading}
-                error={countriesQuery.isError}
-                empty="لا توجد دول بعد."
-                onRetry={() => void countriesQuery.refetch()}
-                rows={(countriesQuery.data?.items ?? []).map((row) => ({
-                  id: row.id,
-                  title: row.nameAr,
-                  subtitle: row.code,
-                  showInStore: row.showInStore,
-                  isActive: row.isActive,
-                  isArchived: row.isArchived,
-                  meta: `ترتيب ${row.sortOrder}`,
-                  onEdit: () => openEdit('country', row),
-                  onToggleStore: (next: boolean) => void toggleShowInStore('country', row.id, next),
-                  onArchive: () => {
-                    if (window.confirm('أرشفة هذه الدولة؟')) deleteCountry.mutate(row.id);
-                  },
-                  canUpdate: can(GEO_COUNTRIES_PERMISSIONS.update),
-                  canDelete: can(GEO_COUNTRIES_PERMISSIONS.delete),
-                }))}
-              />
+              <GeoCompanyCountriesPanel companyId={companyId} />
             </TabsContent>
 
             <TabsContent value="cities" className="mt-0 space-y-3">
+              <p className="text-xs text-muted-foreground">
+                أضف مدينة تحت دولة، أو بدّل ظهورها في المتجر. تفعيل الدولة يزامِن المدن أيضاً.
+              </p>
               <div className="space-y-1.5">
                 <Label>تصفية بالدولة</Label>
                 <Select value={selectedCountryId} onValueChange={setSelectedCountryId}>
@@ -430,6 +405,7 @@ export default function GeoLocationsPage() {
                     {(filterCountries.data?.items ?? []).map((country) => (
                       <SelectItem key={country.id} value={country.id}>
                         {country.nameAr}
+                        {storeActiveByCountryId.get(country.id) ? ' · مفعّلة' : ''}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -444,14 +420,36 @@ export default function GeoLocationsPage() {
                   id: row.id,
                   title: row.nameAr,
                   subtitle: countryNameById.get(row.countryId) ?? row.countryId.slice(0, 8),
-                  showInStore: row.showInStore,
                   isActive: row.isActive,
                   isArchived: row.isArchived,
-                  meta: `ترتيب ${row.sortOrder}`,
+                  showInStore: row.showInStore,
+                  meta: storeActiveByCountryId.get(row.countryId)
+                    ? 'الدولة مفعّلة'
+                    : 'الدولة غير مفعّلة بالمتجر',
                   onEdit: () => openEdit('city', row),
-                  onToggleStore: (next: boolean) => void toggleShowInStore('city', row.id, next),
+                  onToggleStore: can(GEO_CITIES_PERMISSIONS.update)
+                    ? async (next) => {
+                        try {
+                          await geoCitiesApi.update(row.id, { showInStore: next }, { silent: true });
+                          toast.success(next ? 'تم إظهار المدينة بالمتجر' : 'تم إخفاء المدينة عن المتجر');
+                          await citiesQuery.refetch();
+                        } catch (error) {
+                          if (error instanceof ApiError && error.status === 404) {
+                            toast.error('هذه المدينة غير موجودة في السيرفر — حدّث القائمة');
+                            await citiesQuery.refetch();
+                            return;
+                          }
+                          throw error;
+                        }
+                      }
+                    : undefined,
                   onArchive: () => {
                     if (window.confirm('أرشفة هذه المدينة؟')) deleteCity.mutate(row.id);
+                  },
+                  onRestore: () => {
+                    if (window.confirm('استرجاع هذه المدينة من الأرشيف؟')) {
+                      restoreCity.mutate(row.id);
+                    }
                   },
                   canUpdate: can(GEO_CITIES_PERMISSIONS.update),
                   canDelete: can(GEO_CITIES_PERMISSIONS.delete),
@@ -460,6 +458,9 @@ export default function GeoLocationsPage() {
             </TabsContent>
 
             <TabsContent value="districts" className="mt-0 space-y-3">
+              <p className="text-xs text-muted-foreground">
+                أضف حياً تحت مدينة، أو بدّل ظهوره في المتجر.
+              </p>
               <div className="flex flex-wrap gap-3">
                 <div className="space-y-1.5">
                   <Label>الدولة</Label>
@@ -505,22 +506,54 @@ export default function GeoLocationsPage() {
                 error={districtsQuery.isError}
                 empty="لا توجد أحياء ضمن هذا الفلتر."
                 onRetry={() => void districtsQuery.refetch()}
-                rows={(districtsQuery.data?.items ?? []).map((row) => ({
-                  id: row.id,
-                  title: row.nameAr,
-                  subtitle: cityNameById.get(row.cityId) ?? row.cityId.slice(0, 8),
-                  showInStore: row.showInStore,
-                  isActive: row.isActive,
-                  isArchived: row.isArchived,
-                  meta: `ترتيب ${row.sortOrder}`,
-                  onEdit: () => openEdit('district', row),
-                  onToggleStore: (next: boolean) => void toggleShowInStore('district', row.id, next),
-                  onArchive: () => {
-                    if (window.confirm('أرشفة هذا الحي؟')) deleteDistrict.mutate(row.id);
-                  },
-                  canUpdate: can(GEO_DISTRICTS_PERMISSIONS.update),
-                  canDelete: can(GEO_DISTRICTS_PERMISSIONS.delete),
-                }))}
+                rows={(districtsQuery.data?.items ?? []).map((row) => {
+                  const countryId = cityCountryIdById.get(row.cityId);
+                  return {
+                    id: row.id,
+                    title: row.nameAr,
+                    subtitle: cityNameById.get(row.cityId) ?? row.cityId.slice(0, 8),
+                    isActive: row.isActive,
+                    isArchived: row.isArchived,
+                    showInStore: row.showInStore,
+                    meta:
+                      countryId && storeActiveByCountryId.get(countryId)
+                        ? 'الدولة مفعّلة'
+                        : 'الدولة غير مفعّلة بالمتجر',
+                    onEdit: () => openEdit('district', row),
+                    onToggleStore: can(GEO_DISTRICTS_PERMISSIONS.update)
+                      ? async (next) => {
+                          try {
+                            await geoDistrictsApi.update(
+                              row.id,
+                              { showInStore: next },
+                              { silent: true },
+                            );
+                            toast.success(
+                              next ? 'تم إظهار الحي بالمتجر' : 'تم إخفاء الحي عن المتجر',
+                            );
+                            await districtsQuery.refetch();
+                          } catch (error) {
+                            if (error instanceof ApiError && error.status === 404) {
+                              toast.error('هذا الحي غير موجود في السيرفر — حدّث القائمة');
+                              await districtsQuery.refetch();
+                              return;
+                            }
+                            throw error;
+                          }
+                        }
+                      : undefined,
+                    onArchive: () => {
+                      if (window.confirm('أرشفة هذا الحي؟')) deleteDistrict.mutate(row.id);
+                    },
+                    onRestore: () => {
+                      if (window.confirm('استرجاع هذا الحي من الأرشيف؟')) {
+                        restoreDistrict.mutate(row.id);
+                      }
+                    },
+                    canUpdate: can(GEO_DISTRICTS_PERMISSIONS.update),
+                    canDelete: can(GEO_DISTRICTS_PERMISSIONS.delete),
+                  };
+                })}
               />
             </TabsContent>
           </Tabs>
@@ -532,30 +565,15 @@ export default function GeoLocationsPage() {
           <DialogHeader>
             <DialogTitle>
               {editTarget
-                ? tab === 'countries'
-                  ? 'تعديل دولة'
-                  : tab === 'cities'
-                    ? 'تعديل مدينة'
-                    : 'تعديل حي'
-                : tab === 'countries'
-                  ? 'دولة جديدة'
-                  : tab === 'cities'
-                    ? 'مدينة جديدة'
-                    : 'حي جديد'}
+                ? tab === 'cities'
+                  ? 'تعديل مدينة'
+                  : 'تعديل حي'
+                : tab === 'cities'
+                  ? 'مدينة جديدة'
+                  : 'حي جديد'}
             </DialogTitle>
           </DialogHeader>
           <form className="space-y-3" onSubmit={(e) => void onSave(e)}>
-            {tab === 'countries' ? (
-              <div className="space-y-1.5">
-                <Label>الرمز (ISO)</Label>
-                <Input
-                  value={form.code}
-                  onChange={(e) => setForm((prev) => ({ ...prev, code: e.target.value }))}
-                  placeholder="YE"
-                  required
-                />
-              </div>
-            ) : null}
             {tab === 'cities' ? (
               <div className="space-y-1.5">
                 <Label>الدولة</Label>
@@ -574,6 +592,13 @@ export default function GeoLocationsPage() {
                     ))}
                   </SelectContent>
                 </Select>
+                {form.countryId ? (
+                  <p className="text-[11px] text-muted-foreground">
+                    {inheritShowInStoreForCountry(form.countryId)
+                      ? 'الدولة مفعّلة — ستظهر المدينة في المتجر تلقائياً.'
+                      : 'الدولة غير مفعّلة — فعّلها من تاب الدول لتظهر هذه المدينة بالمتجر.'}
+                  </p>
+                ) : null}
               </div>
             ) : null}
             {tab === 'districts' ? (
@@ -620,27 +645,25 @@ export default function GeoLocationsPage() {
               />
             </div>
             <div className="flex items-center justify-between rounded-xl border border-border p-3">
-              <span className="text-sm">نشط</span>
+              <span className="text-sm">نشط في الكتالوج</span>
               <Switch
                 checked={form.isActive}
                 onCheckedChange={(v) => setForm((prev) => ({ ...prev, isActive: v }))}
-              />
-            </div>
-            <div className="flex items-center justify-between rounded-xl border border-border p-3">
-              <div>
-                <p className="text-sm">ظهور بالمتجر</p>
-                <p className="text-xs text-muted-foreground">showInStore — قوائم الشحن والـ checkout</p>
-              </div>
-              <Switch
-                checked={form.showInStore}
-                onCheckedChange={(v) => setForm((prev) => ({ ...prev, showInStore: v }))}
               />
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                 إلغاء
               </Button>
-              <Button type="submit" disabled={saving || !form.nameAr.trim()}>
+              <Button
+                type="submit"
+                disabled={
+                  saving ||
+                  !form.nameAr.trim() ||
+                  (tab === 'cities' && !form.countryId) ||
+                  (tab === 'districts' && !form.cityId)
+                }
+              >
                 حفظ
               </Button>
             </DialogFooter>
@@ -661,18 +684,21 @@ type GeoEntityTableProps = {
     title: string;
     subtitle?: string;
     meta?: string;
-    showInStore: boolean;
     isActive: boolean;
     isArchived: boolean;
+    showInStore?: boolean;
     onEdit: () => void;
-    onToggleStore: (next: boolean) => void;
+    onToggleStore?: (next: boolean) => void | Promise<void>;
     onArchive: () => void;
+    onRestore?: () => void;
     canUpdate: boolean;
     canDelete: boolean;
   }>;
 };
 
 function EntityTable({ loading, error, empty, onRetry, rows }: GeoEntityTableProps) {
+  const [togglingId, setTogglingId] = React.useState<string | null>(null);
+
   if (loading) {
     return (
       <div className="space-y-2">
@@ -706,47 +732,82 @@ function EntityTable({ loading, error, empty, onRetry, rows }: GeoEntityTablePro
       {rows.map((row) => (
         <li
           key={row.id}
-          className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card px-4 py-3"
+          className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card px-3 py-2.5"
         >
-          <div className="min-w-0 space-y-1">
+          <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <p className="font-medium text-foreground">{row.title}</p>
-              {row.subtitle ? (
-                <span className="text-xs text-muted-foreground" dir="ltr">
-                  {row.subtitle}
-                </span>
-              ) : null}
-              {!row.isActive ? <Badge variant="outline">غير نشط</Badge> : null}
+              <p className="text-sm font-medium text-foreground">{row.title}</p>
               {row.isArchived ? (
-                <Badge variant="outline" className="gap-1">
-                  <Archive className="h-3 w-3" />
+                <Badge variant="subtle" className="text-muted-foreground">
                   مؤرشف
+                </Badge>
+              ) : !row.isActive ? (
+                <Badge variant="subtle" className="text-amber-700 dark:text-amber-400">
+                  غير نشط
+                </Badge>
+              ) : null}
+              {row.showInStore ? (
+                <Badge
+                  variant="subtle"
+                  className="border-emerald-500/30 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300"
+                >
+                  بالمتجر
+                </Badge>
+              ) : row.showInStore === false ? (
+                <Badge variant="subtle" className="text-muted-foreground">
+                  مخفي
                 </Badge>
               ) : null}
             </div>
-            {row.meta ? <p className="text-xs text-muted-foreground">{row.meta}</p> : null}
+            {row.subtitle ? (
+              <p className="mt-0.5 text-xs text-muted-foreground">{row.subtitle}</p>
+            ) : null}
+            {row.meta ? (
+              <p className="mt-0.5 text-[11px] text-muted-foreground">{row.meta}</p>
+            ) : null}
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {row.canUpdate && !row.isArchived ? (
-              <div className="flex items-center gap-2 rounded-xl border border-border px-2.5 py-1.5">
-                <Store className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-xs text-muted-foreground">بالمتجر</span>
-                <Switch checked={row.showInStore} onCheckedChange={row.onToggleStore} />
+          <div className="flex items-center gap-1">
+            {row.onToggleStore && row.canUpdate && !row.isArchived ? (
+              <div className="me-1 flex items-center gap-1.5 rounded-lg border border-border px-2 py-1">
+                <span className="text-[11px] text-muted-foreground">متجر</span>
+                <Switch
+                  checked={Boolean(row.showInStore)}
+                  disabled={togglingId === row.id}
+                  onCheckedChange={(next) => {
+                    setTogglingId(row.id);
+                    void Promise.resolve(row.onToggleStore?.(next)).finally(() =>
+                      setTogglingId(null),
+                    );
+                  }}
+                  aria-label="ظهور بالمتجر"
+                />
               </div>
-            ) : row.showInStore ? (
-              <Badge variant="secondary" className="gap-1">
-                <Store className="h-3 w-3" />
-                بالمتجر
-              </Badge>
             ) : null}
             {row.canUpdate && !row.isArchived ? (
-              <Button size="sm" variant="outline" onClick={row.onEdit}>
-                <Pencil className="h-3.5 w-3.5" />
+              <Button type="button" variant="ghost" size="sm" onClick={row.onEdit}>
+                <Pencil className="h-4 w-4" />
+              </Button>
+            ) : null}
+            {row.isArchived && row.canUpdate && row.onRestore ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                title="استرجاع من الأرشيف"
+                onClick={row.onRestore}
+              >
+                <RotateCcw className="h-4 w-4" />
               </Button>
             ) : null}
             {row.canDelete && !row.isArchived ? (
-              <Button size="sm" variant="ghost" className="text-destructive" onClick={row.onArchive}>
-                <Archive className="h-3.5 w-3.5" />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-destructive hover:text-destructive"
+                onClick={row.onArchive}
+              >
+                <Archive className="h-4 w-4" />
               </Button>
             ) : null}
           </div>

@@ -1,4 +1,9 @@
-import { apiRequest, ensurePaginatedResult, type PaginatedResult } from '@/features/hr/lib/api/client';
+import {
+  ApiError,
+  apiRequest,
+  ensurePaginatedResult,
+  type PaginatedResult,
+} from '@/features/hr/lib/api/client';
 
 export type ArchiveScope = 'active' | 'archived' | 'all';
 
@@ -101,6 +106,32 @@ export type UpdateGeoCountryInput = Partial<
 export type UpdateGeoCityInput = Partial<Omit<CreateGeoCityInput, 'companyId'>>;
 export type UpdateGeoDistrictInput = Partial<Omit<CreateGeoDistrictInput, 'companyId'>>;
 
+/** Link row: company ↔ supported country code (`company_geo_countries`). */
+export type CompanyGeoCountry = {
+  id: string;
+  companyId: string;
+  countryCode: string;
+  showInStore: boolean;
+  /** Present when the API joins catalog country fields. */
+  nameAr?: string | null;
+  nameEn?: string | null;
+  countryId?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type UpdateCompanyGeoCountryInput = {
+  showInStore?: boolean;
+};
+
+function normalizeCompanyGeoCountryList(
+  value: PaginatedResult<CompanyGeoCountry> | CompanyGeoCountry[] | null | undefined,
+): CompanyGeoCountry[] {
+  if (!value) return [];
+  if (Array.isArray(value)) return value;
+  return ensurePaginatedResult(value).items;
+}
+
 function listQuery(query: GeoListQuery) {
   return {
     page: query.page ?? 1,
@@ -123,22 +154,6 @@ export const geoCountriesApi = {
       throwOnError: true,
     });
     return ensurePaginatedResult(result);
-  },
-
-  async create(input: CreateGeoCountryInput): Promise<GeoCountry> {
-    return apiRequest<GeoCountry>('/geo/countries', {
-      method: 'POST',
-      throwOnError: true,
-      body: {
-        companyId: input.companyId,
-        code: input.code.trim().toUpperCase(),
-        nameAr: input.nameAr.trim(),
-        nameEn: input.nameEn?.trim() || null,
-        sortOrder: input.sortOrder ?? 0,
-        isActive: input.isActive ?? true,
-        showInStore: input.showInStore ?? false,
-      },
-    });
   },
 
   async update(id: string, patch: UpdateGeoCountryInput): Promise<GeoCountry> {
@@ -184,10 +199,11 @@ export const geoCitiesApi = {
     });
   },
 
-  async update(id: string, patch: UpdateGeoCityInput): Promise<GeoCity> {
+  async update(id: string, patch: UpdateGeoCityInput, options?: { silent?: boolean }): Promise<GeoCity> {
     return apiRequest<GeoCity>(`/geo/cities/${id}`, {
       method: 'PATCH',
       throwOnError: true,
+      silent: options?.silent,
       body: {
         ...patch,
         ...(patch.nameAr !== undefined ? { nameAr: patch.nameAr.trim() } : {}),
@@ -198,6 +214,15 @@ export const geoCitiesApi = {
 
   async remove(id: string): Promise<void> {
     await apiRequest<void>(`/geo/cities/${id}`, { method: 'DELETE', throwOnError: true });
+  },
+
+  /** POST /geo/cities/:id/restore — clears archivedAt, sets isActive=true */
+  async restore(id: string, body?: { updatedBy?: string }): Promise<GeoCity> {
+    return apiRequest<GeoCity>(`/geo/cities/${id}/restore`, {
+      method: 'POST',
+      throwOnError: true,
+      body: body?.updatedBy ? { updatedBy: body.updatedBy } : {},
+    });
   },
 };
 
@@ -226,10 +251,15 @@ export const geoDistrictsApi = {
     });
   },
 
-  async update(id: string, patch: UpdateGeoDistrictInput): Promise<GeoDistrict> {
+  async update(
+    id: string,
+    patch: UpdateGeoDistrictInput,
+    options?: { silent?: boolean },
+  ): Promise<GeoDistrict> {
     return apiRequest<GeoDistrict>(`/geo/districts/${id}`, {
       method: 'PATCH',
       throwOnError: true,
+      silent: options?.silent,
       body: {
         ...patch,
         ...(patch.nameAr !== undefined ? { nameAr: patch.nameAr.trim() } : {}),
@@ -241,4 +271,73 @@ export const geoDistrictsApi = {
   async remove(id: string): Promise<void> {
     await apiRequest<void>(`/geo/districts/${id}`, { method: 'DELETE', throwOnError: true });
   },
+
+  /** POST /geo/districts/:id/restore — clears archivedAt, sets isActive=true */
+  async restore(id: string, body?: { updatedBy?: string }): Promise<GeoDistrict> {
+    return apiRequest<GeoDistrict>(`/geo/districts/${id}/restore`, {
+      method: 'POST',
+      throwOnError: true,
+      body: body?.updatedBy ? { updatedBy: body.updatedBy } : {},
+    });
+  },
 };
+
+/**
+ * Company ↔ country support links.
+ * Catalog (`/geo/countries`) is the tree; these rows decide which country codes
+ * this company supports and whether they appear in the public store.
+ */
+export const geoCompanyCountriesApi = {
+  async list(companyId: string): Promise<CompanyGeoCountry[]> {
+    const result = await apiRequest<
+      PaginatedResult<CompanyGeoCountry> | CompanyGeoCountry[]
+    >('/geo/company-countries', {
+      query: { companyId },
+      throwOnError: true,
+    });
+    return normalizeCompanyGeoCountryList(result);
+  },
+
+  async update(
+    id: string,
+    patch: UpdateCompanyGeoCountryInput,
+    options?: { silent?: boolean },
+  ): Promise<CompanyGeoCountry> {
+    return apiRequest<CompanyGeoCountry>(`/geo/company-countries/${id}`, {
+      method: 'PATCH',
+      throwOnError: true,
+      silent: options?.silent,
+      body: patch,
+    });
+  },
+};
+
+/**
+ * تفعيل / إلغاء دولة الشركة بالمتجر.
+ * المسار الرسمي: PATCH /geo/company-countries/:id { showInStore }
+ * الباكند يزامِن الكتالوج. إن رجع 404 من cascade قديم ونجح الربط فعلياً نعتبره نجاحاً.
+ */
+export async function setCompanyCountryStoreVisibility(input: {
+  companyId: string;
+  linkId: string;
+  countryCode: string;
+  showInStore: boolean;
+}): Promise<CompanyGeoCountry> {
+  try {
+    return await geoCompanyCountriesApi.update(
+      input.linkId,
+      { showInStore: input.showInStore },
+      { silent: true },
+    );
+  } catch (error) {
+    if (!(error instanceof ApiError) || error.status !== 404) throw error;
+
+    // بعض إصدارات الباكند كانت ترمي 404 من مزامنة ابن تالف بعد تحديث الربط.
+    const links = await geoCompanyCountriesApi.list(input.companyId);
+    const link = links.find((row) => row.id === input.linkId);
+    if (link && link.showInStore === input.showInStore) {
+      return link;
+    }
+    throw error;
+  }
+}
