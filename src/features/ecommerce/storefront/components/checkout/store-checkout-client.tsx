@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import Image from 'next/image';
+import { useQuery } from '@tanstack/react-query';
 import { useFormatter, useLocale, useTranslations } from 'next-intl';
 import {
   Check,
@@ -20,7 +21,7 @@ import type {
   CheckoutAddressInput,
   CheckoutPaymentMethod,
 } from '@/features/ecommerce/storefront/domain/checkout';
-import { calculateShippingFee } from '@/features/ecommerce/storefront/domain/checkout';
+import { fetchPublicShippingQuote } from '@/features/ecommerce/admin/delivery-rates/lib/api/public-shipping-quote-api';
 import type { StorefrontCompanyConfig } from '@/features/ecommerce/storefront/domain/storefront-models';
 import { placeStorefrontOrder } from '@/features/ecommerce/storefront/lib/checkout-actions';
 import { PartnerAuthApiError } from '@/features/ecommerce/storefront/domain/partner-auth';
@@ -56,13 +57,6 @@ import { GoogleLocationPicker, type GoogleLocationValue } from '@/components/ui/
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { storeLoginHref, storeRegisterHref } from '@/features/ecommerce/storefront/lib/store-auth-return';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
 import {
@@ -107,14 +101,9 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
     return unsub;
   }, []);
 
-  const cities = checkoutConfig.cities;
   const paymentMethods = checkoutConfig.paymentMethods;
   const companyId = getStorefrontCompanyId();
-  const { data: geoCountries = [], isLoading: geoCountriesLoading } = usePublicGeoCountries(
-    companyId,
-    Boolean(companyId),
-  );
-  const useGeoCascade = geoCountries.length > 0;
+  const { data: geoCountries = [] } = usePublicGeoCountries(companyId, Boolean(companyId));
 
   const [step, setStep] = React.useState<StepId>('address');
   const [address, setAddress] = React.useState<CheckoutAddressInput>(() => ({
@@ -123,11 +112,17 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
     countryId: null,
     cityId: null,
     districtId: null,
-    city: checkoutConfig.defaultCity || cities[0] || 'صنعاء',
+    city: '',
     district: '',
     street: '',
     notes: '',
   }));
+
+  // Only one country is configured today — auto-select it so the customer only picks city/district.
+  React.useEffect(() => {
+    if (address.countryId || geoCountries.length === 0) return;
+    setAddress((prev) => (prev.countryId ? prev : { ...prev, countryId: geoCountries[0]!.id }));
+  }, [geoCountries, address.countryId]);
   const [customerNote, setCustomerNote] = React.useState('');
   const [paymentMethod, setPaymentMethod] = React.useState<CheckoutPaymentMethod>(
     () => paymentMethods[0] ?? 'cash_on_delivery',
@@ -245,7 +240,7 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
       countryId: null,
       cityId: null,
       districtId: null,
-      city: useGeoCascade ? '' : checkoutConfig.defaultCity || cities[0] || prev.city,
+      city: '',
       district: '',
       street: '',
       notes: '',
@@ -313,7 +308,23 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
 
   const currency = cartLines[0]?.unitPrice.currency ?? storeCurrency ?? 'YER';
   const subtotal = cartLines.reduce((sum, item) => sum + item.unitPrice.amount * item.line.quantity, 0);
-  const shipping = calculateShippingFee(subtotal, currency);
+
+  const shippingQuoteQuery = useQuery({
+    queryKey: ['storefront', 'shipping-quote', companyId, address.cityId, address.districtId],
+    queryFn: () =>
+      fetchPublicShippingQuote({
+        companyId,
+        cityId: address.cityId,
+        districtId: address.districtId,
+      }),
+    enabled: Boolean(companyId && address.cityId),
+  });
+
+  const shippingKnown = Boolean(address.cityId) && !shippingQuoteQuery.isLoading;
+  const shipping = {
+    amount: shippingKnown ? Number(shippingQuoteQuery.data?.amount ?? 0) : 0,
+    currency: shippingQuoteQuery.data?.currencyCode ?? currency,
+  };
   const total = subtotal + shipping.amount;
   const itemCount = cartLines.reduce((sum, item) => sum + item.line.quantity, 0);
 
@@ -362,22 +373,10 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
     if (!address.phone.trim() || address.phone.replace(/\D/g, '').length < 9) {
       errors.phone = t('checkout.errors.phone');
     }
-    if (useGeoCascade) {
-      if (!address.countryId) errors.city = t('checkout.errors.cityRequired');
-      else if (!address.cityId || !address.city.trim()) errors.city = t('checkout.errors.cityRequired');
-      if (!address.districtId || !address.district.trim()) {
-        errors.district = t('checkout.errors.required');
-      }
-    } else if (cities.length === 0) {
-      errors.city = t('checkout.errors.citiesUnavailable');
-    } else if (!address.city.trim()) {
+    if (!address.countryId || !address.cityId || !address.city.trim()) {
       errors.city = t('checkout.errors.cityRequired');
-    } else if (
-      (selectedAddressId === 'new' || savedAddresses.length === 0) &&
-      !cities.includes(address.city)
-    ) {
-      errors.city = t('checkout.errors.cityRequired');
-    } else if (!address.district.trim()) {
+    }
+    if (!address.districtId || !address.district.trim()) {
       errors.district = t('checkout.errors.required');
     }
     if (!address.street.trim()) errors.street = t('checkout.errors.required');
