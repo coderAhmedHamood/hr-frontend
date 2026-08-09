@@ -369,6 +369,14 @@ export function OrderDetailPanel({
                   <PaymentIcon className="h-3.5 w-3.5" />
                   {PAYMENT_METHOD_LABELS_AR[paymentMethod]}
                 </span>
+                {order.paymentAccountSnapshot?.nameAr ? (
+                  <Badge variant="subtle" className="text-muted-foreground">
+                    {order.paymentAccountSnapshot.nameAr}
+                    {order.paymentAccountSnapshot.mobile
+                      ? ` · ${order.paymentAccountSnapshot.mobile}`
+                      : ''}
+                  </Badge>
+                ) : null}
                 <Badge variant={PAYMENT_STATUS_VARIANT[order.paymentStatus ?? 'pending']}>
                   {PAYMENT_STATUS_LABELS_AR[order.paymentStatus ?? 'pending']}
                 </Badge>

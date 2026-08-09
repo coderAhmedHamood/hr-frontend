@@ -2,7 +2,14 @@ import { apiRequest, ensurePaginatedResult, type PaginatedResult } from '@/featu
 import type { OrderStatus } from '@/features/ecommerce/domain/types/order';
 
 export type StorePaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded';
-export type StorePaymentMethod = 'cash_on_delivery' | 'card';
+export type StorePaymentMethod =
+  | 'cash_on_delivery'
+  | 'cash'
+  | 'bank'
+  | 'network'
+  | 'wallet'
+  | 'card'
+  | 'other';
 export type StoreOrderSource = 'storefront' | 'seed';
 export type SalesReportGranularity = 'day' | 'week' | 'month';
 

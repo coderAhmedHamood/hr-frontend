@@ -76,6 +76,8 @@ type StoreOrderDto = {
   status: Order['status'];
   paymentMethod: NonNullable<Order['paymentMethod']>;
   paymentStatus: NonNullable<Order['paymentStatus']>;
+  paymentAccountId?: string | null;
+  paymentAccountSnapshot?: Order['paymentAccountSnapshot'];
   paymentProofUrl?: string | null;
   paymentProofUrls?: string[] | null;
   source?: Order['source'];
@@ -209,6 +211,8 @@ function mapAdminOrder(dto: StoreOrderDto): Order {
     staffNoteVisibleToCustomer: dto.staffNoteVisibleToCustomer ?? false,
     paymentMethod: dto.paymentMethod,
     paymentStatus: dto.paymentStatus,
+    paymentAccountId: dto.paymentAccountId ?? null,
+    paymentAccountSnapshot: dto.paymentAccountSnapshot ?? null,
     paymentProofUrls: proofUrls,
     paymentProofUrl: proofUrls[0] ?? null,
     subtotalAmount: { amount: fromDecimalString(dto.subtotalAmount), currency },
@@ -253,6 +257,8 @@ function mapStorefrontOrder(dto: StoreOrderDto): StorefrontCustomerOrder {
     status: dto.status === 'refunded' ? 'cancelled' : dto.status,
     paymentMethod: dto.paymentMethod,
     paymentStatus: dto.paymentStatus,
+    paymentAccountId: dto.paymentAccountId ?? null,
+    paymentAccountSnapshot: dto.paymentAccountSnapshot ?? null,
     paymentProofUrls: proofUrls,
     paymentProofUrl: proofUrls[0] ?? null,
     customerNote: dto.customerNote ?? null,
@@ -313,6 +319,9 @@ export async function placePublicStoreOrder(
     body: {
       companyId: resolveStorefrontCompanyId(input.companyId),
       paymentMethod: input.paymentMethod,
+      ...(input.paymentAccountId
+        ? { paymentAccountId: input.paymentAccountId }
+        : {}),
       paymentProofUrl: proofUrls[0] ?? null,
       locale: input.locale || 'ar',
       ...(input.customerNote?.trim()
@@ -423,6 +432,7 @@ export async function fetchAdminStoreOrders(
       status: query.status,
       paymentStatus: query.paymentStatus,
       paymentMethod: query.paymentMethod,
+      paymentAccountId: query.paymentAccountId,
       city: query.city,
       search: query.search,
       partnerId: query.partnerId,

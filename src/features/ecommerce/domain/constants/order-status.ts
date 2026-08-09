@@ -19,9 +19,17 @@ export const ORDER_LINE_SHIP_STATUS_LABELS_AR: Record<OrderLineShipStatus, strin
   shipped: 'تم الشحن',
 };
 
-export const PAYMENT_METHOD_LABELS_AR: Record<'cash_on_delivery' | 'card', string> = {
+export const PAYMENT_METHOD_LABELS_AR: Record<
+  'cash_on_delivery' | 'cash' | 'bank' | 'network' | 'wallet' | 'card' | 'other',
+  string
+> = {
   cash_on_delivery: 'كاش عند الاستلام',
-  card: 'شبكة',
+  cash: 'نقدي',
+  bank: 'تحويل بنكي',
+  network: 'شبكة تحويل',
+  wallet: 'محفظة إلكترونية',
+  card: 'بطاقة',
+  other: 'طريقة أخرى',
 };
 
 export const PAYMENT_STATUS_LABELS_AR: Record<'pending' | 'paid' | 'failed' | 'refunded', string> = {

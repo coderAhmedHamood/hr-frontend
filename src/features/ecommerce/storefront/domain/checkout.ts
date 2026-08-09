@@ -4,7 +4,14 @@ import type {
   StoreOrderAttachment,
 } from '@/features/ecommerce/domain/types/order';
 
-export type CheckoutPaymentMethod = 'cash_on_delivery' | 'card';
+export type CheckoutPaymentMethod =
+  | 'cash_on_delivery'
+  | 'cash'
+  | 'bank'
+  | 'network'
+  | 'wallet'
+  | 'card'
+  | 'other';
 
 export type StorefrontOrderStatus =
   | 'pending'
@@ -44,11 +51,38 @@ export type CheckoutLineInput = {
   imageUrl?: string | null;
 };
 
+/** Snapshot saved on the order when a company payment account is linked. */
+export type PaymentAccountSnapshot = {
+  id: string;
+  type: string;
+  nameAr: string;
+  nameEn?: string | null;
+  providerName?: string | null;
+  accountHolderName?: string | null;
+  mobile?: string | null;
+  accountNumber?: string | null;
+  iban?: string | null;
+  currencyCode?: string | null;
+};
+
+/** Methods that require selecting a matching payment account at checkout. */
+export const PAYMENT_METHODS_REQUIRING_ACCOUNT: CheckoutPaymentMethod[] = [
+  'bank',
+  'network',
+  'wallet',
+];
+
+export function paymentMethodRequiresAccount(method: CheckoutPaymentMethod): boolean {
+  return PAYMENT_METHODS_REQUIRING_ACCOUNT.includes(method);
+}
+
 export type PlaceOrderInput = {
   companyId: string;
   locale: string;
   address: CheckoutAddressInput;
   paymentMethod: CheckoutPaymentMethod;
+  /** Required for bank / network / wallet — must match account type. */
+  paymentAccountId?: string | null;
   /** Customer-facing order note (gift wrap, timing, …) — separate from address.notes. */
   customerNote?: string | null;
   /**
@@ -76,6 +110,8 @@ export type StorefrontCustomerOrder = {
   status: StorefrontOrderStatus;
   paymentMethod: CheckoutPaymentMethod;
   paymentStatus: StorefrontPaymentStatus;
+  paymentAccountId?: string | null;
+  paymentAccountSnapshot?: PaymentAccountSnapshot | null;
   paymentProofUrls?: string[];
   /** @deprecated Prefer `paymentProofUrls`. */
   paymentProofUrl?: string | null;

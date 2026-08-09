@@ -272,7 +272,24 @@ export function normalizeAnnouncementBar(
   };
 }
 
-export type CompanyCheckoutPaymentMethod = 'cash_on_delivery' | 'card';
+export type CompanyCheckoutPaymentMethod =
+  | 'cash_on_delivery'
+  | 'cash'
+  | 'bank'
+  | 'network'
+  | 'wallet'
+  | 'card'
+  | 'other';
+
+export const ALL_CHECKOUT_PAYMENT_METHODS: CompanyCheckoutPaymentMethod[] = [
+  'cash_on_delivery',
+  'cash',
+  'bank',
+  'network',
+  'wallet',
+  'card',
+  'other',
+];
 
 /** Checkout / shipping rules edited in Website Settings. */
 export type CompanyCheckoutConfigRecord = {

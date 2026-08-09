@@ -439,6 +439,8 @@
     "locationsHint": "Activate seeded countries for this company, then add cities and districts under them. Storefront visibility follows country activation.",
     "locationsCheckoutNote": "Preferred shipping lists come from the Locations tab. Delivery rates by city/district are managed under Delivery rates. The plain city list below is legacy compatibility only.",
     "deliveryRatesHint": "Price shipping by city or district (or groups). At checkout, district rates win over city rates; otherwise the fee is zero.",
+    "paymentAccountsHint": "Bank, wallet, and network accounts shown at checkout. Enable matching payment methods under Shipping & payment.",
+    "paymentMethodsHint": "Enabled methods appear at checkout. For bank/network/wallet, create accounts under Payment accounts.",
     "colorsHint": "Colors and fonts control the public store look — buttons, links, accents, and typography. They never affect the admin dashboard.",
     "tabs": {
       "branding": "Branding",
@@ -448,6 +450,7 @@
       "social": "Social",
       "locations": "Locations",
       "deliveryRates": "Delivery rates",
+      "paymentAccounts": "Payment accounts",
       "checkout": "Shipping & payment",
       "seo": "Search engines (SEO)"
     },

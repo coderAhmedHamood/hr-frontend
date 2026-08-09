@@ -156,7 +156,7 @@ export function OrdersListPage() {
     : undefined;
   const paymentMethodParam = searchParams.get('paymentMethod') ?? 'all';
   const paymentMethod = VALID_PAYMENT_METHODS.has(paymentMethodParam)
-    ? (paymentMethodParam as 'cash_on_delivery' | 'card')
+    ? (paymentMethodParam as keyof typeof PAYMENT_METHOD_LABELS_AR)
     : undefined;
   const fulfilmentParam = searchParams.get('fulfilment') ?? 'all';
   const fulfilment = VALID_FULFILMENTS.has(fulfilmentParam as OrderFulfilmentFilter)

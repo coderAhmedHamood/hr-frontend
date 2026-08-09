@@ -17,11 +17,21 @@ import {
   Wallet,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useQuery } from '@tanstack/react-query';
 import type {
   CheckoutAddressInput,
   CheckoutPaymentMethod,
 } from '@/features/ecommerce/storefront/domain/checkout';
+<<<<<<< HEAD
 import { fetchPublicShippingQuote } from '@/features/ecommerce/admin/delivery-rates/lib/api/public-shipping-quote-api';
+=======
+import {
+  calculateShippingFee,
+  paymentMethodRequiresAccount,
+} from '@/features/ecommerce/storefront/domain/checkout';
+import { fetchPublicPaymentAccounts } from '@/features/ecommerce/admin/payment-accounts/lib/api/public-payment-accounts-api';
+import type { PaymentAccountType } from '@/features/ecommerce/admin/payment-accounts/lib/api/payment-accounts-api';
+>>>>>>> 843a5ec680e17f44df3fe0aa489d34f4ca2774c2
 import type { StorefrontCompanyConfig } from '@/features/ecommerce/storefront/domain/storefront-models';
 import { placeStorefrontOrder } from '@/features/ecommerce/storefront/lib/checkout-actions';
 import { PartnerAuthApiError } from '@/features/ecommerce/storefront/domain/partner-auth';
@@ -127,9 +137,49 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
   const [paymentMethod, setPaymentMethod] = React.useState<CheckoutPaymentMethod>(
     () => paymentMethods[0] ?? 'cash_on_delivery',
   );
+  const [paymentAccountId, setPaymentAccountId] = React.useState<string | null>(null);
   const [paymentProofs, setPaymentProofs] = React.useState<Array<{ url: string; name: string }>>(
     [],
   );
+
+  const accountTypeFilter =
+    paymentMethod === 'cash_on_delivery'
+      ? undefined
+      : (paymentMethod as PaymentAccountType);
+
+  const paymentAccountsQuery = useQuery({
+    queryKey: ['public', 'store', 'payment-accounts', companyId, accountTypeFilter ?? 'all'],
+    queryFn: () =>
+      fetchPublicPaymentAccounts({
+        companyId,
+        type: accountTypeFilter,
+      }),
+    enabled: Boolean(companyId) && paymentMethod !== 'cash_on_delivery',
+  });
+
+  const paymentAccounts = React.useMemo(() => {
+    const items = paymentAccountsQuery.data ?? [];
+    if (!accountTypeFilter) return items;
+    return items.filter((row) => row.type === accountTypeFilter);
+  }, [paymentAccountsQuery.data, accountTypeFilter]);
+
+  const selectedPaymentAccount =
+    paymentAccounts.find((row) => row.id === paymentAccountId) ?? null;
+
+  React.useEffect(() => {
+    if (paymentMethod === 'cash_on_delivery') {
+      setPaymentAccountId(null);
+      return;
+    }
+    if (paymentAccounts.length === 0) {
+      setPaymentAccountId(null);
+      return;
+    }
+    setPaymentAccountId((current) => {
+      if (current && paymentAccounts.some((row) => row.id === current)) return current;
+      return paymentAccounts.length === 1 ? paymentAccounts[0]!.id : null;
+    });
+  }, [paymentMethod, paymentAccounts]);
   const [orderAttachments, setOrderAttachments] = React.useState<CreateStoreOrderAttachmentInput[]>(
     [],
   );
@@ -394,7 +444,13 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
       setStep('payment');
       return;
     }
-    if (step === 'payment') setStep('review');
+    if (step === 'payment') {
+      if (paymentMethodRequiresAccount(paymentMethod) && !paymentAccountId) {
+        toast.error(t('checkout.errors.paymentAccountRequired'));
+        return;
+      }
+      setStep('review');
+    }
   }
 
   function goBack() {
@@ -414,14 +470,22 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
     }
     setSubmitting(true);
     try {
+      if (paymentMethodRequiresAccount(paymentMethod) && !paymentAccountId) {
+        toast.error(t('checkout.errors.paymentAccountRequired'));
+        setStep('payment');
+        return;
+      }
       const result = await placeStorefrontOrder({
         locale,
         address,
         paymentMethod,
+        paymentAccountId: paymentAccountId || null,
         customerNote: customerNote.trim() || null,
         accessToken,
         paymentProofUrls:
-          paymentMethod === 'card' ? paymentProofs.map((item) => item.url) : [],
+          paymentMethod !== 'cash_on_delivery' && paymentMethod !== 'cash'
+            ? paymentProofs.map((item) => item.url)
+            : [],
         attachments: orderAttachments,
         lines: cartLines.map(({ line, product, unitPrice, lineName, variant }) => {
           const display = buildProductDisplay(product);
@@ -692,79 +756,41 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
 
               {showAddressForm ? (
                 <>
-                  {useGeoCascade ? (
-                    <div className="sm:col-span-2">
-                      <GeoCascadeSelect
-                        companyId={companyId}
-                        mode="public"
-                        value={{
-                          countryId: address.countryId ?? null,
-                          cityId: address.cityId ?? null,
-                          districtId: address.districtId ?? null,
-                          countryCode: null,
-                          city: address.city,
-                          district: address.district,
-                        }}
-                        onChange={(geo: GeoCascadeValue) =>
-                          setAddress((prev) => ({
-                            ...prev,
-                            countryId: geo.countryId,
-                            cityId: geo.cityId,
-                            districtId: geo.districtId,
-                            city: geo.city,
-                            district: geo.district,
-                          }))
-                        }
-                        labels={{
-                          country: t('checkout.country'),
-                          city: t('checkout.city'),
-                          district: t('checkout.district'),
-                        }}
-                      />
-                      {(addressErrors.city || addressErrors.district) && (
-                        <p className="mt-1.5 text-xs text-destructive">
-                          {addressErrors.city || addressErrors.district}
-                        </p>
-                      )}
-                    </div>
-                  ) : (
-                    <>
-                      <Field label={t('checkout.city')} error={addressErrors.city}>
-                        {geoCountriesLoading ? (
-                          <p className="text-sm text-muted-foreground">…</p>
-                        ) : cities.length === 0 ? (
-                          <p className="rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2.5 text-sm text-destructive">
-                            {t('checkout.errors.citiesUnavailable')}
-                          </p>
-                        ) : (
-                          <Select
-                            value={cities.includes(address.city) ? address.city : undefined}
-                            onValueChange={(city) => setAddress((prev) => ({ ...prev, city }))}
-                          >
-                            <SelectTrigger className={checkoutFieldClassName}>
-                              <SelectValue placeholder={t('checkout.cityPlaceholder')} />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {cities.map((city) => (
-                                <SelectItem key={city} value={city}>
-                                  {city}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        )}
-                      </Field>
-                      <Field label={t('checkout.district')} error={addressErrors.district}>
-                        <Input
-                          value={address.district}
-                          onChange={(e) =>
-                            setAddress((prev) => ({ ...prev, district: e.target.value }))
-                          }
-                          className={checkoutFieldClassName}
-                        />
-                      </Field>
-                    </>
-                  )}
+                  <div className="sm:col-span-2">
+                    <GeoCascadeSelect
+                      companyId={companyId}
+                      mode="public"
+                      showCountry={false}
+                      value={{
+                        countryId: address.countryId ?? null,
+                        cityId: address.cityId ?? null,
+                        districtId: address.districtId ?? null,
+                        countryCode: null,
+                        city: address.city,
+                        district: address.district,
+                      }}
+                      onChange={(geo: GeoCascadeValue) =>
+                        setAddress((prev) => ({
+                          ...prev,
+                          countryId: geo.countryId,
+                          cityId: geo.cityId,
+                          districtId: geo.districtId,
+                          city: geo.city,
+                          district: geo.district,
+                        }))
+                      }
+                      labels={{
+                        country: t('checkout.country'),
+                        city: t('checkout.city'),
+                        district: t('checkout.district'),
+                      }}
+                    />
+                    {(addressErrors.city || addressErrors.district) && (
+                      <p className="mt-1.5 text-xs text-destructive">
+                        {addressErrors.city || addressErrors.district}
+                      </p>
+                    )}
+                  </div>
                   <Field label={t('checkout.street')} error={addressErrors.street} className="sm:col-span-2">
                     <Input
                       value={address.street}
@@ -848,7 +874,7 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
                     type="button"
                     onClick={() => {
                       setPaymentMethod(id);
-                      if (id === 'cash_on_delivery') {
+                      if (id === 'cash_on_delivery' || id === 'cash') {
                         setPaymentProofs([]);
                       }
                     }}
@@ -889,7 +915,119 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
                   </button>
                 );
               })}
+
               {paymentMethod !== 'cash_on_delivery' ? (
+                <div className="space-y-3 rounded-2xl border border-border bg-muted/20 p-4">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">
+                      {t('checkout.paymentAccountTitle')}
+                      {paymentMethodRequiresAccount(paymentMethod) ? (
+                        <span className="text-destructive"> *</span>
+                      ) : null}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {t('checkout.paymentAccountHint')}
+                    </p>
+                  </div>
+                  {paymentAccountsQuery.isLoading ? (
+                    <p className="text-xs text-muted-foreground">{t('checkout.paymentAccountLoading')}</p>
+                  ) : paymentAccounts.length === 0 ? (
+                    <p className="text-xs text-amber-700 dark:text-amber-400">
+                      {paymentMethodRequiresAccount(paymentMethod)
+                        ? t('checkout.errors.paymentAccountUnavailable')
+                        : t('checkout.paymentAccountOptionalEmpty')}
+                    </p>
+                  ) : (
+                    <ul className="space-y-2">
+                      {paymentAccounts.map((account) => {
+                        const selected = paymentAccountId === account.id;
+                        const details = [
+                          account.providerName,
+                          account.mobile,
+                          account.iban,
+                          account.accountNumber,
+                        ]
+                          .filter(Boolean)
+                          .join(' · ');
+                        return (
+                          <li key={account.id}>
+                            <button
+                              type="button"
+                              onClick={() => setPaymentAccountId(account.id)}
+                              className={cn(
+                                'flex w-full items-start gap-3 rounded-xl border p-3 text-start transition-colors',
+                                selected
+                                  ? 'border-primary bg-primary/5 ring-1 ring-primary/25'
+                                  : 'border-border bg-card hover:border-primary/30',
+                              )}
+                            >
+                              {account.logoUrl ? (
+                                <Image
+                                  src={account.logoUrl}
+                                  alt=""
+                                  width={40}
+                                  height={40}
+                                  className="h-10 w-10 rounded-lg object-contain"
+                                  unoptimized
+                                />
+                              ) : (
+                                <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted text-primary">
+                                  <Wallet className="h-4 w-4" />
+                                </span>
+                              )}
+                              <span className="min-w-0 flex-1">
+                                <span className="block text-sm font-semibold text-foreground">
+                                  {locale === 'en' && account.nameEn
+                                    ? account.nameEn
+                                    : account.nameAr}
+                                </span>
+                                {details ? (
+                                  <span className="mt-0.5 block text-xs text-muted-foreground" dir="ltr">
+                                    {details}
+                                  </span>
+                                ) : null}
+                                {(locale === 'en'
+                                  ? account.instructionsEn
+                                  : account.instructionsAr) ? (
+                                  <span className="mt-1 block text-[11px] leading-relaxed text-muted-foreground">
+                                    {locale === 'en'
+                                      ? account.instructionsEn
+                                      : account.instructionsAr}
+                                  </span>
+                                ) : null}
+                              </span>
+                              <span
+                                className={cn(
+                                  'mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border',
+                                  selected
+                                    ? 'border-primary bg-primary text-primary-foreground'
+                                    : 'border-border bg-background',
+                                )}
+                              >
+                                {selected ? <Check className="h-3 w-3" /> : null}
+                              </span>
+                            </button>
+                            {selected && account.qrImageUrl ? (
+                              <div className="mt-2 flex justify-center rounded-xl border border-border bg-card p-3">
+                                <Image
+                                  src={account.qrImageUrl}
+                                  alt="QR"
+                                  width={160}
+                                  height={160}
+                                  className="h-40 w-40 object-contain"
+                                  unoptimized
+                                />
+                              </div>
+                            ) : null}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
+              ) : null}
+
+              {paymentMethod !== 'cash_on_delivery' && paymentMethod !== 'cash' ? (
                 <div className="space-y-3 rounded-2xl border border-border bg-muted/20 p-4">
                   <p className="text-xs leading-relaxed text-muted-foreground">
                     {t('checkout.paymentProofHint')}
@@ -1114,7 +1252,19 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
                   <p className="mt-1 text-xs text-muted-foreground">
                     {t(`checkout.paymentMethods.${paymentMethod}.description`)}
                   </p>
-                  {paymentMethod === 'card' && paymentProofs.length > 0 ? (
+                  {selectedPaymentAccount ? (
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      {t('checkout.paymentAccountSelected', {
+                        name:
+                          locale === 'en' && selectedPaymentAccount.nameEn
+                            ? selectedPaymentAccount.nameEn
+                            : selectedPaymentAccount.nameAr,
+                      })}
+                    </p>
+                  ) : null}
+                  {paymentMethod !== 'cash_on_delivery' &&
+                  paymentMethod !== 'cash' &&
+                  paymentProofs.length > 0 ? (
                     <div className="mt-3 space-y-2">
                       <div className="flex flex-wrap gap-2">
                         {paymentProofs.map((proof, index) => (
@@ -1237,7 +1387,13 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
               <div className="flex justify-between gap-3">
                 <dt className="text-muted-foreground">{t('checkout.shipping')}</dt>
                 <dd className="font-medium tabular-nums text-foreground">
-                  {shipping.amount === 0 ? t('checkout.freeShipping') : formatPrice(shipping.amount)}
+                  {!address.cityId
+                    ? t('checkout.shippingPending')
+                    : shippingQuoteQuery.isLoading
+                      ? t('common.loading')
+                      : shipping.amount === 0
+                        ? t('checkout.freeShipping')
+                        : formatPrice(shipping.amount)}
                 </dd>
               </div>
               <div className="flex justify-between gap-3 border-t border-border pt-3">

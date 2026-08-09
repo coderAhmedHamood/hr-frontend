@@ -106,8 +106,29 @@ export type Order = TenantScoped & {
   staffNote?: string | null;
   /** Whether the staff note is shown to the customer (admin view only). */
   staffNoteVisibleToCustomer?: boolean;
-  paymentMethod?: 'cash_on_delivery' | 'card';
+  paymentMethod?:
+    | 'cash_on_delivery'
+    | 'cash'
+    | 'bank'
+    | 'network'
+    | 'wallet'
+    | 'card'
+    | 'other';
   paymentStatus?: 'pending' | 'paid' | 'failed' | 'refunded';
+  /** Linked company payment account (bank / network / wallet…). */
+  paymentAccountId?: string | null;
+  paymentAccountSnapshot?: {
+    id: string;
+    type: string;
+    nameAr: string;
+    nameEn?: string | null;
+    providerName?: string | null;
+    accountHolderName?: string | null;
+    mobile?: string | null;
+    accountNumber?: string | null;
+    iban?: string | null;
+    currencyCode?: string | null;
+  } | null;
   /**
    * Transfer / card receipt image URLs (one or more).
    * Prefer this over the legacy single `paymentProofUrl`.
@@ -134,7 +155,15 @@ export type OrderListQuery = {
   /** Filter by registered contacts partner (`store_orders.partner_id`). */
   partnerId?: string;
   paymentStatus?: 'pending' | 'paid' | 'failed' | 'refunded';
-  paymentMethod?: 'cash_on_delivery' | 'card';
+  paymentMethod?:
+    | 'cash_on_delivery'
+    | 'cash'
+    | 'bank'
+    | 'network'
+    | 'wallet'
+    | 'card'
+    | 'other';
+  paymentAccountId?: string;
   fulfilment?: OrderFulfilmentFilter;
   source?: 'seed' | 'storefront';
   city?: string;

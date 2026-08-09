@@ -6,8 +6,11 @@ import { toast } from 'sonner';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Banknote,
+  Building2,
   CreditCard,
+  Landmark,
   MapPinned,
+  Network,
   Paintbrush,
   Palette,
   Phone,
@@ -23,9 +26,11 @@ import {
   saveCmsCompanyRecord,
 } from '@/features/ecommerce/admin/cms/shared/cms-actions';
 import {
+  ALL_CHECKOUT_PAYMENT_METHODS,
   COMPANY_SOCIAL_NETWORKS,
   normalizeAnnouncementBar,
   normalizeSocialLinks,
+  type CompanyCheckoutPaymentMethod,
   type CompanyConfigRecord,
   type CompanySocialNetwork,
 } from '@/features/ecommerce/storefront/domain/company-config';
@@ -34,7 +39,10 @@ import { ImagePicker } from '@/features/ecommerce/admin/cms/homepage/components/
 import { CheckoutCitiesEditor } from '@/features/ecommerce/admin/cms/settings/components/checkout-cities-editor';
 import { WebsiteColorsPanel } from '@/features/ecommerce/admin/cms/settings/components/website-colors-panel';
 import { DeliveryRatesPanel } from '@/features/ecommerce/admin/delivery-rates/components/delivery-rates-panel';
+import { PaymentAccountsPanel } from '@/features/ecommerce/admin/payment-accounts/components/payment-accounts-panel';
 import GeoLocationsPage from '@/features/system/organization/geo/components/geo-locations-page';
+import { PAYMENT_METHOD_LABELS_AR } from '@/features/ecommerce/domain/constants/order-status';
+
 import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { PageHeaderPrimaryButton } from '@/components/layouts/page-header-primary-button';
@@ -46,6 +54,19 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/shared/utils';
+
+const PAYMENT_METHOD_ICONS: Record<
+  CompanyCheckoutPaymentMethod,
+  React.ComponentType<{ className?: string }>
+> = {
+  cash_on_delivery: Wallet,
+  cash: Banknote,
+  bank: Landmark,
+  network: Network,
+  wallet: Wallet,
+  card: CreditCard,
+  other: Building2,
+};
 
 const SETTINGS_QUERY_KEY = ['ecommerce-cms', 'company', 'settings'] as const;
 
@@ -64,7 +85,7 @@ function defaultCheckout(draft: CompanyConfigRecord) {
     draft.checkout ?? {
       cities: [],
       defaultCity: '',
-      paymentMethods: ['cash_on_delivery', 'card'] as Array<'cash_on_delivery' | 'card'>,
+      paymentMethods: ['cash_on_delivery', 'card'] as CompanyCheckoutPaymentMethod[],
     }
   );
 }
@@ -286,6 +307,7 @@ export function WebsiteSettingsPage() {
                 ['social', Share2, t('tabs.social')],
                 ['locations', MapPinned, t('tabs.locations')],
                 ['deliveryRates', Banknote, t('tabs.deliveryRates')],
+                ['paymentAccounts', CreditCard, t('tabs.paymentAccounts')],
                 ['checkout', Truck, t('tabs.checkout')],
                 ['seo', Search, t('tabs.seo')],
               ] as const
@@ -463,6 +485,15 @@ export function WebsiteSettingsPage() {
             </SettingsPanel>
           </TabsContent>
 
+          <TabsContent value="paymentAccounts" className="mt-4">
+            <SettingsPanel
+              title={t('tabs.paymentAccounts')}
+              description={t('paymentAccountsHint')}
+            >
+              <PaymentAccountsPanel companyId={companyId} currencyCode={draft.currency} />
+            </SettingsPanel>
+          </TabsContent>
+
           <TabsContent value="checkout" className="mt-4">
             <SettingsPanel title={t('tabs.checkout')} description={t('checkoutHint')}>
               <div className="mb-4 rounded-xl border border-primary/20 bg-primary/[0.04] px-3.5 py-2.5 text-xs leading-relaxed text-muted-foreground">
@@ -483,15 +514,13 @@ export function WebsiteSettingsPage() {
                     })
                   }
                 />
-                <div className="space-y-3">
+                <div className="space-y-3 sm:col-span-2">
                   <Label className="text-sm font-medium text-foreground">{t('paymentMethods')}</Label>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {(
-                      [
-                        ['cash_on_delivery', t('paymentCod'), Wallet],
-                        ['card', t('paymentCard'), CreditCard],
-                      ] as const
-                    ).map(([id, label, Icon]) => {
+                  <p className="text-[11px] text-muted-foreground">{t('paymentMethodsHint')}</p>
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {ALL_CHECKOUT_PAYMENT_METHODS.map((id) => {
+                      const Icon = PAYMENT_METHOD_ICONS[id];
+                      const label = PAYMENT_METHOD_LABELS_AR[id];
                       const record = draft;
                       const checked = (record.checkout?.paymentMethods ?? []).includes(id);
                       function toggleMethod(nextChecked: boolean) {
@@ -534,7 +563,9 @@ export function WebsiteSettingsPage() {
                           >
                             <Icon className="h-4 w-4" aria-hidden />
                           </span>
-                          <span className="min-w-0 flex-1 text-sm font-medium text-foreground">{label}</span>
+                          <span className="min-w-0 flex-1 text-sm font-medium text-foreground">
+                            {label}
+                          </span>
                           <Switch
                             checked={checked}
                             onCheckedChange={toggleMethod}
