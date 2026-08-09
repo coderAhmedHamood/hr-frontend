@@ -53,3 +53,12 @@ export async function removePartnerWishlistItem(token: string, productId: string
     token,
   });
 }
+
+/** DELETE /public/store/wishlist → 204 (removes every item) */
+export async function clearPartnerWishlist(token: string): Promise<void> {
+  if (!token) throw new Error('PARTNER_TOKEN_REQUIRED');
+  await publicStoreRequest('/public/store/wishlist', {
+    method: 'DELETE',
+    token,
+  });
+}

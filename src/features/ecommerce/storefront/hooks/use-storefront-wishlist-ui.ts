@@ -6,6 +6,7 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 import { useStorefrontCustomerUi } from '@/features/ecommerce/storefront/hooks/use-storefront-customer-ui';
 import {
   addPartnerWishlistItem,
+  clearPartnerWishlist,
   fetchPartnerWishlist,
   removePartnerWishlistItem,
 } from '@/features/ecommerce/shared/lib/api/store-wishlist-api';
@@ -23,6 +24,7 @@ interface StorefrontWishlistUiState {
   toggle: (productId: string, token?: string | null) => void;
   has: (productId: string) => boolean;
   remove: (productId: string, token?: string | null) => void;
+  clear: (token?: string | null) => void;
 }
 
 function uniqueIds(ids: string[]): string[] {
@@ -69,6 +71,16 @@ export const useStorefrontWishlistUi = create<StorefrontWishlistUiState>()(
         void removePartnerWishlistItem(token, productId).catch((error) => {
           if (error instanceof StoreHttpError && error.status === 404) return;
           console.warn('[store] wishlist remove failed', error);
+          set({ productIds: previous });
+        });
+      },
+      clear: (token) => {
+        const previous = get().productIds;
+        if (previous.length === 0) return;
+        set({ productIds: [] });
+        if (!token || !isStoreHttpEnabled()) return;
+        void clearPartnerWishlist(token).catch((error) => {
+          console.warn('[store] wishlist clear failed', error);
           set({ productIds: previous });
         });
       },

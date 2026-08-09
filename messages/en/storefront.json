@@ -350,7 +350,9 @@
     "emptyDescription": "Save products you like by tapping the heart icon.",
     "browseProducts": "Browse products",
     "guestHint": "Saved on this device only. Sign in to sync with your account.",
-    "loginToSync": "Sign in to sync"
+    "loginToSync": "Sign in to sync",
+    "clearAll": "Clear all",
+    "clearAllConfirm": "Remove all items from your wishlist? This cannot be undone."
   },
   "footer": {
     "paymentMethods": "Payment methods",
