@@ -111,6 +111,8 @@ type RequestOptions = {
    * would be incorrect. List loaders should leave this unset.
    */
   throwOnError?: boolean;
+  /** Skip the global error toast (caller handles UX). Still throws when throwOnError. */
+  silent?: boolean;
 };
 
 function unwrapEnvelope<T>(payload: unknown): T {
@@ -131,7 +133,7 @@ function unwrapEnvelope<T>(payload: unknown): T {
 }
 
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { method = 'GET', query, body, signal, throwOnError = false } = options;
+  const { method = 'GET', query, body, signal, throwOnError = false, silent = false } = options;
   const headers: Record<string, string> = {};
   if (body !== undefined) {
     headers['Content-Type'] = 'application/json';
@@ -167,6 +169,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
       payload,
       method,
       throwOnError,
+      silent,
     );
   }
 
@@ -179,8 +182,11 @@ function handleApiResponseFailure<T>(
   payload: unknown,
   method: RequestOptions['method'],
   throwOnError = false,
+  silent = false,
 ): T {
-  notifyApiFailure(envelope, status);
+  if (!silent) {
+    notifyApiFailure(envelope, status);
+  }
 
   // Reads: toast only — return an empty paginated shell so list loaders never crash.
   if (method === 'GET' && !throwOnError) {
@@ -188,7 +194,7 @@ function handleApiResponseFailure<T>(
   }
 
   const error = new ApiError(envelope, status, payload);
-  error.toastShown = typeof window !== 'undefined';
+  error.toastShown = !silent && typeof window !== 'undefined';
   throw error;
 }
 

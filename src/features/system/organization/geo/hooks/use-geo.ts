@@ -3,10 +3,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   geoCitiesApi,
+  geoCompanyCountriesApi,
   geoCountriesApi,
   geoDistrictsApi,
+  setCompanyCountryStoreVisibility,
   type CreateGeoCityInput,
-  type CreateGeoCountryInput,
   type CreateGeoDistrictInput,
   type GeoListQuery,
   type UpdateGeoCityInput,
@@ -22,6 +23,8 @@ export const geoQueryKeys = {
   countries: (query: GeoListQuery) => [...geoQueryKeys.all, 'countries', query] as const,
   cities: (query: GeoListQuery) => [...geoQueryKeys.all, 'cities', query] as const,
   districts: (query: GeoListQuery) => [...geoQueryKeys.all, 'districts', query] as const,
+  companyCountries: (companyId: string) =>
+    [...geoQueryKeys.all, 'company-countries', companyId] as const,
   public: {
     all: ['public', 'store', 'geo'] as const,
     countries: (companyId: string) =>
@@ -57,6 +60,14 @@ export function useGeoDistricts(query: GeoListQuery, enabled = true) {
   });
 }
 
+export function useCompanyGeoCountries(companyId: string, enabled = true) {
+  return useQuery({
+    queryKey: geoQueryKeys.companyCountries(companyId),
+    queryFn: () => geoCompanyCountriesApi.list(companyId),
+    enabled: enabled && Boolean(companyId),
+  });
+}
+
 export function usePublicGeoCountries(companyId: string, enabled = true) {
   return useQuery({
     queryKey: geoQueryKeys.public.countries(companyId),
@@ -83,19 +94,11 @@ export function usePublicGeoDistricts(companyId: string, cityId: string, enabled
 
 function useInvalidateGeo() {
   const qc = useQueryClient();
-  return () => qc.invalidateQueries({ queryKey: geoQueryKeys.all });
-}
-
-export function useCreateGeoCountry() {
-  const invalidate = useInvalidateGeo();
-  return useMutation({
-    mutationFn: (input: CreateGeoCountryInput) => geoCountriesApi.create(input),
-    onSuccess: async () => {
-      toast.success('تم إنشاء الدولة');
-      await invalidate();
-    },
-    onError: (error) => handleApiError(error),
-  });
+  return () =>
+    Promise.all([
+      qc.invalidateQueries({ queryKey: geoQueryKeys.all }),
+      qc.invalidateQueries({ queryKey: geoQueryKeys.public.all }),
+    ]);
 }
 
 export function useUpdateGeoCountry() {
@@ -160,6 +163,18 @@ export function useDeleteGeoCity() {
   });
 }
 
+export function useRestoreGeoCity() {
+  const invalidate = useInvalidateGeo();
+  return useMutation({
+    mutationFn: (id: string) => geoCitiesApi.restore(id),
+    onSuccess: async () => {
+      toast.success('تم استرجاع المدينة من الأرشيف');
+      await invalidate();
+    },
+    onError: (error) => handleApiError(error),
+  });
+}
+
 export function useCreateGeoDistrict() {
   const invalidate = useInvalidateGeo();
   return useMutation({
@@ -191,6 +206,50 @@ export function useDeleteGeoDistrict() {
     mutationFn: (id: string) => geoDistrictsApi.remove(id),
     onSuccess: async () => {
       toast.success('تمت أرشفة الحي');
+      await invalidate();
+    },
+    onError: (error) => handleApiError(error),
+  });
+}
+
+export function useRestoreGeoDistrict() {
+  const invalidate = useInvalidateGeo();
+  return useMutation({
+    mutationFn: (id: string) => geoDistrictsApi.restore(id),
+    onSuccess: async () => {
+      toast.success('تم استرجاع الحي من الأرشيف');
+      await invalidate();
+    },
+    onError: (error) => handleApiError(error),
+  });
+}
+
+export function useUpdateCompanyGeoCountry() {
+  const invalidate = useInvalidateGeo();
+  return useMutation({
+    mutationFn: ({
+      companyId,
+      linkId,
+      countryCode,
+      showInStore,
+    }: {
+      companyId: string;
+      linkId: string;
+      countryCode: string;
+      showInStore: boolean;
+    }) =>
+      setCompanyCountryStoreVisibility({
+        companyId,
+        linkId,
+        countryCode,
+        showInStore,
+      }),
+    onSuccess: async (_row, variables) => {
+      toast.success(
+        variables.showInStore
+          ? 'تم تفعيل الدولة في المتجر'
+          : 'تم إلغاء تفعيل الدولة في المتجر',
+      );
       await invalidate();
     },
     onError: (error) => handleApiError(error),
