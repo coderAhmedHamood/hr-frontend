@@ -20,6 +20,7 @@ import type { Category } from '@/features/ecommerce/domain/types/category';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SearchableDropdown } from '@/components/ui/shared-dialogs';
 import { cn } from '@/shared/utils';
 import { isMultiLangEnabled } from '@/i18n/locale-flags';
 
@@ -90,14 +91,17 @@ export function ProductGeneralTab({ control, errors, register, categories, brand
             />
           </ProductFormField>
 
-          <ProductFormField label="الحالة" htmlFor="product-status">
+          <ProductFormField label="الحالة" htmlFor="product-status" required>
             <Controller
               control={control}
               name="status"
               render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
+                <Select
+                  value={field.value ?? 'draft'}
+                  onValueChange={field.onChange}
+                >
                   <SelectTrigger id="product-status" aria-label="الحالة" className="h-11">
-                    <SelectValue />
+                    <SelectValue placeholder="اختر الحالة" />
                   </SelectTrigger>
                   <SelectContent>
                     {PRODUCT_STATUS_OPTIONS.map((option) => (
@@ -118,22 +122,19 @@ export function ProductGeneralTab({ control, errors, register, categories, brand
               control={control}
               name="categoryId"
               render={({ field }) => (
-                <Select
+                <SearchableDropdown
                   value={field.value ?? NO_VALUE}
-                  onValueChange={(value) => field.onChange(value === NO_VALUE ? undefined : value)}
-                >
-                  <SelectTrigger id="product-category" aria-label="الفئة" className="h-11">
-                    <SelectValue placeholder="اختر فئة" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={NO_VALUE}>بدون فئة</SelectItem>
-                    {(categories ?? []).map((category) => (
-                      <SelectItem key={category.id} value={category.id}>
-                        {category.nameAr}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  onChange={(value) => field.onChange(value === NO_VALUE ? undefined : value)}
+                  placeholder="اختر فئة"
+                  options={[
+                    { value: NO_VALUE, label: 'بدون فئة' },
+                    ...(categories ?? []).map((category) => ({
+                      value: category.id,
+                      label: category.nameAr,
+                    })),
+                  ]}
+                  className="h-11"
+                />
               )}
             />
           </ProductFormField>
@@ -143,22 +144,19 @@ export function ProductGeneralTab({ control, errors, register, categories, brand
               control={control}
               name="brandId"
               render={({ field }) => (
-                <Select
+                <SearchableDropdown
                   value={field.value ?? NO_VALUE}
-                  onValueChange={(value) => field.onChange(value === NO_VALUE ? undefined : value)}
-                >
-                  <SelectTrigger id="product-brand" aria-label="العلامة التجارية" className="h-11">
-                    <SelectValue placeholder="بدون علامة تجارية" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={NO_VALUE}>بدون علامة تجارية</SelectItem>
-                    {(brands ?? []).map((brand) => (
-                      <SelectItem key={brand.id} value={brand.id}>
-                        {brand.nameAr}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  onChange={(value) => field.onChange(value === NO_VALUE ? undefined : value)}
+                  placeholder="بدون علامة تجارية"
+                  options={[
+                    { value: NO_VALUE, label: 'بدون علامة تجارية' },
+                    ...(brands ?? []).map((brand) => ({
+                      value: brand.id,
+                      label: brand.nameAr,
+                    })),
+                  ]}
+                  className="h-11"
+                />
               )}
             />
           </ProductFormField>

@@ -12,6 +12,7 @@ import {
   publicStoreRequest,
 } from '@/features/ecommerce/storefront/lib/api/store-http';
 import { resolveStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
+import { resolveUploadUrl } from '@/shared/resolve-upload-url';
 
 export type StorefrontSearchResult = {
   products: StorefrontPaginated<StorefrontProduct>;
@@ -127,7 +128,7 @@ function mapSearchProduct(
     dto.compareAtPriceAmount == null || dto.compareAtPriceAmount === ''
       ? null
       : fromDecimalString(dto.compareAtPriceAmount);
-  const imageUrl = dto.primaryImageUrl ?? null;
+  const imageUrl = dto.primaryImageUrl ? resolveUploadUrl(dto.primaryImageUrl) : null;
 
   return {
     id: dto.id,

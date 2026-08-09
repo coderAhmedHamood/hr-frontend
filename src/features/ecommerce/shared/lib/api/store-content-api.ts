@@ -317,12 +317,15 @@ export async function fetchPublicLegal(companyId: string, slug: LegalPageSlug) {
   }).then((dto) => (dto ? mapLegalDto(dto) : null));
 }
 
+export type StoreContactMessageType = 'complaint' | 'suggestion';
+
 export async function submitPublicContactMessage(input: {
   companyId: string;
   name: string;
   email?: string;
   phone?: string;
   message: string;
+  type: StoreContactMessageType;
 }) {
   return publicStoreRequest('/public/store/contact-messages', {
     method: 'POST',
@@ -332,6 +335,7 @@ export async function submitPublicContactMessage(input: {
       email: input.email ?? null,
       phone: input.phone ?? null,
       message: input.message,
+      type: input.type,
     },
   });
 }
@@ -343,13 +347,23 @@ export type StoreContactMessageDto = {
   email?: string | null;
   phone?: string | null;
   message: string;
+  type: StoreContactMessageType;
   createdAt: string;
+};
+
+export type AdminContactMessagesQuery = {
+  page?: number;
+  limit?: number;
+  type?: StoreContactMessageType;
+  search?: string;
+  dateFrom?: string;
+  dateTo?: string;
 };
 
 /** Admin inbox — `GET /store-admin/companies/:companyId/contact-messages` */
 export async function fetchAdminContactMessages(
   companyId: string,
-  query?: { page?: number; limit?: number },
+  query?: AdminContactMessagesQuery,
 ) {
   const id = resolveStorefrontCompanyId(companyId);
   return apiRequest<{
@@ -360,6 +374,10 @@ export async function fetchAdminContactMessages(
     query: {
       page: query?.page ?? 1,
       limit: query?.limit ?? 50,
+      type: query?.type,
+      search: query?.search || undefined,
+      dateFrom: query?.dateFrom || undefined,
+      dateTo: query?.dateTo || undefined,
     },
   });
 }

@@ -1,6 +1,8 @@
 import type { CreateProductInput, Product, ProductVariant } from '@/features/ecommerce/domain/types/product';
 import type { MediaItem } from '@/features/ecommerce/domain/types/common';
 import { normalizeAttributeValue } from '@/features/ecommerce/domain/types/catalog-attribute';
+import type { ProductStatus } from '@/features/ecommerce/domain/constants/product-status';
+import type { StockStatus } from '@/features/ecommerce/domain/constants/stock-status';
 import type { ProductFormInput, ProductFormValues } from '@/features/ecommerce/admin/products/schemas/product-schema';
 import {
   createDefaultUomLines,
@@ -10,6 +12,21 @@ import {
   syncProductVariants,
   totalVariantQuantity,
 } from '@/features/ecommerce/admin/products/lib/product-variants';
+
+const PRODUCT_STATUSES = new Set<ProductStatus>(['draft', 'active', 'archived']);
+const STOCK_STATUSES = new Set<StockStatus>(['in_stock', 'out_of_stock', 'preorder', 'discontinued']);
+
+function coerceProductStatus(value: unknown): ProductStatus {
+  return typeof value === 'string' && PRODUCT_STATUSES.has(value as ProductStatus)
+    ? (value as ProductStatus)
+    : 'active';
+}
+
+function coerceStockStatus(value: unknown): StockStatus {
+  return typeof value === 'string' && STOCK_STATUSES.has(value as StockStatus)
+    ? (value as StockStatus)
+    : 'in_stock';
+}
 
 function parseTagsInput(tagsInput: string | undefined): string[] | undefined {
   const tags = (tagsInput ?? '')
@@ -120,9 +137,9 @@ export function productToFormValues(product: Product): ProductFormInput {
     description: product.description ?? '',
     categoryId: product.categoryId ?? undefined,
     brandId: product.brandId ?? undefined,
-    /** Legacy/imported rows can have a null status in the DB — never leave the required select empty. */
-    status: product.status ?? 'active',
-    stockStatus: product.stockStatus ?? 'in_stock',
+    /** Only accept known enum values — invalid/missing values leave Radix Select blank. */
+    status: coerceProductStatus(product.status),
+    stockStatus: coerceStockStatus(product.stockStatus),
     stockQuantity: product.inventory.quantity,
     trackInventory: product.inventory.trackInventory,
     allowBackorder: product.inventory.allowBackorder,

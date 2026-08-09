@@ -27,6 +27,9 @@ interface MinimalDropdownProps {
   optionClassName?: string;
   hideSelectedCheck?: boolean;
   disabled?: boolean;
+  /** Shows an × button to reset to `''` when a value is selected. */
+  allowClear?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 export function MinimalDropdown({
@@ -39,13 +42,19 @@ export function MinimalDropdown({
   optionClassName,
   hideSelectedCheck = false,
   disabled,
+  allowClear,
+  onOpenChange,
 }: MinimalDropdownProps) {
   const [open, setOpen] = React.useState(false);
   const dialogContainer = useDialogPortalContainer();
   const selected = options.find(o => o.value === value);
 
   return (
-    <PopoverPrimitive.Root open={open} onOpenChange={setOpen} modal={false}>
+    <PopoverPrimitive.Root
+      open={open}
+      onOpenChange={(next) => { setOpen(next); onOpenChange?.(next); }}
+      modal={false}
+    >
       <PopoverPrimitive.Trigger asChild>
         <button
           type="button"
@@ -60,7 +69,18 @@ export function MinimalDropdown({
           <span className={cn('truncate', !selected && 'text-muted-foreground')}>
             {selected ? selected.label : placeholder}
           </span>
-          <ChevronsUpDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <div className="flex items-center gap-1">
+            {allowClear && value && (
+              <span
+                role="button"
+                onClick={(e) => { e.stopPropagation(); onChange(''); }}
+                className="flex h-5 w-5 items-center justify-center rounded hover:bg-muted"
+              >
+                <X className="h-3 w-3" />
+              </span>
+            )}
+            <ChevronsUpDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+          </div>
         </button>
       </PopoverPrimitive.Trigger>
       <PopoverPrimitive.Portal container={dialogContainer ?? undefined}>

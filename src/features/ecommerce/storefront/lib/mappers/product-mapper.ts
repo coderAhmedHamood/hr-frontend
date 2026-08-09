@@ -3,6 +3,12 @@ import type { StorefrontProduct } from '@/features/ecommerce/storefront/domain/s
 import type { StorefrontLocale } from '@/i18n/routing';
 import { resolveLocalizedText, type LocalizableString } from '@/features/ecommerce/storefront/domain/localizable';
 import { cheapestActiveVariant } from '@/features/ecommerce/admin/products/lib/product-variants';
+import { resolveUploadUrl } from '@/shared/resolve-upload-url';
+import type { MediaItem } from '@/features/ecommerce/domain/types/common';
+
+function resolveMediaUrls(media: MediaItem[]): MediaItem[] {
+  return media.map((item) => ({ ...item, url: resolveUploadUrl(item.url) }));
+}
 
 type ProductRecord = Product & {
   name?: LocalizableString;
@@ -25,7 +31,8 @@ function resolveDescription(product: Product, locale: StorefrontLocale): string 
 }
 
 export function mapStorefrontProduct(product: Product, locale: StorefrontLocale): StorefrontProduct {
-  const primary = product.media.find((item) => item.isPrimary) ?? product.media[0] ?? null;
+  const resolvedMedia = resolveMediaUrls(product.media);
+  const primary = resolvedMedia.find((item) => item.isPrimary) ?? resolvedMedia[0] ?? null;
   const name = resolveName(product, locale);
   const cheapest = cheapestActiveVariant(product.variants ?? []);
   const basePrice = cheapest?.salePrice ?? product.price;
@@ -75,8 +82,8 @@ export function mapStorefrontProduct(product: Product, locale: StorefrontLocale)
         sku: variant.sku,
         nameAr: variant.nameAr,
         description: variant.description,
-        imageUrl: variant.imageUrl,
-        images: variant.images,
+        imageUrl: variant.imageUrl ? resolveUploadUrl(variant.imageUrl) : variant.imageUrl,
+        images: variant.images ? resolveMediaUrls(variant.images) : variant.images,
         attributeValueIds: variant.attributeValueIds,
         attributeLabels: variant.attributeLabels,
         price:
@@ -123,7 +130,7 @@ export function mapStorefrontProduct(product: Product, locale: StorefrontLocale)
     },
     price: displayPrice,
     compareAtPrice,
-    media: product.media,
+    media: resolvedMedia,
     imageUrl: primary?.url ?? null,
     imageAlt: primary?.alt || name,
     tags: product.tags ?? [],
@@ -147,8 +154,8 @@ export function mapStorefrontProduct(product: Product, locale: StorefrontLocale)
           id: value.id,
           nameAr: value.nameAr,
           colorHex: value.colorHex,
-          imageUrl: value.imageUrl,
-          images: value.images,
+          imageUrl: value.imageUrl ? resolveUploadUrl(value.imageUrl) : value.imageUrl,
+          images: value.images ? resolveMediaUrls(value.images) : value.images,
           description: value.description,
         })),
       })),

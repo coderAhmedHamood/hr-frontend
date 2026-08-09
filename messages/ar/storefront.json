@@ -70,7 +70,9 @@
     "retry": "إعادة المحاولة",
     "httpDisabled": "طلبات المتجر غير مفعّلة حالياً.",
     "registeredCustomer": "عميل مسجّل",
-    "guestCustomer": "عميل"
+    "guestCustomer": "عميل",
+    "alreadyReviewedTitle": "لقد قيّمت هذا المنتج",
+    "alreadyReviewedHint": "يمكن لكل عميل إضافة تقييم واحد فقط لكل منتج."
   },
   "offers": {
     "title": "العروض",
@@ -436,6 +438,10 @@
     "formTitle": "أرسل رسالة",
     "formName": "الاسم",
     "formEmail": "البريد الإلكتروني",
+    "formPhone": "رقم الجوال (اختياري)",
+    "formType": "نوع الرسالة",
+    "formTypeComplaint": "شكوى",
+    "formTypeSuggestion": "مقترح",
     "formMessage": "الرسالة",
     "formSubmit": "إرسال الرسالة",
     "formSubmitting": "جاري الإرسال…",

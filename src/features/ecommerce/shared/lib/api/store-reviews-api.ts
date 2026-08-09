@@ -38,6 +38,7 @@ function mapReview(item: ProductReviewDto): ProductReview {
     title: item.title?.trim() || '',
     body: item.body?.trim() || '',
     verified: Boolean(item.partnerId),
+    partnerId: item.partnerId ?? null,
   };
 }
 

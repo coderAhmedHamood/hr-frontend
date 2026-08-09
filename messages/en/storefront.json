@@ -70,7 +70,9 @@
     "retry": "Retry",
     "httpDisabled": "Store API is currently disabled.",
     "registeredCustomer": "Registered customer",
-    "guestCustomer": "Customer"
+    "guestCustomer": "Customer",
+    "alreadyReviewedTitle": "You've already reviewed this product",
+    "alreadyReviewedHint": "Each customer can leave one review per product."
   },
   "offers": {
     "title": "Offers",
@@ -436,6 +438,10 @@
     "formTitle": "Send a message",
     "formName": "Name",
     "formEmail": "Email",
+    "formPhone": "Mobile number (optional)",
+    "formType": "Message type",
+    "formTypeComplaint": "Complaint",
+    "formTypeSuggestion": "Suggestion",
     "formMessage": "Message",
     "formSubmit": "Send message",
     "formSubmitting": "Sending…",

@@ -9,11 +9,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { submitStorefrontContactMessage } from '@/features/ecommerce/storefront/lib/contact-actions';
+import type { StoreContactMessageType } from '@/features/ecommerce/shared/lib/api/store-content-api';
+import { cn } from '@/shared/utils';
 
 export function ContactForm() {
   const t = useTranslations('storefront');
   const [submitted, setSubmitted] = React.useState(false);
   const [pending, setPending] = React.useState(false);
+  const [type, setType] = React.useState<StoreContactMessageType>('suggestion');
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -24,6 +27,8 @@ export function ContactForm() {
       const result = await submitStorefrontContactMessage({
         name: String(data.get('name') ?? ''),
         email: String(data.get('email') ?? ''),
+        phone: String(data.get('phone') ?? ''),
+        type,
         message: String(data.get('message') ?? ''),
       });
       if (!result.ok) {
@@ -87,6 +92,41 @@ export function ContactForm() {
           className="h-12 rounded-xl text-right"
           disabled={pending}
         />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="contact-phone">{t('contact.formPhone')}</Label>
+        <Input
+          id="contact-phone"
+          name="phone"
+          type="tel"
+          autoComplete="tel"
+          dir="ltr"
+          className="h-12 rounded-xl text-right"
+          disabled={pending}
+        />
+      </div>
+      <div className="space-y-2">
+        <Label>{t('contact.formType')}</Label>
+        <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label={t('contact.formType')}>
+          {(['complaint', 'suggestion'] as const).map((option) => (
+            <button
+              key={option}
+              type="button"
+              role="radio"
+              aria-checked={type === option}
+              disabled={pending}
+              onClick={() => setType(option)}
+              className={cn(
+                'h-11 rounded-xl border text-sm font-medium transition-colors',
+                type === option
+                  ? 'border-primary bg-primary/10 text-primary'
+                  : 'border-border text-muted-foreground hover:border-primary/40',
+              )}
+            >
+              {t(option === 'complaint' ? 'contact.formTypeComplaint' : 'contact.formTypeSuggestion')}
+            </button>
+          ))}
+        </div>
       </div>
       <div className="space-y-2">
         <Label htmlFor="contact-message">{t('contact.formMessage')}</Label>

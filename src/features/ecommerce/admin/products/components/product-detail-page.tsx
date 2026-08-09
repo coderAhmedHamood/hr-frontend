@@ -19,6 +19,7 @@ import { useProduct } from '@/features/ecommerce/admin/products/hooks/use-produc
 import { useProductMutations } from '@/features/ecommerce/admin/products/hooks/use-product-mutations';
 import {
   productFormSchema,
+  PRODUCT_FORM_DEFAULT_VALUES,
   type ProductFormInput,
   type ProductFormValues,
 } from '@/features/ecommerce/admin/products/schemas/product-schema';
@@ -150,6 +151,7 @@ export function ProductDetailPage({ productId }: Props) {
 
   const form = useForm<ProductFormInput, unknown, ProductFormValues>({
     resolver: zodResolver(productFormSchema),
+    defaultValues: PRODUCT_FORM_DEFAULT_VALUES,
   });
 
   const variants = useWatch({ control: form.control, name: 'variants' }) ?? [];
@@ -157,8 +159,16 @@ export function ProductDetailPage({ productId }: Props) {
   const nameAr = useWatch({ control: form.control, name: 'nameAr' }) ?? '';
   const sku = useWatch({ control: form.control, name: 'sku' }) ?? '';
 
+  const hydratedProductIdRef = React.useRef<string | null>(null);
   React.useEffect(() => {
-    if (product) form.reset(productToFormValues(product));
+    hydratedProductIdRef.current = null;
+  }, [productId]);
+  React.useEffect(() => {
+    if (!product) return;
+    // Re-hydrate when opening a different product; avoid clobbering in-progress edits on refetch.
+    if (hydratedProductIdRef.current === product.id) return;
+    form.reset(productToFormValues(product));
+    hydratedProductIdRef.current = product.id;
   }, [product, form]);
 
   const onSubmit = async (values: ProductFormValues) => {

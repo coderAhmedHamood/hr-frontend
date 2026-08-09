@@ -18,7 +18,7 @@ export function ProductDetailInteractive({ product }: { product: StorefrontProdu
   const fallbackAlt = product.imageAlt || product.name;
 
   return (
-    <div className="grid gap-8 md:grid-cols-[minmax(0,22rem)_1fr] md:items-start lg:grid-cols-[minmax(0,26rem)_1fr]">
+    <div className="grid gap-8 md:grid-cols-[minmax(0,18rem)_1fr] md:items-start lg:grid-cols-[minmax(0,20rem)_1fr]">
       <ProductMediaGallery images={images} fallbackAlt={fallbackAlt} activeDescription={activeMedia?.description} />
 
       <div className="flex flex-col gap-4">

@@ -215,9 +215,6 @@ export function ProductPurchasePanel({ product, onActiveMediaChange }: Props) {
             {t('products.availableInWarehouse', { count: warehouseOnHand })}
           </p>
         ) : null}
-        {tracksInventory && allowBackorder ? (
-          <p className="text-xs text-muted-foreground">{t('products.backorderEnabled')}</p>
-        ) : null}
         {!tracksInventory ? (
           <p className="text-xs text-muted-foreground">{t('products.soldWithoutStockLimit')}</p>
         ) : null}

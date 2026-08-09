@@ -14,6 +14,7 @@ import type { PageType } from '@/features/ecommerce/storefront/page-builder/doma
 import { storefrontCompanyRepository } from '@/features/ecommerce/storefront/lib/repositories/company-repository';
 import { storefrontContentRepository } from '@/features/ecommerce/storefront/lib/repositories/content-repository';
 import { storefrontPageRepository } from '@/features/ecommerce/storefront/page-builder/lib/repositories/page-repository';
+import type { AdminContactMessagesQuery } from '@/features/ecommerce/shared/lib/api/store-content-api';
 import { ApiError } from '@/features/hr/lib/api/client';
 import { sanitizeRichHtml } from '@/shared/lib/sanitize-rich-html';
 import { routing } from '@/i18n/routing';
@@ -144,7 +145,7 @@ export async function saveCmsLegalPage(
 
 export async function listCmsContactMessages(
   companyId: string,
-  query?: { page?: number; limit?: number },
+  query?: AdminContactMessagesQuery,
 ) {
   try {
     const { fetchAdminContactMessages } = await import(

@@ -7,6 +7,7 @@ export type ProductReview = {
   title?: string;
   body?: string;
   verified: boolean;
+  partnerId: string | null;
 };
 
 export type ReviewBreakdown = {

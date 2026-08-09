@@ -1,19 +1,25 @@
 'use server';
 
-import { submitPublicContactMessage } from '@/features/ecommerce/shared/lib/api/store-content-api';
+import {
+  submitPublicContactMessage,
+  type StoreContactMessageType,
+} from '@/features/ecommerce/shared/lib/api/store-content-api';
 import { isStoreHttpEnabled } from '@/features/ecommerce/storefront/lib/api/store-http';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
 
 export async function submitStorefrontContactMessage(input: {
   name: string;
   email: string;
+  phone?: string;
+  type: StoreContactMessageType;
   message: string;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   const name = input.name.trim();
   const email = input.email.trim();
+  const phone = input.phone?.trim() ?? '';
   const message = input.message.trim();
 
-  if (!name || !email || !message) {
+  if (!name || !email || !message || !input.type) {
     return { ok: false, error: 'INVALID_INPUT' };
   }
 
@@ -26,6 +32,8 @@ export async function submitStorefrontContactMessage(input: {
       companyId: getStorefrontCompanyId(),
       name,
       email,
+      phone: phone || undefined,
+      type: input.type,
       message,
     });
     return { ok: true };
