@@ -158,6 +158,7 @@
     "customerNote": "ملاحظة على الطلب (اختياري)",
     "customerNotePlaceholder": "مثال: أريد تغليف هدية",
     "shipping": "الشحن",
+    "shippingPending": "يُحدَّد بعد اختيار المدينة",
     "freeShipping": "مجاني",
     "continue": "متابعة",
     "back": "رجوع",

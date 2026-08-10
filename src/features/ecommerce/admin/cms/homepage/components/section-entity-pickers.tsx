@@ -16,6 +16,10 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/shared/utils';
+import { toast } from 'sonner';
+import { uploadsApi } from '@/features/hr/lib/api/uploads';
+import { resolveUploadUrl, uploadResponseToStoredPath } from '@/shared/resolve-upload-url';
+import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 
 function matchesSearch(haystack: string, query: string): boolean {
   return haystack.toLowerCase().includes(query.trim().toLowerCase());
@@ -325,38 +329,51 @@ export function ImagePicker({
   const companyId = getStorefrontCompanyId();
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [open, setOpen] = React.useState(false);
+  const [uploading, setUploading] = React.useState(false);
   const { data = [], isLoading } = useQuery({
     queryKey: ['cms-media-picker', 'images', companyId],
     queryFn: () => listMediaLibraryImages(companyId),
     enabled: Boolean(companyId) && open,
   });
 
-  function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+  const previewSrc = value ? resolveUploadUrl(value) : '';
+
+  async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     event.target.value = '';
     if (!file || !file.type.startsWith('image/')) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = typeof reader.result === 'string' ? reader.result : null;
-      if (result) onChange(result);
-    };
-    reader.readAsDataURL(file);
+    setUploading(true);
+    try {
+      const uploaded = await uploadsApi.upload('image', file);
+      onChange(uploadResponseToStoredPath(uploaded));
+    } catch (error) {
+      handleApiError(error);
+      toast.error('تعذر رفع الصورة');
+    } finally {
+      setUploading(false);
+    }
   }
 
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border p-2">
-        {value ? (
+        {previewSrc ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={value} alt="" className="h-14 w-24 shrink-0 rounded-lg object-cover" />
+          <img src={previewSrc} alt="" className="h-14 w-24 shrink-0 rounded-lg object-cover" />
         ) : (
           <span className="flex h-14 w-24 shrink-0 items-center justify-center rounded-lg bg-muted text-[10px] text-muted-foreground">
             بلا صورة
           </span>
         )}
         <div className="flex flex-wrap gap-2">
-          <Button type="button" size="sm" variant="outline" onClick={() => fileInputRef.current?.click()}>
-            رفع صورة
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={uploading}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            {uploading ? 'جاري الرفع…' : 'رفع صورة'}
           </Button>
           <Button type="button" size="sm" variant="outline" onClick={() => setOpen((prev) => !prev)}>
             اختيار من الصور
@@ -372,7 +389,7 @@ export function ImagePicker({
           type="file"
           accept="image/*"
           className="hidden"
-          onChange={handleFileChange}
+          onChange={(e) => void handleFileChange(e)}
         />
       </div>
 

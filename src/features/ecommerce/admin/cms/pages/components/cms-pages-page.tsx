@@ -41,8 +41,6 @@ import type {
   StorefrontContentBundle,
 } from '@/features/ecommerce/storefront/domain/content';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
-import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
-import { PageHeaderPrimaryButton } from '@/components/layouts/page-header-primary-button';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -123,7 +121,6 @@ type Props = {
 export function CmsPagesPage({ embedded = false, initialPanel = 'list' }: Props) {
   const companyId = getStorefrontCompanyId();
   const t = useTranslations('ecommerceAdmin.cmsPages');
-  const tHome = useTranslations('ecommerceAdmin.homepage');
   const tCommon = useTranslations('common');
   const queryClient = useQueryClient();
 
@@ -181,12 +178,10 @@ export function CmsPagesPage({ embedded = false, initialPanel = 'list' }: Props)
 
   const [draft, setDraft] = React.useState<StorefrontContentBundle | null>(null);
   const [storePages, setStorePages] = React.useState<CompanyStorePagesVisibility | null>(null);
-  const [dirty, setDirty] = React.useState(false);
 
   React.useEffect(() => {
     if (data) {
       setDraft(structuredClone(data));
-      setDirty(false);
     }
   }, [data]);
 
@@ -219,7 +214,6 @@ export function CmsPagesPage({ embedded = false, initialPanel = 'list' }: Props)
     onSuccess: (saved) => {
       queryClient.setQueryData([...CMS_PAGES_QUERY_KEY, companyId], saved);
       setDraft(saved);
-      setDirty(false);
       toast.success(t('saveSuccess'));
     },
     onError: () => toast.error(t('saveError')),
@@ -241,27 +235,9 @@ export function CmsPagesPage({ embedded = false, initialPanel = 'list' }: Props)
     onError: () => toast.error(t('visibilitySaveError')),
   });
 
-  usePageHeaderActions(
-    () => {
-      if (panel !== 'list' || form) return null;
-      return (
-        <PageHeaderPrimaryButton
-          icon={Save}
-          label={save.isPending ? tCommon('status.saving') : tCommon('actions.save')}
-          disabled={!draft || save.isPending || !dirty}
-          onClick={() => {
-            if (draft) void save.mutateAsync(draft);
-          }}
-        />
-      );
-    },
-    [draft, dirty, save.isPending, tCommon, panel, form],
-  );
-
   function pagePreview(row: PageRow): string {
     if (row.kind === 'catalog') {
-      const visible = row.catalogKey ? storePages?.[row.catalogKey] : false;
-      return visible ? t('visibilityOn') : t('visibilityOff');
+      return t('catalogHint');
     }
     if (!draft) return '';
     if (row.kind === 'about') {
@@ -281,6 +257,13 @@ export function CmsPagesPage({ embedded = false, initialPanel = 'list' }: Props)
     if (row.kind === 'catalog') return Boolean(row.catalogKey && storePages?.[row.catalogKey]);
     if (row.kind === 'faq') return (draft?.faq.length ?? 0) > 0;
     return Boolean(pagePreview(row).trim());
+  }
+
+  function groupLabel(groupId: PageGroupId): string {
+    if (groupId === 'store') return t('groupStore');
+    if (groupId === 'legal') return t('groupLegal');
+    if (groupId === 'content') return t('groupContent');
+    return t('groupCatalog');
   }
 
   function openEdit(row: PageRow) {
@@ -307,22 +290,35 @@ export function CmsPagesPage({ embedded = false, initialPanel = 'list' }: Props)
     });
   }
 
-  function applyForm() {
-    if (!form || !draft) return;
-    if (form.kind === 'about') {
-      setDraft({ ...draft, about: form.draft });
-    } else if (form.kind === 'contact') {
-      setDraft({ ...draft, contact: form.draft });
-    } else {
-      setDraft({
-        ...draft,
-        legal: ensureLegalPages(
-          draft.legal.map((page) => (page.slug === form.slug ? form.draft : page)),
-        ),
-      });
+  function bundleFromForm(current: StorefrontContentBundle, currentForm: EditFormState): StorefrontContentBundle {
+    if (currentForm.kind === 'about') {
+      return { ...current, about: currentForm.draft };
     }
-    setDirty(true);
-    setForm(null);
+    if (currentForm.kind === 'contact') {
+      return { ...current, contact: currentForm.draft };
+    }
+    return {
+      ...current,
+      legal: ensureLegalPages(
+        current.legal.map((page) => (page.slug === currentForm.slug ? currentForm.draft : page)),
+      ),
+    };
+  }
+
+  async function saveForm() {
+    if (!form || !draft || save.isPending) return;
+    const next = bundleFromForm(draft, form);
+    const saved = await save.mutateAsync(next);
+    // Keep editor open; sync local form buffer with saved server values.
+    if (form.kind === 'about') {
+      setForm({ kind: 'about', draft: structuredClone(saved.about) });
+    } else if (form.kind === 'contact') {
+      setForm({ kind: 'contact', draft: structuredClone(saved.contact) });
+    } else {
+      const page =
+        saved.legal.find((item) => item.slug === form.slug) ?? emptyLegalPage(form.slug);
+      setForm({ kind: 'legal', slug: form.slug, draft: structuredClone(page) });
+    }
   }
 
   function toggleCatalogPage(key: keyof CompanyStorePagesVisibility, enabled: boolean) {
@@ -333,37 +329,6 @@ export function CmsPagesPage({ embedded = false, initialPanel = 'list' }: Props)
   }
 
   const rows = buildPageRows();
-  const groups: Array<{
-    id: PageGroupId;
-    title: string;
-    hint: string;
-    items: PageRow[];
-  }> = [
-    {
-      id: 'store',
-      title: t('groupStore'),
-      hint: t('groupStoreHint'),
-      items: rows.filter((row) => groupForRow(row) === 'store'),
-    },
-    {
-      id: 'legal',
-      title: t('groupLegal'),
-      hint: t('groupLegalHint'),
-      items: rows.filter((row) => groupForRow(row) === 'legal'),
-    },
-    {
-      id: 'content',
-      title: t('groupContent'),
-      hint: t('groupContentHint'),
-      items: rows.filter((row) => groupForRow(row) === 'content'),
-    },
-    {
-      id: 'catalog',
-      title: t('groupCatalog'),
-      hint: t('groupCatalogHint'),
-      items: rows.filter((row) => groupForRow(row) === 'catalog'),
-    },
-  ];
 
   const editorTitle =
     form?.kind === 'about'
@@ -380,7 +345,7 @@ export function CmsPagesPage({ embedded = false, initialPanel = 'list' }: Props)
   if (panel === 'faq') {
     return (
       <div className="flex flex-col gap-4">
-        <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-border/70 bg-card px-4 py-3">
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
           <Button type="button" variant="outline" size="sm" className="rounded-xl" onClick={() => setPanel('list')}>
             <ArrowRight className="me-1.5 h-4 w-4" />
             {t('backToPages')}
@@ -398,9 +363,16 @@ export function CmsPagesPage({ embedded = false, initialPanel = 'list' }: Props)
   if (form) {
     return (
       <div className="flex flex-col gap-4">
-        <section className="sticky top-13.5 z-20 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border/70 bg-card/95 px-4 py-3 shadow-soft backdrop-blur-md">
+        <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3">
           <div className="flex min-w-0 flex-wrap items-center gap-3">
-            <Button type="button" variant="outline" size="sm" className="rounded-xl" onClick={() => setForm(null)}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="rounded-xl"
+              disabled={save.isPending}
+              onClick={() => setForm(null)}
+            >
               <ArrowRight className="me-1.5 h-4 w-4" />
               {t('backToPages')}
             </Button>
@@ -409,23 +381,23 @@ export function CmsPagesPage({ embedded = false, initialPanel = 'list' }: Props)
               <p className="text-xs text-muted-foreground">{t('studioEditorHint')}</p>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button type="button" variant="outline" className="rounded-xl" onClick={() => setForm(null)}>
-              {tCommon('actions.cancel')}
-            </Button>
-            <Button type="button" className="rounded-xl" onClick={applyForm}>
-              {t('applyContent')}
-            </Button>
-          </div>
+          <Button
+            type="button"
+            className="rounded-xl"
+            disabled={save.isPending}
+            onClick={() => void saveForm()}
+          >
+            <Save className="me-1.5 h-4 w-4" />
+            {save.isPending ? tCommon('status.saving') : tCommon('actions.save')}
+          </Button>
         </section>
 
-        <section className="overflow-hidden rounded-3xl border border-border/70 bg-card shadow-soft">
-          <div className="border-b border-border/60 bg-linear-to-l from-primary/8 via-card to-card px-5 py-5 sm:px-7">
-            <p className="text-xs font-medium uppercase tracking-[0.14em] text-primary/80">{t('studioEditorEyebrow')}</p>
-            <h3 className="mt-1 text-xl font-semibold tracking-tight text-foreground">{editorTitle}</h3>
-            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{t('editDialogHint')}</p>
+        <section className="rounded-xl border border-border bg-card">
+          <div className="border-b border-border px-5 py-4 sm:px-6">
+            <h3 className="text-base font-semibold text-foreground">{editorTitle}</h3>
+            <p className="mt-0.5 text-sm text-muted-foreground">{t('editDialogHint')}</p>
           </div>
-          <div className="px-5 py-6 sm:px-7">
+          <div className="px-5 py-5 sm:px-6">
             {form.kind === 'about' ? (
               <CmsAboutTab about={form.draft} onChange={(about) => setForm({ kind: 'about', draft: about })} />
             ) : null}
@@ -453,13 +425,6 @@ export function CmsPagesPage({ embedded = false, initialPanel = 'list' }: Props)
         <SetPageTitle titleAr={t('title')} descriptionAr={t('description')} iconName="BookOpen" />
       ) : null}
 
-
-      {dirty ? (
-        <div className="flex items-center gap-2 rounded-xl border border-warning/30 bg-warning/10 px-3.5 py-2.5 text-xs text-warning">
-          {tHome('unsavedHint')}
-        </div>
-      ) : null}
-
       {loadFailed ? (
         <Card>
           <CardContent className="flex items-center justify-between gap-3 py-6">
@@ -479,89 +444,102 @@ export function CmsPagesPage({ embedded = false, initialPanel = 'list' }: Props)
       ) : null}
 
       {loading ? (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {Array.from({ length: 6 }).map((_, index) => (
-            <div key={index} className="h-40 animate-pulse rounded-3xl bg-muted/40" />
-          ))}
+        <div className="overflow-hidden rounded-xl border border-border">
+          <div className="space-y-0">
+            {Array.from({ length: 7 }).map((_, index) => (
+              <div
+                key={index}
+                className="h-14 animate-pulse border-b border-border bg-muted/30 last:border-0"
+              />
+            ))}
+          </div>
         </div>
       ) : (
-        <div className="space-y-7">
-          {groups.map((group) => (
-            <section key={group.id} className="space-y-3">
-              <header className="px-1">
-                <h3 className="text-sm font-semibold text-foreground">{group.title}</h3>
-                <p className="mt-0.5 text-xs text-muted-foreground">{group.hint}</p>
-              </header>
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                {group.items.map((row) => {
-                  const Icon = rowIcon(row);
-                  const ready = hasContent(row);
-                  const preview = pagePreview(row);
-                  const isCatalog = row.kind === 'catalog';
+        <div className="overflow-x-auto rounded-xl border border-border bg-card">
+          <table className="w-full min-w-190 text-sm">
+            <thead>
+              <tr className="border-b border-border bg-muted/30 text-muted-foreground">
+                <th className="px-4 py-3 text-start font-medium">{t('columnPage')}</th>
+                <th className="px-4 py-3 text-start font-medium">{t('columnGroup')}</th>
+                <th className="px-4 py-3 text-start font-medium">{t('columnPreview')}</th>
+                <th className="px-4 py-3 text-start font-medium">{t('columnStatus')}</th>
+                <th className="px-4 py-3 text-start font-medium">{t('columnActions')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => {
+                const Icon = rowIcon(row);
+                const ready = hasContent(row);
+                const preview = pagePreview(row);
+                const isCatalog = row.kind === 'catalog';
+                const groupId = groupForRow(row);
 
-                  return (
-                    <article
-                      key={row.id}
-                      className={cn(
-                        'group relative flex min-h-42 flex-col overflow-hidden rounded-3xl border border-border/70 bg-card p-4 transition-all duration-200',
-                        !isCatalog && 'hover:border-primary/35 hover:shadow-soft',
-                      )}
-                    >
-                      <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-linear-to-b from-primary/6 to-transparent opacity-80" />
-                      <div className="relative flex items-start justify-between gap-3">
-                        <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary transition-colors group-hover:bg-primary/15">
-                          <Icon className="h-5 w-5" aria-hidden />
+                return (
+                  <tr
+                    key={row.id}
+                    className={cn(
+                      'border-b border-border last:border-0',
+                      !isCatalog && 'hover:bg-muted/20',
+                    )}
+                  >
+                    <td className="px-4 py-3 align-middle">
+                      <div className="flex items-center gap-3">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                          <Icon className="h-4 w-4" aria-hidden />
                         </span>
-                        <Badge variant="subtle" className="rounded-lg">
-                          {ready ? (
-                            <span className="inline-flex items-center gap-1">
-                              <CheckCircle2 className="h-3 w-3 text-primary" />
-                              {isCatalog ? t('visibilityOn') : t('contentReady')}
-                            </span>
-                          ) : (
-                            t(isCatalog ? 'visibilityOff' : 'contentEmpty')
-                          )}
-                        </Badge>
+                        <span className="font-medium text-foreground">{t(row.titleKey)}</span>
                       </div>
-
-                      <div className="relative mt-4 min-w-0 flex-1">
-                        <h4 className="text-sm font-semibold text-foreground">{t(row.titleKey)}</h4>
-                        <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
-                          {isCatalog ? t('catalogHint') : preview || t('noPreview')}
-                        </p>
-                      </div>
-
-                      <div className="relative mt-4 flex items-center justify-between gap-2 border-t border-border/50 pt-3">
-                        {isCatalog && row.catalogKey ? (
-                          <>
-                            <span className="text-xs text-muted-foreground">{t('columnVisibility')}</span>
-                            <Switch
-                              checked={storePages?.[row.catalogKey] ?? true}
-                              disabled={!storePages || saveVisibility.isPending}
-                              onCheckedChange={(enabled) => toggleCatalogPage(row.catalogKey!, enabled)}
-                              aria-label={t('columnVisibility')}
-                            />
-                          </>
+                    </td>
+                    <td className="px-4 py-3 align-middle text-muted-foreground">
+                      {groupLabel(groupId)}
+                    </td>
+                    <td className="max-w-xs px-4 py-3 align-middle">
+                      <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+                        {preview || t('noPreview')}
+                      </p>
+                    </td>
+                    <td className="px-4 py-3 align-middle">
+                      <Badge variant="subtle" className="rounded-md">
+                        {ready ? (
+                          <span className="inline-flex items-center gap-1">
+                            <CheckCircle2 className="h-3 w-3 text-primary" />
+                            {isCatalog ? t('visibilityOn') : t('contentReady')}
+                          </span>
                         ) : (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="rounded-xl"
-                            disabled={!draft}
-                            onClick={() => openEdit(row)}
-                          >
-                            <Pencil className="me-1.5 h-3.5 w-3.5" />
-                            {t('editPage')}
-                          </Button>
+                          t(isCatalog ? 'visibilityOff' : 'contentEmpty')
                         )}
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
-            </section>
-          ))}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3 align-middle">
+                      {isCatalog && row.catalogKey ? (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">{t('columnVisibility')}</span>
+                          <Switch
+                            checked={storePages?.[row.catalogKey] ?? true}
+                            disabled={!storePages || saveVisibility.isPending}
+                            onCheckedChange={(enabled) => toggleCatalogPage(row.catalogKey!, enabled)}
+                            aria-label={t('columnVisibility')}
+                          />
+                        </div>
+                      ) : (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="rounded-xl"
+                          disabled={!draft}
+                          onClick={() => openEdit(row)}
+                        >
+                          <Pencil className="me-1.5 h-3.5 w-3.5" />
+                          {t('editPage')}
+                        </Button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
     </div>

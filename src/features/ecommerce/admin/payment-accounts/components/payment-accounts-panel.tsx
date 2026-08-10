@@ -23,6 +23,7 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { useCan } from '@/features/auth/hooks/use-can';
+import { useAuthStore } from '@/features/auth/lib/auth-store';
 import { ImagePicker } from '@/features/ecommerce/admin/cms/homepage/components/section-entity-pickers';
 import {
   useCreatePaymentAccount,
@@ -38,6 +39,7 @@ import {
   type StorePaymentAccount,
 } from '@/features/ecommerce/admin/payment-accounts/lib/api/payment-accounts-api';
 import { PAYMENT_ACCOUNTS_PERMISSIONS } from '@/features/ecommerce/admin/payment-accounts/permissions';
+import { isMultiLangEnabled } from '@/i18n/locale-flags';
 
 type Props = {
   companyId: string;
@@ -46,7 +48,6 @@ type Props = {
 
 type FormState = {
   type: PaymentAccountType;
-  code: string;
   nameAr: string;
   nameEn: string;
   providerName: string;
@@ -68,7 +69,6 @@ type FormState = {
 
 const EMPTY_FORM: FormState = {
   type: 'wallet',
-  code: '',
   nameAr: '',
   nameEn: '',
   providerName: '',
@@ -93,9 +93,8 @@ const ACCOUNT_TYPES = Object.keys(PAYMENT_ACCOUNT_TYPE_LABELS_AR) as PaymentAcco
 function formToPayload(form: FormState) {
   return {
     type: form.type,
-    code: form.code || null,
     nameAr: form.nameAr,
-    nameEn: form.nameEn || null,
+    nameEn: isMultiLangEnabled ? form.nameEn || null : null,
     providerName: form.providerName || null,
     accountHolderName: form.accountHolderName || null,
     mobile: form.mobile || null,
@@ -104,7 +103,7 @@ function formToPayload(form: FormState) {
     currencyCode: form.currencyCode || null,
     countryCode: form.countryCode || null,
     instructionsAr: form.instructionsAr || null,
-    instructionsEn: form.instructionsEn || null,
+    instructionsEn: isMultiLangEnabled ? form.instructionsEn || null : null,
     qrImageUrl: form.qrImageUrl || null,
     logoUrl: form.logoUrl || null,
     internalNote: form.internalNote || null,
@@ -116,6 +115,7 @@ function formToPayload(form: FormState) {
 
 export function PaymentAccountsPanel({ companyId, currencyCode }: Props) {
   const can = useCan();
+  const accessProfile = useAuthStore((s) => s.accessProfile);
   const [archiveScope, setArchiveScope] = React.useState<ArchiveScope>('active');
   const [typeFilter, setTypeFilter] = React.useState<'all' | PaymentAccountType>('all');
   const [search, setSearch] = React.useState('');
@@ -137,6 +137,15 @@ export function PaymentAccountsPanel({ companyId, currencyCode }: Props) {
   const deleteAccount = useDeletePaymentAccount(companyId);
   const restoreAccount = useRestorePaymentAccount(companyId);
 
+  function hasPermission(code: string): boolean {
+    if (can(code)) return true;
+    // CMS APIs use the storefront company — check that company even if session
+    // active company differs.
+    const company = accessProfile?.companies.find((row) => row.companyId === companyId);
+    if (!company || company.deniedPermissions.includes(code)) return false;
+    return company.permissions.includes(code);
+  }
+
   function openCreate() {
     setEditTarget(null);
     setForm({
@@ -150,7 +159,6 @@ export function PaymentAccountsPanel({ companyId, currencyCode }: Props) {
     setEditTarget(row);
     setForm({
       type: row.type,
-      code: row.code ?? '',
       nameAr: row.nameAr,
       nameEn: row.nameEn ?? '',
       providerName: row.providerName ?? '',
@@ -187,9 +195,9 @@ export function PaymentAccountsPanel({ companyId, currencyCode }: Props) {
   }
 
   const saving = createAccount.isPending || updateAccount.isPending;
-  const canCreate = can(PAYMENT_ACCOUNTS_PERMISSIONS.create);
-  const canUpdate = can(PAYMENT_ACCOUNTS_PERMISSIONS.update);
-  const canDelete = can(PAYMENT_ACCOUNTS_PERMISSIONS.delete);
+  const canCreate = hasPermission(PAYMENT_ACCOUNTS_PERMISSIONS.create);
+  const canUpdate = hasPermission(PAYMENT_ACCOUNTS_PERMISSIONS.update);
+  const canDelete = hasPermission(PAYMENT_ACCOUNTS_PERMISSIONS.delete);
 
   return (
       <div className="space-y-4">
@@ -248,7 +256,12 @@ export function PaymentAccountsPanel({ companyId, currencyCode }: Props) {
               <Plus className="h-4 w-4" />
               حساب جديد
             </Button>
-          ) : null}
+          ) : (
+            <p className="text-xs text-amber-700 dark:text-amber-400">
+              لا تملك صلاحية الإنشاء (`sta.payment-accounts.create`). حدّث الصفحة أو أعد تسجيل
+              الدخول بعد منح الصلاحية.
+            </p>
+          )}
         </div>
 
         {accountsQuery.isLoading ? (
@@ -368,54 +381,47 @@ export function PaymentAccountsPanel({ companyId, currencyCode }: Props) {
               </DialogTitle>
             </DialogHeader>
             <form className="space-y-4" onSubmit={(e) => void handleSubmit(e)}>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label>النوع</Label>
-                  <Select
-                    value={form.type}
-                    onValueChange={(type) =>
-                      setForm((prev) => ({ ...prev, type: type as PaymentAccountType }))
-                    }
-                    disabled={Boolean(editTarget)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {ACCOUNT_TYPES.map((type) => (
-                        <SelectItem key={type} value={type}>
-                          {PAYMENT_ACCOUNT_TYPE_LABELS_AR[type]}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label>الرمز (اختياري)</Label>
-                  <Input
-                    dir="ltr"
-                    value={form.code}
-                    onChange={(e) => setForm((prev) => ({ ...prev, code: e.target.value }))}
-                    placeholder="JAWALI-1"
-                  />
-                </div>
+              <div className="space-y-1.5">
+                <Label>النوع</Label>
+                <Select
+                  value={form.type}
+                  onValueChange={(type) =>
+                    setForm((prev) => ({ ...prev, type: type as PaymentAccountType }))
+                  }
+                  disabled={Boolean(editTarget)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ACCOUNT_TYPES.map((type) => (
+                      <SelectItem key={type} value={type}>
+                        {PAYMENT_ACCOUNT_TYPE_LABELS_AR[type]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
-              <div className="space-y-1.5">
-                <Label>الاسم (عربي)</Label>
-                <Input
-                  value={form.nameAr}
-                  onChange={(e) => setForm((prev) => ({ ...prev, nameAr: e.target.value }))}
-                  required
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>الاسم (إنجليزي)</Label>
-                <Input
-                  dir="ltr"
-                  value={form.nameEn}
-                  onChange={(e) => setForm((prev) => ({ ...prev, nameEn: e.target.value }))}
-                />
+              <div className={isMultiLangEnabled ? 'grid gap-3 sm:grid-cols-2' : undefined}>
+                <div className="space-y-1.5">
+                  <Label>{isMultiLangEnabled ? 'الاسم (عربي)' : 'الاسم'}</Label>
+                  <Input
+                    value={form.nameAr}
+                    onChange={(e) => setForm((prev) => ({ ...prev, nameAr: e.target.value }))}
+                    required
+                  />
+                </div>
+                {isMultiLangEnabled ? (
+                  <div className="space-y-1.5">
+                    <Label>الاسم (إنجليزي)</Label>
+                    <Input
+                      dir="ltr"
+                      value={form.nameEn}
+                      onChange={(e) => setForm((prev) => ({ ...prev, nameEn: e.target.value }))}
+                    />
+                  </div>
+                ) : null}
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2">
@@ -510,15 +516,32 @@ export function PaymentAccountsPanel({ companyId, currencyCode }: Props) {
                 </div>
               </div>
 
-              <div className="space-y-1.5">
-                <Label>تعليمات للعميل (عربي)</Label>
-                <Textarea
-                  value={form.instructionsAr}
-                  onChange={(e) =>
-                    setForm((prev) => ({ ...prev, instructionsAr: e.target.value }))
-                  }
-                  rows={2}
-                />
+              <div className={isMultiLangEnabled ? 'grid gap-3 sm:grid-cols-2' : undefined}>
+                <div className="space-y-1.5">
+                  <Label>
+                    {isMultiLangEnabled ? 'تعليمات للعميل (عربي)' : 'تعليمات للعميل'}
+                  </Label>
+                  <Textarea
+                    value={form.instructionsAr}
+                    onChange={(e) =>
+                      setForm((prev) => ({ ...prev, instructionsAr: e.target.value }))
+                    }
+                    rows={2}
+                  />
+                </div>
+                {isMultiLangEnabled ? (
+                  <div className="space-y-1.5">
+                    <Label>تعليمات للعميل (إنجليزي)</Label>
+                    <Textarea
+                      dir="ltr"
+                      value={form.instructionsEn}
+                      onChange={(e) =>
+                        setForm((prev) => ({ ...prev, instructionsEn: e.target.value }))
+                      }
+                      rows={2}
+                    />
+                  </div>
+                ) : null}
               </div>
               <div className="space-y-1.5">
                 <Label>ملاحظة داخلية (للإدارة فقط)</Label>

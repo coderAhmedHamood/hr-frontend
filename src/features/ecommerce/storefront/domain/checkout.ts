@@ -65,11 +65,18 @@ export type PaymentAccountSnapshot = {
   currencyCode?: string | null;
 };
 
-/** Methods that require selecting a matching payment account at checkout. */
+/**
+ * Methods that require selecting a matching published payment account.
+ * Checkout methods come from `/public/store/payment-accounts` — every
+ * account-backed method needs an explicit account pick.
+ */
 export const PAYMENT_METHODS_REQUIRING_ACCOUNT: CheckoutPaymentMethod[] = [
+  'cash',
   'bank',
   'network',
   'wallet',
+  'card',
+  'other',
 ];
 
 export function paymentMethodRequiresAccount(method: CheckoutPaymentMethod): boolean {

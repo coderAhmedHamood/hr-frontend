@@ -28,6 +28,7 @@ import type {
   CheckoutPaymentMethod,
 } from '@/features/ecommerce/storefront/domain/checkout';
 import { paymentMethodRequiresAccount } from '@/features/ecommerce/storefront/domain/checkout';
+import { ALL_CHECKOUT_PAYMENT_METHODS } from '@/features/ecommerce/storefront/domain/company-config';
 import { fetchPublicShippingQuote } from '@/features/ecommerce/admin/delivery-rates/lib/api/public-shipping-quote-api';
 import {
   fetchPublicPaymentAccounts,
@@ -144,9 +145,23 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
     return unsub;
   }, []);
 
-  const paymentMethods = checkoutConfig.paymentMethods;
   const companyId = getStorefrontCompanyId();
   const { data: geoCountries = [] } = usePublicGeoCountries(companyId, Boolean(companyId));
+
+  const allPaymentAccountsQuery = useQuery({
+    queryKey: ['public', 'store', 'payment-accounts', companyId, 'all'],
+    queryFn: () => fetchPublicPaymentAccounts({ companyId }),
+    enabled: Boolean(companyId),
+  });
+
+  // Payment method options come solely from published payment accounts.
+  const paymentMethods = React.useMemo(() => {
+    const enabled = new Set<CheckoutPaymentMethod>();
+    for (const account of allPaymentAccountsQuery.data ?? []) {
+      enabled.add(account.type as CheckoutPaymentMethod);
+    }
+    return ALL_CHECKOUT_PAYMENT_METHODS.filter((method) => enabled.has(method));
+  }, [allPaymentAccountsQuery.data]);
 
   const [step, setStep] = React.useState<StepId>('address');
   const [address, setAddress] = React.useState<CheckoutAddressInput>(() => ({
@@ -167,34 +182,25 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
     setAddress((prev) => (prev.countryId ? prev : { ...prev, countryId: geoCountries[0]!.id }));
   }, [geoCountries, address.countryId]);
   const [customerNote, setCustomerNote] = React.useState('');
-  const [paymentMethod, setPaymentMethod] = React.useState<CheckoutPaymentMethod>(
-    () => paymentMethods[0] ?? 'cash_on_delivery',
-  );
+  const [paymentMethod, setPaymentMethod] = React.useState<CheckoutPaymentMethod>('cash');
   const [paymentAccountId, setPaymentAccountId] = React.useState<string | null>(null);
   const [paymentProofs, setPaymentProofs] = React.useState<Array<{ url: string; name: string }>>(
     [],
   );
 
-  const accountTypeFilter =
-    paymentMethod === 'cash_on_delivery'
-      ? undefined
-      : (paymentMethod as PaymentAccountType);
-
-  const paymentAccountsQuery = useQuery({
-    queryKey: ['public', 'store', 'payment-accounts', companyId, accountTypeFilter ?? 'all'],
-    queryFn: () =>
-      fetchPublicPaymentAccounts({
-        companyId,
-        type: accountTypeFilter,
-      }),
-    enabled: Boolean(companyId) && paymentMethod !== 'cash_on_delivery',
-  });
+  const accountTypeFilter = paymentMethod as PaymentAccountType;
 
   const paymentAccounts = React.useMemo(() => {
-    const items = paymentAccountsQuery.data ?? [];
-    if (!accountTypeFilter) return items;
+    const items = allPaymentAccountsQuery.data ?? [];
     return items.filter((row) => row.type === accountTypeFilter);
-  }, [paymentAccountsQuery.data, accountTypeFilter]);
+  }, [allPaymentAccountsQuery.data, accountTypeFilter]);
+
+  React.useEffect(() => {
+    if (paymentMethods.length === 0) return;
+    if (!paymentMethods.includes(paymentMethod)) {
+      setPaymentMethod(paymentMethods[0]!);
+    }
+  }, [paymentMethods, paymentMethod]);
 
   const selectedPaymentAccount =
     paymentAccounts.find((row) => row.id === paymentAccountId) ?? null;
@@ -209,10 +215,6 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
     : null;
 
   React.useEffect(() => {
-    if (paymentMethod === 'cash_on_delivery') {
-      setPaymentAccountId(null);
-      return;
-    }
     if (paymentAccounts.length === 0) {
       setPaymentAccountId(null);
       return;
@@ -246,8 +248,8 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
     if (!customer) return;
     setAddress((prev) => ({
       ...prev,
-      fullName: prev.fullName.trim() || customer.name || '',
-      phone: prev.phone.trim() || customer.phone || '',
+      fullName: customer.name?.trim() || prev.fullName,
+      phone: customer.phone?.trim() || prev.phone,
     }));
   }, [customer]);
 
@@ -273,8 +275,8 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
         setSelectedAddressId(preferred.id);
         setAddress((prev) => ({
           ...prev,
-          fullName: prev.fullName.trim() || customer?.name || '',
-          phone: prev.phone.trim() || customer?.phone || '',
+          fullName: customer?.name?.trim() || prev.fullName,
+          phone: customer?.phone?.trim() || prev.phone,
           countryId: preferred.countryId ?? null,
           cityId: preferred.cityId ?? null,
           districtId: preferred.districtId ?? null,
@@ -309,8 +311,8 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
     setAddressErrors({});
     setAddress((prev) => ({
       ...prev,
-      fullName: prev.fullName.trim() || customer?.name || '',
-      phone: prev.phone.trim() || customer?.phone || '',
+      fullName: customer?.name?.trim() || prev.fullName,
+      phone: customer?.phone?.trim() || prev.phone,
       countryId: row.countryId ?? null,
       cityId: row.cityId ?? null,
       districtId: row.districtId ?? null,
@@ -461,8 +463,10 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
 
   function validateAddress(): boolean {
     const errors: Partial<Record<keyof CheckoutAddressInput, string>> = {};
-    if (!address.fullName.trim()) errors.fullName = t('checkout.errors.required');
-    if (!address.phone.trim() || address.phone.replace(/\D/g, '').length < 9) {
+    const fullName = (customer?.name?.trim() || address.fullName).trim();
+    const phone = (customer?.phone?.trim() || address.phone).trim();
+    if (!fullName) errors.fullName = t('checkout.errors.required');
+    if (!phone || phone.replace(/\D/g, '').length < 9) {
       errors.phone = t('checkout.errors.phone');
     }
     if (!address.countryId || !address.cityId || !address.city.trim()) {
@@ -472,6 +476,10 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
       errors.district = t('checkout.errors.required');
     }
     if (!address.street.trim()) errors.street = t('checkout.errors.required');
+    // Keep payload in sync with the logged-in profile (fields are hidden in the UI).
+    if (fullName !== address.fullName || phone !== address.phone) {
+      setAddress((prev) => ({ ...prev, fullName, phone }));
+    }
     setAddressErrors(errors);
     return Object.keys(errors).length === 0;
   }
@@ -487,7 +495,11 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
       return;
     }
     if (step === 'payment') {
-      if (paymentMethodRequiresAccount(paymentMethod) && !paymentAccountId) {
+      if (allPaymentAccountsQuery.isLoading) {
+        toast.error(t('checkout.paymentAccountLoading'));
+        return;
+      }
+      if (paymentMethods.length === 0 || !paymentAccountId) {
         toast.error(t('checkout.errors.paymentAccountRequired'));
         return;
       }
@@ -512,14 +524,19 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
     }
     setSubmitting(true);
     try {
-      if (paymentMethodRequiresAccount(paymentMethod) && !paymentAccountId) {
+      if (!paymentAccountId) {
         toast.error(t('checkout.errors.paymentAccountRequired'));
         setStep('payment');
         return;
       }
+      const orderAddress: CheckoutAddressInput = {
+        ...address,
+        fullName: (customer?.name?.trim() || address.fullName).trim(),
+        phone: (customer?.phone?.trim() || address.phone).trim(),
+      };
       const result = await placeStorefrontOrder({
         locale,
-        address,
+        address: orderAddress,
         paymentMethod,
         paymentAccountId: paymentAccountId || null,
         customerNote: customerNote.trim() || null,
@@ -761,25 +778,6 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
                 </button>
               </div>
 
-              <Field label={t('checkout.fullName')} error={addressErrors.fullName} className="sm:col-span-2">
-                <Input
-                  value={address.fullName}
-                  onChange={(e) => setAddress((prev) => ({ ...prev, fullName: e.target.value }))}
-                  autoComplete="name"
-                  className={checkoutFieldClassName}
-                />
-              </Field>
-              <Field label={t('checkout.phone')} error={addressErrors.phone} className="sm:col-span-2">
-                <Input
-                  dir="ltr"
-                  value={address.phone}
-                  onChange={(e) => setAddress((prev) => ({ ...prev, phone: e.target.value }))}
-                  placeholder="77xxxxxxx"
-                  autoComplete="tel"
-                  className={cn(checkoutFieldClassName, 'text-right')}
-                />
-              </Field>
-
               {!showAddressForm && selectedSaved ? (
                 <div className="rounded-xl border border-border bg-muted/20 px-4 py-3 sm:col-span-2">
                   <p className="text-sm font-semibold text-foreground">
@@ -793,11 +791,21 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
                       {t('checkout.savedAddressIncomplete')}
                     </p>
                   )}
+                  {(addressErrors.fullName || addressErrors.phone) && (
+                    <p className="mt-2 text-xs text-destructive">
+                      {addressErrors.fullName || addressErrors.phone}
+                    </p>
+                  )}
                 </div>
               ) : null}
 
               {showAddressForm ? (
                 <>
+                  {(addressErrors.fullName || addressErrors.phone) && (
+                    <p className="rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive sm:col-span-2">
+                      {addressErrors.fullName || addressErrors.phone}
+                    </p>
+                  )}
                   <div className="sm:col-span-2">
                     <GeoCascadeSelect
                       companyId={companyId}
@@ -908,263 +916,320 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
               </div>
             </header>
             <div className="grid gap-3 p-5">
-              {paymentMethods.map((id) => {
+              {allPaymentAccountsQuery.isLoading ? (
+                <p className="rounded-2xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
+                  {t('checkout.paymentAccountLoading')}
+                </p>
+              ) : paymentMethods.length === 0 ? (
+                <p className="rounded-2xl border border-dashed border-amber-500/40 bg-amber-500/5 px-4 py-8 text-center text-sm text-amber-800 dark:text-amber-300">
+                  {t('checkout.errors.paymentAccountUnavailable')}
+                </p>
+              ) : (
+                paymentMethods.map((id) => {
                 const Icon = PAYMENT_METHOD_ICONS[id] ?? Wallet;
                 const selected = paymentMethod === id;
+                const showAccounts = selected;
+                const showProof =
+                  selected && id !== 'cash_on_delivery' && id !== 'cash';
+
                 return (
-                  <button
+                  <div
                     key={id}
-                    type="button"
-                    onClick={() => {
-                      setPaymentMethod(id);
-                      if (id === 'cash_on_delivery' || id === 'cash') {
-                        setPaymentProofs([]);
-                      }
-                    }}
                     className={cn(
-                      'flex items-start gap-3 rounded-2xl border p-4 text-start transition-all',
+                      'overflow-hidden rounded-2xl border transition-all',
                       selected
                         ? 'border-primary bg-primary/5 ring-1 ring-primary/30'
-                        : 'border-border hover:border-primary/30 hover:bg-muted/30',
+                        : 'border-border hover:border-primary/30',
                     )}
                   >
-                    <span
-                      className={cn(
-                        'mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl',
-                        selected ? 'bg-primary text-primary-foreground' : 'bg-muted text-primary',
-                      )}
-                    >
-                      <Icon className="h-5 w-5" aria-hidden />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-semibold text-foreground">
-                        {t(`checkout.paymentMethods.${id}.label`)}
-                      </span>
-                      <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">
-                        {t(`checkout.paymentMethods.${id}.description`)}
-                      </span>
-                    </span>
-                    <span
-                      className={cn(
-                        'mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border',
-                        selected
-                          ? 'border-primary bg-primary text-primary-foreground'
-                          : 'border-border bg-background',
-                      )}
-                      aria-hidden
-                    >
-                      {selected ? <Check className="h-3 w-3" /> : null}
-                    </span>
-                  </button>
-                );
-              })}
-
-              {paymentMethod !== 'cash_on_delivery' ? (
-                <div className="space-y-3 rounded-2xl border border-border bg-muted/20 p-4">
-                  <div>
-                    <p className="text-sm font-medium text-foreground">
-                      {t('checkout.paymentAccountTitle')}
-                      {paymentMethodRequiresAccount(paymentMethod) ? (
-                        <span className="text-destructive"> *</span>
-                      ) : null}
-                    </p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {t('checkout.paymentAccountHint')}
-                    </p>
-                  </div>
-                  {paymentAccountsQuery.isLoading ? (
-                    <p className="text-xs text-muted-foreground">{t('checkout.paymentAccountLoading')}</p>
-                  ) : paymentAccounts.length === 0 ? (
-                    <p className="text-xs text-amber-700 dark:text-amber-400">
-                      {paymentMethodRequiresAccount(paymentMethod)
-                        ? t('checkout.errors.paymentAccountUnavailable')
-                        : t('checkout.paymentAccountOptionalEmpty')}
-                    </p>
-                  ) : (
-                    <ul className="space-y-2">
-                      {paymentAccounts.map((account) => {
-                        const selected = paymentAccountId === account.id;
-                        const name = paymentAccountDisplayName(account, locale);
-                        const details = paymentAccountDetailsLine(account);
-                        const instructions = paymentAccountInstructions(account, locale);
-                        return (
-                          <li key={account.id} className="space-y-2">
-                            <button
-                              type="button"
-                              onClick={() => setPaymentAccountId(account.id)}
-                              className={cn(
-                                'flex w-full items-start gap-3 rounded-xl border p-3 text-start transition-colors',
-                                selected
-                                  ? 'border-primary bg-primary/5 ring-1 ring-primary/25'
-                                  : 'border-border bg-card hover:border-primary/30',
-                              )}
-                            >
-                              {account.logoUrl ? (
-                                // eslint-disable-next-line @next/next/no-img-element -- arbitrary store CDN host
-                                <img
-                                  src={account.logoUrl}
-                                  alt=""
-                                  width={40}
-                                  height={40}
-                                  className="h-10 w-10 rounded-lg object-contain"
-                                />
-                              ) : (
-                                <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted text-primary">
-                                  <Wallet className="h-4 w-4" />
-                                </span>
-                              )}
-                              <span className="min-w-0 flex-1">
-                                <span className="block text-sm font-semibold text-foreground">
-                                  {name}
-                                </span>
-                                {details ? (
-                                  <span className="mt-0.5 block text-xs text-muted-foreground" dir="ltr">
-                                    {details}
-                                  </span>
-                                ) : null}
-                                {instructions ? (
-                                  <span className="mt-1 block text-[11px] leading-relaxed text-muted-foreground">
-                                    {instructions}
-                                  </span>
-                                ) : null}
-                              </span>
-                              <span
-                                className={cn(
-                                  'mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border',
-                                  selected
-                                    ? 'border-primary bg-primary text-primary-foreground'
-                                    : 'border-border bg-background',
-                                )}
-                              >
-                                {selected ? <Check className="h-3 w-3" /> : null}
-                              </span>
-                            </button>
-                            {selected && account.qrImageUrl ? (
-                              <div className="rounded-xl border border-border bg-card p-4">
-                                <div className="mb-3 flex items-center justify-center gap-2 text-sm font-medium text-foreground">
-                                  <QrCode className="h-4 w-4 text-primary" aria-hidden />
-                                  {t('checkout.paymentQrTitle')}
-                                </div>
-                                <div className="flex justify-center">
-                                  {/* eslint-disable-next-line @next/next/no-img-element -- arbitrary store CDN host */}
-                                  <img
-                                    src={account.qrImageUrl}
-                                    alt={t('checkout.paymentQrAlt', { name })}
-                                    width={176}
-                                    height={176}
-                                    className="h-44 w-44 rounded-lg bg-white object-contain p-2"
-                                  />
-                                </div>
-                                <p className="mt-3 text-center text-[11px] leading-relaxed text-muted-foreground">
-                                  {t('checkout.paymentQrHint')}
-                                </p>
-                              </div>
-                            ) : null}
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  )}
-                </div>
-              ) : null}
-
-              {paymentMethod !== 'cash_on_delivery' && paymentMethod !== 'cash' ? (
-                <div className="space-y-3 rounded-2xl border border-border bg-muted/20 p-4">
-                  <p className="text-xs leading-relaxed text-muted-foreground">
-                    {t('checkout.paymentProofHint')}
-                  </p>
-                  <div>
-                    <Label htmlFor="payment-proof" className="text-sm font-medium">
-                      {t('checkout.paymentProofLabel')}
-                    </Label>
-                    <p className="mt-1 text-[11px] text-muted-foreground">
-                      {t('checkout.paymentProofLimit', {
-                        max: MAX_PAYMENT_PROOF_FILES,
-                        count: paymentProofs.length,
-                      })}
-                    </p>
-                    <Input
-                      id="payment-proof"
-                      type="file"
-                      accept="image/*"
-                      disabled={paymentProofs.length >= MAX_PAYMENT_PROOF_FILES}
-                      className="mt-2 h-11 cursor-pointer rounded-xl file:me-3 file:rounded-lg file:border-0 file:bg-primary/10 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-primary"
-                      onChange={(e) => {
-                        const files = Array.from(e.target.files ?? []);
-                        e.target.value = '';
-                        if (files.length === 0) return;
-
-                        void (async () => {
-                          const remaining = MAX_PAYMENT_PROOF_FILES - paymentProofs.length;
-                          if (remaining <= 0) {
-                            toast.error(t('checkout.errors.paymentProofMax', { max: MAX_PAYMENT_PROOF_FILES }));
-                            return;
-                          }
-
-                          const selected = files.slice(0, remaining);
-                          if (files.length > remaining) {
-                            toast.error(t('checkout.errors.paymentProofMax', { max: MAX_PAYMENT_PROOF_FILES }));
-                          }
-
-                          for (const file of selected) {
-                            if (!file.type.startsWith('image/')) {
-                              toast.error(t('checkout.errors.paymentProofType'));
-                              continue;
-                            }
-                            if (file.size > MAX_PAYMENT_PROOF_BYTES) {
-                              toast.error(t('checkout.errors.paymentProofSize'));
-                              continue;
-                            }
-                            try {
-                              const result = await compressPaymentProofToDataUrl(file);
-                              setPaymentProofs((prev) => {
-                                if (prev.length >= MAX_PAYMENT_PROOF_FILES) return prev;
-                                return [...prev, { url: result, name: file.name }];
-                              });
-                            } catch {
-                              toast.error(t('checkout.errors.paymentProofType'));
-                            }
-                          }
-                        })();
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPaymentMethod(id);
+                        if (id === 'cash_on_delivery' || id === 'cash') {
+                          setPaymentProofs([]);
+                        }
                       }}
-                    />
-                    {paymentProofs.length > 0 ? (
-                      <ul className="mt-3 space-y-2">
-                        {paymentProofs.map((proof, index) => (
-                          <li
-                            key={`${proof.name}-${index}`}
-                            className="flex items-center gap-3 rounded-xl border border-border/70 bg-card px-2.5 py-2"
-                          >
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={proof.url}
-                              alt=""
-                              className="h-14 w-14 shrink-0 rounded-lg border border-border object-cover"
-                            />
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate text-xs font-medium text-foreground">
-                                {proof.name || t('checkout.paymentProofAttached')}
-                              </p>
-                              <button
-                                type="button"
-                                className="mt-1 text-xs text-destructive hover:underline"
-                                onClick={() =>
-                                  setPaymentProofs((prev) => prev.filter((_, i) => i !== index))
-                                }
+                      className={cn(
+                        'flex w-full items-start gap-3 p-4 text-start transition-colors',
+                        !selected && 'hover:bg-muted/30',
+                      )}
+                      aria-expanded={selected}
+                    >
+                      <span
+                        className={cn(
+                          'mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl',
+                          selected
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-muted text-primary',
+                        )}
+                      >
+                        <Icon className="h-5 w-5" aria-hidden />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-semibold text-foreground">
+                          {t(`checkout.paymentMethods.${id}.label`)}
+                        </span>
+                        <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">
+                          {t(`checkout.paymentMethods.${id}.description`)}
+                        </span>
+                      </span>
+                      <span
+                        className={cn(
+                          'mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border',
+                          selected
+                            ? 'border-primary bg-primary text-primary-foreground'
+                            : 'border-border bg-background',
+                        )}
+                        aria-hidden
+                      >
+                        {selected ? <Check className="h-3 w-3" /> : null}
+                      </span>
+                    </button>
+
+                    {showAccounts ? (
+                      <div className="space-y-4 border-t border-primary/15 bg-background/70 px-4 py-4">
+                        <div>
+                          <p className="text-sm font-medium text-foreground">
+                            {t('checkout.paymentAccountTitle')}
+                            {paymentMethodRequiresAccount(id) ? (
+                              <span className="text-destructive"> *</span>
+                            ) : null}
+                          </p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {t('checkout.paymentAccountHint')}
+                          </p>
+                        </div>
+
+                        {allPaymentAccountsQuery.isLoading ? (
+                          <p className="text-xs text-muted-foreground">
+                            {t('checkout.paymentAccountLoading')}
+                          </p>
+                        ) : paymentAccounts.length === 0 ? (
+                          <p className="text-xs text-amber-700 dark:text-amber-400">
+                            {paymentMethodRequiresAccount(id)
+                              ? t('checkout.errors.paymentAccountUnavailable')
+                              : t('checkout.paymentAccountOptionalEmpty')}
+                          </p>
+                        ) : (
+                          <ul className="space-y-2">
+                            {paymentAccounts.map((account) => {
+                              const accountSelected = paymentAccountId === account.id;
+                              const name = paymentAccountDisplayName(account, locale);
+                              const details = paymentAccountDetailsLine(account);
+                              const instructions = paymentAccountInstructions(
+                                account,
+                                locale,
+                              );
+                              return (
+                                <li key={account.id}>
+                                  <button
+                                    type="button"
+                                    onClick={() => setPaymentAccountId(account.id)}
+                                    className={cn(
+                                      'flex w-full items-start gap-3 rounded-xl border p-3 text-start transition-colors',
+                                      accountSelected
+                                        ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
+                                        : 'border-border bg-card hover:border-primary/30',
+                                    )}
+                                  >
+                                    {account.logoUrl ? (
+                                      // eslint-disable-next-line @next/next/no-img-element -- arbitrary store CDN host
+                                      <img
+                                        src={account.logoUrl}
+                                        alt=""
+                                        width={40}
+                                        height={40}
+                                        className="h-10 w-10 rounded-lg object-contain"
+                                      />
+                                    ) : (
+                                      <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted text-primary">
+                                        <Wallet className="h-4 w-4" />
+                                      </span>
+                                    )}
+                                    <span className="min-w-0 flex-1">
+                                      <span className="block text-sm font-semibold text-foreground">
+                                        {name}
+                                      </span>
+                                      {details ? (
+                                        <span
+                                          className="mt-0.5 block text-xs text-muted-foreground"
+                                          dir="ltr"
+                                        >
+                                          {details}
+                                        </span>
+                                      ) : null}
+                                      {instructions ? (
+                                        <span className="mt-1 block text-[11px] leading-relaxed text-muted-foreground">
+                                          {instructions}
+                                        </span>
+                                      ) : null}
+                                    </span>
+                                    <span
+                                      className={cn(
+                                        'mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border',
+                                        accountSelected
+                                          ? 'border-primary bg-primary text-primary-foreground'
+                                          : 'border-border bg-background',
+                                      )}
+                                    >
+                                      {accountSelected ? <Check className="h-3 w-3" /> : null}
+                                    </span>
+                                  </button>
+
+                                  {accountSelected && account.qrImageUrl ? (
+                                    <div className="mt-2 rounded-xl border border-dashed border-border bg-card p-4">
+                                      <div className="mb-3 flex items-center justify-center gap-2 text-sm font-medium text-foreground">
+                                        <QrCode
+                                          className="h-4 w-4 text-primary"
+                                          aria-hidden
+                                        />
+                                        {t('checkout.paymentQrTitle')}
+                                      </div>
+                                      <div className="flex justify-center">
+                                        {/* eslint-disable-next-line @next/next/no-img-element -- arbitrary store CDN host */}
+                                        <img
+                                          src={account.qrImageUrl}
+                                          alt={t('checkout.paymentQrAlt', { name })}
+                                          width={176}
+                                          height={176}
+                                          className="h-44 w-44 rounded-lg bg-white object-contain p-2"
+                                        />
+                                      </div>
+                                      <p className="mt-3 text-center text-[11px] leading-relaxed text-muted-foreground">
+                                        {t('checkout.paymentQrHint')}
+                                      </p>
+                                    </div>
+                                  ) : null}
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        )}
+
+                        {showProof ? (
+                          <div className="space-y-3 border-t border-border/70 pt-4">
+                            <p className="text-xs leading-relaxed text-muted-foreground">
+                              {t('checkout.paymentProofHint')}
+                            </p>
+                            <div>
+                              <Label
+                                htmlFor="payment-proof"
+                                className="text-sm font-medium"
                               >
-                                {t('checkout.paymentProofRemove')}
-                              </button>
+                                {t('checkout.paymentProofLabel')}
+                              </Label>
+                              <p className="mt-1 text-[11px] text-muted-foreground">
+                                {t('checkout.paymentProofLimit', {
+                                  max: MAX_PAYMENT_PROOF_FILES,
+                                  count: paymentProofs.length,
+                                })}
+                              </p>
+                              <Input
+                                id="payment-proof"
+                                type="file"
+                                accept="image/*"
+                                disabled={paymentProofs.length >= MAX_PAYMENT_PROOF_FILES}
+                                className="mt-2 h-11 cursor-pointer rounded-xl file:me-3 file:rounded-lg file:border-0 file:bg-primary/10 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-primary"
+                                onChange={(e) => {
+                                  const files = Array.from(e.target.files ?? []);
+                                  e.target.value = '';
+                                  if (files.length === 0) return;
+
+                                  void (async () => {
+                                    const remaining =
+                                      MAX_PAYMENT_PROOF_FILES - paymentProofs.length;
+                                    if (remaining <= 0) {
+                                      toast.error(
+                                        t('checkout.errors.paymentProofMax', {
+                                          max: MAX_PAYMENT_PROOF_FILES,
+                                        }),
+                                      );
+                                      return;
+                                    }
+
+                                    const picked = files.slice(0, remaining);
+                                    if (files.length > remaining) {
+                                      toast.error(
+                                        t('checkout.errors.paymentProofMax', {
+                                          max: MAX_PAYMENT_PROOF_FILES,
+                                        }),
+                                      );
+                                    }
+
+                                    for (const file of picked) {
+                                      if (!file.type.startsWith('image/')) {
+                                        toast.error(t('checkout.errors.paymentProofType'));
+                                        continue;
+                                      }
+                                      if (file.size > MAX_PAYMENT_PROOF_BYTES) {
+                                        toast.error(t('checkout.errors.paymentProofSize'));
+                                        continue;
+                                      }
+                                      try {
+                                        const result =
+                                          await compressPaymentProofToDataUrl(file);
+                                        setPaymentProofs((prev) => {
+                                          if (prev.length >= MAX_PAYMENT_PROOF_FILES) {
+                                            return prev;
+                                          }
+                                          return [
+                                            ...prev,
+                                            { url: result, name: file.name },
+                                          ];
+                                        });
+                                      } catch {
+                                        toast.error(t('checkout.errors.paymentProofType'));
+                                      }
+                                    }
+                                  })();
+                                }}
+                              />
+                              {paymentProofs.length > 0 ? (
+                                <ul className="mt-3 space-y-2">
+                                  {paymentProofs.map((proof, index) => (
+                                    <li
+                                      key={`${proof.name}-${index}`}
+                                      className="flex items-center gap-3 rounded-xl border border-border/70 bg-card px-2.5 py-2"
+                                    >
+                                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                                      <img
+                                        src={proof.url}
+                                        alt=""
+                                        className="h-14 w-14 shrink-0 rounded-lg border border-border object-cover"
+                                      />
+                                      <div className="min-w-0 flex-1">
+                                        <p className="truncate text-xs font-medium text-foreground">
+                                          {proof.name || t('checkout.paymentProofAttached')}
+                                        </p>
+                                        <button
+                                          type="button"
+                                          className="mt-1 text-xs text-destructive hover:underline"
+                                          onClick={() =>
+                                            setPaymentProofs((prev) =>
+                                              prev.filter((_, i) => i !== index),
+                                            )
+                                          }
+                                        >
+                                          {t('checkout.paymentProofRemove')}
+                                        </button>
+                                      </div>
+                                    </li>
+                                  ))}
+                                </ul>
+                              ) : null}
                             </div>
-                          </li>
-                        ))}
-                      </ul>
+                            <p className="text-[11px] leading-relaxed text-muted-foreground">
+                              {t('checkout.paymentMockHint')}
+                            </p>
+                          </div>
+                        ) : null}
+                      </div>
                     ) : null}
                   </div>
-                  <p className="text-[11px] leading-relaxed text-muted-foreground">
-                    {t('checkout.paymentMockHint')}
-                  </p>
-                </div>
-              ) : null}
+                );
+              })
+              )}
 
               <div className="space-y-3 rounded-2xl border border-border bg-muted/20 p-4">
                 <div className="flex items-center gap-2">

@@ -29,11 +29,16 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  dialogFormFooterClass,
+  dialogShellBodyClass,
+  dialogShellContentClass,
+  dialogShellHeaderClass,
 } from '@/components/ui/dialog';
 import { Link, useRouter } from '@/i18n/navigation';
 import { cn } from '@/shared/utils';
@@ -395,108 +400,110 @@ export function StoreAccountAddressesClient() {
       </Dialog>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>
-              {editingId ? t('account.addresses.edit') : t('account.addresses.add')}
-            </DialogTitle>
-          </DialogHeader>
-          <form className="space-y-3" onSubmit={(e) => void handleSubmit(e)}>
-            <div className="space-y-1.5">
-              <Label htmlFor="addr-label">{t('account.addresses.label')}</Label>
-              <Input
-                id="addr-label"
-                value={form.label}
-                onChange={(e) => setForm((prev) => ({ ...prev, label: e.target.value }))}
-                placeholder={t('account.addresses.labelPlaceholder')}
-              />
-            </div>
-            {useGeoCascade ? (
-              <GeoCascadeSelect
-                companyId={companyId}
-                mode="public"
-                value={{
-                  countryId: form.countryId,
-                  cityId: form.cityId,
-                  districtId: form.districtId,
-                  countryCode: null,
-                  city: form.city,
-                  district: form.district,
-                }}
-                onChange={(geo: GeoCascadeValue) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    countryId: geo.countryId,
-                    cityId: geo.cityId,
-                    districtId: geo.districtId,
-                    city: geo.city,
-                    district: geo.district,
-                  }))
-                }
-                labels={{
-                  country: t('checkout.country'),
-                  city: t('checkout.city'),
-                  district: t('checkout.district'),
-                }}
-                className="sm:grid-cols-1"
-              />
-            ) : (
-              <>
-                <div className="space-y-1.5">
-                  <Label htmlFor="addr-city">{t('checkout.city')}</Label>
-                  <Input
-                    id="addr-city"
-                    value={form.city}
-                    onChange={(e) => setForm((prev) => ({ ...prev, city: e.target.value }))}
-                    required
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="addr-district">{t('checkout.district')}</Label>
-                  <Input
-                    id="addr-district"
-                    value={form.district}
-                    onChange={(e) => setForm((prev) => ({ ...prev, district: e.target.value }))}
-                    required
-                  />
-                </div>
-              </>
-            )}
-            <div className="space-y-1.5">
-              <Label htmlFor="addr-street">{t('checkout.street')}</Label>
-              <Input
-                id="addr-street"
-                value={form.street}
-                onChange={(e) => setForm((prev) => ({ ...prev, street: e.target.value }))}
-                required
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="addr-building">{t('account.addresses.building')}</Label>
-              <Input
-                id="addr-building"
-                value={form.building}
-                onChange={(e) => setForm((prev) => ({ ...prev, building: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="addr-notes">{t('checkout.notes')}</Label>
-              <Textarea
-                id="addr-notes"
-                value={form.notes}
-                onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))}
-                rows={2}
-              />
-            </div>
-            <label className="flex items-center gap-2 text-sm text-foreground">
-              <input
-                type="checkbox"
-                checked={form.isDefault}
-                onChange={(e) => setForm((prev) => ({ ...prev, isDefault: e.target.checked }))}
-              />
-              {t('account.addresses.setDefault')}
-            </label>
-            <DialogFooter>
+        <DialogContent className={cn(dialogShellContentClass, 'sm:max-w-md')}>
+          <form className="flex min-h-0 flex-1 flex-col" onSubmit={(e) => void handleSubmit(e)}>
+            <DialogHeader className={dialogShellHeaderClass}>
+              <DialogTitle>
+                {editingId ? t('account.addresses.edit') : t('account.addresses.add')}
+              </DialogTitle>
+            </DialogHeader>
+            <DialogBody className={cn(dialogShellBodyClass, 'space-y-3')}>
+              <div className="space-y-1.5">
+                <Label htmlFor="addr-label">{t('account.addresses.label')}</Label>
+                <Input
+                  id="addr-label"
+                  value={form.label}
+                  onChange={(e) => setForm((prev) => ({ ...prev, label: e.target.value }))}
+                  placeholder={t('account.addresses.labelPlaceholder')}
+                />
+              </div>
+              {useGeoCascade ? (
+                <GeoCascadeSelect
+                  companyId={companyId}
+                  mode="public"
+                  value={{
+                    countryId: form.countryId,
+                    cityId: form.cityId,
+                    districtId: form.districtId,
+                    countryCode: null,
+                    city: form.city,
+                    district: form.district,
+                  }}
+                  onChange={(geo: GeoCascadeValue) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      countryId: geo.countryId,
+                      cityId: geo.cityId,
+                      districtId: geo.districtId,
+                      city: geo.city,
+                      district: geo.district,
+                    }))
+                  }
+                  labels={{
+                    country: t('checkout.country'),
+                    city: t('checkout.city'),
+                    district: t('checkout.district'),
+                  }}
+                  className="sm:grid-cols-1"
+                />
+              ) : (
+                <>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="addr-city">{t('checkout.city')}</Label>
+                    <Input
+                      id="addr-city"
+                      value={form.city}
+                      onChange={(e) => setForm((prev) => ({ ...prev, city: e.target.value }))}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="addr-district">{t('checkout.district')}</Label>
+                    <Input
+                      id="addr-district"
+                      value={form.district}
+                      onChange={(e) => setForm((prev) => ({ ...prev, district: e.target.value }))}
+                      required
+                    />
+                  </div>
+                </>
+              )}
+              <div className="space-y-1.5">
+                <Label htmlFor="addr-street">{t('checkout.street')}</Label>
+                <Input
+                  id="addr-street"
+                  value={form.street}
+                  onChange={(e) => setForm((prev) => ({ ...prev, street: e.target.value }))}
+                  required
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="addr-building">{t('account.addresses.building')}</Label>
+                <Input
+                  id="addr-building"
+                  value={form.building}
+                  onChange={(e) => setForm((prev) => ({ ...prev, building: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="addr-notes">{t('checkout.notes')}</Label>
+                <Textarea
+                  id="addr-notes"
+                  value={form.notes}
+                  onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))}
+                  rows={2}
+                />
+              </div>
+              <label className="flex items-center gap-2 text-sm text-foreground">
+                <input
+                  type="checkbox"
+                  checked={form.isDefault}
+                  onChange={(e) => setForm((prev) => ({ ...prev, isDefault: e.target.checked }))}
+                />
+                {t('account.addresses.setDefault')}
+              </label>
+            </DialogBody>
+            <DialogFooter className={dialogFormFooterClass}>
               <Button
                 type="button"
                 variant="outline"
