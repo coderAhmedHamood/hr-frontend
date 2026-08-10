@@ -643,11 +643,11 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
         <nav aria-label={t('checkout.title')} className="rounded-2xl border border-border bg-card px-3 py-4 sm:px-5">
           <ol className="relative grid grid-cols-3 gap-2">
             <div
-              className="pointer-events-none absolute start-[16.66%] end-[16.66%] top-4 hidden h-0.5 bg-border sm:block"
+              className="pointer-events-none absolute start-[16.66%] end-[16.66%] top-4 h-0.5 bg-border"
               aria-hidden
             />
             <div
-              className="pointer-events-none absolute start-[16.66%] top-4 hidden h-0.5 origin-left bg-primary transition-transform duration-300 sm:block rtl:origin-right"
+              className="pointer-events-none absolute start-[16.66%] top-4 h-0.5 origin-left bg-primary transition-transform duration-300 rtl:origin-right"
               style={{
                 width: '66.68%',
                 transform: `scaleX(${stepIndex / (STEPS.length - 1)})`,
