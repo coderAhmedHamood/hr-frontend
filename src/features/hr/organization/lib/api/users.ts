@@ -55,8 +55,10 @@ export type UserResponseDto = {
   timezone: string | null;
   lastLoginAt: string | null;
   passwordChangedAt?: string | null;
-  /** Bound mobile device serial — null when cleared / not bound yet. */
+  /** Bound mobile/app device serial — null when cleared / not bound yet. */
   mobileSerialNumber?: string | null;
+  /** Bound web browser/device serial — independent from mobileSerialNumber. */
+  webDeviceSerial?: string | null;
   notes: string | null;
   employeeId: string | null;
   createdAt: string;

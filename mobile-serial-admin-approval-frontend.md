@@ -1,45 +1,77 @@
-# موافقة الإدارة على جهاز جوال جديد
+# موافقة الإدارة على جهاز جديد (تطبيق / موقع)
 
-عند تفعيل إعداد HR يُطلب موافقة الإدارة قبل إرسال إيميل تفعيل الجهاز للمستخدم.
+عند تفعيل إعدادات HR يُطلب موافقة الإدارة قبل إرسال إيميل تفعيل الجهاز — **لكل قناة بشكل مستقل**.
 
-**Migration:** `1783373644660-mobile-serial-admin-approval.ts`  
+**Migrations:**  
+`1783373644660-mobile-serial-admin-approval.ts`  
+`1783373644661-device-auth-channels.ts`  
+
 بعد السحب: `npm run db:migrate`
 
 ---
 
-## إعداد HR
+## إعدادات HR
 
 `PATCH /hr/settings/company/:companyId`
 
 ```json
-{ "requireAdminApprovalForNewMobileDevice": true }
+{
+  "requireAdminApprovalForNewMobileDevice": true,
+  "enforceWebDeviceSerial": true,
+  "requireAdminApprovalForNewWebDevice": true
+}
 ```
 
-| القيمة | السلوك |
-|--------|--------|
-| `false` (افتراضي) | كما السابق: جهاز جديد → إيميل OTP/رابط مباشرة للمستخدم |
-| `true` | جهاز جديد (بعد ربط جهاز سابق) → طلب موافقة إدارة → بعد الموافقة يُرسل الإيميل |
+| الحقل | القناة | المعنى |
+|--------|--------|--------|
+| `requireAdminApprovalForNewMobileDevice` | `app` / `mobile` | `true` = موافقة إدارة ثم إيميل · `false` = إيميل مباشرة |
+| `enforceWebDeviceSerial` | `web` | `true` = يلزم `mobileSerialNumber` على دخول الويب · `false` = ويب بدون فحص جهاز |
+| `requireAdminApprovalForNewWebDevice` | `web` | يعمل فقط إذا `enforceWebDeviceSerial=true` · موافقة إدارة ثم إيميل أو إيميل مباشرة |
 
-أول ربط سيريال للحساب (`registered`) **لا** يمر عبر الموافقة.
+الافتراضي للكل: `false`.  
+أول ربط سيريال لكل قناة **لا** يمر بالموافقة.
+
+سيريال التطبيق (`users.mobile_serial_number`) منفصل عن سيريال الويب (`users.web_device_serial`).
 
 ---
 
-## دخول التطبيق (جهاز جديد + الإعداد مفعّل)
+## أمثلة دخول
 
-`POST /auth/login` مع `loginChannel: app|mobile` + `mobileSerialNumber` مختلف:
+### تطبيق (دائماً يلزم السيريال)
 
-**HTTP 403**
+```json
+{
+  "email": "…",
+  "password": "…",
+  "loginChannel": "app",
+  "mobileSerialNumber": "DEVICE-APP-1"
+}
+```
+
+### موقع — فقط إذا `enforceWebDeviceSerial=true`
+
+```json
+{
+  "email": "…",
+  "password": "…",
+  "loginChannel": "web",
+  "mobileSerialNumber": "BROWSER-FINGERPRINT-1"
+}
+```
+
+### جهاز جديد + موافقة إدارة مفعّلة لتلك القناة → `403`
 
 ```json
 {
   "code": "MOBILE_SERIAL_ADMIN_APPROVAL_REQUIRED",
-  "message": "… بانتظار موافقة الإدارة …",
   "approvalRequestId": "…",
+  "loginChannel": "app",
   "mobileSerialChangeEmailSent": false
 }
 ```
 
-عند الإعداد مغلقاً يبقى الكود القديم: `MOBILE_SERIAL_VERIFICATION_REQUIRED`.
+`loginChannel` في الخطأ يكون `app` أو `web`.  
+بدون موافقة إدارة: الكود `MOBILE_SERIAL_VERIFICATION_REQUIRED` (إيميل مباشرة).
 
 ---
 
@@ -50,8 +82,10 @@
 
 | Method | Path |
 |--------|------|
-| `GET /?companyId=&status=pending` | قائمة (تتضمن `userFullNameAr` / `userFullNameEn` / `userEmail` / `userPhone`) |
-| `POST /:id/approve` | موافقة → إرسال إيميل التفعيل |
-| `POST /:id/reject` | رفض (بدون إيميل) |
+| `GET /?companyId=&status=pending&loginChannel=app` | قائمة (فلتر `loginChannel=app\|web`) |
+| `POST /:id/approve` | موافقة → إيميل التفعيل |
+| `POST /:id/reject` | رفض |
 
-بعد الموافقة يكمل المستخدم التفعيل عبر OTP أو الرابط كما السابق (`/auth/mobile-serial/confirm` أو verify).
+كل عنصر يتضمن: `loginChannel`, `userFullNameAr`, `userFullNameEn`, `userEmail`, `userPhone`, …
+
+بعد الموافقة يكمل المستخدم التفعيل عبر OTP / الرابط كما السابق. 

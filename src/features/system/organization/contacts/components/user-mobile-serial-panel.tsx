@@ -89,9 +89,9 @@ export function UserMobileSerialPanel({ user, onUpdated }: Props) {
   return (
     <section className="space-y-3">
       <div className="text-right">
-        <h3 className="text-sm font-semibold">سيريال الجوال</h3>
+        <h3 className="text-sm font-semibold">أجهزة التطبيق والموقع</h3>
         <p className="mt-0.5 text-xs text-muted-foreground">
-          أداة طوارئ إدارية عند تعذّر دخول التطبيق بسبب ربط الجهاز
+          سيريال التطبيق منفصل عن سيريال الموقع. أدوات الطوارئ أدناه تخص سيريال التطبيق.
         </p>
       </div>
 
@@ -101,10 +101,20 @@ export function UserMobileSerialPanel({ user, onUpdated }: Props) {
             <Smartphone className="h-4 w-4 text-muted-foreground" />
           </div>
           <div className="min-w-0 flex-1 text-right">
-            <p className="text-[11px] text-muted-foreground">السيريال الحالي</p>
+            <p className="text-[11px] text-muted-foreground">سيريال التطبيق</p>
             {currentSerial ? (
               <p className="mt-0.5 break-all font-mono text-sm font-medium" dir="ltr">
                 {currentSerial}
+              </p>
+            ) : (
+              <Badge variant="outline" className="mt-1 text-muted-foreground">
+                غير مربوط
+              </Badge>
+            )}
+            <p className="mt-2 text-[11px] text-muted-foreground">سيريال الموقع</p>
+            {user.webDeviceSerial?.trim() ? (
+              <p className="mt-0.5 break-all font-mono text-sm font-medium" dir="ltr">
+                {user.webDeviceSerial.trim()}
               </p>
             ) : (
               <Badge variant="outline" className="mt-1 text-muted-foreground">

@@ -3,7 +3,7 @@ import { SYSTEM_ORGANIZATION_BASE, systemOrganizationRoutes } from '@/features/s
 
 export const systemOrganizationStructureNavItems = [
   { labelAr: 'المستخدمين', href: systemOrganizationRoutes.contacts, icon: UserCircle },
-  { labelAr: 'موافقة أجهزة الجوال', href: systemOrganizationRoutes.mobileSerialApprovals, icon: Smartphone },
+  { labelAr: 'موافقة الأجهزة', href: systemOrganizationRoutes.mobileSerialApprovals, icon: Smartphone },
   { labelAr: 'المسميات الوظيفية', href: systemOrganizationRoutes.jobTitles, icon: Briefcase },
   { labelAr: 'الفروع', href: systemOrganizationRoutes.branches, icon: Building2 },
   { labelAr: 'الأقسام', href: systemOrganizationRoutes.departments, icon: Building2 },

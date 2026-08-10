@@ -32,6 +32,23 @@ export default function HrSettingsPage() {
     }
   };
 
+  const handleDeviceAuthChange = async (
+    patch: Partial<{
+      requireAdminApprovalForNewMobileDevice: boolean;
+      enforceWebDeviceSerial: boolean;
+      requireAdminApprovalForNewWebDevice: boolean;
+    }>,
+  ) => {
+    if (!settings) return;
+    try {
+      await update.mutateAsync(patch);
+      toast.success('تم تحديث الإعداد');
+    } catch (err) {
+      const { displayMessage } = handleApiError(err, 'settings.hr.update');
+      toast.error(displayMessage);
+    }
+  };
+
   if (!companyId) {
     return <SettingsPageEmpty message="لا توجد شركة افتراضية — سجّل الدخول أو اختر شركة." />;
   }
@@ -57,9 +74,17 @@ export default function HrSettingsPage() {
       ) : null}
 
       <MobileSerialApprovalSettingCard
-        enabled={Boolean(settings.requireAdminApprovalForNewMobileDevice)}
+        values={{
+          requireAdminApprovalForNewMobileDevice: Boolean(
+            settings.requireAdminApprovalForNewMobileDevice,
+          ),
+          enforceWebDeviceSerial: Boolean(settings.enforceWebDeviceSerial),
+          requireAdminApprovalForNewWebDevice: Boolean(
+            settings.requireAdminApprovalForNewWebDevice,
+          ),
+        }}
         disabled={update.isPending}
-        onToggle={(value) => void handleToggle('requireAdminApprovalForNewMobileDevice', value)}
+        onChange={(patch) => void handleDeviceAuthChange(patch)}
       />
 
       <NotificationTogglesCard

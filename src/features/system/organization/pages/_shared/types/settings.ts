@@ -2,8 +2,12 @@ export interface HrCompanySettings {
   id: string;
   companyId: string;
   notificationsEnabled: boolean;
-  /** When true, a new mobile serial (after a prior bind) needs admin approval before OTP email. */
+  /** When true, a new app/mobile serial (after a prior bind) needs admin approval before OTP email. */
   requireAdminApprovalForNewMobileDevice?: boolean;
+  /** When true, web login requires `mobileSerialNumber` (stored as web device serial). */
+  enforceWebDeviceSerial?: boolean;
+  /** When true (and enforceWebDeviceSerial), a new web device needs admin approval before OTP email. */
+  requireAdminApprovalForNewWebDevice?: boolean;
   notifyDisciplineViolationCreated: boolean;
   notifyDisciplineViolationApproved: boolean;
   notifyDisciplineCircularCreated: boolean;

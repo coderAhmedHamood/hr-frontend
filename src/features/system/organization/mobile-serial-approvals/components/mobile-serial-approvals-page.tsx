@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Check, Smartphone, X } from 'lucide-react';
+import { Check, MonitorSmartphone, X } from 'lucide-react';
 import { Can } from '@/components/shared/can';
 import { ForbiddenState } from '@/components/shared/forbidden-state';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
@@ -22,9 +22,14 @@ import {
   useMobileSerialApprovals,
   useRejectMobileSerial,
 } from '@/features/system/organization/mobile-serial-approvals/hooks/use-mobile-serial-approvals';
-import type {
-  MobileSerialApproval,
-  MobileSerialApprovalStatus,
+import {
+  LOGIN_CHANNEL_LABELS_AR,
+  normalizeLoginChannel,
+  resolvePendingSerial,
+  resolvePreviousSerial,
+  type DeviceLoginChannel,
+  type MobileSerialApproval,
+  type MobileSerialApprovalStatus,
 } from '@/features/system/organization/mobile-serial-approvals/lib/api/mobile-serial-approvals-api';
 
 const STATUS_LABELS: Record<MobileSerialApprovalStatus, string> = {
@@ -43,10 +48,6 @@ function displayName(row: MobileSerialApproval): string {
   );
 }
 
-function previousSerial(row: MobileSerialApproval): string {
-  return row.previousSerialNumber?.trim() || row.currentSerialNumber?.trim() || '—';
-}
-
 export default function MobileSerialApprovalsPage() {
   const can = useCan();
   const companyId = useDefaultCompanyId();
@@ -54,10 +55,12 @@ export default function MobileSerialApprovalsPage() {
   const canUpdate = can(CONTACTS_PAGE_PERMISSIONS.update);
 
   const [status, setStatus] = React.useState<MobileSerialApprovalStatus | 'all'>('pending');
+  const [loginChannel, setLoginChannel] = React.useState<DeviceLoginChannel | 'all'>('all');
 
   const listQuery = {
     companyId: companyId || undefined,
     status,
+    loginChannel,
     page: 1,
     limit: 100,
   };
@@ -78,8 +81,8 @@ export default function MobileSerialApprovalsPage() {
   return (
     <div className="flex flex-col gap-4">
       <SetPageTitle
-        titleAr="موافقة أجهزة الجوال"
-        descriptionAr="طلبات ربط جهاز جديد بعد تفعيل إعداد موافقة الإدارة في إعدادات الموارد البشرية."
+        titleAr="موافقة الأجهزة"
+        descriptionAr="طلبات ربط جهاز تطبيق أو موقع بعد تفعيل إعدادات الموافقة في الموارد البشرية."
         iconName="Smartphone"
       />
 
@@ -105,6 +108,22 @@ export default function MobileSerialApprovalsPage() {
                 </SelectContent>
               </Select>
             </div>
+            <div className="space-y-1.5">
+              <p className="text-xs text-muted-foreground">القناة</p>
+              <Select
+                value={loginChannel}
+                onValueChange={(v) => setLoginChannel(v as DeviceLoginChannel | 'all')}
+              >
+                <SelectTrigger className="w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">الكل</SelectItem>
+                  <SelectItem value="app">تطبيق</SelectItem>
+                  <SelectItem value="web">موقع</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           {list.isLoading ? (
@@ -126,87 +145,106 @@ export default function MobileSerialApprovalsPage() {
             </div>
           ) : (list.data?.items ?? []).length === 0 ? (
             <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-border px-6 py-12 text-center">
-              <Smartphone className="h-8 w-8 text-muted-foreground" />
+              <MonitorSmartphone className="h-8 w-8 text-muted-foreground" />
               <p className="text-sm text-muted-foreground">لا توجد طلبات ضمن هذا الفلتر.</p>
             </div>
           ) : (
             <ul className="space-y-2">
-              {(list.data?.items ?? []).map((row) => (
-                <li
-                  key={row.id}
-                  className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card px-3 py-2.5"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-sm font-medium text-foreground">{displayName(row)}</p>
-                      <Badge variant="subtle">{STATUS_LABELS[row.status] ?? row.status}</Badge>
-                    </div>
-                    {(row.userEmail || row.userPhone) ? (
-                      <p className="mt-0.5 text-xs text-muted-foreground" dir="ltr">
-                        {[row.userEmail, row.userPhone].filter(Boolean).join(' · ')}
-                      </p>
-                    ) : null}
-                    {row.userFullNameEn &&
-                    row.userFullNameEn.trim() !== (row.userFullNameAr?.trim() || '') ? (
-                      <p className="mt-0.5 text-[11px] text-muted-foreground" dir="ltr">
-                        {row.userFullNameEn}
-                      </p>
-                    ) : null}
-                    <p className="mt-1 text-[11px] text-muted-foreground" dir="ltr">
-                      السابق: {previousSerial(row)}
-                      {' → '}
-                      المطلوب: {row.requestedSerialNumber || '—'}
-                    </p>
-                    <p className="mt-0.5 text-[11px] text-muted-foreground">
-                      {row.createdAt
-                        ? new Date(row.createdAt).toLocaleString('ar')
-                        : null}
-                    </p>
-                  </div>
-                  {row.status === 'pending' ? (
-                    <Can permission={CONTACTS_PAGE_PERMISSIONS.update}>
-                      <div className="flex items-center gap-1.5">
-                        <Button
-                          type="button"
-                          size="sm"
-                          className="gap-1"
-                          disabled={busyId === row.id}
-                          onClick={() => {
-                            if (
-                              window.confirm(
-                                'الموافقة على هذا الجهاز؟ سيُرسل إيميل التفعيل للمستخدم.',
-                              )
-                            ) {
-                              approve.mutate(row.id);
-                            }
-                          }}
-                        >
-                          <Check className="h-4 w-4" />
-                          موافقة
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          className="gap-1 text-destructive hover:text-destructive"
-                          disabled={busyId === row.id}
-                          onClick={() => {
-                            if (window.confirm('رفض طلب ربط هذا الجهاز؟')) {
-                              reject.mutate(row.id);
-                            }
-                          }}
-                        >
-                          <X className="h-4 w-4" />
-                          رفض
-                        </Button>
+              {(list.data?.items ?? []).map((row) => {
+                const channel = normalizeLoginChannel(row.loginChannel);
+                return (
+                  <li
+                    key={row.id}
+                    className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card px-3 py-2.5"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-medium text-foreground">{displayName(row)}</p>
+                        <Badge variant="subtle">{STATUS_LABELS[row.status] ?? row.status}</Badge>
+                        {channel ? (
+                          <Badge variant="subtle" className="text-muted-foreground">
+                            {LOGIN_CHANNEL_LABELS_AR[channel]}
+                          </Badge>
+                        ) : null}
                       </div>
-                    </Can>
-                  ) : null}
-                  {row.status === 'pending' && !canUpdate ? (
-                    <p className="text-[11px] text-muted-foreground">تحتاج صلاحية تعديل المستخدمين</p>
-                  ) : null}
-                </li>
-              ))}
+                      {(row.userEmail || row.userPhone) ? (
+                        <p className="mt-0.5 text-xs text-muted-foreground" dir="ltr">
+                          {[row.userEmail, row.userPhone].filter(Boolean).join(' · ')}
+                        </p>
+                      ) : null}
+                      {row.userFullNameEn &&
+                      row.userFullNameEn.trim() !== (row.userFullNameAr?.trim() || '') ? (
+                        <p className="mt-0.5 text-[11px] text-muted-foreground" dir="ltr">
+                          {row.userFullNameEn}
+                        </p>
+                      ) : null}
+                      <div className="mt-1.5 space-y-0.5 text-[11px]" dir="ltr">
+                        <p className="text-muted-foreground">
+                          <span className="text-foreground/70">القديم:</span>{' '}
+                          <span className="font-mono">
+                            {resolvePreviousSerial(row) || '—'}
+                          </span>
+                        </p>
+                        <p className="text-muted-foreground">
+                          <span className="text-foreground/70">الجديد:</span>{' '}
+                          <span className="font-mono font-medium text-foreground">
+                            {resolvePendingSerial(row) || '—'}
+                          </span>
+                        </p>
+                      </div>
+                      <p className="mt-0.5 text-[11px] text-muted-foreground">
+                        {row.createdAt
+                          ? new Date(row.createdAt).toLocaleString('ar')
+                          : null}
+                      </p>
+                    </div>
+                    {row.status === 'pending' ? (
+                      <Can permission={CONTACTS_PAGE_PERMISSIONS.update}>
+                        <div className="flex items-center gap-1.5">
+                          <Button
+                            type="button"
+                            size="sm"
+                            className="gap-1"
+                            disabled={busyId === row.id}
+                            onClick={() => {
+                              if (
+                                window.confirm(
+                                  'الموافقة على هذا الجهاز؟ سيُرسل إيميل التفعيل للمستخدم.',
+                                )
+                              ) {
+                                approve.mutate(row.id);
+                              }
+                            }}
+                          >
+                            <Check className="h-4 w-4" />
+                            موافقة
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="gap-1 text-destructive hover:text-destructive"
+                            disabled={busyId === row.id}
+                            onClick={() => {
+                              if (window.confirm('رفض طلب ربط هذا الجهاز؟')) {
+                                reject.mutate(row.id);
+                              }
+                            }}
+                          >
+                            <X className="h-4 w-4" />
+                            رفض
+                          </Button>
+                        </div>
+                      </Can>
+                    ) : null}
+                    {row.status === 'pending' && !canUpdate ? (
+                      <p className="text-[11px] text-muted-foreground">
+                        تحتاج صلاحية تعديل المستخدمين
+                      </p>
+                    ) : null}
+                  </li>
+                );
+              })}
             </ul>
           )}
         </>

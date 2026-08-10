@@ -6,18 +6,30 @@ import {
 
 export type MobileSerialApprovalStatus = 'pending' | 'approved' | 'rejected';
 
+/** Device auth channel for approval requests. */
+export type DeviceLoginChannel = 'app' | 'web';
+
 export type MobileSerialApproval = {
   id: string;
   companyId: string;
   userId: string;
+  loginChannel?: DeviceLoginChannel | 'mobile' | string | null;
   userFullNameAr?: string | null;
   userFullNameEn?: string | null;
   userEmail?: string | null;
   userPhone?: string | null;
+  /** الرقم السابق المرتبط بالقناة */
   previousSerialNumber?: string | null;
-  /** Alias some APIs may use instead of previousSerialNumber */
+  /** Alias — نفس previousSerialNumber */
+  oldMobileSerialNumber?: string | null;
+  /** @deprecated استخدم previousSerialNumber / oldMobileSerialNumber */
   currentSerialNumber?: string | null;
-  requestedSerialNumber: string;
+  /** الرقم الجديد المطلوب تفعيله */
+  pendingSerialNumber?: string | null;
+  /** Alias — نفس pendingSerialNumber */
+  newMobileSerialNumber?: string | null;
+  /** @deprecated استخدم pendingSerialNumber / newMobileSerialNumber */
+  requestedSerialNumber?: string | null;
   status: MobileSerialApprovalStatus;
   createdAt: string;
   updatedAt?: string | null;
@@ -29,6 +41,8 @@ export type MobileSerialApproval = {
 export type MobileSerialApprovalListQuery = {
   companyId?: string;
   status?: MobileSerialApprovalStatus | 'all';
+  /** Filter by channel: `app` | `web` */
+  loginChannel?: DeviceLoginChannel | 'all';
   page?: number;
   limit?: number;
   search?: string;
@@ -38,6 +52,8 @@ function listQuery(query: MobileSerialApprovalListQuery) {
   return {
     companyId: query.companyId || undefined,
     status: query.status && query.status !== 'all' ? query.status : undefined,
+    loginChannel:
+      query.loginChannel && query.loginChannel !== 'all' ? query.loginChannel : undefined,
     page: query.page ?? 1,
     limit: query.limit ?? 50,
     search: query.search?.trim() || undefined,
@@ -85,3 +101,36 @@ export const mobileSerialApprovalsApi = {
     });
   },
 };
+
+export function normalizeLoginChannel(
+  channel: MobileSerialApproval['loginChannel'],
+): DeviceLoginChannel | null {
+  if (channel === 'web') return 'web';
+  if (channel === 'app' || channel === 'mobile') return 'app';
+  return null;
+}
+
+export const LOGIN_CHANNEL_LABELS_AR: Record<DeviceLoginChannel, string> = {
+  app: 'تطبيق',
+  web: 'موقع',
+};
+
+/** الرقم السابق (قديم) — يعمل لتطبيق وموقع. */
+export function resolvePreviousSerial(row: MobileSerialApproval): string {
+  return (
+    row.previousSerialNumber?.trim() ||
+    row.oldMobileSerialNumber?.trim() ||
+    row.currentSerialNumber?.trim() ||
+    ''
+  );
+}
+
+/** الرقم الجديد المطلوب تفعيله — يعمل لتطبيق وموقع. */
+export function resolvePendingSerial(row: MobileSerialApproval): string {
+  return (
+    row.pendingSerialNumber?.trim() ||
+    row.newMobileSerialNumber?.trim() ||
+    row.requestedSerialNumber?.trim() ||
+    ''
+  );
+}
