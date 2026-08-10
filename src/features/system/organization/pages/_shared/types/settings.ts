@@ -32,6 +32,8 @@ export interface HrCompanySettings {
   notifyContractSentForApproval: boolean;
   notifyEmployeeAssignedToCompany: boolean;
   notifyEmployeeAssignedToBranch: boolean;
+  /** Mobile: enforce check-in/check-out punch windows. Default false. */
+  hideEarlyCheckoutUntilShortageWindow: boolean;
   createdAt: string;
   updatedAt: string;
   createdBy?: string | null;
