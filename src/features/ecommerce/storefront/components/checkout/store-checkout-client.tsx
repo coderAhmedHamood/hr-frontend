@@ -5,33 +5,35 @@ import Image from 'next/image';
 import { useQuery } from '@tanstack/react-query';
 import { useFormatter, useLocale, useTranslations } from 'next-intl';
 import {
+  Banknote,
+  Building2,
   Check,
   ChevronLeft,
   CreditCard,
   FileText,
   MapPin,
+  MoreHorizontal,
   PackageSearch,
   Paperclip,
+  QrCode,
+  Share2,
   ShieldCheck,
   Truck,
   Wallet,
+  type LucideIcon,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { useQuery } from '@tanstack/react-query';
 import type {
   CheckoutAddressInput,
   CheckoutPaymentMethod,
 } from '@/features/ecommerce/storefront/domain/checkout';
-<<<<<<< HEAD
+import { paymentMethodRequiresAccount } from '@/features/ecommerce/storefront/domain/checkout';
 import { fetchPublicShippingQuote } from '@/features/ecommerce/admin/delivery-rates/lib/api/public-shipping-quote-api';
-=======
 import {
-  calculateShippingFee,
-  paymentMethodRequiresAccount,
-} from '@/features/ecommerce/storefront/domain/checkout';
-import { fetchPublicPaymentAccounts } from '@/features/ecommerce/admin/payment-accounts/lib/api/public-payment-accounts-api';
+  fetchPublicPaymentAccounts,
+  type PublicPaymentAccount,
+} from '@/features/ecommerce/admin/payment-accounts/lib/api/public-payment-accounts-api';
 import type { PaymentAccountType } from '@/features/ecommerce/admin/payment-accounts/lib/api/payment-accounts-api';
->>>>>>> 843a5ec680e17f44df3fe0aa489d34f4ca2774c2
 import type { StorefrontCompanyConfig } from '@/features/ecommerce/storefront/domain/storefront-models';
 import { placeStorefrontOrder } from '@/features/ecommerce/storefront/lib/checkout-actions';
 import { PartnerAuthApiError } from '@/features/ecommerce/storefront/domain/partner-auth';
@@ -85,6 +87,37 @@ const STEPS: { id: StepId; icon: typeof MapPin }[] = [
   { id: 'payment', icon: Wallet },
   { id: 'review', icon: ShieldCheck },
 ];
+
+const PAYMENT_METHOD_ICONS: Record<CheckoutPaymentMethod, LucideIcon> = {
+  cash_on_delivery: Truck,
+  cash: Banknote,
+  bank: Building2,
+  network: Share2,
+  wallet: Wallet,
+  card: CreditCard,
+  other: MoreHorizontal,
+};
+
+function paymentAccountDisplayName(
+  account: PublicPaymentAccount,
+  locale: StorefrontLocale,
+): string {
+  return locale === 'en' && account.nameEn ? account.nameEn : account.nameAr;
+}
+
+function paymentAccountDetailsLine(account: PublicPaymentAccount): string {
+  return [account.providerName, account.accountHolderName, account.mobile, account.iban, account.accountNumber]
+    .filter(Boolean)
+    .join(' · ');
+}
+
+function paymentAccountInstructions(
+  account: PublicPaymentAccount,
+  locale: StorefrontLocale,
+): string | null {
+  const text = locale === 'en' ? account.instructionsEn : account.instructionsAr;
+  return text?.trim() || null;
+}
 
 type CheckoutClientProps = {
   checkoutConfig: StorefrontCompanyConfig['checkout'];
@@ -165,6 +198,15 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
 
   const selectedPaymentAccount =
     paymentAccounts.find((row) => row.id === paymentAccountId) ?? null;
+  const selectedAccountName = selectedPaymentAccount
+    ? paymentAccountDisplayName(selectedPaymentAccount, locale)
+    : null;
+  const selectedAccountDetails = selectedPaymentAccount
+    ? paymentAccountDetailsLine(selectedPaymentAccount)
+    : '';
+  const selectedAccountInstructions = selectedPaymentAccount
+    ? paymentAccountInstructions(selectedPaymentAccount, locale)
+    : null;
 
   React.useEffect(() => {
     if (paymentMethod === 'cash_on_delivery') {
@@ -761,6 +803,7 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
                       companyId={companyId}
                       mode="public"
                       showCountry={false}
+                      className="sm:grid-cols-2"
                       value={{
                         countryId: address.countryId ?? null,
                         cityId: address.cityId ?? null,
@@ -866,7 +909,7 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
             </header>
             <div className="grid gap-3 p-5">
               {paymentMethods.map((id) => {
-                const Icon = id === 'card' ? CreditCard : Truck;
+                const Icon = PAYMENT_METHOD_ICONS[id] ?? Wallet;
                 const selected = paymentMethod === id;
                 return (
                   <button
@@ -941,16 +984,11 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
                     <ul className="space-y-2">
                       {paymentAccounts.map((account) => {
                         const selected = paymentAccountId === account.id;
-                        const details = [
-                          account.providerName,
-                          account.mobile,
-                          account.iban,
-                          account.accountNumber,
-                        ]
-                          .filter(Boolean)
-                          .join(' · ');
+                        const name = paymentAccountDisplayName(account, locale);
+                        const details = paymentAccountDetailsLine(account);
+                        const instructions = paymentAccountInstructions(account, locale);
                         return (
-                          <li key={account.id}>
+                          <li key={account.id} className="space-y-2">
                             <button
                               type="button"
                               onClick={() => setPaymentAccountId(account.id)}
@@ -962,13 +1000,13 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
                               )}
                             >
                               {account.logoUrl ? (
-                                <Image
+                                // eslint-disable-next-line @next/next/no-img-element -- arbitrary store CDN host
+                                <img
                                   src={account.logoUrl}
                                   alt=""
                                   width={40}
                                   height={40}
                                   className="h-10 w-10 rounded-lg object-contain"
-                                  unoptimized
                                 />
                               ) : (
                                 <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted text-primary">
@@ -977,22 +1015,16 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
                               )}
                               <span className="min-w-0 flex-1">
                                 <span className="block text-sm font-semibold text-foreground">
-                                  {locale === 'en' && account.nameEn
-                                    ? account.nameEn
-                                    : account.nameAr}
+                                  {name}
                                 </span>
                                 {details ? (
                                   <span className="mt-0.5 block text-xs text-muted-foreground" dir="ltr">
                                     {details}
                                   </span>
                                 ) : null}
-                                {(locale === 'en'
-                                  ? account.instructionsEn
-                                  : account.instructionsAr) ? (
+                                {instructions ? (
                                   <span className="mt-1 block text-[11px] leading-relaxed text-muted-foreground">
-                                    {locale === 'en'
-                                      ? account.instructionsEn
-                                      : account.instructionsAr}
+                                    {instructions}
                                   </span>
                                 ) : null}
                               </span>
@@ -1008,15 +1040,24 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
                               </span>
                             </button>
                             {selected && account.qrImageUrl ? (
-                              <div className="mt-2 flex justify-center rounded-xl border border-border bg-card p-3">
-                                <Image
-                                  src={account.qrImageUrl}
-                                  alt="QR"
-                                  width={160}
-                                  height={160}
-                                  className="h-40 w-40 object-contain"
-                                  unoptimized
-                                />
+                              <div className="rounded-xl border border-border bg-card p-4">
+                                <div className="mb-3 flex items-center justify-center gap-2 text-sm font-medium text-foreground">
+                                  <QrCode className="h-4 w-4 text-primary" aria-hidden />
+                                  {t('checkout.paymentQrTitle')}
+                                </div>
+                                <div className="flex justify-center">
+                                  {/* eslint-disable-next-line @next/next/no-img-element -- arbitrary store CDN host */}
+                                  <img
+                                    src={account.qrImageUrl}
+                                    alt={t('checkout.paymentQrAlt', { name })}
+                                    width={176}
+                                    height={176}
+                                    className="h-44 w-44 rounded-lg bg-white object-contain p-2"
+                                  />
+                                </div>
+                                <p className="mt-3 text-center text-[11px] leading-relaxed text-muted-foreground">
+                                  {t('checkout.paymentQrHint')}
+                                </p>
                               </div>
                             ) : null}
                           </li>
@@ -1252,15 +1293,40 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
                   <p className="mt-1 text-xs text-muted-foreground">
                     {t(`checkout.paymentMethods.${paymentMethod}.description`)}
                   </p>
-                  {selectedPaymentAccount ? (
-                    <p className="mt-2 text-xs text-muted-foreground">
-                      {t('checkout.paymentAccountSelected', {
-                        name:
-                          locale === 'en' && selectedPaymentAccount.nameEn
-                            ? selectedPaymentAccount.nameEn
-                            : selectedPaymentAccount.nameAr,
-                      })}
-                    </p>
+                  {selectedPaymentAccount && selectedAccountName ? (
+                    <div className="mt-3 space-y-2 rounded-xl border border-border bg-card p-3">
+                      <p className="text-xs font-medium text-foreground">
+                        {t('checkout.paymentAccountSelected', { name: selectedAccountName })}
+                      </p>
+                      {selectedAccountDetails ? (
+                        <p className="text-xs text-muted-foreground" dir="ltr">
+                          {selectedAccountDetails}
+                        </p>
+                      ) : null}
+                      {selectedAccountInstructions ? (
+                        <p className="text-[11px] leading-relaxed text-muted-foreground">
+                          {selectedAccountInstructions}
+                        </p>
+                      ) : null}
+                      {selectedPaymentAccount.qrImageUrl ? (
+                        <div className="pt-1">
+                          <div className="mb-2 flex items-center justify-center gap-1.5 text-xs font-medium text-foreground">
+                            <QrCode className="h-3.5 w-3.5 text-primary" aria-hidden />
+                            {t('checkout.paymentQrTitle')}
+                          </div>
+                          <div className="flex justify-center">
+                            {/* eslint-disable-next-line @next/next/no-img-element -- arbitrary store CDN host */}
+                            <img
+                              src={selectedPaymentAccount.qrImageUrl}
+                              alt={t('checkout.paymentQrAlt', { name: selectedAccountName })}
+                              width={144}
+                              height={144}
+                              className="h-36 w-36 rounded-lg bg-white object-contain p-2"
+                            />
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
                   ) : null}
                   {paymentMethod !== 'cash_on_delivery' &&
                   paymentMethod !== 'cash' &&

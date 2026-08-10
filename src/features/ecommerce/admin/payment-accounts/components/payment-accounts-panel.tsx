@@ -2,7 +2,6 @@
 
 import * as React from 'react';
 import { Archive, CreditCard, Pencil, Plus, RotateCcw } from 'lucide-react';
-import { Can } from '@/components/shared/can';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -193,14 +192,6 @@ export function PaymentAccountsPanel({ companyId, currencyCode }: Props) {
   const canDelete = can(PAYMENT_ACCOUNTS_PERMISSIONS.delete);
 
   return (
-    <Can
-      permission={PAYMENT_ACCOUNTS_PERMISSIONS.read}
-      fallback={
-        <p className="text-sm text-muted-foreground">
-          لا تملك صلاحية عرض حسابات الدفع (`sta.payment-accounts.read`).
-        </p>
-      }
-    >
       <div className="space-y-4">
         <p className="text-xs leading-relaxed text-muted-foreground">
           أنشئ حسابات البنك/المحفظة/الشبكة ثم فعّل طرق الدفع المطابقة من تبويب الشحن والدفع. الظهور
@@ -592,6 +583,5 @@ export function PaymentAccountsPanel({ companyId, currencyCode }: Props) {
           </DialogContent>
         </Dialog>
       </div>
-    </Can>
   );
 }

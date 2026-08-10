@@ -140,28 +140,3 @@ export const STOREFRONT_ORDER_STATUS_FLOW: StorefrontOrderStatus[] = [
   'delivered',
 ];
 
-export const YEMEN_CITIES = [
-  'صنعاء',
-  'عدن',
-  'تعز',
-  'الحديدة',
-  'إب',
-  'ذمار',
-  'المكلا',
-  'سيئون',
-  'حجة',
-  'صعدة',
-  'مأرب',
-  'البيضاء',
-  'لحج',
-  'أبين',
-  'الضالع',
-  'شبوة',
-  'المحويت',
-  'عمران',
-] as const;
-
-/** Shipping fee stub — fee rules removed; always free until reworked. */
-export function calculateShippingFee(_subtotalAmount: number, currency = 'YER'): Money {
-  return { amount: 0, currency };
-}

@@ -3,8 +3,8 @@
 عقد التزام لحسابات الشركة المعروضة عند الشراء وربطها بالطلبات (تقارير / تتبع).
 
 **Migration:** `1783373644659-company-payment-accounts.ts`  
-**صلاحيات:** `sta.payment-accounts.read|create|update|delete`  
-**بعد السحب:** `npm run db:migrate` ثم `npm run system:init`
+**صلاحيات:** `sta.payment-accounts.create|update|delete` (لا يوجد `.read` — القائمة بـ JWT فقط)  
+**بعد السحب:** `npm run db:migrate` ثم `npm run system:init`، ثم أعد تسجيل الدخول ليظهر الـ JWT المحدّث
 
 ---
 
