@@ -1,0 +1,88 @@
+[
+  {
+    "id": "attr-color",
+    "companyId": "demo-company",
+    "nameAr": "اللون",
+    "displayType": "color",
+    "createVariant": "always",
+    "values": [
+      {
+        "id": "val-red",
+        "nameAr": "أحمر",
+        "freeText": "أحمر لامع",
+        "colorHex": "#ef4444",
+        "imageUrl": "https://images.unsplash.com/photo-1512436991641-6745cdb1723f?w=120&h=120&fit=crop",
+        "defaultExtraPrice": 0
+      },
+      {
+        "id": "val-blue",
+        "nameAr": "أزرق",
+        "colorHex": "#3b82f6",
+        "defaultExtraPrice": 0
+      },
+      {
+        "id": "val-black",
+        "nameAr": "أسود",
+        "colorHex": "#111827",
+        "defaultExtraPrice": 10
+      }
+    ],
+    "isActive": true,
+    "createdAt": "2026-06-01T08:00:00.000Z",
+    "updatedAt": "2026-06-01T08:00:00.000Z"
+  },
+  {
+    "id": "attr-finish",
+    "companyId": "demo-company",
+    "nameAr": "الخامة",
+    "displayType": "image",
+    "createVariant": "dynamic",
+    "values": [
+      {
+        "id": "val-wood",
+        "nameAr": "خشب",
+        "freeText": "طبيعي",
+        "imageUrl": "https://images.unsplash.com/photo-1503387762-592deb58ef4e?w=120&h=120&fit=crop",
+        "defaultExtraPrice": 25
+      },
+      {
+        "id": "val-metal",
+        "nameAr": "معدن",
+        "imageUrl": "https://images.unsplash.com/photo-1504328345606-18bbc8c9d7d1?w=120&h=120&fit=crop",
+        "defaultExtraPrice": 40
+      }
+    ],
+    "isActive": true,
+    "createdAt": "2026-06-01T08:30:00.000Z",
+    "updatedAt": "2026-06-01T08:30:00.000Z"
+  },
+  {
+    "id": "attr-size",
+    "companyId": "demo-company",
+    "nameAr": "المقاس",
+    "displayType": "radio",
+    "createVariant": "always",
+    "values": [
+      { "id": "val-s", "nameAr": "S", "defaultExtraPrice": 0 },
+      { "id": "val-m", "nameAr": "M", "defaultExtraPrice": 0 },
+      { "id": "val-l", "nameAr": "L", "defaultExtraPrice": 5 }
+    ],
+    "isActive": true,
+    "createdAt": "2026-06-01T08:00:00.000Z",
+    "updatedAt": "2026-06-01T08:00:00.000Z"
+  },
+  {
+    "id": "attr-material",
+    "companyId": "demo-company",
+    "nameAr": "المادة",
+    "displayType": "select",
+    "createVariant": "never",
+    "values": [
+      { "id": "val-cotton", "nameAr": "قطن", "freeText": "خفيف" },
+      { "id": "val-poly", "nameAr": "بوليستر" }
+    ],
+    "isActive": true,
+    "createdAt": "2026-06-02T08:00:00.000Z",
+    "updatedAt": "2026-06-02T08:00:00.000Z"
+  }
+]

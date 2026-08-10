@@ -90,6 +90,26 @@ export function useEmployeeResignations(employee: Employee, enabled: boolean) {
     }
   }, []);
 
+  const sendToEmployee = React.useCallback(
+    async (id: string) => {
+      setSaving(true);
+      try {
+        const updated = await employeeResignationsApi.sendToEmployee(id, {
+          updatedBy: createdBy,
+        });
+        toast.success('تم إرسال طلب الاستقالة للموظف');
+        await reload();
+        return updated;
+      } catch (err) {
+        handleApiError(err, 'employee-resignations.send');
+        return null;
+      } finally {
+        setSaving(false);
+      }
+    },
+    [createdBy, reload],
+  );
+
   return {
     companyId,
     items,
@@ -100,5 +120,6 @@ export function useEmployeeResignations(employee: Employee, enabled: boolean) {
     reload,
     create,
     getById,
+    sendToEmployee,
   };
 }

@@ -442,7 +442,7 @@ export function CompensationReportPanel({
               createdBy: actor,
             });
             notificationParts.push(
-              `سند توقيع: ${bulk.created} سنداً` +
+              `سند راتب: ${bulk.created} سنداً` +
                 (bulk.skipped > 0 ? ` (تخطّي ${bulk.skipped})` : ''),
             );
           } catch (pdfErr) {
@@ -450,7 +450,7 @@ export function CompensationReportPanel({
               pdfErr,
               'compensation.cash-receipt-signature',
             );
-            toast.error(`تم إنشاء القسائم لكن فشل سند التوقيع/إشعاره: ${displayMessage}`);
+            toast.error(`تم إنشاء القسائم لكن فشل سند الراتب/إشعاره: ${displayMessage}`);
           }
         }
 

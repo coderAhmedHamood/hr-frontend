@@ -1,0 +1,215 @@
+{
+  "nav": {
+    "home": "الرئيسية",
+    "products": "المنتجات",
+    "categories": "الفئات",
+    "brands": "العلامات التجارية",
+    "search": "بحث",
+    "about": "من نحن",
+    "contact": "تواصل معنا",
+    "blog": "المدونة",
+    "faq": "الأسئلة الشائعة",
+    "login": "تسجيل الدخول",
+    "wishlist": "المفضلة",
+    "cart": "السلة",
+    "bestSellers": "الأكثر مبيعاً",
+    "newArrivals": "وصل حديثاً",
+    "offersZone": "العروض",
+    "wholesale": "أسعار الجملة",
+    "topBrands": "أفضل الماركات"
+  },
+  "home": {
+    "browseProducts": "تصفّح المنتجات",
+    "categories": "تسوق حسب الفئة",
+    "latestProducts": "وصل حديثاً",
+    "bestSellers": "الأكثر مبيعاً",
+    "dealsToday": "عروض اليوم",
+    "viewAll": "عرض الكل",
+    "featuredBrands": "علاماتنا التجارية",
+    "noProducts": "لا توجد منتجات بعد.",
+    "noCategories": "لا توجد تصنيفات بعد."
+  },
+  "megaMenu": {
+    "emptySubcategories": "لا توجد تصنيفات فرعية بعد. أضفها من لوحة التحكم ← التصنيفات."
+  },
+  "hero": {
+    "shopNow": "تسوق الآن"
+  },
+  "components": {
+    "discount": "-{percent}%",
+    "ratingLabel": "تقييم {rating} من 5",
+    "reviewCount": "({count})",
+    "badgeBestSeller": "أفضل المنتجات",
+    "badgeDeals": "عروض",
+    "badgeWholesale": "جملة",
+    "sellingFast": "بتخلّص بسرعة"
+  },
+  "offers": {
+    "title": "العروض",
+    "description": "منتجات مخفّضة وعروض محدودة — وفّر على مشترياتك اليومية."
+  },
+  "wholesale": {
+    "title": "أسعار الجملة",
+    "description": "أسعار جملة مختارة للمتاجر والمشترين بكميات أكبر. السعر الظاهر هو سعر الجملة."
+  },
+  "products": {
+    "title": "المنتجات",
+    "all": "الكل",
+    "noResults": "لا توجد منتجات مطابقة.",
+    "addToCart": "أضف إلى السلة",
+    "cartComingSoon": "سيتم تفعيل السلة قريبًا",
+    "sku": "SKU",
+    "sortBy": "ترتيب حسب",
+    "filters": "تصفية",
+    "priceRange": "نطاق السعر",
+    "priceAsc": "السعر: من الأقل"
+  },
+  "cart": {
+    "title": "سلة التسوق",
+    "empty": "سلتك فارغة",
+    "emptyDescription": "أضف منتجات من المتجر لتبدأ التسوق.",
+    "continueShopping": "متابعة التسوق",
+    "total": "الإجمالي",
+    "checkout": "إتمام الطلب",
+    "remove": "إزالة",
+    "quantity": "الكمية",
+    "subtotal": "المجموع الفرعي"
+  },
+  "wishlist": {
+    "title": "المفضلة",
+    "empty": "قائمة المفضلة فارغة",
+    "emptyDescription": "احفظ المنتجات التي تعجبك بالضغط على أيقونة القلب.",
+    "browseProducts": "تصفّح المنتجات"
+  },
+  "footer": {
+    "paymentMethods": "طرق الدفع",
+    "categoryDirectory": "دليل التصنيفات",
+    "cr": "السجل التجاري",
+    "tagline": "تسوّق بثقة — منتجات مختارة وتجربة سلسة بالعربية والإنجليزية."
+  },
+  "categories": {
+    "title": "التصنيفات",
+    "noResults": "لا توجد منتجات في هذا التصنيف.",
+    "subcategories": "الأقسام الفرعية",
+    "nestedSubcategories": "أقسام فرعية أدق",
+    "viewAllInCategory": "عرض كل القسم"
+  },
+  "brands": {
+    "title": "العلامات التجارية",
+    "viewProducts": "عرض المنتجات",
+    "noResults": "لا توجد علامات تجارية.",
+    "website": "الموقع الرسمي"
+  },
+  "search": {
+    "title": "البحث",
+    "placeholder": "ابحث عن منتج، تصنيف، أو علامة تجارية…",
+    "submit": "بحث",
+    "noQuery": "اكتب كلمة للبحث عن المنتجات.",
+    "noResults": "لم نعثر على نتائج مطابقة.",
+    "resultsCount": "نتيجة",
+    "resultsFor": "لـ",
+    "products": "منتجات",
+    "categories": "تصنيفات",
+    "brands": "علامات تجارية"
+  },
+  "blog": {
+    "title": "المدونة",
+    "readMore": "اقرأ المزيد",
+    "noPosts": "لا توجد مقالات بعد.",
+    "backToBlog": "العودة إلى المدونة",
+    "publishedAt": "نُشر في"
+  },
+  "about": {
+    "title": "من نحن"
+  },
+  "contact": {
+    "title": "تواصل معنا",
+    "formName": "الاسم",
+    "formEmail": "البريد الإلكتروني",
+    "formMessage": "الرسالة",
+    "formSubmit": "إرسال الرسالة",
+    "formSuccess": "شكرًا لتواصلك. سنرد عليك في أقرب وقت.",
+    "formNote": "هذا النموذج تجريبي — الإرسال غير متصل بالخادم بعد.",
+    "phone": "الهاتف",
+    "email": "البريد",
+    "address": "العنوان",
+    "hours": "ساعات العمل"
+  },
+  "faq": {
+    "title": "الأسئلة الشائعة",
+    "empty": "لا توجد أسئلة شائعة منشورة بعد."
+  },
+  "legal": {
+    "privacy": "سياسة الخصوصية",
+    "terms": "الشروط والأحكام",
+    "returns": "سياسة الإرجاع",
+    "lastUpdated": "آخر تحديث"
+  },
+  "stock": {
+    "in_stock": "متوفر",
+    "out_of_stock": "غير متوفر",
+    "preorder": "طلب مسبق",
+    "discontinued": "موقوف"
+  },
+  "seo": {
+    "faqDescription": "إجابات على الأسئلة الأكثر شيوعًا.",
+    "blogDescription": "مقالات ونصائح من فريقنا.",
+    "brandsDescription": "تعرّف على العلامات التجارية المتوفرة في متجرنا.",
+    "categoriesDescription": "تصفّح منتجاتنا حسب التصنيف.",
+    "searchDescription": "ابحث عن المنتجات والتصنيفات والعلامات التجارية.",
+    "contactType": "خدمة العملاء"
+  },
+  "a11y": {
+    "skipToContent": "تخطي إلى المحتوى",
+    "breadcrumbs": "مسار التصفح",
+    "pagination": "ترقيم الصفحات",
+    "paginationPrevious": "الصفحة السابقة",
+    "paginationNext": "الصفحة التالية",
+    "pageOf": "صفحة {page} من {total}",
+    "mainNav": "التنقل الرئيسي",
+    "mobileNav": "التنقل للجوال",
+    "openMenu": "فتح القائمة",
+    "closeMenu": "إغلاق القائمة",
+    "storeFeatures": "مميزات المتجر",
+    "socialInstagram": "إنستغرام",
+    "socialTwitter": "تويتر",
+    "socialFacebook": "فيسبوك",
+    "socialWhatsapp": "واتساب",
+    "languageSwitcher": "تغيير اللغة",
+    "themeSwitcher": "تغيير المظهر",
+    "carouselPrevious": "الشريحة السابقة",
+    "carouselNext": "الشريحة التالية",
+    "carouselSlide": "الشريحة {number}",
+    "carousel": "عرض شرائح الصور",
+    "decreaseQuantity": "تقليل الكمية",
+    "increaseQuantity": "زيادة الكمية"
+  },
+  "breadcrumbs": {
+    "home": "الرئيسية"
+  },
+  "common": {
+    "back": "رجوع",
+    "loading": "جاري التحميل…",
+    "errorTitle": "حدث خطأ",
+    "errorDescription": "تعذّر تحميل هذه الصفحة. حاول مرة أخرى.",
+    "retry": "إعادة المحاولة",
+    "notFoundTitle": "الصفحة غير موجودة",
+    "notFoundDescription": "الصفحة التي تبحث عنها غير متوفرة أو نُقلت.",
+    "backToStore": "العودة إلى المتجر"
+  },
+  "mobileTab": {
+    "home": "الرئيسية",
+    "categories": "الفئات",
+    "account": "حسابي",
+    "cart": "عربة التسوق"
+  },
+  "locale": {
+    "ar": "العربية",
+    "en": "English"
+  },
+  "theme": {
+    "light": "فاتح",
+    "dark": "داكن",
+    "system": "النظام"
+  }
+}

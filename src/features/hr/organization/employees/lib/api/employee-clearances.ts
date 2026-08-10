@@ -1,6 +1,7 @@
 import { apiRequest, type PaginatedResult } from '@/features/hr/lib/api/client';
 
 export type EmployeeClearanceStatus = 'draft' | 'issued' | 'revoked';
+export type EmployeeClearanceSignatureStatus = 'none' | 'pending' | 'signed';
 
 export type EmployeeClearanceDto = {
   id: string;
@@ -19,6 +20,11 @@ export type EmployeeClearanceDto = {
   signatureName: string | null;
   nationalId: string | null;
   status: EmployeeClearanceStatus | string;
+  employeeSignatureStatus?: EmployeeClearanceSignatureStatus | string;
+  signatureMethod?: string | null;
+  signedAttachmentId?: string | null;
+  signatureImageUrl?: string | null;
+  employeeSignedAt?: string | null;
   notes: string | null;
   attachments: unknown[] | null;
   issuedAt: string | null;
@@ -76,5 +82,15 @@ export const employeeClearancesApi = {
       method: 'POST',
       body: payload,
     });
+  },
+
+  sendToEmployee(
+    id: string,
+    payload?: { issuedByEmployeeId?: string; updatedBy?: string | null },
+  ) {
+    return apiRequest<EmployeeClearanceDto>(
+      `/hr/employee-clearances/${id}/send-to-employee`,
+      { method: 'POST', body: payload ?? {} },
+    );
   },
 };

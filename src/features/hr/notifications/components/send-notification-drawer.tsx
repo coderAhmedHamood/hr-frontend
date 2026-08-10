@@ -87,14 +87,14 @@ const PAYROLL_DELIVERY_OPTIONS: {
   },
   {
     value: 'pdf_sign',
-    title: 'سند PDF للتوقيع',
-    description: 'ترقية سند الاستلام وإرسال إشعار لفتحه والتوقيع.',
+    title: 'سند راتب للتأكيد',
+    description: 'ترقية سند الراتب وإرسال إشعار لفتحه والتأكيد.',
     icon: FileSignature,
   },
   {
     value: 'both',
     title: 'الإثنان معاً',
-    description: 'إشعار القسيمة + سند الاستلام للتوقيع في خطوة واحدة.',
+    description: 'إشعار القسيمة + سند الراتب للتأكيد في خطوة واحدة.',
     icon: Layers2,
   },
 ];
@@ -250,7 +250,7 @@ export function SendNotificationDrawer({
 
         if (deliveryIncludesPdfSign(form.payrollDeliveryMode)) {
           if (targetEmployeeIds.length === 0) {
-            setFormError('لا يوجد موظفون لإصدار سندات الاستلام');
+            setFormError('لا يوجد موظفون لإصدار سندات الراتب');
             setSaving(false);
             return;
           }
@@ -388,7 +388,7 @@ export function SendNotificationDrawer({
           <div className="space-y-0.5">
             <p className="text-sm font-semibold text-foreground">طريقة الإرسال — رواتب</p>
             <p className="text-[11px] leading-relaxed text-muted-foreground">
-              اختر ماذا يصل للموظف بعد الإرسال. سند التوقيع يعتمد على سندات الاستلام المُولَّدة للفترة.
+              اختر ماذا يصل للموظف بعد الإرسال. سند التأكيد يعتمد على سندات الراتب المُولَّدة للفترة.
             </p>
           </div>
 

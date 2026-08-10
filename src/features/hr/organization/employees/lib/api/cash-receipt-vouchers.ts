@@ -1,4 +1,9 @@
-import { apiRequest, type PaginatedResult } from '@/features/hr/lib/api/client';
+import {
+  apiDownloadRequest,
+  apiDownloadToDevice,
+  apiRequest,
+  type PaginatedResult,
+} from '@/features/hr/lib/api/client';
 
 export type CashReceiptVoucherStatus = 'draft' | 'issued' | 'revoked';
 
@@ -19,7 +24,7 @@ export type CashReceiptVoucherPurpose =
   | 'other';
 
 export const CASH_RECEIPT_VOUCHER_PURPOSE_LABELS: Record<CashReceiptVoucherPurpose, string> = {
-  salary: 'استلام راتب شهر',
+  salary: 'راتب شهر',
   transport_allowance: 'بدل مواصلات شهر',
   overtime: 'بدل إضافي',
   inventory_shortage: 'بدل تحمل عجز مخزون شهر',
@@ -177,6 +182,29 @@ export const cashReceiptVouchersApi = {
     return apiRequest<CashReceiptVoucherDto>(
       `/hr/cash-receipt-vouchers/${id}/employee-sign`,
       { method: 'POST', body: payload },
+    );
+  },
+
+  /** Official PDF generated on-demand from backend snapshot (binary). */
+  getPdf(id: string) {
+    return apiDownloadRequest(`/hr/cash-receipt-vouchers/${id}/pdf`, {
+      defaultFileName: `cash-receipt-${id}.pdf`,
+    });
+  },
+
+  downloadPdf(id: string, fileName?: string) {
+    return apiDownloadToDevice(`/hr/cash-receipt-vouchers/${id}/pdf`, {
+      defaultFileName: fileName ?? `cash-receipt-${id}.pdf`,
+    });
+  },
+
+  sendToEmployee(
+    id: string,
+    payload?: { issuedByEmployeeId?: string; updatedBy?: string | null },
+  ) {
+    return apiRequest<CashReceiptVoucherDto>(
+      `/hr/cash-receipt-vouchers/${id}/send-to-employee`,
+      { method: 'POST', body: payload ?? {} },
     );
   },
 };

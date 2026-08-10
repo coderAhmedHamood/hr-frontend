@@ -10,7 +10,6 @@ import {
   LogOut,
   Smartphone,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { cn } from '@/shared/utils';
 import type { EmployeeProfileModel } from '@/features/hr/organization/employees/hooks/useEmployeeProfileModel';
 import { EmployeeExperienceCertificatesPanel } from '@/features/hr/organization/employees/components/sections/employee-experience-certificates-panel';
@@ -18,6 +17,7 @@ import { EmployeeClearancesPanel } from '@/features/hr/organization/employees/co
 import { EmployeeResignationsPanel } from '@/features/hr/organization/employees/components/sections/employee-resignations-panel';
 import { EmployeeCashReceiptVouchersPanel } from '@/features/hr/organization/employees/components/sections/employee-cash-receipt-vouchers-panel';
 import { EmployeeSettlementsPanel } from '@/features/hr/organization/employees/components/sections/employee-settlements-panel';
+import { EmployeeMobileCircularPanel } from '@/features/hr/organization/employees/components/sections/employee-mobile-circular-panel';
 
 type FormTabKey =
   | 'resignation'
@@ -59,8 +59,8 @@ const FORM_TABS = [
   {
     key: 'cash-receipt' as const,
     shortLabel: 'سند راتب',
-    label: 'سند استلام نقدي للراتب',
-    description: 'إثبات استلام الراتب نقداً',
+    label: 'سند راتب',
+    description: 'تأكيد راتب الشهر قبل الصرف',
     icon: Banknote,
   },
   {
@@ -82,13 +82,11 @@ export function EmployeeRoseFormsSection({ model }: { model: EmployeeProfileMode
   const { employee, openHrPdfPrep } = model;
   const [activeTab, setActiveTab] = React.useState<FormTabKey>('resignation');
 
-  const active = FORM_TABS.find((tab) => tab.key === activeTab) ?? FORM_TABS[0];
-  const ActiveIcon = active.icon;
-
   return (
     <section className="space-y-5">
       <div className="relative overflow-hidden rounded-2xl border border-border/80 bg-card shadow-soft">
-        <div className="pointer-events-none absolute inset-0 dotted-bg opacity-25" aria-hidden />
+        <div className="pointer-events-none absolute inset-0 dotted-bg opacity-20" aria-hidden />
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px gold-accent-line" aria-hidden />
         <div className="relative p-5 sm:p-6 space-y-5">
           <div className="flex items-start gap-3 min-w-0">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
@@ -100,20 +98,19 @@ export function EmployeeRoseFormsSection({ model }: { model: EmployeeProfileMode
               </h2>
               <p className="text-sm text-muted-foreground mt-1 leading-relaxed max-w-2xl">
                 معاينة وتحميل نماذج الموارد البشرية المعتمدة للموظف — استقالة، إخلاء طرف، مخالصة،
-                شهادة خبرة، سند استلام الراتب، وتعميم استخدام الجوال.
+                شهادة خبرة، سند الراتب، وتعميم استخدام الجوال.
               </p>
             </div>
           </div>
 
-          <div className="h-px bg-border/70" />
-
           <div
-            className="flex flex-wrap gap-1.5"
+            className="grid grid-cols-2 gap-2.5 sm:grid-cols-3"
             role="tablist"
             aria-label="أنواع النماذج الرسمية"
           >
             {FORM_TABS.map((tab) => {
               const selected = activeTab === tab.key;
+              const TabIcon = tab.icon;
               return (
                 <button
                   key={tab.key}
@@ -122,13 +119,41 @@ export function EmployeeRoseFormsSection({ model }: { model: EmployeeProfileMode
                   aria-selected={selected}
                   onClick={() => setActiveTab(tab.key)}
                   className={cn(
-                    'rounded-full border px-3.5 py-1.5 text-xs font-medium transition-colors',
+                    'group relative flex items-start gap-2.5 rounded-xl border p-3 text-start transition-all',
                     selected
-                      ? 'border-foreground/80 bg-muted text-primary shadow-sm'
-                      : 'border-border bg-background text-foreground/80 hover:bg-muted/50',
+                      ? 'border-primary/30 bg-primary/6 shadow-sm ring-1 ring-primary/15'
+                      : 'border-border/70 bg-background hover:border-primary/20 hover:bg-muted/40',
                   )}
                 >
-                  {tab.shortLabel}
+                  <span
+                    className={cn(
+                      'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-colors',
+                      selected
+                        ? 'border-primary/30 bg-primary text-primary-foreground'
+                        : 'border-primary/15 bg-primary/10 text-primary group-hover:border-primary/25',
+                    )}
+                  >
+                    <TabIcon className="h-4 w-4" />
+                  </span>
+                  <span className="min-w-0 flex-1 pt-0.5">
+                    <span
+                      className={cn(
+                        'block truncate text-xs font-semibold',
+                        selected ? 'text-primary' : 'text-foreground/85',
+                      )}
+                    >
+                      {tab.shortLabel}
+                    </span>
+                    <span className="mt-0.5 block truncate text-[11px] leading-relaxed text-muted-foreground">
+                      {tab.description}
+                    </span>
+                  </span>
+                  {selected ? (
+                    <span
+                      className="absolute inset-x-3 -bottom-px h-0.5 rounded-full bg-primary"
+                      aria-hidden
+                    />
+                  ) : null}
                 </button>
               );
             })}
@@ -154,41 +179,17 @@ export function EmployeeRoseFormsSection({ model }: { model: EmployeeProfileMode
                 onOpenPdfPrep={() => openHrPdfPrep('resignation')}
               />
             ) : activeTab === 'cash-receipt' ? (
-              <EmployeeCashReceiptVouchersPanel
-                employee={employee}
-                onOpenPdfPrep={() => openHrPdfPrep('cash-receipt')}
-              />
+              <EmployeeCashReceiptVouchersPanel employee={employee} />
             ) : activeTab === 'settlement' ? (
               <EmployeeSettlementsPanel
                 employee={employee}
                 onOpenPdfPrep={() => openHrPdfPrep('settlement')}
               />
             ) : (
-              <div className="space-y-4">
-                <div className="flex items-start gap-3">
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-primary/20 bg-primary/10 text-primary">
-                    <ActiveIcon className="h-5 w-5" />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <h3 className="text-sm font-semibold text-foreground">{active.label}</h3>
-                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                      {active.description}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    variant="luxe"
-                    size="sm"
-                    className="gap-2"
-                    onClick={() => openHrPdfPrep(active.key)}
-                  >
-                    <ActiveIcon className="h-4 w-4" />
-                    فتح وإعداد النموذج
-                  </Button>
-                </div>
-              </div>
+              <EmployeeMobileCircularPanel
+                employee={employee}
+                onOpenPdfPrep={() => openHrPdfPrep('mobile-circular')}
+              />
             )}
           </div>
         </div>

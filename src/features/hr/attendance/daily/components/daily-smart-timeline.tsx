@@ -10,10 +10,9 @@ import { DailyWeekGrid } from '@/features/hr/attendance/daily/components/daily-w
 import { DailyMonthHeatmap } from '@/features/hr/attendance/daily/components/daily-month-heatmap';
 import type { AttendanceViewMode } from '@/features/hr/attendance/daily/hooks/useDailyAttendanceModel';
 import { DAILY_ATTENDANCE_NO_RECORDS } from '@/features/hr/attendance/daily/constants/daily-attendance-empty';
-import { StickyPagination } from '@/components/ui/sticky-pagination';
 import {
+  PaginatedListShell,
   PagedListViewport,
-  PagedShell,
   useListPagination,
   type PaginationBarState,
 } from '@/components/ui/paged-list';
@@ -23,26 +22,6 @@ type EmployeeRow = { id: string; name: string };
 function filterByEmployees<T extends { employeeId: string }>(items: T[], pageEmployees: EmployeeRow[]) {
   const ids = new Set(pageEmployees.map((e) => e.id));
   return items.filter((item) => ids.has(item.employeeId));
-}
-
-// Renders the pagination bar as a `shrink-0` row INSIDE the same fixed-height,
-// overflow-hidden box as the scrollable content (via `PagedShell`'s `footer`
-// slot), instead of as a sibling rendered after it. That way flexbox — not a
-// guessed pixel gap — reserves exactly the space the bar actually needs, and
-// the whole block can never exceed the viewport height and leak into the
-// outer app-shell scrollbar (the "two scrollbars" bug).
-function paginationFooter(pagination: PaginationBarState) {
-  if (pagination.total === 0) return undefined;
-  return (
-    <StickyPagination
-      page={pagination.page}
-      pageSize={pagination.pageSize}
-      total={pagination.total}
-      totalPages={pagination.totalPages}
-      onPageChange={pagination.setPage}
-      onPageSizeChange={pagination.setPageSize}
-    />
-  );
 }
 
 function renderTimelineView({
@@ -65,19 +44,17 @@ function renderTimelineView({
   pagination: PaginationBarState;
 }) {
   if (days === 1) {
-    const footer = paginationFooter(pagination);
     return (
       <PagedListViewport className={className ?? 'min-h-0 flex-1'}>
-        <div className="flex h-full min-h-0 flex-col overflow-hidden">
+        <PaginatedListShell pagination={pagination} contentScroll={false}>
           <DailyOneDayView
-            className="min-h-0 flex-1"
+            className="h-full min-h-0"
             summaries={pageSummaries}
             initialEvents={pageEvents}
             workDate={dates[0]!}
             allEmployees={pageEmployees}
           />
-          {footer ? <div className="shrink-0">{footer}</div> : null}
-        </div>
+        </PaginatedListShell>
       </PagedListViewport>
     );
   }
@@ -90,7 +67,9 @@ function renderTimelineView({
 
   return (
     <PagedListViewport className={className ?? 'min-h-0 flex-1'}>
-      <PagedShell footer={paginationFooter(pagination)}>{grid}</PagedShell>
+      <PaginatedListShell pagination={pagination}>
+        {grid}
+      </PaginatedListShell>
     </PagedListViewport>
   );
 }

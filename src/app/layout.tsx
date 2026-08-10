@@ -6,7 +6,9 @@ import { Providers } from '@/components/layouts/providers';
 import { THEME_STORAGE_KEY } from '@/shared/constants/theme';
 import { COMPANY_THEME_BOOT_SCRIPT } from '@/shared/company-theme-boot-script';
 
-const THEME_MODE_BOOT_SCRIPT = `(function(){try{var raw=localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)});if(!raw)return;var parsed=JSON.parse(raw);var mode=parsed.state&&parsed.state.mode;if(mode==='dark')document.documentElement.classList.add('dark');}catch(e){}})();`;
+const THEME_MODE_BOOT_SCRIPT = `(function(){try{var raw=localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)});if(!raw)return;var parsed=JSON.parse(raw);var mode=parsed.state&&parsed.state.mode;var resolved=mode==='system'?(window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'):mode;if(resolved==='dark')document.documentElement.classList.add('dark');}catch(e){}})();`;
+
+const LOCALE_DOCUMENT_BOOT_SCRIPT = `(function(){try{var m=location.pathname.match(/^\\/(ar|en)(\\/|$)/);if(!m)return;var loc=m[1];document.documentElement.lang=loc;document.documentElement.dir=loc==='ar'?'rtl':'ltr';}catch(e){}})();`;
 
 const bodyFont = IBM_Plex_Sans_Arabic({
   subsets: ['arabic', 'latin'],
@@ -31,11 +33,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ar" dir="rtl" suppressHydrationWarning>
       <head>
-        {/* eslint-disable-next-line @next/next/no-sync-scripts */}
         <script
           id="theme-boot"
           dangerouslySetInnerHTML={{
-            __html: `${THEME_MODE_BOOT_SCRIPT}${COMPANY_THEME_BOOT_SCRIPT}`,
+            __html: `${THEME_MODE_BOOT_SCRIPT}${LOCALE_DOCUMENT_BOOT_SCRIPT}${COMPANY_THEME_BOOT_SCRIPT}`,
           }}
         />
       </head>

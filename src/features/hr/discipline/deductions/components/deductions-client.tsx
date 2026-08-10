@@ -43,6 +43,7 @@ import { DataTable, type ColumnDef } from '@/components/ui/data-table';
 import { TableDateCell, TableRowActions, TableRowDetailDialog } from '@/components/ui/table-cells';
 import { DisciplineListViewport, DisciplinePaginatedList } from '@/features/hr/discipline/components/discipline-paginated-list';
 import type { HRDisciplinePayrollDeductionRecord } from '@/features/hr/discipline/lib/types';
+import { RelatedEmployeeAttachments } from '@/features/hr/organization/employees/components/related-employee-attachments';
 
 const DEDUCTION_STATUS_ORDER: readonly HRDeductionStatus[] = ['ready', 'posted', 'calculated', 'cancelled'];
 
@@ -347,7 +348,15 @@ export function DeductionsClient() {
           { label: 'تاريخ التسجيل', value: <TableDateCell value={detailRow.createdAt} mode="datetime" /> },
           { label: 'آخر تحديث', value: <TableDateCell value={detailRow.updatedAt} mode="datetime" /> },
         ] : []}
-      />
+      >
+        {detailRow ? (
+          <RelatedEmployeeAttachments
+            employeeId={detailRow.employeeId}
+            companyId={m.companyId}
+            preset="discipline"
+          />
+        ) : null}
+      </TableRowDetailDialog>
     </div>
   );
 }

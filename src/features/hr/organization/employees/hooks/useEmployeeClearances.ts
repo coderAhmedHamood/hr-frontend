@@ -90,6 +90,26 @@ export function useEmployeeClearances(employee: Employee, enabled: boolean) {
     }
   }, []);
 
+  const sendToEmployee = React.useCallback(
+    async (id: string) => {
+      setSaving(true);
+      try {
+        const updated = await employeeClearancesApi.sendToEmployee(id, {
+          updatedBy: createdBy,
+        });
+        toast.success('تم إرسال إخلاء الطرف للموظف');
+        await reload();
+        return updated;
+      } catch (err) {
+        handleApiError(err, 'employee-clearances.send');
+        return null;
+      } finally {
+        setSaving(false);
+      }
+    },
+    [createdBy, reload],
+  );
+
   return {
     companyId,
     items,
@@ -100,5 +120,6 @@ export function useEmployeeClearances(employee: Employee, enabled: boolean) {
     reload,
     create,
     getById,
+    sendToEmployee,
   };
 }

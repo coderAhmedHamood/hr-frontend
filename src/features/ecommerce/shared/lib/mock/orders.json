@@ -1,0 +1,93 @@
+[
+  {
+    "id": "order-1",
+    "companyId": "demo-company",
+    "orderNumber": "ORD-1001",
+    "customerId": "cust-1",
+    "customerNameAr": "أحمد محمد",
+    "city": "صنعاء",
+    "region": "المنطقة الشمالية",
+    "status": "delivered",
+    "items": [
+      {
+        "productId": "prod-1",
+        "productNameAr": "سيروم سيرافي المرطب 30 مل",
+        "quantity": 2,
+        "unitPrice": { "amount": 2.5, "currency": "SAR" },
+        "allocations": [
+          {
+            "id": "alloc-1a",
+            "warehouseId": "wh-main",
+            "locationId": "loc-main-a1",
+            "quantity": 2
+          }
+        ],
+        "shipStatus": "shipped"
+      }
+    ],
+    "totalAmount": { "amount": 5, "currency": "SAR" },
+    "createdAt": "2026-06-20T08:00:00.000Z",
+    "updatedAt": "2026-06-20T12:00:00.000Z"
+  },
+  {
+    "id": "order-2",
+    "companyId": "demo-company",
+    "orderNumber": "ORD-1002",
+    "customerId": "cust-2",
+    "customerNameAr": "فاطمة علي",
+    "city": "عدن",
+    "region": "المنطقة الجنوبية",
+    "status": "processing",
+    "items": [
+      {
+        "productId": "prod-2",
+        "productNameAr": "كريم نيوتروجينا هايدرو بوست 50 مل",
+        "quantity": 1,
+        "unitPrice": { "amount": 12, "currency": "SAR" },
+        "allocations": [
+          {
+            "id": "alloc-2a",
+            "warehouseId": "wh-north",
+            "locationId": "loc-north-stock",
+            "quantity": 1
+          }
+        ],
+        "shipStatus": "assigned"
+      },
+      {
+        "productId": "prod-3",
+        "productNameAr": "أحمر شفاه ميبيلين مات",
+        "quantity": 1,
+        "unitPrice": { "amount": 8, "currency": "SAR" },
+        "allocations": [],
+        "shipStatus": "unassigned"
+      }
+    ],
+    "totalAmount": { "amount": 20, "currency": "SAR" },
+    "createdAt": "2026-06-21T08:00:00.000Z",
+    "updatedAt": "2026-06-21T08:00:00.000Z"
+  },
+  {
+    "id": "order-3",
+    "companyId": "demo-company",
+    "orderNumber": "ORD-1003",
+    "customerId": "cust-3",
+    "customerNameAr": "خالد الشامي",
+    "city": "الرياض",
+    "region": "المنطقة الوسطى",
+    "status": "pending",
+    "items": [
+      {
+        "productId": "prod-1",
+        "productNameAr": "سيروم سيرافي المرطب 30 مل",
+        "quantity": 5,
+        "unitPrice": { "amount": 2.5, "currency": "SAR" },
+        "allocations": [],
+        "shipStatus": "unassigned"
+      }
+    ],
+    "totalAmount": { "amount": 12.5, "currency": "SAR" },
+    "createdAt": "2026-06-22T09:00:00.000Z",
+    "updatedAt": "2026-06-22T09:00:00.000Z"
+  }
+]

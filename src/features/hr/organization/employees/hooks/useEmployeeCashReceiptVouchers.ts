@@ -68,7 +68,7 @@ export function useEmployeeCashReceiptVouchers(employee: Employee, enabled: bool
           employeeId: employee.id,
           createdBy: createdBy ?? undefined,
         });
-        toast.success('تم إنشاء سند الاستلام النقدي كمسودة');
+        toast.success('تم إنشاء سند الراتب كمسودة');
         await reload();
         return created;
       } catch (err) {
@@ -90,6 +90,26 @@ export function useEmployeeCashReceiptVouchers(employee: Employee, enabled: bool
     }
   }, []);
 
+  const sendToEmployee = React.useCallback(
+    async (id: string) => {
+      setSaving(true);
+      try {
+        const updated = await cashReceiptVouchersApi.sendToEmployee(id, {
+          updatedBy: createdBy,
+        });
+        toast.success('تم إرسال سند الراتب للموظف للتوقيع');
+        await reload();
+        return updated;
+      } catch (err) {
+        handleApiError(err, 'cash-receipt-vouchers.send');
+        return null;
+      } finally {
+        setSaving(false);
+      }
+    },
+    [createdBy, reload],
+  );
+
   return {
     companyId,
     items,
@@ -100,5 +120,6 @@ export function useEmployeeCashReceiptVouchers(employee: Employee, enabled: bool
     reload,
     create,
     getById,
+    sendToEmployee,
   };
 }

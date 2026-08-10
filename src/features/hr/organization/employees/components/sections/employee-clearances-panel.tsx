@@ -1,7 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import { ClipboardCheck, FileText, Loader2, Plus, RefreshCw } from 'lucide-react';
+import { ClipboardCheck, FileText, Loader2, Plus, RefreshCw, Send } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { DisplayDate } from '@/components/ui/table-cells';
 import { PdfPreviewExportDialog } from '@/components/pdf/pdf-preview-export-dialog';
@@ -9,6 +10,8 @@ import { cn } from '@/shared/utils';
 import { statusPillClass } from '@/shared/status-pill-classes';
 import { useActiveCompany } from '@/features/hr/organization/hooks/useActiveCompany';
 import { usePdfCompanyLetterhead } from '@/components/pdf/hooks/use-pdf-company-letterhead';
+import { useAuthStore } from '@/features/auth/lib/auth-store';
+import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import type { Employee } from '@/features/hr/organization/employees/types';
 import type { EmployeeClearanceDto } from '@/features/hr/organization/employees/lib/api/employee-clearances';
 import { useEmployeeClearances } from '@/features/hr/organization/employees/hooks/useEmployeeClearances';
@@ -17,23 +20,27 @@ import {
   RoseClearancePrintHtml,
 } from '@/components/pdf/rose-trading/rose-clearance-print-html';
 import { buildClearancePrintFields } from '@/features/hr/organization/employees/lib/rose-document-templates/build-print-fields';
+import { sendClearanceToEmployeeNotification } from '@/features/hr/organization/employees/services/rose-forms-notification.service';
 
-function statusLabel(status: string) {
-  switch (status) {
-    case 'issued':
-      return 'صادر';
-    case 'revoked':
-      return 'ملغى';
-    case 'draft':
-    default:
-      return 'مسودة';
-  }
+function statusLabel(item: { status: string; employeeSignatureStatus?: string | null }) {
+  if (item.status === 'revoked') return 'ملغى';
+  if (item.status === 'draft') return 'مسودة';
+  if (item.employeeSignatureStatus === 'signed') return 'موقّع';
+  if (item.employeeSignatureStatus === 'pending') return 'بانتظار التوقيع';
+  if (item.status === 'issued') return 'صادر';
+  return 'مسودة';
 }
 
-function statusTone(status: string): 'active' | 'rejected' | 'pending' {
-  if (status === 'issued') return 'active';
-  if (status === 'revoked') return 'rejected';
-  return 'pending';
+function statusTone(item: {
+  status: string;
+  employeeSignatureStatus?: string | null;
+}): 'active' | 'rejected' | 'pending' {
+  if (item.status === 'revoked') return 'rejected';
+  if (item.employeeSignatureStatus === 'signed') return 'active';
+  if (item.employeeSignatureStatus === 'pending' || item.status === 'draft') {
+    return 'pending';
+  }
+  return 'active';
 }
 
 type Props = {
@@ -42,16 +49,18 @@ type Props = {
 };
 
 export function EmployeeClearancesPanel({ employee, onOpenPdfPrep }: Props) {
-  const { items, total, loading, error, saving, reload, create, getById } =
+  const { items, total, loading, error, saving, reload, create, getById, sendToEmployee, companyId } =
     useEmployeeClearances(employee, true);
   const { data: activeCompany } = useActiveCompany();
   const pdfCompany = usePdfCompanyLetterhead();
   const companyNameAr = activeCompany?.nameAr ?? pdfCompany.companyNameAr;
   const companyNameEn = activeCompany?.nameEn ?? pdfCompany.companyNameEn;
+  const createdBy = useAuthStore((s) => s.user?.email ?? s.accessProfile?.email ?? null);
 
   const [createOpen, setCreateOpen] = React.useState(false);
   const [previewCard, setPreviewCard] = React.useState<EmployeeClearanceDto | null>(null);
   const [previewLoading, setPreviewLoading] = React.useState(false);
+  const [sendingId, setSendingId] = React.useState<string | null>(null);
 
   const openVoucherPdf = async (id: string) => {
     const fromList = items.find((item) => item.id === id) ?? null;
@@ -60,6 +69,27 @@ export function EmployeeClearancesPanel({ employee, onOpenPdfPrep }: Props) {
     const fresh = await getById(id);
     if (fresh) setPreviewCard(fresh);
     setPreviewLoading(false);
+  };
+
+  const handleSendToEmployee = async (item: EmployeeClearanceDto) => {
+    setSendingId(item.id);
+    try {
+      const updated = await sendToEmployee(item.id);
+      if (!updated || !companyId) return;
+      await sendClearanceToEmployeeNotification({
+        companyId,
+        employeeId: employee.id,
+        clearanceId: updated.id,
+        clearanceNumber: updated.clearanceNumber,
+        createdBy,
+      });
+      toast.success('تم إرسال إشعار التوقيع للموظف');
+    } catch (err) {
+      const { displayMessage } = handleApiError(err, 'employee-clearances.notify');
+      toast.error(displayMessage);
+    } finally {
+      setSendingId(null);
+    }
   };
 
   const printable = React.useMemo(() => {
@@ -141,35 +171,54 @@ export function EmployeeClearancesPanel({ employee, onOpenPdfPrep }: Props) {
         <ul className="space-y-2">
           {items.map((item) => (
             <li key={item.id}>
-              <button
-                type="button"
-                onClick={() => void openVoucherPdf(item.id)}
-                className="flex w-full items-start gap-3 rounded-xl border border-border/70 bg-background p-3.5 text-right transition-colors hover:border-primary/30 hover:bg-muted/30"
-              >
-                <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-primary/20 bg-primary/10 text-primary">
-                  <FileText className="h-4 w-4" />
-                </span>
-                <span className="min-w-0 flex-1 space-y-1">
-                  <span className="flex flex-wrap items-center gap-2">
-                    <span className="font-mono text-sm font-semibold text-foreground" dir="ltr">
-                      {item.clearanceNumber}
+              <div className="flex items-stretch gap-2 rounded-xl border border-border/70 bg-background p-3.5">
+                <button
+                  type="button"
+                  onClick={() => void openVoucherPdf(item.id)}
+                  className="flex min-w-0 flex-1 items-start gap-3 text-right transition-colors hover:opacity-90"
+                >
+                  <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-primary/20 bg-primary/10 text-primary">
+                    <FileText className="h-4 w-4" />
+                  </span>
+                  <span className="min-w-0 flex-1 space-y-1">
+                    <span className="flex flex-wrap items-center gap-2">
+                      <span className="font-mono text-sm font-semibold text-foreground" dir="ltr">
+                        {item.clearanceNumber}
+                      </span>
+                      <span className={statusPillClass(statusTone(item))}>
+                        {statusLabel(item)}
+                      </span>
                     </span>
-                    <span className={statusPillClass(statusTone(item.status))}>
-                      {statusLabel(item.status)}
+                    <span className="block truncate text-xs text-muted-foreground">{item.jobTitle}</span>
+                    <span className="flex flex-wrap items-center gap-x-2 text-[11px] text-muted-foreground">
+                      <span>
+                        التاريخ: <DisplayDate value={item.clearanceDate} />
+                      </span>
+                      <span className="inline-flex items-center gap-1 text-primary">
+                        <FileText className="h-3 w-3" />
+                        فتح PDF
+                      </span>
                     </span>
                   </span>
-                  <span className="block truncate text-xs text-muted-foreground">{item.jobTitle}</span>
-                  <span className="flex flex-wrap items-center gap-x-2 text-[11px] text-muted-foreground">
-                    <span>
-                      التاريخ: <DisplayDate value={item.clearanceDate} />
-                    </span>
-                    <span className="inline-flex items-center gap-1 text-primary">
-                      <FileText className="h-3 w-3" />
-                      فتح PDF
-                    </span>
-                  </span>
-                </span>
-              </button>
+                </button>
+                {item.status === 'draft' ? (
+                  <Button
+                    type="button"
+                    variant="luxe"
+                    size="sm"
+                    className="h-9 shrink-0 gap-1.5 self-center text-xs"
+                    disabled={saving || sendingId === item.id}
+                    onClick={() => void handleSendToEmployee(item)}
+                  >
+                    {sendingId === item.id ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Send className="h-3.5 w-3.5" />
+                    )}
+                    إرسال للموظف
+                  </Button>
+                ) : null}
+              </div>
             </li>
           ))}
         </ul>

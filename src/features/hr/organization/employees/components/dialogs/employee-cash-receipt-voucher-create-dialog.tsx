@@ -161,7 +161,7 @@ export function EmployeeCashReceiptVoucherCreateDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle className="font-display">إنشاء سند استلام نقدي</DialogTitle>
+          <DialogTitle className="font-display">إنشاء سند راتب</DialogTitle>
           <DialogDescription>
             أدخل حقول السند فقط — يُملأ تلقائياً على الـ PDF: المستلم، المؤسسة، الفرع، واسم التوقيع من
             بيانات{' '}
@@ -190,7 +190,7 @@ export function EmployeeCashReceiptVoucherCreateDialog({
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="crv-date">تاريخ الاستلام</Label>
+              <Label htmlFor="crv-date">تاريخ السند</Label>
               <DatePickerInput
                 id="crv-date"
                 value={form.receiptDate}

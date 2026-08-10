@@ -38,7 +38,7 @@ export type RosePdfContext = {
 };
 
 /**
- * سند استلام نقدي
+ * سند راتب
  * Admin: رقم، تاريخ، مبلغ، كتابة، غرض (+ شهر/سنة أو أيام أو بيان)
  * Auto: المستلم، المؤسسة، الفرع، اسم التوقيع
  * Blank on paper: تواقيع الاعتماد (unless saved on record)

@@ -1,0 +1,58 @@
+{
+  "actions": {
+    "save": "حفظ",
+    "cancel": "إلغاء",
+    "create": "إضافة",
+    "edit": "تعديل",
+    "delete": "حذف",
+    "confirm": "تأكيد",
+    "close": "إغلاق",
+    "back": "رجوع",
+    "next": "التالي",
+    "previous": "السابق",
+    "search": "بحث",
+    "filter": "تصفية",
+    "clearFilters": "إزالة التصفية",
+    "export": "تصدير",
+    "import": "استيراد",
+    "retry": "إعادة المحاولة",
+    "viewDetails": "عرض التفاصيل"
+  },
+  "status": {
+    "loading": "جاري التحميل…",
+    "saving": "جاري الحفظ…",
+    "deleting": "جاري الحذف…",
+    "success": "تم بنجاح",
+    "error": "حدث خطأ",
+    "unexpectedError": "حدث خطأ غير متوقع. حاول مرة أخرى."
+  },
+  "confirmation": {
+    "deleteTitle": "تأكيد الحذف",
+    "deleteDescription": "هل أنت متأكد من حذف \"{name}\"؟ لا يمكن التراجع عن هذا الإجراء.",
+    "unsavedChangesTitle": "تغييرات غير محفوظة",
+    "unsavedChangesDescription": "لديك تغييرات غير محفوظة. هل تريد المغادرة دون حفظها؟"
+  },
+  "validation": {
+    "required": "هذا الحقل مطلوب",
+    "invalidEmail": "بريد إلكتروني غير صالح",
+    "invalidUrl": "رابط غير صالح",
+    "tooShort": "القيمة قصيرة جدًا",
+    "tooLong": "القيمة طويلة جدًا",
+    "invalidNumber": "قيمة رقمية غير صالحة",
+    "mustBePositive": "يجب أن تكون القيمة أكبر من صفر"
+  },
+  "table": {
+    "noResults": "لا توجد نتائج",
+    "noResultsForFilters": "لا توجد نتائج مطابقة لعوامل التصفية الحالية",
+    "rowsPerPage": "عدد الصفوف في الصفحة",
+    "pageOf": "صفحة {page} من {total}",
+    "selectedCount": "تم تحديد {count} عنصر"
+  },
+  "fields": {
+    "name": "الاسم",
+    "description": "الوصف",
+    "status": "الحالة",
+    "createdAt": "تاريخ الإنشاء",
+    "updatedAt": "تاريخ التحديث"
+  }
+}

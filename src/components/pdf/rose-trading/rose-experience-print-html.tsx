@@ -153,7 +153,7 @@ export const RoseExperiencePrintHtml = React.forwardRef<HTMLDivElement, RoseExpe
           }}
         >
           هذه الشهادة لتأكيد أن السيد / ة <Value text={fields?.employeeName} blank={blank} /> قد عمل في شركة{' '}
-          <Value text={fields?.companyName} blank={blank} /> في قسم <Value text={fields?.department} blank={blank} />
+          <Value text={fields?.companyName} blank={blank} />
           <br />
           بمنصب <Value text={fields?.position} blank={blank} /> منذ <Value text={fields?.startDate} blank={blank} /> وحتى{' '}
           <Value text={fields?.endDate} blank={blank} />

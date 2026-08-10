@@ -17,8 +17,6 @@ import { EmployeeActivityLogSection } from '@/features/hr/organization/employees
 import { EmployeePermissionsSection } from '@/features/hr/organization/employees/components/sections/employee-permissions-section';
 import { EmployeeSalarySection } from '@/features/hr/organization/employees/components/sections/employee-salary-section';
 import type { Employee } from '@/features/hr/organization/employees/types';
-import { EmployeeSettlementPdfPrepDialog } from '@/features/hr/organization/employees/components/dialogs/employee-settlement-pdf-prep-dialog';
-import { EmployeeExperiencePdfPrepDialog } from '@/features/hr/organization/employees/components/dialogs/employee-experience-pdf-prep-dialog';
 import { EmployeeAttachmentUploadDialog } from '@/features/hr/organization/employees/components/dialogs/employee-attachment-upload-dialog';
 import { EmployeeAttachmentDetailDialog } from '@/features/hr/organization/employees/components/dialogs/employee-attachment-detail-dialog';
 import { EmployeeCreateUserDialog } from '@/features/hr/organization/employees/components/dialogs/employee-create-user-dialog';
@@ -59,20 +57,6 @@ export function EmployeeProfileBody({ employee, onUpdated }: { employee: Employe
         description="سيُزال هذا الإسناد من سجل الموظف. لا يمكن التراجع."
         confirmLabel="حذف"
         variant="destructive"
-      />
-
-      <EmployeeSettlementPdfPrepDialog
-        open={model.settlementPrepOpen}
-        employee={model.employee}
-        onCancel={model.cancelSettlementPrep}
-        onApply={model.applySettlementWizard}
-      />
-
-      <EmployeeExperiencePdfPrepDialog
-        open={model.experiencePrepOpen}
-        employee={model.employee}
-        onCancel={model.cancelExperiencePrep}
-        onApply={model.applyExperienceWizard}
       />
 
       <PdfPreviewExportDialog

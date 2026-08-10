@@ -1,6 +1,9 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
+import createNextIntlPlugin from 'next-intl/plugin';
+
+const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts');
 
 const require = createRequire(import.meta.url);
 const { loadEnvConfig } = require('@next/env');
@@ -93,8 +96,14 @@ const nextConfig = {
       { source: '/hr/organization/pages', destination: '/system/organization/pages', permanent: true },
       { source: '/notifications', destination: '/hr/notifications/admin', permanent: true },
       { source: '/hr/notifications', destination: '/hr/notifications/admin', permanent: true },
+      // Ecommerce Website CMS — shallow feature routes → Website group pages
+      { source: '/cms/footer', destination: '/cms/navigation?tab=footer', permanent: false },
+      { source: '/cms/pages', destination: '/cms/content?tab=pages', permanent: false },
+      { source: '/cms/blog', destination: '/cms/content?tab=blog', permanent: false },
+      { source: '/cms/faq', destination: '/cms/content?tab=faq', permanent: false },
+      { source: '/cms/seo', destination: '/cms/settings', permanent: false },
     ];
   },
 };
 
-export default nextConfig;
+export default withNextIntl(nextConfig);

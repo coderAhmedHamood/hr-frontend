@@ -1,0 +1,30 @@
+[
+  {
+    "id": "cust-1",
+    "companyId": "demo-company",
+    "nameAr": "عبدالله الحربي",
+    "nameEn": "Abdullah Al-Harbi",
+    "email": "abdullah@example.com",
+    "phone": "+966500000001",
+    "ordersCount": 3,
+    "totalSpentAmount": 8600,
+    "currency": "SAR",
+    "isActive": true,
+    "createdAt": "2026-01-10T08:00:00.000Z",
+    "updatedAt": "2026-01-10T08:00:00.000Z"
+  },
+  {
+    "id": "cust-2",
+    "companyId": "demo-company",
+    "nameAr": "سارة القحطاني",
+    "nameEn": "Sarah Al-Qahtani",
+    "email": "sarah@example.com",
+    "phone": "+966500000002",
+    "ordersCount": 1,
+    "totalSpentAmount": 2500,
+    "currency": "SAR",
+    "isActive": true,
+    "createdAt": "2026-02-15T08:00:00.000Z",
+    "updatedAt": "2026-02-15T08:00:00.000Z"
+  }
+]

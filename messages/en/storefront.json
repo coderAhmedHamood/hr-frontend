@@ -1,0 +1,215 @@
+{
+  "nav": {
+    "home": "Home",
+    "products": "Products",
+    "categories": "Categories",
+    "brands": "Brands",
+    "search": "Search",
+    "about": "About",
+    "contact": "Contact",
+    "blog": "Blog",
+    "faq": "FAQ",
+    "login": "Sign in",
+    "wishlist": "Wishlist",
+    "cart": "Cart",
+    "bestSellers": "Best sellers",
+    "newArrivals": "New arrivals",
+    "offersZone": "Offers",
+    "wholesale": "Wholesale",
+    "topBrands": "Top brands"
+  },
+  "home": {
+    "browseProducts": "Browse products",
+    "categories": "Shop by category",
+    "latestProducts": "New arrivals",
+    "bestSellers": "Best sellers",
+    "dealsToday": "Today's deals",
+    "viewAll": "View all",
+    "featuredBrands": "Featured brands",
+    "noProducts": "No products yet.",
+    "noCategories": "No categories yet."
+  },
+  "megaMenu": {
+    "emptySubcategories": "No subcategories yet. Add them in Dashboard → Categories."
+  },
+  "hero": {
+    "shopNow": "Shop now"
+  },
+  "components": {
+    "discount": "-{percent}%",
+    "ratingLabel": "Rated {rating} out of 5",
+    "reviewCount": "({count})",
+    "badgeBestSeller": "Best products",
+    "badgeDeals": "Deals",
+    "badgeWholesale": "Wholesale",
+    "sellingFast": "Selling out fast"
+  },
+  "offers": {
+    "title": "Offers",
+    "description": "Discounted products and limited-time deals for everyday shopping."
+  },
+  "wholesale": {
+    "title": "Wholesale prices",
+    "description": "Selected wholesale pricing for shops and bulk buyers. Shown prices are wholesale rates."
+  },
+  "products": {
+    "title": "Products",
+    "all": "All",
+    "noResults": "No matching products.",
+    "addToCart": "Add to cart",
+    "cartComingSoon": "Cart coming soon",
+    "sku": "SKU",
+    "sortBy": "Sort by",
+    "filters": "Filters",
+    "priceRange": "Price range",
+    "priceAsc": "Price: low to high"
+  },
+  "cart": {
+    "title": "Shopping cart",
+    "empty": "Your cart is empty",
+    "emptyDescription": "Add products from the store to start shopping.",
+    "continueShopping": "Continue shopping",
+    "total": "Total",
+    "checkout": "Checkout",
+    "remove": "Remove",
+    "quantity": "Quantity",
+    "subtotal": "Subtotal"
+  },
+  "wishlist": {
+    "title": "Wishlist",
+    "empty": "Your wishlist is empty",
+    "emptyDescription": "Save products you like by tapping the heart icon.",
+    "browseProducts": "Browse products"
+  },
+  "footer": {
+    "paymentMethods": "Payment methods",
+    "categoryDirectory": "Category directory",
+    "cr": "Commercial registration",
+    "tagline": "Shop with confidence — curated products and a smooth Arabic / English experience."
+  },
+  "categories": {
+    "title": "Categories",
+    "noResults": "No products in this category.",
+    "subcategories": "Subcategories",
+    "nestedSubcategories": "More specific categories",
+    "viewAllInCategory": "View all in category"
+  },
+  "brands": {
+    "title": "Brands",
+    "viewProducts": "View products",
+    "noResults": "No brands found.",
+    "website": "Official website"
+  },
+  "search": {
+    "title": "Search",
+    "placeholder": "Search products, categories, or brands…",
+    "submit": "Search",
+    "noQuery": "Enter a term to search products.",
+    "noResults": "No matching results.",
+    "resultsCount": "result",
+    "resultsFor": "for",
+    "products": "Products",
+    "categories": "Categories",
+    "brands": "Brands"
+  },
+  "blog": {
+    "title": "Blog",
+    "readMore": "Read more",
+    "noPosts": "No posts yet.",
+    "backToBlog": "Back to blog",
+    "publishedAt": "Published on"
+  },
+  "about": {
+    "title": "About us"
+  },
+  "contact": {
+    "title": "Contact us",
+    "formName": "Name",
+    "formEmail": "Email",
+    "formMessage": "Message",
+    "formSubmit": "Send message",
+    "formSuccess": "Thank you for reaching out. We will reply soon.",
+    "formNote": "This is a demo form — submission is not connected to the server yet.",
+    "phone": "Phone",
+    "email": "Email",
+    "address": "Address",
+    "hours": "Business hours"
+  },
+  "faq": {
+    "title": "Frequently asked questions",
+    "empty": "No FAQs published yet."
+  },
+  "legal": {
+    "privacy": "Privacy policy",
+    "terms": "Terms & conditions",
+    "returns": "Returns policy",
+    "lastUpdated": "Last updated"
+  },
+  "stock": {
+    "in_stock": "In stock",
+    "out_of_stock": "Out of stock",
+    "preorder": "Pre-order",
+    "discontinued": "Discontinued"
+  },
+  "seo": {
+    "faqDescription": "Answers to the most common questions.",
+    "blogDescription": "Articles and tips from our team.",
+    "brandsDescription": "Discover the brands available in our store.",
+    "categoriesDescription": "Browse our products by category.",
+    "searchDescription": "Search products, categories, and brands.",
+    "contactType": "customer service"
+  },
+  "a11y": {
+    "skipToContent": "Skip to content",
+    "breadcrumbs": "Breadcrumb",
+    "pagination": "Pagination",
+    "paginationPrevious": "Previous page",
+    "paginationNext": "Next page",
+    "pageOf": "Page {page} of {total}",
+    "mainNav": "Main navigation",
+    "mobileNav": "Mobile navigation",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu",
+    "storeFeatures": "Store features",
+    "socialInstagram": "Instagram",
+    "socialTwitter": "Twitter",
+    "socialFacebook": "Facebook",
+    "socialWhatsapp": "WhatsApp",
+    "languageSwitcher": "Change language",
+    "themeSwitcher": "Change theme",
+    "carouselPrevious": "Previous slide",
+    "carouselNext": "Next slide",
+    "carouselSlide": "Slide {number}",
+    "carousel": "Image carousel",
+    "decreaseQuantity": "Decrease quantity",
+    "increaseQuantity": "Increase quantity"
+  },
+  "breadcrumbs": {
+    "home": "Home"
+  },
+  "common": {
+    "back": "Back",
+    "loading": "Loading…",
+    "errorTitle": "Something went wrong",
+    "errorDescription": "We could not load this page. Please try again.",
+    "retry": "Try again",
+    "notFoundTitle": "Page not found",
+    "notFoundDescription": "The page you are looking for is unavailable or has moved.",
+    "backToStore": "Back to store"
+  },
+  "mobileTab": {
+    "home": "Home",
+    "categories": "Categories",
+    "account": "Account",
+    "cart": "Cart"
+  },
+  "locale": {
+    "ar": "العربية",
+    "en": "English"
+  },
+  "theme": {
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
+  }
+}

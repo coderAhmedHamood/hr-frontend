@@ -30,6 +30,8 @@ export interface RoseClearanceRecord {
   updatedAt: string;
 }
 
+export type RoseSettlementSendStatus = 'draft' | 'sent';
+
 export interface RoseSettlementRecord {
   id: string;
   employeeId: string;
@@ -43,6 +45,8 @@ export interface RoseSettlementRecord {
   nationality: string;
   nationalId: string;
   companyNameAr: string;
+  /** مسودة حتى يضغط المدير «إرسال للموظف» */
+  status?: RoseSettlementSendStatus;
   /** حقول قديمة من التخزين المحلي — اختيارية للتوافق */
   settlementPeriodAr?: string;
   salaryAndRightsAr?: string;

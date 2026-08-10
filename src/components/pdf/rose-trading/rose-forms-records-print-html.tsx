@@ -518,10 +518,6 @@ export const RoseExperienceRecordPrintHtml = React.forwardRef<HTMLDivElement, Ro
           <span style={{ fontWeight: 700 }}>
             {sanitizePdfText(companyNameAr)}
           </span>{' '}
-          في قسم{' '}
-          <span style={{ fontWeight: 700 }}>
-            {sanitizePdfText(emp.departmentAr)}
-          </span>{' '}
           بمنصب{' '}
           <span style={{ fontWeight: 700 }}>
             {sanitizePdfText(jobTitle)}

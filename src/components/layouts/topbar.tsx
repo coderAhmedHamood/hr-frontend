@@ -11,7 +11,10 @@ import {
   ListChecks, ShieldCheck, LayoutList, CirclePlus, CalendarClock,
   Banknote, FileSignature, BookOpen, FileSpreadsheet, UserCircle, Briefcase, UserCheck, UserPlus,
   Coins, FileStack, Receipt, KeyRound, Settings, Timer,
+  LayoutTemplate, Navigation, PanelBottom, PanelTop, Image, FileText, Newspaper,
+  CircleHelp, Search, ShoppingCart, Package, FolderTree, Tag, Globe, Megaphone,
 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { useSidebar } from '@/components/layouts/sidebar-context';
 import { usePageTitle } from '@/components/layouts/page-title-context';
@@ -37,9 +40,27 @@ import {
   isSystemOrganizationStructureNavPath,
   isSystemOrganizationSettingsNavPath,
 } from '@/features/system/organization/constants/nav';
+import {
+  ecommerceAdminNavGroups,
+  ecommerceAdminOverviewItem,
+  flattenEcommerceNavItems,
+} from '@/features/ecommerce/admin/constants/nav';
+import {
+  inventoryAdminNavGroups,
+  inventoryAdminOverviewItem,
+  flattenInventoryNavItems,
+} from '@/features/inventory/admin/constants/nav';
 import { UserMenuDropdown } from '@/components/layouts/user-menu-dropdown';
 import { AppsLauncherButton } from '@/components/layouts/apps-launcher-button';
-import { isHrAppPath, isSystemAppPath, isLauncherPath } from '@/shared/app-paths';
+import { useAuthStore } from '@/features/auth/lib/auth-store';
+import {
+  isHrAppPath,
+  isSystemAppPath,
+  isEcommerceAppPath,
+  isInventoryAppPath,
+  isLauncherPath,
+} from '@/shared/app-paths';
+import { isModuleEnabledFor } from '@/shared/modules/registry';
 
 /* ── Icon registry ────────────────────────────────────────────────────── */
 export const PAGE_ICONS: Record<string, React.ElementType> = {
@@ -49,6 +70,8 @@ export const PAGE_ICONS: Record<string, React.ElementType> = {
   UserCircle, Briefcase, UserCheck, UserPlus,
   CalendarClock, LayoutList, ListChecks, ShieldCheck,
   Coins, FileStack, Receipt, KeyRound,
+  LayoutTemplate, Navigation, PanelBottom, PanelTop, Image, FileText, Newspaper,
+  CircleHelp, Search, ShoppingCart, Package, FolderTree, Tag, Globe, Megaphone,
 };
 
 /* ── Nav data ──────────────────────────────────────────────────────────── */
@@ -126,6 +149,7 @@ export const navConfig: NavItem[] = [
       ]},
       { labelAr: 'الإعداد', items: [
         { label: 'أنواع الإجازات', href: '/hr/leaves/leave-types',     icon: ListChecks },
+        { label: 'العطل الرسمية',  href: '/hr/leaves/public-holidays', icon: CalendarDays },
       ]},
     ],
   },
@@ -223,6 +247,88 @@ export const systemNavConfig: NavItem[] = [
     })),
   },
 ];
+
+/**
+ * Overview link + Website dropdown + business-domain dropdowns (skip empty domains).
+ */
+function buildEcommerceNavConfig(tNav: (key: string) => string): NavItem[] {
+  const items: NavItem[] = [
+    {
+      key: 'ecommerce-overview',
+      label: tNav(ecommerceAdminOverviewItem.labelKey),
+      href: ecommerceAdminOverviewItem.href,
+      icon: ecommerceAdminOverviewItem.icon,
+    },
+  ];
+
+  for (const group of ecommerceAdminNavGroups) {
+    const flat = flattenEcommerceNavItems(group);
+    if (flat.length === 0) continue;
+
+    items.push({
+      key: group.key,
+      label: tNav(group.labelKey),
+      icon: group.icon,
+      isActive: (pathname) =>
+        flat.some((item) => {
+          const base = item.href.split('?')[0]!;
+          return pathname === base || pathname.startsWith(`${base}/`);
+        }),
+      groups: group.sections
+        .filter((section) => section.items.length > 0)
+        .map((section) => ({
+          labelAr: section.sectionKey ? tNav(`sections.${section.sectionKey}`) : undefined,
+          items: section.items.map((item) => ({
+            label: tNav(item.labelKey),
+            href: item.href,
+            icon: item.icon,
+          })),
+        })),
+    });
+  }
+
+  return items;
+}
+
+/** نظرة عامة | العمليات | المنتجات | إعداد التقارير | التهيئة */
+function buildInventoryNavConfig(): NavItem[] {
+  const items: NavItem[] = [
+    {
+      key: 'inventory-overview',
+      label: inventoryAdminOverviewItem.labelAr,
+      href: inventoryAdminOverviewItem.href,
+      icon: inventoryAdminOverviewItem.icon,
+    },
+  ];
+
+  for (const group of inventoryAdminNavGroups) {
+    const flat = flattenInventoryNavItems(group);
+    if (flat.length === 0) continue;
+
+    items.push({
+      key: group.key,
+      label: group.labelAr,
+      icon: group.icon,
+      isActive: (pathname) =>
+        flat.some((item) => {
+          const base = item.href.split('?')[0]!;
+          return pathname === base || pathname.startsWith(`${base}/`);
+        }),
+      groups: group.sections
+        .filter((section) => section.items.length > 0)
+        .map((section) => ({
+          labelAr: section.labelAr,
+          items: section.items.map((item) => ({
+            label: item.labelAr,
+            href: item.href,
+            icon: item.icon,
+          })),
+        })),
+    });
+  }
+
+  return items;
+}
 
 /* ── Helpers ─────────────────────────────────────────────────────────── */
 function parentIsActive(pathname: string, item: NavItem) {
@@ -407,8 +513,25 @@ export function Topbar() {
 
   const inHrApp = isHrAppPath(pathname);
   const inSystemApp = isSystemAppPath(pathname);
-  const inAppShell = inHrApp || inSystemApp;
-  const activeNavConfig = inSystemApp ? systemNavConfig : navConfig;
+  const activeCompanyId = useAuthStore((s) => s.activeCompanyId);
+  const ecommerceEnabled = isModuleEnabledFor('ecommerce', activeCompanyId);
+  const inventoryEnabled = isModuleEnabledFor('inventory', activeCompanyId);
+  const inEcommerceApp = ecommerceEnabled && isEcommerceAppPath(pathname);
+  const inInventoryApp = inventoryEnabled && isInventoryAppPath(pathname);
+  const inAppShell = inHrApp || inSystemApp || inEcommerceApp || inInventoryApp;
+  const tEcommerceNav = useTranslations('ecommerceAdmin.nav');
+  const ecommerceNavConfig = React.useMemo(
+    () => buildEcommerceNavConfig((key) => tEcommerceNav(key as 'overview')),
+    [tEcommerceNav],
+  );
+  const inventoryNavConfig = React.useMemo(() => buildInventoryNavConfig(), []);
+  const activeNavConfig = inSystemApp
+    ? systemNavConfig
+    : inInventoryApp
+      ? inventoryNavConfig
+      : inEcommerceApp
+        ? ecommerceNavConfig
+        : navConfig;
   const onLauncher = isLauncherPath(pathname);
   const PageIcon = meta.iconName ? PAGE_ICONS[meta.iconName] : null;
 
@@ -450,9 +573,7 @@ export function Topbar() {
           ) : null}
         </div>
 
-        {inAppShell && <div className="mx-0.5 hidden h-5 w-px bg-border/70 lg:block" />}
-
-        {/* Desktop nav — app shell only (HR or System) */}
+        {/* Desktop nav — app shell only (HR, System, or Ecommerce) */}
         {inAppShell && (
         <nav className="hidden min-w-0 flex-1 flex-nowrap items-center gap-0.5 overflow-visible min-[1400px]:gap-1 lg:flex" aria-label="التنقل الرئيسي">
           {activeNavConfig.map(item => (

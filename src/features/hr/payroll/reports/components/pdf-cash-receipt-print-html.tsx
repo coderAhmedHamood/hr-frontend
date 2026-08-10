@@ -17,7 +17,7 @@ export type CashReceiptReason =
   | 'other';
 
 export const CASH_RECEIPT_REASON_LABELS: Record<CashReceiptReason, string> = {
-  salary: 'استلام راتب شهر',
+  salary: 'راتب شهر',
   advance: 'سلفة',
   allowance: 'بدل',
   overtime: 'بدل إضافي لمدة',
@@ -225,14 +225,16 @@ export const CashReceiptPrintHtml = React.forwardRef<HTMLDivElement, CashReceipt
               ...font,
             }}
           >
-            سند استلام نقدي
+            {blank || fields?.purposeMonth == null || fields?.purposeYear == null
+              ? 'سند راتب'
+              : `سند راتب شهر ${fields.purposeMonth}/${String(fields.purposeYear).slice(-2)} م`}
           </div>
 
           <div style={{ fontSize: 15, lineHeight: 2.15, textAlign: 'right', marginBottom: 6, ...font }}>
-            استلمت انا / <Slot blank={blank} value={fields?.recipientName} dots={DOTS} /> الموقعة أدناه
+            أقرّ أنا / <Slot blank={blank} value={fields?.recipientName} dots={DOTS} /> الموقع أدناه
           </div>
           <div style={{ fontSize: 15, lineHeight: 2.15, textAlign: 'right', marginBottom: 6, ...font }}>
-            من مؤسسة{' '}
+            بأن راتبي المستحق من مؤسسة{' '}
             <Slot
               blank={blank}
               value={fields?.institutionName || companyNameAr}
@@ -258,7 +260,7 @@ export const CashReceiptPrintHtml = React.forwardRef<HTMLDivElement, CashReceipt
           >
             <div>
               <ReasonRow checked={is('salary')}>
-                استلام راتب شهر {periodSlots(blank || !is('salary'), fields?.purposeMonth, fields?.purposeYear)}
+                راتب شهر {periodSlots(blank || !is('salary'), fields?.purposeMonth, fields?.purposeYear)}
               </ReasonRow>
               <ReasonRow checked={is('overtime')}>
                 بدل إضافي لمدة{' '}

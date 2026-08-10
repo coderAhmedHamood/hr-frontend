@@ -8,7 +8,6 @@ import { RoseResignationPrintHtml } from '@/components/pdf/rose-trading/rose-res
 import { RoseExperiencePrintHtml } from '@/components/pdf/rose-trading/rose-experience-print-html';
 import { RoseSettlementPrintHtml } from '@/components/pdf/rose-trading/rose-settlement-print-html';
 import { RoseMobileCircularPrintHtml } from '@/components/pdf/rose-trading/rose-mobile-circular-print-html';
-import { CashReceiptPrintHtml } from '@/features/hr/payroll/reports/components/pdf-cash-receipt-print-html';
 import type { EmployeeProfileDraft } from '@/features/hr/organization/employees/components/employee-profile-field';
 import {
   formatGregorianDateAr,
@@ -42,13 +41,36 @@ export function useEmployeeProfileRosePdf(draft: EmployeeProfileDraft) {
   }), [activeCompany, pdfCompany]);
 
   const [clearancePrepOpen, setClearancePrepOpen] = React.useState(false);
-  const [settlementPrepOpen, setSettlementPrepOpen] = React.useState(false);
-  const [experiencePrepOpen, setExperiencePrepOpen] = React.useState(false);
   const [preview, setPreview] = React.useState<EmployeeProfileHrPdfPayload | null>(null);
 
   const closeHrPdfPreview = React.useCallback(() => {
     setPreview(null);
   }, []);
+
+  const openFilledExperiencePdf = React.useCallback(() => {
+    const today = todayIsoDate();
+    setPreview({
+      printable: (
+        <RoseExperiencePrintHtml
+          companyNameAr={companyNames.nameAr}
+          companyNameEn={companyNames.nameEn}
+          fields={{
+            certificateDate: formatGregorianDateAr(today),
+            employeeName: draft.name || '—',
+            companyName: companyNames.nameAr || '—',
+            department: pdfCtx.departmentNameAr || '—',
+            position: draft.position || '—',
+            startDate: draft.startDate ? formatGregorianDateAr(draft.startDate) : '—',
+            endDate: draft.endDate
+              ? formatGregorianDateAr(draft.endDate)
+              : formatGregorianDateAr(today),
+          }}
+        />
+      ),
+      title: 'معاينة — شهادة خبرة',
+      fileName: `rose-experience-${draft.employeeCode}.pdf`,
+    });
+  }, [companyNames.nameAr, companyNames.nameEn, draft, pdfCtx.departmentNameAr]);
 
   const openHrPdfPrep = React.useCallback((kind: 'resignation' | 'clearance' | 'settlement' | 'experience' | 'cash-receipt' | 'mobile-circular') => {
     switch (kind) {
@@ -89,19 +111,10 @@ export function useEmployeeProfileRosePdf(draft: EmployeeProfileDraft) {
         });
         break;
       case 'experience':
-        setExperiencePrepOpen(true);
+        openFilledExperiencePdf();
         break;
       case 'cash-receipt':
-        setPreview({
-          printable: (
-            <CashReceiptPrintHtml
-              companyNameAr={companyNames.nameAr}
-              companyNameEn={companyNames.nameEn}
-            />
-          ),
-          title: 'معاينة — سند استلام نقدي',
-          fileName: 'rose-cash-receipt-form.pdf',
-        });
+        // Salary vouchers are payroll-driven — no blank template from official forms.
         break;
       case 'mobile-circular':
         setPreview({
@@ -118,11 +131,9 @@ export function useEmployeeProfileRosePdf(draft: EmployeeProfileDraft) {
         });
         break;
     }
-  }, [companyNames.nameAr, companyNames.nameEn, draft.employeeCode, draft.name, draft.nationalId]);
+  }, [companyNames.nameAr, companyNames.nameEn, draft.employeeCode, draft.name, draft.nationalId, openFilledExperiencePdf]);
 
   const cancelClearancePrep = React.useCallback(() => setClearancePrepOpen(false), []);
-  const cancelSettlementPrep = React.useCallback(() => setSettlementPrepOpen(false), []);
-  const cancelExperiencePrep = React.useCallback(() => setExperiencePrepOpen(false), []);
 
   const applyClearanceWizard = React.useCallback(() => {
     setClearancePrepOpen(false);
@@ -138,76 +149,6 @@ export function useEmployeeProfileRosePdf(draft: EmployeeProfileDraft) {
     });
   }, [companyNames.nameAr, companyNames.nameEn]);
 
-  const applySettlementWizard = React.useCallback(
-    (mode: SettlementPdfMode) => {
-      setSettlementPrepOpen(false);
-      const today = todayIsoDate();
-      const fields =
-        mode === 'filled'
-          ? {
-              employeeName: draft.name || '—',
-              nationality: draft.nationality || '—',
-              nationalId: draft.nationalId || '—',
-              endDateGregorian: draft.endDate
-                ? formatGregorianDateAr(draft.endDate)
-                : formatGregorianDateAr(today),
-              companyName: companyNames.nameAr || '—',
-            }
-          : null;
-
-      setPreview({
-        printable: (
-          <RoseSettlementPrintHtml
-            companyNameAr={companyNames.nameAr}
-            companyNameEn={companyNames.nameEn}
-            fields={fields}
-          />
-        ),
-        title: 'معاينة — مخالصة نهائية',
-        fileName:
-          mode === 'filled'
-            ? `rose-settlement-${draft.employeeCode}.pdf`
-            : 'rose-settlement-blank.pdf',
-      });
-    },
-    [companyNames.nameAr, companyNames.nameEn, draft],
-  );
-
-  const applyExperienceWizard = React.useCallback(
-    (mode: ExperiencePdfMode) => {
-      setExperiencePrepOpen(false);
-      const today = todayIsoDate();
-      const fields =
-        mode === 'filled'
-          ? {
-              certificateDate: formatGregorianDateAr(today),
-              employeeName: draft.name || '—',
-              companyName: companyNames.nameAr || '—',
-              department: pdfCtx.departmentNameAr || '—',
-              position: draft.position || '—',
-              startDate: draft.startDate ? formatGregorianDateAr(draft.startDate) : '—',
-              endDate: draft.endDate ? formatGregorianDateAr(draft.endDate) : formatGregorianDateAr(today),
-            }
-          : null;
-
-      setPreview({
-        printable: (
-          <RoseExperiencePrintHtml
-            companyNameAr={companyNames.nameAr}
-            companyNameEn={companyNames.nameEn}
-            fields={fields}
-          />
-        ),
-        title: 'معاينة — شهادة خبرة',
-        fileName:
-          mode === 'filled'
-            ? `rose-experience-${draft.employeeCode}.pdf`
-            : 'rose-experience-blank.pdf',
-      });
-    },
-    [companyNames.nameAr, companyNames.nameEn, draft, pdfCtx.departmentNameAr],
-  );
-
   const rosePdfPreviewPayload = React.useMemo(
     () =>
       preview ?? {
@@ -221,16 +162,16 @@ export function useEmployeeProfileRosePdf(draft: EmployeeProfileDraft) {
   return {
     hrPdfPrepKind: null as EmployeeHrPdfPrepKind,
     clearancePrepOpen,
-    settlementPrepOpen,
-    experiencePrepOpen,
+    settlementPrepOpen: false,
+    experiencePrepOpen: false,
     openHrPdfPrep,
     cancelHrPdfPrep: () => {},
     cancelClearancePrep,
-    cancelSettlementPrep,
-    cancelExperiencePrep,
+    cancelSettlementPrep: () => {},
+    cancelExperiencePrep: () => {},
     applyClearanceWizard,
-    applySettlementWizard,
-    applyExperienceWizard,
+    applySettlementWizard: (_mode: SettlementPdfMode) => {},
+    applyExperienceWizard: (_mode: ExperiencePdfMode) => {},
     applyHrPdfPrepResult: () => {},
     hrPdfPreviewOpen: !!preview,
     closeHrPdfPreview,

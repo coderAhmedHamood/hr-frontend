@@ -1,6 +1,7 @@
 import { apiRequest, type PaginatedResult } from '@/features/hr/lib/api/client';
 
 export type EmployeeResignationStatus = 'draft' | 'issued' | 'revoked';
+export type EmployeeResignationSignatureStatus = 'none' | 'pending' | 'signed';
 
 export type EmployeeResignationDto = {
   id: string;
@@ -20,6 +21,11 @@ export type EmployeeResignationDto = {
   signatureName: string | null;
   submissionDate: string;
   status: EmployeeResignationStatus | string;
+  employeeSignatureStatus?: EmployeeResignationSignatureStatus | string;
+  signatureMethod?: string | null;
+  signedAttachmentId?: string | null;
+  signatureImageUrl?: string | null;
+  employeeSignedAt?: string | null;
   notes: string | null;
   attachments: unknown[] | null;
   issuedAt: string | null;
@@ -80,5 +86,15 @@ export const employeeResignationsApi = {
       method: 'POST',
       body: payload,
     });
+  },
+
+  sendToEmployee(
+    id: string,
+    payload?: { issuedByEmployeeId?: string; updatedBy?: string | null },
+  ) {
+    return apiRequest<EmployeeResignationDto>(
+      `/hr/employee-resignations/${id}/send-to-employee`,
+      { method: 'POST', body: payload ?? {} },
+    );
   },
 };

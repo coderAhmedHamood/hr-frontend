@@ -5,8 +5,8 @@ import type { RoseExperienceTemplateContent } from '@/features/hr/organization/e
 export const DEFAULT_ROSE_EXPERIENCE_TEMPLATE: RoseExperienceTemplateContent = {
   title: localized('شهادة خبرة', 'Experience Certificate'),
   bodyIntro: localized(
-    'هذه الشهادة لتأكيد أن {{employee.recipientLine}} {{employee.name}} قد {{employee.workedVerb}} في شركة {{company.nameAr}} في قسم {{employee.department}} بمنصب {{employee.position}} منذ {{form.serviceStartGregorian}} وحتى {{form.endDateGregorian}}.',
-    'This certificate confirms that {{employee.recipientLineEn}} {{employee.name}} has {{employee.workedVerbEn}} at {{company.nameEn}} in the {{employee.department}} department as {{employee.position}} from {{form.serviceStartGregorian}} until {{form.endDateGregorian}}.',
+    'هذه الشهادة لتأكيد أن {{employee.recipientLine}} {{employee.name}} قد {{employee.workedVerb}} في شركة {{company.nameAr}} بمنصب {{employee.position}} منذ {{form.serviceStartGregorian}} وحتى {{form.endDateGregorian}}.',
+    'This certificate confirms that {{employee.recipientLineEn}} {{employee.name}} has {{employee.workedVerbEn}} at {{company.nameEn}} as {{employee.position}} from {{form.serviceStartGregorian}} until {{form.endDateGregorian}}.',
   ),
   performanceHeading: localized(
     'خلال فترة عمله معنا، وجدنا أنه:',

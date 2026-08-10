@@ -1,0 +1,1435 @@
+[
+  {
+    "id": "cat-bev",
+    "companyId": "demo-company",
+    "slug": "skincare",
+    "nameAr": "العناية بالبشرة",
+    "nameEn": "Skincare",
+    "description": "سيرومات، مرطبات، غسولات وماسكات",
+    "image": {
+      "id": "media-cat-bev",
+      "url": "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&q=80",
+      "alt": "Skincare",
+      "type": "image",
+      "position": 0,
+      "isPrimary": true
+    },
+    "parentId": null,
+    "featuredBrandIds": [
+      "brand-pepsi",
+      "brand-nadec",
+      "brand-almarai"
+    ],
+    "seo": {
+      "metaTitle": "العناية بالبشرة",
+      "metaDescription": "سيرومات، مرطبات، غسولات وماسكات"
+    },
+    "displayOrder": 1,
+    "isActive": true,
+    "createdAt": "2026-01-05T08:00:00.000Z",
+    "updatedAt": "2026-01-05T08:00:00.000Z"
+  },
+  {
+    "id": "cat-bev-soft",
+    "companyId": "demo-company",
+    "slug": "cleansers",
+    "nameAr": "منظفات الوجه",
+    "nameEn": "Cleansers",
+    "parentId": "cat-bev",
+    "seo": {
+      "metaTitle": "منظفات الوجه",
+      "metaDescription": "غسولات وماء ميسيلار"
+    },
+    "displayOrder": 1,
+    "isActive": true,
+    "createdAt": "2026-01-05T08:00:00.000Z",
+    "updatedAt": "2026-01-05T08:00:00.000Z",
+    "image": {
+      "id": "media-cat-bev-soft",
+      "url": "https://images.unsplash.com/photo-1556228578-0d85b1a4d571?w=800&q=80",
+      "alt": "Cleansers",
+      "type": "image",
+      "position": 0,
+      "isPrimary": true
+    },
+    "description": "غسولات وماء ميسيلار"
+  },
+  {
+    "id": "cat-bev-soft-cola",
+    "companyId": "demo-company",
+    "slug": "serums",
+    "nameAr": "السيرومات",
+    "nameEn": "Serums",
+    "parentId": "cat-bev-soft",
+    "seo": {
+      "metaTitle": "السيرومات",
+      "metaDescription": "سيرومات فعالة"
+    },
+    "displayOrder": 1,
+    "isActive": true,
+    "createdAt": "2026-01-05T08:00:00.000Z",
+    "updatedAt": "2026-01-05T08:00:00.000Z",
+    "image": {
+      "id": "media-cat-bev-soft-cola",
+      "url": "https://images.unsplash.com/photo-1620916567856-01b1d6e9e0d1?w=800&q=80",
+      "alt": "Serums",
+      "type": "image",
+      "position": 0,
+      "isPrimary": true
+    },
+    "description": "سيرومات فعالة"
+  },
+  {
+    "id": "cat-bev-soft-energy",
+    "companyId": "demo-company",
+    "slug": "exfoliating-cleansers",
+    "nameAr": "منظفات مقشّرة",
+    "nameEn": "Exfoliating cleansers",
+    "parentId": "cat-bev-soft",
+    "seo": {
+      "metaTitle": "منظفات مقشّرة",
+      "metaDescription": "تقشير لطيف"
+    },
+    "displayOrder": 2,
+    "isActive": true,
+    "createdAt": "2026-01-05T08:00:00.000Z",
+    "updatedAt": "2026-01-05T08:00:00.000Z",
+    "image": {
+      "id": "media-cat-bev-soft-energy",
+      "url": "https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?w=800&q=80",
+      "alt": "Exfoliating cleansers",
+      "type": "image",
+      "position": 0,
+      "isPrimary": true
+    },
+    "description": "تقشير لطيف"
+  },
+  {
+    "id": "cat-bev-juice",
+    "companyId": "demo-company",
+    "slug": "moisturizers",
+    "nameAr": "المرطبات",
+    "nameEn": "Moisturizers",
+    "parentId": "cat-bev",
+    "seo": {
+      "metaTitle": "المرطبات",
+      "metaDescription": "كريمات وجل مرطب"
+    },
+    "displayOrder": 2,
+    "isActive": true,
+    "createdAt": "2026-01-05T08:00:00.000Z",
+    "updatedAt": "2026-01-05T08:00:00.000Z",
+    "image": {
+      "id": "media-cat-bev-juice",
+      "url": "https://images.unsplash.com/photo-1616394584738-fc6e612e71b9?w=800&q=80",
+      "alt": "Moisturizers",
+      "type": "image",
+      "position": 0,
+      "isPrimary": true
+    },
+    "description": "كريمات وجل مرطب"
+  },
+  {
+    "id": "cat-bev-juice-orange",
+    "companyId": "demo-company",
+    "slug": "day-creams",
+    "nameAr": "كريمات نهاريّة",
+    "nameEn": "Day creams",
+    "parentId": "cat-bev-juice",
+    "seo": {
+      "metaTitle": "كريمات نهاريّة",
+      "metaDescription": "ترطيب نهاري"
+    },
+    "displayOrder": 1,
+    "isActive": true,
+    "createdAt": "2026-01-05T08:00:00.000Z",
+    "updatedAt": "2026-01-05T08:00:00.000Z",
+    "image": {
+      "id": "media-cat-bev-juice-orange",
+      "url": "https://images.unsplash.com/photo-1616394584738-fc6e612e71b9?w=800&q=80",
+      "alt": "Day creams",
+      "type": "image",
+      "position": 0,
+      "isPrimary": true
+    },
+    "description": "ترطيب نهاري"
+  },
+  {
+    "id": "cat-bev-water",
+    "companyId": "demo-company",
+    "slug": "toners",
+    "nameAr": "التونر",
+    "nameEn": "Toners",
+    "parentId": "cat-bev",
+    "seo": {
+      "metaTitle": "التونر",
+      "metaDescription": "تونر وتوازن البشرة"
+    },
+    "displayOrder": 3,
+    "isActive": true,
+    "createdAt": "2026-01-05T08:00:00.000Z",
+    "updatedAt": "2026-01-05T08:00:00.000Z",
+    "image": {
+      "id": "media-cat-bev-water",
+      "url": "https://images.unsplash.com/photo-1571781926291-c477ebfd024b?w=800&q=80",
+      "alt": "Toners",
+      "type": "image",
+      "position": 0,
+      "isPrimary": true
+    },
+    "description": "تونر وتوازن البشرة"
+  },
+  {
+    "id": "cat-bev-tea-coffee",
+    "companyId": "demo-company",
+    "slug": "eye-lip-care",
+    "nameAr": "عناية العين والشفاه",
+    "nameEn": "Eye & lip care",
+    "parentId": "cat-bev",
+    "seo": {
+      "metaTitle": "عناية العين والشفاه",
+      "metaDescription": "عناية موضعية"
+    },
+    "displayOrder": 4,
+    "isActive": true,
+    "createdAt": "2026-01-05T08:00:00.000Z",
+    "updatedAt": "2026-01-05T08:00:00.000Z",
+    "image": {
+      "id": "media-cat-bev-tea-coffee",
+      "url": "https://images.unsplash.com/photo-1612817288484-6f916006741a?w=800&q=80",
+      "alt": "Eye & lip care",
+      "type": "image",
+      "position": 0,
+      "isPrimary": true
+    },
+    "description": "عناية موضعية"
+  },
+  {
+    "id": "cat-bev-tea",
+    "companyId": "demo-company",
+    "slug": "eye-creams",
+    "nameAr": "كريمات العين",
+    "nameEn": "Eye creams",
+    "parentId": "cat-bev-tea-coffee",
+    "seo": {
+      "metaTitle": "كريمات العين",
+      "metaDescription": "عناية حول العين"
+    },
+    "displayOrder": 1,
+    "isActive": true,
+    "createdAt": "2026-01-05T08:00:00.000Z",
+    "updatedAt": "2026-01-05T08:00:00.000Z",
+    "image": {
+      "id": "media-cat-bev-tea",
+      "url": "https://images.unsplash.com/photo-1612817288484-6f916006741a?w=800&q=80",
+      "alt": "Eye creams",
+      "type": "image",
+      "position": 0,
+      "isPrimary": true
+    },
+    "description": "عناية حول العين"
+  },
+  {
+    "id": "cat-bev-coffee",
+    "companyId": "demo-company",
+    "slug": "lip-balms",
+    "nameAr": "مرطب الشفاه",
+    "nameEn": "Lip balms",
+    "parentId": "cat-bev-tea-coffee",
+    "seo": {
+      "metaTitle": "مرطب الشفاه",
+      "metaDescription": "ترطيب الشفاه"
+    },
+    "displayOrder": 2,
+    "isActive": true,
+    "createdAt": "2026-01-05T08:00:00.000Z",
+    "updatedAt": "2026-01-05T08:00:00.000Z",
+    "image": {
+      "id": "media-cat-bev-coffee",
+      "url": "https://images.unsplash.com/photo-1586495777744-4413f21062fa?w=800&q=80",
+      "alt": "Lip balms",
+      "type": "image",
+      "position": 0,
+      "isPrimary": true
+    },
+    "description": "ترطيب الشفاه"
+  },
+  {
+    "id": "cat-snacks",
+    "companyId": "demo-company",
+    "slug": "makeup",
+    "nameAr": "المكياج",
+    "nameEn": "Makeup",
+    "description": "شفاه، عيون، وأساس",
+    "image": {
+      "id": "media-cat-snacks",
+      "url": "https://images.unsplash.com/photo-1512496015851-a90fb38ba796?w=800&q=80",
+      "alt": "Makeup",
+      "type": "image",
+      "position": 0,
+      "isPrimary": true
+    },
+    "parentId": null,
+    "featuredBrandIds": [
+      "brand-lays",
+      "brand-tide"
+    ],
+    "seo": {
+      "metaTitle": "المكياج",
+      "metaDescription": "شفاه، عيون، وأساس"
+    },
+    "displayOrder": 2,
+    "isActive": true,
+    "createdAt": "2026-01-05T08:00:00.000Z",
+    "updatedAt": "2026-01-05T08:00:00.000Z"
+  },
+  {
+    "id": "cat-snacks-chips",
+    "companyId": "demo-company",
+    "slug": "lips",
+    "nameAr": "الشفاه",
+    "nameEn": "Lips",
+    "parentId": "cat-snacks",
+    "seo": {
+      "metaTitle": "الشفاه",
+      "metaDescription": "أحمر شفاه وملمع"
+    },
+    "displayOrder": 1,
+    "isActive": true,
+    "createdAt": "2026-01-05T08:00:00.000Z",
+    "updatedAt": "2026-01-05T08:00:00.000Z",
+    "image": {
+      "id": "media-cat-snacks-chips",
+      "url": "https://images.unsplash.com/photo-1586495777744-4413f21062fa?w=800&q=80",
+      "alt": "Lips",
+      "type": "image",
+      "position": 0,
+      "isPrimary": true
+    },
+    "description": "أحمر شفاه وملمع"
+  },
+  {
+    "id": "cat-snacks-chips-potato",
+    "companyId": "demo-company",
+    "slug": "matte-lipstick",
+    "nameAr": "أحمر شفاه مات",
+    "nameEn": "Matte lipstick",
+    "parentId": "cat-snacks-chips",
+    "seo": {
+      "metaTitle": "أحمر شفاه مات",
+      "metaDescription": "ألوان مات"
+    },
+    "displayOrder": 1,
+    "isActive": true,
+    "createdAt": "2026-01-05T08:00:00.000Z",
+    "updatedAt": "2026-01-05T08:00:00.000Z",
+    "image": {
+      "id": "media-cat-snacks-chips-potato",
+      "url": "https://images.unsplash.com/photo-1586495777744-4413f21062fa?w=800&q=80",
+      "alt": "Matte lipstick",
+      "type": "image",
+      "position": 0,
+      "isPrimary": true
+    },
+    "description": "ألوان مات"
+  },
+  {
+    "id": "cat-snacks-nuts",
+    "companyId": "demo-company",
+    "slug": "eyes",
+    "nameAr": "العيون",
+    "nameEn": "Eyes",
+    "parentId": "cat-snacks",
+    "seo": {
+      "metaTitle": "العيون",
+      "metaDescription": "ظلال ومسكرة"
+    },
+    "displayOrder": 2,
+    "isActive": true,
+    "createdAt": "2026-01-05T08:00:00.000Z",
+    "updatedAt": "2026-01-05T08:00:00.000Z",
+    "image": {
+      "id": "media-cat-snacks-nuts",
+      "url": "https://images.unsplash.com/photo-1512496015851-a90fb38ba796?w=800&q=80",
+      "alt": "Eyes",
+      "type": "image",
+      "position": 0,
+      "isPrimary": true
+    },
+    "description": "ظلال ومسكرة"
+  },
+  {
+    "id": "cat-snacks-biscuits",
+    "companyId": "demo-company",
+    "slug": "face-makeup",
+    "nameAr": "مكياج الوجه",
+    "nameEn": "Face makeup",
+    "parentId": "cat-snacks",
+    "seo": {
+      "metaTitle": "مكياج الوجه",
+      "metaDescription": "فاونديشن وكوريكتور"
+    },
+    "displayOrder": 3,
+    "isActive": true,
+    "createdAt": "2026-01-05T08:00:00.000Z",
+    "updatedAt": "2026-01-05T08:00:00.000Z",
+    "image": {
+      "id": "media-cat-snacks-biscuits",
+      "url": "https://images.unsplash.com/photo-1487412947147-5cebf100ffc2?w=800&q=80",
+      "alt": "Face makeup",
+      "type": "image",
+      "position": 0,
+      "isPrimary": true
+    },
+    "description": "فاونديشن وكوريكتور"
+  },
+  {
+    "id": "cat-snacks-dates",
+    "companyId": "demo-company",
+    "slug": "nail-polish",
+    "nameAr": "طلاء الأظافر",
+    "nameEn": "Nail polish",
+    "parentId": "cat-snacks",
+    "seo": {
+      "metaTitle": "طلاء الأظافر",
+      "metaDescription": "ألوان أظافر"
+    },
+    "displayOrder": 4,
+    "isActive": true,
+    "createdAt": "2026-01-05T08:00:00.000Z",
+    "updatedAt": "2026-01-05T08:00:00.000Z",
+    "image": {
+      "id": "media-cat-snacks-dates",
+      "url": "https://images.unsplash.com/photo-1607602132700-2088256a5f2a?w=800&q=80",
+      "alt": "Nail polish",
+      "type": "image",
+      "position": 0,
+      "isPrimary": true
+    },
+    "description": "ألوان أظافر"
+  },
+  {
+    "id": "cat-bakery",
+    "companyId": "demo-company",
+    "slug": "haircare",
+    "nameAr": "العناية بالشعر",
+    "nameEn": "Haircare",
+    "description": "شامبو، بلسم وزيوت",
+    "image": {
+      "id": "media-cat-bakery",
+      "url": "https://images.unsplash.com/photo-1527799820374-dcf8d9d4a388?w=800&q=80",
+      "alt": "Haircare",
+      "type": "image",
+      "position": 0,
+      "isPrimary": true
+    },
+    "parentId": null,
+    "featuredBrandIds": [
+      "brand-dove",
+      "brand-tide"
+    ],
+    "seo": {
+      "metaTitle": "العناية بالشعر",
+      "metaDescription": "شامبو، بلسم وزيوت"
+    },
+    "displayOrder": 3,
+    "isActive": true,
+    "createdAt": "2026-01-05T08:00:00.000Z",
+    "updatedAt": "2026-01-05T08:00:00.000Z"
+  },
+  {
+    "id": "cat-bakery-bread",
+    "companyId": "demo-company",
+    "slug": "shampoo",
+    "nameAr": "الشامبو",
+    "nameEn": "Shampoo",
+    "parentId": "cat-bakery",
+    "seo": {
+      "metaTitle": "الشامبو",
+      "metaDescription": "تنظيف الشعر"
+    },
+    "displayOrder": 1,
+    "isActive": true,
+    "createdAt": "2026-01-05T08:00:00.000Z",
+    "updatedAt": "2026-01-05T08:00:00.000Z",
+    "image": {
+      "id": "media-cat-bakery-bread",
+      "url": "https://images.unsplash.com/photo-1535585209827-a15fcdbc4c2d?w=800&q=80",
+      "alt": "Shampoo",
+      "type": "image",
+      "position": 0,
+      "isPrimary": true
+    },
+    "description": "تنظيف الشعر"
+  },
+  {
+    "id": "cat-bakery-pastries",
+    "companyId": "demo-company",
+    "slug": "conditioner",
+    "nameAr": "البلسم",
+    "nameEn": "Conditioner",
+    "parentId": "cat-bakery",
+    "seo": {
+      "metaTitle": "البلسم",
+      "metaDescription": "ترطيب الشعر"
+    },
+    "displayOrder": 2,
+    "isActive": true,
+    "createdAt": "2026-01-05T08:00:00.000Z",
+    "updatedAt": "2026-01-05T08:00:00.000Z",
+    "image": {
+      "id": "media-cat-bakery-pastries",
+      "url": "https://images.unsplash.com/photo-1527799820374-dcf8d9d4a388?w=800&q=80",
+      "alt": "Conditioner",
+      "type": "image",
+      "position": 0,
+      "isPrimary": true
+    },
+    "description": "ترطيب الشعر"
+  },
+  {
+    "id": "cat-bakery-sweets",
+    "companyId": "demo-company",
+    "slug": "hair-oils-masks",
+    "nameAr": "زيوت وماسكات الشعر",
+    "nameEn": "Hair oils & masks",
+    "parentId": "cat-bakery",
+    "seo": {
+      "metaTitle": "زيوت وماسكات الشعر",
+      "metaDescription": "تغذية مكثفة"
+    },
+    "displayOrder": 3,
+    "isActive": true,
+    "createdAt": "2026-01-05T08:00:00.000Z",
+    "updatedAt": "2026-01-05T08:00:00.000Z",
+    "image": {
+      "id": "media-cat-bakery-sweets",
+      "url": "https://images.unsplash.com/photo-1608248543803-ba4f8c70e0bc?w=800&q=80",
+      "alt": "Hair oils & masks",
+      "type": "image",
+      "position": 0,
+      "isPrimary": true
+    },
+    "description": "تغذية مكثفة"
+  },
+  {
+    "id": "cat-dairy",
+    "companyId": "demo-company",
+    "slug": "treatment",
+    "nameAr": "علاجات البشرة",
+    "nameEn": "Treatments",
+    "description": "تونر وأحماض وعناية مركّزة",
+    "image": {
+      "id": "media-cat-dairy",
+      "url": "https://images.unsplash.com/photo-1616394584738-fc6e612e71b9?w=800&q=80",
+      "alt": "Treatments",
+      "type": "image",
+      "position": 0,
+      "isPrimary": true
+    },
+    "parentId": null,
+    "featuredBrandIds": [
+      "brand-almarai",
+      "brand-pepsi"
+    ],
+    "seo": {
+      "metaTitle": "علاجات البشرة",
+      "metaDescription": "تونر وأحماض وعناية مركّزة"
+    },
+    "displayOrder": 4,
+    "isActive": true,
+    "createdAt": "2026-01-05T08:00:00.000Z",
+    "updatedAt": "2026-01-05T08:00:00.000Z"
+  },
+  {
+    "id": "cat-dairy-milk",
+    "companyId": "demo-company",
+    "slug": "acids-toners",
+    "nameAr": "أحماض وتونر",
+    "nameEn": "Acids & toners",
+    "parentId": "cat-dairy",
+    "seo": {
+      "metaTitle": "أحماض وتونر",
+      "metaDescription": "تجديد البشرة"
+    },
+    "displayOrder": 1,
+    "isActive": true,
+    "createdAt": "2026-01-05T08:00:00.000Z",
+    "updatedAt": "2026-01-05T08:00:00.000Z",
+    "image": {
+      "id": "media-cat-dairy-milk",
+      "url": "https://images.unsplash.com/photo-1616394584738-fc6e612e71b9?w=800&q=80",
+      "alt": "Acids & toners",
+      "type": "image",
+      "position": 0,
+      "isPrimary": true
+    },
+    "description": "تجديد البشرة"
+  },
+  {
+    "id": "cat-dairy-yogurt",
+    "companyId": "demo-company",
+    "slug": "eye-serums",
+    "nameAr": "سيروم العين",
+    "nameEn": "Eye serums",
+    "parentId": "cat-dairy",
+    "seo": {
+      "metaTitle": "سيروم العين",
+      "metaDescription": "عناية العين"
+    },
+    "displayOrder": 2,
+    "isActive": true,
+    "createdAt": "2026-01-05T08:00:00.000Z",
+    "updatedAt": "2026-01-05T08:00:00.000Z",
+    "image": {
+      "id": "media-cat-dairy-yogurt",
+      "url": "https://images.unsplash.com/photo-1612817288484-6f916006741a?w=800&q=80",
+      "alt": "Eye serums",
+      "type": "image",
+      "position": 0,
+      "isPrimary": true
+    },
+    "description": "عناية العين"
+  },
+  {
+    "id": "cat-dairy-cheese",
+    "companyId": "demo-company",
+    "slug": "spot-treatments",
+    "nameAr": "علاجات موضعية",
+    "nameEn": "Spot treatments",
+    "parentId": "cat-dairy",
+    "seo": {
+      "metaTitle": "علاجات موضعية",
+      "metaDescription": "استهداف البقع"
+    },
+    "displayOrder": 3,
+    "isActive": true,
+    "createdAt": "2026-01-05T08:00:00.000Z",
+    "updatedAt": "2026-01-05T08:00:00.000Z",
+    "image": {
+      "id": "media-cat-dairy-cheese",
+      "url": "https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?w=800&q=80",
+      "alt": "Spot treatments",
+      "type": "image",
+      "position": 0,
+      "isPrimary": true
+    },
+    "description": "استهداف البقع"
+  },
+  {
+    "id": "cat-frozen",
+    "companyId": "demo-company",
+    "slug": "masks",
+    "nameAr": "الماسكات",
+    "nameEn": "Masks",
+    "description": "ماسكات طين وترطيب",
+    "image": {
+      "id": "media-cat-frozen",
+      "url": "https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?w=800&q=80",
+      "alt": "Masks",
+      "type": "image",
+      "position": 0,
+      "isPrimary": true
+    },
+    "parentId": null,
+    "featuredBrandIds": [
+      "brand-almarai",
+      "brand-nadec",
+      "brand-lays"
+    ],
+    "seo": {
+      "metaTitle": "الماسكات",
+      "metaDescription": "ماسكات طين وترطيب"
+    },
+    "displayOrder": 5,
+    "isActive": true,
+    "createdAt": "2026-01-05T08:00:00.000Z",
+    "updatedAt": "2026-01-05T08:00:00.000Z"
+  },
+  {
+    "id": "cat-frozen-veg",
+    "companyId": "demo-company",
+    "slug": "clay-masks",
+    "nameAr": "ماسكات الطين",
+    "nameEn": "Clay masks",
+    "parentId": "cat-frozen",
+    "seo": {
+      "metaTitle": "ماسكات الطين",
+      "metaDescription": "تنقية"
+    },
+    "displayOrder": 1,
+    "isActive": true,
+    "createdAt": "2026-01-05T08:00:00.000Z",
+    "updatedAt": "2026-01-05T08:00:00.000Z",
+    "image": {
+      "id": "media-cat-frozen-veg",
+      "url": "https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?w=800&q=80",
+      "alt": "Clay masks",
+      "type": "image",
+      "position": 0,
+      "isPrimary": true
+    },
+    "description": "تنقية"
+  },
+  {
+    "id": "cat-frozen-meat",
+    "companyId": "demo-company",
+    "slug": "sheet-masks",
+    "nameAr": "ماسكات الورق",
+    "nameEn": "Sheet masks",
+    "parentId": "cat-frozen",
+    "seo": {
+      "metaTitle": "ماسكات الورق",
+      "metaDescription": "ترطيب سريع"
+    },
+    "displayOrder": 2,
+    "isActive": true,
+    "createdAt": "2026-01-05T08:00:00.000Z",
+    "updatedAt": "2026-01-05T08:00:00.000Z",
+    "image": {
+      "id": "media-cat-frozen-meat",
+      "url": "https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?w=800&q=80",
+      "alt": "Sheet masks",
+      "type": "image",
+      "position": 0,
+      "isPrimary": true
+    },
+    "description": "ترطيب سريع"
+  },
+  {
+    "id": "cat-frozen-ready",
+    "companyId": "demo-company",
+    "slug": "overnight-masks",
+    "nameAr": "ماسكات ليلية",
+    "nameEn": "Overnight masks",
+    "parentId": "cat-frozen",
+    "seo": {
+      "metaTitle": "ماسكات ليلية",
+      "metaDescription": "عناية ليلية"
+    },
+    "displayOrder": 3,
+    "isActive": true,
+    "createdAt": "2026-01-05T08:00:00.000Z",
+    "updatedAt": "2026-01-05T08:00:00.000Z",
+    "image": {
+      "id": "media-cat-frozen-ready",
+      "url": "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&q=80",
+      "alt": "Overnight masks",
+      "type": "image",
+      "position": 0,
+      "isPrimary": true
+    },
+    "description": "عناية ليلية"
+  },
+  {
+    "id": "cat-grocery",
+    "companyId": "demo-company",
+    "slug": "beauty-tools",
+    "nameAr": "أدوات التجميل",
+    "nameEn": "Beauty tools",
+    "description": "فرش وأدوات عناية",
+    "image": {
+      "id": "media-cat-grocery",
+      "url": "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?w=800&q=80",
+      "alt": "Beauty tools",
+      "type": "image",
+      "position": 0,
+      "isPrimary": true
+    },
+    "parentId": null,
+    "featuredBrandIds": [
+      "brand-lays"
+    ],
+    "seo": {
+      "metaTitle": "أدوات التجميل",
+      "metaDescription": "فرش وأدوات عناية"
+    },
+    "displayOrder": 6,
+    "isActive": true,
+    "createdAt": "2026-01-05T08:00:00.000Z",
+    "updatedAt": "2026-01-05T08:00:00.000Z"
+  },
+  {
+    "id": "cat-grocery-breakfast",
+    "companyId": "demo-company",
+    "slug": "brushes",
+    "nameAr": "الفرش",
+    "nameEn": "Brushes",
+    "parentId": "cat-grocery",
+    "seo": {
+      "metaTitle": "الفرش",
+      "metaDescription": "فرش مكياج"
+    },
+    "displayOrder": 1,
+    "isActive": true,
+    "createdAt": "2026-01-05T08:00:00.000Z",
+    "updatedAt": "2026-01-05T08:00:00.000Z",
+    "image": {
+      "id": "media-cat-grocery-breakfast",
+      "url": "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?w=800&q=80",
+      "alt": "Brushes",
+      "type": "image",
+      "position": 0,
+      "isPrimary": true
+    },
+    "description": "فرش مكياج"
+  },
+  {
+    "id": "cat-grocery-breakfast-cereal",
+    "companyId": "demo-company",
+    "slug": "face-brushes",
+    "nameAr": "فرش الوجه",
+    "nameEn": "Face brushes",
+    "parentId": "cat-grocery-breakfast",
+    "seo": {
+      "metaTitle": "فرش الوجه",
+      "metaDescription": "فرش أساس وبودرة"
+    },
+    "displayOrder": 1,
+    "isActive": true,
+    "createdAt": "2026-01-05T08:00:00.000Z",
+    "updatedAt": "2026-01-05T08:00:00.000Z",
+    "image": {
+      "id": "media-cat-grocery-breakfast-cereal",
+      "url": "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?w=800&q=80",
+      "alt": "Face brushes",
+      "type": "image",
+      "position": 0,
+      "isPrimary": true
+    },
+    "description": "فرش أساس وبودرة"
+  },
+  {
+    "id": "cat-grocery-breakfast-jam",
+    "companyId": "demo-company",
+    "slug": "eye-brushes",
+    "nameAr": "فرش العيون",
+    "nameEn": "Eye brushes",
+    "parentId": "cat-grocery-breakfast",
+    "seo": {
+      "metaTitle": "فرش العيون",
+      "metaDescription": "فرش ظلال"
+    },
+    "displayOrder": 2,
+    "isActive": true,
+    "createdAt": "2026-01-05T08:00:00.000Z",
+    "updatedAt": "2026-01-05T08:00:00.000Z",
+    "image": {
+      "id": "media-cat-grocery-breakfast-jam",
+      "url": "https://images.unsplash.com/photo-1487412947147-5cebf100ffc2?w=800&q=80",
+      "alt": "Eye brushes",
+      "type": "image",
+      "position": 0,
+      "isPrimary": true
+    },
+    "description": "فرش ظلال"
+  },
+  {
+    "id": "cat-grocery-cooking",
+    "companyId": "demo-company",
+    "slug": "applicators",
+    "nameAr": "أدوات التطبيق",
+    "nameEn": "Applicators",
+    "parentId": "cat-grocery",
+    "seo": {
+      "metaTitle": "أدوات التطبيق",
+      "metaDescription": "إسفنج وملقط"
+    },
+    "displayOrder": 2,
+    "isActive": true,
+    "createdAt": "2026-01-05T08:00:00.000Z",
+    "updatedAt": "2026-01-05T08:00:00.000Z",
+    "image": {
+      "id": "media-cat-grocery-cooking",
+      "url": "https://images.unsplash.com/photo-1487412947147-5cebf100ffc2?w=800&q=80",
+      "alt": "Applicators",
+      "type": "image",
+      "position": 0,
+      "isPrimary": true
+    },
+    "description": "إسفنج وملقط"
+  },
+  {
+    "id": "cat-grocery-cooking-flour",
+    "companyId": "demo-company",
+    "slug": "sponges",
+    "nameAr": "الإسفنج",
+    "nameEn": "Sponges",
+    "parentId": "cat-grocery-cooking",
+    "seo": {
+      "metaTitle": "الإسفنج",
+      "metaDescription": "إسفنج مكياج"
+    },
+    "displayOrder": 1,
+    "isActive": true,
+    "createdAt": "2026-01-05T08:00:00.000Z",
+    "updatedAt": "2026-01-05T08:00:00.000Z",
+    "description": "إسفنج مكياج",
+    "image": {
+      "id": "media-cat-grocery-cooking-flour",
+      "url": "https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=800&q=80",
+      "alt": "Sponges",
+      "type": "image",
+      "position": 0,
+      "isPrimary": true
+    }
+  },
+  {
+    "id": "cat-grocery-cooking-oil",
+    "companyId": "demo-company",
+    "slug": "tweezers",
+    "nameAr": "الملاقط",
+    "nameEn": "Tweezers",
+    "parentId": "cat-grocery-cooking",
+    "seo": {
+      "metaTitle": "الملاقط",
+      "metaDescription": "ملاقط حواجب"
+    },
+    "displayOrder": 2,
+    "isActive": true,
+    "createdAt": "2026-01-05T08:00:00.000Z",
+    "updatedAt": "2026-01-05T08:00:00.000Z",
+    "description": "ملاقط حواجب",
+    "image": {
+      "id": "media-cat-grocery-cooking-oil",
+      "url": "https://images.unsplash.com/photo-1487412947147-5cebf100ffc2?w=800&q=80",
+      "alt": "Tweezers",
+      "type": "image",
+      "position": 0,
+      "isPrimary": true
+    }
+  },
+  {
+    "id": "cat-grocery-spices",
+    "companyId": "demo-company",
+    "slug": "devices",
+    "nameAr": "الأجهزة",
+    "nameEn": "Devices",
+    "parentId": "cat-grocery",
+    "seo": {
+      "metaTitle": "الأجهزة",
+      "metaDescription": "أجهزة عناية"
+    },
+    "displayOrder": 3,
+    "isActive": true,
+    "createdAt": "2026-01-05T08:00:00.000Z",
+    "updatedAt": "2026-01-05T08:00:00.000Z",
+    "image": {
+      "id": "media-cat-grocery-spices",
+      "url": "https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=800&q=80",
+      "alt": "Devices",
+      "type": "image",
+      "position": 0,
+      "isPrimary": true
+    },
+    "description": "أجهزة عناية"
+  },
+  {
+    "id": "cat-grocery-spices-ground",
+    "companyId": "demo-company",
+    "slug": "facial-steamers",
+    "nameAr": "أجهزة البخار",
+    "nameEn": "Facial steamers",
+    "parentId": "cat-grocery-spices",
+    "seo": {
+      "metaTitle": "أجهزة البخار",
+      "metaDescription": "بخار الوجه"
+    },
+    "displayOrder": 1,
+    "isActive": true,
+    "createdAt": "2026-01-05T08:00:00.000Z",
+    "updatedAt": "2026-01-05T08:00:00.000Z",
+    "description": "بخار الوجه",
+    "image": {
+      "id": "media-cat-grocery-spices-ground",
+      "url": "https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=800&q=80",
+      "alt": "Facial steamers",
+      "type": "image",
+      "position": 0,
+      "isPrimary": true
+    }
+  },
+  {
+    "id": "cat-grocery-canned",
+    "companyId": "demo-company",
+    "slug": "accessories",
+    "nameAr": "إكسسوارات",
+    "nameEn": "Accessories",
+    "parentId": "cat-grocery",
+    "seo": {
+      "metaTitle": "إكسسوارات",
+      "metaDescription": "إكسسوارات تجميل"
+    },
+    "displayOrder": 4,
+    "isActive": true,
+    "createdAt": "2026-01-05T08:00:00.000Z",
+    "updatedAt": "2026-01-05T08:00:00.000Z",
+    "image": {
+      "id": "media-cat-grocery-canned",
+      "url": "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?w=800&q=80",
+      "alt": "Accessories",
+      "type": "image",
+      "position": 0,
+      "isPrimary": true
+    },
+    "description": "إكسسوارات تجميل"
+  },
+  {
+    "id": "cat-grocery-canned-pasta",
+    "companyId": "demo-company",
+    "slug": "mirrors",
+    "nameAr": "مرايا",
+    "nameEn": "Mirrors",
+    "parentId": "cat-grocery-canned",
+    "seo": {
+      "metaTitle": "مرايا",
+      "metaDescription": "مرايا مكياج"
+    },
+    "displayOrder": 1,
+    "isActive": true,
+    "createdAt": "2026-01-05T08:00:00.000Z",
+    "updatedAt": "2026-01-05T08:00:00.000Z",
+    "description": "مرايا مكياج",
+    "image": {
+      "id": "media-cat-grocery-canned-pasta",
+      "url": "https://images.unsplash.com/photo-1487412947147-5cebf100ffc2?w=800&q=80",
+      "alt": "Mirrors",
+      "type": "image",
+      "position": 0,
+      "isPrimary": true
+    }
+  },
+  {
+    "id": "cat-grocery-canned-rice",
+    "companyId": "demo-company",
+    "slug": "organizers",
+    "nameAr": "منظمات",
+    "nameEn": "Organizers",
+    "parentId": "cat-grocery-canned",
+    "seo": {
+      "metaTitle": "منظمات",
+      "metaDescription": "تنظيم المنتجات"
+    },
+    "displayOrder": 2,
+    "isActive": true,
+    "createdAt": "2026-01-05T08:00:00.000Z",
+    "updatedAt": "2026-01-05T08:00:00.000Z",
+    "description": "تنظيم المنتجات",
+    "image": {
+      "id": "media-cat-grocery-canned-rice",
+      "url": "https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=800&q=80",
+      "alt": "Organizers",
+      "type": "image",
+      "position": 0,
+      "isPrimary": true
+    }
+  },
+  {
+    "id": "cat-grocery-canned-sauces",
+    "companyId": "demo-company",
+    "slug": "travel-kits",
+    "nameAr": "طقم سفر",
+    "nameEn": "Travel kits",
+    "parentId": "cat-grocery-canned",
+    "seo": {
+      "metaTitle": "طقم سفر",
+      "metaDescription": "طقم سفر"
+    },
+    "displayOrder": 3,
+    "isActive": true,
+    "createdAt": "2026-01-05T08:00:00.000Z",
+    "updatedAt": "2026-01-05T08:00:00.000Z",
+    "description": "طقم سفر",
+    "image": {
+      "id": "media-cat-grocery-canned-sauces",
+      "url": "https://images.unsplash.com/photo-1571781926291-c477ebfd024b?w=800&q=80",
+      "alt": "Travel kits",
+      "type": "image",
+      "position": 0,
+      "isPrimary": true
+    }
+  },
+  {
+    "id": "cat-cleaning",
+    "companyId": "demo-company",
+    "slug": "face-wash",
+    "nameAr": "غسول وتنظيف",
+    "nameEn": "Face wash",
+    "description": "غسولات يومية",
+    "image": {
+      "id": "media-cat-cleaning",
+      "url": "https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?w=800&q=80",
+      "alt": "Face wash",
+      "type": "image",
+      "position": 0,
+      "isPrimary": true
+    },
+    "parentId": null,
+    "featuredBrandIds": [
+      "brand-tide",
+      "brand-dove"
+    ],
+    "seo": {
+      "metaTitle": "غسول وتنظيف",
+      "metaDescription": "غسولات يومية"
+    },
+    "displayOrder": 7,
+    "isActive": true,
+    "createdAt": "2026-01-05T08:00:00.000Z",
+    "updatedAt": "2026-01-05T08:00:00.000Z"
+  },
+  {
+    "id": "cat-cleaning-laundry",
+    "companyId": "demo-company",
+    "slug": "gel-cleansers",
+    "nameAr": "غسول جل",
+    "nameEn": "Gel cleansers",
+    "parentId": "cat-cleaning",
+    "seo": {
+      "metaTitle": "غسول جل",
+      "metaDescription": "غسول جل"
+    },
+    "displayOrder": 1,
+    "isActive": true,
+    "createdAt": "2026-01-05T08:00:00.000Z",
+    "updatedAt": "2026-01-05T08:00:00.000Z",
+    "description": "غسول جل",
+    "image": {
+      "id": "media-cat-cleaning-laundry",
+      "url": "https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?w=800&q=80",
+      "alt": "Gel cleansers",
+      "type": "image",
+      "position": 0,
+      "isPrimary": true
+    }
+  },
+  {
+    "id": "cat-cleaning-home",
+    "companyId": "demo-company",
+    "slug": "micellar",
+    "nameAr": "ميسيلار",
+    "nameEn": "Micellar",
+    "parentId": "cat-cleaning",
+    "seo": {
+      "metaTitle": "ميسيلار",
+      "metaDescription": "ماء ميسيلار"
+    },
+    "displayOrder": 2,
+    "isActive": true,
+    "createdAt": "2026-01-05T08:00:00.000Z",
+    "updatedAt": "2026-01-05T08:00:00.000Z",
+    "description": "ماء ميسيلار",
+    "image": {
+      "id": "media-cat-cleaning-home",
+      "url": "https://images.unsplash.com/photo-1571781926291-c477ebfd024b?w=800&q=80",
+      "alt": "Micellar",
+      "type": "image",
+      "position": 0,
+      "isPrimary": true
+    }
+  },
+  {
+    "id": "cat-cleaning-paper",
+    "companyId": "demo-company",
+    "slug": "makeup-removers",
+    "nameAr": "مزيلات المكياج",
+    "nameEn": "Makeup removers",
+    "parentId": "cat-cleaning",
+    "seo": {
+      "metaTitle": "مزيلات المكياج",
+      "metaDescription": "إزالة المكياج"
+    },
+    "displayOrder": 3,
+    "isActive": true,
+    "createdAt": "2026-01-05T08:00:00.000Z",
+    "updatedAt": "2026-01-05T08:00:00.000Z",
+    "description": "إزالة المكياج",
+    "image": {
+      "id": "media-cat-cleaning-paper",
+      "url": "https://images.unsplash.com/photo-1556228578-0d85b1a4d571?w=800&q=80",
+      "alt": "Makeup removers",
+      "type": "image",
+      "position": 0,
+      "isPrimary": true
+    }
+  },
+  {
+    "id": "cat-personal",
+    "companyId": "demo-company",
+    "slug": "body-bath",
+    "nameAr": "الجسم والاستحمام",
+    "nameEn": "Body & bath",
+    "description": "عناية بالجسم والشعر",
+    "image": {
+      "id": "media-cat-personal",
+      "url": "https://images.unsplash.com/photo-1535585209827-a15fcdbc4c2d?w=800&q=80",
+      "alt": "Body & bath",
+      "type": "image",
+      "position": 0,
+      "isPrimary": true
+    },
+    "parentId": null,
+    "featuredBrandIds": [
+      "brand-dove"
+    ],
+    "seo": {
+      "metaTitle": "الجسم والاستحمام",
+      "metaDescription": "عناية بالجسم والشعر"
+    },
+    "displayOrder": 8,
+    "isActive": true,
+    "createdAt": "2026-01-05T08:00:00.000Z",
+    "updatedAt": "2026-01-05T08:00:00.000Z"
+  },
+  {
+    "id": "cat-personal-hair",
+    "companyId": "demo-company",
+    "slug": "body-hair",
+    "nameAr": "شعر الجسم",
+    "nameEn": "Body hair care",
+    "parentId": "cat-personal",
+    "seo": {
+      "metaTitle": "شعر الجسم",
+      "metaDescription": "عناية شعر الجسم"
+    },
+    "displayOrder": 1,
+    "isActive": true,
+    "createdAt": "2026-01-05T08:00:00.000Z",
+    "updatedAt": "2026-01-05T08:00:00.000Z",
+    "description": "عناية شعر الجسم",
+    "image": {
+      "id": "media-cat-personal-hair",
+      "url": "https://images.unsplash.com/photo-1527799820374-dcf8d9d4a388?w=800&q=80",
+      "alt": "Body hair care",
+      "type": "image",
+      "position": 0,
+      "isPrimary": true
+    }
+  },
+  {
+    "id": "cat-personal-body",
+    "companyId": "demo-company",
+    "slug": "body-lotions",
+    "nameAr": "لوشن الجسم",
+    "nameEn": "Body lotions",
+    "parentId": "cat-personal",
+    "seo": {
+      "metaTitle": "لوشن الجسم",
+      "metaDescription": "ترطيب الجسم"
+    },
+    "displayOrder": 2,
+    "isActive": true,
+    "createdAt": "2026-01-05T08:00:00.000Z",
+    "updatedAt": "2026-01-05T08:00:00.000Z",
+    "description": "ترطيب الجسم",
+    "image": {
+      "id": "media-cat-personal-body",
+      "url": "https://images.unsplash.com/photo-1608248543803-ba4f8c70e0bc?w=800&q=80",
+      "alt": "Body lotions",
+      "type": "image",
+      "position": 0,
+      "isPrimary": true
+    }
+  },
+  {
+    "id": "cat-personal-oral",
+    "companyId": "demo-company",
+    "slug": "hand-care",
+    "nameAr": "عناية اليدين",
+    "nameEn": "Hand care",
+    "parentId": "cat-personal",
+    "seo": {
+      "metaTitle": "عناية اليدين",
+      "metaDescription": "كريمات اليدين"
+    },
+    "displayOrder": 3,
+    "isActive": true,
+    "createdAt": "2026-01-05T08:00:00.000Z",
+    "updatedAt": "2026-01-05T08:00:00.000Z",
+    "description": "كريمات اليدين",
+    "image": {
+      "id": "media-cat-personal-oral",
+      "url": "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&q=80",
+      "alt": "Hand care",
+      "type": "image",
+      "position": 0,
+      "isPrimary": true
+    }
+  },
+  {
+    "id": "cat-bev-soft-cola-classic",
+    "companyId": "demo-company",
+    "slug": "hydrating-serums",
+    "nameAr": "سيروم ترطيب",
+    "nameEn": "Hydrating serums",
+    "description": "سيروم ترطيب",
+    "parentId": "cat-bev-soft-cola",
+    "seo": {
+      "metaTitle": "سيروم ترطيب",
+      "metaDescription": "سيروم ترطيب"
+    },
+    "displayOrder": 1,
+    "isActive": true,
+    "createdAt": "2026-01-05T08:00:00.000Z",
+    "updatedAt": "2026-01-05T08:00:00.000Z",
+    "image": {
+      "id": "media-cat-bev-soft-cola-classic",
+      "url": "https://images.unsplash.com/photo-1620916567856-01b1d6e9e0d1?w=800&q=80",
+      "alt": "Hydrating serums",
+      "type": "image",
+      "position": 0,
+      "isPrimary": true
+    }
+  },
+  {
+    "id": "cat-bev-soft-cola-zero",
+    "companyId": "demo-company",
+    "slug": "hyaluronic-serums",
+    "nameAr": "سيروم هيالورونيك",
+    "nameEn": "Hyaluronic serums",
+    "description": "هيالورونيك",
+    "parentId": "cat-bev-soft-cola",
+    "seo": {
+      "metaTitle": "سيروم هيالورونيك",
+      "metaDescription": "هيالورونيك"
+    },
+    "displayOrder": 2,
+    "isActive": true,
+    "createdAt": "2026-01-05T08:00:00.000Z",
+    "updatedAt": "2026-01-05T08:00:00.000Z",
+    "image": {
+      "id": "media-cat-bev-soft-cola-zero",
+      "url": "https://images.unsplash.com/photo-1608248543803-ba4f8c70e0bc?w=800&q=80",
+      "alt": "Hyaluronic serums",
+      "type": "image",
+      "position": 0,
+      "isPrimary": true
+    }
+  },
+  {
+    "id": "cat-home",
+    "companyId": "demo-company",
+    "slug": "devices-home",
+    "nameAr": "أجهزة العناية",
+    "nameEn": "Care devices",
+    "description": "أجهزة منزلية للتجميل",
+    "image": {
+      "id": "media-cat-home",
+      "url": "https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=800&q=80",
+      "alt": "Care devices",
+      "type": "image",
+      "position": 0,
+      "isPrimary": true
+    },
+    "parentId": null,
+    "featuredBrandIds": [],
+    "seo": {
+      "metaTitle": "أجهزة العناية",
+      "metaDescription": "أجهزة منزلية للتجميل"
+    },
+    "displayOrder": 9,
+    "isActive": true,
+    "createdAt": "2026-01-06T08:00:00.000Z",
+    "updatedAt": "2026-01-06T08:00:00.000Z"
+  },
+  {
+    "id": "cat-home-lighting",
+    "companyId": "demo-company",
+    "slug": "facial-devices",
+    "nameAr": "أجهزة الوجه",
+    "nameEn": "Facial devices",
+    "parentId": "cat-home",
+    "seo": {
+      "metaTitle": "أجهزة الوجه",
+      "metaDescription": "أجهزة الوجه"
+    },
+    "displayOrder": 1,
+    "isActive": true,
+    "createdAt": "2026-01-06T08:00:00.000Z",
+    "updatedAt": "2026-01-06T08:00:00.000Z",
+    "description": "أجهزة الوجه",
+    "image": {
+      "id": "media-cat-home-lighting",
+      "url": "https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=800&q=80",
+      "alt": "Facial devices",
+      "type": "image",
+      "position": 0,
+      "isPrimary": true
+    }
+  },
+  {
+    "id": "cat-home-lighting-lamps",
+    "companyId": "demo-company",
+    "slug": "steam-devices",
+    "nameAr": "أجهزة البخار المنزلي",
+    "nameEn": "Home steam devices",
+    "parentId": "cat-home-lighting",
+    "seo": {
+      "metaTitle": "أجهزة البخار المنزلي",
+      "metaDescription": "بخار منزلي"
+    },
+    "displayOrder": 1,
+    "isActive": true,
+    "createdAt": "2026-01-06T08:00:00.000Z",
+    "updatedAt": "2026-01-06T08:00:00.000Z",
+    "description": "بخار منزلي",
+    "image": {
+      "id": "media-cat-home-lighting-lamps",
+      "url": "https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=800&q=80",
+      "alt": "Home steam devices",
+      "type": "image",
+      "position": 0,
+      "isPrimary": true
+    }
+  },
+  {
+    "id": "cat-home-lighting-lamps-led",
+    "companyId": "demo-company",
+    "slug": "facial-steamers-led",
+    "nameAr": "بخار الوجه",
+    "nameEn": "Facial steamers",
+    "description": "جهاز بخار للوجه",
+    "parentId": "cat-home-lighting-lamps",
+    "seo": {
+      "metaTitle": "بخار الوجه",
+      "metaDescription": "جهاز بخار للوجه"
+    },
+    "displayOrder": 1,
+    "isActive": true,
+    "createdAt": "2026-01-06T08:00:00.000Z",
+    "updatedAt": "2026-01-06T08:00:00.000Z",
+    "image": {
+      "id": "media-cat-home-lighting-lamps-led",
+      "url": "https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=800&q=80",
+      "alt": "Facial steamers",
+      "type": "image",
+      "position": 0,
+      "isPrimary": true
+    }
+  },
+  {
+    "id": "cat-home-lighting-lamps-halogen",
+    "companyId": "demo-company",
+    "slug": "led-masks",
+    "nameAr": "ماسكات LED",
+    "nameEn": "LED masks",
+    "parentId": "cat-home-lighting-lamps",
+    "seo": {
+      "metaTitle": "ماسكات LED",
+      "metaDescription": "ماسكات ضوئية"
+    },
+    "displayOrder": 2,
+    "isActive": true,
+    "createdAt": "2026-01-06T08:00:00.000Z",
+    "updatedAt": "2026-01-06T08:00:00.000Z",
+    "description": "ماسكات ضوئية",
+    "image": {
+      "id": "media-cat-home-lighting-lamps-halogen",
+      "url": "https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?w=800&q=80",
+      "alt": "LED masks",
+      "type": "image",
+      "position": 0,
+      "isPrimary": true
+    }
+  }
+]
