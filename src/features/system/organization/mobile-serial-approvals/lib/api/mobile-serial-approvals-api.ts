@@ -69,7 +69,6 @@ export const mobileSerialApprovalsApi = {
       PaginatedResult<MobileSerialApproval> | MobileSerialApproval[]
     >('/system/mobile-serial-approvals', {
       query: listQuery(query),
-      throwOnError: true,
     });
     if (Array.isArray(result)) {
       return {
@@ -88,7 +87,6 @@ export const mobileSerialApprovalsApi = {
   async approve(id: string): Promise<MobileSerialApproval> {
     return apiRequest<MobileSerialApproval>(`/system/mobile-serial-approvals/${id}/approve`, {
       method: 'POST',
-      throwOnError: true,
       body: {},
     });
   },
@@ -96,7 +94,6 @@ export const mobileSerialApprovalsApi = {
   async reject(id: string): Promise<MobileSerialApproval> {
     return apiRequest<MobileSerialApproval>(`/system/mobile-serial-approvals/${id}/reject`, {
       method: 'POST',
-      throwOnError: true,
       body: {},
     });
   },
