@@ -13,6 +13,7 @@ import {
   SettingsPageError,
   SettingsPageLoading,
 } from '@/features/system/organization/pages/_shared/components/settings-page-states';
+import { MobileSerialApprovalSettingCard } from '@/features/system/organization/pages/hr/components/mobile-serial-approval-setting-card';
 import { useHrCompanySettings } from '@/features/system/organization/pages/hr/hooks/useHrSettings';
 import type { HrNotificationKey } from '@/features/system/organization/pages/_shared/constants/notification-groups';
 import type { HrCompanySettings } from '@/features/system/organization/pages/_shared/types/settings';
@@ -26,6 +27,23 @@ export default function HrSettingsPage() {
     if (!settings) return;
     try {
       await update.mutateAsync({ [key]: value });
+      toast.success('تم تحديث الإعداد');
+    } catch (err) {
+      const { displayMessage } = handleApiError(err, 'settings.hr.update');
+      toast.error(displayMessage);
+    }
+  };
+
+  const handleDeviceAuthChange = async (
+    patch: Partial<{
+      requireAdminApprovalForNewMobileDevice: boolean;
+      enforceWebDeviceSerial: boolean;
+      requireAdminApprovalForNewWebDevice: boolean;
+    }>,
+  ) => {
+    if (!settings) return;
+    try {
+      await update.mutateAsync(patch);
       toast.success('تم تحديث الإعداد');
     } catch (err) {
       const { displayMessage } = handleApiError(err, 'settings.hr.update');
@@ -55,9 +73,23 @@ export default function HrSettingsPage() {
           eyebrow="الموارد البشرية"
           icon={BellRing}
           companyName={company.nameAr}
-          description="تحكم في الإشعارات المرسلة لأحداث HR داخل هذه الشركة."
+          description="تحكم في إشعارات HR وموافقة أجهزة الجوال داخل هذه الشركة."
         />
       ) : null}
+
+      <MobileSerialApprovalSettingCard
+        values={{
+          requireAdminApprovalForNewMobileDevice: Boolean(
+            settings.requireAdminApprovalForNewMobileDevice,
+          ),
+          enforceWebDeviceSerial: Boolean(settings.enforceWebDeviceSerial),
+          requireAdminApprovalForNewWebDevice: Boolean(
+            settings.requireAdminApprovalForNewWebDevice,
+          ),
+        }}
+        disabled={update.isPending}
+        onChange={(patch) => void handleDeviceAuthChange(patch)}
+      />
 
       <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-soft">
         <div className="border-b border-border/80 px-4 py-4 sm:px-5">

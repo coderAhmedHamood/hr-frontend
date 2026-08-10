@@ -9,6 +9,8 @@ export const systemOrganizationRoutes = {
   departments: `${SYSTEM_ORGANIZATION_BASE}/departments`,
   /** شجرة الهيكل التنظيمي */
   chart: `${SYSTEM_ORGANIZATION_BASE}/chart`,
+  /** طلبات موافقة أجهزة الجوال */
+  mobileSerialApprovals: `${SYSTEM_ORGANIZATION_BASE}/mobile-serial-approvals`,
   /** إعدادات الموارد البشرية والنظام */
   pages: `${SYSTEM_ORGANIZATION_BASE}/pages`,
   pagesHr: `${SYSTEM_ORGANIZATION_BASE}/pages/hr`,
