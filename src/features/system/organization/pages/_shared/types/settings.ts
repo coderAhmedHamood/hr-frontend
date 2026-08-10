@@ -2,6 +2,8 @@ export interface HrCompanySettings {
   id: string;
   companyId: string;
   notificationsEnabled: boolean;
+  /** When true, a new mobile serial (after a prior bind) needs admin approval before OTP email. */
+  requireAdminApprovalForNewMobileDevice?: boolean;
   notifyDisciplineViolationCreated: boolean;
   notifyDisciplineViolationApproved: boolean;
   notifyDisciplineCircularCreated: boolean;

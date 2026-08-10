@@ -12,6 +12,7 @@ import {
   SettingsPageError,
   SettingsPageLoading,
 } from '@/features/system/organization/pages/_shared/components/settings-page-states';
+import { MobileSerialApprovalSettingCard } from '@/features/system/organization/pages/hr/components/mobile-serial-approval-setting-card';
 import { useHrCompanySettings } from '@/features/system/organization/pages/hr/hooks/useHrSettings';
 import type { HrNotificationKey } from '@/features/system/organization/pages/_shared/constants/notification-groups';
 import type { HrCompanySettings } from '@/features/system/organization/pages/_shared/types/settings';
@@ -23,7 +24,7 @@ export default function HrSettingsPage() {
   const handleToggle = async (key: string, value: boolean) => {
     if (!settings) return;
     try {
-      await update.mutateAsync({ [key as HrNotificationKey]: value });
+      await update.mutateAsync({ [key]: value });
       toast.success('تم تحديث الإعداد');
     } catch (err) {
       const { displayMessage } = handleApiError(err, 'settings.hr.update');
@@ -51,9 +52,16 @@ export default function HrSettingsPage() {
           eyebrow="الموارد البشرية"
           icon={BellRing}
           companyName={company.nameAr}
-          description="تحكم في الإشعارات المرسلة لأحداث HR داخل هذه الشركة."
+          description="تحكم في إشعارات HR وموافقة أجهزة الجوال داخل هذه الشركة."
         />
       ) : null}
+
+      <MobileSerialApprovalSettingCard
+        enabled={Boolean(settings.requireAdminApprovalForNewMobileDevice)}
+        disabled={update.isPending}
+        onToggle={(value) => void handleToggle('requireAdminApprovalForNewMobileDevice', value)}
+      />
+
       <NotificationTogglesCard
         title="إشعارات الموارد البشرية"
         description="تحكم في الإشعارات المرسلة لأحداث HR: الانضباط، الرواتب، الحضور، الطلبات، والعقود."
