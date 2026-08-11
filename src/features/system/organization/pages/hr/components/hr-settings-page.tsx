@@ -36,6 +36,7 @@ export default function HrSettingsPage() {
 
   const handleDeviceAuthChange = async (
     patch: Partial<{
+      enforceMobileDeviceSerial: boolean;
       requireAdminApprovalForNewMobileDevice: boolean;
       enforceWebDeviceSerial: boolean;
       requireAdminApprovalForNewWebDevice: boolean;
@@ -73,12 +74,14 @@ export default function HrSettingsPage() {
           eyebrow="الموارد البشرية"
           icon={BellRing}
           companyName={company.nameAr}
-          description="تحكم في إشعارات HR وموافقة أجهزة الجوال داخل هذه الشركة."
+          description="تحكم في إشعارات HR وإلزام/موافقة أجهزة التطبيق والموقع داخل هذه الشركة."
         />
       ) : null}
 
       <MobileSerialApprovalSettingCard
         values={{
+          // Backend default is true when the flag is absent.
+          enforceMobileDeviceSerial: settings.enforceMobileDeviceSerial !== false,
           requireAdminApprovalForNewMobileDevice: Boolean(
             settings.requireAdminApprovalForNewMobileDevice,
           ),

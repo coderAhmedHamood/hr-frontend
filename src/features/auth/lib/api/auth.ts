@@ -4,6 +4,10 @@ import type { AccessProfile, AuthUser } from '@/features/auth/types/access-profi
 export type LoginPayload = {
   email: string;
   password: string;
+  /** Web admin panel — always `web`. */
+  loginChannel?: 'web' | 'app';
+  /** Browser fingerprint / device serial (stored as web device serial when channel is web). */
+  mobileSerialNumber?: string;
 };
 
 export type LoginResult = {

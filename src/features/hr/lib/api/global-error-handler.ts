@@ -1,8 +1,10 @@
 import { publicConfig } from '@/shared/config';
 import {
+  extractApiErrorCode,
   extractApiErrorMessage,
   isAuthApiContext,
   resolveAuthDisplayMessage,
+  translateDeviceAuthErrorCode,
 } from '@/features/auth/lib/auth-api-messages';
 import { ApiError } from '@/features/hr/lib/api/client';
 import type { ApiErrorEnvelope } from '@/features/hr/lib/api/types';
@@ -67,17 +69,21 @@ export function handleApiError(
   const surface = options?.surface ?? 'action';
   const isForbidden = status === 403;
 
+  const deviceAuthMessage = translateDeviceAuthErrorCode(extractApiErrorCode(envelope));
+
   const rawMessage = isDuplicateAdvanceNumberError(error)
     ? duplicateAdvanceNumberMessage()
     : extractApiErrorMessage(envelope, error.message);
 
-  const displayMessage = isForbidden
-    ? 'ليس لديك صلاحية للوصول إلى هذا المورد'
-    : isDuplicateAdvanceNumberError(error)
-      ? rawMessage
-      : isCorrectionRequestContext(context)
-        ? translateCorrectionRequestMessage(rawMessage)
-        : resolveAuthDisplayMessage(rawMessage, context);
+  const displayMessage = deviceAuthMessage
+    ? deviceAuthMessage
+    : isForbidden
+      ? 'ليس لديك صلاحية للوصول إلى هذا المورد'
+      : isDuplicateAdvanceNumberError(error)
+        ? rawMessage
+        : isCorrectionRequestContext(context)
+          ? translateCorrectionRequestMessage(rawMessage)
+          : resolveAuthDisplayMessage(rawMessage, context);
 
   // 5xx: same toast as always, plus route it into the shared logging pipeline (correlation
   // id, dev/prod formatting) so backend failures show up alongside render/route crashes.

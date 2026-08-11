@@ -1,6 +1,8 @@
 import {
   AUTH_SUCCESS_TOAST,
+  extractApiErrorCode,
   translateAuthApiMessage,
+  translateDeviceAuthErrorCode,
 } from '@/features/auth/lib/auth-api-messages';
 
 describe('translateAuthApiMessage', () => {
@@ -16,8 +18,37 @@ describe('translateAuthApiMessage', () => {
     );
   });
 
+  it('translates device serial required by code-as-message', () => {
+    expect(translateAuthApiMessage('DEVICE_SERIAL_REQUIRED')).toContain(
+      'مربوط بجهاز موقع',
+    );
+  });
+
   it('returns unknown messages unchanged', () => {
     expect(translateAuthApiMessage('Something else')).toBe('Something else');
+  });
+});
+
+describe('device auth error codes', () => {
+  it('maps DEVICE_SERIAL_REQUIRED', () => {
+    expect(translateDeviceAuthErrorCode('DEVICE_SERIAL_REQUIRED')).toBe(
+      'هذا الحساب مربوط بجهاز موقع. أرسل بصمة الجهاز (mobileSerialNumber). إذا كان جهازاً جديداً سيُطلب تفعيله حسب إعدادات الشركة قبل إكمال الدخول.',
+    );
+  });
+
+  it('maps MOBILE_SERIAL_ADMIN_APPROVAL_REQUIRED', () => {
+    expect(translateDeviceAuthErrorCode('MOBILE_SERIAL_ADMIN_APPROVAL_REQUIRED')).toContain(
+      'موافقة الإدارة',
+    );
+  });
+
+  it('extracts code from envelope.error', () => {
+    expect(
+      extractApiErrorCode({
+        message: 'Forbidden',
+        error: { code: 'MOBILE_SERIAL_VERIFICATION_REQUIRED' },
+      }),
+    ).toBe('MOBILE_SERIAL_VERIFICATION_REQUIRED');
   });
 });
 

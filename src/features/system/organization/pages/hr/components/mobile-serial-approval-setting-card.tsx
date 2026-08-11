@@ -5,6 +5,7 @@ import { Switch } from '@/components/ui/switch';
 import { cn } from '@/shared/utils';
 
 export type DeviceAuthSettingsValues = {
+  enforceMobileDeviceSerial: boolean;
   requireAdminApprovalForNewMobileDevice: boolean;
   enforceWebDeviceSerial: boolean;
   requireAdminApprovalForNewWebDevice: boolean;
@@ -63,21 +64,43 @@ export function MobileSerialApprovalSettingCard({ values, disabled, onChange }: 
         <div className="min-w-0">
           <h2 className="text-sm font-semibold text-foreground">أجهزة التطبيق والموقع</h2>
           <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-            كل قناة مستقلة. سيريال التطبيق منفصل عن سيريال الويب. أول ربط لكل قناة لا يمر
-            بالموافقة.
+            لكل قناة: إلزام السيريال ثم موافقة الإدارة. سيريال التطبيق منفصل عن سيريال
+            الويب. أول ربط لكل قناة لا يمر بالموافقة ولا بالإيميل.
           </p>
         </div>
       </header>
       <div className="space-y-2 p-4 sm:p-5">
         <SettingRow
+          title="إلزام سيريال جهاز على دخول التطبيق"
+          description={
+            values.enforceMobileDeviceSerial
+              ? 'مفعّل — دخول التطبيق يلزم رقم جهاز. إذا اختلف عن المخزّن → إيميل تفعيل (أو موافقة إدارة إن فُعّل الخيار التالي).'
+              : 'معطّل — دخول التطبيق بدون فحص جهاز وبدون إيميل.'
+          }
+          checked={values.enforceMobileDeviceSerial}
+          disabled={disabled}
+          onCheckedChange={(value) => {
+            if (!value) {
+              onChange({
+                enforceMobileDeviceSerial: false,
+                requireAdminApprovalForNewMobileDevice: false,
+              });
+              return;
+            }
+            onChange({ enforceMobileDeviceSerial: true });
+          }}
+        />
+        <SettingRow
           title="موافقة الإدارة لجهاز تطبيق جديد"
           description={
-            values.requireAdminApprovalForNewMobileDevice
-              ? 'مفعّل — جهاز التطبيق الجديد ينتظر موافقة الإدارة ثم يُرسل الإيميل.'
-              : 'معطّل — يُرسل إيميل التفعيل مباشرة لتطبيق الجوال.'
+            !values.enforceMobileDeviceSerial
+              ? 'يتطلب تفعيل «إلزام سيريال جهاز على دخول التطبيق» أولاً.'
+              : values.requireAdminApprovalForNewMobileDevice
+                ? 'مفعّل — جهاز التطبيق الجديد ينتظر موافقة الإدارة ثم يُرسل الإيميل.'
+                : 'معطّل — يُرسل إيميل التفعيل مباشرة لتطبيق الجوال.'
           }
           checked={values.requireAdminApprovalForNewMobileDevice}
-          disabled={disabled}
+          disabled={disabled || !values.enforceMobileDeviceSerial}
           onCheckedChange={(value) =>
             onChange({ requireAdminApprovalForNewMobileDevice: value })
           }
@@ -86,8 +109,8 @@ export function MobileSerialApprovalSettingCard({ values, disabled, onChange }: 
           title="إلزام سيريال جهاز على دخول الموقع"
           description={
             values.enforceWebDeviceSerial
-              ? 'مفعّل — دخول الويب يلزم إرسال بصمة/سيريال الجهاز.'
-              : 'معطّل — دخول الويب بدون فحص جهاز.'
+              ? 'مفعّل — دخول الويب يلزم بصمة/سيريال. إذا اختلف عن المخزّن → إيميل تفعيل (أو موافقة إدارة إن فُعّل الخيار التالي).'
+              : 'معطّل — دخول لوحة الإدارة بدون سيريال وبدون إيميل.'
           }
           checked={values.enforceWebDeviceSerial}
           disabled={disabled}

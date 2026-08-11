@@ -23,6 +23,7 @@ import {
 import { AUTH_SUCCESS_TOAST } from '@/features/auth/lib/auth-api-messages';
 import { authApi } from '@/features/auth/lib/api/auth';
 import { setAccessTokenCookie } from '@/features/auth/lib/auth-cookie';
+import { getOrCreateBrowserDeviceSerial } from '@/features/auth/lib/browser-device-serial';
 import {
   buildLoginFormDefaults,
   loadBrowserSavedCredentials,
@@ -122,6 +123,8 @@ export function LoginPage() {
       const result = await authApi.login({
         email: values.email.trim().toLowerCase(),
         password: values.password,
+        loginChannel: 'web',
+        mobileSerialNumber: getOrCreateBrowserDeviceSerial(),
       });
 
       if (!result.access_token?.trim() || !result.user?.id) {
