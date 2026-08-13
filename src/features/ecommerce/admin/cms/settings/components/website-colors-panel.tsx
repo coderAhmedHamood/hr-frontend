@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useLocale, useTranslations } from 'next-intl';
-import { Paintbrush, RotateCcw, ShoppingBag, Upload } from 'lucide-react';
+import { RotateCcw, ShoppingBag, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -129,16 +129,6 @@ export function WebsiteColorsPanel({
   return (
     <section className="space-y-6 rounded-2xl border border-border/70 bg-card p-5 sm:p-6">
       {PREVIEW_FONTS_HREF ? <link rel="stylesheet" href={PREVIEW_FONTS_HREF} /> : null}
-
-      <header className="flex items-start gap-3">
-        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-          <Paintbrush className="h-5 w-5" />
-        </span>
-        <div>
-          <h2 className="text-sm font-semibold">{t('colors.title')}</h2>
-          <p className="mt-1 text-xs text-muted-foreground">{t('colorsHint')}</p>
-        </div>
-      </header>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="space-y-4">

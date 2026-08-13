@@ -2,6 +2,8 @@
 
 import * as React from 'react';
 import { Archive, CreditCard, Pencil, Plus, RotateCcw } from 'lucide-react';
+import { PageHeaderPrimaryButton } from '@/components/layouts/page-header-primary-button';
+import { InlineFilterToggleButton } from '@/components/shared/inline-filter-toggle-button';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -13,6 +15,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { paginationBar, useListPagination } from '@/components/ui/paged-list';
 import {
   Select,
   SelectContent,
@@ -40,10 +43,13 @@ import {
 } from '@/features/ecommerce/admin/payment-accounts/lib/api/payment-accounts-api';
 import { PAYMENT_ACCOUNTS_PERMISSIONS } from '@/features/ecommerce/admin/payment-accounts/permissions';
 import { isMultiLangEnabled } from '@/i18n/locale-flags';
+import { useHeaderExtrasBridge } from '@/features/ecommerce/admin/cms/settings/lib/use-header-extras-bridge';
 
 type Props = {
   companyId: string;
   currencyCode?: string;
+  /** Pushes the filter-toggle + add-new buttons into the settings page header, next to Save. */
+  onHeaderExtrasChange?: (node: React.ReactNode | null) => void;
 };
 
 type FormState = {
@@ -113,12 +119,13 @@ function formToPayload(form: FormState) {
   };
 }
 
-export function PaymentAccountsPanel({ companyId, currencyCode }: Props) {
+export function PaymentAccountsPanel({ companyId, currencyCode, onHeaderExtrasChange }: Props) {
   const can = useCan();
   const accessProfile = useAuthStore((s) => s.accessProfile);
   const [archiveScope, setArchiveScope] = React.useState<ArchiveScope>('active');
   const [typeFilter, setTypeFilter] = React.useState<'all' | PaymentAccountType>('all');
   const [search, setSearch] = React.useState('');
+  const [filtersOpen, setFiltersOpen] = React.useState(false);
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [editTarget, setEditTarget] = React.useState<StorePaymentAccount | null>(null);
   const [form, setForm] = React.useState<FormState>(EMPTY_FORM);
@@ -199,70 +206,95 @@ export function PaymentAccountsPanel({ companyId, currencyCode }: Props) {
   const canUpdate = hasPermission(PAYMENT_ACCOUNTS_PERMISSIONS.update);
   const canDelete = hasPermission(PAYMENT_ACCOUNTS_PERMISSIONS.delete);
 
+  const accountsPagination = useListPagination(accountsQuery.data?.items ?? [], [
+    typeFilter,
+    archiveScope,
+    search,
+  ]);
+  const activeFilterCount =
+    (typeFilter !== 'all' ? 1 : 0) + (archiveScope !== 'active' ? 1 : 0) + (search.trim() ? 1 : 0);
+
+  useHeaderExtrasBridge(
+    onHeaderExtrasChange,
+    () => (
+      <div className="flex flex-wrap items-center gap-2">
+        <InlineFilterToggleButton
+          open={filtersOpen}
+          onToggle={() => setFiltersOpen((v) => !v)}
+          activeFilterCount={activeFilterCount}
+        />
+        {canCreate ? (
+          <PageHeaderPrimaryButton
+            icon={Plus}
+            label="حساب جديد"
+            className="h-10 px-3.5 text-sm"
+            onClick={openCreate}
+          >
+            حساب جديد
+          </PageHeaderPrimaryButton>
+        ) : null}
+      </div>
+    ),
+    [filtersOpen, activeFilterCount, canCreate, onHeaderExtrasChange],
+  );
+
   return (
       <div className="space-y-4">
-        <p className="text-xs leading-relaxed text-muted-foreground">
-          أنشئ حسابات البنك/المحفظة/الشبكة ثم فعّل طرق الدفع المطابقة من تبويب الشحن والدفع. الظهور
-          في المتجر: غير مؤرشف + نشط + «بالمتجر».
-        </p>
+        {!canCreate ? (
+          <p className="text-xs text-amber-700 dark:text-amber-400">
+            لا تملك صلاحية الإنشاء (`sta.payment-accounts.create`). حدّث الصفحة أو أعد تسجيل
+            الدخول بعد منح الصلاحية.
+          </p>
+        ) : null}
 
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="space-y-1.5">
-            <Label>النوع</Label>
-            <Select
-              value={typeFilter}
-              onValueChange={(v) => setTypeFilter(v as 'all' | PaymentAccountType)}
-            >
-              <SelectTrigger className="w-40">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">الكل</SelectItem>
-                {ACCOUNT_TYPES.map((type) => (
-                  <SelectItem key={type} value={type}>
-                    {PAYMENT_ACCOUNT_TYPE_LABELS_AR[type]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+        {filtersOpen ? (
+          <div className="flex flex-wrap items-end gap-3 rounded-xl border border-border/60 bg-muted/15 p-3">
+            <div className="space-y-1.5">
+              <Label>النوع</Label>
+              <Select
+                value={typeFilter}
+                onValueChange={(v) => setTypeFilter(v as 'all' | PaymentAccountType)}
+              >
+                <SelectTrigger className="h-10 w-40 rounded-lg bg-card">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">الكل</SelectItem>
+                  {ACCOUNT_TYPES.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {PAYMENT_ACCOUNT_TYPE_LABELS_AR[type]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>الأرشيف</Label>
+              <Select
+                value={archiveScope}
+                onValueChange={(v) => setArchiveScope(v as ArchiveScope)}
+              >
+                <SelectTrigger className="h-10 w-36 rounded-lg bg-card">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">النشطة</SelectItem>
+                  <SelectItem value="archived">المؤرشفة</SelectItem>
+                  <SelectItem value="all">الكل</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="min-w-[10rem] flex-1 space-y-1.5">
+              <Label>بحث</Label>
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="اسم الحساب…"
+                className="h-10 rounded-lg bg-card"
+              />
+            </div>
           </div>
-          <div className="space-y-1.5">
-            <Label>الأرشيف</Label>
-            <Select
-              value={archiveScope}
-              onValueChange={(v) => setArchiveScope(v as ArchiveScope)}
-            >
-              <SelectTrigger className="w-36">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="active">النشطة</SelectItem>
-                <SelectItem value="archived">المؤرشفة</SelectItem>
-                <SelectItem value="all">الكل</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="min-w-[10rem] flex-1 space-y-1.5">
-            <Label>بحث</Label>
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="اسم الحساب…"
-              className="h-10"
-            />
-          </div>
-          {canCreate ? (
-            <Button type="button" size="sm" className="gap-1.5" onClick={openCreate}>
-              <Plus className="h-4 w-4" />
-              حساب جديد
-            </Button>
-          ) : (
-            <p className="text-xs text-amber-700 dark:text-amber-400">
-              لا تملك صلاحية الإنشاء (`sta.payment-accounts.create`). حدّث الصفحة أو أعد تسجيل
-              الدخول بعد منح الصلاحية.
-            </p>
-          )}
-        </div>
+        ) : null}
 
         {accountsQuery.isLoading ? (
           <div className="space-y-2">
@@ -287,8 +319,9 @@ export function PaymentAccountsPanel({ companyId, currencyCode }: Props) {
             <p className="text-sm text-muted-foreground">لا توجد حسابات ضمن هذا الفلتر.</p>
           </div>
         ) : (
+          <>
           <ul className="space-y-2">
-            {(accountsQuery.data?.items ?? []).map((row) => (
+            {accountsPagination.pageItems.map((row) => (
               <li
                 key={row.id}
                 className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card px-3 py-2.5"
@@ -371,6 +404,15 @@ export function PaymentAccountsPanel({ companyId, currencyCode }: Props) {
               </li>
             ))}
           </ul>
+          {paginationBar({
+            page: accountsPagination.page,
+            pageSize: accountsPagination.pageSize,
+            total: accountsPagination.total,
+            totalPages: accountsPagination.totalPages,
+            setPage: accountsPagination.setPage,
+            setPageSize: accountsPagination.setPageSize,
+          })}
+          </>
         )}
 
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

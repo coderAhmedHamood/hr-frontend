@@ -1,6 +1,7 @@
 'use client';
 
-import { Banknote, CreditCard, MapPin, Phone } from 'lucide-react';
+import { Banknote, CreditCard, MapPin } from 'lucide-react';
+import { WhatsappPhoneAction } from '@/features/ecommerce/admin/cms/whatsapp/components/whatsapp-phone-action';
 import type { Order, OrderStatus } from '@/features/ecommerce/domain/types/order';
 import {
   ORDER_KANBAN_STATUSES,
@@ -113,15 +114,12 @@ export function OrdersKanbanView({
                       <p className="truncate text-sm font-medium text-foreground">{order.customerNameAr}</p>
 
                       {phone ? (
-                        <a
-                          href={`tel:${phone.replace(/\s/g, '')}`}
-                          dir="ltr"
-                          className="mt-1.5 inline-flex max-w-full items-center gap-1.5 rounded-md bg-foreground/[0.04] px-1.5 py-1 text-sm font-semibold tabular-nums text-foreground hover:bg-primary/10 hover:text-primary"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <Phone className="h-3.5 w-3.5 shrink-0 text-primary" />
-                          <span className="truncate">{phone}</span>
-                        </a>
+                        <WhatsappPhoneAction
+                          phone={phone}
+                          customerName={order.customerNameAr}
+                          orderId={order.id}
+                          className="mt-1.5 max-w-full rounded-md bg-foreground/[0.04] px-1.5 py-1 text-sm font-semibold text-foreground hover:bg-primary/10 hover:text-primary"
+                        />
                       ) : (
                         <p className="mt-1 text-[11px] text-muted-foreground">لا يوجد رقم جوال</p>
                       )}

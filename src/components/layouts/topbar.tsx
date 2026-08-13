@@ -31,7 +31,11 @@ import { hrPayrollNavGroups, isHrPayrollNavPath } from '@/features/hr/payroll/co
 import { hrContractsOnlyNavGroups, isHrContractsOnlyNavPath } from '@/features/hr/contracts/constants/nav';
 import { hrPayrollSectionHref } from '@/features/hr/payroll/constants/routes';
 import { hrContractsSectionHref } from '@/features/hr/contracts/constants/routes';
-import { isHrOrganizationNavPath } from '@/features/hr/organization/constants/nav';
+import {
+  hrOrganizationSettingsNavItems,
+  isHrOrganizationEmployeesNavPath,
+  isHrOrganizationSettingsNavPath,
+} from '@/features/hr/organization/constants/nav';
 import { hrOrganizationRoutes } from '@/features/hr/organization/constants/routes';
 import { systemPermissionsNavGroups, isSystemPermissionsNavPath } from '@/features/system/permissions/constants/nav';
 import {
@@ -122,7 +126,7 @@ export const navConfig: NavItem[] = [
   {
     key: 'employees', label: 'سجل الموظفين', icon: Users,
     href: hrOrganizationRoutes.employees,
-    isActive: isHrOrganizationNavPath,
+    isActive: isHrOrganizationEmployeesNavPath,
   },
   {
     key: 'recruitment', label: 'التوظيف', icon: UserPlus,
@@ -214,6 +218,21 @@ export const navConfig: NavItem[] = [
     icon: FileSignature,
     isActive: isHrContractsOnlyNavPath,
     groups: mapContractsOnlyNavGroups(hrContractsOnlyNavGroups),
+  },
+  {
+    key: 'hr-organization-settings',
+    label: 'الإعدادات',
+    icon: Settings,
+    isActive: isHrOrganizationSettingsNavPath,
+    groups: [
+      {
+        items: hrOrganizationSettingsNavItems.map((item) => ({
+          label: item.labelAr,
+          href: item.href,
+          icon: item.icon,
+        })),
+      },
+    ],
   },
 ];
 
@@ -424,7 +443,7 @@ function NavDropdownContent({
   }
 
   const totalItems = groups.reduce((sum, group) => sum + group.items.length, 0);
-  const useColumns = totalItems > 6;
+  const useColumns = groups.length > 1 && totalItems > 6;
 
   return (
     <div

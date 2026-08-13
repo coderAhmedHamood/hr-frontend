@@ -27,10 +27,14 @@ import {
   Wallet,
 } from 'lucide-react';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
+import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
+import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
+import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { ListFilterBar } from '@/components/ui/list-filter-bar';
+import { EntityFilterSearchField } from '@/components/ui/entity-filter-search-field';
 import {
   Select,
   SelectContent,
@@ -225,6 +229,128 @@ export function SalesReportsPage() {
   const anyError = Boolean(activeError);
   const apiMsg = errorMessage(activeError);
 
+  function refreshAll() {
+    void summary.refetch();
+    void timeseries.refetch();
+    void byProduct.refetch();
+    void byCity.refetch();
+    void byPartner.refetch();
+    void byStatus.refetch();
+    void byPayment.refetch();
+    void lines.refetch();
+  }
+
+  usePageHeaderActions(
+    () => (
+      <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
+        <FilterToggleButton />
+      </div>
+    ),
+    [],
+  );
+
+  useEntityFilterSlot(
+    () => (
+      <ListFilterBar
+        showStatusSection={false}
+        showEmployeePicker={false}
+        showDateSection
+        optionalDateRange
+        periodValue={{ from, to }}
+        onPeriodChange={({ from: nextFrom, to: nextTo }) => {
+          setFrom(nextFrom);
+          setTo(nextTo);
+        }}
+        leadingFilters={
+          <EntityFilterSearchField
+            value={searchInput}
+            onChange={setSearchInput}
+            placeholder="رقم طلب / اسم / هاتف"
+          />
+        }
+        inlineSelects={[
+          {
+            id: 'status',
+            value: status,
+            onChange: (v) => setStatus(v as OrderStatus | 'all'),
+            placeholder: 'حالة الطلب',
+            options: [
+              { value: 'all', label: 'كل الحالات' },
+              ...Object.entries(ORDER_STATUS_LABELS_AR).map(([value, label]) => ({ value, label })),
+            ],
+          },
+          {
+            id: 'paymentStatus',
+            value: paymentStatus,
+            onChange: (v) => setPaymentStatus(v as StorePaymentStatus | 'all'),
+            placeholder: 'حالة الدفع',
+            options: [
+              { value: 'all', label: 'كل حالات الدفع' },
+              ...Object.entries(PAYMENT_STATUS_LABELS_AR).map(([value, label]) => ({ value, label })),
+            ],
+          },
+          {
+            id: 'paymentMethod',
+            value: paymentMethod,
+            onChange: (v) => setPaymentMethod(v as StorePaymentMethod | 'all'),
+            placeholder: 'طريقة الدفع',
+            options: [
+              { value: 'all', label: 'كل طرق الدفع' },
+              ...Object.entries(PAYMENT_METHOD_LABELS_AR).map(([value, label]) => ({ value, label })),
+            ],
+          },
+          {
+            id: 'source',
+            value: source,
+            onChange: (v) => setSource(v as StoreOrderSource | 'all'),
+            placeholder: 'المصدر',
+            options: [
+              { value: 'all', label: 'كل المصادر' },
+              { value: 'storefront', label: 'المتجر' },
+              { value: 'seed', label: 'Seed' },
+            ],
+          },
+          {
+            id: 'hasPartner',
+            value: hasPartner,
+            onChange: (v) => setHasPartner(v as 'all' | 'yes' | 'no'),
+            placeholder: 'العميل',
+            options: [
+              { value: 'all', label: 'الكل' },
+              { value: 'yes', label: 'مسجّل' },
+              { value: 'no', label: 'ضيف' },
+            ],
+          },
+        ]}
+        beforeEmployeePicker={
+          <Input
+            value={city}
+            onChange={(e) => setCity(e.target.value)}
+            placeholder="المدينة"
+            className="h-8 w-32 text-xs"
+          />
+        }
+        trailingActions={
+          <Button type="button" size="sm" variant="outline" onClick={refreshAll}>
+            <RefreshCw className="me-1.5 h-3.5 w-3.5" />
+            تحديث
+          </Button>
+        }
+      />
+    ),
+    [
+      from,
+      to,
+      status,
+      paymentStatus,
+      paymentMethod,
+      source,
+      hasPartner,
+      city,
+      searchInput,
+    ],
+  );
+
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-5">
       <SetPageTitle
@@ -243,37 +369,6 @@ export function SalesReportsPage() {
               <span dir="ltr">npm run system:init</span> ثم أعد تسجيل الدخول.
             </div>
           ) : null}
-
-          <FiltersBar
-            from={from}
-            to={to}
-            status={status}
-            paymentStatus={paymentStatus}
-            paymentMethod={paymentMethod}
-            source={source}
-            hasPartner={hasPartner}
-            city={city}
-            search={searchInput}
-            onFrom={setFrom}
-            onTo={setTo}
-            onStatus={setStatus}
-            onPaymentStatus={setPaymentStatus}
-            onPaymentMethod={setPaymentMethod}
-            onSource={setSource}
-            onHasPartner={setHasPartner}
-            onCity={setCity}
-            onSearch={setSearchInput}
-            onRefresh={() => {
-              void summary.refetch();
-              void timeseries.refetch();
-              void byProduct.refetch();
-              void byCity.refetch();
-              void byPartner.refetch();
-              void byStatus.refetch();
-              void byPayment.refetch();
-              void lines.refetch();
-            }}
-          />
 
           {anyError ? (
             <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
@@ -667,160 +762,6 @@ export function SalesReportsPage() {
   );
 }
 
-function FiltersBar(props: {
-  from: string;
-  to: string;
-  status: OrderStatus | 'all';
-  paymentStatus: StorePaymentStatus | 'all';
-  paymentMethod: StorePaymentMethod | 'all';
-  source: StoreOrderSource | 'all';
-  hasPartner: 'all' | 'yes' | 'no';
-  city: string;
-  search: string;
-  onFrom: (v: string) => void;
-  onTo: (v: string) => void;
-  onStatus: (v: OrderStatus | 'all') => void;
-  onPaymentStatus: (v: StorePaymentStatus | 'all') => void;
-  onPaymentMethod: (v: StorePaymentMethod | 'all') => void;
-  onSource: (v: StoreOrderSource | 'all') => void;
-  onHasPartner: (v: 'all' | 'yes' | 'no') => void;
-  onCity: (v: string) => void;
-  onSearch: (v: string) => void;
-  onRefresh: () => void;
-}) {
-  return (
-    <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-border bg-card p-3">
-      <div className="space-y-1.5">
-        <Label>من</Label>
-        <Input
-          type="date"
-          value={props.from}
-          onChange={(e) => props.onFrom(e.target.value)}
-          className="w-40"
-        />
-      </div>
-      <div className="space-y-1.5">
-        <Label>إلى</Label>
-        <Input
-          type="date"
-          value={props.to}
-          onChange={(e) => props.onTo(e.target.value)}
-          className="w-40"
-        />
-      </div>
-      <div className="space-y-1.5">
-        <Label>حالة الطلب</Label>
-        <Select
-          value={props.status}
-          onValueChange={(v) => props.onStatus(v as OrderStatus | 'all')}
-        >
-          <SelectTrigger className="w-40">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">الكل</SelectItem>
-            {Object.entries(ORDER_STATUS_LABELS_AR).map(([value, label]) => (
-              <SelectItem key={value} value={value}>
-                {label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="space-y-1.5">
-        <Label>حالة الدفع</Label>
-        <Select
-          value={props.paymentStatus}
-          onValueChange={(v) => props.onPaymentStatus(v as StorePaymentStatus | 'all')}
-        >
-          <SelectTrigger className="w-40">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">الكل</SelectItem>
-            {Object.entries(PAYMENT_STATUS_LABELS_AR).map(([value, label]) => (
-              <SelectItem key={value} value={value}>
-                {label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="space-y-1.5">
-        <Label>طريقة الدفع</Label>
-        <Select
-          value={props.paymentMethod}
-          onValueChange={(v) => props.onPaymentMethod(v as StorePaymentMethod | 'all')}
-        >
-          <SelectTrigger className="w-44">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">الكل</SelectItem>
-            {Object.entries(PAYMENT_METHOD_LABELS_AR).map(([value, label]) => (
-              <SelectItem key={value} value={value}>
-                {label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="space-y-1.5">
-        <Label>المصدر</Label>
-        <Select
-          value={props.source}
-          onValueChange={(v) => props.onSource(v as StoreOrderSource | 'all')}
-        >
-          <SelectTrigger className="w-36">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">الكل</SelectItem>
-            <SelectItem value="storefront">المتجر</SelectItem>
-            <SelectItem value="seed">Seed</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="space-y-1.5">
-        <Label>العميل</Label>
-        <Select
-          value={props.hasPartner}
-          onValueChange={(v) => props.onHasPartner(v as 'all' | 'yes' | 'no')}
-        >
-          <SelectTrigger className="w-36">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">الكل</SelectItem>
-            <SelectItem value="yes">مسجّل</SelectItem>
-            <SelectItem value="no">ضيف</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="space-y-1.5">
-        <Label>المدينة</Label>
-        <Input
-          value={props.city}
-          onChange={(e) => props.onCity(e.target.value)}
-          placeholder="shipCity"
-          className="w-36"
-        />
-      </div>
-      <div className="min-w-[10rem] flex-1 space-y-1.5">
-        <Label>بحث</Label>
-        <Input
-          value={props.search}
-          onChange={(e) => props.onSearch(e.target.value)}
-          placeholder="رقم طلب / اسم / هاتف"
-        />
-      </div>
-      <Button type="button" variant="outline" onClick={props.onRefresh}>
-        <RefreshCw className="me-1.5 h-3.5 w-3.5" />
-        تحديث
-      </Button>
-    </div>
-  );
-}
 
 function KpiCard(props: {
   label: string;

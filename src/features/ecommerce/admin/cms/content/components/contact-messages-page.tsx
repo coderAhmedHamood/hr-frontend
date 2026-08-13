@@ -2,8 +2,11 @@
 
 import * as React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { MessageSquareWarning, Lightbulb, X } from 'lucide-react';
+import { MessageSquareWarning, Lightbulb } from 'lucide-react';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
+import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
+import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
+import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
 import { listCmsContactMessages } from '@/features/ecommerce/admin/cms/shared/cms-actions';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
 import type { StoreContactMessageDto, StoreContactMessageType } from '@/features/ecommerce/shared/lib/api/store-content-api';
@@ -11,8 +14,8 @@ import { DataTable, type ColumnDef } from '@/components/ui/data-table';
 import { DisplayDate } from '@/components/ui/table-cells';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ListFilterBar } from '@/components/ui/list-filter-bar';
+import { EntityFilterSearchField } from '@/components/ui/entity-filter-search-field';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody } from '@/components/ui/dialog';
 
 const PAGE_SIZE = 20;
@@ -71,14 +74,55 @@ export function ContactMessagesPage() {
 
   const hasActiveFilters = type !== 'all' || Boolean(search) || Boolean(dateFrom) || Boolean(dateTo);
 
-  function clearFilters() {
-    setType('all');
-    setSearchInput('');
-    setSearch('');
-    setDateFrom('');
-    setDateTo('');
-    setPage(1);
-  }
+  usePageHeaderActions(
+    () => (
+      <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
+        <FilterToggleButton />
+      </div>
+    ),
+    [],
+  );
+
+  useEntityFilterSlot(
+    () => (
+      <ListFilterBar
+        showStatusSection={false}
+        showEmployeePicker={false}
+        showDateSection
+        optionalDateRange
+        periodValue={{ from: dateFrom, to: dateTo }}
+        onPeriodChange={({ from, to }) => {
+          setDateFrom(from);
+          setDateTo(to);
+          setPage(1);
+        }}
+        leadingFilters={
+          <EntityFilterSearchField
+            value={searchInput}
+            onChange={setSearchInput}
+            placeholder="بحث بالاسم أو البريد أو الجوال أو نص الرسالة…"
+          />
+        }
+        inlineSelects={[
+          {
+            id: 'type',
+            value: type,
+            onChange: (value) => {
+              setType(value as typeof type);
+              setPage(1);
+            },
+            placeholder: 'كل الأنواع',
+            options: [
+              { value: 'all', label: 'كل الأنواع' },
+              { value: 'complaint', label: 'شكوى' },
+              { value: 'suggestion', label: 'مقترح' },
+            ],
+          },
+        ]}
+      />
+    ),
+    [dateFrom, dateTo, searchInput, type],
+  );
 
   const columns: ColumnDef<StoreContactMessageDto>[] = [
     {
@@ -125,45 +169,6 @@ export function ContactMessagesPage() {
         descriptionAr="رسائل نموذج التواصل من واجهة المتجر — شكاوى ومقترحات العملاء"
         iconName="Mail"
       />
-
-      <div className="flex flex-wrap items-center gap-2">
-        <Input
-          value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
-          placeholder="بحث بالاسم أو البريد أو الجوال أو نص الرسالة…"
-          className="h-9 w-full sm:w-64"
-        />
-        <Select value={type} onValueChange={(value) => { setType(value as typeof type); setPage(1); }}>
-          <SelectTrigger className="h-9 w-full sm:w-40" aria-label="نوع الرسالة">
-            <SelectValue placeholder="كل الأنواع" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">كل الأنواع</SelectItem>
-            <SelectItem value="complaint">شكوى</SelectItem>
-            <SelectItem value="suggestion">مقترح</SelectItem>
-          </SelectContent>
-        </Select>
-        <Input
-          type="date"
-          value={dateFrom}
-          onChange={(e) => { setDateFrom(e.target.value); setPage(1); }}
-          className="h-9 w-full sm:w-auto"
-          aria-label="من تاريخ"
-        />
-        <Input
-          type="date"
-          value={dateTo}
-          onChange={(e) => { setDateTo(e.target.value); setPage(1); }}
-          className="h-9 w-full sm:w-auto"
-          aria-label="إلى تاريخ"
-        />
-        {hasActiveFilters ? (
-          <Button type="button" variant="ghost" size="sm" className="gap-1 text-muted-foreground" onClick={clearFilters}>
-            <X className="h-3.5 w-3.5" />
-            إزالة الفلاتر
-          </Button>
-        ) : null}
-      </div>
 
       {isError ? (
         <div className="rounded-xl border border-destructive/30 bg-card p-4 text-sm">

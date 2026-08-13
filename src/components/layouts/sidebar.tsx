@@ -26,6 +26,7 @@ import { hrContractsOnlyNavGroups } from '@/features/hr/contracts/constants/nav'
 import { hrPayrollSectionHref } from '@/features/hr/payroll/constants/routes';
 import { hrContractsSectionHref } from '@/features/hr/contracts/constants/routes';
 import { hrOrganizationRoutes } from '@/features/hr/organization/constants/routes';
+import { hrOrganizationSettingsNavItems } from '@/features/hr/organization/constants/nav';
 import { systemPermissionsNavGroups } from '@/features/system/permissions/constants/nav';
 import {
   systemOrganizationSettingsNavItems,
@@ -144,6 +145,14 @@ const mobileNav: MobileNavItem[] = [
         icon: item.icon,
       })),
     ),
+  },
+  {
+    key: 'hr-organization-settings', label: 'الإعدادات', icon: Settings,
+    children: hrOrganizationSettingsNavItems.map((item) => ({
+      label: item.labelAr,
+      href: item.href,
+      icon: item.icon,
+    })),
   },
 ];
 

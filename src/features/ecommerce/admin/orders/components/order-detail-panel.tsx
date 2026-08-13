@@ -1,7 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import { Banknote, CreditCard, Phone, Truck, User } from 'lucide-react';
+import { Banknote, CreditCard, Truck, User } from 'lucide-react';
+import { WhatsappPhoneAction } from '@/features/ecommerce/admin/cms/whatsapp/components/whatsapp-phone-action';
 import { OrderAttachmentsPanel } from '@/features/ecommerce/admin/orders/components/order-attachments-panel';
 import { OrderStaffNotePanel } from '@/features/ecommerce/admin/orders/components/order-staff-note-panel';
 import { OrderLineShipPanel } from '@/features/ecommerce/admin/orders/components/order-line-ship-panel';
@@ -258,7 +259,6 @@ export function OrderDetailPanel({
     order?.paymentProofUrls?.some((url) => url?.trim()) || order?.paymentProofUrl?.trim(),
   );
   const phone = order?.phone?.trim() || null;
-  const telHref = phone ? `tel:${phone.replace(/\s/g, '')}` : null;
   const shipLine = order
     ? [order.city, order.shippingDistrict ?? order.region].filter(Boolean).join(' — ')
     : '';
@@ -323,15 +323,13 @@ export function OrderDetailPanel({
                     <User className="h-3.5 w-3.5 text-muted-foreground" />
                     {order.customerNameAr}
                   </p>
-                  {telHref && phone ? (
-                    <a
-                      href={telHref}
-                      dir="ltr"
-                      className="inline-flex items-center gap-1.5 rounded-md bg-primary/10 px-2 py-0.5 text-sm font-bold tabular-nums text-primary hover:bg-primary/15"
-                    >
-                      <Phone className="h-3.5 w-3.5" />
-                      {phone}
-                    </a>
+                  {phone ? (
+                    <WhatsappPhoneAction
+                      phone={phone}
+                      customerName={order.customerNameAr}
+                      orderId={order.id}
+                      className="rounded-md bg-primary/10 px-2 py-0.5 text-sm font-bold hover:bg-primary/15"
+                    />
                   ) : (
                     <span className="text-xs text-muted-foreground">لا يوجد جوال</span>
                   )}

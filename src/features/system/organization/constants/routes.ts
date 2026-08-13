@@ -16,7 +16,6 @@ export const systemOrganizationRoutes = {
   geo: `${SYSTEM_ORGANIZATION_BASE}/geo`,
   /** إعدادات الموارد البشرية والنظام */
   pages: `${SYSTEM_ORGANIZATION_BASE}/pages`,
-  pagesHr: `${SYSTEM_ORGANIZATION_BASE}/pages/hr`,
   pagesOrganization: `${SYSTEM_ORGANIZATION_BASE}/pages/organization`,
   pagesCompany: `${SYSTEM_ORGANIZATION_BASE}/pages/company`,
 } as const;

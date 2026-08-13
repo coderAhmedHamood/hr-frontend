@@ -23,6 +23,10 @@ import {
   type GeoCascadeValue,
 } from '@/features/system/organization/geo/components/geo-cascade-select';
 import { usePublicGeoCountries } from '@/features/system/organization/geo/hooks/use-geo';
+import {
+  GoogleLocationPicker,
+  type GoogleLocationValue,
+} from '@/components/ui/google-location-picker';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -54,7 +58,16 @@ type FormState = {
   building: string;
   notes: string;
   isDefault: boolean;
+  latitude: number | null;
+  longitude: number | null;
+  mapAddress: string;
 };
+
+function parseCoord(value: string | number | null | undefined): number | null {
+  if (value == null || value === '') return null;
+  const n = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(n) ? n : null;
+}
 
 const EMPTY_FORM: FormState = {
   label: '',
@@ -67,6 +80,9 @@ const EMPTY_FORM: FormState = {
   building: '',
   notes: '',
   isDefault: false,
+  latitude: null,
+  longitude: null,
+  mapAddress: '',
 };
 
 function toForm(address?: PartnerAddress | null): FormState {
@@ -82,6 +98,9 @@ function toForm(address?: PartnerAddress | null): FormState {
     building: address.building ?? '',
     notes: address.notes ?? '',
     isDefault: address.isDefault,
+    latitude: parseCoord(address.latitude),
+    longitude: parseCoord(address.longitude),
+    mapAddress: '',
   };
 }
 
@@ -192,6 +211,8 @@ export function StoreAccountAddressesClient() {
       notes: form.notes || null,
       isDefault: form.isDefault,
       countryCode: form.countryId ? null : 'YE',
+      latitude: form.latitude,
+      longitude: form.longitude,
     };
 
     setSaving(true);
@@ -400,7 +421,7 @@ export function StoreAccountAddressesClient() {
       </Dialog>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className={cn(dialogShellContentClass, 'sm:max-w-md')}>
+        <DialogContent className={cn(dialogShellContentClass, 'sm:max-w-lg')}>
           <form className="flex min-h-0 flex-1 flex-col" onSubmit={(e) => void handleSubmit(e)}>
             <DialogHeader className={dialogShellHeaderClass}>
               <DialogTitle>
@@ -485,6 +506,34 @@ export function StoreAccountAddressesClient() {
                   onChange={(e) => setForm((prev) => ({ ...prev, building: e.target.value }))}
                 />
               </div>
+              <div className="space-y-2">
+                <div className="space-y-1">
+                  <Label>{t('checkout.mapLocation')}</Label>
+                  <p className="text-xs text-muted-foreground">{t('checkout.mapLocationHint')}</p>
+                </div>
+                <GoogleLocationPicker
+                  value={
+                    form.latitude != null && form.longitude != null
+                      ? {
+                          lat: form.latitude,
+                          lng: form.longitude,
+                          address: form.mapAddress,
+                        }
+                      : null
+                  }
+                  onLocationChange={(location: GoogleLocationValue) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      latitude: location.lat,
+                      longitude: location.lng,
+                      mapAddress: location.address,
+                      street: prev.street.trim() ? prev.street : location.address,
+                    }))
+                  }
+                  height={260}
+                  className="min-w-0 max-w-full"
+                />
+              </div>
               <div className="space-y-1.5">
                 <Label htmlFor="addr-notes">{t('checkout.notes')}</Label>
                 <Textarea
@@ -504,6 +553,9 @@ export function StoreAccountAddressesClient() {
               </label>
             </DialogBody>
             <DialogFooter className={dialogFormFooterClass}>
+              <Button type="submit" disabled={saving}>
+                {saving ? t('account.saving') : t('account.save')}
+              </Button>
               <Button
                 type="button"
                 variant="outline"
@@ -511,9 +563,6 @@ export function StoreAccountAddressesClient() {
                 onClick={() => setDialogOpen(false)}
               >
                 {t('common.back')}
-              </Button>
-              <Button type="submit" disabled={saving}>
-                {saving ? t('account.saving') : t('account.save')}
               </Button>
             </DialogFooter>
           </form>

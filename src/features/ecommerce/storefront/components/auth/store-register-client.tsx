@@ -143,7 +143,7 @@ export function StoreRegisterClient() {
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="store-register-password">{t('register.password')}</Label>
-          <div className="relative">
+          <div className="relative" dir="ltr">
             <Input
               id="store-register-password"
               type={showPassword ? 'text' : 'password'}
