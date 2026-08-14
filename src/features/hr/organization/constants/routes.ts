@@ -3,6 +3,8 @@ export const HR_ORGANIZATION_BASE = '/hr/organization' as const;
 
 export const hrOrganizationRoutes = {
   employees: `${HR_ORGANIZATION_BASE}/employees`,
+  /** إعدادات إشعارات الموارد البشرية */
+  settings: `${HR_ORGANIZATION_BASE}/settings`,
   employee: (id: string) => `${HR_ORGANIZATION_BASE}/employees/${encodeURIComponent(id)}`,
   /** Deep-link into employee profile attachments library (optional group filter). */
   employeeAttachments: (id: string, opts?: { libraryGroup?: string; documentType?: string }) => {

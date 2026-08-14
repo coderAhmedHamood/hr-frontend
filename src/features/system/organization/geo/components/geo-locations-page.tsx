@@ -3,8 +3,10 @@
 import * as React from 'react';
 import { Archive, MapPinned, Pencil, Plus, RotateCcw } from 'lucide-react';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
+import { PageHeaderPrimaryButton } from '@/components/layouts/page-header-primary-button';
 import { Can } from '@/components/shared/can';
 import { ForbiddenState } from '@/components/shared/forbidden-state';
+import { InlineFilterToggleButton } from '@/components/shared/inline-filter-toggle-button';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -16,6 +18,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { paginationBar, useListPagination } from '@/components/ui/paged-list';
 import {
   Select,
   SelectContent,
@@ -51,6 +54,7 @@ import {
   GEO_COUNTRIES_PERMISSIONS,
   GEO_DISTRICTS_PERMISSIONS,
 } from '@/features/system/organization/geo/permissions';
+import { useHeaderExtrasBridge } from '@/features/ecommerce/admin/cms/settings/lib/use-header-extras-bridge';
 import { cn } from '@/shared/utils';
 
 type EntityForm = {
@@ -76,11 +80,17 @@ type Props = {
   embedded?: boolean;
   /** Override tenant scope (defaults to the signed-in default company). */
   companyId?: string | null;
+  /**
+   * When embedded, pushes the active sub-tab's filter-toggle + add-new buttons into the
+   * host page's header slot (next to its Save button) instead of rendering them inline.
+   */
+  onHeaderExtrasChange?: (node: React.ReactNode | null) => void;
 };
 
 export default function GeoLocationsPage({
   embedded = false,
   companyId: companyIdProp,
+  onHeaderExtrasChange,
 }: Props) {
   const can = useCan();
   const defaultCompanyId = useDefaultCompanyId();
@@ -95,6 +105,8 @@ export default function GeoLocationsPage({
   const [selectedCountryId, setSelectedCountryId] = React.useState<string>('all');
   const [selectedCityId, setSelectedCityId] = React.useState<string>('all');
   const [search, setSearch] = React.useState('');
+  const [citiesFiltersOpen, setCitiesFiltersOpen] = React.useState(false);
+  const [districtsFiltersOpen, setDistrictsFiltersOpen] = React.useState(false);
 
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [editTarget, setEditTarget] = React.useState<
@@ -204,6 +216,30 @@ export default function GeoLocationsPage({
     }
     return map;
   }, [filterCities.data?.items, citiesQuery.data?.items]);
+
+  const citiesPagination = useListPagination(citiesQuery.data?.items ?? [], [
+    selectedCountryId,
+    archiveScope,
+    search,
+    tab,
+  ]);
+  const districtsPagination = useListPagination(districtsQuery.data?.items ?? [], [
+    selectedCountryId,
+    selectedCityId,
+    archiveScope,
+    search,
+    tab,
+  ]);
+
+  const citiesActiveFilterCount =
+    (selectedCountryId !== 'all' ? 1 : 0) +
+    (archiveScope !== 'active' ? 1 : 0) +
+    (search.trim() ? 1 : 0);
+  const districtsActiveFilterCount =
+    (selectedCountryId !== 'all' ? 1 : 0) +
+    (selectedCityId !== 'all' ? 1 : 0) +
+    (archiveScope !== 'active' ? 1 : 0) +
+    (search.trim() ? 1 : 0);
 
   function inheritShowInStoreForCountry(countryId: string): boolean {
     return storeActiveByCountryId.get(countryId) === true;
@@ -324,8 +360,67 @@ export default function GeoLocationsPage({
   const createPerm =
     tab === 'cities' ? GEO_CITIES_PERMISSIONS.create : GEO_DISTRICTS_PERMISSIONS.create;
 
+  useHeaderExtrasBridge(
+    embedded ? onHeaderExtrasChange : undefined,
+    () => {
+      if (tab === 'cities') {
+        return (
+          <div className="flex flex-wrap items-center gap-2">
+            <InlineFilterToggleButton
+              open={citiesFiltersOpen}
+              onToggle={() => setCitiesFiltersOpen((v) => !v)}
+              activeFilterCount={citiesActiveFilterCount}
+            />
+            <Can permission={createPerm}>
+              <PageHeaderPrimaryButton
+                icon={Plus}
+                label="إضافة مدينة"
+                className="h-10 px-3.5 text-sm"
+                onClick={openCreate}
+              >
+                إضافة مدينة
+              </PageHeaderPrimaryButton>
+            </Can>
+          </div>
+        );
+      }
+      if (tab === 'districts') {
+        return (
+          <div className="flex flex-wrap items-center gap-2">
+            <InlineFilterToggleButton
+              open={districtsFiltersOpen}
+              onToggle={() => setDistrictsFiltersOpen((v) => !v)}
+              activeFilterCount={districtsActiveFilterCount}
+            />
+            <Can permission={createPerm}>
+              <PageHeaderPrimaryButton
+                icon={Plus}
+                label="إضافة حي"
+                className="h-10 px-3.5 text-sm"
+                onClick={openCreate}
+              >
+                إضافة حي
+              </PageHeaderPrimaryButton>
+            </Can>
+          </div>
+        );
+      }
+      return null;
+    },
+    [
+      embedded,
+      onHeaderExtrasChange,
+      tab,
+      citiesFiltersOpen,
+      citiesActiveFilterCount,
+      districtsFiltersOpen,
+      districtsActiveFilterCount,
+      createPerm,
+    ],
+  );
+
   return (
-    <div className={cn('flex min-h-0 flex-1 flex-col gap-4', embedded && 'gap-3')}>
+    <div className={cn('flex min-h-0 flex-1 flex-col gap-4', embedded && 'gap-4')}>
       {!embedded ? (
         <SetPageTitle
           titleAr="المواقع الجغرافية"
@@ -335,19 +430,83 @@ export default function GeoLocationsPage({
       ) : null}
 
       {!companyId ? (
-        <p className="text-sm text-muted-foreground">اختر شركة أولاً لإدارة المواقع.</p>
+        <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-border px-6 py-12 text-center">
+          <MapPinned className="h-8 w-8 text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">اختر شركة أولاً لإدارة المواقع.</p>
+        </div>
       ) : (
-        <>
-          <div className="flex flex-wrap items-end gap-3">
-            {tab !== 'countries' ? (
-              <>
+        <Tabs
+          value={tab}
+          onValueChange={(v) => setTab(v as typeof tab)}
+          className="flex min-h-0 flex-1 flex-col gap-4"
+        >
+          <TabsList className="h-auto w-fit flex-wrap gap-1 rounded-xl bg-muted/40 p-1">
+            <TabsTrigger value="countries" className="rounded-lg px-3.5 py-1.5">
+              الدول
+            </TabsTrigger>
+            <TabsTrigger value="cities" className="rounded-lg px-3.5 py-1.5">
+              المدن
+            </TabsTrigger>
+            <TabsTrigger value="districts" className="rounded-lg px-3.5 py-1.5">
+              الأحياء
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="countries" className="mt-0 space-y-3">
+            <GeoCompanyCountriesPanel companyId={companyId} />
+          </TabsContent>
+
+          <TabsContent value="cities" className="mt-0 space-y-4">
+            {!embedded ? (
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                أضف مدينة تحت دولة، أو بدّل ظهورها في المتجر. تفعيل الدولة يزامِن المدن أيضاً.
+              </p>
+            ) : null}
+            {!embedded ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <InlineFilterToggleButton
+                  open={citiesFiltersOpen}
+                  onToggle={() => setCitiesFiltersOpen((v) => !v)}
+                  activeFilterCount={citiesActiveFilterCount}
+                />
+                <Can permission={createPerm}>
+                  <PageHeaderPrimaryButton
+                    icon={Plus}
+                    label="إضافة مدينة"
+                    className="h-10 px-3.5 text-sm"
+                    onClick={openCreate}
+                  >
+                    إضافة مدينة
+                  </PageHeaderPrimaryButton>
+                </Can>
+              </div>
+            ) : null}
+            {citiesFiltersOpen ? (
+              <div className="flex flex-wrap items-end gap-3 rounded-xl border border-border/60 bg-muted/15 p-3">
+                <div className="min-w-[13rem] space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">تصفية بالدولة</Label>
+                  <Select value={selectedCountryId} onValueChange={setSelectedCountryId}>
+                    <SelectTrigger className="h-10 rounded-lg bg-card">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">كل الدول</SelectItem>
+                      {(filterCountries.data?.items ?? []).map((country) => (
+                        <SelectItem key={country.id} value={country.id}>
+                          {country.nameAr}
+                          {storeActiveByCountryId.get(country.id) ? ' · مفعّلة' : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div className="space-y-1.5">
-                  <Label>الأرشفة</Label>
+                  <Label className="text-xs text-muted-foreground">الأرشفة</Label>
                   <Select
                     value={archiveScope}
                     onValueChange={(v) => setArchiveScope(v as ArchiveScope)}
                   >
-                    <SelectTrigger className="w-40">
+                    <SelectTrigger className="h-10 w-36 rounded-lg bg-card">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -358,65 +517,22 @@ export default function GeoLocationsPage({
                   </Select>
                 </div>
                 <div className="min-w-[12rem] flex-1 space-y-1.5">
-                  <Label>بحث</Label>
+                  <Label className="text-xs text-muted-foreground">بحث</Label>
                   <Input
+                    className="h-10 rounded-lg bg-card"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder="اسم…"
                   />
                 </div>
-                <Can permission={createPerm}>
-                  <Button className="ms-auto" onClick={openCreate}>
-                    <Plus className="me-1.5 h-4 w-4" />
-                    {tab === 'cities' ? 'إضافة مدينة' : 'إضافة حي'}
-                  </Button>
-                </Can>
-              </>
-            ) : null}
-          </div>
-
-          <Tabs
-            value={tab}
-            onValueChange={(v) => setTab(v as typeof tab)}
-            className="flex min-h-0 flex-1 flex-col gap-4"
-          >
-            <TabsList className="h-auto w-fit flex-wrap">
-              <TabsTrigger value="countries">الدول (تفعيل)</TabsTrigger>
-              <TabsTrigger value="cities">المدن (إضافة)</TabsTrigger>
-              <TabsTrigger value="districts">الأحياء (إضافة)</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="countries" className="mt-0 space-y-3">
-              <GeoCompanyCountriesPanel companyId={companyId} />
-            </TabsContent>
-
-            <TabsContent value="cities" className="mt-0 space-y-3">
-              <p className="text-xs text-muted-foreground">
-                أضف مدينة تحت دولة، أو بدّل ظهورها في المتجر. تفعيل الدولة يزامِن المدن أيضاً.
-              </p>
-              <div className="space-y-1.5">
-                <Label>تصفية بالدولة</Label>
-                <Select value={selectedCountryId} onValueChange={setSelectedCountryId}>
-                  <SelectTrigger className="w-56">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">كل الدول</SelectItem>
-                    {(filterCountries.data?.items ?? []).map((country) => (
-                      <SelectItem key={country.id} value={country.id}>
-                        {country.nameAr}
-                        {storeActiveByCountryId.get(country.id) ? ' · مفعّلة' : ''}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
               </div>
-              <EntityTable
+            ) : null}
+            <EntityTable
                 loading={citiesQuery.isLoading}
                 error={citiesQuery.isError}
                 empty="لا توجد مدن ضمن هذا الفلتر."
                 onRetry={() => void citiesQuery.refetch()}
-                rows={(citiesQuery.data?.items ?? []).map((row) => ({
+                rows={citiesPagination.pageItems.map((row) => ({
                   id: row.id,
                   title: row.nameAr,
                   subtitle: countryNameById.get(row.countryId) ?? row.countryId.slice(0, 8),
@@ -455,15 +571,45 @@ export default function GeoLocationsPage({
                   canDelete: can(GEO_CITIES_PERMISSIONS.delete),
                 }))}
               />
+              {paginationBar({
+                page: citiesPagination.page,
+                pageSize: citiesPagination.pageSize,
+                total: citiesPagination.total,
+                totalPages: citiesPagination.totalPages,
+                setPage: citiesPagination.setPage,
+                setPageSize: citiesPagination.setPageSize,
+              })}
             </TabsContent>
 
-            <TabsContent value="districts" className="mt-0 space-y-3">
-              <p className="text-xs text-muted-foreground">
-                أضف حياً تحت مدينة، أو بدّل ظهوره في المتجر.
-              </p>
-              <div className="flex flex-wrap gap-3">
-                <div className="space-y-1.5">
-                  <Label>الدولة</Label>
+            <TabsContent value="districts" className="mt-0 space-y-4">
+              {!embedded ? (
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  أضف حياً تحت مدينة، أو بدّل ظهوره في المتجر.
+                </p>
+              ) : null}
+              {!embedded ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <InlineFilterToggleButton
+                    open={districtsFiltersOpen}
+                    onToggle={() => setDistrictsFiltersOpen((v) => !v)}
+                    activeFilterCount={districtsActiveFilterCount}
+                  />
+                  <Can permission={createPerm}>
+                    <PageHeaderPrimaryButton
+                      icon={Plus}
+                      label="إضافة حي"
+                      className="h-10 px-3.5 text-sm"
+                      onClick={openCreate}
+                    >
+                      إضافة حي
+                    </PageHeaderPrimaryButton>
+                  </Can>
+                </div>
+              ) : null}
+              {districtsFiltersOpen ? (
+              <div className="flex flex-wrap items-end gap-3 rounded-xl border border-border/60 bg-muted/15 p-3">
+                <div className="min-w-[11rem] space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">الدولة</Label>
                   <Select
                     value={selectedCountryId}
                     onValueChange={(v) => {
@@ -471,7 +617,7 @@ export default function GeoLocationsPage({
                       setSelectedCityId('all');
                     }}
                   >
-                    <SelectTrigger className="w-48">
+                    <SelectTrigger className="h-10 rounded-lg bg-card">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -484,10 +630,10 @@ export default function GeoLocationsPage({
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-1.5">
-                  <Label>المدينة</Label>
+                <div className="min-w-[11rem] space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">المدينة</Label>
                   <Select value={selectedCityId} onValueChange={setSelectedCityId}>
-                    <SelectTrigger className="w-48">
+                    <SelectTrigger className="h-10 rounded-lg bg-card">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -500,13 +646,39 @@ export default function GeoLocationsPage({
                     </SelectContent>
                   </Select>
                 </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">الأرشفة</Label>
+                  <Select
+                    value={archiveScope}
+                    onValueChange={(v) => setArchiveScope(v as ArchiveScope)}
+                  >
+                    <SelectTrigger className="h-10 w-36 rounded-lg bg-card">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">النشطة</SelectItem>
+                      <SelectItem value="archived">المؤرشفة</SelectItem>
+                      <SelectItem value="all">الكل</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="min-w-[12rem] flex-1 space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">بحث</Label>
+                  <Input
+                    className="h-10 rounded-lg bg-card"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="اسم…"
+                  />
+                </div>
               </div>
+              ) : null}
               <EntityTable
                 loading={districtsQuery.isLoading}
                 error={districtsQuery.isError}
                 empty="لا توجد أحياء ضمن هذا الفلتر."
                 onRetry={() => void districtsQuery.refetch()}
-                rows={(districtsQuery.data?.items ?? []).map((row) => {
+                rows={districtsPagination.pageItems.map((row) => {
                   const countryId = cityCountryIdById.get(row.cityId);
                   return {
                     id: row.id,
@@ -555,9 +727,16 @@ export default function GeoLocationsPage({
                   };
                 })}
               />
+              {paginationBar({
+                page: districtsPagination.page,
+                pageSize: districtsPagination.pageSize,
+                total: districtsPagination.total,
+                totalPages: districtsPagination.totalPages,
+                setPage: districtsPagination.setPage,
+                setPageSize: districtsPagination.setPageSize,
+              })}
             </TabsContent>
-          </Tabs>
-        </>
+        </Tabs>
       )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -710,17 +889,17 @@ function EntityTable({ loading, error, empty, onRetry, rows }: GeoEntityTablePro
   }
   if (error) {
     return (
-      <div className="rounded-xl border border-destructive/30 bg-card p-4 text-sm text-destructive">
-        تعذر التحميل.
-        <button type="button" className="ms-2 underline" onClick={onRetry}>
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-destructive/25 bg-destructive/5 px-4 py-4 text-sm text-destructive">
+        <span>تعذر التحميل.</span>
+        <Button type="button" variant="outline" size="sm" className="rounded-lg" onClick={onRetry}>
           إعادة المحاولة
-        </button>
+        </Button>
       </div>
     );
   }
   if (rows.length === 0) {
     return (
-      <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-border px-6 py-12 text-center">
+      <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-border bg-muted/10 px-6 py-12 text-center">
         <MapPinned className="h-8 w-8 text-muted-foreground" />
         <p className="text-sm text-muted-foreground">{empty}</p>
       </div>
@@ -732,7 +911,7 @@ function EntityTable({ loading, error, empty, onRetry, rows }: GeoEntityTablePro
       {rows.map((row) => (
         <li
           key={row.id}
-          className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card px-3 py-2.5"
+          className="flex flex-wrap items-center gap-3 rounded-xl border border-border/70 bg-card px-3.5 py-3 transition-colors hover:border-border"
         >
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">

@@ -12,14 +12,25 @@ import {
   Library,
   Image,
   Mail,
+  MessageCircle,
   Star,
   PanelBottom,
   BarChart3,
+  Banknote,
+  CreditCard,
+  MapPinned,
+  Paintbrush,
+  Palette,
+  Phone,
+  Search,
+  Share2,
+  Truck,
 } from 'lucide-react';
 import {
   ecommerceAdminRoutes,
   ecommerceContentHref,
   ecommerceNavigationHref,
+  ecommerceSettingsHref,
 } from '@/features/ecommerce/admin/constants/routes';
 
 export type EcommerceAdminNavItem = {
@@ -41,7 +52,7 @@ export type EcommerceAdminNavSection = {
 };
 
 export type EcommerceAdminNavGroup = {
-  key: 'products' | 'catalogSetup' | 'storeSettings' | 'sales';
+  key: 'products' | 'catalogSetup' | 'storeSettings' | 'sales' | 'settings';
   labelKey: string;
   icon: LucideIcon;
   sections: EcommerceAdminNavSection[];
@@ -127,7 +138,39 @@ export const ecommerceAdminNavGroups: EcommerceAdminNavGroup[] = [
             href: ecommerceAdminRoutes.contactMessages,
             icon: Mail,
           },
-          { labelKey: 'websiteSettings', href: ecommerceAdminRoutes.settings, icon: Settings },
+          {
+            labelKey: 'whatsapp',
+            href: ecommerceAdminRoutes.whatsapp,
+            icon: MessageCircle,
+          },
+        ],
+      },
+    ],
+  },
+  {
+    key: 'settings',
+    labelKey: 'groups.settings',
+    icon: Settings,
+    sections: [
+      {
+        items: [
+          { labelKey: 'settingsTabs.branding', href: ecommerceSettingsHref('branding'), icon: Palette },
+          { labelKey: 'settingsTabs.colors', href: ecommerceSettingsHref('colors'), icon: Paintbrush },
+          { labelKey: 'settingsTabs.contact', href: ecommerceSettingsHref('contact'), icon: Phone },
+          { labelKey: 'settingsTabs.social', href: ecommerceSettingsHref('social'), icon: Share2 },
+          { labelKey: 'settingsTabs.locations', href: ecommerceSettingsHref('locations'), icon: MapPinned },
+          {
+            labelKey: 'settingsTabs.deliveryRates',
+            href: ecommerceSettingsHref('deliveryRates'),
+            icon: Banknote,
+          },
+          {
+            labelKey: 'settingsTabs.paymentAccounts',
+            href: ecommerceSettingsHref('paymentAccounts'),
+            icon: CreditCard,
+          },
+          { labelKey: 'settingsTabs.checkout', href: ecommerceSettingsHref('checkout'), icon: Truck },
+          { labelKey: 'settingsTabs.seo', href: ecommerceSettingsHref('seo'), icon: Search },
         ],
       },
     ],

@@ -135,7 +135,7 @@ export function StoreLoginClient() {
               {t('login.forgotPassword')}
             </Link>
           </div>
-          <div className="relative">
+          <div className="relative" dir="ltr">
             <Input
               id="store-login-password"
               type={showPassword ? 'text' : 'password'}

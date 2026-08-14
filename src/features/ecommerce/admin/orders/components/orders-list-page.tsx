@@ -5,6 +5,10 @@ import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-con
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
 import * as React from 'react';
+import { OrderDetailPanel } from '@/features/ecommerce/admin/orders/components/order-detail-panel';
+import { OrderPaymentProofThumb } from '@/features/ecommerce/admin/orders/components/order-payment-proof-thumb';
+import { OrderStatusHistoryButton } from '@/features/ecommerce/admin/orders/components/order-status-history-button';
+import { WhatsappPhoneAction } from '@/features/ecommerce/admin/cms/whatsapp/components/whatsapp-phone-action';
 import {
   Banknote,
   CreditCard,
@@ -12,12 +16,8 @@ import {
   Kanban,
   List,
   MapPin,
-  Phone,
 } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { OrderDetailPanel } from '@/features/ecommerce/admin/orders/components/order-detail-panel';
-import { OrderPaymentProofThumb } from '@/features/ecommerce/admin/orders/components/order-payment-proof-thumb';
-import { OrderStatusHistoryButton } from '@/features/ecommerce/admin/orders/components/order-status-history-button';
 import { OrdersKanbanView } from '@/features/ecommerce/admin/orders/components/orders-kanban-view';
 import {
   useOrders,
@@ -456,15 +456,11 @@ export function OrdersListPage() {
         <div className="flex flex-col gap-0.5">
           <span className="font-medium text-foreground">{order.customerNameAr}</span>
           {order.phone ? (
-            <a
-              href={`tel:${order.phone.replace(/\s/g, '')}`}
-              className="inline-flex items-center gap-1 text-xs font-semibold tabular-nums text-primary hover:underline"
-              dir="ltr"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <Phone className="h-3 w-3" />
-              {order.phone}
-            </a>
+            <WhatsappPhoneAction
+              phone={order.phone}
+              customerName={order.customerNameAr}
+              orderId={order.id}
+            />
           ) : null}
           {order.city ? (
             <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">

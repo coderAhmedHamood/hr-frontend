@@ -2,7 +2,9 @@
 
 import * as React from 'react';
 import { Archive, Banknote, Pencil, Plus, RotateCcw } from 'lucide-react';
+import { PageHeaderPrimaryButton } from '@/components/layouts/page-header-primary-button';
 import { Can } from '@/components/shared/can';
+import { InlineFilterToggleButton } from '@/components/shared/inline-filter-toggle-button';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -15,6 +17,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { paginationBar, useListPagination } from '@/components/ui/paged-list';
 import {
   Select,
   SelectContent,
@@ -43,12 +46,15 @@ import {
   useGeoCountries,
   useGeoDistricts,
 } from '@/features/system/organization/geo/hooks/use-geo';
+import { useHeaderExtrasBridge } from '@/features/ecommerce/admin/cms/settings/lib/use-header-extras-bridge';
 import { cn } from '@/shared/utils';
 
 type Props = {
   companyId: string;
   /** Default currency from store settings (optional override on create). */
   currencyCode?: string;
+  /** Pushes the filter-toggle + add-new buttons into the settings page header, next to Save. */
+  onHeaderExtrasChange?: (node: React.ReactNode | null) => void;
 };
 
 type FormState = {
@@ -90,12 +96,13 @@ function toggleId(list: string[], id: string, checked: boolean): string[] {
   return list.filter((item) => item !== id);
 }
 
-export function DeliveryRatesPanel({ companyId, currencyCode }: Props) {
+export function DeliveryRatesPanel({ companyId, currencyCode, onHeaderExtrasChange }: Props) {
   const can = useCan();
   const [archiveScope, setArchiveScope] = React.useState<ArchiveScope>('active');
   const [countryFilter, setCountryFilter] = React.useState<string>('all');
   const [scopeFilter, setScopeFilter] = React.useState<'all' | DeliveryRateScopeType>('all');
   const [search, setSearch] = React.useState('');
+  const [filtersOpen, setFiltersOpen] = React.useState(false);
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [editTarget, setEditTarget] = React.useState<StoreDeliveryRate | null>(null);
   const [form, setForm] = React.useState<FormState>(EMPTY_FORM);
@@ -232,6 +239,54 @@ export function DeliveryRatesPanel({ companyId, currencyCode }: Props) {
   const canUpdate = can(DELIVERY_RATES_PERMISSIONS.update);
   const canDelete = can(DELIVERY_RATES_PERMISSIONS.delete);
 
+  const ratesPagination = useListPagination(ratesQuery.data?.items ?? [], [
+    countryFilter,
+    scopeFilter,
+    archiveScope,
+    search,
+  ]);
+  const activeFilterCount =
+    (countryFilter !== 'all' ? 1 : 0) +
+    (scopeFilter !== 'all' ? 1 : 0) +
+    (archiveScope !== 'active' ? 1 : 0) +
+    (search.trim() ? 1 : 0);
+
+  useHeaderExtrasBridge(
+    onHeaderExtrasChange,
+    () => (
+      <div className="flex flex-wrap items-center gap-2">
+        <InlineFilterToggleButton
+          open={filtersOpen}
+          onToggle={() => setFiltersOpen((v) => !v)}
+          activeFilterCount={activeFilterCount}
+        />
+        {canCreate ? (
+          <div className="flex flex-wrap gap-2">
+            <PageHeaderPrimaryButton
+              icon={Plus}
+              label="سعر مدن"
+              className="h-10 px-3.5 text-sm"
+              onClick={() => openCreate('city')}
+            >
+              سعر مدن
+            </PageHeaderPrimaryButton>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-10 gap-1.5 rounded-lg"
+              onClick={() => openCreate('district')}
+            >
+              <Plus className="h-4 w-4" />
+              سعر أحياء
+            </Button>
+          </div>
+        ) : null}
+      </div>
+    ),
+    [filtersOpen, activeFilterCount, canCreate, onHeaderExtrasChange],
+  );
+
   return (
     <Can
       permission={DELIVERY_RATES_PERMISSIONS.read}
@@ -242,88 +297,67 @@ export function DeliveryRatesPanel({ companyId, currencyCode }: Props) {
       }
     >
       <div className="space-y-4">
-        <p className="text-xs leading-relaxed text-muted-foreground">
-          أولوية الحساب: سعر الحي إن وُجد، وإلا سعر المدينة، وإلا صفر. فعّل الدولة والمدن/الأحياء من
-          تبويب المواقع الجغرافية أولاً.
-        </p>
-
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="space-y-1.5">
-            <Label>الدولة</Label>
-            <Select value={countryFilter} onValueChange={setCountryFilter}>
-              <SelectTrigger className="w-48">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">كل الدول</SelectItem>
-                {countryOptions.map((country) => (
-                  <SelectItem key={country.id} value={country.id}>
-                    {country.nameAr}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1.5">
-            <Label>النطاق</Label>
-            <Select
-              value={scopeFilter}
-              onValueChange={(v) => setScopeFilter(v as 'all' | DeliveryRateScopeType)}
-            >
-              <SelectTrigger className="w-40">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">الكل</SelectItem>
-                <SelectItem value="city">مدن</SelectItem>
-                <SelectItem value="district">أحياء</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1.5">
-            <Label>الأرشيف</Label>
-            <Select
-              value={archiveScope}
-              onValueChange={(v) => setArchiveScope(v as ArchiveScope)}
-            >
-              <SelectTrigger className="w-36">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="active">النشطة</SelectItem>
-                <SelectItem value="archived">المؤرشفة</SelectItem>
-                <SelectItem value="all">الكل</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="min-w-[10rem] flex-1 space-y-1.5">
-            <Label>بحث</Label>
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="اسم السعر…"
-              className="h-10"
-            />
-          </div>
-          {canCreate ? (
-            <div className="flex flex-wrap gap-2">
-              <Button type="button" size="sm" className="gap-1.5" onClick={() => openCreate('city')}>
-                <Plus className="h-4 w-4" />
-                سعر مدن
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="gap-1.5"
-                onClick={() => openCreate('district')}
-              >
-                <Plus className="h-4 w-4" />
-                سعر أحياء
-              </Button>
+        {filtersOpen ? (
+          <div className="flex flex-wrap items-end gap-3 rounded-xl border border-border/60 bg-muted/15 p-3">
+            <div className="space-y-1.5">
+              <Label>الدولة</Label>
+              <Select value={countryFilter} onValueChange={setCountryFilter}>
+                <SelectTrigger className="h-10 w-48 rounded-lg bg-card">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">كل الدول</SelectItem>
+                  {countryOptions.map((country) => (
+                    <SelectItem key={country.id} value={country.id}>
+                      {country.nameAr}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-          ) : null}
-        </div>
+            <div className="space-y-1.5">
+              <Label>النطاق</Label>
+              <Select
+                value={scopeFilter}
+                onValueChange={(v) => setScopeFilter(v as 'all' | DeliveryRateScopeType)}
+              >
+                <SelectTrigger className="h-10 w-40 rounded-lg bg-card">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">الكل</SelectItem>
+                  <SelectItem value="city">مدن</SelectItem>
+                  <SelectItem value="district">أحياء</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>الأرشيف</Label>
+              <Select
+                value={archiveScope}
+                onValueChange={(v) => setArchiveScope(v as ArchiveScope)}
+              >
+                <SelectTrigger className="h-10 w-36 rounded-lg bg-card">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">النشطة</SelectItem>
+                  <SelectItem value="archived">المؤرشفة</SelectItem>
+                  <SelectItem value="all">الكل</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="min-w-[10rem] flex-1 space-y-1.5">
+              <Label>بحث</Label>
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="اسم السعر…"
+                className="h-10 rounded-lg bg-card"
+              />
+            </div>
+          </div>
+        ) : null}
 
         {ratesQuery.isLoading ? (
           <div className="space-y-2">
@@ -348,8 +382,9 @@ export function DeliveryRatesPanel({ companyId, currencyCode }: Props) {
             <p className="text-sm text-muted-foreground">لا توجد أسعار ضمن هذا الفلتر.</p>
           </div>
         ) : (
+          <>
           <ul className="space-y-2">
-            {(ratesQuery.data?.items ?? []).map((row) => (
+            {ratesPagination.pageItems.map((row) => (
               <li
                 key={row.id}
                 className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card px-3 py-2.5"
@@ -419,6 +454,15 @@ export function DeliveryRatesPanel({ companyId, currencyCode }: Props) {
               </li>
             ))}
           </ul>
+          {paginationBar({
+            page: ratesPagination.page,
+            pageSize: ratesPagination.pageSize,
+            total: ratesPagination.total,
+            totalPages: ratesPagination.totalPages,
+            setPage: ratesPagination.setPage,
+            setPageSize: ratesPagination.setPageSize,
+          })}
+          </>
         )}
 
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

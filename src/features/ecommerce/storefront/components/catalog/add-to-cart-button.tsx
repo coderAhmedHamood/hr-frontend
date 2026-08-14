@@ -59,7 +59,7 @@ export function AddToCartButton({
     toast.custom(
       (id) => (
         <div
-          className="pointer-events-auto inline-flex w-fit max-w-[min(100vw-2rem,20rem)] items-center gap-2 rounded-full border border-border bg-card px-3.5 py-2 text-sm text-foreground shadow-soft"
+          className="pointer-events-auto inline-flex w-fit max-w-[min(100vw-2rem,20rem)] items-center gap-2 text-sm text-foreground"
           role="status"
         >
           <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">

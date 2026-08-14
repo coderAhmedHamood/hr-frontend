@@ -454,7 +454,6 @@ export async function fetchAdminStoreOrder(
     const dto = await apiRequest<StoreOrderDto>(`/store-admin/orders/${id}`, {
       throwOnError: true,
       query: {
-        companyId: resolveStorefrontCompanyId(companyId),
         attachments:
           options?.attachments && options.attachments !== 'all'
             ? options.attachments
@@ -475,7 +474,6 @@ export async function updateAdminStoreOrderStatus(
   const dto = await apiRequest<StoreOrderDto>(`/store-admin/orders/${id}/status`, {
     method: 'PATCH',
     throwOnError: true,
-    query: { companyId: resolveStorefrontCompanyId(companyId) },
     body: {
       status: input.status,
       ...(input.note !== undefined ? { note: input.note } : {}),
@@ -492,7 +490,6 @@ export async function updateAdminStoreOrderPayment(
   const dto = await apiRequest<StoreOrderDto>(`/store-admin/orders/${id}/payment`, {
     method: 'PATCH',
     throwOnError: true,
-    query: { companyId: resolveStorefrontCompanyId(companyId) },
     body: {
       paymentStatus: input.paymentStatus,
       ...(input.paymentProofUrl !== undefined
@@ -509,7 +506,6 @@ export async function saveAdminStoreLineAllocations(
   lineId: string,
   input: SaveOrderLineAllocationsInput,
 ): Promise<Order> {
-  const company = resolveStorefrontCompanyId(companyId);
   const current = await fetchAdminStoreOrder(companyId, orderId);
   const existing =
     current?.items.find((item) => item.lineId === lineId)?.allocations ?? [];
@@ -522,7 +518,6 @@ export async function saveAdminStoreLineAllocations(
       {
         method: 'DELETE',
         throwOnError: true,
-        query: { companyId: company },
       },
     );
   }
@@ -534,7 +529,6 @@ export async function saveAdminStoreLineAllocations(
     await apiRequest(`/store-admin/orders/${orderId}/lines/${lineId}/allocations`, {
       method: 'POST',
       throwOnError: true,
-      query: { companyId: company },
       body: {
         warehouseId: row.warehouseId,
         locationId: row.locationId,
@@ -561,7 +555,6 @@ export async function deleteAdminStoreLineAllocation(
     {
       method: 'DELETE',
       throwOnError: true,
-      query: { companyId: resolveStorefrontCompanyId(companyId) },
     },
   );
   return mapAdminOrder(dto);
@@ -578,7 +571,6 @@ export async function updateAdminStoreLineShipStatus(
   await apiRequest(`/store-admin/orders/${orderId}/lines/${lineId}/ship-status`, {
     method: 'PATCH',
     throwOnError: true,
-    query: { companyId: resolveStorefrontCompanyId(companyId) },
     body: {
       shipStatus,
       ...(trimmed ? { note: trimmed } : {}),
@@ -614,7 +606,6 @@ export async function addAdminStoreOrderAttachment(
   const dto = await apiRequest<StoreOrderDto>(`/store-admin/orders/${orderId}/attachments`, {
     method: 'POST',
     throwOnError: true,
-    query: { companyId: resolveStorefrontCompanyId(companyId) },
     body: {
       fileName: input.fileName,
       fileUrl: input.fileUrl,
@@ -641,7 +632,6 @@ export async function updateAdminStoreOrderAttachment(
     {
       method: 'PATCH',
       throwOnError: true,
-      query: { companyId: resolveStorefrontCompanyId(companyId) },
       body: {
         ...(input.label === undefined ? {} : { label: input.label }),
         ...(input.visibleToCustomer === undefined
@@ -664,7 +654,6 @@ export async function deleteAdminStoreOrderAttachment(
     {
       method: 'DELETE',
       throwOnError: true,
-      query: { companyId: resolveStorefrontCompanyId(companyId) },
     },
   );
   return mapAdminOrder(dto);
@@ -679,7 +668,6 @@ export async function updateAdminStoreOrderStaffNote(
   const dto = await apiRequest<StoreOrderDto>(`/store-admin/orders/${orderId}/staff-note`, {
     method: 'PATCH',
     throwOnError: true,
-    query: { companyId: resolveStorefrontCompanyId(companyId) },
     body: {
       ...(input.staffNote === undefined ? {} : { staffNote: input.staffNote }),
       ...(input.visibleToCustomer === undefined

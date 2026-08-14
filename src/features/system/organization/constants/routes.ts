@@ -18,7 +18,6 @@ export const systemOrganizationRoutes = {
   mobileSerialApprovals: `${SYSTEM_ORGANIZATION_BASE}/mobile-serial-approvals`,
   /** إعدادات الموارد البشرية والنظام */
   pages: `${SYSTEM_ORGANIZATION_BASE}/pages`,
-  pagesHr: `${SYSTEM_ORGANIZATION_BASE}/pages/hr`,
   pagesOrganization: `${SYSTEM_ORGANIZATION_BASE}/pages/organization`,
   pagesCompany: `${SYSTEM_ORGANIZATION_BASE}/pages/company`,
 } as const;

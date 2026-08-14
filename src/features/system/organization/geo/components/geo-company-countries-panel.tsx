@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { MapPinned, Store } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { useCan } from '@/features/auth/hooks/use-can';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
@@ -78,18 +79,20 @@ export function GeoCompanyCountriesPanel({ companyId }: Props) {
           ))}
         </div>
       ) : linksQuery.isError ? (
-        <div className="rounded-xl border border-destructive/30 bg-card p-4 text-sm text-destructive">
-          تعذر تحميل الدول المدعومة.
-          <button
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-destructive/25 bg-destructive/5 px-4 py-4 text-sm text-destructive">
+          <span>تعذر تحميل الدول المدعومة.</span>
+          <Button
             type="button"
-            className="ms-2 underline"
+            variant="outline"
+            size="sm"
+            className="rounded-lg"
             onClick={() => void linksQuery.refetch()}
           >
             إعادة المحاولة
-          </button>
+          </Button>
         </div>
       ) : rows.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-border px-6 py-12 text-center">
+        <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-border bg-muted/10 px-6 py-12 text-center">
           <MapPinned className="h-8 w-8 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">
             لا توجد دول مربوطة بعد. شغّل تهيئة النظام (
@@ -105,7 +108,7 @@ export function GeoCompanyCountriesPanel({ companyId }: Props) {
             return (
               <li
                 key={row.id}
-                className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card px-3 py-3"
+                className="flex flex-wrap items-center gap-3 rounded-xl border border-border/70 bg-card px-3.5 py-3 transition-colors hover:border-border"
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">

@@ -15,6 +15,7 @@ export const ecommerceAdminRoutes = {
   banners: '/cms/banners',
   content: '/cms/content',
   contactMessages: '/cms/contact-messages',
+  whatsapp: '/cms/whatsapp',
   settings: '/cms/settings',
   products: '/products',
   productDetail: (id: string) => `/products/${id}`,
@@ -41,6 +42,16 @@ export const ecommerceAdminRoutes = {
 
 export type EcommerceContentTab = 'pages' | 'faq';
 export type EcommerceNavigationTab = 'announcement';
+export type EcommerceSettingsTab =
+  | 'branding'
+  | 'colors'
+  | 'contact'
+  | 'social'
+  | 'locations'
+  | 'deliveryRates'
+  | 'paymentAccounts'
+  | 'checkout'
+  | 'seo';
 
 export function ecommerceContentHref(tab: EcommerceContentTab = 'pages'): string {
   return `${ecommerceAdminRoutes.content}?tab=${tab}`;
@@ -48,4 +59,8 @@ export function ecommerceContentHref(tab: EcommerceContentTab = 'pages'): string
 
 export function ecommerceNavigationHref(tab: EcommerceNavigationTab = 'announcement'): string {
   return `${ecommerceAdminRoutes.navigation}?tab=${tab}`;
+}
+
+export function ecommerceSettingsHref(tab: EcommerceSettingsTab = 'branding'): string {
+  return `${ecommerceAdminRoutes.settings}?tab=${tab}`;
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -9,15 +10,8 @@ import {
   Building2,
   CreditCard,
   Landmark,
-  MapPinned,
   Network,
-  Paintbrush,
-  Palette,
-  Phone,
   Save,
-  Search,
-  Share2,
-  Truck,
   Wallet,
 } from 'lucide-react';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
@@ -52,8 +46,37 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { cn } from '@/shared/utils';
+
+type SettingsTabValue =
+  | 'branding'
+  | 'colors'
+  | 'contact'
+  | 'social'
+  | 'locations'
+  | 'deliveryRates'
+  | 'paymentAccounts'
+  | 'checkout'
+  | 'seo';
+
+const SETTINGS_TAB_VALUES: readonly SettingsTabValue[] = [
+  'branding',
+  'colors',
+  'contact',
+  'social',
+  'locations',
+  'deliveryRates',
+  'paymentAccounts',
+  'checkout',
+  'seo',
+];
+
+function resolveSettingsTab(raw: string | null): SettingsTabValue {
+  return (SETTINGS_TAB_VALUES as readonly string[]).includes(raw ?? '')
+    ? (raw as SettingsTabValue)
+    : 'branding';
+}
 
 const PAYMENT_METHOD_ICONS: Record<
   CompanyCheckoutPaymentMethod,
@@ -91,23 +114,17 @@ function defaultCheckout(draft: CompanyConfigRecord) {
 }
 
 function SettingsPanel({
-  title,
-  description,
   children,
   className,
+  bodyClassName,
 }: {
-  title: string;
-  description?: string;
   children: React.ReactNode;
   className?: string;
+  bodyClassName?: string;
 }) {
   return (
-    <section className={cn('rounded-2xl border border-border/70 bg-card', className)}>
-      <header className="border-b border-border/60 px-5 py-4 sm:px-6">
-        <h2 className="text-sm font-semibold text-foreground">{title}</h2>
-        {description ? <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{description}</p> : null}
-      </header>
-      <div className="p-5 sm:p-6">{children}</div>
+    <section className={cn('rounded-2xl border border-border/60 bg-card shadow-sm', className)}>
+      <div className={cn('px-5 py-6 sm:px-6', bodyClassName)}>{children}</div>
     </section>
   );
 }
@@ -134,6 +151,7 @@ function Field({
 
 export function WebsiteSettingsPage() {
   const companyId = getStorefrontCompanyId();
+  const searchParams = useSearchParams();
   const t = useTranslations('ecommerceAdmin.settings');
   const tSeo = useTranslations('ecommerceAdmin.seo');
   const tHome = useTranslations('ecommerceAdmin.homepage');
@@ -173,6 +191,14 @@ export function WebsiteSettingsPage() {
 
   const [draft, setDraft] = React.useState<CompanyConfigRecord | null>(null);
   const [dirty, setDirty] = React.useState(false);
+  const [tab, setTab] = React.useState<SettingsTabValue>(() =>
+    resolveSettingsTab(searchParams.get('tab')),
+  );
+  const [tabHeaderExtras, setTabHeaderExtras] = React.useState<React.ReactNode>(null);
+
+  React.useEffect(() => {
+    setTab(resolveSettingsTab(searchParams.get('tab')));
+  }, [searchParams]);
 
   React.useEffect(() => {
     if (data) {
@@ -214,16 +240,19 @@ export function WebsiteSettingsPage() {
 
   usePageHeaderActions(
     () => (
-      <PageHeaderPrimaryButton
-        icon={Save}
-        label={save.isPending ? tCommon('status.saving') : tCommon('actions.save')}
-        disabled={!draft || save.isPending || !dirty}
-        onClick={() => {
-          if (draft) void save.mutateAsync(draft);
-        }}
-      />
+      <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
+        {tabHeaderExtras}
+        <PageHeaderPrimaryButton
+          icon={Save}
+          label={save.isPending ? tCommon('status.saving') : tCommon('actions.save')}
+          disabled={!draft || save.isPending || !dirty}
+          onClick={() => {
+            if (draft) void save.mutateAsync(draft);
+          }}
+        />
+      </div>
     ),
-    [draft, dirty, save.isPending, tCommon],
+    [draft, dirty, save.isPending, tCommon, tabHeaderExtras],
   );
 
   function updateDraft(next: CompanyConfigRecord) {
@@ -270,9 +299,36 @@ export function WebsiteSettingsPage() {
   const previewTitle = draft?.seo.homeTitle.ar.trim() || tSeo('previewTitleEmpty');
   const previewDescription = draft?.seo.homeDescription.ar.trim() || tSeo('previewDescriptionEmpty');
 
+  const activeTabMeta: { title: string; description: string } = (() => {
+    switch (tab) {
+      case 'branding':
+        return { title: t('tabs.branding'), description: t('brandingHint') };
+      case 'colors':
+        return { title: t('tabs.colors'), description: t('colorsHint') };
+      case 'contact':
+        return { title: t('tabs.contact'), description: t('contactHint') };
+      case 'social':
+        return { title: t('tabs.social'), description: t('socialHint') };
+      case 'locations':
+        return { title: t('tabs.locations'), description: t('locationsHint') };
+      case 'deliveryRates':
+        return { title: t('tabs.deliveryRates'), description: t('deliveryRatesHint') };
+      case 'paymentAccounts':
+        return { title: t('tabs.paymentAccounts'), description: t('paymentAccountsHint') };
+      case 'checkout':
+        return { title: t('tabs.checkout'), description: t('checkoutHint') };
+      case 'seo':
+        return { title: t('tabs.seo'), description: tSeo('formHint') };
+    }
+  })();
+
   return (
     <div className="flex flex-col gap-5">
-      <SetPageTitle titleAr={t('title')} descriptionAr={t('description')} iconName="Settings" />
+      <SetPageTitle
+        titleAr={activeTabMeta.title}
+        descriptionAr={activeTabMeta.description}
+        iconName="Settings"
+      />
 
       {dirty ? (
         <div className="rounded-xl border border-warning/30 bg-warning/10 px-3.5 py-2.5 text-xs text-warning">
@@ -297,34 +353,9 @@ export function WebsiteSettingsPage() {
       ) : null}
 
       {draft ? (
-        <Tabs defaultValue="branding" className="w-full">
-          <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 rounded-2xl border border-border/70 bg-muted/30 p-1.5">
-            {(
-              [
-                ['branding', Palette, t('tabs.branding')],
-                ['colors', Paintbrush, t('tabs.colors')],
-                ['contact', Phone, t('tabs.contact')],
-                ['social', Share2, t('tabs.social')],
-                ['locations', MapPinned, t('tabs.locations')],
-                ['deliveryRates', Banknote, t('tabs.deliveryRates')],
-                ['paymentAccounts', CreditCard, t('tabs.paymentAccounts')],
-                ['checkout', Truck, t('tabs.checkout')],
-                ['seo', Search, t('tabs.seo')],
-              ] as const
-            ).map(([value, Icon, label]) => (
-              <TabsTrigger
-                key={value}
-                value={value}
-                className="gap-1.5 rounded-xl px-3 py-2 data-[state=active]:bg-card data-[state=active]:shadow-soft"
-              >
-                <Icon className="h-4 w-4" />
-                {label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-
+        <Tabs value={tab} onValueChange={(v) => setTab(v as SettingsTabValue)} className="w-full">
           <TabsContent value="branding" className="mt-4">
-            <SettingsPanel title={t('tabs.branding')} description={t('brandingHint')}>
+            <SettingsPanel>
               <div className="grid gap-5 sm:grid-cols-2">
                 <Field label={t('name')} className="sm:col-span-2">
                   <Input
@@ -375,7 +406,7 @@ export function WebsiteSettingsPage() {
           </TabsContent>
 
           <TabsContent value="contact" className="mt-4">
-            <SettingsPanel title={t('tabs.contact')} description={t('contactHint')}>
+            <SettingsPanel>
               <div className="grid gap-5 sm:grid-cols-2">
                 <Field label={t('phone')}>
                   <Input
@@ -439,7 +470,7 @@ export function WebsiteSettingsPage() {
           </TabsContent>
 
           <TabsContent value="social" className="mt-4">
-            <SettingsPanel title={t('tabs.social')} description={t('socialHint')}>
+            <SettingsPanel>
               <div className="space-y-3">
                 {COMPANY_SOCIAL_NETWORKS.map((network) => {
                   const entry = draft.social[network] ?? { url: '', enabled: false };
@@ -474,31 +505,37 @@ export function WebsiteSettingsPage() {
           </TabsContent>
 
           <TabsContent value="locations" className="mt-4">
-            <SettingsPanel title={t('tabs.locations')} description={t('locationsHint')}>
-              <GeoLocationsPage embedded companyId={companyId} />
+            <SettingsPanel>
+              <GeoLocationsPage
+                embedded
+                companyId={companyId}
+                onHeaderExtrasChange={setTabHeaderExtras}
+              />
             </SettingsPanel>
           </TabsContent>
 
           <TabsContent value="deliveryRates" className="mt-4">
-            <SettingsPanel title={t('tabs.deliveryRates')} description={t('deliveryRatesHint')}>
-              <DeliveryRatesPanel companyId={companyId} currencyCode={draft.currency} />
+            <SettingsPanel>
+              <DeliveryRatesPanel
+                companyId={companyId}
+                currencyCode={draft.currency}
+                onHeaderExtrasChange={setTabHeaderExtras}
+              />
             </SettingsPanel>
           </TabsContent>
 
           <TabsContent value="paymentAccounts" className="mt-4">
-            <SettingsPanel
-              title={t('tabs.paymentAccounts')}
-              description={t('paymentAccountsHint')}
-            >
-              <PaymentAccountsPanel companyId={companyId} currencyCode={draft.currency} />
+            <SettingsPanel>
+              <PaymentAccountsPanel
+                companyId={companyId}
+                currencyCode={draft.currency}
+                onHeaderExtrasChange={setTabHeaderExtras}
+              />
             </SettingsPanel>
           </TabsContent>
 
           <TabsContent value="checkout" className="mt-4">
-            <SettingsPanel title={t('tabs.checkout')} description={t('checkoutHint')}>
-              <div className="mb-4 rounded-xl border border-primary/20 bg-primary/[0.04] px-3.5 py-2.5 text-xs leading-relaxed text-muted-foreground">
-                {t('locationsCheckoutNote')}
-              </div>
+            <SettingsPanel>
               <div className="grid gap-5 sm:grid-cols-2">
                 <CheckoutCitiesEditor
                   cities={draft.checkout?.cities ?? []}
@@ -582,7 +619,7 @@ export function WebsiteSettingsPage() {
 
           <TabsContent value="seo" className="mt-4">
             <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)]">
-              <SettingsPanel title={t('tabs.seo')} description={tSeo('formHint')}>
+              <SettingsPanel>
                 <div className="grid gap-5">
                   <div className="space-y-4 rounded-2xl border border-border/60 bg-muted/10 p-4">
                     <Badge variant="subtle">{tSeo('sectionHome')}</Badge>

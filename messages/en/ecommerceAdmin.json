@@ -13,7 +13,8 @@
       "inventoryReports": "Inventory reports",
       "sales": "Sales",
       "website": "Store settings",
-      "storeSettings": "Store settings"
+      "storeSettings": "Store settings",
+      "settings": "Website Settings"
     },
     "sections": {
       "content": "Content",
@@ -22,6 +23,17 @@
       "inventorySetup": "Inventory setup",
       "inventoryOps": "Inventory operations"
     },
+    "settingsTabs": {
+      "branding": "Branding",
+      "colors": "Colors & fonts",
+      "contact": "Contact",
+      "social": "Social",
+      "locations": "Locations",
+      "deliveryRates": "Delivery rates",
+      "paymentAccounts": "Payment accounts",
+      "checkout": "Checkout",
+      "seo": "SEO"
+    },
     "overview": "Overview",
     "homepage": "Homepage",
     "banners": "Hero carousel",
@@ -29,6 +41,7 @@
     "homepageSections": "Homepage sections",
     "contentPages": "Pages",
     "contactMessages": "Contact messages",
+    "whatsapp": "WhatsApp",
     "contentFaq": "FAQ",
     "appearanceFooter": "Footer",
     "appearanceAnnouncement": "Announcement Bar",
@@ -559,5 +572,23 @@
   "catalog": {
     "loadError": "Could not load catalog data.",
     "empty": "No items found."
+  },
+  "whatsapp": {
+    "title": "WhatsApp Web",
+    "subtitle": "Open WhatsApp Web once, scan the QR, then open customer chats from orders in the same window.",
+    "openTitle": "Connect WhatsApp Web",
+    "openHint": "WhatsApp Web opens in a separate browser window. Scan the QR with your phone, then keep that window open while you work.",
+    "step1": "Click “Open WhatsApp Web”.",
+    "step2": "On your phone: WhatsApp → Linked devices → Link a device → scan the QR.",
+    "step3": "From Orders, click a customer phone to open their chat in that same window.",
+    "openWhatsappWeb": "Open WhatsApp Web",
+    "openCustomerChat": "Open customer chat",
+    "openedHomeHint": "Scan the QR in the WhatsApp Web window, then keep it open.",
+    "popupBlocked": "Allow pop-ups for this site, then try again.",
+    "confirmTitle": "Open WhatsApp chat",
+    "confirmDescription": "Opens this customer in WhatsApp Web (same window if already open).",
+    "confirmOpen": "Open WhatsApp",
+    "confirmCall": "Phone call",
+    "confirmCancel": "Cancel"
   }
 }
