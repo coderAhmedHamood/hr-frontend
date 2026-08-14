@@ -14,6 +14,8 @@ export const systemOrganizationRoutes = {
   chart: `${SYSTEM_ORGANIZATION_BASE}/chart`,
   /** المواقع الجغرافية — دول / مدن / أحياء */
   geo: `${SYSTEM_ORGANIZATION_BASE}/geo`,
+  /** طلبات موافقة أجهزة الجوال */
+  mobileSerialApprovals: `${SYSTEM_ORGANIZATION_BASE}/mobile-serial-approvals`,
   /** إعدادات الموارد البشرية والنظام */
   pages: `${SYSTEM_ORGANIZATION_BASE}/pages`,
   pagesHr: `${SYSTEM_ORGANIZATION_BASE}/pages/hr`,

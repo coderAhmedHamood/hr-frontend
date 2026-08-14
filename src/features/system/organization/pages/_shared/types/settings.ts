@@ -2,6 +2,14 @@ export interface HrCompanySettings {
   id: string;
   companyId: string;
   notificationsEnabled: boolean;
+  /** When true, app login requires `mobileSerialNumber`. Default true. */
+  enforceMobileDeviceSerial?: boolean;
+  /** When true (and enforceMobileDeviceSerial), a new app device needs admin approval before OTP email. */
+  requireAdminApprovalForNewMobileDevice?: boolean;
+  /** When true, web login requires `mobileSerialNumber` (stored as web device serial). */
+  enforceWebDeviceSerial?: boolean;
+  /** When true (and enforceWebDeviceSerial), a new web device needs admin approval before OTP email. */
+  requireAdminApprovalForNewWebDevice?: boolean;
   notifyDisciplineViolationCreated: boolean;
   notifyDisciplineViolationApproved: boolean;
   notifyDisciplineCircularCreated: boolean;
@@ -26,6 +34,8 @@ export interface HrCompanySettings {
   notifyContractSentForApproval: boolean;
   notifyEmployeeAssignedToCompany: boolean;
   notifyEmployeeAssignedToBranch: boolean;
+  /** Mobile: enforce check-in/check-out punch windows. Default false. */
+  hideEarlyCheckoutUntilShortageWindow: boolean;
   createdAt: string;
   updatedAt: string;
   createdBy?: string | null;

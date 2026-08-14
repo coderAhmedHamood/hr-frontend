@@ -25,6 +25,10 @@ jest.mock('next/navigation', () => ({
   useRouter: () => ({ push: jest.fn(), replace: jest.fn() }),
 }));
 
+jest.mock('@/features/auth/lib/browser-device-serial', () => ({
+  getOrCreateBrowserDeviceSerial: jest.fn(() => 'TEST-BROWSER-SERIAL'),
+}));
+
 jest.mock('@/features/hr/lib/api/global-error-handler', () => ({
   handleApiError: jest.fn().mockReturnValue({ status: 0, displayMessage: '', debugPayload: null, envelope: null }),
 }));
@@ -132,6 +136,8 @@ describe('LoginPage', () => {
       expect(mockLogin).toHaveBeenCalledWith({
         email: 'admin@test.com',
         password: 'Admin123!',
+        loginChannel: 'web',
+        mobileSerialNumber: 'TEST-BROWSER-SERIAL',
       });
     });
   });

@@ -1,5 +1,9 @@
 import { resolveAccessToken } from '@/features/auth/lib/auth-cookie';
-import { extractApiErrorMessage } from '@/features/auth/lib/auth-api-messages';
+import {
+  extractApiErrorCode,
+  extractApiErrorMessage,
+  translateDeviceAuthErrorCode,
+} from '@/features/auth/lib/auth-api-messages';
 import { resolveApiBaseUrl } from '@/shared/api-base-url';
 import { publicConfig } from '@/shared/config';
 import {
@@ -227,10 +231,12 @@ function buildApiErrorEnvelope(payload: unknown, response: Response): ApiErrorEn
 }
 
 function notifyApiFailure(envelope: ApiErrorEnvelope, status: number): void {
+  const deviceAuthMessage = translateDeviceAuthErrorCode(extractApiErrorCode(envelope));
   const displayMessage =
-    status === 403
+    deviceAuthMessage ??
+    (status === 403
       ? 'ليس لديك صلاحية للوصول إلى هذا المورد'
-      : extractApiErrorMessage(envelope, `HTTP ${status}`);
+      : extractApiErrorMessage(envelope, `HTTP ${status}`));
 
   if (status >= 500) {
     reportError(new ApiError(envelope, status), 'api-error', undefined, { skipToast: true });
