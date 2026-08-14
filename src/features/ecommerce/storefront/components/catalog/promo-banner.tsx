@@ -1,6 +1,7 @@
 import Image from 'next/image';
 import { Link } from '@/i18n/navigation';
 import { STOREFRONT_MAIN_FULL_BLEED_CLASS } from '@/features/ecommerce/storefront/components/catalog/layout-classes';
+import { resolveStorefrontImageSrc } from '@/features/ecommerce/storefront/lib/resolve-storefront-image-src';
 import { cn } from '@/shared/utils';
 
 type PromoBannerProps = {
@@ -22,6 +23,11 @@ export function PromoBanner({
   layout = 'contained',
   className,
 }: PromoBannerProps) {
+  const mobileSrc = resolveStorefrontImageSrc(mobileImageUrl);
+  const desktopSrc = resolveStorefrontImageSrc(imageUrl) ?? mobileSrc;
+
+  if (!desktopSrc && !mobileSrc) return null;
+
   const imageBlock = (
     <div
       className={cn(
@@ -31,17 +37,29 @@ export function PromoBanner({
         layout === 'full-bleed' && 'rounded-none',
       )}
     >
-      <picture>
-        {mobileImageUrl ? <source media="(max-width: 767px)" srcSet={mobileImageUrl} /> : null}
+      {mobileSrc && mobileSrc !== desktopSrc ? (
         <Image
-          src={imageUrl}
+          src={mobileSrc}
           alt={alt}
           fill
           unoptimized
-          className="object-cover transition-transform duration-300 hover:scale-[1.02]"
+          className="object-cover transition-transform duration-300 hover:scale-[1.02] md:hidden"
           sizes="(min-width: 1024px) 1400px, 100vw"
         />
-      </picture>
+      ) : null}
+      {desktopSrc ? (
+        <Image
+          src={desktopSrc}
+          alt={alt}
+          fill
+          unoptimized
+          className={cn(
+            'object-cover transition-transform duration-300 hover:scale-[1.02]',
+            mobileSrc && mobileSrc !== desktopSrc && 'hidden md:block',
+          )}
+          sizes="(min-width: 1024px) 1400px, 100vw"
+        />
+      ) : null}
     </div>
   );
 

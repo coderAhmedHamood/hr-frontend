@@ -7,6 +7,7 @@ import {
   isStoreHttpEnabled,
   publicStoreRequest,
 } from '@/features/ecommerce/storefront/lib/api/store-http';
+import { normalizeCmsSectionDto } from '@/features/ecommerce/storefront/page-builder/lib/normalize-cms-section-dto';
 
 type CmsSectionDto = {
   id: string;
@@ -40,27 +41,7 @@ type CmsPageDto = {
 };
 
 function mapSectionDto(dto: CmsSectionDto): SectionRecord {
-  const now = dto.updatedAt || new Date().toISOString();
-  return {
-    id: dto.id,
-    type: dto.sectionType,
-    status: dto.status,
-    enabled: dto.enabled,
-    order: dto.sortOrder,
-    revision: dto.revision,
-    createdAt: now,
-    updatedAt: now,
-    publishedAt: dto.publishedAt ?? null,
-    createdBy: null,
-    updatedBy: null,
-    content: dto.content as SectionRecord['content'],
-    settings: dto.settings as SectionRecord['settings'],
-    style: dto.style as SectionRecord['style'],
-    dataSource: {
-      kind: dto.dataSourceKind,
-      ...(dto.dataSource ?? {}),
-    } as DataSourceConfig,
-  } as SectionRecord;
+  return normalizeCmsSectionDto(dto);
 }
 
 function mapPageDto(dto: CmsPageDto): PageRecord {

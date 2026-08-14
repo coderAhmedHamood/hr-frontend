@@ -1,11 +1,12 @@
 import type { ReactNode } from 'react';
 import type { SectionTheme, SectionVisibility } from '@/features/ecommerce/storefront/page-builder/domain/section-style';
+import { DEFAULT_SECTION_VISIBILITY } from '@/features/ecommerce/storefront/page-builder/domain/section-style';
 import { cn } from '@/shared/utils';
 
 type SectionShellProps = {
   id: string;
   theme: SectionTheme;
-  visibility: SectionVisibility;
+  visibility?: SectionVisibility;
   children: ReactNode;
 };
 
@@ -16,9 +17,10 @@ function themeClasses(theme: SectionTheme): string {
 }
 
 export function SectionShell({ id, theme, visibility, children }: SectionShellProps) {
-  const showOnMobile = visibility.mobile;
-  const showOnTablet = visibility.tablet;
-  const showOnDesktop = visibility.desktop;
+  const resolvedVisibility: SectionVisibility = visibility ?? DEFAULT_SECTION_VISIBILITY;
+  const showOnMobile = resolvedVisibility.mobile;
+  const showOnTablet = resolvedVisibility.tablet;
+  const showOnDesktop = resolvedVisibility.desktop;
 
   return (
     <section

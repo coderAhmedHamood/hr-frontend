@@ -14,6 +14,7 @@ import { storefrontBrandsRepository } from '@/features/ecommerce/storefront/lib/
 import { storefrontCategoriesRepository } from '@/features/ecommerce/storefront/lib/repositories/categories-repository';
 import { storefrontProductsRepository } from '@/features/ecommerce/storefront/lib/repositories/products-repository';
 import type { StorefrontLocale } from '@/i18n/routing';
+import { resolveStorefrontImageSrc } from '@/features/ecommerce/storefront/lib/resolve-storefront-image-src';
 
 export type SectionResolverContext = {
   companyId: string;
@@ -183,16 +184,21 @@ const resolveBrandSlider: SectionDataResolver<'brand-slider'> = async (ctx, sect
   return { ...section, data: { brands } };
 };
 
-const resolveBanner: SectionDataResolver<'banner'> = async (ctx, section) => ({
-  ...section,
-  data: {
-    imageUrl: section.content.imageUrl,
-    mobileImageUrl: section.content.mobileImageUrl ?? section.content.imageUrl,
-    alt: resolveLocalizedText(section.content.alt, ctx.locale),
-    href: section.content.href,
-    target: section.content.target,
-  },
-});
+const resolveBanner: SectionDataResolver<'banner'> = async (ctx, section) => {
+  const imageUrl = resolveStorefrontImageSrc(section.content.imageUrl);
+  const mobileImageUrl =
+    resolveStorefrontImageSrc(section.content.mobileImageUrl) ?? imageUrl;
+  return {
+    ...section,
+    data: {
+      imageUrl: imageUrl ?? '',
+      mobileImageUrl,
+      alt: resolveLocalizedText(section.content.alt, ctx.locale),
+      href: section.content.href,
+      target: section.content.target,
+    },
+  };
+};
 
 export const SECTION_DATA_RESOLVERS: {
   [K in SectionType]: SectionDataResolver<K>;

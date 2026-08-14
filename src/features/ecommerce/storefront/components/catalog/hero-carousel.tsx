@@ -7,6 +7,7 @@ import type { HeroCarouselLayout } from '@/features/ecommerce/storefront/page-bu
 import { CarouselEngine } from '@/features/ecommerce/storefront/components/catalog/carousel-engine';
 import { Link } from '@/i18n/navigation';
 import { STOREFRONT_MAIN_FULL_BLEED_CLASS } from '@/features/ecommerce/storefront/components/catalog/layout-classes';
+import { resolveStorefrontImageSrc } from '@/features/ecommerce/storefront/lib/resolve-storefront-image-src';
 import { cn } from '@/shared/utils';
 
 type HeroCarouselProps = {
@@ -38,6 +39,10 @@ function HeroSlideFrame({
 }) {
   const t = useTranslations('storefront');
   const alt = slide.alt || slide.title || 'Banner';
+  const mobileSrc = resolveStorefrontImageSrc(slide.mobileImageUrl);
+  const desktopSrc = resolveStorefrontImageSrc(slide.imageUrl) ?? mobileSrc;
+
+  if (!desktopSrc && !mobileSrc) return null;
 
   const frame = (
     <div
@@ -47,26 +52,28 @@ function HeroSlideFrame({
       )}
       style={{ aspectRatio }}
     >
-      {slide.mobileImageUrl ? (
+      {mobileSrc ? (
         <Image
-          src={slide.mobileImageUrl}
+          src={mobileSrc}
           alt={alt}
           fill
           unoptimized
           priority={isPriority}
-          className="object-cover md:hidden"
+          className={cn('object-cover', desktopSrc && desktopSrc !== mobileSrc && 'md:hidden')}
           sizes="(min-width: 1024px) 1400px, 100vw"
         />
       ) : null}
-      <Image
-        src={slide.imageUrl}
-        alt={alt}
-        fill
-        unoptimized
-        priority={isPriority}
-        className={cn('object-cover', slide.mobileImageUrl && 'hidden md:block')}
-        sizes="(min-width: 1024px) 1400px, 100vw"
-      />
+      {desktopSrc ? (
+        <Image
+          src={desktopSrc}
+          alt={alt}
+          fill
+          unoptimized
+          priority={isPriority}
+          className={cn('object-cover', mobileSrc && mobileSrc !== desktopSrc && 'hidden md:block')}
+          sizes="(min-width: 1024px) 1400px, 100vw"
+        />
+      ) : null}
 
       {slide.href ? (
         <span className="sr-only">{t('hero.shopNow')}</span>
@@ -93,8 +100,12 @@ export function HeroCarousel({
   heightRatio = '21/7',
 }: HeroCarouselProps) {
   const aspectRatio = parseAspectRatio(heightRatio);
+  const visibleSlides = slides.filter(
+    (slide) =>
+      resolveStorefrontImageSrc(slide.imageUrl) ?? resolveStorefrontImageSrc(slide.mobileImageUrl),
+  );
 
-  if (slides.length === 0) return null;
+  if (visibleSlides.length === 0) return null;
 
   return (
     <div className="flex min-w-0 w-full max-w-full flex-col gap-4">
@@ -105,7 +116,7 @@ export function HeroCarousel({
         )}
       >
         <CarouselEngine
-          itemCount={slides.length}
+          itemCount={visibleSlides.length}
           autoplay={autoplay}
           intervalMs={intervalMs}
           controlsPlacement="overlay"
@@ -114,7 +125,7 @@ export function HeroCarousel({
             'w-full max-w-full overflow-hidden rounded-2xl shadow-soft',
           )}
           renderSlide={(activeIndex) => {
-            const slide = slides[activeIndex];
+            const slide = visibleSlides[activeIndex];
             if (!slide) return null;
             return (
               <HeroSlideFrame slide={slide} aspectRatio={aspectRatio} isPriority={activeIndex === 0} />

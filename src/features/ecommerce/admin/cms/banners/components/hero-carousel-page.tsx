@@ -23,6 +23,7 @@ import type {
 } from '@/features/ecommerce/storefront/page-builder/domain/section-types';
 import type { StorefrontHeroSlide } from '@/features/ecommerce/storefront/domain/storefront-models';
 import { HeroCarousel } from '@/features/ecommerce/storefront/components/catalog/hero-carousel';
+import { resolveStorefrontImageSrc } from '@/features/ecommerce/storefront/lib/resolve-storefront-image-src';
 import { useHomepagePageRecord } from '@/features/ecommerce/admin/cms/homepage/hooks/use-homepage-page';
 import { useHomepagePageMutations } from '@/features/ecommerce/admin/cms/homepage/hooks/use-homepage-mutations';
 import { createSectionFromDefinition } from '@/features/ecommerce/admin/cms/homepage/lib/create-section';
@@ -92,17 +93,22 @@ function normalizeSlide(slide: HeroCarouselSlideRecord): HeroCarouselSlideRecord
 }
 
 function toPreviewSlides(slides: HeroCarouselSlideRecord[]): StorefrontHeroSlide[] {
-  return slides.filter(isSlideEnabled).map((slide) => {
-    const title = slide.title?.ar?.trim() ?? '';
-    return {
-      id: slide.id,
-      imageUrl: slide.imageUrl,
-      mobileImageUrl: slide.mobileImageUrl ?? null,
-      title,
-      alt: title || 'Banner',
-      href: slide.href ?? null,
-    };
-  });
+  return slides
+    .filter(isSlideEnabled)
+    .map((slide) => {
+      const title = slide.title?.ar?.trim() ?? '';
+      const imageUrl = resolveStorefrontImageSrc(slide.imageUrl) ?? '';
+      const mobileImageUrl = resolveStorefrontImageSrc(slide.mobileImageUrl);
+      return {
+        id: slide.id,
+        imageUrl,
+        mobileImageUrl,
+        title,
+        alt: title || 'Banner',
+        href: slide.href ?? null,
+      };
+    })
+    .filter((slide) => slide.imageUrl || slide.mobileImageUrl);
 }
 
 type SlideFormState = {

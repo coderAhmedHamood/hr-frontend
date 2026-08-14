@@ -1,11 +1,12 @@
 import { INVENTORY_FALLBACK_COMPANY_ID } from '@/features/inventory/lib/company-constants';
 
 /**
- * Stable tenant id for the ecommerce storefront + CMS mocks.
- * Must be a UUID — Nest inventory/HR APIs reject non-UUID `companyId` values.
- * Kept aligned with the inventory seed company so stock/products APIs match.
+ * Storefront tenant id — must match seeded store config + catalog in the backend.
+ * Override via `NEXT_PUBLIC_STOREFRONT_COMPANY_ID` when the seed company differs
+ * from the inventory fallback (common after system:init on a fresh DB).
  */
-export const STOREFRONT_FALLBACK_COMPANY_ID = INVENTORY_FALLBACK_COMPANY_ID;
+export const STOREFRONT_FALLBACK_COMPANY_ID =
+  process.env.NEXT_PUBLIC_STOREFRONT_COMPANY_ID?.trim() || INVENTORY_FALLBACK_COMPANY_ID;
 
 /** Legacy mock slug previously used in seeds — remapped to the UUID above. */
 export const LEGACY_STOREFRONT_COMPANY_ID = 'demo-company';
