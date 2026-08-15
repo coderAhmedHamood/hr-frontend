@@ -6,11 +6,16 @@ export type SaleStockLineInput = {
   productId: string;
   variantId?: string | null;
   quantity: number;
+  /** Per-line bin — takes precedence over request-level locationId. */
+  locationId?: string | null;
 };
 
 export type SaleStockMutationInput = {
   companyId: string;
-  locationId: string;
+  /** Optional unified bin for all lines that omit line.locationId. Backend falls back to the product warehouse. */
+  locationId?: string | null;
+  /** Optional unified warehouse (WH/Stock) when locationId is omitted. */
+  warehouseId?: string | null;
   lines: SaleStockLineInput[];
   sourceDocument?: string | null;
   partnerName?: string | null;
@@ -30,14 +35,24 @@ export type SaleStockLineResult = {
   status: 'deducted' | 'restored' | 'skipped_no_track';
   ledgerEntryId: string | null;
   onHandAfter: string | null;
+  locationId: string | null;
+  warehouseId: string | null;
+  operationId: string | null;
+};
+
+export type SaleStockOperationResult = {
+  operationId: string;
+  operationReference: string;
+  warehouseId: string;
 };
 
 export type SaleStockDeductResult = {
   movement: 'sale_deduct';
   operationId: string | null;
   operationReference: string | null;
-  locationId: string;
-  warehouseId: string;
+  locationId: string | null;
+  warehouseId: string | null;
+  operations: SaleStockOperationResult[];
   lines: SaleStockLineResult[];
 };
 
@@ -45,33 +60,42 @@ export type SaleStockRestoreResult = {
   movement: 'sale_restore';
   operationId: string | null;
   operationReference: string | null;
-  locationId: string;
-  warehouseId: string;
+  locationId: string | null;
+  warehouseId: string | null;
+  operations: SaleStockOperationResult[];
   lines: SaleStockLineResult[];
 };
 
+function optionalUuid(value: string | null | undefined): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
 function toBody(input: SaleStockMutationInput) {
+  const locationId = optionalUuid(input.locationId);
+  const warehouseId = optionalUuid(input.warehouseId);
   return {
     companyId: input.companyId,
-    locationId: input.locationId,
+    ...(locationId ? { locationId } : {}),
+    ...(warehouseId ? { warehouseId } : {}),
     sourceDocument: input.sourceDocument ?? null,
     partnerName: input.partnerName ?? null,
     notes: input.notes ?? null,
     createdBy: input.createdBy ?? null,
     lines: input.lines.map((line) => {
       const variantId = line.variantId?.trim() || null;
+      const lineLocationId = optionalUuid(line.locationId);
       return {
         productId: line.productId,
         quantity: line.quantity,
-        // With-variants products: required. Without: omit null so backend treats as product-level.
         ...(variantId ? { variantId } : {}),
+        ...(lineLocationId ? { locationId: lineLocationId } : {}),
       };
     }),
   };
 }
 
 function logSaleStockResult(label: string, result: SaleStockDeductResult | SaleStockRestoreResult) {
-  // Verification aid — inspect DevTools console after ship / cancel-refund.
   console.log(`[sale-stock] ${label}`, result);
   console.table?.(
     result.lines.map((line) => ({
@@ -80,6 +104,8 @@ function logSaleStockResult(label: string, result: SaleStockDeductResult | SaleS
       quantity: line.quantity,
       status: line.status,
       onHandAfter: line.onHandAfter,
+      locationId: line.locationId,
+      warehouseId: line.warehouseId,
       ledgerEntryId: line.ledgerEntryId,
     })),
   );
@@ -87,6 +113,7 @@ function logSaleStockResult(label: string, result: SaleStockDeductResult | SaleS
 
 /**
  * Default sale bin for company — WH/Stock, WH/STOCK, STOCK, or codes ending with /Stock (case-insensitive).
+ * Prefer omitting locationId so the backend uses the product warehouse.
  */
 export async function resolveDefaultWhStockLocationId(companyId: string): Promise<string> {
   const page = await warehouseLocationsApi.getAll({ companyId, page: 1, limit: 500 });
@@ -144,6 +171,15 @@ export const saleStockApi = {
     const normalized: SaleStockDeductResult = {
       ...result,
       movement: result.movement ?? 'sale_deduct',
+      locationId: result.locationId ?? null,
+      warehouseId: result.warehouseId ?? null,
+      operations: result.operations ?? [],
+      lines: (result.lines ?? []).map((line) => ({
+        ...line,
+        locationId: line.locationId ?? null,
+        warehouseId: line.warehouseId ?? null,
+        operationId: line.operationId ?? null,
+      })),
     };
     logSaleStockResult('sale-deduct response', normalized);
     return normalized;
@@ -158,6 +194,15 @@ export const saleStockApi = {
     const normalized: SaleStockRestoreResult = {
       ...result,
       movement: result.movement ?? 'sale_restore',
+      locationId: result.locationId ?? null,
+      warehouseId: result.warehouseId ?? null,
+      operations: result.operations ?? [],
+      lines: (result.lines ?? []).map((line) => ({
+        ...line,
+        locationId: line.locationId ?? null,
+        warehouseId: line.warehouseId ?? null,
+        operationId: line.operationId ?? null,
+      })),
     };
     logSaleStockResult('sale-restore response', normalized);
     return normalized;

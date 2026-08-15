@@ -17,6 +17,7 @@ import type {
   UpdateProductInput,
 } from '@/features/ecommerce/domain/types/product';
 import type { AdminProductsPort } from '@/features/ecommerce/domain/ports/catalog.ports';
+import { STORE_CURRENCY_CODE, isStoreCurrency } from '@/features/ecommerce/domain/constants/store-currency';
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -66,6 +67,8 @@ type ProductDto = {
   widthCm?: string | number | null;
   heightCm?: string | number | null;
   posAvailable?: boolean;
+  warehouseId?: string | null;
+  locationId?: string | null;
   saleOk?: boolean;
   purchaseOk?: boolean;
   isNewProduct?: boolean;
@@ -248,11 +251,11 @@ function mapVariants(items: VariantDto[] | undefined): ProductVariant[] {
       })),
       salePrice: {
         amount: toNumber(dto.salePriceAmount),
-        currency: dto.salePriceCurrency || 'YER',
+        currency: dto.salePriceCurrency || STORE_CURRENCY_CODE,
       },
       costPrice: {
         amount: toNumber(dto.costPriceAmount),
-        currency: dto.costPriceCurrency || 'YER',
+        currency: dto.costPriceCurrency || STORE_CURRENCY_CODE,
       },
       quantity: toNumber(dto.quantityCache),
       stockStatus: dto.stockStatus,
@@ -272,7 +275,7 @@ function mapVariants(items: VariantDto[] | undefined): ProductVariant[] {
 }
 
 function mapFullProduct(dto: ProductFullDto): Product {
-  const currency = dto.priceCurrency || 'YER';
+  const currency = dto.priceCurrency || STORE_CURRENCY_CODE;
   const costAmount = toOptionalNumber(dto.costPriceAmount);
   const compareAmount = toOptionalNumber(dto.compareAtPriceAmount);
   return {
@@ -323,6 +326,8 @@ function mapFullProduct(dto: ProductFullDto): Product {
       heightCm: toOptionalNumber(dto.heightCm),
     },
     posAvailable: dto.posAvailable,
+    warehouseId: dto.warehouseId ?? null,
+    locationId: dto.locationId ?? null,
     saleOk: dto.saleOk,
     purchaseOk: dto.purchaseOk,
     isNewProduct: Boolean(dto.isNewProduct),
@@ -375,16 +380,16 @@ function toHeaderBody(input: CreateProductInput | UpdateProductInput, mode: 'cre
   if (input.invoicePolicy !== undefined) body.invoicePolicy = input.invoicePolicy;
   if (input.price !== undefined) {
     body.priceAmount = input.price.amount;
-    // Store is YER-only — never persist other currencies.
-    body.priceCurrency = 'YER';
   }
+  // Store is YER-only — always persist store currency so leftover SAR seeds cannot block checkout.
+  body.priceCurrency = STORE_CURRENCY_CODE;
   if (input.costPrice !== undefined) {
     body.costPriceAmount = input.costPrice?.amount ?? null;
-    body.costPriceCurrency = input.costPrice ? 'YER' : null;
+    body.costPriceCurrency = input.costPrice ? STORE_CURRENCY_CODE : null;
   }
   if (input.compareAtPrice !== undefined) {
     body.compareAtPriceAmount = input.compareAtPrice?.amount ?? null;
-    body.compareAtPriceCurrency = input.compareAtPrice ? 'YER' : null;
+    body.compareAtPriceCurrency = input.compareAtPrice ? STORE_CURRENCY_CODE : null;
   }
   if (input.inventory !== undefined) {
     body.trackInventory = input.inventory.trackInventory;
@@ -398,6 +403,8 @@ function toHeaderBody(input: CreateProductInput | UpdateProductInput, mode: 'cre
     body.heightCm = input.dimensions.heightCm ?? null;
   }
   if (input.posAvailable !== undefined) body.posAvailable = input.posAvailable;
+  if (input.warehouseId !== undefined) body.warehouseId = normalizeOptionalUuid(input.warehouseId);
+  if (input.locationId !== undefined) body.locationId = normalizeOptionalUuid(input.locationId);
   if (input.saleOk !== undefined) body.saleOk = input.saleOk;
   if (input.purchaseOk !== undefined) body.purchaseOk = input.purchaseOk;
   if (input.isNewProduct !== undefined) {
@@ -557,9 +564,9 @@ function toFullBody(input: CreateProductInput | UpdateProductInput, mode: 'creat
         imageUrl: variant.images?.[0]?.url ?? variant.imageUrl ?? null,
         images: variant.images && variant.images.length > 0 ? variant.images.map((item) => item.url) : [],
         salePriceAmount: variant.salePrice.amount,
-        salePriceCurrency: 'YER',
+        salePriceCurrency: STORE_CURRENCY_CODE,
         costPriceAmount: variant.costPrice.amount,
-        costPriceCurrency: 'YER',
+        costPriceCurrency: STORE_CURRENCY_CODE,
         isActive: variant.isActive,
         ...(attributeValueIds.length > 0 ? { attributeValueIds } : {}),
         ...(attributeValueClientKeys.length > 0 ? { attributeValueClientKeys } : {}),
@@ -570,26 +577,103 @@ function toFullBody(input: CreateProductInput | UpdateProductInput, mode: 'creat
   return body;
 }
 
+function productNeedsStoreCurrency(dto: ProductDto): boolean {
+  if (!isStoreCurrency(dto.priceCurrency)) return true;
+  if (dto.costPriceCurrency && !isStoreCurrency(dto.costPriceCurrency)) return true;
+  if (dto.compareAtPriceCurrency && !isStoreCurrency(dto.compareAtPriceCurrency)) return true;
+  return false;
+}
+
+function variantNeedsStoreCurrency(dto: VariantDto): boolean {
+  if (dto.salePriceCurrency && !isStoreCurrency(dto.salePriceCurrency)) return true;
+  if (dto.costPriceCurrency && !isStoreCurrency(dto.costPriceCurrency)) return true;
+  return false;
+}
+
+/** Rewrite leftover SAR (or any non-store) money codes without changing amounts. */
+export async function patchProductStoreCurrency(
+  id: string,
+  dto?: ProductDto | ProductFullDto,
+): Promise<boolean> {
+  try {
+    const snapshot =
+      dto ??
+      (await apiRequest<ProductFullDto>(`/inventory/products/${id}/full`, {
+        silent: true,
+        throwOnError: true,
+      }));
+    if (!snapshot?.id) return false;
+
+    const variants = 'variants' in snapshot ? snapshot.variants ?? [] : [];
+    const headerOk = !productNeedsStoreCurrency(snapshot);
+    const variantsOk = variants.every((variant) => !variantNeedsStoreCurrency(variant));
+    if (headerOk && variantsOk) return false;
+
+    const body: Record<string, unknown> = {
+      priceCurrency: STORE_CURRENCY_CODE,
+      costPriceCurrency: STORE_CURRENCY_CODE,
+      compareAtPriceCurrency: STORE_CURRENCY_CODE,
+    };
+    if (snapshot.priceAmount != null && snapshot.priceAmount !== '') {
+      body.priceAmount = snapshot.priceAmount;
+    }
+    if (snapshot.costPriceAmount != null && snapshot.costPriceAmount !== '') {
+      body.costPriceAmount = snapshot.costPriceAmount;
+    }
+    if (snapshot.compareAtPriceAmount != null && snapshot.compareAtPriceAmount !== '') {
+      body.compareAtPriceAmount = snapshot.compareAtPriceAmount;
+    }
+
+    await apiRequest(`/inventory/products/${id}/full`, {
+      method: 'PATCH',
+      body,
+      silent: true,
+      throwOnError: true,
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function healListedProductCurrencies(items: ProductDto[]): Promise<void> {
+  const mismatched = items.filter(productNeedsStoreCurrency);
+  if (mismatched.length === 0) return;
+  await Promise.allSettled(mismatched.map((dto) => patchProductStoreCurrency(dto.id, dto)));
+}
+
 async function fetchProductFull(id: string): Promise<Product | null> {
   try {
     const dto = await apiRequest<ProductFullDto>(`/inventory/products/${id}/full`);
-    return dto?.id ? mapFullProduct(dto) : null;
+    if (!dto?.id) return null;
+    const variants = dto.variants ?? [];
+    if (productNeedsStoreCurrency(dto) || variants.some(variantNeedsStoreCurrency)) {
+      await patchProductStoreCurrency(dto.id, dto);
+      const healed = await apiRequest<ProductFullDto>(`/inventory/products/${id}/full`);
+      return healed?.id ? mapFullProduct(healed) : mapFullProduct(dto);
+    }
+    return mapFullProduct(dto);
   } catch {
     return null;
   }
 }
 
 async function fetchMediaByCompany(companyId: string): Promise<Map<string, MediaDto[]>> {
-  const result = await apiRequest<PaginatedResult<MediaDto>>('/inventory/product-media', {
-    query: { companyId, page: 1, limit: 2000, archiveScope: 'active' },
-  });
-  const byProduct = new Map<string, MediaDto[]>();
-  for (const dto of result.items ?? []) {
-    const list = byProduct.get(dto.productId);
-    if (list) list.push(dto);
-    else byProduct.set(dto.productId, [dto]);
+  try {
+    const result = await apiRequest<PaginatedResult<MediaDto>>('/inventory/product-media', {
+      query: { companyId, page: 1, limit: 2000, archiveScope: 'active' },
+    });
+    const byProduct = new Map<string, MediaDto[]>();
+    for (const dto of result.items ?? []) {
+      const list = byProduct.get(dto.productId);
+      if (list) list.push(dto);
+      else byProduct.set(dto.productId, [dto]);
+    }
+    return byProduct;
+  } catch {
+    // Catalog list must still load when media endpoint fails (e.g. POS cashier).
+    return new Map();
   }
-  return byProduct;
 }
 
 export const productsApi: AdminProductsPort = {
@@ -603,6 +687,10 @@ export const productsApi: AdminProductsPort = {
         brandId: query.brandId,
         status: query.status,
         stockStatus: query.stockStatus,
+        warehouseId: query.warehouseId,
+        locationId: query.locationId,
+        posAvailable: query.posAvailable === true ? true : undefined,
+        liveQuantity: query.liveQuantity === true ? true : undefined,
         tags: query.tag,
         priceAmountMin: query.minPrice,
         priceAmountMax: query.maxPrice,
@@ -610,6 +698,8 @@ export const productsApi: AdminProductsPort = {
         isTodayDeal: query.isTodayDeal === true ? true : undefined,
         isWholesale: query.isWholesale === true ? true : undefined,
         isDiscounted: query.isDiscounted === true ? true : undefined,
+        sort: query.sort === 'stock' ? 'quantity' : query.sort,
+        sortDirection: query.sortDirection,
         page: query.page ?? 1,
         limit: query.limit ?? 200,
         archiveScope: query.status === 'archived' ? 'archived' : 'active',
@@ -617,30 +707,22 @@ export const productsApi: AdminProductsPort = {
     });
 
     const mediaByProduct = await fetchMediaByCompany(companyId);
+    await healListedProductCurrencies(result.items ?? []);
     const items = (result.items ?? []).map((dto) => {
       const media = mediaByProduct.get(dto.id) ?? [];
-      return mapFullProduct({ ...dto, media, attributes: [], variants: [], uomLines: [] });
+      const mapped = mapFullProduct({ ...dto, media, attributes: [], variants: [], uomLines: [] });
+      if (isStoreCurrency(mapped.price.currency)) return mapped;
+      return {
+        ...mapped,
+        price: { ...mapped.price, currency: STORE_CURRENCY_CODE },
+        costPrice: mapped.costPrice
+          ? { ...mapped.costPrice, currency: STORE_CURRENCY_CODE }
+          : mapped.costPrice,
+        compareAtPrice: mapped.compareAtPrice
+          ? { ...mapped.compareAtPrice, currency: STORE_CURRENCY_CODE }
+          : mapped.compareAtPrice,
+      };
     });
-
-    if (query.sort) {
-      const direction = query.sortDirection === 'desc' ? -1 : 1;
-      items.sort((a, b) => {
-        switch (query.sort) {
-          case 'name':
-            return a.nameAr.localeCompare(b.nameAr) * direction;
-          case 'price':
-            return (a.price.amount - b.price.amount) * direction;
-          case 'stock':
-            return (a.inventory.quantity - b.inventory.quantity) * direction;
-          case 'createdAt':
-            return (new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) * direction;
-          case 'updatedAt':
-            return (new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime()) * direction;
-          default:
-            return 0;
-        }
-      });
-    }
 
     return { items, pagination: result.pagination };
   },

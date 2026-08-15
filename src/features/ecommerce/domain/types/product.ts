@@ -139,6 +139,10 @@ export type Product = TenantScoped &
     weightKg?: number;
     dimensions?: ProductDimensions;
     posAvailable?: boolean;
+    /** Default warehouse — sale deduct uses this when no location is sent. */
+    warehouseId?: string | null;
+    /** Default storage location inside warehouseId. */
+    locationId?: string | null;
     /** Can be sold on sales channels. */
     saleOk?: boolean;
     /** Can be purchased / replenished from vendors. */
@@ -182,6 +186,11 @@ export type ProductListQuery = {
   tag?: string;
   status?: ProductStatus;
   stockStatus?: StockStatus;
+  warehouseId?: string;
+  locationId?: string;
+  posAvailable?: boolean;
+  /** Overlay live ledger SUM. Default is quantityCache (fast). */
+  liveQuantity?: boolean;
   minPrice?: number;
   maxPrice?: number;
   /** Active-now offer filters (`true` = flag on and not expired). */

@@ -8,6 +8,14 @@ import type {
 import { storefrontOrdersRepository } from '@/features/ecommerce/storefront/lib/repositories/storefront-orders-repository';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
 import { StoreHttpError } from '@/features/ecommerce/storefront/lib/api/store-http';
+import {
+  STORE_CURRENCY_MISMATCH_ERROR,
+  isProductStoreCurrencyMismatch,
+} from '@/features/ecommerce/domain/constants/store-currency';
+import {
+  STORE_COUNTRY_UNAVAILABLE_ERROR,
+  isStoreCountryUnavailable,
+} from '@/features/ecommerce/domain/constants/store-checkout-errors';
 import type { OrderStatus } from '@/features/ecommerce/domain/types/order';
 
 export type PlaceStorefrontOrderResult =
@@ -57,6 +65,18 @@ export async function placeStorefrontOrder(
     return { ok: true, order };
   } catch (error) {
     if (error instanceof StoreHttpError) {
+      if (
+        error.message === STORE_CURRENCY_MISMATCH_ERROR ||
+        isProductStoreCurrencyMismatch(error.message)
+      ) {
+        return { ok: false, error: STORE_CURRENCY_MISMATCH_ERROR };
+      }
+      if (
+        error.message === STORE_COUNTRY_UNAVAILABLE_ERROR ||
+        isStoreCountryUnavailable(error.message)
+      ) {
+        return { ok: false, error: STORE_COUNTRY_UNAVAILABLE_ERROR };
+      }
       return { ok: false, error: error.message };
     }
     if (error instanceof Error && error.message) {

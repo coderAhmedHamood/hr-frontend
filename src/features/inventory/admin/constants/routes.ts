@@ -3,6 +3,8 @@
  */
 export const inventoryAdminRoutes = {
   overview: '/inventory',
+  /** نقطة البيع — تطبيق كاشير منفصل لخصم الكمية */
+  pos: '/pos',
   /** العمليات — عامة على كل المستودعات */
   transfers: '/inventory/transfers',
   receipts: '/inventory/receipts',

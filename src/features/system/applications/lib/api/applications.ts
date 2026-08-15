@@ -69,20 +69,43 @@ function isSystemUsersDirectoryPath(path: string): boolean {
   );
 }
 
+/** Client-side POS tile until the backend applications catalog seeds `pos`. */
+const POS_CASHIER_APP: ApplicationResponseDto = {
+  id: 'client-app-pos-cashier',
+  code: 'pos',
+  nameAr: 'الكاشير',
+  nameEn: 'POS Cashier',
+  description: 'نقطة بيع لخصم الكمية من المخزون',
+  icon: 'shopping-cart',
+  routePath: '/pos',
+  sortOrder: 35,
+  isActive: true,
+  status: 'active',
+};
+
+function isPosCashierApp(app: ApplicationResponseDto): boolean {
+  const code = normalizeAppCode(app.code);
+  return code === 'pos' || code === 'cashier' || code === 'point-of-sale';
+}
+
 /**
- * Launcher tiles come only from the applications catalog (`GET /applications`).
- * Do not invent contacts / store-admin / inventory tiles on the client.
- * Only drops the legacy `ecommerce` duplicate (same UI as `store-admin`).
+ * Launcher tiles come from `GET /applications`, plus a POS cashier tile when missing.
+ * Drops the legacy `ecommerce` duplicate (same UI as `store-admin`).
  */
 export function enrichLauncherApplications(
   apps: ApplicationResponseDto[],
   _companyId?: string | null,
 ): ApplicationResponseDto[] {
-  return apps
+  const list = apps
     .filter((app) => app.isActive !== false)
     .filter((app) => !isLegacyEcommerceAdminApp(app))
-    .slice()
-    .sort((a, b) => a.sortOrder - b.sortOrder);
+    .slice();
+
+  if (!list.some(isPosCashierApp)) {
+    list.push(POS_CASHIER_APP);
+  }
+
+  return list.sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
 /** True when the app should open an absolute external URL (`launchUrl`). */
@@ -124,6 +147,9 @@ export function resolveApplicationLaunchPath(app: ApplicationResponseDto): strin
   }
 
   if (code === 'inventory') return inventoryAdminRoutes.overview;
+  if (code === 'pos' || code === 'cashier' || code === 'point-of-sale') {
+    return inventoryAdminRoutes.pos;
+  }
   if (code === 'accounting') return '/accounting';
   if (code === 'storefront') {
     return base && base.startsWith('/') ? base : '/';

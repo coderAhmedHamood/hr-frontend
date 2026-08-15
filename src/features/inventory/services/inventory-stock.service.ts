@@ -6,6 +6,7 @@
  *
  * Flow for every mutation: Inventory Ledger (history) → LocationStock (live) → product qty cache.
  */
+import { inventoryStockApi } from '@/features/inventory/admin/stock/lib/api/inventory-stock-api';
 import { locationStockApi } from '@/features/inventory/admin/stock/lib/api/location-stock';
 import {
   saleStockApi,
@@ -141,4 +142,8 @@ export const inventoryStockService = {
   getOnHandByVariant: locationStockApi.getOnHandByVariant.bind(locationStockApi),
   getQuantityAtLocation: locationStockApi.getQuantityAtLocation.bind(locationStockApi),
   listLocationStock: locationStockApi.list.bind(locationStockApi),
+  /** Fast POS list — GET /inventory/stock */
+  listStock: inventoryStockApi.list.bind(inventoryStockApi),
+  /** Live product stock + locations[] — GET /inventory/products/:id/stock */
+  getProductStock: inventoryStockApi.getProductStock.bind(inventoryStockApi),
 };

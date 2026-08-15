@@ -13,6 +13,7 @@ import { useProducts } from '@/features/ecommerce/admin/products/hooks/use-produ
 import { useProductMutations } from '@/features/ecommerce/admin/products/hooks/use-product-mutations';
 import { useCategories } from '@/features/ecommerce/admin/categories/hooks/use-categories';
 import { useBrands } from '@/features/ecommerce/admin/brands/hooks/use-brands';
+import { useWarehouses } from '@/features/inventory/admin/warehouses/hooks/use-warehouses';
 import { ProductFormDialog } from '@/features/ecommerce/admin/products/components/product-form-dialog';
 import { DeleteProductDialog } from '@/features/ecommerce/admin/products/components/delete-product-dialog';
 import { type ProductFilters } from '@/features/ecommerce/admin/products/components/product-filters-bar';
@@ -45,6 +46,8 @@ const FILTER_KEYS = [
   'isTodayDeal',
   'isWholesale',
   'isDiscounted',
+  'warehouseId',
+  'posAvailable',
 ] as const;
 
 const STATUS_BADGE_VARIANT: Record<ProductStatus, 'success' | 'subtle' | 'outline'> = {
@@ -88,6 +91,8 @@ export function ProductsListPage() {
     isTodayDeal: searchParams.get('isTodayDeal') === 'true' ? true : undefined,
     isWholesale: searchParams.get('isWholesale') === 'true' ? true : undefined,
     isDiscounted: searchParams.get('isDiscounted') === 'true' ? true : undefined,
+    warehouseId: searchParams.get('warehouseId') ?? undefined,
+    posAvailable: searchParams.get('posAvailable') === 'true' ? true : undefined,
   };
 
   const [searchInput, setSearchInput] = React.useState(search);
@@ -136,6 +141,7 @@ export function ProductsListPage() {
   const { data, isLoading, isError } = useProducts(query);
   const { data: categoriesData } = useCategories({ companyId, limit: 100 });
   const { data: brandsData } = useBrands({ companyId, limit: 100 });
+  const { data: warehousesData } = useWarehouses({ companyId, limit: 200 });
   const { remove } = useProductMutations();
 
   const [createOpen, setCreateOpen] = React.useState(false);
@@ -227,6 +233,31 @@ export function ProductsListPage() {
         ]}
         moreFilters={[
           {
+            id: 'warehouseId',
+            value: filters.warehouseId ?? 'all',
+            onChange: (value) =>
+              updateParams({ warehouseId: value === 'all' ? undefined : value, page: 1 }),
+            placeholder: 'كل المستودعات',
+            options: [
+              { value: 'all', label: 'كل المستودعات' },
+              ...(warehousesData?.items ?? []).map((warehouse) => ({
+                value: warehouse.id,
+                label: warehouse.nameAr,
+              })),
+            ],
+          },
+          {
+            id: 'posAvailable',
+            value: filters.posAvailable ? 'true' : 'all',
+            onChange: (value) =>
+              updateParams({ posAvailable: value === 'true' ? true : undefined, page: 1 }),
+            placeholder: 'كل قنوات البيع',
+            options: [
+              { value: 'all', label: 'كل قنوات البيع' },
+              { value: 'true', label: 'متاح لنقطة البيع' },
+            ],
+          },
+          {
             id: 'offer',
             value:
               filters.isNewProduct
@@ -273,7 +304,7 @@ export function ProductsListPage() {
         ]}
       />
     ),
-    [searchInput, filters, categoryOptions, brandsData],
+    [searchInput, filters, categoryOptions, brandsData, warehousesData],
   );
 
   const columns: ColumnDef<Product>[] = [

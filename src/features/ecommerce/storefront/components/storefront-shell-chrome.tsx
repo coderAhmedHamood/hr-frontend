@@ -1,7 +1,6 @@
 'use client';
 
 import type { CSSProperties, ReactNode } from 'react';
-import { useTranslations } from 'next-intl';
 import { Toaster } from 'sonner';
 import { JsonLd } from '@/features/ecommerce/storefront/components/json-ld';
 import { StoreChromeGate, isCheckoutPath } from '@/features/ecommerce/storefront/components/store-chrome-gate';
@@ -46,8 +45,8 @@ export function StorefrontShellChrome({
   organizationJsonLd,
   children,
 }: Props) {
-  const t = useTranslations('storefront');
   const dir = isRtlLocale(locale) ? 'rtl' : 'ltr';
+  const skipToContent = locale === 'en' ? 'Skip to content' : 'تخطي إلى المحتوى';
 
   const bodyFontId = resolveStorefrontFontId(
     config.typography?.bodyFontId,
@@ -126,7 +125,7 @@ export function StorefrontShellChrome({
         href="#store-main"
         className="sr-only focus:not-sr-only focus:absolute focus:start-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:text-primary-foreground"
       >
-        {t('a11y.skipToContent')}
+        {skipToContent}
       </a>
       <StoreHeader config={config} categories={categories} brands={brands} />
       <main

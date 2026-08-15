@@ -26,6 +26,8 @@ export type ProductFilters = Pick<
   | 'isTodayDeal'
   | 'isWholesale'
   | 'isDiscounted'
+  | 'warehouseId'
+  | 'posAvailable'
 >;
 
 const SORT_OPTIONS: { value: NonNullable<ProductListQuery['sort']>; labelAr: string }[] = [

@@ -10,9 +10,12 @@ import type {
 } from '@/features/ecommerce/storefront/domain/catalog-ports';
 import { logStorefrontApi } from '@/features/ecommerce/storefront/lib/debug-storefront-api';
 import { mapStorefrontProduct, mapStorefrontProducts } from '@/features/ecommerce/storefront/lib/mappers/product-mapper';
+import { STORE_CURRENCY_CODE } from '@/features/ecommerce/domain/constants/store-currency';
 import { resolveStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
 import { productsApi } from '@/features/ecommerce/admin/products/lib/api/products';
 import { toNumber, toOptionalNumber } from '@/features/inventory/lib/api/numbers';
+import { mapProductStockDto, type ProductStockDto } from '@/features/inventory/admin/stock/lib/api/inventory-stock-api';
+import type { ProductStockSnapshot } from '@/features/inventory/domain/types/product-stock';
 
 type PublicAttrValueDto = {
   id: string;
@@ -369,7 +372,7 @@ async function fetchPublicStoreVariantGraph(
 }
 
 function mapPublicProduct(dto: PublicProductDto): Product {
-  const currency = dto.priceCurrency ;
+  const currency = dto.priceCurrency || STORE_CURRENCY_CODE;
   const compareAmount =
     dto.compareAtPriceAmount != null && dto.compareAtPriceAmount !== ''
       ? toNumber(dto.compareAtPriceAmount)
@@ -516,13 +519,46 @@ async function withCatalogGraph(
   }
 }
 
+function applyProductStockOverlay(
+  product: StorefrontProduct,
+  snapshot: ProductStockSnapshot,
+): StorefrontProduct {
+  if (!snapshot.trackInventory) return product;
+
+  if (snapshot.displayLevel === 'variant' && product.variants.length > 0) {
+    const variants = product.variants.map((variant) => {
+      const row = snapshot.variants.find((item) => item.variantId === variant.id);
+      if (!row) return variant;
+      return { ...variant, quantity: row.available };
+    });
+    const quantity = variants.reduce((sum, variant) => sum + variant.quantity, 0);
+    return {
+      ...product,
+      inventory: { ...product.inventory, quantity: quantity > 0 ? quantity : snapshot.available },
+      variants,
+    };
+  }
+
+  return {
+    ...product,
+    inventory: { ...product.inventory, quantity: snapshot.available },
+  };
+}
+
+async function withPublicLiveStock(
+  companyId: string,
+  product: StorefrontProduct,
+): Promise<StorefrontProduct> {
+  const dto = await publicProductRequest<ProductStockDto>(
+    `/public/inventory/products/${encodeURIComponent(product.id)}/stock`,
+    { companyId },
+  );
+  if (!dto?.productId) return product;
+  return applyProductStockOverlay(product, mapProductStockDto(dto));
+}
+
 function listQueryParams(query: StorefrontProductListQuery, companyId: string) {
-  const sort =
-    query.sort === 'stock' || query.sort === undefined
-      ? query.sort === 'stock'
-        ? 'name'
-        : undefined
-      : query.sort;
+  const sort = query.sort === 'stock' ? 'quantity' : query.sort;
 
   return {
     companyId,
@@ -572,7 +608,8 @@ export const storefrontProductsRepository: StorefrontProductsPort = {
       { companyId: resolvedCompanyId },
     );
     if (!dto?.id || dto.status !== 'active') return null;
-    return withCatalogGraph(resolvedCompanyId, mapPublicProduct(dto), locale);
+    const product = await withCatalogGraph(resolvedCompanyId, mapPublicProduct(dto), locale);
+    return withPublicLiveStock(resolvedCompanyId, product);
   },
 
   async getById(companyId: string, id: string, locale: StorefrontLocale): Promise<StorefrontProduct | null> {
@@ -585,7 +622,8 @@ export const storefrontProductsRepository: StorefrontProductsPort = {
     });
     const dto = result?.items?.[0];
     if (!dto?.id || dto.status !== 'active') return null;
-    return withCatalogGraph(resolvedCompanyId, mapPublicProduct(dto), locale);
+    const product = await withCatalogGraph(resolvedCompanyId, mapPublicProduct(dto), locale);
+    return withPublicLiveStock(resolvedCompanyId, product);
   },
 
   async getByIds(companyId: string, ids: string[], locale: StorefrontLocale): Promise<StorefrontProduct[]> {

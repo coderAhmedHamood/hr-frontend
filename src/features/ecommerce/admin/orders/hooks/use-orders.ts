@@ -111,10 +111,11 @@ export function useUpdateOrderStatus(companyId: string) {
     onSuccess: async (order, variables) => {
       syncOrderInCaches(queryClient, companyId, order);
       await queryClient.invalidateQueries({ queryKey: ordersQueryKeys.all });
+      await queryClient.invalidateQueries({ predicate: (query) => query.queryKey.includes('location-stock') });
       if (variables.status === 'cancelled' || variables.status === 'refunded') {
-        toast.success('تم تحديث الحالة وإرجاع المخزون — راجع Console لنتيجة sale-restore');
+        toast.success('تم تحديث الحالة — المخزون يُرجع تلقائياً إن سبق خصمه');
       } else if (variables.status === 'shipped') {
-        toast.success('تم الشحن وخصم المخزون — راجع Console لنتيجة sale-deduct');
+        toast.success('تم الشحن وخصم المخزون');
       } else {
         toast.success('تم تحديث حالة الطلب — ستظهر للعميل في صفحة التتبع');
       }

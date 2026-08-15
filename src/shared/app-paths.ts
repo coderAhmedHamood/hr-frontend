@@ -30,6 +30,11 @@ export function isInventoryAppPath(pathname: string): boolean {
   return isInventoryAdminNavPath(pathname);
 }
 
+/** Full-screen cashier / POS — outside ERP chrome. */
+export function isPosCashierPath(pathname: string): boolean {
+  return pathname === '/pos' || pathname.startsWith('/pos/');
+}
+
 /** True when the current route belongs to the standalone Contacts (Partners) application. */
 export function isContactsAppPath(pathname: string): boolean {
   return isContactsAdminNavPath(pathname);

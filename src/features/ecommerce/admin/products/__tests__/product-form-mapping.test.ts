@@ -121,6 +121,8 @@ describe('formValuesToCreateInput', () => {
     widthCm: undefined,
     heightCm: undefined,
     posAvailable: false,
+    warehouseId: undefined,
+    locationId: undefined,
     saleOk: true,
     purchaseOk: true,
     attributes: [],
@@ -134,6 +136,23 @@ describe('formValuesToCreateInput', () => {
     expect(input.categoryId).toBeNull();
     expect(input.brandId).toBeNull();
     expect(input.media).toEqual([]);
+  });
+
+  it('maps default warehouse and location ids (null when empty)', () => {
+    const empty = formValuesToCreateInput(BASE_VALUES, '76e5bc4f-5adb-434d-a886-bcff05a9680b');
+    expect(empty.warehouseId).toBeNull();
+    expect(empty.locationId).toBeNull();
+
+    const bound = formValuesToCreateInput(
+      {
+        ...BASE_VALUES,
+        warehouseId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        locationId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+      },
+      '76e5bc4f-5adb-434d-a886-bcff05a9680b',
+    );
+    expect(bound.warehouseId).toBe('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
+    expect(bound.locationId).toBe('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb');
   });
 
   it('maps listPrice and costPrice into catalog money fields', () => {

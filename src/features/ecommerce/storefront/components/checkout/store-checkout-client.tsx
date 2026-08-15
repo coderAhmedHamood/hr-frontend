@@ -72,6 +72,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { storeLoginHref, storeRegisterHref } from '@/features/ecommerce/storefront/lib/store-auth-return';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
+import { STORE_CURRENCY_MISMATCH_ERROR } from '@/features/ecommerce/domain/constants/store-currency';
+import { STORE_COUNTRY_UNAVAILABLE_ERROR } from '@/features/ecommerce/domain/constants/store-checkout-errors';
 import {
   GeoCascadeSelect,
   type GeoCascadeValue,
@@ -146,7 +148,10 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
   }, []);
 
   const companyId = getStorefrontCompanyId();
-  const { data: geoCountries = [] } = usePublicGeoCountries(companyId, Boolean(companyId));
+  const { data: geoCountries = [], isFetched: geoCountriesFetched } = usePublicGeoCountries(
+    companyId,
+    Boolean(companyId),
+  );
 
   const allPaymentAccountsQuery = useQuery({
     queryKey: ['public', 'store', 'payment-accounts', companyId, 'all'],
@@ -176,11 +181,23 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
     notes: '',
   }));
 
-  // Only one country is configured today — auto-select it so the customer only picks city/district.
+  // Keep countryId inside the store's public geo list (showInStore). Saved addresses
+  // often carry a catalog country the order API then rejects.
   React.useEffect(() => {
-    if (address.countryId || geoCountries.length === 0) return;
-    setAddress((prev) => (prev.countryId ? prev : { ...prev, countryId: geoCountries[0]!.id }));
-  }, [geoCountries, address.countryId]);
+    if (!geoCountriesFetched) return;
+    const allowed = new Set(geoCountries.map((country) => country.id));
+    const fallback = geoCountries[0]?.id ?? null;
+    setAddress((prev) => {
+      if (prev.countryId && allowed.has(prev.countryId)) return prev;
+      if (prev.countryId === fallback) return prev;
+      return {
+        ...prev,
+        countryId: fallback,
+        cityId: prev.countryId && !allowed.has(prev.countryId) ? null : prev.cityId,
+        districtId: prev.countryId && !allowed.has(prev.countryId) ? null : prev.districtId,
+      };
+    });
+  }, [geoCountriesFetched, geoCountries]);
   const [customerNote, setCustomerNote] = React.useState('');
   const [paymentMethod, setPaymentMethod] = React.useState<CheckoutPaymentMethod>('cash');
   const [paymentAccountId, setPaymentAccountId] = React.useState<string | null>(null);
@@ -470,7 +487,10 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
       errors.phone = t('checkout.errors.phone');
     }
     if (!address.countryId || !address.cityId || !address.city.trim()) {
-      errors.city = t('checkout.errors.cityRequired');
+      errors.city =
+        geoCountriesFetched && geoCountries.length === 0
+          ? t('checkout.errors.geoUnavailable')
+          : t('checkout.errors.cityRequired');
     }
     if (!address.districtId || !address.district.trim()) {
       errors.district = t('checkout.errors.required');
@@ -560,7 +580,13 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
         }),
       });
       if (!result.ok) {
-        toast.error(result.error || t('checkout.placeError'));
+        toast.error(
+          result.error === STORE_CURRENCY_MISMATCH_ERROR
+            ? t('checkout.errors.currencyMismatch')
+            : result.error === STORE_COUNTRY_UNAVAILABLE_ERROR
+              ? t('checkout.errors.countryUnavailable')
+              : result.error || t('checkout.placeError'),
+        );
         return;
       }
       const order = result.order;
@@ -807,35 +833,41 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
                     </p>
                   )}
                   <div className="sm:col-span-2">
-                    <GeoCascadeSelect
-                      companyId={companyId}
-                      mode="public"
-                      showCountry={false}
-                      className="sm:grid-cols-2"
-                      value={{
-                        countryId: address.countryId ?? null,
-                        cityId: address.cityId ?? null,
-                        districtId: address.districtId ?? null,
-                        countryCode: null,
-                        city: address.city,
-                        district: address.district,
-                      }}
-                      onChange={(geo: GeoCascadeValue) =>
-                        setAddress((prev) => ({
-                          ...prev,
-                          countryId: geo.countryId,
-                          cityId: geo.cityId,
-                          districtId: geo.districtId,
-                          city: geo.city,
-                          district: geo.district,
-                        }))
-                      }
-                      labels={{
-                        country: t('checkout.country'),
-                        city: t('checkout.city'),
-                        district: t('checkout.district'),
-                      }}
-                    />
+                    {geoCountriesFetched && geoCountries.length === 0 ? (
+                      <p className="rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+                        {t('checkout.errors.geoUnavailable')}
+                      </p>
+                    ) : (
+                      <GeoCascadeSelect
+                        companyId={companyId}
+                        mode="public"
+                        showCountry={geoCountries.length !== 1}
+                        className={geoCountries.length === 1 ? 'sm:grid-cols-2' : undefined}
+                        value={{
+                          countryId: address.countryId ?? null,
+                          cityId: address.cityId ?? null,
+                          districtId: address.districtId ?? null,
+                          countryCode: null,
+                          city: address.city,
+                          district: address.district,
+                        }}
+                        onChange={(geo: GeoCascadeValue) =>
+                          setAddress((prev) => ({
+                            ...prev,
+                            countryId: geo.countryId,
+                            cityId: geo.cityId,
+                            districtId: geo.districtId,
+                            city: geo.city,
+                            district: geo.district,
+                          }))
+                        }
+                        labels={{
+                          country: t('checkout.country'),
+                          city: t('checkout.city'),
+                          district: t('checkout.district'),
+                        }}
+                      />
+                    )}
                     {(addressErrors.city || addressErrors.district) && (
                       <p className="mt-1.5 text-xs text-destructive">
                         {addressErrors.city || addressErrors.district}

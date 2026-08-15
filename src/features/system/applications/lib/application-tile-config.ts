@@ -25,6 +25,8 @@ const ICON_BY_KEY: Record<string, LucideIcon> = {
   contact: ContactRound,
   contacts: ContactRound,
   warehouse: Package,
+  pos: ShoppingBag,
+  cashier: ShoppingBag,
 };
 
 /** Design-token icon surfaces — no hardcoded palette colors. */
@@ -37,6 +39,8 @@ const TILE_BY_CODE: Record<string, { tileClass: string }> = {
   storefront: { tileClass: 'bg-success text-success-foreground shadow-soft' },
   inventory: { tileClass: 'bg-accent text-accent-foreground shadow-soft' },
   contacts: { tileClass: 'bg-primary text-primary-foreground shadow-soft' },
+  pos: { tileClass: 'bg-success text-success-foreground shadow-soft' },
+  cashier: { tileClass: 'bg-success text-success-foreground shadow-soft' },
 };
 
 const FALLBACK_TILES = [
@@ -59,6 +63,9 @@ export function resolveApplicationIcon(app: ApplicationResponseDto): LucideIcon 
   if (app.code === 'store-admin' || app.code === 'ecommerce') return Store;
   if (app.code === 'storefront') return ShoppingBag;
   if (app.code === 'inventory') return Package;
+  if (app.code === 'pos' || app.code === 'cashier' || app.code === 'point-of-sale') {
+    return ShoppingBag;
+  }
   if (app.code === 'contacts') return ContactRound;
   return LayoutGrid;
 }

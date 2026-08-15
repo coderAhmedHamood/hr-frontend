@@ -1,10 +1,10 @@
 /**
  * One-shot: force store settings + all inventory products to YER.
  * Usage:
- *   $env:TOKEN='<staff jwt>'; node scripts/force-store-currency-yer.mjs
+ *   $env:TOKEN='<staff jwt>'; $env:CID='13088934-0436-4529-b64d-97bafd05c9c3'; node scripts/force-store-currency-yer.mjs
  */
 const BASE = process.env.BASE || 'http://localhost:3000';
-const CID = process.env.CID || '76e5bc4f-5adb-434d-a886-bcff05a9680b';
+const CID = process.env.CID || '13088934-0436-4529-b64d-97bafd05c9c3';
 const TOKEN = process.env.TOKEN || '';
 
 if (!TOKEN) {

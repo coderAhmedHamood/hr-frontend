@@ -7,6 +7,7 @@ import type {
   LocationStock,
   LocationStockListQuery,
 } from '@/features/inventory/domain/types/location-stock';
+import type { ProductStockSnapshot } from '@/features/inventory/domain/types/product-stock';
 
 export const locationStockQueryKeys = {
   root: (companyId: string) => [companyId, 'inventory', 'location-stock'] as const,
@@ -16,48 +17,71 @@ export const locationStockQueryKeys = {
     [...locationStockQueryKeys.root(companyId), 'summary', productId] as const,
   raw: (companyId: string, productId: string) =>
     [...locationStockQueryKeys.root(companyId), 'raw', productId] as const,
+  snapshot: (companyId: string, productId: string) =>
+    [...locationStockQueryKeys.root(companyId), 'snapshot', productId] as const,
   list: (query: LocationStockListQuery) =>
     [...locationStockQueryKeys.root(query.companyId), 'list', query] as const,
 };
 
 type ProductLocationStockRaw = {
+  snapshot: ProductStockSnapshot | null;
   stocks: LocationStock[];
   internalLocationIds: Set<string>;
 };
 
 /**
- * Shared underlying fetch for on-hand + summary — both need the same
- * ledger-derived stock rows and internal-location set. Using one query key
- * with different `select` transforms lets React Query dedupe the network
- * call instead of each hook re-fetching independently.
+ * Prefer GET /inventory/products/:id/stock (locations[] + live on-hand).
+ * Fall back to ledger aggregation when the snapshot is unavailable.
  */
 async function fetchProductLocationStockRaw(
   companyId: string,
   productId: string,
 ): Promise<ProductLocationStockRaw> {
-  const [stocks, locations] = await Promise.all([
+  const [snapshot, stocks, locations] = await Promise.all([
+    inventoryStockService.getProductStock(productId),
     inventoryStockService.listLocationStock({ companyId, productId }),
     warehouseLocationsApi.getAll({ companyId, page: 1, limit: 500 }),
   ]);
   const internalLocationIds = new Set(
     locations.items.filter((location) => location.locationType === 'internal').map((l) => l.id),
   );
-  return { stocks, internalLocationIds };
+  return { snapshot, stocks, internalLocationIds };
+}
+
+function totalsFromLedger(
+  stocks: LocationStock[],
+  internalLocationIds: Set<string>,
+): { total: number; byVariant: Record<string, number>; onHand: number; reserved: number; available: number } {
+  const byVariant: Record<string, number> = {};
+  let onHand = 0;
+  let reserved = 0;
+  for (const row of stocks) {
+    if (!internalLocationIds.has(row.locationId)) continue;
+    const key = row.variantId ?? '';
+    byVariant[key] = (byVariant[key] ?? 0) + row.quantity;
+    onHand += row.quantity;
+    reserved += row.reservedQuantity ?? 0;
+  }
+  return { total: onHand, byVariant, onHand, reserved, available: Math.max(0, onHand - reserved) };
 }
 
 export function useProductOnHand(companyId: string | undefined, productId: string | undefined) {
   return useQuery({
     ...toRawQueryOptions(companyId, productId),
-    select: ({ stocks, internalLocationIds }) => {
-      const byVariant: Record<string, number> = {};
-      let total = 0;
-      for (const row of stocks) {
-        if (!internalLocationIds.has(row.locationId)) continue;
-        const key = row.variantId ?? '';
-        byVariant[key] = (byVariant[key] ?? 0) + row.quantity;
-        total += row.quantity;
+    select: ({ snapshot, stocks, internalLocationIds }) => {
+      if (snapshot) {
+        const byVariant: Record<string, number> = {};
+        if (snapshot.displayLevel === 'variant') {
+          for (const variant of snapshot.variants) {
+            byVariant[variant.variantId] = variant.available;
+          }
+        } else {
+          byVariant[''] = snapshot.available;
+        }
+        return { total: snapshot.available, byVariant, snapshot };
       }
-      return { total, byVariant };
+      const ledger = totalsFromLedger(stocks, internalLocationIds);
+      return { total: ledger.total, byVariant: ledger.byVariant, snapshot: null };
     },
   });
 }
@@ -66,15 +90,24 @@ export function useProductOnHand(companyId: string | undefined, productId: strin
 export function useProductStockSummary(companyId: string | undefined, productId: string | undefined) {
   return useQuery({
     ...toRawQueryOptions(companyId, productId),
-    select: ({ stocks, internalLocationIds }) => {
-      let onHand = 0;
-      let reserved = 0;
-      for (const row of stocks) {
-        if (!internalLocationIds.has(row.locationId)) continue;
-        onHand += row.quantity;
-        reserved += row.reservedQuantity ?? 0;
+    select: ({ snapshot, stocks, internalLocationIds }) => {
+      if (snapshot) {
+        return {
+          onHand: snapshot.onHand,
+          reserved: snapshot.reserved,
+          available: snapshot.available,
+          locations: snapshot.locations,
+          snapshot,
+        };
       }
-      return { onHand, reserved, available: Math.max(0, onHand - reserved) };
+      const ledger = totalsFromLedger(stocks, internalLocationIds);
+      return {
+        onHand: ledger.onHand,
+        reserved: ledger.reserved,
+        available: ledger.available,
+        locations: [] as ProductStockSnapshot['locations'],
+        snapshot: null,
+      };
     },
   });
 }

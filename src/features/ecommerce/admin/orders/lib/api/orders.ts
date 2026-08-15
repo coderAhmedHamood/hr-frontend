@@ -30,19 +30,16 @@ import {
 } from '@/features/ecommerce/shared/lib/api/store-orders-api';
 import { inventoryLedgerApi } from '@/features/inventory/admin/operations/lib/api/inventory-ledger';
 import {
-  resolveDefaultWhStockLocationId,
   type SaleStockLineInput,
   type SaleStockDeductResult,
-  type SaleStockRestoreResult,
 } from '@/features/inventory/admin/stock/lib/api/sale-stock-api';
 import { inventoryStockService } from '@/features/inventory/services/inventory-stock.service';
 import { toast } from 'sonner';
 
 /**
- * Stock movements for store admin (manual sale APIs — not place-order auto):
- * - deduct: when order status → shipped (POST /inventory/stock/sale-deduct)
- * - restore: when status → cancelled | refunded (POST /inventory/stock/sale-restore)
- * Staff can also call inventoryStockService.saleDeduct / saleRestore anytime.
+ * Stock for store admin (manual deduct — place-order does not deduct):
+ * - deduct: status → shipped → POST /inventory/stock/sale-deduct (sourceDocument = orderNumber)
+ * - restore: status → cancelled | refunded is automatic on the backend (do not call sale-restore)
  */
 const STOCK_DEDUCT_STATUS: OrderStatus = 'shipped';
 const RESTORE_STATUSES: OrderStatus[] = ['cancelled', 'refunded'];
@@ -61,7 +58,7 @@ function assertStoreHttp(): void {
   }
 }
 
-function summarizeSaleLines(result: SaleStockDeductResult | SaleStockRestoreResult): string {
+function summarizeSaleLines(result: SaleStockDeductResult): string {
   const ref = result.operationReference ?? '—';
   const counts = result.lines.reduce(
     (acc, line) => {
@@ -150,45 +147,36 @@ async function orderAlreadyDeducted(companyId: string, order: Order): Promise<bo
 }
 
 /**
- * Group order lines by warehouse location (allocations if present, else prior deduct location / default WH/Stock).
+ * One deduct request: allocations become per-line locationId; otherwise omit location
+ * so the backend deducts from the product warehouse.
  */
-async function buildDeductBatches(
-  companyId: string,
-  order: Order,
-): Promise<Array<{ locationId: string; lines: SaleStockLineInput[] }>> {
-  const defaultLocationId = await resolveDefaultWhStockLocationId(companyId);
-  const byLocation = new Map<string, SaleStockLineInput[]>();
+function buildDeductLines(order: Order): SaleStockLineInput[] {
+  const lines: SaleStockLineInput[] = [];
 
   for (const item of order.items) {
     if (item.quantity <= 0 || !item.productId) continue;
 
     const allocs = item.allocations.filter((row) => row.quantity > 0 && row.locationId);
     if (allocs.length === 0) {
-      const deducts = await listOrderSaleDeductEntries(companyId, order.orderNumber, item.productId);
-      const ledgerLocationId =
-        deducts.find((entry) => entry.locationId)?.locationId ?? defaultLocationId;
-      const list = byLocation.get(ledgerLocationId) ?? [];
-      list.push({
+      lines.push({
         productId: item.productId,
         variantId: item.variantId?.trim() || null,
         quantity: item.quantity,
       });
-      byLocation.set(ledgerLocationId, list);
       continue;
     }
 
     for (const row of allocs) {
-      const list = byLocation.get(row.locationId) ?? [];
-      list.push({
+      lines.push({
         productId: item.productId,
         variantId: item.variantId?.trim() || null,
         quantity: row.quantity,
+        locationId: row.locationId,
       });
-      byLocation.set(row.locationId, list);
     }
   }
 
-  return [...byLocation.entries()].map(([locationId, lines]) => ({ locationId, lines }));
+  return lines;
 }
 
 function resolveOrderLine(
@@ -251,17 +239,14 @@ export const ordersApi = {
         console.log('[orders] sale-deduct skipped — already deducted for', order.orderNumber);
         toast.message(`المخزون خُصم مسبقاً للطلب ${order.orderNumber}`);
       } else {
-        const batches = await buildDeductBatches(companyId, order);
-        for (const batch of batches) {
-          if (batch.lines.length === 0) continue;
-          const lines = await ensureSaleLinesVariantIds(
-            companyId,
-            order.orderNumber,
-            batch.lines,
-          );
+        const lines = await ensureSaleLinesVariantIds(
+          companyId,
+          order.orderNumber,
+          buildDeductLines(order),
+        );
+        if (lines.length > 0) {
           const deductResult = await inventoryStockService.saleDeduct({
             companyId,
-            locationId: batch.locationId,
             sourceDocument: order.orderNumber,
             partnerName: order.customerNameAr,
             notes: `صرف عند شحن الطلب ${order.orderNumber}`,
@@ -273,38 +258,9 @@ export const ordersApi = {
       }
     }
 
-    // إرجاع عند الإلغاء / الاسترداد — فقط إن وُجد خصم سابق، مع نفس variantId لبند الطلب
+    // إرجاع المخزون تلقائي من الباك اند عند cancelled / refunded (نفس sourceDocument)
     if (RESTORE_STATUSES.includes(input.status) && !RESTORE_STATUSES.includes(order.status)) {
-      const deducted = await orderAlreadyDeducted(companyId, order);
-      if (!deducted) {
-        console.log('[orders] sale-restore skipped — no prior deduct for', order.orderNumber);
-      } else {
-        const batches = await buildDeductBatches(companyId, order);
-        for (const batch of batches) {
-          if (batch.lines.length === 0) continue;
-          // Prefer lines[].variantId from GET order; fill gaps from prior sale-deduct ledger.
-          const lines = await ensureSaleLinesVariantIds(companyId, order.orderNumber, batch.lines);
-          console.log('[orders] sale-restore payload', {
-            orderNumber: order.orderNumber,
-            locationId: batch.locationId,
-            lines: lines.map((line) => ({
-              productId: line.productId,
-              variantId: line.variantId,
-              quantity: line.quantity,
-            })),
-          });
-          const restoreResult = await inventoryStockService.saleRestore({
-            companyId,
-            locationId: batch.locationId,
-            sourceDocument: order.orderNumber,
-            notes: `إرجاع طلب ${order.orderNumber} — ${input.status}`,
-            partnerName: order.customerNameAr,
-            lines,
-          });
-          console.log('[orders] sale-restore result', restoreResult);
-          toast.message(`إرجاع مخزون: ${summarizeSaleLines(restoreResult)}`);
-        }
-      }
+      console.log('[orders] sale-restore delegated to backend for', order.orderNumber, input.status);
     }
 
     return normalizeOrderPayment(await updateAdminStoreOrderStatus(companyId, id, input));

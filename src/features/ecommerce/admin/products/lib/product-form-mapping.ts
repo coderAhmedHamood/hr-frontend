@@ -1,3 +1,4 @@
+import { STORE_CURRENCY_CODE } from '@/features/ecommerce/domain/constants/store-currency';
 import type { CreateProductInput, Product, ProductVariant } from '@/features/ecommerce/domain/types/product';
 import type { MediaItem } from '@/features/ecommerce/domain/types/common';
 import { normalizeAttributeValue } from '@/features/ecommerce/domain/types/catalog-attribute';
@@ -162,6 +163,8 @@ export function productToFormValues(product: Product): ProductFormInput {
     widthCm: product.dimensions?.widthCm,
     heightCm: product.dimensions?.heightCm,
     posAvailable: product.posAvailable ?? false,
+    warehouseId: product.warehouseId ?? undefined,
+    locationId: product.locationId ?? undefined,
     saleOk: product.saleOk ?? true,
     purchaseOk: product.purchaseOk ?? true,
     isNewProduct: product.isNewProduct ?? false,
@@ -213,7 +216,7 @@ export function formValuesToCreateInput(
   }));
 
   const existing = options?.existing;
-  const currency = existing?.price.currency ?? 'YER';
+  const currency = existing?.price.currency ?? STORE_CURRENCY_CODE;
 
   const synced = syncProductVariants({
     productNameAr: values.nameAr,
@@ -285,6 +288,8 @@ export function formValuesToCreateInput(
       ? { lengthCm, widthCm, heightCm }
       : undefined,
     posAvailable: values.posAvailable,
+    warehouseId: optionalRelationId(values.warehouseId),
+    locationId: optionalRelationId(values.locationId),
     saleOk: values.saleOk,
     purchaseOk: values.purchaseOk,
     isNewProduct: values.isNewProduct,

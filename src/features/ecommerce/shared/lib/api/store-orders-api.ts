@@ -22,9 +22,15 @@ import {
   fromDecimalString,
   isStoreHttpEnabled,
   publicStoreRequest,
+  StoreHttpError,
   toDecimalString,
 } from '@/features/ecommerce/storefront/lib/api/store-http';
 import { resolvePaymentProofUrls } from '@/features/ecommerce/domain/lib/payment-proofs';
+import {
+  STORE_CURRENCY_MISMATCH_ERROR,
+  isProductStoreCurrencyMismatch,
+} from '@/features/ecommerce/domain/constants/store-currency';
+import { patchProductStoreCurrency } from '@/features/ecommerce/admin/products/lib/api/products';
 
 type StorePaginatedMeta = {
   page: number;
@@ -312,61 +318,92 @@ export async function placePublicStoreOrder(
     typeof crypto !== 'undefined' && 'randomUUID' in crypto
       ? crypto.randomUUID()
       : `order-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  const dto = await publicStoreRequest<StoreOrderDto>('/public/store/orders', {
-    method: 'POST',
-    token: partnerToken,
-    headers: { 'Idempotency-Key': idempotencyKey },
-    body: {
-      companyId: resolveStorefrontCompanyId(input.companyId),
-      paymentMethod: input.paymentMethod,
-      ...(input.paymentAccountId
-        ? { paymentAccountId: input.paymentAccountId }
-        : {}),
-      paymentProofUrl: proofUrls[0] ?? null,
-      locale: input.locale || 'ar',
-      ...(input.customerNote?.trim()
-        ? { customerNote: input.customerNote.trim() }
-        : {}),
-      address: {
-        fullName: input.address.fullName,
-        phone: input.address.phone,
-        countryId: input.address.countryId ?? null,
-        cityId: input.address.cityId ?? null,
-        districtId: input.address.districtId ?? null,
-        city: input.address.city,
-        district: input.address.district,
-        street: input.address.street,
-        notes: input.address.notes ?? null,
-        lat: input.address.lat ?? null,
-        lng: input.address.lng ?? null,
-        mapAddress: input.address.mapAddress ?? null,
+  const postOrder = () =>
+    publicStoreRequest<StoreOrderDto>('/public/store/orders', {
+      method: 'POST',
+      token: partnerToken,
+      headers: { 'Idempotency-Key': idempotencyKey },
+      body: {
+        companyId: resolveStorefrontCompanyId(input.companyId),
+        paymentMethod: input.paymentMethod,
+        ...(input.paymentAccountId
+          ? { paymentAccountId: input.paymentAccountId }
+          : {}),
+        paymentProofUrl: proofUrls[0] ?? null,
+        locale: input.locale || 'ar',
+        ...(input.customerNote?.trim()
+          ? { customerNote: input.customerNote.trim() }
+          : {}),
+        address: {
+          fullName: input.address.fullName,
+          phone: input.address.phone,
+          ...(input.address.countryId ? { countryId: input.address.countryId } : {}),
+          ...(input.address.cityId ? { cityId: input.address.cityId } : {}),
+          ...(input.address.districtId ? { districtId: input.address.districtId } : {}),
+          city: input.address.city,
+          district: input.address.district,
+          street: input.address.street,
+          notes: input.address.notes ?? null,
+          lat: input.address.lat ?? null,
+          lng: input.address.lng ?? null,
+          mapAddress: input.address.mapAddress ?? null,
+        },
+        items: input.lines.map((line) => ({
+          productId: line.productId,
+          variantId: line.variantId ?? null,
+          quantity: line.quantity,
+        })),
+        ...(input.attachments?.length
+          ? {
+              attachments: input.attachments.slice(0, 20).map((attachment) => ({
+                fileName: attachment.fileName,
+                fileUrl: attachment.fileUrl,
+                mimeType: attachment.mimeType ?? null,
+                sizeBytes: attachment.sizeBytes ?? null,
+                label: attachment.label ?? null,
+              })),
+            }
+          : {}),
       },
-      items: input.lines.map((line) => ({
-        productId: line.productId,
-        variantId: line.variantId ?? null,
-        quantity: line.quantity,
-      })),
-      ...(input.attachments?.length
-        ? {
-            attachments: input.attachments.slice(0, 20).map((attachment) => ({
-              fileName: attachment.fileName,
-              fileUrl: attachment.fileUrl,
-              mimeType: attachment.mimeType ?? null,
-              sizeBytes: attachment.sizeBytes ?? null,
-              label: attachment.label ?? null,
-            })),
-          }
-        : {}),
-    },
-  });
-  if (!dto) throw new Error('ORDER_CREATE_FAILED');
-  // Stock is deducted by admin when order status → shipped (not at place-order).
-  console.log('[orders] place-order created (no frontend stock deduct)', {
-    orderNumber: dto.orderNumber,
-    id: dto.id,
-    status: dto.status,
-  });
-  return mapStorefrontOrder(dto);
+    });
+
+  const toOrder = (dto: StoreOrderDto | null): StorefrontCustomerOrder => {
+    if (!dto) throw new Error('ORDER_CREATE_FAILED');
+    console.log('[orders] place-order created (no frontend stock deduct)', {
+      orderNumber: dto.orderNumber,
+      id: dto.id,
+      status: dto.status,
+    });
+    return mapStorefrontOrder(dto);
+  };
+
+  try {
+    return toOrder(await postOrder());
+  } catch (error) {
+    if (!(error instanceof StoreHttpError) || !isProductStoreCurrencyMismatch(error.message)) {
+      throw error;
+    }
+    const productIds = [...new Set(input.lines.map((line) => line.productId).filter(Boolean))];
+    const healed = await Promise.all(productIds.map((id) => patchProductStoreCurrency(id)));
+    if (healed.some(Boolean)) {
+      try {
+        return toOrder(await postOrder());
+      } catch (retryError) {
+        if (
+          retryError instanceof StoreHttpError &&
+          isProductStoreCurrencyMismatch(retryError.message)
+        ) {
+          throw new StoreHttpError(
+            STORE_CURRENCY_MISMATCH_ERROR,
+            retryError.status,
+            retryError.payload,
+          );
+        }
+        throw retryError;
+      }
+    }
+    throw new StoreHttpError(STORE_CURRENCY_MISMATCH_ERROR, error.status, error.payload);
+  }
 }
 
 export async function fetchPublicStoreOrder(input: {
