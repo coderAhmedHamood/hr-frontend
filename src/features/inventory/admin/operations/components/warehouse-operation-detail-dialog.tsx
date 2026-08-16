@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Check, X } from 'lucide-react';
+import { Check, Undo2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { getInventoryCompanyId } from '@/features/inventory/lib/company-id';
 import { useWarehouseLocations } from '@/features/inventory/admin/locations/hooks/use-warehouse-locations';
@@ -110,7 +110,7 @@ function OperationStatusStepper({ status }: { status: WarehouseOperationStatus }
 export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }: Props) {
   const companyId = getInventoryCompanyId();
   const kind = operation?.kind ?? 'receipt';
-  const { update } = useWarehouseOperationMutations(operation?.warehouseId ?? '', kind);
+  const { update, undo } = useWarehouseOperationMutations(operation?.warehouseId ?? '', kind);
   const { data: locationsData } = useWarehouseLocations({
     companyId,
     warehouseId: operation?.warehouseId,
@@ -141,9 +141,13 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
   const [tab, setTab] = React.useState('operations');
   const [headerFromLocationId, setHeaderFromLocationId] = React.useState('');
   const [headerToLocationId, setHeaderToLocationId] = React.useState('');
+  const loadedOperationIdRef = React.useRef<string | null>(null);
 
   React.useEffect(() => {
     if (!open || !operation) return;
+    const switched = loadedOperationIdRef.current !== operation.id;
+    loadedOperationIdRef.current = operation.id;
+
     setLines(
       operation.lines.map((line) => ({
         ...line,
@@ -155,18 +159,32 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
     setPartnerName(operation.partnerName ?? '');
     setSourceDocument(operation.sourceDocument ?? '');
     setOccurredAt(operation.occurredAt.slice(0, 16));
-    setStatus(operation.status);
+    // Avoid flicker from stale list props:
+    // - after validate: local done must not regress to ready
+    // - after undo: local ready must not jump back to done
+    setStatus((prev) => {
+      if (switched) return operation.status;
+      const incoming = operation.status;
+      if (incoming === 'cancelled' || prev === 'cancelled') return incoming;
+      if (prev === 'done' && (incoming === 'ready' || incoming === 'draft')) return prev;
+      if (prev === 'ready' && incoming === 'done') return prev;
+      return incoming;
+    });
     setTab('operations');
     const first = operation.lines[0];
     setHeaderFromLocationId(first?.fromLocationId ?? '');
     setHeaderToLocationId(first?.toLocationId ?? '');
   }, [open, operation]);
 
+  React.useEffect(() => {
+    if (!open) loadedOperationIdRef.current = null;
+  }, [open]);
+
   if (!operation) return null;
 
   const editable = status === 'draft' || status === 'ready';
   const qtyEditable = status === 'draft' || status === 'ready';
-  const isSaving = update.isPending;
+  const isSaving = update.isPending || undo.isPending;
   const meta = WAREHOUSE_OPERATION_KIND_META[kind];
   const needsFrom = meta.needsFrom;
   const needsTo = meta.needsTo;
@@ -195,25 +213,38 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
   ) {
     if (!companyId || !operation) return;
     const includeLines = options?.includeLines === true || patch.lines !== undefined;
-    const updated = await update.mutateAsync({
-      companyId,
-      id: operation.id,
-      patch: {
-        ...patch,
-        ...(includeLines ? { lines: patch.lines ?? lines } : {}),
-        notes: notes.trim() || undefined,
-        partnerName: partnerName.trim() || undefined,
-        sourceDocument: sourceDocument.trim() || undefined,
-        occurredAt: occurredAt ? new Date(occurredAt).toISOString() : operation.occurredAt,
-      },
-    });
-    if (!updated) {
-      toast.error('تعذر تحديث المستند.');
+
+    // Backend locks fully validated ops — use undoValidation for done → ready.
+    if (status === 'done' || operation.status === 'done') {
+      toast.error('لا يمكن تعديل مستند منتهٍ. استخدم «تراجع عن التصديق» أولاً.');
       return;
     }
-    setStatus(updated.status);
-    setLines(updated.lines.map((line) => ({ ...line })));
-    toast.success(successMessage);
+
+    try {
+      const updated = await update.mutateAsync({
+        companyId,
+        id: operation.id,
+        patch: {
+          ...patch,
+          ...(includeLines ? { lines: patch.lines ?? lines } : {}),
+          notes: notes.trim() || undefined,
+          partnerName: partnerName.trim() || undefined,
+          sourceDocument: sourceDocument.trim() || undefined,
+          occurredAt: occurredAt ? new Date(occurredAt).toISOString() : operation.occurredAt,
+        },
+      });
+      if (!updated) {
+        toast.error('تعذر تحديث المستند.');
+        return;
+      }
+      setStatus(updated.status);
+      setLines(updated.lines.map((line) => ({ ...line })));
+      setHeaderFromLocationId(updated.lines[0]?.fromLocationId ?? '');
+      setHeaderToLocationId(updated.lines[0]?.toLocationId ?? '');
+      toast.success(successMessage);
+    } catch {
+      // ApiError already toasted in useWarehouseOperationMutations.onError
+    }
   }
 
   async function markReady() {
@@ -234,12 +265,30 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
     await savePatch({ status: 'done', lines }, 'تم تصديق المستند');
   }
 
-  async function cancelOperation() {
-    await savePatch({ status: 'cancelled' }, 'تم إلغاء المستند');
+  async function undoValidation() {
+    if (!companyId || !operation) return;
+    if (status !== 'done' && operation.status !== 'done') {
+      toast.error('التراجع متاح فقط للمستندات المصدّقة (done).');
+      return;
+    }
+    try {
+      const updated = await undo.mutateAsync({ companyId, id: operation.id });
+      setStatus(updated.status);
+      setLines(updated.lines.map((line) => ({ ...line })));
+      setHeaderFromLocationId(updated.lines[0]?.fromLocationId ?? '');
+      setHeaderToLocationId(updated.lines[0]?.toLocationId ?? '');
+      toast.success('تم التراجع عن التصديق — المستند جاهز للتعديل');
+    } catch {
+      // ApiError already toasted in useWarehouseOperationMutations.onError
+    }
   }
 
-  async function undoValidation() {
-    await savePatch({ status: 'cancelled' }, 'تم التراجع عن التصديق وعكس أثر المخزون');
+  async function cancelOperation() {
+    if (status === 'done' || operation?.status === 'done') {
+      toast.error('لا يمكن إلغاء مستند منتهٍ. استخدم التراجع عن التصديق أولاً.');
+      return;
+    }
+    await savePatch({ status: 'cancelled' }, 'تم إلغاء المستند');
   }
 
   async function fillTheoreticalFromStock() {
@@ -303,6 +352,18 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
                 تصديق
               </Button>
             ) : null}
+            {status === 'done' ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={isSaving}
+                onClick={() => void undoValidation()}
+              >
+                <Undo2 className="h-4 w-4" />
+                تراجع عن التصديق
+              </Button>
+            ) : null}
             {editable ? (
               <Button
                 type="button"
@@ -324,18 +385,6 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
               >
                 <X className="h-4 w-4" />
                 إلغاء
-              </Button>
-            ) : null}
-            {status === 'done' ? (
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={isSaving}
-                onClick={() => void undoValidation()}
-              >
-                <X className="h-4 w-4" />
-                تراجع عن التصديق
               </Button>
             ) : null}
             {(kind === 'physical_count' || kind === 'adjustment') && editable ? (

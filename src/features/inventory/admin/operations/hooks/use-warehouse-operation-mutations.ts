@@ -34,6 +34,18 @@ export function useWarehouseOperationMutations(warehouseId: string, kind: Wareho
     },
   });
 
+  function invalidateStock(companyId: string) {
+    void queryClient.invalidateQueries({
+      queryKey: [companyId, 'ecommerce', 'location-stock'],
+    });
+    void queryClient.invalidateQueries({
+      queryKey: [companyId, 'ecommerce', 'inventory-ledger'],
+    });
+    void queryClient.invalidateQueries({
+      queryKey: [companyId, 'ecommerce', 'products'],
+    });
+  }
+
   const update = useMutation({
     mutationFn: ({
       companyId,
@@ -47,21 +59,30 @@ export function useWarehouseOperationMutations(warehouseId: string, kind: Wareho
     onSuccess: (_data, variables) => {
       invalidate(variables.companyId);
 
-      // Stock / products only when validation (or undo/cancel) can change inventory.
-      if (variables.patch.status === 'done' || variables.patch.status === 'cancelled') {
-        void queryClient.invalidateQueries({
-          queryKey: [variables.companyId, 'ecommerce', 'location-stock'],
-        });
-        void queryClient.invalidateQueries({
-          queryKey: [variables.companyId, 'ecommerce', 'inventory-ledger'],
-        });
-        void queryClient.invalidateQueries({
-          queryKey: [variables.companyId, 'ecommerce', 'products'],
-        });
+      // Stock / products when validation, undo (ready), or cancel can change inventory.
+      if (
+        variables.patch.status === 'done' ||
+        variables.patch.status === 'ready' ||
+        variables.patch.status === 'cancelled'
+      ) {
+        invalidateStock(variables.companyId);
       }
     },
     onError: (err) => {
       const { displayMessage } = handleApiError(err, 'ecommerce.warehouseOperations.update');
+      toast.error(displayMessage);
+    },
+  });
+
+  const undo = useMutation({
+    mutationFn: ({ companyId, id }: { companyId: string; id: string }) =>
+      warehouseOperationsApi.undo(companyId, id),
+    onSuccess: (_data, variables) => {
+      invalidate(variables.companyId);
+      invalidateStock(variables.companyId);
+    },
+    onError: (err) => {
+      const { displayMessage } = handleApiError(err, 'ecommerce.warehouseOperations.undo');
       toast.error(displayMessage);
     },
   });
@@ -79,5 +100,5 @@ export function useWarehouseOperationMutations(warehouseId: string, kind: Wareho
     },
   });
 
-  return { create, update, remove };
+  return { create, update, undo, remove };
 }

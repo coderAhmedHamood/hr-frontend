@@ -57,7 +57,11 @@ function mapLine(dto: OperationLineDto): WarehouseOperationLine {
 }
 
 function mapOperation(dto: OperationDto, lines: WarehouseOperationLine[]): WarehouseOperation {
-  const status = (dto.status as string) === 'posted' ? 'done' : dto.status;
+  const raw = String(dto.status ?? '').trim().toLowerCase();
+  const status =
+    raw === 'posted' || raw === 'done' || raw === 'validated'
+      ? 'done'
+      : (dto.status as WarehouseOperation['status']);
   return {
     id: dto.id,
     companyId: dto.companyId,
@@ -74,6 +78,11 @@ function mapOperation(dto: OperationDto, lines: WarehouseOperationLine[]): Wareh
     createdAt: dto.createdAt,
     updatedAt: dto.updatedAt,
   };
+}
+
+function isLockedOperationStatus(status: string | null | undefined): boolean {
+  const raw = String(status ?? '').trim().toLowerCase();
+  return raw === 'done' || raw === 'posted' || raw === 'validated';
 }
 
 async function fetchLinesForOperations(
@@ -318,8 +327,35 @@ export const warehouseOperationsApi: AdminWarehouseOperationsPort = {
       assertLinesLinkedToProduct(patch.lines);
     }
 
-    const before = await this.getById(companyId, id);
-    if (!before) return null;
+    // Read raw DTO first so a locked server status cannot be missed by mapping quirks.
+    let rawDto: OperationDto;
+    try {
+      rawDto = await apiRequest<OperationDto>(`/inventory/warehouse-operations/${id}`);
+    } catch {
+      throw new Error('تعذر قراءة حالة العملية من الخادم.');
+    }
+    if (!rawDto?.id) {
+      throw new Error('العملية غير موجودة.');
+    }
+
+    const locked = isLockedOperationStatus(rawDto.status);
+    if (locked) {
+      // Preferred undo path: done → ready (backend reverses ledger + quantityCache).
+      if (patch.status === 'ready' && !patch.lines) {
+        return warehouseOperationsApi.undo(companyId, id);
+      }
+      if (patch.status === 'cancelled') {
+        throw new Error(
+          'لا يمكن إلغاء عملية منتهية (done → cancelled). استخدم التراجع عن التصديق أولاً.',
+        );
+      }
+      throw new Error(
+        'لا يمكن تعديل عملية منتهية (done). للتراجع استخدم «تراجع عن التصديق» (POST …/undo).',
+      );
+    }
+
+    const linesBefore = await fetchLinesByOperationId(id);
+    const before = mapOperation(rawDto, linesBefore);
 
     const headerPatch: Record<string, unknown> = {};
     if (patch.destinationWarehouseId !== undefined) {
@@ -348,7 +384,7 @@ export const warehouseOperationsApi: AdminWarehouseOperationsPort = {
       lines = await syncLines(id, patch.lines);
     }
 
-    let dto: OperationDto = before as unknown as OperationDto;
+    let dto: OperationDto = rawDto;
     if (Object.keys(headerPatch).length > 0) {
       dto = await apiRequest<OperationDto>(`/inventory/warehouse-operations/${id}`, {
         method: 'PATCH',
@@ -358,18 +394,22 @@ export const warehouseOperationsApi: AdminWarehouseOperationsPort = {
 
     const normalized = mapOperation(dto, lines);
 
-    const wasDone = before.status === 'done';
-    const nowDone = normalized.status === 'done';
-    const stock = await stockService();
-
-    if (!wasDone && nowDone) {
+    // Validate → done: apply stock client-side (ledger + cache). Undo uses backend POST …/undo.
+    if (normalized.status === 'done') {
+      const stock = await stockService();
       await stock.applyDoneOperation(normalized);
-    }
-    if (wasDone && !nowDone) {
-      await stock.reverseDoneOperation(before);
     }
 
     return normalized;
+  },
+
+  async undo(_companyId, id) {
+    const dto = await apiRequest<OperationDto>(`/inventory/warehouse-operations/${id}/undo`, {
+      method: 'POST',
+    });
+    const lines = await fetchLinesByOperationId(id);
+    // Backend writes reverse ledger rows and refreshes quantityCache; do not reverse again client-side.
+    return mapOperation(dto, lines);
   },
 
   async remove(_companyId, id) {
