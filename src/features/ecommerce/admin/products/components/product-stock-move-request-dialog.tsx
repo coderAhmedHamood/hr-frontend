@@ -11,7 +11,11 @@ import { warehouseOperationsQueryKeys } from '@/features/inventory/admin/hooks/q
 import { REPLENISHMENT_SOURCE_DOCUMENT } from '@/features/ecommerce/admin/products/constants/replenishment';
 import { WAREHOUSE_OPERATION_KIND_META } from '@/features/inventory/domain/constants/warehouse-operation-kinds';
 import type { ProductFormInput } from '@/features/ecommerce/admin/products/schemas/product-schema';
-import type { WarehouseOperationKind } from '@/features/inventory/domain/types/warehouse';
+import type {
+  WarehouseLocation,
+  WarehouseLocationType,
+  WarehouseOperationKind,
+} from '@/features/inventory/domain/types/warehouse';
 import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -54,12 +58,48 @@ type DraftLine = {
   quantity: number;
 };
 
+const LOCATION_TYPE_LABEL_AR: Record<WarehouseLocationType, string> = {
+  internal: 'داخلي',
+  view: 'عرض',
+  supplier: 'مورد',
+  customer: 'عميل',
+  inventory: 'جرد',
+  production: 'إنتاج',
+  transit: 'عبور',
+};
+
+/** Locations that can hold / receive stock for move requests. */
+const STOCKABLE_LOCATION_TYPES = new Set<WarehouseLocationType>([
+  'internal',
+  'inventory',
+  'transit',
+  'production',
+  'supplier',
+]);
+
 function newLineId() {
   return `opl-${Math.random().toString(36).slice(2, 9)}`;
 }
 
 function activeVariants(variants: VariantRow[]): VariantRow[] {
   return variants.filter((variant) => variant.isActive !== false);
+}
+
+function formatLocationLabel(location: WarehouseLocation): string {
+  const typeLabel = LOCATION_TYPE_LABEL_AR[location.locationType] ?? location.locationType;
+  const name = location.nameAr?.trim() || location.code;
+  return `${name} · ${location.code} (${typeLabel})`;
+}
+
+function pickDefaultLocationId(locations: WarehouseLocation[], preferredId?: string): string {
+  if (preferredId && locations.some((location) => location.id === preferredId)) {
+    return preferredId;
+  }
+  const stock =
+    locations.find((location) => /\/?stock$/i.test(location.code) || /stock/i.test(location.code)) ??
+    locations.find((location) => location.locationType === 'internal') ??
+    locations[0];
+  return stock?.id ?? '';
 }
 
 function buildProductLine(productNameAr: string, productSku: string): DraftLine {
@@ -110,17 +150,25 @@ export function ProductStockMoveRequestDialog({
   const { data: locationsData } = useWarehouseLocations({
     companyId,
     warehouseId: warehouseId || undefined,
-    limit: 200,
+    limit: 500,
   });
-  const locations = (locationsData?.items ?? []).filter(
-    (location) => location.warehouseId === warehouseId && location.locationType === 'internal',
+  const locations = React.useMemo(
+    () =>
+      (locationsData?.items ?? []).filter(
+        (location) =>
+          location.warehouseId === warehouseId &&
+          location.isActive &&
+          STOCKABLE_LOCATION_TYPES.has(location.locationType),
+      ),
+    [locationsData?.items, warehouseId],
   );
 
   React.useEffect(() => {
     if (!open) return;
     const firstWarehouse = warehouses[0]?.id ?? '';
-    setWarehouseId((prev) => prev || firstWarehouse);
-    // Default: product-only when no variants; otherwise start on variants (user can switch).
+    setWarehouseId(firstWarehouse);
+    setLocationId('');
+    setToLocationId('');
     const initialMode: StockLineMode = hasVariants ? 'variants' : 'product';
     setStockMode(initialMode);
     setLines(
@@ -132,12 +180,20 @@ export function ProductStockMoveRequestDialog({
 
   React.useEffect(() => {
     if (!open || !warehouseId) return;
-    const stockLoc =
-      locations.find((location) => location.code?.toLowerCase().includes('stock')) ?? locations[0];
-    setLocationId(stockLoc?.id ?? '');
-    const second =
-      locations.find((location) => location.id !== stockLoc?.id) ?? locations[0];
-    setToLocationId(second?.id ?? stockLoc?.id ?? '');
+    if (locations.length === 0) {
+      setLocationId('');
+      setToLocationId('');
+      return;
+    }
+    setLocationId((prev) => pickDefaultLocationId(locations, prev));
+    setToLocationId((prev) => {
+      const keep = prev && locations.some((location) => location.id === prev) ? prev : '';
+      if (keep) return keep;
+      const fromId = pickDefaultLocationId(locations);
+      const other =
+        locations.find((location) => location.id !== fromId) ?? locations[0];
+      return other?.id ?? fromId;
+    });
   }, [open, warehouseId, locations]);
 
   function applyStockMode(mode: StockLineMode) {
@@ -149,12 +205,20 @@ export function ProductStockMoveRequestDialog({
     );
   }
 
+  function handleWarehouseChange(nextWarehouseId: string) {
+    setWarehouseId(nextWarehouseId);
+    setLocationId('');
+    setToLocationId('');
+  }
+
   const kindMeta = WAREHOUSE_OPERATION_KIND_META[kind];
   const stockEffect = kindMeta.stockEffect;
   const title = kindMeta.createLabel;
   const Icon =
     stockEffect === 'inbound' ? RefreshCw : stockEffect === 'outbound' ? PackageMinus : ArrowLeftRight;
   const hasQty = lines.some((line) => line.quantity > 0);
+  const needsFrom = stockEffect === 'outbound' || stockEffect === 'move' || stockEffect === 'transfer';
+  const needsTo = stockEffect === 'inbound' || stockEffect === 'move' || stockEffect === 'transfer';
 
   async function handleSubmit() {
     if (!companyId) return;
@@ -166,12 +230,32 @@ export function ProductStockMoveRequestDialog({
       toast.error('اختر المستودع.');
       return;
     }
+    if (needsFrom && !locationId) {
+      toast.error(
+        stockEffect === 'outbound' ? 'اختر موقع الصرف.' : 'اختر موقع المصدر (من موقع).',
+      );
+      return;
+    }
+    if (needsTo && !(stockEffect === 'move' || stockEffect === 'transfer' ? toLocationId : locationId)) {
+      toast.error(
+        stockEffect === 'inbound' ? 'اختر موقع الاستلام.' : 'اختر الموقع الوجهة (إلى موقع).',
+      );
+      return;
+    }
     if (!hasQty) {
       toast.error('أدخل كمية لسطر واحد على الأقل.');
       return;
     }
 
-    if (stockEffect === 'move' && locationId && toLocationId && locationId === toLocationId) {
+    const fromId = needsFrom ? locationId : undefined;
+    const toId =
+      stockEffect === 'inbound'
+        ? locationId
+        : stockEffect === 'move' || stockEffect === 'transfer'
+          ? toLocationId
+          : undefined;
+
+    if (stockEffect === 'move' && fromId && toId && fromId === toId) {
       toast.error('اختر موقعين مختلفين للحركة الداخلية.');
       return;
     }
@@ -190,14 +274,8 @@ export function ProductStockMoveRequestDialog({
         variantId: stockMode === 'product' ? undefined : (line.variantId ?? undefined),
         demandQuantity: line.quantity,
         quantity: line.quantity,
-        ...(stockEffect === 'inbound'
-          ? { toLocationId: locationId || undefined }
-          : stockEffect === 'outbound'
-            ? { fromLocationId: locationId || undefined }
-            : {
-                fromLocationId: locationId || undefined,
-                toLocationId: toLocationId || undefined,
-              }),
+        ...(fromId ? { fromLocationId: fromId } : {}),
+        ...(toId ? { toLocationId: toId } : {}),
       }));
 
     if (stockMode === 'variants' && opLines.some((line) => !line.variantId)) {
@@ -252,7 +330,7 @@ export function ProductStockMoveRequestDialog({
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label>المستودع</Label>
-              <Select value={warehouseId || undefined} onValueChange={setWarehouseId}>
+              <Select value={warehouseId || undefined} onValueChange={handleWarehouseChange}>
                 <SelectTrigger aria-label="المستودع">
                   <SelectValue placeholder="اختر مستودعًا" />
                 </SelectTrigger>
@@ -265,51 +343,97 @@ export function ProductStockMoveRequestDialog({
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5">
-              <Label>
-                {stockEffect === 'inbound'
-                  ? 'موقع الاستلام'
-                  : stockEffect === 'outbound'
-                    ? 'موقع الصرف'
-                    : 'من موقع'}
-              </Label>
-              <Select
-                value={locationId || undefined}
-                onValueChange={setLocationId}
-                disabled={!warehouseId || locations.length === 0}
-              >
-                <SelectTrigger aria-label="الموقع">
-                  <SelectValue placeholder="اختياري" />
-                </SelectTrigger>
-                <SelectContent>
-                  {locations.map((location) => (
-                    <SelectItem key={location.id} value={location.id}>
-                      {location.nameAr}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {stockEffect === 'move' ? (
-              <div className="space-y-1.5 sm:col-span-2">
-                <Label>إلى موقع</Label>
+
+            {stockEffect === 'inbound' ? (
+              <div className="space-y-1.5">
+                <Label>موقع الاستلام</Label>
                 <Select
-                  value={toLocationId || undefined}
-                  onValueChange={setToLocationId}
+                  value={locationId || undefined}
+                  onValueChange={setLocationId}
                   disabled={!warehouseId || locations.length === 0}
                 >
-                  <SelectTrigger aria-label="إلى موقع">
-                    <SelectValue placeholder="اختر الموقع الهدف" />
+                  <SelectTrigger aria-label="موقع الاستلام">
+                    <SelectValue placeholder="اختر موقع الاستلام" />
                   </SelectTrigger>
                   <SelectContent>
                     {locations.map((location) => (
                       <SelectItem key={location.id} value={location.id}>
-                        {location.nameAr}
+                        {formatLocationLabel(location)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {warehouseId && locations.length === 0 ? (
+                  <p className="text-xs text-destructive">لا توجد مواقع نشطة في هذا المستودع.</p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">اختر الموقع الذي ستُضاف إليه الكمية بعد التصديق.</p>
+                )}
+              </div>
+            ) : null}
+
+            {stockEffect === 'outbound' ? (
+              <div className="space-y-1.5">
+                <Label>موقع الصرف</Label>
+                <Select
+                  value={locationId || undefined}
+                  onValueChange={setLocationId}
+                  disabled={!warehouseId || locations.length === 0}
+                >
+                  <SelectTrigger aria-label="موقع الصرف">
+                    <SelectValue placeholder="اختر موقع الصرف" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {locations.map((location) => (
+                      <SelectItem key={location.id} value={location.id}>
+                        {formatLocationLabel(location)}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
+            ) : null}
+
+            {stockEffect === 'move' || stockEffect === 'transfer' ? (
+              <>
+                <div className="space-y-1.5">
+                  <Label>من موقع</Label>
+                  <Select
+                    value={locationId || undefined}
+                    onValueChange={setLocationId}
+                    disabled={!warehouseId || locations.length === 0}
+                  >
+                    <SelectTrigger aria-label="من موقع">
+                      <SelectValue placeholder="اختر موقع المصدر" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {locations.map((location) => (
+                        <SelectItem key={location.id} value={location.id}>
+                          {formatLocationLabel(location)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>إلى موقع</Label>
+                  <Select
+                    value={toLocationId || undefined}
+                    onValueChange={setToLocationId}
+                    disabled={!warehouseId || locations.length === 0}
+                  >
+                    <SelectTrigger aria-label="إلى موقع">
+                      <SelectValue placeholder="اختر الموقع الوجهة" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {locations.map((location) => (
+                        <SelectItem key={location.id} value={location.id}>
+                          {formatLocationLabel(location)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
             ) : null}
           </div>
 
@@ -380,7 +504,18 @@ export function ProductStockMoveRequestDialog({
         </div>
 
         <DialogFooter className="shrink-0 gap-2 border-t border-border px-6 py-4 sm:justify-start">
-          <Button type="button" onClick={() => void handleSubmit()} disabled={saving || !hasQty}>
+          <Button
+            type="button"
+            onClick={() => void handleSubmit()}
+            disabled={
+              saving ||
+              !hasQty ||
+              !warehouseId ||
+              (needsFrom && !locationId) ||
+              (needsTo &&
+                !(stockEffect === 'move' || stockEffect === 'transfer' ? toLocationId : locationId))
+            }
+          >
             {saving ? 'جاري الإنشاء…' : kindMeta.createLabel}
           </Button>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>

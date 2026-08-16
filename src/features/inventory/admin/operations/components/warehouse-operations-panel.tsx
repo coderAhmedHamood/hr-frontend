@@ -760,7 +760,8 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
                       <SelectContent>
                         {locations.map((location) => (
                           <SelectItem key={location.id} value={location.id}>
-                            {location.nameAr}
+                            {location.nameAr || location.code}
+                            {location.code ? ` · ${location.code}` : ''}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -792,7 +793,8 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
                       <SelectContent>
                         {toLocations.map((location) => (
                           <SelectItem key={location.id} value={location.id}>
-                            {location.nameAr}
+                            {location.nameAr || location.code}
+                            {location.code ? ` · ${location.code}` : ''}
                           </SelectItem>
                         ))}
                       </SelectContent>

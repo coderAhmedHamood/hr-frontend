@@ -25,6 +25,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   Dialog,
   DialogContent,
   DialogFooter,
@@ -108,12 +115,22 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
     companyId,
     warehouseId: operation?.warehouseId,
     page: 1,
-    limit: 200,
+    limit: 500,
   });
+  const locations = React.useMemo(
+    () => (locationsData?.items ?? []).filter((item) => item.isActive),
+    [locationsData?.items],
+  );
   const locationName = React.useMemo(() => {
-    const map = new Map((locationsData?.items ?? []).map((item) => [item.id, item.nameAr]));
+    const map = new Map(locations.map((item) => [item.id, item.nameAr || item.code]));
     return (id?: string) => (id ? (map.get(id) ?? id) : '—');
-  }, [locationsData?.items]);
+  }, [locations]);
+
+  const formatLocationOption = React.useCallback((id: string) => {
+    const loc = locations.find((item) => item.id === id);
+    if (!loc) return id;
+    return `${loc.nameAr || loc.code} · ${loc.code}`;
+  }, [locations]);
 
   const [lines, setLines] = React.useState<WarehouseOperationLine[]>([]);
   const [notes, setNotes] = React.useState('');
@@ -122,6 +139,8 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
   const [occurredAt, setOccurredAt] = React.useState('');
   const [status, setStatus] = React.useState<WarehouseOperationStatus>('draft');
   const [tab, setTab] = React.useState('operations');
+  const [headerFromLocationId, setHeaderFromLocationId] = React.useState('');
+  const [headerToLocationId, setHeaderToLocationId] = React.useState('');
 
   React.useEffect(() => {
     if (!open || !operation) return;
@@ -138,6 +157,9 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
     setOccurredAt(operation.occurredAt.slice(0, 16));
     setStatus(operation.status);
     setTab('operations');
+    const first = operation.lines[0];
+    setHeaderFromLocationId(first?.fromLocationId ?? '');
+    setHeaderToLocationId(first?.toLocationId ?? '');
   }, [open, operation]);
 
   if (!operation) return null;
@@ -145,19 +167,20 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
   const editable = status === 'draft' || status === 'ready';
   const qtyEditable = status === 'draft' || status === 'ready';
   const isSaving = update.isPending;
+  const meta = WAREHOUSE_OPERATION_KIND_META[kind];
+  const needsFrom = meta.needsFrom;
+  const needsTo = meta.needsTo;
 
   const destinationLabel = (() => {
-    const meta = WAREHOUSE_OPERATION_KIND_META[kind];
-    if (meta.stockEffect === 'inbound' || meta.stockEffect === 'adjust_set') return 'الموقع الوجهة';
+    if (meta.stockEffect === 'inbound' || meta.stockEffect === 'adjust_set') return 'موقع الاستلام';
     if (meta.stockEffect === 'outbound') return 'موقع الصرف';
-    if (meta.stockEffect === 'transfer') return 'من ← إلى';
+    if (meta.stockEffect === 'transfer' || meta.stockEffect === 'move') return 'من ← إلى';
     return 'المواقع';
   })();
 
   const destinationValue = (() => {
     const line = lines[0] ?? operation.lines[0];
     if (!line) return '—';
-    const meta = WAREHOUSE_OPERATION_KIND_META[kind];
     if (meta.stockEffect === 'inbound' || meta.stockEffect === 'adjust_set') {
       return locationName(line.toLocationId);
     }
@@ -349,7 +372,68 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
               </div>
               <div className="space-y-1.5">
                 <Label>{destinationLabel}</Label>
-                <Input value={destinationValue} disabled dir="ltr" />
+                {editable && (needsFrom || needsTo) ? (
+                  <div className="grid gap-2">
+                    {needsFrom ? (
+                      <Select
+                        value={headerFromLocationId || undefined}
+                        onValueChange={(value) => {
+                          setHeaderFromLocationId(value);
+                          setLines((prev) =>
+                            prev.map((line) => ({
+                              ...line,
+                              fromLocationId: value || undefined,
+                              ...(needsTo
+                                ? { toLocationId: headerToLocationId || line.toLocationId }
+                                : {}),
+                            })),
+                          );
+                        }}
+                      >
+                        <SelectTrigger aria-label="من موقع">
+                          <SelectValue placeholder="اختر موقع المصدر" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {locations.map((location) => (
+                            <SelectItem key={location.id} value={location.id}>
+                              {formatLocationOption(location.id)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : null}
+                    {needsTo ? (
+                      <Select
+                        value={headerToLocationId || undefined}
+                        onValueChange={(value) => {
+                          setHeaderToLocationId(value);
+                          setLines((prev) =>
+                            prev.map((line) => ({
+                              ...line,
+                              toLocationId: value || undefined,
+                              ...(needsFrom
+                                ? { fromLocationId: headerFromLocationId || line.fromLocationId }
+                                : {}),
+                            })),
+                          );
+                        }}
+                      >
+                        <SelectTrigger aria-label="إلى موقع / الاستلام">
+                          <SelectValue placeholder="اختر موقع الاستلام" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {locations.map((location) => (
+                            <SelectItem key={location.id} value={location.id}>
+                              {formatLocationOption(location.id)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : null}
+                  </div>
+                ) : (
+                  <Input value={destinationValue} disabled dir="ltr" />
+                )}
               </div>
             </div>
             <div className="space-y-3">
