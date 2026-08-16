@@ -184,9 +184,9 @@ Do not treat empty lists as errors: user with no `user_branches` and no `isAllBr
 ## 8. Migration / rollout checklist (FE + BE)
 
 - [ ] Run DB migration `1783373644666-roles-is-all-branches`
-- [ ] Update Role forms to show `isAllBranches`
-- [ ] Update Access Profile typing to include `roles[].isAllBranches`
-- [ ] Pass `companyId` on all warehouse-scoped list calls
+- [x] Update Role forms to show `isAllBranches`
+- [x] Update Access Profile typing to include `roles[].isAllBranches`
+- [x] Pass `companyId` on all warehouse-scoped list calls
 - [ ] Ensure demo/admin users who previously saw all warehouses either:
   - get `isAllBranches` on their inventory role, **or**
   - get explicit `user_branches` for every branch they need

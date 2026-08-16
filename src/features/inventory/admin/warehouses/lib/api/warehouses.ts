@@ -24,6 +24,7 @@ function mapWarehouse(dto: WarehouseDto): Warehouse {
     nameEn: dto.nameEn ?? undefined,
     description: dto.description ?? undefined,
     address: dto.address ?? undefined,
+    branchId: dto.branchId ?? null,
     status: dto.status,
     incomingSteps: dto.incomingSteps,
     outgoingSteps: dto.outgoingSteps,
@@ -41,6 +42,7 @@ function toCreateBody(input: CreateWarehouseInput) {
     nameEn: input.nameEn ?? null,
     description: input.description ?? null,
     address: input.address ?? null,
+    branchId: input.branchId === undefined ? undefined : input.branchId,
     status: input.status,
     incomingSteps: input.incomingSteps,
     outgoingSteps: input.outgoingSteps,
@@ -55,6 +57,7 @@ function toUpdateBody(patch: UpdateWarehouseInput) {
   if (patch.nameEn !== undefined) body.nameEn = patch.nameEn ?? null;
   if (patch.description !== undefined) body.description = patch.description ?? null;
   if (patch.address !== undefined) body.address = patch.address ?? null;
+  if (patch.branchId !== undefined) body.branchId = patch.branchId;
   if (patch.status !== undefined) body.status = patch.status;
   if (patch.incomingSteps !== undefined) body.incomingSteps = patch.incomingSteps;
   if (patch.outgoingSteps !== undefined) body.outgoingSteps = patch.outgoingSteps;
@@ -64,9 +67,13 @@ function toUpdateBody(patch: UpdateWarehouseInput) {
 
 export const warehousesApi: AdminWarehousesPort = {
   async getAll(query: WarehouseListQuery) {
+    if (!query.companyId?.trim()) {
+      throw new Error('companyId مطلوب لقائمة المستودعات.');
+    }
     const result = await apiRequest<PaginatedResult<WarehouseDto>>('/inventory/warehouses', {
       query: {
         companyId: query.companyId,
+        branchId: query.branchId,
         search: query.search,
         page: query.page ?? 1,
         limit: query.limit ?? 200,

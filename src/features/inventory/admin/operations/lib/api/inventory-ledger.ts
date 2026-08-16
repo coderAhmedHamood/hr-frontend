@@ -36,6 +36,9 @@ function mapEntry(dto: LedgerDto): InventoryLedgerEntry {
 
 export const inventoryLedgerApi = {
   async list(query: InventoryLedgerListQuery) {
+    if (!query.companyId?.trim()) {
+      throw new Error('companyId مطلوب لقائمة قيود المخزون.');
+    }
     const result = await apiRequest<PaginatedResult<LedgerDto>>('/inventory/ledger-entries', {
       query: {
         companyId: query.companyId,

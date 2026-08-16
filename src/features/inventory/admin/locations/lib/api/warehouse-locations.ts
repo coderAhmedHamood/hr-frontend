@@ -90,6 +90,9 @@ function toUpdateBody(patch: UpdateWarehouseLocationInput) {
 
 export const warehouseLocationsApi: AdminWarehouseLocationsPort = {
   async getAll(query: WarehouseLocationListQuery) {
+    if (!query.companyId?.trim()) {
+      throw new Error('companyId مطلوب لقائمة مواقع المستودع.');
+    }
     const result = await apiRequest<PaginatedResult<WarehouseLocationDto>>(
       '/inventory/warehouse-locations',
       {

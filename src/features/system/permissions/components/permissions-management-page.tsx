@@ -118,6 +118,7 @@ export function PermissionsManagementPage() {
         applicationId: loaded.applicationId || resolveDefaultApplicationId(applications),
         permissionIds: loaded.permissionIds,
         color: coercePermissionRoleColorToken('primary'),
+        isAllBranches: loaded.isAllBranches,
       });
     } catch (err) {
       handleApiError(err, 'roles.loadForEdit');
@@ -136,6 +137,7 @@ export function PermissionsManagementPage() {
           description: values.description,
           applicationId: values.applicationId,
           permissionIds: values.permissionIds,
+          isAllBranches: values.isAllBranches,
         });
         toast.success('تم تحديث الدور والصلاحيات بنجاح');
       } else {
@@ -144,6 +146,7 @@ export function PermissionsManagementPage() {
           description: values.description,
           applicationId: values.applicationId,
           permissionIds: values.permissionIds,
+          isAllBranches: values.isAllBranches,
         });
         toast.success('تم إنشاء الدور وربط الصلاحيات بنجاح');
       }

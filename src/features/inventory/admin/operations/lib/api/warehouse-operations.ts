@@ -96,7 +96,7 @@ async function fetchLinesForOperations(
   if (operationIds.length <= 8) {
     await Promise.all(
       operationIds.map(async (operationId) => {
-        map.set(operationId, await fetchLinesByOperationId(operationId));
+        map.set(operationId, await fetchLinesByOperationId(operationId, companyId));
       }),
     );
     return map;
@@ -124,11 +124,15 @@ async function fetchLinesForOperations(
   return map;
 }
 
-async function fetchLinesByOperationId(operationId: string): Promise<WarehouseOperationLine[]> {
+async function fetchLinesByOperationId(
+  operationId: string,
+  companyId: string,
+): Promise<WarehouseOperationLine[]> {
   const result = await apiRequest<PaginatedResult<OperationLineDto>>(
     '/inventory/warehouse-operation-lines',
     {
       query: {
+        companyId,
         operationId,
         page: 1,
         limit: 500,
@@ -160,9 +164,10 @@ async function createLine(operationId: string, line: WarehouseOperationLine): Pr
 
 async function syncLines(
   operationId: string,
+  companyId: string,
   nextLines: WarehouseOperationLine[],
 ): Promise<WarehouseOperationLine[]> {
-  const existing = await fetchLinesByOperationId(operationId);
+  const existing = await fetchLinesByOperationId(operationId, companyId);
   const existingById = new Map(existing.map((line) => [line.id, line]));
   const keepIds = new Set(nextLines.map((line) => line.id).filter((id) => existingById.has(id)));
 
@@ -221,6 +226,9 @@ function isLineUnchanged(prev: WarehouseOperationLine, next: WarehouseOperationL
 
 export const warehouseOperationsApi: AdminWarehouseOperationsPort = {
   async getAll(query: WarehouseOperationListQuery) {
+    if (!query.companyId?.trim()) {
+      throw new Error('companyId مطلوب لقائمة عمليات المستودع.');
+    }
     const result = await apiRequest<PaginatedResult<OperationDto>>('/inventory/warehouse-operations', {
       query: {
         companyId: query.companyId,
@@ -263,11 +271,11 @@ export const warehouseOperationsApi: AdminWarehouseOperationsPort = {
     };
   },
 
-  async getById(_companyId, id) {
+  async getById(companyId, id) {
     try {
       const dto = await apiRequest<OperationDto>(`/inventory/warehouse-operations/${id}`);
       if (!dto?.id) return null;
-      const lines = await fetchLinesByOperationId(id);
+      const lines = await fetchLinesByOperationId(id, companyId || dto.companyId);
       return mapOperation(dto, lines);
     } catch {
       return null;
@@ -354,7 +362,7 @@ export const warehouseOperationsApi: AdminWarehouseOperationsPort = {
       );
     }
 
-    const linesBefore = await fetchLinesByOperationId(id);
+    const linesBefore = await fetchLinesByOperationId(id, companyId || rawDto.companyId);
     const before = mapOperation(rawDto, linesBefore);
 
     const headerPatch: Record<string, unknown> = {};
@@ -381,7 +389,7 @@ export const warehouseOperationsApi: AdminWarehouseOperationsPort = {
           `لا يمكن تعديل بنود عملية بحالة "${before.status}". احفظ البنود قبل التصديق.`,
         );
       }
-      lines = await syncLines(id, patch.lines);
+      lines = await syncLines(id, companyId || rawDto.companyId, patch.lines);
     }
 
     let dto: OperationDto = rawDto;
@@ -403,11 +411,11 @@ export const warehouseOperationsApi: AdminWarehouseOperationsPort = {
     return normalized;
   },
 
-  async undo(_companyId, id) {
+  async undo(companyId, id) {
     const dto = await apiRequest<OperationDto>(`/inventory/warehouse-operations/${id}/undo`, {
       method: 'POST',
     });
-    const lines = await fetchLinesByOperationId(id);
+    const lines = await fetchLinesByOperationId(id, companyId || dto.companyId);
     // Backend writes reverse ledger rows and refreshes quantityCache; do not reverse again client-side.
     return mapOperation(dto, lines);
   },

@@ -122,6 +122,9 @@ function mapListItem(dto: InventoryStockListDto): InventoryStockListItem {
  */
 export const inventoryStockApi = {
   async list(query: InventoryStockListQuery): Promise<InventoryStockListResult> {
+    if (!query.companyId?.trim()) {
+      throw new Error('companyId مطلوب لقائمة المخزون.');
+    }
     const result = await apiRequest<PaginatedResult<InventoryStockListDto>>('/inventory/stock', {
       query: {
         companyId: query.companyId,

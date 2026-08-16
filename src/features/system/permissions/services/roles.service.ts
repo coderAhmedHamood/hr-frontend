@@ -46,6 +46,8 @@ export type RoleFormData = {
   permissionIds: string[];
   companyId: string;
   applicationId: string;
+  /** Inventory roles only — company-wide warehouse visibility. */
+  isAllBranches?: boolean;
   /** Optional actor label for bulk permission links */
   createdBy?: string | null;
 };
@@ -60,6 +62,7 @@ export async function createRoleWithPermissions(
     description: data.description || undefined,
     companyId: data.companyId,
     applicationId: data.applicationId,
+    isAllBranches: data.isAllBranches ?? false,
   });
 
   if (data.permissionIds.length > 0) {
@@ -70,10 +73,14 @@ export async function createRoleWithPermissions(
 
 export async function updateRoleWithPermissions(
   roleId: string,
-  data: Pick<RoleFormData, 'name' | 'description' | 'permissionIds' | 'createdBy'>,
+  data: Pick<RoleFormData, 'name' | 'description' | 'permissionIds' | 'createdBy' | 'isAllBranches'>,
 ): Promise<RoleResponseDto> {
   const [role, currentResult] = await Promise.all([
-    rolesApi.update(roleId, { nameAr: data.name, description: data.description || undefined }),
+    rolesApi.update(roleId, {
+      nameAr: data.name,
+      description: data.description || undefined,
+      ...(data.isAllBranches !== undefined ? { isAllBranches: data.isAllBranches } : {}),
+    }),
     rolesApi.getPermissions(roleId),
   ]);
 
@@ -100,6 +107,7 @@ export type RoleForEdit = {
   name: string;
   description: string;
   permissionIds: string[];
+  isAllBranches: boolean;
 };
 
 export async function loadRoleForEdit(roleId: string): Promise<RoleForEdit> {
@@ -114,6 +122,7 @@ export async function loadRoleForEdit(roleId: string): Promise<RoleForEdit> {
     name: role.nameAr ?? role.name ?? '',
     description: role.description ?? '',
     permissionIds: (permsResult.items ?? []).map((p) => p.permissionId),
+    isAllBranches: role.isAllBranches === true,
   };
 }
 

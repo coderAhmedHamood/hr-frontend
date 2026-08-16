@@ -1,9 +1,16 @@
 'use client';
 
 import * as React from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { getInventoryCompanyId } from '@/features/inventory/lib/company-id';
+import { ACCESS_PROFILE_KEY } from '@/features/auth/hooks/use-access-profile';
+import { useInventoryBranchScope } from '@/features/inventory/lib/use-inventory-branch-scope';
+import { useAuthStore } from '@/features/auth/lib/auth-store';
+import {
+  getBranchAccessLabel,
+  resolveInventoryBranchScope,
+} from '@/features/auth/types/access-profile';
 import { useWarehouseMutations } from '@/features/inventory/admin/warehouses/hooks/use-warehouse-mutations';
 import {
   INCOMING_STEP_OPTIONS,
@@ -29,6 +36,8 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/shared/utils';
 
+const NONE_VALUE = '__none__';
+
 type Props = {
   warehouse?: Warehouse | null;
   open: boolean;
@@ -40,6 +49,7 @@ function toFormValues(warehouse: Warehouse): WarehouseFormValues {
     code: warehouse.code,
     nameAr: warehouse.nameAr,
     address: warehouse.address ?? '',
+    branchId: warehouse.branchId ?? '',
     status: warehouse.status,
     incomingSteps: warehouse.incomingSteps ?? 1,
     outgoingSteps: warehouse.outgoingSteps ?? 1,
@@ -48,8 +58,22 @@ function toFormValues(warehouse: Warehouse): WarehouseFormValues {
 }
 
 export function WarehouseFormDialog({ warehouse, open, onOpenChange }: Props) {
-  const companyId = getInventoryCompanyId();
+  const queryClient = useQueryClient();
+  const userId = useAuthStore((s) => s.user?.id);
   const { create, update } = useWarehouseMutations();
+  const {
+    companyId,
+    hasAllBranchAccess,
+    allowedBranchIds,
+  } = useInventoryBranchScope();
+  const accessProfile = useAuthStore((s) => s.accessProfile);
+  const company = accessProfile?.companies.find((c) => c.companyId === companyId);
+  const branchOptions = React.useMemo(() => {
+    const branches = company?.branches ?? [];
+    if (hasAllBranchAccess) return branches;
+    return branches.filter((b) => allowedBranchIds.includes(b.branchId));
+  }, [company?.branches, hasAllBranchAccess, allowedBranchIds]);
+
   const isEditing = Boolean(warehouse);
   const isSaving = create.isPending || update.isPending;
 
@@ -58,18 +82,67 @@ export function WarehouseFormDialog({ warehouse, open, onOpenChange }: Props) {
     defaultValues: WAREHOUSE_FORM_DEFAULT_VALUES,
   });
 
+  // Access profile caches assigned branches — refresh when opening create/edit
+  // so newly assigned user_branches appear without a full re-login.
+  React.useEffect(() => {
+    if (!open || !userId) return;
+    void queryClient.invalidateQueries({ queryKey: [...ACCESS_PROFILE_KEY, userId] });
+  }, [open, queryClient, userId]);
+
   React.useEffect(() => {
     if (!open) return;
-    form.reset(warehouse ? toFormValues(warehouse) : WAREHOUSE_FORM_DEFAULT_VALUES);
+    if (warehouse) {
+      form.reset(toFormValues(warehouse));
+      return;
+    }
+    // Branch is optional on create — leave unset (null/central on save).
+    form.reset({
+      ...WAREHOUSE_FORM_DEFAULT_VALUES,
+      branchId: '',
+    });
   }, [open, warehouse, form]);
 
   const onSubmit = async (values: WarehouseFormValues) => {
     if (!companyId) return;
+    const raw = (values.branchId ?? '').trim();
+    const branchId: string | null =
+      !raw || raw === NONE_VALUE ? null : raw;
+
+    // Refresh access profile so a newly toggled role.isAllBranches is visible.
+    if (userId) {
+      await queryClient.refetchQueries({ queryKey: [...ACCESS_PROFILE_KEY, userId] });
+    }
+    const freshCompany =
+      useAuthStore.getState().accessProfile?.companies.find((c) => c.companyId === companyId)
+      ?? null;
+    const freshScope = resolveInventoryBranchScope(freshCompany);
+    const canCreateCentral = freshScope.hasAllBranchAccess;
+
+    // Client hint only when profile clearly lacks the flag. Backend still enforces.
+    if (branchId === null && !canCreateCentral) {
+      form.setError('branchId', {
+        message:
+          'جلسة الدخول لا تُظهر isAllBranches=true على أدوارك (من /auth/access-profile). '
+          + 'تأكد أن الدور مفعّل عليه «كل الفروع» ومُسند لحسابك، ثم سجّل خروجاً ودخولاً. '
+          + 'أو اختر فرعاً يدوياً.',
+      });
+      return;
+    }
+    if (
+      branchId
+      && !freshScope.hasAllBranchAccess
+      && !freshScope.allowedBranchIds.includes(branchId)
+    ) {
+      form.setError('branchId', { message: 'لا تملك صلاحية على هذا الفرع.' });
+      return;
+    }
+
     const payload = {
       companyId,
       code: values.code.trim(),
       nameAr: values.nameAr.trim(),
       address: values.address?.trim() || undefined,
+      branchId,
       status: values.status,
       incomingSteps: values.incomingSteps,
       outgoingSteps: values.outgoingSteps,
@@ -124,6 +197,43 @@ export function WarehouseFormDialog({ warehouse, open, onOpenChange }: Props) {
                 ) : null}
                 <p className="text-xs text-muted-foreground">يُستخدم لإنشاء المواقع التلقائية.</p>
               </div>
+            </EntityFormRow>
+
+            <EntityFormRow label="الفرع" htmlFor="wh-branch">
+              <Controller
+                control={form.control}
+                name="branchId"
+                render={({ field }) => (
+                  <Select
+                    value={field.value && field.value !== '' ? field.value : NONE_VALUE}
+                    onValueChange={(value) =>
+                      field.onChange(value === NONE_VALUE ? '' : value)
+                    }
+                    disabled={isEditing && !hasAllBranchAccess}
+                  >
+                    <SelectTrigger id="wh-branch" aria-label="فرع المستودع" className="max-w-sm">
+                      <SelectValue placeholder="اختياري — بدون فرع = مركزي" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={NONE_VALUE}>بدون فرع (اختياري)</SelectItem>
+                      {branchOptions.map((branch) => (
+                        <SelectItem key={branch.branchId} value={branch.branchId}>
+                          {getBranchAccessLabel(branch)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              {form.formState.errors.branchId ? (
+                <p className="text-xs text-destructive">{form.formState.errors.branchId.message}</p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  {hasAllBranchAccess
+                    ? 'الفرع اختياري. «بدون فرع» = مستودع مركزي (من access profile: isAllBranches).'
+                    : 'لم تظهر «كل الفروع» في جلسة الدخول بعد. المصدر: /auth/access-profile ← roles[].isAllBranches — ليس مجرد مفتاح شاشة الأدوار.'}
+                </p>
+              )}
             </EntityFormRow>
 
             <EntityFormRow label="العنوان" htmlFor="wh-address">
@@ -211,7 +321,7 @@ export function WarehouseFormDialog({ warehouse, open, onOpenChange }: Props) {
           </div>
 
           <DialogFooter className="shrink-0 gap-2 border-t border-border px-6 py-4 sm:justify-start">
-            <Button type="submit" disabled={isSaving || !companyId}>
+            <Button type="submit" disabled={isSaving || !companyId || (!hasAllBranchAccess && branchOptions.length === 0)}>
               {isSaving ? 'جاري الحفظ…' : isEditing ? 'حفظ' : 'إنشاء المستودع'}
             </Button>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>

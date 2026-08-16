@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { SlidePanel, SlidePanelContent } from '@/components/ui/slide-panel';
 import { MinimalDropdown } from '@/components/ui/shared-dialogs';
+import { Switch } from '@/components/ui/switch';
 import {
   PERMISSION_ROLE_COLOR_TOKENS,
   coercePermissionRoleColorToken,
@@ -25,6 +26,8 @@ export type RoleFormValues = {
   /** Permission IDs selected for this role */
   permissionIds: string[];
   color: PermissionRoleColorToken;
+  /** Inventory app roles only — see all company warehouses. */
+  isAllBranches: boolean;
 };
 
 const BLANK: RoleFormValues = {
@@ -33,7 +36,17 @@ const BLANK: RoleFormValues = {
   applicationId: '',
   permissionIds: [],
   color: 'primary',
+  isAllBranches: false,
 };
+
+function isInventoryApplication(
+  app: ApplicationResponseDto | undefined,
+  applicationId: string,
+): boolean {
+  if (!app && !applicationId) return false;
+  const code = (app?.code ?? '').trim().toLowerCase();
+  return code === 'inventory' || code === 'inv' || code === 'warehouse';
+}
 
 type Props = {
   open: boolean;
@@ -82,10 +95,12 @@ export function RoleFormPanel({
       ...prev,
       applicationId,
       permissionIds: [],
+      isAllBranches: false,
     }));
   }
 
   const panelBusy = isLoading || permissionsLoading || (!isEditing && applications.length === 0);
+  const showAllBranchesToggle = isInventoryApplication(selectedApplication, form.applicationId);
 
   return (
     <SlidePanel open={open} onOpenChange={onOpenChange}>
@@ -163,6 +178,26 @@ export function RoleFormPanel({
                 placeholder="وصف مختصر لصلاحيات هذا الدور..."
               />
             </div>
+
+            {showAllBranchesToggle ? (
+              <div className="flex items-start justify-between gap-3 rounded-xl border border-border/70 bg-muted/20 px-3 py-3">
+                <div className="min-w-0 space-y-0.5">
+                  <Label htmlFor="role-all-branches">كل الفروع</Label>
+                  <p className="text-[11px] text-muted-foreground">
+                    يتيح رؤية وإنشاء مستودعات جميع فروع الشركة بما فيها المستودع المركزي. لمديري
+                    المخازن فقط.
+                  </p>
+                </div>
+                <Switch
+                  id="role-all-branches"
+                  checked={form.isAllBranches}
+                  onCheckedChange={(checked) =>
+                    setForm((p) => ({ ...p, isAllBranches: checked }))
+                  }
+                  aria-label="كل الفروع"
+                />
+              </div>
+            ) : null}
 
             <div className="space-y-2">
               <Label>لون الدور</Label>

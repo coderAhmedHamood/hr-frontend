@@ -81,6 +81,9 @@ function toUpdateBody(patch: UpdatePutawayRuleInput) {
 
 export const putawayRulesApi = {
   async getAll(query: PutawayRuleListQuery) {
+    if (!query.companyId?.trim()) {
+      throw new Error('companyId مطلوب لقائمة قواعد التخزين.');
+    }
     const result = await apiRequest<PaginatedResult<PutawayRuleDto>>('/inventory/putaway-rules', {
       query: {
         companyId: query.companyId,

@@ -8,7 +8,9 @@ import { PageHeaderPrimaryButton } from '@/components/layouts/page-header-primar
 import * as React from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { MapPin, Pencil, Plus, Trash2, Warehouse } from 'lucide-react';
-import { getInventoryCompanyId } from '@/features/inventory/lib/company-id';
+import { useInventoryBranchScope } from '@/features/inventory/lib/use-inventory-branch-scope';
+import { useAuthStore } from '@/features/auth/lib/auth-store';
+import { getBranchAccessLabel } from '@/features/auth/types/access-profile';
 import { useWarehouses } from '@/features/inventory/admin/warehouses/hooks/use-warehouses';
 import { useWarehouseMutations } from '@/features/inventory/admin/warehouses/hooks/use-warehouse-mutations';
 import { WarehouseFormDialog } from '@/features/inventory/admin/warehouses/components/warehouse-form-dialog';
@@ -21,6 +23,14 @@ import { Badge } from '@/components/ui/badge';
 import { DataTable, type ColumnDef } from '@/components/ui/data-table';
 import { DirectoryPagedViews, DEFAULT_PAGE_SIZE } from '@/components/ui/paged-list';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { ApiError } from '@/features/hr/lib/api/client';
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -30,14 +40,28 @@ import {
 } from '@/components/ui/dialog';
 
 export function WarehousesListPage() {
-  const companyId = getInventoryCompanyId();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const {
+    companyId,
+    hasAllBranchAccess,
+    allowedBranchIds,
+    activeBranchId,
+    defaultBranchId,
+  } = useInventoryBranchScope();
+  const accessProfile = useAuthStore((s) => s.accessProfile);
+  const company = accessProfile?.companies.find((c) => c.companyId === companyId);
+  const branchOptions = React.useMemo(() => {
+    const branches = company?.branches ?? [];
+    if (hasAllBranchAccess) return branches;
+    return branches.filter((b) => allowedBranchIds.includes(b.branchId));
+  }, [company?.branches, hasAllBranchAccess, allowedBranchIds]);
 
   const search = searchParams.get('q') ?? '';
   const page = Math.max(1, Number(searchParams.get('page')) || 1);
   const pageSize = Number(searchParams.get('pageSize')) || DEFAULT_PAGE_SIZE;
+  const branchFilter = searchParams.get('branchId') ?? '';
 
   const [searchInput, setSearchInput] = React.useState(search);
   const [formState, setFormState] = React.useState<{ open: boolean; warehouse: WarehouseEntity | null }>({
@@ -46,7 +70,12 @@ export function WarehousesListPage() {
   });
   const [toDelete, setToDelete] = React.useState<WarehouseEntity | null>(null);
 
-  function updateParams(next: { q?: string; page?: number; pageSize?: number }) {
+  function updateParams(next: {
+    q?: string;
+    page?: number;
+    pageSize?: number;
+    branchId?: string | null;
+  }) {
     const params = new URLSearchParams(searchParams.toString());
     if (next.q !== undefined) {
       if (next.q) params.set('q', next.q);
@@ -60,9 +89,21 @@ export function WarehousesListPage() {
       if (next.pageSize !== DEFAULT_PAGE_SIZE) params.set('pageSize', String(next.pageSize));
       else params.delete('pageSize');
     }
+    if (next.branchId !== undefined) {
+      if (next.branchId) params.set('branchId', next.branchId);
+      else params.delete('branchId');
+    }
     const qs = params.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   }
+
+  // Pre-select active/default branch once when user is branch-scoped and URL has no filter.
+  React.useEffect(() => {
+    if (branchFilter || hasAllBranchAccess) return;
+    const preferred = activeBranchId || defaultBranchId;
+    if (preferred) updateParams({ branchId: preferred, page: 1 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run when scope settles
+  }, [hasAllBranchAccess, activeBranchId, defaultBranchId]);
 
   const searchRef = React.useRef(search);
   const updateParamsRef = React.useRef(updateParams);
@@ -78,13 +119,16 @@ export function WarehousesListPage() {
     return () => clearTimeout(timeout);
   }, [searchInput]);
 
-  const { data, isLoading, isError } = useWarehouses({
+  const { data, isLoading, isError, error } = useWarehouses({
     companyId,
+    branchId: branchFilter || undefined,
     search: search || undefined,
     page,
     limit: pageSize,
   });
   const { remove } = useWarehouseMutations();
+
+  const canCreate = Boolean(companyId) && (hasAllBranchAccess || branchOptions.length > 0);
 
   usePageHeaderActions(
     () => (
@@ -93,14 +137,14 @@ export function WarehousesListPage() {
         <PageHeaderPrimaryButton
           icon={Plus}
           label="إضافة مستودع"
-          disabled={!companyId}
+          disabled={!canCreate}
           onClick={() => setFormState({ open: true, warehouse: null })}
         >
           إضافة مستودع
         </PageHeaderPrimaryButton>
       </div>
     ),
-    [companyId],
+    [canCreate],
   );
 
   useEntityFilterSlot(
@@ -110,16 +154,53 @@ export function WarehousesListPage() {
         showStatusSection={false}
         showEmployeePicker={false}
         leadingFilters={
-          <EntityFilterSearchField
-            value={searchInput}
-            onChange={setSearchInput}
-            placeholder="ابحث بالاسم أو الرمز…"
-          />
+          <div className="flex flex-wrap items-center gap-2">
+            <EntityFilterSearchField
+              value={searchInput}
+              onChange={setSearchInput}
+              placeholder="ابحث بالاسم أو الرمز…"
+            />
+            {branchOptions.length > 0 || hasAllBranchAccess ? (
+              <Select
+                value={branchFilter || '__all__'}
+                onValueChange={(value) =>
+                  updateParams({ branchId: value === '__all__' ? null : value, page: 1 })
+                }
+              >
+                <SelectTrigger className="h-9 w-44" aria-label="تصفية الفرع">
+                  <SelectValue placeholder="الفرع" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">كل الفروع المسموحة</SelectItem>
+                  {branchOptions.map((branch) => (
+                    <SelectItem key={branch.branchId} value={branch.branchId}>
+                      {getBranchAccessLabel(branch)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : null}
+          </div>
         }
       />
     ),
-    [searchInput],
+    [searchInput, branchFilter, branchOptions, hasAllBranchAccess],
   );
+
+  const branchNameById = React.useMemo(() => {
+    const map = new Map((company?.branches ?? []).map((b) => [b.branchId, getBranchAccessLabel(b)]));
+    return (id?: string | null) => {
+      if (id == null) return 'مركزي';
+      return map.get(id) ?? id.slice(0, 8);
+    };
+  }, [company?.branches]);
+
+  const listErrorMessage =
+    error instanceof ApiError && error.status === 403
+      ? 'لا تملك صلاحية على هذا الفرع.'
+      : error instanceof ApiError && error.status === 400
+        ? 'تعذر تحميل المستودعات — تحقق من اختيار الشركة.'
+        : 'تعذر تحميل المستودعات.';
 
   const columns: ColumnDef<WarehouseEntity>[] = [
     {
@@ -141,6 +222,13 @@ export function WarehousesListPage() {
             </span>
           </span>
         </button>
+      ),
+    },
+    {
+      key: 'branch',
+      title: 'الفرع',
+      render: (row) => (
+        <span className="text-sm text-muted-foreground">{branchNameById(row.branchId)}</span>
       ),
     },
     {
@@ -191,7 +279,7 @@ export function WarehousesListPage() {
     <div className="flex flex-col gap-5">
       <SetPageTitle titleAr="المخازن" iconName="Warehouse" />
 
-      {isError ? <p className="text-sm text-destructive">تعذر تحميل المستودعات.</p> : null}
+      {isError ? <p className="text-sm text-destructive">{listErrorMessage}</p> : null}
 
       <DirectoryPagedViews
         items={data?.items ?? []}
@@ -217,7 +305,11 @@ export function WarehousesListPage() {
             data={rowsPage}
             keyExtractor={(row) => row.id}
             loading={isLoading}
-            emptyText="لا توجد مستودعات بعد. أضف مستودعًا للبدء."
+            emptyText={
+              !hasAllBranchAccess && branchOptions.length === 0
+                ? 'لا توجد فروع معيّنة لحسابك، لذا لا تظهر مستودعات. اطلب تعيين فرع أو صلاحية «كل الفروع».'
+                : 'لا توجد مستودعات بعد. أضف مستودعًا للبدء.'
+            }
           />
         )}
       </DirectoryPagedViews>

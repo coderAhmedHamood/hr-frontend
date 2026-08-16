@@ -75,9 +75,15 @@ export function handleApiError(
     ? duplicateAdvanceNumberMessage()
     : extractApiErrorMessage(envelope, error.message);
 
+  const branchScopeForbidden =
+    isForbidden
+    && /فرع|branch|warehouse.*(scope|access)|خارج نطاق/i.test(rawMessage);
+
   const displayMessage = deviceAuthMessage
     ? deviceAuthMessage
-    : isForbidden
+    : branchScopeForbidden
+      ? 'لا تملك صلاحية على هذا الفرع'
+      : isForbidden
       ? 'ليس لديك صلاحية للوصول إلى هذا المورد'
       : isDuplicateAdvanceNumberError(error)
         ? rawMessage
