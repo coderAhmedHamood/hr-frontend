@@ -75,18 +75,20 @@ export function ProductRelatedDocsSidebar({ chips, activeKey, onSelect }: Props)
                   <span className="block truncate text-[11px] text-muted-foreground">{chip.hint}</span>
                 ) : null}
               </span>
-              <span
-                className={cn(
-                  'inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full px-1.5 text-[10px] font-bold tabular-nums',
-                  active
-                    ? 'bg-primary/15 text-primary'
-                    : chip.count > 0
-                      ? 'bg-primary/10 text-primary'
-                      : 'bg-muted text-muted-foreground',
-                )}
-              >
-                {chip.count}
-              </span>
+              {chip.count != null ? (
+                <span
+                  className={cn(
+                    'inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full px-1.5 text-[10px] font-bold tabular-nums',
+                    active
+                      ? 'bg-primary/15 text-primary'
+                      : chip.count > 0
+                        ? 'bg-primary/10 text-primary'
+                        : 'bg-muted text-muted-foreground',
+                  )}
+                >
+                  {chip.count}
+                </span>
+              ) : null}
               <ChevronLeft className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
             </button>
           );

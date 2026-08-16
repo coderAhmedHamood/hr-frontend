@@ -5,7 +5,11 @@ import type { WarehouseOperationListQuery } from '@/features/inventory/domain/ty
 
 export function useWarehouseOperations(
   query: WarehouseOperationListQuery,
-  options?: { enabled?: boolean },
+  options?: {
+    enabled?: boolean;
+    /** Refetch whenever the query mounts / becomes enabled (e.g. each dialog open). */
+    refetchOnOpen?: boolean;
+  },
 ) {
   return useQuery({
     queryKey: warehouseOperationsQueryKeys.list(query),
@@ -13,5 +17,7 @@ export function useWarehouseOperations(
     enabled:
       Boolean(query.companyId && (query.warehouseId || query.productId || query.kind || query.all)) &&
       (options?.enabled ?? true),
+    staleTime: options?.refetchOnOpen ? 0 : undefined,
+    refetchOnMount: options?.refetchOnOpen ? 'always' : undefined,
   });
 }

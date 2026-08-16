@@ -1,7 +1,6 @@
 'use client';
 
 import * as React from 'react';
-import { useRouter } from 'next/navigation';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
@@ -9,8 +8,6 @@ import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/stor
 import { inventoryStockService } from '@/features/inventory/services/inventory-stock.service';
 import { useBrands } from '@/features/ecommerce/admin/brands/hooks/use-brands';
 import { useCategories } from '@/features/ecommerce/admin/categories/hooks/use-categories';
-import { usePutawayRules } from '@/features/inventory/admin/putaway-rules/hooks/use-putaway-rules';
-import { useWarehouseOperations } from '@/features/inventory/admin/operations/hooks/use-warehouse-operations';
 import { useProduct } from '@/features/ecommerce/admin/products/hooks/use-products';
 import { useProductMutations } from '@/features/ecommerce/admin/products/hooks/use-product-mutations';
 import {
@@ -32,12 +29,9 @@ import { ProductSettingsTab } from '@/features/ecommerce/admin/products/componen
 import { ProductStockMoveRequestDialog } from '@/features/ecommerce/admin/products/components/product-stock-move-request-dialog';
 import { ProductStockMovesListDialog } from '@/features/ecommerce/admin/products/components/product-stock-moves-list-dialog';
 import { ProductStockMovesHistoryDialog } from '@/features/ecommerce/admin/products/components/product-stock-moves-history-dialog';
-import {
-  isReplenishmentOperation,
-  ProductReplenishmentListDialog,
-} from '@/features/ecommerce/admin/products/components/product-replenishment-list-dialog';
+import { ProductReplenishmentListDialog } from '@/features/ecommerce/admin/products/components/product-replenishment-list-dialog';
+import { ProductPutawayRulesDialog } from '@/features/ecommerce/admin/products/components/product-putaway-rules-dialog';
 import type { ProductRelatedDocKey } from '@/features/ecommerce/admin/products/components/product-related-docs-bar';
-import { ecommerceAdminRoutes } from '@/features/ecommerce/admin/constants/routes';
 import type { Product } from '@/features/ecommerce/domain/types/product';
 import type { WarehouseOperationKind } from '@/features/inventory/domain/types/warehouse';
 import { Layers, Package, Ruler, Settings, Warehouse } from 'lucide-react';
@@ -86,36 +80,8 @@ type MoveRequestKind = WarehouseOperationKind;
 
 export function ProductFormDialog({ product, open, onOpenChange }: Props) {
   const companyId = getStorefrontCompanyId();
-  const router = useRouter();
   const { data: categoriesData } = useCategories({ companyId, limit: 100 });
   const { data: brandsData } = useBrands({ companyId, limit: 100 });
-  const { data: putawayData } = usePutawayRules(
-    { companyId, productId: product?.id, limit: 1 },
-    { enabled: Boolean(product?.id) },
-  );
-  const { data: receiptsData } = useWarehouseOperations({
-    companyId,
-    productId: product?.id,
-    kind: 'receipt',
-    limit: 100,
-  });
-  const { data: issuesData } = useWarehouseOperations({
-    companyId,
-    productId: product?.id,
-    kind: 'issue',
-    limit: 100,
-  });
-  const { data: internalsData } = useWarehouseOperations({
-    companyId,
-    productId: product?.id,
-    kind: 'internal',
-    limit: 100,
-  });
-  const { data: allMovesData } = useWarehouseOperations({
-    companyId,
-    productId: product?.id,
-    limit: 200,
-  });
   const { create, update } = useProductMutations();
   const isEditing = Boolean(product?.id);
   const {
@@ -132,6 +98,14 @@ export function ProductFormDialog({ product, open, onOpenChange }: Props) {
   const [movesListKind, setMovesListKind] = React.useState<MoveRequestKind | null>(null);
   const [movesHistoryOpen, setMovesHistoryOpen] = React.useState(false);
   const [replenishmentListOpen, setReplenishmentListOpen] = React.useState(false);
+  const [putawayListOpen, setPutawayListOpen] = React.useState(false);
+  const [relatedRequestKeys, setRelatedRequestKeys] = React.useState<
+    Partial<Record<ProductRelatedDocKey, number>>
+  >({});
+
+  function bumpRelatedRequest(key: ProductRelatedDocKey) {
+    setRelatedRequestKeys((prev) => ({ ...prev, [key]: (prev[key] ?? 0) + 1 }));
+  }
 
   const form = useForm<ProductFormInput, unknown, ProductFormValues>({
     resolver: zodResolver(productFormSchema),
@@ -156,6 +130,7 @@ export function ProductFormDialog({ product, open, onOpenChange }: Props) {
     setMovesListKind(null);
     setMovesHistoryOpen(false);
     setReplenishmentListOpen(false);
+    setPutawayListOpen(false);
 
     if (!isEditing) {
       form.reset(PRODUCT_FORM_DEFAULT_VALUES);
@@ -204,6 +179,7 @@ export function ProductFormDialog({ product, open, onOpenChange }: Props) {
 
   function onRelatedDoc(key: ProductRelatedDocKey) {
     if (key === 'variants') {
+      bumpRelatedRequest(key);
       setActiveTab('attributes');
       setActiveRelatedDoc('variants');
       requestAnimationFrame(() => {
@@ -213,55 +189,45 @@ export function ProductFormDialog({ product, open, onOpenChange }: Props) {
     }
     if (key === 'replenish') {
       if (!requireSavedProduct('تعرض طلبات تجديد المخزون')) return;
+      bumpRelatedRequest(key);
       setActiveRelatedDoc('replenish');
       setReplenishmentListOpen(true);
       return;
     }
     if (key === 'receipts') {
       if (!requireSavedProduct('تعرض الإدخالات')) return;
+      bumpRelatedRequest(key);
       setActiveRelatedDoc('receipts');
       setMovesListKind('receipt');
       return;
     }
     if (key === 'issues') {
       if (!requireSavedProduct('تعرض الإخراجات')) return;
+      bumpRelatedRequest(key);
       setActiveRelatedDoc('issues');
       setMovesListKind('issue');
       return;
     }
     if (key === 'internals') {
       if (!requireSavedProduct('تعرض الحركات الداخلية')) return;
+      bumpRelatedRequest(key);
       setActiveRelatedDoc('internals');
       setMovesListKind('internal');
       return;
     }
     if (key === 'moves') {
       if (!requireSavedProduct('تعرض سجل الحركات')) return;
+      bumpRelatedRequest(key);
       setActiveRelatedDoc('moves');
       setMovesHistoryOpen(true);
       return;
     }
     if (key !== 'putaway') return;
     if (!requireSavedProduct('تفتح قواعد التخزين')) return;
-    onOpenChange(false);
-    router.push(`${ecommerceAdminRoutes.putawayRules}?productId=${product!.id}`);
+    bumpRelatedRequest(key);
+    setActiveRelatedDoc('putaway');
+    setPutawayListOpen(true);
   }
-
-  const putawayCount = product?.id ? (putawayData?.pagination.total ?? putawayData?.items.length ?? 0) : 0;
-  const receiptsCount = product?.id ? (receiptsData?.pagination.total ?? receiptsData?.items.length ?? 0) : 0;
-  const replenishmentCount = product?.id
-    ? (allMovesData?.items ?? []).filter(isReplenishmentOperation).length
-    : 0;
-  const issuesCount = product?.id ? (issuesData?.pagination.total ?? issuesData?.items.length ?? 0) : 0;
-  const internalsCount = product?.id
-    ? (internalsData?.pagination.total ?? internalsData?.items.length ?? 0)
-    : 0;
-  const movesCount = product?.id
-    ? (allMovesData?.items ?? []).reduce(
-        (sum, op) => sum + op.lines.filter((line) => !line.productId || line.productId === product.id).length,
-        0,
-      )
-    : 0;
 
   return (
     <>
@@ -318,37 +284,31 @@ export function ProductFormDialog({ product, open, onOpenChange }: Props) {
                       {
                         key: 'replenish',
                         label: 'تجديد المخزون',
-                        count: replenishmentCount,
                         hint: 'طلبات تجديد المخزون وحالاتها — أنشئ طلبًا ثم صدّقه من المستودع',
                       },
                       {
                         key: 'receipts',
                         label: 'الإدخالات',
-                        count: receiptsCount,
                         hint: 'طلبات الاستلام الخاصة بهذا المنتج',
                       },
                       {
                         key: 'issues',
                         label: 'الإخراجات',
-                        count: issuesCount,
                         hint: 'طلبات الصرف الخاصة بهذا المنتج',
                       },
                       {
                         key: 'internals',
                         label: 'داخلية',
-                        count: internalsCount,
                         hint: 'الحركات الداخلية بين مواقع المستودع',
                       },
                       {
                         key: 'moves',
                         label: 'سجل الحركات',
-                        count: movesCount,
                         hint: 'كل حركات المخزون المرتبطة بهذا المنتج',
                       },
                       {
                         key: 'putaway',
                         label: 'قواعد التخزين',
-                        count: putawayCount,
                         hint: product?.id
                           ? 'فتح قائمة قواعد التخزين لهذا المنتج'
                           : 'احفظ المنتج أولًا لإضافة قواعد التخزين',
@@ -487,6 +447,7 @@ export function ProductFormDialog({ product, open, onOpenChange }: Props) {
           }}
           productId={product.id}
           productNameAr={nameAr || product.nameAr}
+          requestKey={relatedRequestKeys.replenish ?? 0}
           onCreateRequest={() => {
             setReplenishmentListOpen(false);
             setActiveRelatedDoc('replenish');
@@ -513,6 +474,13 @@ export function ProductFormDialog({ product, open, onOpenChange }: Props) {
           kind={movesListKind ?? 'receipt'}
           productId={product.id}
           productNameAr={nameAr || product.nameAr}
+          requestKey={
+            movesListKind === 'issue'
+              ? (relatedRequestKeys.issues ?? 0)
+              : movesListKind === 'internal'
+                ? (relatedRequestKeys.internals ?? 0)
+                : (relatedRequestKeys.receipts ?? 0)
+          }
           onCreateRequest={() => {
             const kind = movesListKind ?? 'receipt';
             setMovesListKind(null);
@@ -533,6 +501,20 @@ export function ProductFormDialog({ product, open, onOpenChange }: Props) {
           }}
           productId={product.id}
           productNameAr={nameAr || product.nameAr}
+          requestKey={relatedRequestKeys.moves ?? 0}
+        />
+      ) : null}
+
+      {product?.id ? (
+        <ProductPutawayRulesDialog
+          open={putawayListOpen}
+          onOpenChange={(next) => {
+            setPutawayListOpen(next);
+            if (!next && activeRelatedDoc === 'putaway') setActiveRelatedDoc(null);
+          }}
+          productId={product.id}
+          productNameAr={nameAr || product.nameAr}
+          requestKey={relatedRequestKeys.putaway ?? 0}
         />
       ) : null}
     </>

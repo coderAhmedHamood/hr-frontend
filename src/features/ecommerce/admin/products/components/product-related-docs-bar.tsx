@@ -26,7 +26,8 @@ export type ProductRelatedDocKey =
 export type ProductRelatedDocChip = {
   key: ProductRelatedDocKey;
   label: string;
-  count: number;
+  /** Omitted until the user opens that section (lazy fetch). */
+  count?: number;
   disabled?: boolean;
   hint?: string;
 };
@@ -112,18 +113,20 @@ export function ProductRelatedDocsBar({
               >
                 <Icon className={cn('h-3.5 w-3.5', active ? 'opacity-100' : 'text-muted-foreground')} />
                 <span>{chip.label}</span>
-                <span
-                  className={cn(
-                    'inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold tabular-nums',
-                    active
-                      ? 'bg-background/20 text-primary-foreground'
-                      : chip.count > 0
-                        ? 'bg-primary/10 text-primary'
-                        : 'bg-muted text-muted-foreground',
-                  )}
-                >
-                  {chip.count}
-                </span>
+                {chip.count != null ? (
+                  <span
+                    className={cn(
+                      'inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold tabular-nums',
+                      active
+                        ? 'bg-background/20 text-primary-foreground'
+                        : chip.count > 0
+                          ? 'bg-primary/10 text-primary'
+                          : 'bg-muted text-muted-foreground',
+                    )}
+                  >
+                    {chip.count}
+                  </span>
+                ) : null}
               </button>
             );
           })}

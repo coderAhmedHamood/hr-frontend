@@ -40,6 +40,8 @@ type Props = {
   onOpenChange: (open: boolean) => void;
   productId: string;
   productNameAr: string;
+  /** Bumped on each sidebar click so the ledger refetches. */
+  requestKey?: number;
 };
 
 type MoveRow = {
@@ -85,21 +87,38 @@ export function ProductStockMovesHistoryDialog({
   onOpenChange,
   productId,
   productNameAr,
+  requestKey = 0,
 }: Props) {
   const companyId = getStorefrontCompanyId();
   const [search, setSearch] = React.useState('');
   const [statusFilter, setStatusFilter] = React.useState<'all' | WarehouseOperationStatus>('all');
   const [selectedOp, setSelectedOp] = React.useState<WarehouseOperation | null>(null);
+  const skipNextRefetch = React.useRef(true);
 
-  const { data, isLoading } = useWarehouseOperations(
+  // Dedicated: all operations for this product (no kind filter) — ledger view only.
+  const { data, isLoading, isFetching, refetch } = useWarehouseOperations(
     { companyId, productId, limit: 200 },
-    { enabled: open },
+    { enabled: open, refetchOnOpen: true },
   );
   const { data: locationsData } = useWarehouseLocations(
     { companyId, limit: 500 },
     { enabled: open },
   );
+
+  React.useEffect(() => {
+    if (!open) {
+      skipNextRefetch.current = true;
+      return;
+    }
+    if (skipNextRefetch.current) {
+      skipNextRefetch.current = false;
+      return;
+    }
+    void refetch();
+  }, [open, requestKey, refetch]);
+
   const locations = locationsData?.items ?? [];
+  const busy = isLoading || isFetching;
   const locationName = React.useMemo(() => {
     const map = new Map(locations.map((item) => [item.id, item.nameAr || item.code]));
     return (id?: string) => (id ? (map.get(id) ?? id) : '');
@@ -201,7 +220,7 @@ export function ProductStockMovesHistoryDialog({
               <span className="text-xs text-muted-foreground">{filtered.length} حركة</span>
             </div>
 
-            {isLoading ? (
+            {busy ? (
               <p className="text-sm text-muted-foreground">جاري التحميل…</p>
             ) : filtered.length === 0 ? (
               <p className="rounded-lg border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">
