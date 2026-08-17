@@ -1,4 +1,4 @@
-import { Briefcase, Building2, Landmark, MapPinned, Smartphone, UserCircle } from 'lucide-react';
+import { Briefcase, Building2, Landmark, LayoutGrid, MapPinned, Smartphone, UserCircle } from 'lucide-react';
 import { SYSTEM_ORGANIZATION_BASE, systemOrganizationRoutes } from '@/features/system/organization/constants/routes';
 
 export const systemOrganizationStructureNavItems = [
@@ -12,6 +12,7 @@ export const systemOrganizationStructureNavItems = [
 ] as const;
 
 export const systemOrganizationSettingsNavItems = [
+  { labelAr: 'تطبيقات الشركة', href: systemOrganizationRoutes.applications, icon: LayoutGrid },
   { labelAr: 'إعدادات الشركة', href: systemOrganizationRoutes.pagesCompany, icon: Landmark },
   { labelAr: 'إعدادات النظام', href: systemOrganizationRoutes.pagesOrganization, icon: Building2 },
 ] as const;
@@ -22,14 +23,15 @@ export function isSystemOrganizationNavPath(pathname: string): boolean {
 
 const SYSTEM_ORGANIZATION_PAGES_BASE = systemOrganizationRoutes.pages;
 
-/** Structure/directory pages — everything under /system/organization except /pages/*. */
+/** Structure/directory pages — everything under /system/organization except settings. */
 export function isSystemOrganizationStructureNavPath(pathname: string): boolean {
   return isSystemOrganizationNavPath(pathname)
-    && pathname !== SYSTEM_ORGANIZATION_PAGES_BASE
-    && !pathname.startsWith(`${SYSTEM_ORGANIZATION_PAGES_BASE}/`);
+    && !isSystemOrganizationSettingsNavPath(pathname);
 }
 
-/** Settings pages — /system/organization/pages/*. */
+/** Settings pages — company apps + /pages/*. */
 export function isSystemOrganizationSettingsNavPath(pathname: string): boolean {
-  return pathname === SYSTEM_ORGANIZATION_PAGES_BASE || pathname.startsWith(`${SYSTEM_ORGANIZATION_PAGES_BASE}/`);
+  return pathname === systemOrganizationRoutes.applications
+    || pathname === SYSTEM_ORGANIZATION_PAGES_BASE
+    || pathname.startsWith(`${SYSTEM_ORGANIZATION_PAGES_BASE}/`);
 }

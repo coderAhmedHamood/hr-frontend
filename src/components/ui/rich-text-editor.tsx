@@ -87,7 +87,7 @@ export function RichTextEditor({
   onChange,
   placeholder = 'اكتب المحتوى هنا…',
   className,
-  minHeightClassName = 'min-h-[180px]',
+  minHeightClassName = 'min-h-rich-editor',
 }: Props) {
   const lastEmitted = React.useRef(value);
 

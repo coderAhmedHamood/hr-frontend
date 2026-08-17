@@ -20,4 +20,5 @@ export const systemOrganizationRoutes = {
   pages: `${SYSTEM_ORGANIZATION_BASE}/pages`,
   pagesOrganization: `${SYSTEM_ORGANIZATION_BASE}/pages/organization`,
   pagesCompany: `${SYSTEM_ORGANIZATION_BASE}/pages/company`,
+  applications: `${SYSTEM_ORGANIZATION_BASE}/applications`,
 } as const;

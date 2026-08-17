@@ -1,0 +1,12 @@
+export const systemOwnerQueryKeys = {
+  companies: (search?: string) => ['system-owner', 'companies', search ?? ''] as const,
+  company: (companyId: string) => ['system-owner', 'company', companyId] as const,
+  companyUsers: (companyId: string) => ['system-owner', 'company-users', companyId] as const,
+  companyApplications: (companyId: string) =>
+    ['system-owner', 'company-applications', companyId] as const,
+  superusers: (companyId: string) => ['system-owner', 'superusers', companyId] as const,
+  activationRequests: (status?: string) =>
+    ['system-owner', 'activation-requests', status ?? 'all'] as const,
+  companyAppsCatalog: (companyId: string) => ['company-apps', 'catalog', companyId] as const,
+  companyRoles: (companyId: string) => ['system-owner', 'company-roles', companyId] as const,
+};

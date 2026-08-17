@@ -33,6 +33,10 @@ export type CompanyAccess = {
   permissions: string[];
   deniedPermissions: string[];
   branches: BranchAccess[];
+  /** True when this user is a company Superuser (not System Owner). */
+  isCompanySuperuser?: boolean;
+  /** Application codes enabled for this company, e.g. ["system", "inventory"]. */
+  enabledApplicationCodes?: string[];
 };
 
 export type AccessProfile = {
@@ -42,6 +46,8 @@ export type AccessProfile = {
   defaultCompanyId: string | null;
   defaultBranchId: string | null;
   companies: CompanyAccess[];
+  /** True when userType = platform_admin. Grants /system-owner. */
+  isSystemOwner?: boolean;
 };
 
 export type AuthUser = {
@@ -128,4 +134,66 @@ export function getBranchAccessLabel(branch: BranchAccess): string {
     || branch.branchNameEn?.trim()
     || branch.branchId.slice(0, 8)
   );
+}
+
+function isTruthyFlag(value: unknown): boolean {
+  return value === true || value === 1 || value === 'true' || value === '1';
+}
+
+/** Platform admin — only these users may open `/system-owner`. */
+export function profileIsSystemOwner(
+  profile: AccessProfile | null | undefined,
+  userType?: string | null,
+): boolean {
+  if (isTruthyFlag(profile?.isSystemOwner)) return true;
+  return (userType ?? '').trim().toLowerCase() === 'platform_admin';
+}
+
+export function findCompanyAccess(
+  profile: AccessProfile | null | undefined,
+  companyId: string | null | undefined,
+): CompanyAccess | null {
+  if (!profile || !companyId) return null;
+  return profile.companies.find((c) => c.companyId === companyId) ?? null;
+}
+
+export function companyIsSuperuser(company: CompanyAccess | null | undefined): boolean {
+  return isTruthyFlag(company?.isCompanySuperuser);
+}
+
+export function normalizeApplicationCode(code: string | null | undefined): string {
+  return (code ?? '').trim().toLowerCase();
+}
+
+export function companyEnabledApplicationCodes(
+  company: CompanyAccess | null | undefined,
+): string[] {
+  return (company?.enabledApplicationCodes ?? [])
+    .map(normalizeApplicationCode)
+    .filter(Boolean);
+}
+
+/**
+ * Whether an application code is enabled on the company.
+ * Missing `enabledApplicationCodes` → treat as all enabled (pre-migration sessions).
+ */
+export function companyHasApplicationEnabled(
+  company: CompanyAccess | null | undefined,
+  applicationCode: string,
+): boolean {
+  const codes = company?.enabledApplicationCodes;
+  if (!codes || codes.length === 0) return true;
+  const wanted = normalizeApplicationCode(applicationCode);
+  const enabled = new Set(codes.map(normalizeApplicationCode));
+  if (enabled.has(wanted)) return true;
+  if (wanted === 'ecommerce' || wanted === 'store-admin' || wanted === 'storeadmin') {
+    return enabled.has('ecommerce') || enabled.has('store-admin') || enabled.has('storeadmin');
+  }
+  if (wanted === 'contacts' || wanted === 'partners') {
+    return enabled.has('contacts') || enabled.has('partners');
+  }
+  if (wanted === 'pos' || wanted === 'cashier' || wanted === 'point-of-sale') {
+    return enabled.has('pos') || enabled.has('cashier') || enabled.has('inventory');
+  }
+  return false;
 }

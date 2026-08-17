@@ -3,6 +3,7 @@ import { contactsAdminRoutes } from '@/features/contacts/admin/constants/routes'
 import { ecommerceAdminRoutes } from '@/features/ecommerce/admin/constants/routes';
 import { inventoryAdminRoutes } from '@/features/inventory/admin/constants/routes';
 import { resolveSystemAppLaunchPath } from '@/features/system/constants/app-launch';
+import { systemOwnerRoutes } from '@/features/system-owner/constants/routes';
 
 export type ApplicationResponseDto = {
   id: string;
@@ -157,6 +158,8 @@ export function resolveApplicationLaunchPath(app: ApplicationResponseDto): strin
   if (code === 'system' && (!base || base === '/system' || isSystemUsersDirectoryPath(base))) {
     return resolveSystemAppLaunchPath();
   }
+  if (code === 'system-owner') return systemOwnerRoutes.companies;
+  if (code === 'company-apps') return '/company-apps';
 
   if (isSystemUsersDirectoryPath(base) && /جهات الاتصال|contacts|partners/i.test(`${app.nameAr} ${app.nameEn}`)) {
     return contactsAdminRoutes.overview;

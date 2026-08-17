@@ -14,10 +14,9 @@ import {
   UserCircle, Briefcase, UserPlus, Bell, Send, Inbox,   KeyRound, Banknote, Timer, Settings,
 } from 'lucide-react';
 import { cn } from '@/shared/utils';
-import { isHrAppPath, isSystemAppPath, isEcommerceAppPath, isInventoryAppPath, isContactsAppPath } from '@/shared/app-paths';
+import { isHrAppPath, isSystemAppPath, isSystemOwnerAppPath, isEcommerceAppPath, isInventoryAppPath, isContactsAppPath } from '@/shared/app-paths';
 import { Logo } from '@/components/layouts/logo';
 import { useDefaultCompanyBranding } from '@/features/auth/hooks/use-default-company-branding';
-import { useAuthStore } from '@/features/auth/lib/auth-store';
 import { useSidebar } from '@/components/layouts/sidebar-context';
 import { hrDisciplineNavGroups } from '@/features/hr/discipline/lib/types';
 import { hrNotificationsNavGroups } from '@/features/hr/notifications/constants/nav';
@@ -32,6 +31,7 @@ import {
   systemOrganizationSettingsNavItems,
   systemOrganizationStructureNavItems,
 } from '@/features/system/organization/constants/nav';
+import { systemOwnerNavItems } from '@/features/system-owner/constants/nav';
 import {
   ecommerceAdminNavGroups,
   ecommerceAdminOverviewItem,
@@ -48,6 +48,7 @@ import {
   flattenContactsNavItems,
 } from '@/features/contacts/admin/constants/nav';
 import { isModuleEnabledFor } from '@/shared/modules/registry';
+import { useModuleEnablementContext } from '@/features/auth/hooks/use-system-owner';
 
 type MobileNavChild =
   | { label: string; href: string; icon?: React.ElementType; match?: 'exact' | 'prefix' }
@@ -154,6 +155,16 @@ const mobileNav: MobileNavItem[] = [
       icon: item.icon,
     })),
   },
+];
+
+const systemOwnerMobileNav: MobileNavItem[] = [
+  { key: 'apps', label: 'التطبيقات', href: '/', icon: LayoutGrid },
+  ...systemOwnerNavItems.map((item) => ({
+    key: item.href,
+    label: item.labelAr,
+    href: item.href,
+    icon: item.icon,
+  })),
 ];
 
 const systemMobileNav: MobileNavItem[] = [
@@ -475,14 +486,15 @@ export function Sidebar() {
   const { open, setOpen } = useSidebar();
   const close = React.useCallback(() => setOpen(false), [setOpen]);
   const [mounted, setMounted] = React.useState(false);
-  const activeCompanyId = useAuthStore((s) => s.activeCompanyId);
-  const ecommerceEnabled = isModuleEnabledFor('ecommerce', activeCompanyId);
-  const inventoryEnabled = isModuleEnabledFor('inventory', activeCompanyId);
-  const contactsEnabled = isModuleEnabledFor('contacts', activeCompanyId);
+  const { companyId: activeCompanyId, ...moduleContext } = useModuleEnablementContext();
+  const ecommerceEnabled = isModuleEnabledFor('ecommerce', activeCompanyId, moduleContext);
+  const inventoryEnabled = isModuleEnabledFor('inventory', activeCompanyId, moduleContext);
+  const contactsEnabled = isModuleEnabledFor('contacts', activeCompanyId, moduleContext);
   const tNav = useTranslations('ecommerceAdmin.nav');
 
   const inAppShell = isHrAppPath(pathname)
     || isSystemAppPath(pathname)
+    || isSystemOwnerAppPath(pathname)
     || (ecommerceEnabled && isEcommerceAppPath(pathname))
     || (inventoryEnabled && isInventoryAppPath(pathname))
     || (contactsEnabled && isContactsAppPath(pathname));
@@ -527,7 +539,9 @@ export function Sidebar() {
 
   if (!mounted || !open) return null;
 
-  const navItems = isSystemAppPath(pathname)
+  const navItems = isSystemOwnerAppPath(pathname)
+    ? systemOwnerMobileNav
+    : isSystemAppPath(pathname)
     ? systemMobileNav
     : contactsEnabled && isContactsAppPath(pathname)
       ? buildContactsMobileNav()

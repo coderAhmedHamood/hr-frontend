@@ -27,6 +27,25 @@ export type ApiErrorHandleResult = {
   isForbidden: boolean;
 };
 
+function translateKnownBackendMessage(rawMessage: string): string | null {
+  const trimmed = rawMessage.trim();
+  if (!trimmed) return null;
+  const lower = trimmed.toLowerCase();
+  if (lower.includes('system owner cannot be marked as a company superuser')) {
+    return 'مالك النظام لا يُعيَّن Superuser للشركة. عيّن مستخدم شركة عادي مربوطاً بالشركة.';
+  }
+  if (lower.includes('only company superuser') || lower.includes('only a company superuser')) {
+    return 'طلب تفعيل التطبيق متاح لصاحب الشركة (Superuser) فقط.';
+  }
+  if (lower.includes('already enabled')) {
+    return 'هذا التطبيق مفعّل مسبقاً.';
+  }
+  if (lower.includes('pending') && lower.includes('activation')) {
+    return 'يوجد طلب تفعيل قيد الانتظار لهذا التطبيق.';
+  }
+  return null;
+}
+
 function isDevEnv() {
   const env = publicConfig.appEnv.toLowerCase();
   return env === '' || env === 'development' || env === 'dev' || env === 'local';
@@ -79,7 +98,11 @@ export function handleApiError(
     isForbidden
     && /فرع|branch|warehouse.*(scope|access)|خارج نطاق/i.test(rawMessage);
 
-  const displayMessage = deviceAuthMessage
+  const knownAr = translateKnownBackendMessage(rawMessage);
+
+  const displayMessage = knownAr
+    ? knownAr
+    : deviceAuthMessage
     ? deviceAuthMessage
     : branchScopeForbidden
       ? 'لا تملك صلاحية على هذا الفرع'

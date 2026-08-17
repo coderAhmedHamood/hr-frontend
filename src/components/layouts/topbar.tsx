@@ -10,7 +10,7 @@ import {
   LayoutGrid, MapPin, Link2, CalendarRange, Activity,
   ListChecks, ShieldCheck, LayoutList, CirclePlus, CalendarClock,
   Banknote, FileSignature, BookOpen, FileSpreadsheet, UserCircle, Briefcase, UserCheck, UserPlus,
-  Coins, FileStack, Receipt, KeyRound, Settings, Timer,
+  Coins, FileStack, Receipt, KeyRound, Settings, Timer, Inbox,
   LayoutTemplate, Navigation, PanelBottom, PanelTop, Image, FileText, Newspaper,
   CircleHelp, Search, ShoppingCart, Package, FolderTree, Tag, Globe, Megaphone, ContactRound,
 } from 'lucide-react';
@@ -61,16 +61,18 @@ import {
 } from '@/features/contacts/admin/constants/nav';
 import { UserMenuDropdown } from '@/components/layouts/user-menu-dropdown';
 import { AppsLauncherButton } from '@/components/layouts/apps-launcher-button';
-import { useAuthStore } from '@/features/auth/lib/auth-store';
+import { useModuleEnablementContext } from '@/features/auth/hooks/use-system-owner';
 import {
   isHrAppPath,
   isSystemAppPath,
+  isSystemOwnerAppPath,
   isEcommerceAppPath,
   isInventoryAppPath,
   isContactsAppPath,
   isLauncherPath,
 } from '@/shared/app-paths';
 import { isModuleEnabledFor } from '@/shared/modules/registry';
+import { systemOwnerRoutes } from '@/features/system-owner/constants/routes';
 
 /* ── Icon registry ────────────────────────────────────────────────────── */
 export const PAGE_ICONS: Record<string, React.ElementType> = {
@@ -82,6 +84,7 @@ export const PAGE_ICONS: Record<string, React.ElementType> = {
   Coins, FileStack, Receipt, KeyRound,
   LayoutTemplate, Navigation, PanelBottom, PanelTop, Image, FileText, Newspaper,
   CircleHelp, Search, ShoppingCart, Package, FolderTree, Tag, Globe, Megaphone, ContactRound,
+  Inbox, Shield,
 };
 
 /* ── Nav data ──────────────────────────────────────────────────────────── */
@@ -233,6 +236,21 @@ export const navConfig: NavItem[] = [
         })),
       },
     ],
+  },
+];
+
+export const systemOwnerNavConfig: NavItem[] = [
+  {
+    key: 'system-owner-companies',
+    label: 'الشركات',
+    href: systemOwnerRoutes.companies,
+    icon: Building2,
+  },
+  {
+    key: 'system-owner-requests',
+    label: 'طلبات التفعيل',
+    href: systemOwnerRoutes.requests,
+    icon: Inbox,
   },
 ];
 
@@ -597,14 +615,15 @@ export function Topbar() {
 
   const inHrApp = isHrAppPath(pathname);
   const inSystemApp = isSystemAppPath(pathname);
-  const activeCompanyId = useAuthStore((s) => s.activeCompanyId);
-  const ecommerceEnabled = isModuleEnabledFor('ecommerce', activeCompanyId);
-  const inventoryEnabled = isModuleEnabledFor('inventory', activeCompanyId);
-  const contactsEnabled = isModuleEnabledFor('contacts', activeCompanyId);
+  const inSystemOwnerApp = isSystemOwnerAppPath(pathname);
+  const { companyId: activeCompanyId, ...moduleContext } = useModuleEnablementContext();
+  const ecommerceEnabled = isModuleEnabledFor('ecommerce', activeCompanyId, moduleContext);
+  const inventoryEnabled = isModuleEnabledFor('inventory', activeCompanyId, moduleContext);
+  const contactsEnabled = isModuleEnabledFor('contacts', activeCompanyId, moduleContext);
   const inEcommerceApp = ecommerceEnabled && isEcommerceAppPath(pathname);
   const inInventoryApp = inventoryEnabled && isInventoryAppPath(pathname);
   const inContactsApp = contactsEnabled && isContactsAppPath(pathname);
-  const inAppShell = inHrApp || inSystemApp || inEcommerceApp || inInventoryApp || inContactsApp;
+  const inAppShell = inHrApp || inSystemApp || inSystemOwnerApp || inEcommerceApp || inInventoryApp || inContactsApp;
   const tEcommerceNav = useTranslations('ecommerceAdmin.nav');
   const ecommerceNavConfig = React.useMemo(
     () => buildEcommerceNavConfig((key) => tEcommerceNav(key as 'overview')),
@@ -612,7 +631,9 @@ export function Topbar() {
   );
   const inventoryNavConfig = React.useMemo(() => buildInventoryNavConfig(), []);
   const contactsNavConfig = React.useMemo(() => buildContactsNavConfig(), []);
-  const activeNavConfig = inSystemApp
+  const activeNavConfig = inSystemOwnerApp
+    ? systemOwnerNavConfig
+    : inSystemApp
     ? systemNavConfig
     : inContactsApp
       ? contactsNavConfig

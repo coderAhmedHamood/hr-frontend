@@ -12,6 +12,11 @@ export function isSystemAppPath(pathname: string): boolean {
   return pathname === '/system' || pathname.startsWith('/system/');
 }
 
+/** Platform-admin System Owner console (separate from company ERP). */
+export function isSystemOwnerAppPath(pathname: string): boolean {
+  return pathname === '/system-owner' || pathname.startsWith('/system-owner/');
+}
+
 /** True on the applications launcher home page. */
 export function isLauncherPath(pathname: string): boolean {
   return pathname === '/';

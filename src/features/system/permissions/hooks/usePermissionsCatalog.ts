@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useAuthStore } from '@/features/auth/lib/auth-store';
 import { loadPermissionsCatalog } from '@/features/system/permissions/services/permissions.service';
 import { resolveHrApplicationId } from '@/features/system/permissions/hooks/usePermissions';
 import { PERMISSIONS_KEYS } from '@/features/system/permissions/hooks/query-keys';
@@ -13,8 +14,9 @@ function hasAuthToken(): boolean {
 
 /** Catalog page — one GET /permissions call (limit 500), all applications. */
 export function usePermissionsCatalog() {
+  const companyId = useAuthStore((s) => s.activeCompanyId);
   const query = useQuery({
-    queryKey: PERMISSIONS_KEYS.catalog,
+    queryKey: PERMISSIONS_KEYS.catalog(companyId),
     queryFn: loadPermissionsCatalog,
     staleTime: 60 * 1000,
     refetchOnMount: 'always',

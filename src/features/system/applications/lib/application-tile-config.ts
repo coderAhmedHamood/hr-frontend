@@ -2,6 +2,7 @@ import type { LucideIcon } from 'lucide-react';
 import {
   Calculator,
   ContactRound,
+  Crown,
   LayoutGrid,
   Package,
   Settings,
@@ -27,27 +28,33 @@ const ICON_BY_KEY: Record<string, LucideIcon> = {
   warehouse: Package,
   pos: ShoppingBag,
   cashier: ShoppingBag,
+  crown: Crown,
+  'system-owner': Crown,
+  'company-apps': LayoutGrid,
 };
 
 /** Design-token icon surfaces — no hardcoded palette colors. */
 const TILE_BY_CODE: Record<string, { tileClass: string }> = {
-  hr: { tileClass: 'bg-primary text-primary-foreground shadow-soft' },
-  accounting: { tileClass: 'bg-primary-700 text-primary-foreground shadow-soft' },
-  system: { tileClass: 'bg-gold text-gold-foreground shadow-soft' },
-  'store-admin': { tileClass: 'bg-gold text-gold-foreground shadow-soft' },
-  ecommerce: { tileClass: 'bg-gold text-gold-foreground shadow-soft' },
-  storefront: { tileClass: 'bg-success text-success-foreground shadow-soft' },
-  inventory: { tileClass: 'bg-accent text-accent-foreground shadow-soft' },
-  contacts: { tileClass: 'bg-primary text-primary-foreground shadow-soft' },
-  pos: { tileClass: 'bg-success text-success-foreground shadow-soft' },
-  cashier: { tileClass: 'bg-success text-success-foreground shadow-soft' },
+  hr: { tileClass: 'bg-primary text-primary-foreground' },
+  accounting: { tileClass: 'bg-primary-700 text-primary-foreground' },
+  system: { tileClass: 'bg-gold text-gold-foreground' },
+  'store-admin': { tileClass: 'bg-gold text-gold-foreground' },
+  ecommerce: { tileClass: 'bg-gold text-gold-foreground' },
+  storefront: { tileClass: 'bg-success text-success-foreground' },
+  inventory: { tileClass: 'bg-accent text-accent-foreground' },
+  contacts: { tileClass: 'bg-primary text-primary-foreground' },
+  pos: { tileClass: 'bg-success text-success-foreground' },
+  cashier: { tileClass: 'bg-success text-success-foreground' },
+  'system-owner': { tileClass: 'bg-primary-700 text-primary-foreground' },
+  'company-apps': { tileClass: 'bg-gold text-gold-foreground' },
 };
 
 const FALLBACK_TILES = [
-  'bg-primary text-primary-foreground shadow-soft',
-  'bg-gold text-gold-foreground shadow-soft',
-  'bg-success text-success-foreground shadow-soft',
-  'bg-accent text-accent-foreground shadow-soft',
+  'bg-primary text-primary-foreground',
+  'bg-gold text-gold-foreground',
+  'bg-success text-success-foreground',
+  'bg-accent text-accent-foreground',
+  'bg-primary-700 text-primary-foreground',
 ];
 
 /** Card gradient accents aligned with global tokens. */
@@ -67,6 +74,11 @@ export function resolveApplicationIcon(app: ApplicationResponseDto): LucideIcon 
     return ShoppingBag;
   }
   if (app.code === 'contacts') return ContactRound;
+  if (app.code === 'hr') return Users;
+  if (app.code === 'accounting') return Calculator;
+  if (app.code === 'system') return Settings;
+  if (app.code === 'system-owner') return Crown;
+  if (app.code === 'company-apps') return LayoutGrid;
   return LayoutGrid;
 }
 
@@ -76,6 +88,10 @@ export function resolveApplicationTileClass(
 ): string {
   const preset = TILE_BY_CODE[app.code];
   if (preset) return preset.tileClass;
+  return FALLBACK_TILES[index % FALLBACK_TILES.length]!;
+}
+
+export function resolveIndexedTileClass(index: number): string {
   return FALLBACK_TILES[index % FALLBACK_TILES.length]!;
 }
 
