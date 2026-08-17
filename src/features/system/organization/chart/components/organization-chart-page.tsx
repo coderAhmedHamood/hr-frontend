@@ -10,10 +10,10 @@ export default function OrganizationChartPage() {
   const { tree, expanded, toggle, loading, error } = useOrganizationTreeModel();
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="relative overflow-auto rounded-lg border border-border bg-card p-6 shadow-soft">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="sys-chart-scroll relative overflow-auto rounded-lg border border-border bg-card p-4 shadow-soft sm:p-6">
         <div className="absolute inset-0 dotted-bg opacity-30" />
-        <div className="relative">
+        <div className="relative min-w-0">
           {loading ? (
             <div className="py-12 text-center text-sm text-muted-foreground">جاري التحميل…</div>
           ) : error ? (

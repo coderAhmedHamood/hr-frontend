@@ -1,4 +1,5 @@
 import { useAuthStore } from '@/features/auth/lib/auth-store';
+import { companyIsSuperuser } from '@/features/auth/types/access-profile';
 
 export function useCan() {
   const { accessProfile, activeCompanyId, activeBranchId } = useAuthStore();
@@ -8,6 +9,7 @@ export function useCan() {
 
     const company = accessProfile.companies.find((c) => c.companyId === activeCompanyId);
     if (!company) return false;
+    if (companyIsSuperuser(company)) return true;
 
     if (activeBranchId) {
       const branch = company.branches.find((b) => b.branchId === activeBranchId);

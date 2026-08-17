@@ -315,8 +315,8 @@ export function PutawayRulesListPage() {
         }
       >
         {(rulesPage) => (
-          <div className="overflow-x-auto rounded-xl border border-border bg-card">
-            <table className="w-full min-w-[960px] text-sm">
+          <div className="inv-table-host overflow-x-auto rounded-xl border border-border bg-card">
+            <table className="inv-table-wide text-sm">
               <thead className="border-b border-border bg-muted/40 text-muted-foreground">
                 <tr>
                   <th className="px-3 py-2.5 text-start font-medium">عندما يصل المنتج</th>
@@ -584,7 +584,7 @@ export function PutawayRulesListPage() {
                 type="number"
                 min={1}
                 dir="ltr"
-                className="max-w-[8rem]"
+                className="inv-qty-input"
                 value={draft.sequence}
                 onChange={(event) =>
                   setDraft((prev) => ({ ...prev, sequence: Number(event.target.value) || 10 }))

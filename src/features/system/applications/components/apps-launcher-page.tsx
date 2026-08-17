@@ -190,7 +190,7 @@ export function AppsLauncherPage() {
   }, [activeCompanyId, isSystemOwner, isSuperuser]);
 
   return (
-    <div className="relative flex min-h-full flex-1 flex-col overflow-hidden">
+    <div className="apps-launcher-page relative flex w-full min-w-0 flex-1 flex-col">
       <div aria-hidden className="pointer-events-none absolute inset-0 dotted-bg opacity-25" />
       <div
         aria-hidden
@@ -201,7 +201,7 @@ export function AppsLauncherPage() {
         className="pointer-events-none absolute -bottom-32 start-0 h-72 w-72 rounded-full bg-gold/10 blur-3xl"
       />
 
-      <div className="relative flex flex-1 flex-col items-center justify-center px-4 py-10 sm:px-6 sm:py-14">
+      <div className="relative flex w-full flex-col items-center px-4 py-8 pb-20 sm:min-h-full sm:justify-center sm:px-6 sm:py-14 sm:pb-14">
         <CompanyHero
           companyNameAr={branding.companyNameAr}
           companyNameEn={branding.companyNameEn}

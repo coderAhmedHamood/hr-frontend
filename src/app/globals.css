@@ -733,6 +733,17 @@
     gap: 1.5rem 1.75rem;
   }
 
+  .apps-launcher-page {
+    width: 100%;
+    min-width: 0;
+  }
+
+  @media (max-width: 767px) {
+    main:has(.apps-launcher-page) {
+      padding-bottom: 0.75rem;
+    }
+  }
+
   .min-h-rich-editor {
     min-height: 11.25rem;
   }
@@ -755,6 +766,280 @@
   .so-user-role-list {
     max-height: 14rem;
     overflow-y: auto;
+  }
+
+  /* Inventory — phone / tablet / iPad. Use rem + min-width (Turbopack-safe). */
+  .inventory-app {
+    width: 100%;
+    min-width: 0;
+  }
+
+  @media (max-width: 767px) {
+    main:has(.inventory-app) {
+      padding: 0.75rem;
+    }
+  }
+
+  .inventory-app .inv-table-host > div:first-child {
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .inv-form-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  .inv-filter-select,
+  .inv-filter-select-sm,
+  .inv-date-input {
+    width: 100%;
+  }
+
+  .inv-date-filters {
+    display: flex;
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .inv-qty-input {
+    max-width: 8rem;
+  }
+
+  .inv-tabs-scroll {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 0.25rem;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-bottom: 1px solid hsl(var(--border));
+    padding-bottom: 1px;
+  }
+
+  .inv-tabs-scroll > button {
+    flex-shrink: 0;
+  }
+
+  .inv-table-wide {
+    width: 100%;
+    min-width: 40rem;
+  }
+
+  .inv-pos-page-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .inv-pos-panel {
+    min-height: 16rem;
+  }
+
+  .inv-pos-search {
+    min-width: 0;
+    flex: 1 1 12rem;
+  }
+
+  .inv-pos-shell {
+    display: flex;
+    min-height: 0;
+    flex: 1;
+    flex-direction: column;
+  }
+
+  .inv-pos-cart {
+    order: 2;
+    width: 100%;
+    max-height: 42vh;
+  }
+
+  .inv-pos-catalog {
+    order: 1;
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .inv-pos-header {
+    flex-wrap: wrap;
+    min-height: 3rem;
+  }
+
+  .inv-pos-location {
+    max-width: 10rem;
+  }
+
+  .inv-pos-chip {
+    max-width: 10rem;
+  }
+
+  .inv-stepper-item {
+    min-width: 5.5rem;
+  }
+
+  @media (min-width: 640px) {
+    .inv-form-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .inv-filter-select {
+      width: 10rem;
+    }
+
+    .inv-filter-select-sm,
+    .inv-date-input {
+      width: 8.75rem;
+    }
+
+    .inv-date-filters {
+      width: auto;
+    }
+
+    .inv-pos-location {
+      max-width: 15rem;
+    }
+  }
+
+  @media (min-width: 768px) {
+    .inv-pos-shell {
+      flex-direction: row;
+    }
+
+    .inv-pos-cart {
+      order: 0;
+      width: 23.75rem;
+      max-height: none;
+      flex-shrink: 0;
+    }
+
+    .inv-pos-catalog {
+      order: 0;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .inv-pos-page-grid {
+      grid-template-columns: minmax(0, 1.4fr) minmax(16rem, 0.9fr);
+    }
+  }
+
+  /* System app — phone / tablet / iPad. Use rem + min-width (Turbopack-safe). */
+  .system-app {
+    width: 100%;
+    min-width: 0;
+  }
+
+  @media (max-width: 767px) {
+    main:has(.system-app) {
+      padding: 0.75rem;
+    }
+  }
+
+  .system-app .sys-table-host > div:first-child {
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .sys-form-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  .sys-filter-panel {
+    display: flex;
+    width: 100%;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 0.75rem;
+  }
+
+  .sys-filter-field {
+    width: 100%;
+    min-width: 0;
+    flex: 1 1 100%;
+  }
+
+  .sys-filter-select,
+  .sys-filter-select-sm,
+  .sys-search-field {
+    width: 100%;
+  }
+
+  .sys-tabs-scroll {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 0.25rem;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+  }
+
+  .sys-tabs-scroll > button,
+  .sys-tabs-scroll > [role='tab'] {
+    flex-shrink: 0;
+  }
+
+  .sys-table-wide {
+    width: 100%;
+    min-width: 40rem;
+  }
+
+  .sys-chart-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .sys-org-node {
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .sys-approval-actions {
+    display: flex;
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+  }
+
+  @media (min-width: 640px) {
+    .sys-form-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .sys-filter-field {
+      flex: 1 1 11rem;
+      width: auto;
+      max-width: 100%;
+    }
+
+    .sys-filter-select {
+      width: 10rem;
+    }
+
+    .sys-filter-select-sm {
+      width: 8.75rem;
+    }
+
+    .sys-search-field {
+      min-width: 12rem;
+      max-width: 20rem;
+      flex: 1 1 12rem;
+      width: auto;
+    }
+
+    .sys-org-node {
+      min-width: 17.5rem;
+      width: auto;
+    }
+
+    .sys-approval-actions {
+      width: auto;
+    }
   }
 
   /* Product carousel card widths — avoid px + (width >= …) media queries (Turbopack corrupts them). */

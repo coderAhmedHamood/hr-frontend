@@ -34,6 +34,9 @@ function translateKnownBackendMessage(rawMessage: string): string | null {
   if (lower.includes('system owner cannot be marked as a company superuser')) {
     return 'مالك النظام لا يُعيَّن Superuser للشركة. عيّن مستخدم شركة عادي مربوطاً بالشركة.';
   }
+  if (lower.includes('not linked to the selected company')) {
+    return 'مالك النظام غير مربوط بهذه الشركة. أنشئ مستخدم شركة عادي وعيّنه صاحب الشركة؛ هو من يدير الأدوار والصلاحيات بعد دخوله.';
+  }
   if (lower.includes('only company superuser') || lower.includes('only a company superuser')) {
     return 'طلب تفعيل التطبيق متاح لصاحب الشركة (Superuser) فقط.';
   }

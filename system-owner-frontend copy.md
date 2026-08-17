@@ -33,8 +33,77 @@
 | Method | Path | الوظيفة |
 |--------|------|---------|
 | GET | `/system-owner/companies/:companyId/users` | المستخدمون المرتبطون بالشركة |
+| POST | `/system-owner/companies/:companyId/users` | إنشاء مستخدم شركة وربطه بها (اختياري: صاحب الشركة) |
 
-تعيين Superuser يشترط أن يكون المستخدم **مربوطًا بالشركة أولًا** (`user_companies`).
+```json
+POST /system-owner/companies/{companyId}/users
+{
+  "email": "owner@acme.com",
+  "fullNameAr": "محمد العلي",
+  "password": "Str0ngP@ssw0rd!",
+  "assignSuperuser": true
+}
+```
+
+مالك النظام **لا** يسند أدواراً عبر `POST /users/:id/roles` وهو داخل `/system-owner`. إسناد الأدوار بعد ذلك من صاحب الشركة بعد دخوله.
+
+تعيين Superuser لاحقاً يشترط أن يكون المستخدم **مربوطًا بالشركة أولًا** (`user_companies`).
+
+---
+
+## عقد الباك اند — صاحب الشركة المخوّل (مُنفَّذ)
+
+هذا هو النموذج المعتمد. مالك النظام يجهّز الشركة والمستخدم المخوّل فقط. صاحب الشركة يدير شركته بنفسه.
+
+### سبب الخطأ السابق (400)
+
+الخطأ **لم يكن** في إنشاء المستخدم. مالك النظام كان يستدعي بعد ذلك `POST /users/:id/roles` من جلسته، وتلك الواجهة تتوقع عضوية في **شركة الجلسة**. مالك النظام غير مربوط بالشركة العميلة → `400 User is not linked to the selected company`. هذا متوقع: هو يدير المنصة، لا ERP الشركة.
+
+الفرونت **لا يعيد** هذا السلوك: إنشاء المستخدم فقط عبر مسار System Owner، وإسناد الأدوار لاحقاً من صاحب الشركة بعد دخوله.
+
+### التدفق الصحيح
+
+1. `platform_admin` ينشئ شركة.
+2. `platform_admin` ينشئ مستخدماً عادياً (`internal_employee` وليس `platform_admin`) عبر  
+   `POST /system-owner/companies/:companyId/users` مع `assignSuperuser: true`.
+3. ذلك المستخدم يسجّل دخوله ويستخدم APIs الشركة العادية (`/users`, `/roles`, `/permissions`, تطبيقات الشركة المفعّلة).
+4. حساب مالك النظام **لا** يُضاف إلى `user_companies` لهذه الشركة و**لا** يُعيَّن Superuser.
+
+### ما يفعله الباك عند `assignSuperuser: true`
+
+في **نفس المعاملة**، على `companyId` الموجود في المسار (وليس شركة JWT):
+
+1. ينشئ مستخدم شركة عادي (`internal_employee`) وليس `platform_admin`.
+2. يربطه بـ `user_companies`.
+3. يعيّنه Superuser (`isCompanySuperuser = true`).
+4. يبذر دور **superadmin** لكل تطبيق **مفعّل** على الشركة ويسنده إليه.
+5. إذا `isCompanySuperuser === true`: يتجاوز RBAC داخل شركته للتطبيقات المفعّلة، حتى لو لم تُسند أدوار إضافية بعد.
+
+**عند تفعيل تطبيق لاحقاً** لصاحب الشركة: يُمنح صلاحيات ذلك التطبيق تلقائياً (بذر/إسناد superadmin أو ما يعادله).
+
+### ماذا يعني «إدارة كاملة» لصاحب الشركة؟
+
+داخل شركته فقط، وللتطبيقات **المفعّلة** عليها:
+
+- إدارة المستخدمين وربطهم بالشركة
+- إنشاء الأدوار وإسنادها وسحبها
+- إدارة شجرة الصلاحيات
+- طلب تفعيل التطبيقات ومتابعة كتالوج `company-apps`
+
+لا يصل لـ `/system-owner/*`.
+
+### ما يفعله الفرونت
+
+- إنشاء المستخدم فقط عبر `POST /system-owner/companies/:companyId/users`  
+  `{ email, fullNameAr, password, assignSuperuser }` — **بدون** متابعة `POST /users/:id/roles`.
+- إذا `accessProfile.companies[].isCompanySuperuser === true`: `useCan()` و `usePageAccess()` يعتبران المستخدم مخوّلاً بكل شاشات الشركة (التطبيقات غير المفعّلة تبقى مخفية عبر `enabledApplicationCodes` والـ launcher).
+- إسناد الأدوار للمستخدمين الآخرين: من شاشات النظام العادية بعد دخول صاحب الشركة.
+
+### قواعد ثابتة
+
+- `companyId` في مسار System Owner هو مصدر الحقيقة، لا شركة الجلسة.
+- مالك النظام لا يُضاف للشركة ولا يأخذ أدوارها.
+- `POST /users/:id/roles` مسار ERP — يعمل لصاحب الشركة لأنه مربوط بـ `user_companies`.
 
 ### تفعيل التطبيقات لكل شركة
 

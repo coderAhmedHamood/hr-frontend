@@ -8,5 +8,4 @@ export const systemOwnerQueryKeys = {
   activationRequests: (status?: string) =>
     ['system-owner', 'activation-requests', status ?? 'all'] as const,
   companyAppsCatalog: (companyId: string) => ['company-apps', 'catalog', companyId] as const,
-  companyRoles: (companyId: string) => ['system-owner', 'company-roles', companyId] as const,
 };

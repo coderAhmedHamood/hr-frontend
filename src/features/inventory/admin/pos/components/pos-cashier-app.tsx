@@ -146,8 +146,8 @@ function LocationGate({
   }, [filtered]);
 
   return (
-    <div className="flex h-dvh flex-col bg-[#e8ecf1]" dir="rtl">
-      <header className="flex h-12 shrink-0 items-center gap-3 border-b border-slate-800 bg-slate-900 px-3 text-white">
+    <div className="inventory-app flex h-dvh flex-col bg-[#e8ecf1]" dir="rtl">
+      <header className="inv-pos-header flex shrink-0 items-center gap-3 border-b border-slate-800 bg-slate-900 px-3 py-2 text-white">
         <Link
           href="/"
           className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-sm text-slate-300 transition hover:bg-white/10 hover:text-white"
@@ -473,8 +473,8 @@ export function PosCashierApp() {
   const stockError = stockQuery.isError;
 
   return (
-    <div className="flex h-dvh flex-col bg-[#e8ecf1] text-slate-900" dir="rtl">
-      <header className="flex h-12 shrink-0 items-center gap-3 border-b border-slate-800 bg-slate-900 px-3 text-white">
+    <div className="flex h-dvh flex-col bg-[#e8ecf1] text-slate-900 inventory-app" dir="rtl">
+      <header className="inv-pos-header flex shrink-0 items-center gap-3 border-b border-slate-800 bg-slate-900 px-3 py-2 text-white">
         <Link
           href="/"
           className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-sm text-slate-300 transition hover:bg-white/10 hover:text-white"
@@ -496,7 +496,7 @@ export function PosCashierApp() {
           <button
             type="button"
             onClick={changeLocation}
-            className="inline-flex max-w-[240px] items-center gap-1.5 rounded-lg border border-slate-600 bg-slate-800 px-2.5 py-1.5 text-xs text-white transition hover:bg-slate-700"
+            className="inv-pos-location inline-flex items-center gap-1.5 rounded-lg border border-slate-600 bg-slate-800 px-2.5 py-1.5 text-xs text-white transition hover:bg-slate-700"
             title="تغيير الموقع"
           >
             <MapPin className="size-3.5 shrink-0 text-emerald-400" />
@@ -508,8 +508,8 @@ export function PosCashierApp() {
         </div>
       </header>
 
-      <div className="flex min-h-0 flex-1">
-        <aside className="flex w-[min(100%,380px)] shrink-0 flex-col border-e border-slate-300 bg-white shadow-sm">
+      <div className="inv-pos-shell">
+        <aside className="inv-pos-cart flex flex-col border-e border-slate-300 bg-white shadow-sm">
           <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
             <div>
               <p className="text-sm font-semibold text-slate-800">الفاتورة الحالية</p>
@@ -649,7 +649,7 @@ export function PosCashierApp() {
           </div>
         </aside>
 
-        <main className="flex min-w-0 flex-1 flex-col">
+        <main className="inv-pos-catalog flex min-w-0 flex-1 flex-col">
           <div className="shrink-0 border-b border-slate-300 bg-white px-3 py-2">
             <div className="mb-2 flex items-center gap-2">
               <div className="relative min-w-0 flex-1">
@@ -691,7 +691,7 @@ export function PosCashierApp() {
                     type="button"
                     onClick={() => setCategoryId(cat.id)}
                     className={cn(
-                      'inline-flex h-11 max-w-[160px] shrink-0 items-center truncate rounded-xl px-4 text-sm font-medium transition',
+                      'inv-pos-chip inline-flex h-11 shrink-0 items-center truncate rounded-xl px-4 text-sm font-medium transition',
                       categoryId === cat.id ||
                         categories.some((c) => c.id === categoryId && c.parentId === cat.id)
                         ? 'bg-emerald-600 text-white shadow-sm'

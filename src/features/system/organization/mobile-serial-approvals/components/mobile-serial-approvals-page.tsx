@@ -90,14 +90,14 @@ export default function MobileSerialApprovalsPage() {
         <p className="text-sm text-muted-foreground">اختر شركة أولاً لعرض الطلبات.</p>
       ) : (
         <>
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="space-y-1.5">
+          <div className="sys-filter-panel items-end">
+            <div className="sys-filter-field space-y-1.5">
               <p className="text-xs text-muted-foreground">الحالة</p>
               <Select
                 value={status}
                 onValueChange={(v) => setStatus(v as MobileSerialApprovalStatus | 'all')}
               >
-                <SelectTrigger className="w-44">
+                <SelectTrigger className="sys-filter-select h-10">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -108,13 +108,13 @@ export default function MobileSerialApprovalsPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5">
+            <div className="sys-filter-field space-y-1.5">
               <p className="text-xs text-muted-foreground">القناة</p>
               <Select
                 value={loginChannel}
                 onValueChange={(v) => setLoginChannel(v as DeviceLoginChannel | 'all')}
               >
-                <SelectTrigger className="w-40">
+                <SelectTrigger className="sys-filter-select-sm h-10">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -155,7 +155,7 @@ export default function MobileSerialApprovalsPage() {
                 return (
                   <li
                     key={row.id}
-                    className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card px-3 py-2.5"
+                    className="flex flex-col gap-3 rounded-xl border border-border bg-card px-3 py-2.5 sm:flex-row sm:flex-wrap sm:items-center"
                   >
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
@@ -200,7 +200,7 @@ export default function MobileSerialApprovalsPage() {
                     </div>
                     {row.status === 'pending' ? (
                       <Can permission={CONTACTS_PAGE_PERMISSIONS.update}>
-                        <div className="flex items-center gap-1.5">
+                        <div className="sys-approval-actions">
                           <Button
                             type="button"
                             size="sm"

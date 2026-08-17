@@ -71,7 +71,7 @@ function OperationStatusStepper({ status }: { status: WarehouseOperationStatus }
             key={step}
             role="listitem"
             className={cn(
-              'relative flex min-w-[5.5rem] items-center justify-center px-4 py-2 text-xs font-semibold',
+              'inv-stepper-item relative flex items-center justify-center px-4 py-2 text-xs font-semibold',
               index === 0 ? 'rounded-s-md' : '',
               index === WAREHOUSE_OPERATION_FLOW_STEPS.length - 1 ? 'rounded-e-md' : '',
               active

@@ -234,6 +234,7 @@ export function WarehousesListPage() {
     {
       key: 'address',
       title: 'العنوان',
+      hideOnMobile: true,
       render: (row) => <span className="text-sm text-muted-foreground">{row.address ?? '—'}</span>,
     },
     {
@@ -300,7 +301,7 @@ export function WarehousesListPage() {
         {(rowsPage) => (
           <DataTable
             variant="directory"
-            alwaysShowTable
+            className="inv-table-host"
             columns={columns}
             data={rowsPage}
             keyExtractor={(row) => row.id}

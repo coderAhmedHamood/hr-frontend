@@ -207,6 +207,7 @@ export function StockOverviewReportPage() {
     {
       key: 'reserved',
       title: 'Reserved',
+      hideOnMobile: true,
       render: (row) => (
         <span className="tabular-nums text-muted-foreground" dir="ltr">
           {row.reserved}
@@ -225,11 +226,13 @@ export function StockOverviewReportPage() {
     {
       key: 'warehouses',
       title: 'مستودعات',
+      hideOnMobile: true,
       render: (row) => <span className="tabular-nums">{row.warehouseCount}</span>,
     },
     {
       key: 'locations',
       title: 'مواقع',
+      hideOnMobile: true,
       render: (row) => <span className="tabular-nums">{row.locationCount}</span>,
     },
     {
@@ -276,7 +279,7 @@ export function StockOverviewReportPage() {
         {(rowsPage) => (
           <DataTable
             variant="directory"
-            alwaysShowTable
+            className="inv-table-host"
             columns={columns}
             data={rowsPage}
             keyExtractor={(row) => row.key}

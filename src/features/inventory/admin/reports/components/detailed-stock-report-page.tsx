@@ -194,6 +194,7 @@ export function DetailedStockReportPage() {
     {
       key: 'type',
       title: 'نوع الموقع',
+      hideOnMobile: true,
       render: (row) => (
         <Badge variant="subtle">{LOCATION_TYPE_LABELS[row.locationType]}</Badge>
       ),
@@ -224,6 +225,7 @@ export function DetailedStockReportPage() {
     {
       key: 'reserved',
       title: 'Reserved',
+      hideOnMobile: true,
       render: (row) => (
         <span className="tabular-nums text-muted-foreground" dir="ltr">
           {row.reservedQuantity}
@@ -242,6 +244,7 @@ export function DetailedStockReportPage() {
     {
       key: 'updated',
       title: 'آخر تحديث',
+      hideOnMobile: true,
       render: (row) => (
         <span className="text-xs text-muted-foreground">
           {new Date(row.updatedAt).toLocaleString('ar-SA')}
@@ -275,7 +278,7 @@ export function DetailedStockReportPage() {
         {(rowsPage) => (
           <DataTable
             variant="directory"
-            alwaysShowTable
+            className="inv-table-host"
             columns={columns}
             data={rowsPage}
             keyExtractor={(row) => row.key}

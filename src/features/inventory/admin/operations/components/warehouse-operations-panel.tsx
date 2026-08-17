@@ -398,6 +398,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
     {
       key: 'partner',
       title: kind === 'issue' ? 'التسليم إلى' : kind === 'receipt' || kind === 'purchase' || kind === 'replenishment' ? 'الاستلام من' : 'الطرف',
+      hideOnMobile: true,
       render: (row) => (
         <div className="flex flex-col">
           <span className="text-sm">{row.partnerName || '—'}</span>
@@ -410,6 +411,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
     {
       key: 'lines',
       title: 'البنود',
+      hideOnMobile: true,
       render: (row) => (
         <span className="text-sm text-muted-foreground">
           {row.lines
@@ -433,6 +435,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
     {
       key: 'locations',
       title: 'المواقع',
+      hideOnMobile: true,
       render: (row) => {
         const line = row.lines[0];
         if (!line) return '—';
@@ -522,7 +525,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
               </div>
             ) : null}
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="inv-form-grid">
               <div className="space-y-1.5">
                 <Label htmlFor="op-ref">المرجع (اختياري)</Label>
                 <Input id="op-ref" dir="ltr" {...form.register('reference')} />
@@ -533,7 +536,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="inv-form-grid">
               <div className="space-y-1.5">
                 <Label htmlFor="op-partner">
                   {kind === 'issue'
@@ -581,7 +584,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
               </div>
             ) : null}
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="inv-form-grid">
               <div className="space-y-1.5">
                 <Label>المنتج</Label>
                 <Controller
@@ -862,7 +865,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
               showFilters ? (
                 <div className="flex flex-wrap items-center gap-2">
                   <Select value={filterWarehouseId} onValueChange={setFilterWarehouseId}>
-                    <SelectTrigger className="h-10 w-[160px]" aria-label="تصفية المستودع">
+                    <SelectTrigger className="inv-filter-select h-10" aria-label="تصفية المستودع">
                       <SelectValue placeholder="المستودع" />
                     </SelectTrigger>
                     <SelectContent>
@@ -878,7 +881,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
                     value={filterStatus}
                     onValueChange={(value) => setFilterStatus(value as WarehouseOperationStatus | 'all')}
                   >
-                    <SelectTrigger className="h-10 w-[140px]" aria-label="تصفية الحالة">
+                    <SelectTrigger className="inv-filter-select-sm h-10" aria-label="تصفية الحالة">
                       <SelectValue placeholder="الحالة" />
                     </SelectTrigger>
                     <SelectContent>
@@ -907,6 +910,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
         {isError ? <p className="text-sm text-destructive">تعذر تحميل {meta.title}.</p> : null}
 
         <DataTable
+          className="inv-table-host"
           columns={columns}
           data={items}
           keyExtractor={(row) => row.id}
@@ -955,7 +959,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
         {(pageItems) => (
           <DataTable
             variant="directory"
-            alwaysShowTable
+            className="inv-table-host"
             columns={columns}
             data={pageItems}
             keyExtractor={(row) => row.id}

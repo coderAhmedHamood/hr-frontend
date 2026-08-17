@@ -44,6 +44,7 @@ import {
   isSystemOrganizationStructureNavPath,
   isSystemOrganizationSettingsNavPath,
 } from '@/features/system/organization/constants/nav';
+import { systemOverviewItem } from '@/features/system/constants/nav';
 import {
   ecommerceAdminNavGroups,
   ecommerceAdminOverviewItem,
@@ -255,6 +256,12 @@ export const systemOwnerNavConfig: NavItem[] = [
 ];
 
 export const systemNavConfig: NavItem[] = [
+  {
+    key: 'system-overview',
+    label: systemOverviewItem.labelAr,
+    href: systemOverviewItem.href,
+    icon: systemOverviewItem.icon,
+  },
   {
     key: 'system-organization-structure', label: 'الهيكل التنظيمي', icon: Building2,
     isActive: isSystemOrganizationStructureNavPath,

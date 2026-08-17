@@ -81,7 +81,7 @@ export function PermissionsManagementPage() {
   );
 
   const searchFilter = (
-    <div className="relative w-full min-w-[12rem] max-w-xs">
+    <div className="relative sys-search-field">
       <Search className="pointer-events-none absolute start-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
       <Input
         value={search}

@@ -38,7 +38,7 @@ export function OrganizationTreeNode({
           }
         }}
         className={cn(
-          'group relative inline-flex min-w-[280px] items-center gap-3 rounded-lg border bg-card p-3 shadow-soft transition-all hover:shadow-elevated',
+          'sys-org-node group relative inline-flex items-center gap-3 rounded-lg border bg-card p-3 shadow-soft transition-all hover:shadow-elevated',
           level === 0 && 'border-gold/40 bg-gradient-to-l from-primary to-primary-700 text-primary-foreground shadow-elevated',
           hasChildren && 'cursor-pointer select-none',
         )}

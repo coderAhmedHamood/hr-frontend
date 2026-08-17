@@ -65,12 +65,14 @@ export function ContactsListViews({ model }: Props) {
     {
       key: 'email',
       title: 'البريد',
+      hideOnMobile: true,
       className: 'text-muted-foreground',
       render: (row) => <span dir="ltr">{row.email}</span>,
     },
     {
       key: 'userType',
       title: 'النوع',
+      hideOnMobile: true,
       render: (row) => (
         <Badge variant="outline" className="text-[10px]">
           {USER_TYPE_LABELS[row.userType ?? ''] ?? row.userType ?? '—'}
@@ -80,6 +82,7 @@ export function ContactsListViews({ model }: Props) {
     {
       key: 'company',
       title: 'الشركة',
+      hideOnMobile: true,
       className: 'text-muted-foreground text-xs',
       render: (row) => primaryCompanyLabel(row, model),
     },
@@ -161,7 +164,7 @@ export function ContactsListViews({ model }: Props) {
       ) : (
         <DataTable
           variant="directory"
-          alwaysShowTable
+          className="sys-table-host"
           columns={columns}
           data={pageItems}
           keyExtractor={(row) => row.id}

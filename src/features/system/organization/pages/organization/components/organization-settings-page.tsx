@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/shared/utils';
+import { useSetPageTitle } from '@/components/layouts/page-title-context';
 import { useActiveCompany } from '@/features/hr/organization/hooks/useActiveCompany';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import { ORGANIZATION_USER_NOTIFICATION_ITEMS } from '@/features/system/organization/pages/_shared/constants/notification-groups';
@@ -74,6 +75,11 @@ function FormField({
 }
 
 export default function OrganizationSettingsPage() {
+  useSetPageTitle({
+    titleAr: 'إعدادات النظام',
+    descriptionAr: 'البريد، الإشعارات، والنسخ الاحتياطي',
+    iconName: 'Settings',
+  });
   const { data: company } = useActiveCompany();
   const { data: settings, isLoading, isError, error, update, companyId } = useOrganizationCompanySettings();
   const [form, setForm] = React.useState<OrgFormState | null>(null);

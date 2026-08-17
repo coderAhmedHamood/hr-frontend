@@ -104,17 +104,17 @@ export function MovesAnalysisReportPage() {
           },
         ]}
         trailingActions={
-          <div className="flex items-center gap-2">
+          <div className="inv-date-filters">
             <Input
               type="date"
-              className="h-8 w-[140px]"
+              className="inv-date-input h-8"
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
               aria-label="من تاريخ"
             />
             <Input
               type="date"
-              className="h-8 w-[140px]"
+              className="inv-date-input h-8"
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
               aria-label="إلى تاريخ"
@@ -157,6 +157,7 @@ export function MovesAnalysisReportPage() {
     {
       key: 'lines',
       title: 'البنود',
+      hideOnMobile: true,
       render: (row) => <span className="tabular-nums">{row.lineCount}</span>,
     },
     {
@@ -221,7 +222,7 @@ export function MovesAnalysisReportPage() {
         {(rowsPage) => (
           <DataTable
             variant="directory"
-            alwaysShowTable
+            className="inv-table-host"
             columns={columns}
             data={rowsPage}
             keyExtractor={(row) => row.key}

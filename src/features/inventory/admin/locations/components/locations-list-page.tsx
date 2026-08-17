@@ -311,6 +311,7 @@ export function LocationsListPage() {
     {
       key: 'parent',
       title: 'الموقع الرئيسي',
+      hideOnMobile: true,
       render: (row) => (
         <span className="text-sm text-muted-foreground">
           {row.parentLocationId ? (nameById.get(row.parentLocationId) ?? '—') : '—'}
@@ -380,7 +381,7 @@ export function LocationsListPage() {
         {(rowsPage) => (
           <DataTable
             variant="directory"
-            alwaysShowTable
+            className="inv-table-host"
             columns={columns}
             data={rowsPage}
             keyExtractor={(row) => row.id}

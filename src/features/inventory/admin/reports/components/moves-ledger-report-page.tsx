@@ -118,17 +118,17 @@ export function MovesLedgerReportPage() {
           },
         ]}
         trailingActions={
-          <div className="flex items-center gap-2">
+          <div className="inv-date-filters">
             <Input
               type="date"
-              className="h-8 w-[140px]"
+              className="inv-date-input h-8"
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
               aria-label="من تاريخ"
             />
             <Input
               type="date"
-              className="h-8 w-[140px]"
+              className="inv-date-input h-8"
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
               aria-label="إلى تاريخ"
@@ -184,6 +184,7 @@ export function MovesLedgerReportPage() {
     {
       key: 'location',
       title: 'الموقع',
+      hideOnMobile: true,
       render: (row) => (
         <div className="flex flex-col text-sm">
           <span>{locationName(row.locationId)}</span>
@@ -214,6 +215,7 @@ export function MovesLedgerReportPage() {
     {
       key: 'source',
       title: 'المصدر',
+      hideOnMobile: true,
       render: (row) => (
         <span className="text-xs text-muted-foreground">{row.sourceDocument || row.partnerName || '—'}</span>
       ),
@@ -258,7 +260,7 @@ export function MovesLedgerReportPage() {
         {(rowsPage) => (
           <DataTable
             variant="directory"
-            alwaysShowTable
+            className="inv-table-host"
             columns={columns}
             data={rowsPage}
             keyExtractor={(row) => row.id}

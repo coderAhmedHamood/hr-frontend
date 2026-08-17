@@ -106,7 +106,7 @@ export function WarehouseDetailPage() {
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-1 border-b border-border pb-px">
+      <div className="inv-tabs-scroll">
         {WAREHOUSE_DETAIL_TAB_KINDS.map((kind) => {
           const Icon = TAB_ICONS[kind];
           const selected = activeTab === kind;

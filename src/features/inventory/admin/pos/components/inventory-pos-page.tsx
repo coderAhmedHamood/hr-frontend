@@ -268,11 +268,11 @@ export function InventoryPosPage() {
         iconName="Store"
       />
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(20rem,0.9fr)]">
+      <div className="inv-pos-page-grid">
         {/* Catalog */}
-        <section className="flex min-h-[28rem] flex-col gap-3 rounded-xl border border-border bg-card p-4">
+        <section className="inv-pos-panel flex flex-col gap-3 rounded-xl border border-border bg-card p-4">
           <div className="flex flex-wrap items-end gap-2">
-            <div className="min-w-[12rem] flex-1 space-y-1.5">
+            <div className="inv-pos-search space-y-1.5">
               <Label htmlFor="pos-search">بحث / باركود</Label>
               <div className="relative">
                 <Search className="pointer-events-none absolute start-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -394,7 +394,7 @@ export function InventoryPosPage() {
         </section>
 
         {/* Cart */}
-        <section className="flex min-h-[28rem] flex-col gap-3 rounded-xl border border-border bg-card p-4">
+        <section className="inv-pos-panel flex flex-col gap-3 rounded-xl border border-border bg-card p-4">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 text-sm font-medium">
               <ShoppingCart className="h-4 w-4" />

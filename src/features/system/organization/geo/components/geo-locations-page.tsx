@@ -440,7 +440,7 @@ export default function GeoLocationsPage({
           onValueChange={(v) => setTab(v as typeof tab)}
           className="flex min-h-0 flex-1 flex-col gap-4"
         >
-          <TabsList className="h-auto w-fit flex-wrap gap-1 rounded-xl bg-muted/40 p-1">
+          <TabsList className="sys-tabs-scroll h-auto w-full max-w-full flex-wrap gap-1 rounded-xl bg-muted/40 p-1 sm:w-fit">
             <TabsTrigger value="countries" className="rounded-lg px-3.5 py-1.5">
               الدول
             </TabsTrigger>
@@ -482,8 +482,8 @@ export default function GeoLocationsPage({
               </div>
             ) : null}
             {citiesFiltersOpen ? (
-              <div className="flex flex-wrap items-end gap-3 rounded-xl border border-border/60 bg-muted/15 p-3">
-                <div className="min-w-[13rem] space-y-1.5">
+              <div className="sys-filter-panel rounded-xl border border-border/60 bg-muted/15 p-3">
+                <div className="sys-filter-field space-y-1.5">
                   <Label className="text-xs text-muted-foreground">تصفية بالدولة</Label>
                   <Select value={selectedCountryId} onValueChange={setSelectedCountryId}>
                     <SelectTrigger className="h-10 rounded-lg bg-card">
@@ -500,13 +500,13 @@ export default function GeoLocationsPage({
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-1.5">
+                <div className="sys-filter-field space-y-1.5">
                   <Label className="text-xs text-muted-foreground">الأرشفة</Label>
                   <Select
                     value={archiveScope}
                     onValueChange={(v) => setArchiveScope(v as ArchiveScope)}
                   >
-                    <SelectTrigger className="h-10 w-36 rounded-lg bg-card">
+                    <SelectTrigger className="sys-filter-select-sm h-10 rounded-lg bg-card">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -516,7 +516,7 @@ export default function GeoLocationsPage({
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="min-w-[12rem] flex-1 space-y-1.5">
+                <div className="sys-filter-field sys-search-field space-y-1.5">
                   <Label className="text-xs text-muted-foreground">بحث</Label>
                   <Input
                     className="h-10 rounded-lg bg-card"
@@ -607,8 +607,8 @@ export default function GeoLocationsPage({
                 </div>
               ) : null}
               {districtsFiltersOpen ? (
-              <div className="flex flex-wrap items-end gap-3 rounded-xl border border-border/60 bg-muted/15 p-3">
-                <div className="min-w-[11rem] space-y-1.5">
+              <div className="sys-filter-panel rounded-xl border border-border/60 bg-muted/15 p-3">
+                <div className="sys-filter-field space-y-1.5">
                   <Label className="text-xs text-muted-foreground">الدولة</Label>
                   <Select
                     value={selectedCountryId}
@@ -630,7 +630,7 @@ export default function GeoLocationsPage({
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="min-w-[11rem] space-y-1.5">
+                <div className="sys-filter-field space-y-1.5">
                   <Label className="text-xs text-muted-foreground">المدينة</Label>
                   <Select value={selectedCityId} onValueChange={setSelectedCityId}>
                     <SelectTrigger className="h-10 rounded-lg bg-card">
@@ -646,13 +646,13 @@ export default function GeoLocationsPage({
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-1.5">
+                <div className="sys-filter-field space-y-1.5">
                   <Label className="text-xs text-muted-foreground">الأرشفة</Label>
                   <Select
                     value={archiveScope}
                     onValueChange={(v) => setArchiveScope(v as ArchiveScope)}
                   >
-                    <SelectTrigger className="h-10 w-36 rounded-lg bg-card">
+                    <SelectTrigger className="sys-filter-select-sm h-10 rounded-lg bg-card">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -662,7 +662,7 @@ export default function GeoLocationsPage({
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="min-w-[12rem] flex-1 space-y-1.5">
+                <div className="sys-filter-field sys-search-field space-y-1.5">
                   <Label className="text-xs text-muted-foreground">بحث</Label>
                   <Input
                     className="h-10 rounded-lg bg-card"

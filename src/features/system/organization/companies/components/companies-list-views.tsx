@@ -42,12 +42,14 @@ export function CompaniesListViews({ model }: { model: CompaniesDirectoryModel }
     {
       key: 'contact',
       title: 'التواصل',
+      hideOnMobile: true,
       className: 'text-muted-foreground text-xs',
       render: (row) => <span dir="ltr">{row.email ?? row.phone ?? '—'}</span>,
     },
     {
       key: 'cr',
       title: 'السجل التجاري',
+      hideOnMobile: true,
       className: 'text-muted-foreground text-xs',
       render: (row) => <span dir="ltr">{row.commercialRegistrationNo ?? '—'}</span>,
     },
@@ -136,7 +138,7 @@ export function CompaniesListViews({ model }: { model: CompaniesDirectoryModel }
   ) : (
     <DataTable
       variant="directory"
-      alwaysShowTable
+      className="sys-table-host"
       columns={columns}
       data={pageItems}
       keyExtractor={(row) => row.id}
