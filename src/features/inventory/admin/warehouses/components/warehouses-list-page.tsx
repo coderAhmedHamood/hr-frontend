@@ -311,6 +311,57 @@ export function WarehousesListPage() {
                 ? 'لا توجد فروع معيّنة لحسابك، لذا لا تظهر مستودعات. اطلب تعيين فرع أو صلاحية «كل الفروع».'
                 : 'لا توجد مستودعات بعد. أضف مستودعًا للبدء.'
             }
+            mobileCard={(row) => (
+              <div className="flex flex-col gap-2.5">
+                <button
+                  type="button"
+                  className="flex items-start gap-3 text-start"
+                  onClick={() => router.push(inventoryAdminRoutes.warehouseDetail(row.id))}
+                >
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+                    <Warehouse className="h-5 w-5" />
+                  </span>
+                  <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                    <span className="truncate font-display text-[14.5px] font-bold leading-snug">{row.nameAr}</span>
+                    <span className="text-xs text-muted-foreground">
+                      <span dir="ltr">{row.code}</span> · {branchNameById(row.branchId)}
+                    </span>
+                  </span>
+                  <Badge variant={row.status === 'active' ? 'success' : 'subtle'} className="shrink-0">
+                    {row.status === 'active' ? 'نشط' : 'غير نشط'}
+                  </Badge>
+                </button>
+
+                {row.address ? (
+                  <div className="flex items-center gap-1.5 ps-14 text-xs text-muted-foreground">
+                    <MapPin className="h-3.5 w-3.5 shrink-0" />
+                    <span className="truncate">{row.address}</span>
+                  </div>
+                ) : null}
+
+                <div className="flex items-center justify-end gap-1 border-t border-border/60 pt-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="مواقع المستودع"
+                    onClick={() => router.push(inventoryAdminRoutes.locationsForWarehouse(row.id))}
+                  >
+                    <MapPin className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="تعديل المستودع"
+                    onClick={() => setFormState({ open: true, warehouse: row })}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" aria-label="حذف المستودع" onClick={() => setToDelete(row)}>
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
+              </div>
+            )}
           />
         )}
       </DirectoryPagedViews>

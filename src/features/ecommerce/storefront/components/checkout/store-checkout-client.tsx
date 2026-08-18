@@ -1570,8 +1570,7 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
 
       {/* Mobile sticky actions */}
       <div
-        className="fixed inset-x-0 bottom-14 z-40 border-t border-border bg-background/95 px-4 py-3 backdrop-blur-md sm:hidden"
-        style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
+        className="store-drawer-safe-pb fixed inset-x-0 bottom-14 z-40 border-t border-border bg-background/95 px-4 py-3 backdrop-blur-md sm:hidden"
       >
         <div className="mb-2 flex items-center justify-between text-sm">
           <span className="text-muted-foreground">{t('cart.total')}</span>

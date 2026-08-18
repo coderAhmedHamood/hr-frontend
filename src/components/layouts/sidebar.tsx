@@ -313,7 +313,16 @@ function buildContactsMobileNav(): MobileNavItem[] {
   return items;
 }
 
-function MobileDrawer({ items, onClose }: { items: MobileNavItem[]; onClose: () => void }) {
+function MobileDrawer({
+  items,
+  onClose,
+  asBottomSheet,
+}: {
+  items: MobileNavItem[];
+  onClose: () => void;
+  /** Render the compact drag-handle affordance used when hosted in a bottom sheet. */
+  asBottomSheet?: boolean;
+}) {
   const { logoUrl, logoAlt } = useDefaultCompanyBranding();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -364,6 +373,12 @@ function MobileDrawer({ items, onClose }: { items: MobileNavItem[]; onClose: () 
 
   return (
     <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
+      {asBottomSheet && (
+        <div className="flex shrink-0 justify-center pb-1 pt-2.5" aria-hidden>
+          <div className="h-1 w-9 rounded-full bg-sidebar-foreground/25" />
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between border-b border-sidebar-border/50 p-4">
         <Link
@@ -539,17 +554,24 @@ export function Sidebar() {
 
   if (!mounted || !open) return null;
 
+  const isSystemApp = isSystemAppPath(pathname);
+  const isInventoryApp = inventoryEnabled && isInventoryAppPath(pathname);
+
   const navItems = isSystemOwnerAppPath(pathname)
     ? systemOwnerMobileNav
-    : isSystemAppPath(pathname)
+    : isSystemApp
     ? systemMobileNav
     : contactsEnabled && isContactsAppPath(pathname)
       ? buildContactsMobileNav()
-      : inventoryEnabled && isInventoryAppPath(pathname)
+      : isInventoryApp
         ? buildInventoryMobileNav()
         : ecommerceEnabled && isEcommerceAppPath(pathname)
           ? buildEcommerceMobileNav((key) => tNav(key as 'overview'))
           : mobileNav;
+
+  // System / Inventory get the native-app-style bottom sheet (paired with their
+  // bottom tab bar); other apps keep the classic right-side drawer.
+  const asBottomSheet = isSystemApp || isInventoryApp;
 
   return createPortal(
     <>
@@ -560,14 +582,17 @@ export function Sidebar() {
       />
       <aside
         className={cn(
-          'fixed inset-y-0 right-0 z-50 flex w-[min(100vw-2rem,18rem)] max-w-[85vw] flex-col shadow-luxe lg:hidden',
+          'fixed z-50 flex shadow-luxe lg:hidden',
+          asBottomSheet
+            ? 'inset-x-0 bottom-0 h-[82vh] max-h-168 flex-col overflow-hidden rounded-t-3xl'
+            : 'inset-y-0 right-0 w-[min(100vw-2rem,18rem)] max-w-[85vw] flex-col',
         )}
         role="dialog"
         aria-modal="true"
         aria-label="القائمة الرئيسية"
       >
         <React.Suspense fallback={null}>
-          <MobileDrawer items={navItems} onClose={close} />
+          <MobileDrawer items={navItems} onClose={close} asBottomSheet={asBottomSheet} />
         </React.Suspense>
       </aside>
     </>,

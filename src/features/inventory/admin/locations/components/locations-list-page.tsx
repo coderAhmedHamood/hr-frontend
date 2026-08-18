@@ -389,6 +389,55 @@ export function LocationsListPage() {
             emptyText={
               warehouseIdFilter ? 'لا توجد مواقع لهذا المستودع بعد.' : 'لا توجد مواقع بعد. أضف موقعًا أو أنشئ مستودعًا.'
             }
+            mobileCard={(row) => (
+              <div className="flex flex-col gap-2.5">
+                <div className="flex items-start gap-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-100 text-primary">
+                    <MapPin className="h-[18px] w-[18px]" />
+                  </span>
+                  <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                    <span className="truncate font-display text-[13.5px] font-bold leading-snug" dir="ltr">
+                      {row.code}
+                    </span>
+                    <span className="truncate text-xs text-muted-foreground">
+                      {row.nameAr} · {TYPE_LABEL[row.locationType] ?? row.locationType}
+                    </span>
+                  </div>
+                  {row.isSystem ? (
+                    <Badge variant="outline" className="shrink-0 text-[10px]">تلقائي</Badge>
+                  ) : null}
+                </div>
+
+                <button
+                  type="button"
+                  className="flex items-center gap-1.5 ps-13 text-xs text-primary"
+                  onClick={() => router.push(inventoryAdminRoutes.warehouseDetail(row.warehouseId))}
+                >
+                  <Warehouse className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">{warehouseNameById.get(row.warehouseId) ?? row.warehouseId}</span>
+                </button>
+
+                <div className="flex items-center justify-end gap-1 border-t border-border/60 pt-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="تعديل الموقع"
+                    onClick={() => setFormState({ open: true, location: row })}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="حذف الموقع"
+                    disabled={Boolean(row.isSystem)}
+                    onClick={() => setToDelete(row)}
+                  >
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
+              </div>
+            )}
           />
         )}
       </DirectoryPagedViews>

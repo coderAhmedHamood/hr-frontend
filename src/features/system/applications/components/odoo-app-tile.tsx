@@ -12,6 +12,7 @@ export function OdooAppTile({
   tileClass,
   href,
   external,
+  hardNavigation,
   onClick,
   muted,
   overlay,
@@ -22,6 +23,8 @@ export function OdooAppTile({
   tileClass: string;
   href?: string;
   external?: boolean;
+  /** Full document navigation — required when leaving the ERP shell for `[locale]/store`. */
+  hardNavigation?: boolean;
   onClick?: () => void;
   muted?: boolean;
   overlay?: ReactNode;
@@ -42,9 +45,13 @@ export function OdooAppTile({
   const className =
     'group odoo-app-tile flex flex-col items-center gap-2 text-center outline-none focus-visible:rounded-xl focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2';
 
-  if (href && external) {
+  if (href && (external || hardNavigation)) {
     return (
-      <a href={href} target="_blank" rel="noopener noreferrer" className={className}>
+      <a
+        href={href}
+        className={className}
+        {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : undefined)}
+      >
         {inner}
       </a>
     );

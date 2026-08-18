@@ -28,6 +28,7 @@ import {
 } from '@/features/system-owner/hooks/use-company-apps';
 import type { CompanyAppCatalogItem } from '@/features/system-owner/lib/api/system-owner';
 import {
+  looksLikeStorefrontApp,
   resolveApplicationExternalUrl,
   resolveApplicationLaunchPath,
   type ApplicationResponseDto,
@@ -102,6 +103,7 @@ function MarketplaceTile({
       tileClass={tileClass}
       href={canOpen ? href : undefined}
       external={canOpen && Boolean(externalUrl)}
+      hardNavigation={canOpen && !externalUrl && looksLikeStorefrontApp(launcherApp)}
       onClick={!canOpen && app.canRequestActivation ? () => onRequest(app) : undefined}
       muted={isLocked}
       overlay={overlay}

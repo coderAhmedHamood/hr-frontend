@@ -1,5 +1,7 @@
 @import 'tailwindcss';
 @config '../../tailwind.config.js';
+@source not '../../.next';
+@source not '../../node_modules';
 
 @theme {
   --color-gold: hsl(39 45% 54%);
@@ -77,6 +79,16 @@
 }
 .store-drawer-safe-pb {
   padding-bottom: max(0.75rem, var(--store-safe-area-bottom));
+}
+
+.safe-area-pb {
+  padding-bottom: var(--store-safe-area-bottom);
+}
+
+/* ERP mobile tab bar — never use env() inside Tailwind arbitrary classes. */
+.app-mobile-tab-bar {
+  padding-bottom: max(0.4rem, var(--store-safe-area-bottom));
+  box-shadow: 0 -6px 18px -12px rgba(0, 0, 0, 0.18);
 }
 
 /* Storefront toasts: styled toasts need real width (Arabic must not wrap per glyph).
@@ -780,6 +792,14 @@
     }
   }
 
+  /* Room for the fixed bottom tab bar (shown below the lg breakpoint, matching
+     MobileTabBar's `lg:hidden`) so the last row of content is never hidden under it. */
+  @media (max-width: 1023px) {
+    main:has(.inventory-app) {
+      padding-bottom: calc(4.5rem + var(--store-safe-area-bottom));
+    }
+  }
+
   .inventory-app .inv-table-host > div:first-child {
     max-width: 100%;
     overflow-x: auto;
@@ -934,6 +954,14 @@
   @media (max-width: 767px) {
     main:has(.system-app) {
       padding: 0.75rem;
+    }
+  }
+
+  /* Room for the fixed bottom tab bar (shown below the lg breakpoint, matching
+     MobileTabBar's `lg:hidden`) so the last row of content is never hidden under it. */
+  @media (max-width: 1023px) {
+    main:has(.system-app) {
+      padding-bottom: calc(4.5rem + var(--store-safe-area-bottom));
     }
   }
 

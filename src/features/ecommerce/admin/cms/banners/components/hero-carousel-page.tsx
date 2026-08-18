@@ -15,6 +15,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
+import { storefrontPublicHomeHref } from '@/features/ecommerce/storefront/lib/store-paths';
 import type { PageRecord } from '@/features/ecommerce/storefront/page-builder/domain/page-records';
 import type {
   HeroCarouselSectionRecord,
@@ -168,7 +169,7 @@ export function HeroCarouselPage() {
           <span className="hidden sm:inline">{t('previewAutoplay')}</span>
         </Button>
         <Button type="button" variant="outline" size="sm" className="h-8" asChild>
-          <Link href="/ar/store" target="_blank" rel="noreferrer">
+          <Link href={storefrontPublicHomeHref()} target="_blank" rel="noreferrer">
             <ExternalLink className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">{tHome('previewStorefront')}</span>
           </Link>

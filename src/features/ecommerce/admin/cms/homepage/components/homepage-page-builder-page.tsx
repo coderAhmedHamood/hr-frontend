@@ -15,6 +15,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
+import { storefrontPublicHomeHref } from '@/features/ecommerce/storefront/lib/store-paths';
 import { getAllSectionDefinitions } from '@/features/ecommerce/storefront/page-builder/lib/section-definition-registry';
 import type { PageRecord } from '@/features/ecommerce/storefront/page-builder/domain/page-records';
 import type { SectionRecord } from '@/features/ecommerce/storefront/page-builder/domain/section-types';
@@ -100,7 +101,7 @@ export function HomepagePageBuilderPage() {
       <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
         <FilterToggleButton />
         <Button type="button" variant="outline" size="sm" className="h-8" asChild>
-          <Link href="/ar/store" target="_blank" rel="noreferrer">
+          <Link href={storefrontPublicHomeHref()} target="_blank" rel="noreferrer">
             <ExternalLink className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">{t('previewStorefront')}</span>
           </Link>

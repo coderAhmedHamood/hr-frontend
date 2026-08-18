@@ -3,8 +3,10 @@ import {
   resolveApplicationLaunchPath,
   type ApplicationResponseDto,
 } from '@/features/system/applications/lib/api/applications';
+import { isMultiLangEnabled } from '@/i18n/locale-flags';
 
 describe('enrichLauncherApplications', () => {
+  const storeHome = isMultiLangEnabled ? '/ar/store' : '/store';
   const hrApp: ApplicationResponseDto = {
     id: 'hr-1',
     code: 'hr',
@@ -142,6 +144,65 @@ describe('enrichLauncherApplications', () => {
       code: 'store-admin',
       nameAr: 'إدارة المتجر',
       routePath: '/store-admin',
+    };
+    expect(resolveApplicationLaunchPath(app)).toBe('/orders');
+  });
+
+  it('opens the public storefront under the locale prefix', () => {
+    const app: ApplicationResponseDto = {
+      ...hrApp,
+      id: 'sf',
+      code: 'storefront',
+      nameAr: 'المتجر',
+      nameEn: 'Store',
+      routePath: '/store',
+    };
+    expect(resolveApplicationLaunchPath(app)).toBe(storeHome);
+  });
+
+  it('defaults empty storefront routePath to the store home', () => {
+    const app: ApplicationResponseDto = {
+      ...hrApp,
+      id: 'sf-empty',
+      code: 'storefront',
+      nameAr: 'المتجر',
+      routePath: '',
+    };
+    expect(resolveApplicationLaunchPath(app)).toBe(storeHome);
+  });
+
+  it('opens المتجر even when backend code is store and English name is present', () => {
+    const app: ApplicationResponseDto = {
+      ...hrApp,
+      id: 'sf-store-code',
+      code: 'store',
+      nameAr: 'المتجر',
+      nameEn: 'Store',
+      routePath: '/store',
+    };
+    expect(resolveApplicationLaunchPath(app)).toBe(storeHome);
+  });
+
+  it('opens المتجر when routePath is empty and names are bilingual', () => {
+    const app: ApplicationResponseDto = {
+      ...hrApp,
+      id: 'sf-named',
+      code: 'shop',
+      nameAr: 'المتجر',
+      nameEn: 'Store',
+      routePath: '',
+    };
+    expect(resolveApplicationLaunchPath(app)).toBe(storeHome);
+  });
+
+  it('does not treat store-admin as the public storefront', () => {
+    const app: ApplicationResponseDto = {
+      ...hrApp,
+      id: 'sa-keep',
+      code: 'store-admin',
+      nameAr: 'إدارة المتجر',
+      nameEn: 'Store Admin',
+      routePath: '/store',
     };
     expect(resolveApplicationLaunchPath(app)).toBe('/orders');
   });

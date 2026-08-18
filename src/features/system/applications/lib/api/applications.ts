@@ -4,6 +4,7 @@ import { ecommerceAdminRoutes } from '@/features/ecommerce/admin/constants/route
 import { inventoryAdminRoutes } from '@/features/inventory/admin/constants/routes';
 import { resolveSystemAppLaunchPath } from '@/features/system/constants/app-launch';
 import { systemOwnerRoutes } from '@/features/system-owner/constants/routes';
+import { isMultiLangEnabled } from '@/i18n/locale-flags';
 
 export type ApplicationResponseDto = {
   id: string;
@@ -46,9 +47,32 @@ function looksLikePartnersContactsApp(app: ApplicationResponseDto): boolean {
   return /جهات الاتصال|^contacts$|^partners$/i.test(name);
 }
 
+function isStorefrontAppCode(code: string): boolean {
+  return (
+    code === 'storefront' ||
+    code === 'store-web' ||
+    code === 'online-shop' ||
+    code === 'online-store' ||
+    code === 'shop' ||
+    code === 'store'
+  );
+}
+
+function isStorefrontFilesystemPath(path: string): boolean {
+  return (
+    path === '/store' ||
+    path.startsWith('/store/') ||
+    path === '/ar/store' ||
+    path.startsWith('/ar/store/') ||
+    path === '/en/store' ||
+    path.startsWith('/en/store/')
+  );
+}
+
 /** Legacy duplicate of store admin — hide from launcher; content is under `store-admin`. */
 function isLegacyEcommerceAdminApp(app: ApplicationResponseDto): boolean {
   const code = normalizeAppCode(app.code);
+  if (isStorefrontAppCode(code)) return false;
   if (code === 'ecommerce') return true;
   const name = `${app.nameAr ?? ''} ${app.nameEn ?? ''}`.trim();
   return /المتجر الإلكتروني|online\s*store|e-?commerce/i.test(name);
@@ -115,6 +139,7 @@ export function resolveApplicationExternalUrl(app: ApplicationResponseDto): stri
   if (!url) return null;
   if (looksLikePartnersContactsApp(app)) return null;
   if (isLegacyEcommerceAdminApp(app) || looksLikeStoreAdminApp(app)) return null;
+  if (looksLikeStorefrontApp(app)) return null;
   try {
     const parsed = new URL(url);
     if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
@@ -124,7 +149,37 @@ export function resolveApplicationExternalUrl(app: ApplicationResponseDto): stri
   }
 }
 
-/** Where the app tile navigates inside this Next app (ignores external `launchUrl`). */
+export function looksLikeStorefrontApp(app: ApplicationResponseDto): boolean {
+  if (looksLikeStoreAdminApp(app) || isLegacyEcommerceAdminApp(app)) return false;
+
+  const code = normalizeAppCode(app.code);
+  if (isStorefrontAppCode(code)) return true;
+
+  const names = [app.nameAr, app.nameEn].map((value) => (value ?? '').trim()).filter(Boolean);
+  for (const name of names) {
+    if (/إدارة المتجر|store\s*admin/i.test(name)) continue;
+    if (/^(المتجر|storefront|store)$/i.test(name)) return true;
+    if (/واجهة المتجر|متجر إلكتروني|online\s*shop|public\s*store/i.test(name)) return true;
+  }
+
+  const path = (app.routePath ?? '').trim().replace(/\/+$/, '');
+  return isStorefrontFilesystemPath(path);
+}
+
+/** Public storefront URL for ERP tiles (`next/link` does not add a locale prefix). */
+export function resolveStorefrontLaunchPath(routePath?: string | null): string {
+  const home = isMultiLangEnabled ? '/ar/store' : '/store';
+  let raw = (routePath ?? '').trim().replace(/\/+$/, '') || '/store';
+  if (!isMultiLangEnabled) {
+    raw = raw.replace(/^\/(ar|en)(?=\/store)/, '');
+  }
+  if (raw.startsWith('/ar/store') || raw.startsWith('/en/store')) return raw;
+  if (raw === '/store' || raw.startsWith('/store/')) {
+    return isMultiLangEnabled ? `/ar${raw}` : raw;
+  }
+  return home;
+}
+
 export function resolveApplicationLaunchPath(app: ApplicationResponseDto): string {
   const code = normalizeAppCode(app.code);
   const base = app.routePath?.trim() ?? '';
@@ -152,8 +207,8 @@ export function resolveApplicationLaunchPath(app: ApplicationResponseDto): strin
     return inventoryAdminRoutes.pos;
   }
   if (code === 'accounting') return '/accounting';
-  if (code === 'storefront') {
-    return base && base.startsWith('/') ? base : '/';
+  if (code === 'storefront' || looksLikeStorefrontApp(app)) {
+    return resolveStorefrontLaunchPath(base);
   }
   if (code === 'system' && (!base || base === '/system' || isSystemUsersDirectoryPath(base))) {
     return resolveSystemAppLaunchPath();

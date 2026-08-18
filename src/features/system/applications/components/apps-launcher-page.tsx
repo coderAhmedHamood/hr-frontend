@@ -7,6 +7,7 @@ import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import {
   applicationsApi,
   enrichLauncherApplications,
+  looksLikeStorefrontApp,
   resolveApplicationExternalUrl,
   resolveApplicationLaunchPath,
   type ApplicationResponseDto,
@@ -41,6 +42,7 @@ function AppTile({
       tileClass={resolveApplicationTileClass(app, index)}
       href={href}
       external={Boolean(externalUrl)}
+      hardNavigation={!externalUrl && looksLikeStorefrontApp(app)}
     />
   );
 }

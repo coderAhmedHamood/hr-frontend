@@ -41,6 +41,7 @@ const TILE_BY_CODE: Record<string, { tileClass: string }> = {
   'store-admin': { tileClass: 'bg-gold text-gold-foreground' },
   ecommerce: { tileClass: 'bg-gold text-gold-foreground' },
   storefront: { tileClass: 'bg-success text-success-foreground' },
+  store: { tileClass: 'bg-success text-success-foreground' },
   inventory: { tileClass: 'bg-accent text-accent-foreground' },
   contacts: { tileClass: 'bg-primary text-primary-foreground' },
   pos: { tileClass: 'bg-success text-success-foreground' },
@@ -68,7 +69,7 @@ export function resolveApplicationIcon(app: ApplicationResponseDto): LucideIcon 
   const key = app.icon?.trim().toLowerCase();
   if (key && ICON_BY_KEY[key]) return ICON_BY_KEY[key]!;
   if (app.code === 'store-admin' || app.code === 'ecommerce') return Store;
-  if (app.code === 'storefront') return ShoppingBag;
+  if (app.code === 'storefront' || app.code === 'store') return ShoppingBag;
   if (app.code === 'inventory') return Package;
   if (app.code === 'pos' || app.code === 'cashier' || app.code === 'point-of-sale') {
     return ShoppingBag;

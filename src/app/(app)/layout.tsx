@@ -9,6 +9,7 @@ import { PageHeaderActionsProvider } from '@/components/layouts/page-header-acti
 import { AppEntityFilterRegion } from '@/components/layouts/app-entity-filter-region';
 import { AppShellProviders } from '@/components/layouts/app-shell-providers';
 import { Sidebar } from '@/components/layouts/sidebar';
+import { MobileTabBar } from '@/components/layouts/mobile-tab-bar';
 import { Topbar } from '@/components/layouts/topbar';
 import { FilterPanel } from '@/components/layouts/filter-panel';
 import { Toaster } from 'sonner';
@@ -30,6 +31,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                   <div className="h-screen flex flex-col bg-background overflow-hidden">
                     <Topbar />
                     <Sidebar />
+                    <MobileTabBar />
                     <FilterPanel />
                     <main className="relative z-0 flex w-full min-w-0 flex-1 flex-col overflow-hidden p-4">
                       <AppEntityFilterRegion />

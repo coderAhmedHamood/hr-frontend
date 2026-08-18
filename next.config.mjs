@@ -78,6 +78,10 @@ const nextConfig = {
       // Store admin seed path → ecommerce admin shell (إدارة المتجر).
       { source: '/store-admin', destination: '/overview', permanent: false },
       { source: '/store-admin/:path*', destination: '/overview', permanent: false },
+      // Do NOT redirect `/store` ↔ `/ar/store` here. Locale prefix is owned by
+      // `src/proxy.ts` (next-intl). With NEXT_PUBLIC_STORE_MULTILANG=false the
+      // public URL is `/store`; a next.config redirect to `/ar/store` fights
+      // middleware (which strips `/ar`) and infinite-loops.
       // Legacy HR / System “contacts” = users directory (not Partners).
       { source: '/hr/contacts', destination: '/system/organization/users', permanent: true },
       { source: '/hr/organization/contacts', destination: '/system/organization/users', permanent: true },

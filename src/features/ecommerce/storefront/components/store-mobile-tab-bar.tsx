@@ -59,8 +59,7 @@ export function StoreMobileTabBar() {
 
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-background/95 backdrop-blur-md lg:hidden"
-      style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+      className="safe-area-pb fixed inset-x-0 bottom-0 z-50 border-t border-border bg-background/95 backdrop-blur-md lg:hidden"
       aria-label={tA11y('mobileNav')}
     >
       <ul className="mx-auto grid h-14 max-w-[1400px] grid-cols-4">
