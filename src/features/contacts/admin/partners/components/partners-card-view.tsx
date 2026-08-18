@@ -20,7 +20,7 @@ export function PartnersCardView({ partners, onOpen }: Props) {
   }
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+    <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-3">
       {partners.map((partner) => (
         <div
           key={partner.id}

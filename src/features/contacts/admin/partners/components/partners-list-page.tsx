@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { Eye, LayoutGrid, List, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Building2, Eye, LayoutGrid, List, Mail, Pencil, Phone, Plus, Trash2 } from 'lucide-react';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
@@ -30,6 +30,7 @@ import { PartnersCardView } from '@/features/contacts/admin/partners/components/
 import {
   PartnerRoleBadges,
   PartnerStatusBadge,
+  partnerInitials,
 } from '@/features/contacts/admin/partners/components/partner-role-badges';
 import type { Partner, PartnerStatus } from '@/features/contacts/domain/types/partner';
 import { cn } from '@/shared/utils';
@@ -168,6 +169,7 @@ export function PartnersListPage() {
     {
       key: 'email',
       title: 'البريد',
+      hideOnMobile: true,
       render: (row) => (
         <span className="text-sm text-muted-foreground" dir="ltr">
           {row.email || '—'}
@@ -286,7 +288,7 @@ export function PartnersListPage() {
   );
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex min-w-0 flex-col gap-5">
       <SetPageTitle
         titleAr="جهات الاتصال"
         descriptionAr="السجل المركزي لجهات الاتصال — العملاء والموردون والموظفون والجهات الداخلية."
@@ -317,12 +319,72 @@ export function PartnersListPage() {
         >
           {(rowsPage) => (
             <DataTable
+              variant="directory"
+              className="ctc-table-host"
               columns={columns}
               data={rowsPage}
               keyExtractor={(row) => row.id}
               loading={isLoading}
               onRowClick={openPartner}
               emptyText="لا توجد جهات اتصال بعد. أنشئ جهة اتصال لتكون المرجع المركزي للنظام."
+              mobileCard={(row) => (
+                <div className="flex flex-col gap-2.5">
+                  <div className="flex items-start gap-3">
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-border bg-muted text-sm font-semibold text-foreground">
+                      {row.isCompany ? (
+                        <Building2 className="h-4 w-4 text-muted-foreground" />
+                      ) : (
+                        partnerInitials(row.displayName)
+                      )}
+                    </span>
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="truncate font-medium text-foreground">{row.displayName}</p>
+                        <PartnerStatusBadge status={row.status} />
+                      </div>
+                      {row.refCode ? (
+                        <p className="text-xs text-muted-foreground" dir="ltr">
+                          {row.refCode}
+                        </p>
+                      ) : null}
+                      <PartnerRoleBadges partner={row} />
+                    </div>
+                  </div>
+                  <div className="space-y-1 text-xs text-muted-foreground">
+                    {row.mobile || row.phone ? (
+                      <p className="flex items-center gap-1.5 truncate" dir="ltr">
+                        <Phone className="h-3.5 w-3.5 shrink-0" />
+                        {row.mobile || row.phone}
+                      </p>
+                    ) : null}
+                    {row.email ? (
+                      <p className="flex items-center gap-1.5 truncate" dir="ltr">
+                        <Mail className="h-3.5 w-3.5 shrink-0" />
+                        {row.email}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div
+                    className="flex items-center justify-end gap-1 border-t border-border/60 pt-2"
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    <Button variant="ghost" size="icon" aria-label="عرض التفاصيل" onClick={() => openPartner(row)}>
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label="تعديل"
+                      onClick={() => setFormState({ open: true, partner: row })}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" aria-label="أرشفة" onClick={() => setToDelete(row)}>
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                </div>
+              )}
             />
           )}
         </DirectoryPagedViews>
@@ -352,7 +414,7 @@ export function PartnersListPage() {
               partner_id.
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter>
+          <DialogFooter className="ctc-dialog-footer">
             <Button variant="outline" onClick={() => setToDelete(null)}>
               إلغاء
             </Button>

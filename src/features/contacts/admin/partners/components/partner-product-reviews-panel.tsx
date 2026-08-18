@@ -90,7 +90,7 @@ function PartnerProductReviewsBody({ companyId, partnerId }: Props) {
           value={status}
           onValueChange={(value) => setStatus(value as ProductReviewStatus | 'all')}
         >
-          <SelectTrigger className="h-9 w-44" aria-label="تصفية الحالة">
+          <SelectTrigger className="h-9 w-full sm:w-44" aria-label="تصفية الحالة">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

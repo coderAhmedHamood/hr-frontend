@@ -478,7 +478,7 @@ export function OrderLineShipPanel({ companyId, orderId, orderStatus, line }: Pr
                       value={row.locationId || undefined}
                       onValueChange={(value) => updateRow(row.key, { locationId: value })}
                     >
-                      <SelectTrigger className="min-w-[14rem] flex-1" aria-label="اختر الموقع">
+                      <SelectTrigger className="min-w-0 flex-1" aria-label="اختر الموقع">
                         <SelectValue placeholder="اختر الموقع" />
                       </SelectTrigger>
                       <SelectContent>

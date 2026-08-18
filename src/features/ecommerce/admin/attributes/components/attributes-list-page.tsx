@@ -141,6 +141,7 @@ export function AttributesListPage() {
     {
       key: 'variant',
       title: 'إنشاء المتغيِّر',
+      hideOnMobile: true,
       render: (row) => <span className="text-sm text-muted-foreground">{variantLabel(row.createVariant)}</span>,
     },
     {
@@ -205,11 +206,40 @@ export function AttributesListPage() {
       >
         {(rowsPage) => (
           <DataTable
+            variant="directory"
+            className="sto-table-host"
             columns={columns}
             data={rowsPage}
             keyExtractor={(row) => row.id}
             loading={isLoading}
             emptyText="لا توجد خصائص بعد. أضف خاصية لاستخدامها في المنتجات."
+            mobileCard={(row) => (
+              <div className="flex flex-col gap-2.5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-medium text-foreground">{row.nameAr}</p>
+                    <p className="text-xs text-muted-foreground">{row.values.length} قيمة</p>
+                  </div>
+                  <Badge variant="subtle">{displayLabel(row.displayType)}</Badge>
+                </div>
+                <div
+                  className="flex items-center justify-end gap-1 border-t border-border/60 pt-2"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="تعديل"
+                    onClick={() => setFormState({ open: true, attribute: row })}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" aria-label="حذف" onClick={() => setToDelete(row)}>
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
+              </div>
+            )}
           />
         )}
       </DirectoryPagedViews>

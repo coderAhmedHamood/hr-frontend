@@ -145,6 +145,7 @@ export function ContactMessagesPage() {
     {
       key: 'message',
       title: 'الرسالة',
+      hideOnMobile: true,
       render: (row) => (
         <p className="max-w-md truncate text-sm text-foreground">{row.message}</p>
       ),
@@ -179,18 +180,33 @@ export function ContactMessagesPage() {
         </div>
       ) : (
         <DataTable
+          variant="directory"
+          className="sto-table-host"
           columns={columns}
           data={data?.items ?? []}
           keyExtractor={(row) => row.id}
           loading={isLoading}
           emptyText={hasActiveFilters ? 'لا توجد رسائل مطابقة للفلاتر.' : 'لا توجد رسائل بعد.'}
           onRowClick={(row) => setViewing(row)}
-          alwaysShowTable
+          mobileCard={(row) => (
+            <div className="flex flex-col gap-2">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate font-medium text-foreground">{row.name}</p>
+                  <p className="truncate text-xs text-muted-foreground" dir="ltr">
+                    {[row.email, row.phone].filter(Boolean).join(' · ') || '—'}
+                  </p>
+                </div>
+                <TypeBadge type={row.type} />
+              </div>
+              <p className="line-clamp-3 text-sm text-foreground">{row.message}</p>
+            </div>
+          )}
         />
       )}
 
       {total > 0 ? (
-        <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
+        <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
           <p>
             عرض {from}–{to} من {total}
           </p>

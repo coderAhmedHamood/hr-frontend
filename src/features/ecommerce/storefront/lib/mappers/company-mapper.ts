@@ -107,29 +107,6 @@ export function mapStorefrontCompanyConfig(
       };
     })(),
     checkout: {
-      cities: record.checkout?.cities?.length
-        ? [...record.checkout.cities]
-        : [
-            'صنعاء',
-            'عدن',
-            'تعز',
-            'الحديدة',
-            'إب',
-            'ذمار',
-            'المكلا',
-            'سيئون',
-            'حجة',
-            'صعدة',
-            'مأرب',
-            'البيضاء',
-            'لحج',
-            'أبين',
-            'الضالع',
-            'شبوة',
-            'المحويت',
-            'عمران',
-          ],
-      defaultCity: record.checkout?.defaultCity || 'صنعاء',
       paymentMethods:
         record.checkout?.paymentMethods?.length > 0
           ? [...record.checkout.paymentMethods]

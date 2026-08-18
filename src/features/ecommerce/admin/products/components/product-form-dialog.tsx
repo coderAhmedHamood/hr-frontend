@@ -324,7 +324,7 @@ export function ProductFormDialog({ product, open, onOpenChange }: Props) {
                     }}
                     className="w-full space-y-4"
                   >
-                    <TabsList className="grid h-auto w-full grid-cols-6 gap-1 rounded-2xl border border-border/80 bg-muted/40 p-1">
+                    <TabsList className="sto-tabs-scroll h-auto w-full justify-start rounded-2xl border border-border/80 bg-muted/40 p-1">
                       {FORM_TABS.map((tab) => {
                         const Icon = tab.icon;
                         return (

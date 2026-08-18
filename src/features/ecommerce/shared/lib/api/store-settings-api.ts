@@ -4,14 +4,12 @@ import { resolveStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/
 import {
   assembleStorefrontConfigDto,
   mapRecordToAnnouncementsPayload,
-  mapRecordToCheckoutCitiesPayload,
   mapRecordToFooterPayload,
   mapRecordToNavItemsPayload,
   mapRecordToSocialLinksPayload,
   mapRecordToUpdateSettingsDto,
   mapStorefrontConfigDtoToRecord,
   type StoreAnnouncementItemDto,
-  type StoreCheckoutCityDto,
   type StoreFooterLinkGroupDto,
   type StoreNavItemDto,
   type StoreSettingsDto,
@@ -48,8 +46,7 @@ export async function fetchAdminStoreConfig(companyId: string): Promise<CompanyC
   const settings = await getOptionalSettings<StoreSettingsDto>(settingsBase(id));
   if (!settings) return null;
 
-  const [checkoutCities, socialLinks, navItems, footer, announcements] = await Promise.all([
-    getListItems<StoreCheckoutCityDto>(`${settingsBase(id)}/checkout-cities`),
+  const [socialLinks, navItems, footer, announcements] = await Promise.all([
     getListItems<StoreSocialLinkDto>(`${settingsBase(id)}/social-links`),
     getListItems<StoreNavItemDto>(`${settingsBase(id)}/nav-items`),
     getListItems<StoreFooterLinkGroupDto>(`${settingsBase(id)}/footer`),
@@ -58,7 +55,6 @@ export async function fetchAdminStoreConfig(companyId: string): Promise<CompanyC
 
   const dto = assembleStorefrontConfigDto({
     settings: { ...settings, companyId: settings.companyId || id },
-    checkoutCities,
     socialLinks,
     navItems,
     footerLinkGroups: footer,
@@ -79,11 +75,6 @@ export async function saveAdminStoreConfig(record: CompanyConfigRecord): Promise
   });
 
   await Promise.all([
-    apiRequest(`${base}/checkout-cities`, {
-      method: 'PUT',
-      throwOnError: true,
-      body: mapRecordToCheckoutCitiesPayload(record),
-    }),
     apiRequest(`${base}/social-links`, {
       method: 'PUT',
       throwOnError: true,

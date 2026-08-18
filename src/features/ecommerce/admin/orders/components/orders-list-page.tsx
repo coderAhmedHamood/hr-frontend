@@ -35,7 +35,7 @@ import {
   resolveOrderPaymentMethod,
 } from '@/features/ecommerce/domain/constants/order-status';
 import type { Order, OrderFulfilmentFilter, OrderStatus } from '@/features/ecommerce/domain/types/order';
-import { getCmsCompanyRecord } from '@/features/ecommerce/admin/cms/shared/cms-actions';
+import { useGeoCities } from '@/features/system/organization/geo/hooks/use-geo';
 import { StoreBindingStorageCleaner } from '@/features/ecommerce/storefront/components/store-binding-storage-cleaner';
 import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { ListFilterBar } from '@/components/ui/list-filter-bar';
@@ -177,28 +177,25 @@ export function OrdersListPage() {
       : Number(searchParams.get('pageSize')) || DEFAULT_PAGE_SIZE;
   const selectedOrderId = searchParams.get('order') ?? '';
 
-  const [cityOptions, setCityOptions] = React.useState<Array<{ value: string; label: string }>>([
-    { value: 'all', label: 'كل المدن' },
-  ]);
-
-  React.useEffect(() => {
-    let cancelled = false;
-    void getCmsCompanyRecord(companyId)
-      .then((record) => {
-        if (cancelled) return;
-        const cities = record?.checkout?.cities ?? [];
-        setCityOptions([
-          { value: 'all', label: 'كل المدن' },
-          ...cities.map((city) => ({ value: city, label: city })),
-        ]);
-      })
-      .catch(() => {
-        if (!cancelled) setCityOptions([{ value: 'all', label: 'كل المدن' }]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [companyId]);
+  const geoCitiesQuery = useGeoCities(
+    {
+      companyId,
+      page: 1,
+      limit: 200,
+      archiveScope: 'active',
+    },
+    Boolean(companyId),
+  );
+  const cityOptions = React.useMemo(
+    () => [
+      { value: 'all', label: 'كل المدن' },
+      ...(geoCitiesQuery.data?.items ?? []).map((city) => ({
+        value: city.nameAr,
+        label: city.nameAr,
+      })),
+    ],
+    [geoCitiesQuery.data?.items],
+  );
 
   const [searchInput, setSearchInput] = React.useState(search);
   const datePeriod = React.useMemo(
@@ -447,6 +444,7 @@ export function OrdersListPage() {
     {
       key: 'date',
       title: 'التاريخ',
+      hideOnMobile: true,
       render: (order) => <span className="text-sm text-muted-foreground">{formatShortDate(order.createdAt)}</span>,
     },
     {
@@ -579,6 +577,66 @@ export function OrdersListPage() {
     },
   ];
 
+  function renderMobileCard(order: Order) {
+    const prep = getOrderPrepGuidance(order);
+    const isCard = prep.paymentMethod === 'card';
+    const phone = order.phone?.trim() || null;
+
+    return (
+      <div className="flex flex-col gap-2.5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="font-semibold tracking-tight text-foreground" dir="ltr">
+              {order.orderNumber}
+            </p>
+            <p className="text-xs text-muted-foreground">{formatShortDate(order.createdAt)}</p>
+          </div>
+          <Badge
+            variant={ORDER_TERMINAL_STATUSES.includes(order.status) ? 'destructive' : 'subtle'}
+            className="shrink-0"
+          >
+            {ORDER_STATUS_LABELS_AR[order.status]}
+          </Badge>
+        </div>
+
+        <div className="min-w-0">
+          <p className="truncate text-sm font-medium text-foreground">{order.customerNameAr}</p>
+          {phone ? (
+            <div onClick={(event) => event.stopPropagation()}>
+              <WhatsappPhoneAction phone={phone} customerName={order.customerNameAr} orderId={order.id} />
+            </div>
+          ) : null}
+          {order.city ? (
+            <span className="mt-0.5 inline-flex items-center gap-1 text-xs text-muted-foreground">
+              <MapPin className="h-3 w-3" />
+              {order.city}
+            </span>
+          ) : null}
+        </div>
+
+        <div className="flex items-center justify-between gap-3 rounded-lg bg-muted/40 px-2.5 py-1.5">
+          <span className="font-semibold tabular-nums text-foreground">{formatPrice(order.totalAmount)}</span>
+          <Badge variant={FULFILMENT_VARIANT[orderFulfilmentState(order)]}>
+            {FULFILMENT_LABELS[orderFulfilmentState(order)]}
+          </Badge>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span
+            className={cn(
+              'inline-flex items-center gap-1 text-xs font-semibold',
+              isCard ? 'text-sky-800 dark:text-sky-300' : 'text-teal-800 dark:text-teal-300',
+            )}
+          >
+            {isCard ? <CreditCard className="h-3 w-3" /> : <Banknote className="h-3 w-3" />}
+            {prep.methodLabel}
+          </span>
+          <Badge variant={PAYMENT_STATUS_VARIANT[order.paymentStatus ?? 'pending']}>{prep.statusLabel}</Badge>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <StoreBindingStorageCleaner />
@@ -629,13 +687,15 @@ export function OrdersListPage() {
         >
           {(ordersPage) => (
             <DataTable
+              variant="directory"
+              className="sto-table-host"
               columns={columns}
               data={ordersPage}
               keyExtractor={(order) => order.id}
               loading={isLoading}
               emptyText="لا توجد طلبات مطابقة. أنشئ طلبًا من المتجر ليظهر هنا مباشرة."
               onRowClick={(order) => updateParams({ order: order.id })}
-              alwaysShowTable
+              mobileCard={renderMobileCard}
             />
           )}
         </DirectoryPagedViews>

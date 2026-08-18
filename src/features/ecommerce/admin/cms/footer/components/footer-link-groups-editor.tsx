@@ -206,7 +206,7 @@ export function FooterLinkGroupsEditor({
               return (
                 <div
                   key={`${group.id}-${linkIndex}`}
-                  className="grid gap-2 rounded-xl border border-border/60 bg-card p-3 sm:grid-cols-[minmax(0,11rem)_1fr_1fr_1.1fr_auto]"
+                  className="sto-footer-link-row rounded-xl border border-border/60 bg-card p-3"
                 >
                   <Select
                     value={pageValue}

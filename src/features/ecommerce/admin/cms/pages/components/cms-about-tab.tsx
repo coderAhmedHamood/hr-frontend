@@ -42,7 +42,7 @@ export function CmsAboutTab({ about, onChange }: Props) {
   const stats = about.stats ?? [];
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+    <div className="sto-cms-split">
       <div className="space-y-5 rounded-2xl border border-border/60 bg-muted/10 p-4 sm:p-5">
         <div>
           <h3 className="text-sm font-semibold text-foreground">{t('studioBasics')}</h3>

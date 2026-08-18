@@ -36,7 +36,6 @@ import {
   type PublicPaymentAccount,
 } from '@/features/ecommerce/admin/payment-accounts/lib/api/public-payment-accounts-api';
 import type { PaymentAccountType } from '@/features/ecommerce/admin/payment-accounts/lib/api/payment-accounts-api';
-import type { StorefrontCompanyConfig } from '@/features/ecommerce/storefront/domain/storefront-models';
 import { placeStorefrontOrder } from '@/features/ecommerce/storefront/lib/checkout-actions';
 import { PartnerAuthApiError } from '@/features/ecommerce/storefront/domain/partner-auth';
 import {
@@ -124,11 +123,10 @@ function paymentAccountInstructions(
 }
 
 type CheckoutClientProps = {
-  checkoutConfig: StorefrontCompanyConfig['checkout'];
   currency: string;
 };
 
-export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }: CheckoutClientProps) {
+export function StoreCheckoutClient({ currency: storeCurrency }: CheckoutClientProps) {
   const t = useTranslations('storefront');
   const locale = useLocale() as StorefrontLocale;
   const router = useRouter();

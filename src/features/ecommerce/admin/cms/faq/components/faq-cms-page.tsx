@@ -292,12 +292,13 @@ export function FaqCmsPage({ embedded = false }: { embedded?: boolean }) {
       ) : null}
 
       <DataTable
+        variant="directory"
+        className="sto-table-host"
         columns={columns}
         data={filteredItems}
         keyExtractor={(item) => item.id}
         loading={isLoading}
         emptyText={t('empty')}
-        alwaysShowTable
       />
 
       <Dialog

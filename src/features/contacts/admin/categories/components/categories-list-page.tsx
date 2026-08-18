@@ -190,7 +190,7 @@ export function PartnerCategoriesListPage() {
   );
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex min-w-0 flex-col gap-5">
       <SetPageTitle
         titleAr="تصنيفات جهات الاتصال"
         descriptionAr="تصنيفات مخصصة لتجميع جهات الاتصال — مثل كبار العملاء أو الموردين المعتمدين."
@@ -213,11 +213,44 @@ export function PartnerCategoriesListPage() {
       >
         {(rowsPage) => (
           <DataTable
+            variant="directory"
+            className="ctc-table-host"
             columns={columns}
             data={rowsPage}
             keyExtractor={(row) => row.id}
             loading={isLoading}
             emptyText="لا تصنيفات بعد. أضف VIP أو Supplier أو Customer…"
+            mobileCard={(row) => (
+              <div className="flex flex-col gap-2.5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 space-y-0.5">
+                    <p className="truncate font-medium text-foreground">{row.nameAr}</p>
+                    <p className="truncate text-xs text-muted-foreground" dir="ltr">
+                      {row.slug}
+                    </p>
+                  </div>
+                  <Badge variant={row.isActive ? 'success' : 'subtle'} className="shrink-0">
+                    {row.isActive ? 'نشط' : 'معطّل'}
+                  </Badge>
+                </div>
+                <div
+                  className="flex items-center justify-end gap-1 border-t border-border/60 pt-2"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="تعديل التصنيف"
+                    onClick={() => setFormState({ open: true, category: row })}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" aria-label="حذف التصنيف" onClick={() => setToDelete(row)}>
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
+              </div>
+            )}
           />
         )}
       </DirectoryPagedViews>
@@ -270,7 +303,7 @@ export function PartnerCategoriesListPage() {
                 />
               </EntityFormRow>
             </div>
-            <DialogFooter className="gap-2 border-t border-border px-6 py-4">
+            <DialogFooter className="ctc-dialog-footer gap-2 border-t border-border px-4 py-4 sm:px-6">
               <Button type="button" variant="outline" onClick={() => setFormState({ open: false, category: null })}>
                 إلغاء
               </Button>
@@ -288,7 +321,7 @@ export function PartnerCategoriesListPage() {
             <DialogTitle>حذف التصنيف؟</DialogTitle>
             <DialogDescription>سيتم أرشفة «{toDelete?.nameAr}».</DialogDescription>
           </DialogHeader>
-          <DialogFooter>
+          <DialogFooter className="ctc-dialog-footer">
             <Button variant="outline" onClick={() => setToDelete(null)}>
               إلغاء
             </Button>

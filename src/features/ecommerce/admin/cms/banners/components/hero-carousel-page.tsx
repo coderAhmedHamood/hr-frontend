@@ -496,12 +496,13 @@ export function HeroCarouselPage() {
       ) : null}
 
       <DataTable
+        variant="directory"
+        className="sto-table-host"
         columns={columns}
         data={slides}
         keyExtractor={(slide) => slide.id}
         loading={isLoading}
         emptyText={t('empty')}
-        alwaysShowTable
       />
 
       <Dialog

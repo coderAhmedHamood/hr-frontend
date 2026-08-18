@@ -156,8 +156,6 @@ export type StorefrontCompanyConfig = {
     speedMs: number;
   };
   checkout: {
-    cities: string[];
-    defaultCity: string;
     paymentMethods: CompanyCheckoutPaymentMethod[];
   };
   storePages: {

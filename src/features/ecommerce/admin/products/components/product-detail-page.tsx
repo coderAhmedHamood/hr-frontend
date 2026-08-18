@@ -357,8 +357,8 @@ export function ProductDetailPage({ productId }: Props) {
               }}
               className="w-full space-y-4"
             >
-              <div className="sticky top-0 z-10 -mx-1 overflow-x-auto rounded-2xl px-1 pb-1">
-                <TabsList className="inline-flex h-auto min-w-full w-max justify-start gap-1 rounded-2xl border border-border/60 bg-muted/70 p-1.5 backdrop-blur">
+              <div className="sto-tabs-scroll sticky top-0 z-10 -mx-1 rounded-2xl px-1 pb-1">
+                <TabsList className="sto-tabs-scroll h-auto min-w-full w-max justify-start gap-1 rounded-2xl border border-border/60 bg-muted/70 p-1.5 backdrop-blur">
                   {DETAIL_TABS.map(({ value, label, icon: Icon }) => (
                     <TabsTrigger
                       key={value}
@@ -423,8 +423,8 @@ export function ProductDetailPage({ productId }: Props) {
           </aside>
         </div>
 
-        <div className="sticky bottom-0 z-10 flex items-center justify-between gap-3 rounded-2xl border border-border bg-background/95 px-4 py-3 shadow-soft backdrop-blur sm:px-5">
-          <div className="flex w-full gap-2 sm:w-auto">
+        <div className="sticky bottom-0 z-10 flex flex-col gap-2 rounded-2xl border border-border bg-background/95 px-3 py-3 shadow-soft backdrop-blur sm:flex-row sm:items-center sm:justify-between sm:px-5">
+          <div className="flex w-full gap-2">
             <Button
               type="submit"
               className="min-w-32 flex-1 gap-1.5 sm:flex-none"

@@ -138,6 +138,7 @@ export function BrandsListPage() {
     {
       key: 'description',
       title: 'الوصف',
+      hideOnMobile: true,
       render: (brand) => <span className="text-sm text-muted-foreground">{brand.description ?? '—'}</span>,
     },
     {
@@ -190,11 +191,47 @@ export function BrandsListPage() {
       >
         {(rowsPage) => (
           <DataTable
+            variant="directory"
+            className="sto-table-host"
             columns={columns}
             data={rowsPage}
             keyExtractor={(brand) => brand.id}
             loading={isLoading}
             emptyText="لا توجد علامات تجارية بعد."
+            mobileCard={(brand) => (
+              <div className="flex flex-col gap-2.5">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted">
+                    {brand.logo ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={brand.logo.url} alt={brand.logo.alt} className="h-full w-full object-cover" />
+                    ) : (
+                      <Tag className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium text-foreground">{brand.nameAr}</p>
+                    {brand.description ? (
+                      <p className="line-clamp-2 text-xs text-muted-foreground">{brand.description}</p>
+                    ) : null}
+                  </div>
+                  <Badge variant={brand.isActive ? 'success' : 'subtle'} className="shrink-0">
+                    {brand.isActive ? 'مفعّل' : 'معطّل'}
+                  </Badge>
+                </div>
+                <div
+                  className="flex items-center justify-end gap-1 border-t border-border/60 pt-2"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <Button variant="ghost" size="icon" aria-label="تعديل العلامة التجارية" onClick={() => openEditDialog(brand)}>
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" aria-label="حذف العلامة التجارية" onClick={() => setBrandToDelete(brand)}>
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
+              </div>
+            )}
           />
         )}
       </DirectoryPagedViews>

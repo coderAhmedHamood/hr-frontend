@@ -51,7 +51,6 @@ export type StoreSettingsDto = {
   announcementDismissible: boolean;
   announcementScrolling: boolean;
   announcementSpeedMs: number;
-  checkoutDefaultCity: string;
   checkoutPaymentMethods: CompanyCheckoutPaymentMethod[];
   storePageOffersEnabled: boolean;
   storePageWholesaleEnabled: boolean;
@@ -62,7 +61,6 @@ export type StoreSettingsDto = {
   updatedAt?: string;
 };
 
-export type StoreCheckoutCityDto = { id?: string; name: string; sortOrder: number };
 export type StoreSocialLinkDto = {
   network: CompanySocialNetwork;
   url: string;
@@ -102,7 +100,6 @@ export type StoreFooterLinkGroupDto = {
 
 export type StorefrontConfigDto = {
   settings: StoreSettingsDto;
-  checkoutCities: StoreCheckoutCityDto[];
   socialLinks: StoreSocialLinkDto[];
   primaryNav: StoreNavItemDto[];
   secondaryNav: StoreNavItemDto[];
@@ -213,10 +210,6 @@ export function mapStorefrontConfigDtoToRecord(dto: StorefrontConfigDto): Compan
         })),
     }),
     checkout: {
-      cities: [...dto.checkoutCities]
-        .sort((a, b) => a.sortOrder - b.sortOrder)
-        .map((city) => city.name),
-      defaultCity: s.checkoutDefaultCity,
       paymentMethods:
         s.checkoutPaymentMethods?.length > 0
           ? [...s.checkoutPaymentMethods]
@@ -273,22 +266,12 @@ export function mapRecordToUpdateSettingsDto(record: CompanyConfigRecord) {
     announcementDismissible: record.announcement.dismissible,
     announcementScrolling: record.announcement.scrolling !== false,
     announcementSpeedMs: record.announcement.speedMs,
-    checkoutDefaultCity: record.checkout.defaultCity,
     checkoutPaymentMethods: record.checkout.paymentMethods,
     storePageOffersEnabled: record.storePages.offers,
     storePageWholesaleEnabled: record.storePages.wholesale,
     defaultLocale: record.defaultLocale,
     currencyCode: record.currency,
     timezone: record.timezone,
-  };
-}
-
-export function mapRecordToCheckoutCitiesPayload(record: CompanyConfigRecord) {
-  return {
-    cities: record.checkout.cities.map((name, index) => ({
-      name,
-      sortOrder: index,
-    })),
   };
 }
 
@@ -361,7 +344,6 @@ export function mapRecordToAnnouncementsPayload(record: CompanyConfigRecord) {
 /** Assemble a full config DTO from admin piece endpoints. */
 export function assembleStorefrontConfigDto(input: {
   settings: StoreSettingsDto;
-  checkoutCities?: StoreCheckoutCityDto[];
   socialLinks?: StoreSocialLinkDto[];
   navItems?: StoreNavItemDto[];
   footerLinkGroups?: StoreFooterLinkGroupDto[];
@@ -370,7 +352,6 @@ export function assembleStorefrontConfigDto(input: {
   const nav = input.navItems ?? [];
   return {
     settings: input.settings,
-    checkoutCities: input.checkoutCities ?? [],
     socialLinks: input.socialLinks ?? [],
     primaryNav: nav.filter((item) => item.kind === 'primary'),
     secondaryNav: nav.filter((item) => item.kind === 'secondary'),

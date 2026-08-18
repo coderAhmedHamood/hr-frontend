@@ -375,6 +375,7 @@ export function ProductsListPage() {
     {
       key: 'quantity',
       title: 'الكمية',
+      hideOnMobile: true,
       render: (product) => <span className="tabular-nums">{product.inventory.quantity}</span>,
     },
     {
@@ -511,6 +512,8 @@ export function ProductsListPage() {
       >
         {(pageItems) => (
           <DataTable
+            variant="directory"
+            className="sto-table-host"
             columns={columns}
             data={pageItems}
             keyExtractor={(product) => product.id}

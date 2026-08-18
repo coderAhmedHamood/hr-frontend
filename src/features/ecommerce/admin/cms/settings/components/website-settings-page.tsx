@@ -30,7 +30,6 @@ import {
 } from '@/features/ecommerce/storefront/domain/company-config';
 import { DEFAULT_STOREFRONT_TYPOGRAPHY } from '@/features/ecommerce/storefront/lib/storefront-fonts';
 import { ImagePicker } from '@/features/ecommerce/admin/cms/homepage/components/section-entity-pickers';
-import { CheckoutCitiesEditor } from '@/features/ecommerce/admin/cms/settings/components/checkout-cities-editor';
 import { WebsiteColorsPanel } from '@/features/ecommerce/admin/cms/settings/components/website-colors-panel';
 import { DeliveryRatesPanel } from '@/features/ecommerce/admin/delivery-rates/components/delivery-rates-panel';
 import { PaymentAccountsPanel } from '@/features/ecommerce/admin/payment-accounts/components/payment-accounts-panel';
@@ -106,8 +105,6 @@ function parseKeywords(raw: string): string[] {
 function defaultCheckout(draft: CompanyConfigRecord) {
   return (
     draft.checkout ?? {
-      cities: [],
-      defaultCity: '',
       paymentMethods: ['cash_on_delivery', 'card'] as CompanyCheckoutPaymentMethod[],
     }
   );
@@ -477,7 +474,7 @@ export function WebsiteSettingsPage() {
                   return (
                     <div
                       key={network}
-                      className="grid gap-3 rounded-2xl border border-border/60 bg-muted/15 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end"
+                      className="sto-social-row rounded-2xl border border-border/60 bg-muted/15 p-4"
                     >
                       <Field label={t(network)}>
                         <Input
@@ -536,25 +533,10 @@ export function WebsiteSettingsPage() {
 
           <TabsContent value="checkout" className="mt-4">
             <SettingsPanel>
-              <div className="grid gap-5 sm:grid-cols-2">
-                <CheckoutCitiesEditor
-                  cities={draft.checkout?.cities ?? []}
-                  defaultCity={draft.checkout?.defaultCity ?? ''}
-                  onChange={({ cities, defaultCity }) =>
-                    updateDraft({
-                      ...draft,
-                      checkout: {
-                        ...defaultCheckout(draft),
-                        cities,
-                        defaultCity,
-                      },
-                    })
-                  }
-                />
-                <div className="space-y-3 sm:col-span-2">
-                  <Label className="text-sm font-medium text-foreground">{t('paymentMethods')}</Label>
-                  <p className="text-[11px] text-muted-foreground">{t('paymentMethodsHint')}</p>
-                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="space-y-3">
+                <Label className="text-sm font-medium text-foreground">{t('paymentMethods')}</Label>
+                <p className="text-[11px] text-muted-foreground">{t('paymentMethodsHint')}</p>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     {ALL_CHECKOUT_PAYMENT_METHODS.map((id) => {
                       const Icon = PAYMENT_METHOD_ICONS[id];
                       const label = PAYMENT_METHOD_LABELS_AR[id];
@@ -611,14 +593,13 @@ export function WebsiteSettingsPage() {
                         </div>
                       );
                     })}
-                  </div>
                 </div>
               </div>
             </SettingsPanel>
           </TabsContent>
 
           <TabsContent value="seo" className="mt-4">
-            <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)]">
+            <div className="sto-settings-split">
               <SettingsPanel>
                 <div className="grid gap-5">
                   <div className="space-y-4 rounded-2xl border border-border/60 bg-muted/10 p-4">

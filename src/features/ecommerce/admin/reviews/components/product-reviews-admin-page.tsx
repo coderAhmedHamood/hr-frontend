@@ -144,14 +144,14 @@ export function ProductReviewsAdminPage() {
         </div>
       ) : (
         <>
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="space-y-1.5">
+          <div className="flex w-full flex-wrap items-end gap-3">
+            <div className="sto-filter-field space-y-1.5">
               <Label>الحالة</Label>
               <Select
                 value={status}
                 onValueChange={(value) => setStatus(value as ProductReviewStatus | 'all')}
               >
-                <SelectTrigger className="w-48">
+                <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -162,13 +162,13 @@ export function ProductReviewsAdminPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5">
+            <div className="sto-filter-field space-y-1.5">
               <Label>الأرشفة</Label>
               <Select
                 value={archiveScope}
                 onValueChange={(value) => setArchiveScope(value as ArchiveScope)}
               >
-                <SelectTrigger className="w-40">
+                <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -178,10 +178,10 @@ export function ProductReviewsAdminPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5">
+            <div className="sto-filter-field space-y-1.5">
               <Label>المنتج</Label>
               <Select value={productFilter} onValueChange={setProductFilter}>
-                <SelectTrigger className="w-56">
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="كل المنتجات" />
                 </SelectTrigger>
                 <SelectContent>

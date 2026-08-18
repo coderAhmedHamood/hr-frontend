@@ -37,7 +37,7 @@ export function OrdersKanbanView({
   updatingOrderId,
 }: Props) {
   return (
-    <div className="flex gap-3 overflow-x-auto pb-2">
+    <div className="sto-kanban">
       {ORDER_KANBAN_STATUSES.map((status) => {
         const column = orders.filter((order) => order.status === status);
         const next = nextOrderPipelineStatus(status);
@@ -45,7 +45,7 @@ export function OrdersKanbanView({
         return (
           <div
             key={status}
-            className="flex w-[min(100%,18.5rem)] shrink-0 flex-col rounded-2xl border border-border bg-muted/20"
+            className="sto-kanban-col rounded-2xl border border-border bg-muted/20"
           >
             <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2.5">
               <h3 className="text-sm font-semibold text-foreground">{ORDER_STATUS_LABELS_AR[status]}</h3>
@@ -54,7 +54,7 @@ export function OrdersKanbanView({
               </span>
             </div>
 
-            <div className="flex max-h-[min(70vh,36rem)] flex-1 flex-col gap-2 overflow-y-auto p-2">
+            <div className="sto-kanban-list">
               {column.map((order) => {
                 const flowNext = getOrderFlowNextStep(order);
                 const prep = getOrderPrepGuidance(order);

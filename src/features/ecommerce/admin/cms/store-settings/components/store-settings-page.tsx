@@ -306,12 +306,13 @@ export function StoreSettingsPage() {
       ) : null}
 
       <DataTable
+        variant="directory"
+        className="sto-table-host"
         columns={columns}
         data={sections}
         keyExtractor={(section) => section.id}
         loading={isLoading}
         emptyText={t('empty')}
-        alwaysShowTable
       />
 
       <Dialog

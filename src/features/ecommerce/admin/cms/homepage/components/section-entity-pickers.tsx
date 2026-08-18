@@ -408,7 +408,7 @@ export function ImagePicker({
               لا تتوفر صور في المكتبة — استخدم «رفع صورة» لإضافة صورة الآن.
             </p>
           ) : (
-            <div className="grid max-h-64 grid-cols-4 gap-2 overflow-y-auto">
+            <div className="grid max-h-64 grid-cols-2 gap-2 overflow-y-auto sm:grid-cols-4">
               {data.map((image) => (
                 <button
                   key={image.id}

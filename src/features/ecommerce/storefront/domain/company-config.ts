@@ -291,10 +291,8 @@ export const ALL_CHECKOUT_PAYMENT_METHODS: CompanyCheckoutPaymentMethod[] = [
   'other',
 ];
 
-/** Checkout / shipping rules edited in Website Settings. */
+/** Checkout payment methods edited in Website Settings. */
 export type CompanyCheckoutConfigRecord = {
-  cities: string[];
-  defaultCity: string;
   paymentMethods: CompanyCheckoutPaymentMethod[];
 };
 

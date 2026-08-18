@@ -313,11 +313,12 @@ export function NavigationAnnouncementPanel({ draft, onChange }: Props) {
           </p>
         ) : (
           <DataTable
+            variant="directory"
+            className="sto-table-host"
             columns={columns}
             data={items}
             keyExtractor={(item) => item.id}
             emptyText={t('empty')}
-            alwaysShowTable
           />
         )}
       </section>

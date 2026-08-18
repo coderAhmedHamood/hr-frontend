@@ -164,7 +164,7 @@ export function PartnerFormDialog({ partner, open, onOpenChange, onCreated }: Pr
             <EntityFormRow label="الاسم" htmlFor="partner-name">
               <Input
                 id="partner-name"
-                className="max-w-sm border-0 bg-transparent px-0 text-xl font-semibold shadow-none focus-visible:ring-0"
+                className="w-full max-w-sm border-0 bg-transparent px-0 text-xl font-semibold shadow-none focus-visible:ring-0"
                 placeholder="مثال: Clean Life أو أحمد"
                 {...form.register('name')}
               />
@@ -174,7 +174,7 @@ export function PartnerFormDialog({ partner, open, onOpenChange, onCreated }: Pr
             </EntityFormRow>
 
             <EntityFormRow label="اسم العرض" htmlFor="partner-display">
-              <Input id="partner-display" className="max-w-sm" {...form.register('displayName')} />
+              <Input id="partner-display" className="w-full max-w-sm" {...form.register('displayName')} />
             </EntityFormRow>
 
             <EntityFormRow label="شركة؟" htmlFor="partner-is-company">
@@ -193,7 +193,7 @@ export function PartnerFormDialog({ partner, open, onOpenChange, onCreated }: Pr
                 name="status"
                 render={({ field }) => (
                   <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger id="partner-status" className="max-w-xs">
+                    <SelectTrigger id="partner-status" className="w-full max-w-xs">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -231,77 +231,77 @@ export function PartnerFormDialog({ partner, open, onOpenChange, onCreated }: Pr
             </EntityFormRow>
 
             <EntityFormRow label="الجوال" htmlFor="partner-mobile">
-              <Input id="partner-mobile" dir="ltr" className="max-w-xs" {...form.register('mobile')} />
+              <Input id="partner-mobile" dir="ltr" className="w-full max-w-xs" {...form.register('mobile')} />
             </EntityFormRow>
 
             <EntityFormRow label="الهاتف" htmlFor="partner-phone">
-              <Input id="partner-phone" dir="ltr" className="max-w-xs" {...form.register('phone')} />
+              <Input id="partner-phone" dir="ltr" className="w-full max-w-xs" {...form.register('phone')} />
             </EntityFormRow>
 
             <EntityFormRow label="البريد" htmlFor="partner-email">
-              <Input id="partner-email" dir="ltr" className="max-w-sm" {...form.register('email')} />
+              <Input id="partner-email" dir="ltr" className="w-full max-w-sm" {...form.register('email')} />
               {form.formState.errors.email ? (
                 <p className="text-xs text-destructive">{form.formState.errors.email.message}</p>
               ) : null}
             </EntityFormRow>
 
             <EntityFormRow label="الموقع" htmlFor="partner-website">
-              <Input id="partner-website" dir="ltr" className="max-w-sm" {...form.register('website')} />
+              <Input id="partner-website" dir="ltr" className="w-full max-w-sm" {...form.register('website')} />
             </EntityFormRow>
 
             <EntityFormRow label="الرقم الضريبي" htmlFor="partner-tax">
-              <Input id="partner-tax" dir="ltr" className="max-w-xs" {...form.register('taxNumber')} />
+              <Input id="partner-tax" dir="ltr" className="w-full max-w-xs" {...form.register('taxNumber')} />
             </EntityFormRow>
 
             <EntityFormRow label="السجل التجاري" htmlFor="partner-cr">
-              <Input id="partner-cr" dir="ltr" className="max-w-xs" {...form.register('commercialRegistration')} />
+              <Input id="partner-cr" dir="ltr" className="w-full max-w-xs" {...form.register('commercialRegistration')} />
             </EntityFormRow>
 
             <EntityFormRow label="المسمى الوظيفي" htmlFor="partner-job">
-              <Input id="partner-job" className="max-w-sm" {...form.register('jobTitle')} />
+              <Input id="partner-job" className="w-full max-w-sm" {...form.register('jobTitle')} />
             </EntityFormRow>
 
             <EntityFormRow label="القسم" htmlFor="partner-dept">
-              <Input id="partner-dept" className="max-w-sm" {...form.register('department')} />
+              <Input id="partner-dept" className="w-full max-w-sm" {...form.register('department')} />
             </EntityFormRow>
 
             <EntityFormRow label="الصناعة" htmlFor="partner-industry">
-              <Input id="partner-industry" className="max-w-sm" {...form.register('industry')} />
+              <Input id="partner-industry" className="w-full max-w-sm" {...form.register('industry')} />
             </EntityFormRow>
 
             <EntityFormRow label="شروط الدفع" htmlFor="partner-terms">
-              <Input id="partner-terms" className="max-w-sm" {...form.register('paymentTerms')} />
+              <Input id="partner-terms" className="w-full max-w-sm" {...form.register('paymentTerms')} />
             </EntityFormRow>
 
             <EntityFormRow label="حد الائتمان" htmlFor="partner-credit">
               <Input
                 id="partner-credit"
                 dir="ltr"
-                className="max-w-xs"
+                className="w-full max-w-xs"
                 placeholder="0"
                 {...form.register('creditLimitAmount')}
               />
             </EntityFormRow>
 
             <EntityFormRow label="المرجع" htmlFor="partner-ref">
-              <Input id="partner-ref" dir="ltr" className="max-w-xs" {...form.register('refCode')} />
+              <Input id="partner-ref" dir="ltr" className="w-full max-w-xs" {...form.register('refCode')} />
             </EntityFormRow>
 
             <EntityFormRow label="وسوم" htmlFor="partner-tags" hint>
               <Input
                 id="partner-tags"
-                className="max-w-lg"
+                className="w-full max-w-lg"
                 placeholder="VIP, Prospect — مفصولة بفاصلة"
                 {...form.register('tags')}
               />
             </EntityFormRow>
 
             <EntityFormRow label="ملاحظات" htmlFor="partner-notes">
-              <Textarea id="partner-notes" rows={3} className="max-w-lg" {...form.register('notes')} />
+              <Textarea id="partner-notes" rows={3} className="w-full max-w-lg" {...form.register('notes')} />
             </EntityFormRow>
           </div>
 
-          <DialogFooter className="gap-2 border-t border-border px-6 py-4">
+          <DialogFooter className="ctc-dialog-footer gap-2 border-t border-border px-4 py-4 sm:px-6">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               إلغاء
             </Button>

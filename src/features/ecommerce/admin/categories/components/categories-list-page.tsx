@@ -192,6 +192,7 @@ export function CategoriesListPage() {
     {
       key: 'brands',
       title: 'ماركات',
+      hideOnMobile: true,
       render: (category) => (
         <span className="text-sm text-muted-foreground">{category.featuredBrandIds?.length ?? 0}</span>
       ),
@@ -199,6 +200,7 @@ export function CategoriesListPage() {
     {
       key: 'slug',
       title: 'الرابط',
+      hideOnMobile: true,
       render: (category) => (
         <span className="text-sm text-muted-foreground" dir="ltr">
           {category.slug}
@@ -215,6 +217,7 @@ export function CategoriesListPage() {
     {
       key: 'actions',
       title: '',
+      isActions: true,
       render: (category) => (
         <Button type="button" size="sm" variant="outline" onClick={() => openEdit(category)}>
           <Pencil className="me-1 h-3.5 w-3.5" />
@@ -248,11 +251,53 @@ export function CategoriesListPage() {
       >
         {(rowsPage) => (
           <DataTable
+            variant="directory"
+            className="sto-table-host"
             columns={columns}
             data={rowsPage}
             keyExtractor={(category) => category.id}
             loading={isLoading}
             emptyText={t('catalog.empty')}
+            mobileCard={(category) => {
+              const meta = getCategoryPath(category, byId);
+              const count = productCountByCategory.get(category.id) ?? 0;
+              return (
+                <div className="flex flex-col gap-2.5">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted">
+                      {category.image ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={category.image.url} alt={category.image.alt} className="h-full w-full object-cover" />
+                      ) : (
+                        <FolderTree className="h-4 w-4 text-muted-foreground" />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium text-foreground">{category.nameAr}</p>
+                      <p className="truncate text-xs text-muted-foreground">{meta.pathLabel}</p>
+                    </div>
+                    <Badge variant={category.isActive ? 'success' : 'subtle'} className="shrink-0">
+                      {category.isActive ? 'مفعّل' : 'معطّل'}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs text-muted-foreground">{count} منتج</span>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        openEdit(category);
+                      }}
+                    >
+                      <Pencil className="me-1 h-3.5 w-3.5" />
+                      تعديل
+                    </Button>
+                  </div>
+                </div>
+              );
+            }}
           />
         )}
       </DirectoryPagedViews>
