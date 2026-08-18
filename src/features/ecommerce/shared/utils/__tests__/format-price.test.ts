@@ -13,7 +13,8 @@ describe('formatPrice', () => {
     expect(yer).not.toEqual(usd);
   });
 
-  it('handles zero amounts', () => {
-    expect(() => formatPrice({ amount: 0, currency: 'YER' })).not.toThrow();
+  it('keeps two fraction digits for YER so SSR and the browser match', () => {
+    const result = formatPrice({ amount: 55.2, currency: 'YER' });
+    expect(result).toMatch(/55\.20/);
   });
 });

@@ -2,7 +2,8 @@
 
 import * as React from 'react';
 import { ShoppingBag } from 'lucide-react';
-import { useFormatter, useTranslations } from 'next-intl';
+import { useTranslations } from 'next-intl';
+import { formatPrice } from '@/features/ecommerce/shared/utils/format-price';
 import { useRouter } from '@/i18n/navigation';
 import type { StorefrontProduct } from '@/features/ecommerce/storefront/domain/storefront-models';
 import type { MediaItem } from '@/features/ecommerce/domain/types/common';
@@ -73,7 +74,6 @@ function resolveActiveVariant(
 
 export function ProductPurchasePanel({ product, onActiveMediaChange }: Props) {
   const t = useTranslations('storefront');
-  const format = useFormatter();
   const router = useRouter();
   const setQuantity = useStorefrontCartUi((state) => state.setQuantity);
 
@@ -184,15 +184,8 @@ export function ProductPurchasePanel({ product, onActiveMediaChange }: Props) {
     <div className="flex flex-col gap-4">
       <div className="space-y-2">
         <ProductPrice
-          price={format.number(unitPrice.amount, { style: 'currency', currency: unitPrice.currency })}
-          compareAtPrice={
-            compareAt
-              ? format.number(compareAt.amount, {
-                  style: 'currency',
-                  currency: compareAt.currency,
-                })
-              : undefined
-          }
+          price={formatPrice(unitPrice)}
+          compareAtPrice={compareAt ? formatPrice(compareAt) : undefined}
           discountPercent={discountPercent}
           size="lg"
         />

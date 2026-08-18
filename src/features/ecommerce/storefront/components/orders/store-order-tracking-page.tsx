@@ -2,6 +2,7 @@
 
 import Image from 'next/image';
 import { useFormatter, useTranslations } from 'next-intl';
+import { formatPrice as formatMoney } from '@/features/ecommerce/shared/utils/format-price';
 import {
   Check,
   Clock3,
@@ -58,7 +59,7 @@ export function StoreOrderTrackingPage({ order }: Props) {
     currentIdx <= 0 ? 8 : Math.min(100, (currentIdx / (TRACKING_STEPS.length - 1)) * 100);
 
   function formatPrice(amount: number) {
-    return format.number(amount, { style: 'currency', currency });
+    return formatMoney({ amount, currency });
   }
 
   const visibleAttachments = (order.attachments ?? []).filter(

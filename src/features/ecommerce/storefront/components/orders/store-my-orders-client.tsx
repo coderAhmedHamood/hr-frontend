@@ -3,6 +3,7 @@
 import * as React from 'react';
 import Image from 'next/image';
 import { useFormatter, useTranslations } from 'next-intl';
+import { formatPrice } from '@/features/ecommerce/shared/utils/format-price';
 import { ChevronLeft, PackageSearch } from 'lucide-react';
 import { StoreEmptyState } from '@/features/ecommerce/storefront/components/store-empty-state';
 import { useStorefrontCustomerUi } from '@/features/ecommerce/storefront/hooks/use-storefront-customer-ui';
@@ -123,10 +124,7 @@ export function StoreMyOrdersClient() {
           dateStyle: 'medium',
           timeStyle: 'short',
         });
-        const total = format.number(order.total.amount, {
-          style: 'currency',
-          currency: order.total.currency,
-        });
+        const total = formatPrice(order.total);
         const status = (order.status || 'pending') as StorefrontOrderStatus;
         const paymentStatus = (order.paymentStatus || 'pending') as StorefrontPaymentStatus;
         const city = order.address?.city?.trim();

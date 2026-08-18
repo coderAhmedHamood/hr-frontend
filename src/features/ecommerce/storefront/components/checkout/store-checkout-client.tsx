@@ -3,7 +3,8 @@
 import * as React from 'react';
 import Image from 'next/image';
 import { useQuery } from '@tanstack/react-query';
-import { useFormatter, useLocale, useTranslations } from 'next-intl';
+import { formatPrice as formatMoney } from '@/features/ecommerce/shared/utils/format-price';
+import { useLocale, useTranslations } from 'next-intl';
 import {
   Banknote,
   Building2,
@@ -129,7 +130,6 @@ type CheckoutClientProps = {
 
 export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }: CheckoutClientProps) {
   const t = useTranslations('storefront');
-  const format = useFormatter();
   const locale = useLocale() as StorefrontLocale;
   const router = useRouter();
   const lines = useStorefrontCartUi((s) => s.lines);
@@ -440,7 +440,7 @@ export function StoreCheckoutClient({ checkoutConfig, currency: storeCurrency }:
   const itemCount = cartLines.reduce((sum, item) => sum + item.line.quantity, 0);
 
   function formatPrice(amount: number) {
-    return format.number(amount, { style: 'currency', currency });
+    return formatMoney({ amount, currency });
   }
 
   async function addOrderAttachments(files: File[]) {

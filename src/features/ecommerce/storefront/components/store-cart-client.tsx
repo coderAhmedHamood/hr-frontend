@@ -2,7 +2,8 @@
 
 import Image from 'next/image';
 import { PackageSearch, Trash2 } from 'lucide-react';
-import { useFormatter, useTranslations } from 'next-intl';
+import { useTranslations } from 'next-intl';
+import { formatPrice } from '@/features/ecommerce/shared/utils/format-price';
 import type { StorefrontProduct } from '@/features/ecommerce/storefront/domain/storefront-models';
 import { ProductPrice } from '@/features/ecommerce/storefront/components/catalog/product-price';
 import { ProductGridSkeleton } from '@/features/ecommerce/storefront/components/catalog/loading-skeleton';
@@ -22,7 +23,6 @@ import { Link } from '@/i18n/navigation';
 
 export function StoreCartClient() {
   const t = useTranslations('storefront');
-  const format = useFormatter();
   const lines = useStorefrontCartUi((s) => s.lines);
   const setQuantity = useStorefrontCartUi((s) => s.setQuantity);
   const removeItem = useStorefrontCartUi((s) => s.removeItem);
@@ -59,10 +59,6 @@ export function StoreCartClient() {
     );
 
   const total = cartLines.reduce((sum, { line, unitPrice }) => sum + unitPrice.amount * line.quantity, 0);
-
-  function formatPrice(amount: number, currency: string) {
-    return format.number(amount, { style: 'currency', currency });
-  }
 
   if (lines.length === 0) {
     return (
@@ -128,12 +124,8 @@ export function StoreCartClient() {
                   </div>
                 ) : null}
                 <ProductPrice
-                  price={formatPrice(unitPrice.amount, unitPrice.currency)}
-                  compareAtPrice={
-                    compareAt
-                      ? formatPrice(compareAt.amount, compareAt.currency)
-                      : undefined
-                  }
+                  price={formatPrice(unitPrice)}
+                  compareAtPrice={compareAt ? formatPrice(compareAt) : undefined}
                   discountPercent={discountPercent}
                   size="sm"
                 />
@@ -162,7 +154,7 @@ export function StoreCartClient() {
       <aside className="h-fit rounded-xl border border-border bg-card p-6 shadow-soft">
         <h2 className="font-arabic-display text-lg font-semibold text-foreground">{t('cart.subtotal')}</h2>
         <p className="mt-2 text-2xl font-bold text-foreground">
-          {formatPrice(total, cartLines[0]?.product.price.currency ?? 'YER')}
+          {formatPrice({ amount: total, currency: cartLines[0]?.product.price.currency ?? 'YER' })}
         </p>
         <Link
           href="/store/checkout"
