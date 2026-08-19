@@ -11,7 +11,7 @@ import {
   Popover, PopoverContent, PopoverTrigger,
 } from '@/components/ui/popover';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { SelectItem } from '@/components/ui/select';
+import { MinimalDropdown } from '@/components/ui/shared-dialogs';
 import { cn } from '@/shared/utils';
 import {
   filterTabTriggerClass,
@@ -24,7 +24,6 @@ import {
   isPeriodFilterActive,
 } from '@/features/hr/discipline/lib/discipline-date-filter';
 import { DateRangeFilterTrigger } from '@/components/ui/date-range-filter-trigger';
-import { SelectWithClear } from '@/components/ui/select-with-clear';
 import { useEmployeeFilterPicker } from '@/features/hr/lib/use-employee-filter-picker';
 import { FILTER_PERMISSIONS } from '@/features/auth/permissions/filter-permissions';
 import type { EmployeePickerOption } from '@/components/ui/employee-picker';
@@ -268,19 +267,14 @@ export const ListFilterBar = React.forwardRef<ListFilterBarHandle, ListFilterBar
     const useFilterDropdowns = filterLayout === 'tabs' || filterLayout === 'collapsible';
 
     const statusFilterControl = useFilterDropdowns && showStatusSection && statusOrder.length > 0 ? (
-      <SelectWithClear
+      <MinimalDropdown
         value={statusSelectValue === 'all' ? '' : statusSelectValue}
-        onValueChange={(v) => onStatusFilterChange(v || 'all')}
-        onClear={resetStatusFilter}
+        onChange={(v) => (v ? onStatusFilterChange(v) : resetStatusFilter())}
+        allowClear
         placeholder="اختر الحالة"
-        className="w-[9.25rem] max-w-[9.25rem]"
-      >
-        {statusOrder.map((s) => (
-          <SelectItem key={s} value={s}>
-            {statusLabels[s] ?? s}
-          </SelectItem>
-        ))}
-      </SelectWithClear>
+        className="h-8 w-[9.25rem] max-w-[9.25rem] text-xs"
+        options={statusOrder.map((s) => ({ value: s, label: statusLabels[s] ?? s }))}
+      />
     ) : null;
 
     const periodFilterControl = showDateSection ? (
@@ -307,21 +301,20 @@ export const ListFilterBar = React.forwardRef<ListFilterBarHandle, ListFilterBar
               : (sel.options.find((o) => o.value === 'all')?.value ?? sel.options[0]?.value ?? '');
           if (!sel.options.length) return null;
           return (
-            <SelectWithClear
+            <MinimalDropdown
               key={sel.id}
               value={coerced === 'all' ? '' : coerced}
-              onValueChange={(v) => sel.onChange(v || 'all')}
-              onClear={() => sel.onChange('all')}
+              onChange={(v) => sel.onChange(v || 'all')}
+              allowClear
               placeholder={sel.placeholder ?? '—'}
               onOpenChange={(open) => {
                 if (open) sel.onOpen?.();
               }}
-              className={cn('w-[9rem] max-w-[9rem]', sel.className)}
-            >
-              {sel.options.filter((o) => o.value !== 'all' && o.value !== '').map((o) => (
-                <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-              ))}
-            </SelectWithClear>
+              className={cn('h-8 w-[9rem] max-w-[9rem] text-xs', sel.className)}
+              options={sel.options
+                .filter((o) => o.value !== 'all' && o.value !== '')
+                .map((o) => ({ value: o.value, label: o.label }))}
+            />
           );
         })}
         {beforeEmployeePicker}
@@ -444,17 +437,16 @@ export const ListFilterBar = React.forwardRef<ListFilterBarHandle, ListFilterBar
                   <label className={cn('block text-xs font-medium', isActive ? 'text-primary' : 'text-muted-foreground')}>
                     {sel.placeholder ?? sel.id}
                   </label>
-                  <SelectWithClear
+                  <MinimalDropdown
                     value={coerced === 'all' ? '' : coerced}
-                    onValueChange={(v) => sel.onChange(v || 'all')}
-                    onClear={() => sel.onChange('all')}
+                    onChange={(v) => sel.onChange(v || 'all')}
+                    allowClear
                     placeholder={sel.placeholder ?? '—'}
                     className={cn('w-full', isActive && 'border-primary/40 bg-primary/5')}
-                  >
-                    {sel.options.filter((o) => o.value !== 'all').map((o) => (
-                      <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                    ))}
-                  </SelectWithClear>
+                    options={sel.options
+                      .filter((o) => o.value !== 'all')
+                      .map((o) => ({ value: o.value, label: o.label }))}
+                  />
                 </div>
               );
             })}

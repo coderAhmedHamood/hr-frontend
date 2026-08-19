@@ -2,7 +2,7 @@ import { productsApi } from '@/features/ecommerce/admin/products/lib/api/product
 import { storefrontProductsRepository } from '@/features/ecommerce/storefront/lib/repositories/products-repository';
 import { storefrontPageRepository } from '@/features/ecommerce/storefront/page-builder/lib/repositories/page-repository';
 
-const COMPANY_ID = 'demo-company';
+const COMPANY_ID = '76e5bc4f-5adb-434d-a886-bcff05a9680b';
 const LOCALE = 'ar' as const;
 
 describe('shared catalog store (AdminProductsPort ↔ StorefrontProductsPort)', () => {

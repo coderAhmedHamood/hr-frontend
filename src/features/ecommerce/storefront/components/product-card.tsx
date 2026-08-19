@@ -1,26 +1,21 @@
-import { getFormatter, getTranslations } from 'next-intl/server';
+'use client';
+
+import { useTranslations } from 'next-intl';
 import type { StockStatus } from '@/features/ecommerce/domain/constants/stock-status';
 import type { StorefrontProduct } from '@/features/ecommerce/storefront/domain/storefront-models';
 import { ProductCardView } from '@/features/ecommerce/storefront/components/product-card-view';
+import { formatPrice } from '@/features/ecommerce/shared/utils/format-price';
 
-export async function ProductCard({ product, brandName }: { product: StorefrontProduct; brandName?: string }) {
-  const t = await getTranslations('storefront');
-  const format = await getFormatter();
+export function ProductCard({ product, brandName }: { product: StorefrontProduct; brandName?: string }) {
+  const t = useTranslations('storefront');
   const hasDeal = product.compareAtPrice && product.compareAtPrice.amount > product.price.amount;
 
   return (
     <ProductCardView
       product={product}
       brandName={brandName}
-      formattedPrice={format.number(product.price.amount, { style: 'currency', currency: product.price.currency })}
-      formattedComparePrice={
-        hasDeal
-          ? format.number(product.compareAtPrice!.amount, {
-              style: 'currency',
-              currency: product.compareAtPrice!.currency,
-            })
-          : undefined
-      }
+      formattedPrice={formatPrice(product.price)}
+      formattedComparePrice={hasDeal ? formatPrice(product.compareAtPrice!) : undefined}
       stockLabel={t(`stock.${product.stockStatus as StockStatus}`)}
     />
   );

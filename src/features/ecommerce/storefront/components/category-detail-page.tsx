@@ -1,4 +1,6 @@
-import { getLocale, getTranslations } from 'next-intl/server';
+'use client';
+
+import { useLocale, useTranslations } from 'next-intl';
 import { PackageSearch } from 'lucide-react';
 import type { StorefrontCategory, StorefrontPaginated, StorefrontProduct } from '@/features/ecommerce/storefront/domain/storefront-models';
 import { ProductCard } from '@/features/ecommerce/storefront/components/product-card';
@@ -8,10 +10,10 @@ import { StorePagination } from '@/features/ecommerce/storefront/components/stor
 import { StoreBreadcrumbs } from '@/features/ecommerce/storefront/components/store-breadcrumbs';
 import { StoreEmptyState } from '@/features/ecommerce/storefront/components/store-empty-state';
 import { JsonLd } from '@/features/ecommerce/storefront/components/json-ld';
-import { breadcrumbJsonLd, collectionPageJsonLd } from '@/features/ecommerce/storefront/lib/seo';
+import { breadcrumbJsonLd, collectionPageJsonLd } from '@/features/ecommerce/storefront/lib/seo-jsonld';
 import type { StorefrontLocale } from '@/i18n/routing';
 
-export async function CategoryDetailPage({
+export function CategoryDetailPage({
   category,
   page,
   productsResult,
@@ -22,8 +24,8 @@ export async function CategoryDetailPage({
   productsResult: StorefrontPaginated<StorefrontProduct>;
   subcategories?: StorefrontCategory[];
 }) {
-  const t = await getTranslations('storefront');
-  const locale = (await getLocale()) as StorefrontLocale;
+  const t = useTranslations('storefront');
+  const locale = useLocale() as StorefrontLocale;
   const products = productsResult.items;
 
   const breadcrumbItems = [

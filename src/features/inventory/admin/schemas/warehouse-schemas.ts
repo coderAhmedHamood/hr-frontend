@@ -62,6 +62,11 @@ export const warehouseFormSchema = z.object({
   code: z.string().min(1, 'الاسم المختصر مطلوب').max(32),
   nameAr: z.string().min(1, 'اسم المستودع مطلوب').max(120),
   address: z.string().max(250).optional().or(z.literal('')),
+  /**
+   * Optional. Empty → `branchId: null` (central warehouse when allowed).
+   * Otherwise a branch UUID.
+   */
+  branchId: z.string().optional().or(z.literal('')),
   status: z.enum(['active', 'inactive']),
   incomingSteps: z.union([z.literal(1), z.literal(2), z.literal(3)]),
   outgoingSteps: z.union([z.literal(1), z.literal(2), z.literal(3)]),
@@ -74,6 +79,7 @@ export const WAREHOUSE_FORM_DEFAULT_VALUES: WarehouseFormValues = {
   code: '',
   nameAr: '',
   address: '',
+  branchId: '',
   status: 'active',
   incomingSteps: 1,
   outgoingSteps: 1,

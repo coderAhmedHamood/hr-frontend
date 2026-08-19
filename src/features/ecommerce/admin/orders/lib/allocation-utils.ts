@@ -27,10 +27,23 @@ export function validateAllocations(
   requiredQty: number,
   allocations: AllocationDraft[],
   availableByLocation: Record<string, number>,
+  options?: { lockedWarehouseId?: string | null },
 ): { ok: boolean; error?: string; total: number } {
   const total = sumAllocationQty(allocations);
-  if (allocations.some((row) => !row.locationId || row.quantity <= 0)) {
+  if (allocations.some((row) => !row.warehouseId || !row.locationId || row.quantity <= 0)) {
     return { ok: false, error: 'اختر موقعًا وكمية صحيحة لكل صف.', total };
+  }
+
+  const lockedWarehouseId = options?.lockedWarehouseId?.trim() || '';
+  if (
+    lockedWarehouseId &&
+    allocations.some((row) => row.warehouseId && row.warehouseId !== lockedWarehouseId)
+  ) {
+    return {
+      ok: false,
+      error: 'لا يمكن تخصيص نفس الصنف من مستودع مختلف عن أول تخصيص.',
+      total,
+    };
   }
 
   const locationCounts = new Map<string, number>();

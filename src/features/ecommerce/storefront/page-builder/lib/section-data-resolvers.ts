@@ -14,6 +14,7 @@ import { storefrontBrandsRepository } from '@/features/ecommerce/storefront/lib/
 import { storefrontCategoriesRepository } from '@/features/ecommerce/storefront/lib/repositories/categories-repository';
 import { storefrontProductsRepository } from '@/features/ecommerce/storefront/lib/repositories/products-repository';
 import type { StorefrontLocale } from '@/i18n/routing';
+import { resolveStorefrontImageSrc } from '@/features/ecommerce/storefront/lib/resolve-storefront-image-src';
 
 export type SectionResolverContext = {
   companyId: string;
@@ -31,9 +32,9 @@ async function resolveProducts(ctx: SectionResolverContext, dataSource: DataSour
     const result = await storefrontProductsRepository.list({
       companyId,
       locale,
-      page: 1,
-      limit: dataSource.limit,
       tag: dataSource.tag,
+      limit: dataSource.limit,
+      page: 1,
     });
     return result.items;
   }
@@ -43,12 +44,16 @@ async function resolveProducts(ctx: SectionResolverContext, dataSource: DataSour
     const result = await storefrontProductsRepository.list({
       companyId,
       locale,
-      page: 1,
       limit: dataSource.limit,
+      page: 1,
       sort,
       sortDirection: dataSource.sortDirection,
       categoryId: dataSource.categoryId ?? undefined,
       tag: dataSource.tag ?? undefined,
+      isNewProduct: dataSource.isNewProduct === true ? true : undefined,
+      isTodayDeal: dataSource.isTodayDeal === true ? true : undefined,
+      isWholesale: dataSource.isWholesale === true ? true : undefined,
+      isDiscounted: dataSource.isDiscounted === true ? true : undefined,
     });
     return result.items;
   }
@@ -57,9 +62,21 @@ async function resolveProducts(ctx: SectionResolverContext, dataSource: DataSour
     const result = await storefrontProductsRepository.list({
       companyId,
       locale,
-      page: 1,
-      limit: dataSource.limit,
       categoryId: dataSource.categoryId,
+      limit: dataSource.limit,
+      page: 1,
+    });
+    return result.items;
+  }
+
+  if (dataSource.kind === 'recommendation') {
+    const result = await storefrontProductsRepository.list({
+      companyId,
+      locale,
+      limit: dataSource.limit,
+      page: 1,
+      sort: 'createdAt',
+      sortDirection: 'desc',
     });
     return result.items;
   }
@@ -69,20 +86,47 @@ async function resolveProducts(ctx: SectionResolverContext, dataSource: DataSour
 
 async function resolveCategories(ctx: SectionResolverContext, dataSource: DataSourceConfig) {
   const { companyId, locale } = ctx;
+  const allResult = await storefrontCategoriesRepository.list({
+    companyId,
+    locale,
+    page: 1,
+    limit: 300,
+  });
+  const all = allResult.items;
 
   if (dataSource.kind === 'manual') {
-    const result = await storefrontCategoriesRepository.list({ companyId, locale, limit: 50 });
-    const byId = new Map(result.items.map((category) => [category.id, category]));
-    return dataSource.entityIds.map((id) => byId.get(id)).filter((category) => category !== undefined);
+    const selectedIds = new Set(dataSource.entityIds);
+    const selected = all.filter((item) => selectedIds.has(item.id));
+
+    // Include descendants of selected parents so drill-down still works.
+    const include = new Set(selectedIds);
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const category of all) {
+        if (category.parentId && include.has(category.parentId) && !include.has(category.id)) {
+          include.add(category.id);
+          changed = true;
+        }
+      }
+    }
+
+    const items = all
+      .filter((item) => include.has(item.id))
+      .map((item) =>
+        // Promote manually picked rows to roots so the grid always has a top level.
+        selectedIds.has(item.id) ? { ...item, parentId: null } : item,
+      );
+
+    if (items.length === 0) {
+      return selected.map((item) => ({ ...item, parentId: null }));
+    }
+    return items;
   }
 
   if (dataSource.kind === 'collection' || dataSource.kind === 'query') {
-    // Shop-by-category needs the full adjacency tree (roots + children), not just
-    // the first N rows of the flat mock list.
-    const configuredLimit = dataSource.limit;
-    const limit = Math.max(configuredLimit, 200);
-    const result = await storefrontCategoriesRepository.list({ companyId, locale, limit });
-    return result.items;
+    // Full adjacency list for drill-down; section limit applies to root display later.
+    return all.slice(0, Math.max(dataSource.limit, 200));
   }
 
   return [];
@@ -140,16 +184,21 @@ const resolveBrandSlider: SectionDataResolver<'brand-slider'> = async (ctx, sect
   return { ...section, data: { brands } };
 };
 
-const resolveBanner: SectionDataResolver<'banner'> = async (ctx, section) => ({
-  ...section,
-  data: {
-    imageUrl: section.content.imageUrl,
-    mobileImageUrl: section.content.mobileImageUrl ?? section.content.imageUrl,
-    alt: resolveLocalizedText(section.content.alt, ctx.locale),
-    href: section.content.href,
-    target: section.content.target,
-  },
-});
+const resolveBanner: SectionDataResolver<'banner'> = async (ctx, section) => {
+  const imageUrl = resolveStorefrontImageSrc(section.content.imageUrl);
+  const mobileImageUrl =
+    resolveStorefrontImageSrc(section.content.mobileImageUrl) ?? imageUrl;
+  return {
+    ...section,
+    data: {
+      imageUrl: imageUrl ?? '',
+      mobileImageUrl,
+      alt: resolveLocalizedText(section.content.alt, ctx.locale),
+      href: section.content.href,
+      target: section.content.target,
+    },
+  };
+};
 
 export const SECTION_DATA_RESOLVERS: {
   [K in SectionType]: SectionDataResolver<K>;

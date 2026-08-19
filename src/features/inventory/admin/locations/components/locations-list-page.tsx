@@ -1,6 +1,10 @@
 'use client';
 
 import { SetPageTitle } from '@/components/layouts/set-page-title';
+import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
+import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
+import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
+import { PageHeaderPrimaryButton } from '@/components/layouts/page-header-primary-button';
 import * as React from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { MapPin, Pencil, Plus, Trash2, Warehouse } from 'lucide-react';
@@ -19,13 +23,15 @@ import {
 } from '@/features/inventory/admin/schemas/warehouse-schemas';
 import { inventoryAdminRoutes } from '@/features/inventory/admin/constants/routes';
 import type { WarehouseLocation, WarehouseLocationType } from '@/features/inventory/domain/types/warehouse';
-import { ListToolbar } from '@/components/ui/list-toolbar';
+import { ListFilterBar } from '@/components/ui/list-filter-bar';
+import { EntityFilterSearchField } from '@/components/ui/entity-filter-search-field';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { DataTable, type ColumnDef } from '@/components/ui/data-table';
+import { DirectoryPagedViews, DEFAULT_PAGE_SIZE } from '@/components/ui/paged-list';
 import {
   Dialog,
   DialogContent,
@@ -37,7 +43,6 @@ import {
 } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-const ALL_WAREHOUSES = '__all__';
 const NO_PARENT = '__none__';
 
 const TYPE_LABEL: Record<WarehouseLocationType, string> = {
@@ -74,6 +79,8 @@ export function LocationsListPage() {
 
   const warehouseIdFilter = searchParams.get('warehouseId') ?? '';
   const search = searchParams.get('q') ?? '';
+  const page = Math.max(1, Number(searchParams.get('page')) || 1);
+  const pageSize = Number(searchParams.get('pageSize')) || DEFAULT_PAGE_SIZE;
 
   const [searchInput, setSearchInput] = React.useState(search);
   const [formWarehouseId, setFormWarehouseId] = React.useState(warehouseIdFilter);
@@ -83,7 +90,12 @@ export function LocationsListPage() {
   });
   const [toDelete, setToDelete] = React.useState<WarehouseLocation | null>(null);
 
-  function updateParams(next: { q?: string; warehouseId?: string }) {
+  function updateParams(next: {
+    q?: string;
+    warehouseId?: string;
+    page?: number;
+    pageSize?: number;
+  }) {
     const params = new URLSearchParams(searchParams.toString());
     if (next.q !== undefined) {
       if (next.q) params.set('q', next.q);
@@ -93,18 +105,30 @@ export function LocationsListPage() {
       if (next.warehouseId) params.set('warehouseId', next.warehouseId);
       else params.delete('warehouseId');
     }
+    if (next.page !== undefined) {
+      if (next.page > 1) params.set('page', String(next.page));
+      else params.delete('page');
+    }
+    if (next.pageSize !== undefined) {
+      if (next.pageSize !== DEFAULT_PAGE_SIZE) params.set('pageSize', String(next.pageSize));
+      else params.delete('pageSize');
+    }
     const qs = params.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   }
 
+  const searchRef = React.useRef(search);
+  const updateParamsRef = React.useRef(updateParams);
+  searchRef.current = search;
+  updateParamsRef.current = updateParams;
+
   React.useEffect(() => {
     const timeout = setTimeout(() => {
-      if (searchInput.trim() !== search) {
-        updateParams({ q: searchInput.trim() });
+      if (searchInput.trim() !== searchRef.current) {
+        updateParamsRef.current({ q: searchInput.trim(), page: 1 });
       }
     }, 300);
     return () => clearTimeout(timeout);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- URL sync debounce
   }, [searchInput]);
 
   const { data: warehousesData } = useWarehouses({ companyId, limit: 200 });
@@ -118,20 +142,29 @@ export function LocationsListPage() {
     companyId,
     warehouseId: warehouseIdFilter || undefined,
     search: search || undefined,
-    page: 1,
-    limit: 200,
+    page,
+    limit: pageSize,
   });
   const { create, update, remove } = useWarehouseLocationMutations();
   const locations = data?.items ?? [];
 
-  const parentOptions = locations.filter(
+  // Parent picker needs a broader location set than the current page.
+  const { data: allLocationsData } = useWarehouseLocations({
+    companyId,
+    warehouseId: formWarehouseId || warehouseIdFilter || undefined,
+    page: 1,
+    limit: 500,
+  });
+  const allLocationsForParents = allLocationsData?.items ?? locations;
+
+  const parentOptions = allLocationsForParents.filter(
     (location) =>
       location.id !== formState.location?.id &&
       (!formWarehouseId || location.warehouseId === formWarehouseId),
   );
   const nameById = React.useMemo(
-    () => new Map(locations.map((location) => [location.id, location.nameAr])),
-    [locations],
+    () => new Map(allLocationsForParents.map((location) => [location.id, location.nameAr])),
+    [allLocationsForParents],
   );
 
   const form = useForm<WarehouseLocationFormValues>({
@@ -144,6 +177,64 @@ export function LocationsListPage() {
     form.reset(formState.location ? toFormValues(formState.location) : WAREHOUSE_LOCATION_FORM_DEFAULT_VALUES);
     setFormWarehouseId(formState.location?.warehouseId ?? warehouseIdFilter);
   }, [formState, form, warehouseIdFilter]);
+
+  usePageHeaderActions(
+    () => (
+      <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
+        <FilterToggleButton />
+        {warehouseIdFilter ? (
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8"
+            onClick={() => router.push(inventoryAdminRoutes.warehouseDetail(warehouseIdFilter))}
+          >
+            <Warehouse className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">المستودع</span>
+          </Button>
+        ) : null}
+        <PageHeaderPrimaryButton
+          icon={Plus}
+          label="إضافة موقع"
+          disabled={!companyId || warehouses.length === 0}
+          onClick={() => setFormState({ open: true, location: null })}
+        >
+          إضافة موقع
+        </PageHeaderPrimaryButton>
+      </div>
+    ),
+    [warehouseIdFilter, companyId, warehouses.length, router],
+  );
+
+  useEntityFilterSlot(
+    () => (
+      <ListFilterBar
+        showDateSection={false}
+        showStatusSection={false}
+        showEmployeePicker={false}
+        leadingFilters={
+          <EntityFilterSearchField
+            value={searchInput}
+            onChange={setSearchInput}
+            placeholder="ابحث في المواقع…"
+          />
+        }
+        inlineSelects={[
+          {
+            id: 'warehouse',
+            value: warehouseIdFilter || 'all',
+            onChange: (value) => updateParams({ warehouseId: value === 'all' ? '' : value, page: 1 }),
+            placeholder: 'كل المستودعات',
+            options: [
+              { value: 'all', label: 'كل المستودعات' },
+              ...warehouses.map((warehouse) => ({ value: warehouse.id, label: warehouse.nameAr })),
+            ],
+          },
+        ]}
+      />
+    ),
+    [searchInput, warehouseIdFilter, warehouses],
+  );
 
   const isSaving = create.isPending || update.isPending;
   const selectedWarehouseName = warehouseIdFilter
@@ -220,6 +311,7 @@ export function LocationsListPage() {
     {
       key: 'parent',
       title: 'الموقع الرئيسي',
+      hideOnMobile: true,
       render: (row) => (
         <span className="text-sm text-muted-foreground">
           {row.parentLocationId ? (nameById.get(row.parentLocationId) ?? '—') : '—'}
@@ -268,61 +360,87 @@ export function LocationsListPage() {
     <div className="flex flex-col gap-5">
       <SetPageTitle titleAr="المواقع" iconName="MapPin" />
 
-      <ListToolbar
-        searchValue={searchInput}
-        onSearchChange={setSearchInput}
-        searchPlaceholder="ابحث في المواقع…"
-        filters={
-          <Select
-            value={warehouseIdFilter || ALL_WAREHOUSES}
-            onValueChange={(value) => updateParams({ warehouseId: value === ALL_WAREHOUSES ? '' : value })}
-          >
-            <SelectTrigger aria-label="تصفية بالمستودع" className="w-full sm:w-56">
-              <SelectValue placeholder="كل المستودعات" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL_WAREHOUSES}>كل المستودعات</SelectItem>
-              {warehouses.map((warehouse) => (
-                <SelectItem key={warehouse.id} value={warehouse.id}>
-                  {warehouse.nameAr}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        }
-        actions={
-          <div className="flex flex-wrap gap-2">
-            {warehouseIdFilter ? (
-              <Button
-                variant="outline"
-                onClick={() => router.push(inventoryAdminRoutes.warehouseDetail(warehouseIdFilter))}
-              >
-                <Warehouse className="h-4 w-4" />
-                المستودع
-              </Button>
-            ) : null}
-            <Button
-              onClick={() => setFormState({ open: true, location: null })}
-              disabled={!companyId || warehouses.length === 0}
-            >
-              <Plus className="h-4 w-4" />
-              إضافة موقع
-            </Button>
-          </div>
-        }
-      />
-
       {isError ? <p className="text-sm text-destructive">تعذر تحميل المواقع.</p> : null}
 
-      <DataTable
-        columns={columns}
-        data={locations}
-        keyExtractor={(row) => row.id}
+      <DirectoryPagedViews
+        items={locations}
         loading={isLoading}
-        emptyText={
-          warehouseIdFilter ? 'لا توجد مواقع لهذا المستودع بعد.' : 'لا توجد مواقع بعد. أضف موقعًا أو أنشئ مستودعًا.'
+        serverPagination={
+          data
+            ? {
+                page,
+                pageSize,
+                total: data.pagination.total,
+                totalPages: Math.max(1, Math.ceil(data.pagination.total / pageSize)),
+                setPage: (nextPage) => updateParams({ page: nextPage }),
+                setPageSize: (size) => updateParams({ pageSize: size, page: 1 }),
+              }
+            : undefined
         }
-      />
+      >
+        {(rowsPage) => (
+          <DataTable
+            variant="directory"
+            className="inv-table-host"
+            columns={columns}
+            data={rowsPage}
+            keyExtractor={(row) => row.id}
+            loading={isLoading}
+            emptyText={
+              warehouseIdFilter ? 'لا توجد مواقع لهذا المستودع بعد.' : 'لا توجد مواقع بعد. أضف موقعًا أو أنشئ مستودعًا.'
+            }
+            mobileCard={(row) => (
+              <div className="flex flex-col gap-2.5">
+                <div className="flex items-start gap-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-100 text-primary">
+                    <MapPin className="h-[18px] w-[18px]" />
+                  </span>
+                  <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                    <span className="truncate font-display text-[13.5px] font-bold leading-snug" dir="ltr">
+                      {row.code}
+                    </span>
+                    <span className="truncate text-xs text-muted-foreground">
+                      {row.nameAr} · {TYPE_LABEL[row.locationType] ?? row.locationType}
+                    </span>
+                  </div>
+                  {row.isSystem ? (
+                    <Badge variant="outline" className="shrink-0 text-[10px]">تلقائي</Badge>
+                  ) : null}
+                </div>
+
+                <button
+                  type="button"
+                  className="flex items-center gap-1.5 ps-13 text-xs text-primary"
+                  onClick={() => router.push(inventoryAdminRoutes.warehouseDetail(row.warehouseId))}
+                >
+                  <Warehouse className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">{warehouseNameById.get(row.warehouseId) ?? row.warehouseId}</span>
+                </button>
+
+                <div className="flex items-center justify-end gap-1 border-t border-border/60 pt-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="تعديل الموقع"
+                    onClick={() => setFormState({ open: true, location: row })}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="حذف الموقع"
+                    disabled={Boolean(row.isSystem)}
+                    onClick={() => setToDelete(row)}
+                  >
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
+              </div>
+            )}
+          />
+        )}
+      </DirectoryPagedViews>
 
       <Dialog
         open={formState.open}

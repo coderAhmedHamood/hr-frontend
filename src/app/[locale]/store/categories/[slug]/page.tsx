@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { CategoryDetailPage } from '@/features/ecommerce/storefront/components/category-detail-page';
+import { CategoryDetailPageCsr } from '@/features/ecommerce/storefront/components/store-csr-pages';
 import { categoryMetadata } from '@/features/ecommerce/storefront/lib/seo';
 import {
   getStorefrontCategoriesList,
@@ -7,6 +8,7 @@ import {
 } from '@/features/ecommerce/storefront/lib/loaders/catalog-loaders';
 import { getStorefrontCategoryBySlug } from '@/features/ecommerce/storefront/lib/loaders/storefront-loaders';
 import { getStorefrontCompanyConfig } from '@/features/ecommerce/storefront/lib/get-storefront-company-config';
+import { isStorefrontCsrEnabled } from '@/features/ecommerce/storefront/lib/is-storefront-csr';
 import type { StorefrontLocale } from '@/i18n/routing';
 
 export const revalidate = 60;
@@ -17,6 +19,7 @@ type Params = Promise<{ locale: string; slug: string }>;
 type SearchParams = Promise<{ page?: string }>;
 
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
+  if (isStorefrontCsrEnabled()) return {};
   const { locale, slug } = await params;
   const category = await getStorefrontCategoryBySlug(slug);
   const config = await getStorefrontCompanyConfig();
@@ -27,6 +30,11 @@ export default async function Page({ params, searchParams }: { params: Params; s
   const { slug } = await params;
   const { page } = await searchParams;
   const pageNumber = Math.max(1, Number(page) || 1);
+
+  if (isStorefrontCsrEnabled()) {
+    return <CategoryDetailPageCsr slug={slug} page={pageNumber} />;
+  }
+
   const category = await getStorefrontCategoryBySlug(slug);
   const [productsResult, categoriesResult] = await Promise.all([
     getStorefrontProductsList({

@@ -14,10 +14,9 @@ import {
   UserCircle, Briefcase, UserPlus, Bell, Send, Inbox,   KeyRound, Banknote, Timer, Settings,
 } from 'lucide-react';
 import { cn } from '@/shared/utils';
-import { isHrAppPath, isSystemAppPath, isEcommerceAppPath, isInventoryAppPath } from '@/shared/app-paths';
+import { isHrAppPath, isSystemAppPath, isSystemOwnerAppPath, isEcommerceAppPath, isInventoryAppPath, isContactsAppPath } from '@/shared/app-paths';
 import { Logo } from '@/components/layouts/logo';
 import { useDefaultCompanyBranding } from '@/features/auth/hooks/use-default-company-branding';
-import { useAuthStore } from '@/features/auth/lib/auth-store';
 import { useSidebar } from '@/components/layouts/sidebar-context';
 import { hrDisciplineNavGroups } from '@/features/hr/discipline/lib/types';
 import { hrNotificationsNavGroups } from '@/features/hr/notifications/constants/nav';
@@ -26,11 +25,13 @@ import { hrContractsOnlyNavGroups } from '@/features/hr/contracts/constants/nav'
 import { hrPayrollSectionHref } from '@/features/hr/payroll/constants/routes';
 import { hrContractsSectionHref } from '@/features/hr/contracts/constants/routes';
 import { hrOrganizationRoutes } from '@/features/hr/organization/constants/routes';
+import { hrOrganizationSettingsNavItems } from '@/features/hr/organization/constants/nav';
 import { systemPermissionsNavGroups } from '@/features/system/permissions/constants/nav';
 import {
   systemOrganizationSettingsNavItems,
   systemOrganizationStructureNavItems,
 } from '@/features/system/organization/constants/nav';
+import { systemOwnerNavItems } from '@/features/system-owner/constants/nav';
 import {
   ecommerceAdminNavGroups,
   ecommerceAdminOverviewItem,
@@ -41,7 +42,13 @@ import {
   inventoryAdminOverviewItem,
   flattenInventoryNavItems,
 } from '@/features/inventory/admin/constants/nav';
+import {
+  contactsAdminNavGroups,
+  contactsAdminOverviewItem,
+  flattenContactsNavItems,
+} from '@/features/contacts/admin/constants/nav';
 import { isModuleEnabledFor } from '@/shared/modules/registry';
+import { useModuleEnablementContext } from '@/features/auth/hooks/use-system-owner';
 
 type MobileNavChild =
   | { label: string; href: string; icon?: React.ElementType; match?: 'exact' | 'prefix' }
@@ -140,6 +147,24 @@ const mobileNav: MobileNavItem[] = [
       })),
     ),
   },
+  {
+    key: 'hr-organization-settings', label: 'الإعدادات', icon: Settings,
+    children: hrOrganizationSettingsNavItems.map((item) => ({
+      label: item.labelAr,
+      href: item.href,
+      icon: item.icon,
+    })),
+  },
+];
+
+const systemOwnerMobileNav: MobileNavItem[] = [
+  { key: 'apps', label: 'التطبيقات', href: '/', icon: LayoutGrid },
+  ...systemOwnerNavItems.map((item) => ({
+    key: item.href,
+    label: item.labelAr,
+    href: item.href,
+    icon: item.icon,
+  })),
 ];
 
 const systemMobileNav: MobileNavItem[] = [
@@ -194,6 +219,9 @@ function buildEcommerceMobileNav(tNav: (key: string) => string): MobileNavItem[]
       if (section.items.length === 0) continue;
       if (children.length > 0) children.push({ separator: true });
       for (const item of section.items) {
+        if (item.precedingSectionKey && children.length > 0) {
+          children.push({ separator: true });
+        }
         children.push({
           label: tNav(item.labelKey),
           href: item.href,
@@ -254,7 +282,47 @@ function buildInventoryMobileNav(): MobileNavItem[] {
   return items;
 }
 
-function MobileDrawer({ items, onClose }: { items: MobileNavItem[]; onClose: () => void }) {
+function buildContactsMobileNav(): MobileNavItem[] {
+  const items: MobileNavItem[] = [
+    { key: 'apps', label: 'التطبيقات', href: '/', icon: LayoutGrid },
+    {
+      key: 'overview',
+      label: contactsAdminOverviewItem.labelAr,
+      href: contactsAdminOverviewItem.href,
+      icon: contactsAdminOverviewItem.icon,
+    },
+  ];
+
+  for (const group of contactsAdminNavGroups) {
+    if (group.key === 'directory') continue;
+    const flat = flattenContactsNavItems(group);
+    if (flat.length === 0) continue;
+    items.push({
+      key: group.key,
+      label: group.labelAr,
+      icon: group.icon,
+      children: flat.map((item) => ({
+        label: item.labelAr,
+        href: item.href,
+        icon: item.icon,
+        match: 'prefix' as const,
+      })),
+    });
+  }
+
+  return items;
+}
+
+function MobileDrawer({
+  items,
+  onClose,
+  asBottomSheet,
+}: {
+  items: MobileNavItem[];
+  onClose: () => void;
+  /** Render the compact drag-handle affordance used when hosted in a bottom sheet. */
+  asBottomSheet?: boolean;
+}) {
   const { logoUrl, logoAlt } = useDefaultCompanyBranding();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -305,6 +373,12 @@ function MobileDrawer({ items, onClose }: { items: MobileNavItem[]; onClose: () 
 
   return (
     <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
+      {asBottomSheet && (
+        <div className="flex shrink-0 justify-center pb-1 pt-2.5" aria-hidden>
+          <div className="h-1 w-9 rounded-full bg-sidebar-foreground/25" />
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between border-b border-sidebar-border/50 p-4">
         <Link
@@ -427,15 +501,18 @@ export function Sidebar() {
   const { open, setOpen } = useSidebar();
   const close = React.useCallback(() => setOpen(false), [setOpen]);
   const [mounted, setMounted] = React.useState(false);
-  const activeCompanyId = useAuthStore((s) => s.activeCompanyId);
-  const ecommerceEnabled = isModuleEnabledFor('ecommerce', activeCompanyId);
-  const inventoryEnabled = isModuleEnabledFor('inventory', activeCompanyId);
+  const { companyId: activeCompanyId, ...moduleContext } = useModuleEnablementContext();
+  const ecommerceEnabled = isModuleEnabledFor('ecommerce', activeCompanyId, moduleContext);
+  const inventoryEnabled = isModuleEnabledFor('inventory', activeCompanyId, moduleContext);
+  const contactsEnabled = isModuleEnabledFor('contacts', activeCompanyId, moduleContext);
   const tNav = useTranslations('ecommerceAdmin.nav');
 
   const inAppShell = isHrAppPath(pathname)
     || isSystemAppPath(pathname)
+    || isSystemOwnerAppPath(pathname)
     || (ecommerceEnabled && isEcommerceAppPath(pathname))
-    || (inventoryEnabled && isInventoryAppPath(pathname));
+    || (inventoryEnabled && isInventoryAppPath(pathname))
+    || (contactsEnabled && isContactsAppPath(pathname));
 
   React.useEffect(() => {
     if (!inAppShell) setOpen(false);
@@ -477,13 +554,24 @@ export function Sidebar() {
 
   if (!mounted || !open) return null;
 
-  const navItems = isSystemAppPath(pathname)
+  const isSystemApp = isSystemAppPath(pathname);
+  const isInventoryApp = inventoryEnabled && isInventoryAppPath(pathname);
+
+  const navItems = isSystemOwnerAppPath(pathname)
+    ? systemOwnerMobileNav
+    : isSystemApp
     ? systemMobileNav
-    : inventoryEnabled && isInventoryAppPath(pathname)
-      ? buildInventoryMobileNav()
-      : ecommerceEnabled && isEcommerceAppPath(pathname)
-        ? buildEcommerceMobileNav((key) => tNav(key as 'overview'))
-        : mobileNav;
+    : contactsEnabled && isContactsAppPath(pathname)
+      ? buildContactsMobileNav()
+      : isInventoryApp
+        ? buildInventoryMobileNav()
+        : ecommerceEnabled && isEcommerceAppPath(pathname)
+          ? buildEcommerceMobileNav((key) => tNav(key as 'overview'))
+          : mobileNav;
+
+  // System / Inventory get the native-app-style bottom sheet (paired with their
+  // bottom tab bar); other apps keep the classic right-side drawer.
+  const asBottomSheet = isSystemApp || isInventoryApp;
 
   return createPortal(
     <>
@@ -494,14 +582,17 @@ export function Sidebar() {
       />
       <aside
         className={cn(
-          'fixed inset-y-0 right-0 z-50 flex w-[min(100vw-2rem,18rem)] max-w-[85vw] flex-col shadow-luxe lg:hidden',
+          'fixed z-50 flex shadow-luxe lg:hidden',
+          asBottomSheet
+            ? 'inset-x-0 bottom-0 h-[82vh] max-h-168 flex-col overflow-hidden rounded-t-3xl'
+            : 'inset-y-0 right-0 w-[min(100vw-2rem,18rem)] max-w-[85vw] flex-col',
         )}
         role="dialog"
         aria-modal="true"
         aria-label="القائمة الرئيسية"
       >
         <React.Suspense fallback={null}>
-          <MobileDrawer items={navItems} onClose={close} />
+          <MobileDrawer items={navItems} onClose={close} asBottomSheet={asBottomSheet} />
         </React.Suspense>
       </aside>
     </>,

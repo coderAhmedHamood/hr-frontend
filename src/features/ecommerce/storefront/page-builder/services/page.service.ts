@@ -2,7 +2,6 @@ import type { PageType } from '@/features/ecommerce/storefront/page-builder/doma
 import type { StorefrontPageView } from '@/features/ecommerce/storefront/page-builder/domain/page-models';
 import { resolvePageSections } from '@/features/ecommerce/storefront/page-builder/lib/section-data-resolvers';
 import { storefrontPageRepository } from '@/features/ecommerce/storefront/page-builder/lib/repositories/page-repository';
-import { getStorefrontCompanyConfig } from '@/features/ecommerce/storefront/lib/get-storefront-company-config';
 import type { StorefrontLocale } from '@/i18n/routing';
 
 function deriveSeoTitle(
@@ -18,17 +17,17 @@ export async function loadStorefrontPage(
   companyId: string,
   pageType: PageType,
   locale: StorefrontLocale,
+  homeTitleFallback: string,
 ): Promise<StorefrontPageView | null> {
   const page = await storefrontPageRepository.getByPageType(companyId, pageType, locale);
   if (!page) return null;
 
   const sections = await resolvePageSections({ companyId, locale }, page);
-  const config = await getStorefrontCompanyConfig();
 
   return {
     ...page,
     sections,
-    seoTitle: deriveSeoTitle(sections, config.seo.homeTitle),
+    seoTitle: deriveSeoTitle(sections, homeTitleFallback),
   };
 }
 
@@ -36,6 +35,7 @@ export async function loadStorefrontPage(
 export async function loadStorefrontHomepage(
   companyId: string,
   locale: StorefrontLocale,
+  homeTitleFallback: string,
 ): Promise<StorefrontPageView | null> {
-  return loadStorefrontPage(companyId, 'homepage', locale);
+  return loadStorefrontPage(companyId, 'homepage', locale, homeTitleFallback);
 }

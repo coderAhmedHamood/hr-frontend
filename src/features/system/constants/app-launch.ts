@@ -5,5 +5,5 @@ import { systemOrganizationStructureNavItems } from '@/features/system/organizat
  * Mirrors the first item in the first top-nav dropdown (الهيكل التنظيمي).
  */
 export function resolveSystemAppLaunchPath(): string {
-  return systemOrganizationStructureNavItems[0]?.href ?? '/system/organization/contacts';
+  return systemOrganizationStructureNavItems[0]?.href ?? '/system/organization/users';
 }

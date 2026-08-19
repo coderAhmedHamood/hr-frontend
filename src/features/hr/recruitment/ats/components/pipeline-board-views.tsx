@@ -67,7 +67,7 @@ export function PipelineBoardViews({ model }: Props) {
           className={cn(
             '-mx-1 flex gap-3 overflow-x-auto pb-3 pt-1 sm:mx-0',
             'snap-x snap-mandatory scroll-smooth sm:snap-none',
-            '[scrollbar-width:thin] [&::-webkit-scrollbar]:h-1.5',
+            'scrollbar-thin',
           )}
         >
           {stageOrder.map((stage) => (

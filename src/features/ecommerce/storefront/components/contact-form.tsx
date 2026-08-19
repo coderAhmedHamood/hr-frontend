@@ -3,69 +3,145 @@
 import * as React from 'react';
 import { CheckCircle2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { submitStorefrontContactMessage } from '@/features/ecommerce/storefront/lib/contact-actions';
+import type { StoreContactMessageType } from '@/features/ecommerce/shared/lib/api/store-content-api';
+import { cn } from '@/shared/utils';
 
 export function ContactForm() {
   const t = useTranslations('storefront');
   const [submitted, setSubmitted] = React.useState(false);
+  const [pending, setPending] = React.useState(false);
+  const [type, setType] = React.useState<StoreContactMessageType>('suggestion');
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setSubmitted(true);
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    setPending(true);
+    try {
+      const result = await submitStorefrontContactMessage({
+        name: String(data.get('name') ?? ''),
+        email: String(data.get('email') ?? ''),
+        phone: String(data.get('phone') ?? ''),
+        type,
+        message: String(data.get('message') ?? ''),
+      });
+      if (!result.ok) {
+        toast.error(t('contact.formError'));
+        return;
+      }
+      setSubmitted(true);
+    } catch {
+      toast.error(t('contact.formError'));
+    } finally {
+      setPending(false);
+    }
   }
 
   if (submitted) {
     return (
-      <div className="flex flex-col items-center gap-3 rounded-xl border border-border bg-card p-8 text-center" role="status">
-        <CheckCircle2 className="h-10 w-10 text-success" aria-hidden />
-        <p className="text-sm font-medium text-foreground">{t('contact.formSuccess')}</p>
+      <div
+        className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-border/70 bg-card px-6 py-14 text-center"
+        role="status"
+      >
+        <span className="flex h-14 w-14 items-center justify-center rounded-full bg-success/10 text-success">
+          <CheckCircle2 className="h-7 w-7" aria-hidden />
+        </span>
+        <p className="max-w-sm text-sm font-medium leading-relaxed text-foreground">
+          {t('contact.formSuccess')}
+        </p>
       </div>
     );
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4 rounded-xl border border-border bg-card p-6">
-      <div className="flex flex-col gap-2">
-        <label htmlFor="contact-name" className="text-sm font-medium text-foreground">
-          {t('contact.formName')}
-        </label>
-        <input
+    <form
+      onSubmit={handleSubmit}
+      className="flex flex-col gap-5 rounded-2xl border border-border/70 bg-card p-5 sm:p-6"
+    >
+      <div>
+        <h2 className="text-base font-semibold text-foreground">{t('contact.formTitle')}</h2>
+        <p className="mt-1 text-xs text-muted-foreground">{t('contact.formNote')}</p>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="contact-name">{t('contact.formName')}</Label>
+        <Input
           id="contact-name"
           name="name"
           required
-          className="h-10 rounded-md border border-border bg-background px-3 text-sm outline-none ring-primary/20 focus:ring-2"
+          autoComplete="name"
+          className="h-12 rounded-xl"
+          disabled={pending}
         />
       </div>
-      <div className="flex flex-col gap-2">
-        <label htmlFor="contact-email" className="text-sm font-medium text-foreground">
-          {t('contact.formEmail')}
-        </label>
-        <input
+      <div className="space-y-2">
+        <Label htmlFor="contact-email">{t('contact.formEmail')}</Label>
+        <Input
           id="contact-email"
           name="email"
           type="email"
           required
-          className="h-10 rounded-md border border-border bg-background px-3 text-sm outline-none ring-primary/20 focus:ring-2"
+          autoComplete="email"
+          dir="ltr"
+          className="h-12 rounded-xl text-right"
+          disabled={pending}
         />
       </div>
-      <div className="flex flex-col gap-2">
-        <label htmlFor="contact-message" className="text-sm font-medium text-foreground">
-          {t('contact.formMessage')}
-        </label>
-        <textarea
+      <div className="space-y-2">
+        <Label htmlFor="contact-phone">{t('contact.formPhone')}</Label>
+        <Input
+          id="contact-phone"
+          name="phone"
+          type="tel"
+          autoComplete="tel"
+          dir="ltr"
+          className="h-12 rounded-xl text-right"
+          disabled={pending}
+        />
+      </div>
+      <div className="space-y-2">
+        <Label>{t('contact.formType')}</Label>
+        <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label={t('contact.formType')}>
+          {(['complaint', 'suggestion'] as const).map((option) => (
+            <button
+              key={option}
+              type="button"
+              role="radio"
+              aria-checked={type === option}
+              disabled={pending}
+              onClick={() => setType(option)}
+              className={cn(
+                'h-11 rounded-xl border text-sm font-medium transition-colors',
+                type === option
+                  ? 'border-primary bg-primary/10 text-primary'
+                  : 'border-border text-muted-foreground hover:border-primary/40',
+              )}
+            >
+              {t(option === 'complaint' ? 'contact.formTypeComplaint' : 'contact.formTypeSuggestion')}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="contact-message">{t('contact.formMessage')}</Label>
+        <Textarea
           id="contact-message"
           name="message"
           required
           rows={5}
-          className="rounded-md border border-border bg-background px-3 py-2 text-sm outline-none ring-primary/20 focus:ring-2"
+          className="min-h-32 rounded-xl"
+          disabled={pending}
         />
       </div>
-      <p className="text-xs text-muted-foreground">{t('contact.formNote')}</p>
-      <button
-        type="submit"
-        className="inline-flex h-11 items-center justify-center rounded-lg bg-primary text-sm font-medium text-primary-foreground hover:bg-primary/90"
-      >
-        {t('contact.formSubmit')}
-      </button>
+      <Button type="submit" className="h-12 rounded-xl" disabled={pending}>
+        {pending ? t('contact.formSubmitting') : t('contact.formSubmit')}
+      </Button>
     </form>
   );
 }

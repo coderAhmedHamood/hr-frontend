@@ -2,7 +2,8 @@
 
 import Image from 'next/image';
 import { PackageSearch, Trash2 } from 'lucide-react';
-import { useFormatter, useTranslations } from 'next-intl';
+import { useTranslations } from 'next-intl';
+import { formatPrice } from '@/features/ecommerce/shared/utils/format-price';
 import type { StorefrontProduct } from '@/features/ecommerce/storefront/domain/storefront-models';
 import { ProductPrice } from '@/features/ecommerce/storefront/components/catalog/product-price';
 import { ProductGridSkeleton } from '@/features/ecommerce/storefront/components/catalog/loading-skeleton';
@@ -10,13 +11,18 @@ import { QuantitySelector } from '@/features/ecommerce/storefront/components/cat
 import { StoreErrorState } from '@/features/ecommerce/storefront/components/catalog/store-error-state';
 import { useStorefrontCartProducts } from '@/features/ecommerce/storefront/hooks/use-storefront-cart-products';
 import { useStorefrontCartUi } from '@/features/ecommerce/storefront/hooks/use-storefront-cart-ui';
-import { buildProductDisplay, hasProductDeal } from '@/features/ecommerce/storefront/lib/product-display';
+import {
+  buildProductDisplay,
+  getOrderQuantityMax,
+  resolveDiscountPercent,
+  resolveLineCompareAtPrice,
+  resolveLineUnitPrice,
+} from '@/features/ecommerce/storefront/lib/product-display';
 import { StoreEmptyState } from '@/features/ecommerce/storefront/components/store-empty-state';
 import { Link } from '@/i18n/navigation';
 
 export function StoreCartClient() {
   const t = useTranslations('storefront');
-  const format = useFormatter();
   const lines = useStorefrontCartUi((s) => s.lines);
   const setQuantity = useStorefrontCartUi((s) => s.setQuantity);
   const removeItem = useStorefrontCartUi((s) => s.removeItem);
@@ -30,9 +36,12 @@ export function StoreCartClient() {
       const variant = line.variantId
         ? product.variants.find((item) => item.id === line.variantId)
         : undefined;
-      const unitPrice = variant?.price ?? product.price;
+      const unitPrice = resolveLineUnitPrice(product, variant);
+      const compareAt = resolveLineCompareAtPrice(product, unitPrice);
+      const discountPercent = resolveDiscountPercent(unitPrice, compareAt);
+      const maxQty = getOrderQuantityMax(product, variant);
       const lineName = variant ? variant.nameAr : product.name;
-      return { line, product, variant, unitPrice, lineName };
+      return { line, product, variant, unitPrice, compareAt, discountPercent, maxQty, lineName };
     })
     .filter(
       (
@@ -42,15 +51,14 @@ export function StoreCartClient() {
         product: StorefrontProduct;
         variant: StorefrontProduct['variants'][number] | undefined;
         unitPrice: StorefrontProduct['price'];
+        compareAt: StorefrontProduct['compareAtPrice'];
+        discountPercent: number | null;
+        maxQty: number;
         lineName: string;
       } => Boolean(entry),
     );
 
   const total = cartLines.reduce((sum, { line, unitPrice }) => sum + unitPrice.amount * line.quantity, 0);
-
-  function formatPrice(amount: number, currency: string) {
-    return format.number(amount, { style: 'currency', currency });
-  }
 
   if (lines.length === 0) {
     return (
@@ -77,15 +85,16 @@ export function StoreCartClient() {
   return (
     <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
       <ul className="flex flex-col gap-4">
-        {cartLines.map(({ line, product, unitPrice, lineName, variant }) => {
+        {cartLines.map(({ line, product, unitPrice, compareAt, discountPercent, maxQty, lineName, variant }) => {
           const display = buildProductDisplay(product);
-          const showCompare = !variant && hasProductDeal(product);
+          const imageUrl = variant?.imageUrl ?? variant?.images?.[0]?.url ?? display.imageUrl;
+          const imageAlt = variant ? lineName : display.imageAlt;
           const rowKey = line.variantId ? `${product.id}::${line.variantId}` : product.id;
           return (
             <li key={rowKey} className="flex gap-4 rounded-xl border border-border bg-card p-4">
               <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-muted">
-                {display.imageUrl ? (
-                  <Image src={display.imageUrl} alt={display.imageAlt} fill unoptimized sizes="80px" className="object-contain p-1" />
+                {imageUrl ? (
+                  <Image src={imageUrl} alt={imageAlt} fill unoptimized sizes="80px" className="object-contain p-1" />
                 ) : (
                   <div className="flex h-full items-center justify-center text-muted-foreground">
                     <PackageSearch className="h-6 w-6" aria-hidden />
@@ -105,8 +114,8 @@ export function StoreCartClient() {
                       >
                         {label.colorHex ? (
                           <span
-                            className="h-2 w-2 rounded-full border border-border"
-                            style={{ backgroundColor: label.colorHex }}
+                            className="h-2 w-2 rounded-full border border-border bg-[var(--swatch)]"
+                            style={{ ['--swatch' as string]: label.colorHex }}
                           />
                         ) : null}
                         {label.valueNameAr}
@@ -115,18 +124,16 @@ export function StoreCartClient() {
                   </div>
                 ) : null}
                 <ProductPrice
-                  price={formatPrice(unitPrice.amount, unitPrice.currency)}
-                  compareAtPrice={
-                    showCompare && product.compareAtPrice
-                      ? formatPrice(product.compareAtPrice.amount, product.compareAtPrice.currency)
-                      : undefined
-                  }
+                  price={formatPrice(unitPrice)}
+                  compareAtPrice={compareAt ? formatPrice(compareAt) : undefined}
+                  discountPercent={discountPercent}
                   size="sm"
                 />
                 <div className="flex flex-wrap items-center gap-3">
                   <span className="text-xs text-muted-foreground">{t('cart.quantity')}</span>
                   <QuantitySelector
                     value={line.quantity}
+                    max={Math.max(1, maxQty)}
                     onChange={(quantity) => setQuantity(product.id, quantity, line.variantId)}
                   />
                   <button
@@ -147,14 +154,16 @@ export function StoreCartClient() {
       <aside className="h-fit rounded-xl border border-border bg-card p-6 shadow-soft">
         <h2 className="font-arabic-display text-lg font-semibold text-foreground">{t('cart.subtotal')}</h2>
         <p className="mt-2 text-2xl font-bold text-foreground">
-          {formatPrice(total, cartLines[0]?.product.price.currency ?? 'SAR')}
+          {formatPrice({ amount: total, currency: cartLines[0]?.product.price.currency ?? 'YER' })}
         </p>
-        <button
-          type="button"
+        <Link
+          href="/store/checkout"
+          prefetch={false}
           className="mt-6 flex h-11 w-full items-center justify-center rounded-lg bg-primary text-sm font-medium text-primary-foreground hover:bg-primary/90"
         >
           {t('cart.checkout')}
-        </button>
+        </Link>
+        <p className="mt-2 text-center text-xs text-muted-foreground">{t('cart.checkoutLoginHint')}</p>
         <Link href="/store/products" prefetch={false} className="mt-3 block text-center text-sm text-primary hover:underline">
           {t('cart.continueShopping')}
         </Link>

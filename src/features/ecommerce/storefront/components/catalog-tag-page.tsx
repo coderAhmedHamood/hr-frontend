@@ -1,4 +1,6 @@
-import { getLocale, getTranslations } from 'next-intl/server';
+'use client';
+
+import { useLocale, useTranslations } from 'next-intl';
 import { PackageSearch } from 'lucide-react';
 import type { StorefrontPaginated, StorefrontProduct } from '@/features/ecommerce/storefront/domain/storefront-models';
 import { ProductCard } from '@/features/ecommerce/storefront/components/product-card';
@@ -7,7 +9,7 @@ import { StorePagination } from '@/features/ecommerce/storefront/components/stor
 import { StoreBreadcrumbs } from '@/features/ecommerce/storefront/components/store-breadcrumbs';
 import { StoreEmptyState } from '@/features/ecommerce/storefront/components/store-empty-state';
 import { JsonLd } from '@/features/ecommerce/storefront/components/json-ld';
-import { collectionPageJsonLd } from '@/features/ecommerce/storefront/lib/seo';
+import { collectionPageJsonLd } from '@/features/ecommerce/storefront/lib/seo-jsonld';
 import type { StorefrontLocale } from '@/i18n/routing';
 
 type CatalogTagPageProps = {
@@ -18,15 +20,15 @@ type CatalogTagPageProps = {
   productsResult: StorefrontPaginated<StorefrontProduct>;
 };
 
-export async function CatalogTagPage({
+export function CatalogTagPage({
   title,
   description,
   basePath,
   page,
   productsResult,
 }: CatalogTagPageProps) {
-  const t = await getTranslations('storefront');
-  const locale = (await getLocale()) as StorefrontLocale;
+  const t = useTranslations('storefront');
+  const locale = useLocale() as StorefrontLocale;
   const products = productsResult.items;
 
   return (

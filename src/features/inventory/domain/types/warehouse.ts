@@ -27,6 +27,8 @@ export type Warehouse = TenantScoped & {
   nameEn?: string;
   description?: string;
   address?: string;
+  /** Null = central warehouse (visible only with isAllBranches). */
+  branchId?: string | null;
   status: WarehouseStatus;
   incomingSteps: WarehouseIncomingSteps;
   outgoingSteps: WarehouseOutgoingSteps;
@@ -37,6 +39,8 @@ export type Warehouse = TenantScoped & {
 
 export type WarehouseListQuery = {
   companyId: string;
+  /** Optional UI filter inside the user's allowed branch set. */
+  branchId?: string;
   search?: string;
   page?: number;
   limit?: number;

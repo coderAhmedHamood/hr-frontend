@@ -41,6 +41,8 @@ export type LocalizedSectionHeading = {
 export type HeroCarouselSlideRecord = {
   id: string;
   imageUrl: string;
+  /** Defaults to true when omitted (legacy slides). */
+  enabled?: boolean;
   mobileImageUrl?: string;
   title?: LocalizableString;
   alt?: LocalizableString;

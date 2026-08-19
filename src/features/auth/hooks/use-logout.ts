@@ -1,8 +1,8 @@
 'use client';
 
-import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useCallback, useState } from 'react';
+import { getAppQueryClient } from '@/components/layouts/query-client';
 import { AUTH_SUCCESS_TOAST } from '@/features/auth/lib/auth-api-messages';
 import { ACCESS_PROFILE_KEY } from '@/features/auth/hooks/use-access-profile';
 import { AUTH_ME_KEY } from '@/features/auth/hooks/use-auth-session';
@@ -14,11 +14,11 @@ import { toast } from 'sonner';
 
 export function useLogout() {
   const router = useRouter();
-  const queryClient = useQueryClient();
   const [loading, setLoading] = useState(false);
 
   const logout = useCallback(async () => {
     setLoading(true);
+    const queryClient = getAppQueryClient();
     try {
       await authApi.logout();
       toast.success(AUTH_SUCCESS_TOAST.logout);
@@ -32,7 +32,7 @@ export function useLogout() {
       setLoading(false);
       router.push('/login');
     }
-  }, [queryClient, router]);
+  }, [router]);
 
   return { logout, loading };
 }

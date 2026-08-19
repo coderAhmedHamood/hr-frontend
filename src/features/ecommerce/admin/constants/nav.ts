@@ -1,28 +1,35 @@
 import type { LucideIcon } from 'lucide-react';
 import {
-  LayoutDashboard,
   Package,
   FolderTree,
   Tag,
   ShoppingCart,
-  Users,
   LayoutTemplate,
-  Navigation,
   FileText,
   Settings,
-  Image,
-  Newspaper,
-  CircleHelp,
-  PanelBottom,
   Megaphone,
-  Globe,
   SlidersHorizontal,
   Library,
+  Image,
+  Mail,
+  MessageCircle,
+  Star,
+  PanelBottom,
+  BarChart3,
+  Banknote,
+  CreditCard,
+  MapPinned,
+  Paintbrush,
+  Palette,
+  Phone,
+  Search,
+  Share2,
 } from 'lucide-react';
 import {
   ecommerceAdminRoutes,
   ecommerceContentHref,
   ecommerceNavigationHref,
+  ecommerceSettingsHref,
 } from '@/features/ecommerce/admin/constants/routes';
 
 export type EcommerceAdminNavItem = {
@@ -30,6 +37,11 @@ export type EcommerceAdminNavItem = {
   labelKey: string;
   href: string;
   icon: LucideIcon;
+  /**
+   * Optional mid-column section label (under `ecommerceAdmin.nav.sections.*`)
+   * rendered above this item — keeps related links in the same dropdown column.
+   */
+  precedingSectionKey?: 'content' | 'appearance' | 'catalogSetup';
 };
 
 export type EcommerceAdminNavSection = {
@@ -39,27 +51,43 @@ export type EcommerceAdminNavSection = {
 };
 
 export type EcommerceAdminNavGroup = {
-  key: 'products' | 'catalogSetup' | 'sales' | 'website';
+  key: 'products' | 'catalogSetup' | 'storeSettings' | 'sales' | 'settings';
   labelKey: string;
   icon: LucideIcon;
   sections: EcommerceAdminNavSection[];
 };
 
+/** Primary home for store admin — orders Kanban. */
 export const ecommerceAdminOverviewItem: EcommerceAdminNavItem = {
-  labelKey: 'overview',
-  href: ecommerceAdminRoutes.overview,
-  icon: LayoutDashboard,
+  labelKey: 'orders',
+  href: ecommerceAdminRoutes.orders,
+  icon: ShoppingCart,
 };
 
 /** Ecommerce-only nav — inventory lives in the standalone Inventory app. */
 export const ecommerceAdminNavGroups: EcommerceAdminNavGroup[] = [
+  {
+    key: 'sales',
+    labelKey: 'groups.sales',
+    icon: BarChart3,
+    sections: [
+      {
+        items: [
+          { labelKey: 'salesReports', href: ecommerceAdminRoutes.salesReports, icon: BarChart3 },
+        ],
+      },
+    ],
+  },
   {
     key: 'products',
     labelKey: 'groups.products',
     icon: Package,
     sections: [
       {
-        items: [{ labelKey: 'products', href: ecommerceAdminRoutes.products, icon: Package }],
+        items: [
+          { labelKey: 'products', href: ecommerceAdminRoutes.products, icon: Package },
+          { labelKey: 'reviews', href: ecommerceAdminRoutes.reviews, icon: Star },
+        ],
       },
     ],
   },
@@ -79,51 +107,69 @@ export const ecommerceAdminNavGroups: EcommerceAdminNavGroup[] = [
     ],
   },
   {
-    key: 'sales',
-    labelKey: 'groups.sales',
-    icon: ShoppingCart,
+    key: 'storeSettings',
+    labelKey: 'groups.storeSettings',
+    icon: Settings,
     sections: [
       {
         items: [
-          { labelKey: 'orders', href: ecommerceAdminRoutes.orders, icon: ShoppingCart },
-          { labelKey: 'customers', href: ecommerceAdminRoutes.customers, icon: Users },
-        ],
-      },
-    ],
-  },
-  {
-    key: 'website',
-    labelKey: 'groups.website',
-    icon: Globe,
-    sections: [
-      {
-        items: [
-          { labelKey: 'homepage', href: ecommerceAdminRoutes.homepage, icon: LayoutTemplate },
-          { labelKey: 'navigation', href: ecommerceNavigationHref('header'), icon: Navigation },
           { labelKey: 'banners', href: ecommerceAdminRoutes.banners, icon: Image },
+          { labelKey: 'homepageSections', href: ecommerceAdminRoutes.storeSettings, icon: LayoutTemplate },
+          {
+            labelKey: 'appearanceAnnouncement',
+            href: ecommerceNavigationHref('announcement'),
+            icon: Megaphone,
+            precedingSectionKey: 'appearance',
+          },
+          {
+            labelKey: 'footer',
+            href: ecommerceAdminRoutes.footer,
+            icon: PanelBottom,
+          },
         ],
       },
       {
         sectionKey: 'content',
         items: [
           { labelKey: 'contentPages', href: ecommerceContentHref('pages'), icon: FileText },
-          { labelKey: 'contentBlog', href: ecommerceContentHref('blog'), icon: Newspaper },
-          { labelKey: 'contentFaq', href: ecommerceContentHref('faq'), icon: CircleHelp },
-        ],
-      },
-      {
-        sectionKey: 'appearance',
-        items: [
-          { labelKey: 'appearanceFooter', href: ecommerceNavigationHref('footer'), icon: PanelBottom },
           {
-            labelKey: 'appearanceAnnouncement',
-            href: ecommerceNavigationHref('announcement'),
-            icon: Megaphone,
+            labelKey: 'contactMessages',
+            href: ecommerceAdminRoutes.contactMessages,
+            icon: Mail,
+          },
+          {
+            labelKey: 'whatsapp',
+            href: ecommerceAdminRoutes.whatsapp,
+            icon: MessageCircle,
           },
         ],
       },
+    ],
+  },
+  {
+    key: 'settings',
+    labelKey: 'groups.settings',
+    icon: Settings,
+    sections: [
       {
-        items: [{ labelKey: 'websiteSettings', href: ecommerceAdminRoutes.settings, icon: Settings }],
+        items: [
+          { labelKey: 'settingsTabs.branding', href: ecommerceSettingsHref('branding'), icon: Palette },
+          { labelKey: 'settingsTabs.colors', href: ecommerceSettingsHref('colors'), icon: Paintbrush },
+          { labelKey: 'settingsTabs.contact', href: ecommerceSettingsHref('contact'), icon: Phone },
+          { labelKey: 'settingsTabs.social', href: ecommerceSettingsHref('social'), icon: Share2 },
+          { labelKey: 'settingsTabs.locations', href: ecommerceSettingsHref('locations'), icon: MapPinned },
+          {
+            labelKey: 'settingsTabs.deliveryRates',
+            href: ecommerceSettingsHref('deliveryRates'),
+            icon: Banknote,
+          },
+          {
+            labelKey: 'settingsTabs.paymentAccounts',
+            href: ecommerceSettingsHref('paymentAccounts'),
+            icon: CreditCard,
+          },
+          { labelKey: 'settingsTabs.seo', href: ecommerceSettingsHref('seo'), icon: Search },
+        ],
       },
     ],
   },

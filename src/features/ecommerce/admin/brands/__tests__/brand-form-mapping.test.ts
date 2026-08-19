@@ -4,7 +4,7 @@ import type { BrandFormValues } from '@/features/ecommerce/admin/brands/schemas/
 
 const BASE_BRAND: Brand = {
   id: 'brand-1',
-  companyId: 'demo-company',
+  companyId: '76e5bc4f-5adb-434d-a886-bcff05a9680b',
   slug: 'royal-wood',
   nameAr: 'رويال وود',
   seo: {},
@@ -44,8 +44,8 @@ describe('formValuesToCreateBrandInput', () => {
   };
 
   it('injects the given companyId and collapses empty optional strings to undefined', () => {
-    const input = formValuesToCreateBrandInput(BASE_VALUES, 'demo-company');
-    expect(input.companyId).toBe('demo-company');
+    const input = formValuesToCreateBrandInput(BASE_VALUES, '76e5bc4f-5adb-434d-a886-bcff05a9680b');
+    expect(input.companyId).toBe('76e5bc4f-5adb-434d-a886-bcff05a9680b');
     expect(input.nameEn).toBeUndefined();
     expect(input.websiteUrl).toBeUndefined();
     expect(input.logo).toBeUndefined();
@@ -53,14 +53,14 @@ describe('formValuesToCreateBrandInput', () => {
   });
 
   it('builds a primary logo MediaItem when logoUrl is present', () => {
-    const input = formValuesToCreateBrandInput({ ...BASE_VALUES, logoUrl: 'https://example.com/logo.png' }, 'demo-company');
+    const input = formValuesToCreateBrandInput({ ...BASE_VALUES, logoUrl: 'https://example.com/logo.png' }, '76e5bc4f-5adb-434d-a886-bcff05a9680b');
     expect(input.logo).toMatchObject({ url: 'https://example.com/logo.png', isPrimary: true, type: 'image' });
   });
 
   it('auto-generates slug from English name when slug is left empty', () => {
     const input = formValuesToCreateBrandInput(
       { ...BASE_VALUES, slug: '', nameEn: 'Royal Wood' },
-      'demo-company',
+      '76e5bc4f-5adb-434d-a886-bcff05a9680b',
     );
     expect(input.slug).toBe('royal-wood');
   });

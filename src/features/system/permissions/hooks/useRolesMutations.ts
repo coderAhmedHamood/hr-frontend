@@ -17,6 +17,7 @@ export type SaveRoleInput = {
   description: string;
   applicationId: string;
   permissionIds: string[];
+  isAllBranches?: boolean;
 };
 
 export type UpdateRoleInput = SaveRoleInput & { roleId: string };
@@ -40,7 +41,7 @@ export function useRolesMutations() {
   }
 
   const create = useMutation({
-    mutationFn: ({ name, description, applicationId, permissionIds }: SaveRoleInput) => {
+    mutationFn: ({ name, description, applicationId, permissionIds, isAllBranches }: SaveRoleInput) => {
       const companyId = resolveCompanyId();
       if (!applicationId) {
         throw new Error('اختر التطبيق الذي ينتمي إليه هذا الدور');
@@ -54,6 +55,7 @@ export function useRolesMutations() {
         permissionIds,
         companyId,
         applicationId,
+        isAllBranches: isAllBranches ?? false,
         createdBy: userEmail,
       });
     },
@@ -65,11 +67,12 @@ export function useRolesMutations() {
   });
 
   const update = useMutation({
-    mutationFn: ({ roleId, name, description, permissionIds }: UpdateRoleInput) =>
+    mutationFn: ({ roleId, name, description, permissionIds, isAllBranches }: UpdateRoleInput) =>
       updateRoleWithPermissions(roleId, {
         name,
         description,
         permissionIds,
+        isAllBranches,
         createdBy: userEmail,
       }),
     onSuccess: invalidateRoles,

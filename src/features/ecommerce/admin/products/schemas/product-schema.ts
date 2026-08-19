@@ -42,6 +42,7 @@ const attributeValueSchema = z.object({
   defaultExtraPrice: z.coerce.number().min(0).optional(),
   colorHex: z.string().trim().optional(),
   imageUrl: z.string().trim().optional(),
+  catalogAttributeValueId: z.string().optional(),
   extra: z.string().trim().optional(),
 });
 
@@ -82,12 +83,13 @@ const variantSchema = z.object({
   stockStatus: z.enum(['in_stock', 'out_of_stock', 'preorder', 'discontinued']),
   barcode: z.string().trim().optional(),
   imageUrl: z.string().trim().optional(),
+  images: z.array(z.string().trim()).optional(),
   isActive: z.boolean(),
 });
 
 export const productFormSchema = z
   .object({
-    sku: z.string().trim(),
+    sku: z.string().trim().min(1, 'رمز المنتج (SKU) مطلوب'),
     nameAr: z.string().trim().min(1, 'اسم المنتج مطلوب'),
     nameEn: z.string().trim().optional(),
     slug: z
@@ -129,8 +131,50 @@ export const productFormSchema = z
     widthCm: z.coerce.number().min(0).optional(),
     heightCm: z.coerce.number().min(0).optional(),
     posAvailable: z.boolean(),
+    warehouseId: z.string().optional(),
+    locationId: z.string().optional(),
     saleOk: z.boolean(),
     purchaseOk: z.boolean(),
+    isNewProduct: z.boolean(),
+    newUntil: z.string().optional(),
+    isTodayDeal: z.boolean(),
+    dealPriceAmount: z.preprocess(
+      (value) => {
+        if (value === '' || value === null || value === undefined) return undefined;
+        const n = Number(value);
+        return Number.isFinite(n) ? n : undefined;
+      },
+      z.number().min(0).optional(),
+    ),
+    dealDays: z.preprocess(
+      (value) => {
+        if (value === '' || value === null || value === undefined) return undefined;
+        const n = Number(value);
+        return Number.isFinite(n) ? n : undefined;
+      },
+      z.number().int().min(1).optional(),
+    ),
+    dealUntil: z.string().optional(),
+    isWholesale: z.boolean(),
+    wholesalePriceAmount: z.preprocess(
+      (value) => {
+        if (value === '' || value === null || value === undefined) return undefined;
+        const n = Number(value);
+        return Number.isFinite(n) ? n : undefined;
+      },
+      z.number().min(0).optional(),
+    ),
+    wholesaleUntil: z.string().optional(),
+    isDiscounted: z.boolean(),
+    discountPercent: z.preprocess(
+      (value) => {
+        if (value === '' || value === null || value === undefined) return undefined;
+        const n = Number(value);
+        return Number.isFinite(n) ? n : undefined;
+      },
+      z.number().min(0).max(100).optional(),
+    ),
+    discountUntil: z.string().optional(),
     attributes: z.array(attributeSchema),
     variants: z.array(variantSchema),
     uomLines: z.array(uomLineSchema).min(1, 'أضف وحدة واحدة على الأقل'),
@@ -143,6 +187,36 @@ export const productFormSchema = z
         message: 'يجب اختيار وحدة مرجعية واحدة فقط.',
         path: ['uomLines'],
       });
+    }
+    if (values.isTodayDeal) {
+      const dealPrice = Number(values.dealPriceAmount);
+      if (!Number.isFinite(dealPrice) || dealPrice < 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'أدخل سعر التخفيض عند تفعيل تخفيضات اليوم.',
+          path: ['dealPriceAmount'],
+        });
+      }
+    }
+    if (values.isWholesale) {
+      const wholesale = Number(values.wholesalePriceAmount);
+      if (!Number.isFinite(wholesale) || wholesale < 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'أدخل سعر الجملة عند تفعيل أسعار الجملة.',
+          path: ['wholesalePriceAmount'],
+        });
+      }
+    }
+    if (values.isDiscounted) {
+      const percent = Number(values.discountPercent);
+      if (!Number.isFinite(percent) || percent < 0 || percent > 100) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'أدخل نسبة الخصم بين 0 و 100.',
+          path: ['discountPercent'],
+        });
+      }
     }
   });
 
@@ -197,8 +271,22 @@ export const PRODUCT_FORM_DEFAULT_VALUES: ProductFormInput = {
   widthCm: undefined,
   heightCm: undefined,
   posAvailable: false,
+  warehouseId: undefined,
+  locationId: undefined,
   saleOk: true,
   purchaseOk: true,
+  isNewProduct: false,
+  newUntil: '',
+  isTodayDeal: false,
+  dealPriceAmount: undefined,
+  dealDays: undefined,
+  dealUntil: '',
+  isWholesale: false,
+  wholesalePriceAmount: undefined,
+  wholesaleUntil: '',
+  isDiscounted: false,
+  discountPercent: undefined,
+  discountUntil: '',
   attributes: [],
   variants: [],
   uomLines: createDefaultUomLines(),

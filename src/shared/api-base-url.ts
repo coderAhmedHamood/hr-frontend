@@ -1,8 +1,17 @@
 import { publicConfig } from '@/shared/config';
 
+function serverBackendBaseUrl(): string {
+  return (process.env.BACKEND_URL ?? 'http://127.0.0.1:3000').replace(/\/$/, '');
+}
+
 /** Same-origin API base used by fetch (handles LAN / proxy in production). */
 export function resolveApiBaseUrl(configuredUrl = publicConfig.apiUrl): string {
   if (typeof window === 'undefined') {
+    // Relative proxy paths (e.g. `/api-backend`) only work in the browser via Next rewrites.
+    // Server Components / Route Handlers must call the backend with an absolute URL.
+    if (!configuredUrl || configuredUrl.startsWith('/')) {
+      return serverBackendBaseUrl();
+    }
     return configuredUrl;
   }
 

@@ -1,7 +1,5 @@
-import { redirect } from 'next/navigation';
-import { ecommerceNavigationHref } from '@/features/ecommerce/admin/constants/routes';
+import { FooterEditorPage } from '@/features/ecommerce/admin/cms/footer/components/footer-editor-page';
 
-/** Footer belongs under Website → Appearance / Navigation — not a standalone page. */
 export default function Page() {
-  redirect(ecommerceNavigationHref('footer'));
+  return <FooterEditorPage />;
 }

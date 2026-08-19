@@ -3,38 +3,22 @@ import type { StorefrontPage } from '@/features/ecommerce/storefront/page-builde
 import type { PageType } from '@/features/ecommerce/storefront/page-builder/domain/page-types';
 import type { PageCmsPort, PageStorefrontPort } from '@/features/ecommerce/storefront/page-builder/domain/page.ports';
 import { mapStorefrontPage } from '@/features/ecommerce/storefront/page-builder/lib/mappers/page-mapper';
-import { mockRepositoryDelay } from '@/features/ecommerce/storefront/lib/repositories/mock-delay';
 import { pageRecordSchema } from '@/features/ecommerce/storefront/page-builder/schemas/page.schema';
-import homepagePageSeed from '@/features/ecommerce/storefront/page-builder/lib/mock/pages/homepage.json';
 import type { StorefrontLocale } from '@/i18n/routing';
+import { isStoreHttpEnabled } from '@/features/ecommerce/storefront/lib/api/store-http';
+import {
+  fetchAdminHomepage,
+  fetchPublicHomepage,
+  saveAdminHomepage,
+} from '@/features/ecommerce/shared/lib/api/store-pages-api';
+import { resolveStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
 
-const PAGE_INDEX: Record<string, PageRecord> = {};
-
-function pageKey(companyId: string, pageType: PageType): string {
-  return `${companyId}:${pageType}`;
-}
-
-function slugKey(companyId: string, slug: string): string {
-  return `${companyId}:slug:${slug}`;
-}
-
-function registerPage(raw: unknown): void {
-  const parsed = pageRecordSchema.safeParse(raw);
-  if (!parsed.success) {
-    if (process.env.NODE_ENV === 'development') {
-      console.error('[page-repository] Invalid page record', parsed.error.flatten());
-    }
-    return;
-  }
-  const record = parsed.data as PageRecord;
-  PAGE_INDEX[pageKey(record.companyId, record.pageType)] = record;
-  PAGE_INDEX[slugKey(record.companyId, record.slug)] = record;
-}
-
-registerPage(homepagePageSeed);
-
-function cloneRecord(record: PageRecord): PageRecord {
-  return JSON.parse(JSON.stringify(record)) as PageRecord;
+/** Drop retired section types so they no longer appear in CMS or storefront. */
+function withoutRetiredSections(record: PageRecord): PageRecord {
+  return {
+    ...record,
+    sections: record.sections.filter((section) => section.type !== 'features-grid'),
+  };
 }
 
 function isPubliclyVisible(record: PageRecord): boolean {
@@ -48,8 +32,8 @@ export type PageSaveError = {
 };
 
 /**
- * Implements PageStorefrontPort + PageCmsPort against one in-memory index.
- * Storefront methods expose published pages only; CMS methods read/write any status.
+ * Homepage pages — HTTP only (store-frontend-binding.md).
+ * No seed JSON / in-memory PAGE_INDEX.
  */
 export const storefrontPageRepository: PageStorefrontPort & PageCmsPort = {
   async getByPageType(
@@ -57,30 +41,53 @@ export const storefrontPageRepository: PageStorefrontPort & PageCmsPort = {
     pageType: PageType,
     locale: StorefrontLocale,
   ): Promise<StorefrontPage | null> {
-    const record = PAGE_INDEX[pageKey(companyId, pageType)] ?? null;
-    if (!record || !isPubliclyVisible(record)) return null;
-    return mockRepositoryDelay(mapStorefrontPage(record, locale));
+    if (!isStoreHttpEnabled()) return null;
+    if (pageType !== 'homepage') return null;
+
+    const httpRecord = await fetchPublicHomepage(companyId);
+    if (!httpRecord || !isPubliclyVisible(httpRecord)) return null;
+    return mapStorefrontPage(withoutRetiredSections(httpRecord), locale);
   },
 
-  async getBySlug(companyId: string, slug: string, locale: StorefrontLocale): Promise<StorefrontPage | null> {
-    const record = PAGE_INDEX[slugKey(companyId, slug)] ?? null;
-    if (!record || !isPubliclyVisible(record)) return null;
-    return mockRepositoryDelay(mapStorefrontPage(record, locale));
+  async getBySlug(
+    companyId: string,
+    slug: string,
+    locale: StorefrontLocale,
+  ): Promise<StorefrontPage | null> {
+    if (!isStoreHttpEnabled()) return null;
+    if (slug !== 'home' && slug !== 'homepage') return null;
+    return this.getByPageType(companyId, 'homepage', locale);
   },
 
-  /** Admin / CMS — raw bilingual page document (no locale resolution). */
   async getRecordByPageType(companyId: string, pageType: PageType): Promise<PageRecord | null> {
-    const record = PAGE_INDEX[pageKey(companyId, pageType)] ?? null;
-    return mockRepositoryDelay(record ? cloneRecord(record) : null);
+    if (!isStoreHttpEnabled()) return null;
+    if (pageType !== 'homepage') return null;
+
+    const httpRecord = await fetchAdminHomepage(companyId);
+    if (httpRecord) return withoutRetiredSections(httpRecord);
+
+    // First-time CMS: empty draft shell (not a seeded mock page).
+    const now = new Date().toISOString();
+    return {
+      id: crypto.randomUUID(),
+      companyId: resolveStorefrontCompanyId(companyId),
+      pageType: 'homepage',
+      slug: 'home',
+      schemaVersion: 1,
+      contentVersion: 0,
+      status: 'draft',
+      createdAt: now,
+      updatedAt: now,
+      publishedAt: null,
+      createdBy: null,
+      updatedBy: null,
+      displayName: { ar: 'الصفحة الرئيسية', en: 'Home' },
+      sections: [],
+    };
   },
 
-  /**
-   * Persists a full page document after Zod validation.
-   * Updates the same in-memory index the storefront reads.
-   * Draft / archived saves stay invisible to storefront get* until published.
-   */
   async saveRecord(input: PageRecord): Promise<PageRecord> {
-    const parsed = pageRecordSchema.safeParse(input);
+    const parsed = pageRecordSchema.safeParse(withoutRetiredSections(input));
     if (!parsed.success) {
       const error: PageSaveError = {
         code: 'VALIDATION_FAILED',
@@ -90,24 +97,13 @@ export const storefrontPageRepository: PageStorefrontPort & PageCmsPort = {
       throw error;
     }
 
-    const now = new Date().toISOString();
-    const previous = PAGE_INDEX[pageKey(parsed.data.companyId, parsed.data.pageType)];
-    if (previous && previous.slug !== parsed.data.slug) {
-      delete PAGE_INDEX[slugKey(previous.companyId, previous.slug)];
+    if (!isStoreHttpEnabled()) {
+      throw new Error('STORE_HTTP_DISABLED');
+    }
+    if (parsed.data.pageType !== 'homepage') {
+      throw new Error('ONLY_HOMEPAGE_SUPPORTED');
     }
 
-    const next = {
-      ...parsed.data,
-      contentVersion: (previous?.contentVersion ?? parsed.data.contentVersion) + 1,
-      updatedAt: now,
-      publishedAt:
-        parsed.data.status === 'published'
-          ? (parsed.data.publishedAt ?? now)
-          : parsed.data.publishedAt,
-    } as PageRecord;
-
-    PAGE_INDEX[pageKey(next.companyId, next.pageType)] = next;
-    PAGE_INDEX[slugKey(next.companyId, next.slug)] = next;
-    return mockRepositoryDelay(cloneRecord(next));
+    return withoutRetiredSections(await saveAdminHomepage(parsed.data as PageRecord));
   },
 };

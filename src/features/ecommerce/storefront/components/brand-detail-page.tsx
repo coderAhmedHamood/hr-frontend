@@ -1,4 +1,6 @@
-import { getLocale, getTranslations } from 'next-intl/server';
+'use client';
+
+import { useLocale, useTranslations } from 'next-intl';
 import { ExternalLink, Tag } from 'lucide-react';
 import type { StorefrontBrand, StorefrontProduct } from '@/features/ecommerce/storefront/domain/storefront-models';
 import { ProductCard } from '@/features/ecommerce/storefront/components/product-card';
@@ -6,12 +8,12 @@ import { ProductListingGrid } from '@/features/ecommerce/storefront/components/c
 import { StoreBreadcrumbs } from '@/features/ecommerce/storefront/components/store-breadcrumbs';
 import { StoreEmptyState } from '@/features/ecommerce/storefront/components/store-empty-state';
 import { JsonLd } from '@/features/ecommerce/storefront/components/json-ld';
-import { breadcrumbJsonLd, collectionPageJsonLd } from '@/features/ecommerce/storefront/lib/seo';
+import { breadcrumbJsonLd, collectionPageJsonLd } from '@/features/ecommerce/storefront/lib/seo-jsonld';
 import type { StorefrontLocale } from '@/i18n/routing';
 
-export async function BrandDetailPage({ brand, products }: { brand: StorefrontBrand; products: StorefrontProduct[] }) {
-  const t = await getTranslations('storefront');
-  const locale = (await getLocale()) as StorefrontLocale;
+export function BrandDetailPage({ brand, products }: { brand: StorefrontBrand; products: StorefrontProduct[] }) {
+  const t = useTranslations('storefront');
+  const locale = useLocale() as StorefrontLocale;
 
   const breadcrumbItems = [
     { name: t('breadcrumbs.home'), path: '/store' as const },

@@ -2,10 +2,10 @@
 
 import { useTranslations } from 'next-intl';
 import type { LegalPageContent, LegalPageSlug } from '@/features/ecommerce/storefront/domain/content';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { RichTextEditor } from '@/components/ui/rich-text-editor';
 
 export const LEGAL_SLUGS: LegalPageSlug[] = ['privacy', 'terms', 'returns'];
 
@@ -26,160 +26,88 @@ export function ensureLegalPages(legal: LegalPageContent[]): LegalPageContent[] 
   return LEGAL_SLUGS.map((slug) => legal.find((page) => page.slug === slug) ?? emptyLegalPage(slug));
 }
 
+function withMirroredEn(ar: string) {
+  return { ar, en: ar };
+}
+
+const FIELD =
+  'h-11 min-h-11 w-full rounded-xl border-input bg-background px-3.5 text-sm';
+
 type Props = {
-  legal: LegalPageContent[];
-  onChange: (legal: LegalPageContent[]) => void;
+  page: LegalPageContent;
+  onChange: (page: LegalPageContent) => void;
 };
 
-export function CmsLegalTab({ legal, onChange }: Props) {
+/** Arabic-only legal page form for the pages studio editor. */
+export function CmsLegalPageForm({ page, onChange }: Props) {
   const t = useTranslations('ecommerceAdmin.cmsPages');
 
-  function patchPage(slug: LegalPageSlug, next: LegalPageContent) {
-    const index = legal.findIndex((page) => page.slug === slug);
-    const updated = [...legal];
-    if (index === -1) updated.push(next);
-    else updated[index] = next;
-    onChange(ensureLegalPages(updated));
-  }
-
   return (
-    <div className="flex flex-col gap-4">
-      {LEGAL_SLUGS.map((slug) => {
-        const page = legal.find((item) => item.slug === slug) ?? emptyLegalPage(slug);
+    <div className="sto-cms-split">
+      <div className="space-y-5 rounded-2xl border border-border/60 bg-muted/10 p-4 sm:p-5">
+        <div>
+          <h3 className="text-sm font-semibold text-foreground">{t('studioBasics')}</h3>
+          <p className="mt-0.5 text-xs text-muted-foreground">{t('studioBasicsHint')}</p>
+        </div>
+        <div className="space-y-2">
+          <Label>{t('headline')}</Label>
+          <Input
+            className={FIELD}
+            value={page.title.ar}
+            onChange={(event) =>
+              onChange({ ...page, title: withMirroredEn(event.target.value) })
+            }
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>{t('sectionBody')}</Label>
+          <RichTextEditor
+            value={page.body.ar}
+            minHeightClassName="min-h-[280px]"
+            onChange={(html) => onChange({ ...page, body: withMirroredEn(html) })}
+          />
+        </div>
+      </div>
 
-        return (
-          <Card key={slug}>
-            <CardHeader className="border-b border-border/60 pb-4">
-              <CardTitle className="text-base">{t(slug)}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 pt-6">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label>{t('titleAr')}</Label>
-                  <Input
-                    value={page.title.ar}
-                    onChange={(event) =>
-                      patchPage(slug, {
-                        ...page,
-                        title: { ...page.title, ar: event.target.value },
-                      })
-                    }
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>{t('titleEn')}</Label>
-                  <Input
-                    value={page.title.en}
-                    onChange={(event) =>
-                      patchPage(slug, {
-                        ...page,
-                        title: { ...page.title, en: event.target.value },
-                      })
-                    }
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>{t('bodyAr')}</Label>
-                  <Textarea
-                    value={page.body.ar}
-                    onChange={(event) =>
-                      patchPage(slug, {
-                        ...page,
-                        body: { ...page.body, ar: event.target.value },
-                      })
-                    }
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>{t('bodyEn')}</Label>
-                  <Textarea
-                    value={page.body.en}
-                    onChange={(event) =>
-                      patchPage(slug, {
-                        ...page,
-                        body: { ...page.body, en: event.target.value },
-                      })
-                    }
-                  />
-                </div>
-                <div className="border-t border-border/60 sm:col-span-2" />
-                <div className="space-y-1.5">
-                  <Label>{t('metaTitleAr')}</Label>
-                  <Input
-                    value={page.seo.metaTitle?.ar ?? ''}
-                    onChange={(event) =>
-                      patchPage(slug, {
-                        ...page,
-                        seo: {
-                          ...page.seo,
-                          metaTitle: {
-                            ar: event.target.value,
-                            en: page.seo.metaTitle?.en ?? '',
-                          },
-                        },
-                      })
-                    }
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>{t('metaTitleEn')}</Label>
-                  <Input
-                    value={page.seo.metaTitle?.en ?? ''}
-                    onChange={(event) =>
-                      patchPage(slug, {
-                        ...page,
-                        seo: {
-                          ...page.seo,
-                          metaTitle: {
-                            ar: page.seo.metaTitle?.ar ?? '',
-                            en: event.target.value,
-                          },
-                        },
-                      })
-                    }
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>{t('metaDescriptionAr')}</Label>
-                  <Textarea
-                    value={page.seo.metaDescription?.ar ?? ''}
-                    onChange={(event) =>
-                      patchPage(slug, {
-                        ...page,
-                        seo: {
-                          ...page.seo,
-                          metaDescription: {
-                            ar: event.target.value,
-                            en: page.seo.metaDescription?.en ?? '',
-                          },
-                        },
-                      })
-                    }
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>{t('metaDescriptionEn')}</Label>
-                  <Textarea
-                    value={page.seo.metaDescription?.en ?? ''}
-                    onChange={(event) =>
-                      patchPage(slug, {
-                        ...page,
-                        seo: {
-                          ...page.seo,
-                          metaDescription: {
-                            ar: page.seo.metaDescription?.ar ?? '',
-                            en: event.target.value,
-                          },
-                        },
-                      })
-                    }
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        );
-      })}
+      <div className="space-y-5 rounded-2xl border border-border/60 bg-muted/10 p-4 sm:p-5">
+        <div>
+          <h3 className="text-sm font-semibold text-foreground">{t('studioSeo')}</h3>
+          <p className="mt-0.5 text-xs text-muted-foreground">{t('studioSeoHint')}</p>
+        </div>
+        <div className="space-y-2">
+          <Label>{t('metaTitle')}</Label>
+          <Input
+            className={FIELD}
+            value={page.seo.metaTitle?.ar ?? ''}
+            onChange={(event) =>
+              onChange({
+                ...page,
+                seo: {
+                  ...page.seo,
+                  metaTitle: withMirroredEn(event.target.value),
+                },
+              })
+            }
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>{t('metaDescription')}</Label>
+          <Textarea
+            rows={5}
+            className="rounded-xl"
+            value={page.seo.metaDescription?.ar ?? ''}
+            onChange={(event) =>
+              onChange({
+                ...page,
+                seo: {
+                  ...page.seo,
+                  metaDescription: withMirroredEn(event.target.value),
+                },
+              })
+            }
+          />
+        </div>
+      </div>
     </div>
   );
 }

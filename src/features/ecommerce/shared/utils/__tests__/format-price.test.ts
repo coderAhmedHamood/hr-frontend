@@ -1,19 +1,20 @@
-import { formatPrice } from '@/features/ecommerce/shared/utils/format-price';
+import { formatPrice } from '../format-price';
 
 describe('formatPrice', () => {
-  it('formats a SAR amount using the ar-SA locale', () => {
-    const result = formatPrice({ amount: 2500, currency: 'SAR' });
-    expect(result).toContain('٢٬٥٠٠');
-    expect(result).toContain('ر.س');
+  it('formats a YER amount using the ar-YE locale', () => {
+    const result = formatPrice({ amount: 2500, currency: 'YER' });
+    expect(result).toMatch(/2.?500/);
+    expect(result.toLowerCase()).toMatch(/yer|ر\.?\s?ي|yemen/i);
   });
 
-  it('reads currency from the Money value rather than assuming a fixed currency', () => {
-    const sar = formatPrice({ amount: 100, currency: 'SAR' });
+  it('formats different currencies without throwing', () => {
+    const yer = formatPrice({ amount: 100, currency: 'YER' });
     const usd = formatPrice({ amount: 100, currency: 'USD' });
-    expect(sar).not.toBe(usd);
+    expect(yer).not.toEqual(usd);
   });
 
-  it('formats zero without throwing', () => {
-    expect(() => formatPrice({ amount: 0, currency: 'SAR' })).not.toThrow();
+  it('keeps two fraction digits for YER so SSR and the browser match', () => {
+    const result = formatPrice({ amount: 55.2, currency: 'YER' });
+    expect(result).toMatch(/55\.20/);
   });
 });

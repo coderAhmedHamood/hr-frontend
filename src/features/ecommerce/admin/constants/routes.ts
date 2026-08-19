@@ -9,16 +9,23 @@ import { inventoryAdminRoutes } from '@/features/inventory/admin/constants/route
 export const ecommerceAdminRoutes = {
   overview: '/overview',
   homepage: '/cms/homepage',
+  storeSettings: '/cms/store-settings',
   navigation: '/cms/navigation',
+  footer: '/cms/footer',
   banners: '/cms/banners',
   content: '/cms/content',
+  contactMessages: '/cms/contact-messages',
+  whatsapp: '/cms/whatsapp',
   settings: '/cms/settings',
   products: '/products',
+  productDetail: (id: string) => `/products/${id}`,
   categories: '/categories',
   attributes: '/attributes',
   brands: '/brands',
   orders: '/orders',
-  customers: '/customers',
+  reviews: '/reviews',
+  /** تقارير مبيعات المتجر — `/store-admin/reports/sales` */
+  salesReports: '/reports/sales',
   /** @deprecated Use inventoryAdminRoutes */
   warehouses: inventoryAdminRoutes.warehouses,
   warehouseDetail: inventoryAdminRoutes.warehouseDetail,
@@ -33,22 +40,26 @@ export const ecommerceAdminRoutes = {
   operationsForKind: inventoryAdminRoutes.operationsForKind,
 } as const;
 
-export type EcommerceContentTab = 'pages' | 'blog' | 'faq';
-export type EcommerceNavigationTab = 'header' | 'footer' | 'announcement';
+export type EcommerceContentTab = 'pages' | 'faq';
+export type EcommerceNavigationTab = 'announcement';
+export type EcommerceSettingsTab =
+  | 'branding'
+  | 'colors'
+  | 'contact'
+  | 'social'
+  | 'locations'
+  | 'deliveryRates'
+  | 'paymentAccounts'
+  | 'seo';
 
 export function ecommerceContentHref(tab: EcommerceContentTab = 'pages'): string {
   return `${ecommerceAdminRoutes.content}?tab=${tab}`;
 }
 
-export function ecommerceNavigationHref(tab: EcommerceNavigationTab = 'header'): string {
+export function ecommerceNavigationHref(tab: EcommerceNavigationTab = 'announcement'): string {
   return `${ecommerceAdminRoutes.navigation}?tab=${tab}`;
 }
 
-/** Former shallow routes — kept only for redirects to domain pages. */
-export const ecommerceAdminLegacyRoutes = {
-  footer: '/cms/footer',
-  cmsPages: '/cms/pages',
-  blog: '/cms/blog',
-  faq: '/cms/faq',
-  seo: '/cms/seo',
-} as const;
+export function ecommerceSettingsHref(tab: EcommerceSettingsTab = 'branding'): string {
+  return `${ecommerceAdminRoutes.settings}?tab=${tab}`;
+}

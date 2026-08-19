@@ -8,19 +8,24 @@ import { PRODUCT_CAROUSEL_DEFINITION } from '@/features/ecommerce/storefront/pag
 import type { SectionDefinition, SectionDefinitionCatalog } from '@/features/ecommerce/storefront/page-builder/domain/section-definition';
 import { SECTION_TYPES, type SectionType } from '@/features/ecommerce/storefront/page-builder/domain/section-types';
 
+/** Section types offered in the CMS “add section” palette (features-grid retired). */
 export const SECTION_DEFINITIONS: SectionDefinition[] = [
   HERO_CAROUSEL_DEFINITION,
   CATEGORY_GRID_DEFINITION,
   PRODUCT_CAROUSEL_DEFINITION,
   FLASH_SALE_DEFINITION,
-  FEATURES_GRID_DEFINITION,
   BRAND_SLIDER_DEFINITION,
   BANNER_DEFINITION,
 ];
 
-export const SECTION_DEFINITION_REGISTRY: Record<SectionType, SectionDefinition> = Object.fromEntries(
-  SECTION_DEFINITIONS.map((definition) => [definition.type, definition]),
-) as Record<SectionType, SectionDefinition>;
+export const SECTION_DEFINITION_REGISTRY: Record<SectionType, SectionDefinition> = {
+  ...(Object.fromEntries(SECTION_DEFINITIONS.map((definition) => [definition.type, definition])) as Omit<
+    Record<SectionType, SectionDefinition>,
+    'features-grid'
+  >),
+  // Kept for schema/type completeness only — not offered in the admin palette.
+  'features-grid': FEATURES_GRID_DEFINITION,
+};
 
 export function getSectionDefinition<T extends SectionType>(type: T): SectionDefinition<T> {
   return SECTION_DEFINITION_REGISTRY[type] as SectionDefinition<T>;

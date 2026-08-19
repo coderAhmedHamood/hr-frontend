@@ -1,5 +1,6 @@
 import type {
   ProductAttribute,
+  ProductAttributeValue,
   ProductVariant,
 } from '@/features/ecommerce/domain/types/product';
 import type { Money } from '@/features/ecommerce/domain/types/common';
@@ -17,8 +18,57 @@ function cartesian<T>(arrays: T[][]): T[][] {
   );
 }
 
+/** Stable match key from value ids (sorted) — used by storefront selection. */
 export function buildCombinationKey(valueIds: string[]): string {
   return [...valueIds].sort().join('|');
+}
+
+/**
+ * Backend PATCH /full combinationKey: value names in attribute order, e.g. `اصفر|صغير`.
+ * Do not sort — order follows the product attribute lines.
+ */
+export function buildLabelCombinationKey(valueNamesAr: string[]): string {
+  return valueNamesAr.map((name) => name.trim()).filter(Boolean).join('|');
+}
+
+function normalizeValueName(nameAr: string): string {
+  return nameAr.trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+/**
+ * Drop duplicate values inside one attribute (same id or same Arabic name).
+ * Duplicate names → duplicate combinationKeys → backend 409 Conflict.
+ */
+export function dedupeAttributeValues<T extends Pick<ProductAttributeValue, 'id' | 'nameAr'>>(
+  values: T[],
+): T[] {
+  const seenIds = new Set<string>();
+  const seenNames = new Set<string>();
+  const out: T[] = [];
+  for (const value of values) {
+    const nameKey = normalizeValueName(value.nameAr);
+    if (seenIds.has(value.id)) continue;
+    if (nameKey && seenNames.has(nameKey)) continue;
+    seenIds.add(value.id);
+    if (nameKey) seenNames.add(nameKey);
+    out.push(value);
+  }
+  return out;
+}
+
+/** Keep first row per combinationKey (prevents PATCH 409). */
+export function dedupeVariantsByCombinationKey<T extends { combinationKey: string }>(
+  variants: T[],
+): T[] {
+  const seen = new Set<string>();
+  const out: T[] = [];
+  for (const variant of variants) {
+    const key = variant.combinationKey.trim();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(variant);
+  }
+  return out;
 }
 
 function stockStatusFromQty(quantity: number, fallback: StockStatus = 'in_stock'): StockStatus {
@@ -42,9 +92,10 @@ type SyncArgs = {
 /**
  * Rebuild variants from attribute lines where `createVariant !== 'never'`.
  * Preserves sale/cost/qty/barcode/image for matching `combinationKey`.
+ * Dedupes attribute values and output rows so color×size never repeats keys.
  */
 export function syncProductVariants(args: SyncArgs): ProductVariant[] {
-  const currency = args.currency ?? 'SAR';
+  const currency = args.currency ?? 'YER';
   const variantAttrs = args.attributes.filter(
     (attribute) => attribute.createVariant !== 'never' && attribute.values.length > 0,
   );
@@ -52,10 +103,10 @@ export function syncProductVariants(args: SyncArgs): ProductVariant[] {
   if (variantAttrs.length === 0) return [];
 
   const valueSets = variantAttrs.map((attribute) =>
-    attribute.values.map((value) => ({
+    dedupeAttributeValues(attribute.values).map((value) => ({
       attributeNameAr: attribute.nameAr,
       valueId: value.id,
-      valueNameAr: value.nameAr,
+      valueNameAr: value.nameAr.trim(),
       colorHex: value.colorHex,
       extraPrice: value.defaultExtraPrice ?? 0,
     })),
@@ -63,11 +114,28 @@ export function syncProductVariants(args: SyncArgs): ProductVariant[] {
 
   const combos = cartesian(valueSets);
   const existingByKey = new Map((args.existing ?? []).map((variant) => [variant.combinationKey, variant]));
+  // Backend may store client keys (e.g. "v-yellow") while the UI rebuilds keys from value UUIDs.
+  const existingByValueIds = new Map(
+    (args.existing ?? []).map((variant) => [buildCombinationKey(variant.attributeValueIds), variant]),
+  );
 
-  return combos.map((combo) => {
+  /** Prevent assigning the same existing row id to two different combos. */
+  const claimedExistingIds = new Set<string>();
+
+  const built = combos.map((combo) => {
     const attributeValueIds = combo.map((item) => item.valueId);
-    const combinationKey = buildCombinationKey(attributeValueIds);
-    const existing = existingByKey.get(combinationKey);
+    const labelKey = buildLabelCombinationKey(combo.map((item) => item.valueNameAr));
+    const idsKey = buildCombinationKey(attributeValueIds);
+    let existing =
+      existingByKey.get(labelKey) ??
+      existingByValueIds.get(idsKey) ??
+      existingByKey.get(idsKey);
+
+    if (existing && claimedExistingIds.has(existing.id)) {
+      existing = undefined;
+    }
+    if (existing) claimedExistingIds.add(existing.id);
+
     const labels = combo.map((item) => ({
       attributeNameAr: item.attributeNameAr,
       valueNameAr: item.valueNameAr,
@@ -85,9 +153,12 @@ export function syncProductVariants(args: SyncArgs): ProductVariant[] {
 
     return {
       id: existing?.id ?? newId('var'),
-      combinationKey,
+      // Prefer existing server key; otherwise Arabic labels in attribute order (API contract).
+      combinationKey: existing?.combinationKey && existing.combinationKey === labelKey
+        ? existing.combinationKey
+        : labelKey,
       sku: existing?.sku || `${args.productSku || 'SKU'}-${combo.map((c) => c.valueNameAr).join('-')}`.slice(0, 64),
-      nameAr: `${args.productNameAr || 'منتج'} (${labelSuffix})`,
+      nameAr: existing?.nameAr || `${args.productNameAr || 'منتج'} (${labelSuffix})`,
       attributeValueIds,
       attributeLabels: labels,
       salePrice: { amount: saleAmount, currency } satisfies Money,
@@ -96,9 +167,12 @@ export function syncProductVariants(args: SyncArgs): ProductVariant[] {
       stockStatus,
       barcode: existing?.barcode,
       imageUrl: existing?.imageUrl,
+      images: existing?.images,
       isActive: existing?.isActive ?? true,
     };
   });
+
+  return dedupeVariantsByCombinationKey(built);
 }
 
 export function totalVariantQuantity(variants: ProductVariant[]): number {
@@ -111,7 +185,11 @@ export function resolveVariantBySelection(
 ): ProductVariant | undefined {
   if (variants.length === 0) return undefined;
   const key = buildCombinationKey(selectedValueIds);
-  return variants.find((variant) => variant.combinationKey === key && variant.isActive);
+  return variants.find(
+    (variant) =>
+      variant.isActive &&
+      (variant.combinationKey === key || buildCombinationKey(variant.attributeValueIds) === key),
+  );
 }
 
 export function cheapestActiveVariant(variants: ProductVariant[]): ProductVariant | undefined {

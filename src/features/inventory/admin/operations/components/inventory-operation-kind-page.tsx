@@ -14,15 +14,11 @@ export function InventoryOperationKindPage({ kind }: Props) {
 
   return (
     <div className="flex flex-col gap-5">
-      <SetPageTitle titleAr={meta.labelAr} iconName="Package" />
-
-      <div className="space-y-1">
-        <h1 className="text-lg font-semibold text-foreground">{meta.title}</h1>
-        <p className="text-sm text-muted-foreground">
-          عرض عام لـ{meta.labelAr} عبر كل المستودعات. للعمليات الخاصة بمستودع واحد افتح المستودع من التهيئة.
-          دورة المستند: مسودة ← جاهز ← منتهي.
-        </p>
-      </div>
+      <SetPageTitle
+        titleAr={meta.labelAr}
+        descriptionAr={`عرض عام لـ${meta.labelAr} عبر كل المستودعات. للعمليات الخاصة بمستودع واحد افتح المستودع من التهيئة. دورة المستند: مسودة ← جاهز ← منتهي.`}
+        iconName="Package"
+      />
 
       <WarehouseOperationsPanel kind={kind} enableInventoryFilters />
     </div>

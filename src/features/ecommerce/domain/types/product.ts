@@ -33,7 +33,14 @@ export type ProductAttributeValue = {
   freeText?: string;
   defaultExtraPrice?: number;
   colorHex?: string;
+  /** @deprecated Prefer `images` — kept for variant swatches / legacy single-image callers. */
   imageUrl?: string;
+  /** Gallery shown on the storefront PDP when this value is selected (e.g. per-size or per-color shots). */
+  images?: MediaItem[];
+  /** Blurb shown alongside the gallery when this value is selected (e.g. "Best for oily skin"). */
+  description?: string;
+  /** When applying from catalog before first save — not a product_attribute_values id. */
+  catalogAttributeValueId?: string;
   /** @deprecated Prefer colorHex / imageUrl */
   extra?: string;
 };
@@ -81,8 +88,12 @@ export type ProductVariant = {
   quantity: number;
   stockStatus: StockStatus;
   barcode?: string;
-  /** Variant gallery image (URL). */
+  /** Variant description (storefront). */
+  description?: string;
+  /** Variant primary image (URL) — equals `images[0]` when a gallery is set. */
   imageUrl?: string;
+  /** Variant image gallery (ordered). */
+  images?: MediaItem[];
   isActive: boolean;
 };
 
@@ -128,14 +139,40 @@ export type Product = TenantScoped &
     weightKg?: number;
     dimensions?: ProductDimensions;
     posAvailable?: boolean;
+    /** Default warehouse — sale deduct uses this when no location is sent. */
+    warehouseId?: string | null;
+    /** Default storage location inside warehouseId. */
+    locationId?: string | null;
     /** Can be sold on sales channels. */
     saleOk?: boolean;
     /** Can be purchased / replenished from vendors. */
     purchaseOk?: boolean;
+    /** Offer flags — optional end dates mean “no expiry”. */
+    isNewProduct?: boolean;
+    newUntil?: string | null;
+    isTodayDeal?: boolean;
+    /** Sale price while today’s deal is active — `price` remains the pre-deal list price. */
+    dealPrice?: Money;
+    dealDays?: number | null;
+    dealUntil?: string | null;
+    isWholesale?: boolean;
+    wholesalePrice?: Money;
+    wholesaleUntil?: string | null;
+    isDiscounted?: boolean;
+    discountPercent?: number | null;
+    discountUntil?: string | null;
+    /** Computed by backend for display/filter “active now”. */
+    isNewProductActive?: boolean;
+    isTodayDealActive?: boolean;
+    isWholesaleActive?: boolean;
+    isDiscountActive?: boolean;
     attributes?: ProductAttribute[];
     /** Generated sellable variants — empty when product has no variant-creating attributes. */
     variants?: ProductVariant[];
     uomLines?: ProductUomLine[];
+    /** Average customer rating (0–5). Absent/null until the product has reviews. */
+    rating?: number | null;
+    reviewCount?: number;
     createdAt: string;
     updatedAt: string;
     archivedAt?: string | null;
@@ -149,8 +186,18 @@ export type ProductListQuery = {
   tag?: string;
   status?: ProductStatus;
   stockStatus?: StockStatus;
+  warehouseId?: string;
+  locationId?: string;
+  posAvailable?: boolean;
+  /** Overlay live ledger SUM. Default is quantityCache (fast). */
+  liveQuantity?: boolean;
   minPrice?: number;
   maxPrice?: number;
+  /** Active-now offer filters (`true` = flag on and not expired). */
+  isNewProduct?: boolean;
+  isTodayDeal?: boolean;
+  isWholesale?: boolean;
+  isDiscounted?: boolean;
   sort?: 'name' | 'price' | 'stock' | 'createdAt' | 'updatedAt';
   sortDirection?: 'asc' | 'desc';
   page?: number;

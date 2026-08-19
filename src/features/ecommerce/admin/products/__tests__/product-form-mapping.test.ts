@@ -5,12 +5,12 @@ import type { ProductFormValues } from '@/features/ecommerce/admin/products/sche
 
 const BASE_PRODUCT: Product = {
   id: 'prod-1',
-  companyId: 'demo-company',
+  companyId: '76e5bc4f-5adb-434d-a886-bcff05a9680b',
   sku: 'SKU-1',
   slug: 'test-product',
   nameAr: 'منتج تجريبي',
   media: [],
-  price: { amount: 100, currency: 'SAR' },
+  price: { amount: 100, currency: 'YER' },
   categoryId: 'cat-1',
   brandId: 'brand-1',
   status: 'active',
@@ -121,6 +121,8 @@ describe('formValuesToCreateInput', () => {
     widthCm: undefined,
     heightCm: undefined,
     posAvailable: false,
+    warehouseId: undefined,
+    locationId: undefined,
     saleOk: true,
     purchaseOk: true,
     attributes: [],
@@ -129,26 +131,43 @@ describe('formValuesToCreateInput', () => {
   };
 
   it('injects the given companyId and maps a missing category/brand to null', () => {
-    const input = formValuesToCreateInput(BASE_VALUES, 'demo-company');
-    expect(input.companyId).toBe('demo-company');
+    const input = formValuesToCreateInput(BASE_VALUES, '76e5bc4f-5adb-434d-a886-bcff05a9680b');
+    expect(input.companyId).toBe('76e5bc4f-5adb-434d-a886-bcff05a9680b');
     expect(input.categoryId).toBeNull();
     expect(input.brandId).toBeNull();
     expect(input.media).toEqual([]);
   });
 
+  it('maps default warehouse and location ids (null when empty)', () => {
+    const empty = formValuesToCreateInput(BASE_VALUES, '76e5bc4f-5adb-434d-a886-bcff05a9680b');
+    expect(empty.warehouseId).toBeNull();
+    expect(empty.locationId).toBeNull();
+
+    const bound = formValuesToCreateInput(
+      {
+        ...BASE_VALUES,
+        warehouseId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        locationId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+      },
+      '76e5bc4f-5adb-434d-a886-bcff05a9680b',
+    );
+    expect(bound.warehouseId).toBe('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
+    expect(bound.locationId).toBe('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb');
+  });
+
   it('maps listPrice and costPrice into catalog money fields', () => {
     const input = formValuesToCreateInput(
       { ...BASE_VALUES, listPrice: 25.5, costPrice: 18 },
-      'demo-company',
+      '76e5bc4f-5adb-434d-a886-bcff05a9680b',
     );
-    expect(input.price).toEqual({ amount: 25.5, currency: 'SAR' });
-    expect(input.costPrice).toEqual({ amount: 18, currency: 'SAR' });
+    expect(input.price).toEqual({ amount: 25.5, currency: 'YER' });
+    expect(input.costPrice).toEqual({ amount: 18, currency: 'YER' });
   });
 
   it('maps invoice policy through to create input', () => {
     const input = formValuesToCreateInput(
       { ...BASE_VALUES, invoicePolicy: 'delivered' },
-      'demo-company',
+      '76e5bc4f-5adb-434d-a886-bcff05a9680b',
     );
     expect(input.invoicePolicy).toBe('delivered');
   });
@@ -156,10 +175,10 @@ describe('formValuesToCreateInput', () => {
   it('maps compare-at price from the form when provided', () => {
     const input = formValuesToCreateInput(
       { ...BASE_VALUES, listPrice: 80, compareAtPrice: 120 },
-      'demo-company',
+      '76e5bc4f-5adb-434d-a886-bcff05a9680b',
     );
-    expect(input.price).toEqual({ amount: 80, currency: 'SAR' });
-    expect(input.compareAtPrice).toEqual({ amount: 120, currency: 'SAR' });
+    expect(input.price).toEqual({ amount: 80, currency: 'YER' });
+    expect(input.compareAtPrice).toEqual({ amount: 120, currency: 'YER' });
   });
 
   it('maps barcode, short description, purchaseOk, and logistics fields', () => {
@@ -175,7 +194,7 @@ describe('formValuesToCreateInput', () => {
         heightCm: 2,
         lowStockThreshold: 8,
       },
-      'demo-company',
+      '76e5bc4f-5adb-434d-a886-bcff05a9680b',
     );
     expect(input.barcode).toBe('6281000000000');
     expect(input.shortDescription).toBe('وصف قصير');
@@ -186,22 +205,22 @@ describe('formValuesToCreateInput', () => {
   });
 
   it('passes status/stockStatus through unchanged', () => {
-    expect(formValuesToCreateInput(BASE_VALUES, 'demo-company').status).toBe('active');
-    expect(formValuesToCreateInput({ ...BASE_VALUES, status: 'draft' }, 'demo-company').status).toBe('draft');
+    expect(formValuesToCreateInput(BASE_VALUES, '76e5bc4f-5adb-434d-a886-bcff05a9680b').status).toBe('active');
+    expect(formValuesToCreateInput({ ...BASE_VALUES, status: 'draft' }, '76e5bc4f-5adb-434d-a886-bcff05a9680b').status).toBe('draft');
   });
 
   it('builds inventory from stockQuantity/trackInventory/allowBackorder', () => {
-    const input = formValuesToCreateInput(BASE_VALUES, 'demo-company');
+    const input = formValuesToCreateInput(BASE_VALUES, '76e5bc4f-5adb-434d-a886-bcff05a9680b');
     expect(input.inventory).toEqual({ trackInventory: true, quantity: 3, lowStockThreshold: 5, allowBackorder: false });
   });
 
   it('parses comma-separated tagsInput into a string array, trimming whitespace', () => {
-    const input = formValuesToCreateInput({ ...BASE_VALUES, tagsInput: ' مطبخ ,  خشب ,' }, 'demo-company');
+    const input = formValuesToCreateInput({ ...BASE_VALUES, tagsInput: ' مطبخ ,  خشب ,' }, '76e5bc4f-5adb-434d-a886-bcff05a9680b');
     expect(input.tags).toEqual(['مطبخ', 'خشب']);
   });
 
   it('maps an empty tagsInput to undefined, not an empty array', () => {
-    expect(formValuesToCreateInput(BASE_VALUES, 'demo-company').tags).toBeUndefined();
+    expect(formValuesToCreateInput(BASE_VALUES, '76e5bc4f-5adb-434d-a886-bcff05a9680b').tags).toBeUndefined();
   });
 
   it('maps each media entry with its array index as position', () => {
@@ -213,7 +232,7 @@ describe('formValuesToCreateInput', () => {
           { url: 'https://example.com/b.jpg', alt: 'ب', isPrimary: true },
         ],
       },
-      'demo-company',
+      '76e5bc4f-5adb-434d-a886-bcff05a9680b',
     );
     expect(input.media).toHaveLength(2);
     expect(input.media[0]).toMatchObject({ url: 'https://example.com/a.jpg', alt: 'منتج آخر', position: 0, isPrimary: false });
@@ -223,13 +242,13 @@ describe('formValuesToCreateInput', () => {
   it('defaults the first media entry to primary when none is explicitly marked', () => {
     const input = formValuesToCreateInput(
       { ...BASE_VALUES, media: [{ url: 'https://example.com/a.jpg', alt: '', isPrimary: false }] },
-      'demo-company',
+      '76e5bc4f-5adb-434d-a886-bcff05a9680b',
     );
     expect(input.media[0].isPrimary).toBe(true);
   });
 
   it('collapses empty-string optional fields to undefined rather than storing blank strings', () => {
-    const input = formValuesToCreateInput(BASE_VALUES, 'demo-company');
+    const input = formValuesToCreateInput(BASE_VALUES, '76e5bc4f-5adb-434d-a886-bcff05a9680b');
     expect(input.nameEn).toBeUndefined();
     expect(input.description).toBeUndefined();
     expect(input.seo.metaTitle).toBeUndefined();

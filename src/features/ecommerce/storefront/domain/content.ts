@@ -42,22 +42,6 @@ export type LegalPageContent = {
   updatedAt: string;
 };
 
-export type BlogPost = TenantScoped & {
-  id: string;
-  slug: string;
-  title: LocalizableString;
-  excerpt: LocalizableString;
-  body: LocalizableString;
-  coverImageUrl?: string;
-  authorName: LocalizableString;
-  publishedAt: string;
-  seo: {
-    metaTitle?: LocalizableString;
-    metaDescription?: LocalizableString;
-  };
-  isPublished: boolean;
-};
-
 export type StorefrontContentBundle = TenantScoped & {
   about: AboutPageContent;
   contact: ContactPageContent;

@@ -38,6 +38,8 @@ type Props = {
   productId: string;
   productNameAr: string;
   onCreateRequest?: () => void;
+  /** Bumped on each sidebar click so the list refetches. */
+  requestKey?: number;
 };
 
 function statusBadgeVariant(
@@ -55,16 +57,18 @@ export function ProductReplenishmentListDialog({
   productId,
   productNameAr,
   onCreateRequest,
+  requestKey = 0,
 }: Props) {
   const companyId = getStorefrontCompanyId();
   const [selected, setSelected] = React.useState<WarehouseOperation | null>(null);
+  const skipNextRefetch = React.useRef(true);
 
-  const { data, isLoading } = useWarehouseOperations({
-    companyId,
-    productId,
-    limit: 100,
-  });
-  const { data: warehousesData } = useWarehouses({ companyId, limit: 100 });
+  // Dedicated query: replenishment kind only (not the shared all-moves list).
+  const { data, isLoading, isFetching, refetch } = useWarehouseOperations(
+    { companyId, productId, kind: 'replenishment', limit: 100 },
+    { enabled: open, refetchOnOpen: true },
+  );
+  const { data: warehousesData } = useWarehouses({ companyId, limit: 100 }, { enabled: open });
   const warehouseName = React.useMemo(() => {
     const map = new Map((warehousesData?.items ?? []).map((item) => [item.id, item.nameAr]));
     return (id: string) => map.get(id) ?? id;
@@ -76,6 +80,18 @@ export function ProductReplenishmentListDialog({
   );
 
   React.useEffect(() => {
+    if (!open) {
+      skipNextRefetch.current = true;
+      return;
+    }
+    if (skipNextRefetch.current) {
+      skipNextRefetch.current = false;
+      return;
+    }
+    void refetch();
+  }, [open, requestKey, refetch]);
+
+  React.useEffect(() => {
     if (!selected) return;
     const fresh = items.find((item) => item.id === selected.id);
     if (fresh) setSelected(fresh);
@@ -84,6 +100,8 @@ export function ProductReplenishmentListDialog({
   React.useEffect(() => {
     if (!open) setSelected(null);
   }, [open]);
+
+  const busy = isLoading || isFetching;
 
   return (
     <>
@@ -101,7 +119,7 @@ export function ProductReplenishmentListDialog({
           </div>
 
           <div className={cn(dialogShellBodyClass, 'space-y-3')}>
-            {isLoading ? (
+            {busy ? (
               <p className="text-sm text-muted-foreground">جاري التحميل…</p>
             ) : items.length === 0 ? (
               <p className="rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
@@ -126,7 +144,7 @@ export function ProductReplenishmentListDialog({
                           </p>
                           <p className="text-xs text-muted-foreground">
                             {warehouseName(op.warehouseId)} · الكمية المطلوبة: {qty} ·{' '}
-                            {new Date(op.occurredAt).toLocaleString('ar-SA')}
+                            {new Date(op.occurredAt).toLocaleString('ar-YE')}
                           </p>
                           {op.sourceDocument ? (
                             <p className="text-xs text-muted-foreground">{op.sourceDocument}</p>

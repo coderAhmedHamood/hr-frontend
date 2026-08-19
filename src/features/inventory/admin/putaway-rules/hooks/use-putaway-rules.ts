@@ -14,11 +14,16 @@ export const putawayRulesQueryKeys = {
   locations: (companyId: string) => [...putawayRulesQueryKeys.all, 'locations', companyId] as const,
 };
 
-export function usePutawayRules(query: PutawayRuleListQuery, options?: { enabled?: boolean }) {
+export function usePutawayRules(
+  query: PutawayRuleListQuery,
+  options?: { enabled?: boolean; refetchOnOpen?: boolean },
+) {
   return useQuery({
     queryKey: putawayRulesQueryKeys.list(query),
     queryFn: () => putawayRulesApi.getAll(query),
     enabled: (options?.enabled ?? true) && Boolean(query.companyId),
+    staleTime: options?.refetchOnOpen ? 0 : undefined,
+    refetchOnMount: options?.refetchOnOpen ? 'always' : undefined,
   });
 }
 

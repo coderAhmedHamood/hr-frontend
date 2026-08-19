@@ -4,14 +4,8 @@ import { SUPPORTED_STOREFRONT_LOCALES } from '@/features/ecommerce/storefront/pa
 import { categoryGridSectionSchema } from '@/features/ecommerce/storefront/page-builder/schemas/page.schema';
 import {
   BASE_SECTION_CAPABILITIES,
-  booleanField,
-  dataSourceField,
-  layoutField,
   localizedSubtitleField,
   localizedTitleField,
-  themeField,
-  UI_STRINGS,
-  visibilityField,
 } from '@/features/ecommerce/storefront/page-builder/definitions/shared/field-builders';
 
 const DEFAULT_CONFIGURATION = {
@@ -53,23 +47,5 @@ export const CATEGORY_GRID_DEFINITION: SectionDefinition<'category-grid'> = {
     supportsAutoplay: false,
     supportsCountdown: false,
   },
-  fields: [
-    localizedTitleField(true),
-    localizedSubtitleField(),
-    booleanField('showLabels', 'settings.showLabels', UI_STRINGS.fields.showLabels, 'settings', true),
-    {
-      key: 'columns',
-      path: 'settings.columns',
-      label: UI_STRINGS.fields.columns,
-      control: 'column-grid',
-      localized: false,
-      required: true,
-      group: 'settings',
-      defaultValue: { mobile: 4, tablet: 6, desktop: 8 },
-    },
-    themeField(),
-    layoutField(CATEGORY_GRID_LAYOUTS),
-    visibilityField(),
-    dataSourceField(['manual', 'collection', 'query']),
-  ],
+  fields: [localizedTitleField(true), localizedSubtitleField()],
 };

@@ -19,6 +19,7 @@ export type PermissionListQuery = {
   limit?: number;
   page?: number;
   applicationId?: string;
+  companyId?: string;
 };
 
 export const permissionsApi = {

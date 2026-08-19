@@ -1,14 +1,16 @@
+'use client';
+
 import type { ResolvedBrandSliderSection } from '@/features/ecommerce/storefront/page-builder/domain/page-models';
 import { BrandCard } from '@/features/ecommerce/storefront/components/catalog/brand-card';
 import { SectionHeader } from '@/features/ecommerce/storefront/components/catalog/section-header';
-import { getTranslations } from 'next-intl/server';
+import { useTranslations } from 'next-intl';
 import { cn } from '@/shared/utils';
 
-export async function BrandSliderSection({ section }: { section: ResolvedBrandSliderSection }) {
+export function BrandSliderSection({ section }: { section: ResolvedBrandSliderSection }) {
   const brands = section.data.brands;
+  const t = useTranslations('storefront');
   if (brands.length === 0) return null;
 
-  const t = await getTranslations('storefront');
   const title = section.heading.title || t('home.featuredBrands');
   const layout = section.style.layout;
 

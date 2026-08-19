@@ -4,14 +4,8 @@ import { SUPPORTED_STOREFRONT_LOCALES } from '@/features/ecommerce/storefront/pa
 import { brandSliderSectionSchema } from '@/features/ecommerce/storefront/page-builder/schemas/page.schema';
 import {
   BASE_SECTION_CAPABILITIES,
-  booleanField,
-  dataSourceField,
-  layoutField,
   localizedSubtitleField,
   localizedTitleField,
-  themeField,
-  UI_STRINGS,
-  visibilityField,
 } from '@/features/ecommerce/storefront/page-builder/definitions/shared/field-builders';
 
 const DEFAULT_CONFIGURATION = {
@@ -53,23 +47,5 @@ export const BRAND_SLIDER_DEFINITION: SectionDefinition<'brand-slider'> = {
     supportsBanners: false,
     supportsCountdown: false,
   },
-  fields: [
-    localizedTitleField(true),
-    localizedSubtitleField(),
-    {
-      key: 'viewAllHref',
-      path: 'content.viewAllHref',
-      label: UI_STRINGS.fields.viewAllHref,
-      control: 'store-path',
-      localized: false,
-      required: false,
-      group: 'content',
-      defaultValue: '/store/brands',
-    },
-    booleanField('showLogo', 'settings.showLogo', UI_STRINGS.fields.showLogo, 'settings', true),
-    themeField(),
-    layoutField(BRAND_SLIDER_LAYOUTS),
-    visibilityField(),
-    dataSourceField(['manual', 'collection']),
-  ],
+  fields: [localizedTitleField(true), localizedSubtitleField()],
 };

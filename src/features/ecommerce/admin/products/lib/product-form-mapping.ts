@@ -1,6 +1,9 @@
+import { STORE_CURRENCY_CODE } from '@/features/ecommerce/domain/constants/store-currency';
 import type { CreateProductInput, Product, ProductVariant } from '@/features/ecommerce/domain/types/product';
 import type { MediaItem } from '@/features/ecommerce/domain/types/common';
 import { normalizeAttributeValue } from '@/features/ecommerce/domain/types/catalog-attribute';
+import type { ProductStatus } from '@/features/ecommerce/domain/constants/product-status';
+import type { StockStatus } from '@/features/ecommerce/domain/constants/stock-status';
 import type { ProductFormInput, ProductFormValues } from '@/features/ecommerce/admin/products/schemas/product-schema';
 import {
   createDefaultUomLines,
@@ -10,6 +13,21 @@ import {
   syncProductVariants,
   totalVariantQuantity,
 } from '@/features/ecommerce/admin/products/lib/product-variants';
+
+const PRODUCT_STATUSES = new Set<ProductStatus>(['draft', 'active', 'archived']);
+const STOCK_STATUSES = new Set<StockStatus>(['in_stock', 'out_of_stock', 'preorder', 'discontinued']);
+
+function coerceProductStatus(value: unknown): ProductStatus {
+  return typeof value === 'string' && PRODUCT_STATUSES.has(value as ProductStatus)
+    ? (value as ProductStatus)
+    : 'active';
+}
+
+function coerceStockStatus(value: unknown): StockStatus {
+  return typeof value === 'string' && STOCK_STATUSES.has(value as StockStatus)
+    ? (value as StockStatus)
+    : 'in_stock';
+}
 
 function parseTagsInput(tagsInput: string | undefined): string[] | undefined {
   const tags = (tagsInput ?? '')
@@ -28,6 +46,28 @@ function optionalPositive(value: number | undefined): number | undefined {
   return value;
 }
 
+/** ISO datetime → YYYY-MM-DD for date pickers. */
+function isoToYmd(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const match = /^(\d{4}-\d{2}-\d{2})/.exec(iso);
+  return match?.[1] ?? '';
+}
+
+/** YYYY-MM-DD → ISO midnight UTC, or null when empty (no expiry). */
+function ymdToIso(ymd: string | null | undefined): string | null {
+  const trimmed = ymd?.trim();
+  if (!trimmed) return null;
+  return `${trimmed}T00:00:00.000Z`;
+}
+
+/** Select "none" / empty → null so the API never receives "" or placeholders. */
+function optionalRelationId(value: string | null | undefined): string | null {
+  if (value == null) return null;
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === '__none__') return null;
+  return trimmed;
+}
+
 function variantToForm(variant: ProductVariant) {
   return {
     id: variant.id,
@@ -42,6 +82,12 @@ function variantToForm(variant: ProductVariant) {
     stockStatus: variant.stockStatus,
     barcode: variant.barcode ?? '',
     imageUrl: variant.imageUrl ?? '',
+    images:
+      variant.images && variant.images.length > 0
+        ? variant.images.map((item) => item.url)
+        : variant.imageUrl
+          ? [variant.imageUrl]
+          : [],
     isActive: variant.isActive,
   };
 }
@@ -68,7 +114,15 @@ function formVariantToDomain(
           ? 'in_stock'
           : 'out_of_stock',
     barcode: variant.barcode || undefined,
-    imageUrl: variant.imageUrl?.trim() || undefined,
+    imageUrl: (variant.images?.[0] ?? variant.imageUrl)?.trim() || undefined,
+    images: (variant.images ?? []).filter((url) => url.trim().length > 0).map((url, index) => ({
+      id: `variant-image-${index}`,
+      url,
+      alt: '',
+      type: 'image' as const,
+      position: index,
+      isPrimary: index === 0,
+    })),
     isActive: variant.isActive,
   };
 }
@@ -84,8 +138,9 @@ export function productToFormValues(product: Product): ProductFormInput {
     description: product.description ?? '',
     categoryId: product.categoryId ?? undefined,
     brandId: product.brandId ?? undefined,
-    status: product.status,
-    stockStatus: product.stockStatus,
+    /** Only accept known enum values — invalid/missing values leave Radix Select blank. */
+    status: coerceProductStatus(product.status),
+    stockStatus: coerceStockStatus(product.stockStatus),
     stockQuantity: product.inventory.quantity,
     trackInventory: product.inventory.trackInventory,
     allowBackorder: product.inventory.allowBackorder,
@@ -108,13 +163,28 @@ export function productToFormValues(product: Product): ProductFormInput {
     widthCm: product.dimensions?.widthCm,
     heightCm: product.dimensions?.heightCm,
     posAvailable: product.posAvailable ?? false,
+    warehouseId: product.warehouseId ?? undefined,
+    locationId: product.locationId ?? undefined,
     saleOk: product.saleOk ?? true,
     purchaseOk: product.purchaseOk ?? true,
+    isNewProduct: product.isNewProduct ?? false,
+    newUntil: isoToYmd(product.newUntil),
+    isTodayDeal: product.isTodayDeal ?? false,
+    dealPriceAmount: product.dealPrice?.amount,
+    dealDays: product.dealDays ?? undefined,
+    dealUntil: isoToYmd(product.dealUntil),
+    isWholesale: product.isWholesale ?? false,
+    wholesalePriceAmount: product.wholesalePrice?.amount,
+    wholesaleUntil: isoToYmd(product.wholesaleUntil),
+    isDiscounted: product.isDiscounted ?? false,
+    discountPercent: product.discountPercent ?? undefined,
+    discountUntil: isoToYmd(product.discountUntil),
     attributes: (product.attributes ?? []).map((attribute) => ({
       ...attribute,
-      values: attribute.values.map((value) =>
-        normalizeAttributeValue(value, attribute.displayType),
-      ),
+      values: attribute.values.map((value) => ({
+        ...normalizeAttributeValue(value, attribute.displayType),
+        catalogAttributeValueId: value.catalogAttributeValueId,
+      })),
     })),
     variants: (product.variants ?? []).map(variantToForm),
     uomLines:
@@ -146,7 +216,7 @@ export function formValuesToCreateInput(
   }));
 
   const existing = options?.existing;
-  const currency = existing?.price.currency ?? 'SAR';
+  const currency = existing?.price.currency ?? STORE_CURRENCY_CODE;
 
   const synced = syncProductVariants({
     productNameAr: values.nameAr,
@@ -187,8 +257,8 @@ export function formValuesToCreateInput(
     slug: values.slug,
     shortDescription: values.shortDescription || undefined,
     description: values.description || undefined,
-    categoryId: values.categoryId ?? null,
-    brandId: values.brandId ?? null,
+    categoryId: optionalRelationId(values.categoryId),
+    brandId: optionalRelationId(values.brandId),
     status: values.status,
     stockStatus,
     inventory: {
@@ -218,8 +288,29 @@ export function formValuesToCreateInput(
       ? { lengthCm, widthCm, heightCm }
       : undefined,
     posAvailable: values.posAvailable,
+    warehouseId: optionalRelationId(values.warehouseId),
+    locationId: optionalRelationId(values.locationId),
     saleOk: values.saleOk,
     purchaseOk: values.purchaseOk,
+    isNewProduct: values.isNewProduct,
+    newUntil: values.isNewProduct ? ymdToIso(values.newUntil) : null,
+    isTodayDeal: values.isTodayDeal,
+    dealPrice:
+      values.isTodayDeal && values.dealPriceAmount != null
+        ? { amount: values.dealPriceAmount, currency }
+        : undefined,
+    dealDays: values.isTodayDeal && values.dealDays != null ? values.dealDays : null,
+    dealUntil: values.isTodayDeal ? ymdToIso(values.dealUntil) : null,
+    isWholesale: values.isWholesale,
+    wholesalePrice:
+      values.isWholesale && values.wholesalePriceAmount != null
+        ? { amount: values.wholesalePriceAmount, currency }
+        : undefined,
+    wholesaleUntil: values.isWholesale ? ymdToIso(values.wholesaleUntil) : null,
+    isDiscounted: values.isDiscounted,
+    discountPercent:
+      values.isDiscounted && values.discountPercent != null ? values.discountPercent : null,
+    discountUntil: values.isDiscounted ? ymdToIso(values.discountUntil) : null,
     attributes: values.attributes,
     variants: synced,
     uomLines: values.uomLines.map((line) => ({

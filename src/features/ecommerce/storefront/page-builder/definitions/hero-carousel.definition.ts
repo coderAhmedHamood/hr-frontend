@@ -4,15 +4,7 @@ import { SUPPORTED_STOREFRONT_LOCALES } from '@/features/ecommerce/storefront/pa
 import { heroCarouselSectionSchema } from '@/features/ecommerce/storefront/page-builder/schemas/page.schema';
 import {
   BASE_SECTION_CAPABILITIES,
-  booleanField,
-  dataSourceField,
-  layoutField,
-  localizedSubtitleField,
-  localizedTitleField,
-  numberField,
-  themeField,
   UI_STRINGS,
-  visibilityField,
 } from '@/features/ecommerce/storefront/page-builder/definitions/shared/field-builders';
 
 const DEFAULT_CONFIGURATION = {
@@ -23,7 +15,6 @@ const DEFAULT_CONFIGURATION = {
       {
         id: '00000000-0000-4000-8000-000000000001',
         imageUrl: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=1400&q=80',
-        alt: { ar: 'صورة ترويجية', en: 'Promotional image' },
       },
     ],
   },
@@ -62,7 +53,7 @@ export const HERO_CAROUSEL_DEFINITION: SectionDefinition<'hero-carousel'> = {
     ...BASE_SECTION_CAPABILITIES,
     supportsTitle: true,
     supportsSubtitle: true,
-    supportsAutoplay: true,
+    supportsAutoplay: false,
     supportsBanners: true,
     supportsProducts: false,
     supportsCategories: false,
@@ -70,8 +61,6 @@ export const HERO_CAROUSEL_DEFINITION: SectionDefinition<'hero-carousel'> = {
     supportsCountdown: false,
   },
   fields: [
-    localizedTitleField(false),
-    localizedSubtitleField(),
     {
       key: 'slides',
       path: 'content.slides',
@@ -82,21 +71,5 @@ export const HERO_CAROUSEL_DEFINITION: SectionDefinition<'hero-carousel'> = {
       group: 'content',
       meta: { aspectRatio: '21/7', acceptsAltText: true, mobileVariant: true },
     },
-    booleanField('autoplay', 'settings.autoplay', UI_STRINGS.fields.autoplay, 'settings', true),
-    numberField('intervalMs', 'settings.intervalMs', UI_STRINGS.fields.intervalMs, 'settings', { min: 1000, max: 30000 }, 5000),
-    {
-      key: 'height',
-      path: 'style.height',
-      label: UI_STRINGS.fields.height,
-      control: 'text',
-      localized: false,
-      required: true,
-      group: 'style',
-      defaultValue: '21/7',
-    },
-    themeField(),
-    layoutField(HERO_CAROUSEL_LAYOUTS),
-    visibilityField(),
-    dataSourceField(['manual']),
   ],
 };

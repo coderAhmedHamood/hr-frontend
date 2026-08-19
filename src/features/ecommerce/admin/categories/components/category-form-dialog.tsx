@@ -7,6 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { ListOrdered, MapPinned } from 'lucide-react';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
 import { useCategoryMutations } from '@/features/ecommerce/admin/categories/hooks/use-category-mutations';
+import { useAllCategories } from '@/features/ecommerce/admin/categories/hooks/use-categories';
 import { useBrands } from '@/features/ecommerce/admin/brands/hooks/use-brands';
 import { useProducts } from '@/features/ecommerce/admin/products/hooks/use-products';
 import { usePutawayRules } from '@/features/inventory/admin/putaway-rules/hooks/use-putaway-rules';
@@ -19,6 +20,12 @@ import {
   categoryToFormValues,
   formValuesToCreateCategoryInput,
 } from '@/features/ecommerce/admin/categories/lib/category-form-mapping';
+import {
+  categoryFilterLabel,
+  collectDescendantIds,
+  getCategoryPath,
+  sortCategoriesAsTree,
+} from '@/features/ecommerce/admin/categories/lib/category-tree';
 import { ecommerceAdminRoutes } from '@/features/ecommerce/admin/constants/routes';
 import type { Category } from '@/features/ecommerce/domain/types/category';
 import { Button } from '@/components/ui/button';
@@ -26,13 +33,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { SearchableDropdown } from '@/components/ui/shared-dialogs';
 import {
   Dialog,
   DialogContent,
@@ -43,15 +44,17 @@ import {
   dialogShellHeaderClass,
 } from '@/components/ui/dialog';
 import { cn } from '@/shared/utils';
+import { isMultiLangEnabled } from '@/i18n/locale-flags';
 
 type Props = {
   category?: Category | null;
-  categories: Category[];
+  /** Optional seed list; form always refetches all categories when opened. */
+  categories?: Category[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
 };
 
-export function CategoryFormDialog({ category, categories, open, onOpenChange }: Props) {
+export function CategoryFormDialog({ category, categories = [], open, onOpenChange }: Props) {
   const companyId = getStorefrontCompanyId();
   const router = useRouter();
   const { create, update } = useCategoryMutations();
@@ -59,9 +62,10 @@ export function CategoryFormDialog({ category, categories, open, onOpenChange }:
   const isEditing = Boolean(category);
   const isSaving = create.isPending || update.isPending;
 
-  const { data: productsData } = useProducts(
-    { companyId, categoryId: category?.id, limit: 1 },
-  );
+  const allCategoriesQuery = useAllCategories(companyId, { enabled: open && Boolean(companyId) });
+  const catalog = allCategoriesQuery.data?.items ?? categories;
+
+  const { data: productsData } = useProducts({ companyId, categoryId: category?.id, limit: 1 });
   const { data: putawayData } = usePutawayRules(
     { companyId, categoryId: category?.id, limit: 1 },
     { enabled: Boolean(category?.id) },
@@ -80,11 +84,38 @@ export function CategoryFormDialog({ category, categories, open, onOpenChange }:
     form.reset(category ? categoryToFormValues(category) : CATEGORY_FORM_DEFAULT_VALUES);
   }, [open, category, form]);
 
-  const parentOptions = categories.filter((item) => item.id !== category?.id);
+  const byId = React.useMemo(() => new Map(catalog.map((item) => [item.id, item])), [catalog]);
+
+  const blockedParentIds = React.useMemo(() => {
+    if (!category?.id) return new Set<string>();
+    return collectDescendantIds(category.id, catalog);
+  }, [catalog, category?.id]);
+
+  const parentOptions = React.useMemo(() => {
+    const tree = sortCategoriesAsTree(catalog).filter((item) => !blockedParentIds.has(item.id));
+    return [
+      { value: '', label: '— بدون أب —', sub: 'تصنيف جذري' },
+      ...tree.map((item) => {
+        const path = getCategoryPath(item, byId);
+        return {
+          value: item.id,
+          label: categoryFilterLabel(item, byId),
+          sub: [
+            path.depth > 1 ? path.pathLabel : null,
+            isMultiLangEnabled ? item.nameEn?.trim() || null : null,
+            item.slug,
+          ]
+            .filter(Boolean)
+            .join(' · '),
+        };
+      }),
+    ];
+  }, [blockedParentIds, byId, catalog]);
+
   const featuredBrandIds = form.watch('featuredBrandIds');
   const parentId = form.watch('parentId');
   const parentLabel = parentId
-    ? parentOptions.find((item) => item.id === parentId)?.nameAr ?? '—'
+    ? parentOptions.find((item) => item.value === parentId)?.label ?? '—'
     : 'بدون أب';
 
   const onSubmit = async (values: CategoryFormValues) => {
@@ -178,10 +209,12 @@ export function CategoryFormDialog({ category, categories, open, onOpenChange }:
 
             <div className="space-y-4">
               <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label htmlFor="nameEn">الاسم (إنجليزي)</Label>
-                  <Input id="nameEn" {...form.register('nameEn')} />
-                </div>
+                {isMultiLangEnabled ? (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="nameEn">الاسم (إنجليزي)</Label>
+                    <Input id="nameEn" {...form.register('nameEn')} />
+                  </div>
+                ) : null}
                 <div className="space-y-1.5">
                   <Label htmlFor="slug">الرابط المختصر</Label>
                   <Input id="slug" dir="ltr" {...form.register('slug')} />
@@ -197,24 +230,30 @@ export function CategoryFormDialog({ category, categories, open, onOpenChange }:
                   control={form.control}
                   name="parentId"
                   render={({ field }) => (
-                    <Select
-                      value={field.value ?? 'root'}
-                      onValueChange={(value) => field.onChange(value === 'root' ? null : value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="تصنيف جذري" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="root">— بدون أب —</SelectItem>
-                        {parentOptions.map((option) => (
-                          <SelectItem key={option.id} value={option.id}>
-                            {option.nameAr}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <SearchableDropdown
+                      value={field.value ?? ''}
+                      onChange={(value) => field.onChange(value || null)}
+                      options={parentOptions}
+                      placeholder={
+                        allCategoriesQuery.isLoading
+                          ? 'جاري تحميل الفئات…'
+                          : 'ابحث بالاسم أو المسار…'
+                      }
+                      allowClear
+                      disabled={allCategoriesQuery.isLoading}
+                      listClassName="max-h-64"
+                    />
                   )}
                 />
+                {allCategoriesQuery.isError ? (
+                  <p className="text-xs text-destructive">تعذر تحميل قائمة الفئات لاختيار الأب.</p>
+                ) : (
+                  <p className="text-[11px] text-muted-foreground">
+                    {allCategoriesQuery.isFetching
+                      ? 'يتم تحديث قائمة الفئات…'
+                      : `متاح للاختيار: ${Math.max(parentOptions.length - 1, 0)} فئة`}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-1.5">

@@ -24,6 +24,8 @@ export function StoreLocaleSwitcher({ className, tone = 'panel' }: StoreLocaleSw
   const pathname = usePathname();
   const [isPending, startTransition] = React.useTransition();
 
+  if (routing.locales.length < 2) return null;
+
   const switchTo = (nextLocale: StorefrontLocale) => {
     if (nextLocale === locale || isPending) return;
     startTransition(() => {

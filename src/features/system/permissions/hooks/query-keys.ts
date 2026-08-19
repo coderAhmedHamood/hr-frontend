@@ -1,9 +1,9 @@
 export const PERMISSIONS_KEYS = {
   applications: ['applications'] as const,
-  allPages: ['permissions', 'all-pages'] as const,
-  byApplication: (applicationId: string | null) =>
-    ['permissions', 'by-application', applicationId] as const,
-  catalog: ['permissions', 'catalog'] as const,
+  allPages: (companyId?: string | null) => ['permissions', 'all-pages', companyId ?? ''] as const,
+  byApplication: (applicationId: string | null, companyId?: string | null) =>
+    ['permissions', 'by-application', applicationId, companyId ?? ''] as const,
+  catalog: (companyId?: string | null) => ['permissions', 'catalog', companyId ?? ''] as const,
   roles: ['roles'] as const,
   rolePermissionsAll: ['role-permissions'] as const,
   rolePermissions: (roleId: string | null) => ['role-permissions', roleId] as const,

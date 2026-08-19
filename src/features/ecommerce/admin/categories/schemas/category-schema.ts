@@ -8,8 +8,10 @@ export const categoryFormSchema = z.object({
   slug: z
     .string()
     .trim()
-    .min(1, 'الرابط المختصر مطلوب')
-    .regex(slugPattern, 'الرابط المختصر يجب أن يكون بأحرف إنجليزية صغيرة وأرقام وشرطات فقط'),
+    .refine(
+      (value) => value === '' || slugPattern.test(value),
+      'الرابط المختصر يجب أن يكون بأحرف إنجليزية صغيرة وأرقام وشرطات فقط',
+    ),
   description: z.string().trim().optional(),
   parentId: z.string().nullable(),
   imageUrl: z.union([z.string().trim().url('رابط الصورة غير صالح'), z.literal('')]).optional(),

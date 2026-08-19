@@ -17,7 +17,7 @@ export function EntityFormRow({ label, htmlFor, children, hint, className }: Pro
   return (
     <div
       className={cn(
-        'grid gap-2 border-b border-border/70 py-3 sm:grid-cols-[11rem_minmax(0,1fr)] sm:items-center sm:gap-6',
+        'sto-form-row',
         className,
       )}
     >

@@ -1,5 +1,7 @@
 @import 'tailwindcss';
 @config '../../tailwind.config.js';
+@source not '../../.next';
+@source not '../../node_modules';
 
 @theme {
   --color-gold: hsl(39 45% 54%);
@@ -11,6 +13,11 @@
 .popover-match-trigger {
   width: var(--radix-popover-trigger-width);
   max-width: min(var(--radix-popover-trigger-width), calc(100vw - 2rem));
+}
+/* Multi-select menu: floor width 280px (or 100%), cap to viewport — plain CSS avoids Turbopack mangling arbitrary min()/calc() classes */
+.popover-multi-select {
+  min-width: min(100%, 280px);
+  max-width: calc(100vw - 2rem);
 }
 .select-match-trigger {
   width: var(--radix-select-trigger-width);
@@ -74,6 +81,69 @@
   padding-bottom: max(0.75rem, var(--store-safe-area-bottom));
 }
 
+.safe-area-pb {
+  padding-bottom: var(--store-safe-area-bottom);
+}
+
+/* ERP mobile tab bar — never use env() inside Tailwind arbitrary classes. */
+.app-mobile-tab-bar {
+  padding-bottom: max(0.4rem, var(--store-safe-area-bottom));
+  box-shadow: 0 -6px 18px -12px rgba(0, 0, 0, 0.18);
+}
+
+/* Storefront toasts: styled toasts need real width (Arabic must not wrap per glyph).
+   Unstyled custom toasts (e.g. cart pill) stay content-sized. */
+[data-sonner-toaster].storefront-toaster {
+  --width: 20rem;
+  width: auto;
+}
+[data-sonner-toaster].storefront-toaster [data-sonner-toast][data-styled='true'] {
+  width: auto !important;
+  min-width: min(16rem, calc(100vw - 2rem));
+  max-width: min(22rem, calc(100vw - 2rem));
+}
+[data-sonner-toaster].storefront-toaster [data-sonner-toast][data-styled='true'] [data-title],
+[data-sonner-toaster].storefront-toaster [data-sonner-toast][data-styled='true'] [data-content] {
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: break-word;
+}
+[data-sonner-toaster].storefront-toaster [data-sonner-toast][data-styled='false'] {
+  width: fit-content !important;
+  min-width: 0 !important;
+  max-width: min(20rem, calc(100vw - 2rem));
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+@media (max-width: 600px) {
+  [data-sonner-toaster].storefront-toaster {
+    width: auto !important;
+    transform: none !important;
+  }
+  [data-sonner-toaster].storefront-toaster[data-x-position='right'] {
+    left: auto !important;
+    right: var(--mobile-offset-right, 16px) !important;
+  }
+  [data-sonner-toaster].storefront-toaster[data-x-position='left'] {
+    right: auto !important;
+    left: var(--mobile-offset-left, 16px) !important;
+  }
+  [data-sonner-toaster].storefront-toaster [data-sonner-toast][data-styled='true'] {
+    width: auto !important;
+    min-width: min(16rem, calc(100vw - 2rem));
+  }
+  [data-sonner-toaster].storefront-toaster[data-x-position='right'] [data-sonner-toast] {
+    left: auto !important;
+    right: 0 !important;
+  }
+  [data-sonner-toaster].storefront-toaster[data-x-position='left'] [data-sonner-toast] {
+    right: auto !important;
+    left: 0 !important;
+  }
+}
+
 /* Hide scrollbars — plain CSS (avoid Tailwind arbitrary property brackets;
    Turbopack corrupts those into invalid selectors during CSS codegen). */
 .scrollbar-none {
@@ -85,6 +155,21 @@
   width: 0;
   height: 0;
 }
+
+/* Avoid Tailwind [&::-webkit-*] arbitrary variants — Turbopack corrupts them. */
+.webkit-details-marker-none::-webkit-details-marker {
+  display: none;
+}
+.webkit-spin-buttons-none::-webkit-inner-spin-button,
+.webkit-spin-buttons-none::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.webkit-spin-buttons-none {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
 .overflow-touch {
   -webkit-overflow-scrolling: touch;
 }
@@ -139,12 +224,90 @@
   animation: exit 0.3s ease forwards;
 }
 
+.radix-slide-right[data-state="open"] {
+  --_enter-tx: 100%;
+  animation: enter 0.3s ease forwards;
+}
+.radix-slide-right[data-state="closed"] {
+  --_exit-tx: 100%;
+  animation: exit 0.3s ease forwards;
+}
+
 @keyframes nav-dropdown-in {
   from { opacity: 0; transform: translateY(-8px) scale(0.97); }
   to   { opacity: 1; transform: translateY(0)   scale(1);    }
 }
 .nav-dropdown {
   animation: nav-dropdown-in 0.18s cubic-bezier(0.2, 0, 0, 1) forwards;
+}
+
+/* Storefront announcement bar — continuous marquee of multiple messages */
+@keyframes storefront-announcement-marquee {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(-50%, 0, 0); }
+}
+
+.storefront-announcement-marquee {
+  overflow: hidden;
+  width: 100%;
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 1.5rem,
+    #000 calc(100% - 1.5rem),
+    transparent
+  );
+}
+
+.storefront-announcement-marquee__track {
+  display: flex;
+  width: max-content;
+  align-items: center;
+  gap: 3rem;
+  direction: ltr;
+  animation: storefront-announcement-marquee
+    var(--announcement-marquee-duration, 28000ms) linear infinite;
+  will-change: transform;
+}
+
+.storefront-announcement-marquee__item {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.storefront-announcement-marquee__sep {
+  flex-shrink: 0;
+  opacity: 0.55;
+}
+
+/* CMS / storefront toggle: keep messages static (no marquee) */
+.storefront-announcement-marquee--static {
+  mask-image: none;
+}
+.storefront-announcement-marquee--static .storefront-announcement-marquee__track {
+  animation: none;
+  will-change: auto;
+  flex-wrap: wrap;
+  justify-content: center;
+  width: 100%;
+  gap: 0.75rem 1.5rem;
+  padding-inline: 2.5rem;
+  direction: inherit;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .storefront-announcement-marquee__track {
+    animation: none;
+    flex-wrap: wrap;
+    justify-content: center;
+    width: 100%;
+    gap: 1rem 2rem;
+    padding-inline: 2.5rem;
+  }
+
+  .storefront-announcement-marquee__sep {
+    display: none;
+  }
 }
 
 /* شريط انضباط (فترة + حالة + بطاقات/قائمة): تمييز غير النشط — لا نستخدم Tailwind لـ inactive لتجنب أخطاء Turbopack */
@@ -510,5 +673,647 @@
 
   .bg-shift-color {
     background-color: var(--shift-color);
+  }
+
+  .odoo-app-tile {
+    width: 6.5rem;
+  }
+  @media (min-width: 640px) {
+    .odoo-app-tile {
+      width: 7.25rem;
+    }
+  }
+
+  .odoo-app-square {
+    display: flex;
+    height: 4.5rem;
+    width: 4.5rem;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border-radius: 0.85rem;
+    transition: transform 0.2s ease, filter 0.2s ease;
+  }
+  @media (min-width: 640px) {
+    .odoo-app-square {
+      height: 5rem;
+      width: 5rem;
+    }
+  }
+  .group:hover .odoo-app-square:not(.odoo-app-square-muted) {
+    transform: translateY(-0.15rem);
+  }
+
+  .odoo-app-square-muted {
+    filter: grayscale(1);
+    opacity: 0.55;
+  }
+
+  .odoo-app-icon {
+    height: 1.85rem;
+    width: 1.85rem;
+    filter:
+      drop-shadow(1px 1px 0 rgb(0 0 0 / 0.16))
+      drop-shadow(2px 2px 0 rgb(0 0 0 / 0.13))
+      drop-shadow(3px 3px 0 rgb(0 0 0 / 0.11))
+      drop-shadow(4px 4px 0 rgb(0 0 0 / 0.09))
+      drop-shadow(6px 6px 0 rgb(0 0 0 / 0.07))
+      drop-shadow(8px 8px 0 rgb(0 0 0 / 0.05))
+      drop-shadow(10px 10px 0 rgb(0 0 0 / 0.03));
+  }
+
+  .odoo-app-label {
+    display: -webkit-box;
+    min-height: 2.5rem;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    line-height: 1.3;
+    color: hsl(var(--foreground));
+  }
+
+  .odoo-app-grid {
+    display: flex;
+    width: 100%;
+    max-width: 48rem;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 1.5rem 1.75rem;
+  }
+
+  .apps-launcher-page {
+    width: 100%;
+    min-width: 0;
+  }
+
+  @media (max-width: 767px) {
+    main:has(.apps-launcher-page) {
+      padding-bottom: 0.75rem;
+    }
+  }
+
+  .min-h-rich-editor {
+    min-height: 11.25rem;
+  }
+
+  .company-app-tile {
+    width: 7.75rem;
+  }
+  @media (min-width: 640px) {
+    .company-app-tile {
+      width: 8.75rem;
+    }
+  }
+
+  .so-user-dialog-form {
+    min-height: 0;
+    max-height: 60vh;
+    overflow-y: auto;
+  }
+
+  .so-user-role-list {
+    max-height: 14rem;
+    overflow-y: auto;
+  }
+
+  /* Inventory — phone / tablet / iPad. Use rem + min-width (Turbopack-safe). */
+  .inventory-app {
+    width: 100%;
+    min-width: 0;
+  }
+
+  @media (max-width: 767px) {
+    main:has(.inventory-app) {
+      padding: 0.75rem;
+    }
+  }
+
+  /* Room for the fixed bottom tab bar (shown below the lg breakpoint, matching
+     MobileTabBar's `lg:hidden`) so the last row of content is never hidden under it. */
+  @media (max-width: 1023px) {
+    main:has(.inventory-app) {
+      padding-bottom: calc(4.5rem + var(--store-safe-area-bottom));
+    }
+  }
+
+  .inventory-app .inv-table-host > div:first-child {
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .inv-form-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  .inv-filter-select,
+  .inv-filter-select-sm,
+  .inv-date-input {
+    width: 100%;
+  }
+
+  .inv-date-filters {
+    display: flex;
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .inv-qty-input {
+    max-width: 8rem;
+  }
+
+  .inv-tabs-scroll {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 0.25rem;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-bottom: 1px solid hsl(var(--border));
+    padding-bottom: 1px;
+  }
+
+  .inv-tabs-scroll > button {
+    flex-shrink: 0;
+  }
+
+  .inv-table-wide {
+    width: 100%;
+    min-width: 40rem;
+  }
+
+  .inv-pos-page-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .inv-pos-panel {
+    min-height: 16rem;
+  }
+
+  .inv-pos-search {
+    min-width: 0;
+    flex: 1 1 12rem;
+  }
+
+  .inv-pos-shell {
+    display: flex;
+    min-height: 0;
+    flex: 1;
+    flex-direction: column;
+  }
+
+  .inv-pos-cart {
+    order: 2;
+    width: 100%;
+    max-height: 42vh;
+  }
+
+  .inv-pos-catalog {
+    order: 1;
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .inv-pos-header {
+    flex-wrap: wrap;
+    min-height: 3rem;
+  }
+
+  .inv-pos-location {
+    max-width: 10rem;
+  }
+
+  .inv-pos-chip {
+    max-width: 10rem;
+  }
+
+  .inv-stepper-item {
+    min-width: 5.5rem;
+  }
+
+  @media (min-width: 640px) {
+    .inv-form-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .inv-filter-select {
+      width: 10rem;
+    }
+
+    .inv-filter-select-sm,
+    .inv-date-input {
+      width: 8.75rem;
+    }
+
+    .inv-date-filters {
+      width: auto;
+    }
+
+    .inv-pos-location {
+      max-width: 15rem;
+    }
+  }
+
+  @media (min-width: 768px) {
+    .inv-pos-shell {
+      flex-direction: row;
+    }
+
+    .inv-pos-cart {
+      order: 0;
+      width: 23.75rem;
+      max-height: none;
+      flex-shrink: 0;
+    }
+
+    .inv-pos-catalog {
+      order: 0;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .inv-pos-page-grid {
+      grid-template-columns: minmax(0, 1.4fr) minmax(16rem, 0.9fr);
+    }
+  }
+
+  /* System app — phone / tablet / iPad. Use rem + min-width (Turbopack-safe). */
+  .system-app {
+    width: 100%;
+    min-width: 0;
+  }
+
+  @media (max-width: 767px) {
+    main:has(.system-app) {
+      padding: 0.75rem;
+    }
+  }
+
+  /* Room for the fixed bottom tab bar (shown below the lg breakpoint, matching
+     MobileTabBar's `lg:hidden`) so the last row of content is never hidden under it. */
+  @media (max-width: 1023px) {
+    main:has(.system-app) {
+      padding-bottom: calc(4.5rem + var(--store-safe-area-bottom));
+    }
+  }
+
+  .system-app .sys-table-host > div:first-child {
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .sys-form-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  .sys-filter-panel {
+    display: flex;
+    width: 100%;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 0.75rem;
+  }
+
+  .sys-filter-field {
+    width: 100%;
+    min-width: 0;
+    flex: 1 1 100%;
+  }
+
+  .sys-filter-select,
+  .sys-filter-select-sm,
+  .sys-search-field {
+    width: 100%;
+  }
+
+  .sys-tabs-scroll {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 0.25rem;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+  }
+
+  .sys-tabs-scroll > button,
+  .sys-tabs-scroll > [role='tab'] {
+    flex-shrink: 0;
+  }
+
+  .sys-table-wide {
+    width: 100%;
+    min-width: 40rem;
+  }
+
+  .sys-chart-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .sys-org-node {
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .sys-approval-actions {
+    display: flex;
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+  }
+
+  @media (min-width: 640px) {
+    .sys-form-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .sys-filter-field {
+      flex: 1 1 11rem;
+      width: auto;
+      max-width: 100%;
+    }
+
+    .sys-filter-select {
+      width: 10rem;
+    }
+
+    .sys-filter-select-sm {
+      width: 8.75rem;
+    }
+
+    .sys-search-field {
+      min-width: 12rem;
+      max-width: 20rem;
+      flex: 1 1 12rem;
+      width: auto;
+    }
+
+    .sys-org-node {
+      min-width: 17.5rem;
+      width: auto;
+    }
+
+    .sys-approval-actions {
+      width: auto;
+    }
+  }
+
+  /* Product carousel card widths — avoid px + (width >= …) media queries (Turbopack corrupts them). */
+  .product-carousel-item {
+    width: calc(50% - 0.375rem);
+  }
+  @media (min-width: 640px) {
+    .product-carousel-item {
+      width: 11.25rem;
+    }
+  }
+  @media (min-width: 768px) {
+    .product-carousel-item {
+      width: 12.5rem;
+    }
+  }
+  @media (min-width: 1024px) {
+    .product-carousel-item {
+      width: 13.75rem;
+    }
+  }
+
+  /* Store admin — phone / tablet / iPad. Use rem + min-width (Turbopack-safe). */
+  .store-admin-app {
+    width: 100%;
+    min-width: 0;
+  }
+
+  @media (max-width: 767px) {
+    main:has(.store-admin-app) {
+      padding: 0.75rem;
+    }
+  }
+
+  @media (max-width: 1023px) {
+    main:has(.store-admin-app) {
+      padding-bottom: calc(4.5rem + var(--store-safe-area-bottom));
+    }
+  }
+
+  .store-admin-app .sto-table-host > div:first-child {
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .sto-form-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  .sto-form-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+    border-bottom: 1px solid hsl(var(--border));
+    padding-block: 0.75rem;
+  }
+
+  .sto-filter-field {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .sto-tabs-scroll {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 0.25rem;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+  }
+
+  .sto-tabs-scroll > button,
+  .sto-tabs-scroll > [role='tab'] {
+    flex-shrink: 0;
+  }
+
+  .sto-kanban {
+    display: flex;
+    gap: 0.75rem;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 0.5rem;
+    scroll-snap-type: x proximity;
+  }
+
+  .sto-kanban-col {
+    display: flex;
+    width: 85%;
+    max-width: 18.5rem;
+    flex-shrink: 0;
+    flex-direction: column;
+    scroll-snap-align: start;
+  }
+
+  .sto-kanban-list {
+    display: flex;
+    max-height: 70vh;
+    flex: 1;
+    flex-direction: column;
+    gap: 0.5rem;
+    overflow-y: auto;
+    padding: 0.5rem;
+  }
+
+  .sto-footer-link-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+
+  .sto-cms-split {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+  }
+
+  .sto-settings-split {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .sto-social-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  @media (min-width: 640px) {
+    .sto-form-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .sto-form-row {
+      grid-template-columns: 11rem minmax(0, 1fr);
+      align-items: center;
+      gap: 1.5rem;
+    }
+
+    .sto-filter-field {
+      width: auto;
+    }
+
+    .sto-kanban-col {
+      width: 18.5rem;
+    }
+
+    .sto-social-row {
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: end;
+    }
+  }
+
+  @media (min-width: 768px) {
+    .sto-footer-link-row {
+      grid-template-columns: minmax(0, 11rem) 1fr 1fr 1.1fr auto;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .sto-cms-split {
+      grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+    }
+
+    .sto-settings-split {
+      grid-template-columns: minmax(0, 1.2fr) minmax(16rem, 0.8fr);
+    }
+  }
+
+  /* Contacts — phone / tablet / iPad. Use rem + min-width (Turbopack-safe). */
+  .contacts-app {
+    width: 100%;
+    min-width: 0;
+  }
+
+  @media (max-width: 767px) {
+    main:has(.contacts-app) {
+      padding: 0.75rem;
+    }
+  }
+
+  @media (max-width: 1023px) {
+    main:has(.contacts-app) {
+      padding-bottom: calc(4.5rem + var(--store-safe-area-bottom));
+    }
+  }
+
+  .contacts-app .ctc-table-host > div:first-child {
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .ctc-detail-split {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .ctc-address-form,
+  .ctc-attach-form,
+  .ctc-channel-form {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+    align-items: center;
+  }
+
+  .ctc-dialog-footer {
+    flex-direction: column-reverse;
+  }
+
+  .ctc-dialog-footer > button {
+    width: 100%;
+  }
+
+  @media (min-width: 640px) {
+    .ctc-channel-form {
+      grid-template-columns: 8.75rem minmax(0, 1fr) auto;
+    }
+
+    .ctc-attach-form {
+      grid-template-columns: 1fr 1fr 1fr;
+    }
+
+    .ctc-dialog-footer {
+      flex-direction: row;
+    }
+
+    .ctc-dialog-footer > button {
+      width: auto;
+    }
+  }
+
+  @media (min-width: 768px) {
+    .ctc-address-form {
+      grid-template-columns: 8.5rem minmax(0, 1fr);
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .ctc-detail-split {
+      grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+    }
   }
 }

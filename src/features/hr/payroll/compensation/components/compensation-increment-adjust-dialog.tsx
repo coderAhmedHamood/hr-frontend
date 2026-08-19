@@ -40,7 +40,7 @@ type Props = {
 };
 
 const numberInputClass =
-  'font-mono text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none';
+  'font-mono text-center webkit-spin-buttons-none';
 
 function preventWheelChange(e: React.WheelEvent<HTMLInputElement>) {
   e.currentTarget.blur();

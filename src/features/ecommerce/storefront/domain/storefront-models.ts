@@ -1,6 +1,10 @@
 import type { Inventory, MediaItem, Money, StockStatus, ProductStatus } from '@/features/ecommerce/domain/types';
-import type { CompanyThemeColors, CompanyContactInfo, CompanySocialLinks } from '@/features/ecommerce/storefront/domain/company-config';
+import type {
+  CompanyThemeColors,
+  CompanyContactInfo,
+} from '@/features/ecommerce/storefront/domain/company-config';
 import type { LegalPageSlug } from '@/features/ecommerce/storefront/domain/content';
+import type { StorefrontTypography } from '@/features/ecommerce/storefront/lib/storefront-fonts';
 
 export type StorefrontHomepageFeature = {
   id: string;
@@ -28,20 +32,42 @@ export type StorefrontProduct = {
   imageUrl: string | null;
   imageAlt: string;
   tags: string[];
+  /** Active promo flags from inventory (computed server-side). */
+  isNewProductActive?: boolean;
+  isTodayDealActive?: boolean;
+  isWholesaleActive?: boolean;
+  isDiscountActive?: boolean;
+  discountPercent?: number | null;
+  wholesalePrice?: Money | null;
   metaTitle: string;
   metaDescription: string;
+  rating: number | null;
+  reviewCount: number;
   /** Attribute lines for variant pickers (when product has variants). */
   attributes: Array<{
     id: string;
     nameAr: string;
     displayType: string;
-    values: Array<{ id: string; nameAr: string; colorHex?: string; imageUrl?: string }>;
+    values: Array<{
+      id: string;
+      nameAr: string;
+      colorHex?: string;
+      imageUrl?: string;
+      images?: MediaItem[];
+      description?: string;
+    }>;
   }>;
   variants: Array<{
     id: string;
     combinationKey: string;
     sku: string;
     nameAr: string;
+    /** Variant description shown when this variant is selected. */
+    description?: string;
+    /** Variant primary image. */
+    imageUrl?: string;
+    /** Variant image gallery (swaps the PDP gallery on selection). */
+    images?: MediaItem[];
     attributeValueIds: string[];
     attributeLabels: Array<{ attributeNameAr: string; valueNameAr: string; colorHex?: string }>;
     price: Money;
@@ -93,21 +119,44 @@ export type StorefrontCompanyConfig = {
     homeDescription: string;
     productsTitle: string;
     productsDescription: string;
+    keywords: string[];
     defaultOgImage: string | null;
   };
   contact: CompanyContactInfo;
-  social: CompanySocialLinks;
+  social: Partial<Record<import('@/features/ecommerce/storefront/domain/company-config').CompanySocialNetwork, string>>;
   theme: CompanyThemeColors;
+  /** Runtime CSS variable overrides for the store shell (HSL channels). */
+  themeCssVars?: Record<string, string>;
+  /** Curated Google Font preset ids — applied only under /store. */
+  typography: StorefrontTypography;
   navigation: StorefrontNavItem[];
   secondaryNavigation: (StorefrontNavItem & { highlight?: boolean })[];
   footer: {
     copyrightOwnerName: string;
+    tagline: string;
     commercialRegistration: string | null;
     linkGroups: {
       id: string;
       title: string;
       links: StorefrontNavItem[];
     }[];
+  };
+  announcement: {
+    enabled: boolean;
+    items: Array<{
+      id: string;
+      message: string;
+      href: `/store${string}` | '/store' | null;
+    }>;
+    dismissible: boolean;
+    /** When false, messages stay static (no marquee). */
+    scrolling: boolean;
+    /** Duration of one full marquee loop in milliseconds. */
+    speedMs: number;
+  };
+  storePages: {
+    offers: boolean;
+    wholesale: boolean;
   };
   currency: string;
   timezone: string;
@@ -149,20 +198,6 @@ export type StorefrontLegalPage = {
   metaTitle: string;
   metaDescription: string;
   updatedAt: string;
-};
-
-export type StorefrontBlogPost = {
-  id: string;
-  companyId: string;
-  slug: string;
-  title: string;
-  excerpt: string;
-  body: string;
-  coverImageUrl: string | null;
-  authorName: string;
-  publishedAt: string;
-  metaTitle: string;
-  metaDescription: string;
 };
 
 export type StorefrontPaginated<T> = {

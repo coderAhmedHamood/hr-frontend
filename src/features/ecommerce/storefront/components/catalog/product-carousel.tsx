@@ -90,8 +90,7 @@ export function ProductCarouselItem({ children, className }: { children: React.R
     <div
       className={cn(
         'flex shrink-0 snap-start self-stretch',
-        'w-[calc(50%-0.375rem)]',
-        'sm:w-[180px] md:w-[200px] lg:w-[220px]',
+        'product-carousel-item',
         className,
       )}
     >

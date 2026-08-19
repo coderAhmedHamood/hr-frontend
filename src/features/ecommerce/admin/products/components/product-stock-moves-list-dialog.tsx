@@ -7,6 +7,7 @@ import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/stor
 import { useWarehouseOperations } from '@/features/inventory/admin/operations/hooks/use-warehouse-operations';
 import { useWarehouses } from '@/features/inventory/admin/warehouses/hooks/use-warehouses';
 import { ecommerceAdminRoutes } from '@/features/ecommerce/admin/constants/routes';
+import { REPLENISHMENT_SOURCE_DOCUMENT } from '@/features/ecommerce/admin/products/constants/replenishment';
 import { WAREHOUSE_OPERATION_KIND_META } from '@/features/inventory/domain/constants/warehouse-operation-kinds';
 import { WAREHOUSE_OPERATION_STATUS_LABELS_AR } from '@/features/inventory/domain/constants/warehouse-operation-status';
 import type { WarehouseOperationKind } from '@/features/inventory/domain/types/warehouse';
@@ -30,6 +31,8 @@ type Props = {
   productId: string;
   productNameAr: string;
   onCreateRequest?: () => void;
+  /** Bumped on each sidebar click so the list refetches. */
+  requestKey?: number;
 };
 
 const LIST_ICONS: Partial<Record<WarehouseOperationKind, typeof PackagePlus>> = {
@@ -53,24 +56,51 @@ export function ProductStockMovesListDialog({
   productId,
   productNameAr,
   onCreateRequest,
+  requestKey = 0,
 }: Props) {
   const companyId = getStorefrontCompanyId();
   const router = useRouter();
-  const { data, isLoading } = useWarehouseOperations({
-    companyId,
-    productId,
-    kind,
-    limit: 100,
-  });
-  const { data: warehousesData } = useWarehouses({ companyId, limit: 100 });
+  const skipNextRefetch = React.useRef(true);
+
+  // One dedicated list call per kind (receipt | issue | internal | …).
+  const { data, isLoading, isFetching, refetch } = useWarehouseOperations(
+    { companyId, productId, kind, limit: 100 },
+    { enabled: open, refetchOnOpen: true },
+  );
+  const { data: warehousesData } = useWarehouses({ companyId, limit: 100 }, { enabled: open });
   const warehouseName = React.useMemo(() => {
     const map = new Map((warehousesData?.items ?? []).map((item) => [item.id, item.nameAr]));
     return (id: string) => map.get(id) ?? id;
   }, [warehousesData?.items]);
 
-  const items = data?.items ?? [];
+  React.useEffect(() => {
+    if (!open) {
+      skipNextRefetch.current = true;
+      return;
+    }
+    if (skipNextRefetch.current) {
+      skipNextRefetch.current = false;
+      return;
+    }
+    void refetch();
+  }, [open, requestKey, refetch]);
+
+  const items = React.useMemo(() => {
+    const raw = data?.items ?? [];
+    // Keep «الإدخالات» free of replenishment docs (those live under تجديد المخزون).
+    if (kind === 'receipt') {
+      return raw.filter(
+        (op) =>
+          op.kind === 'receipt' &&
+          !(op.sourceDocument?.includes('تجديد') || op.sourceDocument === REPLENISHMENT_SOURCE_DOCUMENT),
+      );
+    }
+    return raw;
+  }, [data?.items, kind]);
+
   const meta = WAREHOUSE_OPERATION_KIND_META[kind];
   const Icon = LIST_ICONS[kind] ?? PackagePlus;
+  const busy = isLoading || isFetching;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -87,7 +117,7 @@ export function ProductStockMovesListDialog({
             طلبات «{meta.labelAr}» المرتبطة بهذا المنتج.
           </p>
 
-          {isLoading ? (
+          {busy ? (
             <p className="text-sm text-muted-foreground">جاري التحميل…</p>
           ) : items.length === 0 ? (
             <p className="rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">

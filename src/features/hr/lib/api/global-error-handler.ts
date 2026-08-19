@@ -27,6 +27,28 @@ export type ApiErrorHandleResult = {
   isForbidden: boolean;
 };
 
+function translateKnownBackendMessage(rawMessage: string): string | null {
+  const trimmed = rawMessage.trim();
+  if (!trimmed) return null;
+  const lower = trimmed.toLowerCase();
+  if (lower.includes('system owner cannot be marked as a company superuser')) {
+    return 'مالك النظام لا يُعيَّن Superuser للشركة. عيّن مستخدم شركة عادي مربوطاً بالشركة.';
+  }
+  if (lower.includes('not linked to the selected company')) {
+    return 'مالك النظام غير مربوط بهذه الشركة. أنشئ مستخدم شركة عادي وعيّنه صاحب الشركة؛ هو من يدير الأدوار والصلاحيات بعد دخوله.';
+  }
+  if (lower.includes('only company superuser') || lower.includes('only a company superuser')) {
+    return 'طلب تفعيل التطبيق متاح لصاحب الشركة (Superuser) فقط.';
+  }
+  if (lower.includes('already enabled')) {
+    return 'هذا التطبيق مفعّل مسبقاً.';
+  }
+  if (lower.includes('pending') && lower.includes('activation')) {
+    return 'يوجد طلب تفعيل قيد الانتظار لهذا التطبيق.';
+  }
+  return null;
+}
+
 function isDevEnv() {
   const env = publicConfig.appEnv.toLowerCase();
   return env === '' || env === 'development' || env === 'dev' || env === 'local';
@@ -75,9 +97,19 @@ export function handleApiError(
     ? duplicateAdvanceNumberMessage()
     : extractApiErrorMessage(envelope, error.message);
 
-  const displayMessage = deviceAuthMessage
+  const branchScopeForbidden =
+    isForbidden
+    && /فرع|branch|warehouse.*(scope|access)|خارج نطاق/i.test(rawMessage);
+
+  const knownAr = translateKnownBackendMessage(rawMessage);
+
+  const displayMessage = knownAr
+    ? knownAr
+    : deviceAuthMessage
     ? deviceAuthMessage
-    : isForbidden
+    : branchScopeForbidden
+      ? 'لا تملك صلاحية على هذا الفرع'
+      : isForbidden
       ? 'ليس لديك صلاحية للوصول إلى هذا المورد'
       : isDuplicateAdvanceNumberError(error)
         ? rawMessage

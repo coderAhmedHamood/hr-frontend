@@ -3,7 +3,6 @@ import { publicConfig } from '@/shared/config';
 import { storefrontProductsRepository } from '@/features/ecommerce/storefront/lib/repositories/products-repository';
 import { storefrontCategoriesRepository } from '@/features/ecommerce/storefront/lib/repositories/categories-repository';
 import { storefrontBrandsRepository } from '@/features/ecommerce/storefront/lib/repositories/brands-repository';
-import { storefrontContentRepository } from '@/features/ecommerce/storefront/lib/repositories/content-repository';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
 import { localizedStorePath } from '@/features/ecommerce/storefront/lib/store-paths';
 import { routing, type StorefrontLocale } from '@/i18n/routing';
@@ -37,7 +36,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     '/store/about',
     '/store/contact',
     '/store/faq',
-    '/store/blog',
     '/store/legal/privacy',
     '/store/legal/terms',
     '/store/legal/returns',
@@ -51,11 +49,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }),
   );
 
-  const [products, categories, brands, blog] = await Promise.all([
+  const [products, categories, brands] = await Promise.all([
     storefrontProductsRepository.list({ companyId, locale, limit: 500 }),
     storefrontCategoriesRepository.list({ companyId, locale, limit: 500 }),
     storefrontBrandsRepository.list({ companyId, locale, limit: 500 }),
-    storefrontContentRepository.listBlogPosts(companyId, locale, { limit: 500 }),
   ]);
 
   const dynamicRoutes: MetadataRoute.Sitemap = [
@@ -76,13 +73,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...brands.items.flatMap((item) =>
       localizedEntries(`/store/brands/${item.slug}`, {
         lastModified: now,
-        changeFrequency: 'monthly',
-        priority: 0.5,
-      }),
-    ),
-    ...blog.items.flatMap((item) =>
-      localizedEntries(`/store/blog/${item.slug}`, {
-        lastModified: new Date(item.publishedAt),
         changeFrequency: 'monthly',
         priority: 0.5,
       }),
