@@ -1,6 +1,5 @@
 import type { Inventory, MediaItem, Money, StockStatus, ProductStatus } from '@/features/ecommerce/domain/types';
 import type {
-  CompanyCheckoutPaymentMethod,
   CompanyThemeColors,
   CompanyContactInfo,
 } from '@/features/ecommerce/storefront/domain/company-config';
@@ -154,9 +153,6 @@ export type StorefrontCompanyConfig = {
     scrolling: boolean;
     /** Duration of one full marquee loop in milliseconds. */
     speedMs: number;
-  };
-  checkout: {
-    paymentMethods: CompanyCheckoutPaymentMethod[];
   };
   storePages: {
     offers: boolean;

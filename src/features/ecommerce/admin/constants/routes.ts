@@ -50,7 +50,6 @@ export type EcommerceSettingsTab =
   | 'locations'
   | 'deliveryRates'
   | 'paymentAccounts'
-  | 'checkout'
   | 'seo';
 
 export function ecommerceContentHref(tab: EcommerceContentTab = 'pages'): string {

@@ -106,12 +106,6 @@ export function mapStorefrontCompanyConfig(
           .filter((item) => item.message.trim()),
       };
     })(),
-    checkout: {
-      paymentMethods:
-        record.checkout?.paymentMethods?.length > 0
-          ? [...record.checkout.paymentMethods]
-          : ['cash_on_delivery', 'card'],
-    },
     storePages,
     currency: record.currency,
     timezone: record.timezone,

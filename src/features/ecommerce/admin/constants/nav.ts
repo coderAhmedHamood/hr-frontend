@@ -24,7 +24,6 @@ import {
   Phone,
   Search,
   Share2,
-  Truck,
 } from 'lucide-react';
 import {
   ecommerceAdminRoutes,
@@ -169,7 +168,6 @@ export const ecommerceAdminNavGroups: EcommerceAdminNavGroup[] = [
             href: ecommerceSettingsHref('paymentAccounts'),
             icon: CreditCard,
           },
-          { labelKey: 'settingsTabs.checkout', href: ecommerceSettingsHref('checkout'), icon: Truck },
           { labelKey: 'settingsTabs.seo', href: ecommerceSettingsHref('seo'), icon: Search },
         ],
       },

@@ -6,13 +6,7 @@ import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  Banknote,
-  Building2,
-  CreditCard,
-  Landmark,
-  Network,
   Save,
-  Wallet,
 } from 'lucide-react';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
 import {
@@ -20,11 +14,9 @@ import {
   saveCmsCompanyRecord,
 } from '@/features/ecommerce/admin/cms/shared/cms-actions';
 import {
-  ALL_CHECKOUT_PAYMENT_METHODS,
   COMPANY_SOCIAL_NETWORKS,
   normalizeAnnouncementBar,
   normalizeSocialLinks,
-  type CompanyCheckoutPaymentMethod,
   type CompanyConfigRecord,
   type CompanySocialNetwork,
 } from '@/features/ecommerce/storefront/domain/company-config';
@@ -34,7 +26,6 @@ import { WebsiteColorsPanel } from '@/features/ecommerce/admin/cms/settings/comp
 import { DeliveryRatesPanel } from '@/features/ecommerce/admin/delivery-rates/components/delivery-rates-panel';
 import { PaymentAccountsPanel } from '@/features/ecommerce/admin/payment-accounts/components/payment-accounts-panel';
 import GeoLocationsPage from '@/features/system/organization/geo/components/geo-locations-page';
-import { PAYMENT_METHOD_LABELS_AR } from '@/features/ecommerce/domain/constants/order-status';
 
 import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
@@ -56,7 +47,6 @@ type SettingsTabValue =
   | 'locations'
   | 'deliveryRates'
   | 'paymentAccounts'
-  | 'checkout'
   | 'seo';
 
 const SETTINGS_TAB_VALUES: readonly SettingsTabValue[] = [
@@ -67,28 +57,15 @@ const SETTINGS_TAB_VALUES: readonly SettingsTabValue[] = [
   'locations',
   'deliveryRates',
   'paymentAccounts',
-  'checkout',
   'seo',
 ];
 
 function resolveSettingsTab(raw: string | null): SettingsTabValue {
+  if (raw === 'checkout') return 'paymentAccounts';
   return (SETTINGS_TAB_VALUES as readonly string[]).includes(raw ?? '')
     ? (raw as SettingsTabValue)
     : 'branding';
 }
-
-const PAYMENT_METHOD_ICONS: Record<
-  CompanyCheckoutPaymentMethod,
-  React.ComponentType<{ className?: string }>
-> = {
-  cash_on_delivery: Wallet,
-  cash: Banknote,
-  bank: Landmark,
-  network: Network,
-  wallet: Wallet,
-  card: CreditCard,
-  other: Building2,
-};
 
 const SETTINGS_QUERY_KEY = ['ecommerce-cms', 'company', 'settings'] as const;
 
@@ -100,14 +77,6 @@ function parseKeywords(raw: string): string[] {
     .split(/[,،\n]/)
     .map((keyword) => keyword.trim())
     .filter(Boolean);
-}
-
-function defaultCheckout(draft: CompanyConfigRecord) {
-  return (
-    draft.checkout ?? {
-      paymentMethods: ['cash_on_delivery', 'card'] as CompanyCheckoutPaymentMethod[],
-    }
-  );
 }
 
 function SettingsPanel({
@@ -312,8 +281,6 @@ export function WebsiteSettingsPage() {
         return { title: t('tabs.deliveryRates'), description: t('deliveryRatesHint') };
       case 'paymentAccounts':
         return { title: t('tabs.paymentAccounts'), description: t('paymentAccountsHint') };
-      case 'checkout':
-        return { title: t('tabs.checkout'), description: t('checkoutHint') };
       case 'seo':
         return { title: t('tabs.seo'), description: tSeo('formHint') };
     }
@@ -528,73 +495,6 @@ export function WebsiteSettingsPage() {
                 currencyCode={draft.currency}
                 onHeaderExtrasChange={setTabHeaderExtras}
               />
-            </SettingsPanel>
-          </TabsContent>
-
-          <TabsContent value="checkout" className="mt-4">
-            <SettingsPanel>
-              <div className="space-y-3">
-                <Label className="text-sm font-medium text-foreground">{t('paymentMethods')}</Label>
-                <p className="text-[11px] text-muted-foreground">{t('paymentMethodsHint')}</p>
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    {ALL_CHECKOUT_PAYMENT_METHODS.map((id) => {
-                      const Icon = PAYMENT_METHOD_ICONS[id];
-                      const label = PAYMENT_METHOD_LABELS_AR[id];
-                      const record = draft;
-                      const checked = (record.checkout?.paymentMethods ?? []).includes(id);
-                      function toggleMethod(nextChecked: boolean) {
-                        const current = record.checkout?.paymentMethods ?? [];
-                        const paymentMethods = nextChecked
-                          ? [...current.filter((method) => method !== id), id]
-                          : current.filter((method) => method !== id);
-                        updateDraft({
-                          ...record,
-                          checkout: {
-                            ...defaultCheckout(record),
-                            paymentMethods: paymentMethods.length > 0 ? paymentMethods : [id],
-                          },
-                        });
-                      }
-                      return (
-                        <div
-                          key={id}
-                          role="button"
-                          tabIndex={0}
-                          onClick={() => toggleMethod(!checked)}
-                          onKeyDown={(event) => {
-                            if (event.key === 'Enter' || event.key === ' ') {
-                              event.preventDefault();
-                              toggleMethod(!checked);
-                            }
-                          }}
-                          className={cn(
-                            'flex cursor-pointer items-center gap-3 rounded-2xl border px-4 py-3 text-start transition-colors',
-                            checked
-                              ? 'border-primary/40 bg-primary/5 ring-1 ring-primary/20'
-                              : 'border-border/70 bg-muted/10 hover:border-primary/25',
-                          )}
-                        >
-                          <span
-                            className={cn(
-                              'flex h-10 w-10 items-center justify-center rounded-xl',
-                              checked ? 'bg-primary text-primary-foreground' : 'bg-muted text-primary',
-                            )}
-                          >
-                            <Icon className="h-4 w-4" aria-hidden />
-                          </span>
-                          <span className="min-w-0 flex-1 text-sm font-medium text-foreground">
-                            {label}
-                          </span>
-                          <Switch
-                            checked={checked}
-                            onCheckedChange={toggleMethod}
-                            onClick={(event) => event.stopPropagation()}
-                          />
-                        </div>
-                      );
-                    })}
-                </div>
-              </div>
             </SettingsPanel>
           </TabsContent>
 

@@ -291,11 +291,6 @@ export const ALL_CHECKOUT_PAYMENT_METHODS: CompanyCheckoutPaymentMethod[] = [
   'other',
 ];
 
-/** Checkout payment methods edited in Website Settings. */
-export type CompanyCheckoutConfigRecord = {
-  paymentMethods: CompanyCheckoutPaymentMethod[];
-};
-
 /** Catalog storefront pages that can be shown/hidden in navigation. */
 export type CompanyStorePagesVisibility = {
   offers: boolean;
@@ -340,7 +335,6 @@ export type CompanyConfigRecord = {
   secondaryNavigation: CompanySecondaryNavItemRecord[];
   footer: CompanyFooterConfigRecord;
   announcement: CompanyAnnouncementBarRecord;
-  checkout: CompanyCheckoutConfigRecord;
   /** Show/hide offers & wholesale storefront pages in nav. */
   storePages: CompanyStorePagesVisibility;
   /** Bottom mobile tab bar (enabled items only shown on storefront). */

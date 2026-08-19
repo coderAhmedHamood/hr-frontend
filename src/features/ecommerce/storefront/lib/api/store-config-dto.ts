@@ -1,5 +1,4 @@
 import type {
-  CompanyCheckoutPaymentMethod,
   CompanyConfigRecord,
   CompanySocialNetwork,
 } from '@/features/ecommerce/storefront/domain/company-config';
@@ -51,7 +50,6 @@ export type StoreSettingsDto = {
   announcementDismissible: boolean;
   announcementScrolling: boolean;
   announcementSpeedMs: number;
-  checkoutPaymentMethods: CompanyCheckoutPaymentMethod[];
   storePageOffersEnabled: boolean;
   storePageWholesaleEnabled: boolean;
   defaultLocale: string;
@@ -209,12 +207,6 @@ export function mapStorefrontConfigDtoToRecord(dto: StorefrontConfigDto): Compan
           href: item.href ? asStoreHref(item.href) : null,
         })),
     }),
-    checkout: {
-      paymentMethods:
-        s.checkoutPaymentMethods?.length > 0
-          ? [...s.checkoutPaymentMethods]
-          : ['cash_on_delivery', 'card'],
-    },
     storePages: normalizeStorePagesVisibility({
       offers: s.storePageOffersEnabled,
       wholesale: s.storePageWholesaleEnabled,
@@ -266,7 +258,6 @@ export function mapRecordToUpdateSettingsDto(record: CompanyConfigRecord) {
     announcementDismissible: record.announcement.dismissible,
     announcementScrolling: record.announcement.scrolling !== false,
     announcementSpeedMs: record.announcement.speedMs,
-    checkoutPaymentMethods: record.checkout.paymentMethods,
     storePageOffersEnabled: record.storePages.offers,
     storePageWholesaleEnabled: record.storePages.wholesale,
     defaultLocale: record.defaultLocale,

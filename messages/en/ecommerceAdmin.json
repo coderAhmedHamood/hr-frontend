@@ -31,7 +31,6 @@
       "locations": "Locations",
       "deliveryRates": "Delivery rates",
       "paymentAccounts": "Payment accounts",
-      "checkout": "Checkout",
       "seo": "SEO"
     },
     "overview": "Overview",
@@ -451,12 +450,10 @@
     "studioHint": "Update branding, contact, locations, shipping, and SEO from one place. Save from the page header after editing.",
     "brandingHint": "Store name, logo, and favicon as visitors see them.",
     "contactHint": "Contact details and commercial registration shown in the store and footer.",
-    "checkoutHint": "Enable the payment methods shown at checkout. City/district shipping fees are managed under Delivery rates.",
     "locationsHint": "Activate seeded countries for this company, then add cities and districts under them. Storefront visibility follows country activation.",
     "locationsCheckoutNote": "Shipping destinations come from the Locations tab. Delivery rates by city/district are managed under Delivery rates.",
     "deliveryRatesHint": "Price shipping by city or district (or groups). At checkout, district rates win over city rates; otherwise the fee is zero.",
-    "paymentAccountsHint": "Bank, wallet, and network accounts shown at checkout. Enable matching payment methods under Shipping & payment.",
-    "paymentMethodsHint": "Enabled methods appear at checkout. For bank/network/wallet, create accounts under Payment accounts.",
+    "paymentAccountsHint": "Bank, wallet, and network accounts shown at checkout. An active account visible in the store appears as a payment method.",
     "colorsHint": "Colors and fonts control the public store look — buttons, links, accents, and typography. They never affect the admin dashboard.",
     "tabs": {
       "branding": "Branding",
@@ -467,7 +464,6 @@
       "locations": "Locations",
       "deliveryRates": "Delivery rates",
       "paymentAccounts": "Payment accounts",
-      "checkout": "Shipping & payment",
       "seo": "Search engines (SEO)"
     },
     "currency": "Store currency",
@@ -549,9 +545,6 @@
     "youtube": "YouTube",
     "snapchat": "Snapchat",
     "linkedin": "LinkedIn",
-    "paymentMethods": "Enabled payment methods",
-    "paymentCod": "Cash on delivery",
-    "paymentCard": "Card",
     "saveSuccess": "Settings saved.",
     "saveError": "Could not save settings.",
     "loadError": "Could not load settings."
