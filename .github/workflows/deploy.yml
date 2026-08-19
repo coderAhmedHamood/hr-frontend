@@ -1,0 +1,140 @@
+name: Build & Deploy Frontend to VPS
+
+# =====================================================================
+#  متى يشتغل هذا الملف (Trigger):
+#  1) أي Push مباشر إلى برانش "main-prod-amar" (برانش الإنتاج)
+#  2) عند دمج (merge) أي Pull Request من "main-dev-amar" داخل "main-prod-amar"
+#     (دمج الـ PR في GitHub هو تقنيًا "push" إلى البرانش الهدف،
+#      لذلك سطر "push -> branches: [main-prod-amar]" يغطي الحالتين معًا)
+#
+#  ينشر خدمة "web" وحدها على السيرفر، فلا يمسّ الباك اند إطلاقًا.
+# =====================================================================
+
+on:
+  push:
+    branches:
+      - main-prod-amar   # <-- غيّر اسم البرانش هنا إذا احتجت
+  workflow_dispatch:      # تشغيل يدوي من تبويب Actions عند الحاجة
+
+env:
+  REGISTRY: ghcr.io
+  # اسم الحزمة على GHCR. مستقل عن اسم الريبو عمدًا حتى لا يحمل بادئة hr-.
+  IMAGE_BASENAME: frontend
+  # مجلد ستاك المنصة على السيرفر (نفس مجلد الباك اند — ملف compose واحد).
+  APP_DIR: /root/Desktop/qutb-platform
+  # اسم الخدمة داخل docker-compose.yml التي يملكها هذا المستودع.
+  SERVICE: web
+
+  # ---- متغيرات تُخبز داخل الصورة وقت البناء ----
+  # Next.js يجمّد كل NEXT_PUBLIC_* داخل حزمة المتصفح أثناء `next build`،
+  # ويجمّد وجهة rewrites في routes-manifest. تغييرها يستلزم إعادة بناء.
+  #
+  # المتصفح ينادي /api-backend/* على نفس الأصل، وNext يمرّرها داخليًا
+  # إلى BACKEND_URL عبر شبكة Docker — لا CORS ولا خروج إلى الإنترنت.
+  NEXT_PUBLIC_API_URL: /api-backend
+  BACKEND_URL: http://app:3000
+  NEXT_PUBLIC_SITE_URL: https://qutb.tech
+  NEXT_PUBLIC_ENV: production
+
+jobs:
+  build-and-push:
+    name: Build & Push Docker Image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write   # مطلوب للسماح بالرفع إلى GHCR
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute image name (lowercase) and short SHA
+        id: vars
+        run: |
+          # أسماء صور Docker لا تقبل الأحرف الكبيرة، واسم المالك يحتوي عليها
+          owner=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')
+          echo "image=${REGISTRY}/${owner}/${IMAGE_BASENAME}" >> "$GITHUB_OUTPUT"
+          echo "sha_short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          build-args: |
+            NEXT_PUBLIC_API_URL=${{ env.NEXT_PUBLIC_API_URL }}
+            BACKEND_URL=${{ env.BACKEND_URL }}
+            NEXT_PUBLIC_SITE_URL=${{ env.NEXT_PUBLIC_SITE_URL }}
+            NEXT_PUBLIC_ENV=${{ env.NEXT_PUBLIC_ENV }}
+            NEXT_PUBLIC_APP_NAME=${{ vars.NEXT_PUBLIC_APP_NAME }}
+            NEXT_PUBLIC_HERE_API_KEY=${{ secrets.NEXT_PUBLIC_HERE_API_KEY }}
+            NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY }}
+          tags: |
+            ${{ steps.vars.outputs.image }}:latest
+            ${{ steps.vars.outputs.image }}:${{ steps.vars.outputs.sha_short }}
+          # يربط الحزمة بالمستودع صراحةً — لازم لأن اسمها لا يطابق اسم الريبو،
+          # وبدونه لا يملك GITHUB_TOKEN صلاحية سحبها عند النشر.
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: Deploy on VPS via SSH
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read   # يسمح لـ GITHUB_TOKEN بسحب الصورة الخاصة من GHCR
+
+    steps:
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          script: |
+            set -euo pipefail
+
+            # سجّل دخول السيرفر إلى GHCR لسحب الصورة (الحزمة Private).
+            # نستخدم GITHUB_TOKEN المؤقت الخاص بهذا التشغيل بدل PAT دائم:
+            # صلاحيته تنتهي مع انتهاء الـ job، فلا يبقى سر طويل العمر على السيرفر.
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+            cd "${{ env.APP_DIR }}" || {
+              echo "::error::مجلد النشر ${{ env.APP_DIR }} غير موجود على السيرفر"
+              exit 1
+            }
+
+            # خدمة هذا المستودع وحدها — الباك اند لا يُعاد تشغيله
+            docker compose pull ${{ env.SERVICE }}
+            docker compose up -d ${{ env.SERVICE }}
+
+            # انتظر جاهزية الواجهة
+            for i in $(seq 1 40); do
+              health=$(docker inspect -f '{{.State.Health.Status}}' frontend-web 2>/dev/null || echo starting)
+              [ "$health" = "healthy" ] && break
+              sleep 5
+            done
+            if [ "$health" != "healthy" ]; then
+              echo "::error::الواجهة لم تصل إلى حالة healthy"
+              docker compose logs ${{ env.SERVICE }} --tail 60
+              exit 1
+            fi
+
+            # نظّف الصور القديمة غير المستخدمة لتوفير المساحة
+            docker image prune -f
+
+            docker compose ps
