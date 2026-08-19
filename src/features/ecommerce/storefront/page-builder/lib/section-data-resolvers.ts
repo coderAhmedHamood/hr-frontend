@@ -192,7 +192,8 @@ const resolveBanner: SectionDataResolver<'banner'> = async (ctx, section) => {
     ...section,
     data: {
       imageUrl: imageUrl ?? '',
-      mobileImageUrl,
+      // Both sources can resolve to null; the resolved type allows neither.
+      mobileImageUrl: mobileImageUrl ?? '',
       alt: resolveLocalizedText(section.content.alt, ctx.locale),
       href: section.content.href,
       target: section.content.target,
