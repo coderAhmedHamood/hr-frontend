@@ -22,7 +22,7 @@ type CmsSectionDtoInput = {
 
 function readLocalizedField(
   record: Record<string, unknown>,
-  key: 'title' | 'subtitle',
+  key: 'title' | 'subtitle' | 'alt',
 ): LocalizableString | null {
   const nested = record[key];
   if (nested && typeof nested === 'object') {
@@ -200,5 +200,8 @@ export function normalizeCmsSectionDto(dto: CmsSectionDtoInput): SectionRecord {
     settings: settings as SectionRecord['settings'],
     style: normalizeSectionStyle(type, dto.style ?? {}),
     dataSource: normalizeDataSource(dto.dataSourceKind, dto.dataSource ?? {}, settings),
-  };
+    // `type` is only known at runtime, so the literal cannot line up with any one
+    // arm of the SectionRecord union; the per-field casts above already vouch for
+    // the payload. Narrowing happens downstream, once the discriminant is read.
+  } as SectionRecord;
 }

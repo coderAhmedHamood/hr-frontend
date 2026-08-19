@@ -604,7 +604,9 @@ export async function patchProductStoreCurrency(
       }));
     if (!snapshot?.id) return false;
 
-    const variants = 'variants' in snapshot ? snapshot.variants ?? [] : [];
+    // `in` narrowing widens variants to unknown here, because ProductDto has no
+    // such property; read it off the fuller type instead. Absent at runtime → [].
+    const variants: VariantDto[] = (snapshot as ProductFullDto).variants ?? [];
     const headerOk = !productNeedsStoreCurrency(snapshot);
     const variantsOk = variants.every((variant) => !variantNeedsStoreCurrency(variant));
     if (headerOk && variantsOk) return false;

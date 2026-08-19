@@ -48,7 +48,6 @@ function mapSectionStyle<T extends SectionRecord['style']>(style: T): T {
 }
 
 function mapSectionRecord(section: SectionRecord, locale: StorefrontLocale): NormalizedSection | null {
-  const style = mapSectionStyle(section.style);
   const base = {
     id: section.id,
     type: section.type,
@@ -64,7 +63,7 @@ function mapSectionRecord(section: SectionRecord, locale: StorefrontLocale): Nor
         heading: mapHeading(section.content, locale),
         content: section.content,
         settings: section.settings,
-        style,
+        style: mapSectionStyle(section.style),
         dataSource: section.dataSource,
       };
     case 'category-grid':
@@ -74,7 +73,7 @@ function mapSectionRecord(section: SectionRecord, locale: StorefrontLocale): Nor
         heading: mapHeading(section.content, locale),
         content: section.content,
         settings: section.settings,
-        style,
+        style: mapSectionStyle(section.style),
         dataSource: section.dataSource,
       };
     case 'product-carousel':
@@ -84,7 +83,7 @@ function mapSectionRecord(section: SectionRecord, locale: StorefrontLocale): Nor
         heading: mapHeading(section.content, locale),
         content: section.content,
         settings: section.settings,
-        style,
+        style: mapSectionStyle(section.style),
         dataSource: section.dataSource,
       };
     case 'flash-sale':
@@ -94,7 +93,7 @@ function mapSectionRecord(section: SectionRecord, locale: StorefrontLocale): Nor
         heading: mapHeading(section.content, locale),
         content: section.content,
         settings: section.settings,
-        style,
+        style: mapSectionStyle(section.style),
         dataSource: section.dataSource,
       };
     case 'features-grid':
@@ -104,7 +103,7 @@ function mapSectionRecord(section: SectionRecord, locale: StorefrontLocale): Nor
         heading: mapHeading(section.content, locale),
         content: section.content,
         settings: section.settings,
-        style,
+        style: mapSectionStyle(section.style),
         dataSource: section.dataSource,
       };
     case 'brand-slider':
@@ -114,7 +113,7 @@ function mapSectionRecord(section: SectionRecord, locale: StorefrontLocale): Nor
         heading: mapHeading(section.content, locale),
         content: section.content,
         settings: section.settings,
-        style,
+        style: mapSectionStyle(section.style),
         dataSource: section.dataSource,
       };
     case 'banner':
@@ -124,7 +123,7 @@ function mapSectionRecord(section: SectionRecord, locale: StorefrontLocale): Nor
         heading: { title: '', subtitle: '' },
         content: section.content,
         settings: section.settings,
-        style,
+        style: mapSectionStyle(section.style),
         dataSource: section.dataSource,
       };
     default:
