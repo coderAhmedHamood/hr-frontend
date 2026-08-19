@@ -5,6 +5,7 @@ build
 dist
 coverage
 .nyc_output
+*.tsbuildinfo
 
 .env
 .env.*
@@ -23,6 +24,8 @@ yarn-error.log*
 .vscode
 .idea
 .claude
+.github
+.husky
 
 README.md
 AUDIT_REPORT.md
@@ -31,4 +34,18 @@ SYSTEM_REFERENCE_AR.md
 
 Dockerfile
 docker-compose.yml
+docker-compose.*.yml
 .dockerignore
+
+# Tests / Jest — not used by `next build`; keep them out of layer cache
+**/__tests__
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.spec.tsx
+jest.config.ts
+jest.setup.ts
+
+.DS_Store
+Thumbs.db
+*.local
