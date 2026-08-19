@@ -28,6 +28,7 @@ export type CompanyAccess = {
   permissions: string[];
   deniedPermissions: string[];
   branches: BranchAccess[];
+  isCompanySuperuser?: boolean;
 };
 
 export type AccessProfile = {

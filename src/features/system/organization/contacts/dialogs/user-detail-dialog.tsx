@@ -26,6 +26,7 @@ import { UserPermissionsPanel } from '@/features/system/organization/contacts/co
 import { useUserDetailModel } from '@/features/system/organization/contacts/hooks/useUserDetailModel';
 import { useUserPermissionsModel } from '@/features/system/organization/contacts/hooks/useUserPermissionsModel';
 import { USER_TYPE_LABELS } from '@/features/system/organization/contacts/constants/users-directory';
+import { userIsLinkedToCompany } from '@/features/system/organization/contacts/hooks/useCompanySuperusers';
 import { cn, getInitials } from '@/shared/utils';
 import type { UserResponseDto } from '@/features/hr/organization/lib/api/users';
 import type { CompanyResponseDto } from '@/features/hr/organization/lib/api/companies';
@@ -47,6 +48,12 @@ type Props = {
   onOpenChange: (open: boolean) => void;
   onEdit: (row: UserResponseDto) => void;
   onUserUpdated?: (user: UserResponseDto) => void;
+  companyId?: string | null;
+  isCompanySuperuser?: boolean;
+  canMakeSuperuser?: boolean;
+  makingSuperuser?: boolean;
+  onMakeSuperuser?: (userId: string) => void;
+  onRevokeSuperuser?: (userId: string) => void;
 };
 
 function SidebarSkeleton() {
@@ -70,6 +77,12 @@ export function UserDetailDialog({
   onOpenChange,
   onEdit,
   onUserUpdated,
+  companyId = null,
+  isCompanySuperuser = false,
+  canMakeSuperuser = false,
+  makingSuperuser = false,
+  onMakeSuperuser,
+  onRevokeSuperuser,
 }: Props) {
   const [tab, setTab] = React.useState<DetailTab>('profile');
   const detail = useUserDetailModel(user?.id ?? null, { companies, branches }, onUserUpdated);
@@ -78,6 +91,20 @@ export function UserDetailDialog({
   const displayName = displayUser?.fullNameAr ?? displayUser?.email ?? 'المستخدم';
   const companyCount = displayUser?.companies.length ?? 0;
   const branchCount = displayUser?.branches.length ?? 0;
+  const showMakeSuperuser = Boolean(
+    displayUser
+    && canMakeSuperuser
+    && onMakeSuperuser
+    && companyId
+    && !isCompanySuperuser
+    && userIsLinkedToCompany(displayUser.companies, companyId),
+  );
+  const showRevokeSuperuser = Boolean(
+    displayUser
+    && canMakeSuperuser
+    && onRevokeSuperuser
+    && isCompanySuperuser,
+  );
 
   React.useEffect(() => {
     if (user) setTab('profile');
@@ -137,6 +164,9 @@ export function UserDetailDialog({
                         <ShieldCheck className="h-3 w-3" />
                         موثّق
                       </Badge>
+                    ) : null}
+                    {isCompanySuperuser ? (
+                      <Badge variant="gold" className="text-[10px]">Superuser</Badge>
                     ) : null}
                   </div>
                 </div>
@@ -200,7 +230,7 @@ export function UserDetailDialog({
           <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-visible">
             {displayUser ? (
               <>
-                <div className="flex shrink-0 items-center justify-between border-b border-border px-5 py-3 lg:hidden">
+                <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-5 py-3 lg:hidden">
                   <p className="text-sm font-medium text-muted-foreground">
                     {TABS.find((t) => t.id === tab)?.label}
                   </p>
@@ -225,6 +255,12 @@ export function UserDetailDialog({
                       onUserUpdated={() => {
                         void detail.reload();
                       }}
+                      isCompanySuperuser={isCompanySuperuser}
+                      showMakeSuperuser={showMakeSuperuser}
+                      showRevokeSuperuser={showRevokeSuperuser}
+                      makingSuperuser={makingSuperuser}
+                      onMakeSuperuser={() => onMakeSuperuser?.(displayUser.id)}
+                      onRevokeSuperuser={() => onRevokeSuperuser?.(displayUser.id)}
                     />
                   ) : null}
                   {tab === 'permissions' ? <UserPermissionsPanel model={permissionsModel} /> : null}

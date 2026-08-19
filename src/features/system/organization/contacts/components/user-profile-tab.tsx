@@ -8,9 +8,11 @@ import {
   KeyRound,
   LogIn,
   Phone,
+  Shield,
   StickyNote,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   USER_TYPE_LABELS,
 } from '@/features/system/organization/contacts/constants/users-directory';
@@ -21,6 +23,12 @@ import { UserMobileSerialPanel } from '@/features/system/organization/contacts/c
 type Props = {
   user: UserResponseDto;
   onUserUpdated?: (user: UserResponseDto) => void;
+  isCompanySuperuser?: boolean;
+  showMakeSuperuser?: boolean;
+  showRevokeSuperuser?: boolean;
+  makingSuperuser?: boolean;
+  onMakeSuperuser?: () => void;
+  onRevokeSuperuser?: () => void;
 };
 
 function StatCard({
@@ -102,7 +110,16 @@ function Section({
   );
 }
 
-export function UserProfileTab({ user, onUserUpdated }: Props) {
+export function UserProfileTab({
+  user,
+  onUserUpdated,
+  isCompanySuperuser = false,
+  showMakeSuperuser = false,
+  showRevokeSuperuser = false,
+  makingSuperuser = false,
+  onMakeSuperuser,
+  onRevokeSuperuser,
+}: Props) {
   const statusLabel = user.status ?? '—';
   const canSignInLabel = user.canSignIn ? 'مسموح' : 'غير مسموح';
 
@@ -132,6 +149,54 @@ export function UserProfileTab({ user, onUserUpdated }: Props) {
       </Section>
 
       <UserMobileSerialPanel user={user} onUpdated={onUserUpdated} />
+
+      {showMakeSuperuser || showRevokeSuperuser || isCompanySuperuser ? (
+        <section className="space-y-3">
+          <div className="text-right">
+            <h3 className="text-sm font-semibold">مدير الشركة (Superuser)</h3>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              صلاحيات كاملة على هذه الشركة دون تغيير نوع الحساب. يظهر الزر للمستخدم المربوط بالشركة.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/70 bg-card p-4 shadow-soft">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gold/15 text-gold">
+                <Shield className="h-4 w-4" />
+              </div>
+              <div>
+                <p className="text-sm font-medium">
+                  {isCompanySuperuser ? 'هذا المستخدم Superuser' : 'ليس Superuser'}
+                </p>
+                {isCompanySuperuser ? (
+                  <Badge variant="gold" className="mt-1 text-[10px]">Superuser</Badge>
+                ) : null}
+              </div>
+            </div>
+            {showMakeSuperuser ? (
+              <Button
+                variant="luxe"
+                size="sm"
+                className="h-9"
+                disabled={makingSuperuser}
+                onClick={onMakeSuperuser}
+              >
+                {makingSuperuser ? 'جاري التعيين…' : 'جعل Superuser'}
+              </Button>
+            ) : null}
+            {showRevokeSuperuser ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 text-destructive"
+                disabled={makingSuperuser}
+                onClick={onRevokeSuperuser}
+              >
+                {makingSuperuser ? 'جاري الإلغاء…' : 'إلغاء Superuser'}
+              </Button>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
 
       <Section title="الأمان والصلاحيات">
         <InfoItem

@@ -21,7 +21,14 @@ import { DirectoryPagedViews } from '@/components/ui/paged-list';
 import { USER_TYPE_LABELS } from '@/features/system/organization/contacts/hooks/useContactsDirectoryModel';
 import type { UserRecord, ContactsDirectoryModel } from '@/features/system/organization/contacts/hooks/useContactsDirectoryModel';
 
-type Props = { model: ContactsDirectoryModel };
+type Props = {
+  model: ContactsDirectoryModel;
+  superuserIds: Set<string>;
+};
+
+function SuperuserBadge() {
+  return <Badge variant="gold" className="w-fit text-[10px]">Superuser</Badge>;
+}
 
 function statusBadge(user: UserRecord) {
   if (!user.isActive) return <Badge variant="outline" className="text-[10px] border-destructive/40 text-destructive">غير نشط</Badge>;
@@ -49,7 +56,7 @@ function primaryBranchLabel(row: UserRecord, model: ContactsDirectoryModel) {
   return '—';
 }
 
-export function ContactsListViews({ model }: Props) {
+export function ContactsListViews({ model, superuserIds }: Props) {
   const { users, loading, pagination, listError, accessDenied, layoutView, setViewRow, openEdit, setConfirmId, formatDate, perms } = model;
 
   const columns = React.useMemo((): ColumnDef<UserRecord>[] => [
@@ -59,6 +66,7 @@ export function ContactsListViews({ model }: Props) {
       render: (row) => (
         <div className="flex flex-col gap-0.5">
           <span className="font-medium">{row.fullNameAr ?? row.email}</span>
+          {superuserIds.has(row.id) ? <SuperuserBadge /> : null}
         </div>
       ),
     },
@@ -112,7 +120,7 @@ export function ContactsListViews({ model }: Props) {
         />
       ),
     },
-  ], [formatDate, model, openEdit, perms.canDelete, perms.canUpdate, setConfirmId, setViewRow]);
+  ], [formatDate, model, openEdit, perms.canDelete, perms.canUpdate, setConfirmId, setViewRow, superuserIds]);
 
   if (accessDenied) {
     return <ForbiddenState />;
@@ -155,6 +163,7 @@ export function ContactsListViews({ model }: Props) {
               onOpen={() => setViewRow(row)}
               onEdit={() => openEdit(row)}
               onDelete={() => setConfirmId(row.id)}
+              isSuperuser={superuserIds.has(row.id)}
             />
           ))}
         </DirectoryGrid>
@@ -180,6 +189,7 @@ function UserGridCard({
   onOpen,
   onEdit,
   onDelete,
+  isSuperuser,
 }: {
   row: UserRecord;
   model: ContactsDirectoryModel;
@@ -188,14 +198,18 @@ function UserGridCard({
   onOpen: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  isSuperuser: boolean;
 }) {
   return (
     <DirectoryGridCard interactive onClick={onOpen}>
       <DirectoryGridCardHeader>
         <DirectoryGridCardTitle>{row.fullNameAr ?? row.email}</DirectoryGridCardTitle>
-        <Badge variant="secondary" className="shrink-0 text-[10px]">
-          {USER_TYPE_LABELS[row.userType ?? ''] ?? row.userType ?? '—'}
-        </Badge>
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          {isSuperuser ? <SuperuserBadge /> : null}
+          <Badge variant="secondary" className="text-[10px]">
+            {USER_TYPE_LABELS[row.userType ?? ''] ?? row.userType ?? '—'}
+          </Badge>
+        </div>
       </DirectoryGridCardHeader>
       <DirectoryGridCardMeta>
         <DirectoryGridCardMetaRow dir="ltr">

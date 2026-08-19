@@ -22,9 +22,13 @@ import {
 import { ContactsListViews } from '@/features/system/organization/contacts/components/contacts-list-views';
 import { UserDetailDialog } from '@/features/system/organization/contacts/dialogs/user-detail-dialog';
 import { ForbiddenState } from '@/components/shared/forbidden-state';
+import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
+import { useCompanySuperusers } from '@/features/system/organization/contacts/hooks/useCompanySuperusers';
 
 export default function ContactsPage() {
   const model = useContactsDirectoryModel();
+  const companyId = useDefaultCompanyId();
+  const superusers = useCompanySuperusers(companyId, model.perms.canRead);
 
   if (model.accessDenied) {
     return <ForbiddenState />;
@@ -32,7 +36,10 @@ export default function ContactsPage() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
-      <ContactsListViews model={model} />
+      <ContactsListViews
+        model={model}
+        superuserIds={superusers.activeIds}
+      />
 
       <HRSettingsFormDrawer
         open={model.drawerOpen}
@@ -132,6 +139,12 @@ export default function ContactsPage() {
         user={model.viewRow}
         companies={model.companies}
         branches={model.branches}
+        companyId={companyId}
+        isCompanySuperuser={!!model.viewRow && superusers.activeIds.has(model.viewRow.id)}
+        canMakeSuperuser={model.perms.canUpdate}
+        makingSuperuser={!!model.viewRow && superusers.pendingUserId === model.viewRow.id}
+        onMakeSuperuser={superusers.makeSuperuser}
+        onRevokeSuperuser={superusers.revokeSuperuser}
         onOpenChange={(open) => { if (!open) model.setViewRow(null); }}
         onEdit={model.openEdit}
         onUserUpdated={model.patchUserInList}
