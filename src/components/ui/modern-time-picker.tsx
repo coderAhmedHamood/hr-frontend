@@ -433,7 +433,7 @@ export default function ModernTimePicker({
                         transformOrigin: 'top center',
                     }}
                 >
-                    <div className="flex items-center justify-center gap-0.5 sm:gap-1 md:gap-1.5" dir="ltr">
+                    <div className="flex items-center justify-center gap-0.5 sm:gap-1 md:gap-1.5" dir="rtl">
                         <div className="flex flex-col items-center">
                             <button
                                 type="button"

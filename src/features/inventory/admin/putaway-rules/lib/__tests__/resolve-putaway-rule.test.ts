@@ -5,7 +5,7 @@ import {
 import type { PutawayRule } from '@/features/inventory/domain/types/putaway-rule';
 
 const base = {
-  companyId: 'demo-company',
+  companyId: '76e5bc4f-5adb-434d-a886-bcff05a9680b',
   warehouseId: 'wh-main',
   arriveLocationId: 'loc-vendors',
   storeLocationId: 'loc-stock',

@@ -3,13 +3,15 @@
 FROM node:20-alpine AS base
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
+ENV NEXT_TELEMETRY_DISABLED=1
 
-FROM base AS deps
-COPY package.json package-lock.json ./
-RUN npm ci
-
+# Install deps in the builder (no COPY of node_modules between stages).
+# Layer cache: this RUN is reused whenever package-lock.json is unchanged.
 FROM base AS builder
-COPY --from=deps /app/node_modules ./node_modules
+COPY package.json package-lock.json ./
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --no-audit --no-fund
+
 COPY . .
 
 ARG NEXT_PUBLIC_API_URL=/api-backend
@@ -23,8 +25,11 @@ ENV NEXT_PUBLIC_HERE_API_KEY=$NEXT_PUBLIC_HERE_API_KEY
 ENV NEXT_PUBLIC_APP_NAME=$NEXT_PUBLIC_APP_NAME
 ENV NEXT_PUBLIC_ENV=$NEXT_PUBLIC_ENV
 ENV BACKEND_URL=$BACKEND_URL
+ENV NODE_ENV=production
 
-RUN npm run build
+# Reuse Next.js compile cache across builds when only app code changes.
+RUN --mount=type=cache,target=/app/.next/cache \
+    npm run build
 
 FROM base AS runner
 ENV NODE_ENV=production

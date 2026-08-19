@@ -1,6 +1,5 @@
 import type {
   AboutPageContent,
-  BlogPost,
   ContactPageContent,
   FaqItem,
   LegalPageContent,
@@ -8,7 +7,6 @@ import type {
 } from '@/features/ecommerce/storefront/domain/content';
 import type {
   StorefrontAboutContent,
-  StorefrontBlogPost,
   StorefrontContactContent,
   StorefrontFaqItem,
   StorefrontLegalPage,
@@ -59,24 +57,6 @@ export function mapStorefrontLegal(page: LegalPageContent, locale: StorefrontLoc
     metaTitle: resolveLocalizedOptional(page.seo.metaTitle, locale) ?? title,
     metaDescription: resolveLocalizedOptional(page.seo.metaDescription, locale) ?? title,
     updatedAt: page.updatedAt,
-  };
-}
-
-export function mapStorefrontBlogPost(post: BlogPost, locale: StorefrontLocale): StorefrontBlogPost {
-  const title = resolveLocalizedText(post.title, locale);
-  const excerpt = resolveLocalizedText(post.excerpt, locale);
-  return {
-    id: post.id,
-    companyId: post.companyId,
-    slug: post.slug,
-    title,
-    excerpt,
-    body: resolveLocalizedText(post.body, locale),
-    coverImageUrl: post.coverImageUrl ?? null,
-    authorName: resolveLocalizedText(post.authorName, locale),
-    publishedAt: post.publishedAt,
-    metaTitle: resolveLocalizedOptional(post.seo.metaTitle, locale) ?? title,
-    metaDescription: resolveLocalizedOptional(post.seo.metaDescription, locale) ?? excerpt,
   };
 }
 

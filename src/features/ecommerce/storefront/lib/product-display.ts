@@ -13,27 +13,21 @@ export type ProductDisplayModel = {
   outOfStock: boolean;
   hasDeal: boolean;
   discountPercent: number | null;
-  /** Tag-driven promo chip (best-seller / deals / wholesale). */
-  promoBadge: 'best-seller' | 'deals' | 'wholesale' | null;
+  /** Flag-driven promo chip (with tag fallback). */
+  promoBadge: 'new' | 'best-seller' | 'deals' | 'wholesale' | 'discount' | null;
   sellingFast: boolean;
-  /** Deterministic mock social proof until catalog API provides ratings. */
-  rating: number;
+  /** From inventory `ratingAvg` / `reviewCount` — no mock fallback. */
+  rating: number | null;
   reviewCount: number;
 };
 
-function mockSocialProof(id: string): { rating: number; reviewCount: number } {
-  let hash = 0;
-  for (let index = 0; index < id.length; index += 1) {
-    hash = (hash + id.charCodeAt(index) * (index + 1)) % 997;
-  }
-  return {
-    rating: Math.round((3.8 + (hash % 12) / 10) * 10) / 10,
-    reviewCount: 40 + (hash % 2400),
-  };
-}
+function resolvePromoBadge(product: StorefrontProduct): ProductDisplayModel['promoBadge'] {
+  if (product.isTodayDealActive) return 'deals';
+  if (product.isWholesaleActive) return 'wholesale';
+  if (product.isDiscountActive) return 'discount';
+  if (product.isNewProductActive) return 'new';
 
-function resolvePromoBadge(tags: string[]): 'best-seller' | 'deals' | 'wholesale' | null {
-  const normalized = tags.map((tag) => tag.toLowerCase());
+  const normalized = product.tags.map((tag) => tag.toLowerCase());
   if (normalized.some((tag) => tag.includes('wholesale') || tag.includes('جملة'))) return 'wholesale';
   if (normalized.some((tag) => tag.includes('best'))) return 'best-seller';
   if (normalized.some((tag) => tag.includes('deal') || tag.includes('offer'))) return 'deals';
@@ -74,8 +68,9 @@ export function buildProductDisplay(product: StorefrontProduct): ProductDisplayM
   const discountPercent =
     hasDeal && product.compareAtPrice
       ? Math.round(((product.compareAtPrice.amount - product.price.amount) / product.compareAtPrice.amount) * 100)
-      : null;
-  const social = mockSocialProof(product.id);
+      : product.isDiscountActive && product.discountPercent != null
+        ? Math.round(product.discountPercent)
+        : null;
 
   return {
     imageUrl,
@@ -84,13 +79,157 @@ export function buildProductDisplay(product: StorefrontProduct): ProductDisplayM
     outOfStock,
     hasDeal,
     discountPercent,
-    promoBadge: resolvePromoBadge(product.tags),
+    promoBadge: resolvePromoBadge(product),
     sellingFast: isSellingFast(product),
-    rating: social.rating,
-    reviewCount: social.reviewCount,
+    rating: product.rating != null && product.rating > 0 ? product.rating : null,
+    reviewCount: Math.max(0, Math.floor(Number(product.reviewCount ?? 0) || 0)),
   };
 }
 
 export function hasProductDeal(product: StorefrontProduct): boolean {
   return Boolean(product.compareAtPrice && product.compareAtPrice.amount > product.price.amount);
+}
+
+export type StorefrontVariant = StorefrontProduct['variants'][number];
+
+const SOFT_MAX_QTY = 99;
+
+/**
+ * Real on-hand units when inventory is tracked; `null` when not tracked.
+ *
+ * When variants exist but none have allocated qty yet, stock usually still lives on the
+ * product (template). Fall back to product quantity so the store matches admin totals
+ * (e.g. product quantityCache 210 while every variant is still 0).
+ */
+export function getWarehouseOnHand(
+  product: StorefrontProduct,
+  variant?: StorefrontVariant | null,
+): number | null {
+  if (!product.inventory.trackInventory) return null;
+  if (!variant) {
+    return Math.max(0, Math.floor(product.inventory.quantity));
+  }
+  if (variant.quantity > 0) {
+    return Math.max(0, Math.floor(variant.quantity));
+  }
+  const anyVariantStocked = product.variants.some((row) => row.quantity > 0);
+  if (!anyVariantStocked) {
+    return Math.max(0, Math.floor(product.inventory.quantity));
+  }
+  return 0;
+}
+
+/** Hide warehouse count when not tracking, or when backorders are allowed. */
+export function shouldShowWarehouseStock(product: StorefrontProduct): boolean {
+  return product.inventory.trackInventory && !product.inventory.allowBackorder;
+}
+
+/**
+ * Max orderable qty.
+ * - No tracking → soft cap only
+ * - Backorder allowed → soft cap (sell despite 0)
+ * - Tracking → warehouse on-hand
+ */
+export function getOrderQuantityMax(
+  product: StorefrontProduct,
+  variant?: StorefrontVariant | null,
+): number {
+  if (!product.inventory.trackInventory) return SOFT_MAX_QTY;
+  if (product.inventory.allowBackorder) return SOFT_MAX_QTY;
+  return Math.min(SOFT_MAX_QTY, getWarehouseOnHand(product, variant) ?? 0);
+}
+
+/** @deprecated Prefer getWarehouseOnHand + getOrderQuantityMax */
+export function getAvailableOrderQuantity(
+  product: StorefrontProduct,
+  variant?: StorefrontVariant | null,
+): number | null {
+  if (!product.inventory.trackInventory) return null;
+  if (product.inventory.allowBackorder) return getOrderQuantityMax(product, variant);
+  return getWarehouseOnHand(product, variant);
+}
+
+export type PurchaseStockStatus = StorefrontProduct['stockStatus'];
+
+/** Align displayed status with warehouse + backorder rules. */
+export function resolvePurchaseStockStatus(
+  product: StorefrontProduct,
+  variant?: StorefrontVariant | null,
+): PurchaseStockStatus {
+  const raw = variant?.stockStatus ?? product.stockStatus;
+  if (raw === 'discontinued') return 'discontinued';
+
+  if (!product.inventory.trackInventory) {
+    return raw === 'preorder' ? 'preorder' : raw === 'out_of_stock' ? 'out_of_stock' : 'in_stock';
+  }
+
+  const onHand = getWarehouseOnHand(product, variant) ?? 0;
+
+  if (product.inventory.allowBackorder) {
+    return onHand > 0 ? 'in_stock' : 'preorder';
+  }
+
+  if (raw === 'preorder') return 'preorder';
+  if (onHand <= 0) return 'out_of_stock';
+  return raw === 'out_of_stock' ? 'out_of_stock' : 'in_stock';
+}
+
+export function canOrderQuantity(
+  product: StorefrontProduct,
+  variant?: StorefrontVariant | null,
+): boolean {
+  const status = resolvePurchaseStockStatus(product, variant);
+  if (status === 'discontinued') return false;
+  if (!product.inventory.trackInventory) {
+    return status === 'in_stock' || status === 'preorder';
+  }
+  if (product.inventory.allowBackorder) return true;
+  if (status === 'preorder') return true;
+  return getOrderQuantityMax(product, variant) > 0;
+}
+
+export type OrderBlockReason =
+  | 'variant_required'
+  | 'discontinued'
+  | 'out_of_stock'
+  | 'unavailable';
+
+export function getOrderBlockReason(
+  product: StorefrontProduct,
+  options?: {
+    variant?: StorefrontVariant | null;
+    requireVariant?: boolean;
+    hasActiveVariant?: boolean;
+  },
+): OrderBlockReason | null {
+  if (options?.requireVariant && !options.hasActiveVariant) return 'variant_required';
+  const status = resolvePurchaseStockStatus(product, options?.variant);
+  if (status === 'discontinued') return 'discontinued';
+  if (canOrderQuantity(product, options?.variant)) return null;
+  if (status === 'out_of_stock') return 'out_of_stock';
+  return 'unavailable';
+}
+
+export function resolveLineUnitPrice(
+  product: StorefrontProduct,
+  variant?: StorefrontVariant | null,
+): StorefrontProduct['price'] {
+  return variant?.price ?? product.price;
+}
+
+export function resolveLineCompareAtPrice(
+  product: StorefrontProduct,
+  unitPrice: StorefrontProduct['price'],
+): StorefrontProduct['compareAtPrice'] {
+  if (!product.compareAtPrice) return null;
+  if (product.compareAtPrice.amount > unitPrice.amount) return product.compareAtPrice;
+  return null;
+}
+
+export function resolveDiscountPercent(
+  unitPrice: StorefrontProduct['price'],
+  compareAt: StorefrontProduct['compareAtPrice'],
+): number | null {
+  if (!compareAt || compareAt.amount <= unitPrice.amount) return null;
+  return Math.round(((compareAt.amount - unitPrice.amount) / compareAt.amount) * 100);
 }

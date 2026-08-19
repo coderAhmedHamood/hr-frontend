@@ -6,6 +6,13 @@ import type { FieldDefinition } from '@/features/ecommerce/storefront/page-build
 import type { LocalizableString } from '@/features/ecommerce/storefront/domain/localizable';
 import type { DataSourceConfig } from '@/features/ecommerce/storefront/page-builder/domain/data-source';
 import { getValueAtPath, setValueAtPath } from '@/features/ecommerce/admin/cms/shared/object-path';
+import {
+  CategoryMultiPicker,
+  CategorySinglePicker,
+  ImagePicker,
+  ProductMultiPicker,
+  TagPicker,
+} from '@/features/ecommerce/admin/cms/homepage/components/section-entity-pickers';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -20,6 +27,14 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
+const DATA_SOURCE_KIND_LABELS: Record<string, { ar: string; en: string }> = {
+  manual: { ar: 'اختيار يدوي', en: 'Manual pick' },
+  category: { ar: 'من تصنيف', en: 'From category' },
+  tag: { ar: 'من وسم', en: 'From tag' },
+  collection: { ar: 'مجموعة جاهزة', en: 'Collection' },
+  query: { ar: 'استعلام / ترتيب', en: 'Query / sort' },
+  recommendation: { ar: 'توصيات', en: 'Recommendations' },
+};
 type SectionDraft = Record<string, unknown>;
 
 type Props = {
@@ -32,9 +47,9 @@ function resolveFieldLabel(label: LocalizableString, locale: string): string {
   return locale === 'en' ? label.en : label.ar;
 }
 
-function LocalizedPair({
+export function LocalizedPair({
   labelAr,
-  labelEn,
+  labelEn: _labelEn,
   value,
   onChange,
   multiline = false,
@@ -49,21 +64,15 @@ function LocalizedPair({
   const Field = multiline ? Textarea : Input;
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
-      <div className="space-y-1.5">
-        <Label>{labelAr}</Label>
-        <Field
-          value={current.ar}
-          onChange={(event) => onChange({ ...current, ar: event.target.value })}
-        />
-      </div>
-      <div className="space-y-1.5">
-        <Label>{labelEn}</Label>
-        <Field
-          value={current.en}
-          onChange={(event) => onChange({ ...current, en: event.target.value })}
-        />
-      </div>
+    <div className="space-y-1.5">
+      <Label>{labelAr}</Label>
+      <Field
+        value={current.ar}
+        onChange={(event) => {
+          const next = event.target.value;
+          onChange({ ar: next, en: next });
+        }}
+      />
     </div>
   );
 }
@@ -72,12 +81,16 @@ function DataSourceEditor({
   value,
   allowedKinds,
   onChange,
+  entityMode = 'products',
 }: {
   value: DataSourceConfig | undefined;
   allowedKinds: readonly string[];
   onChange: (next: DataSourceConfig) => void;
+  /** What manual/collection pickers select — products vs categories. */
+  entityMode?: 'products' | 'categories';
 }) {
   const t = useTranslations('ecommerceAdmin.homepage.fields');
+  const locale = useLocale();
   const kind = value?.kind ?? allowedKinds[0] ?? 'manual';
 
   function setKind(nextKind: string) {
@@ -86,13 +99,13 @@ function DataSourceEditor({
         onChange({ kind: 'manual', entityIds: [] });
         break;
       case 'category':
-        onChange({ kind: 'category', categoryId: crypto.randomUUID(), limit: 12 });
+        onChange({ kind: 'category', categoryId: '', limit: 12 });
         break;
       case 'tag':
         onChange({ kind: 'tag', tag: '', limit: 12 });
         break;
       case 'collection':
-        onChange({ kind: 'collection', collectionId: '', limit: 12 });
+        onChange({ kind: 'collection', collectionId: 'featured-categories', limit: 12 });
         break;
       case 'query':
         onChange({
@@ -102,6 +115,10 @@ function DataSourceEditor({
           limit: 10,
           categoryId: null,
           tag: null,
+          isNewProduct: null,
+          isTodayDeal: null,
+          isWholesale: null,
+          isDiscounted: null,
         });
         break;
       case 'recommendation':
@@ -112,8 +129,14 @@ function DataSourceEditor({
     }
   }
 
+  function kindLabel(item: string): string {
+    const entry = DATA_SOURCE_KIND_LABELS[item];
+    if (!entry) return item;
+    return locale === 'en' ? entry.en : entry.ar;
+  }
+
   return (
-    <div className="space-y-3 rounded-lg border border-border bg-muted/10 p-3">
+    <div className="space-y-3 rounded-xl border border-border bg-muted/10 p-3">
       <div className="space-y-1.5">
         <Label>{t('dataSourceKind')}</Label>
         <Select value={kind} onValueChange={setKind}>
@@ -123,7 +146,7 @@ function DataSourceEditor({
           <SelectContent>
             {allowedKinds.map((item) => (
               <SelectItem key={item} value={item}>
-                {item}
+                {kindLabel(item)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -132,19 +155,18 @@ function DataSourceEditor({
 
       {value?.kind === 'manual' ? (
         <div className="space-y-1.5">
-          <Label>{t('entityIds')}</Label>
-          <Textarea
-            value={value.entityIds.join(', ')}
-            onChange={(event) =>
-              onChange({
-                kind: 'manual',
-                entityIds: event.target.value
-                  .split(',')
-                  .map((part) => part.trim())
-                  .filter(Boolean),
-              })
-            }
-          />
+          <Label>{entityMode === 'categories' ? t('pickCategories') : t('pickProducts')}</Label>
+          {entityMode === 'categories' ? (
+            <CategoryMultiPicker
+              value={value.entityIds}
+              onChange={(entityIds) => onChange({ kind: 'manual', entityIds })}
+            />
+          ) : (
+            <ProductMultiPicker
+              value={value.entityIds}
+              onChange={(entityIds) => onChange({ kind: 'manual', entityIds })}
+            />
+          )}
         </div>
       ) : null}
 
@@ -152,12 +174,14 @@ function DataSourceEditor({
         <>
           <div className="space-y-1.5">
             <Label>{t('tag')}</Label>
-            <Input value={value.tag} onChange={(event) => onChange({ ...value, tag: event.target.value })} />
+            <TagPicker value={value.tag} onChange={(tag) => onChange({ ...value, tag })} />
           </div>
           <div className="space-y-1.5">
             <Label>{t('limit')}</Label>
             <Input
               type="number"
+              min={1}
+              max={48}
               value={value.limit}
               onChange={(event) => onChange({ ...value, limit: Number(event.target.value) || 1 })}
             />
@@ -169,15 +193,17 @@ function DataSourceEditor({
         <>
           <div className="space-y-1.5">
             <Label>{t('categoryId')}</Label>
-            <Input
-              value={value.categoryId}
-              onChange={(event) => onChange({ ...value, categoryId: event.target.value })}
+            <CategorySinglePicker
+              value={value.categoryId || null}
+              onChange={(categoryId) => onChange({ ...value, categoryId: categoryId ?? '' })}
             />
           </div>
           <div className="space-y-1.5">
             <Label>{t('limit')}</Label>
             <Input
               type="number"
+              min={1}
+              max={48}
               value={value.limit}
               onChange={(event) => onChange({ ...value, limit: Number(event.target.value) || 1 })}
             />
@@ -189,15 +215,29 @@ function DataSourceEditor({
         <>
           <div className="space-y-1.5">
             <Label>{t('collectionId')}</Label>
-            <Input
-              value={value.collectionId}
-              onChange={(event) => onChange({ ...value, collectionId: event.target.value })}
-            />
+            <Select
+              value={value.collectionId || 'featured-categories'}
+              onValueChange={(collectionId) => onChange({ ...value, collectionId })}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="featured-categories">
+                  {locale === 'en' ? 'Featured root categories' : 'الأقسام الرئيسية المميزة'}
+                </SelectItem>
+                <SelectItem value="all-categories">
+                  {locale === 'en' ? 'All active categories' : 'كل التصنيفات النشطة'}
+                </SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-1.5">
             <Label>{t('limit')}</Label>
             <Input
               type="number"
+              min={1}
+              max={48}
               value={value.limit}
               onChange={(event) => onChange({ ...value, limit: Number(event.target.value) || 1 })}
             />
@@ -207,52 +247,118 @@ function DataSourceEditor({
 
       {value?.kind === 'query' ? (
         <>
-          <div className="space-y-1.5">
-            <Label>{t('sort')}</Label>
-            <Select value={value.sort} onValueChange={(sort) => onChange({ ...value, sort: sort as typeof value.sort })}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {['createdAt', 'price', 'sales', 'name'].map((item) => (
-                  <SelectItem key={item} value={item}>
-                    {item}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1.5">
-            <Label>{t('sortDirection')}</Label>
-            <Select
-              value={value.sortDirection}
-              onValueChange={(sortDirection) =>
-                onChange({ ...value, sortDirection: sortDirection as typeof value.sortDirection })
-              }
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="asc">asc</SelectItem>
-                <SelectItem value="desc">desc</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label>{t('sort')}</Label>
+              <Select value={value.sort} onValueChange={(sort) => onChange({ ...value, sort: sort as typeof value.sort })}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="createdAt">{locale === 'en' ? 'Newest' : 'الأحدث'}</SelectItem>
+                  <SelectItem value="price">{locale === 'en' ? 'Price' : 'السعر'}</SelectItem>
+                  <SelectItem value="name">{locale === 'en' ? 'Name' : 'الاسم'}</SelectItem>
+                  <SelectItem value="sales">{locale === 'en' ? 'Sales' : 'المبيعات'}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>{t('sortDirection')}</Label>
+              <Select
+                value={value.sortDirection}
+                onValueChange={(sortDirection) =>
+                  onChange({ ...value, sortDirection: sortDirection as typeof value.sortDirection })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="desc">{locale === 'en' ? 'Descending' : 'تنازلي'}</SelectItem>
+                  <SelectItem value="asc">{locale === 'en' ? 'Ascending' : 'تصاعدي'}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <div className="space-y-1.5">
             <Label>{t('limit')}</Label>
             <Input
               type="number"
+              min={1}
+              max={48}
               value={value.limit}
               onChange={(event) => onChange({ ...value, limit: Number(event.target.value) || 1 })}
             />
           </div>
           <div className="space-y-1.5">
-            <Label>{t('tag')}</Label>
-            <Input
-              value={value.tag ?? ''}
-              onChange={(event) => onChange({ ...value, tag: event.target.value || null })}
+            <Label>{t('categoryId')}</Label>
+            <CategorySinglePicker
+              value={value.categoryId}
+              onChange={(categoryId) => onChange({ ...value, categoryId })}
+              placeholder={locale === 'en' ? 'Optional category filter' : 'تصنيف اختياري للفلترة'}
             />
+          </div>
+          <div className="space-y-1.5">
+            <Label>{t('tag')}</Label>
+            <TagPicker
+              value={value.tag ?? ''}
+              allowClear
+              onChange={(tag) => onChange({ ...value, tag: tag || null })}
+            />
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={value.isNewProduct === true}
+                onChange={(event) =>
+                  onChange({
+                    ...value,
+                    isNewProduct: event.target.checked ? true : null,
+                  })
+                }
+              />
+              {locale === 'en' ? 'New products only' : 'منتجات حديثة فقط'}
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={value.isTodayDeal === true}
+                onChange={(event) =>
+                  onChange({
+                    ...value,
+                    isTodayDeal: event.target.checked ? true : null,
+                  })
+                }
+              />
+              {locale === 'en' ? 'Today’s deals only' : 'تخفيضات اليوم فقط'}
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={value.isWholesale === true}
+                onChange={(event) =>
+                  onChange({
+                    ...value,
+                    isWholesale: event.target.checked ? true : null,
+                  })
+                }
+              />
+              {locale === 'en' ? 'Wholesale only' : 'أسعار جملة فقط'}
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={value.isDiscounted === true}
+                onChange={(event) =>
+                  onChange({
+                    ...value,
+                    isDiscounted: event.target.checked ? true : null,
+                  })
+                }
+              />
+              {locale === 'en' ? 'Discounted only' : 'خصومات فقط'}
+            </label>
           </div>
         </>
       ) : null}
@@ -307,6 +413,16 @@ export function SectionDefinitionFields({ fields, value, onChange }: Props) {
       metadata: [],
     };
     for (const field of fields) {
+      // Keep section editor focused: theme/layout/visibility/columns stay on defaults.
+      if (
+        field.key === 'viewAllHref' ||
+        field.control === 'theme' ||
+        field.control === 'layout' ||
+        field.control === 'visibility' ||
+        field.control === 'column-grid'
+      ) {
+        continue;
+      }
       groups[field.group].push(field);
     }
     return groups;
@@ -317,6 +433,16 @@ export function SectionDefinitionFields({ fields, value, onChange }: Props) {
   }
 
   function renderField(field: FieldDefinition) {
+    if (
+      field.key === 'viewAllHref' ||
+      field.control === 'theme' ||
+      field.control === 'layout' ||
+      field.control === 'visibility' ||
+      field.control === 'column-grid'
+    ) {
+      return null;
+    }
+
     const fieldValue = getValueAtPath(value, field.path);
     const label = resolveFieldLabel(field.label, locale);
 
@@ -324,8 +450,8 @@ export function SectionDefinitionFields({ fields, value, onChange }: Props) {
       return (
         <LocalizedPair
           key={field.key}
-          labelAr={`${label} (${tFields('localeAr')})`}
-          labelEn={`${label} (${tFields('localeEn')})`}
+          labelAr={label}
+          labelEn={label}
           value={fieldValue as LocalizableString | null | undefined}
           multiline={field.control === 'localized-textarea'}
           onChange={(next) => patch(field.path, next)}
@@ -355,17 +481,15 @@ export function SectionDefinitionFields({ fields, value, onChange }: Props) {
       );
     }
 
-    if (field.control === 'theme' || field.control === 'layout' || field.control === 'select' || field.control === 'link-target') {
+    if (field.control === 'select' || field.control === 'link-target') {
       const fromMeta =
         field.meta && 'options' in field.meta ? field.meta.options.map((option) => option.value) : [];
       const resolvedOptions =
         fromMeta.length > 0
           ? fromMeta
-          : field.control === 'theme'
-            ? ['light', 'dark', 'system']
-            : field.control === 'link-target'
-              ? ['_self', '_blank']
-              : [];
+          : field.control === 'link-target'
+            ? ['_self', '_blank']
+            : [];
 
       return (
         <div key={field.key} className="space-y-1.5">
@@ -389,45 +513,59 @@ export function SectionDefinitionFields({ fields, value, onChange }: Props) {
       );
     }
 
-    if (field.control === 'visibility') {
-      const visibility = (fieldValue as { mobile?: boolean; tablet?: boolean; desktop?: boolean }) ?? {
-        mobile: true,
-        tablet: true,
-        desktop: true,
-      };
-      return (
-        <div key={field.key} className="space-y-2 rounded-lg border border-border p-3">
-          <Label>{label}</Label>
-          {(
-            [
-              ['mobile', tFields('visibilityMobile')],
-              ['tablet', tFields('visibilityTablet')],
-              ['desktop', tFields('visibilityDesktop')],
-            ] as const
-          ).map(([key, deviceLabel]) => (
-            <div key={key} className="flex items-center justify-between gap-3">
-              <span className="text-sm text-muted-foreground">{deviceLabel}</span>
-              <Switch
-                checked={Boolean(visibility[key])}
-                onCheckedChange={(checked) => patch(field.path, { ...visibility, [key]: checked })}
-              />
-            </div>
-          ))}
-        </div>
-      );
-    }
-
     if (field.control === 'data-source') {
       const allowedKinds =
         field.meta && 'allowedKinds' in field.meta ? field.meta.allowedKinds : (['manual'] as const);
+      const entityMode =
+        allowedKinds.includes('category') ||
+        allowedKinds.includes('tag') ||
+        allowedKinds.includes('recommendation')
+          ? 'products'
+          : 'categories';
       return (
         <div key={field.key} className="space-y-1.5">
           <Label>{label}</Label>
           <DataSourceEditor
             value={fieldValue as DataSourceConfig | undefined}
             allowedKinds={allowedKinds}
+            entityMode={entityMode}
             onChange={(next) => patch(field.path, next)}
           />
+        </div>
+      );
+    }
+
+    if (field.control === 'newest-products-basic') {
+      const current = fieldValue as DataSourceConfig | undefined;
+      const limit = current && 'limit' in current ? current.limit : 10;
+      const tag = current && current.kind === 'query' ? current.tag ?? '' : '';
+
+      function patchQuery(next: { limit?: number; tag?: string }) {
+        patch(field.path, {
+          kind: 'query',
+          sort: 'createdAt',
+          sortDirection: 'desc',
+          categoryId: null,
+          limit: next.limit ?? limit,
+          tag: (next.tag ?? tag).trim() || null,
+        });
+      }
+
+      return (
+        <div key={field.key} className="space-y-3 rounded-lg border border-border bg-muted/10 p-3">
+          <Label>{label}</Label>
+          <div className="space-y-1.5">
+            <Label>{tFields('limit')}</Label>
+            <Input
+              type="number"
+              value={limit}
+              onChange={(event) => patchQuery({ limit: Number(event.target.value) || 1 })}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>{tFields('tag')}</Label>
+            <Input value={tag} onChange={(event) => patchQuery({ tag: event.target.value })} />
+          </div>
         </div>
       );
     }
@@ -448,8 +586,6 @@ export function SectionDefinitionFields({ fields, value, onChange }: Props) {
                   {
                     id: crypto.randomUUID(),
                     imageUrl: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=1400&q=80',
-                    alt: { ar: '', en: '' },
-                    title: { ar: '', en: '' },
                   },
                 ])
               }
@@ -472,46 +608,15 @@ export function SectionDefinitionFields({ fields, value, onChange }: Props) {
               </div>
               <div className="space-y-1.5">
                 <Label>{tFields('imageUrl')}</Label>
-                <Input
+                <ImagePicker
                   value={slide.imageUrl}
-                  onChange={(event) => {
+                  onChange={(url) => {
                     const next = [...slides];
-                    next[index] = { ...slide, imageUrl: event.target.value };
+                    next[index] = { ...slide, imageUrl: url ?? '' };
                     patch(field.path, next);
                   }}
                 />
               </div>
-              <div className="space-y-1.5">
-                <Label>{tFields('href')}</Label>
-                <Input
-                  value={slide.href ?? ''}
-                  onChange={(event) => {
-                    const next = [...slides];
-                    next[index] = { ...slide, href: event.target.value || undefined };
-                    patch(field.path, next);
-                  }}
-                />
-              </div>
-              <LocalizedPair
-                labelAr={tFields('titleAr')}
-                labelEn={tFields('titleEn')}
-                value={slide.title}
-                onChange={(title) => {
-                  const next = [...slides];
-                  next[index] = { ...slide, title: title ?? undefined };
-                  patch(field.path, next);
-                }}
-              />
-              <LocalizedPair
-                labelAr={tFields('altAr')}
-                labelEn={tFields('altEn')}
-                value={slide.alt}
-                onChange={(alt) => {
-                  const next = [...slides];
-                  next[index] = { ...slide, alt: alt ?? undefined };
-                  patch(field.path, next);
-                }}
-              />
             </div>
           ))}
         </div>
@@ -579,8 +684,8 @@ export function SectionDefinitionFields({ fields, value, onChange }: Props) {
                 </Select>
               </div>
               <LocalizedPair
-                labelAr={tFields('titleAr')}
-                labelEn={tFields('titleEn')}
+                labelAr={tFields('title')}
+                labelEn={tFields('title')}
                 value={feature.title}
                 onChange={(title) => {
                   const next = [...features];
@@ -589,8 +694,8 @@ export function SectionDefinitionFields({ fields, value, onChange }: Props) {
                 }}
               />
               <LocalizedPair
-                labelAr={tFields('descriptionAr')}
-                labelEn={tFields('descriptionEn')}
+                labelAr={tFields('description')}
+                labelEn={tFields('description')}
                 value={feature.description}
                 multiline
                 onChange={(description) => {
@@ -605,12 +710,23 @@ export function SectionDefinitionFields({ fields, value, onChange }: Props) {
       );
     }
 
+    if (field.control === 'image') {
+      return (
+        <div key={field.key} className="space-y-1.5">
+          <Label>{label}</Label>
+          <ImagePicker
+            value={fieldValue == null ? null : String(fieldValue)}
+            onChange={(url) => patch(field.path, url)}
+          />
+        </div>
+      );
+    }
+
     if (
       field.control === 'text' ||
       field.control === 'textarea' ||
       field.control === 'url' ||
       field.control === 'store-path' ||
-      field.control === 'image' ||
       field.control === 'datetime'
     ) {
       const Field = field.control === 'textarea' ? Textarea : Input;

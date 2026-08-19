@@ -35,5 +35,7 @@ export type AdminWarehouseOperationsPort = {
   getById(companyId: string, id: string): Promise<WarehouseOperation | null>;
   create(input: CreateWarehouseOperationInput): Promise<WarehouseOperation>;
   update(companyId: string, id: string, patch: UpdateWarehouseOperationInput): Promise<WarehouseOperation | null>;
+  /** Reverses ledger for a done op and returns status to ready. */
+  undo(companyId: string, id: string): Promise<WarehouseOperation>;
   remove(companyId: string, id: string): Promise<boolean>;
 };

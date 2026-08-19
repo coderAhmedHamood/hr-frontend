@@ -9,6 +9,7 @@ export const publicConfig = {
   apiUrl: process.env.NEXT_PUBLIC_API_URL?.trim() || '/api-backend',
   siteUrl: (process.env.NEXT_PUBLIC_SITE_URL ?? '').trim(),
   hereApiKey: (process.env.NEXT_PUBLIC_HERE_API_KEY ?? '').trim(),
+  googleMapsApiKey: (process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? '').trim(),
   appName: (process.env.NEXT_PUBLIC_APP_NAME ?? '').trim(),
   appEnv: (process.env.NEXT_PUBLIC_ENV ?? '').trim(),
 } as const;

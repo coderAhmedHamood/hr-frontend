@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useAuthStore } from '@/features/auth/lib/auth-store';
 import type { PermissionResponseDto } from '@/features/system/permissions/lib/api/permissions';
 import { permissionsByApplicationFromCatalog } from '@/features/system/permissions/lib/api/permission-response';
 import { loadPermissionsByApplication } from '@/features/system/permissions/services/permissions.service';
@@ -35,8 +36,9 @@ export function usePermissionsByApplication(
   );
   const hasEmbeddedCatalog = embeddedItems.length > 0;
 
+  const companyId = useAuthStore((s) => s.activeCompanyId);
   const query = useQuery({
-    queryKey: PERMISSIONS_KEYS.byApplication(applicationId),
+    queryKey: PERMISSIONS_KEYS.byApplication(applicationId, companyId),
     queryFn: () => loadPermissionsByApplication(applicationId!),
     staleTime: 60 * 1000,
     refetchOnMount: 'always',

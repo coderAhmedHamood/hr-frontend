@@ -6,6 +6,15 @@ function cookieFlags(): string {
   return `path=/; max-age=${MAX_AGE_SECONDS}; SameSite=Lax${secure}`;
 }
 
+function decodeCookieValue(raw: string): string {
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+}
+
+/** Browser-only cookie read (document.cookie). Prefer `resolveAccessToken` in shared API clients. */
 export function getAccessTokenFromCookie(): string | null {
   if (typeof document === 'undefined') return null;
 
@@ -19,10 +28,26 @@ export function getAccessTokenFromCookie(): string | null {
   const raw = match.slice(prefix.length);
   if (!raw) return null;
 
+  return decodeCookieValue(raw);
+}
+
+/**
+ * Access token for browser *or* Server Actions / RSC.
+ * Uses `document.cookie` on the client and `next/headers` cookies on the server.
+ */
+export async function resolveAccessToken(): Promise<string | null> {
+  if (typeof document !== 'undefined') {
+    return getAccessTokenFromCookie();
+  }
+
   try {
-    return decodeURIComponent(raw);
+    const { cookies } = await import('next/headers');
+    const store = await cookies();
+    const raw = store.get(ACCESS_TOKEN_COOKIE)?.value;
+    if (!raw) return null;
+    return decodeCookieValue(raw);
   } catch {
-    return raw;
+    return null;
   }
 }
 

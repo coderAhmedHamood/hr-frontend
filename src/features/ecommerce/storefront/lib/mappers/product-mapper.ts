@@ -3,6 +3,12 @@ import type { StorefrontProduct } from '@/features/ecommerce/storefront/domain/s
 import type { StorefrontLocale } from '@/i18n/routing';
 import { resolveLocalizedText, type LocalizableString } from '@/features/ecommerce/storefront/domain/localizable';
 import { cheapestActiveVariant } from '@/features/ecommerce/admin/products/lib/product-variants';
+import { resolveUploadUrl } from '@/shared/resolve-upload-url';
+import type { MediaItem } from '@/features/ecommerce/domain/types/common';
+
+function resolveMediaUrls(media: MediaItem[]): MediaItem[] {
+  return media.map((item) => ({ ...item, url: resolveUploadUrl(item.url) }));
+}
 
 type ProductRecord = Product & {
   name?: LocalizableString;
@@ -25,30 +31,84 @@ function resolveDescription(product: Product, locale: StorefrontLocale): string 
 }
 
 export function mapStorefrontProduct(product: Product, locale: StorefrontLocale): StorefrontProduct {
-  const primary = product.media.find((item) => item.isPrimary) ?? product.media[0] ?? null;
+  const resolvedMedia = resolveMediaUrls(product.media);
+  const primary = resolvedMedia.find((item) => item.isPrimary) ?? resolvedMedia[0] ?? null;
   const name = resolveName(product, locale);
-  const variants = (product.variants ?? [])
-    .filter((variant) => variant.isActive)
-    .map((variant) => ({
-      id: variant.id,
-      combinationKey: variant.combinationKey,
-      sku: variant.sku,
-      nameAr: variant.nameAr,
-      attributeValueIds: variant.attributeValueIds,
-      attributeLabels: variant.attributeLabels,
-      price: variant.salePrice,
-      quantity: variant.quantity,
-      stockStatus: variant.stockStatus,
-      isActive: variant.isActive,
-    }));
   const cheapest = cheapestActiveVariant(product.variants ?? []);
-  const displayPrice = cheapest?.salePrice ?? product.price;
-  const hasInStockVariant = variants.some((variant) => variant.stockStatus === 'in_stock');
+  const basePrice = cheapest?.salePrice ?? product.price;
+  const dealActive = Boolean(product.isTodayDealActive && product.dealPrice);
+  const discountActive =
+    Boolean(product.isDiscountActive) &&
+    product.discountPercent != null &&
+    product.discountPercent > 0 &&
+    product.discountPercent < 100;
+  const discountedBase =
+    discountActive && product.discountPercent
+      ? {
+          amount: Math.max(
+            0,
+            Math.round(basePrice.amount * (1 - product.discountPercent / 100) * 100) / 100,
+          ),
+          currency: basePrice.currency,
+        }
+      : null;
+  const displayPrice =
+    dealActive && product.dealPrice
+      ? product.dealPrice
+      : (discountedBase ?? basePrice);
+  const compareAtPrice =
+    dealActive && product.dealPrice
+      ? basePrice
+      : discountedBase
+        ? basePrice
+        : (product.compareAtPrice ?? null);
+  const mappedVariants = (product.variants ?? [])
+    .filter((variant) => variant.isActive)
+    .map((variant) => {
+      const variantDiscounted =
+        discountActive && product.discountPercent
+          ? {
+              amount: Math.max(
+                0,
+                Math.round(variant.salePrice.amount * (1 - product.discountPercent / 100) * 100) /
+                  100,
+              ),
+              currency: variant.salePrice.currency,
+            }
+          : null;
+      return {
+        id: variant.id,
+        combinationKey: variant.combinationKey,
+        sku: variant.sku,
+        nameAr: variant.nameAr,
+        description: variant.description,
+        imageUrl: variant.imageUrl ? resolveUploadUrl(variant.imageUrl) : variant.imageUrl,
+        images: variant.images ? resolveMediaUrls(variant.images) : variant.images,
+        attributeValueIds: variant.attributeValueIds,
+        attributeLabels: variant.attributeLabels,
+        price:
+          dealActive && product.dealPrice
+            ? product.dealPrice
+            : (variantDiscounted ?? variant.salePrice),
+        quantity: variant.quantity,
+        stockStatus: variant.stockStatus,
+        isActive: variant.isActive,
+      };
+    });
+
+  const variantQtySum = mappedVariants.reduce((sum, variant) => sum + variant.quantity, 0);
+  // Stock often stays on the template until posted per variant — keep product qty when
+  // variants exist but none have been allocated yet.
+  const inventoryQuantity =
+    mappedVariants.length > 0 && variantQtySum > 0
+      ? variantQtySum
+      : product.inventory.quantity;
+  const hasInStockVariant = mappedVariants.some((variant) => variant.stockStatus === 'in_stock');
   const stockStatus =
-    variants.length > 0
-      ? hasInStockVariant
+    mappedVariants.length > 0
+      ? inventoryQuantity > 0 || hasInStockVariant
         ? 'in_stock'
-        : variants.some((v) => v.stockStatus === 'preorder')
+        : mappedVariants.some((v) => v.stockStatus === 'preorder')
           ? 'preorder'
           : 'out_of_stock'
       : product.stockStatus;
@@ -66,19 +126,24 @@ export function mapStorefrontProduct(product: Product, locale: StorefrontLocale)
     stockStatus,
     inventory: {
       ...product.inventory,
-      quantity:
-        variants.length > 0
-          ? variants.reduce((sum, variant) => sum + variant.quantity, 0)
-          : product.inventory.quantity,
+      quantity: inventoryQuantity,
     },
     price: displayPrice,
-    compareAtPrice: product.compareAtPrice ?? null,
-    media: product.media,
+    compareAtPrice,
+    media: resolvedMedia,
     imageUrl: primary?.url ?? null,
     imageAlt: primary?.alt || name,
     tags: product.tags ?? [],
+    isNewProductActive: Boolean(product.isNewProductActive),
+    isTodayDealActive: Boolean(product.isTodayDealActive),
+    isWholesaleActive: Boolean(product.isWholesaleActive),
+    isDiscountActive: Boolean(product.isDiscountActive),
+    discountPercent: product.discountPercent ?? null,
+    wholesalePrice: product.wholesalePrice ?? null,
     metaTitle: product.seo.metaTitle || name,
     metaDescription: product.seo.metaDescription || resolveDescription(product, locale),
+    rating: product.rating ?? null,
+    reviewCount: product.reviewCount ?? 0,
     attributes: (product.attributes ?? [])
       .filter((attribute) => attribute.createVariant !== 'never')
       .map((attribute) => ({
@@ -89,10 +154,12 @@ export function mapStorefrontProduct(product: Product, locale: StorefrontLocale)
           id: value.id,
           nameAr: value.nameAr,
           colorHex: value.colorHex,
-          imageUrl: value.imageUrl,
+          imageUrl: value.imageUrl ? resolveUploadUrl(value.imageUrl) : value.imageUrl,
+          images: value.images ? resolveMediaUrls(value.images) : value.images,
+          description: value.description,
         })),
       })),
-    variants,
+    variants: mappedVariants,
   };
 }
 

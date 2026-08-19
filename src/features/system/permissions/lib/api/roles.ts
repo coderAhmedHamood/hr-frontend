@@ -13,6 +13,8 @@ export type RoleResponseDto = {
   status: string;
   companyId: string | null;
   applicationId: string | null;
+  /** Inventory roles: company-wide warehouse visibility. */
+  isAllBranches?: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -37,12 +39,14 @@ export type CreateRoleDto = {
   description?: string;
   companyId: string;
   applicationId?: string;
+  isAllBranches?: boolean;
 };
 
 export type UpdateRoleDto = {
   nameAr?: string;
   nameEn?: string;
   description?: string;
+  isAllBranches?: boolean;
 };
 
 export const rolesApi = {

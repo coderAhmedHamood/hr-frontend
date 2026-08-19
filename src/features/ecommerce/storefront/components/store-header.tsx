@@ -4,6 +4,7 @@ import type {
   StorefrontCategory,
   StorefrontCompanyConfig,
 } from '@/features/ecommerce/storefront/domain/storefront-models';
+import { StoreAnnouncementBar } from '@/features/ecommerce/storefront/components/store-announcement-bar';
 import { StoreHeaderInteractive } from '@/features/ecommerce/storefront/components/store-header-client';
 import { Link } from '@/i18n/navigation';
 
@@ -34,6 +35,7 @@ export function StoreHeader({ config, categories, brands }: StoreHeaderProps) {
 
   return (
     <header className="sticky top-0 z-50 m-0 p-0 shadow-soft">
+      <StoreAnnouncementBar announcement={config.announcement} />
       <StoreHeaderInteractive config={config} categories={categories} brands={brands} logo={logo} />
     </header>
   );

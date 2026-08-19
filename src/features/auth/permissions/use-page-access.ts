@@ -1,4 +1,5 @@
 import { useAuthStore } from '@/features/auth/lib/auth-store';
+import { companyIsSuperuser } from '@/features/auth/types/access-profile';
 
 /**
  * Page-level access gate: does the user hold this permission anywhere in the
@@ -17,6 +18,7 @@ export function usePageAccess(permissionCode: string): boolean {
 
   const company = accessProfile.companies.find((c) => c.companyId === activeCompanyId);
   if (!company) return false;
+  if (companyIsSuperuser(company)) return true;
 
   if (company.deniedPermissions.includes(permissionCode)) return false;
   if (company.permissions.includes(permissionCode)) return true;

@@ -14,15 +14,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 
 type Props = {
   open: boolean;
@@ -69,35 +60,6 @@ export function SectionEditDialog({ open, section, onOpenChange, onSave }: Props
         </DialogHeader>
 
         <div className="space-y-5 py-2">
-          <div className="grid gap-3 rounded-lg border border-border bg-muted/20 p-3 sm:grid-cols-2">
-            <div className="flex items-center justify-between gap-3">
-              <Label>{t('enabled')}</Label>
-              <Switch
-                checked={draft.enabled}
-                onCheckedChange={(enabled) => setDraft({ ...draft, enabled })}
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>{t('status')}</Label>
-              <Select
-                value={draft.status}
-                onValueChange={(status) =>
-                  setDraft({ ...draft, status: status as SectionRecord['status'] })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="draft">{t('statuses.draft')}</SelectItem>
-                  <SelectItem value="published">{t('statuses.published')}</SelectItem>
-                  <SelectItem value="archived">{t('statuses.archived')}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
           <SectionDefinitionFields
             fields={definition.fields}
             value={draft as unknown as Record<string, unknown>}

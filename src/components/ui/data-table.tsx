@@ -74,7 +74,12 @@ export function DataTable<T>({
     : cn('group transition-colors hover:bg-muted/20', onRowClick && 'cursor-pointer');
 
   const tableShell = (
-    <div className={cn(alwaysShowTable ? 'min-w-0' : 'hidden min-w-0 md:block')}>
+    <div
+      className={cn(
+        'rounded-xl border border-border bg-card shadow-soft',
+        alwaysShowTable ? 'min-w-0' : 'hidden min-w-0 md:block',
+      )}
+    >
       <table className={cn('w-full text-sm', tableClassName)}>
         <thead>
           <tr className={headerRowClass}>
@@ -120,15 +125,18 @@ export function DataTable<T>({
   );
 
   return (
-    <div className={cn('min-w-0 rounded-xl border border-border bg-card shadow-soft', className)}>
+    <div className={cn('min-w-0', className)}>
       {tableShell}
 
       {!alwaysShowTable && (
-        <div className="divide-y divide-border/40 md:hidden">
+        <div className="space-y-2.5 md:hidden">
           {data.map((row, i) => (
             <div
               key={keyExtractor(row)}
-              className={cn('p-4', onRowClick && 'cursor-pointer')}
+              className={cn(
+                'rounded-xl border border-border bg-card p-3 shadow-soft transition-shadow',
+                onRowClick && 'cursor-pointer hover:shadow-elevated',
+              )}
               onClick={() => onRowClick?.(row)}
             >
               {mobileCard ? mobileCard(row) : (
@@ -143,7 +151,7 @@ export function DataTable<T>({
                   ))}
                   {columns.some(c => c.isActions) ? (
                     <div
-                      className="flex justify-end gap-1 pt-1"
+                      className="flex justify-start gap-1 pt-1"
                       onClick={(e) => e.stopPropagation()}
                     >
                       {columns.filter(c => c.isActions).map(col => (
@@ -173,7 +181,7 @@ interface PaginationProps {
 
 export function AppPagination({
   page, pageSize, total, onPageChange, onPageSizeChange,
-  pageSizeOptions = [10, 20, 50],
+  pageSizeOptions = [10, 20, 30, 50],
 }: PaginationProps) {
   const totalPages = Math.ceil(total / pageSize);
 

@@ -39,6 +39,32 @@ export function useProductMutations() {
     },
   });
 
+  /** Saves attributes + variants matrix only via PATCH …/full. */
+  const saveAttributesVariants = useMutation({
+    mutationFn: ({
+      companyId,
+      id,
+      patch,
+    }: {
+      companyId: string;
+      id: string;
+      patch: Pick<UpdateProductInput, 'attributes' | 'variants'>;
+    }) => productsApi.update(companyId, id, patch),
+    onSuccess: (data, variables) => {
+      invalidateProducts(variables.companyId);
+      const count = data?.variants?.length ?? 0;
+      toast.success(
+        count > 0
+          ? `تم إضافة / حفظ ${count} متغير في قاعدة البيانات`
+          : 'تم حفظ الخصائص (لا توجد متغيرات)',
+      );
+    },
+    onError: (err) => {
+      const { displayMessage } = handleApiError(err, 'ecommerce.products.saveVariants');
+      toast.error(displayMessage);
+    },
+  });
+
   const remove = useMutation({
     mutationFn: ({ companyId, id }: { companyId: string; id: string }) => productsApi.remove(companyId, id),
     onSuccess: (_data, variables) => {
@@ -51,5 +77,5 @@ export function useProductMutations() {
     },
   });
 
-  return { create, update, remove };
+  return { create, update, saveAttributesVariants, remove };
 }

@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useAuthStore } from '@/features/auth/lib/auth-store';
 import type { PermissionResponseDto } from '@/features/system/permissions/lib/api/permissions';
 import { loadAllPermissions } from '@/features/system/permissions/services/permissions.service';
 import { PERMISSIONS_KEYS } from '@/features/system/permissions/hooks/query-keys';
@@ -60,8 +61,9 @@ export function scopeToHrApplication(all: PermissionResponseDto[], applicationId
 
 /** Fetches GET /permissions — returns the full catalog (all applications). */
 export function usePermissions(hrApplicationId?: string, queryEnabled = true) {
+  const companyId = useAuthStore((s) => s.activeCompanyId);
   const query = useQuery({
-    queryKey: PERMISSIONS_KEYS.allPages,
+    queryKey: PERMISSIONS_KEYS.allPages(companyId),
     queryFn: loadAllPermissions,
     staleTime: 60 * 1000,
     refetchOnMount: 'always',

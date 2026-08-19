@@ -1,20 +1,44 @@
-import type { StorefrontCategory } from '@/features/ecommerce/storefront/domain/storefront-models';
+'use client';
+
+import { usePathname } from 'next/navigation';
+import type {
+  StorefrontCategory,
+  StorefrontCompanyConfig,
+} from '@/features/ecommerce/storefront/domain/storefront-models';
 import { buildCategoryTree } from '@/features/ecommerce/storefront/utils/category-tree';
-import { getTranslations } from 'next-intl/server';
+import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
 import { cn } from '@/shared/utils';
 
-export async function StorePlpSidebar({
+export function StorePlpSidebar({
   categories,
+  secondaryNavigation,
+  storePages,
   activeCategorySlug,
   activeTag,
 }: {
   categories: StorefrontCategory[];
+  secondaryNavigation?: StorefrontCompanyConfig['secondaryNavigation'];
+  storePages?: StorefrontCompanyConfig['storePages'];
   activeCategorySlug?: string;
   activeTag?: string;
 }) {
-  const t = await getTranslations('storefront');
+  const t = useTranslations('storefront');
+  const pathname = usePathname();
   const { roots, childrenByParent } = buildCategoryTree(categories);
+  const showOffers = storePages?.offers !== false;
+  const showWholesale = storePages?.wholesale !== false;
+  const shortcuts =
+    secondaryNavigation && secondaryNavigation.length > 0
+      ? secondaryNavigation
+      : [
+          ...(showOffers
+            ? [{ label: t('offers.title'), href: '/store/offers' as const }]
+            : []),
+          ...(showWholesale
+            ? [{ label: t('wholesale.title'), href: '/store/wholesale' as const }]
+            : []),
+        ];
 
   return (
     <aside className="hidden w-56 shrink-0 lg:block">
@@ -27,14 +51,18 @@ export async function StorePlpSidebar({
               prefetch={false}
               className={cn(
                 'rounded-md px-3 py-2 text-sm transition-colors',
-                !activeCategorySlug && !activeTag ? 'bg-primary/10 font-medium text-primary' : 'text-muted-foreground hover:bg-accent',
+                !activeCategorySlug && !activeTag
+                  ? 'bg-primary/10 font-medium text-primary'
+                  : 'text-muted-foreground hover:bg-accent',
               )}
             >
               {t('products.all')}
             </Link>
             {roots.map((root) => {
               const subs = childrenByParent[root.id] ?? [];
-              const isActive = activeCategorySlug === root.slug || subs.some((s) => s.slug === activeCategorySlug);
+              const isActive =
+                activeCategorySlug === root.slug ||
+                subs.some((s) => s.slug === activeCategorySlug);
               return (
                 <div key={root.id}>
                   <Link
@@ -42,7 +70,9 @@ export async function StorePlpSidebar({
                     prefetch={false}
                     className={cn(
                       'block rounded-md px-3 py-2 text-sm transition-colors',
-                      isActive ? 'bg-primary/10 font-medium text-primary' : 'text-muted-foreground hover:bg-accent',
+                      isActive
+                        ? 'bg-primary/10 font-medium text-primary'
+                        : 'text-muted-foreground hover:bg-accent',
                     )}
                   >
                     {root.name}
@@ -56,7 +86,9 @@ export async function StorePlpSidebar({
                           prefetch={false}
                           className={cn(
                             'rounded-md px-2 py-1.5 text-xs transition-colors',
-                            activeCategorySlug === sub.slug ? 'font-medium text-primary' : 'text-muted-foreground hover:text-foreground',
+                            activeCategorySlug === sub.slug
+                              ? 'font-medium text-primary'
+                              : 'text-muted-foreground hover:text-foreground',
                           )}
                         >
                           {sub.name}
@@ -70,29 +102,32 @@ export async function StorePlpSidebar({
           </nav>
         </div>
 
-        <div className="flex flex-col gap-1">
-          <h3 className="mb-1 text-sm font-semibold text-foreground">{t('nav.offersZone')}</h3>
-          <Link
-            href="/store/offers"
-            prefetch={false}
-            className={cn(
-              'block rounded-md px-3 py-2 text-sm transition-colors',
-              activeTag === 'deals' ? 'bg-primary/10 font-medium text-primary' : 'text-muted-foreground hover:bg-accent',
-            )}
-          >
-            {t('offers.title')}
-          </Link>
-          <Link
-            href="/store/wholesale"
-            prefetch={false}
-            className={cn(
-              'block rounded-md px-3 py-2 text-sm transition-colors',
-              activeTag === 'wholesale' ? 'bg-primary/10 font-medium text-primary' : 'text-muted-foreground hover:bg-accent',
-            )}
-          >
-            {t('wholesale.title')}
-          </Link>
-        </div>
+        {shortcuts.length > 0 ? (
+          <div className="flex flex-col gap-1">
+            <h3 className="mb-1 text-sm font-semibold text-foreground">{t('nav.offersZone')}</h3>
+            {shortcuts.map((item) => {
+              const active =
+                pathname.includes(item.href) ||
+                (item.href.includes('offers') && pathname.includes('/store/offers')) ||
+                (item.href.includes('wholesale') && pathname.includes('/store/wholesale'));
+              return (
+                <Link
+                  key={`${item.href}-${item.label}`}
+                  href={item.href}
+                  prefetch={false}
+                  className={cn(
+                    'block rounded-md px-3 py-2 text-sm transition-colors',
+                    active
+                      ? 'bg-primary/10 font-medium text-primary'
+                      : 'text-muted-foreground hover:bg-accent',
+                  )}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
+          </div>
+        ) : null}
       </div>
     </aside>
   );

@@ -2,7 +2,6 @@
 
 import { useTranslations } from 'next-intl';
 import type { ContactPageContent } from '@/features/ecommerce/storefront/domain/content';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -12,95 +11,78 @@ type Props = {
   onChange: (contact: ContactPageContent) => void;
 };
 
+function withMirroredEn(ar: string) {
+  return { ar, en: ar };
+}
+
+const FIELD =
+  'h-11 min-h-11 w-full rounded-xl border-input bg-background px-3.5 text-sm';
+
+/** Arabic-only contact form for the pages studio editor. */
 export function CmsContactTab({ contact, onChange }: Props) {
   const t = useTranslations('ecommerceAdmin.cmsPages');
 
   return (
-    <Card>
-      <CardHeader className="border-b border-border/60 pb-4">
-        <CardTitle className="text-base">{t('contact')}</CardTitle>
-      </CardHeader>
-      <CardContent className="grid gap-4 pt-6 sm:grid-cols-2">
-        <div className="space-y-1.5">
-          <Label>{t('headlineAr')}</Label>
+    <div className="mx-auto grid max-w-3xl gap-5">
+      <div className="space-y-5 rounded-2xl border border-border/60 bg-muted/10 p-4 sm:p-5">
+        <div>
+          <h3 className="text-sm font-semibold text-foreground">{t('studioBasics')}</h3>
+          <p className="mt-0.5 text-xs text-muted-foreground">{t('studioBasicsHint')}</p>
+        </div>
+        <div className="space-y-2">
+          <Label>{t('headline')}</Label>
           <Input
+            className={FIELD}
             value={contact.headline.ar}
             onChange={(event) =>
-              onChange({
-                ...contact,
-                headline: { ...contact.headline, ar: event.target.value },
-              })
+              onChange({ ...contact, headline: withMirroredEn(event.target.value) })
             }
           />
         </div>
-        <div className="space-y-1.5">
-          <Label>{t('headlineEn')}</Label>
-          <Input
-            value={contact.headline.en}
-            onChange={(event) =>
-              onChange({
-                ...contact,
-                headline: { ...contact.headline, en: event.target.value },
-              })
-            }
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label>{t('introAr')}</Label>
+        <div className="space-y-2">
+          <Label>{t('intro')}</Label>
           <Textarea
+            rows={5}
+            className="rounded-xl"
             value={contact.intro.ar}
             onChange={(event) =>
-              onChange({
-                ...contact,
-                intro: { ...contact.intro, ar: event.target.value },
-              })
+              onChange({ ...contact, intro: withMirroredEn(event.target.value) })
             }
           />
         </div>
-        <div className="space-y-1.5">
-          <Label>{t('introEn')}</Label>
-          <Textarea
-            value={contact.intro.en}
-            onChange={(event) =>
-              onChange({
-                ...contact,
-                intro: { ...contact.intro, en: event.target.value },
-              })
-            }
-          />
+      </div>
+
+      <div className="space-y-5 rounded-2xl border border-border/60 bg-muted/10 p-4 sm:p-5">
+        <div>
+          <h3 className="text-sm font-semibold text-foreground">{t('studioContactDetails')}</h3>
+          <p className="mt-0.5 text-xs text-muted-foreground">{t('studioContactDetailsHint')}</p>
         </div>
-        <div className="space-y-1.5">
-          <Label>{t('hoursAr')}</Label>
-          <Input
-            value={contact.hours?.ar ?? ''}
-            onChange={(event) =>
-              onChange({
-                ...contact,
-                hours: { ar: event.target.value, en: contact.hours?.en ?? '' },
-              })
-            }
-          />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2 sm:col-span-2">
+            <Label>{t('hours')}</Label>
+            <Input
+              className={FIELD}
+              value={contact.hours?.ar ?? ''}
+              onChange={(event) =>
+                onChange({ ...contact, hours: withMirroredEn(event.target.value) })
+              }
+            />
+          </div>
+          <div className="space-y-2 sm:col-span-2">
+            <Label>{t('mapEmbedUrl')}</Label>
+            <Input
+              dir="ltr"
+              className={cnField()}
+              value={contact.mapEmbedUrl ?? ''}
+              onChange={(event) => onChange({ ...contact, mapEmbedUrl: event.target.value })}
+            />
+          </div>
         </div>
-        <div className="space-y-1.5">
-          <Label>{t('hoursEn')}</Label>
-          <Input
-            value={contact.hours?.en ?? ''}
-            onChange={(event) =>
-              onChange({
-                ...contact,
-                hours: { ar: contact.hours?.ar ?? '', en: event.target.value },
-              })
-            }
-          />
-        </div>
-        <div className="space-y-1.5 border-t border-border/60 pt-4 sm:col-span-2">
-          <Label>{t('mapEmbedUrl')}</Label>
-          <Input
-            value={contact.mapEmbedUrl ?? ''}
-            onChange={(event) => onChange({ ...contact, mapEmbedUrl: event.target.value })}
-          />
-        </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
+}
+
+function cnField() {
+  return `${FIELD} font-mono text-sm`;
 }

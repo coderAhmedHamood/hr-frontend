@@ -15,6 +15,7 @@ import {
   ShoppingCart,
   SlidersHorizontal,
   Truck,
+  Warehouse as WarehouseIcon,
 } from 'lucide-react';
 import { getInventoryCompanyId } from '@/features/inventory/lib/company-id';
 import { useWarehouse } from '@/features/inventory/admin/warehouses/hooks/use-warehouses';
@@ -26,7 +27,6 @@ import {
   WAREHOUSE_OPERATION_KIND_META,
 } from '@/features/inventory/domain/constants/warehouse-operation-kinds';
 import type { WarehouseOperationKind } from '@/features/inventory/domain/types/warehouse';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/shared/utils';
 
@@ -80,33 +80,52 @@ export function WarehouseDetailPage() {
     <div className="flex flex-col gap-5">
       <SetPageTitle titleAr={warehouse.nameAr} iconName="Warehouse" />
 
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="rounded-xl border border-border bg-card px-3 py-2 text-sm text-muted-foreground shadow-soft">
-          <span className="font-medium text-foreground" dir="ltr">
-            {warehouse.code}
+      <div className="flex flex-col gap-4 rounded-2xl bg-linear-to-br from-primary to-primary-700 p-4 text-primary-foreground shadow-elevated sm:flex-row sm:items-center sm:justify-between sm:p-5">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/15">
+            <WarehouseIcon className="h-6 w-6" />
           </span>
-          {warehouse.address ? <span className="mx-2">·</span> : null}
-          {warehouse.address}
+          <div className="flex min-w-0 flex-col gap-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="truncate font-display text-base font-bold leading-tight">{warehouse.nameAr}</span>
+              <span
+                className={cn(
+                  'shrink-0 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold',
+                  warehouse.status === 'active'
+                    ? 'border-emerald-300/30 bg-emerald-400/20 text-emerald-50'
+                    : 'border-white/15 bg-white/10 text-white/75',
+                )}
+              >
+                {warehouse.status === 'active' ? 'نشط' : 'غير نشط'}
+              </span>
+            </div>
+            <span className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-white/80">
+              <span dir="ltr" className="font-semibold">{warehouse.code}</span>
+              {warehouse.address ? <span className="truncate">· {warehouse.address}</span> : null}
+            </span>
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Badge variant={warehouse.status === 'active' ? 'success' : 'subtle'}>
-            {warehouse.status === 'active' ? 'نشط' : 'غير نشط'}
-          </Badge>
           <Button
-            variant="outline"
+            variant="secondary"
+            className="bg-white/15 text-white hover:bg-white/25"
             onClick={() => router.push(inventoryAdminRoutes.locationsForWarehouse(warehouseId))}
           >
             <MapPin className="h-4 w-4" />
             المواقع
           </Button>
-          <Button variant="outline" onClick={() => router.push(inventoryAdminRoutes.warehouses)}>
+          <Button
+            variant="secondary"
+            className="bg-white/15 text-white hover:bg-white/25"
+            onClick={() => router.push(inventoryAdminRoutes.warehouses)}
+          >
             <ArrowRight className="h-4 w-4" />
             كل المستودعات
           </Button>
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-1 border-b border-border pb-px">
+      <div className="inv-tabs-scroll">
         {WAREHOUSE_DETAIL_TAB_KINDS.map((kind) => {
           const Icon = TAB_ICONS[kind];
           const selected = activeTab === kind;

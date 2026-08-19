@@ -25,8 +25,10 @@ jest.mock('@/features/hr/contracts/lib/api/allowance-types', () => ({
 
 function makeWrapper() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return ({ children }: { children: React.ReactNode }) =>
-    React.createElement(QueryClientProvider, { client: qc }, children);
+  function Wrapper({ children }: { children: React.ReactNode }) {
+    return React.createElement(QueryClientProvider, { client: qc }, children);
+  }
+  return Wrapper;
 }
 
 const apiRow = {

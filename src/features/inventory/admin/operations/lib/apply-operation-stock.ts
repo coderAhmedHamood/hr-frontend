@@ -1,7 +1,7 @@
 import { locationStockApi } from '@/features/inventory/admin/stock/lib/api/location-stock';
 import { productsApi } from '@/features/ecommerce/admin/products/lib/api/products';
 import { inventoryLedgerApi } from '@/features/inventory/admin/operations/lib/api/inventory-ledger';
-import { mockWarehouseLocationsStore } from '@/features/inventory/shared/lib/adapters/mock-inventory-store';
+import { warehouseLocationsApi } from '@/features/inventory/admin/locations/lib/api/warehouse-locations';
 import { WAREHOUSE_OPERATION_KIND_META } from '@/features/inventory/domain/constants/warehouse-operation-kinds';
 import type { InventoryLedgerEntry } from '@/features/inventory/domain/types/inventory-ledger';
 import type { WarehouseOperation, WarehouseOperationLine } from '@/features/inventory/domain/types/warehouse';
@@ -51,12 +51,9 @@ function baseLedgerFields(
 }
 
 async function findTransitLocationId(companyId: string, warehouseId: string): Promise<string | null> {
-  const locations = await mockWarehouseLocationsStore.list({ companyId, page: 1, limit: 500 });
+  const locations = await warehouseLocationsApi.getAll({ companyId, warehouseId, page: 1, limit: 500 });
   const transit = locations.items.find(
-    (location) =>
-      location.warehouseId === warehouseId &&
-      location.locationType === 'transit' &&
-      location.isActive,
+    (location) => location.locationType === 'transit' && location.isActive,
   );
   return transit?.id ?? null;
 }

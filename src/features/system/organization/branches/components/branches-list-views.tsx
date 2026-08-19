@@ -35,6 +35,7 @@ export function BranchesListViews({ model }: { model: BranchesDirectoryModel }) 
     {
       key: 'company',
       title: 'الشركة',
+      hideOnMobile: true,
       className: 'text-muted-foreground',
       render: (b) => companyLabel(b.companyId),
     },
@@ -57,12 +58,14 @@ export function BranchesListViews({ model }: { model: BranchesDirectoryModel }) 
     {
       key: 'manager',
       title: 'المدير',
+      hideOnMobile: true,
       className: 'text-muted-foreground',
       render: (b) => b.manager || '—',
     },
     {
       key: 'phone',
       title: 'الهاتف',
+      hideOnMobile: true,
       className: 'text-muted-foreground',
       render: (b) => <span dir="ltr">{b.phone ?? b.mobile ?? '—'}</span>,
     },
@@ -160,7 +163,7 @@ export function BranchesListViews({ model }: { model: BranchesDirectoryModel }) 
       ) : (
         <DataTable
           variant="directory"
-          alwaysShowTable
+          className="sys-table-host"
           columns={columns}
           data={pageItems}
           keyExtractor={(b) => b.id}

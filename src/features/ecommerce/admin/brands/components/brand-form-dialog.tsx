@@ -29,6 +29,7 @@ import {
   DialogFooter,
   dialogMaxHeightClass,
 } from '@/components/ui/dialog';
+import { isMultiLangEnabled } from '@/i18n/locale-flags';
 
 type Props = {
   brand?: Brand | null;
@@ -81,7 +82,7 @@ export function BrandFormDialog({ brand, open, onOpenChange }: Props) {
           }}
           className="space-y-4"
         >
-          <div className="grid grid-cols-2 gap-3">
+          <div className={isMultiLangEnabled ? 'sto-form-grid' : undefined}>
             <div className="space-y-1.5">
               <Label htmlFor="brand-name-ar">اسم العلامة التجارية *</Label>
               <Input id="brand-name-ar" {...form.register('nameAr')} />
@@ -89,10 +90,12 @@ export function BrandFormDialog({ brand, open, onOpenChange }: Props) {
                 <p className="text-xs text-destructive">{form.formState.errors.nameAr.message}</p>
               ) : null}
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="brand-name-en">الاسم بالإنجليزية (اختياري)</Label>
-              <Input id="brand-name-en" dir="ltr" {...form.register('nameEn')} />
-            </div>
+            {isMultiLangEnabled ? (
+              <div className="space-y-1.5">
+                <Label htmlFor="brand-name-en">الاسم بالإنجليزية (اختياري)</Label>
+                <Input id="brand-name-en" dir="ltr" {...form.register('nameEn')} />
+              </div>
+            ) : null}
           </div>
 
           <div className="space-y-1.5">
@@ -117,7 +120,7 @@ export function BrandFormDialog({ brand, open, onOpenChange }: Props) {
             <Textarea id="brand-description" rows={3} {...form.register('description')} />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="sto-form-grid">
             <div className="space-y-1.5">
               <Label htmlFor="brand-website">رابط الموقع (اختياري)</Label>
               <Input id="brand-website" dir="ltr" {...form.register('websiteUrl')} />

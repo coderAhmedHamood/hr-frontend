@@ -11,14 +11,22 @@ import {
 } from 'react-hook-form';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
 import { useProductOnHand, useProductStockSummary } from '@/features/inventory/admin/hooks/use-product-on-hand';
-import { STOCK_STATUS_OPTIONS, type ProductFormInput } from '@/features/ecommerce/admin/products/schemas/product-schema';
-import { EntityFormRow } from '@/features/ecommerce/admin/shared/components/entity-form-row';
+import { useWarehouses } from '@/features/inventory/admin/warehouses/hooks/use-warehouses';
+import { useWarehouseLocations } from '@/features/inventory/admin/locations/hooks/use-warehouse-locations';
+import { STOCK_STATUS_OPTIONS, type ProductFormInput, type ProductFormValues } from '@/features/ecommerce/admin/products/schemas/product-schema';
+import {
+  ProductFormField,
+  ProductFormSection,
+} from '@/features/ecommerce/admin/products/components/product-form-section';
+import { ProductStatTile } from '@/features/ecommerce/admin/products/components/product-stat-tile';
 import { Input } from '@/components/ui/input';
-import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SearchableDropdown } from '@/components/ui/shared-dialogs';
+
+const NO_VALUE = '__none__';
 
 type Props = {
-  control: Control<ProductFormInput>;
+  control: Control<ProductFormInput, unknown, ProductFormValues>;
   errors: FieldErrors<ProductFormInput>;
   register: UseFormRegister<ProductFormInput>;
   setValue: UseFormSetValue<ProductFormInput>;
@@ -28,11 +36,27 @@ type Props = {
 export function ProductInventoryTab({ control, errors, register, setValue, productId }: Props) {
   const companyId = getStorefrontCompanyId();
   const variants = useWatch({ control, name: 'variants' }) ?? [];
+  const warehouseId = useWatch({ control, name: 'warehouseId' });
   const hasVariants = variants.length > 0;
   const { data: onHand, isLoading } = useProductOnHand(companyId, productId ?? undefined);
   const { data: summary } = useProductStockSummary(companyId, productId ?? undefined);
+  const { data: warehousesData } = useWarehouses({ companyId, limit: 200 });
+  const { data: locationsData } = useWarehouseLocations(
+    {
+      companyId,
+      warehouseId: warehouseId || undefined,
+      limit: 500,
+    },
+    { enabled: Boolean(companyId && warehouseId) },
+  );
+
+  const warehouses = warehousesData?.items ?? [];
+  const locations = (locationsData?.items ?? []).filter(
+    (location) => location.isActive && location.locationType === 'internal',
+  );
 
   const warehouseQty = onHand?.total ?? 0;
+  const locationRows = summary?.locations ?? [];
 
   React.useEffect(() => {
     if (!productId || onHand == null) return;
@@ -51,114 +75,156 @@ export function ProductInventoryTab({ control, errors, register, setValue, produ
   }, [productId, onHand, hasVariants, variantIdsKey, setValue]);
 
   return (
-    <div className="space-y-1">
-      <p className="mb-3 rounded-lg border border-border/70 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-        {productId
-          ? 'مصدر الحقيقة هو مخزون المواقع (LocationStock). كمية المنتج هنا مجرد عرض متزامن بعد تصديق الحركات.'
-          : 'احفظ المنتج أولًا ثم صدّق مستندات الاستلام في المستودع لتظهر كمية العرض هنا.'}
-      </p>
+    <div className="space-y-4">
+      <ProductFormSection
+        title="رصيد المخزون"
+        description={
+          productId
+            ? 'مصدر الحقيقة هو دفتر المخزون. الأرقام هنا للعرض بعد تصديق الحركات.'
+            : 'احفظ المنتج أولًا ثم صدّق مستندات الاستلام لتظهر الكميات هنا.'
+        }
+      >
+        <div className="grid gap-3 sm:grid-cols-3">
+          <ProductStatTile
+            size="lg"
+            label="المتاح فعليًا (On Hand)"
+            value={productId ? (isLoading ? '…' : warehouseQty) : 0}
+          />
+          {productId && summary ? (
+            <>
+              <ProductStatTile size="lg" label="محجوز (Reserved)" value={summary.reserved} />
+              <ProductStatTile size="lg" accent label="قابل للبيع (Available)" value={summary.available} />
+            </>
+          ) : null}
+        </div>
 
-      <EntityFormRow label="On Hand" htmlFor="product-stock">
-        <Input
-          id="product-stock"
-          type="number"
-          dir="ltr"
-          className="max-w-[8rem] bg-muted/40"
-          value={productId ? (isLoading ? '' : warehouseQty) : 0}
-          readOnly
-          disabled
-        />
-      </EntityFormRow>
-
-      {productId && summary ? (
-        <>
-          <EntityFormRow label="Reserved">
-            <Input
-              type="number"
-              dir="ltr"
-              className="max-w-[8rem] bg-muted/40"
-              value={summary.reserved}
-              readOnly
-              disabled
-            />
-          </EntityFormRow>
-          <EntityFormRow label="Available">
-            <Input
-              type="number"
-              dir="ltr"
-              className="max-w-[8rem] bg-muted/40 font-semibold"
-              value={summary.available}
-              readOnly
-              disabled
-            />
-            <p className="mt-1 text-xs text-muted-foreground">Available = On Hand − Reserved</p>
-          </EntityFormRow>
-        </>
-      ) : null}
-
-      <EntityFormRow label="حالة التوفر" htmlFor="product-availability">
-        <Controller
-          control={control}
-          name="stockStatus"
-          render={({ field }) => (
-            <Select value={field.value} onValueChange={field.onChange}>
-              <SelectTrigger id="product-availability" aria-label="حالة التوفر" className="max-w-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {STOCK_STATUS_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.labelAr}
-                  </SelectItem>
+        {productId && locationRows.length > 0 ? (
+          <div className="overflow-x-auto rounded-xl border border-border/70">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/40 text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2 text-start font-medium">الموقع</th>
+                  <th className="px-3 py-2 text-start font-medium">المستودع</th>
+                  <th className="px-3 py-2 text-start font-medium">الكمية</th>
+                </tr>
+              </thead>
+              <tbody>
+                {locationRows.map((row) => (
+                  <tr key={row.locationId} className="border-t border-border/60">
+                    <td className="px-3 py-2">
+                      {row.locationNameAr || row.locationCode}
+                    </td>
+                    <td className="px-3 py-2">{row.warehouseCode}</td>
+                    <td className="px-3 py-2 tabular-nums">{row.onHand}</td>
+                  </tr>
                 ))}
-              </SelectContent>
-            </Select>
-          )}
-        />
-      </EntityFormRow>
+              </tbody>
+            </table>
+          </div>
+        ) : null}
+      </ProductFormSection>
 
-      <EntityFormRow label="تتبع المخزون">
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-sm text-muted-foreground">خصم الكمية عند البيع من مخزون المستودع</p>
-          <Controller
-            control={control}
-            name="trackInventory"
-            render={({ field }) => (
-              <Switch checked={field.value} onCheckedChange={field.onChange} aria-label="تتبع المخزون" />
-            )}
-          />
+      <ProductFormSection
+        title="مستودع الخصم الافتراضي"
+        description="منه يُخصم البيع إن لم يُرسل موقع أثناء العملية. المتجر ونقطة البيع يقرآن نفس الدفتر."
+      >
+        <div className="grid gap-4 sm:grid-cols-2">
+          <ProductFormField label="المستودع" htmlFor="product-warehouse">
+            <Controller
+              control={control}
+              name="warehouseId"
+              render={({ field }) => (
+                <SearchableDropdown
+                  value={field.value ?? NO_VALUE}
+                  onChange={(value) => {
+                    const next = value === NO_VALUE ? undefined : value;
+                    field.onChange(next);
+                    setValue('locationId', undefined, { shouldDirty: true });
+                  }}
+                  placeholder="بدون مستودع افتراضي"
+                  options={[
+                    { value: NO_VALUE, label: 'بدون مستودع افتراضي' },
+                    ...warehouses.map((warehouse) => ({
+                      value: warehouse.id,
+                      label: warehouse.nameAr,
+                    })),
+                  ]}
+                  className="h-11"
+                />
+              )}
+            />
+          </ProductFormField>
+
+          <ProductFormField
+            label="موقع التخزين"
+            htmlFor="product-location"
+            hint="اختياري — موقع داخل المستودع المختار."
+          >
+            <Controller
+              control={control}
+              name="locationId"
+              render={({ field }) => (
+                <SearchableDropdown
+                  value={field.value ?? NO_VALUE}
+                  onChange={(value) => field.onChange(value === NO_VALUE ? undefined : value)}
+                  placeholder={warehouseId ? 'موقع WH/Stock الافتراضي' : 'اختر مستودعاً أولاً'}
+                  disabled={!warehouseId}
+                  options={[
+                    { value: NO_VALUE, label: 'بدون موقع محدد' },
+                    ...locations.map((location) => ({
+                      value: location.id,
+                      label: `${location.nameAr} (${location.code})`,
+                    })),
+                  ]}
+                  className="h-11"
+                />
+              )}
+            />
+          </ProductFormField>
         </div>
-      </EntityFormRow>
+      </ProductFormSection>
 
-      <EntityFormRow label="حد المخزون المنخفض" htmlFor="product-low-stock">
-        <Input
-          id="product-low-stock"
-          type="number"
-          min={0}
-          step={1}
-          dir="ltr"
-          className="max-w-[8rem]"
-          {...register('lowStockThreshold', { valueAsNumber: true })}
-        />
-        {errors.lowStockThreshold ? (
-          <p className="mt-1 text-xs text-destructive">{errors.lowStockThreshold.message}</p>
-        ) : (
-          <p className="mt-1 text-xs text-muted-foreground">تنبيه عندما يصل On Hand إلى هذا الحد أو دونه.</p>
-        )}
-      </EntityFormRow>
+      <ProductFormSection title="إعدادات التوفر" description="حالة العرض وتنبيهات النفاد.">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <ProductFormField label="حالة التوفر" htmlFor="product-availability">
+            <Controller
+              control={control}
+              name="stockStatus"
+              render={({ field }) => (
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <SelectTrigger id="product-availability" aria-label="حالة التوفر" className="h-11">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {STOCK_STATUS_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.labelAr}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+          </ProductFormField>
 
-      <EntityFormRow label="السماح بالطلب عند النفاد">
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-sm text-muted-foreground">Backorder — البيع رغم نفاد المخزون</p>
-          <Controller
-            control={control}
-            name="allowBackorder"
-            render={({ field }) => (
-              <Switch checked={field.value} onCheckedChange={field.onChange} aria-label="السماح بالطلب عند النفاد" />
-            )}
-          />
+          <ProductFormField
+            label="حد المخزون المنخفض"
+            htmlFor="product-low-stock"
+            error={errors.lowStockThreshold?.message}
+            hint="تنبيه عندما يصل الرصيد إلى هذا الحد أو دونه."
+          >
+            <Input
+              id="product-low-stock"
+              type="number"
+              min={0}
+              step={1}
+              dir="rtl"
+              className="h-11 max-w-[10rem]"
+              {...register('lowStockThreshold', { valueAsNumber: true })}
+            />
+          </ProductFormField>
         </div>
-      </EntityFormRow>
+      </ProductFormSection>
     </div>
   );
 }

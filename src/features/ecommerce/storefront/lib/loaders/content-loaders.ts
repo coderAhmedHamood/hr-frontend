@@ -4,11 +4,9 @@ import { notFound } from 'next/navigation';
 import type { LegalPageSlug } from '@/features/ecommerce/storefront/domain/content';
 import type {
   StorefrontAboutContent,
-  StorefrontBlogPost,
   StorefrontContactContent,
   StorefrontFaqItem,
   StorefrontLegalPage,
-  StorefrontPaginated,
 } from '@/features/ecommerce/storefront/domain/storefront-models';
 import { storefrontContentRepository } from '@/features/ecommerce/storefront/lib/repositories/content-repository';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
@@ -42,20 +40,4 @@ export const getStorefrontLegalPage = cache(async (slug: LegalPageSlug): Promise
   const page = await storefrontContentRepository.getLegalPage(companyId, slug, locale);
   if (!page) notFound();
   return page;
-});
-
-export const getStorefrontBlogPosts = cache(
-  async (page: number, limit = 9): Promise<StorefrontPaginated<StorefrontBlogPost>> => {
-    const locale = (await getLocale()) as StorefrontLocale;
-    const companyId = getStorefrontCompanyId();
-    return storefrontContentRepository.listBlogPosts(companyId, locale, { page, limit });
-  },
-);
-
-export const getStorefrontBlogPostBySlug = cache(async (slug: string): Promise<StorefrontBlogPost> => {
-  const locale = (await getLocale()) as StorefrontLocale;
-  const companyId = getStorefrontCompanyId();
-  const post = await storefrontContentRepository.getBlogPostBySlug(companyId, slug, locale);
-  if (!post) notFound();
-  return post;
 });

@@ -1,26 +1,36 @@
 import type { Metadata } from 'next';
 import { getTranslations } from 'next-intl/server';
 import type {
-  StorefrontBlogPost,
   StorefrontBrand,
   StorefrontCategory,
   StorefrontCompanyConfig,
-  StorefrontFaqItem,
   StorefrontProduct,
 } from '@/features/ecommerce/storefront/domain/storefront-models';
 import { localizedStorePath } from '@/features/ecommerce/storefront/lib/store-paths';
-import { publicConfig } from '@/shared/config';
+import {
+  absoluteUrl,
+  breadcrumbJsonLd,
+  collectionPageJsonLd,
+  faqJsonLd,
+  organizationJsonLd,
+  productJsonLd,
+  websiteJsonLd,
+} from '@/features/ecommerce/storefront/lib/seo-jsonld';
 import type { StorefrontLocale } from '@/i18n/routing';
 import { routing } from '@/i18n/routing';
 
-const SITE_URL = publicConfig.siteUrl.replace(/\/$/, '');
-
-export function absoluteUrl(path: string): string {
-  return SITE_URL ? `${SITE_URL}${path}` : path;
-}
+export {
+  absoluteUrl,
+  breadcrumbJsonLd,
+  collectionPageJsonLd,
+  faqJsonLd,
+  organizationJsonLd,
+  productJsonLd,
+  websiteJsonLd,
+};
 
 function ogLocale(locale: StorefrontLocale): string {
-  return locale === 'ar' ? 'ar_SA' : 'en_US';
+  return locale === 'ar' ? 'ar_YE' : 'en_US';
 }
 
 function localizedAlternates(href: `/store${string}`, locale: StorefrontLocale) {
@@ -38,10 +48,12 @@ export function storeHomeMetadata(config: StorefrontCompanyConfig, locale: Store
   const title = `${config.seo.homeTitle} | ${config.name}`;
   const description = config.seo.homeDescription;
   const path = localizedStorePath(locale, '/store');
+  const keywords = config.seo.keywords.filter(Boolean);
 
   return {
     title,
     description,
+    keywords: keywords.length > 0 ? keywords : undefined,
     alternates: localizedAlternates('/store', locale),
     icons: config.faviconUrl ? { icon: config.faviconUrl } : undefined,
     openGraph: {
@@ -70,6 +82,9 @@ export function productsBrowseMetadata(
   return {
     title,
     description,
+    keywords: config.seo.keywords.filter(Boolean).length
+      ? config.seo.keywords.filter(Boolean)
+      : undefined,
     alternates: localizedAlternates('/store/products', locale),
     robots: isCanonicalView ? undefined : { index: false, follow: true },
     openGraph: {
@@ -79,6 +94,7 @@ export function productsBrowseMetadata(
       siteName: config.name,
       type: 'website',
       locale: ogLocale(locale),
+      images: config.seo.defaultOgImage ? [{ url: config.seo.defaultOgImage }] : undefined,
     },
     twitter: { card: 'summary_large_image', title, description },
   };
@@ -144,83 +160,6 @@ export function categoryMetadata(
   };
 }
 
-export function productJsonLd(
-  product: StorefrontProduct,
-  category: StorefrontCategory | null,
-  locale: StorefrontLocale,
-) {
-  const href = `/store/products/${product.slug}` as const;
-  return {
-    '@context': 'https://schema.org',
-    '@type': 'Product',
-    name: product.name,
-    description: product.description,
-    sku: product.sku,
-    image: product.media.map((item) => item.url),
-    category: category?.name,
-    inLanguage: locale,
-    offers: {
-      '@type': 'Offer',
-      url: absoluteUrl(localizedStorePath(locale, href)),
-      priceCurrency: product.price.currency,
-      price: product.price.amount,
-      availability:
-        product.stockStatus === 'in_stock'
-          ? 'https://schema.org/InStock'
-          : product.stockStatus === 'preorder'
-            ? 'https://schema.org/PreOrder'
-            : 'https://schema.org/OutOfStock',
-    },
-  };
-}
-
-export function breadcrumbJsonLd(items: { name: string; path: `/store${string}` }[], locale: StorefrontLocale) {
-  return {
-    '@context': 'https://schema.org',
-    '@type': 'BreadcrumbList',
-    inLanguage: locale,
-    itemListElement: items.map((item, index) => ({
-      '@type': 'ListItem',
-      position: index + 1,
-      name: item.name,
-      item: absoluteUrl(localizedStorePath(locale, item.path)),
-    })),
-  };
-}
-
-export function collectionPageJsonLd(name: string, href: `/store${string}`, locale: StorefrontLocale) {
-  return {
-    '@context': 'https://schema.org',
-    '@type': 'CollectionPage',
-    name,
-    inLanguage: locale,
-    url: absoluteUrl(localizedStorePath(locale, href)),
-  };
-}
-
-export async function organizationJsonLd(config: StorefrontCompanyConfig, locale: StorefrontLocale) {
-  const t = await getTranslations({ locale, namespace: 'storefront.seo' });
-  const sameAs = Object.values(config.social).filter((url): url is string => Boolean(url));
-  return {
-    '@context': 'https://schema.org',
-    '@type': 'Organization',
-    name: config.name,
-    url: absoluteUrl(localizedStorePath(locale, '/store')),
-    inLanguage: locale,
-    logo: config.logoUrl ?? undefined,
-    address: config.contact.address ?? undefined,
-    contactPoint: config.contact.phone || config.contact.email
-      ? {
-          '@type': 'ContactPoint',
-          telephone: config.contact.phone,
-          email: config.contact.email,
-          contactType: t('contactType'),
-        }
-      : undefined,
-    sameAs: sameAs.length > 0 ? sameAs : undefined,
-  };
-}
-
 function basePageMetadata(
   config: StorefrontCompanyConfig,
   locale: StorefrontLocale,
@@ -271,35 +210,6 @@ export async function faqMetadata(config: StorefrontCompanyConfig, locale: Store
   return basePageMetadata(config, locale, title, t('faqDescription'), '/store/faq');
 }
 
-export async function blogMetadata(config: StorefrontCompanyConfig, locale: StorefrontLocale): Promise<Metadata> {
-  const t = await getTranslations({ locale, namespace: 'storefront' });
-  return basePageMetadata(config, locale, t('blog.title'), t('seo.blogDescription'), '/store/blog');
-}
-
-export function blogPostMetadata(post: StorefrontBlogPost, config: StorefrontCompanyConfig, locale: StorefrontLocale): Metadata {
-  const title = `${post.metaTitle} | ${config.name}`.slice(0, 60);
-  const description = post.metaDescription.slice(0, 160);
-  const href = `/store/blog/${post.slug}` as const;
-  const url = absoluteUrl(localizedStorePath(locale, href));
-
-  return {
-    title,
-    description,
-    alternates: localizedAlternates(href, locale),
-    openGraph: {
-      title,
-      description,
-      url,
-      siteName: config.name,
-      type: 'article',
-      locale: ogLocale(locale),
-      publishedTime: post.publishedAt,
-      authors: [post.authorName],
-    },
-    twitter: { card: 'summary', title, description },
-  };
-}
-
 export function legalMetadata(page: { metaTitle: string; metaDescription: string; slug: string; title: string }, config: StorefrontCompanyConfig, locale: StorefrontLocale): Metadata {
   const href = `/store/legal/${page.slug}` as `/store${string}`;
   return basePageMetadata(config, locale, page.metaTitle, page.metaDescription, href);
@@ -327,6 +237,84 @@ export async function cartMetadata(config: StorefrontCompanyConfig, locale: Stor
   };
 }
 
+export async function checkoutMetadata(config: StorefrontCompanyConfig, locale: StorefrontLocale): Promise<Metadata> {
+  const t = await getTranslations({ locale, namespace: 'storefront' });
+  return {
+    ...basePageMetadata(config, locale, t('checkout.title'), t('checkout.description'), '/store/checkout'),
+    robots: { index: false, follow: false },
+  };
+}
+
+export async function storeLoginMetadata(config: StorefrontCompanyConfig, locale: StorefrontLocale): Promise<Metadata> {
+  const t = await getTranslations({ locale, namespace: 'storefront' });
+  return {
+    ...basePageMetadata(config, locale, t('login.title'), t('login.formDescription'), '/store/login'),
+    robots: { index: false, follow: false },
+  };
+}
+
+export async function storeRegisterMetadata(
+  config: StorefrontCompanyConfig,
+  locale: StorefrontLocale,
+): Promise<Metadata> {
+  const t = await getTranslations({ locale, namespace: 'storefront' });
+  return {
+    ...basePageMetadata(config, locale, t('register.title'), t('register.formDescription'), '/store/register'),
+    robots: { index: false, follow: false },
+  };
+}
+
+export async function storeForgotPasswordMetadata(
+  config: StorefrontCompanyConfig,
+  locale: StorefrontLocale,
+): Promise<Metadata> {
+  const t = await getTranslations({ locale, namespace: 'storefront' });
+  return {
+    ...basePageMetadata(
+      config,
+      locale,
+      t('forgotPassword.title'),
+      t('forgotPassword.description'),
+      '/store/forgot-password',
+    ),
+    robots: { index: false, follow: false },
+  };
+}
+
+export async function storeAccountMetadata(config: StorefrontCompanyConfig, locale: StorefrontLocale): Promise<Metadata> {
+  const t = await getTranslations({ locale, namespace: 'storefront' });
+  return {
+    ...basePageMetadata(config, locale, t('account.title'), t('account.trackDescription'), '/store/account'),
+    robots: { index: false, follow: false },
+  };
+}
+
+export async function myOrdersMetadata(config: StorefrontCompanyConfig, locale: StorefrontLocale): Promise<Metadata> {
+  const t = await getTranslations({ locale, namespace: 'storefront' });
+  return {
+    ...basePageMetadata(config, locale, t('orders.myOrdersTitle'), t('orders.myOrdersDescription'), '/store/orders'),
+    robots: { index: false, follow: false },
+  };
+}
+
+export async function orderTrackingMetadata(
+  config: StorefrontCompanyConfig,
+  locale: StorefrontLocale,
+  orderNumber: string,
+): Promise<Metadata> {
+  const t = await getTranslations({ locale, namespace: 'storefront' });
+  return {
+    ...basePageMetadata(
+      config,
+      locale,
+      t('orders.trackingTitle'),
+      t('orders.trackingDescription', { orderNumber }),
+      `/store/orders/${orderNumber}`,
+    ),
+    robots: { index: false, follow: false },
+  };
+}
+
 export async function wishlistMetadata(config: StorefrontCompanyConfig, locale: StorefrontLocale): Promise<Metadata> {
   const t = await getTranslations({ locale, namespace: 'storefront' });
   return {
@@ -343,50 +331,3 @@ export async function searchMetadata(config: StorefrontCompanyConfig, locale: St
   };
 }
 
-export function faqJsonLd(items: StorefrontFaqItem[], locale: StorefrontLocale) {
-  return {
-    '@context': 'https://schema.org',
-    '@type': 'FAQPage',
-    inLanguage: locale,
-    mainEntity: items.map((item) => ({
-      '@type': 'Question',
-      name: item.question,
-      acceptedAnswer: { '@type': 'Answer', text: item.answer },
-    })),
-  };
-}
-
-export function articleJsonLd(post: StorefrontBlogPost, config: StorefrontCompanyConfig, locale: StorefrontLocale) {
-  const href = `/store/blog/${post.slug}` as const;
-  return {
-    '@context': 'https://schema.org',
-    '@type': 'Article',
-    headline: post.title,
-    description: post.excerpt,
-    datePublished: post.publishedAt,
-    inLanguage: locale,
-    image: post.coverImageUrl ?? undefined,
-    author: { '@type': 'Person', name: post.authorName },
-    publisher: {
-      '@type': 'Organization',
-      name: config.name,
-      logo: config.logoUrl ? { '@type': 'ImageObject', url: config.logoUrl } : undefined,
-    },
-    url: absoluteUrl(localizedStorePath(locale, href)),
-  };
-}
-
-export function websiteJsonLd(config: StorefrontCompanyConfig, locale: StorefrontLocale) {
-  return {
-    '@context': 'https://schema.org',
-    '@type': 'WebSite',
-    name: config.name,
-    url: absoluteUrl(localizedStorePath(locale, '/store')),
-    inLanguage: locale,
-    potentialAction: {
-      '@type': 'SearchAction',
-      target: absoluteUrl(localizedStorePath(locale, '/store/search?q={search_term_string}')),
-      'query-input': 'required name=search_term_string',
-    },
-  };
-}

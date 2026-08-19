@@ -2,7 +2,7 @@ import { storefrontPageRepository } from '@/features/ecommerce/storefront/page-b
 
 describe('storefrontPageRepository admin writes', () => {
   it('returns a raw PageRecord for admin CMS', async () => {
-    const record = await storefrontPageRepository.getRecordByPageType('demo-company', 'homepage');
+    const record = await storefrontPageRepository.getRecordByPageType('76e5bc4f-5adb-434d-a886-bcff05a9680b', 'homepage');
     expect(record).not.toBeNull();
     expect(record?.pageType).toBe('homepage');
     expect(record?.displayName.ar).toBeTruthy();
@@ -10,7 +10,7 @@ describe('storefrontPageRepository admin writes', () => {
   });
 
   it('persists section enable toggles for storefront reads', async () => {
-    const record = await storefrontPageRepository.getRecordByPageType('demo-company', 'homepage');
+    const record = await storefrontPageRepository.getRecordByPageType('76e5bc4f-5adb-434d-a886-bcff05a9680b', 'homepage');
     expect(record).not.toBeNull();
     if (!record) return;
 
@@ -25,10 +25,10 @@ describe('storefrontPageRepository admin writes', () => {
     const saved = await storefrontPageRepository.saveRecord(updated);
     expect(saved.sections.find((section) => section.id === firstId)?.enabled).toBe(false);
 
-    const mapped = await storefrontPageRepository.getByPageType('demo-company', 'homepage', 'ar');
+    const mapped = await storefrontPageRepository.getByPageType('76e5bc4f-5adb-434d-a886-bcff05a9680b', 'homepage', 'ar');
     // Disabled sections may still be in record; mapper filters by published+enabled in page-mapper.
     // Assert the raw record stays in sync.
-    const reloaded = await storefrontPageRepository.getRecordByPageType('demo-company', 'homepage');
+    const reloaded = await storefrontPageRepository.getRecordByPageType('76e5bc4f-5adb-434d-a886-bcff05a9680b', 'homepage');
     expect(reloaded?.sections.find((section) => section.id === firstId)?.enabled).toBe(false);
     expect(mapped).not.toBeNull();
 

@@ -2,6 +2,9 @@
 
 import * as React from 'react';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
+import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
+import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
+import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
 import { getInventoryCompanyId } from '@/features/inventory/lib/company-id';
 import { useWarehouseOperations } from '@/features/inventory/admin/operations/hooks/use-warehouse-operations';
 import { useWarehouseLocations } from '@/features/inventory/admin/locations/hooks/use-warehouse-locations';
@@ -16,15 +19,10 @@ import {
   WAREHOUSE_OPERATION_KIND_META,
 } from '@/features/inventory/domain/constants/warehouse-operation-kinds';
 import type { WarehouseOperationKind } from '@/features/inventory/domain/types/warehouse';
-import { DataTable, type ColumnDef } from '@/components/ui/data-table';
+import { DataTable, usePagination, type ColumnDef } from '@/components/ui/data-table';
+import { DirectoryPagedViews, DEFAULT_PAGE_SIZE } from '@/components/ui/paged-list';
+import { ListFilterBar } from '@/components/ui/list-filter-bar';
 import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 
 export function MovesAnalysisReportPage() {
   const companyId = getInventoryCompanyId();
@@ -63,6 +61,71 @@ export function MovesAnalysisReportPage() {
     return aggregateMovesByKindAndWarehouse(dated);
   }, [data?.items, locations, locationName, dateFrom, dateTo]);
 
+  const {
+    page,
+    setPage,
+    pageSize,
+    setPageSize,
+    slice: pagedRows,
+    total,
+  } = usePagination(rows, DEFAULT_PAGE_SIZE);
+
+  usePageHeaderActions(() => <FilterToggleButton />, []);
+
+  useEntityFilterSlot(
+    () => (
+      <ListFilterBar
+        showDateSection={false}
+        showStatusSection={false}
+        showEmployeePicker={false}
+        inlineSelects={[
+          {
+            id: 'warehouse',
+            value: warehouseId,
+            onChange: setWarehouseId,
+            placeholder: 'كل المستودعات',
+            options: [
+              { value: 'all', label: 'كل المستودعات' },
+              ...warehouses.map((warehouse) => ({ value: warehouse.id, label: warehouse.nameAr })),
+            ],
+          },
+          {
+            id: 'kind',
+            value: kind,
+            onChange: (value) => setKind(value as typeof kind),
+            placeholder: 'كل الأنواع',
+            options: [
+              { value: 'all', label: 'كل الأنواع' },
+              ...WAREHOUSE_OPERATION_KINDS.map((item) => ({
+                value: item,
+                label: WAREHOUSE_OPERATION_KIND_META[item].labelAr,
+              })),
+            ],
+          },
+        ]}
+        trailingActions={
+          <div className="inv-date-filters">
+            <Input
+              type="date"
+              className="inv-date-input h-8"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              aria-label="من تاريخ"
+            />
+            <Input
+              type="date"
+              className="inv-date-input h-8"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              aria-label="إلى تاريخ"
+            />
+          </div>
+        }
+      />
+    ),
+    [warehouseId, kind, dateFrom, dateTo, warehouses],
+  );
+
   const summary = React.useMemo(() => {
     return {
       docs: rows.reduce((sum, row) => sum + row.operationCount, 0),
@@ -94,6 +157,7 @@ export function MovesAnalysisReportPage() {
     {
       key: 'lines',
       title: 'البنود',
+      hideOnMobile: true,
       render: (row) => <span className="tabular-nums">{row.lineCount}</span>,
     },
     {
@@ -127,13 +191,11 @@ export function MovesAnalysisReportPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <SetPageTitle titleAr="تحليل الحركات" iconName="BarChart3" />
-      <div className="space-y-1">
-        <h1 className="text-lg font-semibold">تحليل الحركات</h1>
-        <p className="text-sm text-muted-foreground">
-          تجميع الحركات المنتهية حسب نوع المستند والمستودع (وارد / صادر / صافي).
-        </p>
-      </div>
+      <SetPageTitle
+        titleAr="تحليل الحركات"
+        descriptionAr="تجميع الحركات المنتهية حسب نوع المستند والمستودع (وارد / صادر / صافي)."
+        iconName="BarChart3"
+      />
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <SummaryCard label="مستندات" value={summary.docs} />
@@ -143,58 +205,32 @@ export function MovesAnalysisReportPage() {
         <SummaryCard label="صافي" value={summary.net} />
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card p-3 shadow-soft">
-        <Select value={warehouseId} onValueChange={setWarehouseId}>
-          <SelectTrigger className="h-10 w-[160px]" aria-label="المستودع">
-            <SelectValue placeholder="المستودع" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">كل المستودعات</SelectItem>
-            {warehouses.map((warehouse) => (
-              <SelectItem key={warehouse.id} value={warehouse.id}>
-                {warehouse.nameAr}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={kind} onValueChange={(value) => setKind(value as typeof kind)}>
-          <SelectTrigger className="h-10 w-[160px]" aria-label="نوع الحركة">
-            <SelectValue placeholder="النوع" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">كل الأنواع</SelectItem>
-            {WAREHOUSE_OPERATION_KINDS.map((item) => (
-              <SelectItem key={item} value={item}>
-                {WAREHOUSE_OPERATION_KIND_META[item].labelAr}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Input
-          type="date"
-          className="h-10 w-[140px]"
-          value={dateFrom}
-          onChange={(e) => setDateFrom(e.target.value)}
-          aria-label="من تاريخ"
-        />
-        <Input
-          type="date"
-          className="h-10 w-[140px]"
-          value={dateTo}
-          onChange={(e) => setDateTo(e.target.value)}
-          aria-label="إلى تاريخ"
-        />
-      </div>
-
       {isError ? <p className="text-sm text-destructive">تعذر تحميل تحليل الحركات.</p> : null}
 
-      <DataTable
-        columns={columns}
-        data={rows}
-        keyExtractor={(row) => row.key}
+      <DirectoryPagedViews
+        items={pagedRows}
         loading={isLoading}
-        emptyText="لا توجد حركات منتهية للتحليل."
-      />
+        serverPagination={{
+          page,
+          pageSize,
+          total,
+          totalPages: Math.max(1, Math.ceil(total / pageSize)),
+          setPage,
+          setPageSize,
+        }}
+      >
+        {(rowsPage) => (
+          <DataTable
+            variant="directory"
+            className="inv-table-host"
+            columns={columns}
+            data={rowsPage}
+            keyExtractor={(row) => row.key}
+            loading={isLoading}
+            emptyText="لا توجد حركات منتهية للتحليل."
+          />
+        )}
+      </DirectoryPagedViews>
     </div>
   );
 }

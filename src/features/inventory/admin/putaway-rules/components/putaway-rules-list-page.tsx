@@ -1,6 +1,10 @@
 'use client';
 
 import { SetPageTitle } from '@/components/layouts/set-page-title';
+import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
+import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
+import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
+import { PageHeaderPrimaryButton } from '@/components/layouts/page-header-primary-button';
 import * as React from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Plus } from 'lucide-react';
@@ -20,6 +24,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ListFilterBar } from '@/components/ui/list-filter-bar';
+import { EntityFilterSearchField } from '@/components/ui/entity-filter-search-field';
+import { DirectoryPagedViews, DEFAULT_PAGE_SIZE } from '@/components/ui/paged-list';
 import {
   Dialog,
   DialogContent,
@@ -32,7 +39,6 @@ import {
 import { cn } from '@/shared/utils';
 
 const NONE = '__none__';
-const ALL_WAREHOUSES = '__all__';
 
 type Draft = {
   warehouseId: string;
@@ -82,6 +88,8 @@ export function PutawayRulesListPage() {
   const warehouseIdFilter = searchParams.get('warehouseId') ?? '';
 
   const [search, setSearch] = React.useState('');
+  const [page, setPage] = React.useState(1);
+  const [pageSize, setPageSize] = React.useState(DEFAULT_PAGE_SIZE);
   const [warehouseFilter, setWarehouseFilter] = React.useState(warehouseIdFilter);
   const [open, setOpen] = React.useState(false);
   const [draft, setDraft] = React.useState<Draft>(() => ({
@@ -94,7 +102,12 @@ export function PutawayRulesListPage() {
 
   React.useEffect(() => {
     setWarehouseFilter(warehouseIdFilter);
+    setPage(1);
   }, [warehouseIdFilter]);
+
+  React.useEffect(() => {
+    setPage(1);
+  }, [search, warehouseFilter, categoryIdFilter, productIdFilter]);
 
   React.useEffect(() => {
     setDraft((prev) => ({
@@ -115,7 +128,8 @@ export function PutawayRulesListPage() {
     categoryId: categoryIdFilter || undefined,
     productId: productIdFilter || undefined,
     warehouseId: warehouseFilter || undefined,
-    limit: 200,
+    page,
+    limit: pageSize,
   });
   const { data: locations = [] } = usePutawayLocationOptions(companyId);
   const { data: productsData } = useProducts({ companyId, limit: 200 });
@@ -229,105 +243,139 @@ export function PutawayRulesListPage() {
     return 'كافة المنتجات';
   }
 
+  usePageHeaderActions(
+    () => (
+      <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
+        <FilterToggleButton />
+        <PageHeaderPrimaryButton icon={Plus} label="جديد" onClick={openCreate}>
+          جديد
+        </PageHeaderPrimaryButton>
+      </div>
+    ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+
+  useEntityFilterSlot(
+    () => (
+      <ListFilterBar
+        showDateSection={false}
+        showStatusSection={false}
+        showEmployeePicker={false}
+        leadingFilters={
+          <EntityFilterSearchField value={search} onChange={setSearch} placeholder="بحث…" />
+        }
+        inlineSelects={[
+          {
+            id: 'warehouse',
+            value: warehouseFilter || 'all',
+            onChange: (value) => setWarehouseFilter(value === 'all' ? '' : value),
+            placeholder: 'كل المستودعات',
+            options: [
+              { value: 'all', label: 'كل المستودعات' },
+              ...warehouses.map((warehouse) => ({ value: warehouse.id, label: warehouse.nameAr })),
+            ],
+          },
+        ]}
+        trailingActions={
+          productIdFilter || categoryIdFilter ? (
+            <span className="text-xs text-muted-foreground">
+              {productIdFilter
+                ? `مصفّى حسب المنتج: ${productLabel(productIdFilter)}`
+                : `مصفّى حسب الفئة: ${categoryLabel(categoryIdFilter)}`}
+            </span>
+          ) : undefined
+        }
+      />
+    ),
+    [search, warehouseFilter, warehouses, productIdFilter, categoryIdFilter],
+  );
+
   return (
     <div className="flex flex-col gap-5">
       <SetPageTitle titleAr="قواعد التخزين" iconName="MapPinned" />
 
-      <div className="flex flex-wrap items-center gap-2">
-        <Input
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="بحث…"
-          className="max-w-md"
-        />
-        <Select
-          value={warehouseFilter || ALL_WAREHOUSES}
-          onValueChange={(value) => setWarehouseFilter(value === ALL_WAREHOUSES ? '' : value)}
-        >
-          <SelectTrigger className="w-full sm:w-56" aria-label="تصفية بالمستودع">
-            <SelectValue placeholder="كل المستودعات" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL_WAREHOUSES}>كل المستودعات</SelectItem>
-            {warehouses.map((warehouse) => (
-              <SelectItem key={warehouse.id} value={warehouse.id}>
-                {warehouse.nameAr}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {(productIdFilter || categoryIdFilter) && (
-          <span className="text-xs text-muted-foreground">
-            {productIdFilter
-              ? `مصفّى حسب المنتج: ${productLabel(productIdFilter)}`
-              : `مصفّى حسب الفئة: ${categoryLabel(categoryIdFilter)}`}
-          </span>
+      <DirectoryPagedViews
+        items={filtered}
+        loading={isLoading}
+        serverPagination={
+          data
+            ? {
+                page,
+                pageSize,
+                total: data.pagination.total,
+                totalPages: Math.max(1, Math.ceil(data.pagination.total / pageSize)),
+                setPage,
+                setPageSize: (size) => {
+                  setPageSize(size);
+                  setPage(1);
+                },
+              }
+            : undefined
+        }
+      >
+        {(rulesPage) => (
+          <div className="inv-table-host overflow-x-auto rounded-xl border border-border bg-card">
+            <table className="inv-table-wide text-sm">
+              <thead className="border-b border-border bg-muted/40 text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2.5 text-start font-medium">عندما يصل المنتج</th>
+                  <th className="px-3 py-2.5 text-start font-medium">ينطبق على</th>
+                  <th className="px-3 py-2.5 text-start font-medium">نوع الطرد</th>
+                  <th className="px-3 py-2.5 text-start font-medium">التخزين في</th>
+                  <th className="px-3 py-2.5 text-start font-medium">الموقع الفرعي</th>
+                  <th className="px-3 py-2.5 text-start font-medium">الأولوية</th>
+                  <th className="px-3 py-2.5" />
+                </tr>
+              </thead>
+              <tbody>
+                {isLoading ? (
+                  <tr>
+                    <td colSpan={7} className="px-3 py-8 text-muted-foreground">
+                      جاري التحميل…
+                    </td>
+                  </tr>
+                ) : null}
+                {rulesPage.map((rule) => (
+                  <tr key={rule.id} className="border-b border-border last:border-0 hover:bg-muted/20">
+                    <td className="px-3 py-2.5">{locationLabel(rule.arriveLocationId)}</td>
+                    <td className="px-3 py-2.5">
+                      <div className="flex flex-col">
+                        <span className="text-xs text-muted-foreground">{APPLIES_LABEL[rule.appliesTo]}</span>
+                        <span>{appliesDisplay(rule)}</span>
+                      </div>
+                    </td>
+                    <td className="px-3 py-2.5">{packagingLabel(rule.packagingType)}</td>
+                    <td className="px-3 py-2.5">{locationLabel(rule.storeLocationId)}</td>
+                    <td className="px-3 py-2.5">
+                      {rule.subLocationId ? locationLabel(rule.subLocationId) : '—'}
+                    </td>
+                    <td className="px-3 py-2.5 tabular-nums">{rule.sequence ?? 10}</td>
+                    <td className="px-3 py-2.5">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="text-destructive"
+                        onClick={() => void remove.mutateAsync(rule.id)}
+                      >
+                        حذف
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+                {!isLoading && rulesPage.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-3 py-10 text-center text-muted-foreground">
+                      لا توجد قواعد. أضف قاعدة افتراضية (كافة المنتجات → WH/Stock) لكل مستودع.
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
         )}
-        <Button type="button" className="ms-auto" onClick={openCreate}>
-          <Plus className="me-1 h-4 w-4" />
-          جديد
-        </Button>
-      </div>
-
-      <div className="overflow-x-auto rounded-xl border border-border bg-card">
-        <table className="w-full min-w-[960px] text-sm">
-          <thead className="border-b border-border bg-muted/40 text-muted-foreground">
-            <tr>
-              <th className="px-3 py-2.5 text-start font-medium">عندما يصل المنتج</th>
-              <th className="px-3 py-2.5 text-start font-medium">ينطبق على</th>
-              <th className="px-3 py-2.5 text-start font-medium">نوع الطرد</th>
-              <th className="px-3 py-2.5 text-start font-medium">التخزين في</th>
-              <th className="px-3 py-2.5 text-start font-medium">الموقع الفرعي</th>
-              <th className="px-3 py-2.5 text-start font-medium">الأولوية</th>
-              <th className="px-3 py-2.5" />
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading ? (
-              <tr>
-                <td colSpan={7} className="px-3 py-8 text-muted-foreground">
-                  جاري التحميل…
-                </td>
-              </tr>
-            ) : null}
-            {filtered.map((rule) => (
-              <tr key={rule.id} className="border-b border-border last:border-0 hover:bg-muted/20">
-                <td className="px-3 py-2.5">{locationLabel(rule.arriveLocationId)}</td>
-                <td className="px-3 py-2.5">
-                  <div className="flex flex-col">
-                    <span className="text-xs text-muted-foreground">{APPLIES_LABEL[rule.appliesTo]}</span>
-                    <span>{appliesDisplay(rule)}</span>
-                  </div>
-                </td>
-                <td className="px-3 py-2.5">{packagingLabel(rule.packagingType)}</td>
-                <td className="px-3 py-2.5">{locationLabel(rule.storeLocationId)}</td>
-                <td className="px-3 py-2.5">
-                  {rule.subLocationId ? locationLabel(rule.subLocationId) : '—'}
-                </td>
-                <td className="px-3 py-2.5 tabular-nums">{rule.sequence ?? 10}</td>
-                <td className="px-3 py-2.5">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    className="text-destructive"
-                    onClick={() => void remove.mutateAsync(rule.id)}
-                  >
-                    حذف
-                  </Button>
-                </td>
-              </tr>
-            ))}
-            {!isLoading && filtered.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="px-3 py-10 text-center text-muted-foreground">
-                  لا توجد قواعد. أضف قاعدة افتراضية (كافة المنتجات → WH/Stock) لكل مستودع.
-                </td>
-              </tr>
-            ) : null}
-          </tbody>
-        </table>
-      </div>
+      </DirectoryPagedViews>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className={cn(dialogShellContentClass, 'max-w-xl sm:max-w-xl')}>
@@ -536,7 +584,7 @@ export function PutawayRulesListPage() {
                 type="number"
                 min={1}
                 dir="ltr"
-                className="max-w-[8rem]"
+                className="inv-qty-input"
                 value={draft.sequence}
                 onChange={(event) =>
                   setDraft((prev) => ({ ...prev, sequence: Number(event.target.value) || 10 }))

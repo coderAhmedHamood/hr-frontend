@@ -1,23 +1,28 @@
 'use client';
 
 import * as React from 'react';
-import Link from 'next/link';
 import { LayoutGrid } from 'lucide-react';
 import { useLoginPageBranding } from '@/features/auth/hooks/use-default-company-branding';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import {
   applicationsApi,
   enrichLauncherApplications,
+  looksLikeStorefrontApp,
+  resolveApplicationExternalUrl,
   resolveApplicationLaunchPath,
   type ApplicationResponseDto,
 } from '@/features/system/applications/lib/api/applications';
+import { OdooAppTile } from '@/features/system/applications/components/odoo-app-tile';
 import {
   resolveApplicationIcon,
-  resolveApplicationSurfaceAccent,
   resolveApplicationTileClass,
 } from '@/features/system/applications/lib/application-tile-config';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
-import { cn } from '@/shared/utils';
+import {
+  useIsCompanySuperuser,
+  useIsSystemOwner,
+} from '@/features/auth/hooks/use-system-owner';
+import { systemOwnerRoutes, companyAppsRoutes } from '@/features/system-owner/constants/routes';
 
 function AppTile({
   app,
@@ -27,48 +32,28 @@ function AppTile({
   index: number;
 }) {
   const Icon = resolveApplicationIcon(app);
-  const href = resolveApplicationLaunchPath(app);
-  const tileClass = resolveApplicationTileClass(app, index);
-  const surfaceAccent = resolveApplicationSurfaceAccent(index);
+  const externalUrl = resolveApplicationExternalUrl(app);
+  const href = externalUrl ?? resolveApplicationLaunchPath(app);
 
   return (
-    <Link
+    <OdooAppTile
+      icon={Icon}
+      label={app.nameAr}
+      tileClass={resolveApplicationTileClass(app, index)}
       href={href}
-      className="group flex w-[7.75rem] flex-col items-center gap-2.5 text-center outline-none focus-visible:rounded-xl focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:w-[8.75rem]"
-    >
-      <div
-        className={cn(
-          'flex w-full flex-col items-center gap-2.5 rounded-xl border border-border/70 bg-card/95 p-3.5 shadow-soft',
-          'transition-all duration-200 group-hover:-translate-y-0.5 group-hover:border-primary/25 group-hover:shadow-md',
-          surfaceAccent,
-        )}
-      >
-        <span
-          className={cn(
-            'flex h-14 w-14 shrink-0 items-center justify-center rounded-xl transition-transform duration-200 group-hover:scale-105',
-            tileClass,
-          )}
-        >
-          <Icon className="h-7 w-7" strokeWidth={1.75} />
-        </span>
-
-        <h3 className="line-clamp-2 min-h-[2.5rem] text-sm font-bold leading-snug text-foreground">
-          {app.nameAr}
-        </h3>
-      </div>
-    </Link>
+      external={Boolean(externalUrl)}
+      hardNavigation={!externalUrl && looksLikeStorefrontApp(app)}
+    />
   );
 }
 
 function LauncherSkeleton() {
   return (
-    <div className="flex flex-wrap items-start justify-center gap-5 sm:gap-6">
-      {Array.from({ length: 3 }).map((_, i) => (
-        <div key={i} className="flex w-[7.75rem] flex-col items-center gap-2.5 sm:w-[8.75rem]">
-          <div className="flex w-full flex-col items-center gap-2.5 rounded-xl border border-border/50 bg-muted/30 p-3.5">
-            <div className="h-14 w-14 animate-pulse rounded-xl bg-muted/60" />
-            <div className="h-3.5 w-16 animate-pulse rounded-full bg-muted/60" />
-          </div>
+    <div className="odoo-app-grid">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className="odoo-app-tile flex flex-col items-center gap-2">
+          <div className="odoo-app-square animate-pulse bg-muted" />
+          <div className="h-3 w-16 animate-pulse rounded-full bg-muted" />
         </div>
       ))}
     </div>
@@ -112,9 +97,45 @@ function CompanyHero({
   );
 }
 
+const SYSTEM_OWNER_APP: ApplicationResponseDto = {
+  id: 'client-app-system-owner',
+  code: 'system-owner',
+  nameAr: 'مالك النظام',
+  nameEn: 'System Owner',
+  description: 'إدارة الشركات والتطبيقات وطلبات التفعيل',
+  icon: 'crown',
+  routePath: systemOwnerRoutes.companies,
+  sortOrder: 0,
+  isActive: true,
+  status: 'active',
+};
+
+const COMPANY_APPS_APP: ApplicationResponseDto = {
+  id: 'client-app-company-apps',
+  code: 'company-apps',
+  nameAr: 'تطبيقات الشركة',
+  nameEn: 'Company Apps',
+  description: 'عرض التطبيقات المفعّلة وغير المفعّلة وطلب التفعيل',
+  icon: 'layout-grid',
+  routePath: companyAppsRoutes.overview,
+  sortOrder: 2,
+  isActive: true,
+  status: 'active',
+};
+
+function asLauncherList(value: unknown): ApplicationResponseDto[] {
+  if (Array.isArray(value)) return value as ApplicationResponseDto[];
+  if (value && typeof value === 'object' && Array.isArray((value as { items?: unknown }).items)) {
+    return (value as { items: ApplicationResponseDto[] }).items;
+  }
+  return [];
+}
+
 export function AppsLauncherPage() {
   const branding = useLoginPageBranding();
   const activeCompanyId = useAuthStore((s) => s.activeCompanyId);
+  const isSystemOwner = useIsSystemOwner();
+  const isSuperuser = useIsCompanySuperuser();
   const [apps, setApps] = React.useState<ApplicationResponseDto[]>([]);
   const [loading, setLoading] = React.useState(true);
 
@@ -123,11 +144,44 @@ export function AppsLauncherPage() {
     (async () => {
       setLoading(true);
       try {
-        const items = await applicationsApi.getLauncher();
-        if (!cancelled) setApps(enrichLauncherApplications(items, activeCompanyId));
+        let raw: unknown;
+        try {
+          raw = await applicationsApi.getLauncher();
+        } catch {
+          const fallback = await applicationsApi.getAll({ page: 1, limit: 200 });
+          raw = fallback.items;
+        }
+        if (cancelled) return;
+        const enriched = enrichLauncherApplications(asLauncherList(raw), activeCompanyId);
+        const rest = enriched.filter((app) => {
+          const code = app.code.trim().toLowerCase();
+          return code !== 'system-owner' && code !== 'company-apps';
+        });
+        const companyAppsFromApi = enriched.find(
+          (app) => app.code.trim().toLowerCase() === 'company-apps',
+        );
+        const list: ApplicationResponseDto[] = [];
+        if (isSystemOwner) list.push(SYSTEM_OWNER_APP);
+        if (isSuperuser || isSystemOwner) {
+          list.push(
+            companyAppsFromApi
+              ? {
+                  ...companyAppsFromApi,
+                  routePath: companyAppsFromApi.routePath || companyAppsRoutes.overview,
+                }
+              : COMPANY_APPS_APP,
+          );
+        }
+        list.push(...rest);
+        setApps(list);
       } catch (err) {
         handleApiError(err, 'applications.launcher');
-        if (!cancelled) setApps(enrichLauncherApplications([], activeCompanyId));
+        if (!cancelled) {
+          const fallback: ApplicationResponseDto[] = [];
+          if (isSystemOwner) fallback.push(SYSTEM_OWNER_APP);
+          if (isSuperuser || isSystemOwner) fallback.push(COMPANY_APPS_APP);
+          setApps(fallback);
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -135,10 +189,10 @@ export function AppsLauncherPage() {
     return () => {
       cancelled = true;
     };
-  }, [activeCompanyId]);
+  }, [activeCompanyId, isSystemOwner, isSuperuser]);
 
   return (
-    <div className="relative flex min-h-full flex-1 flex-col overflow-hidden">
+    <div className="apps-launcher-page relative flex w-full min-w-0 flex-1 flex-col">
       <div aria-hidden className="pointer-events-none absolute inset-0 dotted-bg opacity-25" />
       <div
         aria-hidden
@@ -149,7 +203,7 @@ export function AppsLauncherPage() {
         className="pointer-events-none absolute -bottom-32 start-0 h-72 w-72 rounded-full bg-gold/10 blur-3xl"
       />
 
-      <div className="relative flex flex-1 flex-col items-center justify-center px-4 py-10 sm:px-6 sm:py-14">
+      <div className="relative flex w-full flex-col items-center px-4 py-8 pb-20 sm:min-h-full sm:justify-center sm:px-6 sm:py-14 sm:pb-14">
         <CompanyHero
           companyNameAr={branding.companyNameAr}
           companyNameEn={branding.companyNameEn}
@@ -163,21 +217,21 @@ export function AppsLauncherPage() {
               <LayoutGrid className="h-7 w-7" />
             </span>
             <p className="text-sm font-medium text-foreground">لا توجد تطبيقات متاحة لحسابك</p>
-            <p className="text-xs text-muted-foreground">تواصل مع مسؤول النظام لمنح الصلاحيات.</p>
+            <p className="text-xs text-muted-foreground">تواصل مع مسؤول النظام لمنح الصلاحيات أو تفعيل التطبيقات.</p>
           </div>
         ) : (
-          <div className="flex w-full max-w-3xl flex-wrap items-start justify-center gap-5 sm:gap-6">
+          <div className="odoo-app-grid">
             {apps.map((app, index) => (
               <AppTile key={app.id} app={app} index={index} />
             ))}
           </div>
         )}
 
-        {!loading && apps.length > 0 && (
-          <p className="mt-8 text-xs  text-muted-foreground/70">
+        {!loading && apps.length > 0 ? (
+          <p className="mt-8 text-xs text-muted-foreground/70">
             {apps.length} {apps.length === 1 ? 'تطبيق متاح' : 'تطبيقات متاحة'}
           </p>
-        )}
+        ) : null}
       </div>
     </div>
   );

@@ -13,6 +13,8 @@ type CarouselEngineProps = {
   className?: string;
   slideClassName?: string;
   controlsPlacement?: 'below' | 'overlay';
+  /** Dot indicators — turn off when the caller already provides its own way to jump to a slide (e.g. thumbnails). */
+  showDots?: boolean;
   renderSlide: (index: number) => React.ReactNode;
   onIndexChange?: (index: number) => void;
 };
@@ -24,6 +26,7 @@ export function CarouselEngine({
   className,
   slideClassName,
   controlsPlacement = 'overlay',
+  showDots = true,
   renderSlide,
   onIndexChange,
 }: CarouselEngineProps) {
@@ -39,13 +42,11 @@ export function CarouselEngine({
 
   const go = React.useCallback(
     (direction: 1 | -1) => {
-      setIndex((current) => {
-        const next = (current + direction + itemCount) % itemCount;
-        onIndexChange?.(next);
-        return next;
-      });
+      const next = (index + direction + itemCount) % itemCount;
+      setIndex(next);
+      onIndexChange?.(next);
     },
-    [itemCount, onIndexChange],
+    [index, itemCount, onIndexChange],
   );
 
   const goTo = React.useCallback(
@@ -111,7 +112,7 @@ export function CarouselEngine({
     'md:focus-visible:opacity-100 md:focus-visible:pointer-events-auto',
   );
 
-  const dots = itemCount > 1 ? (
+  const dots = showDots && itemCount > 1 ? (
     <div
       className={cn(
         'flex justify-center gap-2',

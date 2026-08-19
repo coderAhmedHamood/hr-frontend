@@ -279,9 +279,9 @@ function EventDetailDialog({
   const srcMeta = SOURCE_META[event.source ?? ''] ?? { label: event.source ?? '—', icon: Clock };
 
   const rows: [string, React.ReactNode][] = [
-    ['نوع الحدث',     <span className={cn('inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium', meta.color)}><Icon className="h-3 w-3" />{meta.label}</span>],
-    ['تاريخ العمل',   <span dir="ltr">{event.workDate}</span>],
-    ['الوقت الفعلي',  <span dir="ltr">{fmtTime(event.occurredAt)}</span>],
+    ['نوع الحدث',     <span key="event-type" className={cn('inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium', meta.color)}><Icon className="h-3 w-3" />{meta.label}</span>],
+    ['تاريخ العمل',   <span key="work-date" dir="ltr">{event.workDate}</span>],
+    ['الوقت الفعلي',  <span key="occurred-at" dir="ltr">{fmtTime(event.occurredAt)}</span>],
     ['المصدر',        (() => { const SrcIcon2 = srcMeta.icon; return <span className="flex items-center gap-1.5"><SrcIcon2 className="h-3.5 w-3.5 text-muted-foreground" />{srcMeta.label}</span>; })()],
     ['نقطة التسجيل',  event.checkInPointNameAr ?? '—'],
     ['داخل النطاق',   event.withinRadius === null ? '—' : event.withinRadius ? 'نعم ✓' : 'لا ✗'],

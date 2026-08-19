@@ -19,6 +19,7 @@ import {
   BarChart3,
   FileText,
   Settings2,
+  Store,
 } from 'lucide-react';
 import { inventoryAdminRoutes } from '@/features/inventory/admin/constants/routes';
 import { WAREHOUSE_OPERATION_KIND_META } from '@/features/inventory/domain/constants/warehouse-operation-kinds';
@@ -37,7 +38,7 @@ export type InventoryAdminNavSection = {
 };
 
 export type InventoryAdminNavGroup = {
-  key: 'operations' | 'products' | 'reports' | 'configuration';
+  key: 'operations' | 'pos' | 'products' | 'reports' | 'configuration';
   labelAr: string;
   icon: LucideIcon;
   sections: InventoryAdminNavSection[];
@@ -88,6 +89,22 @@ export const inventoryAdminNavGroups: InventoryAdminNavGroup[] = [
       },
       {
         items: [opItem('purchase'), opItem('replenishment')],
+      },
+    ],
+  },
+  {
+    key: 'pos',
+    labelAr: 'نقطة البيع',
+    icon: Store,
+    sections: [
+      {
+        items: [
+          {
+            labelAr: 'كاشير — خصم كمية',
+            href: inventoryAdminRoutes.pos,
+            icon: Store,
+          },
+        ],
       },
     ],
   },
@@ -155,6 +172,8 @@ const INVENTORY_ADMIN_PATHS: string[] = [
   ...inventoryAdminNavGroups.flatMap(collectHrefs),
   '/inventory/warehouses',
   '/inventory/reports',
+  '/inventory/pos',
+  '/pos',
   '/inventory/transfers',
   '/inventory/receipts',
   '/inventory/deliveries',

@@ -1,51 +1,90 @@
-import { createMockRepository } from '@/features/ecommerce/shared/lib/mock/repository';
+import { apiRequest, type PaginatedResult } from '@/features/hr/lib/api/client';
+import { toNumber } from '@/features/inventory/lib/api/numbers';
 import type {
   InventoryLedgerEntry,
   InventoryLedgerListQuery,
 } from '@/features/inventory/domain/types/inventory-ledger';
-import ledgerSeed from '@/features/inventory/shared/lib/mock/inventory-ledger.json';
 
-const repository = createMockRepository<InventoryLedgerEntry>(
-  ledgerSeed as InventoryLedgerEntry[],
-);
+type LedgerDto = Omit<InventoryLedgerEntry, 'quantityDelta'> & {
+  quantityDelta: string | number;
+};
 
-function newId() {
-  return `led-${Math.random().toString(36).slice(2, 10)}`;
+function mapEntry(dto: LedgerDto): InventoryLedgerEntry {
+  return {
+    id: dto.id,
+    companyId: dto.companyId,
+    occurredAt: dto.occurredAt,
+    operationId: dto.operationId,
+    operationLineId: dto.operationLineId,
+    operationReference: dto.operationReference,
+    kind: dto.kind,
+    productId: dto.productId,
+    productName: dto.productName,
+    variantId: dto.variantId ?? undefined,
+    sku: dto.sku ?? undefined,
+    warehouseId: dto.warehouseId,
+    locationId: dto.locationId,
+    quantityDelta: toNumber(dto.quantityDelta),
+    counterpartLocationId: dto.counterpartLocationId ?? undefined,
+    counterpartWarehouseId: dto.counterpartWarehouseId ?? undefined,
+    sourceDocument: dto.sourceDocument ?? undefined,
+    partnerName: dto.partnerName ?? undefined,
+    notes: dto.notes ?? undefined,
+    createdAt: dto.createdAt,
+  };
 }
 
 export const inventoryLedgerApi = {
-  list(query: InventoryLedgerListQuery) {
-    return repository.list(
-      query,
-      (item, q) => {
-        if (query.warehouseId && item.warehouseId !== query.warehouseId) return false;
-        if (query.productId && item.productId !== query.productId) return false;
-        if (query.locationId && item.locationId !== query.locationId) return false;
-        if (query.kind && item.kind !== query.kind) return false;
-        if (query.operationId && item.operationId !== query.operationId) return false;
-        if (!query.search) return true;
-        const search = query.search.toLowerCase();
-        return (
-          item.operationReference.toLowerCase().includes(search) ||
-          item.productName.toLowerCase().includes(search) ||
-          (item.sku?.toLowerCase().includes(search) ?? false) ||
-          (item.sourceDocument?.toLowerCase().includes(search) ?? false)
-        );
+  async list(query: InventoryLedgerListQuery) {
+    if (!query.companyId?.trim()) {
+      throw new Error('companyId مطلوب لقائمة قيود المخزون.');
+    }
+    const result = await apiRequest<PaginatedResult<LedgerDto>>('/inventory/ledger-entries', {
+      query: {
+        companyId: query.companyId,
+        warehouseId: query.warehouseId,
+        productId: query.productId,
+        locationId: query.locationId,
+        kind: query.kind,
+        operationId: query.operationId,
+        search: query.search,
+        page: query.page ?? 1,
+        limit: query.limit ?? 200,
       },
-      (a, b) => b.occurredAt.localeCompare(a.occurredAt) || b.createdAt.localeCompare(a.createdAt),
-    );
+    });
+    return {
+      items: (result.items ?? []).map(mapEntry),
+      pagination: result.pagination,
+    };
   },
 
   async append(entries: Omit<InventoryLedgerEntry, 'id' | 'createdAt'>[]): Promise<InventoryLedgerEntry[]> {
-    const now = new Date().toISOString();
     const created: InventoryLedgerEntry[] = [];
     for (const entry of entries) {
-      const row = await repository.create({
-        ...entry,
-        id: newId(),
-        createdAt: now,
+      const dto = await apiRequest<LedgerDto>('/inventory/ledger-entries', {
+        method: 'POST',
+        body: {
+          companyId: entry.companyId,
+          operationId: entry.operationId,
+          operationLineId: entry.operationLineId,
+          locationId: entry.locationId,
+          quantityDelta: entry.quantityDelta,
+          occurredAt: entry.occurredAt,
+          operationReference: entry.operationReference,
+          kind: entry.kind,
+          productId: entry.productId,
+          productName: entry.productName,
+          variantId: entry.variantId ?? null,
+          sku: entry.sku ?? null,
+          warehouseId: entry.warehouseId,
+          counterpartLocationId: entry.counterpartLocationId ?? null,
+          counterpartWarehouseId: entry.counterpartWarehouseId ?? null,
+          sourceDocument: entry.sourceDocument ?? null,
+          partnerName: entry.partnerName ?? null,
+          notes: entry.notes ?? null,
+        },
       });
-      created.push(row);
+      created.push(mapEntry(dto));
     }
     return created;
   },

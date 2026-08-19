@@ -72,9 +72,20 @@ const nextConfig = {
       { source: '/hr', destination: '/hr/organization/employees', permanent: false },
       { source: '/dashboard', destination: '/', permanent: true },
       { source: '/hr/dashboard', destination: '/hr/organization/employees', permanent: true },
-      { source: '/contacts', destination: '/system/organization/contacts', permanent: true },
-      { source: '/hr/contacts', destination: '/system/organization/contacts', permanent: true },
-      { source: '/hr/organization/contacts', destination: '/system/organization/contacts', permanent: true },
+      // Partners app lives under `/contacts/*`. Temporary (not permanent) so browsers can recover
+      // from any previously cached permanent redirect that pointed `/contacts` at System.
+      { source: '/contacts', destination: '/contacts/list', permanent: false },
+      // Store admin seed path → ecommerce admin shell (إدارة المتجر).
+      { source: '/store-admin', destination: '/overview', permanent: false },
+      { source: '/store-admin/:path*', destination: '/overview', permanent: false },
+      // Do NOT redirect `/store` ↔ `/ar/store` here. Locale prefix is owned by
+      // `src/proxy.ts` (next-intl). With NEXT_PUBLIC_STORE_MULTILANG=false the
+      // public URL is `/store`; a next.config redirect to `/ar/store` fights
+      // middleware (which strips `/ar`) and infinite-loops.
+      // Legacy HR / System “contacts” = users directory (not Partners).
+      { source: '/hr/contacts', destination: '/system/organization/users', permanent: true },
+      { source: '/hr/organization/contacts', destination: '/system/organization/users', permanent: true },
+      { source: '/system/organization/contacts', destination: '/system/organization/users', permanent: true },
       { source: '/attendance', destination: '/hr/attendance', permanent: true },
       { source: '/job-titles', destination: '/system/organization/job-titles', permanent: true },
       { source: '/hr/job-titles', destination: '/system/organization/job-titles', permanent: true },
@@ -97,9 +108,7 @@ const nextConfig = {
       { source: '/notifications', destination: '/hr/notifications/admin', permanent: true },
       { source: '/hr/notifications', destination: '/hr/notifications/admin', permanent: true },
       // Ecommerce Website CMS — shallow feature routes → Website group pages
-      { source: '/cms/footer', destination: '/cms/navigation?tab=footer', permanent: false },
       { source: '/cms/pages', destination: '/cms/content?tab=pages', permanent: false },
-      { source: '/cms/blog', destination: '/cms/content?tab=blog', permanent: false },
       { source: '/cms/faq', destination: '/cms/content?tab=faq', permanent: false },
       { source: '/cms/seo', destination: '/cms/settings', permanent: false },
     ];

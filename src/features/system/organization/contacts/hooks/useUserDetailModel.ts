@@ -1,7 +1,10 @@
 'use client';
 
 import * as React from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { ACCESS_PROFILE_KEY } from '@/features/auth/hooks/use-access-profile';
+import { useAuthStore } from '@/features/auth/lib/auth-store';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import { usersApi, type UserResponseDto } from '@/features/hr/organization/lib/api/users';
 import { userCompaniesApi } from '@/features/system/organization/contacts/lib/api/user-companies';
@@ -19,6 +22,8 @@ export function useUserDetailModel(
   reference: ReferenceData,
   onUserUpdated?: (user: UserResponseDto) => void,
 ) {
+  const queryClient = useQueryClient();
+  const sessionUserId = useAuthStore((s) => s.user?.id);
   const [user, setUser] = React.useState<UserResponseDto | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
@@ -27,6 +32,11 @@ export function useUserDetailModel(
   const [assignBranchId, setAssignBranchId] = React.useState('');
   const [assignCompanyDefault, setAssignCompanyDefault] = React.useState(false);
   const [assignBranchDefault, setAssignBranchDefault] = React.useState(false);
+
+  const refreshSessionAccessProfile = React.useCallback(async () => {
+    if (!userId || !sessionUserId || userId !== sessionUserId) return;
+    await queryClient.invalidateQueries({ queryKey: [...ACCESS_PROFILE_KEY, sessionUserId] });
+  }, [queryClient, sessionUserId, userId]);
 
   const reload = React.useCallback(async () => {
     if (!userId) {
@@ -65,15 +75,18 @@ export function useUserDetailModel(
     [assignedCompanyIds, reference.companies],
   );
 
-  const availableBranches = React.useMemo(
-    () => reference.branches.filter((b) => !assignedBranchIds.has(b.id)),
-    [assignedBranchIds, reference.branches],
-  );
+  /** Branches still available to assign — limited to companies already linked to the user. */
+  const availableBranches = React.useMemo(() => {
+    const companyIds = assignedCompanyIds;
+    return reference.branches.filter(
+      (b) => !assignedBranchIds.has(b.id) && (companyIds.size === 0 || companyIds.has(b.companyId)),
+    );
+  }, [assignedBranchIds, assignedCompanyIds, reference.branches]);
 
   const branchesForAssignCompany = React.useMemo(() => {
-    if (!assignCompanyId) return reference.branches;
-    return reference.branches.filter((b) => b.companyId === assignCompanyId);
-  }, [assignCompanyId, reference.branches]);
+    if (!assignCompanyId) return availableBranches;
+    return availableBranches.filter((b) => b.companyId === assignCompanyId);
+  }, [assignCompanyId, availableBranches]);
 
   const runMutation = React.useCallback(
     async (action: () => Promise<void>, successMessage: string) => {
@@ -82,6 +95,7 @@ export function useUserDetailModel(
         await action();
         toast.success(successMessage);
         await reload();
+        await refreshSessionAccessProfile();
       } catch (err) {
         const { displayMessage } = handleApiError(err, 'users.assignment');
         toast.error(displayMessage);
@@ -89,7 +103,7 @@ export function useUserDetailModel(
         setSaving(false);
       }
     },
-    [reload],
+    [refreshSessionAccessProfile, reload],
   );
 
   const assignCompany = React.useCallback(async () => {

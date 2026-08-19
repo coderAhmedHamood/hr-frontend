@@ -25,6 +25,7 @@ export function JobTitlesListViews({ model }: { model: JobTitlesDirectoryModel }
     {
       key: 'company',
       title: 'الشركة',
+      hideOnMobile: true,
       className: 'text-muted-foreground',
       render: (row) => companyLabel(row.companyId),
     },
@@ -40,6 +41,7 @@ export function JobTitlesListViews({ model }: { model: JobTitlesDirectoryModel }
     {
       key: 'description',
       title: 'وصف',
+      hideOnMobile: true,
       className: 'max-w-[200px] truncate text-muted-foreground',
       render: (row) => row.descriptionAr ?? '—',
     },
@@ -118,7 +120,7 @@ export function JobTitlesListViews({ model }: { model: JobTitlesDirectoryModel }
       ) : (
         <DataTable
           variant="directory"
-          alwaysShowTable
+          className="sys-table-host"
           columns={columns}
           data={pageItems}
           keyExtractor={(row) => row.id}

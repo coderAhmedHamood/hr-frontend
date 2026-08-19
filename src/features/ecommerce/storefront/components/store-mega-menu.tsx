@@ -4,7 +4,11 @@ import * as React from 'react';
 import Image from 'next/image';
 import { ChevronDown } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import type { StorefrontBrand, StorefrontCategory } from '@/features/ecommerce/storefront/domain/storefront-models';
+import type {
+  StorefrontBrand,
+  StorefrontCategory,
+  StorefrontCompanyConfig,
+} from '@/features/ecommerce/storefront/domain/storefront-models';
 import {
   buildCategoryTree,
   buildMegaMenuColumns,
@@ -12,16 +16,20 @@ import {
 import { Link } from '@/i18n/navigation';
 import { cn } from '@/shared/utils';
 
+type PromoNavLink = StorefrontCompanyConfig['secondaryNavigation'][number];
+
 type StoreCategoryNavBarProps = {
   categories: StorefrontCategory[];
   brands: StorefrontBrand[];
+  promoLinks?: PromoNavLink[];
 };
 
 /**
  * Desktop category strip — dedicated second header row so brand/actions stay uncrowded.
  * Hover/focus opens the mega-menu panel under the strip.
+ * Promo destinations (offers / wholesale) trail after category roots.
  */
-export function StoreCategoryNavBar({ categories, brands }: StoreCategoryNavBarProps) {
+export function StoreCategoryNavBar({ categories, brands, promoLinks = [] }: StoreCategoryNavBarProps) {
   const t = useTranslations('storefront');
   const { roots, childrenByParent } = React.useMemo(() => buildCategoryTree(categories), [categories]);
   const [activeId, setActiveId] = React.useState<string | null>(null);
@@ -55,7 +63,7 @@ export function StoreCategoryNavBar({ categories, brands }: StoreCategoryNavBarP
     };
   }, []);
 
-  if (roots.length === 0) return null;
+  if (roots.length === 0 && promoLinks.length === 0) return null;
 
   return (
     <div
@@ -69,48 +77,73 @@ export function StoreCategoryNavBar({ categories, brands }: StoreCategoryNavBarP
     >
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6">
         <nav
-          className="relative z-50 flex items-stretch gap-1 overflow-x-auto scrollbar-none"
+          className="relative z-50 flex items-stretch gap-2"
           aria-label={t('nav.categories')}
         >
-          <Link
-            href="/store/categories"
-            prefetch={false}
-            className="relative z-50 shrink-0 whitespace-nowrap border-b-2 border-transparent px-3.5 py-2.5 text-sm font-semibold text-foreground transition-colors hover:text-primary"
-          >
-            {t('nav.categories')}
-          </Link>
-
-          {roots.map((category) => {
-            const isActive = activeId === category.id;
-            return (
-              <button
-                key={category.id}
-                type="button"
-                onMouseEnter={() => openMenu(category.id)}
-                onFocus={() => openMenu(category.id)}
-                onClick={() => openMenu(category.id)}
-                className={cn(
-                  'relative z-50 shrink-0 whitespace-nowrap border-b-2 px-3.5 py-2.5 text-sm transition-colors',
-                  isActive
-                    ? 'border-primary font-semibold text-primary'
-                    : 'border-transparent text-muted-foreground hover:text-foreground',
-                )}
-                aria-expanded={isActive}
-                aria-haspopup="true"
+          {/* Categories scroll; promo links stay pinned outside the scrollport */}
+          <div className="flex min-w-0 flex-1 items-stretch gap-1 overflow-x-auto scrollbar-none">
+            {roots.length > 0 ? (
+              <Link
+                href="/store/categories"
+                prefetch={false}
+                className="relative z-50 shrink-0 whitespace-nowrap border-b-2 border-transparent px-3.5 py-2.5 text-sm font-semibold text-foreground transition-colors hover:text-primary"
               >
-                <span className="inline-flex items-center gap-1.5">
-                  {category.name}
-                  <ChevronDown
-                    className={cn(
-                      'h-3.5 w-3.5 opacity-40 transition-transform',
-                      isActive && 'rotate-180 opacity-70',
-                    )}
-                    aria-hidden
-                  />
-                </span>
-              </button>
-            );
-          })}
+                {t('nav.categories')}
+              </Link>
+            ) : null}
+
+            {roots.map((category) => {
+              const isActive = activeId === category.id;
+              return (
+                <button
+                  key={category.id}
+                  type="button"
+                  onMouseEnter={() => openMenu(category.id)}
+                  onFocus={() => openMenu(category.id)}
+                  onClick={() => openMenu(category.id)}
+                  className={cn(
+                    'relative z-50 shrink-0 whitespace-nowrap border-b-2 px-3.5 py-2.5 text-sm transition-colors',
+                    isActive
+                      ? 'border-primary font-semibold text-primary'
+                      : 'border-transparent text-muted-foreground hover:text-foreground',
+                  )}
+                  aria-expanded={isActive}
+                  aria-haspopup="true"
+                >
+                  <span className="inline-flex items-center gap-1.5">
+                    {category.name}
+                    <ChevronDown
+                      className={cn(
+                        'h-3.5 w-3.5 opacity-40 transition-transform',
+                        isActive && 'rotate-180 opacity-70',
+                      )}
+                      aria-hidden
+                    />
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {promoLinks.length > 0 ? (
+            <div className="flex shrink-0 items-center gap-2 border-s border-border bg-muted/40 ps-3">
+              {promoLinks.map((item) => (
+                <Link
+                  key={`${item.href}-${item.label}`}
+                  href={item.href}
+                  prefetch={false}
+                  className={cn(
+                    'relative z-50 inline-flex shrink-0 items-center whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-semibold transition-colors',
+                    item.highlight
+                      ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                      : 'border border-border bg-background text-foreground hover:border-primary/40 hover:bg-muted',
+                  )}
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </div>
+          ) : null}
         </nav>
       </div>
 
@@ -298,7 +331,7 @@ export function StoreMobileCategoryNav({
                 <Link
                   href={`/store/categories/${category.slug}`}
                   prefetch={false}
-                  className="rounded-md px-3 py-2 text-sm font-medium text-primary hover:bg-accent"
+                  className="rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
                   onClick={onNavigate}
                 >
                   {t('home.browseProducts')}

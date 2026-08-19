@@ -10,9 +10,9 @@ import {
   LayoutGrid, MapPin, Link2, CalendarRange, Activity,
   ListChecks, ShieldCheck, LayoutList, CirclePlus, CalendarClock,
   Banknote, FileSignature, BookOpen, FileSpreadsheet, UserCircle, Briefcase, UserCheck, UserPlus,
-  Coins, FileStack, Receipt, KeyRound, Settings, Timer,
+  Coins, FileStack, Receipt, KeyRound, Settings, Timer, Inbox,
   LayoutTemplate, Navigation, PanelBottom, PanelTop, Image, FileText, Newspaper,
-  CircleHelp, Search, ShoppingCart, Package, FolderTree, Tag, Globe, Megaphone,
+  CircleHelp, Search, ShoppingCart, Package, FolderTree, Tag, Globe, Megaphone, ContactRound,
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
@@ -31,7 +31,11 @@ import { hrPayrollNavGroups, isHrPayrollNavPath } from '@/features/hr/payroll/co
 import { hrContractsOnlyNavGroups, isHrContractsOnlyNavPath } from '@/features/hr/contracts/constants/nav';
 import { hrPayrollSectionHref } from '@/features/hr/payroll/constants/routes';
 import { hrContractsSectionHref } from '@/features/hr/contracts/constants/routes';
-import { isHrOrganizationNavPath } from '@/features/hr/organization/constants/nav';
+import {
+  hrOrganizationSettingsNavItems,
+  isHrOrganizationEmployeesNavPath,
+  isHrOrganizationSettingsNavPath,
+} from '@/features/hr/organization/constants/nav';
 import { hrOrganizationRoutes } from '@/features/hr/organization/constants/routes';
 import { systemPermissionsNavGroups, isSystemPermissionsNavPath } from '@/features/system/permissions/constants/nav';
 import {
@@ -40,6 +44,7 @@ import {
   isSystemOrganizationStructureNavPath,
   isSystemOrganizationSettingsNavPath,
 } from '@/features/system/organization/constants/nav';
+import { systemOverviewItem } from '@/features/system/constants/nav';
 import {
   ecommerceAdminNavGroups,
   ecommerceAdminOverviewItem,
@@ -50,17 +55,25 @@ import {
   inventoryAdminOverviewItem,
   flattenInventoryNavItems,
 } from '@/features/inventory/admin/constants/nav';
+import {
+  contactsAdminNavGroups,
+  contactsAdminOverviewItem,
+  flattenContactsNavItems,
+} from '@/features/contacts/admin/constants/nav';
 import { UserMenuDropdown } from '@/components/layouts/user-menu-dropdown';
 import { AppsLauncherButton } from '@/components/layouts/apps-launcher-button';
-import { useAuthStore } from '@/features/auth/lib/auth-store';
+import { useModuleEnablementContext } from '@/features/auth/hooks/use-system-owner';
 import {
   isHrAppPath,
   isSystemAppPath,
+  isSystemOwnerAppPath,
   isEcommerceAppPath,
   isInventoryAppPath,
+  isContactsAppPath,
   isLauncherPath,
 } from '@/shared/app-paths';
 import { isModuleEnabledFor } from '@/shared/modules/registry';
+import { systemOwnerRoutes } from '@/features/system-owner/constants/routes';
 
 /* ── Icon registry ────────────────────────────────────────────────────── */
 export const PAGE_ICONS: Record<string, React.ElementType> = {
@@ -71,11 +84,18 @@ export const PAGE_ICONS: Record<string, React.ElementType> = {
   CalendarClock, LayoutList, ListChecks, ShieldCheck,
   Coins, FileStack, Receipt, KeyRound,
   LayoutTemplate, Navigation, PanelBottom, PanelTop, Image, FileText, Newspaper,
-  CircleHelp, Search, ShoppingCart, Package, FolderTree, Tag, Globe, Megaphone,
+  CircleHelp, Search, ShoppingCart, Package, FolderTree, Tag, Globe, Megaphone, ContactRound,
+  Inbox, Shield,
 };
 
 /* ── Nav data ──────────────────────────────────────────────────────────── */
-type SubItem  = { label: string; href: string; icon?: React.ElementType };
+type SubItem = {
+  label: string;
+  href: string;
+  icon?: React.ElementType;
+  /** Mid-column section heading rendered above this item */
+  groupLabel?: string;
+};
 type NavGroup = { labelAr?: string; items: SubItem[] };
 type NavItem  = {
   key: string; label: string; href?: string;
@@ -110,7 +130,7 @@ export const navConfig: NavItem[] = [
   {
     key: 'employees', label: 'سجل الموظفين', icon: Users,
     href: hrOrganizationRoutes.employees,
-    isActive: isHrOrganizationNavPath,
+    isActive: isHrOrganizationEmployeesNavPath,
   },
   {
     key: 'recruitment', label: 'التوظيف', icon: UserPlus,
@@ -203,9 +223,45 @@ export const navConfig: NavItem[] = [
     isActive: isHrContractsOnlyNavPath,
     groups: mapContractsOnlyNavGroups(hrContractsOnlyNavGroups),
   },
+  {
+    key: 'hr-organization-settings',
+    label: 'الإعدادات',
+    icon: Settings,
+    isActive: isHrOrganizationSettingsNavPath,
+    groups: [
+      {
+        items: hrOrganizationSettingsNavItems.map((item) => ({
+          label: item.labelAr,
+          href: item.href,
+          icon: item.icon,
+        })),
+      },
+    ],
+  },
+];
+
+export const systemOwnerNavConfig: NavItem[] = [
+  {
+    key: 'system-owner-companies',
+    label: 'الشركات',
+    href: systemOwnerRoutes.companies,
+    icon: Building2,
+  },
+  {
+    key: 'system-owner-requests',
+    label: 'طلبات التفعيل',
+    href: systemOwnerRoutes.requests,
+    icon: Inbox,
+  },
 ];
 
 export const systemNavConfig: NavItem[] = [
+  {
+    key: 'system-overview',
+    label: systemOverviewItem.labelAr,
+    href: systemOverviewItem.href,
+    icon: systemOverviewItem.icon,
+  },
   {
     key: 'system-organization-structure', label: 'الهيكل التنظيمي', icon: Building2,
     isActive: isSystemOrganizationStructureNavPath,
@@ -282,6 +338,9 @@ function buildEcommerceNavConfig(tNav: (key: string) => string): NavItem[] {
             label: tNav(item.labelKey),
             href: item.href,
             icon: item.icon,
+            groupLabel: item.precedingSectionKey
+              ? tNav(`sections.${item.precedingSectionKey}`)
+              : undefined,
           })),
         })),
     });
@@ -330,6 +389,47 @@ function buildInventoryNavConfig(): NavItem[] {
   return items;
 }
 
+/** جهات الاتصال | التهيئة */
+function buildContactsNavConfig(): NavItem[] {
+  const items: NavItem[] = [
+    {
+      key: 'contacts-overview',
+      label: contactsAdminOverviewItem.labelAr,
+      href: contactsAdminOverviewItem.href,
+      icon: contactsAdminOverviewItem.icon,
+      isActive: (pathname) =>
+        pathname === '/contacts' || pathname === '/contacts/list' || pathname.startsWith('/contacts/list'),
+    },
+  ];
+
+  for (const group of contactsAdminNavGroups) {
+    const flat = flattenContactsNavItems(group);
+    if (flat.length === 0 || group.key === 'directory') continue;
+
+    items.push({
+      key: group.key,
+      label: group.labelAr,
+      icon: group.icon,
+      isActive: (pathname) =>
+        flat.some((item) => {
+          const base = item.href.split('?')[0]!;
+          return pathname === base || pathname.startsWith(`${base}/`);
+        }),
+      groups: [
+        {
+          items: flat.map((item) => ({
+            label: item.labelAr,
+            href: item.href,
+            icon: item.icon,
+          })),
+        },
+      ],
+    });
+  }
+
+  return items;
+}
+
 /* ── Helpers ─────────────────────────────────────────────────────────── */
 function parentIsActive(pathname: string, item: NavItem) {
   if (item.isActive) return item.isActive(pathname);
@@ -367,17 +467,20 @@ function NavDropdownContent({
     return true;
   }
 
+  const totalItems = groups.reduce((sum, group) => sum + group.items.length, 0);
+  const useColumns = groups.length > 1 && totalItems > 6;
+
   return (
     <div
       className={cn(
-        'nav-dropdown absolute right-0 top-[calc(100%+6px)] z-[200] min-w-[220px] rounded-2xl border border-border/60 bg-popover/95 p-2 shadow-elevated backdrop-blur-xl',
+        'nav-dropdown absolute right-0 top-[calc(100%+6px)] z-[200] rounded-2xl border border-border bg-popover p-2 shadow-elevated',
+        useColumns ? 'grid w-105 grid-cols-2 items-start gap-1' : 'min-w-60',
       )}
       onMouseEnter={onOpen}
       onMouseLeave={onClose}
     >
       {groups.map((group, gi) => (
-        <div key={gi} className="flex flex-col gap-0.5">
-          {gi > 0 && <div className="my-1 border-t border-border/40" />}
+        <div key={gi} className={cn('flex flex-col gap-0.5', !useColumns && gi > 0 && 'mt-1 border-t border-border/40 pt-1')}>
           {group.labelAr && (
             <p className="mb-1 px-3 pt-1 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground/50">
               {group.labelAr}
@@ -387,31 +490,37 @@ function NavDropdownContent({
             const SubIcon = sub.icon;
             const active  = subIsActive(sub.href);
             return (
-              <Link
-                key={sub.href}
-                href={sub.href}
-                className={cn(
-                  'group/sub relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-150',
-                  active
-                    ? 'bg-primary/10 text-primary font-semibold'
-                    : 'text-foreground/70 hover:bg-muted/70 hover:text-foreground',
-                )}
-              >
-                {active && (
-                  <span className="absolute inset-e-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-full bg-primary" />
-                )}
-                {SubIcon && (
-                  <span className={cn(
-                    'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors',
+              <React.Fragment key={sub.href}>
+                {sub.groupLabel ? (
+                  <p className="mb-1 mt-2 px-3 pt-1 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground/50 first:mt-0">
+                    {sub.groupLabel}
+                  </p>
+                ) : null}
+                <Link
+                  href={sub.href}
+                  className={cn(
+                    'group/sub relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-150',
                     active
-                      ? 'bg-primary/15 text-primary'
-                      : 'bg-muted/60 text-muted-foreground group-hover/sub:bg-primary/10 group-hover/sub:text-primary',
-                  )}>
-                    <SubIcon className="h-3.5 w-3.5" />
-                  </span>
-                )}
-                <span className="flex-1 leading-tight">{sub.label}</span>
-              </Link>
+                      ? 'bg-primary/10 text-primary font-semibold'
+                      : 'text-foreground/70 hover:bg-muted/70 hover:text-foreground',
+                  )}
+                >
+                  {active && (
+                    <span className="absolute inset-e-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-full bg-primary" />
+                  )}
+                  {SubIcon && (
+                    <span className={cn(
+                      'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors',
+                      active
+                        ? 'bg-primary/15 text-primary'
+                        : 'bg-muted/60 text-muted-foreground group-hover/sub:bg-primary/10 group-hover/sub:text-primary',
+                    )}>
+                      <SubIcon className="h-3.5 w-3.5" />
+                    </span>
+                  )}
+                  <span className="flex-1 leading-tight">{sub.label}</span>
+                </Link>
+              </React.Fragment>
             );
           })}
         </div>
@@ -513,25 +622,33 @@ export function Topbar() {
 
   const inHrApp = isHrAppPath(pathname);
   const inSystemApp = isSystemAppPath(pathname);
-  const activeCompanyId = useAuthStore((s) => s.activeCompanyId);
-  const ecommerceEnabled = isModuleEnabledFor('ecommerce', activeCompanyId);
-  const inventoryEnabled = isModuleEnabledFor('inventory', activeCompanyId);
+  const inSystemOwnerApp = isSystemOwnerAppPath(pathname);
+  const { companyId: activeCompanyId, ...moduleContext } = useModuleEnablementContext();
+  const ecommerceEnabled = isModuleEnabledFor('ecommerce', activeCompanyId, moduleContext);
+  const inventoryEnabled = isModuleEnabledFor('inventory', activeCompanyId, moduleContext);
+  const contactsEnabled = isModuleEnabledFor('contacts', activeCompanyId, moduleContext);
   const inEcommerceApp = ecommerceEnabled && isEcommerceAppPath(pathname);
   const inInventoryApp = inventoryEnabled && isInventoryAppPath(pathname);
-  const inAppShell = inHrApp || inSystemApp || inEcommerceApp || inInventoryApp;
+  const inContactsApp = contactsEnabled && isContactsAppPath(pathname);
+  const inAppShell = inHrApp || inSystemApp || inSystemOwnerApp || inEcommerceApp || inInventoryApp || inContactsApp;
   const tEcommerceNav = useTranslations('ecommerceAdmin.nav');
   const ecommerceNavConfig = React.useMemo(
     () => buildEcommerceNavConfig((key) => tEcommerceNav(key as 'overview')),
     [tEcommerceNav],
   );
   const inventoryNavConfig = React.useMemo(() => buildInventoryNavConfig(), []);
-  const activeNavConfig = inSystemApp
+  const contactsNavConfig = React.useMemo(() => buildContactsNavConfig(), []);
+  const activeNavConfig = inSystemOwnerApp
+    ? systemOwnerNavConfig
+    : inSystemApp
     ? systemNavConfig
-    : inInventoryApp
-      ? inventoryNavConfig
-      : inEcommerceApp
-        ? ecommerceNavConfig
-        : navConfig;
+    : inContactsApp
+      ? contactsNavConfig
+      : inInventoryApp
+        ? inventoryNavConfig
+        : inEcommerceApp
+          ? ecommerceNavConfig
+          : navConfig;
   const onLauncher = isLauncherPath(pathname);
   const PageIcon = meta.iconName ? PAGE_ICONS[meta.iconName] : null;
 

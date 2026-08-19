@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 import type { PageRecord } from '@/features/ecommerce/storefront/page-builder/domain/page-records';
-import { storefrontPageRepository } from '@/features/ecommerce/storefront/page-builder/lib/repositories/page-repository';
+import { saveCmsPageRecord } from '@/features/ecommerce/admin/cms/shared/cms-actions';
 import { homepageCmsQueryKeys } from '@/features/ecommerce/admin/cms/homepage/hooks/query-keys';
 
 export function useHomepagePageMutations(companyId: string) {
@@ -10,14 +10,16 @@ export function useHomepagePageMutations(companyId: string) {
   const t = useTranslations('ecommerceAdmin.homepage');
 
   const save = useMutation({
-    mutationFn: (record: PageRecord) => storefrontPageRepository.saveRecord(record),
+    mutationFn: (record: PageRecord) => saveCmsPageRecord(record),
     onSuccess: (saved) => {
+      // Prefer the save response — do not immediately refetch (refetch can briefly
+      // fall back to the seed mock and wipe the just-saved hero slides).
       queryClient.setQueryData(homepageCmsQueryKeys.record(companyId), saved);
-      void queryClient.invalidateQueries({ queryKey: homepageCmsQueryKeys.all });
       toast.success(t('saveSuccess'));
     },
-    onError: () => {
-      toast.error(t('saveError'));
+    onError: (error) => {
+      const message = error instanceof Error && error.message.trim() ? error.message : t('saveError');
+      toast.error(message);
     },
   });
 

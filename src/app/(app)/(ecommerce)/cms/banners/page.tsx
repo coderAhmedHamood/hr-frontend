@@ -1,5 +1,5 @@
-import { BannersManagementPage } from '@/features/ecommerce/admin/cms/banners/components/banners-management-page';
+import { HeroCarouselPage } from '@/features/ecommerce/admin/cms/banners/components/hero-carousel-page';
 
 export default function Page() {
-  return <BannersManagementPage />;
+  return <HeroCarouselPage />;
 }

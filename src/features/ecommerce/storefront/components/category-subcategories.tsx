@@ -1,15 +1,17 @@
-import { getTranslations } from 'next-intl/server';
+'use client';
+
+import { useTranslations } from 'next-intl';
 import { CategoryCard } from '@/features/ecommerce/storefront/components/catalog/category-card';
 import type { StorefrontCategory } from '@/features/ecommerce/storefront/domain/storefront-models';
 
-export async function CategorySubcategories({
+export function CategorySubcategories({
   subcategories,
 }: {
   subcategories: StorefrontCategory[];
 }) {
-  if (subcategories.length === 0) return null;
+  const t = useTranslations('storefront.categories');
 
-  const t = await getTranslations('storefront.categories');
+  if (subcategories.length === 0) return null;
 
   return (
     <section className="flex flex-col gap-3 rounded-2xl border border-border/70 bg-muted/25 p-4">

@@ -1,10 +1,12 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { LegalPage } from '@/features/ecommerce/storefront/components/legal-page';
+import { LegalPageCsr } from '@/features/ecommerce/storefront/components/store-csr-pages';
 import { legalMetadata } from '@/features/ecommerce/storefront/lib/seo';
 import { getStorefrontLegalPage } from '@/features/ecommerce/storefront/lib/loaders/content-loaders';
 import type { LegalPageSlug } from '@/features/ecommerce/storefront/domain/content';
 import { getStorefrontCompanyConfig } from '@/features/ecommerce/storefront/lib/get-storefront-company-config';
+import { isStorefrontCsrEnabled } from '@/features/ecommerce/storefront/lib/is-storefront-csr';
 import type { StorefrontLocale } from '@/i18n/routing';
 
 export const revalidate = 60;
@@ -18,6 +20,7 @@ function isLegalSlug(slug: string): slug is LegalPageSlug {
 }
 
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
+  if (isStorefrontCsrEnabled()) return {};
   const { locale, slug } = await params;
   if (!isLegalSlug(slug)) return {};
   const page = await getStorefrontLegalPage(slug);
@@ -28,6 +31,9 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
 export default async function Page({ params }: { params: Params }) {
   const { locale, slug } = await params;
   if (!isLegalSlug(slug)) notFound();
+
+  if (isStorefrontCsrEnabled()) return <LegalPageCsr slug={slug} />;
+
   const page = await getStorefrontLegalPage(slug);
   return <LegalPage page={page} locale={locale as StorefrontLocale} />;
 }

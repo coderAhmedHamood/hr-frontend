@@ -5,12 +5,9 @@ import { featuresGridSectionSchema } from '@/features/ecommerce/storefront/page-
 import {
   BASE_SECTION_CAPABILITIES,
   dataSourceField,
-  layoutField,
   localizedSubtitleField,
   localizedTitleField,
-  themeField,
   UI_STRINGS,
-  visibilityField,
 } from '@/features/ecommerce/storefront/page-builder/definitions/shared/field-builders';
 
 const DEFAULT_CONFIGURATION = {
@@ -65,19 +62,6 @@ export const FEATURES_GRID_DEFINITION: SectionDefinition<'features-grid'> = {
       group: 'content',
       validation: { max: 8 },
     },
-    {
-      key: 'columns',
-      path: 'settings.columns',
-      label: UI_STRINGS.fields.columns,
-      control: 'column-grid',
-      localized: false,
-      required: true,
-      group: 'settings',
-      defaultValue: { mobile: 1, tablet: 2, desktop: 4 },
-    },
-    themeField(),
-    layoutField(FEATURES_GRID_LAYOUTS),
-    visibilityField(),
     dataSourceField(['manual']),
   ],
 };

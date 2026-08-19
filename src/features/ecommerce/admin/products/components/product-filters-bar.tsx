@@ -14,7 +14,21 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@
 
 const ALL_VALUE = '__all__';
 
-export type ProductFilters = Pick<ProductListQuery, 'categoryId' | 'brandId' | 'status' | 'stockStatus' | 'sort' | 'sortDirection'>;
+export type ProductFilters = Pick<
+  ProductListQuery,
+  | 'categoryId'
+  | 'brandId'
+  | 'status'
+  | 'stockStatus'
+  | 'sort'
+  | 'sortDirection'
+  | 'isNewProduct'
+  | 'isTodayDeal'
+  | 'isWholesale'
+  | 'isDiscounted'
+  | 'warehouseId'
+  | 'posAvailable'
+>;
 
 const SORT_OPTIONS: { value: NonNullable<ProductListQuery['sort']>; labelAr: string }[] = [
   { value: 'name', labelAr: 'الاسم' },

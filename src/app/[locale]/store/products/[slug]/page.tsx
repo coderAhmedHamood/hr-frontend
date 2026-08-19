@@ -1,8 +1,14 @@
 import type { Metadata } from 'next';
 import { ProductDetailPage } from '@/features/ecommerce/storefront/components/product-detail-page';
+import { ProductDetailPageCsr } from '@/features/ecommerce/storefront/components/store-csr-pages';
 import { productMetadata } from '@/features/ecommerce/storefront/lib/seo';
-import { getStorefrontCategoryById, getStorefrontProductBySlug } from '@/features/ecommerce/storefront/lib/loaders/catalog-loaders';
+import {
+  getStorefrontCategoryById,
+  getStorefrontProductBySlug,
+  getStorefrontProductsList,
+} from '@/features/ecommerce/storefront/lib/loaders/catalog-loaders';
 import { getStorefrontCompanyConfig } from '@/features/ecommerce/storefront/lib/get-storefront-company-config';
+import { isStorefrontCsrEnabled } from '@/features/ecommerce/storefront/lib/is-storefront-csr';
 import type { StorefrontLocale } from '@/i18n/routing';
 
 export const revalidate = 60;
@@ -10,6 +16,7 @@ export const revalidate = 60;
 type Params = Promise<{ locale: string; slug: string }>;
 
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
+  if (isStorefrontCsrEnabled()) return {};
   const { locale, slug } = await params;
   const product = await getStorefrontProductBySlug(slug);
   const config = await getStorefrontCompanyConfig();
@@ -18,8 +25,19 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
 
 export default async function Page({ params }: { params: Params }) {
   const { slug } = await params;
-  const product = await getStorefrontProductBySlug(slug);
-  const category = product.categoryId ? await getStorefrontCategoryById(product.categoryId) : null;
+  if (isStorefrontCsrEnabled()) return <ProductDetailPageCsr slug={slug} />;
 
-  return <ProductDetailPage product={product} category={category} />;
+  const product = await getStorefrontProductBySlug(slug);
+  const [category, related] = await Promise.all([
+    product.categoryId ? getStorefrontCategoryById(product.categoryId) : Promise.resolve(null),
+    getStorefrontProductsList({ tag: 'best-seller', limit: 10 }),
+  ]);
+
+  return (
+    <ProductDetailPage
+      product={product}
+      category={category}
+      relatedProducts={related.items}
+    />
+  );
 }

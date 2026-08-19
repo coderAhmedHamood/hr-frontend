@@ -5,10 +5,7 @@ import { bannerSectionSchema } from '@/features/ecommerce/storefront/page-builde
 import {
   BASE_SECTION_CAPABILITIES,
   dataSourceField,
-  layoutField,
-  themeField,
   UI_STRINGS,
-  visibilityField,
 } from '@/features/ecommerce/storefront/page-builder/definitions/shared/field-builders';
 
 const DEFAULT_CONFIGURATION = {
@@ -112,9 +109,6 @@ export const BANNER_DEFINITION: SectionDefinition<'banner'> = {
         ],
       },
     },
-    themeField(),
-    layoutField(BANNER_LAYOUTS),
-    visibilityField(),
     dataSourceField(['manual']),
   ],
 };

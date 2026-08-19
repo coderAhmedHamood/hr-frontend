@@ -1,6 +1,11 @@
 import { loadAllPermissions } from '@/features/system/permissions/services/permissions.service';
 import { permissionsApi } from '@/features/system/permissions/lib/api/permissions';
-import { normalizePermissionsList } from '@/features/system/permissions/lib/api/permission-response';
+
+jest.mock('@/features/auth/lib/auth-store', () => ({
+  useAuthStore: Object.assign(jest.fn(), {
+    getState: () => ({ accessProfile: null, activeCompanyId: null }),
+  }),
+}));
 
 jest.mock('@/features/system/permissions/lib/api/permissions', () => ({
   permissionsApi: {

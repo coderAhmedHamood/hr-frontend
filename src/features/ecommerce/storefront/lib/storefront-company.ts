@@ -1,14 +1,31 @@
+import { INVENTORY_FALLBACK_COMPANY_ID } from '@/features/inventory/lib/company-constants';
+
 /**
- * The public storefront has no authenticated user session to read `activeCompanyId` from, and
- * there is no domain/tenant resolution yet (single company for now — see
- * `ecommerce-module-architecture` decisions). This is the ONLY hardcoded value in the storefront —
- * every brand/SEO/contact/theme/nav fact is read from the `CompanyConfig` this id resolves to
- * (see `get-storefront-company-config.ts`), never hardcoded in a component.
- *
- * When multi-tenant hosting exists, replace this function body with hostname-based tenant
- * resolution (see the deferred `middleware.ts` plan) — nothing else in the storefront needs to
- * change, since every storefront page already goes through `getStorefrontCompanyConfig()`.
+ * Storefront tenant id — must match seeded store config + catalog in the backend.
+ * Override via `NEXT_PUBLIC_STOREFRONT_COMPANY_ID` when the seed company differs
+ * from the inventory fallback (common after system:init on a fresh DB).
  */
+export const STOREFRONT_FALLBACK_COMPANY_ID =
+  process.env.NEXT_PUBLIC_STOREFRONT_COMPANY_ID?.trim() || INVENTORY_FALLBACK_COMPANY_ID;
+
+/** Legacy mock slug previously used in seeds — remapped to the UUID above. */
+export const LEGACY_STOREFRONT_COMPANY_ID = 'demo-company';
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export function isCompanyIdUuid(value: string): boolean {
+  return UUID_RE.test(value);
+}
+
+/** Normalize legacy `demo-company` (and any non-UUID) to the seeded storefront UUID. */
+export function resolveStorefrontCompanyId(companyId?: string | null): string {
+  if (!companyId || companyId === LEGACY_STOREFRONT_COMPANY_ID || !isCompanyIdUuid(companyId)) {
+    return STOREFRONT_FALLBACK_COMPANY_ID;
+  }
+  return companyId;
+}
+
 export function getStorefrontCompanyId(): string {
-  return 'demo-company';
+  return STOREFRONT_FALLBACK_COMPANY_ID;
 }

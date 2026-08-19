@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Check, X } from 'lucide-react';
+import { Check, Undo2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { getInventoryCompanyId } from '@/features/inventory/lib/company-id';
 import { useWarehouseLocations } from '@/features/inventory/admin/locations/hooks/use-warehouse-locations';
@@ -24,6 +24,13 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Dialog,
   DialogContent,
@@ -64,7 +71,7 @@ function OperationStatusStepper({ status }: { status: WarehouseOperationStatus }
             key={step}
             role="listitem"
             className={cn(
-              'relative flex min-w-[5.5rem] items-center justify-center px-4 py-2 text-xs font-semibold',
+              'inv-stepper-item relative flex items-center justify-center px-4 py-2 text-xs font-semibold',
               index === 0 ? 'rounded-s-md' : '',
               index === WAREHOUSE_OPERATION_FLOW_STEPS.length - 1 ? 'rounded-e-md' : '',
               active
@@ -103,17 +110,27 @@ function OperationStatusStepper({ status }: { status: WarehouseOperationStatus }
 export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }: Props) {
   const companyId = getInventoryCompanyId();
   const kind = operation?.kind ?? 'receipt';
-  const { update } = useWarehouseOperationMutations(operation?.warehouseId ?? '', kind);
+  const { update, undo } = useWarehouseOperationMutations(operation?.warehouseId ?? '', kind);
   const { data: locationsData } = useWarehouseLocations({
     companyId,
     warehouseId: operation?.warehouseId,
     page: 1,
-    limit: 200,
+    limit: 500,
   });
+  const locations = React.useMemo(
+    () => (locationsData?.items ?? []).filter((item) => item.isActive),
+    [locationsData?.items],
+  );
   const locationName = React.useMemo(() => {
-    const map = new Map((locationsData?.items ?? []).map((item) => [item.id, item.nameAr]));
+    const map = new Map(locations.map((item) => [item.id, item.nameAr || item.code]));
     return (id?: string) => (id ? (map.get(id) ?? id) : '—');
-  }, [locationsData?.items]);
+  }, [locations]);
+
+  const formatLocationOption = React.useCallback((id: string) => {
+    const loc = locations.find((item) => item.id === id);
+    if (!loc) return id;
+    return `${loc.nameAr || loc.code} · ${loc.code}`;
+  }, [locations]);
 
   const [lines, setLines] = React.useState<WarehouseOperationLine[]>([]);
   const [notes, setNotes] = React.useState('');
@@ -122,9 +139,15 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
   const [occurredAt, setOccurredAt] = React.useState('');
   const [status, setStatus] = React.useState<WarehouseOperationStatus>('draft');
   const [tab, setTab] = React.useState('operations');
+  const [headerFromLocationId, setHeaderFromLocationId] = React.useState('');
+  const [headerToLocationId, setHeaderToLocationId] = React.useState('');
+  const loadedOperationIdRef = React.useRef<string | null>(null);
 
   React.useEffect(() => {
     if (!open || !operation) return;
+    const switched = loadedOperationIdRef.current !== operation.id;
+    loadedOperationIdRef.current = operation.id;
+
     setLines(
       operation.lines.map((line) => ({
         ...line,
@@ -136,28 +159,46 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
     setPartnerName(operation.partnerName ?? '');
     setSourceDocument(operation.sourceDocument ?? '');
     setOccurredAt(operation.occurredAt.slice(0, 16));
-    setStatus(operation.status);
+    // Avoid flicker from stale list props:
+    // - after validate: local done must not regress to ready
+    // - after undo: local ready must not jump back to done
+    setStatus((prev) => {
+      if (switched) return operation.status;
+      const incoming = operation.status;
+      if (incoming === 'cancelled' || prev === 'cancelled') return incoming;
+      if (prev === 'done' && (incoming === 'ready' || incoming === 'draft')) return prev;
+      if (prev === 'ready' && incoming === 'done') return prev;
+      return incoming;
+    });
     setTab('operations');
+    const first = operation.lines[0];
+    setHeaderFromLocationId(first?.fromLocationId ?? '');
+    setHeaderToLocationId(first?.toLocationId ?? '');
   }, [open, operation]);
+
+  React.useEffect(() => {
+    if (!open) loadedOperationIdRef.current = null;
+  }, [open]);
 
   if (!operation) return null;
 
   const editable = status === 'draft' || status === 'ready';
   const qtyEditable = status === 'draft' || status === 'ready';
-  const isSaving = update.isPending;
+  const isSaving = update.isPending || undo.isPending;
+  const meta = WAREHOUSE_OPERATION_KIND_META[kind];
+  const needsFrom = meta.needsFrom;
+  const needsTo = meta.needsTo;
 
   const destinationLabel = (() => {
-    const meta = WAREHOUSE_OPERATION_KIND_META[kind];
-    if (meta.stockEffect === 'inbound' || meta.stockEffect === 'adjust_set') return 'الموقع الوجهة';
+    if (meta.stockEffect === 'inbound' || meta.stockEffect === 'adjust_set') return 'موقع الاستلام';
     if (meta.stockEffect === 'outbound') return 'موقع الصرف';
-    if (meta.stockEffect === 'transfer') return 'من ← إلى';
+    if (meta.stockEffect === 'transfer' || meta.stockEffect === 'move') return 'من ← إلى';
     return 'المواقع';
   })();
 
   const destinationValue = (() => {
     const line = lines[0] ?? operation.lines[0];
     if (!line) return '—';
-    const meta = WAREHOUSE_OPERATION_KIND_META[kind];
     if (meta.stockEffect === 'inbound' || meta.stockEffect === 'adjust_set') {
       return locationName(line.toLocationId);
     }
@@ -165,30 +206,49 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
     return `${locationName(line.fromLocationId)} ← ${locationName(line.toLocationId)}`;
   })();
 
-  async function savePatch(patch: Partial<WarehouseOperation>, successMessage: string) {
+  async function savePatch(
+    patch: Partial<WarehouseOperation> & { lines?: WarehouseOperation['lines'] },
+    successMessage: string,
+    options?: { includeLines?: boolean },
+  ) {
     if (!companyId || !operation) return;
-    const updated = await update.mutateAsync({
-      companyId,
-      id: operation.id,
-      patch: {
-        ...patch,
-        lines: patch.lines ?? lines,
-        notes: notes.trim() || undefined,
-        partnerName: partnerName.trim() || undefined,
-        sourceDocument: sourceDocument.trim() || undefined,
-        occurredAt: occurredAt ? new Date(occurredAt).toISOString() : operation.occurredAt,
-      },
-    });
-    if (!updated) {
-      toast.error('تعذر تحديث المستند.');
+    const includeLines = options?.includeLines === true || patch.lines !== undefined;
+
+    // Backend locks fully validated ops — use undoValidation for done → ready.
+    if (status === 'done' || operation.status === 'done') {
+      toast.error('لا يمكن تعديل مستند منتهٍ. استخدم «تراجع عن التصديق» أولاً.');
       return;
     }
-    setStatus(updated.status);
-    setLines(updated.lines.map((line) => ({ ...line })));
-    toast.success(successMessage);
+
+    try {
+      const updated = await update.mutateAsync({
+        companyId,
+        id: operation.id,
+        patch: {
+          ...patch,
+          ...(includeLines ? { lines: patch.lines ?? lines } : {}),
+          notes: notes.trim() || undefined,
+          partnerName: partnerName.trim() || undefined,
+          sourceDocument: sourceDocument.trim() || undefined,
+          occurredAt: occurredAt ? new Date(occurredAt).toISOString() : operation.occurredAt,
+        },
+      });
+      if (!updated) {
+        toast.error('تعذر تحديث المستند.');
+        return;
+      }
+      setStatus(updated.status);
+      setLines(updated.lines.map((line) => ({ ...line })));
+      setHeaderFromLocationId(updated.lines[0]?.fromLocationId ?? '');
+      setHeaderToLocationId(updated.lines[0]?.toLocationId ?? '');
+      toast.success(successMessage);
+    } catch {
+      // ApiError already toasted in useWarehouseOperationMutations.onError
+    }
   }
 
   async function markReady() {
+    // Header only — avoid rewriting lines on every status change.
     await savePatch({ status: 'ready' }, 'تم تحديد المستند كجاهز');
   }
 
@@ -201,15 +261,34 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
       toast.error('تحقق من كميات البنود قبل التصديق.');
       return;
     }
+    // Lines first (while still ready), then status done — handled in API update order.
     await savePatch({ status: 'done', lines }, 'تم تصديق المستند');
   }
 
-  async function cancelOperation() {
-    await savePatch({ status: 'cancelled' }, 'تم إلغاء المستند');
+  async function undoValidation() {
+    if (!companyId || !operation) return;
+    if (status !== 'done' && operation.status !== 'done') {
+      toast.error('التراجع متاح فقط للمستندات المصدّقة (done).');
+      return;
+    }
+    try {
+      const updated = await undo.mutateAsync({ companyId, id: operation.id });
+      setStatus(updated.status);
+      setLines(updated.lines.map((line) => ({ ...line })));
+      setHeaderFromLocationId(updated.lines[0]?.fromLocationId ?? '');
+      setHeaderToLocationId(updated.lines[0]?.toLocationId ?? '');
+      toast.success('تم التراجع عن التصديق — المستند جاهز للتعديل');
+    } catch {
+      // ApiError already toasted in useWarehouseOperationMutations.onError
+    }
   }
 
-  async function undoValidation() {
-    await savePatch({ status: 'cancelled' }, 'تم التراجع عن التصديق وعكس أثر المخزون');
+  async function cancelOperation() {
+    if (status === 'done' || operation?.status === 'done') {
+      toast.error('لا يمكن إلغاء مستند منتهٍ. استخدم التراجع عن التصديق أولاً.');
+      return;
+    }
+    await savePatch({ status: 'cancelled' }, 'تم إلغاء المستند');
   }
 
   async function fillTheoreticalFromStock() {
@@ -238,7 +317,7 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
   }
 
   async function saveDraftChanges() {
-    await savePatch({ status }, 'تم حفظ التعديلات');
+    await savePatch({ status, lines }, 'تم حفظ التعديلات');
   }
 
   return (
@@ -273,6 +352,18 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
                 تصديق
               </Button>
             ) : null}
+            {status === 'done' ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={isSaving}
+                onClick={() => void undoValidation()}
+              >
+                <Undo2 className="h-4 w-4" />
+                تراجع عن التصديق
+              </Button>
+            ) : null}
             {editable ? (
               <Button
                 type="button"
@@ -294,18 +385,6 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
               >
                 <X className="h-4 w-4" />
                 إلغاء
-              </Button>
-            ) : null}
-            {status === 'done' ? (
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={isSaving}
-                onClick={() => void undoValidation()}
-              >
-                <X className="h-4 w-4" />
-                تراجع عن التصديق
               </Button>
             ) : null}
             {(kind === 'physical_count' || kind === 'adjustment') && editable ? (
@@ -342,7 +421,68 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
               </div>
               <div className="space-y-1.5">
                 <Label>{destinationLabel}</Label>
-                <Input value={destinationValue} disabled dir="ltr" />
+                {editable && (needsFrom || needsTo) ? (
+                  <div className="grid gap-2">
+                    {needsFrom ? (
+                      <Select
+                        value={headerFromLocationId || undefined}
+                        onValueChange={(value) => {
+                          setHeaderFromLocationId(value);
+                          setLines((prev) =>
+                            prev.map((line) => ({
+                              ...line,
+                              fromLocationId: value || undefined,
+                              ...(needsTo
+                                ? { toLocationId: headerToLocationId || line.toLocationId }
+                                : {}),
+                            })),
+                          );
+                        }}
+                      >
+                        <SelectTrigger aria-label="من موقع">
+                          <SelectValue placeholder="اختر موقع المصدر" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {locations.map((location) => (
+                            <SelectItem key={location.id} value={location.id}>
+                              {formatLocationOption(location.id)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : null}
+                    {needsTo ? (
+                      <Select
+                        value={headerToLocationId || undefined}
+                        onValueChange={(value) => {
+                          setHeaderToLocationId(value);
+                          setLines((prev) =>
+                            prev.map((line) => ({
+                              ...line,
+                              toLocationId: value || undefined,
+                              ...(needsFrom
+                                ? { fromLocationId: headerFromLocationId || line.fromLocationId }
+                                : {}),
+                            })),
+                          );
+                        }}
+                      >
+                        <SelectTrigger aria-label="إلى موقع / الاستلام">
+                          <SelectValue placeholder="اختر موقع الاستلام" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {locations.map((location) => (
+                            <SelectItem key={location.id} value={location.id}>
+                              {formatLocationOption(location.id)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : null}
+                  </div>
+                ) : (
+                  <Input value={destinationValue} disabled dir="ltr" />
+                )}
               </div>
             </div>
             <div className="space-y-3">
@@ -406,6 +546,9 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
                               {line.sku}
                             </div>
                           ) : null}
+                          <div className="mt-0.5 text-xs text-muted-foreground">
+                            {line.variantId ? 'متغير' : 'المنتج الأساسي'}
+                          </div>
                         </td>
                         <td className="px-3 py-2.5">
                           <Input

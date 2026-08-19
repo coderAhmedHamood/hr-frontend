@@ -3,7 +3,7 @@ import type { Warehouse } from '@/features/inventory/domain/types/warehouse';
 
 const warehouse: Warehouse = {
   id: 'wh-1',
-  companyId: 'demo-company',
+  companyId: '76e5bc4f-5adb-434d-a886-bcff05a9680b',
   code: 'WH',
   nameAr: 'المستودع الرئيسي',
   status: 'active',

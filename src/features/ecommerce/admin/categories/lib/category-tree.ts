@@ -76,8 +76,31 @@ export function sortCategoriesAsTree(categories: Category[]): Category[] {
   return ordered;
 }
 
+/** Ids that must not become the parent of `rootId` (self + descendants). */
+export function collectDescendantIds(rootId: string, categories: Category[]): Set<string> {
+  const children = new Map<string, string[]>();
+  for (const category of categories) {
+    if (!category.parentId) continue;
+    const list = children.get(category.parentId) ?? [];
+    list.push(category.id);
+    children.set(category.parentId, list);
+  }
+
+  const out = new Set<string>([rootId]);
+  const stack = [rootId];
+  while (stack.length > 0) {
+    const id = stack.pop()!;
+    for (const childId of children.get(id) ?? []) {
+      if (out.has(childId)) continue;
+      out.add(childId);
+      stack.push(childId);
+    }
+  }
+  return out;
+}
+
 export function categoryFilterLabel(category: Category, byId: Map<string, Category>): string {
-  const { depth, pathLabel } = getCategoryPath(category, byId);
+  const { depth } = getCategoryPath(category, byId);
   const indent = depth > 1 ? `${'—'.repeat(depth - 1)} ` : '';
   return depth > 1 ? `${indent}${category.nameAr}` : category.nameAr;
 }

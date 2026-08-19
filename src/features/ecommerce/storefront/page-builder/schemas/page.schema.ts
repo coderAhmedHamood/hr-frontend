@@ -73,6 +73,10 @@ export const queryDataSourceSchema = z.object({
   limit: z.number().int().min(1).max(24),
   categoryId: z.string().uuid().nullable(),
   tag: z.string().nullable(),
+  isNewProduct: z.boolean().nullable().optional(),
+  isTodayDeal: z.boolean().nullable().optional(),
+  isWholesale: z.boolean().nullable().optional(),
+  isDiscounted: z.boolean().nullable().optional(),
 });
 
 export const recommendationDataSourceSchema = z.object({
@@ -96,6 +100,7 @@ export const heroCarouselSectionSchema = sectionMetadataSchema.extend({
         z.object({
           id: z.string().uuid(),
           imageUrl: z.string().url(),
+          enabled: z.boolean().optional(),
           mobileImageUrl: z.string().url().optional(),
           title: localizableStringSchema.optional(),
           alt: localizableStringSchema.optional(),
@@ -168,7 +173,7 @@ export const flashSaleSectionSchema = sectionMetadataSchema.extend({
   style: sectionStyleCoreSchema.extend({
     layout: z.enum(FLASH_SALE_LAYOUTS),
   }),
-  dataSource: z.union([tagDataSourceSchema, queryDataSourceSchema]),
+  dataSource: z.union([manualDataSourceSchema, tagDataSourceSchema, queryDataSourceSchema]),
 });
 
 export const featuresGridSectionSchema = sectionMetadataSchema.extend({
