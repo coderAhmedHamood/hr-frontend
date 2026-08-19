@@ -13,6 +13,134 @@ import { MapPicker } from '@/components/ui/map-picker';
 import type { AttendanceCheckInPoint } from '@/features/hr/attendance/lib/types';
 import { cn } from '@/shared/utils';
 import type { CheckpointsPanelModel } from '@/features/hr/attendance/checkpoints/hooks/useCheckpointsPanelModel';
+import {
+  CHECKPOINT_RADIUS_MAX_METERS,
+  CHECKPOINT_RADIUS_MIN_METERS,
+  CHECKPOINT_RADIUS_STEP_METERS,
+} from '@/features/hr/attendance/checkpoints/constants/checkpoints-panel';
+import {
+  parseCoordInput,
+  parseLatLngPair,
+} from '@/features/hr/attendance/checkpoints/utils/checkpoint-validate';
+
+function CheckpointCoordinatesFields({
+  latitude,
+  longitude,
+  onChange,
+}: {
+  latitude: number;
+  longitude: number;
+  onChange: (next: { latitude: number; longitude: number }) => void;
+}) {
+  const [latText, setLatText] = React.useState(() => latitude.toFixed(6));
+  const [lngText, setLngText] = React.useState(() => longitude.toFixed(6));
+  const [pairText, setPairText] = React.useState('');
+  const latFocused = React.useRef(false);
+  const lngFocused = React.useRef(false);
+
+  React.useEffect(() => {
+    if (!latFocused.current) setLatText(latitude.toFixed(6));
+    if (!lngFocused.current) setLngText(longitude.toFixed(6));
+  }, [latitude, longitude]);
+
+  const applyPair = (raw: string) => {
+    const pair = parseLatLngPair(raw);
+    if (!pair) return false;
+    onChange(pair);
+    setPairText('');
+    return true;
+  };
+
+  const commitLat = (raw: string) => {
+    const pair = parseLatLngPair(raw);
+    if (pair) {
+      onChange(pair);
+      return;
+    }
+    const n = parseCoordInput(raw, -90, 90);
+    if (n != null) onChange({ latitude: n, longitude });
+  };
+
+  const commitLng = (raw: string) => {
+    const n = parseCoordInput(raw, -180, 180);
+    if (n != null) onChange({ latitude, longitude: n });
+  };
+
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs font-medium text-muted-foreground">الإحداثيات</Label>
+      <p className="text-[11px] leading-relaxed text-muted-foreground">
+        انقر على الخريطة أو الصق الأرقام إن كانت جاهزة. يُحفظ خط العرض وخط الطول في الخادم.
+      </p>
+      <Input
+        type="text"
+        inputMode="decimal"
+        dir="ltr"
+        autoComplete="off"
+        placeholder="لصق: 24.711515, 46.689784"
+        className="h-9 font-mono text-xs"
+        value={pairText}
+        onChange={(e) => {
+          const raw = e.target.value;
+          setPairText(raw);
+          applyPair(raw);
+        }}
+        onPaste={(e) => {
+          const pasted = e.clipboardData.getData('text');
+          if (applyPair(pasted)) e.preventDefault();
+        }}
+      />
+      <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-1">
+          <Label className="text-[10px] text-muted-foreground">خط العرض (Latitude)</Label>
+          <Input
+            type="text"
+            inputMode="decimal"
+            dir="ltr"
+            autoComplete="off"
+            className="h-9 font-mono text-xs"
+            value={latText}
+            onFocus={() => {
+              latFocused.current = true;
+            }}
+            onBlur={() => {
+              latFocused.current = false;
+              commitLat(latText);
+            }}
+            onChange={(e) => {
+              const raw = e.target.value;
+              setLatText(raw);
+              if (parseLatLngPair(raw)) commitLat(raw);
+            }}
+            onPaste={(e) => {
+              const pasted = e.clipboardData.getData('text');
+              if (applyPair(pasted)) e.preventDefault();
+            }}
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-[10px] text-muted-foreground">خط الطول (Longitude)</Label>
+          <Input
+            type="text"
+            inputMode="decimal"
+            dir="ltr"
+            autoComplete="off"
+            className="h-9 font-mono text-xs"
+            value={lngText}
+            onFocus={() => {
+              lngFocused.current = true;
+            }}
+            onBlur={() => {
+              lngFocused.current = false;
+              commitLng(lngText);
+            }}
+            onChange={(e) => setLngText(e.target.value)}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function CheckpointsEditDialog({
   model,
@@ -183,67 +311,49 @@ export function CheckpointsEditDialog({
                   />
                 </div>
 
-                {/* Coordinates — synced from map; manual override available */}
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium text-muted-foreground">الإحداثيات</Label>
-                  <p className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 font-mono text-[11px] tabular-nums text-muted-foreground" dir="ltr">
-                    {draft.latitude.toFixed(6)}, {draft.longitude.toFixed(6)}
-                  </p>
-                  <details className="group rounded-lg border border-border/50 bg-muted/10">
-                    <summary className="cursor-pointer px-3 py-2 text-[11px] text-muted-foreground transition-colors hover:text-foreground">
-                      تعديل يدوي للإحداثيات
-                    </summary>
-                    <div className="grid grid-cols-2 gap-2 border-t border-border/40 p-3 pt-2">
-                      <div className="space-y-1">
-                        <Label className="text-[10px] text-muted-foreground">خط العرض</Label>
-                        <Input
-                          type="text"
-                          inputMode="decimal"
-                          dir="ltr"
-                          className="h-9 font-mono text-xs"
-                          value={draft.latitude.toFixed(6)}
-                          onChange={(e) => {
-                            const n = parseFloat(e.target.value);
-                            if (Number.isFinite(n)) setDraft({ ...draft, latitude: parseFloat(n.toFixed(6)) });
-                          }}
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-[10px] text-muted-foreground">خط الطول</Label>
-                        <Input
-                          type="text"
-                          inputMode="decimal"
-                          dir="ltr"
-                          className="h-9 font-mono text-xs"
-                          value={draft.longitude.toFixed(6)}
-                          onChange={(e) => {
-                            const n = parseFloat(e.target.value);
-                            if (Number.isFinite(n)) setDraft({ ...draft, longitude: parseFloat(n.toFixed(6)) });
-                          }}
-                        />
-                      </div>
-                    </div>
-                  </details>
-                </div>
+                <CheckpointCoordinatesFields
+                  latitude={draft.latitude}
+                  longitude={draft.longitude}
+                  onChange={(next) => setDraft({ ...draft, ...next })}
+                />
 
                 {/* Radius */}
                 <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-2">
                     <Label className="text-xs font-medium text-muted-foreground">نطاق القبول</Label>
-                    <span className="text-xs font-semibold text-primary">{draft.radiusMeters} م</span>
+                    <div className="flex items-center gap-1">
+                      <Input
+                        type="number"
+                        min={CHECKPOINT_RADIUS_MIN_METERS}
+                        max={CHECKPOINT_RADIUS_MAX_METERS}
+                        step={CHECKPOINT_RADIUS_STEP_METERS}
+                        className="h-8 w-20 px-2 text-center font-mono text-xs"
+                        value={draft.radiusMeters}
+                        onChange={(e) => {
+                          const n = Number(e.target.value);
+                          if (!Number.isFinite(n)) return;
+                          const clamped = Math.min(
+                            CHECKPOINT_RADIUS_MAX_METERS,
+                            Math.max(CHECKPOINT_RADIUS_MIN_METERS, Math.round(n)),
+                          );
+                          setDraft({ ...draft, radiusMeters: clamped });
+                        }}
+                      />
+                      <span className="text-xs font-semibold text-primary">م</span>
+                    </div>
                   </div>
                   <input
                     type="range"
-                    min={10}
-                    max={2000}
-                    step={10}
+                    min={CHECKPOINT_RADIUS_MIN_METERS}
+                    max={CHECKPOINT_RADIUS_MAX_METERS}
+                    step={CHECKPOINT_RADIUS_STEP_METERS}
                     value={draft.radiusMeters}
                     onChange={(e) => setDraft({ ...draft, radiusMeters: Number(e.target.value) })}
                     className="w-full cursor-pointer accent-primary"
                   />
                   <div className="flex justify-between text-[10px] text-muted-foreground">
-                    <span>10 م</span>
-                    <span>2000 م</span>
+                    <span>{CHECKPOINT_RADIUS_MIN_METERS} م</span>
+                    <span>{CHECKPOINT_RADIUS_MAX_METERS} م</span>
                   </div>
                 </div>
 

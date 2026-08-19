@@ -37,7 +37,7 @@ export function MapPicker({
   onChange,
   className,
   height = 340,
-  minRadius = 10,
+  minRadius = 5,
   maxRadius = 2000,
   interactive = true,
   showRadius = true,
