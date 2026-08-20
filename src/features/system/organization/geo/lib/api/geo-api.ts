@@ -156,10 +156,15 @@ export const geoCountriesApi = {
     return ensurePaginatedResult(result);
   },
 
-  async update(id: string, patch: UpdateGeoCountryInput): Promise<GeoCountry> {
+  async update(
+    id: string,
+    patch: UpdateGeoCountryInput,
+    options?: { silent?: boolean },
+  ): Promise<GeoCountry> {
     return apiRequest<GeoCountry>(`/geo/countries/${id}`, {
       method: 'PATCH',
       throwOnError: true,
+      silent: options?.silent,
       body: {
         ...patch,
         ...(patch.code !== undefined ? { code: patch.code.trim().toUpperCase() } : {}),
@@ -312,6 +317,53 @@ export const geoCompanyCountriesApi = {
   },
 };
 
+/** Store checkout requires isActive + showInStore together. */
+export function geoStoreVisibilityPatch(showInStore: boolean): {
+  showInStore: boolean;
+  isActive?: boolean;
+} {
+  return showInStore ? { showInStore: true, isActive: true } : { showInStore: false };
+}
+
+/** Activate catalog rows already marked showInStore so public /store/geo/* lists them. */
+async function activateStoreVisibleCatalog(companyId: string, countryCode: string): Promise<void> {
+  const code = countryCode.trim().toUpperCase();
+  const countries = await geoCountriesApi.list({ companyId, limit: 200, archiveScope: 'active' });
+  const country = countries.items.find((row) => row.code.trim().toUpperCase() === code);
+  if (!country) return;
+
+  if (!country.isActive || !country.showInStore) {
+    await geoCountriesApi.update(country.id, { isActive: true, showInStore: true }, { silent: true });
+  }
+
+  const cities = await geoCitiesApi.list({
+    companyId,
+    countryId: country.id,
+    limit: 500,
+    archiveScope: 'active',
+  });
+
+  await Promise.all(
+    cities.items
+      .filter((row) => row.showInStore && !row.isActive)
+      .map((row) => geoCitiesApi.update(row.id, { isActive: true }, { silent: true })),
+  );
+
+  for (const city of cities.items.filter((row) => row.showInStore)) {
+    const districts = await geoDistrictsApi.list({
+      companyId,
+      cityId: city.id,
+      limit: 500,
+      archiveScope: 'active',
+    });
+    await Promise.all(
+      districts.items
+        .filter((row) => row.showInStore && !row.isActive)
+        .map((row) => geoDistrictsApi.update(row.id, { isActive: true }, { silent: true })),
+    );
+  }
+}
+
 /**
  * تفعيل / إلغاء دولة الشركة بالمتجر.
  * المسار الرسمي: PATCH /geo/company-countries/:id { showInStore }
@@ -323,8 +375,9 @@ export async function setCompanyCountryStoreVisibility(input: {
   countryCode: string;
   showInStore: boolean;
 }): Promise<CompanyGeoCountry> {
+  let link: CompanyGeoCountry;
   try {
-    return await geoCompanyCountriesApi.update(
+    link = await geoCompanyCountriesApi.update(
       input.linkId,
       { showInStore: input.showInStore },
       { silent: true },
@@ -334,10 +387,17 @@ export async function setCompanyCountryStoreVisibility(input: {
 
     // بعض إصدارات الباكند كانت ترمي 404 من مزامنة ابن تالف بعد تحديث الربط.
     const links = await geoCompanyCountriesApi.list(input.companyId);
-    const link = links.find((row) => row.id === input.linkId);
-    if (link && link.showInStore === input.showInStore) {
-      return link;
+    const recovered = links.find((row) => row.id === input.linkId);
+    if (recovered && recovered.showInStore === input.showInStore) {
+      link = recovered;
+    } else {
+      throw error;
     }
-    throw error;
   }
+
+  if (input.showInStore) {
+    await activateStoreVisibleCatalog(input.companyId, input.countryCode);
+  }
+
+  return link;
 }
