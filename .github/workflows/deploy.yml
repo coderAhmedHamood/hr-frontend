@@ -35,6 +35,9 @@ env:
   BACKEND_URL: http://app:3000
   NEXT_PUBLIC_SITE_URL: https://qutb.tech
   NEXT_PUBLIC_ENV: production
+  # شركة المتجر على الإنتاج (مؤسسة روز للعبايات) — يحددها system:init
+  # على السيرفر، ويجب تجميدها هنا لأنها NEXT_PUBLIC_ تُخبز وقت البناء.
+  NEXT_PUBLIC_STOREFRONT_COMPANY_ID: fab83485-28ff-4852-a8c1-6bb5835de497
 
 jobs:
   build-and-push:
@@ -76,6 +79,7 @@ jobs:
             BACKEND_URL=${{ env.BACKEND_URL }}
             NEXT_PUBLIC_SITE_URL=${{ env.NEXT_PUBLIC_SITE_URL }}
             NEXT_PUBLIC_ENV=${{ env.NEXT_PUBLIC_ENV }}
+            NEXT_PUBLIC_STOREFRONT_COMPANY_ID=${{ env.NEXT_PUBLIC_STOREFRONT_COMPANY_ID }}
             NEXT_PUBLIC_APP_NAME=${{ vars.NEXT_PUBLIC_APP_NAME }}
             NEXT_PUBLIC_HERE_API_KEY=${{ secrets.NEXT_PUBLIC_HERE_API_KEY }}
             NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY }}
