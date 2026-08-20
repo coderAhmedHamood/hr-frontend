@@ -1,4 +1,4 @@
-import { resolveLocalizedText } from '@/features/ecommerce/storefront/domain/localizable';
+import { resolveLocalizedOptional } from '@/features/ecommerce/storefront/domain/localizable';
 import type { DataSourceConfig } from '@/features/ecommerce/storefront/page-builder/domain/data-source';
 import type {
   NormalizedSection,
@@ -193,7 +193,7 @@ const resolveBanner: SectionDataResolver<'banner'> = async (ctx, section) => {
     data: {
       imageUrl: imageUrl ?? '',
       mobileImageUrl,
-      alt: resolveLocalizedText(section.content.alt, ctx.locale),
+      alt: resolveLocalizedOptional(section.content.alt, ctx.locale) ?? '',
       href: section.content.href,
       target: section.content.target,
     },

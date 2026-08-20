@@ -60,6 +60,14 @@ export const storefrontCompanyRepository: CompanyStorefrontPort & CompanyCmsPort
       return mapStorefrontCompanyConfig(httpRecord, locale);
     } catch (error) {
       if (error instanceof StoreHttpError && error.status === 404) return null;
+      if (isStorefrontDevFallbackEnabled()) {
+        const id = resolveStorefrontCompanyId(companyId);
+        const detail = error instanceof Error ? error.message : 'unknown error';
+        console.warn(
+          `[storefront] Store config request failed for company ${id} (${detail}). Using dev fallback — ensure the backend is running and BACKEND_URL (${process.env.BACKEND_URL ?? 'http://127.0.0.1:3000'}) is reachable.`,
+        );
+        return mapStorefrontCompanyConfig(buildDefaultCompanyConfigRecord(id), locale);
+      }
       throw error;
     }
   },
