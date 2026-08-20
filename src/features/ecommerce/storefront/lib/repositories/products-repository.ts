@@ -9,6 +9,7 @@ import type {
   StorefrontProductsPort,
 } from '@/features/ecommerce/storefront/domain/catalog-ports';
 import { logStorefrontApi } from '@/features/ecommerce/storefront/lib/debug-storefront-api';
+import { storefrontPublicFetchInit } from '@/features/ecommerce/storefront/lib/api/store-http';
 import { mapStorefrontProduct, mapStorefrontProducts } from '@/features/ecommerce/storefront/lib/mappers/product-mapper';
 import { STORE_CURRENCY_CODE } from '@/features/ecommerce/domain/constants/store-currency';
 import { resolveStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
@@ -165,7 +166,7 @@ async function publicProductRequest<T>(
   try {
     const response = await fetch(url, {
       method: 'GET',
-      cache: 'no-store',
+      ...storefrontPublicFetchInit('GET'),
       headers: { Accept: 'application/json' },
     });
     if (!response.ok) {

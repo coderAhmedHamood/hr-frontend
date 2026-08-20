@@ -68,6 +68,18 @@ export class StoreHttpError extends Error {
 
 type QueryValue = string | number | boolean | null | undefined;
 
+/** Matches `export const revalidate = 60` on public storefront routes. */
+export const STOREFRONT_PUBLIC_REVALIDATE_SECONDS = 60;
+
+export function storefrontPublicFetchInit(
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' = 'GET',
+): Pick<RequestInit, 'cache' | 'next'> {
+  if (method === 'GET') {
+    return { next: { revalidate: STOREFRONT_PUBLIC_REVALIDATE_SECONDS } };
+  }
+  return { cache: 'no-store' };
+}
+
 function buildUrl(path: string, query?: Record<string, QueryValue>): string {
   const base = resolveApiBaseUrl(publicConfig.apiUrl).replace(/\/$/, '');
   const normalized = path.startsWith('/') ? path : `/${path}`;
@@ -113,7 +125,7 @@ export async function publicStoreRequest<T>(
     const response = await fetch(url, {
       method,
       headers,
-      cache: 'no-store',
+      ...storefrontPublicFetchInit(method),
       body: init.body !== undefined ? JSON.stringify(init.body) : undefined,
     });
 

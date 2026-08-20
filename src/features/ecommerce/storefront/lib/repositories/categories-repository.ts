@@ -11,6 +11,7 @@ import {
   type CategoryDto,
 } from '@/features/ecommerce/admin/categories/lib/api/categories';
 import { logStorefrontApi } from '@/features/ecommerce/storefront/lib/debug-storefront-api';
+import { storefrontPublicFetchInit } from '@/features/ecommerce/storefront/lib/api/store-http';
 import { mapStorefrontCategories, mapStorefrontCategory } from '@/features/ecommerce/storefront/lib/mappers/category-mapper';
 import { resolveStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
 
@@ -51,7 +52,7 @@ async function publicCategoryRequest<T>(
   try {
     const response = await fetch(url, {
       method: 'GET',
-      cache: 'no-store',
+      ...storefrontPublicFetchInit('GET'),
       headers: { Accept: 'application/json' },
     });
     if (!response.ok) {
