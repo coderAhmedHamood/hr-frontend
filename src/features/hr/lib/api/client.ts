@@ -14,6 +14,7 @@ import type { ApiErrorEnvelope, ApiSuccessEnvelope } from '@/features/hr/lib/api
 import { isApiErrorEnvelope, isApiSuccessEnvelope } from '@/features/hr/lib/api/types';
 import { reportError } from '@/shared/errors/report-error';
 import { toast } from 'sonner';
+import { currentLoginHref } from '@/shared/navigation/login-redirect';
 
 export type PaginationMeta = {
   page: number;
@@ -247,8 +248,8 @@ function notifyApiFailure(envelope: ApiErrorEnvelope, status: number): void {
   if (typeof window === 'undefined') return;
 
   if (status === 401) {
-    const returnTo = encodeURIComponent(window.location.pathname + window.location.search);
-    window.location.replace(`/login?returnTo=${returnTo}`);
+    // Storefront visitors go to the shop's own sign-in, not the console's.
+    window.location.replace(currentLoginHref());
     return;
   }
 

@@ -6,6 +6,7 @@ import { useAccessProfile } from '@/features/auth/hooks/use-access-profile';
 import { useAuthSession } from '@/features/auth/hooks/use-auth-session';
 import { hasAccessTokenCookie } from '@/features/auth/lib/auth-cookie';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
+import { currentLoginHref } from '@/shared/navigation/login-redirect';
 
 function AuthShellFrame({ children }: { children: ReactNode }) {
   return <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col">{children}</div>;
@@ -37,8 +38,8 @@ export function AuthenticatedShell({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!mounted || user || hasAccessTokenCookie() || sessionLoading) return;
 
-    const returnTo = encodeURIComponent(window.location.pathname + window.location.search);
-    window.location.replace(`/login?returnTo=${returnTo}`);
+    // Storefront visitors go to the shop's own sign-in, not the console's.
+    window.location.replace(currentLoginHref());
   }, [mounted, user, sessionLoading]);
 
   // SSR and the first client paint must render the same tree. Cookie/session
