@@ -43,8 +43,11 @@ const STOREFRONT_HOME =
 
 type HostKind = 'admin' | 'store' | 'both';
 
-function hostKind(request: NextRequest): HostKind {
-  const host = (request.headers.get('host') ?? '').split(':')[0].toLowerCase();
+function requestHost(request: NextRequest): string {
+  return (request.headers.get('host') ?? '').split(':')[0].toLowerCase();
+}
+
+function hostKind(host: string): HostKind {
   // Local dev, LAN IPs and tunnels: keep every route reachable from one origin,
   // otherwise `npm run dev` on localhost could never open the console.
   if (!host || !host.includes('.') || /^\d+\.\d+\.\d+\.\d+$/.test(host)) return 'both';
@@ -62,8 +65,9 @@ function isStorefrontPath(pathname: string): boolean {
 
 export default function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const host = requestHost(request);
 
-  if (hostKind(request) === 'store') {
+  if (hostKind(host) === 'store') {
     // The bare domain shows the store, and keeps showing `qutb.tech` in the
     // address bar — a rewrite, not a redirect.
     if (pathname === '/') {
@@ -73,11 +77,14 @@ export default function proxy(request: NextRequest) {
     }
 
     // Console routes reached on the public domain move to the console host,
-    // preserving the path so a bookmarked deep link still lands correctly.
+    // preserving path and query so a bookmarked deep link still lands right.
+    //
+    // Built as a string on purpose: handing NextResponse.redirect a URL object
+    // lets Next normalise it back to a same-host relative Location, which turns
+    // this into a redirect loop instead of a hop to the console.
     if (ADMIN_SEGMENTS.has(pathname.split('/')[1] ?? '')) {
-      const url = new URL(request.url);
-      url.hostname = `admin.${url.hostname.replace(/^www\./, '')}`;
-      return NextResponse.redirect(url, 308);
+      const target = `https://admin.${host.replace(/^www\./, '')}${pathname}${request.nextUrl.search}`;
+      return NextResponse.redirect(target, 308);
     }
   }
 
