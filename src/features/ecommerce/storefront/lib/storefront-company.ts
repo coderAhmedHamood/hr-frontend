@@ -1,4 +1,5 @@
 import { INVENTORY_FALLBACK_COMPANY_ID } from '@/features/inventory/lib/company-constants';
+import { useAuthStore } from '@/features/auth/lib/auth-store';
 
 /**
  * Storefront tenant id — must match seeded store config + catalog in the backend.
@@ -26,6 +27,19 @@ export function resolveStorefrontCompanyId(companyId?: string | null): string {
   return companyId;
 }
 
+/**
+ * Resolve storefront / catalog tenant id.
+ * Prefer explicit env override; on the client also honor the logged-in default company.
+ */
 export function getStorefrontCompanyId(): string {
+  if (typeof window !== 'undefined') {
+    const state = useAuthStore.getState();
+    const sessionCompanyId = state.activeCompanyId || state.accessProfile?.defaultCompanyId;
+    if (sessionCompanyId && isCompanyIdUuid(sessionCompanyId)) {
+      return sessionCompanyId;
+    }
+    const stored = localStorage.getItem('rose-hr-default-company-id');
+    if (stored && isCompanyIdUuid(stored)) return stored;
+  }
   return STOREFRONT_FALLBACK_COMPANY_ID;
 }
