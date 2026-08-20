@@ -22,14 +22,30 @@ function preset(id: StoreFooterPagePresetId) {
 }
 
 /**
+ * Docker/CI `next build` has no backend. Allow ISR pages to prerender with placeholders.
+ * Set only in the Dockerfile builder stage — never in the runtime image.
+ */
+export function isStorefrontBuildFallbackEnabled(): boolean {
+  return process.env.STOREFRONT_BUILD_FALLBACK === 'true';
+}
+
+/**
+ * Dev server or Docker build when the store API is unreachable.
+ */
+export function isStorefrontOfflineFallbackEnabled(): boolean {
+  return (
+    isStorefrontBuildFallbackEnabled()
+    || (process.env.NODE_ENV !== 'production'
+      && process.env.STOREFRONT_DEV_FALLBACK_CONFIG !== 'false')
+  );
+}
+
+/**
  * Dev-only fallback when `/public/store/companies/:id/config` is missing.
- * Production still 404s until the backend is seeded (`npm run system:init`).
+ * Production runtime still 404s until the backend is seeded (`npm run system:init`).
  */
 export function isStorefrontDevFallbackEnabled(): boolean {
-  return (
-    process.env.NODE_ENV !== 'production'
-    && process.env.STOREFRONT_DEV_FALLBACK_CONFIG !== 'false'
-  );
+  return isStorefrontOfflineFallbackEnabled() && !isStorefrontBuildFallbackEnabled();
 }
 
 /** Minimal storefront config so `/store` can render before CMS bootstrap. */

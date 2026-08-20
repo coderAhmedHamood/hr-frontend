@@ -1,6 +1,7 @@
 import { resolveApiBaseUrl } from '@/shared/api-base-url';
 import { publicConfig } from '@/shared/config';
 import { logStorefrontApi } from '@/features/ecommerce/storefront/lib/debug-storefront-api';
+import { isStorefrontBuildFallbackEnabled } from '@/features/ecommerce/storefront/lib/default-company-config';
 
 /**
  * When true (default), storefront/admin use Nest store APIs only.
@@ -147,6 +148,7 @@ export async function publicStoreRequest<T>(
     if (!response.ok) {
       logStorefrontApi({ url, status: response.status, ok: false, data: payload });
       if (init.nullOn404 && response.status === 404) return null;
+      if (isStorefrontBuildFallbackEnabled() && method === 'GET') return null;
       throw new StoreHttpError(
         extractErrorMessage(payload, `HTTP ${response.status}`),
         response.status,
@@ -159,6 +161,10 @@ export async function publicStoreRequest<T>(
     return data;
   } catch (error) {
     if (error instanceof StoreHttpError) throw error;
+    if (isStorefrontBuildFallbackEnabled() && method === 'GET') {
+      logStorefrontApi({ url, ok: false, error });
+      return null;
+    }
     const cause = error instanceof Error && 'cause' in error ? error.cause : undefined;
     const causeCode =
       cause && typeof cause === 'object' && 'code' in cause

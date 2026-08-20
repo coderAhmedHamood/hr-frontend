@@ -10,7 +10,33 @@ import type {
 } from '@/features/ecommerce/storefront/domain/storefront-models';
 import { storefrontContentRepository } from '@/features/ecommerce/storefront/lib/repositories/content-repository';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
+import { isStorefrontBuildFallbackEnabled } from '@/features/ecommerce/storefront/lib/default-company-config';
 import type { StorefrontLocale } from '@/i18n/routing';
+
+const BUILD_PLACEHOLDER_ABOUT: StorefrontAboutContent = {
+  headline: '',
+  intro: '',
+  sections: [],
+  stats: [],
+};
+
+const BUILD_PLACEHOLDER_CONTACT: StorefrontContactContent = {
+  headline: '',
+  intro: '',
+  hours: '',
+  mapEmbedUrl: null,
+};
+
+function buildPlaceholderLegalPage(slug: LegalPageSlug): StorefrontLegalPage {
+  return {
+    slug,
+    title: '',
+    body: '',
+    metaTitle: '',
+    metaDescription: '',
+    updatedAt: new Date(0).toISOString(),
+  };
+}
 
 export const getStorefrontFaq = cache(async (): Promise<StorefrontFaqItem[]> => {
   const locale = (await getLocale()) as StorefrontLocale;
@@ -22,7 +48,10 @@ export const getStorefrontAboutContent = cache(async (): Promise<StorefrontAbout
   const locale = (await getLocale()) as StorefrontLocale;
   const companyId = getStorefrontCompanyId();
   const content = await storefrontContentRepository.getAbout(companyId, locale);
-  if (!content) notFound();
+  if (!content) {
+    if (isStorefrontBuildFallbackEnabled()) return BUILD_PLACEHOLDER_ABOUT;
+    notFound();
+  }
   return content;
 });
 
@@ -30,7 +59,10 @@ export const getStorefrontContactContent = cache(async (): Promise<StorefrontCon
   const locale = (await getLocale()) as StorefrontLocale;
   const companyId = getStorefrontCompanyId();
   const content = await storefrontContentRepository.getContact(companyId, locale);
-  if (!content) notFound();
+  if (!content) {
+    if (isStorefrontBuildFallbackEnabled()) return BUILD_PLACEHOLDER_CONTACT;
+    notFound();
+  }
   return content;
 });
 
@@ -38,6 +70,9 @@ export const getStorefrontLegalPage = cache(async (slug: LegalPageSlug): Promise
   const locale = (await getLocale()) as StorefrontLocale;
   const companyId = getStorefrontCompanyId();
   const page = await storefrontContentRepository.getLegalPage(companyId, slug, locale);
-  if (!page) notFound();
+  if (!page) {
+    if (isStorefrontBuildFallbackEnabled()) return buildPlaceholderLegalPage(slug);
+    notFound();
+  }
   return page;
 });

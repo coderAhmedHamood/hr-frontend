@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM node:20-alpine AS base
+FROM node:24-alpine AS base
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
@@ -30,6 +30,8 @@ ENV NEXT_PUBLIC_APP_NAME=$NEXT_PUBLIC_APP_NAME
 ENV NEXT_PUBLIC_ENV=$NEXT_PUBLIC_ENV
 ENV BACKEND_URL=$BACKEND_URL
 ENV NODE_ENV=production
+# Backend is not reachable during `next build` in CI/Docker — use placeholders for ISR pages.
+ENV STOREFRONT_BUILD_FALLBACK=true
 
 # Reuse Next.js compile cache across builds when only app code changes.
 RUN --mount=type=cache,target=/app/.next/cache \

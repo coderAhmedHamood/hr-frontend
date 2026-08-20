@@ -15,7 +15,7 @@ import {
 import { resolveStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
 import {
   buildDefaultCompanyConfigRecord,
-  isStorefrontDevFallbackEnabled,
+  isStorefrontOfflineFallbackEnabled,
 } from '@/features/ecommerce/storefront/lib/default-company-config';
 import {
   fetchAdminStoreConfig,
@@ -48,7 +48,7 @@ export const storefrontCompanyRepository: CompanyStorefrontPort & CompanyCmsPort
     try {
       const httpRecord = await fetchPublicConfigRecord(companyId);
       if (!httpRecord) {
-        if (isStorefrontDevFallbackEnabled()) {
+        if (isStorefrontOfflineFallbackEnabled()) {
           const id = resolveStorefrontCompanyId(companyId);
           console.warn(
             `[storefront] Store config missing for company ${id}. Using dev fallback — run \`npm run system:init\` on the backend to seed store settings.`,
@@ -60,7 +60,7 @@ export const storefrontCompanyRepository: CompanyStorefrontPort & CompanyCmsPort
       return mapStorefrontCompanyConfig(httpRecord, locale);
     } catch (error) {
       if (error instanceof StoreHttpError && error.status === 404) return null;
-      if (isStorefrontDevFallbackEnabled()) {
+      if (isStorefrontOfflineFallbackEnabled()) {
         const id = resolveStorefrontCompanyId(companyId);
         const detail = error instanceof Error ? error.message : 'unknown error';
         console.warn(
