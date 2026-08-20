@@ -47,7 +47,11 @@ import {
   useUpdateGeoDistrict,
 } from '@/features/system/organization/geo/hooks/use-geo';
 import { GeoCompanyCountriesPanel } from '@/features/system/organization/geo/components/geo-company-countries-panel';
-import { geoCitiesApi, geoDistrictsApi } from '@/features/system/organization/geo/lib/api/geo-api';
+import {
+  geoCitiesApi,
+  geoDistrictsApi,
+  geoStoreVisibilityPatch,
+} from '@/features/system/organization/geo/lib/api/geo-api';
 import type { ArchiveScope, GeoCity, GeoDistrict } from '@/features/system/organization/geo/lib/api/geo-api';
 import {
   GEO_CITIES_PERMISSIONS,
@@ -546,7 +550,11 @@ export default function GeoLocationsPage({
                   onToggleStore: can(GEO_CITIES_PERMISSIONS.update)
                     ? async (next) => {
                         try {
-                          await geoCitiesApi.update(row.id, { showInStore: next }, { silent: true });
+                          await geoCitiesApi.update(
+                            row.id,
+                            geoStoreVisibilityPatch(next),
+                            { silent: true },
+                          );
                           toast.success(next ? 'تم إظهار المدينة بالمتجر' : 'تم إخفاء المدينة عن المتجر');
                           await citiesQuery.refetch();
                         } catch (error) {
@@ -697,7 +705,7 @@ export default function GeoLocationsPage({
                           try {
                             await geoDistrictsApi.update(
                               row.id,
-                              { showInStore: next },
+                              geoStoreVisibilityPatch(next),
                               { silent: true },
                             );
                             toast.success(

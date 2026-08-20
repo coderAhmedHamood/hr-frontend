@@ -67,8 +67,8 @@ export function GeoCompanyCountriesPanel({ companyId }: Props) {
       <div className="space-y-1">
         <p className="text-sm font-medium text-foreground">الدول المدعومة للشركة</p>
         <p className="max-w-2xl text-xs text-muted-foreground">
-          فعّل أو ألغِ تفعيل الدولة للمتجر. يتم مزامنة المدن والأحياء الموجودة تلقائياً (مع تجاهل
-          الصفوف التالفة إن وُجدت).
+          فعّل أو ألغِ تفعيل الدولة للمتجر. عند التفعيل تُفعَّل أيضاً الدولة والمدن والأحياء
+          المعلَّمة «ظهور بالمتجر» في الكتالوج حتى تظهر في صفحة الدفع.
         </p>
       </div>
 

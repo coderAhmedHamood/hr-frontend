@@ -185,7 +185,7 @@ export type BrandSliderConfig = {
 export type BannerContent = {
   imageUrl: string;
   mobileImageUrl: string | null;
-  alt: LocalizableString;
+  alt?: LocalizableString;
   href: `/store${string}`;
   target: '_self' | '_blank';
 };

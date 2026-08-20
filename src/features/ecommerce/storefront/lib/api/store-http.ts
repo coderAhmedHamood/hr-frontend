@@ -147,8 +147,17 @@ export async function publicStoreRequest<T>(
     return data;
   } catch (error) {
     if (error instanceof StoreHttpError) throw error;
+    const cause = error instanceof Error && 'cause' in error ? error.cause : undefined;
+    const causeCode =
+      cause && typeof cause === 'object' && 'code' in cause
+        ? String((cause as { code?: unknown }).code)
+        : undefined;
+    const message =
+      error instanceof Error
+        ? [error.message, causeCode].filter(Boolean).join(' · ')
+        : 'fetch failed';
     logStorefrontApi({ url, ok: false, error });
-    throw error;
+    throw new StoreHttpError(message, 0, { url, cause: causeCode ?? cause });
   }
 }
 

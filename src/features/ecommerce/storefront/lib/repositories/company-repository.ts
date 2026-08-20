@@ -14,6 +14,10 @@ import {
 } from '@/features/ecommerce/storefront/lib/api/store-config-dto';
 import { resolveStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
 import {
+  buildDefaultCompanyConfigRecord,
+  isStorefrontDevFallbackEnabled,
+} from '@/features/ecommerce/storefront/lib/default-company-config';
+import {
   fetchAdminStoreConfig,
   saveAdminStoreConfig,
 } from '@/features/ecommerce/shared/lib/api/store-settings-api';
@@ -43,10 +47,27 @@ export const storefrontCompanyRepository: CompanyStorefrontPort & CompanyCmsPort
     if (!isStoreHttpEnabled()) return null;
     try {
       const httpRecord = await fetchPublicConfigRecord(companyId);
-      if (!httpRecord) return null;
+      if (!httpRecord) {
+        if (isStorefrontDevFallbackEnabled()) {
+          const id = resolveStorefrontCompanyId(companyId);
+          console.warn(
+            `[storefront] Store config missing for company ${id}. Using dev fallback — run \`npm run system:init\` on the backend to seed store settings.`,
+          );
+          return mapStorefrontCompanyConfig(buildDefaultCompanyConfigRecord(id), locale);
+        }
+        return null;
+      }
       return mapStorefrontCompanyConfig(httpRecord, locale);
     } catch (error) {
       if (error instanceof StoreHttpError && error.status === 404) return null;
+      if (isStorefrontDevFallbackEnabled()) {
+        const id = resolveStorefrontCompanyId(companyId);
+        const detail = error instanceof Error ? error.message : 'unknown error';
+        console.warn(
+          `[storefront] Store config request failed for company ${id} (${detail}). Using dev fallback — ensure the backend is running and BACKEND_URL (${process.env.BACKEND_URL ?? 'http://127.0.0.1:3000'}) is reachable.`,
+        );
+        return mapStorefrontCompanyConfig(buildDefaultCompanyConfigRecord(id), locale);
+      }
       throw error;
     }
   },

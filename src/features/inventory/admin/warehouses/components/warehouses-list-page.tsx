@@ -97,13 +97,17 @@ export function WarehousesListPage() {
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   }
 
-  // Pre-select active/default branch once when user is branch-scoped and URL has no filter.
   React.useEffect(() => {
-    if (branchFilter || hasAllBranchAccess) return;
-    const preferred = activeBranchId || defaultBranchId;
-    if (preferred) updateParams({ branchId: preferred, page: 1 });
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- run when scope settles
-  }, [hasAllBranchAccess, activeBranchId, defaultBranchId]);
+    setSearchInput(search);
+  }, [search]);
+
+  // Clear a stale branch filter left in the URL (e.g. before access-profile loaded).
+  React.useEffect(() => {
+    if (hasAllBranchAccess && branchFilter) {
+      updateParams({ branchId: null, page: 1 });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only react to scope + URL filter
+  }, [hasAllBranchAccess, branchFilter]);
 
   const searchRef = React.useRef(search);
   const updateParamsRef = React.useRef(updateParams);
@@ -307,7 +311,9 @@ export function WarehousesListPage() {
             keyExtractor={(row) => row.id}
             loading={isLoading}
             emptyText={
-              !hasAllBranchAccess && branchOptions.length === 0
+              branchFilter
+                ? 'لا توجد مستودعات لهذا الفرع. جرّب «كل الفروع المسموحة» — المستودعات المركزية (branchId فارغ) تظهر فقط بدون تصفية فرع.'
+                : !hasAllBranchAccess && branchOptions.length === 0
                 ? 'لا توجد فروع معيّنة لحسابك، لذا لا تظهر مستودعات. اطلب تعيين فرع أو صلاحية «كل الفروع».'
                 : 'لا توجد مستودعات بعد. أضف مستودعًا للبدء.'
             }
