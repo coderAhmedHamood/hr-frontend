@@ -35,6 +35,25 @@ export function useCreateAppActivationRequest(companyId: string) {
   });
 }
 
+export function useSetApplicationVisibility(companyId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: { applicationId: string; isVisible: boolean }) =>
+      companyAppsApi.patchApplication(companyId, payload.applicationId, {
+        isVisible: payload.isVisible,
+      }),
+    onSuccess: (_data, vars) => {
+      void queryClient.invalidateQueries({
+        queryKey: systemOwnerQueryKeys.companyAppsCatalog(companyId),
+      });
+      toast.success(vars.isVisible ? 'سيظهر التطبيق في المشغّل' : 'تم إخفاء التطبيق من المشغّل');
+    },
+    onError: (err) => {
+      toast.error(handleApiError(err, 'company-apps.visibility').displayMessage);
+    },
+  });
+}
+
 export function useCancelAppActivationRequest(companyId: string) {
   const queryClient = useQueryClient();
   return useMutation({
