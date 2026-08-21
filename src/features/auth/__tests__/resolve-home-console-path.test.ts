@@ -12,6 +12,10 @@ describe('resolveHomeConsolePath', () => {
     expect(resolveHomeConsolePath('system_owner')).toBe('/system-owner');
   });
 
+  it('maps store_stock_sync to /pos', () => {
+    expect(resolveHomeConsolePath('store_stock_sync')).toBe('/pos');
+  });
+
   it('accepts hyphenated system-owner', () => {
     expect(resolveHomeConsolePath('system-owner')).toBe('/system-owner');
   });

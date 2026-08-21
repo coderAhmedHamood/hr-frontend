@@ -2,11 +2,13 @@ import {
   companyAppsRoutes,
   systemOwnerRoutes,
 } from '@/features/system-owner/constants/routes';
+import { inventoryAdminRoutes } from '@/features/inventory/admin/constants/routes';
 
 /** Maps backend `homeConsole` slugs to post-login landing paths. */
 const HOME_CONSOLE_PATHS: Record<string, string> = {
   system_owner: systemOwnerRoutes.overview,
   company_apps: companyAppsRoutes.overview,
+  store_stock_sync: inventoryAdminRoutes.pos,
   launcher: '/',
 };
 

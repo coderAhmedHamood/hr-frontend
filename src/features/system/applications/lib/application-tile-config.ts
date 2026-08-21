@@ -5,6 +5,7 @@ import {
   Crown,
   LayoutGrid,
   Package,
+  PackageMinus,
   Settings,
   ShoppingBag,
   ShoppingCart,
@@ -12,6 +13,7 @@ import {
   Users,
 } from 'lucide-react';
 import type { ApplicationResponseDto } from '@/features/system/applications/lib/api/applications';
+import { isStoreStockSyncApplicationCode } from '@/features/inventory/admin/constants/store-stock-sync-app';
 
 const ICON_BY_KEY: Record<string, LucideIcon> = {
   users: Users,
@@ -26,8 +28,10 @@ const ICON_BY_KEY: Record<string, LucideIcon> = {
   contact: ContactRound,
   contacts: ContactRound,
   warehouse: Package,
-  pos: ShoppingBag,
-  cashier: ShoppingBag,
+  'package-minus': PackageMinus,
+  'store-stock-sync': PackageMinus,
+  pos: PackageMinus,
+  cashier: PackageMinus,
   crown: Crown,
   'system-owner': Crown,
   'company-apps': LayoutGrid,
@@ -44,6 +48,7 @@ const TILE_BY_CODE: Record<string, { tileClass: string }> = {
   store: { tileClass: 'bg-success text-success-foreground' },
   inventory: { tileClass: 'bg-accent text-accent-foreground' },
   contacts: { tileClass: 'bg-primary text-primary-foreground' },
+  'store-stock-sync': { tileClass: 'bg-success text-success-foreground' },
   pos: { tileClass: 'bg-success text-success-foreground' },
   cashier: { tileClass: 'bg-success text-success-foreground' },
   'system-owner': { tileClass: 'bg-primary-700 text-primary-foreground' },
@@ -71,9 +76,7 @@ export function resolveApplicationIcon(app: ApplicationResponseDto): LucideIcon 
   if (app.code === 'store-admin' || app.code === 'ecommerce') return Store;
   if (app.code === 'storefront' || app.code === 'store') return ShoppingBag;
   if (app.code === 'inventory') return Package;
-  if (app.code === 'pos' || app.code === 'cashier' || app.code === 'point-of-sale') {
-    return ShoppingBag;
-  }
+  if (isStoreStockSyncApplicationCode(app.code)) return PackageMinus;
   if (app.code === 'contacts') return ContactRound;
   if (app.code === 'hr') return Users;
   if (app.code === 'accounting') return Calculator;

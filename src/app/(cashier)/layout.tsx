@@ -8,7 +8,7 @@ import { AppErrorBoundary } from '@/components/layouts/app-error-boundary';
 import { isRtlLocale } from '@/i18n/routing';
 
 /**
- * Full-screen cashier shell — no ERP topbar/sidebar.
+ * Full-screen store stock sync shell (`/pos`) — no ERP topbar/sidebar.
  * Auth still required (same cookie / session as the rest of the admin apps).
  */
 export default async function CashierLayout({ children }: { children: ReactNode }) {

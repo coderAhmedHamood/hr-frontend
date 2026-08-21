@@ -157,7 +157,7 @@ function LocationGate({
         </Link>
         <div className="flex items-center gap-2">
           <MapPin className="size-5 text-emerald-400" />
-          <span className="text-base font-semibold tracking-tight">اختيار موقع الكاشير</span>
+          <span className="text-base font-semibold tracking-tight">اختيار موقع الخصم</span>
         </div>
       </header>
 
@@ -165,7 +165,7 @@ function LocationGate({
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <h1 className="text-lg font-bold text-slate-900">اختر الموقع أولاً</h1>
           <p className="mt-1 text-sm text-slate-500">
-            شاشة الكاشير مربوطة بموقع واحد — تُعرض كميات هذا الموقع فقط ويُخصم منها عند البيع.
+            الشاشة مربوطة بموقع واحد — تُعرض كميات هذا الموقع فقط ويُخصم منها عند تسجيل البيع.
           </p>
           <div className="relative mt-4">
             <Search className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
@@ -416,8 +416,8 @@ export function PosCashierApp() {
           quantity: l.qty,
           locationId,
         })),
-        notes: `بيع كاشير — موقع ${selectedLocation?.nameAr ?? locationId}`,
-        sourceDocument: `POS-${selectedLocation?.code ?? 'LOC'}-${Date.now()}`,
+        notes: `خصم مبيعات — موقع ${selectedLocation?.nameAr ?? locationId}`,
+        sourceDocument: `SALE-${selectedLocation?.code ?? 'LOC'}-${Date.now()}`,
       });
       clearCart();
       void stockQuery.refetch();
@@ -490,7 +490,7 @@ export function PosCashierApp() {
         </Link>
         <div className="flex items-center gap-2">
           <ShoppingBag className="size-5 text-emerald-400" />
-          <span className="text-base font-semibold tracking-tight">كاشير البيع</span>
+          <span className="text-base font-semibold tracking-tight">خصم المبيعات</span>
         </div>
         <div className="ms-auto flex items-center gap-2">
           <button

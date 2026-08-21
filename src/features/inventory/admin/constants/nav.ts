@@ -94,13 +94,13 @@ export const inventoryAdminNavGroups: InventoryAdminNavGroup[] = [
   },
   {
     key: 'pos',
-    labelAr: 'نقطة البيع',
+    labelAr: 'خصم المبيعات',
     icon: Store,
     sections: [
       {
         items: [
           {
-            labelAr: 'كاشير — خصم كمية',
+            labelAr: 'خصم من المستودع',
             href: inventoryAdminRoutes.pos,
             icon: Store,
           },
