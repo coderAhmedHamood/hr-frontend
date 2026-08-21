@@ -37,7 +37,7 @@ function brandingFromCompany(company: CompanyBrandingSource) {
   const rawLogo = company?.companyLogoUrl?.trim() || null;
   return {
     logoUrl: rawLogo ? resolveUploadUrl(rawLogo) : null,
-    logoAlt: company?.companyNameAr?.trim() || company?.companyNameEn?.trim() || 'Rose HR',
+    logoAlt: company?.companyNameAr?.trim() || company?.companyNameEn?.trim() || 'النظام',
     companyNameAr: company?.companyNameAr?.trim() || null,
     companyNameEn: company?.companyNameEn?.trim() || null,
     companyCommercialRegistrationNo: company?.companyCommercialRegistrationNo?.trim() || null,

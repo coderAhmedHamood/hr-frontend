@@ -108,8 +108,7 @@ export function LoginPage() {
   }, [setValue]);
 
   const appTitle = publicConfig.appName.trim() || 'نظام الموارد البشرية';
-  const { logoUrl, logoAlt, companyNameAr } = useLoginPageBranding();
-  const welcomeTitle = hydrated ? (companyNameAr || appTitle) : appTitle;
+  const { logoUrl, logoAlt } = useLoginPageBranding();
   const draftEmail = watch('email');
 
   const onSubmit = async (values: FormValues) => {
@@ -172,7 +171,7 @@ export function LoginPage() {
             <Logo size={56} src={logoUrl} alt={logoAlt} />
             <div className="space-y-2">
               <h1 className="font-display text-3xl font-bold tracking-tight text-primary">تسجيل الدخول</h1>
-              <p className="text-sm text-muted-foreground">أهلاً بك في {welcomeTitle}</p>
+              <p className="text-sm text-muted-foreground">أهلاً بك في {appTitle}</p>
             </div>
           </div>
 
