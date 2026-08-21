@@ -34,14 +34,12 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
 
 export default async function Page({ searchParams }: { searchParams: SearchParams }) {
   const paramsRecord = await searchParams;
-  const { page, category, tag, sort, ...flagParams } = paramsRecord;
-  const pageNumber = Math.max(1, Number(page) || 1);
+  const { category, tag, sort, ...flagParams } = paramsRecord;
   const flags = parseStoreProductFlags(flagParams);
 
   if (isStorefrontCsrEnabled()) {
     return (
       <ProductsBrowsePageCsr
-        page={pageNumber}
         categorySlug={category}
         tag={tag}
         sort={sort}
@@ -58,7 +56,7 @@ export default async function Page({ searchParams }: { searchParams: SearchParam
   const activeCategory = category ? categories.find((item) => item.slug === category) : undefined;
   const productsResult = await getStorefrontProductsList(
     resolveStoreProductsListQuery({
-      page: pageNumber,
+      page: 1,
       limit: PAGE_SIZE,
       categoryId: activeCategory?.id,
       tag,
@@ -69,7 +67,6 @@ export default async function Page({ searchParams }: { searchParams: SearchParam
 
   return (
     <ProductsBrowsePage
-      page={pageNumber}
       categorySlug={category}
       tag={tag}
       sort={sort}

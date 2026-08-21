@@ -1,35 +1,61 @@
 'use client';
 
+import * as React from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { PackageSearch } from 'lucide-react';
 import type { StorefrontPaginated, StorefrontProduct } from '@/features/ecommerce/storefront/domain/storefront-models';
-import { ProductCard } from '@/features/ecommerce/storefront/components/product-card';
-import { ProductListingGrid } from '@/features/ecommerce/storefront/components/catalog/product-grid';
-import { StorePagination } from '@/features/ecommerce/storefront/components/store-pagination';
+import { InfiniteProductList } from '@/features/ecommerce/storefront/components/catalog/infinite-product-list';
 import { StoreBreadcrumbs } from '@/features/ecommerce/storefront/components/store-breadcrumbs';
 import { StoreEmptyState } from '@/features/ecommerce/storefront/components/store-empty-state';
 import { JsonLd } from '@/features/ecommerce/storefront/components/json-ld';
 import { collectionPageJsonLd } from '@/features/ecommerce/storefront/lib/seo-jsonld';
+import { clientStorefrontData } from '@/features/ecommerce/storefront/lib/client-storefront-data';
+import {
+  resolveStoreProductsListQuery,
+  type ParsedStoreProductFlags,
+} from '@/features/ecommerce/storefront/lib/store-product-list-query';
 import type { StorefrontLocale } from '@/i18n/routing';
+
+const PAGE_SIZE = 15;
 
 type CatalogTagPageProps = {
   title: string;
   description: string;
   basePath: `/store/${string}`;
-  page: number;
   productsResult: StorefrontPaginated<StorefrontProduct>;
+  flags?: ParsedStoreProductFlags;
+  sort?: string;
 };
 
 export function CatalogTagPage({
   title,
   description,
   basePath,
-  page,
   productsResult,
+  flags = {},
+  sort,
 }: CatalogTagPageProps) {
   const t = useTranslations('storefront');
   const locale = useLocale() as StorefrontLocale;
-  const products = productsResult.items;
+
+  const queryKey = React.useMemo(
+    () => JSON.stringify({ basePath, flags, sort }),
+    [basePath, flags, sort],
+  );
+
+  const fetchPage = React.useCallback(
+    (page: number) =>
+      clientStorefrontData.getProducts(
+        locale,
+        resolveStoreProductsListQuery({
+          page,
+          limit: PAGE_SIZE,
+          flags,
+          sort,
+        }),
+      ),
+    [locale, flags, sort],
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -47,21 +73,16 @@ export function CatalogTagPage({
         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">{description}</p>
       </div>
 
-      {products.length === 0 ? (
+      {productsResult.items.length === 0 ? (
         <StoreEmptyState icon={PackageSearch} title={t('products.noResults')} />
       ) : (
-        <ProductListingGrid>
-          {products.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
-        </ProductListingGrid>
+        <InfiniteProductList
+          queryKey={queryKey}
+          initialItems={productsResult.items}
+          totalPages={productsResult.pagination.totalPages}
+          fetchPage={fetchPage}
+        />
       )}
-
-      <StorePagination
-        basePath={basePath}
-        page={page}
-        totalPages={productsResult.pagination.totalPages}
-      />
     </div>
   );
 }

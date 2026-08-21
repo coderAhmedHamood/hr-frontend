@@ -85,13 +85,11 @@ export function StoreHomePageCsr() {
 }
 
 export function ProductsBrowsePageCsr({
-  page,
   categorySlug,
   tag,
   sort,
   flags = {},
 }: {
-  page: number;
   categorySlug?: string;
   tag?: string;
   sort?: string;
@@ -112,7 +110,7 @@ export function ProductsBrowsePageCsr({
       const productsResult = await clientStorefrontData.getProducts(
         locale,
         resolveStoreProductsListQuery({
-          page,
+          page: 1,
           limit: 15,
           categoryId: activeCategory?.id,
           tag,
@@ -122,7 +120,7 @@ export function ProductsBrowsePageCsr({
       );
       return { config, categories, productsResult };
     },
-    [page, categorySlug, tag, sort, flags.isNewProduct, flags.isTodayDeal, flags.isWholesale, flags.isDiscounted],
+    [categorySlug, tag, sort, flags.isNewProduct, flags.isTodayDeal, flags.isWholesale, flags.isDiscounted],
   );
 
   if (loading) return <StoreCsrLoading />;
@@ -130,7 +128,6 @@ export function ProductsBrowsePageCsr({
 
   return (
     <ProductsBrowsePage
-      page={page}
       categorySlug={categorySlug}
       tag={tag}
       sort={sort}
@@ -213,7 +210,7 @@ export function CategoriesListPageCsr() {
   return <CategoriesListPage categories={data} />;
 }
 
-export function CategoryDetailPageCsr({ slug, page }: { slug: string; page: number }) {
+export function CategoryDetailPageCsr({ slug }: { slug: string }) {
   const { data, error, loading } = useCsrLoad(
     async (locale) => {
       const category = await clientStorefrontData.getCategoryBySlug(locale, slug);
@@ -221,7 +218,7 @@ export function CategoryDetailPageCsr({ slug, page }: { slug: string; page: numb
       const [productsResult, categoriesResult] = await Promise.all([
         clientStorefrontData.getProducts(locale, {
           categoryId: category.id,
-          page,
+          page: 1,
           limit: 12,
         }),
         clientStorefrontData.getCategories(locale, { limit: 200 }),
@@ -235,7 +232,7 @@ export function CategoryDetailPageCsr({ slug, page }: { slug: string; page: numb
         subcategories,
       };
     },
-    [slug, page],
+    [slug],
   );
   if (loading) return <StoreCsrLoading />;
   if (error === 'NOT_FOUND') notFound();
@@ -243,7 +240,6 @@ export function CategoryDetailPageCsr({ slug, page }: { slug: string; page: numb
   return (
     <CategoryDetailPage
       category={data.category}
-      page={page}
       productsResult={data.productsResult}
       subcategories={data.subcategories}
     />
@@ -251,14 +247,12 @@ export function CategoryDetailPageCsr({ slug, page }: { slug: string; page: numb
 }
 
 export function CatalogTagPageCsr({
-  page,
   titleKey,
   descriptionKey,
   basePath,
   storePageKey,
   flag,
 }: {
-  page: number;
   titleKey: 'offers.title' | 'wholesale.title';
   descriptionKey: 'offers.description' | 'wholesale.description';
   basePath: '/store/offers' | '/store/wholesale';
@@ -275,7 +269,7 @@ export function CatalogTagPageCsr({
         clientStorefrontData.getProducts(
           locale,
           resolveStoreProductsListQuery({
-            page,
+            page: 1,
             limit: 15,
             flags,
             sort: 'newest',
@@ -286,7 +280,7 @@ export function CatalogTagPageCsr({
       if (!config.storePages[storePageKey]) throw new Error('NOT_FOUND');
       return { productsResult };
     },
-    [page, storePageKey, flag],
+    [storePageKey, flag],
   );
 
   React.useEffect(() => {
@@ -302,8 +296,9 @@ export function CatalogTagPageCsr({
       title={t(titleKey)}
       description={t(descriptionKey)}
       basePath={basePath}
-      page={page}
       productsResult={data.productsResult}
+      flags={flags}
+      sort="newest"
     />
   );
 }
