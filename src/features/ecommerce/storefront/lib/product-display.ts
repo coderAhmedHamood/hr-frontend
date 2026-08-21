@@ -5,6 +5,8 @@ export type ProductDisplayImage = {
   alt: string;
 };
 
+export type PromoBadgeKind = 'new' | 'best-seller' | 'deals' | 'wholesale' | 'discount';
+
 export type ProductDisplayModel = {
   imageUrl: string | null;
   imageAlt: string;
@@ -13,25 +15,40 @@ export type ProductDisplayModel = {
   outOfStock: boolean;
   hasDeal: boolean;
   discountPercent: number | null;
-  /** Flag-driven promo chip (with tag fallback). */
-  promoBadge: 'new' | 'best-seller' | 'deals' | 'wholesale' | 'discount' | null;
+  /** All active promo chips (flags + tag fallbacks). */
+  promoBadges: PromoBadgeKind[];
   sellingFast: boolean;
   /** From inventory `ratingAvg` / `reviewCount` — no mock fallback. */
   rating: number | null;
   reviewCount: number;
 };
 
-function resolvePromoBadge(product: StorefrontProduct): ProductDisplayModel['promoBadge'] {
-  if (product.isTodayDealActive) return 'deals';
-  if (product.isWholesaleActive) return 'wholesale';
-  if (product.isDiscountActive) return 'discount';
-  if (product.isNewProductActive) return 'new';
+function resolvePromoBadges(product: StorefrontProduct): PromoBadgeKind[] {
+  const badges: PromoBadgeKind[] = [];
+
+  if (product.isNewProductActive) badges.push('new');
+  if (product.isTodayDealActive) badges.push('deals');
+  if (product.isWholesaleActive) badges.push('wholesale');
+  if (product.isDiscountActive) badges.push('discount');
 
   const normalized = product.tags.map((tag) => tag.toLowerCase());
-  if (normalized.some((tag) => tag.includes('wholesale') || tag.includes('جملة'))) return 'wholesale';
-  if (normalized.some((tag) => tag.includes('best'))) return 'best-seller';
-  if (normalized.some((tag) => tag.includes('deal') || tag.includes('offer'))) return 'deals';
-  return null;
+  if (
+    !badges.includes('wholesale') &&
+    normalized.some((tag) => tag.includes('wholesale') || tag.includes('جملة'))
+  ) {
+    badges.push('wholesale');
+  }
+  if (!badges.includes('best-seller') && normalized.some((tag) => tag.includes('best'))) {
+    badges.push('best-seller');
+  }
+  if (
+    !badges.includes('deals') &&
+    normalized.some((tag) => tag.includes('deal') || tag.includes('offer'))
+  ) {
+    badges.push('deals');
+  }
+
+  return badges;
 }
 
 function isSellingFast(product: StorefrontProduct): boolean {
@@ -79,7 +96,7 @@ export function buildProductDisplay(product: StorefrontProduct): ProductDisplayM
     outOfStock,
     hasDeal,
     discountPercent,
-    promoBadge: resolvePromoBadge(product),
+    promoBadges: resolvePromoBadges(product),
     sellingFast: isSellingFast(product),
     rating: product.rating != null && product.rating > 0 ? product.rating : null,
     reviewCount: Math.max(0, Math.floor(Number(product.reviewCount ?? 0) || 0)),

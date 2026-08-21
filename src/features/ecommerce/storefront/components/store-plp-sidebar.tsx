@@ -28,17 +28,16 @@ export function StorePlpSidebar({
   const { roots, childrenByParent } = buildCategoryTree(categories);
   const showOffers = storePages?.offers !== false;
   const showWholesale = storePages?.wholesale !== false;
+  const promoLinks = [
+    { label: t('nav.newArrivals'), href: '/store/products?isNewProduct=1' as const },
+    ...(showOffers ? [{ label: t('offers.title'), href: '/store/offers' as const }] : []),
+    ...(showWholesale ? [{ label: t('wholesale.title'), href: '/store/wholesale' as const }] : []),
+    { label: t('discounts.title'), href: '/store/products?isDiscounted=1' as const },
+  ];
   const shortcuts =
     secondaryNavigation && secondaryNavigation.length > 0
       ? secondaryNavigation
-      : [
-          ...(showOffers
-            ? [{ label: t('offers.title'), href: '/store/offers' as const }]
-            : []),
-          ...(showWholesale
-            ? [{ label: t('wholesale.title'), href: '/store/wholesale' as const }]
-            : []),
-        ];
+      : promoLinks;
 
   return (
     <aside className="hidden w-56 shrink-0 lg:block">

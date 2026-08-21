@@ -56,9 +56,21 @@ describe('buildProductDisplay', () => {
         inventory: { quantity: 3, trackInventory: true, lowStockThreshold: 5, allowBackorder: false },
       }),
     );
-    expect(display.promoBadge).toBe('best-seller');
+    expect(display.promoBadges).toEqual(['best-seller']);
     expect(display.sellingFast).toBe(true);
     expect(display.rating).toBeNull();
+  });
+
+  it('collects all active promo badges', () => {
+    const display = buildProductDisplay(
+      makeProduct({
+        isNewProductActive: true,
+        isTodayDealActive: true,
+        isWholesaleActive: true,
+        isDiscountActive: true,
+      }),
+    );
+    expect(display.promoBadges).toEqual(['new', 'deals', 'wholesale', 'discount']);
   });
 
   it('shows rating only when catalog provides ratingAvg', () => {

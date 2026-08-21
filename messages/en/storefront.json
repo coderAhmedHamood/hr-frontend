@@ -82,6 +82,10 @@
     "title": "Wholesale prices",
     "description": "Selected wholesale pricing for shops and bulk buyers. Shown prices are wholesale rates."
   },
+  "discounts": {
+    "title": "Discounts",
+    "description": "Products with a percentage discount on the base price."
+  },
   "products": {
     "title": "Products",
     "all": "All",

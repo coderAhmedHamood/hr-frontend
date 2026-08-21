@@ -29,7 +29,7 @@ function productsHeading(
   if (flags.isNewProduct) return t('home.latestProducts');
   if (flags.isTodayDeal) return t('home.dealsToday');
   if (flags.isWholesale) return t('wholesale.title');
-  if (flags.isDiscounted) return t('nav.offersZone');
+  if (flags.isDiscounted) return t('discounts.title');
   return t('products.title');
 }
 
