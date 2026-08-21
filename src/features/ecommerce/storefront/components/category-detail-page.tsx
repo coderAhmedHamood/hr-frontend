@@ -1,32 +1,43 @@
 'use client';
 
+import * as React from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { PackageSearch } from 'lucide-react';
 import type { StorefrontCategory, StorefrontPaginated, StorefrontProduct } from '@/features/ecommerce/storefront/domain/storefront-models';
-import { ProductCard } from '@/features/ecommerce/storefront/components/product-card';
-import { ProductListingGrid } from '@/features/ecommerce/storefront/components/catalog/product-grid';
+import { InfiniteProductList } from '@/features/ecommerce/storefront/components/catalog/infinite-product-list';
 import { CategorySubcategories } from '@/features/ecommerce/storefront/components/category-subcategories';
-import { StorePagination } from '@/features/ecommerce/storefront/components/store-pagination';
 import { StoreBreadcrumbs } from '@/features/ecommerce/storefront/components/store-breadcrumbs';
 import { StoreEmptyState } from '@/features/ecommerce/storefront/components/store-empty-state';
 import { JsonLd } from '@/features/ecommerce/storefront/components/json-ld';
 import { breadcrumbJsonLd, collectionPageJsonLd } from '@/features/ecommerce/storefront/lib/seo-jsonld';
+import { clientStorefrontData } from '@/features/ecommerce/storefront/lib/client-storefront-data';
 import type { StorefrontLocale } from '@/i18n/routing';
+
+const PAGE_SIZE = 12;
 
 export function CategoryDetailPage({
   category,
-  page,
   productsResult,
   subcategories = [],
 }: {
   category: StorefrontCategory;
-  page: number;
   productsResult: StorefrontPaginated<StorefrontProduct>;
   subcategories?: StorefrontCategory[];
 }) {
   const t = useTranslations('storefront');
   const locale = useLocale() as StorefrontLocale;
-  const products = productsResult.items;
+
+  const queryKey = React.useMemo(() => category.id, [category.id]);
+
+  const fetchPage = React.useCallback(
+    (page: number) =>
+      clientStorefrontData.getProducts(locale, {
+        categoryId: category.id,
+        page,
+        limit: PAGE_SIZE,
+      }),
+    [locale, category.id],
+  );
 
   const breadcrumbItems = [
     { name: t('breadcrumbs.home'), path: '/store' as const },
@@ -50,21 +61,16 @@ export function CategoryDetailPage({
 
       <CategorySubcategories subcategories={subcategories} />
 
-      {products.length === 0 ? (
+      {productsResult.items.length === 0 ? (
         <StoreEmptyState icon={PackageSearch} title={t('categories.noResults')} />
       ) : (
-        <ProductListingGrid>
-          {products.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
-        </ProductListingGrid>
+        <InfiniteProductList
+          queryKey={queryKey}
+          initialItems={productsResult.items}
+          totalPages={productsResult.pagination.totalPages}
+          fetchPage={fetchPage}
+        />
       )}
-
-      <StorePagination
-        basePath={`/store/categories/${category.slug}`}
-        page={page}
-        totalPages={productsResult.pagination.totalPages}
-      />
     </div>
   );
 }

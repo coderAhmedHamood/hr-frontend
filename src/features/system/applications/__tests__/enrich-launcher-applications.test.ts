@@ -195,15 +195,21 @@ describe('enrichLauncherApplications', () => {
     expect(resolveApplicationLaunchPath(app)).toBe(storeHome);
   });
 
-  it('does not treat store-admin as the public storefront', () => {
+  it('opens store-stock-sync at /pos from backend routePath', () => {
     const app: ApplicationResponseDto = {
       ...hrApp,
-      id: 'sa-keep',
-      code: 'store-admin',
-      nameAr: 'إدارة المتجر',
-      nameEn: 'Store Admin',
-      routePath: '/store',
+      id: 'sss-1',
+      code: 'store-stock-sync',
+      nameAr: 'خصم المبيعات',
+      nameEn: 'Store Stock Sync',
+      routePath: '/pos',
+      sortOrder: 36,
     };
-    expect(resolveApplicationLaunchPath(app)).toBe('/orders');
+    expect(resolveApplicationLaunchPath(app)).toBe('/pos');
+  });
+
+  it('does not inject a client-side pos tile when missing from backend', () => {
+    const apps = enrichLauncherApplications([hrApp], 'company-1');
+    expect(apps.some((app) => app.code === 'pos' || app.code === 'store-stock-sync')).toBe(false);
   });
 });

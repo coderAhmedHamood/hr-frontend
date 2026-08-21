@@ -46,7 +46,6 @@ export default async function Page({ params }: Props) {
 
   return (
     <ProductsBrowsePage
-      page={1}
       categories={categoriesResult.items}
       secondaryNavigation={config.secondaryNavigation}
       storePages={config.storePages}

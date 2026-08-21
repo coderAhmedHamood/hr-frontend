@@ -7,6 +7,7 @@ import { AddToCartButton } from '@/features/ecommerce/storefront/components/cata
 import { FavoriteButton } from '@/features/ecommerce/storefront/components/catalog/favorite-button';
 import { ProductCardMedia } from '@/features/ecommerce/storefront/components/catalog/product-card-media';
 import { ProductPrice } from '@/features/ecommerce/storefront/components/catalog/product-price';
+import { ProductPromoBadges } from '@/features/ecommerce/storefront/components/catalog/product-promo-badges';
 import { ProductRating } from '@/features/ecommerce/storefront/components/catalog/product-rating';
 import { buildProductDisplay } from '@/features/ecommerce/storefront/lib/product-display';
 import { Link } from '@/i18n/navigation';
@@ -100,30 +101,7 @@ export function ProductCardView({
           className="absolute end-2 top-2 z-10"
         />
 
-        {display.promoBadge ? (
-          <span
-            className={cn(
-              'pointer-events-none absolute start-0 top-0 z-10 max-w-[75%] truncate',
-              'rounded-none rounded-ee-2xl px-2.5 py-1.5',
-              'text-[10px] font-bold leading-none tracking-wide text-primary-foreground shadow-soft',
-              display.promoBadge === 'best-seller' && 'bg-primary',
-              display.promoBadge === 'deals' && 'bg-secondary text-secondary-foreground',
-              display.promoBadge === 'wholesale' && 'bg-foreground text-background',
-              display.promoBadge === 'new' && 'bg-emerald-700 text-white',
-              display.promoBadge === 'discount' && 'bg-amber-700 text-white',
-            )}
-          >
-            {display.promoBadge === 'best-seller'
-              ? t('components.badgeBestSeller')
-              : display.promoBadge === 'wholesale'
-                ? t('components.badgeWholesale')
-                : display.promoBadge === 'new'
-                  ? t('components.badgeNew')
-                  : display.promoBadge === 'discount'
-                    ? t('components.badgeDiscount')
-                    : t('components.badgeDeals')}
-          </span>
-        ) : null}
+        <ProductPromoBadges badges={display.promoBadges} />
 
         {!display.outOfStock ? (
           <AddToCartButton

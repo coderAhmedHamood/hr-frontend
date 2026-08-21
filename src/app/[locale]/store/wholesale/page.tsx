@@ -14,7 +14,6 @@ const PAGE_SIZE = 15;
 
 type Props = {
   params: Promise<{ locale: string }>;
-  searchParams: Promise<{ page?: string }>;
 };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -30,14 +29,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default async function Page({ searchParams }: Props) {
-  const { page } = await searchParams;
-  const pageNumber = Math.max(1, Number(page) || 1);
-
+export default async function Page() {
   if (isStorefrontCsrEnabled()) {
     return (
       <CatalogTagPageCsr
-        page={pageNumber}
         titleKey="wholesale.title"
         descriptionKey="wholesale.description"
         basePath="/store/wholesale"
@@ -52,7 +47,7 @@ export default async function Page({ searchParams }: Props) {
     getStorefrontCompanyConfig(),
     getStorefrontProductsList(
       resolveStoreProductsListQuery({
-        page: pageNumber,
+        page: 1,
         limit: PAGE_SIZE,
         flags: { isWholesale: true },
         sort: 'newest',
@@ -67,8 +62,9 @@ export default async function Page({ searchParams }: Props) {
       title={t('wholesale.title')}
       description={t('wholesale.description')}
       basePath="/store/wholesale"
-      page={pageNumber}
       productsResult={productsResult}
+      flags={{ isWholesale: true }}
+      sort="newest"
     />
   );
 }

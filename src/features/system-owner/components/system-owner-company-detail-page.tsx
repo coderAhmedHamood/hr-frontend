@@ -54,7 +54,7 @@ export function SystemOwnerCompanyDetailPage() {
       />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Button variant="outline" size="sm" asChild>
-          <Link href={systemOwnerRoutes.companies}>العودة للشركات</Link>
+          <Link href={systemOwnerRoutes.overview}>العودة للشركات</Link>
         </Button>
         {company?.code ? (
           <span className="text-xs text-muted-foreground" dir="ltr">
@@ -100,39 +100,72 @@ export function SystemOwnerCompanyDetailPage() {
 
 function CompanyAppsTab({ companyId }: { companyId: string }) {
   const { data, isLoading, isError } = useSystemOwnerCompanyApplications(companyId);
-  const { setApplicationEnabled } = useSystemOwnerMutations();
+  const { patchCompanyApplication } = useSystemOwnerMutations();
 
   if (isLoading) return <p className="text-sm text-muted-foreground">جاري التحميل…</p>;
   if (isError) return <p className="text-sm text-destructive">تعذر تحميل التطبيقات.</p>;
 
   return (
     <div className="space-y-2">
-      <p className="text-xs text-muted-foreground">لا يمكن تعطيل تطبيق النظام.</p>
+      <p className="text-xs text-muted-foreground">
+        «تفعيل» يتحكم بالترخيص والصلاحيات. «إظهار» يتحكم بظهور التطبيق في مشغّل الموظفين. تطبيق
+        النظام وتطبيقات الشركة لا يمكن تعطيلهما، لكن يمكن إخفاؤهما من المشغّل.
+      </p>
       {(data ?? []).map((app) => {
-        const locked = app.code.toLowerCase() === 'system';
+        const enableLocked = app.isAlwaysEnabled;
+        const applicationId = app.applicationId || app.id;
+        const pending = patchCompanyApplication.isPending;
+
         return (
           <div
             key={app.id}
-            className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3"
+            className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3"
           >
-            <div>
-              <p className="text-sm font-medium">{app.nameAr}</p>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-sm font-medium">{app.nameAr}</p>
+                {!app.isVisible && app.isEnabled ? (
+                  <Badge variant="secondary" className="text-[10px]">
+                    مخفي من المشغّل
+                  </Badge>
+                ) : null}
+              </div>
               <p className="text-xs text-muted-foreground" dir="ltr">
                 {app.code}
               </p>
             </div>
-            <Switch
-              checked={app.isEnabled || locked}
-              disabled={locked || setApplicationEnabled.isPending}
-              onCheckedChange={(checked) =>
-                setApplicationEnabled.mutate({
-                  companyId,
-                  applicationId: app.applicationId || app.id,
-                  isEnabled: checked,
-                })
-              }
-              aria-label={`تفعيل ${app.nameAr}`}
-            />
+            <div className="flex shrink-0 items-center gap-4">
+              <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Switch
+                  checked={app.isEnabled || enableLocked}
+                  disabled={enableLocked || pending}
+                  onCheckedChange={(checked) =>
+                    patchCompanyApplication.mutate({
+                      companyId,
+                      applicationId,
+                      payload: { isEnabled: checked },
+                    })
+                  }
+                  aria-label={`تفعيل ${app.nameAr}`}
+                />
+                تفعيل
+              </label>
+              <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Switch
+                  checked={app.isVisible}
+                  disabled={!app.isEnabled || pending}
+                  onCheckedChange={(checked) =>
+                    patchCompanyApplication.mutate({
+                      companyId,
+                      applicationId,
+                      payload: { isVisible: checked },
+                    })
+                  }
+                  aria-label={`إظهار ${app.nameAr} في المشغّل`}
+                />
+                إظهار
+              </label>
+            </div>
           </div>
         );
       })}

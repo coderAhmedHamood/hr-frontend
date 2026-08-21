@@ -16,7 +16,6 @@ export const revalidate = 60;
 const PAGE_SIZE = 12;
 
 type Params = Promise<{ locale: string; slug: string }>;
-type SearchParams = Promise<{ page?: string }>;
 
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   if (isStorefrontCsrEnabled()) return {};
@@ -26,20 +25,18 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   return categoryMetadata(category, config, locale as StorefrontLocale);
 }
 
-export default async function Page({ params, searchParams }: { params: Params; searchParams: SearchParams }) {
+export default async function Page({ params }: { params: Params }) {
   const { slug } = await params;
-  const { page } = await searchParams;
-  const pageNumber = Math.max(1, Number(page) || 1);
 
   if (isStorefrontCsrEnabled()) {
-    return <CategoryDetailPageCsr slug={slug} page={pageNumber} />;
+    return <CategoryDetailPageCsr slug={slug} />;
   }
 
   const category = await getStorefrontCategoryBySlug(slug);
   const [productsResult, categoriesResult] = await Promise.all([
     getStorefrontProductsList({
       categoryId: category.id,
-      page: pageNumber,
+      page: 1,
       limit: PAGE_SIZE,
     }),
     getStorefrontCategoriesList({ limit: 200 }),
@@ -52,7 +49,6 @@ export default async function Page({ params, searchParams }: { params: Params; s
   return (
     <CategoryDetailPage
       category={category}
-      page={pageNumber}
       productsResult={productsResult}
       subcategories={subcategories}
     />

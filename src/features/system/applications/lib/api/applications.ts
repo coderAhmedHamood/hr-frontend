@@ -2,6 +2,9 @@ import { apiRequest, type PaginatedResult } from '@/features/hr/lib/api/client';
 import { contactsAdminRoutes } from '@/features/contacts/admin/constants/routes';
 import { ecommerceAdminRoutes } from '@/features/ecommerce/admin/constants/routes';
 import { inventoryAdminRoutes } from '@/features/inventory/admin/constants/routes';
+import {
+  isStoreStockSyncApplicationCode,
+} from '@/features/inventory/admin/constants/store-stock-sync-app';
 import { resolveSystemAppLaunchPath } from '@/features/system/constants/app-launch';
 import { systemOwnerRoutes } from '@/features/system-owner/constants/routes';
 import { isMultiLangEnabled } from '@/i18n/locale-flags';
@@ -94,43 +97,19 @@ function isSystemUsersDirectoryPath(path: string): boolean {
   );
 }
 
-/** Client-side POS tile until the backend applications catalog seeds `pos`. */
-const POS_CASHIER_APP: ApplicationResponseDto = {
-  id: 'client-app-pos-cashier',
-  code: 'pos',
-  nameAr: 'الكاشير',
-  nameEn: 'POS Cashier',
-  description: 'نقطة بيع لخصم الكمية من المخزون',
-  icon: 'shopping-cart',
-  routePath: '/pos',
-  sortOrder: 35,
-  isActive: true,
-  status: 'active',
-};
-
-function isPosCashierApp(app: ApplicationResponseDto): boolean {
-  const code = normalizeAppCode(app.code);
-  return code === 'pos' || code === 'cashier' || code === 'point-of-sale';
-}
-
 /**
- * Launcher tiles come from `GET /applications`, plus a POS cashier tile when missing.
- * Drops the legacy `ecommerce` duplicate (same UI as `store-admin`).
+ * Launcher post-process: drops legacy `ecommerce` duplicate (same UI as `store-admin`).
+ * All tiles including `store-stock-sync` must come from `GET /applications/launcher`.
  */
 export function enrichLauncherApplications(
   apps: ApplicationResponseDto[],
   _companyId?: string | null,
 ): ApplicationResponseDto[] {
-  const list = apps
+  return apps
     .filter((app) => app.isActive !== false)
     .filter((app) => !isLegacyEcommerceAdminApp(app))
-    .slice();
-
-  if (!list.some(isPosCashierApp)) {
-    list.push(POS_CASHIER_APP);
-  }
-
-  return list.sort((a, b) => a.sortOrder - b.sortOrder);
+    .slice()
+    .sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
 /** True when the app should open an absolute external URL (`launchUrl`). */
@@ -203,8 +182,8 @@ export function resolveApplicationLaunchPath(app: ApplicationResponseDto): strin
   }
 
   if (code === 'inventory') return inventoryAdminRoutes.overview;
-  if (code === 'pos' || code === 'cashier' || code === 'point-of-sale') {
-    return inventoryAdminRoutes.pos;
+  if (isStoreStockSyncApplicationCode(code)) {
+    return base || inventoryAdminRoutes.pos;
   }
   if (code === 'accounting') return '/accounting';
   if (code === 'storefront' || looksLikeStorefrontApp(app)) {
@@ -213,7 +192,7 @@ export function resolveApplicationLaunchPath(app: ApplicationResponseDto): strin
   if (code === 'system' && (!base || base === '/system' || isSystemUsersDirectoryPath(base))) {
     return resolveSystemAppLaunchPath();
   }
-  if (code === 'system-owner') return systemOwnerRoutes.companies;
+  if (code === 'system-owner') return base || systemOwnerRoutes.overview;
   if (code === 'company-apps') return '/company-apps';
 
   if (isSystemUsersDirectoryPath(base) && /جهات الاتصال|contacts|partners/i.test(`${app.nameAr} ${app.nameEn}`)) {

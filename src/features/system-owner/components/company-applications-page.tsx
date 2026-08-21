@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Clock, Lock } from 'lucide-react';
+import { Clock, Eye, EyeOff, Lock } from 'lucide-react';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -25,6 +25,7 @@ import {
   useCancelAppActivationRequest,
   useCompanyAppsCatalog,
   useCreateAppActivationRequest,
+  useSetApplicationVisibility,
 } from '@/features/system-owner/hooks/use-company-apps';
 import type { CompanyAppCatalogItem } from '@/features/system-owner/lib/api/system-owner';
 import {
@@ -62,11 +63,15 @@ function MarketplaceTile({
   index,
   cancelPending,
   onRequest,
+  onVisibilityChange,
+  visibilityPending,
 }: {
   app: CompanyAppCatalogItem;
   index: number;
   cancelPending: { isPending: boolean; mutate: (id: string) => void };
   onRequest: (app: CompanyAppCatalogItem) => void;
+  onVisibilityChange?: (app: CompanyAppCatalogItem, isVisible: boolean) => void;
+  visibilityPending?: boolean;
 }) {
   const launcherApp = toLauncherApp(app);
   const Icon = resolveApplicationIcon(launcherApp);
@@ -126,6 +131,39 @@ function MarketplaceTile({
     );
   }
 
+  const visibilityControl =
+    app.canSetVisibility && onVisibilityChange ? (
+      <button
+        type="button"
+        className="flex items-center gap-1 text-[11px] text-muted-foreground underline-offset-4 hover:text-foreground hover:underline disabled:opacity-50"
+        disabled={visibilityPending}
+        onClick={() => onVisibilityChange(app, !app.isVisible)}
+      >
+        {app.isVisible ? (
+          <>
+            <Eye className="h-3 w-3" />
+            ظاهر في المشغّل
+          </>
+        ) : (
+          <>
+            <EyeOff className="h-3 w-3" />
+            مخفي من المشغّل
+          </>
+        )}
+      </button>
+    ) : canOpen && !app.isVisible ? (
+      <span className="text-[11px] text-muted-foreground">مخفي عن الموظفين</span>
+    ) : null;
+
+  if (visibilityControl) {
+    return (
+      <div className="flex flex-col items-center gap-1">
+        {tile}
+        {visibilityControl}
+      </div>
+    );
+  }
+
   return tile;
 }
 
@@ -136,6 +174,7 @@ export function CompanyApplicationsPage() {
   const catalogQuery = useCompanyAppsCatalog(companyId ?? '');
   const createRequest = useCreateAppActivationRequest(companyId ?? '');
   const cancelRequest = useCancelAppActivationRequest(companyId ?? '');
+  const setVisibility = useSetApplicationVisibility(companyId ?? '');
   const [filter, setFilter] = React.useState<FilterId>('all');
   const [requestingApp, setRequestingApp] = React.useState<CompanyAppCatalogItem | null>(null);
   const [message, setMessage] = React.useState('');
@@ -245,6 +284,10 @@ export function CompanyApplicationsPage() {
             index={index}
             cancelPending={cancelRequest}
             onRequest={setRequestingApp}
+            onVisibilityChange={(item, isVisible) =>
+              setVisibility.mutate({ applicationId: item.applicationId, isVisible })
+            }
+            visibilityPending={setVisibility.isPending}
           />
         ))}
         {!catalogQuery.isLoading && visibleApps.length === 0 ? (

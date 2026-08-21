@@ -4,7 +4,9 @@ import * as React from 'react';
 import { useTranslations } from 'next-intl';
 import type { StorefrontProduct } from '@/features/ecommerce/storefront/domain/storefront-models';
 import { ProductMediaGallery } from '@/features/ecommerce/storefront/components/catalog/product-media-gallery';
+import { ProductPromoBadges } from '@/features/ecommerce/storefront/components/catalog/product-promo-badges';
 import { ProductRating } from '@/features/ecommerce/storefront/components/catalog/product-rating';
+import { buildProductDisplay } from '@/features/ecommerce/storefront/lib/product-display';
 import {
   ProductPurchasePanel,
   type ActiveAttributeMedia,
@@ -13,6 +15,7 @@ import {
 export function ProductDetailInteractive({ product }: { product: StorefrontProduct }) {
   const t = useTranslations('storefront.reviews');
   const [activeMedia, setActiveMedia] = React.useState<ActiveAttributeMedia | null>(null);
+  const display = buildProductDisplay(product);
 
   const images = activeMedia?.images.length ? activeMedia.images : product.media;
   const fallbackAlt = product.imageAlt || product.name;
@@ -23,6 +26,7 @@ export function ProductDetailInteractive({ product }: { product: StorefrontProdu
 
       <div className="flex flex-col gap-4">
         <div className="space-y-1.5">
+          <ProductPromoBadges badges={display.promoBadges} variant="inline" />
           <h1 className="text-2xl font-bold text-foreground">{product.name}</h1>
           <a
             href="#reviews"

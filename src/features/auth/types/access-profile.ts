@@ -1,3 +1,8 @@
+import {
+  isStoreStockSyncApplicationCode,
+  STORE_STOCK_SYNC_APP_CODES,
+} from '@/features/inventory/admin/constants/store-stock-sync-app';
+
 export type RoleAccess = {
   roleId: string;
   code: string;
@@ -48,6 +53,8 @@ export type AccessProfile = {
   companies: CompanyAccess[];
   /** True when userType = platform_admin. Grants /system-owner. */
   isSystemOwner?: boolean;
+  /** Default console after login when no `returnTo`, e.g. `system_owner`. */
+  homeConsole?: string | null;
 };
 
 export type AuthUser = {
@@ -192,8 +199,8 @@ export function companyHasApplicationEnabled(
   if (wanted === 'contacts' || wanted === 'partners') {
     return enabled.has('contacts') || enabled.has('partners');
   }
-  if (wanted === 'pos' || wanted === 'cashier' || wanted === 'point-of-sale') {
-    return enabled.has('pos') || enabled.has('cashier') || enabled.has('inventory');
+  if (isStoreStockSyncApplicationCode(wanted)) {
+    return STORE_STOCK_SYNC_APP_CODES.some((code) => enabled.has(normalizeApplicationCode(code)));
   }
   return false;
 }

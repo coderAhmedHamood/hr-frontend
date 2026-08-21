@@ -1,5 +1,6 @@
 'use client';
 
+import * as React from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { PackageSearch } from 'lucide-react';
 import type {
@@ -8,19 +9,20 @@ import type {
   StorefrontPaginated,
   StorefrontProduct,
 } from '@/features/ecommerce/storefront/domain/storefront-models';
-import { ProductCard } from '@/features/ecommerce/storefront/components/product-card';
-import { ProductListingGrid } from '@/features/ecommerce/storefront/components/catalog/product-grid';
-import { StorePagination } from '@/features/ecommerce/storefront/components/store-pagination';
+import { InfiniteProductList } from '@/features/ecommerce/storefront/components/catalog/infinite-product-list';
 import { StoreBreadcrumbs } from '@/features/ecommerce/storefront/components/store-breadcrumbs';
 import { StoreEmptyState } from '@/features/ecommerce/storefront/components/store-empty-state';
 import { StorePlpSidebar } from '@/features/ecommerce/storefront/components/store-plp-sidebar';
 import { JsonLd } from '@/features/ecommerce/storefront/components/json-ld';
 import { collectionPageJsonLd } from '@/features/ecommerce/storefront/lib/seo-jsonld';
+import { clientStorefrontData } from '@/features/ecommerce/storefront/lib/client-storefront-data';
 import {
-  flagsToQueryRecord,
+  resolveStoreProductsListQuery,
   type ParsedStoreProductFlags,
 } from '@/features/ecommerce/storefront/lib/store-product-list-query';
 import type { StorefrontLocale } from '@/i18n/routing';
+
+const PAGE_SIZE = 15;
 
 function productsHeading(
   t: ReturnType<typeof useTranslations<'storefront'>>,
@@ -29,12 +31,11 @@ function productsHeading(
   if (flags.isNewProduct) return t('home.latestProducts');
   if (flags.isTodayDeal) return t('home.dealsToday');
   if (flags.isWholesale) return t('wholesale.title');
-  if (flags.isDiscounted) return t('nav.offersZone');
+  if (flags.isDiscounted) return t('discounts.title');
   return t('products.title');
 }
 
 export function ProductsBrowsePage({
-  page,
   categorySlug,
   tag,
   sort,
@@ -44,7 +45,6 @@ export function ProductsBrowsePage({
   storePages,
   productsResult,
 }: {
-  page: number;
   categorySlug?: string;
   tag?: string;
   sort?: string;
@@ -56,8 +56,29 @@ export function ProductsBrowsePage({
 }) {
   const t = useTranslations('storefront');
   const locale = useLocale() as StorefrontLocale;
-  const products = productsResult.items;
   const title = productsHeading(t, flags);
+  const activeCategory = categorySlug ? categories.find((item) => item.slug === categorySlug) : undefined;
+
+  const queryKey = React.useMemo(
+    () => JSON.stringify({ categorySlug, tag, sort, flags }),
+    [categorySlug, tag, sort, flags],
+  );
+
+  const fetchPage = React.useCallback(
+    (page: number) =>
+      clientStorefrontData.getProducts(
+        locale,
+        resolveStoreProductsListQuery({
+          page,
+          limit: PAGE_SIZE,
+          categoryId: activeCategory?.id,
+          tag,
+          sort,
+          flags,
+        }),
+      ),
+    [locale, activeCategory?.id, tag, sort, flags],
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -82,27 +103,16 @@ export function ProductsBrowsePage({
         />
 
         <div className="min-w-0 flex-1">
-          {products.length === 0 ? (
+          {productsResult.items.length === 0 ? (
             <StoreEmptyState icon={PackageSearch} title={t('products.noResults')} />
           ) : (
-            <ProductListingGrid>
-              {products.map((product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
-            </ProductListingGrid>
+            <InfiniteProductList
+              queryKey={queryKey}
+              initialItems={productsResult.items}
+              totalPages={productsResult.pagination.totalPages}
+              fetchPage={fetchPage}
+            />
           )}
-
-          <StorePagination
-            basePath="/store/products"
-            query={{
-              category: categorySlug,
-              tag,
-              sort,
-              ...flagsToQueryRecord(flags),
-            }}
-            page={page}
-            totalPages={productsResult.pagination.totalPages}
-          />
         </div>
       </div>
     </div>

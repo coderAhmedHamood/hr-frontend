@@ -18,11 +18,6 @@ import {
   resolveApplicationTileClass,
 } from '@/features/system/applications/lib/application-tile-config';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
-import {
-  useIsCompanySuperuser,
-  useIsSystemOwner,
-} from '@/features/auth/hooks/use-system-owner';
-import { systemOwnerRoutes, companyAppsRoutes } from '@/features/system-owner/constants/routes';
 
 function AppTile({
   app,
@@ -97,32 +92,6 @@ function CompanyHero({
   );
 }
 
-const SYSTEM_OWNER_APP: ApplicationResponseDto = {
-  id: 'client-app-system-owner',
-  code: 'system-owner',
-  nameAr: 'مالك النظام',
-  nameEn: 'System Owner',
-  description: 'إدارة الشركات والتطبيقات وطلبات التفعيل',
-  icon: 'crown',
-  routePath: systemOwnerRoutes.companies,
-  sortOrder: 0,
-  isActive: true,
-  status: 'active',
-};
-
-const COMPANY_APPS_APP: ApplicationResponseDto = {
-  id: 'client-app-company-apps',
-  code: 'company-apps',
-  nameAr: 'تطبيقات الشركة',
-  nameEn: 'Company Apps',
-  description: 'عرض التطبيقات المفعّلة وغير المفعّلة وطلب التفعيل',
-  icon: 'layout-grid',
-  routePath: companyAppsRoutes.overview,
-  sortOrder: 2,
-  isActive: true,
-  status: 'active',
-};
-
 function asLauncherList(value: unknown): ApplicationResponseDto[] {
   if (Array.isArray(value)) return value as ApplicationResponseDto[];
   if (value && typeof value === 'object' && Array.isArray((value as { items?: unknown }).items)) {
@@ -134,8 +103,6 @@ function asLauncherList(value: unknown): ApplicationResponseDto[] {
 export function AppsLauncherPage() {
   const branding = useLoginPageBranding();
   const activeCompanyId = useAuthStore((s) => s.activeCompanyId);
-  const isSystemOwner = useIsSystemOwner();
-  const isSuperuser = useIsCompanySuperuser();
   const [apps, setApps] = React.useState<ApplicationResponseDto[]>([]);
   const [loading, setLoading] = React.useState(true);
 
@@ -144,44 +111,12 @@ export function AppsLauncherPage() {
     (async () => {
       setLoading(true);
       try {
-        let raw: unknown;
-        try {
-          raw = await applicationsApi.getLauncher();
-        } catch {
-          const fallback = await applicationsApi.getAll({ page: 1, limit: 200 });
-          raw = fallback.items;
-        }
+        const raw = await applicationsApi.getLauncher();
         if (cancelled) return;
-        const enriched = enrichLauncherApplications(asLauncherList(raw), activeCompanyId);
-        const rest = enriched.filter((app) => {
-          const code = app.code.trim().toLowerCase();
-          return code !== 'system-owner' && code !== 'company-apps';
-        });
-        const companyAppsFromApi = enriched.find(
-          (app) => app.code.trim().toLowerCase() === 'company-apps',
-        );
-        const list: ApplicationResponseDto[] = [];
-        if (isSystemOwner) list.push(SYSTEM_OWNER_APP);
-        if (isSuperuser || isSystemOwner) {
-          list.push(
-            companyAppsFromApi
-              ? {
-                  ...companyAppsFromApi,
-                  routePath: companyAppsFromApi.routePath || companyAppsRoutes.overview,
-                }
-              : COMPANY_APPS_APP,
-          );
-        }
-        list.push(...rest);
-        setApps(list);
+        setApps(enrichLauncherApplications(asLauncherList(raw), activeCompanyId));
       } catch (err) {
         handleApiError(err, 'applications.launcher');
-        if (!cancelled) {
-          const fallback: ApplicationResponseDto[] = [];
-          if (isSystemOwner) fallback.push(SYSTEM_OWNER_APP);
-          if (isSuperuser || isSystemOwner) fallback.push(COMPANY_APPS_APP);
-          setApps(fallback);
-        }
+        if (!cancelled) setApps([]);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -189,7 +124,7 @@ export function AppsLauncherPage() {
     return () => {
       cancelled = true;
     };
-  }, [activeCompanyId, isSystemOwner, isSuperuser]);
+  }, [activeCompanyId]);
 
   return (
     <div className="apps-launcher-page relative flex w-full min-w-0 flex-1 flex-col">

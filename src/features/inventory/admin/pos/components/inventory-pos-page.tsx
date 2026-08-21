@@ -264,7 +264,7 @@ export function InventoryPosPage() {
     <div className="flex flex-col gap-5">
       <SetPageTitle
         titleAr="نقطة البيع — خصم كمية"
-        descriptionAr="كاشير بسيط لخصم الكمية من مخزون المستودع. لا دفع ولا فواتير — فقط مزامنة الكمية مع المتجر الإلكتروني."
+        descriptionAr="خصم الكمية من مخزون المستودع لمزامنة المتجر — بدون دفع أو فواتير."
         iconName="Store"
       />
 

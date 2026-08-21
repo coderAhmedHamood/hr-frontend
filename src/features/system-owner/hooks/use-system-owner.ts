@@ -8,6 +8,7 @@ import {
   systemOwnerApi,
   type CreateSystemOwnerCompanyDto,
   type CreateSystemOwnerCompanyUserDto,
+  type PatchCompanyApplicationDto,
 } from '@/features/system-owner/lib/api/system-owner';
 
 export function useSystemOwnerCompanies(search?: string) {
@@ -66,6 +67,7 @@ export function useSystemOwnerMutations() {
       void queryClient.invalidateQueries({ queryKey: systemOwnerQueryKeys.companyUsers(companyId) });
       void queryClient.invalidateQueries({ queryKey: systemOwnerQueryKeys.companyApplications(companyId) });
       void queryClient.invalidateQueries({ queryKey: systemOwnerQueryKeys.superusers(companyId) });
+      void queryClient.invalidateQueries({ queryKey: systemOwnerQueryKeys.companyAppsCatalog(companyId) });
     }
   }
 
@@ -97,20 +99,22 @@ export function useSystemOwnerMutations() {
     },
   });
 
-  const setApplicationEnabled = useMutation({
+  const patchCompanyApplication = useMutation({
     mutationFn: (vars: {
       companyId: string;
       applicationId: string;
-      isEnabled: boolean;
-      notes?: string;
+      payload: PatchCompanyApplicationDto;
     }) =>
-      systemOwnerApi.setCompanyApplicationEnabled(vars.companyId, vars.applicationId, {
-        isEnabled: vars.isEnabled,
-        notes: vars.notes,
-      }),
+      systemOwnerApi.patchCompanyApplication(vars.companyId, vars.applicationId, vars.payload),
     onSuccess: (_data, vars) => {
       invalidateCompany(vars.companyId);
-      toast.success(vars.isEnabled ? 'تم تفعيل التطبيق' : 'تم تعطيل التطبيق');
+      if (vars.payload.isEnabled !== undefined) {
+        toast.success(vars.payload.isEnabled ? 'تم تفعيل التطبيق' : 'تم تعطيل التطبيق');
+      } else if (vars.payload.isVisible !== undefined) {
+        toast.success(vars.payload.isVisible ? 'سيظهر التطبيق في المشغّل' : 'تم إخفاء التطبيق من المشغّل');
+      } else {
+        toast.success('تم تحديث التطبيق');
+      }
     },
     onError: (err) => {
       toast.error(handleApiError(err, 'system-owner.applications.patch').displayMessage);
@@ -185,7 +189,7 @@ export function useSystemOwnerMutations() {
     createCompany,
     updateCompany,
     createCompanyUser,
-    setApplicationEnabled,
+    patchCompanyApplication,
     assignSuperuser,
     setSuperuserActive,
     approveRequest,

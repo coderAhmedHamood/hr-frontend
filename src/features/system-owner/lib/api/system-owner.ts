@@ -78,7 +78,15 @@ export type SystemOwnerCompanyApplication = {
   nameAr: string;
   nameEn?: string | null;
   isEnabled: boolean;
+  isVisible: boolean;
+  isAlwaysEnabled: boolean;
   notes?: string | null;
+};
+
+export type PatchCompanyApplicationDto = {
+  isEnabled?: boolean;
+  isVisible?: boolean;
+  notes?: string;
 };
 
 export type SystemOwnerSuperuser = {
@@ -113,7 +121,9 @@ export type CompanyAppCatalogItem = {
   sortOrder: number;
   isEnabled: boolean;
   isAlwaysEnabled: boolean;
+  isVisible: boolean;
   includeInMarketplace: boolean;
+  canSetVisibility: boolean;
   activationState: CompanyAppActivationState | string;
   canRequestActivation: boolean;
   canCancelPendingRequest: boolean;
@@ -149,6 +159,20 @@ function readIsEnabled(raw: Record<string, unknown>): boolean {
   if (raw.isEnabled === true || raw.enabled === true) return true;
   if (raw.isEnabled === false || raw.enabled === false) return false;
   return true;
+}
+
+function readIsVisible(raw: Record<string, unknown>): boolean {
+  if (raw.isVisible === true) return true;
+  if (raw.isVisible === false) return false;
+  return true;
+}
+
+function readIsAlwaysEnabled(raw: Record<string, unknown>): boolean {
+  if (raw.isAlwaysEnabled === true) return true;
+  const code = String(raw.code ?? (raw.application as Record<string, unknown> | undefined)?.code ?? '')
+    .trim()
+    .toLowerCase();
+  return code === 'system' || code === 'company-apps';
 }
 
 function mapCompanyUser(raw: Record<string, unknown>): SystemOwnerCompanyUser {
@@ -206,6 +230,8 @@ function mapCompanyApplication(raw: Record<string, unknown>): SystemOwnerCompany
       ?? (nested.nameEn as string | null | undefined)
       ?? null,
     isEnabled: readIsEnabled(raw),
+    isVisible: readIsVisible(raw),
+    isAlwaysEnabled: readIsAlwaysEnabled(raw),
     notes: (raw.notes as string | null | undefined) ?? null,
   };
 }
@@ -263,7 +289,9 @@ function mapCatalogItem(raw: Record<string, unknown>): CompanyAppCatalogItem {
     sortOrder: typeof raw.sortOrder === 'number' ? raw.sortOrder : 0,
     isEnabled: raw.isEnabled === true || activationState === 'enabled' || activationState === 'always_on',
     isAlwaysEnabled: raw.isAlwaysEnabled === true || activationState === 'always_on',
+    isVisible: readIsVisible(raw),
     includeInMarketplace: raw.includeInMarketplace !== false,
+    canSetVisibility: raw.canSetVisibility === true,
     activationState,
     canRequestActivation: raw.canRequestActivation === true,
     canCancelPendingRequest: raw.canCancelPendingRequest === true,
@@ -378,15 +406,24 @@ export const systemOwnerApi = {
     );
   },
 
-  setCompanyApplicationEnabled(
+  patchCompanyApplication(
     companyId: string,
     applicationId: string,
-    payload: { isEnabled: boolean; notes?: string },
+    payload: PatchCompanyApplicationDto,
   ) {
     return apiRequest<unknown>(
       `/system-owner/companies/${companyId}/applications/${applicationId}`,
       { method: 'PATCH', body: payload },
     );
+  },
+
+  /** @deprecated Use patchCompanyApplication */
+  setCompanyApplicationEnabled(
+    companyId: string,
+    applicationId: string,
+    payload: { isEnabled: boolean; notes?: string },
+  ) {
+    return this.patchCompanyApplication(companyId, applicationId, payload);
   },
 
   listSuperusers(companyId: string) {
@@ -457,6 +494,17 @@ export const companyAppsApi = {
   cancelActivationRequest(id: string) {
     return apiRequest<unknown>(`/company-apps/activation-requests/${id}/cancel`, {
       method: 'POST',
+    });
+  },
+
+  patchApplication(
+    companyId: string,
+    applicationId: string,
+    payload: { isVisible: boolean },
+  ) {
+    return apiRequest<unknown>(`/company-apps/${companyId}/applications/${applicationId}`, {
+      method: 'PATCH',
+      body: payload,
     });
   },
 };

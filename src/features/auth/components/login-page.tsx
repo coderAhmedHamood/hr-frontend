@@ -34,6 +34,7 @@ import {
 import { useAuthStore } from '@/features/auth/lib/auth-store';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import { publicConfig } from '@/shared/config';
+import { resolvePostLoginDestination } from '@/features/auth/lib/resolve-home-console-path';
 import { toast } from 'sonner';
 
 const schema = z.object({
@@ -42,18 +43,6 @@ const schema = z.object({
 });
 
 type FormValues = z.infer<typeof schema>;
-
-function resolvePostLoginPath(returnTo: string | null): string {
-  if (
-    !returnTo ||
-    !returnTo.startsWith('/') ||
-    returnTo.startsWith('//') ||
-    returnTo.startsWith('/login')
-  ) {
-    return '/';
-  }
-  return returnTo;
-}
 
 function getReturnToFromLocation(): string | null {
   if (typeof window === 'undefined') return null;
@@ -108,8 +97,7 @@ export function LoginPage() {
   }, [setValue]);
 
   const appTitle = publicConfig.appName.trim() || 'نظام الموارد البشرية';
-  const { logoUrl, logoAlt, companyNameAr } = useLoginPageBranding();
-  const welcomeTitle = hydrated ? (companyNameAr || appTitle) : appTitle;
+  const { logoUrl, logoAlt } = useLoginPageBranding();
   const draftEmail = watch('email');
 
   const onSubmit = async (values: FormValues) => {
@@ -142,7 +130,10 @@ export function LoginPage() {
       persistRememberedLoginEmail(email, rememberEmail);
       await storeBrowserCredentials(email, values.password);
 
-      const destination = resolvePostLoginPath(getReturnToFromLocation());
+      const destination = resolvePostLoginDestination(
+        getReturnToFromLocation(),
+        result.homeConsole ?? result.accessProfile?.homeConsole,
+      );
       toast.success(AUTH_SUCCESS_TOAST.login);
       window.setTimeout(() => {
         window.location.assign(destination);
@@ -172,7 +163,7 @@ export function LoginPage() {
             <Logo size={56} src={logoUrl} alt={logoAlt} />
             <div className="space-y-2">
               <h1 className="font-display text-3xl font-bold tracking-tight text-primary">تسجيل الدخول</h1>
-              <p className="text-sm text-muted-foreground">أهلاً بك في {welcomeTitle}</p>
+              <p className="text-sm text-muted-foreground">أهلاً بك في {appTitle}</p>
             </div>
           </div>
 
