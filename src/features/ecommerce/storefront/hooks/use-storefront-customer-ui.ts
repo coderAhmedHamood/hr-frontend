@@ -57,6 +57,15 @@ function sessionFromPayload(
   };
 }
 
+/**
+ * A shopper counts as signed in only with both halves present. Checking just
+ * `customer` (login page) while a guard checks just `accessToken` (checkout)
+ * is what produced an endless cart → login → cart bounce.
+ */
+export function useIsStorefrontAuthenticated(): boolean {
+  return useStorefrontCustomerUi((s) => Boolean(s.customer && s.accessToken));
+}
+
 export const useStorefrontCustomerUi = create<StorefrontCustomerUiState>()(
   persist(
     (set, get) => ({
@@ -111,7 +120,10 @@ export const useStorefrontCustomerUi = create<StorefrontCustomerUiState>()(
           customer?: Partial<StorefrontCustomerSession> & { id?: string };
           accessToken?: string | null;
         } | null;
-        if (!state?.customer) {
+        // A customer with no token is not a usable session: guards that check
+        // the token would bounce to login, and the login page — seeing the
+        // customer — would bounce straight back. Drop the half-state instead.
+        if (!state?.customer || !state.accessToken) {
           return { customer: null, accessToken: null };
         }
         const c = state.customer;
@@ -130,6 +142,10 @@ export const useStorefrontCustomerUi = create<StorefrontCustomerUiState>()(
         };
       },
       onRehydrateStorage: () => (state) => {
+        // Same invariant as `migrate`, for blobs written before it existed.
+        if (state && state.customer && !state.accessToken) {
+          state.customer = null;
+        }
         writePartnerTokenCookie(state?.accessToken ?? null);
       },
     },

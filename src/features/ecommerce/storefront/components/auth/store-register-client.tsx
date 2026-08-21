@@ -5,7 +5,10 @@ import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { Eye, EyeOff } from 'lucide-react';
-import { useStorefrontCustomerUi } from '@/features/ecommerce/storefront/hooks/use-storefront-customer-ui';
+import {
+  useIsStorefrontAuthenticated,
+  useStorefrontCustomerUi,
+} from '@/features/ecommerce/storefront/hooks/use-storefront-customer-ui';
 import { registerPartner } from '@/features/ecommerce/storefront/lib/api/partner-auth-api';
 import { PartnerAuthApiError } from '@/features/ecommerce/storefront/domain/partner-auth';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
@@ -25,7 +28,7 @@ export function StoreRegisterClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const returnTo = resolveStoreAuthReturnTo(searchParams.get('returnTo'));
-  const customer = useStorefrontCustomerUi((s) => s.customer);
+  const authenticated = useIsStorefrontAuthenticated();
   const setSession = useStorefrontCustomerUi((s) => s.setSession);
 
   const [name, setName] = React.useState('');
@@ -38,10 +41,10 @@ export function StoreRegisterClient() {
 
 
   React.useEffect(() => {
-    if (hydrated && customer) {
+    if (hydrated && authenticated) {
       router.replace(returnTo);
     }
-  }, [hydrated, customer, router, returnTo]);
+  }, [hydrated, authenticated, router, returnTo]);
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
