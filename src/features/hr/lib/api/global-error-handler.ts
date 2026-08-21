@@ -16,7 +16,10 @@ import {
   translateCorrectionRequestMessage,
 } from '@/features/hr/requests/attendance-corrections/lib/correction-request-errors';
 import { reportError } from '@/shared/errors/report-error';
-import { currentLoginHref } from '@/shared/navigation/login-redirect';
+import {
+  currentLoginHref,
+  shouldRedirectOnUnauthorized,
+} from '@/shared/navigation/login-redirect';
 
 export type ApiErrorHandleResult = {
   /** Human-readable backend message for toasts and inline UI. */
@@ -129,8 +132,11 @@ export function handleApiError(
   const suppressRedirect = Boolean(options?.suppressRedirect);
 
   if (status === 401 && typeof window !== 'undefined' && !suppressRedirect) {
-    // Storefront visitors go to the shop's own sign-in, not the console's.
-    window.location.replace(currentLoginHref());
+    // Storefront pages handle their own session; bouncing them to a login
+    // page would fight their partner session and loop.
+    if (shouldRedirectOnUnauthorized()) {
+      window.location.replace(currentLoginHref());
+    }
   } else {
     const skipToast =
       error.toastShown

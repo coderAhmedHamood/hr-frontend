@@ -34,3 +34,19 @@ export function currentLoginHref(): string {
   const { pathname, search } = window.location;
   return loginHrefForLocation(pathname, pathname + search);
 }
+
+/**
+ * Whether a 401 should navigate the browser to a login page at all.
+ *
+ * Never on the storefront. The shop runs its own partner session and handles
+ * expiry itself, and it also reaches for a couple of console-only endpoints as
+ * optional enrichment (product variant graphs, for one). Those legitimately
+ * 401 for a shopper — the caller catches it and renders the plain product.
+ * Redirecting on them instead throws the shopper at a login page which, seeing
+ * a valid customer session, sends them right back: an endless bounce.
+ */
+export function shouldRedirectOnUnauthorized(
+  pathname: string = window.location.pathname,
+): boolean {
+  return !isStorefrontLocation(pathname);
+}

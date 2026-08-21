@@ -1,4 +1,5 @@
 import { resolveApiBaseUrl } from '@/shared/api-base-url';
+import { resolveAccessToken } from '@/features/auth/lib/auth-cookie';
 import { publicConfig } from '@/shared/config';
 import type { MediaItem } from '@/features/ecommerce/domain/types/common';
 import type { Product, ProductAttribute, ProductVariant } from '@/features/ecommerce/domain/types/product';
@@ -498,6 +499,12 @@ async function withCatalogGraph(
   } catch {
     // fall through to the authenticated full-product graph
   }
+
+  // The full-graph endpoint is console-only. A shopper has no staff token, so
+  // calling it just burns a request per product and answers 401 — which used
+  // to bounce the whole cart page to a login screen. Only staff get here.
+  const staffToken = await resolveAccessToken();
+  if (!staffToken) return mapStorefrontProduct(product, locale);
 
   try {
     const full = await productsApi.getById(companyId, product.id);
