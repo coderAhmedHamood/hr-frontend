@@ -46,6 +46,7 @@ import {
 } from '@/components/ui/dialog';
 import { Link, useRouter } from '@/i18n/navigation';
 import { cn } from '@/shared/utils';
+import { useStorefrontAuthReady } from '@/features/ecommerce/storefront/hooks/use-storefront-auth-ready';
 
 type FormState = {
   label: string;
@@ -118,7 +119,7 @@ export function StoreAccountAddressesClient() {
   const { data: geoCountries = [] } = usePublicGeoCountries(companyId, Boolean(companyId));
   const useGeoCascade = geoCountries.length > 0;
 
-  const [hydrated, setHydrated] = React.useState(false);
+  const hydrated = useStorefrontAuthReady();
   const [loading, setLoading] = React.useState(true);
   const [addresses, setAddresses] = React.useState<PartnerAddress[]>([]);
   const [dialogOpen, setDialogOpen] = React.useState(false);
@@ -128,9 +129,6 @@ export function StoreAccountAddressesClient() {
   const [busyId, setBusyId] = React.useState<string | null>(null);
   const [deleteTargetId, setDeleteTargetId] = React.useState<string | null>(null);
 
-  React.useEffect(() => {
-    setHydrated(true);
-  }, []);
 
   const handleAuthError = React.useCallback(
     (err: unknown) => {

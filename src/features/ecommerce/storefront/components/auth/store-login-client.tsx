@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Link, useRouter } from '@/i18n/navigation';
+import { useStorefrontAuthReady } from '@/features/ecommerce/storefront/hooks/use-storefront-auth-ready';
 
 export function StoreLoginClient() {
   const t = useTranslations('storefront');
@@ -31,11 +32,8 @@ export function StoreLoginClient() {
   const [password, setPassword] = React.useState('');
   const [showPassword, setShowPassword] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
-  const [hydrated, setHydrated] = React.useState(false);
+  const hydrated = useStorefrontAuthReady();
 
-  React.useEffect(() => {
-    setHydrated(true);
-  }, []);
 
   React.useEffect(() => {
     if (hydrated && customer) {

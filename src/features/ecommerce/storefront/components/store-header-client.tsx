@@ -17,6 +17,7 @@ import { useStorefrontCustomerUi } from '@/features/ecommerce/storefront/hooks/u
 import { Link } from '@/i18n/navigation';
 import { isRtlLocale, type StorefrontLocale } from '@/i18n/routing';
 import { cn } from '@/shared/utils';
+import { useStorefrontAuthReady } from '@/features/ecommerce/storefront/hooks/use-storefront-auth-ready';
 
 type StoreHeaderInteractiveProps = {
   config: StorefrontCompanyConfig;
@@ -76,6 +77,7 @@ function StoreMobileDrawer({
 }) {
   const t = useTranslations('storefront');
   const customer = useStorefrontCustomerUi((s) => s.customer);
+  const drawerAuthReady = useStorefrontAuthReady();
   const [mounted, setMounted] = React.useState(false);
   const [entered, setEntered] = React.useState(false);
 
@@ -178,7 +180,7 @@ function StoreMobileDrawer({
 
         <div className="store-drawer-safe-pb shrink-0 border-t border-border bg-background px-3 py-3">
           <Link
-            href={customer ? '/store/account' : '/store/login'}
+            href={!drawerAuthReady || customer ? '/store/account' : '/store/login'}
             prefetch={false}
             className="flex h-11 w-full items-center justify-center gap-2 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
             onClick={onClose}
@@ -204,7 +206,11 @@ export function StoreHeaderInteractive({ config, categories, brands, logo }: Sto
   const [mobileOpen, setMobileOpen] = React.useState(false);
 
   const closeMobile = React.useCallback(() => setMobileOpen(false), []);
-  const accountHref = customer ? '/store/account' : '/store/login';
+  const authReady = useStorefrontAuthReady();
+  // Before the persisted session is read back, `customer` is null even for a
+  // signed-in shopper. Pointing at the account page in that window is right
+  // either way: its own guard sends real guests on to the login form.
+  const accountHref = !authReady || customer ? '/store/account' : '/store/login';
 
   return (
     <>

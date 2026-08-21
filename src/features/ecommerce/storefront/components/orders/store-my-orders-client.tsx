@@ -17,6 +17,7 @@ import { storeLoginHref } from '@/features/ecommerce/storefront/lib/store-auth-r
 import { Button } from '@/components/ui/button';
 import { Link, useRouter } from '@/i18n/navigation';
 import { cn } from '@/shared/utils';
+import { useStorefrontAuthReady } from '@/features/ecommerce/storefront/hooks/use-storefront-auth-ready';
 
 const ORDER_STATUS_TONE: Record<StorefrontOrderStatus, string> = {
   pending: 'bg-amber-500/15 text-amber-800 dark:text-amber-300',
@@ -51,13 +52,10 @@ export function StoreMyOrdersClient() {
   const router = useRouter();
   const customer = useStorefrontCustomerUi((s) => s.customer);
   const accessToken = useStorefrontCustomerUi((s) => s.accessToken);
-  const [hydrated, setHydrated] = React.useState(false);
+  const hydrated = useStorefrontAuthReady();
   const [loading, setLoading] = React.useState(true);
   const [orders, setOrders] = React.useState<StorefrontCustomerOrder[]>([]);
 
-  React.useEffect(() => {
-    setHydrated(true);
-  }, []);
 
   React.useEffect(() => {
     if (!hydrated) return;

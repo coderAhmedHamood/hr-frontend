@@ -29,6 +29,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Link, useRouter } from '@/i18n/navigation';
+import { useStorefrontAuthReady } from '@/features/ecommerce/storefront/hooks/use-storefront-auth-ready';
 
 function initialsFromName(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -45,7 +46,7 @@ export function StoreAccountClient() {
   const setSession = useStorefrontCustomerUi((s) => s.setSession);
   const applyMe = useStorefrontCustomerUi((s) => s.applyMe);
   const clearSession = useStorefrontCustomerUi((s) => s.clearSession);
-  const [hydrated, setHydrated] = React.useState(false);
+  const hydrated = useStorefrontAuthReady();
   const [editOpen, setEditOpen] = React.useState(false);
   const [editName, setEditName] = React.useState('');
   const [editPhone, setEditPhone] = React.useState('');
@@ -53,9 +54,6 @@ export function StoreAccountClient() {
   const [saving, setSaving] = React.useState(false);
   const [loggingOut, setLoggingOut] = React.useState(false);
 
-  React.useEffect(() => {
-    setHydrated(true);
-  }, []);
 
   React.useEffect(() => {
     if (hydrated && !customer) {
