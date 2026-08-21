@@ -15,6 +15,8 @@ export type LoginResult = {
   userId: string;
   user: AuthUser;
   accessProfile: AccessProfile;
+  /** Post-login landing when no `returnTo` query param, e.g. `system_owner` → `/system-owner`. */
+  homeConsole?: string | null;
 };
 
 export type AuthMessageResult = {

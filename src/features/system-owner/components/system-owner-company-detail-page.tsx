@@ -54,7 +54,7 @@ export function SystemOwnerCompanyDetailPage() {
       />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Button variant="outline" size="sm" asChild>
-          <Link href={systemOwnerRoutes.companies}>العودة للشركات</Link>
+          <Link href={systemOwnerRoutes.overview}>العودة للشركات</Link>
         </Button>
         {company?.code ? (
           <span className="text-xs text-muted-foreground" dir="ltr">

@@ -48,6 +48,8 @@ export type AccessProfile = {
   companies: CompanyAccess[];
   /** True when userType = platform_admin. Grants /system-owner. */
   isSystemOwner?: boolean;
+  /** Default console after login when no `returnTo`, e.g. `system_owner`. */
+  homeConsole?: string | null;
 };
 
 export type AuthUser = {

@@ -213,7 +213,7 @@ export function resolveApplicationLaunchPath(app: ApplicationResponseDto): strin
   if (code === 'system' && (!base || base === '/system' || isSystemUsersDirectoryPath(base))) {
     return resolveSystemAppLaunchPath();
   }
-  if (code === 'system-owner') return systemOwnerRoutes.companies;
+  if (code === 'system-owner') return base || systemOwnerRoutes.overview;
   if (code === 'company-apps') return '/company-apps';
 
   if (isSystemUsersDirectoryPath(base) && /جهات الاتصال|contacts|partners/i.test(`${app.nameAr} ${app.nameEn}`)) {

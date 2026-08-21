@@ -34,6 +34,7 @@ import {
 import { useAuthStore } from '@/features/auth/lib/auth-store';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import { publicConfig } from '@/shared/config';
+import { resolvePostLoginDestination } from '@/features/auth/lib/resolve-home-console-path';
 import { toast } from 'sonner';
 
 const schema = z.object({
@@ -42,18 +43,6 @@ const schema = z.object({
 });
 
 type FormValues = z.infer<typeof schema>;
-
-function resolvePostLoginPath(returnTo: string | null): string {
-  if (
-    !returnTo ||
-    !returnTo.startsWith('/') ||
-    returnTo.startsWith('//') ||
-    returnTo.startsWith('/login')
-  ) {
-    return '/';
-  }
-  return returnTo;
-}
 
 function getReturnToFromLocation(): string | null {
   if (typeof window === 'undefined') return null;
@@ -141,7 +130,10 @@ export function LoginPage() {
       persistRememberedLoginEmail(email, rememberEmail);
       await storeBrowserCredentials(email, values.password);
 
-      const destination = resolvePostLoginPath(getReturnToFromLocation());
+      const destination = resolvePostLoginDestination(
+        getReturnToFromLocation(),
+        result.homeConsole ?? result.accessProfile?.homeConsole,
+      );
       toast.success(AUTH_SUCCESS_TOAST.login);
       window.setTimeout(() => {
         window.location.assign(destination);

@@ -244,7 +244,7 @@ export const systemOwnerNavConfig: NavItem[] = [
   {
     key: 'system-owner-companies',
     label: 'الشركات',
-    href: systemOwnerRoutes.companies,
+    href: systemOwnerRoutes.overview,
     icon: Building2,
   },
   {

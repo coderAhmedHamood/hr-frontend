@@ -1,6 +1,5 @@
-import { redirect } from 'next/navigation';
-import { systemOwnerRoutes } from '@/features/system-owner/constants/routes';
+import { SystemOwnerCompaniesPage } from '@/features/system-owner/components/system-owner-companies-page';
 
 export default function SystemOwnerIndexPage() {
-  redirect(systemOwnerRoutes.companies);
+  return <SystemOwnerCompaniesPage />;
 }
