@@ -1,4 +1,4 @@
-import { resolveApiBaseUrl } from '@/shared/api-base-url';
+import { publicConfig } from '@/shared/config';
 
 const UPLOAD_PATH_PREFIX = '/uploads/';
 
@@ -28,6 +28,19 @@ function extractUploadPath(value: string): string | null {
   return null;
 }
 
+/**
+ * Base for upload URLs — always the browser-facing one.
+ *
+ * An upload URL ends up in an `<img src>`, so the visitor's browser is what
+ * fetches it. `resolveApiBaseUrl()` answers with the container-internal
+ * `BACKEND_URL` during server rendering, which baked `http://app:3000/uploads/…`
+ * into the HTML: a hostname that only exists inside the Docker network, so
+ * every image on a server-rendered page failed to load.
+ */
+function browserApiBase(): string {
+  return (publicConfig.apiUrl || '/api-backend').trim().replace(/\/$/, '');
+}
+
 /** Turn stored upload paths/URLs into a browser-loadable src via the API proxy. */
 export function resolveUploadUrl(urlOrPath: string | null | undefined): string {
   if (!urlOrPath?.trim()) return '';
@@ -42,8 +55,7 @@ export function resolveUploadUrl(urlOrPath: string | null | undefined): string {
     return value;
   }
 
-  const apiBase = resolveApiBaseUrl().replace(/\/$/, '');
-  return `${apiBase}${uploadPath}`;
+  return `${browserApiBase()}${uploadPath}`;
 }
 
 /** Persist a stable `/uploads/...` path instead of a host-specific absolute URL. */
