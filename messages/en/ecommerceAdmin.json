@@ -12,6 +12,7 @@
       "inventorySetup": "Inventory setup",
       "inventoryReports": "Inventory reports",
       "sales": "Sales",
+      "reports": "Reports",
       "website": "Store settings",
       "storeSettings": "Store settings",
       "settings": "Website Settings"
@@ -53,6 +54,7 @@
     "brands": "Brands",
     "orders": "Orders",
     "salesReports": "Sales reports",
+    "reportsOverview": "Reports dashboard",
     "customers": "Customers",
     "warehouses": "Warehouses",
     "locations": "Locations",

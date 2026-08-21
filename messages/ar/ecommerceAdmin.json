@@ -12,6 +12,7 @@
       "inventorySetup": "تهيئة المخزون",
       "inventoryReports": "تقارير المخزون",
       "sales": "المبيعات",
+      "reports": "التقارير",
       "website": "إعدادات المتجر",
       "storeSettings": "إعدادات المتجر",
       "settings": "إعدادات الموقع"
@@ -53,6 +54,7 @@
     "brands": "العلامات التجارية",
     "orders": "الطلبات",
     "salesReports": "تقارير المبيعات",
+    "reportsOverview": "لوحة التقارير",
     "customers": "العملاء",
     "warehouses": "المستودعات",
     "locations": "المواقع",

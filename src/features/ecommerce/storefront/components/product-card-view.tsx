@@ -9,7 +9,7 @@ import { ProductCardMedia } from '@/features/ecommerce/storefront/components/cat
 import { ProductPrice } from '@/features/ecommerce/storefront/components/catalog/product-price';
 import { ProductPromoBadges } from '@/features/ecommerce/storefront/components/catalog/product-promo-badges';
 import { ProductRating } from '@/features/ecommerce/storefront/components/catalog/product-rating';
-import { buildProductDisplay } from '@/features/ecommerce/storefront/lib/product-display';
+import { buildProductDisplay, getListAvailableQuantity } from '@/features/ecommerce/storefront/lib/product-display';
 import { Link } from '@/i18n/navigation';
 import { cn } from '@/shared/utils';
 
@@ -21,6 +21,7 @@ type ProductCardViewProps = {
   formattedPrice: string;
   formattedComparePrice?: string;
   stockLabel: string;
+  remainingLabel?: string;
   variant?: ProductCardVariant;
 };
 
@@ -30,6 +31,7 @@ export function ProductCardView({
   formattedPrice,
   formattedComparePrice,
   stockLabel,
+  remainingLabel,
   variant = 'grid',
 }: ProductCardViewProps) {
   const t = useTranslations('storefront');
@@ -155,6 +157,8 @@ export function ProductCardView({
             <Package className="h-3 w-3 shrink-0 text-secondary" aria-hidden />
             <span className="truncate">{t('components.sellingFast')}</span>
           </p>
+        ) : remainingLabel ? (
+          <p className="text-[10px] font-medium text-emerald-700">{remainingLabel}</p>
         ) : null}
       </div>
     </article>

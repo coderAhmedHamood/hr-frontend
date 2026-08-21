@@ -43,7 +43,8 @@
     "badgeWholesale": "Wholesale",
     "badgeNew": "New",
     "badgeDiscount": "Sale",
-    "sellingFast": "Selling out fast"
+    "sellingFast": "Selling out fast",
+    "remaining": "{count} left"
   },
   "reviews": {
     "title": "Ratings & Reviews",

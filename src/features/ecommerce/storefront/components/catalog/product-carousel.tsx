@@ -40,7 +40,7 @@ export function ProductCarousel({
 
   const navButtons =
     layout === 'carousel' ? (
-      <div className="hidden items-center gap-1.5 opacity-0 transition-opacity duration-200 group-hover/carousel:opacity-100 group-focus-within/carousel:opacity-100 md:flex">
+      <div className="flex items-center gap-1.5">
         <button
           type="button"
           onClick={() => scroll('prev')}

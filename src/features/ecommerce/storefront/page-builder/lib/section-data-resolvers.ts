@@ -14,6 +14,7 @@ import { storefrontBrandsRepository } from '@/features/ecommerce/storefront/lib/
 import { storefrontCategoriesRepository } from '@/features/ecommerce/storefront/lib/repositories/categories-repository';
 import { storefrontProductsRepository } from '@/features/ecommerce/storefront/lib/repositories/products-repository';
 import type { StorefrontLocale } from '@/i18n/routing';
+import { resolveSectionViewAllHref } from '@/features/ecommerce/storefront/lib/resolve-data-source-view-all-href';
 import { resolveStorefrontImageSrc } from '@/features/ecommerce/storefront/lib/resolve-storefront-image-src';
 
 export type SectionResolverContext = {
@@ -166,12 +167,24 @@ const resolveCategoryGrid: SectionDataResolver<'category-grid'> = async (ctx, se
 
 const resolveProductCarousel: SectionDataResolver<'product-carousel'> = async (ctx, section) => {
   const products = await resolveProducts(ctx, section.dataSource);
-  return { ...section, data: { products } };
+  const viewAllHref = await resolveSectionViewAllHref(
+    ctx.companyId,
+    ctx.locale,
+    section.dataSource,
+    section.content.viewAllHref,
+  );
+  return { ...section, data: { products, viewAllHref } };
 };
 
 const resolveFlashSale: SectionDataResolver<'flash-sale'> = async (ctx, section) => {
   const products = await resolveProducts(ctx, section.dataSource);
-  return { ...section, data: { products } };
+  const viewAllHref = await resolveSectionViewAllHref(
+    ctx.companyId,
+    ctx.locale,
+    section.dataSource,
+    section.content.viewAllHref,
+  );
+  return { ...section, data: { products, viewAllHref } };
 };
 
 const resolveFeaturesGrid: SectionDataResolver<'features-grid'> = async (ctx, section) => ({

@@ -24,8 +24,10 @@ export const ecommerceAdminRoutes = {
   brands: '/brands',
   orders: '/orders',
   reviews: '/reviews',
-  /** تقارير مبيعات المتجر — `/store-admin/reports/sales` */
-  salesReports: '/reports/sales',
+  /** تقارير المتجر — `/store-admin/reports/*` */
+  reports: '/reports',
+  /** @deprecated use `reports` */
+  salesReports: '/reports',
   /** @deprecated Use inventoryAdminRoutes */
   warehouses: inventoryAdminRoutes.warehouses,
   warehouseDetail: inventoryAdminRoutes.warehouseDetail,

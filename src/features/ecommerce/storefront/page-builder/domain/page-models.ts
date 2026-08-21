@@ -77,11 +77,11 @@ export type ResolvedCategoryGridSection = NormalizedCategoryGridSection & {
 };
 
 export type ResolvedProductCarouselSection = NormalizedProductCarouselSection & {
-  data: { products: StorefrontProduct[] };
+  data: { products: StorefrontProduct[]; viewAllHref: `/store${string}` | null };
 };
 
 export type ResolvedFlashSaleSection = NormalizedFlashSaleSection & {
-  data: { products: StorefrontProduct[] };
+  data: { products: StorefrontProduct[]; viewAllHref: `/store${string}` | null };
 };
 
 export type ResolvedFeaturesGridSection = NormalizedFeaturesGridSection & {

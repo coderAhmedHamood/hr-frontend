@@ -16,6 +16,10 @@ import type {
 
 export type StorefrontProductListQuery = Omit<ProductListQuery, 'status'> & {
   locale: StorefrontLocale;
+  /** Default true — backend returns only products with available stock. */
+  inStockOnly?: boolean;
+  /** Default true — backend returns `availableQuantity` on each item. */
+  includeQuantity?: boolean;
 };
 
 export type StorefrontProductsPort = {

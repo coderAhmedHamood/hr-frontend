@@ -29,6 +29,8 @@ export type SalesReportFilters = {
   districtId?: string;
   productId?: string;
   variantId?: string;
+  categoryId?: string;
+  brandId?: string;
   currencyCode?: string;
   search?: string;
   excludeCancelledRefunded?: boolean;
@@ -159,6 +161,8 @@ function buildQuery(
     districtId: filters.districtId || undefined,
     productId: filters.productId || undefined,
     variantId: filters.variantId || undefined,
+    categoryId: filters.categoryId || undefined,
+    brandId: filters.brandId || undefined,
     currencyCode: filters.currencyCode || undefined,
     search: filters.search?.trim() || undefined,
     excludeCancelledRefunded: filters.excludeCancelledRefunded,

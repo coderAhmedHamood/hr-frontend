@@ -43,7 +43,8 @@
     "badgeWholesale": "جملة",
     "badgeNew": "حديث",
     "badgeDiscount": "خصم",
-    "sellingFast": "بتخلّص بسرعة"
+    "sellingFast": "بتخلّص بسرعة",
+    "remaining": "{count} متبقي"
   },
   "reviews": {
     "title": "التقييمات والمراجعات",

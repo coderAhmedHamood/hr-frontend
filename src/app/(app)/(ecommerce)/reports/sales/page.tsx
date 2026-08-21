@@ -1,5 +1,6 @@
-import { SalesReportsPage } from '@/features/ecommerce/admin/reports/components/sales-reports-page';
+import { redirect } from 'next/navigation';
+import { ecommerceAdminRoutes } from '@/features/ecommerce/admin/constants/routes';
 
-export default function Page() {
-  return <SalesReportsPage />;
+export default function LegacySalesReportsPage() {
+  redirect(ecommerceAdminRoutes.reports);
 }

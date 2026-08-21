@@ -18,11 +18,13 @@ export function ProductCarouselSection({ section }: { section: ResolvedProductCa
 
   const layout = section.style.layout;
 
+  const viewAllHref = section.content.viewAllHref ?? section.data.viewAllHref ?? undefined;
+
   return (
     <ProductCarousel
       title={title}
       subtitle={section.heading.subtitle || undefined}
-      viewAllHref={section.content.viewAllHref ?? undefined}
+      viewAllHref={viewAllHref}
       viewAllLabel={t('home.viewAll')}
       layout={layout}
       gridColumns={{ mobile: 2, tablet: 3, desktop: 5 }}

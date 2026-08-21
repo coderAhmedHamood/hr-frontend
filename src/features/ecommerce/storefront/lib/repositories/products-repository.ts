@@ -90,6 +90,8 @@ type PublicProductDto = {
   compareAtPriceCurrency?: string | null;
   trackInventory: boolean;
   quantityCache: string | number;
+  /** Present when list is requested with includeQuantity=true. */
+  availableQuantity?: string | number | null;
   lowStockThreshold: string | number;
   allowBackorder: boolean;
   isNewProduct?: boolean;
@@ -416,7 +418,10 @@ function mapPublicProduct(dto: PublicProductDto): Product {
     invoicePolicy: dto.invoicePolicy,
     inventory: {
       trackInventory: dto.trackInventory,
-      quantity: toNumber(dto.quantityCache),
+      quantity:
+        dto.availableQuantity != null && dto.availableQuantity !== ''
+          ? toNumber(dto.availableQuantity)
+          : toNumber(dto.quantityCache),
       lowStockThreshold: toNumber(dto.lowStockThreshold, 5),
       allowBackorder: dto.allowBackorder,
     },
@@ -584,6 +589,8 @@ function listQueryParams(query: StorefrontProductListQuery, companyId: string) {
     limit: query.limit ?? 24,
     priceAmountMin: query.minPrice,
     priceAmountMax: query.maxPrice,
+    inStockOnly: query.inStockOnly !== false,
+    includeQuantity: query.includeQuantity !== false,
   };
 }
 

@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import {
   Bar,
   BarChart,
@@ -20,10 +21,14 @@ import {
 import {
   Ban,
   Download,
+  MessageSquare,
   Package,
   RefreshCw,
   ShoppingBag,
+  Star,
+  TrendingDown,
   TrendingUp,
+  Truck,
   Wallet,
 } from 'lucide-react';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
@@ -46,6 +51,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useCan } from '@/features/auth/hooks/use-can';
 import { ApiError } from '@/features/hr/lib/api/client';
 import { ecommerceAdminRoutes } from '@/features/ecommerce/admin/constants/routes';
+import {
+  useCatalogByBrand,
+  useCatalogByCategory,
+  useFulfillmentByShipStatus,
+  useGeoByDistrict,
+  useOperationsSummary,
+  useOrdersBySource,
+  usePaymentsByAccount,
+  useReportsDashboard,
+} from '@/features/ecommerce/admin/reports/hooks/use-store-reports';
 import {
   useSalesByCity,
   useSalesByPartner,
@@ -76,6 +91,40 @@ import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/stor
 import { cn } from '@/shared/utils';
 
 const CHART_COLORS = ['#0f766e', '#0369a1', '#b45309', '#be123c', '#7c3aed', '#15803d', '#475569'];
+
+type ReportTab =
+  | 'overview'
+  | 'sales'
+  | 'products'
+  | 'customers'
+  | 'geo'
+  | 'payment'
+  | 'fulfillment'
+  | 'engagement'
+  | 'lines';
+
+const REPORT_TABS: ReportTab[] = [
+  'overview',
+  'sales',
+  'products',
+  'customers',
+  'geo',
+  'payment',
+  'fulfillment',
+  'engagement',
+  'lines',
+];
+
+function parseReportTab(value: string | null): ReportTab {
+  if (value && REPORT_TABS.includes(value as ReportTab)) return value as ReportTab;
+  return 'overview';
+}
+
+function formatChangePercent(value: number | null | undefined): string | null {
+  if (value == null || Number.isNaN(value)) return null;
+  const sign = value > 0 ? '+' : '';
+  return `${sign}${value.toFixed(1)}%`;
+}
 
 function startOfMonthIso(): string {
   const d = new Date();
@@ -110,10 +159,11 @@ function errorMessage(error: unknown): string | null {
   return null;
 }
 
-export function SalesReportsPage() {
+export function StoreReportsPage() {
   const can = useCan();
   const canRead = can(SALES_REPORTS_READ);
   const companyId = getStorefrontCompanyId();
+  const searchParams = useSearchParams();
 
   const [from, setFrom] = React.useState(startOfMonthIso);
   const [to, setTo] = React.useState(todayIso);
@@ -126,8 +176,12 @@ export function SalesReportsPage() {
   const [searchInput, setSearchInput] = React.useState('');
   const [search, setSearch] = React.useState('');
   const [granularity, setGranularity] = React.useState<SalesReportGranularity>('day');
-  const [tab, setTab] = React.useState<'dashboard' | 'ops' | 'lines'>('dashboard');
+  const [tab, setTab] = React.useState<ReportTab>(() => parseReportTab(searchParams.get('tab')));
   const [linesPage, setLinesPage] = React.useState(1);
+
+  React.useEffect(() => {
+    setTab(parseReportTab(searchParams.get('tab')));
+  }, [searchParams]);
 
   React.useEffect(() => {
     const timer = window.setTimeout(() => setSearch(searchInput.trim()), 350);
@@ -155,18 +209,33 @@ export function SalesReportsPage() {
   }, [from, to, status, paymentStatus, paymentMethod, source, hasPartner, city, search]);
 
   // Always attempt load when company is set — backend enforces `sta.reports.read`.
-  const summary = useSalesSummary(filters, Boolean(companyId));
-  const timeseries = useSalesTimeseries(filters, granularity, Boolean(companyId) && tab === 'dashboard');
-  const byProduct = useSalesByProduct(filters, 15, Boolean(companyId) && tab === 'dashboard');
-  const byCity = useSalesByCity(filters, 15, Boolean(companyId) && tab === 'dashboard');
-  const byPartner = useSalesByPartner(filters, 15, Boolean(companyId) && tab === 'dashboard');
-  const byStatus = useSalesByStatus(filters, Boolean(companyId) && (tab === 'ops' || tab === 'dashboard'));
-  const byPayment = useSalesByPayment(filters, Boolean(companyId) && tab === 'ops');
+  const dashboard = useReportsDashboard(
+    filters,
+    granularity,
+    Boolean(companyId) && (tab === 'overview' || tab === 'fulfillment'),
+  );
+  const summary = useSalesSummary(filters, Boolean(companyId) && (tab === 'sales' || tab === 'overview'));
+  const timeseries = useSalesTimeseries(filters, granularity, Boolean(companyId) && tab === 'sales');
+  const byProduct = useSalesByProduct(filters, 15, Boolean(companyId) && (tab === 'sales' || tab === 'products'));
+  const byCity = useSalesByCity(filters, 15, Boolean(companyId) && (tab === 'sales' || tab === 'geo'));
+  const byPartner = useSalesByPartner(filters, 15, Boolean(companyId) && (tab === 'sales' || tab === 'customers'));
+  const byStatus = useSalesByStatus(
+    filters,
+    Boolean(companyId) && (tab === 'sales' || tab === 'overview' || tab === 'fulfillment'),
+  );
+  const byPayment = useSalesByPayment(filters, Boolean(companyId) && (tab === 'sales' || tab === 'payment'));
+  const byDistrict = useGeoByDistrict(filters, 15, Boolean(companyId) && tab === 'geo');
+  const byAccount = usePaymentsByAccount(filters, 15, Boolean(companyId) && tab === 'payment');
+  const byCategory = useCatalogByCategory(filters, 15, Boolean(companyId) && tab === 'products');
+  const byBrand = useCatalogByBrand(filters, 15, Boolean(companyId) && tab === 'products');
+  const byShipStatus = useFulfillmentByShipStatus(filters, Boolean(companyId) && tab === 'fulfillment');
+  const bySource = useOrdersBySource(filters, Boolean(companyId) && tab === 'sales');
+  const operations = useOperationsSummary(companyId, from, to, Boolean(companyId) && tab === 'engagement');
   const lines = useSalesLines(filters, linesPage, 50, Boolean(companyId) && tab === 'lines');
 
   const currency = summary.data?.currencyCode || 'YER';
 
-  const chartPoints = React.useMemo(
+  const salesChartPoints = React.useMemo(
     () =>
       (timeseries.data?.points ?? []).map((point) => ({
         key: point.periodKey,
@@ -177,15 +246,25 @@ export function SalesReportsPage() {
     [timeseries.data?.points],
   );
 
-  const statusChart = React.useMemo(
+  const overviewChart = React.useMemo(
     () =>
-      (byStatus.data ?? []).map((row) => ({
-        name: ORDER_STATUS_LABELS_AR[row.status] ?? row.status,
-        value: row.ordersCount,
-        revenue: fromDecimalString(row.revenueTotal),
+      (dashboard.data?.timeseries.points ?? timeseries.data?.points ?? []).map((point) => ({
+        key: point.periodKey,
+        orders: point.ordersCount,
+        revenue: fromDecimalString(point.revenueTotal),
+        units: point.unitsSold,
       })),
-    [byStatus.data],
+    [dashboard.data?.timeseries.points, timeseries.data?.points],
   );
+
+  const statusChart = React.useMemo(() => {
+    const rows = dashboard.data?.byStatus ?? byStatus.data ?? [];
+    return rows.map((row) => ({
+      name: ORDER_STATUS_LABELS_AR[row.status] ?? row.status,
+      value: row.ordersCount,
+      revenue: fromDecimalString(row.revenueTotal),
+    }));
+  }, [dashboard.data?.byStatus, byStatus.data]);
 
   function exportLines() {
     const items = lines.data?.items ?? [];
@@ -221,15 +300,24 @@ export function SalesReportsPage() {
 
   const activeError =
     summary.error ??
-    (tab === 'dashboard'
-      ? timeseries.error ?? byProduct.error ?? byCity.error ?? byPartner.error ?? byStatus.error
+    (tab === 'overview'
+      ? dashboard.error ?? byStatus.error
       : null) ??
-    (tab === 'ops' ? byStatus.error ?? byPayment.error : null) ??
+    (tab === 'sales'
+      ? timeseries.error ?? byProduct.error ?? byCity.error ?? byPartner.error ?? byStatus.error ?? bySource.error
+      : null) ??
+    (tab === 'products' ? byProduct.error ?? byCategory.error ?? byBrand.error : null) ??
+    (tab === 'customers' ? byPartner.error : null) ??
+    (tab === 'geo' ? byCity.error ?? byDistrict.error : null) ??
+    (tab === 'payment' ? byPayment.error ?? byAccount.error : null) ??
+    (tab === 'fulfillment' ? byShipStatus.error ?? byStatus.error : null) ??
+    (tab === 'engagement' ? operations.error : null) ??
     (tab === 'lines' ? lines.error : null);
   const anyError = Boolean(activeError);
   const apiMsg = errorMessage(activeError);
 
   function refreshAll() {
+    void dashboard.refetch();
     void summary.refetch();
     void timeseries.refetch();
     void byProduct.refetch();
@@ -237,6 +325,13 @@ export function SalesReportsPage() {
     void byPartner.refetch();
     void byStatus.refetch();
     void byPayment.refetch();
+    void byDistrict.refetch();
+    void byAccount.refetch();
+    void byCategory.refetch();
+    void byBrand.refetch();
+    void byShipStatus.refetch();
+    void bySource.refetch();
+    void operations.refetch();
     void lines.refetch();
   }
 
@@ -354,8 +449,8 @@ export function SalesReportsPage() {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-5">
       <SetPageTitle
-        titleAr="تقارير المبيعات"
-        descriptionAr="إيراد الطلبات، الاتجاه الزمني، المنتجات والمدن والعملاء."
+        titleAr="التقارير"
+        descriptionAr="لوحة المتجر، المبيعات، المنتجات، العملاء، الجغرافيا، الدفع، التنفيذ، والتفاعل."
         iconName="BarChart3"
       />
 
@@ -378,14 +473,32 @@ export function SalesReportsPage() {
             </div>
           ) : null}
 
-          <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
-            <TabsList>
-              <TabsTrigger value="dashboard">لوحة المبيعات</TabsTrigger>
-              <TabsTrigger value="ops">تشغيلي</TabsTrigger>
+          <Tabs value={tab} onValueChange={(v) => setTab(v as ReportTab)}>
+            <TabsList className="h-auto flex-wrap justify-start gap-1">
+              <TabsTrigger value="overview">لوحة التحكم</TabsTrigger>
+              <TabsTrigger value="sales">المبيعات</TabsTrigger>
+              <TabsTrigger value="products">المنتجات</TabsTrigger>
+              <TabsTrigger value="customers">العملاء</TabsTrigger>
+              <TabsTrigger value="geo">الجغرافيا</TabsTrigger>
+              <TabsTrigger value="payment">الدفع</TabsTrigger>
+              <TabsTrigger value="fulfillment">التنفيذ</TabsTrigger>
+              <TabsTrigger value="engagement">التفاعل</TabsTrigger>
               <TabsTrigger value="lines">تفصيلي</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="dashboard" className="mt-4 space-y-5">
+            <TabsContent value="overview" className="mt-4 space-y-5">
+              <OverviewTab
+                dashboard={dashboard}
+                summary={summary}
+                statusChart={statusChart}
+                overviewChart={overviewChart}
+                granularity={granularity}
+                onGranularityChange={setGranularity}
+                currency={currency}
+              />
+            </TabsContent>
+
+            <TabsContent value="sales" className="mt-4 space-y-5">
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
                 <KpiCard
                   label="الإيراد"
@@ -454,12 +567,12 @@ export function SalesReportsPage() {
                 </div>
                 {timeseries.isLoading ? (
                   <div className="h-72 animate-pulse rounded-xl bg-muted/40" />
-                ) : chartPoints.length === 0 ? (
+                ) : salesChartPoints.length === 0 ? (
                   <EmptyChart />
                 ) : (
                   <div className="h-72 w-full" dir="ltr">
                     <ResponsiveContainer width="100%" height="100%">
-                      <ComposedChart data={chartPoints} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                      <ComposedChart data={salesChartPoints} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                         <XAxis dataKey="key" tick={{ fontSize: 11 }} />
                         <YAxis yAxisId="left" tick={{ fontSize: 11 }} />
@@ -550,96 +663,221 @@ export function SalesReportsPage() {
               </div>
             </TabsContent>
 
-            <TabsContent value="ops" className="mt-4 space-y-5">
+            <TabsContent value="products" className="mt-4 space-y-5">
+              <div className="grid gap-4 xl:grid-cols-2">
+                <SimpleTable
+                  title="أفضل المنتجات"
+                  loading={byProduct.isLoading}
+                  empty="لا مبيعات منتجات في الفترة."
+                  headers={['المنتج', 'طلبات', 'وحدات', 'إيراد البنود']}
+                  rows={(byProduct.data ?? []).map((row) => [
+                    row.productName,
+                    String(row.ordersCount),
+                    String(row.unitsSold),
+                    money(row.lineRevenueTotal, currency),
+                  ])}
+                />
+                <SimpleTable
+                  title="حسب التصنيف"
+                  loading={byCategory.isLoading}
+                  empty="لا بيانات تصنيفات."
+                  headers={['التصنيف', 'طلبات', 'وحدات', 'إيراد']}
+                  rows={(byCategory.data ?? []).map((row) => [
+                    row.categoryName || '—',
+                    String(row.ordersCount),
+                    String(row.unitsSold),
+                    money(row.revenueTotal, currency),
+                  ])}
+                />
+              </div>
+              <SimpleTable
+                title="حسب العلامة التجارية"
+                loading={byBrand.isLoading}
+                empty="لا بيانات علامات."
+                headers={['العلامة', 'طلبات', 'وحدات', 'إيراد']}
+                rows={(byBrand.data ?? []).map((row) => [
+                  row.brandName || '—',
+                  String(row.ordersCount),
+                  String(row.unitsSold),
+                  money(row.revenueTotal, currency),
+                ])}
+              />
+            </TabsContent>
+
+            <TabsContent value="customers" className="mt-4 space-y-5">
+              <SimpleTable
+                title="أفضل العملاء"
+                loading={byPartner.isLoading}
+                empty="لا بيانات عملاء في الفترة."
+                headers={['العميل', 'طلبات', 'وحدات', 'إيراد']}
+                rows={(byPartner.data ?? []).map((row) => [
+                  row.label || (row.partnerId ? 'شريك' : 'ضيوف مجمّعون'),
+                  String(row.ordersCount),
+                  String(row.unitsSold),
+                  money(row.revenueTotal, currency),
+                ])}
+              />
+            </TabsContent>
+
+            <TabsContent value="geo" className="mt-4 space-y-5">
+              <div className="grid gap-4 xl:grid-cols-2">
+                <SimpleTable
+                  title="المدن"
+                  loading={byCity.isLoading}
+                  empty="لا بيانات مدن."
+                  headers={['المدينة', 'طلبات', 'وحدات', 'إيراد']}
+                  rows={(byCity.data ?? []).map((row) => [
+                    row.cityName || '—',
+                    String(row.ordersCount),
+                    String(row.unitsSold),
+                    money(row.revenueTotal, currency),
+                  ])}
+                />
+                <SimpleTable
+                  title="الأحياء / المناطق"
+                  loading={byDistrict.isLoading}
+                  empty="لا بيانات أحياء."
+                  headers={['الحي', 'المدينة', 'طلبات', 'إيراد']}
+                  rows={(byDistrict.data ?? []).map((row) => [
+                    row.districtName || '—',
+                    row.cityName || '—',
+                    String(row.ordersCount),
+                    money(row.revenueTotal, currency),
+                  ])}
+                />
+              </div>
+            </TabsContent>
+
+            <TabsContent value="payment" className="mt-4 space-y-5">
               <div className="grid gap-4 xl:grid-cols-2">
                 <section className="rounded-2xl border border-border bg-card p-4">
-                  <h2 className="mb-1 text-sm font-semibold">توزيع الحالات</h2>
-                  <p className="mb-4 text-xs text-muted-foreground">قمع التحويل واختناقات المسار</p>
-                  {byStatus.isLoading ? (
-                    <div className="h-64 animate-pulse rounded-xl bg-muted/40" />
-                  ) : statusChart.length === 0 ? (
-                    <EmptyChart />
-                  ) : (
-                    <div className="h-64 w-full" dir="ltr">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={statusChart}
-                            dataKey="value"
-                            nameKey="name"
-                            innerRadius={55}
-                            outerRadius={90}
-                            paddingAngle={2}
-                          >
-                            {statusChart.map((_, index) => (
-                              <Cell key={index} fill={CHART_COLORS[index % CHART_COLORS.length]} />
-                            ))}
-                          </Pie>
-                          <Tooltip />
-                          <Legend />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    </div>
-                  )}
-                  <ul className="mt-3 space-y-1.5">
-                    {(byStatus.data ?? []).map((row) => (
-                      <li
-                        key={row.status}
-                        className="flex items-center justify-between text-sm text-muted-foreground"
-                      >
-                        <span>{ORDER_STATUS_LABELS_AR[row.status] ?? row.status}</span>
-                        <span className="tabular-nums">
-                          {row.ordersCount} · {money(row.revenueTotal, currency)}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-
-                <section className="rounded-2xl border border-border bg-card p-4">
                   <h2 className="mb-1 text-sm font-semibold">طرق الدفع</h2>
-                  <p className="mb-4 text-xs text-muted-foreground">COD / شبكة × حالة الدفع</p>
+                  <p className="mb-4 text-xs text-muted-foreground">طريقة × حالة الدفع</p>
                   {byPayment.isLoading ? (
                     <div className="h-64 animate-pulse rounded-xl bg-muted/40" />
                   ) : (byPayment.data ?? []).length === 0 ? (
                     <EmptyChart />
                   ) : (
-                    <div className="h-64 w-full" dir="ltr">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart
-                          data={(byPayment.data ?? []).map((row) => ({
-                            name: `${PAYMENT_METHOD_LABELS_AR[row.paymentMethod]} · ${PAYMENT_STATUS_LABELS_AR[row.paymentStatus]}`,
-                            orders: row.ordersCount,
-                            revenue: fromDecimalString(row.revenueTotal),
-                          }))}
-                          margin={{ top: 8, right: 8, left: 0, bottom: 48 }}
+                    <ul className="space-y-2">
+                      {(byPayment.data ?? []).map((row) => (
+                        <li
+                          key={`${row.paymentMethod}-${row.paymentStatus}`}
+                          className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/60 px-3 py-2 text-sm"
                         >
-                          <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                          <XAxis dataKey="name" tick={{ fontSize: 10 }} interval={0} angle={-20} textAnchor="end" />
-                          <YAxis tick={{ fontSize: 11 }} />
-                          <Tooltip />
-                          <Bar dataKey="orders" name="طلبات" fill="#0369a1" radius={4} />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
+                          <span>
+                            {PAYMENT_METHOD_LABELS_AR[row.paymentMethod]} ·{' '}
+                            {PAYMENT_STATUS_LABELS_AR[row.paymentStatus]}
+                          </span>
+                          <span className="tabular-nums text-muted-foreground">
+                            {row.ordersCount} · {money(row.revenueTotal, currency)}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
                   )}
-                  <ul className="mt-3 space-y-1.5">
-                    {(byPayment.data ?? []).map((row) => (
-                      <li
-                        key={`${row.paymentMethod}-${row.paymentStatus}`}
-                        className="flex flex-wrap items-center justify-between gap-2 text-sm"
-                      >
-                        <span className="text-muted-foreground">
-                          {PAYMENT_METHOD_LABELS_AR[row.paymentMethod]} ·{' '}
-                          {PAYMENT_STATUS_LABELS_AR[row.paymentStatus]}
-                        </span>
-                        <span className="tabular-nums text-muted-foreground">
-                          {row.ordersCount} · {money(row.revenueTotal, currency)}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
                 </section>
+                <SimpleTable
+                  title="حسب حساب الدفع"
+                  loading={byAccount.isLoading}
+                  empty="لا بيانات حسابات."
+                  headers={['الحساب', 'طلبات', 'مدفوع', 'غير مدفوع', 'إيراد']}
+                  rows={(byAccount.data ?? []).map((row) => [
+                    row.accountLabel || '—',
+                    String(row.ordersCount),
+                    String(row.paidOrdersCount),
+                    String(row.unpaidOrdersCount),
+                    money(row.revenueTotal, currency),
+                  ])}
+                />
+              </div>
+            </TabsContent>
+
+            <TabsContent value="fulfillment" className="mt-4 space-y-5">
+              {dashboard.data?.alerts ? (
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  <AlertCard
+                    label="بانتظار التنفيذ"
+                    value={dashboard.data.alerts.pendingFulfillmentOrdersCount}
+                    href={ecommerceAdminRoutes.orders}
+                    icon={Truck}
+                  />
+                  <AlertCard
+                    label="بانتظار الدفع"
+                    value={dashboard.data.alerts.pendingPaymentOrdersCount}
+                    href={ecommerceAdminRoutes.orders}
+                    icon={Wallet}
+                  />
+                  <AlertCard
+                    label="بنود غير مُسندة"
+                    value={dashboard.data.alerts.unassignedLineUnitsCount}
+                    href={ecommerceAdminRoutes.orders}
+                    icon={Package}
+                  />
+                  <AlertCard
+                    label="تسليم متأخر"
+                    value={dashboard.data.alerts.overdueDeliveryOrdersCount}
+                    href={ecommerceAdminRoutes.orders}
+                    icon={Truck}
+                  />
+                </div>
+              ) : null}
+              <SimpleTable
+                title="حالة شحن البنود"
+                loading={byShipStatus.isLoading}
+                empty="لا بيانات تنفيذ."
+                headers={['الحالة', 'بنود', 'وحدات', 'طلبات']}
+                rows={(byShipStatus.data ?? []).map((row) => [
+                  row.lineShipStatus,
+                  String(row.lineCount),
+                  String(row.unitsCount),
+                  String(row.ordersCount),
+                ])}
+              />
+            </TabsContent>
+
+            <TabsContent value="engagement" className="mt-4 space-y-5">
+              {operations.isLoading ? (
+                <div className="h-40 animate-pulse rounded-xl bg-muted/40" />
+              ) : operations.data ? (
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  <KpiCard
+                    label="رسائل اتصل بنا"
+                    value={String(operations.data.contactMessagesTotal)}
+                    icon={MessageSquare}
+                  />
+                  <KpiCard
+                    label="إضافات المفضلة"
+                    value={String(operations.data.wishlistAddsInPeriodCount)}
+                    hint={`${operations.data.wishlistTotalActiveCount} نشطة`}
+                    icon={Star}
+                  />
+                  <KpiCard
+                    label="تقييمات جديدة"
+                    value={String(operations.data.reviewsSubmittedInPeriodCount)}
+                    hint={`${operations.data.pendingReviewsCount} بانتظار المراجعة`}
+                    icon={Star}
+                  />
+                  <KpiCard
+                    label="متوسط التقييم"
+                    value={
+                      operations.data.averageApprovedRating != null
+                        ? operations.data.averageApprovedRating.toFixed(2)
+                        : '—'
+                    }
+                    hint={`${operations.data.approvedReviewsCount} معتمد`}
+                    icon={Star}
+                  />
+                </div>
+              ) : (
+                <EmptyChart />
+              )}
+              <div className="flex flex-wrap gap-2">
+                <Button asChild size="sm" variant="outline">
+                  <Link href={ecommerceAdminRoutes.contactMessages}>رسائل التواصل</Link>
+                </Button>
+                <Button asChild size="sm" variant="outline">
+                  <Link href={ecommerceAdminRoutes.reviews}>مراجعة التقييمات</Link>
+                </Button>
               </div>
             </TabsContent>
 
@@ -763,6 +1001,227 @@ export function SalesReportsPage() {
 }
 
 
+/** @deprecated use StoreReportsPage */
+export const SalesReportsPage = StoreReportsPage;
+
+function OverviewTab({
+  dashboard,
+  summary,
+  statusChart,
+  overviewChart,
+  granularity,
+  onGranularityChange,
+  currency,
+}: {
+  dashboard: ReturnType<typeof useReportsDashboard>;
+  summary: ReturnType<typeof useSalesSummary>;
+  statusChart: { name: string; value: number; revenue: number }[];
+  overviewChart: { key: string; orders: number; revenue: number; units: number }[];
+  granularity: SalesReportGranularity;
+  onGranularityChange: (value: SalesReportGranularity) => void;
+  currency: string;
+}) {
+  const current = dashboard.data?.current;
+  const change = dashboard.data?.changePercent;
+  const alerts = dashboard.data?.alerts;
+  const paymentRows = dashboard.data?.byPayment ?? [];
+
+  return (
+    <>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <KpiCard
+          label="الإيراد"
+          value={money(current?.revenueTotal ?? summary.data?.revenueTotal, currency)}
+          hint={formatChangePercent(change?.revenueTotal) ?? undefined}
+          icon={TrendingUp}
+          loading={dashboard.isLoading}
+          delta={change?.revenueTotal}
+        />
+        <KpiCard
+          label="الطلبات"
+          value={String(current?.ordersCount ?? summary.data?.ordersCount ?? 0)}
+          hint={formatChangePercent(change?.ordersCount) ?? undefined}
+          icon={ShoppingBag}
+          loading={dashboard.isLoading}
+          delta={change?.ordersCount}
+        />
+        <KpiCard
+          label="متوسط الطلب"
+          value={money(current?.averageOrderValue ?? summary.data?.averageOrderValue, currency)}
+          hint={formatChangePercent(change?.averageOrderValue) ?? undefined}
+          icon={Wallet}
+          loading={dashboard.isLoading}
+          delta={change?.averageOrderValue}
+        />
+        <KpiCard
+          label="وحدات مباعة"
+          value={String(current?.unitsSold ?? summary.data?.unitsSold ?? 0)}
+          hint={formatChangePercent(change?.unitsSold) ?? undefined}
+          icon={Package}
+          loading={dashboard.isLoading}
+          delta={change?.unitsSold}
+        />
+      </div>
+
+      {alerts ? (
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <AlertCard
+            label="بانتظار التنفيذ"
+            value={alerts.pendingFulfillmentOrdersCount}
+            href={ecommerceAdminRoutes.orders}
+            icon={Truck}
+          />
+          <AlertCard
+            label="بانتظار الدفع"
+            value={alerts.pendingPaymentOrdersCount}
+            href={ecommerceAdminRoutes.orders}
+            icon={Wallet}
+          />
+          <AlertCard
+            label="بنود غير مُسندة"
+            value={alerts.unassignedLineUnitsCount}
+            href={ecommerceAdminRoutes.orders}
+            icon={Package}
+          />
+          <AlertCard
+            label="رسائل الفترة"
+            value={alerts.contactMessagesInPeriodCount}
+            href={ecommerceAdminRoutes.contactMessages}
+            icon={MessageSquare}
+          />
+          <AlertCard
+            label="تقييمات معلّقة"
+            value={alerts.pendingReviewsCount}
+            href={ecommerceAdminRoutes.reviews}
+            icon={Star}
+          />
+          <AlertCard
+            label="تسليم متأخر"
+            value={alerts.overdueDeliveryOrdersCount}
+            href={ecommerceAdminRoutes.orders}
+            icon={Truck}
+          />
+        </div>
+      ) : null}
+
+      <section className="rounded-2xl border border-border bg-card p-4">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="text-sm font-semibold">الاتجاه الزمني</h2>
+            <p className="text-xs text-muted-foreground">مقارنة بالفترة السابقة</p>
+          </div>
+          <Select value={granularity} onValueChange={(v) => onGranularityChange(v as SalesReportGranularity)}>
+            <SelectTrigger className="h-9 w-36">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="day">يومي</SelectItem>
+              <SelectItem value="week">أسبوعي</SelectItem>
+              <SelectItem value="month">شهري</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        {dashboard.isLoading ? (
+          <div className="h-72 animate-pulse rounded-xl bg-muted/40" />
+        ) : overviewChart.length === 0 ? (
+          <EmptyChart />
+        ) : (
+          <div className="h-72 w-full" dir="ltr">
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={overviewChart} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                <XAxis dataKey="key" tick={{ fontSize: 11 }} />
+                <YAxis yAxisId="left" tick={{ fontSize: 11 }} />
+                <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11 }} />
+                <Tooltip />
+                <Legend />
+                <Bar yAxisId="right" dataKey="orders" name="طلبات" fill="#94a3b8" radius={4} />
+                <Line
+                  yAxisId="left"
+                  type="monotone"
+                  dataKey="revenue"
+                  name="إيراد"
+                  stroke="#0f766e"
+                  strokeWidth={2}
+                  dot={false}
+                />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </section>
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        <section className="rounded-2xl border border-border bg-card p-4">
+          <h2 className="mb-3 text-sm font-semibold">حالات الطلب</h2>
+          {statusChart.length === 0 ? (
+            <EmptyChart />
+          ) : (
+            <div className="h-56 w-full" dir="ltr">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={statusChart} dataKey="value" nameKey="name" innerRadius={50} outerRadius={80}>
+                    {statusChart.map((_, index) => (
+                      <Cell key={index} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </section>
+        <section className="rounded-2xl border border-border bg-card p-4">
+          <h2 className="mb-3 text-sm font-semibold">طرق الدفع</h2>
+          {paymentRows.length === 0 ? (
+            <EmptyChart />
+          ) : (
+            <ul className="space-y-2">
+              {paymentRows.map((row) => (
+                <li
+                  key={`${row.paymentMethod}-${row.paymentStatus}`}
+                  className="flex justify-between gap-2 text-sm"
+                >
+                  <span className="text-muted-foreground">
+                    {PAYMENT_METHOD_LABELS_AR[row.paymentMethod]} ·{' '}
+                    {PAYMENT_STATUS_LABELS_AR[row.paymentStatus]}
+                  </span>
+                  <span className="tabular-nums">{row.ordersCount}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </div>
+    </>
+  );
+}
+
+function AlertCard({
+  label,
+  value,
+  href,
+  icon: Icon,
+}: {
+  label: string;
+  value: number;
+  href: string;
+  icon: React.ElementType;
+}) {
+  return (
+    <Link
+      href={href}
+      className="rounded-2xl border border-border bg-card p-4 transition hover:border-primary/30 hover:bg-muted/30"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-xs text-muted-foreground">{label}</p>
+        <Icon className="h-4 w-4 text-muted-foreground" />
+      </div>
+      <p className="mt-2 text-2xl font-semibold tabular-nums">{value}</p>
+    </Link>
+  );
+}
+
 function KpiCard(props: {
   label: string;
   value: string;
@@ -770,6 +1229,7 @@ function KpiCard(props: {
   icon: React.ElementType;
   loading?: boolean;
   tone?: 'default' | 'warn';
+  delta?: number | null;
 }) {
   const Icon = props.icon;
   return (
@@ -793,6 +1253,21 @@ function KpiCard(props: {
         </p>
       )}
       {props.hint ? <p className="mt-1 text-[11px] text-muted-foreground">{props.hint}</p> : null}
+      {props.delta != null && !Number.isNaN(props.delta) ? (
+        <p
+          className={cn(
+            'mt-1 flex items-center gap-1 text-[11px] font-medium',
+            props.delta >= 0 ? 'text-emerald-600' : 'text-rose-600',
+          )}
+        >
+          {props.delta >= 0 ? (
+            <TrendingUp className="h-3 w-3" />
+          ) : (
+            <TrendingDown className="h-3 w-3" />
+          )}
+          {formatChangePercent(props.delta)}
+        </p>
+      ) : null}
     </div>
   );
 }

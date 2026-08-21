@@ -141,6 +141,14 @@ export function shouldShowWarehouseStock(product: StorefrontProduct): boolean {
   return product.inventory.trackInventory && !product.inventory.allowBackorder;
 }
 
+/** Quantity from list API (`includeQuantity`) — for «X متبقي» on cards. */
+export function getListAvailableQuantity(product: StorefrontProduct): number | null {
+  if (!shouldShowWarehouseStock(product)) return null;
+  const qty = Math.floor(product.inventory.quantity);
+  if (!Number.isFinite(qty) || qty <= 0) return null;
+  return qty;
+}
+
 /**
  * Max orderable qty.
  * - No tracking → soft cap only

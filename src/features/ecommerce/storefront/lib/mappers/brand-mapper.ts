@@ -2,6 +2,7 @@ import type { Brand } from '@/features/ecommerce/domain/types/brand';
 import type { StorefrontBrand } from '@/features/ecommerce/storefront/domain/storefront-models';
 import type { StorefrontLocale } from '@/i18n/routing';
 import { resolveLocalizedText, type LocalizableString } from '@/features/ecommerce/storefront/domain/localizable';
+import { resolveUploadUrl } from '@/shared/resolve-upload-url';
 
 function resolveName(brand: Brand, locale: StorefrontLocale): string {
   const localized = (brand as Brand & { name?: LocalizableString }).name;
@@ -25,7 +26,7 @@ export function mapStorefrontBrand(brand: Brand, locale: StorefrontLocale): Stor
     name,
     description: resolveDescription(brand, locale),
     websiteUrl: brand.websiteUrl ?? null,
-    logoUrl: brand.logo?.url ?? null,
+    logoUrl: brand.logo?.url ? resolveUploadUrl(brand.logo.url) || null : null,
     metaTitle: brand.seo.metaTitle || name,
     metaDescription: brand.seo.metaDescription || resolveDescription(brand, locale),
   };

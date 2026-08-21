@@ -20,7 +20,7 @@ export function resolveThemeMode(mode: ThemeMode): 'light' | 'dark' {
 export const useThemeStore = create<ThemeState>()(
   persist(
     (set, get) => ({
-      mode: 'system',
+      mode: 'light',
       setMode: (mode) => set({ mode }),
       toggle: () => {
         const resolved = resolveThemeMode(get().mode);

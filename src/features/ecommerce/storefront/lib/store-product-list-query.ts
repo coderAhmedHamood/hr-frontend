@@ -1,4 +1,4 @@
-import type { ProductListQuery } from '@/features/ecommerce/domain/types/product';
+import type { StorefrontProductListQuery } from '@/features/ecommerce/storefront/domain/catalog-ports';
 
 export type StoreProductFlagKey =
   | 'isNewProduct'
@@ -68,7 +68,7 @@ type ResolveListQueryInput = {
 
 /**
  * Shared PLP / CSR list query builder — keeps flag filters aligned with backend
- * `GET /public/inventory/products`.
+ * `GET /public/inventory/products` (`inStockOnly`, `includeQuantity` by default).
  */
 export function resolveStoreProductsListQuery({
   page,
@@ -77,12 +77,14 @@ export function resolveStoreProductsListQuery({
   tag,
   sort,
   flags = {},
-}: ResolveListQueryInput): Omit<ProductListQuery, 'companyId' | 'locale'> {
+}: ResolveListQueryInput): Omit<StorefrontProductListQuery, 'companyId' | 'locale'> {
   const base = {
     page,
     limit,
     categoryId,
     tag,
+    inStockOnly: true,
+    includeQuantity: true,
     isNewProduct: flags.isNewProduct,
     isTodayDeal: flags.isTodayDeal,
     isWholesale: flags.isWholesale,

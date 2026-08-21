@@ -14,6 +14,13 @@ import {
   resolveStorefrontFontId,
 } from '@/features/ecommerce/storefront/lib/storefront-fonts';
 import { resolveFooterLinkGroups } from '@/features/ecommerce/storefront/lib/store-footer-defaults';
+import { resolveUploadUrl } from '@/shared/resolve-upload-url';
+
+function resolveOptionalUploadUrl(url: string | null | undefined): string | null {
+  if (!url?.trim()) return null;
+  const resolved = resolveUploadUrl(url);
+  return resolved.trim() ? resolved : null;
+}
 
 function mapNavItem(
   item: CompanyConfigRecord['navigation'][number],
@@ -40,15 +47,15 @@ export function mapStorefrontCompanyConfig(
   return {
     id: record.id,
     name: resolveLocalizedText(record.name, locale),
-    logoUrl: record.logoUrl,
-    faviconUrl: record.faviconUrl,
+    logoUrl: resolveOptionalUploadUrl(record.logoUrl),
+    faviconUrl: resolveOptionalUploadUrl(record.faviconUrl),
     seo: {
       homeTitle: resolveLocalizedText(record.seo.homeTitle, locale),
       homeDescription: resolveLocalizedText(record.seo.homeDescription, locale),
       productsTitle: resolveLocalizedText(record.seo.productsTitle, locale),
       productsDescription: resolveLocalizedText(record.seo.productsDescription, locale),
       keywords: record.seo.keywords ?? [],
-      defaultOgImage: record.seo.defaultOgImage ?? null,
+      defaultOgImage: resolveOptionalUploadUrl(record.seo.defaultOgImage),
     },
     contact: record.contact,
     social: resolveEnabledSocialLinks(record.social),

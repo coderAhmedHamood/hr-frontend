@@ -51,7 +51,7 @@ export type EcommerceAdminNavSection = {
 };
 
 export type EcommerceAdminNavGroup = {
-  key: 'products' | 'catalogSetup' | 'storeSettings' | 'sales' | 'settings';
+  key: 'products' | 'catalogSetup' | 'storeSettings' | 'reports' | 'settings';
   labelKey: string;
   icon: LucideIcon;
   sections: EcommerceAdminNavSection[];
@@ -66,18 +66,6 @@ export const ecommerceAdminOverviewItem: EcommerceAdminNavItem = {
 
 /** Ecommerce-only nav — inventory lives in the standalone Inventory app. */
 export const ecommerceAdminNavGroups: EcommerceAdminNavGroup[] = [
-  {
-    key: 'sales',
-    labelKey: 'groups.sales',
-    icon: BarChart3,
-    sections: [
-      {
-        items: [
-          { labelKey: 'salesReports', href: ecommerceAdminRoutes.salesReports, icon: BarChart3 },
-        ],
-      },
-    ],
-  },
   {
     key: 'products',
     labelKey: 'groups.products',
@@ -169,6 +157,18 @@ export const ecommerceAdminNavGroups: EcommerceAdminNavGroup[] = [
             icon: CreditCard,
           },
           { labelKey: 'settingsTabs.seo', href: ecommerceSettingsHref('seo'), icon: Search },
+        ],
+      },
+    ],
+  },
+  {
+    key: 'reports',
+    labelKey: 'groups.reports',
+    icon: BarChart3,
+    sections: [
+      {
+        items: [
+          { labelKey: 'reportsOverview', href: ecommerceAdminRoutes.reports, icon: BarChart3 },
         ],
       },
     ],

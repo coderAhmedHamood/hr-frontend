@@ -21,9 +21,12 @@ export function StoreAnnouncementBar({ announcement, className }: Props) {
   const t = useTranslations('storefront');
   const [dismissed, setDismissed] = React.useState(false);
   const [ready, setReady] = React.useState(false);
+  const [isMobile, setIsMobile] = React.useState(false);
 
   const items = announcement.items;
-  const scrolling = announcement.scrolling !== false;
+  const scrollingSetting = announcement.scrolling !== false;
+  /** On phones the bar always marquees so long copy stays readable; desktop follows CMS toggle. */
+  const scrolling = isMobile || scrollingSetting;
   const speedMs = clampAnnouncementSpeedMs(announcement.speedMs);
   const fingerprint = React.useMemo(
     () =>
@@ -40,6 +43,14 @@ export function StoreAnnouncementBar({ announcement, className }: Props) {
     }
     setReady(true);
   }, [fingerprint]);
+
+  React.useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px)');
+    const sync = () => setIsMobile(mq.matches);
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, []);
 
   if (!announcement.enabled || items.length === 0) return null;
   if (!ready || dismissed) return null;
@@ -65,6 +76,7 @@ export function StoreAnnouncementBar({ announcement, className }: Props) {
         className={cn(
           'storefront-announcement-marquee py-2',
           !scrolling && 'storefront-announcement-marquee--static',
+          isMobile && scrolling && 'storefront-announcement-marquee--mobile',
         )}
       >
         <div

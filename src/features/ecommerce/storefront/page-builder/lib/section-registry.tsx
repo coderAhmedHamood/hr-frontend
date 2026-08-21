@@ -1,7 +1,6 @@
 import type { ReactElement } from 'react';
 import type { ResolvedSection } from '@/features/ecommerce/storefront/page-builder/domain/page-models';
 import type { SectionType } from '@/features/ecommerce/storefront/page-builder/domain/section-types';
-import { BannerSection } from '@/features/ecommerce/storefront/page-builder/components/sections/banner-section';
 import { BrandSliderSection } from '@/features/ecommerce/storefront/page-builder/components/sections/brand-slider-section';
 import { CategoryGridSection } from '@/features/ecommerce/storefront/page-builder/components/sections/category-grid-section';
 import { FlashSaleSection } from '@/features/ecommerce/storefront/page-builder/components/sections/flash-sale-section';
@@ -48,10 +47,8 @@ const SECTION_RENDER_REGISTRY: Record<SectionType, SectionRenderEntry> = {
     },
   },
   banner: {
-    render: (section) => {
-      if (section.type !== 'banner') return null;
-      return <BannerSection section={section} />;
-    },
+    // Promotional bottom banners are managed in CMS but hidden on the storefront.
+    render: () => null,
   },
 };
 
