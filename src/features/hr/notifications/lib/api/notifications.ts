@@ -11,7 +11,9 @@ export type NotificationCategory =
   | 'advance'
   | 'announcement'
   | 'system'
-  | 'inventory';
+  | 'inventory'
+  | 'store'
+  | 'contacts';
 
 export type NotificationSeverity = 'info' | 'success' | 'warning' | 'error';
 

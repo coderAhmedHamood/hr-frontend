@@ -25,6 +25,8 @@ import { Logo } from '@/components/layouts/logo';
 import { useDefaultCompanyBranding } from '@/features/auth/hooks/use-default-company-branding';
 import { NotificationBellPopover } from '@/features/hr/notifications/components/notification-bell-popover';
 import { InventoryNotificationBellPopover } from '@/features/inventory/admin/notifications/components/inventory-notification-bell-popover';
+import { StoreNotificationBellPopover } from '@/features/ecommerce/admin/notifications/components/store-notification-bell-popover';
+import { ContactsNotificationBellPopover } from '@/features/contacts/admin/notifications/components/contacts-notification-bell-popover';
 import { cn } from '@/shared/utils';
 import { hrDisciplineNavGroups } from '@/features/hr/discipline/lib/types';
 import { hrNotificationsNavGroups, isHrNotificationsNavPath } from '@/features/hr/notifications/constants/nav';
@@ -717,6 +719,10 @@ export function Topbar() {
           {inHrApp && <NotificationBellPopover />}
 
           {inInventoryApp && <InventoryNotificationBellPopover />}
+
+          {inEcommerceApp && <StoreNotificationBellPopover />}
+
+          {inContactsApp && <ContactsNotificationBellPopover />}
 
           <div className="mx-1 h-5 w-px bg-border/70" />
 
