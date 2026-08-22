@@ -10,7 +10,8 @@ export type NotificationCategory =
   | 'attendance'
   | 'advance'
   | 'announcement'
-  | 'system';
+  | 'system'
+  | 'inventory';
 
 export type NotificationSeverity = 'info' | 'success' | 'warning' | 'error';
 
@@ -25,9 +26,10 @@ export type InboxItemResponseDto = {
   notificationId: string;
   companyId: string;
   companyNameAr: string;
-  employeeId: string;
-  employeeNameAr: string;
+  employeeId: string | null;
+  employeeNameAr: string | null;
   employeeCode: string | null;
+  userId: string | null;
   category: NotificationCategory;
   severity: NotificationSeverity;
   audienceKind: NotificationAudienceKind;
@@ -145,7 +147,8 @@ export type SendNotificationDto = {
 };
 
 export type UnreadCountResponseDto = {
-  employeeId: string;
+  employeeId?: string | null;
+  userId?: string | null;
   unread: number;
   byCategory: Partial<Record<NotificationCategory, number>>;
 };
@@ -247,6 +250,43 @@ export const notificationsApi = {
   unreadCount: (employeeId: string, companyId?: string) =>
     apiRequest<UnreadCountResponseDto>(
       `/notifications/inbox/${employeeId}/unread-count`,
+      { query: companyId ? { companyId } : undefined },
+    ),
+
+  /** User inbox (inventory / apps without HR employee link) */
+  userInbox: (
+    userId: string,
+    params?: {
+      companyId?: string;
+      category?: NotificationCategory;
+      unreadOnly?: boolean;
+      includeDismissed?: boolean;
+      includeArchived?: boolean;
+      includeExpired?: boolean;
+      page?: number;
+      limit?: number;
+    },
+  ) =>
+    apiRequest<PaginatedResult<InboxItemResponseDto>>(
+      `/notifications/inbox/user/${userId}`,
+      { query: params },
+    ),
+
+  userMarkRead: (userId: string, recipientId: string) =>
+    apiRequest<InboxItemResponseDto>(
+      `/notifications/inbox/user/${userId}/recipients/${recipientId}/read`,
+      { method: 'POST' },
+    ),
+
+  userMarkAllRead: (userId: string, companyId?: string) =>
+    apiRequest<{ updated: number }>(
+      `/notifications/inbox/user/${userId}/mark-all-read`,
+      { method: 'POST', query: companyId ? { companyId } : undefined },
+    ),
+
+  userUnreadCount: (userId: string, companyId?: string) =>
+    apiRequest<UnreadCountResponseDto>(
+      `/notifications/inbox/user/${userId}/unread-count`,
       { query: companyId ? { companyId } : undefined },
     ),
 };

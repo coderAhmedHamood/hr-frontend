@@ -32,4 +32,5 @@ export const inventoryAdminRoutes = {
   products: '/inventory/products',
   categories: '/inventory/categories',
   attributes: '/inventory/attributes',
+  settings: '/inventory/settings',
 } as const;
