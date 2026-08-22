@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   ArrowRight,
   Building2,
@@ -90,9 +90,26 @@ const DETAIL_TABS = [
   { value: 'related', label: 'مرتبط', icon: Network },
 ] as const;
 
+type DetailTab = (typeof DETAIL_TABS)[number]['value'];
+
+const DETAIL_TAB_VALUES = new Set<string>(DETAIL_TABS.map((tab) => tab.value));
+
+function resolveDetailTab(value: string | null): DetailTab {
+  if (value && DETAIL_TAB_VALUES.has(value)) return value as DetailTab;
+  return 'general';
+}
+
 export function PartnerDetailPage({ partnerId }: Props) {
   const companyId = getContactsCompanyId();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const [activeTab, setActiveTab] = React.useState<DetailTab>(() =>
+    resolveDetailTab(searchParams.get('tab')),
+  );
+
+  React.useEffect(() => {
+    setActiveTab(resolveDetailTab(searchParams.get('tab')));
+  }, [searchParams]);
   const { data: partner, isLoading, isError } = usePartnerFull(companyId, partnerId);
   const { data: children } = usePartnerChildren(companyId, partnerId);
   const { data: notes } = usePartnerNotes(companyId, partnerId);
@@ -285,7 +302,7 @@ export function PartnerDetailPage({ partnerId }: Props) {
         </div>
       </section>
 
-      <Tabs defaultValue="general" className="w-full min-w-0 space-y-5">
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as DetailTab)} className="w-full min-w-0 space-y-5">
         <div className="sto-tabs-scroll sticky top-0 z-10 -mx-1 rounded-2xl px-1 pb-1">
           <TabsList className="sto-tabs-scroll h-auto min-w-full w-max justify-start gap-1 rounded-2xl bg-muted/70 p-1.5">
             {DETAIL_TABS.map(({ value, label, icon: Icon }) => (

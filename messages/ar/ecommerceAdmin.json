@@ -32,7 +32,8 @@
       "locations": "المواقع الجغرافية",
       "deliveryRates": "أسعار التوصيل",
       "paymentAccounts": "حسابات الدفع",
-      "seo": "محركات البحث (SEO)"
+      "seo": "محركات البحث (SEO)",
+      "notificationSettings": "إشعارات المتجر"
     },
     "overview": "نظرة عامة",
     "homepage": "الصفحة الرئيسية",

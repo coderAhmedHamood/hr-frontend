@@ -6,7 +6,7 @@ export type HrNotificationKey = Exclude<
 >;
 
 export type NotificationToggleItem = {
-  key: HrNotificationKey;
+  key: string;
   label: string;
   description?: string;
 };

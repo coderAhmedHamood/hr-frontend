@@ -11,4 +11,5 @@ export const contactsAdminRoutes = {
   partnerNew: '/contacts/new',
   partnerDetail: (id: string) => `/contacts/${id}`,
   categories: '/contacts/categories',
+  settings: '/contacts/settings',
 } as const;

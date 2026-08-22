@@ -42,6 +42,9 @@ export const NOTIFICATION_CATEGORY_LABELS: Record<NotificationCategory, string> 
   advance: 'سلف',
   announcement: 'إعلان',
   system: 'نظام',
+  inventory: 'مخازن',
+  store: 'متجر',
+  contacts: 'جهات اتصال',
 };
 
 export const NOTIFICATION_SEVERITY_LABELS: Record<NotificationSeverity, string> = {
@@ -60,6 +63,9 @@ export const NOTIFICATION_AUDIENCE_LABELS: Record<NotificationAudienceKind, stri
 
 export const NOTIFICATION_CATEGORY_FILTER_ORDER: NotificationCategory[] = [
   'announcement',
+  'inventory',
+  'store',
+  'contacts',
   'discipline',
   'leave',
   'attendance',

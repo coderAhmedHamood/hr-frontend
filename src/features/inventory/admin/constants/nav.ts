@@ -20,6 +20,7 @@ import {
   FileText,
   Settings2,
   Store,
+  Bell,
 } from 'lucide-react';
 import { inventoryAdminRoutes } from '@/features/inventory/admin/constants/routes';
 import { WAREHOUSE_OPERATION_KIND_META } from '@/features/inventory/domain/constants/warehouse-operation-kinds';
@@ -159,6 +160,11 @@ export const inventoryAdminNavGroups: InventoryAdminNavGroup[] = [
           { labelAr: 'قواعد التخزين', href: inventoryAdminRoutes.putawayRules, icon: MapPinned },
         ],
       },
+      {
+        items: [
+          { labelAr: 'إعدادات الإشعارات', href: inventoryAdminRoutes.settings, icon: Bell },
+        ],
+      },
     ],
   },
 ];
@@ -188,6 +194,7 @@ const INVENTORY_ADMIN_PATHS: string[] = [
   '/inventory/products',
   '/inventory/categories',
   '/inventory/attributes',
+  '/inventory/settings',
 ];
 
 /** True for standalone Inventory app routes. */

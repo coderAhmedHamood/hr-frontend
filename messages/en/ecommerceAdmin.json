@@ -32,7 +32,8 @@
       "locations": "Locations",
       "deliveryRates": "Delivery rates",
       "paymentAccounts": "Payment accounts",
-      "seo": "SEO"
+      "seo": "SEO",
+      "notificationSettings": "Store notifications"
     },
     "overview": "Overview",
     "homepage": "Homepage",

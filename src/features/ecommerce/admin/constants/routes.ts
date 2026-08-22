@@ -17,6 +17,8 @@ export const ecommerceAdminRoutes = {
   contactMessages: '/cms/contact-messages',
   whatsapp: '/cms/whatsapp',
   settings: '/cms/settings',
+  /** إعدادات إشعارات المتجر — منفصلة عن `/cms/settings` (هوية/SEO). */
+  notificationSettings: '/notification-settings',
   products: '/products',
   productDetail: (id: string) => `/products/${id}`,
   categories: '/categories',

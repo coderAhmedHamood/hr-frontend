@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import { ContactRound, LayoutDashboard, Tags } from 'lucide-react';
+import { Bell, ContactRound, LayoutDashboard, Tags } from 'lucide-react';
 import { contactsAdminRoutes } from '@/features/contacts/admin/constants/routes';
 
 export type ContactsAdminNavItem = {
@@ -32,7 +32,10 @@ export const contactsAdminNavGroups: ContactsAdminNavGroup[] = [
     key: 'configuration',
     labelAr: 'التهيئة',
     icon: Tags,
-    items: [{ labelAr: 'التصنيفات', href: contactsAdminRoutes.categories, icon: Tags }],
+    items: [
+      { labelAr: 'التصنيفات', href: contactsAdminRoutes.categories, icon: Tags },
+      { labelAr: 'إعدادات الإشعارات', href: contactsAdminRoutes.settings, icon: Bell },
+    ],
   },
 ];
 
