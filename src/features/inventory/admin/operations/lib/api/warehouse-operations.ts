@@ -298,7 +298,6 @@ export const warehouseOperationsApi: AdminWarehouseOperationsPort = {
         warehouseId: input.warehouseId,
         destinationWarehouseId: input.destinationWarehouseId ?? null,
         kind: input.kind,
-        reference: input.reference || null,
         status: createStatus,
         occurredAt: input.occurredAt,
         notes: input.notes ?? null,
@@ -370,7 +369,6 @@ export const warehouseOperationsApi: AdminWarehouseOperationsPort = {
       headerPatch.destinationWarehouseId = patch.destinationWarehouseId ?? null;
     }
     if (patch.kind !== undefined) headerPatch.kind = patch.kind;
-    if (patch.reference !== undefined) headerPatch.reference = patch.reference;
     if (patch.status !== undefined) headerPatch.status = patch.status;
     if (patch.occurredAt !== undefined) headerPatch.occurredAt = patch.occurredAt;
     if (patch.notes !== undefined) headerPatch.notes = patch.notes ?? null;

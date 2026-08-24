@@ -9,10 +9,12 @@ export function useWarehouseOperations(
     enabled?: boolean;
     /** Refetch whenever the query mounts / becomes enabled (e.g. each dialog open). */
     refetchOnOpen?: boolean;
+    /** Bumped by parent (e.g. sidebar re-click) to force a fresh fetch via queryKey. */
+    refreshKey?: number;
   },
 ) {
   return useQuery({
-    queryKey: warehouseOperationsQueryKeys.list(query),
+    queryKey: [...warehouseOperationsQueryKeys.list(query), options?.refreshKey ?? 0],
     queryFn: () => warehouseOperationsApi.getAll(query),
     enabled:
       Boolean(query.companyId && (query.warehouseId || query.productId || query.kind || query.all)) &&

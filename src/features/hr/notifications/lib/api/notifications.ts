@@ -292,3 +292,24 @@ export const notificationsApi = {
       { query: companyId ? { companyId } : undefined },
     ),
 };
+
+/** Mark unread rows for one category only — backend mark-all-read has no category filter. */
+export async function markUserInboxCategoryAllRead(
+  userId: string,
+  category: NotificationCategory,
+  companyId?: string,
+): Promise<{ updated: number }> {
+  const result = await notificationsApi.userInbox(userId, {
+    companyId,
+    category,
+    unreadOnly: true,
+    limit: 200,
+  });
+  const unread = result.items.filter((row) => !row.isRead);
+  if (unread.length === 0) return { updated: 0 };
+
+  await Promise.all(
+    unread.map((row) => notificationsApi.userMarkRead(userId, row.recipientId)),
+  );
+  return { updated: unread.length };
+}

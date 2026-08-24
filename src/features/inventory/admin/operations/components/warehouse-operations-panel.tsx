@@ -260,7 +260,6 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
     form.reset({
       ...WAREHOUSE_OPERATION_FORM_DEFAULT_VALUES,
       occurredAt: new Date().toISOString().slice(0, 16),
-      reference: `${meta.refPrefix}/${Date.now().toString().slice(-5)}`,
       quantity: isCountLike ? 0 : 1,
       theoreticalQuantity: isCountLike ? 0 : undefined,
       sourceWarehouseId: defaultWh,
@@ -271,7 +270,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
             ? 'أمر شراء'
             : '',
     });
-  }, [open, form, meta.refPrefix, isCountLike, kind, warehouseId, allWarehouses]);
+  }, [open, form, isCountLike, kind, warehouseId, allWarehouses]);
 
   React.useEffect(() => {
     if (!open || !selectedProductId) return;
@@ -357,7 +356,6 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
       companyId,
       warehouseId: sourceWh,
       kind,
-      reference: values.reference?.trim() || `${meta.refPrefix}/${Date.now().toString().slice(-5)}`,
       status: 'draft',
       occurredAt: new Date(values.occurredAt).toISOString(),
       notes: values.notes?.trim() || undefined,
@@ -526,10 +524,6 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
             ) : null}
 
             <div className="inv-form-grid">
-              <div className="space-y-1.5">
-                <Label htmlFor="op-ref">المرجع (اختياري)</Label>
-                <Input id="op-ref" dir="ltr" {...form.register('reference')} />
-              </div>
               <div className="space-y-1.5">
                 <Label htmlFor="op-date">التاريخ</Label>
                 <Input id="op-date" type="datetime-local" dir="ltr" {...form.register('occurredAt')} />

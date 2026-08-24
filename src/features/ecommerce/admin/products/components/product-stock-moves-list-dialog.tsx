@@ -60,30 +60,17 @@ export function ProductStockMovesListDialog({
 }: Props) {
   const companyId = getStorefrontCompanyId();
   const router = useRouter();
-  const skipNextRefetch = React.useRef(true);
 
   // One dedicated list call per kind (receipt | issue | internal | …).
-  const { data, isLoading, isFetching, refetch } = useWarehouseOperations(
+  const { data, isLoading, isFetching } = useWarehouseOperations(
     { companyId, productId, kind, limit: 100 },
-    { enabled: open, refetchOnOpen: true },
+    { enabled: open, refetchOnOpen: true, refreshKey: requestKey },
   );
   const { data: warehousesData } = useWarehouses({ companyId, limit: 100 }, { enabled: open });
   const warehouseName = React.useMemo(() => {
     const map = new Map((warehousesData?.items ?? []).map((item) => [item.id, item.nameAr]));
     return (id: string) => map.get(id) ?? id;
   }, [warehousesData?.items]);
-
-  React.useEffect(() => {
-    if (!open) {
-      skipNextRefetch.current = true;
-      return;
-    }
-    if (skipNextRefetch.current) {
-      skipNextRefetch.current = false;
-      return;
-    }
-    void refetch();
-  }, [open, requestKey, refetch]);
 
   const items = React.useMemo(() => {
     const raw = data?.items ?? [];
@@ -100,7 +87,7 @@ export function ProductStockMovesListDialog({
 
   const meta = WAREHOUSE_OPERATION_KIND_META[kind];
   const Icon = LIST_ICONS[kind] ?? PackagePlus;
-  const busy = isLoading || isFetching;
+  const busy = isLoading || (isFetching && items.length === 0);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

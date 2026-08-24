@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { getContactsCompanyId } from '@/features/contacts/lib/company-id';
 import {
+  markUserInboxCategoryAllRead,
   notificationsApi,
   type InboxItemResponseDto,
 } from '@/features/hr/notifications/lib/api/notifications';
@@ -78,7 +79,7 @@ export const useContactsNotificationsStore = create<ContactsNotificationsState>(
       ]);
       set({
         items: result.items.map((row) => mapApi(row, userId)),
-        unreadTotal: unreadRes.byCategory?.contacts ?? unreadRes.unread ?? 0,
+        unreadTotal: unreadRes.byCategory?.contacts ?? 0,
         isLoading: false,
       });
     } catch (e) {
@@ -120,7 +121,7 @@ export const useContactsNotificationsStore = create<ContactsNotificationsState>(
   markAllReadForUser: async (userId) => {
     const companyId = getContactsCompanyId();
     try {
-      await notificationsApi.userMarkAllRead(userId, companyId);
+      await markUserInboxCategoryAllRead(userId, 'contacts', companyId);
       const now = new Date().toISOString();
       set((s) => ({
         items: s.items.map((x) =>

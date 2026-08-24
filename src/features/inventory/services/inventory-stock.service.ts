@@ -100,16 +100,11 @@ export const inventoryStockService = {
     }
 
     const now = new Date().toISOString();
-    let warehouseIndex = 0;
     for (const [warehouseId, lines] of byWarehouse) {
-      warehouseIndex += 1;
-      // Unique reference per warehouse doc (company reference is unique).
-      const reference = `SO/${input.orderNumber}/${input.productId.slice(0, 8)}/W${warehouseIndex}`;
       await warehouseOperationsApi.create({
         companyId: input.companyId,
         warehouseId,
         kind: 'issue',
-        reference,
         status: 'done',
         occurredAt: now,
         sourceDocument: input.orderNumber,

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
 import {
+  markUserInboxCategoryAllRead,
   notificationsApi,
   type InboxItemResponseDto,
 } from '@/features/hr/notifications/lib/api/notifications';
@@ -78,7 +79,7 @@ export const useStoreNotificationsStore = create<StoreNotificationsState>()((set
       ]);
       set({
         items: result.items.map((row) => mapApi(row, userId)),
-        unreadTotal: unreadRes.byCategory?.store ?? unreadRes.unread ?? 0,
+        unreadTotal: unreadRes.byCategory?.store ?? 0,
         isLoading: false,
       });
     } catch (e) {
@@ -120,7 +121,7 @@ export const useStoreNotificationsStore = create<StoreNotificationsState>()((set
   markAllReadForUser: async (userId) => {
     const companyId = getStorefrontCompanyId();
     try {
-      await notificationsApi.userMarkAllRead(userId, companyId);
+      await markUserInboxCategoryAllRead(userId, 'store', companyId);
       const now = new Date().toISOString();
       set((s) => ({
         items: s.items.map((x) =>

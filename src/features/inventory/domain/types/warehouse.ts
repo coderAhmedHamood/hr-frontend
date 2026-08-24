@@ -152,5 +152,9 @@ export type WarehouseOperationListQuery = {
   limit?: number;
 };
 
-export type CreateWarehouseOperationInput = Omit<WarehouseOperation, 'id' | 'createdAt' | 'updatedAt'>;
+/** Server assigns `reference` (e.g. REC-12) — never send on create/update. */
+export type CreateWarehouseOperationInput = Omit<
+  WarehouseOperation,
+  'id' | 'createdAt' | 'updatedAt' | 'reference'
+>;
 export type UpdateWarehouseOperationInput = Partial<CreateWarehouseOperationInput>;

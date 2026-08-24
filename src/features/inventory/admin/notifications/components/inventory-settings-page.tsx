@@ -82,7 +82,7 @@ export function InventorySettingsPage() {
           eyebrow="المخازن"
           icon={BellRing}
           companyName={company.nameAr}
-          description="تحكم في إشعارات المخازن: تنبيهات المخزون، حركات المستودع، وخصم البيع."
+          description="تحكم في إشعارات المخازن: تنبيهات المخزون، حركات المستودع، وخصم البيع. المستلمون = من يملك inv.notifications.read ضمن نطاق الفرع (ليس broadcast لكل الشركة)."
         />
       ) : null}
 

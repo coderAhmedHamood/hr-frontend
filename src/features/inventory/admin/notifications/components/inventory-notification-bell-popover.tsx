@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { Bell, Check, CheckCheck, Circle, Settings2 } from 'lucide-react';
+import { Bell, Check, CheckCheck, Circle, Loader2, Settings2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/shared/utils';
@@ -25,11 +25,13 @@ import type { NotificationSeverity } from '@/features/hr/notifications/lib/api/n
 
 export function InventoryNotificationBellPopover() {
   const can = useCan();
-  const canRead = can('inv.notifications.read') || can('hr.notifications.read');
-  const canUpdate = can('inv.notifications.update') || can('hr.notifications.update');
+  const canRead = can('inv.notifications.read');
+  const canUpdate = can('inv.notifications.update');
 
   const userId = useAuthStore((s) => s.user?.id ?? s.accessProfile?.userId ?? '');
   const { items, markRead, markAllReadForUser } = useInventoryNotificationsStore();
+  const isLoading = useInventoryNotificationsStore((s) => s.isLoading);
+  const error = useInventoryNotificationsStore((s) => s.error);
   const [open, setOpen] = React.useState(false);
 
   const fetch = useInventoryNotificationsStore((s) => s.fetch);
@@ -75,7 +77,7 @@ export function InventoryNotificationBellPopover() {
               variant="ghost"
               size="sm"
               className="h-8 gap-1 px-2 text-xs"
-              disabled={inbox.every((n) => n.readAt)}
+              disabled={inbox.every((n) => n.readAt) || isLoading}
               onClick={() => markAllReadForUser(userId)}
             >
               <CheckCheck className="h-3.5 w-3.5" />
@@ -85,9 +87,21 @@ export function InventoryNotificationBellPopover() {
         </div>
 
         <div className="max-h-[min(60vh,380px)] overflow-y-auto">
-          {inbox.length === 0 ? (
-            <div className="py-10 text-center text-sm text-muted-foreground">
-              لا توجد إشعارات مخازن في صندوقك
+          {isLoading && inbox.length === 0 ? (
+            <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              جاري التحميل…
+            </div>
+          ) : error ? (
+            <div className="py-10 px-4 text-center text-sm text-destructive">{error.message}</div>
+          ) : inbox.length === 0 ? (
+            <div className="space-y-2 py-10 px-4 text-center text-sm text-muted-foreground">
+              <p>لا توجد إشعارات مخازن في صندوقك</p>
+              <p className="text-[11px] leading-relaxed">
+                الإشعارات تصل فقط لمن يملك صلاحية{' '}
+                <span className="font-mono text-[10px]">inv.notifications.read</span> ضمن نطاق
+                الفرع المناسب — وليس لكل مستخدمي الشركة.
+              </p>
             </div>
           ) : (
             <ul className="divide-y divide-border/60">
@@ -139,6 +153,11 @@ export function InventoryNotificationBellPopover() {
                           {n.bodyAr}
                         </p>
                       ) : null}
+                      {n.triggeredByNameAr ? (
+                        <p className="mt-0.5 text-[10px] text-muted-foreground">
+                          نفّذها: {n.triggeredByNameAr}
+                        </p>
+                      ) : null}
                       <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground">
                         <span className="rounded-md bg-muted/70 px-1.5 py-0.5">{sourceLabel}</span>
                         <span className="rounded-md bg-muted/70 px-1.5 py-0.5">{severityLabel}</span>
@@ -164,7 +183,7 @@ export function InventoryNotificationBellPopover() {
           )}
         </div>
 
-        {can('inv.settings.read') || can('hr.notifications.read') ? (
+        {can('inv.settings.read') ? (
           <div className="border-t border-border px-3 py-2">
             <Link
               href={inventoryAdminRoutes.settings}

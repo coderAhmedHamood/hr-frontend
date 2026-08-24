@@ -429,9 +429,16 @@ export function ProductFormDialog({ product, open, onOpenChange }: Props) {
         variants={variants}
         onCreated={(_warehouseId, kind) => {
           setMoveRequestKind(null);
-          if (kind === 'receipt' || kind === 'replenishment') {
+          if (kind === 'replenishment') {
+            bumpRelatedRequest('replenish');
             setActiveRelatedDoc('replenish');
             setReplenishmentListOpen(true);
+            return;
+          }
+          if (kind === 'receipt') {
+            bumpRelatedRequest('receipts');
+            setActiveRelatedDoc('receipts');
+            setMovesListKind('receipt');
             return;
           }
           setActiveRelatedDoc(null);

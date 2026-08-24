@@ -289,15 +289,16 @@ export function ProductStockMoveRequestDialog({
         companyId,
         warehouseId,
         kind,
-        reference: `${kindMeta.refPrefix}-${Date.now().toString().slice(-6)}`,
         status: 'draft',
         occurredAt: new Date().toISOString(),
         sourceDocument:
-          kind === 'replenishment' || kind === 'receipt'
+          kind === 'replenishment'
             ? REPLENISHMENT_SOURCE_DOCUMENT
-            : kind === 'issue'
-              ? 'طلب توصيل يدوي'
-              : 'حركة داخلية يدوية',
+            : kind === 'receipt'
+              ? 'إيصال استلام'
+              : kind === 'issue'
+                ? 'طلب توصيل يدوي'
+                : 'حركة داخلية يدوية',
         notes: `طلب ${kindMeta.labelAr} للمنتج ${productNameAr} (${stockMode === 'product' ? 'منتج أساسي' : 'متغيرات'})`,
         lines: opLines,
       });

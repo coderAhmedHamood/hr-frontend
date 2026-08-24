@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { getInventoryCompanyId } from '@/features/inventory/lib/company-id';
 import {
+  markUserInboxCategoryAllRead,
   notificationsApi,
   type InboxItemResponseDto,
 } from '@/features/hr/notifications/lib/api/notifications';
@@ -22,6 +23,7 @@ export interface InventoryNotificationRecord {
   isRead: boolean;
   companyNameAr?: string;
   recipientUserId: string;
+  triggeredByNameAr?: string | null;
   createdAt: string;
   readAt: string | null;
 }
@@ -43,6 +45,7 @@ function mapApi(row: InboxItemResponseDto, userId: string): InventoryNotificatio
     isRead: row.isRead,
     companyNameAr: row.companyNameAr,
     recipientUserId: row.userId ?? userId,
+    triggeredByNameAr: row.triggeredByNameAr,
     createdAt: row.createdAt,
     readAt: row.readAt,
   };
@@ -78,7 +81,7 @@ export const useInventoryNotificationsStore = create<InventoryNotificationsState
       ]);
       set({
         items: result.items.map((row) => mapApi(row, userId)),
-        unreadTotal: unreadRes.byCategory?.inventory ?? unreadRes.unread ?? 0,
+        unreadTotal: unreadRes.byCategory?.inventory ?? 0,
         isLoading: false,
       });
     } catch (e) {
@@ -120,7 +123,7 @@ export const useInventoryNotificationsStore = create<InventoryNotificationsState
   markAllReadForUser: async (userId) => {
     const companyId = getInventoryCompanyId();
     try {
-      await notificationsApi.userMarkAllRead(userId, companyId);
+      await markUserInboxCategoryAllRead(userId, 'inventory', companyId);
       const now = new Date().toISOString();
       set((s) => ({
         items: s.items.map((x) =>

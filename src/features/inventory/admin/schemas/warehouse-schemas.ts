@@ -117,7 +117,6 @@ export const WAREHOUSE_LOCATION_FORM_DEFAULT_VALUES: WarehouseLocationFormValues
 };
 
 export const warehouseOperationFormSchema = z.object({
-  reference: z.string().max(64).optional().or(z.literal('')),
   occurredAt: z.string().min(1, 'التاريخ مطلوب'),
   notes: z.string().max(500).optional().or(z.literal('')),
   partnerName: z.string().max(160).optional().or(z.literal('')),
@@ -139,7 +138,6 @@ export const warehouseOperationFormSchema = z.object({
 export type WarehouseOperationFormValues = z.infer<typeof warehouseOperationFormSchema>;
 
 export const WAREHOUSE_OPERATION_FORM_DEFAULT_VALUES: WarehouseOperationFormValues = {
-  reference: '',
   occurredAt: new Date().toISOString().slice(0, 16),
   notes: '',
   partnerName: '',

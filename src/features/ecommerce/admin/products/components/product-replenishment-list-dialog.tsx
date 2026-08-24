@@ -32,6 +32,37 @@ export function isReplenishmentOperation(op: WarehouseOperation): boolean {
   return source.includes('تجديد') || notes.includes('تجديد مخزون');
 }
 
+function useProductReplenishmentOperations(
+  companyId: string,
+  productId: string,
+  enabled: boolean,
+  refreshKey = 0,
+) {
+  // Replenishment docs may be kind=replenishment or legacy kind=receipt tagged via sourceDocument.
+  const replenishment = useWarehouseOperations(
+    { companyId, productId, kind: 'replenishment', limit: 100 },
+    { enabled, refetchOnOpen: true, refreshKey },
+  );
+  const receipts = useWarehouseOperations(
+    { companyId, productId, kind: 'receipt', limit: 100 },
+    { enabled, refetchOnOpen: true, refreshKey },
+  );
+
+  const items = React.useMemo(() => {
+    const byId = new Map<string, WarehouseOperation>();
+    for (const op of [...(replenishment.data?.items ?? []), ...(receipts.data?.items ?? [])]) {
+      byId.set(op.id, op);
+    }
+    return [...byId.values()].filter(isReplenishmentOperation);
+  }, [replenishment.data?.items, receipts.data?.items]);
+
+  return {
+    items,
+    isLoading: replenishment.isLoading || receipts.isLoading,
+    isFetching: replenishment.isFetching || receipts.isFetching,
+  };
+}
+
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -61,12 +92,13 @@ export function ProductReplenishmentListDialog({
 }: Props) {
   const companyId = getStorefrontCompanyId();
   const [selected, setSelected] = React.useState<WarehouseOperation | null>(null);
-  const skipNextRefetch = React.useRef(true);
 
-  // Dedicated query: replenishment kind only (not the shared all-moves list).
-  const { data, isLoading, isFetching, refetch } = useWarehouseOperations(
-    { companyId, productId, kind: 'replenishment', limit: 100 },
-    { enabled: open, refetchOnOpen: true },
+  // Replenishment + legacy receipt-tagged requests for this product.
+  const { items, isLoading, isFetching } = useProductReplenishmentOperations(
+    companyId,
+    productId,
+    open,
+    requestKey,
   );
   const { data: warehousesData } = useWarehouses({ companyId, limit: 100 }, { enabled: open });
   const warehouseName = React.useMemo(() => {
@@ -74,34 +106,25 @@ export function ProductReplenishmentListDialog({
     return (id: string) => map.get(id) ?? id;
   }, [warehousesData?.items]);
 
-  const items = React.useMemo(
-    () => (data?.items ?? []).filter(isReplenishmentOperation),
-    [data?.items],
+  const itemsSorted = React.useMemo(
+    () =>
+      [...items].sort(
+        (a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime(),
+      ),
+    [items],
   );
 
   React.useEffect(() => {
-    if (!open) {
-      skipNextRefetch.current = true;
-      return;
-    }
-    if (skipNextRefetch.current) {
-      skipNextRefetch.current = false;
-      return;
-    }
-    void refetch();
-  }, [open, requestKey, refetch]);
-
-  React.useEffect(() => {
     if (!selected) return;
-    const fresh = items.find((item) => item.id === selected.id);
+    const fresh = itemsSorted.find((item) => item.id === selected.id);
     if (fresh) setSelected(fresh);
-  }, [items, selected?.id]);
+  }, [itemsSorted, selected?.id]);
 
   React.useEffect(() => {
     if (!open) setSelected(null);
   }, [open]);
 
-  const busy = isLoading || isFetching;
+  const busy = isLoading || (isFetching && itemsSorted.length === 0);
 
   return (
     <>
@@ -121,13 +144,13 @@ export function ProductReplenishmentListDialog({
           <div className={cn(dialogShellBodyClass, 'space-y-3')}>
             {busy ? (
               <p className="text-sm text-muted-foreground">جاري التحميل…</p>
-            ) : items.length === 0 ? (
+            ) : itemsSorted.length === 0 ? (
               <p className="rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
                 لا توجد طلبات تجديد بعد. أنشئ طلبًا جديدًا ليظهر هنا مع حالته.
               </p>
             ) : (
               <ul className="space-y-2">
-                {items.map((op) => {
+                {itemsSorted.map((op) => {
                   const qty = op.lines
                     .filter((line) => !line.productId || line.productId === productId)
                     .reduce((sum, line) => sum + (line.demandQuantity ?? line.quantity), 0);
