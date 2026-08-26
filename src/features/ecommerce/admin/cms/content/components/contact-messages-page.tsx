@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { MessageSquareWarning, Lightbulb } from 'lucide-react';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
@@ -42,6 +43,10 @@ function TypeBadge({ type }: { type: StoreContactMessageType }) {
 
 export function ContactMessagesPage() {
   const companyId = getStorefrontCompanyId();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const highlightId = searchParams.get('highlight')?.trim() ?? '';
   const [page, setPage] = React.useState(1);
   const [type, setType] = React.useState<'all' | StoreContactMessageType>('all');
   const [searchInput, setSearchInput] = React.useState('');
@@ -71,6 +76,40 @@ export function ContactMessagesPage() {
     queryKey: ['cms', 'contact-messages', companyId, query],
     queryFn: () => listCmsContactMessages(companyId, query),
   });
+
+  const highlightHandledRef = React.useRef<string | null>(null);
+
+  React.useEffect(() => {
+    if (!highlightId || isLoading) return;
+    if (highlightHandledRef.current === highlightId) return;
+
+    const match = (data?.items ?? []).find((row) => row.id === highlightId);
+    if (match) {
+      highlightHandledRef.current = highlightId;
+      setViewing(match);
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete('highlight');
+      const next = params.toString();
+      router.replace(next ? `${pathname}?${next}` : pathname, { scroll: false });
+      return;
+    }
+
+    const totalPages = data?.pagination?.totalPages ?? 1;
+    if (page < totalPages) {
+      setPage((current) => current + 1);
+    } else {
+      highlightHandledRef.current = highlightId;
+    }
+  }, [
+    highlightId,
+    isLoading,
+    data?.items,
+    data?.pagination?.totalPages,
+    page,
+    pathname,
+    router,
+    searchParams,
+  ]);
 
   const hasActiveFilters = type !== 'all' || Boolean(search) || Boolean(dateFrom) || Boolean(dateTo);
 

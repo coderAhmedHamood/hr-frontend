@@ -10,7 +10,7 @@
 |---|---|
 | إعدادات الإشعارات | `GET/PATCH /store/settings/company/:companyId` |
 | Inbox | `GET /notifications/inbox/user/:userId?category=store` |
-| المستلمون | مستخدمون (`user_id`) — مثل المخازن |
+| المستلمون | مستخدمون (`user_id`) — `sta.notifications.read` على مستوى الشركة |
 | جداول storefront | `store_company_settings` منفصلة — إعدادات الإشعارات في `store_settings` |
 
 ---
@@ -84,7 +84,50 @@ POST /notifications/inbox/user/:userId/mark-all-read?companyId=
 
 ---
 
-## 6) Deep links
+## 6) الجمهور (Audience) — من يستلم فعلياً؟
+
+> **تحديث:** لم يعد الإرسال broadcast لكل `user_companies`. الجمهور = من يملك `sta.notifications.read` فعلياً على **مستوى الشركة كاملة**.
+
+### القاعدة
+
+| # | الشرط | المعنى للفرونت |
+|---|---|---|
+| **1** | صلاحية `sta.notifications.read` | من لا يملكها **لا يستلم** إشعاراً (ولا يرى inbox أصلاً) |
+
+**لا يوجد شرط (ب) نطاق فرع** — `store_orders` لا يحمل `branch_id`؛ كل أحداث المتجر company-wide مُفلترة بالصلاحية فقط.
+
+**مصادر منح الصلاحية (أيّها يكفي):**
+
+- دور **store-admin** نشط يتضمن `sta.notifications.read`
+- `company_superuser` للشركة **+** تطبيق store-admin **مفعّل** في `company_applications`
+- overlay `ALLOW` company-wide في `user_permissions`
+
+**DENY overlay** company-wide على الصلاحية يمنع الاستلام حتى مع دور أو superuser.
+
+> **`is_all_branches` غير ذي صلة** لإشعارات المتجر — لا بُعد فرع في قرار الجمهور.
+
+### `audienceKind=company`
+
+يعني **نطاق الشركة كاملة، مُفلترة بالصلاحية** — **وليس** broadcast حرفي لكل عضو `user_companies`.
+
+### المنفّذ (من نفّذ العملية)
+
+- **يستلم الإشعار أيضاً** إن كان مؤهلاً — **لا** يُستبعد.
+- `triggeredByUserId` في سجل الإشعار = للعرض/التدقيق فقط (مثل «نفّذها: أحمد») — يُمرَّر عند تغيير حالة الطلب أو الدفع من لوحة الإدارة؛ طلب guest من storefront قد يكون بدون actor.
+
+### أخطاء شائعة (ليست bugs)
+
+| الملاحظة | التفسير |
+|---|---|
+| «المستخدم في الشركة ولم يستلم» | قد لا يملك `sta.notifications.read` أو store-admin غير مفعّل للشركة |
+| «المنفّذ لم يُستبعد» | **مقصود** — يبقى في المستلمين |
+| «صفر مستلمين + warn في اللوج» | العملية التجارية **تكمل**؛ لا يوجد أحد مؤهل |
+
+**Rollout (backend):** `STORE_AUDIENCE_MODE=legacy|shadow|v2` — افتراضي `v2`.
+
+---
+
+## 7) Deep links
 
 | sourceTable | التوجيه |
 |---|---|
@@ -93,7 +136,7 @@ POST /notifications/inbox/user/:userId/mark-all-read?companyId=
 
 ---
 
-## 7) UI مقترح
+## 8) UI مقترح
 
 1. **إعدادات إشعارات** — tab أو section تحت إعدادات المتجر (ليس storefront settings)
 2. **Bell** — فلتر `category=store`
@@ -101,7 +144,7 @@ POST /notifications/inbox/user/:userId/mark-all-read?companyId=
 
 ---
 
-## 8) Checklist
+## 9) Checklist
 
 - [ ] `GET/PATCH /store/settings/company/:companyId`
 - [ ] Inbox بـ `userId` + `category=store`

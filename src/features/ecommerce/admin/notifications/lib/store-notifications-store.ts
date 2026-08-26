@@ -23,6 +23,7 @@ export interface StoreNotificationRecord {
   isRead: boolean;
   companyNameAr?: string;
   recipientUserId: string;
+  triggeredByNameAr?: string | null;
   createdAt: string;
   readAt: string | null;
 }
@@ -44,6 +45,7 @@ function mapApi(row: InboxItemResponseDto, userId: string): StoreNotificationRec
     isRead: row.isRead,
     companyNameAr: row.companyNameAr,
     recipientUserId: row.userId ?? userId,
+    triggeredByNameAr: row.triggeredByNameAr,
     createdAt: row.createdAt,
     readAt: row.readAt,
   };
@@ -120,20 +122,16 @@ export const useStoreNotificationsStore = create<StoreNotificationsState>()((set
 
   markAllReadForUser: async (userId) => {
     const companyId = getStorefrontCompanyId();
-    try {
-      await markUserInboxCategoryAllRead(userId, 'store', companyId);
-      const now = new Date().toISOString();
-      set((s) => ({
-        items: s.items.map((x) =>
-          x.recipientUserId === userId && !x.readAt
-            ? { ...x, readAt: now, isRead: true, state: 'read' }
-            : x,
-        ),
-        unreadTotal: 0,
-      }));
-    } catch {
-      // keep local state unchanged on API failure
-    }
+    await markUserInboxCategoryAllRead(userId, 'store', companyId);
+    const now = new Date().toISOString();
+    set((s) => ({
+      items: s.items.map((x) =>
+        x.recipientUserId === userId && !x.readAt
+          ? { ...x, readAt: now, isRead: true, state: 'read' }
+          : x,
+      ),
+      unreadTotal: 0,
+    }));
   },
 }));
 

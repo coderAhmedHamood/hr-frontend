@@ -2,7 +2,8 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { Bell, Check, CheckCheck, Circle, Settings2 } from 'lucide-react';
+import { Bell, Check, CheckCheck, Circle, Loader2, Settings2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/shared/utils';
@@ -30,6 +31,8 @@ export function StoreNotificationBellPopover() {
 
   const userId = useAuthStore((s) => s.user?.id ?? s.accessProfile?.userId ?? '');
   const { items, markRead, markAllReadForUser } = useStoreNotificationsStore();
+  const isLoading = useStoreNotificationsStore((s) => s.isLoading);
+  const error = useStoreNotificationsStore((s) => s.error);
   const [open, setOpen] = React.useState(false);
 
   const fetch = useStoreNotificationsStore((s) => s.fetch);
@@ -44,6 +47,14 @@ export function StoreNotificationBellPopover() {
   React.useEffect(() => {
     if (open && userId && canRead) void fetch(userId);
   }, [open, userId, canRead, fetch]);
+
+  async function handleMarkAllRead() {
+    try {
+      await markAllReadForUser(userId);
+    } catch {
+      toast.error('تعذر تحديد كل إشعارات المتجر كمقروءة.');
+    }
+  }
 
   if (!canRead || !userId) return null;
 
@@ -75,8 +86,8 @@ export function StoreNotificationBellPopover() {
               variant="ghost"
               size="sm"
               className="h-8 gap-1 px-2 text-xs"
-              disabled={inbox.every((n) => n.readAt)}
-              onClick={() => markAllReadForUser(userId)}
+              disabled={inbox.every((n) => n.readAt) || isLoading}
+              onClick={() => void handleMarkAllRead()}
             >
               <CheckCheck className="h-3.5 w-3.5" />
               قراءة الكل
@@ -85,9 +96,21 @@ export function StoreNotificationBellPopover() {
         </div>
 
         <div className="max-h-[min(60vh,380px)] overflow-y-auto">
-          {inbox.length === 0 ? (
-            <div className="py-10 text-center text-sm text-muted-foreground">
-              لا توجد إشعارات متجر في صندوقك
+          {isLoading && inbox.length === 0 ? (
+            <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              جاري التحميل…
+            </div>
+          ) : error ? (
+            <div className="px-4 py-10 text-center text-sm text-destructive">{error.message}</div>
+          ) : inbox.length === 0 ? (
+            <div className="space-y-2 px-4 py-10 text-center text-sm text-muted-foreground">
+              <p>لا توجد إشعارات متجر في صندوقك</p>
+              <p className="text-[11px] leading-relaxed">
+                الإشعارات تصل فقط لمن يملك صلاحية{' '}
+                <span className="font-mono text-[10px]">sta.notifications.read</span> على مستوى
+                الشركة — وليس لكل مستخدمي الشركة.
+              </p>
             </div>
           ) : (
             <ul className="divide-y divide-border/60">
@@ -137,6 +160,11 @@ export function StoreNotificationBellPopover() {
                       {n.bodyAr ? (
                         <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
                           {n.bodyAr}
+                        </p>
+                      ) : null}
+                      {n.triggeredByNameAr ? (
+                        <p className="mt-0.5 text-[10px] text-muted-foreground">
+                          نفّذها: {n.triggeredByNameAr}
                         </p>
                       ) : null}
                       <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground">

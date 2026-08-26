@@ -11,9 +11,10 @@
 | هل الإشعارات عامة على ERP؟ | **الجداول مشتركة** (`notifications`, `notification_recipients`) |
 | أين الـ API المشترك؟ | **`CoreNotificationsModule`** — inbox، إرسال، admin |
 | HR | inbox بالـ **`employeeId`** + خطابات PDF + acknowledge payslip |
-| Inventory | inbox بالـ **`userId`** + إعدادات `inventory_settings` |
-| هل HR → Inventory أو العكس؟ | **لا import بينهما** — كل تطبيق يسجّل policy/audience خاص به |
-| هل المخازن تعمل الآن؟ | **نعم** — dispatch + settings + inbox user |
+| Inventory | inbox بالـ **`userId`** + `inventory_settings` |
+| Store | inbox بالـ **`userId`** + `store_settings` |
+| Contacts | inbox بالـ **`userId`** + `contacts_settings` |
+| استقلال التطبيقات | **لا import** بين HR / Inventory / Store / Contacts |
 
 ---
 
@@ -24,6 +25,8 @@ flowchart TB
   subgraph apps [Application Modules — مستقلة]
     HR[hr-notifications]
     INV[inventory/notifications]
+    STO[store/notifications]
+    CNT[contacts/notifications]
   end
 
   subgraph core [Core — مشترك]
@@ -35,6 +38,8 @@ flowchart TB
   subgraph settings [Settings per App]
     HRS[hr_settings]
     INVS[inventory_settings]
+    STOS[store_settings]
+    CNTS[contacts_settings]
   end
 
   subgraph storage [Shared DB]
@@ -44,8 +49,12 @@ flowchart TB
 
   HR -->|registrar| REG
   INV -->|registrar| REG
+  STO -->|registrar| REG
+  CNT -->|registrar| REG
   HR --> NS
   INV --> NS
+  STO --> NS
+  CNT --> NS
   NS --> REG
   REG --> HRS
   REG --> INVS
@@ -61,6 +70,8 @@ flowchart TB
 | **Core** | `src/modules/core-notifications/` | entities, service, controller, registries |
 | **HR** | `src/modules/hr-notifications/` | dispatch, policy, audience (employees), letter PDF |
 | **Inventory** | `src/modules/inventory/notifications/` | dispatch, policy, audience (users) |
+| **Store** | `src/modules/store/notifications/` | dispatch, policy, audience (users) |
+| **Contacts** | `src/modules/contacts/notifications/` | dispatch, policy, audience (users) |
 
 ---
 
@@ -106,7 +117,8 @@ flowchart TB
 | App | Policy | Audience |
 |---|---|---|
 | HR | `HrNotificationPolicyResolver` | موظفون (`employeeId`) |
-| Inventory | `InventoryNotificationPolicyResolver` | مستخدمون (`userId`) |
+| Inventory | `InventoryNotificationPolicyResolver` | مستخدمون (`userId`) — **scoped:** `inv.notifications.read` + نطاق فرع (انظر [inventory doc](./inventory-notifications-frontend.md#6-الجمهور-audience--من-يستلم-فعليا)) |
+| Store | `StoreNotificationPolicyResolver` | مستخدمون (`userId`) — **scoped:** `sta.notifications.read` company-wide (انظر [store doc](./store-notifications-frontend.md#6-الجمهور-audience--من-يستلم-فعليا)) |
 
 إذا `notificationsEnabled = false` → `return null` (صامتًا).
 
@@ -154,6 +166,8 @@ flowchart TB
 | POST | `/notifications/inbox/user/:userId/recipients/:recipientId/read` | `inv.notifications.update` |
 
 **فلترة مخازن:** `?category=inventory&companyId=...`
+
+> **جمهور المخازن (v2):** ليس broadcast — المستلم = `inv.notifications.read` + نطاق الفرع. المنفّذ **لا** يُستبعد. التفاصيل: [`inventory-notifications-frontend.md` §6](./inventory-notifications-frontend.md#6-الجمهور-audience--من-يستلم-فعليا).
 
 > التفاصيل الكاملة للمخازن: [`docs/inventory-notifications-frontend.md`](./inventory-notifications-frontend.md)
 
@@ -241,11 +255,18 @@ enum NotificationCategory {
 - [ ] Deep link → `sourceTable` + `sourceId`
 - [ ] **لا** تستخدم employee inbox لتطبيق مخازن فقط
 
-### ERP Shell
+### ERP Shell — الجرس الموحّد (✅ مُنفَّذ)
 
-- [ ] Bell واحد — tabs حسب التطبيقات المثبتة
-- [ ] HR tab: `employeeId` | Inventory tab: `auth.userId`
-- [ ] إخفاء toggles/تبويبات التطبيقات غير المفعّلة
+| البند | التفاصيل |
+|---|---|
+| المكوّن | `UnifiedNotificationBellPopover` — `src/features/notifications/components/` |
+| الدمج | `src/components/layouts/topbar.tsx` |
+| قراءة الكل | scoped للتبويب النشط |
+| Legacy | `*NotificationBellPopover` القديمة باقية — غير مستخدمة في topbar |
+
+- [x] Bell واحد — tabs حسب التطبيقات المثبتة + الصلاحيات
+- [x] HR tab: `employeeId` | Inventory/Store/Contacts: `userId`
+- [x] إخفاء تبويبات بدون صلاحية أو موديول غير مفعّل
 
 ---
 
@@ -285,10 +306,26 @@ enum NotificationCategory {
 
 ---
 
-## 14) المتجر (Store) — لاحقًا
+## 14) المتجر (Store) — مفعّل
 
-نفس النمط: `store_settings` + `StoreNotificationDispatchService` + registrar في Core — **بدون** الاعتماد على HR أو Inventory modules.
+| Method | Endpoint | Permission |
+|---|---|---|
+| GET | `/store/settings/company/:companyId` | `sta.settings.read` |
+| PATCH | `/store/settings/company/:companyId` | `sta.settings.update` |
+
+Inbox: `category=store` — راجع [`docs/store-notifications-frontend.md`](./store-notifications-frontend.md)
 
 ---
 
-*آخر تحديث: أغسطس 2026 — Core + HR + Inventory notifications مفعّلة ومستقلة.*
+## 15) جهات الاتصال (Contacts) — مفعّل
+
+| Method | Endpoint | Permission |
+|---|---|---|
+| GET | `/contacts/settings/company/:companyId` | `cnt.settings.read` |
+| PATCH | `/contacts/settings/company/:companyId` | `cnt.settings.update` |
+
+Inbox: `category=contacts` — راجع [`docs/contacts-notifications-frontend.md`](./contacts-notifications-frontend.md)
+
+---
+
+*آخر تحديث: أغسطس 2026 — Core + HR + Inventory + Store + Contacts notifications مفعّلة ومستقلة.*
