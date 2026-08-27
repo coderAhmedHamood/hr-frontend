@@ -5,6 +5,7 @@ import { sanitizePdfText } from '@/components/pdf/lib/sanitize-pdf-text';
 import { RoseTradingLetterheadPrint } from '@/components/pdf/print/rose-trading-letterhead-print';
 import { getPdfLogoSrc } from '@/components/pdf/lib/pdf-logo-url';
 import { RosePdfWatermark } from '@/components/pdf/rose-trading/rose-pdf-watermark';
+import { RoseCompanyStamp } from '@/components/pdf/rose-trading/rose-company-stamp';
 import { PDF_PRINT_C } from '@/features/hr/payroll/reports/components/pdf-print-shared';
 
 export type DisciplineCircularPrintHtmlProps = {
@@ -106,6 +107,11 @@ export const DisciplineCircularPrintHtml = React.forwardRef<HTMLDivElement, Disc
           </div>
 
           <div style={{ flex: 1, minHeight: 10 }} aria-hidden />
+
+          {/* Establishment stamp — «ختم المنشأة». */}
+          <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: 20 }}>
+            <RoseCompanyStamp width={130} compact />
+          </div>
 
           <div style={{ marginTop: 18, borderTop: `0.75px solid ${PDF_PRINT_C.border}`, paddingTop: 8 }}>
             <div style={{ fontSize: 9, textAlign: 'center', color: PDF_PRINT_C.muted }}>

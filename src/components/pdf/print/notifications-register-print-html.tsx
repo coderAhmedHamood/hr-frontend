@@ -5,6 +5,7 @@ import { sanitizePdfText } from '@/components/pdf/lib/sanitize-pdf-text';
 import { RoseTradingLetterheadPrint } from '@/components/pdf/print/rose-trading-letterhead-print';
 import { getPdfLogoSrc } from '@/components/pdf/lib/pdf-logo-url';
 import { RosePdfWatermark } from '@/components/pdf/rose-trading/rose-pdf-watermark';
+import { RoseCompanyStamp } from '@/components/pdf/rose-trading/rose-company-stamp';
 
 export type NotificationPrintRow = {
   dateYmd: string;
@@ -230,6 +231,13 @@ export const NotificationsRegisterPrintHtml = React.forwardRef<
               </div>
             ))
           )}
+
+          {/* Establishment stamp — final page only, so a multi-page register is stamped once. */}
+          {pi === pages.length - 1 ? (
+            <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: 20 }}>
+              <RoseCompanyStamp width={130} compact />
+            </div>
+          ) : null}
 
           <div style={{ marginTop: 16, fontSize: 8, color: '#64748b', textAlign: 'center' }}>
             صفحة {pi + 1} / {pages.length}

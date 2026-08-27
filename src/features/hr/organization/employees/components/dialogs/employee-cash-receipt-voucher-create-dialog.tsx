@@ -172,7 +172,7 @@ export function EmployeeCashReceiptVoucherCreateDialog({
                 (فرع <span className="font-medium text-foreground">{employee.branchNameAr}</span>)
               </>
             ) : null}
-            . تواقيع الاعتماد تُترك فارغة للتوقيع اليدوي.
+            . يضاف ختم المنشأة تلقائياً أسفل توقيع الموظف.
           </DialogDescription>
         </DialogHeader>
 

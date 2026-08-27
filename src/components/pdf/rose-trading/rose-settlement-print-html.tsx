@@ -4,6 +4,7 @@ import * as React from 'react';
 import { RoseTradingLetterheadPrint } from '@/components/pdf/print/rose-trading-letterhead-print';
 import { getPdfLogoSrc } from '@/components/pdf/lib/pdf-logo-url';
 import { RosePdfWatermark } from '@/components/pdf/rose-trading/rose-pdf-watermark';
+import { RoseCompanyStamp } from '@/components/pdf/rose-trading/rose-company-stamp';
 import { sanitizePdfText } from '@/components/pdf/lib/sanitize-pdf-text';
 import { formatGregorianDateAr } from '@/features/hr/organization/employees/lib/rose-document-templates/format-document-dates';
 
@@ -221,6 +222,9 @@ export const RoseSettlementPrintHtml = React.forwardRef<HTMLDivElement, RoseSett
               )}
             </div>
           ))}
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: 8 }}>
+          <RoseCompanyStamp width={150} />
         </div>
         </div>
       </div>

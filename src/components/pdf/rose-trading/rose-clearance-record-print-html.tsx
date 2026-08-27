@@ -5,6 +5,7 @@ import { sanitizePdfText } from '@/components/pdf/lib/sanitize-pdf-text';
 import { RoseTradingLetterheadPrint } from '@/components/pdf/print/rose-trading-letterhead-print';
 import { getPdfLogoSrc } from '@/components/pdf/lib/pdf-logo-url';
 import { RosePdfWatermark } from '@/components/pdf/rose-trading/rose-pdf-watermark';
+import { RoseCompanyStamp } from '@/components/pdf/rose-trading/rose-company-stamp';
 import {
   RosePrintPairedTwoColumnRow,
   type RoseFormPdfEmployee,
@@ -229,7 +230,7 @@ export const RoseClearanceRecordPrintHtml = React.forwardRef<
           }}
         >
           <div style={{ width: '42%', borderTop: `0.5px solid ${C.muted}`, paddingTop: 6 }}>
-            <div style={{ fontSize: 9, color: C.muted, textAlign: 'center' }}>ختم وتوقيع الجهة</div>
+            <RoseCompanyStamp width={120} compact />
           </div>
           <div style={{ width: '42%', borderTop: `0.5px solid ${C.muted}`, paddingTop: 6 }}>
             <div style={{ fontSize: 9, color: C.muted, textAlign: 'center' }}>توقيع الموظف</div>

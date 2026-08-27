@@ -5,6 +5,7 @@ import { sanitizePdfText } from '@/components/pdf/lib/sanitize-pdf-text';
 import { RoseTradingLetterheadPrint } from '@/components/pdf/print/rose-trading-letterhead-print';
 import { getPdfLogoSrc } from '@/components/pdf/lib/pdf-logo-url';
 import { RosePdfWatermark } from '@/components/pdf/rose-trading/rose-pdf-watermark';
+import { RoseCompanyStamp } from '@/components/pdf/rose-trading/rose-company-stamp';
 import {
   buildEmploymentContractPrintModel,
   type EmploymentContractPrintModelInput,
@@ -164,9 +165,11 @@ function SignatureFooter({ employeeRoleNounAr }: { employeeRoleNounAr: string })
     >
       <div style={{ flex: 1, textAlign: 'center', fontSize: 13, fontWeight: 700 }}>
         الطرف الأول /صاحب العمل
+        <RoseCompanyStamp width={130} compact />
       </div>
       <div style={{ flex: 1, textAlign: 'center', fontSize: 13, fontWeight: 700 }}>
         الطرف الثاني / {sanitizePdfText(employeeRoleNounAr)}
+        <div style={{ width: 160, height: 1, backgroundColor: '#000', margin: '30px auto 0' }} />
       </div>
     </div>
   );
@@ -406,6 +409,7 @@ export const EmploymentContractPrintHtml = React.forwardRef<HTMLDivElement, Empl
               >
                 <div style={{ flex: 1, textAlign: 'center', fontSize: 13, fontWeight: 700 }}>
                   الطرف الأول (صاحب العمل)
+                  <RoseCompanyStamp width={130} compact />
                 </div>
                 <div style={{ flex: 1, textAlign: 'center', fontSize: 13, fontWeight: 700 }}>
                   الطرف الثاني ({sanitizePdfText(model.employeeRoleNounAr)})

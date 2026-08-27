@@ -4,6 +4,7 @@ import * as React from 'react';
 import { RoseTradingLetterheadPrint } from '@/components/pdf/print/rose-trading-letterhead-print';
 import { getPdfLogoSrc } from '@/components/pdf/lib/pdf-logo-url';
 import { RosePdfWatermark } from '@/components/pdf/rose-trading/rose-pdf-watermark';
+import { RoseCompanyStamp } from '@/components/pdf/rose-trading/rose-company-stamp';
 import { sanitizePdfText } from '@/components/pdf/lib/sanitize-pdf-text';
 import { formatGregorianDateAr } from '@/features/hr/organization/employees/lib/rose-document-templates/format-document-dates';
 
@@ -170,7 +171,7 @@ export const RoseExperiencePrintHtml = React.forwardRef<HTMLDivElement, RoseExpe
           نتمنى له الأفضل في ما سيأتي في حياته المهنية،،،
         </p>
 
-        {/* Signature — physical left */}
+        {/* Company stamp — physical left */}
         <div
           style={{
             alignSelf: 'flex-end',
@@ -180,8 +181,7 @@ export const RoseExperiencePrintHtml = React.forwardRef<HTMLDivElement, RoseExpe
             minWidth: 160,
           }}
         >
-          <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 36, ...font }}>المدير العام</div>
-          <div style={{ borderBottom: '1px dotted #333', width: '100%', minHeight: 1 }} />
+          <RoseCompanyStamp width={160} />
         </div>
         </div>
       </div>

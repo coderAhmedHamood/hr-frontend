@@ -5,6 +5,7 @@ import { RoseTradingLetterheadPrint } from '@/components/pdf/print/rose-trading-
 import { getPdfLogoSrc } from '@/components/pdf/lib/pdf-logo-url';
 import { sanitizePdfText } from '@/components/pdf/lib/sanitize-pdf-text';
 import { RosePdfWatermark } from '@/components/pdf/rose-trading/rose-pdf-watermark';
+import { RoseCompanyStamp } from '@/components/pdf/rose-trading/rose-company-stamp';
 
 export type RoseResignationPrintFields = {
   applicantName: string;
@@ -285,6 +286,9 @@ export const RoseResignationPrintHtml = React.forwardRef<HTMLDivElement, RoseRes
             />
             <FooterRow label="التوقيع" blank />
             <FooterRow label="التاريخ" value={fields?.submissionDate} blank={blank} />
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: 24 }}>
+            <RoseCompanyStamp width={150} />
           </div>
         </div>
       </div>

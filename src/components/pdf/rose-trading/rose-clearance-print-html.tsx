@@ -5,6 +5,7 @@ import { RoseTradingLetterheadPrint } from '@/components/pdf/print/rose-trading-
 import { getPdfLogoSrc } from '@/components/pdf/lib/pdf-logo-url';
 import { sanitizePdfText } from '@/components/pdf/lib/sanitize-pdf-text';
 import { RosePdfWatermark } from '@/components/pdf/rose-trading/rose-pdf-watermark';
+import { RoseCompanyStamp } from '@/components/pdf/rose-trading/rose-company-stamp';
 
 export type RoseClearancePrintFields = {
   employeeName: string;
@@ -170,6 +171,9 @@ export const RoseClearancePrintHtml = React.forwardRef<HTMLDivElement, RoseClear
               <span style={{ fontWeight: 700 }}>التوقيع</span>
               <span> : </span>
             </div>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: 24 }}>
+            <RoseCompanyStamp width={150} />
           </div>
         </div>
       </div>

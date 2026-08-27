@@ -4,6 +4,7 @@ import * as React from 'react';
 import { RoseTradingLetterheadPrint } from '@/components/pdf/print/rose-trading-letterhead-print';
 import { getPdfLogoSrc } from '@/components/pdf/lib/pdf-logo-url';
 import { RosePdfWatermark } from '@/components/pdf/rose-trading/rose-pdf-watermark';
+import { RoseCompanyStamp } from '@/components/pdf/rose-trading/rose-company-stamp';
 import { sanitizePdfText } from '@/components/pdf/lib/sanitize-pdf-text';
 import {
   formatGregorianDateAr,
@@ -270,6 +271,9 @@ export const RoseMobileCircularPrintHtml = React.forwardRef<HTMLDivElement, Rose
             <div style={{ fontWeight: 700, marginBottom: 28 }}>التوقيع</div>
             <div style={{ borderBottom: '1px dotted #333', width: '100%' }} />
           </div>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: 20 }}>
+          <RoseCompanyStamp width={130} />
         </div>
         </div>
       </div>

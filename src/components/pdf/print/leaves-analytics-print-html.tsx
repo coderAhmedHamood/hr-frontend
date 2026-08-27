@@ -6,6 +6,7 @@ import { formatDisplayDate } from '@/shared/utils';
 import { RoseTradingLetterheadPrint } from '@/components/pdf/print/rose-trading-letterhead-print';
 import { getPdfLogoSrc } from '@/components/pdf/lib/pdf-logo-url';
 import { RosePdfWatermark } from '@/components/pdf/rose-trading/rose-pdf-watermark';
+import { RoseCompanyStamp } from '@/components/pdf/rose-trading/rose-company-stamp';
 
 export type LeavesAnalyticsLeaveRowPrint = {
   employeeNameAr: string;
@@ -217,6 +218,11 @@ export const LeavesAnalyticsPrintHtml = React.forwardRef<HTMLDivElement, LeavesA
                 </div>
               ))
             )}
+          </div>
+
+          {/* Establishment stamp — «ختم المنشأة». */}
+          <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: 20 }}>
+            <RoseCompanyStamp width={130} compact />
           </div>
 
           <footer style={{ marginTop: 18, fontSize: 9, color: '#64748b', textAlign: 'center' }}>

@@ -4,6 +4,7 @@ import * as React from 'react';
 import { RoseTradingLetterheadPrint } from '@/components/pdf/print/rose-trading-letterhead-print';
 import { getPdfLogoSrc } from '@/components/pdf/lib/pdf-logo-url';
 import { RosePdfWatermark } from '@/components/pdf/rose-trading/rose-pdf-watermark';
+import { RoseCompanyStamp } from '@/components/pdf/rose-trading/rose-company-stamp';
 import { formatDisplayDate } from '@/shared/utils';
 
 export type ClearancePrintProps = {
@@ -219,6 +220,9 @@ export const ClearancePrintHtml = React.forwardRef<HTMLDivElement, ClearancePrin
               </div>
             </div>
           ))}
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: 16 }}>
+          <RoseCompanyStamp width={110} compact />
         </div>
 
         <div

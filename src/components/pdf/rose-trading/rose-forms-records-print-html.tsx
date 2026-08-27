@@ -5,6 +5,7 @@ import { sanitizePdfText } from '@/components/pdf/lib/sanitize-pdf-text';
 import { RoseTradingLetterheadPrint } from '@/components/pdf/print/rose-trading-letterhead-print';
 import { getPdfLogoSrc } from '@/components/pdf/lib/pdf-logo-url';
 import { RosePdfWatermark } from '@/components/pdf/rose-trading/rose-pdf-watermark';
+import { RoseCompanyStamp } from '@/components/pdf/rose-trading/rose-company-stamp';
 import {
   ROSE_TRADING_COMPANY_AR_DEFAULT,
   type RoseExperienceRecord,
@@ -201,9 +202,11 @@ function FooterPage() {
 function SignatureRow({
   endLabel,
   startLabel,
+  startStamp,
 }: {
   endLabel: string;
   startLabel: string;
+  startStamp?: boolean;
 }) {
   return (
     <div
@@ -222,7 +225,11 @@ function SignatureRow({
         <div style={{ fontSize: 9, color: C.muted, textAlign: 'center' }}>{sanitizePdfText(endLabel)}</div>
       </div>
       <div style={{ width: '42%', borderTop: `0.5px solid ${C.muted}`, paddingTop: 6 }}>
-        <div style={{ fontSize: 9, color: C.muted, textAlign: 'center' }}>{sanitizePdfText(startLabel)}</div>
+        {startStamp ? (
+          <RoseCompanyStamp width={120} compact />
+        ) : (
+          <div style={{ fontSize: 9, color: C.muted, textAlign: 'center' }}>{sanitizePdfText(startLabel)}</div>
+        )}
       </div>
     </div>
   );
@@ -377,12 +384,19 @@ export const RoseResignationRecordPrintHtml = React.forwardRef<HTMLDivElement, R
               .....................................................................
             </div>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'row' }}>
+          <div style={{ display: 'flex', flexDirection: 'row', borderBottom: '1px solid #111' }}>
             <div style={{ width: '35%', borderInlineEnd: '1px solid #111', padding: '6px 8px', fontWeight: 700, textAlign: 'right', fontSize: 10.5 }}>
               التاريخ
             </div>
             <div style={{ flex: 1, padding: '6px 8px', textAlign: 'right', fontSize: 10.5 }}>
               <span dir="ltr">{sanitizePdfText(row.documentDate)}</span>
+            </div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'row' }}>
+            <div style={{ width: '35%', borderInlineEnd: '1px solid #111', padding: '6px 8px', fontWeight: 700, textAlign: 'right', fontSize: 10.5 }}>
+            </div>
+            <div style={{ flex: 1, padding: '6px 8px', textAlign: 'right', fontSize: 10.5 }}>
+              <RoseCompanyStamp width={130} labelAr={null} align="start" />
             </div>
           </div>
         </div>
@@ -456,7 +470,7 @@ export const RoseSettlementRecordPrintHtml = React.forwardRef<HTMLDivElement, Ro
           {sanitizePdfText(declaration)}
         </p>
 
-        <SignatureRow endLabel="توقيع الموظف" startLabel="توقيع مسؤول الموارد البشرية" />
+        <SignatureRow endLabel="توقيع الموظف" startLabel="" startStamp />
         <FooterPage />
         </div>
       </div>
@@ -550,17 +564,12 @@ export const RoseExperienceRecordPrintHtml = React.forwardRef<HTMLDivElement, Ro
 
         <div style={{ flex: 1, minHeight: 10 }} aria-hidden />
 
-        {/* Manager signature */}
+        {/* Company stamp */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: 32 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, textAlign: 'center' }}>المدير العام</div>
-          <div style={{ width: 220, height: 1, backgroundColor: '#000', marginTop: 8 }} />
-          <div style={{ marginTop: 4, fontSize: 10, color: '#64748b', textAlign: 'center' }}>
-            ............................................
-          </div>
+          <RoseCompanyStamp width={160} compact />
         </div>
         </div>
       </div>
     );
   },
 );
-

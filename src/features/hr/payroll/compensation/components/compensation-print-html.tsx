@@ -5,6 +5,7 @@ import { sanitizePdfText } from '@/components/pdf/lib/sanitize-pdf-text';
 import { RoseTradingLetterheadPrint } from '@/components/pdf/print/rose-trading-letterhead-print';
 import { getPdfLogoSrc } from '@/components/pdf/lib/pdf-logo-url';
 import { RosePdfWatermark } from '@/components/pdf/rose-trading/rose-pdf-watermark';
+import { RoseCompanyStamp } from '@/components/pdf/rose-trading/rose-company-stamp';
 import type { CompensationExportTable } from '@/features/hr/payroll/lib/compensation-period-export';
 
 export type CompensationPrintHtmlProps = {
@@ -299,6 +300,11 @@ export const CompensationPrintHtml = React.forwardRef<HTMLDivElement, Compensati
             </tr>
           </tbody>
         </table>
+
+        {/* Establishment stamp — «ختم المنشأة». */}
+        <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: 20 }}>
+          <RoseCompanyStamp width={130} compact />
+        </div>
         </div>
       </div>
     );

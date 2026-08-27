@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { sanitizePdfText } from '@/components/pdf/lib/sanitize-pdf-text';
+import { RoseCompanyStamp } from '@/components/pdf/rose-trading/rose-company-stamp';
 import {
   LOCALE_META,
   pickLocalized,
@@ -302,6 +303,9 @@ export function RoseDocumentSignatureFooter({
           </div>
         </div>
       ))}
+      <div style={{ display: 'flex', justifyContent: 'flex-start', padding: '12px 8px' }}>
+        <RoseCompanyStamp width={130} compact />
+      </div>
     </div>
   );
 }
@@ -407,39 +411,42 @@ export function RoseDocumentInlineSignatureFooter({
       style={{
         paddingTop: 20,
         display: 'flex',
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        gap: 12,
+        flexDirection: 'column',
       }}
     >
-      {cols.map((col) => (
-        <div key={col.label} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <span style={{ fontSize: 9, marginBottom: 28, textAlign: 'center' }}>{sanitizePdfText(col.label)}</span>
-          {col.value ? (
-            <span
-              style={{
-                marginBottom: 8,
-                fontSize: col.lat ? 9 : 10,
-                color: col.lat ? '#444' : '#222',
-                textAlign: 'center',
-                ...(col.lat ? { direction: 'ltr' as const } : {}),
-              }}
-            >
-              {sanitizePdfText(col.value)}
-            </span>
-          ) : (
-            <div style={{ marginBottom: 8, minHeight: 9 }} />
-          )}
-          <div style={{ width: '100%', maxWidth: 140, height: 1, backgroundColor: '#000' }} />
-        </div>
-      ))}
+      <div style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', gap: 12 }}>
+        {cols.map((col) => (
+          <div key={col.label} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <span style={{ fontSize: 9, marginBottom: 28, textAlign: 'center' }}>{sanitizePdfText(col.label)}</span>
+            {col.value ? (
+              <span
+                style={{
+                  marginBottom: 8,
+                  fontSize: col.lat ? 9 : 10,
+                  color: col.lat ? '#444' : '#222',
+                  textAlign: 'center',
+                  ...(col.lat ? { direction: 'ltr' as const } : {}),
+                }}
+              >
+                {sanitizePdfText(col.value)}
+              </span>
+            ) : (
+              <div style={{ marginBottom: 8, minHeight: 9 }} />
+            )}
+            <div style={{ width: '100%', maxWidth: 140, height: 1, backgroundColor: '#000' }} />
+          </div>
+        ))}
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: 16 }}>
+        <RoseCompanyStamp width={130} compact />
+      </div>
     </div>
   );
 }
 
 export function RoseDocumentManagerSignature({
   locale,
-  title,
+  title: _title,
 }: {
   locale: DocumentLocale;
   title: string;
@@ -451,11 +458,7 @@ export function RoseDocumentManagerSignature({
       lang={meta.lang}
       style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: 32 }}
     >
-      <div style={{ fontSize: 12, fontWeight: 700, textAlign: 'center' }}>{sanitizePdfText(title)}</div>
-      <div style={{ width: 220, height: 1, backgroundColor: '#000', marginTop: 8 }} />
-      <div style={{ marginTop: 4, fontSize: 10, color: '#64748b', textAlign: 'center' }}>
-        ............................................
-      </div>
+      <RoseCompanyStamp width={160} />
     </div>
   );
 }

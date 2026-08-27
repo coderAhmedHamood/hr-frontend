@@ -4,6 +4,7 @@ import * as React from 'react';
 import { RoseTradingLetterheadPrint } from '@/components/pdf/print/rose-trading-letterhead-print';
 import { getPdfLogoSrc } from '@/components/pdf/lib/pdf-logo-url';
 import { RosePdfWatermark } from '@/components/pdf/rose-trading/rose-pdf-watermark';
+import { RoseCompanyStamp } from '@/components/pdf/rose-trading/rose-company-stamp';
 import { sanitizePdfText } from '@/components/pdf/lib/sanitize-pdf-text';
 import type { CashReceiptVoucherPurpose } from '@/features/hr/organization/employees/lib/api/cash-receipt-vouchers';
 
@@ -362,40 +363,8 @@ export const CashReceiptPrintHtml = React.forwardRef<HTMLDivElement, CashReceipt
             <DottedField label="التاريخ :" value={fields?.receiptDate} blank={blank} />
           </div>
 
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(4, 1fr)',
-              gap: 12,
-              marginTop: 40,
-            }}
-          >
-            {(
-              [
-                ['توقيع مسئول الفرع', fields?.branchManagerSignatureName],
-                ['توقيع ادارة شؤون الموظفين', fields?.hrAffairsSignatureName],
-                ['توقيع المشرف العام', fields?.generalSupervisorSignatureName],
-                ['توقيع المدير المالي', fields?.financialManagerSignatureName],
-              ] as const
-            ).map(([label, name]) => (
-              <div key={label} style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 28, ...font }}>{label}</div>
-                {blank || !name?.trim() ? (
-                  <div
-                    style={{
-                      borderBottom: '1px dotted #333',
-                      width: '85%',
-                      margin: '0 auto',
-                      minHeight: 1,
-                    }}
-                  />
-                ) : (
-                  <div style={{ fontSize: 12, fontWeight: 600, ...font }}>
-                    {sanitizePdfText(name.trim())}
-                  </div>
-                )}
-              </div>
-            ))}
+          <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: 36 }}>
+            <RoseCompanyStamp width={150} />
           </div>
         </div>
       </div>
