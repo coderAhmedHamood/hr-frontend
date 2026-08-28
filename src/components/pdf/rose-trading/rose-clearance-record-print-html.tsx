@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { PDF_PRINT_FONT_FAMILY } from '@/components/pdf/lib/pdf-print-font';
 import { sanitizePdfText } from '@/components/pdf/lib/sanitize-pdf-text';
 import { RoseTradingLetterheadPrint } from '@/components/pdf/print/rose-trading-letterhead-print';
 import { getPdfLogoSrc } from '@/components/pdf/lib/pdf-logo-url';
@@ -33,7 +34,7 @@ function CellValue({ value }: { value: string }) {
         color: '#334155',
         lineHeight: 1.4,
         textAlign: 'right',
-        fontFamily: 'Arial, Helvetica, sans-serif',
+        fontFamily: PDF_PRINT_FONT_FAMILY,
         wordBreak: 'break-word',
       }}
     >
@@ -52,7 +53,7 @@ function TableRow({ label, value }: { label: string; value: string; last?: boole
         alignItems: 'stretch',
         borderBottom: `0.5px solid ${C.border}`,
         padding: '5px 6px',
-        fontFamily: 'Arial, Helvetica, sans-serif',
+        fontFamily: PDF_PRINT_FONT_FAMILY,
       }}
     >
       <div
@@ -125,7 +126,7 @@ export const RoseClearanceRecordPrintHtml = React.forwardRef<
           display: 'flex',
           flexDirection: 'column',
           minHeight: '297mm',
-          fontFamily: 'Arial, Helvetica, sans-serif',
+          fontFamily: PDF_PRINT_FONT_FAMILY,
           overflow: 'hidden',
         }}
       >
@@ -140,7 +141,7 @@ export const RoseClearanceRecordPrintHtml = React.forwardRef<
             marginBottom: 14,
             textAlign: 'center',
             color: C.primary,
-            fontFamily: 'Arial, Helvetica, sans-serif',
+            fontFamily: PDF_PRINT_FONT_FAMILY,
           }}
         >
           نموذج إخلاء طرف
@@ -185,7 +186,7 @@ export const RoseClearanceRecordPrintHtml = React.forwardRef<
               display: 'flex',
               flexDirection: 'row',
               padding: '5px 6px',
-              fontFamily: 'Arial, Helvetica, sans-serif',
+              fontFamily: PDF_PRINT_FONT_FAMILY,
             }}
           >
             <div
@@ -212,7 +213,7 @@ export const RoseClearanceRecordPrintHtml = React.forwardRef<
             lineHeight: 1.55,
             textAlign: 'right',
             color: '#1e293b',
-            fontFamily: 'Arial, Helvetica, sans-serif',
+            fontFamily: PDF_PRINT_FONT_FAMILY,
           }}
         >
           {closing}
@@ -247,7 +248,7 @@ export const RoseClearanceRecordPrintHtml = React.forwardRef<
             color: C.muted,
             textAlign: 'center',
             borderTop: `1px solid ${C.border}`,
-            fontFamily: 'Arial, Helvetica, sans-serif',
+            fontFamily: PDF_PRINT_FONT_FAMILY,
           }}
         >
           <span dir="rtl">صفحة </span>

@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { PDF_PRINT_FONT_FAMILY } from '@/components/pdf/lib/pdf-print-font';
 import { sanitizePdfText } from '@/components/pdf/lib/sanitize-pdf-text';
 import { RoseTradingLetterheadPrint } from '@/components/pdf/print/rose-trading-letterhead-print';
 import { getPdfLogoSrc } from '@/components/pdf/lib/pdf-logo-url';
@@ -15,7 +16,7 @@ const PAGE_STYLE: React.CSSProperties = {
   boxSizing: 'border-box',
   backgroundColor: '#ffffff',
   padding: '28px 24px 44px',
-  fontFamily: 'Arial, Helvetica, sans-serif',
+  fontFamily: PDF_PRINT_FONT_FAMILY,
   color: '#111',
   minHeight: '297mm',
   display: 'flex',
@@ -281,7 +282,7 @@ export const RoseFinalSettlementFormPrintHtml = React.forwardRef<HTMLDivElement,
             marginTop: 24,
             border: '1px solid #111',
             fontSize: 11,
-            fontFamily: 'Arial, Helvetica, sans-serif',
+            fontFamily: PDF_PRINT_FONT_FAMILY,
           }}
         >
           <div

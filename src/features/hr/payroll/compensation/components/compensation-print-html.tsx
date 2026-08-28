@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { PDF_PRINT_FONT_FAMILY } from '@/components/pdf/lib/pdf-print-font';
 import { sanitizePdfText } from '@/components/pdf/lib/sanitize-pdf-text';
 import { RoseTradingLetterheadPrint } from '@/components/pdf/print/rose-trading-letterhead-print';
 import { getPdfLogoSrc } from '@/components/pdf/lib/pdf-logo-url';
@@ -156,7 +157,7 @@ export const CompensationPrintHtml = React.forwardRef<HTMLDivElement, Compensati
           boxSizing: 'border-box',
           backgroundColor: '#ffffff',
           padding: '20px 16px 32px',
-          fontFamily: 'Arial, Helvetica, sans-serif',
+          fontFamily: PDF_PRINT_FONT_FAMILY,
           color: '#111',
           minHeight: '190mm',
           display: 'flex',
@@ -189,7 +190,7 @@ export const CompensationPrintHtml = React.forwardRef<HTMLDivElement, Compensati
             width: '100%',
             borderCollapse: 'collapse',
             tableLayout: 'fixed',
-            fontFamily: 'Arial, Helvetica, sans-serif',
+            fontFamily: PDF_PRINT_FONT_FAMILY,
           }}
         >
           <colgroup>

@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { PDF_PRINT_FONT_FAMILY } from '@/components/pdf/lib/pdf-print-font';
 import { RoseTradingLetterheadPrint } from '@/components/pdf/print/rose-trading-letterhead-print';
 import { getPdfLogoSrc } from '@/components/pdf/lib/pdf-logo-url';
 import { RosePdfWatermark } from '@/components/pdf/rose-trading/rose-pdf-watermark';
@@ -26,7 +27,7 @@ export type RoseExperiencePrintHtmlProps = {
   fields?: RoseExperiencePrintFields | null;
 };
 
-const font: React.CSSProperties = { fontFamily: 'Arial, Helvetica, sans-serif' };
+const font: React.CSSProperties = { fontFamily: PDF_PRINT_FONT_FAMILY };
 const DOTS = '..................................................';
 const DOTS_LONG = '........................................................................';
 

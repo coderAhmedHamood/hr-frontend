@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { PDF_PRINT_FONT_FAMILY } from '@/components/pdf/lib/pdf-print-font';
 import { RoseTradingLetterheadPrint } from '@/components/pdf/print/rose-trading-letterhead-print';
 import { getPdfLogoSrc } from '@/components/pdf/lib/pdf-logo-url';
 import { RosePdfWatermark } from '@/components/pdf/rose-trading/rose-pdf-watermark';
@@ -33,7 +34,7 @@ function InfoTable({ rows }: { rows: [string, string][] }) {
       style={{
         border: `1px solid ${C.border}`,
         marginTop: 8,
-        fontFamily: 'Arial, Helvetica, sans-serif',
+        fontFamily: PDF_PRINT_FONT_FAMILY,
       }}
     >
       {rows.map(([label, value], i) => (
@@ -88,7 +89,7 @@ export const ClearancePrintHtml = React.forwardRef<HTMLDivElement, ClearancePrin
           boxSizing: 'border-box',
           backgroundColor: '#ffffff',
           padding: '26px 20px 48px',
-          fontFamily: 'Arial, Helvetica, sans-serif',
+          fontFamily: PDF_PRINT_FONT_FAMILY,
           fontSize: 12,
           color: '#111111',
           lineHeight: 1.5,
@@ -109,7 +110,7 @@ export const ClearancePrintHtml = React.forwardRef<HTMLDivElement, ClearancePrin
               fontSize: 16,
               fontWeight: 700,
               textDecoration: 'underline',
-              fontFamily: 'Arial, Helvetica, sans-serif',
+              fontFamily: PDF_PRINT_FONT_FAMILY,
             }}
           >
             مخالصة موظف — إبراء ذمة
@@ -122,7 +123,7 @@ export const ClearancePrintHtml = React.forwardRef<HTMLDivElement, ClearancePrin
             border: `1px solid ${C.border}`,
             padding: 14,
             borderRadius: 3,
-            fontFamily: 'Arial, Helvetica, sans-serif',
+            fontFamily: PDF_PRINT_FONT_FAMILY,
           }}
         >
           <p
@@ -155,7 +156,7 @@ export const ClearancePrintHtml = React.forwardRef<HTMLDivElement, ClearancePrin
             padding: 14,
             borderRadius: 3,
             backgroundColor: '#fafafa',
-            fontFamily: 'Arial, Helvetica, sans-serif',
+            fontFamily: PDF_PRINT_FONT_FAMILY,
           }}
         >
           <p style={{ fontSize: 10, textAlign: 'right', lineHeight: 2, margin: 0 }}>
@@ -188,7 +189,7 @@ export const ClearancePrintHtml = React.forwardRef<HTMLDivElement, ClearancePrin
             border: `1px solid ${C.border}`,
             padding: 12,
             borderRadius: 3,
-            fontFamily: 'Arial, Helvetica, sans-serif',
+            fontFamily: PDF_PRINT_FONT_FAMILY,
           }}
         >
           {(['الاسم :', 'التوقيع :', 'التاريخ :'] as const).map((lbl, idx) => (
@@ -213,7 +214,7 @@ export const ClearancePrintHtml = React.forwardRef<HTMLDivElement, ClearancePrin
                   paddingBottom: idx === 2 ? 2 : 0,
                   fontSize: 8,
                   textAlign: 'right',
-                  fontFamily: 'Arial, Helvetica, sans-serif',
+                  fontFamily: PDF_PRINT_FONT_FAMILY,
                 }}
               >
                 {idx === 2 ? <span dir="ltr">{fmtDate(date)}</span> : null}
@@ -235,7 +236,7 @@ export const ClearancePrintHtml = React.forwardRef<HTMLDivElement, ClearancePrin
             fontSize: 8,
             color: C.muted,
             textAlign: 'center',
-            fontFamily: 'Arial, Helvetica, sans-serif',
+            fontFamily: PDF_PRINT_FONT_FAMILY,
           }}
         >
           هذه الوثيقة صادرة من نظام {company.nameAr} لإدارة الموارد البشرية — {fmtDate(date)}

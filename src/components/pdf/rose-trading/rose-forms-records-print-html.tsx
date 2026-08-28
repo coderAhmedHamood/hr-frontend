@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { PDF_PRINT_FONT_FAMILY } from '@/components/pdf/lib/pdf-print-font';
 import { sanitizePdfText } from '@/components/pdf/lib/sanitize-pdf-text';
 import { RoseTradingLetterheadPrint } from '@/components/pdf/print/rose-trading-letterhead-print';
 import { getPdfLogoSrc } from '@/components/pdf/lib/pdf-logo-url';
@@ -62,7 +63,7 @@ export function RosePrintPairedTwoColumnRow({
         flexWrap: 'wrap',
         marginTop: 10,
         gap: 8,
-        fontFamily: 'Arial, Helvetica, sans-serif',
+        fontFamily: PDF_PRINT_FONT_FAMILY,
       }}
     >
       {cell(pairEnd)}
@@ -81,7 +82,7 @@ function TableRow({ label, value, last }: { label: string; value: string; last?:
         alignItems: 'stretch',
         borderBottom: last ? undefined : `0.5px solid ${C.border}`,
         padding: '5px 6px',
-        fontFamily: 'Arial, Helvetica, sans-serif',
+        fontFamily: PDF_PRINT_FONT_FAMILY,
       }}
     >
       <div
@@ -109,7 +110,7 @@ function TableRow({ label, value, last }: { label: string; value: string; last?:
           color: '#334155',
           lineHeight: 1.4,
           textAlign: 'right',
-          fontFamily: 'Arial, Helvetica, sans-serif',
+          fontFamily: PDF_PRINT_FONT_FAMILY,
           wordBreak: 'break-word',
           whiteSpace: 'pre-wrap',
         }}
@@ -146,7 +147,7 @@ function RecordsDocumentLetterhead({
           marginBottom: 2,
           textAlign: 'right',
           color: C.primary,
-          fontFamily: 'Arial, Helvetica, sans-serif',
+          fontFamily: PDF_PRINT_FONT_FAMILY,
         }}
       >
         {sanitizePdfText(titleAr)}
@@ -188,7 +189,7 @@ function FooterPage() {
         color: C.muted,
         textAlign: 'center',
         borderTop: `1px solid ${C.border}`,
-        fontFamily: 'Arial, Helvetica, sans-serif',
+        fontFamily: PDF_PRINT_FONT_FAMILY,
       }}
     >
       <span dir="rtl">صفحة </span>
@@ -218,7 +219,7 @@ function SignatureRow({
         marginTop: 28,
         paddingTop: 12,
         gap: 12,
-        fontFamily: 'Arial, Helvetica, sans-serif',
+        fontFamily: PDF_PRINT_FONT_FAMILY,
       }}
     >
       <div style={{ width: '42%', borderTop: `0.5px solid ${C.muted}`, paddingTop: 6 }}>
@@ -265,7 +266,7 @@ export const RoseResignationRecordPrintHtml = React.forwardRef<HTMLDivElement, R
           boxSizing: 'border-box',
           backgroundColor: '#ffffff',
           padding: '28px 24px 44px',
-          fontFamily: 'Arial, Helvetica, sans-serif',
+          fontFamily: PDF_PRINT_FONT_FAMILY,
           color: '#111',
           display: 'flex',
           flexDirection: 'column',
@@ -446,7 +447,7 @@ export const RoseSettlementRecordPrintHtml = React.forwardRef<HTMLDivElement, Ro
           display: 'flex',
           flexDirection: 'column',
           minHeight: '297mm',
-          fontFamily: 'Arial, Helvetica, sans-serif',
+          fontFamily: PDF_PRINT_FONT_FAMILY,
           overflow: 'hidden',
         }}
       >
@@ -510,7 +511,7 @@ export const RoseExperienceRecordPrintHtml = React.forwardRef<HTMLDivElement, Ro
           boxSizing: 'border-box',
           backgroundColor: '#ffffff',
           padding: '28px 24px 44px',
-          fontFamily: 'Arial, Helvetica, sans-serif',
+          fontFamily: PDF_PRINT_FONT_FAMILY,
           color: '#111',
           display: 'flex',
           flexDirection: 'column',

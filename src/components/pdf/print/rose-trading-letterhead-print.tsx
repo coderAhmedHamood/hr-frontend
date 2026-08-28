@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { PDF_PRINT_FONT_FAMILY } from '@/components/pdf/lib/pdf-print-font';
 import { sanitizePdfText } from '@/components/pdf/lib/sanitize-pdf-text';
 import { isDefaultPdfLogoSrc } from '@/components/pdf/lib/pdf-company-info';
 import { useResolvedPdfLetterhead } from '@/components/pdf/hooks/use-pdf-company-letterhead';
@@ -72,7 +73,7 @@ export function RoseTradingLetterheadPrint({
               textTransform: 'uppercase',
               textAlign: 'left',
               lineHeight: 1.3,
-              fontFamily: 'Arial, Helvetica, sans-serif',
+              fontFamily: PDF_PRINT_FONT_FAMILY,
             }}
           >
             {nameEn}
@@ -84,7 +85,7 @@ export function RoseTradingLetterheadPrint({
               color: '#000000',
               marginTop: 5,
               textAlign: 'left',
-              fontFamily: 'Arial, Helvetica, sans-serif',
+              fontFamily: PDF_PRINT_FONT_FAMILY,
             }}
             dir="ltr"
           >
@@ -134,7 +135,7 @@ export function RoseTradingLetterheadPrint({
               color: LETTERHEAD_GOLD,
               textAlign: 'right',
               lineHeight: 1.3,
-              fontFamily: 'Arial, Helvetica, sans-serif',
+              fontFamily: PDF_PRINT_FONT_FAMILY,
               width: '100%',
             }}
           >
@@ -148,7 +149,7 @@ export function RoseTradingLetterheadPrint({
               fontSize: 14,
               fontWeight: 700,
               color: '#000000',
-              fontFamily: 'Arial, Helvetica, sans-serif',
+              fontFamily: PDF_PRINT_FONT_FAMILY,
               width: '100%',
               textAlign: 'right',
               lineHeight: 1.35,

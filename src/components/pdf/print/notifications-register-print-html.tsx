@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { PDF_PRINT_FONT_FAMILY } from '@/components/pdf/lib/pdf-print-font';
 import { sanitizePdfText } from '@/components/pdf/lib/sanitize-pdf-text';
 import { RoseTradingLetterheadPrint } from '@/components/pdf/print/rose-trading-letterhead-print';
 import { getPdfLogoSrc } from '@/components/pdf/lib/pdf-logo-url';
@@ -44,7 +45,7 @@ const PAGE_STYLE: React.CSSProperties = {
   overflow: 'hidden',
   backgroundColor: '#ffffff',
   padding: '26px 20px 48px',
-  fontFamily: 'Arial, Helvetica, sans-serif',
+  fontFamily: PDF_PRINT_FONT_FAMILY,
   fontSize: 9,
   color: '#111',
   boxSizing: 'border-box',

@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { PDF_PRINT_FONT_FAMILY } from '@/components/pdf/lib/pdf-print-font';
 import { sanitizePdfText } from '@/components/pdf/lib/sanitize-pdf-text';
 import { RoseCompanyStamp } from '@/components/pdf/rose-trading/rose-company-stamp';
 import {
@@ -25,7 +26,7 @@ export const ROSE_DOCUMENT_PAGE_STYLE: React.CSSProperties = {
   boxSizing: 'border-box',
   backgroundColor: '#ffffff',
   padding: '28px 24px 44px',
-  fontFamily: 'Arial, Helvetica, sans-serif',
+  fontFamily: PDF_PRINT_FONT_FAMILY,
   color: '#111',
   display: 'flex',
   flexDirection: 'column',

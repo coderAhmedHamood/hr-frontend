@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { PDF_PRINT_FONT_FAMILY } from '@/components/pdf/lib/pdf-print-font';
 import { RoseTradingLetterheadPrint } from '@/components/pdf/print/rose-trading-letterhead-print';
 import { getPdfLogoSrc } from '@/components/pdf/lib/pdf-logo-url';
 import { sanitizePdfText } from '@/components/pdf/lib/sanitize-pdf-text';
@@ -48,7 +49,7 @@ export const RoseClearancePrintHtml = React.forwardRef<HTMLDivElement, RoseClear
 
     const blank = !fields;
     const company = sanitizePdfText(companyNameAr.trim() || '—');
-    const font: React.CSSProperties = { fontFamily: 'Arial, Helvetica, sans-serif' };
+    const font: React.CSSProperties = { fontFamily: PDF_PRINT_FONT_FAMILY };
     const reasonLines = blank
       ? [0, 1, 2, 3].map(() => '.')
       : parseReasonLines(fields.reasons).map((line) => `• ${sanitizePdfText(line)}`);
