@@ -1,4 +1,5 @@
 import { formatDisplayDate } from '@/shared/utils';
+import { ROSE_TRADING_EST } from '@/components/pdf/lib/rose-trading-est';
 
 export type EmploymentContractPrintPartyGender = 'male' | 'female' | null | undefined;
 
@@ -11,7 +12,7 @@ export type EmploymentContractPrintArticleInput = {
 export type EmploymentContractPrintModelInput = {
   companyNameAr: string;
   companyNameEn?: string | null;
-  /** From company settings / form — never a baked-in person name. */
+  /** From company settings / form; falls back to the fixed employer representative when absent. */
   employerRepresentativeName?: string | null;
   employerRepresentativeTitle?: string | null;
   employeeNameAr: string;
@@ -266,8 +267,12 @@ export function buildEmploymentContractPrintModel(
   }
 
   const company = tokenOrDash(input.companyNameAr);
-  const rep = input.employerRepresentativeName?.trim() || '';
-  const repTitle = input.employerRepresentativeTitle?.trim() || '';
+  const rep =
+    input.employerRepresentativeName?.trim() ||
+    ROSE_TRADING_EST.representativeNameAr;
+  const repTitle =
+    input.employerRepresentativeTitle?.trim() ||
+    ROSE_TRADING_EST.representativeTitleAr;
   const id = tokenOrDash(input.nationalId);
   const nationality = tokenOrDash(input.nationality);
   const empName = tokenOrDash(input.employeeNameAr);

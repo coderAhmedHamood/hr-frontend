@@ -41,7 +41,7 @@ export function RoseTradingLetterheadPrint({
   const cr = letterhead.commercialReg.trim() || ROSE_TRADING_EST.crNumber;
 
   return (
-    <div style={{ marginBottom: 18, paddingBottom: 14, borderBottom: `2px solid ${LETTERHEAD_GOLD}` }}>
+    <div style={{ marginBottom: 18, paddingBottom: 14, borderBottom: `6px double ${LETTERHEAD_GOLD}` }}>
       <div
         dir="ltr"
         style={{
@@ -65,9 +65,9 @@ export function RoseTradingLetterheadPrint({
         >
           <div
             style={{
-              fontSize: 14,
+              fontSize: 16,
               fontWeight: 700,
-              color: '#111111',
+              color: LETTERHEAD_GOLD,
               letterSpacing: 0.6,
               textTransform: 'uppercase',
               textAlign: 'left',
@@ -79,8 +79,9 @@ export function RoseTradingLetterheadPrint({
           </div>
           <div
             style={{
-              fontSize: 12,
-              color: '#111111',
+              fontSize: 14,
+              fontWeight: 700,
+              color: '#000000',
               marginTop: 5,
               textAlign: 'left',
               fontFamily: 'Arial, Helvetica, sans-serif',
@@ -128,9 +129,9 @@ export function RoseTradingLetterheadPrint({
         >
           <div
             style={{
-              fontSize: 17,
+              fontSize: 19,
               fontWeight: 700,
-              color: '#111111',
+              color: LETTERHEAD_GOLD,
               textAlign: 'right',
               lineHeight: 1.3,
               fontFamily: 'Arial, Helvetica, sans-serif',
@@ -144,8 +145,9 @@ export function RoseTradingLetterheadPrint({
             lang="ar"
             style={{
               marginTop: 5,
-              fontSize: 12,
-              color: '#111111',
+              fontSize: 14,
+              fontWeight: 700,
+              color: '#000000',
               fontFamily: 'Arial, Helvetica, sans-serif',
               width: '100%',
               textAlign: 'right',
