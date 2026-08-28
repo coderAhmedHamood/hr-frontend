@@ -9,7 +9,6 @@ export type DisciplineCircularPrintHtmlProps = {
   company: { nameAr: string; nameEn: string };
   titleAr: string;
   issuedDate: string;
-  audienceSummaryAr: string;
   bodyAr: string;
   employeeName?: string | null;
   nationalId?: string | null;
@@ -33,19 +32,12 @@ export const DisciplineCircularPrintHtml = React.forwardRef<
     company,
     titleAr,
     issuedDate,
-    audienceSummaryAr,
     bodyAr,
     employeeName,
     nationalId,
   },
   ref,
 ) {
-  const audience = audienceSummaryAr.trim();
-  const recipientSecondary =
-    audience && audience !== 'جميع الموظفين'
-      ? audience
-      : 'السادة / الموظفين';
-
   return (
     <OfficialCircularPrintHtml
       ref={ref}
@@ -54,7 +46,6 @@ export const DisciplineCircularPrintHtml = React.forwardRef<
       companyNameEn={company.nameEn}
       dateIso={issuedDate}
       subjectLine={buildSubjectLine(titleAr)}
-      recipientSecondaryAr={recipientSecondary}
       bodyAr={bodyAr}
       employeeName={employeeName}
       nationalId={nationalId}

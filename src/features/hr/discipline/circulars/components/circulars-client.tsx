@@ -320,7 +320,6 @@ export function CircularsClient() {
               company={{ nameAr: companyNameAr, nameEn: companyNameEn || companyNameAr }}
               titleAr={detailCircular.titleAr}
               issuedDate={detailCircular.date}
-              audienceSummaryAr={detailCircular.audienceSummaryAr}
               bodyAr={detailCircular.bodyAr}
             />
           ) : null

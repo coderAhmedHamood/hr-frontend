@@ -23,6 +23,10 @@ import {
   formatGregorianDateAr,
 } from '@/features/hr/organization/employees/lib/rose-document-templates/format-document-dates';
 
+/** Fixed recipient lines on official circular paper. */
+export const CIRCULAR_RECIPIENT_PRIMARY_AR = 'السادة / مدراء الفروع';
+export const CIRCULAR_RECIPIENT_SECONDARY_AR = 'السادة / الموظفين';
+
 export type OfficialCircularPrintHtmlProps = {
   logoSrc?: string;
   companyNameAr: string;
@@ -157,8 +161,8 @@ export const OfficialCircularPrintHtml = React.forwardRef<
     companyNameEn,
     dateIso,
     subjectLine,
-    recipientPrimaryAr = 'السادة / مدراء الفروع',
-    recipientSecondaryAr = 'السادة / الموظفين',
+    recipientPrimaryAr = CIRCULAR_RECIPIENT_PRIMARY_AR,
+    recipientSecondaryAr = CIRCULAR_RECIPIENT_SECONDARY_AR,
     bodyAr,
     employeeName,
     nationalId,
