@@ -10,7 +10,7 @@ function mapApi(r: DisciplineNoticeResponseDto): HRDisciplineNoticeRecord {
   return {
     id: r.id,
     employeeId: r.employeeId,
-    employeeNameAr: '',
+    employeeNameAr: r.employeeNameAr?.trim() || '',
     kind: r.noticeKind as HRDisciplineNoticeKind,
     reasonAr: r.reasonAr,
     date: r.noticeDate,

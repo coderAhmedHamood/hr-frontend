@@ -96,10 +96,12 @@ function mapNotice(
   employeesById: Map<string, string>,
 ): NoticeRecord {
   const kind = normalizeNoticeKind(dto.noticeKind);
+  const nameFromApi = dto.employeeNameAr?.trim();
+  const nameFromMap = employeesById.get(dto.employeeId)?.trim();
   return {
     id: dto.id,
     employeeId: dto.employeeId,
-    employeeNameAr: employeesById.get(dto.employeeId) ?? dto.employeeId,
+    employeeNameAr: nameFromApi || nameFromMap || '—',
     kind,
     kindLabel: dto.noticeKind?.trim() || NOTICE_KIND_LABELS[kind],
     reasonAr: dto.reasonAr,
@@ -151,15 +153,11 @@ export function useDisciplineNoticesDirectoryModel() {
         id: r.id,
         caseNumber: r.recordNumber,
         employeeId: r.employeeId,
-        employeeNameAr: employeeMap.get(r.employeeId) ?? r.employeeId,
+        employeeNameAr: employeeMap.get(r.employeeId) ?? '—',
         violationTypeNameAr: r.violationType?.nameAr?.trim() || null,
       })),
     );
   }, []);
-
-  React.useEffect(() => {
-    void loadReferenceData().catch(() => undefined);
-  }, [loadReferenceData]);
 
   const buildNoticesQuery = React.useCallback(
     (page: number, limit: number) => ({
@@ -209,6 +207,12 @@ export function useDisciplineNoticesDirectoryModel() {
       listFilters.selectedEmpIds.join(','),
     ],
   });
+
+  React.useEffect(() => {
+    void loadReferenceData()
+      .then(() => reload())
+      .catch(() => undefined);
+  }, [loadReferenceData, reload]);
 
   // Server applies all list filters now; kept as aliases for existing consumers.
   const filteredItems = items;

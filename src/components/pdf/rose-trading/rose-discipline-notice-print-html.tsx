@@ -5,6 +5,7 @@ import { PDF_PRINT_FONT_FAMILY } from '@/components/pdf/lib/pdf-print-font';
 import { sanitizePdfText } from '@/components/pdf/lib/sanitize-pdf-text';
 import { getPdfLogoSrc } from '@/components/pdf/lib/pdf-logo-url';
 import { RosePdfWatermark } from '@/components/pdf/rose-trading/rose-pdf-watermark';
+import { RoseCompanyStamp } from '@/components/pdf/rose-trading/rose-company-stamp';
 import { RoseTradingLetterheadPrint } from '@/components/pdf/print/rose-trading-letterhead-print';
 import type { HRDisciplineNoticeKind } from '@/features/hr/discipline/lib/types';
 
@@ -221,33 +222,28 @@ export const RoseDisciplineNoticePrintHtml = React.forwardRef<
           مع خالص التحية ..
         </p>
 
-        <div style={{ marginTop: 12 }}>
-          <p style={{ lineHeight: 2.6, textAlign: 'right', fontWeight: 700, margin: 0 }}>
-            توقيع المدير أو المشرف :
-            <span
-              style={{
-                display: 'inline-block',
-                minWidth: '52%',
-                borderBottom: '1px dotted #666',
-                marginInlineStart: 6,
-              }}
-            >
-              &nbsp;
-            </span>
-          </p>
-          <p style={{ lineHeight: 2.6, textAlign: 'right', fontWeight: 700, margin: 0 }}>
-            توقيع الموظف / ـة :
-            <span
-              style={{
-                display: 'inline-block',
-                minWidth: '52%',
-                borderBottom: '1px dotted #666',
-                marginInlineStart: 6,
-              }}
-            >
-              &nbsp;
-            </span>
-          </p>
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            gap: 24,
+            marginTop: 24,
+            fontWeight: 700,
+          }}
+        >
+          <div style={{ flex: 1, textAlign: 'right' }}>
+            <div style={{ marginBottom: 28 }}>توقيع المدير أو المشرف</div>
+            <div style={{ borderBottom: '1px dotted #333', width: '100%' }} />
+          </div>
+          <div style={{ flex: 1, textAlign: 'center' }}>
+            <div style={{ marginBottom: 28 }}>توقيع الموظف / ـة</div>
+            <div style={{ borderBottom: '1px dotted #333', width: '100%' }} />
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: 20 }}>
+          <RoseCompanyStamp width={130} />
         </div>
       </div>
     </div>
