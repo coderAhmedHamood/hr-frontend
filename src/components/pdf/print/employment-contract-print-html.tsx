@@ -71,7 +71,7 @@ const PAGE_STYLE: React.CSSProperties = {
   backgroundColor: '#ffffff',
   padding: '20px 22px 40px',
   fontFamily: 'Arial, Helvetica, sans-serif',
-  fontSize: 14,
+  fontSize: 22,
   fontWeight: 700,
   color: '#000000',
   boxSizing: 'border-box',
@@ -86,7 +86,7 @@ function ArticleBlock({ title, body }: { title: string; body: string }) {
           backgroundColor: ARTICLE_BAR_BG,
           color: ARTICLE_BAR_FG,
           padding: '8px 12px',
-          fontSize: 17,
+          fontSize: 26,
           fontWeight: 700,
           textAlign: 'center',
           lineHeight: 1.5,
@@ -98,7 +98,7 @@ function ArticleBlock({ title, body }: { title: string; body: string }) {
         <div
           style={{
             padding: '8px 4px 6px',
-            fontSize: 14.5,
+            fontSize: 22.5,
             fontWeight: 700,
             lineHeight: 1.85,
             textAlign: 'justify',
@@ -136,7 +136,7 @@ function CompensationBlock({
 
   return (
     <div style={{ marginBottom: 16, pageBreakInside: 'avoid' }}>
-      <div style={{ fontSize: 14.5, lineHeight: 1.9, textAlign: 'justify' }}>
+      <div style={{ fontSize: 22.5, lineHeight: 1.9, textAlign: 'justify' }}>
         <p style={{ margin: '0 0 6px' }}>
           <span style={{ fontWeight: 700 }}>الراتب الأساسي:</span>{' '}
           {sanitizePdfText(baseSalary || '—')} {cur}
@@ -174,11 +174,11 @@ function SignatureFooter({ employeeRoleNounAr }: { employeeRoleNounAr: string })
         pageBreakInside: 'avoid',
       }}
     >
-      <div style={{ flex: 1, textAlign: 'center', fontSize: 15, fontWeight: 700 }}>
+      <div style={{ flex: 1, textAlign: 'center', fontSize: 22, fontWeight: 700 }}>
         الطرف الأول /صاحب العمل
         <RoseCompanyStamp width={130} compact />
       </div>
-      <div style={{ flex: 1, textAlign: 'center', fontSize: 15, fontWeight: 700 }}>
+      <div style={{ flex: 1, textAlign: 'center', fontSize: 22, fontWeight: 700 }}>
         الطرف الثاني / {sanitizePdfText(employeeRoleNounAr)}
         <div style={{ width: 160, height: 1, backgroundColor: '#000', margin: '30px auto 0' }} />
       </div>
@@ -197,13 +197,13 @@ function PartiesBlock({
 }) {
   return (
     <div style={{ marginBottom: 14 }}>
-      <div style={{ fontSize: 14.5, lineHeight: 1.85, textAlign: 'right', marginBottom: 6 }}>
+      <div style={{ fontSize: 22.5, lineHeight: 1.85, textAlign: 'right', marginBottom: 6 }}>
         {sanitizePdfText(lead)}
       </div>
-      <div style={{ fontSize: 14.5, lineHeight: 1.9, textAlign: 'justify', marginBottom: 4 }}>
+      <div style={{ fontSize: 22.5, lineHeight: 1.9, textAlign: 'justify', marginBottom: 4 }}>
         {sanitizePdfText(party1)}
       </div>
-      <div style={{ fontSize: 14.5, lineHeight: 1.9, textAlign: 'justify' }}>
+      <div style={{ fontSize: 22.5, lineHeight: 1.9, textAlign: 'justify' }}>
         {sanitizePdfText(party2)}
       </div>
     </div>
@@ -331,7 +331,7 @@ export const EmploymentContractPrintHtml = React.forwardRef<HTMLDivElement, Empl
             <div
               style={{
                 backgroundColor: ARTICLE_BAR_BG,
-                fontSize: 21,
+                fontSize: 31,
                 fontWeight: 700,
                 textAlign: 'center',
                 marginTop: 4,
@@ -389,7 +389,7 @@ export const EmploymentContractPrintHtml = React.forwardRef<HTMLDivElement, Empl
               <div
                 style={{
                   backgroundColor: ARTICLE_BAR_BG,
-                  fontSize: 19,
+                  fontSize: 28,
                   fontWeight: 700,
                   textAlign: 'center',
                   marginTop: 4,
@@ -429,11 +429,11 @@ export const EmploymentContractPrintHtml = React.forwardRef<HTMLDivElement, Empl
                   pageBreakInside: 'avoid',
                 }}
               >
-                <div style={{ flex: 1, textAlign: 'center', fontSize: 15, fontWeight: 700 }}>
+                <div style={{ flex: 1, textAlign: 'center', fontSize: 22, fontWeight: 700 }}>
                   الطرف الأول (صاحب العمل)
                   <RoseCompanyStamp width={130} compact />
                 </div>
-                <div style={{ flex: 1, textAlign: 'center', fontSize: 15, fontWeight: 700 }}>
+                <div style={{ flex: 1, textAlign: 'center', fontSize: 22, fontWeight: 700 }}>
                   الطرف الثاني ({sanitizePdfText(model.employeeRoleNounAr)})
                 </div>
               </div>
