@@ -12,6 +12,7 @@ import {
   ListChecks, ShieldCheck, LayoutList, CirclePlus, CalendarClock,
   ChevronDown, X, LifeBuoy, FileSpreadsheet, FileSignature,
   UserCircle, Briefcase, UserPlus, Bell, Send, Inbox,   KeyRound, Banknote, Timer, Settings,
+  Megaphone,
 } from 'lucide-react';
 import { cn } from '@/shared/utils';
 import { isHrAppPath, isSystemAppPath, isEcommerceAppPath, isInventoryAppPath } from '@/shared/app-paths';
@@ -26,6 +27,7 @@ import { hrContractsOnlyNavGroups } from '@/features/hr/contracts/constants/nav'
 import { hrPayrollSectionHref } from '@/features/hr/payroll/constants/routes';
 import { hrContractsSectionHref } from '@/features/hr/contracts/constants/routes';
 import { hrOrganizationRoutes } from '@/features/hr/organization/constants/routes';
+import { hrGuidelinesRoutes } from '@/features/hr/guidelines/company-guidelines/constants/routes';
 import { systemPermissionsNavGroups } from '@/features/system/permissions/constants/nav';
 import {
   systemOrganizationSettingsNavItems,
@@ -139,6 +141,10 @@ const mobileNav: MobileNavItem[] = [
         icon: item.icon,
       })),
     ),
+  },
+  {
+    key: 'guidelines', label: 'إرشادات الشركة',
+    href: hrGuidelinesRoutes.companyGuidelines, icon: Megaphone,
   },
 ];
 

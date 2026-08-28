@@ -33,6 +33,7 @@ import { hrPayrollSectionHref } from '@/features/hr/payroll/constants/routes';
 import { hrContractsSectionHref } from '@/features/hr/contracts/constants/routes';
 import { isHrOrganizationNavPath } from '@/features/hr/organization/constants/nav';
 import { hrOrganizationRoutes } from '@/features/hr/organization/constants/routes';
+import { hrGuidelinesRoutes } from '@/features/hr/guidelines/company-guidelines/constants/routes';
 import { systemPermissionsNavGroups, isSystemPermissionsNavPath } from '@/features/system/permissions/constants/nav';
 import {
   systemOrganizationSettingsNavItems,
@@ -202,6 +203,12 @@ export const navConfig: NavItem[] = [
     icon: FileSignature,
     isActive: isHrContractsOnlyNavPath,
     groups: mapContractsOnlyNavGroups(hrContractsOnlyNavGroups),
+  },
+  {
+    key: 'guidelines',
+    label: 'إرشادات الشركة',
+    icon: Megaphone,
+    href: hrGuidelinesRoutes.companyGuidelines,
   },
 ];
 
