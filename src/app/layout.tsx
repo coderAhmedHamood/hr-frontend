@@ -32,9 +32,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ar" dir="rtl" suppressHydrationWarning>
-      <head>
+      <head suppressHydrationWarning>
         <script
           id="theme-boot"
+          suppressHydrationWarning
           dangerouslySetInnerHTML={{
             __html: `${THEME_MODE_BOOT_SCRIPT}${LOCALE_DOCUMENT_BOOT_SCRIPT}${COMPANY_THEME_BOOT_SCRIPT}`,
           }}
