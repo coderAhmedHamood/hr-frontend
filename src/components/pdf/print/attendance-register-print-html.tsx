@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import * as React from 'react';
 import { PDF_PRINT_FONT_FAMILY } from '@/components/pdf/lib/pdf-print-font';
@@ -43,7 +43,7 @@ const PAGE_STYLE: React.CSSProperties = {
   backgroundColor: '#ffffff',
   padding: '26px 20px 48px',
   fontFamily: PDF_PRINT_FONT_FAMILY,
-  fontSize: 9,
+  fontSize: 22,
   color: '#111',
   boxSizing: 'border-box',
 };
@@ -96,14 +96,14 @@ export const AttendanceRegisterPrintHtml = React.forwardRef<
             companyNameEn={companyNameEn}
           />
 
-          <div style={{ fontSize: 14, fontWeight: 700, textAlign: 'center', marginBottom: 6, textDecoration: 'underline' }}>
+          <div style={{ fontSize: 22, fontWeight: 700, textAlign: 'center', marginBottom: 6, textDecoration: 'underline' }}>
             {sanitizePdfText(titleAr)}
           </div>
 
-          <div style={{ fontSize: 9, color: '#444', textAlign: 'right', marginBottom: 6, lineHeight: 1.35 }}>
+          <div style={{ fontSize: 22, color: '#444', textAlign: 'right', marginBottom: 6, lineHeight: 1.35 }}>
             {sanitizePdfText(`الفترة: ${periodDateFrom} — ${periodDateTo}`)}
           </div>
-          <div style={{ fontSize: 9, color: '#444', textAlign: 'right', marginBottom: 8, lineHeight: 1.35 }}>
+          <div style={{ fontSize: 22, color: '#444', textAlign: 'right', marginBottom: 8, lineHeight: 1.35 }}>
             {sanitizePdfText(filterLine2)}
           </div>
 
@@ -122,7 +122,7 @@ export const AttendanceRegisterPrintHtml = React.forwardRef<
                   boxSizing: 'border-box',
                   fontWeight: 700,
                   textAlign: c.align,
-                  fontSize: 9,
+                  fontSize: 22,
                   padding: c.pad ? '4px 4px' : '4px 2px',
                   borderInlineStart: idx === 0 ? undefined : '1px solid #94a3b8',
                   wordBreak: 'break-word',
@@ -147,19 +147,19 @@ export const AttendanceRegisterPrintHtml = React.forwardRef<
                   backgroundColor: ri % 2 === 1 ? '#fafafa' : '#fff',
                 }}
               >
-                <div style={{ width: '22%', boxSizing: 'border-box', padding: '4px 4px', fontSize: 8, textAlign: 'right', wordBreak: 'break-word' }}>
+                <div style={{ width: '22%', boxSizing: 'border-box', padding: '4px 4px', fontSize: 22, textAlign: 'right', wordBreak: 'break-word' }}>
                   {sanitizePdfText(r.employeeName)}
                 </div>
-                <div style={{ width: '14%', boxSizing: 'border-box', padding: '4px 2px', fontSize: 8, textAlign: 'center', borderInlineStart: '1px solid #e2e8f0' }}>
+                <div style={{ width: '14%', boxSizing: 'border-box', padding: '4px 2px', fontSize: 22, textAlign: 'center', borderInlineStart: '1px solid #e2e8f0' }}>
                   <span dir="ltr">{sanitizePdfText(r.date)}</span>
                 </div>
-                <div style={{ width: '36%', boxSizing: 'border-box', padding: '4px 4px', fontSize: 8, textAlign: 'right', borderInlineStart: '1px solid #e2e8f0', wordBreak: 'break-word' }}>
+                <div style={{ width: '36%', boxSizing: 'border-box', padding: '4px 4px', fontSize: 22, textAlign: 'right', borderInlineStart: '1px solid #e2e8f0', wordBreak: 'break-word' }}>
                   {sanitizePdfText(r.statusLabel)}
                 </div>
-                <div style={{ width: '14%', boxSizing: 'border-box', padding: '4px 2px', fontSize: 8, textAlign: 'center', borderInlineStart: '1px solid #e2e8f0' }}>
+                <div style={{ width: '14%', boxSizing: 'border-box', padding: '4px 2px', fontSize: 22, textAlign: 'center', borderInlineStart: '1px solid #e2e8f0' }}>
                   <span dir="ltr">{sanitizePdfText(r.worked)}</span>
                 </div>
-                <div style={{ width: '14%', boxSizing: 'border-box', padding: '4px 2px', fontSize: 8, textAlign: 'center', borderInlineStart: '1px solid #e2e8f0' }}>
+                <div style={{ width: '14%', boxSizing: 'border-box', padding: '4px 2px', fontSize: 22, textAlign: 'center', borderInlineStart: '1px solid #e2e8f0' }}>
                   <span dir="ltr">{sanitizePdfText(r.late)}</span>
                 </div>
               </div>
@@ -173,7 +173,7 @@ export const AttendanceRegisterPrintHtml = React.forwardRef<
             </div>
           ) : null}
 
-          <div style={{ marginTop: 16, fontSize: 8, color: '#64748b', textAlign: 'center' }}>
+          <div style={{ marginTop: 16, fontSize: 22, color: '#64748b', textAlign: 'center' }}>
             صفحة {pi + 1} / {pages.length}
             {rows.length > 0 ? ` · إجمالي السجلات: ${rows.length}` : ''}
           </div>

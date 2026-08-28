@@ -5,9 +5,12 @@ import {
   Dialog,
   DialogBody,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
+  dialogFormFooterClass,
 } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 import { formatDisplayDate, getDisplayDateTimeParts } from '@/shared/utils';
 import {
   RowActions,
@@ -77,12 +80,14 @@ export function TableRowDetailDialog({
   title,
   fields,
   children,
+  footer,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
   fields: { label: string; value: React.ReactNode }[];
   children?: React.ReactNode;
+  footer?: React.ReactNode;
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -101,6 +106,14 @@ export function TableRowDetailDialog({
           </div>
           {children ? <div className="border-t border-border/60 pt-4">{children}</div> : null}
         </DialogBody>
+        {footer ? (
+          <DialogFooter className={dialogFormFooterClass}>
+            {footer}
+            <Button type="button" variant="outline" size="sm" className="h-9" onClick={() => onOpenChange(false)}>
+              إغلاق
+            </Button>
+          </DialogFooter>
+        ) : null}
       </DialogContent>
     </Dialog>
   );

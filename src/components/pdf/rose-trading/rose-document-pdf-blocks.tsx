@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import * as React from 'react';
 import { PDF_PRINT_FONT_FAMILY } from '@/components/pdf/lib/pdf-print-font';
@@ -34,7 +34,7 @@ export const ROSE_DOCUMENT_PAGE_STYLE: React.CSSProperties = {
 };
 
 const BODY_TEXT: React.CSSProperties = {
-  fontSize: 12,
+  fontSize: 22,
   lineHeight: 1.85,
 };
 
@@ -71,7 +71,7 @@ export function RoseDocumentTitle({
       <div
         dir="rtl"
         style={{
-          fontSize: 16,
+          fontSize: 26,
           fontWeight: 700,
           textAlign: 'center',
           marginBottom: 16,
@@ -81,7 +81,7 @@ export function RoseDocumentTitle({
         {locales.map((locale, index) => (
           <React.Fragment key={locale}>
             {index > 0 ? (
-              <div style={{ margin: '4px 0', fontSize: 10, color: '#64748b' }}>—</div>
+              <div style={{ margin: '4px 0', fontSize: 22, color: '#64748b' }}>—</div>
             ) : null}
             <div dir={LOCALE_META[locale].dir} lang={locale}>
               {sanitizePdfText(pickLocalized(text, locale))}
@@ -98,7 +98,7 @@ export function RoseDocumentTitle({
       style={{
         border: '1px solid #111',
         padding: '8px 16px',
-        fontSize: 13,
+        fontSize: 22,
         fontWeight: 700,
         textAlign: 'center',
         marginBottom: 16,
@@ -109,9 +109,9 @@ export function RoseDocumentTitle({
       {locales.map((locale, index) => (
         <React.Fragment key={locale}>
           {index > 0 ? (
-            <div style={{ margin: '4px 0', fontSize: 10, color: '#64748b' }}>—</div>
+            <div style={{ margin: '4px 0', fontSize: 22, color: '#64748b' }}>—</div>
           ) : null}
-          <div dir={LOCALE_META[locale].dir} lang={locale} style={locale === 'en' ? { fontSize: 12 } : undefined}>
+          <div dir={LOCALE_META[locale].dir} lang={locale} style={locale === 'en' ? { fontSize: 22 } : undefined}>
             {sanitizePdfText(pickLocalized(text, locale))}
           </div>
         </React.Fragment>
@@ -134,7 +134,7 @@ export function RoseDocumentFieldGrid({
     <div
       dir={meta.dir}
       lang={meta.lang}
-      style={{ border: '1px solid #111', fontSize: 11, marginBottom: 16 }}
+      style={{ border: '1px solid #111', fontSize: 22, marginBottom: 16 }}
     >
       {pairs.map(([left, right], rowIdx) => (
         <div
@@ -236,7 +236,7 @@ export function RoseDocumentReasons({
       style={{
         border: '1px solid #111',
         padding: '10px 12px',
-        fontSize: 12,
+        fontSize: 22,
         lineHeight: 1.85,
         textAlign: meta.textAlign,
         marginBottom: 16,
@@ -276,7 +276,7 @@ export function RoseDocumentSignatureFooter({
     <div
       dir={meta.dir}
       lang={meta.lang}
-      style={{ marginTop: 24, border: '1px solid #111', fontSize: 11 }}
+      style={{ marginTop: 24, border: '1px solid #111', fontSize: 22 }}
     >
       {rows.map((row, index) => (
         <div
@@ -294,12 +294,12 @@ export function RoseDocumentSignatureFooter({
               padding: '6px 8px',
               fontWeight: 700,
               textAlign: meta.textAlign,
-              fontSize: 10.5,
+              fontSize: 22,
             }}
           >
             {sanitizePdfText(row.label)}
           </div>
-          <div style={{ flex: 1, padding: '6px 8px', textAlign: meta.textAlign, fontSize: 10.5 }}>
+          <div style={{ flex: 1, padding: '6px 8px', textAlign: meta.textAlign, fontSize: 22 }}>
             {row.ltrValue ? <span dir="ltr">{sanitizePdfText(row.value)}</span> : sanitizePdfText(row.value)}
           </div>
         </div>
@@ -334,12 +334,12 @@ export function RoseDocumentLabeledRows({
             paddingBottom: 4,
           }}
         >
-          <span style={{ fontWeight: 700, fontSize: 10, minWidth: 90, textAlign: meta.textAlign }}>
+          <span style={{ fontWeight: 700, fontSize: 22, minWidth: 90, textAlign: meta.textAlign }}>
             {sanitizePdfText(row.label)}
           </span>
           <span
             dir={row.label.includes('ID') || row.label.includes('هوية') ? 'ltr' : meta.dir}
-            style={{ flex: 1, fontSize: 10, textAlign: meta.textAlign }}
+            style={{ flex: 1, fontSize: 22, textAlign: meta.textAlign }}
           >
             {sanitizePdfText(row.value)}
           </span>
@@ -361,7 +361,7 @@ export function RoseDocumentTextBox({
   const meta = LOCALE_META[locale];
   return (
     <div dir={meta.dir} lang={meta.lang}>
-      <div style={{ fontWeight: 700, fontSize: 11, marginTop: 10, marginBottom: 6, textAlign: meta.textAlign }}>
+      <div style={{ fontWeight: 700, fontSize: 22, marginTop: 10, marginBottom: 6, textAlign: meta.textAlign }}>
         {sanitizePdfText(heading)}
       </div>
       <div
@@ -371,7 +371,7 @@ export function RoseDocumentTextBox({
           padding: 10,
           marginTop: 8,
           backgroundColor: '#fafafa',
-          fontSize: 10,
+          fontSize: 22,
           lineHeight: 1.65,
           textAlign: meta.textAlign,
           color: '#222',
@@ -418,7 +418,7 @@ export function RoseDocumentInlineSignatureFooter({
       <div style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', gap: 12 }}>
         {cols.map((col) => (
           <div key={col.label} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <span style={{ fontSize: 9, marginBottom: 28, textAlign: 'center' }}>{sanitizePdfText(col.label)}</span>
+            <span style={{ fontSize: 22, marginBottom: 28, textAlign: 'center' }}>{sanitizePdfText(col.label)}</span>
             {col.value ? (
               <span
                 style={{

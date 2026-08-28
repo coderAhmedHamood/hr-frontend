@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import * as React from 'react';
 import { PDF_PRINT_FONT_FAMILY } from '@/components/pdf/lib/pdf-print-font';
@@ -83,7 +83,7 @@ export const RoseSettlementPrintHtml = React.forwardRef<HTMLDivElement, RoseSett
           boxSizing: 'border-box',
           backgroundColor: '#ffffff',
           padding: '26px 40px 40px',
-          fontSize: 16,
+          fontSize: 26,
           color: '#111111',
           display: 'flex',
           flexDirection: 'column',
@@ -110,7 +110,7 @@ export const RoseSettlementPrintHtml = React.forwardRef<HTMLDivElement, RoseSett
 
         <div
           style={{
-            fontSize: 20,
+            fontSize: 26,
             fontWeight: 700,
             textAlign: 'center',
             textDecoration: 'underline',
@@ -123,7 +123,7 @@ export const RoseSettlementPrintHtml = React.forwardRef<HTMLDivElement, RoseSett
         </div>
 
         {/* Body — full width, no border box */}
-        <div style={{ width: '100%', fontSize: 16, lineHeight: 2.35, textAlign: 'right', ...font }}>
+        <div style={{ width: '100%', fontSize: 26, lineHeight: 2.35, textAlign: 'right', ...font }}>
           <p style={{ margin: '0 0 4px', width: '100%' }}>
             اقر أنا / <Value text={fields?.employeeName} blank={blank} /> ،{' '}
             <Value text={fields?.nationality} blank={blank} med /> الجنسية
@@ -200,7 +200,7 @@ export const RoseSettlementPrintHtml = React.forwardRef<HTMLDivElement, RoseSett
                 width: '100%',
                 gap: 16,
                 marginBottom: 18,
-                fontSize: 16,
+                fontSize: 26,
                 ...font,
               }}
             >

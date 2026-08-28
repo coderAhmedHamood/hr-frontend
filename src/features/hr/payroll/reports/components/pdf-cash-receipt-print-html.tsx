@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import * as React from 'react';
 import { PDF_PRINT_FONT_FAMILY } from '@/components/pdf/lib/pdf-print-font';
@@ -79,7 +79,7 @@ function Checkbox({ checked }: { checked?: boolean }) {
         flexShrink: 0,
         verticalAlign: 'middle',
         boxSizing: 'border-box',
-        fontSize: 10,
+        fontSize: 22,
         fontWeight: 700,
         lineHeight: 1,
       }}
@@ -96,7 +96,7 @@ function ReasonRow({ children, checked }: { children: React.ReactNode; checked?:
         display: 'flex',
         flexDirection: 'row',
         alignItems: 'flex-start',
-        fontSize: 14,
+        fontSize: 22,
         lineHeight: 1.85,
         marginBottom: 6,
         textAlign: 'right',
@@ -121,7 +121,7 @@ function DottedField({
 }) {
   const text = value?.trim();
   return (
-    <div style={{ fontSize: 15, lineHeight: 2.1, textAlign: 'right', marginBottom: 4, ...font }}>
+    <div style={{ fontSize: 22.5, lineHeight: 2.1, textAlign: 'right', marginBottom: 4, ...font }}>
       {label}{' '}
       {blank || !text ? (
         DOTS
@@ -161,8 +161,47 @@ function periodSlots(
   );
 }
 
+function ApprovalFooter({
+  fields,
+  blank,
+}: {
+  fields?: CashReceiptPrintFields | null;
+  blank: boolean;
+}) {
+  const items = [
+    { label: 'توقيع مسئول الفرع', value: fields?.branchManagerSignatureName },
+    { label: 'توقيع ادارة شؤون الموظفين', value: fields?.hrAffairsSignatureName },
+    { label: 'توقيع المشرف العام', value: fields?.generalSupervisorSignatureName },
+    { label: 'توقيع المدير المالي', value: fields?.financialManagerSignatureName },
+  ] as const;
+
+  return (
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(4, 1fr)',
+        gap: 12,
+        marginTop: 32,
+        textAlign: 'center',
+        fontSize: 22,
+        fontWeight: 700,
+        ...font,
+      }}
+    >
+      {items.map(({ label, value }) => (
+        <div key={label}>
+          <div style={{ marginBottom: 36 }}>{label}</div>
+          <div style={{ borderBottom: '1px dotted #333', minHeight: 1 }}>
+            {!blank && value?.trim() ? sanitizePdfText(value.trim()) : null}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /**
- * Cash receipt form — blank dotted layout, or filled from a saved voucher.
+ * Cash receipt form — official «سند استلام نقدي» layout.
  */
 export const CashReceiptPrintHtml = React.forwardRef<HTMLDivElement, CashReceiptPrintHtmlProps>(
   function CashReceiptPrintHtml(
@@ -192,7 +231,7 @@ export const CashReceiptPrintHtml = React.forwardRef<HTMLDivElement, CashReceipt
           boxSizing: 'border-box',
           backgroundColor: '#ffffff',
           padding: '26px 36px 40px',
-          fontSize: 15,
+          fontSize: 22.5,
           color: '#111111',
           display: 'flex',
           flexDirection: 'column',
@@ -227,16 +266,14 @@ export const CashReceiptPrintHtml = React.forwardRef<HTMLDivElement, CashReceipt
               ...font,
             }}
           >
-            {blank || fields?.purposeMonth == null || fields?.purposeYear == null
-              ? 'سند راتب'
-              : `سند راتب شهر ${fields.purposeMonth}/${String(fields.purposeYear).slice(-2)} م`}
+            سند استلام نقدي
           </div>
 
-          <div style={{ fontSize: 15, lineHeight: 2.15, textAlign: 'right', marginBottom: 6, ...font }}>
-            أقرّ أنا / <Slot blank={blank} value={fields?.recipientName} dots={DOTS} /> الموقع أدناه
+          <div style={{ fontSize: 22.5, lineHeight: 2.15, textAlign: 'right', marginBottom: 6, ...font }}>
+            استلمت انا / <Slot blank={blank} value={fields?.recipientName} dots={DOTS} /> الموقعة أدناه
           </div>
-          <div style={{ fontSize: 15, lineHeight: 2.15, textAlign: 'right', marginBottom: 6, ...font }}>
-            بأن راتبي المستحق من مؤسسة{' '}
+          <div style={{ fontSize: 22.5, lineHeight: 2.15, textAlign: 'right', marginBottom: 6, ...font }}>
+            من مؤسسة{' '}
             <Slot
               blank={blank}
               value={fields?.institutionName || companyNameAr}
@@ -244,11 +281,19 @@ export const CashReceiptPrintHtml = React.forwardRef<HTMLDivElement, CashReceipt
             />{' '}
             ، فرع <Slot blank={blank} value={fields?.branchName} dots={DOTS_SHORT} />
           </div>
-          <div style={{ fontSize: 15, lineHeight: 2.15, textAlign: 'right', marginBottom: 18, ...font }}>
-            مبلغ وقدره ( <Slot blank={blank} value={fields?.amount} dots={DOTS_SHORT} /> ريال )
+          <div style={{ fontSize: 22.5, lineHeight: 2.15, textAlign: 'right', marginBottom: 18, ...font }}>
+            مبلغ وقدره ( <Slot blank={blank} value={fields?.amount} dots={DOTS_SHORT} /> ريال ) كتابة (
+            {blank || !fields?.amountInWords?.trim() ? (
+              <span>{DOTS}</span>
+            ) : (
+              <span style={{ fontWeight: 700, paddingInline: 4 }}>
+                {sanitizePdfText(fields.amountInWords.trim())}
+              </span>
+            )}
+            )
           </div>
 
-          <div style={{ fontSize: 15, fontWeight: 700, textAlign: 'right', marginBottom: 12, ...font }}>
+          <div style={{ fontSize: 22.5, fontWeight: 700, textAlign: 'right', marginBottom: 12, ...font }}>
             وذلك مقابل :
           </div>
 
@@ -262,7 +307,7 @@ export const CashReceiptPrintHtml = React.forwardRef<HTMLDivElement, CashReceipt
           >
             <div>
               <ReasonRow checked={is('salary')}>
-                راتب شهر {periodSlots(blank || !is('salary'), fields?.purposeMonth, fields?.purposeYear)}
+                استلام راتب شهر {periodSlots(blank || !is('salary'), fields?.purposeMonth, fields?.purposeYear)}
               </ReasonRow>
               <ReasonRow checked={is('overtime')}>
                 بدل إضافي لمدة{' '}
@@ -315,7 +360,7 @@ export const CashReceiptPrintHtml = React.forwardRef<HTMLDivElement, CashReceipt
               <>
                 <div
                   style={{
-                    fontSize: 15,
+                    fontSize: 22.5,
                     lineHeight: 2.2,
                     textAlign: 'right',
                     paddingInlineStart: 22,
@@ -327,7 +372,7 @@ export const CashReceiptPrintHtml = React.forwardRef<HTMLDivElement, CashReceipt
                 </div>
                 <div
                   style={{
-                    fontSize: 15,
+                    fontSize: 22.5,
                     lineHeight: 2.2,
                     textAlign: 'right',
                     paddingInlineStart: 22,
@@ -343,7 +388,7 @@ export const CashReceiptPrintHtml = React.forwardRef<HTMLDivElement, CashReceipt
 
           <div
             style={{
-              fontSize: 15,
+              fontSize: 22.5,
               fontWeight: 700,
               textAlign: 'right',
               marginTop: 28,
@@ -364,7 +409,9 @@ export const CashReceiptPrintHtml = React.forwardRef<HTMLDivElement, CashReceipt
             <DottedField label="التاريخ :" value={fields?.receiptDate} blank={blank} />
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: 36 }}>
+          <ApprovalFooter fields={fields} blank={blank} />
+
+          <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: 24 }}>
             <RoseCompanyStamp width={150} />
           </div>
         </div>

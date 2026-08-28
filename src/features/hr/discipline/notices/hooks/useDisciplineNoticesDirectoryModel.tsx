@@ -15,7 +15,14 @@ import {
 import type { HRDisciplineNoticeKind } from '@/features/hr/discipline/lib/types';
 import { NOTICE_KIND_LABELS } from '@/features/hr/discipline/lib/types';
 
-export type NoticeEmployee = { id: string; nameAr: string };
+export type NoticeEmployee = {
+  id: string;
+  nameAr: string;
+  nationalId: string | null;
+  nationality: string | null;
+  position: string | null;
+  branchNameAr: string | null;
+};
 export type NoticeCase = {
   id: string;
   caseNumber: string;
@@ -129,7 +136,16 @@ export function useDisciplineNoticesDirectoryModel() {
 
     const employeeMap = new Map(employeesRes.items.map((e) => [e.id, e.nameAr]));
     employeeMapRef.current = employeeMap;
-    setEmployees(employeesRes.items.map((e) => ({ id: e.id, nameAr: e.nameAr })));
+    setEmployees(
+      employeesRes.items.map((e) => ({
+        id: e.id,
+        nameAr: e.nameAr,
+        nationalId: e.nationalId,
+        nationality: e.nationality,
+        position: e.position,
+        branchNameAr: e.branchNameAr,
+      })),
+    );
     setCases(
       recordsRes.items.map((r) => ({
         id: r.id,

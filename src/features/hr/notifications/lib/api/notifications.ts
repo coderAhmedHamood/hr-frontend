@@ -1,4 +1,9 @@
-import { apiRequest, type PaginatedResult } from '@/features/hr/lib/api/client';
+import {
+  apiDownloadRequest,
+  apiDownloadToDevice,
+  apiRequest,
+  type PaginatedResult,
+} from '@/features/hr/lib/api/client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -182,6 +187,20 @@ export const notificationsApi = {
 
   delete: (id: string) =>
     apiRequest<void>(`/notifications/${id}`, { method: 'DELETE' }),
+
+  getPdf(id: string, fileName?: string, employeeId?: string) {
+    return apiDownloadRequest(`/notifications/${id}/pdf`, {
+      query: employeeId ? { employeeId } : undefined,
+      defaultFileName: fileName ?? `notification-${id}.pdf`,
+    });
+  },
+
+  downloadPdf(id: string, fileName?: string, employeeId?: string) {
+    return apiDownloadToDevice(`/notifications/${id}/pdf`, {
+      query: employeeId ? { employeeId } : undefined,
+      defaultFileName: fileName ?? `notification-${id}.pdf`,
+    });
+  },
 
   /** Employee inbox */
   inbox: (

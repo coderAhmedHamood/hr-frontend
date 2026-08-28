@@ -1,7 +1,11 @@
-'use client';
+﻿'use client';
 
 import * as React from 'react';
 import { PDF_PRINT_FONT_FAMILY } from '@/components/pdf/lib/pdf-print-font';
+import {
+  PDF_PAGE_FONT,
+  PDF_SECTION_FONT,
+} from '@/components/pdf/lib/official-document-typography';
 import { sanitizePdfText } from '@/components/pdf/lib/sanitize-pdf-text';
 import { isDefaultPdfLogoSrc } from '@/components/pdf/lib/pdf-company-info';
 import { useResolvedPdfLetterhead } from '@/components/pdf/hooks/use-pdf-company-letterhead';
@@ -66,7 +70,7 @@ export function RoseTradingLetterheadPrint({
         >
           <div
             style={{
-              fontSize: 16,
+              fontSize: PDF_SECTION_FONT,
               fontWeight: 700,
               color: LETTERHEAD_GOLD,
               letterSpacing: 0.6,
@@ -80,7 +84,7 @@ export function RoseTradingLetterheadPrint({
           </div>
           <div
             style={{
-              fontSize: 14,
+              fontSize: PDF_PAGE_FONT,
               fontWeight: 700,
               color: '#000000',
               marginTop: 5,
@@ -130,7 +134,7 @@ export function RoseTradingLetterheadPrint({
         >
           <div
             style={{
-              fontSize: 19,
+              fontSize: PDF_SECTION_FONT,
               fontWeight: 700,
               color: LETTERHEAD_GOLD,
               textAlign: 'right',
@@ -146,7 +150,7 @@ export function RoseTradingLetterheadPrint({
             lang="ar"
             style={{
               marginTop: 5,
-              fontSize: 14,
+              fontSize: PDF_PAGE_FONT,
               fontWeight: 700,
               color: '#000000',
               fontFamily: PDF_PRINT_FONT_FAMILY,

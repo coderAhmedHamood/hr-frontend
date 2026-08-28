@@ -52,7 +52,9 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { PdfPreviewExportDialog } from '@/components/pdf/pdf-preview-export-dialog';
+import { PdfPreviewDownloadButton } from '@/components/pdf/pdf-preview-download-button';
 import { ViolationCasesRegisterPrintHtml } from '@/components/pdf/print/violation-cases-register-print-html';
+import { DisciplineLetterPrintHtml } from '@/components/pdf/print/discipline-letter-print-html';
 import { downloadXlsxFromAoA, type XlsxCell } from '@/shared/export/download-xlsx';
 import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
@@ -337,6 +339,8 @@ export function ViolationCasesClient() {
   const filterToolbarRef = React.useRef<ListFilterBarHandle>(null);
 
   const [pdfOpen, setPdfOpen] = React.useState(false);
+  const [casePrintOpen, setCasePrintOpen] = React.useState(false);
+  const [casePrintRecord, setCasePrintRecord] = React.useState<ViolationCaseRecord | null>(null);
   const [createOpen, setCreateOpen] = React.useState(false);
   const [draft, setDraft] = React.useState<CreateForm>(CREATE_EMPTY);
   const [saving, setSaving] = React.useState(false);
@@ -476,6 +480,29 @@ export function ViolationCasesClient() {
         />
       ),
     [violationPdfRows, companyNameAr, companyNameEn],
+  );
+
+  const casePrintable = React.useMemo(
+    () =>
+      casePrintRecord ? (
+        <DisciplineLetterPrintHtml
+          companyNameAr={companyNameAr}
+          companyNameEn={companyNameEn}
+          titleAr={`محضر مخالفة ${casePrintRecord.caseNumber}`}
+          rows={[
+            { label: 'رقم المخالفة', value: casePrintRecord.caseNumber },
+            { label: 'الموظف', value: casePrintRecord.employeeNameAr },
+            { label: 'نوع المخالفة', value: casePrintRecord.typeNameAr },
+            { label: 'التاريخ', value: casePrintRecord.date },
+            { label: 'الحالة', value: STATUS_LABELS[casePrintRecord.status] },
+          ]}
+          bodyAr={[
+            casePrintRecord.description.trim() ? `الوصف:\n${casePrintRecord.description.trim()}` : '',
+            casePrintRecord.notes?.trim() ? `ملاحظات:\n${casePrintRecord.notes.trim()}` : '',
+          ].filter(Boolean).join('\n\n')}
+        />
+      ) : null,
+    [casePrintRecord, companyNameAr, companyNameEn],
   );
 
   const empOptions = employees.map(e => ({ value: e.id, label: e.nameAr }));
@@ -841,6 +868,20 @@ export function ViolationCasesClient() {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
       <PdfPreviewExportDialog open={pdfOpen} onOpenChange={setPdfOpen} title="معاينة تصدير سجل المخالفات" fileName="violation-cases.pdf" printable={printable} />
+      <PdfPreviewExportDialog
+        open={casePrintOpen}
+        onOpenChange={(open) => {
+          setCasePrintOpen(open);
+          if (!open) setCasePrintRecord(null);
+        }}
+        title="معاينة محضر المخالفة"
+        fileName={
+          casePrintRecord
+            ? `violation-${casePrintRecord.caseNumber}.pdf`
+            : 'violation-case.pdf'
+        }
+        printable={casePrintable}
+      />
 
       <DisciplineListViewport>
       {sourceCases.length === 0 && !loading ? (
@@ -1168,6 +1209,19 @@ export function ViolationCasesClient() {
                 </div>
               ) : null}
             </DialogBody>
+          ) : null}
+          {viewCase ? (
+            <DialogFooter className={dialogFormFooterClass}>
+              <PdfPreviewDownloadButton
+                onClick={() => {
+                  setCasePrintRecord(viewCase);
+                  setCasePrintOpen(true);
+                }}
+              />
+              <Button type="button" variant="outline" size="sm" className="h-9" onClick={() => setViewCase(null)}>
+                إغلاق
+              </Button>
+            </DialogFooter>
           ) : null}
         </DialogContent>
       </Dialog>

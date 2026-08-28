@@ -6,12 +6,21 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
+  dialogFormFooterClass,
 } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DisplayDate } from '@/components/ui/table-cells';
 import { MoneyAmount } from '@/components/ui/sar-amount';
+import { PdfPreviewExportDialog } from '@/components/pdf/pdf-preview-export-dialog';
+import { PdfPreviewDownloadButton } from '@/components/pdf/pdf-preview-download-button';
+import { CashReceiptPrintHtml } from '@/features/hr/payroll/reports/components/pdf-cash-receipt-print-html';
+import { buildPayslipCashReceiptPrintFields } from '@/features/hr/organization/employees/lib/rose-document-templates/build-print-fields';
+import { employeesApi } from '@/features/hr/organization/employees/lib/api/employees';
+import { useDefaultCompany } from '@/features/hr/organization/hooks/useActiveCompany';
 import { MONTHLY_INPUT_KIND_LABELS } from '@/features/hr/payroll/monthly-inputs/constants/monthly-input-labels';
 import type { MonthlyInputKindDto } from '@/features/hr/payroll/lib/api/monthly-inputs';
 import {
@@ -184,6 +193,11 @@ export function PayslipDetailDialog({
 }) {
   const [payslip, setPayslip] = React.useState<PayslipResponseDto | null>(null);
   const [loading, setLoading] = React.useState(false);
+  const [branchNameAr, setBranchNameAr] = React.useState<string | null>(null);
+  const [letterOpen, setLetterOpen] = React.useState(false);
+  const { data: defaultCompany } = useDefaultCompany();
+  const companyNameAr = defaultCompany?.nameAr ?? '';
+  const companyNameEn = defaultCompany?.nameEn ?? null;
 
   React.useEffect(() => {
     if (!open || !payslipId) {
@@ -199,6 +213,48 @@ export function PayslipDetailDialog({
     return () => { cancelled = true; };
   }, [open, payslipId, refreshKey]);
 
+  React.useEffect(() => {
+    if (!payslip?.employeeId) {
+      setBranchNameAr(null);
+      return;
+    }
+    let cancelled = false;
+    void employeesApi
+      .getById(payslip.employeeId)
+      .then((emp) => {
+        if (!cancelled) setBranchNameAr(emp.branchNameAr ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setBranchNameAr(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [payslip?.employeeId]);
+
+  const receiptPrintable = React.useMemo(() => {
+    if (!payslip || !companyNameAr) return null;
+    const fields = buildPayslipCashReceiptPrintFields(payslip, {
+      companyNameAr,
+      branchNameAr,
+    });
+    return (
+      <CashReceiptPrintHtml
+        companyNameAr={companyNameAr}
+        companyNameEn={companyNameEn}
+        fields={fields}
+      />
+    );
+  }, [payslip, companyNameAr, companyNameEn, branchNameAr]);
+
+  const receiptFileName = React.useMemo(() => {
+    if (!payslip) return 'salary-receipt.pdf';
+    const m = payslip.periodMonth ?? '';
+    const y = payslip.periodYear ?? '';
+    const slug = payslip.employeeNameAr.replace(/\s+/g, '-').slice(0, 24);
+    return `salary-receipt-${slug}-${y}-${m}.pdf`;
+  }, [payslip]);
+
   const handleAccept = React.useCallback(() => {
     if (!payslip || !onAccept) return;
     onAccept(payslip);
@@ -212,7 +268,20 @@ export function PayslipDetailDialog({
   const acceptance = payslip ? payslipAcceptanceStatus(payslip) : null;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <>
+      <PdfPreviewExportDialog
+        open={letterOpen}
+        onOpenChange={setLetterOpen}
+        title={
+          payslip
+            ? `معاينة سند استلام راتب — ${payslip.employeeNameAr}`
+            : 'معاينة سند استلام راتب'
+        }
+        fileName={receiptFileName}
+        printable={receiptPrintable}
+      />
+
+      <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] max-w-lg gap-0 overflow-visible border-border p-0" dir="rtl">
         <div className="border-b border-border/60 bg-linear-to-b from-primary/6 to-transparent px-6 pb-4 pt-6">
           <DialogHeader className="space-y-2 text-right">
@@ -354,7 +423,20 @@ export function PayslipDetailDialog({
             </div>
           )}
         </div>
+
+        {payslip && !loading ? (
+          <DialogFooter className={dialogFormFooterClass}>
+            <PdfPreviewDownloadButton
+              onClick={() => setLetterOpen(true)}
+              disabled={!receiptPrintable}
+            />
+            <Button type="button" variant="outline" size="sm" className="h-9" onClick={() => onOpenChange(false)}>
+              إغلاق
+            </Button>
+          </DialogFooter>
+        ) : null}
       </DialogContent>
     </Dialog>
+    </>
   );
 }

@@ -6,11 +6,23 @@ import {
   CheckCircle2,
   Circle,
   Clock,
+  FileDown,
   Mail,
   Plus,
   Trash2,
   Users,
 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { PdfPreviewExportDialog } from '@/components/pdf/pdf-preview-export-dialog';
+import { PdfPreviewDownloadButton } from '@/components/pdf/pdf-preview-download-button';
+import { DisciplineLetterPrintHtml } from '@/components/pdf/print/discipline-letter-print-html';
+import { NotificationsRegisterPrintHtml } from '@/components/pdf/print/notifications-register-print-html';
+import { useDefaultCompany } from '@/features/hr/organization/hooks/useActiveCompany';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -132,6 +144,12 @@ function AudienceEmployeesCell({ record }: { record: HRAdminNotificationRecord }
 
 export function NotificationsAdminClient() {
   const m = useNotificationsAdminDirectoryModel();
+  const { data: defaultCompany } = useDefaultCompany();
+  const companyNameAr = defaultCompany?.nameAr ?? '';
+  const companyNameEn = defaultCompany?.nameEn ?? '';
+  const [pdfOpen, setPdfOpen] = React.useState(false);
+  const [letterOpen, setLetterOpen] = React.useState(false);
+  const [letterRecord, setLetterRecord] = React.useState<HRAdminNotificationRecord | null>(null);
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   const [form, setForm] = React.useState<SendForm>(EMPTY_FORM);
   const [formError, setFormError] = React.useState<string | null>(null);
@@ -154,6 +172,55 @@ export function NotificationsAdminClient() {
       setDetailLoading(false);
     }
   }, []);
+
+  const openNotificationPreview = React.useCallback((record: HRAdminNotificationRecord) => {
+    setLetterRecord(record);
+    setLetterOpen(true);
+  }, []);
+
+  const notificationLetterPrintable = React.useMemo(() => {
+    if (!letterRecord) return null;
+    return (
+      <DisciplineLetterPrintHtml
+        companyNameAr={companyNameAr}
+        companyNameEn={companyNameEn}
+        titleAr={letterRecord.titleAr}
+        rows={[
+          { label: 'التصنيف', value: NOTIFICATION_CATEGORY_LABELS[letterRecord.category] },
+          { label: 'الجمهور', value: letterRecord.audienceSummaryAr },
+          { label: 'عدد المستلمين', value: String(letterRecord.recipientCount) },
+        ]}
+        bodyAr={letterRecord.bodyAr}
+      />
+    );
+  }, [letterRecord, companyNameAr, companyNameEn]);
+
+  const notificationsPdfRows = React.useMemo(
+    () =>
+      m.notifications.map((n) => ({
+        dateYmd: n.createdAt.slice(0, 10),
+        titleAr: n.titleAr,
+        recipientNameAr: n.audienceSummaryAr,
+        readAr: `${n.readCount ?? 0}/${n.recipientCount ?? 0}`,
+        inboxAr: String(n.recipientCount ?? 0),
+      })),
+    [m.notifications],
+  );
+
+  const notificationsPrintable = React.useMemo(
+    () =>
+      notificationsPdfRows.length === 0 ? null : (
+        <NotificationsRegisterPrintHtml
+          companyNameAr={companyNameAr}
+          companyNameEn={companyNameEn}
+          titleAr="سجل الإشعارات المرسلة"
+          filterSummary="حسب الفلاتر الحالية"
+          rows={notificationsPdfRows}
+          includeRecipientColumn={false}
+        />
+      ),
+    [notificationsPdfRows, companyNameAr, companyNameEn],
+  );
 
   const allEmployeeOptions = React.useMemo(
     () => m.employeeOptions.map((e) => ({
@@ -242,6 +309,33 @@ export function NotificationsAdminClient() {
     () => (
       <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
         <FilterToggleButton activeFilterCount={m.activeFilterCount} />
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 w-8 shrink-0"
+              aria-label="تصدير الإشعارات"
+            >
+              <FileDown className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-44">
+            <DropdownMenuItem
+              onSelect={() => {
+                if (notificationsPdfRows.length === 0) {
+                  toast.error('لا توجد إشعارات للتصدير ضمن الفلاتر الحالية.');
+                  return;
+                }
+                setPdfOpen(true);
+              }}
+            >
+              <FileDown className="h-4 w-4" />
+              PDF
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
         <Button
           type="button"
           size="sm"
@@ -258,7 +352,7 @@ export function NotificationsAdminClient() {
         </Button>
       </div>
     ),
-    [m.activeFilterCount],
+    [m.activeFilterCount, notificationsPdfRows.length],
   );
 
   const columns = React.useMemo((): ColumnDef<HRAdminNotificationRecord>[] => [
@@ -509,6 +603,26 @@ export function NotificationsAdminClient() {
         detail={detailData}
         loading={detailLoading}
         onClose={() => { setDetailRecord(null); setDetailData(null); }}
+        onPreviewPdf={detailRecord ? () => openNotificationPreview(detailRecord) : undefined}
+      />
+
+      <PdfPreviewExportDialog
+        open={pdfOpen}
+        onOpenChange={setPdfOpen}
+        title="معاينة تصدير الإشعارات"
+        fileName="notifications-register.pdf"
+        printable={notificationsPrintable}
+      />
+
+      <PdfPreviewExportDialog
+        open={letterOpen}
+        onOpenChange={(openNext) => {
+          setLetterOpen(openNext);
+          if (!openNext) setLetterRecord(null);
+        }}
+        title={letterRecord ? `خطاب إشعار — ${letterRecord.titleAr}` : 'خطاب إشعار'}
+        fileName={letterRecord ? `notification-${letterRecord.id.slice(0, 8)}.pdf` : 'notification.pdf'}
+        printable={notificationLetterPrintable}
       />
 
       <ConfirmationModal
@@ -672,11 +786,13 @@ function NotificationDetailDialog({
   detail,
   loading,
   onClose,
+  onPreviewPdf,
 }: {
   record: HRAdminNotificationRecord | null;
   detail: NotificationDetailResponseDto | null;
   loading: boolean;
   onClose: () => void;
+  onPreviewPdf?: () => void;
 }) {
   const open = record != null;
   const [readFilter, setReadFilter] = React.useState<ReadFilter>('all');
@@ -857,6 +973,12 @@ function NotificationDetailDialog({
             </>
           )}
         </DialogBody>
+
+        {onPreviewPdf ? (
+          <div className="flex shrink-0 justify-end border-t border-border/60 px-5 py-3">
+            <PdfPreviewDownloadButton onClick={onPreviewPdf} />
+          </div>
+        ) : null}
       </DialogContent>
     </Dialog>
   );

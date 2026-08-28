@@ -16,6 +16,10 @@ import { usePageHeaderActions, usePageHeaderActionsState } from '@/components/la
 import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
 import { ForbiddenState } from '@/components/shared/forbidden-state';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
+import { useDefaultCompany } from '@/features/hr/organization/hooks/useActiveCompany';
+import { PdfPreviewExportDialog } from '@/components/pdf/pdf-preview-export-dialog';
+import { PdfPreviewDownloadButton } from '@/components/pdf/pdf-preview-download-button';
+import { DisciplineCircularPrintHtml } from '@/components/pdf/print/discipline-circular-print-html';
 import {
   ConfirmationModal, HRSettingsFormDrawer, FormField,
   EmptyState,
@@ -37,7 +41,7 @@ import {
   type DisciplineViewMode,
 } from '@/features/hr/discipline/components/discipline-filter-toolbar';
 import { tryBuildCircularAudienceSnapshot } from '@/features/hr/discipline/circulars/utils/build-circular-audience-summary';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, dialogFormFooterClass } from '@/components/ui/dialog';
 import { DataTable, type ColumnDef } from '@/components/ui/data-table';
 import { TableDateCell, TableRowActions } from '@/components/ui/table-cells';
 import { DisciplineListViewport, DisciplinePaginatedList } from '@/features/hr/discipline/components/discipline-paginated-list';
@@ -88,6 +92,10 @@ export function CircularsClient() {
   const [deleteId, setDeleteId] = React.useState<string | null>(null);
 
   const [detailCircular, setDetailCircular] = React.useState<HRDisciplineCircularRecord | null>(null);
+  const [letterOpen, setLetterOpen] = React.useState(false);
+  const { data: defaultCompany } = useDefaultCompany();
+  const companyNameAr = defaultCompany?.nameAr ?? '';
+  const companyNameEn = defaultCompany?.nameEn ?? '';
 
   React.useEffect(() => {
     setListFilters({
@@ -293,10 +301,35 @@ export function CircularsClient() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
+      <PdfPreviewExportDialog
+        open={letterOpen}
+        onOpenChange={setLetterOpen}
+        title={
+          detailCircular
+            ? `معاينة التعميم — ${detailCircular.titleAr || detailCircular.date}`
+            : 'معاينة التعميم'
+        }
+        fileName={
+          detailCircular
+            ? `circular-${detailCircular.date}.pdf`
+            : 'circular.pdf'
+        }
+        printable={
+          detailCircular ? (
+            <DisciplineCircularPrintHtml
+              company={{ nameAr: companyNameAr, nameEn: companyNameEn || companyNameAr }}
+              titleAr={detailCircular.titleAr}
+              issuedDate={detailCircular.date}
+              audienceSummaryAr={detailCircular.audienceSummaryAr}
+              bodyAr={detailCircular.bodyAr}
+            />
+          ) : null
+        }
+      />
 
       {/* Detail dialog */}
       <Dialog open={!!detailCircular} onOpenChange={(v) => !v && setDetailCircular(null)}>
-        <DialogContent className="max-w-lg border-border" dir="rtl">
+        <DialogContent className="max-w-lg gap-0 overflow-hidden border-border" dir="rtl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base font-display">
               <Megaphone className="h-4 w-4 text-primary shrink-0" />
@@ -304,7 +337,7 @@ export function CircularsClient() {
             </DialogTitle>
           </DialogHeader>
           {detailCircular && (
-            <div className="space-y-4">
+            <div className="space-y-4 px-6 pb-2">
               <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                 <span className="flex items-center gap-1">
                   <CalendarDays className="h-3.5 w-3.5" />
@@ -324,6 +357,14 @@ export function CircularsClient() {
               </div>
             </div>
           )}
+          {detailCircular ? (
+            <DialogFooter className={dialogFormFooterClass}>
+              <PdfPreviewDownloadButton onClick={() => setLetterOpen(true)} />
+              <Button type="button" variant="outline" size="sm" className="h-9" onClick={() => setDetailCircular(null)}>
+                إغلاق
+              </Button>
+            </DialogFooter>
+          ) : null}
         </DialogContent>
       </Dialog>
 
@@ -449,7 +490,7 @@ export function CircularsClient() {
           <textarea
             value={draft.bodyAr}
             onChange={(e) => set({ bodyAr: e.target.value })}
-            placeholder="اكتب نص التعميم الذي سيصل إلى الفئة المستهدفة…"
+            placeholder="اكتب نص التعميم — استخدم «-» للنقاط، «○» للاستثناءات، «1.» للترقيم، «##» للعناوين الفرعية…"
             className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
         </FormField>

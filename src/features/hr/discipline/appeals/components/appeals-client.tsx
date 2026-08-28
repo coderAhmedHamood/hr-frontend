@@ -49,7 +49,9 @@ import { cn } from '@/shared/utils';
 import { APPEAL_STATUS_PILL } from '@/shared/status-pill-classes';
 import { useDefaultCompany } from '@/features/hr/organization/hooks/useActiveCompany';
 import { PdfPreviewExportDialog } from '@/components/pdf/pdf-preview-export-dialog';
+import { PdfPreviewDownloadButton } from '@/components/pdf/pdf-preview-download-button';
 import { GenericRegisterPrintHtml } from '@/components/pdf/print/generic-register-print-html';
+import { DisciplineLetterPrintHtml } from '@/components/pdf/print/discipline-letter-print-html';
 import { downloadXlsxFromAoA, type XlsxCell } from '@/shared/export/download-xlsx';
 import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
@@ -111,6 +113,7 @@ export function AppealsClient() {
   const [deleteId, setDeleteId] = React.useState<string | null>(null);
   const [pdfOpen, setPdfOpen] = React.useState(false);
   const [detailRow, setDetailRow] = React.useState<AppealRecord | null>(null);
+  const [letterOpen, setLetterOpen] = React.useState(false);
   const [decisionTarget, setDecisionTarget] = React.useState<{ appeal: AppealRecord; status: DecisionStatus } | null>(null);
   const [decisionNote, setDecisionNote] = React.useState('');
   const [decisionError, setDecisionError] = React.useState<string | null>(null);
@@ -210,6 +213,30 @@ export function AppealsClient() {
         />
       ),
     [appealsPdfRows, companyNameAr, companyNameEn],
+  );
+
+  const letterPrintable = React.useMemo(
+    () =>
+      detailRow ? (
+        <DisciplineLetterPrintHtml
+          companyNameAr={companyNameAr}
+          companyNameEn={companyNameEn}
+          titleAr={`تظلم ${detailRow.caseNumber}`}
+          rows={[
+            { label: 'المخالفة', value: detailRow.caseNumber },
+            { label: 'الموظف', value: detailRow.employeeNameAr },
+            { label: 'التاريخ', value: detailRow.date },
+            { label: 'القناة', value: APPEAL_CHANNEL_LABELS[detailRow.channel] },
+            { label: 'الحالة', value: APPEAL_STATUS_LABELS[detailRow.status] },
+            { label: 'تاريخ القرار', value: detailRow.decidedAt || '—' },
+          ]}
+          bodyAr={[
+            detailRow.grounds.trim() ? `أسباب التظلم:\n${detailRow.grounds.trim()}` : '',
+            detailRow.responseNote.trim() ? `رد الموارد البشرية:\n${detailRow.responseNote.trim()}` : '',
+          ].filter(Boolean).join('\n\n')}
+        />
+      ) : null,
+    [detailRow, companyNameAr, companyNameEn],
   );
 
   const set = (patch: Partial<DraftForm>) => setDraft(d => ({ ...d, ...patch }));
@@ -487,6 +514,13 @@ export function AppealsClient() {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
       <PdfPreviewExportDialog open={pdfOpen} onOpenChange={setPdfOpen} title="معاينة تصدير التظلمات" fileName="discipline-appeals.pdf" printable={printable} />
+      <PdfPreviewExportDialog
+        open={letterOpen}
+        onOpenChange={setLetterOpen}
+        title="معاينة ملف التظلم"
+        fileName={detailRow ? `appeal-${detailRow.caseNumber}.pdf` : 'appeal.pdf'}
+        printable={letterPrintable}
+      />
 
       <DisciplineListViewport>
       {sourceAppeals.length === 0 && !loading ? (
@@ -669,6 +703,11 @@ export function AppealsClient() {
           { label: 'تاريخ القرار', value: detailRow.decidedAt ? <TableDateCell value={detailRow.decidedAt} /> : '—' },
           { label: 'أسباب التظلم', value: detailRow.grounds || '—' },
         ] : []}
+        footer={
+          detailRow ? (
+            <PdfPreviewDownloadButton onClick={() => setLetterOpen(true)} />
+          ) : null
+        }
       >
         {detailRow ? (
           <RelatedEmployeeAttachments

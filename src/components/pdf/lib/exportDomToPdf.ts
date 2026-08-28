@@ -33,7 +33,7 @@ export async function exportDomToPdf(
           clonedDoc.body.className = '';
           clonedDoc.body.setAttribute(
             'style',
-            `background:#fff;margin:0;padding:0;font-family:${PDF_PRINT_FONT_FAMILY};color:#111`,
+            `background:#fff;margin:0;padding:0;font-family:${PDF_PRINT_FONT_FAMILY};font-weight:700;color:#000`,
           );
           const reset = clonedDoc.createElement('style');
           reset.textContent =

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import * as React from 'react';
 import { PDF_PRINT_FONT_FAMILY } from '@/components/pdf/lib/pdf-print-font';
@@ -35,7 +35,7 @@ const PAGE_STYLE: React.CSSProperties = {
   backgroundColor: '#ffffff',
   padding: '26px 20px 48px',
   fontFamily: PDF_PRINT_FONT_FAMILY,
-  fontSize: 10,
+  fontSize: 22,
   color: '#111',
   boxSizing: 'border-box',
 };
@@ -69,10 +69,10 @@ export const LeavesAnalyticsPrintHtml = React.forwardRef<HTMLDivElement, LeavesA
             companyNameEn={companyNameEn}
           />
 
-          <div style={{ fontSize: 15, fontWeight: 700, textAlign: 'center', marginBottom: 8, textDecoration: 'underline' }}>
+          <div style={{ fontSize: 22.5, fontWeight: 700, textAlign: 'center', marginBottom: 8, textDecoration: 'underline' }}>
             تحليلات الإجازات — تقرير PDF
           </div>
-          <div style={{ fontSize: 9.5, color: '#666', textAlign: 'right', lineHeight: 1.4, marginBottom: 14 }}>
+          <div style={{ fontSize: 22, color: '#666', textAlign: 'right', lineHeight: 1.4, marginBottom: 14 }}>
             {sanitizePdfText(filterSummary)}
           </div>
 
@@ -94,15 +94,15 @@ export const LeavesAnalyticsPrintHtml = React.forwardRef<HTMLDivElement, LeavesA
                   textAlign: 'center',
                 }}
               >
-                <div style={{ fontSize: 16, fontWeight: 700 }} dir="ltr">
+                <div style={{ fontSize: 26, fontWeight: 700 }} dir="ltr">
                   {sanitizePdfText(String(item.value))}
                 </div>
-                <div style={{ fontSize: 9.5, color: '#475569', marginTop: 2 }}>{sanitizePdfText(item.label)}</div>
+                <div style={{ fontSize: 22, color: '#475569', marginTop: 2 }}>{sanitizePdfText(item.label)}</div>
               </div>
             ))}
           </div>
 
-          <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 8, color: '#1f2937' }}>طلبات الإجازات المصفّاة</div>
+          <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 8, color: '#1f2937' }}>طلبات الإجازات المصفّاة</div>
           <div style={{ border: '1px solid #cbd5e1' }}>
             <div style={{ display: 'flex', flexDirection: 'row', backgroundColor: '#e8f2ef', borderBottom: '1px solid #cbd5e1' }}>
               {[
@@ -118,7 +118,7 @@ export const LeavesAnalyticsPrintHtml = React.forwardRef<HTMLDivElement, LeavesA
                   style={{
                     width: h.w,
                     padding: '6px 6px',
-                    fontSize: 9,
+                    fontSize: 22,
                     fontWeight: 700,
                     textAlign: h.align,
                     borderInlineStart: i === 0 ? undefined : '1px solid #cbd5e1',
@@ -143,22 +143,22 @@ export const LeavesAnalyticsPrintHtml = React.forwardRef<HTMLDivElement, LeavesA
                     backgroundColor: idx % 2 === 1 ? '#fafafa' : '#fff',
                   }}
                 >
-                  <div style={{ width: '28%', padding: '6px 6px', fontSize: 9.5, textAlign: 'right', boxSizing: 'border-box', wordBreak: 'break-word' }}>
+                  <div style={{ width: '28%', padding: '6px 6px', fontSize: 22, textAlign: 'right', boxSizing: 'border-box', wordBreak: 'break-word' }}>
                     {sanitizePdfText(l.employeeNameAr)}
                   </div>
-                  <div style={{ width: '14%', padding: '6px 6px', fontSize: 9.5, textAlign: 'center', boxSizing: 'border-box', borderInlineStart: '1px solid #e2e8f0' }}>
+                  <div style={{ width: '14%', padding: '6px 6px', fontSize: 22, textAlign: 'center', boxSizing: 'border-box', borderInlineStart: '1px solid #e2e8f0' }}>
                     <span dir="ltr">{sanitizePdfText(l.start)}</span>
                   </div>
-                  <div style={{ width: '14%', padding: '6px 6px', fontSize: 9.5, textAlign: 'center', boxSizing: 'border-box', borderInlineStart: '1px solid #e2e8f0' }}>
+                  <div style={{ width: '14%', padding: '6px 6px', fontSize: 22, textAlign: 'center', boxSizing: 'border-box', borderInlineStart: '1px solid #e2e8f0' }}>
                     <span dir="ltr">{sanitizePdfText(l.end)}</span>
                   </div>
-                  <div style={{ width: '16%', padding: '6px 6px', fontSize: 9.5, textAlign: 'right', boxSizing: 'border-box', borderInlineStart: '1px solid #e2e8f0', wordBreak: 'break-word' }}>
+                  <div style={{ width: '16%', padding: '6px 6px', fontSize: 22, textAlign: 'right', boxSizing: 'border-box', borderInlineStart: '1px solid #e2e8f0', wordBreak: 'break-word' }}>
                     {sanitizePdfText(l.typeAr)}
                   </div>
-                  <div style={{ width: '18%', padding: '6px 6px', fontSize: 9.5, textAlign: 'right', boxSizing: 'border-box', borderInlineStart: '1px solid #e2e8f0', wordBreak: 'break-word' }}>
+                  <div style={{ width: '18%', padding: '6px 6px', fontSize: 22, textAlign: 'right', boxSizing: 'border-box', borderInlineStart: '1px solid #e2e8f0', wordBreak: 'break-word' }}>
                     {sanitizePdfText(l.statusAr)}
                   </div>
-                  <div style={{ width: '10%', padding: '6px 6px', fontSize: 9.5, textAlign: 'center', boxSizing: 'border-box', borderInlineStart: '1px solid #e2e8f0' }}>
+                  <div style={{ width: '10%', padding: '6px 6px', fontSize: 22, textAlign: 'center', boxSizing: 'border-box', borderInlineStart: '1px solid #e2e8f0' }}>
                     <span dir="ltr">{sanitizePdfText(String(l.workingDays))}</span>
                   </div>
                 </div>
@@ -166,7 +166,7 @@ export const LeavesAnalyticsPrintHtml = React.forwardRef<HTMLDivElement, LeavesA
             )}
           </div>
 
-          <div style={{ fontSize: 12, fontWeight: 700, marginTop: 16, marginBottom: 8, color: '#1f2937' }}>أرصدة الموظفين</div>
+          <div style={{ fontSize: 22, fontWeight: 700, marginTop: 16, marginBottom: 8, color: '#1f2937' }}>أرصدة الموظفين</div>
           <div style={{ border: '1px solid #cbd5e1' }}>
             <div style={{ display: 'flex', flexDirection: 'row', backgroundColor: '#e8f2ef', borderBottom: '1px solid #cbd5e1' }}>
               {[
@@ -180,7 +180,7 @@ export const LeavesAnalyticsPrintHtml = React.forwardRef<HTMLDivElement, LeavesA
                   style={{
                     width: h.w,
                     padding: '6px 6px',
-                    fontSize: 9,
+                    fontSize: 22,
                     fontWeight: 700,
                     textAlign: h.align,
                     borderInlineStart: i === 0 ? undefined : '1px solid #cbd5e1',
@@ -204,16 +204,16 @@ export const LeavesAnalyticsPrintHtml = React.forwardRef<HTMLDivElement, LeavesA
                     backgroundColor: idx % 2 === 1 ? '#fafafa' : '#fff',
                   }}
                 >
-                  <div style={{ width: '44%', padding: '6px 6px', fontSize: 9.5, textAlign: 'right', boxSizing: 'border-box', wordBreak: 'break-word' }}>
+                  <div style={{ width: '44%', padding: '6px 6px', fontSize: 22, textAlign: 'right', boxSizing: 'border-box', wordBreak: 'break-word' }}>
                     {sanitizePdfText(e.nameAr)}
                   </div>
-                  <div style={{ width: '26%', padding: '6px 6px', fontSize: 9.5, textAlign: 'right', boxSizing: 'border-box', borderInlineStart: '1px solid #e2e8f0', wordBreak: 'break-word' }}>
+                  <div style={{ width: '26%', padding: '6px 6px', fontSize: 22, textAlign: 'right', boxSizing: 'border-box', borderInlineStart: '1px solid #e2e8f0', wordBreak: 'break-word' }}>
                     {sanitizePdfText(e.branch)}
                   </div>
-                  <div style={{ width: '15%', padding: '6px 6px', fontSize: 9.5, textAlign: 'center', boxSizing: 'border-box', borderInlineStart: '1px solid #e2e8f0' }}>
+                  <div style={{ width: '15%', padding: '6px 6px', fontSize: 22, textAlign: 'center', boxSizing: 'border-box', borderInlineStart: '1px solid #e2e8f0' }}>
                     <span dir="ltr">{sanitizePdfText(e.annual)}</span>
                   </div>
-                  <div style={{ width: '15%', padding: '6px 6px', fontSize: 9.5, textAlign: 'center', boxSizing: 'border-box', borderInlineStart: '1px solid #e2e8f0' }}>
+                  <div style={{ width: '15%', padding: '6px 6px', fontSize: 22, textAlign: 'center', boxSizing: 'border-box', borderInlineStart: '1px solid #e2e8f0' }}>
                     <span dir="ltr">{sanitizePdfText(e.sick)}</span>
                   </div>
                 </div>
@@ -226,7 +226,7 @@ export const LeavesAnalyticsPrintHtml = React.forwardRef<HTMLDivElement, LeavesA
             <RoseCompanyStamp width={130} compact />
           </div>
 
-          <footer style={{ marginTop: 18, fontSize: 9, color: '#64748b', textAlign: 'center' }}>
+          <footer style={{ marginTop: 18, fontSize: 22, color: '#64748b', textAlign: 'center' }}>
             <span>تم الإنشاء: </span>
             <span dir="ltr">{sanitizePdfText(gen)}</span>
             <span> · صفحة </span>

@@ -11,6 +11,7 @@ import { InvestigationsClient } from '@/features/hr/discipline/investigations/co
 import { DeductionsClient } from '@/features/hr/discipline/deductions/components/deductions-client';
 import { AppealsClient } from '@/features/hr/discipline/appeals/components/appeals-client';
 import { DisciplineAuditLogClient } from '@/features/hr/discipline/audit-log/components/discipline-audit-log-client';
+
 interface Props {
   section: HRDisciplineSection;
   titleAr: string;

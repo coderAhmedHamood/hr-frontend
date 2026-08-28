@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import * as React from 'react';
 import { PDF_PRINT_FONT_FAMILY } from '@/components/pdf/lib/pdf-print-font';
@@ -30,7 +30,7 @@ function CellValue({ value }: { value: string }) {
       style={{
         width: '72%',
         boxSizing: 'border-box',
-        fontSize: 9.5,
+        fontSize: 22,
         color: '#334155',
         lineHeight: 1.4,
         textAlign: 'right',
@@ -60,7 +60,7 @@ function TableRow({ label, value }: { label: string; value: string; last?: boole
         style={{
           width: '28%',
           boxSizing: 'border-box',
-          fontSize: 9.5,
+          fontSize: 22,
           fontWeight: 700,
           color: C.primary,
           textAlign: 'right',
@@ -121,7 +121,7 @@ export const RoseClearanceRecordPrintHtml = React.forwardRef<
           boxSizing: 'border-box',
           backgroundColor: C.bg,
           padding: '28px 24px 44px',
-          fontSize: 11,
+          fontSize: 22,
           color: '#1e293b',
           display: 'flex',
           flexDirection: 'column',
@@ -135,7 +135,7 @@ export const RoseClearanceRecordPrintHtml = React.forwardRef<
         <RoseTradingLetterheadPrint logoSrc={logoSrc} companyNameAr={ar} companyNameEn={en} />
         <div
           style={{
-            fontSize: 14,
+            fontSize: 22,
             fontWeight: 700,
             marginTop: 4,
             marginBottom: 14,
@@ -193,7 +193,7 @@ export const RoseClearanceRecordPrintHtml = React.forwardRef<
               style={{
                 width: '28%',
                 boxSizing: 'border-box',
-                fontSize: 8.5,
+                fontSize: 22,
                 fontWeight: 700,
                 color: C.primary,
                 textAlign: 'right',
@@ -209,7 +209,7 @@ export const RoseClearanceRecordPrintHtml = React.forwardRef<
         <p
           style={{
             marginTop: 12,
-            fontSize: 10.5,
+            fontSize: 22,
             lineHeight: 1.55,
             textAlign: 'right',
             color: '#1e293b',
@@ -234,7 +234,7 @@ export const RoseClearanceRecordPrintHtml = React.forwardRef<
             <RoseCompanyStamp width={120} compact />
           </div>
           <div style={{ width: '42%', borderTop: `0.5px solid ${C.muted}`, paddingTop: 6 }}>
-            <div style={{ fontSize: 9, color: C.muted, textAlign: 'center' }}>توقيع الموظف</div>
+            <div style={{ fontSize: 22, color: C.muted, textAlign: 'center' }}>توقيع الموظف</div>
           </div>
         </div>
 
@@ -244,7 +244,7 @@ export const RoseClearanceRecordPrintHtml = React.forwardRef<
           style={{
             marginTop: 'auto',
             paddingTop: 10,
-            fontSize: 9,
+            fontSize: 22,
             color: C.muted,
             textAlign: 'center',
             borderTop: `1px solid ${C.border}`,

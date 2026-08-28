@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import * as React from 'react';
 import { PDF_PRINT_FONT_FAMILY } from '@/components/pdf/lib/pdf-print-font';
@@ -46,7 +46,7 @@ export function RosePrintPairedTwoColumnRow({
   pairStart: { label: string; value: string };
 }) {
   const cell = (p: { label: string; value: string }) => (
-    <div style={{ flex: '1 1 48%', minWidth: 140, fontSize: 9, color: '#334155', textAlign: 'right' }}>
+    <div style={{ flex: '1 1 48%', minWidth: 140, fontSize: 22, color: '#334155', textAlign: 'right' }}>
       <span style={{ fontWeight: 700 }}>{sanitizePdfText(p.label)}</span>
       <span>:</span>
       <span dir="auto"> {sanitizePdfText(p.value)}</span>
@@ -89,7 +89,7 @@ function TableRow({ label, value, last }: { label: string; value: string; last?:
         style={{
           width: '28%',
           boxSizing: 'border-box',
-          fontSize: 9.5,
+          fontSize: 22,
           fontWeight: 700,
           color: C.primary,
           textAlign: 'right',
@@ -106,7 +106,7 @@ function TableRow({ label, value, last }: { label: string; value: string; last?:
         style={{
           width: '72%',
           boxSizing: 'border-box',
-          fontSize: 9.5,
+          fontSize: 22,
           color: '#334155',
           lineHeight: 1.4,
           textAlign: 'right',
@@ -141,7 +141,7 @@ function RecordsDocumentLetterhead({
       />
       <div
         style={{
-          fontSize: 14,
+          fontSize: 22,
           fontWeight: 700,
           marginTop: 4,
           marginBottom: 2,
@@ -185,7 +185,7 @@ function FooterPage() {
       style={{
         marginTop: 'auto',
         paddingTop: 10,
-        fontSize: 9,
+        fontSize: 22,
         color: C.muted,
         textAlign: 'center',
         borderTop: `1px solid ${C.border}`,
@@ -223,13 +223,13 @@ function SignatureRow({
       }}
     >
       <div style={{ width: '42%', borderTop: `0.5px solid ${C.muted}`, paddingTop: 6 }}>
-        <div style={{ fontSize: 9, color: C.muted, textAlign: 'center' }}>{sanitizePdfText(endLabel)}</div>
+        <div style={{ fontSize: 22, color: C.muted, textAlign: 'center' }}>{sanitizePdfText(endLabel)}</div>
       </div>
       <div style={{ width: '42%', borderTop: `0.5px solid ${C.muted}`, paddingTop: 6 }}>
         {startStamp ? (
           <RoseCompanyStamp width={120} compact />
         ) : (
-          <div style={{ fontSize: 9, color: C.muted, textAlign: 'center' }}>{sanitizePdfText(startLabel)}</div>
+          <div style={{ fontSize: 22, color: C.muted, textAlign: 'center' }}>{sanitizePdfText(startLabel)}</div>
         )}
       </div>
     </div>
@@ -284,7 +284,7 @@ export const RoseResignationRecordPrintHtml = React.forwardRef<HTMLDivElement, R
           style={{
             border: '1px solid #111',
             padding: '8px 16px',
-            fontSize: 13,
+            fontSize: 22,
             fontWeight: 700,
             textAlign: 'center',
             marginTop: 16,
@@ -301,7 +301,7 @@ export const RoseResignationRecordPrintHtml = React.forwardRef<HTMLDivElement, R
           dir="rtl"
           style={{
             border: '1px solid #111',
-            fontSize: 11,
+            fontSize: 22,
             marginBottom: 16,
           }}
         >
@@ -324,10 +324,10 @@ export const RoseResignationRecordPrintHtml = React.forwardRef<HTMLDivElement, R
         </div>
 
         {/* Addressed to */}
-        <p style={{ fontSize: 12, lineHeight: 1.85, textAlign: 'right', marginBottom: 4 }}>
+        <p style={{ fontSize: 22, lineHeight: 1.85, textAlign: 'right', marginBottom: 4 }}>
           إلى السيد مدير / {sanitizePdfText(companyNameAr)}
         </p>
-        <p style={{ fontSize: 12, lineHeight: 1.85, textAlign: 'right', marginBottom: 12 }}>
+        <p style={{ fontSize: 22, lineHeight: 1.85, textAlign: 'right', marginBottom: 12 }}>
           بعد التحية ،،،
         </p>
 
@@ -337,7 +337,7 @@ export const RoseResignationRecordPrintHtml = React.forwardRef<HTMLDivElement, R
           style={{
             border: '1px solid #111',
             padding: '10px 12px',
-            fontSize: 12,
+            fontSize: 22,
             lineHeight: 1.85,
             textAlign: 'right',
             marginBottom: 16,
@@ -350,11 +350,11 @@ export const RoseResignationRecordPrintHtml = React.forwardRef<HTMLDivElement, R
         </div>
 
         {/* Body text */}
-        <p style={{ fontSize: 12, lineHeight: 1.85, textAlign: 'right' }}>
+        <p style={{ fontSize: 22, lineHeight: 1.85, textAlign: 'right' }}>
           أتقدم لسيادتكم بطلب استقالتي عن العمل اعتبارً من تاريخ :{' '}
           <span dir="ltr">{sanitizePdfText(row.effectiveResignationDate)}</span>
         </p>
-        <p style={{ fontSize: 12, lineHeight: 1.85, textAlign: 'right', marginTop: 6 }}>
+        <p style={{ fontSize: 22, lineHeight: 1.85, textAlign: 'right', marginTop: 6 }}>
           الموافق :{' '}
           <span dir="ltr">{sanitizePdfText(row.documentDate)}</span>{' '}
           م راجياً من سيادتكم قبول طلبي هذا متمنية لكم التوفيق .
@@ -366,37 +366,37 @@ export const RoseResignationRecordPrintHtml = React.forwardRef<HTMLDivElement, R
           style={{
             marginTop: 24,
             border: '1px solid #111',
-            fontSize: 11,
+            fontSize: 22,
           }}
         >
           <div style={{ display: 'flex', flexDirection: 'row', borderBottom: '1px solid #111' }}>
-            <div style={{ width: '35%', borderInlineEnd: '1px solid #111', padding: '6px 8px', fontWeight: 700, textAlign: 'right', fontSize: 10.5 }}>
+            <div style={{ width: '35%', borderInlineEnd: '1px solid #111', padding: '6px 8px', fontWeight: 700, textAlign: 'right', fontSize: 22 }}>
               اسم مقدمة الطلب
             </div>
-            <div style={{ flex: 1, padding: '6px 8px', textAlign: 'right', fontSize: 10.5 }}>
+            <div style={{ flex: 1, padding: '6px 8px', textAlign: 'right', fontSize: 22 }}>
               {sanitizePdfText(emp.nameAr)}
             </div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'row', borderBottom: '1px solid #111' }}>
-            <div style={{ width: '35%', borderInlineEnd: '1px solid #111', padding: '6px 8px', fontWeight: 700, textAlign: 'right', fontSize: 10.5 }}>
+            <div style={{ width: '35%', borderInlineEnd: '1px solid #111', padding: '6px 8px', fontWeight: 700, textAlign: 'right', fontSize: 22 }}>
               التوقيع
             </div>
-            <div style={{ flex: 1, padding: '6px 8px', textAlign: 'right', fontSize: 10.5 }}>
+            <div style={{ flex: 1, padding: '6px 8px', textAlign: 'right', fontSize: 22 }}>
               .....................................................................
             </div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'row', borderBottom: '1px solid #111' }}>
-            <div style={{ width: '35%', borderInlineEnd: '1px solid #111', padding: '6px 8px', fontWeight: 700, textAlign: 'right', fontSize: 10.5 }}>
+            <div style={{ width: '35%', borderInlineEnd: '1px solid #111', padding: '6px 8px', fontWeight: 700, textAlign: 'right', fontSize: 22 }}>
               التاريخ
             </div>
-            <div style={{ flex: 1, padding: '6px 8px', textAlign: 'right', fontSize: 10.5 }}>
+            <div style={{ flex: 1, padding: '6px 8px', textAlign: 'right', fontSize: 22 }}>
               <span dir="ltr">{sanitizePdfText(row.documentDate)}</span>
             </div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'row' }}>
-            <div style={{ width: '35%', borderInlineEnd: '1px solid #111', padding: '6px 8px', fontWeight: 700, textAlign: 'right', fontSize: 10.5 }}>
+            <div style={{ width: '35%', borderInlineEnd: '1px solid #111', padding: '6px 8px', fontWeight: 700, textAlign: 'right', fontSize: 22 }}>
             </div>
-            <div style={{ flex: 1, padding: '6px 8px', textAlign: 'right', fontSize: 10.5 }}>
+            <div style={{ flex: 1, padding: '6px 8px', textAlign: 'right', fontSize: 22 }}>
               <RoseCompanyStamp width={130} labelAr={null} align="start" />
             </div>
           </div>
@@ -442,7 +442,7 @@ export const RoseSettlementRecordPrintHtml = React.forwardRef<HTMLDivElement, Ro
           boxSizing: 'border-box',
           backgroundColor: C.bg,
           padding: '28px 24px 44px',
-          fontSize: 11,
+          fontSize: 22,
           color: '#1e293b',
           display: 'flex',
           flexDirection: 'column',
@@ -464,10 +464,10 @@ export const RoseSettlementRecordPrintHtml = React.forwardRef<HTMLDivElement, Ro
           <TableRow label="الصافي / البيان" value={row.netAmountAr || '—'} last />
         </div>
 
-        <div style={{ marginTop: 10, fontSize: 10, fontWeight: 700, color: C.primary, textAlign: 'right', borderInlineStart: `3px solid ${C.gold}`, paddingInlineStart: 6 }}>
+        <div style={{ marginTop: 10, fontSize: 22, fontWeight: 700, color: C.primary, textAlign: 'right', borderInlineStart: `3px solid ${C.gold}`, paddingInlineStart: 6 }}>
           إقرار الموظف
         </div>
-        <p style={{ marginTop: 8, fontSize: 10.5, lineHeight: 1.55, textAlign: 'right', color: '#1e293b' }}>
+        <p style={{ marginTop: 8, fontSize: 22, lineHeight: 1.55, textAlign: 'right', color: '#1e293b' }}>
           {sanitizePdfText(declaration)}
         </p>
 
@@ -524,7 +524,7 @@ export const RoseExperienceRecordPrintHtml = React.forwardRef<HTMLDivElement, Ro
         <RecordsDocumentLetterhead logoSrc={logoSrc} companyNameAr={companyNameAr} companyNameEn={companyNameEn} titleAr="شهادة خبرة" />
 
         {/* Main body with blanks */}
-        <p style={{ fontSize: 12, lineHeight: 1.85, textAlign: 'right' }}>
+        <p style={{ fontSize: 22, lineHeight: 1.85, textAlign: 'right' }}>
           هذه الشهادة لتأكيد أن{' '}
           <span style={{ fontWeight: 700 }}>
             السيد / ة {sanitizePdfText(emp.nameAr)}
@@ -549,17 +549,17 @@ export const RoseExperienceRecordPrintHtml = React.forwardRef<HTMLDivElement, Ro
         </p>
 
         {/* Performance header */}
-        <div style={{ marginTop: 16, fontSize: 12, lineHeight: 1.85, textAlign: 'right', fontWeight: 700 }}>
+        <div style={{ marginTop: 16, fontSize: 22, lineHeight: 1.85, textAlign: 'right', fontWeight: 700 }}>
           خلال فترة عمله معنا، وجدنا أنه:
         </div>
 
         {/* Traits */}
-        <div style={{ marginTop: 8, fontSize: 12, lineHeight: 1.85, textAlign: 'right' }}>
+        <div style={{ marginTop: 8, fontSize: 22, lineHeight: 1.85, textAlign: 'right' }}>
           فرد أنيق المظهر، حسن المعاملة، مبادر للعمل وسريع البديهة، قادر على تحمل ضغوط العمل، وفرد ممتاز في فريق العمل.
         </div>
 
         {/* Closing wish */}
-        <div style={{ marginTop: 16, fontSize: 12, lineHeight: 1.85, textAlign: 'right' }}>
+        <div style={{ marginTop: 16, fontSize: 22, lineHeight: 1.85, textAlign: 'right' }}>
           نتمنى له الأفضل في ما سيأتي في حياته المهنية،،،
         </div>
 

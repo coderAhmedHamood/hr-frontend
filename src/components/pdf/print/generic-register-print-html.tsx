@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import * as React from 'react';
 import { PDF_PRINT_FONT_FAMILY } from '@/components/pdf/lib/pdf-print-font';
@@ -37,7 +37,7 @@ const PAGE = {
   backgroundColor: '#ffffff',
   padding: '26px 20px 48px',
   fontFamily: PDF_PRINT_FONT_FAMILY,
-  fontSize: 8,
+  fontSize: 22,
   color: '#111',
   boxSizing: 'border-box' as const,
 };
@@ -77,7 +77,7 @@ export const GenericRegisterPrintHtml = React.forwardRef<HTMLDivElement, Generic
               companyNameAr={companyNameAr}
               companyNameEn={companyNameEn}
             />
-            <div style={{ fontSize: 14, fontWeight: 700, textAlign: 'center', marginBottom: 10, textDecoration: 'underline' }}>
+            <div style={{ fontSize: 22, fontWeight: 700, textAlign: 'center', marginBottom: 10, textDecoration: 'underline' }}>
               {sanitizePdfText(titleAr)}
             </div>
 
@@ -90,7 +90,7 @@ export const GenericRegisterPrintHtml = React.forwardRef<HTMLDivElement, Generic
                     boxSizing: 'border-box',
                     fontWeight: 700,
                     textAlign: 'center',
-                    fontSize: 8,
+                    fontSize: 22,
                     padding: '4px 2px',
                     borderInlineStart: i === 0 ? undefined : '1px solid #94a3b8',
                   }}
@@ -141,7 +141,7 @@ export const GenericRegisterPrintHtml = React.forwardRef<HTMLDivElement, Generic
               </div>
             ) : null}
 
-            <div style={{ marginTop: 16, fontSize: 8, color: '#64748b', textAlign: 'center' }}>
+            <div style={{ marginTop: 16, fontSize: 22, color: '#64748b', textAlign: 'center' }}>
               صفحة {pi + 1} / {pages.length}
               {rows.length > 0 ? ` · إجمالي السجلات: ${rows.length}` : ''}
             </div>

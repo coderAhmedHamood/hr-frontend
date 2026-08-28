@@ -1,4 +1,9 @@
-import { apiRequest, type PaginatedResult } from '@/features/hr/lib/api/client';
+import {
+  apiDownloadRequest,
+  apiDownloadToDevice,
+  apiRequest,
+  type PaginatedResult,
+} from '@/features/hr/lib/api/client';
 
 export type EmployeeClearanceStatus = 'draft' | 'issued' | 'revoked';
 export type EmployeeClearanceSignatureStatus = 'none' | 'pending' | 'signed';
@@ -92,5 +97,17 @@ export const employeeClearancesApi = {
       `/hr/employee-clearances/${id}/send-to-employee`,
       { method: 'POST', body: payload ?? {} },
     );
+  },
+
+  getPdf(id: string, fileName?: string) {
+    return apiDownloadRequest(`/hr/employee-clearances/${id}/pdf`, {
+      defaultFileName: fileName ?? `clearance-${id}.pdf`,
+    });
+  },
+
+  downloadPdf(id: string, fileName?: string) {
+    return apiDownloadToDevice(`/hr/employee-clearances/${id}/pdf`, {
+      defaultFileName: fileName ?? `clearance-${id}.pdf`,
+    });
   },
 };

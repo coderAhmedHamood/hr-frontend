@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import * as React from 'react';
 import { PDF_PRINT_FONT_FAMILY } from '@/components/pdf/lib/pdf-print-font';
@@ -67,7 +67,7 @@ export const RoseClearancePrintHtml = React.forwardRef<HTMLDivElement, RoseClear
           boxSizing: 'border-box',
           backgroundColor: '#ffffff',
           padding: '28px 36px 48px',
-          fontSize: 16,
+          fontSize: 26,
           color: '#111111',
           display: 'flex',
           flexDirection: 'column',
@@ -98,7 +98,7 @@ export const RoseClearancePrintHtml = React.forwardRef<HTMLDivElement, RoseClear
             إخلاء طرف موظفة
           </div>
 
-          <div style={{ fontSize: 16, lineHeight: 2.4, textAlign: 'right', marginBottom: 8, ...font }}>
+          <div style={{ fontSize: 26, lineHeight: 2.4, textAlign: 'right', marginBottom: 8, ...font }}>
             <div>
               <span style={{ fontWeight: 700 }}>الموظفة</span>
               <span> : </span>
@@ -117,7 +117,7 @@ export const RoseClearancePrintHtml = React.forwardRef<HTMLDivElement, RoseClear
             </div>
           </div>
 
-          <p style={{ fontSize: 16, lineHeight: 2, textAlign: 'right', margin: '24px 0 12px', ...font }}>
+          <p style={{ fontSize: 26, lineHeight: 2, textAlign: 'right', margin: '24px 0 12px', ...font }}>
             أطلب من {company} إخلاء طرف نظراً للأسباب التالية :
           </p>
 
@@ -126,7 +126,7 @@ export const RoseClearancePrintHtml = React.forwardRef<HTMLDivElement, RoseClear
               <div
                 key={`${i}-${line}`}
                 style={{
-                  fontSize: 16,
+                  fontSize: 26,
                   lineHeight: 2.4,
                   textAlign: 'right',
                   minHeight: 28,
@@ -138,7 +138,7 @@ export const RoseClearancePrintHtml = React.forwardRef<HTMLDivElement, RoseClear
             ))}
           </div>
 
-          <p style={{ fontSize: 16, lineHeight: 2, textAlign: 'justify', margin: '8px 0 0', ...font }}>
+          <p style={{ fontSize: 26, lineHeight: 2, textAlign: 'justify', margin: '8px 0 0', ...font }}>
             وبهذا أكون قد أبرأت ذمة المؤسسة وسقط حق المطالبة حالياً أو مستقبلاً فيما يتعلق بعقد العمل أو غيره ..
           </p>
 
@@ -147,7 +147,7 @@ export const RoseClearancePrintHtml = React.forwardRef<HTMLDivElement, RoseClear
               marginTop: 72,
               alignSelf: 'flex-start',
               textAlign: 'right',
-              fontSize: 16,
+              fontSize: 26,
               lineHeight: 2.6,
               ...font,
             }}

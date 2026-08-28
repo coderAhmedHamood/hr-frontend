@@ -1,4 +1,4 @@
-import { apiRequest, type PaginatedResult } from '@/features/hr/lib/api/client';
+import { apiRequest, apiDownloadRequest, apiDownloadToDevice, type PaginatedResult } from '@/features/hr/lib/api/client';
 import type { DisciplineNoticeResponseDto, CreateDisciplineNoticeDto, DisciplineNoticeListQuery } from '@/features/hr/discipline/types/api/discipline-notices';
 export type { DisciplineNoticeResponseDto, CreateDisciplineNoticeDto, DisciplineNoticeListQuery } from '@/features/hr/discipline/types/api/discipline-notices';
 
@@ -17,6 +17,16 @@ export const disciplineNoticesApi = {
   },
   remove(id: string) {
     return apiRequest<void>(`/discipline/notices/${id}`, { method: 'DELETE' });
+  },
+  downloadPdf(id: string, fileName?: string) {
+    return apiDownloadToDevice(`/discipline/notices/${id}/pdf`, {
+      defaultFileName: fileName ?? `discipline-notice-${id}.pdf`,
+    });
+  },
+  getPdf(id: string, fileName?: string) {
+    return apiDownloadRequest(`/discipline/notices/${id}/pdf`, {
+      defaultFileName: fileName ?? `discipline-notice-${id}.pdf`,
+    });
   },
 };
 

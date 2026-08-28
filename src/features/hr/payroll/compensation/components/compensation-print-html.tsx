@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import * as React from 'react';
 import { PDF_PRINT_FONT_FAMILY } from '@/components/pdf/lib/pdf-print-font';
@@ -21,7 +21,7 @@ const CELL_BORDER = '1px solid #222';
 const TH_STYLE: React.CSSProperties = {
   border: CELL_BORDER,
   padding: '10px 8px',
-  fontSize: 10.5,
+  fontSize: 22,
   fontWeight: 700,
   textAlign: 'center',
   verticalAlign: 'middle',
@@ -32,7 +32,7 @@ const TH_STYLE: React.CSSProperties = {
 const TD_BASE: React.CSSProperties = {
   border: CELL_BORDER,
   padding: '10px 8px',
-  fontSize: 10.5,
+  fontSize: 22,
   verticalAlign: 'middle',
   lineHeight: 1.4,
 };
@@ -171,7 +171,7 @@ export const CompensationPrintHtml = React.forwardRef<HTMLDivElement, Compensati
 
         <div
           style={{
-            fontSize: 15,
+            fontSize: 22.5,
             fontWeight: 700,
             textAlign: 'center',
             marginTop: 12,
