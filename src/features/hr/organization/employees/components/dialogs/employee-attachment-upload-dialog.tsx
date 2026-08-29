@@ -6,7 +6,6 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog,
   DialogContent,
@@ -27,7 +26,6 @@ import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import {
   EMPLOYEE_ATTACHMENT_DOCUMENT_TYPES,
 } from '@/features/hr/organization/employees/constants/employee-attachment-document-types';
-import { parseAttachmentTagsInput } from '@/features/hr/organization/employees/lib/employee-attachments-utils';
 import type { EmployeeAttachmentUploadInput } from '@/features/hr/organization/employees/lib/api/employee-attachments';
 
 type Props = {
@@ -47,19 +45,13 @@ export function EmployeeAttachmentUploadDialog({
 }: Props) {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [file, setFile] = React.useState<File | null>(null);
-  const [name, setName] = React.useState('');
-  const [documentType, setDocumentType] = React.useState<string>('other');
-  const [description, setDescription] = React.useState('');
-  const [tagsInput, setTagsInput] = React.useState('');
+  const [documentType, setDocumentType] = React.useState<string>('');
   const [error, setError] = React.useState<string | null>(null);
   const [uploading, setUploading] = React.useState(false);
 
   const resetForm = React.useCallback(() => {
     setFile(null);
-    setName('');
-    setDocumentType('other');
-    setDescription('');
-    setTagsInput('');
+    setDocumentType('');
     setError(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
   }, []);
@@ -70,10 +62,6 @@ export function EmployeeAttachmentUploadDialog({
 
   const handleFileChange = (nextFile: File | null) => {
     setFile(nextFile);
-    if (nextFile && !name.trim()) {
-      const baseName = nextFile.name.replace(/\.[^.]+$/, '').trim();
-      setName(baseName || nextFile.name);
-    }
   };
 
   const handleSubmit = async () => {
@@ -81,8 +69,8 @@ export function EmployeeAttachmentUploadDialog({
       setError('يرجى اختيار ملف للرفع');
       return;
     }
-    if (!name.trim()) {
-      setError('اسم المرفق مطلوب');
+    if (!documentType) {
+      setError('يرجى اختيار نوع المستند');
       return;
     }
 
@@ -91,10 +79,9 @@ export function EmployeeAttachmentUploadDialog({
     try {
       await onUpload({
         file,
-        name: name.trim(),
-        documentType: documentType || null,
-        description: description.trim() || null,
-        tags: parseAttachmentTagsInput(tagsInput),
+        // The backend requires a display name; use the selected filename.
+        name: file.name,
+        documentType,
       });
       toast.success('تم رفع المرفق بنجاح');
       onSuccess();
@@ -139,18 +126,8 @@ export function EmployeeAttachmentUploadDialog({
 
           <div className="space-y-1.5">
             <Label className="text-xs font-medium text-muted-foreground">
-              اسم المرفق <span className="text-destructive">*</span>
+              نوع المستند <span className="text-destructive">*</span>
             </Label>
-            <Input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="صورة الهوية الوطنية"
-              className="h-9"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label className="text-xs font-medium text-muted-foreground">نوع المستند</Label>
             <Select value={documentType} onValueChange={setDocumentType}>
               <SelectTrigger className="h-9">
                 <SelectValue placeholder="اختر النوع" />
@@ -163,27 +140,6 @@ export function EmployeeAttachmentUploadDialog({
                 ))}
               </SelectContent>
             </Select>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label className="text-xs font-medium text-muted-foreground">الوصف (اختياري)</Label>
-            <Textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="ملاحظات إضافية عن المرفق…"
-              className="min-h-[72px] resize-none text-sm"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label className="text-xs font-medium text-muted-foreground">الوسوم (اختياري)</Label>
-            <Input
-              value={tagsInput}
-              onChange={(e) => setTagsInput(e.target.value)}
-              placeholder="هوية، 2026"
-              className="h-9"
-            />
-            <p className="text-[10px] text-muted-foreground">افصل بين الوسوم بفاصلة</p>
           </div>
 
           {error ? (
