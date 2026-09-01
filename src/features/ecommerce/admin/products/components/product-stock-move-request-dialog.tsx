@@ -36,6 +36,15 @@ import {
   dialogShellHeaderClass,
 } from '@/components/ui/dialog';
 import { cn } from '@/shared/utils';
+import { WarehouseOperationLinesEditor } from '@/features/inventory/admin/operations/components/warehouse-operation-lines-editor';
+import { FlexibleQuantityInput } from '@/features/inventory/admin/operations/components/flexible-quantity-input';
+import {
+  hasDuplicateOperationLineProducts,
+  newOperationLineDraftId,
+  operationLineDraftsToLines,
+  supportsMultiProductLines,
+  type OperationLineDraft,
+} from '@/features/inventory/admin/operations/lib/operation-line-draft';
 
 type VariantRow = ProductFormInput['variants'][number];
 
@@ -144,12 +153,14 @@ export function ProductStockMoveRequestDialog({
 
   const selectableVariants = React.useMemo(() => activeVariants(variants), [variants]);
   const hasVariants = selectableVariants.length > 0;
+  const multiProductMode = supportsMultiProductLines(kind);
 
   const [warehouseId, setWarehouseId] = React.useState('');
   const [locationId, setLocationId] = React.useState('');
   const [toLocationId, setToLocationId] = React.useState('');
   const [stockMode, setStockMode] = React.useState<StockLineMode>('product');
   const [lines, setLines] = React.useState<DraftLine[]>([]);
+  const [lineDrafts, setLineDrafts] = React.useState<OperationLineDraft[]>([]);
   const [saving, setSaving] = React.useState(false);
   const [availableByLineKey, setAvailableByLineKey] = React.useState<Record<string, number>>({});
 
@@ -175,6 +186,20 @@ export function ProductStockMoveRequestDialog({
     setWarehouseId(firstWarehouse);
     setLocationId('');
     setToLocationId('');
+    if (multiProductMode) {
+      setLineDrafts([
+        {
+          id: newOperationLineDraftId(),
+          productId: productId ?? '',
+          productName: productNameAr || 'منتج',
+          sku: productSku,
+          quantity: 0,
+        },
+      ]);
+      setStockMode('product');
+      setLines([]);
+      return;
+    }
     const initialMode: StockLineMode = hasVariants ? 'variants' : 'product';
     setStockMode(initialMode);
     setLines(
@@ -182,7 +207,8 @@ export function ProductStockMoveRequestDialog({
         ? buildVariantLines(selectableVariants, productSku)
         : [buildProductLine(productNameAr, productSku)],
     );
-  }, [open, hasVariants, selectableVariants, productNameAr, productSku, warehouses]);
+    setLineDrafts([]);
+  }, [open, hasVariants, selectableVariants, productNameAr, productSku, warehouses, multiProductMode, productId]);
 
   React.useEffect(() => {
     if (!open || !warehouseId) return;
@@ -224,7 +250,9 @@ export function ProductStockMoveRequestDialog({
   const title = kindMeta.createLabel;
   const Icon =
     stockEffect === 'inbound' ? RefreshCw : stockEffect === 'outbound' ? PackageMinus : ArrowLeftRight;
-  const hasQty = lines.some((line) => line.quantity > 0);
+  const hasQty = multiProductMode
+    ? lineDrafts.some((line) => line.quantity > 0)
+    : lines.some((line) => line.quantity > 0);
   const needsFrom = stockEffect === 'outbound' || stockEffect === 'move' || stockEffect === 'transfer';
   const needsTo = stockEffect === 'inbound' || stockEffect === 'move' || stockEffect === 'transfer';
 
@@ -271,24 +299,12 @@ export function ProductStockMoveRequestDialog({
     return Math.max(0, available - usedByOthers);
   }
 
-  function applyDraftQuantity(lineKey: string, rawValue: number) {
-    let quantity = Math.max(0, rawValue);
-    if (checksSourceStock) {
-      const capped = maxDraftQuantity(lineKey);
-      if (capped != null && quantity > capped) {
-        toast.error(`الكمية المتاحة في الموقع ${capped} — لا يمكن الصرف بالسالب.`);
-        quantity = capped;
-      }
-    }
+  function applyDraftQuantity(lineKey: string, quantity: number) {
     setLines((prev) => prev.map((item) => (item.key === lineKey ? { ...item, quantity } : item)));
   }
 
   async function handleSubmit() {
     if (!companyId) return;
-    if (!productId) {
-      toast.message('احفظ المنتج أولًا ثم أنشئ طلب الحركة.');
-      return;
-    }
     if (!warehouseId) {
       toast.error('اختر المستودع.');
       return;
@@ -320,6 +336,62 @@ export function ProductStockMoveRequestDialog({
 
     if (stockEffect === 'move' && fromId && toId && fromId === toId) {
       toast.error('اختر موقعين مختلفين داخل نفس المستودع.');
+      return;
+    }
+
+    if (multiProductMode) {
+      if (hasDuplicateOperationLineProducts(lineDrafts)) {
+        toast.error('لا يمكن تكرار نفس المنتج في أكثر من سطر.');
+        return;
+      }
+      const opLines = operationLineDraftsToLines(lineDrafts, {
+        fromLocationId: fromId,
+        toLocationId: toId,
+      });
+      if (opLines.length === 0) {
+        toast.error('أضف صنفًا واحدًا على الأقل مع كمية أكبر من صفر.');
+        return;
+      }
+      if (checksSourceStock && fromId) {
+        const issues = await collectStockShortages({
+          companyId,
+          warehouseId,
+          kind,
+          destinationWarehouseId: undefined,
+          lines: opLines,
+        });
+        if (issues.length > 0) {
+          toast.error(formatStockShortageMessage(issues[0]!));
+          return;
+        }
+      }
+
+      setSaving(true);
+      try {
+        const created = await warehouseOperationsApi.create({
+          companyId,
+          warehouseId,
+          kind,
+          status: 'draft',
+          occurredAt: new Date().toISOString(),
+          sourceDocument: 'نقل بين مواقع يدوي',
+          notes: `طلب ${kindMeta.labelAr} — ${opLines.length} أصناف`,
+          lines: opLines,
+        });
+        void queryClient.invalidateQueries({ queryKey: warehouseOperationsQueryKeys.root(companyId) });
+        toast.success(`تم إنشاء ${kindMeta.createLabel} ${created.reference}`);
+        onOpenChange(false);
+        onCreated?.(warehouseId, kind);
+      } catch {
+        toast.error('تعذر إنشاء طلب الحركة.');
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+
+    if (!productId) {
+      toast.message('احفظ المنتج أولًا ثم أنشئ طلب الحركة.');
       return;
     }
 
@@ -383,9 +455,9 @@ export function ProductStockMoveRequestDialog({
           kind === 'replenishment'
             ? REPLENISHMENT_SOURCE_DOCUMENT
             : kind === 'receipt'
-              ? 'إيصال استلام'
+              ? 'استلام مخزون يدوي'
               : kind === 'issue'
-                ? 'طلب توصيل يدوي'
+                ? 'صرف مخزون يدوي'
                 : 'نقل بين مواقع يدوي',
         notes: `طلب ${kindMeta.labelAr} للمنتج ${productNameAr} (${stockMode === 'product' ? 'منتج أساسي' : 'متغيرات'})`,
         lines: opLines,
@@ -526,7 +598,7 @@ export function ProductStockMoveRequestDialog({
             ) : null}
           </div>
 
-          {hasVariants ? (
+          {hasVariants && !multiProductMode ? (
             <div className="space-y-1.5">
               <Label>نطاق الكمية</Label>
               <Select
@@ -547,6 +619,16 @@ export function ProductStockMoveRequestDialog({
             </div>
           ) : null}
 
+          {multiProductMode ? (
+            <WarehouseOperationLinesEditor
+              companyId={companyId}
+              lines={lineDrafts}
+              onChange={setLineDrafts}
+              fromLocationId={locationId || undefined}
+              checksSourceStock={checksSourceStock}
+              disabled={saving}
+            />
+          ) : (
           <div className="overflow-hidden rounded-lg border border-border">
             <table className="w-full text-sm">
               <thead>
@@ -570,16 +652,11 @@ export function ProductStockMoveRequestDialog({
                       ) : null}
                     </td>
                     <td className="px-3 py-2.5">
-                      <Input
-                        type="number"
-                        min={0}
-                        step={1}
-                        dir="rtl"
+                      <FlexibleQuantityInput
                         className="h-8 w-28"
                         value={line.quantity}
-                        onChange={(event) => {
-                          applyDraftQuantity(line.key, Number(event.target.value) || 0);
-                        }}
+                        max={maxDraftQuantity(line.key)}
+                        onChange={(quantity) => applyDraftQuantity(line.key, quantity)}
                       />
                       {checksSourceStock && availableByLineKey[line.key] != null ? (
                         <p className="mt-1 text-[11px] text-muted-foreground">
@@ -592,6 +669,7 @@ export function ProductStockMoveRequestDialog({
               </tbody>
             </table>
           </div>
+          )}
         </div>
 
         <DialogFooter className="shrink-0 gap-2 border-t border-border px-6 py-4 sm:justify-start">

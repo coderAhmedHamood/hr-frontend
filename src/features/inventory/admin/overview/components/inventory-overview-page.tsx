@@ -20,8 +20,8 @@ const QUICK_LINKS = [
     icon: Truck,
   },
   {
-    title: 'الإيصالات والتوصيلات',
-    description: 'عمليات وارد وصادر على مستوى التطبيق أو داخل مستودع محدد.',
+    title: 'استلام وصرف المخزون',
+    description: 'عمليات وارد (استلام) وصادر (صرف) على مستوى التطبيق أو داخل مستودع محدد.',
     href: inventoryAdminRoutes.receipts,
     icon: Package,
   },

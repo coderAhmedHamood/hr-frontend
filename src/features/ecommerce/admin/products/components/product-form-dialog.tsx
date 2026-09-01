@@ -251,14 +251,14 @@ export function ProductFormDialog({ product, open, onOpenChange }: Props) {
       return;
     }
     if (key === 'receipts') {
-      if (!requireSavedProduct('تعرض الإدخالات')) return;
+      if (!requireSavedProduct('تعرض طلبات استلام المخزون')) return;
       bumpRelatedRequest(key);
       setActiveRelatedDoc('receipts');
       setMovesListKind('receipt');
       return;
     }
     if (key === 'issues') {
-      if (!requireSavedProduct('تعرض الإخراجات')) return;
+      if (!requireSavedProduct('تعرض طلبات صرف المخزون')) return;
       bumpRelatedRequest(key);
       setActiveRelatedDoc('issues');
       setMovesListKind('issue');
@@ -344,12 +344,12 @@ export function ProductFormDialog({ product, open, onOpenChange }: Props) {
                       },
                       {
                         key: 'receipts',
-                        label: 'الإدخالات',
+                        label: 'استلام مخزون',
                         hint: 'طلبات الاستلام الخاصة بهذا المنتج',
                       },
                       {
                         key: 'issues',
-                        label: 'الإخراجات',
+                        label: 'صرف مخزون',
                         hint: 'طلبات الصرف الخاصة بهذا المنتج',
                       },
                       {

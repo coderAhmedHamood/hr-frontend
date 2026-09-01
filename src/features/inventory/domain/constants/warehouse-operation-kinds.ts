@@ -2,14 +2,15 @@ import type { WarehouseOperationKind } from '@/features/inventory/domain/types/w
 
 /**
  * أنواع مستندات المخزون.
- * issue = التوصيلات (خروج للمبيعات/التسليم)
+ * receipt = استلام مخزون (وارد — يزيد الرصيد)
+ * issue = صرف مخزون (صادر — ينقص الرصيد)
  *
  * uiPlacement:
  * - warehouse → تبويبات تفاصيل المستودع فقط
  * - header → قائمة التطبيق العامة فقط
  * - both → المستودع (خاص) + قائمة العمليات العامة
  *
- * العمليات اليومية (بين المستودعات / إيصال / توصيل / نقل المواقع) تظهر في المكانين:
+ * العمليات اليومية (بين المستودعات / استلام / صرف / نقل المواقع) تظهر في المكانين:
  * عامة على مستوى التطبيق، وخاصة داخل المستودع.
  */
 export const WAREHOUSE_OPERATION_KINDS: WarehouseOperationKind[] = [
@@ -60,10 +61,10 @@ export const WAREHOUSE_OPERATION_KIND_META: Record<WarehouseOperationKind, Wareh
       pathSegment: 'transfers',
     },
     receipt: {
-      labelAr: 'الإيصالات',
-      title: 'الإيصالات',
-      createLabel: 'مستند إيصال',
-      empty: 'لا توجد إيصالات بعد.',
+      labelAr: 'استلام مخزون',
+      title: 'استلام مخزون',
+      createLabel: 'مستند استلام',
+      empty: 'لا توجد عمليات استلام مخزون بعد.',
       needsFrom: false,
       needsTo: true,
       needsDestWarehouse: false,
@@ -74,10 +75,10 @@ export const WAREHOUSE_OPERATION_KIND_META: Record<WarehouseOperationKind, Wareh
       pathSegment: 'receipts',
     },
     issue: {
-      labelAr: 'التوصيلات',
-      title: 'التوصيلات',
-      createLabel: 'مستند توصيل',
-      empty: 'لا توجد توصيلات بعد.',
+      labelAr: 'صرف مخزون',
+      title: 'صرف مخزون',
+      createLabel: 'مستند صرف',
+      empty: 'لا توجد عمليات صرف مخزون بعد.',
       needsFrom: true,
       needsTo: false,
       needsDestWarehouse: false,

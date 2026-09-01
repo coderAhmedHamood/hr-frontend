@@ -329,8 +329,8 @@ export function ProductDetailPage({ productId }: Props) {
       label: 'تجديد المخزون',
       hint: 'طلبات تجديد المخزون وحالاتها — أنشئ طلبًا ثم صدّقه من المستودع',
     },
-    { key: 'receipts' as const, label: 'الإدخالات', hint: 'طلبات الاستلام الخاصة بهذا المنتج' },
-    { key: 'issues' as const, label: 'الإخراجات', hint: 'طلبات الصرف الخاصة بهذا المنتج' },
+    { key: 'receipts' as const, label: 'استلام مخزون', hint: 'طلبات الاستلام الخاصة بهذا المنتج' },
+    { key: 'issues' as const, label: 'صرف مخزون', hint: 'طلبات الصرف الخاصة بهذا المنتج' },
     {
       key: 'internals' as const,
       label: 'نقل المواقع',

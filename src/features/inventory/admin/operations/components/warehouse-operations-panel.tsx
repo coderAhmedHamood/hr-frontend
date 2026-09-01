@@ -24,6 +24,18 @@ import type {
 import { useWarehouses } from '@/features/inventory/admin/warehouses/hooks/use-warehouses';
 import { useProduct } from '@/features/ecommerce/admin/products/hooks/use-products';
 import { ProductSinglePicker } from '@/features/ecommerce/admin/products/components/product-single-picker';
+import { WarehouseOperationLinesEditor } from '@/features/inventory/admin/operations/components/warehouse-operation-lines-editor';
+import {
+  collectStockShortages,
+  formatStockShortageMessage,
+} from '@/features/inventory/admin/operations/lib/validate-operation-stock';
+import {
+  emptyOperationLineDraft,
+  hasDuplicateOperationLineProducts,
+  operationLineDraftsToLines,
+  supportsMultiProductLines,
+  type OperationLineDraft,
+} from '@/features/inventory/admin/operations/lib/operation-line-draft';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -93,6 +105,10 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
   const [toDelete, setToDelete] = React.useState<WarehouseOperation | null>(null);
   const [stockMode, setStockMode] = React.useState<StockLineMode>('product');
   const [variantQuantities, setVariantQuantities] = React.useState<Record<string, number>>({});
+  const multiProductMode = supportsMultiProductLines(kind);
+  const checksSourceStock =
+    meta.stockEffect === 'outbound' || meta.stockEffect === 'move' || meta.stockEffect === 'transfer';
+  const [lineDrafts, setLineDrafts] = React.useState<OperationLineDraft[]>([emptyOperationLineDraft()]);
 
   React.useEffect(() => {
     const timeout = setTimeout(() => {
@@ -256,6 +272,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
     const defaultWh = warehouseId || allWarehouses[0]?.id || '';
     setStockMode('product');
     setVariantQuantities({});
+    setLineDrafts([emptyOperationLineDraft()]);
     form.reset({
       ...WAREHOUSE_OPERATION_FORM_DEFAULT_VALUES,
       occurredAt: new Date().toISOString().slice(0, 16),
@@ -303,15 +320,64 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
     const sourceWh = warehouseId || values.sourceWarehouseId;
     if (!sourceWh) return;
     if (meta.needsDestWarehouse && !values.destinationWarehouseId) return;
-    if (!values.productId?.trim()) return;
 
-    const qty = values.quantity;
-    const theoretical = values.theoreticalQuantity ?? qty;
     const lineLocations = {
       fromLocationId: values.fromLocationId || undefined,
       toLocationId: values.toLocationId || undefined,
     };
 
+    if (multiProductMode) {
+      if (hasDuplicateOperationLineProducts(lineDrafts)) {
+        toast.error('لا يمكن تكرار نفس المنتج في أكثر من سطر.');
+        return;
+      }
+      const lines = operationLineDraftsToLines(lineDrafts, lineLocations);
+      if (lines.length === 0) {
+        toast.error('أضف صنفًا واحدًا على الأقل مع كمية أكبر من صفر.');
+        return;
+      }
+      if (
+        meta.stockEffect === 'move' &&
+        lineLocations.fromLocationId &&
+        lineLocations.toLocationId &&
+        lineLocations.fromLocationId === lineLocations.toLocationId
+      ) {
+        toast.error('اختر موقعين مختلفين داخل نفس المستودع.');
+        return;
+      }
+      if (checksSourceStock && lineLocations.fromLocationId) {
+        const issues = await collectStockShortages({
+          companyId,
+          warehouseId: sourceWh,
+          kind,
+          destinationWarehouseId: values.destinationWarehouseId || undefined,
+          lines,
+        });
+        if (issues.length > 0) {
+          toast.error(formatStockShortageMessage(issues[0]!));
+          return;
+        }
+      }
+      await create.mutateAsync({
+        companyId,
+        warehouseId: sourceWh,
+        kind,
+        status: 'draft',
+        occurredAt: new Date(values.occurredAt).toISOString(),
+        notes: values.notes?.trim() || undefined,
+        partnerName: values.partnerName?.trim() || undefined,
+        sourceDocument: values.sourceDocument?.trim() || undefined,
+        destinationWarehouseId: values.destinationWarehouseId || undefined,
+        lines,
+      });
+      setOpen(false);
+      return;
+    }
+
+    if (!values.productId?.trim()) return;
+
+    const qty = values.quantity;
+    const theoretical = values.theoreticalQuantity ?? qty;
     const useVariants = hasActiveVariants && stockMode === 'variants';
     const lines = useVariants
       ? activeVariants
@@ -394,7 +460,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
       : []),
     {
       key: 'partner',
-      title: kind === 'issue' ? 'التسليم إلى' : kind === 'receipt' || kind === 'purchase' || kind === 'replenishment' ? 'الاستلام من' : 'الطرف',
+      title: kind === 'issue' ? 'الصرف إلى' : kind === 'receipt' || kind === 'purchase' || kind === 'replenishment' ? 'الاستلام من' : 'الطرف',
       hideOnMobile: true,
       render: (row) => (
         <div className="flex flex-col">
@@ -476,7 +542,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
       />
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className={`${dialogMaxHeightClass} max-w-lg overflow-y-auto`}>
+        <DialogContent className={`${dialogMaxHeightClass} ${multiProductMode ? 'max-w-2xl' : 'max-w-lg'} overflow-y-auto`}>
           <DialogHeader>
             <DialogTitle>{meta.createLabel}</DialogTitle>
             <DialogDescription>
@@ -486,6 +552,10 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
           <form
             onSubmit={(e) => {
               e.preventDefault();
+              if (multiProductMode) {
+                void onSubmit(form.getValues());
+                return;
+              }
               void form.handleSubmit(onSubmit)(e);
             }}
             className="space-y-4"
@@ -533,7 +603,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
               <div className="space-y-1.5">
                 <Label htmlFor="op-partner">
                   {kind === 'issue'
-                    ? 'التسليم إلى'
+                    ? 'الصرف إلى'
                     : kind === 'receipt' || kind === 'purchase' || kind === 'replenishment'
                       ? 'الاستلام من'
                       : 'الطرف'}
@@ -577,6 +647,15 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
               </div>
             ) : null}
 
+            {multiProductMode ? (
+              <WarehouseOperationLinesEditor
+                companyId={companyId}
+                lines={lineDrafts}
+                onChange={setLineDrafts}
+                fromLocationId={form.watch('fromLocationId') || undefined}
+                checksSourceStock={checksSourceStock}
+              />
+            ) : (
             <div className="inv-form-grid">
               <div className="space-y-1.5">
                 <Label>المنتج</Label>
@@ -640,8 +719,9 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
                 </div>
               )}
             </div>
+            )}
 
-            {hasActiveVariants ? (
+            {!multiProductMode && hasActiveVariants ? (
               <div className="space-y-1.5">
                 <Label>نطاق الكمية</Label>
                 <Select
@@ -662,7 +742,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
               </div>
             ) : null}
 
-            {hasActiveVariants && stockMode === 'variants' ? (
+            {!multiProductMode && hasActiveVariants && stockMode === 'variants' ? (
               <div className="overflow-hidden rounded-lg border border-border">
                 <table className="w-full text-sm">
                   <thead>
@@ -715,6 +795,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
               </div>
             ) : null}
 
+            {!multiProductMode ? (
             <div className="space-y-1.5">
               <Label htmlFor="op-sku">رمز المنتج (SKU)</Label>
               <Input
@@ -727,6 +808,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
                 <p className="text-xs text-muted-foreground">سيُرسل السطر بدون متغير (variantId = null).</p>
               ) : null}
             </div>
+            ) : null}
 
             {meta.needsFrom ? (
               <div className="space-y-1.5">
