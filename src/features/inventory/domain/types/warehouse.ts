@@ -52,6 +52,9 @@ export type UpdateWarehouseInput = Partial<CreateWarehouseInput>;
 export type WarehouseLocation = TenantScoped & {
   id: string;
   warehouseId: string;
+  /** Joined from warehouse on list/detail API responses */
+  warehouseNameAr?: string;
+  warehouseCode?: string;
   code: string;
   nameAr: string;
   nameEn?: string;

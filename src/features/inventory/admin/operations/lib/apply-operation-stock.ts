@@ -1,18 +1,10 @@
 import { locationStockApi } from '@/features/inventory/admin/stock/lib/api/location-stock';
 import { productsApi } from '@/features/ecommerce/admin/products/lib/api/products';
 import { inventoryLedgerApi } from '@/features/inventory/admin/operations/lib/api/inventory-ledger';
-import { warehouseLocationsApi } from '@/features/inventory/admin/locations/lib/api/warehouse-locations';
-import { WAREHOUSE_OPERATION_KIND_META } from '@/features/inventory/domain/constants/warehouse-operation-kinds';
 import type { InventoryLedgerEntry } from '@/features/inventory/domain/types/inventory-ledger';
 import type { WarehouseOperation, WarehouseOperationLine } from '@/features/inventory/domain/types/warehouse';
-
-type StockDelta = {
-  warehouseId: string;
-  locationId: string;
-  delta: number;
-  counterpartLocationId?: string;
-  counterpartWarehouseId?: string;
-};
+import { buildStockDeltasForLine } from '@/features/inventory/admin/operations/lib/build-operation-stock-deltas';
+import { assertSufficientStockForOperation } from '@/features/inventory/admin/operations/lib/validate-operation-stock';
 
 function baseLedgerFields(
   operation: WarehouseOperation,
@@ -50,146 +42,10 @@ function baseLedgerFields(
   };
 }
 
-async function findTransitLocationId(companyId: string, warehouseId: string): Promise<string | null> {
-  const locations = await warehouseLocationsApi.getAll({ companyId, warehouseId, page: 1, limit: 500 });
-  const transit = locations.items.find(
-    (location) => location.locationType === 'transit' && location.isActive,
-  );
-  return transit?.id ?? null;
-}
-
-/**
- * Build stock deltas for a validated operation.
- * Transfers post via Transit: Source → Transit(source WH) → Dest.
- */
-async function buildStockDeltas(
-  operation: WarehouseOperation,
-  line: WarehouseOperationLine,
-): Promise<StockDelta[]> {
-  const effect = WAREHOUSE_OPERATION_KIND_META[operation.kind].stockEffect;
-  const qty = line.quantity;
-  if (qty < 0) return [];
-
-  if (effect === 'inbound') {
-    if (!line.toLocationId || qty <= 0) return [];
-    return [
-      {
-        warehouseId: operation.warehouseId,
-        locationId: line.toLocationId,
-        delta: qty,
-      },
-    ];
-  }
-
-  if (effect === 'outbound') {
-    if (!line.fromLocationId || qty <= 0) return [];
-    return [
-      {
-        warehouseId: operation.warehouseId,
-        locationId: line.fromLocationId,
-        delta: -qty,
-      },
-    ];
-  }
-
-  if (effect === 'move') {
-    if (!line.fromLocationId || !line.toLocationId || qty <= 0) return [];
-    return [
-      {
-        warehouseId: operation.warehouseId,
-        locationId: line.fromLocationId,
-        delta: -qty,
-        counterpartLocationId: line.toLocationId,
-        counterpartWarehouseId: operation.warehouseId,
-      },
-      {
-        warehouseId: operation.warehouseId,
-        locationId: line.toLocationId,
-        delta: qty,
-        counterpartLocationId: line.fromLocationId,
-        counterpartWarehouseId: operation.warehouseId,
-      },
-    ];
-  }
-
-  if (effect === 'transfer') {
-    if (!line.fromLocationId || !line.toLocationId || qty <= 0) return [];
-    const destWarehouseId = operation.destinationWarehouseId || operation.warehouseId;
-    const transitId = await findTransitLocationId(operation.companyId, operation.warehouseId);
-
-    if (!transitId) {
-      // Fallback: direct WH→WH if transit missing
-      return [
-        {
-          warehouseId: operation.warehouseId,
-          locationId: line.fromLocationId,
-          delta: -qty,
-          counterpartLocationId: line.toLocationId,
-          counterpartWarehouseId: destWarehouseId,
-        },
-        {
-          warehouseId: destWarehouseId,
-          locationId: line.toLocationId,
-          delta: qty,
-          counterpartLocationId: line.fromLocationId,
-          counterpartWarehouseId: operation.warehouseId,
-        },
-      ];
-    }
-
-    // Source → Transit → Dest
-    return [
-      {
-        warehouseId: operation.warehouseId,
-        locationId: line.fromLocationId,
-        delta: -qty,
-        counterpartLocationId: transitId,
-        counterpartWarehouseId: operation.warehouseId,
-      },
-      {
-        warehouseId: operation.warehouseId,
-        locationId: transitId,
-        delta: qty,
-        counterpartLocationId: line.fromLocationId,
-        counterpartWarehouseId: operation.warehouseId,
-      },
-      {
-        warehouseId: operation.warehouseId,
-        locationId: transitId,
-        delta: -qty,
-        counterpartLocationId: line.toLocationId,
-        counterpartWarehouseId: destWarehouseId,
-      },
-      {
-        warehouseId: destWarehouseId,
-        locationId: line.toLocationId,
-        delta: qty,
-        counterpartLocationId: transitId,
-        counterpartWarehouseId: operation.warehouseId,
-      },
-    ];
-  }
-
-  if (effect === 'adjust_set') {
-    if (!line.toLocationId) return [];
-    const theoretical = line.demandQuantity ?? 0;
-    const counted = line.quantity;
-    const delta = counted - theoretical;
-    if (delta === 0) return [];
-    return [
-      {
-        warehouseId: operation.warehouseId,
-        locationId: line.toLocationId,
-        delta,
-      },
-    ];
-  }
-
-  return [];
-}
-
 /** Apply a validated (done) warehouse operation: ledger first, then LocationStock cache. */
 export async function applyDoneOperationToStock(operation: WarehouseOperation): Promise<void> {
+  await assertSufficientStockForOperation(operation);
+
   const companyId = operation.companyId;
   const touchedProductIds = new Set<string>();
   const ledgerDrafts: Omit<InventoryLedgerEntry, 'id' | 'createdAt'>[] = [];
@@ -200,7 +56,7 @@ export async function applyDoneOperationToStock(operation: WarehouseOperation): 
         `البند «${line.productName}» غير مربوط بمنتج (productId) — لا يمكن تطبيق الحركة.`,
       );
     }
-    const deltas = await buildStockDeltas(operation, line);
+    const deltas = await buildStockDeltasForLine(operation, line);
     for (const delta of deltas) {
       ledgerDrafts.push({
         ...baseLedgerFields(operation, line),

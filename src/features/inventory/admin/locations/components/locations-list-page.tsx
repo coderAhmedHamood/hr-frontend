@@ -138,6 +138,14 @@ export function LocationsListPage() {
     [warehouses],
   );
 
+  const resolveWarehouseName = React.useCallback(
+    (location: WarehouseLocation) =>
+      location.warehouseNameAr?.trim() ||
+      warehouseNameById.get(location.warehouseId)?.trim() ||
+      '—',
+    [warehouseNameById],
+  );
+
   const { data, isLoading, isError } = useWarehouseLocations({
     companyId,
     warehouseId: warehouseIdFilter || undefined,
@@ -304,7 +312,7 @@ export function LocationsListPage() {
           className="text-sm text-primary hover:underline"
           onClick={() => router.push(inventoryAdminRoutes.warehouseDetail(row.warehouseId))}
         >
-          {warehouseNameById.get(row.warehouseId) ?? row.warehouseId}
+          {resolveWarehouseName(row)}
         </button>
       ),
     },
@@ -414,7 +422,7 @@ export function LocationsListPage() {
                   onClick={() => router.push(inventoryAdminRoutes.warehouseDetail(row.warehouseId))}
                 >
                   <Warehouse className="h-3.5 w-3.5 shrink-0" />
-                  <span className="truncate">{warehouseNameById.get(row.warehouseId) ?? row.warehouseId}</span>
+                  <span className="truncate">{resolveWarehouseName(row)}</span>
                 </button>
 
                 <div className="flex items-center justify-end gap-1 border-t border-border/60 pt-2">

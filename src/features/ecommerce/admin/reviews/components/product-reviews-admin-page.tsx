@@ -32,10 +32,8 @@ import {
 import type {
   ProductReviewStatus,
 } from '@/features/ecommerce/admin/reviews/lib/api/product-reviews-api';
-import { productsApi } from '@/features/ecommerce/admin/products/lib/api/products';
-import { useCan } from '@/features/auth/hooks/use-can';
-import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
-import { useQuery } from '@tanstack/react-query';
+import { ProductSinglePicker } from '@/features/ecommerce/admin/products/components/product-single-picker';
+import { ProductLabel } from '@/features/ecommerce/admin/products/components/product-label';
 
 const REVIEWS_READ = 'inv.catalog.product-reviews.read';
 const REVIEWS_UPDATE = 'inv.catalog.product-reviews.update';
@@ -54,39 +52,25 @@ export function ProductReviewsAdminPage() {
   const companyId = getStorefrontCompanyId();
   const [status, setStatus] = React.useState<ProductReviewStatus | 'all'>('all');
   const [archiveScope, setArchiveScope] = React.useState<ArchiveScope>('active');
-  const [productFilter, setProductFilter] = React.useState('all');
+  const [productFilter, setProductFilter] = React.useState('');
   const [createOpen, setCreateOpen] = React.useState(false);
 
   const canRead = can(REVIEWS_READ);
   const canUpdate = can(REVIEWS_UPDATE);
   const canDelete = can(REVIEWS_DELETE);
 
-  const { data: productsPage } = useQuery({
-    queryKey: ['ecommerce', 'products', 'for-reviews', companyId],
-    queryFn: () => productsApi.getAll({ companyId, page: 1, limit: 200 }),
-    enabled: Boolean(companyId) && canRead,
-  });
-
   const listQuery = {
     page: 1,
     limit: 50,
     companyId: companyId || undefined,
     status,
-    productId: productFilter === 'all' ? undefined : productFilter,
+    productId: productFilter || undefined,
     archiveScope,
   };
   const { data, isLoading, isError, refetch } = useProductReviews(listQuery, canRead);
   const createReview = useCreateProductReview();
   const updateReview = useUpdateProductReview();
   const deleteReview = useDeleteProductReview();
-
-  const productNameById = React.useMemo(() => {
-    const map = new Map<string, string>();
-    for (const p of productsPage?.items ?? []) {
-      map.set(p.id, p.nameAr || p.sku);
-    }
-    return map;
-  }, [productsPage?.items]);
 
   const [form, setForm] = React.useState({
     productId: '',
@@ -99,7 +83,7 @@ export function ProductReviewsAdminPage() {
 
   function resetForm() {
     setForm({
-      productId: productsPage?.items[0]?.id ?? '',
+      productId: '',
       rating: '5',
       title: '',
       body: '',
@@ -107,12 +91,6 @@ export function ProductReviewsAdminPage() {
       status: 'approved',
     });
   }
-
-  React.useEffect(() => {
-    if (!form.productId && productsPage?.items[0]?.id) {
-      setForm((prev) => ({ ...prev, productId: productsPage.items[0]!.id }));
-    }
-  }, [productsPage?.items, form.productId]);
 
   async function onCreate(event: React.FormEvent) {
     event.preventDefault();
@@ -180,19 +158,13 @@ export function ProductReviewsAdminPage() {
             </div>
             <div className="sto-filter-field space-y-1.5">
               <Label>المنتج</Label>
-              <Select value={productFilter} onValueChange={setProductFilter}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="كل المنتجات" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">كل المنتجات</SelectItem>
-                  {(productsPage?.items ?? []).map((product) => (
-                    <SelectItem key={product.id} value={product.id}>
-                      {product.nameAr}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <ProductSinglePicker
+                companyId={companyId}
+                value={productFilter}
+                allowClear
+                placeholder="كل المنتجات"
+                onChange={setProductFilter}
+              />
             </div>
             <Can permission={REVIEWS_UPDATE}>
               <Button
@@ -245,8 +217,7 @@ export function ProductReviewsAdminPage() {
                       <div className="min-w-0 space-y-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <p className="font-medium text-foreground">
-                            {productNameById.get(review.productId) ||
-                              review.productId.slice(0, 8)}
+                            <ProductLabel companyId={companyId} productId={review.productId} />
                           </p>
                           <Badge variant="subtle">
                             {STATUS_LABEL[review.status] ?? review.status}
@@ -353,21 +324,12 @@ export function ProductReviewsAdminPage() {
           <form className="space-y-3" onSubmit={(e) => void onCreate(e)}>
             <div className="space-y-1.5">
               <Label>المنتج</Label>
-              <Select
+              <ProductSinglePicker
+                companyId={companyId}
                 value={form.productId}
-                onValueChange={(value) => setForm((prev) => ({ ...prev, productId: value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="اختر منتجاً" />
-                </SelectTrigger>
-                <SelectContent>
-                  {(productsPage?.items ?? []).map((product) => (
-                    <SelectItem key={product.id} value={product.id}>
-                      {product.nameAr}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                placeholder="ابحث عن منتج…"
+                onChange={(value) => setForm((prev) => ({ ...prev, productId: value }))}
+              />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">

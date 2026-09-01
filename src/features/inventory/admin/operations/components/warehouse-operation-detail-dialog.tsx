@@ -7,6 +7,12 @@ import { getInventoryCompanyId } from '@/features/inventory/lib/company-id';
 import { useWarehouseLocations } from '@/features/inventory/admin/locations/hooks/use-warehouse-locations';
 import { useWarehouseOperationMutations } from '@/features/inventory/admin/operations/hooks/use-warehouse-operation-mutations';
 import { inventoryStockService } from '@/features/inventory/services/inventory-stock.service';
+import {
+  collectStockShortages,
+  formatStockShortageMessage,
+  maxQuantityForLine,
+  readAvailableAtSourceLine,
+} from '@/features/inventory/admin/operations/lib/validate-operation-stock';
 import { WAREHOUSE_OPERATION_KIND_META } from '@/features/inventory/domain/constants/warehouse-operation-kinds';
 import {
   WAREHOUSE_OPERATION_FLOW_STEPS,
@@ -141,6 +147,7 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
   const [tab, setTab] = React.useState('operations');
   const [headerFromLocationId, setHeaderFromLocationId] = React.useState('');
   const [headerToLocationId, setHeaderToLocationId] = React.useState('');
+  const [availableByLineId, setAvailableByLineId] = React.useState<Record<string, number>>({});
   const loadedOperationIdRef = React.useRef<string | null>(null);
 
   React.useEffect(() => {
@@ -179,6 +186,87 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
   React.useEffect(() => {
     if (!open) loadedOperationIdRef.current = null;
   }, [open]);
+
+  const stockEffect = WAREHOUSE_OPERATION_KIND_META[kind].stockEffect;
+  const checksSourceStock =
+    stockEffect === 'outbound' || stockEffect === 'move' || stockEffect === 'transfer';
+
+  React.useEffect(() => {
+    if (!open || !operation || !companyId || !checksSourceStock) {
+      setAvailableByLineId({});
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      const next: Record<string, number> = {};
+      await Promise.all(
+        lines.map(async (line) => {
+          const available = await readAvailableAtSourceLine({
+            companyId,
+            kind,
+            line,
+            fromLocationId: headerFromLocationId || undefined,
+          });
+          if (available != null) next[line.id] = available;
+        }),
+      );
+      if (!cancelled) setAvailableByLineId(next);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, operation, companyId, kind, lines, headerFromLocationId, checksSourceStock]);
+
+  function applyLineQuantity(
+    lineId: string,
+    field: 'demandQuantity' | 'quantity',
+    rawValue: number,
+  ) {
+    const available = availableByLineId[lineId];
+    let nextValue = Math.max(0, rawValue);
+    if (checksSourceStock && available != null) {
+      const capped = maxQuantityForLine({
+        lines,
+        lineId,
+        availableAtLocation: available,
+        fromLocationId: headerFromLocationId || undefined,
+      });
+      if (nextValue > capped) {
+        toast.error(`الكمية المتاحة في الموقع ${capped} — لا يمكن الصرف بالسالب.`);
+        nextValue = capped;
+      }
+    }
+
+    setLines((prev) =>
+      prev.map((item) => {
+        if (item.id !== lineId) return item;
+        if (field === 'demandQuantity') {
+          return {
+            ...item,
+            demandQuantity: nextValue,
+            quantity: status === 'draft' ? nextValue : item.quantity,
+          };
+        }
+        return { ...item, quantity: nextValue };
+      }),
+    );
+  }
+
+  async function assertStockBeforeSave(): Promise<boolean> {
+    if (!operation || !checksSourceStock) return true;
+    const issues = await collectStockShortages({
+      companyId: operation.companyId,
+      warehouseId: operation.warehouseId,
+      kind,
+      destinationWarehouseId: operation.destinationWarehouseId,
+      lines,
+    });
+    if (issues.length === 0) return true;
+    toast.error(formatStockShortageMessage(issues[0]!));
+    return false;
+  }
 
   if (!operation) return null;
 
@@ -261,7 +349,7 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
       toast.error('تحقق من كميات البنود قبل التصديق.');
       return;
     }
-    // Lines first (while still ready), then status done — handled in API update order.
+    if (!(await assertStockBeforeSave())) return;
     await savePatch({ status: 'done', lines }, 'تم تصديق المستند');
   }
 
@@ -317,6 +405,7 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
   }
 
   async function saveDraftChanges() {
+    if (!(await assertStockBeforeSave())) return;
     await savePatch({ status, lines }, 'تم حفظ التعديلات');
   }
 
@@ -560,20 +649,14 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
                             value={line.demandQuantity}
                             disabled={!editable || status === 'ready'}
                             onChange={(e) => {
-                              const demandQuantity = Math.max(0, Number(e.target.value) || 0);
-                              setLines((prev) =>
-                                prev.map((item) =>
-                                  item.id === line.id
-                                    ? {
-                                        ...item,
-                                        demandQuantity,
-                                        quantity: status === 'draft' ? demandQuantity : item.quantity,
-                                      }
-                                    : item,
-                                ),
-                              );
+                              applyLineQuantity(line.id, 'demandQuantity', Number(e.target.value) || 0);
                             }}
                           />
+                          {checksSourceStock && availableByLineId[line.id] != null ? (
+                            <p className="mt-1 text-[11px] text-muted-foreground">
+                              المتاح في الموقع: {availableByLineId[line.id]}
+                            </p>
+                          ) : null}
                         </td>
                         <td className="px-3 py-2.5">
                           <Input
@@ -585,10 +668,7 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
                             value={line.quantity}
                             disabled={!qtyEditable}
                             onChange={(e) => {
-                              const quantity = Math.max(0, Number(e.target.value) || 0);
-                              setLines((prev) =>
-                                prev.map((item) => (item.id === line.id ? { ...item, quantity } : item)),
-                              );
+                              applyLineQuantity(line.id, 'quantity', Number(e.target.value) || 0);
                             }}
                           />
                         </td>

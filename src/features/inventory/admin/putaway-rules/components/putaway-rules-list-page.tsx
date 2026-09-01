@@ -10,7 +10,8 @@ import { useSearchParams } from 'next/navigation';
 import { Plus } from 'lucide-react';
 import { getInventoryCompanyId } from '@/features/inventory/lib/company-id';
 import { useCategories } from '@/features/ecommerce/admin/categories/hooks/use-categories';
-import { useProducts } from '@/features/ecommerce/admin/products/hooks/use-products';
+import { ProductSinglePicker } from '@/features/ecommerce/admin/products/components/product-single-picker';
+import { ProductLabel } from '@/features/ecommerce/admin/products/components/product-label';
 import { useWarehouses } from '@/features/inventory/admin/warehouses/hooks/use-warehouses';
 import {
   usePutawayLocationOptions,
@@ -132,12 +133,10 @@ export function PutawayRulesListPage() {
     limit: pageSize,
   });
   const { data: locations = [] } = usePutawayLocationOptions(companyId);
-  const { data: productsData } = useProducts({ companyId, limit: 200 });
   const { data: categoriesData } = useCategories({ companyId, limit: 200 });
   const { data: warehousesData } = useWarehouses({ companyId, limit: 200 });
   const { create, remove } = usePutawayRuleMutations(companyId);
 
-  const products = productsData?.items ?? [];
   const categories = categoriesData?.items ?? [];
   const warehouses = warehousesData?.items ?? [];
 
@@ -146,8 +145,6 @@ export function PutawayRulesListPage() {
     return found ? `${found.warehouseNameAr} / ${found.nameAr}` : '—';
   };
 
-  const productLabel = (id?: string | null) =>
-    id ? products.find((p) => p.id === id)?.nameAr ?? id : '—';
   const categoryLabel = (id?: string | null) =>
     id ? categories.find((c) => c.id === id)?.nameAr ?? id : '—';
   const packagingLabel = (value?: PackagingType | null) =>
@@ -178,7 +175,7 @@ export function PutawayRulesListPage() {
   const filtered = (data?.items ?? []).filter((rule) => {
     if (!search.trim()) return true;
     const hay = [
-      productLabel(rule.productId),
+      rule.productId ?? '',
       categoryLabel(rule.categoryId),
       locationLabel(rule.arriveLocationId),
       locationLabel(rule.storeLocationId),
@@ -238,7 +235,9 @@ export function PutawayRulesListPage() {
   }
 
   function appliesDisplay(rule: (typeof filtered)[number]) {
-    if (rule.appliesTo === 'product') return productLabel(rule.productId);
+    if (rule.appliesTo === 'product' && rule.productId) {
+      return <ProductLabel companyId={companyId} productId={rule.productId} />;
+    }
     if (rule.appliesTo === 'category') return categoryLabel(rule.categoryId);
     return 'كافة المنتجات';
   }
@@ -280,9 +279,14 @@ export function PutawayRulesListPage() {
         trailingActions={
           productIdFilter || categoryIdFilter ? (
             <span className="text-xs text-muted-foreground">
-              {productIdFilter
-                ? `مصفّى حسب المنتج: ${productLabel(productIdFilter)}`
-                : `مصفّى حسب الفئة: ${categoryLabel(categoryIdFilter)}`}
+              {productIdFilter ? (
+                <>
+                  {'مصفّى حسب المنتج: '}
+                  <ProductLabel companyId={companyId} productId={productIdFilter} />
+                </>
+              ) : (
+                `مصفّى حسب الفئة: ${categoryLabel(categoryIdFilter)}`
+              )}
             </span>
           ) : undefined
         }
@@ -465,21 +469,12 @@ export function PutawayRulesListPage() {
               </Select>
 
               {draft.appliesTo === 'product' ? (
-                <Select
-                  value={draft.productId || undefined}
-                  onValueChange={(value) => setDraft((prev) => ({ ...prev, productId: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="اختر المنتج" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {products.map((product) => (
-                      <SelectItem key={product.id} value={product.id}>
-                        {product.nameAr}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <ProductSinglePicker
+                  companyId={companyId}
+                  value={draft.productId}
+                  placeholder="ابحث عن منتج…"
+                  onChange={(value) => setDraft((prev) => ({ ...prev, productId: value }))}
+                />
               ) : null}
 
               {draft.appliesTo === 'category' ? (

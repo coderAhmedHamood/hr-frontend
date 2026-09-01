@@ -8,6 +8,11 @@ import { useWarehouses } from '@/features/inventory/admin/warehouses/hooks/use-w
 import { useWarehouseLocations } from '@/features/inventory/admin/locations/hooks/use-warehouse-locations';
 import { warehouseOperationsApi } from '@/features/inventory/admin/operations/lib/api/warehouse-operations';
 import { warehouseOperationsQueryKeys } from '@/features/inventory/admin/hooks/query-keys';
+import { inventoryStockService } from '@/features/inventory/services/inventory-stock.service';
+import {
+  collectStockShortages,
+  formatStockShortageMessage,
+} from '@/features/inventory/admin/operations/lib/validate-operation-stock';
 import { REPLENISHMENT_SOURCE_DOCUMENT } from '@/features/ecommerce/admin/products/constants/replenishment';
 import { WAREHOUSE_OPERATION_KIND_META } from '@/features/inventory/domain/constants/warehouse-operation-kinds';
 import type { ProductFormInput } from '@/features/ecommerce/admin/products/schemas/product-schema';
@@ -146,6 +151,7 @@ export function ProductStockMoveRequestDialog({
   const [stockMode, setStockMode] = React.useState<StockLineMode>('product');
   const [lines, setLines] = React.useState<DraftLine[]>([]);
   const [saving, setSaving] = React.useState(false);
+  const [availableByLineKey, setAvailableByLineKey] = React.useState<Record<string, number>>({});
 
   const { data: locationsData } = useWarehouseLocations({
     companyId,
@@ -213,12 +219,69 @@ export function ProductStockMoveRequestDialog({
 
   const kindMeta = WAREHOUSE_OPERATION_KIND_META[kind];
   const stockEffect = kindMeta.stockEffect;
+  const checksSourceStock =
+    stockEffect === 'outbound' || stockEffect === 'move' || stockEffect === 'transfer';
   const title = kindMeta.createLabel;
   const Icon =
     stockEffect === 'inbound' ? RefreshCw : stockEffect === 'outbound' ? PackageMinus : ArrowLeftRight;
   const hasQty = lines.some((line) => line.quantity > 0);
   const needsFrom = stockEffect === 'outbound' || stockEffect === 'move' || stockEffect === 'transfer';
   const needsTo = stockEffect === 'inbound' || stockEffect === 'move' || stockEffect === 'transfer';
+
+  React.useEffect(() => {
+    if (!open || !companyId || !productId || !checksSourceStock || !locationId) {
+      setAvailableByLineKey({});
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      const next: Record<string, number> = {};
+      await Promise.all(
+        lines.map(async (line) => {
+          const available = await inventoryStockService.getQuantityAtLocation(
+            companyId,
+            productId,
+            locationId,
+            stockMode === 'product' ? undefined : line.variantId ?? undefined,
+          );
+          next[line.key] = Math.max(0, available);
+        }),
+      );
+      if (!cancelled) setAvailableByLineKey(next);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, companyId, productId, checksSourceStock, locationId, lines, stockMode]);
+
+  function maxDraftQuantity(lineKey: string): number | null {
+    const available = availableByLineKey[lineKey];
+    if (available == null) return null;
+    const target = lines.find((line) => line.key === lineKey);
+    if (!target) return available;
+    const usedByOthers = lines
+      .filter(
+        (line) =>
+          line.key !== lineKey &&
+          (line.variantId ?? null) === (target.variantId ?? null),
+      )
+      .reduce((sum, line) => sum + Math.max(0, line.quantity), 0);
+    return Math.max(0, available - usedByOthers);
+  }
+
+  function applyDraftQuantity(lineKey: string, rawValue: number) {
+    let quantity = Math.max(0, rawValue);
+    if (checksSourceStock) {
+      const capped = maxDraftQuantity(lineKey);
+      if (capped != null && quantity > capped) {
+        toast.error(`الكمية المتاحة في الموقع ${capped} — لا يمكن الصرف بالسالب.`);
+        quantity = capped;
+      }
+    }
+    setLines((prev) => prev.map((item) => (item.key === lineKey ? { ...item, quantity } : item)));
+  }
 
   async function handleSubmit() {
     if (!companyId) return;
@@ -281,6 +344,31 @@ export function ProductStockMoveRequestDialog({
     if (stockMode === 'variants' && opLines.some((line) => !line.variantId)) {
       toast.error('وضع المتغيرات يتطلب اختيار متغير لكل سطر.');
       return;
+    }
+
+    if (checksSourceStock && fromId) {
+      const draftOperation = {
+        companyId,
+        warehouseId,
+        kind,
+        destinationWarehouseId: undefined,
+        lines: opLines.map((line, index) => ({
+          id: `draft-${index}`,
+          productName: line.productName,
+          sku: line.sku,
+          productId: line.productId!,
+          variantId: line.variantId,
+          demandQuantity: line.demandQuantity ?? line.quantity,
+          quantity: line.quantity,
+          fromLocationId: fromId,
+          toLocationId: toId,
+        })),
+      };
+      const issues = await collectStockShortages(draftOperation);
+      if (issues.length > 0) {
+        toast.error(formatStockShortageMessage(issues[0]!));
+        return;
+      }
     }
 
     setSaving(true);
@@ -490,12 +578,14 @@ export function ProductStockMoveRequestDialog({
                         className="h-8 w-28"
                         value={line.quantity}
                         onChange={(event) => {
-                          const quantity = Math.max(0, Number(event.target.value) || 0);
-                          setLines((prev) =>
-                            prev.map((item) => (item.key === line.key ? { ...item, quantity } : item)),
-                          );
+                          applyDraftQuantity(line.key, Number(event.target.value) || 0);
                         }}
                       />
+                      {checksSourceStock && availableByLineKey[line.key] != null ? (
+                        <p className="mt-1 text-[11px] text-muted-foreground">
+                          المتاح في الموقع: {availableByLineKey[line.key]}
+                        </p>
+                      ) : null}
                     </td>
                   </tr>
                 ))}

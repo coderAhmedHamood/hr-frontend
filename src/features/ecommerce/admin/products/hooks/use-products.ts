@@ -5,11 +5,11 @@ import type { ProductListQuery } from '@/features/ecommerce/domain/types/product
 
 export { productsQueryKeys };
 
-export function useProducts(query: ProductListQuery) {
+export function useProducts(query: ProductListQuery, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: productsQueryKeys.list(query),
     queryFn: () => productsApi.getAll(query),
-    enabled: Boolean(query.companyId),
+    enabled: Boolean(query.companyId) && (options?.enabled ?? true),
   });
 }
 

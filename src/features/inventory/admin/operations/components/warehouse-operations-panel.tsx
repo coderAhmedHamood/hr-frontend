@@ -22,7 +22,8 @@ import type {
   WarehouseOperationStatus,
 } from '@/features/inventory/domain/types/warehouse';
 import { useWarehouses } from '@/features/inventory/admin/warehouses/hooks/use-warehouses';
-import { useProduct, useProducts } from '@/features/ecommerce/admin/products/hooks/use-products';
+import { useProduct } from '@/features/ecommerce/admin/products/hooks/use-products';
+import { ProductSinglePicker } from '@/features/ecommerce/admin/products/components/product-single-picker';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -122,8 +123,6 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
   });
   const { data: warehousesData } = useWarehouses({ companyId, limit: 100 });
   const allWarehouses = warehousesData?.items ?? [];
-  const { data: productsData } = useProducts({ companyId, limit: 200, status: 'active' });
-  const catalogProducts = productsData?.items ?? [];
   const items = data?.items ?? [];
   const total = data?.pagination.total ?? 0;
   const form = useForm<WarehouseOperationFormValues>({
@@ -585,29 +584,19 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
                   control={form.control}
                   name="productId"
                   render={({ field }) => (
-                    <Select
-                      value={field.value || undefined}
-                      onValueChange={(value) => {
-                        field.onChange(value);
-                        const product = catalogProducts.find((item) => item.id === value);
-                        form.setValue('productName', product?.nameAr ?? '');
-                        form.setValue('sku', product?.sku ?? '');
+                    <ProductSinglePicker
+                      companyId={companyId}
+                      value={field.value ?? ''}
+                      status="active"
+                      placeholder="ابحث عن منتج من الكتالوج…"
+                      onChange={field.onChange}
+                      onProductSelect={(product) => {
+                        form.setValue('productName', product.nameAr ?? '');
+                        form.setValue('sku', product.sku ?? '');
                         setStockMode('product');
                         setVariantQuantities({});
                       }}
-                    >
-                      <SelectTrigger aria-label="المنتج">
-                        <SelectValue placeholder="اختر منتجًا من الكتالوج" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {catalogProducts.map((product) => (
-                          <SelectItem key={product.id} value={product.id}>
-                            {product.nameAr}
-                            {product.sku ? ` (${product.sku})` : ''}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    />
                   )}
                 />
                 {form.formState.errors.productId ? (
