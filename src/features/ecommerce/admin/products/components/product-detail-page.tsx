@@ -41,6 +41,7 @@ import { ProductPutawayRulesDialog } from '@/features/ecommerce/admin/products/c
 import { ProductVariantsDialog } from '@/features/ecommerce/admin/products/components/product-variants-dialog';
 import { DeleteProductDialog } from '@/features/ecommerce/admin/products/components/delete-product-dialog';
 import type { ProductRelatedDocKey } from '@/features/ecommerce/admin/products/components/product-related-docs-bar';
+import { productMoveRequestListRestore } from '@/features/ecommerce/admin/products/lib/product-move-request-flow';
 import { useProductsBasePath } from '@/features/ecommerce/admin/products/lib/products-navigation';
 import type { WarehouseOperationKind } from '@/features/inventory/domain/types/warehouse';
 import { Button } from '@/components/ui/button';
@@ -276,6 +277,16 @@ export function ProductDetailPage({ productId }: Props) {
     setPutawayListOpen(true);
   }
 
+  function restoreMoveRequestList(kind: WarehouseOperationKind, bump = false) {
+    const restore = productMoveRequestListRestore(kind);
+    if (restore.relatedDoc) {
+      if (bump) bumpRelatedRequest(restore.relatedDoc);
+      setActiveRelatedDoc(restore.relatedDoc);
+    }
+    if (restore.openReplenishmentList) setReplenishmentListOpen(true);
+    if (restore.movesListKind) setMovesListKind(restore.movesListKind);
+  }
+
   if (isLoadingProduct) {
     return (
       <div className="flex flex-col gap-5">
@@ -458,16 +469,10 @@ export function ProductDetailPage({ productId }: Props) {
       <ProductStockMoveRequestDialog
         open={moveRequestKind !== null}
         onOpenChange={(next) => {
-          if (!next) {
-            setMoveRequestKind(null);
-            if (
-              activeRelatedDoc === 'replenish' ||
-              activeRelatedDoc === 'issues' ||
-              activeRelatedDoc === 'internals'
-            ) {
-              setActiveRelatedDoc(null);
-            }
-          }
+          if (next) return;
+          const kind = moveRequestKind;
+          setMoveRequestKind(null);
+          if (kind) restoreMoveRequestList(kind);
         }}
         kind={moveRequestKind ?? 'receipt'}
         productId={product.id}
@@ -476,19 +481,7 @@ export function ProductDetailPage({ productId }: Props) {
         variants={variants}
         onCreated={(_warehouseId, kind) => {
           setMoveRequestKind(null);
-          if (kind === 'replenishment') {
-            bumpRelatedRequest('replenish');
-            setActiveRelatedDoc('replenish');
-            setReplenishmentListOpen(true);
-            return;
-          }
-          if (kind === 'receipt') {
-            bumpRelatedRequest('receipts');
-            setActiveRelatedDoc('receipts');
-            setMovesListKind('receipt');
-            return;
-          }
-          setActiveRelatedDoc(null);
+          restoreMoveRequestList(kind, true);
         }}
       />
 
@@ -551,7 +544,9 @@ export function ProductDetailPage({ productId }: Props) {
         onCreateRequest={() => {
           const kind = movesListKind ?? 'receipt';
           setMovesListKind(null);
-          setActiveRelatedDoc(kind === 'receipt' ? 'replenish' : kind === 'issue' ? 'issues' : 'internals');
+          setActiveRelatedDoc(
+            kind === 'receipt' ? 'receipts' : kind === 'issue' ? 'issues' : 'internals',
+          );
           setMoveRequestKind(kind);
         }}
       />

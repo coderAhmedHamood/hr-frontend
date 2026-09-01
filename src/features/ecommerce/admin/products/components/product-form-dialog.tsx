@@ -32,6 +32,7 @@ import { ProductStockMovesHistoryDialog } from '@/features/ecommerce/admin/produ
 import { ProductReplenishmentListDialog } from '@/features/ecommerce/admin/products/components/product-replenishment-list-dialog';
 import { ProductPutawayRulesDialog } from '@/features/ecommerce/admin/products/components/product-putaway-rules-dialog';
 import type { ProductRelatedDocKey } from '@/features/ecommerce/admin/products/components/product-related-docs-bar';
+import { productMoveRequestListRestore } from '@/features/ecommerce/admin/products/lib/product-move-request-flow';
 import type { Product } from '@/features/ecommerce/domain/types/product';
 import type { WarehouseOperationKind } from '@/features/inventory/domain/types/warehouse';
 import { Layers, Package, Ruler, Settings, Warehouse } from 'lucide-react';
@@ -129,6 +130,16 @@ export function ProductFormDialog({ product, open, onOpenChange }: Props) {
 
   function bumpRelatedRequest(key: ProductRelatedDocKey) {
     setRelatedRequestKeys((prev) => ({ ...prev, [key]: (prev[key] ?? 0) + 1 }));
+  }
+
+  function restoreMoveRequestList(kind: WarehouseOperationKind, bump = false) {
+    const restore = productMoveRequestListRestore(kind);
+    if (restore.relatedDoc) {
+      if (bump) bumpRelatedRequest(restore.relatedDoc);
+      setActiveRelatedDoc(restore.relatedDoc);
+    }
+    if (restore.openReplenishmentList) setReplenishmentListOpen(true);
+    if (restore.movesListKind) setMovesListKind(restore.movesListKind);
   }
 
   const form = useForm<ProductFormInput, unknown, ProductFormValues>({
@@ -465,16 +476,10 @@ export function ProductFormDialog({ product, open, onOpenChange }: Props) {
       <ProductStockMoveRequestDialog
         open={moveRequestKind !== null}
         onOpenChange={(next) => {
-          if (!next) {
-            setMoveRequestKind(null);
-            if (
-              activeRelatedDoc === 'replenish' ||
-              activeRelatedDoc === 'issues' ||
-              activeRelatedDoc === 'internals'
-            ) {
-              setActiveRelatedDoc(null);
-            }
-          }
+          if (next) return;
+          const kind = moveRequestKind;
+          setMoveRequestKind(null);
+          if (kind) restoreMoveRequestList(kind);
         }}
         kind={moveRequestKind ?? 'receipt'}
         productId={product?.id}
@@ -483,19 +488,7 @@ export function ProductFormDialog({ product, open, onOpenChange }: Props) {
         variants={variants}
         onCreated={(_warehouseId, kind) => {
           setMoveRequestKind(null);
-          if (kind === 'replenishment') {
-            bumpRelatedRequest('replenish');
-            setActiveRelatedDoc('replenish');
-            setReplenishmentListOpen(true);
-            return;
-          }
-          if (kind === 'receipt') {
-            bumpRelatedRequest('receipts');
-            setActiveRelatedDoc('receipts');
-            setMovesListKind('receipt');
-            return;
-          }
-          setActiveRelatedDoc(null);
+          restoreMoveRequestList(kind, true);
         }}
       />
 
@@ -546,7 +539,7 @@ export function ProductFormDialog({ product, open, onOpenChange }: Props) {
             const kind = movesListKind ?? 'receipt';
             setMovesListKind(null);
             setActiveRelatedDoc(
-              kind === 'receipt' ? 'replenish' : kind === 'issue' ? 'issues' : 'internals',
+              kind === 'receipt' ? 'receipts' : kind === 'issue' ? 'issues' : 'internals',
             );
             setMoveRequestKind(kind);
           }}
