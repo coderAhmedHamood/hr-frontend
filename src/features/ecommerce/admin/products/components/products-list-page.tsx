@@ -37,6 +37,7 @@ import { Button } from '@/components/ui/button';
 import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { DataTable, type ColumnDef } from '@/components/ui/data-table';
 import { DirectoryPagedViews, DEFAULT_PAGE_SIZE } from '@/components/ui/paged-list';
+import { resolveUploadUrl } from '@/shared/resolve-upload-url';
 
 const FILTER_KEYS = [
   'categoryId',
@@ -323,7 +324,7 @@ export function ProductsListPage() {
             <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted">
               {primaryImage ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={primaryImage.url} alt={primaryImage.alt} className="h-full w-full object-cover" />
+                <img src={resolveUploadUrl(primaryImage.url)} alt={primaryImage.alt} className="h-full w-full object-cover" />
               ) : (
                 <Package className="h-4 w-4 text-muted-foreground" />
               )}
@@ -433,7 +434,7 @@ export function ProductsListPage() {
           <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted">
             {primaryImage ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={primaryImage.url} alt={primaryImage.alt} className="h-full w-full object-cover" />
+              <img src={resolveUploadUrl(primaryImage.url)} alt={primaryImage.alt} className="h-full w-full object-cover" />
             ) : (
               <Package className="h-5 w-5 text-muted-foreground" />
             )}

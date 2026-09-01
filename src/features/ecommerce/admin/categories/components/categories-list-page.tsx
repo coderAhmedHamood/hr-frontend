@@ -25,6 +25,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DataTable, usePagination, type ColumnDef } from '@/components/ui/data-table';
 import { DirectoryPagedViews, DEFAULT_PAGE_SIZE } from '@/components/ui/paged-list';
+import { resolveUploadUrl } from '@/shared/resolve-upload-url';
 import { isMultiLangEnabled } from '@/i18n/locale-flags';
 
 export function CategoriesListPage() {
@@ -148,7 +149,7 @@ export function CategoriesListPage() {
             <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted">
               {category.image ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={category.image.url} alt={category.image.alt} className="h-full w-full object-cover" />
+                <img src={resolveUploadUrl(category.image.url)} alt={category.image.alt} className="h-full w-full object-cover" />
               ) : (
                 <FolderTree className="h-4 w-4 text-muted-foreground" />
               )}
@@ -268,7 +269,7 @@ export function CategoriesListPage() {
                     <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted">
                       {category.image ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={category.image.url} alt={category.image.alt} className="h-full w-full object-cover" />
+                        <img src={resolveUploadUrl(category.image.url)} alt={category.image.alt} className="h-full w-full object-cover" />
                       ) : (
                         <FolderTree className="h-4 w-4 text-muted-foreground" />
                       )}
