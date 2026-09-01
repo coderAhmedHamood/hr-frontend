@@ -12,5 +12,7 @@ export const accountingRoutes = {
   fiscalYears: '/accounting/fiscal-years',
   periods: '/accounting/periods',
   taxes: '/accounting/taxes',
+  taxNew: '/accounting/taxes/new',
+  taxDetail: (taxId: string) => `/accounting/taxes/${taxId}`,
   currencies: '/accounting/currencies',
 } as const;

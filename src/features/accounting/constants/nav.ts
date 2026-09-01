@@ -8,13 +8,21 @@ import {
   CalendarDays,
   Percent,
   Coins,
+  Receipt,
+  FileCheck,
+  Building,
+  FileSpreadsheet,
+  FileText,
+  CreditCard,
+  Layers,
+  Globe,
 } from 'lucide-react';
 import { accountingRoutes } from '@/features/accounting/constants/routes';
 
 export type AccountingNavItem = {
   labelAr: string;
   href: string;
-  icon: LucideIcon;
+  icon?: LucideIcon;
 };
 
 export type AccountingNavSection = {
@@ -26,7 +34,7 @@ export type AccountingNavSection = {
 export type AccountingNavGroup = {
   key: 'configuration';
   labelAr: string;
-  icon: LucideIcon;
+  icon?: LucideIcon;
   sections: AccountingNavSection[];
 };
 
@@ -36,7 +44,7 @@ export const accountingOverviewItem: AccountingNavItem = {
   icon: LayoutDashboard,
 };
 
-/** Top nav: نظرة عامة | التهيئة */
+/** Top nav: نظرة عامة | الإعدادات (التهيئة) */
 export const accountingNavGroups: AccountingNavGroup[] = [
   {
     key: 'configuration',
@@ -44,24 +52,26 @@ export const accountingNavGroups: AccountingNavGroup[] = [
     icon: Settings2,
     sections: [
       {
-        labelAr: 'الحسابات',
+        labelAr: 'المحاسبة',
         items: [
           { labelAr: 'شجرة الحسابات', href: accountingRoutes.chartOfAccounts, icon: Network },
-          { labelAr: 'دفاتر اليومية', href: accountingRoutes.journals, icon: BookOpen },
-        ],
-      },
-      {
-        labelAr: 'الفترات المالية',
-        items: [
-          { labelAr: 'السنوات المالية', href: accountingRoutes.fiscalYears, icon: CalendarRange },
-          { labelAr: 'الفترات المحاسبية', href: accountingRoutes.periods, icon: CalendarDays },
-        ],
-      },
-      {
-        labelAr: 'عام',
-        items: [
           { labelAr: 'الضرائب', href: accountingRoutes.taxes, icon: Percent },
+          { labelAr: 'دفاتر اليومية', href: accountingRoutes.journals, icon: BookOpen },
           { labelAr: 'العملات', href: accountingRoutes.currencies, icon: Coins },
+          { labelAr: 'الأوضاع المالية', href: accountingRoutes.fiscalYears, icon: CalendarRange },
+          { labelAr: 'دفتر الأستاذ المتعدد', href: accountingRoutes.periods, icon: CalendarDays },
+          { labelAr: 'الفحوصات', href: accountingRoutes.periods, icon: FileCheck },
+          { labelAr: 'نماذج الأصل', href: accountingRoutes.periods, icon: Layers },
+          { labelAr: 'أنواع الإقرارات', href: accountingRoutes.periods, icon: FileText },
+        ],
+      },
+      {
+        labelAr: 'الفوترة',
+        items: [
+          { labelAr: 'شروط السداد', href: accountingRoutes.periods, icon: CreditCard },
+          { labelAr: 'مستويات المتابعة', href: accountingRoutes.periods, icon: FileSpreadsheet },
+          { labelAr: 'فئات المنتجات', href: accountingRoutes.periods, icon: Building },
+          { labelAr: 'Intrastat رمز نظام', href: accountingRoutes.periods, icon: Globe },
         ],
       },
     ],

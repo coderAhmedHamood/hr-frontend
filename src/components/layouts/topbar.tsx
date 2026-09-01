@@ -106,6 +106,7 @@ type NavGroup = { labelAr?: string; items: SubItem[] };
 type NavItem  = {
   key: string; label: string; href?: string;
   icon: React.ElementType; groups?: NavGroup[];
+  forceSingleColumn?: boolean;
   /** Override active detection (e.g. split payroll vs contracts under same URL base). */
   isActive?: (pathname: string) => boolean;
 };
@@ -455,6 +456,7 @@ function buildAccountingNavConfig(): NavItem[] {
       key: group.key,
       label: group.labelAr,
       icon: group.icon,
+      forceSingleColumn: true,
       isActive: (pathname) =>
         flat.some((item) => {
           const base = item.href.split('?')[0]!;
@@ -491,10 +493,12 @@ function parentIsActive(pathname: string, item: NavItem) {
 /* ── NavDropdown — needs useSearchParams for query-aware active state ── */
 function NavDropdownContent({
   groups,
+  forceSingleColumn,
   onOpen,
   onClose,
 }: {
   groups: NavGroup[];
+  forceSingleColumn?: boolean;
   onOpen: () => void;
   onClose: () => void;
 }) {
@@ -514,12 +518,12 @@ function NavDropdownContent({
   }
 
   const totalItems = groups.reduce((sum, group) => sum + group.items.length, 0);
-  const useColumns = groups.length > 1 && totalItems > 6;
+  const useColumns = !forceSingleColumn && groups.length > 1 && totalItems > 6;
 
   return (
     <div
       className={cn(
-        'nav-dropdown absolute right-0 top-[calc(100%+6px)] z-[200] rounded-2xl border border-border bg-popover p-2 shadow-elevated',
+        'nav-dropdown absolute right-0 top-[calc(100%+6px)] z-[200] max-h-[calc(100vh-80px)] overflow-y-auto rounded-2xl border border-border bg-popover p-2 shadow-elevated',
         useColumns ? 'grid w-105 grid-cols-2 items-start gap-1' : 'min-w-60',
       )}
       onMouseEnter={onOpen}
@@ -536,7 +540,7 @@ function NavDropdownContent({
             const SubIcon = sub.icon;
             const active  = subIsActive(sub.href);
             return (
-              <React.Fragment key={sub.href}>
+              <React.Fragment key={`${sub.href}-${sub.label}`}>
                 {sub.groupLabel ? (
                   <p className="mb-1 mt-2 px-3 pt-1 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground/50 first:mt-0">
                     {sub.groupLabel}
@@ -627,6 +631,7 @@ function TopbarNavItem({
         <React.Suspense fallback={null}>
           <NavDropdownContent
             groups={item.groups!}
+            forceSingleColumn={item.forceSingleColumn}
             onOpen={() => openMenu(item.key)}
             onClose={delayClose}
           />
