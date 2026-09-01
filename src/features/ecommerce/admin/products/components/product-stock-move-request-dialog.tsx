@@ -319,7 +319,7 @@ export function ProductStockMoveRequestDialog({
           : undefined;
 
     if (stockEffect === 'move' && fromId && toId && fromId === toId) {
-      toast.error('اختر موقعين مختلفين للحركة الداخلية.');
+      toast.error('اختر موقعين مختلفين داخل نفس المستودع.');
       return;
     }
 
@@ -386,7 +386,7 @@ export function ProductStockMoveRequestDialog({
               ? 'إيصال استلام'
               : kind === 'issue'
                 ? 'طلب توصيل يدوي'
-                : 'حركة داخلية يدوية',
+                : 'نقل بين مواقع يدوي',
         notes: `طلب ${kindMeta.labelAr} للمنتج ${productNameAr} (${stockMode === 'product' ? 'منتج أساسي' : 'متغيرات'})`,
         lines: opLines,
       });

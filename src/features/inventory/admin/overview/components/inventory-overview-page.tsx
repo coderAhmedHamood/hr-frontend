@@ -14,8 +14,8 @@ const QUICK_LINKS = [
     icon: Warehouse,
   },
   {
-    title: 'التحويلات',
-    description: 'تحويلات عامة بين المستودعات — تظهر أيضًا داخل كل مستودع.',
+    title: 'بين المستودعات',
+    description: 'نقل مخزون من مستودع إلى مستودع آخر (مع موقع مصدر وموقع وجهة).',
     href: inventoryAdminRoutes.transfers,
     icon: Truck,
   },
@@ -32,8 +32,8 @@ const QUICK_LINKS = [
     icon: ClipboardList,
   },
   {
-    title: 'الحركات الداخلية',
-    description: 'نقل بين المواقع داخل نفس المستودع.',
+    title: 'نقل المواقع',
+    description: 'نقل كميات بين مواقع داخل نفس المستودع (رف، منطقة، مخزون).',
     href: inventoryAdminRoutes.internal,
     icon: ArrowLeftRight,
   },

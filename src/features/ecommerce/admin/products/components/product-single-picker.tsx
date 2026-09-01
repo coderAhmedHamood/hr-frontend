@@ -6,18 +6,20 @@ import * as PopoverPrimitive from '@radix-ui/react-popover';
 import { useDebouncedValue } from '@/shared/hooks/use-debounced-value';
 import { cn } from '@/shared/utils';
 import { useDialogPortalContainer } from '@/components/ui/dialog';
-import { useProduct, useProducts } from '@/features/ecommerce/admin/products/hooks/use-products';
+import { useInfiniteProductOptions, useProduct } from '@/features/ecommerce/admin/products/hooks/use-products';
+import type { ProductOption } from '@/features/ecommerce/admin/products/lib/api/product-options';
 import type { Product, ProductStatus } from '@/features/ecommerce/domain/types/product';
 
-const MIN_SEARCH_LEN = 1;
-const SEARCH_LIMIT = 30;
+const PAGE_SIZE = 30;
+/** Distance from the bottom of the list that triggers loading the next page. */
+const SCROLL_THRESHOLD_PX = 64;
 
 export type ProductSinglePickerProps = {
   companyId: string;
   value: string;
   onChange: (productId: string) => void;
-  /** Fires with the full product row when the user picks from search results. */
-  onProductSelect?: (product: Product) => void;
+  /** Fires with the picked catalog row (id, names, sku, barcode). */
+  onProductSelect?: (product: ProductOption) => void;
   placeholder?: string;
   searchPlaceholder?: string;
   disabled?: boolean;
@@ -49,38 +51,66 @@ export function ProductSinglePicker({
 }: ProductSinglePickerProps) {
   const [open, setOpen] = React.useState(false);
   const [search, setSearch] = React.useState('');
+  const [pickedOption, setPickedOption] = React.useState<ProductOption | null>(null);
   const debouncedSearch = useDebouncedValue(search.trim(), 300);
   const dialogContainer = useDialogPortalContainer();
+  const listRef = React.useRef<HTMLDivElement>(null);
   const excludeSet = React.useMemo(() => new Set(excludeIds ?? []), [excludeIds]);
 
+  // The picked row already carries the label, so the heavier `/full` read is only
+  // needed for a selection that came from outside this picker.
+  const hasLocalLabel = Boolean(value) && pickedOption?.id === value;
   const { data: selectedProduct } = useProduct(companyId, value || null, {
-    enabled: Boolean(companyId && value),
+    enabled: Boolean(companyId && value) && !hasLocalLabel,
   });
 
-  const canQuery = debouncedSearch.length >= MIN_SEARCH_LEN;
-  const { data: searchData, isFetching: isSearching } = useProducts(
-    {
-      companyId,
-      search: debouncedSearch,
-      status,
-      page: 1,
-      limit: SEARCH_LIMIT,
-    },
-    { enabled: Boolean(companyId) && canQuery },
+  const {
+    data: pages,
+    isFetching,
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage,
+  } = useInfiniteProductOptions(
+    { companyId, search: debouncedSearch, status, limit: PAGE_SIZE },
+    { enabled: Boolean(companyId) && open },
   );
 
   const results = React.useMemo(
-    () => (searchData?.items ?? []).filter((product) => !excludeSet.has(product.id)),
-    [searchData?.items, excludeSet],
+    () =>
+      (pages?.pages ?? [])
+        .flatMap((page) => page.items)
+        .filter((product) => !excludeSet.has(product.id)),
+    [pages, excludeSet],
   );
 
+  const isLoadingFirstPage = isFetching && !isFetchingNextPage && results.length === 0;
+
+  const loadMore = React.useCallback(() => {
+    if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  function handleListScroll(event: React.UIEvent<HTMLDivElement>) {
+    const el = event.currentTarget;
+    if (el.scrollHeight - el.scrollTop - el.clientHeight <= SCROLL_THRESHOLD_PX) loadMore();
+  }
+
+  // `excludeIds` can filter a whole page away, leaving the list too short to scroll.
+  React.useEffect(() => {
+    const el = listRef.current;
+    if (!el || !open) return;
+    if (el.scrollHeight <= el.clientHeight) loadMore();
+  }, [open, results.length, loadMore]);
+
   const selectedLabel = value
-    ? selectedProduct
-      ? productLabel(selectedProduct)
-      : '…'
+    ? hasLocalLabel && pickedOption
+      ? productLabel(pickedOption)
+      : selectedProduct
+        ? productLabel(selectedProduct)
+        : '…'
     : null;
 
-  function pick(product: Product) {
+  function pick(product: ProductOption) {
+    setPickedOption(product);
     onChange(product.id);
     onProductSelect?.(product);
     setOpen(false);
@@ -159,17 +189,19 @@ export function ProductSinglePicker({
             </div>
           </div>
           <div
+            ref={listRef}
             className="max-h-52 overflow-y-auto overscroll-contain"
             onWheel={(event) => event.stopPropagation()}
+            onScroll={handleListScroll}
           >
-            {!canQuery ? (
+            {isLoadingFirstPage ? (
               <div className="px-3 py-6 text-center text-sm text-muted-foreground">
-                اكتب للبحث عن منتج بالاسم أو SKU
+                {debouncedSearch ? 'جاري البحث…' : 'جاري التحميل…'}
               </div>
-            ) : isSearching ? (
-              <div className="px-3 py-6 text-center text-sm text-muted-foreground">جاري البحث…</div>
             ) : results.length === 0 ? (
-              <div className="px-3 py-6 text-center text-sm text-muted-foreground">لا توجد منتجات مطابقة</div>
+              <div className="px-3 py-6 text-center text-sm text-muted-foreground">
+                {debouncedSearch ? 'لا توجد منتجات مطابقة' : 'لا توجد منتجات'}
+              </div>
             ) : (
               results.map((product) => {
                 const isSelected = product.id === value;
@@ -196,6 +228,11 @@ export function ProductSinglePicker({
                 );
               })
             )}
+            {isFetchingNextPage ? (
+              <div className="px-3 py-2 text-center text-xs text-muted-foreground">
+                جاري تحميل المزيد…
+              </div>
+            ) : null}
           </div>
         </PopoverPrimitive.Content>
       </PopoverPrimitive.Portal>

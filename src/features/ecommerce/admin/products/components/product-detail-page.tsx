@@ -333,8 +333,8 @@ export function ProductDetailPage({ productId }: Props) {
     { key: 'issues' as const, label: 'الإخراجات', hint: 'طلبات الصرف الخاصة بهذا المنتج' },
     {
       key: 'internals' as const,
-      label: 'داخلية',
-      hint: 'الحركات الداخلية بين مواقع المستودع',
+      label: 'نقل المواقع',
+      hint: 'نقل بين مواقع داخل نفس المستودع (ليس بين مستودعات)',
     },
     { key: 'moves' as const, label: 'سجل الحركات', hint: 'كل حركات المخزون المرتبطة بهذا المنتج' },
     { key: 'putaway' as const, label: 'قواعد التخزين', hint: 'فتح قائمة قواعد التخزين لهذا المنتج' },

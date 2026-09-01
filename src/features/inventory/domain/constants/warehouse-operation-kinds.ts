@@ -9,7 +9,7 @@ import type { WarehouseOperationKind } from '@/features/inventory/domain/types/w
  * - header → قائمة التطبيق العامة فقط
  * - both → المستودع (خاص) + قائمة العمليات العامة
  *
- * العمليات اليومية (تحويل / إيصال / توصيل / داخلي) تظهر في المكانين:
+ * العمليات اليومية (بين المستودعات / إيصال / توصيل / نقل المواقع) تظهر في المكانين:
  * عامة على مستوى التطبيق، وخاصة داخل المستودع.
  */
 export const WAREHOUSE_OPERATION_KINDS: WarehouseOperationKind[] = [
@@ -46,10 +46,10 @@ export type WarehouseOperationKindMeta = {
 export const WAREHOUSE_OPERATION_KIND_META: Record<WarehouseOperationKind, WarehouseOperationKindMeta> =
   {
     transfer: {
-      labelAr: 'التحويلات',
-      title: 'تحويلات بين المستودعات',
-      createLabel: 'مستند تحويل',
-      empty: 'لا توجد تحويلات بعد.',
+      labelAr: 'بين المستودعات',
+      title: 'تحويل بين المستودعات',
+      createLabel: 'تحويل بين مستودعات',
+      empty: 'لا توجد تحويلات بين المستودعات بعد.',
       needsFrom: true,
       needsTo: true,
       needsDestWarehouse: true,
@@ -88,10 +88,10 @@ export const WAREHOUSE_OPERATION_KIND_META: Record<WarehouseOperationKind, Wareh
       pathSegment: 'deliveries',
     },
     internal: {
-      labelAr: 'داخلي',
-      title: 'الحركات الداخلية',
-      createLabel: 'حركة داخلية',
-      empty: 'لا توجد حركات داخلية بعد.',
+      labelAr: 'نقل المواقع',
+      title: 'نقل بين مواقع المستودع',
+      createLabel: 'نقل بين مواقع',
+      empty: 'لا توجد عمليات نقل بين المواقع بعد.',
       needsFrom: true,
       needsTo: true,
       needsDestWarehouse: false,

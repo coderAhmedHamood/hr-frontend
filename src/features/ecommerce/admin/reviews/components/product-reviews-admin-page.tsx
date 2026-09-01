@@ -34,6 +34,8 @@ import type {
 } from '@/features/ecommerce/admin/reviews/lib/api/product-reviews-api';
 import { ProductSinglePicker } from '@/features/ecommerce/admin/products/components/product-single-picker';
 import { ProductLabel } from '@/features/ecommerce/admin/products/components/product-label';
+import { useCan } from '@/features/auth/hooks/use-can';
+import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
 
 const REVIEWS_READ = 'inv.catalog.product-reviews.read';
 const REVIEWS_UPDATE = 'inv.catalog.product-reviews.update';

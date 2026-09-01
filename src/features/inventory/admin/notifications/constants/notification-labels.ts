@@ -4,7 +4,7 @@ export const INVENTORY_SOURCE_KIND_LABELS: Record<string, string> = {
   inventory_negative_stock_blocked: 'رفض بدون رصيد',
   inventory_receipt_completed: 'ترحيل استلام',
   inventory_issue_completed: 'ترحيل صرف',
-  inventory_transfer_completed: 'ترحيل تحويل',
+  inventory_transfer_completed: 'ترحيل تحويل بين مستودعات',
   inventory_adjustment_posted: 'تسوية مخزون',
   inventory_physical_count_completed: 'جرد فعلي',
   inventory_scrap_posted: 'إتلاف',

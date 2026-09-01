@@ -190,7 +190,7 @@ export function ProductStockMovesHistoryDialog({
               سجل الحركات · {productNameAr}
             </DialogTitle>
             <p className="mt-1 text-xs text-muted-foreground">
-              كل عمليات الاستلام والصرف والحركات الداخلية المرتبطة بهذا المنتج بعد دخولها للمستودع.
+              كل عمليات الاستلام والصرف ونقل المواقع المرتبطة بهذا المنتج بعد دخولها للمستودع.
             </p>
           </div>
 

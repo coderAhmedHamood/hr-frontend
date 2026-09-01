@@ -265,7 +265,7 @@ export function ProductFormDialog({ product, open, onOpenChange }: Props) {
       return;
     }
     if (key === 'internals') {
-      if (!requireSavedProduct('تعرض الحركات الداخلية')) return;
+      if (!requireSavedProduct('تعرض نقل المواقع')) return;
       bumpRelatedRequest(key);
       setActiveRelatedDoc('internals');
       setMovesListKind('internal');
@@ -354,8 +354,8 @@ export function ProductFormDialog({ product, open, onOpenChange }: Props) {
                       },
                       {
                         key: 'internals',
-                        label: 'داخلية',
-                        hint: 'الحركات الداخلية بين مواقع المستودع',
+                        label: 'نقل المواقع',
+                        hint: 'نقل بين مواقع داخل نفس المستودع (ليس بين مستودعات)',
                       },
                       {
                         key: 'moves',

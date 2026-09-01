@@ -37,7 +37,7 @@ export const INVENTORY_NOTIFICATION_GROUPS: NotificationToggleGroup[] = [
     items: [
       { key: 'notifyReceiptCompleted', label: 'ترحيل استلام' },
       { key: 'notifyIssueCompleted', label: 'ترحيل صرف/توصيل' },
-      { key: 'notifyTransferCompleted', label: 'ترحيل تحويل' },
+      { key: 'notifyTransferCompleted', label: 'ترحيل تحويل بين مستودعات' },
       { key: 'notifyAdjustmentPosted', label: 'تسوية مخزون' },
       { key: 'notifyPhysicalCountCompleted', label: 'جرد فعلي' },
       { key: 'notifyScrapPosted', label: 'إتلاف' },
