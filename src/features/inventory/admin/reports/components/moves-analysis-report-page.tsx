@@ -24,6 +24,12 @@ import { DirectoryPagedViews, DEFAULT_PAGE_SIZE } from '@/components/ui/paged-li
 import { ListFilterBar } from '@/components/ui/list-filter-bar';
 import { Input } from '@/components/ui/input';
 
+function localDateBoundary(date: string, endOfDay = false): string | undefined {
+  if (!date) return undefined;
+  const value = new Date(`${date}T${endOfDay ? '23:59:59.999' : '00:00:00.000'}`);
+  return Number.isNaN(value.getTime()) ? undefined : value.toISOString();
+}
+
 export function MovesAnalysisReportPage() {
   const companyId = getInventoryCompanyId();
   const [warehouseId, setWarehouseId] = React.useState('all');
@@ -37,29 +43,33 @@ export function MovesAnalysisReportPage() {
     warehouseId: warehouseId === 'all' ? undefined : warehouseId,
     kind: kind === 'all' ? undefined : kind,
     status: 'done',
+    occurredAtFrom: localDateBoundary(dateFrom),
+    occurredAtTo: localDateBoundary(dateTo, true),
     page: 1,
     limit: 500,
   });
   const { data: warehousesData } = useWarehouses({ companyId, limit: 100 });
   const { data: locationsData } = useWarehouseLocations({ companyId, limit: 500 });
 
-  const warehouses = warehousesData?.items ?? [];
-  const locations = locationsData?.items ?? [];
+  const warehouses = React.useMemo(() => warehousesData?.items ?? [], [warehousesData?.items]);
+  const locations = React.useMemo(() => locationsData?.items ?? [], [locationsData?.items]);
   const warehouseName = React.useMemo(
     () => new Map(warehouses.map((item) => [item.id, item.nameAr])),
     [warehouses],
   );
-  const locationName = React.useCallback((id?: string) => id ?? '', []);
+  const locationNames = React.useMemo(
+    () => new Map(locations.map((item) => [item.id, item.nameAr || item.code])),
+    [locations],
+  );
+  const locationName = React.useCallback(
+    (id?: string) => (id ? (locationNames.get(id) ?? id) : ''),
+    [locationNames],
+  );
 
   const rows = React.useMemo(() => {
     const ledger = flattenOperationsToMoveRows(data?.items ?? [], locations, locationName);
-    const dated = ledger.filter((row) => {
-      if (dateFrom && row.occurredAt.slice(0, 10) < dateFrom) return false;
-      if (dateTo && row.occurredAt.slice(0, 10) > dateTo) return false;
-      return true;
-    });
-    return aggregateMovesByKindAndWarehouse(dated);
-  }, [data?.items, locations, locationName, dateFrom, dateTo]);
+    return aggregateMovesByKindAndWarehouse(ledger);
+  }, [data?.items, locations, locationName]);
 
   const {
     page,

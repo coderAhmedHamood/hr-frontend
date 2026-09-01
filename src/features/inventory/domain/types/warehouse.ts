@@ -148,6 +148,8 @@ export type WarehouseOperationListQuery = {
   kind?: WarehouseOperationKind;
   status?: WarehouseOperationStatus;
   productId?: string;
+  occurredAtFrom?: string;
+  occurredAtTo?: string;
   search?: string;
   /** Company-wide list for inventory reports (no warehouse/product/kind required). */
   all?: boolean;

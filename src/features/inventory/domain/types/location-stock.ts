@@ -1,4 +1,5 @@
 import type { TenantScoped } from '@/features/ecommerce/domain/types/common';
+import type { WarehouseLocationType } from '@/features/inventory/domain/types/warehouse';
 
 /** On-hand quantity of a product (or variant) at a specific warehouse location. */
 export type LocationStock = TenantScoped & {
@@ -8,6 +9,19 @@ export type LocationStock = TenantScoped & {
   variantId?: string;
   warehouseId: string;
   locationId: string;
+  productNameAr?: string;
+  productSku?: string;
+  variantNameAr?: string;
+  variantSku?: string;
+  warehouseNameAr?: string;
+  warehouseCode?: string;
+  locationNameAr?: string;
+  locationCode?: string;
+  locationType?: WarehouseLocationType;
+  trackInventory?: boolean;
+  lowStockThreshold?: number;
+  unitCost?: number;
+  costCurrency?: string;
   /** Physical on-hand at this location (source of truth for balances). */
   quantity: number;
   /**

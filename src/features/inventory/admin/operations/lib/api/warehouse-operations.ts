@@ -235,6 +235,8 @@ export const warehouseOperationsApi: AdminWarehouseOperationsPort = {
         warehouseId: query.warehouseId,
         kind: query.kind,
         status: query.status,
+        occurredAtFrom: query.occurredAtFrom,
+        occurredAtTo: query.occurredAtTo,
         search: query.search,
         page: query.page ?? 1,
         limit: query.limit ?? 200,

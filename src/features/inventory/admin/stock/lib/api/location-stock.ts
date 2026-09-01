@@ -59,24 +59,23 @@ export const locationStockApi = {
   async list(query: LocationStockListQuery): Promise<LocationStock[]> {
     if (!query.companyId?.trim()) return [];
 
-    try {
-      const balances = await inventoryStockBalancesApi.query({
-        companyId: query.companyId,
-        productId: query.productId,
-        warehouseId: query.warehouseId,
-        locationId: query.locationId,
-        ...(query.variantId !== undefined
-          ? query.variantId === ''
-            ? { productLevelOnly: true }
-            : { variantId: query.variantId }
-          : {}),
-        groupBy: 'location',
-        includeZero: true,
-      });
+    const balances = await inventoryStockBalancesApi.query({
+      companyId: query.companyId,
+      productId: query.productId,
+      warehouseId: query.warehouseId,
+      locationId: query.locationId,
+      ...(query.variantId !== undefined
+        ? query.variantId === ''
+          ? { productLevelOnly: true }
+          : { variantId: query.variantId }
+        : {}),
+      groupBy: 'location',
+      includeZero: true,
+    });
 
-      return balances.rows
-        .filter((row) => row.locationId && row.warehouseId && row.productId)
-        .map((row) => {
+    return balances.rows
+      .filter((row) => row.locationId && row.warehouseId && row.productId)
+      .map((row) => {
           const key = stockKey({
             companyId: query.companyId,
             productId: row.productId!,
@@ -84,7 +83,9 @@ export const locationStockApi = {
             warehouseId: row.warehouseId!,
             locationId: row.locationId!,
           });
-          const reserved = reservedByKey.get(key) ?? 0;
+          // Server reservation is authoritative. Keep the session overlay only
+          // while the backend reservation model is not yet available.
+          const reserved = reservedByKey.get(key) ?? row.reserved;
           return {
             id: key,
             companyId: query.companyId,
@@ -92,15 +93,25 @@ export const locationStockApi = {
             variantId: row.variantId ?? undefined,
             warehouseId: row.warehouseId!,
             locationId: row.locationId!,
+            productNameAr: row.productNameAr ?? undefined,
+            productSku: row.productSku ?? undefined,
+            variantNameAr: row.variantNameAr ?? undefined,
+            variantSku: row.variantSku ?? undefined,
+            warehouseNameAr: row.warehouseNameAr ?? undefined,
+            warehouseCode: row.warehouseCode ?? undefined,
+            locationNameAr: row.locationNameAr ?? undefined,
+            locationCode: row.locationCode ?? undefined,
+            locationType: row.locationType ?? undefined,
+            trackInventory: row.trackInventory ?? undefined,
+            lowStockThreshold: row.lowStockThreshold,
+            unitCost: row.unitCost,
+            costCurrency: row.costCurrency ?? undefined,
             quantity: row.onHand,
             reservedQuantity: reserved,
-            updatedAt: new Date().toISOString(),
+            updatedAt: row.lastMovementAt ?? new Date(0).toISOString(),
           };
-        })
-        .filter((row) => row.quantity !== 0 || (row.reservedQuantity ?? 0) !== 0);
-    } catch {
-      return [];
-    }
+      })
+      .filter((row) => row.quantity !== 0 || (row.reservedQuantity ?? 0) !== 0);
   },
 
   async getOnHandTotal(
