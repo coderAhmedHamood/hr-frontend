@@ -41,7 +41,7 @@ import { ProductPutawayRulesDialog } from '@/features/ecommerce/admin/products/c
 import { ProductVariantsDialog } from '@/features/ecommerce/admin/products/components/product-variants-dialog';
 import { DeleteProductDialog } from '@/features/ecommerce/admin/products/components/delete-product-dialog';
 import type { ProductRelatedDocKey } from '@/features/ecommerce/admin/products/components/product-related-docs-bar';
-import { ecommerceAdminRoutes } from '@/features/ecommerce/admin/constants/routes';
+import { useProductsBasePath } from '@/features/ecommerce/admin/products/lib/products-navigation';
 import type { WarehouseOperationKind } from '@/features/inventory/domain/types/warehouse';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -113,7 +113,7 @@ const TAB_FIELDS: Record<DetailTab, string[]> = {
 
 function ensureSlug(values: ProductFormValues): ProductFormValues {
   if (values.slug?.trim()) return values;
-  const fromSku = values.sku
+  const fromSku = (values.sku ?? '')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
@@ -123,6 +123,7 @@ function ensureSlug(values: ProductFormValues): ProductFormValues {
 export function ProductDetailPage({ productId }: Props) {
   const companyId = getStorefrontCompanyId();
   const router = useRouter();
+  const productsBasePath = useProductsBasePath();
   const { data: categoriesData } = useCategories({ companyId, limit: 100 });
   const { data: brandsData } = useBrands({ companyId, limit: 100 });
   const {
@@ -234,7 +235,7 @@ export function ProductDetailPage({ productId }: Props) {
     if (!product) return;
     await remove.mutateAsync({ companyId, id: product.id });
     setDeleteOpen(false);
-    router.push(ecommerceAdminRoutes.products);
+    router.push(productsBasePath);
   };
 
   function onRelatedDoc(key: ProductRelatedDocKey) {
@@ -299,7 +300,7 @@ export function ProductDetailPage({ productId }: Props) {
           <p className="text-sm text-muted-foreground">تحقق من الرابط أو عد للقائمة وحاول مجددًا.</p>
         </div>
         <Button variant="outline" asChild>
-          <Link href={ecommerceAdminRoutes.products}>العودة للقائمة</Link>
+          <Link href={productsBasePath}>العودة للقائمة</Link>
         </Button>
       </div>
     );
@@ -359,16 +360,27 @@ export function ProductDetailPage({ productId }: Props) {
             >
               <div className="sto-tabs-scroll sticky top-0 z-10 -mx-1 rounded-2xl px-1 pb-1">
                 <TabsList className="sto-tabs-scroll h-auto min-w-full w-max justify-start gap-1 rounded-2xl border border-border/60 bg-muted/70 p-1.5 backdrop-blur">
-                  {DETAIL_TABS.map(({ value, label, icon: Icon }) => (
-                    <TabsTrigger
-                      key={value}
-                      value={value}
-                      className="h-9 gap-1.5 rounded-xl px-3 text-xs sm:text-sm data-[state=active]:shadow-soft"
-                    >
-                      <Icon className="h-3.5 w-3.5" />
-                      {label}
-                    </TabsTrigger>
-                  ))}
+                  {DETAIL_TABS.map(({ value, label, icon: Icon }) => {
+                    const hasError = TAB_FIELDS[value].some(
+                      (key) => key in form.formState.errors,
+                    );
+                    return (
+                      <TabsTrigger
+                        key={value}
+                        value={value}
+                        className="h-9 gap-1.5 rounded-xl px-3 text-xs sm:text-sm data-[state=active]:shadow-soft"
+                      >
+                        <Icon className="h-3.5 w-3.5" />
+                        {label}
+                        {hasError ? (
+                          <span
+                            className="h-1.5 w-1.5 rounded-full bg-destructive"
+                            aria-label="يحتوي حقولًا غير مكتملة"
+                          />
+                        ) : null}
+                      </TabsTrigger>
+                    );
+                  })}
                 </TabsList>
               </div>
 
@@ -434,7 +446,7 @@ export function ProductDetailPage({ productId }: Props) {
               {update.isPending ? 'جاري الحفظ…' : 'حفظ التغييرات'}
             </Button>
             <Button type="button" variant="outline" asChild>
-              <Link href={ecommerceAdminRoutes.products}>إلغاء</Link>
+              <Link href={productsBasePath}>إلغاء</Link>
             </Button>
           </div>
           <p className="hidden text-[11px] text-muted-foreground sm:block">

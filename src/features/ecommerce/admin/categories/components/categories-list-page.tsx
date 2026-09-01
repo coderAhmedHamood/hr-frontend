@@ -12,7 +12,7 @@ import {
   getCategoryPath,
   sortCategoriesAsTree,
 } from '@/features/ecommerce/admin/categories/lib/category-tree';
-import { ecommerceAdminRoutes } from '@/features/ecommerce/admin/constants/routes';
+import { useProductsBasePath } from '@/features/ecommerce/admin/products/lib/products-navigation';
 import type { Category } from '@/features/ecommerce/domain/types/category';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
@@ -30,6 +30,7 @@ import { isMultiLangEnabled } from '@/i18n/locale-flags';
 export function CategoriesListPage() {
   const companyId = getStorefrontCompanyId();
   const router = useRouter();
+  const productsBasePath = useProductsBasePath();
   const t = useTranslations('ecommerceAdmin');
   const tCommon = useTranslations('common');
   const [search, setSearch] = React.useState('');
@@ -180,7 +181,7 @@ export function CategoriesListPage() {
             variant="ghost"
             className="gap-1 tabular-nums"
             onClick={() =>
-              router.push(`${ecommerceAdminRoutes.products}?categoryId=${category.id}`)
+              router.push(`${productsBasePath}?categoryId=${category.id}`)
             }
           >
             <Package className="h-3.5 w-3.5" />

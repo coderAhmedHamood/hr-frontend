@@ -27,6 +27,7 @@ import {
   sortCategoriesAsTree,
 } from '@/features/ecommerce/admin/categories/lib/category-tree';
 import { ecommerceAdminRoutes } from '@/features/ecommerce/admin/constants/routes';
+import { useProductsBasePath } from '@/features/ecommerce/admin/products/lib/products-navigation';
 import type { Category } from '@/features/ecommerce/domain/types/category';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -57,6 +58,7 @@ type Props = {
 export function CategoryFormDialog({ category, categories = [], open, onOpenChange }: Props) {
   const companyId = getStorefrontCompanyId();
   const router = useRouter();
+  const productsBasePath = useProductsBasePath();
   const { create, update } = useCategoryMutations();
   const brandsQuery = useBrands({ companyId, limit: 100 });
   const isEditing = Boolean(category);
@@ -146,7 +148,7 @@ export function CategoryFormDialog({ category, categories = [], open, onOpenChan
       router.push(`${ecommerceAdminRoutes.putawayRules}?categoryId=${category.id}`);
       return;
     }
-    router.push(`${ecommerceAdminRoutes.products}?categoryId=${category.id}`);
+    router.push(`${productsBasePath}?categoryId=${category.id}`);
   }
 
   return (

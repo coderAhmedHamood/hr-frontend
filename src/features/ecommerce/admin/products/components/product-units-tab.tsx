@@ -39,7 +39,7 @@ export function ProductUnitsTab({ control, errors, setValue }: Props) {
   return (
     <ProductFormSection
       title="الوحدات والتغليف"
-      description="وحدة مرجعية (مثل القطعة) ثم عبوات أكبر بكمية نسبية — قطعة، علبة، صندوق…"
+      description="الوحدة المرجعية مطلوبة ومضافة تلقائيًا. عدّلها فقط إذا كنت تبيع بعبوات أو وحدات مختلفة."
     >
       <div className="space-y-2">
         {fields.map((field, index) => (

@@ -220,7 +220,7 @@ export function formValuesToCreateInput(
 
   const synced = syncProductVariants({
     productNameAr: values.nameAr,
-    productSku: values.sku,
+    productSku: values.sku ?? '',
     listPrice: values.listPrice,
     costPrice: values.costPrice,
     currency,
@@ -251,7 +251,7 @@ export function formValuesToCreateInput(
 
   return {
     companyId,
-    sku: values.sku,
+    sku: values.sku?.trim() || undefined,
     nameAr: values.nameAr,
     nameEn: values.nameEn || undefined,
     slug: values.slug,

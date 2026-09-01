@@ -89,7 +89,7 @@ const variantSchema = z.object({
 
 export const productFormSchema = z
   .object({
-    sku: z.string().trim().min(1, 'رمز المنتج (SKU) مطلوب'),
+    sku: z.string().trim().max(120, 'رمز المنتج يجب ألا يتجاوز 120 حرفًا').optional(),
     nameAr: z.string().trim().min(1, 'اسم المنتج مطلوب'),
     nameEn: z.string().trim().optional(),
     slug: z

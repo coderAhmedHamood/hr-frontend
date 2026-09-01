@@ -24,7 +24,10 @@ import {
 import { formatPrice } from '@/features/ecommerce/shared/utils/format-price';
 import { PRODUCT_STATUS_LABELS_AR, PRODUCT_STATUS_OPTIONS } from '@/features/ecommerce/domain/constants/product-status';
 import { STOCK_STATUS_LABELS_AR, STOCK_STATUS_OPTIONS } from '@/features/ecommerce/domain/constants/stock-status';
-import { ecommerceAdminRoutes } from '@/features/ecommerce/admin/constants/routes';
+import {
+  productDetailHref,
+  useProductsBasePath,
+} from '@/features/ecommerce/admin/products/lib/products-navigation';
 import type { Product, ProductListQuery } from '@/features/ecommerce/domain/types/product';
 import type { ProductStatus } from '@/features/ecommerce/domain/constants/product-status';
 import type { StockStatus } from '@/features/ecommerce/domain/constants/stock-status';
@@ -75,6 +78,7 @@ export function ProductsListPage() {
   const companyId = getStorefrontCompanyId();
   const router = useRouter();
   const pathname = usePathname();
+  const productsBasePath = useProductsBasePath();
   const searchParams = useSearchParams();
 
   const search = searchParams.get('q') ?? '';
@@ -148,7 +152,8 @@ export function ProductsListPage() {
   const [productToDelete, setProductToDelete] = React.useState<Product | null>(null);
 
   const openCreateDialog = () => setCreateOpen(true);
-  const goToProductDetail = (product: Product) => router.push(ecommerceAdminRoutes.productDetail(product.id));
+  const goToProductDetail = (product: Product) =>
+    router.push(productDetailHref(productsBasePath, product.id));
 
   const handleDeleteConfirm = async (product: Product) => {
     await remove.mutateAsync({ companyId, id: product.id });

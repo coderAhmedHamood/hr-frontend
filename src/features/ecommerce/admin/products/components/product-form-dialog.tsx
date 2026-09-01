@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useForm, useWatch } from 'react-hook-form';
+import { useForm, useWatch, type FieldErrors } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
@@ -57,7 +57,7 @@ type Props = {
 
 function ensureSlug(values: ProductFormValues): ProductFormValues {
   if (values.slug?.trim()) return values;
-  const fromSku = values.sku
+  const fromSku = (values.sku ?? '')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
@@ -77,6 +77,30 @@ const TAB_TRIGGER_CLASS =
 
 type FormTab = (typeof FORM_TABS)[number]['value'];
 type MoveRequestKind = WarehouseOperationKind;
+
+const FORM_TAB_FIELDS: Record<FormTab, string[]> = {
+  general: [
+    'sku',
+    'status',
+    'productType',
+    'categoryId',
+    'brandId',
+    'listPrice',
+    'costPrice',
+    'slug',
+  ],
+  attributes: ['attributes', 'variants'],
+  availability: ['stockStatus', 'stockQuantity', 'lowStockThreshold'],
+  units: ['uomLines'],
+  settings: [
+    'isTodayDeal',
+    'dealPriceAmount',
+    'isWholesale',
+    'wholesalePriceAmount',
+    'isDiscounted',
+    'discountPercent',
+  ],
+};
 
 export function ProductFormDialog({ product, open, onOpenChange }: Props) {
   const companyId = getStorefrontCompanyId();
@@ -171,6 +195,27 @@ export function ProductFormDialog({ product, open, onOpenChange }: Props) {
     onOpenChange(false);
   };
 
+  const onInvalid = (formErrors: FieldErrors<ProductFormInput>) => {
+    const errorKeys = Object.keys(formErrors);
+    if (errorKeys.includes('nameAr')) {
+      toast.error('يرجى إدخال اسم المنتج أولًا.');
+      requestAnimationFrame(() => {
+        document.getElementById('product-name-ar')?.focus();
+      });
+      return;
+    }
+
+    const offendingTab = FORM_TABS.find((tab) =>
+      FORM_TAB_FIELDS[tab.value].some((key) => errorKeys.includes(key)),
+    );
+    if (offendingTab) {
+      setActiveTab(offendingTab.value);
+      toast.error(`تحقق من الحقول الموضحة في تبويب «${offendingTab.label}».`);
+      return;
+    }
+    toast.error('تحقق من الحقول المطلوبة والموضحة باللون الأحمر.');
+  };
+
   function requireSavedProduct(actionLabel: string): boolean {
     if (product?.id) return true;
     toast.message(`احفظ المنتج أولًا ثم ${actionLabel}.`);
@@ -240,14 +285,14 @@ export function ProductFormDialog({ product, open, onOpenChange }: Props) {
             <DialogDescription className="text-xs text-muted-foreground sm:text-sm">
               {isEditing
                 ? 'حدّث بيانات المنتج، الخصائص، والتوفر من التبويبات.'
-                : 'ابدأ بالاسم والصورة والسعر — الخصائص والمخزون اختيارية لاحقًا.'}
+                : 'أدخل اسم المنتج؛ سيُنشئ النظام رمز SKU فريدًا تلقائيًا.'}
             </DialogDescription>
           </div>
 
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              void form.handleSubmit(onSubmit)(e);
+              void form.handleSubmit(onSubmit, onInvalid)(e);
             }}
             className="flex min-h-0 flex-1 flex-col"
           >
@@ -327,10 +372,19 @@ export function ProductFormDialog({ product, open, onOpenChange }: Props) {
                     <TabsList className="sto-tabs-scroll h-auto w-full justify-start rounded-2xl border border-border/80 bg-muted/40 p-1">
                       {FORM_TABS.map((tab) => {
                         const Icon = tab.icon;
+                        const hasError = FORM_TAB_FIELDS[tab.value].some(
+                          (key) => key in form.formState.errors,
+                        );
                         return (
                           <TabsTrigger key={tab.value} value={tab.value} className={TAB_TRIGGER_CLASS}>
                             <Icon className="hidden h-3.5 w-3.5 sm:block" />
                             <span>{tab.label}</span>
+                            {hasError ? (
+                              <span
+                                className="h-1.5 w-1.5 rounded-full bg-destructive"
+                                aria-label="يحتوي حقولًا غير مكتملة"
+                              />
+                            ) : null}
                           </TabsTrigger>
                         );
                       })}
@@ -401,7 +455,7 @@ export function ProductFormDialog({ product, open, onOpenChange }: Props) {
                 </Button>
               </div>
               <p className="hidden text-[11px] text-muted-foreground sm:block">
-                الحقول بـ * مطلوبة — الباقي يمكن إكماله لاحقًا.
+                الحقول بـ * مطلوبة، والنقطة الحمراء تحدد التبويب الذي يحتاج مراجعة.
               </p>
             </DialogFooter>
           </form>
