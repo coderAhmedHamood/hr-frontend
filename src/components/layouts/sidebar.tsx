@@ -14,7 +14,7 @@ import {
   UserCircle, Briefcase, UserPlus, Bell, Send, Inbox,   KeyRound, Banknote, Timer, Settings,
 } from 'lucide-react';
 import { cn } from '@/shared/utils';
-import { isHrAppPath, isSystemAppPath, isSystemOwnerAppPath, isEcommerceAppPath, isInventoryAppPath, isContactsAppPath } from '@/shared/app-paths';
+import { isHrAppPath, isSystemAppPath, isSystemOwnerAppPath, isEcommerceAppPath, isInventoryAppPath, isContactsAppPath, isAccountingAppPath } from '@/shared/app-paths';
 import { Logo } from '@/components/layouts/logo';
 import { useDefaultCompanyBranding } from '@/features/auth/hooks/use-default-company-branding';
 import { useSidebar } from '@/components/layouts/sidebar-context';
@@ -47,6 +47,11 @@ import {
   contactsAdminOverviewItem,
   flattenContactsNavItems,
 } from '@/features/contacts/admin/constants/nav';
+import {
+  accountingNavGroups,
+  accountingOverviewItem,
+  flattenAccountingNavItems,
+} from '@/features/accounting/constants/nav';
 import { isModuleEnabledFor } from '@/shared/modules/registry';
 import { useModuleEnablementContext } from '@/features/auth/hooks/use-system-owner';
 
@@ -255,6 +260,46 @@ function buildInventoryMobileNav(): MobileNavItem[] {
 
   for (const group of inventoryAdminNavGroups) {
     const flat = flattenInventoryNavItems(group);
+    if (flat.length === 0) continue;
+
+    const children: MobileNavChild[] = [];
+    for (const section of group.sections) {
+      if (section.items.length === 0) continue;
+      if (children.length > 0) children.push({ separator: true });
+      for (const item of section.items) {
+        children.push({
+          label: item.labelAr,
+          href: item.href,
+          icon: item.icon,
+          match: item.href.includes('?') ? 'exact' : 'prefix',
+        });
+      }
+    }
+
+    items.push({
+      key: group.key,
+      label: group.labelAr,
+      icon: group.icon,
+      children,
+    });
+  }
+
+  return items;
+}
+
+function buildAccountingMobileNav(): MobileNavItem[] {
+  const items: MobileNavItem[] = [
+    { key: 'apps', label: 'التطبيقات', href: '/', icon: LayoutGrid },
+    {
+      key: 'overview',
+      label: accountingOverviewItem.labelAr,
+      href: accountingOverviewItem.href,
+      icon: accountingOverviewItem.icon,
+    },
+  ];
+
+  for (const group of accountingNavGroups) {
+    const flat = flattenAccountingNavItems(group);
     if (flat.length === 0) continue;
 
     const children: MobileNavChild[] = [];
@@ -510,6 +555,7 @@ export function Sidebar() {
   const inAppShell = isHrAppPath(pathname)
     || isSystemAppPath(pathname)
     || isSystemOwnerAppPath(pathname)
+    || isAccountingAppPath(pathname)
     || (ecommerceEnabled && isEcommerceAppPath(pathname))
     || (inventoryEnabled && isInventoryAppPath(pathname))
     || (contactsEnabled && isContactsAppPath(pathname));
@@ -561,13 +607,15 @@ export function Sidebar() {
     ? systemOwnerMobileNav
     : isSystemApp
     ? systemMobileNav
-    : contactsEnabled && isContactsAppPath(pathname)
+    : isAccountingAppPath(pathname)
+      ? buildAccountingMobileNav()
+      : contactsEnabled && isContactsAppPath(pathname)
       ? buildContactsMobileNav()
       : isInventoryApp
-        ? buildInventoryMobileNav()
-        : ecommerceEnabled && isEcommerceAppPath(pathname)
-          ? buildEcommerceMobileNav((key) => tNav(key as 'overview'))
-          : mobileNav;
+          ? buildInventoryMobileNav()
+          : ecommerceEnabled && isEcommerceAppPath(pathname)
+            ? buildEcommerceMobileNav((key) => tNav(key as 'overview'))
+            : mobileNav;
 
   // System / Inventory get the native-app-style bottom sheet (paired with their
   // bottom tab bar); other apps keep the classic right-side drawer.

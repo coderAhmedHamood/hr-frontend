@@ -12,7 +12,7 @@ import {
   Banknote, FileSignature, BookOpen, FileSpreadsheet, UserCircle, Briefcase, UserCheck, UserPlus,
   Coins, FileStack, Receipt, KeyRound, Settings, Timer, Inbox,
   LayoutTemplate, Navigation, PanelBottom, PanelTop, Image, FileText, Newspaper,
-  CircleHelp, Search, ShoppingCart, Package, FolderTree, Tag, Globe, Megaphone, ContactRound,
+  CircleHelp, Search, ShoppingCart, Package, FolderTree, Tag, Globe, Megaphone, ContactRound, Network,
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
@@ -60,6 +60,11 @@ import {
   contactsAdminOverviewItem,
   flattenContactsNavItems,
 } from '@/features/contacts/admin/constants/nav';
+import {
+  accountingNavGroups,
+  accountingOverviewItem,
+  flattenAccountingNavItems,
+} from '@/features/accounting/constants/nav';
 import { UserMenuDropdown } from '@/components/layouts/user-menu-dropdown';
 import { AppsLauncherButton } from '@/components/layouts/apps-launcher-button';
 import { useModuleEnablementContext } from '@/features/auth/hooks/use-system-owner';
@@ -70,6 +75,7 @@ import {
   isEcommerceAppPath,
   isInventoryAppPath,
   isContactsAppPath,
+  isAccountingAppPath,
   isLauncherPath,
 } from '@/shared/app-paths';
 import { isModuleEnabledFor } from '@/shared/modules/registry';
@@ -85,7 +91,7 @@ export const PAGE_ICONS: Record<string, React.ElementType> = {
   Coins, FileStack, Receipt, KeyRound,
   LayoutTemplate, Navigation, PanelBottom, PanelTop, Image, FileText, Newspaper,
   CircleHelp, Search, ShoppingCart, Package, FolderTree, Tag, Globe, Megaphone, ContactRound,
-  Inbox, Shield,
+  Inbox, Shield, Network,
 };
 
 /* ── Nav data ──────────────────────────────────────────────────────────── */
@@ -430,6 +436,46 @@ function buildContactsNavConfig(): NavItem[] {
   return items;
 }
 
+/** نظرة عامة | التهيئة */
+function buildAccountingNavConfig(): NavItem[] {
+  const items: NavItem[] = [
+    {
+      key: 'accounting-overview',
+      label: accountingOverviewItem.labelAr,
+      href: accountingOverviewItem.href,
+      icon: accountingOverviewItem.icon,
+    },
+  ];
+
+  for (const group of accountingNavGroups) {
+    const flat = flattenAccountingNavItems(group);
+    if (flat.length === 0) continue;
+
+    items.push({
+      key: group.key,
+      label: group.labelAr,
+      icon: group.icon,
+      isActive: (pathname) =>
+        flat.some((item) => {
+          const base = item.href.split('?')[0]!;
+          return pathname === base || pathname.startsWith(`${base}/`);
+        }),
+      groups: group.sections
+        .filter((section) => section.items.length > 0)
+        .map((section) => ({
+          labelAr: section.labelAr,
+          items: section.items.map((item) => ({
+            label: item.labelAr,
+            href: item.href,
+            icon: item.icon,
+          })),
+        })),
+    });
+  }
+
+  return items;
+}
+
 /* ── Helpers ─────────────────────────────────────────────────────────── */
 function parentIsActive(pathname: string, item: NavItem) {
   if (item.isActive) return item.isActive(pathname);
@@ -630,7 +676,8 @@ export function Topbar() {
   const inEcommerceApp = ecommerceEnabled && isEcommerceAppPath(pathname);
   const inInventoryApp = inventoryEnabled && isInventoryAppPath(pathname);
   const inContactsApp = contactsEnabled && isContactsAppPath(pathname);
-  const inAppShell = inHrApp || inSystemApp || inSystemOwnerApp || inEcommerceApp || inInventoryApp || inContactsApp;
+  const inAccountingApp = isAccountingAppPath(pathname);
+  const inAppShell = inHrApp || inSystemApp || inSystemOwnerApp || inEcommerceApp || inInventoryApp || inContactsApp || inAccountingApp;
   const tEcommerceNav = useTranslations('ecommerceAdmin.nav');
   const ecommerceNavConfig = React.useMemo(
     () => buildEcommerceNavConfig((key) => tEcommerceNav(key as 'overview')),
@@ -638,15 +685,18 @@ export function Topbar() {
   );
   const inventoryNavConfig = React.useMemo(() => buildInventoryNavConfig(), []);
   const contactsNavConfig = React.useMemo(() => buildContactsNavConfig(), []);
+  const accountingNavConfig = React.useMemo(() => buildAccountingNavConfig(), []);
   const activeNavConfig = inSystemOwnerApp
     ? systemOwnerNavConfig
     : inSystemApp
     ? systemNavConfig
-    : inContactsApp
-      ? contactsNavConfig
-      : inInventoryApp
-        ? inventoryNavConfig
-        : inEcommerceApp
+    : inAccountingApp
+      ? accountingNavConfig
+      : inContactsApp
+        ? contactsNavConfig
+        : inInventoryApp
+          ? inventoryNavConfig
+          : inEcommerceApp
           ? ecommerceNavConfig
           : navConfig;
   const onLauncher = isLauncherPath(pathname);
