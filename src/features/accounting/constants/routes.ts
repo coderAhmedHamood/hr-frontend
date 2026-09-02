@@ -9,6 +9,8 @@ export const accountingRoutes = {
   chartOfAccountNew: '/accounting/chart-of-accounts/new',
   chartOfAccountDetail: (accountId: string) => `/accounting/chart-of-accounts/${accountId}`,
   journals: '/accounting/journals',
+  journalNew: '/accounting/journals/new',
+  journalDetail: (journalId: string) => `/accounting/journals/${journalId}`,
   fiscalYears: '/accounting/fiscal-years',
   periods: '/accounting/periods',
   taxes: '/accounting/taxes',
