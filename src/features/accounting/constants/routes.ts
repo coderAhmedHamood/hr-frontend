@@ -20,6 +20,8 @@ export const accountingRoutes = {
   vendorPayments: '/accounting/vendors/payments',
   vendorProducts: '/accounting/vendors/products',
   vendors: '/accounting/vendors',
+  vendorNew: '/accounting/vendors/new',
+  vendorDetail: (id: string) => `/accounting/vendors/${id}`,
 
   /** المحاسبة */
   journalEntries: '/accounting/accounting/journal-entries',
