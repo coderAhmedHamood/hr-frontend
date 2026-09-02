@@ -59,7 +59,7 @@ export const accountingNavGroups: AccountingNavGroup[] = [
           { labelAr: 'دفاتر اليومية', href: accountingRoutes.journals, icon: BookOpen },
           { labelAr: 'العملات', href: accountingRoutes.currencies, icon: Coins },
           { labelAr: 'الأوضاع المالية', href: accountingRoutes.fiscalPositions, icon: CalendarRange },
-          { labelAr: 'دفتر الأستاذ المتعدد', href: accountingRoutes.periods, icon: CalendarDays },
+          { labelAr: 'دفتر الأستاذ المتعدد', href: accountingRoutes.ledgers, icon: CalendarDays },
           { labelAr: 'الفحوصات', href: accountingRoutes.periods, icon: FileCheck },
           { labelAr: 'نماذج الأصل', href: accountingRoutes.periods, icon: Layers },
           { labelAr: 'أنواع الإقرارات', href: accountingRoutes.periods, icon: FileText },

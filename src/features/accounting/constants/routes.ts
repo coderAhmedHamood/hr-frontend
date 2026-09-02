@@ -14,6 +14,7 @@ export const accountingRoutes = {
   fiscalPositions: '/accounting/fiscal-positions',
   fiscalPositionNew: '/accounting/fiscal-positions/new',
   fiscalPositionDetail: (id: string) => `/accounting/fiscal-positions/${id}`,
+  ledgers: '/accounting/ledgers',
   fiscalYears: '/accounting/fiscal-years',
   periods: '/accounting/periods',
   taxes: '/accounting/taxes',
