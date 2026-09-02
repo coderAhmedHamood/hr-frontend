@@ -11,6 +11,8 @@ export const accountingRoutes = {
   customerPayments: '/accounting/customers/payments',
   customerProducts: '/accounting/customers/products',
   customers: '/accounting/customers',
+  customerNew: '/accounting/customers/new',
+  customerDetail: (id: string) => `/accounting/customers/${id}`,
 
   /** الموردين */
   vendorBills: '/accounting/vendors/bills',
