@@ -17,4 +17,6 @@ export const accountingRoutes = {
   taxNew: '/accounting/taxes/new',
   taxDetail: (taxId: string) => `/accounting/taxes/${taxId}`,
   currencies: '/accounting/currencies',
-} as const;
+  currencyNew: '/accounting/currencies/new',
+  currencyDetail: (currencyId: string) => `/accounting/currencies/${currencyId}`,
+};
