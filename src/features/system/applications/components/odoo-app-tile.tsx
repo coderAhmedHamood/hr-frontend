@@ -32,18 +32,26 @@ export function OdooAppTile({
   const inner = (
     <>
       <span className="relative">
-        <span className={cn('odoo-app-square', tileClass, muted && 'odoo-app-square-muted')}>
-          <Icon className="odoo-app-icon" strokeWidth={2} />
+        <span
+          className={cn(
+            'odoo-app-square flex h-[4.5rem] w-[4.5rem] shrink-0 items-center justify-center overflow-hidden rounded-[0.85rem] sm:h-20 sm:w-20',
+            tileClass,
+            muted && 'odoo-app-square-muted grayscale opacity-55',
+          )}
+        >
+          <Icon className="odoo-app-icon h-[1.85rem] w-[1.85rem]" strokeWidth={2} />
         </span>
         {overlay}
       </span>
-      <span className="odoo-app-label">{label}</span>
+      <span className="odoo-app-label line-clamp-2 min-h-10 text-[0.8125rem] font-semibold leading-snug text-foreground">
+        {label}
+      </span>
       {caption ? <span className="text-xs text-muted-foreground">{caption}</span> : null}
     </>
   );
 
   const className =
-    'group odoo-app-tile flex flex-col items-center gap-2 text-center outline-none focus-visible:rounded-xl focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2';
+    'group odoo-app-tile flex w-[6.5rem] flex-col items-center gap-2 text-center outline-none focus-visible:rounded-xl focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:w-[7.25rem]';
 
   if (href && (external || hardNavigation)) {
     return (

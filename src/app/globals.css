@@ -81,6 +81,106 @@
   padding-bottom: max(0.75rem, var(--store-safe-area-bottom));
 }
 
+/* App launcher tiles — plain CSS outside @layer (Turbopack-safe).
+   Previously inside @layer utilities and stopped applying, collapsing
+   apps into a vertical text list without colored squares. */
+.odoo-app-tile {
+  width: 6.5rem;
+}
+@media (min-width: 640px) {
+  .odoo-app-tile {
+    width: 7.25rem;
+  }
+}
+
+.odoo-app-square {
+  display: flex;
+  height: 4.5rem;
+  width: 4.5rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 0.85rem;
+  box-shadow:
+    0 1px 2px hsl(var(--primary) / 0.08),
+    0 8px 18px -10px hsl(var(--primary) / 0.28);
+  transition: transform 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease;
+}
+@media (min-width: 640px) {
+  .odoo-app-square {
+    height: 5rem;
+    width: 5rem;
+  }
+}
+.group:hover .odoo-app-square:not(.odoo-app-square-muted) {
+  transform: translateY(-0.15rem);
+  box-shadow:
+    0 2px 4px hsl(var(--primary) / 0.1),
+    0 14px 28px -12px hsl(var(--primary) / 0.35);
+}
+
+.odoo-app-square-muted {
+  filter: grayscale(1);
+  opacity: 0.55;
+}
+
+.odoo-app-icon {
+  height: 1.85rem;
+  width: 1.85rem;
+  color: inherit;
+  filter:
+    drop-shadow(1px 1px 0 rgb(0 0 0 / 0.16))
+    drop-shadow(2px 2px 0 rgb(0 0 0 / 0.13))
+    drop-shadow(3px 3px 0 rgb(0 0 0 / 0.11))
+    drop-shadow(4px 4px 0 rgb(0 0 0 / 0.09))
+    drop-shadow(6px 6px 0 rgb(0 0 0 / 0.07))
+    drop-shadow(8px 8px 0 rgb(0 0 0 / 0.05))
+    drop-shadow(10px 10px 0 rgb(0 0 0 / 0.03));
+}
+
+.odoo-app-label {
+  display: -webkit-box;
+  min-height: 2.5rem;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.3;
+  color: hsl(var(--foreground));
+}
+
+.odoo-app-grid {
+  display: flex;
+  width: 100%;
+  max-width: 48rem;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 1.5rem 1.75rem;
+}
+
+.apps-launcher-page {
+  width: 100%;
+  min-width: 0;
+}
+
+@media (max-width: 767px) {
+  main:has(.apps-launcher-page) {
+    padding-bottom: 0.75rem;
+  }
+}
+
+.company-app-tile {
+  width: 7.75rem;
+}
+@media (min-width: 640px) {
+  .company-app-tile {
+    width: 8.75rem;
+  }
+}
+
 .safe-area-pb {
   padding-bottom: var(--store-safe-area-bottom);
 }
@@ -685,98 +785,8 @@
     background-color: var(--shift-color);
   }
 
-  .odoo-app-tile {
-    width: 6.5rem;
-  }
-  @media (min-width: 640px) {
-    .odoo-app-tile {
-      width: 7.25rem;
-    }
-  }
-
-  .odoo-app-square {
-    display: flex;
-    height: 4.5rem;
-    width: 4.5rem;
-    flex-shrink: 0;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-    border-radius: 0.85rem;
-    transition: transform 0.2s ease, filter 0.2s ease;
-  }
-  @media (min-width: 640px) {
-    .odoo-app-square {
-      height: 5rem;
-      width: 5rem;
-    }
-  }
-  .group:hover .odoo-app-square:not(.odoo-app-square-muted) {
-    transform: translateY(-0.15rem);
-  }
-
-  .odoo-app-square-muted {
-    filter: grayscale(1);
-    opacity: 0.55;
-  }
-
-  .odoo-app-icon {
-    height: 1.85rem;
-    width: 1.85rem;
-    filter:
-      drop-shadow(1px 1px 0 rgb(0 0 0 / 0.16))
-      drop-shadow(2px 2px 0 rgb(0 0 0 / 0.13))
-      drop-shadow(3px 3px 0 rgb(0 0 0 / 0.11))
-      drop-shadow(4px 4px 0 rgb(0 0 0 / 0.09))
-      drop-shadow(6px 6px 0 rgb(0 0 0 / 0.07))
-      drop-shadow(8px 8px 0 rgb(0 0 0 / 0.05))
-      drop-shadow(10px 10px 0 rgb(0 0 0 / 0.03));
-  }
-
-  .odoo-app-label {
-    display: -webkit-box;
-    min-height: 2.5rem;
-    overflow: hidden;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    font-size: 0.8125rem;
-    font-weight: 600;
-    line-height: 1.3;
-    color: hsl(var(--foreground));
-  }
-
-  .odoo-app-grid {
-    display: flex;
-    width: 100%;
-    max-width: 48rem;
-    flex-wrap: wrap;
-    align-items: flex-start;
-    justify-content: center;
-    gap: 1.5rem 1.75rem;
-  }
-
-  .apps-launcher-page {
-    width: 100%;
-    min-width: 0;
-  }
-
-  @media (max-width: 767px) {
-    main:has(.apps-launcher-page) {
-      padding-bottom: 0.75rem;
-    }
-  }
-
   .min-h-rich-editor {
     min-height: 11.25rem;
-  }
-
-  .company-app-tile {
-    width: 7.75rem;
-  }
-  @media (min-width: 640px) {
-    .company-app-tile {
-      width: 8.75rem;
-    }
   }
 
   .so-user-dialog-form {

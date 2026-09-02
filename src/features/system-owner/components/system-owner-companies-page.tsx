@@ -66,10 +66,10 @@ export function SystemOwnerCompaniesPage() {
       {isError ? (
         <p className="text-sm text-destructive">تعذر تحميل الشركات.</p>
       ) : isLoading ? (
-        <div className="odoo-app-grid">
+        <div className="odoo-app-grid flex w-full max-w-3xl flex-wrap items-start justify-center gap-x-7 gap-y-6">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="odoo-app-tile flex flex-col items-center gap-2">
-              <div className="odoo-app-square animate-pulse bg-muted" />
+            <div key={i} className="odoo-app-tile flex w-[6.5rem] flex-col items-center gap-2 sm:w-[7.25rem]">
+              <div className="odoo-app-square h-[4.5rem] w-[4.5rem] animate-pulse rounded-[0.85rem] bg-muted sm:h-20 sm:w-20" />
               <div className="h-3 w-16 animate-pulse rounded-full bg-muted" />
             </div>
           ))}
@@ -77,7 +77,7 @@ export function SystemOwnerCompaniesPage() {
       ) : filtered.length === 0 ? (
         <p className="text-sm text-muted-foreground">لا توجد شركات بعد.</p>
       ) : (
-        <div className="odoo-app-grid">
+        <div className="odoo-app-grid flex w-full max-w-3xl flex-wrap items-start justify-center gap-x-7 gap-y-6">
           {filtered.map((row, index) => (
             <OdooAppTile
               key={row.id}
