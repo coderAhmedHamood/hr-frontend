@@ -16,6 +16,18 @@ import {
   CreditCard,
   Layers,
   Globe,
+  Users,
+  Truck,
+  Package,
+  RotateCcw,
+  ListOrdered,
+  FileStack,
+  CheckSquare,
+  BarChart3,
+  TrendingUp,
+  Scale,
+  DollarSign,
+  PieChart,
 } from 'lucide-react';
 import { accountingRoutes } from '@/features/accounting/constants/routes';
 
@@ -32,20 +44,109 @@ export type AccountingNavSection = {
 };
 
 export type AccountingNavGroup = {
-  key: 'configuration';
+  key: string;
   labelAr: string;
   icon?: LucideIcon;
   sections: AccountingNavSection[];
 };
 
+/** لوحة البيانات */
 export const accountingOverviewItem: AccountingNavItem = {
-  labelAr: 'نظرة عامة',
+  labelAr: 'لوحة البيانات',
   href: accountingRoutes.overview,
   icon: LayoutDashboard,
 };
 
-/** Top nav: نظرة عامة | الإعدادات (التهيئة) */
+/**
+ * شريط التنقل العلوي للمحاسبة:
+ * لوحة البيانات | العملاء | الموردين | المحاسبة | مراجعة | إعداد التقارير | التهيئة
+ */
 export const accountingNavGroups: AccountingNavGroup[] = [
+  {
+    key: 'customers',
+    labelAr: 'العملاء',
+    icon: Users,
+    sections: [
+      {
+        items: [
+          { labelAr: 'الفواتير', href: accountingRoutes.customerInvoices, icon: FileText },
+          { labelAr: 'إشعارات الدائن', href: accountingRoutes.customerCreditNotes, icon: Receipt },
+          { labelAr: 'المدفوعات', href: accountingRoutes.customerPayments, icon: CreditCard },
+          { labelAr: 'المنتجات', href: accountingRoutes.customerProducts, icon: Package },
+          { labelAr: 'العملاء', href: accountingRoutes.customers, icon: Users },
+        ],
+      },
+    ],
+  },
+  {
+    key: 'vendors',
+    labelAr: 'الموردين',
+    icon: Truck,
+    sections: [
+      {
+        items: [
+          { labelAr: 'الفواتير', href: accountingRoutes.vendorBills, icon: FileSpreadsheet },
+          { labelAr: 'إشعارات المدين', href: accountingRoutes.vendorRefunds, icon: RotateCcw },
+          { labelAr: 'الدفعات', href: accountingRoutes.vendorPayments, icon: CreditCard },
+          { labelAr: 'المنتجات', href: accountingRoutes.vendorProducts, icon: Package },
+          { labelAr: 'الموردين', href: accountingRoutes.vendors, icon: Building },
+        ],
+      },
+    ],
+  },
+  {
+    key: 'accounting_actions',
+    labelAr: 'المحاسبة',
+    icon: BookOpen,
+    sections: [
+      {
+        items: [
+          { labelAr: 'قيود اليومية', href: accountingRoutes.journalEntries, icon: ListOrdered },
+          { labelAr: 'عناصر اليومية', href: accountingRoutes.journalItems, icon: FileStack },
+          { labelAr: 'دفتر الأستاذ العام', href: accountingRoutes.generalLedger, icon: BookOpen },
+          { labelAr: 'دفتر أستاذ الشريك', href: accountingRoutes.partnerLedger, icon: Users },
+          { labelAr: 'التسوية', href: accountingRoutes.reconciliation, icon: CheckSquare },
+        ],
+      },
+    ],
+  },
+  {
+    key: 'review',
+    labelAr: 'مراجعة',
+    icon: CheckSquare,
+    sections: [
+      {
+        items: [
+          { labelAr: 'تسوية الحسابات', href: accountingRoutes.reviewReconciliation, icon: CheckSquare },
+          { labelAr: 'مراجعة القيود', href: accountingRoutes.reviewEntries, icon: FileText },
+        ],
+      },
+    ],
+  },
+  {
+    key: 'reporting',
+    labelAr: 'إعداد التقارير',
+    icon: BarChart3,
+    sections: [
+      {
+        labelAr: 'البيانات المالية',
+        items: [
+          { labelAr: 'الأرباح والخسائر', href: accountingRoutes.profitAndLoss, icon: TrendingUp },
+          { labelAr: 'الميزانية العمومية', href: accountingRoutes.balanceSheet, icon: Scale },
+          { labelAr: 'بيان التدفقات النقدية', href: accountingRoutes.cashFlow, icon: DollarSign },
+        ],
+      },
+      {
+        labelAr: 'تقارير الشركاء والضرائب',
+        items: [
+          { labelAr: 'تقرير الضرائب', href: accountingRoutes.taxReport, icon: Percent },
+          { labelAr: 'ميزان المراجعة', href: accountingRoutes.trialBalance, icon: FileSpreadsheet },
+          { labelAr: 'أعمار ديون العملاء', href: accountingRoutes.agedReceivables, icon: PieChart },
+          { labelAr: 'أعمار ديون الموردين', href: accountingRoutes.agedPayables, icon: PieChart },
+        ],
+      },
+    ],
+  },
   {
     key: 'configuration',
     labelAr: 'التهيئة',

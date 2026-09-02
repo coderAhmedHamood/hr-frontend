@@ -4,6 +4,41 @@
  */
 export const accountingRoutes = {
   overview: '/accounting',
+
+  /** العملاء */
+  customerInvoices: '/accounting/customers/invoices',
+  customerCreditNotes: '/accounting/customers/credit-notes',
+  customerPayments: '/accounting/customers/payments',
+  customerProducts: '/accounting/customers/products',
+  customers: '/accounting/customers',
+
+  /** الموردين */
+  vendorBills: '/accounting/vendors/bills',
+  vendorRefunds: '/accounting/vendors/refunds',
+  vendorPayments: '/accounting/vendors/payments',
+  vendorProducts: '/accounting/vendors/products',
+  vendors: '/accounting/vendors',
+
+  /** المحاسبة */
+  journalEntries: '/accounting/accounting/journal-entries',
+  journalItems: '/accounting/accounting/journal-items',
+  generalLedger: '/accounting/accounting/general-ledger',
+  partnerLedger: '/accounting/accounting/partner-ledger',
+  reconciliation: '/accounting/accounting/reconciliation',
+
+  /** مراجعة */
+  reviewReconciliation: '/accounting/review/reconciliation',
+  reviewEntries: '/accounting/review/entries',
+
+  /** إعداد التقارير */
+  profitAndLoss: '/accounting/reporting/profit-loss',
+  balanceSheet: '/accounting/reporting/balance-sheet',
+  cashFlow: '/accounting/reporting/cash-flow',
+  taxReport: '/accounting/reporting/tax-report',
+  trialBalance: '/accounting/reporting/trial-balance',
+  agedReceivables: '/accounting/reporting/aged-receivables',
+  agedPayables: '/accounting/reporting/aged-payables',
+
   /** التهيئة */
   chartOfAccounts: '/accounting/chart-of-accounts',
   chartOfAccountNew: '/accounting/chart-of-accounts/new',
