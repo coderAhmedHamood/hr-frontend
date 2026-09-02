@@ -1,4 +1,4 @@
-import { inventoryLedgerApi } from '@/features/inventory/admin/operations/lib/api/inventory-ledger';
+import { inventoryStockBalancesApi } from '@/features/inventory/admin/stock/lib/api/inventory-stock-balances-api';
 import { warehousesApi } from '@/features/inventory/admin/warehouses/lib/api/warehouses';
 import { warehouseLocationsApi } from '@/features/inventory/admin/locations/lib/api/warehouse-locations';
 import type {
@@ -53,79 +53,65 @@ function availableOf(row: LocationStock): number {
 }
 
 /**
- * Live balances derived from `/inventory/ledger-entries`.
- * There is no location-stock API; ledger is the source of truth.
+ * Live balances from `GET /inventory/stock/balances` (Σ ledger on the server).
  */
 export const locationStockApi = {
   async list(query: LocationStockListQuery): Promise<LocationStock[]> {
-    let ledgerItems: Awaited<ReturnType<typeof inventoryLedgerApi.list>>['items'] = [];
-    try {
-      const ledger = await inventoryLedgerApi.list({
-        companyId: query.companyId,
-        productId: query.productId,
-        warehouseId: query.warehouseId,
-        locationId: query.locationId,
-        page: 1,
-        limit: 500,
-      });
-      ledgerItems = ledger.items;
-    } catch {
-      ledgerItems = [];
-    }
+    if (!query.companyId?.trim()) return [];
 
-    const aggregated = new Map<StockKey, LocationStock>();
-    for (const entry of ledgerItems) {
-      if (query.variantId !== undefined) {
-        if (query.variantId === '') {
-          if (entry.variantId) continue;
-        } else if (entry.variantId !== query.variantId) {
-          continue;
-        }
-      }
+    const balances = await inventoryStockBalancesApi.query({
+      companyId: query.companyId,
+      productId: query.productId,
+      warehouseId: query.warehouseId,
+      locationId: query.locationId,
+      ...(query.variantId !== undefined
+        ? query.variantId === ''
+          ? { productLevelOnly: true }
+          : { variantId: query.variantId }
+        : {}),
+      groupBy: 'location',
+      includeZero: true,
+    });
 
-      const key = stockKey({
-        companyId: entry.companyId,
-        productId: entry.productId,
-        variantId: entry.variantId,
-        warehouseId: entry.warehouseId,
-        locationId: entry.locationId,
-      });
-      const existing = aggregated.get(key);
-      if (existing) {
-        existing.quantity += entry.quantityDelta;
-        existing.updatedAt =
-          entry.createdAt > existing.updatedAt ? entry.createdAt : existing.updatedAt;
-      } else {
-        aggregated.set(key, {
-          id: key,
-          companyId: entry.companyId,
-          productId: entry.productId,
-          variantId: entry.variantId,
-          warehouseId: entry.warehouseId,
-          locationId: entry.locationId,
-          quantity: entry.quantityDelta,
-          reservedQuantity: reservedByKey.get(key) ?? 0,
-          updatedAt: entry.createdAt,
-        });
-      }
-    }
-
-    let rows = [...aggregated.values()]
-      .map((row) => ({
-        ...row,
-        reservedQuantity: reservedByKey.get(
-          stockKey({
-            companyId: row.companyId,
-            productId: row.productId,
-            variantId: row.variantId,
-            warehouseId: row.warehouseId,
-            locationId: row.locationId,
-          }),
-        ) ?? row.reservedQuantity ?? 0,
-      }))
+    return balances.rows
+      .filter((row) => row.locationId && row.warehouseId && row.productId)
+      .map((row) => {
+          const key = stockKey({
+            companyId: query.companyId,
+            productId: row.productId!,
+            variantId: row.variantId ?? undefined,
+            warehouseId: row.warehouseId!,
+            locationId: row.locationId!,
+          });
+          // Server reservation is authoritative. Keep the session overlay only
+          // while the backend reservation model is not yet available.
+          const reserved = reservedByKey.get(key) ?? row.reserved;
+          return {
+            id: key,
+            companyId: query.companyId,
+            productId: row.productId!,
+            variantId: row.variantId ?? undefined,
+            warehouseId: row.warehouseId!,
+            locationId: row.locationId!,
+            productNameAr: row.productNameAr ?? undefined,
+            productSku: row.productSku ?? undefined,
+            variantNameAr: row.variantNameAr ?? undefined,
+            variantSku: row.variantSku ?? undefined,
+            warehouseNameAr: row.warehouseNameAr ?? undefined,
+            warehouseCode: row.warehouseCode ?? undefined,
+            locationNameAr: row.locationNameAr ?? undefined,
+            locationCode: row.locationCode ?? undefined,
+            locationType: row.locationType ?? undefined,
+            trackInventory: row.trackInventory ?? undefined,
+            lowStockThreshold: row.lowStockThreshold,
+            unitCost: row.unitCost,
+            costCurrency: row.costCurrency ?? undefined,
+            quantity: row.onHand,
+            reservedQuantity: reserved,
+            updatedAt: row.lastMovementAt ?? new Date(0).toISOString(),
+          };
+      })
       .filter((row) => row.quantity !== 0 || (row.reservedQuantity ?? 0) !== 0);
-
-    return rows;
   },
 
   async getOnHandTotal(
@@ -315,15 +301,18 @@ export const locationStockApi = {
     locationId: string,
     variantId?: string,
   ): Promise<number> {
-    const stocks = await this.list({
-      companyId,
-      productId,
-      locationId,
-      variantId: variantId ?? '',
-    });
-    const row = stocks.find((item) =>
-      variantId ? item.variantId === variantId : !item.variantId,
-    );
-    return row?.quantity ?? 0;
+    try {
+      const balances = await inventoryStockBalancesApi.query({
+        companyId,
+        productId,
+        locationIds: [locationId],
+        ...(variantId ? { variantId } : { productLevelOnly: true }),
+        groupBy: 'total',
+        includeZero: true,
+      });
+      return Math.max(0, balances.totalOnHand);
+    } catch {
+      return 0;
+    }
   },
 };

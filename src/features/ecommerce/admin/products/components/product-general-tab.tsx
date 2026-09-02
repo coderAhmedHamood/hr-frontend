@@ -76,16 +76,15 @@ export function ProductGeneralTab({ control, errors, register, categories, brand
 
         <div className="grid gap-4 sm:grid-cols-2">
           <ProductFormField
-            label="رمز المنتج (SKU)"
+            label="رمز المنتج (SKU) — اختياري"
             htmlFor="product-sku"
-            required
             error={errors.sku?.message}
-            hint="رمز فريد داخل الشركة — مثال: SKN-001"
+            hint="اتركه فارغًا ليُنشئ النظام رمزًا فريدًا تلقائيًا، أو أدخل رمزك الخاص."
           >
             <Input
               id="product-sku"
               dir="ltr"
-              placeholder="SKN-001"
+              placeholder="تلقائي"
               className="h-11"
               {...register('sku')}
             />

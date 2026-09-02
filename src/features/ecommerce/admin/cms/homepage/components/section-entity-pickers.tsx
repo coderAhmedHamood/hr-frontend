@@ -6,11 +6,14 @@ import { Check, Search, X } from 'lucide-react';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
 import {
   listCatalogPickerCategories,
-  listCatalogPickerProducts,
   listMediaLibraryImages,
   type CatalogPickerCategory,
   type CatalogPickerProduct,
 } from '@/features/ecommerce/admin/cms/homepage/lib/catalog-picker-actions';
+import { useProducts } from '@/features/ecommerce/admin/products/hooks/use-products';
+import { ProductLabel } from '@/features/ecommerce/admin/products/components/product-label';
+import type { Product } from '@/features/ecommerce/domain/types/product';
+import { useDebouncedValue } from '@/shared/hooks/use-debounced-value';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -200,6 +203,24 @@ export function CategoryMultiPicker({
   );
 }
 
+function mapProductToPickerItem(product: Product): CatalogPickerProduct {
+  const primary = product.media?.find((item) => item.isPrimary) ?? product.media?.[0];
+  return {
+    id: product.id,
+    sku: product.sku,
+    slug: product.slug,
+    nameAr: product.nameAr,
+    nameEn: product.nameEn ?? null,
+    imageUrl: primary?.url ? resolveUploadUrl(primary.url) : null,
+    categoryId: product.categoryId ?? null,
+    tags: product.tags ?? [],
+    priceAmount: product.price.amount,
+    priceCurrency: product.price.currency,
+    compareAtPriceAmount: product.compareAtPrice?.amount ?? null,
+    stockStatus: product.stockStatus,
+  };
+}
+
 export function ProductMultiPicker({
   value,
   onChange,
@@ -209,20 +230,23 @@ export function ProductMultiPicker({
 }) {
   const companyId = getStorefrontCompanyId();
   const [search, setSearch] = React.useState('');
-  const { data = [], isLoading } = useQuery({
-    queryKey: ['cms-catalog-picker', 'products', companyId],
-    queryFn: () => listCatalogPickerProducts(companyId),
-    enabled: Boolean(companyId),
-  });
+  const debouncedSearch = useDebouncedValue(search.trim(), 300);
+  const canQuery = debouncedSearch.length >= 1;
+  const { data: searchData, isFetching } = useProducts(
+    {
+      companyId,
+      search: debouncedSearch,
+      page: 1,
+      limit: 30,
+    },
+    { enabled: Boolean(companyId) && canQuery },
+  );
+  const results = React.useMemo(
+    () => (searchData?.items ?? []).map(mapProductToPickerItem),
+    [searchData?.items],
+  );
 
   const selectedSet = new Set(value);
-  const filtered = data.filter(
-    (item) =>
-      !search.trim() ||
-      matchesSearch(item.nameAr, search) ||
-      matchesSearch(item.sku, search) ||
-      matchesSearch(item.nameEn ?? '', search),
-  );
 
   function toggle(id: string) {
     if (selectedSet.has(id)) onChange(value.filter((item) => item !== id));
@@ -233,17 +257,14 @@ export function ProductMultiPicker({
     <div className="space-y-2">
       {value.length > 0 ? (
         <div className="flex flex-wrap gap-1.5">
-          {value.map((id) => {
-            const item = data.find((row) => row.id === id);
-            return (
-              <Badge key={id} variant="secondary" className="gap-1 pe-1">
-                {item?.nameAr ?? id.slice(0, 8)}
-                <button type="button" className="rounded-full p-0.5 hover:bg-muted" onClick={() => toggle(id)}>
-                  <X className="h-3 w-3" />
-                </button>
-              </Badge>
-            );
-          })}
+          {value.map((id) => (
+            <Badge key={id} variant="secondary" className="gap-1 pe-1">
+              <ProductLabel companyId={companyId} productId={id} />
+              <button type="button" className="rounded-full p-0.5 hover:bg-muted" onClick={() => toggle(id)}>
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          ))}
         </div>
       ) : (
         <p className="text-[11px] text-muted-foreground">اختر منتجاتًا لعرضها في هذا السكشن.</p>
@@ -260,12 +281,14 @@ export function ProductMultiPicker({
       </div>
 
       <div className="max-h-56 space-y-1 overflow-y-auto rounded-xl border border-border p-1">
-        {isLoading ? (
-          <p className="px-2 py-3 text-xs text-muted-foreground">جاري التحميل…</p>
-        ) : filtered.length === 0 ? (
+        {!canQuery ? (
+          <p className="px-2 py-3 text-xs text-muted-foreground">اكتب للبحث عن منتجات…</p>
+        ) : isFetching ? (
+          <p className="px-2 py-3 text-xs text-muted-foreground">جاري البحث…</p>
+        ) : results.length === 0 ? (
           <p className="px-2 py-3 text-xs text-muted-foreground">لا توجد منتجات مطابقة.</p>
         ) : (
-          filtered.map((item) => (
+          results.map((item) => (
             <ProductOptionRow
               key={item.id}
               item={item}

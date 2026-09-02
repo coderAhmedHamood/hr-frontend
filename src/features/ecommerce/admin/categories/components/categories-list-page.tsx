@@ -12,7 +12,7 @@ import {
   getCategoryPath,
   sortCategoriesAsTree,
 } from '@/features/ecommerce/admin/categories/lib/category-tree';
-import { ecommerceAdminRoutes } from '@/features/ecommerce/admin/constants/routes';
+import { useProductsBasePath } from '@/features/ecommerce/admin/products/lib/products-navigation';
 import type { Category } from '@/features/ecommerce/domain/types/category';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
@@ -25,11 +25,13 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DataTable, usePagination, type ColumnDef } from '@/components/ui/data-table';
 import { DirectoryPagedViews, DEFAULT_PAGE_SIZE } from '@/components/ui/paged-list';
+import { resolveUploadUrl } from '@/shared/resolve-upload-url';
 import { isMultiLangEnabled } from '@/i18n/locale-flags';
 
 export function CategoriesListPage() {
   const companyId = getStorefrontCompanyId();
   const router = useRouter();
+  const productsBasePath = useProductsBasePath();
   const t = useTranslations('ecommerceAdmin');
   const tCommon = useTranslations('common');
   const [search, setSearch] = React.useState('');
@@ -147,7 +149,7 @@ export function CategoriesListPage() {
             <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted">
               {category.image ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={category.image.url} alt={category.image.alt} className="h-full w-full object-cover" />
+                <img src={resolveUploadUrl(category.image.url)} alt={category.image.alt} className="h-full w-full object-cover" />
               ) : (
                 <FolderTree className="h-4 w-4 text-muted-foreground" />
               )}
@@ -180,7 +182,7 @@ export function CategoriesListPage() {
             variant="ghost"
             className="gap-1 tabular-nums"
             onClick={() =>
-              router.push(`${ecommerceAdminRoutes.products}?categoryId=${category.id}`)
+              router.push(`${productsBasePath}?categoryId=${category.id}`)
             }
           >
             <Package className="h-3.5 w-3.5" />
@@ -267,7 +269,7 @@ export function CategoriesListPage() {
                     <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted">
                       {category.image ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={category.image.url} alt={category.image.alt} className="h-full w-full object-cover" />
+                        <img src={resolveUploadUrl(category.image.url)} alt={category.image.alt} className="h-full w-full object-cover" />
                       ) : (
                         <FolderTree className="h-4 w-4 text-muted-foreground" />
                       )}

@@ -22,7 +22,20 @@ import type {
   WarehouseOperationStatus,
 } from '@/features/inventory/domain/types/warehouse';
 import { useWarehouses } from '@/features/inventory/admin/warehouses/hooks/use-warehouses';
-import { useProduct, useProducts } from '@/features/ecommerce/admin/products/hooks/use-products';
+import { useProduct } from '@/features/ecommerce/admin/products/hooks/use-products';
+import { ProductSinglePicker } from '@/features/ecommerce/admin/products/components/product-single-picker';
+import { WarehouseOperationLinesEditor } from '@/features/inventory/admin/operations/components/warehouse-operation-lines-editor';
+import {
+  collectStockShortages,
+  formatStockShortageMessage,
+} from '@/features/inventory/admin/operations/lib/validate-operation-stock';
+import {
+  emptyOperationLineDraft,
+  hasDuplicateOperationLineProducts,
+  operationLineDraftsToLines,
+  supportsMultiProductLines,
+  type OperationLineDraft,
+} from '@/features/inventory/admin/operations/lib/operation-line-draft';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -92,6 +105,10 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
   const [toDelete, setToDelete] = React.useState<WarehouseOperation | null>(null);
   const [stockMode, setStockMode] = React.useState<StockLineMode>('product');
   const [variantQuantities, setVariantQuantities] = React.useState<Record<string, number>>({});
+  const multiProductMode = supportsMultiProductLines(kind);
+  const checksSourceStock =
+    meta.stockEffect === 'outbound' || meta.stockEffect === 'move' || meta.stockEffect === 'transfer';
+  const [lineDrafts, setLineDrafts] = React.useState<OperationLineDraft[]>([emptyOperationLineDraft()]);
 
   React.useEffect(() => {
     const timeout = setTimeout(() => {
@@ -122,15 +139,6 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
   });
   const { data: warehousesData } = useWarehouses({ companyId, limit: 100 });
   const allWarehouses = warehousesData?.items ?? [];
-  const { data: productsData } = useProducts({ companyId, limit: 200, status: 'active' });
-  const catalogProducts = React.useMemo(() => {
-    const seen = new Set<string>();
-    return (productsData?.items ?? []).filter((product) => {
-      if (seen.has(product.id)) return false;
-      seen.add(product.id);
-      return true;
-    });
-  }, [productsData?.items]);
   const items = data?.items ?? [];
   const total = data?.pagination.total ?? 0;
   const form = useForm<WarehouseOperationFormValues>({
@@ -140,7 +148,13 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
   const destinationWarehouseId = form.watch('destinationWarehouseId');
   const formWarehouseId = form.watch('sourceWarehouseId');
   const selectedProductId = form.watch('productId');
+  const fromLocationId = form.watch('fromLocationId');
+  const toLocationId = form.watch('toLocationId');
   const effectiveWarehouseId = warehouseId || formWarehouseId || '';
+  const locationsReady =
+    (!meta.needsFrom || Boolean(fromLocationId)) &&
+    (!meta.needsTo || Boolean(toLocationId)) &&
+    (!meta.needsDestWarehouse || Boolean(destinationWarehouseId));
 
   const { data: selectedProduct, isLoading: isLoadingSelectedProduct } = useProduct(
     companyId,
@@ -176,11 +190,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
     return taken;
   }, [openOperationsData?.items]);
 
-  const selectableProducts = React.useMemo(
-    () => catalogProducts.filter((product) => !takenProductIds.has(product.id)),
-    [catalogProducts, takenProductIds],
-  );
-  const hiddenProductsCount = catalogProducts.length - selectableProducts.length;
+  const takenProductIdList = React.useMemo(() => Array.from(takenProductIds.keys()), [takenProductIds]);
 
   const warehousesForDest = allWarehouses.filter((item) => item.id !== effectiveWarehouseId);
 
@@ -293,6 +303,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
     const defaultWh = warehouseId || allWarehouses[0]?.id || '';
     setStockMode('product');
     setVariantQuantities({});
+    setLineDrafts([emptyOperationLineDraft()]);
     form.reset({
       ...WAREHOUSE_OPERATION_FORM_DEFAULT_VALUES,
       occurredAt: new Date().toISOString().slice(0, 16),
@@ -340,6 +351,69 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
     const sourceWh = warehouseId || values.sourceWarehouseId;
     if (!sourceWh) return;
     if (meta.needsDestWarehouse && !values.destinationWarehouseId) return;
+
+    if (meta.needsFrom && !values.fromLocationId?.trim()) {
+      toast.error('اختر موقع المصدر قبل إضافة المنتجات.');
+      return;
+    }
+    if (meta.needsTo && !values.toLocationId?.trim()) {
+      toast.error('اختر موقع الوجهة قبل إضافة المنتجات.');
+      return;
+    }
+
+    const lineLocations = {
+      fromLocationId: values.fromLocationId || undefined,
+      toLocationId: values.toLocationId || undefined,
+    };
+
+    if (multiProductMode) {
+      if (hasDuplicateOperationLineProducts(lineDrafts)) {
+        toast.error('لا يمكن تكرار نفس المنتج في أكثر من سطر.');
+        return;
+      }
+      const lines = operationLineDraftsToLines(lineDrafts, lineLocations);
+      if (lines.length === 0) {
+        toast.error('أضف صنفًا واحدًا على الأقل مع كمية أكبر من صفر.');
+        return;
+      }
+      if (
+        meta.stockEffect === 'move' &&
+        lineLocations.fromLocationId &&
+        lineLocations.toLocationId &&
+        lineLocations.fromLocationId === lineLocations.toLocationId
+      ) {
+        toast.error('اختر موقعين مختلفين داخل نفس المستودع.');
+        return;
+      }
+      if (checksSourceStock && lineLocations.fromLocationId) {
+        const issues = await collectStockShortages({
+          companyId,
+          warehouseId: sourceWh,
+          kind,
+          destinationWarehouseId: values.destinationWarehouseId || undefined,
+          lines,
+        });
+        if (issues.length > 0) {
+          toast.error(formatStockShortageMessage(issues[0]!));
+          return;
+        }
+      }
+      await create.mutateAsync({
+        companyId,
+        warehouseId: sourceWh,
+        kind,
+        status: 'draft',
+        occurredAt: new Date(values.occurredAt).toISOString(),
+        notes: values.notes?.trim() || undefined,
+        partnerName: values.partnerName?.trim() || undefined,
+        sourceDocument: values.sourceDocument?.trim() || undefined,
+        destinationWarehouseId: values.destinationWarehouseId || undefined,
+        lines,
+      });
+      setOpen(false);
+      return;
+    }
+
     if (!values.productId?.trim()) return;
 
     const duplicateReference = takenProductIds.get(values.productId.trim());
@@ -352,11 +426,6 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
 
     const qty = values.quantity;
     const theoretical = values.theoreticalQuantity ?? qty;
-    const lineLocations = {
-      fromLocationId: values.fromLocationId || undefined,
-      toLocationId: values.toLocationId || undefined,
-    };
-
     const useVariants = hasActiveVariants && stockMode === 'variants';
     const lines = useVariants
       ? activeVariants
@@ -439,7 +508,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
       : []),
     {
       key: 'partner',
-      title: kind === 'issue' ? 'التسليم إلى' : kind === 'receipt' || kind === 'purchase' || kind === 'replenishment' ? 'الاستلام من' : 'الطرف',
+      title: kind === 'issue' ? 'الصرف إلى' : kind === 'receipt' || kind === 'purchase' || kind === 'replenishment' ? 'الاستلام من' : 'الطرف',
       hideOnMobile: true,
       render: (row) => (
         <div className="flex flex-col">
@@ -521,7 +590,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
       />
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className={`${dialogMaxHeightClass} max-w-lg overflow-y-auto`}>
+        <DialogContent className={`${dialogMaxHeightClass} ${multiProductMode ? 'max-w-2xl' : 'max-w-lg'} overflow-y-auto`}>
           <DialogHeader>
             <DialogTitle>{meta.createLabel}</DialogTitle>
             <DialogDescription>
@@ -531,6 +600,10 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
           <form
             onSubmit={(e) => {
               e.preventDefault();
+              if (multiProductMode) {
+                void onSubmit(form.getValues());
+                return;
+              }
               void form.handleSubmit(onSubmit)(e);
             }}
             className="space-y-4"
@@ -578,7 +651,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
               <div className="space-y-1.5">
                 <Label htmlFor="op-partner">
                   {kind === 'issue'
-                    ? 'التسليم إلى'
+                    ? 'الصرف إلى'
                     : kind === 'receipt' || kind === 'purchase' || kind === 'replenishment'
                       ? 'الاستلام من'
                       : 'الطرف'}
@@ -603,6 +676,15 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
                       onValueChange={(value) => {
                         field.onChange(value);
                         form.setValue('toLocationId', '');
+                        if (multiProductMode) {
+                          setLineDrafts([emptyOperationLineDraft()]);
+                        } else {
+                          form.setValue('productId', '');
+                          form.setValue('productName', '');
+                          form.setValue('sku', '');
+                          setStockMode('product');
+                          setVariantQuantities({});
+                        }
                       }}
                       disabled={!effectiveWarehouseId}
                     >
@@ -622,173 +704,6 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
               </div>
             ) : null}
 
-            <div className="inv-form-grid">
-              <div className="space-y-1.5">
-                <Label>المنتج</Label>
-                <Controller
-                  control={form.control}
-                  name="productId"
-                  render={({ field }) => (
-                    <Select
-                      value={field.value || undefined}
-                      onValueChange={(value) => {
-                        field.onChange(value);
-                        const product = catalogProducts.find((item) => item.id === value);
-                        form.setValue('productName', product?.nameAr ?? '');
-                        form.setValue('sku', product?.sku ?? '');
-                        setStockMode('product');
-                        setVariantQuantities({});
-                      }}
-                    >
-                      <SelectTrigger aria-label="المنتج">
-                        <SelectValue placeholder="اختر منتجًا من الكتالوج" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {selectableProducts.map((product) => (
-                          <SelectItem key={product.id} value={product.id}>
-                            {product.nameAr}
-                            {product.sku ? ` (${product.sku})` : ''}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-                {form.formState.errors.productId ? (
-                  <p className="text-xs text-destructive">{form.formState.errors.productId.message}</p>
-                ) : null}
-                {hiddenProductsCount > 0 ? (
-                  <p className="text-xs text-muted-foreground">
-                    تم إخفاء {hiddenProductsCount} منتجًا لوجود مستند {meta.labelAr} غير مصدَّق لها. صدِّق
-                    المستند أو ألغِه لإتاحة المنتج مجددًا.
-                  </p>
-                ) : null}
-                {selectedProductId && isLoadingSelectedProduct ? (
-                  <p className="text-xs text-muted-foreground">جاري تحميل المتغيرات…</p>
-                ) : null}
-              </div>
-              {isCountLike ? (
-                <div className="space-y-1.5">
-                  <Label htmlFor="op-theo">الكمية النظامية</Label>
-                  <Input
-                    id="op-theo"
-                    type="number"
-                    min={0}
-                    step={1}
-                    dir="ltr"
-                    {...form.register('theoreticalQuantity', { valueAsNumber: true })}
-                  />
-                </div>
-              ) : stockMode === 'product' || !hasActiveVariants ? (
-                <div className="space-y-1.5">
-                  <Label htmlFor="op-qty">الكمية</Label>
-                  <Input
-                    id="op-qty"
-                    type="number"
-                    min={0}
-                    step={1}
-                    dir="ltr"
-                    {...form.register('quantity', { valueAsNumber: true })}
-                  />
-                  {form.formState.errors.quantity ? (
-                    <p className="text-xs text-destructive">{form.formState.errors.quantity.message}</p>
-                  ) : null}
-                </div>
-              ) : (
-                <div className="space-y-1.5">
-                  <Label>الكمية</Label>
-                  <p className="pt-2 text-xs text-muted-foreground">أدخل الكميات أسفل لكل متغير</p>
-                </div>
-              )}
-            </div>
-
-            {hasActiveVariants ? (
-              <div className="space-y-1.5">
-                <Label>نطاق الكمية</Label>
-                <Select
-                  value={stockMode}
-                  onValueChange={(value) => applyStockMode(value as StockLineMode)}
-                >
-                  <SelectTrigger aria-label="نطاق الكمية">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="product">المنتج الأساسي فقط</SelectItem>
-                    <SelectItem value="variants">حسب المتغيرات</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  لا يمكن مزج الوضعين في نفس الطلب لنفس المنتج.
-                </p>
-              </div>
-            ) : null}
-
-            {hasActiveVariants && stockMode === 'variants' ? (
-              <div className="overflow-hidden rounded-lg border border-border">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border bg-muted/30 text-muted-foreground">
-                      <th className="px-3 py-2 text-start font-medium">المتغير</th>
-                      <th className="px-3 py-2 text-start font-medium">الكمية</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {activeVariants.map((variant) => (
-                      <tr key={variant.id} className="border-b border-border last:border-0">
-                        <td className="px-3 py-2">
-                          <div className="font-medium">{variant.nameAr}</div>
-                          <div className="text-xs text-muted-foreground" dir="ltr">
-                            {variant.sku}
-                          </div>
-                        </td>
-                        <td className="px-3 py-2">
-                          <Input
-                            type="number"
-                            min={0}
-                            step={1}
-                            dir="ltr"
-                            className="h-8 w-28"
-                            value={variantQuantities[variant.id] ?? 0}
-                            onChange={(event) => {
-                              const nextQty = Math.max(0, Number(event.target.value) || 0);
-                              setVariantQuantities((prev) => ({ ...prev, [variant.id]: nextQty }));
-                            }}
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : null}
-
-            {isCountLike ? (
-              <div className="space-y-1.5">
-                <Label htmlFor="op-counted">الكمية المعدودة</Label>
-                <Input
-                  id="op-counted"
-                  type="number"
-                  min={0}
-                  step={1}
-                  dir="ltr"
-                  {...form.register('quantity', { valueAsNumber: true })}
-                />
-              </div>
-            ) : null}
-
-            <div className="space-y-1.5">
-              <Label htmlFor="op-sku">رمز المنتج (SKU)</Label>
-              <Input
-                id="op-sku"
-                dir="ltr"
-                {...form.register('sku')}
-                disabled={hasActiveVariants && stockMode === 'variants'}
-              />
-              {stockMode === 'product' && hasActiveVariants ? (
-                <p className="text-xs text-muted-foreground">سيُرسل السطر بدون متغير (variantId = null).</p>
-              ) : null}
-            </div>
-
             {meta.needsFrom ? (
               <div className="space-y-1.5">
                 <Label htmlFor="op-from">من موقع</Label>
@@ -798,11 +713,22 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
                   render={({ field }) => (
                     <Select
                       value={field.value || undefined}
-                      onValueChange={field.onChange}
+                      onValueChange={(value) => {
+                        field.onChange(value);
+                        if (multiProductMode) {
+                          setLineDrafts([emptyOperationLineDraft()]);
+                        } else {
+                          form.setValue('productId', '');
+                          form.setValue('productName', '');
+                          form.setValue('sku', '');
+                          setStockMode('product');
+                          setVariantQuantities({});
+                        }
+                      }}
                       disabled={!effectiveWarehouseId}
                     >
                       <SelectTrigger id="op-from" aria-label="من موقع">
-                        <SelectValue placeholder="اختر موقعًا" />
+                        <SelectValue placeholder="اختر موقع المصدر أولًا" />
                       </SelectTrigger>
                       <SelectContent>
                         {locations.map((location) => (
@@ -835,7 +761,13 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
                       }
                     >
                       <SelectTrigger id="op-to" aria-label="إلى موقع">
-                        <SelectValue placeholder="اختر موقعًا" />
+                        <SelectValue
+                          placeholder={
+                            meta.needsDestWarehouse && !destinationWarehouseId
+                              ? 'اختر المستودع الوجهة أولًا'
+                              : 'اختر موقع الوجهة'
+                          }
+                        />
                       </SelectTrigger>
                       <SelectContent>
                         {toLocations.map((location) => (
@@ -848,6 +780,187 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
                     </Select>
                   )}
                 />
+              </div>
+            ) : null}
+
+            {!locationsReady && (meta.needsFrom || meta.needsTo) ? (
+              <p className="rounded-lg border border-dashed border-border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                حدّد المواقع أعلاه أولًا، ثم اختر المنتجات.
+              </p>
+            ) : null}
+
+            {multiProductMode ? (
+              <WarehouseOperationLinesEditor
+                companyId={companyId}
+                lines={lineDrafts}
+                onChange={setLineDrafts}
+                fromLocationId={fromLocationId || undefined}
+                checksSourceStock={checksSourceStock}
+                disabled={!locationsReady}
+              />
+            ) : (
+              <div className="inv-form-grid">
+                <div className="space-y-1.5">
+                  <Label>المنتج</Label>
+                  <Controller
+                    control={form.control}
+                    name="productId"
+                    render={({ field }) => (
+                      <ProductSinglePicker
+                        companyId={companyId}
+                        value={field.value ?? ''}
+                        status="active"
+                        excludeIds={takenProductIdList}
+                        disabled={!locationsReady}
+                        placeholder={
+                          locationsReady
+                            ? 'ابحث عن منتج من الكتالوج…'
+                            : 'حدّد المواقع أولًا…'
+                        }
+                        onChange={field.onChange}
+                        onProductSelect={(product) => {
+                          form.setValue('productName', product.nameAr ?? '');
+                          form.setValue('sku', product.sku ?? '');
+                          setStockMode('product');
+                          setVariantQuantities({});
+                        }}
+                      />
+                    )}
+                  />
+                  {form.formState.errors.productId ? (
+                    <p className="text-xs text-destructive">{form.formState.errors.productId.message}</p>
+                  ) : null}
+                  {selectedProductId && isLoadingSelectedProduct ? (
+                    <p className="text-xs text-muted-foreground">جاري تحميل المتغيرات…</p>
+                  ) : null}
+                </div>
+                {isCountLike ? (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="op-theo">الكمية النظامية</Label>
+                    <Input
+                      id="op-theo"
+                      type="number"
+                      min={0}
+                      step={1}
+                      dir="ltr"
+                      disabled={!locationsReady}
+                      {...form.register('theoreticalQuantity', { valueAsNumber: true })}
+                    />
+                  </div>
+                ) : stockMode === 'product' || !hasActiveVariants ? (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="op-qty">الكمية</Label>
+                    <Input
+                      id="op-qty"
+                      type="number"
+                      min={0}
+                      step={1}
+                      dir="ltr"
+                      disabled={!locationsReady}
+                      {...form.register('quantity', { valueAsNumber: true })}
+                    />
+                    {form.formState.errors.quantity ? (
+                      <p className="text-xs text-destructive">{form.formState.errors.quantity.message}</p>
+                    ) : null}
+                  </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    <Label>الكمية</Label>
+                    <p className="pt-2 text-xs text-muted-foreground">أدخل الكميات أسفل لكل متغير</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {!multiProductMode && hasActiveVariants ? (
+              <div className="space-y-1.5">
+                <Label>نطاق الكمية</Label>
+                <Select
+                  value={stockMode}
+                  onValueChange={(value) => applyStockMode(value as StockLineMode)}
+                  disabled={!locationsReady}
+                >
+                  <SelectTrigger aria-label="نطاق الكمية">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="product">المنتج الأساسي فقط</SelectItem>
+                    <SelectItem value="variants">حسب المتغيرات</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  لا يمكن مزج الوضعين في نفس الطلب لنفس المنتج.
+                </p>
+              </div>
+            ) : null}
+
+            {!multiProductMode && hasActiveVariants && stockMode === 'variants' ? (
+              <div className="overflow-hidden rounded-lg border border-border">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border bg-muted/30 text-muted-foreground">
+                      <th className="px-3 py-2 text-start font-medium">المتغير</th>
+                      <th className="px-3 py-2 text-start font-medium">الكمية</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {activeVariants.map((variant) => (
+                      <tr key={variant.id} className="border-b border-border last:border-0">
+                        <td className="px-3 py-2">
+                          <div className="font-medium">{variant.nameAr}</div>
+                          <div className="text-xs text-muted-foreground" dir="ltr">
+                            {variant.sku}
+                          </div>
+                        </td>
+                        <td className="px-3 py-2">
+                          <Input
+                            type="number"
+                            min={0}
+                            step={1}
+                            dir="ltr"
+                            className="h-8 w-28"
+                            disabled={!locationsReady}
+                            value={variantQuantities[variant.id] ?? 0}
+                            onChange={(event) => {
+                              const nextQty = Math.max(0, Number(event.target.value) || 0);
+                              setVariantQuantities((prev) => ({ ...prev, [variant.id]: nextQty }));
+                            }}
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : null}
+
+            {isCountLike ? (
+              <div className="space-y-1.5">
+                <Label htmlFor="op-counted">الكمية المعدودة</Label>
+                <Input
+                  id="op-counted"
+                  type="number"
+                  min={0}
+                  step={1}
+                  dir="ltr"
+                  disabled={!locationsReady}
+                  {...form.register('quantity', { valueAsNumber: true })}
+                />
+              </div>
+            ) : null}
+
+            {!multiProductMode ? (
+              <div className="space-y-1.5">
+                <Label htmlFor="op-sku">رمز المنتج (SKU)</Label>
+                <Input
+                  id="op-sku"
+                  dir="ltr"
+                  {...form.register('sku')}
+                  disabled={!locationsReady || (hasActiveVariants && stockMode === 'variants')}
+                />
+                {stockMode === 'product' && hasActiveVariants ? (
+                  <p className="text-xs text-muted-foreground">سيُرسل السطر بدون متغير (variantId = null).</p>
+                ) : null}
               </div>
             ) : null}
 

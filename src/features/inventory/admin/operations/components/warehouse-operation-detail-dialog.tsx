@@ -1,12 +1,18 @@
 'use client';
 
 import * as React from 'react';
-import { Check, Undo2, X } from 'lucide-react';
+import { Check, Plus, Trash2, Undo2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { getInventoryCompanyId } from '@/features/inventory/lib/company-id';
 import { useWarehouseLocations } from '@/features/inventory/admin/locations/hooks/use-warehouse-locations';
 import { useWarehouseOperationMutations } from '@/features/inventory/admin/operations/hooks/use-warehouse-operation-mutations';
 import { inventoryStockService } from '@/features/inventory/services/inventory-stock.service';
+import {
+  collectStockShortages,
+  formatStockShortageMessage,
+  maxQuantityForLine,
+  readAvailableAtSourceLine,
+} from '@/features/inventory/admin/operations/lib/validate-operation-stock';
 import { WAREHOUSE_OPERATION_KIND_META } from '@/features/inventory/domain/constants/warehouse-operation-kinds';
 import {
   WAREHOUSE_OPERATION_FLOW_STEPS,
@@ -40,6 +46,15 @@ import {
   dialogShellContentClass,
   dialogShellHeaderClass,
 } from '@/components/ui/dialog';
+import { ProductSinglePicker } from '@/features/ecommerce/admin/products/components/product-single-picker';
+import { FlexibleQuantityInput } from '@/features/inventory/admin/operations/components/flexible-quantity-input';
+import {
+  emptyOperationLineDraft,
+  hasDuplicateOperationLineProducts,
+  newOperationLineDraftId,
+  operationLinesToDrafts,
+  supportsMultiProductLines,
+} from '@/features/inventory/admin/operations/lib/operation-line-draft';
 import { cn } from '@/shared/utils';
 
 type Props = {
@@ -141,6 +156,7 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
   const [tab, setTab] = React.useState('operations');
   const [headerFromLocationId, setHeaderFromLocationId] = React.useState('');
   const [headerToLocationId, setHeaderToLocationId] = React.useState('');
+  const [availableByLineId, setAvailableByLineId] = React.useState<Record<string, number>>({});
   const loadedOperationIdRef = React.useRef<string | null>(null);
 
   React.useEffect(() => {
@@ -180,10 +196,164 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
     if (!open) loadedOperationIdRef.current = null;
   }, [open]);
 
+  const stockEffect = WAREHOUSE_OPERATION_KIND_META[kind].stockEffect;
+  const checksSourceStock =
+    stockEffect === 'outbound' || stockEffect === 'move' || stockEffect === 'transfer';
+
+  React.useEffect(() => {
+    if (!open || !operation || !companyId || !checksSourceStock) {
+      setAvailableByLineId({});
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      const next: Record<string, number> = {};
+      await Promise.all(
+        lines.map(async (line) => {
+          const available = await readAvailableAtSourceLine({
+            companyId,
+            kind,
+            line,
+            fromLocationId: headerFromLocationId || undefined,
+          });
+          if (available != null) next[line.id] = available;
+        }),
+      );
+      if (!cancelled) setAvailableByLineId(next);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, operation, companyId, kind, lines, headerFromLocationId, checksSourceStock]);
+
+  function applyLineQuantity(
+    lineId: string,
+    field: 'demandQuantity' | 'quantity',
+    nextValue: number,
+  ) {
+    const value = Math.max(0, nextValue);
+    setLines((prev) =>
+      prev.map((item) => {
+        if (item.id !== lineId) return item;
+        if (field === 'demandQuantity') {
+          return {
+            ...item,
+            demandQuantity: value,
+            quantity: status === 'draft' ? value : item.quantity,
+          };
+        }
+        return { ...item, quantity: value };
+      }),
+    );
+  }
+
+  async function assertStockBeforeSave(nextLines: WarehouseOperationLine[] = lines): Promise<boolean> {
+    if (!operation || !checksSourceStock) return true;
+    const issues = await collectStockShortages({
+      companyId: operation.companyId,
+      warehouseId: operation.warehouseId,
+      kind,
+      destinationWarehouseId: operation.destinationWarehouseId,
+      lines: nextLines,
+    });
+    if (issues.length === 0) return true;
+    toast.error(formatStockShortageMessage(issues[0]!));
+    return false;
+  }
+
+  function normalizeMultiProductLines(): WarehouseOperationLine[] | null {
+    if (hasDuplicateOperationLineProducts(operationLinesToDrafts(lines))) {
+      toast.error('لا يمكن تكرار نفس المنتج في أكثر من سطر.');
+      return null;
+    }
+    const hasIncomplete = lines.some(
+      (line) => !line.productId?.trim() && ((line.demandQuantity ?? 0) > 0 || line.quantity > 0),
+    );
+    if (hasIncomplete) {
+      toast.error('اختر منتجًا لكل سطر يحتوي على كمية.');
+      return null;
+    }
+    const normalized = lines
+      .filter(
+        (line) => line.productId?.trim() && ((line.demandQuantity ?? 0) > 0 || line.quantity > 0),
+      )
+      .map((line) => ({
+        ...line,
+        productId: line.productId.trim(),
+        fromLocationId: headerFromLocationId || line.fromLocationId,
+        toLocationId: headerToLocationId || line.toLocationId,
+      }));
+    if (normalized.length === 0) {
+      toast.error('أضف صنفًا واحدًا على الأقل مع كمية أكبر من صفر.');
+      return null;
+    }
+    return normalized;
+  }
+
+  function addProductLine() {
+    setLines((prev) => [
+      ...prev,
+      {
+        id: newOperationLineDraftId(),
+        productId: '',
+        productName: '',
+        sku: undefined,
+        demandQuantity: 0,
+        quantity: 0,
+        fromLocationId: headerFromLocationId || undefined,
+        toLocationId: headerToLocationId || undefined,
+      },
+    ]);
+  }
+
+  function removeProductLine(lineId: string) {
+    setLines((prev) => {
+      const next = prev.filter((line) => line.id !== lineId);
+      if (next.length > 0) return next;
+      const blank = emptyOperationLineDraft();
+      return [
+        {
+          id: blank.id,
+          productId: '',
+          productName: '',
+          sku: undefined,
+          demandQuantity: 0,
+          quantity: 0,
+          fromLocationId: headerFromLocationId || undefined,
+          toLocationId: headerToLocationId || undefined,
+        },
+      ];
+    });
+  }
+
+  function applyLineProduct(
+    lineId: string,
+    product: { id: string; nameAr: string; sku?: string } | null,
+  ) {
+    setLines((prev) =>
+      prev.map((line) => {
+        if (line.id !== lineId) return line;
+        if (!product) {
+          return { ...line, productId: '', productName: '', sku: undefined };
+        }
+        return {
+          ...line,
+          productId: product.id,
+          productName: product.nameAr,
+          sku: product.sku,
+        };
+      }),
+    );
+  }
+
   if (!operation) return null;
 
   const editable = status === 'draft' || status === 'ready';
   const qtyEditable = status === 'draft' || status === 'ready';
+  const multiProductMode = supportsMultiProductLines(kind);
+  const canEditProducts = editable && status === 'draft' && multiProductMode;
   const isSaving = update.isPending || undo.isPending;
   const meta = WAREHOUSE_OPERATION_KIND_META[kind];
   const needsFrom = meta.needsFrom;
@@ -248,21 +418,34 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
   }
 
   async function markReady() {
+    if (multiProductMode) {
+      const normalized = normalizeMultiProductLines();
+      if (!normalized) return;
+      if (!(await assertStockBeforeSave(normalized))) return;
+      await savePatch({ status: 'ready', lines: normalized }, 'تم تحديد المستند كجاهز');
+      return;
+    }
     // Header only — avoid rewriting lines on every status change.
     await savePatch({ status: 'ready' }, 'تم تحديد المستند كجاهز');
   }
 
   async function validate() {
     const isCountLike = kind === 'physical_count' || kind === 'adjustment';
-    const invalid = lines.some(
+    let linesToValidate = lines;
+    if (multiProductMode) {
+      const normalized = normalizeMultiProductLines();
+      if (!normalized) return;
+      linesToValidate = normalized;
+    }
+    const invalid = linesToValidate.some(
       (line) => line.quantity < 0 || (!isCountLike && line.demandQuantity <= 0),
     );
     if (invalid) {
       toast.error('تحقق من كميات البنود قبل التصديق.');
       return;
     }
-    // Lines first (while still ready), then status done — handled in API update order.
-    await savePatch({ status: 'done', lines }, 'تم تصديق المستند');
+    if (!(await assertStockBeforeSave(linesToValidate))) return;
+    await savePatch({ status: 'done', lines: linesToValidate }, 'تم تصديق المستند');
   }
 
   async function undoValidation() {
@@ -317,7 +500,14 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
   }
 
   async function saveDraftChanges() {
-    await savePatch({ status, lines }, 'تم حفظ التعديلات');
+    let linesToSave = lines;
+    if (multiProductMode) {
+      const normalized = normalizeMultiProductLines();
+      if (!normalized) return;
+      linesToSave = normalized;
+    }
+    if (!(await assertStockBeforeSave(linesToSave))) return;
+    await savePatch({ status, lines: linesToSave }, 'تم حفظ التعديلات');
   }
 
   return (
@@ -406,7 +596,7 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
             <div className="space-y-3">
               <div className="space-y-1.5">
                 <Label>
-                  {kind === 'issue' ? 'التسليم إلى' : kind === 'receipt' ? 'الاستلام من' : 'الطرف'}
+                  {kind === 'issue' ? 'الصرف إلى' : kind === 'receipt' ? 'الاستلام من' : 'الطرف'}
                 </Label>
                 <Input
                   value={partnerName}
@@ -525,7 +715,15 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="operations" className="mt-3">
+            <TabsContent value="operations" className="mt-3 space-y-2">
+              {canEditProducts ? (
+                <div className="flex justify-end">
+                  <Button type="button" variant="outline" size="sm" disabled={isSaving} onClick={addProductLine}>
+                    <Plus className="me-1 h-3.5 w-3.5" />
+                    إضافة صنف
+                  </Button>
+                </div>
+              ) : null}
               <div className="overflow-hidden rounded-lg border border-border">
                 <table className="w-full text-sm">
                   <thead>
@@ -534,67 +732,104 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
                       <th className="px-3 py-2.5 text-start font-medium">الطلب</th>
                       <th className="px-3 py-2.5 text-start font-medium">الكمية</th>
                       <th className="px-3 py-2.5 text-start font-medium">الوحدة</th>
+                      {canEditProducts ? <th className="w-10 px-2 py-2.5" /> : null}
                     </tr>
                   </thead>
                   <tbody>
-                    {lines.map((line) => (
-                      <tr key={line.id} className="border-b border-border last:border-0">
+                    {lines.map((line) => {
+                      const available = availableByLineId[line.id];
+                      const maxQty =
+                        checksSourceStock && available != null
+                          ? maxQuantityForLine({
+                              lines,
+                              lineId: line.id,
+                              availableAtLocation: available,
+                              fromLocationId: headerFromLocationId || undefined,
+                            })
+                          : null;
+
+                      return (
+                      <tr key={line.id} className="border-b border-border last:border-0 align-top">
                         <td className="px-3 py-2.5">
-                          <div className="font-medium">{line.productName}</div>
-                          {line.sku ? (
-                            <div className="text-xs text-muted-foreground" dir="ltr">
-                              {line.sku}
-                            </div>
-                          ) : null}
-                          <div className="mt-0.5 text-xs text-muted-foreground">
-                            {line.variantId ? 'متغير' : 'المنتج الأساسي'}
-                          </div>
+                          {canEditProducts ? (
+                            <>
+                              <ProductSinglePicker
+                                companyId={companyId ?? ''}
+                                value={line.productId}
+                                status="active"
+                                disabled={isSaving}
+                                placeholder="ابحث عن منتج…"
+                                onChange={(productId) => {
+                                  if (!productId) applyLineProduct(line.id, null);
+                                }}
+                                onProductSelect={(product) => applyLineProduct(line.id, product)}
+                              />
+                              {line.sku ? (
+                                <div className="mt-1 text-xs text-muted-foreground" dir="ltr">
+                                  {line.sku}
+                                </div>
+                              ) : null}
+                            </>
+                          ) : (
+                            <>
+                              <div className="font-medium">{line.productName}</div>
+                              {line.sku ? (
+                                <div className="text-xs text-muted-foreground" dir="ltr">
+                                  {line.sku}
+                                </div>
+                              ) : null}
+                              <div className="mt-0.5 text-xs text-muted-foreground">
+                                {line.variantId ? 'متغير' : 'المنتج الأساسي'}
+                              </div>
+                            </>
+                          )}
                         </td>
                         <td className="px-3 py-2.5">
-                          <Input
-                            type="number"
-                            min={0}
-                            step={1}
-                            dir="ltr"
+                          <FlexibleQuantityInput
                             className="h-8 w-24"
-                            value={line.demandQuantity}
+                            value={line.demandQuantity ?? 0}
+                            max={maxQty}
                             disabled={!editable || status === 'ready'}
-                            onChange={(e) => {
-                              const demandQuantity = Math.max(0, Number(e.target.value) || 0);
-                              setLines((prev) =>
-                                prev.map((item) =>
-                                  item.id === line.id
-                                    ? {
-                                        ...item,
-                                        demandQuantity,
-                                        quantity: status === 'draft' ? demandQuantity : item.quantity,
-                                      }
-                                    : item,
-                                ),
-                              );
+                            onChange={(value) => {
+                              applyLineQuantity(line.id, 'demandQuantity', value);
                             }}
                           />
+                          {checksSourceStock && available != null ? (
+                            <p className="mt-1 text-[11px] text-muted-foreground">
+                              المتاح في الموقع: {available}
+                            </p>
+                          ) : null}
                         </td>
                         <td className="px-3 py-2.5">
-                          <Input
-                            type="number"
-                            min={0}
-                            step={1}
-                            dir="ltr"
+                          <FlexibleQuantityInput
                             className="h-8 w-24"
                             value={line.quantity}
+                            max={maxQty}
                             disabled={!qtyEditable}
-                            onChange={(e) => {
-                              const quantity = Math.max(0, Number(e.target.value) || 0);
-                              setLines((prev) =>
-                                prev.map((item) => (item.id === line.id ? { ...item, quantity } : item)),
-                              );
+                            onChange={(value) => {
+                              applyLineQuantity(line.id, 'quantity', value);
                             }}
                           />
                         </td>
                         <td className="px-3 py-2.5 text-muted-foreground">الوحدات</td>
+                        {canEditProducts ? (
+                          <td className="px-2 py-2.5">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              disabled={isSaving || lines.length <= 1}
+                              aria-label="حذف السطر"
+                              onClick={() => removeProductLine(line.id)}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </td>
+                        ) : null}
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

@@ -4,13 +4,15 @@ import { cn } from '@/shared/utils';
 
 type AppsLauncherButtonProps = {
   className?: string;
+  /** Shown instead of «التطبيقات» while inside an app, so the chip names where you are. */
+  label?: string;
 };
 
 /**
  * App switcher — Odoo-style: soft gold accent + label, separated from in-app nav.
  * Solid gold block competed visually with the active nav pill beside it.
  */
-export function AppsLauncherButton({ className }: AppsLauncherButtonProps) {
+export function AppsLauncherButton({ className, label = 'التطبيقات' }: AppsLauncherButtonProps) {
   return (
     <Link
       href="/"
@@ -29,7 +31,7 @@ export function AppsLauncherButton({ className }: AppsLauncherButtonProps) {
         <LayoutGrid className="h-3.5 w-3.5" strokeWidth={2.25} />
       </span>
       <span className="hidden text-[11px] font-semibold leading-none sm:inline">
-        التطبيقات
+        {label}
       </span>
     </Link>
   );

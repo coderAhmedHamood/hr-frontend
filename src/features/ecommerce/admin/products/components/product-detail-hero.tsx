@@ -6,7 +6,7 @@ import { useWatch, type Control, type UseFormRegister, type UseFormSetValue } fr
 import type { ProductFormInput, ProductFormValues } from '@/features/ecommerce/admin/products/schemas/product-schema';
 import { useProductImageField } from '@/features/ecommerce/admin/products/hooks/use-product-image-field';
 import { ProductStatTile } from '@/features/ecommerce/admin/products/components/product-stat-tile';
-import { ecommerceAdminRoutes } from '@/features/ecommerce/admin/constants/routes';
+import { useProductsBasePath } from '@/features/ecommerce/admin/products/lib/products-navigation';
 import { PRODUCT_STATUS_LABELS_AR, type ProductStatus } from '@/features/ecommerce/domain/constants/product-status';
 import { STOCK_STATUS_LABELS_AR, type StockStatus } from '@/features/ecommerce/domain/constants/stock-status';
 import { formatPrice } from '@/features/ecommerce/shared/utils/format-price';
@@ -39,6 +39,7 @@ const STOCK_BADGE_VARIANT: Record<StockStatus, BadgeProps['variant']> = {
 /** Modern, live-updating identity card for the product detail page — replaces the compact dialog header. */
 export function ProductDetailHero({ control, register, setValue, nameError, currency }: Props) {
   const { imageUrl, pickImage, uploading } = useProductImageField(control, setValue);
+  const productsBasePath = useProductsBasePath();
   const sku = useWatch({ control, name: 'sku' }) ?? '';
   const status = useWatch({ control, name: 'status' });
   const stockStatus = useWatch({ control, name: 'stockStatus' });
@@ -75,7 +76,7 @@ export function ProductDetailHero({ control, register, setValue, nameError, curr
           className="w-fit gap-1.5 self-start text-muted-foreground hover:text-foreground"
           asChild
         >
-          <Link href={ecommerceAdminRoutes.products}>
+          <Link href={productsBasePath}>
             <ArrowRight className="h-4 w-4" />
             المنتجات
           </Link>
@@ -108,7 +109,11 @@ export function ProductDetailHero({ control, register, setValue, nameError, curr
 
           <div className="min-w-0 flex-1 space-y-3">
             <div className="space-y-1.5">
+              <label htmlFor="product-detail-name-ar" className="text-xs font-medium text-muted-foreground">
+                اسم المنتج <span className="text-destructive">*</span>
+              </label>
               <Input
+                id="product-detail-name-ar"
                 placeholder="اسم المنتج بالعربية"
                 aria-label="اسم المنتج"
                 aria-invalid={Boolean(nameError)}

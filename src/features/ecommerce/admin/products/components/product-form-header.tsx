@@ -1,6 +1,6 @@
 'use client';
 
-import { Camera, ImagePlus, Loader2 } from 'lucide-react';
+import { Camera, CheckCircle2, ImagePlus, Loader2, Sparkles } from 'lucide-react';
 import { useWatch, type Control, type UseFormRegister, type UseFormSetValue } from 'react-hook-form';
 import type { ProductFormInput, ProductFormValues } from '@/features/ecommerce/admin/products/schemas/product-schema';
 import { useProductImageField } from '@/features/ecommerce/admin/products/hooks/use-product-image-field';
@@ -100,6 +100,19 @@ export function ProductFormHeader({
             )}
           </div>
         </div>
+      </div>
+
+      <div className="flex flex-col gap-2 rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-2">
+          <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />
+          <p className="text-sm font-medium text-foreground">
+            المطلوب للحفظ: <span className="font-semibold">اسم المنتج فقط</span>
+          </p>
+        </div>
+        <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Sparkles className="h-3.5 w-3.5 text-primary" />
+          يُنشأ SKU تلقائيًا، ويمكن تخصيصه من تبويب «عام»
+        </p>
       </div>
 
       {relatedDocs && onRelatedDocSelect ? (

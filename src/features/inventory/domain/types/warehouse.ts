@@ -52,6 +52,9 @@ export type UpdateWarehouseInput = Partial<CreateWarehouseInput>;
 export type WarehouseLocation = TenantScoped & {
   id: string;
   warehouseId: string;
+  /** Joined from warehouse on list/detail API responses */
+  warehouseNameAr?: string;
+  warehouseCode?: string;
   code: string;
   nameAr: string;
   nameEn?: string;
@@ -145,6 +148,8 @@ export type WarehouseOperationListQuery = {
   kind?: WarehouseOperationKind;
   status?: WarehouseOperationStatus;
   productId?: string;
+  occurredAtFrom?: string;
+  occurredAtTo?: string;
   search?: string;
   /** Company-wide list for inventory reports (no warehouse/product/kind required). */
   all?: boolean;

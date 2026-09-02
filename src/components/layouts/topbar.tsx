@@ -649,6 +649,19 @@ export function Topbar() {
         : inEcommerceApp
           ? ecommerceNavConfig
           : navConfig;
+  const currentAppLabel = inSystemOwnerApp
+    ? 'مالك النظام'
+    : inSystemApp
+      ? 'النظام'
+      : inHrApp
+        ? 'الموارد البشرية'
+        : inContactsApp
+          ? 'جهات الاتصال'
+          : inInventoryApp
+            ? 'المخازن'
+            : inEcommerceApp
+              ? 'إدارة المتجر'
+              : undefined;
   const onLauncher = isLauncherPath(pathname);
   const PageIcon = meta.iconName ? PAGE_ICONS[meta.iconName] : null;
 
@@ -672,7 +685,7 @@ export function Topbar() {
         <div className="flex shrink-0 items-center gap-2">
           {!onLauncher && (
             <>
-              <AppsLauncherButton />
+              <AppsLauncherButton label={currentAppLabel} />
               {inAppShell && (
                 <div className="hidden h-5 w-px bg-border/70 lg:block" aria-hidden />
               )}

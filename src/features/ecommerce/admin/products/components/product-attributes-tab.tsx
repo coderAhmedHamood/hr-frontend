@@ -32,6 +32,7 @@ import {
   dialogShellHeaderClass,
 } from '@/components/ui/dialog';
 import { cn } from '@/shared/utils';
+import { resolveUploadUrl } from '@/shared/resolve-upload-url';
 
 type Props = {
   control: Control<ProductFormInput, unknown, ProductFormValues>;
@@ -94,7 +95,7 @@ function ValuePill({
       ) : null}
       {displayType === 'image' && value.imageUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={value.imageUrl} alt="" className="h-4 w-4 shrink-0 rounded-full object-cover" />
+        <img src={resolveUploadUrl(value.imageUrl)} alt="" className="h-4 w-4 shrink-0 rounded-full object-cover" />
       ) : null}
       {value.nameAr}
     </span>

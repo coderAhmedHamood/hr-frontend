@@ -19,6 +19,8 @@ function mapLocation(dto: WarehouseLocationDto): WarehouseLocation {
     id: dto.id,
     companyId: dto.companyId,
     warehouseId: dto.warehouseId,
+    warehouseNameAr: dto.warehouseNameAr ?? undefined,
+    warehouseCode: dto.warehouseCode ?? undefined,
     code: dto.code,
     nameAr: dto.nameAr,
     nameEn: dto.nameEn ?? undefined,

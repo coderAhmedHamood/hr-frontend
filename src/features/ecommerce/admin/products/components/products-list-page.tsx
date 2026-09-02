@@ -24,7 +24,10 @@ import {
 import { formatPrice } from '@/features/ecommerce/shared/utils/format-price';
 import { PRODUCT_STATUS_LABELS_AR, PRODUCT_STATUS_OPTIONS } from '@/features/ecommerce/domain/constants/product-status';
 import { STOCK_STATUS_LABELS_AR, STOCK_STATUS_OPTIONS } from '@/features/ecommerce/domain/constants/stock-status';
-import { ecommerceAdminRoutes } from '@/features/ecommerce/admin/constants/routes';
+import {
+  productDetailHref,
+  useProductsBasePath,
+} from '@/features/ecommerce/admin/products/lib/products-navigation';
 import type { Product, ProductListQuery } from '@/features/ecommerce/domain/types/product';
 import type { ProductStatus } from '@/features/ecommerce/domain/constants/product-status';
 import type { StockStatus } from '@/features/ecommerce/domain/constants/stock-status';
@@ -34,6 +37,7 @@ import { Button } from '@/components/ui/button';
 import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { DataTable, type ColumnDef } from '@/components/ui/data-table';
 import { DirectoryPagedViews, DEFAULT_PAGE_SIZE } from '@/components/ui/paged-list';
+import { resolveUploadUrl } from '@/shared/resolve-upload-url';
 
 const FILTER_KEYS = [
   'categoryId',
@@ -75,6 +79,7 @@ export function ProductsListPage() {
   const companyId = getStorefrontCompanyId();
   const router = useRouter();
   const pathname = usePathname();
+  const productsBasePath = useProductsBasePath();
   const searchParams = useSearchParams();
 
   const search = searchParams.get('q') ?? '';
@@ -148,7 +153,8 @@ export function ProductsListPage() {
   const [productToDelete, setProductToDelete] = React.useState<Product | null>(null);
 
   const openCreateDialog = () => setCreateOpen(true);
-  const goToProductDetail = (product: Product) => router.push(ecommerceAdminRoutes.productDetail(product.id));
+  const goToProductDetail = (product: Product) =>
+    router.push(productDetailHref(productsBasePath, product.id));
 
   const handleDeleteConfirm = async (product: Product) => {
     await remove.mutateAsync({ companyId, id: product.id });
@@ -318,7 +324,7 @@ export function ProductsListPage() {
             <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted">
               {primaryImage ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={primaryImage.url} alt={primaryImage.alt} className="h-full w-full object-cover" />
+                <img src={resolveUploadUrl(primaryImage.url)} alt={primaryImage.alt} className="h-full w-full object-cover" />
               ) : (
                 <Package className="h-4 w-4 text-muted-foreground" />
               )}
@@ -428,7 +434,7 @@ export function ProductsListPage() {
           <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted">
             {primaryImage ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={primaryImage.url} alt={primaryImage.alt} className="h-full w-full object-cover" />
+              <img src={resolveUploadUrl(primaryImage.url)} alt={primaryImage.alt} className="h-full w-full object-cover" />
             ) : (
               <Package className="h-5 w-5 text-muted-foreground" />
             )}
