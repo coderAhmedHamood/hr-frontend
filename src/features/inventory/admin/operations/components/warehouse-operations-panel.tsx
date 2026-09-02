@@ -123,7 +123,14 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
   const { data: warehousesData } = useWarehouses({ companyId, limit: 100 });
   const allWarehouses = warehousesData?.items ?? [];
   const { data: productsData } = useProducts({ companyId, limit: 200, status: 'active' });
-  const catalogProducts = productsData?.items ?? [];
+  const catalogProducts = React.useMemo(() => {
+    const seen = new Set<string>();
+    return (productsData?.items ?? []).filter((product) => {
+      if (seen.has(product.id)) return false;
+      seen.add(product.id);
+      return true;
+    });
+  }, [productsData?.items]);
   const items = data?.items ?? [];
   const total = data?.pagination.total ?? 0;
   const form = useForm<WarehouseOperationFormValues>({
@@ -145,6 +152,35 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
     [selectedProduct?.variants],
   );
   const hasActiveVariants = activeVariants.length > 0;
+
+  // Products already sitting in an unvalidated document of this kind — cannot be picked again.
+  const { data: openOperationsData } = useWarehouseOperations(
+    {
+      companyId,
+      warehouseId: effectiveWarehouseId || undefined,
+      kind,
+      page: 1,
+      limit: 500,
+    },
+    { enabled: open && Boolean(companyId && effectiveWarehouseId) },
+  );
+
+  const takenProductIds = React.useMemo(() => {
+    const taken = new Map<string, string>();
+    for (const operation of openOperationsData?.items ?? []) {
+      if (operation.status !== 'draft' && operation.status !== 'ready') continue;
+      for (const line of operation.lines) {
+        if (line.productId) taken.set(line.productId, operation.reference);
+      }
+    }
+    return taken;
+  }, [openOperationsData?.items]);
+
+  const selectableProducts = React.useMemo(
+    () => catalogProducts.filter((product) => !takenProductIds.has(product.id)),
+    [catalogProducts, takenProductIds],
+  );
+  const hiddenProductsCount = catalogProducts.length - selectableProducts.length;
 
   const warehousesForDest = allWarehouses.filter((item) => item.id !== effectiveWarehouseId);
 
@@ -305,6 +341,14 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
     if (!sourceWh) return;
     if (meta.needsDestWarehouse && !values.destinationWarehouseId) return;
     if (!values.productId?.trim()) return;
+
+    const duplicateReference = takenProductIds.get(values.productId.trim());
+    if (duplicateReference) {
+      toast.error(
+        `هذا المنتج مضاف بالفعل في مستند ${meta.labelAr} «${duplicateReference}» غير المصدَّق. عدّل ذلك المستند بدل إنشاء مستند مكرر.`,
+      );
+      return;
+    }
 
     const qty = values.quantity;
     const theoretical = values.theoreticalQuantity ?? qty;
@@ -600,7 +644,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
                         <SelectValue placeholder="اختر منتجًا من الكتالوج" />
                       </SelectTrigger>
                       <SelectContent>
-                        {catalogProducts.map((product) => (
+                        {selectableProducts.map((product) => (
                           <SelectItem key={product.id} value={product.id}>
                             {product.nameAr}
                             {product.sku ? ` (${product.sku})` : ''}
@@ -612,6 +656,12 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
                 />
                 {form.formState.errors.productId ? (
                   <p className="text-xs text-destructive">{form.formState.errors.productId.message}</p>
+                ) : null}
+                {hiddenProductsCount > 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    تم إخفاء {hiddenProductsCount} منتجًا لوجود مستند {meta.labelAr} غير مصدَّق لها. صدِّق
+                    المستند أو ألغِه لإتاحة المنتج مجددًا.
+                  </p>
                 ) : null}
                 {selectedProductId && isLoadingSelectedProduct ? (
                   <p className="text-xs text-muted-foreground">جاري تحميل المتغيرات…</p>
