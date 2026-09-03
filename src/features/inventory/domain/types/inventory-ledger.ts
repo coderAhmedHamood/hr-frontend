@@ -31,6 +31,13 @@ export type InventoryLedgerEntry = TenantScoped & {
   createdAt: string;
 };
 
+export type InventoryLedgerSummary = {
+  entries: number;
+  qtyIn: number;
+  qtyOut: number;
+  net: number;
+};
+
 export type InventoryLedgerListQuery = {
   companyId: string;
   warehouseId?: string;
@@ -38,6 +45,8 @@ export type InventoryLedgerListQuery = {
   locationId?: string;
   kind?: WarehouseOperationKind;
   operationId?: string;
+  occurredAtFrom?: string;
+  occurredAtTo?: string;
   search?: string;
   page?: number;
   limit?: number;

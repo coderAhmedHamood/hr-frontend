@@ -22,6 +22,12 @@ import { ListFilterBar } from '@/components/ui/list-filter-bar';
 import { EntityFilterSearchField } from '@/components/ui/entity-filter-search-field';
 import { Input } from '@/components/ui/input';
 
+function localDateBoundary(date: string, endOfDay = false): string | undefined {
+  if (!date) return undefined;
+  const value = new Date(`${date}T${endOfDay ? '23:59:59.999' : '00:00:00.000'}`);
+  return Number.isNaN(value.getTime()) ? undefined : value.toISOString();
+}
+
 export function MovesLedgerReportPage() {
   const companyId = getInventoryCompanyId();
   const [searchInput, setSearchInput] = React.useState('');
@@ -49,6 +55,8 @@ export function MovesLedgerReportPage() {
     companyId,
     warehouseId: warehouseId === 'all' ? undefined : warehouseId,
     kind: kind === 'all' ? undefined : kind,
+    occurredAtFrom: localDateBoundary(dateFrom),
+    occurredAtTo: localDateBoundary(dateTo, true),
     search: search || undefined,
     page,
     limit: pageSize,
@@ -56,7 +64,7 @@ export function MovesLedgerReportPage() {
   const { data: warehousesData } = useWarehouses({ companyId, limit: 100 });
   const { data: locationsData } = useWarehouseLocations({ companyId, limit: 500 });
 
-  const warehouses = warehousesData?.items ?? [];
+  const warehouses = React.useMemo(() => warehousesData?.items ?? [], [warehousesData?.items]);
   const warehouseName = React.useMemo(
     () => new Map(warehouses.map((item) => [item.id, item.nameAr])),
     [warehouses],
@@ -66,16 +74,8 @@ export function MovesLedgerReportPage() {
     return (id?: string) => (id ? (map.get(id) ?? id) : '—');
   }, [locationsData?.items]);
 
-  const rows = React.useMemo(() => {
-    const items = data?.items ?? [];
-    return items.filter((row) => {
-      if (dateFrom && row.occurredAt.slice(0, 10) < dateFrom) return false;
-      if (dateTo && row.occurredAt.slice(0, 10) > dateTo) return false;
-      return true;
-    });
-  }, [data?.items, dateFrom, dateTo]);
-
-  const total = dateFrom || dateTo ? rows.length : (data?.pagination.total ?? 0);
+  const rows = data?.items ?? [];
+  const total = data?.pagination.total ?? 0;
 
   usePageHeaderActions(() => <FilterToggleButton />, []);
 
@@ -231,13 +231,10 @@ export function MovesLedgerReportPage() {
       />
 
       <div className="flex flex-wrap gap-2">
-        <Badge variant="subtle">قيود: {rows.length}</Badge>
-        <Badge variant="success">
-          وارد: {rows.filter((r) => r.quantityDelta > 0).reduce((s, r) => s + r.quantityDelta, 0)}
-        </Badge>
-        <Badge variant="destructive">
-          صادر: {Math.abs(rows.filter((r) => r.quantityDelta < 0).reduce((s, r) => s + r.quantityDelta, 0))}
-        </Badge>
+        <Badge variant="subtle">قيود: {data?.summary.entries ?? total}</Badge>
+        <Badge variant="success">وارد: {data?.summary.qtyIn ?? 0}</Badge>
+        <Badge variant="destructive">صادر: {data?.summary.qtyOut ?? 0}</Badge>
+        <Badge variant="subtle">الصافي: {data?.summary.net ?? 0}</Badge>
       </div>
 
       {isError ? <p className="text-sm text-destructive">تعذر تحميل سجل الحركات.</p> : null}

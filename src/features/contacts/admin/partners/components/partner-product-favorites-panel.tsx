@@ -15,20 +15,13 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
   useCreateProductFavorite,
   useDeleteProductFavorite,
   useProductFavorites,
 } from '@/features/ecommerce/admin/favorites/hooks/use-product-favorites';
-import { productsApi } from '@/features/ecommerce/admin/products/lib/api/products';
+import { ProductSinglePicker } from '@/features/ecommerce/admin/products/components/product-single-picker';
+import { ProductLabel } from '@/features/ecommerce/admin/products/components/product-label';
 import { ecommerceAdminRoutes } from '@/features/ecommerce/admin/constants/routes';
-import { useQuery } from '@tanstack/react-query';
 
 const FAVORITES_READ = 'inv.catalog.product-favorites.read';
 const FAVORITES_CREATE = 'inv.catalog.product-favorites.create';
@@ -61,29 +54,12 @@ function PartnerProductFavoritesBody({ companyId, partnerId }: Props) {
   const createFavorite = useCreateProductFavorite();
   const deleteFavorite = useDeleteProductFavorite();
 
-  const { data: productsPage } = useQuery({
-    queryKey: ['ecommerce', 'products', 'for-favorites', companyId],
-    queryFn: () => productsApi.getAll({ companyId, page: 1, limit: 200 }),
-    enabled: Boolean(companyId),
-  });
-
-  const productNameById = React.useMemo(() => {
-    const map = new Map<string, string>();
-    for (const product of productsPage?.items ?? []) {
-      map.set(product.id, product.nameAr || product.sku);
-    }
-    return map;
-  }, [productsPage?.items]);
-
   const items = data?.items ?? [];
   const total = data?.pagination.total ?? items.length;
   const totalPages = Math.max(1, data?.pagination.totalPages ?? 1);
   const favoritedProductIds = React.useMemo(
-    () => new Set(items.map((item) => item.productId)),
+    () => items.map((item) => item.productId),
     [items],
-  );
-  const availableProducts = (productsPage?.items ?? []).filter(
-    (product) => !favoritedProductIds.has(product.id),
   );
 
   async function onAdd(event: React.FormEvent) {
@@ -115,7 +91,7 @@ function PartnerProductFavoritesBody({ companyId, partnerId }: Props) {
             size="sm"
             className="ms-auto"
             onClick={() => {
-              setProductId(availableProducts[0]?.id ?? '');
+              setProductId('');
               setAddOpen(true);
             }}
           >
@@ -152,7 +128,7 @@ function PartnerProductFavoritesBody({ companyId, partnerId }: Props) {
             >
               <div className="min-w-0 space-y-1">
                 <p className="font-medium text-foreground">
-                  {productNameById.get(favorite.productId) || 'منتج'}
+                  <ProductLabel companyId={companyId} productId={favorite.productId} fallback="منتج" />
                 </p>
                 <p className="text-xs text-muted-foreground">
                   <Link
@@ -227,21 +203,13 @@ function PartnerProductFavoritesBody({ companyId, partnerId }: Props) {
           <form className="space-y-3" onSubmit={(e) => void onAdd(e)}>
             <div className="space-y-1.5">
               <Label>المنتج</Label>
-              <Select value={productId} onValueChange={setProductId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="اختر منتجاً" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableProducts.map((product) => (
-                    <SelectItem key={product.id} value={product.id}>
-                      {product.nameAr || product.sku}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {availableProducts.length === 0 ? (
-                <p className="text-xs text-muted-foreground">كل المنتجات الظاهرة مضافة مسبقاً أو لا توجد منتجات.</p>
-              ) : null}
+              <ProductSinglePicker
+                companyId={companyId}
+                value={productId}
+                excludeIds={favoritedProductIds}
+                placeholder="ابحث عن منتج…"
+                onChange={setProductId}
+              />
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setAddOpen(false)}>

@@ -3,10 +3,20 @@ import { toNumber } from '@/features/inventory/lib/api/numbers';
 import type {
   InventoryLedgerEntry,
   InventoryLedgerListQuery,
+  InventoryLedgerSummary,
 } from '@/features/inventory/domain/types/inventory-ledger';
 
 type LedgerDto = Omit<InventoryLedgerEntry, 'quantityDelta'> & {
   quantityDelta: string | number;
+};
+
+type LedgerListDto = PaginatedResult<LedgerDto> & {
+  summary?: {
+    entries: number | string;
+    qtyIn: number | string;
+    qtyOut: number | string;
+    net: number | string;
+  };
 };
 
 function mapEntry(dto: LedgerDto): InventoryLedgerEntry {
@@ -39,7 +49,7 @@ export const inventoryLedgerApi = {
     if (!query.companyId?.trim()) {
       throw new Error('companyId مطلوب لقائمة قيود المخزون.');
     }
-    const result = await apiRequest<PaginatedResult<LedgerDto>>('/inventory/ledger-entries', {
+    const result = await apiRequest<LedgerListDto>('/inventory/ledger-entries', {
       query: {
         companyId: query.companyId,
         warehouseId: query.warehouseId,
@@ -47,14 +57,23 @@ export const inventoryLedgerApi = {
         locationId: query.locationId,
         kind: query.kind,
         operationId: query.operationId,
+        occurredAtFrom: query.occurredAtFrom,
+        occurredAtTo: query.occurredAtTo,
         search: query.search,
         page: query.page ?? 1,
         limit: query.limit ?? 200,
       },
     });
+    const summary: InventoryLedgerSummary = {
+      entries: toNumber(result.summary?.entries, result.pagination?.total ?? 0),
+      qtyIn: toNumber(result.summary?.qtyIn),
+      qtyOut: toNumber(result.summary?.qtyOut),
+      net: toNumber(result.summary?.net),
+    };
     return {
       items: (result.items ?? []).map(mapEntry),
       pagination: result.pagination,
+      summary,
     };
   },
 

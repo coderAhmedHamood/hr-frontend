@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useForm, useWatch } from 'react-hook-form';
+import { useForm, useWatch, type FieldErrors } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
@@ -32,6 +32,7 @@ import { ProductStockMovesHistoryDialog } from '@/features/ecommerce/admin/produ
 import { ProductReplenishmentListDialog } from '@/features/ecommerce/admin/products/components/product-replenishment-list-dialog';
 import { ProductPutawayRulesDialog } from '@/features/ecommerce/admin/products/components/product-putaway-rules-dialog';
 import type { ProductRelatedDocKey } from '@/features/ecommerce/admin/products/components/product-related-docs-bar';
+import { productMoveRequestListRestore } from '@/features/ecommerce/admin/products/lib/product-move-request-flow';
 import type { Product } from '@/features/ecommerce/domain/types/product';
 import type { WarehouseOperationKind } from '@/features/inventory/domain/types/warehouse';
 import { Layers, Package, Ruler, Settings, Warehouse } from 'lucide-react';
@@ -57,7 +58,7 @@ type Props = {
 
 function ensureSlug(values: ProductFormValues): ProductFormValues {
   if (values.slug?.trim()) return values;
-  const fromSku = values.sku
+  const fromSku = (values.sku ?? '')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
@@ -77,6 +78,30 @@ const TAB_TRIGGER_CLASS =
 
 type FormTab = (typeof FORM_TABS)[number]['value'];
 type MoveRequestKind = WarehouseOperationKind;
+
+const FORM_TAB_FIELDS: Record<FormTab, string[]> = {
+  general: [
+    'sku',
+    'status',
+    'productType',
+    'categoryId',
+    'brandId',
+    'listPrice',
+    'costPrice',
+    'slug',
+  ],
+  attributes: ['attributes', 'variants'],
+  availability: ['stockStatus', 'stockQuantity', 'lowStockThreshold'],
+  units: ['uomLines'],
+  settings: [
+    'isTodayDeal',
+    'dealPriceAmount',
+    'isWholesale',
+    'wholesalePriceAmount',
+    'isDiscounted',
+    'discountPercent',
+  ],
+};
 
 export function ProductFormDialog({ product, open, onOpenChange }: Props) {
   const companyId = getStorefrontCompanyId();
@@ -105,6 +130,16 @@ export function ProductFormDialog({ product, open, onOpenChange }: Props) {
 
   function bumpRelatedRequest(key: ProductRelatedDocKey) {
     setRelatedRequestKeys((prev) => ({ ...prev, [key]: (prev[key] ?? 0) + 1 }));
+  }
+
+  function restoreMoveRequestList(kind: WarehouseOperationKind, bump = false) {
+    const restore = productMoveRequestListRestore(kind);
+    if (restore.relatedDoc) {
+      if (bump) bumpRelatedRequest(restore.relatedDoc);
+      setActiveRelatedDoc(restore.relatedDoc);
+    }
+    if (restore.openReplenishmentList) setReplenishmentListOpen(true);
+    if (restore.movesListKind) setMovesListKind(restore.movesListKind);
   }
 
   const form = useForm<ProductFormInput, unknown, ProductFormValues>({
@@ -171,6 +206,27 @@ export function ProductFormDialog({ product, open, onOpenChange }: Props) {
     onOpenChange(false);
   };
 
+  const onInvalid = (formErrors: FieldErrors<ProductFormInput>) => {
+    const errorKeys = Object.keys(formErrors);
+    if (errorKeys.includes('nameAr')) {
+      toast.error('يرجى إدخال اسم المنتج أولًا.');
+      requestAnimationFrame(() => {
+        document.getElementById('product-name-ar')?.focus();
+      });
+      return;
+    }
+
+    const offendingTab = FORM_TABS.find((tab) =>
+      FORM_TAB_FIELDS[tab.value].some((key) => errorKeys.includes(key)),
+    );
+    if (offendingTab) {
+      setActiveTab(offendingTab.value);
+      toast.error(`تحقق من الحقول الموضحة في تبويب «${offendingTab.label}».`);
+      return;
+    }
+    toast.error('تحقق من الحقول المطلوبة والموضحة باللون الأحمر.');
+  };
+
   function requireSavedProduct(actionLabel: string): boolean {
     if (product?.id) return true;
     toast.message(`احفظ المنتج أولًا ثم ${actionLabel}.`);
@@ -195,21 +251,21 @@ export function ProductFormDialog({ product, open, onOpenChange }: Props) {
       return;
     }
     if (key === 'receipts') {
-      if (!requireSavedProduct('تعرض الإدخالات')) return;
+      if (!requireSavedProduct('تعرض طلبات استلام المخزون')) return;
       bumpRelatedRequest(key);
       setActiveRelatedDoc('receipts');
       setMovesListKind('receipt');
       return;
     }
     if (key === 'issues') {
-      if (!requireSavedProduct('تعرض الإخراجات')) return;
+      if (!requireSavedProduct('تعرض طلبات صرف المخزون')) return;
       bumpRelatedRequest(key);
       setActiveRelatedDoc('issues');
       setMovesListKind('issue');
       return;
     }
     if (key === 'internals') {
-      if (!requireSavedProduct('تعرض الحركات الداخلية')) return;
+      if (!requireSavedProduct('تعرض نقل المواقع')) return;
       bumpRelatedRequest(key);
       setActiveRelatedDoc('internals');
       setMovesListKind('internal');
@@ -240,14 +296,14 @@ export function ProductFormDialog({ product, open, onOpenChange }: Props) {
             <DialogDescription className="text-xs text-muted-foreground sm:text-sm">
               {isEditing
                 ? 'حدّث بيانات المنتج، الخصائص، والتوفر من التبويبات.'
-                : 'ابدأ بالاسم والصورة والسعر — الخصائص والمخزون اختيارية لاحقًا.'}
+                : 'أدخل اسم المنتج؛ سيُنشئ النظام رمز SKU فريدًا تلقائيًا.'}
             </DialogDescription>
           </div>
 
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              void form.handleSubmit(onSubmit)(e);
+              void form.handleSubmit(onSubmit, onInvalid)(e);
             }}
             className="flex min-h-0 flex-1 flex-col"
           >
@@ -288,18 +344,18 @@ export function ProductFormDialog({ product, open, onOpenChange }: Props) {
                       },
                       {
                         key: 'receipts',
-                        label: 'الإدخالات',
+                        label: 'استلام مخزون',
                         hint: 'طلبات الاستلام الخاصة بهذا المنتج',
                       },
                       {
                         key: 'issues',
-                        label: 'الإخراجات',
+                        label: 'صرف مخزون',
                         hint: 'طلبات الصرف الخاصة بهذا المنتج',
                       },
                       {
                         key: 'internals',
-                        label: 'داخلية',
-                        hint: 'الحركات الداخلية بين مواقع المستودع',
+                        label: 'نقل المواقع',
+                        hint: 'نقل بين مواقع داخل نفس المستودع (ليس بين مستودعات)',
                       },
                       {
                         key: 'moves',
@@ -327,10 +383,19 @@ export function ProductFormDialog({ product, open, onOpenChange }: Props) {
                     <TabsList className="sto-tabs-scroll h-auto w-full justify-start rounded-2xl border border-border/80 bg-muted/40 p-1">
                       {FORM_TABS.map((tab) => {
                         const Icon = tab.icon;
+                        const hasError = FORM_TAB_FIELDS[tab.value].some(
+                          (key) => key in form.formState.errors,
+                        );
                         return (
                           <TabsTrigger key={tab.value} value={tab.value} className={TAB_TRIGGER_CLASS}>
                             <Icon className="hidden h-3.5 w-3.5 sm:block" />
                             <span>{tab.label}</span>
+                            {hasError ? (
+                              <span
+                                className="h-1.5 w-1.5 rounded-full bg-destructive"
+                                aria-label="يحتوي حقولًا غير مكتملة"
+                              />
+                            ) : null}
                           </TabsTrigger>
                         );
                       })}
@@ -401,7 +466,7 @@ export function ProductFormDialog({ product, open, onOpenChange }: Props) {
                 </Button>
               </div>
               <p className="hidden text-[11px] text-muted-foreground sm:block">
-                الحقول بـ * مطلوبة — الباقي يمكن إكماله لاحقًا.
+                الحقول بـ * مطلوبة، والنقطة الحمراء تحدد التبويب الذي يحتاج مراجعة.
               </p>
             </DialogFooter>
           </form>
@@ -411,16 +476,10 @@ export function ProductFormDialog({ product, open, onOpenChange }: Props) {
       <ProductStockMoveRequestDialog
         open={moveRequestKind !== null}
         onOpenChange={(next) => {
-          if (!next) {
-            setMoveRequestKind(null);
-            if (
-              activeRelatedDoc === 'replenish' ||
-              activeRelatedDoc === 'issues' ||
-              activeRelatedDoc === 'internals'
-            ) {
-              setActiveRelatedDoc(null);
-            }
-          }
+          if (next) return;
+          const kind = moveRequestKind;
+          setMoveRequestKind(null);
+          if (kind) restoreMoveRequestList(kind);
         }}
         kind={moveRequestKind ?? 'receipt'}
         productId={product?.id}
@@ -429,19 +488,7 @@ export function ProductFormDialog({ product, open, onOpenChange }: Props) {
         variants={variants}
         onCreated={(_warehouseId, kind) => {
           setMoveRequestKind(null);
-          if (kind === 'replenishment') {
-            bumpRelatedRequest('replenish');
-            setActiveRelatedDoc('replenish');
-            setReplenishmentListOpen(true);
-            return;
-          }
-          if (kind === 'receipt') {
-            bumpRelatedRequest('receipts');
-            setActiveRelatedDoc('receipts');
-            setMovesListKind('receipt');
-            return;
-          }
-          setActiveRelatedDoc(null);
+          restoreMoveRequestList(kind, true);
         }}
       />
 
@@ -492,7 +539,7 @@ export function ProductFormDialog({ product, open, onOpenChange }: Props) {
             const kind = movesListKind ?? 'receipt';
             setMovesListKind(null);
             setActiveRelatedDoc(
-              kind === 'receipt' ? 'replenish' : kind === 'issue' ? 'issues' : 'internals',
+              kind === 'receipt' ? 'receipts' : kind === 'issue' ? 'issues' : 'internals',
             );
             setMoveRequestKind(kind);
           }}

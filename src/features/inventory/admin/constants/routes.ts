@@ -30,6 +30,7 @@ export const inventoryAdminRoutes = {
   putawayRules: '/inventory/putaway-rules',
   /** المنتجات */
   products: '/inventory/products',
+  productDetail: (id: string) => `/inventory/products/${id}`,
   categories: '/inventory/categories',
   attributes: '/inventory/attributes',
   settings: '/inventory/settings',

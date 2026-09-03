@@ -8,8 +8,6 @@ import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
 import { getInventoryCompanyId } from '@/features/inventory/lib/company-id';
 import { useLocationStockList } from '@/features/inventory/admin/hooks/use-product-on-hand';
 import { useWarehouses } from '@/features/inventory/admin/warehouses/hooks/use-warehouses';
-import { useWarehouseLocations } from '@/features/inventory/admin/locations/hooks/use-warehouse-locations';
-import { useProducts } from '@/features/ecommerce/admin/products/hooks/use-products';
 import type { WarehouseLocationType } from '@/features/inventory/domain/types/warehouse';
 import { Badge } from '@/components/ui/badge';
 import { DataTable, usePagination, type ColumnDef } from '@/components/ui/data-table';
@@ -38,6 +36,9 @@ type DetailedStockRow = {
   variantLabel: string;
   quantity: number;
   reservedQuantity: number;
+  unitCost: number;
+  stockValue: number;
+  costCurrency: string;
   updatedAt: string;
 };
 
@@ -58,45 +59,34 @@ export function DetailedStockReportPage() {
     companyId,
     warehouseId: warehouseId === 'all' ? undefined : warehouseId,
   });
-  const { data: productsData } = useProducts({ companyId, page: 1, limit: 500 });
   const { data: warehousesData } = useWarehouses({ companyId, limit: 100 });
-  const { data: locationsData } = useWarehouseLocations({
-    companyId,
-    warehouseId: warehouseId === 'all' ? undefined : warehouseId,
-    limit: 500,
-  });
 
-  const products = productsData?.items ?? [];
-  const warehouses = warehousesData?.items ?? [];
-  const locations = locationsData?.items ?? [];
-
-  const productById = React.useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
+  const warehouses = React.useMemo(() => warehousesData?.items ?? [], [warehousesData?.items]);
   const warehouseById = React.useMemo(() => new Map(warehouses.map((w) => [w.id, w])), [warehouses]);
-  const locationById = React.useMemo(() => new Map(locations.map((l) => [l.id, l])), [locations]);
 
   const rows = React.useMemo(() => {
     const result: DetailedStockRow[] = [];
     for (const row of stockRows) {
-      const location = locationById.get(row.locationId);
-      const product = productById.get(row.productId);
       const warehouse = warehouseById.get(row.warehouseId);
-      const variant = product?.variants?.find((item) => item.id === row.variantId);
       result.push({
         key: row.id,
-        warehouseName: warehouse?.nameAr ?? '—',
-        locationName: location?.nameAr ?? '—',
-        locationCode: location?.code ?? '—',
-        locationType: location?.locationType ?? 'internal',
-        productName: product?.nameAr ?? row.productId,
-        sku: variant?.sku || product?.sku || '—',
-        variantLabel: variant?.nameAr ?? '—',
+        warehouseName: row.warehouseNameAr ?? warehouse?.nameAr ?? '—',
+        locationName: row.locationNameAr ?? '—',
+        locationCode: row.locationCode ?? '—',
+        locationType: row.locationType ?? 'internal',
+        productName: row.productNameAr ?? row.productId,
+        sku: row.variantSku || row.productSku || '—',
+        variantLabel: row.variantNameAr ?? '—',
         quantity: row.quantity,
         reservedQuantity: row.reservedQuantity ?? 0,
+        unitCost: row.unitCost ?? 0,
+        stockValue: row.quantity * (row.unitCost ?? 0),
+        costCurrency: row.costCurrency ?? 'YER',
         updatedAt: row.updatedAt,
       });
     }
     return result.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-  }, [stockRows, locationById, productById, warehouseById]);
+  }, [stockRows, warehouseById]);
 
   const filtered = React.useMemo(() => {
     const q = search.toLowerCase();
@@ -113,6 +103,19 @@ export function DetailedStockReportPage() {
       );
     });
   }, [rows, search, hideZero, locationType]);
+
+  const summary = React.useMemo(
+    () => ({
+      rows: filtered.length,
+      onHand: filtered.reduce((sum, row) => sum + row.quantity, 0),
+      available: filtered.reduce(
+        (sum, row) => sum + Math.max(0, row.quantity - row.reservedQuantity),
+        0,
+      ),
+      value: filtered.reduce((sum, row) => sum + row.stockValue, 0),
+    }),
+    [filtered],
+  );
 
   const {
     page,
@@ -242,6 +245,16 @@ export function DetailedStockReportPage() {
       ),
     },
     {
+      key: 'value',
+      title: 'قيمة المخزون',
+      hideOnMobile: true,
+      render: (row) => (
+        <span className="tabular-nums" dir="ltr">
+          {row.stockValue.toLocaleString('en-US', { maximumFractionDigits: 2 })} {row.costCurrency}
+        </span>
+      ),
+    },
+    {
       key: 'updated',
       title: 'آخر تحديث',
       hideOnMobile: true,
@@ -256,10 +269,17 @@ export function DetailedStockReportPage() {
   return (
     <div className="flex flex-col gap-5">
       <SetPageTitle
-        titleAr="Detailed Stock"
+        titleAr="المخزون التفصيلي"
         descriptionAr="كمية كل منتج في كل موقع تخزين — مستوى الصف التفصيلي للمخزون."
         iconName="ClipboardList"
       />
+
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <SummaryCard label="صفوف المخزون" value={summary.rows} />
+        <SummaryCard label="الكمية الفعلية" value={summary.onHand} />
+        <SummaryCard label="المتاح" value={summary.available} />
+        <SummaryCard label="قيمة المخزون" value={summary.value} suffix="YER" />
+      </div>
 
       {isError ? <p className="text-sm text-destructive">تعذر تحميل المخزون التفصيلي.</p> : null}
 
@@ -287,6 +307,26 @@ export function DetailedStockReportPage() {
           />
         )}
       </DirectoryPagedViews>
+    </div>
+  );
+}
+
+function SummaryCard({
+  label,
+  value,
+  suffix,
+}: {
+  label: string;
+  value: number;
+  suffix?: string;
+}) {
+  return (
+    <div className="rounded-xl border border-border bg-card px-4 py-3 shadow-soft">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="mt-1 text-xl font-semibold tabular-nums" dir="ltr">
+        {value.toLocaleString('en-US', { maximumFractionDigits: 2 })}
+        {suffix ? ` ${suffix}` : ''}
+      </p>
     </div>
   );
 }

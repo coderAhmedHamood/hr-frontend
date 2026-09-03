@@ -70,7 +70,7 @@ async function createOperation(token, ctx, kind, lineExtra = {}) {
       kind === 'replenishment' || kind === 'receipt'
         ? 'تجديد المخزون يدويًا'
         : kind === 'issue'
-          ? 'طلب توصيل يدوي'
+          ? 'صرف مخزون يدوي'
           : 'حركة داخلية يدوية',
     notes: `integration-test ${kind}`,
   };

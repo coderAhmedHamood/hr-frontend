@@ -204,5 +204,11 @@ export type ProductListQuery = {
   limit?: number;
 };
 
-export type CreateProductInput = Omit<Product, 'id' | 'createdAt' | 'updatedAt' | 'archivedAt'>;
+export type CreateProductInput = Omit<
+  Product,
+  'id' | 'createdAt' | 'updatedAt' | 'archivedAt' | 'sku'
+> & {
+  /** Optional on create; the API generates a unique SKU when omitted. */
+  sku?: string;
+};
 export type UpdateProductInput = Partial<CreateProductInput>;
