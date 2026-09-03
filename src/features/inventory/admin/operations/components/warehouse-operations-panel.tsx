@@ -25,6 +25,8 @@ import { useWarehouses } from '@/features/inventory/admin/warehouses/hooks/use-w
 import { useProduct } from '@/features/ecommerce/admin/products/hooks/use-products';
 import { ProductSinglePicker } from '@/features/ecommerce/admin/products/components/product-single-picker';
 import { WarehouseOperationLinesEditor } from '@/features/inventory/admin/operations/components/warehouse-operation-lines-editor';
+import { FlexibleQuantityInput } from '@/features/inventory/admin/operations/components/flexible-quantity-input';
+import { inventoryStockService } from '@/features/inventory/services/inventory-stock.service';
 import {
   collectStockShortages,
   formatStockShortageMessage,
@@ -166,6 +168,68 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
     [selectedProduct?.variants],
   );
   const hasActiveVariants = activeVariants.length > 0;
+
+  // Single-product outbound docs: on-hand at the chosen source location caps the
+  // quantity, so an over-available draft can never be created in the first place.
+  const [sourceAvailable, setSourceAvailable] = React.useState<number | null>(null);
+  const [variantAvailable, setVariantAvailable] = React.useState<Record<string, number>>({});
+  const tracksSourceAvailability = checksSourceStock && !multiProductMode;
+
+  React.useEffect(() => {
+    if (
+      !open ||
+      !companyId ||
+      !tracksSourceAvailability ||
+      !fromLocationId ||
+      !selectedProductId
+    ) {
+      setSourceAvailable(null);
+      setVariantAvailable({});
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const base = await inventoryStockService.getQuantityAtLocation(
+          companyId,
+          selectedProductId,
+          fromLocationId,
+        );
+        const perVariant: Record<string, number> = {};
+        await Promise.all(
+          activeVariants.map(async (variant) => {
+            const qty = await inventoryStockService.getQuantityAtLocation(
+              companyId,
+              selectedProductId,
+              fromLocationId,
+              variant.id,
+            );
+            perVariant[variant.id] = Math.max(0, qty);
+          }),
+        );
+        if (cancelled) return;
+        setSourceAvailable(Math.max(0, base));
+        setVariantAvailable(perVariant);
+      } catch {
+        if (cancelled) return;
+        setSourceAvailable(null);
+        setVariantAvailable({});
+        toast.error('تعذر قراءة رصيد المنتج في الموقع المحدد.');
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    open,
+    companyId,
+    tracksSourceAvailability,
+    fromLocationId,
+    selectedProductId,
+    activeVariants,
+  ]);
 
   // Products already sitting in an unvalidated document of this kind — cannot be picked again.
   const { data: openOperationsData } = useWarehouseOperations(
@@ -463,6 +527,20 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
           : 'أدخل كمية للمنتج.',
       );
       return;
+    }
+
+    if (checksSourceStock && lineLocations.fromLocationId) {
+      const issues = await collectStockShortages({
+        companyId,
+        warehouseId: sourceWh,
+        kind,
+        destinationWarehouseId: values.destinationWarehouseId || undefined,
+        lines,
+      });
+      if (issues.length > 0) {
+        toast.error(formatStockShortageMessage(issues[0]!));
+        return;
+      }
     }
 
     await create.mutateAsync({
@@ -850,15 +928,25 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
                 ) : stockMode === 'product' || !hasActiveVariants ? (
                   <div className="space-y-1.5">
                     <Label htmlFor="op-qty">الكمية</Label>
-                    <Input
-                      id="op-qty"
-                      type="number"
-                      min={0}
-                      step={1}
-                      dir="ltr"
-                      disabled={!locationsReady}
-                      {...form.register('quantity', { valueAsNumber: true })}
+                    <Controller
+                      control={form.control}
+                      name="quantity"
+                      render={({ field }) => (
+                        <FlexibleQuantityInput
+                          id="op-qty"
+                          className="w-full"
+                          value={field.value ?? 0}
+                          max={tracksSourceAvailability ? sourceAvailable : null}
+                          disabled={!locationsReady || !selectedProductId}
+                          onChange={field.onChange}
+                        />
+                      )}
                     />
+                    {tracksSourceAvailability && sourceAvailable != null ? (
+                      <p className="text-xs text-muted-foreground">
+                        المتاح في الموقع: {sourceAvailable}
+                      </p>
+                    ) : null}
                     {form.formState.errors.quantity ? (
                       <p className="text-xs text-destructive">{form.formState.errors.quantity.message}</p>
                     ) : null}
@@ -901,6 +989,9 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
                     <tr className="border-b border-border bg-muted/30 text-muted-foreground">
                       <th className="px-3 py-2 text-start font-medium">المتغير</th>
                       <th className="px-3 py-2 text-start font-medium">الكمية</th>
+                      {tracksSourceAvailability ? (
+                        <th className="px-3 py-2 text-start font-medium">المتاح في الموقع</th>
+                      ) : null}
                     </tr>
                   </thead>
                   <tbody>
@@ -913,20 +1004,21 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
                           </div>
                         </td>
                         <td className="px-3 py-2">
-                          <Input
-                            type="number"
-                            min={0}
-                            step={1}
-                            dir="ltr"
+                          <FlexibleQuantityInput
                             className="h-8 w-28"
-                            disabled={!locationsReady}
                             value={variantQuantities[variant.id] ?? 0}
-                            onChange={(event) => {
-                              const nextQty = Math.max(0, Number(event.target.value) || 0);
+                            max={tracksSourceAvailability ? (variantAvailable[variant.id] ?? null) : null}
+                            disabled={!locationsReady}
+                            onChange={(nextQty) => {
                               setVariantQuantities((prev) => ({ ...prev, [variant.id]: nextQty }));
                             }}
                           />
                         </td>
+                        {tracksSourceAvailability ? (
+                          <td className="px-3 py-2 text-xs text-muted-foreground tabular-nums" dir="ltr">
+                            {variantAvailable[variant.id] ?? '—'}
+                          </td>
+                        ) : null}
                       </tr>
                     ))}
                   </tbody>

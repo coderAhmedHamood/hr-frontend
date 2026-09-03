@@ -425,6 +425,7 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
       await savePatch({ status: 'ready', lines: normalized }, 'تم تحديد المستند كجاهز');
       return;
     }
+    if (!(await assertStockBeforeSave())) return;
     // Header only — avoid rewriting lines on every status change.
     await savePatch({ status: 'ready' }, 'تم تحديد المستند كجاهز');
   }
