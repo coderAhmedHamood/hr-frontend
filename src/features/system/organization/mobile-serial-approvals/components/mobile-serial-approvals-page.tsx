@@ -5,6 +5,7 @@ import { Check, MonitorSmartphone, X } from 'lucide-react';
 import { Can } from '@/components/shared/can';
 import { ForbiddenState } from '@/components/shared/forbidden-state';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
+import { formatDateTime } from '@/shared/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -194,7 +195,7 @@ export default function MobileSerialApprovalsPage() {
                       </div>
                       <p className="mt-0.5 text-[11px] text-muted-foreground">
                         {row.createdAt
-                          ? new Date(row.createdAt).toLocaleString('ar')
+                          ? formatDateTime(row.createdAt)
                           : null}
                       </p>
                     </div>

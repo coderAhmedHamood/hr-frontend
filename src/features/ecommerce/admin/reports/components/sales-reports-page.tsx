@@ -88,7 +88,7 @@ import type { OrderStatus } from '@/features/ecommerce/domain/types/order';
 import { formatPrice } from '@/features/ecommerce/shared/utils/format-price';
 import { fromDecimalString } from '@/features/ecommerce/storefront/lib/api/store-http';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
-import { cn } from '@/shared/utils';
+import { cn, formatDateTime } from '@/shared/utils';
 
 const CHART_COLORS = ['#0f766e', '#0369a1', '#b45309', '#be123c', '#7c3aed', '#15803d', '#475569'];
 
@@ -938,7 +938,7 @@ export function StoreReportsPage() {
                             </Link>
                           </td>
                           <td className="px-3 py-2.5 text-muted-foreground" dir="ltr">
-                            {new Date(row.orderCreatedAt).toLocaleString('ar-YE')}
+                            {formatDateTime(row.orderCreatedAt)}
                           </td>
                           <td className="px-3 py-2.5">
                             <Badge variant="subtle">

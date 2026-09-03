@@ -15,7 +15,7 @@ import { isStoreHttpEnabled, StoreHttpError } from '@/features/ecommerce/storefr
 import { useStorefrontCustomerUi } from '@/features/ecommerce/storefront/hooks/use-storefront-customer-ui';
 import { resolveStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
 import type { StorefrontLocale } from '@/i18n/routing';
-import { cn } from '@/shared/utils';
+import { cn, formatDisplayDate } from '@/shared/utils';
 
 function Stars({
   rating,
@@ -148,10 +148,6 @@ export function ProductReviewsSection({
       cancelled = true;
     };
   }, [productId, resolvedCompanyId, rating, reviewCount, reloadKey, t]);
-
-  const dateFormatter = new Intl.DateTimeFormat(locale === 'ar' ? 'ar-YE' : 'en-US', {
-    dateStyle: 'medium',
-  });
 
   const showEmpty = !loading && !loadError && summary.total === 0 && reviews.length === 0;
 
@@ -303,7 +299,7 @@ export function ProductReviewsSection({
                         </div>
                       </div>
                       <span className="text-xs text-muted-foreground">
-                        {dateFormatter.format(new Date(review.date))}
+                        {formatDisplayDate(review.date)}
                       </span>
                     </div>
                     {review.title || review.comment ? (

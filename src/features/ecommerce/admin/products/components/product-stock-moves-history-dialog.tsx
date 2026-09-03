@@ -5,6 +5,7 @@ import { History } from 'lucide-react';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
 import { useWarehouseOperations } from '@/features/inventory/admin/operations/hooks/use-warehouse-operations';
 import { useWarehouseLocations } from '@/features/inventory/admin/locations/hooks/use-warehouse-locations';
+import { useWarehouses } from '@/features/inventory/admin/warehouses/hooks/use-warehouses';
 import { WarehouseOperationDetailDialog } from '@/features/inventory/admin/operations/components/warehouse-operation-detail-dialog';
 import { WAREHOUSE_OPERATION_KIND_META } from '@/features/inventory/domain/constants/warehouse-operation-kinds';
 import { WAREHOUSE_OPERATION_STATUS_LABELS_AR } from '@/features/inventory/domain/constants/warehouse-operation-status';
@@ -33,7 +34,13 @@ import {
   dialogShellContentClass,
   dialogShellHeaderClass,
 } from '@/components/ui/dialog';
-import { cn } from '@/shared/utils';
+import { cn, formatDateTime } from '@/shared/utils';
+import {
+  LocationChip,
+  QuantityChip,
+  WarehouseChip,
+  WarehouseRouteChips,
+} from '@/features/inventory/admin/operations/components/inventory-chips';
 
 type Props = {
   open: boolean;
@@ -52,6 +59,10 @@ type MoveRow = {
   productLabel: string;
   fromLabel: string;
   toLabel: string;
+  fromWarehouseLabel: string;
+  toWarehouseLabel: string;
+  /** Transfer between two warehouses, as opposed to a move inside one. */
+  crossWarehouse: boolean;
   quantity: number;
   status: WarehouseOperationStatus;
   kind: WarehouseOperationKind;
@@ -104,6 +115,7 @@ export function ProductStockMovesHistoryDialog({
     { companyId, limit: 500 },
     { enabled: open },
   );
+  const { data: warehousesData } = useWarehouses({ companyId, limit: 100 }, { enabled: open });
 
   React.useEffect(() => {
     if (!open) {
@@ -123,6 +135,10 @@ export function ProductStockMovesHistoryDialog({
     const map = new Map(locations.map((item) => [item.id, item.nameAr || item.code]));
     return (id?: string) => (id ? (map.get(id) ?? id) : '');
   }, [locations]);
+  const warehouseName = React.useMemo(() => {
+    const map = new Map((warehousesData?.items ?? []).map((item) => [item.id, item.nameAr]));
+    return (id?: string) => (id ? (map.get(id) ?? '') : '');
+  }, [warehousesData?.items]);
 
   const rows = React.useMemo(() => {
     const ops = data?.items ?? [];
@@ -132,6 +148,13 @@ export function ProductStockMovesHistoryDialog({
       const productLines = op.lines.filter(
         (line) => !line.productId || line.productId === productId,
       );
+      const crossWarehouse = Boolean(
+        op.destinationWarehouseId && op.destinationWarehouseId !== op.warehouseId,
+      );
+      const sourceWarehouseLabel = warehouseName(op.warehouseId);
+      const targetWarehouseLabel = crossWarehouse
+        ? warehouseName(op.destinationWarehouseId)
+        : sourceWarehouseLabel;
       for (const line of productLines) {
         const qty = op.status === 'done' ? line.quantity : (line.demandQuantity ?? line.quantity);
         flattened.push({
@@ -142,6 +165,9 @@ export function ProductStockMovesHistoryDialog({
           productLabel: line.productName,
           fromLabel: locationName(line.fromLocationId) || defaults.from || '—',
           toLabel: locationName(line.toLocationId) || defaults.to || '—',
+          fromWarehouseLabel: sourceWarehouseLabel,
+          toWarehouseLabel: targetWarehouseLabel,
+          crossWarehouse,
           quantity: qty,
           status: op.status,
           kind: op.kind,
@@ -149,7 +175,7 @@ export function ProductStockMovesHistoryDialog({
       }
     }
     return flattened.sort((a, b) => b.occurredAt.localeCompare(a.occurredAt));
-  }, [data?.items, locations, locationName, productId]);
+  }, [data?.items, locations, locationName, warehouseName, productId]);
 
   const filtered = React.useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -160,7 +186,9 @@ export function ProductStockMovesHistoryDialog({
         row.reference.toLowerCase().includes(q) ||
         row.productLabel.toLowerCase().includes(q) ||
         row.fromLabel.toLowerCase().includes(q) ||
-        row.toLabel.toLowerCase().includes(q)
+        row.toLabel.toLowerCase().includes(q) ||
+        row.fromWarehouseLabel.toLowerCase().includes(q) ||
+        row.toWarehouseLabel.toLowerCase().includes(q)
       );
     });
   }, [rows, search, statusFilter]);
@@ -199,7 +227,7 @@ export function ProductStockMovesHistoryDialog({
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="ابحث بالمرجع أو المنتج أو الموقع…"
+                placeholder="ابحث بالمرجع أو المنتج أو المستودع أو الموقع…"
                 className="max-w-sm"
               />
               <Select
@@ -228,12 +256,13 @@ export function ProductStockMovesHistoryDialog({
               </p>
             ) : (
               <div className="overflow-x-auto rounded-lg border border-border">
-                <table className="w-full min-w-[720px] text-sm">
+                <table className="w-full min-w-[860px] text-sm">
                   <thead>
                     <tr className="border-b border-border bg-muted/30 text-muted-foreground">
                       <th className="px-3 py-2.5 text-start font-medium">التاريخ</th>
                       <th className="px-3 py-2.5 text-start font-medium">الرقم المرجعي</th>
                       <th className="px-3 py-2.5 text-start font-medium">المنتج</th>
+                      <th className="px-3 py-2.5 text-start font-medium">المستودع</th>
                       <th className="px-3 py-2.5 text-start font-medium">من</th>
                       <th className="px-3 py-2.5 text-start font-medium">إلى</th>
                       <th className="px-3 py-2.5 text-start font-medium">الكمية</th>
@@ -249,37 +278,46 @@ export function ProductStockMovesHistoryDialog({
                         onClick={() => setSelectedOp(row.operation)}
                       >
                         <td className="px-3 py-2.5 whitespace-nowrap text-muted-foreground">
-                          {new Date(row.occurredAt).toLocaleString('ar-YE', {
-                            day: 'numeric',
-                            month: 'short',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
+                          {formatDateTime(row.occurredAt)}
                         </td>
                         <td className="px-3 py-2.5">
-                          <span className="font-medium text-primary" dir="ltr">
-                            {row.reference || '—'}
-                          </span>
+                          <div className="flex flex-col">
+                            <span className="font-medium text-primary" dir="ltr">
+                              {row.reference || '—'}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {WAREHOUSE_OPERATION_KIND_META[row.kind]?.labelAr ?? ''}
+                            </span>
+                          </div>
                         </td>
                         <td className="px-3 py-2.5">{row.productLabel}</td>
-                        <td className="px-3 py-2.5 text-muted-foreground" dir="ltr">
-                          {row.fromLabel}
-                        </td>
-                        <td className="px-3 py-2.5 text-muted-foreground" dir="ltr">
-                          {row.toLabel}
-                        </td>
-                        <td
-                          className={cn(
-                            'px-3 py-2.5 tabular-nums font-medium',
-                            row.kind === 'issue' || row.kind === 'scrap'
-                              ? 'text-destructive'
-                              : WAREHOUSE_OPERATION_KIND_META[row.kind]?.stockEffect === 'inbound'
-                                ? 'text-success'
-                                : '',
+                        <td className="px-3 py-2.5">
+                          {row.crossWarehouse ? (
+                            <WarehouseRouteChips
+                              from={row.fromWarehouseLabel}
+                              to={row.toWarehouseLabel}
+                            />
+                          ) : (
+                            <WarehouseChip name={row.fromWarehouseLabel} />
                           )}
-                          dir="ltr"
-                        >
-                          {row.quantity.toFixed(2)}
+                        </td>
+                        <td className="px-3 py-2.5">
+                          <LocationChip name={row.fromLabel} label="من" />
+                        </td>
+                        <td className="px-3 py-2.5">
+                          <LocationChip name={row.toLabel} label="إلى" />
+                        </td>
+                        <td className="px-3 py-2.5">
+                          <QuantityChip
+                            value={row.quantity.toFixed(2)}
+                            tone={
+                              row.kind === 'issue' || row.kind === 'scrap'
+                                ? 'out'
+                                : WAREHOUSE_OPERATION_KIND_META[row.kind]?.stockEffect === 'inbound'
+                                  ? 'in'
+                                  : 'neutral'
+                            }
+                          />
                         </td>
                         <td className="px-3 py-2.5 text-muted-foreground">الوحدات</td>
                         <td className="px-3 py-2.5">

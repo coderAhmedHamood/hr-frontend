@@ -60,6 +60,8 @@ type MobileNavItem = {
   href?: string;
   icon: React.ElementType;
   children?: MobileNavChild[];
+  /** App-root links (e.g. `/inventory`) must not match every page below them. */
+  match?: 'exact' | 'prefix';
 };
 
 const mobileNav: MobileNavItem[] = [
@@ -207,6 +209,7 @@ function buildEcommerceMobileNav(tNav: (key: string) => string): MobileNavItem[]
       label: tNav(ecommerceAdminOverviewItem.labelKey),
       href: ecommerceAdminOverviewItem.href,
       icon: ecommerceAdminOverviewItem.icon,
+      match: 'exact',
     },
   ];
 
@@ -250,6 +253,7 @@ function buildInventoryMobileNav(): MobileNavItem[] {
       label: inventoryAdminOverviewItem.labelAr,
       href: inventoryAdminOverviewItem.href,
       icon: inventoryAdminOverviewItem.icon,
+      match: 'exact',
     },
   ];
 
@@ -361,7 +365,7 @@ function MobileDrawer({
   }
 
   const isParentActive = (item: MobileNavItem) => {
-    if (item.href) return pathname === item.href || pathname.startsWith(`${item.href}/`);
+    if (item.href) return isChildMatch(item.href, item.match ?? 'prefix');
     if (item.children) {
       return item.children.some((c) => {
         if ('separator' in c) return false;

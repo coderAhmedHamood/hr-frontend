@@ -4,6 +4,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { ExternalLink, Heart, Plus, Trash2 } from 'lucide-react';
 import { Can } from '@/components/shared/can';
+import { formatDateTime } from '@/shared/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -141,7 +142,7 @@ function PartnerProductFavoritesBody({ companyId, partnerId }: Props) {
                     <ExternalLink className="h-3 w-3" />
                   </Link>
                   {' · '}
-                  <span dir="ltr">{new Date(favorite.createdAt).toLocaleString('ar-YE')}</span>
+                  <span dir="ltr">{formatDateTime(favorite.createdAt)}</span>
                 </p>
               </div>
               <Can permission={FAVORITES_DELETE}>

@@ -390,7 +390,7 @@ export default function ModernTimePicker({
         if (!value) return '';
         const { hour24: h24, minute: m } = parseTime(value);
         const hour12 = get12HourFormat(h24);
-        const periodText = h24 >= 12 ? 'م' : 'ص';
+        const periodText = h24 >= 12 ? 'PM' : 'AM';
         return `${String(hour12).padStart(2, '0')}:${String(m).padStart(2, '0')} ${periodText}`;
     }, [value, parseTime]);
 
@@ -449,7 +449,7 @@ export default function ModernTimePicker({
 
                             <div className="flex h-10 w-9 items-center justify-center rounded-lg border-2 border-border bg-card shadow-sm sm:h-12 sm:w-10 sm:rounded-xl md:h-14 md:w-12">
                                 <span className="select-none text-sm font-bold text-foreground sm:text-base md:text-lg">
-                                    {period === 'AM' ? 'ص' : 'م'}
+                                    {period}
                                 </span>
                             </div>
 

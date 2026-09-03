@@ -18,7 +18,7 @@ import { useOrderDetail } from '@/features/ecommerce/admin/orders/hooks/use-orde
 import { ORDER_STATUS_LABELS_AR } from '@/features/ecommerce/domain/constants/order-status';
 import type { OrderStatusHistoryEntry } from '@/features/ecommerce/domain/types/order';
 import { usersApi } from '@/features/hr/organization/lib/api/users';
-import { cn } from '@/shared/utils';
+import { cn, formatDisplayDateTime } from '@/shared/utils';
 
 type Props = {
   companyId: string;
@@ -31,14 +31,7 @@ type Props = {
 };
 
 function formatDateTime(iso: string) {
-  try {
-    return new Intl.DateTimeFormat('ar-YE', {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-    }).format(new Date(iso));
-  } catch {
-    return iso.slice(0, 16).replace('T', ' ');
-  }
+  return formatDisplayDateTime(iso);
 }
 
 function useChangedByNames(userIds: string[]) {

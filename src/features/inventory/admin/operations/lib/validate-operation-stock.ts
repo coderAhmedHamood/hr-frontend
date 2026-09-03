@@ -24,37 +24,40 @@ function needsSourceStockCheck(kind: WarehouseOperationKind): boolean {
   return effect === 'outbound' || effect === 'move' || effect === 'transfer';
 }
 
-/** Aggregate negative deltas per product/variant/location before posting. */
+/**
+ * Aggregate the document's net effect per product/variant/location before posting.
+ * Netting (not just the outgoing side) matters for transfers, which pass through a
+ * transit location: it receives and releases the same quantity within one document,
+ * so counting only its outgoing leg would report a shortage that never happens.
+ */
 export async function collectStockShortages(
   operation: Pick<WarehouseOperation, 'companyId' | 'warehouseId' | 'kind' | 'destinationWarehouseId' | 'lines'>,
 ): Promise<StockShortageIssue[]> {
   if (!needsSourceStockCheck(operation.kind)) return [];
 
-  const neededByBucket = new Map<
+  const netByBucket = new Map<
     string,
-    { productName: string; locationId: string; requested: number; companyId: string; productId: string; variantId?: string }
+    { productName: string; locationId: string; net: number; companyId: string; productId: string; variantId?: string }
   >();
 
   for (const line of operation.lines) {
     if (!line.productId?.trim()) continue;
     const deltas = await buildStockDeltasForLine(operation as WarehouseOperation, line);
     for (const delta of deltas) {
-      if (delta.delta >= 0) continue;
       const key = stockBucketKey({
         productId: line.productId,
         variantId: line.variantId,
         warehouseId: delta.warehouseId,
         locationId: delta.locationId,
       });
-      const need = -delta.delta;
-      const existing = neededByBucket.get(key);
+      const existing = netByBucket.get(key);
       if (existing) {
-        existing.requested += need;
+        existing.net += delta.delta;
       } else {
-        neededByBucket.set(key, {
+        netByBucket.set(key, {
           productName: line.productName,
           locationId: delta.locationId,
-          requested: need,
+          net: delta.delta,
           companyId: operation.companyId,
           productId: line.productId,
           variantId: line.variantId,
@@ -64,18 +67,20 @@ export async function collectStockShortages(
   }
 
   const issues: StockShortageIssue[] = [];
-  for (const bucket of neededByBucket.values()) {
+  for (const bucket of netByBucket.values()) {
+    if (bucket.net >= -1e-9) continue;
+    const requested = -bucket.net;
     const available = await inventoryStockService.getQuantityAtLocation(
       bucket.companyId,
       bucket.productId,
       bucket.locationId,
       bucket.variantId,
     );
-    if (bucket.requested > available + 1e-9) {
+    if (requested > available + 1e-9) {
       issues.push({
         productName: bucket.productName,
         locationId: bucket.locationId,
-        requested: bucket.requested,
+        requested,
         available: Math.max(0, available),
       });
     }

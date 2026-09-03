@@ -24,21 +24,14 @@ import {
   isImageMime,
 } from '@/features/ecommerce/domain/lib/order-attachments';
 import type { Order } from '@/features/ecommerce/domain/types/order';
-import { cn } from '@/shared/utils';
+import { cn, formatDisplayDateTime } from '@/shared/utils';
 
 const ORDERS_UPDATE_PERMISSION = 'sta.orders.update';
 
 type VisibilityFilter = 'all' | 'visible' | 'hidden';
 
 function formatDateTime(iso: string) {
-  try {
-    return new Intl.DateTimeFormat('ar-YE', {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-    }).format(new Date(iso));
-  } catch {
-    return iso.slice(0, 16).replace('T', ' ');
-  }
+  return formatDisplayDateTime(iso);
 }
 
 export function OrderAttachmentsPanel({

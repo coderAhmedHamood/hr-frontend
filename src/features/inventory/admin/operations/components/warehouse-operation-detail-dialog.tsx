@@ -1,10 +1,11 @@
 'use client';
 
 import * as React from 'react';
-import { Check, Plus, Trash2, Undo2, X } from 'lucide-react';
+import { ArrowDown, Check, Plus, Trash2, Undo2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { getInventoryCompanyId } from '@/features/inventory/lib/company-id';
 import { useWarehouseLocations } from '@/features/inventory/admin/locations/hooks/use-warehouse-locations';
+import { useWarehouses } from '@/features/inventory/admin/warehouses/hooks/use-warehouses';
 import { useWarehouseOperationMutations } from '@/features/inventory/admin/operations/hooks/use-warehouse-operation-mutations';
 import { inventoryStockService } from '@/features/inventory/services/inventory-stock.service';
 import {
@@ -48,6 +49,10 @@ import {
 } from '@/components/ui/dialog';
 import { ProductSinglePicker } from '@/features/ecommerce/admin/products/components/product-single-picker';
 import { FlexibleQuantityInput } from '@/features/inventory/admin/operations/components/flexible-quantity-input';
+import {
+  LocationChip,
+  WarehouseChip,
+} from '@/features/inventory/admin/operations/components/inventory-chips';
 import {
   emptyOperationLineDraft,
   hasDuplicateOperationLineProducts,
@@ -132,20 +137,51 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
     page: 1,
     limit: 500,
   });
+  // Transfers land in another warehouse, so its locations are needed both for the
+  // receiving picker and to name the destination instead of printing a raw id.
+  const destinationWarehouseId = operation?.destinationWarehouseId ?? '';
+  const { data: destLocationsData } = useWarehouseLocations(
+    {
+      companyId,
+      warehouseId: destinationWarehouseId || undefined,
+      page: 1,
+      limit: 500,
+    },
+    { enabled: Boolean(destinationWarehouseId) },
+  );
+  const { data: warehousesData } = useWarehouses({ companyId, limit: 100 });
+  const warehouseName = React.useMemo(() => {
+    const map = new Map((warehousesData?.items ?? []).map((item) => [item.id, item.nameAr]));
+    return (id?: string) => (id ? (map.get(id) ?? null) : null);
+  }, [warehousesData?.items]);
   const locations = React.useMemo(
     () => (locationsData?.items ?? []).filter((item) => item.isActive),
     [locationsData?.items],
   );
+  const destinationLocations = React.useMemo(
+    () =>
+      destinationWarehouseId
+        ? (destLocationsData?.items ?? []).filter((item) => item.isActive)
+        : locations,
+    [destinationWarehouseId, destLocationsData?.items, locations],
+  );
   const locationName = React.useMemo(() => {
-    const map = new Map(locations.map((item) => [item.id, item.nameAr || item.code]));
+    const map = new Map(
+      [...locations, ...destinationLocations].map((item) => [item.id, item.nameAr || item.code]),
+    );
     return (id?: string) => (id ? (map.get(id) ?? id) : '—');
-  }, [locations]);
+  }, [locations, destinationLocations]);
 
-  const formatLocationOption = React.useCallback((id: string) => {
-    const loc = locations.find((item) => item.id === id);
-    if (!loc) return id;
-    return `${loc.nameAr || loc.code} · ${loc.code}`;
-  }, [locations]);
+  const formatLocationOption = React.useCallback(
+    (id: string) => {
+      const loc =
+        locations.find((item) => item.id === id) ??
+        destinationLocations.find((item) => item.id === id);
+      if (!loc) return id;
+      return `${loc.nameAr || loc.code} · ${loc.code}`;
+    },
+    [locations, destinationLocations],
+  );
 
   const [lines, setLines] = React.useState<WarehouseOperationLine[]>([]);
   const [notes, setNotes] = React.useState('');
@@ -360,21 +396,32 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
   const needsTo = meta.needsTo;
 
   const destinationLabel = (() => {
-    if (meta.stockEffect === 'inbound' || meta.stockEffect === 'adjust_set') return 'موقع الاستلام';
+    if (meta.stockEffect === 'inbound') return 'موقع الاستلام';
+    if (meta.stockEffect === 'adjust_set') return 'موقع المخزون';
     if (meta.stockEffect === 'outbound') return 'موقع الصرف';
-    if (meta.stockEffect === 'transfer' || meta.stockEffect === 'move') return 'من ← إلى';
+    if (meta.stockEffect === 'transfer') return 'مسار الحركة بين المستودعات';
+    if (meta.stockEffect === 'move') return 'مسار الحركة بين المواقع';
     return 'المواقع';
   })();
 
-  const destinationValue = (() => {
-    const line = lines[0] ?? operation.lines[0];
-    if (!line) return '—';
-    if (meta.stockEffect === 'inbound' || meta.stockEffect === 'adjust_set') {
-      return locationName(line.toLocationId);
-    }
-    if (meta.stockEffect === 'outbound') return locationName(line.fromLocationId);
-    return `${locationName(line.fromLocationId)} ← ${locationName(line.toLocationId)}`;
-  })();
+  // Each side of the route names its warehouse, so a same-named location on both
+  // ends (WH/Stock → WH/Stock) still reads unambiguously.
+  const crossWarehouse = Boolean(
+    destinationWarehouseId && destinationWarehouseId !== operation.warehouseId,
+  );
+  const sourceWarehouseName = warehouseName(operation.warehouseId);
+  const targetWarehouseName = crossWarehouse
+    ? warehouseName(destinationWarehouseId)
+    : sourceWarehouseName;
+  const fromFieldLabel = meta.stockEffect === 'move' ? 'الموقع الحالي' : 'موقع الصرف';
+  const toFieldLabel =
+    meta.stockEffect === 'move'
+      ? 'الموقع الجديد'
+      : meta.stockEffect === 'adjust_set'
+        ? 'موقع المخزون'
+        : 'موقع الاستلام';
+
+  const destinationLine = lines[0] ?? operation.lines[0];
 
   async function savePatch(
     patch: Partial<WarehouseOperation> & { lines?: WarehouseOperation['lines'] },
@@ -612,68 +659,98 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
               </div>
               <div className="space-y-1.5">
                 <Label>{destinationLabel}</Label>
-                {editable && (needsFrom || needsTo) ? (
-                  <div className="grid gap-2">
-                    {needsFrom ? (
-                      <Select
-                        value={headerFromLocationId || undefined}
-                        onValueChange={(value) => {
-                          setHeaderFromLocationId(value);
-                          setLines((prev) =>
-                            prev.map((line) => ({
-                              ...line,
-                              fromLocationId: value || undefined,
-                              ...(needsTo
-                                ? { toLocationId: headerToLocationId || line.toLocationId }
-                                : {}),
-                            })),
-                          );
-                        }}
-                      >
-                        <SelectTrigger aria-label="من موقع">
-                          <SelectValue placeholder="اختر موقع المصدر" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {locations.map((location) => (
-                            <SelectItem key={location.id} value={location.id}>
-                              {formatLocationOption(location.id)}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : null}
-                    {needsTo ? (
-                      <Select
-                        value={headerToLocationId || undefined}
-                        onValueChange={(value) => {
-                          setHeaderToLocationId(value);
-                          setLines((prev) =>
-                            prev.map((line) => ({
-                              ...line,
-                              toLocationId: value || undefined,
-                              ...(needsFrom
-                                ? { fromLocationId: headerFromLocationId || line.fromLocationId }
-                                : {}),
-                            })),
-                          );
-                        }}
-                      >
-                        <SelectTrigger aria-label="إلى موقع / الاستلام">
-                          <SelectValue placeholder="اختر موقع الاستلام" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {locations.map((location) => (
-                            <SelectItem key={location.id} value={location.id}>
-                              {formatLocationOption(location.id)}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : null}
-                  </div>
-                ) : (
-                  <Input value={destinationValue} disabled dir="ltr" />
-                )}
+                <div className="space-y-2 rounded-md border border-input bg-muted/20 p-2.5">
+                  {needsFrom ? (
+                    <div className="space-y-1.5">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-xs font-medium text-muted-foreground">من</span>
+                        <WarehouseChip name={sourceWarehouseName} />
+                      </div>
+                      {editable ? (
+                        <Select
+                          value={headerFromLocationId || ''}
+                          onValueChange={(value) => {
+                            setHeaderFromLocationId(value);
+                            setLines((prev) =>
+                              prev.map((line) => ({
+                                ...line,
+                                fromLocationId: value || undefined,
+                                ...(needsTo
+                                  ? { toLocationId: headerToLocationId || line.toLocationId }
+                                  : {}),
+                              })),
+                            );
+                          }}
+                        >
+                          <SelectTrigger aria-label={fromFieldLabel}>
+                            <SelectValue placeholder={`اختر ${fromFieldLabel}`} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {locations.map((location) => (
+                              <SelectItem key={location.id} value={location.id}>
+                                {formatLocationOption(location.id)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <LocationChip
+                          name={locationName(destinationLine?.fromLocationId)}
+                          label={fromFieldLabel}
+                        />
+                      )}
+                    </div>
+                  ) : null}
+
+                  {needsFrom && needsTo ? (
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <ArrowDown aria-hidden className="h-3.5 w-3.5 shrink-0" />
+                      <span aria-hidden className="h-px flex-1 bg-border" />
+                    </div>
+                  ) : null}
+
+                  {needsTo ? (
+                    <div className="space-y-1.5">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-xs font-medium text-muted-foreground">إلى</span>
+                        <WarehouseChip name={targetWarehouseName} />
+                      </div>
+                      {editable ? (
+                        <Select
+                          value={headerToLocationId || ''}
+                          onValueChange={(value) => {
+                            setHeaderToLocationId(value);
+                            setLines((prev) =>
+                              prev.map((line) => ({
+                                ...line,
+                                toLocationId: value || undefined,
+                                ...(needsFrom
+                                  ? { fromLocationId: headerFromLocationId || line.fromLocationId }
+                                  : {}),
+                              })),
+                            );
+                          }}
+                        >
+                          <SelectTrigger aria-label={toFieldLabel}>
+                            <SelectValue placeholder={`اختر ${toFieldLabel}`} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {destinationLocations.map((location) => (
+                              <SelectItem key={location.id} value={location.id}>
+                                {formatLocationOption(location.id)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <LocationChip
+                          name={locationName(destinationLine?.toLocationId)}
+                          label={toFieldLabel}
+                        />
+                      )}
+                    </div>
+                  ) : null}
+                </div>
               </div>
             </div>
             <div className="space-y-3">

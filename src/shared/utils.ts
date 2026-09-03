@@ -97,12 +97,12 @@ export function formatDurationMinutesAr(minutes: number): string {
   return `${LRI}${hn}س ${mn}د${PDI}`;
 }
 
-function formatArabicTime(hours24: number, hours12: number, minutes: string): string {
-  const period = hours24 < 12 ? 'ص' : 'م';
-  return `${LRI}${hours12}:${minutes}${period}${PDI}`;
+function formatClockTime(hours24: number, hours12: number, minutes: string): string {
+  const period = hours24 < 12 ? 'AM' : 'PM';
+  return `${LRI}${hours12}:${minutes} ${period}${PDI}`;
 }
 
-/** App-wide datetime display: `2026/05/22-9:30ص` */
+/** App-wide datetime display: `2026/05/22 9:30 AM` */
 export function formatDisplayDateTime(date: string | Date | null | undefined): string {
   if (!date) return '—';
   const d = typeof date === 'string' ? new Date(date) : date;
@@ -113,13 +113,13 @@ export function formatDisplayDateTime(date: string | Date | null | undefined): s
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
-  return `${y}/${m}/${day}-${formatArabicTime(hours24, hours12, minutes)}`;
+  return `${y}/${m}/${day} ${formatClockTime(hours24, hours12, minutes)}`;
 }
 
 /** Parsed parts for structured datetime rendering (avoids bidi reordering in RTL). */
 export function getDisplayDateTimeParts(
   date: string | Date | null | undefined,
-): { date: string; period: 'ص' | 'م'; hours: number; minutes: string } | null {
+): { date: string; period: 'AM' | 'PM'; hours: number; minutes: string } | null {
   if (!date) return null;
   const d = typeof date === 'string' ? new Date(date) : date;
   if (isNaN(d.getTime())) return null;
@@ -129,7 +129,7 @@ export function getDisplayDateTimeParts(
   const day = String(d.getDate()).padStart(2, '0');
   return {
     date: `${y}/${m}/${day}`,
-    period: hours24 < 12 ? 'ص' : 'م',
+    period: hours24 < 12 ? 'AM' : 'PM',
     hours: hours24 % 12 || 12,
     minutes: String(d.getMinutes()).padStart(2, '0'),
   };
@@ -155,7 +155,7 @@ export function formatTime(date: string | Date | null | undefined): string {
   const hours24 = d.getHours();
   const hours12 = hours24 % 12 || 12;
   const minutes = String(d.getMinutes()).padStart(2, '0');
-  return formatArabicTime(hours24, hours12, minutes);
+  return formatClockTime(hours24, hours12, minutes);
 }
 
 /** 24-hour clock HH:mm with Western digits (for tables / heatmaps). */

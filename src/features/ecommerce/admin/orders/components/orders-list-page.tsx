@@ -43,7 +43,7 @@ import { EntityFilterSearchField } from '@/components/ui/entity-filter-search-fi
 import { DataTable, type ColumnDef } from '@/components/ui/data-table';
 import { DirectoryPagedViews, DEFAULT_PAGE_SIZE } from '@/components/ui/paged-list';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/shared/utils';
+import { cn, formatDisplayDate } from '@/shared/utils';
 
 type ViewMode = 'list' | 'kanban';
 
@@ -132,11 +132,7 @@ function itemCount(order: Order): number {
 }
 
 function formatShortDate(iso: string): string {
-  try {
-    return new Intl.DateTimeFormat('ar-YE', { dateStyle: 'medium' }).format(new Date(iso));
-  } catch {
-    return iso.slice(0, 10);
-  }
+  return formatDisplayDate(iso);
 }
 
 export function OrdersListPage() {

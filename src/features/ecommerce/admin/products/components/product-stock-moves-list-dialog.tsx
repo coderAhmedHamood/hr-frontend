@@ -21,7 +21,12 @@ import {
   dialogShellContentClass,
   dialogShellHeaderClass,
 } from '@/components/ui/dialog';
-import { cn } from '@/shared/utils';
+import { cn, formatDateTime } from '@/shared/utils';
+import {
+  QuantityChip,
+  WarehouseChip,
+  WarehouseRouteChips,
+} from '@/features/inventory/admin/operations/components/inventory-chips';
 
 type Props = {
   open: boolean;
@@ -141,13 +146,24 @@ export function ProductStockMovesListDialog({
                         className="flex w-full flex-wrap items-center justify-between gap-2 rounded-lg border border-border px-3 py-2.5 text-start transition-colors hover:bg-muted/25"
                         onClick={() => setSelected(op)}
                       >
-                        <div className="min-w-0">
+                        <div className="min-w-0 space-y-1.5">
                           <p className="font-medium text-foreground" dir="ltr">
                             {op.reference}
                           </p>
+                          <div className="flex flex-wrap items-center gap-1">
+                            {op.destinationWarehouseId &&
+                            op.destinationWarehouseId !== op.warehouseId ? (
+                              <WarehouseRouteChips
+                                from={warehouseName(op.warehouseId)}
+                                to={warehouseName(op.destinationWarehouseId)}
+                              />
+                            ) : (
+                              <WarehouseChip name={warehouseName(op.warehouseId)} />
+                            )}
+                            <QuantityChip value={qty} />
+                          </div>
                           <p className="text-xs text-muted-foreground">
-                            {warehouseName(op.warehouseId)} · الكمية: {qty} ·{' '}
-                            {new Date(op.occurredAt).toLocaleString('ar-YE')}
+                            {formatDateTime(op.occurredAt)}
                           </p>
                         </div>
                         <Badge variant={statusBadgeVariant(op.status)}>
