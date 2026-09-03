@@ -19,6 +19,11 @@ export function supportsMultiProductLines(kind: WarehouseOperationKind): boolean
   );
 }
 
+/** Outbound pickers: only products with on-hand at the source location. */
+export function pickerUsesSourceLocationStock(kind: WarehouseOperationKind): boolean {
+  return kind === 'transfer' || kind === 'internal' || kind === 'issue' || kind === 'scrap';
+}
+
 export function newOperationLineDraftId(): string {
   return `opl-${Math.random().toString(36).slice(2, 9)}`;
 }

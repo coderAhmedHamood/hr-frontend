@@ -59,6 +59,7 @@ import {
   newOperationLineDraftId,
   operationLinesToDrafts,
   supportsMultiProductLines,
+  pickerUsesSourceLocationStock,
 } from '@/features/inventory/admin/operations/lib/operation-line-draft';
 import { cn } from '@/shared/utils';
 
@@ -853,7 +854,16 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
                                   .filter((other) => other.id !== line.id)
                                   .map((other) => other.productId?.trim())
                                   .filter((id): id is string => Boolean(id))}
-                                placeholder="ابحث عن منتج…"
+                                sourceLocationId={
+                                  pickerUsesSourceLocationStock(kind)
+                                    ? headerFromLocationId || undefined
+                                    : undefined
+                                }
+                                placeholder={
+                                  pickerUsesSourceLocationStock(kind) && !headerFromLocationId
+                                    ? 'حدّد موقع الصرف أولًا…'
+                                    : 'ابحث عن منتج…'
+                                }
                                 onChange={(productId) => {
                                   if (!productId) applyLineProduct(line.id, null);
                                 }}

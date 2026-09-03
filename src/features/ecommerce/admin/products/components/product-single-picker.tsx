@@ -7,6 +7,7 @@ import { useDebouncedValue } from '@/shared/hooks/use-debounced-value';
 import { cn } from '@/shared/utils';
 import { useDialogPortalContainer } from '@/components/ui/dialog';
 import { useInfiniteProductOptions, useProduct } from '@/features/ecommerce/admin/products/hooks/use-products';
+import { useProductsAtLocation } from '@/features/inventory/admin/stock/hooks/use-products-at-location';
 import type { ProductOption } from '@/features/ecommerce/admin/products/lib/api/product-options';
 import type { Product, ProductStatus } from '@/features/ecommerce/domain/types/product';
 
@@ -27,6 +28,11 @@ export type ProductSinglePickerProps = {
   status?: ProductStatus;
   /** Hide these product ids from search results (e.g. already favorited). */
   excludeIds?: string[];
+  /**
+   * When set, the list is products with on-hand at this warehouse location —
+   * not the full catalog. Used for transfers and internal moves.
+   */
+  sourceLocationId?: string;
   className?: string;
   'aria-label'?: string;
 };
@@ -46,6 +52,7 @@ export function ProductSinglePicker({
   allowClear,
   status,
   excludeIds,
+  sourceLocationId,
   className,
   'aria-label': ariaLabel,
 }: ProductSinglePickerProps) {
@@ -56,6 +63,7 @@ export function ProductSinglePicker({
   const dialogContainer = useDialogPortalContainer();
   const listRef = React.useRef<HTMLDivElement>(null);
   const excludeSet = React.useMemo(() => new Set(excludeIds ?? []), [excludeIds]);
+  const locationScoped = Boolean(sourceLocationId);
 
   // The picked row already carries the label, so the heavier `/full` read is only
   // needed for a selection that came from outside this picker.
@@ -72,18 +80,35 @@ export function ProductSinglePicker({
     fetchNextPage,
   } = useInfiniteProductOptions(
     { companyId, search: debouncedSearch, status, limit: PAGE_SIZE },
-    { enabled: Boolean(companyId) && open },
+    { enabled: Boolean(companyId) && open && !locationScoped },
   );
 
-  const results = React.useMemo(
-    () =>
-      (pages?.pages ?? [])
-        .flatMap((page) => page.items)
-        .filter((product) => !excludeSet.has(product.id)),
-    [pages, excludeSet],
+  const { data: locationProducts, isLoading: isLoadingLocationProducts } = useProductsAtLocation(
+    companyId,
+    sourceLocationId,
+    { enabled: Boolean(companyId && sourceLocationId) && open },
   );
 
-  const isLoadingFirstPage = isFetching && !isFetchingNextPage && results.length === 0;
+  const results = React.useMemo(() => {
+    const term = locationScoped ? search.trim().toLowerCase() : '';
+    const source = locationScoped
+      ? (locationProducts ?? []).filter((product) => {
+          if (excludeSet.has(product.id)) return false;
+          if (!term) return true;
+          return (
+            product.nameAr.toLowerCase().includes(term) ||
+            product.sku.toLowerCase().includes(term)
+          );
+        })
+      : (pages?.pages ?? [])
+          .flatMap((page) => page.items)
+          .filter((product) => !excludeSet.has(product.id));
+    return source;
+  }, [locationScoped, locationProducts, pages, excludeSet, search]);
+
+  const isLoadingFirstPage = locationScoped
+    ? isLoadingLocationProducts && results.length === 0
+    : isFetching && !isFetchingNextPage && results.length === 0;
 
   const loadMore = React.useCallback(() => {
     if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
@@ -96,10 +121,11 @@ export function ProductSinglePicker({
 
   // `excludeIds` can filter a whole page away, leaving the list too short to scroll.
   React.useEffect(() => {
+    if (locationScoped) return;
     const el = listRef.current;
     if (!el || !open) return;
     if (el.scrollHeight <= el.clientHeight) loadMore();
-  }, [open, results.length, loadMore]);
+  }, [open, results.length, loadMore, locationScoped]);
 
   const selectedLabel = value
     ? hasLocalLabel && pickedOption
@@ -192,7 +218,7 @@ export function ProductSinglePicker({
             ref={listRef}
             className="max-h-52 overflow-y-auto overscroll-contain"
             onWheel={(event) => event.stopPropagation()}
-            onScroll={handleListScroll}
+            onScroll={locationScoped ? undefined : handleListScroll}
           >
             {isLoadingFirstPage ? (
               <div className="px-3 py-6 text-center text-sm text-muted-foreground">
@@ -200,7 +226,11 @@ export function ProductSinglePicker({
               </div>
             ) : results.length === 0 ? (
               <div className="px-3 py-6 text-center text-sm text-muted-foreground">
-                {debouncedSearch ? 'لا توجد منتجات مطابقة' : 'لا توجد منتجات'}
+                {debouncedSearch
+                  ? 'لا توجد منتجات مطابقة'
+                  : locationScoped
+                    ? 'لا توجد منتجات برصيد في هذا الموقع'
+                    : 'لا توجد منتجات'}
               </div>
             ) : (
               results.map((product) => {
@@ -223,12 +253,17 @@ export function ProductSinglePicker({
                           {product.sku}
                         </p>
                       ) : null}
+                      {'available' in product && typeof product.available === 'number' ? (
+                        <p className="text-[11px] text-muted-foreground">
+                          المتاح: {product.available}
+                        </p>
+                      ) : null}
                     </div>
                   </button>
                 );
               })
             )}
-            {isFetchingNextPage ? (
+            {isFetchingNextPage && !locationScoped ? (
               <div className="px-3 py-2 text-center text-xs text-muted-foreground">
                 جاري تحميل المزيد…
               </div>

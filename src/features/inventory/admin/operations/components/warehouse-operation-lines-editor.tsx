@@ -21,6 +21,8 @@ type Props = {
   fromLocationId?: string;
   checksSourceStock?: boolean;
   disabled?: boolean;
+  /** Limit the picker to products with on-hand at `fromLocationId`. */
+  restrictToSourceLocation?: boolean;
   /** Products hidden from every row's picker (e.g. taken by another document). */
   excludeProductIds?: string[];
   className?: string;
@@ -33,6 +35,7 @@ export function WarehouseOperationLinesEditor({
   fromLocationId,
   checksSourceStock = false,
   disabled,
+  restrictToSourceLocation = false,
   excludeProductIds,
   className,
 }: Props) {
@@ -134,7 +137,14 @@ export function WarehouseOperationLinesEditor({
                         ...(excludeProductIds ?? []),
                         ...pickedProductIds.filter((id) => id !== line.productId.trim()),
                       ]}
-                      placeholder="ابحث عن منتج…"
+                      sourceLocationId={
+                        restrictToSourceLocation ? fromLocationId : undefined
+                      }
+                      placeholder={
+                        restrictToSourceLocation && !fromLocationId
+                          ? 'حدّد موقع الصرف أولًا…'
+                          : 'ابحث عن منتج في الموقع…'
+                      }
                       onChange={(productId) => {
                         if (!productId) {
                           updateLine(line.id, {

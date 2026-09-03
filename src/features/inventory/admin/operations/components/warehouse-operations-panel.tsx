@@ -44,6 +44,7 @@ import {
   hasDuplicateOperationLineProducts,
   operationLineDraftsToLines,
   supportsMultiProductLines,
+  pickerUsesSourceLocationStock,
   type OperationLineDraft,
 } from '@/features/inventory/admin/operations/lib/operation-line-draft';
 import { toast } from 'sonner';
@@ -919,7 +920,9 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
             <div className="space-y-1 border-t border-border pt-4">
               <h3 className="text-sm font-semibold text-foreground">المنتجات والكميات</h3>
               <p className="text-xs text-muted-foreground">
-                اختر المنتجات بعد اكتمال تحديد المستودعات والمواقع.
+                {pickerUsesSourceLocationStock(kind)
+                  ? 'تظهر فقط المنتجات التي لها رصيد في موقع الصرف المحدد.'
+                  : 'اختر المنتجات بعد اكتمال تحديد المستودعات والمواقع.'}
               </p>
             </div>
 
@@ -930,6 +933,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
                 onChange={setLineDrafts}
                 fromLocationId={fromLocationId || undefined}
                 checksSourceStock={checksSourceStock}
+                restrictToSourceLocation={pickerUsesSourceLocationStock(kind)}
                 disabled={!locationsReady}
               />
             ) : (
@@ -945,10 +949,15 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
                         value={field.value ?? ''}
                         status="active"
                         excludeIds={takenProductIdList}
+                        sourceLocationId={
+                          pickerUsesSourceLocationStock(kind) ? fromLocationId || undefined : undefined
+                        }
                         disabled={!locationsReady}
                         placeholder={
                           locationsReady
-                            ? 'ابحث عن منتج من الكتالوج…'
+                            ? pickerUsesSourceLocationStock(kind)
+                              ? 'ابحث عن منتج في الموقع…'
+                              : 'ابحث عن منتج من الكتالوج…'
                             : 'حدّد المواقع أولًا…'
                         }
                         onChange={field.onChange}
