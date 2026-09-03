@@ -1,0 +1,38 @@
+import type { VendorPayment } from '@/features/accounting/domain/types/vendor-payment';
+
+export const INITIAL_MOCK_VENDOR_PAYMENTS: VendorPayment[] = [
+  {
+    id: '4',
+    name: 'PAY/2024/00004',
+    paymentType: 'outbound',
+    partnerId: 'vend-2',
+    partnerName: 'شركة السحابة الرقمية للاتصالات',
+    recipientBankAccountId: 'SA9010000009876543210987',
+    amount: 5175,
+    currency: 'SAR',
+    paymentDate: '2024-05-12',
+    memo: 'سداد كامل لفاتورة استضافة السحابة BILL/2024/00007',
+    journalId: 'j-3',
+    journalName: 'البنك (الراجحي)',
+    paymentMethodLine: 'تحويل بنكي مباشر',
+    state: 'posted',
+    matchedBillsCount: 1,
+  },
+  {
+    id: '5',
+    name: 'PAY/2024/00005',
+    paymentType: 'outbound',
+    partnerId: 'vend-1',
+    partnerName: 'مؤسسة التقنية المتقدمة',
+    recipientBankAccountId: 'SA4420000001234567890123',
+    amount: 10000,
+    currency: 'SAR',
+    paymentDate: '2024-05-14',
+    memo: 'دفعة تحت الحساب لفاتورة توريد نقاط البيع',
+    journalId: 'j-3',
+    journalName: 'البنك (الراجحي)',
+    paymentMethodLine: 'تحويل بنكي مباشر',
+    state: 'posted',
+    matchedBillsCount: 1,
+  },
+];
