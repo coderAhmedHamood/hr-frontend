@@ -36,8 +36,8 @@ import {
 } from '@/components/ui/dialog';
 import { cn, formatDateTime } from '@/shared/utils';
 import {
+  DemandActualChips,
   LocationChip,
-  QuantityChip,
   WarehouseChip,
   WarehouseRouteChips,
 } from '@/features/inventory/admin/operations/components/inventory-chips';
@@ -64,6 +64,7 @@ type MoveRow = {
   /** Transfer between two warehouses, as opposed to a move inside one. */
   crossWarehouse: boolean;
   quantity: number;
+  demandQuantity?: number;
   status: WarehouseOperationStatus;
   kind: WarehouseOperationKind;
 };
@@ -157,6 +158,7 @@ export function ProductStockMovesHistoryDialog({
         : sourceWarehouseLabel;
       for (const line of productLines) {
         const qty = op.status === 'done' ? line.quantity : (line.demandQuantity ?? line.quantity);
+        const demandQty = line.demandQuantity ?? line.quantity;
         flattened.push({
           key: `${op.id}-${line.id}`,
           operation: op,
@@ -169,6 +171,9 @@ export function ProductStockMovesHistoryDialog({
           toWarehouseLabel: targetWarehouseLabel,
           crossWarehouse,
           quantity: qty,
+          // Only validated documents can show a fulfilment gap; drafts still
+          // carry the request itself in `qty`.
+          demandQuantity: op.status === 'done' ? demandQty : undefined,
           status: op.status,
           kind: op.kind,
         });
@@ -308,8 +313,12 @@ export function ProductStockMovesHistoryDialog({
                           <LocationChip name={row.toLabel} label="إلى" />
                         </td>
                         <td className="px-3 py-2.5">
-                          <QuantityChip
-                            value={row.quantity.toFixed(2)}
+                          <DemandActualChips
+                            demand={row.demandQuantity}
+                            actual={row.quantity}
+                            actualLabel={
+                              row.kind === 'issue' || row.kind === 'scrap' ? 'المصروف' : 'المنفَّذ'
+                            }
                             tone={
                               row.kind === 'issue' || row.kind === 'scrap'
                                 ? 'out'

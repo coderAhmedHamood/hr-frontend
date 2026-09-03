@@ -21,6 +21,8 @@ type Props = {
   fromLocationId?: string;
   checksSourceStock?: boolean;
   disabled?: boolean;
+  /** Products hidden from every row's picker (e.g. taken by another document). */
+  excludeProductIds?: string[];
   className?: string;
 };
 
@@ -31,9 +33,17 @@ export function WarehouseOperationLinesEditor({
   fromLocationId,
   checksSourceStock = false,
   disabled,
+  excludeProductIds,
   className,
 }: Props) {
   const [availableByKey, setAvailableByKey] = React.useState<Record<string, number>>({});
+
+  // A product sitting on another row is hidden from this row's search, so a
+  // duplicate can never be picked in the first place.
+  const pickedProductIds = React.useMemo(
+    () => lines.map((line) => line.productId.trim()).filter(Boolean),
+    [lines],
+  );
 
   React.useEffect(() => {
     if (!companyId || !checksSourceStock || !fromLocationId) {
@@ -120,6 +130,10 @@ export function WarehouseOperationLinesEditor({
                       value={line.productId}
                       status="active"
                       disabled={disabled}
+                      excludeIds={[
+                        ...(excludeProductIds ?? []),
+                        ...pickedProductIds.filter((id) => id !== line.productId.trim()),
+                      ]}
                       placeholder="ابحث عن منتج…"
                       onChange={(productId) => {
                         if (!productId) {
@@ -165,7 +179,7 @@ export function WarehouseOperationLinesEditor({
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8"
-                      disabled={disabled || lines.length <= 1}
+                      disabled={disabled}
                       aria-label="حذف السطر"
                       onClick={() => removeLine(line.id)}
                     >

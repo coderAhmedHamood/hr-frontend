@@ -9,7 +9,14 @@ export type OperationLineDraft = {
 };
 
 export function supportsMultiProductLines(kind: WarehouseOperationKind): boolean {
-  return kind === 'internal' || kind === 'transfer';
+  return (
+    kind === 'transfer' ||
+    kind === 'receipt' ||
+    kind === 'issue' ||
+    kind === 'internal' ||
+    kind === 'purchase' ||
+    kind === 'replenishment'
+  );
 }
 
 export function newOperationLineDraftId(): string {

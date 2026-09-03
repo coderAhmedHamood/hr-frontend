@@ -299,7 +299,9 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
     return false;
   }
 
-  function normalizeMultiProductLines(): WarehouseOperationLine[] | null {
+  function normalizeMultiProductLines(options?: {
+    allowEmpty?: boolean;
+  }): WarehouseOperationLine[] | null {
     if (hasDuplicateOperationLineProducts(operationLinesToDrafts(lines))) {
       toast.error('لا يمكن تكرار نفس المنتج في أكثر من سطر.');
       return null;
@@ -321,7 +323,7 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
         fromLocationId: headerFromLocationId || line.fromLocationId,
         toLocationId: headerToLocationId || line.toLocationId,
       }));
-    if (normalized.length === 0) {
+    if (normalized.length === 0 && !options?.allowEmpty) {
       toast.error('أضف صنفًا واحدًا على الأقل مع كمية أكبر من صفر.');
       return null;
     }
@@ -372,12 +374,21 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
       prev.map((line) => {
         if (line.id !== lineId) return line;
         if (!product) {
-          return { ...line, productId: '', productName: '', sku: undefined };
+          return {
+            ...line,
+            productId: '',
+            productName: '',
+            variantId: undefined,
+            sku: undefined,
+            demandQuantity: 0,
+            quantity: 0,
+          };
         }
         return {
           ...line,
           productId: product.id,
           productName: product.nameAr,
+          variantId: undefined,
           sku: product.sku,
         };
       }),
@@ -550,7 +561,9 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
   async function saveDraftChanges() {
     let linesToSave = lines;
     if (multiProductMode) {
-      const normalized = normalizeMultiProductLines();
+      // An unfinished draft may intentionally contain no products. Readying or
+      // validating it still requires at least one complete line.
+      const normalized = normalizeMultiProductLines({ allowEmpty: status === 'draft' });
       if (!normalized) return;
       linesToSave = normalized;
     }
@@ -836,6 +849,10 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
                                 value={line.productId}
                                 status="active"
                                 disabled={isSaving}
+                                excludeIds={lines
+                                  .filter((other) => other.id !== line.id)
+                                  .map((other) => other.productId?.trim())
+                                  .filter((id): id is string => Boolean(id))}
                                 placeholder="ابحث عن منتج…"
                                 onChange={(productId) => {
                                   if (!productId) applyLineProduct(line.id, null);
@@ -888,6 +905,22 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
                               applyLineQuantity(line.id, 'quantity', value);
                             }}
                           />
+                          {(() => {
+                            const gap = (line.demandQuantity ?? line.quantity) - line.quantity;
+                            if (Math.abs(gap) < 1e-9) return null;
+                            return (
+                              <p
+                                className={cn(
+                                  'mt-1 text-[11px] font-medium tabular-nums',
+                                  gap > 0
+                                    ? 'text-destructive'
+                                    : 'text-emerald-700 dark:text-emerald-400',
+                                )}
+                              >
+                                {gap > 0 ? `ناقص ${gap}` : `زائد ${Math.abs(gap)}`}
+                              </p>
+                            );
+                          })()}
                         </td>
                         <td className="px-3 py-2.5 text-muted-foreground">الوحدات</td>
                         {canEditProducts ? (
@@ -897,7 +930,7 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
                               variant="ghost"
                               size="icon"
                               className="h-8 w-8"
-                              disabled={isSaving || lines.length <= 1}
+                              disabled={isSaving}
                               aria-label="حذف السطر"
                               onClick={() => removeProductLine(line.id)}
                             >

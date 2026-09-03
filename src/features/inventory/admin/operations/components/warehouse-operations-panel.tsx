@@ -27,6 +27,7 @@ import { ProductSinglePicker } from '@/features/ecommerce/admin/products/compone
 import { WarehouseOperationLinesEditor } from '@/features/inventory/admin/operations/components/warehouse-operation-lines-editor';
 import { FlexibleQuantityInput } from '@/features/inventory/admin/operations/components/flexible-quantity-input';
 import {
+  DemandActualChips,
   LocationRouteChips,
   ProductQuantityChips,
   QuantityChip,
@@ -118,6 +119,14 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
   const multiProductMode = supportsMultiProductLines(kind);
   const checksSourceStock =
     meta.stockEffect === 'outbound' || meta.stockEffect === 'move' || meta.stockEffect === 'transfer';
+  const actualQuantityLabel =
+    meta.stockEffect === 'outbound'
+      ? 'المصروف'
+      : meta.stockEffect === 'inbound'
+        ? 'المستلَم'
+        : meta.stockEffect === 'adjust_set'
+          ? 'المعدود'
+          : 'المنقول';
   const [lineDrafts, setLineDrafts] = React.useState<OperationLineDraft[]>([emptyOperationLineDraft()]);
 
   React.useEffect(() => {
@@ -620,7 +629,8 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
           lines={row.lines.map((line) => ({
             id: line.id,
             productName: line.productName,
-            quantity: line.demandQuantity ?? line.quantity,
+            quantity: line.quantity,
+            demandQuantity: line.demandQuantity,
             sku: line.sku,
           }))}
         />
@@ -630,8 +640,9 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
       key: 'qty',
       title: 'الكمية',
       render: (row) => {
-        const total = row.lines.reduce((sum, line) => sum + (line.demandQuantity ?? line.quantity), 0);
-        return <QuantityChip value={total} />;
+        const demand = row.lines.reduce((sum, line) => sum + (line.demandQuantity ?? line.quantity), 0);
+        const actual = row.lines.reduce((sum, line) => sum + line.quantity, 0);
+        return <DemandActualChips demand={demand} actual={actual} actualLabel={actualQuantityLabel} />;
       },
     },
     {
