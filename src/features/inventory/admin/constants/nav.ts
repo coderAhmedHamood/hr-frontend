@@ -15,6 +15,7 @@ import {
   MapPin,
   MapPinned,
   FolderTree,
+  Layers,
   Tags,
   BarChart3,
   FileText,
@@ -138,6 +139,7 @@ export const inventoryAdminNavGroups: InventoryAdminNavGroup[] = [
             icon: ClipboardList,
           },
           { labelAr: 'سجل الحركات', href: inventoryAdminRoutes.reportMoves, icon: FileText },
+          { labelAr: 'الدفعات', href: inventoryAdminRoutes.reportBatches, icon: Layers },
           {
             labelAr: 'تحليل الحركات',
             href: inventoryAdminRoutes.reportMovesAnalysis,

@@ -27,11 +27,6 @@ type OperationLineDto = Omit<WarehouseOperationLine, 'demandQuantity' | 'quantit
   archivedAt?: string | null;
 };
 
-async function stockService() {
-  const mod = await import('@/features/inventory/services/inventory-stock.service');
-  return mod.inventoryStockService;
-}
-
 function assertLinesLinkedToProduct(
   lines: CreateWarehouseOperationInput['lines'] | WarehouseOperation['lines'],
 ): void {
@@ -401,12 +396,6 @@ export const warehouseOperationsApi: AdminWarehouseOperationsPort = {
     }
 
     const normalized = mapOperation(dto, lines);
-
-    // Validate → done: apply stock client-side (ledger + cache). Undo uses backend POST …/undo.
-    if (normalized.status === 'done') {
-      const stock = await stockService();
-      await stock.applyDoneOperation(normalized);
-    }
 
     return normalized;
   },

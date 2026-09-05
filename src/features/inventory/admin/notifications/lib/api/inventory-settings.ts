@@ -3,6 +3,7 @@ import { apiRequest } from '@/features/hr/lib/api/client';
 export type InventoryCompanySettings = {
   id: string;
   companyId: string;
+  batchAllocationStrategy: 'fifo' | 'lifo' | 'fefo';
   notificationsEnabled: boolean;
   notifyLowStock: boolean;
   notifyOutOfStock: boolean;
@@ -24,6 +25,7 @@ export type InventoryCompanySettings = {
 export type UpdateInventoryCompanySettingsDto = Partial<
   Pick<
     InventoryCompanySettings,
+    | 'batchAllocationStrategy'
     | 'notificationsEnabled'
     | 'notifyLowStock'
     | 'notifyOutOfStock'

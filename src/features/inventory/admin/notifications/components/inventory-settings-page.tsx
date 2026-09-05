@@ -22,6 +22,14 @@ import {
 } from '@/features/system/organization/pages/_shared/components/settings-page-states';
 import { useModuleEnablementContext } from '@/features/auth/hooks/use-system-owner';
 import { isModuleEnabledFor } from '@/shared/modules/registry';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 export function InventorySettingsPage() {
   const can = useCan();
@@ -45,6 +53,19 @@ export function InventorySettingsPage() {
     try {
       await update.mutateAsync({ [key]: value });
       toast.success('تم تحديث الإعداد');
+    } catch (err) {
+      const { displayMessage } = handleApiError(err, 'settings.inventory.update');
+      toast.error(displayMessage);
+    }
+  };
+
+  const handleBatchStrategy = async (
+    value: InventoryCompanySettings['batchAllocationStrategy'],
+  ) => {
+    if (!settings || !canUpdate) return;
+    try {
+      await update.mutateAsync({ batchAllocationStrategy: value });
+      toast.success('تم تحديث استراتيجية استهلاك الدفعات');
     } catch (err) {
       const { displayMessage } = handleApiError(err, 'settings.inventory.update');
       toast.error(displayMessage);
@@ -76,7 +97,7 @@ export function InventorySettingsPage() {
 
   return (
     <div className="space-y-4 sm:space-y-5">
-      <SetPageTitle titleAr="إعدادات إشعارات المخازن" iconName="Bell" />
+      <SetPageTitle titleAr="إعدادات المخازن" iconName="Bell" />
       {company ? (
         <SettingsCompanyBanner
           eyebrow="المخازن"
@@ -85,6 +106,41 @@ export function InventorySettingsPage() {
           description="تحكم في إشعارات المخازن: تنبيهات المخزون، حركات المستودع، وخصم البيع. المستلمون = من يملك inv.notifications.read ضمن نطاق الفرع (ليس broadcast لكل الشركة)."
         />
       ) : null}
+
+      <section className="rounded-xl border border-border bg-card p-4 sm:p-5">
+        <div className="space-y-1">
+          <h2 className="font-semibold">إدارة دفعات المخزون</h2>
+          <p className="text-sm text-muted-foreground">
+            تحدد ترتيب الدفعات عند الصرف والتحويل والنقص في الجرد داخل الموقع المختار.
+          </p>
+        </div>
+        <div className="mt-4 max-w-md space-y-1.5">
+          <Label htmlFor="batch-allocation-strategy">استراتيجية استهلاك الدفعات</Label>
+          <Select
+            value={settings.batchAllocationStrategy}
+            disabled={update.isPending || !canUpdate}
+            onValueChange={(value) =>
+              void handleBatchStrategy(
+                value as InventoryCompanySettings['batchAllocationStrategy'],
+              )
+            }
+          >
+            <SelectTrigger id="batch-allocation-strategy">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="fifo">FIFO — الأقدم دخولًا أولًا</SelectItem>
+              <SelectItem value="lifo">LIFO — الأحدث دخولًا أولًا</SelectItem>
+              <SelectItem value="fefo">FEFO — الأقرب انتهاءً أولًا</SelectItem>
+            </SelectContent>
+          </Select>
+          {settings.batchAllocationStrategy === 'fefo' ? (
+            <p className="text-xs text-muted-foreground">
+              الدفعات بلا تاريخ صلاحية تُستهلك بعد الدفعات المؤرخة، وبترتيب FIFO ثابت.
+            </p>
+          ) : null}
+        </div>
+      </section>
 
       <NotificationTogglesCard
         title="إشعارات المخازن"

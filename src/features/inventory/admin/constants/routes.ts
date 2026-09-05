@@ -21,6 +21,7 @@ export const inventoryAdminRoutes = {
   reportDetailedStock: '/inventory/reports/detailed-stock',
   reportMoves: '/inventory/reports/moves',
   reportMovesAnalysis: '/inventory/reports/moves-analysis',
+  reportBatches: '/inventory/reports/batches',
   /** التهيئة */
   warehouses: '/inventory/warehouses',
   warehouseDetail: (warehouseId: string) => `/inventory/warehouses/${warehouseId}`,
