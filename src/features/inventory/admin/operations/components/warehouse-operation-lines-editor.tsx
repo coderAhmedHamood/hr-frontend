@@ -11,6 +11,7 @@ import {
   type OperationLineDraft,
 } from '@/features/inventory/admin/operations/lib/operation-line-draft';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { FlexibleQuantityInput } from '@/features/inventory/admin/operations/components/flexible-quantity-input';
 
@@ -25,6 +26,13 @@ type Props = {
   restrictToSourceLocation?: boolean;
   /** Products hidden from every row's picker (e.g. taken by another document). */
   excludeProductIds?: string[];
+  /**
+   * Show a "تكلفة الوحدة" column and require it per row — only for inbound
+   * kinds (شراء/استلام/تجديد). Never pass true for transfer/outbound: the
+   * backend ignores/rejects client-supplied cost there (derived from the
+   * source batch or costing engine instead).
+   */
+  needsUnitCost?: boolean;
   className?: string;
 };
 
@@ -37,6 +45,7 @@ export function WarehouseOperationLinesEditor({
   disabled,
   restrictToSourceLocation = false,
   excludeProductIds,
+  needsUnitCost = false,
   className,
 }: Props) {
   const [availableByKey, setAvailableByKey] = React.useState<Record<string, number>>({});
@@ -112,6 +121,11 @@ export function WarehouseOperationLinesEditor({
             <tr className="border-b border-border bg-muted/30 text-muted-foreground">
               <th className="px-3 py-2.5 text-start font-medium">المنتج</th>
               <th className="px-3 py-2.5 text-start font-medium">الكمية</th>
+              {needsUnitCost ? (
+                <th className="px-3 py-2.5 text-start font-medium text-emerald-700 dark:text-emerald-400">
+                  تكلفة الوحدة (الشراء)
+                </th>
+              ) : null}
               <th className="w-10 px-2 py-2.5" />
             </tr>
           </thead>
@@ -183,6 +197,42 @@ export function WarehouseOperationLinesEditor({
                       </p>
                     ) : null}
                   </td>
+                  {needsUnitCost ? (
+                    <td className="px-3 py-2.5">
+                      <div
+                        className={`flex items-center gap-2 rounded-lg border-2 px-1 transition-colors ${
+                          line.productId && !line.unitCost?.trim()
+                            ? 'border-amber-400 bg-amber-50 dark:border-amber-500/60 dark:bg-amber-950/30'
+                            : 'border-emerald-300 bg-emerald-50/60 dark:border-emerald-500/40 dark:bg-emerald-950/20'
+                        }`}
+                      >
+                        <Input
+                          type="text"
+                          inputMode="decimal"
+                          dir="ltr"
+                          placeholder="0.00"
+                          value={line.unitCost ?? ''}
+                          disabled={disabled || !line.productId}
+                          className="h-9 w-28 border-0 bg-transparent px-2 text-center font-semibold tabular-nums shadow-none focus-visible:ring-0"
+                          onChange={(e) => {
+                            const raw = e.target.value;
+                            // Match the backend's accepted shape (digits, one
+                            // optional dot, up to 8 decimals) so an invalid
+                            // value is rejected before ever hitting the API.
+                            if (raw === '' || /^\d*\.?\d{0,8}$/.test(raw)) {
+                              updateLine(line.id, { unitCost: raw });
+                            }
+                          }}
+                        />
+                        <span className="pe-2 text-xs font-medium text-muted-foreground">ر.ي</span>
+                      </div>
+                      {line.productId && !line.unitCost?.trim() ? (
+                        <p className="mt-1 text-[11px] font-medium text-amber-700 dark:text-amber-400">
+                          أدخل تكلفة الشراء لهذا الصنف
+                        </p>
+                      ) : null}
+                    </td>
+                  ) : null}
                   <td className="px-2 py-2.5">
                     <Button
                       type="button"

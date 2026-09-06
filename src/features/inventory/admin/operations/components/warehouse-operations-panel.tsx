@@ -42,6 +42,7 @@ import {
 import {
   emptyOperationLineDraft,
   hasDuplicateOperationLineProducts,
+  lineNeedsUnitCost,
   operationLineDraftsToLines,
   supportsMultiProductLines,
   pickerUsesSourceLocationStock,
@@ -453,7 +454,9 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
         toast.error('لا يمكن تكرار نفس المنتج في أكثر من سطر.');
         return;
       }
-      const lines = operationLineDraftsToLines(lineDrafts, lineLocations);
+      const lines = operationLineDraftsToLines(lineDrafts, lineLocations, {
+        includeUnitCost: lineNeedsUnitCost(meta.stockEffect),
+      });
       if (lines.length === 0) {
         toast.error('أضف صنفًا واحدًا على الأقل مع كمية أكبر من صفر.');
         return;
@@ -934,6 +937,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
                 fromLocationId={fromLocationId || undefined}
                 checksSourceStock={checksSourceStock}
                 restrictToSourceLocation={pickerUsesSourceLocationStock(kind)}
+                needsUnitCost={lineNeedsUnitCost(meta.stockEffect)}
                 disabled={!locationsReady}
               />
             ) : (
