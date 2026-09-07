@@ -379,6 +379,19 @@ export function ProductsListPage() {
       ),
     },
     {
+      key: 'costPrice',
+      title: 'تكلفة الكاتالوج',
+      hideOnMobile: true,
+      render: (product) =>
+        product.costPrice ? (
+          <span className="font-medium tabular-nums text-emerald-700 dark:text-emerald-400">
+            {formatPrice(product.costPrice)}
+          </span>
+        ) : (
+          <span className="text-xs text-muted-foreground">غير محددة</span>
+        ),
+    },
+    {
       key: 'quantity',
       title: 'الكمية',
       hideOnMobile: true,
@@ -457,10 +470,16 @@ export function ProductsListPage() {
           </div>
         ) : null}
 
-        <div className="flex items-center justify-between gap-3 rounded-lg bg-muted/40 px-2.5 py-1.5">
+        <div className="grid grid-cols-3 items-center gap-3 rounded-lg bg-muted/40 px-2.5 py-1.5">
           <div>
             <p className="text-[11px] text-muted-foreground">السعر</p>
             <p className="font-medium tabular-nums text-foreground">{formatPrice(product.price)}</p>
+          </div>
+          <div>
+            <p className="text-[11px] text-muted-foreground">تكلفة الكاتالوج</p>
+            <p className="font-medium tabular-nums text-emerald-700 dark:text-emerald-400">
+              {product.costPrice ? formatPrice(product.costPrice) : '—'}
+            </p>
           </div>
           <div className="text-end">
             <p className="text-[11px] text-muted-foreground">الكمية</p>
