@@ -120,6 +120,13 @@ export type WarehouseOperationLine = {
   fromLocationId?: string;
   toLocationId?: string;
   notes?: string;
+  /**
+   * تكلفة الوحدة عند الإدخال (وارد فقط: شراء/استلام/تجديد). مطلوبة عندما
+   * يكون Costing مفعّلًا للشركة؛ تُتجاهل من الـbackend في التحويل والصادر —
+   * لا تُرسلها لتلك الأنواع.
+   */
+  unitCost?: string;
+  costCurrency?: string;
 };
 
 export type WarehouseOperation = TenantScoped & {

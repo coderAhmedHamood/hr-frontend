@@ -45,6 +45,7 @@ export function ProductDetailHero({ control, register, setValue, nameError, curr
   const stockStatus = useWatch({ control, name: 'stockStatus' });
   const stockQuantity = (useWatch({ control, name: 'stockQuantity' }) as number | undefined) ?? 0;
   const listPrice = (useWatch({ control, name: 'listPrice' }) as number | undefined) ?? 0;
+  const costPrice = useWatch({ control, name: 'costPrice' }) as number | undefined;
   const isNewProduct = useWatch({ control, name: 'isNewProduct' });
   const isTodayDeal = useWatch({ control, name: 'isTodayDeal' });
   const dealPriceAmount = useWatch({ control, name: 'dealPriceAmount' }) as number | undefined;
@@ -167,6 +168,11 @@ export function ProductDetailHero({ control, register, setValue, nameError, curr
                 formatPrice({ amount: listPrice, currency })
               )
             }
+          />
+          <ProductStatTile
+            className="w-fit min-w-24 shrink-0"
+            label="تكلفة الكاتالوج"
+            value={costPrice ? formatPrice({ amount: costPrice, currency }) : '—'}
           />
           <ProductStatTile className="w-fit min-w-24 shrink-0" label="الكمية" value={stockQuantity} />
         </div>

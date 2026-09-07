@@ -286,6 +286,12 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
     );
   }
 
+  function applyLineUnitCost(lineId: string, nextValue: string) {
+    setLines((prev) =>
+      prev.map((item) => (item.id === lineId ? { ...item, unitCost: nextValue } : item)),
+    );
+  }
+
   async function assertStockBeforeSave(nextLines: WarehouseOperationLine[] = lines): Promise<boolean> {
     if (!operation || !checksSourceStock) return true;
     const issues = await collectStockShortages({
@@ -343,6 +349,7 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
         quantity: 0,
         fromLocationId: headerFromLocationId || undefined,
         toLocationId: headerToLocationId || undefined,
+        unitCost: undefined,
       },
     ]);
   }
@@ -824,6 +831,11 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
                       <th className="px-3 py-2.5 text-start font-medium">الطلب</th>
                       <th className="px-3 py-2.5 text-start font-medium">الكمية</th>
                       <th className="px-3 py-2.5 text-start font-medium">الوحدة</th>
+                      {stockEffect === 'inbound' ? (
+                        <th className="px-3 py-2.5 text-start font-medium text-emerald-700 dark:text-emerald-400">
+                          تكلفة الوحدة (الشراء)
+                        </th>
+                      ) : null}
                       {canEditProducts ? <th className="w-10 px-2 py-2.5" /> : null}
                     </tr>
                   </thead>
@@ -933,6 +945,46 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
                           })()}
                         </td>
                         <td className="px-3 py-2.5 text-muted-foreground">الوحدات</td>
+                        {stockEffect === 'inbound' ? (
+                          <td className="px-3 py-2.5">
+                            {canEditProducts ? (
+                              <>
+                                <div
+                                  className={`flex items-center gap-2 rounded-lg border-2 px-1 transition-colors ${
+                                    line.productId && !line.unitCost?.trim()
+                                      ? 'border-amber-400 bg-amber-50 dark:border-amber-500/60 dark:bg-amber-950/30'
+                                      : 'border-emerald-300 bg-emerald-50/60 dark:border-emerald-500/40 dark:bg-emerald-950/20'
+                                  }`}
+                                >
+                                  <Input
+                                    type="text"
+                                    inputMode="decimal"
+                                    dir="ltr"
+                                    placeholder="0.00"
+                                    value={line.unitCost ?? ''}
+                                    className="h-9 w-28 border-0 bg-transparent px-2 text-center font-semibold tabular-nums shadow-none focus-visible:ring-0"
+                                    onChange={(e) => {
+                                      const raw = e.target.value;
+                                      if (raw === '' || /^\d*\.?\d{0,8}$/.test(raw)) {
+                                        applyLineUnitCost(line.id, raw);
+                                      }
+                                    }}
+                                  />
+                                  <span className="pe-2 text-xs font-medium text-muted-foreground">ر.ي</span>
+                                </div>
+                                {line.productId && !line.unitCost?.trim() ? (
+                                  <p className="mt-1 text-[11px] font-medium text-amber-700 dark:text-amber-400">
+                                    أدخل تكلفة الشراء لهذا الصنف
+                                  </p>
+                                ) : null}
+                              </>
+                            ) : (
+                              <span className="font-semibold tabular-nums">
+                                {line.unitCost?.trim() ? `${line.unitCost} ر.ي` : '—'}
+                              </span>
+                            )}
+                          </td>
+                        ) : null}
                         {canEditProducts ? (
                           <td className="px-2 py-2.5">
                             <Button
