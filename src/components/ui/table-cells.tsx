@@ -33,10 +33,10 @@ export function TableDateCell({
       return <span className={baseClass}>—</span>;
     }
     return (
-      <span className={baseClass} dir="rtl">
-        <span dir="ltr">{parts.date}</span>
-        <span>-</span>
-        <span dir="ltr">{parts.hours}:{parts.minutes}{parts.period}</span>
+      <span className={baseClass} dir="ltr">
+        <span>{parts.date}</span>
+        <span> </span>
+        <span>{parts.hours}:{parts.minutes} {parts.period}</span>
       </span>
     );
   }

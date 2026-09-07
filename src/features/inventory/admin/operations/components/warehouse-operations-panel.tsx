@@ -25,6 +25,16 @@ import { useWarehouses } from '@/features/inventory/admin/warehouses/hooks/use-w
 import { useProduct } from '@/features/ecommerce/admin/products/hooks/use-products';
 import { ProductSinglePicker } from '@/features/ecommerce/admin/products/components/product-single-picker';
 import { WarehouseOperationLinesEditor } from '@/features/inventory/admin/operations/components/warehouse-operation-lines-editor';
+import { FlexibleQuantityInput } from '@/features/inventory/admin/operations/components/flexible-quantity-input';
+import {
+  DemandActualChips,
+  LocationRouteChips,
+  ProductQuantityChips,
+  QuantityChip,
+  WarehouseChip,
+  WarehouseRouteChips,
+} from '@/features/inventory/admin/operations/components/inventory-chips';
+import { inventoryStockService } from '@/features/inventory/services/inventory-stock.service';
 import {
   collectStockShortages,
   formatStockShortageMessage,
@@ -32,11 +42,14 @@ import {
 import {
   emptyOperationLineDraft,
   hasDuplicateOperationLineProducts,
+  lineNeedsUnitCost,
   operationLineDraftsToLines,
   supportsMultiProductLines,
+  pickerUsesSourceLocationStock,
   type OperationLineDraft,
 } from '@/features/inventory/admin/operations/lib/operation-line-draft';
 import { toast } from 'sonner';
+import { formatDateTime } from '@/shared/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -108,6 +121,14 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
   const multiProductMode = supportsMultiProductLines(kind);
   const checksSourceStock =
     meta.stockEffect === 'outbound' || meta.stockEffect === 'move' || meta.stockEffect === 'transfer';
+  const actualQuantityLabel =
+    meta.stockEffect === 'outbound'
+      ? 'المصروف'
+      : meta.stockEffect === 'inbound'
+        ? 'المستلَم'
+        : meta.stockEffect === 'adjust_set'
+          ? 'المعدود'
+          : 'المنقول';
   const [lineDrafts, setLineDrafts] = React.useState<OperationLineDraft[]>([emptyOperationLineDraft()]);
 
   React.useEffect(() => {
@@ -166,6 +187,68 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
     [selectedProduct?.variants],
   );
   const hasActiveVariants = activeVariants.length > 0;
+
+  // Single-product outbound docs: on-hand at the chosen source location caps the
+  // quantity, so an over-available draft can never be created in the first place.
+  const [sourceAvailable, setSourceAvailable] = React.useState<number | null>(null);
+  const [variantAvailable, setVariantAvailable] = React.useState<Record<string, number>>({});
+  const tracksSourceAvailability = checksSourceStock && !multiProductMode;
+
+  React.useEffect(() => {
+    if (
+      !open ||
+      !companyId ||
+      !tracksSourceAvailability ||
+      !fromLocationId ||
+      !selectedProductId
+    ) {
+      setSourceAvailable(null);
+      setVariantAvailable({});
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const base = await inventoryStockService.getQuantityAtLocation(
+          companyId,
+          selectedProductId,
+          fromLocationId,
+        );
+        const perVariant: Record<string, number> = {};
+        await Promise.all(
+          activeVariants.map(async (variant) => {
+            const qty = await inventoryStockService.getQuantityAtLocation(
+              companyId,
+              selectedProductId,
+              fromLocationId,
+              variant.id,
+            );
+            perVariant[variant.id] = Math.max(0, qty);
+          }),
+        );
+        if (cancelled) return;
+        setSourceAvailable(Math.max(0, base));
+        setVariantAvailable(perVariant);
+      } catch {
+        if (cancelled) return;
+        setSourceAvailable(null);
+        setVariantAvailable({});
+        toast.error('تعذر قراءة رصيد المنتج في الموقع المحدد.');
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    open,
+    companyId,
+    tracksSourceAvailability,
+    fromLocationId,
+    selectedProductId,
+    activeVariants,
+  ]);
 
   // Products already sitting in an unvalidated document of this kind — cannot be picked again.
   const { data: openOperationsData } = useWarehouseOperations(
@@ -371,7 +454,9 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
         toast.error('لا يمكن تكرار نفس المنتج في أكثر من سطر.');
         return;
       }
-      const lines = operationLineDraftsToLines(lineDrafts, lineLocations);
+      const lines = operationLineDraftsToLines(lineDrafts, lineLocations, {
+        includeUnitCost: lineNeedsUnitCost(meta.stockEffect),
+      });
       if (lines.length === 0) {
         toast.error('أضف صنفًا واحدًا على الأقل مع كمية أكبر من صفر.');
         return;
@@ -465,6 +550,20 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
       return;
     }
 
+    if (checksSourceStock && lineLocations.fromLocationId) {
+      const issues = await collectStockShortages({
+        companyId,
+        warehouseId: sourceWh,
+        kind,
+        destinationWarehouseId: values.destinationWarehouseId || undefined,
+        lines,
+      });
+      if (issues.length > 0) {
+        toast.error(formatStockShortageMessage(issues[0]!));
+        return;
+      }
+    }
+
     await create.mutateAsync({
       companyId,
       warehouseId: sourceWh,
@@ -490,7 +589,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
             {row.reference || '—'}
           </span>
           <span className="text-xs text-muted-foreground">
-            {new Date(row.occurredAt).toLocaleString('ar-SA')}
+            {formatDateTime(row.occurredAt)}
           </span>
         </div>
       ),
@@ -499,10 +598,16 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
       ? [
           {
             key: 'warehouse',
-            title: 'المستودع',
-            render: (row: WarehouseOperation) => (
-              <span className="text-sm">{warehouseNameById.get(row.warehouseId) ?? '—'}</span>
-            ),
+            title: meta.needsDestWarehouse ? 'المستودعات' : 'المستودع',
+            render: (row: WarehouseOperation) =>
+              row.destinationWarehouseId && row.destinationWarehouseId !== row.warehouseId ? (
+                <WarehouseRouteChips
+                  from={warehouseNameById.get(row.warehouseId)}
+                  to={warehouseNameById.get(row.destinationWarehouseId)}
+                />
+              ) : (
+                <WarehouseChip name={warehouseNameById.get(row.warehouseId)} />
+              ),
           } satisfies ColumnDef<WarehouseOperation>,
         ]
       : []),
@@ -524,23 +629,24 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
       title: 'البنود',
       hideOnMobile: true,
       render: (row) => (
-        <span className="text-sm text-muted-foreground">
-          {row.lines
-            .map((line) => `${line.productName} × ${line.demandQuantity ?? line.quantity}`)
-            .join('، ')}
-        </span>
+        <ProductQuantityChips
+          lines={row.lines.map((line) => ({
+            id: line.id,
+            productName: line.productName,
+            quantity: line.quantity,
+            demandQuantity: line.demandQuantity,
+            sku: line.sku,
+          }))}
+        />
       ),
     },
     {
       key: 'qty',
       title: 'الكمية',
       render: (row) => {
-        const total = row.lines.reduce((sum, line) => sum + (line.demandQuantity ?? line.quantity), 0);
-        return (
-          <span className="font-medium tabular-nums" dir="ltr">
-            {total}
-          </span>
-        );
+        const demand = row.lines.reduce((sum, line) => sum + (line.demandQuantity ?? line.quantity), 0);
+        const actual = row.lines.reduce((sum, line) => sum + line.quantity, 0);
+        return <DemandActualChips demand={demand} actual={actual} actualLabel={actualQuantityLabel} />;
       },
     },
     {
@@ -549,13 +655,13 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
       hideOnMobile: true,
       render: (row) => {
         const line = row.lines[0];
-        if (!line) return '—';
-        const from = line.fromLocationId ? locationNameById.get(line.fromLocationId) ?? '—' : null;
-        const to = line.toLocationId ? locationNameById.get(line.toLocationId) ?? '—' : null;
-        if (from && to) return <span className="text-sm">{from} ← {to}</span>;
-        if (from) return <span className="text-sm">من: {from}</span>;
-        if (to) return <span className="text-sm">إلى: {to}</span>;
-        return '—';
+        if (!line) return <span className="text-sm text-muted-foreground">—</span>;
+        return (
+          <LocationRouteChips
+            from={line.fromLocationId ? locationNameById.get(line.fromLocationId) ?? '—' : null}
+            to={line.toLocationId ? locationNameById.get(line.toLocationId) ?? '—' : null}
+          />
+        );
       },
     },
     {
@@ -608,23 +714,41 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
             }}
             className="space-y-4"
           >
+            <div className="space-y-1">
+              <h3 className="text-sm font-semibold text-foreground">المستودعات والمواقع</h3>
+              <p className="text-xs text-muted-foreground">
+                حدّد مصدر ووجهة الحركة أولًا قبل اختيار المنتجات.
+              </p>
+            </div>
+
             {!scopedToWarehouse ? (
               <div className="space-y-1.5">
-                <Label>المستودع</Label>
+                <Label>{meta.needsDestWarehouse ? 'مستودع الصرف (المصدر)' : 'المستودع'}</Label>
                 <Controller
                   control={form.control}
                   name="sourceWarehouseId"
                   render={({ field }) => (
                     <Select
-                      value={field.value || undefined}
+                      value={field.value || ''}
                       onValueChange={(value) => {
                         field.onChange(value);
                         form.setValue('fromLocationId', '');
-                        form.setValue('toLocationId', '');
-                        form.setValue('destinationWarehouseId', '');
+                        form.setValue('productId', '');
+                        form.setValue('productName', '');
+                        form.setValue('sku', '');
+                        setLineDrafts([emptyOperationLineDraft()]);
+                        setStockMode('product');
+                        setVariantQuantities({});
+                        if (!meta.needsDestWarehouse) {
+                          form.setValue('toLocationId', '');
+                        } else if (form.getValues('destinationWarehouseId') === value) {
+                          // A warehouse cannot transfer to itself.
+                          form.setValue('destinationWarehouseId', '');
+                          form.setValue('toLocationId', '');
+                        }
                       }}
                     >
-                      <SelectTrigger aria-label="المستودع">
+                      <SelectTrigger aria-label={meta.needsDestWarehouse ? 'مستودع الصرف' : 'المستودع'}>
                         <SelectValue placeholder="اختر مستودعًا" />
                       </SelectTrigger>
                       <SelectContent>
@@ -638,81 +762,33 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
                   )}
                 />
               </div>
-            ) : null}
-
-            <div className="inv-form-grid">
+            ) : (
               <div className="space-y-1.5">
-                <Label htmlFor="op-date">التاريخ</Label>
-                <Input id="op-date" type="datetime-local" dir="ltr" {...form.register('occurredAt')} />
-              </div>
-            </div>
-
-            <div className="inv-form-grid">
-              <div className="space-y-1.5">
-                <Label htmlFor="op-partner">
-                  {kind === 'issue'
-                    ? 'الصرف إلى'
-                    : kind === 'receipt' || kind === 'purchase' || kind === 'replenishment'
-                      ? 'الاستلام من'
-                      : 'الطرف'}
-                </Label>
-                <Input id="op-partner" {...form.register('partnerName')} />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="op-source">المستند المصدر</Label>
-                <Input id="op-source" {...form.register('sourceDocument')} placeholder="اختياري" />
-              </div>
-            </div>
-
-            {meta.needsDestWarehouse ? (
-              <div className="space-y-1.5">
-                <Label>المستودع الوجهة</Label>
-                <Controller
-                  control={form.control}
-                  name="destinationWarehouseId"
-                  render={({ field }) => (
-                    <Select
-                      value={field.value || undefined}
-                      onValueChange={(value) => {
-                        field.onChange(value);
-                        form.setValue('toLocationId', '');
-                        if (multiProductMode) {
-                          setLineDrafts([emptyOperationLineDraft()]);
-                        } else {
-                          form.setValue('productId', '');
-                          form.setValue('productName', '');
-                          form.setValue('sku', '');
-                          setStockMode('product');
-                          setVariantQuantities({});
-                        }
-                      }}
-                      disabled={!effectiveWarehouseId}
-                    >
-                      <SelectTrigger aria-label="المستودع الوجهة">
-                        <SelectValue placeholder="اختر مستودعًا" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {warehousesForDest.map((warehouse) => (
-                          <SelectItem key={warehouse.id} value={warehouse.id}>
-                            {warehouse.nameAr}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
+                <Label>{meta.needsDestWarehouse ? 'مستودع الصرف (المصدر)' : 'المستودع'}</Label>
+                <Input
+                  value={warehouseNameById.get(warehouseId ?? '') ?? '—'}
+                  disabled
                 />
               </div>
-            ) : null}
+            )}
 
             {meta.needsFrom ? (
               <div className="space-y-1.5">
-                <Label htmlFor="op-from">من موقع</Label>
+                <Label htmlFor="op-from">
+                  {kind === 'transfer'
+                    ? 'موقع الصرف (المصدر)'
+                    : kind === 'issue'
+                      ? 'موقع الصرف'
+                      : meta.stockEffect === 'move'
+                        ? 'الموقع الحالي (من)'
+                        : 'الموقع المصدر'}
+                </Label>
                 <Controller
                   control={form.control}
                   name="fromLocationId"
                   render={({ field }) => (
                     <Select
-                      value={field.value || undefined}
+                      value={field.value || ''}
                       onValueChange={(value) => {
                         field.onChange(value);
                         if (multiProductMode) {
@@ -744,16 +820,71 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
               </div>
             ) : null}
 
+            {meta.needsDestWarehouse ? (
+              <div className="space-y-1.5">
+                <Label>المستودع الوجهة</Label>
+                <Controller
+                  control={form.control}
+                  name="destinationWarehouseId"
+                  render={({ field }) => (
+                    <Select
+                      value={field.value || ''}
+                      onValueChange={(value) => {
+                        field.onChange(value);
+                        form.setValue('toLocationId', '');
+                      }}
+                    >
+                      <SelectTrigger aria-label="المستودع الوجهة">
+                        <SelectValue placeholder="اختر المستودع الوجهة" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {warehousesForDest.map((warehouse) => (
+                          <SelectItem key={warehouse.id} value={warehouse.id}>
+                            {warehouse.nameAr}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+              </div>
+            ) : null}
+
             {meta.needsTo ? (
               <div className="space-y-1.5">
-                <Label htmlFor="op-to">{meta.needsDestWarehouse ? 'إلى موقع (في المستودع الوجهة)' : 'إلى موقع'}</Label>
+                <Label htmlFor="op-to">
+                  {meta.needsDestWarehouse
+                    ? 'موقع الاستلام (الوجهة)'
+                    : meta.stockEffect === 'inbound'
+                      ? 'موقع الاستلام'
+                      : meta.stockEffect === 'adjust_set'
+                        ? 'موقع المخزون'
+                        : meta.stockEffect === 'move'
+                          ? 'الموقع الجديد (إلى)'
+                          : 'الموقع الوجهة'}
+                </Label>
                 <Controller
                   control={form.control}
                   name="toLocationId"
                   render={({ field }) => (
                     <Select
-                      value={field.value || undefined}
-                      onValueChange={field.onChange}
+                      value={field.value || ''}
+                      onValueChange={(value) => {
+                        field.onChange(value);
+                        // Availability is read at the source location, so picking a
+                        // destination keeps the products. Inbound/count docs have no
+                        // source: there this field *is* the stock reference.
+                        if (meta.needsFrom) return;
+                        if (multiProductMode) {
+                          setLineDrafts([emptyOperationLineDraft()]);
+                        } else {
+                          form.setValue('productId', '');
+                          form.setValue('productName', '');
+                          form.setValue('sku', '');
+                          setStockMode('product');
+                          setVariantQuantities({});
+                        }
+                      }}
                       disabled={
                         meta.needsDestWarehouse
                           ? !destinationWarehouseId
@@ -789,6 +920,15 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
               </p>
             ) : null}
 
+            <div className="space-y-1 border-t border-border pt-4">
+              <h3 className="text-sm font-semibold text-foreground">المنتجات والكميات</h3>
+              <p className="text-xs text-muted-foreground">
+                {pickerUsesSourceLocationStock(kind)
+                  ? 'تظهر فقط المنتجات التي لها رصيد في موقع الصرف المحدد.'
+                  : 'اختر المنتجات بعد اكتمال تحديد المستودعات والمواقع.'}
+              </p>
+            </div>
+
             {multiProductMode ? (
               <WarehouseOperationLinesEditor
                 companyId={companyId}
@@ -796,6 +936,8 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
                 onChange={setLineDrafts}
                 fromLocationId={fromLocationId || undefined}
                 checksSourceStock={checksSourceStock}
+                restrictToSourceLocation={pickerUsesSourceLocationStock(kind)}
+                needsUnitCost={lineNeedsUnitCost(meta.stockEffect)}
                 disabled={!locationsReady}
               />
             ) : (
@@ -811,10 +953,15 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
                         value={field.value ?? ''}
                         status="active"
                         excludeIds={takenProductIdList}
+                        sourceLocationId={
+                          pickerUsesSourceLocationStock(kind) ? fromLocationId || undefined : undefined
+                        }
                         disabled={!locationsReady}
                         placeholder={
                           locationsReady
-                            ? 'ابحث عن منتج من الكتالوج…'
+                            ? pickerUsesSourceLocationStock(kind)
+                              ? 'ابحث عن منتج في الموقع…'
+                              : 'ابحث عن منتج من الكتالوج…'
                             : 'حدّد المواقع أولًا…'
                         }
                         onChange={field.onChange}
@@ -850,15 +997,25 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
                 ) : stockMode === 'product' || !hasActiveVariants ? (
                   <div className="space-y-1.5">
                     <Label htmlFor="op-qty">الكمية</Label>
-                    <Input
-                      id="op-qty"
-                      type="number"
-                      min={0}
-                      step={1}
-                      dir="ltr"
-                      disabled={!locationsReady}
-                      {...form.register('quantity', { valueAsNumber: true })}
+                    <Controller
+                      control={form.control}
+                      name="quantity"
+                      render={({ field }) => (
+                        <FlexibleQuantityInput
+                          id="op-qty"
+                          className="w-full"
+                          value={field.value ?? 0}
+                          max={tracksSourceAvailability ? sourceAvailable : null}
+                          disabled={!locationsReady || !selectedProductId}
+                          onChange={field.onChange}
+                        />
+                      )}
                     />
+                    {tracksSourceAvailability && sourceAvailable != null ? (
+                      <p className="text-xs text-muted-foreground">
+                        المتاح في الموقع: {sourceAvailable}
+                      </p>
+                    ) : null}
                     {form.formState.errors.quantity ? (
                       <p className="text-xs text-destructive">{form.formState.errors.quantity.message}</p>
                     ) : null}
@@ -901,6 +1058,9 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
                     <tr className="border-b border-border bg-muted/30 text-muted-foreground">
                       <th className="px-3 py-2 text-start font-medium">المتغير</th>
                       <th className="px-3 py-2 text-start font-medium">الكمية</th>
+                      {tracksSourceAvailability ? (
+                        <th className="px-3 py-2 text-start font-medium">المتاح في الموقع</th>
+                      ) : null}
                     </tr>
                   </thead>
                   <tbody>
@@ -913,20 +1073,21 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
                           </div>
                         </td>
                         <td className="px-3 py-2">
-                          <Input
-                            type="number"
-                            min={0}
-                            step={1}
-                            dir="ltr"
+                          <FlexibleQuantityInput
                             className="h-8 w-28"
-                            disabled={!locationsReady}
                             value={variantQuantities[variant.id] ?? 0}
-                            onChange={(event) => {
-                              const nextQty = Math.max(0, Number(event.target.value) || 0);
+                            max={tracksSourceAvailability ? (variantAvailable[variant.id] ?? null) : null}
+                            disabled={!locationsReady}
+                            onChange={(nextQty) => {
                               setVariantQuantities((prev) => ({ ...prev, [variant.id]: nextQty }));
                             }}
                           />
                         </td>
+                        {tracksSourceAvailability ? (
+                          <td className="px-3 py-2 text-xs text-muted-foreground tabular-nums" dir="ltr">
+                            {variantAvailable[variant.id] ?? '—'}
+                          </td>
+                        ) : null}
                       </tr>
                     ))}
                   </tbody>
@@ -963,6 +1124,37 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
                 ) : null}
               </div>
             ) : null}
+
+            <div className="space-y-1 border-t border-border pt-4">
+              <h3 className="text-sm font-semibold text-foreground">تفاصيل المستند</h3>
+              <p className="text-xs text-muted-foreground">
+                أكمل البيانات الإضافية بعد تحديد حركة المخزون.
+              </p>
+            </div>
+
+            <div className="inv-form-grid">
+              <div className="space-y-1.5">
+                <Label htmlFor="op-date">التاريخ</Label>
+                <Input id="op-date" type="datetime-local" dir="ltr" {...form.register('occurredAt')} />
+              </div>
+            </div>
+
+            <div className="inv-form-grid">
+              <div className="space-y-1.5">
+                <Label htmlFor="op-partner">
+                  {kind === 'issue'
+                    ? 'الصرف إلى'
+                    : kind === 'receipt' || kind === 'purchase' || kind === 'replenishment'
+                      ? 'الاستلام من'
+                      : 'الطرف'}
+                </Label>
+                <Input id="op-partner" {...form.register('partnerName')} placeholder="اختياري" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="op-source">المستند المصدر</Label>
+                <Input id="op-source" {...form.register('sourceDocument')} placeholder="اختياري" />
+              </div>
+            </div>
 
             <div className="space-y-1.5">
               <Label htmlFor="op-notes">ملاحظات</Label>

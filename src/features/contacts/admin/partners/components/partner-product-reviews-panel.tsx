@@ -4,6 +4,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { Check, ExternalLink, Star, Trash2, X } from 'lucide-react';
 import { Can } from '@/components/shared/can';
+import { formatDateTime } from '@/shared/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -164,7 +165,7 @@ function PartnerProductReviewsBody({ companyId, partnerId }: Props) {
                       <ExternalLink className="h-3 w-3" />
                     </Link>
                     {' · '}
-                    <span dir="ltr">{new Date(review.createdAt).toLocaleString('ar-YE')}</span>
+                    <span dir="ltr">{formatDateTime(review.createdAt)}</span>
                   </p>
                   {review.title ? (
                     <p className="text-sm font-medium text-foreground">{review.title}</p>

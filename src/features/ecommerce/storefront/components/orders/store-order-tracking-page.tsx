@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { useFormatter, useTranslations } from 'next-intl';
+import { useTranslations } from 'next-intl';
 import { formatPrice as formatMoney } from '@/features/ecommerce/shared/utils/format-price';
 import {
   Check,
@@ -26,7 +26,7 @@ import type {
   StorefrontOrderStatus,
 } from '@/features/ecommerce/storefront/domain/checkout';
 import { Link } from '@/i18n/navigation';
-import { cn } from '@/shared/utils';
+import { cn, formatDisplayDate, formatDisplayDateTime } from '@/shared/utils';
 
 type Props = {
   order: StorefrontCustomerOrder;
@@ -51,8 +51,6 @@ function trackingIndex(status: StorefrontOrderStatus): number {
 
 export function StoreOrderTrackingPage({ order }: Props) {
   const t = useTranslations('storefront');
-  const format = useFormatter();
-
   const currentIdx = trackingIndex(order.status);
   const currency = order.total.currency;
   const progressPercent =
@@ -67,11 +65,8 @@ export function StoreOrderTrackingPage({ order }: Props) {
   );
 
   const orderPath = `/store/orders/${order.orderNumber}` as const;
-  const placedAt = format.dateTime(new Date(order.createdAt), {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  });
-  const eta = format.dateTime(new Date(order.estimatedDeliveryAt), { dateStyle: 'medium' });
+  const placedAt = formatDisplayDateTime(order.createdAt);
+  const eta = formatDisplayDate(order.estimatedDeliveryAt);
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">

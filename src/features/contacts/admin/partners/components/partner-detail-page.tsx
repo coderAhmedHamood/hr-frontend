@@ -71,7 +71,7 @@ import type {
   PartnerChannelType,
   PartnerRelationType,
 } from '@/features/contacts/domain/types/partner';
-import { cn } from '@/shared/utils';
+import { cn, formatDateTime } from '@/shared/utils';
 
 type Props = { partnerId: string };
 
@@ -841,7 +841,7 @@ export function PartnerDetailPage({ partnerId }: Props) {
                   <div>
                     <p className="whitespace-pre-wrap text-sm leading-relaxed">{note.body}</p>
                     <p className="mt-2 text-xs text-muted-foreground">
-                      {new Date(note.createdAt).toLocaleString('ar-SA')}
+                      {formatDateTime(note.createdAt)}
                     </p>
                   </div>
                   <Button

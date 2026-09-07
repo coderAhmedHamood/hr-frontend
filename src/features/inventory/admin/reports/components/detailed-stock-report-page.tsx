@@ -9,6 +9,7 @@ import { getInventoryCompanyId } from '@/features/inventory/lib/company-id';
 import { useLocationStockList } from '@/features/inventory/admin/hooks/use-product-on-hand';
 import { useWarehouses } from '@/features/inventory/admin/warehouses/hooks/use-warehouses';
 import type { WarehouseLocationType } from '@/features/inventory/domain/types/warehouse';
+import { formatDateTime } from '@/shared/utils';
 import { Badge } from '@/components/ui/badge';
 import { DataTable, usePagination, type ColumnDef } from '@/components/ui/data-table';
 import { DirectoryPagedViews, DEFAULT_PAGE_SIZE } from '@/components/ui/paged-list';
@@ -260,7 +261,7 @@ export function DetailedStockReportPage() {
       hideOnMobile: true,
       render: (row) => (
         <span className="text-xs text-muted-foreground">
-          {new Date(row.updatedAt).toLocaleString('ar-SA')}
+          {formatDateTime(row.updatedAt)}
         </span>
       ),
     },

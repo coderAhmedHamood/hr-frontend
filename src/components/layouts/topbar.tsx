@@ -109,6 +109,11 @@ type NavItem  = {
   forceSingleColumn?: boolean;
   /** Override active detection (e.g. split payroll vs contracts under same URL base). */
   isActive?: (pathname: string) => boolean;
+  /**
+   * Match the href exactly instead of by prefix. Needed for app-root links such as
+   * `/inventory`, which otherwise stay highlighted on every page of the app.
+   */
+  exact?: boolean;
 };
 
 function mapPayrollNavGroups(groups: typeof hrPayrollNavGroups): NavGroup[] {
@@ -253,6 +258,11 @@ export const systemOwnerNavConfig: NavItem[] = [
     label: 'الشركات',
     href: systemOwnerRoutes.overview,
     icon: Building2,
+    // Root link, but company pages belong to it — `طلبات التفعيل` must not inherit it.
+    isActive: (pathname) =>
+      pathname === systemOwnerRoutes.overview ||
+      pathname === systemOwnerRoutes.companies ||
+      pathname.startsWith(`${systemOwnerRoutes.companies}/`),
   },
   {
     key: 'system-owner-requests',
@@ -268,6 +278,7 @@ export const systemNavConfig: NavItem[] = [
     label: systemOverviewItem.labelAr,
     href: systemOverviewItem.href,
     icon: systemOverviewItem.icon,
+    exact: true,
   },
   {
     key: 'system-organization-structure', label: 'الهيكل التنظيمي', icon: Building2,
@@ -321,6 +332,7 @@ function buildEcommerceNavConfig(tNav: (key: string) => string): NavItem[] {
       label: tNav(ecommerceAdminOverviewItem.labelKey),
       href: ecommerceAdminOverviewItem.href,
       icon: ecommerceAdminOverviewItem.icon,
+      exact: true,
     },
   ];
 
@@ -364,6 +376,7 @@ function buildInventoryNavConfig(): NavItem[] {
       label: inventoryAdminOverviewItem.labelAr,
       href: inventoryAdminOverviewItem.href,
       icon: inventoryAdminOverviewItem.icon,
+      exact: true,
     },
   ];
 
@@ -481,7 +494,10 @@ function buildAccountingNavConfig(): NavItem[] {
 /* ── Helpers ─────────────────────────────────────────────────────────── */
 function parentIsActive(pathname: string, item: NavItem) {
   if (item.isActive) return item.isActive(pathname);
-  if (item.href) return pathname === item.href || pathname.startsWith(item.href + '/');
+  if (item.href) {
+    if (item.exact) return pathname === item.href;
+    return pathname === item.href || pathname.startsWith(item.href + '/');
+  }
   return item.groups?.some(g =>
     g.items.some(s => {
       const base = s.href.split('?')[0];

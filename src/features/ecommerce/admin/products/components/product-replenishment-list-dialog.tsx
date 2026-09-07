@@ -20,7 +20,11 @@ import {
   dialogShellContentClass,
   dialogShellHeaderClass,
 } from '@/components/ui/dialog';
-import { cn } from '@/shared/utils';
+import { cn, formatDateTime } from '@/shared/utils';
+import {
+  QuantityChip,
+  WarehouseChip,
+} from '@/features/inventory/admin/operations/components/inventory-chips';
 
 export { REPLENISHMENT_SOURCE_DOCUMENT };
 
@@ -161,13 +165,16 @@ export function ProductReplenishmentListDialog({
                         className="flex w-full flex-wrap items-center justify-between gap-2 rounded-lg border border-border px-3 py-2.5 text-start transition-colors hover:bg-muted/25"
                         onClick={() => setSelected(op)}
                       >
-                        <div className="min-w-0">
+                        <div className="min-w-0 space-y-1.5">
                           <p className="font-medium text-foreground" dir="ltr">
                             {op.reference || 'بدون مرجع'}
                           </p>
+                          <div className="flex flex-wrap items-center gap-1">
+                            <WarehouseChip name={warehouseName(op.warehouseId)} />
+                            <QuantityChip value={qty} />
+                          </div>
                           <p className="text-xs text-muted-foreground">
-                            {warehouseName(op.warehouseId)} · الكمية المطلوبة: {qty} ·{' '}
-                            {new Date(op.occurredAt).toLocaleString('ar-YE')}
+                            {formatDateTime(op.occurredAt)}
                           </p>
                           {op.sourceDocument ? (
                             <p className="text-xs text-muted-foreground">{op.sourceDocument}</p>

@@ -1,10 +1,11 @@
 'use client';
 
 import * as React from 'react';
-import { Check, Plus, Trash2, Undo2, X } from 'lucide-react';
+import { ArrowDown, Check, Plus, Trash2, Undo2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { getInventoryCompanyId } from '@/features/inventory/lib/company-id';
 import { useWarehouseLocations } from '@/features/inventory/admin/locations/hooks/use-warehouse-locations';
+import { useWarehouses } from '@/features/inventory/admin/warehouses/hooks/use-warehouses';
 import { useWarehouseOperationMutations } from '@/features/inventory/admin/operations/hooks/use-warehouse-operation-mutations';
 import { inventoryStockService } from '@/features/inventory/services/inventory-stock.service';
 import {
@@ -49,11 +50,16 @@ import {
 import { ProductSinglePicker } from '@/features/ecommerce/admin/products/components/product-single-picker';
 import { FlexibleQuantityInput } from '@/features/inventory/admin/operations/components/flexible-quantity-input';
 import {
+  LocationChip,
+  WarehouseChip,
+} from '@/features/inventory/admin/operations/components/inventory-chips';
+import {
   emptyOperationLineDraft,
   hasDuplicateOperationLineProducts,
   newOperationLineDraftId,
   operationLinesToDrafts,
   supportsMultiProductLines,
+  pickerUsesSourceLocationStock,
 } from '@/features/inventory/admin/operations/lib/operation-line-draft';
 import { cn } from '@/shared/utils';
 
@@ -132,20 +138,51 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
     page: 1,
     limit: 500,
   });
+  // Transfers land in another warehouse, so its locations are needed both for the
+  // receiving picker and to name the destination instead of printing a raw id.
+  const destinationWarehouseId = operation?.destinationWarehouseId ?? '';
+  const { data: destLocationsData } = useWarehouseLocations(
+    {
+      companyId,
+      warehouseId: destinationWarehouseId || undefined,
+      page: 1,
+      limit: 500,
+    },
+    { enabled: Boolean(destinationWarehouseId) },
+  );
+  const { data: warehousesData } = useWarehouses({ companyId, limit: 100 });
+  const warehouseName = React.useMemo(() => {
+    const map = new Map((warehousesData?.items ?? []).map((item) => [item.id, item.nameAr]));
+    return (id?: string) => (id ? (map.get(id) ?? null) : null);
+  }, [warehousesData?.items]);
   const locations = React.useMemo(
     () => (locationsData?.items ?? []).filter((item) => item.isActive),
     [locationsData?.items],
   );
+  const destinationLocations = React.useMemo(
+    () =>
+      destinationWarehouseId
+        ? (destLocationsData?.items ?? []).filter((item) => item.isActive)
+        : locations,
+    [destinationWarehouseId, destLocationsData?.items, locations],
+  );
   const locationName = React.useMemo(() => {
-    const map = new Map(locations.map((item) => [item.id, item.nameAr || item.code]));
+    const map = new Map(
+      [...locations, ...destinationLocations].map((item) => [item.id, item.nameAr || item.code]),
+    );
     return (id?: string) => (id ? (map.get(id) ?? id) : '—');
-  }, [locations]);
+  }, [locations, destinationLocations]);
 
-  const formatLocationOption = React.useCallback((id: string) => {
-    const loc = locations.find((item) => item.id === id);
-    if (!loc) return id;
-    return `${loc.nameAr || loc.code} · ${loc.code}`;
-  }, [locations]);
+  const formatLocationOption = React.useCallback(
+    (id: string) => {
+      const loc =
+        locations.find((item) => item.id === id) ??
+        destinationLocations.find((item) => item.id === id);
+      if (!loc) return id;
+      return `${loc.nameAr || loc.code} · ${loc.code}`;
+    },
+    [locations, destinationLocations],
+  );
 
   const [lines, setLines] = React.useState<WarehouseOperationLine[]>([]);
   const [notes, setNotes] = React.useState('');
@@ -249,6 +286,12 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
     );
   }
 
+  function applyLineUnitCost(lineId: string, nextValue: string) {
+    setLines((prev) =>
+      prev.map((item) => (item.id === lineId ? { ...item, unitCost: nextValue } : item)),
+    );
+  }
+
   async function assertStockBeforeSave(nextLines: WarehouseOperationLine[] = lines): Promise<boolean> {
     if (!operation || !checksSourceStock) return true;
     const issues = await collectStockShortages({
@@ -263,7 +306,9 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
     return false;
   }
 
-  function normalizeMultiProductLines(): WarehouseOperationLine[] | null {
+  function normalizeMultiProductLines(options?: {
+    allowEmpty?: boolean;
+  }): WarehouseOperationLine[] | null {
     if (hasDuplicateOperationLineProducts(operationLinesToDrafts(lines))) {
       toast.error('لا يمكن تكرار نفس المنتج في أكثر من سطر.');
       return null;
@@ -285,7 +330,7 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
         fromLocationId: headerFromLocationId || line.fromLocationId,
         toLocationId: headerToLocationId || line.toLocationId,
       }));
-    if (normalized.length === 0) {
+    if (normalized.length === 0 && !options?.allowEmpty) {
       toast.error('أضف صنفًا واحدًا على الأقل مع كمية أكبر من صفر.');
       return null;
     }
@@ -304,6 +349,7 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
         quantity: 0,
         fromLocationId: headerFromLocationId || undefined,
         toLocationId: headerToLocationId || undefined,
+        unitCost: undefined,
       },
     ]);
   }
@@ -336,12 +382,21 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
       prev.map((line) => {
         if (line.id !== lineId) return line;
         if (!product) {
-          return { ...line, productId: '', productName: '', sku: undefined };
+          return {
+            ...line,
+            productId: '',
+            productName: '',
+            variantId: undefined,
+            sku: undefined,
+            demandQuantity: 0,
+            quantity: 0,
+          };
         }
         return {
           ...line,
           productId: product.id,
           productName: product.nameAr,
+          variantId: undefined,
           sku: product.sku,
         };
       }),
@@ -360,21 +415,32 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
   const needsTo = meta.needsTo;
 
   const destinationLabel = (() => {
-    if (meta.stockEffect === 'inbound' || meta.stockEffect === 'adjust_set') return 'موقع الاستلام';
+    if (meta.stockEffect === 'inbound') return 'موقع الاستلام';
+    if (meta.stockEffect === 'adjust_set') return 'موقع المخزون';
     if (meta.stockEffect === 'outbound') return 'موقع الصرف';
-    if (meta.stockEffect === 'transfer' || meta.stockEffect === 'move') return 'من ← إلى';
+    if (meta.stockEffect === 'transfer') return 'مسار الحركة بين المستودعات';
+    if (meta.stockEffect === 'move') return 'مسار الحركة بين المواقع';
     return 'المواقع';
   })();
 
-  const destinationValue = (() => {
-    const line = lines[0] ?? operation.lines[0];
-    if (!line) return '—';
-    if (meta.stockEffect === 'inbound' || meta.stockEffect === 'adjust_set') {
-      return locationName(line.toLocationId);
-    }
-    if (meta.stockEffect === 'outbound') return locationName(line.fromLocationId);
-    return `${locationName(line.fromLocationId)} ← ${locationName(line.toLocationId)}`;
-  })();
+  // Each side of the route names its warehouse, so a same-named location on both
+  // ends (WH/Stock → WH/Stock) still reads unambiguously.
+  const crossWarehouse = Boolean(
+    destinationWarehouseId && destinationWarehouseId !== operation.warehouseId,
+  );
+  const sourceWarehouseName = warehouseName(operation.warehouseId);
+  const targetWarehouseName = crossWarehouse
+    ? warehouseName(destinationWarehouseId)
+    : sourceWarehouseName;
+  const fromFieldLabel = meta.stockEffect === 'move' ? 'الموقع الحالي' : 'موقع الصرف';
+  const toFieldLabel =
+    meta.stockEffect === 'move'
+      ? 'الموقع الجديد'
+      : meta.stockEffect === 'adjust_set'
+        ? 'موقع المخزون'
+        : 'موقع الاستلام';
+
+  const destinationLine = lines[0] ?? operation.lines[0];
 
   async function savePatch(
     patch: Partial<WarehouseOperation> & { lines?: WarehouseOperation['lines'] },
@@ -425,6 +491,7 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
       await savePatch({ status: 'ready', lines: normalized }, 'تم تحديد المستند كجاهز');
       return;
     }
+    if (!(await assertStockBeforeSave())) return;
     // Header only — avoid rewriting lines on every status change.
     await savePatch({ status: 'ready' }, 'تم تحديد المستند كجاهز');
   }
@@ -502,7 +569,9 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
   async function saveDraftChanges() {
     let linesToSave = lines;
     if (multiProductMode) {
-      const normalized = normalizeMultiProductLines();
+      // An unfinished draft may intentionally contain no products. Readying or
+      // validating it still requires at least one complete line.
+      const normalized = normalizeMultiProductLines({ allowEmpty: status === 'draft' });
       if (!normalized) return;
       linesToSave = normalized;
     }
@@ -611,68 +680,98 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
               </div>
               <div className="space-y-1.5">
                 <Label>{destinationLabel}</Label>
-                {editable && (needsFrom || needsTo) ? (
-                  <div className="grid gap-2">
-                    {needsFrom ? (
-                      <Select
-                        value={headerFromLocationId || undefined}
-                        onValueChange={(value) => {
-                          setHeaderFromLocationId(value);
-                          setLines((prev) =>
-                            prev.map((line) => ({
-                              ...line,
-                              fromLocationId: value || undefined,
-                              ...(needsTo
-                                ? { toLocationId: headerToLocationId || line.toLocationId }
-                                : {}),
-                            })),
-                          );
-                        }}
-                      >
-                        <SelectTrigger aria-label="من موقع">
-                          <SelectValue placeholder="اختر موقع المصدر" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {locations.map((location) => (
-                            <SelectItem key={location.id} value={location.id}>
-                              {formatLocationOption(location.id)}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : null}
-                    {needsTo ? (
-                      <Select
-                        value={headerToLocationId || undefined}
-                        onValueChange={(value) => {
-                          setHeaderToLocationId(value);
-                          setLines((prev) =>
-                            prev.map((line) => ({
-                              ...line,
-                              toLocationId: value || undefined,
-                              ...(needsFrom
-                                ? { fromLocationId: headerFromLocationId || line.fromLocationId }
-                                : {}),
-                            })),
-                          );
-                        }}
-                      >
-                        <SelectTrigger aria-label="إلى موقع / الاستلام">
-                          <SelectValue placeholder="اختر موقع الاستلام" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {locations.map((location) => (
-                            <SelectItem key={location.id} value={location.id}>
-                              {formatLocationOption(location.id)}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : null}
-                  </div>
-                ) : (
-                  <Input value={destinationValue} disabled dir="ltr" />
-                )}
+                <div className="space-y-2 rounded-md border border-input bg-muted/20 p-2.5">
+                  {needsFrom ? (
+                    <div className="space-y-1.5">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-xs font-medium text-muted-foreground">من</span>
+                        <WarehouseChip name={sourceWarehouseName} />
+                      </div>
+                      {editable ? (
+                        <Select
+                          value={headerFromLocationId || ''}
+                          onValueChange={(value) => {
+                            setHeaderFromLocationId(value);
+                            setLines((prev) =>
+                              prev.map((line) => ({
+                                ...line,
+                                fromLocationId: value || undefined,
+                                ...(needsTo
+                                  ? { toLocationId: headerToLocationId || line.toLocationId }
+                                  : {}),
+                              })),
+                            );
+                          }}
+                        >
+                          <SelectTrigger aria-label={fromFieldLabel}>
+                            <SelectValue placeholder={`اختر ${fromFieldLabel}`} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {locations.map((location) => (
+                              <SelectItem key={location.id} value={location.id}>
+                                {formatLocationOption(location.id)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <LocationChip
+                          name={locationName(destinationLine?.fromLocationId)}
+                          label={fromFieldLabel}
+                        />
+                      )}
+                    </div>
+                  ) : null}
+
+                  {needsFrom && needsTo ? (
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <ArrowDown aria-hidden className="h-3.5 w-3.5 shrink-0" />
+                      <span aria-hidden className="h-px flex-1 bg-border" />
+                    </div>
+                  ) : null}
+
+                  {needsTo ? (
+                    <div className="space-y-1.5">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-xs font-medium text-muted-foreground">إلى</span>
+                        <WarehouseChip name={targetWarehouseName} />
+                      </div>
+                      {editable ? (
+                        <Select
+                          value={headerToLocationId || ''}
+                          onValueChange={(value) => {
+                            setHeaderToLocationId(value);
+                            setLines((prev) =>
+                              prev.map((line) => ({
+                                ...line,
+                                toLocationId: value || undefined,
+                                ...(needsFrom
+                                  ? { fromLocationId: headerFromLocationId || line.fromLocationId }
+                                  : {}),
+                              })),
+                            );
+                          }}
+                        >
+                          <SelectTrigger aria-label={toFieldLabel}>
+                            <SelectValue placeholder={`اختر ${toFieldLabel}`} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {destinationLocations.map((location) => (
+                              <SelectItem key={location.id} value={location.id}>
+                                {formatLocationOption(location.id)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <LocationChip
+                          name={locationName(destinationLine?.toLocationId)}
+                          label={toFieldLabel}
+                        />
+                      )}
+                    </div>
+                  ) : null}
+                </div>
               </div>
             </div>
             <div className="space-y-3">
@@ -732,6 +831,11 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
                       <th className="px-3 py-2.5 text-start font-medium">الطلب</th>
                       <th className="px-3 py-2.5 text-start font-medium">الكمية</th>
                       <th className="px-3 py-2.5 text-start font-medium">الوحدة</th>
+                      {stockEffect === 'inbound' ? (
+                        <th className="px-3 py-2.5 text-start font-medium text-emerald-700 dark:text-emerald-400">
+                          تكلفة الوحدة (الشراء)
+                        </th>
+                      ) : null}
                       {canEditProducts ? <th className="w-10 px-2 py-2.5" /> : null}
                     </tr>
                   </thead>
@@ -758,7 +862,20 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
                                 value={line.productId}
                                 status="active"
                                 disabled={isSaving}
-                                placeholder="ابحث عن منتج…"
+                                excludeIds={lines
+                                  .filter((other) => other.id !== line.id)
+                                  .map((other) => other.productId?.trim())
+                                  .filter((id): id is string => Boolean(id))}
+                                sourceLocationId={
+                                  pickerUsesSourceLocationStock(kind)
+                                    ? headerFromLocationId || undefined
+                                    : undefined
+                                }
+                                placeholder={
+                                  pickerUsesSourceLocationStock(kind) && !headerFromLocationId
+                                    ? 'حدّد موقع الصرف أولًا…'
+                                    : 'ابحث عن منتج…'
+                                }
                                 onChange={(productId) => {
                                   if (!productId) applyLineProduct(line.id, null);
                                 }}
@@ -810,8 +927,64 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
                               applyLineQuantity(line.id, 'quantity', value);
                             }}
                           />
+                          {(() => {
+                            const gap = (line.demandQuantity ?? line.quantity) - line.quantity;
+                            if (Math.abs(gap) < 1e-9) return null;
+                            return (
+                              <p
+                                className={cn(
+                                  'mt-1 text-[11px] font-medium tabular-nums',
+                                  gap > 0
+                                    ? 'text-destructive'
+                                    : 'text-emerald-700 dark:text-emerald-400',
+                                )}
+                              >
+                                {gap > 0 ? `ناقص ${gap}` : `زائد ${Math.abs(gap)}`}
+                              </p>
+                            );
+                          })()}
                         </td>
                         <td className="px-3 py-2.5 text-muted-foreground">الوحدات</td>
+                        {stockEffect === 'inbound' ? (
+                          <td className="px-3 py-2.5">
+                            {canEditProducts ? (
+                              <>
+                                <div
+                                  className={`flex items-center gap-2 rounded-lg border-2 px-1 transition-colors ${
+                                    line.productId && !line.unitCost?.trim()
+                                      ? 'border-amber-400 bg-amber-50 dark:border-amber-500/60 dark:bg-amber-950/30'
+                                      : 'border-emerald-300 bg-emerald-50/60 dark:border-emerald-500/40 dark:bg-emerald-950/20'
+                                  }`}
+                                >
+                                  <Input
+                                    type="text"
+                                    inputMode="decimal"
+                                    dir="ltr"
+                                    placeholder="0.00"
+                                    value={line.unitCost ?? ''}
+                                    className="h-9 w-28 border-0 bg-transparent px-2 text-center font-semibold tabular-nums shadow-none focus-visible:ring-0"
+                                    onChange={(e) => {
+                                      const raw = e.target.value;
+                                      if (raw === '' || /^\d*\.?\d{0,8}$/.test(raw)) {
+                                        applyLineUnitCost(line.id, raw);
+                                      }
+                                    }}
+                                  />
+                                  <span className="pe-2 text-xs font-medium text-muted-foreground">ر.ي</span>
+                                </div>
+                                {line.productId && !line.unitCost?.trim() ? (
+                                  <p className="mt-1 text-[11px] font-medium text-amber-700 dark:text-amber-400">
+                                    أدخل تكلفة الشراء لهذا الصنف
+                                  </p>
+                                ) : null}
+                              </>
+                            ) : (
+                              <span className="font-semibold tabular-nums">
+                                {line.unitCost?.trim() ? `${line.unitCost} ر.ي` : '—'}
+                              </span>
+                            )}
+                          </td>
+                        ) : null}
                         {canEditProducts ? (
                           <td className="px-2 py-2.5">
                             <Button
@@ -819,7 +992,7 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
                               variant="ghost"
                               size="icon"
                               className="h-8 w-8"
-                              disabled={isSaving || lines.length <= 1}
+                              disabled={isSaving}
                               aria-label="حذف السطر"
                               onClick={() => removeProductLine(line.id)}
                             >

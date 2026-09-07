@@ -16,7 +16,7 @@ import {
 } from '@/features/ecommerce/domain/constants/order-status';
 import { formatPrice } from '@/features/ecommerce/shared/utils/format-price';
 import { storeOrdersHttpEnabled } from '@/features/ecommerce/shared/lib/api/store-orders-api';
-import { cn } from '@/shared/utils';
+import { cn, formatDisplayDate } from '@/shared/utils';
 
 const ORDERS_READ_PERMISSION = 'sta.orders.read';
 
@@ -26,11 +26,7 @@ type Props = {
 };
 
 function formatShortDate(iso: string): string {
-  try {
-    return new Intl.DateTimeFormat('ar-YE', { dateStyle: 'medium' }).format(new Date(iso));
-  } catch {
-    return iso;
-  }
+  return formatDisplayDate(iso);
 }
 
 function PartnerStoreOrdersBody({ companyId, partnerId }: Props) {

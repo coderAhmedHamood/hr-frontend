@@ -38,7 +38,7 @@ import {
   dialogShellHeaderClass,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/shared/utils';
+import { cn, formatDisplayDateTime } from '@/shared/utils';
 
 const PAYMENT_STATUS_VARIANT: Record<string, NonNullable<BadgeProps['variant']>> = {
   pending: 'warning',
@@ -70,14 +70,7 @@ function orderFulfilmentState(order: Order): FulfilmentState {
 }
 
 function formatDateTime(iso: string) {
-  try {
-    return new Intl.DateTimeFormat('ar-YE', {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-    }).format(new Date(iso));
-  } catch {
-    return iso.slice(0, 16).replace('T', ' ');
-  }
+  return formatDisplayDateTime(iso);
 }
 
 const ITEMS_PAGE_SIZE = 8;

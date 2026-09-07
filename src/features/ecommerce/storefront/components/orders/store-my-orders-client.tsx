@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Image from 'next/image';
-import { useFormatter, useTranslations } from 'next-intl';
+import { useTranslations } from 'next-intl';
 import { formatPrice } from '@/features/ecommerce/shared/utils/format-price';
 import { ChevronLeft, PackageSearch } from 'lucide-react';
 import { StoreEmptyState } from '@/features/ecommerce/storefront/components/store-empty-state';
@@ -16,7 +16,7 @@ import { storefrontOrdersRepository } from '@/features/ecommerce/storefront/lib/
 import { storeLoginHref } from '@/features/ecommerce/storefront/lib/store-auth-return';
 import { Button } from '@/components/ui/button';
 import { Link, useRouter } from '@/i18n/navigation';
-import { cn } from '@/shared/utils';
+import { cn, formatDisplayDateTime } from '@/shared/utils';
 import { useStorefrontAuthReady } from '@/features/ecommerce/storefront/hooks/use-storefront-auth-ready';
 
 const ORDER_STATUS_TONE: Record<StorefrontOrderStatus, string> = {
@@ -48,7 +48,6 @@ function orderStatusLabel(
  */
 export function StoreMyOrdersClient() {
   const t = useTranslations('storefront');
-  const format = useFormatter();
   const router = useRouter();
   const customer = useStorefrontCustomerUi((s) => s.customer);
   const accessToken = useStorefrontCustomerUi((s) => s.accessToken);
@@ -118,10 +117,7 @@ export function StoreMyOrdersClient() {
         const thumb = order.lines[0]?.imageUrl;
         const firstProduct = order.lines[0]?.productName;
         const itemCount = order.lines.reduce((sum, line) => sum + line.quantity, 0) || order.lines.length;
-        const placedAt = format.dateTime(new Date(order.createdAt), {
-          dateStyle: 'medium',
-          timeStyle: 'short',
-        });
+        const placedAt = formatDisplayDateTime(order.createdAt);
         const total = formatPrice(order.total);
         const status = (order.status || 'pending') as StorefrontOrderStatus;
         const paymentStatus = (order.paymentStatus || 'pending') as StorefrontPaymentStatus;

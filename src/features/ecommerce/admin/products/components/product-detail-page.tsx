@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
-import { Layers, Package, Ruler, Save, Settings, Star, Trash2, Warehouse } from 'lucide-react';
+import { Boxes, Layers, Package, Ruler, Save, Settings, Star, Trash2, Warehouse } from 'lucide-react';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
@@ -30,6 +30,7 @@ import { ProductRelatedDocsSidebar } from '@/features/ecommerce/admin/products/c
 import { ProductGeneralTab } from '@/features/ecommerce/admin/products/components/product-general-tab';
 import { ProductAttributesTab } from '@/features/ecommerce/admin/products/components/product-attributes-tab';
 import { ProductInventoryTab } from '@/features/ecommerce/admin/products/components/product-inventory-tab';
+import { ProductBatchesTab } from '@/features/ecommerce/admin/products/components/product-batches-tab';
 import { ProductReviewsTab } from '@/features/ecommerce/admin/products/components/product-reviews-tab';
 import { ProductUnitsTab } from '@/features/ecommerce/admin/products/components/product-units-tab';
 import { ProductSettingsTab } from '@/features/ecommerce/admin/products/components/product-settings-tab';
@@ -54,6 +55,7 @@ const DETAIL_TABS = [
   { value: 'general', label: 'عام', icon: Package },
   { value: 'attributes', label: 'خصائص', icon: Layers },
   { value: 'availability', label: 'توفر', icon: Warehouse },
+  { value: 'batches', label: 'الدفعات', icon: Boxes },
   { value: 'units', label: 'وحدات', icon: Ruler },
   { value: 'reviews', label: 'تقييمات', icon: Star },
   { value: 'settings', label: 'الإعدادات', icon: Settings },
@@ -89,6 +91,7 @@ const TAB_FIELDS: Record<DetailTab, string[]> = {
   ],
   attributes: ['attributes', 'variants'],
   availability: ['stockStatus', 'stockQuantity', 'lowStockThreshold'],
+  batches: [],
   units: ['uomLines'],
   reviews: [],
   settings: [
@@ -422,6 +425,9 @@ export function ProductDetailPage({ productId }: Props) {
                   setValue={form.setValue}
                   productId={product.id}
                 />
+              </TabsContent>
+              <TabsContent value="batches" className="mt-0 focus-visible:outline-none">
+                <ProductBatchesTab productId={product.id} />
               </TabsContent>
               <TabsContent value="units" className="mt-0 focus-visible:outline-none">
                 <ProductUnitsTab control={form.control} errors={form.formState.errors} setValue={form.setValue} />

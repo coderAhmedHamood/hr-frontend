@@ -15,12 +15,38 @@ import {
 } from '@/features/inventory/domain/constants/warehouse-operation-kinds';
 import type { InventoryLedgerEntry } from '@/features/inventory/domain/types/inventory-ledger';
 import type { WarehouseOperationKind } from '@/features/inventory/domain/types/warehouse';
+import { formatDateTime } from '@/shared/utils';
+import {
+  LocationRouteChips,
+  WarehouseChip,
+  WarehouseRouteChips,
+} from '@/features/inventory/admin/operations/components/inventory-chips';
 import { Badge } from '@/components/ui/badge';
 import { DataTable, type ColumnDef } from '@/components/ui/data-table';
 import { DirectoryPagedViews, DEFAULT_PAGE_SIZE } from '@/components/ui/paged-list';
 import { ListFilterBar } from '@/components/ui/list-filter-bar';
 import { EntityFilterSearchField } from '@/components/ui/entity-filter-search-field';
 import { Input } from '@/components/ui/input';
+
+/**
+ * Each ledger row holds its own side of the movement; the counterpart is the
+ * other side. A negative delta means the row *is* the source, a positive one
+ * means it is the destination — so the route has to be read from the sign.
+ */
+function movementRoute(entry: InventoryLedgerEntry) {
+  const isDestination = entry.quantityDelta >= 0;
+  const counterpartWarehouseId =
+    entry.counterpartWarehouseId && entry.counterpartWarehouseId !== entry.warehouseId
+      ? entry.counterpartWarehouseId
+      : undefined;
+  return {
+    crossWarehouse: Boolean(counterpartWarehouseId),
+    fromWarehouseId: isDestination ? counterpartWarehouseId : entry.warehouseId,
+    toWarehouseId: isDestination ? entry.warehouseId : counterpartWarehouseId,
+    fromLocationId: isDestination ? entry.counterpartLocationId : entry.locationId,
+    toLocationId: isDestination ? entry.locationId : entry.counterpartLocationId,
+  };
+}
 
 function localDateBoundary(date: string, endOfDay = false): string | undefined {
   if (!date) return undefined;
@@ -146,7 +172,7 @@ export function MovesLedgerReportPage() {
       title: 'التاريخ',
       render: (row) => (
         <span className="text-sm whitespace-nowrap">
-          {new Date(row.occurredAt).toLocaleString('ar-SA')}
+          {formatDateTime(row.occurredAt)}
         </span>
       ),
     },
@@ -167,7 +193,17 @@ export function MovesLedgerReportPage() {
     {
       key: 'warehouse',
       title: 'المستودع',
-      render: (row) => <span className="text-sm">{warehouseName.get(row.warehouseId) ?? '—'}</span>,
+      render: (row) => {
+        const route = movementRoute(row);
+        return route.crossWarehouse ? (
+          <WarehouseRouteChips
+            from={warehouseName.get(route.fromWarehouseId ?? '')}
+            to={warehouseName.get(route.toWarehouseId ?? '')}
+          />
+        ) : (
+          <WarehouseChip name={warehouseName.get(row.warehouseId)} />
+        );
+      },
     },
     {
       key: 'product',
@@ -185,16 +221,15 @@ export function MovesLedgerReportPage() {
       key: 'location',
       title: 'الموقع',
       hideOnMobile: true,
-      render: (row) => (
-        <div className="flex flex-col text-sm">
-          <span>{locationName(row.locationId)}</span>
-          {row.counterpartLocationId ? (
-            <span className="text-xs text-muted-foreground">
-              مقابل: {locationName(row.counterpartLocationId)}
-            </span>
-          ) : null}
-        </div>
-      ),
+      render: (row) => {
+        const route = movementRoute(row);
+        return (
+          <LocationRouteChips
+            from={route.fromLocationId ? locationName(route.fromLocationId) : null}
+            to={route.toLocationId ? locationName(route.toLocationId) : null}
+          />
+        );
+      },
     },
     {
       key: 'delta',

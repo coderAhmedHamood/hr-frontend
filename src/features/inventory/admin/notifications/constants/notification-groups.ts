@@ -6,7 +6,13 @@ import type {
 
 export type InventoryNotificationKey = Exclude<
   keyof InventoryCompanySettings,
-  'id' | 'companyId' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy'
+  | 'id'
+  | 'companyId'
+  | 'batchAllocationStrategy'
+  | 'createdAt'
+  | 'updatedAt'
+  | 'createdBy'
+  | 'updatedBy'
 >;
 
 export const INVENTORY_NOTIFICATION_GROUPS: NotificationToggleGroup[] = [

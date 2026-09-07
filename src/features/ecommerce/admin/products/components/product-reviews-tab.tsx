@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { Check, Star, Trash2, X } from 'lucide-react';
 import { Can } from '@/components/shared/can';
+import { formatDateTime } from '@/shared/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -172,7 +173,7 @@ export function ProductReviewsTab({ companyId, productId }: Props) {
                     </div>
                     <p className="text-xs text-muted-foreground">
                       {review.guestName || (review.partnerId ? 'شريك مسجّل' : 'بدون اسم')} ·{' '}
-                      <span dir="ltr">{new Date(review.createdAt).toLocaleString('ar-YE')}</span>
+                      <span dir="ltr">{formatDateTime(review.createdAt)}</span>
                     </p>
                     {review.title ? (
                       <p className="text-sm font-medium text-foreground">{review.title}</p>

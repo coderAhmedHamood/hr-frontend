@@ -4,6 +4,7 @@ import * as React from 'react';
 import { Archive, Check, Plus, Star, Trash2, X } from 'lucide-react';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { Can } from '@/components/shared/can';
+import { formatDateTime } from '@/shared/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -238,7 +239,7 @@ export function ProductReviewsAdminPage() {
                         <p className="text-xs text-muted-foreground">
                           {review.guestName || (review.partnerId ? 'شريك مسجّل' : 'بدون اسم')} ·{' '}
                           <span dir="ltr">
-                            {new Date(review.createdAt).toLocaleString('ar-YE')}
+                            {formatDateTime(review.createdAt)}
                           </span>
                         </p>
                         {review.title ? (

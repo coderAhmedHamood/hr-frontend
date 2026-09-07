@@ -43,6 +43,7 @@ import {
   newOperationLineDraftId,
   operationLineDraftsToLines,
   supportsMultiProductLines,
+  pickerUsesSourceLocationStock,
   type OperationLineDraft,
 } from '@/features/inventory/admin/operations/lib/operation-line-draft';
 
@@ -626,6 +627,7 @@ export function ProductStockMoveRequestDialog({
               onChange={setLineDrafts}
               fromLocationId={locationId || undefined}
               checksSourceStock={checksSourceStock}
+              restrictToSourceLocation={pickerUsesSourceLocationStock(kind)}
               disabled={saving}
             />
           ) : (

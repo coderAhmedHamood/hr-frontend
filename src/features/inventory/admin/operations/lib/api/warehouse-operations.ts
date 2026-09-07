@@ -27,11 +27,6 @@ type OperationLineDto = Omit<WarehouseOperationLine, 'demandQuantity' | 'quantit
   archivedAt?: string | null;
 };
 
-async function stockService() {
-  const mod = await import('@/features/inventory/services/inventory-stock.service');
-  return mod.inventoryStockService;
-}
-
 function assertLinesLinkedToProduct(
   lines: CreateWarehouseOperationInput['lines'] | WarehouseOperation['lines'],
 ): void {
@@ -53,6 +48,8 @@ function mapLine(dto: OperationLineDto): WarehouseOperationLine {
     fromLocationId: dto.fromLocationId ?? undefined,
     toLocationId: dto.toLocationId ?? undefined,
     notes: dto.notes ?? undefined,
+    unitCost: dto.unitCost ?? undefined,
+    costCurrency: dto.costCurrency ?? undefined,
   };
 }
 
@@ -157,6 +154,8 @@ async function createLine(operationId: string, line: WarehouseOperationLine): Pr
       fromLocationId: line.fromLocationId ?? null,
       toLocationId: line.toLocationId ?? null,
       notes: line.notes ?? null,
+      unitCost: line.unitCost ?? null,
+      costCurrency: line.costCurrency ?? null,
     },
   });
   return mapLine(dto);
@@ -199,6 +198,8 @@ async function syncLines(
             fromLocationId: line.fromLocationId ?? null,
             toLocationId: line.toLocationId ?? null,
             notes: line.notes ?? null,
+            unitCost: line.unitCost ?? null,
+            costCurrency: line.costCurrency ?? null,
           },
         },
       );
@@ -220,7 +221,9 @@ function isLineUnchanged(prev: WarehouseOperationLine, next: WarehouseOperationL
     Number(prev.quantity) === Number(next.quantity) &&
     (prev.fromLocationId ?? null) === (next.fromLocationId ?? null) &&
     (prev.toLocationId ?? null) === (next.toLocationId ?? null) &&
-    (prev.notes ?? null) === (next.notes ?? null)
+    (prev.notes ?? null) === (next.notes ?? null) &&
+    (prev.unitCost ?? null) === (next.unitCost ?? null) &&
+    (prev.costCurrency ?? null) === (next.costCurrency ?? null)
   );
 }
 
@@ -401,12 +404,6 @@ export const warehouseOperationsApi: AdminWarehouseOperationsPort = {
     }
 
     const normalized = mapOperation(dto, lines);
-
-    // Validate → done: apply stock client-side (ledger + cache). Undo uses backend POST …/undo.
-    if (normalized.status === 'done') {
-      const stock = await stockService();
-      await stock.applyDoneOperation(normalized);
-    }
 
     return normalized;
   },
