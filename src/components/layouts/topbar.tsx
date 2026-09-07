@@ -457,7 +457,7 @@ function buildAccountingNavConfig(): NavItem[] {
       key: 'accounting-overview',
       label: accountingOverviewItem.labelAr,
       href: accountingOverviewItem.href,
-      icon: accountingOverviewItem.icon,
+      icon: accountingOverviewItem.icon ?? LayoutDashboard,
     },
   ];
 
@@ -468,7 +468,7 @@ function buildAccountingNavConfig(): NavItem[] {
     items.push({
       key: group.key,
       label: group.labelAr,
-      icon: group.icon,
+      icon: group.icon ?? LayoutDashboard,
       forceSingleColumn: true,
       isActive: (pathname) =>
         flat.some((item) => {
@@ -482,7 +482,7 @@ function buildAccountingNavConfig(): NavItem[] {
           items: section.items.map((item) => ({
             label: item.labelAr,
             href: item.href,
-            icon: item.icon,
+            icon: item.icon ?? LayoutDashboard,
           })),
         })),
     });
