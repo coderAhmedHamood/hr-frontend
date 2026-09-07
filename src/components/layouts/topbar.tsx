@@ -12,7 +12,7 @@ import {
   Banknote, FileSignature, BookOpen, FileSpreadsheet, UserCircle, Briefcase, UserCheck, UserPlus,
   Coins, FileStack, Receipt, KeyRound, Settings, Timer, Inbox,
   LayoutTemplate, Navigation, PanelBottom, PanelTop, Image, FileText, Newspaper,
-  CircleHelp, Search, ShoppingCart, Package, FolderTree, Tag, Globe, Megaphone, ContactRound,
+  CircleHelp, Search, ShoppingCart, Package, FolderTree, Tag, Globe, Megaphone, ContactRound, Network,
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
@@ -60,6 +60,11 @@ import {
   contactsAdminOverviewItem,
   flattenContactsNavItems,
 } from '@/features/contacts/admin/constants/nav';
+import {
+  accountingNavGroups,
+  accountingOverviewItem,
+  flattenAccountingNavItems,
+} from '@/features/accounting/constants/nav';
 import { UserMenuDropdown } from '@/components/layouts/user-menu-dropdown';
 import { AppsLauncherButton } from '@/components/layouts/apps-launcher-button';
 import { useModuleEnablementContext } from '@/features/auth/hooks/use-system-owner';
@@ -70,6 +75,7 @@ import {
   isEcommerceAppPath,
   isInventoryAppPath,
   isContactsAppPath,
+  isAccountingAppPath,
   isLauncherPath,
 } from '@/shared/app-paths';
 import { isModuleEnabledFor } from '@/shared/modules/registry';
@@ -85,7 +91,7 @@ export const PAGE_ICONS: Record<string, React.ElementType> = {
   Coins, FileStack, Receipt, KeyRound,
   LayoutTemplate, Navigation, PanelBottom, PanelTop, Image, FileText, Newspaper,
   CircleHelp, Search, ShoppingCart, Package, FolderTree, Tag, Globe, Megaphone, ContactRound,
-  Inbox, Shield,
+  Inbox, Shield, Network,
 };
 
 /* ── Nav data ──────────────────────────────────────────────────────────── */
@@ -100,6 +106,7 @@ type NavGroup = { labelAr?: string; items: SubItem[] };
 type NavItem  = {
   key: string; label: string; href?: string;
   icon: React.ElementType; groups?: NavGroup[];
+  forceSingleColumn?: boolean;
   /** Override active detection (e.g. split payroll vs contracts under same URL base). */
   isActive?: (pathname: string) => boolean;
   /**
@@ -443,6 +450,47 @@ function buildContactsNavConfig(): NavItem[] {
   return items;
 }
 
+/** نظرة عامة | التهيئة */
+function buildAccountingNavConfig(): NavItem[] {
+  const items: NavItem[] = [
+    {
+      key: 'accounting-overview',
+      label: accountingOverviewItem.labelAr,
+      href: accountingOverviewItem.href,
+      icon: accountingOverviewItem.icon,
+    },
+  ];
+
+  for (const group of accountingNavGroups) {
+    const flat = flattenAccountingNavItems(group);
+    if (flat.length === 0) continue;
+
+    items.push({
+      key: group.key,
+      label: group.labelAr,
+      icon: group.icon,
+      forceSingleColumn: true,
+      isActive: (pathname) =>
+        flat.some((item) => {
+          const base = item.href.split('?')[0]!;
+          return pathname === base || pathname.startsWith(`${base}/`);
+        }),
+      groups: group.sections
+        .filter((section) => section.items.length > 0)
+        .map((section) => ({
+          labelAr: section.labelAr,
+          items: section.items.map((item) => ({
+            label: item.labelAr,
+            href: item.href,
+            icon: item.icon,
+          })),
+        })),
+    });
+  }
+
+  return items;
+}
+
 /* ── Helpers ─────────────────────────────────────────────────────────── */
 function parentIsActive(pathname: string, item: NavItem) {
   if (item.isActive) return item.isActive(pathname);
@@ -461,10 +509,12 @@ function parentIsActive(pathname: string, item: NavItem) {
 /* ── NavDropdown — needs useSearchParams for query-aware active state ── */
 function NavDropdownContent({
   groups,
+  forceSingleColumn,
   onOpen,
   onClose,
 }: {
   groups: NavGroup[];
+  forceSingleColumn?: boolean;
   onOpen: () => void;
   onClose: () => void;
 }) {
@@ -484,12 +534,12 @@ function NavDropdownContent({
   }
 
   const totalItems = groups.reduce((sum, group) => sum + group.items.length, 0);
-  const useColumns = groups.length > 1 && totalItems > 6;
+  const useColumns = !forceSingleColumn && groups.length > 1 && totalItems > 6;
 
   return (
     <div
       className={cn(
-        'nav-dropdown absolute right-0 top-[calc(100%+6px)] z-[200] rounded-2xl border border-border bg-popover p-2 shadow-elevated',
+        'nav-dropdown absolute right-0 top-[calc(100%+6px)] z-[200] max-h-[calc(100vh-80px)] overflow-y-auto rounded-2xl border border-border bg-popover p-2 shadow-elevated',
         useColumns ? 'grid w-105 grid-cols-2 items-start gap-1' : 'min-w-60',
       )}
       onMouseEnter={onOpen}
@@ -506,7 +556,7 @@ function NavDropdownContent({
             const SubIcon = sub.icon;
             const active  = subIsActive(sub.href);
             return (
-              <React.Fragment key={sub.href}>
+              <React.Fragment key={`${sub.href}-${sub.label}`}>
                 {sub.groupLabel ? (
                   <p className="mb-1 mt-2 px-3 pt-1 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground/50 first:mt-0">
                     {sub.groupLabel}
@@ -597,6 +647,7 @@ function TopbarNavItem({
         <React.Suspense fallback={null}>
           <NavDropdownContent
             groups={item.groups!}
+            forceSingleColumn={item.forceSingleColumn}
             onOpen={() => openMenu(item.key)}
             onClose={delayClose}
           />
@@ -646,7 +697,8 @@ export function Topbar() {
   const inEcommerceApp = ecommerceEnabled && isEcommerceAppPath(pathname);
   const inInventoryApp = inventoryEnabled && isInventoryAppPath(pathname);
   const inContactsApp = contactsEnabled && isContactsAppPath(pathname);
-  const inAppShell = inHrApp || inSystemApp || inSystemOwnerApp || inEcommerceApp || inInventoryApp || inContactsApp;
+  const inAccountingApp = isAccountingAppPath(pathname);
+  const inAppShell = inHrApp || inSystemApp || inSystemOwnerApp || inEcommerceApp || inInventoryApp || inContactsApp || inAccountingApp;
   const tEcommerceNav = useTranslations('ecommerceAdmin.nav');
   const ecommerceNavConfig = React.useMemo(
     () => buildEcommerceNavConfig((key) => tEcommerceNav(key as 'overview')),
@@ -654,15 +706,18 @@ export function Topbar() {
   );
   const inventoryNavConfig = React.useMemo(() => buildInventoryNavConfig(), []);
   const contactsNavConfig = React.useMemo(() => buildContactsNavConfig(), []);
+  const accountingNavConfig = React.useMemo(() => buildAccountingNavConfig(), []);
   const activeNavConfig = inSystemOwnerApp
     ? systemOwnerNavConfig
     : inSystemApp
     ? systemNavConfig
-    : inContactsApp
-      ? contactsNavConfig
-      : inInventoryApp
-        ? inventoryNavConfig
-        : inEcommerceApp
+    : inAccountingApp
+      ? accountingNavConfig
+      : inContactsApp
+        ? contactsNavConfig
+        : inInventoryApp
+          ? inventoryNavConfig
+          : inEcommerceApp
           ? ecommerceNavConfig
           : navConfig;
   const currentAppLabel = inSystemOwnerApp
