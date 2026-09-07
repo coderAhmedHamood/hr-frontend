@@ -16,8 +16,11 @@ import {
 } from 'lucide-react';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { Button } from '@/components/ui/button';
+import { DatePickerInput } from '@/components/ui/date-picker-input';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { AmountInput } from '@/features/accounting/_shared/components/amount-input';
+import { formatAccountingAmount } from '@/features/accounting/_shared/lib/format-accounting-amount';
 import { accountingRoutes } from '@/features/accounting/constants/routes';
 import { useVendorBillsStore } from '@/features/accounting/vendor-bills/lib/vendor-bills-store';
 import type { VendorBill, VendorBillLine } from '@/features/accounting/domain/types/vendor-bill';
@@ -318,11 +321,10 @@ export function VendorBillFormPage({ billId }: VendorBillFormPageProps) {
               <div className="grid grid-cols-12 items-center gap-2">
                 <label className="col-span-4 text-sm font-medium text-foreground">تاريخ الفاتورة</label>
                 <div className="col-span-8">
-                  <Input
-                    type="date"
+                  <DatePickerInput
                     value={billDate}
-                    onChange={(e) => setBillDate(e.target.value)}
-                    className="h-9 text-sm font-mono"
+                    onChange={setBillDate}
+                    className="h-9 text-sm"
                   />
                 </div>
               </div>
@@ -330,11 +332,10 @@ export function VendorBillFormPage({ billId }: VendorBillFormPageProps) {
               <div className="grid grid-cols-12 items-center gap-2">
                 <label className="col-span-4 text-sm font-medium text-foreground">تاريخ المحاسبة</label>
                 <div className="col-span-8">
-                  <Input
-                    type="date"
+                  <DatePickerInput
                     value={accountingDate}
-                    onChange={(e) => setAccountingDate(e.target.value)}
-                    className="h-9 text-sm font-mono"
+                    onChange={setAccountingDate}
+                    className="h-9 text-sm"
                   />
                 </div>
               </div>
@@ -342,11 +343,10 @@ export function VendorBillFormPage({ billId }: VendorBillFormPageProps) {
               <div className="grid grid-cols-12 items-center gap-2">
                 <label className="col-span-4 text-sm font-medium text-foreground">تاريخ الاستحقاق</label>
                 <div className="col-span-8">
-                  <Input
-                    type="date"
+                  <DatePickerInput
                     value={dueDate}
-                    onChange={(e) => setDueDate(e.target.value)}
-                    className="h-9 text-sm font-mono"
+                    onChange={setDueDate}
+                    className="h-9 text-sm"
                   />
                 </div>
               </div>
@@ -434,10 +434,9 @@ export function VendorBillFormPage({ billId }: VendorBillFormPageProps) {
                           />
                         </td>
                         <td className="p-2">
-                          <Input
-                            type="number"
+                          <AmountInput
                             value={line.quantity}
-                            onChange={(e) => handleUpdateLine(line.id, 'quantity', Number(e.target.value))}
+                            onChange={(next) => handleUpdateLine(line.id, 'quantity', next)}
                             className="h-8 text-sm font-mono text-center"
                           />
                         </td>
@@ -449,10 +448,9 @@ export function VendorBillFormPage({ billId }: VendorBillFormPageProps) {
                           />
                         </td>
                         <td className="p-2">
-                          <Input
-                            type="number"
+                          <AmountInput
                             value={line.priceUnit}
-                            onChange={(e) => handleUpdateLine(line.id, 'priceUnit', Number(e.target.value))}
+                            onChange={(next) => handleUpdateLine(line.id, 'priceUnit', next)}
                             className="h-8 text-sm font-mono text-start"
                           />
                         </td>
@@ -462,7 +460,7 @@ export function VendorBillFormPage({ billId }: VendorBillFormPageProps) {
                           </span>
                         </td>
                         <td className="p-2 font-mono font-bold text-foreground text-start" dir="ltr">
-                          {line.priceSubtotal.toLocaleString('ar-SA', { minimumFractionDigits: 2 })} {currency}
+                          {formatAccountingAmount(line.priceSubtotal, currency)}
                         </td>
                         <td className="p-2 text-center">
                           <button
@@ -511,19 +509,19 @@ export function VendorBillFormPage({ billId }: VendorBillFormPageProps) {
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">المبلغ غير شامل الضريبة:</span>
                     <span className="font-mono font-semibold text-foreground" dir="ltr">
-                      {amountUntaxed.toLocaleString('ar-SA', { minimumFractionDigits: 2 })} {currency}
+                      {formatAccountingAmount(amountUntaxed, currency)}
                     </span>
                   </div>
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">الضريبة (15%):</span>
                     <span className="font-mono font-semibold text-foreground" dir="ltr">
-                      {amountTax.toLocaleString('ar-SA', { minimumFractionDigits: 2 })} {currency}
+                      {formatAccountingAmount(amountTax, currency)}
                     </span>
                   </div>
                   <div className="border-t border-border/60 pt-2 flex items-center justify-between text-base font-bold">
                     <span className="text-foreground">الإجمالي:</span>
                     <span className="font-mono text-primary text-lg" dir="ltr">
-                      {amountTotal.toLocaleString('ar-SA', { minimumFractionDigits: 2 })} {currency}
+                      {formatAccountingAmount(amountTotal, currency)}
                     </span>
                   </div>
                 </div>
@@ -549,22 +547,22 @@ export function VendorBillFormPage({ billId }: VendorBillFormPageProps) {
                     <td className="px-4 py-2.5 font-medium text-foreground">600000 مصروفات ومشتريات البضاعة</td>
                     <td className="px-4 py-2.5">{vendorName || 'مورد'}</td>
                     <td className="px-4 py-2.5">{existingBill?.name || 'فاتورة مشتريات'}</td>
-                    <td className="px-4 py-2.5 font-bold text-foreground" dir="ltr">{amountUntaxed.toFixed(2)} {currency}</td>
-                    <td className="px-4 py-2.5 text-muted-foreground" dir="ltr">0.00 {currency}</td>
+                    <td className="px-4 py-2.5 font-bold text-foreground" dir="ltr">{formatAccountingAmount(amountUntaxed, currency)}</td>
+                    <td className="px-4 py-2.5 text-muted-foreground" dir="ltr">{formatAccountingAmount(0, currency)}</td>
                   </tr>
                   <tr>
                     <td className="px-4 py-2.5 font-medium text-foreground">220000 ضريبة القيمة المضافة على المشتريات (مدخلات)</td>
                     <td className="px-4 py-2.5">{vendorName || 'مورد'}</td>
                     <td className="px-4 py-2.5">ضريبة 15%</td>
-                    <td className="px-4 py-2.5 font-bold text-foreground" dir="ltr">{amountTax.toFixed(2)} {currency}</td>
-                    <td className="px-4 py-2.5 text-muted-foreground" dir="ltr">0.00 {currency}</td>
+                    <td className="px-4 py-2.5 font-bold text-foreground" dir="ltr">{formatAccountingAmount(amountTax, currency)}</td>
+                    <td className="px-4 py-2.5 text-muted-foreground" dir="ltr">{formatAccountingAmount(0, currency)}</td>
                   </tr>
                   <tr>
                     <td className="px-4 py-2.5 font-medium text-foreground">211000 حساب الموردين / الدائنون</td>
                     <td className="px-4 py-2.5">{vendorName || 'مورد'}</td>
                     <td className="px-4 py-2.5">{existingBill?.name || 'فاتورة مشتريات'}</td>
-                    <td className="px-4 py-2.5 text-muted-foreground" dir="ltr">0.00 {currency}</td>
-                    <td className="px-4 py-2.5 font-bold text-foreground" dir="ltr">{amountTotal.toFixed(2)} {currency}</td>
+                    <td className="px-4 py-2.5 text-muted-foreground" dir="ltr">{formatAccountingAmount(0, currency)}</td>
+                    <td className="px-4 py-2.5 font-bold text-foreground" dir="ltr">{formatAccountingAmount(amountTotal, currency)}</td>
                   </tr>
                 </tbody>
               </table>

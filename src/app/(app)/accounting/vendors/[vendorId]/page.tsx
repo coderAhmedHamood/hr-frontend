@@ -1,10 +1,11 @@
 import * as React from 'react';
 import { VendorFormPage } from '@/features/accounting/vendors/components/vendor-form-page';
 
-export default function Page({ params }: { params: { vendorId: string } }) {
+export default async function Page({ params }: { params: Promise<{ vendorId: string }> }) {
+  const { vendorId } = await params;
   return (
     <React.Suspense fallback={null}>
-      <VendorFormPage vendorId={params.vendorId} />
+      <VendorFormPage vendorId={vendorId} />
     </React.Suspense>
   );
 }

@@ -14,8 +14,10 @@ import {
 } from 'lucide-react';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { Button } from '@/components/ui/button';
+import { DatePickerInput } from '@/components/ui/date-picker-input';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { AmountInput } from '@/features/accounting/_shared/components/amount-input';
 import { accountingRoutes } from '@/features/accounting/constants/routes';
 import { useCustomerPaymentsStore } from '@/features/accounting/customer-payments/lib/customer-payments-store';
 import type { CustomerPayment } from '@/features/accounting/domain/types/customer-payment';
@@ -202,10 +204,9 @@ export function CustomerPaymentFormPage({ paymentId }: CustomerPaymentFormPagePr
             <div className="grid grid-cols-12 items-center gap-2">
               <label className="col-span-4 text-sm font-medium text-foreground">المبلغ</label>
               <div className="col-span-8 flex items-center gap-2">
-                <Input
-                  type="number"
+                <AmountInput
                   value={amount}
-                  onChange={(e) => setAmount(Number(e.target.value))}
+                  onChange={setAmount}
                   className="h-9 text-base font-bold font-mono text-start flex-1"
                 />
                 <span className="font-bold text-sm text-muted-foreground font-mono">{currency}</span>
@@ -215,11 +216,10 @@ export function CustomerPaymentFormPage({ paymentId }: CustomerPaymentFormPagePr
             <div className="grid grid-cols-12 items-center gap-2">
               <label className="col-span-4 text-sm font-medium text-foreground">تاريخ الدفعة</label>
               <div className="col-span-8">
-                <Input
-                  type="date"
+                <DatePickerInput
                   value={paymentDate}
-                  onChange={(e) => setPaymentDate(e.target.value)}
-                  className="h-9 text-sm font-mono"
+                  onChange={setPaymentDate}
+                  className="h-9 text-sm"
                 />
               </div>
             </div>

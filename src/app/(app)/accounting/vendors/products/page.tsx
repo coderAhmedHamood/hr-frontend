@@ -1,10 +1,10 @@
 import * as React from 'react';
-import { CustomerProductsListPage } from '@/features/accounting/customer-products/components/customer-products-list-page';
+import { VendorProductsDirectoryPage } from '@/features/accounting/vendor-products/components/vendor-products-directory-page';
 
 export default function Page() {
   return (
     <React.Suspense fallback={null}>
-      <CustomerProductsListPage />
+      <VendorProductsDirectoryPage />
     </React.Suspense>
   );
 }

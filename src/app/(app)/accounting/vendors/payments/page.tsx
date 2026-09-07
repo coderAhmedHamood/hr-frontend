@@ -1,10 +1,10 @@
 import * as React from 'react';
-import { VendorPaymentsListPage } from '@/features/accounting/vendor-payments/components/vendor-payments-list-page';
+import { VendorPaymentsDirectoryPage } from '@/features/accounting/vendor-payments/components/vendor-payments-directory-page';
 
 export default function Page() {
   return (
     <React.Suspense fallback={null}>
-      <VendorPaymentsListPage />
+      <VendorPaymentsDirectoryPage />
     </React.Suspense>
   );
 }
