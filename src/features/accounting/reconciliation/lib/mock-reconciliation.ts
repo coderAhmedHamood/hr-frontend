@@ -1,0 +1,80 @@
+import type { ReconciliationAccountGroup } from '@/features/accounting/domain/types/reconciliation';
+
+export const INITIAL_MOCK_RECONCILIATIONS: ReconciliationAccountGroup[] = [
+  {
+    accountId: '121000',
+    accountName: '121000 حساب مدين (2)',
+    currencyTotal: 862.5,
+    debitTotal: 862.5,
+    creditTotal: 0.0,
+    remainingTotal: 862.5,
+    partnerGroups: [
+      {
+        partnerId: 'ali',
+        partnerName: 'علي بن علي (2)',
+        currencyTotal: 862.5,
+        debitTotal: 862.5,
+        creditTotal: 0.0,
+        remainingTotal: 862.5,
+        items: [
+          {
+            id: 'rec-1',
+            date: '7 سبتمبر',
+            journalEntryName: 'الفات/2026/00003',
+            label: 'S00003 - الفات/2026/00003',
+            currencyAmount: undefined,
+            debit: 258.75,
+            credit: 0.0,
+            remaining: 258.75,
+            partnerName: 'علي بن علي',
+            accountId: '121000',
+          },
+          {
+            id: 'rec-2',
+            date: '7 سبتمبر',
+            journalEntryName: 'الفات/2026/00002',
+            label: 'S00003 - الفات/2026/00002',
+            currencyAmount: undefined,
+            debit: 603.75,
+            credit: 0.0,
+            remaining: 603.75,
+            partnerName: 'علي بن علي',
+            accountId: '121000',
+          },
+        ],
+      },
+    ],
+  },
+  {
+    accountId: '211000',
+    accountName: '211000 حساب الدائن (60)',
+    currencyTotal: -4444444.4,
+    debitTotal: 53333332.8,
+    creditTotal: 57777777.2,
+    remainingTotal: -4444444.4,
+    partnerGroups: [
+      {
+        partnerId: 'none',
+        partnerName: 'لا شيء (60)',
+        currencyTotal: -4444444.4,
+        debitTotal: 53333332.8,
+        creditTotal: 57777777.2,
+        remainingTotal: -4444444.4,
+        items: [
+          {
+            id: 'rec-3',
+            date: '6 سبتمبر',
+            journalEntryName: 'المتف/2026/09/0004',
+            label: 'التحويل إلى 211000 حساب الدائن',
+            currencyAmount: undefined,
+            debit: 0.0,
+            credit: 1150.0,
+            remaining: -1150.0,
+            partnerName: 'لا شيء',
+            accountId: '211000',
+          },
+        ],
+      },
+    ],
+  },
+];
