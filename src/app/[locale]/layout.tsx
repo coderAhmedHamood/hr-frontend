@@ -9,6 +9,13 @@ export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }));
 }
 
+/**
+ * Only `ar` / `en` may occupy `[locale]`. Without this, Next treats the first
+ * URL segment as a locale (`system-owner`, `inventory`, …) and 404s nested
+ * ERP pages such as `/system-owner/companies/:id`.
+ */
+export const dynamicParams = false;
+
 export default async function LocaleLayout({
   children,
   params,

@@ -298,7 +298,7 @@ function buildAccountingMobileNav(): MobileNavItem[] {
       key: 'overview',
       label: accountingOverviewItem.labelAr,
       href: accountingOverviewItem.href,
-      icon: accountingOverviewItem.icon,
+      icon: accountingOverviewItem.icon ?? LayoutDashboard,
     },
   ];
 
@@ -314,7 +314,7 @@ function buildAccountingMobileNav(): MobileNavItem[] {
         children.push({
           label: item.labelAr,
           href: item.href,
-          icon: item.icon,
+          icon: item.icon ?? LayoutDashboard,
           match: item.href.includes('?') ? 'exact' : 'prefix',
         });
       }
@@ -323,7 +323,7 @@ function buildAccountingMobileNav(): MobileNavItem[] {
     items.push({
       key: group.key,
       label: group.labelAr,
-      icon: group.icon,
+      icon: group.icon ?? LayoutDashboard,
       children,
     });
   }

@@ -72,7 +72,9 @@ export function VendorFormPage({ vendorId }: VendorFormPageProps) {
   const [buyer, setBuyer] = React.useState(existingVendor?.buyer || '');
   const [purchasePaymentTerms, setPurchasePaymentTerms] = React.useState(existingVendor?.purchasePaymentTerms || '30 يوماً');
   const [purchasePaymentMethod, setPurchasePaymentMethod] = React.useState(existingVendor?.purchasePaymentMethod || 'تحويل بنكي');
-  const [receiptReminder, setReceiptReminder] = React.useState(existingVendor?.receiptReminder || true);
+  const [receiptReminder, setReceiptReminder] = React.useState(
+    existingVendor?.receiptReminder ?? true,
+  );
   const [vendorCurrency, setVendorCurrency] = React.useState(existingVendor?.vendorCurrency || 'YER');
   const [companyId, setCompanyId] = React.useState(existingVendor?.companyId || '');
   const [reference, setReference] = React.useState(existingVendor?.reference || '');
