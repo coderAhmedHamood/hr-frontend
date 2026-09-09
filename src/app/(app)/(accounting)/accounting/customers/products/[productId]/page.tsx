@@ -1,10 +1,11 @@
 import * as React from 'react';
 import { CustomerProductFormPage } from '@/features/accounting/customer-products/components/customer-product-form-page';
 
-export default function Page({ params }: { params: { productId: string } }) {
+export default async function Page({ params }: { params: Promise<{ productId: string }> }) {
+  const { productId } = await params;
   return (
     <React.Suspense fallback={null}>
-      <CustomerProductFormPage productId={params.productId} />
+      <CustomerProductFormPage productId={productId} />
     </React.Suspense>
   );
 }

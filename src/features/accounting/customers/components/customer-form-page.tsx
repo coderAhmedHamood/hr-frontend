@@ -22,9 +22,11 @@ import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { formatAccountingAmount } from '@/features/accounting/_shared/lib/format-accounting-amount';
 import { accountingRoutes } from '@/features/accounting/constants/routes';
 import { useCustomersStore } from '@/features/accounting/customers/lib/customers-store';
 import type { Customer, CustomerContact } from '@/features/accounting/domain/types/customer';
+import { formatNumber } from '@/shared/utils';
 
 interface CustomerFormPageProps {
   customerId?: string;
@@ -297,7 +299,7 @@ export function CustomerFormPage({ customerId }: CustomerFormPageProps) {
             <div className="flex flex-col text-start">
               <span>المشتريات</span>
               <span className="font-bold text-foreground font-mono">
-                {existingCustomer?.purchasesCount || 0}
+                {formatNumber(existingCustomer?.purchasesCount ?? 0)}
               </span>
             </div>
           </div>
@@ -307,7 +309,7 @@ export function CustomerFormPage({ customerId }: CustomerFormPageProps) {
             <div className="flex flex-col text-start">
               <span>مفوتر</span>
               <span className="font-bold text-foreground font-mono">
-                {existingCustomer?.invoicedAmount?.toFixed(2) || '0.00'} ريال
+                {formatAccountingAmount(existingCustomer?.invoicedAmount ?? 0, 'ريال')}
               </span>
             </div>
           </div>
@@ -317,7 +319,7 @@ export function CustomerFormPage({ customerId }: CustomerFormPageProps) {
             <div className="flex flex-col text-start">
               <span>المبيعات</span>
               <span className="font-bold text-foreground font-mono">
-                {existingCustomer?.salesCount || 0}
+                {formatNumber(existingCustomer?.salesCount ?? 0)}
               </span>
             </div>
           </div>

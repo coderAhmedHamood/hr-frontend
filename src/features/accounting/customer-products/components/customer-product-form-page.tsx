@@ -15,8 +15,22 @@ import {
 import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { MinimalDropdown } from '@/components/ui/shared-dialogs';
+import { AmountInput } from '@/features/accounting/_shared/components/amount-input';
 import { useCustomerProductsStore } from '@/features/accounting/customer-products/lib/customer-products-store';
 import type { AccountingProduct, ProductType } from '@/features/accounting/domain/types/accounting-product';
+import { formatNumber } from '@/shared/utils';
+
+const PRODUCT_TYPE_OPTIONS = [
+  { value: 'product', label: 'منتج قابل للتخزين (Storable Product)' },
+  { value: 'service', label: 'خدمة (Service)' },
+  { value: 'consu', label: 'استهلاكي (Consumable)' },
+];
+
+const INVOICING_POLICY_OPTIONS = [
+  { value: 'order', label: 'الكميات المطلوبة' },
+  { value: 'delivery', label: 'الكميات المسلّمة' },
+];
 
 interface CustomerProductFormPageProps {
   productId?: string;
@@ -158,7 +172,7 @@ export function CustomerProductFormPage({ productId }: CustomerProductFormPagePr
             <div className="flex flex-col text-start">
               <span>المبيعات</span>
               <span className="font-bold text-foreground font-mono">
-                {existingProduct?.salesCount || 0}
+                {formatNumber(existingProduct?.salesCount ?? 0)}
               </span>
             </div>
           </div>
@@ -168,7 +182,7 @@ export function CustomerProductFormPage({ productId }: CustomerProductFormPagePr
             <div className="flex flex-col text-start">
               <span>المشتريات</span>
               <span className="font-bold text-foreground font-mono">
-                {existingProduct?.purchasesCount || 0}
+                {formatNumber(existingProduct?.purchasesCount ?? 0)}
               </span>
             </div>
           </div>
@@ -179,7 +193,7 @@ export function CustomerProductFormPage({ productId }: CustomerProductFormPagePr
               <div className="flex flex-col text-start">
                 <span>الكمية في اليد</span>
                 <span className="font-bold text-foreground font-mono">
-                  {existingProduct?.onHandQty || 0} {uom}
+                  {formatNumber(existingProduct?.onHandQty ?? 0)} {uom}
                 </span>
               </div>
             </div>
@@ -262,15 +276,12 @@ export function CustomerProductFormPage({ productId }: CustomerProductFormPagePr
                     <span className="text-xs text-muted-foreground font-mono" title="نوع الصنف في النظام">?</span>
                   </label>
                   <div className="col-span-8">
-                    <select
+                    <MinimalDropdown
                       value={type}
-                      onChange={(e) => setType(e.target.value as ProductType)}
-                      className="w-full h-9 rounded-lg border border-border/80 bg-background px-3 text-sm"
-                    >
-                      <option value="product">منتج قابل للتخزين (Storable Product)</option>
-                      <option value="service">خدمة (Service)</option>
-                      <option value="consu">استهلاكي (Consumable)</option>
-                    </select>
+                      onChange={(next) => setType(next as ProductType)}
+                      options={PRODUCT_TYPE_OPTIONS}
+                      className="h-9"
+                    />
                   </div>
                 </div>
 
@@ -280,14 +291,12 @@ export function CustomerProductFormPage({ productId }: CustomerProductFormPagePr
                     <span className="text-xs text-muted-foreground font-mono" title="الفوترة بناءً على الكميات المطلوبة أو المسلّمة">?</span>
                   </label>
                   <div className="col-span-8">
-                    <select
+                    <MinimalDropdown
                       value={invoicingPolicy}
-                      onChange={(e) => setInvoicingPolicy(e.target.value as any)}
-                      className="w-full h-9 rounded-lg border border-border/80 bg-background px-3 text-sm"
-                    >
-                      <option value="order">الكميات المطلوبة</option>
-                      <option value="delivery">الكميات المسلّمة</option>
-                    </select>
+                      onChange={(next) => setInvoicingPolicy(next as 'order' | 'delivery')}
+                      options={INVOICING_POLICY_OPTIONS}
+                      className="h-9"
+                    />
                   </div>
                 </div>
 
@@ -311,10 +320,9 @@ export function CustomerProductFormPage({ productId }: CustomerProductFormPagePr
                 <div className="grid grid-cols-12 items-center gap-2">
                   <label className="col-span-4 text-sm font-medium text-foreground">سعر البيع</label>
                   <div className="col-span-8 flex items-center gap-2">
-                    <Input
-                      type="number"
+                    <AmountInput
                       value={salesPrice}
-                      onChange={(e) => setSalesPrice(Number(e.target.value))}
+                      onChange={setSalesPrice}
                       className="h-9 font-bold font-mono text-start flex-1"
                     />
                     <span className="text-xs font-mono font-bold text-muted-foreground">SAR</span>
@@ -336,10 +344,9 @@ export function CustomerProductFormPage({ productId }: CustomerProductFormPagePr
                 <div className="grid grid-cols-12 items-center gap-2">
                   <label className="col-span-4 text-sm font-medium text-foreground">التكلفة</label>
                   <div className="col-span-8 flex items-center gap-2">
-                    <Input
-                      type="number"
+                    <AmountInput
                       value={cost}
-                      onChange={(e) => setCost(Number(e.target.value))}
+                      onChange={setCost}
                       className="h-9 font-mono text-start flex-1"
                     />
                     <span className="text-xs font-mono text-muted-foreground">SAR</span>

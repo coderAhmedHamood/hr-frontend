@@ -17,9 +17,11 @@ import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { formatAccountingAmount } from '@/features/accounting/_shared/lib/format-accounting-amount';
 import { accountingRoutes } from '@/features/accounting/constants/routes';
 import { useVendorsStore } from '@/features/accounting/vendors/lib/vendors-store';
 import type { Vendor, VendorContact } from '@/features/accounting/domain/types/vendor';
+import { formatNumber } from '@/shared/utils';
 
 interface VendorFormPageProps {
   vendorId?: string;
@@ -292,7 +294,7 @@ export function VendorFormPage({ vendorId }: VendorFormPageProps) {
             <div className="flex flex-col text-start">
               <span>الفواتير</span>
               <span className="font-bold text-foreground font-mono">
-                {existingVendor?.billsCount || 0}
+                {formatNumber(existingVendor?.billsCount ?? 0)}
               </span>
             </div>
           </div>
@@ -302,7 +304,7 @@ export function VendorFormPage({ vendorId }: VendorFormPageProps) {
             <div className="flex flex-col text-start">
               <span>مفوتر</span>
               <span className="font-bold text-foreground font-mono">
-                {existingVendor?.billedAmount?.toFixed(2) || '0.00'} ريال
+                {formatAccountingAmount(existingVendor?.billedAmount ?? 0, 'ريال')}
               </span>
             </div>
           </div>
@@ -312,7 +314,7 @@ export function VendorFormPage({ vendorId }: VendorFormPageProps) {
             <div className="flex flex-col text-start">
               <span>المشتريات</span>
               <span className="font-bold text-foreground font-mono">
-                {existingVendor?.purchasesCount || 0}
+                {formatNumber(existingVendor?.purchasesCount ?? 0)}
               </span>
             </div>
           </div>

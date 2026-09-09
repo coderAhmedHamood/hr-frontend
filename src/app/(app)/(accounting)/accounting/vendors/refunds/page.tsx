@@ -1,10 +1,10 @@
 import * as React from 'react';
-import { VendorRefundsListPage } from '@/features/accounting/vendor-refunds/components/vendor-refunds-list-page';
+import { VendorRefundsDirectoryPage } from '@/features/accounting/vendor-refunds/components/vendor-refunds-directory-page';
 
 export default function Page() {
   return (
     <React.Suspense fallback={null}>
-      <VendorRefundsListPage />
+      <VendorRefundsDirectoryPage />
     </React.Suspense>
   );
 }
