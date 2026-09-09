@@ -44,6 +44,8 @@ export const accountingRoutes = {
   journalEntryNew: '/accounting/journal-entries/new',
   journalEntryDetail: (id: string) => `/accounting/journal-entries/${id}`,
   fixedAssets: '/accounting/fixed-assets',
+  fixedAssetNew: '/accounting/fixed-assets/new',
+  fixedAssetDetail: (id: string) => `/accounting/fixed-assets/${id}`,
   generalLedger: '/accounting/general-ledger',
   partnerLedger: '/accounting/partner-ledger',
   reconciliation: '/accounting/reconciliation',

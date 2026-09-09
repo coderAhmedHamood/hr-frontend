@@ -193,6 +193,24 @@ export const accounting = {
       deleteTitle: 'حذف قيد اليومية',
       deleteDescription: 'هل أنت متأكد من حذف هذا القيد؟ لا يمكن التراجع عن هذا الإجراء.',
     },
+    fixedAssets: {
+      title: 'الأصول الثابتة',
+      description: 'إدارة واستهلاك وحساب إهلاكات الأصول الثابتة',
+      create: 'أصل جديد',
+      search: 'ابحث باسم الأصل أو الحساب أو الطريقة…',
+      documentStatus: 'حالة الأصل',
+      name: 'اسم الأصل',
+      acquisitionDate: 'تاريخ الاستحواذ',
+      originalValue: 'القيمة الأصلية',
+      method: 'الطريقة',
+      bookValue: 'القيمة الدفترية',
+      depreciableValue: 'القيمة القابلة للإهلاك',
+      fixedAssetAccount: 'حساب الأصل الثابت',
+      depreciationAccount: 'حساب الإهلاك',
+      expenseAccount: 'حساب النفقات',
+      deleteTitle: 'حذف الأصل الثابت',
+      deleteDescription: 'هل أنت متأكد من حذف هذا الأصل الثابت؟ لا يمكن التراجع عن هذا الإجراء.',
+    },
     workspaces: {
       common: {
         search: 'ابحث بالمرجع أو الحساب أو الشريك…',
@@ -268,6 +286,7 @@ export const accounting = {
     },
     statuses: {
       draft: 'مسودة',
+      running: 'جاري',
       posted: 'مرحّل',
       cancel: 'ملغى',
       in_process: 'قيد المعالجة',
