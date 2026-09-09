@@ -40,11 +40,13 @@ export const accountingRoutes = {
   vendorDetail: (id: string) => `/accounting/vendors/${id}`,
 
   /** المحاسبة */
-  journalEntries: '/accounting/accounting/journal-entries',
-  journalItems: '/accounting/accounting/journal-items',
-  generalLedger: '/accounting/accounting/general-ledger',
-  partnerLedger: '/accounting/accounting/partner-ledger',
-  reconciliation: '/accounting/accounting/reconciliation',
+  journalEntries: '/accounting/journal-entries',
+  journalEntryNew: '/accounting/journal-entries/new',
+  journalEntryDetail: (id: string) => `/accounting/journal-entries/${id}`,
+  fixedAssets: '/accounting/fixed-assets',
+  generalLedger: '/accounting/general-ledger',
+  partnerLedger: '/accounting/partner-ledger',
+  reconciliation: '/accounting/reconciliation',
 
   /** مراجعة */
   reviewReconciliation: '/accounting/review/reconciliation',

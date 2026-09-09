@@ -178,6 +178,21 @@ export const accounting = {
       deleteTitle: 'حذف المنتج',
       deleteDescription: 'هل أنت متأكد من حذف هذا المنتج؟ لا يمكن التراجع عن هذا الإجراء.',
     },
+    journalEntries: {
+      title: 'قيود اليومية',
+      description: 'إدارة وعرض وترحيل قيود اليومية المحاسبية',
+      create: 'قيد يومية جديد',
+      search: 'ابحث برقم القيد أو الشريك أو دفتر اليومية أو المرجع…',
+      documentStatus: 'حالة القيد',
+      number: 'الرقم',
+      date: 'التاريخ',
+      partner: 'الشريك',
+      reference: 'الرقم المرجعي',
+      journal: 'دفتر اليومية',
+      total: 'الإجمالي',
+      deleteTitle: 'حذف قيد اليومية',
+      deleteDescription: 'هل أنت متأكد من حذف هذا القيد؟ لا يمكن التراجع عن هذا الإجراء.',
+    },
     workspaces: {
       common: {
         search: 'ابحث بالمرجع أو الحساب أو الشريك…',
