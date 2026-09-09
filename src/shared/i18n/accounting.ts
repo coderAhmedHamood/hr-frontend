@@ -211,6 +211,21 @@ export const accounting = {
       deleteTitle: 'حذف الأصل الثابت',
       deleteDescription: 'هل أنت متأكد من حذف هذا الأصل الثابت؟ لا يمكن التراجع عن هذا الإجراء.',
     },
+    loans: {
+      title: 'القروض',
+      description: 'إدارة وتتبع وحساب جداول استهلاك القروض والفوائد',
+      create: 'قرض جديد',
+      search: 'ابحث باسم القرض أو الحساب أو المبلغ…',
+      documentStatus: 'حالة القرض',
+      name: 'الاسم',
+      startDate: 'تاريخ البدء',
+      endDate: 'تاريخ الانتهاء',
+      borrowedAmount: 'المبلغ المقترض',
+      interest: 'الفائدة',
+      dueAmount: 'المبلغ المستحق',
+      deleteTitle: 'حذف القرض',
+      deleteDescription: 'هل أنت متأكد من حذف هذا القرض؟ لا يمكن التراجع عن هذا الإجراء.',
+    },
     workspaces: {
       common: {
         search: 'ابحث بالمرجع أو الحساب أو الشريك…',
@@ -287,6 +302,7 @@ export const accounting = {
     statuses: {
       draft: 'مسودة',
       running: 'جاري',
+      closed: 'مغلق',
       posted: 'مرحّل',
       cancel: 'ملغى',
       in_process: 'قيد المعالجة',

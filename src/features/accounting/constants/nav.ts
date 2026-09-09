@@ -103,7 +103,7 @@ export const accountingNavGroups: AccountingNavGroup[] = [
         items: [
           { labelAr: 'قيود اليومية', href: accountingRoutes.journalEntries, icon: ListOrdered },
           { labelAr: 'الأصول الثابتة', href: accountingRoutes.fixedAssets, icon: Layers },
-          { labelAr: 'دفتر الأستاذ العام', href: accountingRoutes.generalLedger, icon: BookOpen },
+          { labelAr: 'القروض', href: accountingRoutes.loans, icon: CreditCard },
           { labelAr: 'دفتر أستاذ الشريك', href: accountingRoutes.partnerLedger, icon: Users },
           { labelAr: 'التسوية', href: accountingRoutes.reconciliation, icon: CheckSquare },
         ],
