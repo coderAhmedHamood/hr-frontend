@@ -161,7 +161,7 @@ export const accountingNavGroups: AccountingNavGroup[] = [
           { labelAr: 'العملات', href: accountingRoutes.currencies, icon: Coins },
           { labelAr: 'الأوضاع المالية', href: accountingRoutes.fiscalPositions, icon: CalendarRange },
           { labelAr: 'دفتر الأستاذ المتعدد', href: accountingRoutes.ledgers, icon: CalendarDays },
-          { labelAr: 'الفحوصات', href: accountingRoutes.periods, icon: FileCheck },
+          { labelAr: 'مجموعة الضرائب', href: accountingRoutes.taxGroups, icon: Layers },
           { labelAr: 'نماذج الأصل', href: accountingRoutes.periods, icon: Layers },
           { labelAr: 'أنواع الإقرارات', href: accountingRoutes.periods, icon: FileText },
         ],
