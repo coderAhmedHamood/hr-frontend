@@ -24,6 +24,8 @@ function makeProduct(overrides: Partial<StorefrontProduct> = {}): StorefrontProd
     media: [{ id: 'm1', url: 'https://example.com/p.jpg', alt: 'Product', isPrimary: true, position: 0, type: 'image' }],
     imageUrl: 'https://example.com/p.jpg',
     imageAlt: 'Product',
+    imageDisplayFit: 'contain',
+    imageDisplayAspectRatio: 'square',
     tags: [],
     metaTitle: 'Test',
     metaDescription: 'Test',

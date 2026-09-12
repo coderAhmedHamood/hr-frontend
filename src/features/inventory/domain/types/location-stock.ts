@@ -1,6 +1,9 @@
 import type { TenantScoped } from '@/features/ecommerce/domain/types/common';
 import type { WarehouseLocationType } from '@/features/inventory/domain/types/warehouse';
 
+/** Whether historical inventory cost figures are trustworthy for a stock bucket. */
+export type StockCostingStatus = 'active' | 'disabled' | 'missing_cost_basis';
+
 /** On-hand quantity of a product (or variant) at a specific warehouse location. */
 export type LocationStock = TenantScoped & {
   id: string;
@@ -20,8 +23,15 @@ export type LocationStock = TenantScoped & {
   locationType?: WarehouseLocationType;
   trackInventory?: boolean;
   lowStockThreshold?: number;
+  /** @deprecated Live catalog cost — never multiply by quantity for valuation. Use historicalUnitCost/historicalValue. */
   unitCost?: number;
   costCurrency?: string;
+  /** Real historical inventory unit cost (cost buckets / batch layers). Null when unavailable. */
+  historicalUnitCost?: number | null;
+  /** quantity priced at historical cost — the correct figure for stock-value reporting. */
+  historicalValue?: number | null;
+  /** Whether historicalUnitCost/historicalValue are trustworthy for this bucket. */
+  costingStatus?: StockCostingStatus;
   /** Physical on-hand at this location (source of truth for balances). */
   quantity: number;
   /**

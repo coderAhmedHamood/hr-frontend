@@ -135,7 +135,9 @@ export function StoreMyOrdersClient() {
             >
               <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-muted">
                 {thumb ? (
-                  <Image src={thumb} alt="" fill className="object-cover" sizes="64px" />
+                  // object-contain (not cover) — matches every other order/cart thumbnail
+                  // in the storefront; cover was cropping edges off non-square product photos.
+                  <Image src={thumb} alt="" fill unoptimized className="object-contain p-1.5" sizes="64px" />
                 ) : (
                   <span className="flex h-full w-full items-center justify-center text-muted-foreground">
                     <PackageSearch className="h-6 w-6" />

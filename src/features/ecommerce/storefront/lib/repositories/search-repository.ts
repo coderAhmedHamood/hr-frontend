@@ -166,6 +166,8 @@ function mapSearchProduct(
       : [],
     imageUrl,
     imageAlt: dto.primaryImageAlt || name,
+    imageDisplayFit: 'contain',
+    imageDisplayAspectRatio: 'square',
     tags: dto.tags ?? [],
     metaTitle: dto.seoMetaTitle || name,
     metaDescription: dto.seoMetaDescription || '',

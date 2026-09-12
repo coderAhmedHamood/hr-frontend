@@ -151,6 +151,8 @@ export function productToFormValues(product: Product): ProductFormInput {
       .map((item) => ({ url: item.url, alt: item.alt, isPrimary: item.isPrimary })),
     metaTitle: product.seo.metaTitle ?? '',
     metaDescription: product.seo.metaDescription ?? '',
+    imageDisplayFit: product.imageDisplayFit ?? 'contain',
+    imageDisplayAspectRatio: product.imageDisplayAspectRatio ?? 'square',
     productType: product.productType ?? 'goods',
     tracking: product.tracking ?? 'none',
     invoicePolicy: product.invoicePolicy ?? 'ordered',
@@ -274,6 +276,8 @@ export function formValuesToCreateInput(
         ? { amount: values.compareAtPrice, currency }
         : undefined,
     media,
+    imageDisplayFit: values.imageDisplayFit,
+    imageDisplayAspectRatio: values.imageDisplayAspectRatio,
     seo: {
       metaTitle: values.metaTitle || undefined,
       metaDescription: values.metaDescription || undefined,

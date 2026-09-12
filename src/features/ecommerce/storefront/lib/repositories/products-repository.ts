@@ -118,6 +118,8 @@ type PublicProductDto = {
   seoKeywords?: string[] | null;
   primaryImageUrl?: string | null;
   primaryImageAlt?: string | null;
+  imageDisplayFit?: 'contain' | 'cover' | null;
+  imageDisplayAspectRatio?: 'square' | '4/3' | '3/4' | null;
   ratingAvg?: string | number | null;
   reviewCount?: string | number | null;
   /** Some payloads use nested / alternate keys. */
@@ -431,6 +433,8 @@ function mapPublicProduct(dto: PublicProductDto): Product {
         ? { amount: compareAmount, currency: dto.compareAtPriceCurrency || currency }
         : undefined,
     media,
+    imageDisplayFit: dto.imageDisplayFit ?? 'contain',
+    imageDisplayAspectRatio: dto.imageDisplayAspectRatio ?? 'square',
     seo: {
       metaTitle: dto.seoMetaTitle ?? undefined,
       metaDescription: dto.seoMetaDescription ?? undefined,

@@ -12,6 +12,8 @@ type ProductCardMediaProps = {
   fallbackAlt: string;
   href: `/store${string}`;
   aspectRatio?: 'square' | '4/3' | '3/4';
+  /** Sourced from the product's `imageDisplayFit` setting — see ProductImage. */
+  fit?: 'contain' | 'cover';
   imageClassName?: string;
   sizes?: string;
   className?: string;
@@ -25,6 +27,7 @@ export function ProductCardMedia({
   fallbackAlt,
   href,
   aspectRatio = 'square',
+  fit = 'contain',
   imageClassName,
   sizes,
   className,
@@ -80,6 +83,7 @@ export function ProductCardMedia({
           src={current.url || null}
           alt={current.alt || fallbackAlt}
           aspectRatio={aspectRatio}
+          fit={fit}
           imageClassName={imageClassName}
           sizes={sizes}
         />

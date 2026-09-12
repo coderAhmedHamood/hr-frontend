@@ -17,6 +17,7 @@ import { CatalogAttributeFormDialog } from '@/features/ecommerce/admin/attribute
 import {
   ATTRIBUTE_DISPLAY_OPTIONS,
   VARIANT_CREATION_OPTIONS,
+  normalizeVariantCreationMode,
 } from '@/features/ecommerce/admin/attributes/schemas/catalog-attribute-schema';
 import type { CatalogAttribute } from '@/features/ecommerce/domain/types/catalog-attribute';
 import { ListFilterBar } from '@/components/ui/list-filter-bar';
@@ -88,7 +89,8 @@ export function AttributesListPage() {
   const displayLabel = (value: CatalogAttribute['displayType']) =>
     ATTRIBUTE_DISPLAY_OPTIONS.find((option) => option.value === value)?.labelAr ?? value;
   const variantLabel = (value: CatalogAttribute['createVariant']) =>
-    VARIANT_CREATION_OPTIONS.find((option) => option.value === value)?.labelAr ?? value;
+    VARIANT_CREATION_OPTIONS.find((option) => option.value === normalizeVariantCreationMode(value))
+      ?.labelAr ?? value;
 
   usePageHeaderActions(
     () => (

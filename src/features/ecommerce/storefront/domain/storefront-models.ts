@@ -31,6 +31,10 @@ export type StorefrontProduct = {
   media: MediaItem[];
   imageUrl: string | null;
   imageAlt: string;
+  /** How this product's photos fit their storefront display box. Default: 'contain'. */
+  imageDisplayFit: 'contain' | 'cover';
+  /** Display box aspect ratio for this product's photos. Default: 'square'. */
+  imageDisplayAspectRatio: 'square' | '4/3' | '3/4';
   tags: string[];
   /** Active promo flags from inventory (computed server-side). */
   isNewProductActive?: boolean;

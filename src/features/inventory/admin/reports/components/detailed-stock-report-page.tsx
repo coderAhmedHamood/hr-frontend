@@ -37,8 +37,13 @@ type DetailedStockRow = {
   variantLabel: string;
   quantity: number;
   reservedQuantity: number;
-  unitCost: number;
+  /** Real historical unit cost when available; catalog price only as a labeled estimate. */
+  unitCost: number | null;
   stockValue: number;
+  /** true when stockValue falls back to the catalog purchase price (costing disabled for the company). */
+  isEstimatedValue: boolean;
+  /** true when neither historical cost nor a catalog estimate exists yet for this bucket. */
+  valueUnavailable: boolean;
   costCurrency: string;
   updatedAt: string;
 };
@@ -69,6 +74,25 @@ export function DetailedStockReportPage() {
     const result: DetailedStockRow[] = [];
     for (const row of stockRows) {
       const warehouse = warehouseById.get(row.warehouseId);
+      // Prefer the real historical inventory cost (cost buckets / batch layers).
+      // Only fall back to the catalog purchase price when costing is disabled for
+      // the company entirely — never for `missing_cost_basis`, where the catalog
+      // price would silently misrepresent an unpriced bucket as valued stock.
+      const hasHistoricalCost =
+        row.costingStatus === 'active' &&
+        row.historicalUnitCost != null &&
+        row.historicalValue != null;
+      const isEstimatedValue = !hasHistoricalCost && row.costingStatus === 'disabled';
+      const unitCost = hasHistoricalCost
+        ? row.historicalUnitCost!
+        : isEstimatedValue
+          ? row.unitCost ?? null
+          : null;
+      const stockValue = hasHistoricalCost
+        ? row.historicalValue!
+        : isEstimatedValue
+          ? row.quantity * (row.unitCost ?? 0)
+          : 0;
       result.push({
         key: row.id,
         warehouseName: row.warehouseNameAr ?? warehouse?.nameAr ?? '—',
@@ -80,8 +104,10 @@ export function DetailedStockReportPage() {
         variantLabel: row.variantNameAr ?? '—',
         quantity: row.quantity,
         reservedQuantity: row.reservedQuantity ?? 0,
-        unitCost: row.unitCost ?? 0,
-        stockValue: row.quantity * (row.unitCost ?? 0),
+        unitCost,
+        stockValue,
+        isEstimatedValue,
+        valueUnavailable: !hasHistoricalCost && !isEstimatedValue,
         costCurrency: row.costCurrency ?? 'YER',
         updatedAt: row.updatedAt,
       });
@@ -249,11 +275,19 @@ export function DetailedStockReportPage() {
       key: 'value',
       title: 'قيمة المخزون',
       hideOnMobile: true,
-      render: (row) => (
-        <span className="tabular-nums" dir="ltr">
-          {row.stockValue.toLocaleString('en-US', { maximumFractionDigits: 2 })} {row.costCurrency}
-        </span>
-      ),
+      render: (row) =>
+        row.valueUnavailable ? (
+          <span className="text-xs text-muted-foreground">غير متاحة</span>
+        ) : (
+          <div className="flex flex-col">
+            <span className="tabular-nums" dir="ltr">
+              {row.stockValue.toLocaleString('en-US', { maximumFractionDigits: 2 })} {row.costCurrency}
+            </span>
+            {row.isEstimatedValue ? (
+              <span className="text-[11px] text-muted-foreground">تقديري (سعر الشراء بالمنتج)</span>
+            ) : null}
+          </div>
+        ),
     },
     {
       key: 'updated',

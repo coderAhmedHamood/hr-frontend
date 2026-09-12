@@ -93,6 +93,8 @@ type ProductDto = {
   seoCanonicalPath?: string | null;
   seoOgImage?: string | null;
   seoKeywords?: string[] | null;
+  imageDisplayFit?: Product['imageDisplayFit'];
+  imageDisplayAspectRatio?: Product['imageDisplayAspectRatio'];
   archivedAt?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -311,6 +313,8 @@ function mapFullProduct(dto: ProductFullDto): Product {
         ? { amount: compareAmount, currency: dto.compareAtPriceCurrency || currency }
         : undefined,
     media: mapMedia(dto.media),
+    imageDisplayFit: dto.imageDisplayFit ?? 'contain',
+    imageDisplayAspectRatio: dto.imageDisplayAspectRatio ?? 'square',
     seo: {
       metaTitle: dto.seoMetaTitle ?? undefined,
       metaDescription: dto.seoMetaDescription ?? undefined,
@@ -444,6 +448,10 @@ function toHeaderBody(input: CreateProductInput | UpdateProductInput, mode: 'cre
     if (input.discountUntil !== undefined) body.discountUntil = input.discountUntil ?? null;
   }
   if (input.tags !== undefined) body.tags = input.tags ?? null;
+  if (input.imageDisplayFit !== undefined) body.imageDisplayFit = input.imageDisplayFit;
+  if (input.imageDisplayAspectRatio !== undefined) {
+    body.imageDisplayAspectRatio = input.imageDisplayAspectRatio;
+  }
   if (input.seo !== undefined) {
     body.seoMetaTitle = input.seo.metaTitle ?? null;
     body.seoMetaDescription = input.seo.metaDescription ?? null;

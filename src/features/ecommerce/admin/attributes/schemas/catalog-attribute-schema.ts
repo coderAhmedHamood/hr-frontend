@@ -9,11 +9,25 @@ export const ATTRIBUTE_DISPLAY_OPTIONS = [
   { value: 'multi', labelAr: 'اختيار متعدد', hint: 'أكثر من قيمة معاً (إضافات).' },
 ] as const;
 
+/**
+ * "always" and "dynamic" behave identically today — both generate the full
+ * variant/SKU matrix immediately; no code path defers variant creation to
+ * selection time. Rather than keep a "ديناميكياً" option that promises
+ * behavior the system doesn't have, the two are merged into a single
+ * "إنشاء فوري" choice. Existing records still holding the legacy `dynamic`
+ * value keep working — see {@link normalizeVariantCreationMode}.
+ */
 export const VARIANT_CREATION_OPTIONS = [
-  { value: 'always', labelAr: 'فوراً', hint: 'إنشاء تركيبات المتغيرات مباشرة.' },
-  { value: 'dynamic', labelAr: 'ديناميكياً', hint: 'إنشاء المتغير عند الطلب/الاختيار.' },
+  { value: 'always', labelAr: 'إنشاء فوري', hint: 'الخاصية تدخل في مصفوفة متغيرات/SKU المنتج مباشرة.' },
   { value: 'never', labelAr: 'مطلقاً', hint: 'خاصية عرض فقط بدون مصفوفة SKU.' },
 ] as const;
+
+/** Maps the legacy `dynamic` value (functionally identical to `always`) onto `always`. */
+export function normalizeVariantCreationMode(
+  value: 'always' | 'dynamic' | 'never',
+): 'always' | 'never' {
+  return value === 'never' ? 'never' : 'always';
+}
 
 const hexColor = z
   .string()
@@ -37,7 +51,7 @@ export const catalogAttributeFormSchema = z
   .object({
     nameAr: z.string().trim().min(1, 'اسم الخاصية مطلوب'),
     displayType: z.enum(['radio', 'pills', 'select', 'color', 'image', 'multi']),
-    createVariant: z.enum(['always', 'dynamic', 'never']),
+    createVariant: z.enum(['always', 'never']),
     isActive: z.boolean(),
     values: z.array(valueSchema).min(1, 'أضف قيمة واحدة على الأقل'),
   })
