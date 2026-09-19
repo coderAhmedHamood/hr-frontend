@@ -3,7 +3,12 @@ import type {
   HRDepartmentEntity, HRRequestTemplateEntity, HRRequestTypeEntity,
   HRRequestFieldDefinition, HRApprovalStage,
 } from './types';
-import { HR_REQUEST_TYPE_ALL_DEPARTMENTS_ID, normalizeRequestCategory, slugify } from './types';
+import {
+  HR_REQUEST_TYPE_ALL_DEPARTMENTS_ID,
+  generateEntityCode,
+  normalizeRequestCategory,
+  slugify,
+} from './types';
 import { requestTypesApi, type ApiRequestType } from './api/request-types';
 import { departmentsApi, type DepartmentResponseDto } from '@/features/hr/organization/lib/api/departments';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
@@ -139,7 +144,7 @@ export const useHRConfigurationStore = create<HRConfigState>()((set, get) => ({
           companyId,
           nameAr: draft.nameAr,
           nameEn: draft.nameEn,
-          slug: slugify(draft.nameAr),
+          slug: generateEntityCode(draft.nameAr, 'req'),
           requestCategory: draft.requestCategory,
           sortOrder: draft.sortOrder,
           isActive: draft.isActive,
@@ -167,7 +172,6 @@ export const useHRConfigurationStore = create<HRConfigState>()((set, get) => ({
         const updated = await requestTypesApi.update(id, {
           nameAr: patch.nameAr,
           nameEn: patch.nameEn,
-          slug: patch.nameAr ? slugify(patch.nameAr) : undefined,
           requestCategory: patch.requestCategory,
           sortOrder: patch.sortOrder,
           isActive: patch.isActive,
