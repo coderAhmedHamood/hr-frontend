@@ -21,7 +21,11 @@ import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import { resolveDirectoryLoadFailure } from '@/features/hr/lib/api/directory-load-error';
 import { overtimeRequestsApi } from '@/features/hr/requests/lib/api/overtime-requests';
 import type { OvertimeRequestStatusDto } from '@/features/hr/requests/lib/api/overtime-requests';
-import { requestTypesApi, type ApiRequestType } from '@/features/hr/requests/lib/api/request-types';
+import type { ApiRequestType } from '@/features/hr/requests/lib/api/request-types';
+import {
+  loadOvertimeRequestType,
+  OVERTIME_REQUEST_TYPE_MISSING_MESSAGE,
+} from '@/features/hr/requests/lib/load-overtime-request-type';
 import { useHREmployeeDirectoryStore } from '@/features/hr/requests/lib/employee-directory-store';
 import {
   attendanceEventsApi,
@@ -90,12 +94,9 @@ export function useOvertimeRequestsDirectoryModel() {
   React.useEffect(() => {
     if (!companyId) return;
     let cancelled = false;
-    void requestTypesApi
-      .list({ companyId, requestCategory: 'overtime', isActive: true, limit: 50 })
-      .then((res) => {
-        if (cancelled) return;
-        const officialFirst = res.items.find((t) => t.slug === 'overtime-request') ?? res.items[0] ?? null;
-        setOvertimeRequestType(officialFirst);
+    void loadOvertimeRequestType(companyId)
+      .then((rt) => {
+        if (!cancelled) setOvertimeRequestType(rt);
       })
       .catch(() => {
         if (!cancelled) setOvertimeRequestType(null);
@@ -237,7 +238,7 @@ export function useOvertimeRequestsDirectoryModel() {
     reasonAr: string;
   }) => {
     if (!companyId) throw new Error('تعذر تحديد الشركة');
-    if (!overtimeRequestType) throw new Error('تعذر تحديد نوع طلب العمل الإضافي — تأكد من وجود نوع طلب مفعّل بفئة «إضافي».');
+    if (!overtimeRequestType) throw new Error(OVERTIME_REQUEST_TYPE_MISSING_MESSAGE);
     await overtimeRequestsApi.create({
       companyId,
       employeeId: payload.employeeId,
