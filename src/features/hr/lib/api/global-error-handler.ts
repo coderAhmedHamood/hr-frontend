@@ -15,6 +15,7 @@ import {
   isCorrectionRequestContext,
   translateCorrectionRequestMessage,
 } from '@/features/hr/requests/attendance-corrections/lib/correction-request-errors';
+import { translateRequestApprovalMessage } from '@/features/hr/requests/lib/request-approval-errors';
 import { reportError } from '@/shared/errors/report-error';
 import {
   currentLoginHref,
@@ -105,7 +106,9 @@ export function handleApiError(
     isForbidden
     && /فرع|branch|warehouse.*(scope|access)|خارج نطاق/i.test(rawMessage);
 
-  const knownAr = translateKnownBackendMessage(rawMessage);
+  const knownAr =
+    translateKnownBackendMessage(rawMessage)
+    ?? translateRequestApprovalMessage(rawMessage);
 
   const displayMessage = knownAr
     ? knownAr
