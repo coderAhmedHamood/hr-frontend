@@ -14,6 +14,9 @@ import type { EmployeeResignationDto } from '@/features/hr/organization/employee
 import type { EmployeeClearanceDto } from '@/features/hr/organization/employees/lib/api/employee-clearances';
 import type { ExperienceCertificateDto } from '@/features/hr/organization/employees/lib/api/experience-certificates';
 import type { RoseSettlementRecord } from '@/features/hr/organization/employees/lib/employee-rose-forms/types';
+import type { PayslipResponseDto } from '@/features/hr/payroll/lib/api/payslips';
+import { parsePayslipMoney } from '@/features/hr/payroll/lib/api/payslips';
+import { amountInWordsAr } from '@/features/hr/payroll/lib/amount-in-words-ar';
 import type { CashReceiptPrintFields } from '@/features/hr/payroll/reports/components/pdf-cash-receipt-print-html';
 import type { RoseResignationPrintFields } from '@/components/pdf/rose-trading/rose-resignation-print-html';
 import type { RoseClearancePrintFields } from '@/components/pdf/rose-trading/rose-clearance-print-html';
@@ -53,6 +56,7 @@ export function buildCashReceiptPrintFields(
     institutionName: dash(card.institutionNameAr, dash(ctx.companyNameAr)),
     branchName: dash(card.branchNameAr, dash(emp.branchNameAr)),
     amount: formatAmount(card.amount),
+    amountInWords: card.amountInWords?.trim() || amountInWordsAr(Number(card.amount)),
     purpose: card.purpose,
     purposeMonth: card.purposeMonth,
     purposeYear: card.purposeYear,
@@ -64,6 +68,33 @@ export function buildCashReceiptPrintFields(
     hrAffairsSignatureName: card.hrAffairsSignatureName,
     generalSupervisorSignatureName: card.generalSupervisorSignatureName,
     financialManagerSignatureName: card.financialManagerSignatureName,
+  };
+}
+
+/** سند استلام راتب — from payslip row (payroll approvals / employee profile). */
+export function buildPayslipCashReceiptPrintFields(
+  payslip: PayslipResponseDto,
+  ctx: { companyNameAr: string; branchNameAr?: string | null },
+): CashReceiptPrintFields {
+  const net = parsePayslipMoney(payslip.net);
+  const receiptIso =
+    payslip.generatedAt?.slice(0, 10) ?? new Date().toISOString().slice(0, 10);
+
+  return {
+    recipientName: dash(payslip.employeeNameAr),
+    institutionName: dash(ctx.companyNameAr),
+    branchName: dash(ctx.branchNameAr),
+    amount: formatAmount(net),
+    amountInWords: amountInWordsAr(net),
+    purpose: 'salary',
+    purposeMonth: payslip.periodMonth,
+    purposeYear: payslip.periodYear,
+    signatureName: dash(payslip.employeeNameAr),
+    receiptDate: formatGregorianDateAr(receiptIso),
+    branchManagerSignatureName: null,
+    hrAffairsSignatureName: null,
+    generalSupervisorSignatureName: null,
+    financialManagerSignatureName: null,
   };
 }
 

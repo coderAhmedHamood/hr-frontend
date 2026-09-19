@@ -9,6 +9,7 @@ import {
   RoseDocumentTitle,
   roseDocumentRootAttrs,
 } from '@/components/pdf/rose-trading/rose-document-pdf-blocks';
+import { RoseCompanyStamp } from '@/components/pdf/rose-trading/rose-company-stamp';
 import { RosePdfWatermark } from '@/components/pdf/rose-trading/rose-pdf-watermark';
 import type { RoseDocumentPrintModel } from '@/features/hr/organization/employees/lib/rose-document-templates/types';
 
@@ -35,6 +36,14 @@ export const RoseDocumentTemplatePrintHtml = React.forwardRef<
   const contentBlocks = blocks.filter((b) => b.type !== 'title');
   const root = roseDocumentRootAttrs(language);
 
+  // Signature blocks already carry the stamp; stamp explicitly when a model has none.
+  const hasStampedFooter = blocks.some(
+    (b) =>
+      b.type === 'signature_footer' ||
+      b.type === 'inline_signature_footer' ||
+      b.type === 'manager_signature',
+  );
+
   return (
     <div ref={ref} dir={root.dir} lang={root.lang} style={ROSE_DOCUMENT_PAGE_STYLE}>
       <RosePdfWatermark logoSrc={logoSrc} />
@@ -59,6 +68,12 @@ export const RoseDocumentTemplatePrintHtml = React.forwardRef<
             block={block}
           />
         ))}
+
+        {hasStampedFooter ? null : (
+          <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: 24 }}>
+            <RoseCompanyStamp width={130} compact />
+          </div>
+        )}
       </div>
     </div>
   );

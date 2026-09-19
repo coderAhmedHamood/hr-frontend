@@ -218,7 +218,7 @@ function ExperienceTab() {
       <LocalizedTextField labelAr="عنوان الأداء" labelEn="Performance heading" value={draft.performanceHeading} onChange={(v) => patch('performanceHeading', v)} />
       <LocalizedTextField labelAr="وصف الأداء" labelEn="Performance traits" value={draft.performanceTraits} onChange={(v) => patch('performanceTraits', v)} multiline rows={3} />
       <LocalizedTextField labelAr="ختام التمنيات" labelEn="Closing wish" value={draft.closingWish} onChange={(v) => patch('closingWish', v)} />
-      <LocalizedTextField labelAr="توقيع المدير" labelEn="Manager signature title" value={draft.managerSignatureTitle} onChange={(v) => patch('managerSignatureTitle', v)} />
+      <LocalizedTextField labelAr="مسمى ختم المنشأة" labelEn="Company stamp label" value={draft.managerSignatureTitle} onChange={(v) => patch('managerSignatureTitle', v)} />
       <FieldSlotsEditor
         fieldSlots={draft.fieldSlots}
         onToggle={(key, visible) =>

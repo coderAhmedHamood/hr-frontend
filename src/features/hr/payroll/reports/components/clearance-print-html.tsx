@@ -1,9 +1,11 @@
-'use client';
+﻿'use client';
 
 import * as React from 'react';
+import { PDF_PRINT_FONT_FAMILY } from '@/components/pdf/lib/pdf-print-font';
 import { RoseTradingLetterheadPrint } from '@/components/pdf/print/rose-trading-letterhead-print';
 import { getPdfLogoSrc } from '@/components/pdf/lib/pdf-logo-url';
 import { RosePdfWatermark } from '@/components/pdf/rose-trading/rose-pdf-watermark';
+import { RoseCompanyStamp } from '@/components/pdf/rose-trading/rose-company-stamp';
 import { formatDisplayDate } from '@/shared/utils';
 
 export type ClearancePrintProps = {
@@ -32,7 +34,7 @@ function InfoTable({ rows }: { rows: [string, string][] }) {
       style={{
         border: `1px solid ${C.border}`,
         marginTop: 8,
-        fontFamily: 'Arial, Helvetica, sans-serif',
+        fontFamily: PDF_PRINT_FONT_FAMILY,
       }}
     >
       {rows.map(([label, value], i) => (
@@ -50,14 +52,14 @@ function InfoTable({ rows }: { rows: [string, string][] }) {
               backgroundColor: C.tableHead,
               padding: '5px 8px',
               borderLeft: `1px solid ${C.border}`,
-              fontSize: 8,
+              fontSize: 22,
               fontWeight: 700,
               textAlign: 'right',
             }}
           >
             {label}
           </div>
-          <div style={{ flex: 1, padding: '5px 8px', fontSize: 8, textAlign: 'right' }}>{value}</div>
+          <div style={{ flex: 1, padding: '5px 8px', fontSize: 22, textAlign: 'right' }}>{value}</div>
         </div>
       ))}
     </div>
@@ -87,8 +89,8 @@ export const ClearancePrintHtml = React.forwardRef<HTMLDivElement, ClearancePrin
           boxSizing: 'border-box',
           backgroundColor: '#ffffff',
           padding: '26px 20px 48px',
-          fontFamily: 'Arial, Helvetica, sans-serif',
-          fontSize: 12,
+          fontFamily: PDF_PRINT_FONT_FAMILY,
+          fontSize: 22,
           color: '#111111',
           lineHeight: 1.5,
           overflow: 'hidden',
@@ -105,10 +107,10 @@ export const ClearancePrintHtml = React.forwardRef<HTMLDivElement, ClearancePrin
         <div style={{ marginBottom: 12, textAlign: 'center' }}>
           <div
             style={{
-              fontSize: 16,
+              fontSize: 26,
               fontWeight: 700,
               textDecoration: 'underline',
-              fontFamily: 'Arial, Helvetica, sans-serif',
+              fontFamily: PDF_PRINT_FONT_FAMILY,
             }}
           >
             مخالصة موظف — إبراء ذمة
@@ -121,12 +123,12 @@ export const ClearancePrintHtml = React.forwardRef<HTMLDivElement, ClearancePrin
             border: `1px solid ${C.border}`,
             padding: 14,
             borderRadius: 3,
-            fontFamily: 'Arial, Helvetica, sans-serif',
+            fontFamily: PDF_PRINT_FONT_FAMILY,
           }}
         >
           <p
             style={{
-              fontSize: 10,
+              fontSize: 22,
               textAlign: 'right',
               lineHeight: 1.8,
               fontWeight: 700,
@@ -136,13 +138,13 @@ export const ClearancePrintHtml = React.forwardRef<HTMLDivElement, ClearancePrin
             أقر أنا / ...........................................................................، الجنسية
             ..........................
           </p>
-          <p style={{ fontSize: 10, textAlign: 'right', lineHeight: 1.8, margin: '0 0 4px 0' }}>
+          <p style={{ fontSize: 22, textAlign: 'right', lineHeight: 1.8, margin: '0 0 4px 0' }}>
             بموجب بطاقة أحوال رقم (<span dir="ltr">{nationalId}</span>) الموقعة أدناه، اعتباراً من
           </p>
-          <p style={{ fontSize: 10, textAlign: 'right', lineHeight: 1.8, margin: '0 0 4px 0' }}>
+          <p style={{ fontSize: 22, textAlign: 'right', lineHeight: 1.8, margin: '0 0 4px 0' }}>
             تاريخ {fmtDate(endDate)} الموافق {fmtDate(endDate)}م قد وصلني جميع الأموال
           </p>
-          <p style={{ fontSize: 10, textAlign: 'right', lineHeight: 1.8, margin: 0 }}>
+          <p style={{ fontSize: 22, textAlign: 'right', lineHeight: 1.8, margin: 0 }}>
             والمبالغ المستحقة لي وكافة حقوقي على مختلف أنواعها وحتى إنهاء فترة خدمتي.
           </p>
         </div>
@@ -154,19 +156,19 @@ export const ClearancePrintHtml = React.forwardRef<HTMLDivElement, ClearancePrin
             padding: 14,
             borderRadius: 3,
             backgroundColor: '#fafafa',
-            fontFamily: 'Arial, Helvetica, sans-serif',
+            fontFamily: PDF_PRINT_FONT_FAMILY,
           }}
         >
-          <p style={{ fontSize: 10, textAlign: 'right', lineHeight: 2, margin: 0 }}>
+          <p style={{ fontSize: 22, textAlign: 'right', lineHeight: 2, margin: 0 }}>
             وتبعاً لذلك فإنني أبرئ ذمة مؤسسة {company.nameAr} للتجارة إبراءً شاملاً لا رجوع منه مطلقاً لأي
           </p>
-          <p style={{ fontSize: 10, textAlign: 'right', lineHeight: 2, margin: 0 }}>
+          <p style={{ fontSize: 22, textAlign: 'right', lineHeight: 2, margin: 0 }}>
             حق أو مطالبة حالية أو مستقبلية ومن أي نوع أو شكل كان.
           </p>
-          <p style={{ fontSize: 10, textAlign: 'right', lineHeight: 2, margin: '6px 0 0 0' }}>
+          <p style={{ fontSize: 22, textAlign: 'right', lineHeight: 2, margin: '6px 0 0 0' }}>
             وبذلك فإننا نبرئ ذمة الموظفة / الموظف المذكورة أعلاه إبراءً شاملاً لا رجوع منه مطلقاً لأي حق
           </p>
-          <p style={{ fontSize: 10, textAlign: 'right', lineHeight: 2, margin: 0 }}>
+          <p style={{ fontSize: 22, textAlign: 'right', lineHeight: 2, margin: 0 }}>
             أو مطالبة حالية أو مستقبلية ومن أي نوع أو شكل كان.
           </p>
         </div>
@@ -187,7 +189,7 @@ export const ClearancePrintHtml = React.forwardRef<HTMLDivElement, ClearancePrin
             border: `1px solid ${C.border}`,
             padding: 12,
             borderRadius: 3,
-            fontFamily: 'Arial, Helvetica, sans-serif',
+            fontFamily: PDF_PRINT_FONT_FAMILY,
           }}
         >
           {(['الاسم :', 'التوقيع :', 'التاريخ :'] as const).map((lbl, idx) => (
@@ -201,7 +203,7 @@ export const ClearancePrintHtml = React.forwardRef<HTMLDivElement, ClearancePrin
                 alignItems: 'flex-end',
               }}
             >
-              <span style={{ fontWeight: 700, fontSize: 8 }}>{lbl}</span>
+              <span style={{ fontWeight: 700, fontSize: 22 }}>{lbl}</span>
               <div
                 style={{
                   flex: 1,
@@ -210,15 +212,18 @@ export const ClearancePrintHtml = React.forwardRef<HTMLDivElement, ClearancePrin
                   borderBottom: `1px solid ${C.border}`,
                   minHeight: idx === 2 ? 'auto' : 1,
                   paddingBottom: idx === 2 ? 2 : 0,
-                  fontSize: 8,
+                  fontSize: 22,
                   textAlign: 'right',
-                  fontFamily: 'Arial, Helvetica, sans-serif',
+                  fontFamily: PDF_PRINT_FONT_FAMILY,
                 }}
               >
                 {idx === 2 ? <span dir="ltr">{fmtDate(date)}</span> : null}
               </div>
             </div>
           ))}
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: 16 }}>
+          <RoseCompanyStamp width={110} compact />
         </div>
 
         <div
@@ -228,10 +233,10 @@ export const ClearancePrintHtml = React.forwardRef<HTMLDivElement, ClearancePrin
             flexDirection: 'row',
             justifyContent: 'center',
             gap: 6,
-            fontSize: 8,
+            fontSize: 22,
             color: C.muted,
             textAlign: 'center',
-            fontFamily: 'Arial, Helvetica, sans-serif',
+            fontFamily: PDF_PRINT_FONT_FAMILY,
           }}
         >
           هذه الوثيقة صادرة من نظام {company.nameAr} لإدارة الموارد البشرية — {fmtDate(date)}

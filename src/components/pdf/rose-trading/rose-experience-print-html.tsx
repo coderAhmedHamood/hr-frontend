@@ -1,9 +1,11 @@
-'use client';
+﻿'use client';
 
 import * as React from 'react';
+import { PDF_PRINT_FONT_FAMILY } from '@/components/pdf/lib/pdf-print-font';
 import { RoseTradingLetterheadPrint } from '@/components/pdf/print/rose-trading-letterhead-print';
 import { getPdfLogoSrc } from '@/components/pdf/lib/pdf-logo-url';
 import { RosePdfWatermark } from '@/components/pdf/rose-trading/rose-pdf-watermark';
+import { RoseCompanyStamp } from '@/components/pdf/rose-trading/rose-company-stamp';
 import { sanitizePdfText } from '@/components/pdf/lib/sanitize-pdf-text';
 import { formatGregorianDateAr } from '@/features/hr/organization/employees/lib/rose-document-templates/format-document-dates';
 
@@ -25,7 +27,7 @@ export type RoseExperiencePrintHtmlProps = {
   fields?: RoseExperiencePrintFields | null;
 };
 
-const font: React.CSSProperties = { fontFamily: 'Arial, Helvetica, sans-serif' };
+const font: React.CSSProperties = { fontFamily: PDF_PRINT_FONT_FAMILY };
 const DOTS = '..................................................';
 const DOTS_LONG = '........................................................................';
 
@@ -89,7 +91,7 @@ export const RoseExperiencePrintHtml = React.forwardRef<HTMLDivElement, RoseExpe
           boxSizing: 'border-box',
           backgroundColor: '#ffffff',
           padding: '26px 40px 48px',
-          fontSize: 16,
+          fontSize: 26,
           color: '#111111',
           display: 'flex',
           flexDirection: 'column',
@@ -118,7 +120,7 @@ export const RoseExperiencePrintHtml = React.forwardRef<HTMLDivElement, RoseExpe
         <div
           style={{
             alignSelf: 'flex-end',
-            fontSize: 15,
+            fontSize: 22.5,
             marginTop: 18,
             marginBottom: 28,
             textAlign: 'right',
@@ -130,7 +132,7 @@ export const RoseExperiencePrintHtml = React.forwardRef<HTMLDivElement, RoseExpe
 
         <div
           style={{
-            fontSize: 20,
+            fontSize: 26,
             fontWeight: 700,
             textAlign: 'center',
             textDecoration: 'underline',
@@ -145,7 +147,7 @@ export const RoseExperiencePrintHtml = React.forwardRef<HTMLDivElement, RoseExpe
 
         <p
           style={{
-            fontSize: 16,
+            fontSize: 26,
             lineHeight: 2.35,
             textAlign: 'right',
             margin: '0 0 22px',
@@ -159,18 +161,18 @@ export const RoseExperiencePrintHtml = React.forwardRef<HTMLDivElement, RoseExpe
           <Value text={fields?.endDate} blank={blank} />
         </p>
 
-        <p style={{ fontSize: 16, lineHeight: 2.2, textAlign: 'right', margin: '0 0 10px', ...font }}>
+        <p style={{ fontSize: 26, lineHeight: 2.2, textAlign: 'right', margin: '0 0 10px', ...font }}>
           خلال فترة عمله معنا، وجدنا أنه:
         </p>
-        <p style={{ fontSize: 16, lineHeight: 2.2, textAlign: 'right', margin: '0 0 22px', ...font }}>
+        <p style={{ fontSize: 26, lineHeight: 2.2, textAlign: 'right', margin: '0 0 22px', ...font }}>
           {PERFORMANCE_TEXT}
         </p>
 
-        <p style={{ fontSize: 16, lineHeight: 2.2, textAlign: 'right', margin: '0 0 48px', ...font }}>
+        <p style={{ fontSize: 26, lineHeight: 2.2, textAlign: 'right', margin: '0 0 48px', ...font }}>
           نتمنى له الأفضل في ما سيأتي في حياته المهنية،،،
         </p>
 
-        {/* Signature — physical left */}
+        {/* Company stamp — physical left */}
         <div
           style={{
             alignSelf: 'flex-end',
@@ -180,8 +182,7 @@ export const RoseExperiencePrintHtml = React.forwardRef<HTMLDivElement, RoseExpe
             minWidth: 160,
           }}
         >
-          <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 36, ...font }}>المدير العام</div>
-          <div style={{ borderBottom: '1px dotted #333', width: '100%', minHeight: 1 }} />
+          <RoseCompanyStamp width={160} />
         </div>
         </div>
       </div>

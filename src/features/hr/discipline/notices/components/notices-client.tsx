@@ -36,6 +36,8 @@ import {
 import { useDefaultCompany } from '@/features/hr/organization/hooks/useActiveCompany';
 import { PdfPreviewExportDialog } from '@/components/pdf/pdf-preview-export-dialog';
 import { GenericRegisterPrintHtml } from '@/components/pdf/print/generic-register-print-html';
+import { RoseDisciplineNoticePrintHtml } from '@/components/pdf/rose-trading/rose-discipline-notice-print-html';
+import { RelatedEmployeeAttachments } from '@/features/hr/organization/employees/components/related-employee-attachments';
 import { downloadXlsxFromAoA, type XlsxCell } from '@/shared/export/download-xlsx';
 import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
@@ -43,7 +45,7 @@ import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
 import { DataTable, type ColumnDef } from '@/components/ui/data-table';
 import { TableDateCell, TableRowActions, TableRowDetailDialog } from '@/components/ui/table-cells';
 import { DisciplineListViewport, DisciplinePaginatedList } from '@/features/hr/discipline/components/discipline-paginated-list';
-import { RelatedEmployeeAttachments } from '@/features/hr/organization/employees/components/related-employee-attachments';
+import { PdfPreviewDownloadButton } from '@/components/pdf/pdf-preview-download-button';
 
 const KIND_OPTIONS = (Object.entries(NOTICE_KIND_LABELS) as [HRDisciplineNoticeKind, string][]).map(([v, l]) => ({ value: v, label: l }));
 
@@ -105,6 +107,7 @@ export function NoticesClient() {
   const [deleteId, setDeleteId] = React.useState<string | null>(null);
   const [pdfOpen, setPdfOpen] = React.useState(false);
   const [detailRow, setDetailRow] = React.useState<NoticeRecord | null>(null);
+  const [letterOpen, setLetterOpen] = React.useState(false);
 
   const empOptions = employees.map(e => ({ value: e.id, label: e.nameAr }));
   const caseOptions = cases.map((c) => ({
@@ -192,6 +195,33 @@ export function NoticesClient() {
         />
       ),
     [noticesPdfRows, companyNameAr, companyNameEn],
+  );
+
+  const noticePrintFields = React.useMemo(() => {
+    if (!detailRow) return null;
+    const emp = employees.find((e) => e.id === detailRow.employeeId);
+    return {
+      noticeDate: detailRow.date,
+      employeeNameAr: detailRow.employeeNameAr,
+      nationalId: emp?.nationalId ?? '',
+      nationality: emp?.nationality ?? '',
+      jobTitle: emp?.position ?? '',
+      branchNameAr: emp?.branchNameAr ?? '',
+      kind: detailRow.kind,
+      violationDetail: detailRow.reasonAr,
+    };
+  }, [detailRow, employees]);
+
+  const noticePrintable = React.useMemo(
+    () =>
+      noticePrintFields ? (
+        <RoseDisciplineNoticePrintHtml
+          companyNameAr={companyNameAr}
+          companyNameEn={companyNameEn}
+          fields={noticePrintFields}
+        />
+      ) : null,
+    [noticePrintFields, companyNameAr, companyNameEn],
   );
 
   const set = (patch: Partial<DraftForm>) => setDraft(d => ({ ...d, ...patch }));
@@ -322,6 +352,13 @@ export function NoticesClient() {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
       <PdfPreviewExportDialog open={pdfOpen} onOpenChange={setPdfOpen} title="معاينة تصدير الإنذارات" fileName="discipline-notices.pdf" printable={printable} />
+      <PdfPreviewExportDialog
+        open={letterOpen}
+        onOpenChange={setLetterOpen}
+        title={detailRow ? `إنذار — ${detailRow.employeeNameAr}` : 'معاينة ملف الإنذار'}
+        fileName={detailRow ? `discipline-notice-${detailRow.employeeNameAr}-${detailRow.date}.pdf` : 'discipline-notice.pdf'}
+        printable={noticePrintable}
+      />
 
       <DisciplineListViewport>
       {searchFiltered.length === 0 ? (
@@ -440,6 +477,11 @@ export function NoticesClient() {
             : []),
           { label: 'أُنشئ', value: <TableDateCell value={detailRow.createdAt} mode="datetime" /> },
         ] : []}
+        footer={
+          detailRow ? (
+            <PdfPreviewDownloadButton onClick={() => setLetterOpen(true)} />
+          ) : null
+        }
       >
         {detailRow ? (
           <RelatedEmployeeAttachments

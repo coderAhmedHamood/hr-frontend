@@ -13,6 +13,11 @@ import {
   Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { PdfPreviewDownloadButton } from '@/components/pdf/pdf-preview-download-button';
+import { PdfPreviewExportDialog } from '@/components/pdf/pdf-preview-export-dialog';
+import { DisciplineLetterPrintHtml } from '@/components/pdf/print/discipline-letter-print-html';
+import { useDefaultCompany } from '@/features/hr/organization/hooks/useActiveCompany';
+import { AR_VIOLATION_RECORD_STATUS_LABELS } from '@/shared/i18n/ar';
 import { MoneyAmount } from '@/components/ui/sar-amount';
 import { formatDate, cn } from '@/shared/utils';
 import { Empty } from '@/features/hr/organization/employees/components/EmployeeProfilePrimitives';
@@ -40,6 +45,29 @@ const RECOMMENDATION_LABELS: Record<string, string> = { warning: 'إنذار', d
 export function EmployeeViolationsSection({ model }: { model: EmployeeProfileModel }) {
   const { employee, employeeViolations, violationsLoading, violationsPagination, violationsTotal } = model;
   const [expanded, setExpanded] = React.useState<Set<string>>(new Set());
+  const [printId, setPrintId] = React.useState<string | null>(null);
+  const { data: defaultCompany } = useDefaultCompany();
+  const companyNameAr = defaultCompany?.nameAr ?? '';
+  const companyNameEn = defaultCompany?.nameEn ?? '';
+
+  const printRow = employeeViolations.find((v) => v.id === printId) ?? null;
+  const printable = printRow ? (
+    <DisciplineLetterPrintHtml
+      companyNameAr={companyNameAr}
+      companyNameEn={companyNameEn}
+      titleAr={`محضر مخالفة ${printRow.recordNumber || ''}`.trim()}
+      rows={[
+        { label: 'الموظف', value: employee.name },
+        { label: 'نوع المخالفة', value: printRow.typeNameAr },
+        { label: 'التاريخ', value: printRow.date },
+        { label: 'الحالة', value: AR_VIOLATION_RECORD_STATUS_LABELS[printRow.status as keyof typeof AR_VIOLATION_RECORD_STATUS_LABELS] ?? printRow.status },
+      ]}
+      bodyAr={[
+        printRow.description?.trim() ? `الوصف:\n${printRow.description.trim()}` : '',
+        printRow.notes?.trim() ? `ملاحظات:\n${printRow.notes.trim()}` : '',
+      ].filter(Boolean).join('\n\n')}
+    />
+  ) : null;
 
   const toggle = (id: string) =>
     setExpanded((prev) => {
@@ -58,6 +86,7 @@ export function EmployeeViolationsSection({ model }: { model: EmployeeProfileMod
   }
 
   return (
+    <>
     <section className="flex flex-col gap-4">
       <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
@@ -149,10 +178,13 @@ export function EmployeeViolationsSection({ model }: { model: EmployeeProfileMod
                             )}
                           </div>
                         </div>
-                        <span className={cn('inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-medium', status.cls)}>
-                          <span className={cn('h-1.5 w-1.5 rounded-full', status.dot)} />
-                          {status.label}
-                        </span>
+                        <div className="flex shrink-0 flex-col items-end gap-2">
+                          <span className={cn('inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-medium', status.cls)}>
+                            <span className={cn('h-1.5 w-1.5 rounded-full', status.dot)} />
+                            {status.label}
+                          </span>
+                          <PdfPreviewDownloadButton onClick={() => setPrintId(v.id)} />
+                        </div>
                       </div>
 
                       {hasInvestigations && (
@@ -220,5 +252,13 @@ export function EmployeeViolationsSection({ model }: { model: EmployeeProfileMod
         </div>
       </div>
     </section>
+    <PdfPreviewExportDialog
+      open={printId != null}
+      onOpenChange={(open) => { if (!open) setPrintId(null); }}
+      title="معاينة محضر المخالفة"
+      fileName={printRow?.recordNumber ? `violation-${printRow.recordNumber}.pdf` : 'violation.pdf'}
+      printable={printable}
+    />
+    </>
   );
 }

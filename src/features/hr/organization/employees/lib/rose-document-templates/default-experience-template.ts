@@ -20,7 +20,7 @@ export const DEFAULT_ROSE_EXPERIENCE_TEMPLATE: RoseExperienceTemplateContent = {
     'نتمنى له الأفضل في ما سيأتي في حياته المهنية،،،',
     'We wish them the best in their future professional life.',
   ),
-  managerSignatureTitle: localized('المدير العام', 'General Manager'),
+  managerSignatureTitle: localized('ختم المنشأة', 'Company Stamp'),
   fieldSlots: [
     { fieldKey: 'employee.name', visible: false },
     { fieldKey: 'employee.position', visible: false },

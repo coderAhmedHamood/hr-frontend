@@ -1,10 +1,12 @@
-'use client';
+﻿'use client';
 
 import * as React from 'react';
+import { PDF_PRINT_FONT_FAMILY } from '@/components/pdf/lib/pdf-print-font';
 import { sanitizePdfText } from '@/components/pdf/lib/sanitize-pdf-text';
 import { RoseTradingLetterheadPrint } from '@/components/pdf/print/rose-trading-letterhead-print';
 import { getPdfLogoSrc } from '@/components/pdf/lib/pdf-logo-url';
 import { RosePdfWatermark } from '@/components/pdf/rose-trading/rose-pdf-watermark';
+import { RoseCompanyStamp } from '@/components/pdf/rose-trading/rose-company-stamp';
 
 export type NotificationPrintRow = {
   dateYmd: string;
@@ -43,8 +45,8 @@ const PAGE_STYLE: React.CSSProperties = {
   overflow: 'hidden',
   backgroundColor: '#ffffff',
   padding: '26px 20px 48px',
-  fontFamily: 'Arial, Helvetica, sans-serif',
-  fontSize: 9,
+  fontFamily: PDF_PRINT_FONT_FAMILY,
+  fontSize: 22,
   color: '#111',
   boxSizing: 'border-box',
 };
@@ -89,15 +91,15 @@ export const NotificationsRegisterPrintHtml = React.forwardRef<
             companyNameEn={companyNameEn}
           />
 
-          <div style={{ fontSize: 14, fontWeight: 700, textAlign: 'center', marginBottom: 8, textDecoration: 'underline' }}>
+          <div style={{ fontSize: 22, fontWeight: 700, textAlign: 'center', marginBottom: 8, textDecoration: 'underline' }}>
             {sanitizePdfText(titleAr)}
           </div>
-          <div style={{ fontSize: 9, color: '#444', textAlign: 'right', marginBottom: 8, lineHeight: 1.35 }}>
+          <div style={{ fontSize: 22, color: '#444', textAlign: 'right', marginBottom: 8, lineHeight: 1.35 }}>
             {sanitizePdfText(filterSummary)}
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'row', backgroundColor: '#e8f2ef', border: '1px solid #94a3b8' }}>
-            <div style={{ width: colDate, boxSizing: 'border-box', fontWeight: 700, textAlign: 'center', fontSize: 9, padding: '4px 2px' }}>
+            <div style={{ width: colDate, boxSizing: 'border-box', fontWeight: 700, textAlign: 'center', fontSize: 22, padding: '4px 2px' }}>
               التاريخ
             </div>
             <div
@@ -106,7 +108,7 @@ export const NotificationsRegisterPrintHtml = React.forwardRef<
                 boxSizing: 'border-box',
                 fontWeight: 700,
                 textAlign: 'right',
-                fontSize: 9,
+                fontSize: 22,
                 padding: '4px 4px',
                 borderInlineStart: '1px solid #94a3b8',
               }}
@@ -120,7 +122,7 @@ export const NotificationsRegisterPrintHtml = React.forwardRef<
                   boxSizing: 'border-box',
                   fontWeight: 700,
                   textAlign: 'right',
-                  fontSize: 9,
+                  fontSize: 22,
                   padding: '4px 4px',
                   borderInlineStart: '1px solid #94a3b8',
                 }}
@@ -134,7 +136,7 @@ export const NotificationsRegisterPrintHtml = React.forwardRef<
                 boxSizing: 'border-box',
                 fontWeight: 700,
                 textAlign: 'center',
-                fontSize: 9,
+                fontSize: 22,
                 padding: '4px 2px',
                 borderInlineStart: '1px solid #94a3b8',
               }}
@@ -147,7 +149,7 @@ export const NotificationsRegisterPrintHtml = React.forwardRef<
                 boxSizing: 'border-box',
                 fontWeight: 700,
                 textAlign: 'center',
-                fontSize: 9,
+                fontSize: 22,
                 padding: '4px 2px',
                 borderInlineStart: '1px solid #94a3b8',
               }}
@@ -170,7 +172,7 @@ export const NotificationsRegisterPrintHtml = React.forwardRef<
                   backgroundColor: ri % 2 === 1 ? '#fafafa' : '#fff',
                 }}
               >
-                <div style={{ width: colDate, boxSizing: 'border-box', padding: '4px 2px', fontSize: 8, textAlign: 'center' }}>
+                <div style={{ width: colDate, boxSizing: 'border-box', padding: '4px 2px', fontSize: 22, textAlign: 'center' }}>
                   <span dir="ltr">{sanitizePdfText(r.dateYmd)}</span>
                 </div>
                 <div
@@ -178,7 +180,7 @@ export const NotificationsRegisterPrintHtml = React.forwardRef<
                     width: colTitle,
                     boxSizing: 'border-box',
                     padding: '4px 4px',
-                    fontSize: 8,
+                    fontSize: 22,
                     textAlign: 'right',
                     borderInlineStart: '1px solid #e2e8f0',
                     wordBreak: 'break-word',
@@ -192,7 +194,7 @@ export const NotificationsRegisterPrintHtml = React.forwardRef<
                       width: colRecip,
                       boxSizing: 'border-box',
                       padding: '4px 4px',
-                      fontSize: 8,
+                      fontSize: 22,
                       textAlign: 'right',
                       borderInlineStart: '1px solid #e2e8f0',
                       wordBreak: 'break-word',
@@ -206,7 +208,7 @@ export const NotificationsRegisterPrintHtml = React.forwardRef<
                     width: colRead,
                     boxSizing: 'border-box',
                     padding: '4px 2px',
-                    fontSize: 8,
+                    fontSize: 22,
                     textAlign: 'center',
                     borderInlineStart: '1px solid #e2e8f0',
                     wordBreak: 'break-word',
@@ -219,7 +221,7 @@ export const NotificationsRegisterPrintHtml = React.forwardRef<
                     width: colInbox,
                     boxSizing: 'border-box',
                     padding: '4px 2px',
-                    fontSize: 8,
+                    fontSize: 22,
                     textAlign: 'center',
                     borderInlineStart: '1px solid #e2e8f0',
                     wordBreak: 'break-word',
@@ -231,7 +233,14 @@ export const NotificationsRegisterPrintHtml = React.forwardRef<
             ))
           )}
 
-          <div style={{ marginTop: 16, fontSize: 8, color: '#64748b', textAlign: 'center' }}>
+          {/* Establishment stamp — final page only, so a multi-page register is stamped once. */}
+          {pi === pages.length - 1 ? (
+            <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: 20 }}>
+              <RoseCompanyStamp width={130} compact />
+            </div>
+          ) : null}
+
+          <div style={{ marginTop: 16, fontSize: 22, color: '#64748b', textAlign: 'center' }}>
             صفحة {pi + 1} / {pages.length}
             {rows.length > 0 ? ` · عدد السجلات: ${rows.length}` : ''}
           </div>

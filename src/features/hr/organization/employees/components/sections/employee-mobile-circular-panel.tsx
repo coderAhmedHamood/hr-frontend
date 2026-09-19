@@ -108,6 +108,8 @@ export function EmployeeMobileCircularPanel({ employee, onOpenPdfPrep }: Props) 
         companyNameAr={companyNameAr}
         companyNameEn={companyNameEn}
         dateIso={previewCard.circularDate}
+        circularNumber={previewCard.circularNumber}
+        bodyAr={previewCard.bodyAr}
         employeeName={previewCard.employeeNameAr}
         nationalId={previewCard.nationalId}
       />
@@ -211,7 +213,7 @@ export function EmployeeMobileCircularPanel({ employee, onOpenPdfPrep }: Props) 
                       </span>
                       <span className="inline-flex items-center gap-1 text-primary">
                         <FileText className="h-3 w-3" />
-                        فتح PDF
+                        معاينة PDF
                       </span>
                     </span>
                   </span>
