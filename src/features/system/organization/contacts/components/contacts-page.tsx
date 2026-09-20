@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/shared-dialogs';
 import {
   useContactsDirectoryModel,
-  USER_TYPE_OPTIONS,
+  USER_TYPE_OPTIONS_EDITABLE,
   USER_STATUS_OPTIONS,
 } from '@/features/system/organization/contacts/hooks/useContactsDirectoryModel';
 import { ContactsListViews } from '@/features/system/organization/contacts/components/contacts-list-views';
@@ -90,7 +90,7 @@ export default function ContactsPage() {
             <Select value={model.form.userType} onValueChange={(v) => model.patch({ userType: v })}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                {USER_TYPE_OPTIONS.map((o) => (
+                {USER_TYPE_OPTIONS_EDITABLE.map((o) => (
                   <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
                 ))}
               </SelectContent>

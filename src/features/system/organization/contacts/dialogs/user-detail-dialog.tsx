@@ -252,7 +252,8 @@ export function UserDetailDialog({
                   {tab === 'profile' ? (
                     <UserProfileTab
                       user={displayUser}
-                      onUserUpdated={() => {
+                      onUserUpdated={(updated) => {
+                        onUserUpdated?.(updated);
                         void detail.reload();
                       }}
                       isCompanySuperuser={isCompanySuperuser}

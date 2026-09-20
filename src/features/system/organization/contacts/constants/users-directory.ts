@@ -47,6 +47,26 @@ export const USER_TYPE_OPTIONS = Object.entries(USER_TYPE_LABELS).map(([value, l
   label,
 }));
 
+/** Portal / storefront accounts — must use `/public/partners/auth/login`, not staff `/auth/login`. */
+export const PARTNER_PORTAL_USER_TYPES = new Set<string>([
+  'external_customer',
+  'supplier',
+  'partner',
+  'visitor',
+  'sales_rep_external',
+  'contractor',
+]);
+
+export function isPartnerPortalUserType(userType: string | null | undefined): boolean {
+  if (!userType) return false;
+  return PARTNER_PORTAL_USER_TYPES.has(userType);
+}
+
+/** Cannot assign or switch to platform owner via admin UI (backend rejects). */
+export const USER_TYPE_OPTIONS_EDITABLE = USER_TYPE_OPTIONS.filter(
+  (o) => o.value !== 'platform_admin',
+);
+
 export const USER_STATUS_OPTIONS = [
   { value: 'active', label: 'نشط' },
   { value: 'inactive', label: 'غير نشط' },

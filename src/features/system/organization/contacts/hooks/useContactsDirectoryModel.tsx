@@ -47,6 +47,7 @@ export type UserRecord = UserResponseDto;
 export {
   USER_TYPE_LABELS,
   USER_TYPE_OPTIONS,
+  USER_TYPE_OPTIONS_EDITABLE,
   USER_STATUS_OPTIONS,
 } from '@/features/system/organization/contacts/constants/users-directory';
 
