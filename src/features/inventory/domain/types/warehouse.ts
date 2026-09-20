@@ -137,7 +137,9 @@ export type WarehouseOperation = TenantScoped & {
   status: WarehouseOperationStatus;
   occurredAt: string;
   notes?: string;
-  /** شريك المصدر/الوجهة (اختياري) */
+  /** جهة اتصال حقيقية من "جهات الاتصال" (اختياري الآن) — عند تحديدها يُشتق منها partnerName. */
+  partnerId?: string | null;
+  /** شريك المصدر/الوجهة (اختياري) — نص حر إن لم تُختر جهة اتصال. */
   partnerName?: string;
   /** المستند المصدر — مثل أمر شراء أو تجديد مخزون */
   sourceDocument?: string;

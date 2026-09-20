@@ -4,6 +4,7 @@ import * as React from 'react';
 import { ArrowDown, Check, Plus, Trash2, Undo2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { getInventoryCompanyId } from '@/features/inventory/lib/company-id';
+import { PartnerSinglePicker } from '@/features/contacts/admin/partners/components/partner-single-picker';
 import { useWarehouseLocations } from '@/features/inventory/admin/locations/hooks/use-warehouse-locations';
 import { useWarehouses } from '@/features/inventory/admin/warehouses/hooks/use-warehouses';
 import { useWarehouseOperationMutations } from '@/features/inventory/admin/operations/hooks/use-warehouse-operation-mutations';
@@ -186,6 +187,7 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
 
   const [lines, setLines] = React.useState<WarehouseOperationLine[]>([]);
   const [notes, setNotes] = React.useState('');
+  const [partnerId, setPartnerId] = React.useState('');
   const [partnerName, setPartnerName] = React.useState('');
   const [sourceDocument, setSourceDocument] = React.useState('');
   const [occurredAt, setOccurredAt] = React.useState('');
@@ -209,6 +211,7 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
       })),
     );
     setNotes(operation.notes ?? '');
+    setPartnerId(operation.partnerId ?? '');
     setPartnerName(operation.partnerName ?? '');
     setSourceDocument(operation.sourceDocument ?? '');
     setOccurredAt(operation.occurredAt.slice(0, 16));
@@ -464,6 +467,7 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
           ...patch,
           ...(includeLines ? { lines: patch.lines ?? lines } : {}),
           notes: notes.trim() || undefined,
+          partnerId: partnerId.trim() || null,
           partnerName: partnerName.trim() || undefined,
           sourceDocument: sourceDocument.trim() || undefined,
           occurredAt: occurredAt ? new Date(occurredAt).toISOString() : operation.occurredAt,
@@ -667,11 +671,20 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
                 <Label>
                   {kind === 'issue' ? 'الصرف إلى' : kind === 'receipt' ? 'الاستلام من' : 'الطرف'}
                 </Label>
+                <PartnerSinglePicker
+                  companyId={companyId}
+                  value={partnerId}
+                  onChange={setPartnerId}
+                  onPartnerSelect={(partner) => setPartnerName(partner.displayName)}
+                  disabled={!editable}
+                  placeholder="اختر جهة اتصال (اختياري)"
+                />
                 <Input
                   value={partnerName}
                   onChange={(e) => setPartnerName(e.target.value)}
-                  disabled={!editable}
-                  placeholder="اختياري"
+                  disabled={!editable || Boolean(partnerId)}
+                  placeholder="أو اكتب اسمًا يدويًا إن لم تجد جهة الاتصال"
+                  className="mt-1.5"
                 />
               </div>
               <div className="space-y-1.5">

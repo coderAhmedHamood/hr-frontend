@@ -1,4 +1,9 @@
-import { apiRequest, type PaginatedResult } from '@/features/hr/lib/api/client';
+import {
+  apiDownloadRequest,
+  apiDownloadToDevice,
+  apiRequest,
+  type PaginatedResult,
+} from '@/features/hr/lib/api/client';
 
 export type EmployeeResignationStatus = 'draft' | 'issued' | 'revoked';
 export type EmployeeResignationSignatureStatus = 'none' | 'pending' | 'signed';
@@ -96,5 +101,17 @@ export const employeeResignationsApi = {
       `/hr/employee-resignations/${id}/send-to-employee`,
       { method: 'POST', body: payload ?? {} },
     );
+  },
+
+  getPdf(id: string, fileName?: string) {
+    return apiDownloadRequest(`/hr/employee-resignations/${id}/pdf`, {
+      defaultFileName: fileName ?? `resignation-${id}.pdf`,
+    });
+  },
+
+  downloadPdf(id: string, fileName?: string) {
+    return apiDownloadToDevice(`/hr/employee-resignations/${id}/pdf`, {
+      defaultFileName: fileName ?? `resignation-${id}.pdf`,
+    });
   },
 };

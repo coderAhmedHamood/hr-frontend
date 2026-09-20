@@ -4,6 +4,9 @@ import { getStorefrontCompanyConfig } from '@/features/ecommerce/storefront/lib/
 import { isStorefrontCsrEnabled } from '@/features/ecommerce/storefront/lib/is-storefront-csr';
 import type { Metadata } from 'next';
 
+/** Store pages depend on live backend data; skip static generation at build time. */
+export const dynamic = 'force-dynamic';
+
 export async function generateMetadata(): Promise<Metadata> {
   if (isStorefrontCsrEnabled()) {
     return {};

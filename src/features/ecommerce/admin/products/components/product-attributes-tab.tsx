@@ -369,14 +369,22 @@ export function ProductAttributesTab({ control, errors, register, setValue, getV
         </DialogContent>
       </Dialog>
 
-      {/* Configure values — tap-to-toggle chips instead of a checkbox list. */}
+      {/* Configure values — tap-to-toggle chips instead of a checkbox list.
+          Outside-click/Escape are blocked and the corner close icon is hidden so an
+          accidental dismiss can never silently discard an unsaved selection — the
+          user must explicitly press "تطبيق" (save) or "إلغاء" (discard). */}
       <Dialog
         open={configureIndex !== null}
         onOpenChange={(open) => {
           if (!open) setConfigureIndex(null);
         }}
       >
-        <DialogContent className={cn(dialogShellContentClass, 'max-w-md sm:max-w-md')}>
+        <DialogContent
+          hideClose
+          onInteractOutside={(event) => event.preventDefault()}
+          onEscapeKeyDown={(event) => event.preventDefault()}
+          className={cn(dialogShellContentClass, 'max-w-md sm:max-w-md')}
+        >
           <div className={dialogShellHeaderClass}>
             <DialogTitle className="text-base font-semibold">
               تهيئة {configureLine?.nameAr ?? 'الخاصية'}

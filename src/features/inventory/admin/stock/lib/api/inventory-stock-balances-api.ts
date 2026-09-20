@@ -1,6 +1,7 @@
 import { apiRequest } from '@/features/hr/lib/api/client';
-import { toNumber } from '@/features/inventory/lib/api/numbers';
+import { toNumber, toOptionalNumber } from '@/features/inventory/lib/api/numbers';
 import type { WarehouseLocationType } from '@/features/inventory/domain/types/warehouse';
+import type { StockCostingStatus } from '@/features/inventory/domain/types/location-stock';
 
 export type StockBalanceGroupBy = 'location' | 'warehouse' | 'product' | 'total';
 
@@ -28,8 +29,15 @@ export type StockBalanceRow = {
   variantSku: string | null;
   trackInventory: boolean | null;
   lowStockThreshold: number;
+  /** @deprecated Live catalog cost — never multiply by onHand for valuation. Use historicalUnitCost/historicalValue. */
   unitCost: number;
   costCurrency: string | null;
+  /** Real historical inventory unit cost (cost buckets / batch layers). Null when unavailable. */
+  historicalUnitCost: number | null;
+  /** onHand priced at historical cost — the correct figure for stock-value reporting. */
+  historicalValue: number | null;
+  /** Whether historicalUnitCost/historicalValue are trustworthy for this bucket. */
+  costingStatus: StockCostingStatus;
   warehouseId: string | null;
   warehouseCode: string | null;
   warehouseNameAr: string | null;
@@ -61,6 +69,9 @@ type StockBalanceRowDto = {
   lowStockThreshold?: string | number | null;
   unitCost?: string | number | null;
   costCurrency?: string | null;
+  historicalUnitCost?: string | number | null;
+  historicalValue?: string | number | null;
+  costingStatus?: StockCostingStatus;
   warehouseId: string | null;
   warehouseCode: string | null;
   warehouseNameAr: string | null;
@@ -98,6 +109,9 @@ function mapRow(dto: StockBalanceRowDto): StockBalanceRow {
     lowStockThreshold: toNumber(dto.lowStockThreshold),
     unitCost: toNumber(dto.unitCost),
     costCurrency: dto.costCurrency ?? null,
+    historicalUnitCost: toOptionalNumber(dto.historicalUnitCost) ?? null,
+    historicalValue: toOptionalNumber(dto.historicalValue) ?? null,
+    costingStatus: dto.costingStatus ?? 'disabled',
     warehouseId: dto.warehouseId,
     warehouseCode: dto.warehouseCode,
     warehouseNameAr: dto.warehouseNameAr,

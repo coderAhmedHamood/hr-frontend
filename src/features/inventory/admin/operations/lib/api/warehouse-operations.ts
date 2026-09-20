@@ -68,6 +68,7 @@ function mapOperation(dto: OperationDto, lines: WarehouseOperationLine[]): Wareh
     status,
     occurredAt: dto.occurredAt,
     notes: dto.notes ?? undefined,
+    partnerId: dto.partnerId ?? undefined,
     partnerName: dto.partnerName ?? undefined,
     sourceDocument: dto.sourceDocument ?? undefined,
     destinationWarehouseId: dto.destinationWarehouseId ?? undefined,
@@ -306,6 +307,7 @@ export const warehouseOperationsApi: AdminWarehouseOperationsPort = {
         status: createStatus,
         occurredAt: input.occurredAt,
         notes: input.notes ?? null,
+        partnerId: input.partnerId ?? null,
         partnerName: input.partnerName ?? null,
         sourceDocument: input.sourceDocument ?? null,
       },
@@ -377,6 +379,7 @@ export const warehouseOperationsApi: AdminWarehouseOperationsPort = {
     if (patch.status !== undefined) headerPatch.status = patch.status;
     if (patch.occurredAt !== undefined) headerPatch.occurredAt = patch.occurredAt;
     if (patch.notes !== undefined) headerPatch.notes = patch.notes ?? null;
+    if (patch.partnerId !== undefined) headerPatch.partnerId = patch.partnerId ?? null;
     if (patch.partnerName !== undefined) headerPatch.partnerName = patch.partnerName ?? null;
     if (patch.sourceDocument !== undefined) {
       headerPatch.sourceDocument = patch.sourceDocument ?? null;

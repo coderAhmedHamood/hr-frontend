@@ -46,9 +46,9 @@ export function ProductCardView({
             images={display.images.slice(0, 1)}
             fallbackAlt={display.imageAlt}
             href={productHref}
-            aspectRatio="square"
+            aspectRatio={product.imageDisplayAspectRatio}
+            fit={product.imageDisplayFit}
             className="overflow-hidden rounded-md"
-            imageClassName="p-2"
             sizes="112px"
           />
         </div>
@@ -89,12 +89,15 @@ export function ProductCardView({
       )}
     >
       <div className="relative shrink-0 bg-muted/20">
+        {/* No per-variant padding override — ProductImage's own default (p-3 for
+            "contain", none for "cover") keeps every card the same relative size
+            for the same product instead of varying by which card variant renders it. */}
         <ProductCardMedia
           images={display.images}
           fallbackAlt={display.imageAlt}
           href={productHref}
-          aspectRatio="square"
-          imageClassName={isCompact ? 'p-2' : 'p-4'}
+          aspectRatio={product.imageDisplayAspectRatio}
+          fit={product.imageDisplayFit}
         />
 
         <FavoriteButton

@@ -25,7 +25,8 @@ export type ViolationTypeResponseDto = {
 
 export type CreateViolationTypeDto = {
   companyId: string;
-  code: string;
+  /** Omitted → backend auto-generates e.g. violation-type-6 */
+  code?: string | null;
   nameAr: string;
   nameEn?: string | null;
   sortOrder?: number;

@@ -1,4 +1,9 @@
-import { apiRequest, type PaginatedResult } from '@/features/hr/lib/api/client';
+import {
+  apiDownloadRequest,
+  apiDownloadToDevice,
+  apiRequest,
+  type PaginatedResult,
+} from '@/features/hr/lib/api/client';
 
 export type EmployeeMobileCircularStatus = 'draft' | 'issued' | 'revoked';
 export type EmployeeMobileCircularSignatureStatus = 'none' | 'pending' | 'signed';
@@ -19,6 +24,7 @@ export type EmployeeMobileCircularDto = {
   signedAttachmentId?: string | null;
   signatureImageUrl?: string | null;
   employeeSignedAt?: string | null;
+  bodyAr: string | null;
   notes: string | null;
   attachments: unknown[] | null;
   issuedAt: string | null;
@@ -36,6 +42,7 @@ export type CreateEmployeeMobileCircularDto = {
   issuedByEmployeeId?: string | null;
   circularNumber?: string;
   circularDate: string;
+  bodyAr?: string | null;
   nationalId?: string | null;
   notes?: string | null;
   attachments?: unknown[] | null;
@@ -80,5 +87,17 @@ export const employeeMobileCircularsApi = {
       `/hr/employee-mobile-circulars/${id}/send-to-employee`,
       { method: 'POST', body: payload ?? {} },
     );
+  },
+
+  getPdf(id: string, fileName?: string) {
+    return apiDownloadRequest(`/hr/employee-mobile-circulars/${id}/pdf`, {
+      defaultFileName: fileName ?? `mobile-circular-${id}.pdf`,
+    });
+  },
+
+  downloadPdf(id: string, fileName?: string) {
+    return apiDownloadToDevice(`/hr/employee-mobile-circulars/${id}/pdf`, {
+      defaultFileName: fileName ?? `mobile-circular-${id}.pdf`,
+    });
   },
 };

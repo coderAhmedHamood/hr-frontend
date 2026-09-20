@@ -2,6 +2,7 @@ export type DisciplineNoticeResponseDto = {
   id: string;
   companyId: string;
   employeeId: string;
+  employeeNameAr: string;
   noticeKind: string;
   reasonAr: string;
   noticeDate: string;

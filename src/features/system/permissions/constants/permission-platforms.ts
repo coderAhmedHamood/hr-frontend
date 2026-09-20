@@ -52,6 +52,8 @@ const MOBILE_EMPLOYEE_RESOURCE_ACTIONS: Readonly<Record<string, readonly string[
   payslips: ['read', 'approve'],
   /** View contracts + employee sign/reject (`POST .../employee-decision`) */
   'employee-contracts': ['read', 'approve'],
+  /** إرشادات الشركة — تبويب الإرشادات في تطبيق الجوال (GET /guidelines/mobile/:companyId) */
+  guidelines: ['read'],
 };
 
 export function isMobilePermission(

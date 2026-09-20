@@ -12,6 +12,7 @@ import {
   VARIANT_CREATION_OPTIONS,
   catalogAttributeFormSchema,
   createEmptyAttributeValue,
+  normalizeVariantCreationMode,
   type CatalogAttributeFormInput,
   type CatalogAttributeFormValues,
 } from '@/features/ecommerce/admin/attributes/schemas/catalog-attribute-schema';
@@ -45,7 +46,7 @@ function toFormValues(attribute: CatalogAttribute): CatalogAttributeFormInput {
   return {
     nameAr: attribute.nameAr,
     displayType: attribute.displayType,
-    createVariant: attribute.createVariant,
+    createVariant: normalizeVariantCreationMode(attribute.createVariant),
     isActive: attribute.isActive,
     values: attribute.values.map((raw) => {
       const value = normalizeAttributeValue(raw, attribute.displayType);
@@ -212,7 +213,7 @@ export function CatalogAttributeFormDialog({ attribute, open, onOpenChange }: Pr
                 )}
               />
               <p className="text-xs text-muted-foreground">
-                فوراً = مصفوفة SKU جاهزة للمتجر · ديناميكياً = عند الاختيار · مطلقاً = عرض فقط
+                إنشاء فوري = مصفوفة SKU جاهزة للمتجر (تركيبات المتغيرات تُنشأ مباشرة) · مطلقاً = عرض فقط بدون SKU
               </p>
             </div>
 

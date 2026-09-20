@@ -16,9 +16,7 @@ import type { Employee } from '@/features/hr/organization/employees/types';
 import type { EmployeeClearanceDto } from '@/features/hr/organization/employees/lib/api/employee-clearances';
 import { useEmployeeClearances } from '@/features/hr/organization/employees/hooks/useEmployeeClearances';
 import { EmployeeClearanceCreateDialog } from '@/features/hr/organization/employees/components/dialogs/employee-clearance-create-dialog';
-import {
-  RoseClearancePrintHtml,
-} from '@/components/pdf/rose-trading/rose-clearance-print-html';
+import { RoseClearancePrintHtml } from '@/components/pdf/rose-trading/rose-clearance-print-html';
 import { buildClearancePrintFields } from '@/features/hr/organization/employees/lib/rose-document-templates/build-print-fields';
 import { sendClearanceToEmployeeNotification } from '@/features/hr/organization/employees/services/rose-forms-notification.service';
 
@@ -196,7 +194,7 @@ export function EmployeeClearancesPanel({ employee, onOpenPdfPrep }: Props) {
                       </span>
                       <span className="inline-flex items-center gap-1 text-primary">
                         <FileText className="h-3 w-3" />
-                        فتح PDF
+                        معاينة PDF
                       </span>
                     </span>
                   </span>

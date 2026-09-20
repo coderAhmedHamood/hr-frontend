@@ -57,7 +57,9 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { PdfPreviewExportDialog } from '@/components/pdf/pdf-preview-export-dialog';
+import { PdfPreviewDownloadButton } from '@/components/pdf/pdf-preview-download-button';
 import { GenericRegisterPrintHtml } from '@/components/pdf/print/generic-register-print-html';
+import { DisciplineLetterPrintHtml } from '@/components/pdf/print/discipline-letter-print-html';
 import { downloadXlsxFromAoA, type XlsxCell } from '@/shared/export/download-xlsx';
 import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
@@ -148,6 +150,7 @@ export function InvestigationsClient() {
   const [deleteId, setDeleteId] = React.useState<string | null>(null);
   const [pdfOpen, setPdfOpen] = React.useState(false);
   const [detailRow, setDetailRow] = React.useState<HRDisciplineInvestigationRecord | null>(null);
+  const [letterOpen, setLetterOpen] = React.useState(false);
 
   const [openDrawerOpen, setOpenDrawerOpen] = React.useState(false);
 
@@ -204,6 +207,38 @@ export function InvestigationsClient() {
         />
       ),
     [investigationsPdfRows, m.company],
+  );
+
+  const letterPrintable = React.useMemo(
+    () =>
+      detailRow ? (
+        <DisciplineLetterPrintHtml
+          companyNameAr={m.company?.nameAr ?? '—'}
+          companyNameEn={m.company?.nameEn ?? m.company?.nameAr ?? '—'}
+          titleAr={`محضر تحقيق ${detailRow.caseNumber}`}
+          rows={[
+            { label: 'المخالفة', value: detailRow.caseNumber },
+            { label: 'الموظف', value: detailRow.employeeNameAr },
+            { label: 'المحقق', value: detailRow.investigatorName },
+            { label: 'التاريخ', value: detailRow.date },
+            { label: 'النتيجة', value: INVESTIGATION_RESULT_LABELS[detailRow.result] },
+            {
+              label: 'التوصية',
+              value:
+                detailRow.recommendationType === 'deduction' && detailRow.recommendation.trim()
+                  ? detailRow.recommendation
+                  : (detailRow.recommendationType
+                    ? INVESTIGATION_RECOMMENDATION_LABELS[detailRow.recommendationType]
+                    : (detailRow.recommendation || '—')),
+            },
+          ]}
+          bodyAr={[
+            detailRow.employeeStatement.trim() ? `أقوال الموظف:\n${detailRow.employeeStatement.trim()}` : '',
+            detailRow.witnessStatement.trim() ? `أقوال الشهود:\n${detailRow.witnessStatement.trim()}` : '',
+          ].filter(Boolean).join('\n\n')}
+        />
+      ) : null,
+    [detailRow, m.company],
   );
 
   const handleExportInvestigationsExcel = React.useCallback(async () => {
@@ -513,6 +548,13 @@ export function InvestigationsClient() {
         fileName="discipline-investigations.pdf"
         printable={printable}
       />
+      <PdfPreviewExportDialog
+        open={letterOpen}
+        onOpenChange={setLetterOpen}
+        title="معاينة محضر التحقيق"
+        fileName={detailRow ? `investigation-${detailRow.caseNumber}.pdf` : 'investigation.pdf'}
+        printable={letterPrintable}
+      />
 
       {m.listError ? (
         <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-2.5 text-sm text-destructive whitespace-pre-wrap">
@@ -732,6 +774,11 @@ export function InvestigationsClient() {
           { label: 'أقوال الموظف', value: detailRow.employeeStatement || '—' },
           { label: 'أقوال الشهود', value: detailRow.witnessStatement || '—' },
         ] : []}
+        footer={
+          detailRow ? (
+            <PdfPreviewDownloadButton onClick={() => setLetterOpen(true)} />
+          ) : null
+        }
       >
         {detailRow ? (
           <RelatedEmployeeAttachments

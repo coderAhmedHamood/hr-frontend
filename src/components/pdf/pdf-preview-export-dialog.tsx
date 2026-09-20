@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { exportDomToPdf, type ExportDomToPdfOptions } from '@/components/pdf/lib/exportDomToPdf';
+import { PDF_PRINT_FONT_FAMILY } from '@/components/pdf/lib/pdf-print-font';
 
 type PdfPreviewExportDialogProps = {
   open: boolean;
@@ -82,7 +83,11 @@ export function PdfPreviewExportDialog({
 
         <div className="min-h-[420px] flex-1 overflow-hidden bg-muted/20">
           {showPrintable ? (
-            <div className="h-full max-h-[min(75vh,820px)] overflow-auto p-4" dir="rtl">
+            <div
+              className="h-full max-h-[min(75vh,820px)] overflow-auto p-4"
+              dir="rtl"
+              style={{ fontFamily: PDF_PRINT_FONT_FAMILY }}
+            >
               {printableNode}
             </div>
           ) : open ? (

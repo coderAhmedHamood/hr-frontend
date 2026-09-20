@@ -8,7 +8,6 @@ import { useServerDirectoryPagination } from '@/components/ui/paged-list';
 import { violationTypesApi } from '@/features/hr/discipline/lib/api/violation-types';
 import { resolveOrganizationScope } from '@/features/hr/organization/lib/api/organization-context';
 import type { HRViolationDeductionKind, HRViolationTypeRecord } from '@/features/hr/discipline/lib/types';
-import { slugify } from '@/features/hr/requests/lib/types';
 import {
   createViolationType,
   deleteViolationType,
@@ -135,9 +134,10 @@ export function useViolationTypesDirectoryModel() {
           approvalTemplateId: null,
         });
       } else {
+        const manualCode = draft.code.trim();
         await createViolationType({
           companyId,
-          code: slugify(nameAr) || `vt-${Date.now().toString(36)}`,
+          ...(manualCode ? { code: manualCode } : {}),
           nameAr,
           nameEn: nameAr,
           sortOrder: draft.sortOrder,

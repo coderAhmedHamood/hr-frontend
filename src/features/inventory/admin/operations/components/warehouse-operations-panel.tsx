@@ -24,6 +24,7 @@ import type {
 import { useWarehouses } from '@/features/inventory/admin/warehouses/hooks/use-warehouses';
 import { useProduct } from '@/features/ecommerce/admin/products/hooks/use-products';
 import { ProductSinglePicker } from '@/features/ecommerce/admin/products/components/product-single-picker';
+import { PartnerSinglePicker } from '@/features/contacts/admin/partners/components/partner-single-picker';
 import { WarehouseOperationLinesEditor } from '@/features/inventory/admin/operations/components/warehouse-operation-lines-editor';
 import { FlexibleQuantityInput } from '@/features/inventory/admin/operations/components/flexible-quantity-input';
 import {
@@ -490,6 +491,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
         status: 'draft',
         occurredAt: new Date(values.occurredAt).toISOString(),
         notes: values.notes?.trim() || undefined,
+        partnerId: values.partnerId?.trim() || undefined,
         partnerName: values.partnerName?.trim() || undefined,
         sourceDocument: values.sourceDocument?.trim() || undefined,
         destinationWarehouseId: values.destinationWarehouseId || undefined,
@@ -1148,7 +1150,27 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
                       ? 'الاستلام من'
                       : 'الطرف'}
                 </Label>
-                <Input id="op-partner" {...form.register('partnerName')} placeholder="اختياري" />
+                <Controller
+                  control={form.control}
+                  name="partnerId"
+                  render={({ field }) => (
+                    <PartnerSinglePicker
+                      companyId={companyId}
+                      value={field.value || ''}
+                      onChange={field.onChange}
+                      onPartnerSelect={(partner) => form.setValue('partnerName', partner.displayName)}
+                      placeholder="اختر جهة اتصال (اختياري)"
+                      aria-label="op-partner"
+                    />
+                  )}
+                />
+                <Input
+                  id="op-partner"
+                  {...form.register('partnerName')}
+                  placeholder="أو اكتب اسمًا يدويًا إن لم تجد جهة الاتصال"
+                  className="mt-1.5"
+                  disabled={Boolean(form.watch('partnerId'))}
+                />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="op-source">المستند المصدر</Label>

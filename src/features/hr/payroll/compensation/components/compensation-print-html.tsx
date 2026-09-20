@@ -1,10 +1,12 @@
-'use client';
+﻿'use client';
 
 import * as React from 'react';
+import { PDF_PRINT_FONT_FAMILY } from '@/components/pdf/lib/pdf-print-font';
 import { sanitizePdfText } from '@/components/pdf/lib/sanitize-pdf-text';
 import { RoseTradingLetterheadPrint } from '@/components/pdf/print/rose-trading-letterhead-print';
 import { getPdfLogoSrc } from '@/components/pdf/lib/pdf-logo-url';
 import { RosePdfWatermark } from '@/components/pdf/rose-trading/rose-pdf-watermark';
+import { RoseCompanyStamp } from '@/components/pdf/rose-trading/rose-company-stamp';
 import type { CompensationExportTable } from '@/features/hr/payroll/lib/compensation-period-export';
 
 export type CompensationPrintHtmlProps = {
@@ -19,7 +21,7 @@ const CELL_BORDER = '1px solid #222';
 const TH_STYLE: React.CSSProperties = {
   border: CELL_BORDER,
   padding: '10px 8px',
-  fontSize: 10.5,
+  fontSize: 22,
   fontWeight: 700,
   textAlign: 'center',
   verticalAlign: 'middle',
@@ -30,7 +32,7 @@ const TH_STYLE: React.CSSProperties = {
 const TD_BASE: React.CSSProperties = {
   border: CELL_BORDER,
   padding: '10px 8px',
-  fontSize: 10.5,
+  fontSize: 22,
   verticalAlign: 'middle',
   lineHeight: 1.4,
 };
@@ -155,7 +157,7 @@ export const CompensationPrintHtml = React.forwardRef<HTMLDivElement, Compensati
           boxSizing: 'border-box',
           backgroundColor: '#ffffff',
           padding: '20px 16px 32px',
-          fontFamily: 'Arial, Helvetica, sans-serif',
+          fontFamily: PDF_PRINT_FONT_FAMILY,
           color: '#111',
           minHeight: '190mm',
           display: 'flex',
@@ -169,7 +171,7 @@ export const CompensationPrintHtml = React.forwardRef<HTMLDivElement, Compensati
 
         <div
           style={{
-            fontSize: 15,
+            fontSize: 22.5,
             fontWeight: 700,
             textAlign: 'center',
             marginTop: 12,
@@ -188,7 +190,7 @@ export const CompensationPrintHtml = React.forwardRef<HTMLDivElement, Compensati
             width: '100%',
             borderCollapse: 'collapse',
             tableLayout: 'fixed',
-            fontFamily: 'Arial, Helvetica, sans-serif',
+            fontFamily: PDF_PRINT_FONT_FAMILY,
           }}
         >
           <colgroup>
@@ -299,6 +301,11 @@ export const CompensationPrintHtml = React.forwardRef<HTMLDivElement, Compensati
             </tr>
           </tbody>
         </table>
+
+        {/* Establishment stamp — «ختم المنشأة». */}
+        <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: 20 }}>
+          <RoseCompanyStamp width={130} compact />
+        </div>
         </div>
       </div>
     );

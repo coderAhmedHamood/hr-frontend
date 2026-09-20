@@ -7,6 +7,15 @@ type ProductImageProps = {
   alt: string;
   href?: string;
   aspectRatio?: 'square' | '4/3' | '3/4';
+  /**
+   * `contain` (default) always shows the whole photo, letterboxed if its
+   * ratio doesn't match `aspectRatio`. `cover` fills the box and may crop
+   * edges — only use it for photos actually shot to match `aspectRatio`.
+   * Normally sourced from the product's `imageDisplayFit` setting so every
+   * storefront surface (card, gallery, thumbnails, cart, orders…) renders
+   * the same product consistently instead of guessing per screen.
+   */
+  fit?: 'contain' | 'cover';
   priority?: boolean;
   className?: string;
   imageClassName?: string;
@@ -24,6 +33,7 @@ export function ProductImage({
   src,
   alt,
   aspectRatio = 'square',
+  fit = 'contain',
   priority = false,
   className,
   imageClassName,
@@ -46,7 +56,11 @@ export function ProductImage({
           unoptimized
           priority={priority}
           sizes={sizes}
-          className={cn('object-contain p-3 transition-transform duration-200 group-hover:scale-105', imageClassName)}
+          className={cn(
+            fit === 'cover' ? 'object-cover' : 'object-contain p-3',
+            'transition-transform duration-200 group-hover:scale-105',
+            imageClassName,
+          )}
         />
       ) : (
         <div className="flex h-full w-full items-center justify-center text-muted-foreground">

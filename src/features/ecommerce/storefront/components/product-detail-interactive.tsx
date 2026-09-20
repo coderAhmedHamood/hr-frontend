@@ -22,7 +22,13 @@ export function ProductDetailInteractive({ product }: { product: StorefrontProdu
 
   return (
     <div className="grid gap-8 md:grid-cols-[minmax(0,18rem)_1fr] md:items-start lg:grid-cols-[minmax(0,20rem)_1fr]">
-      <ProductMediaGallery images={images} fallbackAlt={fallbackAlt} activeDescription={activeMedia?.description} />
+      <ProductMediaGallery
+        images={images}
+        fallbackAlt={fallbackAlt}
+        activeDescription={activeMedia?.description}
+        aspectRatio={product.imageDisplayAspectRatio}
+        fit={product.imageDisplayFit}
+      />
 
       <div className="flex flex-col gap-4">
         <div className="space-y-1.5">

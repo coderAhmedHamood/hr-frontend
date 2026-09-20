@@ -133,6 +133,8 @@ export function mapStorefrontProduct(product: Product, locale: StorefrontLocale)
     media: resolvedMedia,
     imageUrl: primary?.url ?? null,
     imageAlt: primary?.alt || name,
+    imageDisplayFit: product.imageDisplayFit ?? 'contain',
+    imageDisplayAspectRatio: product.imageDisplayAspectRatio ?? 'square',
     tags: product.tags ?? [],
     isNewProductActive: Boolean(product.isNewProductActive),
     isTodayDealActive: Boolean(product.isTodayDealActive),

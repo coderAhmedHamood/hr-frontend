@@ -44,6 +44,10 @@ import { TableDateCell, TableRowActions, TableRowDetailDialog } from '@/componen
 import { DisciplineListViewport, DisciplinePaginatedList } from '@/features/hr/discipline/components/discipline-paginated-list';
 import type { HRDisciplinePayrollDeductionRecord } from '@/features/hr/discipline/lib/types';
 import { RelatedEmployeeAttachments } from '@/features/hr/organization/employees/components/related-employee-attachments';
+import { useDefaultCompany } from '@/features/hr/organization/hooks/useActiveCompany';
+import { PdfPreviewExportDialog } from '@/components/pdf/pdf-preview-export-dialog';
+import { PdfPreviewDownloadButton } from '@/components/pdf/pdf-preview-download-button';
+import { DisciplineLetterPrintHtml } from '@/components/pdf/print/discipline-letter-print-html';
 
 const DEDUCTION_STATUS_ORDER: readonly HRDeductionStatus[] = ['ready', 'posted', 'calculated', 'cancelled'];
 
@@ -81,6 +85,10 @@ export function DeductionsClient() {
   const { dateBounds, dateMeta, onDateBoundsChange, onDateFilterMetaChange } = useDisciplineDateFilterState();
   const filterToolbarRef = React.useRef<DisciplineFilterToolbarHandle>(null);
   const [detailRow, setDetailRow] = React.useState<HRDisciplinePayrollDeductionRecord | null>(null);
+  const [letterOpen, setLetterOpen] = React.useState(false);
+  const { data: defaultCompany } = useDefaultCompany();
+  const companyNameAr = defaultCompany?.nameAr ?? '';
+  const companyNameEn = defaultCompany?.nameEn ?? '';
 
   React.useEffect(() => {
     setListFilters({
@@ -105,6 +113,27 @@ export function DeductionsClient() {
   }, [dateFiltered]);
 
   const dateRangeActive = dateMeta.hasRestriction;
+
+  const letterPrintable = React.useMemo(
+    () =>
+      detailRow ? (
+        <DisciplineLetterPrintHtml
+          companyNameAr={companyNameAr}
+          companyNameEn={companyNameEn}
+          titleAr={`استقطاع ${detailRow.caseNumber}`}
+          rows={[
+            { label: 'القضية', value: detailRow.caseNumber },
+            { label: 'الموظف', value: detailRow.employeeNameAr },
+            { label: 'النوع', value: DEDUCTION_KIND_LABELS[detailRow.deductionKind] },
+            { label: 'الشهر', value: detailRow.month },
+            { label: 'الحالة', value: DEDUCTION_STATUS_LABELS[detailRow.status] },
+            { label: 'المبلغ', value: formatNumber(detailRow.amount) },
+          ]}
+          bodyAr={detailRow.reasonAr?.trim() || undefined}
+        />
+      ) : null,
+    [detailRow, companyNameAr, companyNameEn],
+  );
 
   const activeFilterCount = (selectedEmpIds.size > 0 ? 1 : 0) + (statusFilter !== 'all' ? 1 : 0) + (kindFilter !== 'all' ? 1 : 0) + (dateMeta.hasRestriction ? 1 : 0);
 
@@ -243,6 +272,13 @@ export function DeductionsClient() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
+      <PdfPreviewExportDialog
+        open={letterOpen}
+        onOpenChange={setLetterOpen}
+        title="معاينة الاستقطاع"
+        fileName={detailRow ? `deduction-${detailRow.caseNumber}.pdf` : 'deduction.pdf'}
+        printable={letterPrintable}
+      />
       {m.listError ? (
         <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-2.5 text-sm text-destructive whitespace-pre-wrap">
           {m.listError}
@@ -348,6 +384,11 @@ export function DeductionsClient() {
           { label: 'تاريخ التسجيل', value: <TableDateCell value={detailRow.createdAt} mode="datetime" /> },
           { label: 'آخر تحديث', value: <TableDateCell value={detailRow.updatedAt} mode="datetime" /> },
         ] : []}
+        footer={
+          detailRow ? (
+            <PdfPreviewDownloadButton onClick={() => setLetterOpen(true)} />
+          ) : null
+        }
       >
         {detailRow ? (
           <RelatedEmployeeAttachments

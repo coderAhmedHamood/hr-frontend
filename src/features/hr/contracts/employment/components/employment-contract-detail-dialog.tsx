@@ -27,6 +27,7 @@ import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import { MoneyAmount } from '@/components/ui/sar-amount';
 import { resolveUploadUrl } from '@/shared/resolve-upload-url';
 import { cn } from '@/shared/utils';
+import { PdfPreviewDownloadButton } from '@/components/pdf/pdf-preview-download-button';
 import { RelatedEmployeeAttachments } from '@/features/hr/organization/employees/components/related-employee-attachments';
 import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 
@@ -419,16 +420,7 @@ export function EmploymentContractDetailDialog({
               </Button>
             ) : null}
             {onDownloadPdf ? (
-              <Button
-                type="button"
-                variant="luxe"
-                size="sm"
-                className="h-9 gap-1.5 text-xs"
-                onClick={() => onDownloadPdf(contract)}
-              >
-                <FileDown className="h-3.5 w-3.5 shrink-0" />
-                معاينة / تنزيل PDF
-              </Button>
+              <PdfPreviewDownloadButton onClick={() => onDownloadPdf(contract)} />
             ) : null}
             <Button type="button" variant="outline" size="sm" className="h-9" onClick={() => onOpenChange(false)}>
               إغلاق

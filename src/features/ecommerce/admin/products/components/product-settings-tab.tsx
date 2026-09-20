@@ -1,14 +1,16 @@
 'use client';
 
-import { Controller, type Control, type FieldErrors, type UseFormRegister } from 'react-hook-form';
+import { Controller, useWatch, type Control, type FieldErrors, type UseFormRegister } from 'react-hook-form';
 import type { ProductFormInput, ProductFormValues } from '@/features/ecommerce/admin/products/schemas/product-schema';
 import {
   ProductFormField,
   ProductFormSection,
 } from '@/features/ecommerce/admin/products/components/product-form-section';
+import { ProductImage } from '@/features/ecommerce/storefront/components/catalog/product-image';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { DatePickerInput } from '@/components/ui/date-picker-input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/shared/utils';
 
 type Props = {
@@ -17,9 +19,111 @@ type Props = {
   register: UseFormRegister<ProductFormInput>;
 };
 
+const ASPECT_RATIO_OPTIONS = [
+  { value: 'square', label: 'مربع', hint: '1:1 — الأنسب لمعظم المنتجات' },
+  { value: '4/3', label: 'أفقي (4:3)', hint: 'مناسب لصور المنتج بزاوية عريضة' },
+  { value: '3/4', label: 'عمودي (3:4)', hint: 'مناسب لصور المنتج الطويلة' },
+] as const;
+
+const FIT_OPTIONS = [
+  { value: 'contain', label: 'احتواء كامل الصورة', hint: 'تظهر الصورة كاملة دومًا — قد تترك فراغًا حول الحواف' },
+  { value: 'cover', label: 'تعبئة وقص الحواف', hint: 'تملأ الصورة الصندوق بالكامل — قد تقص أطراف الصورة' },
+] as const;
+
+/** Live preview — renders the product's own primary image with the chosen
+ * fit/aspect settings, at both the store-card size and the small thumbnail
+ * size used in cart/orders, so what the merchant sees here is exactly what
+ * shoppers will see everywhere. See test.md image-display note. */
+function ProductImageDisplayPreview({ control }: { control: Control<ProductFormInput, unknown, ProductFormValues> }) {
+  const media = useWatch({ control, name: 'media' }) ?? [];
+  const fit = useWatch({ control, name: 'imageDisplayFit' }) ?? 'contain';
+  const aspectRatio = useWatch({ control, name: 'imageDisplayAspectRatio' }) ?? 'square';
+  const previewImage = media.find((item) => item.isPrimary) ?? media[0] ?? null;
+
+  return (
+    <div className="flex flex-wrap items-end gap-6 rounded-xl border border-dashed border-border bg-muted/20 p-4">
+      <div className="space-y-1.5">
+        <p className="text-[11px] font-medium text-muted-foreground">بطاقة المتجر</p>
+        <ProductImage
+          src={previewImage?.url ?? null}
+          alt={previewImage?.alt || 'معاينة'}
+          aspectRatio={aspectRatio}
+          fit={fit}
+          className="w-36 rounded-lg border border-border"
+        />
+      </div>
+      <div className="space-y-1.5">
+        <p className="text-[11px] font-medium text-muted-foreground">مصغّرة (السلة/الطلبات)</p>
+        <ProductImage
+          src={previewImage?.url ?? null}
+          alt={previewImage?.alt || 'معاينة'}
+          aspectRatio={aspectRatio}
+          fit={fit}
+          className="w-16 rounded-lg border border-border"
+        />
+      </div>
+      {!previewImage ? (
+        <p className="text-xs text-muted-foreground">أضف صورة للمنتج من الأعلى لمعاينة العرض.</p>
+      ) : null}
+    </div>
+  );
+}
+
 export function ProductSettingsTab({ control, errors, register }: Props) {
   return (
     <div className="space-y-4">
+      <ProductFormSection
+        title="عرض الصورة بالمتجر"
+        description="اضبط كيف تظهر صور هذا المنتج في كل مكان بالمتجر (البطاقات، المعرض، السلة، الطلبات) — نفس الإعداد يُطبَّق في كل مكان."
+      >
+        <div className="grid gap-3 sm:grid-cols-2">
+          <ProductFormField label="نسبة العرض" htmlFor="product-image-aspect-ratio">
+            <Controller
+              control={control}
+              name="imageDisplayAspectRatio"
+              render={({ field }) => (
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <SelectTrigger id="product-image-aspect-ratio" aria-label="نسبة العرض">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ASPECT_RATIO_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+          </ProductFormField>
+          <ProductFormField label="طريقة الملء" htmlFor="product-image-fit">
+            <Controller
+              control={control}
+              name="imageDisplayFit"
+              render={({ field }) => (
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <SelectTrigger id="product-image-fit" aria-label="طريقة الملء">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {FIT_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+          </ProductFormField>
+        </div>
+        <p className="text-[11px] text-muted-foreground">
+          مربع = 1:1 · أفقي = 4:3 · عمودي = 3:4 — واحتواء = الصورة كاملة دومًا · تعبئة = تملأ الصندوق وقد تقص الحواف
+        </p>
+        <ProductImageDisplayPreview control={control} />
+      </ProductFormSection>
+
       <ProductFormSection
         title="العروض والترويج"
         description="فعّل الخيارات حسب الحاجة. التواريخ اختيارية — اتركها فارغة ليستمر العرض بلا انتهاء."

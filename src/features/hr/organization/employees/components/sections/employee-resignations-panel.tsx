@@ -16,9 +16,7 @@ import type { Employee } from '@/features/hr/organization/employees/types';
 import type { EmployeeResignationDto } from '@/features/hr/organization/employees/lib/api/employee-resignations';
 import { useEmployeeResignations } from '@/features/hr/organization/employees/hooks/useEmployeeResignations';
 import { EmployeeResignationCreateDialog } from '@/features/hr/organization/employees/components/dialogs/employee-resignation-create-dialog';
-import {
-  RoseResignationPrintHtml,
-} from '@/components/pdf/rose-trading/rose-resignation-print-html';
+import { RoseResignationPrintHtml } from '@/components/pdf/rose-trading/rose-resignation-print-html';
 import { buildResignationPrintFields } from '@/features/hr/organization/employees/lib/rose-document-templates/build-print-fields';
 import { sendResignationToEmployeeNotification } from '@/features/hr/organization/employees/services/rose-forms-notification.service';
 
@@ -202,7 +200,7 @@ export function EmployeeResignationsPanel({ employee, onOpenPdfPrep }: Props) {
                       </span>
                       <span className="inline-flex items-center gap-1 text-primary">
                         <FileText className="h-3 w-3" />
-                        فتح PDF
+                        معاينة PDF
                       </span>
                     </span>
                   </span>

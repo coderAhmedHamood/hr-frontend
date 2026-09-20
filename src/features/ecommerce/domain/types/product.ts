@@ -104,6 +104,11 @@ export type ProductDimensions = {
   heightCm?: number;
 };
 
+/** How this product's images fit their storefront display box (card/gallery/thumbnails). */
+export type ProductImageFit = 'contain' | 'cover';
+/** Display box aspect ratio for this product's images. */
+export type ProductImageAspectRatio = 'square' | '4/3' | '3/4';
+
 export type Product = TenantScoped &
   Slugged & {
     id: string;
@@ -128,6 +133,10 @@ export type Product = TenantScoped &
     costPrice?: Money;
     compareAtPrice?: Money;
     media: MediaItem[];
+    /** How this product's photos fit their storefront display box. Default: 'contain'. */
+    imageDisplayFit?: ProductImageFit;
+    /** Display box aspect ratio for this product's photos. Default: 'square'. */
+    imageDisplayAspectRatio?: ProductImageAspectRatio;
     seo: SeoFields;
     tags?: string[];
     productType?: ProductType;
