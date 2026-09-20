@@ -47,8 +47,9 @@ export type UserRecord = UserResponseDto;
 export {
   USER_TYPE_LABELS,
   USER_TYPE_OPTIONS,
-  USER_TYPE_OPTIONS_EDITABLE,
   USER_STATUS_OPTIONS,
+  userTypeLabelAr,
+  userStatusLabelAr,
 } from '@/features/system/organization/contacts/constants/users-directory';
 
 function userBelongsToCompany(user: UserRecord, companyId: string): boolean {
@@ -175,12 +176,8 @@ export function useContactsDirectoryModel() {
     phone: form.phone.trim() || null,
     userType: form.userType || null,
     defaultCompanyId: defaultCompanyId ?? (form.defaultCompanyId || null),
-    ...(editId
-      ? {
-          status: form.status || null,
-          isActive: form.isActive,
-        }
-      : {}),
+    status: form.status || null,
+    isActive: form.isActive,
     isVerified: form.isVerified,
   }), [defaultCompanyId, editId, form]);
 

@@ -1,5 +1,6 @@
 'use client';
 
+import * as React from 'react';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import {
@@ -16,7 +17,6 @@ import {
 } from '@/components/ui/shared-dialogs';
 import {
   useContactsDirectoryModel,
-  USER_TYPE_OPTIONS_EDITABLE,
   USER_STATUS_OPTIONS,
 } from '@/features/system/organization/contacts/hooks/useContactsDirectoryModel';
 import { ContactsListViews } from '@/features/system/organization/contacts/components/contacts-list-views';
@@ -24,9 +24,14 @@ import { UserDetailDialog } from '@/features/system/organization/contacts/dialog
 import { ForbiddenState } from '@/components/shared/forbidden-state';
 import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 import { useCompanySuperusers } from '@/features/system/organization/contacts/hooks/useCompanySuperusers';
+import { userTypeFormOptions, type UserType } from '@/features/system/users/constants/user-type';
 
 export default function ContactsPage() {
   const model = useContactsDirectoryModel();
+  const userTypeOptions = React.useMemo(
+    () => userTypeFormOptions(model.form.userType),
+    [model.form.userType],
+  );
   const companyId = useDefaultCompanyId();
   const superusers = useCompanySuperusers(companyId, model.perms.canRead);
 
@@ -87,37 +92,37 @@ export default function ContactsPage() {
           </FormField>
 
           <FormField label="نوع المستخدم">
-            <Select value={model.form.userType} onValueChange={(v) => model.patch({ userType: v })}>
+            <Select
+              value={model.form.userType}
+              onValueChange={(v) => model.patch({ userType: v as UserType })}
+              disabled={userTypeOptions.length <= 1}
+            >
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                {USER_TYPE_OPTIONS_EDITABLE.map((o) => (
+                {userTypeOptions.map((o) => (
                   <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </FormField>
 
-          {model.editId ? (
-            <FormField label="الحالة">
-              <Select value={model.form.status} onValueChange={(v) => model.patch({ status: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {USER_STATUS_OPTIONS.map((o) => (
-                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </FormField>
-          ) : null}
+          <FormField label="الحالة">
+            <Select value={model.form.status} onValueChange={(v) => model.patch({ status: v })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {USER_STATUS_OPTIONS.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </FormField>
         </div>
 
         <div className="mt-4 space-y-3">
-          {model.editId && (
-            <div className="flex items-center justify-between rounded-xl border border-border p-4">
-              <span className="text-sm">نشط</span>
-              <Switch checked={model.form.isActive} onCheckedChange={(v) => model.patch({ isActive: v })} />
-            </div>
-          )}
+          <div className="flex items-center justify-between rounded-xl border border-border p-4">
+            <span className="text-sm">نشط</span>
+            <Switch checked={model.form.isActive} onCheckedChange={(v) => model.patch({ isActive: v })} />
+          </div>
           <div className="flex items-center justify-between rounded-xl border border-border p-4">
             <span className="text-sm">موثّق</span>
             <Switch checked={model.form.isVerified} onCheckedChange={(v) => model.patch({ isVerified: v })} />

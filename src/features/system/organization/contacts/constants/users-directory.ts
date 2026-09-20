@@ -1,12 +1,23 @@
 import type { UserResponseDto, UserCompanyLink, UserBranchLink } from '@/features/hr/organization/lib/api/users';
 import { formatDisplayDateTime } from '@/shared/utils';
+import {
+  isPartnerPortalUserType,
+  USER_TYPE_FORM_OPTIONS,
+  USER_TYPE_LABELS_AR,
+  userTypeLabelAr,
+  type UserType,
+} from '@/features/system/users/constants/user-type';
+import {
+  USER_STATUS_FORM_OPTIONS,
+  userStatusLabelAr,
+} from '@/features/system/users/constants/user-status';
 
 export type UserDraftForm = {
   email: string;
   password: string;
   fullNameAr: string;
   phone: string;
-  userType: string;
+  userType: UserType;
   defaultCompanyId: string;
   status: string;
   isActive: boolean;
@@ -25,62 +36,33 @@ export const EMPTY_USER_FORM: UserDraftForm = {
   isVerified: false,
 };
 
-/** Matches backend `UserType` enum (`users.user_type`). */
-export const USER_TYPE_LABELS: Record<string, string> = {
-  internal_employee: 'موظف داخلي',
-  external_customer: 'عميل خارجي',
-  supplier: 'مورد',
-  partner: 'شريك',
-  sales_rep_external: 'مندوب مبيعات خارجي',
-  visitor: 'زائر',
-  contractor: 'متعاقد',
-  pos_user: 'مستخدم نقطة بيع',
-  system_admin: 'مدير النظام',
-  platform_admin: 'مدير المنصة',
-  support_user: 'دعم فني',
-  api_client: 'عميل API',
-  service_account: 'حساب خدمة',
-};
+/** @deprecated use USER_TYPE_LABELS_AR or userTypeLabelAr */
+export const USER_TYPE_LABELS: Record<string, string> = USER_TYPE_LABELS_AR;
 
-export const USER_TYPE_OPTIONS = Object.entries(USER_TYPE_LABELS).map(([value, label]) => ({
-  value,
-  label,
-}));
+/** Create + edit + profile — aligned with backend `UserType` (except platform_admin). */
+export const USER_TYPE_OPTIONS = USER_TYPE_FORM_OPTIONS;
 
-/** Portal / storefront accounts — must use `/public/partners/auth/login`, not staff `/auth/login`. */
-export const PARTNER_PORTAL_USER_TYPES = new Set<string>([
-  'external_customer',
-  'supplier',
-  'partner',
-  'visitor',
-  'sales_rep_external',
-  'contractor',
-]);
+/** @deprecated alias — use USER_TYPE_FORM_OPTIONS */
+export const USER_TYPE_OPTIONS_EDITABLE = USER_TYPE_FORM_OPTIONS;
 
-export function isPartnerPortalUserType(userType: string | null | undefined): boolean {
-  if (!userType) return false;
-  return PARTNER_PORTAL_USER_TYPES.has(userType);
-}
+export { isPartnerPortalUserType };
 
-/** Cannot assign or switch to platform owner via admin UI (backend rejects). */
-export const USER_TYPE_OPTIONS_EDITABLE = USER_TYPE_OPTIONS.filter(
-  (o) => o.value !== 'platform_admin',
-);
+export const USER_STATUS_OPTIONS = USER_STATUS_FORM_OPTIONS;
 
-export const USER_STATUS_OPTIONS = [
-  { value: 'active', label: 'نشط' },
-  { value: 'inactive', label: 'غير نشط' },
-  { value: 'suspended', label: 'موقوف' },
-  { value: 'pending', label: 'قيد المراجعة' },
-];
+export { userTypeLabelAr, userStatusLabelAr };
 
 export function userToDraftForm(user: UserResponseDto): UserDraftForm {
+  const userType =
+    user.userType && (USER_TYPE_LABELS_AR as Record<string, string>)[user.userType]
+      ? (user.userType as UserType)
+      : 'internal_employee';
+
   return {
     email: user.email ?? '',
     password: '',
     fullNameAr: user.fullNameAr ?? '',
     phone: user.phone ?? '',
-    userType: user.userType ?? 'internal_employee',
+    userType,
     defaultCompanyId: user.defaultCompanyId ?? '',
     status: user.status ?? 'active',
     isActive: user.isActive,

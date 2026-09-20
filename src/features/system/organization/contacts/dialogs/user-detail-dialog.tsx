@@ -25,7 +25,7 @@ import { UserBranchesPanel } from '@/features/system/organization/contacts/compo
 import { UserPermissionsPanel } from '@/features/system/organization/contacts/components/user-permissions-panel';
 import { useUserDetailModel } from '@/features/system/organization/contacts/hooks/useUserDetailModel';
 import { useUserPermissionsModel } from '@/features/system/organization/contacts/hooks/useUserPermissionsModel';
-import { USER_TYPE_LABELS } from '@/features/system/organization/contacts/constants/users-directory';
+import { userTypeLabelAr } from '@/features/system/organization/contacts/constants/users-directory';
 import { userIsLinkedToCompany } from '@/features/system/organization/contacts/hooks/useCompanySuperusers';
 import { cn, getInitials } from '@/shared/utils';
 import type { UserResponseDto } from '@/features/hr/organization/lib/api/users';
@@ -148,7 +148,7 @@ export function UserDetailDialog({
 
                   <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5">
                     <Badge variant="secondary" className="text-[10px] font-normal">
-                      {USER_TYPE_LABELS[displayUser.userType ?? ''] ?? displayUser.userType ?? '—'}
+                      {userTypeLabelAr(displayUser.userType)}
                     </Badge>
                     {displayUser.isActive ? (
                       <Badge variant="outline" className="border-success/40 bg-success/5 text-[10px] text-success">

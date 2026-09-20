@@ -10,9 +10,10 @@ import { usersApi, type UserResponseDto } from '@/features/hr/organization/lib/a
 import { usePagePermissions } from '@/features/auth/permissions';
 import {
   isPartnerPortalUserType,
-  USER_TYPE_LABELS,
-  USER_TYPE_OPTIONS_EDITABLE,
-} from '@/features/system/organization/contacts/constants/users-directory';
+  userTypeFormOptions,
+  userTypeLabelAr,
+  type UserType,
+} from '@/features/system/users/constants/user-type';
 import { CONTACTS_PAGE_PERMISSIONS } from '@/features/system/organization/contacts/permissions';
 
 type Props = {
@@ -23,14 +24,21 @@ type Props = {
 export function UserTypePanel({ user, onUpdated }: Props) {
   const { canUpdate } = usePagePermissions(CONTACTS_PAGE_PERMISSIONS);
   const locked = user.userType === 'platform_admin';
-  const [draftType, setDraftType] = React.useState(user.userType ?? 'internal_employee');
+  const [draftType, setDraftType] = React.useState<UserType>(
+    (user.userType as UserType) ?? 'internal_employee',
+  );
   const [saving, setSaving] = React.useState(false);
 
   React.useEffect(() => {
-    setDraftType(user.userType ?? 'internal_employee');
+    setDraftType((user.userType as UserType) ?? 'internal_employee');
   }, [user.id, user.userType]);
 
-  const dirty = draftType !== (user.userType ?? 'internal_employee');
+  const typeOptions = React.useMemo(
+    () => userTypeFormOptions(user.userType),
+    [user.userType],
+  );
+
+  const dirty = draftType !== ((user.userType as UserType) ?? 'internal_employee');
   const wasPortal = isPartnerPortalUserType(user.userType);
   const willPortal = isPartnerPortalUserType(draftType);
   const convertingToStaff = wasPortal && !willPortal && draftType === 'internal_employee';
@@ -65,12 +73,16 @@ export function UserTypePanel({ user, onUpdated }: Props) {
             </div>
             <div className="min-w-0 flex-1 space-y-2">
               {canUpdate && !locked ? (
-                <Select value={draftType} onValueChange={setDraftType} disabled={saving}>
+                <Select
+                  value={draftType}
+                  onValueChange={(v) => setDraftType(v as UserType)}
+                  disabled={saving || typeOptions.length <= 1}
+                >
                   <SelectTrigger className="h-10 max-w-md">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {USER_TYPE_OPTIONS_EDITABLE.map((o) => (
+                    {typeOptions.map((o) => (
                       <SelectItem key={o.value} value={o.value}>
                         {o.label}
                       </SelectItem>
@@ -78,9 +90,7 @@ export function UserTypePanel({ user, onUpdated }: Props) {
                   </SelectContent>
                 </Select>
               ) : (
-                <p className="text-sm font-medium">
-                  {USER_TYPE_LABELS[user.userType ?? ''] ?? user.userType ?? '—'}
-                </p>
+                <p className="text-sm font-medium">{userTypeLabelAr(user.userType)}</p>
               )}
               {locked ? (
                 <p className="text-xs text-amber-600 dark:text-amber-400">

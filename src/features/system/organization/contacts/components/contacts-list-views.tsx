@@ -18,7 +18,7 @@ import {
 import { ForbiddenState } from '@/components/shared/forbidden-state';
 import { EmptyState } from '@/components/ui/shared-dialogs';
 import { DirectoryPagedViews } from '@/components/ui/paged-list';
-import { USER_TYPE_LABELS } from '@/features/system/organization/contacts/hooks/useContactsDirectoryModel';
+import { userTypeLabelAr } from '@/features/system/organization/contacts/hooks/useContactsDirectoryModel';
 import type { UserRecord, ContactsDirectoryModel } from '@/features/system/organization/contacts/hooks/useContactsDirectoryModel';
 
 type Props = {
@@ -83,7 +83,7 @@ export function ContactsListViews({ model, superuserIds }: Props) {
       hideOnMobile: true,
       render: (row) => (
         <Badge variant="outline" className="text-[10px]">
-          {USER_TYPE_LABELS[row.userType ?? ''] ?? row.userType ?? '—'}
+          {userTypeLabelAr(row.userType)}
         </Badge>
       ),
     },
@@ -210,7 +210,7 @@ function UserGridCard({
         <div className="flex shrink-0 flex-col items-end gap-1">
           {isSuperuser ? <SuperuserBadge /> : null}
           <Badge variant="secondary" className="text-[10px]">
-            {USER_TYPE_LABELS[row.userType ?? ''] ?? row.userType ?? '—'}
+            {userTypeLabelAr(row.userType)}
           </Badge>
         </div>
       </DirectoryGridCardHeader>
