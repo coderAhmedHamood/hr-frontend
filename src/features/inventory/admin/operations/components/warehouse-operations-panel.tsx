@@ -299,7 +299,13 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
     limit: 200,
   });
   const destLocations = destLocationsData?.items ?? [];
-  const toLocations = meta.needsDestWarehouse ? destLocations : locations;
+  // Same-warehouse moves ("internal") pick from/to out of the same `locations`
+  // list — exclude the chosen source so a line can't transfer a location to
+  // itself. Cross-warehouse transfers already scope `destLocations` to the
+  // destination warehouse, so the source (in the other warehouse) can't appear there.
+  const toLocations = meta.needsDestWarehouse
+    ? destLocations
+    : locations.filter((location) => location.id !== fromLocationId);
 
   const locationNameById = React.useMemo(() => {
     const source = scopedToWarehouse
@@ -450,6 +456,16 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
       toLocationId: values.toLocationId || undefined,
     };
 
+    if (
+      meta.stockEffect === 'move' &&
+      lineLocations.fromLocationId &&
+      lineLocations.toLocationId &&
+      lineLocations.fromLocationId === lineLocations.toLocationId
+    ) {
+      toast.error('اختر موقعين مختلفين داخل نفس المستودع.');
+      return;
+    }
+
     if (multiProductMode) {
       if (hasDuplicateOperationLineProducts(lineDrafts)) {
         toast.error('لا يمكن تكرار نفس المنتج في أكثر من سطر.');
@@ -460,15 +476,6 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
       });
       if (lines.length === 0) {
         toast.error('أضف صنفًا واحدًا على الأقل مع كمية أكبر من صفر.');
-        return;
-      }
-      if (
-        meta.stockEffect === 'move' &&
-        lineLocations.fromLocationId &&
-        lineLocations.toLocationId &&
-        lineLocations.fromLocationId === lineLocations.toLocationId
-      ) {
-        toast.error('اختر موقعين مختلفين داخل نفس المستودع.');
         return;
       }
       if (checksSourceStock && lineLocations.fromLocationId) {
@@ -484,7 +491,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
           return;
         }
       }
-      await create.mutateAsync({
+      const created = await create.mutateAsync({
         companyId,
         warehouseId: sourceWh,
         kind,
@@ -498,6 +505,9 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
         lines,
       });
       setOpen(false);
+      // Pilot: reopen the just-created draft instead of making the user find
+      // it in the refreshed list themselves — see kind === 'transfer' below.
+      if (kind === 'transfer') setSelectedId(created.id);
       return;
     }
 
@@ -566,7 +576,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
       }
     }
 
-    await create.mutateAsync({
+    const created = await create.mutateAsync({
       companyId,
       warehouseId: sourceWh,
       kind,
@@ -579,6 +589,10 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
       lines,
     });
     setOpen(false);
+    // Pilot: reopen the just-created draft instead of making the user find
+    // it in the refreshed list themselves. If this works well, roll the same
+    // pattern out to other operation kinds' create forms.
+    if (kind === 'transfer') setSelectedId(created.id);
   };
 
   const columns: ColumnDef<WarehouseOperation>[] = [

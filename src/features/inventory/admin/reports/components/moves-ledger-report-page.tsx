@@ -26,7 +26,7 @@ import { DataTable, type ColumnDef } from '@/components/ui/data-table';
 import { DirectoryPagedViews, DEFAULT_PAGE_SIZE } from '@/components/ui/paged-list';
 import { ListFilterBar } from '@/components/ui/list-filter-bar';
 import { EntityFilterSearchField } from '@/components/ui/entity-filter-search-field';
-import { Input } from '@/components/ui/input';
+import { DateRangeFilterTrigger, type DateRangeFilterValue } from '@/components/ui/date-range-filter-trigger';
 
 /**
  * Each ledger row holds its own side of the movement; the counterpart is the
@@ -61,9 +61,9 @@ export function MovesLedgerReportPage() {
   const [page, setPage] = React.useState(1);
   const [pageSize, setPageSize] = React.useState(DEFAULT_PAGE_SIZE);
   const [warehouseId, setWarehouseId] = React.useState('all');
+  const [locationId, setLocationId] = React.useState('all');
   const [kind, setKind] = React.useState<'all' | WarehouseOperationKind>('all');
-  const [dateFrom, setDateFrom] = React.useState('');
-  const [dateTo, setDateTo] = React.useState('');
+  const [dateRange, setDateRange] = React.useState<DateRangeFilterValue>({ from: '', to: '' });
 
   React.useEffect(() => {
     const t = setTimeout(() => {
@@ -75,19 +75,29 @@ export function MovesLedgerReportPage() {
 
   React.useEffect(() => {
     setPage(1);
-  }, [warehouseId, kind, dateFrom, dateTo]);
+  }, [warehouseId, locationId, kind, dateRange]);
+
+  // A location belongs to one warehouse — clear it if it no longer matches
+  // the selected warehouse instead of silently filtering on a stale id.
+  React.useEffect(() => {
+    setLocationId('all');
+  }, [warehouseId]);
 
   const { data, isLoading, isError } = useInventoryLedger({
     companyId,
     warehouseId: warehouseId === 'all' ? undefined : warehouseId,
+    locationId: locationId === 'all' ? undefined : locationId,
     kind: kind === 'all' ? undefined : kind,
-    occurredAtFrom: localDateBoundary(dateFrom),
-    occurredAtTo: localDateBoundary(dateTo, true),
+    occurredAtFrom: localDateBoundary(dateRange.from),
+    occurredAtTo: localDateBoundary(dateRange.to, true),
     search: search || undefined,
     page,
     limit: pageSize,
   });
   const { data: warehousesData } = useWarehouses({ companyId, limit: 100 });
+  // Unscoped — a cross-warehouse transfer's counterpart location can belong to
+  // a warehouse other than the one selected in the filter, so the name lookup
+  // needs every location, not just the filtered warehouse's.
   const { data: locationsData } = useWarehouseLocations({ companyId, limit: 500 });
 
   const warehouses = React.useMemo(() => warehousesData?.items ?? [], [warehousesData?.items]);
@@ -95,10 +105,20 @@ export function MovesLedgerReportPage() {
     () => new Map(warehouses.map((item) => [item.id, item.nameAr])),
     [warehouses],
   );
+  const locations = React.useMemo(() => locationsData?.items ?? [], [locationsData?.items]);
   const locationName = React.useMemo(() => {
-    const map = new Map((locationsData?.items ?? []).map((item) => [item.id, item.nameAr || item.code]));
+    const map = new Map(locations.map((item) => [item.id, item.nameAr || item.code]));
     return (id?: string) => (id ? (map.get(id) ?? id) : '—');
-  }, [locationsData?.items]);
+  }, [locations]);
+  // The filter dropdown itself, though, should only offer locations that make
+  // sense for the currently selected warehouse.
+  const locationOptions = React.useMemo(
+    () =>
+      warehouseId === 'all'
+        ? locations
+        : locations.filter((item) => item.warehouseId === warehouseId),
+    [locations, warehouseId],
+  );
 
   const rows = data?.items ?? [];
   const total = data?.pagination.total ?? 0;
@@ -130,6 +150,19 @@ export function MovesLedgerReportPage() {
             ],
           },
           {
+            id: 'location',
+            value: locationId,
+            onChange: setLocationId,
+            placeholder: 'كل المواقع',
+            options: [
+              { value: 'all', label: 'كل المواقع' },
+              ...locationOptions.map((location) => ({
+                value: location.id,
+                label: location.nameAr || location.code,
+              })),
+            ],
+          },
+          {
             id: 'kind',
             value: kind,
             onChange: (value) => setKind(value as typeof kind),
@@ -144,32 +177,23 @@ export function MovesLedgerReportPage() {
           },
         ]}
         trailingActions={
-          <div className="inv-date-filters">
-            <Input
-              type="date"
-              className="inv-date-input h-8"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-              aria-label="من تاريخ"
-            />
-            <Input
-              type="date"
-              className="inv-date-input h-8"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-              aria-label="إلى تاريخ"
-            />
-          </div>
+          <DateRangeFilterTrigger
+            value={dateRange}
+            onChange={setDateRange}
+            placeholder="نطاق التاريخ"
+            allowEmpty
+          />
         }
       />
     ),
-    [searchInput, warehouseId, kind, dateFrom, dateTo, warehouses],
+    [searchInput, warehouseId, locationId, locationOptions, kind, dateRange, warehouses],
   );
 
   const columns: ColumnDef<InventoryLedgerEntry>[] = [
     {
       key: 'date',
       title: 'التاريخ',
+      sticky: 'start',
       render: (row) => (
         <span className="text-sm whitespace-nowrap">
           {formatDateTime(row.occurredAt)}

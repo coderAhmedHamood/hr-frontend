@@ -5,7 +5,6 @@ import { ChevronDown } from 'lucide-react';
 import { Controller, type Control, type FieldErrors, type UseFormRegister } from 'react-hook-form';
 import {
   PRODUCT_INVOICE_POLICY_OPTIONS,
-  PRODUCT_STATUS_OPTIONS,
   PRODUCT_TRACKING_OPTIONS,
   PRODUCT_TYPE_OPTIONS,
   type ProductFormInput,
@@ -74,46 +73,21 @@ export function ProductGeneralTab({ control, errors, register, categories, brand
           />
         </ProductFormField>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <ProductFormField
-            label="رمز المنتج (SKU) — اختياري"
-            htmlFor="product-sku"
-            error={errors.sku?.message}
-            hint="اتركه فارغًا ليُنشئ النظام رمزًا فريدًا تلقائيًا، أو أدخل رمزك الخاص."
-          >
-            <Input
-              id="product-sku"
-              dir="ltr"
-              placeholder="تلقائي"
-              className="h-11"
-              {...register('sku')}
-            />
-          </ProductFormField>
-
-          <ProductFormField label="الحالة" htmlFor="product-status" required>
-            <Controller
-              control={control}
-              name="status"
-              render={({ field }) => (
-                <Select
-                  value={field.value ?? 'draft'}
-                  onValueChange={field.onChange}
-                >
-                  <SelectTrigger id="product-status" aria-label="الحالة" className="h-11">
-                    <SelectValue placeholder="اختر الحالة" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PRODUCT_STATUS_OPTIONS.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.labelAr}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            />
-          </ProductFormField>
-        </div>
+        {/* Active/draft now lives as a switch beside the name in ProductDetailHero. */}
+        <ProductFormField
+          label="رمز المنتج (SKU) — اختياري"
+          htmlFor="product-sku"
+          error={errors.sku?.message}
+          hint="اتركه فارغًا ليُنشئ النظام رمزًا فريدًا تلقائيًا، أو أدخل رمزك الخاص."
+        >
+          <Input
+            id="product-sku"
+            dir="ltr"
+            placeholder="تلقائي"
+            className="h-11"
+            {...register('sku')}
+          />
+        </ProductFormField>
 
         <div className="grid gap-4 sm:grid-cols-2">
           <ProductFormField label="الفئة" htmlFor="product-category">

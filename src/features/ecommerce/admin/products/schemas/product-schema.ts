@@ -251,7 +251,7 @@ export const PRODUCT_FORM_DEFAULT_VALUES: ProductFormInput = {
   description: '',
   categoryId: undefined,
   brandId: undefined,
-  status: 'draft',
+  status: 'active',
   stockStatus: 'in_stock',
   stockQuantity: 0,
   trackInventory: true,

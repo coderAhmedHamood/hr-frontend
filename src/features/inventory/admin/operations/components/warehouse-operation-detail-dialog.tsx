@@ -4,6 +4,7 @@ import * as React from 'react';
 import { ArrowDown, Check, Plus, Trash2, Undo2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { getInventoryCompanyId } from '@/features/inventory/lib/company-id';
+import { useInventoryCompanySettings } from '@/features/inventory/admin/notifications/hooks/use-inventory-settings';
 import { PartnerSinglePicker } from '@/features/contacts/admin/partners/components/partner-single-picker';
 import { useWarehouseLocations } from '@/features/inventory/admin/locations/hooks/use-warehouse-locations';
 import { useWarehouses } from '@/features/inventory/admin/warehouses/hooks/use-warehouses';
@@ -131,6 +132,8 @@ function OperationStatusStepper({ status }: { status: WarehouseOperationStatus }
 
 export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }: Props) {
   const companyId = getInventoryCompanyId();
+  const { data: inventorySettings } = useInventoryCompanySettings();
+  const costDisplayDecimals = inventorySettings?.costDisplayDecimals ?? 2;
   const kind = operation?.kind ?? 'receipt';
   const { update, undo } = useWarehouseOperationMutations(operation?.warehouseId ?? '', kind);
   const { data: locationsData } = useWarehouseLocations({
@@ -993,7 +996,9 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
                               </>
                             ) : (
                               <span className="font-semibold tabular-nums">
-                                {line.unitCost?.trim() ? `${line.unitCost} ر.ي` : '—'}
+                                {line.unitCost?.trim()
+                                  ? `${Number(line.unitCost).toFixed(costDisplayDecimals)} ر.ي`
+                                  : '—'}
                               </span>
                             )}
                           </td>

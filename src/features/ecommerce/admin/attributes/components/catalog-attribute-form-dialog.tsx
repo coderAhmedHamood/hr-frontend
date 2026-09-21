@@ -154,10 +154,20 @@ export function CatalogAttributeFormDialog({ attribute, open, onOpenChange }: Pr
                       <SelectTrigger aria-label="نوع العرض">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="max-w-md">
                         {ATTRIBUTE_DISPLAY_OPTIONS.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.labelAr}
+                          <SelectItem
+                            key={option.value}
+                            value={option.value}
+                            textValue={option.labelAr}
+                            className="items-start py-2.5"
+                          >
+                            <span className="flex flex-col gap-0.5 text-right">
+                              <span className="text-sm font-medium leading-snug">{option.labelAr}</span>
+                              <span className="text-[11px] font-normal leading-snug text-muted-foreground">
+                                {option.hint}
+                              </span>
+                            </span>
                           </SelectItem>
                         ))}
                       </SelectContent>

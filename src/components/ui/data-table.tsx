@@ -16,8 +16,15 @@ export interface ColumnDef<T> {
   isActions?: boolean;
   /** Prevent row click when interacting with cell content (dropdowns, inputs). */
   isInteractive?: boolean;
+  /** Pin this column during horizontal scroll — 'start' (e.g. date/reference) or 'end' (e.g. actions). */
+  sticky?: 'start' | 'end';
   render(row: T, index: number): React.ReactNode;
 }
+
+const STICKY_CELL_CLASS: Record<'start' | 'end', string> = {
+  start: 'sticky start-0 z-20 bg-card',
+  end: 'sticky end-0 z-20 bg-card',
+};
 
 /* ── DataTable ───────────────────────────────────────────────────────── */
 interface DataTableProps<T> {
@@ -76,7 +83,7 @@ export function DataTable<T>({
   const tableShell = (
     <div
       className={cn(
-        'rounded-xl border border-border bg-card shadow-soft',
+        'overflow-x-auto rounded-xl border border-border bg-card shadow-soft',
         alwaysShowTable ? 'min-w-0' : 'hidden min-w-0 md:block',
       )}
     >
@@ -86,7 +93,11 @@ export function DataTable<T>({
             {columns.map(col => (
               <th
                 key={col.key}
-                className={cn(headerCellClass, col.headerClassName)}
+                className={cn(
+                  headerCellClass,
+                  col.sticky && STICKY_CELL_CLASS[col.sticky],
+                  col.headerClassName,
+                )}
               >
                 {col.title}
               </th>
@@ -106,6 +117,7 @@ export function DataTable<T>({
                   className={cn(
                     'px-4 py-3',
                     col.isActions && 'text-start w-28',
+                    col.sticky && STICKY_CELL_CLASS[col.sticky],
                     col.className,
                   )}
                   onClick={col.isActions || col.isInteractive ? (e) => e.stopPropagation() : undefined}

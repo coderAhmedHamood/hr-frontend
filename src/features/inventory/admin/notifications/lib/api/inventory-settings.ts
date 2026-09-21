@@ -1,9 +1,25 @@
 import { apiRequest } from '@/features/hr/lib/api/client';
 
+export type InventoryCostingStatus = 'disabled' | 'active';
+export type InventoryCostingMethod =
+  | 'moving_average'
+  | 'fifo'
+  | 'lifo'
+  | 'standard'
+  | 'specific'
+  | 'periodic_weighted_average';
+export type InventoryCostingScope = 'company' | 'warehouse';
+
 export type InventoryCompanySettings = {
   id: string;
   companyId: string;
   batchAllocationStrategy: 'fifo' | 'lifo' | 'fefo';
+  costingStatus: InventoryCostingStatus;
+  costingMethod: InventoryCostingMethod;
+  costingScope: InventoryCostingScope;
+  costingCurrency: string | null;
+  quantityDisplayDecimals: number;
+  costDisplayDecimals: number;
   notificationsEnabled: boolean;
   notifyLowStock: boolean;
   notifyOutOfStock: boolean;
@@ -26,6 +42,12 @@ export type UpdateInventoryCompanySettingsDto = Partial<
   Pick<
     InventoryCompanySettings,
     | 'batchAllocationStrategy'
+    | 'costingStatus'
+    | 'costingMethod'
+    | 'costingScope'
+    | 'costingCurrency'
+    | 'quantityDisplayDecimals'
+    | 'costDisplayDecimals'
     | 'notificationsEnabled'
     | 'notifyLowStock'
     | 'notifyOutOfStock'

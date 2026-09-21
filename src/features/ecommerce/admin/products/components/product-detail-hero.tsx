@@ -12,6 +12,7 @@ import { STOCK_STATUS_LABELS_AR, type StockStatus } from '@/features/ecommerce/d
 import { formatPrice } from '@/features/ecommerce/shared/utils/format-price';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { cn } from '@/shared/utils';
 
@@ -110,9 +111,31 @@ export function ProductDetailHero({ control, register, setValue, nameError, curr
 
           <div className="min-w-0 flex-1 space-y-3">
             <div className="space-y-1.5">
-              <label htmlFor="product-detail-name-ar" className="text-xs font-medium text-muted-foreground">
-                اسم المنتج <span className="text-destructive">*</span>
-              </label>
+              <div className="flex items-center justify-between gap-3">
+                <label htmlFor="product-detail-name-ar" className="text-xs font-medium text-muted-foreground">
+                  اسم المنتج <span className="text-destructive">*</span>
+                </label>
+                <div className="flex shrink-0 items-center gap-2">
+                  <span
+                    className={cn(
+                      'text-xs font-semibold',
+                      status === 'active' ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground',
+                    )}
+                  >
+                    {status === 'active' ? 'نشط' : 'غير نشط'}
+                  </span>
+                  <Switch
+                    checked={status === 'active'}
+                    onCheckedChange={(checked) =>
+                      setValue('status', checked ? 'active' : 'draft', {
+                        shouldDirty: true,
+                        shouldValidate: true,
+                      })
+                    }
+                    aria-label="تفعيل المنتج"
+                  />
+                </div>
+              </div>
               <Input
                 id="product-detail-name-ar"
                 placeholder="اسم المنتج بالعربية"
@@ -136,7 +159,7 @@ export function ProductDetailHero({ control, register, setValue, nameError, curr
                   SKU: {sku}
                 </span>
               ) : null}
-              {status ? (
+              {status === 'archived' ? (
                 <Badge variant={STATUS_BADGE_VARIANT[status]}>{PRODUCT_STATUS_LABELS_AR[status]}</Badge>
               ) : null}
               {stockStatus ? (

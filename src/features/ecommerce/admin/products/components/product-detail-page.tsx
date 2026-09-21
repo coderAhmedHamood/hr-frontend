@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
-import { Boxes, Layers, Package, Ruler, Save, Settings, Star, Trash2, Warehouse } from 'lucide-react';
+import { ArrowRight, Boxes, Layers, Package, Plus, Ruler, Save, Settings, Star, Trash2, Warehouse } from 'lucide-react';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
@@ -40,6 +40,7 @@ import { ProductStockMovesHistoryDialog } from '@/features/ecommerce/admin/produ
 import { ProductReplenishmentListDialog } from '@/features/ecommerce/admin/products/components/product-replenishment-list-dialog';
 import { ProductPutawayRulesDialog } from '@/features/ecommerce/admin/products/components/product-putaway-rules-dialog';
 import { ProductVariantsDialog } from '@/features/ecommerce/admin/products/components/product-variants-dialog';
+import { ProductFormDialog } from '@/features/ecommerce/admin/products/components/product-form-dialog';
 import { DeleteProductDialog } from '@/features/ecommerce/admin/products/components/delete-product-dialog';
 import type { ProductRelatedDocKey } from '@/features/ecommerce/admin/products/components/product-related-docs-bar';
 import { productMoveRequestListRestore } from '@/features/ecommerce/admin/products/lib/product-move-request-flow';
@@ -146,6 +147,7 @@ export function ProductDetailPage({ productId }: Props) {
   const [putawayListOpen, setPutawayListOpen] = React.useState(false);
   const [variantsDialogOpen, setVariantsDialogOpen] = React.useState(false);
   const [deleteOpen, setDeleteOpen] = React.useState(false);
+  const [createOpen, setCreateOpen] = React.useState(false);
   const [relatedRequestKeys, setRelatedRequestKeys] = React.useState<
     Partial<Record<ProductRelatedDocKey, number>>
   >({});
@@ -221,6 +223,21 @@ export function ProductDetailPage({ productId }: Props) {
     () =>
       product ? (
         <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+          <Button variant="outline" size="sm" className="gap-1.5" asChild>
+            <Link href={productsBasePath}>
+              <ArrowRight className="h-4 w-4" />
+              <span className="hidden sm:inline">المنتجات</span>
+            </Link>
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={() => setCreateOpen(true)}
+          >
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline">إضافة منتج</span>
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -230,9 +247,19 @@ export function ProductDetailPage({ productId }: Props) {
             <Trash2 className="h-4 w-4" />
             <span className="hidden sm:inline">حذف</span>
           </Button>
+          <Button
+            type="button"
+            size="sm"
+            className="gap-1.5"
+            disabled={form.formState.isSubmitting || update.isPending}
+            onClick={submitForm}
+          >
+            <Save className="h-4 w-4" />
+            {update.isPending ? 'جاري الحفظ…' : 'حفظ التغييرات'}
+          </Button>
         </div>
       ) : null,
-    [product],
+    [product, productsBasePath, form.formState.isSubmitting, update.isPending, submitForm],
   );
 
   const handleDeleteConfirm = async () => {
@@ -452,24 +479,15 @@ export function ProductDetailPage({ productId }: Props) {
           </aside>
         </div>
 
-        <div className="sticky bottom-0 z-10 flex flex-col gap-2 rounded-2xl border border-border bg-background/95 px-3 py-3 shadow-soft backdrop-blur sm:flex-row sm:items-center sm:justify-between sm:px-5">
-          <div className="flex w-full gap-2">
-            <Button
-              type="submit"
-              className="min-w-32 flex-1 gap-1.5 sm:flex-none"
-              disabled={form.formState.isSubmitting || update.isPending}
-            >
-              <Save className="h-4 w-4" />
-              {update.isPending ? 'جاري الحفظ…' : 'حفظ التغييرات'}
-            </Button>
-            <Button type="button" variant="outline" asChild>
-              <Link href={productsBasePath}>إلغاء</Link>
-            </Button>
-          </div>
-          <p className="hidden text-[11px] text-muted-foreground sm:block">
-            التغييرات في كل التبويبات تُحفظ معًا عند الضغط على «حفظ التغييرات».
-          </p>
-        </div>
+        {/* Submit button moved to the sticky top header (usePageHeaderActions) so it stays
+            visible while scrolling a long product form; this stays only as a fallback
+            for the Enter-to-submit / native form submission path. */}
+        <button type="submit" className="sr-only" tabIndex={-1} aria-hidden="true">
+          حفظ التغييرات
+        </button>
+        <p className="text-center text-[11px] text-muted-foreground">
+          التغييرات في كل التبويبات تُحفظ معًا عند الضغط على «حفظ التغييرات» أعلى الصفحة.
+        </p>
       </form>
 
       <ProductStockMoveRequestDialog
@@ -585,6 +603,8 @@ export function ProductDetailPage({ productId }: Props) {
         onConfirm={() => void handleDeleteConfirm()}
         onClose={() => setDeleteOpen(false)}
       />
+
+      <ProductFormDialog open={createOpen} product={null} onOpenChange={setCreateOpen} />
     </div>
   );
 }

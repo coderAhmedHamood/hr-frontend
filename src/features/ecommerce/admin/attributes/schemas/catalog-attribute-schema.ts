@@ -1,13 +1,50 @@
 import { z } from 'zod';
 
+/** Storefront / admin labels for backend `AttributeDisplayType` — values stay English keys. */
 export const ATTRIBUTE_DISPLAY_OPTIONS = [
-  { value: 'radio', labelAr: 'راديو', hint: 'خيارات بزر واحد — مناسب للمقاس.' },
-  { value: 'pills', labelAr: 'حبوب', hint: 'أزرار أفقية سريعة في المتجر.' },
-  { value: 'select', labelAr: 'قائمة', hint: 'قائمة منسدلة عند كثرة القيم.' },
-  { value: 'color', labelAr: 'ألوان', hint: 'عينات لون (+ صورة اختيارية) للمتجر.' },
-  { value: 'image', labelAr: 'صور', hint: 'اختيار بقيم مصوّرة (خامة، نمط…).' },
-  { value: 'multi', labelAr: 'اختيار متعدد', hint: 'أكثر من قيمة معاً (إضافات).' },
+  {
+    value: 'radio',
+    labelAr: 'اختيار واحد — دوائر',
+    hint: 'كل خيار زر دائري؛ يناسب مقاسات قليلة (مثل S / M / L).',
+  },
+  {
+    value: 'pills',
+    labelAr: 'اختيار واحد — أزرار شرائح',
+    hint: 'أزرار أفقية بارزة في صفحة المنتج؛ الأكثر شيوعاً للمقاس والنوع.',
+  },
+  {
+    value: 'select',
+    labelAr: 'قائمة منسدلة',
+    hint: 'يناسب خيارات كثيرة دون ازدحام الشاشة.',
+  },
+  {
+    value: 'color',
+    labelAr: 'عينات ألوان',
+    hint: 'دائرة لون لكل قيمة؛ يمكن إرفاق صورة للون.',
+  },
+  {
+    value: 'image',
+    labelAr: 'صور مصغّرة',
+    hint: 'اختيار بصورة (قماش، نمط، طراز…).',
+  },
+  {
+    value: 'multi',
+    labelAr: 'اختيار متعدد — مربعات',
+    hint: 'أكثر من قيمة معاً (إضافات أو خصائص اختيارية).',
+  },
 ] as const;
+
+export type AttributeDisplayTypeValue = (typeof ATTRIBUTE_DISPLAY_OPTIONS)[number]['value'];
+
+export function attributeDisplayTypeLabelAr(value: string | null | undefined): string {
+  if (!value) return '—';
+  return ATTRIBUTE_DISPLAY_OPTIONS.find((o) => o.value === value)?.labelAr ?? value;
+}
+
+export function attributeDisplayTypeHintAr(value: string | null | undefined): string | null {
+  if (!value) return null;
+  return ATTRIBUTE_DISPLAY_OPTIONS.find((o) => o.value === value)?.hint ?? null;
+}
 
 /**
  * "always" and "dynamic" behave identically today — both generate the full
