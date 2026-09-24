@@ -5,8 +5,9 @@ import { normalizeAttributeValue } from '@/features/ecommerce/domain/types/catal
 import type { ProductStatus } from '@/features/ecommerce/domain/constants/product-status';
 import type { StockStatus } from '@/features/ecommerce/domain/constants/stock-status';
 import type { ProductFormInput, ProductFormValues } from '@/features/ecommerce/admin/products/schemas/product-schema';
+import { PRODUCT_VARIANT_CUSTOM_UOM_ENABLED } from '@/features/ecommerce/admin/products/constants/product-feature-flags';
 import {
-  createDefaultUomLines,
+  configuredProductUomLines,
   PRODUCT_FORM_DEFAULT_VALUES,
 } from '@/features/ecommerce/admin/products/schemas/product-schema';
 import {
@@ -89,6 +90,14 @@ function variantToForm(variant: ProductVariant) {
           ? [variant.imageUrl]
           : [],
     isActive: variant.isActive,
+    hasCustomUom: PRODUCT_VARIANT_CUSTOM_UOM_ENABLED && (variant.hasCustomUom ?? false),
+    uomLines:
+      PRODUCT_VARIANT_CUSTOM_UOM_ENABLED &&
+      variant.hasCustomUom &&
+      variant.uomLines &&
+      variant.uomLines.length > 0
+        ? variant.uomLines
+        : undefined,
   };
 }
 
@@ -124,6 +133,9 @@ function formVariantToDomain(
       isPrimary: index === 0,
     })),
     isActive: variant.isActive,
+    hasCustomUom: PRODUCT_VARIANT_CUSTOM_UOM_ENABLED && (variant.hasCustomUom ?? false),
+    uomLines:
+      PRODUCT_VARIANT_CUSTOM_UOM_ENABLED && variant.hasCustomUom ? variant.uomLines : undefined,
   };
 }
 
@@ -149,8 +161,6 @@ export function productToFormValues(product: Product): ProductFormInput {
     media: [...product.media]
       .sort((a, b) => a.position - b.position)
       .map((item) => ({ url: item.url, alt: item.alt, isPrimary: item.isPrimary })),
-    metaTitle: product.seo.metaTitle ?? '',
-    metaDescription: product.seo.metaDescription ?? '',
     imageDisplayFit: product.imageDisplayFit ?? 'contain',
     imageDisplayAspectRatio: product.imageDisplayAspectRatio ?? 'square',
     productType: product.productType ?? 'goods',
@@ -189,10 +199,7 @@ export function productToFormValues(product: Product): ProductFormInput {
       })),
     })),
     variants: (product.variants ?? []).map(variantToForm),
-    uomLines:
-      product.uomLines && product.uomLines.length > 0
-        ? product.uomLines
-        : createDefaultUomLines(),
+    uomLines: product.uomLines && product.uomLines.length > 0 ? product.uomLines : [],
   };
 }
 
@@ -278,10 +285,7 @@ export function formValuesToCreateInput(
     media,
     imageDisplayFit: values.imageDisplayFit,
     imageDisplayAspectRatio: values.imageDisplayAspectRatio,
-    seo: {
-      metaTitle: values.metaTitle || undefined,
-      metaDescription: values.metaDescription || undefined,
-    },
+    seo: {},
     tags: parseTagsInput(values.tagsInput),
     productType: values.productType,
     tracking: values.tracking,
@@ -317,10 +321,15 @@ export function formValuesToCreateInput(
     discountUntil: values.isDiscounted ? ymdToIso(values.discountUntil) : null,
     attributes: values.attributes,
     variants: synced,
-    uomLines: values.uomLines.map((line) => ({
-      ...line,
-      uneceCode: line.uneceCode || undefined,
-    })),
+    uomLines: (() => {
+      const lines = configuredProductUomLines(values.uomLines).map((line) => ({
+        ...line,
+        uneceCode: line.uneceCode || undefined,
+      }));
+      if (lines.length > 0) return lines;
+      if (existing) return [];
+      return undefined;
+    })(),
   };
 }
 

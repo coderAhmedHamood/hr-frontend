@@ -33,7 +33,7 @@ describe('productToFormValues', () => {
     expect(values.stockQuantity).toBe(5);
     expect(values.tagsInput).toBe('');
     expect(values.attributes).toEqual([]);
-    expect(values.uomLines.length).toBeGreaterThan(0);
+    expect(values.uomLines).toEqual([]);
   });
 
   it('maps media items sorted by position, preserving each isPrimary flag', () => {
@@ -107,8 +107,6 @@ describe('formValuesToCreateInput', () => {
     lowStockThreshold: 5,
     tagsInput: '',
     media: [],
-    metaTitle: '',
-    metaDescription: '',
     productType: 'goods',
     tracking: 'none',
     invoicePolicy: 'ordered',
@@ -127,8 +125,13 @@ describe('formValuesToCreateInput', () => {
     purchaseOk: true,
     attributes: [],
     variants: [],
-    uomLines: createDefaultUomLines(),
+    uomLines: [],
   };
+
+  it('omits uomLines on create when none are configured', () => {
+    const input = formValuesToCreateInput(BASE_VALUES, '76e5bc4f-5adb-434d-a886-bcff05a9680b');
+    expect(input.uomLines).toBeUndefined();
+  });
 
   it('injects the given companyId and maps a missing category/brand to null', () => {
     const input = formValuesToCreateInput(BASE_VALUES, '76e5bc4f-5adb-434d-a886-bcff05a9680b');
@@ -251,7 +254,6 @@ describe('formValuesToCreateInput', () => {
     const input = formValuesToCreateInput(BASE_VALUES, '76e5bc4f-5adb-434d-a886-bcff05a9680b');
     expect(input.nameEn).toBeUndefined();
     expect(input.description).toBeUndefined();
-    expect(input.seo.metaTitle).toBeUndefined();
-    expect(input.seo.metaDescription).toBeUndefined();
+    expect(input.seo).toEqual({});
   });
 });

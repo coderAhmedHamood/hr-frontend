@@ -1,9 +1,39 @@
 import { z } from 'zod';
+import { PRODUCT_VARIANT_CUSTOM_UOM_ENABLED } from '@/features/ecommerce/admin/products/constants/product-feature-flags';
 
 export { STOCK_STATUS_OPTIONS } from '@/features/ecommerce/domain/constants/stock-status';
 export { PRODUCT_STATUS_OPTIONS } from '@/features/ecommerce/domain/constants/product-status';
 
 const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+/**
+ * Uploaded product photos are stored as `/uploads/...`, not as absolute URLs.
+ * Zod's `.url()` also rejects localhost, so a UOM-only save was blocked by the
+ * existing image even when the user never touched it.
+ */
+export function isAcceptableProductImageUrl(value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  if (
+    trimmed.startsWith('/uploads/') ||
+    trimmed.startsWith('uploads/') ||
+    trimmed.startsWith('/api-backend/uploads/')
+  ) {
+    return true;
+  }
+  try {
+    const url = new URL(trimmed);
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+const productImageUrlSchema = z
+  .string()
+  .trim()
+  .min(1, 'رابط الصورة غير صالح')
+  .refine(isAcceptableProductImageUrl, { error: 'رابط الصورة غير صالح' });
 
 export const PRODUCT_TYPE_OPTIONS = [
   { value: 'goods', labelAr: 'البضائع' },
@@ -57,6 +87,7 @@ const attributeSchema = z.object({
 
 const uomLineSchema = z.object({
   id: z.string(),
+  catalogUomId: z.string().optional().nullable(),
   nameAr: z.string().trim().min(1, 'اسم الوحدة مطلوب'),
   uneceCode: z.string().trim().optional(),
   relativeQuantity: z.coerce.number().positive('الكمية يجب أن تكون أكبر من صفر'),
@@ -85,6 +116,8 @@ const variantSchema = z.object({
   imageUrl: z.string().trim().optional(),
   images: z.array(z.string().trim()).optional(),
   isActive: z.boolean(),
+  hasCustomUom: z.boolean().optional(),
+  uomLines: z.array(uomLineSchema).optional(),
 });
 
 export const productFormSchema = z
@@ -112,13 +145,11 @@ export const productFormSchema = z
     tagsInput: z.string().trim().optional(),
     media: z.array(
       z.object({
-        url: z.string().trim().url('رابط الصورة غير صالح'),
+        url: productImageUrlSchema,
         alt: z.string().trim().optional(),
         isPrimary: z.boolean(),
       }),
     ),
-    metaTitle: z.string().trim().optional(),
-    metaDescription: z.string().trim().optional(),
     imageDisplayFit: z.enum(['contain', 'cover']),
     imageDisplayAspectRatio: z.enum(['square', '4/3', '3/4']),
     productType: z.enum(['goods', 'service', 'combo']),
@@ -179,15 +210,59 @@ export const productFormSchema = z
     discountUntil: z.string().optional(),
     attributes: z.array(attributeSchema),
     variants: z.array(variantSchema),
-    uomLines: z.array(uomLineSchema).min(1, 'أضف وحدة واحدة على الأقل'),
+    uomLines: z.array(uomLineSchema),
   })
   .superRefine((values, ctx) => {
-    const refs = values.uomLines.filter((line) => line.isReference);
-    if (refs.length !== 1) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'يجب اختيار وحدة مرجعية واحدة فقط.',
-        path: ['uomLines'],
+    const productUomLines = values.uomLines.filter((line) => line.catalogUomId?.trim());
+    if (productUomLines.length > 0) {
+      productUomLines.forEach((line) => {
+        const index = values.uomLines.indexOf(line);
+        if (!line.nameAr?.trim()) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'اسم الوحدة مطلوب.',
+            path: ['uomLines', index, 'nameAr'],
+          });
+        }
+      });
+      const refs = productUomLines.filter((line) => line.isReference);
+      if (refs.length !== 1) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'يجب اختيار وحدة مرجعية واحدة فقط (⭐).',
+          path: ['uomLines'],
+        });
+      }
+    }
+    if (PRODUCT_VARIANT_CUSTOM_UOM_ENABLED) {
+      values.variants.forEach((variant, variantIndex) => {
+      if (!variant.hasCustomUom) return;
+      const lines = variant.uomLines ?? [];
+      if (lines.length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'أضف وحدة واحدة على الأقل للمتغير.',
+          path: ['variants', variantIndex, 'uomLines'],
+        });
+        return;
+      }
+      lines.forEach((line, lineIndex) => {
+        if (!line.catalogUomId?.trim()) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'اختر وحدة من الكتالوج لهذا السطر.',
+            path: ['variants', variantIndex, 'uomLines', lineIndex, 'catalogUomId'],
+          });
+        }
+      });
+      const variantRefs = lines.filter((line) => line.isReference);
+      if (variantRefs.length !== 1) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'يجب اختيار وحدة مرجعية واحدة فقط (⭐) لهذا المتغير.',
+          path: ['variants', variantIndex, 'uomLines'],
+        });
+      }
       });
     }
     if (values.isTodayDeal) {
@@ -233,6 +308,7 @@ export function createDefaultUomLines() {
   return [
     {
       id: newId('uom'),
+      catalogUomId: null,
       nameAr: 'وحدات',
       uneceCode: '',
       relativeQuantity: 1,
@@ -259,8 +335,6 @@ export const PRODUCT_FORM_DEFAULT_VALUES: ProductFormInput = {
   lowStockThreshold: 5,
   tagsInput: '',
   media: [],
-  metaTitle: '',
-  metaDescription: '',
   imageDisplayFit: 'contain',
   imageDisplayAspectRatio: 'square',
   productType: 'goods',
@@ -293,5 +367,10 @@ export const PRODUCT_FORM_DEFAULT_VALUES: ProductFormInput = {
   discountUntil: '',
   attributes: [],
   variants: [],
-  uomLines: createDefaultUomLines(),
+  uomLines: [],
 };
+
+/** Lines linked to catalog UOM — used for API payload and conditional validation. */
+export function configuredProductUomLines<T extends { catalogUomId?: string | null }>(lines: T[]): T[] {
+  return lines.filter((line) => line.catalogUomId?.trim());
+}

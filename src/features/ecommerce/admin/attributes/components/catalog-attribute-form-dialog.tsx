@@ -9,7 +9,6 @@ import { useCatalogAttributeMutations } from '@/features/ecommerce/admin/attribu
 import {
   ATTRIBUTE_DISPLAY_OPTIONS,
   CATALOG_ATTRIBUTE_FORM_DEFAULTS,
-  VARIANT_CREATION_OPTIONS,
   catalogAttributeFormSchema,
   createEmptyAttributeValue,
   normalizeVariantCreationMode,
@@ -21,6 +20,7 @@ import {
   type CatalogAttribute,
 } from '@/features/ecommerce/domain/types/catalog-attribute';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -35,6 +35,7 @@ import {
   dialogShellHeaderClass,
 } from '@/components/ui/dialog';
 import { cn } from '@/shared/utils';
+import { resolveUploadUrl } from '@/shared/resolve-upload-url';
 
 type Props = {
   attribute?: CatalogAttribute | null;
@@ -62,6 +63,167 @@ function toFormValues(attribute: CatalogAttribute): CatalogAttributeFormInput {
   };
 }
 
+type PreviewValue = { id: string; nameAr: string; colorHex?: string; imageUrl?: string };
+
+/** Interactive mock of the selected display type, using the values entered so far. */
+function AttributeDisplayPreview({
+  displayType,
+  values,
+}: {
+  displayType: string;
+  values: PreviewValue[];
+}) {
+  const items = values.filter((value) => value.nameAr?.trim()).slice(0, 8);
+  const [selected, setSelected] = React.useState<string[]>([]);
+
+  React.useEffect(() => {
+    setSelected([]);
+  }, [displayType]);
+
+  if (items.length === 0) {
+    return <p className="text-xs text-muted-foreground">أضف قيمة باسم لرؤية المعاينة هنا.</p>;
+  }
+
+  function toggle(id: string) {
+    setSelected((prev) => {
+      if (displayType === 'multi') {
+        return prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
+      }
+      return prev.includes(id) ? [] : [id];
+    });
+  }
+
+  if (displayType === 'select') {
+    return (
+      <select
+        className="h-9 w-52 rounded-lg border border-border bg-background px-2 text-sm"
+        value={selected[0] ?? ''}
+        onChange={(event) => setSelected(event.target.value ? [event.target.value] : [])}
+      >
+        <option value="" disabled>
+          اختر…
+        </option>
+        {items.map((item) => (
+          <option key={item.id} value={item.id}>
+            {item.nameAr}
+          </option>
+        ))}
+      </select>
+    );
+  }
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      {items.map((item) => {
+        const isSelected = selected.includes(item.id);
+
+        if (displayType === 'multi') {
+          return (
+            <label
+              key={item.id}
+              className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1.5 text-sm"
+            >
+              <Checkbox checked={isSelected} onCheckedChange={() => toggle(item.id)} />
+              {item.nameAr}
+            </label>
+          );
+        }
+
+        if (displayType === 'radio') {
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => toggle(item.id)}
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors',
+                isSelected
+                  ? 'border-primary bg-primary/10 text-primary'
+                  : 'border-border text-muted-foreground hover:text-foreground',
+              )}
+            >
+              <span
+                className={cn(
+                  'flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border',
+                  isSelected ? 'border-primary' : 'border-muted-foreground',
+                )}
+              >
+                {isSelected ? <span className="h-1.5 w-1.5 rounded-full bg-primary" /> : null}
+              </span>
+              {item.nameAr}
+            </button>
+          );
+        }
+
+        if (displayType === 'image') {
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => toggle(item.id)}
+              className={cn(
+                'flex flex-col items-center gap-1 rounded-lg border p-1.5 transition-colors',
+                isSelected ? 'border-primary ring-2 ring-primary/30' : 'border-border',
+              )}
+            >
+              {item.imageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={resolveUploadUrl(item.imageUrl)}
+                  alt=""
+                  className="h-10 w-10 rounded object-cover"
+                />
+              ) : (
+                <span className="flex h-10 w-10 items-center justify-center rounded bg-muted text-[10px] text-muted-foreground">
+                  صورة
+                </span>
+              )}
+              <span className="text-[11px] text-foreground">{item.nameAr}</span>
+            </button>
+          );
+        }
+
+        if (displayType === 'color') {
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => toggle(item.id)}
+              title={item.nameAr}
+              className={cn(
+                'flex h-9 w-9 items-center justify-center rounded-full border-2 transition-colors',
+                isSelected ? 'border-primary' : 'border-transparent',
+              )}
+            >
+              <span
+                className="h-7 w-7 rounded-full border border-border"
+                style={{ backgroundColor: item.colorHex || '#e5e5e5' }}
+              />
+            </button>
+          );
+        }
+
+        // pills (default)
+        return (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => toggle(item.id)}
+            className={cn(
+              'rounded-full border px-3 py-1.5 text-sm transition-colors',
+              isSelected
+                ? 'border-primary bg-primary/10 font-medium text-primary'
+                : 'border-border text-muted-foreground hover:text-foreground',
+            )}
+          >
+            {item.nameAr}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export function CatalogAttributeFormDialog({ attribute, open, onOpenChange }: Props) {
   const companyId = getStorefrontCompanyId();
   const { create, update } = useCatalogAttributeMutations();
@@ -78,6 +240,7 @@ export function CatalogAttributeFormDialog({ attribute, open, onOpenChange }: Pr
   const showColor = displayType === 'color';
   const showImage = displayType === 'color' || displayType === 'image';
   const displayHint = ATTRIBUTE_DISPLAY_OPTIONS.find((option) => option.value === displayType)?.hint;
+  const previewValues = useWatch({ control: form.control, name: 'values' }) ?? [];
 
   React.useEffect(() => {
     if (!open) return;
@@ -191,40 +354,9 @@ export function CatalogAttributeFormDialog({ attribute, open, onOpenChange }: Pr
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label>إنشاء المتغيِّر</Label>
-              <Controller
-                control={form.control}
-                name="createVariant"
-                render={({ field }) => (
-                  <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="إنشاء المتغيِّر">
-                    {VARIANT_CREATION_OPTIONS.map((option) => {
-                      const selected = field.value === option.value;
-                      return (
-                        <button
-                          key={option.value}
-                          type="button"
-                          role="radio"
-                          aria-checked={selected}
-                          title={option.hint}
-                          onClick={() => field.onChange(option.value)}
-                          className={cn(
-                            'rounded-full border px-3 py-1.5 text-sm transition-colors',
-                            selected
-                              ? 'border-primary bg-primary/10 font-medium text-primary'
-                              : 'border-border text-muted-foreground hover:text-foreground',
-                          )}
-                        >
-                          {option.labelAr}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              />
-              <p className="text-xs text-muted-foreground">
-                إنشاء فوري = مصفوفة SKU جاهزة للمتجر (تركيبات المتغيرات تُنشأ مباشرة) · مطلقاً = عرض فقط بدون SKU
-              </p>
+            <div className="space-y-1.5 rounded-xl border border-dashed border-border bg-muted/20 p-3">
+              <Label className="text-xs text-muted-foreground">معاينة</Label>
+              <AttributeDisplayPreview displayType={displayType} values={previewValues} />
             </div>
 
             <div className="space-y-3">
@@ -248,7 +380,6 @@ export function CatalogAttributeFormDialog({ attribute, open, onOpenChange }: Pr
                           {displayType === 'color' ? 'صورة (اختياري)' : 'صورة'}
                         </th>
                       ) : null}
-                      <th className="px-3 py-2 text-start font-medium">السعر الإضافي الافتراضي</th>
                       <th className="px-3 py-2" />
                     </tr>
                   </thead>
@@ -320,16 +451,6 @@ export function CatalogAttributeFormDialog({ attribute, open, onOpenChange }: Pr
                             ) : null}
                           </td>
                         ) : null}
-                        <td className="px-3 py-2">
-                          <Input
-                            type="number"
-                            step="0.01"
-                            min={0}
-                            dir="ltr"
-                            className="w-28"
-                            {...form.register(`values.${index}.defaultExtraPrice`)}
-                          />
-                        </td>
                         <td className="px-3 py-2">
                           <Button
                             type="button"

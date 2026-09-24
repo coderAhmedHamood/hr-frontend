@@ -50,7 +50,12 @@ import {
   type OperationLineDraft,
 } from '@/features/inventory/admin/operations/lib/operation-line-draft';
 import { toast } from 'sonner';
-import { formatDateTime } from '@/shared/utils';
+import { cn, formatDateTime } from '@/shared/utils';
+import { OperationFormSection } from '@/features/inventory/admin/operations/components/operation-form-section';
+import {
+  OperationLineCardShell,
+  OperationLineField,
+} from '@/features/inventory/admin/operations/components/operation-line-card-shell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -712,7 +717,12 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
       />
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className={`${dialogMaxHeightClass} ${multiProductMode ? 'max-w-2xl' : 'max-w-lg'} overflow-y-auto`}>
+        <DialogContent
+          className={cn(
+            dialogMaxHeightClass,
+            'flex max-h-[min(92vh,900px)] flex-col overflow-hidden max-w-[min(96vw,72rem)] sm:max-w-6xl',
+          )}
+        >
           <DialogHeader>
             <DialogTitle>{meta.createLabel}</DialogTitle>
             <DialogDescription>
@@ -728,15 +738,14 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
               }
               void form.handleSubmit(onSubmit)(e);
             }}
-            className="space-y-4"
+            className="flex min-h-0 flex-1 flex-col"
           >
-            <div className="space-y-1">
-              <h3 className="text-sm font-semibold text-foreground">المستودعات والمواقع</h3>
-              <p className="text-xs text-muted-foreground">
-                حدّد مصدر ووجهة الحركة أولًا قبل اختيار المنتجات.
-              </p>
-            </div>
-
+            <div className="min-h-0 flex-1 space-y-5 overflow-y-auto pe-1">
+              <OperationFormSection
+                title="المستودع والمواقع"
+                description="حدّد المستودع ومواقع الصرف/الاستلام قبل إضافة الأصناف."
+              >
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {!scopedToWarehouse ? (
               <div className="space-y-1.5">
                 <Label>{meta.needsDestWarehouse ? 'مستودع الصرف (المصدر)' : 'المستودع'}</Label>
@@ -931,19 +940,26 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
             ) : null}
 
             {!locationsReady && (meta.needsFrom || meta.needsTo) ? (
-              <p className="rounded-lg border border-dashed border-border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                حدّد المواقع أعلاه أولًا، ثم اختر المنتجات.
+              <p className="sm:col-span-2 lg:col-span-3 rounded-lg border border-dashed border-border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                أكمل حقول المواقع المطلوبة لتفعيل اختيار الأصناف.
               </p>
             ) : null}
+                </div>
+              </OperationFormSection>
 
-            <div className="space-y-1 border-t border-border pt-4">
-              <h3 className="text-sm font-semibold text-foreground">المنتجات والكميات</h3>
-              <p className="text-xs text-muted-foreground">
-                {pickerUsesSourceLocationStock(kind)
-                  ? 'تظهر فقط المنتجات التي لها رصيد في موقع الصرف المحدد.'
-                  : 'اختر المنتجات بعد اكتمال تحديد المستودعات والمواقع.'}
-              </p>
-            </div>
+              <OperationFormSection
+                title="المنتجات والكميات"
+                description={
+                  pickerUsesSourceLocationStock(kind)
+                    ? 'تظهر فقط المنتجات التي لها رصيد في موقع الصرف المحدد.'
+                    : 'أضف الأصناف والكميات (وتكلفة الشراء عند الاستلام).'
+                }
+              >
+                {!locationsReady ? (
+                  <p className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-900 dark:text-amber-200">
+                    أكمل «المستودع والمواقع» أعلاه قبل إضافة الأصناف.
+                  </p>
+                ) : null}
 
             {multiProductMode ? (
               <WarehouseOperationLinesEditor
@@ -957,9 +973,12 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
                 disabled={!locationsReady}
               />
             ) : (
-              <div className="inv-form-grid">
-                <div className="space-y-1.5">
-                  <Label>المنتج</Label>
+              <OperationLineCardShell
+                index={0}
+                title={form.watch('productName') || undefined}
+                subtitle={form.watch('sku') || undefined}
+              >
+                <OperationLineField label="المنتج" fullWidth>
                   <Controller
                     control={form.control}
                     name="productId"
@@ -996,30 +1015,37 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
                   {selectedProductId && isLoadingSelectedProduct ? (
                     <p className="text-xs text-muted-foreground">جاري تحميل المتغيرات…</p>
                   ) : null}
-                </div>
+                </OperationLineField>
                 {isCountLike ? (
-                  <div className="space-y-1.5">
-                    <Label htmlFor="op-theo">الكمية النظامية</Label>
+                  <OperationLineField label="الكمية النظامية" htmlFor="op-theo">
                     <Input
                       id="op-theo"
                       type="number"
                       min={0}
                       step={1}
                       dir="ltr"
+                      className="h-10"
                       disabled={!locationsReady}
                       {...form.register('theoreticalQuantity', { valueAsNumber: true })}
                     />
-                  </div>
+                  </OperationLineField>
                 ) : stockMode === 'product' || !hasActiveVariants ? (
-                  <div className="space-y-1.5">
-                    <Label htmlFor="op-qty">الكمية</Label>
+                  <OperationLineField
+                    label="الكمية"
+                    htmlFor="op-qty"
+                    hint={
+                      tracksSourceAvailability && sourceAvailable != null
+                        ? `المتاح في الموقع: ${sourceAvailable}`
+                        : undefined
+                    }
+                  >
                     <Controller
                       control={form.control}
                       name="quantity"
                       render={({ field }) => (
                         <FlexibleQuantityInput
                           id="op-qty"
-                          className="w-full"
+                          className="h-10 w-full max-w-none"
                           value={field.value ?? 0}
                           max={tracksSourceAvailability ? sourceAvailable : null}
                           disabled={!locationsReady || !selectedProductId}
@@ -1027,22 +1053,16 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
                         />
                       )}
                     />
-                    {tracksSourceAvailability && sourceAvailable != null ? (
-                      <p className="text-xs text-muted-foreground">
-                        المتاح في الموقع: {sourceAvailable}
-                      </p>
-                    ) : null}
                     {form.formState.errors.quantity ? (
                       <p className="text-xs text-destructive">{form.formState.errors.quantity.message}</p>
                     ) : null}
-                  </div>
+                  </OperationLineField>
                 ) : (
-                  <div className="space-y-1.5">
-                    <Label>الكمية</Label>
-                    <p className="pt-2 text-xs text-muted-foreground">أدخل الكميات أسفل لكل متغير</p>
-                  </div>
+                  <OperationLineField label="الكمية" hint="أدخل الكميات في جدول المتغيرات بالأسفل">
+                    <p className="text-sm text-muted-foreground">حسب المتغيرات</p>
+                  </OperationLineField>
                 )}
-              </div>
+              </OperationLineCardShell>
             )}
 
             {!multiProductMode && hasActiveVariants ? (
@@ -1140,64 +1160,64 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
                 ) : null}
               </div>
             ) : null}
+              </OperationFormSection>
 
-            <div className="space-y-1 border-t border-border pt-4">
-              <h3 className="text-sm font-semibold text-foreground">تفاصيل المستند</h3>
-              <p className="text-xs text-muted-foreground">
-                أكمل البيانات الإضافية بعد تحديد حركة المخزون.
-              </p>
-            </div>
+              <OperationFormSection
+                title="تفاصيل المستند"
+                description="التاريخ، الطرف، المستند المصدر، والملاحظات."
+              >
+                <div className="space-y-4">
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="op-date">التاريخ</Label>
+                      <Input id="op-date" type="datetime-local" dir="ltr" className="h-10" {...form.register('occurredAt')} />
+                    </div>
+                    <div className="space-y-1.5 lg:col-span-2">
+                      <Label htmlFor="op-source">المستند المصدر</Label>
+                      <Input id="op-source" className="h-10" {...form.register('sourceDocument')} placeholder="اختياري" />
+                    </div>
+                  </div>
 
-            <div className="inv-form-grid">
-              <div className="space-y-1.5">
-                <Label htmlFor="op-date">التاريخ</Label>
-                <Input id="op-date" type="datetime-local" dir="ltr" {...form.register('occurredAt')} />
-              </div>
-            </div>
-
-            <div className="inv-form-grid">
-              <div className="space-y-1.5">
-                <Label htmlFor="op-partner">
-                  {kind === 'issue'
-                    ? 'الصرف إلى'
-                    : kind === 'receipt' || kind === 'purchase' || kind === 'replenishment'
-                      ? 'الاستلام من'
-                      : 'الطرف'}
-                </Label>
-                <Controller
-                  control={form.control}
-                  name="partnerId"
-                  render={({ field }) => (
-                    <PartnerSinglePicker
-                      companyId={companyId}
-                      value={field.value || ''}
-                      onChange={field.onChange}
-                      onPartnerSelect={(partner) => form.setValue('partnerName', partner.displayName)}
-                      placeholder="اختر جهة اتصال (اختياري)"
-                      aria-label="op-partner"
+                  <div className="space-y-2 rounded-xl border border-border/80 bg-muted/10 p-3 sm:p-4">
+                    <Label htmlFor="op-partner">
+                      {kind === 'issue'
+                        ? 'الصرف إلى'
+                        : kind === 'receipt' || kind === 'purchase' || kind === 'replenishment'
+                          ? 'الاستلام من'
+                          : 'الطرف'}
+                    </Label>
+                    <Controller
+                      control={form.control}
+                      name="partnerId"
+                      render={({ field }) => (
+                        <PartnerSinglePicker
+                          companyId={companyId}
+                          value={field.value || ''}
+                          onChange={field.onChange}
+                          onPartnerSelect={(partner) => form.setValue('partnerName', partner.displayName)}
+                          placeholder="اختر جهة اتصال (اختياري)"
+                          aria-label="op-partner"
+                        />
+                      )}
                     />
-                  )}
-                />
-                <Input
-                  id="op-partner"
-                  {...form.register('partnerName')}
-                  placeholder="أو اكتب اسمًا يدويًا إن لم تجد جهة الاتصال"
-                  className="mt-1.5"
-                  disabled={Boolean(form.watch('partnerId'))}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="op-source">المستند المصدر</Label>
-                <Input id="op-source" {...form.register('sourceDocument')} placeholder="اختياري" />
-              </div>
+                    <Input
+                      id="op-partner-manual"
+                      {...form.register('partnerName')}
+                      placeholder="أو اكتب اسمًا يدويًا إن لم تجد جهة الاتصال"
+                      className="h-10 bg-background"
+                      disabled={Boolean(form.watch('partnerId'))}
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="op-notes">ملاحظات</Label>
+                    <Textarea id="op-notes" className="min-h-[88px] resize-none" {...form.register('notes')} />
+                  </div>
+                </div>
+              </OperationFormSection>
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="op-notes">ملاحظات</Label>
-              <Textarea id="op-notes" className="min-h-[72px] resize-none" {...form.register('notes')} />
-            </div>
-
-            <DialogFooter>
+            <DialogFooter className="mt-3 shrink-0 border-t border-border pt-3">
               <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={create.isPending}>
                 إلغاء
               </Button>

@@ -1,17 +1,17 @@
 'use client';
 
+import * as React from 'react';
 import Link from 'next/link';
-import { Plus, Ruler, Star, Trash2 } from 'lucide-react';
-import { Controller, useFieldArray, type Control, type FieldErrors, type UseFormSetValue } from 'react-hook-form';
+import { ExternalLink, Plus, Star, Trash2 } from 'lucide-react';
+import { Controller, useFieldArray, useWatch, type Control, type FieldErrors, type UseFormSetValue } from 'react-hook-form';
 import {
-  PACKAGING_TYPE_OPTIONS,
-  createDefaultUomLines,
   type ProductFormInput,
   type ProductFormValues,
 } from '@/features/ecommerce/admin/products/schemas/product-schema';
 import { useCatalogUoms } from '@/features/ecommerce/admin/catalog-uoms/hooks/use-catalog-uoms';
+import type { CatalogUom } from '@/features/ecommerce/admin/catalog-uoms/lib/api/catalog-uoms';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
-import { ecommerceAdminRoutes } from '@/features/ecommerce/admin/constants/routes';
+import { inventoryAdminRoutes } from '@/features/inventory/admin/constants/routes';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -31,16 +31,41 @@ function newUomId() {
   return `uom-${Math.random().toString(36).slice(2, 9)}`;
 }
 
+function resolveUomFieldErrors(
+  errors: FieldErrors<ProductFormInput>,
+  fieldPath: UomFieldPath,
+): FieldErrors<ProductFormInput>['uomLines'] | undefined {
+  if (fieldPath === 'uomLines') return errors.uomLines;
+  const match = /^variants\.(\d+)\.uomLines$/.exec(fieldPath);
+  if (!match) return undefined;
+  const variantErrors = errors.variants?.[Number(match[1])];
+  return variantErrors && typeof variantErrors === 'object' && 'uomLines' in variantErrors
+    ? (variantErrors as { uomLines?: FieldErrors<ProductFormInput>['uomLines'] }).uomLines
+    : undefined;
+}
+
+const TEMPLATE_SPECS: Array<{ match: string[]; relativeQuantity: number; isReference?: boolean }> = [
+  { match: ['حبة', 'piece'], relativeQuantity: 1, isReference: true },
+  { match: ['علبة', 'pack'], relativeQuantity: 6 },
+  { match: ['كرتون', 'carton', 'box'], relativeQuantity: 72 },
+];
+
 export function ProductUomLinesEditor({ control, errors, setValue, fieldPath, compact }: Props) {
   const companyId = getStorefrontCompanyId();
-  const { data: catalogData } = useCatalogUoms({ companyId, ensureDefaults: true });
-  const catalogItems = catalogData?.items ?? [];
+  const { data: catalogData } = useCatalogUoms({ companyId, ensureDefaults: true, limit: 200 });
+  const catalogItems = React.useMemo(
+    () => [...(catalogData?.items ?? [])].sort((a, b) => a.displayOrder - b.displayOrder || a.nameAr.localeCompare(b.nameAr, 'ar')),
+    [catalogData?.items],
+  );
 
-  const { fields, append, remove } = useFieldArray({
+  const { fields, append, remove, replace } = useFieldArray({
     control,
     name: fieldPath as 'uomLines',
     keyName: '_key',
   });
+
+  const [addSelectKey, setAddSelectKey] = React.useState(0);
+  const linesWatch = useWatch({ control, name: fieldPath as 'uomLines' }) ?? [];
 
   function setReference(index: number) {
     fields.forEach((_, rowIndex) => {
@@ -48,187 +73,272 @@ export function ProductUomLinesEditor({ control, errors, setValue, fieldPath, co
         shouldDirty: true,
         shouldValidate: true,
       });
+      if (rowIndex === index) {
+        setValue(`${fieldPath}.${rowIndex}.relativeQuantity` as 'uomLines.0.relativeQuantity', 1, {
+          shouldDirty: true,
+          shouldValidate: true,
+        });
+      }
     });
   }
 
-  function applyCatalog(index: number, catalogUomId: string) {
-    const item = catalogItems.find((row) => row.id === catalogUomId);
-    if (!item) return;
-    setValue(`${fieldPath}.${index}.catalogUomId` as 'uomLines.0.catalogUomId', catalogUomId, { shouldDirty: true });
+  function applyCatalogToIndex(index: number, item: CatalogUom) {
+    setValue(`${fieldPath}.${index}.catalogUomId` as 'uomLines.0.catalogUomId', item.id, { shouldDirty: true });
     setValue(`${fieldPath}.${index}.nameAr` as 'uomLines.0.nameAr', item.nameAr, { shouldDirty: true });
     setValue(`${fieldPath}.${index}.packagingType` as 'uomLines.0.packagingType', item.packagingType, {
       shouldDirty: true,
     });
   }
 
-  const uomErrors = fieldPath === 'uomLines' ? errors.uomLines : undefined;
+  function appendFromCatalog(item: CatalogUom) {
+    const currentLines = linesWatch as Array<{ catalogUomId?: string | null }>;
+    const lonelyPlaceholder =
+      currentLines.length === 1 && !currentLines[0]?.catalogUomId?.trim();
+
+    const row = {
+      id: newUomId(),
+      catalogUomId: item.id,
+      nameAr: item.nameAr,
+      uneceCode: item.uneceCode ?? '',
+      relativeQuantity: 1,
+      isReference: true,
+      packagingType: item.packagingType,
+    };
+
+    if (lonelyPlaceholder) {
+      replace([row]);
+    } else {
+      append({
+        ...row,
+        isReference: fields.length === 0,
+      });
+    }
+    setAddSelectKey((key) => key + 1);
+  }
+
+  function applyStandardTemplate() {
+    const picked: Array<{ item: CatalogUom; spec: (typeof TEMPLATE_SPECS)[number] }> = [];
+    for (const spec of TEMPLATE_SPECS) {
+      const item = catalogItems.find(
+        (row) =>
+          spec.match.some((token) => row.nameAr.includes(token) || row.code.toLowerCase() === token.toLowerCase()),
+      );
+      if (item) picked.push({ item, spec });
+    }
+    if (picked.length === 0) return;
+    replace(
+      picked.map(({ item, spec }, index) => ({
+        id: newUomId(),
+        catalogUomId: item.id,
+        nameAr: item.nameAr,
+        uneceCode: item.uneceCode ?? '',
+        relativeQuantity: spec.relativeQuantity,
+        isReference: spec.isReference === true || index === 0,
+        packagingType: item.packagingType,
+      })),
+    );
+  }
+
+  const uomErrors = resolveUomFieldErrors(errors, fieldPath);
+  const usedCatalogIds = new Set(
+    (linesWatch as Array<{ catalogUomId?: string | null }>).map((line) => line.catalogUomId).filter(Boolean),
+  );
+  const availableCatalogItems = catalogItems.filter((item) => !usedCatalogIds.has(item.id));
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       {!compact ? (
-        <p className="text-[11px] text-muted-foreground">
-          اختر من{' '}
-          <Link href={ecommerceAdminRoutes.catalogUoms} className="text-primary underline-offset-2 hover:underline">
-            كتالوج وحدات القياس
-          </Link>{' '}
-          ثم عدّل الكمية النسبية. الوحدة المرجعية = 1 والباقي يتفرع منها.
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/80 bg-muted/20 px-3 py-2.5">
+          <p className="text-xs text-muted-foreground">
+            ⭐ = الوحدة المرجعية (1). «كمية نسبية» = عدد وحدات المرجع داخل هذا الطرد.
+          </p>
+          <Button type="button" variant="outline" size="sm" className="gap-1.5" asChild>
+            <Link href={inventoryAdminRoutes.catalogUoms} target="_blank">
+              <ExternalLink className="h-3.5 w-3.5" />
+              إدارة الكتالوج
+            </Link>
+          </Button>
+        </div>
       ) : null}
 
-      {fields.map((field, index) => (
-        <div key={field._key} className="rounded-2xl border border-border/80 bg-card/60 p-3 sm:p-3.5">
-          <div className="flex flex-wrap items-center gap-2.5">
-            <Controller
-              control={control}
-              name={`${fieldPath}.${index}.isReference` as 'uomLines.0.isReference'}
-              render={({ field: refField }) => (
-                <button
-                  type="button"
-                  onClick={() => setReference(index)}
-                  title="اجعلها الوحدة المرجعية"
-                  aria-pressed={refField.value}
-                  className={cn(
-                    'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-colors',
-                    refField.value
-                      ? 'border-primary bg-primary/10 text-primary'
-                      : 'border-border bg-background text-muted-foreground hover:border-primary/30 hover:text-primary',
-                  )}
-                >
-                  <Star className={cn('h-4 w-4', refField.value && 'fill-current')} />
-                </button>
-              )}
-            />
-
-            <Controller
-              control={control}
-              name={`${fieldPath}.${index}.catalogUomId` as 'uomLines.0.catalogUomId'}
-              render={({ field: catalogField }) => (
-                <Select
-                  value={catalogField.value ?? ''}
-                  onValueChange={(value) => applyCatalog(index, value)}
-                >
-                  <SelectTrigger aria-label="من الكتالوج" className="h-10 w-36 shrink-0">
-                    <SelectValue placeholder="من الكتالوج" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {catalogItems.map((item) => (
-                      <SelectItem key={item.id} value={item.id}>
-                        {item.nameAr}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            />
-
-            <Controller
-              control={control}
-              name={`${fieldPath}.${index}.nameAr` as 'uomLines.0.nameAr'}
-              render={({ field: nameField }) => (
-                <Input
-                  placeholder="اسم الوحدة"
-                  className="h-10 min-w-32 flex-1"
-                  value={nameField.value}
-                  onChange={nameField.onChange}
-                />
-              )}
-            />
-
-            <Controller
-              control={control}
-              name={`${fieldPath}.${index}.packagingType` as 'uomLines.0.packagingType'}
-              render={({ field: typeField }) => (
-                <Select value={typeField.value} onValueChange={typeField.onChange}>
-                  <SelectTrigger aria-label="نوع الطرد" className="h-10 w-28 shrink-0">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PACKAGING_TYPE_OPTIONS.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.labelAr}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            />
-
-            <Controller
-              control={control}
-              name={`${fieldPath}.${index}.relativeQuantity` as 'uomLines.0.relativeQuantity'}
-              render={({ field: qtyField }) => (
-                <div className="relative w-24 shrink-0">
-                  <Input
-                    type="number"
-                    step="0.00001"
-                    min={0}
-                    dir="rtl"
-                    className="h-10"
-                    title="كم حبة مرجعية داخل هذه الوحدة"
-                    value={qtyField.value == null ? '' : String(qtyField.value)}
-                    onChange={(event) => qtyField.onChange(Number(event.target.value))}
+      <div className="overflow-x-auto rounded-xl border border-border">
+        <table className="w-full min-w-[640px] text-sm">
+          <thead>
+            <tr className="border-b border-border bg-muted/40 text-xs text-muted-foreground">
+              <th className="w-12 px-2 py-2.5 text-center font-medium">مرجع</th>
+              <th className="min-w-[140px] px-3 py-2.5 text-start font-medium">من الكتالوج</th>
+              <th className="min-w-[100px] px-3 py-2.5 text-start font-medium">الاسم</th>
+              <th className="w-28 px-3 py-2.5 text-start font-medium">كمية نسبية</th>
+              <th className="w-10 px-2 py-2.5" />
+            </tr>
+          </thead>
+          <tbody>
+            {fields.map((field, index) => (
+              <tr key={field._key} className="border-b border-border last:border-0 align-middle">
+                <td className="px-2 py-2 text-center">
+                  <Controller
+                    control={control}
+                    name={`${fieldPath}.${index}.isReference` as 'uomLines.0.isReference'}
+                    render={({ field: refField }) => (
+                      <button
+                        type="button"
+                        onClick={() => setReference(index)}
+                        title="الوحدة المرجعية"
+                        aria-pressed={refField.value}
+                        className={cn(
+                          'inline-flex h-9 w-9 items-center justify-center rounded-lg border transition-colors',
+                          refField.value
+                            ? 'border-primary bg-primary/10 text-primary'
+                            : 'border-border text-muted-foreground hover:border-primary/30',
+                        )}
+                      >
+                        <Star className={cn('h-4 w-4', refField.value && 'fill-current')} />
+                      </button>
+                    )}
                   />
-                </div>
-              )}
-            />
-
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="h-10 w-10 shrink-0"
-              aria-label="حذف الوحدة"
-              onClick={() => remove(index)}
-              disabled={fields.length <= 1}
-            >
-              <Trash2 className="h-4 w-4 text-destructive" />
-            </Button>
-          </div>
-        </div>
-      ))}
+                </td>
+                <td className="px-3 py-2">
+                  <Controller
+                    control={control}
+                    name={`${fieldPath}.${index}.catalogUomId` as 'uomLines.0.catalogUomId'}
+                    render={({ field: catalogField }) => {
+                      const rowCatalogError =
+                        Array.isArray(uomErrors) &&
+                        uomErrors[index] &&
+                        typeof uomErrors[index] === 'object' &&
+                        'catalogUomId' in uomErrors[index]!
+                          ? (uomErrors[index] as { catalogUomId?: { message?: string } }).catalogUomId?.message
+                          : undefined;
+                      return (
+                      <Select
+                        value={catalogField.value ?? ''}
+                        onValueChange={(value) => {
+                          const item = catalogItems.find((row) => row.id === value);
+                          if (item) applyCatalogToIndex(index, item);
+                        }}
+                      >
+                        <SelectTrigger
+                          className={cn(
+                            'h-9 w-full max-w-[180px]',
+                            rowCatalogError && 'border-destructive',
+                          )}
+                        >
+                          <SelectValue placeholder="اختر وحدة" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {catalogItems.map((item) => (
+                            <SelectItem key={item.id} value={item.id}>
+                              {item.nameAr}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      );
+                    }}
+                  />
+                  {Array.isArray(uomErrors) &&
+                  uomErrors[index] &&
+                  typeof uomErrors[index] === 'object' &&
+                  'catalogUomId' in uomErrors[index]! ? (
+                    <p className="mt-1 text-[10px] text-destructive">
+                      {(uomErrors[index] as { catalogUomId?: { message?: string } }).catalogUomId?.message}
+                    </p>
+                  ) : null}
+                </td>
+                <td className="px-3 py-2">
+                  <Controller
+                    control={control}
+                    name={`${fieldPath}.${index}.nameAr` as 'uomLines.0.nameAr'}
+                    render={({ field: nameField }) => (
+                      <Input className="h-9" value={nameField.value} readOnly tabIndex={-1} title="من الكتالوج" />
+                    )}
+                  />
+                </td>
+                <td className="px-3 py-2">
+                  <Controller
+                    control={control}
+                    name={`${fieldPath}.${index}.relativeQuantity` as 'uomLines.0.relativeQuantity'}
+                    render={({ field: qtyField }) => (
+                      <Controller
+                        control={control}
+                        name={`${fieldPath}.${index}.isReference` as 'uomLines.0.isReference'}
+                        render={({ field: refField }) => (
+                          <Input
+                            type="number"
+                            step="0.00001"
+                            min={0}
+                            dir="ltr"
+                            className="h-9 w-24"
+                            disabled={refField.value}
+                            value={refField.value ? '1' : qtyField.value == null ? '' : String(qtyField.value)}
+                            onChange={(event) => qtyField.onChange(Number(event.target.value))}
+                          />
+                        )}
+                      />
+                    )}
+                  />
+                </td>
+                <td className="px-2 py-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9"
+                    aria-label="حذف"
+                    onClick={() => remove(index)}
+                  >
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
       {uomErrors?.message ? <p className="text-xs text-destructive">{uomErrors.message}</p> : null}
 
-      <div className="flex flex-wrap items-center gap-3">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="gap-1.5"
-          onClick={() =>
-            append({
-              id: newUomId(),
-              catalogUomId: null,
-              nameAr: '',
-              uneceCode: '',
-              relativeQuantity: 1,
-              isReference: false,
-              packagingType: 'pack',
-            })
-          }
-        >
-          <Plus className="h-3.5 w-3.5" />
-          إضافة وحدة / طرد
-        </Button>
+      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-dashed border-border/80 bg-muted/10 px-3 py-2.5">
+        {availableCatalogItems.length > 0 ? (
+          <Select
+            key={addSelectKey}
+            onValueChange={(value) => {
+              const item = catalogItems.find((row) => row.id === value);
+              if (item) appendFromCatalog(item);
+            }}
+          >
+            <SelectTrigger className="h-9 w-56 gap-2 border-primary/30 bg-background">
+              <Plus className="h-3.5 w-3.5 shrink-0 text-primary" />
+              <SelectValue placeholder="إضافة وحدة من الكتالوج…" />
+            </SelectTrigger>
+            <SelectContent>
+              {availableCatalogItems.map((item) => (
+                <SelectItem key={item.id} value={item.id}>
+                  {item.nameAr}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            {catalogItems.length === 0
+              ? 'لا توجد وحدات في الكتالوج بعد.'
+              : 'كل وحدات الكتالوج مربوطة بهذا المنتج.'}{' '}
+            <Link href={inventoryAdminRoutes.catalogUoms} className="text-primary underline-offset-2 hover:underline">
+              أضِف وحدة في الكتالوج
+            </Link>
+          </p>
+        )}
         <Button
           type="button"
           variant="ghost"
           size="sm"
           className="text-xs"
-          onClick={() => {
-            const defaults = createDefaultUomLines();
-            defaults.forEach((line, i) => {
-              if (i === 0) return;
-              append({ ...line, catalogUomId: null });
-            });
-          }}
+          disabled={catalogItems.length === 0}
+          onClick={applyStandardTemplate}
         >
           قالب: حبة → علبة → كرتون
         </Button>
-        <p className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
-          <Ruler className="h-3.5 w-3.5" />
-          <Star className="h-3 w-3" /> = المرجع (1)
-        </p>
       </div>
     </div>
   );

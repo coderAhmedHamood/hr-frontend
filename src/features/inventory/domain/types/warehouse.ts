@@ -117,6 +117,10 @@ export type WarehouseOperationLine = {
   demandQuantity: number;
   /** الكمية المنفذة عند التصديق — وفي الجرد: الكمية المعدودة */
   quantity: number;
+  /** UOM line used for entry (product or variant row id). */
+  productUomLineId?: string | null;
+  /** Quantity in selected UOM when saved from warehouse UI. */
+  uomEnteredQuantity?: number | null;
   fromLocationId?: string;
   toLocationId?: string;
   notes?: string;

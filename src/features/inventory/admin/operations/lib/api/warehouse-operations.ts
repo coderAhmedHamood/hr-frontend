@@ -45,6 +45,9 @@ function mapLine(dto: OperationLineDto): WarehouseOperationLine {
     variantId: dto.variantId ?? undefined,
     demandQuantity: toNumber(dto.demandQuantity),
     quantity: toNumber(dto.quantity),
+    productUomLineId: dto.productUomLineId ?? undefined,
+    uomEnteredQuantity:
+      dto.uomEnteredQuantity != null ? toNumber(dto.uomEnteredQuantity) : undefined,
     fromLocationId: dto.fromLocationId ?? undefined,
     toLocationId: dto.toLocationId ?? undefined,
     notes: dto.notes ?? undefined,
@@ -152,6 +155,7 @@ async function createLine(operationId: string, line: WarehouseOperationLine): Pr
       sku: line.sku ?? null,
       demandQuantity: line.demandQuantity ?? line.quantity,
       quantity: line.quantity,
+      productUomLineId: line.productUomLineId ?? null,
       fromLocationId: line.fromLocationId ?? null,
       toLocationId: line.toLocationId ?? null,
       notes: line.notes ?? null,
@@ -196,6 +200,7 @@ async function syncLines(
             sku: line.sku ?? null,
             demandQuantity: line.demandQuantity ?? line.quantity,
             quantity: line.quantity,
+            productUomLineId: line.productUomLineId ?? null,
             fromLocationId: line.fromLocationId ?? null,
             toLocationId: line.toLocationId ?? null,
             notes: line.notes ?? null,
@@ -219,6 +224,7 @@ function isLineUnchanged(prev: WarehouseOperationLine, next: WarehouseOperationL
     prev.productName === next.productName &&
     (prev.sku ?? null) === (next.sku ?? null) &&
     Number(prev.demandQuantity ?? prev.quantity) === Number(next.demandQuantity ?? next.quantity) &&
+    (prev.productUomLineId ?? null) === (next.productUomLineId ?? null) &&
     Number(prev.quantity) === Number(next.quantity) &&
     (prev.fromLocationId ?? null) === (next.fromLocationId ?? null) &&
     (prev.toLocationId ?? null) === (next.toLocationId ?? null) &&

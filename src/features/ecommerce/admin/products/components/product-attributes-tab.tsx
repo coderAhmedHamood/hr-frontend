@@ -11,11 +11,21 @@ import {
   type UseFormRegister,
   type UseFormSetValue,
 } from 'react-hook-form';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
-import { useCatalogAttributes } from '@/features/ecommerce/admin/attributes/hooks/use-catalog-attributes';
+import {
+  catalogAttributesQueryKeys,
+  useCatalogAttributes,
+} from '@/features/ecommerce/admin/attributes/hooks/use-catalog-attributes';
+import {
+  createCatalogAttributeValue,
+  restoreCatalogAttributeValue,
+} from '@/features/ecommerce/admin/attributes/lib/api/catalog-attributes';
 import type { ProductFormInput, ProductFormValues } from '@/features/ecommerce/admin/products/schemas/product-schema';
 import { ProductVariantsPanel } from '@/features/ecommerce/admin/products/components/product-variants-panel';
 import { dedupeAttributeValues } from '@/features/ecommerce/admin/products/lib/product-variants';
+import { fetchAttributeValueUsage, isPersistedId } from '@/features/ecommerce/admin/products/lib/api/products';
 import {
   normalizeAttributeValue,
   type CatalogAttribute,
@@ -104,7 +114,11 @@ function ValuePill({
 
 export function ProductAttributesTab({ control, errors, register, setValue, getValues, productId }: Props) {
   const companyId = getStorefrontCompanyId();
-  const { data: catalogData, isLoading } = useCatalogAttributes({ companyId, limit: 100 });
+  const { data: catalogData, isLoading } = useCatalogAttributes({
+    companyId,
+    limit: 100,
+    valueArchiveScope: 'all',
+  });
   const { fields, append, remove, move, update } = useFieldArray({
     control,
     name: 'attributes',
@@ -127,21 +141,52 @@ export function ProductAttributesTab({ control, errors, register, setValue, getV
     : undefined;
 
   const [selectedValueIds, setSelectedValueIds] = React.useState<Set<string>>(new Set());
+  // Snapshot of what was selected when the dialog opened, so we can tell which
+  // values the user is actively deselecting (to warn about usage) instead of
+  // ones that were never selected to begin with.
+  const [initialValueIds, setInitialValueIds] = React.useState<Set<string>>(new Set());
+  const [addValueOpen, setAddValueOpen] = React.useState(false);
+  const [addValueName, setAddValueName] = React.useState('');
+  const [addValueColor, setAddValueColor] = React.useState('');
+  const [isAddingValue, setIsAddingValue] = React.useState(false);
+  const [restoringValueId, setRestoringValueId] = React.useState<string | null>(null);
+  const queryClient = useQueryClient();
+
+  // Guards the reset below to run once per dialog-open, not on every render
+  // where `configureLine`/`configureCatalog` get a new object identity (e.g.
+  // after handleAddValue mutates the line or invalidates the catalog query) —
+  // otherwise that would silently wipe out any pending toggle the user made
+  // before adding a value.
+  const initializedForIndexRef = React.useRef<number | null>(null);
 
   React.useEffect(() => {
-    if (configureIndex === null || !configureLine) return;
-    if (configureCatalog) {
-      setSelectedValueIds(
-        new Set(
-          configureLine.values
-            .map((value) => value.catalogAttributeValueId)
-            .filter((id): id is string => Boolean(id)),
-        ),
-      );
+    if (configureIndex === null) {
+      initializedForIndexRef.current = null;
       return;
     }
-    setSelectedValueIds(new Set(configureLine.values.map((value) => value.id)));
+    if (initializedForIndexRef.current === configureIndex || !configureLine) return;
+    const ids = configureCatalog
+      ? configureLine.values
+          .map((value) => value.catalogAttributeValueId)
+          .filter((id): id is string => Boolean(id))
+      : configureLine.values.map((value) => value.id);
+    setSelectedValueIds(new Set(ids));
+    setInitialValueIds(new Set(ids));
+    setAddValueOpen(false);
+    setAddValueName('');
+    setAddValueColor('');
+    initializedForIndexRef.current = configureIndex;
   }, [configureIndex, configureLine, configureCatalog]);
+
+  const usageQuery = useQuery({
+    queryKey: ['product-attribute-value-usage', configureLine?.id],
+    queryFn: () => fetchAttributeValueUsage(configureLine!.id),
+    enabled: configureIndex !== null && isPersistedId(configureLine?.id),
+  });
+  const usageByValueId = usageQuery.data ?? {};
+  const removedUsedValueIds = [...initialValueIds].filter(
+    (id) => !selectedValueIds.has(id) && (usageByValueId[id] ?? 0) > 0,
+  );
 
   const filteredAvailable = pickerSearch.trim()
     ? available.filter((item) => item.nameAr.toLowerCase().includes(pickerSearch.trim().toLowerCase()))
@@ -161,6 +206,15 @@ export function ProductAttributesTab({ control, errors, register, setValue, getV
 
   function saveConfigure() {
     if (configureIndex === null || !configureLine) return;
+
+    if (removedUsedValueIds.length > 0) {
+      const ok = window.confirm(
+        removedUsedValueIds.length === 1
+          ? 'هذه القيمة مستخدمة في متغيّر حالي. ستُخفى من الاختيار مستقبلاً، والمتغيّر الحالي يبقى سليمًا. المتابعة؟'
+          : `هذه القيم مستخدمة في ${removedUsedValueIds.length} متغيّرات حالية. ستُخفى من الاختيار مستقبلاً، والمتغيرات الحالية تبقى سليمة. المتابعة؟`,
+      );
+      if (!ok) return;
+    }
 
     if (configureCatalog) {
       const existingByCatalogId = new Map(
@@ -220,6 +274,56 @@ export function ProductAttributesTab({ control, errors, register, setValue, getV
       else next.add(id);
       return next;
     });
+  }
+
+  async function handleAddValue() {
+    const nameAr = addValueName.trim();
+    if (!nameAr || configureIndex === null || !configureLine || isAddingValue) return;
+    const colorHex =
+      configureLine.displayType === 'color' && addValueColor.trim() ? addValueColor.trim() : undefined;
+
+    setIsAddingValue(true);
+    try {
+      if (configureCatalog) {
+        const created = await createCatalogAttributeValue(configureCatalog.id, configureLine.displayType, {
+          nameAr,
+          colorHex,
+        });
+        await queryClient.invalidateQueries({ queryKey: catalogAttributesQueryKeys.all });
+        setSelectedValueIds((prev) => new Set(prev).add(created.id));
+      } else {
+        const newValue = {
+          id: newValueClientKey(),
+          nameAr,
+          colorHex,
+        };
+        update(configureIndex, {
+          ...configureLine,
+          values: dedupeAttributeValues([...configureLine.values, newValue]),
+        });
+        setSelectedValueIds((prev) => new Set(prev).add(newValue.id));
+      }
+      setAddValueOpen(false);
+      setAddValueName('');
+      setAddValueColor('');
+    } catch {
+      toast.error('تعذّرت إضافة القيمة، حاول مرة أخرى');
+    } finally {
+      setIsAddingValue(false);
+    }
+  }
+
+  async function handleRestoreValue(valueId: string) {
+    if (!configureLine || restoringValueId) return;
+    setRestoringValueId(valueId);
+    try {
+      await restoreCatalogAttributeValue(valueId, configureLine.displayType);
+      await queryClient.invalidateQueries({ queryKey: catalogAttributesQueryKeys.all });
+    } catch {
+      toast.error('تعذّر استرجاع القيمة، حاول مرة أخرى');
+    } finally {
+      setRestoringValueId(null);
+    }
   }
 
   return (
@@ -404,10 +508,44 @@ export function ProductAttributesTab({ control, errors, register, setValue, getV
                   colorHex?: string;
                   imageUrl?: string;
                   extra?: string;
+                  isArchived?: boolean;
                 }>
               ).map((raw) => {
-                const value = normalizeAttributeValue(raw, configureLine?.displayType);
+                const value = {
+                  ...normalizeAttributeValue(raw, configureLine?.displayType),
+                  isArchived: raw.isArchived ?? false,
+                };
                 const checked = selectedValueIds.has(value.id);
+                const usageCount = usageByValueId[value.id] ?? 0;
+
+                if (value.isArchived) {
+                  return (
+                    <span
+                      key={value.id}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-border bg-muted/40 px-3 py-1.5 text-sm text-muted-foreground"
+                    >
+                      {configureLine?.displayType === 'color' && value.colorHex ? (
+                        <span
+                          className="h-3 w-3 shrink-0 rounded-full border border-border/60 opacity-50"
+                          style={{ backgroundColor: value.colorHex }}
+                        />
+                      ) : null}
+                      {value.nameAr}
+                      <span className="rounded-full bg-black/10 px-1.5 text-[10px] leading-4">مؤرشف</span>
+                      {configureCatalog ? (
+                        <button
+                          type="button"
+                          className="text-[11px] font-medium text-primary hover:underline"
+                          disabled={restoringValueId === value.id}
+                          onClick={() => void handleRestoreValue(value.id)}
+                        >
+                          {restoringValueId === value.id ? '...' : 'استرجاع'}
+                        </button>
+                      ) : null}
+                    </span>
+                  );
+                }
+
                 return (
                   <button
                     key={value.id}
@@ -429,10 +567,81 @@ export function ProductAttributesTab({ control, errors, register, setValue, getV
                       />
                     ) : null}
                     {value.nameAr}
+                    {checked && usageCount > 0 ? (
+                      <span
+                        className="rounded-full bg-black/15 px-1.5 text-[10px] leading-4"
+                        title={`مستخدمة في ${usageCount} متغيّر`}
+                      >
+                        {usageCount}
+                      </span>
+                    ) : null}
                   </button>
                 );
               })}
+
+              {addValueOpen ? (
+                <div className="flex items-center gap-1.5 rounded-full border border-dashed border-primary/50 bg-primary/5 px-2 py-1">
+                  <Input
+                    autoFocus
+                    value={addValueName}
+                    onChange={(event) => setAddValueName(event.target.value)}
+                    placeholder="اسم القيمة الجديدة"
+                    className="h-7 w-32 border-none bg-transparent px-1.5 text-xs shadow-none focus-visible:ring-0"
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        event.preventDefault();
+                        void handleAddValue();
+                      }
+                    }}
+                  />
+                  {configureLine?.displayType === 'color' ? (
+                    <input
+                      type="color"
+                      value={addValueColor || '#000000'}
+                      onChange={(event) => setAddValueColor(event.target.value)}
+                      className="h-6 w-6 shrink-0 cursor-pointer rounded-full border border-border/60 bg-transparent p-0"
+                      aria-label="لون القيمة"
+                    />
+                  ) : null}
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-6 px-2 text-[11px]"
+                    disabled={!addValueName.trim() || isAddingValue}
+                    onClick={() => void handleAddValue()}
+                  >
+                    {isAddingValue ? '...' : 'إضافة'}
+                  </Button>
+                  <button
+                    type="button"
+                    className="text-[11px] text-muted-foreground hover:text-foreground"
+                    onClick={() => {
+                      setAddValueOpen(false);
+                      setAddValueName('');
+                      setAddValueColor('');
+                    }}
+                  >
+                    إلغاء
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setAddValueOpen(true)}
+                  className="inline-flex items-center gap-1 rounded-full border border-dashed border-border px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  إضافة قيمة جديدة
+                </button>
+              )}
             </div>
+            {removedUsedValueIds.length > 0 ? (
+              <p className="rounded-lg bg-amber-500/10 px-3 py-2 text-xs leading-relaxed text-amber-700 dark:text-amber-400">
+                {removedUsedValueIds.length === 1
+                  ? 'قيمة واحدة تم إلغاء تحديدها مستخدمة في متغيرات حالية — ستُخفى من الاختيار مستقبلاً، والمتغيرات الحالية تبقى سليمة بدون تأثير.'
+                  : `${removedUsedValueIds.length} قيم تم إلغاء تحديدها مستخدمة في متغيرات حالية — ستُخفى من الاختيار مستقبلاً، والمتغيرات الحالية تبقى سليمة بدون تأثير.`}
+              </p>
+            ) : null}
             {selectedValueIds.size === 0 ? (
               <p className="text-xs text-destructive">اختر قيمة واحدة على الأقل.</p>
             ) : null}
@@ -451,6 +660,7 @@ export function ProductAttributesTab({ control, errors, register, setValue, getV
       <div className="pt-4" id="product-variants-panel">
         <ProductVariantsPanel
           control={control}
+          errors={errors}
           register={register}
           setValue={setValue}
           getValues={getValues}

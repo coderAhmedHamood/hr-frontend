@@ -14,6 +14,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { FlexibleQuantityInput } from '@/features/inventory/admin/operations/components/flexible-quantity-input';
+import {
+  fetchEffectiveUomLines,
+  type EffectiveUomLine,
+} from '@/features/inventory/lib/api/product-effective-uom';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 type Props = {
   companyId: string;
@@ -49,6 +54,14 @@ export function WarehouseOperationLinesEditor({
   className,
 }: Props) {
   const [availableByKey, setAvailableByKey] = React.useState<Record<string, number>>({});
+  const [uomByProductId, setUomByProductId] = React.useState<Record<string, EffectiveUomLine[]>>({});
+
+  async function ensureUoms(productId: string): Promise<EffectiveUomLine[]> {
+    if (uomByProductId[productId]) return uomByProductId[productId];
+    const rows = await fetchEffectiveUomLines(productId);
+    setUomByProductId((prev) => ({ ...prev, [productId]: rows }));
+    return rows;
+  }
 
   // A product sitting on another row is hidden from this row's search, so a
   // duplicate can never be picked in the first place.
@@ -115,14 +128,15 @@ export function WarehouseOperationLinesEditor({
         <p className="mb-2 text-xs text-destructive">لا يمكن تكرار نفس المنتج في أكثر من سطر.</p>
       ) : null}
 
-      <div className="overflow-hidden rounded-lg border border-border">
-        <table className="w-full text-sm">
+      <div className="overflow-x-auto rounded-xl border border-border">
+        <table className="w-full min-w-[56rem] text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/30 text-muted-foreground">
-              <th className="px-3 py-2.5 text-start font-medium">المنتج</th>
-              <th className="px-3 py-2.5 text-start font-medium">الكمية</th>
+              <th className="min-w-[14rem] px-3 py-2.5 text-start font-medium">المنتج</th>
+              <th className="min-w-[8rem] px-3 py-2.5 text-start font-medium">الوحدة</th>
+              <th className="min-w-[9rem] px-3 py-2.5 text-start font-medium">الكمية</th>
               {needsUnitCost ? (
-                <th className="px-3 py-2.5 text-start font-medium text-emerald-700 dark:text-emerald-400">
+                <th className="min-w-[11rem] px-3 py-2.5 text-start font-medium text-emerald-700 dark:text-emerald-400">
                   تكلفة الوحدة (الشراء)
                 </th>
               ) : null}
@@ -171,11 +185,17 @@ export function WarehouseOperationLinesEditor({
                         updateLine(line.id, { productId });
                       }}
                       onProductSelect={(product) => {
-                        updateLine(line.id, {
-                          productId: product.id,
-                          productName: product.nameAr,
-                          sku: product.sku,
-                        });
+                        void (async () => {
+                          const rows = await ensureUoms(product.id);
+                          const ref = rows.find((row) => row.isReference) ?? rows[0];
+                          updateLine(line.id, {
+                            productId: product.id,
+                            productName: product.nameAr,
+                            sku: product.sku,
+                            productUomLineId: ref?.id,
+                            uomLineName: ref?.nameAr,
+                          });
+                        })();
                       }}
                     />
                     {line.sku ? (
@@ -185,7 +205,40 @@ export function WarehouseOperationLinesEditor({
                     ) : null}
                   </td>
                   <td className="px-3 py-2.5">
+                    {line.productId ? (
+                      <Select
+                        value={line.productUomLineId ?? ''}
+                        disabled={disabled}
+                        onValueChange={(value) => {
+                          const rows = uomByProductId[line.productId] ?? [];
+                          const picked = rows.find((row) => row.id === value);
+                          updateLine(line.id, {
+                            productUomLineId: value,
+                            uomLineName: picked?.nameAr,
+                          });
+                        }}
+                        onOpenChange={(open) => {
+                          if (open && line.productId) void ensureUoms(line.productId);
+                        }}
+                      >
+                        <SelectTrigger className="h-10 w-full min-w-[7rem]">
+                          <SelectValue placeholder="الوحدة" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(uomByProductId[line.productId] ?? []).map((uom) => (
+                            <SelectItem key={uom.id} value={uom.id}>
+                              {uom.nameAr}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2.5">
                     <FlexibleQuantityInput
+                      className="h-10 w-full min-w-[6rem] max-w-none"
                       value={line.quantity}
                       max={maxQty}
                       disabled={disabled || !line.productId}
@@ -213,7 +266,7 @@ export function WarehouseOperationLinesEditor({
                           placeholder="0.00"
                           value={line.unitCost ?? ''}
                           disabled={disabled || !line.productId}
-                          className="h-9 w-28 border-0 bg-transparent px-2 text-center font-semibold tabular-nums shadow-none focus-visible:ring-0"
+                          className="h-10 min-w-[5rem] flex-1 border-0 bg-transparent px-2 text-center font-semibold tabular-nums shadow-none focus-visible:ring-0"
                           onChange={(e) => {
                             const raw = e.target.value;
                             // Match the backend's accepted shape (digits, one

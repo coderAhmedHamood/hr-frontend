@@ -61,6 +61,7 @@ export type PackagingType = 'unit' | 'pack' | 'box' | 'pallet' | 'other';
 /** Flexible unit / packaging line relative to a reference unit on the product. */
 export type ProductUomLine = {
   id: string;
+  catalogUomId?: string | null;
   nameAr: string;
   uneceCode?: string;
   /** How many reference units this packaging contains (e.g. Box = 12). */
@@ -95,6 +96,9 @@ export type ProductVariant = {
   /** Variant image gallery (ordered). */
   images?: MediaItem[];
   isActive: boolean;
+  /** When true, `uomLines` override the product-level packaging for this SKU. */
+  hasCustomUom?: boolean;
+  uomLines?: ProductUomLine[];
 };
 
 /** Physical dimensions in centimeters (shipping / logistics). */

@@ -375,7 +375,7 @@ function buildEcommerceNavConfig(tNav: (key: string) => string): NavItem[] {
   return items;
 }
 
-/** نظرة عامة | العمليات | المنتجات | إعداد التقارير | التهيئة */
+/** نظرة عامة | العمليات | المنتجات | إعداد التقارير | التهيئة | الإعدادات */
 function buildInventoryNavConfig(): NavItem[] {
   const items: NavItem[] = [
     {

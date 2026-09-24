@@ -24,6 +24,7 @@ export const ecommerceAdminRoutes = {
   categories: '/categories',
   attributes: '/attributes',
   brands: '/brands',
+  catalogUoms: '/catalog-uoms',
   orders: '/orders',
   reviews: '/reviews',
   /** تقارير المتجر — `/store-admin/reports/*` */

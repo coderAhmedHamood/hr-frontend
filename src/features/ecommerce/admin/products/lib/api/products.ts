@@ -18,13 +18,24 @@ import type {
 } from '@/features/ecommerce/domain/types/product';
 import type { AdminProductsPort } from '@/features/ecommerce/domain/ports/catalog.ports';
 import { STORE_CURRENCY_CODE, isStoreCurrency } from '@/features/ecommerce/domain/constants/store-currency';
+import { UUID_RE, isPersistedId } from '@/features/ecommerce/admin/products/lib/id-utils';
+import { PRODUCT_VARIANT_CUSTOM_UOM_ENABLED } from '@/features/ecommerce/admin/products/constants/product-feature-flags';
 
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+export { isPersistedId };
 
-/** True when the id is a real DB UUID (not a client draft key like `pval-…`). */
-export function isPersistedId(id: string | undefined): boolean {
-  return Boolean(id && UUID_RE.test(id));
+/**
+ * Per-value variant usage counts for a persisted attribute line, keyed by
+ * productAttributeValueId. Used to warn before a value is deselected on the
+ * product attribute picker — deselecting only archives the value server-side,
+ * it never touches existing variant links, but the user should still see the
+ * impact before confirming.
+ */
+export async function fetchAttributeValueUsage(
+  productAttributeLineId: string,
+): Promise<Record<string, number>> {
+  return apiRequest<Record<string, number>>('/inventory/product-attribute-values/usage', {
+    query: { productAttributeLineId },
+  });
 }
 
 /** Empty / placeholder → null; non-UUID strings are cleared so Nest validation does not 400. */
@@ -114,6 +125,7 @@ type MediaDto = {
 
 type UomDto = {
   id: string;
+  catalogUomId?: string | null;
   nameAr: string;
   uneceCode?: string | null;
   relativeQuantity: string | number;
@@ -168,6 +180,8 @@ type VariantDto = {
   isActive: boolean;
   attributeValueIds?: string[];
   attributeLinks?: VariantLinkDto[];
+  hasCustomUom?: boolean;
+  uomLines?: UomDto[];
 };
 
 type ProductFullDto = ProductDto & {
@@ -200,6 +214,7 @@ function mapUomLines(items: UomDto[] | undefined): ProductUomLine[] {
     .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
     .map((dto) => ({
       id: dto.id,
+      catalogUomId: dto.catalogUomId ?? undefined,
       nameAr: dto.nameAr,
       uneceCode: dto.uneceCode ?? undefined,
       relativeQuantity: toNumber(dto.relativeQuantity, 1),
@@ -272,6 +287,8 @@ function mapVariants(items: VariantDto[] | undefined): ProductVariant[] {
         isPrimary: index === 0,
       })),
       isActive: dto.isActive,
+      hasCustomUom: dto.hasCustomUom === true,
+      uomLines: dto.hasCustomUom ? mapUomLines(dto.uomLines) : undefined,
     };
   });
 }
@@ -371,10 +388,10 @@ function toHeaderBody(input: CreateProductInput | UpdateProductInput, mode: 'cre
   if (input.brandId !== undefined) body.brandId = normalizeOptionalUuid(input.brandId);
   if (input.categoryId !== undefined) body.categoryId = normalizeOptionalUuid(input.categoryId);
   if (input.sku !== undefined) body.sku = input.sku;
-  if (input.slug !== undefined) body.slug = input.slug || undefined;
+  if (input.slug !== undefined && input.slug.trim() !== '') body.slug = input.slug;
   if (input.barcode !== undefined) body.barcode = input.barcode ?? null;
   if (input.nameAr !== undefined) body.nameAr = input.nameAr;
-  if (input.nameEn !== undefined) body.nameEn = input.nameEn ?? null;
+  if (input.nameEn !== undefined && input.nameEn.trim() !== '') body.nameEn = input.nameEn;
   if (input.description !== undefined) body.description = input.description ?? null;
   if (input.shortDescription !== undefined) body.shortDescription = input.shortDescription ?? null;
   if (input.status !== undefined) body.status = input.status;
@@ -453,11 +470,11 @@ function toHeaderBody(input: CreateProductInput | UpdateProductInput, mode: 'cre
     body.imageDisplayAspectRatio = input.imageDisplayAspectRatio;
   }
   if (input.seo !== undefined) {
-    body.seoMetaTitle = input.seo.metaTitle ?? null;
-    body.seoMetaDescription = input.seo.metaDescription ?? null;
-    body.seoCanonicalPath = input.seo.canonicalPath ?? null;
-    body.seoOgImage = input.seo.ogImage ?? null;
-    body.seoKeywords = input.seo.keywords ?? null;
+    if (input.seo.metaTitle !== undefined) body.seoMetaTitle = input.seo.metaTitle ?? null;
+    if (input.seo.metaDescription !== undefined) body.seoMetaDescription = input.seo.metaDescription ?? null;
+    if (input.seo.canonicalPath !== undefined) body.seoCanonicalPath = input.seo.canonicalPath ?? null;
+    if (input.seo.ogImage !== undefined) body.seoOgImage = input.seo.ogImage ?? null;
+    if (input.seo.keywords !== undefined) body.seoKeywords = input.seo.keywords ?? null;
   }
   return body;
 }
@@ -490,6 +507,7 @@ function toFullBody(input: CreateProductInput | UpdateProductInput, mode: 'creat
       const persisted = mode === 'update' && isPersistedId(line.id);
       return {
         ...(persisted ? { id: line.id } : { clientKey: refKey(line.id, 'u', index) }),
+        catalogUomId: line.catalogUomId ?? null,
         nameAr: line.nameAr,
         uneceCode: line.uneceCode ?? null,
         relativeQuantity: line.relativeQuantity,
@@ -578,6 +596,25 @@ function toFullBody(input: CreateProductInput | UpdateProductInput, mode: 'creat
         isActive: variant.isActive,
         ...(attributeValueIds.length > 0 ? { attributeValueIds } : {}),
         ...(attributeValueClientKeys.length > 0 ? { attributeValueClientKeys } : {}),
+        ...(PRODUCT_VARIANT_CUSTOM_UOM_ENABLED && variant.hasCustomUom && variant.uomLines
+          ? {
+              uomLines: variant.uomLines.map((line, uomIndex) => {
+                const uomPersisted = mode === 'update' && isPersistedId(line.id);
+                return {
+                  ...(uomPersisted ? { id: line.id } : { clientKey: refKey(line.id, `vu${index}`, uomIndex) }),
+                  catalogUomId: line.catalogUomId ?? null,
+                  nameAr: line.nameAr,
+                  uneceCode: line.uneceCode ?? null,
+                  relativeQuantity: line.relativeQuantity,
+                  isReference: line.isReference,
+                  packagingType: line.packagingType,
+                  sortOrder: uomIndex,
+                };
+              }),
+            }
+          : PRODUCT_VARIANT_CUSTOM_UOM_ENABLED && variant.hasCustomUom === false
+            ? { uomLines: [] }
+            : {}),
       };
     });
   }

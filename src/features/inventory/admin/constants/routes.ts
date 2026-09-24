@@ -34,5 +34,6 @@ export const inventoryAdminRoutes = {
   productDetail: (id: string) => `/inventory/products/${id}`,
   categories: '/inventory/categories',
   attributes: '/inventory/attributes',
+  catalogUoms: '/inventory/catalog-uoms',
   settings: '/inventory/settings',
 } as const;

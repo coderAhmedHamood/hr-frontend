@@ -63,6 +63,13 @@ import {
   supportsMultiProductLines,
   pickerUsesSourceLocationStock,
 } from '@/features/inventory/admin/operations/lib/operation-line-draft';
+import { OperationUnitCostInput } from '@/features/inventory/admin/operations/components/operation-unit-cost-input';
+import { OPERATION_FORM_TAB_TRIGGER } from '@/features/inventory/admin/operations/components/operation-form-ui';
+import {
+  OperationLineCardShell,
+  OperationLineField,
+  OperationLinesStack,
+} from '@/features/inventory/admin/operations/components/operation-line-card-shell';
 import { cn } from '@/shared/utils';
 
 type Props = {
@@ -588,7 +595,7 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={cn(dialogShellContentClass, 'max-w-4xl sm:max-w-4xl')}>
+      <DialogContent className={cn(dialogShellContentClass, 'max-w-5xl sm:max-w-5xl')}>
         <div className={dialogShellHeaderClass}>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="space-y-1">
@@ -814,23 +821,17 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
             </div>
           </div>
 
-          <Tabs value={tab} onValueChange={setTab}>
-            <TabsList className="h-auto w-full justify-start gap-0 rounded-none border-b border-border bg-transparent p-0">
-              <TabsTrigger
-                value="operations"
-                className="rounded-none border-b-2 border-transparent px-3 py-2.5 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-              >
-                العمليات
+          <Tabs value={tab} onValueChange={setTab} dir="rtl" className="space-y-3">
+            <TabsList className="sto-tabs-scroll h-auto w-full justify-start rounded-2xl border border-border/80 bg-muted/40 p-1">
+              <TabsTrigger value="operations" className={OPERATION_FORM_TAB_TRIGGER}>
+                الأصناف
               </TabsTrigger>
-              <TabsTrigger
-                value="notes"
-                className="rounded-none border-b-2 border-transparent px-3 py-2.5 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-              >
+              <TabsTrigger value="notes" className={OPERATION_FORM_TAB_TRIGGER}>
                 الملاحظات
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="operations" className="mt-3 space-y-2">
+            <TabsContent value="operations" className="mt-3 space-y-3">
               {canEditProducts ? (
                 <div className="flex justify-end">
                   <Button type="button" variant="outline" size="sm" disabled={isSaving} onClick={addProductLine}>
@@ -839,191 +840,130 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
                   </Button>
                 </div>
               ) : null}
-              <div className="overflow-hidden rounded-lg border border-border">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border bg-muted/30 text-muted-foreground">
-                      <th className="px-3 py-2.5 text-start font-medium">المنتج</th>
-                      <th className="px-3 py-2.5 text-start font-medium">الطلب</th>
-                      <th className="px-3 py-2.5 text-start font-medium">الكمية</th>
-                      <th className="px-3 py-2.5 text-start font-medium">الوحدة</th>
-                      {stockEffect === 'inbound' ? (
-                        <th className="px-3 py-2.5 text-start font-medium text-emerald-700 dark:text-emerald-400">
-                          تكلفة الوحدة (الشراء)
-                        </th>
-                      ) : null}
-                      {canEditProducts ? <th className="w-10 px-2 py-2.5" /> : null}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {lines.map((line) => {
-                      const available = availableByLineId[line.id];
-                      const maxQty =
-                        checksSourceStock && available != null
-                          ? maxQuantityForLine({
-                              lines,
-                              lineId: line.id,
-                              availableAtLocation: available,
-                              fromLocationId: headerFromLocationId || undefined,
-                            })
-                          : null;
+              <OperationLinesStack>
+                {lines.map((line, index) => {
+                  const available = availableByLineId[line.id];
+                  const maxQty =
+                    checksSourceStock && available != null
+                      ? maxQuantityForLine({
+                          lines,
+                          lineId: line.id,
+                          availableAtLocation: available,
+                          fromLocationId: headerFromLocationId || undefined,
+                        })
+                      : null;
+                  const gap = (line.demandQuantity ?? line.quantity) - line.quantity;
+                  const isCountLike = kind === 'physical_count' || kind === 'adjustment';
 
-                      return (
-                      <tr key={line.id} className="border-b border-border last:border-0 align-top">
-                        <td className="px-3 py-2.5">
-                          {canEditProducts ? (
-                            <>
-                              <ProductSinglePicker
-                                companyId={companyId ?? ''}
-                                value={line.productId}
-                                status="active"
-                                disabled={isSaving}
-                                excludeIds={lines
-                                  .filter((other) => other.id !== line.id)
-                                  .map((other) => other.productId?.trim())
-                                  .filter((id): id is string => Boolean(id))}
-                                sourceLocationId={
-                                  pickerUsesSourceLocationStock(kind)
-                                    ? headerFromLocationId || undefined
-                                    : undefined
-                                }
-                                placeholder={
-                                  pickerUsesSourceLocationStock(kind) && !headerFromLocationId
-                                    ? 'حدّد موقع الصرف أولًا…'
-                                    : 'ابحث عن منتج…'
-                                }
-                                onChange={(productId) => {
-                                  if (!productId) applyLineProduct(line.id, null);
-                                }}
-                                onProductSelect={(product) => applyLineProduct(line.id, product)}
-                              />
-                              {line.sku ? (
-                                <div className="mt-1 text-xs text-muted-foreground" dir="ltr">
-                                  {line.sku}
-                                </div>
-                              ) : null}
-                            </>
-                          ) : (
-                            <>
-                              <div className="font-medium">{line.productName}</div>
-                              {line.sku ? (
-                                <div className="text-xs text-muted-foreground" dir="ltr">
-                                  {line.sku}
-                                </div>
-                              ) : null}
-                              <div className="mt-0.5 text-xs text-muted-foreground">
-                                {line.variantId ? 'متغير' : 'المنتج الأساسي'}
-                              </div>
-                            </>
-                          )}
-                        </td>
-                        <td className="px-3 py-2.5">
+                  return (
+                    <OperationLineCardShell
+                      key={line.id}
+                      index={index}
+                      title={line.productName || undefined}
+                      subtitle={line.sku || undefined}
+                      onRemove={canEditProducts ? () => removeProductLine(line.id) : undefined}
+                      removeDisabled={isSaving}
+                    >
+                      <OperationLineField label="المنتج" fullWidth>
+                        {canEditProducts ? (
+                          <ProductSinglePicker
+                            companyId={companyId ?? ''}
+                            value={line.productId}
+                            status="active"
+                            disabled={isSaving}
+                            excludeIds={lines
+                              .filter((other) => other.id !== line.id)
+                              .map((other) => other.productId?.trim())
+                              .filter((id): id is string => Boolean(id))}
+                            sourceLocationId={
+                              pickerUsesSourceLocationStock(kind)
+                                ? headerFromLocationId || undefined
+                                : undefined
+                            }
+                            placeholder={
+                              pickerUsesSourceLocationStock(kind) && !headerFromLocationId
+                                ? 'حدّد موقع الصرف أولًا…'
+                                : 'ابحث عن منتج…'
+                            }
+                            onChange={(productId) => {
+                              if (!productId) applyLineProduct(line.id, null);
+                            }}
+                            onProductSelect={(product) => applyLineProduct(line.id, product)}
+                          />
+                        ) : (
+                          <div className="rounded-lg border border-border/70 bg-muted/20 px-3 py-2.5">
+                            <p className="font-medium">{line.productName}</p>
+                            <p className="mt-0.5 text-xs text-muted-foreground">
+                              {line.variantId ? 'متغير' : 'المنتج الأساسي'}
+                            </p>
+                          </div>
+                        )}
+                      </OperationLineField>
+
+                      {!isCountLike ? (
+                        <OperationLineField
+                          label="كمية الطلب"
+                          hint={
+                            checksSourceStock && available != null
+                              ? `المتاح في الموقع: ${available}`
+                              : undefined
+                          }
+                        >
                           <FlexibleQuantityInput
-                            className="h-8 w-24"
+                            className="h-10 w-full max-w-none"
                             value={line.demandQuantity ?? 0}
                             max={maxQty}
                             disabled={!editable || status === 'ready'}
-                            onChange={(value) => {
-                              applyLineQuantity(line.id, 'demandQuantity', value);
-                            }}
+                            onChange={(value) => applyLineQuantity(line.id, 'demandQuantity', value)}
                           />
-                          {checksSourceStock && available != null ? (
-                            <p className="mt-1 text-[11px] text-muted-foreground">
-                              المتاح في الموقع: {available}
+                        </OperationLineField>
+                      ) : null}
+
+                      <OperationLineField
+                        label={isCountLike ? 'الكمية المعدودة / المُنفَّذة' : 'الكمية المُنفَّذة'}
+                        hint={
+                          Math.abs(gap) >= 1e-9
+                            ? gap > 0
+                              ? `ناقص ${gap} عن الطلب`
+                              : `زائد ${Math.abs(gap)} عن الطلب`
+                            : undefined
+                        }
+                      >
+                        <FlexibleQuantityInput
+                          className="h-10 w-full max-w-none"
+                          value={line.quantity}
+                          max={maxQty}
+                          disabled={!qtyEditable}
+                          onChange={(value) => applyLineQuantity(line.id, 'quantity', value)}
+                        />
+                      </OperationLineField>
+
+                      <OperationLineField label="الوحدة">
+                        <p className="text-sm text-foreground">وحدات</p>
+                      </OperationLineField>
+
+                      {stockEffect === 'inbound' ? (
+                        <OperationLineField label="تكلفة الشراء (للوحدة)">
+                          {canEditProducts ? (
+                            <OperationUnitCostInput
+                              value={line.unitCost ?? ''}
+                              disabled={isSaving || !line.productId}
+                              showRequiredHint={Boolean(line.productId)}
+                              onChange={(raw) => applyLineUnitCost(line.id, raw)}
+                            />
+                          ) : (
+                            <p className="text-sm font-semibold tabular-nums">
+                              {line.unitCost?.trim()
+                                ? `${Number(line.unitCost).toFixed(costDisplayDecimals)} ر.ي`
+                                : '—'}
                             </p>
-                          ) : null}
-                        </td>
-                        <td className="px-3 py-2.5">
-                          <FlexibleQuantityInput
-                            className="h-8 w-24"
-                            value={line.quantity}
-                            max={maxQty}
-                            disabled={!qtyEditable}
-                            onChange={(value) => {
-                              applyLineQuantity(line.id, 'quantity', value);
-                            }}
-                          />
-                          {(() => {
-                            const gap = (line.demandQuantity ?? line.quantity) - line.quantity;
-                            if (Math.abs(gap) < 1e-9) return null;
-                            return (
-                              <p
-                                className={cn(
-                                  'mt-1 text-[11px] font-medium tabular-nums',
-                                  gap > 0
-                                    ? 'text-destructive'
-                                    : 'text-emerald-700 dark:text-emerald-400',
-                                )}
-                              >
-                                {gap > 0 ? `ناقص ${gap}` : `زائد ${Math.abs(gap)}`}
-                              </p>
-                            );
-                          })()}
-                        </td>
-                        <td className="px-3 py-2.5 text-muted-foreground">الوحدات</td>
-                        {stockEffect === 'inbound' ? (
-                          <td className="px-3 py-2.5">
-                            {canEditProducts ? (
-                              <>
-                                <div
-                                  className={`flex items-center gap-2 rounded-lg border-2 px-1 transition-colors ${
-                                    line.productId && !line.unitCost?.trim()
-                                      ? 'border-amber-400 bg-amber-50 dark:border-amber-500/60 dark:bg-amber-950/30'
-                                      : 'border-emerald-300 bg-emerald-50/60 dark:border-emerald-500/40 dark:bg-emerald-950/20'
-                                  }`}
-                                >
-                                  <Input
-                                    type="text"
-                                    inputMode="decimal"
-                                    dir="ltr"
-                                    placeholder="0.00"
-                                    value={line.unitCost ?? ''}
-                                    className="h-9 w-28 border-0 bg-transparent px-2 text-center font-semibold tabular-nums shadow-none focus-visible:ring-0"
-                                    onChange={(e) => {
-                                      const raw = e.target.value;
-                                      if (raw === '' || /^\d*\.?\d{0,8}$/.test(raw)) {
-                                        applyLineUnitCost(line.id, raw);
-                                      }
-                                    }}
-                                  />
-                                  <span className="pe-2 text-xs font-medium text-muted-foreground">ر.ي</span>
-                                </div>
-                                {line.productId && !line.unitCost?.trim() ? (
-                                  <p className="mt-1 text-[11px] font-medium text-amber-700 dark:text-amber-400">
-                                    أدخل تكلفة الشراء لهذا الصنف
-                                  </p>
-                                ) : null}
-                              </>
-                            ) : (
-                              <span className="font-semibold tabular-nums">
-                                {line.unitCost?.trim()
-                                  ? `${Number(line.unitCost).toFixed(costDisplayDecimals)} ر.ي`
-                                  : '—'}
-                              </span>
-                            )}
-                          </td>
-                        ) : null}
-                        {canEditProducts ? (
-                          <td className="px-2 py-2.5">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                              disabled={isSaving}
-                              aria-label="حذف السطر"
-                              onClick={() => removeProductLine(line.id)}
-                            >
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          </td>
-                        ) : null}
-                      </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                          )}
+                        </OperationLineField>
+                      ) : null}
+                    </OperationLineCardShell>
+                  );
+                })}
+              </OperationLinesStack>
             </TabsContent>
 
             <TabsContent value="notes" className="mt-3">

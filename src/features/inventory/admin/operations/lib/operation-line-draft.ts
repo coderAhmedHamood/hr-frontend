@@ -6,6 +6,8 @@ export type OperationLineDraft = {
   productName: string;
   sku?: string;
   quantity: number;
+  productUomLineId?: string;
+  uomLineName?: string;
   /** تكلفة الوحدة عند الإدخال — فقط للأنواع الواردة (انظر lineNeedsUnitCost). */
   unitCost?: string;
 };
@@ -77,6 +79,7 @@ export function operationLineDraftsToLines(
       sku: line.sku?.trim() || undefined,
       demandQuantity: line.quantity,
       quantity: line.quantity,
+      productUomLineId: line.productUomLineId?.trim() || undefined,
       fromLocationId: locations.fromLocationId,
       toLocationId: locations.toLocationId,
       // Never send unitCost for outbound/transfer/move kinds — the backend
@@ -93,7 +96,8 @@ export function operationLinesToDrafts(lines: WarehouseOperationLine[]): Operati
     productId: line.productId,
     productName: line.productName,
     sku: line.sku,
-    quantity: line.quantity,
+    quantity: line.uomEnteredQuantity ?? line.quantity,
+    productUomLineId: line.productUomLineId ?? undefined,
     unitCost: line.unitCost ?? '',
   }));
 }

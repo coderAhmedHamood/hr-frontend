@@ -17,8 +17,10 @@ import {
   FolderTree,
   Layers,
   Tags,
+  Ruler,
   BarChart3,
   FileText,
+  Settings,
   Settings2,
   Store,
   Bell,
@@ -40,7 +42,7 @@ export type InventoryAdminNavSection = {
 };
 
 export type InventoryAdminNavGroup = {
-  key: 'operations' | 'pos' | 'products' | 'reports' | 'configuration';
+  key: 'operations' | 'pos' | 'products' | 'reports' | 'configuration' | 'settings';
   labelAr: string;
   icon: LucideIcon;
   sections: InventoryAdminNavSection[];
@@ -74,7 +76,7 @@ export const inventoryAdminOverviewItem: InventoryAdminNavItem = {
 };
 
 /**
- * Top nav: نظرة عامة | العمليات | المنتجات | إعداد التقارير | التهيئة
+ * Top nav: نظرة عامة | العمليات | … | التهيئة | الإعدادات
  * عمليات عامة على مستوى التطبيق؛ نفس الأنواع تظهر أيضًا داخل المستودع (خاصة به).
  */
 export const inventoryAdminNavGroups: InventoryAdminNavGroup[] = [
@@ -120,6 +122,7 @@ export const inventoryAdminNavGroups: InventoryAdminNavGroup[] = [
           { labelAr: 'المنتجات', href: inventoryAdminRoutes.products, icon: Package },
           { labelAr: 'الفئات', href: inventoryAdminRoutes.categories, icon: FolderTree },
           { labelAr: 'الخصائص', href: inventoryAdminRoutes.attributes, icon: Tags },
+          { labelAr: 'وحدات القياس', href: inventoryAdminRoutes.catalogUoms, icon: Ruler },
         ],
       },
     ],
@@ -162,9 +165,20 @@ export const inventoryAdminNavGroups: InventoryAdminNavGroup[] = [
           { labelAr: 'قواعد التخزين', href: inventoryAdminRoutes.putawayRules, icon: MapPinned },
         ],
       },
+    ],
+  },
+  {
+    key: 'settings',
+    labelAr: 'الإعدادات',
+    icon: Settings,
+    sections: [
       {
         items: [
-          { labelAr: 'إعدادات الإشعارات', href: inventoryAdminRoutes.settings, icon: Bell },
+          {
+            labelAr: 'إعدادات المخازن',
+            href: inventoryAdminRoutes.settings,
+            icon: Bell,
+          },
         ],
       },
     ],
@@ -196,6 +210,7 @@ const INVENTORY_ADMIN_PATHS: string[] = [
   '/inventory/products',
   '/inventory/categories',
   '/inventory/attributes',
+  '/inventory/catalog-uoms',
   '/inventory/settings',
 ];
 

@@ -20,6 +20,7 @@ import {
 import { getInventoryCompanyId } from '@/features/inventory/lib/company-id';
 import { useWarehouse } from '@/features/inventory/admin/warehouses/hooks/use-warehouses';
 import { WarehouseOperationsPanel } from '@/features/inventory/admin/operations/components/warehouse-operations-panel';
+import { LocationsListPage } from '@/features/inventory/admin/locations/components/locations-list-page';
 import { inventoryAdminRoutes } from '@/features/inventory/admin/constants/routes';
 import {
   isWarehouseOperationKind,
@@ -29,6 +30,13 @@ import {
 import type { WarehouseOperationKind } from '@/features/inventory/domain/types/warehouse';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/shared/utils';
+
+type WarehouseDetailTab = WarehouseOperationKind | 'locations';
+
+function isWarehouseDetailTab(value: string | null): value is WarehouseDetailTab {
+  if (value === 'locations') return true;
+  return isWarehouseOperationKind(value) && WAREHOUSE_DETAIL_TAB_KINDS.includes(value);
+}
 
 const TAB_ICONS: Record<WarehouseOperationKind, React.ComponentType<{ className?: string }>> = {
   transfer: Truck,
@@ -50,14 +58,11 @@ export function WarehouseDetailPage() {
   const warehouseId = params.warehouseId;
 
   const tabParam = searchParams.get('tab');
-  const activeTab: WarehouseOperationKind =
-    isWarehouseOperationKind(tabParam) && WAREHOUSE_DETAIL_TAB_KINDS.includes(tabParam)
-      ? tabParam
-      : 'receipt';
+  const activeTab: WarehouseDetailTab = isWarehouseDetailTab(tabParam) ? tabParam : 'receipt';
 
   const { data: warehouse, isLoading, isError } = useWarehouse(companyId, warehouseId);
 
-  const setTab = (tab: WarehouseOperationKind) => {
+  const setTab = (tab: WarehouseDetailTab) => {
     router.replace(`${inventoryAdminRoutes.warehouseDetail(warehouseId)}?tab=${tab}`, { scroll: false });
   };
 
@@ -109,14 +114,6 @@ export function WarehouseDetailPage() {
           <Button
             variant="secondary"
             className="bg-white/15 text-white hover:bg-white/25"
-            onClick={() => router.push(inventoryAdminRoutes.locationsForWarehouse(warehouseId))}
-          >
-            <MapPin className="h-4 w-4" />
-            المواقع
-          </Button>
-          <Button
-            variant="secondary"
-            className="bg-white/15 text-white hover:bg-white/25"
             onClick={() => router.push(inventoryAdminRoutes.warehouses)}
           >
             <ArrowRight className="h-4 w-4" />
@@ -126,6 +123,19 @@ export function WarehouseDetailPage() {
       </div>
 
       <div className="inv-tabs-scroll">
+        <button
+          type="button"
+          onClick={() => setTab('locations')}
+          className={cn(
+            'inline-flex items-center gap-1.5 rounded-t-lg px-2.5 py-2 text-xs sm:text-sm transition-colors',
+            activeTab === 'locations'
+              ? 'border-b-2 border-primary font-semibold text-primary'
+              : 'text-muted-foreground hover:text-foreground',
+          )}
+        >
+          <MapPin className="h-3.5 w-3.5 shrink-0" />
+          المواقع
+        </button>
         {WAREHOUSE_DETAIL_TAB_KINDS.map((kind) => {
           const Icon = TAB_ICONS[kind];
           const selected = activeTab === kind;
@@ -150,7 +160,11 @@ export function WarehouseDetailPage() {
         })}
       </div>
 
-      <WarehouseOperationsPanel warehouseId={warehouseId} kind={activeTab} />
+      {activeTab === 'locations' ? (
+        <LocationsListPage embeddedWarehouseId={warehouseId} />
+      ) : (
+        <WarehouseOperationsPanel warehouseId={warehouseId} kind={activeTab} />
+      )}
     </div>
   );
 }

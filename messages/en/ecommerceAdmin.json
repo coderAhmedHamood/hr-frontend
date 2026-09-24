@@ -53,6 +53,7 @@
     "categories": "Categories",
     "attributes": "Attributes",
     "brands": "Brands",
+    "catalogUoms": "Units of measure",
     "orders": "Orders",
     "salesReports": "Sales reports",
     "reportsOverview": "Reports dashboard",

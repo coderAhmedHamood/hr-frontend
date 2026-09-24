@@ -1,83 +1,125 @@
 'use client';
 
 import * as React from 'react';
-import { Plus, Ruler } from 'lucide-react';
+import { Pencil, Plus, Trash2 } from 'lucide-react';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
+import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
+import { PageHeaderPrimaryButton } from '@/components/layouts/page-header-primary-button';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
 import { useCatalogUoms } from '@/features/ecommerce/admin/catalog-uoms/hooks/use-catalog-uoms';
-import {
-  createCatalogUom,
-  type CatalogUom,
-} from '@/features/ecommerce/admin/catalog-uoms/lib/api/catalog-uoms';
+import { useCatalogUomMutations } from '@/features/ecommerce/admin/catalog-uoms/hooks/use-catalog-uom-mutations';
+import { CatalogUomFormDialog } from '@/features/ecommerce/admin/catalog-uoms/components/catalog-uom-form-dialog';
+import { DeleteCatalogUomDialog } from '@/features/ecommerce/admin/catalog-uoms/components/delete-catalog-uom-dialog';
+import type { CatalogUom, CatalogUomCategory } from '@/features/ecommerce/admin/catalog-uoms/lib/api/catalog-uoms';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import { DataTable, type ColumnDef } from '@/components/ui/data-table';
-import { useQueryClient } from '@tanstack/react-query';
+
+const CATEGORY_LABELS_AR: Record<CatalogUomCategory, string> = {
+  countable: 'معدود',
+  bulk: 'غير معدود',
+};
 
 export function CatalogUomsListPage() {
   const companyId = getStorefrontCompanyId();
-  const queryClient = useQueryClient();
-  const { data, isLoading } = useCatalogUoms({ companyId, ensureDefaults: true, limit: 200 });
-  const [nameAr, setNameAr] = React.useState('');
-  const [saving, setSaving] = React.useState(false);
+  const { data, isLoading, isError } = useCatalogUoms({ companyId, ensureDefaults: true, limit: 200 });
+  const { remove } = useCatalogUomMutations();
 
-  async function handleAdd() {
-    if (!nameAr.trim()) return;
-    setSaving(true);
-    try {
-      await createCatalogUom({ companyId, nameAr: nameAr.trim() });
-      setNameAr('');
-      await queryClient.invalidateQueries({ queryKey: ['catalog-uoms'] });
-    } finally {
-      setSaving(false);
-    }
-  }
+  const [formState, setFormState] = React.useState<{ open: boolean; uom: CatalogUom | null }>({
+    open: false,
+    uom: null,
+  });
+  const [uomToDelete, setUomToDelete] = React.useState<CatalogUom | null>(null);
+
+  const openCreate = () => setFormState({ open: true, uom: null });
+  const openEdit = (uom: CatalogUom) => setFormState({ open: true, uom });
+
+  usePageHeaderActions(
+    () => (
+      <PageHeaderPrimaryButton icon={Plus} label="إضافة وحدة" disabled={!companyId} onClick={openCreate} />
+    ),
+    [companyId],
+  );
 
   const columns: ColumnDef<CatalogUom>[] = [
-    { key: 'nameAr', title: 'الاسم', render: (row) => row.nameAr },
+    {
+      key: 'name',
+      title: 'الاسم',
+      render: (row) => (
+        <div>
+          <div className="font-medium">{row.nameAr}</div>
+          {!row.isActive ? (
+            <Badge variant="secondary" className="mt-1 text-[10px]">
+              غير نشطة
+            </Badge>
+          ) : null}
+        </div>
+      ),
+    },
     { key: 'code', title: 'الرمز', render: (row) => <span dir="ltr">{row.code}</span> },
     { key: 'packagingType', title: 'نوع الطرد', render: (row) => row.packagingType },
+    { key: 'category', title: 'الفئة', render: (row) => CATEGORY_LABELS_AR[row.category] },
+    { key: 'order', title: 'الترتيب', render: (row) => row.displayOrder },
+    {
+      key: 'actions',
+      title: '',
+      render: (row) => (
+        <div className="flex justify-end gap-1">
+          <Button type="button" variant="ghost" size="icon" aria-label="تعديل" onClick={() => openEdit(row)}>
+            <Pencil className="h-4 w-4" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label="حذف"
+            onClick={() => setUomToDelete(row)}
+          >
+            <Trash2 className="h-4 w-4 text-destructive" />
+          </Button>
+        </div>
+      ),
+    },
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-5">
       <SetPageTitle
         titleAr="وحدات القياس"
-        descriptionAr="كتالوج مشترك: حبة، علبة، كرتون… تُ reused في كل المنتجات."
+        descriptionAr="كتالوج مشترك بين المنتجات — عرّف الحبة والعلبة والكرتون هنا، ثم اربطها بالمنتج بالكمية النسبية."
         iconName="Ruler"
       />
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2">
-          <Ruler className="h-5 w-5 text-primary" />
-          <div>
-            <h1 className="text-lg font-semibold">كتالوج وحدات القياس</h1>
-            <p className="text-xs text-muted-foreground">
-              حبة، علبة، كرتون… تُعرَّف مرة وتُ reused في كل المنتجات. عند أول فتح تُ seed تلقائياً.
-            </p>
-          </div>
-        </div>
-      </div>
 
-      <div className="flex flex-wrap gap-2">
-        <Input
-          className="max-w-xs"
-          placeholder="اسم وحدة جديدة — مثال: شrink"
-          value={nameAr}
-          onChange={(e) => setNameAr(e.target.value)}
-        />
-        <Button type="button" className="gap-1.5" disabled={saving || !nameAr.trim()} onClick={() => void handleAdd()}>
-          <Plus className="h-4 w-4" />
-          إضافة
-        </Button>
-      </div>
+      {isError ? <p className="text-sm text-destructive">تعذر تحميل وحدات القياس.</p> : null}
 
       <DataTable
         variant="directory"
+        className="sto-table-host"
         columns={columns}
         data={data?.items ?? []}
         keyExtractor={(row) => row.id}
         loading={isLoading}
-        emptyText="لا توجد وحدات بعد."
+        emptyText="لا توجد وحدات. اضغط «إضافة وحدة»."
+      />
+
+      <CatalogUomFormDialog
+        open={formState.open}
+        uom={formState.uom}
+        onOpenChange={(open) => setFormState((prev) => ({ ...prev, open }))}
+      />
+
+      <DeleteCatalogUomDialog
+        open={Boolean(uomToDelete)}
+        uom={uomToDelete}
+        onOpenChange={(open) => {
+          if (!open) setUomToDelete(null);
+        }}
+        isDeleting={remove.isPending}
+        onConfirm={async (uom) => {
+          if (!companyId) return;
+          await remove.mutateAsync({ id: uom.id, companyId });
+          setUomToDelete(null);
+        }}
       />
     </div>
   );

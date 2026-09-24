@@ -9,6 +9,7 @@ import {
   type ProductRelatedDocChip,
   type ProductRelatedDocKey,
 } from '@/features/ecommerce/admin/products/components/product-related-docs-bar';
+import { ProductActiveStatusToggle } from '@/features/ecommerce/admin/products/components/product-active-status-toggle';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/shared/utils';
 
@@ -70,9 +71,12 @@ export function ProductFormHeader({
 
           <div className="flex min-w-0 flex-1 flex-col justify-center gap-3">
             <div className="space-y-1.5">
-              <label htmlFor="product-name-ar" className="text-xs font-medium text-muted-foreground">
-                اسم المنتج <span className="text-destructive">*</span>
-              </label>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <label htmlFor="product-name-ar" className="text-xs font-medium text-muted-foreground">
+                  اسم المنتج <span className="text-destructive">*</span>
+                </label>
+                <ProductActiveStatusToggle control={control} setValue={setValue} />
+              </div>
               <Input
                 id="product-name-ar"
                 placeholder="مثال: سيروم سيرافي المرطب 30 مل"

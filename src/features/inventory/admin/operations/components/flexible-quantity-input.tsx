@@ -71,7 +71,7 @@ export function FlexibleQuantityInput({
       dir="ltr"
       aria-label={ariaLabel}
       disabled={disabled}
-      className={cn('h-9 w-28 tabular-nums', className)}
+      className={cn('h-9 min-w-[5rem] tabular-nums', className)}
       value={draft}
       onFocus={() => {
         focusedRef.current = true;

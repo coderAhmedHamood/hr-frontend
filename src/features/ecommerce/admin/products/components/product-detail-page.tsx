@@ -25,6 +25,11 @@ import {
   formValuesToCreateInput,
   productToFormValues,
 } from '@/features/ecommerce/admin/products/lib/product-form-mapping';
+import {
+  findFirstFormError,
+  formHasErrorForFields,
+  topLevelFieldFromErrorPath,
+} from '@/features/ecommerce/admin/products/lib/product-form-errors';
 import { ProductDetailHero } from '@/features/ecommerce/admin/products/components/product-detail-hero';
 import { ProductRelatedDocsSidebar } from '@/features/ecommerce/admin/products/components/product-related-docs-sidebar';
 import { ProductGeneralTab } from '@/features/ecommerce/admin/products/components/product-general-tab';
@@ -67,6 +72,7 @@ type DetailTab = (typeof DETAIL_TABS)[number]['value'];
 /** Maps top-level form fields to the tab that renders them, so a validation error can jump the user there. */
 const TAB_FIELDS: Record<DetailTab, string[]> = {
   general: [
+    'media',
     'sku',
     'categoryId',
     'brandId',
@@ -85,10 +91,6 @@ const TAB_FIELDS: Record<DetailTab, string[]> = {
     'shortDescription',
     'description',
     'tagsInput',
-    'nameEn',
-    'slug',
-    'metaTitle',
-    'metaDescription',
   ],
   attributes: ['attributes', 'variants'],
   availability: ['stockStatus', 'stockQuantity', 'lowStockThreshold'],
@@ -202,19 +204,23 @@ export function ProductDetailPage({ productId }: Props) {
    * tab the user wasn't currently viewing. Surface it and jump to the offending tab.
    */
   const onInvalid = (formErrors: typeof form.formState.errors) => {
-    const errorKeys = Object.keys(formErrors);
-    if (errorKeys.length === 0) return;
-    if (errorKeys.includes('nameAr')) {
-      toast.error('يرجى إدخال اسم المنتج أولًا.');
+    const first = findFirstFormError(formErrors);
+    if (!first) return;
+
+    if (first.path === 'nameAr' || first.path.startsWith('nameAr.')) {
+      toast.error(first.message || 'يرجى إدخال اسم المنتج أولًا.');
       return;
     }
-    const offendingTab = DETAIL_TABS.find((tab) => TAB_FIELDS[tab.value].some((key) => errorKeys.includes(key)));
+
+    const topField = topLevelFieldFromErrorPath(first.path);
+    const offendingTab = DETAIL_TABS.find((tab) => TAB_FIELDS[tab.value].includes(topField));
     if (offendingTab) {
       setActiveTab(offendingTab.value);
-      toast.error(`تحقق من الحقول في تبويب «${offendingTab.label}» قبل الحفظ.`);
+      toast.error(first.message || `تحقق من الحقول في تبويب «${offendingTab.label}» قبل الحفظ.`);
       return;
     }
-    toast.error('تحقق من الحقول المطلوبة قبل الحفظ.');
+
+    toast.error(first.message || 'تحقق من الحقول المطلوبة قبل الحفظ.');
   };
 
   const submitForm = () => void form.handleSubmit(onSubmit, onInvalid)();
@@ -402,9 +408,7 @@ export function ProductDetailPage({ productId }: Props) {
               <div className="sto-tabs-scroll sticky top-0 z-10 -mx-1 rounded-2xl px-1 pb-1">
                 <TabsList className="sto-tabs-scroll h-auto min-w-full w-max justify-start gap-1 rounded-2xl border border-border/60 bg-muted/70 p-1.5 backdrop-blur">
                   {DETAIL_TABS.map(({ value, label, icon: Icon }) => {
-                    const hasError = TAB_FIELDS[value].some(
-                      (key) => key in form.formState.errors,
-                    );
+                    const hasError = formHasErrorForFields(form.formState.errors, TAB_FIELDS[value]);
                     return (
                       <TabsTrigger
                         key={value}
@@ -516,6 +520,7 @@ export function ProductDetailPage({ productId }: Props) {
           if (!next && activeRelatedDoc === 'variants') setActiveRelatedDoc(null);
         }}
         control={form.control}
+        errors={form.formState.errors}
         register={form.register}
         setValue={form.setValue}
         getValues={form.getValues}

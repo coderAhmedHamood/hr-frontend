@@ -12,7 +12,7 @@ import { STOCK_STATUS_LABELS_AR, type StockStatus } from '@/features/ecommerce/d
 import { formatPrice } from '@/features/ecommerce/shared/utils/format-price';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
+import { ProductActiveStatusToggle } from '@/features/ecommerce/admin/products/components/product-active-status-toggle';
 import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { cn } from '@/shared/utils';
 
@@ -115,26 +115,7 @@ export function ProductDetailHero({ control, register, setValue, nameError, curr
                 <label htmlFor="product-detail-name-ar" className="text-xs font-medium text-muted-foreground">
                   اسم المنتج <span className="text-destructive">*</span>
                 </label>
-                <div className="flex shrink-0 items-center gap-2">
-                  <span
-                    className={cn(
-                      'text-xs font-semibold',
-                      status === 'active' ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground',
-                    )}
-                  >
-                    {status === 'active' ? 'نشط' : 'غير نشط'}
-                  </span>
-                  <Switch
-                    checked={status === 'active'}
-                    onCheckedChange={(checked) =>
-                      setValue('status', checked ? 'active' : 'draft', {
-                        shouldDirty: true,
-                        shouldValidate: true,
-                      })
-                    }
-                    aria-label="تفعيل المنتج"
-                  />
-                </div>
+                <ProductActiveStatusToggle control={control} setValue={setValue} />
               </div>
               <Input
                 id="product-detail-name-ar"
