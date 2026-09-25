@@ -19,6 +19,8 @@ import {
   type EffectiveUomLine,
 } from '@/features/inventory/lib/api/product-effective-uom';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { OperationLineVariantSelect } from '@/features/inventory/admin/operations/components/operation-line-variant-select';
+import { formatVariantCompactLabel } from '@/features/inventory/admin/operations/lib/variant-display-label';
 
 type Props = {
   companyId: string;
@@ -63,13 +65,6 @@ export function WarehouseOperationLinesEditor({
     return rows;
   }
 
-  // A product sitting on another row is hidden from this row's search, so a
-  // duplicate can never be picked in the first place.
-  const pickedProductIds = React.useMemo(
-    () => lines.map((line) => line.productId.trim()).filter(Boolean),
-    [lines],
-  );
-
   React.useEffect(() => {
     if (!companyId || !checksSourceStock || !fromLocationId) {
       setAvailableByKey({});
@@ -87,6 +82,7 @@ export function WarehouseOperationLinesEditor({
             companyId,
             line.productId,
             fromLocationId,
+            line.variantId,
           );
           next[key] = Math.max(0, available);
         }),
@@ -125,14 +121,22 @@ export function WarehouseOperationLinesEditor({
       </div>
 
       {duplicateProducts ? (
-        <p className="mb-2 text-xs text-destructive">لا يمكن تكرار نفس المنتج في أكثر من سطر.</p>
+        <p className="mb-2 text-xs text-destructive">
+          لا يمكن تكرار نفس المنتج/المتغير في أكثر من سطر.
+        </p>
       ) : null}
+      <p className="mb-2 text-xs text-muted-foreground leading-relaxed">
+        كل سطر ={' '}
+        <span className="font-medium text-foreground">متغير واحد</span> (أو المنتج الأساسي). لاستلام
+        عدة متغيرات من نفس المنتج: أضف سطراً لكل متغير عبر «إضافة صنف».
+      </p>
 
       <div className="overflow-x-auto rounded-xl border border-border">
-        <table className="w-full min-w-[56rem] text-sm">
+        <table className="w-full min-w-[64rem] text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/30 text-muted-foreground">
               <th className="min-w-[14rem] px-3 py-2.5 text-start font-medium">المنتج</th>
+              <th className="min-w-[10rem] px-3 py-2.5 text-start font-medium">المتغير</th>
               <th className="min-w-[8rem] px-3 py-2.5 text-start font-medium">الوحدة</th>
               <th className="min-w-[9rem] px-3 py-2.5 text-start font-medium">الكمية</th>
               {needsUnitCost ? (
@@ -161,10 +165,7 @@ export function WarehouseOperationLinesEditor({
                       value={line.productId}
                       status="active"
                       disabled={disabled}
-                      excludeIds={[
-                        ...(excludeProductIds ?? []),
-                        ...pickedProductIds.filter((id) => id !== line.productId.trim()),
-                      ]}
+                      excludeIds={excludeProductIds}
                       sourceLocationId={
                         restrictToSourceLocation ? fromLocationId : undefined
                       }
@@ -179,6 +180,8 @@ export function WarehouseOperationLinesEditor({
                             productId: '',
                             productName: '',
                             sku: '',
+                            variantId: undefined,
+                            variantName: undefined,
                           });
                           return;
                         }
@@ -191,7 +194,10 @@ export function WarehouseOperationLinesEditor({
                           updateLine(line.id, {
                             productId: product.id,
                             productName: product.nameAr,
+                            catalogProductName: product.nameAr,
                             sku: product.sku,
+                            variantId: undefined,
+                            variantName: undefined,
                             productUomLineId: ref?.id,
                             uomLineName: ref?.nameAr,
                           });
@@ -203,6 +209,36 @@ export function WarehouseOperationLinesEditor({
                         {line.sku}
                       </p>
                     ) : null}
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <OperationLineVariantSelect
+                      companyId={companyId}
+                      productId={line.productId}
+                      catalogProductName={line.catalogProductName ?? line.productName}
+                      variantId={line.variantId}
+                      variantName={line.variantName}
+                      disabled={disabled}
+                      onChange={(nextVariantId, variant) => {
+                        if (!nextVariantId || !variant) {
+                          updateLine(line.id, {
+                            variantId: undefined,
+                            variantName: undefined,
+                            productName: line.catalogProductName ?? line.productName,
+                          });
+                          return;
+                        }
+                        const compact = formatVariantCompactLabel(
+                          variant,
+                          line.catalogProductName ?? line.productName,
+                        );
+                        updateLine(line.id, {
+                          variantId: variant.id,
+                          variantName: compact,
+                          productName: line.catalogProductName ?? line.productName,
+                          sku: variant.sku || line.sku,
+                        });
+                      }}
+                    />
                   </td>
                   <td className="px-3 py-2.5">
                     {line.productId ? (
@@ -277,7 +313,7 @@ export function WarehouseOperationLinesEditor({
                             }
                           }}
                         />
-                        <span className="pe-2 text-xs font-medium text-muted-foreground">ر.ي</span>
+                        <span className="pe-2 text-xs font-medium text-muted-foreground">ر.س</span>
                       </div>
                       {line.productId && !line.unitCost?.trim() ? (
                         <p className="mt-1 text-[11px] font-medium text-amber-700 dark:text-amber-400">

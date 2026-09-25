@@ -551,7 +551,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
 
     if (multiProductMode) {
       if (hasDuplicateOperationLineProducts(lineDrafts)) {
-        toast.error('لا يمكن تكرار نفس المنتج في أكثر من سطر.');
+        toast.error('لا يمكن تكرار نفس المنتج/المتغير في أكثر من سطر.');
         return;
       }
       const lines = operationLineDraftsToLines(lineDrafts, lineLocations, {

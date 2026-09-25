@@ -4,7 +4,11 @@ export type OperationLineDraft = {
   id: string;
   productId: string;
   productName: string;
+  /** Parent product title — kept when a variant row changes display name. */
+  catalogProductName?: string;
   sku?: string;
+  variantId?: string;
+  variantName?: string;
   quantity: number;
   productUomLineId?: string;
   uomLineName?: string;
@@ -53,8 +57,10 @@ export function emptyOperationLineDraft(): OperationLineDraft {
   };
 }
 
-export function operationLineDraftKey(line: Pick<OperationLineDraft, 'productId'>): string {
-  return line.productId.trim();
+export function operationLineDraftKey(
+  line: Pick<OperationLineDraft, 'productId' | 'variantId'>,
+): string {
+  return `${line.productId.trim()}|${line.variantId?.trim() ?? ''}`;
 }
 
 export function hasDuplicateOperationLineProducts(lines: OperationLineDraft[]): boolean {
@@ -75,6 +81,7 @@ export function operationLineDraftsToLines(
     .map((line) => ({
       id: line.id,
       productId: line.productId.trim(),
+      variantId: line.variantId?.trim() || undefined,
       productName: line.productName.trim() || 'منتج',
       sku: line.sku?.trim() || undefined,
       demandQuantity: line.quantity,
@@ -96,6 +103,8 @@ export function operationLinesToDrafts(lines: WarehouseOperationLine[]): Operati
     productId: line.productId,
     productName: line.productName,
     sku: line.sku,
+    variantId: line.variantId ?? undefined,
+    variantName: line.variantId ? line.productName : undefined,
     quantity: line.uomEnteredQuantity ?? line.quantity,
     productUomLineId: line.productUomLineId ?? undefined,
     unitCost: line.unitCost ?? '',

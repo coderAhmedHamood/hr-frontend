@@ -68,6 +68,11 @@ import {
   supportsMultiProductLines,
   pickerUsesSourceLocationStock,
 } from '@/features/inventory/admin/operations/lib/operation-line-draft';
+import {
+  OperationLineVariantSelect,
+  operationLineVariantLabel,
+} from '@/features/inventory/admin/operations/components/operation-line-variant-select';
+import type { ProductVariant } from '@/features/ecommerce/domain/types/product';
 import { OperationUnitCostInput } from '@/features/inventory/admin/operations/components/operation-unit-cost-input';
 import { OPERATION_FORM_TAB_TRIGGER } from '@/features/inventory/admin/operations/components/operation-form-ui';
 import {
@@ -376,7 +381,7 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
     allowEmpty?: boolean;
   }): WarehouseOperationLine[] | null {
     if (hasDuplicateOperationLineProducts(operationLinesToDrafts(lines))) {
-      toast.error('لا يمكن تكرار نفس المنتج في أكثر من سطر.');
+      toast.error('لا يمكن تكرار نفس المنتج/المتغير في أكثر من سطر.');
       return null;
     }
     const hasIncomplete = lines.some(
@@ -464,6 +469,26 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
           productName: product.nameAr,
           variantId: undefined,
           sku: product.sku,
+        };
+      }),
+    );
+  }
+
+  function applyLineVariant(
+    lineId: string,
+    variantId: string | undefined,
+    variant?: ProductVariant,
+  ) {
+    setLines((prev) =>
+      prev.map((line) => {
+        if (line.id !== lineId) return line;
+        if (!variantId || !variant) {
+          return { ...line, variantId: undefined };
+        }
+        return {
+          ...line,
+          variantId: variant.id,
+          sku: variant.sku || line.sku,
         };
       }),
     );
@@ -932,13 +957,7 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
                             value={line.productId}
                             status="active"
                             disabled={isSaving}
-                            excludeIds={[
-                              ...reservedProductIdsOtherDocs,
-                              ...lines
-                                .filter((other) => other.id !== line.id)
-                                .map((other) => other.productId?.trim())
-                                .filter((id): id is string => Boolean(id)),
-                            ]}
+                            excludeIds={reservedProductIdsOtherDocs}
                             sourceLocationId={
                               pickerUsesSourceLocationStock(kind)
                                 ? headerFromLocationId || undefined
@@ -958,9 +977,26 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
                           <div className="rounded-lg border border-border/70 bg-muted/20 px-3 py-2.5">
                             <p className="font-medium">{line.productName}</p>
                             <p className="mt-0.5 text-xs text-muted-foreground">
-                              {line.variantId ? 'متغير' : 'المنتج الأساسي'}
+                              {operationLineVariantLabel(line.variantId, line.productName)}
                             </p>
                           </div>
+                        )}
+                      </OperationLineField>
+
+                      <OperationLineField label="المتغير" fullWidth={canEditProducts}>
+                        {canEditProducts && line.productId ? (
+                          <OperationLineVariantSelect
+                            companyId={companyId ?? ''}
+                            productId={line.productId}
+                            catalogProductName={line.productName}
+                            variantId={line.variantId}
+                            disabled={isSaving}
+                            onChange={(nextId, variant) => applyLineVariant(line.id, nextId, variant)}
+                          />
+                        ) : (
+                          <p className="text-sm text-muted-foreground">
+                            {operationLineVariantLabel(line.variantId, line.productName)}
+                          </p>
                         )}
                       </OperationLineField>
 
