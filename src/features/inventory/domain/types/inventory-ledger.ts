@@ -44,6 +44,8 @@ export type InventoryLedgerListQuery = {
   productId?: string;
   locationId?: string;
   kind?: WarehouseOperationKind;
+  /** Receipts, purchases, and replenishments only. */
+  flow?: 'inbound';
   operationId?: string;
   occurredAtFrom?: string;
   occurredAtTo?: string;

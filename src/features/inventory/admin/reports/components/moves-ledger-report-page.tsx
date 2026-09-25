@@ -70,7 +70,7 @@ function formatLocationFilterLabel(
   return `${wh} · ${name}${code}`;
 }
 
-export function MovesLedgerReportPage() {
+export function MovesLedgerReportPage({ inboundOnly = false }: { inboundOnly?: boolean } = {}) {
   const companyId = getInventoryCompanyId();
   const [searchInput, setSearchInput] = React.useState('');
   const [search, setSearch] = React.useState('');
@@ -104,6 +104,7 @@ export function MovesLedgerReportPage() {
     warehouseId: warehouseId === 'all' ? undefined : warehouseId,
     locationId: locationId === 'all' ? undefined : locationId,
     kind: kind === 'all' ? undefined : kind,
+    flow: inboundOnly && kind === 'all' ? 'inbound' : undefined,
     occurredAtFrom: localDateBoundary(dateRange.from),
     occurredAtTo: localDateBoundary(dateRange.to, true),
     search: search || undefined,
@@ -197,8 +198,12 @@ export function MovesLedgerReportPage() {
             onChange: (value) => setKind(value as typeof kind),
             placeholder: 'كل الأنواع',
             options: [
-              { value: 'all', label: 'كل الأنواع' },
-              ...WAREHOUSE_OPERATION_KINDS.map((item) => ({
+              { value: 'all', label: inboundOnly ? 'كل الوارد' : 'كل الأنواع' },
+              ...WAREHOUSE_OPERATION_KINDS.filter(
+                (item) =>
+                  !inboundOnly ||
+                  WAREHOUSE_OPERATION_KIND_META[item].stockEffect === 'inbound',
+              ).map((item) => ({
                 value: item,
                 label: WAREHOUSE_OPERATION_KIND_META[item].labelAr,
               })),
@@ -225,6 +230,7 @@ export function MovesLedgerReportPage() {
       kind,
       dateRange,
       warehouses,
+      inboundOnly,
     ],
   );
 
@@ -296,7 +302,7 @@ export function MovesLedgerReportPage() {
     },
     {
       key: 'delta',
-      title: 'التغيير',
+      title: inboundOnly ? 'الكمية الداخلة' : 'التغيير',
       render: (row) => (
         <span
           className={
@@ -323,9 +329,13 @@ export function MovesLedgerReportPage() {
   return (
     <div className="flex flex-col gap-5">
       <SetPageTitle
-        titleAr="سجل الحركات"
-        descriptionAr="دفتر قيود ثابت — كل تصديق يكتب بنودًا غير قابلة للتعديل. التراجع يضيف قيود عكس."
-        iconName="FileText"
+        titleAr={inboundOnly ? 'وارد الأصناف' : 'سجل الحركات'}
+        descriptionAr={
+          inboundOnly
+            ? 'كل صنف دخل إلى المخزون عبر الاستلام أو الشراء أو التجديد، مع الكمية وتاريخ الحركة.'
+            : 'دفتر قيود ثابت — كل تصديق يكتب بنودًا غير قابلة للتعديل. التراجع يضيف قيود عكس.'
+        }
+        iconName={inboundOnly ? 'Package' : 'FileText'}
       />
 
       <div className="flex flex-wrap gap-2">

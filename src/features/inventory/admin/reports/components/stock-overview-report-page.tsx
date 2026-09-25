@@ -197,7 +197,7 @@ export function StockOverviewReportPage() {
     },
     {
       key: 'onHand',
-      title: 'On Hand',
+      title: 'الكمية',
       render: (row) => (
         <span className="font-medium tabular-nums" dir="ltr">
           {row.onHand}
@@ -206,7 +206,7 @@ export function StockOverviewReportPage() {
     },
     {
       key: 'reserved',
-      title: 'Reserved',
+      title: 'المحجوز',
       hideOnMobile: true,
       render: (row) => (
         <span className="tabular-nums text-muted-foreground" dir="ltr">
@@ -216,7 +216,7 @@ export function StockOverviewReportPage() {
     },
     {
       key: 'available',
-      title: 'Available',
+      title: 'المتاح',
       render: (row) => (
         <span className="font-semibold tabular-nums" dir="ltr">
           {row.available}

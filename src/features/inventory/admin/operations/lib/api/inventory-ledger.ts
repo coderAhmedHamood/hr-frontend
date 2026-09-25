@@ -56,6 +56,7 @@ export const inventoryLedgerApi = {
         productId: query.productId,
         locationId: query.locationId,
         kind: query.kind,
+        flow: query.flow,
         operationId: query.operationId,
         occurredAtFrom: query.occurredAtFrom,
         occurredAtTo: query.occurredAtTo,

@@ -137,11 +137,12 @@ export const inventoryAdminNavGroups: InventoryAdminNavGroup[] = [
         items: [
           { labelAr: 'المخزون', href: inventoryAdminRoutes.reportStock, icon: Package },
           {
-            labelAr: 'Detailed Stock',
+            labelAr: 'المخزون التفصيلي',
             href: inventoryAdminRoutes.reportDetailedStock,
             icon: ClipboardList,
           },
           { labelAr: 'سجل الحركات', href: inventoryAdminRoutes.reportMoves, icon: FileText },
+          { labelAr: 'وارد الأصناف', href: inventoryAdminRoutes.reportInbound, icon: PackagePlus },
           { labelAr: 'الدفعات', href: inventoryAdminRoutes.reportBatches, icon: Layers },
           {
             labelAr: 'تحليل الحركات',

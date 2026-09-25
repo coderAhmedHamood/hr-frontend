@@ -244,8 +244,22 @@ export function DetailedStockReportPage() {
       ),
     },
     {
+      key: 'unitCost',
+      title: 'متوسط التكلفة',
+      hideOnMobile: true,
+      render: (row) =>
+        row.unitCost == null ? (
+          <span className="text-xs text-muted-foreground">—</span>
+        ) : (
+          <span className="font-semibold tabular-nums" dir="ltr">
+            {row.unitCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{' '}
+            {row.costCurrency === 'YER' ? 'ر.ي' : row.costCurrency}
+          </span>
+        ),
+    },
+    {
       key: 'qty',
-      title: 'On Hand',
+      title: 'الكمية',
       render: (row) => (
         <span className="font-semibold tabular-nums" dir="ltr">
           {row.quantity}
@@ -254,7 +268,7 @@ export function DetailedStockReportPage() {
     },
     {
       key: 'reserved',
-      title: 'Reserved',
+      title: 'المحجوز',
       hideOnMobile: true,
       render: (row) => (
         <span className="tabular-nums text-muted-foreground" dir="ltr">
@@ -264,7 +278,7 @@ export function DetailedStockReportPage() {
     },
     {
       key: 'available',
-      title: 'Available',
+      title: 'المتاح',
       render: (row) => (
         <span className="font-semibold tabular-nums" dir="ltr">
           {Math.max(0, row.quantity - row.reservedQuantity)}
@@ -305,7 +319,7 @@ export function DetailedStockReportPage() {
     <div className="flex flex-col gap-5">
       <SetPageTitle
         titleAr="المخزون التفصيلي"
-        descriptionAr="كمية كل منتج في كل موقع تخزين — مستوى الصف التفصيلي للمخزون."
+        descriptionAr="كمية كل منتج في كل موقع، مع متوسط تكلفة المستودع الحالي. يتحدث بعد كل استلام أو صرف."
         iconName="ClipboardList"
       />
 

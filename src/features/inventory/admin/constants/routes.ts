@@ -20,6 +20,7 @@ export const inventoryAdminRoutes = {
   reportStock: '/inventory/reports/stock',
   reportDetailedStock: '/inventory/reports/detailed-stock',
   reportMoves: '/inventory/reports/moves',
+  reportInbound: '/inventory/reports/inbound',
   reportMovesAnalysis: '/inventory/reports/moves-analysis',
   reportBatches: '/inventory/reports/batches',
   /** التهيئة */
