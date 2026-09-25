@@ -68,18 +68,12 @@ import {
   supportsMultiProductLines,
   pickerUsesSourceLocationStock,
 } from '@/features/inventory/admin/operations/lib/operation-line-draft';
-import {
-  OperationLineVariantSelect,
-  operationLineVariantLabel,
-} from '@/features/inventory/admin/operations/components/operation-line-variant-select';
+import { OperationLineVariantSelect } from '@/features/inventory/admin/operations/components/operation-line-variant-select';
 import type { ProductVariant } from '@/features/ecommerce/domain/types/product';
 import { OperationUnitCostInput } from '@/features/inventory/admin/operations/components/operation-unit-cost-input';
+import { fetchActiveProductVariants } from '@/features/inventory/admin/operations/lib/fetch-active-product-variants';
+import { formatVariantCompactLabel } from '@/features/inventory/admin/operations/lib/variant-display-label';
 import { OPERATION_FORM_TAB_TRIGGER } from '@/features/inventory/admin/operations/components/operation-form-ui';
-import {
-  OperationLineCardShell,
-  OperationLineField,
-  OperationLinesStack,
-} from '@/features/inventory/admin/operations/components/operation-line-card-shell';
 import {
   filterOperationFromLocations,
   filterOperationToLocations,
@@ -91,6 +85,56 @@ type Props = {
   onOpenChange: (open: boolean) => void;
   operation: WarehouseOperation | null;
 };
+
+function formatLineQuantity(value: number): string {
+  if (!Number.isFinite(value)) return '—';
+  return Number.isInteger(value) ? String(value) : String(Math.round(value * 1000) / 1000);
+}
+
+function lineUnitCostNumber(unitCost?: string): number | null {
+  const raw = unitCost?.trim();
+  if (!raw) return null;
+  const value = Number(raw);
+  return Number.isFinite(value) ? value : null;
+}
+
+function formatLineMoney(value: number, decimals: number): string {
+  if (!Number.isFinite(value)) return '—';
+  return `${value.toFixed(decimals)} ر.ي`;
+}
+
+function OperationLineVariantReadout({
+  companyId,
+  productId,
+  productName,
+  variantId,
+}: {
+  companyId: string;
+  productId: string;
+  productName: string;
+  variantId?: string;
+}) {
+  const { data, isLoading } = useQuery({
+    queryKey: ['inventory', 'operation-line-variant-label', companyId, productId],
+    queryFn: async () => {
+      try {
+        return await fetchActiveProductVariants(companyId, productId);
+      } catch {
+        return [];
+      }
+    },
+    enabled: Boolean(companyId && productId && variantId),
+    staleTime: 5 * 60_000,
+  });
+
+  if (!productId) return <span className="text-muted-foreground">—</span>;
+  if (!variantId) return <span>المنتج الأساسي</span>;
+  if (isLoading) return <span className="text-muted-foreground">…</span>;
+
+  const variant = data?.find((row) => row.id === variantId);
+  const label = variant ? formatVariantCompactLabel(variant, productName) : '';
+  return <span>{label || 'متغير'}</span>;
+}
 
 function statusBadgeVariant(
   status: WarehouseOperationStatus,
@@ -500,6 +544,21 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
   const qtyEditable = status === 'draft' || status === 'ready';
   const multiProductMode = supportsMultiProductLines(kind);
   const canEditProducts = editable && status === 'draft' && multiProductMode;
+  const isCountLike = kind === 'physical_count' || kind === 'adjustment';
+  const showDemandColumn = !isCountLike;
+  const showCostColumns = stockEffect === 'inbound';
+  const lineColumnCount =
+    5 + (showDemandColumn ? 1 : 0) + (showCostColumns ? 2 : 0) + (canEditProducts ? 1 : 0);
+  const pricedLines = lines.filter((line) => line.productId?.trim());
+  const demandTotal = pricedLines.reduce(
+    (sum, line) => sum + (line.demandQuantity ?? line.quantity),
+    0,
+  );
+  const executedTotal = pricedLines.reduce((sum, line) => sum + line.quantity, 0);
+  const moneyTotal = pricedLines.reduce((sum, line) => {
+    const unitCost = lineUnitCostNumber(line.unitCost);
+    return unitCost == null ? sum : sum + unitCost * line.quantity;
+  }, 0);
   const isSaving = update.isPending || undo.isPending;
   const meta = WAREHOUSE_OPERATION_KIND_META[kind];
   const needsFrom = meta.needsFrom;
@@ -680,7 +739,7 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={cn(dialogShellContentClass, 'max-w-5xl sm:max-w-5xl')}>
+      <DialogContent className={cn(dialogShellContentClass, 'max-w-6xl sm:max-w-6xl')}>
         <div className={dialogShellHeaderClass}>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="space-y-1">
@@ -918,152 +977,281 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
             </TabsList>
 
             <TabsContent value="operations" className="mt-3 space-y-3">
-              {canEditProducts ? (
-                <div className="flex justify-end">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs text-muted-foreground">
+                  {pricedLines.length} {pricedLines.length === 1 ? 'صنف' : 'أصناف'}
+                </p>
+                {canEditProducts ? (
                   <Button type="button" variant="outline" size="sm" disabled={isSaving} onClick={addProductLine}>
                     <Plus className="me-1 h-3.5 w-3.5" />
                     إضافة صنف
                   </Button>
-                </div>
-              ) : null}
-              <OperationLinesStack>
-                {lines.map((line, index) => {
-                  const available = availableByLineId[line.id];
-                  const maxQty =
-                    checksSourceStock && available != null
-                      ? maxQuantityForLine({
-                          lines,
-                          lineId: line.id,
-                          availableAtLocation: available,
-                          fromLocationId: headerFromLocationId || undefined,
-                        })
-                      : null;
-                  const gap = (line.demandQuantity ?? line.quantity) - line.quantity;
-                  const isCountLike = kind === 'physical_count' || kind === 'adjustment';
-
-                  return (
-                    <OperationLineCardShell
-                      key={line.id}
-                      index={index}
-                      title={line.productName || undefined}
-                      subtitle={line.sku || undefined}
-                      onRemove={canEditProducts ? () => removeProductLine(line.id) : undefined}
-                      removeDisabled={isSaving}
-                    >
-                      <OperationLineField label="المنتج" fullWidth>
-                        {canEditProducts ? (
-                          <ProductSinglePicker
-                            companyId={companyId ?? ''}
-                            value={line.productId}
-                            status="active"
-                            disabled={isSaving}
-                            excludeIds={reservedProductIdsOtherDocs}
-                            sourceLocationId={
-                              pickerUsesSourceLocationStock(kind)
-                                ? headerFromLocationId || undefined
-                                : undefined
-                            }
-                            placeholder={
-                              pickerUsesSourceLocationStock(kind) && !headerFromLocationId
-                                ? 'حدّد موقع الصرف أولًا…'
-                                : 'ابحث عن منتج…'
-                            }
-                            onChange={(productId) => {
-                              if (!productId) applyLineProduct(line.id, null);
-                            }}
-                            onProductSelect={(product) => applyLineProduct(line.id, product)}
-                          />
-                        ) : (
-                          <div className="rounded-lg border border-border/70 bg-muted/20 px-3 py-2.5">
-                            <p className="font-medium">{line.productName}</p>
-                            <p className="mt-0.5 text-xs text-muted-foreground">
-                              {operationLineVariantLabel(line.variantId, line.productName)}
-                            </p>
-                          </div>
-                        )}
-                      </OperationLineField>
-
-                      <OperationLineField label="المتغير" fullWidth={canEditProducts}>
-                        {canEditProducts && line.productId ? (
-                          <OperationLineVariantSelect
-                            companyId={companyId ?? ''}
-                            productId={line.productId}
-                            catalogProductName={line.productName}
-                            variantId={line.variantId}
-                            disabled={isSaving}
-                            onChange={(nextId, variant) => applyLineVariant(line.id, nextId, variant)}
-                          />
-                        ) : (
-                          <p className="text-sm text-muted-foreground">
-                            {operationLineVariantLabel(line.variantId, line.productName)}
-                          </p>
-                        )}
-                      </OperationLineField>
-
-                      {!isCountLike ? (
-                        <OperationLineField
-                          label="كمية الطلب"
-                          hint={
-                            checksSourceStock && available != null
-                              ? `المتاح في الموقع: ${available}`
-                              : undefined
-                          }
+                ) : null}
+              </div>
+              <div className="overflow-x-auto rounded-xl border border-border bg-card">
+                <table className="w-full min-w-[52rem] border-collapse text-sm">
+                  <thead>
+                    <tr className="border-b border-border bg-muted/40 text-xs text-muted-foreground">
+                      <th scope="col" className="w-12 px-3 py-2.5 text-center font-medium">
+                        #
+                      </th>
+                      <th scope="col" className="min-w-[14rem] px-3 py-2.5 text-start font-medium">
+                        المنتج
+                      </th>
+                      <th scope="col" className="min-w-[9rem] px-3 py-2.5 text-start font-medium">
+                        المتغير
+                      </th>
+                      {showDemandColumn ? (
+                        <th scope="col" className="min-w-[7rem] px-3 py-2.5 text-center font-medium">
+                          كمية الطلب
+                        </th>
+                      ) : null}
+                      <th scope="col" className="min-w-[7.5rem] px-3 py-2.5 text-center font-medium">
+                        {isCountLike ? 'الكمية المعدودة' : 'الكمية المُنفَّذة'}
+                      </th>
+                      <th scope="col" className="min-w-[5rem] px-3 py-2.5 text-center font-medium">
+                        الوحدة
+                      </th>
+                      {showCostColumns ? (
+                        <th scope="col" className="min-w-[8.5rem] px-3 py-2.5 text-center font-medium">
+                          تكلفة الشراء
+                        </th>
+                      ) : null}
+                      {showCostColumns ? (
+                        <th scope="col" className="min-w-[8rem] px-3 py-2.5 text-center font-medium">
+                          الإجمالي
+                        </th>
+                      ) : null}
+                      {canEditProducts ? <th scope="col" className="w-12 px-2 py-2.5" /> : null}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {lines.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={lineColumnCount}
+                          className="px-3 py-8 text-center text-sm text-muted-foreground"
                         >
-                          <FlexibleQuantityInput
-                            className="h-10 w-full max-w-none"
-                            value={line.demandQuantity ?? 0}
-                            max={maxQty}
-                            disabled={!editable || status === 'ready'}
-                            onChange={(value) => applyLineQuantity(line.id, 'demandQuantity', value)}
-                          />
-                        </OperationLineField>
-                      ) : null}
+                          لا توجد أصناف في هذا المستند.
+                        </td>
+                      </tr>
+                    ) : (
+                      lines.map((line, index) => {
+                        const available = availableByLineId[line.id];
+                        const maxQty =
+                          checksSourceStock && available != null
+                            ? maxQuantityForLine({
+                                lines,
+                                lineId: line.id,
+                                availableAtLocation: available,
+                                fromLocationId: headerFromLocationId || undefined,
+                              })
+                            : null;
+                        const demand = line.demandQuantity ?? line.quantity;
+                        const gap = demand - line.quantity;
+                        const unitCost = lineUnitCostNumber(line.unitCost);
+                        const lineTotal = unitCost == null ? null : unitCost * line.quantity;
 
-                      <OperationLineField
-                        label={isCountLike ? 'الكمية المعدودة / المُنفَّذة' : 'الكمية المُنفَّذة'}
-                        hint={
-                          Math.abs(gap) >= 1e-9
-                            ? gap > 0
-                              ? `ناقص ${gap} عن الطلب`
-                              : `زائد ${Math.abs(gap)} عن الطلب`
-                            : undefined
-                        }
-                      >
-                        <FlexibleQuantityInput
-                          className="h-10 w-full max-w-none"
-                          value={line.quantity}
-                          max={maxQty}
-                          disabled={!qtyEditable}
-                          onChange={(value) => applyLineQuantity(line.id, 'quantity', value)}
-                        />
-                      </OperationLineField>
-
-                      <OperationLineField label="الوحدة">
-                        <p className="text-sm text-foreground">وحدات</p>
-                      </OperationLineField>
-
-                      {stockEffect === 'inbound' ? (
-                        <OperationLineField label="تكلفة الشراء (للوحدة)">
-                          {canEditProducts ? (
-                            <OperationUnitCostInput
-                              value={line.unitCost ?? ''}
-                              disabled={isSaving || !line.productId}
-                              showRequiredHint={Boolean(line.productId)}
-                              onChange={(raw) => applyLineUnitCost(line.id, raw)}
-                            />
-                          ) : (
-                            <p className="text-sm font-semibold tabular-nums">
-                              {line.unitCost?.trim()
-                                ? `${Number(line.unitCost).toFixed(costDisplayDecimals)} ر.ي`
-                                : '—'}
-                            </p>
-                          )}
-                        </OperationLineField>
-                      ) : null}
-                    </OperationLineCardShell>
-                  );
-                })}
-              </OperationLinesStack>
+                        return (
+                          <tr
+                            key={line.id}
+                            className="border-b border-border align-top last:border-0 even:bg-muted/20"
+                          >
+                            <td className="px-3 py-3 text-center text-xs tabular-nums text-muted-foreground">
+                              {index + 1}
+                            </td>
+                            <td className="px-3 py-3">
+                              {canEditProducts ? (
+                                <div className="space-y-1">
+                                  <ProductSinglePicker
+                                    companyId={companyId ?? ''}
+                                    value={line.productId}
+                                    status="active"
+                                    disabled={isSaving}
+                                    excludeIds={reservedProductIdsOtherDocs}
+                                    sourceLocationId={
+                                      pickerUsesSourceLocationStock(kind)
+                                        ? headerFromLocationId || undefined
+                                        : undefined
+                                    }
+                                    placeholder={
+                                      pickerUsesSourceLocationStock(kind) && !headerFromLocationId
+                                        ? 'حدّد موقع الصرف أولًا…'
+                                        : 'ابحث عن منتج…'
+                                    }
+                                    onChange={(productId) => {
+                                      if (!productId) applyLineProduct(line.id, null);
+                                    }}
+                                    onProductSelect={(product) => applyLineProduct(line.id, product)}
+                                  />
+                                  {line.sku ? (
+                                    <p className="text-[11px] text-muted-foreground" dir="ltr">
+                                      {line.sku}
+                                    </p>
+                                  ) : null}
+                                </div>
+                              ) : (
+                                <div className="min-w-0">
+                                  <p className="font-medium leading-snug text-foreground">
+                                    {line.productName || '—'}
+                                  </p>
+                                  {line.sku ? (
+                                    <p className="mt-0.5 text-[11px] text-muted-foreground" dir="ltr">
+                                      {line.sku}
+                                    </p>
+                                  ) : null}
+                                </div>
+                              )}
+                            </td>
+                            <td className="px-3 py-3">
+                              {canEditProducts && line.productId ? (
+                                <OperationLineVariantSelect
+                                  companyId={companyId ?? ''}
+                                  productId={line.productId}
+                                  catalogProductName={line.productName}
+                                  variantId={line.variantId}
+                                  disabled={isSaving}
+                                  onChange={(nextId, variant) =>
+                                    applyLineVariant(line.id, nextId, variant)
+                                  }
+                                />
+                              ) : (
+                                <p className="text-sm leading-snug text-foreground">
+                                  <OperationLineVariantReadout
+                                    companyId={companyId ?? ''}
+                                    productId={line.productId}
+                                    productName={line.productName}
+                                    variantId={line.variantId}
+                                  />
+                                </p>
+                              )}
+                            </td>
+                            {showDemandColumn ? (
+                              <td className="px-3 py-3 text-center">
+                                {editable && status !== 'ready' ? (
+                                  <FlexibleQuantityInput
+                                    className="mx-auto h-9 w-full max-w-[7rem] text-center"
+                                    value={demand}
+                                    max={maxQty}
+                                    disabled={!editable || status === 'ready' || isSaving}
+                                    aria-label="كمية الطلب"
+                                    onChange={(value) =>
+                                      applyLineQuantity(line.id, 'demandQuantity', value)
+                                    }
+                                  />
+                                ) : (
+                                  <p className="font-semibold tabular-nums">{formatLineQuantity(demand)}</p>
+                                )}
+                                {checksSourceStock && available != null ? (
+                                  <p className="mt-1 text-[11px] text-muted-foreground">
+                                    المتاح {formatLineQuantity(available)}
+                                  </p>
+                                ) : null}
+                              </td>
+                            ) : null}
+                            <td className="px-3 py-3 text-center">
+                              {qtyEditable ? (
+                                <FlexibleQuantityInput
+                                  className="mx-auto h-9 w-full max-w-[7rem] text-center"
+                                  value={line.quantity}
+                                  max={maxQty}
+                                  disabled={!qtyEditable || isSaving}
+                                  aria-label={isCountLike ? 'الكمية المعدودة' : 'الكمية المنفذة'}
+                                  onChange={(value) => applyLineQuantity(line.id, 'quantity', value)}
+                                />
+                              ) : (
+                                <p className="font-semibold tabular-nums">
+                                  {formatLineQuantity(line.quantity)}
+                                </p>
+                              )}
+                              {showDemandColumn && Math.abs(gap) >= 1e-9 ? (
+                                <p
+                                  className={cn(
+                                    'mt-1 text-[11px]',
+                                    gap > 0
+                                      ? 'text-amber-700 dark:text-amber-400'
+                                      : 'text-sky-700 dark:text-sky-400',
+                                  )}
+                                >
+                                  {gap > 0
+                                    ? `ناقص ${formatLineQuantity(gap)}`
+                                    : `زائد ${formatLineQuantity(Math.abs(gap))}`}
+                                </p>
+                              ) : null}
+                            </td>
+                            <td className="px-3 py-3 text-center text-sm text-foreground">وحدات</td>
+                            {showCostColumns ? (
+                              <td className="px-3 py-3">
+                                {canEditProducts ? (
+                                  <OperationUnitCostInput
+                                    value={line.unitCost ?? ''}
+                                    disabled={isSaving || !line.productId}
+                                    showRequiredHint={Boolean(line.productId)}
+                                    onChange={(raw) => applyLineUnitCost(line.id, raw)}
+                                  />
+                                ) : (
+                                  <p className="text-center font-semibold tabular-nums">
+                                    {unitCost == null
+                                      ? '—'
+                                      : formatLineMoney(unitCost, costDisplayDecimals)}
+                                  </p>
+                                )}
+                              </td>
+                            ) : null}
+                            {showCostColumns ? (
+                              <td className="px-3 py-3 text-center font-semibold tabular-nums">
+                                {lineTotal == null
+                                  ? '—'
+                                  : formatLineMoney(lineTotal, costDisplayDecimals)}
+                              </td>
+                            ) : null}
+                            {canEditProducts ? (
+                              <td className="px-2 py-3">
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  disabled={isSaving}
+                                  aria-label="حذف السطر"
+                                  onClick={() => removeProductLine(line.id)}
+                                >
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              </td>
+                            ) : null}
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                  {pricedLines.length > 0 ? (
+                    <tfoot>
+                      <tr className="border-t border-border bg-muted/30 text-sm font-semibold">
+                        <td colSpan={3} className="px-3 py-2.5 text-start">
+                          الإجمالي
+                        </td>
+                        {showDemandColumn ? (
+                          <td className="px-3 py-2.5 text-center tabular-nums">
+                            {formatLineQuantity(demandTotal)}
+                          </td>
+                        ) : null}
+                        <td className="px-3 py-2.5 text-center tabular-nums">
+                          {formatLineQuantity(executedTotal)}
+                        </td>
+                        <td />
+                        {showCostColumns ? <td /> : null}
+                        {showCostColumns ? (
+                          <td className="px-3 py-2.5 text-center tabular-nums">
+                            {formatLineMoney(moneyTotal, costDisplayDecimals)}
+                          </td>
+                        ) : null}
+                        {canEditProducts ? <td /> : null}
+                      </tr>
+                    </tfoot>
+                  ) : null}
+                </table>
+              </div>
             </TabsContent>
 
             <TabsContent value="notes" className="mt-3">
