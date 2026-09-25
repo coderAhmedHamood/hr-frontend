@@ -13,7 +13,7 @@ import {
   WAREHOUSE_OPERATION_KINDS,
   WAREHOUSE_OPERATION_KIND_META,
 } from '@/features/inventory/domain/constants/warehouse-operation-kinds';
-import type { InventoryLedgerEntry } from '@/features/inventory/domain/types/inventory-ledger';
+import type { InboundProductValueSummary, InventoryLedgerEntry } from '@/features/inventory/domain/types/inventory-ledger';
 import type {
   WarehouseLocation,
   WarehouseOperationKind,
@@ -49,6 +49,11 @@ function movementRoute(entry: InventoryLedgerEntry) {
     fromLocationId: isDestination ? entry.counterpartLocationId : entry.locationId,
     toLocationId: isDestination ? entry.locationId : entry.counterpartLocationId,
   };
+}
+
+function formatMoney(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return '—';
+  return `${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.ي`;
 }
 
 function localDateBoundary(date: string, endOfDay = false): string | undefined {
@@ -148,6 +153,8 @@ export function MovesLedgerReportPage({ inboundOnly = false }: { inboundOnly?: b
 
   const rows = data?.items ?? [];
   const total = data?.pagination.total ?? 0;
+  const productSummary = data?.productSummary ?? [];
+  const inboundValue = productSummary.reduce((sum, row) => sum + row.totalValue, 0);
 
   usePageHeaderActions(() => <FilterToggleButton />, []);
 
@@ -316,6 +323,28 @@ export function MovesLedgerReportPage({ inboundOnly = false }: { inboundOnly?: b
         </span>
       ),
     },
+    ...(inboundOnly
+      ? ([
+          {
+            key: 'unitCost',
+            title: 'سعر الدخول',
+            render: (row) => (
+              <span className="tabular-nums" dir="ltr">
+                {formatMoney(row.unitCost)}
+              </span>
+            ),
+          },
+          {
+            key: 'lineValue',
+            title: 'قيمة الدخلة',
+            render: (row) => (
+              <span className="font-semibold tabular-nums" dir="ltr">
+                {row.unitCost == null ? '—' : formatMoney(row.quantityDelta * row.unitCost)}
+              </span>
+            ),
+          },
+        ] satisfies ColumnDef<InventoryLedgerEntry>[])
+      : []),
     {
       key: 'source',
       title: 'المصدر',
@@ -326,13 +355,60 @@ export function MovesLedgerReportPage({ inboundOnly = false }: { inboundOnly?: b
     },
   ];
 
+  const productColumns: ColumnDef<InboundProductValueSummary>[] = [
+    {
+      key: 'product',
+      title: 'الصنف',
+      render: (row) => (
+        <div className="flex flex-col">
+          <span className="font-medium">{row.productName}</span>
+          <span className="text-xs text-muted-foreground" dir="ltr">
+            {row.sku || '—'}
+          </span>
+        </div>
+      ),
+    },
+    {
+      key: 'entries',
+      title: 'عدد الدخلات',
+      render: (row) => <span className="tabular-nums">{row.entries}</span>,
+    },
+    {
+      key: 'quantity',
+      title: 'الكمية الداخلة',
+      render: (row) => (
+        <span className="font-semibold tabular-nums" dir="ltr">
+          {row.quantity}
+        </span>
+      ),
+    },
+    {
+      key: 'average',
+      title: 'متوسط سعر الدخول',
+      render: (row) => (
+        <span className="tabular-nums" dir="ltr">
+          {formatMoney(row.averageUnitCost)}
+        </span>
+      ),
+    },
+    {
+      key: 'value',
+      title: 'إجمالي القيمة',
+      render: (row) => (
+        <span className="font-semibold tabular-nums" dir="ltr">
+          {formatMoney(row.totalValue)}
+        </span>
+      ),
+    },
+  ];
+
   return (
     <div className="flex flex-col gap-5">
       <SetPageTitle
         titleAr={inboundOnly ? 'وارد الأصناف' : 'سجل الحركات'}
         descriptionAr={
           inboundOnly
-            ? 'كل صنف دخل إلى المخزون عبر الاستلام أو الشراء أو التجديد، مع الكمية وتاريخ الحركة.'
+            ? 'كل صنف دخل إلى المخزون: متوسط سعر دخوله على مستوى الصنف، ثم كل دخلة بتاريخها وكمية وسعرها.'
             : 'دفتر قيود ثابت — كل تصديق يكتب بنودًا غير قابلة للتعديل. التراجع يضيف قيود عكس.'
         }
         iconName={inboundOnly ? 'Package' : 'FileText'}
@@ -341,12 +417,54 @@ export function MovesLedgerReportPage({ inboundOnly = false }: { inboundOnly?: b
       <div className="flex flex-wrap gap-2">
         <Badge variant="subtle">قيود: {data?.summary.entries ?? total}</Badge>
         <Badge variant="success">وارد: {data?.summary.qtyIn ?? 0}</Badge>
-        <Badge variant="destructive">صادر: {data?.summary.qtyOut ?? 0}</Badge>
-        <Badge variant="subtle">الصافي: {data?.summary.net ?? 0}</Badge>
+        {inboundOnly ? (
+          <Badge variant="subtle">قيمة الداخل: {formatMoney(inboundValue)}</Badge>
+        ) : (
+          <>
+            <Badge variant="destructive">صادر: {data?.summary.qtyOut ?? 0}</Badge>
+            <Badge variant="subtle">الصافي: {data?.summary.net ?? 0}</Badge>
+          </>
+        )}
       </div>
 
       {isError ? <p className="text-sm text-destructive">تعذر تحميل سجل الحركات.</p> : null}
 
+      {inboundOnly ? (
+        <section className="flex flex-col gap-2">
+          <h2 className="text-sm font-semibold">على مستوى الصنف</h2>
+          <p className="text-xs text-muted-foreground">
+            مجموع كميات الصنف التي دخلت، ومتوسط أسعار تلك الدخلات، وإجمالي قيمتها.
+          </p>
+          <DataTable
+            variant="directory"
+            alwaysShowTable
+            keepHeaderWhenEmpty
+            className="inv-table-host"
+            columns={productColumns}
+            data={productSummary}
+            keyExtractor={(row) => `${row.productId}:${row.variantId ?? ''}:${row.sku ?? ''}`}
+            loading={isLoading}
+            emptyText="لا توجد دخلات في هذا النطاق."
+          />
+        </section>
+      ) : null}
+
+      {inboundOnly ? (
+        <section className="flex flex-col gap-2">
+          <h2 className="text-sm font-semibold">دخلات الصنف</h2>
+          <DataTable
+            variant="directory"
+            alwaysShowTable
+            keepHeaderWhenEmpty
+            className="inv-table-host"
+            columns={columns}
+            data={rows}
+            keyExtractor={(row) => row.id}
+            loading={isLoading}
+            emptyText="لا توجد قيود بعد — صدّق مستندًا لتسجيل أول حركة."
+          />
+        </section>
+      ) : (
       <DirectoryPagedViews
         items={rows}
         loading={isLoading}
@@ -365,6 +483,8 @@ export function MovesLedgerReportPage({ inboundOnly = false }: { inboundOnly?: b
         {(rowsPage) => (
           <DataTable
             variant="directory"
+            alwaysShowTable
+            keepHeaderWhenEmpty
             className="inv-table-host"
             columns={columns}
             data={rowsPage}
@@ -374,6 +494,7 @@ export function MovesLedgerReportPage({ inboundOnly = false }: { inboundOnly?: b
           />
         )}
       </DirectoryPagedViews>
+      )}
     </div>
   );
 }

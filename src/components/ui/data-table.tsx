@@ -41,16 +41,18 @@ interface DataTableProps<T> {
   tableClassName?: string;
   /** Always render the table (horizontal scroll on small screens) instead of mobile cards. */
   alwaysShowTable?: boolean;
+  /** Keep the column header row visible when there are no rows. */
+  keepHeaderWhenEmpty?: boolean;
 }
 
 export function DataTable<T>({
   columns, data, keyExtractor, loading, emptyText = 'لا توجد بيانات',
   mobileCard, onRowClick, className, variant = 'default',
-  tableClassName, alwaysShowTable = false,
+  tableClassName, alwaysShowTable = false, keepHeaderWhenEmpty = false,
 }: DataTableProps<T>) {
   const isDirectory = variant === 'directory';
 
-  if (loading) {
+  if (loading && !keepHeaderWhenEmpty) {
     return (
       <div className="space-y-2">
         {Array.from({ length: 5 }).map((_, i) => (
@@ -60,7 +62,7 @@ export function DataTable<T>({
     );
   }
 
-  if (!data.length) {
+  if (!data.length && !keepHeaderWhenEmpty) {
     return (
       <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/60 bg-muted/20 py-16 text-center">
         <p className="text-sm font-medium text-muted-foreground">{emptyText}</p>
@@ -105,7 +107,21 @@ export function DataTable<T>({
           </tr>
         </thead>
         <tbody className={isDirectory ? undefined : 'divide-y divide-border/40'}>
-          {data.map((row, i) => (
+          {loading ? (
+            <tr>
+              <td colSpan={Math.max(columns.length, 1)} className="px-4 py-10 text-center text-sm text-muted-foreground">
+                جاري التحميل…
+              </td>
+            </tr>
+          ) : null}
+          {!loading && data.length === 0 ? (
+            <tr>
+              <td colSpan={columns.length} className="px-4 py-10 text-center text-sm text-muted-foreground">
+                {emptyText}
+              </td>
+            </tr>
+          ) : null}
+          {!loading && data.map((row, i) => (
             <tr
               key={keyExtractor(row)}
               className={bodyRowClass}

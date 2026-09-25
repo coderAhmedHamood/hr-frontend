@@ -22,6 +22,9 @@ export type InventoryLedgerEntry = TenantScoped & {
   locationId: string;
   /** Signed delta applied to LocationStock (+ in / − out) */
   quantityDelta: number;
+  /** Purchase unit cost of this movement, when the document line recorded one. */
+  unitCost?: number | null;
+  costCurrency?: string | null;
   /** Optional counterpart for moves/transfers */
   counterpartLocationId?: string;
   counterpartWarehouseId?: string;
@@ -29,6 +32,17 @@ export type InventoryLedgerEntry = TenantScoped & {
   partnerName?: string;
   notes?: string;
   createdAt: string;
+};
+
+export type InboundProductValueSummary = {
+  productId: string;
+  variantId: string | null;
+  productName: string;
+  sku: string | null;
+  entries: number;
+  quantity: number;
+  averageUnitCost: number | null;
+  totalValue: number;
 };
 
 export type InventoryLedgerSummary = {
