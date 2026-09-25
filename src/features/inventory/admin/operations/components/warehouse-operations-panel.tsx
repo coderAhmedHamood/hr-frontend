@@ -7,6 +7,8 @@ import { Plus, Trash2 } from 'lucide-react';
 import { getInventoryCompanyId } from '@/features/inventory/lib/company-id';
 import { useWarehouseLocations } from '@/features/inventory/admin/locations/hooks/use-warehouse-locations';
 import { useWarehouseOperations } from '@/features/inventory/admin/operations/hooks/use-warehouse-operations';
+import { useOpenOperationProductReservations } from '@/features/inventory/admin/operations/hooks/use-open-operation-product-reservations';
+import { operationListLineTotals } from '@/features/inventory/admin/operations/lib/operation-list-line-totals';
 import { useWarehouseOperationMutations } from '@/features/inventory/admin/operations/hooks/use-warehouse-operation-mutations';
 import { WarehouseOperationDetailDialog } from '@/features/inventory/admin/operations/components/warehouse-operation-detail-dialog';
 import {
@@ -173,7 +175,12 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
     page,
     limit: pageSize,
   });
-  const { data: warehousesData } = useWarehouses({ companyId, limit: 100 });
+  const needsWarehouseDirectory =
+    showFilters || open || Boolean(selectedId) || meta.needsDestWarehouse || kind === 'transfer';
+  const { data: warehousesData } = useWarehouses(
+    { companyId, limit: 100 },
+    { enabled: Boolean(companyId && needsWarehouseDirectory) },
+  );
   const allWarehouses = warehousesData?.items ?? [];
   const items = data?.items ?? [];
   const total = data?.pagination.total ?? 0;
@@ -265,46 +272,51 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
     activeVariants,
   ]);
 
-  // Products already sitting in an unvalidated document of this kind — cannot be picked again.
-  const { data: openOperationsData } = useWarehouseOperations(
-    {
-      companyId,
-      warehouseId: effectiveWarehouseId || undefined,
-      kind,
-      page: 1,
-      limit: 500,
-    },
-    { enabled: open && Boolean(companyId && effectiveWarehouseId) },
-  );
+  // Products on draft/ready docs — one lightweight query instead of listing 500 ops + N line fetches.
+  const { data: openProductReservations } = useOpenOperationProductReservations({
+    companyId,
+    warehouseId: effectiveWarehouseId,
+    kind,
+    enabled: open && locationsReady && Boolean(companyId && effectiveWarehouseId),
+  });
 
   const takenProductIds = React.useMemo(() => {
     const taken = new Map<string, string>();
-    for (const operation of openOperationsData?.items ?? []) {
-      if (operation.status !== 'draft' && operation.status !== 'ready') continue;
-      for (const line of operation.lines) {
-        if (line.productId) taken.set(line.productId, operation.reference);
-      }
+    for (const row of openProductReservations ?? []) {
+      if (row.productId) taken.set(row.productId, row.operationReference);
     }
     return taken;
-  }, [openOperationsData?.items]);
+  }, [openProductReservations]);
 
   const takenProductIdList = React.useMemo(() => Array.from(takenProductIds.keys()), [takenProductIds]);
 
   const warehousesForDest = allWarehouses.filter((item) => item.id !== effectiveWarehouseId);
 
-  const { data: locationsData } = useWarehouseLocations({
-    companyId,
-    warehouseId: scopedToWarehouse ? warehouseId : effectiveWarehouseId || undefined,
-    page: 1,
-    limit: 200,
-  });
+  /** Locations/partners/reservations load only while create or detail dialog is open. */
+  const needsLocationQueries = open || Boolean(selectedId);
+  const sourceLocationsWarehouseId = scopedToWarehouse ? warehouseId : effectiveWarehouseId || undefined;
+
+  const { data: locationsData } = useWarehouseLocations(
+    {
+      companyId,
+      warehouseId: sourceLocationsWarehouseId,
+      page: 1,
+      limit: 200,
+    },
+    {
+      enabled: needsLocationQueries && Boolean(companyId && sourceLocationsWarehouseId),
+    },
+  );
   const locations = locationsData?.items ?? [];
 
-  const { data: allLocationsData } = useWarehouseLocations({
-    companyId: scopedToWarehouse ? '' : companyId,
-    page: 1,
-    limit: 500,
-  });
+  const { data: allLocationsData } = useWarehouseLocations(
+    {
+      companyId: scopedToWarehouse ? '' : companyId,
+      page: 1,
+      limit: 500,
+    },
+    { enabled: needsLocationQueries && open && !scopedToWarehouse && Boolean(companyId) },
+  );
 
   const { data: destLocationsData } = useWarehouseLocations(
     {
@@ -313,7 +325,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
       page: 1,
       limit: 200,
     },
-    { enabled: Boolean(destinationWarehouseId) },
+    { enabled: needsLocationQueries && Boolean(destinationWarehouseId) },
   );
   const destLocations = destLocationsData?.items ?? [];
   // Source locations always come from the source warehouse (`locations`).
@@ -549,6 +561,17 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
         toast.error('أضف صنفًا واحدًا على الأقل مع كمية أكبر من صفر.');
         return;
       }
+      for (const line of lines) {
+        const pid = line.productId?.trim();
+        if (!pid) continue;
+        const duplicateReference = takenProductIds.get(pid);
+        if (duplicateReference) {
+          toast.error(
+            `المنتج «${line.productName || pid}» مضاف بالفعل في مستند ${meta.labelAr} «${duplicateReference}» غير المصدَّق. عدّل ذلك المستند بدل إنشاء مستند مكرر.`,
+          );
+          return;
+        }
+      }
       if (checksSourceStock && lineLocations.fromLocationId) {
         const issues = await collectStockShortages({
           companyId,
@@ -724,8 +747,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
       key: 'qty',
       title: 'الكمية',
       render: (row) => {
-        const demand = row.lines.reduce((sum, line) => sum + (line.demandQuantity ?? line.quantity), 0);
-        const actual = row.lines.reduce((sum, line) => sum + line.quantity, 0);
+        const { demand, actual } = operationListLineTotals(row);
         return <DemandActualChips demand={demand} actual={actual} actualLabel={actualQuantityLabel} />;
       },
     },
@@ -1033,6 +1055,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
                 fromLocationId={fromLocationId || undefined}
                 checksSourceStock={checksSourceStock}
                 restrictToSourceLocation={pickerUsesSourceLocationStock(kind)}
+                excludeProductIds={takenProductIdList}
                 needsUnitCost={lineNeedsUnitCost(meta.stockEffect)}
                 disabled={!locationsReady}
               />
@@ -1260,6 +1283,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
                           onChange={field.onChange}
                           onPartnerSelect={(partner) => form.setValue('partnerName', partner.displayName)}
                           placeholder="اختر جهة اتصال (اختياري)"
+                          deferSearchUntilOpen
                           aria-label="op-partner"
                         />
                       )}

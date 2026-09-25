@@ -45,6 +45,7 @@ export function MovesAnalysisReportPage() {
     status: 'done',
     occurredAtFrom: localDateBoundary(dateFrom),
     occurredAtTo: localDateBoundary(dateTo, true),
+    linesMode: 'full',
     page: 1,
     limit: 500,
   });

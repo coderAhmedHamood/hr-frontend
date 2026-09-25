@@ -19,7 +19,7 @@ export function useWarehouseOperations(
     enabled:
       Boolean(query.companyId && (query.warehouseId || query.productId || query.kind || query.all)) &&
       (options?.enabled ?? true),
-    staleTime: options?.refetchOnOpen ? 0 : undefined,
+    staleTime: options?.refetchOnOpen ? 0 : 60_000,
     refetchOnMount: options?.refetchOnOpen ? 'always' : undefined,
   });
 }

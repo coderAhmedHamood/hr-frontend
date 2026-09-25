@@ -8,7 +8,12 @@ import { useInventoryCompanySettings } from '@/features/inventory/admin/notifica
 import { PartnerSinglePicker } from '@/features/contacts/admin/partners/components/partner-single-picker';
 import { useWarehouseLocations } from '@/features/inventory/admin/locations/hooks/use-warehouse-locations';
 import { useWarehouses } from '@/features/inventory/admin/warehouses/hooks/use-warehouses';
+import { useQuery } from '@tanstack/react-query';
 import { useWarehouseOperationMutations } from '@/features/inventory/admin/operations/hooks/use-warehouse-operation-mutations';
+import { useOpenOperationProductReservations } from '@/features/inventory/admin/operations/hooks/use-open-operation-product-reservations';
+import { warehouseOperationsApi } from '@/features/inventory/admin/operations/lib/api/warehouse-operations';
+import { warehouseOperationsQueryKeys } from '@/features/inventory/admin/hooks/query-keys';
+import { operationNeedsFullLinesFetch } from '@/features/inventory/admin/operations/lib/operation-list-line-totals';
 import { inventoryStockService } from '@/features/inventory/services/inventory-stock.service';
 import {
   collectStockShortages,
@@ -147,25 +152,58 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
   const costDisplayDecimals = inventorySettings?.costDisplayDecimals ?? 2;
   const kind = operation?.kind ?? 'receipt';
   const { update, undo } = useWarehouseOperationMutations(operation?.warehouseId ?? '', kind);
-  const { data: locationsData } = useWarehouseLocations({
-    companyId,
-    warehouseId: operation?.warehouseId,
-    page: 1,
-    limit: 500,
-  });
+  const destinationWarehouseId = operation?.destinationWarehouseId ?? '';
+
+  const { data: locationsData } = useWarehouseLocations(
+    {
+      companyId,
+      warehouseId: operation?.warehouseId,
+      page: 1,
+      limit: 200,
+    },
+    { enabled: open && Boolean(companyId && operation?.warehouseId) },
+  );
   // Transfers land in another warehouse, so its locations are needed both for the
   // receiving picker and to name the destination instead of printing a raw id.
-  const destinationWarehouseId = operation?.destinationWarehouseId ?? '';
   const { data: destLocationsData } = useWarehouseLocations(
     {
       companyId,
       warehouseId: destinationWarehouseId || undefined,
       page: 1,
-      limit: 500,
+      limit: 200,
     },
-    { enabled: Boolean(destinationWarehouseId) },
+    { enabled: open && Boolean(destinationWarehouseId) },
   );
-  const { data: warehousesData } = useWarehouses({ companyId, limit: 100 });
+  const { data: warehousesData } = useWarehouses(
+    { companyId, limit: 100 },
+    { enabled: open && Boolean(companyId) },
+  );
+
+  const { data: openProductReservations } = useOpenOperationProductReservations({
+    companyId,
+    warehouseId: operation?.warehouseId ?? '',
+    kind: operation?.kind ?? kind,
+    enabled:
+      open &&
+      Boolean(companyId && operation?.warehouseId && operation?.kind) &&
+      supportsMultiProductLines(operation.kind),
+  });
+
+  const reservedProductIdsOtherDocs = React.useMemo(() => {
+    const ref = operation?.reference ?? '';
+    if (!ref) return [];
+    return (openProductReservations ?? [])
+      .filter((row) => row.operationReference !== ref)
+      .map((row) => row.productId);
+  }, [openProductReservations, operation?.reference]);
+
+  const needsFullLines = open && operationNeedsFullLinesFetch(operation);
+  const { data: fullOperation } = useQuery({
+    queryKey: warehouseOperationsQueryKeys.detail(companyId, operation?.id ?? ''),
+    queryFn: () => warehouseOperationsApi.getById(companyId, operation!.id),
+    enabled: Boolean(companyId && operation?.id && needsFullLines),
+  });
+  const documentOperation = fullOperation ?? operation;
   const warehouseName = React.useMemo(() => {
     const map = new Map((warehousesData?.items ?? []).map((item) => [item.id, item.nameAr]));
     return (id?: string) => (id ? (map.get(id) ?? null) : null);
@@ -223,38 +261,39 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
   const loadedOperationIdRef = React.useRef<string | null>(null);
 
   React.useEffect(() => {
-    if (!open || !operation) return;
-    const switched = loadedOperationIdRef.current !== operation.id;
-    loadedOperationIdRef.current = operation.id;
+    if (!open || !documentOperation) return;
+    if (needsFullLines && !fullOperation) return;
+    const switched = loadedOperationIdRef.current !== documentOperation.id;
+    loadedOperationIdRef.current = documentOperation.id;
 
     setLines(
-      operation.lines.map((line) => ({
+      documentOperation.lines.map((line) => ({
         ...line,
         demandQuantity: line.demandQuantity ?? line.quantity,
         quantity: line.quantity,
       })),
     );
-    setNotes(operation.notes ?? '');
-    setPartnerId(operation.partnerId ?? '');
-    setPartnerName(operation.partnerName ?? '');
-    setSourceDocument(operation.sourceDocument ?? '');
-    setOccurredAt(operation.occurredAt.slice(0, 16));
+    setNotes(documentOperation.notes ?? '');
+    setPartnerId(documentOperation.partnerId ?? '');
+    setPartnerName(documentOperation.partnerName ?? '');
+    setSourceDocument(documentOperation.sourceDocument ?? '');
+    setOccurredAt(documentOperation.occurredAt.slice(0, 16));
     // Avoid flicker from stale list props:
     // - after validate: local done must not regress to ready
     // - after undo: local ready must not jump back to done
     setStatus((prev) => {
-      if (switched) return operation.status;
-      const incoming = operation.status;
+      if (switched) return documentOperation.status;
+      const incoming = documentOperation.status;
       if (incoming === 'cancelled' || prev === 'cancelled') return incoming;
       if (prev === 'done' && (incoming === 'ready' || incoming === 'draft')) return prev;
       if (prev === 'ready' && incoming === 'done') return prev;
       return incoming;
     });
     setTab('operations');
-    const first = operation.lines[0];
+    const first = documentOperation.lines[0];
     setHeaderFromLocationId(first?.fromLocationId ?? '');
     setHeaderToLocationId(first?.toLocationId ?? '');
-  }, [open, operation]);
+  }, [open, documentOperation, needsFullLines, fullOperation]);
 
   React.useEffect(() => {
     if (!open) loadedOperationIdRef.current = null;
@@ -265,7 +304,7 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
     stockEffect === 'outbound' || stockEffect === 'move' || stockEffect === 'transfer';
 
   React.useEffect(() => {
-    if (!open || !operation || !companyId || !checksSourceStock) {
+    if (!open || !documentOperation || !companyId || !checksSourceStock) {
       setAvailableByLineId({});
       return;
     }
@@ -290,7 +329,7 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
     return () => {
       cancelled = true;
     };
-  }, [open, operation, companyId, kind, lines, headerFromLocationId, checksSourceStock]);
+  }, [open, documentOperation, companyId, kind, lines, headerFromLocationId, checksSourceStock]);
 
   function applyLineQuantity(
     lineId: string,
@@ -320,12 +359,12 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
   }
 
   async function assertStockBeforeSave(nextLines: WarehouseOperationLine[] = lines): Promise<boolean> {
-    if (!operation || !checksSourceStock) return true;
+    if (!documentOperation || !checksSourceStock) return true;
     const issues = await collectStockShortages({
-      companyId: operation.companyId,
-      warehouseId: operation.warehouseId,
+      companyId: documentOperation.companyId,
+      warehouseId: documentOperation.warehouseId,
       kind,
-      destinationWarehouseId: operation.destinationWarehouseId,
+      destinationWarehouseId: documentOperation.destinationWarehouseId,
       lines: nextLines,
     });
     if (issues.length === 0) return true;
@@ -430,7 +469,7 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
     );
   }
 
-  if (!operation) return null;
+  if (!documentOperation) return null;
 
   const editable = status === 'draft' || status === 'ready';
   const qtyEditable = status === 'draft' || status === 'ready';
@@ -453,9 +492,9 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
   // Each side of the route names its warehouse, so a same-named location on both
   // ends (WH/Stock → WH/Stock) still reads unambiguously.
   const crossWarehouse = Boolean(
-    destinationWarehouseId && destinationWarehouseId !== operation.warehouseId,
+    destinationWarehouseId && destinationWarehouseId !== documentOperation.warehouseId,
   );
-  const sourceWarehouseName = warehouseName(operation.warehouseId);
+  const sourceWarehouseName = warehouseName(documentOperation.warehouseId);
   const targetWarehouseName = crossWarehouse
     ? warehouseName(destinationWarehouseId)
     : sourceWarehouseName;
@@ -474,18 +513,18 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
           ? 'موقع المخزون'
           : 'موقع الاستلام';
 
-  const destinationLine = lines[0] ?? operation.lines[0];
+  const destinationLine = lines[0] ?? documentOperation.lines[0];
 
   async function savePatch(
     patch: Partial<WarehouseOperation> & { lines?: WarehouseOperation['lines'] },
     successMessage: string,
     options?: { includeLines?: boolean },
   ) {
-    if (!companyId || !operation) return;
+    if (!companyId || !documentOperation) return;
     const includeLines = options?.includeLines === true || patch.lines !== undefined;
 
     // Backend locks fully validated ops — use undoValidation for done → ready.
-    if (status === 'done' || operation.status === 'done') {
+    if (status === 'done' || documentOperation.status === 'done') {
       toast.error('لا يمكن تعديل مستند منتهٍ. استخدم «تراجع عن التصديق» أولاً.');
       return;
     }
@@ -493,7 +532,7 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
     try {
       const updated = await update.mutateAsync({
         companyId,
-        id: operation.id,
+        id: documentOperation.id,
         patch: {
           ...patch,
           ...(includeLines ? { lines: patch.lines ?? lines } : {}),
@@ -501,7 +540,7 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
           partnerId: partnerId.trim() || null,
           partnerName: partnerName.trim() || undefined,
           sourceDocument: sourceDocument.trim() || undefined,
-          occurredAt: occurredAt ? new Date(occurredAt).toISOString() : operation.occurredAt,
+          occurredAt: occurredAt ? new Date(occurredAt).toISOString() : documentOperation.occurredAt,
         },
       });
       if (!updated) {
@@ -551,13 +590,13 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
   }
 
   async function undoValidation() {
-    if (!companyId || !operation) return;
-    if (status !== 'done' && operation.status !== 'done') {
+    if (!companyId || !documentOperation) return;
+    if (status !== 'done' && documentOperation.status !== 'done') {
       toast.error('التراجع متاح فقط للمستندات المصدّقة (done).');
       return;
     }
     try {
-      const updated = await undo.mutateAsync({ companyId, id: operation.id });
+      const updated = await undo.mutateAsync({ companyId, id: documentOperation.id });
       setStatus(updated.status);
       setLines(updated.lines.map((line) => ({ ...line })));
       setHeaderFromLocationId(updated.lines[0]?.fromLocationId ?? '');
@@ -569,7 +608,7 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
   }
 
   async function cancelOperation() {
-    if (status === 'done' || operation?.status === 'done') {
+    if (status === 'done' || documentOperation.status === 'done') {
       toast.error('لا يمكن إلغاء مستند منتهٍ. استخدم التراجع عن التصديق أولاً.');
       return;
     }
@@ -577,7 +616,7 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
   }
 
   async function fillTheoreticalFromStock() {
-    if (!companyId || !operation) return;
+    if (!companyId || !documentOperation) return;
     const isCountLike = kind === 'physical_count' || kind === 'adjustment';
     if (!isCountLike || !editable) return;
 
@@ -621,7 +660,7 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="space-y-1">
               <DialogTitle className="flex flex-wrap items-center gap-2 text-base font-semibold">
-                <span dir="ltr">{operation.reference || 'بدون مرجع'}</span>
+                <span dir="ltr">{documentOperation.reference || 'بدون مرجع'}</span>
                 <Badge variant={statusBadgeVariant(status)}>
                   {WAREHOUSE_OPERATION_STATUS_LABELS_AR[status]}
                 </Badge>
@@ -708,6 +747,7 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
                   onChange={setPartnerId}
                   onPartnerSelect={(partner) => setPartnerName(partner.displayName)}
                   disabled={!editable}
+                  deferSearchUntilOpen
                   placeholder="اختر جهة اتصال (اختياري)"
                 />
                 <Input
@@ -892,10 +932,13 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
                             value={line.productId}
                             status="active"
                             disabled={isSaving}
-                            excludeIds={lines
-                              .filter((other) => other.id !== line.id)
-                              .map((other) => other.productId?.trim())
-                              .filter((id): id is string => Boolean(id))}
+                            excludeIds={[
+                              ...reservedProductIdsOtherDocs,
+                              ...lines
+                                .filter((other) => other.id !== line.id)
+                                .map((other) => other.productId?.trim())
+                                .filter((id): id is string => Boolean(id)),
+                            ]}
                             sourceLocationId={
                               pickerUsesSourceLocationStock(kind)
                                 ? headerFromLocationId || undefined

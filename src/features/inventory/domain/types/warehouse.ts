@@ -150,9 +150,17 @@ export type WarehouseOperation = TenantScoped & {
   /** مستودع الوجهة — للتحويلات بين المستودعات */
   destinationWarehouseId?: string;
   lines: WarehouseOperationLine[];
+  /** List API aggregates (when lines are preview/none). */
+  lineCount?: number;
+  totalDemandQuantity?: number;
+  totalQuantity?: number;
+  /** Fetch full document before editing when true. */
+  linesPartial?: boolean;
   createdAt: string;
   updatedAt: string;
 };
+
+export type WarehouseOperationLinesMode = 'full' | 'preview' | 'none';
 
 export type WarehouseOperationListQuery = {
   companyId: string;
@@ -168,6 +176,8 @@ export type WarehouseOperationListQuery = {
   all?: boolean;
   page?: number;
   limit?: number;
+  /** Default preview on list — use full for reports / product-scoped lists. */
+  linesMode?: WarehouseOperationLinesMode;
 };
 
 /** Server assigns `reference` (e.g. REC-12) — never send on create/update. */
