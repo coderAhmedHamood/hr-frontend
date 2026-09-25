@@ -70,6 +70,10 @@ import {
   OperationLineField,
   OperationLinesStack,
 } from '@/features/inventory/admin/operations/components/operation-line-card-shell';
+import {
+  filterOperationFromLocations,
+  filterOperationToLocations,
+} from '@/features/inventory/admin/operations/lib/operation-location-filters';
 import { cn } from '@/shared/utils';
 
 type Props = {
@@ -195,6 +199,18 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
     [locations, destinationLocations],
   );
 
+  const [headerFromLocationId, setHeaderFromLocationId] = React.useState('');
+  const [headerToLocationId, setHeaderToLocationId] = React.useState('');
+
+  const fromLocationOptions = React.useMemo(
+    () => filterOperationFromLocations(kind, locations, headerToLocationId || undefined),
+    [kind, locations, headerToLocationId],
+  );
+  const toLocationOptions = React.useMemo(
+    () => filterOperationToLocations(kind, destinationLocations, headerFromLocationId || undefined),
+    [kind, destinationLocations, headerFromLocationId],
+  );
+
   const [lines, setLines] = React.useState<WarehouseOperationLine[]>([]);
   const [notes, setNotes] = React.useState('');
   const [partnerId, setPartnerId] = React.useState('');
@@ -203,8 +219,6 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
   const [occurredAt, setOccurredAt] = React.useState('');
   const [status, setStatus] = React.useState<WarehouseOperationStatus>('draft');
   const [tab, setTab] = React.useState('operations');
-  const [headerFromLocationId, setHeaderFromLocationId] = React.useState('');
-  const [headerToLocationId, setHeaderToLocationId] = React.useState('');
   const [availableByLineId, setAvailableByLineId] = React.useState<Record<string, number>>({});
   const loadedOperationIdRef = React.useRef<string | null>(null);
 
@@ -445,13 +459,20 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
   const targetWarehouseName = crossWarehouse
     ? warehouseName(destinationWarehouseId)
     : sourceWarehouseName;
-  const fromFieldLabel = meta.stockEffect === 'move' ? 'الموقع الحالي' : 'موقع الصرف';
+  const fromFieldLabel =
+    kind === 'issue'
+      ? 'موقع المخزون (من)'
+      : meta.stockEffect === 'move'
+        ? 'الموقع الحالي'
+        : 'موقع الصرف';
   const toFieldLabel =
-    meta.stockEffect === 'move'
-      ? 'الموقع الجديد'
-      : meta.stockEffect === 'adjust_set'
-        ? 'موقع المخزون'
-        : 'موقع الاستلام';
+    kind === 'issue'
+      ? 'موقع العميل (إلى)'
+      : meta.stockEffect === 'move'
+        ? 'الموقع الجديد'
+        : meta.stockEffect === 'adjust_set'
+          ? 'موقع المخزون'
+          : 'موقع الاستلام';
 
   const destinationLine = lines[0] ?? operation.lines[0];
 
@@ -730,7 +751,7 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
                             <SelectValue placeholder={`اختر ${fromFieldLabel}`} />
                           </SelectTrigger>
                           <SelectContent>
-                            {locations.map((location) => (
+                            {fromLocationOptions.map((location) => (
                               <SelectItem key={location.id} value={location.id}>
                                 {formatLocationOption(location.id)}
                               </SelectItem>
@@ -779,7 +800,7 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
                             <SelectValue placeholder={`اختر ${toFieldLabel}`} />
                           </SelectTrigger>
                           <SelectContent>
-                            {destinationLocations.map((location) => (
+                            {toLocationOptions.map((location) => (
                               <SelectItem key={location.id} value={location.id}>
                                 {formatLocationOption(location.id)}
                               </SelectItem>

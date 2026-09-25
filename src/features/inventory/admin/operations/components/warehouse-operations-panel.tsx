@@ -49,6 +49,12 @@ import {
   pickerUsesSourceLocationStock,
   type OperationLineDraft,
 } from '@/features/inventory/admin/operations/lib/operation-line-draft';
+import {
+  filterOperationFromLocations,
+  filterOperationToLocations,
+  pickDefaultFromLocationId,
+  pickDefaultToLocationId,
+} from '@/features/inventory/admin/operations/lib/operation-location-filters';
 import { toast } from 'sonner';
 import { cn, formatDateTime } from '@/shared/utils';
 import { OperationFormSection } from '@/features/inventory/admin/operations/components/operation-form-section';
@@ -121,6 +127,9 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
   const [filterStatus, setFilterStatus] = React.useState<WarehouseOperationStatus | 'all'>('all');
   const [open, setOpen] = React.useState(false);
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
+  /** Until the list refetches, keep the create response so the detail dialog opens immediately. */
+  const [detailOperationFallback, setDetailOperationFallback] =
+    React.useState<WarehouseOperation | null>(null);
   const [toDelete, setToDelete] = React.useState<WarehouseOperation | null>(null);
   const [stockMode, setStockMode] = React.useState<StockLineMode>('product');
   const [variantQuantities, setVariantQuantities] = React.useState<Record<string, number>>({});
@@ -297,20 +306,58 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
     limit: 500,
   });
 
-  const { data: destLocationsData } = useWarehouseLocations({
-    companyId,
-    warehouseId: destinationWarehouseId || undefined,
-    page: 1,
-    limit: 200,
-  });
+  const { data: destLocationsData } = useWarehouseLocations(
+    {
+      companyId,
+      warehouseId: destinationWarehouseId || undefined,
+      page: 1,
+      limit: 200,
+    },
+    { enabled: Boolean(destinationWarehouseId) },
+  );
   const destLocations = destLocationsData?.items ?? [];
-  // Same-warehouse moves ("internal") pick from/to out of the same `locations`
-  // list — exclude the chosen source so a line can't transfer a location to
-  // itself. Cross-warehouse transfers already scope `destLocations` to the
-  // destination warehouse, so the source (in the other warehouse) can't appear there.
-  const toLocations = meta.needsDestWarehouse
-    ? destLocations
-    : locations.filter((location) => location.id !== fromLocationId);
+  // Source locations always come from the source warehouse (`locations`).
+  // Destination-only pool is `destLocations` — never mix them on the «from» picker.
+  const fromLocations = React.useMemo(
+    () => filterOperationFromLocations(kind, locations, toLocationId || undefined),
+    [kind, locations, toLocationId],
+  );
+
+  const toLocations = React.useMemo(() => {
+    const pool = meta.needsDestWarehouse ? destLocations : locations;
+    return filterOperationToLocations(kind, pool, fromLocationId || undefined);
+  }, [kind, meta.needsDestWarehouse, destLocations, locations, fromLocationId]);
+
+  // Pre-fill system stock bin (WH/Stock), customer, or adjustment locations when empty.
+  React.useEffect(() => {
+    if (!open || !effectiveWarehouseId) return;
+
+    const fromPool = locations;
+    const toPool = meta.needsDestWarehouse ? destLocations : locations;
+
+    if (meta.needsFrom && !form.getValues('fromLocationId')?.trim()) {
+      const fromId = pickDefaultFromLocationId(kind, fromPool);
+      if (fromId) form.setValue('fromLocationId', fromId);
+    }
+
+    if (meta.needsTo && !form.getValues('toLocationId')?.trim()) {
+      if (meta.needsDestWarehouse && !destinationWarehouseId) return;
+      const fromId = form.getValues('fromLocationId')?.trim() || undefined;
+      const toId = pickDefaultToLocationId(kind, toPool, { fromLocationId: fromId });
+      if (toId) form.setValue('toLocationId', toId);
+    }
+  }, [
+    open,
+    kind,
+    meta.needsFrom,
+    meta.needsTo,
+    meta.needsDestWarehouse,
+    effectiveWarehouseId,
+    destinationWarehouseId,
+    locations,
+    destLocations,
+    form,
+  ]);
 
   const locationNameById = React.useMemo(() => {
     const source = scopedToWarehouse
@@ -324,9 +371,28 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
     [allWarehouses],
   );
 
-  const selectedOperation = selectedId ? (items.find((item) => item.id === selectedId) ?? null) : null;
+  const selectedOperation = React.useMemo(() => {
+    if (!selectedId) return null;
+    return (
+      items.find((item) => item.id === selectedId) ??
+      (detailOperationFallback?.id === selectedId ? detailOperationFallback : null)
+    );
+  }, [selectedId, items, detailOperationFallback]);
+
+  React.useEffect(() => {
+    if (!selectedId || !detailOperationFallback) return;
+    if (items.some((item) => item.id === selectedId)) {
+      setDetailOperationFallback(null);
+    }
+  }, [selectedId, detailOperationFallback, items]);
 
   const { create, remove } = useWarehouseOperationMutations(effectiveWarehouseId || 'global', kind);
+
+  const openDraftAfterCreate = React.useCallback((created: WarehouseOperation) => {
+    setOpen(false);
+    setDetailOperationFallback(created);
+    setSelectedId(created.id);
+  }, []);
 
   // Standalone inventory pages (kind pages) get the shared topbar add-button + collapsible
   // filter bar pattern; the warehouse-detail embedded tab keeps its original inline toolbar
@@ -452,7 +518,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
       return;
     }
     if (meta.needsTo && !values.toLocationId?.trim()) {
-      toast.error('اختر موقع الوجهة قبل إضافة المنتجات.');
+      toast.error(kind === 'issue' ? 'اختر موقع العميل (الوجهة).' : 'اختر موقع الوجهة قبل إضافة المنتجات.');
       return;
     }
 
@@ -509,10 +575,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
         destinationWarehouseId: values.destinationWarehouseId || undefined,
         lines,
       });
-      setOpen(false);
-      // Pilot: reopen the just-created draft instead of making the user find
-      // it in the refreshed list themselves — see kind === 'transfer' below.
-      if (kind === 'transfer') setSelectedId(created.id);
+      openDraftAfterCreate(created);
       return;
     }
 
@@ -593,11 +656,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
       destinationWarehouseId: values.destinationWarehouseId || undefined,
       lines,
     });
-    setOpen(false);
-    // Pilot: reopen the just-created draft instead of making the user find
-    // it in the refreshed list themselves. If this works well, roll the same
-    // pattern out to other operation kinds' create forms.
-    if (kind === 'transfer') setSelectedId(created.id);
+    openDraftAfterCreate(created);
   };
 
   const columns: ColumnDef<WarehouseOperation>[] = [
@@ -711,7 +770,10 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
       <WarehouseOperationDetailDialog
         open={Boolean(selectedId)}
         onOpenChange={(next) => {
-          if (!next) setSelectedId(null);
+          if (!next) {
+            setSelectedId(null);
+            setDetailOperationFallback(null);
+          }
         }}
         operation={selectedOperation}
       />
@@ -726,7 +788,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
           <DialogHeader>
             <DialogTitle>{meta.createLabel}</DialogTitle>
             <DialogDescription>
-              يُنشأ المستند كمسودة، ثم يُحدَّد كجاهز ويُصدَّق من شاشة التفاصيل.
+              يُنشأ المستند كمسودة ثم تُفتح شاشة التفاصيل مباشرة لإكمال الجاهز والتصديق والحفظ.
             </DialogDescription>
           </DialogHeader>
           <form
@@ -803,7 +865,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
                   {kind === 'transfer'
                     ? 'موقع الصرف (المصدر)'
                     : kind === 'issue'
-                      ? 'موقع الصرف'
+                      ? 'موقع المخزون (من)'
                       : meta.stockEffect === 'move'
                         ? 'الموقع الحالي (من)'
                         : 'الموقع المصدر'}
@@ -832,7 +894,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
                         <SelectValue placeholder="اختر موقع المصدر أولًا" />
                       </SelectTrigger>
                       <SelectContent>
-                        {locations.map((location) => (
+                        {fromLocations.map((location) => (
                           <SelectItem key={location.id} value={location.id}>
                             {location.nameAr || location.code}
                             {location.code ? ` · ${location.code}` : ''}
@@ -878,15 +940,17 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
             {meta.needsTo ? (
               <div className="space-y-1.5">
                 <Label htmlFor="op-to">
-                  {meta.needsDestWarehouse
-                    ? 'موقع الاستلام (الوجهة)'
-                    : meta.stockEffect === 'inbound'
-                      ? 'موقع الاستلام'
-                      : meta.stockEffect === 'adjust_set'
-                        ? 'موقع المخزون'
-                        : meta.stockEffect === 'move'
-                          ? 'الموقع الجديد (إلى)'
-                          : 'الموقع الوجهة'}
+                  {kind === 'issue'
+                    ? 'موقع العميل (إلى)'
+                    : meta.needsDestWarehouse
+                      ? 'موقع الاستلام (الوجهة)'
+                      : meta.stockEffect === 'inbound'
+                        ? 'موقع الاستلام'
+                        : meta.stockEffect === 'adjust_set'
+                          ? 'موقع المخزون'
+                          : meta.stockEffect === 'move'
+                            ? 'الموقع الجديد (إلى)'
+                            : 'الموقع الوجهة'}
                 </Label>
                 <Controller
                   control={form.control}

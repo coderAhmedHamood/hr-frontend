@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Ban, Check, ChevronDown, Plus, Shield, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { MultiSelect, type MultiSelectOption } from '@/components/ui/multi-select';
 import { systemPermissionsHref } from '@/features/system/permissions/constants/routes';
 import { RolesAssignmentEditor } from '@/components/shared/permissions/roles-assignment-editor';
 import { permissionLabel } from '@/components/shared/permissions/permission-labels';
@@ -37,7 +37,8 @@ export function UserPermissionsPanel({ model }: Props) {
     extraAllowPermissions,
     allActionPermissions,
     handleToggleDeny,
-    handleGrantExtra,
+    handleGrantExtraBulk,
+    handleDenyRolePermissionsBulk,
     handleRemoveOverlay,
     isMutating,
     hasCompany,
@@ -45,7 +46,7 @@ export function UserPermissionsPanel({ model }: Props) {
   } = model;
 
   const [addingExtra, setAddingExtra] = React.useState(false);
-  const [extraPickId, setExtraPickId] = React.useState('');
+  const [addingDeny, setAddingDeny] = React.useState(false);
 
   const deniedCount = React.useMemo(
     () => [...overlayMap.values()].filter((o) => o.effect === 'DENY').length,
@@ -57,6 +58,35 @@ export function UserPermissionsPanel({ model }: Props) {
     const alreadyAllowed = new Set(extraAllowPermissions.map((p) => p.id));
     return allActionPermissions.filter((p) => !inRole.has(p.id) && !alreadyAllowed.has(p.id));
   }, [allActionPermissions, rolePermissions, extraAllowPermissions]);
+
+  const grantableOptions = React.useMemo(
+    (): MultiSelectOption[] =>
+      grantablePermissions.map((p) => ({
+        value: p.id,
+        label: permissionLabel(p),
+        subtitle: p.code,
+      })),
+    [grantablePermissions],
+  );
+
+  const denyableRolePermissions = React.useMemo(
+    () =>
+      rolePermissions.filter((p) => {
+        const overlay = overlayMap.get(p.id);
+        return overlay?.effect !== 'DENY';
+      }),
+    [rolePermissions, overlayMap],
+  );
+
+  const denyableOptions = React.useMemo(
+    (): MultiSelectOption[] =>
+      denyableRolePermissions.map((p) => ({
+        value: p.id,
+        label: permissionLabel(p),
+        subtitle: p.code,
+      })),
+    [denyableRolePermissions],
+  );
 
   return (
     <section className="space-y-4">
@@ -120,7 +150,47 @@ export function UserPermissionsPanel({ model }: Props) {
                 {rolePermissions.length}
               </Badge>
             </h4>
+            {hasCompany && denyableOptions.length > 0 ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 gap-1 text-xs text-destructive hover:bg-destructive/10"
+                onClick={() => setAddingDeny((v) => !v)}
+              >
+                <ChevronDown className={`h-3 w-3 transition-transform ${addingDeny ? 'rotate-180' : ''}`} />
+                حجب
+              </Button>
+            ) : null}
           </div>
+
+          {addingDeny ? (
+            <div className="mb-3">
+              <MultiSelect
+                id="user-role-permissions-deny"
+                label="اختر صلاحيات الأدوار لحجبها"
+                options={denyableOptions}
+                value={[]}
+                onChange={(ids) => {
+                  if (ids.length === 0) return;
+                  handleDenyRolePermissionsBulk(ids);
+                  setAddingDeny(false);
+                }}
+                deferCommit
+                applyLabel="حجب المحددة"
+                placeholder="اختر صلاحية أو أكثر…"
+                searchPlaceholder="بحث في صلاحيات الأدوار…"
+                emptyMessage="لا توجد صلاحيات غير محجوبة"
+                listMaxHeight="min(280px,40vh)"
+                disabled={!hasCompany || isMutating}
+                triggerClassName="h-10 rounded-xl bg-background"
+              />
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                حدّد صلاحية أو أكثر ثم «حجب المحددة» — طلب واحد للدفعة كاملة.
+              </p>
+            </div>
+          ) : null}
+
           <ul className="max-h-[min(40vh,360px)] space-y-2 overflow-y-auto overscroll-contain pr-1">
             {rolePermissions.map((p) => {
               const overlay = overlayMap.get(p.id);
@@ -204,38 +274,29 @@ export function UserPermissionsPanel({ model }: Props) {
         </div>
 
         {addingExtra ? (
-          <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center">
-            <Select value={extraPickId} onValueChange={setExtraPickId}>
-              <SelectTrigger className="h-9 flex-1 rounded-lg text-sm">
-                <SelectValue placeholder="اختر صلاحية…" />
-              </SelectTrigger>
-              <SelectContent className="max-h-64" align="end">
-                {grantablePermissions.map((p) => (
-                  <SelectItem key={p.id} value={p.id} className="items-start py-2">
-                    <div className="flex min-w-0 flex-col gap-0.5">
-                      <span className="truncate text-sm">{permissionLabel(p)}</span>
-                      <span className="truncate font-mono text-[10px] text-muted-foreground" dir="ltr">
-                        {p.code}
-                      </span>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button
-              type="button"
-              size="sm"
-              className="h-9 shrink-0 gap-1 text-xs"
-              disabled={!extraPickId || isMutating}
-              onClick={() => {
-                if (!extraPickId) return;
-                handleGrantExtra(extraPickId);
-                setExtraPickId('');
+          <div className="mb-3">
+            <MultiSelect
+              id="user-extra-permissions-grant"
+              label="اختر صلاحيات لمنحها"
+              options={grantableOptions}
+              value={[]}
+              onChange={(ids) => {
+                if (ids.length === 0) return;
+                handleGrantExtraBulk(ids);
                 setAddingExtra(false);
               }}
-            >
-              <Check className="h-3.5 w-3.5" /> منح
-            </Button>
+              deferCommit
+              applyLabel="منح المحددة"
+              placeholder="اختر صلاحية أو أكثر…"
+              searchPlaceholder="بحث في الصلاحيات…"
+              emptyMessage="لا توجد صلاحيات متاحة للمنح"
+              listMaxHeight="min(280px,40vh)"
+              disabled={!hasCompany || isMutating}
+              triggerClassName="h-10 rounded-xl bg-background"
+            />
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              حدّد صلاحية أو أكثر ثم «منح المحددة» — طلب واحد للدفعة كاملة.
+            </p>
           </div>
         ) : null}
 

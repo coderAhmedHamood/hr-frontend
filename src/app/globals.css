@@ -14,6 +14,12 @@
   width: var(--radix-popover-trigger-width);
   max-width: min(var(--radix-popover-trigger-width), calc(100vw - 2rem));
 }
+/* Dropdown menus: at least trigger width, grow for long labels (filters, pickers) */
+.popover-dropdown-fit-content {
+  min-width: var(--radix-popover-trigger-width);
+  width: max-content;
+  max-width: min(42rem, calc(100vw - 2rem));
+}
 /* Multi-select menu: floor width 280px (or 100%), cap to viewport — plain CSS avoids Turbopack mangling arbitrary min()/calc() classes */
 .popover-multi-select {
   min-width: min(100%, 280px);

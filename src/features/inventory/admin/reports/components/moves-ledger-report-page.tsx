@@ -14,7 +14,10 @@ import {
   WAREHOUSE_OPERATION_KIND_META,
 } from '@/features/inventory/domain/constants/warehouse-operation-kinds';
 import type { InventoryLedgerEntry } from '@/features/inventory/domain/types/inventory-ledger';
-import type { WarehouseOperationKind } from '@/features/inventory/domain/types/warehouse';
+import type {
+  WarehouseLocation,
+  WarehouseOperationKind,
+} from '@/features/inventory/domain/types/warehouse';
 import { formatDateTime } from '@/shared/utils';
 import {
   LocationRouteChips,
@@ -52,6 +55,19 @@ function localDateBoundary(date: string, endOfDay = false): string | undefined {
   if (!date) return undefined;
   const value = new Date(`${date}T${endOfDay ? '23:59:59.999' : '00:00:00.000'}`);
   return Number.isNaN(value.getTime()) ? undefined : value.toISOString();
+}
+
+function formatLocationFilterLabel(
+  location: WarehouseLocation,
+  warehouseLabel: string | undefined,
+  includeWarehouse: boolean,
+): string {
+  const name = location.nameAr?.trim() || location.code;
+  const code =
+    location.code && name !== location.code ? ` · ${location.code}` : '';
+  if (!includeWarehouse) return `${name}${code}`;
+  const wh = warehouseLabel?.trim() || '—';
+  return `${wh} · ${name}${code}`;
 }
 
 export function MovesLedgerReportPage() {
@@ -110,15 +126,24 @@ export function MovesLedgerReportPage() {
     const map = new Map(locations.map((item) => [item.id, item.nameAr || item.code]));
     return (id?: string) => (id ? (map.get(id) ?? id) : '—');
   }, [locations]);
-  // The filter dropdown itself, though, should only offer locations that make
-  // sense for the currently selected warehouse.
-  const locationOptions = React.useMemo(
-    () =>
-      warehouseId === 'all'
-        ? locations
-        : locations.filter((item) => item.warehouseId === warehouseId),
-    [locations, warehouseId],
-  );
+  const scopedToWarehouse = warehouseId !== 'all';
+  // Scoped to one warehouse when picked; otherwise every location is labeled
+  // with its warehouse so duplicate names (e.g. several «داخلي») stay distinct.
+  const locationOptions = React.useMemo(() => {
+    const pool = scopedToWarehouse
+      ? locations.filter((item) => item.warehouseId === warehouseId)
+      : locations;
+    return [...pool].sort((a, b) => {
+      if (!scopedToWarehouse) {
+        const whCmp = (warehouseName.get(a.warehouseId) ?? '').localeCompare(
+          warehouseName.get(b.warehouseId) ?? '',
+          'ar',
+        );
+        if (whCmp !== 0) return whCmp;
+      }
+      return (a.nameAr || a.code).localeCompare(b.nameAr || b.code, 'ar');
+    });
+  }, [locations, warehouseId, scopedToWarehouse, warehouseName]);
 
   const rows = data?.items ?? [];
   const total = data?.pagination.total ?? 0;
@@ -153,12 +178,16 @@ export function MovesLedgerReportPage() {
             id: 'location',
             value: locationId,
             onChange: setLocationId,
-            placeholder: 'كل المواقع',
+            placeholder: scopedToWarehouse ? 'كل المواقع' : 'الموقع (مع المستودع)',
             options: [
               { value: 'all', label: 'كل المواقع' },
               ...locationOptions.map((location) => ({
                 value: location.id,
-                label: location.nameAr || location.code,
+                label: formatLocationFilterLabel(
+                  location,
+                  warehouseName.get(location.warehouseId),
+                  !scopedToWarehouse,
+                ),
               })),
             ],
           },
@@ -186,7 +215,17 @@ export function MovesLedgerReportPage() {
         }
       />
     ),
-    [searchInput, warehouseId, locationId, locationOptions, kind, dateRange, warehouses],
+    [
+      searchInput,
+      warehouseId,
+      locationId,
+      locationOptions,
+      scopedToWarehouse,
+      warehouseName,
+      kind,
+      dateRange,
+      warehouses,
+    ],
   );
 
   const columns: ColumnDef<InventoryLedgerEntry>[] = [

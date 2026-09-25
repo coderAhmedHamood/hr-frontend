@@ -80,7 +80,7 @@ export const WAREHOUSE_OPERATION_KIND_META: Record<WarehouseOperationKind, Wareh
       createLabel: 'مستند صرف',
       empty: 'لا توجد عمليات صرف مخزون بعد.',
       needsFrom: true,
-      needsTo: false,
+      needsTo: true,
       needsDestWarehouse: false,
       refPrefix: 'WH/OUT',
       stockEffect: 'outbound',

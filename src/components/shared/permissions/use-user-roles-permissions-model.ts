@@ -89,20 +89,7 @@ export function useUserRolesPermissionsModel({
   const syncRolesMutation = useMutation({
     mutationFn: async (nextRoleIds: string[]) => {
       if (!userId) throw new Error('لا يوجد حساب مستخدم');
-
-      const cached = qc.getQueryData<Awaited<ReturnType<typeof userRolesApi.list>>>(PERMISSIONS_KEYS.userRoles(userId));
-      const assignments = cached?.items ?? userRoleAssignments;
-      const active = assignments.filter((a) => a.isActive);
-      const currentIds = new Set(active.map((a) => a.roleId));
-      const nextSet = new Set(nextRoleIds);
-
-      const toAdd = nextRoleIds.filter((id) => !currentIds.has(id));
-      const toRemove = active.filter((a) => !nextSet.has(a.roleId));
-
-      await Promise.all([
-        ...toAdd.map((roleId) => userRolesApi.assign(userId, { roleId, isActive: true })),
-        ...toRemove.map((a) => userRolesApi.revoke(a.id)),
-      ]);
+      await userRolesApi.sync(userId, nextRoleIds);
     },
     onSuccess: () => {
       toast.success('تم تحديث الأدوار');
@@ -209,27 +196,100 @@ export function useUserRolesPermissionsModel({
     onError: (err) => handleApiError(err, 'userPermission.remove'),
   });
 
+  const updateOverlayMutation = useMutation({
+    mutationFn: async (args: { overlayId: string; effect: UserPermissionEffect }) => {
+      if (!userId) throw new Error('لا يوجد حساب مستخدم');
+      return userPermissionsApi.update(userId, args.overlayId, { effect: args.effect });
+    },
+    onSuccess: (_, args) => {
+      toast.success(args.effect === 'DENY' ? 'تم حجب الصلاحية' : 'تم تحديث الصلاحية');
+      void qc.invalidateQueries({ queryKey: PERMISSIONS_KEYS.userPermissions(userId) });
+    },
+    onError: (err) => handleApiError(err, 'userPermission.update'),
+  });
+
+  const bulkGrantOverlayMutation = useMutation({
+    mutationFn: async (permissionIds: string[]) => {
+      if (!userId) throw new Error('لا يوجد حساب مستخدم');
+      if (permissionIds.length === 0) return;
+      const companyId = await resolveCompanyId();
+      await userPermissionsApi.bulkAssign(
+        userId,
+        permissionIds.map((permissionId) => ({
+          permissionId,
+          companyId,
+          effect: 'ALLOW' as const,
+        })),
+      );
+    },
+    onSuccess: (_, permissionIds) => {
+      toast.success(
+        permissionIds.length === 1 ? 'تم منح الصلاحية' : `تم منح ${permissionIds.length} صلاحيات`,
+      );
+      void qc.invalidateQueries({ queryKey: PERMISSIONS_KEYS.userPermissions(userId) });
+    },
+    onError: (err) => handleApiError(err, 'userPermission.assign'),
+  });
+
   const handleToggleDeny = React.useCallback(
     (permissionId: string) => {
       const existing = overlayMap.get(permissionId);
       if (existing?.effect === 'DENY') {
         removeOverlayMutation.mutate(existing.overlayId);
       } else if (existing?.effect === 'ALLOW') {
-        removeOverlayMutation.mutate(existing.overlayId);
-        addOverlayMutation.mutate({ permissionId, effect: 'DENY' });
+        updateOverlayMutation.mutate({ overlayId: existing.overlayId, effect: 'DENY' });
       } else {
         addOverlayMutation.mutate({ permissionId, effect: 'DENY' });
       }
     },
-    [overlayMap, addOverlayMutation, removeOverlayMutation],
+    [overlayMap, addOverlayMutation, removeOverlayMutation, updateOverlayMutation],
   );
 
   const handleGrantExtra = React.useCallback(
     (permissionId: string) => {
       if (overlayMap.get(permissionId)) return;
-      addOverlayMutation.mutate({ permissionId, effect: 'ALLOW' });
+      bulkGrantOverlayMutation.mutate([permissionId]);
     },
-    [overlayMap, addOverlayMutation],
+    [overlayMap, bulkGrantOverlayMutation],
+  );
+
+  const handleGrantExtraBulk = React.useCallback(
+    (permissionIds: string[]) => {
+      const ids = permissionIds.filter((id) => id && !overlayMap.has(id));
+      if (ids.length === 0) return;
+      bulkGrantOverlayMutation.mutate(ids);
+    },
+    [overlayMap, bulkGrantOverlayMutation],
+  );
+
+  const bulkDenyOverlayMutation = useMutation({
+    mutationFn: async (permissionIds: string[]) => {
+      if (!userId) throw new Error('لا يوجد حساب مستخدم');
+      if (permissionIds.length === 0) return;
+      const companyId = await resolveCompanyId();
+      await userPermissionsApi.denyBulk(userId, companyId, permissionIds);
+    },
+    onSuccess: (_, permissionIds) => {
+      toast.success(
+        permissionIds.length === 1
+          ? 'تم حجب الصلاحية'
+          : `تم حجب ${permissionIds.length} صلاحيات`,
+      );
+      void qc.invalidateQueries({ queryKey: PERMISSIONS_KEYS.userPermissions(userId) });
+    },
+    onError: (err) => handleApiError(err, 'userPermission.assign'),
+  });
+
+  const handleDenyRolePermissionsBulk = React.useCallback(
+    (permissionIds: string[]) => {
+      const ids = permissionIds.filter((id) => {
+        const existing = overlayMap.get(id);
+        return !existing || existing.effect !== 'DENY';
+      });
+      if (ids.length === 0) return;
+      bulkDenyOverlayMutation.mutate(ids);
+    },
+    [overlayMap, bulkDenyOverlayMutation],
   );
 
   const handleRemoveOverlay = React.useCallback(
@@ -254,8 +314,15 @@ export function useUserRolesPermissionsModel({
     allActionPermissions: allPermissions.filter((p) => p.nodeType === 'ACTION'),
     handleToggleDeny,
     handleGrantExtra,
+    handleGrantExtraBulk,
+    handleDenyRolePermissionsBulk,
     handleRemoveOverlay,
-    isMutating: addOverlayMutation.isPending || removeOverlayMutation.isPending,
+    isMutating:
+      addOverlayMutation.isPending ||
+      removeOverlayMutation.isPending ||
+      updateOverlayMutation.isPending ||
+      bulkGrantOverlayMutation.isPending ||
+      bulkDenyOverlayMutation.isPending,
     hasLinkedUser,
   };
 }
