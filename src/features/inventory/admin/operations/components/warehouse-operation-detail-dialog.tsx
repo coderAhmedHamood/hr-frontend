@@ -235,7 +235,7 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
     enabled:
       open &&
       Boolean(companyId && operation?.warehouseId && operation?.kind) &&
-      supportsMultiProductLines(operation.kind),
+      supportsMultiProductLines(operation?.kind ?? kind),
   });
 
   const reservedProductIdsOtherDocs = React.useMemo(() => {
@@ -608,7 +608,7 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
     const includeLines = options?.includeLines === true || patch.lines !== undefined;
 
     // Backend locks fully validated ops — use undoValidation for done → ready.
-    if (status === 'done' || documentOperation.status === 'done') {
+    if (status === 'done' || documentOperation?.status === 'done') {
       toast.error('لا يمكن تعديل مستند منتهٍ. استخدم «تراجع عن التصديق» أولاً.');
       return;
     }
@@ -692,7 +692,7 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
   }
 
   async function cancelOperation() {
-    if (status === 'done' || documentOperation.status === 'done') {
+    if (status === 'done' || documentOperation?.status === 'done') {
       toast.error('لا يمكن إلغاء مستند منتهٍ. استخدم التراجع عن التصديق أولاً.');
       return;
     }
@@ -1133,7 +1133,7 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
                                     className="mx-auto h-9 w-full max-w-[7rem] text-center"
                                     value={demand}
                                     max={maxQty}
-                                    disabled={!editable || status === 'ready' || isSaving}
+                                    disabled={!editable || isSaving}
                                     aria-label="كمية الطلب"
                                     onChange={(value) =>
                                       applyLineQuantity(line.id, 'demandQuantity', value)
