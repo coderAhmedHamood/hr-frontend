@@ -74,6 +74,8 @@ interface NotificationTogglesCardProps {
   values: BooleanSettingsRecord;
   disabled?: boolean;
   masterDisabled?: boolean;
+  /** Outer settings tab already names this section. */
+  hideHeader?: boolean;
   onToggle: (key: string, value: boolean) => void;
 }
 
@@ -84,6 +86,7 @@ export function NotificationTogglesCard({
   values,
   disabled,
   masterDisabled,
+  hideHeader,
   onToggle,
 }: NotificationTogglesCardProps) {
   const generalGroup = groups.find((g) => g.label === 'عام');
@@ -92,19 +95,27 @@ export function NotificationTogglesCard({
 
   return (
     <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-soft">
-      <div className="border-b border-border/80 px-4 py-4 sm:px-5">
-        <div className="flex items-start gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-            <BellRing className="h-4 w-4" />
-          </div>
-          <div>
-            <h3 className="font-display text-sm font-semibold sm:text-base">{title}</h3>
-            {description ? (
-              <p className="mt-0.5 max-w-2xl text-xs leading-relaxed text-muted-foreground">{description}</p>
-            ) : null}
+      {hideHeader ? (
+        description ? (
+          <p className="border-b border-border/80 px-4 py-3.5 text-xs leading-relaxed text-muted-foreground sm:px-5">
+            {description}
+          </p>
+        ) : null
+      ) : (
+        <div className="border-b border-border/80 px-4 py-4 sm:px-5">
+          <div className="flex items-start gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <BellRing className="h-4 w-4" />
+            </div>
+            <div>
+              <h3 className="font-display text-sm font-semibold sm:text-base">{title}</h3>
+              {description ? (
+                <p className="mt-0.5 max-w-2xl text-xs leading-relaxed text-muted-foreground">{description}</p>
+              ) : null}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       <div className="space-y-5 p-4 sm:p-5">
         {generalGroup ? (

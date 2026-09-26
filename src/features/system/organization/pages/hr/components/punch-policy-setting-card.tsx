@@ -29,6 +29,8 @@ export type PunchPolicyValues = {
 type Props = {
   values: PunchPolicyValues;
   disabled?: boolean;
+  /** Tab shell already names the section. */
+  hideHeader?: boolean;
   onChange: (patch: Partial<PunchPolicyValues>) => void;
 };
 
@@ -66,8 +68,7 @@ function Row({
   return (
     <div
       className={cn(
-        'flex items-start justify-between gap-3 rounded-xl border px-3.5 py-3 transition-colors',
-        checked ? 'border-primary/20 bg-primary/[0.03]' : 'border-border/70 bg-card',
+        'flex items-start justify-between gap-4 bg-card px-4 py-3.5',
         disabled && 'opacity-60',
       )}
     >
@@ -87,15 +88,11 @@ function Row({
 }
 
 function GroupTitle({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="px-0.5 pt-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-      {children}
-    </p>
-  );
+  return <p className="px-0.5 text-sm font-semibold text-foreground">{children}</p>;
 }
 
 /** Self-service punch policy — the backend evaluates it and the app just displays it. */
-export function PunchPolicySettingCard({ values, disabled, onChange }: Props) {
+export function PunchPolicySettingCard({ values, disabled, hideHeader, onChange }: Props) {
   const [maxHours, setMaxHours] = React.useState(String(values.openSessionMaxHours));
   React.useEffect(() => {
     setMaxHours(String(values.openSessionMaxHours));
@@ -116,34 +113,44 @@ export function PunchPolicySettingCard({ values, disabled, onChange }: Props) {
 
   return (
     <section className="rounded-2xl border border-border/70 bg-card shadow-soft">
-      <header className="flex items-start gap-3 border-b border-border/60 px-4 py-3.5 sm:px-5">
-        <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-          <Fingerprint className="h-4 w-4" aria-hidden />
-        </span>
-        <div className="min-w-0">
-          <h2 className="text-sm font-semibold text-foreground">سياسة الحضور والانصراف</h2>
-          <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-            تُطبَّق على البصمة الذاتية من التطبيق. الخادم يقرر وتطبيق الجوال يعرض القرار،
-            فلا يحتاج أي تغيير هنا إلى تحديث التطبيق. التسجيل اليدوي من الموارد البشرية
-            لا يتأثر بهذه الإعدادات.
-          </p>
-        </div>
-      </header>
+      {hideHeader ? (
+        <p className="border-b border-border/60 px-4 py-3.5 text-xs leading-relaxed text-muted-foreground sm:px-5">
+          تُطبَّق على البصمة الذاتية من التطبيق. الخادم يقرر والجوال يعرض القرار، فلا يحتاج
+          التغيير إلى تحديث التطبيق. التسجيل اليدوي من الموارد البشرية لا يتأثر.
+        </p>
+      ) : (
+        <header className="flex items-start gap-3 border-b border-border/60 px-4 py-3.5 sm:px-5">
+          <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <Fingerprint className="h-4 w-4" aria-hidden />
+          </span>
+          <div className="min-w-0">
+            <h2 className="text-sm font-semibold text-foreground">سياسة الحضور والانصراف</h2>
+            <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+              تُطبَّق على البصمة الذاتية من التطبيق. الخادم يقرر وتطبيق الجوال يعرض القرار،
+              فلا يحتاج أي تغيير هنا إلى تحديث التطبيق. التسجيل اليدوي من الموارد البشرية
+              لا يتأثر بهذه الإعدادات.
+            </p>
+          </div>
+        </header>
+      )}
 
-      <div className="space-y-2 p-4 sm:p-5">
-        <Row
-          title="تطبيق السياسة على الخادم"
-          description={
-            values.enforcePunchPolicyOnServer
-              ? 'مفعّل — الخادم يرفض أي بصمة تمنعها السياسة، حتى من نسخ التطبيق القديمة.'
-              : 'معطّل — السياسة تتحكم في ظهور الأزرار فقط، والخادم يقبل كل البصمات كما كان.'
-          }
-          checked={values.enforcePunchPolicyOnServer}
-          disabled={disabled}
-          onCheckedChange={(v) => onChange({ enforcePunchPolicyOnServer: v })}
-        />
+      <div className="space-y-5 p-4 sm:p-5">
+        <div className="divide-y divide-border/70 overflow-hidden rounded-xl border border-border/70">
+          <Row
+            title="تطبيق السياسة على الخادم"
+            description={
+              values.enforcePunchPolicyOnServer
+                ? 'الخادم يرفض أي بصمة تمنعها السياسة، حتى من نسخ التطبيق القديمة.'
+                : 'السياسة تتحكم في ظهور الأزرار فقط، والخادم يقبل كل البصمات كما كان.'
+            }
+            checked={values.enforcePunchPolicyOnServer}
+            disabled={disabled}
+            onCheckedChange={(v) => onChange({ enforcePunchPolicyOnServer: v })}
+          />
+        </div>
 
         <GroupTitle>الحضور</GroupTitle>
+        <div className="divide-y divide-border/70 overflow-hidden rounded-xl border border-border/70">
         <Row
           title="منع الحضور المبكر"
           description="يُمنع الحضور قبل (وقت الدخول − beforeStartMinutes). عند الإيقاف يُقبل لكن لا يُحسب."
@@ -153,7 +160,7 @@ export function PunchPolicySettingCard({ values, disabled, onChange }: Props) {
         />
         <div
           className={cn(
-            'space-y-2 rounded-xl border border-border/70 bg-card px-3.5 py-3',
+            'space-y-2 bg-card px-4 py-3.5',
             disabled && 'opacity-60',
           )}
         >
@@ -178,8 +185,10 @@ export function PunchPolicySettingCard({ values, disabled, onChange }: Props) {
           </div>
           <p className="text-[11px] leading-relaxed text-muted-foreground">{latePolicy.hint}</p>
         </div>
+        </div>
 
         <GroupTitle>الانصراف</GroupTitle>
+        <div className="divide-y divide-border/70 overflow-hidden rounded-xl border border-border/70">
         <Row
           title="منع الانصراف المبكر"
           description="يُمنع الانصراف قبل (وقت الخروج − allowedShortageMinutes). مثال: خروج 4:00 م وعجز 15 دقيقة → من 3:45 م."
@@ -203,7 +212,7 @@ export function PunchPolicySettingCard({ values, disabled, onChange }: Props) {
         />
         <div
           className={cn(
-            'flex flex-col gap-2 rounded-xl border border-border/70 bg-card px-3.5 py-3 sm:flex-row sm:items-center sm:justify-between',
+            'flex flex-col gap-2 bg-card px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between',
             (disabled || !values.allowPreviousDayCheckOut) && 'opacity-60',
           )}
         >
@@ -228,8 +237,10 @@ export function PunchPolicySettingCard({ values, disabled, onChange }: Props) {
             }}
           />
         </div>
+        </div>
 
         <GroupTitle>شروط عامة</GroupTitle>
+        <div className="divide-y divide-border/70 overflow-hidden rounded-xl border border-border/70">
         <Row
           title="اشتراط نقطة تسجيل مربوطة"
           description="لا يستطيع الموظف البصم من التطبيق إلا إذا كان مربوطاً بنقطة تسجيل فعّالة."
@@ -244,6 +255,7 @@ export function PunchPolicySettingCard({ values, disabled, onChange }: Props) {
           disabled={disabled}
           onCheckedChange={(v) => onChange({ allowPunchOnUnscheduledDay: v })}
         />
+        </div>
       </div>
     </section>
   );
