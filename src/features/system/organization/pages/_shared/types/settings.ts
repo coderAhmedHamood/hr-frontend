@@ -1,3 +1,5 @@
+export type LateCheckInPolicy = 'allow' | 'block_after_grace' | 'block_after_window';
+
 export interface HrCompanySettings {
   id: string;
   companyId: string;
@@ -34,8 +36,20 @@ export interface HrCompanySettings {
   notifyContractSentForApproval: boolean;
   notifyEmployeeAssignedToCompany: boolean;
   notifyEmployeeAssignedToBranch: boolean;
-  /** Mobile: enforce check-in/check-out punch windows. Default false. */
+  /** @deprecated Derived by the backend from the split punch-policy fields below. */
   hideEarlyCheckoutUntilShortageWindow: boolean;
+  /** Backend rejects self-service punches the policy blocks. Default true. */
+  enforcePunchPolicyOnServer?: boolean;
+  blockEarlyCheckIn?: boolean;
+  lateCheckInPolicy?: LateCheckInPolicy;
+  blockEarlyCheckOut?: boolean;
+  allowCheckOutWithoutCheckIn?: boolean;
+  /** After midnight, close a check-in still open from the previous work day. Default true. */
+  allowPreviousDayCheckOut?: boolean;
+  openSessionMaxHours?: number;
+  allowPunchOnUnscheduledDay?: boolean;
+  /** Default true. */
+  requireCheckInPointsForSelfPunch?: boolean;
   createdAt: string;
   updatedAt: string;
   createdBy?: string | null;

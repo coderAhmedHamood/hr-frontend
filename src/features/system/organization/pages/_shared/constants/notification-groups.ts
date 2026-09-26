@@ -2,7 +2,14 @@ import type { HrCompanySettings } from '@/features/system/organization/pages/_sh
 
 export type HrNotificationKey = Exclude<
   keyof HrCompanySettings,
-  'id' | 'companyId' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy'
+  | 'id'
+  | 'companyId'
+  | 'createdAt'
+  | 'updatedAt'
+  | 'createdBy'
+  | 'updatedBy'
+  | 'lateCheckInPolicy'
+  | 'openSessionMaxHours'
 >;
 
 export type NotificationToggleItem = {
