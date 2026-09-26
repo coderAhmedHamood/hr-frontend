@@ -4,7 +4,7 @@
 -- =============================================================================
 -- ENUMS
 -- =============================================================================
-
+ok
 CREATE TYPE warehouse_status AS ENUM ('active', 'inactive');
 
 CREATE TYPE warehouse_location_type AS ENUM (
