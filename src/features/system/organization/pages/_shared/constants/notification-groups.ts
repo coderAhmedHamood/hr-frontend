@@ -61,6 +61,36 @@ export const HR_NOTIFICATION_GROUPS: NotificationToggleGroup[] = [
     items: [
       { key: 'notifyAttendanceCheckIn', label: 'تسجيل حضور' },
       { key: 'notifyAttendanceCheckOut', label: 'تسجيل انصراف' },
+      {
+        key: 'notifyAttendanceExceptionsOnly',
+        label: 'إشعار الحضور والانصراف عند المخالفة فقط',
+        description:
+          'عند التفعيل: البصمة ضمن النطاق الطبيعي لا يصلها إشعار، ويُرسل الإشعار فقط للحالات المفعّلة أدناه. عند الإيقاف: إشعار لكل بصمة.',
+      },
+      {
+        key: 'notifyAttendanceLateCheckIn',
+        label: '↳ حضور متأخر',
+        description: 'حضور بعد (وقت الدخول + السماحية).',
+      },
+      {
+        key: 'notifyAttendanceEarlyCheckOut',
+        label: '↳ انصراف مبكر',
+        description: 'انصراف قبل (وقت الخروج − النقص المسموح).',
+      },
+      {
+        key: 'notifyAttendanceOvertimeCheckOut',
+        label: '↳ انصراف بعد نافذة الخروج',
+        description: 'انصراف بعد وقت الخروج بأكثر من ساعتين (نافذة الخروج).',
+      },
+      {
+        key: 'notifyAttendanceCheckOutWithoutCheckIn',
+        label: '↳ انصراف بدون حضور',
+      },
+      {
+        key: 'notifyAttendanceNotCounted',
+        label: '↳ بصمة لا تُحسب',
+        description: 'مثل الحضور قبل نافذة الدخول، أو البصم في يوم راحة أو بدون دوام.',
+      },
       { key: 'notifyShiftAssignmentLinked', label: 'ربط شيفت بموظف' },
       { key: 'notifyCheckInPointLinked', label: 'ربط نقطة تسجيل بموظف' },
     ],

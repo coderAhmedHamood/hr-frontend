@@ -26,6 +26,13 @@ export interface HrCompanySettings {
   notifyPayslipPendingEmployeeAcceptance: boolean;
   notifyAttendanceCheckIn: boolean;
   notifyAttendanceCheckOut: boolean;
+  /** Notify only for out-of-range punches (the exception toggles below). Default false. */
+  notifyAttendanceExceptionsOnly?: boolean;
+  notifyAttendanceLateCheckIn?: boolean;
+  notifyAttendanceEarlyCheckOut?: boolean;
+  notifyAttendanceOvertimeCheckOut?: boolean;
+  notifyAttendanceCheckOutWithoutCheckIn?: boolean;
+  notifyAttendanceNotCounted?: boolean;
   notifyShiftAssignmentLinked: boolean;
   notifyCheckInPointLinked: boolean;
   notifyLeaveBalanceCredited: boolean;
