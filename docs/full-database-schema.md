@@ -1,7 +1,7 @@
 Full Database Schema — HR System (UI-driven)
 
 Purpose: definitive schema mapping for backend developers. Each table lists columns, suggested Postgres types, nullability, and a short description explaining why the field exists (mapped from UI, TS types, and runtime code). This covers the data required by the frontend pages in this repository. 
-
+ok
 Notes:
 - This is a recommended starting schema derived from UI and TypeScript sources. Backend may normalize, split, or change types as desired.
 - JSONB columns are used where frontend stores dynamic or arbitrary field sets (e.g., request field_values, approval snapshots).
