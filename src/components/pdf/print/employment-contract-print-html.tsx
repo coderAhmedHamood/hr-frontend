@@ -137,7 +137,7 @@ function CompensationBlock({
     : '—';
 
   return (
-    <div style={{ marginBottom: 16, pageBreakInside: 'avoid' }}>
+    <div style={{ marginTop: 16, marginBottom: 16, pageBreakInside: 'avoid' }}>
       <div style={{ fontSize: PDF_BODY_FONT, lineHeight: PDF_LINE_HEIGHT, textAlign: 'justify' }}>
         <p style={{ margin: '0 0 6px' }}>
           <span style={{ fontWeight: 700 }}>الراتب الأساسي:</span>{' '}
@@ -351,14 +351,6 @@ export const EmploymentContractPrintHtml = React.forwardRef<HTMLDivElement, Empl
               party2={model.party2LineAr}
             />
 
-            <CompensationBlock
-              baseSalary={baseSalary}
-              currency={currency}
-              allowanceRows={allowanceRows}
-              allowancesNote={allowancesNote}
-              deductionsNote={deductionsNote}
-            />
-
             {model.mainArticles.map((a, i) => (
               <ArticleBlock
                 key={`${a.code}-${i}`}
@@ -366,6 +358,14 @@ export const EmploymentContractPrintHtml = React.forwardRef<HTMLDivElement, Empl
                 body={a.bodyAr}
               />
             ))}
+
+            <CompensationBlock
+              baseSalary={baseSalary}
+              currency={currency}
+              allowanceRows={allowanceRows}
+              allowancesNote={allowancesNote}
+              deductionsNote={deductionsNote}
+            />
 
             <SignatureFooter employeeRoleNounAr={model.employeeRoleNounAr} />
             <FooterRule />
