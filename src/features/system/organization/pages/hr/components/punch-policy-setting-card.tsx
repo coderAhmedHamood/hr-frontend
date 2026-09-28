@@ -197,15 +197,15 @@ export function PunchPolicySettingCard({ values, disabled, hideHeader, onChange 
           onCheckedChange={(v) => onChange({ blockEarlyCheckOut: v })}
         />
         <Row
-          title="السماح بالانصراف بدون حضور"
-          description="يظهر زر الانصراف حتى لو لم يسجّل الموظف حضوراً، ويُحسب اليوم ناقصاً ليراجعه HR."
+          title="السماح بالانصراف لمن نسي الحضور"
+          description="كل انصراف يسبقه حضور. عند الإيقاف: من لم يسجّل حضوراً يُمنع ويُقترح عليه طلب تصحيح. عند التفعيل: يُسمح مرة واحدة لكل فترة وداخل نافذة الانصراف فقط (من الخروج − النقص المسموح حتى ساعتين بعد الخروج)، ويُحسب اليوم ناقصاً ليراجعه HR."
           checked={values.allowCheckOutWithoutCheckIn}
           disabled={disabled}
           onCheckedChange={(v) => onChange({ allowCheckOutWithoutCheckIn: v })}
         />
         <Row
           title="الانصراف بعد منتصف الليل على اليوم السابق"
-          description="إذا بقي حضور الأمس مفتوحاً، يظهر زر الانصراف بعد الساعة 12 ويُسجَّل على يوم الحضور. بعد المدة المحددة أدناه يُعتبر الانصراف منسياً ويُقترح طلب تصحيح."
+          description="إذا بقي حضور الأمس مفتوحاً، يظهر زر الانصراف بعد الساعة 12 مع تنبيه بأن الحضور من اليوم السابق، ويُسجَّل على يوم الحضور ثم يختفي الزر. عند الإيقاف: لا انصراف بعد منتصف الليل ويُقترح طلب تصحيح."
           checked={values.allowPreviousDayCheckOut}
           disabled={disabled}
           onCheckedChange={(v) => onChange({ allowPreviousDayCheckOut: v })}
@@ -213,13 +213,16 @@ export function PunchPolicySettingCard({ values, disabled, hideHeader, onChange 
         <div
           className={cn(
             'flex flex-col gap-2 bg-card px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between',
-            (disabled || !values.allowPreviousDayCheckOut) && 'opacity-60',
+            disabled && 'opacity-60',
           )}
         >
           <div className="min-w-0 space-y-0.5">
-            <p className="text-sm font-medium leading-tight">أقصى مدة للحضور المفتوح (ساعات)</p>
+            <p className="text-sm font-medium leading-tight">أقصى مدة للدوام المفتوح (ساعات)</p>
             <p className="text-[11px] leading-relaxed text-muted-foreground">
-              من وقت الحضور. مثال: 18 → حضور 11:00 ص يمكن إغلاقه حتى 5:00 ص من اليوم التالي.
+              تُطبَّق على الجميع، وتُحسب من أول بصمة حضور في اليوم. بعدها لا يُسمح بالانصراف
+              ويُعتبر منسياً مع اقتراح طلب تصحيح. مثال: 18 → أول حضور 11:00 ص يمكن الانصراف
+              حتى 5:00 ص من اليوم التالي. ينتهي أيضاً قبل ذلك إذا بدأت نافذة الدخول لشفت اليوم
+              التالي.
             </p>
           </div>
           <Input
@@ -229,7 +232,7 @@ export function PunchPolicySettingCard({ values, disabled, hideHeader, onChange 
             inputMode="numeric"
             className="h-9 w-full text-sm sm:w-24"
             value={maxHours}
-            disabled={disabled || !values.allowPreviousDayCheckOut}
+            disabled={disabled}
             onChange={(e) => setMaxHours(e.target.value)}
             onBlur={commitMaxHours}
             onKeyDown={(e) => {
