@@ -1,3 +1,4 @@
+import { useAuthStore } from '@/features/auth/lib/auth-store';
 import { apiRequest, type PaginatedResult } from '@/features/hr/lib/api/client';
 import type {
   CreateRecruitmentApplicantDto,
@@ -28,10 +29,20 @@ function asQuery(query: object): QueryRecord {
   return query as QueryRecord;
 }
 
+/** Active company — recruitment is scoped per company on the backend. */
+function activeCompanyId(): string | undefined {
+  return useAuthStore.getState().activeCompanyId ?? undefined;
+}
+
+function withCompany(query: object): QueryRecord {
+  const companyId = activeCompanyId();
+  return companyId ? { companyId, ...asQuery(query) } : asQuery(query);
+}
+
 export const recruitmentApi = {
   listJobs(query?: ListRecruitmentJobsQuery) {
     return apiRequest<PaginatedResult<RecruitmentJob>>('/recruitment/jobs', {
-      query: asQuery(query ?? {}),
+      query: withCompany(query ?? {}),
     });
   },
 
@@ -44,7 +55,11 @@ export const recruitmentApi = {
   },
 
   createJob(dto: CreateRecruitmentJobDto) {
-    return apiRequest<RecruitmentJobDetail>('/recruitment/jobs', { method: 'POST', body: dto });
+    const companyId = activeCompanyId();
+    return apiRequest<RecruitmentJobDetail>('/recruitment/jobs', {
+      method: 'POST',
+      body: companyId ? { companyId, ...dto } : dto,
+    });
   },
 
   updateJob(id: string, dto: UpdateRecruitmentJobDto) {
@@ -96,7 +111,7 @@ export const recruitmentApi = {
 
   listApplicants(query?: ListRecruitmentApplicantsQuery) {
     return apiRequest<PaginatedResult<RecruitmentApplicant>>('/recruitment/applicants', {
-      query: asQuery(query ?? {}),
+      query: withCompany(query ?? {}),
     });
   },
 
