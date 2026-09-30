@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { Fingerprint } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -105,40 +106,91 @@ function Row({
   );
 }
 
+/** Number setting with an explicit save button and a visible allowed range. */
+function NumberSettingRow({
+  title,
+  description,
+  value,
+  min,
+  max,
+  disabled,
+  onSave,
+}: {
+  title: string;
+  description: string;
+  value: number;
+  min: number;
+  max: number;
+  disabled?: boolean;
+  onSave: (value: number) => void;
+}) {
+  const [draft, setDraft] = React.useState(String(value));
+  React.useEffect(() => {
+    setDraft(String(value));
+  }, [value]);
+
+  const trimmed = draft.trim();
+  const parsed = /^\d+$/.test(trimmed) ? Number(trimmed) : Number.NaN;
+  const valid = Number.isInteger(parsed) && parsed >= min && parsed <= max;
+  const dirty = trimmed !== String(value);
+
+  const save = () => {
+    if (valid && parsed !== value) onSave(parsed);
+  };
+
+  return (
+    <div className={cn('space-y-2 bg-card px-4 py-3.5', disabled && 'opacity-60')}>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0 space-y-0.5">
+          <p className="text-sm font-medium leading-tight">{title}</p>
+          <p className="text-[11px] leading-relaxed text-muted-foreground">{description}</p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <Input
+            type="number"
+            min={min}
+            max={max}
+            inputMode="numeric"
+            className="h-9 w-24 text-sm"
+            value={draft}
+            disabled={disabled}
+            aria-invalid={dirty && !valid}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') save();
+            }}
+          />
+          <Button
+            type="button"
+            size="sm"
+            className="h-9"
+            disabled={disabled || !dirty || !valid}
+            onClick={save}
+          >
+            حفظ
+          </Button>
+        </div>
+      </div>
+      <p
+        className={cn(
+          'text-[11px] leading-relaxed',
+          dirty && !valid ? 'text-destructive' : 'text-muted-foreground',
+        )}
+      >
+        {dirty && !valid
+          ? `أدخل رقماً صحيحاً من ${min} إلى ${max}`
+          : `المسموح: من ${min} إلى ${max}`}
+      </p>
+    </div>
+  );
+}
+
 function GroupTitle({ children }: { children: React.ReactNode }) {
   return <p className="px-0.5 text-sm font-semibold text-foreground">{children}</p>;
 }
 
 /** Self-service punch policy — the backend evaluates it and the app just displays it. */
 export function PunchPolicySettingCard({ values, disabled, hideHeader, onChange }: Props) {
-  const [maxHours, setMaxHours] = React.useState(String(values.openSessionMaxHours));
-  React.useEffect(() => {
-    setMaxHours(String(values.openSessionMaxHours));
-  }, [values.openSessionMaxHours]);
-
-  const commitMaxHours = () => {
-    const n = Number.parseInt(maxHours, 10);
-    if (!Number.isFinite(n) || n < 1 || n > 36) {
-      setMaxHours(String(values.openSessionMaxHours));
-      return;
-    }
-    if (n !== values.openSessionMaxHours) onChange({ openSessionMaxHours: n });
-  };
-
-  const [gapMinutes, setGapMinutes] = React.useState(String(values.minMinutesBetweenPunches));
-  React.useEffect(() => {
-    setGapMinutes(String(values.minMinutesBetweenPunches));
-  }, [values.minMinutesBetweenPunches]);
-
-  const commitGapMinutes = () => {
-    const n = Number.parseInt(gapMinutes, 10);
-    if (!Number.isFinite(n) || n < 0 || n > 120) {
-      setGapMinutes(String(values.minMinutesBetweenPunches));
-      return;
-    }
-    if (n !== values.minMinutesBetweenPunches) onChange({ minMinutesBetweenPunches: n });
-  };
-
   const latePolicy =
     LATE_POLICY_OPTIONS.find((o) => o.value === values.lateCheckInPolicy) ??
     LATE_POLICY_OPTIONS[0];
@@ -249,68 +301,28 @@ export function PunchPolicySettingCard({ values, disabled, hideHeader, onChange 
           disabled={disabled}
           onCheckedChange={(v) => onChange({ allowPreviousDayCheckOut: v })}
         />
-        <div
-          className={cn(
-            'flex flex-col gap-2 bg-card px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between',
-            disabled && 'opacity-60',
-          )}
-        >
-          <div className="min-w-0 space-y-0.5">
-            <p className="text-sm font-medium leading-tight">أقصى مدة للدوام المفتوح (ساعات)</p>
-            <p className="text-[11px] leading-relaxed text-muted-foreground">
-              تُطبَّق على الجميع، وتُحسب من أول بصمة حضور في اليوم (ومن بداية الفترة لمن نسي
-              الحضور). بعدها لا يُسمح بالانصراف ويُعتبر منسياً مع اقتراح طلب تصحيح. مثال: 18 →
-              أول حضور 11:00 ص يمكن الانصراف حتى 5:00 ص من اليوم التالي. ينتهي أيضاً قبل ذلك إذا
-              بدأت نافذة الدخول لشفت اليوم التالي.
-            </p>
-          </div>
-          <Input
-            type="number"
-            min={1}
-            max={36}
-            inputMode="numeric"
-            className="h-9 w-full text-sm sm:w-24"
-            value={maxHours}
-            disabled={disabled}
-            onChange={(e) => setMaxHours(e.target.value)}
-            onBlur={commitMaxHours}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') commitMaxHours();
-            }}
-          />
-        </div>
+        <NumberSettingRow
+          title="أقصى مدة للدوام المفتوح (ساعات)"
+          description="تُطبَّق على الجميع، وتُحسب من أول بصمة حضور في اليوم (ومن بداية الفترة لمن نسي الحضور). بعدها لا يُسمح بالانصراف ويُعتبر منسياً مع اقتراح طلب تصحيح. مثال: 18 → أول حضور 11:00 ص يمكن الانصراف حتى 5:00 ص من اليوم التالي. ينتهي أيضاً قبل ذلك إذا بدأت نافذة الدخول لشفت اليوم التالي."
+          value={values.openSessionMaxHours}
+          min={1}
+          max={36}
+          disabled={disabled}
+          onSave={(n) => onChange({ openSessionMaxHours: n })}
+        />
         </div>
 
         <GroupTitle>ضبط تكرار البصمة</GroupTitle>
         <div className="divide-y divide-border/70 overflow-hidden rounded-xl border border-border/70">
-        <div
-          className={cn(
-            'flex flex-col gap-2 bg-card px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between',
-            disabled && 'opacity-60',
-          )}
-        >
-          <div className="min-w-0 space-y-0.5">
-            <p className="text-sm font-medium leading-tight">أقل مدة بين بصمتين (دقائق)</p>
-            <p className="text-[11px] leading-relaxed text-muted-foreground">
-              بعد أي بصمة لا يُقبل من الموظف بصمة أخرى قبل مرور هذه المدة، فلا تتكرر البصمة بالضغط
-              المتتالي. 0 = بدون حد.
-            </p>
-          </div>
-          <Input
-            type="number"
-            min={0}
-            max={120}
-            inputMode="numeric"
-            className="h-9 w-full text-sm sm:w-24"
-            value={gapMinutes}
-            disabled={disabled}
-            onChange={(e) => setGapMinutes(e.target.value)}
-            onBlur={commitGapMinutes}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') commitGapMinutes();
-            }}
-          />
-        </div>
+        <NumberSettingRow
+          title="أقل مدة بين بصمتين (دقائق)"
+          description="بعد أي بصمة لا يُقبل من الموظف بصمة أخرى قبل مرور هذه المدة، فلا تتكرر البصمة بالضغط المتتالي. 0 = بدون حد."
+          value={values.minMinutesBetweenPunches}
+          min={0}
+          max={120}
+          disabled={disabled}
+          onSave={(n) => onChange({ minMinutesBetweenPunches: n })}
+        />
         <Row
           title="بصمة دخول وخروج واحدة لكل فترة"
           description="عند التفعيل: لكل فترة حضور واحد وانصراف واحد، ولا يمكن الخروج ثم العودة داخل الفترة نفسها. عند الإيقاف: يُسمح بالخروج والعودة داخل الفترة."
