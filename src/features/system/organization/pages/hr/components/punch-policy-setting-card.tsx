@@ -64,11 +64,6 @@ const LATE_POLICY_OPTIONS: { value: LateCheckInPolicy; label: string; hint: stri
     hint: 'الزر يظهر دائماً، والتأخير يُحسب في التحليل.',
   },
   {
-    value: 'block_after_window',
-    label: 'يُمنع بعد نهاية نافذة الدخول',
-    hint: 'مسموح حتى (وقت الدخول + afterStartMinutes) ويُحسب تأخيراً، بعدها يُمنع ويُقترح طلب تصحيح.',
-  },
-  {
     value: 'block_after_grace',
     label: 'يُمنع بعد فترة السماحية',
     hint: 'مسموح حتى (وقت الدخول + graceMinutes) فقط، بعدها يُمنع ويُقترح طلب تصحيح.',
