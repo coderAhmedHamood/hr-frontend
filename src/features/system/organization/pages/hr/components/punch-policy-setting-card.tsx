@@ -11,7 +11,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import type { LateCheckInPolicy } from '@/features/system/organization/pages/_shared/types/settings';
+import type {
+  LateCheckInPolicy,
+  MissingCheckOutCredit,
+} from '@/features/system/organization/pages/_shared/types/settings';
 import { cn } from '@/shared/utils';
 
 export type PunchPolicyValues = {
@@ -24,7 +27,27 @@ export type PunchPolicyValues = {
   openSessionMaxHours: number;
   allowPunchOnUnscheduledDay: boolean;
   requireCheckInPointsForSelfPunch: boolean;
+  minMinutesBetweenPunches: number;
+  singleSessionPerPeriod: boolean;
+  missingCheckOutCredit: MissingCheckOutCredit;
 };
+
+const MISSING_CHECK_OUT_OPTIONS: {
+  value: MissingCheckOutCredit;
+  label: string;
+  hint: string;
+}[] = [
+  {
+    value: 'until_period_end',
+    label: 'تُحسب حتى نهاية الفترة',
+    hint: 'من سجّل حضوراً ونسي الانصراف تُحسب له ساعات الفترة من وقت حضوره حتى نهايتها.',
+  },
+  {
+    value: 'none',
+    label: 'لا تُحسب حتى يُصحَّح الانصراف',
+    hint: 'يظهر الموظف حاضراً (مع التأخير إن وُجد) لكن بلا ساعات عمل، وتظهر الفترة نقصاً حتى يُعتمد طلب تصحيح الانصراف.',
+  },
+];
 
 type Props = {
   values: PunchPolicyValues;
@@ -107,9 +130,26 @@ export function PunchPolicySettingCard({ values, disabled, hideHeader, onChange 
     if (n !== values.openSessionMaxHours) onChange({ openSessionMaxHours: n });
   };
 
+  const [gapMinutes, setGapMinutes] = React.useState(String(values.minMinutesBetweenPunches));
+  React.useEffect(() => {
+    setGapMinutes(String(values.minMinutesBetweenPunches));
+  }, [values.minMinutesBetweenPunches]);
+
+  const commitGapMinutes = () => {
+    const n = Number.parseInt(gapMinutes, 10);
+    if (!Number.isFinite(n) || n < 0 || n > 120) {
+      setGapMinutes(String(values.minMinutesBetweenPunches));
+      return;
+    }
+    if (n !== values.minMinutesBetweenPunches) onChange({ minMinutesBetweenPunches: n });
+  };
+
   const latePolicy =
     LATE_POLICY_OPTIONS.find((o) => o.value === values.lateCheckInPolicy) ??
     LATE_POLICY_OPTIONS[0];
+  const missingCheckOut =
+    MISSING_CHECK_OUT_OPTIONS.find((o) => o.value === values.missingCheckOutCredit) ??
+    MISSING_CHECK_OUT_OPTIONS[0];
 
   return (
     <section className="rounded-2xl border border-border/70 bg-card shadow-soft">
@@ -243,6 +283,80 @@ export function PunchPolicySettingCard({ values, disabled, hideHeader, onChange 
               if (e.key === 'Enter') commitMaxHours();
             }}
           />
+        </div>
+        </div>
+
+        <GroupTitle>ضبط تكرار البصمة</GroupTitle>
+        <div className="divide-y divide-border/70 overflow-hidden rounded-xl border border-border/70">
+        <div
+          className={cn(
+            'flex flex-col gap-2 bg-card px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between',
+            disabled && 'opacity-60',
+          )}
+        >
+          <div className="min-w-0 space-y-0.5">
+            <p className="text-sm font-medium leading-tight">أقل مدة بين بصمتين (دقائق)</p>
+            <p className="text-[11px] leading-relaxed text-muted-foreground">
+              بعد أي بصمة لا يُقبل من الموظف بصمة أخرى قبل مرور هذه المدة، فلا تتكرر البصمة بالضغط
+              المتتالي. 0 = بدون حد.
+            </p>
+          </div>
+          <Input
+            type="number"
+            min={0}
+            max={120}
+            inputMode="numeric"
+            className="h-9 w-full text-sm sm:w-24"
+            value={gapMinutes}
+            disabled={disabled}
+            onChange={(e) => setGapMinutes(e.target.value)}
+            onBlur={commitGapMinutes}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') commitGapMinutes();
+            }}
+          />
+        </div>
+        <Row
+          title="بصمة دخول وخروج واحدة لكل فترة"
+          description="عند التفعيل: لكل فترة حضور واحد وانصراف واحد، ولا يمكن الخروج ثم العودة داخل الفترة نفسها. عند الإيقاف: يُسمح بالخروج والعودة داخل الفترة."
+          checked={values.singleSessionPerPeriod}
+          disabled={disabled}
+          onCheckedChange={(v) => onChange({ singleSessionPerPeriod: v })}
+        />
+        </div>
+
+        <GroupTitle>الاحتساب</GroupTitle>
+        <div className="divide-y divide-border/70 overflow-hidden rounded-xl border border-border/70">
+        <div
+          className={cn(
+            'space-y-2 bg-card px-4 py-3.5',
+            disabled && 'opacity-60',
+          )}
+        >
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm font-medium leading-tight">حضور بدون انصراف</p>
+            <Select
+              value={values.missingCheckOutCredit}
+              disabled={disabled}
+              onValueChange={(v) =>
+                onChange({ missingCheckOutCredit: v as MissingCheckOutCredit })
+              }
+            >
+              <SelectTrigger className="h-9 w-full text-sm sm:w-64">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {MISSING_CHECK_OUT_OPTIONS.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>
+                    {o.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            {missingCheckOut.hint} يُطبَّق على تفاصيل اليوم وملخصات الحضور عند إعادة الاحتساب.
+          </p>
         </div>
         </div>
 

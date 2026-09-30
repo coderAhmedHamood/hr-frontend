@@ -129,6 +129,9 @@ export default function HrSettingsPage() {
               allowPunchOnUnscheduledDay: Boolean(settings.allowPunchOnUnscheduledDay),
               requireCheckInPointsForSelfPunch:
                 settings.requireCheckInPointsForSelfPunch !== false,
+              minMinutesBetweenPunches: settings.minMinutesBetweenPunches ?? 1,
+              singleSessionPerPeriod: Boolean(settings.singleSessionPerPeriod),
+              missingCheckOutCredit: settings.missingCheckOutCredit ?? 'until_period_end',
             }}
             disabled={update.isPending}
             onChange={(patch) => void handleSettingsPatch(patch)}

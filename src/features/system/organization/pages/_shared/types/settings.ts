@@ -1,5 +1,8 @@
 export type LateCheckInPolicy = 'allow' | 'block_after_grace' | 'block_after_window';
 
+/** Period with a check-in but no check-out: credited until period end, or not at all. */
+export type MissingCheckOutCredit = 'until_period_end' | 'none';
+
 export interface HrCompanySettings {
   id: string;
   companyId: string;
@@ -57,6 +60,12 @@ export interface HrCompanySettings {
   allowPunchOnUnscheduledDay?: boolean;
   /** Default true. */
   requireCheckInPointsForSelfPunch?: boolean;
+  /** Minimum minutes between two punches; 0 = off. Default 1. */
+  minMinutesBetweenPunches?: number;
+  /** One check-in and one check-out per period. Default false. */
+  singleSessionPerPeriod?: boolean;
+  /** Default `until_period_end`. */
+  missingCheckOutCredit?: MissingCheckOutCredit;
   createdAt: string;
   updatedAt: string;
   createdBy?: string | null;

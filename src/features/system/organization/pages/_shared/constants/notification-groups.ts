@@ -10,6 +10,8 @@ export type HrNotificationKey = Exclude<
   | 'updatedBy'
   | 'lateCheckInPolicy'
   | 'openSessionMaxHours'
+  | 'minMinutesBetweenPunches'
+  | 'missingCheckOutCredit'
 >;
 
 export type NotificationToggleItem = {
