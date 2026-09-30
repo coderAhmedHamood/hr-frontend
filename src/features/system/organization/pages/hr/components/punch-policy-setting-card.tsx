@@ -175,7 +175,11 @@ export function PunchPolicySettingCard({ values, disabled, hideHeader, onChange 
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {LATE_POLICY_OPTIONS.map((o) => (
+                {LATE_POLICY_OPTIONS.filter(
+                  (o) =>
+                    o.value !== 'block_after_window' ||
+                    values.lateCheckInPolicy === 'block_after_window',
+                ).map((o) => (
                   <SelectItem key={o.value} value={o.value}>
                     {o.label}
                   </SelectItem>

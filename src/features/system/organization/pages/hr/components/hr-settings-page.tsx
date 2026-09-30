@@ -4,10 +4,8 @@ import { Bell, Fingerprint, Monitor, Smartphone } from 'lucide-react';
 import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
-import { useActiveCompany } from '@/features/hr/organization/hooks/useActiveCompany';
 import { HR_NOTIFICATION_GROUPS } from '@/features/system/organization/pages/_shared/constants/notification-groups';
 import { NotificationTogglesCard } from '@/features/system/organization/pages/_shared/components/notification-toggles-card';
-import { SettingsCompanyBanner } from '@/features/system/organization/pages/_shared/components/settings-company-banner';
 import {
   SettingsPageEmpty,
   SettingsPageError,
@@ -26,7 +24,6 @@ const TAB_TRIGGER =
   'gap-2 rounded-lg px-3 py-2.5 text-sm data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-soft';
 
 export default function HrSettingsPage() {
-  const { data: company } = useActiveCompany();
   const { data: settings, isLoading, isError, error, update, companyId } =
     useHrCompanySettings();
 
@@ -78,15 +75,6 @@ export default function HrSettingsPage() {
 
   return (
     <div className="space-y-4 sm:space-y-5">
-      {company ? (
-        <SettingsCompanyBanner
-          eyebrow="الموارد البشرية"
-          icon={Fingerprint}
-          companyName={company.nameAr}
-          description="كل مجموعة إعدادات في تبويب: التطبيق، الموقع، الحضور، والإشعارات."
-        />
-      ) : null}
-
       <Tabs defaultValue="app" dir="rtl" className="w-full">
         <TabsList className="grid h-auto w-full grid-cols-2 gap-1 rounded-xl bg-muted/50 p-1 sm:grid-cols-4">
           <TabsTrigger value="app" className={TAB_TRIGGER}>
