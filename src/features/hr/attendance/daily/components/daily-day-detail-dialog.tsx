@@ -364,7 +364,7 @@ export function PeriodCard({
         <DetailRow
           label="نافذة الخروج"
           value={fmtClockRange(expected.checkOutWindowStartAt, expected.checkOutWindowEndAt, offsetMinutes)}
-          hint={`قبل ${expected.checkOutWindow.beforeEndMinutes} د · نقص مسموح ${expected.checkOutWindow.allowedShortageMinutes} د · بعد ${expected.checkOutWindow.afterEndMinutes} د`}
+          hint={`نقص مسموح ${expected.checkOutWindow.allowedShortageMinutes} د`}
         />
         <DetailRow
           label="حد الانصراف المبكر"
