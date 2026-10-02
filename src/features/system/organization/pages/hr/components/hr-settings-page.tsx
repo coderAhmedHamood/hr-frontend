@@ -132,6 +132,7 @@ export default function HrSettingsPage() {
               minMinutesBetweenPunches: settings.minMinutesBetweenPunches ?? 1,
               singleSessionPerPeriod: Boolean(settings.singleSessionPerPeriod),
               missingCheckOutCredit: settings.missingCheckOutCredit ?? 'until_period_end',
+              continuousAcrossPeriods: Boolean(settings.continuousAcrossPeriods),
             }}
             disabled={update.isPending}
             onChange={(patch) => void handleSettingsPatch(patch)}

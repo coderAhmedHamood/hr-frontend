@@ -31,6 +31,7 @@ export type PunchPolicyValues = {
   minMinutesBetweenPunches: number;
   singleSessionPerPeriod: boolean;
   missingCheckOutCredit: MissingCheckOutCredit;
+  continuousAcrossPeriods: boolean;
 };
 
 const MISSING_CHECK_OUT_OPTIONS: {
@@ -329,6 +330,13 @@ export function PunchPolicySettingCard({ values, disabled, hideHeader, onChange 
           checked={values.singleSessionPerPeriod}
           disabled={disabled}
           onCheckedChange={(v) => onChange({ singleSessionPerPeriod: v })}
+        />
+        <Row
+          title="الدوام المتصل بين الفترات"
+          description="عند التفعيل: حضور في فترة وانصراف في فترة لاحقة من نفس اليوم يُحسب دواماً واحداً متصلاً، ويبقى الحضور مفتوحاً عبر الفترات. عند الإيقاف: لكل فترة حضورها وانصرافها، وينتهي الحضور المفتوح عند بداية نافذة الفترة التالية ويُطلب تصحيح الانصراف."
+          checked={values.continuousAcrossPeriods}
+          disabled={disabled}
+          onCheckedChange={(v) => onChange({ continuousAcrossPeriods: v })}
         />
         </div>
 

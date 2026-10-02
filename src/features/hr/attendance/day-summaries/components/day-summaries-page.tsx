@@ -70,10 +70,10 @@ function DaySummaryDetailDialog({
           <DetailRow label="الحالة" value={statusLabel} />
           <DetailRow label="بداية متوقعة" value={<TableDateCell value={row.expectedStartAt} mode="datetime" />} />
           <DetailRow label="نهاية متوقعة" value={<TableDateCell value={row.expectedEndAt} mode="datetime" />} />
-          <DetailRow label="أول حضور" value={<TableDateCell value={row.actualCheckInAt} mode="datetime" />} />
-          <DetailRow label="آخر انصراف" value={<TableDateCell value={row.actualCheckOutAt} mode="datetime" />} />
+          <DetailRow label="أول حضور في الفترات" value={<TableDateCell value={row.actualCheckInAt} mode="datetime" />} />
+          <DetailRow label="آخر انصراف في الفترات" value={<TableDateCell value={row.actualCheckOutAt} mode="datetime" />} />
           <DetailRow
-            label="من أول حضور لآخر انصراف"
+            label="المدة بين أول حضور وآخر انصراف (ليست ساعات العمل)"
             value={
               computePunchSpanMinutes(row) != null
                 ? minutesToHHMM(computePunchSpanMinutes(row)!)
@@ -81,7 +81,7 @@ function DaySummaryDetailDialog({
             }
           />
           <DetailRow label="متوقع" value={formatDaySummaryMetric(row, 'expected') ?? '—'} />
-          <DetailRow label="فعلي" value={formatDaySummaryMetric(row, 'total') ?? '—'} />
+          <DetailRow label="فعلي (كل البصمات، ويشمل خارج الفترات)" value={formatDaySummaryMetric(row, 'total') ?? '—'} />
           <DetailRow label="تأخير" value={formatDaySummaryMetric(row, 'late') ?? '00:00'} />
           <DetailRow label="انصراف مبكر" value={formatDaySummaryMetric(row, 'earlyLeave') ?? '00:00'} />
           <DetailRow

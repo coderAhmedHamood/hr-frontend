@@ -66,6 +66,8 @@ export interface HrCompanySettings {
   singleSessionPerPeriod?: boolean;
   /** Default `until_period_end`. */
   missingCheckOutCredit?: MissingCheckOutCredit;
+  /** One check-in / check-out may span several periods of the day. Default false. */
+  continuousAcrossPeriods?: boolean;
   createdAt: string;
   updatedAt: string;
   createdBy?: string | null;

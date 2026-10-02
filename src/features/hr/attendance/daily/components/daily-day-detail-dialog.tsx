@@ -54,6 +54,8 @@ const BREAKDOWN_STATUS: Record<string, { label: string; color: string; dot: stri
   early_leave: STATUS.early_leave,
   rest_day: STATUS.rest_day,
   unscheduled: STATUS.unscheduled,
+  upcoming: STATUS.upcoming,
+  pending: STATUS.pending,
 };
 
 const EVENT_META: Record<AttendanceEventType, { labelAr: string; icon: React.ElementType; color: string }> = {

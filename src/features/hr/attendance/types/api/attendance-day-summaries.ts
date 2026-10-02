@@ -6,7 +6,11 @@ export type AttendanceDayStatus =
   | 'rest_day'
   | 'unscheduled'
   | 'holiday'
-  | 'on_leave';
+  | 'on_leave'
+  /** No period has started yet. */
+  | 'upcoming'
+  /** A period is running with no punch yet — absence is decided when it ends. */
+  | 'pending';
 
 export type DaySummaryDailyTotals = {
   minutes: {

@@ -10,6 +10,8 @@ export const DAY_SUMMARY_STATUS_LABELS: Record<AttendanceDayStatus, string> = {
   unscheduled: 'غير مجدول',
   holiday: 'عطلة رسمية',
   on_leave: 'إجازة',
+  upcoming: 'لم يبدأ الدوام',
+  pending: 'لم يبصم بعد',
 };
 
 export const DAY_SUMMARY_STATUS_ORDER: AttendanceDayStatus[] = [
@@ -21,6 +23,8 @@ export const DAY_SUMMARY_STATUS_ORDER: AttendanceDayStatus[] = [
   'holiday',
   'rest_day',
   'unscheduled',
+  'pending',
+  'upcoming',
 ];
 
 export const DAY_SUMMARY_STATUS_BADGE: Record<AttendanceDayStatus, string> = {
@@ -32,14 +36,16 @@ export const DAY_SUMMARY_STATUS_BADGE: Record<AttendanceDayStatus, string> = {
   unscheduled: STATUS_PILL.muted,
   holiday: STATUS_PILL.gold,
   on_leave: STATUS_PILL.info,
+  upcoming: STATUS_PILL.muted,
+  pending: STATUS_PILL.muted,
 };
 
 export function daySummaryStatusLabel(status: AttendanceDayStatus): string {
-  return DAY_SUMMARY_STATUS_LABELS[status];
+  return DAY_SUMMARY_STATUS_LABELS[status] ?? status;
 }
 
 export function daySummaryStatusBadgeClass(status: AttendanceDayStatus): string {
-  return DAY_SUMMARY_STATUS_BADGE[status];
+  return DAY_SUMMARY_STATUS_BADGE[status] ?? STATUS_PILL.muted;
 }
 
 export const AR_MONTH_NAMES = [

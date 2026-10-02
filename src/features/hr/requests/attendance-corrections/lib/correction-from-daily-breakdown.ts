@@ -18,9 +18,12 @@ export type CorrectionFormPeriod = {
   checkOutOptional: boolean;
   recordedCheckIn: string;
   recordedCheckOut: string;
+  /** Recorded punches as ISO (kept for the request's audit snapshot). */
+  recordedCheckInAt: string | null;
+  recordedCheckOutAt: string | null;
   correctedCheckIn: string;
   correctedCheckOut: string;
-  /** True when recorded punches differ from shift boundaries or a required punch is missing. */
+  /** True when a required punch (check-in, or check-out when required) is missing. */
   needsCorrection: boolean;
 };
 
@@ -51,40 +54,31 @@ function resolvePeriodRecorded(
   return { checkInAt, checkOutAt };
 }
 
-function sameWallClockMinute(
-  a: string | null | undefined,
-  b: string | null | undefined,
-  offset: number,
-): boolean {
-  if (!a && !b) return true;
-  if (!a || !b) return false;
-  return isoToTimePickerValue(a, offset) === isoToTimePickerValue(b, offset);
-}
-
+/**
+ * Only a missing punch needs correcting — a late check-in or an early
+ * check-out is a real punch, not an error.
+ */
 function periodNeedsCorrection(
   recorded: { checkInAt: string | null; checkOutAt: string | null },
   expected: DailyBreakdownPeriod['expected'],
-  offset: number,
 ): boolean {
   if (!recorded.checkInAt) return true;
-  if (!expected.checkOutNotRequired && !recorded.checkOutAt) return true;
-  if (!sameWallClockMinute(recorded.checkInAt, expected.startAt, offset)) return true;
-  if (
-    !expected.checkOutNotRequired &&
-    !sameWallClockMinute(recorded.checkOutAt, expected.endAt, offset)
-  ) {
-    return true;
-  }
-  return false;
+  return !expected.checkOutNotRequired && !recorded.checkOutAt;
 }
 
-/** Corrected punches always follow shift boundaries from daily breakdown. */
-function shiftCorrectedIso(
+/**
+ * Default request: keep every recorded punch and fill only the missing side
+ * with the shift boundary. Replacing recorded punches is an explicit choice
+ * in the form ("استبدال بأوقات الوردية").
+ */
+function defaultCorrectedIso(
+  recorded: { checkInAt: string | null; checkOutAt: string | null },
   expected: DailyBreakdownPeriod['expected'],
 ): { checkInAt: string | null; checkOutAt: string | null } {
   return {
-    checkInAt: expected.startAt,
-    checkOutAt: expected.checkOutNotRequired ? null : expected.endAt,
+    checkInAt: recorded.checkInAt ?? expected.startAt,
+    checkOutAt:
+      recorded.checkOutAt ?? (expected.checkOutNotRequired ? null : expected.endAt),
   };
 }
 
@@ -97,7 +91,7 @@ export function buildCorrectionFormPeriod(
   const multi = breakdown.periods.length > 1;
   const recorded = resolvePeriodRecorded(period, breakdown);
   const { expected } = period;
-  const corrected = shiftCorrectedIso(expected);
+  const corrected = defaultCorrectedIso(recorded, expected);
 
   return {
     periodId: expected.periodId,
@@ -111,9 +105,11 @@ export function buildCorrectionFormPeriod(
     checkOutOptional: expected.checkOutNotRequired,
     recordedCheckIn: isoToTimePickerValue(recorded.checkInAt, offset),
     recordedCheckOut: isoToTimePickerValue(recorded.checkOutAt, offset),
+    recordedCheckInAt: recorded.checkInAt,
+    recordedCheckOutAt: recorded.checkOutAt,
     correctedCheckIn: isoToTimePickerValue(corrected.checkInAt, offset),
     correctedCheckOut: isoToTimePickerValue(corrected.checkOutAt, offset),
-    needsCorrection: periodNeedsCorrection(recorded, expected, offset),
+    needsCorrection: periodNeedsCorrection(recorded, expected),
   };
 }
 
@@ -136,19 +132,33 @@ export function buildCorrectionFormPeriodsFromBreakdown(
   return periods.filter((p) => p.needsCorrection);
 }
 
+export type CorrectionPeriodPayload = {
+  periodId: string;
+  /** Punches as recorded when the request was made (audit / reviewer view). */
+  recorded: { checkInAt: string | null; checkOutAt: string | null };
+  /** Only the sides being changed; null keeps the recorded punch as it is. */
+  corrected: { checkInAt: string | null; checkOutAt: string | null };
+};
+
 export function formPeriodToApiPunches(
   workDate: string,
   timezoneOffsetMinutes: number,
   period: CorrectionFormPeriod,
-): {
-  periodId: string;
-  checkInAt: string | null;
-  checkOutAt: string | null;
-} {
+): CorrectionPeriodPayload {
+  const side = (corrected: string, recorded: string) =>
+    corrected && corrected !== recorded
+      ? timePickerToIso(workDate, corrected, timezoneOffsetMinutes)
+      : null;
   return {
     periodId: period.periodId,
-    checkInAt: timePickerToIso(workDate, period.correctedCheckIn, timezoneOffsetMinutes),
-    checkOutAt: timePickerToIso(workDate, period.correctedCheckOut, timezoneOffsetMinutes),
+    recorded: {
+      checkInAt: period.recordedCheckInAt,
+      checkOutAt: period.recordedCheckOutAt,
+    },
+    corrected: {
+      checkInAt: side(period.correctedCheckIn, period.recordedCheckIn),
+      checkOutAt: side(period.correctedCheckOut, period.recordedCheckOut),
+    },
   };
 }
 

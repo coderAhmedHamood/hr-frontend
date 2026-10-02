@@ -117,7 +117,8 @@ function PeriodCorrectionCard({
     onChange({
       useShiftTimes: false,
       correctedCheckIn: period.recordedCheckIn || period.shiftCheckIn,
-      correctedCheckOut: period.recordedCheckOut || period.shiftCheckOut,
+      correctedCheckOut:
+        period.recordedCheckOut || (period.checkOutOptional ? '' : period.shiftCheckOut),
     });
   };
 
@@ -161,7 +162,7 @@ function PeriodCorrectionCard({
             <p className="text-xs font-semibold text-primary">الأوقات المطلوبة</p>
             <div className="flex items-center gap-2">
               <Label htmlFor={`shift-mode-${period.periodId}`} className="text-[11px] text-muted-foreground">
-                {period.useShiftTimes ? 'أوقات الوردية' : 'أوقات يدوية'}
+                استبدال بأوقات الوردية
               </Label>
               <Switch
                 id={`shift-mode-${period.periodId}`}
@@ -172,15 +173,20 @@ function PeriodCorrectionCard({
           </div>
 
           {period.useShiftTimes ? (
+            <>
+            <p className="mb-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs leading-relaxed text-amber-800 dark:text-amber-300">
+              سيتم استبدال البصمات المسجّلة لهذه الفترة بوقتي بداية ونهاية الوردية.
+            </p>
             <div className="grid grid-cols-2 gap-3">
               <TimeField label="حضور" value={period.correctedCheckIn} />
               <TimeField label="انصراف" value={period.correctedCheckOut} />
             </div>
+            </>
           ) : (
             <>
               <p className="mb-3 rounded-lg border border-primary/15 bg-primary/5 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
-                <span className="font-medium text-primary">أوقات يدوية:</span>{' '}
-                اضغط على الحقل لاختيار وقت الحضور أو الانصراف الذي تريده.
+                البصمات المسجّلة تبقى كما هي، والناقص فقط معبّأ بوقت الوردية. اضغط على أي حقل
+                لتعديله. لن تُرسل هذه الفترة إذا لم يتغيّر فيها شيء.
               </p>
               <div className="grid grid-cols-2 gap-3">
                 <TimeField label="حضور" value={period.correctedCheckIn}>
@@ -289,7 +295,8 @@ export function AttendanceCorrectionRequestDialog({
           const built = buildCorrectionFormPeriodsFromBreakdown(data, periodIndexRef.current, {
             includeAll: true,
           });
-          setFormPeriods(built.map((p) => ({ ...p, useShiftTimes: true })));
+          // Recorded punches are kept; only missing ones are pre-filled.
+          setFormPeriods(built.map((p) => ({ ...p, useShiftTimes: false })));
         } else {
           setFormPeriods([]);
         }
