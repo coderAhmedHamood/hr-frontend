@@ -328,11 +328,9 @@ export function PeriodCard({
       ) : null}
 
       <div className="flex flex-wrap gap-1.5">
-        {expected.flexibilityEnabled ? (
-          <span className="rounded-md border border-border/50 bg-muted/20 px-2 py-1 text-[10px] text-muted-foreground">
-            سماحية {expected.flexibilityMinutes ?? 0} د
-          </span>
-        ) : null}
+        <span className="rounded-md border border-border/50 bg-muted/20 px-2 py-1 text-[10px] text-muted-foreground">
+          سماحية {expected.checkInWindow.graceMinutes} د
+        </span>
         {expected.checkOutNotRequired ? (
           <span className="rounded-md border border-border/50 bg-muted/20 px-2 py-1 text-[10px] text-muted-foreground">
             الخروج غير مطلوب
@@ -363,8 +361,8 @@ export function PeriodCard({
         />
         <DetailRow
           label="نافذة الخروج"
-          value={fmtClockRange(expected.checkOutWindowStartAt, expected.checkOutWindowEndAt, offsetMinutes)}
-          hint={`نقص مسموح ${expected.checkOutWindow.allowedShortageMinutes} د`}
+          value={fmtClockRange(expected.earlyLeaveThresholdAt, expected.checkOutWindowEndAt, offsetMinutes)}
+          hint={`نقص مسموح ${expected.checkOutWindow.allowedShortageMinutes} د · بعد ${expected.checkOutWindow.afterEndMinutes} د`}
         />
         <DetailRow
           label="حد الانصراف المبكر"

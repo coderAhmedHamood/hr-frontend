@@ -70,10 +70,10 @@ function DaySummaryDetailDialog({
           <DetailRow label="الحالة" value={statusLabel} />
           <DetailRow label="بداية متوقعة" value={<TableDateCell value={row.expectedStartAt} mode="datetime" />} />
           <DetailRow label="نهاية متوقعة" value={<TableDateCell value={row.expectedEndAt} mode="datetime" />} />
-          <DetailRow label="تسجيل حضور" value={<TableDateCell value={row.actualCheckInAt} mode="datetime" />} />
-          <DetailRow label="تسجيل انصراف" value={<TableDateCell value={row.actualCheckOutAt} mode="datetime" />} />
+          <DetailRow label="أول حضور" value={<TableDateCell value={row.actualCheckInAt} mode="datetime" />} />
+          <DetailRow label="آخر انصراف" value={<TableDateCell value={row.actualCheckOutAt} mode="datetime" />} />
           <DetailRow
-            label="مدة الحضور (بصمة)"
+            label="من أول حضور لآخر انصراف"
             value={
               computePunchSpanMinutes(row) != null
                 ? minutesToHHMM(computePunchSpanMinutes(row)!)
