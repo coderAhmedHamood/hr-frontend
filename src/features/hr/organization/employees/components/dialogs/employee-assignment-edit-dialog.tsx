@@ -33,12 +33,14 @@ import {
   EMPLOYEE_ASSIGNMENT_STATUS_LABELS,
   EMPLOYEE_ASSIGNMENT_STATUS_ORDER,
 } from '@/features/hr/organization/employees/constants/employee-assignment-labels';
+import { branchesApi, type BranchResponseDto } from '@/features/hr/organization/lib/api/branches';
 import { departmentsApi, type DepartmentResponseDto } from '@/features/hr/organization/lib/api/departments';
 import { jobTitlesApi, type JobTitleResponseDto } from '@/features/hr/organization/lib/api/jobTitles';
 import { organizationActiveListStatusQuery } from '@/features/hr/organization/lib/archive-scope';
 import type { EmployeeProfileAssignmentsModel } from '@/features/hr/organization/employees/hooks/useEmployeeProfileAssignments';
 
 type EditForm = {
+  branchId: string;
   departmentId: string;
   jobTitleId: string;
   isPrimary: boolean;
@@ -62,6 +64,7 @@ export function EmployeeAssignmentEditDialog({ model }: Props) {
   const containerRef = React.useRef<HTMLDivElement>(null);
 
   const [form, setForm] = React.useState<EditForm>({
+    branchId: '',
     departmentId: '',
     jobTitleId: '',
     isPrimary: false,
@@ -70,6 +73,7 @@ export function EmployeeAssignmentEditDialog({ model }: Props) {
     endDate: '',
   });
   const [formError, setFormError] = React.useState<string | null>(null);
+  const [branches, setBranches] = React.useState<BranchResponseDto[]>([]);
   const [departments, setDepartments] = React.useState<DepartmentResponseDto[]>([]);
   const [jobTitles, setJobTitles] = React.useState<JobTitleResponseDto[]>([]);
   const [loadingRefs, setLoadingRefs] = React.useState(false);
@@ -81,6 +85,7 @@ export function EmployeeAssignmentEditDialog({ model }: Props) {
   React.useEffect(() => {
     if (!editAssignment) return;
     setForm({
+      branchId: editAssignment.branchId,
       departmentId: editAssignment.departmentId ?? '',
       jobTitleId: editAssignment.jobTitleId ?? '',
       isPrimary: editAssignment.isPrimary,
@@ -92,10 +97,12 @@ export function EmployeeAssignmentEditDialog({ model }: Props) {
     setLoadingRefs(true);
     void (async () => {
       try {
-        const [dp, jt] = await Promise.all([
+        const [br, dp, jt] = await Promise.all([
+          branchesApi.getAll({ companyId: editAssignment.companyId, limit: 200, ...organizationActiveListStatusQuery() }),
           departmentsApi.getAll({ companyId: editAssignment.companyId, limit: 200, ...organizationActiveListStatusQuery() }),
           jobTitlesApi.getAll({ companyId: editAssignment.companyId, limit: 200, ...organizationActiveListStatusQuery() }),
         ]);
+        setBranches(br.items);
         setDepartments(dp.items);
         setJobTitles(jt.items.filter((j) => j.isActive));
       } catch (e) {
@@ -106,10 +113,43 @@ export function EmployeeAssignmentEditDialog({ model }: Props) {
     })();
   }, [editAssignment]);
 
+  const branchOptions = React.useMemo(() => {
+    if (!editAssignment || branches.some((b) => b.id === editAssignment.branchId)) {
+      return branches;
+    }
+    return [
+      {
+        id: editAssignment.branchId,
+        companyId: editAssignment.companyId,
+        code: '',
+        nameAr: editAssignment.branchNameAr,
+        nameEn: null,
+        email: null,
+        phone: null,
+        mobile: null,
+        city: null,
+        district: null,
+        address: null,
+        postalCode: null,
+        latitude: null,
+        longitude: null,
+        managerName: null,
+        isHeadquarters: false,
+        isActive: true,
+        notes: null,
+        createdAt: '',
+        updatedAt: '',
+        createdBy: null,
+        updatedBy: null,
+      } satisfies BranchResponseDto,
+      ...branches,
+    ];
+  }, [branches, editAssignment]);
+
   const filteredDepartments = React.useMemo(() => {
-    if (!editAssignment?.branchId) return departments;
-    return departments.filter((d) => d.branchId === editAssignment.branchId);
-  }, [departments, editAssignment?.branchId]);
+    if (!form.branchId) return departments;
+    return departments.filter((d) => d.branchId === form.branchId);
+  }, [departments, form.branchId]);
 
   const handleSubmit = async () => {
     if (!editAssignment) return;
@@ -121,8 +161,13 @@ export function EmployeeAssignmentEditDialog({ model }: Props) {
       setFormError('أدخل تاريخ النهاية عند إنهاء الإسناد');
       return;
     }
+    if (!form.branchId) {
+      setFormError('اختر الفرع');
+      return;
+    }
     try {
       await submitAssignmentUpdate(editAssignment.id, {
+        branchId: form.branchId,
         departmentId: form.departmentId || null,
         jobTitleId: form.jobTitleId || null,
         isPrimary: form.isPrimary,
@@ -141,7 +186,7 @@ export function EmployeeAssignmentEditDialog({ model }: Props) {
         <DialogHeader className={dialogShellHeaderClass}>
           <DialogTitle className="font-arabic-display">تعديل إسناد</DialogTitle>
           <DialogDescription>
-            الشركة والفرع ثابتان بعد الإنشاء — يمكن تعديل القسم والمسمى والحالة والتواريخ فقط.
+            الشركة ثابتة بعد الإنشاء — يمكن تعديل الفرع والقسم والمسمى والحالة والتواريخ.
           </DialogDescription>
         </DialogHeader>
 
@@ -155,7 +200,33 @@ export function EmployeeAssignmentEditDialog({ model }: Props) {
 
             <div className="rounded-lg border border-border/60 bg-muted/15 px-3 py-2 text-sm">
               <p><span className="text-muted-foreground">الشركة:</span> {editAssignment.companyNameAr}</p>
-              <p><span className="text-muted-foreground">الفرع:</span> {editAssignment.branchNameAr}</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label>الفرع</Label>
+              <Select
+                value={form.branchId}
+                onValueChange={(v) => {
+                  setForm((prev) => {
+                    const stillValid = departments.some(
+                      (d) => d.id === prev.departmentId && d.branchId === v,
+                    );
+                    return {
+                      ...prev,
+                      branchId: v,
+                      departmentId: stillValid ? prev.departmentId : '',
+                    };
+                  });
+                }}
+                disabled={loadingRefs}
+              >
+                <SelectTrigger><SelectValue placeholder="اختر الفرع" /></SelectTrigger>
+                <SelectContent>
+                  {branchOptions.map((b) => (
+                    <SelectItem key={b.id} value={b.id}>{b.nameAr ?? b.nameEn ?? b.code}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-2">

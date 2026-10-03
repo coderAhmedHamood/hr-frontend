@@ -1,25 +1,29 @@
 'use client';
 
-import { BellRing, Smartphone } from 'lucide-react';
+import { Bell, Fingerprint, Monitor, Smartphone } from 'lucide-react';
 import { toast } from 'sonner';
-import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
-import { useActiveCompany } from '@/features/hr/organization/hooks/useActiveCompany';
 import { HR_NOTIFICATION_GROUPS } from '@/features/system/organization/pages/_shared/constants/notification-groups';
 import { NotificationTogglesCard } from '@/features/system/organization/pages/_shared/components/notification-toggles-card';
-import { SettingsCompanyBanner } from '@/features/system/organization/pages/_shared/components/settings-company-banner';
 import {
   SettingsPageEmpty,
   SettingsPageError,
   SettingsPageLoading,
 } from '@/features/system/organization/pages/_shared/components/settings-page-states';
 import { MobileSerialApprovalSettingCard } from '@/features/system/organization/pages/hr/components/mobile-serial-approval-setting-card';
+import { PunchPolicySettingCard } from '@/features/system/organization/pages/hr/components/punch-policy-setting-card';
 import { useHrCompanySettings } from '@/features/system/organization/pages/hr/hooks/useHrSettings';
 import type { HrNotificationKey } from '@/features/system/organization/pages/_shared/constants/notification-groups';
-import type { HrCompanySettings } from '@/features/system/organization/pages/_shared/types/settings';
+import type {
+  HrCompanySettings,
+  UpdateHrCompanySettingsDto,
+} from '@/features/system/organization/pages/_shared/types/settings';
+
+const TAB_TRIGGER =
+  'gap-2 rounded-lg px-3 py-2.5 text-sm data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-soft';
 
 export default function HrSettingsPage() {
-  const { data: company } = useActiveCompany();
   const { data: settings, isLoading, isError, error, update, companyId } =
     useHrCompanySettings();
 
@@ -34,14 +38,7 @@ export default function HrSettingsPage() {
     }
   };
 
-  const handleDeviceAuthChange = async (
-    patch: Partial<{
-      enforceMobileDeviceSerial: boolean;
-      requireAdminApprovalForNewMobileDevice: boolean;
-      enforceWebDeviceSerial: boolean;
-      requireAdminApprovalForNewWebDevice: boolean;
-    }>,
-  ) => {
+  const handleSettingsPatch = async (patch: UpdateHrCompanySettingsDto) => {
     if (!settings) return;
     try {
       await update.mutateAsync(patch);
@@ -67,91 +64,94 @@ export default function HrSettingsPage() {
     return <SettingsPageError message={displayMessage} />;
   }
 
+  const deviceValues = {
+    enforceMobileDeviceSerial: settings.enforceMobileDeviceSerial !== false,
+    requireAdminApprovalForNewMobileDevice: Boolean(
+      settings.requireAdminApprovalForNewMobileDevice,
+    ),
+    enforceWebDeviceSerial: Boolean(settings.enforceWebDeviceSerial),
+    requireAdminApprovalForNewWebDevice: Boolean(settings.requireAdminApprovalForNewWebDevice),
+  };
+
   return (
     <div className="space-y-4 sm:space-y-5">
-      {company ? (
-        <SettingsCompanyBanner
-          eyebrow="الموارد البشرية"
-          icon={BellRing}
-          companyName={company.nameAr}
-          description="تحكم في إشعارات HR وإلزام/موافقة أجهزة التطبيق والموقع داخل هذه الشركة."
-        />
-      ) : null}
+      <Tabs defaultValue="app" dir="rtl" className="w-full">
+        <TabsList className="grid h-auto w-full grid-cols-2 gap-1 rounded-xl bg-muted/50 p-1 sm:grid-cols-4">
+          <TabsTrigger value="app" className={TAB_TRIGGER}>
+            <Smartphone className="h-4 w-4" />
+            التطبيق
+          </TabsTrigger>
+          <TabsTrigger value="web" className={TAB_TRIGGER}>
+            <Monitor className="h-4 w-4" />
+            الموقع
+          </TabsTrigger>
+          <TabsTrigger value="attendance" className={TAB_TRIGGER}>
+            <Fingerprint className="h-4 w-4" />
+            الحضور
+          </TabsTrigger>
+          <TabsTrigger value="notifications" className={TAB_TRIGGER}>
+            <Bell className="h-4 w-4" />
+            الإشعارات
+          </TabsTrigger>
+        </TabsList>
 
-      <MobileSerialApprovalSettingCard
-        values={{
-          // Backend default is true when the flag is absent.
-          enforceMobileDeviceSerial: settings.enforceMobileDeviceSerial !== false,
-          requireAdminApprovalForNewMobileDevice: Boolean(
-            settings.requireAdminApprovalForNewMobileDevice,
-          ),
-          enforceWebDeviceSerial: Boolean(settings.enforceWebDeviceSerial),
-          requireAdminApprovalForNewWebDevice: Boolean(
-            settings.requireAdminApprovalForNewWebDevice,
-          ),
-        }}
-        disabled={update.isPending}
-        onChange={(patch) => void handleDeviceAuthChange(patch)}
-      />
+        <TabsContent value="app" className="mt-4">
+          <MobileSerialApprovalSettingCard
+            channel="mobile"
+            hideHeader
+            values={deviceValues}
+            disabled={update.isPending}
+            onChange={(patch) => void handleSettingsPatch(patch)}
+          />
+        </TabsContent>
 
-      <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-soft">
-        <div className="border-b border-border/80 px-4 py-4 sm:px-5">
-          <div className="flex items-start gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <Smartphone className="h-4 w-4" />
-            </div>
-            <div>
-              <h2 className="text-base font-semibold tracking-tight">
-                تطبيق الموبايل — الحضور
-              </h2>
-              <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-                سياسات واجهة تسجيل الحضور والانصراف للموظفين على التطبيق.
-              </p>
-            </div>
-          </div>
-        </div>
-        <div className="px-4 py-4 sm:px-5">
-          <div className="flex items-start justify-between gap-3 rounded-xl border border-border/70 bg-card px-3.5 py-3 shadow-soft">
-            <div className="min-w-0 space-y-1">
-              <p className="text-sm font-medium leading-tight">
-                فرض نوافذ الحضور والانصراف في الموبايل
-              </p>
-              <p className="text-[11px] leading-relaxed text-muted-foreground">
-                عند التفعيل:
-                <br />
-                • الحضور: يظهر زر «تسجيل الحضور» من (وقت الدخول − beforeStartMinutes)
-                حتى (وقت الدخول + graceMinutes). مثال: دخول 8:00 ص، قبل 30 دقيقة،
-                سماح 10 دقائق → الزر من 7:30 ص حتى 8:10 ص، ثم يُخفى مع رسالة انتهاء
-                النافذة.
-                <br />
-                • الانصراف: يظهر زر «تسجيل الانصراف» من (وقت الخروج −
-                allowedShortageMinutes). مثال: خروج 4:00 م وعجز 15 دقيقة → من 3:45 م.
-                <br />
-                عند الإيقاف: يعمل التطبيق كما كان سابقاً ويظهر الزر فور كون الحدث
-                القادم حضوراً أو انصرافاً.
-              </p>
-            </div>
-            <Switch
-              checked={Boolean(settings.hideEarlyCheckoutUntilShortageWindow)}
-              disabled={update.isPending}
-              onCheckedChange={(v) =>
-                void handleToggle('hideEarlyCheckoutUntilShortageWindow', v)
-              }
-              className="shrink-0"
-            />
-          </div>
-        </div>
-      </section>
+        <TabsContent value="web" className="mt-4">
+          <MobileSerialApprovalSettingCard
+            channel="web"
+            hideHeader
+            values={deviceValues}
+            disabled={update.isPending}
+            onChange={(patch) => void handleSettingsPatch(patch)}
+          />
+        </TabsContent>
 
-      <NotificationTogglesCard
-        title="إشعارات الموارد البشرية"
-        description="تحكم في الإشعارات المرسلة لأحداث HR: الانضباط، الرواتب، الحضور، الطلبات، والعقود."
-        groups={HR_NOTIFICATION_GROUPS}
-        values={settings as Pick<HrCompanySettings, HrNotificationKey>}
-        disabled={update.isPending}
-        masterDisabled={!settings.notificationsEnabled}
-        onToggle={(key, value) => void handleToggle(key, value)}
-      />
+        <TabsContent value="attendance" className="mt-4">
+          <PunchPolicySettingCard
+            hideHeader
+            values={{
+              enforcePunchPolicyOnServer: settings.enforcePunchPolicyOnServer !== false,
+              blockEarlyCheckIn: Boolean(settings.blockEarlyCheckIn),
+              lateCheckInPolicy: settings.lateCheckInPolicy ?? 'allow',
+              blockEarlyCheckOut: Boolean(settings.blockEarlyCheckOut),
+              allowCheckOutWithoutCheckIn: Boolean(settings.allowCheckOutWithoutCheckIn),
+              allowPreviousDayCheckOut: settings.allowPreviousDayCheckOut !== false,
+              openSessionMaxHours: settings.openSessionMaxHours ?? 18,
+              allowPunchOnUnscheduledDay: Boolean(settings.allowPunchOnUnscheduledDay),
+              requireCheckInPointsForSelfPunch:
+                settings.requireCheckInPointsForSelfPunch !== false,
+              minMinutesBetweenPunches: settings.minMinutesBetweenPunches ?? 1,
+              singleSessionPerPeriod: Boolean(settings.singleSessionPerPeriod),
+              missingCheckOutCredit: settings.missingCheckOutCredit ?? 'until_period_end',
+              continuousAcrossPeriods: Boolean(settings.continuousAcrossPeriods),
+            }}
+            disabled={update.isPending}
+            onChange={(patch) => void handleSettingsPatch(patch)}
+          />
+        </TabsContent>
+
+        <TabsContent value="notifications" className="mt-4">
+          <NotificationTogglesCard
+            hideHeader
+            title="إشعارات الموارد البشرية"
+            description="إشعارات أحداث الموارد البشرية. أوقف التفعيل العام لإسكات بقية الإشعارات."
+            groups={HR_NOTIFICATION_GROUPS}
+            values={settings as Pick<HrCompanySettings, HrNotificationKey>}
+            disabled={update.isPending}
+            masterDisabled={!settings.notificationsEnabled}
+            onToggle={(key, value) => void handleToggle(key, value)}
+          />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

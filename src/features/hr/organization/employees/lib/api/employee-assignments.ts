@@ -33,8 +33,9 @@ export type CreateEmployeeAssignmentDto = {
   endDate?: string | null;
 };
 
-/** PATCH — company/branch cannot be changed after create. */
+/** PATCH — company stays fixed. Branch can change within the same company. */
 export type UpdateEmployeeAssignmentDto = {
+  branchId?: string;
   departmentId?: string | null;
   jobTitleId?: string | null;
   isPrimary?: boolean;

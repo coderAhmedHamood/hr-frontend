@@ -1,5 +1,6 @@
 export type { AttendanceCorrectionPeriod, AttendanceCorrectionRequest } from '@/features/hr/requests/types/attendance-correction';
 
+import type { CorrectionPeriodPayload } from '@/features/hr/requests/attendance-corrections/lib/correction-from-daily-breakdown';
 import { create } from 'zustand';
 import {
   correctionRequestsApi,
@@ -164,11 +165,7 @@ interface State {
     workDate: string;
     attendanceDaySummaryId?: string;
     subtypeSlug?: string;
-    periods: Array<{
-      periodId: string;
-      checkInAt: string | null;
-      checkOutAt: string | null;
-    }>;
+    periods: CorrectionPeriodPayload[];
     reasonAr?: string;
   }) => Promise<{ ok: true } | { ok: false; error: string }>;
   approve: (id: string, payload: CorrectionDecisionDto) => Promise<void>;
@@ -201,7 +198,7 @@ export const useAttendanceCorrectionRequestsStore = create<State>()((set) => ({
     if (!input.workDate.trim()) return { ok: false, error: 'أدخل تاريخ اليوم.' };
 
     const hasCorrectedPunch = input.periods.some(
-      (p) => p.checkInAt || p.checkOutAt,
+      (p) => p.corrected.checkInAt || p.corrected.checkOutAt,
     );
     if (!hasCorrectedPunch) {
       return { ok: false, error: 'أدخل وقت حضور أو انصراف مصحّحاً لفترة واحدة على الأقل.' };
@@ -223,8 +220,8 @@ export const useAttendanceCorrectionRequestsStore = create<State>()((set) => ({
         correctedTimes: {
           periods: input.periods.map((p) => ({
             periodId: p.periodId,
-            checkInAt: p.checkInAt,
-            checkOutAt: p.checkOutAt,
+            recorded: p.recorded,
+            corrected: p.corrected,
           })),
         },
         reasonAr,

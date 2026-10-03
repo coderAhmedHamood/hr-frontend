@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { ErrorFallback } from '@/components/shared/error-fallback';
 import { reportError } from '@/shared/errors/report-error';
-
+//ok
 /**
  * Route-level boundary for the whole authenticated app segment. Catches failures the
  * component-level AppErrorBoundary can't — e.g. a Server Component throwing during

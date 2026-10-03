@@ -56,6 +56,18 @@ export const STATUS = {
     dot: statusDotClass('info'),
     bar: 'bg-primary',
   },
+  upcoming: {
+    label: 'لم يبدأ الدوام',
+    color: STATUS_PILL.muted,
+    dot: statusDotClass('muted'),
+    bar: 'bg-muted-foreground/30',
+  },
+  pending: {
+    label: 'لم يبصم بعد',
+    color: STATUS_PILL.muted,
+    dot: statusDotClass('muted'),
+    bar: 'bg-muted-foreground/30',
+  },
 } as const;
 
 export type StatusVisualKey = keyof typeof STATUS;
