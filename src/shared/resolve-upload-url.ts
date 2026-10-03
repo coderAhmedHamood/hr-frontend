@@ -12,9 +12,10 @@ function extractUploadPath(value: string): string | null {
   }
 
   try {
-    const pathname = new URL(value).pathname;
-    if (pathname.startsWith(UPLOAD_PATH_PREFIX)) {
-      return pathname;
+    const url = new URL(value);
+    if (url.pathname.startsWith(UPLOAD_PATH_PREFIX)) {
+      // Keep the query: protected files carry a short-lived `exp` / `sig`.
+      return `${url.pathname}${url.search}`;
     }
   } catch {
     // not an absolute URL
