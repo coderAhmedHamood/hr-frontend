@@ -1,22 +1,6 @@
-import { apiFormRequest } from '@/features/hr/lib/api/client';
-
-export type UploadCategory = 'image' | 'pdf' | 'document' | 'other' | 'products';
-
-export type UploadResponseDto = {
-  category: UploadCategory;
-  fileName: string;
-  originalName: string;
-  path: string;
-  url: string;
-  absolutePath: string;
-  mimeType: string;
-  size: number;
-};
-
-export const uploadsApi = {
-  upload(category: UploadCategory, file: File, signal?: AbortSignal) {
-    const formData = new FormData();
-    formData.append('file', file);
-    return apiFormRequest<UploadResponseDto>(`/uploads/${category}`, formData, signal);
-  },
-};
+/**
+ * Moved to `@/shared/api/uploads` (phase 1.6): the API client is platform code,
+ * not HR. Kept as a re-export so existing imports keep working; new code
+ * imports from `@/shared/api/uploads`.
+ */
+export * from '@/shared/api/uploads';

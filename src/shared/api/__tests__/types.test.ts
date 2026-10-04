@@ -1,4 +1,4 @@
-import { isApiSuccessEnvelope } from '@/features/hr/lib/api/types';
+import { isApiSuccessEnvelope } from '@/shared/api/types';
 
 describe('isApiSuccessEnvelope', () => {
   it('accepts success payloads without an explicit error field', () => {

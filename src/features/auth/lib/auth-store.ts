@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import type { AccessProfile } from '@/features/auth/types/access-profile';
 import type { AuthUser } from '@/features/auth/types/access-profile';
+import { profileIsSystemOwner } from '@/features/auth/types/access-profile';
 import {
   clearDefaultCompanyId,
   persistDefaultCompanyId,
@@ -11,6 +12,7 @@ import {
   normalizeHexColor,
   persistCompanyThemeCssVars,
 } from '@/shared/company-theme';
+import { registerActiveCompanySource } from '@/shared/api/request-context';
 import { DEFAULT_APP_LOGO_PATH } from '@/shared/constants/branding';
 import { resolveUploadUrl } from '@/shared/resolve-upload-url';
 import { setDocumentFavicon } from '@/shared/set-document-favicon';
@@ -112,3 +114,15 @@ export const useAuthStore = create<AuthState>()(
     },
   ),
 );
+
+// X-Company-Id for staff requests (see shared/api/request-context.ts): the
+// active company of a user who belongs to several, never the platform owner.
+registerActiveCompanySource(() => {
+  const { accessProfile, activeCompanyId, user } = useAuthStore.getState();
+  if (!activeCompanyId || !accessProfile) return null;
+  if (profileIsSystemOwner(accessProfile, user?.userType)) return null;
+  if ((accessProfile.companies?.length ?? 0) < 2) return null;
+  return accessProfile.companies.some((c) => c.companyId === activeCompanyId)
+    ? activeCompanyId
+    : null;
+});

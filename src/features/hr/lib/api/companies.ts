@@ -1,25 +1,6 @@
-import { apiRequest, type PaginatedResult } from '@/features/hr/lib/api/client';
-
-export type CompanyResponseDto = {
-  id: string;
-  nameAr: string;
-  nameEn: string | null;
-  crNumber: string | null;
-  vatNumber: string | null;
-  phone: string | null;
-  email: string | null;
-  address: string | null;
-  logoUrl: string | null;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export const companiesApi = {
-  getAll(query?: { page?: number; limit?: number }) {
-    return apiRequest<PaginatedResult<CompanyResponseDto>>('/companies', { query });
-  },
-  getById(id: string) {
-    return apiRequest<CompanyResponseDto>(`/companies/${id}`);
-  },
-};
+/**
+ * Moved to `@/shared/api/companies` (phase 1.6): the API client is platform code,
+ * not HR. Kept as a re-export so existing imports keep working; new code
+ * imports from `@/shared/api/companies`.
+ */
+export * from '@/shared/api/companies';
