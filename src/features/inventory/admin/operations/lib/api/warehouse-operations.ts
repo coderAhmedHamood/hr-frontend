@@ -9,12 +9,21 @@ import type {
 } from '@/features/inventory/domain/types/warehouse';
 import type { AdminWarehouseOperationsPort } from '@/features/inventory/domain/ports/inventory.ports';
 
-type OperationDto = Omit<WarehouseOperation, 'lines'> & {
+type OperationDto = Omit<
+  WarehouseOperation,
+  'lines' | 'lineCount' | 'totalDemandQuantity' | 'totalQuantity' | 'linesPartial'
+> & {
   codeNumber?: number;
   isArchived?: boolean;
   archivedAt?: string | null;
   createdBy?: string | null;
   updatedBy?: string | null;
+  /** Embedded by GET /inventory/warehouse-operations (list only) — avoids a follow-up lines fetch. */
+  lines?: OperationLineDto[];
+  lineCount?: number;
+  totalDemandQuantity?: string | number;
+  totalQuantity?: string | number;
+  linesPartial?: boolean;
 };
 
 type OperationLineDto = Omit<WarehouseOperationLine, 'demandQuantity' | 'quantity'> & {
@@ -45,6 +54,9 @@ function mapLine(dto: OperationLineDto): WarehouseOperationLine {
     variantId: dto.variantId ?? undefined,
     demandQuantity: toNumber(dto.demandQuantity),
     quantity: toNumber(dto.quantity),
+    productUomLineId: dto.productUomLineId ?? undefined,
+    uomEnteredQuantity:
+      dto.uomEnteredQuantity != null ? toNumber(dto.uomEnteredQuantity) : undefined,
     fromLocationId: dto.fromLocationId ?? undefined,
     toLocationId: dto.toLocationId ?? undefined,
     notes: dto.notes ?? undefined,
@@ -73,6 +85,11 @@ function mapOperation(dto: OperationDto, lines: WarehouseOperationLine[]): Wareh
     sourceDocument: dto.sourceDocument ?? undefined,
     destinationWarehouseId: dto.destinationWarehouseId ?? undefined,
     lines,
+    lineCount: dto.lineCount,
+    totalDemandQuantity:
+      dto.totalDemandQuantity != null ? toNumber(dto.totalDemandQuantity) : undefined,
+    totalQuantity: dto.totalQuantity != null ? toNumber(dto.totalQuantity) : undefined,
+    linesPartial: dto.linesPartial,
     createdAt: dto.createdAt,
     updatedAt: dto.updatedAt,
   };
@@ -83,43 +100,27 @@ function isLockedOperationStatus(status: string | null | undefined): boolean {
   return raw === 'done' || raw === 'posted' || raw === 'validated';
 }
 
-async function fetchLinesForOperations(
-  companyId: string,
-  operationIds: string[],
-): Promise<Map<string, WarehouseOperationLine[]>> {
-  const map = new Map<string, WarehouseOperationLine[]>();
-  if (operationIds.length === 0) return map;
+export type OpenProductReservation = {
+  productId: string;
+  operationReference: string;
+};
 
-  // Few operations: fetch by operationId (avoids dumping the whole company line table).
-  if (operationIds.length <= 8) {
-    await Promise.all(
-      operationIds.map(async (operationId) => {
-        map.set(operationId, await fetchLinesByOperationId(operationId, companyId));
-      }),
-    );
-    return map;
-  }
-
-  const result = await apiRequest<PaginatedResult<OperationLineDto>>(
-    '/inventory/warehouse-operation-lines',
+async function fetchOpenProductReservations(input: {
+  companyId: string;
+  warehouseId: string;
+  kind: WarehouseOperation['kind'];
+}): Promise<OpenProductReservation[]> {
+  const result = await apiRequest<{ items: OpenProductReservation[] }>(
+    '/inventory/warehouse-operations/open-product-reservations',
     {
       query: {
-        companyId,
-        page: 1,
-        limit: 500,
-        archiveScope: 'active',
+        companyId: input.companyId,
+        warehouseId: input.warehouseId,
+        kind: input.kind,
       },
     },
   );
-
-  const idSet = new Set(operationIds);
-  for (const dto of result.items ?? []) {
-    if (!idSet.has(dto.operationId)) continue;
-    const list = map.get(dto.operationId) ?? [];
-    list.push(mapLine(dto));
-    map.set(dto.operationId, list);
-  }
-  return map;
+  return result.items ?? [];
 }
 
 async function fetchLinesByOperationId(
@@ -152,6 +153,7 @@ async function createLine(operationId: string, line: WarehouseOperationLine): Pr
       sku: line.sku ?? null,
       demandQuantity: line.demandQuantity ?? line.quantity,
       quantity: line.quantity,
+      productUomLineId: line.productUomLineId ?? null,
       fromLocationId: line.fromLocationId ?? null,
       toLocationId: line.toLocationId ?? null,
       notes: line.notes ?? null,
@@ -196,6 +198,7 @@ async function syncLines(
             sku: line.sku ?? null,
             demandQuantity: line.demandQuantity ?? line.quantity,
             quantity: line.quantity,
+            productUomLineId: line.productUomLineId ?? null,
             fromLocationId: line.fromLocationId ?? null,
             toLocationId: line.toLocationId ?? null,
             notes: line.notes ?? null,
@@ -219,6 +222,7 @@ function isLineUnchanged(prev: WarehouseOperationLine, next: WarehouseOperationL
     prev.productName === next.productName &&
     (prev.sku ?? null) === (next.sku ?? null) &&
     Number(prev.demandQuantity ?? prev.quantity) === Number(next.demandQuantity ?? next.quantity) &&
+    (prev.productUomLineId ?? null) === (next.productUomLineId ?? null) &&
     Number(prev.quantity) === Number(next.quantity) &&
     (prev.fromLocationId ?? null) === (next.fromLocationId ?? null) &&
     (prev.toLocationId ?? null) === (next.toLocationId ?? null) &&
@@ -228,11 +232,18 @@ function isLineUnchanged(prev: WarehouseOperationLine, next: WarehouseOperationL
   );
 }
 
-export const warehouseOperationsApi: AdminWarehouseOperationsPort = {
+export const warehouseOperationsApi: AdminWarehouseOperationsPort & {
+  getOpenProductReservations: typeof fetchOpenProductReservations;
+} = {
+  getOpenProductReservations: fetchOpenProductReservations,
+
   async getAll(query: WarehouseOperationListQuery) {
     if (!query.companyId?.trim()) {
       throw new Error('companyId مطلوب لقائمة عمليات المستودع.');
     }
+    const linesMode =
+      query.linesMode ?? (query.productId ? 'full' : 'preview');
+
     const result = await apiRequest<PaginatedResult<OperationDto>>('/inventory/warehouse-operations', {
       query: {
         companyId: query.companyId,
@@ -242,23 +253,22 @@ export const warehouseOperationsApi: AdminWarehouseOperationsPort = {
         occurredAtFrom: query.occurredAtFrom,
         occurredAtTo: query.occurredAtTo,
         search: query.search,
+        linesMode,
         page: query.page ?? 1,
         limit: query.limit ?? 200,
         archiveScope: 'active',
       },
     });
 
+    // Lines are embedded per item by the backend (single batched query) —
+    // no separate warehouse-operation-lines fetch needed for the list.
     let items = result.items ?? [];
     if (query.productId) {
-      const lineMap = await fetchLinesForOperations(
-        query.companyId,
-        items.map((item) => item.id),
-      );
       items = items.filter((item) =>
-        (lineMap.get(item.id) ?? []).some((line) => line.productId === query.productId),
+        (item.lines ?? []).some((line) => line.productId === query.productId),
       );
       return {
-        items: items.map((item) => mapOperation(item, lineMap.get(item.id) ?? [])),
+        items: items.map((item) => mapOperation(item, (item.lines ?? []).map(mapLine))),
         pagination: {
           ...result.pagination,
           total: items.length,
@@ -267,12 +277,8 @@ export const warehouseOperationsApi: AdminWarehouseOperationsPort = {
       };
     }
 
-    const lineMap = await fetchLinesForOperations(
-      query.companyId,
-      items.map((item) => item.id),
-    );
     return {
-      items: items.map((item) => mapOperation(item, lineMap.get(item.id) ?? [])),
+      items: items.map((item) => mapOperation(item, (item.lines ?? []).map(mapLine))),
       pagination: result.pagination,
     };
   },

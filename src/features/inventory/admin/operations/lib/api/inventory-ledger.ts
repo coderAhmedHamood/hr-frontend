@@ -1,13 +1,15 @@
 import { apiRequest, type PaginatedResult } from '@/features/hr/lib/api/client';
 import { toNumber } from '@/features/inventory/lib/api/numbers';
 import type {
+  InboundProductValueSummary,
   InventoryLedgerEntry,
   InventoryLedgerListQuery,
   InventoryLedgerSummary,
 } from '@/features/inventory/domain/types/inventory-ledger';
 
-type LedgerDto = Omit<InventoryLedgerEntry, 'quantityDelta'> & {
+type LedgerDto = Omit<InventoryLedgerEntry, 'quantityDelta' | 'unitCost'> & {
   quantityDelta: string | number;
+  unitCost?: string | number | null;
 };
 
 type LedgerListDto = PaginatedResult<LedgerDto> & {
@@ -17,6 +19,16 @@ type LedgerListDto = PaginatedResult<LedgerDto> & {
     qtyOut: number | string;
     net: number | string;
   };
+  productSummary?: Array<{
+    productId: string;
+    variantId?: string | null;
+    productName: string;
+    sku?: string | null;
+    entries: number | string;
+    quantity: number | string;
+    averageUnitCost?: number | string | null;
+    totalValue: number | string;
+  }>;
 };
 
 function mapEntry(dto: LedgerDto): InventoryLedgerEntry {
@@ -35,6 +47,9 @@ function mapEntry(dto: LedgerDto): InventoryLedgerEntry {
     warehouseId: dto.warehouseId,
     locationId: dto.locationId,
     quantityDelta: toNumber(dto.quantityDelta),
+    unitCost:
+      dto.unitCost != null && dto.unitCost !== '' ? toNumber(dto.unitCost) : null,
+    costCurrency: dto.costCurrency ?? null,
     counterpartLocationId: dto.counterpartLocationId ?? undefined,
     counterpartWarehouseId: dto.counterpartWarehouseId ?? undefined,
     sourceDocument: dto.sourceDocument ?? undefined,
@@ -56,6 +71,7 @@ export const inventoryLedgerApi = {
         productId: query.productId,
         locationId: query.locationId,
         kind: query.kind,
+        flow: query.flow,
         operationId: query.operationId,
         occurredAtFrom: query.occurredAtFrom,
         occurredAtTo: query.occurredAtTo,
@@ -74,6 +90,21 @@ export const inventoryLedgerApi = {
       items: (result.items ?? []).map(mapEntry),
       pagination: result.pagination,
       summary,
+      productSummary: (result.productSummary ?? []).map(
+        (row): InboundProductValueSummary => ({
+          productId: row.productId,
+          variantId: row.variantId ?? null,
+          productName: row.productName,
+          sku: row.sku ?? null,
+          entries: toNumber(row.entries),
+          quantity: toNumber(row.quantity),
+          averageUnitCost:
+            row.averageUnitCost != null && row.averageUnitCost !== ''
+              ? toNumber(row.averageUnitCost)
+              : null,
+          totalValue: toNumber(row.totalValue),
+        }),
+      ),
     };
   },
 

@@ -46,6 +46,18 @@ export const userPermissionsApi = {
       body: dto,
     });
   },
+  bulkAssign(userId: string, permissions: AssignUserPermissionDto[]) {
+    return apiRequest<UserPermissionResponseDto[]>(`/users/${userId}/permissions/bulk`, {
+      method: 'POST',
+      body: { permissions },
+    });
+  },
+  denyBulk(userId: string, companyId: string, permissionIds: string[]) {
+    return apiRequest<UserPermissionResponseDto[]>(`/users/${userId}/permissions/deny-bulk`, {
+      method: 'POST',
+      body: { companyId, permissionIds },
+    });
+  },
   update(userId: string, overlayId: string, dto: UpdateUserPermissionDto) {
     return apiRequest<UserPermissionResponseDto>(
       `/users/${userId}/permissions/${overlayId}`,

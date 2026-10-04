@@ -19,6 +19,8 @@ const AUTH_API_MESSAGE_AR: Record<string, string> = {
   'Token has been revoked — please sign in again':
     'انتهت صلاحية الجلسة. سجّل الدخول مرة أخرى.',
   Unauthorized: 'غير مصرّح',
+  'This account must sign in via the partner portal (/public/partners/auth/login)':
+    'هذا الحساب لبوابة المتجر/الشركاء. سجّل الدخول من صفحة المتجر، أو غيّر نوع المستخدم إلى «موظف داخلي» من جهات الاتصال → المستخدمين.',
 };
 
 /** Device serial / web fingerprint errors from `/auth/login`. */

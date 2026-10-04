@@ -1,3 +1,8 @@
+export type LateCheckInPolicy = 'allow' | 'block_after_grace' | 'block_after_window';
+
+/** Period with a check-in but no check-out: credited until period end, or not at all. */
+export type MissingCheckOutCredit = 'until_period_end' | 'none';
+
 export interface HrCompanySettings {
   id: string;
   companyId: string;
@@ -24,6 +29,13 @@ export interface HrCompanySettings {
   notifyPayslipPendingEmployeeAcceptance: boolean;
   notifyAttendanceCheckIn: boolean;
   notifyAttendanceCheckOut: boolean;
+  /** Notify only for out-of-range punches (the exception toggles below). Default false. */
+  notifyAttendanceExceptionsOnly?: boolean;
+  notifyAttendanceLateCheckIn?: boolean;
+  notifyAttendanceEarlyCheckOut?: boolean;
+  notifyAttendanceOvertimeCheckOut?: boolean;
+  notifyAttendanceCheckOutWithoutCheckIn?: boolean;
+  notifyAttendanceNotCounted?: boolean;
   notifyShiftAssignmentLinked: boolean;
   notifyCheckInPointLinked: boolean;
   notifyLeaveBalanceCredited: boolean;
@@ -34,8 +46,28 @@ export interface HrCompanySettings {
   notifyContractSentForApproval: boolean;
   notifyEmployeeAssignedToCompany: boolean;
   notifyEmployeeAssignedToBranch: boolean;
-  /** Mobile: enforce check-in/check-out punch windows. Default false. */
+  /** @deprecated Derived by the backend from the split punch-policy fields below. */
   hideEarlyCheckoutUntilShortageWindow: boolean;
+  /** Backend rejects self-service punches the policy blocks. Default true. */
+  enforcePunchPolicyOnServer?: boolean;
+  blockEarlyCheckIn?: boolean;
+  lateCheckInPolicy?: LateCheckInPolicy;
+  blockEarlyCheckOut?: boolean;
+  allowCheckOutWithoutCheckIn?: boolean;
+  /** After midnight, close a check-in still open from the previous work day. Default true. */
+  allowPreviousDayCheckOut?: boolean;
+  openSessionMaxHours?: number;
+  allowPunchOnUnscheduledDay?: boolean;
+  /** Default true. */
+  requireCheckInPointsForSelfPunch?: boolean;
+  /** Minimum minutes between two punches; 0 = off. Default 1. */
+  minMinutesBetweenPunches?: number;
+  /** One check-in and one check-out per period. Default false. */
+  singleSessionPerPeriod?: boolean;
+  /** Default `until_period_end`. */
+  missingCheckOutCredit?: MissingCheckOutCredit;
+  /** One check-in / check-out may span several periods of the day. Default false. */
+  continuousAcrossPeriods?: boolean;
   createdAt: string;
   updatedAt: string;
   createdBy?: string | null;

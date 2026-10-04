@@ -30,6 +30,8 @@ interface MinimalDropdownProps {
   /** Shows an × button to reset to `''` when a value is selected. */
   allowClear?: boolean;
   onOpenChange?: (open: boolean) => void;
+  /** When true (default), the menu is at least as wide as the trigger and expands for long labels. */
+  menuFitContent?: boolean;
 }
 
 export function MinimalDropdown({
@@ -44,6 +46,7 @@ export function MinimalDropdown({
   disabled,
   allowClear,
   onOpenChange,
+  menuFitContent = true,
 }: MinimalDropdownProps) {
   const [open, setOpen] = React.useState(false);
   const dialogContainer = useDialogPortalContainer();
@@ -66,7 +69,10 @@ export function MinimalDropdown({
             className,
           )}
         >
-          <span className={cn('truncate', !selected && 'text-muted-foreground')}>
+          <span
+            className={cn('truncate', !selected && 'text-muted-foreground')}
+            title={selected?.label}
+          >
             {selected ? selected.label : placeholder}
           </span>
           <div className="flex items-center gap-1">
@@ -86,11 +92,13 @@ export function MinimalDropdown({
       <PopoverPrimitive.Portal container={dialogContainer ?? undefined}>
         <PopoverPrimitive.Content
           className={cn(
-            'popover-match-trigger z-[200] max-h-64 min-w-[12rem] overflow-auto rounded-md border border-border bg-popover p-1 shadow-elevated',
+            'z-[200] max-h-64 min-w-[12rem] overflow-auto rounded-md border border-border bg-popover p-1 shadow-elevated',
+            menuFitContent ? 'popover-dropdown-fit-content' : 'popover-match-trigger',
             contentClassName,
           )}
           sideOffset={4}
           collisionPadding={12}
+          align="start"
         >
           {options.map(opt => {
             const isSelected = opt.value === value;
@@ -116,8 +124,20 @@ export function MinimalDropdown({
               {!hideSelectedCheck ? (
                 <Check className={cn('h-4 w-4 shrink-0', isSelected ? 'opacity-100' : 'opacity-0')} />
               ) : null}
-              <span className={cn('truncate', !hideSelectedCheck && 'flex-1')}>{opt.label}</span>
-              {opt.sub && <span className="text-xs text-muted-foreground">{opt.sub}</span>}
+              <span
+                className={cn(
+                  'text-right leading-snug',
+                  menuFitContent ? 'whitespace-normal break-words' : 'truncate',
+                  !hideSelectedCheck && 'min-w-0 flex-1',
+                )}
+              >
+                {opt.label}
+              </span>
+              {opt.sub && (
+                <span className="text-xs text-muted-foreground whitespace-normal break-words">
+                  {opt.sub}
+                </span>
+              )}
             </button>
             );
           })}
@@ -149,6 +169,7 @@ export function SearchableDropdown({
   disabled,
   allowClear,
   listClassName,
+  menuFitContent = true,
 }: SearchableDropdownProps) {
   const [open, setOpen] = React.useState(false);
   const [q, setQ] = React.useState('');
@@ -178,7 +199,10 @@ export function SearchableDropdown({
             className,
           )}
         >
-          <span className={cn('truncate', !selected && 'text-muted-foreground')}>
+          <span
+            className={cn('truncate', !selected && 'text-muted-foreground')}
+            title={selected?.label}
+          >
             {selected ? selected.label : placeholder}
           </span>
           <div className="flex items-center gap-1">
@@ -198,12 +222,14 @@ export function SearchableDropdown({
       <PopoverPrimitive.Portal container={dialogContainer ?? undefined}>
         <PopoverPrimitive.Content
           className={cn(
-            'popover-match-trigger z-[200] min-w-[12rem] overflow-hidden rounded-md border border-border bg-popover p-0 shadow-elevated',
+            'z-[200] min-w-[12rem] overflow-hidden rounded-md border border-border bg-popover p-0 shadow-elevated',
+            menuFitContent ? 'popover-dropdown-fit-content' : 'popover-match-trigger',
             contentClassName,
           )}
           sideOffset={4}
           collisionPadding={16}
           avoidCollisions
+          align="start"
           onOpenAutoFocus={(e) => e.preventDefault()}
         >
           <div className="border-b border-border p-2">
@@ -241,9 +267,25 @@ export function SearchableDropdown({
                 )}
               >
                 <Check className={cn('h-4 w-4 shrink-0', opt.value === value ? 'opacity-100' : 'opacity-0')} />
-                <div className="flex-1 min-w-0">
-                  <p className="truncate">{opt.label}</p>
-                  {opt.sub && <p className="text-xs text-muted-foreground truncate">{opt.sub}</p>}
+                <div className="min-w-0 flex-1 text-right">
+                  <p
+                    className={cn(
+                      'leading-snug',
+                      menuFitContent ? 'whitespace-normal break-words' : 'truncate',
+                    )}
+                  >
+                    {opt.label}
+                  </p>
+                  {opt.sub && (
+                    <p
+                      className={cn(
+                        'text-xs text-muted-foreground',
+                        menuFitContent ? 'whitespace-normal break-words' : 'truncate',
+                      )}
+                    >
+                      {opt.sub}
+                    </p>
+                  )}
                 </div>
               </button>
             ))}

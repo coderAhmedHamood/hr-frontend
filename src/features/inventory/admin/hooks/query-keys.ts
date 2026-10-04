@@ -25,4 +25,17 @@ export const warehouseOperationsQueryKeys = {
     [...warehouseOperationsQueryKeys.root(query.companyId), 'list', query] as const,
   byProduct: (companyId: string, productId: string, kind?: WarehouseOperationKind) =>
     [...warehouseOperationsQueryKeys.root(companyId), 'by-product', productId, kind ?? 'all'] as const,
+  openProductReservations: (
+    companyId: string,
+    warehouseId: string,
+    kind: WarehouseOperationKind,
+  ) =>
+    [
+      ...warehouseOperationsQueryKeys.root(companyId),
+      'open-product-reservations',
+      warehouseId,
+      kind,
+    ] as const,
+  detail: (companyId: string, id: string) =>
+    [...warehouseOperationsQueryKeys.root(companyId), 'detail', id] as const,
 };

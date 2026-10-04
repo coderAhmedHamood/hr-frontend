@@ -21,6 +21,8 @@ export type PartnerSinglePickerProps = {
   searchPlaceholder?: string;
   disabled?: boolean;
   allowClear?: boolean;
+  /** When true, partner search runs only while the popover is open (avoids list fetch on dialog mount). */
+  deferSearchUntilOpen?: boolean;
   className?: string;
   'aria-label'?: string;
 };
@@ -45,6 +47,7 @@ export function PartnerSinglePicker({
   searchPlaceholder = 'الاسم…',
   disabled,
   allowClear = true,
+  deferSearchUntilOpen = false,
   className,
   'aria-label': ariaLabel,
 }: PartnerSinglePickerProps) {
@@ -57,13 +60,16 @@ export function PartnerSinglePicker({
   const hasLocalLabel = Boolean(value) && pickedPartner?.id === value;
   const { data: selectedPartner } = usePartner(companyId, !hasLocalLabel ? value || undefined : undefined);
 
-  const { data, isFetching } = usePartners({
-    companyId,
-    search: debouncedSearch || undefined,
-    page: 1,
-    limit: PAGE_LIMIT,
-    archiveScope: 'active',
-  });
+  const searchEnabled = Boolean(companyId) && (!deferSearchUntilOpen || open);
+  const { data, isFetching } = usePartners(
+    {
+      companyId: searchEnabled ? companyId : '',
+      search: debouncedSearch || undefined,
+      page: 1,
+      limit: PAGE_LIMIT,
+      archiveScope: 'active',
+    },
+  );
   const results = data?.items ?? [];
 
   const selectedLabel = value

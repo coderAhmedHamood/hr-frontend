@@ -39,13 +39,13 @@ export function useDaySummaryTableColumns({
     > = {
       checkIn: {
         key: 'checkIn',
-        title: 'حضور',
+        title: 'أول حضور',
         hideOnMobile: true,
         render: (row) => <TableDateCell value={row.actualCheckInAt} mode="datetime" />,
       },
       checkOut: {
         key: 'checkOut',
-        title: 'انصراف',
+        title: 'آخر انصراف',
         hideOnMobile: true,
         render: (row) => <TableDateCell value={row.actualCheckOutAt} mode="datetime" />,
       },

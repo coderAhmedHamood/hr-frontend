@@ -20,6 +20,11 @@ import {
   formValuesToCreateInput,
   productToFormValues,
 } from '@/features/ecommerce/admin/products/lib/product-form-mapping';
+import {
+  findFirstFormError,
+  formHasErrorForFields,
+  topLevelFieldFromErrorPath,
+} from '@/features/ecommerce/admin/products/lib/product-form-errors';
 import { ProductFormHeader } from '@/features/ecommerce/admin/products/components/product-form-header';
 import { ProductGeneralTab } from '@/features/ecommerce/admin/products/components/product-general-tab';
 import { ProductAttributesTab } from '@/features/ecommerce/admin/products/components/product-attributes-tab';
@@ -81,6 +86,7 @@ type MoveRequestKind = WarehouseOperationKind;
 
 const FORM_TAB_FIELDS: Record<FormTab, string[]> = {
   general: [
+    'media',
     'sku',
     'status',
     'productType',
@@ -88,7 +94,6 @@ const FORM_TAB_FIELDS: Record<FormTab, string[]> = {
     'brandId',
     'listPrice',
     'costPrice',
-    'slug',
   ],
   attributes: ['attributes', 'variants'],
   availability: ['stockStatus', 'stockQuantity', 'lowStockThreshold'],
@@ -207,24 +212,26 @@ export function ProductFormDialog({ product, open, onOpenChange }: Props) {
   };
 
   const onInvalid = (formErrors: FieldErrors<ProductFormInput>) => {
-    const errorKeys = Object.keys(formErrors);
-    if (errorKeys.includes('nameAr')) {
-      toast.error('يرجى إدخال اسم المنتج أولًا.');
+    const first = findFirstFormError(formErrors);
+    if (!first) return;
+
+    if (first.path === 'nameAr' || first.path.startsWith('nameAr.')) {
+      toast.error(first.message || 'يرجى إدخال اسم المنتج أولًا.');
       requestAnimationFrame(() => {
         document.getElementById('product-name-ar')?.focus();
       });
       return;
     }
 
-    const offendingTab = FORM_TABS.find((tab) =>
-      FORM_TAB_FIELDS[tab.value].some((key) => errorKeys.includes(key)),
-    );
+    const topField = topLevelFieldFromErrorPath(first.path);
+    const offendingTab = FORM_TABS.find((tab) => FORM_TAB_FIELDS[tab.value].includes(topField));
     if (offendingTab) {
       setActiveTab(offendingTab.value);
-      toast.error(`تحقق من الحقول الموضحة في تبويب «${offendingTab.label}».`);
+      toast.error(first.message || `تحقق من الحقول الموضحة في تبويب «${offendingTab.label}».`);
       return;
     }
-    toast.error('تحقق من الحقول المطلوبة والموضحة باللون الأحمر.');
+
+    toast.error(first.message || 'تحقق من الحقول المطلوبة والموضحة باللون الأحمر.');
   };
 
   function requireSavedProduct(actionLabel: string): boolean {
@@ -383,9 +390,7 @@ export function ProductFormDialog({ product, open, onOpenChange }: Props) {
                     <TabsList className="sto-tabs-scroll h-auto w-full justify-start rounded-2xl border border-border/80 bg-muted/40 p-1">
                       {FORM_TABS.map((tab) => {
                         const Icon = tab.icon;
-                        const hasError = FORM_TAB_FIELDS[tab.value].some(
-                          (key) => key in form.formState.errors,
-                        );
+                        const hasError = formHasErrorForFields(form.formState.errors, FORM_TAB_FIELDS[tab.value]);
                         return (
                           <TabsTrigger key={tab.value} value={tab.value} className={TAB_TRIGGER_CLASS}>
                             <Icon className="hidden h-3.5 w-3.5 sm:block" />

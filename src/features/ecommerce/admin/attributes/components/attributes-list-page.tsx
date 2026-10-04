@@ -15,7 +15,7 @@ import {
 } from '@/features/ecommerce/admin/attributes/hooks/use-catalog-attributes';
 import { CatalogAttributeFormDialog } from '@/features/ecommerce/admin/attributes/components/catalog-attribute-form-dialog';
 import {
-  ATTRIBUTE_DISPLAY_OPTIONS,
+  attributeDisplayTypeLabelAr,
   VARIANT_CREATION_OPTIONS,
   normalizeVariantCreationMode,
 } from '@/features/ecommerce/admin/attributes/schemas/catalog-attribute-schema';
@@ -87,7 +87,7 @@ export function AttributesListPage() {
   const { remove } = useCatalogAttributeMutations();
 
   const displayLabel = (value: CatalogAttribute['displayType']) =>
-    ATTRIBUTE_DISPLAY_OPTIONS.find((option) => option.value === value)?.labelAr ?? value;
+    attributeDisplayTypeLabelAr(value);
   const variantLabel = (value: CatalogAttribute['createVariant']) =>
     VARIANT_CREATION_OPTIONS.find((option) => option.value === normalizeVariantCreationMode(value))
       ?.labelAr ?? value;

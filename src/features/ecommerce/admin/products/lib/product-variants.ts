@@ -5,6 +5,7 @@ import type {
 } from '@/features/ecommerce/domain/types/product';
 import type { Money } from '@/features/ecommerce/domain/types/common';
 import type { StockStatus } from '@/features/ecommerce/domain/constants/stock-status';
+import { isPersistedId } from '@/features/ecommerce/admin/products/lib/id-utils';
 
 function newId(prefix: string) {
   return `${prefix}-${Math.random().toString(36).slice(2, 9)}`;
@@ -172,7 +173,16 @@ export function syncProductVariants(args: SyncArgs): ProductVariant[] {
     };
   });
 
-  return dedupeVariantsByCombinationKey(built);
+  // A persisted (already saved) variant must never be silently dropped just
+  // because its attribute value combo no longer matches the currently active
+  // attribute selection (e.g. a value was deselected or a whole attribute
+  // line was removed) — it may carry real stock/order history. Only draft
+  // (never-saved) rows are safe to recompute/drop this way.
+  const orphanedPersisted = (args.existing ?? []).filter(
+    (variant) => isPersistedId(variant.id) && !claimedExistingIds.has(variant.id),
+  );
+
+  return dedupeVariantsByCombinationKey([...built, ...orphanedPersisted]);
 }
 
 export function totalVariantQuantity(variants: ProductVariant[]): number {

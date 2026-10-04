@@ -33,6 +33,8 @@ export type CatalogAttributeValue = {
    * @deprecated Prefer colorHex / imageUrl. Kept for older mock/API payloads.
    */
   extra?: string;
+  /** True when archived — kept visible (read-only) in pickers instead of vanishing. */
+  isArchived?: boolean;
 };
 
 /** Master attribute definition — configured once, reused on products. */
@@ -52,6 +54,8 @@ export type CatalogAttributeListQuery = {
   search?: string;
   page?: number;
   limit?: number;
+  /** Scope for the VALUES nested under each attribute (default 'active'). */
+  valueArchiveScope?: 'active' | 'archived' | 'all';
 };
 
 export type CreateCatalogAttributeInput = Omit<CatalogAttribute, 'id' | 'createdAt' | 'updatedAt'>;

@@ -14,6 +14,10 @@ export type DeviceAuthSettingsValues = {
 type Props = {
   values: DeviceAuthSettingsValues;
   disabled?: boolean;
+  /** Which device channel this panel configures. */
+  channel: 'mobile' | 'web';
+  /** Tab shell already names the section. */
+  hideHeader?: boolean;
   onChange: (patch: Partial<DeviceAuthSettingsValues>) => void;
 };
 
@@ -33,8 +37,7 @@ function SettingRow({
   return (
     <div
       className={cn(
-        'flex items-start justify-between gap-3 rounded-xl border px-3.5 py-3 transition-colors',
-        checked ? 'border-primary/20 bg-primary/[0.03]' : 'border-border/70 bg-card',
+        'flex items-start justify-between gap-4 bg-card px-4 py-3.5',
         disabled && 'opacity-60',
       )}
     >
@@ -53,29 +56,37 @@ function SettingRow({
   );
 }
 
-/** HR settings for app + web device serial channels (independent). */
-export function MobileSerialApprovalSettingCard({ values, disabled, onChange }: Props) {
-  return (
-    <section className="rounded-2xl border border-border/70 bg-card shadow-soft">
-      <header className="flex items-start gap-3 border-b border-border/60 px-4 py-3.5 sm:px-5">
-        <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-          <MonitorSmartphone className="h-4 w-4" aria-hidden />
-        </span>
-        <div className="min-w-0">
-          <h2 className="text-sm font-semibold text-foreground">أجهزة التطبيق والموقع</h2>
-          <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-            لكل قناة: إلزام السيريال ثم موافقة الإدارة. سيريال التطبيق منفصل عن سيريال
-            الويب. أول ربط لكل قناة لا يمر بالموافقة ولا بالإيميل.
-          </p>
-        </div>
-      </header>
-      <div className="space-y-2 p-4 sm:p-5">
+const CHANNEL_COPY = {
+  mobile: {
+    title: 'دخول التطبيق',
+    description:
+      'سيريال تطبيق الجوال منفصل عن الموقع. أول ربط للجهاز لا يمر بالموافقة ولا بالإيميل.',
+  },
+  web: {
+    title: 'دخول الموقع',
+    description:
+      'سيريال لوحة الويب منفصل عن التطبيق. أول ربط للجهاز لا يمر بالموافقة ولا بالإيميل.',
+  },
+} as const;
+
+/** HR settings for one device channel: app or website. */
+export function MobileSerialApprovalSettingCard({
+  values,
+  disabled,
+  channel,
+  hideHeader,
+  onChange,
+}: Props) {
+  const copy = CHANNEL_COPY[channel];
+  const rows =
+    channel === 'mobile' ? (
+      <>
         <SettingRow
           title="إلزام سيريال جهاز على دخول التطبيق"
           description={
             values.enforceMobileDeviceSerial
-              ? 'مفعّل — دخول التطبيق يلزم رقم جهاز. إذا اختلف عن المخزّن → إيميل تفعيل (أو موافقة إدارة إن فُعّل الخيار التالي).'
-              : 'معطّل — دخول التطبيق بدون فحص جهاز وبدون إيميل.'
+              ? 'دخول التطبيق يلزم رقم جهاز. إذا اختلف عن المخزّن يُرسل إيميل تفعيل، أو تنتظر موافقة الإدارة إن كان الخيار التالي مفعّلاً.'
+              : 'دخول التطبيق بدون فحص جهاز وبدون إيميل.'
           }
           checked={values.enforceMobileDeviceSerial}
           disabled={disabled}
@@ -94,10 +105,10 @@ export function MobileSerialApprovalSettingCard({ values, disabled, onChange }: 
           title="موافقة الإدارة لجهاز تطبيق جديد"
           description={
             !values.enforceMobileDeviceSerial
-              ? 'يتطلب تفعيل «إلزام سيريال جهاز على دخول التطبيق» أولاً.'
+              ? 'يتطلب تفعيل إلزام السيريال أولاً.'
               : values.requireAdminApprovalForNewMobileDevice
-                ? 'مفعّل — جهاز التطبيق الجديد ينتظر موافقة الإدارة ثم يُرسل الإيميل.'
-                : 'معطّل — يُرسل إيميل التفعيل مباشرة لتطبيق الجوال.'
+                ? 'الجهاز الجديد ينتظر موافقة الإدارة ثم يُرسل الإيميل.'
+                : 'يُرسل إيميل التفعيل مباشرة لتطبيق الجوال.'
           }
           checked={values.requireAdminApprovalForNewMobileDevice}
           disabled={disabled || !values.enforceMobileDeviceSerial}
@@ -105,12 +116,15 @@ export function MobileSerialApprovalSettingCard({ values, disabled, onChange }: 
             onChange({ requireAdminApprovalForNewMobileDevice: value })
           }
         />
+      </>
+    ) : (
+      <>
         <SettingRow
           title="إلزام سيريال جهاز على دخول الموقع"
           description={
             values.enforceWebDeviceSerial
-              ? 'مفعّل — دخول الويب يلزم بصمة/سيريال. إذا اختلف عن المخزّن → إيميل تفعيل (أو موافقة إدارة إن فُعّل الخيار التالي).'
-              : 'معطّل — دخول لوحة الإدارة بدون سيريال وبدون إيميل.'
+              ? 'دخول الويب يلزم بصمة الجهاز. إذا اختلفت عن المخزّن يُرسل إيميل تفعيل، أو تنتظر موافقة الإدارة إن كان الخيار التالي مفعّلاً.'
+              : 'دخول لوحة الإدارة بدون سيريال وبدون إيميل.'
           }
           checked={values.enforceWebDeviceSerial}
           disabled={disabled}
@@ -129,15 +143,39 @@ export function MobileSerialApprovalSettingCard({ values, disabled, onChange }: 
           title="موافقة الإدارة لجهاز موقع جديد"
           description={
             !values.enforceWebDeviceSerial
-              ? 'يتطلب تفعيل «إلزام سيريال جهاز على دخول الموقع» أولاً.'
+              ? 'يتطلب تفعيل إلزام السيريال أولاً.'
               : values.requireAdminApprovalForNewWebDevice
-                ? 'مفعّل — جهاز الويب الجديد ينتظر موافقة الإدارة ثم يُرسل الإيميل.'
-                : 'معطّل — يُرسل إيميل التفعيل مباشرة لموقع الويب.'
+                ? 'الجهاز الجديد ينتظر موافقة الإدارة ثم يُرسل الإيميل.'
+                : 'يُرسل إيميل التفعيل مباشرة لموقع الويب.'
           }
           checked={values.requireAdminApprovalForNewWebDevice}
           disabled={disabled || !values.enforceWebDeviceSerial}
           onCheckedChange={(value) => onChange({ requireAdminApprovalForNewWebDevice: value })}
         />
+      </>
+    );
+
+  return (
+    <section className="rounded-2xl border border-border/70 bg-card shadow-soft">
+      {hideHeader ? (
+        <p className="border-b border-border/60 px-4 py-3.5 text-xs leading-relaxed text-muted-foreground sm:px-5">
+          {copy.description}
+        </p>
+      ) : (
+        <header className="flex items-start gap-3 border-b border-border/60 px-4 py-3.5 sm:px-5">
+          <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <MonitorSmartphone className="h-4 w-4" aria-hidden />
+          </span>
+          <div className="min-w-0">
+            <h2 className="text-sm font-semibold text-foreground">{copy.title}</h2>
+            <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{copy.description}</p>
+          </div>
+        </header>
+      )}
+      <div className="p-4 sm:p-5">
+        <div className="divide-y divide-border/70 overflow-hidden rounded-xl border border-border/70">
+          {rows}
+        </div>
       </div>
     </section>
   );

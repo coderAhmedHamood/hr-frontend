@@ -13,8 +13,11 @@ import {
   WAREHOUSE_OPERATION_KINDS,
   WAREHOUSE_OPERATION_KIND_META,
 } from '@/features/inventory/domain/constants/warehouse-operation-kinds';
-import type { InventoryLedgerEntry } from '@/features/inventory/domain/types/inventory-ledger';
-import type { WarehouseOperationKind } from '@/features/inventory/domain/types/warehouse';
+import type { InboundProductValueSummary, InventoryLedgerEntry } from '@/features/inventory/domain/types/inventory-ledger';
+import type {
+  WarehouseLocation,
+  WarehouseOperationKind,
+} from '@/features/inventory/domain/types/warehouse';
 import { formatDateTime } from '@/shared/utils';
 import {
   LocationRouteChips,
@@ -26,7 +29,7 @@ import { DataTable, type ColumnDef } from '@/components/ui/data-table';
 import { DirectoryPagedViews, DEFAULT_PAGE_SIZE } from '@/components/ui/paged-list';
 import { ListFilterBar } from '@/components/ui/list-filter-bar';
 import { EntityFilterSearchField } from '@/components/ui/entity-filter-search-field';
-import { Input } from '@/components/ui/input';
+import { DateRangeFilterTrigger, type DateRangeFilterValue } from '@/components/ui/date-range-filter-trigger';
 
 /**
  * Each ledger row holds its own side of the movement; the counterpart is the
@@ -48,22 +51,40 @@ function movementRoute(entry: InventoryLedgerEntry) {
   };
 }
 
+function formatMoney(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return '—';
+  return `${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.ي`;
+}
+
 function localDateBoundary(date: string, endOfDay = false): string | undefined {
   if (!date) return undefined;
   const value = new Date(`${date}T${endOfDay ? '23:59:59.999' : '00:00:00.000'}`);
   return Number.isNaN(value.getTime()) ? undefined : value.toISOString();
 }
 
-export function MovesLedgerReportPage() {
+function formatLocationFilterLabel(
+  location: WarehouseLocation,
+  warehouseLabel: string | undefined,
+  includeWarehouse: boolean,
+): string {
+  const name = location.nameAr?.trim() || location.code;
+  const code =
+    location.code && name !== location.code ? ` · ${location.code}` : '';
+  if (!includeWarehouse) return `${name}${code}`;
+  const wh = warehouseLabel?.trim() || '—';
+  return `${wh} · ${name}${code}`;
+}
+
+export function MovesLedgerReportPage({ inboundOnly = false }: { inboundOnly?: boolean } = {}) {
   const companyId = getInventoryCompanyId();
   const [searchInput, setSearchInput] = React.useState('');
   const [search, setSearch] = React.useState('');
   const [page, setPage] = React.useState(1);
   const [pageSize, setPageSize] = React.useState(DEFAULT_PAGE_SIZE);
   const [warehouseId, setWarehouseId] = React.useState('all');
+  const [locationId, setLocationId] = React.useState('all');
   const [kind, setKind] = React.useState<'all' | WarehouseOperationKind>('all');
-  const [dateFrom, setDateFrom] = React.useState('');
-  const [dateTo, setDateTo] = React.useState('');
+  const [dateRange, setDateRange] = React.useState<DateRangeFilterValue>({ from: '', to: '' });
 
   React.useEffect(() => {
     const t = setTimeout(() => {
@@ -75,19 +96,30 @@ export function MovesLedgerReportPage() {
 
   React.useEffect(() => {
     setPage(1);
-  }, [warehouseId, kind, dateFrom, dateTo]);
+  }, [warehouseId, locationId, kind, dateRange]);
+
+  // A location belongs to one warehouse — clear it if it no longer matches
+  // the selected warehouse instead of silently filtering on a stale id.
+  React.useEffect(() => {
+    setLocationId('all');
+  }, [warehouseId]);
 
   const { data, isLoading, isError } = useInventoryLedger({
     companyId,
     warehouseId: warehouseId === 'all' ? undefined : warehouseId,
+    locationId: locationId === 'all' ? undefined : locationId,
     kind: kind === 'all' ? undefined : kind,
-    occurredAtFrom: localDateBoundary(dateFrom),
-    occurredAtTo: localDateBoundary(dateTo, true),
+    flow: inboundOnly && kind === 'all' ? 'inbound' : undefined,
+    occurredAtFrom: localDateBoundary(dateRange.from),
+    occurredAtTo: localDateBoundary(dateRange.to, true),
     search: search || undefined,
     page,
     limit: pageSize,
   });
   const { data: warehousesData } = useWarehouses({ companyId, limit: 100 });
+  // Unscoped — a cross-warehouse transfer's counterpart location can belong to
+  // a warehouse other than the one selected in the filter, so the name lookup
+  // needs every location, not just the filtered warehouse's.
   const { data: locationsData } = useWarehouseLocations({ companyId, limit: 500 });
 
   const warehouses = React.useMemo(() => warehousesData?.items ?? [], [warehousesData?.items]);
@@ -95,13 +127,34 @@ export function MovesLedgerReportPage() {
     () => new Map(warehouses.map((item) => [item.id, item.nameAr])),
     [warehouses],
   );
+  const locations = React.useMemo(() => locationsData?.items ?? [], [locationsData?.items]);
   const locationName = React.useMemo(() => {
-    const map = new Map((locationsData?.items ?? []).map((item) => [item.id, item.nameAr || item.code]));
+    const map = new Map(locations.map((item) => [item.id, item.nameAr || item.code]));
     return (id?: string) => (id ? (map.get(id) ?? id) : '—');
-  }, [locationsData?.items]);
+  }, [locations]);
+  const scopedToWarehouse = warehouseId !== 'all';
+  // Scoped to one warehouse when picked; otherwise every location is labeled
+  // with its warehouse so duplicate names (e.g. several «داخلي») stay distinct.
+  const locationOptions = React.useMemo(() => {
+    const pool = scopedToWarehouse
+      ? locations.filter((item) => item.warehouseId === warehouseId)
+      : locations;
+    return [...pool].sort((a, b) => {
+      if (!scopedToWarehouse) {
+        const whCmp = (warehouseName.get(a.warehouseId) ?? '').localeCompare(
+          warehouseName.get(b.warehouseId) ?? '',
+          'ar',
+        );
+        if (whCmp !== 0) return whCmp;
+      }
+      return (a.nameAr || a.code).localeCompare(b.nameAr || b.code, 'ar');
+    });
+  }, [locations, warehouseId, scopedToWarehouse, warehouseName]);
 
   const rows = data?.items ?? [];
   const total = data?.pagination.total ?? 0;
+  const productSummary = data?.productSummary ?? [];
+  const inboundValue = productSummary.reduce((sum, row) => sum + row.totalValue, 0);
 
   usePageHeaderActions(() => <FilterToggleButton />, []);
 
@@ -130,13 +183,34 @@ export function MovesLedgerReportPage() {
             ],
           },
           {
+            id: 'location',
+            value: locationId,
+            onChange: setLocationId,
+            placeholder: scopedToWarehouse ? 'كل المواقع' : 'الموقع (مع المستودع)',
+            options: [
+              { value: 'all', label: 'كل المواقع' },
+              ...locationOptions.map((location) => ({
+                value: location.id,
+                label: formatLocationFilterLabel(
+                  location,
+                  warehouseName.get(location.warehouseId),
+                  !scopedToWarehouse,
+                ),
+              })),
+            ],
+          },
+          {
             id: 'kind',
             value: kind,
             onChange: (value) => setKind(value as typeof kind),
             placeholder: 'كل الأنواع',
             options: [
-              { value: 'all', label: 'كل الأنواع' },
-              ...WAREHOUSE_OPERATION_KINDS.map((item) => ({
+              { value: 'all', label: inboundOnly ? 'كل الوارد' : 'كل الأنواع' },
+              ...WAREHOUSE_OPERATION_KINDS.filter(
+                (item) =>
+                  !inboundOnly ||
+                  WAREHOUSE_OPERATION_KIND_META[item].stockEffect === 'inbound',
+              ).map((item) => ({
                 value: item,
                 label: WAREHOUSE_OPERATION_KIND_META[item].labelAr,
               })),
@@ -144,32 +218,34 @@ export function MovesLedgerReportPage() {
           },
         ]}
         trailingActions={
-          <div className="inv-date-filters">
-            <Input
-              type="date"
-              className="inv-date-input h-8"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-              aria-label="من تاريخ"
-            />
-            <Input
-              type="date"
-              className="inv-date-input h-8"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-              aria-label="إلى تاريخ"
-            />
-          </div>
+          <DateRangeFilterTrigger
+            value={dateRange}
+            onChange={setDateRange}
+            placeholder="نطاق التاريخ"
+            allowEmpty
+          />
         }
       />
     ),
-    [searchInput, warehouseId, kind, dateFrom, dateTo, warehouses],
+    [
+      searchInput,
+      warehouseId,
+      locationId,
+      locationOptions,
+      scopedToWarehouse,
+      warehouseName,
+      kind,
+      dateRange,
+      warehouses,
+      inboundOnly,
+    ],
   );
 
   const columns: ColumnDef<InventoryLedgerEntry>[] = [
     {
       key: 'date',
       title: 'التاريخ',
+      sticky: 'start',
       render: (row) => (
         <span className="text-sm whitespace-nowrap">
           {formatDateTime(row.occurredAt)}
@@ -233,7 +309,7 @@ export function MovesLedgerReportPage() {
     },
     {
       key: 'delta',
-      title: 'التغيير',
+      title: inboundOnly ? 'الكمية الداخلة' : 'التغيير',
       render: (row) => (
         <span
           className={
@@ -247,6 +323,28 @@ export function MovesLedgerReportPage() {
         </span>
       ),
     },
+    ...(inboundOnly
+      ? ([
+          {
+            key: 'unitCost',
+            title: 'سعر الدخول',
+            render: (row) => (
+              <span className="tabular-nums" dir="ltr">
+                {formatMoney(row.unitCost)}
+              </span>
+            ),
+          },
+          {
+            key: 'lineValue',
+            title: 'قيمة الدخلة',
+            render: (row) => (
+              <span className="font-semibold tabular-nums" dir="ltr">
+                {row.unitCost == null ? '—' : formatMoney(row.quantityDelta * row.unitCost)}
+              </span>
+            ),
+          },
+        ] satisfies ColumnDef<InventoryLedgerEntry>[])
+      : []),
     {
       key: 'source',
       title: 'المصدر',
@@ -257,23 +355,116 @@ export function MovesLedgerReportPage() {
     },
   ];
 
+  const productColumns: ColumnDef<InboundProductValueSummary>[] = [
+    {
+      key: 'product',
+      title: 'الصنف',
+      render: (row) => (
+        <div className="flex flex-col">
+          <span className="font-medium">{row.productName}</span>
+          <span className="text-xs text-muted-foreground" dir="ltr">
+            {row.sku || '—'}
+          </span>
+        </div>
+      ),
+    },
+    {
+      key: 'entries',
+      title: 'عدد الدخلات',
+      render: (row) => <span className="tabular-nums">{row.entries}</span>,
+    },
+    {
+      key: 'quantity',
+      title: 'الكمية الداخلة',
+      render: (row) => (
+        <span className="font-semibold tabular-nums" dir="ltr">
+          {row.quantity}
+        </span>
+      ),
+    },
+    {
+      key: 'average',
+      title: 'متوسط سعر الدخول',
+      render: (row) => (
+        <span className="tabular-nums" dir="ltr">
+          {formatMoney(row.averageUnitCost)}
+        </span>
+      ),
+    },
+    {
+      key: 'value',
+      title: 'إجمالي القيمة',
+      render: (row) => (
+        <span className="font-semibold tabular-nums" dir="ltr">
+          {formatMoney(row.totalValue)}
+        </span>
+      ),
+    },
+  ];
+
   return (
     <div className="flex flex-col gap-5">
       <SetPageTitle
-        titleAr="سجل الحركات"
-        descriptionAr="دفتر قيود ثابت — كل تصديق يكتب بنودًا غير قابلة للتعديل. التراجع يضيف قيود عكس."
-        iconName="FileText"
+        titleAr={inboundOnly ? 'وارد الأصناف' : 'سجل الحركات'}
+        descriptionAr={
+          inboundOnly
+            ? 'كل صنف دخل إلى المخزون: متوسط سعر دخوله على مستوى الصنف، ثم كل دخلة بتاريخها وكمية وسعرها.'
+            : 'دفتر قيود ثابت — كل تصديق يكتب بنودًا غير قابلة للتعديل. التراجع يضيف قيود عكس.'
+        }
+        iconName={inboundOnly ? 'Package' : 'FileText'}
       />
 
       <div className="flex flex-wrap gap-2">
         <Badge variant="subtle">قيود: {data?.summary.entries ?? total}</Badge>
         <Badge variant="success">وارد: {data?.summary.qtyIn ?? 0}</Badge>
-        <Badge variant="destructive">صادر: {data?.summary.qtyOut ?? 0}</Badge>
-        <Badge variant="subtle">الصافي: {data?.summary.net ?? 0}</Badge>
+        {inboundOnly ? (
+          <Badge variant="subtle">قيمة الداخل: {formatMoney(inboundValue)}</Badge>
+        ) : (
+          <>
+            <Badge variant="destructive">صادر: {data?.summary.qtyOut ?? 0}</Badge>
+            <Badge variant="subtle">الصافي: {data?.summary.net ?? 0}</Badge>
+          </>
+        )}
       </div>
 
       {isError ? <p className="text-sm text-destructive">تعذر تحميل سجل الحركات.</p> : null}
 
+      {inboundOnly ? (
+        <section className="flex flex-col gap-2">
+          <h2 className="text-sm font-semibold">على مستوى الصنف</h2>
+          <p className="text-xs text-muted-foreground">
+            مجموع كميات الصنف التي دخلت، ومتوسط أسعار تلك الدخلات، وإجمالي قيمتها.
+          </p>
+          <DataTable
+            variant="directory"
+            alwaysShowTable
+            keepHeaderWhenEmpty
+            className="inv-table-host"
+            columns={productColumns}
+            data={productSummary}
+            keyExtractor={(row) => `${row.productId}:${row.variantId ?? ''}:${row.sku ?? ''}`}
+            loading={isLoading}
+            emptyText="لا توجد دخلات في هذا النطاق."
+          />
+        </section>
+      ) : null}
+
+      {inboundOnly ? (
+        <section className="flex flex-col gap-2">
+          <h2 className="text-sm font-semibold">دخلات الصنف</h2>
+          <DataTable
+            variant="directory"
+            alwaysShowTable
+            keepHeaderWhenEmpty
+            className="inv-table-host"
+            columns={columns}
+            data={rows}
+            keyExtractor={(row) => row.id}
+            loading={isLoading}
+            emptyText="لا توجد قيود بعد — صدّق مستندًا لتسجيل أول حركة."
+          />
+        </section>
+      ) : (
       <DirectoryPagedViews
         items={rows}
         loading={isLoading}
@@ -292,6 +483,8 @@ export function MovesLedgerReportPage() {
         {(rowsPage) => (
           <DataTable
             variant="directory"
+            alwaysShowTable
+            keepHeaderWhenEmpty
             className="inv-table-host"
             columns={columns}
             data={rowsPage}
@@ -301,6 +494,7 @@ export function MovesLedgerReportPage() {
           />
         )}
       </DirectoryPagedViews>
+      )}
     </div>
   );
 }

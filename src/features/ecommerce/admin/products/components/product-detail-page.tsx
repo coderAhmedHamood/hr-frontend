@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
-import { Boxes, Layers, Package, Ruler, Save, Settings, Star, Trash2, Warehouse } from 'lucide-react';
+import { ArrowRight, Boxes, Layers, Package, Plus, Ruler, Save, Settings, Star, Trash2, Warehouse } from 'lucide-react';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
@@ -25,6 +25,11 @@ import {
   formValuesToCreateInput,
   productToFormValues,
 } from '@/features/ecommerce/admin/products/lib/product-form-mapping';
+import {
+  findFirstFormError,
+  formHasErrorForFields,
+  topLevelFieldFromErrorPath,
+} from '@/features/ecommerce/admin/products/lib/product-form-errors';
 import { ProductDetailHero } from '@/features/ecommerce/admin/products/components/product-detail-hero';
 import { ProductRelatedDocsSidebar } from '@/features/ecommerce/admin/products/components/product-related-docs-sidebar';
 import { ProductGeneralTab } from '@/features/ecommerce/admin/products/components/product-general-tab';
@@ -40,6 +45,7 @@ import { ProductStockMovesHistoryDialog } from '@/features/ecommerce/admin/produ
 import { ProductReplenishmentListDialog } from '@/features/ecommerce/admin/products/components/product-replenishment-list-dialog';
 import { ProductPutawayRulesDialog } from '@/features/ecommerce/admin/products/components/product-putaway-rules-dialog';
 import { ProductVariantsDialog } from '@/features/ecommerce/admin/products/components/product-variants-dialog';
+import { ProductFormDialog } from '@/features/ecommerce/admin/products/components/product-form-dialog';
 import { DeleteProductDialog } from '@/features/ecommerce/admin/products/components/delete-product-dialog';
 import type { ProductRelatedDocKey } from '@/features/ecommerce/admin/products/components/product-related-docs-bar';
 import { productMoveRequestListRestore } from '@/features/ecommerce/admin/products/lib/product-move-request-flow';
@@ -66,6 +72,7 @@ type DetailTab = (typeof DETAIL_TABS)[number]['value'];
 /** Maps top-level form fields to the tab that renders them, so a validation error can jump the user there. */
 const TAB_FIELDS: Record<DetailTab, string[]> = {
   general: [
+    'media',
     'sku',
     'categoryId',
     'brandId',
@@ -84,10 +91,6 @@ const TAB_FIELDS: Record<DetailTab, string[]> = {
     'shortDescription',
     'description',
     'tagsInput',
-    'nameEn',
-    'slug',
-    'metaTitle',
-    'metaDescription',
   ],
   attributes: ['attributes', 'variants'],
   availability: ['stockStatus', 'stockQuantity', 'lowStockThreshold'],
@@ -146,6 +149,7 @@ export function ProductDetailPage({ productId }: Props) {
   const [putawayListOpen, setPutawayListOpen] = React.useState(false);
   const [variantsDialogOpen, setVariantsDialogOpen] = React.useState(false);
   const [deleteOpen, setDeleteOpen] = React.useState(false);
+  const [createOpen, setCreateOpen] = React.useState(false);
   const [relatedRequestKeys, setRelatedRequestKeys] = React.useState<
     Partial<Record<ProductRelatedDocKey, number>>
   >({});
@@ -200,19 +204,23 @@ export function ProductDetailPage({ productId }: Props) {
    * tab the user wasn't currently viewing. Surface it and jump to the offending tab.
    */
   const onInvalid = (formErrors: typeof form.formState.errors) => {
-    const errorKeys = Object.keys(formErrors);
-    if (errorKeys.length === 0) return;
-    if (errorKeys.includes('nameAr')) {
-      toast.error('يرجى إدخال اسم المنتج أولًا.');
+    const first = findFirstFormError(formErrors);
+    if (!first) return;
+
+    if (first.path === 'nameAr' || first.path.startsWith('nameAr.')) {
+      toast.error(first.message || 'يرجى إدخال اسم المنتج أولًا.');
       return;
     }
-    const offendingTab = DETAIL_TABS.find((tab) => TAB_FIELDS[tab.value].some((key) => errorKeys.includes(key)));
+
+    const topField = topLevelFieldFromErrorPath(first.path);
+    const offendingTab = DETAIL_TABS.find((tab) => TAB_FIELDS[tab.value].includes(topField));
     if (offendingTab) {
       setActiveTab(offendingTab.value);
-      toast.error(`تحقق من الحقول في تبويب «${offendingTab.label}» قبل الحفظ.`);
+      toast.error(first.message || `تحقق من الحقول في تبويب «${offendingTab.label}» قبل الحفظ.`);
       return;
     }
-    toast.error('تحقق من الحقول المطلوبة قبل الحفظ.');
+
+    toast.error(first.message || 'تحقق من الحقول المطلوبة قبل الحفظ.');
   };
 
   const submitForm = () => void form.handleSubmit(onSubmit, onInvalid)();
@@ -221,6 +229,21 @@ export function ProductDetailPage({ productId }: Props) {
     () =>
       product ? (
         <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+          <Button variant="outline" size="sm" className="gap-1.5" asChild>
+            <Link href={productsBasePath}>
+              <ArrowRight className="h-4 w-4" />
+              <span className="hidden sm:inline">المنتجات</span>
+            </Link>
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={() => setCreateOpen(true)}
+          >
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline">إضافة منتج</span>
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -230,9 +253,19 @@ export function ProductDetailPage({ productId }: Props) {
             <Trash2 className="h-4 w-4" />
             <span className="hidden sm:inline">حذف</span>
           </Button>
+          <Button
+            type="button"
+            size="sm"
+            className="gap-1.5"
+            disabled={form.formState.isSubmitting || update.isPending}
+            onClick={submitForm}
+          >
+            <Save className="h-4 w-4" />
+            {update.isPending ? 'جاري الحفظ…' : 'حفظ التغييرات'}
+          </Button>
         </div>
       ) : null,
-    [product],
+    [product, productsBasePath, form.formState.isSubmitting, update.isPending, submitForm],
   );
 
   const handleDeleteConfirm = async () => {
@@ -375,9 +408,7 @@ export function ProductDetailPage({ productId }: Props) {
               <div className="sto-tabs-scroll sticky top-0 z-10 -mx-1 rounded-2xl px-1 pb-1">
                 <TabsList className="sto-tabs-scroll h-auto min-w-full w-max justify-start gap-1 rounded-2xl border border-border/60 bg-muted/70 p-1.5 backdrop-blur">
                   {DETAIL_TABS.map(({ value, label, icon: Icon }) => {
-                    const hasError = TAB_FIELDS[value].some(
-                      (key) => key in form.formState.errors,
-                    );
+                    const hasError = formHasErrorForFields(form.formState.errors, TAB_FIELDS[value]);
                     return (
                       <TabsTrigger
                         key={value}
@@ -452,24 +483,15 @@ export function ProductDetailPage({ productId }: Props) {
           </aside>
         </div>
 
-        <div className="sticky bottom-0 z-10 flex flex-col gap-2 rounded-2xl border border-border bg-background/95 px-3 py-3 shadow-soft backdrop-blur sm:flex-row sm:items-center sm:justify-between sm:px-5">
-          <div className="flex w-full gap-2">
-            <Button
-              type="submit"
-              className="min-w-32 flex-1 gap-1.5 sm:flex-none"
-              disabled={form.formState.isSubmitting || update.isPending}
-            >
-              <Save className="h-4 w-4" />
-              {update.isPending ? 'جاري الحفظ…' : 'حفظ التغييرات'}
-            </Button>
-            <Button type="button" variant="outline" asChild>
-              <Link href={productsBasePath}>إلغاء</Link>
-            </Button>
-          </div>
-          <p className="hidden text-[11px] text-muted-foreground sm:block">
-            التغييرات في كل التبويبات تُحفظ معًا عند الضغط على «حفظ التغييرات».
-          </p>
-        </div>
+        {/* Submit button moved to the sticky top header (usePageHeaderActions) so it stays
+            visible while scrolling a long product form; this stays only as a fallback
+            for the Enter-to-submit / native form submission path. */}
+        <button type="submit" className="sr-only" tabIndex={-1} aria-hidden="true">
+          حفظ التغييرات
+        </button>
+        <p className="text-center text-[11px] text-muted-foreground">
+          التغييرات في كل التبويبات تُحفظ معًا عند الضغط على «حفظ التغييرات» أعلى الصفحة.
+        </p>
       </form>
 
       <ProductStockMoveRequestDialog
@@ -498,6 +520,7 @@ export function ProductDetailPage({ productId }: Props) {
           if (!next && activeRelatedDoc === 'variants') setActiveRelatedDoc(null);
         }}
         control={form.control}
+        errors={form.formState.errors}
         register={form.register}
         setValue={form.setValue}
         getValues={form.getValues}
@@ -585,6 +608,8 @@ export function ProductDetailPage({ productId }: Props) {
         onConfirm={() => void handleDeleteConfirm()}
         onClose={() => setDeleteOpen(false)}
       />
+
+      <ProductFormDialog open={createOpen} product={null} onOpenChange={setCreateOpen} />
     </div>
   );
 }

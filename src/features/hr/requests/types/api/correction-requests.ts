@@ -18,7 +18,7 @@ export type CorrectionPeriodTimeDto = {
   periodId: string;
   checkInAt?: string | null;
   checkOutAt?: string | null;
-  /** @deprecated legacy nested punches — read-only from old payloads */
+  /** Punches as recorded when the request was made; `corrected` holds only the changed sides. */
   recorded?: CorrectionPeriodPunchesDto;
   corrected?: CorrectionPeriodPunchesDto;
 };

@@ -12,6 +12,7 @@ import { STOCK_STATUS_LABELS_AR, type StockStatus } from '@/features/ecommerce/d
 import { formatPrice } from '@/features/ecommerce/shared/utils/format-price';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { ProductActiveStatusToggle } from '@/features/ecommerce/admin/products/components/product-active-status-toggle';
 import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { cn } from '@/shared/utils';
 
@@ -110,9 +111,12 @@ export function ProductDetailHero({ control, register, setValue, nameError, curr
 
           <div className="min-w-0 flex-1 space-y-3">
             <div className="space-y-1.5">
-              <label htmlFor="product-detail-name-ar" className="text-xs font-medium text-muted-foreground">
-                اسم المنتج <span className="text-destructive">*</span>
-              </label>
+              <div className="flex items-center justify-between gap-3">
+                <label htmlFor="product-detail-name-ar" className="text-xs font-medium text-muted-foreground">
+                  اسم المنتج <span className="text-destructive">*</span>
+                </label>
+                <ProductActiveStatusToggle control={control} setValue={setValue} />
+              </div>
               <Input
                 id="product-detail-name-ar"
                 placeholder="اسم المنتج بالعربية"
@@ -136,7 +140,7 @@ export function ProductDetailHero({ control, register, setValue, nameError, curr
                   SKU: {sku}
                 </span>
               ) : null}
-              {status ? (
+              {status === 'archived' ? (
                 <Badge variant={STATUS_BADGE_VARIANT[status]}>{PRODUCT_STATUS_LABELS_AR[status]}</Badge>
               ) : null}
               {stockStatus ? (

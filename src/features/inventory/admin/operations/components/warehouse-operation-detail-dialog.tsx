@@ -4,10 +4,16 @@ import * as React from 'react';
 import { ArrowDown, Check, Plus, Trash2, Undo2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { getInventoryCompanyId } from '@/features/inventory/lib/company-id';
+import { useInventoryCompanySettings } from '@/features/inventory/admin/notifications/hooks/use-inventory-settings';
 import { PartnerSinglePicker } from '@/features/contacts/admin/partners/components/partner-single-picker';
 import { useWarehouseLocations } from '@/features/inventory/admin/locations/hooks/use-warehouse-locations';
 import { useWarehouses } from '@/features/inventory/admin/warehouses/hooks/use-warehouses';
+import { useQuery } from '@tanstack/react-query';
 import { useWarehouseOperationMutations } from '@/features/inventory/admin/operations/hooks/use-warehouse-operation-mutations';
+import { useOpenOperationProductReservations } from '@/features/inventory/admin/operations/hooks/use-open-operation-product-reservations';
+import { warehouseOperationsApi } from '@/features/inventory/admin/operations/lib/api/warehouse-operations';
+import { warehouseOperationsQueryKeys } from '@/features/inventory/admin/hooks/query-keys';
+import { operationNeedsFullLinesFetch } from '@/features/inventory/admin/operations/lib/operation-list-line-totals';
 import { inventoryStockService } from '@/features/inventory/services/inventory-stock.service';
 import {
   collectStockShortages,
@@ -62,6 +68,16 @@ import {
   supportsMultiProductLines,
   pickerUsesSourceLocationStock,
 } from '@/features/inventory/admin/operations/lib/operation-line-draft';
+import { OperationLineVariantSelect } from '@/features/inventory/admin/operations/components/operation-line-variant-select';
+import type { ProductVariant } from '@/features/ecommerce/domain/types/product';
+import { OperationUnitCostInput } from '@/features/inventory/admin/operations/components/operation-unit-cost-input';
+import { fetchActiveProductVariants } from '@/features/inventory/admin/operations/lib/fetch-active-product-variants';
+import { formatVariantCompactLabel } from '@/features/inventory/admin/operations/lib/variant-display-label';
+import { OPERATION_FORM_TAB_TRIGGER } from '@/features/inventory/admin/operations/components/operation-form-ui';
+import {
+  filterOperationFromLocations,
+  filterOperationToLocations,
+} from '@/features/inventory/admin/operations/lib/operation-location-filters';
 import { cn } from '@/shared/utils';
 
 type Props = {
@@ -69,6 +85,56 @@ type Props = {
   onOpenChange: (open: boolean) => void;
   operation: WarehouseOperation | null;
 };
+
+function formatLineQuantity(value: number): string {
+  if (!Number.isFinite(value)) return '—';
+  return Number.isInteger(value) ? String(value) : String(Math.round(value * 1000) / 1000);
+}
+
+function lineUnitCostNumber(unitCost?: string): number | null {
+  const raw = unitCost?.trim();
+  if (!raw) return null;
+  const value = Number(raw);
+  return Number.isFinite(value) ? value : null;
+}
+
+function formatLineMoney(value: number, decimals: number): string {
+  if (!Number.isFinite(value)) return '—';
+  return `${value.toFixed(decimals)} ر.ي`;
+}
+
+function OperationLineVariantReadout({
+  companyId,
+  productId,
+  productName,
+  variantId,
+}: {
+  companyId: string;
+  productId: string;
+  productName: string;
+  variantId?: string;
+}) {
+  const { data, isLoading } = useQuery({
+    queryKey: ['inventory', 'operation-line-variant-label', companyId, productId],
+    queryFn: async () => {
+      try {
+        return await fetchActiveProductVariants(companyId, productId);
+      } catch {
+        return [];
+      }
+    },
+    enabled: Boolean(companyId && productId && variantId),
+    staleTime: 5 * 60_000,
+  });
+
+  if (!productId) return <span className="text-muted-foreground">—</span>;
+  if (!variantId) return <span>المنتج الأساسي</span>;
+  if (isLoading) return <span className="text-muted-foreground">…</span>;
+
+  const variant = data?.find((row) => row.id === variantId);
+  const label = variant ? formatVariantCompactLabel(variant, productName) : '';
+  return <span>{label || 'متغير'}</span>;
+}
 
 function statusBadgeVariant(
   status: WarehouseOperationStatus,
@@ -131,27 +197,62 @@ function OperationStatusStepper({ status }: { status: WarehouseOperationStatus }
 
 export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }: Props) {
   const companyId = getInventoryCompanyId();
+  const { data: inventorySettings } = useInventoryCompanySettings();
+  const costDisplayDecimals = inventorySettings?.costDisplayDecimals ?? 2;
   const kind = operation?.kind ?? 'receipt';
   const { update, undo } = useWarehouseOperationMutations(operation?.warehouseId ?? '', kind);
-  const { data: locationsData } = useWarehouseLocations({
-    companyId,
-    warehouseId: operation?.warehouseId,
-    page: 1,
-    limit: 500,
-  });
+  const destinationWarehouseId = operation?.destinationWarehouseId ?? '';
+
+  const { data: locationsData } = useWarehouseLocations(
+    {
+      companyId,
+      warehouseId: operation?.warehouseId,
+      page: 1,
+      limit: 200,
+    },
+    { enabled: open && Boolean(companyId && operation?.warehouseId) },
+  );
   // Transfers land in another warehouse, so its locations are needed both for the
   // receiving picker and to name the destination instead of printing a raw id.
-  const destinationWarehouseId = operation?.destinationWarehouseId ?? '';
   const { data: destLocationsData } = useWarehouseLocations(
     {
       companyId,
       warehouseId: destinationWarehouseId || undefined,
       page: 1,
-      limit: 500,
+      limit: 200,
     },
-    { enabled: Boolean(destinationWarehouseId) },
+    { enabled: open && Boolean(destinationWarehouseId) },
   );
-  const { data: warehousesData } = useWarehouses({ companyId, limit: 100 });
+  const { data: warehousesData } = useWarehouses(
+    { companyId, limit: 100 },
+    { enabled: open && Boolean(companyId) },
+  );
+
+  const { data: openProductReservations } = useOpenOperationProductReservations({
+    companyId,
+    warehouseId: operation?.warehouseId ?? '',
+    kind: operation?.kind ?? kind,
+    enabled:
+      open &&
+      Boolean(companyId && operation?.warehouseId && operation?.kind) &&
+      supportsMultiProductLines(operation?.kind ?? kind),
+  });
+
+  const reservedProductIdsOtherDocs = React.useMemo(() => {
+    const ref = operation?.reference ?? '';
+    if (!ref) return [];
+    return (openProductReservations ?? [])
+      .filter((row) => row.operationReference !== ref)
+      .map((row) => row.productId);
+  }, [openProductReservations, operation?.reference]);
+
+  const needsFullLines = open && operationNeedsFullLinesFetch(operation);
+  const { data: fullOperation } = useQuery({
+    queryKey: warehouseOperationsQueryKeys.detail(companyId, operation?.id ?? ''),
+    queryFn: () => warehouseOperationsApi.getById(companyId, operation!.id),
+    enabled: Boolean(companyId && operation?.id && needsFullLines),
+  });
+  const documentOperation = fullOperation ?? operation;
   const warehouseName = React.useMemo(() => {
     const map = new Map((warehousesData?.items ?? []).map((item) => [item.id, item.nameAr]));
     return (id?: string) => (id ? (map.get(id) ?? null) : null);
@@ -185,6 +286,18 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
     [locations, destinationLocations],
   );
 
+  const [headerFromLocationId, setHeaderFromLocationId] = React.useState('');
+  const [headerToLocationId, setHeaderToLocationId] = React.useState('');
+
+  const fromLocationOptions = React.useMemo(
+    () => filterOperationFromLocations(kind, locations, headerToLocationId || undefined),
+    [kind, locations, headerToLocationId],
+  );
+  const toLocationOptions = React.useMemo(
+    () => filterOperationToLocations(kind, destinationLocations, headerFromLocationId || undefined),
+    [kind, destinationLocations, headerFromLocationId],
+  );
+
   const [lines, setLines] = React.useState<WarehouseOperationLine[]>([]);
   const [notes, setNotes] = React.useState('');
   const [partnerId, setPartnerId] = React.useState('');
@@ -193,44 +306,43 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
   const [occurredAt, setOccurredAt] = React.useState('');
   const [status, setStatus] = React.useState<WarehouseOperationStatus>('draft');
   const [tab, setTab] = React.useState('operations');
-  const [headerFromLocationId, setHeaderFromLocationId] = React.useState('');
-  const [headerToLocationId, setHeaderToLocationId] = React.useState('');
   const [availableByLineId, setAvailableByLineId] = React.useState<Record<string, number>>({});
   const loadedOperationIdRef = React.useRef<string | null>(null);
 
   React.useEffect(() => {
-    if (!open || !operation) return;
-    const switched = loadedOperationIdRef.current !== operation.id;
-    loadedOperationIdRef.current = operation.id;
+    if (!open || !documentOperation) return;
+    if (needsFullLines && !fullOperation) return;
+    const switched = loadedOperationIdRef.current !== documentOperation.id;
+    loadedOperationIdRef.current = documentOperation.id;
 
     setLines(
-      operation.lines.map((line) => ({
+      documentOperation.lines.map((line) => ({
         ...line,
         demandQuantity: line.demandQuantity ?? line.quantity,
         quantity: line.quantity,
       })),
     );
-    setNotes(operation.notes ?? '');
-    setPartnerId(operation.partnerId ?? '');
-    setPartnerName(operation.partnerName ?? '');
-    setSourceDocument(operation.sourceDocument ?? '');
-    setOccurredAt(operation.occurredAt.slice(0, 16));
+    setNotes(documentOperation.notes ?? '');
+    setPartnerId(documentOperation.partnerId ?? '');
+    setPartnerName(documentOperation.partnerName ?? '');
+    setSourceDocument(documentOperation.sourceDocument ?? '');
+    setOccurredAt(documentOperation.occurredAt.slice(0, 16));
     // Avoid flicker from stale list props:
     // - after validate: local done must not regress to ready
     // - after undo: local ready must not jump back to done
     setStatus((prev) => {
-      if (switched) return operation.status;
-      const incoming = operation.status;
+      if (switched) return documentOperation.status;
+      const incoming = documentOperation.status;
       if (incoming === 'cancelled' || prev === 'cancelled') return incoming;
       if (prev === 'done' && (incoming === 'ready' || incoming === 'draft')) return prev;
       if (prev === 'ready' && incoming === 'done') return prev;
       return incoming;
     });
     setTab('operations');
-    const first = operation.lines[0];
+    const first = documentOperation.lines[0];
     setHeaderFromLocationId(first?.fromLocationId ?? '');
     setHeaderToLocationId(first?.toLocationId ?? '');
-  }, [open, operation]);
+  }, [open, documentOperation, needsFullLines, fullOperation]);
 
   React.useEffect(() => {
     if (!open) loadedOperationIdRef.current = null;
@@ -241,7 +353,7 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
     stockEffect === 'outbound' || stockEffect === 'move' || stockEffect === 'transfer';
 
   React.useEffect(() => {
-    if (!open || !operation || !companyId || !checksSourceStock) {
+    if (!open || !documentOperation || !companyId || !checksSourceStock) {
       setAvailableByLineId({});
       return;
     }
@@ -266,7 +378,7 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
     return () => {
       cancelled = true;
     };
-  }, [open, operation, companyId, kind, lines, headerFromLocationId, checksSourceStock]);
+  }, [open, documentOperation, companyId, kind, lines, headerFromLocationId, checksSourceStock]);
 
   function applyLineQuantity(
     lineId: string,
@@ -296,12 +408,12 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
   }
 
   async function assertStockBeforeSave(nextLines: WarehouseOperationLine[] = lines): Promise<boolean> {
-    if (!operation || !checksSourceStock) return true;
+    if (!documentOperation || !checksSourceStock) return true;
     const issues = await collectStockShortages({
-      companyId: operation.companyId,
-      warehouseId: operation.warehouseId,
+      companyId: documentOperation.companyId,
+      warehouseId: documentOperation.warehouseId,
       kind,
-      destinationWarehouseId: operation.destinationWarehouseId,
+      destinationWarehouseId: documentOperation.destinationWarehouseId,
       lines: nextLines,
     });
     if (issues.length === 0) return true;
@@ -313,7 +425,7 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
     allowEmpty?: boolean;
   }): WarehouseOperationLine[] | null {
     if (hasDuplicateOperationLineProducts(operationLinesToDrafts(lines))) {
-      toast.error('لا يمكن تكرار نفس المنتج في أكثر من سطر.');
+      toast.error('لا يمكن تكرار نفس المنتج/المتغير في أكثر من سطر.');
       return null;
     }
     const hasIncomplete = lines.some(
@@ -406,12 +518,47 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
     );
   }
 
-  if (!operation) return null;
+  function applyLineVariant(
+    lineId: string,
+    variantId: string | undefined,
+    variant?: ProductVariant,
+  ) {
+    setLines((prev) =>
+      prev.map((line) => {
+        if (line.id !== lineId) return line;
+        if (!variantId || !variant) {
+          return { ...line, variantId: undefined };
+        }
+        return {
+          ...line,
+          variantId: variant.id,
+          sku: variant.sku || line.sku,
+        };
+      }),
+    );
+  }
+
+  if (!documentOperation) return null;
 
   const editable = status === 'draft' || status === 'ready';
   const qtyEditable = status === 'draft' || status === 'ready';
   const multiProductMode = supportsMultiProductLines(kind);
   const canEditProducts = editable && status === 'draft' && multiProductMode;
+  const isCountLike = kind === 'physical_count' || kind === 'adjustment';
+  const showDemandColumn = !isCountLike;
+  const showCostColumns = stockEffect === 'inbound';
+  const lineColumnCount =
+    5 + (showDemandColumn ? 1 : 0) + (showCostColumns ? 2 : 0) + (canEditProducts ? 1 : 0);
+  const pricedLines = lines.filter((line) => line.productId?.trim());
+  const demandTotal = pricedLines.reduce(
+    (sum, line) => sum + (line.demandQuantity ?? line.quantity),
+    0,
+  );
+  const executedTotal = pricedLines.reduce((sum, line) => sum + line.quantity, 0);
+  const moneyTotal = pricedLines.reduce((sum, line) => {
+    const unitCost = lineUnitCostNumber(line.unitCost);
+    return unitCost == null ? sum : sum + unitCost * line.quantity;
+  }, 0);
   const isSaving = update.isPending || undo.isPending;
   const meta = WAREHOUSE_OPERATION_KIND_META[kind];
   const needsFrom = meta.needsFrom;
@@ -429,32 +576,39 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
   // Each side of the route names its warehouse, so a same-named location on both
   // ends (WH/Stock → WH/Stock) still reads unambiguously.
   const crossWarehouse = Boolean(
-    destinationWarehouseId && destinationWarehouseId !== operation.warehouseId,
+    destinationWarehouseId && destinationWarehouseId !== documentOperation.warehouseId,
   );
-  const sourceWarehouseName = warehouseName(operation.warehouseId);
+  const sourceWarehouseName = warehouseName(documentOperation.warehouseId);
   const targetWarehouseName = crossWarehouse
     ? warehouseName(destinationWarehouseId)
     : sourceWarehouseName;
-  const fromFieldLabel = meta.stockEffect === 'move' ? 'الموقع الحالي' : 'موقع الصرف';
+  const fromFieldLabel =
+    kind === 'issue'
+      ? 'موقع المخزون (من)'
+      : meta.stockEffect === 'move'
+        ? 'الموقع الحالي'
+        : 'موقع الصرف';
   const toFieldLabel =
-    meta.stockEffect === 'move'
-      ? 'الموقع الجديد'
-      : meta.stockEffect === 'adjust_set'
-        ? 'موقع المخزون'
-        : 'موقع الاستلام';
+    kind === 'issue'
+      ? 'موقع العميل (إلى)'
+      : meta.stockEffect === 'move'
+        ? 'الموقع الجديد'
+        : meta.stockEffect === 'adjust_set'
+          ? 'موقع المخزون'
+          : 'موقع الاستلام';
 
-  const destinationLine = lines[0] ?? operation.lines[0];
+  const destinationLine = lines[0] ?? documentOperation.lines[0];
 
   async function savePatch(
     patch: Partial<WarehouseOperation> & { lines?: WarehouseOperation['lines'] },
     successMessage: string,
     options?: { includeLines?: boolean },
   ) {
-    if (!companyId || !operation) return;
+    if (!companyId || !documentOperation) return;
     const includeLines = options?.includeLines === true || patch.lines !== undefined;
 
     // Backend locks fully validated ops — use undoValidation for done → ready.
-    if (status === 'done' || operation.status === 'done') {
+    if (status === 'done' || documentOperation?.status === 'done') {
       toast.error('لا يمكن تعديل مستند منتهٍ. استخدم «تراجع عن التصديق» أولاً.');
       return;
     }
@@ -462,7 +616,7 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
     try {
       const updated = await update.mutateAsync({
         companyId,
-        id: operation.id,
+        id: documentOperation.id,
         patch: {
           ...patch,
           ...(includeLines ? { lines: patch.lines ?? lines } : {}),
@@ -470,7 +624,7 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
           partnerId: partnerId.trim() || null,
           partnerName: partnerName.trim() || undefined,
           sourceDocument: sourceDocument.trim() || undefined,
-          occurredAt: occurredAt ? new Date(occurredAt).toISOString() : operation.occurredAt,
+          occurredAt: occurredAt ? new Date(occurredAt).toISOString() : documentOperation.occurredAt,
         },
       });
       if (!updated) {
@@ -520,13 +674,13 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
   }
 
   async function undoValidation() {
-    if (!companyId || !operation) return;
-    if (status !== 'done' && operation.status !== 'done') {
+    if (!companyId || !documentOperation) return;
+    if (status !== 'done' && documentOperation.status !== 'done') {
       toast.error('التراجع متاح فقط للمستندات المصدّقة (done).');
       return;
     }
     try {
-      const updated = await undo.mutateAsync({ companyId, id: operation.id });
+      const updated = await undo.mutateAsync({ companyId, id: documentOperation.id });
       setStatus(updated.status);
       setLines(updated.lines.map((line) => ({ ...line })));
       setHeaderFromLocationId(updated.lines[0]?.fromLocationId ?? '');
@@ -538,7 +692,7 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
   }
 
   async function cancelOperation() {
-    if (status === 'done' || operation?.status === 'done') {
+    if (status === 'done' || documentOperation?.status === 'done') {
       toast.error('لا يمكن إلغاء مستند منتهٍ. استخدم التراجع عن التصديق أولاً.');
       return;
     }
@@ -546,7 +700,7 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
   }
 
   async function fillTheoreticalFromStock() {
-    if (!companyId || !operation) return;
+    if (!companyId || !documentOperation) return;
     const isCountLike = kind === 'physical_count' || kind === 'adjustment';
     if (!isCountLike || !editable) return;
 
@@ -585,12 +739,12 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={cn(dialogShellContentClass, 'max-w-4xl sm:max-w-4xl')}>
+      <DialogContent className={cn(dialogShellContentClass, 'max-w-6xl sm:max-w-6xl')}>
         <div className={dialogShellHeaderClass}>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="space-y-1">
               <DialogTitle className="flex flex-wrap items-center gap-2 text-base font-semibold">
-                <span dir="ltr">{operation.reference || 'بدون مرجع'}</span>
+                <span dir="ltr">{documentOperation.reference || 'بدون مرجع'}</span>
                 <Badge variant={statusBadgeVariant(status)}>
                   {WAREHOUSE_OPERATION_STATUS_LABELS_AR[status]}
                 </Badge>
@@ -677,6 +831,7 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
                   onChange={setPartnerId}
                   onPartnerSelect={(partner) => setPartnerName(partner.displayName)}
                   disabled={!editable}
+                  deferSearchUntilOpen
                   placeholder="اختر جهة اتصال (اختياري)"
                 />
                 <Input
@@ -720,7 +875,7 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
                             <SelectValue placeholder={`اختر ${fromFieldLabel}`} />
                           </SelectTrigger>
                           <SelectContent>
-                            {locations.map((location) => (
+                            {fromLocationOptions.map((location) => (
                               <SelectItem key={location.id} value={location.id}>
                                 {formatLocationOption(location.id)}
                               </SelectItem>
@@ -769,7 +924,7 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
                             <SelectValue placeholder={`اختر ${toFieldLabel}`} />
                           </SelectTrigger>
                           <SelectContent>
-                            {destinationLocations.map((location) => (
+                            {toLocationOptions.map((location) => (
                               <SelectItem key={location.id} value={location.id}>
                                 {formatLocationOption(location.id)}
                               </SelectItem>
@@ -811,212 +966,290 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
             </div>
           </div>
 
-          <Tabs value={tab} onValueChange={setTab}>
-            <TabsList className="h-auto w-full justify-start gap-0 rounded-none border-b border-border bg-transparent p-0">
-              <TabsTrigger
-                value="operations"
-                className="rounded-none border-b-2 border-transparent px-3 py-2.5 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-              >
-                العمليات
+          <Tabs value={tab} onValueChange={setTab} dir="rtl" className="space-y-3">
+            <TabsList className="sto-tabs-scroll h-auto w-full justify-start rounded-2xl border border-border/80 bg-muted/40 p-1">
+              <TabsTrigger value="operations" className={OPERATION_FORM_TAB_TRIGGER}>
+                الأصناف
               </TabsTrigger>
-              <TabsTrigger
-                value="notes"
-                className="rounded-none border-b-2 border-transparent px-3 py-2.5 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-              >
+              <TabsTrigger value="notes" className={OPERATION_FORM_TAB_TRIGGER}>
                 الملاحظات
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="operations" className="mt-3 space-y-2">
-              {canEditProducts ? (
-                <div className="flex justify-end">
+            <TabsContent value="operations" className="mt-3 space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs text-muted-foreground">
+                  {pricedLines.length} {pricedLines.length === 1 ? 'صنف' : 'أصناف'}
+                </p>
+                {canEditProducts ? (
                   <Button type="button" variant="outline" size="sm" disabled={isSaving} onClick={addProductLine}>
                     <Plus className="me-1 h-3.5 w-3.5" />
                     إضافة صنف
                   </Button>
-                </div>
-              ) : null}
-              <div className="overflow-hidden rounded-lg border border-border">
-                <table className="w-full text-sm">
+                ) : null}
+              </div>
+              <div className="overflow-x-auto rounded-xl border border-border bg-card">
+                <table className="w-full min-w-[52rem] border-collapse text-sm">
                   <thead>
-                    <tr className="border-b border-border bg-muted/30 text-muted-foreground">
-                      <th className="px-3 py-2.5 text-start font-medium">المنتج</th>
-                      <th className="px-3 py-2.5 text-start font-medium">الطلب</th>
-                      <th className="px-3 py-2.5 text-start font-medium">الكمية</th>
-                      <th className="px-3 py-2.5 text-start font-medium">الوحدة</th>
-                      {stockEffect === 'inbound' ? (
-                        <th className="px-3 py-2.5 text-start font-medium text-emerald-700 dark:text-emerald-400">
-                          تكلفة الوحدة (الشراء)
+                    <tr className="border-b border-border bg-muted/40 text-xs text-muted-foreground">
+                      <th scope="col" className="w-12 px-3 py-2.5 text-center font-medium">
+                        #
+                      </th>
+                      <th scope="col" className="min-w-[14rem] px-3 py-2.5 text-start font-medium">
+                        المنتج
+                      </th>
+                      <th scope="col" className="min-w-[9rem] px-3 py-2.5 text-start font-medium">
+                        المتغير
+                      </th>
+                      {showDemandColumn ? (
+                        <th scope="col" className="min-w-[7rem] px-3 py-2.5 text-center font-medium">
+                          كمية الطلب
                         </th>
                       ) : null}
-                      {canEditProducts ? <th className="w-10 px-2 py-2.5" /> : null}
+                      <th scope="col" className="min-w-[7.5rem] px-3 py-2.5 text-center font-medium">
+                        {isCountLike ? 'الكمية المعدودة' : 'الكمية المُنفَّذة'}
+                      </th>
+                      <th scope="col" className="min-w-[5rem] px-3 py-2.5 text-center font-medium">
+                        الوحدة
+                      </th>
+                      {showCostColumns ? (
+                        <th scope="col" className="min-w-[8.5rem] px-3 py-2.5 text-center font-medium">
+                          تكلفة الشراء
+                        </th>
+                      ) : null}
+                      {showCostColumns ? (
+                        <th scope="col" className="min-w-[8rem] px-3 py-2.5 text-center font-medium">
+                          الإجمالي
+                        </th>
+                      ) : null}
+                      {canEditProducts ? <th scope="col" className="w-12 px-2 py-2.5" /> : null}
                     </tr>
                   </thead>
                   <tbody>
-                    {lines.map((line) => {
-                      const available = availableByLineId[line.id];
-                      const maxQty =
-                        checksSourceStock && available != null
-                          ? maxQuantityForLine({
-                              lines,
-                              lineId: line.id,
-                              availableAtLocation: available,
-                              fromLocationId: headerFromLocationId || undefined,
-                            })
-                          : null;
+                    {lines.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={lineColumnCount}
+                          className="px-3 py-8 text-center text-sm text-muted-foreground"
+                        >
+                          لا توجد أصناف في هذا المستند.
+                        </td>
+                      </tr>
+                    ) : (
+                      lines.map((line, index) => {
+                        const available = availableByLineId[line.id];
+                        const maxQty =
+                          checksSourceStock && available != null
+                            ? maxQuantityForLine({
+                                lines,
+                                lineId: line.id,
+                                availableAtLocation: available,
+                                fromLocationId: headerFromLocationId || undefined,
+                              })
+                            : null;
+                        const demand = line.demandQuantity ?? line.quantity;
+                        const gap = demand - line.quantity;
+                        const unitCost = lineUnitCostNumber(line.unitCost);
+                        const lineTotal = unitCost == null ? null : unitCost * line.quantity;
 
-                      return (
-                      <tr key={line.id} className="border-b border-border last:border-0 align-top">
-                        <td className="px-3 py-2.5">
-                          {canEditProducts ? (
-                            <>
-                              <ProductSinglePicker
-                                companyId={companyId ?? ''}
-                                value={line.productId}
-                                status="active"
-                                disabled={isSaving}
-                                excludeIds={lines
-                                  .filter((other) => other.id !== line.id)
-                                  .map((other) => other.productId?.trim())
-                                  .filter((id): id is string => Boolean(id))}
-                                sourceLocationId={
-                                  pickerUsesSourceLocationStock(kind)
-                                    ? headerFromLocationId || undefined
-                                    : undefined
-                                }
-                                placeholder={
-                                  pickerUsesSourceLocationStock(kind) && !headerFromLocationId
-                                    ? 'حدّد موقع الصرف أولًا…'
-                                    : 'ابحث عن منتج…'
-                                }
-                                onChange={(productId) => {
-                                  if (!productId) applyLineProduct(line.id, null);
-                                }}
-                                onProductSelect={(product) => applyLineProduct(line.id, product)}
-                              />
-                              {line.sku ? (
-                                <div className="mt-1 text-xs text-muted-foreground" dir="ltr">
-                                  {line.sku}
-                                </div>
-                              ) : null}
-                            </>
-                          ) : (
-                            <>
-                              <div className="font-medium">{line.productName}</div>
-                              {line.sku ? (
-                                <div className="text-xs text-muted-foreground" dir="ltr">
-                                  {line.sku}
-                                </div>
-                              ) : null}
-                              <div className="mt-0.5 text-xs text-muted-foreground">
-                                {line.variantId ? 'متغير' : 'المنتج الأساسي'}
-                              </div>
-                            </>
-                          )}
-                        </td>
-                        <td className="px-3 py-2.5">
-                          <FlexibleQuantityInput
-                            className="h-8 w-24"
-                            value={line.demandQuantity ?? 0}
-                            max={maxQty}
-                            disabled={!editable || status === 'ready'}
-                            onChange={(value) => {
-                              applyLineQuantity(line.id, 'demandQuantity', value);
-                            }}
-                          />
-                          {checksSourceStock && available != null ? (
-                            <p className="mt-1 text-[11px] text-muted-foreground">
-                              المتاح في الموقع: {available}
-                            </p>
-                          ) : null}
-                        </td>
-                        <td className="px-3 py-2.5">
-                          <FlexibleQuantityInput
-                            className="h-8 w-24"
-                            value={line.quantity}
-                            max={maxQty}
-                            disabled={!qtyEditable}
-                            onChange={(value) => {
-                              applyLineQuantity(line.id, 'quantity', value);
-                            }}
-                          />
-                          {(() => {
-                            const gap = (line.demandQuantity ?? line.quantity) - line.quantity;
-                            if (Math.abs(gap) < 1e-9) return null;
-                            return (
-                              <p
-                                className={cn(
-                                  'mt-1 text-[11px] font-medium tabular-nums',
-                                  gap > 0
-                                    ? 'text-destructive'
-                                    : 'text-emerald-700 dark:text-emerald-400',
-                                )}
-                              >
-                                {gap > 0 ? `ناقص ${gap}` : `زائد ${Math.abs(gap)}`}
-                              </p>
-                            );
-                          })()}
-                        </td>
-                        <td className="px-3 py-2.5 text-muted-foreground">الوحدات</td>
-                        {stockEffect === 'inbound' ? (
-                          <td className="px-3 py-2.5">
-                            {canEditProducts ? (
-                              <>
-                                <div
-                                  className={`flex items-center gap-2 rounded-lg border-2 px-1 transition-colors ${
-                                    line.productId && !line.unitCost?.trim()
-                                      ? 'border-amber-400 bg-amber-50 dark:border-amber-500/60 dark:bg-amber-950/30'
-                                      : 'border-emerald-300 bg-emerald-50/60 dark:border-emerald-500/40 dark:bg-emerald-950/20'
-                                  }`}
-                                >
-                                  <Input
-                                    type="text"
-                                    inputMode="decimal"
-                                    dir="ltr"
-                                    placeholder="0.00"
-                                    value={line.unitCost ?? ''}
-                                    className="h-9 w-28 border-0 bg-transparent px-2 text-center font-semibold tabular-nums shadow-none focus-visible:ring-0"
-                                    onChange={(e) => {
-                                      const raw = e.target.value;
-                                      if (raw === '' || /^\d*\.?\d{0,8}$/.test(raw)) {
-                                        applyLineUnitCost(line.id, raw);
-                                      }
+                        return (
+                          <tr
+                            key={line.id}
+                            className="border-b border-border align-top last:border-0 even:bg-muted/20"
+                          >
+                            <td className="px-3 py-3 text-center text-xs tabular-nums text-muted-foreground">
+                              {index + 1}
+                            </td>
+                            <td className="px-3 py-3">
+                              {canEditProducts ? (
+                                <div className="space-y-1">
+                                  <ProductSinglePicker
+                                    companyId={companyId ?? ''}
+                                    value={line.productId}
+                                    status="active"
+                                    disabled={isSaving}
+                                    excludeIds={reservedProductIdsOtherDocs}
+                                    sourceLocationId={
+                                      pickerUsesSourceLocationStock(kind)
+                                        ? headerFromLocationId || undefined
+                                        : undefined
+                                    }
+                                    placeholder={
+                                      pickerUsesSourceLocationStock(kind) && !headerFromLocationId
+                                        ? 'حدّد موقع الصرف أولًا…'
+                                        : 'ابحث عن منتج…'
+                                    }
+                                    onChange={(productId) => {
+                                      if (!productId) applyLineProduct(line.id, null);
                                     }}
+                                    onProductSelect={(product) => applyLineProduct(line.id, product)}
                                   />
-                                  <span className="pe-2 text-xs font-medium text-muted-foreground">ر.ي</span>
+                                  {line.sku ? (
+                                    <p className="text-[11px] text-muted-foreground" dir="ltr">
+                                      {line.sku}
+                                    </p>
+                                  ) : null}
                                 </div>
-                                {line.productId && !line.unitCost?.trim() ? (
-                                  <p className="mt-1 text-[11px] font-medium text-amber-700 dark:text-amber-400">
-                                    أدخل تكلفة الشراء لهذا الصنف
+                              ) : (
+                                <div className="min-w-0">
+                                  <p className="font-medium leading-snug text-foreground">
+                                    {line.productName || '—'}
+                                  </p>
+                                  {line.sku ? (
+                                    <p className="mt-0.5 text-[11px] text-muted-foreground" dir="ltr">
+                                      {line.sku}
+                                    </p>
+                                  ) : null}
+                                </div>
+                              )}
+                            </td>
+                            <td className="px-3 py-3">
+                              {canEditProducts && line.productId ? (
+                                <OperationLineVariantSelect
+                                  companyId={companyId ?? ''}
+                                  productId={line.productId}
+                                  catalogProductName={line.productName}
+                                  variantId={line.variantId}
+                                  disabled={isSaving}
+                                  onChange={(nextId, variant) =>
+                                    applyLineVariant(line.id, nextId, variant)
+                                  }
+                                />
+                              ) : (
+                                <p className="text-sm leading-snug text-foreground">
+                                  <OperationLineVariantReadout
+                                    companyId={companyId ?? ''}
+                                    productId={line.productId}
+                                    productName={line.productName}
+                                    variantId={line.variantId}
+                                  />
+                                </p>
+                              )}
+                            </td>
+                            {showDemandColumn ? (
+                              <td className="px-3 py-3 text-center">
+                                {editable && status !== 'ready' ? (
+                                  <FlexibleQuantityInput
+                                    className="mx-auto h-9 w-full max-w-[7rem] text-center"
+                                    value={demand}
+                                    max={maxQty}
+                                    disabled={!editable || isSaving}
+                                    aria-label="كمية الطلب"
+                                    onChange={(value) =>
+                                      applyLineQuantity(line.id, 'demandQuantity', value)
+                                    }
+                                  />
+                                ) : (
+                                  <p className="font-semibold tabular-nums">{formatLineQuantity(demand)}</p>
+                                )}
+                                {checksSourceStock && available != null ? (
+                                  <p className="mt-1 text-[11px] text-muted-foreground">
+                                    المتاح {formatLineQuantity(available)}
                                   </p>
                                 ) : null}
-                              </>
-                            ) : (
-                              <span className="font-semibold tabular-nums">
-                                {line.unitCost?.trim() ? `${line.unitCost} ر.ي` : '—'}
-                              </span>
-                            )}
-                          </td>
-                        ) : null}
-                        {canEditProducts ? (
-                          <td className="px-2 py-2.5">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                              disabled={isSaving}
-                              aria-label="حذف السطر"
-                              onClick={() => removeProductLine(line.id)}
-                            >
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          </td>
-                        ) : null}
-                      </tr>
-                      );
-                    })}
+                              </td>
+                            ) : null}
+                            <td className="px-3 py-3 text-center">
+                              {qtyEditable ? (
+                                <FlexibleQuantityInput
+                                  className="mx-auto h-9 w-full max-w-[7rem] text-center"
+                                  value={line.quantity}
+                                  max={maxQty}
+                                  disabled={!qtyEditable || isSaving}
+                                  aria-label={isCountLike ? 'الكمية المعدودة' : 'الكمية المنفذة'}
+                                  onChange={(value) => applyLineQuantity(line.id, 'quantity', value)}
+                                />
+                              ) : (
+                                <p className="font-semibold tabular-nums">
+                                  {formatLineQuantity(line.quantity)}
+                                </p>
+                              )}
+                              {showDemandColumn && Math.abs(gap) >= 1e-9 ? (
+                                <p
+                                  className={cn(
+                                    'mt-1 text-[11px]',
+                                    gap > 0
+                                      ? 'text-amber-700 dark:text-amber-400'
+                                      : 'text-sky-700 dark:text-sky-400',
+                                  )}
+                                >
+                                  {gap > 0
+                                    ? `ناقص ${formatLineQuantity(gap)}`
+                                    : `زائد ${formatLineQuantity(Math.abs(gap))}`}
+                                </p>
+                              ) : null}
+                            </td>
+                            <td className="px-3 py-3 text-center text-sm text-foreground">وحدات</td>
+                            {showCostColumns ? (
+                              <td className="px-3 py-3">
+                                {canEditProducts ? (
+                                  <OperationUnitCostInput
+                                    value={line.unitCost ?? ''}
+                                    disabled={isSaving || !line.productId}
+                                    showRequiredHint={Boolean(line.productId)}
+                                    onChange={(raw) => applyLineUnitCost(line.id, raw)}
+                                  />
+                                ) : (
+                                  <p className="text-center font-semibold tabular-nums">
+                                    {unitCost == null
+                                      ? '—'
+                                      : formatLineMoney(unitCost, costDisplayDecimals)}
+                                  </p>
+                                )}
+                              </td>
+                            ) : null}
+                            {showCostColumns ? (
+                              <td className="px-3 py-3 text-center font-semibold tabular-nums">
+                                {lineTotal == null
+                                  ? '—'
+                                  : formatLineMoney(lineTotal, costDisplayDecimals)}
+                              </td>
+                            ) : null}
+                            {canEditProducts ? (
+                              <td className="px-2 py-3">
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  disabled={isSaving}
+                                  aria-label="حذف السطر"
+                                  onClick={() => removeProductLine(line.id)}
+                                >
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              </td>
+                            ) : null}
+                          </tr>
+                        );
+                      })
+                    )}
                   </tbody>
+                  {pricedLines.length > 0 ? (
+                    <tfoot>
+                      <tr className="border-t border-border bg-muted/30 text-sm font-semibold">
+                        <td colSpan={3} className="px-3 py-2.5 text-start">
+                          الإجمالي
+                        </td>
+                        {showDemandColumn ? (
+                          <td className="px-3 py-2.5 text-center tabular-nums">
+                            {formatLineQuantity(demandTotal)}
+                          </td>
+                        ) : null}
+                        <td className="px-3 py-2.5 text-center tabular-nums">
+                          {formatLineQuantity(executedTotal)}
+                        </td>
+                        <td />
+                        {showCostColumns ? <td /> : null}
+                        {showCostColumns ? (
+                          <td className="px-3 py-2.5 text-center tabular-nums">
+                            {formatLineMoney(moneyTotal, costDisplayDecimals)}
+                          </td>
+                        ) : null}
+                        {canEditProducts ? <td /> : null}
+                      </tr>
+                    </tfoot>
+                  ) : null}
                 </table>
               </div>
             </TabsContent>

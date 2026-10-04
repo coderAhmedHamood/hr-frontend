@@ -20,6 +20,7 @@ export const inventoryAdminRoutes = {
   reportStock: '/inventory/reports/stock',
   reportDetailedStock: '/inventory/reports/detailed-stock',
   reportMoves: '/inventory/reports/moves',
+  reportInbound: '/inventory/reports/inbound',
   reportMovesAnalysis: '/inventory/reports/moves-analysis',
   reportBatches: '/inventory/reports/batches',
   /** التهيئة */
@@ -34,5 +35,6 @@ export const inventoryAdminRoutes = {
   productDetail: (id: string) => `/inventory/products/${id}`,
   categories: '/inventory/categories',
   attributes: '/inventory/attributes',
+  catalogUoms: '/inventory/catalog-uoms',
   settings: '/inventory/settings',
 } as const;

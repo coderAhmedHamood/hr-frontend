@@ -50,4 +50,11 @@ export const userRolesApi = {
   revoke(assignmentId: string) {
     return apiRequest<void>(`/users/roles/${assignmentId}`, { method: 'DELETE' });
   },
+  /** One request to match the selected role set (add / remove / reactivate). */
+  sync(userId: string, roleIds: string[]) {
+    return apiRequest<UserRoleResponseDto[]>(`/users/${userId}/roles/sync`, {
+      method: 'PUT',
+      body: { roleIds },
+    });
+  },
 };

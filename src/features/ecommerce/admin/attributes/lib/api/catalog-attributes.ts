@@ -31,23 +31,31 @@ type AttributeValueDto = {
   colorHex?: string | null;
   imageUrl?: string | null;
   sortOrder?: number;
+  isArchived?: boolean;
 };
 
 function mapValue(dto: AttributeValueDto, displayType: CatalogAttribute['displayType']): CatalogAttributeValue {
-  return normalizeAttributeValue(
-    {
-      id: dto.id,
-      nameAr: dto.nameAr,
-      freeText: dto.freeText ?? undefined,
-      defaultExtraPrice: toOptionalNumber(dto.defaultExtraPrice),
-      colorHex: dto.colorHex ?? undefined,
-      imageUrl: dto.imageUrl ?? undefined,
-    },
-    displayType,
-  );
+  return {
+    ...normalizeAttributeValue(
+      {
+        id: dto.id,
+        nameAr: dto.nameAr,
+        freeText: dto.freeText ?? undefined,
+        defaultExtraPrice: toOptionalNumber(dto.defaultExtraPrice),
+        colorHex: dto.colorHex ?? undefined,
+        imageUrl: dto.imageUrl ?? undefined,
+      },
+      displayType,
+    ),
+    isArchived: dto.isArchived ?? false,
+  };
 }
 
-async function fetchValues(attributeId: string, displayType: CatalogAttribute['displayType']) {
+async function fetchValues(
+  attributeId: string,
+  displayType: CatalogAttribute['displayType'],
+  archiveScope: 'active' | 'archived' | 'all' = 'active',
+) {
   const result = await apiRequest<PaginatedResult<AttributeValueDto>>(
     '/inventory/catalog-attribute-values',
     {
@@ -55,7 +63,7 @@ async function fetchValues(attributeId: string, displayType: CatalogAttribute['d
         attributeId,
         page: 1,
         limit: 200,
-        archiveScope: 'active',
+        archiveScope,
       },
     },
   );
@@ -65,8 +73,24 @@ async function fetchValues(attributeId: string, displayType: CatalogAttribute['d
     .map((dto) => mapValue(dto, displayType));
 }
 
-async function mapAttribute(dto: AttributeDto): Promise<CatalogAttribute> {
-  const values = await fetchValues(dto.id, dto.displayType);
+/** Restores a previously archived catalog attribute value. */
+export async function restoreCatalogAttributeValue(
+  id: string,
+  displayType: CatalogAttribute['displayType'],
+  updatedBy?: string | null,
+): Promise<CatalogAttributeValue> {
+  const dto = await apiRequest<AttributeValueDto>(`/inventory/catalog-attribute-values/${id}/restore`, {
+    method: 'POST',
+    body: { updatedBy: updatedBy ?? null },
+  });
+  return mapValue(dto, displayType);
+}
+
+async function mapAttribute(
+  dto: AttributeDto,
+  valueArchiveScope?: 'active' | 'archived' | 'all',
+): Promise<CatalogAttribute> {
+  const values = await fetchValues(dto.id, dto.displayType, valueArchiveScope);
   return {
     id: dto.id,
     companyId: dto.companyId,
@@ -78,6 +102,36 @@ async function mapAttribute(dto: AttributeDto): Promise<CatalogAttribute> {
     createdAt: dto.createdAt,
     updatedAt: dto.updatedAt,
   };
+}
+
+export type CreateCatalogAttributeValueInput = {
+  nameAr: string;
+  freeText?: string | null;
+  defaultExtraPrice?: number | null;
+  colorHex?: string | null;
+  imageUrl?: string | null;
+  sortOrder?: number;
+};
+
+/** Creates a single new value under an existing catalog attribute. */
+export async function createCatalogAttributeValue(
+  attributeId: string,
+  displayType: CatalogAttribute['displayType'],
+  input: CreateCatalogAttributeValueInput,
+): Promise<CatalogAttributeValue> {
+  const dto = await apiRequest<AttributeValueDto>('/inventory/catalog-attribute-values', {
+    method: 'POST',
+    body: {
+      attributeId,
+      nameAr: input.nameAr,
+      freeText: input.freeText ?? null,
+      defaultExtraPrice: input.defaultExtraPrice ?? null,
+      colorHex: input.colorHex ?? null,
+      imageUrl: input.imageUrl ?? null,
+      sortOrder: input.sortOrder ?? 0,
+    },
+  });
+  return mapValue(dto, displayType);
 }
 
 async function syncValues(
@@ -112,11 +166,7 @@ async function syncValues(
       );
       synced.push(mapValue(dto, displayType));
     } else {
-      const dto = await apiRequest<AttributeValueDto>('/inventory/catalog-attribute-values', {
-        method: 'POST',
-        body: { attributeId, ...body },
-      });
-      synced.push(mapValue(dto, displayType));
+      synced.push(await createCatalogAttributeValue(attributeId, displayType, body));
     }
   }
   return synced;
@@ -133,7 +183,9 @@ export const catalogAttributesApi = {
         archiveScope: 'active',
       },
     });
-    const items = await Promise.all((result.items ?? []).map(mapAttribute));
+    const items = await Promise.all(
+      (result.items ?? []).map((dto) => mapAttribute(dto, query.valueArchiveScope)),
+    );
     return { items, pagination: result.pagination };
   },
 

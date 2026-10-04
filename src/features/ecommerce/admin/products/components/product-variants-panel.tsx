@@ -6,6 +6,7 @@ import {
   useFieldArray,
   useWatch,
   type Control,
+  type FieldErrors,
   type UseFormGetValues,
   type UseFormRegister,
   type UseFormSetValue,
@@ -23,17 +24,41 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { ProductVariantUomSection } from '@/features/ecommerce/admin/products/components/product-variant-uom-section';
+import { PRODUCT_VARIANT_CUSTOM_UOM_ENABLED } from '@/features/ecommerce/admin/products/constants/product-feature-flags';
 
 type Props = {
   control: Control<ProductFormInput, unknown, ProductFormValues>;
+  errors: FieldErrors<ProductFormInput>;
   register: UseFormRegister<ProductFormInput>;
   setValue: UseFormSetValue<ProductFormInput>;
   getValues: UseFormGetValues<ProductFormInput>;
   productId?: string | null;
 };
 
+function validateVariantCustomUoms(variants: ProductFormInput['variants']): string | null {
+  if (!PRODUCT_VARIANT_CUSTOM_UOM_ENABLED) return null;
+  for (const variant of variants) {
+    if (!variant.hasCustomUom) continue;
+    const lines = variant.uomLines ?? [];
+    if (lines.length === 0) {
+      return `أضف وحدة واحدة على الأقل للمتغير «${variant.nameAr}».`;
+    }
+    if (lines.filter((line) => line.isReference).length !== 1) {
+      return `حدّد وحدة مرجعية واحدة (⭐) للمتغير «${variant.nameAr}».`;
+    }
+    for (const line of lines) {
+      if (!line.catalogUomId?.trim()) {
+        return `اختر وحدة من الكتالogg لكل سطر في المتغير «${variant.nameAr}».`;
+      }
+    }
+  }
+  return null;
+}
+
 export function ProductVariantsPanel({
   control,
+  errors,
   register,
   setValue,
   getValues,
@@ -53,6 +78,10 @@ export function ProductVariantsPanel({
   });
   const { data: onHand } = useProductOnHand(companyId, productId ?? undefined);
   const { saveAttributesVariants } = useProductMutations();
+
+  const activeAttributeValueIds = new Set(
+    attributes.flatMap((attribute) => attribute.values.map((value) => value.id)),
+  );
 
   const persistedCount = variantsWatch.filter((variant) => isPersistedId(variant.id)).length;
   const draftCount = variantsWatch.length - persistedCount;
@@ -161,6 +190,12 @@ export function ProductVariantsPanel({
     }
     if (variantsWatch.length === 0) {
       toast.message('لا توجد متغيرات للحفظ — تأكد أن الخاصية تُنشئ متغيرات');
+      return;
+    }
+
+    const uomIssue = validateVariantCustomUoms(variantsWatch);
+    if (uomIssue) {
+      toast.error(uomIssue);
       return;
     }
 
@@ -274,6 +309,9 @@ export function ProductVariantsPanel({
               const images = variantsWatch[index]?.images ?? [];
               const rowId = variantsWatch[index]?.id ?? field.id;
               const rowPersisted = isPersistedId(rowId);
+              const rowValueIds = variantsWatch[index]?.attributeValueIds ?? field.attributeValueIds ?? [];
+              const isOrphaned =
+                rowPersisted && rowValueIds.some((id) => !activeAttributeValueIds.has(id));
               return (
                 <tr key={field._key} className="border-b border-border last:border-0">
                   <td className="px-3 py-2.5 align-middle">
@@ -308,6 +346,11 @@ export function ProductVariantsPanel({
                         </span>
                       ))}
                     </div>
+                    {isOrphaned ? (
+                      <p className="mt-1 text-[11px] text-amber-700 dark:text-amber-400">
+                        قيمة الخاصية غير مُفعّلة حاليًا على المنتج — المتغيّر محفوظ ولن يُحذف.
+                      </p>
+                    ) : null}
                   </td>
                   <td className="px-3 py-2.5 align-middle">
                     <Input
@@ -378,6 +421,13 @@ export function ProductVariantsPanel({
           </tbody>
         </table>
       </div>
+
+      <ProductVariantUomSection
+        control={control}
+        errors={errors}
+        setValue={setValue}
+        variants={variantsWatch}
+      />
     </div>
   );
 }

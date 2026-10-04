@@ -13,12 +13,10 @@ import {
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-  USER_TYPE_LABELS,
-} from '@/features/system/organization/contacts/constants/users-directory';
 import type { UserResponseDto } from '@/features/hr/organization/lib/api/users';
 import { cn, formatDisplayDateTime } from '@/shared/utils';
 import { UserMobileSerialPanel } from '@/features/system/organization/contacts/components/user-mobile-serial-panel';
+import { UserTypePanel } from '@/features/system/organization/contacts/components/user-type-panel';
 
 type Props = {
   user: UserResponseDto;
@@ -137,11 +135,9 @@ export function UserProfileTab({
           tone={user.isActive ? 'success' : 'warning'}
         />
         <StatCard label="يمكنه الدخول" value={canSignInLabel} tone={user.canSignIn ? 'success' : 'warning'} />
-        <StatCard
-          label="نوع المستخدم"
-          value={USER_TYPE_LABELS[user.userType ?? ''] ?? user.userType ?? '—'}
-        />
       </div>
+
+      <UserTypePanel user={user} onUpdated={onUserUpdated} />
 
       <Section title="بيانات التواصل" description="معلومات الاتصال الأساسية">
         <InfoItem icon={Phone} label="الجوال" value={user.phone} dir="ltr" />

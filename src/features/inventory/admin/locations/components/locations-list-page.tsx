@@ -7,7 +7,8 @@ import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
 import { PageHeaderPrimaryButton } from '@/components/layouts/page-header-primary-button';
 import * as React from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { MapPin, Pencil, Plus, Trash2, Warehouse } from 'lucide-react';
+import { ChevronDown, MapPin, Pencil, Plus, Trash2, Warehouse } from 'lucide-react';
+import { cn } from '@/shared/utils';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { getInventoryCompanyId } from '@/features/inventory/lib/company-id';
@@ -71,13 +72,19 @@ function toFormValues(location: WarehouseLocation): WarehouseLocationFormValues 
   };
 }
 
-export function LocationsListPage() {
+type LocationsListPageProps = {
+  /** When set, list is scoped to this warehouse (embedded in warehouse detail tab). */
+  embeddedWarehouseId?: string;
+};
+
+export function LocationsListPage({ embeddedWarehouseId }: LocationsListPageProps = {}) {
   const companyId = getInventoryCompanyId();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const warehouseIdFilter = searchParams.get('warehouseId') ?? '';
+  const embedded = Boolean(embeddedWarehouseId);
+  const warehouseIdFilter = embeddedWarehouseId ?? searchParams.get('warehouseId') ?? '';
   const search = searchParams.get('q') ?? '';
   const page = Math.max(1, Number(searchParams.get('page')) || 1);
   const pageSize = Number(searchParams.get('pageSize')) || DEFAULT_PAGE_SIZE;
@@ -89,6 +96,9 @@ export function LocationsListPage() {
     location: null,
   });
   const [toDelete, setToDelete] = React.useState<WarehouseLocation | null>(null);
+  const [expandedWarehouseIds, setExpandedWarehouseIds] = React.useState<Set<string>>(() => new Set());
+
+  const groupedByWarehouse = !warehouseIdFilter;
 
   function updateParams(next: {
     q?: string;
@@ -150,11 +160,44 @@ export function LocationsListPage() {
     companyId,
     warehouseId: warehouseIdFilter || undefined,
     search: search || undefined,
-    page,
-    limit: pageSize,
+    page: groupedByWarehouse ? 1 : page,
+    limit: groupedByWarehouse ? 500 : pageSize,
   });
   const { create, update, remove } = useWarehouseLocationMutations();
-  const locations = data?.items ?? [];
+  const locations = React.useMemo(() => {
+    const items = data?.items ?? [];
+    if (embedded || groupedByWarehouse) return items.filter((row) => row.locationType !== 'view');
+    return items;
+  }, [data?.items, embedded, groupedByWarehouse]);
+
+  const warehouseLocationGroups = React.useMemo(() => {
+    if (!groupedByWarehouse) return [];
+    const byWarehouse = new Map<string, WarehouseLocation[]>();
+    for (const row of locations) {
+      const bucket = byWarehouse.get(row.warehouseId) ?? [];
+      bucket.push(row);
+      byWarehouse.set(row.warehouseId, bucket);
+    }
+    return warehouses
+      .map((warehouse) => {
+        const rows = byWarehouse.get(warehouse.id) ?? [];
+        const defaultInternal =
+          rows.find((row) => row.isSystem && row.locationType === 'internal') ??
+          rows.find((row) => row.locationType === 'internal');
+        return { warehouse, locations: rows, defaultInternal };
+      })
+      .filter((group) => (search ? group.locations.length > 0 : true))
+      .sort((a, b) => a.warehouse.nameAr.localeCompare(b.warehouse.nameAr, 'ar'));
+  }, [groupedByWarehouse, locations, warehouses, search]);
+
+  function toggleWarehouseExpanded(warehouseId: string) {
+    setExpandedWarehouseIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(warehouseId)) next.delete(warehouseId);
+      else next.add(warehouseId);
+      return next;
+    });
+  }
 
   // Parent picker needs a broader location set than the current page.
   const { data: allLocationsData } = useWarehouseLocations({
@@ -190,7 +233,7 @@ export function LocationsListPage() {
     () => (
       <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
         <FilterToggleButton />
-        {warehouseIdFilter ? (
+        {warehouseIdFilter && !embedded ? (
           <Button
             variant="outline"
             size="sm"
@@ -211,7 +254,7 @@ export function LocationsListPage() {
         </PageHeaderPrimaryButton>
       </div>
     ),
-    [warehouseIdFilter, companyId, warehouses.length, router],
+    [warehouseIdFilter, companyId, warehouses.length, router, embedded],
   );
 
   useEntityFilterSlot(
@@ -227,21 +270,26 @@ export function LocationsListPage() {
             placeholder="ابحث في المواقع…"
           />
         }
-        inlineSelects={[
-          {
-            id: 'warehouse',
-            value: warehouseIdFilter || 'all',
-            onChange: (value) => updateParams({ warehouseId: value === 'all' ? '' : value, page: 1 }),
-            placeholder: 'كل المستودعات',
-            options: [
-              { value: 'all', label: 'كل المستودعات' },
-              ...warehouses.map((warehouse) => ({ value: warehouse.id, label: warehouse.nameAr })),
-            ],
-          },
-        ]}
+        inlineSelects={
+          embedded
+            ? []
+            : [
+                {
+                  id: 'warehouse',
+                  value: warehouseIdFilter || 'all',
+                  onChange: (value) =>
+                    updateParams({ warehouseId: value === 'all' ? '' : value, page: 1 }),
+                  placeholder: 'كل المستودعات',
+                  options: [
+                    { value: 'all', label: 'كل المستودعات' },
+                    ...warehouses.map((warehouse) => ({ value: warehouse.id, label: warehouse.nameAr })),
+                  ],
+                },
+              ]
+        }
       />
     ),
-    [searchInput, warehouseIdFilter, warehouses],
+    [searchInput, warehouseIdFilter, warehouses, embedded],
   );
 
   const isSaving = create.isPending || update.isPending;
@@ -290,6 +338,28 @@ export function LocationsListPage() {
     setFormState({ open: false, location: null });
   };
 
+  const locationRowActions = (row: WarehouseLocation) => (
+    <>
+      <Button
+        variant="ghost"
+        size="icon"
+        aria-label="تعديل الموقع"
+        onClick={() => setFormState({ open: true, location: row })}
+      >
+        <Pencil className="h-4 w-4" />
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon"
+        aria-label="حذف الموقع"
+        disabled={Boolean(row.isSystem)}
+        onClick={() => setToDelete(row)}
+      >
+        <Trash2 className="h-4 w-4 text-destructive" />
+      </Button>
+    </>
+  );
+
   const columns: ColumnDef<WarehouseLocation>[] = [
     {
       key: 'location',
@@ -303,19 +373,23 @@ export function LocationsListPage() {
         </div>
       ),
     },
-    {
-      key: 'warehouse',
-      title: 'المستودع',
-      render: (row) => (
-        <button
-          type="button"
-          className="text-sm text-primary hover:underline"
-          onClick={() => router.push(inventoryAdminRoutes.warehouseDetail(row.warehouseId))}
-        >
-          {resolveWarehouseName(row)}
-        </button>
-      ),
-    },
+    ...(!embedded && !groupedByWarehouse
+      ? ([
+          {
+            key: 'warehouse',
+            title: 'المستودع',
+            render: (row: WarehouseLocation) => (
+              <button
+                type="button"
+                className="text-sm text-primary hover:underline"
+                onClick={() => router.push(inventoryAdminRoutes.warehouseDetail(row.warehouseId))}
+              >
+                {resolveWarehouseName(row)}
+              </button>
+            ),
+          },
+        ] satisfies ColumnDef<WarehouseLocation>[])
+      : []),
     {
       key: 'parent',
       title: 'الموقع الرئيسي',
@@ -340,36 +414,102 @@ export function LocationsListPage() {
       key: 'actions',
       title: '',
       isActions: true,
-      render: (row) => (
-        <>
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="تعديل الموقع"
-            onClick={() => setFormState({ open: true, location: row })}
-          >
-            <Pencil className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="حذف الموقع"
-            disabled={Boolean(row.isSystem)}
-            onClick={() => setToDelete(row)}
-          >
-            <Trash2 className="h-4 w-4 text-destructive" />
-          </Button>
-        </>
-      ),
+      render: (row) => locationRowActions(row),
     },
   ];
 
   return (
     <div className="flex flex-col gap-5">
-      <SetPageTitle titleAr="المواقع" iconName="MapPin" />
+      {!embedded ? <SetPageTitle titleAr="المواقع" iconName="MapPin" /> : null}
 
       {isError ? <p className="text-sm text-destructive">تعذر تحميل المواقع.</p> : null}
 
+      {groupedByWarehouse ? (
+        <div className="flex flex-col gap-2">
+          <p className="text-xs text-muted-foreground">
+            اضغط على المستودع لعرض مواقعه. موقع التخزين الافتراضي (داخلي) يظهر ملخصاً قبل التوسيع.
+          </p>
+          {isLoading ? <p className="text-sm text-muted-foreground">جاري تحميل المواقع…</p> : null}
+          {!isLoading && warehouseLocationGroups.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
+              لا توجد مواقع بعد. أضف موقعًا أو أنشئ مستودعًا.
+            </p>
+          ) : null}
+          {warehouseLocationGroups.map(({ warehouse, locations: warehouseLocations, defaultInternal }) => {
+            const expanded = expandedWarehouseIds.has(warehouse.id);
+            return (
+              <div key={warehouse.id} className="overflow-hidden rounded-xl border border-border bg-card">
+                <div className="flex flex-wrap items-center gap-2 px-2 py-2 sm:px-3">
+                  <button
+                    type="button"
+                    onClick={() => toggleWarehouseExpanded(warehouse.id)}
+                    className="flex min-w-0 flex-1 flex-wrap items-center gap-2 rounded-lg px-2 py-2 text-start transition-colors hover:bg-muted/40"
+                    aria-expanded={expanded}
+                  >
+                    <ChevronDown
+                      className={cn(
+                        'h-4 w-4 shrink-0 text-muted-foreground transition-transform',
+                        !expanded && '-rotate-90',
+                      )}
+                    />
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                      <Warehouse className="h-4 w-4" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-semibold text-foreground">{warehouse.nameAr}</span>
+                        <span className="text-xs text-muted-foreground" dir="ltr">
+                          {warehouse.code}
+                        </span>
+                        <Badge variant="secondary" className="text-[10px]">
+                          {warehouseLocations.length} موقع
+                        </Badge>
+                      </div>
+                      {!expanded && defaultInternal ? (
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          التخزين الافتراضي:{' '}
+                          <span className="font-medium text-foreground">{defaultInternal.nameAr}</span>
+                          <span className="mx-1" dir="ltr">
+                            ({defaultInternal.code})
+                          </span>
+                        </p>
+                      ) : null}
+                    </div>
+                  </button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="shrink-0 text-xs"
+                    onClick={() =>
+                      router.push(`${inventoryAdminRoutes.warehouseDetail(warehouse.id)}?tab=locations`)
+                    }
+                  >
+                    فتح المستودع
+                  </Button>
+                </div>
+                {expanded ? (
+                  <div className="border-t border-border bg-muted/10 p-2 sm:p-3">
+                    {warehouseLocations.length === 0 ? (
+                      <p className="px-2 py-4 text-center text-sm text-muted-foreground">لا توجد مواقع في هذا المستودع.</p>
+                    ) : (
+                      <DataTable
+                        variant="directory"
+                        className="inv-table-host"
+                        columns={columns}
+                        data={warehouseLocations}
+                        keyExtractor={(row) => row.id}
+                        loading={false}
+                        emptyText="لا توجد مواقع."
+                      />
+                    )}
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      ) : (
       <DirectoryPagedViews
         items={locations}
         loading={isLoading}
@@ -449,6 +589,7 @@ export function LocationsListPage() {
           />
         )}
       </DirectoryPagedViews>
+      )}
 
       <Dialog
         open={formState.open}

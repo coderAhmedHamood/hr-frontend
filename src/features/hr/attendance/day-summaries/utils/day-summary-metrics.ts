@@ -9,10 +9,10 @@ export function isoDurationMinutes(
   const startMs = new Date(startAt).getTime();
   const endMs = new Date(endAt).getTime();
   if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs <= startMs) return null;
-  return Math.round((endMs - startMs) / 60000);
+  return Math.floor((endMs - startMs) / 60000);
 }
 
-/** Raw punch span — الفارق بين أول حضور وآخر انصراف. */
+/** Raw punch span — الفارق بين أول حضور وآخر انصراف (يشمل الفجوات بين الفترات، وليس وقت العمل). */
 export function computePunchSpanMinutes(row: DaySummaryResponseDto): number | null {
   return isoDurationMinutes(row.actualCheckInAt, row.actualCheckOutAt);
 }

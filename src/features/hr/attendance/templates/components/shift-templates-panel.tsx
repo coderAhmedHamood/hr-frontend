@@ -274,6 +274,11 @@ export function ShiftTemplatesPanel() {
 
           {draft && (
             <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+              {isEdit && (
+                <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs leading-relaxed text-amber-700">
+                  تعديل الفترات يُطبَّق على الأيام السابقة أيضاً لكل الموظفين المرتبطين بهذا القالب — تتغيّر تفاصيل اليوم فوراً، أما ملخصات الأيام المحفوظة فلا تتغير حتى تُعاد الحسبة لها. لجدول جديد يبدأ من تاريخ لاحق أنشئ قالباً جديداً واربطه من ذلك التاريخ.
+                </div>
+              )}
               <ShiftTemplateDialogForm draft={draft} setDraft={setDraft} />
               {error && (
                 <div className="mt-4 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">

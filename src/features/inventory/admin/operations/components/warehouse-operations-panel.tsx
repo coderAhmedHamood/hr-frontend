@@ -7,6 +7,8 @@ import { Plus, Trash2 } from 'lucide-react';
 import { getInventoryCompanyId } from '@/features/inventory/lib/company-id';
 import { useWarehouseLocations } from '@/features/inventory/admin/locations/hooks/use-warehouse-locations';
 import { useWarehouseOperations } from '@/features/inventory/admin/operations/hooks/use-warehouse-operations';
+import { useOpenOperationProductReservations } from '@/features/inventory/admin/operations/hooks/use-open-operation-product-reservations';
+import { operationListLineTotals } from '@/features/inventory/admin/operations/lib/operation-list-line-totals';
 import { useWarehouseOperationMutations } from '@/features/inventory/admin/operations/hooks/use-warehouse-operation-mutations';
 import { WarehouseOperationDetailDialog } from '@/features/inventory/admin/operations/components/warehouse-operation-detail-dialog';
 import {
@@ -49,8 +51,19 @@ import {
   pickerUsesSourceLocationStock,
   type OperationLineDraft,
 } from '@/features/inventory/admin/operations/lib/operation-line-draft';
+import {
+  filterOperationFromLocations,
+  filterOperationToLocations,
+  pickDefaultFromLocationId,
+  pickDefaultToLocationId,
+} from '@/features/inventory/admin/operations/lib/operation-location-filters';
 import { toast } from 'sonner';
-import { formatDateTime } from '@/shared/utils';
+import { cn, formatDateTime } from '@/shared/utils';
+import { OperationFormSection } from '@/features/inventory/admin/operations/components/operation-form-section';
+import {
+  OperationLineCardShell,
+  OperationLineField,
+} from '@/features/inventory/admin/operations/components/operation-line-card-shell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -116,6 +129,9 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
   const [filterStatus, setFilterStatus] = React.useState<WarehouseOperationStatus | 'all'>('all');
   const [open, setOpen] = React.useState(false);
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
+  /** Until the list refetches, keep the create response so the detail dialog opens immediately. */
+  const [detailOperationFallback, setDetailOperationFallback] =
+    React.useState<WarehouseOperation | null>(null);
   const [toDelete, setToDelete] = React.useState<WarehouseOperation | null>(null);
   const [stockMode, setStockMode] = React.useState<StockLineMode>('product');
   const [variantQuantities, setVariantQuantities] = React.useState<Record<string, number>>({});
@@ -159,7 +175,12 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
     page,
     limit: pageSize,
   });
-  const { data: warehousesData } = useWarehouses({ companyId, limit: 100 });
+  const needsWarehouseDirectory =
+    showFilters || open || Boolean(selectedId) || meta.needsDestWarehouse || kind === 'transfer';
+  const { data: warehousesData } = useWarehouses(
+    { companyId, limit: 100 },
+    { enabled: Boolean(companyId && needsWarehouseDirectory) },
+  );
   const allWarehouses = warehousesData?.items ?? [];
   const items = data?.items ?? [];
   const total = data?.pagination.total ?? 0;
@@ -251,55 +272,104 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
     activeVariants,
   ]);
 
-  // Products already sitting in an unvalidated document of this kind — cannot be picked again.
-  const { data: openOperationsData } = useWarehouseOperations(
-    {
-      companyId,
-      warehouseId: effectiveWarehouseId || undefined,
-      kind,
-      page: 1,
-      limit: 500,
-    },
-    { enabled: open && Boolean(companyId && effectiveWarehouseId) },
-  );
+  // Products on draft/ready docs — one lightweight query instead of listing 500 ops + N line fetches.
+  const { data: openProductReservations } = useOpenOperationProductReservations({
+    companyId,
+    warehouseId: effectiveWarehouseId,
+    kind,
+    enabled: open && locationsReady && Boolean(companyId && effectiveWarehouseId),
+  });
 
   const takenProductIds = React.useMemo(() => {
     const taken = new Map<string, string>();
-    for (const operation of openOperationsData?.items ?? []) {
-      if (operation.status !== 'draft' && operation.status !== 'ready') continue;
-      for (const line of operation.lines) {
-        if (line.productId) taken.set(line.productId, operation.reference);
-      }
+    for (const row of openProductReservations ?? []) {
+      if (row.productId) taken.set(row.productId, row.operationReference);
     }
     return taken;
-  }, [openOperationsData?.items]);
+  }, [openProductReservations]);
 
   const takenProductIdList = React.useMemo(() => Array.from(takenProductIds.keys()), [takenProductIds]);
 
   const warehousesForDest = allWarehouses.filter((item) => item.id !== effectiveWarehouseId);
 
-  const { data: locationsData } = useWarehouseLocations({
-    companyId,
-    warehouseId: scopedToWarehouse ? warehouseId : effectiveWarehouseId || undefined,
-    page: 1,
-    limit: 200,
-  });
+  /** Locations/partners/reservations load only while create or detail dialog is open. */
+  const needsLocationQueries = open || Boolean(selectedId);
+  const sourceLocationsWarehouseId = scopedToWarehouse ? warehouseId : effectiveWarehouseId || undefined;
+
+  const { data: locationsData } = useWarehouseLocations(
+    {
+      companyId,
+      warehouseId: sourceLocationsWarehouseId,
+      page: 1,
+      limit: 200,
+    },
+    {
+      enabled: needsLocationQueries && Boolean(companyId && sourceLocationsWarehouseId),
+    },
+  );
   const locations = locationsData?.items ?? [];
 
-  const { data: allLocationsData } = useWarehouseLocations({
-    companyId: scopedToWarehouse ? '' : companyId,
-    page: 1,
-    limit: 500,
-  });
+  const { data: allLocationsData } = useWarehouseLocations(
+    {
+      companyId: scopedToWarehouse ? '' : companyId,
+      page: 1,
+      limit: 500,
+    },
+    { enabled: needsLocationQueries && open && !scopedToWarehouse && Boolean(companyId) },
+  );
 
-  const { data: destLocationsData } = useWarehouseLocations({
-    companyId,
-    warehouseId: destinationWarehouseId || undefined,
-    page: 1,
-    limit: 200,
-  });
+  const { data: destLocationsData } = useWarehouseLocations(
+    {
+      companyId,
+      warehouseId: destinationWarehouseId || undefined,
+      page: 1,
+      limit: 200,
+    },
+    { enabled: needsLocationQueries && Boolean(destinationWarehouseId) },
+  );
   const destLocations = destLocationsData?.items ?? [];
-  const toLocations = meta.needsDestWarehouse ? destLocations : locations;
+  // Source locations always come from the source warehouse (`locations`).
+  // Destination-only pool is `destLocations` — never mix them on the «from» picker.
+  const fromLocations = React.useMemo(
+    () => filterOperationFromLocations(kind, locations, toLocationId || undefined),
+    [kind, locations, toLocationId],
+  );
+
+  const toLocations = React.useMemo(() => {
+    const pool = meta.needsDestWarehouse ? destLocations : locations;
+    return filterOperationToLocations(kind, pool, fromLocationId || undefined);
+  }, [kind, meta.needsDestWarehouse, destLocations, locations, fromLocationId]);
+
+  // Pre-fill system stock bin (WH/Stock), customer, or adjustment locations when empty.
+  React.useEffect(() => {
+    if (!open || !effectiveWarehouseId) return;
+
+    const fromPool = locations;
+    const toPool = meta.needsDestWarehouse ? destLocations : locations;
+
+    if (meta.needsFrom && !form.getValues('fromLocationId')?.trim()) {
+      const fromId = pickDefaultFromLocationId(kind, fromPool);
+      if (fromId) form.setValue('fromLocationId', fromId);
+    }
+
+    if (meta.needsTo && !form.getValues('toLocationId')?.trim()) {
+      if (meta.needsDestWarehouse && !destinationWarehouseId) return;
+      const fromId = form.getValues('fromLocationId')?.trim() || undefined;
+      const toId = pickDefaultToLocationId(kind, toPool, { fromLocationId: fromId });
+      if (toId) form.setValue('toLocationId', toId);
+    }
+  }, [
+    open,
+    kind,
+    meta.needsFrom,
+    meta.needsTo,
+    meta.needsDestWarehouse,
+    effectiveWarehouseId,
+    destinationWarehouseId,
+    locations,
+    destLocations,
+    form,
+  ]);
 
   const locationNameById = React.useMemo(() => {
     const source = scopedToWarehouse
@@ -313,9 +383,28 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
     [allWarehouses],
   );
 
-  const selectedOperation = selectedId ? (items.find((item) => item.id === selectedId) ?? null) : null;
+  const selectedOperation = React.useMemo(() => {
+    if (!selectedId) return null;
+    return (
+      items.find((item) => item.id === selectedId) ??
+      (detailOperationFallback?.id === selectedId ? detailOperationFallback : null)
+    );
+  }, [selectedId, items, detailOperationFallback]);
+
+  React.useEffect(() => {
+    if (!selectedId || !detailOperationFallback) return;
+    if (items.some((item) => item.id === selectedId)) {
+      setDetailOperationFallback(null);
+    }
+  }, [selectedId, detailOperationFallback, items]);
 
   const { create, remove } = useWarehouseOperationMutations(effectiveWarehouseId || 'global', kind);
+
+  const openDraftAfterCreate = React.useCallback((created: WarehouseOperation) => {
+    setOpen(false);
+    setDetailOperationFallback(created);
+    setSelectedId(created.id);
+  }, []);
 
   // Standalone inventory pages (kind pages) get the shared topbar add-button + collapsible
   // filter bar pattern; the warehouse-detail embedded tab keeps its original inline toolbar
@@ -441,7 +530,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
       return;
     }
     if (meta.needsTo && !values.toLocationId?.trim()) {
-      toast.error('اختر موقع الوجهة قبل إضافة المنتجات.');
+      toast.error(kind === 'issue' ? 'اختر موقع العميل (الوجهة).' : 'اختر موقع الوجهة قبل إضافة المنتجات.');
       return;
     }
 
@@ -450,9 +539,19 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
       toLocationId: values.toLocationId || undefined,
     };
 
+    if (
+      meta.stockEffect === 'move' &&
+      lineLocations.fromLocationId &&
+      lineLocations.toLocationId &&
+      lineLocations.fromLocationId === lineLocations.toLocationId
+    ) {
+      toast.error('اختر موقعين مختلفين داخل نفس المستودع.');
+      return;
+    }
+
     if (multiProductMode) {
       if (hasDuplicateOperationLineProducts(lineDrafts)) {
-        toast.error('لا يمكن تكرار نفس المنتج في أكثر من سطر.');
+        toast.error('لا يمكن تكرار نفس المنتج/المتغير في أكثر من سطر.');
         return;
       }
       const lines = operationLineDraftsToLines(lineDrafts, lineLocations, {
@@ -462,14 +561,16 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
         toast.error('أضف صنفًا واحدًا على الأقل مع كمية أكبر من صفر.');
         return;
       }
-      if (
-        meta.stockEffect === 'move' &&
-        lineLocations.fromLocationId &&
-        lineLocations.toLocationId &&
-        lineLocations.fromLocationId === lineLocations.toLocationId
-      ) {
-        toast.error('اختر موقعين مختلفين داخل نفس المستودع.');
-        return;
+      for (const line of lines) {
+        const pid = line.productId?.trim();
+        if (!pid) continue;
+        const duplicateReference = takenProductIds.get(pid);
+        if (duplicateReference) {
+          toast.error(
+            `المنتج «${line.productName || pid}» مضاف بالفعل في مستند ${meta.labelAr} «${duplicateReference}» غير المصدَّق. عدّل ذلك المستند بدل إنشاء مستند مكرر.`,
+          );
+          return;
+        }
       }
       if (checksSourceStock && lineLocations.fromLocationId) {
         const issues = await collectStockShortages({
@@ -484,7 +585,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
           return;
         }
       }
-      await create.mutateAsync({
+      const created = await create.mutateAsync({
         companyId,
         warehouseId: sourceWh,
         kind,
@@ -497,7 +598,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
         destinationWarehouseId: values.destinationWarehouseId || undefined,
         lines,
       });
-      setOpen(false);
+      openDraftAfterCreate(created);
       return;
     }
 
@@ -566,7 +667,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
       }
     }
 
-    await create.mutateAsync({
+    const created = await create.mutateAsync({
       companyId,
       warehouseId: sourceWh,
       kind,
@@ -578,7 +679,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
       destinationWarehouseId: values.destinationWarehouseId || undefined,
       lines,
     });
-    setOpen(false);
+    openDraftAfterCreate(created);
   };
 
   const columns: ColumnDef<WarehouseOperation>[] = [
@@ -646,8 +747,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
       key: 'qty',
       title: 'الكمية',
       render: (row) => {
-        const demand = row.lines.reduce((sum, line) => sum + (line.demandQuantity ?? line.quantity), 0);
-        const actual = row.lines.reduce((sum, line) => sum + line.quantity, 0);
+        const { demand, actual } = operationListLineTotals(row);
         return <DemandActualChips demand={demand} actual={actual} actualLabel={actualQuantityLabel} />;
       },
     },
@@ -692,17 +792,25 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
       <WarehouseOperationDetailDialog
         open={Boolean(selectedId)}
         onOpenChange={(next) => {
-          if (!next) setSelectedId(null);
+          if (!next) {
+            setSelectedId(null);
+            setDetailOperationFallback(null);
+          }
         }}
         operation={selectedOperation}
       />
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className={`${dialogMaxHeightClass} ${multiProductMode ? 'max-w-2xl' : 'max-w-lg'} overflow-y-auto`}>
+        <DialogContent
+          className={cn(
+            dialogMaxHeightClass,
+            'flex max-h-[min(92vh,900px)] flex-col overflow-hidden max-w-[min(96vw,72rem)] sm:max-w-6xl',
+          )}
+        >
           <DialogHeader>
             <DialogTitle>{meta.createLabel}</DialogTitle>
             <DialogDescription>
-              يُنشأ المستند كمسودة، ثم يُحدَّد كجاهز ويُصدَّق من شاشة التفاصيل.
+              يُنشأ المستند كمسودة ثم تُفتح شاشة التفاصيل مباشرة لإكمال الجاهز والتصديق والحفظ.
             </DialogDescription>
           </DialogHeader>
           <form
@@ -714,15 +822,14 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
               }
               void form.handleSubmit(onSubmit)(e);
             }}
-            className="space-y-4"
+            className="flex min-h-0 flex-1 flex-col"
           >
-            <div className="space-y-1">
-              <h3 className="text-sm font-semibold text-foreground">المستودعات والمواقع</h3>
-              <p className="text-xs text-muted-foreground">
-                حدّد مصدر ووجهة الحركة أولًا قبل اختيار المنتجات.
-              </p>
-            </div>
-
+            <div className="min-h-0 flex-1 space-y-5 overflow-y-auto pe-1">
+              <OperationFormSection
+                title="المستودع والمواقع"
+                description="حدّد المستودع ومواقع الصرف/الاستلام قبل إضافة الأصناف."
+              >
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {!scopedToWarehouse ? (
               <div className="space-y-1.5">
                 <Label>{meta.needsDestWarehouse ? 'مستودع الصرف (المصدر)' : 'المستودع'}</Label>
@@ -780,7 +887,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
                   {kind === 'transfer'
                     ? 'موقع الصرف (المصدر)'
                     : kind === 'issue'
-                      ? 'موقع الصرف'
+                      ? 'موقع المخزون (من)'
                       : meta.stockEffect === 'move'
                         ? 'الموقع الحالي (من)'
                         : 'الموقع المصدر'}
@@ -809,7 +916,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
                         <SelectValue placeholder="اختر موقع المصدر أولًا" />
                       </SelectTrigger>
                       <SelectContent>
-                        {locations.map((location) => (
+                        {fromLocations.map((location) => (
                           <SelectItem key={location.id} value={location.id}>
                             {location.nameAr || location.code}
                             {location.code ? ` · ${location.code}` : ''}
@@ -855,15 +962,17 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
             {meta.needsTo ? (
               <div className="space-y-1.5">
                 <Label htmlFor="op-to">
-                  {meta.needsDestWarehouse
-                    ? 'موقع الاستلام (الوجهة)'
-                    : meta.stockEffect === 'inbound'
-                      ? 'موقع الاستلام'
-                      : meta.stockEffect === 'adjust_set'
-                        ? 'موقع المخزون'
-                        : meta.stockEffect === 'move'
-                          ? 'الموقع الجديد (إلى)'
-                          : 'الموقع الوجهة'}
+                  {kind === 'issue'
+                    ? 'موقع العميل (إلى)'
+                    : meta.needsDestWarehouse
+                      ? 'موقع الاستلام (الوجهة)'
+                      : meta.stockEffect === 'inbound'
+                        ? 'موقع الاستلام'
+                        : meta.stockEffect === 'adjust_set'
+                          ? 'موقع المخزون'
+                          : meta.stockEffect === 'move'
+                            ? 'الموقع الجديد (إلى)'
+                            : 'الموقع الوجهة'}
                 </Label>
                 <Controller
                   control={form.control}
@@ -917,19 +1026,26 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
             ) : null}
 
             {!locationsReady && (meta.needsFrom || meta.needsTo) ? (
-              <p className="rounded-lg border border-dashed border-border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                حدّد المواقع أعلاه أولًا، ثم اختر المنتجات.
+              <p className="sm:col-span-2 lg:col-span-3 rounded-lg border border-dashed border-border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                أكمل حقول المواقع المطلوبة لتفعيل اختيار الأصناف.
               </p>
             ) : null}
+                </div>
+              </OperationFormSection>
 
-            <div className="space-y-1 border-t border-border pt-4">
-              <h3 className="text-sm font-semibold text-foreground">المنتجات والكميات</h3>
-              <p className="text-xs text-muted-foreground">
-                {pickerUsesSourceLocationStock(kind)
-                  ? 'تظهر فقط المنتجات التي لها رصيد في موقع الصرف المحدد.'
-                  : 'اختر المنتجات بعد اكتمال تحديد المستودعات والمواقع.'}
-              </p>
-            </div>
+              <OperationFormSection
+                title="المنتجات والكميات"
+                description={
+                  pickerUsesSourceLocationStock(kind)
+                    ? 'تظهر فقط المنتجات التي لها رصيد في موقع الصرف المحدد.'
+                    : 'أضف الأصناف والكميات (وتكلفة الشراء عند الاستلام).'
+                }
+              >
+                {!locationsReady ? (
+                  <p className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-900 dark:text-amber-200">
+                    أكمل «المستودع والمواقع» أعلاه قبل إضافة الأصناف.
+                  </p>
+                ) : null}
 
             {multiProductMode ? (
               <WarehouseOperationLinesEditor
@@ -939,13 +1055,17 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
                 fromLocationId={fromLocationId || undefined}
                 checksSourceStock={checksSourceStock}
                 restrictToSourceLocation={pickerUsesSourceLocationStock(kind)}
+                excludeProductIds={takenProductIdList}
                 needsUnitCost={lineNeedsUnitCost(meta.stockEffect)}
                 disabled={!locationsReady}
               />
             ) : (
-              <div className="inv-form-grid">
-                <div className="space-y-1.5">
-                  <Label>المنتج</Label>
+              <OperationLineCardShell
+                index={0}
+                title={form.watch('productName') || undefined}
+                subtitle={form.watch('sku') || undefined}
+              >
+                <OperationLineField label="المنتج" fullWidth>
                   <Controller
                     control={form.control}
                     name="productId"
@@ -982,30 +1102,37 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
                   {selectedProductId && isLoadingSelectedProduct ? (
                     <p className="text-xs text-muted-foreground">جاري تحميل المتغيرات…</p>
                   ) : null}
-                </div>
+                </OperationLineField>
                 {isCountLike ? (
-                  <div className="space-y-1.5">
-                    <Label htmlFor="op-theo">الكمية النظامية</Label>
+                  <OperationLineField label="الكمية النظامية" htmlFor="op-theo">
                     <Input
                       id="op-theo"
                       type="number"
                       min={0}
                       step={1}
                       dir="ltr"
+                      className="h-10"
                       disabled={!locationsReady}
                       {...form.register('theoreticalQuantity', { valueAsNumber: true })}
                     />
-                  </div>
+                  </OperationLineField>
                 ) : stockMode === 'product' || !hasActiveVariants ? (
-                  <div className="space-y-1.5">
-                    <Label htmlFor="op-qty">الكمية</Label>
+                  <OperationLineField
+                    label="الكمية"
+                    htmlFor="op-qty"
+                    hint={
+                      tracksSourceAvailability && sourceAvailable != null
+                        ? `المتاح في الموقع: ${sourceAvailable}`
+                        : undefined
+                    }
+                  >
                     <Controller
                       control={form.control}
                       name="quantity"
                       render={({ field }) => (
                         <FlexibleQuantityInput
                           id="op-qty"
-                          className="w-full"
+                          className="h-10 w-full max-w-none"
                           value={field.value ?? 0}
                           max={tracksSourceAvailability ? sourceAvailable : null}
                           disabled={!locationsReady || !selectedProductId}
@@ -1013,22 +1140,16 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
                         />
                       )}
                     />
-                    {tracksSourceAvailability && sourceAvailable != null ? (
-                      <p className="text-xs text-muted-foreground">
-                        المتاح في الموقع: {sourceAvailable}
-                      </p>
-                    ) : null}
                     {form.formState.errors.quantity ? (
                       <p className="text-xs text-destructive">{form.formState.errors.quantity.message}</p>
                     ) : null}
-                  </div>
+                  </OperationLineField>
                 ) : (
-                  <div className="space-y-1.5">
-                    <Label>الكمية</Label>
-                    <p className="pt-2 text-xs text-muted-foreground">أدخل الكميات أسفل لكل متغير</p>
-                  </div>
+                  <OperationLineField label="الكمية" hint="أدخل الكميات في جدول المتغيرات بالأسفل">
+                    <p className="text-sm text-muted-foreground">حسب المتغيرات</p>
+                  </OperationLineField>
                 )}
-              </div>
+              </OperationLineCardShell>
             )}
 
             {!multiProductMode && hasActiveVariants ? (
@@ -1126,64 +1247,65 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
                 ) : null}
               </div>
             ) : null}
+              </OperationFormSection>
 
-            <div className="space-y-1 border-t border-border pt-4">
-              <h3 className="text-sm font-semibold text-foreground">تفاصيل المستند</h3>
-              <p className="text-xs text-muted-foreground">
-                أكمل البيانات الإضافية بعد تحديد حركة المخزون.
-              </p>
-            </div>
+              <OperationFormSection
+                title="تفاصيل المستند"
+                description="التاريخ، الطرف، المستند المصدر، والملاحظات."
+              >
+                <div className="space-y-4">
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="op-date">التاريخ</Label>
+                      <Input id="op-date" type="datetime-local" dir="ltr" className="h-10" {...form.register('occurredAt')} />
+                    </div>
+                    <div className="space-y-1.5 lg:col-span-2">
+                      <Label htmlFor="op-source">المستند المصدر</Label>
+                      <Input id="op-source" className="h-10" {...form.register('sourceDocument')} placeholder="اختياري" />
+                    </div>
+                  </div>
 
-            <div className="inv-form-grid">
-              <div className="space-y-1.5">
-                <Label htmlFor="op-date">التاريخ</Label>
-                <Input id="op-date" type="datetime-local" dir="ltr" {...form.register('occurredAt')} />
-              </div>
-            </div>
-
-            <div className="inv-form-grid">
-              <div className="space-y-1.5">
-                <Label htmlFor="op-partner">
-                  {kind === 'issue'
-                    ? 'الصرف إلى'
-                    : kind === 'receipt' || kind === 'purchase' || kind === 'replenishment'
-                      ? 'الاستلام من'
-                      : 'الطرف'}
-                </Label>
-                <Controller
-                  control={form.control}
-                  name="partnerId"
-                  render={({ field }) => (
-                    <PartnerSinglePicker
-                      companyId={companyId}
-                      value={field.value || ''}
-                      onChange={field.onChange}
-                      onPartnerSelect={(partner) => form.setValue('partnerName', partner.displayName)}
-                      placeholder="اختر جهة اتصال (اختياري)"
-                      aria-label="op-partner"
+                  <div className="space-y-2 rounded-xl border border-border/80 bg-muted/10 p-3 sm:p-4">
+                    <Label htmlFor="op-partner">
+                      {kind === 'issue'
+                        ? 'الصرف إلى'
+                        : kind === 'receipt' || kind === 'purchase' || kind === 'replenishment'
+                          ? 'الاستلام من'
+                          : 'الطرف'}
+                    </Label>
+                    <Controller
+                      control={form.control}
+                      name="partnerId"
+                      render={({ field }) => (
+                        <PartnerSinglePicker
+                          companyId={companyId}
+                          value={field.value || ''}
+                          onChange={field.onChange}
+                          onPartnerSelect={(partner) => form.setValue('partnerName', partner.displayName)}
+                          placeholder="اختر جهة اتصال (اختياري)"
+                          deferSearchUntilOpen
+                          aria-label="op-partner"
+                        />
+                      )}
                     />
-                  )}
-                />
-                <Input
-                  id="op-partner"
-                  {...form.register('partnerName')}
-                  placeholder="أو اكتب اسمًا يدويًا إن لم تجد جهة الاتصال"
-                  className="mt-1.5"
-                  disabled={Boolean(form.watch('partnerId'))}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="op-source">المستند المصدر</Label>
-                <Input id="op-source" {...form.register('sourceDocument')} placeholder="اختياري" />
-              </div>
+                    <Input
+                      id="op-partner-manual"
+                      {...form.register('partnerName')}
+                      placeholder="أو اكتب اسمًا يدويًا إن لم تجد جهة الاتصال"
+                      className="h-10 bg-background"
+                      disabled={Boolean(form.watch('partnerId'))}
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="op-notes">ملاحظات</Label>
+                    <Textarea id="op-notes" className="min-h-[88px] resize-none" {...form.register('notes')} />
+                  </div>
+                </div>
+              </OperationFormSection>
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="op-notes">ملاحظات</Label>
-              <Textarea id="op-notes" className="min-h-[72px] resize-none" {...form.register('notes')} />
-            </div>
-
-            <DialogFooter>
+            <DialogFooter className="mt-3 shrink-0 border-t border-border pt-3">
               <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={create.isPending}>
                 إلغاء
               </Button>
