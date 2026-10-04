@@ -10,8 +10,8 @@ import {
   type CatalogPickerCategory,
   type CatalogPickerProduct,
 } from '@/features/ecommerce/admin/cms/homepage/lib/catalog-picker-actions';
-import { useProducts } from '@/features/ecommerce/admin/products/hooks/use-products';
-import { ProductLabel } from '@/features/ecommerce/admin/products/components/product-label';
+import { useProducts } from '@/features/catalog/products/hooks/use-products';
+import { ProductLabel } from '@/features/catalog/products/components/product-label';
 import type { Product } from '@/features/ecommerce/domain/types/product';
 import { useDebouncedValue } from '@/shared/hooks/use-debounced-value';
 import { Input } from '@/components/ui/input';

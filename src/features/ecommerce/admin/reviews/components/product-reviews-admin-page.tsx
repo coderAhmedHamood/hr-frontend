@@ -33,8 +33,8 @@ import {
 import type {
   ProductReviewStatus,
 } from '@/features/ecommerce/admin/reviews/lib/api/product-reviews-api';
-import { ProductSinglePicker } from '@/features/ecommerce/admin/products/components/product-single-picker';
-import { ProductLabel } from '@/features/ecommerce/admin/products/components/product-label';
+import { ProductSinglePicker } from '@/features/catalog/products/components/product-single-picker';
+import { ProductLabel } from '@/features/catalog/products/components/product-label';
 import { useCan } from '@/features/auth/hooks/use-can';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
 

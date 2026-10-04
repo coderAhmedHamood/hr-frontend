@@ -9,7 +9,7 @@ import type {
 import {
   mapCategory,
   type CategoryDto,
-} from '@/features/ecommerce/admin/categories/lib/api/categories';
+} from '@/features/catalog/categories/lib/api/categories';
 import { logStorefrontApi } from '@/features/ecommerce/storefront/lib/debug-storefront-api';
 import { storefrontPublicFetchInit } from '@/features/ecommerce/storefront/lib/api/store-http';
 import { mapStorefrontCategories, mapStorefrontCategory } from '@/features/ecommerce/storefront/lib/mappers/category-mapper';

@@ -54,7 +54,7 @@ import {
   dialogShellContentClass,
   dialogShellHeaderClass,
 } from '@/components/ui/dialog';
-import { ProductSinglePicker } from '@/features/ecommerce/admin/products/components/product-single-picker';
+import { ProductSinglePicker } from '@/features/catalog/products/components/product-single-picker';
 import { FlexibleQuantityInput } from '@/features/inventory/admin/operations/components/flexible-quantity-input';
 import {
   LocationChip,

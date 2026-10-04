@@ -30,7 +30,7 @@ import {
   STORE_CURRENCY_MISMATCH_ERROR,
   isProductStoreCurrencyMismatch,
 } from '@/features/ecommerce/domain/constants/store-currency';
-import { patchProductStoreCurrency } from '@/features/ecommerce/admin/products/lib/api/products';
+import { patchProductStoreCurrency } from '@/features/catalog/products/lib/api/products';
 
 type StorePaginatedMeta = {
   page: number;

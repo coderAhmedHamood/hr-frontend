@@ -24,8 +24,8 @@ import type {
   WarehouseOperationStatus,
 } from '@/features/inventory/domain/types/warehouse';
 import { useWarehouses } from '@/features/inventory/admin/warehouses/hooks/use-warehouses';
-import { useProduct } from '@/features/ecommerce/admin/products/hooks/use-products';
-import { ProductSinglePicker } from '@/features/ecommerce/admin/products/components/product-single-picker';
+import { useProduct } from '@/features/catalog/products/hooks/use-products';
+import { ProductSinglePicker } from '@/features/catalog/products/components/product-single-picker';
 import { PartnerSinglePicker } from '@/features/contacts/admin/partners/components/partner-single-picker';
 import { WarehouseOperationLinesEditor } from '@/features/inventory/admin/operations/components/warehouse-operation-lines-editor';
 import { FlexibleQuantityInput } from '@/features/inventory/admin/operations/components/flexible-quantity-input';

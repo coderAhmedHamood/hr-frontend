@@ -9,16 +9,16 @@ import * as React from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Plus } from 'lucide-react';
 import { getInventoryCompanyId } from '@/features/inventory/lib/company-id';
-import { useCategories } from '@/features/ecommerce/admin/categories/hooks/use-categories';
-import { ProductSinglePicker } from '@/features/ecommerce/admin/products/components/product-single-picker';
-import { ProductLabel } from '@/features/ecommerce/admin/products/components/product-label';
+import { useCategories } from '@/features/catalog/categories/hooks/use-categories';
+import { ProductSinglePicker } from '@/features/catalog/products/components/product-single-picker';
+import { ProductLabel } from '@/features/catalog/products/components/product-label';
 import { useWarehouses } from '@/features/inventory/admin/warehouses/hooks/use-warehouses';
 import {
   usePutawayLocationOptions,
   usePutawayRuleMutations,
   usePutawayRules,
 } from '@/features/inventory/admin/putaway-rules/hooks/use-putaway-rules';
-import { PACKAGING_TYPE_OPTIONS } from '@/features/ecommerce/admin/products/schemas/product-schema';
+import { PACKAGING_TYPE_OPTIONS } from '@/features/catalog/products/schemas/product-schema';
 import type { PackagingType } from '@/features/ecommerce/domain/types/product';
 import type { PutawayAppliesTo } from '@/features/inventory/domain/types/putaway-rule';
 import { Button } from '@/components/ui/button';

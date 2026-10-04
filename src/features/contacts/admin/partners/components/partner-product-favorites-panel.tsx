@@ -20,8 +20,8 @@ import {
   useDeleteProductFavorite,
   useProductFavorites,
 } from '@/features/ecommerce/admin/favorites/hooks/use-product-favorites';
-import { ProductSinglePicker } from '@/features/ecommerce/admin/products/components/product-single-picker';
-import { ProductLabel } from '@/features/ecommerce/admin/products/components/product-label';
+import { ProductSinglePicker } from '@/features/catalog/products/components/product-single-picker';
+import { ProductLabel } from '@/features/catalog/products/components/product-label';
 import { ecommerceAdminRoutes } from '@/features/ecommerce/admin/constants/routes';
 
 const FAVORITES_READ = 'inv.catalog.product-favorites.read';

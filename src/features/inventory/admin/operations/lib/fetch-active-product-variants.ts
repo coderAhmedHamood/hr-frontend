@@ -1,4 +1,4 @@
-import { productsApi } from '@/features/ecommerce/admin/products/lib/api/products';
+import { productsApi } from '@/features/catalog/products/lib/api/products';
 import type { ProductVariant } from '@/features/ecommerce/domain/types/product';
 
 export async function fetchActiveProductVariants(

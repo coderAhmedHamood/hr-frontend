@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { Plus, Trash2 } from 'lucide-react';
-import { ProductSinglePicker } from '@/features/ecommerce/admin/products/components/product-single-picker';
+import { ProductSinglePicker } from '@/features/catalog/products/components/product-single-picker';
 import { inventoryStockService } from '@/features/inventory/services/inventory-stock.service';
 import {
   emptyOperationLineDraft,

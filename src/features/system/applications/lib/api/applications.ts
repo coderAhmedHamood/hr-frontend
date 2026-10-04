@@ -159,7 +159,22 @@ export function resolveStorefrontLaunchPath(routePath?: string | null): string {
   return home;
 }
 
-export function resolveApplicationLaunchPath(app: ApplicationResponseDto): string {
+/** Apps enabled for the active company, when the caller knows them. */
+export type LaunchAppsContext = { store?: boolean; inventory?: boolean };
+
+/**
+ * Products (catalog) has no screens of its own yet: it opens the products
+ * screens of the store, else of inventory (phase 2.5).
+ */
+export function resolveCatalogLaunchPath(enabled?: LaunchAppsContext): string {
+  if (enabled?.store === false && enabled.inventory) return inventoryAdminRoutes.products;
+  return ecommerceAdminRoutes.products;
+}
+
+export function resolveApplicationLaunchPath(
+  app: ApplicationResponseDto,
+  enabled?: LaunchAppsContext,
+): string {
   const code = normalizeAppCode(app.code);
   const base = app.routePath?.trim() ?? '';
 
@@ -181,6 +196,7 @@ export function resolveApplicationLaunchPath(app: ApplicationResponseDto): strin
     return ecommerceAdminRoutes.orders;
   }
 
+  if (code === 'catalog') return resolveCatalogLaunchPath(enabled);
   if (code === 'inventory') return inventoryAdminRoutes.overview;
   if (isStoreStockSyncApplicationCode(code)) {
     return base || inventoryAdminRoutes.pos;

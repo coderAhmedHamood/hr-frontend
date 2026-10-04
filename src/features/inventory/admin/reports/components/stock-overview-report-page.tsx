@@ -9,7 +9,7 @@ import { getInventoryCompanyId } from '@/features/inventory/lib/company-id';
 import { useLocationStockList } from '@/features/inventory/admin/hooks/use-product-on-hand';
 import { useWarehouses } from '@/features/inventory/admin/warehouses/hooks/use-warehouses';
 import { useWarehouseLocations } from '@/features/inventory/admin/locations/hooks/use-warehouse-locations';
-import { useProducts } from '@/features/ecommerce/admin/products/hooks/use-products';
+import { useProducts } from '@/features/catalog/products/hooks/use-products';
 import { Badge } from '@/components/ui/badge';
 import { DataTable, usePagination, type ColumnDef } from '@/components/ui/data-table';
 import { DirectoryPagedViews, DEFAULT_PAGE_SIZE } from '@/components/ui/paged-list';

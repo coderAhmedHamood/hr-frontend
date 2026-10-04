@@ -1,4 +1,4 @@
-import { ProductDetailPage } from '@/features/ecommerce/admin/products/components/product-detail-page';
+import { ProductDetailPage } from '@/features/catalog';
 
 type Props = { params: Promise<{ id: string }> };
 

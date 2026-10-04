@@ -12,7 +12,7 @@ import {
   useOrderFulfillmentMutations,
   useProductStockAvailability,
 } from '@/features/ecommerce/admin/orders/hooks/use-orders';
-import { productsApi } from '@/features/ecommerce/admin/products/lib/api/products';
+import { productsApi } from '@/features/catalog/products/lib/api/products';
 import { formatPrice } from '@/features/ecommerce/shared/utils/format-price';
 import { ORDER_LINE_SHIP_STATUS_LABELS_AR } from '@/features/ecommerce/domain/constants/order-status';
 import type { Order, OrderLineItem, OrderLineShipStatus } from '@/features/ecommerce/domain/types/order';

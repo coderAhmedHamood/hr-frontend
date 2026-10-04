@@ -10,7 +10,7 @@ import type { MediaItem } from '@/features/ecommerce/domain/types/common';
 import {
   buildCombinationKey,
   buildLabelCombinationKey,
-} from '@/features/ecommerce/admin/products/lib/product-variants';
+} from '@/features/catalog/products/lib/product-variants';
 import { AddToCartButton } from '@/features/ecommerce/storefront/components/catalog/add-to-cart-button';
 import { QuantitySelector } from '@/features/ecommerce/storefront/components/catalog/quantity-selector';
 import { ProductPrice } from '@/features/ecommerce/storefront/components/catalog/product-price';

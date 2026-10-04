@@ -1,5 +1,5 @@
 import { locationStockApi } from '@/features/inventory/admin/stock/lib/api/location-stock';
-import { productsApi } from '@/features/ecommerce/admin/products/lib/api/products';
+import { productsApi } from '@/features/catalog/products/lib/api/products';
 import { inventoryLedgerApi } from '@/features/inventory/admin/operations/lib/api/inventory-ledger';
 import type { InventoryLedgerEntry } from '@/features/inventory/domain/types/inventory-ledger';
 import type { WarehouseOperation, WarehouseOperationLine } from '@/features/inventory/domain/types/warehouse';

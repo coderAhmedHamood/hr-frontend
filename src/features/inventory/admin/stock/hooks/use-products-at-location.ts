@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { locationStockApi } from '@/features/inventory/admin/stock/lib/api/location-stock';
-import type { ProductOption } from '@/features/ecommerce/admin/products/lib/api/product-options';
+import type { ProductOption } from '@/features/catalog/products/lib/api/product-options';
 
 export type LocationProductOption = ProductOption & {
   available: number;

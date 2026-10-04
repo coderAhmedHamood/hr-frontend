@@ -1,4 +1,4 @@
-import { productsApi } from '@/features/ecommerce/admin/products/lib/api/products';
+import { productsApi } from '@/features/catalog/products/lib/api/products';
 import { storefrontProductsRepository } from '@/features/ecommerce/storefront/lib/repositories/products-repository';
 import { storefrontPageRepository } from '@/features/ecommerce/storefront/page-builder/lib/repositories/page-repository';
 

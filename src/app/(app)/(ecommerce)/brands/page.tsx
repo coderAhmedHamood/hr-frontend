@@ -1,4 +1,4 @@
-import { BrandsListPage } from '@/features/ecommerce/admin/brands/components/brands-list-page';
+import { BrandsListPage } from '@/features/catalog';
 
 export default function Page() {
   return <BrandsListPage />;

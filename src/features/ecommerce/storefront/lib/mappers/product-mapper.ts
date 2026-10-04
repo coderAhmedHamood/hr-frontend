@@ -2,7 +2,7 @@ import type { Product } from '@/features/ecommerce/domain/types/product';
 import type { StorefrontProduct } from '@/features/ecommerce/storefront/domain/storefront-models';
 import type { StorefrontLocale } from '@/i18n/routing';
 import { resolveLocalizedText, type LocalizableString } from '@/features/ecommerce/storefront/domain/localizable';
-import { cheapestActiveVariant } from '@/features/ecommerce/admin/products/lib/product-variants';
+import { cheapestActiveVariant } from '@/features/catalog/products/lib/product-variants';
 import { resolveUploadUrl } from '@/shared/resolve-upload-url';
 import type { MediaItem } from '@/features/ecommerce/domain/types/common';
 

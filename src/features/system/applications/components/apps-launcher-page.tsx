@@ -18,6 +18,8 @@ import {
   resolveApplicationTileClass,
 } from '@/features/system/applications/lib/application-tile-config';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
+import { useModuleEnablementContext } from '@/features/auth/hooks/use-system-owner';
+import { isModuleEnabledFor } from '@/shared/modules/registry';
 
 function AppTile({
   app,
@@ -28,7 +30,13 @@ function AppTile({
 }) {
   const Icon = resolveApplicationIcon(app);
   const externalUrl = resolveApplicationExternalUrl(app);
-  const href = externalUrl ?? resolveApplicationLaunchPath(app);
+  const { companyId, ...moduleContext } = useModuleEnablementContext();
+  const href =
+    externalUrl ??
+    resolveApplicationLaunchPath(app, {
+      store: isModuleEnabledFor('ecommerce', companyId, moduleContext),
+      inventory: isModuleEnabledFor('inventory', companyId, moduleContext),
+    });
 
   return (
     <OdooAppTile

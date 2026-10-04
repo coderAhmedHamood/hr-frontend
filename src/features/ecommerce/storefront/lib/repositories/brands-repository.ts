@@ -9,7 +9,7 @@ import type {
 import {
   mapBrand,
   type BrandDto,
-} from '@/features/ecommerce/admin/brands/lib/api/brands';
+} from '@/features/catalog/brands/lib/api/brands';
 import { logStorefrontApi } from '@/features/ecommerce/storefront/lib/debug-storefront-api';
 import { storefrontPublicFetchInit } from '@/features/ecommerce/storefront/lib/api/store-http';
 import { mapStorefrontBrand, mapStorefrontBrands } from '@/features/ecommerce/storefront/lib/mappers/brand-mapper';

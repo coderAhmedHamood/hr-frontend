@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { AttributesListPage } from '@/features/ecommerce/admin/attributes/components/attributes-list-page';
+import { AttributesListPage } from '@/features/catalog';
 
 export default function Page() {
   return (

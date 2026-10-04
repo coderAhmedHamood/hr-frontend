@@ -213,3 +213,34 @@ describe('enrichLauncherApplications', () => {
     expect(apps.some((app) => app.code === 'pos' || app.code === 'store-stock-sync')).toBe(false);
   });
 });
+
+describe('resolveApplicationLaunchPath — catalog (phase 2.5)', () => {
+  const catalogApp: ApplicationResponseDto = {
+    id: 'catalog-1',
+    code: 'catalog',
+    nameAr: 'المنتجات',
+    nameEn: 'Products',
+    description: null,
+    icon: 'package',
+    routePath: '/products',
+    sortOrder: 2,
+    isActive: true,
+    status: 'active',
+  };
+
+  it('opens the store products screens when the store is enabled (or unknown)', () => {
+    expect(resolveApplicationLaunchPath(catalogApp)).toBe('/products');
+    expect(resolveApplicationLaunchPath(catalogApp, { store: true, inventory: true })).toBe('/products');
+  });
+
+  it('opens the inventory products screens when only inventory is enabled', () => {
+    expect(resolveApplicationLaunchPath(catalogApp, { store: false, inventory: true })).toBe(
+      '/inventory/products',
+    );
+  });
+
+  it('falls back to /products when neither app is enabled', () => {
+    expect(resolveApplicationLaunchPath(catalogApp, { store: false, inventory: false })).toBe('/products');
+  });
+});
+

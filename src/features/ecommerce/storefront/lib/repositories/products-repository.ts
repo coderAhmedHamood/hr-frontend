@@ -14,7 +14,7 @@ import { storefrontPublicFetchInit } from '@/features/ecommerce/storefront/lib/a
 import { mapStorefrontProduct, mapStorefrontProducts } from '@/features/ecommerce/storefront/lib/mappers/product-mapper';
 import { STORE_CURRENCY_CODE } from '@/features/ecommerce/domain/constants/store-currency';
 import { resolveStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
-import { productsApi } from '@/features/ecommerce/admin/products/lib/api/products';
+import { productsApi } from '@/features/catalog/products/lib/api/products';
 import { toNumber, toOptionalNumber } from '@/features/inventory/lib/api/numbers';
 import { mapProductStockDto, type ProductStockDto } from '@/features/inventory/admin/stock/lib/api/inventory-stock-api';
 import type { ProductStockSnapshot } from '@/features/inventory/domain/types/product-stock';

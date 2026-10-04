@@ -9,7 +9,14 @@
  * module only controls whether its nav/routes/permissions are exposed to a given company.
  */
 
-export type ModuleId = 'auth' | 'system' | 'hr' | 'ecommerce' | 'inventory' | 'contacts';
+export type ModuleId =
+  | 'auth'
+  | 'system'
+  | 'hr'
+  | 'catalog'
+  | 'ecommerce'
+  | 'inventory'
+  | 'contacts';
 
 export type ModuleDefinition = {
   id: ModuleId;
@@ -24,6 +31,8 @@ export const MODULE_REGISTRY: Record<ModuleId, ModuleDefinition> = {
   auth: { id: 'auth', labelAr: 'الدخول', installable: false, applicationCodes: [] },
   system: { id: 'system', labelAr: 'النظام', installable: false, applicationCodes: ['system'] },
   hr: { id: 'hr', labelAr: 'الموارد البشرية', installable: true, applicationCodes: ['hr'] },
+  /** Products (phase 2): inventory and the store depend on it. */
+  catalog: { id: 'catalog', labelAr: 'المنتجات', installable: true, applicationCodes: ['catalog'] },
   ecommerce: {
     id: 'ecommerce',
     labelAr: 'إدارة المتجر',
