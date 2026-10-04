@@ -72,6 +72,7 @@ import type {
   PartnerRelationType,
 } from '@/features/contacts/domain/types/partner';
 import { cn, formatDateTime } from '@/shared/utils';
+import { resolveUploadUrl } from '@/shared/resolve-upload-url';
 
 type Props = { partnerId: string };
 
@@ -892,7 +893,7 @@ export function PartnerDetailPage({ partnerId }: Props) {
                   <div className="min-w-0 space-y-1">
                     <p className="truncate text-sm font-medium">{file.label || file.fileName}</p>
                     <a
-                      href={file.fileUrl}
+                      href={resolveUploadUrl(file.fileUrl)}
                       target="_blank"
                       rel="noreferrer"
                       className="block truncate text-xs text-primary underline-offset-2 hover:underline"

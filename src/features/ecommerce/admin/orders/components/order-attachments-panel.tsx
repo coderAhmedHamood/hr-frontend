@@ -25,6 +25,7 @@ import {
 } from '@/features/ecommerce/domain/lib/order-attachments';
 import type { Order } from '@/features/ecommerce/domain/types/order';
 import { cn, formatDisplayDateTime } from '@/shared/utils';
+import { resolveUploadUrl } from '@/shared/resolve-upload-url';
 
 const ORDERS_UPDATE_PERMISSION = 'sta.orders.update';
 
@@ -197,7 +198,7 @@ export function OrderAttachmentsPanel({
                 )}
               >
                 <a
-                  href={attachment.fileUrl}
+                  href={resolveUploadUrl(attachment.fileUrl)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="shrink-0"
@@ -206,7 +207,7 @@ export function OrderAttachmentsPanel({
                   {isImage ? (
                     // eslint-disable-next-line @next/next/no-img-element -- data URLs + arbitrary hosts
                     <img
-                      src={attachment.fileUrl}
+                      src={resolveUploadUrl(attachment.fileUrl)}
                       alt=""
                       className="h-12 w-12 rounded-lg border border-border object-cover"
                     />
@@ -264,7 +265,7 @@ export function OrderAttachmentsPanel({
                   </button>
                 ) : null}
                 <a
-                  href={attachment.fileUrl}
+                  href={resolveUploadUrl(attachment.fileUrl)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="shrink-0 rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"

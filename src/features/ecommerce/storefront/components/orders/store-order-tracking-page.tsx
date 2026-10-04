@@ -27,6 +27,7 @@ import type {
 } from '@/features/ecommerce/storefront/domain/checkout';
 import { Link } from '@/i18n/navigation';
 import { cn, formatDisplayDate, formatDisplayDateTime } from '@/shared/utils';
+import { resolveUploadUrl } from '@/shared/resolve-upload-url';
 
 type Props = {
   order: StorefrontCustomerOrder;
@@ -292,7 +293,7 @@ export function StoreOrderTrackingPage({ order }: Props) {
               return (
                 <li key={attachment.id}>
                   <a
-                    href={attachment.fileUrl}
+                    href={resolveUploadUrl(attachment.fileUrl)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-3 rounded-2xl border border-border/70 bg-muted/15 p-3 transition-colors hover:border-primary/40"
@@ -300,7 +301,7 @@ export function StoreOrderTrackingPage({ order }: Props) {
                     {isImageMime(attachment.mimeType) ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
-                        src={attachment.fileUrl}
+                        src={resolveUploadUrl(attachment.fileUrl)}
                         alt=""
                         className="h-14 w-14 shrink-0 rounded-xl border border-border object-cover"
                       />
