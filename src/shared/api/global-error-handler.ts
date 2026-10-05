@@ -52,15 +52,53 @@ function translateKnownBackendMessage(rawMessage: string): string | null {
     return 'يوجد طلب تفعيل قيد الانتظار لهذا التطبيق.';
   }
   // Phase 4: the store–inventory link (store-stock-sync).
-  const openReservations = /^(\d+) open reservation\(s\) of store orders/.exec(lower);
-  if (openReservations) {
-    return `لا يمكن تعطيل ربط المتجر بالمخازن: ${openReservations[1]} حجز مفتوح لطلبات المتجر. اشحن هذه الطلبات أو ألغها أولاً.`;
-  }
   if (lower.includes('inventory is not available right now')) {
     return 'تعذّر الوصول إلى المخازن الآن، ولم يُنفَّذ الإجراء. أعد المحاولة بعد قليل.';
   }
   if (lower.includes('store–inventory link is not enabled')) {
     return 'ربط المتجر بالمخازن غير مفعّل لهذه الشركة.';
+  }
+  if (lower.includes('start draining the store–inventory link')) {
+    return 'ابدأ تصريف ربط المتجر بالمخازن أولاً (من إعدادات المتجر ← المخازن والمتجر)، ثم عالج الطلبات المفتوحة قبل التعطيل.';
+  }
+  if (lower.includes('open inventory order(s)')) {
+    return 'لا يمكن تعطيل ربط المتجر بالمخازن: توجد حجوزات أو طلبات مخازن مفتوحة أو طلبات قديمة بلا مصدر. اشحنها أو ألغها أو حدّد مصدرها أولاً.';
+  }
+  if (lower.includes('held in the current warehouse')) {
+    return 'لا يمكن تغيير مستودع المتجر وفيه حجوزات مفتوحة: اشحن تلك الطلبات أو ألغها أولاً.';
+  }
+  if (lower.includes("the store's warehouse is not set")) {
+    return 'مستودع المتجر غير محدد: اختره من إعدادات المتجر ← المخازن والمتجر.';
+  }
+  if (lower.startsWith('reserved stock:')) {
+    return 'الكمية محجوزة لطلبات المتجر: لا يمكن صرف ما يمس المحجوز. اصرف كمية أقل أو عالج الطلبات أولاً.';
+  }
+  if (lower.includes('no longer covers this order')) {
+    return 'رصيد مستودع المتجر لم يعد يغطي حجز هذا الطلب (تلف أو جرد): استلم مخزوناً أو ألغِ الطلب.';
+  }
+  if (lower.includes('left at this location after other prepared orders')) {
+    return 'الكمية في هذا الموقع لا تكفي بعد ما جُهِّز منه لطلبات أخرى. اختر موقعاً آخر في مستودع المتجر.';
+  }
+  if (lower.includes("prepare this order from the store's warehouse")) {
+    return 'جهّز هذا الطلب من مستودع المتجر المحدد في الإعدادات.';
+  }
+  if (lower.includes('prepare from an active internal')) {
+    return 'جهّز من موقع داخلي فعّال (صالح للبيع) في مستودع المتجر.';
+  }
+  if (lower.includes('choose where this order takes its stock from')) {
+    return 'حدّد مصدر مخزون هذا الطلب القديم أولاً (من قسم «مخزون الطلب»).';
+  }
+  if (lower.includes('not enough stock in the store') && lower.includes('to ship')) {
+    return 'رصيد مستودع المتجر لا يكفي لشحن هذا الطلب.';
+  }
+  if (lower.includes('return of this order was already received') || lower.includes('already returned its quantity')) {
+    return 'تم تأكيد استلام مرتجع هذا الطلب سابقاً.';
+  }
+  if (lower.includes('nothing') && lower.includes('return')) {
+    return 'لا توجد كمية صُرفت لهذا الطلب يمكن إرجاعها (لم يُشحن، أو أُرجعت سابقاً).';
+  }
+  if (lower.includes('approved opening')) {
+    return 'كميات المتجر تحتاج اعتماد الكميات الافتتاحية قبل البيع المحلي.';
   }
   return null;
 }

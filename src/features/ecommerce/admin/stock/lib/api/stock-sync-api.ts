@@ -34,7 +34,7 @@ export type StockSyncReport = {
 
 export type StockSyncRun = {
   id: string;
-  kind: 'enable' | 'manual';
+  kind: 'enable' | 'manual' | 'disable';
   createdAt: string;
   createdBy: string | null;
   report: StockSyncReport;
@@ -52,6 +52,60 @@ export const stockSyncApi = {
 
   async run(companyId: string): Promise<StockSyncReport & { id: string }> {
     return apiRequest<StockSyncReport & { id: string }>(base(companyId), {
+      method: 'POST',
+      throwOnError: true,
+    });
+  },
+};
+
+export type StockSyncShortfall = {
+  productId: string;
+  variantId: string | null;
+  warehouseId: string;
+  sellable: number;
+  reserved: number;
+  missing: number;
+  /** Order numbers whose reservation is not covered (oldest are covered first). */
+  uncoveredOrders: string[];
+};
+
+export type StockSyncStatus = {
+  enabled: boolean;
+  state: 'active' | 'draining';
+  warehouseId: string | null;
+  warehouseNameAr: string | null;
+  needsWarehouse: boolean;
+  warehouses: Array<{ id: string; code: string; nameAr: string }>;
+  openReservations: number;
+  openInventoryOrders: number;
+  unresolvedOrders: Array<{ id: string; orderNumber: string; status: string; createdAt: string }>;
+  shortfalls: StockSyncShortfall[];
+  localState: 'ready' | 'needs_opening';
+  canDisable: boolean;
+};
+
+const statusBase = (companyId: string) =>
+  `/store-admin/companies/${resolveStorefrontCompanyId(companyId)}/stock-sync`;
+
+export const stockSyncStatusApi = {
+  get(companyId: string): Promise<StockSyncStatus> {
+    return apiRequest<StockSyncStatus>(statusBase(companyId), { throwOnError: true });
+  },
+  setWarehouse(companyId: string, warehouseId: string): Promise<StockSyncStatus> {
+    return apiRequest<StockSyncStatus>(`${statusBase(companyId)}/settings`, {
+      method: 'PUT',
+      throwOnError: true,
+      body: { warehouseId },
+    });
+  },
+  drain(companyId: string): Promise<StockSyncStatus> {
+    return apiRequest<StockSyncStatus>(`${statusBase(companyId)}/drain`, {
+      method: 'POST',
+      throwOnError: true,
+    });
+  },
+  resume(companyId: string): Promise<StockSyncStatus> {
+    return apiRequest<StockSyncStatus>(`${statusBase(companyId)}/resume`, {
       method: 'POST',
       throwOnError: true,
     });

@@ -44,3 +44,25 @@ export const storeStockApi = {
     });
   },
 };
+
+/** After the inventory link was disabled: the local quantities wait for an approved opening. */
+export type StoreStockOpening = {
+  state: 'ready' | 'needs_opening';
+  levels: StoreStockLevel[];
+};
+
+export const storeStockOpeningApi = {
+  get(companyId: string): Promise<StoreStockOpening> {
+    return apiRequest<StoreStockOpening>(`${base(companyId)}/opening`, { throwOnError: true });
+  },
+  approve(
+    companyId: string,
+    levels: Array<{ productId: string; variantId?: string | null; quantity: number }>,
+  ): Promise<StoreStockOpening> {
+    return apiRequest<StoreStockOpening>(`${base(companyId)}/opening`, {
+      method: 'POST',
+      throwOnError: true,
+      body: { levels },
+    });
+  },
+};
