@@ -102,8 +102,8 @@ export const accountingNavGroups: AccountingNavGroup[] = [
       {
         items: [
           { labelAr: 'قيود اليومية', href: accountingRoutes.journalEntries, icon: ListOrdered },
-          { labelAr: 'عناصر اليومية', href: accountingRoutes.journalItems, icon: FileStack },
-          { labelAr: 'دفتر الأستاذ العام', href: accountingRoutes.generalLedger, icon: BookOpen },
+          { labelAr: 'الأصول الثابتة', href: accountingRoutes.fixedAssets, icon: Layers },
+          { labelAr: 'القروض', href: accountingRoutes.loans, icon: CreditCard },
           { labelAr: 'دفتر أستاذ الشريك', href: accountingRoutes.partnerLedger, icon: Users },
           { labelAr: 'التسوية', href: accountingRoutes.reconciliation, icon: CheckSquare },
         ],
@@ -161,7 +161,7 @@ export const accountingNavGroups: AccountingNavGroup[] = [
           { labelAr: 'العملات', href: accountingRoutes.currencies, icon: Coins },
           { labelAr: 'الأوضاع المالية', href: accountingRoutes.fiscalPositions, icon: CalendarRange },
           { labelAr: 'دفتر الأستاذ المتعدد', href: accountingRoutes.ledgers, icon: CalendarDays },
-          { labelAr: 'الفحوصات', href: accountingRoutes.periods, icon: FileCheck },
+          { labelAr: 'مجموعة الضرائب', href: accountingRoutes.taxGroups, icon: Layers },
           { labelAr: 'نماذج الأصل', href: accountingRoutes.periods, icon: Layers },
           { labelAr: 'أنواع الإقرارات', href: accountingRoutes.periods, icon: FileText },
         ],

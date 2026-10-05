@@ -40,11 +40,17 @@ export const accountingRoutes = {
   vendorDetail: (id: string) => `/accounting/vendors/${id}`,
 
   /** المحاسبة */
-  journalEntries: '/accounting/accounting/journal-entries',
-  journalItems: '/accounting/accounting/journal-items',
-  generalLedger: '/accounting/accounting/general-ledger',
-  partnerLedger: '/accounting/accounting/partner-ledger',
-  reconciliation: '/accounting/accounting/reconciliation',
+  journalEntries: '/accounting/journal-entries',
+  journalEntryNew: '/accounting/journal-entries/new',
+  journalEntryDetail: (id: string) => `/accounting/journal-entries/${id}`,
+  fixedAssets: '/accounting/fixed-assets',
+  fixedAssetNew: '/accounting/fixed-assets/new',
+  fixedAssetDetail: (id: string) => `/accounting/fixed-assets/${id}`,
+  loans: '/accounting/loans',
+  loanNew: '/accounting/loans/new',
+  loanDetail: (id: string) => `/accounting/loans/${id}`,
+  partnerLedger: '/accounting/partner-ledger',
+  reconciliation: '/accounting/reconciliation',
 
   /** مراجعة */
   reviewReconciliation: '/accounting/review/reconciliation',
@@ -72,6 +78,9 @@ export const accountingRoutes = {
   ledgers: '/accounting/ledgers',
   fiscalYears: '/accounting/fiscal-years',
   periods: '/accounting/periods',
+  taxGroups: '/accounting/tax-groups',
+  taxGroupNew: '/accounting/tax-groups/new',
+  taxGroupDetail: (id: string) => `/accounting/tax-groups/${id}`,
   taxes: '/accounting/taxes',
   taxNew: '/accounting/taxes/new',
   taxDetail: (taxId: string) => `/accounting/taxes/${taxId}`,
