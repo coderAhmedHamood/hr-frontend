@@ -75,6 +75,7 @@ import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/stor
 import { STORE_CURRENCY_MISMATCH_ERROR } from '@/features/ecommerce/domain/constants/store-currency';
 import {
   STORE_COUNTRY_UNAVAILABLE_ERROR,
+  STORE_INVENTORY_UNAVAILABLE_ERROR,
   STORE_STOCK_SHORT_ERROR,
 } from '@/features/ecommerce/domain/constants/store-checkout-errors';
 import {
@@ -588,7 +589,9 @@ export function StoreCheckoutClient({ currency: storeCurrency }: CheckoutClientP
               ? t('checkout.errors.countryUnavailable')
               : result.error === STORE_STOCK_SHORT_ERROR
                 ? t('checkout.errors.outOfStock')
-                : result.error || t('checkout.placeError'),
+                : result.error === STORE_INVENTORY_UNAVAILABLE_ERROR
+                  ? t('checkout.errors.inventoryUnavailable')
+                  : result.error || t('checkout.placeError'),
         );
         return;
       }

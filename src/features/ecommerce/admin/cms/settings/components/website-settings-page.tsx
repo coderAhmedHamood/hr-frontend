@@ -24,6 +24,7 @@ import { DEFAULT_STOREFRONT_TYPOGRAPHY } from '@/features/ecommerce/storefront/l
 import { ImagePicker } from '@/features/ecommerce/admin/cms/homepage/components/section-entity-pickers';
 import { WebsiteColorsPanel } from '@/features/ecommerce/admin/cms/settings/components/website-colors-panel';
 import { DeliveryRatesPanel } from '@/features/ecommerce/admin/delivery-rates/components/delivery-rates-panel';
+import { StockSyncPanel } from '@/features/ecommerce/admin/stock/components/stock-sync-panel';
 import { PaymentAccountsPanel } from '@/features/ecommerce/admin/payment-accounts/components/payment-accounts-panel';
 import GeoLocationsPage from '@/features/system/organization/geo/components/geo-locations-page';
 
@@ -47,6 +48,7 @@ type SettingsTabValue =
   | 'locations'
   | 'deliveryRates'
   | 'paymentAccounts'
+  | 'stockSync'
   | 'seo';
 
 const SETTINGS_TAB_VALUES: readonly SettingsTabValue[] = [
@@ -57,6 +59,7 @@ const SETTINGS_TAB_VALUES: readonly SettingsTabValue[] = [
   'locations',
   'deliveryRates',
   'paymentAccounts',
+  'stockSync',
   'seo',
 ];
 
@@ -281,6 +284,8 @@ export function WebsiteSettingsPage() {
         return { title: t('tabs.deliveryRates'), description: t('deliveryRatesHint') };
       case 'paymentAccounts':
         return { title: t('tabs.paymentAccounts'), description: t('paymentAccountsHint') };
+      case 'stockSync':
+        return { title: t('tabs.stockSync'), description: t('stockSyncHint') };
       case 'seo':
         return { title: t('tabs.seo'), description: tSeo('formHint') };
     }
@@ -495,6 +500,12 @@ export function WebsiteSettingsPage() {
                 currencyCode={draft.currency}
                 onHeaderExtrasChange={setTabHeaderExtras}
               />
+            </SettingsPanel>
+          </TabsContent>
+
+          <TabsContent value="stockSync" className="mt-4">
+            <SettingsPanel>
+              <StockSyncPanel companyId={companyId} onHeaderExtrasChange={setTabHeaderExtras} />
             </SettingsPanel>
           </TabsContent>
 

@@ -32,6 +32,7 @@
       "locations": "Locations",
       "deliveryRates": "Delivery rates",
       "paymentAccounts": "Payment accounts",
+      "stockSync": "Inventory link",
       "seo": "SEO",
       "notificationSettings": "Store notifications"
     },
@@ -459,6 +460,7 @@
     "locationsCheckoutNote": "Shipping destinations come from the Locations tab. Delivery rates by city/district are managed under Delivery rates.",
     "deliveryRatesHint": "Price shipping by city or district (or groups). At checkout, district rates win over city rates; otherwise the fee is zero.",
     "paymentAccountsHint": "Bank, wallet, and network accounts shown at checkout. An active account visible in the store appears as a payment method.",
+    "stockSyncHint": "Store ↔ inventory reconciliation: the store’s previous quantity against what inventory has available, and availability set from it.",
     "colorsHint": "Colors and fonts control the public store look — buttons, links, accents, and typography. They never affect the admin dashboard.",
     "tabs": {
       "branding": "Branding",
@@ -469,6 +471,7 @@
       "locations": "Locations",
       "deliveryRates": "Delivery rates",
       "paymentAccounts": "Payment accounts",
+      "stockSync": "Inventory link",
       "seo": "Search engines (SEO)"
     },
     "currency": "Store currency",

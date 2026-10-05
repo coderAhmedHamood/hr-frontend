@@ -51,6 +51,17 @@ function translateKnownBackendMessage(rawMessage: string): string | null {
   if (lower.includes('pending') && lower.includes('activation')) {
     return 'يوجد طلب تفعيل قيد الانتظار لهذا التطبيق.';
   }
+  // Phase 4: the store–inventory link (store-stock-sync).
+  const openReservations = /^(\d+) open reservation\(s\) of store orders/.exec(lower);
+  if (openReservations) {
+    return `لا يمكن تعطيل ربط المتجر بالمخازن: ${openReservations[1]} حجز مفتوح لطلبات المتجر. اشحن هذه الطلبات أو ألغها أولاً.`;
+  }
+  if (lower.includes('inventory is not available right now')) {
+    return 'تعذّر الوصول إلى المخازن الآن، ولم يُنفَّذ الإجراء. أعد المحاولة بعد قليل.';
+  }
+  if (lower.includes('store–inventory link is not enabled')) {
+    return 'ربط المتجر بالمخازن غير مفعّل لهذه الشركة.';
+  }
   return null;
 }
 
