@@ -211,7 +211,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           message:
-            'توكن الموظف غير صالح أو بلا صلاحية inv.catalog.product-reviews.create. أعد تسجيل الدخول أو عيّن STORE_PRODUCT_REVIEWS_CREATE_TOKEN.',
+            'توكن الموظف غير صالح أو بلا صلاحية catalog.product-reviews.create. أعد تسجيل الدخول أو عيّن STORE_PRODUCT_REVIEWS_CREATE_TOKEN.',
           code: 'STORE_REVIEW_STAFF_FORBIDDEN',
           detail: message,
         },

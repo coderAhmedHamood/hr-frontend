@@ -22,6 +22,12 @@ type NotificationLinkInput = {
 };
 
 /** Prefer backend actionUrl; then sourceTable + sourceId; then sourceKind fallback. */
+/**
+ * Product notifications: `catalog_products` since phase 2.6; the old value
+ * stays readable while backend and web deploy (the migration rewrites rows).
+ */
+const PRODUCT_SOURCE_TABLES = new Set(['catalog_products', 'inventory_products']);
+
 export function resolveInventoryNotificationLink(input: NotificationLinkInput): string | null {
   if (input.actionUrl?.trim()) return input.actionUrl;
 
@@ -31,7 +37,7 @@ export function resolveInventoryNotificationLink(input: NotificationLinkInput): 
     return `${base}?operationId=${encodeURIComponent(input.sourceId)}`;
   }
 
-  if (input.sourceTable === 'inventory_products' && input.sourceId) {
+  if (input.sourceTable && PRODUCT_SOURCE_TABLES.has(input.sourceTable) && input.sourceId) {
     return `${inventoryAdminRoutes.products}?highlight=${encodeURIComponent(input.sourceId)}`;
   }
 

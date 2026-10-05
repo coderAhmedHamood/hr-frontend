@@ -22,9 +22,9 @@ import {
 import type { ProductReviewStatus } from '@/features/ecommerce/admin/reviews/lib/api/product-reviews-api';
 import { ecommerceAdminRoutes } from '@/features/ecommerce/admin/constants/routes';
 
-const REVIEWS_READ = 'inv.catalog.product-reviews.read';
-const REVIEWS_UPDATE = 'inv.catalog.product-reviews.update';
-const REVIEWS_DELETE = 'inv.catalog.product-reviews.delete';
+const REVIEWS_READ = 'catalog.product-reviews.read';
+const REVIEWS_UPDATE = 'catalog.product-reviews.update';
+const REVIEWS_DELETE = 'catalog.product-reviews.delete';
 
 const STATUS_LABEL: Record<ProductReviewStatus, string> = {
   pending: 'قيد المراجعة',
