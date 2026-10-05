@@ -1,5 +1,6 @@
 import type { LucideIcon } from 'lucide-react';
 import {
+  ArrowLeftRight,
   Package,
   FolderTree,
   Tag,
@@ -158,6 +159,11 @@ export const ecommerceAdminNavGroups: EcommerceAdminNavGroup[] = [
             labelKey: 'settingsTabs.paymentAccounts',
             href: ecommerceSettingsHref('paymentAccounts'),
             icon: CreditCard,
+          },
+          {
+            labelKey: 'settingsTabs.stockSync',
+            href: ecommerceSettingsHref('stockSync'),
+            icon: ArrowLeftRight,
           },
           { labelKey: 'settingsTabs.seo', href: ecommerceSettingsHref('seo'), icon: Search },
           {
