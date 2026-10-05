@@ -73,7 +73,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { storeLoginHref, storeRegisterHref } from '@/features/ecommerce/storefront/lib/store-auth-return';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
 import { STORE_CURRENCY_MISMATCH_ERROR } from '@/features/ecommerce/domain/constants/store-currency';
-import { STORE_COUNTRY_UNAVAILABLE_ERROR } from '@/features/ecommerce/domain/constants/store-checkout-errors';
+import {
+  STORE_COUNTRY_UNAVAILABLE_ERROR,
+  STORE_STOCK_SHORT_ERROR,
+} from '@/features/ecommerce/domain/constants/store-checkout-errors';
 import {
   GeoCascadeSelect,
   type GeoCascadeValue,
@@ -583,7 +586,9 @@ export function StoreCheckoutClient({ currency: storeCurrency }: CheckoutClientP
             ? t('checkout.errors.currencyMismatch')
             : result.error === STORE_COUNTRY_UNAVAILABLE_ERROR
               ? t('checkout.errors.countryUnavailable')
-              : result.error || t('checkout.placeError'),
+              : result.error === STORE_STOCK_SHORT_ERROR
+                ? t('checkout.errors.outOfStock')
+                : result.error || t('checkout.placeError'),
         );
         return;
       }

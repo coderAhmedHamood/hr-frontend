@@ -1,5 +1,6 @@
 import {
   productAppSectionsFor,
+  storeSellsLocallyFor,
   visibleProductTabs,
   visibleRelatedDocs,
 } from '@/features/catalog/products/hooks/use-product-app-sections';
@@ -63,5 +64,21 @@ describe('product app sections (phase 2.5)', () => {
   it('registers the catalog app', () => {
     expect(isModuleEnabledFor('catalog', 'c1', { enabledApplicationCodes: ['catalog'] })).toBe(true);
     expect(isModuleEnabledFor('catalog', 'c1', { enabledApplicationCodes: ['hr'] })).toBe(false);
+  });
+});
+
+describe('store sells from its own quantity (phase 3)', () => {
+  it('only when the store is enabled and the inventory bridge is not', () => {
+    const local = (codes: string[] | null, isSystemOwner = false) =>
+      storeSellsLocallyFor('c1', { enabledApplicationCodes: codes, isSystemOwner });
+    expect(local(['catalog', 'store-admin'])).toBe(true);
+    expect(local(['catalog', 'store-admin', 'inventory'])).toBe(true);
+    expect(local(['catalog', 'store-admin', 'inventory', 'store-stock-sync'])).toBe(false);
+    expect(local(['catalog', 'inventory'])).toBe(false);
+    // The viewer being System Owner does not change how the company sells.
+    expect(local(['catalog', 'store-admin'], true)).toBe(true);
+    expect(local(['catalog', 'inventory'], true)).toBe(false);
+    // Pre-migration sessions keep the old behaviour (selling from inventory).
+    expect(local(null)).toBe(false);
   });
 });

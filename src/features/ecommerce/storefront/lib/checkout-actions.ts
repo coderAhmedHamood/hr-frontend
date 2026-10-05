@@ -14,6 +14,8 @@ import {
 } from '@/features/ecommerce/domain/constants/store-currency';
 import {
   STORE_COUNTRY_UNAVAILABLE_ERROR,
+  STORE_STOCK_SHORT_ERROR,
+  isStoreStockShort,
   isStoreCountryUnavailable,
 } from '@/features/ecommerce/domain/constants/store-checkout-errors';
 import type { OrderStatus } from '@/features/ecommerce/domain/types/order';
@@ -65,6 +67,9 @@ export async function placeStorefrontOrder(
     return { ok: true, order };
   } catch (error) {
     if (error instanceof StoreHttpError) {
+      if (isStoreStockShort(error.payload, error.message)) {
+        return { ok: false, error: STORE_STOCK_SHORT_ERROR };
+      }
       if (
         error.message === STORE_CURRENCY_MISMATCH_ERROR ||
         isProductStoreCurrencyMismatch(error.message)

@@ -34,15 +34,31 @@ import {
   type SaleStockDeductResult,
 } from '@/features/inventory/admin/stock/lib/api/sale-stock-api';
 import { inventoryStockService } from '@/features/inventory/services/inventory-stock.service';
+import { useAuthStore } from '@/features/auth/lib/auth-store';
+import { findCompanyAccess } from '@/features/auth/types/access-profile';
+import { companyHasApp, STORE_STOCK_SYNC_APP_CODE } from '@/shared/modules/registry';
 import { toast } from 'sonner';
 
 /**
- * Stock for store admin (manual deduct — place-order does not deduct):
- * - deduct: status → shipped → POST /inventory/stock/sale-deduct (sourceDocument = orderNumber)
- * - restore: status → cancelled | refunded is automatic on the backend (do not call sale-restore)
+ * Stock for store admin:
+ * - with the store-stock-sync bridge (selling from inventory): status → shipped
+ *   → POST /inventory/stock/sale-deduct (sourceDocument = orderNumber);
+ * - without it (phase 3, the store's own quantity): the backend deducts when
+ *   the order is placed, nothing to do here;
+ * - restore: status → cancelled | refunded is automatic on the backend in both
+ *   cases (do not call sale-restore).
  */
 const STOCK_DEDUCT_STATUS: OrderStatus = 'shipped';
 const RESTORE_STATUSES: OrderStatus[] = ['cancelled', 'refunded'];
+
+/** Does this company sell from inventory (bridge enabled)? */
+function companySellsFromInventory(companyId: string): boolean {
+  const { accessProfile } = useAuthStore.getState();
+  const company = findCompanyAccess(accessProfile, companyId);
+  return companyHasApp(STORE_STOCK_SYNC_APP_CODE, {
+    enabledApplicationCodes: company?.enabledApplicationCodes ?? null,
+  });
+}
 
 function normalizeOrderPayment(order: Order): Order {
   return {
@@ -233,7 +249,11 @@ export const ordersApi = {
     }
 
     // خصم المخزون عند «تم الشحن» فقط — ليس عند إنشاء الطلب من المتجر
-    if (input.status === STOCK_DEDUCT_STATUS && order.status !== STOCK_DEDUCT_STATUS) {
+    if (
+      input.status === STOCK_DEDUCT_STATUS &&
+      order.status !== STOCK_DEDUCT_STATUS &&
+      companySellsFromInventory(companyId)
+    ) {
       const already = await orderAlreadyDeducted(companyId, order);
       if (already) {
         console.log('[orders] sale-deduct skipped — already deducted for', order.orderNumber);
