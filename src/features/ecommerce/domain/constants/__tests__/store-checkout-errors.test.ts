@@ -16,5 +16,9 @@ describe('store checkout errors', () => {
     expect(isStoreInventoryUnavailable({ code: 'STORE_INVENTORY_UNAVAILABLE' })).toBe(true);
     expect(isStoreInventoryUnavailable({ error: { code: 'STORE_STOCK_SHORT' } })).toBe(false);
     expect(isStoreInventoryUnavailable(undefined)).toBe(false);
+    // The store is paused for other reasons: same message, nothing was placed.
+    for (const code of ['STORE_STOCK_SYNC_DRAINING', 'STORE_INVENTORY_NOT_CONFIGURED', 'STORE_LOCAL_STOCK_NOT_OPENED']) {
+      expect(isStoreInventoryUnavailable({ error: { code } })).toBe(true);
+    }
   });
 });

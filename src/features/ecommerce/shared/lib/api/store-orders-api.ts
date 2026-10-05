@@ -1,6 +1,5 @@
 import { apiRequest, ensurePaginatedResult, type PaginatedResult } from '@/features/hr/lib/api/client';
-import type {
-  CreateStoreOrderAttachmentInput,
+import type { CreateStoreOrderAttachmentInput,
   Order,
   OrderAttachmentVisibilityFilter,
   OrderListQuery,
@@ -12,6 +11,8 @@ import type {
   UpdateOrderStaffNoteInput,
   UpdateOrderStatusInput,
   UpdateStoreOrderAttachmentInput,
+  OrderReturnReceipt,
+  OrderStockSource,
 } from '@/features/ecommerce/domain/types/order';
 import type {
   PlaceOrderInput,
@@ -97,6 +98,9 @@ type StoreOrderDto = {
   customerNote?: string | null;
   staffNote?: string | null;
   staffNoteVisibleToCustomer?: boolean | null;
+  stockSource?: OrderStockSource | null;
+  stockSourceNote?: string | null;
+  returnReceipt?: OrderReturnReceipt | null;
   shipLat?: number | null;
   shipLng?: number | null;
   shipMapAddress?: string | null;
@@ -215,6 +219,9 @@ function mapAdminOrder(dto: StoreOrderDto): Order {
     customerNote: dto.customerNote ?? null,
     staffNote: dto.staffNote ?? null,
     staffNoteVisibleToCustomer: dto.staffNoteVisibleToCustomer ?? false,
+    stockSource: dto.stockSource ?? null,
+    stockSourceNote: dto.stockSourceNote ?? null,
+    returnReceipt: dto.returnReceipt ?? null,
     paymentMethod: dto.paymentMethod,
     paymentStatus: dto.paymentStatus,
     paymentAccountId: dto.paymentAccountId ?? null,
@@ -711,6 +718,35 @@ export async function updateAdminStoreOrderStaffNote(
         ? {}
         : { visibleToCustomer: input.visibleToCustomer }),
     },
+  });
+  return mapAdminOrder(dto);
+}
+
+/** Older (unresolved) order: choose where its stock comes from (phase 4). */
+export async function resolveAdminOrderStockSource(
+  orderId: string,
+  input: { source: 'inventory' | 'local' | 'none'; note?: string },
+): Promise<Order> {
+  const dto = await apiRequest<StoreOrderDto>(`/store-admin/orders/${orderId}/stock-source`, {
+    method: 'POST',
+    throwOnError: true,
+    body: input,
+  });
+  return mapAdminOrder(dto);
+}
+
+/** Confirms the whole returned order was received: sellable back to stock, damaged recorded. */
+export async function receiveAdminOrderReturn(
+  orderId: string,
+  input: {
+    lines: Array<{ lineId: string; sellableQuantity: number; damagedQuantity: number }>;
+    notes?: string;
+  },
+): Promise<Order> {
+  const dto = await apiRequest<StoreOrderDto>(`/store-admin/orders/${orderId}/return-receipt`, {
+    method: 'POST',
+    throwOnError: true,
+    body: input,
   });
   return mapAdminOrder(dto);
 }

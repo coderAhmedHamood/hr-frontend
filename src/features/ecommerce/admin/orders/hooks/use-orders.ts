@@ -1,6 +1,10 @@
 ﻿import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { inventoryStockService } from '@/features/inventory/services/inventory-stock.service';
 import { ordersApi } from '@/features/ecommerce/admin/orders/lib/api/orders';
+import {
+  receiveAdminOrderReturn,
+  resolveAdminOrderStockSource,
+} from '@/features/ecommerce/shared/lib/api/store-orders-api';
 import type {
   CreateStoreOrderAttachmentInput,
   Order,
@@ -268,6 +272,54 @@ export function useOrderAttachmentMutations(companyId: string) {
   });
 
   return { add, update, remove };
+}
+
+/** Older (unresolved) order: choose its stock source (phase 4). */
+export function useResolveOrderStockSource(companyId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      orderId,
+      source,
+      note,
+    }: {
+      orderId: string;
+      source: 'inventory' | 'local' | 'none';
+      note?: string;
+    }) => resolveAdminOrderStockSource(orderId, { source, note }),
+    onSuccess: async (order) => {
+      syncOrderInCaches(queryClient, companyId, order);
+      await queryClient.invalidateQueries({ queryKey: ordersQueryKeys.all });
+      toast.success('تم تحديد مصدر المخزون للطلب');
+    },
+    onError: (error) => {
+      handleApiError(error, 'ecommerce.orders.stock-source');
+    },
+  });
+}
+
+/** Confirms the whole returned order was received (phase 4). */
+export function useReceiveOrderReturn(companyId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      orderId,
+      lines,
+      notes,
+    }: {
+      orderId: string;
+      lines: Array<{ lineId: string; sellableQuantity: number; damagedQuantity: number }>;
+      notes?: string;
+    }) => receiveAdminOrderReturn(orderId, { lines, notes }),
+    onSuccess: async (order) => {
+      syncOrderInCaches(queryClient, companyId, order);
+      await queryClient.invalidateQueries({ queryKey: ordersQueryKeys.all });
+      toast.success('تم تأكيد استلام المرتجع وإعادة الكمية الصالحة للمخزون');
+    },
+    onError: (error) => {
+      handleApiError(error, 'ecommerce.orders.return-receipt');
+    },
+  });
 }
 
 export function useUpdateOrderStaffNote(companyId: string) {

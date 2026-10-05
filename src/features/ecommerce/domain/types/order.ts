@@ -83,6 +83,15 @@ export type OrderStatusHistoryEntry = {
   createdAt: string;
 };
 
+export type OrderStockSource = 'local' | 'inventory' | 'none' | 'unresolved';
+
+export type OrderReturnReceipt = {
+  lines: Array<{ lineId: string; sellableQuantity: number; damagedQuantity: number }>;
+  notes: string | null;
+  receivedBy: string | null;
+  receivedAt: string;
+};
+
 export type Order = TenantScoped & {
   id: string;
   orderNumber: string;
@@ -106,6 +115,15 @@ export type Order = TenantScoped & {
   staffNote?: string | null;
   /** Whether the staff note is shown to the customer (admin view only). */
   staffNoteVisibleToCustomer?: boolean;
+  /**
+   * Where the order's stock comes from (phase 4, admin only), fixed when it
+   * was placed: local (store quantity), inventory (reserved, issued when
+   * shipped), none, or unresolved (older order: choose before shipping).
+   */
+  stockSource?: OrderStockSource | null;
+  stockSourceNote?: string | null;
+  /** The confirmed receipt of the returned goods (once). */
+  returnReceipt?: OrderReturnReceipt | null;
   paymentMethod?:
     | 'cash_on_delivery'
     | 'cash'
