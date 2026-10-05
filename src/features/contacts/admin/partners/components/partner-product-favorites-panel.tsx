@@ -24,9 +24,9 @@ import { ProductSinglePicker } from '@/features/catalog/products/components/prod
 import { ProductLabel } from '@/features/catalog/products/components/product-label';
 import { ecommerceAdminRoutes } from '@/features/ecommerce/admin/constants/routes';
 
-const FAVORITES_READ = 'catalog.product-favorites.read';
-const FAVORITES_CREATE = 'catalog.product-favorites.create';
-const FAVORITES_DELETE = 'catalog.product-favorites.delete';
+const FAVORITES_READ = 'sta.product-favorites.read';
+const FAVORITES_CREATE = 'sta.product-favorites.create';
+const FAVORITES_DELETE = 'sta.product-favorites.delete';
 
 type Props = {
   companyId: string;

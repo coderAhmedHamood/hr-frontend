@@ -23,9 +23,9 @@ import {
 } from '@/features/ecommerce/admin/reviews/hooks/use-product-reviews';
 import type { ProductReviewStatus } from '@/features/ecommerce/admin/reviews/lib/api/product-reviews-api';
 
-const REVIEWS_READ = 'catalog.product-reviews.read';
-const REVIEWS_UPDATE = 'catalog.product-reviews.update';
-const REVIEWS_DELETE = 'catalog.product-reviews.delete';
+const REVIEWS_READ = 'sta.product-reviews.read';
+const REVIEWS_UPDATE = 'sta.product-reviews.update';
+const REVIEWS_DELETE = 'sta.product-reviews.delete';
 
 const STATUS_LABEL: Record<ProductReviewStatus, string> = {
   pending: 'بانتظار المراجعة',

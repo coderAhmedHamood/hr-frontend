@@ -22,7 +22,7 @@ export type CreateProductFavoriteInput = {
   productId: string;
 };
 
-/** Staff CRUD — `/inventory/product-favorites` (catalog.product-favorites.*). Hard DELETE only; no PATCH. */
+/** Staff CRUD — `/inventory/product-favorites` (sta.product-favorites.*). Hard DELETE only; no PATCH. */
 export const productFavoritesApi = {
   async list(query: ProductFavoriteListQuery = {}): Promise<PaginatedResult<InventoryProductFavorite>> {
     const result = await apiRequest<PaginatedResult<InventoryProductFavorite>>(

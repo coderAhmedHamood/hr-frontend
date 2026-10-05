@@ -50,7 +50,7 @@ export type CreateProductReviewInput = {
 
 export type UpdateProductReviewInput = Partial<CreateProductReviewInput>;
 
-/** Staff CRUD — `/inventory/product-reviews` (catalog.product-reviews.*). */
+/** Staff CRUD — `/inventory/product-reviews` (sta.product-reviews.*). */
 export const productReviewsApi = {
   async list(query: ProductReviewListQuery = {}): Promise<PaginatedResult<InventoryProductReview>> {
     const result = await apiRequest<PaginatedResult<InventoryProductReview>>(

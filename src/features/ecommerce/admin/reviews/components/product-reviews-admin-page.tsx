@@ -38,9 +38,9 @@ import { ProductLabel } from '@/features/catalog/products/components/product-lab
 import { useCan } from '@/features/auth/hooks/use-can';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
 
-const REVIEWS_READ = 'catalog.product-reviews.read';
-const REVIEWS_UPDATE = 'catalog.product-reviews.update';
-const REVIEWS_DELETE = 'catalog.product-reviews.delete';
+const REVIEWS_READ = 'sta.product-reviews.read';
+const REVIEWS_UPDATE = 'sta.product-reviews.update';
+const REVIEWS_DELETE = 'sta.product-reviews.delete';
 
 const STATUS_LABEL: Record<ProductReviewStatus, string> = {
   pending: 'بانتظار المراجعة',
