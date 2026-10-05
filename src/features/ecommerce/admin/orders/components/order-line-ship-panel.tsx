@@ -18,6 +18,9 @@ import { ORDER_LINE_SHIP_STATUS_LABELS_AR } from '@/features/ecommerce/domain/co
 import type { Order, OrderLineItem, OrderLineShipStatus } from '@/features/ecommerce/domain/types/order';
 import { isOrderFulfilmentLocked } from '@/features/ecommerce/domain/constants/order-status';
 import { inventoryStockService } from '@/features/inventory/services/inventory-stock.service';
+import { useAuthStore } from '@/features/auth/lib/auth-store';
+import { findCompanyAccess } from '@/features/auth/types/access-profile';
+import { companyHasApp, STORE_STOCK_SYNC_APP_CODE } from '@/shared/modules/registry';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge, type BadgeProps } from '@/components/ui/badge';
@@ -64,8 +67,15 @@ export function OrderLineShipPanel({ companyId, orderId, orderStatus, line }: Pr
   const [staffNote, setStaffNote] = React.useState('');
   const isShipped = line.shipStatus === 'shipped';
   const fulfilmentLocked = isOrderFulfilmentLocked(orderStatus) || isShipped;
-  const needsStockContext = open || isShipped;
   const lockedWarehouseId = line.allocations[0]?.warehouseId ?? '';
+  // Without the store-stock-sync bridge the store sells from its own quantity
+  // (phase 3): no warehouse preparation, the line is just marked shipped.
+  const accessProfile = useAuthStore((s) => s.accessProfile);
+  const sellsFromInventory = companyHasApp(STORE_STOCK_SYNC_APP_CODE, {
+    enabledApplicationCodes:
+      findCompanyAccess(accessProfile, companyId)?.enabledApplicationCodes ?? null,
+  });
+  const needsStockContext = (open || isShipped) && sellsFromInventory;
 
   const { data: product } = useQuery({
     queryKey: ['ecommerce', 'products', 'track-inventory', companyId, line.productId],
@@ -73,7 +83,7 @@ export function OrderLineShipPanel({ companyId, orderId, orderStatus, line }: Pr
     enabled: needsStockContext && Boolean(companyId && line.productId),
     staleTime: 60_000,
   });
-  const trackInventory = product?.inventory.trackInventory ?? true;
+  const trackInventory = sellsFromInventory && (product?.inventory.trackInventory ?? true);
   const lineVariantId = line.variantId ?? null;
 
   const { data: availability = [], isLoading } = useProductStockAvailability(

@@ -19,7 +19,11 @@ import {
   ProductFormSection,
 } from '@/features/catalog/products/components/product-form-section';
 import { ProductStatTile } from '@/features/catalog/products/components/product-stat-tile';
-import { useProductAppSections } from '@/features/catalog/products/hooks/use-product-app-sections';
+import {
+  useProductAppSections,
+  useStoreSellsLocally,
+} from '@/features/catalog/products/hooks/use-product-app-sections';
+import { StoreLocalStockSection } from '@/features/ecommerce/admin/stock/components/store-local-stock-section';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SearchableDropdown } from '@/components/ui/shared-dialogs';
@@ -38,6 +42,8 @@ export function ProductInventoryTab({ control, errors, register, setValue, produ
   const companyId = getStorefrontCompanyId();
   // Stock is inventory's and stockStatus the store's: each shows only when its app is enabled.
   const sections = useProductAppSections();
+  // Phase 3: a store without the inventory bridge sells from its own quantity.
+  const sellsLocally = useStoreSellsLocally();
   const stockCompanyId = sections.inventory ? companyId : undefined;
   const variants = useWatch({ control, name: 'variants' }) ?? [];
   const warehouseId = useWatch({ control, name: 'warehouseId' });
@@ -193,6 +199,10 @@ export function ProductInventoryTab({ control, errors, register, setValue, produ
             </div>
           </ProductFormSection>
         </>
+      ) : null}
+
+      {sellsLocally && companyId ? (
+        <StoreLocalStockSection companyId={companyId} productId={productId} variants={variants} />
       ) : null}
 
       <ProductFormSection title="إعدادات التوفر" description="حالة العرض وتنبيهات النفاد.">

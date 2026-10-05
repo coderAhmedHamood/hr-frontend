@@ -1,7 +1,12 @@
 'use client';
 
 import { useModuleEnablementContext } from '@/features/auth/hooks/use-system-owner';
-import { isModuleEnabledFor, type ModuleEnablementContext } from '@/shared/modules/registry';
+import {
+  companyHasApp,
+  isModuleEnabledFor,
+  STORE_STOCK_SYNC_APP_CODE,
+  type ModuleEnablementContext,
+} from '@/shared/modules/registry';
 
 /**
  * Which apps' sections the product screens show (phase 2.5). The product
@@ -25,6 +30,26 @@ export function productAppSectionsFor(
 export function useProductAppSections(): ProductAppSections {
   const { companyId, ...context } = useModuleEnablementContext();
   return productAppSectionsFor(companyId, context);
+}
+
+/**
+ * Phase 3: the company sells from the store's own quantity — the store is
+ * enabled and the store-stock-sync bridge (selling from inventory) is not.
+ * Uses the company's apps, with no System Owner bypass.
+ */
+export function storeSellsLocallyFor(
+  companyId: string | null | undefined,
+  context: ModuleEnablementContext,
+): boolean {
+  return (
+    isModuleEnabledFor('ecommerce', companyId, { ...context, isSystemOwner: false }) &&
+    !companyHasApp(STORE_STOCK_SYNC_APP_CODE, context)
+  );
+}
+
+export function useStoreSellsLocally(): boolean {
+  const { companyId, ...context } = useModuleEnablementContext();
+  return storeSellsLocallyFor(companyId, context);
 }
 
 /** Product form tabs owned by one app (other tabs are the catalog's). */

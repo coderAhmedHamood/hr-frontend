@@ -87,3 +87,19 @@ export function isModuleEnabledFor(
     return false;
   });
 }
+
+/** The store-inventory bridge app (phase 3): the store sells from inventory. */
+export const STORE_STOCK_SYNC_APP_CODE = 'store-stock-sync';
+
+/**
+ * True when the company itself has `appCode` enabled. Unlike
+ * isModuleEnabledFor, the System Owner gets no bypass: this answers how the
+ * company works (e.g. does it sell from inventory), not what the viewer may
+ * see. Sessions from before app enablement (no codes) count as enabled.
+ */
+export function companyHasApp(appCode: string, context?: ModuleEnablementContext): boolean {
+  const codes = context?.enabledApplicationCodes;
+  if (!codes || codes.length === 0) return true;
+  const wanted = normalizeCode(appCode);
+  return codes.some((code) => normalizeCode(code) === wanted);
+}
