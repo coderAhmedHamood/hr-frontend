@@ -294,6 +294,18 @@ function buildInventoryMobileNav(catalogEnabled: boolean): MobileNavItem[] {
     const flat = flattenInventoryNavItems(group);
     if (flat.length === 0) continue;
 
+    if (group.key === 'pos' && flat.length === 1) {
+      const only = flat[0]!;
+      items.push({
+        key: group.key,
+        label: group.labelAr,
+        icon: group.icon,
+        href: only.href,
+        match: only.href.includes('?') ? 'exact' : 'prefix',
+      });
+      continue;
+    }
+
     const children: MobileNavChild[] = [];
     for (const section of group.sections) {
       if (section.items.length === 0) continue;

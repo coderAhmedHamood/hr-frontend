@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Package, Truck, Warehouse, ClipboardList, ArrowLeftRight } from 'lucide-react';
+import { PackagePlus, PackageMinus, Truck, Warehouse, ClipboardList, ArrowLeftRight } from 'lucide-react';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { inventoryAdminRoutes } from '@/features/inventory/admin/constants/routes';
 import { Button } from '@/components/ui/button';
@@ -20,10 +20,16 @@ const QUICK_LINKS = [
     icon: Truck,
   },
   {
-    title: 'استلام وصرف المخزون',
-    description: 'عمليات وارد (استلام) وصادر (صرف) على مستوى التطبيق أو داخل مستودع محدد.',
+    title: 'استلام المخزون',
+    description: 'عمليات وارد (استلام) على مستوى التطبيق أو داخل مستودع محدد.',
     href: inventoryAdminRoutes.receipts,
-    icon: Package,
+    icon: PackagePlus,
+  },
+  {
+    title: 'صرف المخزون',
+    description: 'عمليات صادر (صرف) على مستوى التطبيق أو داخل مستودع محدد.',
+    href: inventoryAdminRoutes.deliveries,
+    icon: PackageMinus,
   },
   {
     title: 'الجرد المادي',

@@ -411,6 +411,21 @@ function buildInventoryNavConfig(catalogEnabled: boolean): NavItem[] {
     const flat = flattenInventoryNavItems(group);
     if (flat.length === 0) continue;
 
+    if (group.key === 'pos' && flat.length === 1) {
+      const only = flat[0]!;
+      items.push({
+        key: group.key,
+        label: group.labelAr,
+        href: only.href,
+        icon: group.icon,
+        isActive: (pathname) => {
+          const base = only.href.split('?')[0]!;
+          return pathname === base || pathname.startsWith(`${base}/`);
+        },
+      });
+      continue;
+    }
+
     items.push({
       key: group.key,
       label: group.labelAr,
