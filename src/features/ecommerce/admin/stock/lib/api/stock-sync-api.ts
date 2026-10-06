@@ -111,3 +111,13 @@ export const stockSyncStatusApi = {
     });
   },
 };
+
+/** Does the store sell from inventory, and from which warehouse (readable with shop-sales permissions too). */
+export function fetchStoreWarehouse(
+  companyId: string,
+): Promise<{ enabled: boolean; warehouseId: string | null }> {
+  return apiRequest<{ enabled: boolean; warehouseId: string | null }>(
+    `${statusBase(companyId)}/store-warehouse`,
+    { throwOnError: true },
+  );
+}

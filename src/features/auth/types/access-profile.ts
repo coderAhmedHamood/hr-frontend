@@ -1,7 +1,7 @@
 import {
-  isStoreStockSyncApplicationCode,
-  STORE_STOCK_SYNC_APP_CODES,
-} from '@/features/inventory/admin/constants/store-stock-sync-app';
+  isShopSalesApplicationCode,
+  SHOP_SALES_APP_CODES,
+} from '@/features/inventory/admin/constants/shop-sales-app';
 
 export type RoleAccess = {
   roleId: string;
@@ -199,8 +199,8 @@ export function companyHasApplicationEnabled(
   if (wanted === 'contacts' || wanted === 'partners') {
     return enabled.has('contacts') || enabled.has('partners');
   }
-  if (isStoreStockSyncApplicationCode(wanted)) {
-    return STORE_STOCK_SYNC_APP_CODES.some((code) => enabled.has(normalizeApplicationCode(code)));
+  if (isShopSalesApplicationCode(wanted)) {
+    return SHOP_SALES_APP_CODES.some((code) => enabled.has(normalizeApplicationCode(code)));
   }
   return false;
 }

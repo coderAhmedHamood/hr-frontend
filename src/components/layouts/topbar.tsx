@@ -392,7 +392,7 @@ function buildCatalogNavConfig(): NavItem[] {
   }));
 }
 
-function buildInventoryNavConfig(catalogEnabled: boolean): NavItem[] {
+function buildInventoryNavConfig(catalogEnabled: boolean, shopSalesEnabled: boolean): NavItem[] {
   const items: NavItem[] = [
     {
       key: 'inventory-overview',
@@ -403,9 +403,11 @@ function buildInventoryNavConfig(catalogEnabled: boolean): NavItem[] {
     },
   ];
 
-  const groups = catalogEnabled
-    ? inventoryAdminNavGroups
-    : inventoryAdminNavGroups.filter((group) => group.key !== 'products');
+  // Products need the catalog app; shop sales (the pos group) its own app.
+  const groups = inventoryAdminNavGroups.filter(
+    (group) =>
+      (catalogEnabled || group.key !== 'products') && (shopSalesEnabled || group.key !== 'pos'),
+  );
 
   for (const group of groups) {
     const flat = flattenInventoryNavItems(group);
@@ -748,7 +750,11 @@ export function Topbar() {
     () => buildEcommerceNavConfig((key) => tEcommerceNav(key as 'overview'), catalogEnabled),
     [tEcommerceNav, catalogEnabled],
   );
-  const inventoryNavConfig = React.useMemo(() => buildInventoryNavConfig(catalogEnabled), [catalogEnabled]);
+  const shopSalesEnabled = isModuleEnabledFor('shopSales', activeCompanyId, moduleContext);
+  const inventoryNavConfig = React.useMemo(
+    () => buildInventoryNavConfig(catalogEnabled, shopSalesEnabled),
+    [catalogEnabled, shopSalesEnabled],
+  );
   const catalogNavConfig = React.useMemo(() => buildCatalogNavConfig(), []);
   const contactsNavConfig = React.useMemo(() => buildContactsNavConfig(), []);
   const accountingNavConfig = React.useMemo(() => buildAccountingNavConfig(), []);

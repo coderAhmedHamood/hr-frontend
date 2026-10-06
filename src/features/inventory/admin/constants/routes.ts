@@ -3,7 +3,7 @@
  */
 export const inventoryAdminRoutes = {
   overview: '/inventory',
-  /** خصم المبيعات — مزامنة الكمية مع المتجر (ليس نقطة بيع) */
+  /** مبيعات المحل — خصم ما يُباع في المحل من المستودع (ليس نقطة بيع) */
   pos: '/pos',
   /** العمليات — عامة على كل المستودعات */
   transfers: '/inventory/transfers',
