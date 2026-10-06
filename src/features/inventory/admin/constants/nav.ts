@@ -98,7 +98,7 @@ export const inventoryAdminNavGroups: InventoryAdminNavGroup[] = [
   },
   {
     key: 'pos',
-    labelAr: 'خصم المبيعات',
+    labelAr: 'مبيعات المحل',
     icon: Store,
     sections: [
       {

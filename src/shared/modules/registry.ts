@@ -16,6 +16,7 @@ export type ModuleId =
   | 'catalog'
   | 'ecommerce'
   | 'inventory'
+  | 'shopSales'
   | 'contacts';
 
 export type ModuleDefinition = {
@@ -40,6 +41,13 @@ export const MODULE_REGISTRY: Record<ModuleId, ModuleDefinition> = {
     applicationCodes: ['ecommerce', 'store-admin', 'storeadmin'],
   },
   inventory: { id: 'inventory', labelAr: 'المخزون', installable: true, applicationCodes: ['inventory'] },
+  /** Shop sales: deduct what a physical shop sold (depends on inventory). */
+  shopSales: {
+    id: 'shopSales',
+    labelAr: 'مبيعات المحل',
+    installable: true,
+    applicationCodes: ['shop-sales', 'sale-deduct'],
+  },
   contacts: {
     id: 'contacts',
     labelAr: 'جهات الاتصال',

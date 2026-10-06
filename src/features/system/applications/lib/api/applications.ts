@@ -3,8 +3,8 @@ import { contactsAdminRoutes } from '@/features/contacts/admin/constants/routes'
 import { ecommerceAdminRoutes } from '@/features/ecommerce/admin/constants/routes';
 import { inventoryAdminRoutes } from '@/features/inventory/admin/constants/routes';
 import {
-  isStoreStockSyncApplicationCode,
-} from '@/features/inventory/admin/constants/store-stock-sync-app';
+  isShopSalesApplicationCode,
+} from '@/features/inventory/admin/constants/shop-sales-app';
 import { resolveSystemAppLaunchPath } from '@/features/system/constants/app-launch';
 import { systemOwnerRoutes } from '@/features/system-owner/constants/routes';
 import { isMultiLangEnabled } from '@/i18n/locale-flags';
@@ -194,7 +194,7 @@ export function resolveApplicationLaunchPath(
 
   if (code === 'catalog') return resolveCatalogLaunchPath(enabled);
   if (code === 'inventory') return inventoryAdminRoutes.overview;
-  if (isStoreStockSyncApplicationCode(code)) {
+  if (isShopSalesApplicationCode(code)) {
     return base || inventoryAdminRoutes.pos;
   }
   if (code === 'accounting') return '/accounting';

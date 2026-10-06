@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
   ArrowLeft,
@@ -24,6 +25,7 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/shared/utils';
 import { resolveUploadUrl } from '@/shared/resolve-upload-url';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
+import { fetchStoreWarehouse } from '@/features/ecommerce/admin/stock/lib/api/stock-sync-api';
 import { formatPrice } from '@/features/ecommerce/shared/utils/format-price';
 import { STORE_CURRENCY_CODE } from '@/features/ecommerce/domain/constants/store-currency';
 import type { Product } from '@/features/ecommerce/domain/types/product';
@@ -645,6 +647,20 @@ export function PosCashierApp() {
   }, [warehousesPage?.items]);
 
   const selectedLocation = locations.find((l) => l.id === locationId) ?? null;
+  // The online store shows one warehouse: deductions elsewhere do not change it.
+  const { data: storeWarehouse } = useQuery({
+    queryKey: ['inventory', 'pos', 'store-warehouse', companyId],
+    queryFn: () => fetchStoreWarehouse(companyId),
+    enabled: Boolean(companyId),
+    retry: false,
+    staleTime: 60_000,
+  });
+  const outsideStoreWarehouse = Boolean(
+    storeWarehouse?.enabled &&
+      storeWarehouse.warehouseId &&
+      selectedLocation &&
+      selectedLocation.warehouseId !== storeWarehouse.warehouseId,
+  );
 
   React.useEffect(() => {
     if (!locationReady || !locationId) return;
@@ -1019,7 +1035,7 @@ export function PosCashierApp() {
         </Link>
         <div className="flex min-w-0 items-center gap-2">
           <ShoppingBag className="size-5 shrink-0 text-emerald-400" />
-          <span className="truncate text-sm font-semibold tracking-tight sm:text-base">خصم المبيعات</span>
+          <span className="truncate text-sm font-semibold tracking-tight sm:text-base">مبيعات المحل</span>
         </div>
         <div className="ms-auto flex items-center gap-2">
           <button
@@ -1036,6 +1052,12 @@ export function PosCashierApp() {
           </button>
         </div>
       </header>
+
+      {outsideStoreWarehouse ? (
+        <div className="shrink-0 border-b border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          هذا المستودع ليس مستودع المتجر الإلكتروني: الخصم منه لا يغيّر الكميات المعروضة في المتجر.
+        </div>
+      ) : null}
 
       <div className="inv-pos-shell">
         <aside className="inv-pos-cart hidden flex-col border-e border-slate-300 bg-white shadow-sm md:flex">

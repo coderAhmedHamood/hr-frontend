@@ -274,7 +274,7 @@ function buildCatalogMobileNav(): MobileNavItem[] {
   ];
 }
 
-function buildInventoryMobileNav(catalogEnabled: boolean): MobileNavItem[] {
+function buildInventoryMobileNav(catalogEnabled: boolean, shopSalesEnabled: boolean): MobileNavItem[] {
   const items: MobileNavItem[] = [
     { key: 'apps', label: 'التطبيقات', href: '/', icon: LayoutGrid },
     {
@@ -286,9 +286,11 @@ function buildInventoryMobileNav(catalogEnabled: boolean): MobileNavItem[] {
     },
   ];
 
-  const groups = catalogEnabled
-    ? inventoryAdminNavGroups
-    : inventoryAdminNavGroups.filter((group) => group.key !== 'products');
+  // Products need the catalog app; shop sales (the pos group) its own app.
+  const groups = inventoryAdminNavGroups.filter(
+    (group) =>
+      (catalogEnabled || group.key !== 'products') && (shopSalesEnabled || group.key !== 'pos'),
+  );
 
   for (const group of groups) {
     const flat = flattenInventoryNavItems(group);
@@ -594,6 +596,7 @@ export function Sidebar() {
   const ecommerceEnabled = isModuleEnabledFor('ecommerce', activeCompanyId, moduleContext);
   const inventoryEnabled = isModuleEnabledFor('inventory', activeCompanyId, moduleContext);
   const catalogEnabled = isModuleEnabledFor('catalog', activeCompanyId, moduleContext);
+  const shopSalesEnabled = isModuleEnabledFor('shopSales', activeCompanyId, moduleContext);
   const contactsEnabled = isModuleEnabledFor('contacts', activeCompanyId, moduleContext);
   const tNav = useTranslations('ecommerceAdmin.nav');
 
@@ -658,7 +661,7 @@ export function Sidebar() {
       : contactsEnabled && isContactsAppPath(pathname)
       ? buildContactsMobileNav()
       : isInventoryApp
-          ? buildInventoryMobileNav(catalogEnabled)
+          ? buildInventoryMobileNav(catalogEnabled, shopSalesEnabled)
           : catalogEnabled && isCatalogAppPath(pathname)
             ? buildCatalogMobileNav()
             : ecommerceEnabled && isEcommerceAppPath(pathname)

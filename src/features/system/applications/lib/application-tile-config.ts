@@ -13,7 +13,7 @@ import {
   Users,
 } from 'lucide-react';
 import type { ApplicationResponseDto } from '@/features/system/applications/lib/api/applications';
-import { isStoreStockSyncApplicationCode } from '@/features/inventory/admin/constants/store-stock-sync-app';
+import { isShopSalesApplicationCode } from '@/features/inventory/admin/constants/shop-sales-app';
 
 const ICON_BY_KEY: Record<string, LucideIcon> = {
   users: Users,
@@ -77,7 +77,7 @@ export function resolveApplicationIcon(app: ApplicationResponseDto): LucideIcon 
   if (app.code === 'store-admin' || app.code === 'ecommerce') return Store;
   if (app.code === 'storefront' || app.code === 'store') return ShoppingBag;
   if (app.code === 'catalog' || app.code === 'inventory') return Package;
-  if (isStoreStockSyncApplicationCode(app.code)) return PackageMinus;
+  if (isShopSalesApplicationCode(app.code)) return PackageMinus;
   if (app.code === 'contacts') return ContactRound;
   if (app.code === 'hr') return Users;
   if (app.code === 'accounting') return Calculator;
