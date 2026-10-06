@@ -1,11 +1,14 @@
 'use client';
 
 import * as React from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Building2, Check, ImagePlus, Loader2, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { companiesApi, type CountryProfile } from '@/features/hr/organization/lib/api/companies';
 import { resolveUploadUrl, uploadResponseToStoredPath } from '@/shared/resolve-upload-url';
 import { cn } from '@/shared/utils';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
@@ -75,8 +78,23 @@ function ColorField({
   );
 }
 
+/** Shown until the supported countries load (Yemen is the default). */
+const YEMEN: CountryProfile = {
+  code: 'YE',
+  nameAr: 'اليمن',
+  nameEn: 'Yemen',
+  currencyCode: 'YER',
+  phoneCode: '967',
+  mapRegion: 'YE',
+};
+
 export function CompanySettingsTab() {
   const { company, isLoading, isError, error, update } = useCompanyProfileSettings();
+  const countries = useQuery({
+    queryKey: ['companies', 'country-profiles'],
+    queryFn: () => companiesApi.countryProfiles(),
+    staleTime: 60 * 60_000,
+  });
   const [form, setForm] = React.useState<CompanySettingsFormState | null>(null);
   const [uploadingLogo, setUploadingLogo] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -290,9 +308,33 @@ export function CompanySettingsTab() {
         </div>
 
         <div className="space-y-3">
+          <p className="text-xs font-semibold text-muted-foreground">الدولة الأساسية</p>
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            دولة واحدة للشركة. منها يأخذ المتجر العملة ومفتاح الهاتف ومنطقة الخريطة، وعليها تُبنى المواقع وأسعار
+            التوصيل وحسابات الدفع. المتاح حالياً: اليمن.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <FormField label="الدولة الأساسية">
+              <Select value={form.baseCountryCode} onValueChange={(baseCountryCode) => patch({ baseCountryCode })}>
+                <SelectTrigger className="h-9" aria-label="الدولة الأساسية">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(countries.data?.length ? countries.data : [YEMEN]).map((c) => (
+                    <SelectItem key={c.code} value={c.code}>
+                      {c.nameAr} ({c.currencyCode} · +{c.phoneCode})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FormField>
+          </div>
+        </div>
+
+        <div className="space-y-3">
           <p className="text-xs font-semibold text-muted-foreground">العنوان</p>
           <div className="grid gap-3 sm:grid-cols-2">
-            <FormField label="الدولة">
+            <FormField label="دولة العنوان">
               <Input dir="ltr" value={form.country} onChange={(e) => patch({ country: e.target.value })} className="h-9" placeholder="SA" />
             </FormField>
             <FormField label="المدينة">

@@ -12,6 +12,8 @@ export type CompanyResponseDto = {
   mobile: string | null;
   website: string | null;
   country: string | null;
+  /** Base country (ISO code): its profile drives the store (currency, phone code, map). */
+  baseCountryCode: string;
   city: string | null;
   district: string | null;
   address: string | null;
@@ -47,6 +49,7 @@ export type CreateCompanyDto = {
   mobile?: string | null;
   website?: string | null;
   country?: string | null;
+  baseCountryCode?: string;
   city?: string | null;
   district?: string | null;
   address?: string | null;
@@ -74,7 +77,20 @@ export type CompanyListQuery = {
   limit?: number;
 };
 
+/** What a base country decides (backend core/countries/country-profiles). */
+export type CountryProfile = {
+  code: string;
+  nameAr: string;
+  nameEn: string;
+  currencyCode: string;
+  phoneCode: string;
+  mapRegion: string;
+};
+
 export const companiesApi = {
+  countryProfiles() {
+    return apiRequest<CountryProfile[]>('/companies/country-profiles');
+  },
   getAll(query?: CompanyListQuery) {
     return apiRequest<PaginatedResult<CompanyResponseDto>>('/companies', { query });
   },

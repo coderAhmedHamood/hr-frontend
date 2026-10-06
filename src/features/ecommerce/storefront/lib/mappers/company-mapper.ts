@@ -116,5 +116,6 @@ export function mapStorefrontCompanyConfig(
     storePages,
     currency: record.currency,
     timezone: record.timezone,
+    country: record.country,
   };
 }

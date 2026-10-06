@@ -10,6 +10,7 @@ export type CompanySettingsFormState = {
   mobile: string;
   website: string;
   country: string;
+  baseCountryCode: string;
   city: string;
   district: string;
   address: string;
@@ -30,6 +31,7 @@ export function companyToSettingsForm(company: CompanyResponseDto): CompanySetti
     mobile: company.mobile ?? '',
     website: company.website ?? '',
     country: company.country ?? '',
+    baseCountryCode: company.baseCountryCode || 'YE',
     city: company.city ?? '',
     district: company.district ?? '',
     address: company.address ?? '',
@@ -62,6 +64,7 @@ export function settingsFormToUpdateDto(form: CompanySettingsFormState): UpdateC
     mobile: emptyToNull(form.mobile),
     website: emptyToNull(form.website),
     country: emptyToNull(form.country),
+    baseCountryCode: form.baseCountryCode,
     city: emptyToNull(form.city),
     district: emptyToNull(form.district),
     address: emptyToNull(form.address),
