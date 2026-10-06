@@ -162,13 +162,9 @@ export function resolveStorefrontLaunchPath(routePath?: string | null): string {
 /** Apps enabled for the active company, when the caller knows them. */
 export type LaunchAppsContext = { store?: boolean; inventory?: boolean };
 
-/**
- * Products (catalog) has no screens of its own yet: it opens the products
- * screens of the store, else of inventory (phase 2.5).
- */
-export function resolveCatalogLaunchPath(enabled?: LaunchAppsContext): string {
-  if (enabled?.store === false && enabled.inventory) return inventoryAdminRoutes.products;
-  return ecommerceAdminRoutes.products;
+/** Standalone products app — products, categories, attributes, brands, units. */
+export function resolveCatalogLaunchPath(_enabled?: LaunchAppsContext): string {
+  return '/catalog/products';
 }
 
 export function resolveApplicationLaunchPath(

@@ -228,19 +228,17 @@ describe('resolveApplicationLaunchPath — catalog (phase 2.5)', () => {
     status: 'active',
   };
 
-  it('opens the store products screens when the store is enabled (or unknown)', () => {
-    expect(resolveApplicationLaunchPath(catalogApp)).toBe('/products');
-    expect(resolveApplicationLaunchPath(catalogApp, { store: true, inventory: true })).toBe('/products');
-  });
-
-  it('opens the inventory products screens when only inventory is enabled', () => {
-    expect(resolveApplicationLaunchPath(catalogApp, { store: false, inventory: true })).toBe(
-      '/inventory/products',
+  it('opens the standalone products app', () => {
+    expect(resolveApplicationLaunchPath(catalogApp)).toBe('/catalog/products');
+    expect(resolveApplicationLaunchPath(catalogApp, { store: true, inventory: true })).toBe(
+      '/catalog/products',
     );
-  });
-
-  it('falls back to /products when neither app is enabled', () => {
-    expect(resolveApplicationLaunchPath(catalogApp, { store: false, inventory: false })).toBe('/products');
+    expect(resolveApplicationLaunchPath(catalogApp, { store: false, inventory: true })).toBe(
+      '/catalog/products',
+    );
+    expect(resolveApplicationLaunchPath(catalogApp, { store: false, inventory: false })).toBe(
+      '/catalog/products',
+    );
   });
 });
 

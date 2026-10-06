@@ -69,12 +69,14 @@ import {
 import { UserMenuDropdown } from '@/components/layouts/user-menu-dropdown';
 import { AppsLauncherButton } from '@/components/layouts/apps-launcher-button';
 import { useModuleEnablementContext } from '@/features/auth/hooks/use-system-owner';
+import { catalogNavItems } from '@/features/catalog/constants/nav';
 import {
   isHrAppPath,
   isSystemAppPath,
   isSystemOwnerAppPath,
   isEcommerceAppPath,
   isInventoryAppPath,
+  isCatalogAppPath,
   isContactsAppPath,
   isAccountingAppPath,
   isLauncherPath,
@@ -332,7 +334,7 @@ export const systemNavConfig: NavItem[] = [
 /**
  * Overview link + Website dropdown + business-domain dropdowns (skip empty domains).
  */
-function buildEcommerceNavConfig(tNav: (key: string) => string): NavItem[] {
+function buildEcommerceNavConfig(tNav: (key: string) => string, catalogEnabled: boolean): NavItem[] {
   const items: NavItem[] = [
     {
       key: 'ecommerce-overview',
@@ -343,7 +345,11 @@ function buildEcommerceNavConfig(tNav: (key: string) => string): NavItem[] {
     },
   ];
 
-  for (const group of ecommerceAdminNavGroups) {
+  const groups = catalogEnabled
+    ? ecommerceAdminNavGroups
+    : ecommerceAdminNavGroups.filter((group) => group.key !== 'products' && group.key !== 'catalogSetup');
+
+  for (const group of groups) {
     const flat = flattenEcommerceNavItems(group);
     if (flat.length === 0) continue;
 
@@ -376,7 +382,17 @@ function buildEcommerceNavConfig(tNav: (key: string) => string): NavItem[] {
 }
 
 /** نظرة عامة | العمليات | المنتجات | إعداد التقارير | التهيئة | الإعدادات */
-function buildInventoryNavConfig(): NavItem[] {
+function buildCatalogNavConfig(): NavItem[] {
+  return catalogNavItems.map((item) => ({
+    key: `catalog-${item.key}`,
+    label: item.labelAr,
+    href: item.href,
+    icon: item.icon,
+    isActive: (pathname: string) => pathname === item.href || pathname.startsWith(`${item.href}/`),
+  }));
+}
+
+function buildInventoryNavConfig(catalogEnabled: boolean): NavItem[] {
   const items: NavItem[] = [
     {
       key: 'inventory-overview',
@@ -387,7 +403,11 @@ function buildInventoryNavConfig(): NavItem[] {
     },
   ];
 
-  for (const group of inventoryAdminNavGroups) {
+  const groups = catalogEnabled
+    ? inventoryAdminNavGroups
+    : inventoryAdminNavGroups.filter((group) => group.key !== 'products');
+
+  for (const group of groups) {
     const flat = flattenInventoryNavItems(group);
     if (flat.length === 0) continue;
 
@@ -700,18 +720,21 @@ export function Topbar() {
   const { companyId: activeCompanyId, ...moduleContext } = useModuleEnablementContext();
   const ecommerceEnabled = isModuleEnabledFor('ecommerce', activeCompanyId, moduleContext);
   const inventoryEnabled = isModuleEnabledFor('inventory', activeCompanyId, moduleContext);
+  const catalogEnabled = isModuleEnabledFor('catalog', activeCompanyId, moduleContext);
   const contactsEnabled = isModuleEnabledFor('contacts', activeCompanyId, moduleContext);
   const inEcommerceApp = ecommerceEnabled && isEcommerceAppPath(pathname);
   const inInventoryApp = inventoryEnabled && isInventoryAppPath(pathname);
+  const inCatalogApp = catalogEnabled && isCatalogAppPath(pathname);
   const inContactsApp = contactsEnabled && isContactsAppPath(pathname);
   const inAccountingApp = isAccountingAppPath(pathname);
-  const inAppShell = inHrApp || inSystemApp || inSystemOwnerApp || inEcommerceApp || inInventoryApp || inContactsApp || inAccountingApp;
+  const inAppShell = inHrApp || inSystemApp || inSystemOwnerApp || inEcommerceApp || inInventoryApp || inCatalogApp || inContactsApp || inAccountingApp;
   const tEcommerceNav = useTranslations('ecommerceAdmin.nav');
   const ecommerceNavConfig = React.useMemo(
-    () => buildEcommerceNavConfig((key) => tEcommerceNav(key as 'overview')),
-    [tEcommerceNav],
+    () => buildEcommerceNavConfig((key) => tEcommerceNav(key as 'overview'), catalogEnabled),
+    [tEcommerceNav, catalogEnabled],
   );
-  const inventoryNavConfig = React.useMemo(() => buildInventoryNavConfig(), []);
+  const inventoryNavConfig = React.useMemo(() => buildInventoryNavConfig(catalogEnabled), [catalogEnabled]);
+  const catalogNavConfig = React.useMemo(() => buildCatalogNavConfig(), []);
   const contactsNavConfig = React.useMemo(() => buildContactsNavConfig(), []);
   const accountingNavConfig = React.useMemo(() => buildAccountingNavConfig(), []);
   const activeNavConfig = inSystemOwnerApp
@@ -724,7 +747,9 @@ export function Topbar() {
         ? contactsNavConfig
         : inInventoryApp
           ? inventoryNavConfig
-          : inEcommerceApp
+          : inCatalogApp
+            ? catalogNavConfig
+            : inEcommerceApp
           ? ecommerceNavConfig
           : navConfig;
   const currentAppLabel = inSystemOwnerApp
@@ -737,7 +762,9 @@ export function Topbar() {
           ? 'جهات الاتصال'
           : inInventoryApp
             ? 'المخازن'
-            : inEcommerceApp
+            : inCatalogApp
+              ? 'المنتجات'
+              : inEcommerceApp
               ? 'إدارة المتجر'
               : undefined;
   const onLauncher = isLauncherPath(pathname);

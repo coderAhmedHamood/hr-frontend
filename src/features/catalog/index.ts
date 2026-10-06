@@ -2,8 +2,8 @@
  * Products (catalog) feature — public surface (phase 2.5).
  *
  * The catalog owns products, variants, categories, brands, attributes and
- * units of measure. Its screens are mounted by the store (`/products`, …) and
- * by inventory (`/inventory/products`, …); app routes import them from here.
+ * units of measure. Its screens are mounted by the products app (`/catalog/…`),
+ * the store (`/products`, …) and inventory (`/inventory/products`, …).
  * Inventory sections (stock, cost, tracking, batches, moves) and store
  * sections (compare-at price, promos, stockStatus, reviews) show only when
  * that app is enabled for the company (`useProductAppSections`).

@@ -47,7 +47,7 @@ function groupTab(group: InventoryAdminNavGroup | undefined, label: string, fall
   };
 }
 
-function buildInventoryTabs(): TabItem[] {
+function buildInventoryTabs(catalogEnabled: boolean): TabItem[] {
   const byKey = (key: InventoryAdminNavGroup['key']) => inventoryAdminNavGroups.find((g) => g.key === key);
 
   const overview: TabItem = {
@@ -61,7 +61,7 @@ function buildInventoryTabs(): TabItem[] {
   return [
     overview,
     groupTab(byKey('operations'), 'العمليات', Package),
-    groupTab(byKey('products'), 'المنتجات', Package),
+    catalogEnabled ? groupTab(byKey('products'), 'المنتجات', Package) : null,
     groupTab(byKey('reports'), 'التقارير', Package),
   ].filter((tab): tab is TabItem => tab !== null);
 }
@@ -123,15 +123,16 @@ export function MobileTabBar() {
   const { toggle } = useSidebar();
   const { companyId: activeCompanyId, ...moduleContext } = useModuleEnablementContext();
   const inventoryEnabled = isModuleEnabledFor('inventory', activeCompanyId, moduleContext);
+  const catalogEnabled = isModuleEnabledFor('catalog', activeCompanyId, moduleContext);
 
   const inInventoryApp = inventoryEnabled && isInventoryAppPath(pathname);
   const inSystemApp = isSystemAppPath(pathname);
 
   const tabs = React.useMemo(() => {
     if (inSystemApp) return buildSystemTabs();
-    if (inInventoryApp) return buildInventoryTabs();
+    if (inInventoryApp) return buildInventoryTabs(catalogEnabled);
     return [];
-  }, [inInventoryApp, inSystemApp]);
+  }, [catalogEnabled, inInventoryApp, inSystemApp]);
 
   if (!inInventoryApp && !inSystemApp) return null;
   if (tabs.length === 0) return null;

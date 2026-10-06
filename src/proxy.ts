@@ -50,6 +50,7 @@ const CONSOLE_SEGMENTS = new Set([
   'accounting',
   'attributes',
   'cms',
+  'catalog',
   'company-apps',
   'contacts',
   'hr',

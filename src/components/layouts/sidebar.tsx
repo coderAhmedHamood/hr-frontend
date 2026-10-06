@@ -15,7 +15,7 @@ import {
   Megaphone,
 } from 'lucide-react';
 import { cn } from '@/shared/utils';
-import { isHrAppPath, isSystemAppPath, isSystemOwnerAppPath, isEcommerceAppPath, isInventoryAppPath, isContactsAppPath, isAccountingAppPath } from '@/shared/app-paths';
+import { isHrAppPath, isSystemAppPath, isSystemOwnerAppPath, isEcommerceAppPath, isInventoryAppPath, isCatalogAppPath, isContactsAppPath, isAccountingAppPath } from '@/shared/app-paths';
 import { Logo } from '@/components/layouts/logo';
 import { useDefaultCompanyBranding } from '@/features/auth/hooks/use-default-company-branding';
 import { useSidebar } from '@/components/layouts/sidebar-context';
@@ -39,6 +39,7 @@ import {
   ecommerceAdminOverviewItem,
   flattenEcommerceNavItems,
 } from '@/features/ecommerce/admin/constants/nav';
+import { catalogNavItems } from '@/features/catalog/constants/nav';
 import {
   inventoryAdminNavGroups,
   inventoryAdminOverviewItem,
@@ -212,7 +213,7 @@ const systemMobileNav: MobileNavItem[] = [
   },
 ];
 
-function buildEcommerceMobileNav(tNav: (key: string) => string): MobileNavItem[] {
+function buildEcommerceMobileNav(tNav: (key: string) => string, catalogEnabled: boolean): MobileNavItem[] {
   const items: MobileNavItem[] = [
     { key: 'apps', label: tNav('appsHome'), href: '/', icon: LayoutGrid },
     {
@@ -224,7 +225,11 @@ function buildEcommerceMobileNav(tNav: (key: string) => string): MobileNavItem[]
     },
   ];
 
-  for (const group of ecommerceAdminNavGroups) {
+  const groups = catalogEnabled
+    ? ecommerceAdminNavGroups
+    : ecommerceAdminNavGroups.filter((group) => group.key !== 'products' && group.key !== 'catalogSetup');
+
+  for (const group of groups) {
     const flat = flattenEcommerceNavItems(group);
     if (flat.length === 0) continue;
 
@@ -256,7 +261,20 @@ function buildEcommerceMobileNav(tNav: (key: string) => string): MobileNavItem[]
   return items;
 }
 
-function buildInventoryMobileNav(): MobileNavItem[] {
+function buildCatalogMobileNav(): MobileNavItem[] {
+  return [
+    { key: 'apps', label: 'التطبيقات', href: '/', icon: LayoutGrid },
+    ...catalogNavItems.map((item) => ({
+      key: item.key,
+      label: item.labelAr,
+      href: item.href,
+      icon: item.icon,
+      match: 'prefix' as const,
+    })),
+  ];
+}
+
+function buildInventoryMobileNav(catalogEnabled: boolean): MobileNavItem[] {
   const items: MobileNavItem[] = [
     { key: 'apps', label: 'التطبيقات', href: '/', icon: LayoutGrid },
     {
@@ -268,7 +286,11 @@ function buildInventoryMobileNav(): MobileNavItem[] {
     },
   ];
 
-  for (const group of inventoryAdminNavGroups) {
+  const groups = catalogEnabled
+    ? inventoryAdminNavGroups
+    : inventoryAdminNavGroups.filter((group) => group.key !== 'products');
+
+  for (const group of groups) {
     const flat = flattenInventoryNavItems(group);
     if (flat.length === 0) continue;
 
@@ -559,6 +581,7 @@ export function Sidebar() {
   const { companyId: activeCompanyId, ...moduleContext } = useModuleEnablementContext();
   const ecommerceEnabled = isModuleEnabledFor('ecommerce', activeCompanyId, moduleContext);
   const inventoryEnabled = isModuleEnabledFor('inventory', activeCompanyId, moduleContext);
+  const catalogEnabled = isModuleEnabledFor('catalog', activeCompanyId, moduleContext);
   const contactsEnabled = isModuleEnabledFor('contacts', activeCompanyId, moduleContext);
   const tNav = useTranslations('ecommerceAdmin.nav');
 
@@ -568,6 +591,7 @@ export function Sidebar() {
     || isAccountingAppPath(pathname)
     || (ecommerceEnabled && isEcommerceAppPath(pathname))
     || (inventoryEnabled && isInventoryAppPath(pathname))
+    || (catalogEnabled && isCatalogAppPath(pathname))
     || (contactsEnabled && isContactsAppPath(pathname));
 
   React.useEffect(() => {
@@ -622,9 +646,11 @@ export function Sidebar() {
       : contactsEnabled && isContactsAppPath(pathname)
       ? buildContactsMobileNav()
       : isInventoryApp
-          ? buildInventoryMobileNav()
-          : ecommerceEnabled && isEcommerceAppPath(pathname)
-            ? buildEcommerceMobileNav((key) => tNav(key as 'overview'))
+          ? buildInventoryMobileNav(catalogEnabled)
+          : catalogEnabled && isCatalogAppPath(pathname)
+            ? buildCatalogMobileNav()
+            : ecommerceEnabled && isEcommerceAppPath(pathname)
+            ? buildEcommerceMobileNav((key) => tNav(key as 'overview'), catalogEnabled)
             : mobileNav;
 
   // System / Inventory get the native-app-style bottom sheet (paired with their

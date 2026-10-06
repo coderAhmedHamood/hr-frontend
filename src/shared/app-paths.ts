@@ -1,3 +1,4 @@
+import { isCatalogAdminNavPath } from '@/features/catalog/constants/nav';
 import { isContactsAdminNavPath } from '@/features/contacts/admin/constants/nav';
 import { isEcommerceAdminNavPath } from '@/features/ecommerce/admin/constants/nav';
 import { isInventoryAdminNavPath } from '@/features/inventory/admin/constants/nav';
@@ -33,6 +34,11 @@ export function isLauncherPath(pathname: string): boolean {
  */
 export function isEcommerceAppPath(pathname: string): boolean {
   return isEcommerceAdminNavPath(pathname);
+}
+
+/** True when the current route belongs to the standalone Products (catalog) application. */
+export function isCatalogAppPath(pathname: string): boolean {
+  return isCatalogAdminNavPath(pathname);
 }
 
 /** True when the current route belongs to the standalone Inventory application. */
