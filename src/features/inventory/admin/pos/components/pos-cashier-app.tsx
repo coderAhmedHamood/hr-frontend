@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
-  ArrowLeft,
   Check,
   ChevronUp,
   LayoutGrid,
@@ -20,6 +19,7 @@ import {
   X,
 } from 'lucide-react';
 
+import { AppsLauncherButton } from '@/components/layouts/apps-launcher-button';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/shared/utils';
@@ -236,25 +236,22 @@ function LocationGate({
   }, [filtered]);
 
   return (
-    <div className="inventory-app flex h-dvh flex-col bg-[#e8ecf1]" dir="rtl">
-      <header className="inv-pos-header flex shrink-0 items-center gap-3 border-b border-slate-800 bg-slate-900 px-3 py-2 text-white">
-        <Link
-          href="/"
-          className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-sm text-slate-300 transition hover:bg-white/10 hover:text-white"
-        >
-          <ArrowLeft className="size-4" />
-          التطبيقات
-        </Link>
-        <div className="flex items-center gap-2">
-          <MapPin className="size-5 text-emerald-400" />
-          <span className="text-base font-semibold tracking-tight">اختيار موقع الخصم</span>
+    <div className="inventory-app flex h-dvh flex-col bg-background" dir="rtl">
+      <header className="inv-pos-header flex shrink-0 items-center gap-3 border-b border-border/60 bg-linear-to-b from-card via-background to-primary-50/35 px-4 py-2 text-foreground topbar-shell-shadow">
+        <AppsLauncherButton />
+        <div className="hidden h-5 w-px bg-border/70 sm:block" aria-hidden />
+        <div className="flex min-w-0 items-center gap-2">
+          <MapPin className="size-4 shrink-0 text-primary" />
+          <span className="truncate text-sm font-bold tracking-tight text-foreground sm:text-base">
+            اختيار موقع الخصم
+          </span>
         </div>
       </header>
 
       <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-4 overflow-y-auto p-4 sm:p-6">
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h1 className="text-lg font-bold text-slate-900">اختر الموقع أولاً</h1>
-          <p className="mt-1 text-sm text-slate-500">
+        <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+          <h1 className="text-lg font-bold text-foreground">اختر الموقع أولاً</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
             الشاشة مربوطة بموقع واحد — تُعرض كميات هذا الموقع فقط ويُخصم منها عند تسجيل البيع.
           </p>
           <div className="relative mt-4">
@@ -291,9 +288,9 @@ function LocationGate({
                       key={loc.id}
                       type="button"
                       onClick={() => onSelect(loc.id)}
-                      className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-start shadow-sm transition hover:border-emerald-400 hover:shadow-md active:scale-[0.99]"
+                      className="flex items-start gap-3 rounded-2xl border border-border bg-card p-4 text-start shadow-sm transition hover:border-primary/40 hover:shadow-md active:scale-[0.99]"
                     >
-                      <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+                      <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
                         <MapPin className="size-5" />
                       </span>
                       <span className="min-w-0">
@@ -996,7 +993,7 @@ export function PosCashierApp() {
 
   if (!locationReady) {
     return (
-      <div className="flex h-dvh items-center justify-center bg-[#e8ecf1]" dir="rtl">
+      <div className="flex h-dvh items-center justify-center bg-background" dir="rtl">
         <Loader2 className="size-6 animate-spin text-slate-400" />
       </div>
     );
@@ -1017,34 +1014,28 @@ export function PosCashierApp() {
   const stockError = stockQuery.isError;
 
   return (
-    <div className="flex h-dvh flex-col bg-[#e8ecf1] text-slate-900 inventory-app" dir="rtl">
-      <header className="inv-pos-header flex shrink-0 items-center gap-2 border-b border-slate-800 bg-slate-900 px-2 py-2 text-white sm:gap-3 sm:px-3">
-        <Link
-          href="/"
-          className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg text-slate-300 transition hover:bg-white/10 hover:text-white sm:size-auto sm:gap-1.5 sm:px-2 sm:py-1"
-          aria-label="التطبيقات"
-        >
-          <ArrowLeft className="size-5 sm:size-4" />
-          <span className="hidden text-sm sm:inline">التطبيقات</span>
-        </Link>
+    <div className="flex h-dvh flex-col bg-background text-foreground inventory-app" dir="rtl">
+      <header className="inv-pos-header flex shrink-0 items-center gap-2 border-b border-border/60 bg-linear-to-b from-card via-background to-primary-50/35 px-3 py-2 text-foreground topbar-shell-shadow sm:gap-3 sm:px-4">
+        <AppsLauncherButton />
+        <div className="hidden h-5 w-px bg-border/70 sm:block" aria-hidden />
         <Link
           href={inventoryAdminRoutes.overview}
-          className="hidden items-center gap-1 rounded-md px-2 py-1 text-xs text-slate-400 transition hover:bg-white/10 hover:text-white sm:inline-flex"
+          className="hidden items-center gap-1 rounded-xl px-2 py-1 text-xs text-muted-foreground transition hover:bg-muted hover:text-foreground sm:inline-flex"
         >
           المخزون
         </Link>
         <div className="flex min-w-0 items-center gap-2">
-          <ShoppingBag className="size-5 shrink-0 text-emerald-400" />
-          <span className="truncate text-sm font-semibold tracking-tight sm:text-base">مبيعات المحل</span>
+          <ShoppingBag className="size-4 shrink-0 text-primary" />
+          <span className="truncate text-sm font-bold tracking-tight text-foreground sm:text-base">مبيعات المحل</span>
         </div>
         <div className="ms-auto flex items-center gap-2">
           <button
             type="button"
             onClick={changeLocation}
-            className="inv-pos-location inline-flex max-w-[9rem] items-center gap-1.5 rounded-lg border border-slate-600 bg-slate-800 px-2 py-2 text-xs text-white transition hover:bg-slate-700 sm:max-w-none sm:px-2.5 sm:py-1.5"
+            className="inv-pos-location inline-flex max-w-[9rem] items-center gap-1.5 rounded-xl border border-border bg-card px-2 py-2 text-xs text-foreground shadow-xs transition hover:bg-muted sm:max-w-none sm:px-2.5 sm:py-1.5"
             title="تغيير الموقع"
           >
-            <MapPin className="size-4 shrink-0 text-emerald-400 sm:size-3.5" />
+            <MapPin className="size-4 shrink-0 text-primary sm:size-3.5" />
             <span className="truncate">
               {selectedLocation?.nameAr ?? 'موقع'}
               {selectedLocation?.code ? ` · ${selectedLocation.code}` : ''}
