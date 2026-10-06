@@ -19,6 +19,13 @@ import {
   PanelBottom,
   Bell,
   BarChart3,
+  LayoutDashboard,
+  TrendingUp,
+  Users,
+  MapPin,
+  Truck,
+  MessageSquare,
+  List,
   Banknote,
   CreditCard,
   MapPinned,
@@ -40,6 +47,8 @@ export type EcommerceAdminNavItem = {
   labelKey: string;
   href: string;
   icon: LucideIcon;
+  /** Exact path match so a parent route is not highlighted on its child pages. */
+  match?: 'exact' | 'prefix';
   /**
    * Optional mid-column section label (under `ecommerceAdmin.nav.sections.*`)
    * rendered above this item — keeps related links in the same dropdown column.
@@ -182,7 +191,20 @@ export const ecommerceAdminNavGroups: EcommerceAdminNavGroup[] = [
     sections: [
       {
         items: [
-          { labelKey: 'reportsOverview', href: ecommerceAdminRoutes.reports, icon: BarChart3 },
+          {
+            labelKey: 'reportsOverview',
+            href: ecommerceAdminRoutes.reports,
+            icon: LayoutDashboard,
+            match: 'exact',
+          },
+          { labelKey: 'reportsSales', href: ecommerceAdminRoutes.reportsSales, icon: TrendingUp },
+          { labelKey: 'reportsProducts', href: ecommerceAdminRoutes.reportsProducts, icon: Package },
+          { labelKey: 'reportsCustomers', href: ecommerceAdminRoutes.reportsCustomers, icon: Users },
+          { labelKey: 'reportsGeo', href: ecommerceAdminRoutes.reportsGeo, icon: MapPin },
+          { labelKey: 'reportsPayment', href: ecommerceAdminRoutes.reportsPayment, icon: CreditCard },
+          { labelKey: 'reportsFulfillment', href: ecommerceAdminRoutes.reportsFulfillment, icon: Truck },
+          { labelKey: 'reportsEngagement', href: ecommerceAdminRoutes.reportsEngagement, icon: MessageSquare },
+          { labelKey: 'reportsLines', href: ecommerceAdminRoutes.reportsLines, icon: List },
         ],
       },
     ],

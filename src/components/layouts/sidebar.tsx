@@ -245,7 +245,7 @@ function buildEcommerceMobileNav(tNav: (key: string) => string, catalogEnabled: 
           label: tNav(item.labelKey),
           href: item.href,
           icon: item.icon,
-          match: item.href.includes('?') ? 'exact' : 'prefix',
+          match: item.match ?? (item.href.includes('?') ? 'exact' : 'prefix'),
         });
       }
     }

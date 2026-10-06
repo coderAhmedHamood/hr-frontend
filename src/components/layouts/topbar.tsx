@@ -567,14 +567,20 @@ function NavDropdownContent({
 
   function subIsActive(href: string) {
     const [hrefPath, hrefQuery] = href.split('?');
-    const base = hrefPath;
-    if (pathname !== base && !pathname.startsWith(base + '/')) return false;
-    if (!hrefQuery) return true;
-    const params = new URLSearchParams(hrefQuery);
-    for (const [k, v] of params) {
-      if (searchParams.get(k) !== v) return false;
+    const base = hrefPath ?? '';
+    if (!base || (pathname !== base && !pathname.startsWith(base + '/'))) return false;
+    if (hrefQuery) {
+      const params = new URLSearchParams(hrefQuery);
+      for (const [k, v] of params) {
+        if (searchParams.get(k) !== v) return false;
+      }
     }
-    return true;
+    const siblingBases = groups.flatMap((group) => group.items.map((item) => item.href.split('?')[0] ?? ''));
+    const hasMoreSpecific = siblingBases.some(
+      (other) =>
+        other.length > base.length && (pathname === other || pathname.startsWith(`${other}/`)),
+    );
+    return !hasMoreSpecific;
   }
 
   const totalItems = groups.reduce((sum, group) => sum + group.items.length, 0);
