@@ -3,7 +3,9 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
+import { toast } from 'sonner';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -34,6 +36,11 @@ import {
   useSystemOwnerMutations,
   useSystemOwnerSuperusers,
 } from '@/features/system-owner/hooks/use-system-owner';
+import {
+  systemOwnerApi,
+  type SystemOwnerCompanyApplication,
+} from '@/features/system-owner/lib/api/system-owner';
+import { ApiError } from '@/shared/api/client';
 import { cn } from '@/shared/utils';
 
 type TabId = 'apps' | 'users' | 'superusers';
@@ -101,6 +108,41 @@ export function SystemOwnerCompanyDetailPage() {
 function CompanyAppsTab({ companyId }: { companyId: string }) {
   const { data, isLoading, isError } = useSystemOwnerCompanyApplications(companyId);
   const { patchCompanyApplication } = useSystemOwnerMutations();
+  const queryClient = useQueryClient();
+  /** The app whose switch was turned on while some of what it needs is off. */
+  const [needsFirst, setNeedsFirst] = React.useState<SystemOwnerCompanyApplication | null>(null);
+  const [enablingChain, setEnablingChain] = React.useState(false);
+
+  const apps = data ?? [];
+  const byCode = new Map(apps.map((a) => [a.code, a]));
+  const nameOf = (code: string) => byCode.get(code)?.nameAr || code;
+  const names = (codes: string[]) => codes.map((c) => `«${nameOf(c)}»`).join('، ');
+
+  /** Enables what the app needs (in order), then the app; stops at the first refusal. */
+  async function enableWithRequirements(app: SystemOwnerCompanyApplication) {
+    setEnablingChain(true);
+    const chain = [...app.missingDependencies, app.code];
+    let done = 0;
+    try {
+      for (const code of chain) {
+        const target = byCode.get(code);
+        if (!target) throw new Error(`التطبيق ${code} غير موجود في قائمة الشركة`);
+        await systemOwnerApi.patchCompanyApplication(companyId, target.applicationId || target.id, {
+          isEnabled: true,
+        });
+        done += 1;
+      }
+      toast.success(`تم تفعيل ${names(chain)}`);
+      setNeedsFirst(null);
+    } catch (err) {
+      // The API client already showed the reason; say how far it got.
+      if (done > 0) toast.message(`فُعّل: ${names(chain.slice(0, done))}. توقّف عند «${nameOf(chain[done])}».`);
+      if (!(err instanceof ApiError)) toast.error(err instanceof Error ? err.message : String(err));
+    } finally {
+      setEnablingChain(false);
+      void queryClient.invalidateQueries({ queryKey: ['system-owner'] });
+    }
+  }
 
   if (isLoading) return <p className="text-sm text-muted-foreground">جاري التحميل…</p>;
   if (isError) return <p className="text-sm text-destructive">تعذر تحميل التطبيقات.</p>;
@@ -109,19 +151,22 @@ function CompanyAppsTab({ companyId }: { companyId: string }) {
     <div className="space-y-2">
       <p className="text-xs text-muted-foreground">
         «تفعيل» يتحكم بالترخيص والصلاحيات. «إظهار» يتحكم بظهور التطبيق في مشغّل الموظفين. تطبيق
-        النظام وتطبيقات الشركة لا يمكن تعطيلهما، لكن يمكن إخفاؤهما من المشغّل.
+        النظام وتطبيقات الشركة لا يمكن تعطيلهما، لكن يمكن إخفاؤهما من المشغّل. التطبيق لا يُفعَّل قبل
+        ما يعتمد عليه، ولا يُعطَّل وتطبيق مفعّل يعتمد عليه.
       </p>
-      {(data ?? []).map((app) => {
+      {apps.map((app) => {
         const enableLocked = app.isAlwaysEnabled;
         const applicationId = app.applicationId || app.id;
-        const pending = patchCompanyApplication.isPending;
+        const pending = patchCompanyApplication.isPending || enablingChain;
+        const missing = app.isEnabled ? [] : app.missingDependencies;
+        const dependents = app.isEnabled ? app.enabledDependents : [];
 
         return (
           <div
             key={app.id}
             className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3"
           >
-            <div className="min-w-0 flex-1">
+            <div className="min-w-0 flex-1 space-y-1">
               <div className="flex flex-wrap items-center gap-2">
                 <p className="text-sm font-medium">{app.nameAr}</p>
                 {!app.isVisible && app.isEnabled ? (
@@ -133,19 +178,44 @@ function CompanyAppsTab({ companyId }: { companyId: string }) {
               <p className="text-xs text-muted-foreground" dir="ltr">
                 {app.code}
               </p>
+              {app.dependsOn.length > 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  يعتمد على: {names(app.dependsOn)}
+                </p>
+              ) : null}
+              {missing.length > 0 ? (
+                <p className="text-xs text-warning">
+                  يتطلب تفعيل {names(missing)} أولاً.
+                </p>
+              ) : null}
+              {dependents.length > 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  تعتمد عليه: {names(dependents)} — لا يُعطَّل قبلها.
+                </p>
+              ) : null}
             </div>
             <div className="flex shrink-0 items-center gap-4">
               <label className="flex items-center gap-2 text-xs text-muted-foreground">
                 <Switch
                   checked={app.isEnabled || enableLocked}
                   disabled={enableLocked || pending}
-                  onCheckedChange={(checked) =>
+                  onCheckedChange={(checked) => {
+                    if (checked && missing.length > 0) {
+                      setNeedsFirst(app);
+                      return;
+                    }
+                    if (!checked && dependents.length > 0) {
+                      toast.error(
+                        `لا يمكن تعطيل «${app.nameAr}»: ${dependents.length > 1 ? 'هذه التطبيقات المفعّلة تعتمد عليه' : 'هذا التطبيق المفعّل يعتمد عليه'}: ${names(dependents)}. عطّلها أولاً.`,
+                      );
+                      return;
+                    }
                     patchCompanyApplication.mutate({
                       companyId,
                       applicationId,
                       payload: { isEnabled: checked },
-                    })
-                  }
+                    });
+                  }}
                   aria-label={`تفعيل ${app.nameAr}`}
                 />
                 تفعيل
@@ -169,9 +239,34 @@ function CompanyAppsTab({ companyId }: { companyId: string }) {
           </div>
         );
       })}
-      {(data ?? []).length === 0 ? (
+      {apps.length === 0 ? (
         <p className="text-sm text-muted-foreground">لا توجد تطبيقات في الكتالوج.</p>
       ) : null}
+
+      <Dialog open={needsFirst !== null} onOpenChange={(open) => (!open && !enablingChain ? setNeedsFirst(null) : undefined)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>تفعيل «{needsFirst?.nameAr}» يتطلب تطبيقات أخرى</DialogTitle>
+            <DialogDescription>
+              «{needsFirst?.nameAr}» يعتمد على تطبيقات غير مفعّلة لهذه الشركة. تُفعَّل بهذا الترتيب ثم يُفعَّل هو:
+            </DialogDescription>
+          </DialogHeader>
+          <ol className="list-decimal space-y-1 ps-5 text-sm">
+            {(needsFirst?.missingDependencies ?? []).map((code) => (
+              <li key={code}>{nameOf(code)}</li>
+            ))}
+            <li className="font-medium">{needsFirst?.nameAr}</li>
+          </ol>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" disabled={enablingChain} onClick={() => setNeedsFirst(null)}>
+              إلغاء
+            </Button>
+            <Button disabled={enablingChain} onClick={() => needsFirst && void enableWithRequirements(needsFirst)}>
+              {enablingChain ? 'جارٍ التفعيل…' : 'تفعيل مع المتطلبات'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

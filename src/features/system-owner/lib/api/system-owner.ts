@@ -81,6 +81,12 @@ export type SystemOwnerCompanyApplication = {
   isVisible: boolean;
   isAlwaysEnabled: boolean;
   notes?: string | null;
+  /** App codes this app needs (manifest). */
+  dependsOn: string[];
+  /** Those still to enable for this company, in the order to enable them (indirect ones too). */
+  missingDependencies: string[];
+  /** Enabled apps of this company that need this one. */
+  enabledDependents: string[];
 };
 
 export type PatchCompanyApplicationDto = {
@@ -233,7 +239,14 @@ function mapCompanyApplication(raw: Record<string, unknown>): SystemOwnerCompany
     isVisible: readIsVisible(raw),
     isAlwaysEnabled: readIsAlwaysEnabled(raw),
     notes: (raw.notes as string | null | undefined) ?? null,
+    dependsOn: readCodes(raw.dependsOn),
+    missingDependencies: readCodes(raw.missingDependencies),
+    enabledDependents: readCodes(raw.enabledDependents),
   };
+}
+
+function readCodes(value: unknown): string[] {
+  return Array.isArray(value) ? value.map((v) => String(v)) : [];
 }
 
 function mapCatalogRequest(raw: unknown): CompanyAppCatalogRequest | null {
