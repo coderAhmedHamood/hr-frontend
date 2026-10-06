@@ -21,6 +21,8 @@ export type StockSyncItem = {
 
 export type StockSyncReport = {
   generatedAt: string;
+  /** The store warehouse the report was made against (null: none clear). */
+  warehouseId: string | null;
   items: StockSyncItem[];
   totals: {
     items: number;
@@ -81,7 +83,22 @@ export type StockSyncStatus = {
   unresolvedOrders: Array<{ id: string; orderNumber: string; status: string; createdAt: string }>;
   shortfalls: StockSyncShortfall[];
   localState: 'ready' | 'needs_opening';
+  /** Draining with the opening approved: new orders take the store's own quantity. */
+  sellingLocally: boolean;
+  /** Open orders that took the store's own quantity. */
+  openLocalOrders: number;
   canDisable: boolean;
+};
+
+export type StockSyncOpenLocalOrder = { id: string; orderNumber: string; status: string; createdAt: string };
+
+/** What enabling the link would do (nothing written), and what stops it now. */
+export type StockSyncPreview = {
+  enabled: boolean;
+  report: StockSyncReport;
+  openLocalOrders: StockSyncOpenLocalOrder[];
+  blockers: Array<'no_warehouse' | 'open_local_orders'>;
+  canEnable: boolean;
 };
 
 const statusBase = (companyId: string) =>
@@ -97,6 +114,9 @@ export const stockSyncStatusApi = {
       throwOnError: true,
       body: { warehouseId },
     });
+  },
+  preview(companyId: string): Promise<StockSyncPreview> {
+    return apiRequest<StockSyncPreview>(`${statusBase(companyId)}/preview`, { throwOnError: true });
   },
   drain(companyId: string): Promise<StockSyncStatus> {
     return apiRequest<StockSyncStatus>(`${statusBase(companyId)}/drain`, {

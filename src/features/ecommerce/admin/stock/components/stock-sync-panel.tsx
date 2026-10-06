@@ -15,6 +15,8 @@ import { useHeaderExtrasBridge } from '@/features/ecommerce/admin/cms/settings/l
 import {
   stockSyncApi,
   stockSyncStatusApi,
+  type StockSyncItem,
+  type StockSyncPreview,
   type StockSyncRun,
   type StockSyncStatus,
 } from '@/features/ecommerce/admin/stock/lib/api/stock-sync-api';
@@ -43,10 +45,10 @@ function formatDate(value: string): string {
 const qty = (n: number | null) => (n === null ? '—' : Number(n.toFixed(4)).toString());
 
 /**
- * The store–inventory link (phase 4): the store's warehouse, draining before
- * disabling, the open work (reservation shortfalls, older orders to review),
- * the local opening after the link is disabled, and the reconciliation
- * reports.
+ * The store–inventory link (phase 4): the store's warehouse, the preview
+ * before enabling (and what stops it), draining before disabling, the open
+ * work (reservation shortfalls, older orders to review), the local opening
+ * (while draining or after disabling), and the reconciliation reports.
  */
 export function StockSyncPanel({
   companyId,
@@ -70,9 +72,20 @@ export function StockSyncPanel({
     queryFn: () => stockSyncApi.list(companyId),
     enabled: Boolean(companyId) && can(READ),
   });
+  const previewKey = ['ecommerce', 'stock-sync', 'preview', companyId];
+  const s = status.data;
+  // Before enabling (what it would do), and for the local opening (draining
+  // or after disabling): the store's items against the store warehouse.
+  const needsPreview = Boolean(s && (!s.enabled || s.state === 'draining'));
+  const preview = useQuery({
+    queryKey: previewKey,
+    queryFn: () => stockSyncStatusApi.preview(companyId),
+    enabled: Boolean(companyId) && can(READ) && needsPreview,
+  });
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: statusKey });
     void queryClient.invalidateQueries({ queryKey: runsKey });
+    void queryClient.invalidateQueries({ queryKey: previewKey });
   };
   const onError = (error: unknown) => {
     handleApiError(error, 'ecommerce.stock-sync');
@@ -86,8 +99,7 @@ export function StockSyncPanel({
     onError,
   });
 
-  const s = status.data;
-  const canRun = Boolean(s?.enabled && s.warehouseId) && canUpdate;
+  const canRun =Boolean(s?.enabled && s.warehouseId) && canUpdate;
   useHeaderExtrasBridge(
     onHeaderExtrasChange,
     () =>
@@ -117,15 +129,16 @@ export function StockSyncPanel({
       ) : (
         <div className="space-y-5">
           <StatusBanner status={s} />
+          <WarehouseSetting
+            companyId={companyId}
+            status={s}
+            canUpdate={canUpdate}
+            onDone={refresh}
+            onError={onError}
+          />
+          {!s.enabled ? <EnablePreview preview={preview.data} loading={preview.isLoading} /> : null}
           {s.enabled ? (
             <>
-              <WarehouseSetting
-                companyId={companyId}
-                status={s}
-                canUpdate={canUpdate}
-                onDone={refresh}
-                onError={onError}
-              />
               <DrainControl
                 companyId={companyId}
                 status={s}
@@ -137,11 +150,12 @@ export function StockSyncPanel({
             </>
           ) : null}
           <UnresolvedOrders status={s} />
-          {!s.enabled && s.localState === 'needs_opening' ? (
+          {s.localState === 'needs_opening' && (!s.enabled || s.state === 'draining') ? (
             <LocalOpening
               companyId={companyId}
               canUpdate={canUpdate}
-              runs={runs.data?.runs ?? []}
+              draining={s.enabled}
+              items={preview.data?.report.items}
               onDone={refresh}
               onError={onError}
             />
@@ -166,8 +180,10 @@ function StatusBanner({ status: s }: { status: StockSyncStatus }) {
     : s.needsWarehouse
       ? 'الربط مفعّل لكن مستودع المتجر غير محدد: الطلبات مرفوضة حتى تختاره.'
       : s.state === 'draining'
-        ? 'قيد التصريف: الطلبات الجديدة متوقفة. اشحن الطلبات المفتوحة أو ألغها ثم عطّل الربط من إدارة التطبيقات.'
-        : `المتجر يبيع من مستودع «${s.warehouseNameAr ?? '—'}»: يُحجز عند الطلب ويُصرف عند الشحن.`;
+        ? s.sellingLocally
+          ? 'قيد التصريف: الطلبات الجديدة تُخصم من كمية المتجر، وطلبات المخازن المفتوحة تُشحن من المستودع. بعد إنهائها عطّل الربط من إدارة التطبيقات.'
+          : 'قيد التصريف: الطلبات الجديدة متوقفة حتى تُعتمد كميات المتجر الافتتاحية أدناه. اشحن طلبات المخازن المفتوحة أو ألغها ثم عطّل الربط من إدارة التطبيقات.'
+        :`المتجر يبيع من مستودع «${s.warehouseNameAr ?? '—'}»: يُحجز عند الطلب ويُصرف عند الشحن.`;
   return <div className={cn('rounded-xl border px-3.5 py-2.5 text-sm', tone)}>{text}</div>;
 }
 
@@ -199,6 +215,7 @@ function WarehouseSetting({
       <h3 className="text-sm font-semibold">مستودع المتجر</h3>
       <p className="text-xs text-muted-foreground">
         مستودع واحد يخدم المتجر: منه الحجز والتجهيز والصرف والتوفر المعروض. لا يتغير وفيه حجوزات مفتوحة.
+        {s.enabled ? '' : ' اختره قبل تفعيل الربط (إن كان للشركة أكثر من مستودع).'}
       </p>
       <div className="flex flex-wrap items-center gap-2">
         <Select value={value} onValueChange={setValue} disabled={!canUpdate || save.isPending}>
@@ -242,7 +259,11 @@ function DrainControl({
     mutationFn: () =>
       s.state === 'draining' ? stockSyncStatusApi.resume(companyId) : stockSyncStatusApi.drain(companyId),
     onSuccess: () => {
-      toast.success(s.state === 'draining' ? 'استُؤنف البيع من المخازن' : 'بدأ التصريف: الطلبات الجديدة متوقفة');
+      toast.success(
+        s.state === 'draining'
+          ? 'استُؤنف البيع من المخازن'
+          : 'بدأ التصريف: الطلبات الجديدة متوقفة حتى تعتمد كميات المتجر الافتتاحية',
+      );
       onDone();
     },
     onError,
@@ -250,13 +271,16 @@ function DrainControl({
   return (
     <section className="space-y-2">
       <h3 className="text-sm font-semibold">تعطيل الربط</h3>
-      <div className="grid gap-2 sm:grid-cols-3">
+      <div className={cn('grid gap-2', s.state === 'draining' ? 'sm:grid-cols-4' : 'sm:grid-cols-3')}>
         <Stat label="حجوزات مفتوحة" value={s.openReservations} />
         <Stat label="طلبات مخازن مفتوحة" value={s.openInventoryOrders} />
         <Stat label="طلبات قديمة للمراجعة" value={s.unresolvedOrders.length} warn={s.unresolvedOrders.length > 0} />
+        {s.state === 'draining' ? <Stat label="طلبات من كمية المتجر" value={s.openLocalOrders} /> : null}
       </div>
       <p className="text-xs text-muted-foreground">
-        التعطيل يمر بالتصريف: توقف الطلبات الجديدة، ثم تُشحن الطلبات المفتوحة أو تُلغى، ثم يُعطَّل الربط من إدارة التطبيقات.
+        التعطيل يمر بالتصريف: تتوقف الطلبات الجديدة من المخازن، وبعد اعتماد كميات المتجر الافتتاحية تُخصم الطلبات الجديدة من كمية
+        المتجر، ثم تُشحن طلبات المخازن المفتوحة أو تُلغى، ثم يُعطَّل الربط من إدارة التطبيقات. استئناف البيع من المخازن غير متاح
+        وطلبات من كمية المتجر مفتوحة.
         {s.state === 'draining'
           ? s.canDisable
             ? ' لا عمل مفتوحاً: يمكن التعطيل الآن.'
@@ -319,49 +343,115 @@ function UnresolvedOrders({ status: s }: { status: StockSyncStatus }) {
   );
 }
 
+/**
+ * Before enabling the link: what it would do (the same report, nothing
+ * written) and what stops it now. Enabling itself is in app management.
+ */
+function EnablePreview({ preview, loading }: { preview: StockSyncPreview | undefined; loading: boolean }) {
+  if (loading) return <div className="h-24 animate-pulse rounded-2xl bg-muted/40" />;
+  if (!preview) return null;
+  const { report, blockers, openLocalOrders } = preview;
+  return (
+    <section className="space-y-3 rounded-xl border border-border p-3">
+      <h3 className="text-sm font-semibold">معاينة التفعيل</h3>
+      <p className="text-xs text-muted-foreground">
+        هذا ما سيحدث عند تفعيل الربط، دون أن يتغير شيء الآن: يُحسب توفر كل صنف متتبَّع من المستودع (الأصناف بلا رصيد تظهر غير
+        متوفرة)، وتُترك كميات المتجر الحالية. أدخل البضاعة الفعلية في المستودع (استلام أو جرد) قبل التفعيل.
+      </p>
+      {blockers.length > 0 ? (
+        <div className="space-y-2 rounded-xl border border-warning/30 bg-warning/10 px-3.5 py-2.5 text-xs text-warning">
+          <p className="font-semibold">لا يمكن التفعيل الآن:</p>
+          {blockers.includes('no_warehouse') ? (
+            <p>مستودع المتجر غير محدد: اختره أعلاه (للشركة أكثر من مستودع أو لا مستودع لها).</p>
+          ) : null}
+          {blockers.includes('open_local_orders') ? (
+            <div className="space-y-1.5">
+              <p>
+                {openLocalOrders.length} طلب مفتوح خُصم من كمية المتجر: لن يُصرف من المستودع عند شحنه، فاشحنه أو ألغه قبل التفعيل.
+              </p>
+              <ul className="flex flex-wrap gap-2">
+                {openLocalOrders.map((o) => (
+                  <li key={o.id}>
+                    <Link
+                      href={`${ecommerceAdminRoutes.orders}?order=${o.id}`}
+                      className="rounded-md border border-warning/40 px-2 py-1 hover:bg-warning/10"
+                    >
+                      {o.orderNumber}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </div>
+      ) : (
+        <p className="rounded-xl border border-success/30 bg-success/10 px-3.5 py-2.5 text-xs text-success">
+          جاهز للتفعيل: فعّل «ربط المتجر بالمخازن» من إدارة التطبيقات.
+        </p>
+      )}
+      {report.warehouseId ? <RunReport run={{ report }} /> : null}
+    </section>
+  );
+}
+
 function LocalOpening({
   companyId,
   canUpdate,
-  runs,
+  draining,
+  items,
   onDone,
   onError,
 }: {
   companyId: string;
   canUpdate: boolean;
-  runs: StockSyncRun[];
+  /** The link is draining (still enabled): approving resumes taking orders from the store quantity. */
+  draining: boolean;
+  /** The store's items against the store warehouse (the preview report). */
+  items: StockSyncItem[] | undefined;
   onDone: () => void;
   onError: (e: unknown) => void;
 }) {
   const queryClient = useQueryClient();
   const key = ['ecommerce', 'stock-opening', companyId];
   const opening = useQuery({ queryKey: key, queryFn: () => storeStockOpeningApi.get(companyId) });
-  const lastDisable = runs.find((r) => r.kind === 'disable');
-  const reportItems = lastDisable?.report.items ?? [];
-  const names = new Map(reportItems.map((i) => [`${i.productId}:${i.variantId ?? ''}`, i]));
-  const levels = opening.data?.levels ?? [];
+  const itemKey = (i: { productId: string; variantId: string | null }) => `${i.productId}:${i.variantId ?? ''}`;
+  const levels = new Map((opening.data?.levels ?? []).map((l) => [itemKey(l), l.quantity]));
+  // Every item tracked in inventory (unlisted, it would sell without a
+  // limit) and every item that had a store quantity; the warehouse's
+  // available quantity is the starting suggestion.
+  const loaded = items !== undefined && !opening.isLoading;
+  const rows = (items ?? [])
+    .filter((i) => i.tracked || levels.has(itemKey(i)))
+    .map((i) => ({
+      key: itemKey(i),
+      productId: i.productId,
+      variantId: i.variantId,
+      name: i.name,
+      old: levels.get(itemKey(i)) ?? null,
+      available: i.tracked ? i.available : null,
+      suggested: i.tracked ? i.available : (levels.get(itemKey(i)) ?? 0),
+    }));
   const [values, setValues] = React.useState<Record<string, string>>({});
+  const valueOf = (r: (typeof rows)[number]) => Number(values[r.key] ?? r.suggested);
   const approve = useMutation({
     mutationFn: () =>
       storeStockOpeningApi.approve(
         companyId,
-        levels.map((l) => {
-          const k = `${l.productId}:${l.variantId ?? ''}`;
-          return {
-            productId: l.productId,
-            variantId: l.variantId,
-            quantity: Number(values[k] ?? l.quantity),
-          };
-        }),
+        rows.map((r) => ({ productId: r.productId, variantId: r.variantId, quantity: valueOf(r) })),
       ),
     onSuccess: () => {
-      toast.success('اعتُمدت الكميات الافتتاحية واستُؤنف البيع المحلي');
+      toast.success(
+        draining
+          ? 'اعتُمدت الكميات الافتتاحية: الطلبات الجديدة تُخصم من كمية المتجر'
+          : 'اعتُمدت الكميات الافتتاحية واستُؤنف البيع المحلي',
+      );
       void queryClient.invalidateQueries({ queryKey: key });
       onDone();
     },
     onError,
   });
-  const valid = levels.every((l) => {
-    const v = Number(values[`${l.productId}:${l.variantId ?? ''}`] ?? l.quantity);
+  const valid = rows.every((r) => {
+    const v = valueOf(r);
     return Number.isFinite(v) && v >= 0;
   });
 
@@ -369,11 +459,15 @@ function LocalOpening({
     <section className="space-y-2 rounded-xl border border-border p-3">
       <h3 className="text-sm font-semibold">الكميات الافتتاحية للمتجر</h3>
       <p className="text-xs text-muted-foreground">
-        بعد تعطيل الربط لا تُستخدم كميات المتجر القديمة تلقائياً. راجع كل صنف مقابل المتاح في المستودع وقت التعطيل، ثم اعتمد الكمية
-        الافتتاحية. الأصناف غير المعتمدة يتوقف تتبّعها.
+        {draining
+          ? 'أثناء التصريف تتوقف الطلبات الجديدة حتى تعتمد كمية المتجر لكل صنف؛ بعدها تُخصم الطلبات الجديدة منها بدل المستودع. '
+          : 'بعد تعطيل الربط لا تُستخدم كميات المتجر القديمة تلقائياً. '}
+        الكمية المقترحة هي المتاح في مستودع المتجر بعد المحجوز لطلبات المخازن المفتوحة. الأصناف غير المدرجة يتوقف تتبّعها.
       </p>
-      {levels.length === 0 ? (
-        <p className="text-xs text-muted-foreground">لا توجد كميات محلية؛ الاعتماد يستأنف البيع المحلي.</p>
+      {!loaded ? (
+        <div className="h-20 animate-pulse rounded-xl bg-muted/40" />
+      ) : rows.length === 0 ? (
+        <p className="text-xs text-muted-foreground">لا توجد أصناف متتبَّعة؛ الاعتماد يستأنف البيع المحلي.</p>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-border/70">
           <table className="w-full text-sm">
@@ -386,34 +480,30 @@ function LocalOpening({
               </tr>
             </thead>
             <tbody>
-              {levels.map((l) => {
-                const k = `${l.productId}:${l.variantId ?? ''}`;
-                const r = names.get(k);
-                return (
-                  <tr key={k} className="border-t border-border/60">
-                    <td className="px-3 py-2">{r?.name || l.productId.slice(0, 8)}</td>
-                    <td className="px-3 py-2 tabular-nums">{qty(l.quantity)}</td>
-                    <td className="px-3 py-2 tabular-nums">{r ? qty(r.available) : '—'}</td>
-                    <td className="px-3 py-2">
-                      <Input
-                        type="number"
-                        min={0}
-                        dir="rtl"
-                        className="h-8 w-24"
-                        value={values[k] ?? String(l.quantity)}
-                        onChange={(event) => setValues((prev) => ({ ...prev, [k]: event.target.value }))}
-                        disabled={!canUpdate}
-                      />
-                    </td>
-                  </tr>
-                );
-              })}
+              {rows.map((r) => (
+                <tr key={r.key} className="border-t border-border/60">
+                  <td className="px-3 py-2">{r.name || r.productId.slice(0, 8)}</td>
+                  <td className="px-3 py-2 tabular-nums">{qty(r.old)}</td>
+                  <td className="px-3 py-2 tabular-nums">{qty(r.available)}</td>
+                  <td className="px-3 py-2">
+                    <Input
+                      type="number"
+                      min={0}
+                      dir="rtl"
+                      className="h-8 w-24"
+                      value={values[r.key] ?? String(r.suggested)}
+                      onChange={(event) => setValues((prev) => ({ ...prev, [r.key]: event.target.value }))}
+                      disabled={!canUpdate}
+                    />
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
       )}
-      <Button size="sm" disabled={!canUpdate || !valid || approve.isPending} onClick={() => approve.mutate()}>
-        اعتماد الكميات واستئناف البيع المحلي
+      <Button size="sm" disabled={!canUpdate || !loaded || !valid || approve.isPending} onClick={() => approve.mutate()}>
+        {draining ? 'اعتماد الكميات والبيع منها أثناء التصريف' : 'اعتماد الكميات واستئناف البيع المحلي'}
       </Button>
     </section>
   );
@@ -453,7 +543,7 @@ function Reports({ runs }: { runs: StockSyncRun[] }) {
   );
 }
 
-function RunReport({ run }: { run: StockSyncRun }) {
+function RunReport({ run }: { run: Pick<StockSyncRun, 'report'> }) {
   const { totals, items, openLocalOrders } = run.report;
   return (
     <div className="space-y-3">

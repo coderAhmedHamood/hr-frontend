@@ -6,6 +6,7 @@ import {
 } from '@/features/auth/lib/auth-api-messages';
 import { resolveApiBaseUrl } from '@/shared/api-base-url';
 import { applyActiveCompanyHeader } from '@/shared/api/request-context';
+import { translateStoreStockMessage } from '@/shared/api/store-stock-messages';
 import { publicConfig } from '@/shared/config';
 import {
   parseContentDispositionFilename,
@@ -236,13 +237,18 @@ function buildApiErrorEnvelope(payload: unknown, response: Response): ApiErrorEn
   };
 }
 
+/** Known refusals in Arabic (the rest as the backend sent them). */
+function translateFailureMessage(message: string): string {
+  return translateStoreStockMessage(message) ?? message;
+}
+
 function notifyApiFailure(envelope: ApiErrorEnvelope, status: number): void {
   const deviceAuthMessage = translateDeviceAuthErrorCode(extractApiErrorCode(envelope));
   const displayMessage =
     deviceAuthMessage ??
     (status === 403
       ? 'ليس لديك صلاحية للوصول إلى هذا المورد'
-      : extractApiErrorMessage(envelope, `HTTP ${status}`));
+      : translateFailureMessage(extractApiErrorMessage(envelope, `HTTP ${status}`)));
 
   if (status >= 500) {
     reportError(new ApiError(envelope, status), 'api-error', undefined, { skipToast: true });
