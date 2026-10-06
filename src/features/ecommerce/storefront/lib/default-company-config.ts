@@ -3,6 +3,7 @@ import {
   DEFAULT_STORE_PAGES_VISIBILITY,
   type CompanyConfigRecord,
 } from '@/features/ecommerce/storefront/domain/company-config';
+import { DEFAULT_STORE_COUNTRY } from '@/features/ecommerce/domain/constants/store-country';
 import { DEFAULT_STOREFRONT_TYPOGRAPHY } from '@/features/ecommerce/storefront/lib/storefront-fonts';
 import {
   buildDefaultStoreFooterLinkGroups,
@@ -99,5 +100,6 @@ export function buildDefaultCompanyConfigRecord(companyId: string): CompanyConfi
     defaultLocale: 'ar',
     currency: 'YER',
     timezone: 'Asia/Aden',
+    country: { ...DEFAULT_STORE_COUNTRY },
   };
 }

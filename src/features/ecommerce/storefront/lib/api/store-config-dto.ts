@@ -1,3 +1,4 @@
+import { DEFAULT_STORE_COUNTRY, type StoreCountry } from '@/features/ecommerce/domain/constants/store-country';
 import type {
   CompanyConfigRecord,
   CompanySocialNetwork,
@@ -55,6 +56,8 @@ export type StoreSettingsDto = {
   defaultLocale: string;
   currencyCode: string;
   timezone: string;
+  /** The company's base country (absent from an older backend). */
+  country?: StoreCountry;
   createdAt?: string;
   updatedAt?: string;
 };
@@ -214,6 +217,7 @@ export function mapStorefrontConfigDtoToRecord(dto: StorefrontConfigDto): Compan
     defaultLocale: s.defaultLocale || 'ar',
     currency: s.currencyCode || 'YER',
     timezone: s.timezone || 'Asia/Aden',
+    country: s.country ?? { ...DEFAULT_STORE_COUNTRY },
   };
 }
 

@@ -4,6 +4,7 @@ import type {
   CompanyContactInfo,
 } from '@/features/ecommerce/storefront/domain/company-config';
 import type { LegalPageSlug } from '@/features/ecommerce/storefront/domain/content';
+import type { StoreCountry } from '@/features/ecommerce/domain/constants/store-country';
 import type { StorefrontTypography } from '@/features/ecommerce/storefront/lib/storefront-fonts';
 
 export type StorefrontHomepageFeature = {
@@ -164,6 +165,8 @@ export type StorefrontCompanyConfig = {
   };
   currency: string;
   timezone: string;
+  /** The company's base country (company settings). */
+  country: StoreCountry;
 };
 
 export type StorefrontHeroSlide = {

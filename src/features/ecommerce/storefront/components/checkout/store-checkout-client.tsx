@@ -128,9 +128,11 @@ function paymentAccountInstructions(
 
 type CheckoutClientProps = {
   currency: string;
+  /** The company's base country: for an address without a geo country. */
+  countryCode: string;
 };
 
-export function StoreCheckoutClient({ currency: storeCurrency }: CheckoutClientProps) {
+export function StoreCheckoutClient({ currency: storeCurrency, countryCode }: CheckoutClientProps) {
   const t = useTranslations('storefront');
   const locale = useLocale() as StorefrontLocale;
   const router = useRouter();
@@ -386,7 +388,7 @@ export function StoreCheckoutClient({ currency: storeCurrency }: CheckoutClientP
         latitude: address.lat ?? null,
         longitude: address.lng ?? null,
         isDefault: savedAddresses.length === 0,
-        countryCode: address.countryId ? null : 'YE',
+        countryCode: address.countryId ? null : countryCode,
       });
       setSavedAddresses((prev) => [created, ...prev]);
       setSelectedAddressId(created.id);

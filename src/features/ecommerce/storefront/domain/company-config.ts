@@ -1,3 +1,4 @@
+import type { StoreCountry } from '@/features/ecommerce/domain/constants/store-country';
 import type { LocalizableString } from '@/features/ecommerce/storefront/domain/localizable';
 import type { StorefrontTypography } from '@/features/ecommerce/storefront/lib/storefront-fonts';
 
@@ -342,6 +343,8 @@ export type CompanyConfigRecord = {
   defaultLocale: string;
   currency: string;
   timezone: string;
+  /** The company's base country (company settings). */
+  country: StoreCountry;
 };
 
 /** @deprecated Use StorefrontCompanyConfig from domain/storefront-models.ts in UI. */
