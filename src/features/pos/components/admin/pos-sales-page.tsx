@@ -202,6 +202,7 @@ function ResolvePanel({ sale, onDone }: { sale: PosSale; onDone: () => void }) {
           disabled={!canResolve || difference !== 0 || pending.length > 0 || sale.lines.length === 0}
           onClick={() => {
             const number = actions.completeSale(sale.id);
+            if (!number) return;
             actions.logAudit(userName, 'exception_resolved', `${number} اكتمل`);
             toast.success(`اكتمل البيع ${number}`);
             onDone();

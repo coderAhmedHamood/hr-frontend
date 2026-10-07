@@ -279,7 +279,7 @@ export function PrintDocumentView({
   switch (settings.templateId) {
     case 'modern':
       return (
-        <div style={root}>
+        <div style={root} data-template={settings.templateId}>
           <div style={{ background: accent, color: '#fff', borderRadius: 6, padding: 8, textAlign: 'center' }}>
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 4 }}>
               <Logo company={company} settings={settings} size={40} />
@@ -308,7 +308,7 @@ export function PrintDocumentView({
 
     case 'compact':
       return (
-        <div style={root}>
+        <div style={root} data-template={settings.templateId}>
           <div style={{ textAlign: 'center' }}>
             {name ? <div style={{ fontWeight: 700 }}>{name}</div> : null}
             {info.slice(0, 2).map((l) => (
@@ -331,7 +331,7 @@ export function PrintDocumentView({
 
     case 'formal':
       return (
-        <div style={root}>
+        <div style={root} data-template={settings.templateId}>
           <div style={{ border: `1px solid ${INK}`, padding: 6 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
               <div>
@@ -378,7 +378,7 @@ export function PrintDocumentView({
 
     case 'elegant':
       return (
-        <div style={root}>
+        <div style={root} data-template={settings.templateId}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
             <div>
               {name ? <div style={{ fontWeight: 700, fontSize: '1.2em', letterSpacing: 0.3 }}>{name}</div> : null}
@@ -407,7 +407,7 @@ export function PrintDocumentView({
     case 'classic':
     default:
       return (
-        <div style={root}>
+        <div style={root} data-template={settings.templateId}>
           <div style={{ textAlign: 'center' }}>
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 4 }}>
               <Logo company={company} settings={settings} size={48} />

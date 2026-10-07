@@ -103,6 +103,7 @@ function OpenShift({ registerId, onBack }: { registerId: string; onBack: () => v
   const register = data.registers.find((r) => r.id === registerId);
   const [float, setFloat] = React.useState('');
   const allowed = can('pos.session.open');
+  const draining = Boolean(data.settings.stockModeChange);
 
   return (
     <div className="m-auto flex w-full max-w-sm flex-col gap-4 rounded-2xl border border-border bg-card p-6 shadow-soft">
@@ -117,12 +118,17 @@ function OpenShift({ registerId, onBack }: { registerId: string; onBack: () => v
       <div className="rounded-md bg-muted/50 p-2 text-xs text-muted-foreground">
         وضع المخزون لهذه الوردية: <b>{data.settings.stockMode === 'inventory' ? 'مربوط بالمخازن' : 'دون تتبع'}</b>. يبقى ثابتًا حتى الإغلاق.
       </div>
+      {draining ? (
+        <p className="rounded-md border border-warning/40 bg-warning/10 p-2 text-xs">
+          تبديل وضع المخزون قيد التنفيذ: لا تُفتح ورديات جديدة حتى يكتمل من إعدادات نقاط البيع.
+        </p>
+      ) : null}
       <Button
         className="h-12"
-        disabled={!allowed || !actions}
+        disabled={!allowed || !actions || draining}
         onClick={() => {
-          actions?.openSession(registerId, userId, userName, round2(parseAmount(float)), data.settings.stockMode);
-          toast.success(`فُتحت الوردية بعهدة ${formatMoney(parseAmount(float), currency)}`);
+          const id = actions?.openSession(registerId, userId, userName, round2(parseAmount(float)), data.settings.stockMode);
+          if (id) toast.success(`فُتحت الوردية بعهدة ${formatMoney(parseAmount(float), currency)}`);
         }}
       >
         <PlayCircle className="h-5 w-5" />
@@ -412,6 +418,7 @@ function Register() {
       orderDiscount: cart.orderDiscount,
       totals: priced.totals,
     });
+    if (!id) return;
     setCart(EMPTY_CART);
     setSaleId(id);
     setPayOpen(true);

@@ -20,6 +20,7 @@ import {
   type PosSale,
 } from '@/features/pos/domain/types';
 import { usePosContext } from '@/features/pos/hooks/use-pos-context';
+import { newId } from '@/features/pos/lib/pos-store';
 import { lineRefundAmount, round2 } from '@/features/pos/lib/calc';
 import { formatDateTime, formatMoney, parseAmount } from '@/features/pos/lib/format';
 import { returnToPrintable } from '@/features/pos/lib/receipt';
@@ -43,12 +44,17 @@ function NewReturnDialog({ open, initialSaleId, onClose }: { open: boolean; init
   const [reference, setReference] = React.useState('');
   const [sessionId, setSessionId] = React.useState<string>('');
   const [openedAt] = React.useState(() => Date.now());
+  // One key per return being entered: a double submit has one effect.
+  const [operationKey, setOperationKey] = React.useState(() => newId());
 
   const sale = data.sales.find((s) => s.id === saleId && s.status === 'completed') ?? null;
   const openSessions = data.sessions.filter((s) => s.status === 'open');
 
   React.useEffect(() => {
-    if (open) setSaleId(initialSaleId);
+    if (open) {
+      setSaleId(initialSaleId);
+      setOperationKey(newId());
+    }
   }, [open, initialSaleId]);
 
   React.useEffect(() => {
@@ -83,7 +89,8 @@ function NewReturnDialog({ open, initialSaleId, onClose }: { open: boolean; init
     if (!sale || !actions || !valid) return;
     const refundDone = method === 'cash' || !!reference.trim();
     const hasDamaged = chosen.some((x) => x.draft.condition === 'damaged');
-    const { number } = actions.createReturn({
+    const created = actions.createReturn({
+      operationKey,
       saleId: sale.id,
       saleNumber: sale.number ?? sale.id,
       sessionId: sessionId || null,
@@ -99,7 +106,8 @@ function NewReturnDialog({ open, initialSaleId, onClose }: { open: boolean; init
       refund: { method, amount, reference: reference.trim() || null, status: refundDone ? 'done' : 'pending' },
       damagedDecision: hasDamaged ? 'pending' : null,
     });
-    toast.success(`أُنشئ المرتجع ${number}${refundDone ? '' : ' — رد المال بانتظار التنفيذ'}`);
+    if (!created) return;
+    toast.success(`أُنشئ المرتجع ${created.number}${refundDone ? '' : ' — رد المال بانتظار التنفيذ'}`);
     onClose();
   };
 
@@ -263,6 +271,9 @@ function ReturnRow({ ret }: { ret: PosReturn }) {
             <span dir="ltr">{ret.number}</span>
             {ret.refund.status === 'done' ? <Badge variant="success">رُدّ المال</Badge> : <Badge variant="warning">رد المال بانتظار التنفيذ</Badge>}
             {ret.damagedDecision === 'pending' ? <Badge variant="destructive">تالف بانتظار قرار</Badge> : null}
+            {ret.stockPosting === 'pending' ? <Badge variant="warning">ترحيل مخزون معلّق</Badge> : null}
+            {ret.stockPosting === 'reviewed' ? <Badge variant="outline">رُوجع — يُرحَّل عند عودة الربط</Badge> : null}
+            {ret.stockPosting === 'posted' ? <Badge variant="outline">أُعيد للمخازن</Badge> : null}
           </div>
           <div className="text-xs text-muted-foreground">
             على البيع <span dir="ltr">{ret.saleNumber}</span> · {formatDateTime(ret.createdAt)} · {ret.createdBy} · {ret.reason}
@@ -295,6 +306,17 @@ function ReturnRow({ ret }: { ret: PosReturn }) {
             }}
           >
             تسجيل التنفيذ
+          </Button>
+        </div>
+      ) : null}
+      {ret.stockPosting === 'pending' ? (
+        <div className="flex flex-wrap items-center gap-2 border-t border-border pt-2 text-xs">
+          <span>
+            بيع من المخازن ونقاط البيع غير مربوطة الآن: البضاعة هنا ولم تُرحَّل للمخازن. راجِع عدّها ومكانها قبل
+            ترحيلها، حتى لا تُحتسب مرتين.
+          </span>
+          <Button size="sm" variant="outline" onClick={() => actions?.reviewStockPosting(ret.id, userName)}>
+            تمت المراجعة
           </Button>
         </div>
       ) : null}

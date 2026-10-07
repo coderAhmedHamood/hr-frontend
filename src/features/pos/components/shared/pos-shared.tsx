@@ -9,7 +9,6 @@ import { SettingsPageEmpty } from '@/features/system/organization/pages/_shared/
 import { PrintDocumentView } from '@/features/print-templates/components/print-document-view';
 import type { PrintableDocument } from '@/features/print-templates/domain/types';
 import { printElement } from '@/features/print-templates/lib/print-html';
-import { toPrintCompany } from '@/features/print-templates/lib/print-company';
 import { usePrintTemplateSettings } from '@/features/print-templates/lib/print-template-store';
 import { SALE_STATUS_LABELS, type PosSaleStatus } from '@/features/pos/domain/types';
 import { usePosContext, type PosPermission } from '@/features/pos/hooks/use-pos-context';
@@ -64,7 +63,7 @@ export function PrintPreviewDialog({
   onPrinted?: () => void;
   footer?: React.ReactNode;
 }) {
-  const { companyId, company } = usePosContext();
+  const { companyId, printCompany } = usePosContext();
   const settings = usePrintTemplateSettings(companyId);
   const ref = React.useRef<HTMLDivElement>(null);
 
@@ -76,7 +75,7 @@ export function PrintPreviewDialog({
         </DialogHeader>
         <div className="flex max-h-[60vh] justify-center overflow-auto rounded-md border border-border bg-muted/40 p-3">
           <div ref={ref} className={settings.paper === 'a4' ? 'origin-top scale-50' : undefined}>
-            {document ? <PrintDocumentView document={document} company={toPrintCompany(company)} settings={settings} /> : null}
+            {document ? <PrintDocumentView document={document} company={printCompany} settings={settings} /> : null}
           </div>
         </div>
         <div className="flex flex-wrap justify-end gap-2">

@@ -1,5 +1,6 @@
 'use client';
 
+import * as React from 'react';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import {
@@ -48,5 +49,7 @@ export function resolvePrintTemplateSettings(
 
 export function usePrintTemplateSettings(companyId: string | null | undefined): PrintTemplateSettings {
   const saved = usePrintTemplateStore((s) => (companyId ? s.byCompany[companyId] : undefined));
-  return resolvePrintTemplateSettings(saved);
+  // Same object while the saved settings do not change: screens copy it into
+  // a draft in an effect, and a new object each render would loop.
+  return React.useMemo(() => resolvePrintTemplateSettings(saved), [saved]);
 }

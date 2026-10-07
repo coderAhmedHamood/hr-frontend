@@ -11,6 +11,12 @@ export type PosPaymentMethod = 'cash' | 'card' | 'transfer';
 
 export type PosSettings = {
   stockMode: PosStockMode;
+  /**
+   * A requested change of stock mode (drain): no new shifts until it ends;
+   * open shifts finish in their stamped mode; then an admin confirms the new
+   * mode explicitly. Null when none is under way.
+   */
+  stockModeChange: { to: PosStockMode; requestedAt: string; requestedBy: string } | null;
   /** Only products marked "available in POS" in the catalog. */
   onlyPosAvailableProducts: boolean;
   tax: {
@@ -194,6 +200,15 @@ export type PosReturn = {
   };
   /** Damaged goods wait for a decision (scrap, supplier, repair). */
   damagedDecision: 'pending' | 'scrap' | 'supplier' | 'repair' | null;
+  /**
+   * Stock of the returned goods, following the sale's stamped source:
+   * not_applicable (sold without tracking), posted (back to inventory), or
+   * pending — sold from inventory but received while POS is not linked: kept
+   * here and reviewed before posting, so it is never counted twice.
+   */
+  stockPosting?: 'not_applicable' | 'posted' | 'pending' | 'reviewed';
+  /** Idempotency key: the same return sent twice has one effect. */
+  operationKey?: string;
 };
 
 export type PosCashMovement = {
@@ -235,7 +250,11 @@ export type PosAuditEvent = {
     | 'shift_difference'
     | 'receipt_reprint'
     | 'device_paired'
-    | 'device_revoked';
+    | 'device_revoked'
+    | 'stock_mode_change_requested'
+    | 'stock_mode_change_cancelled'
+    | 'stock_mode_changed'
+    | 'stock_posting_reviewed';
   detail: string;
 };
 
@@ -260,8 +279,9 @@ export const RETURN_CONDITION_LABELS: Record<PosReturnCondition, string> = {
 
 export const DEFAULT_POS_SETTINGS: PosSettings = {
   stockMode: 'none',
+  stockModeChange: null,
   onlyPosAvailableProducts: false,
-  tax: { enabled: false, rate: 15, pricesIncludeTax: true },
+  tax: { enabled: false, rate: 0, pricesIncludeTax: true },
   discounts: { cashierMaxPercent: 10, supervisorApprovalAbove: true, allowPriceOverride: false },
   returns: { windowDays: 7, refundToOtherMethodNeedsApproval: true },
   shifts: {

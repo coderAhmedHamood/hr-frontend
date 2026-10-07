@@ -106,7 +106,7 @@ export function PaymentDialog({
 
   const complete = () => {
     const number = actions.completeSale(sale.id);
-    onCompleted(number);
+    if (number) onCompleted(number);
   };
 
   const canComplete = remaining === 0 && !pendingCard;

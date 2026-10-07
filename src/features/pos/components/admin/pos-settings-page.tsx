@@ -67,14 +67,19 @@ const STOCK_MODES: ReadonlyArray<{ id: PosStockMode; title: string; description:
 ];
 
 function Settings() {
-  const { companyId, data, actions, can } = usePosContext();
+  const { companyId, data, actions, can, userName } = usePosContext();
   const template = usePrintTemplateSettings(companyId);
   const [draft, setDraft] = React.useState<PosSettings>(data.settings);
   React.useEffect(() => setDraft(data.settings), [data.settings]);
 
   const canEdit = can('pos.settings.manage');
   const openSessions = data.sessions.filter((s) => s.status === 'open').length;
-  const modeLocked = openSessions > 0;
+  const unsettledSales = data.sales.filter(
+    (s) => s.status === 'awaiting_payment' || s.status === 'payment_exception',
+  ).length;
+  const change = data.settings.stockModeChange;
+  const drained = openSessions === 0 && unsettledSales === 0;
+  const modeTitle = (id: PosStockMode) => STOCK_MODES.find((m) => m.id === id)?.title ?? id;
   const dirty = JSON.stringify(draft) !== JSON.stringify(data.settings);
   const templateName = PRINT_TEMPLATES.find((t) => t.id === template.templateId)?.nameAr;
 
@@ -103,13 +108,14 @@ function Settings() {
         <div className="grid gap-3 sm:grid-cols-2">
           {STOCK_MODES.map((m) => {
             const Icon = m.icon;
-            const active = draft.stockMode === m.id;
+            const active = data.settings.stockMode === m.id;
             return (
               <button
                 key={m.id}
                 type="button"
-                disabled={!canEdit || modeLocked}
-                onClick={() => setDraft((d) => ({ ...d, stockMode: m.id }))}
+                aria-pressed={active}
+                disabled={!canEdit || active || Boolean(change)}
+                onClick={() => actions?.requestStockModeChange(m.id, userName)}
                 className={cn(
                   'flex gap-3 rounded-lg border p-3 text-start transition disabled:cursor-not-allowed',
                   active ? 'border-primary bg-primary/5 ring-2 ring-primary/20' : 'border-border hover:border-primary/40',
@@ -124,11 +130,38 @@ function Settings() {
             );
           })}
         </div>
-        {modeLocked ? (
-          <p className="text-xs text-warning">
-            لا يتغير الوضع وفيه {openSessions} وردية مفتوحة. التبديل يمر بالتصريف: تُمنع الورديات الجديدة، وتُستكمل المفتوحة، ثم تختار الوضع التالي صراحة.
-          </p>
-        ) : draft.stockMode === 'inventory' ? (
+        {change ? (
+          <div className="space-y-2 rounded-lg border border-warning/40 bg-warning/10 p-3 text-xs leading-relaxed">
+            <p className="font-semibold">
+              تبديل قيد التنفيذ: من «{modeTitle(data.settings.stockMode)}» إلى «{modeTitle(change.to)}» (طلبه{' '}
+              {change.requestedBy}).
+            </p>
+            <p>
+              لا تُفتح ورديات جديدة الآن. الورديات المفتوحة ({openSessions}) تكمل بوضعها، والمبيعات بانتظار الدفع
+              أو الاستثناءات ({unsettledSales}) تُحسم. بعدها تؤكد الوضع الجديد صراحة — لا انتقال تلقائي.
+            </p>
+            {change.to === 'none' ? (
+              <p className="text-warning">
+                بعد التأكيد لن ترى المخازن مبيعات نقاط البيع، ومرتجعات مبيعات المخازن السابقة تُسجَّل «ترحيلًا
+                معلّقًا» حتى تُراجع.
+              </p>
+            ) : null}
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                disabled={!canEdit || !drained}
+                onClick={() => {
+                  actions?.confirmStockModeChange(userName);
+                }}
+              >
+                تأكيد الوضع الجديد
+              </Button>
+              <Button size="sm" variant="outline" disabled={!canEdit} onClick={() => actions?.cancelStockModeChange(userName)}>
+                إلغاء التبديل
+              </Button>
+            </div>
+          </div>
+        ) : data.settings.stockMode === 'inventory' ? (
           <p className="text-xs text-muted-foreground">
             يحتاج تطبيق المخازن ووسيط «نقاط البيع ↔ المخازن» في الخلفية. حدّد مستودع كل نقطة بيع في «نقاط البيع والأجهزة».
           </p>
