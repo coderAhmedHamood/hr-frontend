@@ -1414,6 +1414,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
       <div className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <ListToolbar
+            className="w-full"
             searchValue={searchInput}
             onSearchChange={setSearchInput}
             searchPlaceholder="ابحث بالمرجع أو المنتج…"
