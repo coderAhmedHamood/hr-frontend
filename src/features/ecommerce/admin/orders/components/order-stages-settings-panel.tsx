@@ -19,14 +19,14 @@ import type {
 import { cn } from '@/shared/utils';
 
 const AUTO_ASSIGN_LABELS: Record<OrderStageAutoAssign, string> = {
-  none: 'بدون إسناد — يستلمه أحد موظفي المرحلة',
-  user: 'موظف محدد',
+  none: 'بدون إسناد — يستلمه أحد مستخدمي المرحلة',
+  user: 'مستخدم محدد',
   balanced: 'توزيع تلقائي — الأقل طلبات مفتوحة',
 };
 
 const STAGE_HINTS: Record<OrderStage, string> = {
   pending: 'مراجعة الطلب الجديد وتأكيده (أو بدء تجهيزه مباشرة).',
-  confirmed: 'بدء تجهيز الطلب المؤكد — غالباً موظف المخزن.',
+  confirmed: 'بدء تجهيز الطلب المؤكد — غالباً مسؤول المخزن.',
   processing: 'تخصيص البنود وشحنها ثم نقل الطلب إلى «تم الشحن».',
   shipped: 'توصيل الطلب وتسليمه للعميل — مندوب التوصيل، مع تحصيل المبلغ عند الاستلام.',
 };
@@ -35,7 +35,7 @@ const OTHER_PERMISSIONS = [
   ['sta.order-stages.cancel', 'إلغاء الطلبات'],
   ['sta.order-stages.refund', 'استرداد الطلبات'],
   ['sta.order-stages.rollback', 'إرجاع الطلب إلى مرحلة سابقة'],
-  ['sta.order-stages.assign', 'إسناد الطلبات وإعادة إسنادها لأي موظف (مشرف)'],
+  ['sta.order-stages.assign', 'إسناد الطلبات وإعادة إسنادها لأي مستخدم (مشرف)'],
 ] as const;
 
 type StageDraft = { autoAssign: OrderStageAutoAssign; userId: string | null };
@@ -145,7 +145,7 @@ export function OrderStagesSettingsPanel({ companyId }: { companyId: string }) {
         <div className="flex items-start gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-900 dark:text-amber-200">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
           <p>
-            لا يوجد موظف يملك صلاحية مرحلة: {emptyStages.map((s) => `«${s.labelAr}»`).join('، ')}. ستتوقف
+            لا يوجد مستخدم يملك صلاحية مرحلة: {emptyStages.map((s) => `«${s.labelAr}»`).join('، ')}. ستتوقف
             الطلبات عندها — امنح الصلاحية لدور من شاشة الأدوار والصلاحيات.
           </p>
         </div>
@@ -175,7 +175,7 @@ export function OrderStagesSettingsPanel({ companyId }: { companyId: string }) {
                 </div>
                 <Badge variant={stage.handlersCount === 0 ? 'warning' : 'subtle'} className="gap-1">
                   <Users className="h-3 w-3" />
-                  {stage.handlersCount} موظف
+                  {stage.handlersCount} مستخدم
                 </Badge>
               </div>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -219,8 +219,8 @@ export function OrderStagesSettingsPanel({ companyId }: { companyId: string }) {
               </div>
               {savedUserIneligible ? (
                 <p className="text-xs text-amber-700 dark:text-amber-400">
-                  {stage.userNameAr ?? 'الموظف المحدد'} لم يعد يملك صلاحية هذه المرحلة — لن يُسند إليه حتى
-                  تُعاد الصلاحية أو تختار موظفاً آخر.
+                  {stage.userNameAr ?? 'المستخدم المحدد'} لم يعد يملك صلاحية هذه المرحلة — لن يُسند إليه حتى
+                  تُعاد الصلاحية أو تختار مستخدماً آخر.
                 </p>
               ) : null}
             </div>
@@ -241,7 +241,7 @@ export function OrderStagesSettingsPanel({ companyId }: { companyId: string }) {
           ))}
         </ul>
         <p className="text-xs text-muted-foreground">
-          تُمنح من شاشة الأدوار والصلاحيات. الموظف الذي لا يملك «عرض طلبات المتجر» يرى الطلبات المسندة إليه
+          تُمنح من شاشة الأدوار والصلاحيات. المستخدم الذي لا يملك «عرض طلبات المتجر» يرى الطلبات المسندة إليه
           وطلبات مرحلته غير المسندة فقط. ولاستلام إشعار الإسناد يلزمه «عرض إشعارات المتجر».
         </p>
       </div>

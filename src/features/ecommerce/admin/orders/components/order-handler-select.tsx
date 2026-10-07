@@ -39,8 +39,8 @@ export function OrderHandlerSelect({
 
   return (
     <Select value={value} onValueChange={onChange} disabled={disabled}>
-      <SelectTrigger aria-label="الموظف المسؤول" className="w-full">
-        <SelectValue placeholder={handlers.isLoading ? 'جاري التحميل…' : 'اختر الموظف'} />
+      <SelectTrigger aria-label="المستخدم المسؤول" className="w-full">
+        <SelectValue placeholder={handlers.isLoading ? 'جاري التحميل…' : 'اختر المستخدم'} />
       </SelectTrigger>
       <SelectContent>
         {leading.map((option) => (
@@ -49,7 +49,7 @@ export function OrderHandlerSelect({
           </SelectItem>
         ))}
         {allowNone ? (
-          <SelectItem value={HANDLER_NONE}>بدون إسناد — يستلمه أحد موظفي المرحلة</SelectItem>
+          <SelectItem value={HANDLER_NONE}>بدون إسناد — يستلمه أحد مستخدمي المرحلة</SelectItem>
         ) : null}
         {users.map((user) => (
           <SelectItem key={user.id} value={user.id}>
@@ -59,7 +59,7 @@ export function OrderHandlerSelect({
         ))}
         {!handlers.isLoading && users.length === 0 ? (
           <div className="px-3 py-2 text-xs text-muted-foreground">
-            لا يوجد موظفون يملكون صلاحية هذه المرحلة
+            لا يوجد مستخدمون يملكون صلاحية هذه المرحلة
           </div>
         ) : null}
       </SelectContent>

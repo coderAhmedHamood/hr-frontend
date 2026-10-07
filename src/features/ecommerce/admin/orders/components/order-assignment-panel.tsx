@@ -60,7 +60,7 @@ export function OrderAssignmentPanel({ order, companyId, stages }: Props) {
             <UserCheck className="h-4 w-4 text-primary" />
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold text-foreground">
-                {order.assignedUserName ?? 'موظف'}
+                {order.assignedUserName ?? 'مستخدم'}
                 {mine ? <span className="ms-1 text-xs font-normal text-primary">(أنت)</span> : null}
               </p>
               {order.assignedAt ? (
@@ -74,7 +74,7 @@ export function OrderAssignmentPanel({ order, companyId, stages }: Props) {
           <>
             <UserRound className="h-4 w-4 text-muted-foreground" />
             <p className="flex-1 text-sm text-muted-foreground">
-              {open ? 'غير مسند — يستلمه أحد موظفي المرحلة' : 'لم يُسند لأحد'}
+              {open ? 'غير مسند — يستلمه أحد مستخدمي المرحلة' : 'لم يُسند لأحد'}
             </p>
           </>
         )}

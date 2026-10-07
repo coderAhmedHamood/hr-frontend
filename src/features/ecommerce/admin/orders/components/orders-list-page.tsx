@@ -514,7 +514,7 @@ export function OrdersListPage() {
                 : 'text-foreground',
             )}
           >
-            {order.assignedUserName ?? 'موظف'}
+            {order.assignedUserName ?? 'مستخدم'}
           </span>
         ) : (
           <span className="text-xs text-muted-foreground">غير مسند</span>

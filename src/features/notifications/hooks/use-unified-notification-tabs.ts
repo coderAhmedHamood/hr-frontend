@@ -26,12 +26,12 @@ export function useUnifiedNotificationTabs(): {
 } {
   const can = useCan();
   const userId = useAuthStore((s) => s.user?.id ?? s.accessProfile?.userId ?? '');
-  // Only who may read employees looks themselves up (store-only staff may not).
-  const { data: currentEmployee } = useCurrentEmployee(can('hr.employees.read'));
-  const employeeId = currentEmployee?.id ?? '';
-
   const { companyId: activeCompanyId, ...moduleContext } = useModuleEnablementContext();
   const hrEnabled = isModuleEnabledFor('hr', activeCompanyId, moduleContext);
+  // Apps are separate: the HR employee is looked up only for the HR tab, when
+  // HR is on for the company and the user may read employees.
+  const { data: currentEmployee } = useCurrentEmployee(hrEnabled && can('hr.employees.read'));
+  const employeeId = currentEmployee?.id ?? '';
   const inventoryEnabled = isModuleEnabledFor('inventory', activeCompanyId, moduleContext);
   const storeEnabled = isModuleEnabledFor('ecommerce', activeCompanyId, moduleContext);
   const contactsEnabled = isModuleEnabledFor('contacts', activeCompanyId, moduleContext);
