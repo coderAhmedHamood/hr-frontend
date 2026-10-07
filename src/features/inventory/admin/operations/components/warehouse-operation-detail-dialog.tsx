@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { ArrowDown, Check, ChevronDown, Plus, Trash2, Undo2, X } from 'lucide-react';
+import { ArrowDown, Check, ChevronDown, Plus, ScanBarcode, Trash2, Undo2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { getInventoryCompanyId } from '@/features/inventory/lib/company-id';
 import { useInventoryCompanySettings } from '@/features/inventory/admin/notifications/hooks/use-inventory-settings';
@@ -79,6 +79,8 @@ import {
   filterOperationFromLocations,
   filterOperationToLocations,
 } from '@/features/inventory/admin/operations/lib/operation-location-filters';
+import { BarcodeScannerDialog } from '@/features/inventory/admin/scan/components/barcode-scanner-dialog';
+import { resolveScannedCode } from '@/features/inventory/admin/scan/lib/resolve-scanned-code';
 import { cn } from '@/shared/utils';
 
 type Props = {
@@ -309,6 +311,8 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
   const [tab, setTab] = React.useState('operations');
   /** Phones: the document fields fold away so the lines come first (open for a draft). */
   const [phoneDetailsOpen, setPhoneDetailsOpen] = React.useState(false);
+  const [scanOpen, setScanOpen] = React.useState(false);
+  const [scanStatus, setScanStatus] = React.useState<string | null>(null);
   const [availableByLineId, setAvailableByLineId] = React.useState<Record<string, number>>({});
   const loadedOperationIdRef = React.useRef<string | null>(null);
 
@@ -540,6 +544,71 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
         };
       }),
     );
+  }
+
+  /**
+   * A scanned code: the line of that product/variant gets one more; a new
+   * one is added in a draft (filling an empty line first). In a ready document
+   * lines are fixed, so a scan only counts an item already listed.
+   */
+  async function addScannedCode(code: string) {
+    if (!companyId) return;
+    let item;
+    try {
+      item = await resolveScannedCode(companyId, code);
+    } catch {
+      setScanStatus(null);
+      return;
+    }
+    if (!item) {
+      toast.error(`لا يوجد منتج بالرمز ${code}`);
+      setScanStatus(`لا يوجد منتج بالرمز ${code}`);
+      return;
+    }
+    const label = item.variantName ? `${item.productName} — ${item.variantName}` : item.productName;
+    const countLike = kind === 'physical_count' || kind === 'adjustment';
+    const hit = lines.find(
+      (l) => l.productId === item.productId && (l.variantId ?? '') === (item.variantId ?? ''),
+    );
+    if (hit) {
+      setLines((prev) =>
+        prev.map((l) => {
+          if (l.id !== hit.id) return l;
+          const quantity = l.quantity + 1;
+          // A draft's ordered quantity follows (as typing it does); a count keeps its theoretical one.
+          return status === 'draft' && !countLike
+            ? { ...l, quantity, demandQuantity: (l.demandQuantity ?? l.quantity) + 1 }
+            : { ...l, quantity };
+        }),
+      );
+      setScanStatus(`+1 ${label} (${hit.quantity + 1})`);
+      return;
+    }
+    if (status !== 'draft') {
+      toast.error(`«${label}» ليس في هذا المستند`);
+      setScanStatus(`«${label}» ليس في هذا المستند`);
+      return;
+    }
+    setLines((prev) => {
+      const line: WarehouseOperationLine = {
+        id: newOperationLineDraftId(),
+        productId: item.productId,
+        productName: item.productName,
+        sku: item.sku,
+        variantId: item.variantId,
+        demandQuantity: countLike ? 0 : 1,
+        quantity: 1,
+        fromLocationId: headerFromLocationId || undefined,
+        toLocationId: headerToLocationId || undefined,
+        unitCost: undefined,
+      };
+      const blank = prev.findIndex((l) => !l.productId);
+      if (blank < 0) return [...prev, line];
+      const next = [...prev];
+      next[blank] = { ...line, id: prev[blank]!.id };
+      return next;
+    });
+    setScanStatus(`أُضيف: ${label}`);
   }
 
   if (!documentOperation) return null;
@@ -1190,12 +1259,29 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
                 <p className="text-xs text-muted-foreground">
                   {pricedLines.length} {pricedLines.length === 1 ? 'صنف' : 'أصناف'}
                 </p>
-                {canEditProducts ? (
-                  <Button type="button" variant="outline" size="sm" disabled={isSaving} onClick={addProductLine}>
-                    <Plus className="me-1 h-3.5 w-3.5" />
-                    إضافة صنف
-                  </Button>
-                ) : null}
+                <div className="flex gap-2">
+                  {multiProductMode && qtyEditable ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={isSaving}
+                      onClick={() => {
+                        setScanStatus(null);
+                        setScanOpen(true);
+                      }}
+                    >
+                      <ScanBarcode className="me-1 h-3.5 w-3.5" />
+                      مسح
+                    </Button>
+                  ) : null}
+                  {canEditProducts ? (
+                    <Button type="button" variant="outline" size="sm" disabled={isSaving} onClick={addProductLine}>
+                      <Plus className="me-1 h-3.5 w-3.5" />
+                      إضافة صنف
+                    </Button>
+                  ) : null}
+                </div>
               </div>
               {/* Phones: one card per line — the table would put the quantity off-screen. */}
               <div className="space-y-2.5 md:hidden">
@@ -1417,6 +1503,14 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
           </Button>
         </DialogFooter>
       </DialogContent>
+      <BarcodeScannerDialog
+        open={scanOpen}
+        onOpenChange={setScanOpen}
+        continuous
+        title={status === 'draft' ? 'مسح الأصناف' : 'عدّ الأصناف بالمسح'}
+        status={scanStatus ? <p className="font-medium">{scanStatus}</p> : null}
+        onCode={(code) => void addScannedCode(code)}
+      />
     </Dialog>
   );
 }

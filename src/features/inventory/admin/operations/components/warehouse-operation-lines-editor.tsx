@@ -1,7 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, ScanBarcode, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { ProductSinglePicker } from '@/features/catalog/products/components/product-single-picker';
 import { inventoryStockService } from '@/features/inventory/services/inventory-stock.service';
 import {
@@ -21,6 +22,8 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { OperationLineVariantSelect } from '@/features/inventory/admin/operations/components/operation-line-variant-select';
 import { formatVariantCompactLabel } from '@/features/inventory/admin/operations/lib/variant-display-label';
+import { BarcodeScannerDialog } from '@/features/inventory/admin/scan/components/barcode-scanner-dialog';
+import { resolveScannedCode } from '@/features/inventory/admin/scan/lib/resolve-scanned-code';
 
 type Props = {
   companyId: string;
@@ -57,6 +60,11 @@ export function WarehouseOperationLinesEditor({
 }: Props) {
   const [availableByKey, setAvailableByKey] = React.useState<Record<string, number>>({});
   const [uomByProductId, setUomByProductId] = React.useState<Record<string, EffectiveUomLine[]>>({});
+  const [scanOpen, setScanOpen] = React.useState(false);
+  const [scanStatus, setScanStatus] = React.useState<string | null>(null);
+  // The latest lines for scans that resolve after a re-render.
+  const linesRef = React.useRef(lines);
+  linesRef.current = lines;
 
   async function ensureUoms(productId: string): Promise<EffectiveUomLine[]> {
     if (uomByProductId[productId]) return uomByProductId[productId];
@@ -106,6 +114,57 @@ export function WarehouseOperationLinesEditor({
 
   function addLine() {
     onChange([...lines, emptyOperationLineDraft()]);
+  }
+
+  /** A scanned code: one more of a listed item, else a new line (an empty one first). */
+  async function addScannedCode(code: string) {
+    let item;
+    try {
+      item = await resolveScannedCode(companyId, code);
+    } catch {
+      return;
+    }
+    if (!item) {
+      toast.error(`لا يوجد منتج بالرمز ${code}`);
+      setScanStatus(`لا يوجد منتج بالرمز ${code}`);
+      return;
+    }
+    const label = item.variantName ? `${item.productName} — ${item.variantName}` : item.productName;
+    if (excludeProductIds?.includes(item.productId)) {
+      toast.error(`«${label}» محجوز في مستند آخر مفتوح`);
+      return;
+    }
+    const current = linesRef.current;
+    const hit = current.find(
+      (l) => l.productId === item.productId && (l.variantId ?? '') === (item.variantId ?? ''),
+    );
+    if (hit) {
+      onChange(current.map((l) => (l.id === hit.id ? { ...l, quantity: l.quantity + 1 } : l)));
+      setScanStatus(`+1 ${label} (${hit.quantity + 1})`);
+      return;
+    }
+    const rows = await ensureUoms(item.productId);
+    const ref = rows.find((row) => row.isReference) ?? rows[0];
+    const line: OperationLineDraft = {
+      ...emptyOperationLineDraft(),
+      productId: item.productId,
+      productName: item.productName,
+      catalogProductName: item.productName,
+      sku: item.sku,
+      variantId: item.variantId,
+      variantName: item.variantName,
+      productUomLineId: ref?.id,
+      uomLineName: ref?.nameAr,
+      quantity: 1,
+    };
+    const latest = linesRef.current;
+    const blank = latest.findIndex((l) => !l.productId.trim());
+    onChange(
+      blank < 0
+        ? [...latest, line]
+        : latest.map((l, i) => (i === blank ? { ...line, id: l.id } : l)),
+    );
+    setScanStatus(`أُضيف: ${label}`);
   }
 
   const duplicateProducts = hasDuplicateOperationLineProducts(lines);
@@ -324,11 +383,34 @@ export function WarehouseOperationLinesEditor({
     <div className={className}>
       <div className="mb-2 flex items-center justify-between gap-2">
         <Label>أصناف المستند</Label>
-        <Button type="button" variant="outline" size="sm" disabled={disabled} onClick={addLine}>
-          <Plus className="me-1 h-3.5 w-3.5" />
-          إضافة صنف
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={disabled || (restrictToSourceLocation && !fromLocationId)}
+            onClick={() => {
+              setScanStatus(null);
+              setScanOpen(true);
+            }}
+          >
+            <ScanBarcode className="me-1 h-3.5 w-3.5" />
+            مسح
+          </Button>
+          <Button type="button" variant="outline" size="sm" disabled={disabled} onClick={addLine}>
+            <Plus className="me-1 h-3.5 w-3.5" />
+            إضافة صنف
+          </Button>
+        </div>
       </div>
+      <BarcodeScannerDialog
+        open={scanOpen}
+        onOpenChange={setScanOpen}
+        continuous
+        title="مسح الأصناف"
+        status={scanStatus ? <p className="font-medium">{scanStatus}</p> : null}
+        onCode={(code) => void addScannedCode(code)}
+      />
 
       {duplicateProducts ? (
         <p className="mb-2 text-xs text-destructive">
