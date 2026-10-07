@@ -1,5 +1,6 @@
 'use client';
 
+import { companyCurrencyCode } from '@/features/auth/lib/company-currency';
 import * as React from 'react';
 import Link from 'next/link';
 import {
@@ -156,8 +157,8 @@ function todayIso(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-function money(amount: string | number | null | undefined, currency = 'YER'): string {
-  return formatPrice({ amount: fromDecimalString(amount), currency: currency || 'YER' });
+function money(amount: string | number | null | undefined, currency = companyCurrencyCode()): string {
+  return formatPrice({ amount: fromDecimalString(amount), currency: currency || companyCurrencyCode() });
 }
 
 function downloadCsv(filename: string, rows: string[][]) {
@@ -248,7 +249,7 @@ export function StoreReportsPage({ section = 'overview' }: { section?: ReportTab
   const operations = useOperationsSummary(companyId, from, to, Boolean(companyId) && tab === 'engagement');
   const lines = useSalesLines(filters, linesPage, 50, Boolean(companyId) && tab === 'lines');
 
-  const currency = summary.data?.currencyCode || 'YER';
+  const currency = summary.data?.currencyCode || companyCurrencyCode();
 
   const salesChartPoints = React.useMemo(
     () =>

@@ -17,7 +17,8 @@ import type {
   UpdateProductInput,
 } from '@/features/ecommerce/domain/types/product';
 import type { AdminProductsPort } from '@/features/ecommerce/domain/ports/catalog.ports';
-import { STORE_CURRENCY_CODE, isStoreCurrency } from '@/features/ecommerce/domain/constants/store-currency';
+import { companyCurrencyKnown } from '@/features/auth/lib/company-currency';
+import { storeCurrencyCode, isStoreCurrency } from '@/features/ecommerce/domain/constants/store-currency';
 import { UUID_RE, isPersistedId } from '@/features/catalog/products/lib/id-utils';
 import { PRODUCT_VARIANT_CUSTOM_UOM_ENABLED } from '@/features/catalog/products/constants/product-feature-flags';
 
@@ -268,11 +269,11 @@ function mapVariants(items: VariantDto[] | undefined): ProductVariant[] {
       })),
       salePrice: {
         amount: toNumber(dto.salePriceAmount),
-        currency: dto.salePriceCurrency || STORE_CURRENCY_CODE,
+        currency: dto.salePriceCurrency || storeCurrencyCode(),
       },
       costPrice: {
         amount: toNumber(dto.costPriceAmount),
-        currency: dto.costPriceCurrency || STORE_CURRENCY_CODE,
+        currency: dto.costPriceCurrency || storeCurrencyCode(),
       },
       quantity: toNumber(dto.quantityCache),
       stockStatus: dto.stockStatus,
@@ -294,7 +295,7 @@ function mapVariants(items: VariantDto[] | undefined): ProductVariant[] {
 }
 
 function mapFullProduct(dto: ProductFullDto): Product {
-  const currency = dto.priceCurrency || STORE_CURRENCY_CODE;
+  const currency = dto.priceCurrency || storeCurrencyCode();
   const costAmount = toOptionalNumber(dto.costPriceAmount);
   const compareAmount = toOptionalNumber(dto.compareAtPriceAmount);
   return {
@@ -402,15 +403,15 @@ function toHeaderBody(input: CreateProductInput | UpdateProductInput, mode: 'cre
   if (input.price !== undefined) {
     body.priceAmount = input.price.amount;
   }
-  // Store is YER-only — always persist store currency so leftover SAR seeds cannot block checkout.
-  body.priceCurrency = STORE_CURRENCY_CODE;
+  // Prices are in the company base currency — always persist it so leftover codes cannot block checkout.
+  body.priceCurrency = storeCurrencyCode();
   if (input.costPrice !== undefined) {
     body.costPriceAmount = input.costPrice?.amount ?? null;
-    body.costPriceCurrency = input.costPrice ? STORE_CURRENCY_CODE : null;
+    body.costPriceCurrency = input.costPrice ? storeCurrencyCode() : null;
   }
   if (input.compareAtPrice !== undefined) {
     body.compareAtPriceAmount = input.compareAtPrice?.amount ?? null;
-    body.compareAtPriceCurrency = input.compareAtPrice ? STORE_CURRENCY_CODE : null;
+    body.compareAtPriceCurrency = input.compareAtPrice ? storeCurrencyCode() : null;
   }
   if (input.inventory !== undefined) {
     body.trackInventory = input.inventory.trackInventory;
@@ -590,9 +591,9 @@ function toFullBody(input: CreateProductInput | UpdateProductInput, mode: 'creat
         imageUrl: variant.images?.[0]?.url ?? variant.imageUrl ?? null,
         images: variant.images && variant.images.length > 0 ? variant.images.map((item) => item.url) : [],
         salePriceAmount: variant.salePrice.amount,
-        salePriceCurrency: STORE_CURRENCY_CODE,
+        salePriceCurrency: storeCurrencyCode(),
         costPriceAmount: variant.costPrice.amount,
-        costPriceCurrency: STORE_CURRENCY_CODE,
+        costPriceCurrency: storeCurrencyCode(),
         isActive: variant.isActive,
         ...(attributeValueIds.length > 0 ? { attributeValueIds } : {}),
         ...(attributeValueClientKeys.length > 0 ? { attributeValueClientKeys } : {}),
@@ -635,11 +636,15 @@ function variantNeedsStoreCurrency(dto: VariantDto): boolean {
   return false;
 }
 
-/** Rewrite leftover SAR (or any non-store) money codes without changing amounts. */
+/**
+ * Rewrite leftover money codes (not the company base currency) without
+ * changing amounts — only when that currency is known (signed-in staff).
+ */
 export async function patchProductStoreCurrency(
   id: string,
   dto?: ProductDto | ProductFullDto,
 ): Promise<boolean> {
+  if (!companyCurrencyKnown()) return false;
   try {
     const snapshot =
       dto ??
@@ -657,9 +662,9 @@ export async function patchProductStoreCurrency(
     if (headerOk && variantsOk) return false;
 
     const body: Record<string, unknown> = {
-      priceCurrency: STORE_CURRENCY_CODE,
-      costPriceCurrency: STORE_CURRENCY_CODE,
-      compareAtPriceCurrency: STORE_CURRENCY_CODE,
+      priceCurrency: storeCurrencyCode(),
+      costPriceCurrency: storeCurrencyCode(),
+      compareAtPriceCurrency: storeCurrencyCode(),
     };
     if (snapshot.priceAmount != null && snapshot.priceAmount !== '') {
       body.priceAmount = snapshot.priceAmount;
@@ -684,6 +689,7 @@ export async function patchProductStoreCurrency(
 }
 
 async function healListedProductCurrencies(items: ProductDto[]): Promise<void> {
+  if (!companyCurrencyKnown()) return;
   const mismatched = items.filter(productNeedsStoreCurrency);
   if (mismatched.length === 0) return;
   await Promise.allSettled(mismatched.map((dto) => patchProductStoreCurrency(dto.id, dto)));
@@ -694,7 +700,10 @@ async function fetchProductFull(id: string): Promise<Product | null> {
     const dto = await apiRequest<ProductFullDto>(`/inventory/products/${id}/full`);
     if (!dto?.id) return null;
     const variants = dto.variants ?? [];
-    if (productNeedsStoreCurrency(dto) || variants.some(variantNeedsStoreCurrency)) {
+    if (
+      companyCurrencyKnown() &&
+      (productNeedsStoreCurrency(dto) || variants.some(variantNeedsStoreCurrency))
+    ) {
       await patchProductStoreCurrency(dto.id, dto);
       const healed = await apiRequest<ProductFullDto>(`/inventory/products/${id}/full`);
       return healed?.id ? mapFullProduct(healed) : mapFullProduct(dto);
@@ -761,12 +770,12 @@ export const productsApi: AdminProductsPort = {
       if (isStoreCurrency(mapped.price.currency)) return mapped;
       return {
         ...mapped,
-        price: { ...mapped.price, currency: STORE_CURRENCY_CODE },
+        price: { ...mapped.price, currency: storeCurrencyCode() },
         costPrice: mapped.costPrice
-          ? { ...mapped.costPrice, currency: STORE_CURRENCY_CODE }
+          ? { ...mapped.costPrice, currency: storeCurrencyCode() }
           : mapped.costPrice,
         compareAtPrice: mapped.compareAtPrice
-          ? { ...mapped.compareAtPrice, currency: STORE_CURRENCY_CODE }
+          ? { ...mapped.compareAtPrice, currency: storeCurrencyCode() }
           : mapped.compareAtPrice,
       };
     });

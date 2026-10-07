@@ -1,5 +1,6 @@
 'use client';
 
+import { companyCurrencyCode } from '@/features/auth/lib/company-currency';
 import * as React from 'react';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -67,7 +68,10 @@ const EMPTY_FORM: DraftForm = {
   defaultProbationDays: '90',
   defaultAnnualLeaveDays: '21',
   suggestedBaseSalary: '',
-  currency: 'SAR',
+  // Read when the form opens: the active company's base currency.
+  get currency() {
+    return companyCurrencyCode();
+  },
   durationMonths: '',
   allowancesHint: '',
   sortOrder: '0',
@@ -98,7 +102,7 @@ function formFromDto(dto: ContractTemplateDto): DraftForm {
     defaultProbationDays: dto.defaultProbationDays != null ? String(dto.defaultProbationDays) : '',
     defaultAnnualLeaveDays: dto.defaultAnnualLeaveDays != null ? String(dto.defaultAnnualLeaveDays) : '',
     suggestedBaseSalary: dto.suggestedBaseSalary ? String(parseFloat(dto.suggestedBaseSalary)) : '',
-    currency: dto.currency || 'SAR',
+    currency: dto.currency || companyCurrencyCode(),
     durationMonths: dto.durationMonths != null ? String(dto.durationMonths) : '',
     allowancesHint: dto.allowancesHint ?? '',
     sortOrder: String(dto.sortOrder),
@@ -181,7 +185,7 @@ export function ContractTemplateFormDialog({ open, onOpenChange, editItem, compa
         defaultProbationDays: form.defaultProbationDays ? Number(form.defaultProbationDays) : null,
         defaultAnnualLeaveDays: form.defaultAnnualLeaveDays ? Number(form.defaultAnnualLeaveDays) : null,
         suggestedBaseSalary: form.suggestedBaseSalary ? Number(form.suggestedBaseSalary) : undefined,
-        currency: form.currency || 'SAR',
+        currency: form.currency || companyCurrencyCode(),
         durationMonths:
           form.defaultContractNature === 'fixed_term' && form.durationMonths
             ? Number(form.durationMonths)

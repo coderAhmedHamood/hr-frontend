@@ -1,5 +1,6 @@
 'use server';
 
+import { companyCurrencyCode } from '@/features/auth/lib/company-currency';
 import { cookies } from 'next/headers';
 import { resolveStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
 import { resolveApiBaseUrl } from '@/shared/api-base-url';
@@ -106,7 +107,7 @@ function mapInventoryProduct(dto: InventoryProductDto): CatalogPickerProduct {
     categoryId: dto.categoryId ?? null,
     tags: dto.tags ?? [],
     priceAmount: Number(dto.priceAmount) || 0,
-    priceCurrency: dto.priceCurrency || 'YER',
+    priceCurrency: dto.priceCurrency || companyCurrencyCode(),
     compareAtPriceAmount: Number.isFinite(compareAt) ? compareAt : null,
     stockStatus: dto.stockStatus ?? 'in_stock',
   };

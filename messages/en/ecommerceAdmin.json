@@ -486,7 +486,7 @@
       "seo": "Search engines (SEO)"
     },
     "currency": "Store currency",
-    "currencyHint": "ISO currency code used on the storefront (e.g. YER, SAR).",
+    "currencyHint": "The store sells in the company base currency — changed in the company settings.",
     "mobileTabs": {
       "hint": "Bottom navigation on phones. Disabled tabs are hidden in the store.",
       "labelAr": "Label (Arabic)",

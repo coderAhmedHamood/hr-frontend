@@ -1,3 +1,4 @@
+import { companyCurrencyCode } from '@/features/auth/lib/company-currency';
 import { create } from 'zustand';
 import { STATUS_PILL } from '@/shared/status-pill-classes';
 import { AR_STATUS } from '@/shared/i18n/ar';
@@ -205,7 +206,7 @@ export const useHRContractsStore = create<HRContractsState>()((set, get) => ({
       probationDays: data.probationDays ?? undefined,
       annualLeaveDays: data.annualLeaveDays ?? undefined,
       baseSalary: data.baseSalary,
-      ...(currency && currency !== 'SAR' ? { currency } : {}),
+      ...(currency ? { currency } : {}),
       // الإنشاء يكون مسودة دائماً من الـ API
       allowancesNote: data.allowancesNote || undefined,
       deductionsNote: data.deductionsNote || undefined,

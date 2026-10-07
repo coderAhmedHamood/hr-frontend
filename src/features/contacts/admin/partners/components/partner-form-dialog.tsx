@@ -1,5 +1,6 @@
 'use client';
 
+import { companyCurrencyCode } from '@/features/auth/lib/company-currency';
 import * as React from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -58,7 +59,7 @@ function toFormValues(partner: Partner): PartnerFormValues {
     jobTitle: partner.jobTitle ?? '',
     department: partner.department ?? '',
     languageCode: partner.languageCode ?? 'ar',
-    currencyCode: partner.currencyCode ?? 'SAR',
+    currencyCode: partner.currencyCode ?? companyCurrencyCode(),
     paymentTerms: partner.paymentTerms ?? '',
     creditLimitAmount: partner.creditLimitAmount ?? '',
     preferredPaymentMethod: partner.preferredPaymentMethod ?? '',
@@ -120,10 +121,10 @@ export function PartnerFormDialog({ partner, open, onOpenChange, onCreated }: Pr
       jobTitle: emptyToNull(values.jobTitle),
       department: emptyToNull(values.department),
       languageCode: emptyToNull(values.languageCode) ?? 'ar',
-      currencyCode: emptyToNull(values.currencyCode) ?? 'SAR',
+      currencyCode: emptyToNull(values.currencyCode) ?? companyCurrencyCode(),
       paymentTerms: emptyToNull(values.paymentTerms),
       creditLimitAmount: credit ? Number(credit) : null,
-      creditLimitCurrency: credit ? values.currencyCode || 'SAR' : null,
+      creditLimitCurrency: credit ? values.currencyCode || companyCurrencyCode() : null,
       preferredPaymentMethod: emptyToNull(values.preferredPaymentMethod),
       notes: emptyToNull(values.notes),
       refCode: emptyToNull(values.refCode),

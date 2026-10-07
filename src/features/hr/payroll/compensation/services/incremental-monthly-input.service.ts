@@ -1,3 +1,4 @@
+import { companyCurrencyCode } from '@/features/auth/lib/company-currency';
 import { monthlyInputsApi, type MonthlyInputDirectionDto, type MonthlyInputKindDto } from '@/features/hr/payroll/lib/api/monthly-inputs';
 
 export type IncrementAdjustField = 'bonus' | 'admin';
@@ -39,7 +40,7 @@ export async function createIncrementalMonthlyInput(params: CreateIncrementalMon
     inputKind: resolveInputKind(params.field, direction),
     direction,
     amount: Math.round(params.amount * 100) / 100,
-    currency: params.currency ?? 'SAR',
+    currency: params.currency ?? companyCurrencyCode(),
     note: params.note?.trim() || undefined,
     sourceKind: 'manual',
     sourceTable: 'frontend_compensation_panel',

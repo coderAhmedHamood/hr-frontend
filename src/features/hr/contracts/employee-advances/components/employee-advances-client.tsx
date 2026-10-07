@@ -1,5 +1,7 @@
 'use client';
 
+import { companyCurrencyCode } from '@/features/auth/lib/company-currency';
+import { currencyNameAr } from '@/shared/currencies';
 import * as React from 'react';
 import { Plus, Banknote, Download, Send, CalendarDays } from 'lucide-react';
 import { toast } from 'sonner';
@@ -109,7 +111,11 @@ type DraftForm = {
 };
 
 const EMPTY_FORM: DraftForm = {
-  employeeId: '', employeeNameAr: '', amount: '', currency: 'SAR',
+  employeeId: '', employeeNameAr: '', amount: '',
+  // Read when the form opens: the active company's base currency.
+  get currency() {
+    return companyCurrencyCode();
+  },
   advanceDate: new Date().toISOString().slice(0, 10), note: '',
   advanceKind: 'personal',
   repaymentMode: 'by_months',
@@ -1038,10 +1044,8 @@ export function EmployeeAdvancesClient() {
           <MinimalDropdown
             value={form.currency}
             onChange={v => patch({ currency: v })}
-            options={[
-              { value: 'SAR', label: 'ريال سعودي' },
-              { value: 'USD', label: 'دولار أمريكي' },
-            ]}
+            // Advances are in the company base currency (company settings).
+            options={[{ value: companyCurrencyCode(), label: currencyNameAr(companyCurrencyCode()) }]}
           />
         </FormField>
         <FormField label="تاريخ السلفة" required>
