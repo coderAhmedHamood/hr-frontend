@@ -86,6 +86,7 @@ import {
   DialogHeader,
   DialogTitle,
   dialogMaxHeightClass,
+  dialogMobileFullScreenClass,
 } from '@/components/ui/dialog';
 import {
   Select,
@@ -805,9 +806,11 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
           className={cn(
             dialogMaxHeightClass,
             'flex max-h-[min(92vh,900px)] flex-col overflow-hidden max-w-[min(96vw,72rem)] sm:max-w-6xl',
+            dialogMobileFullScreenClass,
+            'max-sm:gap-3 max-sm:p-4',
           )}
         >
-          <DialogHeader>
+          <DialogHeader className="max-sm:text-right">
             <DialogTitle>{meta.createLabel}</DialogTitle>
             <DialogDescription>
               يُنشأ المستند كمسودة ثم تُفتح شاشة التفاصيل مباشرة لإكمال الجاهز والتصديق والحفظ.
@@ -1305,7 +1308,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
               </OperationFormSection>
             </div>
 
-            <DialogFooter className="mt-3 shrink-0 border-t border-border pt-3">
+            <DialogFooter className="mt-3 shrink-0 border-t border-border pt-3 max-sm:[&>button]:h-11 max-sm:[&>button]:flex-1">
               <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={create.isPending}>
                 إلغاء
               </Button>

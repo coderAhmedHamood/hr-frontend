@@ -1,7 +1,9 @@
 'use client';
 
 import * as React from 'react';
+import { Minus, Plus } from 'lucide-react';
 import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/shared/utils';
 
@@ -16,6 +18,11 @@ type Props = {
   'aria-label'?: string;
   /** Show toast when blur clamps to max (default true). */
   notifyOnClamp?: boolean;
+  /**
+   * Big − / + buttons around the field (phones): one tap per unit, the same
+   * limits as typing.
+   */
+  stepper?: boolean;
 };
 
 function formatDraft(value: number): string {
@@ -40,6 +47,7 @@ export function FlexibleQuantityInput({
   id,
   'aria-label': ariaLabel,
   notifyOnClamp = true,
+  stepper = false,
 }: Props) {
   const [draft, setDraft] = React.useState(() => formatDraft(value));
   const focusedRef = React.useRef(false);
@@ -62,7 +70,11 @@ export function FlexibleQuantityInput({
     if (next !== value) onChange(next);
   }
 
-  return (
+  function step(delta: number) {
+    commitDraft(String(Math.max(min, value + delta)));
+  }
+
+  const input = (
     <Input
       id={id}
       type="text"
@@ -89,5 +101,35 @@ export function FlexibleQuantityInput({
         }
       }}
     />
+  );
+
+  if (!stepper) return input;
+  const atMax = max != null && value >= max;
+  return (
+    <div className="flex items-center gap-1.5" dir="ltr">
+      <Button
+        type="button"
+        variant="outline"
+        size="icon"
+        className="h-11 w-11 shrink-0 rounded-xl"
+        disabled={disabled || value <= min}
+        aria-label="إنقاص"
+        onClick={() => step(-1)}
+      >
+        <Minus className="h-4 w-4" />
+      </Button>
+      {input}
+      <Button
+        type="button"
+        variant="outline"
+        size="icon"
+        className="h-11 w-11 shrink-0 rounded-xl"
+        disabled={disabled || atMax}
+        aria-label="زيادة"
+        onClick={() => step(1)}
+      >
+        <Plus className="h-4 w-4" />
+      </Button>
+    </div>
   );
 }

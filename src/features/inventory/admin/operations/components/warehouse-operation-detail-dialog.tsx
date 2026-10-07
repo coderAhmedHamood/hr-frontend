@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { ArrowDown, Check, Plus, Trash2, Undo2, X } from 'lucide-react';
+import { ArrowDown, Check, ChevronDown, Plus, Trash2, Undo2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { getInventoryCompanyId } from '@/features/inventory/lib/company-id';
 import { useInventoryCompanySettings } from '@/features/inventory/admin/notifications/hooks/use-inventory-settings';
@@ -50,6 +50,7 @@ import {
   DialogContent,
   DialogFooter,
   DialogTitle,
+  dialogMobileFullScreenClass,
   dialogShellBodyClass,
   dialogShellContentClass,
   dialogShellHeaderClass,
@@ -306,6 +307,8 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
   const [occurredAt, setOccurredAt] = React.useState('');
   const [status, setStatus] = React.useState<WarehouseOperationStatus>('draft');
   const [tab, setTab] = React.useState('operations');
+  /** Phones: the document fields fold away so the lines come first (open for a draft). */
+  const [phoneDetailsOpen, setPhoneDetailsOpen] = React.useState(false);
   const [availableByLineId, setAvailableByLineId] = React.useState<Record<string, number>>({});
   const loadedOperationIdRef = React.useRef<string | null>(null);
 
@@ -339,6 +342,7 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
       return incoming;
     });
     setTab('operations');
+    if (switched) setPhoneDetailsOpen(documentOperation.status === 'draft');
     const first = documentOperation.lines[0];
     setHeaderFromLocationId(first?.fromLocationId ?? '');
     setHeaderToLocationId(first?.toLocationId ?? '');
@@ -737,10 +741,261 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
     await savePatch({ status, lines: linesToSave }, 'تم حفظ التعديلات');
   }
 
+  /** What a line shows, whatever the layout (desktop table row or phone card). */
+  function lineView(line: WarehouseOperationLine) {
+    const available = availableByLineId[line.id];
+    const maxQty =
+      checksSourceStock && available != null
+        ? maxQuantityForLine({
+            lines,
+            lineId: line.id,
+            availableAtLocation: available,
+            fromLocationId: headerFromLocationId || undefined,
+          })
+        : null;
+    const demand = line.demandQuantity ?? line.quantity;
+    const gap = demand - line.quantity;
+    const unitCost = lineUnitCostNumber(line.unitCost);
+    const lineTotal = unitCost == null ? null : unitCost * line.quantity;
+    return { available, maxQty, demand, gap, unitCost, lineTotal };
+  }
+
+  function lineProductField(line: WarehouseOperationLine) {
+    return canEditProducts ? (
+      <div className="space-y-1">
+        <ProductSinglePicker
+          companyId={companyId ?? ''}
+          value={line.productId}
+          status="active"
+          disabled={isSaving}
+          excludeIds={reservedProductIdsOtherDocs}
+          sourceLocationId={
+            pickerUsesSourceLocationStock(kind) ? headerFromLocationId || undefined : undefined
+          }
+          placeholder={
+            pickerUsesSourceLocationStock(kind) && !headerFromLocationId
+              ? 'حدّد موقع الصرف أولًا…'
+              : 'ابحث عن منتج…'
+          }
+          onChange={(productId) => {
+            if (!productId) applyLineProduct(line.id, null);
+          }}
+          onProductSelect={(product) => applyLineProduct(line.id, product)}
+        />
+        {line.sku ? (
+          <p className="text-[11px] text-muted-foreground" dir="ltr">
+            {line.sku}
+          </p>
+        ) : null}
+      </div>
+    ) : (
+      <div className="min-w-0">
+        <p className="font-medium leading-snug text-foreground">{line.productName || '—'}</p>
+        {line.sku ? (
+          <p className="mt-0.5 text-[11px] text-muted-foreground" dir="ltr">
+            {line.sku}
+          </p>
+        ) : null}
+      </div>
+    );
+  }
+
+  function lineVariantField(line: WarehouseOperationLine) {
+    return canEditProducts && line.productId ? (
+      <OperationLineVariantSelect
+        companyId={companyId ?? ''}
+        productId={line.productId}
+        catalogProductName={line.productName}
+        variantId={line.variantId}
+        disabled={isSaving}
+        onChange={(nextId, variant) => applyLineVariant(line.id, nextId, variant)}
+      />
+    ) : (
+      <p className="text-sm leading-snug text-foreground">
+        <OperationLineVariantReadout
+          companyId={companyId ?? ''}
+          productId={line.productId}
+          productName={line.productName}
+          variantId={line.variantId}
+        />
+      </p>
+    );
+  }
+
+  function lineDemandField(
+    line: WarehouseOperationLine,
+    view: ReturnType<typeof lineView>,
+    phone: boolean,
+  ) {
+    return (
+      <>
+        {editable && status !== 'ready' ? (
+          <FlexibleQuantityInput
+            className={
+              phone
+                ? 'h-11 min-w-0 flex-1 text-center text-base'
+                : 'mx-auto h-9 w-full max-w-[7rem] text-center'
+            }
+            stepper={phone}
+            value={view.demand}
+            max={view.maxQty}
+            disabled={!editable || isSaving}
+            aria-label="كمية الطلب"
+            onChange={(value) => applyLineQuantity(line.id, 'demandQuantity', value)}
+          />
+        ) : (
+          <p className="font-semibold tabular-nums">{formatLineQuantity(view.demand)}</p>
+        )}
+        {checksSourceStock && view.available != null ? (
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            المتاح {formatLineQuantity(view.available)}
+          </p>
+        ) : null}
+      </>
+    );
+  }
+
+  function lineQuantityField(
+    line: WarehouseOperationLine,
+    view: ReturnType<typeof lineView>,
+    phone: boolean,
+  ) {
+    return (
+      <>
+        {qtyEditable ? (
+          <FlexibleQuantityInput
+            className={
+              phone
+                ? 'h-11 min-w-0 flex-1 text-center text-base'
+                : 'mx-auto h-9 w-full max-w-[7rem] text-center'
+            }
+            stepper={phone}
+            value={line.quantity}
+            max={view.maxQty}
+            disabled={!qtyEditable || isSaving}
+            aria-label={isCountLike ? 'الكمية المعدودة' : 'الكمية المنفذة'}
+            onChange={(value) => applyLineQuantity(line.id, 'quantity', value)}
+          />
+        ) : (
+          <p className="font-semibold tabular-nums">{formatLineQuantity(line.quantity)}</p>
+        )}
+        {showDemandColumn && Math.abs(view.gap) >= 1e-9 ? (
+          <p
+            className={cn(
+              'mt-1 text-[11px]',
+              view.gap > 0 ? 'text-amber-700 dark:text-amber-400' : 'text-sky-700 dark:text-sky-400',
+            )}
+          >
+            {view.gap > 0
+              ? `ناقص ${formatLineQuantity(view.gap)}`
+              : `زائد ${formatLineQuantity(Math.abs(view.gap))}`}
+          </p>
+        ) : null}
+      </>
+    );
+  }
+
+  function lineCostField(line: WarehouseOperationLine, view: ReturnType<typeof lineView>) {
+    return canEditProducts ? (
+      <OperationUnitCostInput
+        value={line.unitCost ?? ''}
+        disabled={isSaving || !line.productId}
+        showRequiredHint={Boolean(line.productId)}
+        onChange={(raw) => applyLineUnitCost(line.id, raw)}
+      />
+    ) : (
+      <p className="text-center font-semibold tabular-nums">
+        {view.unitCost == null ? '—' : formatLineMoney(view.unitCost, costDisplayDecimals)}
+      </p>
+    );
+  }
+
+  function lineRemoveButton(line: WarehouseOperationLine, phone = false) {
+    return (
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className={phone ? 'h-10 w-10 shrink-0' : 'h-8 w-8'}
+        disabled={isSaving}
+        aria-label="حذف السطر"
+        onClick={() => removeProductLine(line.id)}
+      >
+        <Trash2 className="h-4 w-4 text-destructive" />
+      </Button>
+    );
+  }
+
+  /** The document's actions: in the header on larger screens, at the bottom (thumb reach) on phones. */
+  const actionButtons = (
+    <>
+      {status === 'draft' ? (
+        <Button type="button" size="sm" disabled={isSaving} onClick={() => void markReady()}>
+          <Check className="h-4 w-4" />
+          تحديد كجاهز
+        </Button>
+      ) : null}
+      {status === 'ready' ? (
+        <Button type="button" size="sm" disabled={isSaving} onClick={() => void validate()}>
+          <Check className="h-4 w-4" />
+          تصديق
+        </Button>
+      ) : null}
+      {status === 'done' ? (
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={isSaving}
+          onClick={() => void undoValidation()}
+        >
+          <Undo2 className="h-4 w-4" />
+          تراجع عن التصديق
+        </Button>
+      ) : null}
+      {editable ? (
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={isSaving}
+          onClick={() => void saveDraftChanges()}
+        >
+          حفظ
+        </Button>
+      ) : null}
+      {status !== 'done' && status !== 'cancelled' ? (
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={isSaving}
+          onClick={() => void cancelOperation()}
+        >
+          <X className="h-4 w-4" />
+          إلغاء
+        </Button>
+      ) : null}
+      {(kind === 'physical_count' || kind === 'adjustment') && editable ? (
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={isSaving}
+          onClick={() => void fillTheoreticalFromStock()}
+        >
+          تعبئة النظامي من المخزون
+        </Button>
+      ) : null}
+    </>
+  );
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={cn(dialogShellContentClass, 'max-w-6xl sm:max-w-6xl')}>
-        <div className={dialogShellHeaderClass}>
+      <DialogContent
+        className={cn(dialogShellContentClass, dialogMobileFullScreenClass, 'max-w-6xl sm:max-w-6xl')}
+      >
+        <div className={cn(dialogShellHeaderClass, 'max-sm:px-4 max-sm:py-3')}>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="space-y-1">
               <DialogTitle className="flex flex-wrap items-center gap-2 text-base font-semibold">
@@ -753,73 +1008,27 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
                 {WAREHOUSE_OPERATION_KIND_LABELS_AR[kind]} · متابعة ومعالجة المستند
               </p>
             </div>
-            <OperationStatusStepper status={status} />
+            <div className="hidden sm:block">
+              <OperationStatusStepper status={status} />
+            </div>
           </div>
 
-          <div className="mt-3 flex flex-wrap gap-2">
-            {status === 'draft' ? (
-              <Button type="button" size="sm" disabled={isSaving} onClick={() => void markReady()}>
-                <Check className="h-4 w-4" />
-                تحديد كجاهز
-              </Button>
-            ) : null}
-            {status === 'ready' ? (
-              <Button type="button" size="sm" disabled={isSaving} onClick={() => void validate()}>
-                <Check className="h-4 w-4" />
-                تصديق
-              </Button>
-            ) : null}
-            {status === 'done' ? (
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={isSaving}
-                onClick={() => void undoValidation()}
-              >
-                <Undo2 className="h-4 w-4" />
-                تراجع عن التصديق
-              </Button>
-            ) : null}
-            {editable ? (
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={isSaving}
-                onClick={() => void saveDraftChanges()}
-              >
-                حفظ
-              </Button>
-            ) : null}
-            {status !== 'done' && status !== 'cancelled' ? (
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={isSaving}
-                onClick={() => void cancelOperation()}
-              >
-                <X className="h-4 w-4" />
-                إلغاء
-              </Button>
-            ) : null}
-            {(kind === 'physical_count' || kind === 'adjustment') && editable ? (
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={isSaving}
-                onClick={() => void fillTheoreticalFromStock()}
-              >
-                تعبئة النظامي من المخزون
-              </Button>
-            ) : null}
-          </div>
+          <div className="mt-3 hidden flex-wrap gap-2 sm:flex">{actionButtons}</div>
         </div>
 
-        <div className={cn(dialogShellBodyClass, 'space-y-5')}>
-          <div className="grid gap-4 sm:grid-cols-2">
+        <div className={cn(dialogShellBodyClass, 'space-y-5 max-sm:px-4 max-sm:py-4')}>
+          <button
+            type="button"
+            className="flex w-full items-center justify-between gap-2 rounded-xl border border-border bg-muted/30 px-3 py-2.5 text-sm font-medium sm:hidden"
+            aria-expanded={phoneDetailsOpen}
+            onClick={() => setPhoneDetailsOpen((v) => !v)}
+          >
+            <span>تفاصيل المستند</span>
+            <ChevronDown
+              className={cn('h-4 w-4 transition-transform', phoneDetailsOpen && 'rotate-180')}
+            />
+          </button>
+          <div className={cn('grid gap-4 sm:grid-cols-2', !phoneDetailsOpen && 'max-sm:hidden')}>
             <div className="space-y-3">
               <div className="space-y-1.5">
                 <Label>
@@ -988,7 +1197,87 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
                   </Button>
                 ) : null}
               </div>
-              <div className="overflow-x-auto rounded-xl border border-border bg-card">
+              {/* Phones: one card per line — the table would put the quantity off-screen. */}
+              <div className="space-y-2.5 md:hidden">
+                {lines.length === 0 ? (
+                  <p className="rounded-xl border border-dashed border-border px-3 py-6 text-center text-sm text-muted-foreground">
+                    لا توجد أصناف في هذا المستند.
+                  </p>
+                ) : (
+                  lines.map((line, index) => {
+                    const view = lineView(line);
+                    return (
+                      <div key={line.id} className="space-y-3 rounded-xl border border-border bg-card p-3">
+                        <div className="flex items-start gap-2">
+                          <span className="mt-2.5 w-5 shrink-0 text-center text-xs tabular-nums text-muted-foreground">
+                            {index + 1}
+                          </span>
+                          <div className="min-w-0 flex-1 space-y-2">
+                            {lineProductField(line)}
+                            {line.productId ? lineVariantField(line) : null}
+                          </div>
+                          {canEditProducts ? lineRemoveButton(line, true) : null}
+                        </div>
+                        {/* Read-only quantities side by side; editable ones stacked (steppers need the width). */}
+                        <div className={cn('grid gap-3', !qtyEditable && 'grid-cols-2')}>
+                          {showDemandColumn ? (
+                            <div className="space-y-1">
+                              <Label className="text-xs text-muted-foreground">كمية الطلب</Label>
+                              {lineDemandField(line, view, true)}
+                            </div>
+                          ) : null}
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">
+                              {isCountLike ? 'الكمية المعدودة' : 'الكمية المُنفَّذة'}
+                            </Label>
+                            {lineQuantityField(line, view, true)}
+                          </div>
+                        </div>
+                        {showCostColumns ? (
+                          <div className="grid grid-cols-2 items-end gap-3">
+                            <div className="space-y-1">
+                              <Label className="text-xs text-muted-foreground">تكلفة الشراء</Label>
+                              {lineCostField(line, view)}
+                            </div>
+                            <div className="space-y-1 text-end">
+                              <p className="text-xs text-muted-foreground">الإجمالي</p>
+                              <p className="font-semibold tabular-nums">
+                                {view.lineTotal == null
+                                  ? '—'
+                                  : formatLineMoney(view.lineTotal, costDisplayDecimals)}
+                              </p>
+                            </div>
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  })
+                )}
+                {pricedLines.length > 0 ? (
+                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-muted/30 px-3 py-2.5 text-sm font-semibold">
+                    <span>الإجمالي</span>
+                    <span className="flex flex-wrap gap-3 tabular-nums">
+                      {showDemandColumn ? (
+                        <span>
+                          <span className="text-xs font-normal text-muted-foreground">الطلب </span>
+                          {formatLineQuantity(demandTotal)}
+                        </span>
+                      ) : null}
+                      <span>
+                        <span className="text-xs font-normal text-muted-foreground">
+                          {isCountLike ? 'المعدود ' : 'المُنفَّذ '}
+                        </span>
+                        {formatLineQuantity(executedTotal)}
+                      </span>
+                      {showCostColumns ? (
+                        <span>{formatLineMoney(moneyTotal, costDisplayDecimals)}</span>
+                      ) : null}
+                    </span>
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="hidden overflow-x-auto rounded-xl border border-border bg-card md:block">
                 <table className="w-full min-w-[52rem] border-collapse text-sm">
                   <thead>
                     <tr className="border-b border-border bg-muted/40 text-xs text-muted-foreground">
@@ -1037,21 +1326,7 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
                       </tr>
                     ) : (
                       lines.map((line, index) => {
-                        const available = availableByLineId[line.id];
-                        const maxQty =
-                          checksSourceStock && available != null
-                            ? maxQuantityForLine({
-                                lines,
-                                lineId: line.id,
-                                availableAtLocation: available,
-                                fromLocationId: headerFromLocationId || undefined,
-                              })
-                            : null;
-                        const demand = line.demandQuantity ?? line.quantity;
-                        const gap = demand - line.quantity;
-                        const unitCost = lineUnitCostNumber(line.unitCost);
-                        const lineTotal = unitCost == null ? null : unitCost * line.quantity;
-
+                        const view = lineView(line);
                         return (
                           <tr
                             key={line.id}
@@ -1060,165 +1335,25 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
                             <td className="px-3 py-3 text-center text-xs tabular-nums text-muted-foreground">
                               {index + 1}
                             </td>
-                            <td className="px-3 py-3">
-                              {canEditProducts ? (
-                                <div className="space-y-1">
-                                  <ProductSinglePicker
-                                    companyId={companyId ?? ''}
-                                    value={line.productId}
-                                    status="active"
-                                    disabled={isSaving}
-                                    excludeIds={reservedProductIdsOtherDocs}
-                                    sourceLocationId={
-                                      pickerUsesSourceLocationStock(kind)
-                                        ? headerFromLocationId || undefined
-                                        : undefined
-                                    }
-                                    placeholder={
-                                      pickerUsesSourceLocationStock(kind) && !headerFromLocationId
-                                        ? 'حدّد موقع الصرف أولًا…'
-                                        : 'ابحث عن منتج…'
-                                    }
-                                    onChange={(productId) => {
-                                      if (!productId) applyLineProduct(line.id, null);
-                                    }}
-                                    onProductSelect={(product) => applyLineProduct(line.id, product)}
-                                  />
-                                  {line.sku ? (
-                                    <p className="text-[11px] text-muted-foreground" dir="ltr">
-                                      {line.sku}
-                                    </p>
-                                  ) : null}
-                                </div>
-                              ) : (
-                                <div className="min-w-0">
-                                  <p className="font-medium leading-snug text-foreground">
-                                    {line.productName || '—'}
-                                  </p>
-                                  {line.sku ? (
-                                    <p className="mt-0.5 text-[11px] text-muted-foreground" dir="ltr">
-                                      {line.sku}
-                                    </p>
-                                  ) : null}
-                                </div>
-                              )}
-                            </td>
-                            <td className="px-3 py-3">
-                              {canEditProducts && line.productId ? (
-                                <OperationLineVariantSelect
-                                  companyId={companyId ?? ''}
-                                  productId={line.productId}
-                                  catalogProductName={line.productName}
-                                  variantId={line.variantId}
-                                  disabled={isSaving}
-                                  onChange={(nextId, variant) =>
-                                    applyLineVariant(line.id, nextId, variant)
-                                  }
-                                />
-                              ) : (
-                                <p className="text-sm leading-snug text-foreground">
-                                  <OperationLineVariantReadout
-                                    companyId={companyId ?? ''}
-                                    productId={line.productId}
-                                    productName={line.productName}
-                                    variantId={line.variantId}
-                                  />
-                                </p>
-                              )}
-                            </td>
+                            <td className="px-3 py-3">{lineProductField(line)}</td>
+                            <td className="px-3 py-3">{lineVariantField(line)}</td>
                             {showDemandColumn ? (
-                              <td className="px-3 py-3 text-center">
-                                {editable && status !== 'ready' ? (
-                                  <FlexibleQuantityInput
-                                    className="mx-auto h-9 w-full max-w-[7rem] text-center"
-                                    value={demand}
-                                    max={maxQty}
-                                    disabled={!editable || isSaving}
-                                    aria-label="كمية الطلب"
-                                    onChange={(value) =>
-                                      applyLineQuantity(line.id, 'demandQuantity', value)
-                                    }
-                                  />
-                                ) : (
-                                  <p className="font-semibold tabular-nums">{formatLineQuantity(demand)}</p>
-                                )}
-                                {checksSourceStock && available != null ? (
-                                  <p className="mt-1 text-[11px] text-muted-foreground">
-                                    المتاح {formatLineQuantity(available)}
-                                  </p>
-                                ) : null}
-                              </td>
+                              <td className="px-3 py-3 text-center">{lineDemandField(line, view, false)}</td>
                             ) : null}
-                            <td className="px-3 py-3 text-center">
-                              {qtyEditable ? (
-                                <FlexibleQuantityInput
-                                  className="mx-auto h-9 w-full max-w-[7rem] text-center"
-                                  value={line.quantity}
-                                  max={maxQty}
-                                  disabled={!qtyEditable || isSaving}
-                                  aria-label={isCountLike ? 'الكمية المعدودة' : 'الكمية المنفذة'}
-                                  onChange={(value) => applyLineQuantity(line.id, 'quantity', value)}
-                                />
-                              ) : (
-                                <p className="font-semibold tabular-nums">
-                                  {formatLineQuantity(line.quantity)}
-                                </p>
-                              )}
-                              {showDemandColumn && Math.abs(gap) >= 1e-9 ? (
-                                <p
-                                  className={cn(
-                                    'mt-1 text-[11px]',
-                                    gap > 0
-                                      ? 'text-amber-700 dark:text-amber-400'
-                                      : 'text-sky-700 dark:text-sky-400',
-                                  )}
-                                >
-                                  {gap > 0
-                                    ? `ناقص ${formatLineQuantity(gap)}`
-                                    : `زائد ${formatLineQuantity(Math.abs(gap))}`}
-                                </p>
-                              ) : null}
-                            </td>
+                            <td className="px-3 py-3 text-center">{lineQuantityField(line, view, false)}</td>
                             <td className="px-3 py-3 text-center text-sm text-foreground">وحدات</td>
                             {showCostColumns ? (
-                              <td className="px-3 py-3">
-                                {canEditProducts ? (
-                                  <OperationUnitCostInput
-                                    value={line.unitCost ?? ''}
-                                    disabled={isSaving || !line.productId}
-                                    showRequiredHint={Boolean(line.productId)}
-                                    onChange={(raw) => applyLineUnitCost(line.id, raw)}
-                                  />
-                                ) : (
-                                  <p className="text-center font-semibold tabular-nums">
-                                    {unitCost == null
-                                      ? '—'
-                                      : formatLineMoney(unitCost, costDisplayDecimals)}
-                                  </p>
-                                )}
-                              </td>
+                              <td className="px-3 py-3">{lineCostField(line, view)}</td>
                             ) : null}
                             {showCostColumns ? (
                               <td className="px-3 py-3 text-center font-semibold tabular-nums">
-                                {lineTotal == null
+                                {view.lineTotal == null
                                   ? '—'
-                                  : formatLineMoney(lineTotal, costDisplayDecimals)}
+                                  : formatLineMoney(view.lineTotal, costDisplayDecimals)}
                               </td>
                             ) : null}
                             {canEditProducts ? (
-                              <td className="px-2 py-3">
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8"
-                                  disabled={isSaving}
-                                  aria-label="حذف السطر"
-                                  onClick={() => removeProductLine(line.id)}
-                                >
-                                  <Trash2 className="h-4 w-4 text-destructive" />
-                                </Button>
-                              </td>
+                              <td className="px-2 py-3">{lineRemoveButton(line)}</td>
                             ) : null}
                           </tr>
                         );
@@ -1266,8 +1401,18 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
           </Tabs>
         </div>
 
-        <DialogFooter className="shrink-0 gap-2 border-t border-border px-6 py-4 sm:justify-start">
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>
+        <DialogFooter className="shrink-0 gap-2 border-t border-border px-6 py-4 max-sm:px-4 max-sm:py-3 sm:justify-start">
+          {/* Phones: the actions sit here, within thumb reach. */}
+          <div className="flex w-full flex-wrap gap-2 sm:hidden [&>button]:h-11 [&>button]:flex-1">
+            {actionButtons}
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            className="max-sm:hidden"
+            onClick={() => onOpenChange(false)}
+            disabled={isSaving}
+          >
             إغلاق
           </Button>
         </DialogFooter>

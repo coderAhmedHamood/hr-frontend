@@ -4,4 +4,4 @@ export const OPERATION_FORM_TAB_TRIGGER =
 
 /** Panel wrapper for warehouse/location fields in create dialog. */
 export const OPERATION_FORM_SECTION =
-  'rounded-2xl border border-border/80 bg-muted/10 p-4 sm:p-5';
+  'rounded-2xl border border-border/80 bg-muted/10 p-3 sm:p-5';
