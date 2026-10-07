@@ -129,7 +129,7 @@ function StatusHistoryTimeline({
                 <p className="inline-flex items-center gap-1.5 text-sm font-medium text-primary">
                   <UserCheck className="h-3.5 w-3.5" />
                   {entry.assignedTo
-                    ? `أُسند إلى ${entry.assignedToName ?? 'موظف'}`
+                    ? `أُسند إلى ${entry.assignedToName ?? 'مستخدم'}`
                     : 'أُلغي الإسناد — عاد الطلب للمرحلة'}
                 </p>
               ) : null}

@@ -49,7 +49,7 @@ export function workBlockReason(ctx: OrderStagesContext | null | undefined, orde
   if (!ctx.stages.includes(order.status)) {
     return `ليست لديك صلاحية مرحلة «${ORDER_STAGE_LABELS_AR[order.status]}»`;
   }
-  if (assigneeBlocks(ctx, order)) return 'الطلب مسند إلى موظف آخر';
+  if (assigneeBlocks(ctx, order)) return 'الطلب مسند إلى مستخدم آخر';
   return null;
 }
 
@@ -71,8 +71,7 @@ export function moveBlockReason(
 
 /** May the user assign the order to anyone? */
 export function canAssignAnyone(ctx: OrderStagesContext | null | undefined): boolean {
-  if (!ctx) return false;
-  return ctx.enabled ? ctx.canAssign : ctx.canUpdate || ctx.canAssign;
+  return Boolean(ctx?.canChooseHandler);
 }
 
 /** May the user take this unassigned order (their stage)? */

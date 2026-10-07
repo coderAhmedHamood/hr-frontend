@@ -133,7 +133,7 @@ export function OrdersKanbanView({
 
                       {order.assignedUserId ? (
                         <p className="mt-1 truncate text-xs font-medium text-primary">
-                          المسؤول: {order.assignedUserName ?? 'موظف'}
+                          المسؤول: {order.assignedUserName ?? 'مستخدم'}
                         </p>
                       ) : null}
 
