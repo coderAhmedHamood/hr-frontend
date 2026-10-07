@@ -33,6 +33,8 @@ export type CompanyAccess = {
   companyCommercialRegistrationNo?: string | null;
   companyPrimaryColor?: string | null;
   companySecondaryColor?: string | null;
+  /** The company base currency (company settings). */
+  companyCurrencyCode?: string;
   isDefault?: boolean;
   roles?: RoleAccess[];
   permissions: string[];

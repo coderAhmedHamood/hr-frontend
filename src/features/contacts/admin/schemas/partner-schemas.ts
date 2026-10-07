@@ -1,3 +1,4 @@
+import { companyCurrencyCode } from '@/features/auth/lib/company-currency';
 import { z } from 'zod';
 
 export const partnerFormSchema = z.object({
@@ -55,7 +56,10 @@ export const PARTNER_FORM_DEFAULT_VALUES: PartnerFormValues = {
   jobTitle: '',
   department: '',
   languageCode: 'ar',
-  currencyCode: 'SAR',
+  // Read when the form opens: the active company's base currency.
+  get currencyCode() {
+    return companyCurrencyCode();
+  },
   paymentTerms: '',
   creditLimitAmount: '',
   preferredPaymentMethod: '',

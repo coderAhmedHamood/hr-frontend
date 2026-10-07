@@ -27,7 +27,7 @@ import { resolveUploadUrl } from '@/shared/resolve-upload-url';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
 import { fetchStoreWarehouse } from '@/features/ecommerce/admin/stock/lib/api/stock-sync-api';
 import { formatPrice } from '@/features/ecommerce/shared/utils/format-price';
-import { STORE_CURRENCY_CODE } from '@/features/ecommerce/domain/constants/store-currency';
+import { storeCurrencyCode } from '@/features/ecommerce/domain/constants/store-currency';
 import type { Product } from '@/features/ecommerce/domain/types/product';
 import type { Category } from '@/features/ecommerce/domain/types/category';
 import { useAllCategories } from '@/features/catalog/categories/hooks/use-categories';
@@ -399,7 +399,7 @@ function PosCartPanel({
                   <p className="mt-0.5 text-xs text-slate-500">
                     {formatPrice({
                       amount: line.unitPrice,
-                      currency: STORE_CURRENCY_CODE,
+                      currency: storeCurrencyCode(),
                     })}{' '}
                     × {line.qty}
                   </p>
@@ -429,7 +429,7 @@ function PosCartPanel({
                   <p className="text-sm font-semibold tabular-nums text-slate-900">
                     {formatPrice({
                       amount: line.qty * line.unitPrice,
-                      currency: STORE_CURRENCY_CODE,
+                      currency: storeCurrencyCode(),
                     })}
                   </p>
                   <button
@@ -451,7 +451,7 @@ function PosCartPanel({
         <div className="flex items-end justify-between">
           <span className="text-sm text-slate-600">الإجمالي</span>
           <span className="text-2xl font-bold tabular-nums text-slate-900">
-            {formatPrice({ amount: cartTotal, currency: STORE_CURRENCY_CODE })}
+            {formatPrice({ amount: cartTotal, currency: storeCurrencyCode() })}
           </span>
         </div>
         {!confirmOpen ? (
@@ -1208,7 +1208,7 @@ export function PosCashierApp() {
                         <span className="absolute end-2 top-2 rounded-md bg-slate-900/90 px-2 py-0.5 text-xs font-semibold text-white tabular-nums">
                           {formatPrice({
                             amount: tile.unitPrice,
-                            currency: STORE_CURRENCY_CODE,
+                            currency: storeCurrencyCode(),
                           })}
                         </span>
                         {inCart > 0 ? (
@@ -1269,7 +1269,7 @@ export function PosCashierApp() {
             </span>
             <span className="block text-xs text-slate-500">
               {cartCount > 0
-                ? formatPrice({ amount: cartTotal, currency: STORE_CURRENCY_CODE })
+                ? formatPrice({ amount: cartTotal, currency: storeCurrencyCode() })
                 : 'اضغط لعرض الفاتورة'}
             </span>
           </span>

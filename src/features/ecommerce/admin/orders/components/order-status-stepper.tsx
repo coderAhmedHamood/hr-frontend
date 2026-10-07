@@ -113,7 +113,10 @@ export function OrderStatusStepper({
     });
   }
 
-  const pickHandler = Boolean(pending && stages && isOrderStage(pending.status));
+  // Choosing the next stage's handler is the supervisor's (others: the stage settings).
+  const pickHandler = Boolean(
+    pending && stages?.canChooseHandler && isOrderStage(pending.status),
+  );
   const askCollected = Boolean(
     pending?.status === 'delivered' &&
       isPaidOnDelivery(order.paymentMethod) &&

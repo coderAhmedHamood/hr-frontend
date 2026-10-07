@@ -1,5 +1,6 @@
 'use client';
 
+import { companyCurrencyCode } from '@/features/auth/lib/company-currency';
 import * as React from 'react';
 import { Archive, CreditCard, Pencil, Plus, RotateCcw } from 'lucide-react';
 import { PageHeaderPrimaryButton } from '@/components/layouts/page-header-primary-button';
@@ -157,7 +158,7 @@ export function PaymentAccountsPanel({ companyId, currencyCode, onHeaderExtrasCh
     setEditTarget(null);
     setForm({
       ...EMPTY_FORM,
-      currencyCode: currencyCode ?? 'YER',
+      currencyCode: currencyCode ?? companyCurrencyCode(),
     });
     setDialogOpen(true);
   }

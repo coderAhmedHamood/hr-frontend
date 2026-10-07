@@ -52,6 +52,8 @@ export type OrderStagesContext = {
   canRefund: boolean;
   canRollback: boolean;
   canAssign: boolean;
+  /** May pick who handles the order (assign anyone / the next stage's handler). */
+  canChooseHandler: boolean;
 };
 
 export type OrderStageHandler = {

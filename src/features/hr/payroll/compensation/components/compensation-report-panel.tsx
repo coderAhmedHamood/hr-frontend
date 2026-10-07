@@ -1,5 +1,6 @@
 'use client';
 
+import { companyCurrencyCode } from '@/features/auth/lib/company-currency';
 import * as React from 'react';
 import Link from 'next/link';
 import {
@@ -263,7 +264,7 @@ export function CompensationReportPanel({
       employeeName: row.namePrimary,
       field,
       currentTotal: field === 'bonus' ? row.entitlementBonusSar : row.dedAdminSar,
-      currency: payrollSummary?.currency ?? 'SAR',
+      currency: payrollSummary?.currency ?? companyCurrencyCode(),
     });
   }, [payrollSummary?.currency]);
 
@@ -275,7 +276,7 @@ export function CompensationReportPanel({
     setCellDetailContext({
       periodId,
       companyId,
-      currency: payrollSummary.currency ?? 'SAR',
+      currency: payrollSummary.currency ?? companyCurrencyCode(),
       periodStartDate: payrollSummary.startDate,
       periodEndDate: payrollSummary.endDate,
       row,

@@ -1,3 +1,4 @@
+import { companyCurrencyCode } from '@/features/auth/lib/company-currency';
 import type {
   CreatePartnerInput,
   Partner,
@@ -96,7 +97,7 @@ export function toPartnerCreateBody(input: CreatePartnerInput) {
     jobTitle: input.jobTitle?.trim() || null,
     department: input.department?.trim() || null,
     languageCode: input.languageCode || 'ar',
-    currencyCode: input.currencyCode || 'SAR',
+    currencyCode: input.currencyCode || companyCurrencyCode(),
     timezone: input.timezone || null,
     paymentTerms: input.paymentTerms?.trim() || null,
     creditLimitAmount: input.creditLimitAmount ?? null,

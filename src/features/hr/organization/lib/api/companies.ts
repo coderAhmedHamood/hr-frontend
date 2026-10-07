@@ -1,4 +1,5 @@
 import { apiRequest, type PaginatedResult } from '@/features/hr/lib/api/client';
+import type { CurrencyDefinition } from '@/shared/currencies';
 
 export type CompanyResponseDto = {
   id: string;
@@ -87,9 +88,23 @@ export type CountryProfile = {
   mapRegion: string;
 };
 
+/** The base currency and what locks it (records holding amounts in it). */
+export type CompanyCurrencyStatus = {
+  currencyCode: string;
+  currency: CurrencyDefinition | null;
+  locked: boolean;
+  usages: Array<{ app: string; labelAr: string; count: number }>;
+};
+
 export const companiesApi = {
   countryProfiles() {
     return apiRequest<CountryProfile[]>('/companies/country-profiles');
+  },
+  currencies() {
+    return apiRequest<CurrencyDefinition[]>('/companies/currencies');
+  },
+  currencyStatus(id: string) {
+    return apiRequest<CompanyCurrencyStatus>(`/companies/${id}/currency`, { throwOnError: true });
   },
   getAll(query?: CompanyListQuery) {
     return apiRequest<PaginatedResult<CompanyResponseDto>>('/companies', { query });

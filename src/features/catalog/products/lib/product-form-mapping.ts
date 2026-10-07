@@ -1,4 +1,4 @@
-import { STORE_CURRENCY_CODE } from '@/features/ecommerce/domain/constants/store-currency';
+import { storeCurrencyCode } from '@/features/ecommerce/domain/constants/store-currency';
 import type { CreateProductInput, Product, ProductVariant } from '@/features/ecommerce/domain/types/product';
 import type { MediaItem } from '@/features/ecommerce/domain/types/common';
 import { normalizeAttributeValue } from '@/features/ecommerce/domain/types/catalog-attribute';
@@ -225,7 +225,7 @@ export function formValuesToCreateInput(
   }));
 
   const existing = options?.existing;
-  const currency = existing?.price.currency ?? STORE_CURRENCY_CODE;
+  const currency = existing?.price.currency ?? storeCurrencyCode();
 
   const synced = syncProductVariants({
     productNameAr: values.nameAr,
