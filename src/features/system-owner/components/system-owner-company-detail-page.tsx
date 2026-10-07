@@ -3,7 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
@@ -38,12 +38,14 @@ import {
 } from '@/features/system-owner/hooks/use-system-owner';
 import {
   systemOwnerApi,
+  type CompanyDataKind,
+  type CompanyDataRun,
   type SystemOwnerCompanyApplication,
 } from '@/features/system-owner/lib/api/system-owner';
 import { ApiError } from '@/shared/api/client';
 import { cn } from '@/shared/utils';
 
-type TabId = 'apps' | 'users' | 'superusers';
+type TabId = 'apps' | 'data' | 'users' | 'superusers';
 
 export function SystemOwnerCompanyDetailPage() {
   const params = useParams<{ companyId: string }>();
@@ -78,6 +80,7 @@ export function SystemOwnerCompanyDetailPage() {
             {(
               [
                 ['apps', 'التطبيقات'],
+                ['data', 'البيانات الافتراضية'],
                 ['users', 'المستخدمون'],
                 ['superusers', 'Superusers'],
               ] as const
@@ -97,6 +100,7 @@ export function SystemOwnerCompanyDetailPage() {
           </div>
 
           {tab === 'apps' ? <CompanyAppsTab companyId={companyId} /> : null}
+          {tab === 'data' ? <CompanyDataTab companyId={companyId} /> : null}
           {tab === 'users' ? <CompanyUsersTab companyId={companyId} /> : null}
           {tab === 'superusers' ? <CompanySuperusersTab companyId={companyId} /> : null}
         </>
@@ -267,6 +271,151 @@ function CompanyAppsTab({ companyId }: { companyId: string }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+const COMPANY_DATA_CARDS: Array<{
+  kind: CompanyDataKind;
+  title: string;
+  description: string;
+  action: string;
+  warning?: string;
+}> = [
+  {
+    kind: 'starter',
+    title: 'بيانات تأسيسية',
+    description:
+      'إعدادات بداية حقيقية للتطبيقات المفعّلة: المسميات الوظيفية، أنواع الإجازات والطلبات، تصنيفات جهات الاتصال، التصنيفات ووحدات القياس وخصائص المنتجات، والمستودع الرئيسي ومواقعه. آمنة لشركة عميل.',
+    action: 'إنشاء البيانات التأسيسية',
+  },
+  {
+    kind: 'demo',
+    title: 'بيانات تجريبية',
+    description:
+      'منتجات تجريبية ومتغيراتها وعرضها في المتجر، مع البيانات التأسيسية. للعرض والتجربة.',
+    action: 'إنشاء البيانات التجريبية',
+    warning: 'لا تُنشئها لشركة عميل حقيقية: ستظهر المنتجات التجريبية في الكتالوج والمتجر.',
+  },
+];
+
+function CompanyDataTab({ companyId }: { companyId: string }) {
+  const { data: apps } = useSystemOwnerCompanyApplications(companyId);
+  const names = new Map((apps ?? []).map((a) => [a.code, a.nameAr]));
+  const appName = (code: string) => names.get(code) || code;
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-muted-foreground">
+        تُنشأ لهذه الشركة فقط، وللتطبيقات المفعّلة لها فقط. لا يتغير شيء موجود: ما أنشأته الشركة أو عدّلته يبقى
+        كما هو، لذلك يمكن الضغط مرة أخرى بعد تفعيل تطبيق جديد. اعرض المعاينة أولاً لترى ما سيُنشأ.
+      </p>
+      {COMPANY_DATA_CARDS.map((card) => (
+        <CompanyDataCard key={card.kind} companyId={companyId} card={card} appName={appName} />
+      ))}
+    </div>
+  );
+}
+
+function CompanyDataCard({
+  companyId,
+  card,
+  appName,
+}: {
+  companyId: string;
+  card: (typeof COMPANY_DATA_CARDS)[number];
+  appName: (code: string) => string;
+}) {
+  const [run, setRun] = React.useState<CompanyDataRun | null>(null);
+  const [confirming, setConfirming] = React.useState(false);
+  const preview = useMutation({
+    mutationFn: () => systemOwnerApi.previewCompanyData(companyId, card.kind),
+    onSuccess: setRun,
+  });
+  const apply = useMutation({
+    mutationFn: () => systemOwnerApi.applyCompanyData(companyId, card.kind),
+    onSuccess: (result) => {
+      setRun(result);
+      setConfirming(false);
+      toast.success(
+        result.totals.created > 0 ? `أُنشئ ${result.totals.created} سجل` : 'لا جديد: كل البيانات موجودة مسبقاً',
+      );
+    },
+  });
+  const busy = preview.isPending || apply.isPending;
+
+  return (
+    <section className="space-y-3 rounded-xl border border-border bg-card px-4 py-3">
+      <div className="space-y-1">
+        <h3 className="text-sm font-semibold">{card.title}</h3>
+        <p className="text-xs text-muted-foreground">{card.description}</p>
+        {card.warning ? <p className="text-xs text-warning">{card.warning}</p> : null}
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Button variant="outline" size="sm" disabled={busy} onClick={() => preview.mutate()}>
+          {preview.isPending ? 'جارٍ الحساب…' : 'معاينة'}
+        </Button>
+        <Button size="sm" disabled={busy} onClick={() => setConfirming(true)}>
+          {card.action}
+        </Button>
+      </div>
+      {run ? <CompanyDataResult run={run} appName={appName} /> : null}
+
+      <Dialog open={confirming} onOpenChange={(open) => (!apply.isPending ? setConfirming(open) : undefined)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{card.action}</DialogTitle>
+            <DialogDescription>
+              تُنشأ البيانات الناقصة فقط، ولا يتغير شيء موجود. {card.warning ?? ''}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" disabled={apply.isPending} onClick={() => setConfirming(false)}>
+              إلغاء
+            </Button>
+            <Button disabled={apply.isPending} onClick={() => apply.mutate()}>
+              {apply.isPending ? 'جارٍ الإنشاء…' : 'إنشاء'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </section>
+  );
+}
+
+function CompanyDataResult({ run, appName }: { run: CompanyDataRun; appName: (code: string) => string }) {
+  return (
+    <div className="space-y-2">
+      <p className="text-xs font-medium">
+        {run.applied ? 'النتيجة' : 'المعاينة (لم يُكتب شيء)'}: {run.applied ? 'أُنشئ' : 'سيُنشأ'} {run.totals.created}، موجود
+        مسبقاً {run.totals.skipped}
+      </p>
+      <div className="overflow-x-auto rounded-xl border border-border/70">
+        <table className="w-full text-sm">
+          <thead className="bg-muted/40 text-muted-foreground">
+            <tr>
+              <th className="px-3 py-2 text-start font-medium">البيانات</th>
+              <th className="px-3 py-2 text-start font-medium">{run.applied ? 'أُنشئ' : 'سيُنشأ'}</th>
+              <th className="px-3 py-2 text-start font-medium">موجود مسبقاً</th>
+            </tr>
+          </thead>
+          <tbody>
+            {run.sets.map((set) => (
+              <tr key={set.code} className="border-t border-border/60">
+                <td className="px-3 py-2">
+                  {set.labelAr}
+                  {set.missingApps.length > 0 ? (
+                    <span className="ms-2 text-xs text-muted-foreground">
+                      (لم يُنفَّذ: يتطلب تفعيل {set.missingApps.map((c) => `«${appName(c)}»`).join('، ')})
+                    </span>
+                  ) : null}
+                </td>
+                <td className="px-3 py-2 tabular-nums">{set.missingApps.length > 0 ? '—' : set.created}</td>
+                <td className="px-3 py-2 tabular-nums">{set.missingApps.length > 0 ? '—' : set.skipped}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
