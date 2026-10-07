@@ -26,7 +26,8 @@ export function useUnifiedNotificationTabs(): {
 } {
   const can = useCan();
   const userId = useAuthStore((s) => s.user?.id ?? s.accessProfile?.userId ?? '');
-  const { data: currentEmployee } = useCurrentEmployee();
+  // Only who may read employees looks themselves up (store-only staff may not).
+  const { data: currentEmployee } = useCurrentEmployee(can('hr.employees.read'));
   const employeeId = currentEmployee?.id ?? '';
 
   const { companyId: activeCompanyId, ...moduleContext } = useModuleEnablementContext();

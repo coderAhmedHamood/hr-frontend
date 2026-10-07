@@ -72,13 +72,21 @@ export type UpdateOrderStaffNoteInput = {
 /** Server-side attachment filter for admin order detail. */
 export type OrderAttachmentVisibilityFilter = 'all' | 'visible' | 'hidden';
 
+export type OrderHistoryKind = 'status' | 'assignment' | 'line' | 'note';
+
 /** One status transition from `GET /store-admin/orders/:id` → `statusHistory`. */
 export type OrderStatusHistoryEntry = {
   id?: string;
   fromStatus: OrderStatus | null;
   toStatus: OrderStatus;
+  /** status change, assignment, a line note, or a staff note (e.g. a delivery attempt). */
+  kind?: OrderHistoryKind;
   /** Staff user UUID; null when changed from storefront / customer. */
   changedBy: string | null;
+  changedByName?: string | null;
+  /** Who the order was assigned to by this row. */
+  assignedTo?: string | null;
+  assignedToName?: string | null;
   note: string | null;
   createdAt: string;
 };
@@ -157,6 +165,14 @@ export type Order = TenantScoped & {
   subtotalAmount?: Money;
   shippingFeeAmount?: Money;
   source?: 'seed' | 'storefront';
+  /** Order stages: the staff member handling the order in its stage. */
+  assignedUserId?: string | null;
+  assignedUserName?: string | null;
+  assignedAt?: string | null;
+  /** Recipient (admin detail). */
+  shipFullName?: string;
+  shipPhone?: string;
+  estimatedDeliveryAt?: string | null;
   /** Chronological status changes — present on full order detail only. */
   statusHistory?: OrderStatusHistoryEntry[];
   /** Files attached to the order (customer + staff). Present on detail responses. */
@@ -185,6 +201,8 @@ export type OrderListQuery = {
   fulfilment?: OrderFulfilmentFilter;
   source?: 'seed' | 'storefront';
   city?: string;
+  /** Order stages: `me`, `unassigned`, or a user id. */
+  assignedTo?: string;
   /** Inclusive YYYY-MM-DD on `createdAt` (local calendar day of the ISO timestamp). */
   dateFrom?: string;
   dateTo?: string;
@@ -195,6 +213,19 @@ export type OrderListQuery = {
 export type UpdateOrderStatusInput = {
   status: OrderStatus;
   note?: string | null;
+  /** Who handles the order in the stage it enters; null: unassigned; omitted: the settings decide. */
+  assigneeId?: string | null;
+  /** Delivering a cash-on-delivery order: the amount was collected. */
+  paymentCollected?: boolean;
+};
+
+export type UpdateOrderDeliveryInput = {
+  shipFullName?: string;
+  shipPhone?: string;
+  shipDistrict?: string;
+  shipStreet?: string;
+  shipNotes?: string | null;
+  estimatedDeliveryAt?: string | null;
 };
 
 export type UpdateOrderPaymentStatusInput = {

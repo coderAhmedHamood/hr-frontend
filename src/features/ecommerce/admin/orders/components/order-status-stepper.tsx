@@ -27,16 +27,44 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/shared/utils';
+import {
+  HANDLER_AUTO,
+  HANDLER_KEEP,
+  HANDLER_NONE,
+  OrderHandlerSelect,
+} from '@/features/ecommerce/admin/orders/components/order-handler-select';
+import type { OrderStagesContext } from '@/features/ecommerce/admin/orders/lib/api/order-stages';
+import {
+  ORDER_STAGE_LABELS_AR,
+  isOrderStage,
+  isPaidOnDelivery,
+  moveBlockReason,
+} from '@/features/ecommerce/admin/orders/lib/order-stage-access';
+
+/** Extra choices of a status move (order stages, delivery). */
+export type OrderStatusChangeExtra = {
+  /** Who handles the order in the stage it enters; omitted: the settings decide. */
+  assigneeId?: string | null;
+  paymentCollected?: boolean;
+};
 
 type Props = {
-  order: Pick<Order, 'status' | 'items' | 'paymentMethod' | 'paymentStatus'>;
+  order: Pick<Order, 'status' | 'items' | 'paymentMethod' | 'paymentStatus' | 'assignedUserId'>;
+  companyId: string;
+  /** Order stages: what the user may do (null: unknown, the backend decides). */
+  stages?: OrderStagesContext | null;
   disabled?: boolean;
   /** Slimmer header — payment context lives outside the stepper. */
   compact?: boolean;
   /** Hide footer “تأكيد التحصيل” when a primary CTA exists above. */
   hidePaymentConfirm?: boolean;
-  onOrderStatusChange: (status: OrderStatus, note?: string | null) => void;
+  onOrderStatusChange: (
+    status: OrderStatus,
+    note?: string | null,
+    extra?: OrderStatusChangeExtra,
+  ) => void;
   onPaymentPaid: () => void;
 };
 
@@ -51,6 +79,8 @@ type PendingTransition = {
  */
 export function OrderStatusStepper({
   order,
+  companyId,
+  stages = null,
   disabled,
   compact = false,
   hidePaymentConfirm = false,
@@ -66,21 +96,42 @@ export function OrderStatusStepper({
   const allowed = React.useMemo(() => getAllowedOrderStatusTransitions(order), [order]);
   const [pending, setPending] = React.useState<PendingTransition | null>(null);
   const [note, setNote] = React.useState('');
+  const [handler, setHandler] = React.useState(HANDLER_AUTO);
+  const [collected, setCollected] = React.useState(true);
+  const blockReason = (status: OrderStatus) => moveBlockReason(stages, order, status);
 
   function requestTransition(status: OrderStatus) {
     if (status === order.status) return;
     if (!canTransitionOrderStatus(order, status)) return;
+    if (blockReason(status)) return;
     setNote('');
+    setHandler(stages?.enabled ? HANDLER_AUTO : HANDLER_KEEP);
+    setCollected(true);
     setPending({
       status,
       noteRecommended: isOrderStatusNoteRecommended(order.status, status),
     });
   }
 
+  const pickHandler = Boolean(pending && stages && isOrderStage(pending.status));
+  const askCollected = Boolean(
+    pending?.status === 'delivered' &&
+      isPaidOnDelivery(order.paymentMethod) &&
+      order.paymentStatus !== 'paid',
+  );
+  // A paid order: the backend needs the reason and how the money goes back.
+  const noteRequired = pending?.status === 'cancelled' && order.paymentStatus === 'paid';
+
   function confirmTransition() {
     if (!pending) return;
     const trimmed = note.trim();
-    onOrderStatusChange(pending.status, trimmed || null);
+    if (noteRequired && !trimmed) return;
+    const extra: OrderStatusChangeExtra = {};
+    if (pickHandler && handler !== HANDLER_AUTO && handler !== HANDLER_KEEP) {
+      extra.assigneeId = handler === HANDLER_NONE ? null : handler;
+    }
+    if (askCollected && collected) extra.paymentCollected = true;
+    onOrderStatusChange(pending.status, trimmed || null, extra);
     setPending(null);
     setNote('');
   }
@@ -105,10 +156,11 @@ export function OrderStatusStepper({
 
   const methodLabel = PAYMENT_METHOD_LABELS_AR[paymentMethod];
   const PaymentIcon = paymentMethod === 'card' ? CreditCard : Banknote;
+  const nextStageBlock = next?.kind === 'order' ? blockReason(next.status) : null;
   const nextBlocked =
     Boolean(next) &&
     next?.kind === 'order' &&
-    !canTransitionOrderStatus(order, next.status);
+    (!canTransitionOrderStatus(order, next.status) || Boolean(nextStageBlock));
   const terminalTargets = ORDER_TERMINAL_STATUSES.filter((terminal) =>
     allowed.includes(terminal),
   );
@@ -143,9 +195,10 @@ export function OrderStatusStepper({
             disabled={disabled || nextBlocked}
             className="gap-1"
             title={
-              nextBlocked && next.kind === 'order' && next.status === 'shipped'
+              nextStageBlock ??
+              (nextBlocked && next.kind === 'order' && next.status === 'shipped'
                 ? 'يلزم شحن كل أصناف الطلب أولاً'
-                : undefined
+                : undefined)
             }
             onClick={applyNext}
           >
@@ -161,10 +214,12 @@ export function OrderStatusStepper({
           const active = inPipeline && currentIndex === index;
           const upcoming = !inPipeline || currentIndex < index;
           const isLast = index === steps.length - 1;
+          const stageBlock =
+            step.kind === 'order' && step.status !== order.status ? blockReason(step.status) : null;
           const blocked =
             step.kind === 'order' &&
             step.status !== order.status &&
-            !canTransitionOrderStatus(order, step.status);
+            (!canTransitionOrderStatus(order, step.status) || Boolean(stageBlock));
 
           return (
             <li key={step.id} className={cn('flex min-w-[4.25rem] items-start sm:min-w-0', isLast ? 'shrink-0' : 'flex-1')}>
@@ -184,7 +239,9 @@ export function OrderStatusStepper({
                     aria-current={active ? 'step' : undefined}
                     aria-label={step.label}
                     title={
-                      blocked
+                      stageBlock
+                        ? stageBlock
+                        : blocked
                         ? step.kind === 'order' && step.status === 'shipped'
                           ? 'يلزم شحن كل الأصناف ثم الانتقال من «قيد التجهيز»'
                           : 'انتقال غير مسموح من الحالة الحالية'
@@ -250,7 +307,8 @@ export function OrderStatusStepper({
             type="button"
             size="sm"
             variant={order.status === terminal ? 'destructive' : 'outline'}
-            disabled={disabled || order.status === terminal}
+            disabled={disabled || order.status === terminal || Boolean(blockReason(terminal))}
+            title={blockReason(terminal) ?? undefined}
             onClick={() => requestTransition(terminal)}
           >
             {ORDER_STATUS_LABELS_AR[terminal]}
@@ -283,11 +341,49 @@ export function OrderStatusStepper({
                 : 'ملاحظة اختيارية تُسجَّل في سجل الحالة.'}
             </DialogDescription>
           </DialogHeader>
+          {pending && pickHandler && isOrderStage(pending.status) ? (
+            <div className="space-y-1.5">
+              <p className="text-sm font-medium text-foreground">
+                المسؤول في مرحلة «{ORDER_STAGE_LABELS_AR[pending.status]}»
+              </p>
+              <OrderHandlerSelect
+                companyId={companyId}
+                stage={pending.status}
+                value={handler}
+                onChange={setHandler}
+                leading={[
+                  stages?.enabled
+                    ? { value: HANDLER_AUTO, label: 'حسب إعدادات المرحلة' }
+                    : { value: HANDLER_KEEP, label: 'دون تغيير' },
+                ]}
+              />
+            </div>
+          ) : null}
+          {askCollected ? (
+            <label className="flex items-start gap-2 rounded-lg border border-teal-500/30 bg-teal-500/10 p-3 text-sm">
+              <Checkbox
+                checked={collected}
+                onCheckedChange={(value) => setCollected(value === true)}
+                className="mt-0.5"
+              />
+              <span>
+                تم تحصيل المبلغ من العميل عند التسليم
+                <span className="block text-xs text-muted-foreground">
+                  تُسجَّل حالة الدفع «مدفوع» مع التسليم.
+                </span>
+              </span>
+            </label>
+          ) : null}
           <Input
             value={note}
             onChange={(event) => setNote(event.target.value)}
-            placeholder="ملاحظة الموظف (اختياري)"
+            placeholder={
+              noteRequired
+                ? 'الطلب مدفوع — سبب الإلغاء وكيف يُعاد المبلغ (مطلوب)'
+                : 'ملاحظة الموظف (اختياري)'
+            }
             maxLength={500}
+            aria-invalid={noteRequired && !note.trim() ? true : undefined}
           />
           <DialogFooter className="gap-2 sm:gap-2">
             <Button
@@ -300,7 +396,11 @@ export function OrderStatusStepper({
             >
               إلغاء
             </Button>
-            <Button type="button" onClick={confirmTransition}>
+            <Button
+              type="button"
+              onClick={confirmTransition}
+              disabled={noteRequired && !note.trim()}
+            >
               تأكيد
             </Button>
           </DialogFooter>

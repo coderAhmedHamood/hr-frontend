@@ -107,11 +107,23 @@ export function useUpdateOrderStatus(companyId: string) {
       orderId,
       status,
       note,
+      assigneeId,
+      paymentCollected,
     }: {
       orderId: string;
       status: OrderStatus;
       note?: string | null;
-    }) => ordersApi.updateStatus(companyId, orderId, { status, note }),
+      /** Order stages: who handles it in the stage it enters (omitted: the settings). */
+      assigneeId?: string | null;
+      /** Delivering a cash-on-delivery order: the amount was collected. */
+      paymentCollected?: boolean;
+    }) =>
+      ordersApi.updateStatus(companyId, orderId, {
+        status,
+        note,
+        ...(assigneeId !== undefined ? { assigneeId } : {}),
+        ...(paymentCollected ? { paymentCollected } : {}),
+      }),
     onSuccess: async (order, variables) => {
       syncOrderInCaches(queryClient, companyId, order);
       await queryClient.invalidateQueries({ queryKey: ordersQueryKeys.all });

@@ -9,7 +9,15 @@ import { OrderStockPanel } from '@/features/ecommerce/admin/orders/components/or
 import { OrderLineShipPanel } from '@/features/ecommerce/admin/orders/components/order-line-ship-panel';
 import { OrderPaymentProofThumb } from '@/features/ecommerce/admin/orders/components/order-payment-proof-thumb';
 import { OrderStatusHistoryButton } from '@/features/ecommerce/admin/orders/components/order-status-history-button';
-import { OrderStatusStepper } from '@/features/ecommerce/admin/orders/components/order-status-stepper';
+import {
+  OrderStatusStepper,
+  type OrderStatusChangeExtra,
+} from '@/features/ecommerce/admin/orders/components/order-status-stepper';
+import { OrderAssignmentPanel } from '@/features/ecommerce/admin/orders/components/order-assignment-panel';
+import { OrderDeliveryPanel } from '@/features/ecommerce/admin/orders/components/order-delivery-panel';
+import { useOrderStagesContext } from '@/features/ecommerce/admin/orders/hooks/use-order-stages';
+import type { OrderStagesContext } from '@/features/ecommerce/admin/orders/lib/api/order-stages';
+import { moveBlockReason } from '@/features/ecommerce/admin/orders/lib/order-stage-access';
 import {
   useOrderDetail,
   useUpdateOrderPaymentStatus,
@@ -76,7 +84,15 @@ function formatDateTime(iso: string) {
 
 const ITEMS_PAGE_SIZE = 8;
 
-function OrderItemsPanel({ order, companyId }: { order: Order; companyId: string }) {
+function OrderItemsPanel({
+  order,
+  companyId,
+  stages,
+}: {
+  order: Order;
+  companyId: string;
+  stages: OrderStagesContext | null;
+}) {
   const [search, setSearch] = React.useState('');
   const [statusFilter, setStatusFilter] = React.useState<'all' | 'pending' | 'shipped'>('all');
   const [visibleCount, setVisibleCount] = React.useState(ITEMS_PAGE_SIZE);
@@ -87,7 +103,8 @@ function OrderItemsPanel({ order, companyId }: { order: Order; companyId: string
   const partialCount = order.items.filter((line) => line.shipStatus === 'partial').length;
   const unassignedCount = order.items.filter((line) => line.shipStatus === 'unassigned').length;
   const manyItems = order.items.length > ITEMS_PAGE_SIZE;
-  const canPromoteOrder = canTransitionOrderStatus(order, 'shipped');
+  const canPromoteOrder =
+    canTransitionOrderStatus(order, 'shipped') && !moveBlockReason(stages, order, 'shipped');
 
   const normalizedSearch = search.trim().toLowerCase();
   const filteredItems = order.items.filter((line) => {
@@ -245,6 +262,7 @@ export function OrderDetailPanel({
 
   const updateStatus = useUpdateOrderStatus(companyId);
   const updatePayment = useUpdateOrderPaymentStatus(companyId);
+  const stages = useOrderStagesContext(companyId).data ?? null;
   const flowBusy = updateStatus.isPending || updatePayment.isPending;
   const prep = order ? getOrderPrepGuidance(order) : null;
   const paymentMethod = order ? resolveOrderPaymentMethod(order) : null;
@@ -256,7 +274,9 @@ export function OrderDetailPanel({
   const shipLine = order
     ? [order.city, order.shippingDistrict ?? order.region].filter(Boolean).join(' — ')
     : '';
-  const needsPaymentConfirm = Boolean(order && !isPaymentSettled(order));
+  const needsPaymentConfirm = Boolean(
+    order && !isPaymentSettled(order) && (!stages || stages.canUpdate),
+  );
   const fulfilment = order ? orderFulfilmentState(order) : null;
   const PaymentIcon = isCard ? CreditCard : Banknote;
 
@@ -265,10 +285,14 @@ export function OrderDetailPanel({
     await updatePayment.mutateAsync({ orderId: order.id, paymentStatus: 'paid' });
   }
 
-  async function advanceStatus(nextStatus: OrderStatus, note?: string | null) {
+  async function advanceStatus(
+    nextStatus: OrderStatus,
+    note?: string | null,
+    extra?: OrderStatusChangeExtra,
+  ) {
     if (!order || order.status === nextStatus) return;
     if (!canTransitionOrderStatus(order, nextStatus)) return;
-    await updateStatus.mutateAsync({ orderId: order.id, status: nextStatus, note });
+    await updateStatus.mutateAsync({ orderId: order.id, status: nextStatus, note, ...extra });
   }
 
   return (
@@ -423,10 +447,12 @@ export function OrderDetailPanel({
             <div className="space-y-4">
               <OrderStatusStepper
                 order={order}
+                companyId={companyId}
+                stages={stages}
                 hidePaymentConfirm
                 disabled={flowBusy}
-                onOrderStatusChange={(nextStatus, note) => {
-                  void advanceStatus(nextStatus, note);
+                onOrderStatusChange={(nextStatus, note, extra) => {
+                  void advanceStatus(nextStatus, note, extra).catch(() => undefined);
                 }}
                 onPaymentPaid={() => {
                   void markPaid();
@@ -434,7 +460,15 @@ export function OrderDetailPanel({
               />
 
               <section className="rounded-2xl border border-border bg-card p-4">
-                <OrderItemsPanel order={order} companyId={companyId} />
+                <OrderAssignmentPanel order={order} companyId={companyId} stages={stages} />
+              </section>
+
+              <section className="rounded-2xl border border-border bg-card p-4">
+                <OrderItemsPanel order={order} companyId={companyId} stages={stages} />
+              </section>
+
+              <section className="rounded-2xl border border-border bg-card p-4">
+                <OrderDeliveryPanel order={order} companyId={companyId} stages={stages} />
               </section>
 
               <section className="rounded-2xl border border-border bg-card p-4">
