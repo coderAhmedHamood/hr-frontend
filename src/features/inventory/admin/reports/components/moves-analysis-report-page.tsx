@@ -237,6 +237,27 @@ export function MovesAnalysisReportPage() {
             columns={columns}
             data={rowsPage}
             keyExtractor={(row) => row.key}
+            mobileCard={(row) => (
+              // Phones: kind and warehouse, then in / out / net on one line.
+              <div className="space-y-1.5">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="font-medium">{WAREHOUSE_OPERATION_KIND_META[row.kind].labelAr}</p>
+                  <span className="text-xs text-muted-foreground">{warehouseName.get(row.warehouseId) ?? '—'}</span>
+                </div>
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                  <span>{row.operationCount} مستندات</span>
+                  <span>
+                    وارد <span className="font-medium tabular-nums text-emerald-700 dark:text-emerald-400">{row.qtyIn}</span>
+                  </span>
+                  <span>
+                    صادر <span className="font-medium tabular-nums text-rose-700 dark:text-rose-400">{row.qtyOut}</span>
+                  </span>
+                  <span>
+                    صافي <span className="font-semibold tabular-nums text-foreground">{row.netQty}</span>
+                  </span>
+                </div>
+              </div>
+            )}
             loading={isLoading}
             emptyText="لا توجد حركات منتهية للتحليل."
           />

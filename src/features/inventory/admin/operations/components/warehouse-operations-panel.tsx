@@ -3,7 +3,9 @@
 import * as React from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, ScanBarcode, Trash2 } from 'lucide-react';
+import { BarcodeScannerDialog } from '@/components/shared/barcode-scanner-dialog';
+import { resolveScannedCode } from '@/features/catalog/products/lib/resolve-scanned-code';
 import { getInventoryCompanyId } from '@/features/inventory/lib/company-id';
 import { useWarehouseLocations } from '@/features/inventory/admin/locations/hooks/use-warehouse-locations';
 import { useWarehouseOperations } from '@/features/inventory/admin/operations/hooks/use-warehouse-operations';
@@ -129,6 +131,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
   const [filterWarehouseId, setFilterWarehouseId] = React.useState<string>('all');
   const [filterStatus, setFilterStatus] = React.useState<WarehouseOperationStatus | 'all'>('all');
   const [open, setOpen] = React.useState(false);
+  const [singleScanOpen, setSingleScanOpen] = React.useState(false);
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
   /** Until the list refetches, keep the create response so the detail dialog opens immediately. */
   const [detailOperationFallback, setDetailOperationFallback] =
@@ -683,6 +686,34 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
     openDraftAfterCreate(created);
   };
 
+  /** One-product documents (count, scrap, adjustment): a scan picks the product. */
+  async function pickScannedProduct(code: string) {
+    if (!companyId) return;
+    try {
+      const item = await resolveScannedCode(companyId, code);
+      if (!item) {
+        toast.error(`لا يوجد منتج بالرمز ${code}`);
+        return;
+      }
+      if (takenProductIdList.includes(item.productId)) {
+        toast.error(`«${item.productName}» محجوز في مستند آخر مفتوح`);
+        return;
+      }
+      form.setValue('productId', item.productId, { shouldDirty: true, shouldValidate: true });
+      form.setValue('productName', item.productName);
+      form.setValue('sku', item.sku);
+      setStockMode('product');
+      setVariantQuantities({});
+      toast.success(
+        item.variantName
+          ? `اختير «${item.productName}» — حدّد المتغير «${item.variantName}» إن لزم`
+          : `اختير «${item.productName}»`,
+      );
+    } catch {
+      // The API client already showed why.
+    }
+  }
+
   const columns: ColumnDef<WarehouseOperation>[] = [
     {
       key: 'reference',
@@ -1158,6 +1189,22 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
                         }}
                       />
                     )}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="mt-2 h-10 w-full gap-2 sm:w-fit"
+                    disabled={!locationsReady}
+                    onClick={() => setSingleScanOpen(true)}
+                  >
+                    <ScanBarcode className="h-4 w-4" />
+                    مسح باركود المنتج
+                  </Button>
+                  <BarcodeScannerDialog
+                    open={singleScanOpen}
+                    onOpenChange={setSingleScanOpen}
+                    title="مسح باركود المنتج"
+                    onCode={(code) => void pickScannedProduct(code)}
                   />
                   {form.formState.errors.productId ? (
                     <p className="text-xs text-destructive">{form.formState.errors.productId.message}</p>

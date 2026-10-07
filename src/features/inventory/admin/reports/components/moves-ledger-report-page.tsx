@@ -494,10 +494,28 @@ export function MovesLedgerReportPage({ inboundOnly = false }: { inboundOnly?: b
           </p>
           <DataTable
             variant="directory"
-            alwaysShowTable
             keepHeaderWhenEmpty
             className="inv-table-host"
             columns={productColumns}
+            mobileCard={(row) => (
+              <div className="space-y-1.5">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">{row.productName}</p>
+                    <p className="text-xs text-muted-foreground" dir="ltr">
+                      {row.sku || '—'}
+                    </p>
+                  </div>
+                  <span className="shrink-0 text-lg font-semibold tabular-nums text-emerald-700 dark:text-emerald-400" dir="ltr">
+                    +{row.quantity}
+                  </span>
+                </div>
+                <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                  <span>{row.entries} دخلات · متوسط <span className="tabular-nums text-foreground" dir="ltr">{formatMoney(row.averageUnitCost)}</span></span>
+                  <span>القيمة <span className="font-semibold tabular-nums text-foreground" dir="ltr">{formatMoney(row.totalValue)}</span></span>
+                </div>
+              </div>
+            )}
             data={productSummary}
             keyExtractor={(row) => `${row.productId}:${row.variantId ?? ''}:${row.sku ?? ''}`}
             loading={isLoading}

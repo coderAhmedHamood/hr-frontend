@@ -41,6 +41,7 @@ import {
   DialogHeader,
   DialogTitle,
   dialogMaxHeightClass,
+  dialogMobileFullScreenClass,
 } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
@@ -595,7 +596,7 @@ export function LocationsListPage({ embeddedWarehouseId }: LocationsListPageProp
         open={formState.open}
         onOpenChange={(open) => setFormState((s) => ({ ...s, open, location: open ? s.location : null }))}
       >
-        <DialogContent className={`${dialogMaxHeightClass} max-w-xl overflow-y-auto`}>
+        <DialogContent className={`${dialogMaxHeightClass} ${dialogMobileFullScreenClass} max-w-xl overflow-y-auto max-sm:p-4`}>
           <DialogHeader>
             <DialogTitle>{formState.location ? 'تعديل الموقع' : 'إضافة موقع'}</DialogTitle>
             <DialogDescription>
@@ -787,7 +788,7 @@ export function LocationsListPage({ embeddedWarehouseId }: LocationsListPageProp
               </p>
             ) : null}
 
-            <DialogFooter>
+            <DialogFooter className="max-sm:sticky max-sm:-bottom-4 max-sm:-mx-4 max-sm:border-t max-sm:border-border max-sm:bg-card max-sm:px-4 max-sm:py-3 max-sm:[&>button]:h-11 max-sm:[&>button]:flex-1">
               <Button
                 type="button"
                 variant="outline"

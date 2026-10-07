@@ -584,7 +584,8 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
       setScanStatus(`+1 ${label} (${hit.quantity + 1})`);
       return;
     }
-    if (status !== 'draft') {
+    // Lines are fixed once ready, and a one-product document (count, scrap) never gets another.
+    if (status !== 'draft' || !supportsMultiProductLines(kind)) {
       toast.error(`«${label}» ليس في هذا المستند`);
       setScanStatus(`«${label}» ليس في هذا المستند`);
       return;
@@ -1260,7 +1261,7 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
                   {pricedLines.length} {pricedLines.length === 1 ? 'صنف' : 'أصناف'}
                 </p>
                 <div className="flex gap-2">
-                  {multiProductMode && qtyEditable ? (
+                  {(multiProductMode || isCountLike) && qtyEditable ? (
                     <Button
                       type="button"
                       variant="outline"
@@ -1319,6 +1320,36 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
                             {lineQuantityField(line, view, true)}
                           </div>
                         </div>
+                        {isCountLike && (line.demandQuantity ?? 0) > 0 ? (
+                          // Count: the book quantity (filled from stock) and the difference the count makes.
+                          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-muted/40 px-3 py-2 text-sm">
+                            <span>
+                              <span className="text-xs text-muted-foreground">النظامي </span>
+                              <span className="font-semibold tabular-nums">{formatLineQuantity(line.demandQuantity ?? 0)}</span>
+                            </span>
+                            {(() => {
+                              const diff = line.quantity - (line.demandQuantity ?? 0);
+                              return (
+                                <span
+                                  className={cn(
+                                    'font-semibold tabular-nums',
+                                    Math.abs(diff) < 1e-9
+                                      ? 'text-emerald-700 dark:text-emerald-400'
+                                      : diff > 0
+                                        ? 'text-sky-700 dark:text-sky-400'
+                                        : 'text-amber-700 dark:text-amber-400',
+                                  )}
+                                >
+                                  {Math.abs(diff) < 1e-9
+                                    ? 'مطابق'
+                                    : diff > 0
+                                      ? `زائد ${formatLineQuantity(diff)}`
+                                      : `ناقص ${formatLineQuantity(-diff)}`}
+                                </span>
+                              );
+                            })()}
+                          </div>
+                        ) : null}
                         {showCostColumns ? (
                           <div className="grid grid-cols-2 items-end gap-3">
                             <div className="space-y-1">

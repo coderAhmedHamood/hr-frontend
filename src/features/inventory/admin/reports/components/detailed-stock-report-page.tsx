@@ -351,6 +351,35 @@ export function DetailedStockReportPage() {
             columns={columns}
             data={rowsPage}
             keyExtractor={(row) => row.key}
+            mobileCard={(row) => (
+              // Phones: the product and how many there are at this location.
+              <div className="space-y-1.5">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">{row.productName}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {row.variantLabel !== '—' ? `${row.variantLabel} · ` : null}
+                      <span dir="ltr">{row.sku}</span>
+                    </p>
+                  </div>
+                  <span className="shrink-0 text-lg font-semibold tabular-nums" dir="ltr">
+                    {row.quantity}
+                  </span>
+                </div>
+                <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                  <span>
+                    {row.locationName} <span dir="ltr">({row.locationCode})</span> · {row.warehouseName}
+                  </span>
+                  <span>
+                    المتاح{' '}
+                    <span className="font-semibold tabular-nums text-foreground">
+                      {Math.max(0, row.quantity - row.reservedQuantity)}
+                    </span>
+                    {row.reservedQuantity > 0 ? ` · محجوز ${row.reservedQuantity}` : ''}
+                  </span>
+                </div>
+              </div>
+            )}
             loading={isLoading}
             emptyText="لا توجد صفوف مخزون تفصيلي."
           />

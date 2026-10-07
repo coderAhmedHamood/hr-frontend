@@ -27,6 +27,7 @@ import { Badge } from '@/components/ui/badge';
 import { ProductVariantUomSection } from '@/features/catalog/products/components/product-variant-uom-section';
 import { PRODUCT_VARIANT_CUSTOM_UOM_ENABLED } from '@/features/catalog/products/constants/product-feature-flags';
 import { useProductAppSections } from '@/features/catalog/products/hooks/use-product-app-sections';
+import { usePhoneLayout } from '@/shared/hooks/use-media-query';
 
 type Props = {
   control: Control<ProductFormInput, unknown, ProductFormValues>;
@@ -65,6 +66,7 @@ export function ProductVariantsPanel({
   getValues,
   productId,
 }: Props) {
+  const phone = usePhoneLayout();
   const companyId = getStorefrontCompanyId();
   const attributes = useWatch({ control, name: 'attributes' }) ?? [];
   const nameAr = useWatch({ control, name: 'nameAr' }) ?? '';
@@ -294,6 +296,125 @@ export function ProductVariantsPanel({
         </p>
       ) : null}
 
+      {phone ? (
+        // Phones: one card per variant (the 980px table hid price, cost and quantity off-screen).
+        // Only one layout is rendered, so each input registers once.
+        <div className="space-y-2.5">
+          {fields.map((field, index) => {
+            const labels = variantsWatch[index]?.attributeLabels ?? field.attributeLabels;
+            const images = variantsWatch[index]?.images ?? [];
+            const rowId = variantsWatch[index]?.id ?? field.id;
+            const rowPersisted = isPersistedId(rowId);
+            const rowValueIds = variantsWatch[index]?.attributeValueIds ?? field.attributeValueIds ?? [];
+            const isOrphaned =
+              rowPersisted && rowValueIds.some((id) => !activeAttributeValueIds.has(id));
+            const onHandQty =
+              productId && onHand
+                ? (onHand.byVariant[variantsWatch[index]?.id ?? ''] ?? 0)
+                : Number(variantsWatch[index]?.quantity ?? 0);
+            return (
+              <div key={field._key} className="space-y-3 rounded-xl border border-border bg-card p-3">
+                <div className="flex items-start gap-3">
+                  <ProductVariantImageGallery
+                    images={images}
+                    onChange={(next) => setVariantImages(index, next)}
+                  />
+                  <input type="hidden" {...register(`variants.${index}.imageUrl`)} />
+                  <div className="min-w-0 flex-1 space-y-1.5">
+                    <p className="font-medium leading-snug text-foreground">
+                      {variantsWatch[index]?.nameAr ?? field.nameAr}
+                    </p>
+                    <p className="text-xs text-muted-foreground" dir="ltr">
+                      {variantsWatch[index]?.sku ?? field.sku}
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {labels.map((label) => (
+                        <span
+                          key={`${label.attributeNameAr}-${label.valueNameAr}`}
+                          className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-2 py-0.5 text-xs"
+                        >
+                          {label.colorHex ? (
+                            <span
+                              className="h-2.5 w-2.5 rounded-full border border-border"
+                              style={{ backgroundColor: label.colorHex }}
+                            />
+                          ) : null}
+                          {label.valueNameAr}
+                        </span>
+                      ))}
+                    </div>
+                    {isOrphaned ? (
+                      <p className="text-[11px] text-amber-700 dark:text-amber-400">
+                        قيمة الخاصية غير مُفعّلة حاليًا على المنتج — المتغيّر محفوظ ولن يُحذف.
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">الباركود</p>
+                  <Input
+                    type="text"
+                    dir="ltr"
+                    className="h-10 w-full"
+                    placeholder="Barcode"
+                    {...register(`variants.${index}.barcode`)}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">سعر البيع</p>
+                    <Input
+                      type="number"
+                      inputMode="decimal"
+                      min={0}
+                      step="0.01"
+                      dir="rtl"
+                      className="h-10 w-full"
+                      {...register(`variants.${index}.salePrice`, { valueAsNumber: true })}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">التكلفة</p>
+                    <Input
+                      type="number"
+                      inputMode="decimal"
+                      min={0}
+                      step="0.01"
+                      dir="rtl"
+                      className="h-10 w-full"
+                      {...register(`variants.${index}.costPrice`, { valueAsNumber: true })}
+                    />
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                  <span>
+                    <span className="text-xs text-muted-foreground">الكمية (من المستودع) </span>
+                    <span className="font-semibold tabular-nums">{onHandQty}</span>
+                  </span>
+                  {rowPersisted ? (
+                    <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 dark:text-emerald-400">
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      مضاف
+                    </span>
+                  ) : (
+                    <span className="text-xs font-medium text-amber-700 dark:text-amber-400">مسودة</span>
+                  )}
+                  <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                    مفعّل
+                    <Switch
+                      checked={Boolean(variantsWatch[index]?.isActive ?? field.isActive)}
+                      onCheckedChange={(checked) =>
+                        setValue(`variants.${index}.isActive`, checked, { shouldDirty: true })
+                      }
+                      aria-label="تفعيل المتغير"
+                    />
+                  </label>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
       <div className="overflow-x-auto rounded-lg border border-border">
         <table className="w-full min-w-[980px] text-sm">
           <thead>
@@ -427,6 +548,7 @@ export function ProductVariantsPanel({
           </tbody>
         </table>
       </div>
+      )}
 
       <ProductVariantUomSection
         control={control}
