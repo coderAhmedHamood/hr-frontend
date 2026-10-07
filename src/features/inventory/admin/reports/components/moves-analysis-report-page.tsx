@@ -208,7 +208,7 @@ export function MovesAnalysisReportPage() {
         iconName="BarChart3"
       />
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-5">
         <SummaryCard label="مستندات" value={summary.docs} />
         <SummaryCard label="بنود" value={summary.lines} />
         <SummaryCard label="وارد" value={summary.qtyIn} />
@@ -237,6 +237,27 @@ export function MovesAnalysisReportPage() {
             columns={columns}
             data={rowsPage}
             keyExtractor={(row) => row.key}
+            mobileCard={(row) => (
+              // Phones: kind and warehouse, then in / out / net on one line.
+              <div className="space-y-1.5">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="font-medium">{WAREHOUSE_OPERATION_KIND_META[row.kind].labelAr}</p>
+                  <span className="text-xs text-muted-foreground">{warehouseName.get(row.warehouseId) ?? '—'}</span>
+                </div>
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                  <span>{row.operationCount} مستندات</span>
+                  <span>
+                    وارد <span className="font-medium tabular-nums text-emerald-700 dark:text-emerald-400">{row.qtyIn}</span>
+                  </span>
+                  <span>
+                    صادر <span className="font-medium tabular-nums text-rose-700 dark:text-rose-400">{row.qtyOut}</span>
+                  </span>
+                  <span>
+                    صافي <span className="font-semibold tabular-nums text-foreground">{row.netQty}</span>
+                  </span>
+                </div>
+              </div>
+            )}
             loading={isLoading}
             emptyText="لا توجد حركات منتهية للتحليل."
           />
@@ -248,7 +269,7 @@ export function MovesAnalysisReportPage() {
 
 function SummaryCard({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-xl border border-border bg-card px-4 py-3 shadow-soft">
+    <div className="min-w-0 rounded-xl border border-border bg-card px-4 py-3 shadow-soft max-sm:px-3 max-sm:py-2.5">
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className="mt-1 text-xl font-semibold tabular-nums" dir="ltr">
         {value}

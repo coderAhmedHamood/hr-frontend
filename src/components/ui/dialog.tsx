@@ -34,6 +34,13 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
 /** Shared viewport-safe max-height so it isn't duplicated ad hoc in dialogs that don't need the full header/body/footer shell below. */
 export const dialogMaxHeightClass = 'max-h-[min(90dvh,calc(100%-2rem))]';
 
+/**
+ * Phones: the dialog fills the screen (no margins, no corners) so long forms
+ * get the whole height. Opt-in, add to `DialogContent`'s className.
+ */
+export const dialogMobileFullScreenClass =
+  'max-sm:inset-0 max-sm:left-0 max-sm:top-0 max-sm:h-[100dvh] max-sm:max-h-[100dvh] max-sm:w-full max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none max-sm:border-0';
+
 /** Viewport-safe shell for header + scrollable body + footer (pass `className` with `p-0`). */
 export const dialogShellContentClass = `flex ${dialogMaxHeightClass} w-full flex-col gap-0 overflow-visible p-0`;
 

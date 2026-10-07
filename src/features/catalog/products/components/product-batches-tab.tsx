@@ -100,7 +100,7 @@ export function ProductBatchesTab({ productId }: Props) {
         title="دفعات هذا المنتج"
         description="كل دفعة طبقة كمية دخلت المخزون بحركة استلام أو تحويل، ويُصرف منها بترتيب FIFO/LIFO/FEFO حسب إعدادات المخزون."
       >
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-3 gap-2 sm:gap-3">
           <ProductStatTile
             size="lg"
             label="دفعات متوفرة"

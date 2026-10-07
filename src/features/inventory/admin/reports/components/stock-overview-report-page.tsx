@@ -1,6 +1,8 @@
 'use client';
 
 import * as React from 'react';
+import { useRouter } from 'next/navigation';
+import { inventoryAdminRoutes } from '@/features/inventory/admin/constants/routes';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
@@ -182,6 +184,7 @@ export function StockOverviewReportPage() {
     [searchInput, warehouseId, stockFilter, warehouses],
   );
 
+  const router = useRouter();
   const columns: ColumnDef<StockOverviewRow>[] = [
     {
       key: 'product',
@@ -238,14 +241,38 @@ export function StockOverviewReportPage() {
     {
       key: 'status',
       title: 'الحالة',
-      render: (row) => {
-        if (!row.trackInventory) return <Badge variant="subtle">بدون تتبع</Badge>;
-        if (row.available <= 0) return <Badge variant="destructive">نفد</Badge>;
-        if (row.isLow) return <Badge variant="warning">منخفض</Badge>;
-        return <Badge variant="success">متوفر</Badge>;
-      },
+      render: (row) => stockStatusBadge(row),
     },
   ];
+
+  /** Phones: name and status, then on hand / reserved / available on one line. */
+  const stockMobileCard = (row: StockOverviewRow) => (
+    <div className="space-y-1.5">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="truncate font-medium">{row.productName}</p>
+          <p className="text-xs text-muted-foreground" dir="ltr">
+            {row.sku || '—'}
+          </p>
+        </div>
+        <div className="shrink-0">{stockStatusBadge(row)}</div>
+      </div>
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+        <span>
+          الكمية <span className="font-medium tabular-nums text-foreground">{row.onHand}</span>
+        </span>
+        <span>
+          المحجوز <span className="tabular-nums text-foreground">{row.reserved}</span>
+        </span>
+        <span>
+          المتاح <span className="font-semibold tabular-nums text-foreground">{row.available}</span>
+        </span>
+        <span>
+          {row.locationCount} مواقع
+        </span>
+      </div>
+    </div>
+  );
 
   return (
     <div className="flex flex-col gap-5">
@@ -255,7 +282,7 @@ export function StockOverviewReportPage() {
         iconName="Package"
       />
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
         <SummaryCard label="منتجات" value={totals.products} />
         <SummaryCard label="إجمالي الكمية" value={totals.onHand} />
         <SummaryCard label="منخفض المخزون" value={totals.low} />
@@ -283,6 +310,8 @@ export function StockOverviewReportPage() {
             columns={columns}
             data={rowsPage}
             keyExtractor={(row) => row.key}
+            mobileCard={stockMobileCard}
+            onRowClick={(row) => router.push(inventoryAdminRoutes.productDetail(row.productId))}
             loading={stockLoading || productsLoading}
             emptyText="لا توجد بيانات مخزون."
           />
@@ -294,11 +323,18 @@ export function StockOverviewReportPage() {
 
 function SummaryCard({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-xl border border-border bg-card px-4 py-3 shadow-soft">
+    <div className="min-w-0 rounded-xl border border-border bg-card px-4 py-3 shadow-soft max-sm:px-3 max-sm:py-2.5">
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className="mt-1 text-xl font-semibold tabular-nums" dir="ltr">
         {value}
       </p>
     </div>
   );
+}
+
+function stockStatusBadge(row: StockOverviewRow) {
+  if (!row.trackInventory) return <Badge variant="subtle">بدون تتبع</Badge>;
+  if (row.available <= 0) return <Badge variant="destructive">نفد</Badge>;
+  if (row.isLow) return <Badge variant="warning">منخفض</Badge>;
+  return <Badge variant="success">متوفر</Badge>;
 }

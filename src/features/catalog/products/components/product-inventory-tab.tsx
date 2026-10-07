@@ -99,7 +99,8 @@ export function ProductInventoryTab({ control, errors, register, setValue, produ
                 : 'احفظ المنتج أولًا ثم صدّق مستندات الاستلام لتظهر الكميات هنا.'
             }
           >
-            <div className="grid gap-3 sm:grid-cols-3">
+            {/* Three across on phones too: the numbers matter more than the long labels. */}
+            <div className="grid grid-cols-3 gap-2 sm:gap-3">
               <ProductStatTile
                 size="lg"
                 label="المتاح فعليًا (On Hand)"
@@ -143,7 +144,7 @@ export function ProductInventoryTab({ control, errors, register, setValue, produ
             title="مستودع الخصم الافتراضي"
             description="منه يُخصم البيع إن لم يُرسل موقع أثناء العملية. المتجر ونقطة البيع يقرآن نفس الدفتر."
           >
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <ProductFormField label="المستودع" htmlFor="product-warehouse">
                 <Controller
                   control={control}
@@ -206,7 +207,7 @@ export function ProductInventoryTab({ control, errors, register, setValue, produ
       ) : null}
 
       <ProductFormSection title="إعدادات التوفر" description="حالة العرض وتنبيهات النفاد.">
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {sections.store ? (
             <ProductFormField label="حالة التوفر" htmlFor="product-availability">
               <Controller

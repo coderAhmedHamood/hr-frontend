@@ -90,7 +90,7 @@ export function ProductGeneralTab({ control, errors, register, categories, brand
           />
         </ProductFormField>
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <ProductFormField label="الفئة" htmlFor="product-category">
             <Controller
               control={control}
@@ -138,7 +138,7 @@ export function ProductGeneralTab({ control, errors, register, categories, brand
       </ProductFormSection>
 
       <ProductFormSection title="التسعير" description="أسعار البيع والشراء بالريال اليمني.">
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <ProductFormField
             label="سعر البيع"
             htmlFor="product-list-price"
@@ -257,7 +257,7 @@ export function ProductGeneralTab({ control, errors, register, categories, brand
           <div className="space-y-5 border-t border-border/70 p-4 sm:p-5">
             <div>
               <p className="mb-3 text-xs font-medium text-muted-foreground">الفوترة والتتبع</p>
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <ProductFormField label="سياسة الفوترة" htmlFor="product-invoice-policy">
                   <Controller
                     control={control}
@@ -306,7 +306,7 @@ export function ProductGeneralTab({ control, errors, register, categories, brand
 
             <div>
               <p className="mb-3 text-xs font-medium text-muted-foreground">الترميز والعلامات</p>
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <ProductFormField label="الباركود" htmlFor="product-barcode">
                   <Input
                     id="product-barcode"
@@ -334,7 +334,7 @@ export function ProductGeneralTab({ control, errors, register, categories, brand
 
             <div>
               <p className="mb-3 text-xs font-medium text-muted-foreground">أبعاد الشحن (اختياري)</p>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <ProductFormField label="الوزن (كجم)" htmlFor="product-weight">
                   <Input
                     id="product-weight"

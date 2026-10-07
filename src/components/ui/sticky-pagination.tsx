@@ -96,7 +96,7 @@ export function StickyPagination({
           type="button"
           variant="outline"
           size="icon"
-          className="h-7 w-7 rounded-lg border-border/70"
+          className="h-7 w-7 rounded-lg border-border/70 max-sm:h-9 max-sm:w-9"
           disabled={page <= 1}
           onClick={() => onPageChange(page - 1)}
           aria-label="الصفحة السابقة"
@@ -106,7 +106,8 @@ export function StickyPagination({
 
         {pages.map((p, i) =>
           p === '…' ? (
-            <span key={`ellipsis-${i}`} className="px-0.5 text-xs text-muted-foreground">
+            // Phones: only the current page between the arrows (the full range overflows 390px).
+            <span key={`ellipsis-${i}`} className="px-0.5 text-xs text-muted-foreground max-sm:hidden">
               …
             </span>
           ) : (
@@ -116,8 +117,9 @@ export function StickyPagination({
               variant={p === page ? 'default' : 'ghost'}
               size="icon"
               className={cn(
-                'h-7 min-w-7 rounded-lg px-1.5 text-xs tabular-nums',
+                'h-7 min-w-7 rounded-lg px-1.5 text-xs tabular-nums max-sm:h-9 max-sm:min-w-9',
                 p === page && 'bg-primary text-primary-foreground shadow-sm',
+                p !== page && 'max-sm:hidden',
               )}
               onClick={() => onPageChange(p)}
             >
@@ -130,7 +132,7 @@ export function StickyPagination({
           type="button"
           variant="outline"
           size="icon"
-          className="h-7 w-7 rounded-lg border-border/70"
+          className="h-7 w-7 rounded-lg border-border/70 max-sm:h-9 max-sm:w-9"
           disabled={page >= totalPages}
           onClick={() => onPageChange(page + 1)}
           aria-label="الصفحة التالية"

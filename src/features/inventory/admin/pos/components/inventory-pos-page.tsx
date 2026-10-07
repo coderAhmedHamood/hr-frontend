@@ -315,7 +315,7 @@ export function InventoryPosPage() {
           {pendingVariants ? (
             <div className="rounded-lg border border-border bg-muted/40 p-3">
               <p className="mb-2 text-sm font-medium">اختر المتغير</p>
-              <div className="grid gap-2 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {pendingVariants.map((variant) => (
                   <button
                     key={variant.variantId}

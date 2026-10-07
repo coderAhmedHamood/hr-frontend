@@ -3,7 +3,9 @@
 import * as React from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, ScanBarcode, Trash2 } from 'lucide-react';
+import { BarcodeScannerDialog } from '@/components/shared/barcode-scanner-dialog';
+import { resolveScannedCode } from '@/features/catalog/products/lib/resolve-scanned-code';
 import { getInventoryCompanyId } from '@/features/inventory/lib/company-id';
 import { useWarehouseLocations } from '@/features/inventory/admin/locations/hooks/use-warehouse-locations';
 import { useWarehouseOperations } from '@/features/inventory/admin/operations/hooks/use-warehouse-operations';
@@ -86,6 +88,7 @@ import {
   DialogHeader,
   DialogTitle,
   dialogMaxHeightClass,
+  dialogMobileFullScreenClass,
 } from '@/components/ui/dialog';
 import {
   Select,
@@ -128,6 +131,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
   const [filterWarehouseId, setFilterWarehouseId] = React.useState<string>('all');
   const [filterStatus, setFilterStatus] = React.useState<WarehouseOperationStatus | 'all'>('all');
   const [open, setOpen] = React.useState(false);
+  const [singleScanOpen, setSingleScanOpen] = React.useState(false);
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
   /** Until the list refetches, keep the create response so the detail dialog opens immediately. */
   const [detailOperationFallback, setDetailOperationFallback] =
@@ -682,6 +686,34 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
     openDraftAfterCreate(created);
   };
 
+  /** One-product documents (count, scrap, adjustment): a scan picks the product. */
+  async function pickScannedProduct(code: string) {
+    if (!companyId) return;
+    try {
+      const item = await resolveScannedCode(companyId, code);
+      if (!item) {
+        toast.error(`لا يوجد منتج بالرمز ${code}`);
+        return;
+      }
+      if (takenProductIdList.includes(item.productId)) {
+        toast.error(`«${item.productName}» محجوز في مستند آخر مفتوح`);
+        return;
+      }
+      form.setValue('productId', item.productId, { shouldDirty: true, shouldValidate: true });
+      form.setValue('productName', item.productName);
+      form.setValue('sku', item.sku);
+      setStockMode('product');
+      setVariantQuantities({});
+      toast.success(
+        item.variantName
+          ? `اختير «${item.productName}» — حدّد المتغير «${item.variantName}» إن لزم`
+          : `اختير «${item.productName}»`,
+      );
+    } catch {
+      // The API client already showed why.
+    }
+  }
+
   const columns: ColumnDef<WarehouseOperation>[] = [
     {
       key: 'reference',
@@ -787,6 +819,66 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
     },
   ];
 
+  /** Phones: reference, date and status on top, then what moved and where (one tap opens it). */
+  const operationMobileCard = (row: WarehouseOperation) => {
+    const { demand, actual } = operationListLineTotals(row);
+    const products = row.lines.map((line) => line.productName).filter(Boolean);
+    return (
+      <div className="space-y-2">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <p className="font-semibold" dir="ltr">
+              {row.reference || '—'}
+            </p>
+            <p className="text-xs text-muted-foreground">{formatDateTime(row.occurredAt)}</p>
+          </div>
+          <div className="flex shrink-0 items-center gap-1">
+            <Badge variant={statusBadgeVariant(row.status)}>
+              {WAREHOUSE_OPERATION_STATUS_LABELS_AR[row.status]}
+            </Badge>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9"
+              aria-label="حذف المستند"
+              onClick={(event) => {
+                event.stopPropagation();
+                setToDelete(row);
+              }}
+            >
+              <Trash2 className="h-4 w-4 text-destructive" />
+            </Button>
+          </div>
+        </div>
+        {products.length > 0 ? (
+          <p className="truncate text-sm">
+            {products[0]}
+            {products.length > 1 ? (
+              <span className="text-muted-foreground"> +{products.length - 1} أصناف</span>
+            ) : null}
+          </p>
+        ) : null}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="min-w-0">
+            {!scopedToWarehouse ? (
+              row.destinationWarehouseId && row.destinationWarehouseId !== row.warehouseId ? (
+                <WarehouseRouteChips
+                  from={warehouseNameById.get(row.warehouseId)}
+                  to={warehouseNameById.get(row.destinationWarehouseId)}
+                />
+              ) : (
+                <WarehouseChip name={warehouseNameById.get(row.warehouseId)} />
+              )
+            ) : row.partnerName ? (
+              <span className="text-xs text-muted-foreground">{row.partnerName}</span>
+            ) : null}
+          </div>
+          <DemandActualChips demand={demand} actual={actual} actualLabel={actualQuantityLabel} />
+        </div>
+      </div>
+    );
+  };
+
   const dialogs = (
     <>
       <WarehouseOperationDetailDialog
@@ -805,9 +897,11 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
           className={cn(
             dialogMaxHeightClass,
             'flex max-h-[min(92vh,900px)] flex-col overflow-hidden max-w-[min(96vw,72rem)] sm:max-w-6xl',
+            dialogMobileFullScreenClass,
+            'max-sm:gap-3 max-sm:p-4',
           )}
         >
-          <DialogHeader>
+          <DialogHeader className="max-sm:text-right">
             <DialogTitle>{meta.createLabel}</DialogTitle>
             <DialogDescription>
               يُنشأ المستند كمسودة ثم تُفتح شاشة التفاصيل مباشرة لإكمال الجاهز والتصديق والحفظ.
@@ -829,7 +923,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
                 title="المستودع والمواقع"
                 description="حدّد المستودع ومواقع الصرف/الاستلام قبل إضافة الأصناف."
               >
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {!scopedToWarehouse ? (
               <div className="space-y-1.5">
                 <Label>{meta.needsDestWarehouse ? 'مستودع الصرف (المصدر)' : 'المستودع'}</Label>
@@ -1096,6 +1190,22 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
                       />
                     )}
                   />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="mt-2 h-10 w-full gap-2 sm:w-fit"
+                    disabled={!locationsReady}
+                    onClick={() => setSingleScanOpen(true)}
+                  >
+                    <ScanBarcode className="h-4 w-4" />
+                    مسح باركود المنتج
+                  </Button>
+                  <BarcodeScannerDialog
+                    open={singleScanOpen}
+                    onOpenChange={setSingleScanOpen}
+                    title="مسح باركود المنتج"
+                    onCode={(code) => void pickScannedProduct(code)}
+                  />
                   {form.formState.errors.productId ? (
                     <p className="text-xs text-destructive">{form.formState.errors.productId.message}</p>
                   ) : null}
@@ -1254,7 +1364,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
                 description="التاريخ، الطرف، المستند المصدر، والملاحظات."
               >
                 <div className="space-y-4">
-                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     <div className="space-y-1.5">
                       <Label htmlFor="op-date">التاريخ</Label>
                       <Input id="op-date" type="datetime-local" dir="ltr" className="h-10" {...form.register('occurredAt')} />
@@ -1305,7 +1415,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
               </OperationFormSection>
             </div>
 
-            <DialogFooter className="mt-3 shrink-0 border-t border-border pt-3">
+            <DialogFooter className="mt-3 shrink-0 border-t border-border pt-3 max-sm:[&>button]:h-11 max-sm:[&>button]:flex-1">
               <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={create.isPending}>
                 إلغاء
               </Button>
@@ -1351,6 +1461,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
       <div className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <ListToolbar
+            className="w-full"
             searchValue={searchInput}
             onSearchChange={setSearchInput}
             searchPlaceholder="ابحث بالمرجع أو المنتج…"
@@ -1410,6 +1521,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
           loading={isLoading}
           emptyText={meta.empty}
           onRowClick={(row) => setSelectedId(row.id)}
+          mobileCard={operationMobileCard}
         />
 
         {data ? (
@@ -1459,6 +1571,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
             loading={isLoading}
             emptyText={meta.empty}
             onRowClick={(row) => setSelectedId(row.id)}
+            mobileCard={operationMobileCard}
           />
         )}
       </DirectoryPagedViews>

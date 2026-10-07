@@ -337,7 +337,7 @@ export function ProductDetailPage({ productId }: Props) {
     return (
       <div className="flex flex-col gap-5">
         <div className="h-56 animate-pulse rounded-3xl bg-muted/60" />
-        <div className="grid gap-5 lg:grid-cols-12">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
           <div className="space-y-4 lg:col-span-8">
             <div className="h-11 animate-pulse rounded-2xl bg-muted/50" />
             <div className="h-64 animate-pulse rounded-2xl bg-muted/40" />
@@ -405,7 +405,7 @@ export function ProductDetailPage({ productId }: Props) {
           currency={product.price.currency}
         />
 
-        <div className="grid gap-5 lg:grid-cols-12">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
           <div className="min-w-0 lg:col-span-8">
             <Tabs
               value={activeTab}

@@ -215,7 +215,7 @@ export function CategoryFormDialog({ category, categories = [], open, onOpenChan
             </div>
 
             <div className="space-y-4">
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {isMultiLangEnabled ? (
                   <div className="space-y-1.5">
                     <Label htmlFor="nameEn">الاسم (إنجليزي)</Label>
@@ -273,7 +273,7 @@ export function CategoryFormDialog({ category, categories = [], open, onOpenChan
                 <Input id="imageUrl" dir="ltr" {...form.register('imageUrl')} />
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label htmlFor="displayOrder">ترتيب العرض</Label>
                   <Controller
@@ -327,7 +327,7 @@ export function CategoryFormDialog({ category, categories = [], open, onOpenChan
                 </div>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label htmlFor="metaTitle">عنوان SEO</Label>
                   <Input id="metaTitle" {...form.register('metaTitle')} />

@@ -355,6 +355,63 @@ export function MovesLedgerReportPage({ inboundOnly = false }: { inboundOnly?: b
     },
   ];
 
+  /** Phones: what moved and by how much first, then the document, when and where. */
+  const ledgerMobileCard = (row: InventoryLedgerEntry) => {
+    const route = movementRoute(row);
+    const hasLocations = Boolean(route.fromLocationId || route.toLocationId);
+    return (
+      <div className="space-y-1.5">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <p className="truncate font-medium">{row.productName}</p>
+            <p className="text-xs text-muted-foreground" dir="ltr">
+              {row.sku || '—'}
+            </p>
+          </div>
+          <span
+            className={
+              row.quantityDelta >= 0
+                ? 'shrink-0 text-lg font-semibold tabular-nums text-emerald-700 dark:text-emerald-400'
+                : 'shrink-0 text-lg font-semibold tabular-nums text-rose-700 dark:text-rose-400'
+            }
+            dir="ltr"
+          >
+            {row.quantityDelta >= 0 ? `+${row.quantityDelta}` : row.quantityDelta}
+          </span>
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs text-muted-foreground">
+          <span>
+            <span className="font-medium text-foreground" dir="ltr">
+              {row.operationReference}
+            </span>{' '}
+            · {WAREHOUSE_OPERATION_KIND_META[row.kind].labelAr}
+          </span>
+          <span className="whitespace-nowrap">{formatDateTime(row.occurredAt)}</span>
+        </div>
+        {hasLocations ? (
+          <LocationRouteChips
+            from={route.fromLocationId ? locationName(route.fromLocationId) : null}
+            to={route.toLocationId ? locationName(route.toLocationId) : null}
+          />
+        ) : null}
+        {inboundOnly ? (
+          <p className="text-xs text-muted-foreground">
+            سعر الدخول <span className="tabular-nums text-foreground" dir="ltr">{formatMoney(row.unitCost)}</span>
+            {row.unitCost != null ? (
+              <>
+                {' '}
+                · القيمة{' '}
+                <span className="font-semibold tabular-nums text-foreground" dir="ltr">
+                  {formatMoney(row.quantityDelta * row.unitCost)}
+                </span>
+              </>
+            ) : null}
+          </p>
+        ) : null}
+      </div>
+    );
+  };
+
   const productColumns: ColumnDef<InboundProductValueSummary>[] = [
     {
       key: 'product',
@@ -437,10 +494,28 @@ export function MovesLedgerReportPage({ inboundOnly = false }: { inboundOnly?: b
           </p>
           <DataTable
             variant="directory"
-            alwaysShowTable
             keepHeaderWhenEmpty
             className="inv-table-host"
             columns={productColumns}
+            mobileCard={(row) => (
+              <div className="space-y-1.5">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">{row.productName}</p>
+                    <p className="text-xs text-muted-foreground" dir="ltr">
+                      {row.sku || '—'}
+                    </p>
+                  </div>
+                  <span className="shrink-0 text-lg font-semibold tabular-nums text-emerald-700 dark:text-emerald-400" dir="ltr">
+                    +{row.quantity}
+                  </span>
+                </div>
+                <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                  <span>{row.entries} دخلات · متوسط <span className="tabular-nums text-foreground" dir="ltr">{formatMoney(row.averageUnitCost)}</span></span>
+                  <span>القيمة <span className="font-semibold tabular-nums text-foreground" dir="ltr">{formatMoney(row.totalValue)}</span></span>
+                </div>
+              </div>
+            )}
             data={productSummary}
             keyExtractor={(row) => `${row.productId}:${row.variantId ?? ''}:${row.sku ?? ''}`}
             loading={isLoading}
@@ -454,10 +529,10 @@ export function MovesLedgerReportPage({ inboundOnly = false }: { inboundOnly?: b
           <h2 className="text-sm font-semibold">دخلات الصنف</h2>
           <DataTable
             variant="directory"
-            alwaysShowTable
             keepHeaderWhenEmpty
             className="inv-table-host"
             columns={columns}
+            mobileCard={ledgerMobileCard}
             data={rows}
             keyExtractor={(row) => row.id}
             loading={isLoading}
@@ -483,10 +558,10 @@ export function MovesLedgerReportPage({ inboundOnly = false }: { inboundOnly?: b
         {(rowsPage) => (
           <DataTable
             variant="directory"
-            alwaysShowTable
             keepHeaderWhenEmpty
             className="inv-table-host"
             columns={columns}
+            mobileCard={ledgerMobileCard}
             data={rowsPage}
             keyExtractor={(row) => row.id}
             loading={isLoading}

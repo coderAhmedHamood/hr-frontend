@@ -3,7 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Building2, LayoutDashboard, MoreHorizontal, Package, Settings, Shield } from 'lucide-react';
+import { ArrowLeftRight, Building2, LayoutDashboard, MoreHorizontal, Package, Settings, Shield } from 'lucide-react';
 import { cn } from '@/shared/utils';
 import { useSidebar } from '@/components/layouts/sidebar-context';
 import { isInventoryAppPath, isSystemAppPath } from '@/shared/app-paths';
@@ -32,7 +32,13 @@ type TabItem = {
   isActive: (pathname: string) => boolean;
 };
 
-function groupTab(group: InventoryAdminNavGroup | undefined, label: string, fallbackIcon: React.ElementType): TabItem | null {
+function groupTab(
+  group: InventoryAdminNavGroup | undefined,
+  label: string,
+  fallbackIcon: React.ElementType,
+  /** Wins over the group's icon (two groups sharing one icon read as the same tab). */
+  icon?: React.ElementType,
+): TabItem | null {
   if (!group) return null;
   const flat = flattenInventoryNavItems(group);
   const first = flat[0];
@@ -41,7 +47,7 @@ function groupTab(group: InventoryAdminNavGroup | undefined, label: string, fall
   return {
     key: group.key,
     label,
-    icon: group.icon ?? fallbackIcon,
+    icon: icon ?? group.icon ?? fallbackIcon,
     href: first.href,
     isActive: (pathname) => hrefs.some((base) => pathname === base || pathname.startsWith(`${base}/`)),
   };
@@ -60,7 +66,7 @@ function buildInventoryTabs(catalogEnabled: boolean): TabItem[] {
 
   return [
     overview,
-    groupTab(byKey('operations'), 'العمليات', Package),
+    groupTab(byKey('operations'), 'العمليات', Package, ArrowLeftRight),
     catalogEnabled ? groupTab(byKey('products'), 'المنتجات', Package) : null,
     groupTab(byKey('reports'), 'التقارير', Package),
   ].filter((tab): tab is TabItem => tab !== null);

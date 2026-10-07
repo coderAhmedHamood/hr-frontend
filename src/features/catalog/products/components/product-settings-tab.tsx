@@ -81,7 +81,7 @@ export function ProductSettingsTab({ control, errors, register }: Props) {
           title="عرض الصورة بالمتجر"
           description="اضبط كيف تظهر صور هذا المنتج في كل مكان بالمتجر (البطاقات، المعرض، السلة، الطلبات) — نفس الإعداد يُطبَّق في كل مكان."
         >
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <ProductFormField label="نسبة العرض" htmlFor="product-image-aspect-ratio">
               <Controller
                 control={control}
@@ -135,7 +135,7 @@ export function ProductSettingsTab({ control, errors, register }: Props) {
           title="العروض والترويج"
           description="فعّل الخيارات حسب الحاجة. التواريخ اختيارية — اتركها فارغة ليستمر العرض بلا انتهاء."
         >
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Controller
               control={control}
               name="isNewProduct"
@@ -210,7 +210,7 @@ export function ProductSettingsTab({ control, errors, register }: Props) {
                       />
                     </label>
                     {field.value ? (
-                      <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
                         <ProductFormField
                           label="سعر التخفيض"
                           htmlFor="product-deal-price"
@@ -299,7 +299,7 @@ export function ProductSettingsTab({ control, errors, register }: Props) {
                       />
                     </label>
                     {field.value ? (
-                      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                         <ProductFormField
                           label="سعر الجملة"
                           htmlFor="product-wholesale-price"
@@ -371,7 +371,7 @@ export function ProductSettingsTab({ control, errors, register }: Props) {
                       />
                     </label>
                     {field.value ? (
-                      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                         <ProductFormField
                           label="نسبة الخصم %"
                           htmlFor="product-discount-percent"
@@ -418,7 +418,7 @@ export function ProductSettingsTab({ control, errors, register }: Props) {
       ) : null}
 
       <ProductFormSection title="قنوات البيع" description="أين يظهر المنتج ويُباع.">
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           {(
             [
               {
@@ -467,7 +467,7 @@ export function ProductSettingsTab({ control, errors, register }: Props) {
 
       {sections.inventory ? (
         <ProductFormSection title="المخزون" description="كيف يتحرك مخزون هذا المنتج عند البيع.">
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {(
               [
                 {

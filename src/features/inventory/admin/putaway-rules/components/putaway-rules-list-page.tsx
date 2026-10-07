@@ -34,6 +34,7 @@ import {
   DialogFooter,
   DialogTitle,
   dialogShellBodyClass,
+  dialogMobileFullScreenClass,
   dialogShellContentClass,
   dialogShellHeaderClass,
 } from '@/components/ui/dialog';
@@ -319,7 +320,50 @@ export function PutawayRulesListPage() {
         }
       >
         {(rulesPage) => (
-          <div className="inv-table-host overflow-x-auto rounded-xl border border-border bg-card">
+          <>
+          {/* Phones: one card per rule (arrives at → stored in), instead of a 7-column table. */}
+          <div className="space-y-2.5 md:hidden">
+            {isLoading ? <p className="py-6 text-center text-sm text-muted-foreground">جاري التحميل…</p> : null}
+            {rulesPage.map((rule) => (
+              <div key={rule.id} className="space-y-2 rounded-xl border border-border bg-card p-3 shadow-soft">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 text-sm">
+                    <p className="text-xs text-muted-foreground">عندما يصل إلى</p>
+                    <p className="font-medium">{locationLabel(rule.arriveLocationId)}</p>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="h-9 shrink-0 text-destructive"
+                    onClick={() => void remove.mutateAsync(rule.id)}
+                  >
+                    حذف
+                  </Button>
+                </div>
+                <div className="text-sm">
+                  <p className="text-xs text-muted-foreground">يُخزَّن في</p>
+                  <p className="font-medium">
+                    {locationLabel(rule.storeLocationId)}
+                    {rule.subLocationId ? ` ← ${locationLabel(rule.subLocationId)}` : ''}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                  <span>
+                    {APPLIES_LABEL[rule.appliesTo]}: <span className="text-foreground">{appliesDisplay(rule)}</span>
+                  </span>
+                  <span>الطرد: <span className="text-foreground">{packagingLabel(rule.packagingType)}</span></span>
+                  <span>الأولوية: <span className="tabular-nums text-foreground">{rule.sequence ?? 10}</span></span>
+                </div>
+              </div>
+            ))}
+            {!isLoading && rulesPage.length === 0 ? (
+              <p className="rounded-xl border border-dashed border-border px-3 py-8 text-center text-sm text-muted-foreground">
+                لا توجد قواعد. أضف قاعدة افتراضية (كافة المنتجات → WH/Stock) لكل مستودع.
+              </p>
+            ) : null}
+          </div>
+          <div className="inv-table-host hidden overflow-x-auto rounded-xl border border-border bg-card md:block">
             <table className="inv-table-wide text-sm">
               <thead className="border-b border-border bg-muted/40 text-muted-foreground">
                 <tr>
@@ -378,11 +422,12 @@ export function PutawayRulesListPage() {
               </tbody>
             </table>
           </div>
+          </>
         )}
       </DirectoryPagedViews>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className={cn(dialogShellContentClass, 'max-w-xl sm:max-w-xl')}>
+        <DialogContent className={cn(dialogShellContentClass, dialogMobileFullScreenClass, 'max-w-xl sm:max-w-xl')}>
           <div className={dialogShellHeaderClass}>
             <DialogTitle className="text-base font-semibold">قاعدة تخزين جديدة</DialogTitle>
           </div>
