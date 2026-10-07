@@ -81,6 +81,34 @@ export type SystemOwnerCompanyApplication = {
   isVisible: boolean;
   isAlwaysEnabled: boolean;
   notes?: string | null;
+  /** App codes this app needs (manifest). */
+  dependsOn: string[];
+  /** Those still to enable for this company, in the order to enable them (indirect ones too). */
+  missingDependencies: string[];
+  /** Enabled apps of this company that need this one. */
+  enabledDependents: string[];
+};
+
+/** The System Owner "company data" buttons: real starting setup, or samples to try the system. */
+export type CompanyDataKind = 'starter' | 'demo';
+
+export type CompanyDataSetResult = {
+  code: string;
+  labelAr: string;
+  apps: string[];
+  /** Apps this set needs that the company has not enabled (not run). */
+  missingApps: string[];
+  created: number;
+  /** Already there: left as it is. */
+  skipped: number;
+};
+
+export type CompanyDataRun = {
+  kind: CompanyDataKind;
+  /** false: a preview (nothing written). */
+  applied: boolean;
+  sets: CompanyDataSetResult[];
+  totals: { created: number; skipped: number };
 };
 
 export type PatchCompanyApplicationDto = {
@@ -233,7 +261,14 @@ function mapCompanyApplication(raw: Record<string, unknown>): SystemOwnerCompany
     isVisible: readIsVisible(raw),
     isAlwaysEnabled: readIsAlwaysEnabled(raw),
     notes: (raw.notes as string | null | undefined) ?? null,
+    dependsOn: readCodes(raw.dependsOn),
+    missingDependencies: readCodes(raw.missingDependencies),
+    enabledDependents: readCodes(raw.enabledDependents),
   };
+}
+
+function readCodes(value: unknown): string[] {
+  return Array.isArray(value) ? value.map((v) => String(v)) : [];
 }
 
 function mapCatalogRequest(raw: unknown): CompanyAppCatalogRequest | null {
@@ -415,6 +450,21 @@ export const systemOwnerApi = {
       `/system-owner/companies/${companyId}/applications/${applicationId}`,
       { method: 'PATCH', body: payload },
     );
+  },
+
+  /** What the starter / demo button would create (nothing written). */
+  previewCompanyData(companyId: string, kind: CompanyDataKind) {
+    return apiRequest<CompanyDataRun>(`/system-owner/companies/${companyId}/data-sets/${kind}`, {
+      throwOnError: true,
+    });
+  },
+
+  /** Creates the starter / demo data (create-only: what exists is kept). */
+  applyCompanyData(companyId: string, kind: CompanyDataKind) {
+    return apiRequest<CompanyDataRun>(`/system-owner/companies/${companyId}/data-sets/${kind}`, {
+      method: 'POST',
+      throwOnError: true,
+    });
   },
 
   /** @deprecated Use patchCompanyApplication */

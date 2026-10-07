@@ -7,6 +7,7 @@ import {
   translateDeviceAuthErrorCode,
 } from '@/features/auth/lib/auth-api-messages';
 import { ApiError } from '@/shared/api/client';
+import { translateAppDependencyError } from '@/shared/api/app-dependency-messages';
 import { translateStoreStockMessage } from '@/shared/api/store-stock-messages';
 import type { ApiErrorEnvelope } from '@/shared/api/types';
 import { isApiErrorEnvelope } from '@/shared/api/types';
@@ -110,7 +111,8 @@ export function handleApiError(
     && /فرع|branch|warehouse.*(scope|access)|خارج نطاق/i.test(rawMessage);
 
   const knownAr =
-    translateKnownBackendMessage(rawMessage)
+    translateAppDependencyError(envelope)
+    ?? translateKnownBackendMessage(rawMessage)
     ?? translateRequestApprovalMessage(rawMessage);
 
   const displayMessage = knownAr

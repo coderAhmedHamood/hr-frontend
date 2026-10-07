@@ -6,6 +6,7 @@ import {
 } from '@/features/auth/lib/auth-api-messages';
 import { resolveApiBaseUrl } from '@/shared/api-base-url';
 import { applyActiveCompanyHeader } from '@/shared/api/request-context';
+import { translateAppDependencyError } from '@/shared/api/app-dependency-messages';
 import { translateStoreStockMessage } from '@/shared/api/store-stock-messages';
 import { publicConfig } from '@/shared/config';
 import {
@@ -246,6 +247,7 @@ function notifyApiFailure(envelope: ApiErrorEnvelope, status: number): void {
   const deviceAuthMessage = translateDeviceAuthErrorCode(extractApiErrorCode(envelope));
   const displayMessage =
     deviceAuthMessage ??
+    translateAppDependencyError(envelope) ??
     (status === 403
       ? 'ليس لديك صلاحية للوصول إلى هذا المورد'
       : translateFailureMessage(extractApiErrorMessage(envelope, `HTTP ${status}`)));
