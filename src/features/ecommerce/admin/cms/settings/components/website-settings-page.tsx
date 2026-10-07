@@ -38,6 +38,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { OrderStagesSettingsPanel } from '@/features/ecommerce/admin/orders/components/order-stages-settings-panel';
 import { cn } from '@/shared/utils';
 
 type SettingsTabValue =
@@ -49,6 +50,7 @@ type SettingsTabValue =
   | 'deliveryRates'
   | 'paymentAccounts'
   | 'stockSync'
+  | 'orderStages'
   | 'seo';
 
 const SETTINGS_TAB_VALUES: readonly SettingsTabValue[] = [
@@ -60,6 +62,7 @@ const SETTINGS_TAB_VALUES: readonly SettingsTabValue[] = [
   'deliveryRates',
   'paymentAccounts',
   'stockSync',
+  'orderStages',
   'seo',
 ];
 
@@ -286,6 +289,8 @@ export function WebsiteSettingsPage() {
         return { title: t('tabs.paymentAccounts'), description: t('paymentAccountsHint') };
       case 'stockSync':
         return { title: t('tabs.stockSync'), description: t('stockSyncHint') };
+      case 'orderStages':
+        return { title: t('tabs.orderStages'), description: t('orderStagesHint') };
       case 'seo':
         return { title: t('tabs.seo'), description: tSeo('formHint') };
     }
@@ -506,6 +511,12 @@ export function WebsiteSettingsPage() {
           <TabsContent value="stockSync" className="mt-4">
             <SettingsPanel>
               <StockSyncPanel companyId={companyId} onHeaderExtrasChange={setTabHeaderExtras} />
+            </SettingsPanel>
+          </TabsContent>
+
+          <TabsContent value="orderStages" className="mt-4">
+            <SettingsPanel>
+              <OrderStagesSettingsPanel companyId={companyId} />
             </SettingsPanel>
           </TabsContent>
 

@@ -44,6 +44,14 @@ import { DataTable, type ColumnDef } from '@/components/ui/data-table';
 import { DirectoryPagedViews, DEFAULT_PAGE_SIZE } from '@/components/ui/paged-list';
 import { Button } from '@/components/ui/button';
 import { cn, formatDisplayDate } from '@/shared/utils';
+import { useOrderStagesContext } from '@/features/ecommerce/admin/orders/hooks/use-order-stages';
+
+/** Order stages: whose orders (URL `assignee`). */
+const ASSIGNEE_FILTER_OPTIONS = [
+  { value: 'all', label: 'كل المسؤولين' },
+  { value: 'me', label: 'طلباتي' },
+  { value: 'unassigned', label: 'غير مسندة' },
+];
 
 type ViewMode = 'list' | 'kanban';
 
@@ -163,6 +171,9 @@ export function OrdersListPage() {
     ? (sourceParam as 'storefront' | 'seed')
     : undefined;
   const cityFilter = searchParams.get('city') ?? 'all';
+  const assigneeParam = searchParams.get('assignee') ?? 'all';
+  const assignee = assigneeParam === 'me' || assigneeParam === 'unassigned' ? assigneeParam : undefined;
+
   const dateFrom = searchParams.get('dateFrom') ?? '';
   const dateTo = searchParams.get('dateTo') ?? '';
   const view: ViewMode = searchParams.get('view') === 'list' ? 'list' : 'kanban';
@@ -173,6 +184,7 @@ export function OrdersListPage() {
       : Number(searchParams.get('pageSize')) || DEFAULT_PAGE_SIZE;
   const selectedOrderId = searchParams.get('order') ?? '';
 
+  const stagesContext = useOrderStagesContext(companyId).data ?? null;
   const geoCitiesQuery = useGeoCities(
     {
       companyId,
@@ -180,7 +192,8 @@ export function OrdersListPage() {
       limit: 200,
       archiveScope: 'active',
     },
-    Boolean(companyId),
+    // Stage handlers without "view orders" (e.g. a driver) skip the city list.
+    Boolean(companyId && stagesContext?.canReadAll),
   );
   const cityOptions = React.useMemo(
     () => [
@@ -207,6 +220,7 @@ export function OrdersListPage() {
     fulfilment?: string;
     source?: string;
     city?: string;
+    assignee?: string;
     dateFrom?: string;
     dateTo?: string;
     view?: ViewMode;
@@ -244,6 +258,10 @@ export function OrdersListPage() {
     if (next.city !== undefined) {
       if (next.city && next.city !== 'all') params.set('city', next.city);
       else params.delete('city');
+    }
+    if (next.assignee !== undefined) {
+      if (next.assignee && next.assignee !== 'all') params.set('assignee', next.assignee);
+      else params.delete('assignee');
     }
     if (next.dateFrom !== undefined) {
       if (next.dateFrom) params.set('dateFrom', next.dateFrom);
@@ -297,6 +315,7 @@ export function OrdersListPage() {
     fulfilment,
     source,
     city: cityFilter === 'all' ? undefined : cityFilter,
+    assignedTo: assignee,
     dateFrom: dateFrom || undefined,
     dateTo: dateTo || undefined,
     page: view === 'kanban' ? 1 : page,
@@ -386,6 +405,13 @@ export function OrdersListPage() {
             options: [...PAYMENT_STATUS_FILTER_OPTIONS],
           },
           {
+            id: 'assignee',
+            value: assignee ?? 'all',
+            onChange: (value) => updateParams({ assignee: value, page: 1 }),
+            placeholder: 'كل المسؤولين',
+            options: ASSIGNEE_FILTER_OPTIONS,
+          },
+          {
             id: 'fulfilment',
             value: fulfilment ?? 'all',
             onChange: (value) => updateParams({ fulfilment: value, page: 1 }),
@@ -420,6 +446,7 @@ export function OrdersListPage() {
       source,
       cityFilter,
       cityOptions,
+      assignee,
       view,
       dateFrom,
       dateTo,
@@ -473,6 +500,25 @@ export function OrdersListPage() {
           {ORDER_STATUS_LABELS_AR[order.status]}
         </Badge>
       ),
+    },
+    {
+      key: 'assignee',
+      title: 'المسؤول',
+      render: (order) =>
+        order.assignedUserId ? (
+          <span
+            className={cn(
+              'text-sm',
+              order.assignedUserId === stagesContext?.userId
+                ? 'font-semibold text-primary'
+                : 'text-foreground',
+            )}
+          >
+            {order.assignedUserName ?? 'موظف'}
+          </span>
+        ) : (
+          <span className="text-xs text-muted-foreground">غير مسند</span>
+        ),
     },
     {
       key: 'payment',

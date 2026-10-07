@@ -131,6 +131,12 @@ export function OrdersKanbanView({
                         </p>
                       ) : null}
 
+                      {order.assignedUserId ? (
+                        <p className="mt-1 truncate text-xs font-medium text-primary">
+                          المسؤول: {order.assignedUserName ?? 'موظف'}
+                        </p>
+                      ) : null}
+
                       <div
                         className={cn(
                           'mt-2 rounded-lg border px-2 py-1.5',

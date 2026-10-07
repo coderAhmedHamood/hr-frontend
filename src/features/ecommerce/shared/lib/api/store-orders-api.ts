@@ -1,5 +1,7 @@
 import { apiRequest, ensurePaginatedResult, type PaginatedResult } from '@/features/hr/lib/api/client';
 import type { CreateStoreOrderAttachmentInput,
+  OrderHistoryKind,
+  UpdateOrderDeliveryInput,
   Order,
   OrderAttachmentVisibilityFilter,
   OrderListQuery,
@@ -110,11 +112,18 @@ type StoreOrderDto = {
   totalAmount: string;
   estimatedDeliveryAt?: string | null;
   lines: StoreOrderLineDto[];
+  assignedUserId?: string | null;
+  assignedUserName?: string | null;
+  assignedAt?: string | null;
   statusHistory?: Array<{
     id?: string;
+    kind?: OrderHistoryKind;
     fromStatus?: Order['status'] | null;
     toStatus: Order['status'];
     changedBy?: string | null;
+    changedByName?: string | null;
+    assignedTo?: string | null;
+    assignedToName?: string | null;
     note?: string | null;
     createdAt: string;
   }>;
@@ -135,6 +144,8 @@ type StoreOrderListItemDto = {
   currencyCode: string;
   totalAmount: string;
   lineCount: number;
+  assignedUserId?: string | null;
+  assignedUserName?: string | null;
   createdAt: string;
 };
 
@@ -184,9 +195,13 @@ function mapStatusHistory(
   return [...rows]
     .map((row) => ({
       id: row.id,
+      kind: row.kind ?? 'status',
       fromStatus: row.fromStatus ?? null,
       toStatus: row.toStatus,
       changedBy: row.changedBy ?? null,
+      changedByName: row.changedByName ?? null,
+      assignedTo: row.assignedTo ?? null,
+      assignedToName: row.assignedToName ?? null,
       note: row.note ?? null,
       createdAt: row.createdAt,
     }))
@@ -231,6 +246,12 @@ function mapAdminOrder(dto: StoreOrderDto): Order {
     subtotalAmount: { amount: fromDecimalString(dto.subtotalAmount), currency },
     shippingFeeAmount: { amount: fromDecimalString(dto.shippingFeeAmount), currency },
     source: dto.source ?? 'storefront',
+    assignedUserId: dto.assignedUserId ?? null,
+    assignedUserName: dto.assignedUserName ?? null,
+    assignedAt: dto.assignedAt ?? null,
+    shipFullName: dto.shipFullName,
+    shipPhone: dto.shipPhone,
+    estimatedDeliveryAt: dto.estimatedDeliveryAt ?? null,
     statusHistory: mapStatusHistory(dto.statusHistory),
     attachments: mapAttachments(dto.attachments),
   };
@@ -253,6 +274,8 @@ function mapListItem(dto: StoreOrderListItemDto, companyId: string): Order {
     phone: dto.phone ?? undefined,
     paymentMethod: dto.paymentMethod,
     paymentStatus: dto.paymentStatus,
+    assignedUserId: dto.assignedUserId ?? null,
+    assignedUserName: dto.assignedUserName ?? null,
     source: 'storefront',
   };
 }
@@ -480,6 +503,7 @@ export async function fetchAdminStoreOrders(
       city: query.city,
       search: query.search,
       partnerId: query.partnerId,
+      assignedTo: query.assignedTo,
     },
   });
   const safe = ensurePaginatedResult(page);
@@ -521,7 +545,46 @@ export async function updateAdminStoreOrderStatus(
     body: {
       status: input.status,
       ...(input.note !== undefined ? { note: input.note } : {}),
+      ...(input.assigneeId !== undefined ? { assigneeId: input.assigneeId } : {}),
+      ...(input.paymentCollected ? { paymentCollected: true } : {}),
     },
+  });
+  return mapAdminOrder(dto);
+}
+
+/** Order stages: assign the order in its current stage (null takes it off). */
+export async function assignAdminStoreOrder(
+  id: string,
+  assigneeId: string | null,
+  note?: string | null,
+): Promise<Order> {
+  const dto = await apiRequest<StoreOrderDto>(`/store-admin/orders/${id}/assignee`, {
+    method: 'PATCH',
+    throwOnError: true,
+    body: { assigneeId, ...(note ? { note } : {}) },
+  });
+  return mapAdminOrder(dto);
+}
+
+/** An internal note in the order's trail (e.g. a failed delivery attempt). */
+export async function addAdminStoreOrderNote(id: string, note: string): Promise<Order> {
+  const dto = await apiRequest<StoreOrderDto>(`/store-admin/orders/${id}/notes`, {
+    method: 'POST',
+    throwOnError: true,
+    body: { note },
+  });
+  return mapAdminOrder(dto);
+}
+
+/** Corrects the delivery details of an open order / sets the expected date. */
+export async function updateAdminStoreOrderDelivery(
+  id: string,
+  input: UpdateOrderDeliveryInput,
+): Promise<Order> {
+  const dto = await apiRequest<StoreOrderDto>(`/store-admin/orders/${id}/delivery`, {
+    method: 'PATCH',
+    throwOnError: true,
+    body: input,
   });
   return mapAdminOrder(dto);
 }

@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useQueries } from '@tanstack/react-query';
-import { History, Store, UserRound } from 'lucide-react';
+import { History, Store, UserCheck, UserRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -72,8 +72,11 @@ function StatusHistoryTimeline({
   entries: OrderStatusHistoryEntry[];
   loading?: boolean;
 }) {
+  // The server sends the names; older responses without them are looked up.
   const nameById = useChangedByNames(
-    entries.map((entry) => entry.changedBy).filter((id): id is string => Boolean(id)),
+    entries
+      .filter((entry) => entry.changedBy && !entry.changedByName)
+      .map((entry) => entry.changedBy as string),
   );
 
   if (loading) {
@@ -92,8 +95,11 @@ function StatusHistoryTimeline({
     <ol className="relative space-y-0 border-s border-border/80 ms-3">
       {entries.map((entry, index) => {
         const actorLabel = entry.changedBy
-          ? nameById.get(entry.changedBy) ?? 'معالج…'
-          : 'المتجر / العميل';
+          ? (entry.changedByName ?? nameById.get(entry.changedBy) ?? 'معالج…')
+          : entry.kind === 'assignment'
+            ? 'إسناد تلقائي'
+            : 'المتجر / العميل';
+        const kind = entry.kind ?? 'status';
         const ActorIcon = entry.changedBy ? UserRound : Store;
 
         return (
@@ -101,14 +107,32 @@ function StatusHistoryTimeline({
             <span className="absolute -start-[5px] top-1.5 h-2.5 w-2.5 rounded-full border-2 border-background bg-primary" />
             <div className="space-y-1.5">
               <div className="flex flex-wrap items-center gap-1.5">
-                {entry.fromStatus ? (
+                {kind === 'status' ? (
                   <>
-                    <Badge variant="outline">{ORDER_STATUS_LABELS_AR[entry.fromStatus]}</Badge>
-                    <span className="text-xs text-muted-foreground">→</span>
+                    {entry.fromStatus ? (
+                      <>
+                        <Badge variant="outline">{ORDER_STATUS_LABELS_AR[entry.fromStatus]}</Badge>
+                        <span className="text-xs text-muted-foreground">→</span>
+                      </>
+                    ) : null}
+                    <Badge variant="secondary">{ORDER_STATUS_LABELS_AR[entry.toStatus]}</Badge>
                   </>
-                ) : null}
-                <Badge variant="secondary">{ORDER_STATUS_LABELS_AR[entry.toStatus]}</Badge>
+                ) : (
+                  <Badge variant="outline">
+                    {kind === 'assignment' ? 'إسناد' : kind === 'line' ? 'بند' : 'ملاحظة'}
+                    {' · '}
+                    {ORDER_STATUS_LABELS_AR[entry.toStatus]}
+                  </Badge>
+                )}
               </div>
+              {kind === 'assignment' || entry.assignedTo ? (
+                <p className="inline-flex items-center gap-1.5 text-sm font-medium text-primary">
+                  <UserCheck className="h-3.5 w-3.5" />
+                  {entry.assignedTo
+                    ? `أُسند إلى ${entry.assignedToName ?? 'موظف'}`
+                    : 'أُلغي الإسناد — عاد الطلب للمرحلة'}
+                </p>
+              ) : null}
               <p className="text-xs text-muted-foreground">{formatDateTime(entry.createdAt)}</p>
               <p className="inline-flex items-center gap-1.5 text-sm text-foreground">
                 <ActorIcon className="h-3.5 w-3.5 text-muted-foreground" />
