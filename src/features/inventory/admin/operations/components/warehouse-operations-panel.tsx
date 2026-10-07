@@ -788,6 +788,66 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
     },
   ];
 
+  /** Phones: reference, date and status on top, then what moved and where (one tap opens it). */
+  const operationMobileCard = (row: WarehouseOperation) => {
+    const { demand, actual } = operationListLineTotals(row);
+    const products = row.lines.map((line) => line.productName).filter(Boolean);
+    return (
+      <div className="space-y-2">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <p className="font-semibold" dir="ltr">
+              {row.reference || '—'}
+            </p>
+            <p className="text-xs text-muted-foreground">{formatDateTime(row.occurredAt)}</p>
+          </div>
+          <div className="flex shrink-0 items-center gap-1">
+            <Badge variant={statusBadgeVariant(row.status)}>
+              {WAREHOUSE_OPERATION_STATUS_LABELS_AR[row.status]}
+            </Badge>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9"
+              aria-label="حذف المستند"
+              onClick={(event) => {
+                event.stopPropagation();
+                setToDelete(row);
+              }}
+            >
+              <Trash2 className="h-4 w-4 text-destructive" />
+            </Button>
+          </div>
+        </div>
+        {products.length > 0 ? (
+          <p className="truncate text-sm">
+            {products[0]}
+            {products.length > 1 ? (
+              <span className="text-muted-foreground"> +{products.length - 1} أصناف</span>
+            ) : null}
+          </p>
+        ) : null}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="min-w-0">
+            {!scopedToWarehouse ? (
+              row.destinationWarehouseId && row.destinationWarehouseId !== row.warehouseId ? (
+                <WarehouseRouteChips
+                  from={warehouseNameById.get(row.warehouseId)}
+                  to={warehouseNameById.get(row.destinationWarehouseId)}
+                />
+              ) : (
+                <WarehouseChip name={warehouseNameById.get(row.warehouseId)} />
+              )
+            ) : row.partnerName ? (
+              <span className="text-xs text-muted-foreground">{row.partnerName}</span>
+            ) : null}
+          </div>
+          <DemandActualChips demand={demand} actual={actual} actualLabel={actualQuantityLabel} />
+        </div>
+      </div>
+    );
+  };
+
   const dialogs = (
     <>
       <WarehouseOperationDetailDialog
@@ -1413,6 +1473,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
           loading={isLoading}
           emptyText={meta.empty}
           onRowClick={(row) => setSelectedId(row.id)}
+          mobileCard={operationMobileCard}
         />
 
         {data ? (
@@ -1462,6 +1523,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
             loading={isLoading}
             emptyText={meta.empty}
             onRowClick={(row) => setSelectedId(row.id)}
+            mobileCard={operationMobileCard}
           />
         )}
       </DirectoryPagedViews>

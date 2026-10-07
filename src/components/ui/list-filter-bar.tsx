@@ -310,7 +310,10 @@ export const ListFilterBar = React.forwardRef<ListFilterBarHandle, ListFilterBar
               onOpenChange={(open) => {
                 if (open) sel.onOpen?.();
               }}
-              className={cn('h-8 w-[9rem] max-w-[9rem] text-xs', sel.className)}
+              className={cn(
+                'h-8 w-[9rem] max-w-[9rem] text-xs max-sm:h-10 max-sm:w-auto max-sm:min-w-[7rem] max-sm:max-w-none max-sm:flex-1',
+                sel.className,
+              )}
               options={sel.options
                 .filter((o) => o.value !== 'all' && o.value !== '')
                 .map((o) => ({ value: o.value, label: o.label }))}

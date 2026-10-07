@@ -21,14 +21,15 @@ export function EntityFilterSearchField({
   className,
   inputClassName,
 }: Props) {
+  // Phones: a row of its own, so the filters beside it never squeeze it to an icon.
   return (
-    <div className={cn('relative min-w-0 flex-1 sm:max-w-xs', className)}>
+    <div className={cn('relative min-w-0 flex-1 max-sm:basis-full sm:max-w-xs', className)}>
       <Search className="absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
       <Input
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className={cn('h-8 pr-8 text-xs', inputClassName)}
+        className={cn('h-8 pr-8 text-xs max-sm:h-10 max-sm:text-sm', inputClassName)}
       />
     </div>
   );
