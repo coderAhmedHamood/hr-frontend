@@ -16,7 +16,7 @@ export function ProductStatTile({ label, value, accent, size = 'md', className }
   return (
     <div
       className={cn(
-        'rounded-xl border p-3',
+        'min-w-0 rounded-xl border p-3 max-sm:p-2.5',
         accent ? 'border-primary/20 bg-primary/5' : 'border-border bg-muted/30',
         className,
       )}
@@ -25,7 +25,7 @@ export function ProductStatTile({ label, value, accent, size = 'md', className }
       <p
         className={cn(
           'mt-1 font-semibold tabular-nums tracking-tight',
-          size === 'lg' ? 'text-2xl' : 'text-xl',
+          size === 'lg' ? 'text-2xl max-sm:text-xl' : 'text-xl max-sm:text-lg',
           accent ? 'text-primary' : 'text-foreground',
         )}
         dir="ltr"

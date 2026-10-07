@@ -197,7 +197,7 @@ export function InventorySettingsPage() {
             title="دقة عرض الأرقام"
             description="يتحكم بالعرض في الشاشات فقط — القيم المحفوظة تبقى بدقة كاملة للمحاسبة."
           >
-            <div className="grid gap-4 sm:max-w-lg sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 sm:max-w-lg sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="quantity-display-decimals">خانات الكمية العشرية</Label>
                 <Input
@@ -275,7 +275,7 @@ export function InventorySettingsPage() {
             title="تكلفة المخزون"
             description="تؤثر على تكلفة الاستلام والصرف والتقارير — اختر طريقة ونطاقاً يناسب محاسبتك."
           >
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div className="space-y-1.5">
                 <Label htmlFor="costing-status">احتساب التكلفة</Label>
                 <Select

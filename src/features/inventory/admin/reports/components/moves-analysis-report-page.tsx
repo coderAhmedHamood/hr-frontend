@@ -208,7 +208,7 @@ export function MovesAnalysisReportPage() {
         iconName="BarChart3"
       />
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-5">
         <SummaryCard label="مستندات" value={summary.docs} />
         <SummaryCard label="بنود" value={summary.lines} />
         <SummaryCard label="وارد" value={summary.qtyIn} />
@@ -248,7 +248,7 @@ export function MovesAnalysisReportPage() {
 
 function SummaryCard({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-xl border border-border bg-card px-4 py-3 shadow-soft">
+    <div className="min-w-0 rounded-xl border border-border bg-card px-4 py-3 shadow-soft max-sm:px-3 max-sm:py-2.5">
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className="mt-1 text-xl font-semibold tabular-nums" dir="ltr">
         {value}

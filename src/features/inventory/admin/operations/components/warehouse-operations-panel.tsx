@@ -892,7 +892,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
                 title="المستودع والمواقع"
                 description="حدّد المستودع ومواقع الصرف/الاستلام قبل إضافة الأصناف."
               >
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {!scopedToWarehouse ? (
               <div className="space-y-1.5">
                 <Label>{meta.needsDestWarehouse ? 'مستودع الصرف (المصدر)' : 'المستودع'}</Label>
@@ -1317,7 +1317,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
                 description="التاريخ، الطرف، المستند المصدر، والملاحظات."
               >
                 <div className="space-y-4">
-                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     <div className="space-y-1.5">
                       <Label htmlFor="op-date">التاريخ</Label>
                       <Input id="op-date" type="datetime-local" dir="ltr" className="h-10" {...form.register('occurredAt')} />

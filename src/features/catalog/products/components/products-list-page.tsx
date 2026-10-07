@@ -7,7 +7,10 @@ import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
 import { PageHeaderPrimaryButton } from '@/components/layouts/page-header-primary-button';
 import * as React from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { Pencil, Plus, Trash2, Package } from 'lucide-react';
+import { Pencil, Plus, ScanBarcode, Trash2, Package } from 'lucide-react';
+import { toast } from 'sonner';
+import { BarcodeScannerDialog } from '@/components/shared/barcode-scanner-dialog';
+import { resolveScannedCode } from '@/features/catalog/products/lib/resolve-scanned-code';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
 import { useProducts } from '@/features/catalog/products/hooks/use-products';
 import { useProductMutations } from '@/features/catalog/products/hooks/use-product-mutations';
@@ -179,9 +182,35 @@ export function ProductsListPage() {
     }));
   }, [categoriesData, categoryByIdMap]);
 
+  const [scanOpen, setScanOpen] = React.useState(false);
+
+  /** Scan a product's barcode / SKU and open it (its stock per location is there). */
+  async function openScannedProduct(code: string) {
+    try {
+      const item = await resolveScannedCode(companyId, code);
+      if (!item) {
+        toast.error(`لا يوجد منتج بالرمز ${code}`);
+        return;
+      }
+      router.push(productDetailHref(productsBasePath, item.productId));
+    } catch {
+      // The API client already showed why.
+    }
+  }
+
   usePageHeaderActions(
     () => (
       <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
+        <button
+          type="button"
+          onClick={() => setScanOpen(true)}
+          disabled={!companyId}
+          aria-label="مسح باركود منتج"
+          className="flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-border bg-muted/40 px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground sm:px-3"
+        >
+          <ScanBarcode className="h-3.5 w-3.5 shrink-0" />
+          <span className="hidden sm:inline">مسح</span>
+        </button>
         <FilterToggleButton />
         <PageHeaderPrimaryButton icon={Plus} label="إضافة منتج" disabled={!companyId} onClick={openCreateDialog} />
       </div>
@@ -523,6 +552,12 @@ export function ProductsListPage() {
 
   return (
     <div className="flex flex-col gap-5">
+      <BarcodeScannerDialog
+        open={scanOpen}
+        onOpenChange={setScanOpen}
+        title="البحث عن منتج بالمسح"
+        onCode={(code) => void openScannedProduct(code)}
+      />
       <SetPageTitle
         titleAr="المنتجات"
         descriptionAr="كتالوج منتجات المتجر — الأسعار والمخزون وحالة كل منتج."

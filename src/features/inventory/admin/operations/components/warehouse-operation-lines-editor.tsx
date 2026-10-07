@@ -22,8 +22,8 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { OperationLineVariantSelect } from '@/features/inventory/admin/operations/components/operation-line-variant-select';
 import { formatVariantCompactLabel } from '@/features/inventory/admin/operations/lib/variant-display-label';
-import { BarcodeScannerDialog } from '@/features/inventory/admin/scan/components/barcode-scanner-dialog';
-import { resolveScannedCode } from '@/features/inventory/admin/scan/lib/resolve-scanned-code';
+import { BarcodeScannerDialog } from '@/components/shared/barcode-scanner-dialog';
+import { resolveScannedCode } from '@/features/catalog/products/lib/resolve-scanned-code';
 
 type Props = {
   companyId: string;

@@ -93,7 +93,7 @@ export function CatalogUomFormDialog({ uom, open, onOpenChange }: Props) {
             ) : null}
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="uom-packaging">نوع الطرد</Label>
               <Controller
@@ -136,7 +136,7 @@ export function CatalogUomFormDialog({ uom, open, onOpenChange }: Props) {
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="uom-code">الرمز (اختياري)</Label>
               <Input id="uom-code" dir="ltr" {...form.register('code')} placeholder="carton" />

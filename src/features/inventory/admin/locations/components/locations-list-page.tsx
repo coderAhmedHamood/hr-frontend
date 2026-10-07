@@ -695,7 +695,7 @@ export function LocationsListPage({ embeddedWarehouseId }: LocationsListPageProp
                 {typeHint ? <p className="text-xs text-muted-foreground">{typeHint}</p> : null}
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label htmlFor="loc-category">فئة التخزين</Label>
                   <Input id="loc-category" placeholder="اختياري" {...form.register('storageCategory')} />
@@ -723,7 +723,7 @@ export function LocationsListPage({ embeddedWarehouseId }: LocationsListPageProp
 
             <div className="space-y-3 rounded-xl border border-border p-3">
               <p className="text-sm font-semibold">العد الدوري</p>
-              <div className="grid gap-3 sm:grid-cols-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <div className="space-y-1.5">
                   <Label htmlFor="loc-freq">تواتر المخزون (أيام)</Label>
                   <Input

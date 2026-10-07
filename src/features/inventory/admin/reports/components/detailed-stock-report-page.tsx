@@ -323,7 +323,7 @@ export function DetailedStockReportPage() {
         iconName="ClipboardList"
       />
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
         <SummaryCard label="صفوف المخزون" value={summary.rows} />
         <SummaryCard label="الكمية الفعلية" value={summary.onHand} />
         <SummaryCard label="المتاح" value={summary.available} />
@@ -370,7 +370,7 @@ function SummaryCard({
   suffix?: string;
 }) {
   return (
-    <div className="rounded-xl border border-border bg-card px-4 py-3 shadow-soft">
+    <div className="min-w-0 rounded-xl border border-border bg-card px-4 py-3 shadow-soft max-sm:px-3 max-sm:py-2.5">
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className="mt-1 text-xl font-semibold tabular-nums" dir="ltr">
         {value.toLocaleString('en-US', { maximumFractionDigits: 2 })}

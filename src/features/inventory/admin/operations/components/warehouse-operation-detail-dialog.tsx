@@ -79,8 +79,8 @@ import {
   filterOperationFromLocations,
   filterOperationToLocations,
 } from '@/features/inventory/admin/operations/lib/operation-location-filters';
-import { BarcodeScannerDialog } from '@/features/inventory/admin/scan/components/barcode-scanner-dialog';
-import { resolveScannedCode } from '@/features/inventory/admin/scan/lib/resolve-scanned-code';
+import { BarcodeScannerDialog } from '@/components/shared/barcode-scanner-dialog';
+import { resolveScannedCode } from '@/features/catalog/products/lib/resolve-scanned-code';
 import { cn } from '@/shared/utils';
 
 type Props = {
