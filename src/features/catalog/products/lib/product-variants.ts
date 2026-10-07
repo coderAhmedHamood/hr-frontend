@@ -1,3 +1,4 @@
+import { companyCurrencyCode } from '@/features/auth/lib/company-currency';
 import type {
   ProductAttribute,
   ProductAttributeValue,
@@ -96,7 +97,7 @@ type SyncArgs = {
  * Dedupes attribute values and output rows so color×size never repeats keys.
  */
 export function syncProductVariants(args: SyncArgs): ProductVariant[] {
-  const currency = args.currency ?? 'YER';
+  const currency = args.currency ?? companyCurrencyCode();
   const variantAttrs = args.attributes.filter(
     (attribute) => attribute.createVariant !== 'never' && attribute.values.length > 0,
   );

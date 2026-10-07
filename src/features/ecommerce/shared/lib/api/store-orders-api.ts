@@ -1,3 +1,4 @@
+import { companyCurrencyCode } from '@/features/auth/lib/company-currency';
 import { apiRequest, ensurePaginatedResult, type PaginatedResult } from '@/features/hr/lib/api/client';
 import type { CreateStoreOrderAttachmentInput,
   OrderHistoryKind,
@@ -213,7 +214,7 @@ function mapAdminOrder(dto: StoreOrderDto): Order {
     paymentProofUrls: dto.paymentProofUrls,
     paymentProofUrl: dto.paymentProofUrl,
   });
-  const currency = dto.currencyCode || 'YER';
+  const currency = dto.currencyCode || companyCurrencyCode();
   return {
     id: dto.id,
     companyId: dto.companyId,
@@ -258,7 +259,7 @@ function mapAdminOrder(dto: StoreOrderDto): Order {
 }
 
 function mapListItem(dto: StoreOrderListItemDto, companyId: string): Order {
-  const currency = dto.currencyCode || 'YER';
+  const currency = dto.currencyCode || companyCurrencyCode(companyId);
   return {
     id: dto.id,
     companyId,

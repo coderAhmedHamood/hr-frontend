@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Building2, Check, ImagePlus, Loader2, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { companiesApi, type CountryProfile } from '@/features/hr/organization/lib/api/companies';
+import { ACCESS_PROFILE_KEY } from '@/features/auth/hooks/use-access-profile';
+import { CURRENCIES, currencyNameAr } from '@/shared/currencies';
 import { resolveUploadUrl, uploadResponseToStoredPath } from '@/shared/resolve-upload-url';
 import { cn } from '@/shared/utils';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
@@ -95,6 +97,17 @@ export function CompanySettingsTab() {
     queryFn: () => companiesApi.countryProfiles(),
     staleTime: 60 * 60_000,
   });
+  const queryClient = useQueryClient();
+  const currencies = useQuery({
+    queryKey: ['companies', 'currencies'],
+    queryFn: () => companiesApi.currencies(),
+    staleTime: 60 * 60_000,
+  });
+  const currencyStatus = useQuery({
+    queryKey: ['companies', 'currency-status', company?.id],
+    queryFn: () => companiesApi.currencyStatus(company!.id),
+    enabled: Boolean(company?.id),
+  });
   const [form, setForm] = React.useState<CompanySettingsFormState | null>(null);
   const [uploadingLogo, setUploadingLogo] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -146,8 +159,14 @@ export function CompanySettingsTab() {
     }
 
     try {
-      await update.mutateAsync(settingsFormToUpdateDto(form));
+      const currencyChanged = Boolean(company && form.currencyCode !== company.currencyCode);
+      await update.mutateAsync(settingsFormToUpdateDto(form, company ?? undefined));
       toast.success('تم حفظ بيانات الشركة');
+      if (currencyChanged) {
+        // Every screen reads the base currency from the access profile.
+        await queryClient.invalidateQueries({ queryKey: ACCESS_PROFILE_KEY });
+        await queryClient.invalidateQueries({ queryKey: ['companies', 'currency-status'] });
+      }
     } catch (err) {
       const { displayMessage } = handleApiError(err, 'companies.update');
       toast.error(displayMessage);
@@ -310,8 +329,8 @@ export function CompanySettingsTab() {
         <div className="space-y-3">
           <p className="text-xs font-semibold text-muted-foreground">الدولة الأساسية</p>
           <p className="text-[11px] leading-relaxed text-muted-foreground">
-            دولة واحدة للشركة. منها يأخذ المتجر العملة ومفتاح الهاتف ومنطقة الخريطة، وعليها تُبنى المواقع وأسعار
-            التوصيل وحسابات الدفع. المتاح حالياً: اليمن.
+            دولة واحدة للشركة. منها يأخذ المتجر مفتاح الهاتف ومنطقة الخريطة، وعليها تُبنى المواقع وأسعار التوصيل
+            وحسابات الدفع. المتاح حالياً: اليمن.
           </p>
           <div className="grid gap-3 sm:grid-cols-2">
             <FormField label="الدولة الأساسية">
@@ -329,6 +348,47 @@ export function CompanySettingsTab() {
               </Select>
             </FormField>
           </div>
+        </div>
+
+        <div className="space-y-3">
+          <p className="text-xs font-semibold text-muted-foreground">العملة الأساسية</p>
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            عملة واحدة للشركة تعتمدها كل التطبيقات: أسعار المنتجات والمتجر وطلباته، وتقييم المخزون، والرواتب، وجهات
+            الاتصال. تُغيَّر هنا فقط، وما دامت الشركة بلا سجلات مالية؛ عندها تنتقل إليها أسعار المنتجات وإعدادات
+            التطبيقات بنفس الأرقام (لا تحويل). العملات الأخرى وأسعار الصرف من عمل النظام المحاسبي.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <FormField label="العملة الأساسية">
+              <Select
+                value={form.currencyCode}
+                onValueChange={(currencyCode) => patch({ currencyCode })}
+                disabled={currencyStatus.data?.locked}
+              >
+                <SelectTrigger className="h-9" aria-label="العملة الأساسية">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(currencies.data?.length ? currencies.data : CURRENCIES).map((c) => (
+                    <SelectItem key={c.code} value={c.code}>
+                      {c.nameAr} ({c.code})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FormField>
+          </div>
+          {currencyStatus.data?.locked ? (
+            <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs leading-relaxed text-amber-900 dark:text-amber-200">
+              العملة مقفلة: توجد سجلات مالية —{' '}
+              {currencyStatus.data.usages.map((u) => `${u.labelAr} (${u.count})`).join('، ')}. تغييرها يحتاج تحويل هذه
+              السجلات، وهو من عمل النظام المحاسبي لاحقاً.
+            </p>
+          ) : company && form.currencyCode !== company.currencyCode ? (
+            <p className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-xs leading-relaxed text-sky-900 dark:text-sky-200">
+              عند الحفظ تصبح العملة {currencyNameAr(form.currencyCode)}، وتنتقل إليها أسعار المنتجات وعملة المتجر
+              وإعدادات التطبيقات بنفس الأرقام دون تحويل.
+            </p>
+          ) : null}
         </div>
 
         <div className="space-y-3">

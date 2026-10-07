@@ -12,7 +12,7 @@ import type {
 import { logStorefrontApi } from '@/features/ecommerce/storefront/lib/debug-storefront-api';
 import { storefrontPublicFetchInit } from '@/features/ecommerce/storefront/lib/api/store-http';
 import { mapStorefrontProduct, mapStorefrontProducts } from '@/features/ecommerce/storefront/lib/mappers/product-mapper';
-import { STORE_CURRENCY_CODE } from '@/features/ecommerce/domain/constants/store-currency';
+import { storeCurrencyCode } from '@/features/ecommerce/domain/constants/store-currency';
 import { resolveStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
 import { productsApi } from '@/features/catalog/products/lib/api/products';
 import { toNumber, toOptionalNumber } from '@/features/inventory/lib/api/numbers';
@@ -378,7 +378,7 @@ async function fetchPublicStoreVariantGraph(
 }
 
 function mapPublicProduct(dto: PublicProductDto): Product {
-  const currency = dto.priceCurrency || STORE_CURRENCY_CODE;
+  const currency = dto.priceCurrency || storeCurrencyCode();
   const compareAmount =
     dto.compareAtPriceAmount != null && dto.compareAtPriceAmount !== ''
       ? toNumber(dto.compareAtPriceAmount)

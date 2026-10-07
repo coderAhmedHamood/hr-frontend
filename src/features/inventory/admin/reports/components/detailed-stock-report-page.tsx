@@ -1,5 +1,7 @@
 'use client';
 
+import { companyCurrencyCode } from '@/features/auth/lib/company-currency';
+import { currencySymbolAr } from '@/shared/currencies';
 import * as React from 'react';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
@@ -108,7 +110,7 @@ export function DetailedStockReportPage() {
         stockValue,
         isEstimatedValue,
         valueUnavailable: !hasHistoricalCost && !isEstimatedValue,
-        costCurrency: row.costCurrency ?? 'YER',
+        costCurrency: row.costCurrency ?? companyCurrencyCode(),
         updatedAt: row.updatedAt,
       });
     }
@@ -253,7 +255,7 @@ export function DetailedStockReportPage() {
         ) : (
           <span className="font-semibold tabular-nums" dir="ltr">
             {row.unitCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{' '}
-            {row.costCurrency === 'YER' ? 'ر.ي' : row.costCurrency}
+            {currencySymbolAr(row.costCurrency)}
           </span>
         ),
     },
@@ -327,7 +329,7 @@ export function DetailedStockReportPage() {
         <SummaryCard label="صفوف المخزون" value={summary.rows} />
         <SummaryCard label="الكمية الفعلية" value={summary.onHand} />
         <SummaryCard label="المتاح" value={summary.available} />
-        <SummaryCard label="قيمة المخزون" value={summary.value} suffix="YER" />
+        <SummaryCard label="قيمة المخزون" value={summary.value} suffix={currencySymbolAr(companyCurrencyCode())} />
       </div>
 
       {isError ? <p className="text-sm text-destructive">تعذر تحميل المخزون التفصيلي.</p> : null}

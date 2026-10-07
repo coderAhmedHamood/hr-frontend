@@ -1,5 +1,6 @@
 'use client';
 
+import { companyCurrencyCode } from '@/features/auth/lib/company-currency';
 import * as React from 'react';
 import { CheckCircle2, Loader2, Save } from 'lucide-react';
 import {
@@ -141,8 +142,8 @@ export function ProductVariantsPanel({
         nameAr: variant.nameAr,
         attributeValueIds: variant.attributeValueIds,
         attributeLabels: variant.attributeLabels,
-        salePrice: { amount: Number(variant.salePrice) || 0, currency: 'YER' },
-        costPrice: { amount: Number(variant.costPrice) || 0, currency: 'YER' },
+        salePrice: { amount: Number(variant.salePrice) || 0, currency: companyCurrencyCode() },
+        costPrice: { amount: Number(variant.costPrice) || 0, currency: companyCurrencyCode() },
         quantity: Number(variant.quantity) || 0,
         stockStatus: variant.stockStatus,
         barcode: variant.barcode,

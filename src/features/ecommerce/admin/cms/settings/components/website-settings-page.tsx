@@ -38,6 +38,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { currencyNameAr } from '@/shared/currencies';
 import { OrderStagesSettingsPanel } from '@/features/ecommerce/admin/orders/components/order-stages-settings-panel';
 import { cn } from '@/shared/utils';
 
@@ -355,16 +356,10 @@ export function WebsiteSettingsPage() {
                 </Field>
                 <Field label={t('currency')} hint={t('currencyHint')} className="sm:col-span-2">
                   <Input
-                    dir="ltr"
                     className={FIELD}
-                    maxLength={8}
-                    value={draft.currency}
-                    onChange={(event) =>
-                      updateDraft({
-                        ...draft,
-                        currency: event.target.value.trim().toUpperCase() || 'YER',
-                      })
-                    }
+                    value={`${currencyNameAr(draft.currency)} (${draft.currency})`}
+                    readOnly
+                    aria-readonly
                   />
                 </Field>
               </div>

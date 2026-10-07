@@ -1,3 +1,4 @@
+import { companyCurrencyCode } from '@/features/auth/lib/company-currency';
 import {
   CONTRACT_NATURE_LABELS,
   CONTRACT_STATUS_LABELS,
@@ -52,7 +53,7 @@ export function emptyEmploymentContractForm(essentialArticleIds: string[] = []):
     probationDays: '90',
     annualLeaveDays: '21',
     baseSalary: '',
-    currency: 'SAR',
+    currency: companyCurrencyCode(),
     templateId: '',
     allowanceLines: [{ allowanceTypeId: '', amount: '' }],
     allowancesNote: '',

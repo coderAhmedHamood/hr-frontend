@@ -11,6 +11,8 @@ export type CompanySettingsFormState = {
   website: string;
   country: string;
   baseCountryCode: string;
+  /** Base currency (العملة الأساسية); sent only when changed. */
+  currencyCode: string;
   city: string;
   district: string;
   address: string;
@@ -32,6 +34,7 @@ export function companyToSettingsForm(company: CompanyResponseDto): CompanySetti
     website: company.website ?? '',
     country: company.country ?? '',
     baseCountryCode: company.baseCountryCode || 'YE',
+    currencyCode: company.currencyCode,
     city: company.city ?? '',
     district: company.district ?? '',
     address: company.address ?? '',
@@ -53,8 +56,13 @@ export function isValidHexColor(value: string): boolean {
   return HEX_COLOR_REGEX.test(value.trim());
 }
 
-export function settingsFormToUpdateDto(form: CompanySettingsFormState): UpdateCompanyDto {
+export function settingsFormToUpdateDto(
+  form: CompanySettingsFormState,
+  company?: { currencyCode: string },
+): UpdateCompanyDto {
   return {
+    // The base currency changes through its own guard: sent only when changed.
+    ...(company && form.currencyCode !== company.currencyCode ? { currencyCode: form.currencyCode } : {}),
     nameAr: form.nameAr.trim(),
     nameEn: emptyToNull(form.nameEn),
     commercialRegistrationNo: emptyToNull(form.commercialRegistrationNo),

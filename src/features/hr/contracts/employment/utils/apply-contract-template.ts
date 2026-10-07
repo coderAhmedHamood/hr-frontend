@@ -1,3 +1,4 @@
+import { companyCurrencyCode } from '@/features/auth/lib/company-currency';
 import type {
   ContractNature,
   ContractTemplateDto,
@@ -64,7 +65,7 @@ export function applyContractTemplateToForm(
     baseSalary: template.suggestedBaseSalary
       ? String(parseFloat(template.suggestedBaseSalary) || 0)
       : '',
-    currency: template.currency || 'SAR',
+    currency: template.currency || companyCurrencyCode(),
     allowancesNote: template.allowancesHint ?? '',
     allowanceLines:
       (template.allowanceLines?.length ?? 0) > 0
