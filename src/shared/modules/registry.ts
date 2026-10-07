@@ -17,6 +17,7 @@ export type ModuleId =
   | 'ecommerce'
   | 'inventory'
   | 'shopSales'
+  | 'pos'
   | 'contacts';
 
 export type ModuleDefinition = {
@@ -48,6 +49,8 @@ export const MODULE_REGISTRY: Record<ModuleId, ModuleDefinition> = {
     installable: true,
     applicationCodes: ['shop-sales', 'sale-deduct'],
   },
+  /** Point of sale: registers, shifts, cashier sales, returns (depends on products). */
+  pos: { id: 'pos', labelAr: 'نقاط البيع', installable: true, applicationCodes: ['pos'] },
   contacts: {
     id: 'contacts',
     labelAr: 'جهات الاتصال',

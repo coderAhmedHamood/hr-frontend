@@ -1,0 +1,359 @@
+'use client';
+
+import * as React from 'react';
+import { useSearchParams } from 'next/navigation';
+import { PackageCheck, Plus, Printer } from 'lucide-react';
+import { toast } from 'sonner';
+import { SetPageTitle } from '@/components/layouts/set-page-title';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  PAYMENT_METHOD_LABELS,
+  RETURN_CONDITION_LABELS,
+  type PosPaymentMethod,
+  type PosReturn,
+  type PosReturnCondition,
+  type PosSale,
+} from '@/features/pos/domain/types';
+import { usePosContext } from '@/features/pos/hooks/use-pos-context';
+import { lineRefundAmount, round2 } from '@/features/pos/lib/calc';
+import { formatDateTime, formatMoney, parseAmount } from '@/features/pos/lib/format';
+import { returnToPrintable } from '@/features/pos/lib/receipt';
+import { EmptyState, PosGate, PosPreviewNote, PrintPreviewDialog } from '@/features/pos/components/shared/pos-shared';
+
+type LineDraft = { quantity: number; condition: PosReturnCondition };
+
+function originalMethod(sale: PosSale): PosPaymentMethod {
+  const paid = sale.payments.filter((p) => p.kind === 'payment' && p.status === 'succeeded');
+  const top = [...paid].sort((a, b) => b.amount - a.amount)[0];
+  return top?.method ?? 'cash';
+}
+
+function NewReturnDialog({ open, initialSaleId, onClose }: { open: boolean; initialSaleId: string | null; onClose: () => void }) {
+  const { data, actions, userName, currency, can } = usePosContext();
+  const [saleQuery, setSaleQuery] = React.useState('');
+  const [saleId, setSaleId] = React.useState<string | null>(initialSaleId);
+  const [lines, setLines] = React.useState<Record<string, LineDraft>>({});
+  const [reason, setReason] = React.useState('');
+  const [method, setMethod] = React.useState<PosPaymentMethod>('cash');
+  const [reference, setReference] = React.useState('');
+  const [sessionId, setSessionId] = React.useState<string>('');
+  const [openedAt] = React.useState(() => Date.now());
+
+  const sale = data.sales.find((s) => s.id === saleId && s.status === 'completed') ?? null;
+  const openSessions = data.sessions.filter((s) => s.status === 'open');
+
+  React.useEffect(() => {
+    if (open) setSaleId(initialSaleId);
+  }, [open, initialSaleId]);
+
+  React.useEffect(() => {
+    setLines({});
+    setReason('');
+    setReference('');
+    if (sale) {
+      setMethod(originalMethod(sale));
+      setSessionId(openSessions.find((s) => s.registerId === sale.registerId)?.id ?? openSessions[0]?.id ?? '');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [saleId]);
+
+  const matches = saleQuery.trim()
+    ? data.sales.filter((s) => s.status === 'completed' && (s.number ?? '').toLowerCase().includes(saleQuery.trim().toLowerCase())).slice(0, 6)
+    : [];
+
+  const ageDays = sale?.completedAt ? (openedAt - new Date(sale.completedAt).getTime()) / 86_400_000 : 0;
+  const outOfWindow = !!sale && ageDays > data.settings.returns.windowDays;
+  const chosen = sale
+    ? sale.lines
+        .map((l) => ({ line: l, draft: lines[l.id] }))
+        .filter((x): x is { line: (typeof sale.lines)[number]; draft: LineDraft } => !!x.draft && x.draft.quantity > 0)
+    : [];
+  const amount = round2(chosen.reduce((a, x) => a + lineRefundAmount(x.line, x.draft.quantity), 0));
+  const otherMethod = !!sale && method !== originalMethod(sale);
+  const otherMethodBlocked = otherMethod && data.settings.returns.refundToOtherMethodNeedsApproval && !can('pos.refund.other-method');
+  const cashWithoutSession = method === 'cash' && !sessionId;
+  const valid = !!sale && chosen.length > 0 && reason.trim() && !otherMethodBlocked && !cashWithoutSession && !outOfWindow;
+
+  const submit = () => {
+    if (!sale || !actions || !valid) return;
+    const refundDone = method === 'cash' || !!reference.trim();
+    const hasDamaged = chosen.some((x) => x.draft.condition === 'damaged');
+    const { number } = actions.createReturn({
+      saleId: sale.id,
+      saleNumber: sale.number ?? sale.id,
+      sessionId: sessionId || null,
+      createdBy: userName,
+      reason: reason.trim(),
+      lines: chosen.map((x) => ({
+        saleLineId: x.line.id,
+        name: x.line.variantName ? `${x.line.name} — ${x.line.variantName}` : x.line.name,
+        quantity: x.draft.quantity,
+        condition: x.draft.condition,
+        amount: lineRefundAmount(x.line, x.draft.quantity),
+      })),
+      refund: { method, amount, reference: reference.trim() || null, status: refundDone ? 'done' : 'pending' },
+      damagedDecision: hasDamaged ? 'pending' : null,
+    });
+    toast.success(`أُنشئ المرتجع ${number}${refundDone ? '' : ' — رد المال بانتظار التنفيذ'}`);
+    onClose();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>مرتجع جديد</DialogTitle>
+        </DialogHeader>
+        <div className="max-h-[70vh] space-y-4 overflow-y-auto text-sm">
+          {!sale ? (
+            <div className="space-y-2">
+              <Label>رقم إيصال البيع</Label>
+              <Input value={saleQuery} onChange={(e) => setSaleQuery(e.target.value)} placeholder="POS1-000123" dir="ltr" />
+              <div className="space-y-1">
+                {matches.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    className="flex w-full justify-between rounded-md border border-border px-3 py-2 text-start hover:bg-muted/50"
+                    onClick={() => setSaleId(s.id)}
+                  >
+                    <span dir="ltr">{s.number}</span>
+                    <span>{formatMoney(s.totals.total, currency)} · {formatDateTime(s.completedAt)}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center justify-between rounded-md bg-muted/50 px-3 py-2">
+                <span>
+                  البيع <b dir="ltr">{sale.number}</b> · {formatDateTime(sale.completedAt)} · {sale.stockSource === 'inventory' ? 'من المخازن' : 'دون تتبع'}
+                </span>
+                <Button size="sm" variant="ghost" onClick={() => setSaleId(null)}>تغيير</Button>
+              </div>
+              {outOfWindow ? (
+                <p className="text-xs text-destructive">تجاوز مدة المرتجع ({data.settings.returns.windowDays} يوم).</p>
+              ) : null}
+
+              <div className="space-y-2">
+                <div className="text-xs font-semibold text-muted-foreground">1. الأصناف واستلام البضاعة</div>
+                {sale.lines.map((l) => {
+                  const returnable = l.quantity - l.returnedQuantity;
+                  const draft = lines[l.id] ?? { quantity: 0, condition: 'resellable' as PosReturnCondition };
+                  return (
+                    <div key={l.id} className="grid grid-cols-[1fr_80px_150px] items-center gap-2 rounded-md border border-border p-2">
+                      <div>
+                        <div className="font-medium">{l.name}{l.variantName ? ` — ${l.variantName}` : ''}</div>
+                        <div className="text-xs text-muted-foreground">
+                          مباع {l.quantity} · مرتجع سابقًا {l.returnedQuantity} · للقطعة {formatMoney(lineRefundAmount(l, 1))}
+                        </div>
+                      </div>
+                      <Input
+                        className="h-8"
+                        dir="ltr"
+                        inputMode="numeric"
+                        disabled={returnable <= 0}
+                        value={String(draft.quantity)}
+                        onChange={(e) => {
+                          const q = Math.min(returnable, Math.max(0, Math.round(parseAmount(e.target.value))));
+                          setLines((x) => ({ ...x, [l.id]: { ...draft, quantity: q } }));
+                        }}
+                      />
+                      <Select
+                        value={draft.condition}
+                        onValueChange={(v) => setLines((x) => ({ ...x, [l.id]: { ...draft, condition: v as PosReturnCondition } }))}
+                      >
+                        <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {(Object.keys(RETURN_CONDITION_LABELS) as PosReturnCondition[]).map((c) => (
+                            <SelectItem key={c} value={c}>{RETURN_CONDITION_LABELS[c]}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  );
+                })}
+                <p className="text-xs text-muted-foreground">
+                  الصالح يعود إلى موقع البيع إن كان البيع من المخازن. التالف يذهب إلى موقع غير قابل للبيع وينتظر قرارًا. «لم يُستلم» تعويض سعر دون بضاعة.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <div className="text-xs font-semibold text-muted-foreground">2. رد المال</div>
+                <div className="grid gap-2 sm:grid-cols-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">الوسيلة</Label>
+                    <Select value={method} onValueChange={(v) => setMethod(v as PosPaymentMethod)}>
+                      <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {(Object.keys(PAYMENT_METHOD_LABELS) as PosPaymentMethod[]).map((m) => (
+                          <SelectItem key={m} value={m}>
+                            {PAYMENT_METHOD_LABELS[m]}{m === originalMethod(sale) ? ' (الأصلية)' : ''}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {method === 'cash' ? (
+                    <div className="space-y-1">
+                      <Label className="text-xs">من درج الوردية</Label>
+                      <Select value={sessionId} onValueChange={setSessionId}>
+                        <SelectTrigger className="h-9"><SelectValue placeholder="لا وردية مفتوحة" /></SelectTrigger>
+                        <SelectContent>
+                          {openSessions.map((s) => (
+                            <SelectItem key={s.id} value={s.id}>
+                              {data.registers.find((r) => r.id === s.registerId)?.name} · {s.cashierName}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      <Label className="text-xs">مرجع الرد (إن نُفّذ الآن)</Label>
+                      <Input className="h-9" dir="ltr" value={reference} onChange={(e) => setReference(e.target.value)} />
+                    </div>
+                  )}
+                  <div className="space-y-1">
+                    <Label className="text-xs">المبلغ</Label>
+                    <div className="flex h-9 items-center rounded-md border border-border bg-muted/40 px-3 font-semibold">
+                      {formatMoney(amount, currency)}
+                    </div>
+                  </div>
+                </div>
+                {otherMethodBlocked ? <p className="text-xs text-destructive">الرد بوسيلة غير الأصلية يحتاج صلاحية الموافقة.</p> : null}
+                {cashWithoutSession ? <p className="text-xs text-destructive">الرد النقدي يحتاج وردية مفتوحة.</p> : null}
+                {method !== 'cash' && !reference.trim() ? (
+                  <p className="text-xs text-muted-foreground">دون مرجع يُحفظ الرد «بانتظار التنفيذ» حتى يُسجَّل لاحقًا.</p>
+                ) : null}
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs">السبب</Label>
+                <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="مقاس غير مناسب، عيب مصنعي…" />
+              </div>
+            </>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>إلغاء</Button>
+          <Button onClick={submit} disabled={!valid}>إنشاء المرتجع</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ReturnRow({ ret }: { ret: PosReturn }) {
+  const { actions, userName, currency, can } = usePosContext();
+  const [reference, setReference] = React.useState('');
+  const [printOpen, setPrintOpen] = React.useState(false);
+  const damaged = ret.lines.filter((l) => l.condition === 'damaged');
+
+  return (
+    <div className="space-y-2 rounded-xl border border-border bg-card p-4 shadow-soft">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <div className="flex items-center gap-2 font-semibold">
+            <span dir="ltr">{ret.number}</span>
+            {ret.refund.status === 'done' ? <Badge variant="success">رُدّ المال</Badge> : <Badge variant="warning">رد المال بانتظار التنفيذ</Badge>}
+            {ret.damagedDecision === 'pending' ? <Badge variant="destructive">تالف بانتظار قرار</Badge> : null}
+          </div>
+          <div className="text-xs text-muted-foreground">
+            على البيع <span dir="ltr">{ret.saleNumber}</span> · {formatDateTime(ret.createdAt)} · {ret.createdBy} · {ret.reason}
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <b>{formatMoney(ret.refund.amount, currency)}</b>
+          <Button size="sm" variant="outline" onClick={() => setPrintOpen(true)}>
+            <Printer className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+      <ul className="text-xs text-muted-foreground">
+        {ret.lines.map((l) => (
+          <li key={l.saleLineId}>
+            {l.quantity} × {l.name} · {RETURN_CONDITION_LABELS[l.condition]} · {formatMoney(l.amount)}
+          </li>
+        ))}
+      </ul>
+      {ret.refund.status === 'pending' && can('pos.refund') ? (
+        <div className="flex flex-wrap items-end gap-2 border-t border-border pt-2">
+          <span className="text-xs">رد {PAYMENT_METHOD_LABELS[ret.refund.method]}: سجّل المرجع بعد تنفيذه على الجهاز أو الحساب</span>
+          <Input className="h-8 w-44" dir="ltr" value={reference} onChange={(e) => setReference(e.target.value)} />
+          <Button
+            size="sm"
+            disabled={!reference.trim()}
+            onClick={() => {
+              actions?.recordRefund(ret.id, reference.trim(), userName);
+              toast.success('سُجّل رد المال');
+            }}
+          >
+            تسجيل التنفيذ
+          </Button>
+        </div>
+      ) : null}
+      {damaged.length > 0 && ret.damagedDecision === 'pending' ? (
+        <div className="flex flex-wrap items-center gap-2 border-t border-border pt-2 text-xs">
+          <PackageCheck className="h-4 w-4 text-muted-foreground" />
+          مصير التالف ({damaged.reduce((a, l) => a + l.quantity, 0)} قطعة، في موقع غير قابل للبيع):
+          {(['scrap', 'supplier', 'repair'] as const).map((d) => (
+            <Button key={d} size="sm" variant="outline" onClick={() => actions?.setDamagedDecision(ret.id, d)}>
+              {d === 'scrap' ? 'إتلاف' : d === 'supplier' ? 'إرجاع للمورد' : 'إصلاح'}
+            </Button>
+          ))}
+        </div>
+      ) : ret.damagedDecision && ret.damagedDecision !== 'pending' ? (
+        <div className="text-xs text-muted-foreground">
+          قرار التالف: {ret.damagedDecision === 'scrap' ? 'إتلاف' : ret.damagedDecision === 'supplier' ? 'إرجاع للمورد' : 'إصلاح'}
+        </div>
+      ) : null}
+      <PrintPreviewDialog open={printOpen} onOpenChange={setPrintOpen} title="طباعة إشعار المرتجع" document={returnToPrintable(ret)} />
+    </div>
+  );
+}
+
+function Returns() {
+  const { data, can } = usePosContext();
+  const params = useSearchParams();
+  const initialSale = params.get('sale');
+  const [open, setOpen] = React.useState(!!initialSale);
+
+  return (
+    <div className="space-y-4 sm:space-y-5">
+      <SetPageTitle titleAr="مرتجعات نقاط البيع" iconName="Receipt" />
+      <PosPreviewNote />
+      <div className="flex justify-end">
+        {can('pos.return') ? (
+          <Button size="sm" onClick={() => setOpen(true)}>
+            <Plus className="h-4 w-4" />
+            مرتجع جديد
+          </Button>
+        ) : null}
+      </div>
+      {data.returns.length === 0 ? (
+        <EmptyState title="لا مرتجعات" description="كل مرتجع يشير إلى سطور بيعه الأصلي، واستلام البضاعة ورد المال جزءان مستقلان." />
+      ) : (
+        <div className="space-y-3">
+          {data.returns.map((r) => (
+            <ReturnRow key={r.id} ret={r} />
+          ))}
+        </div>
+      )}
+      <NewReturnDialog open={open} initialSaleId={initialSale} onClose={() => setOpen(false)} />
+    </div>
+  );
+}
+
+export function PosReturnsPage() {
+  return (
+    <PosGate permission="pos.return">
+      <Returns />
+    </PosGate>
+  );
+}

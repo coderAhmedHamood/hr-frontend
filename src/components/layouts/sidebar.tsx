@@ -15,7 +15,8 @@ import {
   Megaphone,
 } from 'lucide-react';
 import { cn } from '@/shared/utils';
-import { isHrAppPath, isSystemAppPath, isSystemOwnerAppPath, isEcommerceAppPath, isInventoryAppPath, isCatalogAppPath, isContactsAppPath, isAccountingAppPath } from '@/shared/app-paths';
+import { isHrAppPath, isSystemAppPath, isSystemOwnerAppPath, isEcommerceAppPath, isInventoryAppPath, isCatalogAppPath, isContactsAppPath, isAccountingAppPath, isPosAppPath } from '@/shared/app-paths';
+import { posNavGroups, posOverviewItem } from '@/features/pos/constants/nav';
 import { Logo } from '@/components/layouts/logo';
 import { useDefaultCompanyBranding } from '@/features/auth/hooks/use-default-company-branding';
 import { useSidebar } from '@/components/layouts/sidebar-context';
@@ -404,6 +405,27 @@ function buildContactsMobileNav(): MobileNavItem[] {
   return items;
 }
 
+function buildPosMobileNav(): MobileNavItem[] {
+  const items: MobileNavItem[] = [
+    { key: 'apps', label: 'التطبيقات', href: '/', icon: LayoutGrid },
+    { key: 'overview', label: posOverviewItem.labelAr, href: posOverviewItem.href, icon: posOverviewItem.icon },
+  ];
+  for (const group of posNavGroups) {
+    items.push({
+      key: group.key,
+      label: group.labelAr,
+      icon: group.icon,
+      children: group.items.map((item) => ({
+        label: item.labelAr,
+        href: item.href,
+        icon: item.icon,
+        match: 'prefix' as const,
+      })),
+    });
+  }
+  return items;
+}
+
 function MobileDrawer({
   items,
   onClose,
@@ -598,9 +620,11 @@ export function Sidebar() {
   const catalogEnabled = isModuleEnabledFor('catalog', activeCompanyId, moduleContext);
   const shopSalesEnabled = isModuleEnabledFor('shopSales', activeCompanyId, moduleContext);
   const contactsEnabled = isModuleEnabledFor('contacts', activeCompanyId, moduleContext);
+  const posEnabled = isModuleEnabledFor('pos', activeCompanyId, moduleContext);
   const tNav = useTranslations('ecommerceAdmin.nav');
 
-  const inAppShell = isHrAppPath(pathname)
+  const inAppShell = (posEnabled && isPosAppPath(pathname))
+    || isHrAppPath(pathname)
     || isSystemAppPath(pathname)
     || isSystemOwnerAppPath(pathname)
     || isAccountingAppPath(pathname)
@@ -656,6 +680,8 @@ export function Sidebar() {
     ? systemOwnerMobileNav
     : isSystemApp
     ? systemMobileNav
+    : posEnabled && isPosAppPath(pathname)
+    ? buildPosMobileNav()
     : isAccountingAppPath(pathname)
       ? buildAccountingMobileNav()
       : contactsEnabled && isContactsAppPath(pathname)

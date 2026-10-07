@@ -66,6 +66,7 @@ import {
   accountingOverviewItem,
   flattenAccountingNavItems,
 } from '@/features/accounting/constants/nav';
+import { posNavGroups, posOverviewItem } from '@/features/pos/constants/nav';
 import { UserMenuDropdown } from '@/components/layouts/user-menu-dropdown';
 import { AppsLauncherButton } from '@/components/layouts/apps-launcher-button';
 import { useModuleEnablementContext } from '@/features/auth/hooks/use-system-owner';
@@ -80,6 +81,7 @@ import {
   isContactsAppPath,
   isAccountingAppPath,
   isLauncherPath,
+  isPosAppPath,
 } from '@/shared/app-paths';
 import { isModuleEnabledFor } from '@/shared/modules/registry';
 import { systemOwnerRoutes } from '@/features/system-owner/constants/routes';
@@ -494,6 +496,34 @@ function buildContactsNavConfig(): NavItem[] {
   return items;
 }
 
+/** نظرة عامة | العمليات | التقارير | التهيئة */
+function buildPosNavConfig(): NavItem[] {
+  const items: NavItem[] = [
+    {
+      key: 'pos-overview',
+      label: posOverviewItem.labelAr,
+      href: posOverviewItem.href,
+      icon: posOverviewItem.icon,
+      isActive: (pathname) => pathname === posOverviewItem.href,
+    },
+  ];
+  for (const group of posNavGroups) {
+    items.push({
+      key: `pos-${group.key}`,
+      label: group.labelAr,
+      icon: group.icon,
+      isActive: (pathname) =>
+        group.items.some((item) => pathname === item.href || pathname.startsWith(`${item.href}/`)),
+      groups: [
+        {
+          items: group.items.map((item) => ({ label: item.labelAr, href: item.href, icon: item.icon })),
+        },
+      ],
+    });
+  }
+  return items;
+}
+
 /** نظرة عامة | التهيئة */
 function buildAccountingNavConfig(): NavItem[] {
   const items: NavItem[] = [
@@ -750,7 +780,9 @@ export function Topbar() {
   const inCatalogApp = catalogEnabled && isCatalogAppPath(pathname);
   const inContactsApp = contactsEnabled && isContactsAppPath(pathname);
   const inAccountingApp = isAccountingAppPath(pathname);
-  const inAppShell = inHrApp || inSystemApp || inSystemOwnerApp || inEcommerceApp || inInventoryApp || inCatalogApp || inContactsApp || inAccountingApp;
+  const posEnabled = isModuleEnabledFor('pos', activeCompanyId, moduleContext);
+  const inPosApp = posEnabled && isPosAppPath(pathname);
+  const inAppShell = inHrApp || inSystemApp || inSystemOwnerApp || inEcommerceApp || inInventoryApp || inCatalogApp || inContactsApp || inAccountingApp || inPosApp;
   const tEcommerceNav = useTranslations('ecommerceAdmin.nav');
   const ecommerceNavConfig = React.useMemo(
     () => buildEcommerceNavConfig((key) => tEcommerceNav(key as 'overview'), catalogEnabled),
@@ -764,10 +796,13 @@ export function Topbar() {
   const catalogNavConfig = React.useMemo(() => buildCatalogNavConfig(), []);
   const contactsNavConfig = React.useMemo(() => buildContactsNavConfig(), []);
   const accountingNavConfig = React.useMemo(() => buildAccountingNavConfig(), []);
+  const posNavConfig = React.useMemo(() => buildPosNavConfig(), []);
   const activeNavConfig = inSystemOwnerApp
     ? systemOwnerNavConfig
     : inSystemApp
     ? systemNavConfig
+    : inPosApp
+    ? posNavConfig
     : inAccountingApp
       ? accountingNavConfig
       : inContactsApp
@@ -785,6 +820,8 @@ export function Topbar() {
       ? 'النظام'
       : inHrApp
         ? 'الموارد البشرية'
+        : inPosApp
+        ? 'نقاط البيع'
         : inContactsApp
           ? 'جهات الاتصال'
           : inInventoryApp
