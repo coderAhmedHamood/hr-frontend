@@ -88,11 +88,11 @@ export type CountryProfile = {
   mapRegion: string;
 };
 
-/** The base currency and what locks it (records holding amounts in it). */
+/** The base currency and the records that keep their own currency on a change. */
 export type CompanyCurrencyStatus = {
   currencyCode: string;
   currency: CurrencyDefinition | null;
-  locked: boolean;
+  hasRecords: boolean;
   usages: Array<{ app: string; labelAr: string; count: number }>;
 };
 
