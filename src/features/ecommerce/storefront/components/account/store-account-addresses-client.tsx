@@ -47,6 +47,7 @@ import {
 import { Link, useRouter } from '@/i18n/navigation';
 import { cn } from '@/shared/utils';
 import { useStorefrontAuthReady } from '@/features/ecommerce/storefront/hooks/use-storefront-auth-ready';
+import { useStoreCountry } from '@/features/ecommerce/storefront/hooks/use-store-country';
 
 type FormState = {
   label: string;
@@ -118,6 +119,12 @@ export function StoreAccountAddressesClient() {
   const companyId = getStorefrontCompanyId();
   const { data: geoCountries = [] } = usePublicGeoCountries(companyId, Boolean(companyId));
   const useGeoCascade = geoCountries.length > 0;
+  const country = useStoreCountry();
+  // The store delivers in its own country: shown, not chosen.
+  const storeGeoCountry =
+    geoCountries.find((row) => row.code?.toUpperCase() === country.code.toUpperCase()) ??
+    geoCountries[0] ??
+    null;
 
   const hydrated = useStorefrontAuthReady();
   const [loading, setLoading] = React.useState(true);
@@ -129,6 +136,14 @@ export function StoreAccountAddressesClient() {
   const [busyId, setBusyId] = React.useState<string | null>(null);
   const [deleteTargetId, setDeleteTargetId] = React.useState<string | null>(null);
 
+  React.useEffect(() => {
+    if (!dialogOpen || !storeGeoCountry) return;
+    setForm((prev) =>
+      prev.countryId === storeGeoCountry.id
+        ? prev
+        : { ...prev, countryId: storeGeoCountry.id, cityId: null, districtId: null, city: '', district: '' },
+    );
+  }, [dialogOpen, storeGeoCountry]);
 
   const handleAuthError = React.useCallback(
     (err: unknown) => {
@@ -198,7 +213,11 @@ export function StoreAccountAddressesClient() {
 
     const payload = {
       addressType: 'shipping' as const,
-      label: form.label || t('account.addresses.defaultLabel'),
+      // No name to type: an address is named after its district and city.
+      label:
+        form.label.trim() ||
+        [form.district.trim(), form.city.trim()].filter(Boolean).join('، ') ||
+        t('account.addresses.defaultLabel'),
       countryId: form.countryId,
       cityId: form.cityId,
       districtId: form.districtId,
@@ -208,7 +227,7 @@ export function StoreAccountAddressesClient() {
       building: form.building || null,
       notes: form.notes || null,
       isDefault: form.isDefault,
-      countryCode: form.countryId ? null : 'YE',
+      countryCode: form.countryId ? null : country.code,
       latitude: form.latitude,
       longitude: form.longitude,
     };
@@ -427,19 +446,19 @@ export function StoreAccountAddressesClient() {
               </DialogTitle>
             </DialogHeader>
             <DialogBody className={cn(dialogShellBodyClass, 'space-y-3')}>
-              <div className="space-y-1.5">
-                <Label htmlFor="addr-label">{t('account.addresses.label')}</Label>
-                <Input
-                  id="addr-label"
-                  value={form.label}
-                  onChange={(e) => setForm((prev) => ({ ...prev, label: e.target.value }))}
-                  placeholder={t('account.addresses.labelPlaceholder')}
-                />
-              </div>
               {useGeoCascade ? (
+                <>
+                <p className="inline-flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
+                  <MapPin className="h-3.5 w-3.5" aria-hidden />
+                  {t('checkout.countryLocked', {
+                    country: storeGeoCountry?.nameAr ?? country.nameAr,
+                  })}
+                </p>
                 <GeoCascadeSelect
                   companyId={companyId}
                   mode="public"
+                  showCountry={false}
+                  autoSelectSingle
                   value={{
                     countryId: form.countryId,
                     cityId: form.cityId,
@@ -465,6 +484,7 @@ export function StoreAccountAddressesClient() {
                   }}
                   className="sm:grid-cols-1"
                 />
+                </>
               ) : (
                 <>
                   <div className="space-y-1.5">
@@ -529,6 +549,7 @@ export function StoreAccountAddressesClient() {
                     }))
                   }
                   height={260}
+                  region={country.mapRegion}
                   className="min-w-0 max-w-full"
                 />
               </div>

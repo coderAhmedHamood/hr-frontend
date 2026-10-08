@@ -246,7 +246,8 @@
       "attachmentsMax": "الحد الأقصى {max} مرفقات للطلب",
       "attachmentSize": "حجم الملف كبير جداً",
       "attachmentType": "تعذّر إرفاق الملف"
-    }
+    },
+    "countryLocked": "التوصيل داخل {country} فقط"
   },
   "orders": {
     "myOrdersTitle": "طلباتي",
@@ -302,7 +303,7 @@
     "formTitle": "تسجيل الدخول",
     "formDescription": "ادخل بالبريد الإلكتروني أو رقم الجوال وكلمة المرور.",
     "identifier": "البريد أو رقم الجوال",
-    "identifierPlaceholder": "you@example.com أو 0501234567",
+    "identifierPlaceholder": "you@example.com أو {example}",
     "password": "كلمة المرور",
     "showPassword": "إظهار كلمة المرور",
     "hidePassword": "إخفاء كلمة المرور",
@@ -317,12 +318,15 @@
     "continueGuest": "متابعة كزائر",
     "backToCart": "العودة للسلة",
     "checkoutRequiredHint": "أكمل تسجيل الدخول لربط طلبك بحسابك. سلتك محفوظة وسنعود بك لإتمام الدفع.",
-    "noAccount": "ليس لديك حساب؟",
+    "noAccount": "عميل جديد؟ أنشئ حسابك في أقل من دقيقة.",
     "createAccount": "إنشاء حساب",
     "errors": {
       "required": "البريد/الجوال وكلمة المرور مطلوبان",
       "generic": "تعذر تسجيل الدخول. حاول مرة أخرى."
-    }
+    },
+    "passwordHint": "كلمة مرور حسابك في هذا المتجر التي أنشأتها عند التسجيل — وليست كلمة مرور بريدك الإلكتروني.",
+    "passwordPlaceholder": "كلمة مرور حسابك في المتجر",
+    "createAccountCta": "إنشاء حساب جديد"
   },
   "register": {
     "title": "إنشاء حساب",
@@ -334,13 +338,13 @@
     "email": "البريد الإلكتروني",
     "mobile": "رقم الجوال",
     "password": "كلمة المرور",
-    "passwordHint": "6 أحرف على الأقل",
+    "passwordHint": "كلمة مرور جديدة تختارها الآن لحسابك في هذا المتجر (6 أحرف على الأقل). لا تكتب كلمة مرور بريدك الإلكتروني.",
     "showPassword": "إظهار كلمة المرور",
     "hidePassword": "إخفاء كلمة المرور",
     "submit": "إنشاء الحساب",
     "submitting": "جاري إنشاء الحساب...",
     "success": "تم إنشاء الحساب وتسجيل الدخول",
-    "hasAccount": "لديك حساب بالفعل؟",
+    "hasAccount": "لديك حساب في المتجر بالفعل؟",
     "signIn": "تسجيل الدخول",
     "mockHint": "وضع تجريبي محلي — التسجيل يحفظ الجلسة محلياً حتى ربط الـ API.",
     "errors": {
@@ -348,7 +352,10 @@
       "emailMobileRequired": "البريد الإلكتروني ورقم الجوال مطلوبان معاً",
       "passwordMin": "كلمة المرور يجب أن تكون 6 أحرف على الأقل",
       "generic": "تعذر إنشاء الحساب. حاول مرة أخرى."
-    }
+    },
+    "passwordNew": "أنشئ كلمة مرور للمتجر",
+    "passwordPlaceholder": "كلمة مرور جديدة للمتجر",
+    "signInCta": "تسجيل الدخول"
   },
   "forgotPassword": {
     "title": "نسيت كلمة المرور",
@@ -583,5 +590,29 @@
     "light": "فاتح",
     "dark": "داكن",
     "system": "النظام"
+  },
+  "authTabs": {
+    "login": "تسجيل الدخول",
+    "register": "إنشاء حساب",
+    "aria": "الدخول أو إنشاء حساب"
+  },
+  "fields": {
+    "mobile": {
+      "hint": "رقم جوال في {country} — مثال: {example}",
+      "errors": {
+        "empty": "رقم الجوال مطلوب.",
+        "letters": "رقم الجوال يُكتب بالأرقام فقط.",
+        "country": "اكتب رقم جوال من {country} (+{code}).",
+        "length": "رقم الجوال {length} أرقام بعد +{code} — مثال: {example}",
+        "prefix": "هذا ليس رقم جوال صحيحًا في {country} — يبدأ بـ {prefixes}، مثال: {example}"
+      }
+    },
+    "email": {
+      "suggest": "هل تقصد",
+      "suggestEnd": "؟",
+      "required": "البريد الإلكتروني مطلوب.",
+      "invalid": "اكتب بريدًا صحيحًا مثل name@gmail.com",
+      "typo": "تحقق من البريد الإلكتروني — يبدو أن فيه خطأ بعد @."
+    }
   }
 }

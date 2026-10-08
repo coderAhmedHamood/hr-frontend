@@ -30,6 +30,16 @@ import {
 } from '@/components/ui/dialog';
 import { Link, useRouter } from '@/i18n/navigation';
 import { useStorefrontAuthReady } from '@/features/ecommerce/storefront/hooks/use-storefront-auth-ready';
+import { useStoreCountry } from '@/features/ecommerce/storefront/hooks/use-store-country';
+import { parseStoreMobile, storeMobileForField } from '@/features/ecommerce/domain/store-mobile';
+import {
+  StoreMobileInput,
+  useStoreMobileError,
+} from '@/features/ecommerce/storefront/components/forms/store-mobile-input';
+import {
+  StoreEmailInput,
+  storeEmailBlocker,
+} from '@/features/ecommerce/storefront/components/forms/store-email-input';
 
 function initialsFromName(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -52,7 +62,10 @@ export function StoreAccountClient() {
   const [editPhone, setEditPhone] = React.useState('');
   const [editEmail, setEditEmail] = React.useState('');
   const [saving, setSaving] = React.useState(false);
+  const [submitted, setSubmitted] = React.useState(false);
   const [loggingOut, setLoggingOut] = React.useState(false);
+  const country = useStoreCountry();
+  const mobileError = useStoreMobileError();
 
 
   React.useEffect(() => {
@@ -84,10 +97,10 @@ export function StoreAccountClient() {
   React.useEffect(() => {
     if (customer) {
       setEditName(customer.name);
-      setEditPhone(customer.phone);
+      setEditPhone(storeMobileForField(customer.phone, country));
       setEditEmail(customer.email);
     }
-  }, [customer]);
+  }, [customer, country]);
 
   if (!hydrated || !customer) {
     return <div className="h-64 animate-pulse rounded-2xl bg-muted/40" />;
@@ -95,8 +108,19 @@ export function StoreAccountClient() {
 
   async function saveProfile(event: React.FormEvent) {
     event.preventDefault();
+    setSubmitted(true);
     if (!editName.trim() || !editPhone.trim() || !editEmail.trim()) {
       toast.error(t('register.errors.emailMobileRequired'));
+      return;
+    }
+    const emailIssue = storeEmailBlocker(editEmail);
+    if (emailIssue) {
+      toast.error(t(`fields.email.${emailIssue}`));
+      return;
+    }
+    const parsedMobile = parseStoreMobile(editPhone, country);
+    if (!parsedMobile.ok) {
+      toast.error(mobileError(parsedMobile, country));
       return;
     }
     if (!accessToken) {
@@ -107,8 +131,8 @@ export function StoreAccountClient() {
     try {
       const session = await updatePartnerProfile(accessToken, {
         name: editName,
-        email: editEmail,
-        mobile: editPhone,
+        email: editEmail.trim().toLowerCase(),
+        mobile: parsedMobile.e164,
       });
       setSession(session);
       setEditOpen(false);
@@ -255,21 +279,23 @@ export function StoreAccountClient() {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="edit-phone">{t('account.mobile')}</Label>
-              <Input
+              <StoreMobileInput
                 id="edit-phone"
-                dir="ltr"
                 value={editPhone}
-                onChange={(e) => setEditPhone(e.target.value)}
+                onChange={setEditPhone}
+                country={country}
+                showError={submitted}
+                required
               />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="edit-email">{t('account.email')}</Label>
-              <Input
+              <StoreEmailInput
                 id="edit-email"
-                type="email"
-                dir="ltr"
                 value={editEmail}
-                onChange={(e) => setEditEmail(e.target.value)}
+                onChange={setEditEmail}
+                showError={submitted}
+                required
               />
             </div>
             <DialogFooter>

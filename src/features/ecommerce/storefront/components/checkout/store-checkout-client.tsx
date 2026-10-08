@@ -67,6 +67,9 @@ import {
 import type { CreateStoreOrderAttachmentInput } from '@/features/ecommerce/domain/types/order';
 import { Button } from '@/components/ui/button';
 import { GoogleLocationPicker, type GoogleLocationValue } from '@/components/ui/google-location-picker';
+import type { StoreCountry } from '@/features/ecommerce/domain/constants/store-country';
+import { parseStoreMobile } from '@/features/ecommerce/domain/store-mobile';
+import { useStoreMobileError } from '@/features/ecommerce/storefront/components/forms/store-mobile-input';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -128,12 +131,17 @@ function paymentAccountInstructions(
 
 type CheckoutClientProps = {
   currency: string;
-  /** The company's base country: for an address without a geo country. */
-  countryCode: string;
+  /**
+   * The company's base country: the store delivers there only (the country is
+   * shown, not chosen), and its mobile rule checks the phone.
+   */
+  country: StoreCountry;
 };
 
-export function StoreCheckoutClient({ currency: storeCurrency, countryCode }: CheckoutClientProps) {
+export function StoreCheckoutClient({ currency: storeCurrency, country }: CheckoutClientProps) {
   const t = useTranslations('storefront');
+  const countryCode = country.code;
+  const mobileError = useStoreMobileError();
   const locale = useLocale() as StorefrontLocale;
   const router = useRouter();
   const lines = useStorefrontCartUi((s) => s.lines);
@@ -189,8 +197,12 @@ export function StoreCheckoutClient({ currency: storeCurrency, countryCode }: Ch
   // often carry a catalog country the order API then rejects.
   React.useEffect(() => {
     if (!geoCountriesFetched) return;
-    const allowed = new Set(geoCountries.map((country) => country.id));
-    const fallback = geoCountries[0]?.id ?? null;
+    const allowed = new Set(geoCountries.map((row) => row.id));
+    // The store's country; the first published one when its code is not set up.
+    const fallback =
+      geoCountries.find((row) => row.code?.toUpperCase() === countryCode.toUpperCase())?.id ??
+      geoCountries[0]?.id ??
+      null;
     setAddress((prev) => {
       if (prev.countryId && allowed.has(prev.countryId)) return prev;
       if (prev.countryId === fallback) return prev;
@@ -201,7 +213,7 @@ export function StoreCheckoutClient({ currency: storeCurrency, countryCode }: Ch
         districtId: prev.countryId && !allowed.has(prev.countryId) ? null : prev.districtId,
       };
     });
-  }, [geoCountriesFetched, geoCountries]);
+  }, [geoCountriesFetched, geoCountries, countryCode]);
   const [customerNote, setCustomerNote] = React.useState('');
   const [paymentMethod, setPaymentMethod] = React.useState<CheckoutPaymentMethod>('cash');
   const [paymentAccountId, setPaymentAccountId] = React.useState<string | null>(null);
@@ -485,10 +497,13 @@ export function StoreCheckoutClient({ currency: storeCurrency, countryCode }: Ch
   function validateAddress(): boolean {
     const errors: Partial<Record<keyof CheckoutAddressInput, string>> = {};
     const fullName = (customer?.name?.trim() || address.fullName).trim();
-    const phone = (customer?.phone?.trim() || address.phone).trim();
+    const rawPhone = (customer?.phone?.trim() || address.phone).trim();
     if (!fullName) errors.fullName = t('checkout.errors.required');
-    if (!phone || phone.replace(/\D/g, '').length < 9) {
-      errors.phone = t('checkout.errors.phone');
+    // One form of the number (+967…), the same rule as sign-up and the API.
+    const parsedPhone = parseStoreMobile(rawPhone, country);
+    const phone = parsedPhone.ok ? parsedPhone.e164 : rawPhone;
+    if (!parsedPhone.ok) {
+      errors.phone = mobileError(parsedPhone, country) ?? t('checkout.errors.phone');
     }
     if (!address.countryId || !address.cityId || !address.city.trim()) {
       errors.city =
@@ -556,7 +571,11 @@ export function StoreCheckoutClient({ currency: storeCurrency, countryCode }: Ch
       const orderAddress: CheckoutAddressInput = {
         ...address,
         fullName: (customer?.name?.trim() || address.fullName).trim(),
-        phone: (customer?.phone?.trim() || address.phone).trim(),
+        phone: (() => {
+          const raw = (customer?.phone?.trim() || address.phone).trim();
+          const parsed = parseStoreMobile(raw, country);
+          return parsed.ok ? parsed.e164 : raw;
+        })(),
       };
       const result = await placeStorefrontOrder({
         locale,
@@ -846,11 +865,24 @@ export function StoreCheckoutClient({ currency: storeCurrency, countryCode }: Ch
                         {t('checkout.errors.geoUnavailable')}
                       </p>
                     ) : (
+                      <>
+                      <p className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
+                        <MapPin className="h-3.5 w-3.5" aria-hidden />
+                        {t('checkout.countryLocked', {
+                          country:
+                            locale === 'en'
+                              ? (geoCountries.find((row) => row.id === address.countryId)?.nameEn ??
+                                country.nameEn)
+                              : (geoCountries.find((row) => row.id === address.countryId)?.nameAr ??
+                                country.nameAr),
+                        })}
+                      </p>
                       <GeoCascadeSelect
                         companyId={companyId}
                         mode="public"
-                        showCountry={geoCountries.length !== 1}
-                        className={geoCountries.length === 1 ? 'sm:grid-cols-2' : undefined}
+                        showCountry={false}
+                        autoSelectSingle
+                        className="sm:grid-cols-2"
                         value={{
                           countryId: address.countryId ?? null,
                           cityId: address.cityId ?? null,
@@ -875,6 +907,7 @@ export function StoreCheckoutClient({ currency: storeCurrency, countryCode }: Ch
                           district: t('checkout.district'),
                         }}
                       />
+                      </>
                     )}
                     {(addressErrors.city || addressErrors.district) && (
                       <p className="mt-1.5 text-xs text-destructive">
@@ -910,9 +943,11 @@ export function StoreCheckoutClient({ currency: storeCurrency, countryCode }: Ch
                           lat: location.lat,
                           lng: location.lng,
                           mapAddress: location.address,
+                          street: prev.street.trim() ? prev.street : location.address,
                         }))
                       }
                       height={280}
+                      region={country.mapRegion}
                       className="min-w-0 max-w-full"
                     />
                   </div>

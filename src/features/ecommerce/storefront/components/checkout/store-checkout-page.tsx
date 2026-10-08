@@ -23,7 +23,7 @@ export function StoreCheckoutPage({ config }: { config: StorefrontCompanyConfig 
         </h1>
         <p className="max-w-xl text-sm text-muted-foreground">{t('checkout.description')}</p>
       </header>
-      <StoreCheckoutClient currency={config.currency} countryCode={config.country.code} />
+      <StoreCheckoutClient currency={config.currency} country={config.country} />
     </div>
   );
 }

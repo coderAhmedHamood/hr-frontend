@@ -19,6 +19,8 @@ type Props = {
   defaultZoom: number;
   height: number;
   interactive: boolean;
+  /** ISO country code: place search stays in it. */
+  region: string;
   onRuntimeError?: () => void;
 };
 
@@ -64,6 +66,7 @@ export default function GoogleLocationPickerInner({
   defaultZoom,
   height,
   interactive,
+  region,
   onRuntimeError,
 }: Props) {
   const { reverseGeocode } = useGoogleReverseGeocode();
@@ -133,6 +136,7 @@ export default function GoogleLocationPickerInner({
           <GooglePlaceAutocompleteInput
             className="w-full"
             placeholder="ابحث عن عنوان…"
+            region={region}
             onPlaceSelect={(place) => void applyPoint(place.lat, place.lng, place.address)}
           />
           <Button

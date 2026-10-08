@@ -14,6 +14,12 @@ export type StoreCountry = {
   phoneCode: string;
   /** Map picker region. */
   mapRegion: string;
+  /** Digits of a mobile after the dialling code (absent from an older backend). */
+  mobileLength?: number;
+  /** First digits of a mobile after the dialling code. */
+  mobilePrefixes?: string[];
+  /** A mobile in local form, shown as a hint. */
+  mobileExample?: string;
 };
 
 export const DEFAULT_STORE_COUNTRY: StoreCountry = {
@@ -23,4 +29,7 @@ export const DEFAULT_STORE_COUNTRY: StoreCountry = {
   currencyCode: 'YER',
   phoneCode: '967',
   mapRegion: 'YE',
+  mobileLength: 9,
+  mobilePrefixes: ['7'],
+  mobileExample: '771234567',
 };
