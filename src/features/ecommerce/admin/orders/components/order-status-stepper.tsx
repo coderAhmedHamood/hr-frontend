@@ -225,7 +225,8 @@ export function OrderStatusStepper({
             (!canTransitionOrderStatus(order, step.status) || Boolean(stageBlock));
 
           return (
-            <li key={step.id} className={cn('flex min-w-[4.25rem] items-start sm:min-w-0', isLast ? 'shrink-0' : 'flex-1')}>
+            // Phones: every step fits the width (no steps hidden off-screen).
+            <li key={step.id} className={cn('flex min-w-0 flex-1 items-start', isLast && 'sm:flex-none sm:shrink-0')}>
               <div className="flex w-full min-w-0 flex-col items-center gap-1.5">
                 <div className="flex w-full items-center">
                   {index > 0 ? (
@@ -254,7 +255,7 @@ export function OrderStatusStepper({
                     }
                     onClick={() => applyStep(step)}
                     className={cn(
-                      'flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-xs font-semibold transition-colors',
+                      'flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-xs font-semibold transition-colors sm:h-9 sm:w-9',
                       step.kind === 'payment' && !done && !active && 'border-dashed',
                       done && 'border-primary bg-primary text-primary-foreground',
                       active &&
@@ -285,7 +286,7 @@ export function OrderStatusStepper({
                 </div>
                 <span
                   className={cn(
-                    'max-w-[5rem] text-center text-[11px] font-medium leading-tight sm:max-w-[5.5rem] sm:text-xs',
+                    'max-w-full text-center text-[10.5px] font-medium leading-tight sm:max-w-[5.5rem] sm:text-xs',
                     active
                       ? step.kind === 'payment'
                         ? 'text-amber-700 dark:text-amber-400'

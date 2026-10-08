@@ -415,8 +415,9 @@ export function ProductDetailPage({ productId }: Props) {
               }}
               className="w-full space-y-4"
             >
-              <div className="sto-tabs-scroll sticky top-0 z-10 -mx-1 rounded-2xl px-1 pb-1">
-                <TabsList className="sto-tabs-scroll h-auto min-w-full w-max justify-start gap-1 rounded-2xl border border-border/60 bg-muted/70 p-1.5 backdrop-blur">
+              {/* Phones: every tab visible in a grid (no hidden tabs to swipe to). */}
+              <div className="sto-tabs-scroll z-10 -mx-1 rounded-2xl px-1 pb-1 sm:sticky sm:top-0">
+                <TabsList className="grid h-auto w-full grid-cols-3 gap-1 rounded-2xl border border-border/60 bg-muted/70 p-1.5 backdrop-blur sm:overflow-x-auto sm:flex sm:min-w-full sm:w-max sm:justify-start">
                   {visibleTabs.map(({ value, label, icon: Icon }) => {
                     const hasError = formHasErrorForFields(form.formState.errors, TAB_FIELDS[value]);
                     return (

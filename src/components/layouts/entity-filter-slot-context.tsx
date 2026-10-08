@@ -48,8 +48,18 @@ function serializeFilterSlotDeps(deps: React.DependencyList): string {
   }
 }
 
+/** Phones (below `md`): filters start folded behind the filter button. */
+function isPhoneViewport(): boolean {
+  return typeof window !== 'undefined' && window.matchMedia('(max-width: 767.98px)').matches;
+}
+
 /**
  * Renders the filter toolbar into the app layout slot above the page body.
+ *
+ * The panel opens when the page mounts on wide screens and starts folded on
+ * phones (it took a third of the screen above the list). Afterwards only the
+ * filter button opens or folds it: a filter change re-renders the panel
+ * without reopening it.
  */
 export function useEntityFilterSlot(render: () => React.ReactNode, deps: React.DependencyList): void {
   const { renderFnRef, reRenderSlotRef } = useEntityFilterSlotRegion();
@@ -60,19 +70,19 @@ export function useEntityFilterSlot(render: () => React.ReactNode, deps: React.D
 
   const depsKey = serializeFilterSlotDeps(deps);
 
-  const publishFilterSlot = React.useCallback(() => {
-    settersRef.current.setFilterPanelOpen(true);
-    reRenderSlotRef.current?.();
-  }, [reRenderSlotRef, settersRef]);
-
   React.useLayoutEffect(() => {
     renderFnRef.current = () => renderRef.current();
-    publishFilterSlot();
+    settersRef.current.setFilterPanelOpen(!isPhoneViewport());
+    reRenderSlotRef.current?.();
 
     return () => {
       renderFnRef.current = null;
       reRenderSlotRef.current?.();
       settersRef.current.setFilterPanelOpen(false);
     };
-  }, [depsKey, publishFilterSlot, renderFnRef, reRenderSlotRef, settersRef]);
+  }, [renderFnRef, reRenderSlotRef, settersRef]);
+
+  React.useLayoutEffect(() => {
+    reRenderSlotRef.current?.();
+  }, [depsKey, reRenderSlotRef]);
 }

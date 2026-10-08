@@ -389,7 +389,7 @@ export function DeliveryRatesPanel({ companyId, currencyCode, onHeaderExtrasChan
                 key={row.id}
                 className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card px-3 py-2.5"
               >
-                <div className="min-w-0 flex-1">
+                <div className="min-w-0 basis-full sm:basis-0 sm:flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="text-sm font-medium text-foreground">{row.name}</p>
                     <Badge variant="subtle">
@@ -416,7 +416,7 @@ export function DeliveryRatesPanel({ companyId, currencyCode, onHeaderExtrasChan
                       : row.districts.map((d) => d.nameAr).join('، ') || 'بدون أحياء'}
                   </p>
                 </div>
-                <div className="flex items-center gap-1">
+                <div className="ms-auto flex items-center gap-1">
                   {canUpdate && !row.isArchived ? (
                     <Button type="button" variant="ghost" size="sm" onClick={() => openEdit(row)}>
                       <Pencil className="h-4 w-4" />
