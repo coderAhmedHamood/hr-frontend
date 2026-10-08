@@ -183,7 +183,7 @@
     "loginRequiredToast": "Please sign in first to link the order to your account",
     "paymentMockHint": "After you attach a receipt, the store reviews payment before preparing the order.",
     "paymentProofHint": "If you paid by card or bank transfer, you can attach one or more receipt photos so the store can verify them before preparing.",
-    "paymentProofLabel": "Transfer receipt (optional)",
+    "paymentProofLabel": "Transfer receipts (optional)",
     "paymentProofLimit": "{count} of {max} attachments",
     "paymentProofAttached": "Payment receipt attached",
     "paymentProofAttachedCount": "{count} attachments added",
@@ -196,8 +196,8 @@
     "paymentQrTitle": "Scan QR to pay",
     "paymentQrAlt": "Payment QR code for {name}",
     "paymentQrHint": "Open your wallet or banking app and scan this code, then attach the receipt below.",
-    "attachmentsLabel": "Order attachments (optional)",
-    "attachmentsHint": "Attach images or PDF files related to your order — {count} of {max}.",
+    "attachmentsLabel": "Extra order files (optional)",
+    "attachmentsHint": "Not payment receipts. An image or PDF about the order itself, such as a note or reference — {count} of {max}.",
     "attachmentsRemove": "Remove attachment",
     "paymentMethods": {
       "cash_on_delivery": {
