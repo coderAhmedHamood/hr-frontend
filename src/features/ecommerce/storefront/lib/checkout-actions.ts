@@ -87,6 +87,8 @@ export async function placeStorefrontOrder(
       ) {
         return { ok: false, error: STORE_COUNTRY_UNAVAILABLE_ERROR };
       }
+      // No answer (network, timeout): the generic "try again" message.
+      if (error.status === 0) return { ok: false, error: '' };
       return { ok: false, error: error.message };
     }
     if (error instanceof Error && error.message) {

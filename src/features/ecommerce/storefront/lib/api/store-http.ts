@@ -1,5 +1,6 @@
 import { resolveApiBaseUrl } from '@/shared/api-base-url';
 import { publicConfig } from '@/shared/config';
+import { withRequestTimeout } from '@/shared/api/request-timeout';
 import { logStorefrontApi } from '@/features/ecommerce/storefront/lib/debug-storefront-api';
 import { isStorefrontBuildFallbackEnabled } from '@/features/ecommerce/storefront/lib/default-company-config';
 
@@ -128,6 +129,7 @@ export async function publicStoreRequest<T>(
       headers,
       ...storefrontPublicFetchInit(method),
       body: init.body !== undefined ? JSON.stringify(init.body) : undefined,
+      signal: withRequestTimeout(),
     });
 
     if (response.status === 204) {

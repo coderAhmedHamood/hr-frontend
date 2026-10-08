@@ -26,15 +26,9 @@ import {
   fromDecimalString,
   isStoreHttpEnabled,
   publicStoreRequest,
-  StoreHttpError,
   toDecimalString,
 } from '@/features/ecommerce/storefront/lib/api/store-http';
 import { resolvePaymentProofUrls } from '@/features/ecommerce/domain/lib/payment-proofs';
-import {
-  STORE_CURRENCY_MISMATCH_ERROR,
-  isProductStoreCurrencyMismatch,
-} from '@/features/ecommerce/domain/constants/store-currency';
-import { patchProductStoreCurrency } from '@/features/catalog/products/lib/api/products';
 
 type StorePaginatedMeta = {
   page: number;
@@ -408,33 +402,7 @@ export async function placePublicStoreOrder(
     return mapStorefrontOrder(dto);
   };
 
-  try {
-    return toOrder(await postOrder());
-  } catch (error) {
-    if (!(error instanceof StoreHttpError) || !isProductStoreCurrencyMismatch(error.message)) {
-      throw error;
-    }
-    const productIds = [...new Set(input.lines.map((line) => line.productId).filter(Boolean))];
-    const healed = await Promise.all(productIds.map((id) => patchProductStoreCurrency(id)));
-    if (healed.some(Boolean)) {
-      try {
-        return toOrder(await postOrder());
-      } catch (retryError) {
-        if (
-          retryError instanceof StoreHttpError &&
-          isProductStoreCurrencyMismatch(retryError.message)
-        ) {
-          throw new StoreHttpError(
-            STORE_CURRENCY_MISMATCH_ERROR,
-            retryError.status,
-            retryError.payload,
-          );
-        }
-        throw retryError;
-      }
-    }
-    throw new StoreHttpError(STORE_CURRENCY_MISMATCH_ERROR, error.status, error.payload);
-  }
+  return toOrder(await postOrder());
 }
 
 export async function fetchPublicStoreOrder(input: {

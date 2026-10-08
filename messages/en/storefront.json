@@ -236,7 +236,7 @@
       "paymentProofType": "Please choose an image file",
       "paymentProofSize": "Image must be 4 MB or smaller",
       "paymentProofMax": "Maximum {max} payment proof attachments",
-      "currencyMismatch": "This product is priced in a different currency than the store (YER). Open it in the product admin and save once, then try again.",
+      "currencyMismatch": "A product could not be priced in the store currency. Refresh the page and try again, or contact the store.",
       "countryUnavailable": "The selected country is not enabled for this store. Pick a store country, or enable Yemen in Locations (show in store).",
       "outOfStock": "The requested quantity of an item is no longer available. Reduce it or remove it from the cart and try again.",
       "inventoryUnavailable": "The store is not taking orders for a moment, and your order was not placed. Please try again shortly.",

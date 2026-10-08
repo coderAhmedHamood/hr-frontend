@@ -6,6 +6,7 @@ import {
 } from '@/features/auth/lib/auth-api-messages';
 import { resolveApiBaseUrl } from '@/shared/api-base-url';
 import { applyActiveCompanyHeader } from '@/shared/api/request-context';
+import { withRequestTimeout } from '@/shared/api/request-timeout';
 import { translateAppDependencyError } from '@/shared/api/app-dependency-messages';
 import { translateStoreStockMessage } from '@/shared/api/store-stock-messages';
 import { publicConfig } from '@/shared/config';
@@ -158,7 +159,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     method,
     headers,
     body: body === undefined ? undefined : JSON.stringify(body),
-    signal,
+    signal: withRequestTimeout(signal),
     credentials: 'include',
     cache: 'no-store',
   });
