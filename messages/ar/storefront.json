@@ -110,7 +110,8 @@
     "sortBy": "ترتيب حسب",
     "filters": "تصفية",
     "priceRange": "نطاق السعر",
-    "priceAsc": "السعر: من الأقل"
+    "priceAsc": "السعر: من الأقل",
+    "chooseOptions": "اختر المقاس أو اللون"
   },
   "cart": {
     "title": "سلة التسوق",
@@ -245,9 +246,13 @@
       "paymentAccountUnavailable": "لا يوجد حساب دفع متاح لهذه الطريقة. تواصل مع المتجر.",
       "attachmentsMax": "الحد الأقصى {max} مرفقات للطلب",
       "attachmentSize": "حجم الملف كبير جداً",
-      "attachmentType": "تعذّر إرفاق الملف"
+      "attachmentType": "تعذّر إرفاق الملف",
+      "addressIncomplete": "أكمل العنوان: المدينة والحي والشارع.",
+      "addressRequired": "أضف عنوان التوصيل للمتابعة."
     },
-    "countryLocked": "التوصيل داخل {country} فقط"
+    "countryLocked": "التوصيل داخل {country} فقط",
+    "addFirstAddress": "أضف عنوان التوصيل",
+    "saveAddress": "حفظ العنوان"
   },
   "orders": {
     "myOrdersTitle": "طلباتي",

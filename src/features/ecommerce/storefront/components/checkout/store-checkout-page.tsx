@@ -21,7 +21,6 @@ export function StoreCheckoutPage({ config }: { config: StorefrontCompanyConfig 
         <h1 className="font-arabic-display text-2xl font-bold tracking-tight text-foreground">
           {t('checkout.title')}
         </h1>
-        <p className="max-w-xl text-sm text-muted-foreground">{t('checkout.description')}</p>
       </header>
       <StoreCheckoutClient currency={config.currency} country={config.country} />
     </div>

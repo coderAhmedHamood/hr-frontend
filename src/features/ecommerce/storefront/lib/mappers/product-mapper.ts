@@ -138,6 +138,7 @@ export function mapStorefrontProduct(product: Product, locale: StorefrontLocale)
     tags: product.tags ?? [],
     isNewProductActive: Boolean(product.isNewProductActive),
     isTodayDealActive: Boolean(product.isTodayDealActive),
+    hasVariants: Boolean(product.hasVariants) || mappedVariants.length > 0,
     isWholesaleActive: Boolean(product.isWholesaleActive),
     isDiscountActive: Boolean(product.isDiscountActive),
     discountPercent: product.discountPercent ?? null,

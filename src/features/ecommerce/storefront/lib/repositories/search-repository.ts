@@ -47,6 +47,7 @@ type StoreSearchProductDto = {
   reviewCount?: string | number | null;
   rating_avg?: string | number | null;
   review_count?: string | number | null;
+  hasVariants?: boolean;
 };
 
 type StoreSearchCategoryDto = {
@@ -180,6 +181,7 @@ function mapSearchProduct(
     reviewCount: Math.max(0, Math.floor(fromDecimalString(dto.reviewCount ?? dto.review_count ?? 0))),
     attributes: [],
     variants: [],
+    hasVariants: Boolean(dto.hasVariants),
   };
 }
 

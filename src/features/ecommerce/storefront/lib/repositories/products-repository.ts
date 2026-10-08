@@ -118,6 +118,7 @@ type PublicProductDto = {
   seoKeywords?: string[] | null;
   primaryImageUrl?: string | null;
   primaryImageAlt?: string | null;
+  hasVariants?: boolean;
   imageDisplayFit?: 'contain' | 'cover' | null;
   imageDisplayAspectRatio?: 'square' | '4/3' | '3/4' | null;
   ratingAvg?: string | number | null;
@@ -465,6 +466,7 @@ function mapPublicProduct(dto: PublicProductDto): Product {
     isDiscountActive: Boolean(dto.isDiscountActive),
     attributes: mapPublicAttributes(dto.attributes),
     variants: mapPublicVariants(dto.variants),
+    hasVariants: Boolean(dto.hasVariants) || (dto.variants?.length ?? 0) > 0,
     rating: (() => {
       const raw = dto.ratingAvg ?? dto.rating_avg ?? dto.rating;
       if (raw == null || raw === '') return null;

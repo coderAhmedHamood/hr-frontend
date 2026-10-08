@@ -33,6 +33,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Link, useRouter } from '@/i18n/navigation';
 import { useStorefrontAuthReady } from '@/features/ecommerce/storefront/hooks/use-storefront-auth-ready';
+import { customerErrorText } from '@/features/ecommerce/storefront/lib/customer-error';
 
 export function StoreRegisterClient() {
   const t = useTranslations('storefront');
@@ -100,11 +101,7 @@ export function StoreRegisterClient() {
       toast.success(session.message || t('register.success'));
       router.push(returnTo);
     } catch (error) {
-      const message =
-        error instanceof PartnerAuthApiError
-          ? error.message
-          : t('register.errors.generic');
-      toast.error(message);
+      toast.error(customerErrorText(error, t('register.errors.generic')));
     } finally {
       setSubmitting(false);
     }

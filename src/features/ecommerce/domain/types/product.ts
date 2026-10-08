@@ -177,6 +177,8 @@ export type Product = TenantScoped &
     /** Computed by backend for display/filter “active now”. */
     isNewProductActive?: boolean;
     isTodayDealActive?: boolean;
+    /** Has options (size, color…): chosen on the product page before adding. */
+    hasVariants?: boolean;
     isWholesaleActive?: boolean;
     isDiscountActive?: boolean;
     attributes?: ProductAttribute[];

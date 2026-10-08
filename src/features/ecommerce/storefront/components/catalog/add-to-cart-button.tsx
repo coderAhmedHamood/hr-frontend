@@ -1,12 +1,13 @@
 'use client';
 
 import * as React from 'react';
-import { Minus, Plus, ShoppingCart } from 'lucide-react';
+import { Minus, Plus, ShoppingCart, SlidersHorizontal } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import type { StockStatus } from '@/features/ecommerce/domain/constants/stock-status';
 import { useStorefrontCartUi } from '@/features/ecommerce/storefront/hooks/use-storefront-cart-ui';
 import { isRtlLocale } from '@/i18n/routing';
+import { Link } from '@/i18n/navigation';
 import { cn } from '@/shared/utils';
 
 type AddToCartButtonProps = {
@@ -20,6 +21,11 @@ type AddToCartButtonProps = {
   variant?: 'icon' | 'button' | 'quick';
   className?: string;
   onAdded?: () => void;
+  /**
+   * The product has options (size, color…): the button opens this page to
+   * choose one instead of adding the product without it.
+   */
+  optionsHref?: string;
 };
 
 function lineMatches(productId: string, variantId: string | undefined, line: { productId: string; variantId?: string }) {
@@ -37,6 +43,7 @@ export function AddToCartButton({
   variant = 'icon',
   className,
   onAdded,
+  optionsHref,
 }: AddToCartButtonProps) {
   const t = useTranslations('storefront');
   const tA11y = useTranslations('storefront.a11y');
@@ -109,6 +116,41 @@ export function AddToCartButton({
     event?.stopPropagation();
     if (quantity >= cappedMax) return;
     setQuantity(productId, quantity + 1, variantId);
+  }
+
+  if (optionsHref && !outOfStock) {
+    const label = t('products.chooseOptions');
+    if (variant === 'button') {
+      return (
+        <Link
+          href={optionsHref}
+          prefetch={false}
+          className={cn(
+            'inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90',
+            className,
+          )}
+        >
+          <SlidersHorizontal className="h-4 w-4" aria-hidden />
+          {label}
+        </Link>
+      );
+    }
+    return (
+      <Link
+        href={optionsHref}
+        prefetch={false}
+        aria-label={label}
+        title={label}
+        className={cn(
+          variant === 'quick'
+            ? 'inline-flex h-8 w-8 items-center justify-center rounded-md border border-border bg-card text-foreground shadow-soft transition-colors hover:bg-muted'
+            : 'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground transition-colors hover:bg-primary/90',
+          className,
+        )}
+      >
+        <SlidersHorizontal className="h-4 w-4" aria-hidden />
+      </Link>
+    );
   }
 
   const showStepper = hydrated && quantity > 0 && !outOfStock;

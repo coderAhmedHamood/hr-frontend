@@ -14,6 +14,7 @@ import { useStorefrontCustomerUi } from '@/features/ecommerce/storefront/hooks/u
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
 import { Link } from '@/i18n/navigation';
 import { cn } from '@/shared/utils';
+import { customerErrorText } from '@/features/ecommerce/storefront/lib/customer-error';
 
 type ReviewableLine = {
   productId: string;
@@ -110,13 +111,7 @@ function LineReviewCard({
       setDone(true);
       toast.success(t('reviews.submitSuccess'));
     } catch (error) {
-      const message =
-        error instanceof StoreHttpError
-          ? error.message
-          : error instanceof Error
-            ? error.message
-            : t('reviews.submitError');
-      toast.error(message || t('reviews.submitError'));
+      toast.error(customerErrorText(error, t('reviews.submitError')));
     } finally {
       setSubmitting(false);
     }

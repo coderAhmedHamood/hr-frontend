@@ -40,6 +40,7 @@ import {
   StoreEmailInput,
   storeEmailBlocker,
 } from '@/features/ecommerce/storefront/components/forms/store-email-input';
+import { customerErrorText } from '@/features/ecommerce/storefront/lib/customer-error';
 
 function initialsFromName(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -138,11 +139,7 @@ export function StoreAccountClient() {
       setEditOpen(false);
       toast.success(t('account.profileSaved'));
     } catch (err) {
-      const message =
-        err instanceof PartnerAuthApiError
-          ? err.message
-          : t('account.profileSaveFailed');
-      toast.error(message);
+      toast.error(customerErrorText(err, t('account.profileSaveFailed')));
     } finally {
       setSaving(false);
     }

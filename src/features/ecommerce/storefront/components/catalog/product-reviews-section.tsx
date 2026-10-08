@@ -16,6 +16,7 @@ import { useStorefrontCustomerUi } from '@/features/ecommerce/storefront/hooks/u
 import { resolveStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
 import type { StorefrontLocale } from '@/i18n/routing';
 import { cn, formatDisplayDate } from '@/shared/utils';
+import { customerErrorText } from '@/features/ecommerce/storefront/lib/customer-error';
 
 function Stars({
   rating,
@@ -195,13 +196,7 @@ export function ProductReviewsSection({
         setReloadKey((value) => value + 1);
       }
     } catch (error) {
-      const message =
-        error instanceof StoreHttpError
-          ? error.message
-          : error instanceof Error
-            ? error.message
-            : t('submitError');
-      setSubmitError(message || t('submitError'));
+      setSubmitError(customerErrorText(error, t('submitError')));
     } finally {
       setSubmitting(false);
     }

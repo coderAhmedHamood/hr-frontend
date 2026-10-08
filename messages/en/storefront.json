@@ -110,7 +110,8 @@
     "sortBy": "Sort by",
     "filters": "Filters",
     "priceRange": "Price range",
-    "priceAsc": "Price: low to high"
+    "priceAsc": "Price: low to high",
+    "chooseOptions": "Choose size or color"
   },
   "cart": {
     "title": "Shopping cart",
@@ -245,9 +246,13 @@
       "paymentAccountUnavailable": "No payment account is available for this method. Please contact the store.",
       "attachmentsMax": "Maximum {max} order attachments",
       "attachmentSize": "File is too large",
-      "attachmentType": "Could not attach the file"
+      "attachmentType": "Could not attach the file",
+      "addressIncomplete": "Complete the address: city, district and street.",
+      "addressRequired": "Add a delivery address to continue."
     },
-    "countryLocked": "Delivery within {country} only"
+    "countryLocked": "Delivery within {country} only",
+    "addFirstAddress": "Add a delivery address",
+    "saveAddress": "Save address"
   },
   "orders": {
     "myOrdersTitle": "My orders",
