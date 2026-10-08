@@ -354,15 +354,14 @@ export function CompanySettingsTab() {
           <p className="text-xs font-semibold text-muted-foreground">العملة الأساسية</p>
           <p className="text-[11px] leading-relaxed text-muted-foreground">
             عملة واحدة للشركة تعتمدها كل التطبيقات: أسعار المنتجات والمتجر وطلباته، وتقييم المخزون، والرواتب، وجهات
-            الاتصال. تُغيَّر هنا فقط، وما دامت الشركة بلا سجلات مالية؛ عندها تنتقل إليها أسعار المنتجات وإعدادات
-            التطبيقات بنفس الأرقام (لا تحويل). العملات الأخرى وأسعار الصرف من عمل النظام المحاسبي.
+            الاتصال. تُغيَّر هنا فقط؛ عندها تنتقل إليها أسعار المنتجات وإعدادات التطبيقات بنفس الأرقام (لا تحويل)،
+            وتبقى السجلات السابقة (الطلبات، حركات المخزون، الرواتب) بعملتها. أسعار الصرف من عمل النظام المحاسبي.
           </p>
           <div className="grid gap-3 sm:grid-cols-2">
             <FormField label="العملة الأساسية">
               <Select
                 value={form.currencyCode}
                 onValueChange={(currencyCode) => patch({ currencyCode })}
-                disabled={currencyStatus.data?.locked}
               >
                 <SelectTrigger className="h-9" aria-label="العملة الأساسية">
                   <SelectValue />
@@ -377,16 +376,17 @@ export function CompanySettingsTab() {
               </Select>
             </FormField>
           </div>
-          {currencyStatus.data?.locked ? (
-            <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs leading-relaxed text-amber-900 dark:text-amber-200">
-              العملة مقفلة: توجد سجلات مالية —{' '}
-              {currencyStatus.data.usages.map((u) => `${u.labelAr} (${u.count})`).join('، ')}. تغييرها يحتاج تحويل هذه
-              السجلات، وهو من عمل النظام المحاسبي لاحقاً.
-            </p>
-          ) : company && form.currencyCode !== company.currencyCode ? (
+          {company && form.currencyCode !== company.currencyCode ? (
             <p className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-xs leading-relaxed text-sky-900 dark:text-sky-200">
               عند الحفظ تصبح العملة {currencyNameAr(form.currencyCode)}، وتنتقل إليها أسعار المنتجات وعملة المتجر
               وإعدادات التطبيقات بنفس الأرقام دون تحويل.
+              {currencyStatus.data?.hasRecords ? (
+                <>
+                  {' '}
+                  السجلات السابقة تبقى بعملتها {currencyNameAr(company.currencyCode)}:{' '}
+                  {currencyStatus.data.usages.map((u) => `${u.labelAr} (${u.count})`).join('، ')}.
+                </>
+              ) : null}
             </p>
           ) : null}
         </div>
