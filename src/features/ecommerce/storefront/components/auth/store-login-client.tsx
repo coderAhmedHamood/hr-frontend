@@ -77,7 +77,7 @@ export function StoreLoginClient() {
     <StoreAuthShell
       eyebrow={t('login.eyebrow')}
       title={t('login.formTitle')}
-      description={checkoutReturn ? t('login.checkoutRequiredHint') : t('login.formDescription')}
+      description={checkoutReturn ? t('login.checkoutRequiredHint') : undefined}
       tabs={{
         active: 'login',
         loginHref: storeLoginHref(returnTo),
@@ -165,7 +165,14 @@ export function StoreLoginClient() {
             </button>
           </div>
           <p className="text-[11px] leading-relaxed text-muted-foreground">
-            {t('login.passwordHint')}
+            {t('login.noStoreAccount')}{' '}
+            <Link
+              href={storeRegisterHref(returnTo)}
+              prefetch={false}
+              className="font-medium text-primary hover:underline"
+            >
+              {t('login.createAccountInline')}
+            </Link>
           </p>
         </div>
 
