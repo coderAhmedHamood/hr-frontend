@@ -17,7 +17,8 @@ export type ModuleId =
   | 'ecommerce'
   | 'inventory'
   | 'shopSales'
-  | 'contacts';
+  | 'contacts'
+  | 'expenses';
 
 export type ModuleDefinition = {
   id: ModuleId;
@@ -53,6 +54,13 @@ export const MODULE_REGISTRY: Record<ModuleId, ModuleDefinition> = {
     labelAr: 'جهات الاتصال',
     installable: true,
     applicationCodes: ['contacts', 'partners'],
+  },
+  /** Expenses & custody (independent; web prototype on local data). */
+  expenses: {
+    id: 'expenses',
+    labelAr: 'المصاريف والعهد المالية',
+    installable: true,
+    applicationCodes: ['expenses'],
   },
 };
 

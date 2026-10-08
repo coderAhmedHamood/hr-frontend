@@ -66,6 +66,7 @@ import {
   accountingOverviewItem,
   flattenAccountingNavItems,
 } from '@/features/accounting/constants/nav';
+import { expensesNavGroups, expensesOverviewItem } from '@/features/expenses/constants/nav';
 import { UserMenuDropdown } from '@/components/layouts/user-menu-dropdown';
 import { AppsLauncherButton } from '@/components/layouts/apps-launcher-button';
 import { useModuleEnablementContext } from '@/features/auth/hooks/use-system-owner';
@@ -79,6 +80,7 @@ import {
   isCatalogAppPath,
   isContactsAppPath,
   isAccountingAppPath,
+  isExpensesAppPath,
   isLauncherPath,
 } from '@/shared/app-paths';
 import { isModuleEnabledFor } from '@/shared/modules/registry';
@@ -535,6 +537,30 @@ function buildAccountingNavConfig(): NavItem[] {
   return items;
 }
 
+/** المصاريف والعهد: لوحة التحكم | العمليات | الحسابات | التهيئة */
+function buildExpensesNavConfig(): NavItem[] {
+  const items: NavItem[] = [
+    {
+      key: 'expenses-overview',
+      label: expensesOverviewItem.labelAr,
+      href: expensesOverviewItem.href,
+      icon: expensesOverviewItem.icon,
+      exact: true,
+    },
+  ];
+  for (const group of expensesNavGroups) {
+    items.push({
+      key: `expenses-${group.key}`,
+      label: group.labelAr,
+      icon: group.icon,
+      forceSingleColumn: true,
+      isActive: (pathname) => group.items.some((item) => pathname === item.href || pathname.startsWith(`${item.href}/`)),
+      groups: [{ items: group.items.map((item) => ({ label: item.labelAr, href: item.href, icon: item.icon })) }],
+    });
+  }
+  return items;
+}
+
 /* ── Helpers ─────────────────────────────────────────────────────────── */
 function parentIsActive(pathname: string, item: NavItem) {
   if (item.isActive) return item.isActive(pathname);
@@ -750,7 +776,8 @@ export function Topbar() {
   const inCatalogApp = catalogEnabled && isCatalogAppPath(pathname);
   const inContactsApp = contactsEnabled && isContactsAppPath(pathname);
   const inAccountingApp = isAccountingAppPath(pathname);
-  const inAppShell = inHrApp || inSystemApp || inSystemOwnerApp || inEcommerceApp || inInventoryApp || inCatalogApp || inContactsApp || inAccountingApp;
+  const inExpensesApp = isExpensesAppPath(pathname);
+  const inAppShell = inHrApp || inSystemApp || inSystemOwnerApp || inEcommerceApp || inInventoryApp || inCatalogApp || inContactsApp || inAccountingApp || inExpensesApp;
   const tEcommerceNav = useTranslations('ecommerceAdmin.nav');
   const ecommerceNavConfig = React.useMemo(
     () => buildEcommerceNavConfig((key) => tEcommerceNav(key as 'overview'), catalogEnabled),
@@ -764,10 +791,13 @@ export function Topbar() {
   const catalogNavConfig = React.useMemo(() => buildCatalogNavConfig(), []);
   const contactsNavConfig = React.useMemo(() => buildContactsNavConfig(), []);
   const accountingNavConfig = React.useMemo(() => buildAccountingNavConfig(), []);
+  const expensesNavConfig = React.useMemo(() => buildExpensesNavConfig(), []);
   const activeNavConfig = inSystemOwnerApp
     ? systemOwnerNavConfig
     : inSystemApp
     ? systemNavConfig
+    : inExpensesApp
+      ? expensesNavConfig
     : inAccountingApp
       ? accountingNavConfig
       : inContactsApp
@@ -781,6 +811,8 @@ export function Topbar() {
           : navConfig;
   const currentAppLabel = inSystemOwnerApp
     ? 'مالك النظام'
+    : inExpensesApp
+    ? 'المصاريف والعهد'
     : inSystemApp
       ? 'النظام'
       : inHrApp

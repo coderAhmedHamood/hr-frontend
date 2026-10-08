@@ -13,10 +13,14 @@ import {
   Settings,
   Shield,
   ShoppingCart,
+  Receipt,
+  Users,
+  Wallet,
 } from 'lucide-react';
 import { cn } from '@/shared/utils';
 import { useSidebar } from '@/components/layouts/sidebar-context';
-import { isEcommerceAppPath, isInventoryAppPath, isSystemAppPath } from '@/shared/app-paths';
+import { isEcommerceAppPath, isExpensesAppPath, isInventoryAppPath, isSystemAppPath } from '@/shared/app-paths';
+import { expensesRoutes } from '@/features/expenses/constants/routes';
 import { ecommerceAdminRoutes, ecommerceSettingsHref } from '@/features/ecommerce/admin/constants/routes';
 import { useModuleEnablementContext } from '@/features/auth/hooks/use-system-owner';
 import { isModuleEnabledFor } from '@/shared/modules/registry';
@@ -121,6 +125,28 @@ function buildStoreAdminTabs(): TabItem[] {
   ];
 }
 
+/** Expenses & custody: daily work one tap away; setup and reports in "المزيد". */
+function buildExpensesTabs(): TabItem[] {
+  return [
+    { key: 'overview', label: 'الرئيسية', icon: LayoutDashboard, href: expensesRoutes.overview, isActive: (p) => p === expensesRoutes.overview },
+    {
+      key: 'expenses',
+      label: 'المصروفات',
+      icon: Receipt,
+      href: expensesRoutes.expenses,
+      isActive: (p) => startsWithAny(p, [expensesRoutes.expenses, expensesRoutes.approvals]),
+    },
+    { key: 'custody', label: 'العهد', icon: Wallet, href: expensesRoutes.custody, isActive: (p) => startsWithAny(p, [expensesRoutes.custody]) },
+    {
+      key: 'accounts',
+      label: 'الحسابات',
+      icon: Users,
+      href: expensesRoutes.people,
+      isActive: (p) => startsWithAny(p, [expensesRoutes.people, expensesRoutes.settlements]),
+    },
+  ];
+}
+
 function buildSystemTabs(): TabItem[] {
   const structureHref = systemOrganizationStructureNavItems[0]?.href;
   const settingsHref = systemOrganizationSettingsNavItems[0]?.href;
@@ -183,20 +209,22 @@ export function MobileTabBar() {
   const inInventoryApp = inventoryEnabled && isInventoryAppPath(pathname);
   const inSystemApp = isSystemAppPath(pathname);
   const inStoreAdminApp = !inInventoryApp && !inSystemApp && isEcommerceAppPath(pathname);
+  const inExpensesApp = isExpensesAppPath(pathname);
 
   const tabs = React.useMemo(() => {
     if (inSystemApp) return buildSystemTabs();
     if (inInventoryApp) return buildInventoryTabs(catalogEnabled);
     if (inStoreAdminApp) return buildStoreAdminTabs();
+    if (inExpensesApp) return buildExpensesTabs();
     return [];
-  }, [catalogEnabled, inInventoryApp, inStoreAdminApp, inSystemApp]);
+  }, [catalogEnabled, inInventoryApp, inStoreAdminApp, inSystemApp, inExpensesApp]);
 
-  if (!inInventoryApp && !inSystemApp && !inStoreAdminApp) return null;
+  if (!inInventoryApp && !inSystemApp && !inStoreAdminApp && !inExpensesApp) return null;
   if (tabs.length === 0) return null;
 
-  // Inventory and the store have more sections than fit the bar — the rest
-  // live in "المزيد". System's four sections all fit.
-  const showMore = inInventoryApp || inStoreAdminApp;
+  // Inventory, the store and expenses have more sections than fit the bar —
+  // the rest live in "المزيد". System's four sections all fit.
+  const showMore = inInventoryApp || inStoreAdminApp || inExpensesApp;
 
   return (
     <nav

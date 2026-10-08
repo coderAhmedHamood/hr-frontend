@@ -1298,6 +1298,19 @@
     }
   }
 
+  /* Expenses & custody: phone gutters and room for the bottom tab bar. */
+  @media (max-width: 767px) {
+    main:has(.expenses-app) {
+      padding: 0.75rem;
+    }
+  }
+
+  @media (max-width: 1023px) {
+    main:has(.expenses-app) {
+      padding-bottom: calc(4.5rem + var(--store-safe-area-bottom));
+    }
+  }
+
   .contacts-app .ctc-table-host > div:first-child {
     max-width: 100%;
     overflow-x: auto;
