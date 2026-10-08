@@ -57,6 +57,7 @@ const CONSOLE_SEGMENTS = new Set([
   'hr',
   'inventory',
   'overview',
+  'point-of-sale',
   'pos',
   'reports',
   'reviews',

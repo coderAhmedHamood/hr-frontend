@@ -2,6 +2,7 @@ import { isCatalogAdminNavPath } from '@/features/catalog/constants/nav';
 import { isContactsAdminNavPath } from '@/features/contacts/admin/constants/nav';
 import { isEcommerceAdminNavPath } from '@/features/ecommerce/admin/constants/nav';
 import { isInventoryAdminNavPath } from '@/features/inventory/admin/constants/nav';
+import { isPosAdminNavPath } from '@/features/pos/constants/nav';
 
 /** True when the current route belongs to the HR application. */
 export function isHrAppPath(pathname: string): boolean {
@@ -49,6 +50,11 @@ export function isCatalogAppPath(pathname: string): boolean {
 /** True when the current route belongs to the standalone Inventory application. */
 export function isInventoryAppPath(pathname: string): boolean {
   return isInventoryAdminNavPath(pathname);
+}
+
+/** True when the current route belongs to the Point of sale admin (not its full-screen register). */
+export function isPosAppPath(pathname: string): boolean {
+  return isPosAdminNavPath(pathname);
 }
 
 /** Full-screen cashier / POS — outside ERP chrome. */

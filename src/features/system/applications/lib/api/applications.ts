@@ -2,6 +2,7 @@ import { apiRequest, type PaginatedResult } from '@/features/hr/lib/api/client';
 import { contactsAdminRoutes } from '@/features/contacts/admin/constants/routes';
 import { ecommerceAdminRoutes } from '@/features/ecommerce/admin/constants/routes';
 import { inventoryAdminRoutes } from '@/features/inventory/admin/constants/routes';
+import { POS_APP_CODE, posRoutes } from '@/features/pos/constants/routes';
 import {
   isShopSalesApplicationCode,
 } from '@/features/inventory/admin/constants/shop-sales-app';
@@ -194,6 +195,7 @@ export function resolveApplicationLaunchPath(
 
   if (code === 'catalog') return resolveCatalogLaunchPath(enabled);
   if (code === 'inventory') return inventoryAdminRoutes.overview;
+  if (code === POS_APP_CODE) return posRoutes.overview;
   if (isShopSalesApplicationCode(code)) {
     return base || inventoryAdminRoutes.pos;
   }

@@ -14,10 +14,8 @@ export const SHOP_SALES_APP_CODES = [
   SHOP_SALES_APP_CODE,
   'sale-deduct',
   'sale_deduct',
-  // Legacy client-injected tile
-  'pos',
+  // Legacy client-injected tile (`pos` is now the point of sale app)
   'cashier',
-  'point-of-sale',
 ] as const;
 
 export function normalizeApplicationCode(code: string): string {
