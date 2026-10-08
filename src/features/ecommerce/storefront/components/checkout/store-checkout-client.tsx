@@ -239,6 +239,10 @@ export function StoreCheckoutClient({ currency: storeCurrency, country }: Checko
   const selectedAccountDetails = selectedPaymentAccount
     ? paymentAccountDetailsLine(selectedPaymentAccount)
     : '';
+  const cashLikePayment =
+    paymentMethod === 'cash_on_delivery' || paymentMethod === 'cash';
+  const showPaymentAccounts = !cashLikePayment || paymentAccounts.length > 1;
+  const showPaymentProof = !cashLikePayment;
 
   React.useEffect(() => {
     if (paymentAccounts.length === 0) {
@@ -898,24 +902,15 @@ export function StoreCheckoutClient({ currency: storeCurrency, country }: Checko
                   {t('checkout.errors.paymentAccountUnavailable')}
                 </p>
               ) : (
-                paymentMethods.map((id) => {
+                <>
+                <div className="grid grid-cols-2 gap-2">
+                {paymentMethods.map((id) => {
                 const Icon = PAYMENT_METHOD_ICONS[id] ?? Wallet;
                 const selected = paymentMethod === id;
-                const cashLike = id === 'cash_on_delivery' || id === 'cash';
-                const showAccounts = selected && !(cashLike && paymentAccounts.length <= 1);
-                const showProof = selected && !cashLike;
 
                 return (
-                  <div
-                    key={id}
-                    className={cn(
-                      'overflow-hidden rounded-2xl border transition-all',
-                      selected
-                        ? 'border-primary bg-primary/5 ring-1 ring-primary/30'
-                        : 'border-border hover:border-primary/30',
-                    )}
-                  >
                     <button
+                      key={id}
                       type="button"
                       onClick={() => {
                         setPaymentMethod(id);
@@ -923,28 +918,30 @@ export function StoreCheckoutClient({ currency: storeCurrency, country }: Checko
                           setPaymentProofs([]);
                         }
                       }}
+                      aria-pressed={selected}
                       className={cn(
-                        'flex w-full items-start gap-3 p-4 text-start transition-colors',
-                        !selected && 'hover:bg-muted/30',
+                        'flex items-center gap-2.5 rounded-2xl border px-3 py-3 text-start transition-colors',
+                        selected
+                          ? 'border-primary bg-primary/5 ring-1 ring-primary/30'
+                          : 'border-border bg-card hover:border-primary/30',
                       )}
-                      aria-expanded={selected}
                     >
                       <span
                         className={cn(
-                          'mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl',
+                          'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl',
                           selected
                             ? 'bg-primary text-primary-foreground'
                             : 'bg-muted text-primary',
                         )}
                       >
-                        <Icon className="h-5 w-5" aria-hidden />
+                        <Icon className="h-4 w-4" aria-hidden />
                       </span>
-                      <span className="min-w-0 flex-1 self-center text-sm font-semibold text-foreground">
+                      <span className="min-w-0 flex-1 text-sm font-semibold leading-snug text-foreground">
                         {t(`checkout.paymentMethods.${id}.label`)}
                       </span>
                       <span
                         className={cn(
-                          'mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border',
+                          'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border',
                           selected
                             ? 'border-primary bg-primary text-primary-foreground'
                             : 'border-border bg-background',
@@ -954,13 +951,16 @@ export function StoreCheckoutClient({ currency: storeCurrency, country }: Checko
                         {selected ? <Check className="h-3 w-3" /> : null}
                       </span>
                     </button>
+                );
+              })}
+                </div>
 
-                    {showAccounts ? (
-                      <div className="space-y-4 border-t border-primary/15 bg-background/70 px-4 py-4">
+                {showPaymentAccounts || showPaymentProof ? (
+                      <div className="space-y-4 rounded-2xl border border-border bg-muted/20 p-4">
                         {paymentAccounts.length > 1 ? (
                           <p className="text-sm font-medium text-foreground">
                             {t('checkout.paymentAccountTitle')}
-                            {paymentMethodRequiresAccount(id) ? (
+                            {paymentMethodRequiresAccount(paymentMethod) ? (
                               <span className="text-destructive"> *</span>
                             ) : null}
                           </p>
@@ -972,7 +972,7 @@ export function StoreCheckoutClient({ currency: storeCurrency, country }: Checko
                           </p>
                         ) : paymentAccounts.length === 0 ? (
                           <p className="text-xs text-amber-700 dark:text-amber-400">
-                            {paymentMethodRequiresAccount(id)
+                            {paymentMethodRequiresAccount(paymentMethod)
                               ? t('checkout.errors.paymentAccountUnavailable')
                               : t('checkout.paymentAccountOptionalEmpty')}
                           </p>
@@ -1060,7 +1060,7 @@ export function StoreCheckoutClient({ currency: storeCurrency, country }: Checko
                           </ul>
                         )}
 
-                        {showProof ? (
+                        {showPaymentProof ? (
                           <div className="space-y-3 border-t border-border/70 pt-4">
                             <div>
                               <Label
@@ -1172,10 +1172,8 @@ export function StoreCheckoutClient({ currency: storeCurrency, country }: Checko
                           </div>
                         ) : null}
                       </div>
-                    ) : null}
-                  </div>
-                );
-              })
+                ) : null}
+                </>
               )}
 
               <div className="space-y-3 rounded-2xl border border-border bg-muted/20 p-4">
