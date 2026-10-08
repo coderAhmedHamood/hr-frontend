@@ -182,7 +182,7 @@
     "loginRequiredToast": "سجّل الدخول أولاً لربط الطلب بحسابك",
     "paymentMockHint": "بعد إرفاق الإيصال يصل الطلب للمراجعة — يُجهَّز بعد تأكيد التحصيل من المتجر.",
     "paymentProofHint": "إن دفعت عبر الشبكة أو التحويل، يمكنك إرفاق صورة أو أكثر من إيصالات التحويل ليراجعها المتجر قبل التجهيز.",
-    "paymentProofLabel": "صور إيصالات الدفع (اختياري)",
+    "paymentProofLabel": "إيصال التحويل (اختياري)",
     "paymentProofLimit": "{count} من {max} مرفقات",
     "paymentProofAttached": "تم إرفاق إيصال الدفع",
     "paymentProofAttachedCount": "تم إرفاق {count} مرفقات",

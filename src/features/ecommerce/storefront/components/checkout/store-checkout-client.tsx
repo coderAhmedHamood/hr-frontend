@@ -109,17 +109,9 @@ function paymentAccountDisplayName(
 }
 
 function paymentAccountDetailsLine(account: PublicPaymentAccount): string {
-  return [account.providerName, account.accountHolderName, account.mobile, account.iban, account.accountNumber]
-    .filter(Boolean)
-    .join(' · ');
-}
-
-function paymentAccountInstructions(
-  account: PublicPaymentAccount,
-  locale: StorefrontLocale,
-): string | null {
-  const text = locale === 'en' ? account.instructionsEn : account.instructionsAr;
-  return text?.trim() || null;
+  const number =
+    account.accountNumber?.trim() || account.iban?.trim() || account.mobile?.trim() || '';
+  return [account.providerName, account.accountHolderName, number].filter(Boolean).join(' · ');
 }
 
 type CheckoutClientProps = {
@@ -225,9 +217,6 @@ export function StoreCheckoutClient({ currency: storeCurrency }: CheckoutClientP
   const selectedAccountDetails = selectedPaymentAccount
     ? paymentAccountDetailsLine(selectedPaymentAccount)
     : '';
-  const selectedAccountInstructions = selectedPaymentAccount
-    ? paymentAccountInstructions(selectedPaymentAccount, locale)
-    : null;
 
   React.useEffect(() => {
     if (paymentAccounts.length === 0) {
@@ -938,12 +927,9 @@ export function StoreCheckoutClient({ currency: storeCurrency }: CheckoutClientP
               <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
                 <Wallet className="h-4 w-4" aria-hidden />
               </span>
-              <div>
-                <h2 className="font-arabic-display text-base font-semibold text-foreground sm:text-lg">
-                  {t('checkout.paymentTitle')}
-                </h2>
-                <p className="text-xs text-muted-foreground">{t('checkout.paymentHint')}</p>
-              </div>
+              <h2 className="font-arabic-display text-base font-semibold text-foreground sm:text-lg">
+                {t('checkout.paymentTitle')}
+              </h2>
             </header>
             <div className="grid gap-3 p-5">
               {allPaymentAccountsQuery.isLoading ? (
@@ -958,9 +944,9 @@ export function StoreCheckoutClient({ currency: storeCurrency }: CheckoutClientP
                 paymentMethods.map((id) => {
                 const Icon = PAYMENT_METHOD_ICONS[id] ?? Wallet;
                 const selected = paymentMethod === id;
-                const showAccounts = selected;
-                const showProof =
-                  selected && id !== 'cash_on_delivery' && id !== 'cash';
+                const cashLike = id === 'cash_on_delivery' || id === 'cash';
+                const showAccounts = selected && !(cashLike && paymentAccounts.length <= 1);
+                const showProof = selected && !cashLike;
 
                 return (
                   <div
@@ -996,13 +982,8 @@ export function StoreCheckoutClient({ currency: storeCurrency }: CheckoutClientP
                       >
                         <Icon className="h-5 w-5" aria-hidden />
                       </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block text-sm font-semibold text-foreground">
-                          {t(`checkout.paymentMethods.${id}.label`)}
-                        </span>
-                        <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">
-                          {t(`checkout.paymentMethods.${id}.description`)}
-                        </span>
+                      <span className="min-w-0 flex-1 self-center text-sm font-semibold text-foreground">
+                        {t(`checkout.paymentMethods.${id}.label`)}
                       </span>
                       <span
                         className={cn(
@@ -1019,17 +1000,14 @@ export function StoreCheckoutClient({ currency: storeCurrency }: CheckoutClientP
 
                     {showAccounts ? (
                       <div className="space-y-4 border-t border-primary/15 bg-background/70 px-4 py-4">
-                        <div>
+                        {paymentAccounts.length > 1 ? (
                           <p className="text-sm font-medium text-foreground">
                             {t('checkout.paymentAccountTitle')}
                             {paymentMethodRequiresAccount(id) ? (
                               <span className="text-destructive"> *</span>
                             ) : null}
                           </p>
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            {t('checkout.paymentAccountHint')}
-                          </p>
-                        </div>
+                        ) : null}
 
                         {allPaymentAccountsQuery.isLoading ? (
                           <p className="text-xs text-muted-foreground">
@@ -1047,10 +1025,6 @@ export function StoreCheckoutClient({ currency: storeCurrency }: CheckoutClientP
                               const accountSelected = paymentAccountId === account.id;
                               const name = paymentAccountDisplayName(account, locale);
                               const details = paymentAccountDetailsLine(account);
-                              const instructions = paymentAccountInstructions(
-                                account,
-                                locale,
-                              );
                               return (
                                 <li key={account.id}>
                                   <button
@@ -1089,11 +1063,6 @@ export function StoreCheckoutClient({ currency: storeCurrency }: CheckoutClientP
                                           {details}
                                         </span>
                                       ) : null}
-                                      {instructions ? (
-                                        <span className="mt-1 block text-[11px] leading-relaxed text-muted-foreground">
-                                          {instructions}
-                                        </span>
-                                      ) : null}
                                     </span>
                                     <span
                                       className={cn(
@@ -1126,9 +1095,6 @@ export function StoreCheckoutClient({ currency: storeCurrency }: CheckoutClientP
                                           className="h-44 w-44 rounded-lg bg-white object-contain p-2"
                                         />
                                       </div>
-                                      <p className="mt-3 text-center text-[11px] leading-relaxed text-muted-foreground">
-                                        {t('checkout.paymentQrHint')}
-                                      </p>
                                     </div>
                                   ) : null}
                                 </li>
@@ -1139,9 +1105,6 @@ export function StoreCheckoutClient({ currency: storeCurrency }: CheckoutClientP
 
                         {showProof ? (
                           <div className="space-y-3 border-t border-border/70 pt-4">
-                            <p className="text-xs leading-relaxed text-muted-foreground">
-                              {t('checkout.paymentProofHint')}
-                            </p>
                             <div>
                               <Label
                                 htmlFor="payment-proof"
@@ -1249,9 +1212,6 @@ export function StoreCheckoutClient({ currency: storeCurrency }: CheckoutClientP
                                 </ul>
                               ) : null}
                             </div>
-                            <p className="text-[11px] leading-relaxed text-muted-foreground">
-                              {t('checkout.paymentMockHint')}
-                            </p>
                           </div>
                         ) : null}
                       </div>
@@ -1385,10 +1345,10 @@ export function StoreCheckoutClient({ currency: storeCurrency }: CheckoutClientP
                   <p className="text-sm font-semibold text-foreground">
                     {t(`checkout.paymentMethods.${paymentMethod}.label`)}
                   </p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {t(`checkout.paymentMethods.${paymentMethod}.description`)}
-                  </p>
-                  {selectedPaymentAccount && selectedAccountName ? (
+                  {selectedPaymentAccount &&
+                  selectedAccountName &&
+                  paymentMethod !== 'cash' &&
+                  paymentMethod !== 'cash_on_delivery' ? (
                     <div className="mt-3 space-y-2 rounded-xl border border-border bg-card p-3">
                       <p className="text-xs font-medium text-foreground">
                         {t('checkout.paymentAccountSelected', { name: selectedAccountName })}
@@ -1396,11 +1356,6 @@ export function StoreCheckoutClient({ currency: storeCurrency }: CheckoutClientP
                       {selectedAccountDetails ? (
                         <p className="text-xs text-muted-foreground" dir="ltr">
                           {selectedAccountDetails}
-                        </p>
-                      ) : null}
-                      {selectedAccountInstructions ? (
-                        <p className="text-[11px] leading-relaxed text-muted-foreground">
-                          {selectedAccountInstructions}
                         </p>
                       ) : null}
                       {selectedPaymentAccount.qrImageUrl ? (

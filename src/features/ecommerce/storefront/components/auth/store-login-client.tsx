@@ -78,7 +78,7 @@ export function StoreLoginClient() {
     <StoreAuthShell
       eyebrow={t('login.eyebrow')}
       title={t('login.formTitle')}
-      description={checkoutReturn ? t('login.checkoutRequiredHint') : t('login.formDescription')}
+      description={checkoutReturn ? t('login.checkoutRequiredHint') : undefined}
       footer={
         <div className="flex flex-col gap-2">
           <p className="text-muted-foreground">

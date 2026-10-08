@@ -1,14 +1,11 @@
 'use client';
 
-import { Clock } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
-import { Badge } from '@/components/ui/badge';
 import { createDefaultUomLines } from '@/features/ecommerce/admin/products/schemas/product-schema';
 import { ProductUomLinesEditor } from '@/features/ecommerce/admin/products/components/product-uom-lines-editor';
 import { PRODUCT_VARIANT_CUSTOM_UOM_ENABLED } from '@/features/ecommerce/admin/products/constants/product-feature-flags';
 import type { Control, FieldErrors, UseFormSetValue } from 'react-hook-form';
 import type { ProductFormInput, ProductFormValues } from '@/features/ecommerce/admin/products/schemas/product-schema';
-import { cn } from '@/shared/utils';
 
 type Props = {
   control: Control<ProductFormInput, unknown, ProductFormValues>;
@@ -18,37 +15,21 @@ type Props = {
 };
 
 export function ProductVariantUomSection({ control, errors, setValue, variants }: Props) {
+  if (!PRODUCT_VARIANT_CUSTOM_UOM_ENABLED) return null;
   if (!variants || variants.length === 0) return null;
 
-  const comingSoon = !PRODUCT_VARIANT_CUSTOM_UOM_ENABLED;
-
   return (
-    <div
-      className={cn(
-        'space-y-4 rounded-xl border border-border bg-muted/20 p-4',
-        comingSoon && 'border-dashed',
-      )}
-    >
+    <div className="space-y-4 rounded-xl border border-border bg-muted/20 p-4">
       <div>
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="text-sm font-semibold">تعبئة مختلفة بين المتغيرات</p>
-          {comingSoon ? (
-            <Badge variant="secondary" className="gap-1 text-[10px] font-normal">
-              <Clock className="h-3 w-3" />
-              قريباً
-            </Badge>
-          ) : null}
-        </div>
+        <p className="text-sm font-semibold">تعبئة مختلفة بين المتغيرات</p>
         <p className="mt-1 text-xs text-muted-foreground">
-          {comingSoon
-            ? 'حالياً اعتمد على وحدات المنتج من تبويب «وحدات» لجميع المتغيرات. تعبئة مخصصة لكل متغير (مثل درزن مختلف بين المقاسات) ستتوفر في تحديث قادم.'
-            : 'مثال: حليب صغير — الدرزن = 12 كرتون، حليب كبير — الدرزن = 6 كرتون. فعّل «تعبئة مخصصة»، اختر وحدات من الكتالogg، ثم احفظ عبر «تحديث المتغيرات» أو «حفظ التغييرات».'}
+          مثال: حليب صغير — الدرزن = 12 كرتون، حليب كبير — الدرزن = 6 كرتون. فعّل «تعبئة مخصصة»، اختر وحدات من الكتالogg، ثم احفظ عبر «تحديث المتغيرات» أو «حفظ التغييرات».
         </p>
       </div>
 
-      <div className={cn('space-y-4', comingSoon && 'pointer-events-none opacity-60')}>
+      <div className="space-y-4">
         {variants.map((variant, index) => {
-          const hasCustom = PRODUCT_VARIANT_CUSTOM_UOM_ENABLED && variant.hasCustomUom === true;
+          const hasCustom = variant.hasCustomUom === true;
           return (
             <div key={variant.id} className="rounded-lg border border-border bg-background p-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -61,9 +42,7 @@ export function ProductVariantUomSection({ control, errors, setValue, variants }
                 <label className="flex items-center gap-2 text-xs text-muted-foreground">
                   <Switch
                     checked={hasCustom}
-                    disabled={comingSoon}
                     onCheckedChange={(checked) => {
-                      if (comingSoon) return;
                       setValue(`variants.${index}.hasCustomUom`, checked, { shouldDirty: true });
                       if (checked && (!variant.uomLines || variant.uomLines.length === 0)) {
                         setValue(`variants.${index}.uomLines`, createDefaultUomLines(), { shouldDirty: true });

@@ -92,7 +92,7 @@ export function StoreRegisterClient() {
     <StoreAuthShell
       eyebrow={t('register.eyebrow')}
       title={t('register.formTitle')}
-      description={checkoutReturn ? t('register.checkoutRequiredHint') : t('register.formDescription')}
+      description={checkoutReturn ? t('register.checkoutRequiredHint') : undefined}
       footer={
         <p className="text-muted-foreground">
           {t('register.hasAccount')}{' '}

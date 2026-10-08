@@ -391,6 +391,21 @@ function buildInventoryNavConfig(): NavItem[] {
     const flat = flattenInventoryNavItems(group);
     if (flat.length === 0) continue;
 
+    if (group.key === 'pos' && flat.length === 1) {
+      const only = flat[0]!;
+      items.push({
+        key: group.key,
+        label: group.labelAr,
+        href: only.href,
+        icon: group.icon,
+        isActive: (pathname) => {
+          const base = only.href.split('?')[0]!;
+          return pathname === base || pathname.startsWith(`${base}/`);
+        },
+      });
+      continue;
+    }
+
     items.push({
       key: group.key,
       label: group.labelAr,
@@ -530,14 +545,20 @@ function NavDropdownContent({
 
   function subIsActive(href: string) {
     const [hrefPath, hrefQuery] = href.split('?');
-    const base = hrefPath;
-    if (pathname !== base && !pathname.startsWith(base + '/')) return false;
-    if (!hrefQuery) return true;
-    const params = new URLSearchParams(hrefQuery);
-    for (const [k, v] of params) {
-      if (searchParams.get(k) !== v) return false;
+    const base = hrefPath ?? '';
+    if (!base || (pathname !== base && !pathname.startsWith(base + '/'))) return false;
+    if (hrefQuery) {
+      const params = new URLSearchParams(hrefQuery);
+      for (const [k, v] of params) {
+        if (searchParams.get(k) !== v) return false;
+      }
     }
-    return true;
+    const siblingBases = groups.flatMap((group) => group.items.map((item) => item.href.split('?')[0] ?? ''));
+    const hasMoreSpecific = siblingBases.some(
+      (other) =>
+        other.length > base.length && (pathname === other || pathname.startsWith(`${other}/`)),
+    );
+    return !hasMoreSpecific;
   }
 
   const totalItems = groups.reduce((sum, group) => sum + group.items.length, 0);

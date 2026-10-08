@@ -182,7 +182,7 @@
     "loginRequiredToast": "Please sign in first to link the order to your account",
     "paymentMockHint": "After you attach a receipt, the store reviews payment before preparing the order.",
     "paymentProofHint": "If you paid by card or bank transfer, you can attach one or more receipt photos so the store can verify them before preparing.",
-    "paymentProofLabel": "Payment receipt photos (optional)",
+    "paymentProofLabel": "Transfer receipt (optional)",
     "paymentProofLimit": "{count} of {max} attachments",
     "paymentProofAttached": "Payment receipt attached",
     "paymentProofAttachedCount": "{count} attachments added",

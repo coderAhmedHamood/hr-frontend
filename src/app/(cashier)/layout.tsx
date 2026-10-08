@@ -18,7 +18,7 @@ export default async function CashierLayout({ children }: { children: ReactNode 
   return (
     <AppShellProviders>
       <NextIntlClientProvider messages={messages}>
-        <div className="fixed inset-0 z-50 flex flex-col overflow-hidden bg-[#eef1f4]" dir={dir}>
+        <div className="fixed inset-0 z-50 flex flex-col overflow-hidden bg-background" dir={dir}>
           <AppErrorBoundary context="pos-cashier">
             <AuthenticatedShell>{children}</AuthenticatedShell>
           </AppErrorBoundary>

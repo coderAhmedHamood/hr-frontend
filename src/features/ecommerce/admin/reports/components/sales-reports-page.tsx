@@ -2,7 +2,6 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
 import {
   Bar,
   BarChart,
@@ -47,7 +46,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useCan } from '@/features/auth/hooks/use-can';
 import { ApiError } from '@/features/hr/lib/api/client';
 import { ecommerceAdminRoutes } from '@/features/ecommerce/admin/constants/routes';
@@ -103,22 +101,44 @@ type ReportTab =
   | 'engagement'
   | 'lines';
 
-const REPORT_TABS: ReportTab[] = [
-  'overview',
-  'sales',
-  'products',
-  'customers',
-  'geo',
-  'payment',
-  'fulfillment',
-  'engagement',
-  'lines',
-];
-
-function parseReportTab(value: string | null): ReportTab {
-  if (value && REPORT_TABS.includes(value as ReportTab)) return value as ReportTab;
-  return 'overview';
-}
+const REPORT_PAGE_COPY: Record<ReportTab, { titleAr: string; descriptionAr: string }> = {
+  overview: {
+    titleAr: 'لوحة التحكم',
+    descriptionAr: 'ملخص أداء المتجر: الإيراد، الطلبات، والتنبيهات.',
+  },
+  sales: {
+    titleAr: 'المبيعات',
+    descriptionAr: 'الإيراد، عدد الطلبات، والاتجاه خلال الفترة.',
+  },
+  products: {
+    titleAr: 'المنتجات',
+    descriptionAr: 'أكثر المنتجات والتصنيفات والعلامات مبيعاً.',
+  },
+  customers: {
+    titleAr: 'العملاء',
+    descriptionAr: 'العملاء الأعلى إنفاقاً في الفترة.',
+  },
+  geo: {
+    titleAr: 'الجغرافيا',
+    descriptionAr: 'المبيعات حسب المدينة والحي.',
+  },
+  payment: {
+    titleAr: 'الدفع',
+    descriptionAr: 'طرق الدفع وحسابات التحصيل.',
+  },
+  fulfillment: {
+    titleAr: 'التنفيذ',
+    descriptionAr: 'الطلبات بانتظار الشحن أو الدفع.',
+  },
+  engagement: {
+    titleAr: 'التفاعل',
+    descriptionAr: 'الرسائل، المفضلة، والتقييمات.',
+  },
+  lines: {
+    titleAr: 'تفصيلي',
+    descriptionAr: 'بنود الطلبات سطراً بسطر.',
+  },
+};
 
 function formatChangePercent(value: number | null | undefined): string | null {
   if (value == null || Number.isNaN(value)) return null;
@@ -159,11 +179,11 @@ function errorMessage(error: unknown): string | null {
   return null;
 }
 
-export function StoreReportsPage() {
+export function StoreReportsPage({ section = 'overview' }: { section?: ReportTab }) {
+  const tab = section;
   const can = useCan();
   const canRead = can(SALES_REPORTS_READ);
   const companyId = getStorefrontCompanyId();
-  const searchParams = useSearchParams();
 
   const [from, setFrom] = React.useState(startOfMonthIso);
   const [to, setTo] = React.useState(todayIso);
@@ -176,12 +196,7 @@ export function StoreReportsPage() {
   const [searchInput, setSearchInput] = React.useState('');
   const [search, setSearch] = React.useState('');
   const [granularity, setGranularity] = React.useState<SalesReportGranularity>('day');
-  const [tab, setTab] = React.useState<ReportTab>(() => parseReportTab(searchParams.get('tab')));
   const [linesPage, setLinesPage] = React.useState(1);
-
-  React.useEffect(() => {
-    setTab(parseReportTab(searchParams.get('tab')));
-  }, [searchParams]);
 
   React.useEffect(() => {
     const timer = window.setTimeout(() => setSearch(searchInput.trim()), 350);
@@ -449,8 +464,8 @@ export function StoreReportsPage() {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-5">
       <SetPageTitle
-        titleAr="التقارير"
-        descriptionAr="لوحة المتجر، المبيعات، المنتجات، العملاء، الجغرافيا، الدفع، التنفيذ، والتفاعل."
+        titleAr={REPORT_PAGE_COPY[tab].titleAr}
+        descriptionAr={REPORT_PAGE_COPY[tab].descriptionAr}
         iconName="BarChart3"
       />
 
@@ -473,20 +488,8 @@ export function StoreReportsPage() {
             </div>
           ) : null}
 
-          <Tabs value={tab} onValueChange={(v) => setTab(v as ReportTab)}>
-            <TabsList className="h-auto flex-wrap justify-start gap-1">
-              <TabsTrigger value="overview">لوحة التحكم</TabsTrigger>
-              <TabsTrigger value="sales">المبيعات</TabsTrigger>
-              <TabsTrigger value="products">المنتجات</TabsTrigger>
-              <TabsTrigger value="customers">العملاء</TabsTrigger>
-              <TabsTrigger value="geo">الجغرافيا</TabsTrigger>
-              <TabsTrigger value="payment">الدفع</TabsTrigger>
-              <TabsTrigger value="fulfillment">التنفيذ</TabsTrigger>
-              <TabsTrigger value="engagement">التفاعل</TabsTrigger>
-              <TabsTrigger value="lines">تفصيلي</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="overview" className="mt-4 space-y-5">
+          {tab === 'overview' ? (
+            <div className="space-y-5">
               <OverviewTab
                 dashboard={dashboard}
                 summary={summary}
@@ -496,9 +499,11 @@ export function StoreReportsPage() {
                 onGranularityChange={setGranularity}
                 currency={currency}
               />
-            </TabsContent>
+            </div>
+          ) : null}
 
-            <TabsContent value="sales" className="mt-4 space-y-5">
+          {tab === 'sales' ? (
+            <div className="space-y-5">
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
                 <KpiCard
                   label="الإيراد"
@@ -661,9 +666,11 @@ export function StoreReportsPage() {
                   )}
                 </section>
               </div>
-            </TabsContent>
+            </div>
+          ) : null}
 
-            <TabsContent value="products" className="mt-4 space-y-5">
+          {tab === 'products' ? (
+            <div className="space-y-5">
               <div className="grid gap-4 xl:grid-cols-2">
                 <SimpleTable
                   title="أفضل المنتجات"
@@ -702,9 +709,11 @@ export function StoreReportsPage() {
                   money(row.revenueTotal, currency),
                 ])}
               />
-            </TabsContent>
+            </div>
+          ) : null}
 
-            <TabsContent value="customers" className="mt-4 space-y-5">
+          {tab === 'customers' ? (
+            <div className="space-y-5">
               <SimpleTable
                 title="أفضل العملاء"
                 loading={byPartner.isLoading}
@@ -717,9 +726,11 @@ export function StoreReportsPage() {
                   money(row.revenueTotal, currency),
                 ])}
               />
-            </TabsContent>
+            </div>
+          ) : null}
 
-            <TabsContent value="geo" className="mt-4 space-y-5">
+          {tab === 'geo' ? (
+            <div className="space-y-5">
               <div className="grid gap-4 xl:grid-cols-2">
                 <SimpleTable
                   title="المدن"
@@ -746,9 +757,11 @@ export function StoreReportsPage() {
                   ])}
                 />
               </div>
-            </TabsContent>
+            </div>
+          ) : null}
 
-            <TabsContent value="payment" className="mt-4 space-y-5">
+          {tab === 'payment' ? (
+            <div className="space-y-5">
               <div className="grid gap-4 xl:grid-cols-2">
                 <section className="rounded-2xl border border-border bg-card p-4">
                   <h2 className="mb-1 text-sm font-semibold">طرق الدفع</h2>
@@ -790,9 +803,11 @@ export function StoreReportsPage() {
                   ])}
                 />
               </div>
-            </TabsContent>
+            </div>
+          ) : null}
 
-            <TabsContent value="fulfillment" className="mt-4 space-y-5">
+          {tab === 'fulfillment' ? (
+            <div className="space-y-5">
               {dashboard.data?.alerts ? (
                 <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                   <AlertCard
@@ -833,9 +848,11 @@ export function StoreReportsPage() {
                   String(row.ordersCount),
                 ])}
               />
-            </TabsContent>
+            </div>
+          ) : null}
 
-            <TabsContent value="engagement" className="mt-4 space-y-5">
+          {tab === 'engagement' ? (
+            <div className="space-y-5">
               {operations.isLoading ? (
                 <div className="h-40 animate-pulse rounded-xl bg-muted/40" />
               ) : operations.data ? (
@@ -879,9 +896,11 @@ export function StoreReportsPage() {
                   <Link href={ecommerceAdminRoutes.reviews}>مراجعة التقييمات</Link>
                 </Button>
               </div>
-            </TabsContent>
+            </div>
+          ) : null}
 
-            <TabsContent value="lines" className="mt-4 space-y-3">
+          {tab === 'lines' ? (
+            <div className="space-y-3">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant="outline" className="tabular-nums">
                   {lines.data?.pagination.total ?? 0} بند
@@ -992,8 +1011,8 @@ export function StoreReportsPage() {
                   </div>
                 </div>
               ) : null}
-            </TabsContent>
-          </Tabs>
+            </div>
+          ) : null}
         </>
       )}
     </div>

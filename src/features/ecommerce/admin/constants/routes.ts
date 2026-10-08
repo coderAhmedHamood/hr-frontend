@@ -27,10 +27,18 @@ export const ecommerceAdminRoutes = {
   catalogUoms: '/catalog-uoms',
   orders: '/orders',
   reviews: '/reviews',
-  /** تقارير المتجر — `/store-admin/reports/*` */
+  /** تقارير المتجر — كل تقرير صفحة مستقلة تحت قائمة التقارير */
   reports: '/reports',
-  /** @deprecated use `reports` */
-  salesReports: '/reports',
+  reportsSales: '/reports/sales',
+  reportsProducts: '/reports/products',
+  reportsCustomers: '/reports/customers',
+  reportsGeo: '/reports/geography',
+  reportsPayment: '/reports/payments',
+  reportsFulfillment: '/reports/fulfillment',
+  reportsEngagement: '/reports/engagement',
+  reportsLines: '/reports/lines',
+  /** @deprecated use `reportsSales` */
+  salesReports: '/reports/sales',
   /** @deprecated Use inventoryAdminRoutes */
   warehouses: inventoryAdminRoutes.warehouses,
   warehouseDetail: inventoryAdminRoutes.warehouseDetail,
