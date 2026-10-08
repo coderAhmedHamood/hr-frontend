@@ -85,6 +85,7 @@ jobs:
             NEXT_PUBLIC_APP_NAME=${{ vars.NEXT_PUBLIC_APP_NAME }}
             NEXT_PUBLIC_HERE_API_KEY=${{ secrets.NEXT_PUBLIC_HERE_API_KEY }}
             NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY }}
+            NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID=${{ vars.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID || secrets.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID }}
           tags: |
             ${{ steps.vars.outputs.image }}:latest
             ${{ steps.vars.outputs.image }}:${{ steps.vars.outputs.sha_short }}

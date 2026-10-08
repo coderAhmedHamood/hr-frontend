@@ -72,7 +72,13 @@ export function ProductCardView({
           ) : null}
           <div className="mt-auto flex items-center gap-2 pt-1">
             <FavoriteButton productId={product.id} variant="outline" />
-            <AddToCartButton productId={product.id} stockStatus={product.stockStatus} variant="button" className="flex-1" />
+            <AddToCartButton
+              productId={product.id}
+              stockStatus={product.stockStatus}
+              variant="button"
+              className="flex-1"
+              optionsHref={product.hasVariants ? productHref : undefined}
+            />
           </div>
         </div>
       </article>
@@ -114,6 +120,7 @@ export function ProductCardView({
             stockStatus={product.stockStatus}
             variant="quick"
             className="absolute bottom-2 end-2 z-10"
+            optionsHref={product.hasVariants ? productHref : undefined}
           />
         ) : null}
 

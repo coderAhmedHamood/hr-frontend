@@ -16,21 +16,8 @@ import {
   type PartnerAddress,
 } from '@/features/ecommerce/storefront/lib/api/partner-addresses-api';
 import { storeLoginHref } from '@/features/ecommerce/storefront/lib/store-auth-return';
-import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
 import { StoreEmptyState } from '@/features/ecommerce/storefront/components/store-empty-state';
-import {
-  GeoCascadeSelect,
-  type GeoCascadeValue,
-} from '@/features/system/organization/geo/components/geo-cascade-select';
-import { usePublicGeoCountries } from '@/features/system/organization/geo/hooks/use-geo';
-import {
-  GoogleLocationPicker,
-  type GoogleLocationValue,
-} from '@/components/ui/google-location-picker';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog,
   DialogBody,
@@ -47,63 +34,16 @@ import {
 import { Link, useRouter } from '@/i18n/navigation';
 import { cn } from '@/shared/utils';
 import { useStorefrontAuthReady } from '@/features/ecommerce/storefront/hooks/use-storefront-auth-ready';
-
-type FormState = {
-  label: string;
-  countryId: string | null;
-  cityId: string | null;
-  districtId: string | null;
-  city: string;
-  district: string;
-  street: string;
-  building: string;
-  notes: string;
-  isDefault: boolean;
-  latitude: number | null;
-  longitude: number | null;
-  mapAddress: string;
-};
-
-function parseCoord(value: string | number | null | undefined): number | null {
-  if (value == null || value === '') return null;
-  const n = typeof value === 'number' ? value : Number(value);
-  return Number.isFinite(n) ? n : null;
-}
-
-const EMPTY_FORM: FormState = {
-  label: '',
-  countryId: null,
-  cityId: null,
-  districtId: null,
-  city: '',
-  district: '',
-  street: '',
-  building: '',
-  notes: '',
-  isDefault: false,
-  latitude: null,
-  longitude: null,
-  mapAddress: '',
-};
-
-function toForm(address?: PartnerAddress | null): FormState {
-  if (!address) return EMPTY_FORM;
-  return {
-    label: address.label ?? '',
-    countryId: address.countryId ?? null,
-    cityId: address.cityId ?? null,
-    districtId: address.districtId ?? null,
-    city: address.city ?? '',
-    district: address.district ?? '',
-    street: address.street ?? '',
-    building: address.building ?? '',
-    notes: address.notes ?? '',
-    isDefault: address.isDefault,
-    latitude: parseCoord(address.latitude),
-    longitude: parseCoord(address.longitude),
-    mapAddress: '',
-  };
-}
+import { useStoreCountry } from '@/features/ecommerce/storefront/hooks/use-store-country';
+import { customerErrorText } from '@/features/ecommerce/storefront/lib/customer-error';
+import {
+  EMPTY_STORE_ADDRESS_FORM,
+  StoreAddressFields,
+  storeAddressIncomplete,
+  storeAddressPayload,
+  storeAddressToForm,
+  type StoreAddressFormState,
+} from '@/features/ecommerce/storefront/components/account/store-address-form';
 
 /**
  * Customer address book for `/store/account/addresses`.
@@ -115,16 +55,14 @@ export function StoreAccountAddressesClient() {
   const customer = useStorefrontCustomerUi((s) => s.customer);
   const accessToken = useStorefrontCustomerUi((s) => s.accessToken);
   const clearSession = useStorefrontCustomerUi((s) => s.clearSession);
-  const companyId = getStorefrontCompanyId();
-  const { data: geoCountries = [] } = usePublicGeoCountries(companyId, Boolean(companyId));
-  const useGeoCascade = geoCountries.length > 0;
+  const country = useStoreCountry();
 
   const hydrated = useStorefrontAuthReady();
   const [loading, setLoading] = React.useState(true);
   const [addresses, setAddresses] = React.useState<PartnerAddress[]>([]);
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [editingId, setEditingId] = React.useState<string | null>(null);
-  const [form, setForm] = React.useState<FormState>(EMPTY_FORM);
+  const [form, setForm] = React.useState<StoreAddressFormState>(EMPTY_STORE_ADDRESS_FORM);
   const [saving, setSaving] = React.useState(false);
   const [busyId, setBusyId] = React.useState<string | null>(null);
   const [deleteTargetId, setDeleteTargetId] = React.useState<string | null>(null);
@@ -172,46 +110,25 @@ export function StoreAccountAddressesClient() {
 
   function openCreate() {
     setEditingId(null);
-    setForm({ ...EMPTY_FORM, isDefault: addresses.length === 0 });
+    setForm({ ...EMPTY_STORE_ADDRESS_FORM, isDefault: addresses.length === 0 });
     setDialogOpen(true);
   }
 
   function openEdit(address: PartnerAddress) {
     setEditingId(address.id);
-    setForm(toForm(address));
+    setForm(storeAddressToForm(address));
     setDialogOpen(true);
   }
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     if (!accessToken || !customer?.partnerId) return;
-    if (useGeoCascade) {
-      if (!form.countryId || !form.cityId || !form.districtId) {
-        toast.error(t('checkout.errors.required'));
-        return;
-      }
-    }
-    if (!form.city.trim() || !form.district.trim() || !form.street.trim()) {
+    if (storeAddressIncomplete(form)) {
       toast.error(t('checkout.errors.required'));
       return;
     }
 
-    const payload = {
-      addressType: 'shipping' as const,
-      label: form.label || t('account.addresses.defaultLabel'),
-      countryId: form.countryId,
-      cityId: form.cityId,
-      districtId: form.districtId,
-      city: form.city,
-      district: form.district,
-      street: form.street,
-      building: form.building || null,
-      notes: form.notes || null,
-      isDefault: form.isDefault,
-      countryCode: form.countryId ? null : 'YE',
-      latitude: form.latitude,
-      longitude: form.longitude,
-    };
+    const payload = storeAddressPayload(form, country.code, t('account.addresses.defaultLabel'));
 
     setSaving(true);
     try {
@@ -226,13 +143,13 @@ export function StoreAccountAddressesClient() {
       }
       setDialogOpen(false);
       setEditingId(null);
-      setForm(EMPTY_FORM);
+      setForm(EMPTY_STORE_ADDRESS_FORM);
       toast.success(t('account.addresses.saved'));
       await reload();
     } catch (err) {
       if (handleAuthError(err)) return;
       toast.error(
-        err instanceof PartnerAuthApiError ? err.message : t('account.addresses.saveFailed'),
+        customerErrorText(err, t('account.addresses.saveFailed')),
       );
     } finally {
       setSaving(false);
@@ -249,7 +166,7 @@ export function StoreAccountAddressesClient() {
     } catch (err) {
       if (handleAuthError(err)) return;
       toast.error(
-        err instanceof PartnerAuthApiError ? err.message : t('account.addresses.saveFailed'),
+        customerErrorText(err, t('account.addresses.saveFailed')),
       );
     } finally {
       setBusyId(null);
@@ -268,7 +185,7 @@ export function StoreAccountAddressesClient() {
     } catch (err) {
       if (handleAuthError(err)) return;
       toast.error(
-        err instanceof PartnerAuthApiError ? err.message : t('account.addresses.deleteFailed'),
+        customerErrorText(err, t('account.addresses.deleteFailed')),
       );
     } finally {
       setBusyId(null);
@@ -427,128 +344,7 @@ export function StoreAccountAddressesClient() {
               </DialogTitle>
             </DialogHeader>
             <DialogBody className={cn(dialogShellBodyClass, 'space-y-3')}>
-              <div className="space-y-1.5">
-                <Label htmlFor="addr-label">{t('account.addresses.label')}</Label>
-                <Input
-                  id="addr-label"
-                  value={form.label}
-                  onChange={(e) => setForm((prev) => ({ ...prev, label: e.target.value }))}
-                  placeholder={t('account.addresses.labelPlaceholder')}
-                />
-              </div>
-              {useGeoCascade ? (
-                <GeoCascadeSelect
-                  companyId={companyId}
-                  mode="public"
-                  value={{
-                    countryId: form.countryId,
-                    cityId: form.cityId,
-                    districtId: form.districtId,
-                    countryCode: null,
-                    city: form.city,
-                    district: form.district,
-                  }}
-                  onChange={(geo: GeoCascadeValue) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      countryId: geo.countryId,
-                      cityId: geo.cityId,
-                      districtId: geo.districtId,
-                      city: geo.city,
-                      district: geo.district,
-                    }))
-                  }
-                  labels={{
-                    country: t('checkout.country'),
-                    city: t('checkout.city'),
-                    district: t('checkout.district'),
-                  }}
-                  className="sm:grid-cols-1"
-                />
-              ) : (
-                <>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="addr-city">{t('checkout.city')}</Label>
-                    <Input
-                      id="addr-city"
-                      value={form.city}
-                      onChange={(e) => setForm((prev) => ({ ...prev, city: e.target.value }))}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="addr-district">{t('checkout.district')}</Label>
-                    <Input
-                      id="addr-district"
-                      value={form.district}
-                      onChange={(e) => setForm((prev) => ({ ...prev, district: e.target.value }))}
-                      required
-                    />
-                  </div>
-                </>
-              )}
-              <div className="space-y-1.5">
-                <Label htmlFor="addr-street">{t('checkout.street')}</Label>
-                <Input
-                  id="addr-street"
-                  value={form.street}
-                  onChange={(e) => setForm((prev) => ({ ...prev, street: e.target.value }))}
-                  required
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="addr-building">{t('account.addresses.building')}</Label>
-                <Input
-                  id="addr-building"
-                  value={form.building}
-                  onChange={(e) => setForm((prev) => ({ ...prev, building: e.target.value }))}
-                />
-              </div>
-              <div className="space-y-2">
-                <div className="space-y-1">
-                  <Label>{t('checkout.mapLocation')}</Label>
-                  <p className="text-xs text-muted-foreground">{t('checkout.mapLocationHint')}</p>
-                </div>
-                <GoogleLocationPicker
-                  value={
-                    form.latitude != null && form.longitude != null
-                      ? {
-                          lat: form.latitude,
-                          lng: form.longitude,
-                          address: form.mapAddress,
-                        }
-                      : null
-                  }
-                  onLocationChange={(location: GoogleLocationValue) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      latitude: location.lat,
-                      longitude: location.lng,
-                      mapAddress: location.address,
-                      street: prev.street.trim() ? prev.street : location.address,
-                    }))
-                  }
-                  height={260}
-                  className="min-w-0 max-w-full"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="addr-notes">{t('checkout.notes')}</Label>
-                <Textarea
-                  id="addr-notes"
-                  value={form.notes}
-                  onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))}
-                  rows={2}
-                />
-              </div>
-              <label className="flex items-center gap-2 text-sm text-foreground">
-                <input
-                  type="checkbox"
-                  checked={form.isDefault}
-                  onChange={(e) => setForm((prev) => ({ ...prev, isDefault: e.target.checked }))}
-                />
-                {t('account.addresses.setDefault')}
-              </label>
+              <StoreAddressFields form={form} setForm={setForm} />
             </DialogBody>
             <DialogFooter className={dialogFormFooterClass}>
               <Button type="submit" disabled={saving}>

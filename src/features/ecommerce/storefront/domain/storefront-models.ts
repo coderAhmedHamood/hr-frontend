@@ -40,6 +40,8 @@ export type StorefrontProduct = {
   /** Active promo flags from inventory (computed server-side). */
   isNewProductActive?: boolean;
   isTodayDealActive?: boolean;
+  /** Has options (size, color…): the card opens the product page to choose one. */
+  hasVariants?: boolean;
   isWholesaleActive?: boolean;
   isDiscountActive?: boolean;
   discountPercent?: number | null;

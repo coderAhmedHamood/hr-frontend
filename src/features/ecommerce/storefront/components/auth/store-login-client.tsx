@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, UserPlus } from 'lucide-react';
 import {
   useIsStorefrontAuthenticated,
   useStorefrontCustomerUi,
@@ -14,14 +14,17 @@ import { PartnerAuthApiError } from '@/features/ecommerce/storefront/domain/part
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
 import {
   resolveStoreAuthReturnTo,
+  storeLoginHref,
   storeRegisterHref,
 } from '@/features/ecommerce/storefront/lib/store-auth-return';
+import { useStoreCountry } from '@/features/ecommerce/storefront/hooks/use-store-country';
 import { StoreAuthShell } from '@/features/ecommerce/storefront/components/auth/store-auth-shell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Link, useRouter } from '@/i18n/navigation';
 import { useStorefrontAuthReady } from '@/features/ecommerce/storefront/hooks/use-storefront-auth-ready';
+import { customerErrorText } from '@/features/ecommerce/storefront/lib/customer-error';
 
 export function StoreLoginClient() {
   const t = useTranslations('storefront');
@@ -36,7 +39,7 @@ export function StoreLoginClient() {
   const [showPassword, setShowPassword] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
   const hydrated = useStorefrontAuthReady();
-
+  const country = useStoreCountry();
 
   React.useEffect(() => {
     if (hydrated && authenticated) {
@@ -62,11 +65,7 @@ export function StoreLoginClient() {
       toast.success(session.message || t('login.success'));
       router.push(returnTo);
     } catch (error) {
-      const message =
-        error instanceof PartnerAuthApiError
-          ? error.message
-          : t('login.errors.generic');
-      toast.error(message);
+      toast.error(customerErrorText(error, t('login.errors.generic')));
     } finally {
       setSubmitting(false);
     }
@@ -79,18 +78,23 @@ export function StoreLoginClient() {
       eyebrow={t('login.eyebrow')}
       title={t('login.formTitle')}
       description={checkoutReturn ? t('login.checkoutRequiredHint') : t('login.formDescription')}
+      tabs={{
+        active: 'login',
+        loginHref: storeLoginHref(returnTo),
+        registerHref: storeRegisterHref(returnTo),
+        loginLabel: t('authTabs.login'),
+        registerLabel: t('authTabs.register'),
+        ariaLabel: t('authTabs.aria'),
+      }}
       footer={
-        <div className="flex flex-col gap-2">
-          <p className="text-muted-foreground">
-            {t('login.noAccount')}{' '}
-            <Link
-              href={storeRegisterHref(returnTo)}
-              prefetch={false}
-              className="font-medium text-primary hover:underline"
-            >
-              {t('login.createAccount')}
+        <div className="flex flex-col gap-3">
+          <p className="text-muted-foreground">{t('login.noAccount')}</p>
+          <Button asChild variant="outline" className="h-11 w-full gap-2">
+            <Link href={storeRegisterHref(returnTo)} prefetch={false}>
+              <UserPlus className="h-4 w-4" aria-hidden />
+              {t('login.createAccountCta')}
             </Link>
-          </p>
+          </Button>
           {!checkoutReturn ? (
             <Link
               href="/store"
@@ -120,7 +124,9 @@ export function StoreLoginClient() {
             value={identifier}
             onChange={(e) => setIdentifier(e.target.value)}
             autoComplete="username"
-            placeholder={t('login.identifierPlaceholder')}
+            placeholder={t('login.identifierPlaceholder', {
+              example: `0${country.mobileExample ?? ''}`,
+            })}
             required
           />
         </div>
@@ -144,6 +150,7 @@ export function StoreLoginClient() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="current-password"
+              placeholder={t('login.passwordPlaceholder')}
               className="pe-10"
               required
               minLength={6}
@@ -157,6 +164,9 @@ export function StoreLoginClient() {
               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
           </div>
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            {t('login.passwordHint')}
+          </p>
         </div>
 
         <Button type="submit" className="h-11 w-full" disabled={submitting}>

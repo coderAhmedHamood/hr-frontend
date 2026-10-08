@@ -16,6 +16,7 @@ import {
   MoreHorizontal,
   PackageSearch,
   Paperclip,
+  Plus,
   QrCode,
   Share2,
   ShieldCheck,
@@ -66,7 +67,9 @@ import {
 } from '@/features/ecommerce/domain/lib/order-attachments';
 import type { CreateStoreOrderAttachmentInput } from '@/features/ecommerce/domain/types/order';
 import { Button } from '@/components/ui/button';
-import { GoogleLocationPicker, type GoogleLocationValue } from '@/components/ui/google-location-picker';
+import type { StoreCountry } from '@/features/ecommerce/domain/constants/store-country';
+import { parseStoreMobile } from '@/features/ecommerce/domain/store-mobile';
+import { useStoreMobileError } from '@/features/ecommerce/storefront/components/forms/store-mobile-input';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -78,14 +81,18 @@ import {
   STORE_INVENTORY_UNAVAILABLE_ERROR,
   STORE_STOCK_SHORT_ERROR,
 } from '@/features/ecommerce/domain/constants/store-checkout-errors';
-import {
-  GeoCascadeSelect,
-  type GeoCascadeValue,
-} from '@/features/system/organization/geo/components/geo-cascade-select';
 import { usePublicGeoCountries } from '@/features/system/organization/geo/hooks/use-geo';
 import { Link, useRouter } from '@/i18n/navigation';
 import { cn } from '@/shared/utils';
 import type { StorefrontLocale } from '@/i18n/routing';
+import { customerErrorText } from '@/features/ecommerce/storefront/lib/customer-error';
+import {
+  EMPTY_STORE_ADDRESS_FORM,
+  StoreAddressFields,
+  storeAddressIncomplete,
+  storeAddressPayload,
+  type StoreAddressFormState,
+} from '@/features/ecommerce/storefront/components/account/store-address-form';
 
 type StepId = 'address' | 'payment' | 'review';
 
@@ -128,12 +135,17 @@ function paymentAccountInstructions(
 
 type CheckoutClientProps = {
   currency: string;
-  /** The company's base country: for an address without a geo country. */
-  countryCode: string;
+  /**
+   * The company's base country: the store delivers there only (the country is
+   * shown, not chosen), and its mobile rule checks the phone.
+   */
+  country: StoreCountry;
 };
 
-export function StoreCheckoutClient({ currency: storeCurrency, countryCode }: CheckoutClientProps) {
+export function StoreCheckoutClient({ currency: storeCurrency, country }: CheckoutClientProps) {
   const t = useTranslations('storefront');
+  const countryCode = country.code;
+  const mobileError = useStoreMobileError();
   const locale = useLocale() as StorefrontLocale;
   const router = useRouter();
   const lines = useStorefrontCartUi((s) => s.lines);
@@ -189,8 +201,12 @@ export function StoreCheckoutClient({ currency: storeCurrency, countryCode }: Ch
   // often carry a catalog country the order API then rejects.
   React.useEffect(() => {
     if (!geoCountriesFetched) return;
-    const allowed = new Set(geoCountries.map((country) => country.id));
-    const fallback = geoCountries[0]?.id ?? null;
+    const allowed = new Set(geoCountries.map((row) => row.id));
+    // The store's country; the first published one when its code is not set up.
+    const fallback =
+      geoCountries.find((row) => row.code?.toUpperCase() === countryCode.toUpperCase())?.id ??
+      geoCountries[0]?.id ??
+      null;
     setAddress((prev) => {
       if (prev.countryId && allowed.has(prev.countryId)) return prev;
       if (prev.countryId === fallback) return prev;
@@ -201,7 +217,7 @@ export function StoreCheckoutClient({ currency: storeCurrency, countryCode }: Ch
         districtId: prev.countryId && !allowed.has(prev.countryId) ? null : prev.districtId,
       };
     });
-  }, [geoCountriesFetched, geoCountries]);
+  }, [geoCountriesFetched, geoCountries, countryCode]);
   const [customerNote, setCustomerNote] = React.useState('');
   const [paymentMethod, setPaymentMethod] = React.useState<CheckoutPaymentMethod>('cash');
   const [paymentAccountId, setPaymentAccountId] = React.useState<string | null>(null);
@@ -256,7 +272,13 @@ export function StoreCheckoutClient({ currency: storeCurrency, countryCode }: Ch
   const [savedAddresses, setSavedAddresses] = React.useState<PartnerAddress[]>([]);
   const [addressesLoading, setAddressesLoading] = React.useState(false);
   const [addressesError, setAddressesError] = React.useState<string | null>(null);
-  const [selectedAddressId, setSelectedAddressId] = React.useState<string | 'new'>('new');
+  const [selectedAddressId, setSelectedAddressId] = React.useState<string | null>(null);
+  // The address book form, opened by «+» (same form as the account page).
+  const [addingAddress, setAddingAddress] = React.useState(false);
+  const [newAddress, setNewAddress] = React.useState<StoreAddressFormState>(
+    EMPTY_STORE_ADDRESS_FORM,
+  );
+  const [savingAddress, setSavingAddress] = React.useState(false);
   const appliedDefaultAddressRef = React.useRef(false);
 
   React.useEffect(() => {
@@ -303,7 +325,9 @@ export function StoreCheckoutClient({ currency: storeCurrency, countryCode }: Ch
           districtId: preferred.districtId ?? null,
           city: preferred.city?.trim() || prev.city,
           district: preferred.district?.trim() || '',
-          street: preferred.street?.trim() || '',
+          street: [preferred.street?.trim(), preferred.building?.trim()]
+            .filter(Boolean)
+            .join('، '),
           notes: preferred.notes?.trim() || '',
           lat: preferred.latitude != null ? Number(preferred.latitude) : undefined,
           lng: preferred.longitude != null ? Number(preferred.longitude) : undefined,
@@ -339,7 +363,7 @@ export function StoreCheckoutClient({ currency: storeCurrency, countryCode }: Ch
       districtId: row.districtId ?? null,
       city: row.city?.trim() || prev.city,
       district: row.district?.trim() || '',
-      street: row.street?.trim() || '',
+      street: [row.street?.trim(), row.building?.trim()].filter(Boolean).join('، '),
       notes: row.notes?.trim() || '',
       lat: row.latitude != null ? Number(row.latitude) : undefined,
       lng: row.longitude != null ? Number(row.longitude) : undefined,
@@ -348,52 +372,38 @@ export function StoreCheckoutClient({ currency: storeCurrency, countryCode }: Ch
   }
 
   function startNewAddress() {
-    setSelectedAddressId('new');
-    setAddressErrors({});
-    setAddress((prev) => ({
-      ...prev,
-      countryId: null,
-      cityId: null,
-      districtId: null,
-      city: '',
-      district: '',
-      street: '',
-      notes: '',
-      lat: undefined,
-      lng: undefined,
-      mapAddress: undefined,
-    }));
+    setNewAddress({ ...EMPTY_STORE_ADDRESS_FORM, isDefault: savedAddresses.length === 0 });
+    setAddingAddress(true);
   }
 
-  const showAddressForm = selectedAddressId === 'new' || savedAddresses.length === 0;
-  const selectedSaved =
-    selectedAddressId !== 'new'
-      ? savedAddresses.find((row) => row.id === selectedAddressId)
-      : undefined;
+  const selectedSaved = selectedAddressId
+    ? savedAddresses.find((row) => row.id === selectedAddressId)
+    : undefined;
 
-  async function ensureAddressBookEntry() {
-    if (!accessToken || !customer?.partnerId || selectedAddressId !== 'new') return;
+  /** Saves the open form to the address book and delivers to it. */
+  async function saveNewAddress(): Promise<boolean> {
+    if (!accessToken || !customer?.partnerId) return false;
+    if (storeAddressIncomplete(newAddress)) {
+      toast.error(t('checkout.errors.addressIncomplete'));
+      return false;
+    }
+    setSavingAddress(true);
     try {
       const created = await createPartnerAddress(accessToken, {
+        ...storeAddressPayload(newAddress, countryCode, t('account.addresses.defaultLabel')),
         partnerId: customer.partnerId,
-        addressType: 'shipping',
-        label: address.city,
-        countryId: address.countryId ?? null,
-        cityId: address.cityId ?? null,
-        districtId: address.districtId ?? null,
-        city: address.city,
-        district: address.district,
-        street: address.street,
-        notes: address.notes ?? null,
-        latitude: address.lat ?? null,
-        longitude: address.lng ?? null,
-        isDefault: savedAddresses.length === 0,
-        countryCode: address.countryId ? null : countryCode,
+        isDefault: newAddress.isDefault || savedAddresses.length === 0,
       });
       setSavedAddresses((prev) => [created, ...prev]);
-      setSelectedAddressId(created.id);
-    } catch {
-      /* order can still proceed with snapshot address */
+      applySavedAddress(created);
+      setAddingAddress(false);
+      toast.success(t('account.addresses.saved'));
+      return true;
+    } catch (err) {
+      toast.error(customerErrorText(err, t('account.addresses.saveFailed')));
+      return false;
+    } finally {
+      setSavingAddress(false);
     }
   }
 
@@ -472,7 +482,7 @@ export function StoreCheckoutClient({ currency: storeCurrency, countryCode }: Ch
         } catch (error) {
           toast.error(
             error instanceof OrderAttachmentError
-              ? error.message
+              ? customerErrorText(error, t('checkout.errors.attachmentType'))
               : t('checkout.errors.attachmentType'),
           );
         }
@@ -485,10 +495,13 @@ export function StoreCheckoutClient({ currency: storeCurrency, countryCode }: Ch
   function validateAddress(): boolean {
     const errors: Partial<Record<keyof CheckoutAddressInput, string>> = {};
     const fullName = (customer?.name?.trim() || address.fullName).trim();
-    const phone = (customer?.phone?.trim() || address.phone).trim();
+    const rawPhone = (customer?.phone?.trim() || address.phone).trim();
     if (!fullName) errors.fullName = t('checkout.errors.required');
-    if (!phone || phone.replace(/\D/g, '').length < 9) {
-      errors.phone = t('checkout.errors.phone');
+    // One form of the number (+967…), the same rule as sign-up and the API.
+    const parsedPhone = parseStoreMobile(rawPhone, country);
+    const phone = parsedPhone.ok ? parsedPhone.e164 : rawPhone;
+    if (!parsedPhone.ok) {
+      errors.phone = mobileError(parsedPhone, country) ?? t('checkout.errors.phone');
     }
     if (!address.countryId || !address.cityId || !address.city.trim()) {
       errors.city =
@@ -510,11 +523,18 @@ export function StoreCheckoutClient({ currency: storeCurrency, countryCode }: Ch
 
   function goNext() {
     if (step === 'address') {
-      if (!validateAddress()) return;
-      if (selectedAddressId === 'new') {
-        void ensureAddressBookEntry().finally(() => setStep('payment'));
+      if (addingAddress) {
+        void saveNewAddress().then((saved) => {
+          if (saved) setStep('payment');
+        });
         return;
       }
+      if (!selectedSaved) {
+        startNewAddress();
+        toast.error(t('checkout.errors.addressRequired'));
+        return;
+      }
+      if (!validateAddress()) return;
       setStep('payment');
       return;
     }
@@ -556,7 +576,11 @@ export function StoreCheckoutClient({ currency: storeCurrency, countryCode }: Ch
       const orderAddress: CheckoutAddressInput = {
         ...address,
         fullName: (customer?.name?.trim() || address.fullName).trim(),
-        phone: (customer?.phone?.trim() || address.phone).trim(),
+        phone: (() => {
+          const raw = (customer?.phone?.trim() || address.phone).trim();
+          const parsed = parseStoreMobile(raw, country);
+          return parsed.ok ? parsed.e164 : raw;
+        })(),
       };
       const result = await placeStorefrontOrder({
         locale,
@@ -593,7 +617,7 @@ export function StoreCheckoutClient({ currency: storeCurrency, countryCode }: Ch
                 ? t('checkout.errors.outOfStock')
                 : result.error === STORE_INVENTORY_UNAVAILABLE_ERROR
                   ? t('checkout.errors.inventoryUnavailable')
-                  : result.error || t('checkout.placeError'),
+                  : customerErrorText(result.error, t('checkout.placeError')),
         );
         return;
       }
@@ -720,212 +744,135 @@ export function StoreCheckoutClient({ currency: storeCurrency, countryCode }: Ch
         {/* Address */}
         {step === 'address' ? (
           <section className="min-w-0 rounded-2xl border border-border bg-card">
-            <header className="flex items-center gap-3 border-b border-border/80 px-5 py-4 sm:px-6">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <header className="flex items-center gap-3 border-b border-border/80 px-5 py-3.5 sm:px-6">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
                 <MapPin className="h-4 w-4" aria-hidden />
               </span>
-              <div className="min-w-0 flex-1">
-                <h2 className="font-arabic-display text-base font-semibold leading-snug text-foreground sm:text-lg">
-                  {t('checkout.chooseAddressTitle')}
-                </h2>
-                <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-                  {t('checkout.chooseAddressHint')}
-                </p>
-              </div>
-              <Link
-                href="/store/account/addresses"
-                prefetch={false}
-                className="shrink-0 text-xs font-medium text-primary hover:underline"
-              >
-                {t('checkout.manageAddresses')}
-              </Link>
+              <h2 className="min-w-0 flex-1 font-arabic-display text-base font-semibold leading-snug text-foreground sm:text-lg">
+                {t('checkout.chooseAddressTitle')}
+              </h2>
+              {!addingAddress ? (
+                <Button
+                  type="button"
+                  size="icon"
+                  onClick={startNewAddress}
+                  className="h-10 w-10 shrink-0 rounded-full shadow-soft"
+                  aria-label={t('checkout.useNewAddress')}
+                  title={t('checkout.useNewAddress')}
+                >
+                  <Plus className="h-5 w-5" aria-hidden />
+                </Button>
+              ) : null}
             </header>
-            <div className="grid min-w-0 gap-5 p-5 sm:grid-cols-2 sm:gap-x-4 sm:gap-y-5 sm:p-6">
-              <div className="space-y-2 sm:col-span-2">
-                <p className="text-sm font-medium text-foreground">
-                  {t('checkout.savedAddresses')}
-                </p>
-                {addressesLoading ? (
-                  <div className="space-y-2">
-                    {Array.from({ length: 2 }).map((_, index) => (
-                      <div key={index} className="h-16 animate-pulse rounded-xl bg-muted/50" />
-                    ))}
-                  </div>
-                ) : addressesError ? (
-                  <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-3 text-sm text-destructive">
-                    {addressesError}
-                    <button
-                      type="button"
-                      className="ms-2 underline"
-                      onClick={() => void loadSavedAddresses()}
-                    >
-                      {t('checkout.retryAddresses')}
-                    </button>
-                  </div>
-                ) : savedAddresses.length === 0 ? (
-                  <p className="rounded-xl border border-dashed border-border px-3 py-3 text-sm text-muted-foreground">
-                    {t('checkout.noSavedAddresses')}
-                  </p>
-                ) : (
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    {savedAddresses.map((row) => {
-                      const active = selectedAddressId === row.id;
-                      return (
-                        <button
-                          key={row.id}
-                          type="button"
-                          onClick={() => applySavedAddress(row)}
+            <div className="grid min-w-0 gap-4 p-4 sm:grid-cols-2 sm:gap-x-4 sm:p-6">
+              {addressesLoading ? (
+                <div className="h-14 animate-pulse rounded-xl bg-muted/50 sm:col-span-2" />
+              ) : addressesError ? (
+                <button
+                  type="button"
+                  className="text-start text-xs text-destructive underline sm:col-span-2"
+                  onClick={() => void loadSavedAddresses()}
+                >
+                  {addressesError} {t('checkout.retryAddresses')}
+                </button>
+              ) : savedAddresses.length > 0 ? (
+                <div className="grid gap-2 sm:col-span-2 sm:grid-cols-2">
+                  {savedAddresses.map((row) => {
+                    const active = selectedAddressId === row.id && !addingAddress;
+                    return (
+                      <button
+                        key={row.id}
+                        type="button"
+                        onClick={() => {
+                          setAddingAddress(false);
+                          applySavedAddress(row);
+                        }}
+                        className={cn(
+                          'flex items-start gap-2.5 rounded-xl border px-3 py-2.5 text-start transition-colors',
+                          active
+                            ? 'border-primary bg-primary/5 ring-1 ring-primary/30'
+                            : 'border-border hover:border-primary/40',
+                        )}
+                      >
+                        <span
                           className={cn(
-                            'rounded-xl border px-3 py-3 text-start transition-colors',
-                            active
-                              ? 'border-primary bg-primary/5'
-                              : 'border-border hover:border-primary/40',
+                            'mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border',
+                            active ? 'border-primary bg-primary' : 'border-muted-foreground/40',
                           )}
+                          aria-hidden
                         >
-                          <p className="text-sm font-semibold text-foreground">
+                          {active ? (
+                            <span className="h-1.5 w-1.5 rounded-full bg-primary-foreground" />
+                          ) : null}
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-semibold text-foreground">
                             {row.label || t('account.addresses.defaultLabel')}
-                            {row.isDefault ? (
-                              <span className="ms-2 text-[11px] font-medium text-primary">
-                                {t('account.addresses.defaultBadge')}
-                              </span>
-                            ) : null}
-                          </p>
-                          <p className="mt-1 text-xs text-muted-foreground">
+                          </span>
+                          <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">
                             {formatPartnerAddressLine(row) || t('checkout.incompleteAddress')}
-                          </p>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
+                          </span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : !addingAddress ? (
                 <button
                   type="button"
                   onClick={startNewAddress}
-                  className={cn(
-                    'mt-1 w-full rounded-xl border border-dashed px-3 py-3 text-start text-sm transition-colors',
-                    selectedAddressId === 'new'
-                      ? 'border-primary bg-primary/5 font-medium text-primary'
-                      : 'border-border text-muted-foreground hover:border-primary/40',
-                  )}
+                  className="flex items-center gap-2 rounded-xl border border-dashed border-primary/50 px-3 py-2.5 text-sm font-medium text-primary transition-colors hover:bg-primary/5 sm:col-span-2"
                 >
-                  {t('checkout.useNewAddress')}
+                  <Plus className="h-4 w-4" aria-hidden />
+                  {t('checkout.addFirstAddress')}
                 </button>
-              </div>
-
-              {!showAddressForm && selectedSaved ? (
-                <div className="rounded-xl border border-border bg-muted/20 px-4 py-3 sm:col-span-2">
-                  <p className="text-sm font-semibold text-foreground">
-                    {selectedSaved.label || t('account.addresses.defaultLabel')}
-                  </p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    {formatPartnerAddressLine(selectedSaved)}
-                  </p>
-                  {(addressErrors.district || addressErrors.street || addressErrors.city) && (
-                    <p className="mt-2 text-xs text-destructive">
-                      {t('checkout.savedAddressIncomplete')}
-                    </p>
-                  )}
-                  {(addressErrors.fullName || addressErrors.phone) && (
-                    <p className="mt-2 text-xs text-destructive">
-                      {addressErrors.fullName || addressErrors.phone}
-                    </p>
-                  )}
-                </div>
               ) : null}
 
-              {showAddressForm ? (
-                <>
-                  {(addressErrors.fullName || addressErrors.phone) && (
-                    <p className="rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive sm:col-span-2">
-                      {addressErrors.fullName || addressErrors.phone}
-                    </p>
-                  )}
-                  <div className="sm:col-span-2">
-                    {geoCountriesFetched && geoCountries.length === 0 ? (
-                      <p className="rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
-                        {t('checkout.errors.geoUnavailable')}
-                      </p>
-                    ) : (
-                      <GeoCascadeSelect
-                        companyId={companyId}
-                        mode="public"
-                        showCountry={geoCountries.length !== 1}
-                        className={geoCountries.length === 1 ? 'sm:grid-cols-2' : undefined}
-                        value={{
-                          countryId: address.countryId ?? null,
-                          cityId: address.cityId ?? null,
-                          districtId: address.districtId ?? null,
-                          countryCode: null,
-                          city: address.city,
-                          district: address.district,
-                        }}
-                        onChange={(geo: GeoCascadeValue) =>
-                          setAddress((prev) => ({
-                            ...prev,
-                            countryId: geo.countryId,
-                            cityId: geo.cityId,
-                            districtId: geo.districtId,
-                            city: geo.city,
-                            district: geo.district,
-                          }))
-                        }
-                        labels={{
-                          country: t('checkout.country'),
-                          city: t('checkout.city'),
-                          district: t('checkout.district'),
-                        }}
-                      />
-                    )}
-                    {(addressErrors.city || addressErrors.district) && (
-                      <p className="mt-1.5 text-xs text-destructive">
-                        {addressErrors.city || addressErrors.district}
-                      </p>
-                    )}
+              {!addingAddress &&
+              selectedSaved &&
+              (addressErrors.district || addressErrors.street || addressErrors.city) ? (
+                <p className="text-xs text-destructive sm:col-span-2">
+                  {t('checkout.savedAddressIncomplete')}
+                </p>
+              ) : null}
+              {addressErrors.fullName || addressErrors.phone ? (
+                <p className="rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive sm:col-span-2">
+                  {addressErrors.fullName || addressErrors.phone}
+                </p>
+              ) : null}
+
+              {addingAddress ? (
+                <div className="animate-in fade-in slide-in-from-top-2 space-y-4 rounded-2xl border border-primary/30 bg-primary/[0.03] p-4 duration-200 sm:col-span-2">
+                  <p className="text-sm font-semibold text-foreground">
+                    {t('checkout.useNewAddress')}
+                  </p>
+                  <StoreAddressFields
+                    form={newAddress}
+                    setForm={setNewAddress}
+                    idPrefix="checkout-addr"
+                    showDefault={savedAddresses.length > 0}
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      className="flex-1"
+                      disabled={savingAddress}
+                      onClick={() => void saveNewAddress()}
+                    >
+                      {savingAddress ? t('account.saving') : t('checkout.saveAddress')}
+                    </Button>
+                    {savedAddresses.length > 0 ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={savingAddress}
+                        onClick={() => setAddingAddress(false)}
+                      >
+                        {t('common.cancel')}
+                      </Button>
+                    ) : null}
                   </div>
-                  <Field label={t('checkout.street')} error={addressErrors.street} className="sm:col-span-2">
-                    <Input
-                      value={address.street}
-                      onChange={(e) => setAddress((prev) => ({ ...prev, street: e.target.value }))}
-                      className={checkoutFieldClassName}
-                    />
-                  </Field>
-                  <div className="min-w-0 space-y-2.5 p-0 sm:col-span-2 sm:p-3">
-                    <div className="space-y-1">
-                      <Label className="text-sm font-medium leading-snug text-foreground">
-                        {t('checkout.mapLocation')}
-                      </Label>
-                      <p className="text-xs leading-relaxed text-muted-foreground">
-                        {t('checkout.mapLocationHint')}
-                      </p>
-                    </div>
-                    <GoogleLocationPicker
-                      value={
-                        address.lat != null && address.lng != null
-                          ? { lat: address.lat, lng: address.lng, address: address.mapAddress ?? '' }
-                          : null
-                      }
-                      onLocationChange={(location: GoogleLocationValue) =>
-                        setAddress((prev) => ({
-                          ...prev,
-                          lat: location.lat,
-                          lng: location.lng,
-                          mapAddress: location.address,
-                        }))
-                      }
-                      height={280}
-                      className="min-w-0 max-w-full"
-                    />
-                  </div>
-                  <Field label={t('checkout.notes')} className="sm:col-span-2">
-                    <Textarea
-                      rows={3}
-                      value={address.notes ?? ''}
-                      onChange={(e) => setAddress((prev) => ({ ...prev, notes: e.target.value }))}
-                      placeholder={t('checkout.notesPlaceholder')}
-                      className="min-h-[6.5rem] w-full min-w-0 max-w-full rounded-xl border-input px-3.5 py-3 text-base leading-relaxed sm:text-sm"
-                    />
-                  </Field>
-                </>
+                </div>
               ) : null}
 
               <Field label={t('checkout.customerNote')} className="sm:col-span-2">
@@ -1620,9 +1567,6 @@ export function StoreCheckoutClient({ currency: storeCurrency, countryCode }: Ch
     </div>
   );
 }
-
-const checkoutFieldClassName =
-  'h-12 min-h-12 w-full min-w-0 max-w-full rounded-xl border-input bg-background px-3.5 py-0 text-base leading-normal sm:text-sm';
 
 function Field({
   label,

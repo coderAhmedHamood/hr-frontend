@@ -19,6 +19,8 @@ type Props = {
   onPlaceSelect: (place: PlaceAutocompleteSelection) => void;
   placeholder?: string;
   className?: string;
+  /** ISO country code (e.g. YE): only places in that country are suggested. */
+  region?: string;
 };
 
 type SuggestionRow = {
@@ -31,7 +33,12 @@ type SuggestionRow = {
  * Custom-styled place search using Places Autocomplete Data API.
  * Avoids `PlaceAutocompleteElement` (closed shadow DOM / nested borders we can't restyle).
  */
-export function GooglePlaceAutocompleteInput({ onPlaceSelect, placeholder, className }: Props) {
+export function GooglePlaceAutocompleteInput({
+  onPlaceSelect,
+  placeholder,
+  className,
+  region = 'YE',
+}: Props) {
   const locale = useLocale();
   const language = locale.startsWith('ar') ? 'ar' : 'en';
   const placesLibrary = useMapsLibrary('places');
@@ -80,7 +87,8 @@ export function GooglePlaceAutocompleteInput({ onPlaceSelect, placeholder, class
           input: trimmed,
           sessionToken: sessionTokenRef.current,
           language,
-          region: 'ye',
+          region: region.toLowerCase(),
+          includedRegionCodes: [region.toLowerCase()],
         });
 
         if (cancelled) return;
@@ -114,7 +122,7 @@ export function GooglePlaceAutocompleteInput({ onPlaceSelect, placeholder, class
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [placesLibrary, query, language]);
+  }, [placesLibrary, query, language, region]);
 
   async function selectRow(row: SuggestionRow) {
     try {

@@ -1,5 +1,6 @@
 'use client';
 
+import * as React from 'react';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -48,6 +49,8 @@ type Props = {
   disabled?: boolean;
   className?: string;
   showCountry?: boolean;
+  /** Pick the city / district when the list has only one. */
+  autoSelectSingle?: boolean;
   labels?: {
     country?: string;
     city?: string;
@@ -63,6 +66,7 @@ export function GeoCascadeSelect({
   disabled,
   className,
   showCountry = true,
+  autoSelectSingle = false,
   labels,
 }: Props) {
   const isAdmin = mode === 'admin';
@@ -156,6 +160,18 @@ export function GeoCascadeSelect({
       district: district?.nameAr ?? '',
     });
   }
+
+  const onlyCity = autoSelectSingle && cities.length === 1 ? cities[0] : null;
+  const onlyDistrict = autoSelectSingle && districts.length === 1 ? districts[0] : null;
+  React.useEffect(() => {
+    if (disabled) return;
+    if (onlyCity && value.countryId && !value.cityId) {
+      selectCity(onlyCity.id);
+    } else if (onlyDistrict && value.cityId && !value.districtId) {
+      selectDistrict(onlyDistrict.id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs when the single option or the value changes
+  }, [disabled, onlyCity?.id, onlyDistrict?.id, value.countryId, value.cityId, value.districtId]);
 
   return (
     <div className={cn('grid gap-2 sm:grid-cols-3', className)}>

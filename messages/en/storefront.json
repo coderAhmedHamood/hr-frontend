@@ -110,7 +110,8 @@
     "sortBy": "Sort by",
     "filters": "Filters",
     "priceRange": "Price range",
-    "priceAsc": "Price: low to high"
+    "priceAsc": "Price: low to high",
+    "chooseOptions": "Choose size or color"
   },
   "cart": {
     "title": "Shopping cart",
@@ -245,8 +246,13 @@
       "paymentAccountUnavailable": "No payment account is available for this method. Please contact the store.",
       "attachmentsMax": "Maximum {max} order attachments",
       "attachmentSize": "File is too large",
-      "attachmentType": "Could not attach the file"
-    }
+      "attachmentType": "Could not attach the file",
+      "addressIncomplete": "Complete the address: city, district and street.",
+      "addressRequired": "Add a delivery address to continue."
+    },
+    "countryLocked": "Delivery within {country} only",
+    "addFirstAddress": "Add a delivery address",
+    "saveAddress": "Save address"
   },
   "orders": {
     "myOrdersTitle": "My orders",
@@ -302,7 +308,7 @@
     "formTitle": "Sign in",
     "formDescription": "Use your email or mobile number and password.",
     "identifier": "Email or mobile number",
-    "identifierPlaceholder": "you@example.com or 0501234567",
+    "identifierPlaceholder": "you@example.com · {example}",
     "password": "Password",
     "showPassword": "Show password",
     "hidePassword": "Hide password",
@@ -317,12 +323,15 @@
     "continueGuest": "Continue as guest",
     "backToCart": "Back to cart",
     "checkoutRequiredHint": "Sign in to link this order to your account. Your cart is saved — we'll bring you back to finish payment.",
-    "noAccount": "Don't have an account?",
+    "noAccount": "New customer? Create your account in under a minute.",
     "createAccount": "Create account",
     "errors": {
       "required": "Email/mobile and password are required",
       "generic": "Could not sign in. Please try again."
-    }
+    },
+    "passwordHint": "The password of your account in this store, created when you signed up — not your email password.",
+    "passwordPlaceholder": "Store password",
+    "createAccountCta": "Create a new account"
   },
   "register": {
     "title": "Create account",
@@ -334,13 +343,13 @@
     "email": "Email",
     "mobile": "Mobile number",
     "password": "Password",
-    "passwordHint": "At least 6 characters",
+    "passwordHint": "A new password you choose now for your account in this store (at least 6 characters). Do not use your email password.",
     "showPassword": "Show password",
     "hidePassword": "Hide password",
     "submit": "Create account",
     "submitting": "Creating account...",
     "success": "Account created and signed in",
-    "hasAccount": "Already have an account?",
+    "hasAccount": "Already have a store account?",
     "signIn": "Sign in",
     "mockHint": "Local demo mode — registration stores the session locally until the API is wired.",
     "errors": {
@@ -348,7 +357,10 @@
       "emailMobileRequired": "Email and mobile number are both required",
       "passwordMin": "Password must be at least 6 characters",
       "generic": "Could not create account. Please try again."
-    }
+    },
+    "passwordNew": "Create a store password",
+    "passwordPlaceholder": "New store password",
+    "signInCta": "Sign in"
   },
   "forgotPassword": {
     "title": "Forgot password",
@@ -583,5 +595,29 @@
     "light": "Light",
     "dark": "Dark",
     "system": "System"
+  },
+  "authTabs": {
+    "login": "Sign in",
+    "register": "Create account",
+    "aria": "Sign in or create an account"
+  },
+  "fields": {
+    "mobile": {
+      "hint": "A mobile number in {country} — e.g. {example}",
+      "errors": {
+        "empty": "Mobile number is required.",
+        "letters": "Use digits only.",
+        "country": "Enter a mobile number from {country} (+{code}).",
+        "length": "A mobile number is {length} digits after +{code} — e.g. {example}",
+        "prefix": "Not a valid mobile number in {country} — it starts with {prefixes}, e.g. {example}"
+      }
+    },
+    "email": {
+      "suggest": "Did you mean",
+      "suggestEnd": "?",
+      "required": "Email is required.",
+      "invalid": "Enter a valid email like name@gmail.com",
+      "typo": "Check your email — the part after @ looks mistyped."
+    }
   }
 }
