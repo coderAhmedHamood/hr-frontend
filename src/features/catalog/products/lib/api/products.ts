@@ -17,7 +17,6 @@ import type {
   UpdateProductInput,
 } from '@/features/ecommerce/domain/types/product';
 import type { AdminProductsPort } from '@/features/ecommerce/domain/ports/catalog.ports';
-import { companyCurrencyKnown } from '@/features/auth/lib/company-currency';
 import { storeCurrencyCode, isStoreCurrency } from '@/features/ecommerce/domain/constants/store-currency';
 import { UUID_RE, isPersistedId } from '@/features/catalog/products/lib/id-utils';
 import { PRODUCT_VARIANT_CUSTOM_UOM_ENABLED } from '@/features/catalog/products/constants/product-feature-flags';
@@ -623,91 +622,10 @@ function toFullBody(input: CreateProductInput | UpdateProductInput, mode: 'creat
   return body;
 }
 
-function productNeedsStoreCurrency(dto: ProductDto): boolean {
-  if (!isStoreCurrency(dto.priceCurrency)) return true;
-  if (dto.costPriceCurrency && !isStoreCurrency(dto.costPriceCurrency)) return true;
-  if (dto.compareAtPriceCurrency && !isStoreCurrency(dto.compareAtPriceCurrency)) return true;
-  return false;
-}
-
-function variantNeedsStoreCurrency(dto: VariantDto): boolean {
-  if (dto.salePriceCurrency && !isStoreCurrency(dto.salePriceCurrency)) return true;
-  if (dto.costPriceCurrency && !isStoreCurrency(dto.costPriceCurrency)) return true;
-  return false;
-}
-
-/**
- * Rewrite leftover money codes (not the company base currency) without
- * changing amounts — only when that currency is known (signed-in staff).
- */
-export async function patchProductStoreCurrency(
-  id: string,
-  dto?: ProductDto | ProductFullDto,
-): Promise<boolean> {
-  if (!companyCurrencyKnown()) return false;
-  try {
-    const snapshot =
-      dto ??
-      (await apiRequest<ProductFullDto>(`/inventory/products/${id}/full`, {
-        silent: true,
-        throwOnError: true,
-      }));
-    if (!snapshot?.id) return false;
-
-    // `in` narrowing widens variants to unknown here, because ProductDto has no
-    // such property; read it off the fuller type instead. Absent at runtime → [].
-    const variants: VariantDto[] = (snapshot as ProductFullDto).variants ?? [];
-    const headerOk = !productNeedsStoreCurrency(snapshot);
-    const variantsOk = variants.every((variant) => !variantNeedsStoreCurrency(variant));
-    if (headerOk && variantsOk) return false;
-
-    const body: Record<string, unknown> = {
-      priceCurrency: storeCurrencyCode(),
-      costPriceCurrency: storeCurrencyCode(),
-      compareAtPriceCurrency: storeCurrencyCode(),
-    };
-    if (snapshot.priceAmount != null && snapshot.priceAmount !== '') {
-      body.priceAmount = snapshot.priceAmount;
-    }
-    if (snapshot.costPriceAmount != null && snapshot.costPriceAmount !== '') {
-      body.costPriceAmount = snapshot.costPriceAmount;
-    }
-    if (snapshot.compareAtPriceAmount != null && snapshot.compareAtPriceAmount !== '') {
-      body.compareAtPriceAmount = snapshot.compareAtPriceAmount;
-    }
-
-    await apiRequest(`/inventory/products/${id}/full`, {
-      method: 'PATCH',
-      body,
-      silent: true,
-      throwOnError: true,
-    });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function healListedProductCurrencies(items: ProductDto[]): Promise<void> {
-  if (!companyCurrencyKnown()) return;
-  const mismatched = items.filter(productNeedsStoreCurrency);
-  if (mismatched.length === 0) return;
-  await Promise.allSettled(mismatched.map((dto) => patchProductStoreCurrency(dto.id, dto)));
-}
-
 async function fetchProductFull(id: string): Promise<Product | null> {
   try {
     const dto = await apiRequest<ProductFullDto>(`/inventory/products/${id}/full`);
     if (!dto?.id) return null;
-    const variants = dto.variants ?? [];
-    if (
-      companyCurrencyKnown() &&
-      (productNeedsStoreCurrency(dto) || variants.some(variantNeedsStoreCurrency))
-    ) {
-      await patchProductStoreCurrency(dto.id, dto);
-      const healed = await apiRequest<ProductFullDto>(`/inventory/products/${id}/full`);
-      return healed?.id ? mapFullProduct(healed) : mapFullProduct(dto);
-    }
     return mapFullProduct(dto);
   } catch {
     return null;
@@ -763,7 +681,6 @@ export const productsApi: AdminProductsPort = {
     });
 
     const mediaByProduct = await fetchMediaByCompany(companyId);
-    await healListedProductCurrencies(result.items ?? []);
     const items = (result.items ?? []).map((dto) => {
       const media = mediaByProduct.get(dto.id) ?? [];
       const mapped = mapFullProduct({ ...dto, media, attributes: [], variants: [], uomLines: [] });
