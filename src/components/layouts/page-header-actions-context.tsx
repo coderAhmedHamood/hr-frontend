@@ -124,8 +124,14 @@ export function usePageHeaderActions(
 
     return () => {
       renderFnRef.current = null;
+      // Leaving the page folds its filters; new actions on the same page
+      // (the effect below) leave them as the user set them.
       settersRef.current.setFilterPanelOpen(false);
       reRenderSlotRef.current?.();
     };
-  }, [depsKey, publish, renderFnRef, reRenderSlotRef, settersRef]);
+  }, [publish, renderFnRef, reRenderSlotRef, settersRef]);
+
+  React.useLayoutEffect(() => {
+    publish();
+  }, [depsKey, publish]);
 }

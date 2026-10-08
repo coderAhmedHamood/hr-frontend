@@ -469,7 +469,39 @@ function LocalOpening({
       ) : rows.length === 0 ? (
         <p className="text-xs text-muted-foreground">لا توجد أصناف متتبَّعة؛ الاعتماد يستأنف البيع المحلي.</p>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-border/70">
+        <>
+        {/* Phones: one card per item, the opening quantity full width. */}
+        <div className="space-y-2 md:hidden">
+          {rows.map((r) => (
+            <div key={r.key} className="rounded-xl border border-border/70 bg-card p-3">
+              <p className="text-sm font-medium">{r.name || r.productId.slice(0, 8)}</p>
+              <dl className="mt-1.5 grid grid-cols-2 gap-2 text-xs">
+                <div>
+                  <dt className="text-muted-foreground">الكمية القديمة</dt>
+                  <dd className="tabular-nums">{qty(r.old)}</dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground">المتاح في المستودع</dt>
+                  <dd className="tabular-nums">{qty(r.available)}</dd>
+                </div>
+              </dl>
+              <label className="mt-2 block text-xs text-muted-foreground">
+                الافتتاحية
+                <Input
+                  type="number"
+                  inputMode="decimal"
+                  min={0}
+                  dir="rtl"
+                  className="mt-1 h-10"
+                  value={values[r.key] ?? String(r.suggested)}
+                  onChange={(event) => setValues((prev) => ({ ...prev, [r.key]: event.target.value }))}
+                  disabled={!canUpdate}
+                />
+              </label>
+            </div>
+          ))}
+        </div>
+        <div className="hidden overflow-x-auto rounded-xl border border-border/70 md:block">
           <table className="w-full text-sm">
             <thead className="bg-muted/40 text-muted-foreground">
               <tr>
@@ -501,6 +533,7 @@ function LocalOpening({
             </tbody>
           </table>
         </div>
+        </>
       )}
       <Button size="sm" disabled={!canUpdate || !loaded || !valid || approve.isPending} onClick={() => approve.mutate()}>
         {draining ? 'اعتماد الكميات والبيع منها أثناء التصريف' : 'اعتماد الكميات واستئناف البيع المحلي'}
@@ -558,7 +591,47 @@ function RunReport({ run }: { run: Pick<StockSyncRun, 'report'> }) {
           {openLocalOrders} طلب مفتوح خُصم من كمية المتجر: إن أُلغي يعود لكمية المتجر، وعند شحنه لا يُصرف من المخازن.
         </p>
       ) : null}
-      <div className="overflow-x-auto rounded-xl border border-border/70">
+      {/* Phones: one card per item. */}
+      <div className="space-y-2 md:hidden">
+        {items.map((item) => {
+          const differs = item.difference !== null && Math.abs(item.difference) > 1e-9;
+          return (
+            <div
+              key={`${item.productId}:${item.variantId ?? ''}`}
+              className={cn('rounded-xl border bg-card p-3', differs ? 'border-warning/40' : 'border-border/70')}
+            >
+              <p className="text-sm font-medium">
+                {item.name || item.productId.slice(0, 8)}
+                {!item.tracked ? <span className="ms-2 text-xs text-muted-foreground">(غير متتبَّع)</span> : null}
+              </p>
+              <dl className="mt-1.5 grid grid-cols-3 gap-2 text-xs">
+                {(
+                  [
+                    ['كمية المتجر', item.localQuantity],
+                    ['الرصيد الصالح', item.onHand],
+                    ['محجوز', item.reserved],
+                    ['المتاح', item.available],
+                    ['الفرق', item.difference],
+                  ] as const
+                ).map(([label, value]) => (
+                  <div key={label}>
+                    <dt className="text-muted-foreground">{label}</dt>
+                    <dd
+                      className={cn(
+                        'tabular-nums',
+                        label === 'الفرق' && differs && 'font-medium text-warning',
+                      )}
+                    >
+                      {qty(value)}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          );
+        })}
+      </div>
+      <div className="hidden overflow-x-auto rounded-xl border border-border/70 md:block">
         <table className="w-full text-sm">
           <thead className="bg-muted/40 text-muted-foreground">
             <tr>

@@ -930,7 +930,42 @@ export function StoreReportsPage({ section = 'overview' }: { section?: ReportTab
                   لا توجد بنود ضمن الفلاتر.
                 </div>
               ) : (
-                <div className="overflow-x-auto rounded-2xl border border-border">
+                <>
+                {/* Phones: one card per line — product, order, customer, total. */}
+                <div className="space-y-2 md:hidden">
+                  {(lines.data?.items ?? []).map((row) => (
+                    <article key={row.lineId} className="rounded-xl border border-border bg-card p-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="min-w-0 text-sm font-medium">{row.productName}</p>
+                        <p className="shrink-0 text-sm font-semibold tabular-nums">
+                          {money(row.lineTotalAmount, row.currencyCode || currency)}
+                        </p>
+                      </div>
+                      <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                        <Link
+                          href={`${ecommerceAdminRoutes.orders}?order=${row.orderId}`}
+                          className="font-medium text-primary hover:underline"
+                          dir="ltr"
+                        >
+                          {row.orderNumber}
+                        </Link>
+                        <span dir="ltr">{formatDateTime(row.orderCreatedAt)}</span>
+                        <span className="tabular-nums">× {row.quantity}</span>
+                      </div>
+                      <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs">
+                        <Badge variant="subtle">{ORDER_STATUS_LABELS_AR[row.status] ?? row.status}</Badge>
+                        <span className="text-muted-foreground">
+                          {PAYMENT_METHOD_LABELS_AR[row.paymentMethod]} · {PAYMENT_STATUS_LABELS_AR[row.paymentStatus]}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {row.customerNameAr || '—'}
+                        {row.shipCity ? ` — ${row.shipCity}` : ''}
+                      </p>
+                    </article>
+                  ))}
+                </div>
+                <div className="hidden overflow-x-auto rounded-2xl border border-border md:block">
                   <table className="min-w-full text-sm">
                     <thead className="bg-muted/40 text-start text-xs text-muted-foreground">
                       <tr>
@@ -981,6 +1016,7 @@ export function StoreReportsPage({ section = 'overview' }: { section?: ReportTab
                     </tbody>
                   </table>
                 </div>
+                </>
               )}
 
               {(lines.data?.pagination.totalPages ?? 1) > 1 ? (

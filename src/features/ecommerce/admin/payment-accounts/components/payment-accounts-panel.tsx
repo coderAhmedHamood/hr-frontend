@@ -327,7 +327,8 @@ export function PaymentAccountsPanel({ companyId, currencyCode, onHeaderExtrasCh
                 key={row.id}
                 className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card px-3 py-2.5"
               >
-                <div className="min-w-0 flex-1">
+                {/* Phones: details full width, actions on their own row. */}
+                <div className="min-w-0 basis-full sm:basis-0 sm:flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="text-sm font-medium text-foreground">{row.nameAr}</p>
                     <Badge variant="subtle">{PAYMENT_ACCOUNT_TYPE_LABELS_AR[row.type]}</Badge>
@@ -355,7 +356,7 @@ export function PaymentAccountsPanel({ companyId, currencyCode, onHeaderExtrasCh
                       .join(' · ') || row.code || '—'}
                   </p>
                 </div>
-                <div className="flex items-center gap-1">
+                <div className="ms-auto flex items-center gap-1">
                   {canUpdate && !row.isArchived ? (
                     <div className="me-1 flex items-center gap-1.5 rounded-lg border border-border px-2 py-1">
                       <span className="text-[11px] text-muted-foreground">متجر</span>

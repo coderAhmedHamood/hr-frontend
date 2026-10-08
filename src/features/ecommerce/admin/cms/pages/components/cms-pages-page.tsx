@@ -330,6 +330,51 @@ export function CmsPagesPage({ embedded = false, initialPanel = 'list' }: Props)
 
   const rows = buildPageRows();
 
+  function rowStatusBadge(row: PageRow) {
+    const isCatalog = row.kind === 'catalog';
+    return (
+      <Badge variant="subtle" className="shrink-0 rounded-md">
+        {hasContent(row) ? (
+          <span className="inline-flex items-center gap-1">
+            <CheckCircle2 className="h-3 w-3 text-primary" />
+            {isCatalog ? t('visibilityOn') : t('contentReady')}
+          </span>
+        ) : (
+          t(isCatalog ? 'visibilityOff' : 'contentEmpty')
+        )}
+      </Badge>
+    );
+  }
+
+  function rowAction(row: PageRow) {
+    if (row.kind === 'catalog' && row.catalogKey) {
+      return (
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">{t('columnVisibility')}</span>
+          <Switch
+            checked={storePages?.[row.catalogKey] ?? true}
+            disabled={!storePages || saveVisibility.isPending}
+            onCheckedChange={(enabled) => toggleCatalogPage(row.catalogKey!, enabled)}
+            aria-label={t('columnVisibility')}
+          />
+        </div>
+      );
+    }
+    return (
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="rounded-xl"
+        disabled={!draft}
+        onClick={() => openEdit(row)}
+      >
+        <Pencil className="me-1.5 h-3.5 w-3.5" />
+        {t('editPage')}
+      </Button>
+    );
+  }
+
   const editorTitle =
     form?.kind === 'about'
       ? t('about')
@@ -455,92 +500,78 @@ export function CmsPagesPage({ embedded = false, initialPanel = 'list' }: Props)
           </div>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-border bg-card">
-          <table className="w-full min-w-190 text-sm">
-            <thead>
-              <tr className="border-b border-border bg-muted/30 text-muted-foreground">
-                <th className="px-4 py-3 text-start font-medium">{t('columnPage')}</th>
-                <th className="px-4 py-3 text-start font-medium">{t('columnGroup')}</th>
-                <th className="px-4 py-3 text-start font-medium">{t('columnPreview')}</th>
-                <th className="px-4 py-3 text-start font-medium">{t('columnStatus')}</th>
-                <th className="px-4 py-3 text-start font-medium">{t('columnActions')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => {
-                const Icon = rowIcon(row);
-                const ready = hasContent(row);
-                const preview = pagePreview(row);
-                const isCatalog = row.kind === 'catalog';
-                const groupId = groupForRow(row);
-
-                return (
-                  <tr
-                    key={row.id}
-                    className={cn(
-                      'border-b border-border last:border-0',
-                      !isCatalog && 'hover:bg-muted/20',
-                    )}
-                  >
-                    <td className="px-4 py-3 align-middle">
-                      <div className="flex items-center gap-3">
-                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                          <Icon className="h-4 w-4" aria-hidden />
-                        </span>
-                        <span className="font-medium text-foreground">{t(row.titleKey)}</span>
+        <>
+          {/* Phones: one card per page, same status and actions. */}
+          <div className="space-y-2.5 md:hidden">
+            {rows.map((row) => {
+              const Icon = rowIcon(row);
+              const preview = pagePreview(row);
+              return (
+                <article key={row.id} className="rounded-xl border border-border bg-card p-3 shadow-soft">
+                  <div className="flex items-start gap-3">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                      <Icon className="h-4 w-4" aria-hidden />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="font-medium text-foreground">{t(row.titleKey)}</p>
+                        {rowStatusBadge(row)}
                       </div>
-                    </td>
-                    <td className="px-4 py-3 align-middle text-muted-foreground">
-                      {groupLabel(groupId)}
-                    </td>
-                    <td className="max-w-xs px-4 py-3 align-middle">
-                      <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+                      <p className="mt-0.5 text-xs text-muted-foreground">{groupLabel(groupForRow(row))}</p>
+                      <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
                         {preview || t('noPreview')}
                       </p>
-                    </td>
-                    <td className="px-4 py-3 align-middle">
-                      <Badge variant="subtle" className="rounded-md">
-                        {ready ? (
-                          <span className="inline-flex items-center gap-1">
-                            <CheckCircle2 className="h-3 w-3 text-primary" />
-                            {isCatalog ? t('visibilityOn') : t('contentReady')}
+                    </div>
+                  </div>
+                  <div className="mt-3 flex justify-end border-t border-border pt-2.5">{rowAction(row)}</div>
+                </article>
+              );
+            })}
+          </div>
+          <div className="hidden overflow-x-auto rounded-xl border border-border bg-card md:block">
+            <table className="w-full min-w-190 text-sm">
+              <thead>
+                <tr className="border-b border-border bg-muted/30 text-muted-foreground">
+                  <th className="px-4 py-3 text-start font-medium">{t('columnPage')}</th>
+                  <th className="px-4 py-3 text-start font-medium">{t('columnGroup')}</th>
+                  <th className="px-4 py-3 text-start font-medium">{t('columnPreview')}</th>
+                  <th className="px-4 py-3 text-start font-medium">{t('columnStatus')}</th>
+                  <th className="px-4 py-3 text-start font-medium">{t('columnActions')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row) => {
+                  const Icon = rowIcon(row);
+                  const preview = pagePreview(row);
+                  const isCatalog = row.kind === 'catalog';
+                  return (
+                    <tr
+                      key={row.id}
+                      className={cn('border-b border-border last:border-0', !isCatalog && 'hover:bg-muted/20')}
+                    >
+                      <td className="px-4 py-3 align-middle">
+                        <div className="flex items-center gap-3">
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                            <Icon className="h-4 w-4" aria-hidden />
                           </span>
-                        ) : (
-                          t(isCatalog ? 'visibilityOff' : 'contentEmpty')
-                        )}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3 align-middle">
-                      {isCatalog && row.catalogKey ? (
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground">{t('columnVisibility')}</span>
-                          <Switch
-                            checked={storePages?.[row.catalogKey] ?? true}
-                            disabled={!storePages || saveVisibility.isPending}
-                            onCheckedChange={(enabled) => toggleCatalogPage(row.catalogKey!, enabled)}
-                            aria-label={t('columnVisibility')}
-                          />
+                          <span className="font-medium text-foreground">{t(row.titleKey)}</span>
                         </div>
-                      ) : (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="rounded-xl"
-                          disabled={!draft}
-                          onClick={() => openEdit(row)}
-                        >
-                          <Pencil className="me-1.5 h-3.5 w-3.5" />
-                          {t('editPage')}
-                        </Button>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                      </td>
+                      <td className="px-4 py-3 align-middle text-muted-foreground">{groupLabel(groupForRow(row))}</td>
+                      <td className="max-w-xs px-4 py-3 align-middle">
+                        <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+                          {preview || t('noPreview')}
+                        </p>
+                      </td>
+                      <td className="px-4 py-3 align-middle">{rowStatusBadge(row)}</td>
+                      <td className="px-4 py-3 align-middle">{rowAction(row)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </div>
   );

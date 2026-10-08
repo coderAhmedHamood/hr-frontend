@@ -3,10 +3,21 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ArrowLeftRight, Building2, LayoutDashboard, MoreHorizontal, Package, Settings, Shield } from 'lucide-react';
+import {
+  ArrowLeftRight,
+  BarChart3,
+  Building2,
+  LayoutDashboard,
+  MoreHorizontal,
+  Package,
+  Settings,
+  Shield,
+  ShoppingCart,
+} from 'lucide-react';
 import { cn } from '@/shared/utils';
 import { useSidebar } from '@/components/layouts/sidebar-context';
-import { isInventoryAppPath, isSystemAppPath } from '@/shared/app-paths';
+import { isEcommerceAppPath, isInventoryAppPath, isSystemAppPath } from '@/shared/app-paths';
+import { ecommerceAdminRoutes, ecommerceSettingsHref } from '@/features/ecommerce/admin/constants/routes';
 import { useModuleEnablementContext } from '@/features/auth/hooks/use-system-owner';
 import { isModuleEnabledFor } from '@/shared/modules/registry';
 import {
@@ -72,6 +83,44 @@ function buildInventoryTabs(catalogEnabled: boolean): TabItem[] {
   ].filter((tab): tab is TabItem => tab !== null);
 }
 
+const startsWithAny = (pathname: string, bases: string[]) =>
+  bases.some((base) => pathname === base || pathname.startsWith(`${base}/`));
+
+/** Store admin: what an admin does from a phone; the rest is in "المزيد". */
+function buildStoreAdminTabs(): TabItem[] {
+  return [
+    {
+      key: 'orders',
+      label: 'الطلبات',
+      icon: ShoppingCart,
+      href: ecommerceAdminRoutes.orders,
+      isActive: (pathname) => startsWithAny(pathname, [ecommerceAdminRoutes.orders, ecommerceAdminRoutes.overview]),
+    },
+    {
+      key: 'products',
+      label: 'المنتجات',
+      icon: Package,
+      href: ecommerceAdminRoutes.products,
+      isActive: (pathname) => startsWithAny(pathname, [ecommerceAdminRoutes.products, ecommerceAdminRoutes.reviews]),
+    },
+    {
+      key: 'reports',
+      label: 'التقارير',
+      icon: BarChart3,
+      href: ecommerceAdminRoutes.reports,
+      isActive: (pathname) => startsWithAny(pathname, [ecommerceAdminRoutes.reports]),
+    },
+    {
+      key: 'settings',
+      label: 'الإعدادات',
+      icon: Settings,
+      href: ecommerceSettingsHref(),
+      isActive: (pathname) =>
+        startsWithAny(pathname, [ecommerceAdminRoutes.settings, ecommerceAdminRoutes.notificationSettings]),
+    },
+  ];
+}
+
 function buildSystemTabs(): TabItem[] {
   const structureHref = systemOrganizationStructureNavItems[0]?.href;
   const settingsHref = systemOrganizationSettingsNavItems[0]?.href;
@@ -119,8 +168,8 @@ function buildSystemTabs(): TabItem[] {
 }
 
 /**
- * Native-app-style bottom tab bar shown on phone/tablet widths for the System
- * and Inventory apps — the primary sections stay one tap away instead of
+ * Native-app-style bottom tab bar shown on phone/tablet widths for the System,
+ * Inventory and Store admin apps — the primary sections stay one tap away instead of
  * living only behind the hamburger menu. Pairs with the bottom-sheet variant
  * of `Sidebar` (opened here from the "المزيد" tab) for everything else.
  */
@@ -133,19 +182,21 @@ export function MobileTabBar() {
 
   const inInventoryApp = inventoryEnabled && isInventoryAppPath(pathname);
   const inSystemApp = isSystemAppPath(pathname);
+  const inStoreAdminApp = !inInventoryApp && !inSystemApp && isEcommerceAppPath(pathname);
 
   const tabs = React.useMemo(() => {
     if (inSystemApp) return buildSystemTabs();
     if (inInventoryApp) return buildInventoryTabs(catalogEnabled);
+    if (inStoreAdminApp) return buildStoreAdminTabs();
     return [];
-  }, [catalogEnabled, inInventoryApp, inSystemApp]);
+  }, [catalogEnabled, inInventoryApp, inStoreAdminApp, inSystemApp]);
 
-  if (!inInventoryApp && !inSystemApp) return null;
+  if (!inInventoryApp && !inSystemApp && !inStoreAdminApp) return null;
   if (tabs.length === 0) return null;
 
-  // Inventory has more sections than fit the bar — the rest live in "المزيد".
-  // System's four sections all fit, so no extra tab is needed there.
-  const showMore = inInventoryApp;
+  // Inventory and the store have more sections than fit the bar — the rest
+  // live in "المزيد". System's four sections all fit.
+  const showMore = inInventoryApp || inStoreAdminApp;
 
   return (
     <nav

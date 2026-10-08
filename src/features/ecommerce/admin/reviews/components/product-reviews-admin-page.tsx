@@ -1,7 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import { Archive, Check, Plus, Star, Trash2, X } from 'lucide-react';
+import { Archive, Check, Plus, SlidersHorizontal, Star, Trash2, X } from 'lucide-react';
+import { cn } from '@/shared/utils';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { Can } from '@/components/shared/can';
 import { formatDateTime } from '@/shared/utils';
@@ -56,6 +57,10 @@ export function ProductReviewsAdminPage() {
   const [status, setStatus] = React.useState<ProductReviewStatus | 'all'>('all');
   const [archiveScope, setArchiveScope] = React.useState<ArchiveScope>('active');
   const [productFilter, setProductFilter] = React.useState('');
+  // Phones: the filters fold behind a button (always shown from md up).
+  const [filtersOpen, setFiltersOpen] = React.useState(false);
+  const activeFilters =
+    (status !== 'all' ? 1 : 0) + (archiveScope !== 'active' ? 1 : 0) + (productFilter ? 1 : 0);
   const [createOpen, setCreateOpen] = React.useState(false);
 
   const canRead = can(REVIEWS_READ);
@@ -125,7 +130,41 @@ export function ProductReviewsAdminPage() {
         </div>
       ) : (
         <>
-          <div className="flex w-full flex-wrap items-end gap-3">
+          <div className="flex items-center gap-2 md:hidden">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-10 gap-1.5"
+              aria-expanded={filtersOpen}
+              onClick={() => setFiltersOpen((open) => !open)}
+            >
+              <SlidersHorizontal className="h-4 w-4" />
+              فلترة
+              {activeFilters > 0 ? (
+                <span className="rounded-full bg-primary px-1.5 text-[11px] text-primary-foreground tabular-nums">
+                  {activeFilters}
+                </span>
+              ) : null}
+            </Button>
+            <Can permission={REVIEWS_UPDATE}>
+              <Button
+                className="ms-auto h-10"
+                onClick={() => {
+                  resetForm();
+                  setCreateOpen(true);
+                }}
+              >
+                <Plus className="me-1.5 h-4 w-4" />
+                إضافة تقييم
+              </Button>
+            </Can>
+          </div>
+          <div
+            className={cn(
+              'w-full flex-wrap items-end gap-3 md:flex',
+              filtersOpen ? 'flex rounded-xl border border-border bg-card p-3 md:border-0 md:bg-transparent md:p-0' : 'hidden',
+            )}
+          >
             <div className="sto-filter-field space-y-1.5">
               <Label>الحالة</Label>
               <Select
@@ -171,7 +210,7 @@ export function ProductReviewsAdminPage() {
             </div>
             <Can permission={REVIEWS_UPDATE}>
               <Button
-                className="ms-auto"
+                className="ms-auto hidden md:inline-flex"
                 onClick={() => {
                   resetForm();
                   setCreateOpen(true);
