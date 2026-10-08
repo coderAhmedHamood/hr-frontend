@@ -303,7 +303,7 @@
     "formTitle": "تسجيل الدخول",
     "formDescription": "ادخل بالبريد الإلكتروني أو رقم الجوال وكلمة المرور.",
     "identifier": "البريد أو رقم الجوال",
-    "identifierPlaceholder": "you@example.com أو {example}",
+    "identifierPlaceholder": "you@example.com · {example}",
     "password": "كلمة المرور",
     "showPassword": "إظهار كلمة المرور",
     "hidePassword": "إخفاء كلمة المرور",
@@ -325,7 +325,7 @@
       "generic": "تعذر تسجيل الدخول. حاول مرة أخرى."
     },
     "passwordHint": "كلمة مرور حسابك في هذا المتجر التي أنشأتها عند التسجيل — وليست كلمة مرور بريدك الإلكتروني.",
-    "passwordPlaceholder": "كلمة مرور حسابك في المتجر",
+    "passwordPlaceholder": "كلمة مرور المتجر",
     "createAccountCta": "إنشاء حساب جديد"
   },
   "register": {

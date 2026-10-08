@@ -303,7 +303,7 @@
     "formTitle": "Sign in",
     "formDescription": "Use your email or mobile number and password.",
     "identifier": "Email or mobile number",
-    "identifierPlaceholder": "you@example.com or {example}",
+    "identifierPlaceholder": "you@example.com · {example}",
     "password": "Password",
     "showPassword": "Show password",
     "hidePassword": "Hide password",
@@ -325,7 +325,7 @@
       "generic": "Could not sign in. Please try again."
     },
     "passwordHint": "The password of your account in this store, created when you signed up — not your email password.",
-    "passwordPlaceholder": "Your store account password",
+    "passwordPlaceholder": "Store password",
     "createAccountCta": "Create a new account"
   },
   "register": {
