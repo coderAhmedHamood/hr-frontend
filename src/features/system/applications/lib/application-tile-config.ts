@@ -11,6 +11,7 @@ import {
   ShoppingCart,
   Store,
   Users,
+  Wallet,
 } from 'lucide-react';
 import type { ApplicationResponseDto } from '@/features/system/applications/lib/api/applications';
 import { isShopSalesApplicationCode } from '@/features/inventory/admin/constants/shop-sales-app';
@@ -81,6 +82,7 @@ export function resolveApplicationIcon(app: ApplicationResponseDto): LucideIcon 
   if (app.code === 'contacts') return ContactRound;
   if (app.code === 'hr') return Users;
   if (app.code === 'accounting') return Calculator;
+  if (app.code === 'expenses') return Wallet;
   if (app.code === 'system') return Settings;
   if (app.code === 'system-owner') return Crown;
   if (app.code === 'company-apps') return LayoutGrid;

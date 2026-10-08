@@ -18,6 +18,11 @@ export function isSystemOwnerAppPath(pathname: string): boolean {
   return pathname === '/system-owner' || pathname.startsWith('/system-owner/');
 }
 
+/** True when the current route belongs to the Expenses & custody application. */
+export function isExpensesAppPath(pathname: string): boolean {
+  return pathname === '/expenses' || pathname.startsWith('/expenses/');
+}
+
 /** True when the current route belongs to the Accounting application. */
 export function isAccountingAppPath(pathname: string): boolean {
   return pathname === '/accounting' || pathname.startsWith('/accounting/');

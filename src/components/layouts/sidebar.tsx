@@ -15,7 +15,7 @@ import {
   Megaphone,
 } from 'lucide-react';
 import { cn } from '@/shared/utils';
-import { isHrAppPath, isSystemAppPath, isSystemOwnerAppPath, isEcommerceAppPath, isInventoryAppPath, isCatalogAppPath, isContactsAppPath, isAccountingAppPath } from '@/shared/app-paths';
+import { isHrAppPath, isSystemAppPath, isSystemOwnerAppPath, isEcommerceAppPath, isInventoryAppPath, isCatalogAppPath, isContactsAppPath, isAccountingAppPath, isExpensesAppPath } from '@/shared/app-paths';
 import { Logo } from '@/components/layouts/logo';
 import { useDefaultCompanyBranding } from '@/features/auth/hooks/use-default-company-branding';
 import { useSidebar } from '@/components/layouts/sidebar-context';
@@ -55,6 +55,7 @@ import {
   accountingOverviewItem,
   flattenAccountingNavItems,
 } from '@/features/accounting/constants/nav';
+import { expensesNavGroups, expensesOverviewItem } from '@/features/expenses/constants/nav';
 import { isModuleEnabledFor } from '@/shared/modules/registry';
 import { useModuleEnablementContext } from '@/features/auth/hooks/use-system-owner';
 
@@ -333,6 +334,22 @@ function buildInventoryMobileNav(catalogEnabled: boolean, shopSalesEnabled: bool
   return items;
 }
 
+function buildExpensesMobileNav(): MobileNavItem[] {
+  const items: MobileNavItem[] = [
+    { key: 'apps', label: 'التطبيقات', href: '/', icon: LayoutGrid },
+    { key: 'overview', label: expensesOverviewItem.labelAr, href: expensesOverviewItem.href, icon: expensesOverviewItem.icon },
+  ];
+  for (const group of expensesNavGroups) {
+    items.push({
+      key: group.key,
+      label: group.labelAr,
+      icon: group.icon,
+      children: group.items.map((item) => ({ label: item.labelAr, href: item.href, icon: item.icon, match: 'prefix' as const })),
+    });
+  }
+  return items;
+}
+
 function buildAccountingMobileNav(): MobileNavItem[] {
   const items: MobileNavItem[] = [
     { key: 'apps', label: 'التطبيقات', href: '/', icon: LayoutGrid },
@@ -604,6 +621,7 @@ export function Sidebar() {
     || isSystemAppPath(pathname)
     || isSystemOwnerAppPath(pathname)
     || isAccountingAppPath(pathname)
+    || isExpensesAppPath(pathname)
     || (ecommerceEnabled && isEcommerceAppPath(pathname))
     || (inventoryEnabled && isInventoryAppPath(pathname))
     || (catalogEnabled && isCatalogAppPath(pathname))
@@ -656,6 +674,8 @@ export function Sidebar() {
     ? systemOwnerMobileNav
     : isSystemApp
     ? systemMobileNav
+    : isExpensesAppPath(pathname)
+      ? buildExpensesMobileNav()
     : isAccountingAppPath(pathname)
       ? buildAccountingMobileNav()
       : contactsEnabled && isContactsAppPath(pathname)
@@ -670,7 +690,7 @@ export function Sidebar() {
 
   // System / Inventory get the native-app-style bottom sheet (paired with their
   // bottom tab bar); other apps keep the classic right-side drawer.
-  const asBottomSheet = isSystemApp || isInventoryApp;
+  const asBottomSheet = isSystemApp || isInventoryApp || isExpensesAppPath(pathname);
 
   return createPortal(
     <>
