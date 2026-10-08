@@ -182,7 +182,7 @@
     "loginRequiredToast": "سجّل الدخول أولاً لربط الطلب بحسابك",
     "paymentMockHint": "بعد إرفاق الإيصال يصل الطلب للمراجعة — يُجهَّز بعد تأكيد التحصيل من المتجر.",
     "paymentProofHint": "إن دفعت عبر الشبكة أو التحويل، يمكنك إرفاق صورة أو أكثر من إيصالات التحويل ليراجعها المتجر قبل التجهيز.",
-    "paymentProofLabel": "إيصال التحويل (اختياري)",
+    "paymentProofLabel": "إيصالات التحويل (اختياري)",
     "paymentProofLimit": "{count} من {max} مرفقات",
     "paymentProofAttached": "تم إرفاق إيصال الدفع",
     "paymentProofAttachedCount": "تم إرفاق {count} مرفقات",
@@ -195,8 +195,8 @@
     "paymentQrTitle": "امسح رمز QR للدفع",
     "paymentQrAlt": "رمز QR للدفع عبر {name}",
     "paymentQrHint": "افتح تطبيق المحفظة أو البنك وامسح الرمز، ثم أرفق إيصال التحويل بالأسفل.",
-    "attachmentsLabel": "مرفقات الطلب (اختياري)",
-    "attachmentsHint": "أرفق صوراً أو ملفات PDF تخص الطلب — {count} من {max}.",
+    "attachmentsLabel": "ملفات إضافية للطلب (اختياري)",
+    "attachmentsHint": "ليست إيصالات الدفع. صورة أو PDF تخص الطلب نفسه، مثل ملاحظة أو مرجع — {count} من {max}.",
     "attachmentsRemove": "إزالة المرفق",
     "paymentMethods": {
       "cash_on_delivery": {

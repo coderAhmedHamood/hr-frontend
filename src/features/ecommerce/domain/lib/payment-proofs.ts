@@ -14,7 +14,7 @@ export function resolvePaymentProofUrls(input: {
 }
 
 /** UI limit before compression (original file). */
-export const MAX_PAYMENT_PROOF_FILES = 1;
+export const MAX_PAYMENT_PROOF_FILES = 5;
 export const MAX_PAYMENT_PROOF_BYTES = 4 * 1024 * 1024;
 
 /**

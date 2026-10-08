@@ -556,7 +556,17 @@ export function StoreCheckoutClient({ currency: storeCurrency }: CheckoutClientP
           paymentMethod !== 'cash_on_delivery' && paymentMethod !== 'cash'
             ? paymentProofs.map((item) => item.url)
             : [],
-        attachments: orderAttachments,
+        attachments: [
+          ...(paymentMethod !== 'cash_on_delivery' && paymentMethod !== 'cash'
+            ? paymentProofs.slice(1).map((proof, index) => ({
+                fileName: proof.name || `receipt-${index + 2}.jpg`,
+                fileUrl: proof.url,
+                mimeType: 'image/jpeg',
+                label: 'إيصال تحويل',
+              }))
+            : []),
+          ...orderAttachments,
+        ].slice(0, MAX_ORDER_ATTACHMENTS),
         lines: cartLines.map(({ line, product, unitPrice, lineName, variant }) => {
           const display = buildProductDisplay(product);
           return {
@@ -1122,6 +1132,7 @@ export function StoreCheckoutClient({ currency: storeCurrency }: CheckoutClientP
                                 id="payment-proof"
                                 type="file"
                                 accept="image/*"
+                                multiple
                                 disabled={paymentProofs.length >= MAX_PAYMENT_PROOF_FILES}
                                 className="mt-2 h-11 cursor-pointer rounded-xl file:me-3 file:rounded-lg file:border-0 file:bg-primary/10 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-primary"
                                 onChange={(e) => {
