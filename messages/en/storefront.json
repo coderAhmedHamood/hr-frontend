@@ -123,7 +123,9 @@
     "checkoutLoginHint": "Shop without an account — you'll only need to sign in at checkout.",
     "remove": "Remove",
     "quantity": "Quantity",
-    "subtotal": "Subtotal"
+    "subtotal": "Subtotal",
+    "openProduct": "Open the product",
+    "fixLinesFirst": "Fix the items marked in red first."
   },
   "checkout": {
     "title": "Checkout",
@@ -252,7 +254,9 @@
     },
     "countryLocked": "Delivery within {country} only",
     "addFirstAddress": "Add a delivery address",
-    "saveAddress": "Save address"
+    "saveAddress": "Save address",
+    "fixBeforePaying": "Fix this before paying — you will not pay until the order can be placed:",
+    "checkFailed": "Could not check the order now — try again."
   },
   "orders": {
     "myOrdersTitle": "My orders",

@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { formatPrice as formatMoney } from '@/features/ecommerce/shared/utils/format-price';
 import { useLocale, useTranslations } from 'next-intl';
 import {
+  AlertCircle,
   Banknote,
   Building2,
   Check,
@@ -86,6 +87,11 @@ import { Link, useRouter } from '@/i18n/navigation';
 import { cn } from '@/shared/utils';
 import type { StorefrontLocale } from '@/i18n/routing';
 import { customerErrorText } from '@/features/ecommerce/storefront/lib/customer-error';
+import {
+  checkPublicStoreOrder,
+  type StoreOrderCheckIssue,
+} from '@/features/ecommerce/shared/lib/api/store-orders-api';
+import { useStoreCartCheck } from '@/features/ecommerce/storefront/hooks/use-store-cart-check';
 import {
   EMPTY_STORE_ADDRESS_FORM,
   StoreAddressFields,
@@ -272,6 +278,11 @@ export function StoreCheckoutClient({ currency: storeCurrency, country }: Checko
     EMPTY_STORE_ADDRESS_FORM,
   );
   const [savingAddress, setSavingAddress] = React.useState(false);
+  // Problems found by the server (cart lines from the start; the whole
+  // order before payment and before the review).
+  const cartCheck = useStoreCartCheck();
+  const [orderIssues, setOrderIssues] = React.useState<StoreOrderCheckIssue[]>([]);
+  const [verifying, setVerifying] = React.useState(false);
   const appliedDefaultAddressRef = React.useRef(false);
 
   React.useEffect(() => {
@@ -344,10 +355,8 @@ export function StoreCheckoutClient({ currency: storeCurrency, country }: Checko
     void loadSavedAddresses();
   }, [authReady, accessToken, loadSavedAddresses]);
 
-  function applySavedAddress(row: PartnerAddress) {
-    setSelectedAddressId(row.id);
-    setAddressErrors({});
-    setAddress((prev) => ({
+  function rowToAddress(row: PartnerAddress, prev: CheckoutAddressInput): CheckoutAddressInput {
+    return {
       ...prev,
       fullName: customer?.name?.trim() || prev.fullName,
       phone: customer?.phone?.trim() || prev.phone,
@@ -361,7 +370,59 @@ export function StoreCheckoutClient({ currency: storeCurrency, country }: Checko
       lat: row.latitude != null ? Number(row.latitude) : undefined,
       lng: row.longitude != null ? Number(row.longitude) : undefined,
       mapAddress: undefined,
-    }));
+    };
+  }
+
+  function applySavedAddress(row: PartnerAddress) {
+    setSelectedAddressId(row.id);
+    setAddressErrors({});
+    setAddress((prev) => rowToAddress(row, prev));
+  }
+
+  /** The address as the order sends it (profile name, one form of the phone). */
+  function orderAddressOf(base: CheckoutAddressInput): CheckoutAddressInput {
+    const raw = (customer?.phone?.trim() || base.phone).trim();
+    const parsed = parseStoreMobile(raw, country);
+    return {
+      ...base,
+      fullName: (customer?.name?.trim() || base.fullName).trim(),
+      phone: parsed.ok ? parsed.e164 : raw,
+    };
+  }
+
+  /**
+   * Tries the whole order on the server before the next step (nothing is
+   * written): with the address before payment, with the payment account
+   * before the review. The last step then does not fail.
+   */
+  async function verifyOrder(
+    stage: 'address' | 'payment',
+    base: CheckoutAddressInput,
+  ): Promise<boolean> {
+    setVerifying(true);
+    try {
+      const result = await checkPublicStoreOrder({
+        lines: lines.map((line) => ({
+          productId: line.productId,
+          variantId: line.variantId ?? null,
+          quantity: line.quantity,
+        })),
+        address: orderAddressOf(base),
+        paymentMethod: stage === 'payment' ? paymentMethod : null,
+        paymentAccountId: stage === 'payment' ? paymentAccountId : null,
+      });
+      setOrderIssues(result.issues);
+      if (!result.ok) {
+        toast.error(result.issues[0]?.message ?? t('checkout.placeError'));
+        return false;
+      }
+      return true;
+    } catch (error) {
+      toast.error(customerErrorText(error, t('checkout.checkFailed')));
+      return false;
+    } finally {
+      setVerifying(false);
+    }
   }
 
   function startNewAddress() {
@@ -374,11 +435,11 @@ export function StoreCheckoutClient({ currency: storeCurrency, country }: Checko
     : undefined;
 
   /** Saves the open form to the address book and delivers to it. */
-  async function saveNewAddress(): Promise<boolean> {
-    if (!accessToken || !customer?.partnerId) return false;
+  async function saveNewAddress(): Promise<PartnerAddress | null> {
+    if (!accessToken || !customer?.partnerId) return null;
     if (storeAddressIncomplete(newAddress)) {
       toast.error(t('checkout.errors.addressIncomplete'));
-      return false;
+      return null;
     }
     setSavingAddress(true);
     try {
@@ -391,10 +452,10 @@ export function StoreCheckoutClient({ currency: storeCurrency, country }: Checko
       applySavedAddress(created);
       setAddingAddress(false);
       toast.success(t('account.addresses.saved'));
-      return true;
+      return created;
     } catch (err) {
       toast.error(customerErrorText(err, t('account.addresses.saveFailed')));
-      return false;
+      return null;
     } finally {
       setSavingAddress(false);
     }
@@ -516,10 +577,17 @@ export function StoreCheckoutClient({ currency: storeCurrency, country }: Checko
 
   function goNext() {
     if (step === 'address') {
+      if (cartCheck.blocked) {
+        toast.error(cartCheck.issues[0]?.message ?? t('cart.fixLinesFirst'));
+        return;
+      }
       if (addingAddress) {
-        void saveNewAddress().then((saved) => {
-          if (saved) setStep('payment');
-        });
+        void (async () => {
+          const created = await saveNewAddress();
+          if (created && (await verifyOrder('address', rowToAddress(created, address)))) {
+            setStep('payment');
+          }
+        })();
         return;
       }
       if (!selectedSaved) {
@@ -528,7 +596,9 @@ export function StoreCheckoutClient({ currency: storeCurrency, country }: Checko
         return;
       }
       if (!validateAddress()) return;
-      setStep('payment');
+      void verifyOrder('address', address).then((ok) => {
+        if (ok) setStep('payment');
+      });
       return;
     }
     if (step === 'payment') {
@@ -540,7 +610,9 @@ export function StoreCheckoutClient({ currency: storeCurrency, country }: Checko
         toast.error(t('checkout.errors.paymentAccountRequired'));
         return;
       }
-      setStep('review');
+      void verifyOrder('payment', address).then((ok) => {
+        if (ok) setStep('review');
+      });
     }
   }
 
@@ -566,15 +638,7 @@ export function StoreCheckoutClient({ currency: storeCurrency, country }: Checko
         setStep('payment');
         return;
       }
-      const orderAddress: CheckoutAddressInput = {
-        ...address,
-        fullName: (customer?.name?.trim() || address.fullName).trim(),
-        phone: (() => {
-          const raw = (customer?.phone?.trim() || address.phone).trim();
-          const parsed = parseStoreMobile(raw, country);
-          return parsed.ok ? parsed.e164 : raw;
-        })(),
-      };
+      const orderAddress = orderAddressOf(address);
       const result = await placeStorefrontOrder({
         locale,
         address: orderAddress,
@@ -743,6 +807,56 @@ export function StoreCheckoutClient({ currency: storeCurrency, country }: Checko
             })}
           </ol>
         </nav>
+
+        {cartCheck.issues.length > 0 || orderIssues.length > 0 ? (
+          <section
+            role="alert"
+            className="space-y-2 rounded-2xl border border-red-300 bg-red-50 p-4 text-sm text-red-900 dark:border-red-800 dark:bg-red-950 dark:text-red-100"
+          >
+            <p className="flex items-center gap-2 font-semibold">
+              <AlertCircle className="h-4 w-4 shrink-0" aria-hidden />
+              {t('checkout.fixBeforePaying')}
+            </p>
+            <ul className="space-y-1.5 ps-6">
+              {[...cartCheck.issues, ...orderIssues]
+                .filter(
+                  (issue, index, all) =>
+                    all.findIndex(
+                      (other) =>
+                        other.code === issue.code &&
+                        other.productId === issue.productId &&
+                        other.message === issue.message,
+                    ) === index,
+                )
+                .map((issue, index) => {
+                  const slug = issue.productId ? productById.get(issue.productId)?.slug : undefined;
+                  return (
+                    <li key={`${issue.code}-${issue.productId ?? index}`} className="list-disc leading-relaxed">
+                      {issue.message}{' '}
+                      {slug ? (
+                        <Link
+                          href={`/store/products/${slug}`}
+                          prefetch={false}
+                          className="font-semibold underline underline-offset-2"
+                        >
+                          {t('cart.openProduct')}
+                        </Link>
+                      ) : null}
+                    </li>
+                  );
+                })}
+            </ul>
+            {cartCheck.blocked ? (
+              <Link
+                href="/store/cart"
+                prefetch={false}
+                className="inline-block text-xs font-semibold underline underline-offset-2"
+              >
+                {t('checkout.backToCart')}
+              </Link>
+            ) : null}
+          </section>
+        ) : null}
 
         {/* Address */}
         {step === 'address' ? (
@@ -1389,7 +1503,7 @@ export function StoreCheckoutClient({ currency: storeCurrency, country }: Checko
               type="button"
               className="min-w-36 rounded-xl"
               onClick={goNext}
-              disabled={step === 'address' && addressesLoading}
+              disabled={(step === 'address' && addressesLoading) || verifying || cartCheck.blocked}
             >
               {t('checkout.continue')}
             </Button>
@@ -1512,7 +1626,7 @@ export function StoreCheckoutClient({ currency: storeCurrency, country }: Checko
               type="button"
               className="flex-1 rounded-xl"
               onClick={goNext}
-              disabled={step === 'address' && addressesLoading}
+              disabled={(step === 'address' && addressesLoading) || verifying || cartCheck.blocked}
             >
               {t('checkout.continue')}
             </Button>

@@ -786,3 +786,66 @@ export async function receiveAdminOrderReturn(
 export function storeOrdersHttpEnabled(): boolean {
   return isStoreHttpEnabled();
 }
+
+/** One problem the order check found (Arabic message for the customer). */
+export type StoreOrderCheckIssue = {
+  code: string;
+  message: string;
+  productId: string | null;
+  variantId: string | null;
+};
+
+export type StoreOrderCheckResult = {
+  ok: boolean;
+  /** The whole order was tried with its payment account. */
+  complete: boolean;
+  issues: StoreOrderCheckIssue[];
+};
+
+/**
+ * Checks the cart before the customer pays, with the rules of placing it:
+ * lines only (cart), with the address (stock and address), then with the
+ * payment account. Nothing is written.
+ */
+export async function checkPublicStoreOrder(input: {
+  companyId?: string | null;
+  lines: Array<{ productId: string; variantId?: string | null; quantity: number }>;
+  address?: PlaceOrderInput['address'] | null;
+  paymentMethod?: PlaceOrderInput['paymentMethod'] | null;
+  paymentAccountId?: string | null;
+}): Promise<StoreOrderCheckResult> {
+  const address = input.address;
+  const result = await publicStoreRequest<StoreOrderCheckResult>('/public/store/orders/check', {
+    method: 'POST',
+    body: {
+      companyId: resolveStorefrontCompanyId(input.companyId ?? undefined),
+      items: input.lines.map((line) => ({
+        productId: line.productId,
+        variantId: line.variantId ?? null,
+        quantity: line.quantity,
+      })),
+      ...(address
+        ? {
+            address: {
+              fullName: address.fullName,
+              phone: address.phone,
+              ...(address.countryId ? { countryId: address.countryId } : {}),
+              ...(address.cityId ? { cityId: address.cityId } : {}),
+              ...(address.districtId ? { districtId: address.districtId } : {}),
+              city: address.city,
+              district: address.district,
+              street: address.street,
+              notes: address.notes ?? null,
+              lat: address.lat ?? null,
+              lng: address.lng ?? null,
+              mapAddress: address.mapAddress ?? null,
+            },
+          }
+        : {}),
+      ...(input.paymentMethod && input.paymentAccountId
+        ? { paymentMethod: input.paymentMethod, paymentAccountId: input.paymentAccountId }
+        : {}),
+    },
+  });
+  return result ?? { ok: true, complete: false, issues: [] };
+}

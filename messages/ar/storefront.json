@@ -123,7 +123,9 @@
     "checkoutLoginHint": "يمكنك التسوق بدون حساب — سيُطلب منك تسجيل الدخول عند الدفع فقط.",
     "remove": "إزالة",
     "quantity": "الكمية",
-    "subtotal": "المجموع الفرعي"
+    "subtotal": "المجموع الفرعي",
+    "openProduct": "افتح المنتج",
+    "fixLinesFirst": "عالج المنتجات المعلَّمة بالأحمر أولًا."
   },
   "checkout": {
     "title": "إتمام الطلب",
@@ -252,7 +254,9 @@
     },
     "countryLocked": "التوصيل داخل {country} فقط",
     "addFirstAddress": "أضف عنوان التوصيل",
-    "saveAddress": "حفظ العنوان"
+    "saveAddress": "حفظ العنوان",
+    "fixBeforePaying": "عالج هذا قبل الدفع — لن يُطلب منك الدفع حتى يكون الطلب قابلًا للإنشاء:",
+    "checkFailed": "تعذّر التحقق من الطلب الآن — حاول مرة أخرى."
   },
   "orders": {
     "myOrdersTitle": "طلباتي",
