@@ -32,6 +32,14 @@ const nextConfig = {
     },
   },
   reactStrictMode: true,
+  /**
+   * Loaded from node_modules on the server, not bundled: jsdom (used by
+   * isomorphic-dompurify to clean rich text) reads its own files at runtime
+   * (browser/default-stylesheet.css). Bundled, that read fails and every
+   * server action importing the sanitizer answers 500 in production
+   * ("An error occurred in the Server Components render").
+   */
+  serverExternalPackages: ['isomorphic-dompurify', 'jsdom'],
   // Allow LAN, ngrok, and other tunnel hosts in dev (Next.js blocks cross-origin /_next/* by default).
   allowedDevOrigins: [
     '127.0.0.1',
