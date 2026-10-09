@@ -26,8 +26,14 @@ export type ApplicationResponseDto = {
 };
 
 export const applicationsApi = {
-  getLauncher() {
-    return apiRequest<ApplicationResponseDto[]>('/applications/launcher');
+  /**
+   * The launcher of the active company: only its apps that are enabled and
+   * shown (an app not enabled never shows, an enabled one follows «إظهار»).
+   */
+  getLauncher(companyId?: string | null) {
+    return apiRequest<ApplicationResponseDto[]>('/applications/launcher', {
+      query: companyId ? { companyId } : undefined,
+    });
   },
 
   getAll(query?: { page?: number; limit?: number }) {

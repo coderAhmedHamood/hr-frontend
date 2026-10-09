@@ -119,7 +119,7 @@ export function AppsLauncherPage() {
     (async () => {
       setLoading(true);
       try {
-        const raw = await applicationsApi.getLauncher();
+        const raw = await applicationsApi.getLauncher(activeCompanyId);
         if (cancelled) return;
         setApps(enrichLauncherApplications(asLauncherList(raw), activeCompanyId));
       } catch (err) {
