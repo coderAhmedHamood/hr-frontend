@@ -1,4 +1,4 @@
-import DOMPurify from 'isomorphic-dompurify';
+import sanitizeHtml from 'sanitize-html';
 
 const ALLOWED_TAGS = [
   'p',
@@ -21,7 +21,11 @@ const ALLOWED_TAGS = [
   'blockquote',
 ];
 
-const ALLOWED_ATTR = ['href', 'target', 'rel', 'style', 'class'];
+const COLOR = [
+  /^#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i,
+  /^rgb\(\s*(?:\d{1,3}\s*,\s*){2}\d{1,3}\s*\)$/i,
+  /^rgba\(\s*(?:\d{1,3}\s*,\s*){3}(?:0|1|0?\.\d+)\s*\)$/i,
+];
 
 function escapeHtml(text: string): string {
   return text
@@ -51,15 +55,34 @@ export function normalizeRichHtml(value: string): string {
   return looksLikeHtml(value) ? value : plainTextToHtml(value);
 }
 
-/** Sanitize HTML for safe rendering while keeping formatting (colors, sizes, headings). */
+/**
+ * Sanitize HTML for safe rendering while keeping formatting (colors, sizes, headings).
+ * Uses a parser with no DOM (no jsdom). jsdom crashes the production standalone
+ * image because Next does not ship its default-stylesheet.css, and every server
+ * action that imported it answered 500.
+ */
 export function sanitizeRichHtml(html: string): string {
   const normalized = normalizeRichHtml(html);
   if (!normalized) return '';
 
-  return DOMPurify.sanitize(normalized, {
-    ALLOWED_TAGS,
-    ALLOWED_ATTR,
-    ALLOW_DATA_ATTR: false,
-    ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto):|\/|#)/i,
+  return sanitizeHtml(normalized, {
+    allowedTags: ALLOWED_TAGS,
+    allowedAttributes: {
+      a: ['href', 'target', 'rel'],
+      '*': ['class', 'style'],
+    },
+    allowedStyles: {
+      '*': {
+        color: COLOR,
+        'background-color': COLOR,
+        'font-size': [/^\d+(?:\.\d+)?(?:px|em|rem|%)$/],
+        'text-align': [/^(?:left|right|center|justify)$/],
+        'font-weight': [/^(?:normal|bold|[1-9]00)$/],
+        'text-decoration': [/^(?:none|underline|line-through)$/],
+      },
+    },
+    allowedSchemes: ['http', 'https', 'mailto'],
+    allowProtocolRelative: false,
+    disallowedTagsMode: 'discard',
   });
 }

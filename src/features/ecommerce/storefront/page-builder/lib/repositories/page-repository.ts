@@ -89,9 +89,13 @@ export const storefrontPageRepository: PageStorefrontPort & PageCmsPort = {
   async saveRecord(input: PageRecord): Promise<PageRecord> {
     const parsed = pageRecordSchema.safeParse(withoutRetiredSections(input));
     if (!parsed.success) {
+      const details = parsed.error.issues
+        .slice(0, 6)
+        .map((issue) => `${issue.path.join('.') || 'page'}: ${issue.message}`)
+        .join('; ');
       const error: PageSaveError = {
         code: 'VALIDATION_FAILED',
-        message: 'Invalid page record',
+        message: details ? `Invalid page record (${details})` : 'Invalid page record',
         issues: parsed.error.flatten(),
       };
       throw error;

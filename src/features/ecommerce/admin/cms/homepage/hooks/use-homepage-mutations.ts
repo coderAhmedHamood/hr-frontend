@@ -10,7 +10,11 @@ export function useHomepagePageMutations(companyId: string) {
   const t = useTranslations('ecommerceAdmin.homepage');
 
   const save = useMutation({
-    mutationFn: (record: PageRecord) => saveCmsPageRecord(record),
+    mutationFn: async (record: PageRecord) => {
+      const result = await saveCmsPageRecord(record);
+      if (!result.ok) throw new Error(result.message);
+      return result.record;
+    },
     onSuccess: (saved) => {
       // Prefer the save response — do not immediately refetch (refetch can briefly
       // fall back to the seed mock and wipe the just-saved hero slides).

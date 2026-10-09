@@ -47,35 +47,61 @@ function readLocalizedField(
   return null;
 }
 
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function isHttpUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 function normalizeSectionContent(type: SectionType, content: Record<string, unknown>): Record<string, unknown> {
-  const next: Record<string, unknown> = { ...content };
+  const defaults = (getSectionDefinition(type).defaultConfiguration.content ?? {}) as Record<string, unknown>;
+  const next: Record<string, unknown> = { ...defaults, ...content };
 
   if (type !== 'banner') {
-    const title = readLocalizedField(next, 'title');
-    const subtitle = readLocalizedField(next, 'subtitle');
-    if (title) next.title = title;
-    if (subtitle) next.subtitle = subtitle;
+    next.title = readLocalizedField(next, 'title');
+    next.subtitle = readLocalizedField(next, 'subtitle');
     delete next.titleAr;
     delete next.titleEn;
     delete next.subtitleAr;
     delete next.subtitleEn;
   }
 
+  if (typeof next.viewAllHref === 'string' && !next.viewAllHref.startsWith('/store')) {
+    next.viewAllHref = null;
+  }
+
   if (type === 'hero-carousel' && Array.isArray(next.slides)) {
-    next.slides = next.slides.map((slide, index) => {
-      if (!slide || typeof slide !== 'object') return slide;
+    const slides = next.slides.flatMap((slide) => {
+      if (!slide || typeof slide !== 'object') return [];
       const record = slide as Record<string, unknown>;
+      const imageUrl = typeof record.imageUrl === 'string' ? record.imageUrl : '';
+      if (!isHttpUrl(imageUrl)) return [];
       const slideTitle = readLocalizedField(record, 'title');
-      return {
-        ...record,
-        id: typeof record.id === 'string' ? record.id : `legacy-slide-${index}`,
-        imageUrl: typeof record.imageUrl === 'string' ? record.imageUrl : '',
-        mobileImageUrl:
-          typeof record.mobileImageUrl === 'string' ? record.mobileImageUrl : undefined,
-        enabled: record.enabled ?? true,
-        ...(slideTitle ? { title: slideTitle } : {}),
-      };
+      const mobileImageUrl =
+        typeof record.mobileImageUrl === 'string' && isHttpUrl(record.mobileImageUrl)
+          ? record.mobileImageUrl
+          : undefined;
+      const href =
+        typeof record.href === 'string' && record.href.startsWith('/store') ? record.href : undefined;
+      return [
+        {
+          ...record,
+          id: typeof record.id === 'string' && UUID_RE.test(record.id) ? record.id : crypto.randomUUID(),
+          imageUrl,
+          mobileImageUrl,
+          href,
+          enabled: record.enabled ?? true,
+          ...(slideTitle ? { title: slideTitle } : {}),
+        },
+      ];
     });
+    next.slides = slides.length > 0 ? slides : defaults.slides;
   }
 
   if (type === 'banner') {
@@ -95,6 +121,13 @@ function normalizeSectionSettings(type: SectionType, settings: Record<string, un
   if (type === 'category-grid' && typeof next.columns === 'number') {
     const columns = next.columns;
     next.columns = { mobile: columns, tablet: columns, desktop: columns };
+  }
+
+  if (type === 'flash-sale' && next.endsAt != null && typeof next.endsAt !== 'string') {
+    next.endsAt = null;
+  }
+  if (typeof next.endsAt === 'string' && !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(next.endsAt)) {
+    next.endsAt = null;
   }
 
   return next;
@@ -123,7 +156,10 @@ function normalizeDataSource(
       sort: (dataSource.sort as 'createdAt' | 'price' | 'sales' | 'name') ?? 'createdAt',
       sortDirection: (dataSource.sortDirection as 'asc' | 'desc') ?? 'desc',
       limit,
-      categoryId: typeof dataSource.categoryId === 'string' ? dataSource.categoryId : null,
+      categoryId:
+        typeof dataSource.categoryId === 'string' && UUID_RE.test(dataSource.categoryId)
+          ? dataSource.categoryId
+          : null,
       tag: typeof dataSource.tag === 'string' ? dataSource.tag : null,
       isNewProduct: dataSource.isNewProduct === true ? true : null,
       isTodayDeal: dataSource.isTodayDeal === true ? true : null,
@@ -136,7 +172,7 @@ function normalizeDataSource(
     return {
       kind: 'manual',
       entityIds: Array.isArray(dataSource.entityIds)
-        ? dataSource.entityIds.filter((id): id is string => typeof id === 'string')
+        ? dataSource.entityIds.filter((id): id is string => typeof id === 'string' && UUID_RE.test(id))
         : [],
     };
   }
@@ -157,7 +193,10 @@ function normalizeDataSource(
   if (kind === 'category') {
     return {
       kind: 'category',
-      categoryId: typeof dataSource.categoryId === 'string' ? dataSource.categoryId : '',
+      categoryId:
+        typeof dataSource.categoryId === 'string' && UUID_RE.test(dataSource.categoryId)
+          ? dataSource.categoryId
+          : '00000000-0000-4000-8000-000000000000',
       limit: typeof dataSource.limit === 'number' ? dataSource.limit : 12,
     };
   }
@@ -178,11 +217,21 @@ function normalizeDataSource(
 }
 
 /** Maps Nest CMS section payloads (incl. system:init seed shape) to storefront SectionRecord. */
+function dataSourceForSection(type: SectionType, dataSource: DataSourceConfig): DataSourceConfig {
+  const definition = getSectionDefinition(type);
+  if (definition.supportedDataSources.includes(dataSource.kind)) return dataSource;
+  return definition.defaultConfiguration.dataSource as DataSourceConfig;
+}
+
 export function normalizeCmsSectionDto(dto: CmsSectionDtoInput): SectionRecord {
   const type = dto.sectionType;
   const settings = normalizeSectionSettings(type, dto.settings ?? {});
   const content = normalizeSectionContent(type, dto.content ?? {});
   const now = dto.updatedAt || new Date().toISOString();
+  const dataSource = dataSourceForSection(
+    type,
+    normalizeDataSource(dto.dataSourceKind, dto.dataSource ?? {}, settings),
+  );
 
   return {
     id: dto.id,
@@ -199,7 +248,7 @@ export function normalizeCmsSectionDto(dto: CmsSectionDtoInput): SectionRecord {
     content: content as SectionRecord['content'],
     settings: settings as SectionRecord['settings'],
     style: normalizeSectionStyle(type, dto.style ?? {}),
-    dataSource: normalizeDataSource(dto.dataSourceKind, dto.dataSource ?? {}, settings),
+    dataSource,
     // `type` is only known at runtime, so the literal cannot line up with any one
     // arm of the SectionRecord union; the per-field casts above already vouch for
     // the payload. Narrowing happens downstream, once the discriminant is read.

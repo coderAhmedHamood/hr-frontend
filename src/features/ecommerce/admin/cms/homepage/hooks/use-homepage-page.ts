@@ -13,12 +13,13 @@ export function useHomepagePageRecord(companyId: string, options?: UseHomepageOp
   return useQuery({
     queryKey: [...homepageCmsQueryKeys.record(companyId), { required }],
     queryFn: async () => {
-      const record = await getCmsPageRecord(companyId, 'homepage');
-      if (!record) {
+      const result = await getCmsPageRecord(companyId, 'homepage');
+      if (!result.ok) throw new Error(result.message);
+      if (!result.record) {
         if (!required) return null;
         throw new Error('HOMEPAGE_NOT_FOUND');
       }
-      return record;
+      return result.record;
     },
     enabled: Boolean(companyId),
   });

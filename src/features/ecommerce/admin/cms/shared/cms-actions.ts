@@ -27,38 +27,62 @@ function revalidateStorefront() {
   }
 }
 
-function toActionError(error: unknown): Error {
+function actionErrorMessage(error: unknown): string {
   if (error instanceof ApiError) {
-    return new Error(error.message || `HTTP ${error.status}`);
+    return error.message || `HTTP ${error.status}`;
   }
-  if (error instanceof Error) return error;
-  return new Error('Unexpected CMS error');
+  if (error instanceof Error && error.message.trim()) return error.message;
+  if (error && typeof error === 'object' && 'message' in error) {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === 'string' && message.trim()) return message;
+  }
+  return 'Unexpected CMS error';
+}
+
+function toActionError(error: unknown): Error {
+  return new Error(actionErrorMessage(error));
 }
 
 // ── Page builder (homepage / banners) ────────────────────────────────────────
 
+/**
+ * Failures are returned, not thrown. Next.js replaces a thrown server-action
+ * error in production with "An error occurred in the Server Components render",
+ * which hides the real cause from the page that called the action.
+ */
+export type CmsPageLoadResult =
+  | { ok: true; record: PageRecord | null }
+  | { ok: false; message: string };
+
+export type CmsPageSaveResult =
+  | { ok: true; record: PageRecord }
+  | { ok: false; message: string };
+
 export async function getCmsPageRecord(
   companyId: string,
   pageType: PageType,
-): Promise<PageRecord | null> {
+): Promise<CmsPageLoadResult> {
   try {
-    return await storefrontPageRepository.getRecordByPageType(companyId, pageType);
+    return {
+      ok: true,
+      record: await storefrontPageRepository.getRecordByPageType(companyId, pageType),
+    };
   } catch (error) {
     // Settings (and soft UIs) only need pages when the role can read them — do not 500 the RSC action.
     if (error instanceof ApiError && (error.status === 403 || error.status === 404)) {
-      return null;
+      return { ok: true, record: null };
     }
-    throw toActionError(error);
+    return { ok: false, message: actionErrorMessage(error) };
   }
 }
 
-export async function saveCmsPageRecord(record: PageRecord): Promise<PageRecord> {
+export async function saveCmsPageRecord(record: PageRecord): Promise<CmsPageSaveResult> {
   try {
     const saved = await storefrontPageRepository.saveRecord(record);
     revalidateStorefront();
-    return saved;
+    return { ok: true, record: saved };
   } catch (error) {
-    throw toActionError(error);
+    return { ok: false, message: actionErrorMessage(error) };
   }
 }
 
