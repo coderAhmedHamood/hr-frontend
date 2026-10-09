@@ -489,13 +489,15 @@ export function StoreCheckoutClient({ currency: storeCurrency, country }: Checko
   const subtotal = cartLines.reduce((sum, item) => sum + item.unitPrice.amount * item.line.quantity, 0);
 
   const shippingQuoteQuery = useQuery({
-    queryKey: ['storefront', 'shipping-quote', companyId, address.cityId, address.districtId],
+    queryKey: ['storefront', 'shipping-quote', companyId, address.cityId, address.districtId, subtotal],
     queryFn: () =>
       fetchPublicShippingQuote({
         companyId,
         cityId: address.cityId,
         districtId: address.districtId,
+        subtotal,
       }),
+    placeholderData: (previous) => previous,
     enabled: Boolean(companyId && address.cityId),
   });
 
@@ -514,6 +516,13 @@ export function StoreCheckoutClient({ currency: storeCurrency, country }: Checko
       : shipping.amount === 0
         ? t('checkout.freeShipping')
         : formatPrice(shipping.amount);
+  // Free delivery from an items amount: say so, or how much is missing.
+  const freeAbove = Number(shippingQuoteQuery.data?.freeAboveAmount ?? NaN);
+  const freeDeliveryNote = !shippingKnown || !Number.isFinite(freeAbove)
+    ? null
+    : shippingQuoteQuery.data?.freeApplied
+      ? t('checkout.freeDeliveryReached', { amount: formatPrice(freeAbove) })
+      : t('checkout.freeDeliveryMissing', { amount: formatPrice(Math.max(0, freeAbove - subtotal)) });
   const itemCount = cartLines.reduce((sum, item) => sum + item.line.quantity, 0);
 
   function formatPrice(amount: number) {
@@ -1405,6 +1414,11 @@ export function StoreCheckoutClient({ currency: storeCurrency, country }: Checko
                   <dt className="text-muted-foreground">{t('checkout.shipping')}</dt>
                   <dd className="font-medium tabular-nums text-foreground">{shippingLabel}</dd>
                 </div>
+                {freeDeliveryNote ? (
+                  <p className="-mt-1 text-[11px] font-medium text-emerald-700 dark:text-emerald-400">
+                    {freeDeliveryNote}
+                  </p>
+                ) : null}
                 <div className="flex justify-between gap-3 border-t border-border pt-2">
                   <dt className="font-semibold text-foreground">{t('cart.total')}</dt>
                   <dd className="text-base font-bold tabular-nums text-foreground">{formatPrice(total)}</dd>
@@ -1609,6 +1623,11 @@ export function StoreCheckoutClient({ currency: storeCurrency, country }: Checko
                 <dt className="text-muted-foreground">{t('checkout.shipping')}</dt>
                 <dd className="font-medium tabular-nums text-foreground">{shippingLabel}</dd>
               </div>
+              {freeDeliveryNote ? (
+                <p className="-mt-1 text-[11px] font-medium text-emerald-700 dark:text-emerald-400">
+                  {freeDeliveryNote}
+                </p>
+              ) : null}
               <div className="flex justify-between gap-3 border-t border-border pt-3">
                 <dt className="font-semibold text-foreground">{t('cart.total')}</dt>
                 <dd className="text-base font-bold tabular-nums text-foreground">{formatPrice(total)}</dd>

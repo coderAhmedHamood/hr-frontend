@@ -21,6 +21,8 @@ export type StoreDeliveryRate = {
   name: string;
   scopeType: DeliveryRateScopeType;
   amount: string;
+  /** Free delivery from this items amount (null: never). */
+  freeAboveAmount: string | null;
   currencyCode: string;
   cities: DeliveryRateGeoRef[];
   districts: DeliveryRateGeoRef[];
@@ -47,6 +49,7 @@ export type CreateDeliveryRateInput = {
   name: string;
   scopeType: DeliveryRateScopeType;
   amount: number;
+  freeAboveAmount?: number | null;
   currencyCode?: string;
   cityIds?: string[];
   districtIds?: string[];
@@ -57,6 +60,7 @@ export type CreateDeliveryRateInput = {
 export type UpdateDeliveryRateInput = {
   name?: string;
   amount?: number;
+  freeAboveAmount?: number | null;
   currencyCode?: string;
   cityIds?: string[];
   districtIds?: string[];
@@ -107,6 +111,7 @@ export const deliveryRatesApi = {
         name: input.name.trim(),
         scopeType: input.scopeType,
         amount: input.amount,
+        freeAboveAmount: input.freeAboveAmount ?? null,
         ...(input.currencyCode ? { currencyCode: input.currencyCode } : {}),
         ...(input.scopeType === 'city' ? { cityIds: input.cityIds ?? [] } : {}),
         ...(input.scopeType === 'district' ? { districtIds: input.districtIds ?? [] } : {}),

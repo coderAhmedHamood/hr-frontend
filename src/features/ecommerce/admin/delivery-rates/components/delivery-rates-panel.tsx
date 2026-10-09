@@ -60,6 +60,8 @@ type Props = {
 type FormState = {
   name: string;
   amount: string;
+  /** Empty: never free. */
+  freeAbove: string;
   scopeType: DeliveryRateScopeType;
   countryId: string;
   cityIdForDistricts: string;
@@ -71,6 +73,7 @@ type FormState = {
 const EMPTY_FORM: FormState = {
   name: '',
   amount: '',
+  freeAbove: '',
   scopeType: 'city',
   countryId: '',
   cityIdForDistricts: '',
@@ -189,6 +192,7 @@ export function DeliveryRatesPanel({ companyId, currencyCode, onHeaderExtrasChan
     setForm({
       name: row.name,
       amount: String(Number(row.amount)),
+      freeAbove: row.freeAboveAmount == null ? '' : String(Number(row.freeAboveAmount)),
       scopeType: row.scopeType,
       countryId: row.countryId,
       cityIdForDistricts: '',
@@ -202,8 +206,11 @@ export function DeliveryRatesPanel({ companyId, currencyCode, onHeaderExtrasChan
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     const amount = parseAmount(form.amount);
+    // Free delivery from an items amount; empty = never free.
+    const freeAboveAmount = form.freeAbove.trim() ? parseAmount(form.freeAbove) : null;
     if (!form.name.trim()) return;
     if (amount === null) return;
+    if (form.freeAbove.trim() && freeAboveAmount === null) return;
     if (!form.countryId) return;
 
     if (editTarget) {
@@ -212,6 +219,7 @@ export function DeliveryRatesPanel({ companyId, currencyCode, onHeaderExtrasChan
         patch: {
           name: form.name,
           amount,
+          freeAboveAmount,
           isActive: form.isActive,
           ...(editTarget.scopeType === 'city' ? { cityIds: form.cityIds } : {}),
           ...(editTarget.scopeType === 'district' ? { districtIds: form.districtIds } : {}),
@@ -225,6 +233,7 @@ export function DeliveryRatesPanel({ companyId, currencyCode, onHeaderExtrasChan
         name: form.name,
         scopeType: form.scopeType,
         amount,
+        freeAboveAmount,
         currencyCode: currencyCode || undefined,
         cityIds: form.scopeType === 'city' ? form.cityIds : undefined,
         districtIds: form.scopeType === 'district' ? form.districtIds : undefined,
@@ -409,6 +418,11 @@ export function DeliveryRatesPanel({ companyId, currencyCode, onHeaderExtrasChan
                     {countryNameById.get(row.countryId) ?? row.countryId.slice(0, 8)}
                     {' · '}
                     {formatAmount(row.amount)} {row.currencyCode}
+                    {row.freeAboveAmount != null ? (
+                      <span className="ms-1 font-medium text-emerald-700 dark:text-emerald-400">
+                        · مجاني من {formatAmount(row.freeAboveAmount)} {row.currencyCode}
+                      </span>
+                    ) : null}
                   </p>
                   <p className="mt-0.5 text-[11px] text-muted-foreground">
                     {row.scopeType === 'city'
@@ -498,6 +512,23 @@ export function DeliveryRatesPanel({ companyId, currencyCode, onHeaderExtrasChan
                     onChange={(e) => setForm((prev) => ({ ...prev, amount: e.target.value }))}
                     required
                   />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>
+                    توصيل مجاني للطلبات من {currencyCode ? `(${currencyCode})` : ''}
+                  </Label>
+                  <Input
+                    dir="ltr"
+                    type="number"
+                    min={0}
+                    step="any"
+                    value={form.freeAbove}
+                    placeholder="مثال: 25000"
+                    onChange={(e) => setForm((prev) => ({ ...prev, freeAbove: e.target.value }))}
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    إذا بلغت قيمة المنتجات هذا المبلغ صار التوصيل مجانيًا. اتركه فارغًا إن لم يكن هناك توصيل مجاني.
+                  </p>
                 </div>
                 <div className="space-y-1.5">
                   <Label>الدولة</Label>

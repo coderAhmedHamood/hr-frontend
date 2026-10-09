@@ -257,7 +257,9 @@
     "saveAddress": "Save address",
     "fixBeforePaying": "Fix this before paying — you will not pay until the order can be placed:",
     "checkFailed": "Could not check the order now — try again.",
-    "itemsAmount": "Items ({count})"
+    "itemsAmount": "Items ({count})",
+    "freeDeliveryReached": "Free delivery: your order reached {amount}",
+    "freeDeliveryMissing": "Add {amount} more for free delivery"
   },
   "orders": {
     "myOrdersTitle": "My orders",

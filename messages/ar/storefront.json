@@ -257,7 +257,9 @@
     "saveAddress": "حفظ العنوان",
     "fixBeforePaying": "عالج هذا قبل الدفع — لن يُطلب منك الدفع حتى يكون الطلب قابلًا للإنشاء:",
     "checkFailed": "تعذّر التحقق من الطلب الآن — حاول مرة أخرى.",
-    "itemsAmount": "المنتجات ({count})"
+    "itemsAmount": "المنتجات ({count})",
+    "freeDeliveryReached": "توصيل مجاني لأن طلبك بلغ {amount}",
+    "freeDeliveryMissing": "أضف منتجات بقيمة {amount} لتحصل على توصيل مجاني"
   },
   "orders": {
     "myOrdersTitle": "طلباتي",
