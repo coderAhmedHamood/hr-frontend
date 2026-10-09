@@ -36,12 +36,12 @@ export function PaymentDialog({
   onClose: () => void;
   onCompleted: (number: string) => void;
 }) {
-  const { data, actions, currency } = usePosContext();
+  const { data, actions } = usePosContext();
   const sale = data.sales.find((s) => s.id === saleId) ?? null;
   const enabledMethods = (Object.keys(PAYMENT_METHOD_LABELS) as PosPaymentMethod[]).filter((m) => data.settings.paymentMethods[m]);
   const [method, setMethod] = React.useState<PosPaymentMethod>(enabledMethods[0] ?? 'cash');
+  const [split, setSplit] = React.useState(false);
   const [amount, setAmount] = React.useState('');
-  const [tendered, setTendered] = React.useState('');
   const [reference, setReference] = React.useState('');
 
   const paid = sale ? paidAmount(sale.payments) : 0;
@@ -50,58 +50,46 @@ export function PaymentDialog({
 
   React.useEffect(() => {
     setAmount(remaining > 0 ? String(remaining) : '');
-    setTendered('');
     setReference('');
-  }, [remaining, method, saleId]);
+    setSplit(false);
+  }, [saleId]);
+
+  React.useEffect(() => {
+    if (remaining > 0) setAmount(String(remaining));
+  }, [remaining]);
 
   if (!sale || !actions) return null;
 
-  const applied = Math.min(parseAmount(amount), remaining);
-  const tenderedValue = parseAmount(tendered);
-  const cashApplied = method === 'cash' ? Math.min(tenderedValue || applied, remaining) : applied;
-  const change = method === 'cash' && tenderedValue > remaining ? round2(tenderedValue - remaining) : 0;
+  const applied = Math.min(parseAmount(amount) || remaining, remaining);
 
-  const record = () => {
-    if (method === 'cash') {
-      const value = round2(tenderedValue ? Math.min(tenderedValue, remaining) : applied);
-      if (value <= 0) return;
+  const pay = (nextMethod: PosPaymentMethod, value: number) => {
+    const amountDue = round2(Math.min(value, remaining));
+    if (amountDue <= 0) return;
+    if (nextMethod === 'transfer' && !reference.trim()) return;
+    if (nextMethod === 'card') {
       actions.addPayment(sale.id, {
         kind: 'payment',
-        method: 'cash',
-        amount: value,
-        status: 'succeeded',
+        method: 'card',
+        amount: amountDue,
+        status: 'pending',
         reference: null,
-        tendered: tenderedValue || value,
-        change: change || null,
-        sessionId,
-      });
-    } else if (method === 'transfer') {
-      if (applied <= 0 || !reference.trim()) return;
-      actions.addPayment(sale.id, {
-        kind: 'payment',
-        method: 'transfer',
-        amount: round2(applied),
-        status: 'succeeded',
-        reference: reference.trim(),
         tendered: null,
         change: null,
         sessionId,
       });
+      return;
     }
-  };
-
-  const startCard = () => {
-    if (applied <= 0) return;
     actions.addPayment(sale.id, {
       kind: 'payment',
-      method: 'card',
-      amount: round2(applied),
-      status: 'pending',
-      reference: null,
-      tendered: null,
+      method: nextMethod,
+      amount: amountDue,
+      status: 'succeeded',
+      reference: nextMethod === 'transfer' ? reference.trim() : null,
+      tendered: nextMethod === 'cash' ? amountDue : null,
       change: null,
       sessionId,
     });
+    setReference('');
   };
 
   const complete = () => {
@@ -157,77 +145,81 @@ export function PaymentDialog({
           <PendingCardPanel saleId={sale.id} paymentId={pendingCard.id} amount={pendingCard.amount} />
         ) : remaining > 0 ? (
           <div className="space-y-3">
-            <div className="grid grid-cols-3 gap-2">
-              {enabledMethods.map((m) => {
-                const Icon = METHOD_ICONS[m];
-                return (
-                  <button
-                    key={m}
-                    type="button"
-                    onClick={() => setMethod(m)}
-                    className={cn(
-                      'flex flex-col items-center gap-1 rounded-lg border p-3 text-sm',
-                      method === m ? 'border-primary bg-primary/5 ring-2 ring-primary/20' : 'border-border hover:border-primary/40',
-                    )}
-                  >
-                    <Icon className="h-5 w-5" />
-                    {PAYMENT_METHOD_LABELS[m]}
-                  </button>
-                );
-              })}
+            <div className="grid grid-cols-2 gap-2">
+              <Button type="button" variant={split ? 'outline' : 'default'} onClick={() => setSplit(false)}>
+                دفع كامل
+              </Button>
+              <Button type="button" variant={split ? 'default' : 'outline'} onClick={() => setSplit(true)}>
+                تقسيم
+              </Button>
             </div>
 
-            {method === 'cash' ? (
+            {split ? (
               <div className="space-y-2">
-                <Label>المبلغ المستلم من العميل</Label>
+                <div className="grid grid-cols-3 gap-2">
+                  {enabledMethods.map((m) => {
+                    const Icon = METHOD_ICONS[m];
+                    return (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => setMethod(m)}
+                        className={cn(
+                          'flex flex-col items-center gap-1 rounded-lg border p-3 text-sm',
+                          method === m ? 'border-primary bg-primary/5 ring-2 ring-primary/20' : 'border-border hover:border-primary/40',
+                        )}
+                      >
+                        <Icon className="h-5 w-5" />
+                        {PAYMENT_METHOD_LABELS[m]}
+                      </button>
+                    );
+                  })}
+                </div>
+                <Label>جزء من الفاتورة</Label>
                 <Input
-                  autoFocus
                   dir="ltr"
                   inputMode="decimal"
-                  className="h-12 text-xl"
-                  placeholder={formatAmount(remaining)}
-                  value={tendered}
-                  onChange={(e) => setTendered(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && record()}
+                  className="h-11 text-lg"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
                 />
-                <div className="flex flex-wrap gap-1">
-                  {[remaining, Math.ceil(remaining / 10) * 10, Math.ceil(remaining / 50) * 50, Math.ceil(remaining / 100) * 100]
-                    .filter((v, i, a) => v > 0 && a.indexOf(v) === i)
-                    .map((v) => (
-                      <Button key={v} size="sm" variant="outline" onClick={() => setTendered(String(v))}>
-                        {formatAmount(v)}
-                      </Button>
-                    ))}
-                </div>
-                {change > 0 ? (
-                  <div className="rounded-md bg-success/10 p-2 text-center text-lg font-bold">الباقي للعميل {formatMoney(change, currency)}</div>
+                {method === 'transfer' ? (
+                  <Input placeholder="رقم مرجع التحويل" dir="ltr" value={reference} onChange={(e) => setReference(e.target.value)} />
                 ) : null}
-                <Button className="w-full" onClick={record} disabled={cashApplied <= 0}>
-                  تسجيل النقد
+                <Button
+                  className="w-full"
+                  onClick={() => pay(method, applied)}
+                  disabled={applied <= 0 || (method === 'transfer' && !reference.trim())}
+                >
+                  تسجيل {formatAmount(applied)} · {PAYMENT_METHOD_LABELS[method]}
                 </Button>
               </div>
             ) : (
               <div className="space-y-2">
-                <Label>المبلغ (لجزء نقدي وجزء {method === 'card' ? 'بطاقة' : 'تحويل'} عدّل المبلغ)</Label>
-                <Input dir="ltr" inputMode="decimal" className="h-11 text-lg" value={amount} onChange={(e) => setAmount(e.target.value)} />
-                {method === 'card' ? (
-                  <>
-                    <Button className="w-full" onClick={startCard} disabled={applied <= 0}>
-                      <CreditCard className="h-4 w-4" />
-                      بدء الدفع بالبطاقة
-                    </Button>
-                    <p className="text-xs text-muted-foreground">
-                      يُسجَّل بدء المحاولة أولًا، ثم نفّذ العملية على جهاز الدفع. إن انقطع شيء بعدها تبقى المحاولة معلّقة ولا يُحصَّل مرتين.
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <Input placeholder="رقم مرجع التحويل" dir="ltr" value={reference} onChange={(e) => setReference(e.target.value)} />
-                    <Button className="w-full" onClick={record} disabled={applied <= 0 || !reference.trim()}>
-                      تسجيل التحويل
-                    </Button>
-                  </>
-                )}
+                <p className="text-center text-sm text-muted-foreground">
+                  المبلغ من الفاتورة: <b className="text-foreground">{formatAmount(remaining)}</b>
+                </p>
+                <div className="grid grid-cols-1 gap-2">
+                  {enabledMethods.map((m) => {
+                    const Icon = METHOD_ICONS[m];
+                    return (
+                      <Button key={m} type="button" variant={method === m ? 'default' : 'outline'} className="h-12 justify-start" onClick={() => setMethod(m)}>
+                        <Icon className="h-5 w-5" />
+                        {PAYMENT_METHOD_LABELS[m]} · {formatAmount(remaining)}
+                      </Button>
+                    );
+                  })}
+                </div>
+                {method === 'transfer' ? (
+                  <Input placeholder="رقم مرجع التحويل" dir="ltr" value={reference} onChange={(e) => setReference(e.target.value)} />
+                ) : null}
+                <Button
+                  className="w-full"
+                  onClick={() => pay(method, remaining)}
+                  disabled={method === 'transfer' && !reference.trim()}
+                >
+                  {method === 'card' ? 'بدء الدفع بالبطاقة' : method === 'transfer' ? 'تسجيل التحويل' : 'تسجيل النقد'}
+                </Button>
               </div>
             )}
           </div>

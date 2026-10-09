@@ -51,6 +51,7 @@ type ProductDto = {
   companyId: string;
   brandId?: string | null;
   categoryId?: string | null;
+  posMenuCategoryId?: string | null;
   sku: string;
   slug: string;
   barcode?: string | null;
@@ -302,6 +303,7 @@ function mapFullProduct(dto: ProductFullDto): Product {
     companyId: dto.companyId,
     brandId: dto.brandId ?? null,
     categoryId: dto.categoryId ?? null,
+    posMenuCategoryId: dto.posMenuCategoryId ?? null,
     sku: dto.sku,
     slug: dto.slug,
     barcode: dto.barcode ?? undefined,
@@ -387,6 +389,9 @@ function toHeaderBody(input: CreateProductInput | UpdateProductInput, mode: 'cre
   if (mode === 'create' && 'companyId' in input) body.companyId = input.companyId;
   if (input.brandId !== undefined) body.brandId = normalizeOptionalUuid(input.brandId);
   if (input.categoryId !== undefined) body.categoryId = normalizeOptionalUuid(input.categoryId);
+  if (input.posMenuCategoryId !== undefined) {
+    body.posMenuCategoryId = normalizeOptionalUuid(input.posMenuCategoryId);
+  }
   if (input.sku !== undefined) body.sku = input.sku;
   if (input.slug !== undefined && input.slug.trim() !== '') body.slug = input.slug;
   if (input.barcode !== undefined) body.barcode = input.barcode ?? null;

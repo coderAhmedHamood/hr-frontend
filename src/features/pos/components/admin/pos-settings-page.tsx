@@ -16,6 +16,7 @@ import { PAYMENT_METHOD_LABELS, type PosPaymentMethod, type PosSettings, type Po
 import { usePosContext } from '@/features/pos/hooks/use-pos-context';
 import { parseAmount } from '@/features/pos/lib/format';
 import { PosGate, PosPreviewNote } from '@/features/pos/components/shared/pos-shared';
+import { PosMenuCategoriesCard } from '@/features/pos/components/admin/pos-menu-categories';
 
 function Card({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
   return (
@@ -267,6 +268,8 @@ function Settings() {
             </div>
           ) : null}
         </Card>
+
+        <PosMenuCategoriesCard />
 
         <Card title="الطباعة" description="الإيصالات تُطبع بالقالب المعتمد في إعدادات الشركة.">
           <div className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm">

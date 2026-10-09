@@ -56,9 +56,14 @@ describe('productToFormValues', () => {
   });
 
   it('maps a null categoryId/brandId to undefined (not null) for the select fields', () => {
-    const product: Product = { ...BASE_PRODUCT, categoryId: null, brandId: null };
+    const product: Product = { ...BASE_PRODUCT, categoryId: null, brandId: null, posMenuCategoryId: null };
     expect(productToFormValues(product).categoryId).toBeUndefined();
     expect(productToFormValues(product).brandId).toBeUndefined();
+    expect(productToFormValues(product).posMenuCategoryId).toBeUndefined();
+  });
+
+  it('keeps the POS selling group chosen on the product', () => {
+    expect(productToFormValues({ ...BASE_PRODUCT, posMenuCategoryId: 'pos-cat' }).posMenuCategoryId).toBe('pos-cat');
   });
 
   it('maps attributes and uom lines when present', () => {
@@ -98,6 +103,7 @@ describe('formValuesToCreateInput', () => {
     shortDescription: '',
     description: '',
     categoryId: undefined,
+    posMenuCategoryId: undefined,
     brandId: undefined,
     status: 'active',
     stockStatus: 'in_stock',
@@ -137,6 +143,7 @@ describe('formValuesToCreateInput', () => {
     const input = formValuesToCreateInput(BASE_VALUES, '76e5bc4f-5adb-434d-a886-bcff05a9680b');
     expect(input.companyId).toBe('76e5bc4f-5adb-434d-a886-bcff05a9680b');
     expect(input.categoryId).toBeNull();
+    expect(input.posMenuCategoryId).toBeNull();
     expect(input.brandId).toBeNull();
     expect(input.media).toEqual([]);
   });

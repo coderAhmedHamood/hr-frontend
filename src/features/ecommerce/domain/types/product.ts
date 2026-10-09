@@ -125,6 +125,8 @@ export type Product = TenantScoped &
     shortDescription?: string;
     brandId?: string | null;
     categoryId?: string | null;
+    /** Selling group on the register. Set on the product when point of sale is on. */
+    posMenuCategoryId?: string | null;
     status: ProductStatus;
     stockStatus: StockStatus;
     inventory: Inventory;

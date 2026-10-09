@@ -11,6 +11,7 @@ import {
   type PosDevice,
   type PosDiscount,
   type PosHeldCart,
+  type PosMenuCategory,
   type PosPayment,
   type PosRegister,
   type PosReturn,
@@ -39,6 +40,7 @@ export type PosCompanyData = {
   returns: PosReturn[];
   cashMovements: PosCashMovement[];
   heldCarts: PosHeldCart[];
+  menuCategories: PosMenuCategory[];
   audit: PosAuditEvent[];
   returnSequence: number;
 };
@@ -52,6 +54,7 @@ export const EMPTY_POS_DATA: PosCompanyData = {
   returns: [],
   cashMovements: [],
   heldCarts: [],
+  menuCategories: [],
   audit: [],
   returnSequence: 1,
 };
@@ -98,6 +101,7 @@ function withDefaults(data: PosCompanyData | undefined): PosCompanyData {
       shifts: { ...DEFAULT_POS_SETTINGS.shifts, ...data.settings?.shifts },
       paymentMethods: { ...DEFAULT_POS_SETTINGS.paymentMethods, ...data.settings?.paymentMethods },
     },
+    menuCategories: data.menuCategories ?? [],
   };
 }
 
@@ -338,6 +342,7 @@ export function posActions(companyId: string) {
             number: null,
             status: 'awaiting_payment',
             payments: [],
+            splitPayment: false,
             revisions: [],
             createdAt: now(),
             completedAt: null,
@@ -362,7 +367,16 @@ export function posActions(companyId: string) {
         const remaining = Math.round((sale.totals.total - succeededNet(sale)) * 100) / 100;
         if (payment.amount > remaining + 0.001) fail('المبلغ أكبر من المتبقي.');
       }
-      mutate((d) => updateSale(d, saleId, (s) => ({ ...s, payments: [...s.payments, { ...payment, id, createdAt: now() }] })));
+      const partial =
+        payment.kind === 'payment' &&
+        (succeededNet(sale) > 0.001 || payment.amount < Math.round((sale.totals.total - succeededNet(sale)) * 100) / 100 - 0.001);
+      mutate((d) =>
+        updateSale(d, saleId, (s) => ({
+          ...s,
+          splitPayment: s.splitPayment || partial,
+          payments: [...s.payments, { ...payment, id, createdAt: now() }],
+        })),
+      );
       return id;
     },
 

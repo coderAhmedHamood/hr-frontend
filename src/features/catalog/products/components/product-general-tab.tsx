@@ -22,6 +22,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { SearchableDropdown } from '@/components/ui/shared-dialogs';
 import { cn } from '@/shared/utils';
 import { useProductAppSections } from '@/features/catalog/products/hooks/use-product-app-sections';
+import { useModuleEnablementContext } from '@/features/auth/hooks/use-system-owner';
+import { companyHasApp } from '@/shared/modules/registry';
+import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
+import { usePosMenuCategories } from '@/features/pos/hooks/use-pos-menu-categories';
 const NO_VALUE = '__none__';
 
 type Props = {
@@ -36,6 +40,9 @@ export function ProductGeneralTab({ control, errors, register, categories, brand
   const [showAdvanced, setShowAdvanced] = React.useState(false);
   // Cost and tracking are inventory's; compare-at price is the store's.
   const sections = useProductAppSections();
+  const { enabledApplicationCodes } = useModuleEnablementContext();
+  const posEnabled = companyHasApp('pos', { enabledApplicationCodes });
+  const posCategories = usePosMenuCategories(getStorefrontCompanyId(), posEnabled);
 
   return (
     <div className="space-y-4">
@@ -135,6 +142,34 @@ export function ProductGeneralTab({ control, errors, register, categories, brand
             />
           </ProductFormField>
         </div>
+
+        {posEnabled ? (
+          <ProductFormField
+            label="فئة نقطة البيع"
+            htmlFor="product-pos-category"
+            hint="تظهر في شاشة الكاشير. أنشئ الفئات من إعدادات نقاط البيع، ثم اخترها هنا كما تختار الفئة."
+          >
+            <Controller
+              control={control}
+              name="posMenuCategoryId"
+              render={({ field }) => (
+                <SearchableDropdown
+                  value={field.value ?? NO_VALUE}
+                  onChange={(value) => field.onChange(value === NO_VALUE ? undefined : value)}
+                  placeholder="بدون فئة نقطة البيع"
+                  options={[
+                    { value: NO_VALUE, label: 'بدون فئة نقطة البيع' },
+                    ...(posCategories.data ?? []).map((category) => ({
+                      value: category.id,
+                      label: category.name,
+                    })),
+                  ]}
+                  className="h-11"
+                />
+              )}
+            />
+          </ProductFormField>
+        ) : null}
       </ProductFormSection>
 
       <ProductFormSection title="التسعير" description="أسعار البيع والشراء بالريال اليمني.">

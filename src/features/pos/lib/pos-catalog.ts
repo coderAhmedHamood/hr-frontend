@@ -13,6 +13,8 @@ export type PosCatalogProduct = {
   barcode: string | null;
   price: number;
   categoryId: string | null;
+  /** Selling group chosen on the product. */
+  posMenuCategoryId: string | null;
   imageUrl: string | null;
 };
 
@@ -32,6 +34,7 @@ type ProductRow = {
   barcode?: string | null;
   priceAmount: string | number;
   categoryId?: string | null;
+  posMenuCategoryId?: string | null;
   posAvailable?: boolean;
   saleOk?: boolean;
   status?: string;
@@ -93,6 +96,7 @@ export async function fetchPosProducts(
       barcode: p.barcode ?? null,
       price: toNumber(p.priceAmount),
       categoryId: p.categoryId ?? null,
+      posMenuCategoryId: p.posMenuCategoryId ?? null,
       imageUrl: imageByProduct.get(p.id)?.url ?? null,
     }));
 }
@@ -121,12 +125,12 @@ export async function resolvePosScan(companyId: string, code: string) {
 
 /** Sample items so the design can be reviewed without catalog data. */
 export const DEMO_POS_PRODUCTS: PosCatalogProduct[] = [
-  { id: 'demo-1', name: 'قهوة عربية 250 غ', sku: 'CF-250', barcode: '1000000000011', price: 35, categoryId: null, imageUrl: null },
-  { id: 'demo-2', name: 'شاي أخضر', sku: 'TEA-GR', barcode: '1000000000028', price: 18, categoryId: null, imageUrl: null },
-  { id: 'demo-3', name: 'تمر سكري 1 كغ', sku: 'DT-1K', barcode: '1000000000035', price: 42, categoryId: null, imageUrl: null },
-  { id: 'demo-4', name: 'ماء معدني 330 مل', sku: 'WT-330', barcode: '1000000000042', price: 1.5, categoryId: null, imageUrl: null },
-  { id: 'demo-5', name: 'عسل سدر 500 غ', sku: 'HN-500', barcode: '1000000000059', price: 120, categoryId: null, imageUrl: null },
-  { id: 'demo-6', name: 'كوب حراري', sku: 'MUG-01', barcode: '1000000000066', price: 55, categoryId: null, imageUrl: null },
-  { id: 'demo-7', name: 'بسكويت شوكولاتة', sku: 'BS-CH', barcode: '1000000000073', price: 6, categoryId: null, imageUrl: null },
-  { id: 'demo-8', name: 'زيت زيتون 1 لتر', sku: 'OL-1L', barcode: '1000000000080', price: 48, categoryId: null, imageUrl: null },
+  { id: 'demo-1', name: 'قهوة عربية 250 غ', sku: 'CF-250', barcode: '1000000000011', price: 35, categoryId: null, posMenuCategoryId: null, imageUrl: null },
+  { id: 'demo-2', name: 'شاي أخضر', sku: 'TEA-GR', barcode: '1000000000028', price: 18, categoryId: null, posMenuCategoryId: null, imageUrl: null },
+  { id: 'demo-3', name: 'تمر سكري 1 كغ', sku: 'DT-1K', barcode: '1000000000035', price: 42, categoryId: null, posMenuCategoryId: null, imageUrl: null },
+  { id: 'demo-4', name: 'ماء معدني 330 مل', sku: 'WT-330', barcode: '1000000000042', price: 1.5, categoryId: null, posMenuCategoryId: null, imageUrl: null },
+  { id: 'demo-5', name: 'عسل سدر 500 غ', sku: 'HN-500', barcode: '1000000000059', price: 120, categoryId: null, posMenuCategoryId: null, imageUrl: null },
+  { id: 'demo-6', name: 'كوب حراري', sku: 'MUG-01', barcode: '1000000000066', price: 55, categoryId: null, posMenuCategoryId: null, imageUrl: null },
+  { id: 'demo-7', name: 'بسكويت شوكولاتة', sku: 'BS-CH', barcode: '1000000000073', price: 6, categoryId: null, posMenuCategoryId: null, imageUrl: null },
+  { id: 'demo-8', name: 'زيت زيتون 1 لتر', sku: 'OL-1L', barcode: '1000000000080', price: 48, categoryId: null, posMenuCategoryId: null, imageUrl: null },
 ];

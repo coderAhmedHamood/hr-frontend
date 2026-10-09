@@ -17,6 +17,9 @@ import {
   type PosCatalogVariant,
 } from '@/features/pos/lib/pos-catalog';
 import { formatAmount } from '@/features/pos/lib/format';
+import { variantHeadlines } from '@/features/pos/lib/variant-label';
+import { usePosMenuCategories } from '@/features/pos/hooks/use-pos-menu-categories';
+import { cn } from '@/shared/utils';
 
 export type PickedItem = {
   product: PosCatalogProduct;
@@ -39,6 +42,7 @@ export function ProductPanel({
   onPick: (item: PickedItem) => void;
 }) {
   const [query, setQuery] = React.useState('');
+  const [categoryId, setCategoryId] = React.useState<string | null>(null);
   const [useDemo, setUseDemo] = React.useState(false);
   const [variantFor, setVariantFor] = React.useState<{ product: PosCatalogProduct; variants: PosCatalogVariant[] } | null>(null);
   const [busy, setBusy] = React.useState(false);
@@ -52,11 +56,17 @@ export function ProductPanel({
     enabled: !useDemo,
   });
 
+  const menuCategories = usePosMenuCategories(companyId, !useDemo);
   const list = useDemo ? DEMO_POS_PRODUCTS : (products.data ?? []);
+  const menu = (menuCategories.data ?? []).filter((category) => category.name.trim());
+  const activeCategory = menu.find((category) => category.id === categoryId) ?? null;
+  const inCategory = activeCategory
+    ? list.filter((product) => product.posMenuCategoryId === activeCategory.id)
+    : list;
   const q = query.trim().toLowerCase();
   const visible = q
-    ? list.filter((p) => p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q) || (p.barcode ?? '').toLowerCase() === q)
-    : list;
+    ? inCategory.filter((p) => p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q) || (p.barcode ?? '').toLowerCase() === q)
+    : inCategory;
 
   React.useEffect(() => {
     if (!disabled) inputRef.current?.focus();
@@ -148,6 +158,34 @@ export function ProductPanel({
         )}
       </div>
 
+      {menu.length > 0 ? (
+        <div className="flex gap-2 overflow-x-auto pb-0.5">
+          <button
+            type="button"
+            onClick={() => setCategoryId(null)}
+            className={cn(
+              'inline-flex h-11 shrink-0 items-center rounded-xl px-4 text-sm font-medium',
+              categoryId === null ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground',
+            )}
+          >
+            الكل
+          </button>
+          {menu.map((category) => (
+            <button
+              key={category.id}
+              type="button"
+              onClick={() => setCategoryId(category.id)}
+              className={cn(
+                'inline-flex h-11 shrink-0 items-center rounded-xl px-4 text-sm font-medium',
+                categoryId === category.id ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground',
+              )}
+            >
+              {category.name}
+            </button>
+          ))}
+        </div>
+      ) : null}
+
       <div className="min-h-0 flex-1 overflow-y-auto">
         {products.isLoading && !useDemo ? (
           <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
@@ -194,29 +232,56 @@ export function ProductPanel({
       </div>
 
       <Dialog open={!!variantFor} onOpenChange={(o) => !o && setVariantFor(null)}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-xl">
           <DialogHeader>
             <DialogTitle>{variantFor?.product.name}</DialogTitle>
           </DialogHeader>
-          <div className="grid grid-cols-2 gap-2">
-            {variantFor?.variants.map((v) => (
-              <button
-                key={v.id}
-                type="button"
-                onClick={() => {
-                  onPick({ product: variantFor.product, variant: v });
-                  setVariantFor(null);
-                }}
-                className="rounded-lg border border-border p-3 text-start hover:border-primary/50 hover:bg-muted/40"
-              >
-                <div className="text-sm font-medium">{v.name}</div>
-                <div className="text-xs text-muted-foreground" dir="ltr">{v.sku}</div>
-                <div className="mt-1 text-sm font-bold text-primary">{formatAmount(v.price ?? variantFor.product.price)}</div>
-              </button>
-            ))}
-          </div>
+          <VariantChoices
+            productName={variantFor?.product.name ?? ''}
+            fallbackPrice={variantFor?.product.price ?? 0}
+            variants={variantFor?.variants ?? []}
+            onPick={(variant) => {
+              if (!variantFor) return;
+              onPick({ product: variantFor.product, variant });
+              setVariantFor(null);
+            }}
+          />
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function VariantChoices({
+  productName,
+  fallbackPrice,
+  variants,
+  onPick,
+}: {
+  productName: string;
+  fallbackPrice: number;
+  variants: PosCatalogVariant[];
+  onPick: (variant: PosCatalogVariant) => void;
+}) {
+  const headlines = variantHeadlines(productName, variants.map((variant) => variant.name));
+  const ordered = variants
+    .map((variant, index) => ({ variant, headline: headlines[index] ?? variant.name }))
+    .sort((a, b) => a.headline.localeCompare(b.headline, 'ar'));
+  return (
+    <div className="grid max-h-[70vh] grid-cols-2 gap-2 overflow-y-auto sm:grid-cols-3">
+      {ordered.map(({ variant, headline }) => (
+        <button
+          key={variant.id}
+          type="button"
+          onClick={() => onPick(variant)}
+          className="flex min-h-24 flex-col justify-between rounded-2xl border-2 border-border bg-card p-3 text-start transition hover:border-primary hover:bg-primary/5 active:scale-[0.98]"
+        >
+          <span className="text-lg font-bold leading-snug text-foreground">{headline}</span>
+          <span className="mt-2 text-base font-bold tabular-nums text-primary">
+            {formatAmount(variant.price ?? fallbackPrice)}
+          </span>
+        </button>
+      ))}
     </div>
   );
 }

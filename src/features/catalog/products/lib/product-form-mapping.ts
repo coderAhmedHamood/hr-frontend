@@ -149,6 +149,7 @@ export function productToFormValues(product: Product): ProductFormInput {
     shortDescription: product.shortDescription ?? '',
     description: product.description ?? '',
     categoryId: product.categoryId ?? undefined,
+    posMenuCategoryId: product.posMenuCategoryId ?? undefined,
     brandId: product.brandId ?? undefined,
     /** Only accept known enum values — invalid/missing values leave Radix Select blank. */
     status: coerceProductStatus(product.status),
@@ -267,6 +268,7 @@ export function formValuesToCreateInput(
     shortDescription: values.shortDescription || undefined,
     description: values.description || undefined,
     categoryId: optionalRelationId(values.categoryId),
+    posMenuCategoryId: optionalRelationId(values.posMenuCategoryId),
     brandId: optionalRelationId(values.brandId),
     status: values.status,
     stockStatus,

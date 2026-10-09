@@ -166,6 +166,8 @@ export type PosSale = {
   orderDiscount: PosDiscount | null;
   totals: PosSaleTotals;
   payments: PosPayment[];
+  /** More than one payment covered the invoice. */
+  splitPayment?: boolean;
   revisions: PosSaleRevision[];
   createdAt: string;
   completedAt: string | null;
@@ -219,6 +221,15 @@ export type PosCashMovement = {
   reason: string;
   createdAt: string;
   createdBy: string;
+};
+
+/**
+ * A selling group on the register, independent of the product catalog
+ * categories. The product stores which group it belongs to.
+ */
+export type PosMenuCategory = {
+  id: string;
+  name: string;
 };
 
 export type PosHeldCart = {

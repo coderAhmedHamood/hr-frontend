@@ -80,6 +80,7 @@ const TAB_FIELDS: Record<DetailTab, string[]> = {
     'media',
     'sku',
     'categoryId',
+    'posMenuCategoryId',
     'brandId',
     'status',
     'listPrice',

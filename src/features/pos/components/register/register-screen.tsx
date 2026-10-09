@@ -28,6 +28,7 @@ import { usePosContext } from '@/features/pos/hooks/use-pos-context';
 import { discountPercentOf, paidAmount, priceLines, round2 } from '@/features/pos/lib/calc';
 import { formatDateTime, formatMoney, parseAmount } from '@/features/pos/lib/format';
 import { newId } from '@/features/pos/lib/pos-store';
+import { variantHeadline } from '@/features/pos/lib/variant-label';
 import { saleToPrintable, sessionToPrintable } from '@/features/pos/lib/receipt';
 import { summarizeSession } from '@/features/pos/lib/session-summary';
 import { CloseSessionDialog } from '@/features/pos/components/shared/close-session-dialog';
@@ -45,6 +46,16 @@ import { ProductPanel, type PickedItem } from '@/features/pos/components/registe
 
 const EMPTY_CART: CartState = { lines: [], orderDiscount: null, customer: { kind: 'walk_in' } };
 const REGISTER_KEY = 'pos.register.current';
+
+function describeLines(lines: Array<{ name: string; variantName: string | null; quantity: number }>): string {
+  return lines
+    .map((line) => {
+      const option = line.variantName ? variantHeadline(line.name, line.variantName) : '';
+      const label = option && option !== line.name ? `${line.name} — ${option}` : line.name;
+      return `${line.quantity}× ${label}`;
+    })
+    .join('، ');
+}
 
 function readJson<T>(key: string, fallback: T): T {
   try {
@@ -204,7 +215,7 @@ function ListsDialog({
   const held = data.heldCarts.filter((c) => c.registerId === registerId);
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>مبيعات مفتوحة وسلال معلّقة</DialogTitle>
         </DialogHeader>
@@ -216,12 +227,15 @@ function ListsDialog({
             {openSales.map((s) => {
               const pending = s.payments.some((p) => p.status === 'pending' || p.status === 'unknown');
               return (
-                <div key={s.id} className="flex items-center justify-between gap-2 border-t border-border py-2">
-                  <span>
-                    {formatDateTime(s.createdAt)} · {s.lines.length} صنف · {formatMoney(s.totals.total, currency)}
-                    {pending ? <Badge variant="warning" className="ms-2">محاولة بطاقة معلّقة</Badge> : null}
-                    {paidAmount(s.payments) > 0 ? <Badge variant="outline" className="ms-2">مدفوع جزئيًا</Badge> : null}
-                  </span>
+                <div key={s.id} className="flex items-start justify-between gap-2 border-t border-border py-2">
+                  <div className="min-w-0">
+                    <div className="text-xs text-muted-foreground">
+                      {formatDateTime(s.createdAt)} · {formatMoney(s.totals.total, currency)}
+                      {pending ? <Badge variant="warning" className="ms-2">محاولة بطاقة معلّقة</Badge> : null}
+                      {paidAmount(s.payments) > 0 ? <Badge variant="outline" className="ms-2">مدفوع جزئيًا</Badge> : null}
+                    </div>
+                    <p className="mt-0.5 text-sm leading-snug">{describeLines(s.lines)}</p>
+                  </div>
                   <Button size="sm" disabled={!cartEmpty} onClick={() => onResumeSale(s)}>استئناف</Button>
                 </div>
               );
@@ -231,10 +245,13 @@ function ListsDialog({
             <div className="mb-1 text-xs font-semibold text-muted-foreground">سلال معلّقة ({held.length})</div>
             {held.length === 0 ? <p className="text-xs text-muted-foreground">لا شيء.</p> : null}
             {held.map((c) => (
-              <div key={c.id} className="flex items-center justify-between gap-2 border-t border-border py-2">
-                <span>
-                  {c.label} · {formatDateTime(c.createdAt)} · {c.lines.length} صنف
-                </span>
+              <div key={c.id} className="flex items-start justify-between gap-2 border-t border-border py-2">
+                <div className="min-w-0">
+                  <div className="text-xs text-muted-foreground">
+                    {c.label} · {formatDateTime(c.createdAt)}
+                  </div>
+                  <p className="mt-0.5 text-sm leading-snug">{describeLines(c.lines)}</p>
+                </div>
                 <Button size="sm" disabled={!cartEmpty} onClick={() => onResumeCart(c.id)}>استئناف</Button>
               </div>
             ))}

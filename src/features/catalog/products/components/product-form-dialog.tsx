@@ -96,6 +96,7 @@ const FORM_TAB_FIELDS: Record<FormTab, string[]> = {
     'status',
     'productType',
     'categoryId',
+    'posMenuCategoryId',
     'brandId',
     'listPrice',
     'costPrice',

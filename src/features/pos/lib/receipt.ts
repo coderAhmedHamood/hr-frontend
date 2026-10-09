@@ -24,6 +24,7 @@ export function saleToPrintable(
       { label: 'الكاشير', value: sale.cashierName },
       { label: 'نقطة البيع', value: register?.name ?? '—' },
       { label: 'العميل', value: customer ? customer.name : 'عميل عابر' },
+      ...(sale.splitPayment ? [{ label: 'الدفع', value: 'مقسّم' }] : []),
       ...(customer?.taxNumber ? [{ label: 'الرقم الضريبي للعميل', value: customer.taxNumber }] : []),
     ],
     lines: sale.lines.map((l) => ({
