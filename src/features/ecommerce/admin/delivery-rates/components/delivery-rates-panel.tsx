@@ -177,7 +177,7 @@ export function DeliveryRatesPanel({ companyId, currencyCode, onHeaderExtrasChan
     return map;
   }, [countriesQuery.data?.items]);
 
-  function openCreate(scopeType: DeliveryRateScopeType) {
+  function openCreate(scopeType: DeliveryRateScopeType = 'city') {
     setEditTarget(null);
     setForm({
       ...EMPTY_FORM,
@@ -270,26 +270,14 @@ export function DeliveryRatesPanel({ companyId, currencyCode, onHeaderExtrasChan
           activeFilterCount={activeFilterCount}
         />
         {canCreate ? (
-          <div className="flex flex-wrap gap-2">
-            <PageHeaderPrimaryButton
-              icon={Plus}
-              label="سعر مدن"
-              className="h-10 px-3.5 text-sm"
-              onClick={() => openCreate('city')}
-            >
-              سعر مدن
-            </PageHeaderPrimaryButton>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="h-10 gap-1.5 rounded-lg"
-              onClick={() => openCreate('district')}
-            >
-              <Plus className="h-4 w-4" />
-              سعر أحياء
-            </Button>
-          </div>
+          <PageHeaderPrimaryButton
+            icon={Plus}
+            label="إضافة سعر توصيل"
+            className="h-10 px-3.5 text-sm"
+            onClick={() => openCreate()}
+          >
+            إضافة سعر توصيل
+          </PageHeaderPrimaryButton>
         ) : null}
       </div>
     ),
@@ -483,14 +471,51 @@ export function DeliveryRatesPanel({ companyId, currencyCode, onHeaderExtrasChan
           <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
             <DialogHeader>
               <DialogTitle>
-                {editTarget
-                  ? 'تعديل سعر التوصيل'
-                  : form.scopeType === 'city'
-                    ? 'سعر توصيل للمدن'
-                    : 'سعر توصيل للأحياء'}
+                {editTarget ? 'تعديل سعر التوصيل' : 'إضافة سعر توصيل'}
               </DialogTitle>
             </DialogHeader>
             <form className="space-y-4" onSubmit={(e) => void handleSubmit(e)}>
+              <div className="space-y-1.5">
+                <Label>نوع السعر</Label>
+                <div className="grid grid-cols-2 gap-1 rounded-xl border border-border bg-muted/40 p-1">
+                  {(
+                    [
+                      ['city', 'سعر مدينة'],
+                      ['district', 'سعر حي'],
+                    ] as const
+                  ).map(([scope, label]) => {
+                    const active = (editTarget?.scopeType ?? form.scopeType) === scope;
+                    return (
+                      <button
+                        key={scope}
+                        type="button"
+                        disabled={Boolean(editTarget)}
+                        aria-pressed={active}
+                        onClick={() =>
+                          setForm((prev) => ({
+                            ...prev,
+                            scopeType: scope,
+                            cityIds: [],
+                            districtIds: [],
+                            cityIdForDistricts: '',
+                          }))
+                        }
+                        className={cn(
+                          'h-9 rounded-lg text-sm font-semibold transition-colors disabled:cursor-not-allowed',
+                          active
+                            ? 'bg-card text-foreground shadow-sm ring-1 ring-border'
+                            : 'text-muted-foreground hover:text-foreground disabled:opacity-50',
+                        )}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-[11px] leading-relaxed text-muted-foreground">
+                  سعر الحي يُقدَّم على سعر مدينته: إن كان لحي العميل سعر يُستخدم، وإلا يُستخدم سعر المدينة.
+                </p>
+              </div>
               <div className="space-y-1.5">
                 <Label>الاسم</Label>
                 <Input
