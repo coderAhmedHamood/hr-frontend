@@ -101,18 +101,28 @@ function MetaRows({ document: doc }: { document: PrintableDocument }) {
 }
 
 function StackedLines({ document: doc }: { document: PrintableDocument }) {
+  const stock = doc.columns === 'stock';
   return (
     <div>
       {doc.lines.map((line, i) => (
         <div key={i} style={{ padding: '3px 0' }}>
           <div style={{ fontWeight: 600 }}>{line.name}</div>
           {line.detail ? <div style={{ color: MUTED, fontSize: '0.9em' }}>{line.detail}</div> : null}
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ color: MUTED }}>
-              {line.quantity} × {line.unitPrice}
-            </span>
-            <span>{line.total}</span>
-          </div>
+          {stock ? (
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: MUTED }}>{line.location ?? ''}</span>
+              <span>
+                {line.quantity} {line.unit ?? ''}
+              </span>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: MUTED }}>
+                {line.quantity} × {line.unitPrice}
+              </span>
+              <span>{line.total}</span>
+            </div>
+          )}
         </div>
       ))}
     </div>
@@ -127,7 +137,7 @@ function CompactLines({ document: doc }: { document: PrintableDocument }) {
           <span>
             {line.quantity}× {line.name}
           </span>
-          <span style={{ whiteSpace: 'nowrap' }}>{line.total}</span>
+          <span style={{ whiteSpace: 'nowrap' }}>{doc.columns === 'stock' ? (line.unit ?? '') : line.total}</span>
         </div>
       ))}
     </div>
@@ -135,6 +145,9 @@ function CompactLines({ document: doc }: { document: PrintableDocument }) {
 }
 
 function TableLines({ document: doc, bordered }: { document: PrintableDocument; bordered: boolean }) {
+  const stock = doc.columns === 'stock';
+  // A unit column only when the document knows its units.
+  const units = stock && doc.lines.some((line) => line.unit);
   const cell: React.CSSProperties = {
     padding: '3px 4px',
     border: bordered ? `1px solid ${RULE}` : undefined,
@@ -146,22 +159,42 @@ function TableLines({ document: doc, bordered }: { document: PrintableDocument; 
     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
       <thead>
         <tr style={{ background: bordered ? '#f3f4f6' : undefined }}>
+          <th style={{ ...cell, width: '6%' }}>#</th>
           <th style={cell}>الصنف</th>
           <th style={{ ...cell, width: '14%' }}>الكمية</th>
-          <th style={{ ...cell, width: '22%' }}>السعر</th>
-          <th style={{ ...cell, width: '24%' }}>الإجمالي</th>
+          {stock ? (
+            <>
+              {units ? <th style={{ ...cell, width: '14%' }}>الوحدة</th> : null}
+              <th style={{ ...cell, width: '26%' }}>الموقع</th>
+            </>
+          ) : (
+            <>
+              <th style={{ ...cell, width: '20%' }}>السعر</th>
+              <th style={{ ...cell, width: '22%' }}>الإجمالي</th>
+            </>
+          )}
         </tr>
       </thead>
       <tbody>
         {doc.lines.map((line, i) => (
           <tr key={i}>
+            <td style={cell}>{i + 1}</td>
             <td style={cell}>
               {line.name}
               {line.detail ? <div style={{ color: MUTED, fontSize: '0.9em' }}>{line.detail}</div> : null}
             </td>
             <td style={cell}>{line.quantity}</td>
-            <td style={cell}>{line.unitPrice}</td>
-            <td style={cell}>{line.total}</td>
+            {stock ? (
+              <>
+                {units ? <td style={cell}>{line.unit ?? ''}</td> : null}
+                <td style={cell}>{line.location ?? ''}</td>
+              </>
+            ) : (
+              <>
+                <td style={cell}>{line.unitPrice}</td>
+                <td style={cell}>{line.total}</td>
+              </>
+            )}
           </tr>
         ))}
       </tbody>
@@ -218,7 +251,19 @@ function Footer({
   boxed?: boolean;
 }) {
   const lines = splitLines(settings.footer.text);
+  const signatures = settings.footer.showSignatures !== false ? (doc.signatures ?? []) : [];
   return (
+    <>
+    {signatures.length > 0 ? (
+      <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+        {signatures.map((label) => (
+          <div key={label} style={{ flex: 1, textAlign: 'center' }}>
+            <div style={{ borderBottom: `1px solid ${INK}`, height: 28 }} />
+            <div style={{ color: MUTED, fontSize: '0.9em', marginTop: 2 }}>{label}</div>
+          </div>
+        ))}
+      </div>
+    ) : null}
     <div
       style={{
         textAlign: 'center',
@@ -238,6 +283,7 @@ function Footer({
       ) : null}
       {doc.copyLabel ? <div style={{ marginTop: 4, fontWeight: 700 }}>{doc.copyLabel}</div> : null}
     </div>
+    </>
   );
 }
 

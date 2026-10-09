@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { ArrowDown, Check, ChevronDown, Plus, ScanBarcode, Trash2, Undo2, X } from 'lucide-react';
+import { ArrowDown, Check, ChevronDown, Plus, Printer, ScanBarcode, Trash2, Undo2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { getInventoryCompanyId } from '@/features/inventory/lib/company-id';
 import { useInventoryCompanySettings } from '@/features/inventory/admin/notifications/hooks/use-inventory-settings';
@@ -33,6 +33,13 @@ import type {
   WarehouseOperationStatus,
 } from '@/features/inventory/domain/types/warehouse';
 import { Button } from '@/components/ui/button';
+import { PrintDocumentDialog } from '@/features/print-templates/components/print-document-dialog';
+import { toPrintCompany } from '@/features/print-templates/lib/print-company';
+import { useActiveCompany } from '@/features/hr/organization/hooks/useActiveCompany';
+import {
+  buildOperationPrintDocument,
+  operationPrintDocumentType,
+} from '@/features/inventory/admin/operations/lib/operation-print-document';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -303,6 +310,9 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
 
   const [lines, setLines] = React.useState<WarehouseOperationLine[]>([]);
   const [notes, setNotes] = React.useState('');
+  // Printed with the company template for its document type.
+  const [printOpen, setPrintOpen] = React.useState(false);
+  const { data: activeCompany } = useActiveCompany();
   const [partnerId, setPartnerId] = React.useState('');
   const [partnerName, setPartnerName] = React.useState('');
   const [sourceDocument, setSourceDocument] = React.useState('');
@@ -1526,6 +1536,16 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
           <Button
             type="button"
             variant="outline"
+            className="gap-1.5 max-sm:w-full"
+            onClick={() => setPrintOpen(true)}
+            disabled={lines.length === 0 && documentOperation.lines.length === 0}
+          >
+            <Printer className="h-4 w-4" aria-hidden />
+            طباعة
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
             className="max-sm:hidden"
             onClick={() => onOpenChange(false)}
             disabled={isSaving}
@@ -1534,6 +1554,24 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
           </Button>
         </DialogFooter>
       </DialogContent>
+      <PrintDocumentDialog
+        open={printOpen}
+        onOpenChange={setPrintOpen}
+        documentType={operationPrintDocumentType(documentOperation.kind)}
+        companyId={companyId}
+        company={toPrintCompany(activeCompany)}
+        document={
+          printOpen
+            ? buildOperationPrintDocument({
+                operation: { ...documentOperation, notes: notes || documentOperation.notes },
+                lines: lines.length > 0 ? lines : documentOperation.lines,
+                warehouseName: sourceWarehouseName,
+                destinationWarehouseName: crossWarehouse ? targetWarehouseName : null,
+                locationName,
+              })
+            : null
+        }
+      />
       <BarcodeScannerDialog
         open={scanOpen}
         onOpenChange={setScanOpen}
