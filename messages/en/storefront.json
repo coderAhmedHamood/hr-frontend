@@ -168,7 +168,7 @@
     "notesPlaceholder": "e.g. next to the mosque, 2nd floor",
     "customerNote": "Order note (optional)",
     "customerNotePlaceholder": "e.g. gift wrap please",
-    "shipping": "Shipping",
+    "shipping": "Delivery",
     "shippingPending": "Calculated after choosing a city",
     "freeShipping": "Free",
     "continue": "Continue",
@@ -256,7 +256,8 @@
     "addFirstAddress": "Add a delivery address",
     "saveAddress": "Save address",
     "fixBeforePaying": "Fix this before paying — you will not pay until the order can be placed:",
-    "checkFailed": "Could not check the order now — try again."
+    "checkFailed": "Could not check the order now — try again.",
+    "itemsAmount": "Items ({count})"
   },
   "orders": {
     "myOrdersTitle": "My orders",

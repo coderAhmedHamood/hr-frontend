@@ -332,6 +332,14 @@ export function OrderDetailPanel({
                   <p className="text-lg font-bold tabular-nums tracking-tight text-foreground">
                     {formatPrice(order.totalAmount)}
                   </p>
+                  {order.subtotalAmount && order.shippingFeeAmount ? (
+                    <p className="text-[11px] tabular-nums text-muted-foreground">
+                      المنتجات {formatPrice(order.subtotalAmount)} · التوصيل{' '}
+                      {order.shippingFeeAmount.amount === 0
+                        ? 'مجاني'
+                        : formatPrice(order.shippingFeeAmount)}
+                    </p>
+                  ) : null}
                 </div>
               </div>
 

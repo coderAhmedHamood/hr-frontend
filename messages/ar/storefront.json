@@ -168,7 +168,7 @@
     "notesPlaceholder": "مثال: بجانب المسجد، الدور الثاني",
     "customerNote": "ملاحظة على الطلب (اختياري)",
     "customerNotePlaceholder": "مثال: أريد تغليف هدية",
-    "shipping": "الشحن",
+    "shipping": "التوصيل",
     "shippingPending": "يُحدَّد بعد اختيار المدينة",
     "freeShipping": "مجاني",
     "continue": "متابعة",
@@ -256,7 +256,8 @@
     "addFirstAddress": "أضف عنوان التوصيل",
     "saveAddress": "حفظ العنوان",
     "fixBeforePaying": "عالج هذا قبل الدفع — لن يُطلب منك الدفع حتى يكون الطلب قابلًا للإنشاء:",
-    "checkFailed": "تعذّر التحقق من الطلب الآن — حاول مرة أخرى."
+    "checkFailed": "تعذّر التحقق من الطلب الآن — حاول مرة أخرى.",
+    "itemsAmount": "المنتجات ({count})"
   },
   "orders": {
     "myOrdersTitle": "طلباتي",

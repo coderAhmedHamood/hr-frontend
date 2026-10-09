@@ -505,6 +505,15 @@ export function StoreCheckoutClient({ currency: storeCurrency, country }: Checko
     currency: shippingQuoteQuery.data?.currencyCode ?? currency,
   };
   const total = subtotal + shipping.amount;
+  // Delivery is its own amount on the order (not a product line), shown
+  // wherever the total is.
+  const shippingLabel = !address.cityId
+    ? t('checkout.shippingPending')
+    : shippingQuoteQuery.isLoading
+      ? t('common.loading')
+      : shipping.amount === 0
+        ? t('checkout.freeShipping')
+        : formatPrice(shipping.amount);
   const itemCount = cartLines.reduce((sum, item) => sum + item.line.quantity, 0);
 
   function formatPrice(amount: number) {
@@ -1385,6 +1394,22 @@ export function StoreCheckoutClient({ currency: storeCurrency, country }: Checko
               </div>
             </header>
             <div className="space-y-4 p-5">
+              <dl className="space-y-2 rounded-2xl border border-border bg-muted/20 p-4 text-sm">
+                <div className="flex justify-between gap-3">
+                  <dt className="text-muted-foreground">
+                    {t('checkout.itemsAmount', { count: itemCount })}
+                  </dt>
+                  <dd className="font-medium tabular-nums text-foreground">{formatPrice(subtotal)}</dd>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <dt className="text-muted-foreground">{t('checkout.shipping')}</dt>
+                  <dd className="font-medium tabular-nums text-foreground">{shippingLabel}</dd>
+                </div>
+                <div className="flex justify-between gap-3 border-t border-border pt-2">
+                  <dt className="font-semibold text-foreground">{t('cart.total')}</dt>
+                  <dd className="text-base font-bold tabular-nums text-foreground">{formatPrice(total)}</dd>
+                </div>
+              </dl>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="rounded-2xl bg-muted/30 p-4">
                   <div className="mb-2 flex items-center justify-between gap-2">
@@ -1582,15 +1607,7 @@ export function StoreCheckoutClient({ currency: storeCurrency, country }: Checko
               </div>
               <div className="flex justify-between gap-3">
                 <dt className="text-muted-foreground">{t('checkout.shipping')}</dt>
-                <dd className="font-medium tabular-nums text-foreground">
-                  {!address.cityId
-                    ? t('checkout.shippingPending')
-                    : shippingQuoteQuery.isLoading
-                      ? t('common.loading')
-                      : shipping.amount === 0
-                        ? t('checkout.freeShipping')
-                        : formatPrice(shipping.amount)}
-                </dd>
+                <dd className="font-medium tabular-nums text-foreground">{shippingLabel}</dd>
               </div>
               <div className="flex justify-between gap-3 border-t border-border pt-3">
                 <dt className="font-semibold text-foreground">{t('cart.total')}</dt>
@@ -1605,8 +1622,13 @@ export function StoreCheckoutClient({ currency: storeCurrency, country }: Checko
       <div
         className="store-drawer-safe-pb fixed inset-x-0 bottom-14 z-40 border-t border-border bg-background/95 px-4 py-3 backdrop-blur-md sm:hidden"
       >
-        <div className="mb-2 flex items-center justify-between text-sm">
-          <span className="text-muted-foreground">{t('cart.total')}</span>
+        <div className="mb-2 flex items-center justify-between gap-3 text-sm">
+          <span className="text-muted-foreground">
+            {t('cart.total')}
+            <span className="block text-[11px]">
+              {t('checkout.shipping')}: {shippingLabel}
+            </span>
+          </span>
           <span className="font-bold tabular-nums text-foreground">{formatPrice(total)}</span>
         </div>
         <div dir="ltr" className="flex gap-2">
