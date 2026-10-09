@@ -1,6 +1,7 @@
-# syntax=docker/dockerfile:1
-
-FROM node:24-alpine AS base
+# Docker Hub rate-limits anonymous pulls from CI runners (429), so the base
+# image comes from ECR Public's mirror of the official images, and the
+# BuildKit built-in Dockerfile frontend is used (no docker/dockerfile pull).
+FROM public.ecr.aws/docker/library/node:24-alpine AS base
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
