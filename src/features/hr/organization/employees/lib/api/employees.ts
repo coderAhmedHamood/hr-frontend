@@ -95,7 +95,6 @@ export type UpdateEmployeeDto = {
   position?: string | null;
   managerId?: string | null;
   contractType?: string | null;
-  contractStatus?: string | null;
   startDate?: string | null;
   endDate?: string | null;
   baseSalary?: number | null;

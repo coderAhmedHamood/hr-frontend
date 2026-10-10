@@ -58,5 +58,6 @@ describe('buildPersonalEmployeeUpdatePayload', () => {
     expect(payload).not.toHaveProperty('baseSalary');
     expect(payload).not.toHaveProperty('managerId');
     expect(payload).not.toHaveProperty('role');
+    expect(payload).not.toHaveProperty('contractStatus');
   });
 });
