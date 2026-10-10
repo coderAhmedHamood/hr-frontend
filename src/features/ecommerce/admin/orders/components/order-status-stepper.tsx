@@ -177,9 +177,6 @@ export function OrderStatusStepper({
           </p>
           {!compact ? (
             <>
-              <p className="text-xs text-muted-foreground">
-                الانتقالات مقيّدة حسب حالة الطلب الحالية (الباك اند هو نقطة التحكم).
-              </p>
               <p className="inline-flex items-center gap-1.5 pt-1 text-xs font-medium text-foreground">
                 <PaymentIcon className="h-3.5 w-3.5 text-muted-foreground" />
                 نوع الدفع: {methodLabel}
@@ -196,7 +193,7 @@ export function OrderStatusStepper({
             type="button"
             size="sm"
             disabled={disabled || nextBlocked}
-            className="gap-1"
+            className="gap-1 max-sm:fixed max-sm:inset-x-3 max-sm:bottom-[max(0.75rem,env(safe-area-inset-bottom))] max-sm:z-50 max-sm:h-12 max-sm:text-base max-sm:shadow-lg"
             title={
               nextStageBlock ??
               (nextBlocked && next.kind === 'order' && next.status === 'shipped'

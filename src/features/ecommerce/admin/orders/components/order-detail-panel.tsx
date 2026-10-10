@@ -44,6 +44,7 @@ import {
   DialogDescription,
   DialogTitle,
   dialogShellBodyClass,
+  dialogMobileFullScreenClass,
   dialogShellContentClass,
   dialogShellHeaderClass,
 } from '@/components/ui/dialog';
@@ -298,8 +299,14 @@ export function OrderDetailPanel({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={cn(dialogShellContentClass, 'max-w-3xl sm:max-w-3xl')}>
-        <div className={dialogShellHeaderClass}>
+      <DialogContent
+        className={cn(
+          dialogShellContentClass,
+          dialogMobileFullScreenClass,
+          'max-w-3xl sm:max-w-3xl max-sm:overflow-y-auto',
+        )}
+      >
+        <div className={cn(dialogShellHeaderClass, 'max-sm:px-4 max-sm:py-4')}>
           {loading && !order ? (
             <>
               <DialogTitle>تفاصيل الطلب</DialogTitle>
@@ -395,7 +402,7 @@ export function OrderDetailPanel({
                   {PAYMENT_METHOD_LABELS_AR[paymentMethod]}
                 </span>
                 {order.paymentAccountSnapshot?.nameAr ? (
-                  <Badge variant="subtle" className="text-muted-foreground">
+                  <Badge variant="subtle" className="text-muted-foreground max-sm:hidden">
                     {order.paymentAccountSnapshot.nameAr}
                     {order.paymentAccountSnapshot.mobile
                       ? ` · ${order.paymentAccountSnapshot.mobile}`
@@ -431,7 +438,7 @@ export function OrderDetailPanel({
                   <Button
                     type="button"
                     size="sm"
-                    className={cn(!hasProof && 'ms-auto')}
+                    className={cn(!hasProof && 'ms-auto', 'max-sm:h-11 max-sm:w-full')}
                     disabled={flowBusy}
                     onClick={() => void markPaid()}
                   >
@@ -448,7 +455,13 @@ export function OrderDetailPanel({
           ) : null}
         </div>
 
-        <div className={dialogShellBodyClass}>
+        <div
+          className={cn(
+            dialogShellBodyClass,
+            // Phones: one scroll for the whole order; room for the action bar.
+            'max-sm:flex-none max-sm:overflow-visible max-sm:px-3 max-sm:pb-28 max-sm:pt-4',
+          )}
+        >
           {loading && !order ? (
             <p className="py-8 text-center text-sm text-muted-foreground">جاري تحميل تفاصيل الطلب…</p>
           ) : null}
@@ -471,7 +484,7 @@ export function OrderDetailPanel({
               {/* Tabs keep the order readable: what is needed to handle it
                   first, the rest one tap away. */}
               <Tabs defaultValue="handle" className="space-y-3">
-                <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 rounded-xl bg-muted/60 p-1">
+                <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 rounded-xl bg-muted/60 p-1 max-sm:flex-nowrap max-sm:overflow-x-auto">
                   {(
                     [
                       ['handle', 'المعالجة', 0],
@@ -484,7 +497,7 @@ export function OrderDetailPanel({
                     <TabsTrigger
                       key={value}
                       value={value}
-                      className="flex-1 gap-1.5 rounded-lg px-3 py-1.5 text-sm data-[state=active]:bg-card data-[state=active]:shadow-sm"
+                      className="flex-1 gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm data-[state=active]:bg-card data-[state=active]:shadow-sm max-sm:flex-none max-sm:py-2"
                     >
                       {label}
                       {count > 0 ? (
