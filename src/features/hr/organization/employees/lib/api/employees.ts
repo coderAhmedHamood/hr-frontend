@@ -120,6 +120,8 @@ export type EmployeeListQuery = {
   companyId?: string;
   search?: string;
   branchId?: string;
+  /** Current primary active organizational assignment only. */
+  primaryAssignment?: boolean;
   departmentId?: string;
   contractStatus?: string;
   startDateFrom?: string;

@@ -42,6 +42,7 @@ export function useEmployeeFilterPicker(
           res.items.map((e) => ({
             id: e.id,
             name: e.nameAr?.trim() || e.nameEn?.trim() || '—',
+            branchId: e.branchId ?? undefined,
             departmentNameAr: e.departmentNameAr ?? undefined,
             branchNameAr: e.branchNameAr ?? undefined,
           })),
@@ -68,6 +69,7 @@ export function mapEmployeesToPickerOptions(
     id: string;
     nameAr?: string | null;
     nameEn?: string | null;
+    branchId?: string | null;
     departmentNameAr?: string | null;
     branchNameAr?: string | null;
   }>,
@@ -75,6 +77,7 @@ export function mapEmployeesToPickerOptions(
   return items.map((e) => ({
     id: e.id,
     name: e.nameAr?.trim() || e.nameEn?.trim() || '—',
+    branchId: e.branchId ?? undefined,
     departmentNameAr: e.departmentNameAr ?? undefined,
     branchNameAr: e.branchNameAr ?? undefined,
   }));
