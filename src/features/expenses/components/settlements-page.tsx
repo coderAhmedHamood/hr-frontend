@@ -1,7 +1,6 @@
 'use client';
 
 import * as React from 'react';
-import { toast } from 'sonner';
 import { ArrowLeft, Plus } from 'lucide-react';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
@@ -9,12 +8,11 @@ import { PageHeaderPrimaryButton } from '@/components/layouts/page-header-primar
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useExpensesStore } from '../data/store';
-import { addSettlement, owedBetween } from '../domain/commands';
+import { owedBetween } from '../domain/commands';
 import { settlementSuggestions } from '../domain/ledger';
 import { minorToInput, type Minor } from '../domain/money';
 import type { PartyId, Settlement } from '../domain/types';
-import { AmountInput, EmptyState, Field, FormDialog, LoadingBlock, Money, PartyName, PartySelect, ResponsiveTable, Section, StatusBadge } from './common';
+import { AmountInput, EmptyState, Field, FormDialog, LoadingBlock, Money, PartyName, PartySelect, ResponsiveTable, Section, StatusBadge, useRunCommand } from './common';
 import { todayIso, useCurrency, useExpensesData, useExpensesPermissions, useLedger } from './expenses-provider';
 import { TxnActions } from './txn-actions';
 
@@ -31,7 +29,7 @@ export function SettlementDialog({
 }) {
   const data = useExpensesData();
   const currency = useCurrency();
-  const run = useExpensesStore((s) => s.run);
+  const run = useRunCommand();
   const [fromId, setFromId] = React.useState<PartyId | null>(null);
   const [toId, setToId] = React.useState<PartyId | null>(null);
   const [amount, setAmount] = React.useState<{ t: string; m: Minor }>({ t: '', m: 0 });
@@ -52,13 +50,7 @@ export function SettlementDialog({
   const save = () => {
     if (!fromId || !toId) return;
     if (amount.m > owed && !window.confirm('المبلغ أكبر مما على الدافع لهذا الطرف؛ الزيادة تصبح مستحقة للدافع. متابعة؟')) return;
-    try {
-      run((d, ctx) => addSettlement(d, { fromId, toId, amount: amount.m, method, date, note: note.trim() || null }, ctx));
-      toast.success('سُجّل السداد');
-      onOpenChange(false);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'تعذر التسجيل');
-    }
+    void run({ type: 'addSettlement', fromId, toId, amount: amount.m, method, date, note: note.trim() || null }, 'سُجّل السداد').then((ok) => ok && onOpenChange(false));
   };
   return (
     <FormDialog

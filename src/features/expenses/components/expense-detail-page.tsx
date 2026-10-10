@@ -7,7 +7,7 @@ import { ArrowRight, Paperclip, Pencil } from 'lucide-react';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { Button } from '@/components/ui/button';
 import { useExpensesStore } from '../data/store';
-import { getFile } from '../data/attachments';
+import { attachmentHref } from '../data/attachments';
 import { expenseEffects } from '../domain/ledger';
 import { ORG } from '../domain/types';
 import type { AttachmentMeta, Expense } from '../domain/types';
@@ -18,24 +18,16 @@ import { useDirectory, useExpensesData, useExpensesPermissions } from './expense
 import { TxnActions } from './txn-actions';
 
 function AttachmentLink({ meta }: { meta: AttachmentMeta }) {
-  const scope = useExpensesStore((s) => s.scope);
-  const open = async () => {
-    if (!scope) return;
-    try {
-      const blob = await getFile(scope, meta.id);
-      if (!blob) {
-        toast.message('المرفق غير محفوظ في هذا المتصفح (مثال في البيانات التجريبية)');
-        return;
-      }
-      const url = URL.createObjectURL(blob);
-      window.open(url, '_blank', 'noopener');
-      setTimeout(() => URL.revokeObjectURL(url), 60_000);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'تعذر فتح المرفق');
+  const open = () => {
+    const href = attachmentHref(meta);
+    if (!href) {
+      toast.message('لا ملف لهذا المرفق (مثال في البيانات التجريبية)');
+      return;
     }
+    window.open(href, '_blank', 'noopener');
   };
   return (
-    <button type="button" onClick={() => void open()} className="flex w-full items-center gap-2 rounded-lg border border-border px-2.5 py-2 text-start text-xs hover:bg-muted">
+    <button type="button" onClick={open} className="flex w-full items-center gap-2 rounded-lg border border-border px-2.5 py-2 text-start text-xs hover:bg-muted">
       <Paperclip className="h-4 w-4 shrink-0" />
       <span className="truncate">{meta.name}</span>
       <span className="ms-auto shrink-0 text-muted-foreground">{Math.round(meta.size / 1024)} ك.ب</span>

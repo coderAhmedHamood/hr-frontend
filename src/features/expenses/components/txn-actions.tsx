@@ -4,29 +4,30 @@ import * as React from 'react';
 import { toast } from 'sonner';
 import { Ban, Check, Send, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import type { ExpensesCommand } from '../data/commands';
 import { useExpensesStore } from '../data/store';
-import { decideTxn, submitTxn, voidTxn } from '../domain/commands';
 import { canDecide, canVoid } from '../domain/policy';
 import type { AnyTxn } from '../domain/types';
 import { ReasonDialog } from './common';
 import { useExpensesData, useExpensesPermissions } from './expenses-provider';
 
 /**
- * Submit / approve / reject / void for any record. Two checks: the real ERP
- * permission (exp.*) of the signed-in user, and the simulated actor's role
- * (approver, not the creator).
+ * Submit / approve / reject / void for any record. The buttons follow the
+ * signed-in user's exp.* permissions and the approval rules; the server
+ * checks both again on the operation.
  */
 export function TxnActions({ txn, compact }: { txn: AnyTxn; compact?: boolean }) {
   const data = useExpensesData();
   const actorId = useExpensesStore((s) => s.actorId);
-  const run = useExpensesStore((s) => s.run);
+  const exec = useExpensesStore((s) => s.exec);
+  const busy = useExpensesStore((s) => s.busy);
   const perms = useExpensesPermissions();
   const [dialog, setDialog] = React.useState<'reject' | 'void' | null>(null);
   if (!data || !actorId) return null;
 
-  const attempt = (fn: () => void, ok: string) => {
+  const attempt = async (command: ExpensesCommand, ok: string) => {
     try {
-      fn();
+      await exec(command);
       toast.success(ok);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'تعذر التنفيذ');
@@ -38,7 +39,7 @@ export function TxnActions({ txn, compact }: { txn: AnyTxn; compact?: boolean })
   return (
     <div className="flex flex-wrap gap-1.5">
       {(txn.status === 'draft' || txn.status === 'rejected') && txn.createdBy === actorId ? (
-        <Button size={size} onClick={() => attempt(() => run((d, ctx) => submitTxn(d, txn.kind, txn.id, ctx)), 'أُرسلت')}>
+        <Button size={size} disabled={busy} onClick={() => void attempt({ type: 'submit', kind: txn.kind, id: txn.id }, 'أُرسلت')}>
           <Send className="me-1.5 h-4 w-4" />
           إرسال
         </Button>
@@ -46,11 +47,15 @@ export function TxnActions({ txn, compact }: { txn: AnyTxn; compact?: boolean })
       {txn.status === 'submitted' ? (
         mayDecide && perms.approve ? (
           <>
-            <Button size={size} onClick={() => attempt(() => run((d, ctx) => decideTxn(d, txn.kind, txn.id, 'approved', null, ctx)), 'اعتُمدت')}>
+            <Button
+              size={size}
+              disabled={busy}
+              onClick={() => void attempt({ type: 'decide', kind: txn.kind, id: txn.id, decision: 'approved' }, 'اعتُمدت')}
+            >
               <Check className="me-1.5 h-4 w-4" />
               اعتماد
             </Button>
-            <Button size={size} variant="outline" onClick={() => setDialog('reject')}>
+            <Button size={size} variant="outline" disabled={busy} onClick={() => setDialog('reject')}>
               <X className="me-1.5 h-4 w-4" />
               رفض
             </Button>
@@ -62,7 +67,7 @@ export function TxnActions({ txn, compact }: { txn: AnyTxn; compact?: boolean })
         )
       ) : null}
       {canVoid(txn) && perms.void && txn.status === 'approved' ? (
-        <Button size={size} variant="ghost" className="text-destructive hover:text-destructive" onClick={() => setDialog('void')}>
+        <Button size={size} variant="ghost" disabled={busy} className="text-destructive hover:text-destructive" onClick={() => setDialog('void')}>
           <Ban className="me-1.5 h-4 w-4" />
           إلغاء
         </Button>
@@ -74,7 +79,7 @@ export function TxnActions({ txn, compact }: { txn: AnyTxn; compact?: boolean })
         confirmLabel="رفض"
         destructive
         onConfirm={(reason) => {
-          attempt(() => run((d, ctx) => decideTxn(d, txn.kind, txn.id, 'rejected', reason, ctx)), 'رُفضت');
+          void attempt({ type: 'decide', kind: txn.kind, id: txn.id, decision: 'rejected', note: reason }, 'رُفضت');
           setDialog(null);
         }}
       />
@@ -85,7 +90,7 @@ export function TxnActions({ txn, compact }: { txn: AnyTxn; compact?: boolean })
         confirmLabel="إلغاء العملية"
         destructive
         onConfirm={(reason) => {
-          attempt(() => run((d, ctx) => voidTxn(d, txn.kind, txn.id, reason, ctx)), 'أُلغيت');
+          void attempt({ type: 'void', kind: txn.kind, id: txn.id, reason }, 'أُلغيت');
           setDialog(null);
         }}
       />

@@ -2,7 +2,6 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { toast } from 'sonner';
 import { ArrowDownToLine, ArrowRight, ArrowUpFromLine, Lock, Plus } from 'lucide-react';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
@@ -11,33 +10,17 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useExpensesStore } from '../data/store';
-import { addAdvance, addCustodyMove, closeCustody, openCustody } from '../domain/commands';
 import { allTxns, partyBalance, type CustodyBalance } from '../domain/ledger';
 import type { Minor } from '../domain/money';
 import type { AnyTxn } from '../domain/types';
 import { expensesRoutes } from '../constants/routes';
-import { AmountInput, EmptyState, Field, FormDialog, KeyValue, LoadingBlock, Money, PartyName, PartySelect, ResponsiveTable, Section, StatusBadge } from './common';
+import { AmountInput, EmptyState, Field, FormDialog, KeyValue, LoadingBlock, Money, PartyName, PartySelect, ResponsiveTable, Section, StatusBadge, useRunCommand } from './common';
 import { txnTitle } from './dashboard-page';
 import { todayIso, useCurrency, useDirectory, useExpensesData, useExpensesPermissions, useLedger } from './expenses-provider';
 import { TxnActions } from './txn-actions';
 
-function useRunToast() {
-  const run = useExpensesStore((s) => s.run);
-  return (fn: Parameters<typeof run>[0], ok: string): boolean => {
-    try {
-      run(fn);
-      toast.success(ok);
-      return true;
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'تعذر التنفيذ');
-      return false;
-    }
-  };
-}
-
 function OpenCustodyDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
-  const exec = useRunToast();
+  const exec = useRunCommand();
   const [holderId, setHolderId] = React.useState<string | null>(null);
   const [purpose, setPurpose] = React.useState('');
   const [amount, setAmount] = React.useState<{ t: string; m: Minor }>({ t: '', m: 0 });
@@ -54,7 +37,7 @@ function OpenCustodyDialog({ open, onOpenChange }: { open: boolean; onOpenChange
       description="مال المنشأة لدى شخص يصرف منه نيابة عنها — ليست سلفة عليه."
       footer={<>
         <Button variant="outline" onClick={() => onOpenChange(false)}>إلغاء</Button>
-        <Button disabled={!holderId || amount.m <= 0} onClick={() => { if (holderId && exec((d, ctx) => openCustody(d, { holderId, purpose, limit: limit.m > 0 ? limit.m : null, amount: amount.m, date }, ctx), 'فُتحت العهدة')) onOpenChange(false); }}>فتح وتسليم</Button>
+        <Button disabled={!holderId || amount.m <= 0} onClick={() => { if (holderId) void exec({ type: 'openCustody', holderId, purpose, limit: limit.m > 0 ? limit.m : null, amount: amount.m, date }, 'فُتحت العهدة').then((ok) => ok && onOpenChange(false)); }}>فتح وتسليم</Button>
       </>}
     >
       <Field label="حامل العهدة"><PartySelect value={holderId} onChange={setHolderId} /></Field>
@@ -69,7 +52,7 @@ function OpenCustodyDialog({ open, onOpenChange }: { open: boolean; onOpenChange
 }
 
 function MoveDialog({ balance, type, onClose }: { balance: CustodyBalance | null; type: 'topup' | 'return'; onClose: () => void }) {
-  const exec = useRunToast();
+  const exec = useRunCommand();
   const directory = useDirectory();
   const [amount, setAmount] = React.useState<{ t: string; m: Minor }>({ t: '', m: 0 });
   const [note, setNote] = React.useState('');
@@ -84,7 +67,7 @@ function MoveDialog({ balance, type, onClose }: { balance: CustodyBalance | null
       description={`${directory.nameOf(balance.custody.holderId)} — ${balance.custody.purpose}`}
       footer={<>
         <Button variant="outline" onClick={onClose}>إلغاء</Button>
-        <Button disabled={amount.m <= 0} onClick={() => { if (exec((d, ctx) => addCustodyMove(d, { custodyId: balance.custody.id, type, amount: amount.m, date, note: note.trim() || null }, ctx), type === 'topup' ? 'سُجّلت التغذية' : 'سُجّل الإرجاع')) onClose(); }}>تسجيل</Button>
+        <Button disabled={amount.m <= 0} onClick={() => { void exec({ type: 'addCustodyMove', custodyId: balance.custody.id, moveType: type, amount: amount.m, date, note: note.trim() || null }, type === 'topup' ? 'سُجّلت التغذية' : 'سُجّل الإرجاع').then((ok) => ok && onClose()); }}>تسجيل</Button>
       </>}
     >
       <div className="grid grid-cols-2 gap-2 text-center text-xs">
@@ -99,7 +82,7 @@ function MoveDialog({ balance, type, onClose }: { balance: CustodyBalance | null
 }
 
 function AdvanceDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
-  const exec = useRunToast();
+  const exec = useRunCommand();
   const [personId, setPersonId] = React.useState<string | null>(null);
   const [purpose, setPurpose] = React.useState('');
   const [amount, setAmount] = React.useState<{ t: string; m: Minor }>({ t: '', m: 0 });
@@ -113,7 +96,7 @@ function AdvanceDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o
       description="مبلغ يصبح على الشخص للمنشأة، ويُسدَّد بالتسويات — منفصل عن العهد."
       footer={<>
         <Button variant="outline" onClick={() => onOpenChange(false)}>إلغاء</Button>
-        <Button disabled={!personId || amount.m <= 0} onClick={() => { if (personId && exec((d, ctx) => addAdvance(d, { personId, amount: amount.m, purpose, date }, ctx), 'سُجّلت السلفة')) onOpenChange(false); }}>تسجيل</Button>
+        <Button disabled={!personId || amount.m <= 0} onClick={() => { if (personId) void exec({ type: 'addAdvance', personId, amount: amount.m, purpose, date }, 'سُجّلت السلفة').then((ok) => ok && onOpenChange(false)); }}>تسجيل</Button>
       </>}
     >
       <Field label="الشخص"><PartySelect value={personId} onChange={setPersonId} /></Field>
@@ -162,7 +145,7 @@ export function CustodyPage() {
   const ledger = useLedger();
   const perms = useExpensesPermissions();
   const currency = useCurrency();
-  const exec = useRunToast();
+  const exec = useRunCommand();
   const [opening, setOpening] = React.useState(false);
   const [advancing, setAdvancing] = React.useState(false);
   const [move, setMove] = React.useState<{ b: CustodyBalance; type: 'topup' | 'return' } | null>(null);
@@ -194,7 +177,7 @@ export function CustodyPage() {
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {balances.map((b) => (
                 <CustodyCard key={b.custody.id} b={b} onMove={(type) => setMove({ b, type })} onClose={() => {
-                  if (window.confirm(b.actual > 0 ? 'سيُرجع الرصيد المتبقي للمنشأة وتُقفل العهدة. متابعة؟' : 'إقفال العهدة؟')) exec((d, ctx) => closeCustody(d, b.custody.id, todayIso(), ctx), 'سُوّيت العهدة وأُقفلت');
+                  if (window.confirm(b.actual > 0 ? 'سيُرجع الرصيد المتبقي للمنشأة وتُقفل العهدة. متابعة؟' : 'إقفال العهدة؟')) void exec({ type: 'closeCustody', custodyId: b.custody.id, date: todayIso() }, 'سُوّيت العهدة وأُقفلت');
                 }} />
               ))}
             </div>

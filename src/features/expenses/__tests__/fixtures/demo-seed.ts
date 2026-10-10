@@ -5,9 +5,9 @@
  * Amounts are written in Yemeni-rial magnitudes and scaled for other
  * currencies, then stored in minor units of `currency`.
  */
-import { buildBearing, custodyPayments, singleAllocation } from '../domain/expense-builder';
-import { currencySpec, toMinor, type Minor } from '../domain/money';
-import { ORG } from '../domain/types';
+import { buildBearing, custodyPayments, singleAllocation } from '../../domain/expense-builder';
+import { currencySpec, toMinor, type Minor } from '../../domain/money';
+import { ORG } from '../../domain/types';
 import type {
   Advance,
   Category,
@@ -22,7 +22,7 @@ import type {
   PaymentPart,
   Settlement,
   TxnStatus,
-} from '../domain/types';
+} from '../../domain/types';
 
 export const DEMO = {
   ahmed: 'demo:ahmed',

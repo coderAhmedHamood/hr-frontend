@@ -54,7 +54,7 @@ export function ApprovalsPage() {
       {!data.settings.requireApproval ? (
         <p className="rounded-xl bg-muted px-3 py-2 text-xs text-muted-foreground">الاعتماد غير مطلوب حالياً: العمليات تُعتمد عند الحفظ. فعّله من الإعدادات.</p>
       ) : null}
-      <Section title={`بانتظار اعتمادك (${mine.length})`} description={`بصفتك ${directory.nameOf(actorId)} (محاكاة)`}>
+      <Section title={`بانتظار اعتمادك (${mine.length})`} description={`بصفتك ${directory.nameOf(actorId)}`}>
         {mine.length === 0 ? <EmptyState text="لا شيء بانتظارك" /> : <ul className="grid gap-2 lg:grid-cols-2">{mine.map(row)}</ul>}
       </Section>
       <Section title={`معلق لدى غيرك (${others.length})`}>

@@ -76,12 +76,16 @@ export function statusOnSubmit(amount: Minor, settings: ExpensesSettings): TxnSt
 }
 
 /**
- * Who may approve or reject a submitted record (the in-app simulation of
- * roles): a listed approver who did not create it. On the server this must be
- * enforced by permissions on the operation, not by screens.
+ * Who may approve or reject a submitted record: anyone but its creator and,
+ * when the settings name approvers, one of them (no list: anyone holding
+ * `exp.expenses.approve`, which the server checks on the operation).
  */
 export function canDecide(actorId: string, txn: AnyTxn, settings: ExpensesSettings): boolean {
-  return txn.status === 'submitted' && txn.createdBy !== actorId && settings.approverIds.includes(actorId);
+  return (
+    txn.status === 'submitted' &&
+    txn.createdBy !== actorId &&
+    (settings.approverIds.length === 0 || settings.approverIds.includes(actorId))
+  );
 }
 
 export function canVoid(txn: AnyTxn): boolean {

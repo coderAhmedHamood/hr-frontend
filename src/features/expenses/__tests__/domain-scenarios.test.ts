@@ -3,7 +3,7 @@
  * custody lifecycle and shortfall, shared expenses, settlements, advances,
  * approval, reports without double counting, policies and participants.
  */
-import { buildDemoData, DEMO, emptyData } from '../data/demo-seed';
+import { buildDemoData, DEMO, emptyData } from './fixtures/demo-seed';
 import { buildBearing, custodyPayments, singleAllocation, validateExpense } from '../domain/expense-builder';
 import { computeLedger, partyBalance, settlementSuggestions, statement } from '../domain/ledger';
 import { splitByWeights, splitEqual, sumMinor, toMinor } from '../domain/money';
