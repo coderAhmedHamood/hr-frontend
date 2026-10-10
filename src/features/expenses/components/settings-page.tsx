@@ -1,23 +1,17 @@
 'use client';
 
 import * as React from 'react';
-import { toast } from 'sonner';
-import { Download, RefreshCw, Trash2, Upload } from 'lucide-react';
+import { Download } from 'lucide-react';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { CURRENCIES } from '@/shared/currencies';
-import { companyCurrencyKnown } from '@/features/auth/lib/company-currency';
 import { cn } from '@/shared/utils';
 import { useExpensesStore } from '../data/store';
-import { exportJson, parseImport } from '../data/storage';
-import { updateSettings } from '../domain/commands';
 import { currenciesInUse } from '../domain/ledger';
 import { minorToInput, type Minor } from '../domain/money';
 import type { ExpensesSettings } from '../domain/types';
-import { AmountInput, Field, LoadingBlock, PartyChecklist, Section } from './common';
+import { AmountInput, Field, LoadingBlock, PartyChecklist, Section, useRunCommand } from './common';
 import { todayIso, useCurrency, useExpensesData, useExpensesPermissions } from './expenses-provider';
 
 function OptionalAmount({ label, hint, value, onChange }: { label: string; hint?: string; value: Minor | null; onChange: (v: Minor | null) => void }) {
@@ -33,49 +27,31 @@ function OptionalAmount({ label, hint, value, onChange }: { label: string; hint?
 
 export function SettingsPage() {
   const data = useExpensesData();
-  const run = useExpensesStore((s) => s.run);
-  const replaceData = useExpensesStore((s) => s.replaceData);
-  const reset = useExpensesStore((s) => s.reset);
-  const sources = useExpensesStore((s) => s.sources);
-  const saveFailed = useExpensesStore((s) => s.saveFailed);
+  const run = useRunCommand();
+  const participants = useExpensesStore((s) => s.participants);
+  const live = useExpensesStore((s) => s.liveParticipants);
   const currency = useCurrency();
   const perms = useExpensesPermissions();
-  const fileRef = React.useRef<HTMLInputElement>(null);
   if (!data) return <LoadingBlock />;
   const s = data.settings;
   const patch = (p: Partial<ExpensesSettings>) => {
-    run((d) => updateSettings(d, p));
-    toast.success('حُفظ الإعداد');
+    void run({ type: 'updateSettings', patch: p }, 'حُفظ الإعداد');
   };
   const disabled = !perms.settings;
-  const known = companyCurrencyKnown();
   const other = currenciesInUse(data, currency.code).filter((c) => c !== currency.code);
 
   const download = () => {
-    const url = URL.createObjectURL(new Blob([exportJson(data)], { type: 'application/json' }));
+    const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
     const a = document.createElement('a');
     a.href = url;
     a.download = `expenses-export-${todayIso()}.json`;
     a.click();
     URL.revokeObjectURL(url);
   };
-  const onImport = async (file: File | undefined) => {
-    if (!file) return;
-    try {
-      const imported = parseImport(await file.text());
-      if (!window.confirm('سيستبدل الاستيراد بيانات هذا المتصفح لهذه الشركة. متابعة؟')) return;
-      replaceData(imported);
-      toast.success('استُوردت البيانات');
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'تعذر الاستيراد');
-    }
-  };
-
   return (
     <div className="space-y-4">
       <SetPageTitle titleAr="الإعدادات والسياسات" descriptionAr="مستوى الواجهة والاعتماد وحدود الصرف والبيانات" iconName="Settings" />
       {disabled ? <p className="rounded-xl bg-muted px-3 py-2 text-xs text-muted-foreground">للعرض فقط: تعديل الإعدادات يحتاج صلاحية exp.settings.update.</p> : null}
-      {saveFailed ? <p className="rounded-xl bg-destructive/10 px-3 py-2 text-xs text-destructive">تعذر الحفظ في المتصفح (وضع خاص أو امتلاء التخزين).</p> : null}
 
       <Section title="مستوى الواجهة" description="يغيّر الوظائف الظاهرة فقط — لا يغيّر الحسابات ولا يحذف بيانات.">
         <div className="grid gap-2 sm:grid-cols-2">
@@ -96,7 +72,7 @@ export function SettingsPage() {
         {s.requireApproval ? (
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <OptionalAmount label="اعتماد تلقائي لما دون" value={s.autoApproveBelow} onChange={(v) => !disabled && patch({ autoApproveBelow: v })} />
-            <Field label="المعتمِدون" hint="لا يعتمد أحد عملية سجّلها بنفسه."><PartyChecklist value={s.approverIds} onChange={(ids) => !disabled && patch({ approverIds: ids })} /></Field>
+            <Field label="المعتمِدون" hint="من مستخدمي الشركة. بلا اختيار: كل من يملك صلاحية الاعتماد. لا يعتمد أحد عملية سجّلها بنفسه."><PartyChecklist value={s.approverIds} limitTo={live.filter((p) => p.userId).map((p) => p.id)} onChange={(ids) => !disabled && patch({ approverIds: ids })} /></Field>
           </div>
         ) : null}
       </Section>
@@ -115,33 +91,20 @@ export function SettingsPage() {
       ) : null}
 
       <Section title="العملة" description="عملة الشركة الأساسية من إعدادات الشركة؛ تُحفظ العملة على كل عملية. تعدد العملات والتحويل مؤجل.">
-        <div className="text-sm">العملة المستخدمة: <Badge variant="outline">{currency.code}</Badge> {known ? <span className="text-xs text-muted-foreground">(من إعدادات الشركة)</span> : <span className="text-xs text-warning">(عملة الشركة غير متاحة — إعداد تجريبي)</span>}</div>
-        {!known ? (
-          <div className="mt-2 max-w-xs">
-            <Select value={s.fallbackCurrency} onValueChange={(v) => !disabled && patch({ fallbackCurrency: v })}>
-              <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
-              <SelectContent>{CURRENCIES.map((c) => <SelectItem key={c.code} value={c.code}>{c.nameAr} ({c.code})</SelectItem>)}</SelectContent>
-            </Select>
-          </div>
-        ) : null}
+        <div className="text-sm">العملة المستخدمة: <Badge variant="outline">{currency.code}</Badge> <span className="text-xs text-muted-foreground">(من إعدادات الشركة)</span></div>
         {other.length > 0 ? <p className="mt-2 text-xs text-warning">توجد عمليات بعملات أخرى ({other.join('، ')}) لا تظهر في الأرصدة الحالية.</p> : null}
       </Section>
 
-      <Section title="المشاركون" description="مستخدمو الشركة وجهات اتصالها الداخلية للقراءة فقط، والبيانات التجريبية احتياطاً.">
+      <Section title="المشاركون" description="مستخدمو الشركة وجهات اتصالها الداخلية (للقراءة فقط)، والأشخاص التجريبيون إن حُمّلت البيانات التجريبية.">
         <ul className="space-y-1 text-sm">
-          <li>مستخدمو الشركة: <Badge variant={sources.users === 'live' ? 'success' : 'subtle'}>{sources.users === 'live' ? 'متصل' : sources.users === 'loading' ? 'جارٍ…' : 'غير متاح (صلاحية system.users.read)'}</Badge></li>
-          <li>جهات الاتصال الداخلية: <Badge variant={sources.contacts === 'live' ? 'success' : 'subtle'}>{sources.contacts === 'live' ? 'متصل' : sources.contacts === 'loading' ? 'جارٍ…' : 'غير متاح (تطبيق جهات الاتصال / cnt.partners.read)'}</Badge></li>
-          <li>مشاركون تجريبيون: {data.demoParticipants.length}</li>
+          <li>مستخدمو الشركة وجهات الاتصال الداخلية: <Badge variant={participants === 'live' ? 'success' : 'subtle'}>{participants === 'live' ? `${live.length} مشارك` : participants === 'loading' ? 'جارٍ…' : 'تعذر التحميل'}</Badge></li>
+          <li>أشخاص تجريبيون: {data.demoParticipants.length}</li>
         </ul>
       </Section>
 
-      <Section title="البيانات (للاختبار)" description="محفوظة في هذا المتصفح فقط لهذه الشركة وهذا المستخدم.">
+      <Section title="البيانات" description="محفوظة في خادم الشركة ومشتركة بين مستخدميها وأجهزتهم. البيانات التجريبية يحمّلها مالك النظام من «بيانات الشركة».">
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={download}><Download className="me-1.5 h-4 w-4" />تصدير JSON</Button>
-          <Button variant="outline" disabled={disabled} onClick={() => fileRef.current?.click()}><Upload className="me-1.5 h-4 w-4" />استيراد JSON</Button>
-          <input ref={fileRef} type="file" accept="application/json" className="sr-only" onChange={(e) => { void onImport(e.target.files?.[0]); e.target.value = ''; }} />
-          <Button variant="outline" disabled={disabled} onClick={() => { if (window.confirm('إعادة البيانات التجريبية؟ ستُحذف بيانات هذا المتصفح ومرفقاته.')) { reset('demo', todayIso()); toast.success('أُعيدت البيانات التجريبية'); } }}><RefreshCw className="me-1.5 h-4 w-4" />إعادة البيانات التجريبية</Button>
-          <Button variant="ghost" className="text-destructive hover:text-destructive" disabled={disabled} onClick={() => { if (window.confirm('البدء ببيانات فارغة؟ ستُحذف بيانات هذا المتصفح ومرفقاته.')) { reset('empty', todayIso()); toast.success('بدأت ببيانات فارغة'); } }}><Trash2 className="me-1.5 h-4 w-4" />البدء فارغاً</Button>
         </div>
       </Section>
     </div>

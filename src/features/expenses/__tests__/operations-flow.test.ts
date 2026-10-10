@@ -2,7 +2,7 @@
  * End-to-end flows on the sample data through the operations (no UI): every
  * new record shows in balances, custody, statements and reports at once.
  */
-import { buildDemoData, DEMO } from '../data/demo-seed';
+import { buildDemoData, DEMO } from './fixtures/demo-seed';
 import {
   addAdvance,
   addCustodyMove,

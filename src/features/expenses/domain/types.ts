@@ -119,6 +119,8 @@ export interface AttachmentMeta {
   name: string;
   type: string;
   size: number;
+  /** Stored receipt (`/uploads/receipts/…`, signed by the server); null on sample records. */
+  url?: string | null;
 }
 
 export interface Expense extends TxnBase {
@@ -192,7 +194,7 @@ export interface ExpensesSettings {
   monthlyLimitPerPerson: Minor | null;
   /** Policy violations block submitting (else they warn). */
   blockOnPolicyViolation: boolean;
-  /** Who approves (empty: nobody — approval stays pending). */
+  /** Who approves (participant ids of users); empty: anyone holding the approve permission. */
   approverIds: string[];
   /** Used when the company currency is unknown (demo). */
   fallbackCurrency: string;

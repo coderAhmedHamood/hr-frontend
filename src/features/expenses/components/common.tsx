@@ -2,7 +2,8 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { FlaskConical, Inbox } from 'lucide-react';
+import { toast } from 'sonner';
+import { Inbox } from 'lucide-react';
 import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -20,6 +21,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/shared/utils';
+import type { ExpensesCommand } from '../data/commands';
 import { useExpensesStore } from '../data/store';
 import { toMinor, type Minor } from '../domain/money';
 import { STATUS_LABELS_AR } from '../domain/policy';
@@ -310,54 +312,6 @@ export function ReasonDialog({
   );
 }
 
-/**
- * "Act as" — the prototype's simulation of who is working (to try approvals
- * between people). Clearly marked; real ERP permissions still gate screens.
- */
-export function SimulationBar() {
-  const actorId = useExpensesStore((s) => s.actorId);
-  const setActor = useExpensesStore((s) => s.setActor);
-  const sources = useExpensesStore((s) => s.sources);
-  const data = useExpensesData();
-  const directory = useDirectory();
-  if (!data) return null;
-  const approver = actorId ? data.settings.approverIds.includes(actorId) : false;
-  const sourceText =
-    sources.users === 'loading' || sources.contacts === 'loading'
-      ? 'جارٍ قراءة المشاركين…'
-      : sources.users === 'live' || sources.contacts === 'live'
-        ? `المشاركون: ${sources.users === 'live' ? 'مستخدمو الشركة' : ''}${sources.users === 'live' && sources.contacts === 'live' ? ' + ' : ''}${sources.contacts === 'live' ? 'جهات الاتصال الداخلية' : ''} + بيانات تجريبية`
-        : 'المشاركون: بيانات تجريبية فقط (تعذر قراءة المستخدمين وجهات الاتصال)';
-  return (
-    <div className="flex flex-col gap-2 rounded-xl border border-gold/40 bg-gold/10 px-3 py-2 text-xs sm:flex-row sm:items-center sm:justify-between">
-      <p className="flex items-center gap-1.5 font-medium text-foreground">
-        <FlaskConical className="h-4 w-4 shrink-0 text-gold" />
-        نموذج تجريبي — البيانات محفوظة في هذا المتصفح فقط لهذه الشركة وهذا المستخدم.
-        <span className="hidden text-muted-foreground md:inline">{sourceText}</span>
-      </p>
-      <div className="flex items-center gap-2">
-        <span className="shrink-0 text-muted-foreground">تصرّف كـ (محاكاة):</span>
-        <div className="min-w-0 flex-1 sm:w-56 sm:flex-none">
-          <Select value={actorId ?? undefined} onValueChange={setActor}>
-            <SelectTrigger className="h-8 bg-card text-xs">
-              <SelectValue placeholder="اختر" />
-            </SelectTrigger>
-            <SelectContent>
-              {directory.choices.map((p) => (
-                <SelectItem key={p.id} value={p.id}>
-                  {p.name}
-                  {data.settings.approverIds.includes(p.id) ? ' · معتمِد' : ''}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        {approver ? <Badge variant="success" className="shrink-0 text-[10px]">معتمِد</Badge> : null}
-      </div>
-    </div>
-  );
-}
-
 /** Responsive list: cards on phones, a table from md up. */
 export function ResponsiveTable<T>({
   rows,
@@ -431,4 +385,37 @@ export function KeyValue({ label, children }: { label: string; children: React.R
 
 export function LoadingBlock() {
   return <div className="h-40 animate-pulse rounded-2xl bg-muted/40" />;
+}
+
+/** Shown only when the company data could not be read (with a retry). */
+export function ExpensesStatusBar() {
+  const loadError = useExpensesStore((s) => s.loadError);
+  const reload = useExpensesStore((s) => s.reload);
+  if (!loadError) return null;
+  return (
+    <div className="flex flex-col gap-2 rounded-xl border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs sm:flex-row sm:items-center sm:justify-between">
+      <p className="font-medium text-destructive">تعذر تحميل بيانات المصاريف: {loadError}</p>
+      <Button size="sm" variant="outline" className="h-8" onClick={() => void reload()}>
+        إعادة المحاولة
+      </Button>
+    </div>
+  );
+}
+
+/** Runs a command on the server with a toast; true when it went through. */
+export function useRunCommand() {
+  const exec = useExpensesStore((s) => s.exec);
+  return React.useCallback(
+    async (command: ExpensesCommand, ok?: string): Promise<boolean> => {
+      try {
+        await exec(command);
+        if (ok) toast.success(ok);
+        return true;
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'تعذر التنفيذ');
+        return false;
+      }
+    },
+    [exec],
+  );
 }

@@ -1,7 +1,6 @@
 'use client';
 
 import * as React from 'react';
-import { toast } from 'sonner';
 import { Archive, Pencil, Plus, RotateCcw } from 'lucide-react';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { Badge } from '@/components/ui/badge';
@@ -9,18 +8,17 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useExpensesStore } from '../data/store';
-import { upsertCategory, upsertCostCenter, upsertGroup } from '../domain/commands';
 import { minorToInput, type Minor } from '../domain/money';
 import type { Category, CostCenter, ExpenseGroup } from '../domain/types';
-import { AmountInput, EmptyState, Field, FormDialog, LoadingBlock, Money, PartyChecklist, PartyName, Section } from './common';
+import { AmountInput, EmptyState, Field, FormDialog, LoadingBlock, Money, PartyChecklist, PartyName, Section, useRunCommand } from './common';
 import { useCurrency, useExpensesData, useExpensesPermissions } from './expenses-provider';
 
 const COLORS = ['#0ea5e9', '#f97316', '#a855f7', '#14b8a6', '#ef4444', '#6366f1', '#eab308', '#64748b', '#22c55e', '#ec4899'];
-const newId = (p: string) => `${p}:${Math.random().toString(36).slice(2, 10)}`;
+/** A new row: the server gives it its id. */
+const NEW_ID = '';
 
 function CategoryDialog({ value, onClose }: { value: Category | 'new' | null; onClose: () => void }) {
-  const run = useExpensesStore((s) => s.run);
+  const run = useRunCommand();
   const currency = useCurrency();
   const [name, setName] = React.useState('');
   const [color, setColor] = React.useState(COLORS[0]!);
@@ -37,10 +35,8 @@ function CategoryDialog({ value, onClose }: { value: Category | 'new' | null; on
     <FormDialog open onOpenChange={(o) => !o && onClose()} title={value === 'new' ? 'فئة جديدة' : 'تعديل الفئة'} footer={<>
       <Button variant="outline" onClick={onClose}>إلغاء</Button>
       <Button disabled={!name.trim()} onClick={() => {
-        const base: Category = value === 'new' ? { id: newId('cat'), name: '', color } : value;
-        run((d) => upsertCategory(d, { ...base, name: name.trim(), color, maxAmount: limit.m > 0 ? limit.m : null }));
-        toast.success('حُفظت الفئة');
-        onClose();
+        const base: Category = value === 'new' ? { id: NEW_ID, name: '', color } : value;
+        void run({ type: 'upsertCategory', category: { ...base, name: name.trim(), color, maxAmount: limit.m > 0 ? limit.m : null } }, 'حُفظت الفئة').then((ok) => ok && onClose());
       }}>حفظ</Button>
     </>}>
       <Field label="الاسم"><Input className="h-10" value={name} onChange={(e) => setName(e.target.value)} /></Field>
@@ -53,7 +49,7 @@ function CategoryDialog({ value, onClose }: { value: Category | 'new' | null; on
 }
 
 function CostCenterDialog({ value, onClose }: { value: CostCenter | 'new' | null; onClose: () => void }) {
-  const run = useExpensesStore((s) => s.run);
+  const run = useRunCommand();
   const [code, setCode] = React.useState('');
   const [name, setName] = React.useState('');
   React.useEffect(() => {
@@ -66,10 +62,8 @@ function CostCenterDialog({ value, onClose }: { value: CostCenter | 'new' | null
     <FormDialog open onOpenChange={(o) => !o && onClose()} title={value === 'new' ? 'مركز تكلفة جديد' : 'تعديل مركز التكلفة'} footer={<>
       <Button variant="outline" onClick={onClose}>إلغاء</Button>
       <Button disabled={!code.trim() || !name.trim()} onClick={() => {
-        const base: CostCenter = value === 'new' ? { id: newId('cc'), code: '', name: '' } : value;
-        run((d) => upsertCostCenter(d, { ...base, code: code.trim(), name: name.trim() }));
-        toast.success('حُفظ المركز');
-        onClose();
+        const base: CostCenter = value === 'new' ? { id: NEW_ID, code: '', name: '' } : value;
+        void run({ type: 'upsertCostCenter', center: { ...base, code: code.trim(), name: name.trim() } }, 'حُفظ المركز').then((ok) => ok && onClose());
       }}>حفظ</Button>
     </>}>
       <Field label="الرمز"><Input className="h-10" dir="ltr" value={code} onChange={(e) => setCode(e.target.value)} placeholder="CC-400" /></Field>
@@ -79,7 +73,7 @@ function CostCenterDialog({ value, onClose }: { value: CostCenter | 'new' | null
 }
 
 function GroupDialog({ value, onClose }: { value: ExpenseGroup | 'new' | null; onClose: () => void }) {
-  const run = useExpensesStore((s) => s.run);
+  const run = useRunCommand();
   const data = useExpensesData();
   const [name, setName] = React.useState('');
   const [description, setDescription] = React.useState('');
@@ -98,10 +92,8 @@ function GroupDialog({ value, onClose }: { value: ExpenseGroup | 'new' | null; o
     <FormDialog open onOpenChange={(o) => !o && onClose()} title={value === 'new' ? 'مجموعة جديدة' : 'تعديل المجموعة'} description="رحلة أو مشروع أو مصاريف مشتركة: أعضاؤها يُقترحون عند تقسيم مصروفاتها." footer={<>
       <Button variant="outline" onClick={onClose}>إلغاء</Button>
       <Button disabled={!name.trim()} onClick={() => {
-        const base: ExpenseGroup = value === 'new' ? { id: newId('grp'), name: '', memberIds: [] } : value;
-        run((d) => upsertGroup(d, { ...base, name: name.trim(), description: description.trim() || null, memberIds: members, costCenterId }));
-        toast.success('حُفظت المجموعة');
-        onClose();
+        const base: ExpenseGroup = value === 'new' ? { id: NEW_ID, name: '', memberIds: [] } : value;
+        void run({ type: 'upsertGroup', group: { ...base, name: name.trim(), description: description.trim() || null, memberIds: members, costCenterId } }, 'حُفظت المجموعة').then((ok) => ok && onClose());
       }}>حفظ</Button>
     </>}>
       <Field label="الاسم"><Input className="h-10" value={name} onChange={(e) => setName(e.target.value)} /></Field>
@@ -124,7 +116,7 @@ function GroupDialog({ value, onClose }: { value: ExpenseGroup | 'new' | null; o
 
 export function SetupPage() {
   const data = useExpensesData();
-  const run = useExpensesStore((s) => s.run);
+  const run = useRunCommand();
   const perms = useExpensesPermissions();
   const [cat, setCat] = React.useState<Category | 'new' | null>(null);
   const [cc, setCc] = React.useState<CostCenter | 'new' | null>(null);
@@ -157,7 +149,7 @@ export function SetupPage() {
                       <p className="text-[11px] text-muted-foreground">{used((e) => e.categoryId === c.id)} مصروف{c.maxAmount ? <> · حد <Money value={c.maxAmount} /></> : null}</p>
                     </div>
                   </div>
-                  <div className="flex">{editBtn(() => setCat(c))}{archiveBtn(c.archived, () => run((d) => upsertCategory(d, { ...c, archived: !c.archived })))}</div>
+                  <div className="flex">{editBtn(() => setCat(c))}{archiveBtn(c.archived, () => void run({ type: 'upsertCategory', category: { ...c, archived: !c.archived } }))}</div>
                 </li>
               ))}
             </ul>
@@ -171,7 +163,7 @@ export function SetupPage() {
                   <li key={g.id} className="space-y-1.5 rounded-xl border border-border p-3">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0"><div className="truncate text-sm font-medium">{g.name}{g.closed ? <Badge variant="subtle" className="ms-1.5 text-[10px]">مغلقة</Badge> : null}</div>{g.description ? <p className="text-xs text-muted-foreground">{g.description}</p> : null}</div>
-                      <div className="flex">{editBtn(() => setGrp(g))}{archiveBtn(g.closed, () => run((d) => upsertGroup(d, { ...g, closed: !g.closed })))}</div>
+                      <div className="flex">{editBtn(() => setGrp(g))}{archiveBtn(g.closed, () => void run({ type: 'upsertGroup', group: { ...g, closed: !g.closed } }))}</div>
                     </div>
                     <p className="text-xs">{g.memberIds.length === 0 ? 'بلا أعضاء' : g.memberIds.map((m, i) => <React.Fragment key={m}>{i > 0 ? '، ' : ''}<PartyName id={m} /></React.Fragment>)}</p>
                     <p className="text-[11px] text-muted-foreground">{used((e) => e.groupId === g.id)} مصروف</p>
@@ -189,7 +181,7 @@ export function SetupPage() {
                   {data.costCenters.map((c) => (
                     <li key={c.id} className="flex items-center justify-between gap-2 rounded-xl border border-border p-3">
                       <div className="min-w-0"><p className={c.archived ? 'text-sm text-muted-foreground line-through' : 'text-sm font-medium'}><span dir="ltr" className="text-muted-foreground">{c.code}</span> {c.name}</p><p className="text-[11px] text-muted-foreground">{used((e) => e.allocation.some((a) => a.costCenterId === c.id))} مصروف</p></div>
-                      <div className="flex">{editBtn(() => setCc(c))}{archiveBtn(c.archived, () => run((d) => upsertCostCenter(d, { ...c, archived: !c.archived })))}</div>
+                      <div className="flex">{editBtn(() => setCc(c))}{archiveBtn(c.archived, () => void run({ type: 'upsertCostCenter', center: { ...c, archived: !c.archived } }))}</div>
                     </li>
                   ))}
                 </ul>

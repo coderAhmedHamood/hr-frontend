@@ -100,7 +100,7 @@ export function DashboardPage() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <Section title="حسابي" description={`بصفتك: ${directory.nameOf(actorId)} (محاكاة)`}>
+        <Section title="حسابي" description={`بصفتك: ${directory.nameOf(actorId)}`}>
           {me ? (
             <div className="grid grid-cols-3 gap-2 text-center">
               <div className="rounded-xl bg-success/10 p-2.5"><p className="text-[11px] text-muted-foreground">لي</p><Money value={me.entitlements} className="text-sm font-semibold text-success" /></div>

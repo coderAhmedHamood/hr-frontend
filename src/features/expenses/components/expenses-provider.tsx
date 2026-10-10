@@ -2,12 +2,8 @@
 
 import * as React from 'react';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
-import { companyCurrencyKnown, useCompanyCurrency } from '@/features/auth/lib/company-currency';
 import { useCan } from '@/features/auth/hooks/use-can';
 import { useExpensesStore } from '../data/store';
-import { scopeKey } from '../data/storage';
-import { loadLiveParticipants } from '../data/participants-source';
-import { userParticipantId } from '../domain/participants';
 import { computeLedger, type Ledger } from '../domain/ledger';
 import { currencySpec, formatMoney, type CurrencySpec, type Minor } from '../domain/money';
 import { ORG } from '../domain/types';
@@ -17,54 +13,16 @@ import { EXP } from '../constants/permissions';
 export const todayIso = () => new Date().toISOString().slice(0, 10);
 
 /**
- * Sets up the app for the active company and user: local data slot, base
- * currency, live participants (with sample fallback) and the simulated actor.
+ * Loads the active company's expenses data and participants from the server
+ * (again when the company changes). The signed-in user is the actor.
  */
 export function ExpensesProvider({ children }: { children: React.ReactNode }) {
-  const accessProfile = useAuthStore((s) => s.accessProfile);
   const companyId = useAuthStore((s) => s.activeCompanyId);
-  const companyCurrency = useCompanyCurrency();
   const init = useExpensesStore((s) => s.init);
-  const setLive = useExpensesStore((s) => s.setLive);
-  const setCurrency = useExpensesStore((s) => s.setCurrency);
-  const data = useExpensesStore((s) => s.data);
-
-  const authUser = useAuthStore((s) => s.user);
-  const userId = accessProfile?.userId ?? null;
-  const currentUser = React.useMemo(() => {
-    if (!userId) return null;
-    const name = authUser?.fullNameAr?.trim() || authUser?.fullNameEn?.trim() || authUser?.email || accessProfile?.email || 'أنا';
-    return { id: userId, name, email: authUser?.email ?? accessProfile?.email ?? null };
-  }, [userId, authUser, accessProfile?.email]);
-
-  const known = companyCurrencyKnown();
-  React.useEffect(() => {
-    if (!companyId || !userId) return;
-    init({
-      scope: scopeKey(companyId, userId),
-      currency: known ? companyCurrency : 'YER',
-      today: todayIso(),
-      approverId: userParticipantId(userId),
-    });
-  }, [companyId, userId, companyCurrency, known, init]);
-
-  // The company currency wins; without it, the data's fallback (a test setting).
-  React.useEffect(() => {
-    if (!data) return;
-    setCurrency(known ? companyCurrency : data.settings.fallbackCurrency);
-  }, [data, known, companyCurrency, setCurrency]);
 
   React.useEffect(() => {
-    if (!companyId) return;
-    let cancelled = false;
-    setLive([], { users: 'loading', contacts: 'loading' });
-    void loadLiveParticipants(companyId, currentUser).then((res) => {
-      if (!cancelled) setLive(res.participants, { users: res.users, contacts: res.contacts });
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [companyId, currentUser, setLive]);
+    if (companyId) void init(companyId);
+  }, [companyId, init]);
 
   return <>{children}</>;
 }

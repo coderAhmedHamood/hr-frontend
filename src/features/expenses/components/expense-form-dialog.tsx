@@ -9,8 +9,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/shared/utils';
 import { useExpensesStore } from '../data/store';
-import { checkFile, deleteFile, putFile } from '../data/attachments';
-import { CommandError, saveExpense, type ExpenseDraft } from '../domain/commands';
+import { checkFile, uploadReceipt } from '../data/attachments';
+import type { ExpenseDraft } from '../domain/commands';
 import { buildBearing, custodyPayments, validateExpense } from '../domain/expense-builder';
 import { expenseEffects } from '../domain/ledger';
 import { minorToInput, sumMinor, toMinor, type Minor } from '../domain/money';
@@ -44,8 +44,10 @@ export function ExpenseFormDialog({
   const directory = useDirectory();
   const currency = useCurrency();
   const actorId = useExpensesStore((s) => s.actorId);
-  const scope = useExpensesStore((s) => s.scope);
-  const run = useExpensesStore((s) => s.run);
+  const companyId = useExpensesStore((s) => s.companyId);
+  const exec = useExpensesStore((s) => s.exec);
+  const busy = useExpensesStore((s) => s.busy);
+  const [uploading, setUploading] = React.useState(false);
   const advanced = data?.settings.mode === 'advanced';
 
   const [amountText, setAmountText] = React.useState('');
@@ -66,7 +68,6 @@ export function ExpenseFormDialog({
   const [allocLines, setAllocLines] = React.useState<Array<{ costCenterId: string | null; text: string }>>([]);
   const [note, setNote] = React.useState('');
   const [attachments, setAttachments] = React.useState<AttachmentMeta[]>([]);
-  const [newFiles, setNewFiles] = React.useState<string[]>([]);
   const [more, setMore] = React.useState(false);
 
   const openCustodies = React.useMemo(() => (data?.custodies ?? []).filter((c) => c.status === 'open' && c.currency === currency.code), [data, currency.code]);
@@ -124,7 +125,6 @@ export function ExpenseFormDialog({
       setAttachments([]);
       setMore(false);
     }
-    setNewFiles([]);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset when the dialog opens
   }, [open, editing?.id]);
 
@@ -187,32 +187,32 @@ export function ExpenseFormDialog({
   };
 
   const onFiles = async (files: FileList | null) => {
-    if (!files || !scope) return;
+    if (!files || !companyId) return;
     let count = attachments.length;
-    for (const file of Array.from(files)) {
-      const refusal = checkFile(file, count);
-      if (refusal) {
-        toast.error(`${file.name}: ${refusal}`);
-        continue;
+    setUploading(true);
+    try {
+      for (const file of Array.from(files)) {
+        const refusal = checkFile(file, count);
+        if (refusal) {
+          toast.error(`${file.name}: ${refusal}`);
+          continue;
+        }
+        try {
+          const meta = await uploadReceipt(companyId, file);
+          setAttachments((prev) => [...prev, meta]);
+          count += 1;
+        } catch {
+          // The upload already showed the server's reason.
+        }
       }
-      const id = `att:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`;
-      try {
-        await putFile(scope, id, file);
-        setAttachments((prev) => [...prev, { id, name: file.name, type: file.type, size: file.size }]);
-        setNewFiles((prev) => [...prev, id]);
-        count += 1;
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : 'تعذر حفظ المرفق');
-      }
+    } finally {
+      setUploading(false);
     }
   };
 
-  const close = () => {
-    if (scope) for (const id of newFiles) void deleteFile(scope, id).catch(() => undefined);
-    onOpenChange(false);
-  };
+  const close = () => onOpenChange(false);
 
-  const save = (submit: boolean) => {
+  const save = async (submit: boolean) => {
     if (issues.length > 0) {
       toast.error(issues[0]!.message);
       return;
@@ -222,14 +222,13 @@ export function ExpenseFormDialog({
       return;
     }
     try {
-      const result = run((d, ctx) => saveExpense(d, draft, submit, ctx));
-      const status = result.expense.status;
-      toast.success(status === 'draft' ? 'حُفظ مسودة' : status === 'approved' ? 'سُجّل المصروف واعتُمد' : 'أُرسل للاعتماد');
-      setNewFiles([]);
+      const result = await exec<{ id: string; status: Expense['status'] }>({ type: 'saveExpense', draft, submit });
+      toast.success(result.status === 'draft' ? 'حُفظ مسودة' : result.status === 'approved' ? 'سُجّل المصروف واعتُمد' : 'أُرسل للاعتماد');
       onOpenChange(false);
-      onSaved?.(result.expense);
+      const saved = useExpensesStore.getState().data?.expenses.find((e) => e.id === result.id);
+      if (saved) onSaved?.(saved);
     } catch (err) {
-      toast.error(err instanceof CommandError || err instanceof Error ? err.message : 'تعذر الحفظ');
+      toast.error(err instanceof Error ? err.message : 'تعذر الحفظ');
     }
   };
 
@@ -244,10 +243,10 @@ export function ExpenseFormDialog({
           <Button variant="outline" onClick={close}>
             إلغاء
           </Button>
-          <Button variant="secondary" onClick={() => save(false)} disabled={amount <= 0}>
+          <Button variant="secondary" onClick={() => void save(false)} disabled={amount <= 0 || busy || uploading}>
             حفظ كمسودة
           </Button>
-          <Button onClick={() => save(true)} disabled={amount <= 0 || (blocked && violations.length > 0)}>
+          <Button onClick={() => void save(true)} disabled={amount <= 0 || busy || uploading || (blocked && violations.length > 0)}>
             {submitLabel}
           </Button>
         </>
@@ -432,11 +431,11 @@ export function ExpenseFormDialog({
         ) : null}
       </div>
 
-      <Field label="المرفقات" hint="صور أو PDF، حتى 2 ميغابايت للملف و5 ملفات للمصروف. تُحفظ في هذا المتصفح فقط.">
+      <Field label="المرفقات" hint="صور أو PDF، حتى 5 ميغابايت للملف و5 ملفات للمصروف. تُرفع إلى ملفات الشركة.">
         <div className="space-y-2">
           <label className="flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-border px-3 text-xs text-muted-foreground hover:bg-muted">
             <Paperclip className="h-4 w-4" />
-            إرفاق إيصال
+            {uploading ? 'جارٍ الرفع…' : 'إرفاق إيصال'}
             <input type="file" multiple accept="image/jpeg,image/png,image/webp,application/pdf" className="sr-only" onChange={(e) => { void onFiles(e.target.files); e.target.value = ''; }} />
           </label>
           {attachments.map((a) => (
