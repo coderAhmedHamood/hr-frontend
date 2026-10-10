@@ -36,6 +36,7 @@ import {
 } from '@/features/ecommerce/domain/constants/order-status';
 import type { Order, OrderStatus } from '@/features/ecommerce/domain/types/order';
 import { Badge, type BadgeProps } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { EntityFilterSearchField } from '@/components/ui/entity-filter-search-field';
 import {
   Dialog,
@@ -467,29 +468,67 @@ export function OrderDetailPanel({
                 }}
               />
 
-              <section className="rounded-2xl border border-border bg-card p-4">
-                <OrderAssignmentPanel order={order} companyId={companyId} stages={stages} />
-              </section>
+              {/* Tabs keep the order readable: what is needed to handle it
+                  first, the rest one tap away. */}
+              <Tabs defaultValue="handle" className="space-y-3">
+                <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 rounded-xl bg-muted/60 p-1">
+                  {(
+                    [
+                      ['handle', 'المعالجة', 0],
+                      ['delivery', 'التوصيل والتواصل', 0],
+                      ['stock', 'المخزون', 0],
+                      ['notes', 'الملاحظات', order.staffNote?.trim() ? 1 : 0],
+                      ['attachments', 'المرفقات', order.attachments?.length ?? 0],
+                    ] as const
+                  ).map(([value, label, count]) => (
+                    <TabsTrigger
+                      key={value}
+                      value={value}
+                      className="flex-1 gap-1.5 rounded-lg px-3 py-1.5 text-sm data-[state=active]:bg-card data-[state=active]:shadow-sm"
+                    >
+                      {label}
+                      {count > 0 ? (
+                        <span className="rounded-full bg-primary/15 px-1.5 text-[11px] font-semibold text-primary">
+                          {count}
+                        </span>
+                      ) : null}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
 
-              <section className="rounded-2xl border border-border bg-card p-4">
-                <OrderItemsPanel order={order} companyId={companyId} stages={stages} />
-              </section>
+                <TabsContent value="handle" className="mt-0 space-y-4">
+                  <section className="rounded-2xl border border-border bg-card p-4">
+                    <OrderAssignmentPanel order={order} companyId={companyId} stages={stages} />
+                  </section>
+                  <section className="rounded-2xl border border-border bg-card p-4">
+                    <OrderItemsPanel order={order} companyId={companyId} stages={stages} />
+                  </section>
+                </TabsContent>
 
-              <section className="rounded-2xl border border-border bg-card p-4">
-                <OrderDeliveryPanel order={order} companyId={companyId} stages={stages} />
-              </section>
+                <TabsContent value="delivery" className="mt-0">
+                  <section className="rounded-2xl border border-border bg-card p-4">
+                    <OrderDeliveryPanel order={order} companyId={companyId} stages={stages} />
+                  </section>
+                </TabsContent>
 
-              <section className="rounded-2xl border border-border bg-card p-4">
-                <OrderStockPanel order={order} companyId={companyId} />
-              </section>
+                <TabsContent value="stock" className="mt-0">
+                  <section className="rounded-2xl border border-border bg-card p-4">
+                    <OrderStockPanel order={order} companyId={companyId} />
+                  </section>
+                </TabsContent>
 
-              <section className="rounded-2xl border border-border bg-card p-4">
-                <OrderAttachmentsPanel order={order} companyId={companyId} />
-              </section>
+                <TabsContent value="notes" className="mt-0">
+                  <section className="rounded-2xl border border-border bg-card p-4">
+                    <OrderStaffNotePanel order={order} companyId={companyId} />
+                  </section>
+                </TabsContent>
 
-              <section className="rounded-2xl border border-border bg-card p-4">
-                <OrderStaffNotePanel order={order} companyId={companyId} />
-              </section>
+                <TabsContent value="attachments" className="mt-0">
+                  <section className="rounded-2xl border border-border bg-card p-4">
+                    <OrderAttachmentsPanel order={order} companyId={companyId} />
+                  </section>
+                </TabsContent>
+              </Tabs>
             </div>
           ) : null}
         </div>
