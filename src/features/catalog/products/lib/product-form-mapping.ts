@@ -328,9 +328,22 @@ export function formValuesToCreateInput(
         ...line,
         uneceCode: line.uneceCode || undefined,
       }));
-      if (lines.length > 0) return lines;
-      if (existing) return [];
-      return undefined;
+      // An empty list is not "clear the units": the API requires exactly one
+      // reference line, and lines without a catalog unit are not part of the payload.
+      if (lines.length === 0) return undefined;
+      const marked = lines.flatMap((line, index) => (line.isReference ? [index] : []));
+      const referenceIndex =
+        marked.length === 1
+          ? marked[0]
+          : Math.max(
+              lines.findIndex((line) => Number(line.relativeQuantity) === 1),
+              0,
+            );
+      return lines.map((line, index) => ({
+        ...line,
+        isReference: index === referenceIndex,
+        relativeQuantity: index === referenceIndex ? 1 : line.relativeQuantity,
+      }));
     })(),
   };
 }

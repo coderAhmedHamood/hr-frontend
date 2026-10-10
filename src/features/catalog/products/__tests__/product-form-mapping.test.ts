@@ -139,6 +139,13 @@ describe('formValuesToCreateInput', () => {
     expect(input.uomLines).toBeUndefined();
   });
 
+  it('omits uomLines on update when none are linked to the catalog', () => {
+    const input = formValuesToCreateInput(BASE_VALUES, '76e5bc4f-5adb-434d-a886-bcff05a9680b', {
+      existing: { id: 'product-1', price: { amount: 1, currency: 'SAR' } } as never,
+    });
+    expect(input.uomLines).toBeUndefined();
+  });
+
   it('injects the given companyId and maps a missing category/brand to null', () => {
     const input = formValuesToCreateInput(BASE_VALUES, '76e5bc4f-5adb-434d-a886-bcff05a9680b');
     expect(input.companyId).toBe('76e5bc4f-5adb-434d-a886-bcff05a9680b');
