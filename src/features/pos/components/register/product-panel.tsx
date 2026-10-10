@@ -200,7 +200,7 @@ export function ProductPanel({
             </Button>
           </div>
         ) : (
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-[repeat(auto-fill,minmax(140px,1fr))]">
             {visible.map((p) => (
               <button
                 key={p.id}
@@ -209,7 +209,7 @@ export function ProductPanel({
                 onClick={() => void pickProduct(p)}
                 className="group flex flex-col overflow-hidden rounded-xl border border-border bg-card text-start shadow-soft transition hover:border-primary/50 hover:shadow-md disabled:opacity-50"
               >
-                <div className="flex h-24 items-center justify-center overflow-hidden bg-muted/50">
+                <div className="flex h-20 items-center justify-center overflow-hidden bg-muted/50 sm:h-24">
                   {p.imageUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={resolveUploadUrl(p.imageUrl)} alt="" className="h-full w-full object-cover" />
@@ -219,7 +219,7 @@ export function ProductPanel({
                 </div>
                 <div className="flex flex-1 flex-col gap-0.5 p-2">
                   <span className="line-clamp-2 text-sm font-medium leading-snug">{p.name}</span>
-                  <span className="text-xs text-muted-foreground" dir="ltr">{p.sku}</span>
+                  <span className="text-xs text-muted-foreground max-sm:hidden" dir="ltr">{p.sku}</span>
                   <span className="mt-auto text-sm font-bold tabular-nums text-primary">{formatAmount(p.price)}</span>
                 </div>
               </button>

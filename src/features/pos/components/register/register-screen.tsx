@@ -10,15 +10,18 @@ import {
   FileText,
   Lock,
   MonitorSmartphone,
+  MoreVertical,
   PauseCircle,
   PlayCircle,
   Receipt,
   ShieldAlert,
+  ShoppingCart,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/shared/utils';
@@ -306,6 +309,8 @@ function Register() {
   const [receiptSaleId, setReceiptSaleId] = React.useState<string | null>(null);
   const [approval, setApproval] = React.useState<{ title: string; detail: string; onApprove: (s: string) => void } | null>(null);
   const [zSessionId, setZSessionId] = React.useState<string | null>(null);
+  // Phones show the products or the cart, one at a time (side by side from md).
+  const [phoneView, setPhoneView] = React.useState<'products' | 'cart'>('products');
   const zSession = zSessionId ? data.sessions.find((s) => s.id === zSessionId) ?? null : null;
 
   const pickRegister = (id: string) => {
@@ -353,6 +358,7 @@ function Register() {
     ? { lines: openSale!.lines, orderDiscount: openSale!.orderDiscount, customer: openSale!.customer }
     : { ...cart, lines: priced.lines };
 
+  const itemCount = shownCart.lines.reduce((sum, l) => sum + l.quantity, 0);
   const sessionSummary = summarizeSession(data, session);
   const waiting = data.sales.filter((s) => s.registerId === register.id && s.status === 'awaiting_payment').length;
   const heldCount = data.heldCarts.filter((c) => c.registerId === register.id).length;
@@ -467,26 +473,67 @@ function Register() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <header className="flex flex-wrap items-center gap-2 border-b border-border bg-card px-3 py-2">
-        <Button asChild size="sm" variant="ghost">
-          <Link href={posRoutes.overview}>
+      <header className="flex items-center gap-2 border-b border-border bg-card px-2 py-2 md:flex-wrap md:px-3">
+        <Button asChild size="sm" variant="ghost" className="max-md:h-9 max-md:w-9 max-md:px-0">
+          <Link href={posRoutes.overview} aria-label="نقاط البيع">
             <ChevronRight className="h-4 w-4" />
-            نقاط البيع
+            <span className="max-md:hidden">نقاط البيع</span>
           </Link>
         </Button>
-        <div className="flex items-center gap-2 text-sm">
-          <MonitorSmartphone className="h-4 w-4 text-muted-foreground" />
-          <b>{register.name}</b>
-          <span className="text-muted-foreground">· {userName}</span>
+        <div className="flex min-w-0 items-center gap-2 text-sm">
+          <MonitorSmartphone className="h-4 w-4 shrink-0 text-muted-foreground max-md:hidden" />
+          <b className="truncate">{register.name}</b>
+          <span className="truncate text-muted-foreground max-md:hidden">· {userName}</span>
           <span className="hidden items-center gap-1 text-xs text-muted-foreground sm:flex">
             <Clock className="h-3 w-3" />
             {formatDateTime(session.openedAt)}
           </span>
-          <Badge variant={session.stockMode === 'inventory' ? 'default' : 'outline'}>
+          <Badge className="shrink-0 max-md:hidden" variant={session.stockMode === 'inventory' ? 'default' : 'outline'}>
             {session.stockMode === 'inventory' ? 'مربوط بالمخازن' : 'دون تتبع'}
           </Badge>
         </div>
-        <div className="ms-auto flex flex-wrap gap-1">
+        {/* Phone: the waiting list, and the rest in one menu. */}
+        <div className="ms-auto flex shrink-0 gap-1 md:hidden">
+          <Button size="sm" variant="outline" className="h-9" onClick={() => setListsOpen(true)}>
+            <PauseCircle className="h-4 w-4" />
+            {waiting + heldCount > 0 ? waiting + heldCount : null}
+            <span className="sr-only">المعلّقة</span>
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="outline" className="h-9 w-9 px-0" aria-label="إجراءات الوردية">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-48">
+              {can('pos.cash.move') ? (
+                <DropdownMenuItem onSelect={() => setCashOpen(true)}>
+                  <ArrowRightLeft className="h-4 w-4" />
+                  حركة نقدية
+                </DropdownMenuItem>
+              ) : null}
+              <DropdownMenuItem onSelect={() => setXOpen(true)}>
+                <FileText className="h-4 w-4" />
+                تقرير X
+              </DropdownMenuItem>
+              {can('pos.return') ? (
+                <DropdownMenuItem asChild>
+                  <Link href={posRoutes.returns}>
+                    <Receipt className="h-4 w-4" />
+                    مرتجع
+                  </Link>
+                </DropdownMenuItem>
+              ) : null}
+              {can('pos.session.close') ? (
+                <DropdownMenuItem onSelect={() => setCloseOpen(true)}>
+                  <Lock className="h-4 w-4" />
+                  إغلاق الوردية
+                </DropdownMenuItem>
+              ) : null}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+        <div className="ms-auto hidden flex-wrap gap-1 md:flex">
           <Button size="sm" variant="outline" onClick={() => setListsOpen(true)}>
             <PauseCircle className="h-4 w-4" />
             المعلّقة {waiting + heldCount > 0 ? `(${waiting + heldCount})` : ''}
@@ -518,8 +565,14 @@ function Register() {
         </div>
       </header>
 
-      <div className="grid min-h-0 flex-1 gap-3 p-3 md:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_400px]">
-        <div className={cn('flex min-h-0 flex-col', locked && 'pointer-events-none opacity-60')}>
+      <div className="grid min-h-0 flex-1 gap-3 p-2 md:grid-cols-[minmax(0,1fr)_340px] md:p-3 xl:grid-cols-[minmax(0,1fr)_400px]">
+        <div
+          className={cn(
+            'flex min-h-0 flex-col',
+            locked && 'pointer-events-none opacity-60',
+            phoneView === 'cart' && 'max-md:hidden',
+          )}
+        >
           {companyId ? (
             <ProductPanel
               companyId={companyId}
@@ -530,6 +583,17 @@ function Register() {
           ) : null}
         </div>
         <CartPanel
+          className={cn(phoneView === 'products' && 'max-md:hidden')}
+          header={
+            <button
+              type="button"
+              className="flex items-center gap-1 border-b border-border px-3 py-2.5 text-sm font-medium text-primary md:hidden"
+              onClick={() => setPhoneView('products')}
+            >
+              <ChevronRight className="h-4 w-4" />
+              {locked ? 'المنتجات' : 'إضافة منتجات'}
+            </button>
+          }
           cart={shownCart}
           totals={priced.totals}
           currency={currency}
@@ -558,24 +622,48 @@ function Register() {
           onRemoveLine={(lineId) => setCart({ ...cart, lines: cart.lines.filter((l) => l.id !== lineId) })}
           onCustomer={() => setCustomerOpen(true)}
           onOrderDiscount={() => setDiscountOpen(true)}
-          onHold={() => {
-            actions?.holdCart({
+          onHold={async () => {
+            // The cart is cleared once the server kept it.
+            const held = await actions?.holdCart({
               registerId: register.id,
               label: cart.customer.kind === 'named' ? cart.customer.name : `سلة ${heldCount + 1}`,
               lines: cart.lines,
               customer: cart.customer,
               orderDiscount: cart.orderDiscount,
             });
+            if (!held) return;
             setCart(EMPTY_CART);
+            setPhoneView('products');
             toast.success('عُلّقت السلة');
           }}
           onVoid={() => {
-            actions?.voidCart(userName, cart.lines.length, priced.totals.total);
+            void actions?.voidCart(userName, cart.lines.length, priced.totals.total);
             setCart(EMPTY_CART);
+            setPhoneView('products');
           }}
           onPay={pay}
         />
       </div>
+
+      {/* Phone: the cart in one tap from the products. */}
+      {phoneView === 'products' ? (
+        <div className="border-t border-border bg-card p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:hidden">
+          <Button
+            className="h-12 w-full justify-between text-base"
+            variant={itemCount > 0 || locked ? 'default' : 'outline'}
+            onClick={() => setPhoneView('cart')}
+          >
+            <span className="flex items-center gap-2">
+              <ShoppingCart className="h-5 w-5" />
+              {locked ? 'متابعة الدفع' : 'السلة'}
+              {itemCount > 0 ? (
+                <span className="rounded-full bg-primary-foreground/20 px-2 text-sm tabular-nums">{itemCount}</span>
+              ) : null}
+            </span>
+            <span className="font-bold tabular-nums">{formatMoney(priced.totals.total, currency)}</span>
+          </Button>
+        </div>
+      ) : null}
 
       <LineEditDialog
         line={editing}
@@ -614,6 +702,7 @@ function Register() {
             setPayOpen(false);
             setReceiptSaleId(saleId);
             setSaleId(null);
+            setPhoneView('products');
             toast.success(`اكتمل البيع ${number}`);
           }}
         />

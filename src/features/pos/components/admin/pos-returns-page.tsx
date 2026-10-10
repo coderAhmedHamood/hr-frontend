@@ -157,7 +157,7 @@ function NewReturnDialog({ open, initialSaleId, onClose }: { open: boolean; init
                   const returnable = l.quantity - l.returnedQuantity;
                   const draft = lines[l.id] ?? { quantity: 0, condition: 'resellable' as PosReturnCondition };
                   return (
-                    <div key={l.id} className="grid grid-cols-[1fr_80px_150px] items-center gap-2 rounded-md border border-border p-2">
+                    <div key={l.id} className="grid grid-cols-[1fr_80px] items-center gap-2 rounded-md border border-border p-2 sm:grid-cols-[1fr_80px_150px]">
                       <div>
                         <div className="font-medium">{l.name}{l.variantName ? ` — ${l.variantName}` : ''}</div>
                         <div className="text-xs text-muted-foreground">
@@ -179,7 +179,7 @@ function NewReturnDialog({ open, initialSaleId, onClose }: { open: boolean; init
                         value={draft.condition}
                         onValueChange={(v) => setLines((x) => ({ ...x, [l.id]: { ...draft, condition: v as PosReturnCondition } }))}
                       >
-                        <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                        <SelectTrigger className="h-8 max-sm:col-span-2"><SelectValue /></SelectTrigger>
                         <SelectContent>
                           {(Object.keys(RETURN_CONDITION_LABELS) as PosReturnCondition[]).map((c) => (
                             <SelectItem key={c} value={c}>{RETURN_CONDITION_LABELS[c]}</SelectItem>

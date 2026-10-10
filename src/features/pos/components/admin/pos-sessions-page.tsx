@@ -26,7 +26,53 @@ function Sessions() {
       {sessions.length === 0 ? (
         <EmptyState title="لا ورديات" description="تُفتح الوردية من شاشة الكاشير بعدّ العهدة النقدية." />
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-soft">
+        <>
+        {/* Phone: one card per shift. */}
+        <div className="space-y-2 md:hidden">
+          {sessions.map((s) => {
+            const summary = summarizeSession(data, s);
+            const canClose =
+              s.status === 'open' &&
+              ((s.cashierId === userId && can('pos.session.close')) || can('pos.session.close-others'));
+            return (
+              <div key={s.id} className="rounded-xl border border-border bg-card p-3 shadow-soft">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="truncate font-semibold">
+                    {data.registers.find((r) => r.id === s.registerId)?.name ?? '—'} · {s.cashierName}
+                  </span>
+                  {s.status === 'open' ? <Badge variant="success">مفتوحة</Badge> : <Badge variant="subtle">مغلقة</Badge>}
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  {formatDateTime(s.openedAt)}
+                  {s.closedAt ? ` ← ${formatDateTime(s.closedAt)}` : ''}
+                </div>
+                <div className="mt-2 flex items-center justify-between gap-2 text-sm">
+                  <span className="tabular-nums">
+                    المبيعات: <b>{formatMoney(summary.salesTotal, currency)}</b> ({summary.salesCount})
+                  </span>
+                  {s.difference == null ? null : (
+                    <span className={s.difference === 0 ? 'text-success' : 'text-destructive'}>
+                      الفرق {formatMoney(s.difference)}
+                    </span>
+                  )}
+                </div>
+                <div className="mt-2 flex gap-2">
+                  <Button size="sm" variant="outline" className="flex-1" onClick={() => setReport(s)}>
+                    <FileText className="h-4 w-4" />
+                    {s.status === 'open' ? 'تقرير X' : 'تقرير Z'}
+                  </Button>
+                  {canClose ? (
+                    <Button size="sm" variant="outline" className="flex-1" onClick={() => setClosing(s)}>
+                      <Lock className="h-4 w-4" />
+                      إغلاق
+                    </Button>
+                  ) : null}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-soft max-md:hidden">
           <table className="w-full min-w-[760px] text-sm">
             <thead className="bg-muted/50 text-xs text-muted-foreground">
               <tr>
@@ -84,6 +130,7 @@ function Sessions() {
             </tbody>
           </table>
         </div>
+        </>
       )}
       <CloseSessionDialog session={closing} onOpenChange={(o) => !o && setClosing(null)} />
       <PrintPreviewDialog

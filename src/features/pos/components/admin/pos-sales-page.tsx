@@ -422,7 +422,31 @@ function Sales() {
       {sales.length === 0 ? (
         <EmptyState title="لا مبيعات" description="تظهر هنا مستندات البيع من شاشة الكاشير." />
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-soft">
+        <>
+        {/* Phone: one card per sale. */}
+        <div className="space-y-2 md:hidden">
+          {sales.map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              className="w-full rounded-xl border border-border bg-card p-3 text-start shadow-soft active:bg-muted/40"
+              onClick={() => setSelectedId(s.id)}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-semibold" dir="ltr">{s.number ?? '—'}</span>
+                <SaleStatusBadge status={s.status} />
+              </div>
+              <div className="mt-1 flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                <span className="truncate">
+                  {data.registers.find((r) => r.id === s.registerId)?.name ?? '—'} · {s.cashierName}
+                </span>
+                <span className="shrink-0">{formatDateTime(s.completedAt ?? s.createdAt)}</span>
+              </div>
+              <div className="mt-1 text-base font-bold tabular-nums">{formatMoney(s.totals.total, currency)}</div>
+            </button>
+          ))}
+        </div>
+        <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-soft max-md:hidden">
           <table className="w-full min-w-[640px] text-sm">
             <thead className="bg-muted/50 text-xs text-muted-foreground">
               <tr>
@@ -452,6 +476,7 @@ function Sales() {
             </tbody>
           </table>
         </div>
+        </>
       )}
       <SaleDialog sale={selected} onClose={() => setSelectedId(null)} />
     </div>

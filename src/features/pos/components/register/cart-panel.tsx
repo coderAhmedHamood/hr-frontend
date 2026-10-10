@@ -249,6 +249,8 @@ export function CartPanel({
   onHold,
   onVoid,
   onPay,
+  header,
+  className,
 }: {
   cart: CartState;
   totals: PosSaleTotals;
@@ -264,12 +266,16 @@ export function CartPanel({
   onHold: () => void;
   onVoid: () => void;
   onPay: () => void;
+  /** Above the customer row (the phone's way back to the products). */
+  header?: React.ReactNode;
+  className?: string;
 }) {
   const empty = cart.lines.length === 0;
   const customerLabel = cart.customer.kind === 'named' ? cart.customer.name : 'عميل عابر';
 
   return (
-    <div className="flex min-h-0 flex-col rounded-xl border border-border bg-card shadow-soft">
+    <div className={cn('flex min-h-0 flex-col rounded-xl border border-border bg-card shadow-soft', className)}>
+      {header}
       <div className="flex items-center justify-between gap-2 border-b border-border p-3">
         <button
           type="button"

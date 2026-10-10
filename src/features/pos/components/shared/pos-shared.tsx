@@ -22,11 +22,11 @@ export function PosGate({ permission, children }: { permission?: PosPermission; 
   return <>{children}</>;
 }
 
-/** Marks the screens that keep their data in this browser until the backend exists. */
+/** What POS does not do yet: its data is on the server, stock is not deducted. */
 export function PosPreviewNote() {
   return (
     <div className="rounded-lg border border-dashed border-warning/40 bg-warning/5 px-3 py-2 text-xs text-muted-foreground">
-      نسخة تصميم: البيانات محفوظة في هذا المتصفح فقط، ولا يُخصم مخزون ولا يُحصّل مال فعليًا. الأصناف والأسعار تُقرأ من تطبيق المنتجات.
+      بيانات نقاط البيع محفوظة على الخادم وتظهر على كل الأجهزة. خصم المخزون من مبيعات نقاط البيع لم يُربط بعد؛ الأصناف والأسعار تُقرأ من تطبيق المنتجات.
     </div>
   );
 }
