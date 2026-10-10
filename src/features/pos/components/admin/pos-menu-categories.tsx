@@ -11,7 +11,7 @@ import {
   usePosMenuCategories,
 } from '@/features/pos/hooks/use-pos-menu-categories';
 import { savePosMenuCategories } from '@/features/pos/lib/pos-menu-categories-api';
-import { newId } from '@/features/pos/lib/pos-store';
+import { newId, readLegacyMenuCategories } from '@/features/pos/lib/pos-store';
 
 type Draft = { key: string; id?: string; name: string };
 
@@ -20,7 +20,7 @@ type Draft = { key: string; id?: string; name: string };
  * group on the product form, the same way it chooses its catalog category.
  */
 export function PosMenuCategoriesCard() {
-  const { companyId, data, can } = usePosContext();
+  const { companyId, can } = usePosContext();
   const canEdit = can('pos.settings.manage');
   const queryClient = useQueryClient();
   const query = usePosMenuCategories(companyId);
@@ -36,7 +36,7 @@ export function PosMenuCategoriesCard() {
   React.useEffect(() => {
     if (!canEdit || !companyId || !query.isSuccess || migrated.current) return;
     if ((query.data ?? []).length > 0) return;
-    const local = data.menuCategories
+    const local = readLegacyMenuCategories(companyId)
       .map((category) => category.name.trim())
       .filter((name) => name.length > 0);
     if (local.length === 0) return;
@@ -52,7 +52,7 @@ export function PosMenuCategoriesCard() {
       .catch(() => {
         migrated.current = false;
       });
-  }, [canEdit, companyId, data.menuCategories, query.data, query.isSuccess, queryClient]);
+  }, [canEdit, companyId, query.data, query.isSuccess, queryClient]);
 
   const save = async () => {
     if (!companyId) return;

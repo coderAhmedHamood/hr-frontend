@@ -137,8 +137,8 @@ function OpenShift({ registerId, onBack }: { registerId: string; onBack: () => v
       <Button
         className="h-12"
         disabled={!allowed || !actions || draining}
-        onClick={() => {
-          const id = actions?.openSession(registerId, userId, userName, round2(parseAmount(float)), data.settings.stockMode);
+        onClick={async () => {
+          const id = await actions?.openSession(registerId, userId, userName, round2(parseAmount(float)), data.settings.stockMode);
           if (id) toast.success(`فُتحت الوردية بعهدة ${formatMoney(parseAmount(float), currency)}`);
         }}
       >
@@ -282,6 +282,8 @@ function Register() {
   const cartKey = `pos.cart.${companyId}.${registerId}`;
   const [cart, setCartState] = React.useState<CartState>(EMPTY_CART);
   const [saleId, setSaleId] = React.useState<string | null>(null);
+  // A second tap on «الدفع» while the server answers would commit the cart twice.
+  const committing = React.useRef(false);
   React.useEffect(() => {
     if (!registerId) return;
     setCartState(readJson(cartKey, EMPTY_CART));
@@ -417,15 +419,16 @@ function Register() {
     withDiscountCheck(patch.unitPrice * patch.quantity, patch.discount, editing.name, apply);
   };
 
-  const pay = () => {
-    if (!actions) return;
+  const pay = async () => {
+    if (!actions || committing.current) return;
     if (locked) {
       setPayOpen(true);
       return;
     }
     if (cart.lines.length === 0) return;
     // Commit: prices and snapshot fixed in the "server"; stock reserved there when linked.
-    const id = actions.commitSale({
+    committing.current = true;
+    const id = await actions.commitSale({
       registerId: register.id,
       sessionId: session.id,
       cashierName: userName,
@@ -434,6 +437,8 @@ function Register() {
       lines: priced.lines,
       orderDiscount: cart.orderDiscount,
       totals: priced.totals,
+    }).finally(() => {
+      committing.current = false;
     });
     if (!id) return;
     setCart(EMPTY_CART);
@@ -441,7 +446,7 @@ function Register() {
     setPayOpen(true);
   };
 
-  const cancelOpenSale = () => {
+  const cancelOpenSale = async () => {
     if (!openSale || !actions) return;
     const pending = openSale.payments.some((p) => p.kind === 'payment' && (p.status === 'pending' || p.status === 'unknown'));
     if (pending) {
@@ -449,10 +454,10 @@ function Register() {
       return;
     }
     if (paidAmount(openSale.payments) > 0) {
-      actions.markException(openSale.id, 'أُلغي بعد تحصيل مبلغ: يحتاج رد المال أو معالجة من المشرف.');
+      if (!(await actions.markException(openSale.id, 'أُلغي بعد تحصيل مبلغ: يحتاج رد المال أو معالجة من المشرف.'))) return;
       toast.warning('حُوّل البيع إلى «استثناء دفع» لمعالجة المبلغ المحصّل.');
     } else {
-      actions.cancelSale(openSale.id, 'إلغاء قبل الدفع', userName);
+      if (!(await actions.cancelSale(openSale.id, 'إلغاء قبل الدفع', userName))) return;
       toast.success('أُلغي البيع وحُرّر الحجز');
     }
     setSaleId(null);

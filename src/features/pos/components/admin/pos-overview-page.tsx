@@ -30,7 +30,7 @@ function Overview() {
   const pendingRefunds = data.returns.filter((r) => r.refund.status === 'pending');
 
   const createFirstRegister = () => {
-    actions?.saveRegister({
+    void actions?.saveRegister({
       name: 'الكاشير 1',
       code: 'POS1',
       branchId: null,

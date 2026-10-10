@@ -87,13 +87,13 @@ function Settings() {
   const set = <K extends keyof PosSettings>(key: K, patch: Partial<PosSettings[K]>) =>
     setDraft((d) => ({ ...d, [key]: { ...(d[key] as object), ...patch } }));
 
-  const save = () => {
+  const save = async () => {
     if (!actions) return;
     if (!Object.values(draft.paymentMethods).some(Boolean)) {
       toast.error('فعّل وسيلة دفع واحدة على الأقل');
       return;
     }
-    actions.saveSettings(draft);
+    if (!(await actions.saveSettings(draft))) return;
     toast.success('حُفظت إعدادات نقاط البيع');
   };
 

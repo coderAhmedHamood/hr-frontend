@@ -176,8 +176,8 @@ function ResolvePanel({ sale, onDone }: { sale: PosSale; onDone: () => void }) {
           <Button
             size="sm"
             disabled={!openSession || !canResolve || (refundMethod !== 'cash' && !refundRef.trim())}
-            onClick={() => {
-              actions.addPayment(sale.id, {
+            onClick={async () => {
+              const paid = await actions.addPayment(sale.id, {
                 kind: difference > 0 ? 'payment' : 'refund',
                 method: refundMethod,
                 amount: Math.abs(difference),
@@ -187,6 +187,7 @@ function ResolvePanel({ sale, onDone }: { sale: PosSale; onDone: () => void }) {
                 change: null,
                 sessionId: openSession!.id,
               });
+              if (!paid) return;
               toast.success(difference > 0 ? 'سُجّلت الدفعة' : 'سُجّل الرد');
             }}
           >
@@ -200,10 +201,10 @@ function ResolvePanel({ sale, onDone }: { sale: PosSale; onDone: () => void }) {
         <Button
           size="sm"
           disabled={!canResolve || difference !== 0 || pending.length > 0 || sale.lines.length === 0}
-          onClick={() => {
-            const number = actions.completeSale(sale.id);
+          onClick={async () => {
+            const number = await actions.completeSale(sale.id);
             if (!number) return;
-            actions.logAudit(userName, 'exception_resolved', `${number} اكتمل`);
+            void actions.logAudit(userName, 'exception_resolved', `${number} اكتمل`);
             toast.success(`اكتمل البيع ${number}`);
             onDone();
           }}
@@ -220,8 +221,8 @@ function ResolvePanel({ sale, onDone }: { sale: PosSale; onDone: () => void }) {
           size="sm"
           variant="outline"
           disabled={!canResolve || net !== 0 || pending.length > 0}
-          onClick={() => {
-            actions.cancelSale(sale.id, 'إلغاء من المعالجة بعد تصفير المال', userName);
+          onClick={async () => {
+            if (!(await actions.cancelSale(sale.id, 'إلغاء من المعالجة بعد تصفير المال', userName))) return;
             toast.success('أُلغي المستند وحُرّر الحجز');
             onDone();
           }}

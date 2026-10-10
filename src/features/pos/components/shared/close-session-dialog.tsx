@@ -66,9 +66,9 @@ export function CloseSessionDialog({
   const needsReason = Math.abs(difference) > settings.differenceTolerance;
   const blocked = summary.openSales.length > 0;
 
-  const confirm = () => {
+  const confirm = async () => {
     if (!actions) return;
-    actions.closeSession(
+    const closed = await actions.closeSession(
       session.id,
       {
         countedCash: counted,
@@ -81,6 +81,7 @@ export function CloseSessionDialog({
       },
       userName,
     );
+    if (!closed) return;
     toast.success('أُغلقت الوردية');
     setZSession(session);
     onOpenChange(false);

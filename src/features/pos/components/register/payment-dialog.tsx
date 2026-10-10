@@ -43,6 +43,7 @@ export function PaymentDialog({
   const [split, setSplit] = React.useState(false);
   const [amount, setAmount] = React.useState('');
   const [reference, setReference] = React.useState('');
+  const [busy, setBusy] = React.useState(false);
 
   const paid = sale ? paidAmount(sale.payments) : 0;
   const remaining = sale ? round2(sale.totals.total - paid) : 0;
@@ -62,40 +63,53 @@ export function PaymentDialog({
 
   const applied = Math.min(parseAmount(amount) || remaining, remaining);
 
-  const pay = (nextMethod: PosPaymentMethod, value: number) => {
-    const amountDue = round2(Math.min(value, remaining));
-    if (amountDue <= 0) return;
-    if (nextMethod === 'transfer' && !reference.trim()) return;
-    if (nextMethod === 'card') {
-      actions.addPayment(sale.id, {
+  // One action at a time: a second tap while the server answers would pay twice.
+  const once = async (fn: () => Promise<unknown>) => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await fn();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const pay = (nextMethod: PosPaymentMethod, value: number) =>
+    once(async () => {
+      const amountDue = round2(Math.min(value, remaining));
+      if (amountDue <= 0) return;
+      if (nextMethod === 'transfer' && !reference.trim()) return;
+      if (nextMethod === 'card') {
+        await actions.addPayment(sale.id, {
+          kind: 'payment',
+          method: 'card',
+          amount: amountDue,
+          status: 'pending',
+          reference: null,
+          tendered: null,
+          change: null,
+          sessionId,
+        });
+        return;
+      }
+      const paid = await actions.addPayment(sale.id, {
         kind: 'payment',
-        method: 'card',
+        method: nextMethod,
         amount: amountDue,
-        status: 'pending',
-        reference: null,
-        tendered: null,
+        status: 'succeeded',
+        reference: nextMethod === 'transfer' ? reference.trim() : null,
+        tendered: nextMethod === 'cash' ? amountDue : null,
         change: null,
         sessionId,
       });
-      return;
-    }
-    actions.addPayment(sale.id, {
-      kind: 'payment',
-      method: nextMethod,
-      amount: amountDue,
-      status: 'succeeded',
-      reference: nextMethod === 'transfer' ? reference.trim() : null,
-      tendered: nextMethod === 'cash' ? amountDue : null,
-      change: null,
-      sessionId,
+      if (paid) setReference('');
     });
-    setReference('');
-  };
 
-  const complete = () => {
-    const number = actions.completeSale(sale.id);
-    if (number) onCompleted(number);
-  };
+  const complete = () =>
+    once(async () => {
+      const number = await actions.completeSale(sale.id);
+      if (number) onCompleted(number);
+    });
 
   const canComplete = remaining === 0 && !pendingCard;
 
@@ -189,7 +203,7 @@ export function PaymentDialog({
                 <Button
                   className="w-full"
                   onClick={() => pay(method, applied)}
-                  disabled={applied <= 0 || (method === 'transfer' && !reference.trim())}
+                  disabled={busy || applied <= 0 || (method === 'transfer' && !reference.trim())}
                 >
                   تسجيل {formatAmount(applied)} · {PAYMENT_METHOD_LABELS[method]}
                 </Button>
@@ -216,7 +230,7 @@ export function PaymentDialog({
                 <Button
                   className="w-full"
                   onClick={() => pay(method, remaining)}
-                  disabled={method === 'transfer' && !reference.trim()}
+                  disabled={busy || (method === 'transfer' && !reference.trim())}
                 >
                   {method === 'card' ? 'بدء الدفع بالبطاقة' : method === 'transfer' ? 'تسجيل التحويل' : 'تسجيل النقد'}
                 </Button>
@@ -229,7 +243,7 @@ export function PaymentDialog({
           <Button variant="outline" onClick={onClose} className="flex-1">
             إغلاق (يبقى البيع مفتوحًا)
           </Button>
-          <Button onClick={complete} disabled={!canComplete} className="flex-1">
+          <Button onClick={complete} disabled={busy || !canComplete} className="flex-1">
             <CheckCircle2 className="h-4 w-4" />
             إتمام البيع
           </Button>

@@ -45,6 +45,7 @@ function NewReturnDialog({ open, initialSaleId, onClose }: { open: boolean; init
   const [sessionId, setSessionId] = React.useState<string>('');
   const [openedAt] = React.useState(() => Date.now());
   // One key per return being entered: a double submit has one effect.
+  const [submitting, setSubmitting] = React.useState(false);
   const [operationKey, setOperationKey] = React.useState(() => newId());
 
   const sale = data.sales.find((s) => s.id === saleId && s.status === 'completed') ?? null;
@@ -85,11 +86,12 @@ function NewReturnDialog({ open, initialSaleId, onClose }: { open: boolean; init
   const cashWithoutSession = method === 'cash' && !sessionId;
   const valid = !!sale && chosen.length > 0 && reason.trim() && !otherMethodBlocked && !cashWithoutSession && !outOfWindow;
 
-  const submit = () => {
-    if (!sale || !actions || !valid) return;
+  const submit = async () => {
+    if (!sale || !actions || !valid || submitting) return;
     const refundDone = method === 'cash' || !!reference.trim();
     const hasDamaged = chosen.some((x) => x.draft.condition === 'damaged');
-    const created = actions.createReturn({
+    setSubmitting(true);
+    const created = await actions.createReturn({
       operationKey,
       saleId: sale.id,
       saleNumber: sale.number ?? sale.id,
@@ -106,6 +108,7 @@ function NewReturnDialog({ open, initialSaleId, onClose }: { open: boolean; init
       refund: { method, amount, reference: reference.trim() || null, status: refundDone ? 'done' : 'pending' },
       damagedDecision: hasDamaged ? 'pending' : null,
     });
+    setSubmitting(false);
     if (!created) return;
     toast.success(`أُنشئ المرتجع ${created.number}${refundDone ? '' : ' — رد المال بانتظار التنفيذ'}`);
     onClose();
@@ -250,7 +253,7 @@ function NewReturnDialog({ open, initialSaleId, onClose }: { open: boolean; init
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>إلغاء</Button>
-          <Button onClick={submit} disabled={!valid}>إنشاء المرتجع</Button>
+          <Button onClick={submit} disabled={!valid || submitting}>إنشاء المرتجع</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

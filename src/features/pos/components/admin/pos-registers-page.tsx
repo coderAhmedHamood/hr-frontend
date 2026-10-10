@@ -53,10 +53,10 @@ function RegisterDialog({
   );
   const valid = form.name.trim() && form.code.trim() && !codeTaken;
 
-  const save = () => {
+  const save = async () => {
     if (!actions || !valid) return;
     const branch = branches.data?.items?.find((b) => b.id === form.branchId);
-    actions.saveRegister({
+    const saved = await actions.saveRegister({
       id: form.id,
       name: form.name.trim(),
       code: form.code.trim().toUpperCase(),
@@ -65,6 +65,7 @@ function RegisterDialog({
       warehouseName: form.warehouseName.trim() || null,
       isActive: form.isActive,
     });
+    if (!saved) return;
     toast.success('حُفظت نقطة البيع');
     onClose();
   };
@@ -165,11 +166,12 @@ function Registers() {
       isActive: r.isActive,
     });
 
-  const pairHere = (registerId: string, registerName: string) => {
+  const pairHere = async (registerId: string, registerName: string) => {
     if (!companyId || !actions) return;
     const current = pairedId && data.devices.find((d) => d.id === pairedId && !d.revokedAt);
-    if (current) actions.revokeDevice(current.id, userName);
-    const id = actions.pairDevice(registerId, `متصفح — ${registerName}`, userName);
+    if (current) await actions.revokeDevice(current.id, userName);
+    const id = await actions.pairDevice(registerId, `متصفح — ${registerName}`, userName);
+    if (!id) return;
     writePairedDevice(companyId, id);
     setPairedId(id);
     toast.success('اقترن هذا المتصفح بنقطة البيع');

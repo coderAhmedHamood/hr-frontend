@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
 import { useCompanyCurrency } from '@/features/auth/lib/company-currency';
@@ -32,28 +32,36 @@ export type PosPermission =
   | 'pos.settings.manage'
   | 'pos.reports.read';
 
-type Actions = ReturnType<typeof posActions>;
+type RawActions = Omit<ReturnType<typeof posActions>, 'read'>;
+type Actions = {
+  [K in keyof RawActions]: (
+    ...args: Parameters<RawActions[K]>
+  ) => Promise<Awaited<ReturnType<RawActions[K]>> | undefined>;
+};
 
 /**
- * Each action as the screens call it: a broken rule (what the backend will
- * refuse too) shows its reason and does nothing; the action returns undefined.
+ * Each action as the screens call it: what the server refuses (a rule, a
+ * permission, no connection) shows its reason and does nothing; the action
+ * resolves to undefined.
  */
-function guarded(actions: Actions): Actions {
+function guarded(actions: ReturnType<typeof posActions>): Actions {
   return Object.fromEntries(
-    Object.entries(actions).map(([name, fn]) => [
-      name,
-      (...args: unknown[]) => {
-        try {
-          return (fn as (...a: unknown[]) => unknown)(...args);
-        } catch (error) {
-          if (error instanceof PosRuleError) {
-            toast.error(error.message);
-            return undefined;
+    Object.entries(actions)
+      .filter(([name]) => name !== 'read')
+      .map(([name, fn]) => [
+        name,
+        async (...args: unknown[]) => {
+          try {
+            return await (fn as (...a: unknown[]) => Promise<unknown>)(...args);
+          } catch (error) {
+            if (error instanceof PosRuleError) {
+              toast.error(error.message);
+              return undefined;
+            }
+            throw error;
           }
-          throw error;
-        }
-      },
-    ]),
+        },
+      ]),
   ) as Actions;
 }
 
@@ -82,7 +90,11 @@ export function usePosContext() {
   // The company's base currency (company settings), from the access profile.
   const currency = useCompanyCurrency();
   const data = usePosData(companyId);
-  const actions = React.useMemo(() => (companyId ? guarded(posActions(companyId)) : null), [companyId]);
+  const queryClient = useQueryClient();
+  const actions = React.useMemo(
+    () => (companyId ? guarded(posActions(companyId, queryClient)) : null),
+    [companyId, queryClient],
+  );
 
   const printCompany: PrintCompany = React.useMemo(
     () =>
