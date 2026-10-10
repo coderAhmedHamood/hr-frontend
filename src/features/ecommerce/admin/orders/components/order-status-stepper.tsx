@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { createPortal } from 'react-dom';
 import { Banknote, Check, ChevronLeft, CreditCard } from 'lucide-react';
 import type { Order, OrderStatus } from '@/features/ecommerce/domain/types/order';
 import {
@@ -58,6 +59,11 @@ type Props = {
   disabled?: boolean;
   /** Slimmer header — payment context lives outside the stepper. */
   compact?: boolean;
+  /**
+   * Phones: where the «التالي» button goes (a bar at the bottom of the
+   * dialog, within thumb reach); it stays in place on larger screens.
+   */
+  mobileActionSlot?: HTMLElement | null;
   /** Hide footer “تأكيد التحصيل” when a primary CTA exists above. */
   hidePaymentConfirm?: boolean;
   onOrderStatusChange: (
@@ -84,6 +90,7 @@ export function OrderStatusStepper({
   disabled,
   compact = false,
   hidePaymentConfirm = false,
+  mobileActionSlot = null,
   onOrderStatusChange,
   onPaymentPaid,
 }: Props) {
@@ -168,6 +175,26 @@ export function OrderStatusStepper({
     allowed.includes(terminal),
   );
 
+  const renderNext = (className?: string) =>
+    next ? (
+            <Button
+              type="button"
+              size="sm"
+              disabled={disabled || nextBlocked}
+              className={cn('gap-1', className)}
+              title={
+                nextStageBlock ??
+                (nextBlocked && next.kind === 'order' && next.status === 'shipped'
+                  ? 'يلزم شحن كل أصناف الطلب أولاً'
+                  : undefined)
+              }
+              onClick={applyNext}
+            >
+              التالي: {next.label}
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+    ) : null;
+
   return (
     <div className={cn('space-y-4 rounded-xl border border-border/80 bg-card', compact ? 'p-3' : 'p-4')}>
       <div className="flex flex-wrap items-start justify-between gap-2">
@@ -188,24 +215,10 @@ export function OrderStatusStepper({
             <p className="text-xs text-muted-foreground">الخطوات المتاحة فقط حسب قواعد الانتقال</p>
           )}
         </div>
-        {next && inPipeline ? (
-          <Button
-            type="button"
-            size="sm"
-            disabled={disabled || nextBlocked}
-            className="gap-1 max-sm:fixed max-sm:inset-x-3 max-sm:bottom-[max(0.75rem,env(safe-area-inset-bottom))] max-sm:z-50 max-sm:h-12 max-sm:text-base max-sm:shadow-lg"
-            title={
-              nextStageBlock ??
-              (nextBlocked && next.kind === 'order' && next.status === 'shipped'
-                ? 'يلزم شحن كل أصناف الطلب أولاً'
-                : undefined)
-            }
-            onClick={applyNext}
-          >
-            التالي: {next.label}
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-        ) : null}
+        {next && inPipeline ? renderNext(mobileActionSlot ? 'max-sm:hidden' : undefined) : null}
+        {next && inPipeline && mobileActionSlot
+          ? createPortal(renderNext('h-12 w-full text-base sm:hidden'), mobileActionSlot)
+          : null}
       </div>
 
       <ol className="flex items-start gap-0 overflow-x-auto pb-1">

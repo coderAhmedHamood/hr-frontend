@@ -287,6 +287,8 @@ export function OrderDetailPanel({
     await updatePayment.mutateAsync({ orderId: order.id, paymentStatus: 'paid' });
   }
 
+  const [mobileActionSlot, setMobileActionSlot] = React.useState<HTMLDivElement | null>(null);
+
   async function advanceStatus(
     nextStatus: OrderStatus,
     note?: string | null,
@@ -459,7 +461,7 @@ export function OrderDetailPanel({
           className={cn(
             dialogShellBodyClass,
             // Phones: one scroll for the whole order; room for the action bar.
-            'max-sm:flex-none max-sm:overflow-visible max-sm:px-3 max-sm:pb-28 max-sm:pt-4',
+            'max-sm:flex-none max-sm:overflow-visible max-sm:px-3 max-sm:pb-4 max-sm:pt-4',
           )}
         >
           {loading && !order ? (
@@ -472,6 +474,7 @@ export function OrderDetailPanel({
                 companyId={companyId}
                 stages={stages}
                 hidePaymentConfirm
+                mobileActionSlot={mobileActionSlot}
                 disabled={flowBusy}
                 onOrderStatusChange={(nextStatus, note, extra) => {
                   void advanceStatus(nextStatus, note, extra).catch(() => undefined);
@@ -545,6 +548,11 @@ export function OrderDetailPanel({
             </div>
           ) : null}
         </div>
+        {/* Phones: the next-stage button sits here, in a bar of its own. */}
+        <div
+          ref={setMobileActionSlot}
+          className="sticky bottom-0 z-10 border-t border-border bg-background/95 px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur empty:hidden sm:hidden"
+        />
       </DialogContent>
     </Dialog>
   );
