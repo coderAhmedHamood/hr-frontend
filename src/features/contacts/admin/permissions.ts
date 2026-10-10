@@ -62,3 +62,10 @@ export const PARTNER_CATEGORY_MEMBERS_PERMISSIONS = {
   create: 'cnt.partner-category-members.create',
   delete: 'cnt.partner-category-members.delete',
 } as const;
+
+/** Partner account (له وعليه); delete = void a hand-entered line. */
+export const PARTNER_LEDGER_PERMISSIONS = {
+  read: 'cnt.partner-ledger.read',
+  create: 'cnt.partner-ledger.create',
+  delete: 'cnt.partner-ledger.delete',
+} as const;

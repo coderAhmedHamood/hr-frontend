@@ -23,6 +23,7 @@ import {
   Star,
   StickyNote,
   Trash2,
+  Wallet,
   Waypoints,
 } from 'lucide-react';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
@@ -46,6 +47,7 @@ import {
 import { usePartnerMutations } from '@/features/contacts/admin/partners/hooks/use-partner-mutations';
 import { usePartnerCategories } from '@/features/contacts/admin/categories/hooks/use-partner-categories';
 import { PartnerFormDialog } from '@/features/contacts/admin/partners/components/partner-form-dialog';
+import { PartnerLedgerPanel } from '@/features/contacts/admin/partners/components/partner-ledger-panel';
 import { PartnerStoreOrdersPanel } from '@/features/contacts/admin/partners/components/partner-store-orders-panel';
 import { PartnerProductReviewsPanel } from '@/features/contacts/admin/partners/components/partner-product-reviews-panel';
 import { PartnerProductFavoritesPanel } from '@/features/contacts/admin/partners/components/partner-product-favorites-panel';
@@ -78,6 +80,7 @@ type Props = { partnerId: string };
 
 const DETAIL_TABS = [
   { value: 'general', label: 'عام', icon: CircleUserRound },
+  { value: 'account', label: 'الحساب', icon: Wallet },
   { value: 'addresses', label: 'عناوين', icon: MapPin },
   { value: 'channels', label: 'اتصال', icon: Phone },
   { value: 'relations', label: 'علاقات', icon: Waypoints },
@@ -394,6 +397,10 @@ export function PartnerDetailPage({ partnerId }: Props) {
               </div>
             </Panel>
           </div>
+        </TabsContent>
+
+        <TabsContent value="account" className="mt-0 space-y-4">
+          <PartnerLedgerPanel companyId={companyId} partnerId={partner.id} />
         </TabsContent>
 
         <TabsContent value="addresses" className="mt-0 space-y-4">
