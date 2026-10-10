@@ -18,5 +18,6 @@ export function buildPersonalEmployeeUpdatePayload(draft: Employee): UpdateEmplo
     gender: draft.gender || null,
     birthDate: draft.birthDate || null,
     maritalStatus: draft.maritalStatus || null,
+    contractStatus: draft.contractStatus || null,
   };
 }
