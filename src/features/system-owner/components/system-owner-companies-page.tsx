@@ -83,7 +83,11 @@ export function SystemOwnerCompaniesPage() {
               key={row.id}
               icon={Building2}
               label={row.nameAr}
-              caption={row.isActive === false ? 'غير نشط' : row.city || row.code || undefined}
+              caption={
+                row.isActive === false
+                  ? 'غير نشط'
+                  : [row.code, row.city].filter(Boolean).join(' · ') || undefined
+              }
               tileClass={resolveIndexedTileClass(index)}
               href={systemOwnerRoutes.companyDetail(row.id)}
               muted={row.isActive === false}

@@ -149,6 +149,20 @@ export type CompanyDataCatalog = {
   catalogProfileOptions: CompanyDataProfileOption[];
 };
 
+export type DemoResetLine = { code: string; labelAr: string; count: number };
+
+export type DemoResetBlocker = DemoResetLine & { examples: string[] };
+
+export type DemoResetRun = {
+  /** false: a preview, or refused because of blockers (nothing written). */
+  applied: boolean;
+  blockers: DemoResetBlocker[];
+  removed: DemoResetLine[];
+  /** Demo rows left because the company uses or changed them. */
+  kept: DemoResetLine[];
+  totals: { removed: number; kept: number };
+};
+
 export type PatchCompanyApplicationDto = {
   isEnabled?: boolean;
   isVisible?: boolean;
@@ -522,6 +536,22 @@ export const systemOwnerApi = {
     const query = profile ? `?profile=${encodeURIComponent(profile)}` : '';
     return apiRequest<CompanyDataRun>(
       `/system-owner/companies/${companyId}/apps/${appCode}/data-sets/${kind}${query}`,
+      { method: 'POST', throwOnError: true },
+    );
+  },
+
+  /** What removing the demo data would delete, and what blocks it (nothing written). */
+  previewDemoReset(companyId: string) {
+    return apiRequest<DemoResetRun>(
+      `/system-owner/companies/${companyId}/demo-data/reset`,
+      { throwOnError: true },
+    );
+  },
+
+  /** Removes the demo data and unlocks the activity pack. */
+  applyDemoReset(companyId: string) {
+    return apiRequest<DemoResetRun>(
+      `/system-owner/companies/${companyId}/demo-data/reset`,
       { method: 'POST', throwOnError: true },
     );
   },

@@ -11,6 +11,8 @@ export const expensesRoutes = {
   approvals: '/expenses/approvals',
   setup: '/expenses/setup',
   reports: '/expenses/reports',
+  reportCustody: '/expenses/reports/custody',
+  reportCash: '/expenses/reports/cash',
   settings: '/expenses/settings',
 } as const;
 

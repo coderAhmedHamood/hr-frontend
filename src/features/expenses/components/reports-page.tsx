@@ -1,205 +1,315 @@
 'use client';
 
 import * as React from 'react';
-import { Download } from 'lucide-react';
+import { toast } from 'sonner';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
 import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { cn } from '@/shared/utils';
-import { cashReport, expenseReport, expensesCsv, filterExpenses, type Period, type ReportFilter, type Row } from '../domain/reports';
+import { DataTable, usePagination, type ColumnDef } from '@/components/ui/data-table';
+import { DirectoryPagedViews, DEFAULT_PAGE_SIZE } from '@/components/ui/paged-list';
+import { ListFilterBar, type PeriodRange } from '@/components/ui/list-filter-bar';
+import { downloadXlsxFromAoA, type XlsxCell } from '@/shared/export/download-xlsx';
+import { formatDisplayDate } from '@/shared/utils';
+import { cashReport, expenseReport, expensesCsv, filterExpenses, type ExpenseReport, type ReportFilter, type Row } from '../domain/reports';
 import { ORG } from '../domain/types';
-import type { ExpensesData } from '../domain/types';
-import { EmptyState, LoadingBlock, Money, PartyChecklist, Section } from './common';
-import { todayIso, useCurrency, useDirectory, useExpensesData, useLedger } from './expenses-provider';
+import { Money } from './common';
+import { last30Days, ReportExportMenu, ReportSummaryCard, ShareBar } from './report-common';
+import { todayIso, useCurrency, useDirectory, useExpensesData } from './expenses-provider';
 
-type Filters = { from: string; to: string; people: string[]; groups: string[]; categories: string[]; centers: string[]; pending: boolean };
+type GroupBy = 'day' | 'week' | 'month' | 'category' | 'bearer' | 'source' | 'group' | 'center' | 'creator';
 
-const chip = (on: boolean) =>
-  cn('min-h-9 rounded-full border px-3 text-xs font-medium', on ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card hover:bg-muted');
+const GROUP_BY_LABELS: Record<GroupBy, string> = {
+  day: 'اليوم',
+  week: 'الأسبوع',
+  month: 'الشهر',
+  category: 'الفئة',
+  bearer: 'من يتحمل التكلفة',
+  source: 'مصدر الدفع',
+  group: 'المجموعة',
+  center: 'مركز التكلفة',
+  creator: 'من سجّل',
+};
 
-function addDays(date: string, days: number) {
-  const d = new Date(`${date}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-}
+const ALL = 'all';
 
-function presets(today: string) {
-  return [
-    { key: 'month', label: 'هذا الشهر', from: `${today.slice(0, 7)}-01`, to: today },
-    { key: '30', label: 'آخر 30 يوماً', from: addDays(today, -29), to: today },
-    { key: '90', label: 'آخر 90 يوماً', from: addDays(today, -89), to: today },
-    { key: 'year', label: 'هذه السنة', from: `${today.slice(0, 4)}-01-01`, to: today },
-  ];
-}
-
-function MultiChips({ options, value, onChange }: { options: Array<{ id: string; label: string }>; value: string[]; onChange: (v: string[]) => void }) {
-  return (
-    <div className="flex flex-wrap gap-1.5">
-      {options.map((o) => (
-        <button key={o.id} type="button" className={chip(value.includes(o.id))} onClick={() => onChange(value.includes(o.id) ? value.filter((v) => v !== o.id) : [...value, o.id])}>
-          {o.label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function ReportFilters({ data, value, onChange }: { data: ExpensesData; value: Filters; onChange: (f: Filters) => void }) {
-  const today = todayIso();
-  const set = <K extends keyof Filters>(k: K, v: Filters[K]) => onChange({ ...value, [k]: v });
-  return (
-    <div className="space-y-3 rounded-2xl border border-border bg-card p-3">
-      <div className="flex flex-wrap gap-1.5">
-        {presets(today).map((p) => <button key={p.key} type="button" className={chip(value.from === p.from && value.to === p.to)} onClick={() => onChange({ ...value, from: p.from, to: p.to })}>{p.label}</button>)}
-      </div>
-      <div className="grid grid-cols-2 gap-2 sm:max-w-md">
-        <Input type="date" className="h-10" aria-label="من" value={value.from} onChange={(e) => set('from', e.target.value)} />
-        <Input type="date" className="h-10" aria-label="إلى" value={value.to} onChange={(e) => set('to', e.target.value)} />
-      </div>
-      <div className="space-y-1"><p className="text-xs font-medium">الأشخاص</p><PartyChecklist value={value.people} onChange={(v) => set('people', v)} /></div>
-      <div className="space-y-1"><p className="text-xs font-medium">الفئات</p><MultiChips options={data.categories.map((c) => ({ id: c.id, label: c.name }))} value={value.categories} onChange={(v) => set('categories', v)} /></div>
-      {data.groups.length > 0 ? <div className="space-y-1"><p className="text-xs font-medium">المجموعات</p><MultiChips options={data.groups.map((g) => ({ id: g.id, label: g.name }))} value={value.groups} onChange={(v) => set('groups', v)} /></div> : null}
-      {data.costCenters.length > 0 ? <div className="space-y-1"><p className="text-xs font-medium">مراكز التكلفة</p><MultiChips options={data.costCenters.map((c) => ({ id: c.id, label: `${c.code} ${c.name}` }))} value={value.centers} onChange={(v) => set('centers', v)} /></div> : null}
-      <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={value.pending} onChange={(e) => set('pending', e.target.checked)} />تضمين المعلق (غير المعتمد)</label>
-    </div>
-  );
-}
-
-function Breakdown({ title, rows, label }: { title: string; rows: Row[]; label: (key: string) => string }) {
-  const max = Math.max(1, ...rows.map((r) => r.amount));
-  return (
-    <Section title={title}>
-      {rows.length === 0 ? <EmptyState text="لا بيانات" /> : (
-        <ul className="space-y-2">
-          {rows.slice(0, 8).map((r) => (
-            <li key={r.key} className="space-y-1">
-              <div className="flex items-center justify-between gap-2 text-xs"><span className="min-w-0 truncate">{label(r.key)} <span className="text-muted-foreground">({r.count})</span></span><Money value={r.amount} className="shrink-0 font-medium" /></div>
-              <div className="h-1.5 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: `${(r.amount / max) * 100}%` }} /></div>
-            </li>
-          ))}
-        </ul>
-      )}
-    </Section>
-  );
+function rowsOf(report: ExpenseReport, groupBy: GroupBy): Row[] {
+  switch (groupBy) {
+    case 'day':
+    case 'week':
+    case 'month':
+      return [...report.series].reverse();
+    case 'category':
+      return report.byCategory;
+    case 'bearer':
+      return report.byBearer;
+    case 'source':
+      return report.byPaymentSource;
+    case 'group':
+      return report.byGroup;
+    case 'center':
+      return report.byCostCenter;
+    case 'creator':
+      return report.byCreator;
+  }
 }
 
 export function ReportsPage() {
   const data = useExpensesData();
-  const ledger = useLedger();
   const currency = useCurrency();
   const directory = useDirectory();
-  const today = todayIso();
-  const [period, setPeriod] = React.useState<Period>('day');
-  const [filters, setFilters] = React.useState<Filters>({ from: addDays(today, -29), to: today, people: [], groups: [], categories: [], centers: [], pending: false });
-  const count = [filters.people.length, filters.groups.length, filters.categories.length, filters.centers.length, filters.pending ? 1 : 0].filter(Boolean).length;
+  const defaultPeriod = React.useMemo(() => last30Days(todayIso()), []);
+  const [period, setPeriod] = React.useState<PeriodRange>(defaultPeriod);
+  const [groupBy, setGroupBy] = React.useState<GroupBy>('day');
+  const [personId, setPersonId] = React.useState(ALL);
+  const [categoryId, setCategoryId] = React.useState(ALL);
+  const [groupId, setGroupId] = React.useState(ALL);
+  const [centerId, setCenterId] = React.useState(ALL);
+  const [status, setStatus] = React.useState<'all' | 'pending'>(ALL);
 
-  usePageHeaderActions(() => <FilterToggleButton activeFilterCount={count} />, [count]);
-  useEntityFilterSlot(() => (data ? <ReportFilters data={data} value={filters} onChange={setFilters} /> : null), [filters, data?.categories, data?.groups, data?.costCenters]);
+  const advanced = data?.settings.mode === 'advanced';
+  const groups = React.useMemo(() => data?.groups ?? [], [data?.groups]);
+  const centers = React.useMemo(() => (advanced ? (data?.costCenters ?? []) : []), [advanced, data?.costCenters]);
+  const categories = React.useMemo(() => data?.categories ?? [], [data?.categories]);
 
-  if (!data || !ledger) return <LoadingBlock />;
-  const f: ReportFilter = {
-    currency: currency.code,
-    from: filters.from || null,
-    to: filters.to || null,
-    participantIds: filters.people,
-    groupIds: filters.groups,
-    categoryIds: filters.categories,
-    costCenterIds: filters.centers,
-    includePending: filters.pending,
-  };
-  const report = expenseReport(data, f, period);
-  const cash = cashReport(data, f);
-  const maxSeries = Math.max(1, ...report.series.map((r) => r.amount));
-  const catName = (id: string) => data.categories.find((c) => c.id === id)?.name ?? '—';
-  const groupName = (id: string) => (id === '—' ? 'بلا مجموعة' : (data.groups.find((g) => g.id === id)?.name ?? id));
-  const centerName = (id: string) => (id === '—' ? 'بلا مركز' : (() => { const c = data.costCenters.find((x) => x.id === id); return c ? `${c.code} ${c.name}` : id; })());
-  const sourceName = (k: string) => (k === 'org' ? 'صندوق المنشأة' : k === 'custody' ? 'من العهد' : 'من مال الأشخاص');
+  const filter = React.useMemo<ReportFilter>(
+    () => ({
+      currency: currency.code,
+      from: period.from || null,
+      to: period.to || null,
+      participantIds: personId === ALL ? [] : [personId],
+      categoryIds: categoryId === ALL ? [] : [categoryId],
+      groupIds: groupId === ALL ? [] : [groupId],
+      costCenterIds: centerId === ALL ? [] : [centerId],
+      includePending: status === 'pending',
+    }),
+    [currency.code, period, personId, categoryId, groupId, centerId, status],
+  );
 
-  const exportCsv = () => {
-    const csv = expensesCsv(filterExpenses(data, f), { category: catName, party: (id) => directory.nameOf(id), money: currency.format });
+  const periodBucket = groupBy === 'week' || groupBy === 'month' ? groupBy : 'day';
+  const report = React.useMemo(() => (data ? expenseReport(data, filter, periodBucket) : null), [data, filter, periodBucket]);
+  const cash = React.useMemo(() => (data ? cashReport(data, filter) : null), [data, filter]);
+  const rows = React.useMemo(() => (report ? rowsOf(report, groupBy) : []), [report, groupBy]);
+  const maxAmount = React.useMemo(() => Math.max(0, ...rows.map((r) => r.amount)), [rows]);
+  const totalAmount = React.useMemo(() => rows.reduce((t, r) => t + r.amount, 0), [rows]);
+
+  const labelOf = React.useCallback(
+    (key: string) => {
+      switch (groupBy) {
+        case 'day':
+          return formatDisplayDate(key);
+        case 'week':
+          return `أسبوع ${formatDisplayDate(key)}`;
+        case 'month':
+          return key;
+        case 'category':
+          return categories.find((c) => c.id === key)?.name ?? '—';
+        case 'bearer':
+          return key === ORG ? 'المنشأة' : directory.nameOf(key);
+        case 'source':
+          return key === 'org' ? 'صندوق المنشأة' : key === 'custody' ? 'من العهد' : 'من مال الأشخاص';
+        case 'group':
+          return key === '—' ? 'بلا مجموعة' : (groups.find((g) => g.id === key)?.name ?? key);
+        case 'center': {
+          if (key === '—') return 'بلا مركز';
+          const c = centers.find((x) => x.id === key);
+          return c ? `${c.code} ${c.name}` : key;
+        }
+        case 'creator':
+          return directory.nameOf(key);
+      }
+    },
+    [groupBy, categories, groups, centers, directory],
+  );
+
+  const { page, setPage, pageSize, setPageSize, slice: pagedRows, total } = usePagination(rows, DEFAULT_PAGE_SIZE);
+
+  React.useEffect(() => {
+    setPage(1);
+  }, [groupBy, filter, setPage]);
+
+  const isDefaultPeriod = period.from === defaultPeriod.from && period.to === defaultPeriod.to;
+  const activeFilterCount =
+    [personId, categoryId, groupId, centerId, status].filter((v) => v !== ALL).length
+    + (groupBy !== 'day' ? 1 : 0)
+    + (isDefaultPeriod ? 0 : 1);
+
+  const exportExcel = React.useCallback(async () => {
+    if (rows.length === 0) {
+      toast.error('لا توجد بيانات للتصدير ضمن الفلاتر الحالية.');
+      return;
+    }
+    const sheet: XlsxCell[][] = [[GROUP_BY_LABELS[groupBy], 'العمليات', 'المبلغ', 'النسبة %']];
+    for (const r of rows) {
+      sheet.push([labelOf(r.key), r.count, currency.format(r.amount), totalAmount > 0 ? Math.round((r.amount / totalAmount) * 100) : 0]);
+    }
+    try {
+      await downloadXlsxFromAoA(`expenses-report-${period.from || 'all'}-${period.to || 'all'}.xlsx`, 'المصروفات', sheet);
+      toast.success('تم تنزيل ملف Excel.');
+    } catch {
+      toast.error('تعذر تصدير التقرير.');
+    }
+  }, [rows, groupBy, labelOf, currency, totalAmount, period]);
+
+  const exportCsv = React.useCallback(() => {
+    if (!data) return;
+    const csv = expensesCsv(filterExpenses(data, filter), {
+      category: (id) => categories.find((c) => c.id === id)?.name ?? '—',
+      party: (id) => directory.nameOf(id),
+      money: currency.format,
+    });
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
     const a = document.createElement('a');
     a.href = url;
-    a.download = `expenses-${f.from ?? 'all'}-${f.to ?? 'all'}.csv`;
+    a.download = `expenses-${filter.from ?? 'all'}-${filter.to ?? 'all'}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-  };
+  }, [data, filter, categories, directory, currency]);
+
+  usePageHeaderActions(
+    () => (
+      <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
+        <FilterToggleButton activeFilterCount={activeFilterCount} />
+        <ReportExportMenu onExcel={() => void exportExcel()} onCsv={exportCsv} />
+      </div>
+    ),
+    [activeFilterCount, exportExcel, exportCsv],
+  );
+
+  useEntityFilterSlot(
+    () => (
+      <ListFilterBar
+        showStatusSection={false}
+        showEmployeePicker={false}
+        periodValue={period}
+        onPeriodChange={setPeriod}
+        defaultPeriod={defaultPeriod}
+        inlineSelects={[
+          {
+            id: 'groupBy',
+            value: groupBy === 'day' ? ALL : groupBy,
+            onChange: (v) => setGroupBy(v === ALL ? 'day' : (v as GroupBy)),
+            placeholder: `حسب ${GROUP_BY_LABELS.day}`,
+            options: [
+              { value: ALL, label: `حسب ${GROUP_BY_LABELS.day}` },
+              ...(Object.keys(GROUP_BY_LABELS) as GroupBy[])
+                .filter((k) => k !== 'day' && (k !== 'center' || advanced) && (k !== 'group' || groups.length > 0))
+                .map((k) => ({ value: k, label: `حسب ${GROUP_BY_LABELS[k]}` })),
+            ],
+          },
+          {
+            id: 'person',
+            value: personId,
+            onChange: setPersonId,
+            placeholder: 'كل الأشخاص',
+            options: [{ value: ALL, label: 'كل الأشخاص' }, ...directory.choices.map((p) => ({ value: p.id, label: p.name }))],
+          },
+          {
+            id: 'category',
+            value: categoryId,
+            onChange: setCategoryId,
+            placeholder: 'كل الفئات',
+            options: [{ value: ALL, label: 'كل الفئات' }, ...categories.map((c) => ({ value: c.id, label: c.name }))],
+          },
+          ...(groups.length > 0
+            ? [{
+                id: 'group',
+                value: groupId,
+                onChange: setGroupId,
+                placeholder: 'كل المجموعات',
+                options: [{ value: ALL, label: 'كل المجموعات' }, ...groups.map((g) => ({ value: g.id, label: g.name }))],
+              }]
+            : []),
+          ...(centers.length > 0
+            ? [{
+                id: 'center',
+                value: centerId,
+                onChange: setCenterId,
+                placeholder: 'كل مراكز التكلفة',
+                options: [{ value: ALL, label: 'كل مراكز التكلفة' }, ...centers.map((c) => ({ value: c.id, label: `${c.code} ${c.name}` }))],
+              }]
+            : []),
+          {
+            id: 'status',
+            value: status,
+            onChange: (v) => setStatus(v === 'pending' ? 'pending' : ALL),
+            placeholder: 'المعتمد فقط',
+            options: [
+              { value: ALL, label: 'المعتمد فقط' },
+              { value: 'pending', label: 'يشمل المعلق' },
+            ],
+          },
+        ]}
+      />
+    ),
+    [period, defaultPeriod, groupBy, personId, categoryId, groupId, centerId, status, advanced, groups, centers, categories, directory.choices],
+  );
+
+  const columns: ColumnDef<Row>[] = [
+    {
+      key: 'label',
+      title: GROUP_BY_LABELS[groupBy],
+      render: (row) => <span className="font-medium">{labelOf(row.key)}</span>,
+    },
+    {
+      key: 'count',
+      title: 'العمليات',
+      render: (row) => <span className="tabular-nums">{row.count}</span>,
+    },
+    {
+      key: 'amount',
+      title: 'المبلغ',
+      render: (row) => <Money value={row.amount} className="font-semibold" />,
+    },
+    {
+      key: 'share',
+      title: 'النسبة',
+      hideOnMobile: true,
+      render: (row) => <ShareBar value={row.amount} max={maxAmount} total={totalAmount} />,
+    },
+  ];
+
+  const loading = !data;
 
   return (
-    <div className="space-y-4">
-      <SetPageTitle titleAr="التقارير" descriptionAr="المصروفات حسب الفترة والأشخاص والمجموعات والفئات ومراكز التكلفة" iconName="BarChart3" />
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex gap-1.5">
-          {(['day', 'week', 'month'] as const).map((p) => <button key={p} type="button" className={chip(period === p)} onClick={() => setPeriod(p)}>{p === 'day' ? 'يومي' : p === 'week' ? 'أسبوعي' : 'شهري'}</button>)}
-        </div>
-        <Button variant="outline" size="sm" onClick={exportCsv}><Download className="me-1.5 h-4 w-4" />تصدير CSV</Button>
+    <div className="flex flex-col gap-5">
+      <SetPageTitle titleAr="تحليل المصروفات" descriptionAr="المصروفات حسب الفترة والأشخاص والمجموعات والفئات ومراكز التكلفة." iconName="BarChart3" />
+
+      <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
+        <ReportSummaryCard label="إجمالي المصروفات" value={<Money value={report?.total ?? 0} />} hint={`${report?.count ?? 0} عملية`} />
+        <ReportSummaryCard label="معلق (خارج الإجمالي)" value={<Money value={report?.pendingTotal ?? 0} />} valueClassName="text-warning" hint={`${report?.pendingCount ?? 0} عملية`} />
+        <ReportSummaryCard label="صافي خروج النقد" value={<Money value={cash?.netOutflow ?? 0} />} hint="يشمل تمويل العهد" />
+        <ReportSummaryCard label="متوسط العملية" value={<Money value={report?.count ? Math.round(report.total / report.count) : 0} />} />
       </div>
 
-      <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
-        <div className="rounded-2xl border border-border bg-card p-3"><p className="text-[11px] text-muted-foreground">إجمالي المصروفات</p><Money value={report.total} className="text-base font-bold sm:text-lg" /><p className="text-[11px] text-muted-foreground">{report.count} عملية</p></div>
-        <div className="rounded-2xl border border-border bg-card p-3"><p className="text-[11px] text-muted-foreground">معلق (خارج الإجمالي)</p><Money value={report.pendingTotal} className="text-base font-bold text-warning sm:text-lg" /><p className="text-[11px] text-muted-foreground">{report.pendingCount} عملية</p></div>
-        <div className="rounded-2xl border border-border bg-card p-3"><p className="text-[11px] text-muted-foreground">صافي خروج النقد</p><Money value={cash.netOutflow} className="text-base font-bold sm:text-lg" /><p className="text-[11px] text-muted-foreground">يشمل تمويل العهد</p></div>
-        <div className="rounded-2xl border border-border bg-card p-3"><p className="text-[11px] text-muted-foreground">متوسط العملية</p><Money value={report.count ? Math.round(report.total / report.count) : 0} className="text-base font-bold sm:text-lg" /></div>
-      </div>
-
-      <Section title={period === 'day' ? 'حسب اليوم' : period === 'week' ? 'حسب الأسبوع (يبدأ السبت)' : 'حسب الشهر'}>
-        {report.series.length === 0 ? <EmptyState text="لا مصروفات في الفترة" /> : (
-          <div className="flex h-44 items-end gap-1 overflow-hidden" role="img" aria-label="مخطط المصروفات">
-            {report.series.map((r) => (
-              <div key={r.key} className="group flex min-w-0 flex-1 flex-col items-center justify-end gap-1" title={`${r.key}: ${currency.format(r.amount)}`}>
-                <div className="w-full rounded-t bg-primary/80 group-hover:bg-primary" style={{ height: `${Math.max(3, (r.amount / maxSeries) * 140)}px` }} />
-                <span className="hidden truncate text-[9px] text-muted-foreground sm:block">{period === 'month' ? r.key : r.key.slice(5)}</span>
+      <DirectoryPagedViews
+        items={pagedRows}
+        loading={loading}
+        serverPagination={{ page, pageSize, total, totalPages: Math.max(1, Math.ceil(total / pageSize)), setPage, setPageSize }}
+      >
+        {(rowsPage) => (
+          <DataTable
+            variant="directory"
+            columns={columns}
+            data={rowsPage}
+            keyExtractor={(row) => row.key}
+            mobileCard={(row) => (
+              <div className="space-y-1.5">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="min-w-0 truncate font-medium">{labelOf(row.key)}</p>
+                  <Money value={row.amount} className="shrink-0 font-semibold" />
+                </div>
+                <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                  <span>{row.count} عملية</span>
+                  <div className="flex-1"><ShareBar value={row.amount} max={maxAmount} total={totalAmount} /></div>
+                </div>
               </div>
-            ))}
-          </div>
+            )}
+            loading={loading}
+            emptyText="لا مصروفات ضمن الفلاتر الحالية."
+          />
         )}
-      </Section>
-
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <Breakdown title="حسب الفئة" rows={report.byCategory} label={catName} />
-        <Breakdown title="حسب من يتحمل التكلفة" rows={report.byBearer} label={(k) => (k === ORG ? 'المنشأة' : directory.nameOf(k))} />
-        <Breakdown title="حسب مصدر الدفع" rows={report.byPaymentSource} label={sourceName} />
-        <Breakdown title="حسب المجموعة" rows={report.byGroup} label={groupName} />
-        {data.settings.mode === 'advanced' ? <Breakdown title="حسب مركز التكلفة" rows={report.byCostCenter} label={centerName} /> : null}
-        <Breakdown title="حسب من سجّل" rows={report.byCreator} label={(k) => directory.nameOf(k)} />
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Section title="تقرير العهد" description="التسليم والتغذية والإرجاع تحويلات — لا تُحسب مصروفات">
-          {ledger.custodies.size === 0 ? <EmptyState text="لا عهد" /> : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-0 text-xs">
-                <thead className="text-muted-foreground"><tr><th className="py-1.5 text-start font-medium">الحامل</th><th className="text-start font-medium">مسلّم</th><th className="text-start font-medium">مصروف</th><th className="text-start font-medium">مرتجع</th><th className="text-start font-medium">الرصيد</th></tr></thead>
-                <tbody>
-                  {[...ledger.custodies.values()].map((c) => (
-                    <tr key={c.custody.id} className="border-t border-border/60">
-                      <td className="py-1.5">{directory.nameOf(c.custody.holderId)}</td>
-                      <td><Money value={c.issued + c.toppedUp} /></td>
-                      <td><Money value={c.spent} /></td>
-                      <td><Money value={c.returned} /></td>
-                      <td className="font-semibold"><Money value={c.actual} /></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </Section>
-        <Section title="حركة نقد المنشأة في الفترة" description="خروج: مصروفات مباشرة وتمويل عهد وسلف وتعويضات؛ دخول: مرتجعات وسداد">
-          <ul className="space-y-1.5 text-sm">
-            <li className="flex justify-between"><span>مصروفات مدفوعة مباشرة</span><Money value={cash.expensesPaidDirect} /></li>
-            <li className="flex justify-between"><span>تسليم وتغذية العهد</span><Money value={cash.custodyFunding} /></li>
-            <li className="flex justify-between"><span>مرتجعات العهد</span><Money value={-cash.custodyReturns} signed /></li>
-            <li className="flex justify-between"><span>سلف مدفوعة</span><Money value={cash.advancesPaid} /></li>
-            <li className="flex justify-between"><span>تعويضات وسداد للأشخاص</span><Money value={cash.settlementsPaid} /></li>
-            <li className="flex justify-between"><span>سداد مستلم من الأشخاص</span><Money value={-cash.settlementsReceived} signed /></li>
-            <li className="flex justify-between border-t border-border pt-1.5 font-semibold"><span>الصافي</span><Money value={cash.netOutflow} /></li>
-          </ul>
-        </Section>
-      </div>
+      </DirectoryPagedViews>
     </div>
   );
 }

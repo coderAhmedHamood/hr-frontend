@@ -43,6 +43,7 @@ import {
   type CompanyDataCatalogSet,
   type CompanyDataKind,
   type CompanyDataRun,
+  type DemoResetRun,
   type SystemOwnerCompanyApplication,
 } from '@/features/system-owner/lib/api/system-owner';
 import { ApiError } from '@/shared/api/client';
@@ -69,9 +70,12 @@ export function SystemOwnerCompanyDetailPage() {
           <Link href={systemOwnerRoutes.overview}>العودة للشركات</Link>
         </Button>
         {company?.code ? (
-          <span className="text-xs text-muted-foreground" dir="ltr">
-            {company.code}
-          </span>
+          <Badge variant="secondary" className="gap-1 text-xs">
+            رمز الشركة:
+            <span dir="ltr" className="font-mono">
+              {company.code}
+            </span>
+          </Badge>
         ) : null}
       </div>
 
@@ -367,6 +371,7 @@ function CompanyDataTab({ companyId }: { companyId: string }) {
           )}
         </div>
       ) : null}
+      {catalog.data ? <DemoResetCard companyId={companyId} /> : null}
       {catalog.isLoading ? (
         <p className="text-xs text-muted-foreground">جارٍ التحميل…</p>
       ) : null}
@@ -382,6 +387,165 @@ function CompanyDataTab({ companyId }: { companyId: string }) {
           profile={selectedProfile}
         />
       ))}
+    </div>
+  );
+}
+
+function DemoResetCard({ companyId }: { companyId: string }) {
+  const { data: company } = useSystemOwnerCompany(companyId);
+  const [run, setRun] = React.useState<DemoResetRun | null>(null);
+  const [confirming, setConfirming] = React.useState(false);
+  const [typedCode, setTypedCode] = React.useState('');
+  const queryClient = useQueryClient();
+  const preview = useMutation({
+    mutationFn: () => systemOwnerApi.previewDemoReset(companyId),
+    onSuccess: setRun,
+  });
+  const apply = useMutation({
+    mutationFn: () => systemOwnerApi.applyDemoReset(companyId),
+    onSuccess: (result) => {
+      setRun(result);
+      setConfirming(false);
+      if (!result.applied) {
+        toast.error('لم يُحذف شيء: سجلات أخرى ما زالت مرتبطة بالبيانات التجريبية');
+        return;
+      }
+      void queryClient.invalidateQueries({
+        queryKey: ['system-owner', 'data-catalog', companyId],
+      });
+      toast.success(`حُذف ${result.totals.removed} سجلاً تجريبياً، ويمكن اختيار باقة أخرى الآن`);
+    },
+  });
+  const busy = preview.isPending || apply.isPending;
+  const companyCode = company?.code ?? '';
+  const canRemove =
+    !!run && !run.applied && run.blockers.length === 0 && run.totals.removed > 0;
+  const openConfirm = () => {
+    setTypedCode('');
+    setConfirming(true);
+  };
+
+  return (
+    <section className="space-y-2 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3">
+      <div className="space-y-1">
+        <h3 className="text-sm font-semibold">حذف البيانات التجريبية</h3>
+        <p className="text-xs text-muted-foreground">
+          يُفرغ الشركة من البيانات التجريبية (المنتجات والمستودع الفرعي والرفوف ونقاط البيع والسندات وجهات الاتصال
+          والمصاريف التجريبية) ومن كل ما ارتبط بها من سندات ومبيعات وطلبات وحركات تكلفة وحسابات، ثم يفك تثبيت
+          الباقة لاختيار نوع آخر. عاين أولاً لترى العدد.
+        </p>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Button variant="outline" size="sm" disabled={busy} onClick={() => preview.mutate()}>
+          {preview.isPending ? 'جارٍ الحساب…' : 'معاينة الحذف'}
+        </Button>
+        <Button
+          variant="destructive"
+          size="sm"
+          disabled={busy || !canRemove}
+          onClick={openConfirm}
+        >
+          حذف البيانات التجريبية
+        </Button>
+      </div>
+      {run ? <DemoResetResult run={run} /> : null}
+
+      <Dialog
+        open={confirming}
+        onOpenChange={(open) => (!apply.isPending ? setConfirming(open) : undefined)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>حذف البيانات التجريبية — {company?.nameAr}</DialogTitle>
+            <DialogDescription>
+              سيُحذف {run?.totals.removed ?? 0} سجلاً تجريبياً نهائياً، ولا يمكن التراجع. اكتب رمز الشركة
+              للتأكيد.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-1">
+            <Label htmlFor="demo-reset-code">
+              رمز الشركة: <span dir="ltr">{companyCode}</span>
+            </Label>
+            <Input
+              id="demo-reset-code"
+              dir="ltr"
+              value={typedCode}
+              onChange={(e) => setTypedCode(e.target.value)}
+              autoComplete="off"
+            />
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" disabled={apply.isPending} onClick={() => setConfirming(false)}>
+              إلغاء
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={apply.isPending || !companyCode || typedCode.trim() !== companyCode}
+              onClick={() => apply.mutate()}
+            >
+              {apply.isPending ? 'جارٍ الحذف…' : 'حذف نهائي'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </section>
+  );
+}
+
+function DemoResetResult({ run }: { run: DemoResetRun }) {
+  if (run.blockers.length > 0) {
+    return (
+      <div className="space-y-2">
+        <p className="text-xs font-medium text-destructive">
+          تعذر الحذف ولم يتغير شيء: سجلات أخرى ما زالت مرتبطة بالبيانات التجريبية.
+        </p>
+        <ul className="space-y-1 text-xs">
+          {run.blockers.map((b) => (
+            <li key={b.code} className="rounded-lg border border-destructive/30 bg-card px-3 py-2">
+              <span className="font-medium">{b.labelAr}</span>{' '}
+              <span className="tabular-nums text-muted-foreground">({b.count})</span>
+              {b.examples.length > 0 ? (
+                <span className="ms-2 text-muted-foreground" dir="auto">
+                  {b.examples.join('، ')}
+                </span>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  }
+  if (run.totals.removed === 0 && !run.applied) {
+    return <p className="text-xs text-muted-foreground">لا توجد بيانات تجريبية لهذه الشركة.</p>;
+  }
+  const rows = [
+    ...run.removed.map((line) => ({ ...line, kept: false })),
+    ...run.kept.map((line) => ({ ...line, kept: true })),
+  ];
+  return (
+    <div className="space-y-2">
+      <p className="text-xs font-medium">
+        {run.applied ? 'النتيجة: حُذف' : 'المعاينة (لم يُحذف شيء): سيُحذف'} {run.totals.removed}
+        {run.totals.kept > 0 ? `، ويبقى ${run.totals.kept}` : ''}
+      </p>
+      <div className="overflow-x-auto rounded-xl border border-border/70 bg-card">
+        <table className="w-full text-sm">
+          <thead className="bg-muted/40 text-muted-foreground">
+            <tr>
+              <th className="px-3 py-2 text-start font-medium">البيانات</th>
+              <th className="px-3 py-2 text-start font-medium">العدد</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={`${row.kept ? 'kept' : 'removed'}-${row.code}`} className="border-t border-border/60">
+                <td className={cn('px-3 py-2', row.kept && 'text-muted-foreground')}>{row.labelAr}</td>
+                <td className="px-3 py-2 tabular-nums">{row.count}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
