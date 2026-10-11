@@ -92,7 +92,12 @@ export const useExpensesStore = create<ExpensesState>((set, get) => {
     busy: false,
 
     init: async (companyId) => {
-      if (get().companyId === companyId && get().data) return;
+      if (get().companyId === companyId && get().data) {
+        // Users and internal contacts change in other apps: refresh who can
+        // be chosen each time the app opens, keeping the current list meanwhile.
+        await loadParticipants(companyId);
+        return;
+      }
       set({
         companyId,
         data: null,

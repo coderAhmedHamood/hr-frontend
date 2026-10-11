@@ -14,14 +14,20 @@ export const todayIso = () => new Date().toISOString().slice(0, 10);
 
 /**
  * Loads the active company's expenses data and participants from the server
- * (again when the company changes). The signed-in user is the actor.
+ * (again when the company changes). Participants are refreshed whenever the
+ * app opens or the tab regains focus. The signed-in user is the actor.
  */
 export function ExpensesProvider({ children }: { children: React.ReactNode }) {
   const companyId = useAuthStore((s) => s.activeCompanyId);
   const init = useExpensesStore((s) => s.init);
 
   React.useEffect(() => {
-    if (companyId) void init(companyId);
+    if (!companyId) return;
+    void init(companyId);
+    // Back to the tab (a user or contact added elsewhere): refresh the people.
+    const onFocus = () => void init(companyId);
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
   }, [companyId, init]);
 
   return <>{children}</>;
