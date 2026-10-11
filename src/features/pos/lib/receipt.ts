@@ -13,11 +13,11 @@ import { formatAmount, formatDateTime } from '@/features/pos/lib/format';
 export function saleToPrintable(
   sale: PosSale,
   register: PosRegister | undefined,
-  options: { copy?: boolean } = {},
+  options: { copy?: boolean; invoiceStyle?: 'thermal' | 'standard' } = {},
 ): PrintableDocument {
   const customer = sale.customer.kind === 'named' ? sale.customer : null;
   return {
-    title: 'إيصال بيع',
+    title: options.invoiceStyle === 'standard' ? 'فاتورة بيع' : 'إيصال بيع',
     number: sale.number ?? sale.id.slice(0, 8),
     issuedAt: formatDateTime(sale.completedAt ?? sale.createdAt),
     meta: [

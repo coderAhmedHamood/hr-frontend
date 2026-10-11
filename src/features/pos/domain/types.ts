@@ -9,6 +9,9 @@ export type PosStockMode = 'none' | 'inventory';
 
 export type PosPaymentMethod = 'cash' | 'card' | 'transfer';
 
+/** How a point of sale prints a completed sale. */
+export type PosInvoiceStyle = 'thermal' | 'standard';
+
 export type PosSettings = {
   stockMode: PosStockMode;
   /**
@@ -44,6 +47,11 @@ export type PosSettings = {
     denominations: number[];
   };
   paymentMethods: Record<PosPaymentMethod, boolean>;
+  /**
+   * Default document for every register that does not choose its own:
+   * a thermal ticket, or the company's normal A4 invoice.
+   */
+  invoiceStyle: PosInvoiceStyle;
 };
 
 export type PosRegister = {
@@ -56,6 +64,8 @@ export type PosRegister = {
   /** Inventory mode only. */
   warehouseName: string | null;
   isActive: boolean;
+  /** Null follows the company POS setting. */
+  invoiceStyle?: PosInvoiceStyle | null;
   nextSequence: number;
   createdAt: string;
 };
@@ -302,4 +312,14 @@ export const DEFAULT_POS_SETTINGS: PosSettings = {
     denominations: [1000, 500, 200, 100, 50, 20, 10, 5, 1],
   },
   paymentMethods: { cash: true, card: true, transfer: true },
+  invoiceStyle: 'thermal',
 };
+
+/** A register's own choice, otherwise the company POS setting. */
+export function resolvePosInvoiceStyle(
+  register: Pick<PosRegister, 'invoiceStyle'> | undefined,
+  settings: Pick<PosSettings, 'invoiceStyle'> | undefined,
+): PosInvoiceStyle {
+  if (register?.invoiceStyle === 'thermal' || register?.invoiceStyle === 'standard') return register.invoiceStyle;
+  return settings?.invoiceStyle === 'standard' ? 'standard' : 'thermal';
+}

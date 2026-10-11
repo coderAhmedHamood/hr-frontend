@@ -25,7 +25,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/shared/utils';
-import type { PosDiscount, PosSale, PosSaleLine } from '@/features/pos/domain/types';
+import { resolvePosInvoiceStyle, type PosDiscount, type PosSale, type PosSaleLine } from '@/features/pos/domain/types';
 import { posRoutes } from '@/features/pos/constants/routes';
 import { usePosContext } from '@/features/pos/hooks/use-pos-context';
 import { discountPercentOf, paidAmount, priceLines, round2 } from '@/features/pos/lib/calc';
@@ -280,6 +280,7 @@ function Register() {
   }, [params]);
 
   const register = data.registers.find((r) => r.id === registerId && r.isActive) ?? null;
+  const invoiceStyle = resolvePosInvoiceStyle(register ?? undefined, settings);
   const session = register ? data.sessions.find((s) => s.registerId === register.id && s.status === 'open') ?? null : null;
 
   const cartKey = `pos.cart.${companyId}.${registerId}`;
@@ -328,6 +329,7 @@ function Register() {
           open={!!zSession}
           onOpenChange={(o) => !o && setZSessionId(null)}
           title="تقرير إغلاق الوردية (Z)"
+          invoiceStyle={invoiceStyle}
           document={zSession ? sessionToPrintable(zSession, register, summarizeSession(data, zSession)) : null}
         />
       </>
@@ -735,13 +737,15 @@ function Register() {
         open={xOpen}
         onOpenChange={setXOpen}
         title="تقرير الوردية (X)"
+        invoiceStyle={invoiceStyle}
         document={sessionToPrintable(session, register, sessionSummary)}
       />
       <PrintPreviewDialog
         open={!!receiptSale}
         onOpenChange={(o) => !o && setReceiptSaleId(null)}
-        title={`الإيصال ${receiptSale?.number ?? ''}`}
-        document={receiptSale ? saleToPrintable(receiptSale, register) : null}
+        title={`${invoiceStyle === 'standard' ? 'الفاتورة' : 'الإيصال'} ${receiptSale?.number ?? ''}`}
+        invoiceStyle={invoiceStyle}
+        document={receiptSale ? saleToPrintable(receiptSale, register, { invoiceStyle }) : null}
         footer={
           <Button variant="outline" onClick={() => setReceiptSaleId(null)}>
             بيع جديد

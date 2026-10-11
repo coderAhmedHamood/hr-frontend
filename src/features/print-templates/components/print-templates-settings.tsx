@@ -12,17 +12,19 @@ import { useActiveCompany } from '@/features/hr/organization/hooks/useActiveComp
 import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 import { PrintDocumentView } from '@/features/print-templates/components/print-document-view';
 import {
-  PRINT_DOCUMENTS,
+  CONFIGURABLE_PRINT_DOCUMENTS,
+  DOCUMENT_LAYOUTS,
+  DOCUMENT_TABLE_STYLES,
   PRINT_PAPERS,
-  PRINT_TEMPLATES,
+  type DocumentLayout,
   type PrintDocumentType,
+  type PrintTemplateId,
   type PrintTemplateSettings,
 } from '@/features/print-templates/domain/types';
 import { printElement } from '@/features/print-templates/lib/print-html';
 import { toPrintCompany } from '@/features/print-templates/lib/print-company';
 import {
   documentStarter,
-  resolveDocumentPrintSettings,
   resolvePrintTemplateSettings,
   useCompanyPrintTemplates,
   useSavePrintTemplate,
@@ -30,6 +32,13 @@ import {
 import { samplePrintDocument } from '@/features/print-templates/lib/sample-document';
 
 type HeaderKey = Exclude<keyof PrintTemplateSettings['header'], 'extraLines'>;
+
+const TEMPLATE_OF_LAYOUT: Record<DocumentLayout, PrintTemplateId> = {
+  light: 'formal',
+  striped: 'elegant',
+  wave: 'modern',
+  boxed: 'classic',
+};
 
 const HEADER_TOGGLES: ReadonlyArray<{ key: HeaderKey; label: string }> = [
   { key: 'showLogo', label: 'الشعار' },
@@ -50,9 +59,8 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 /**
- * Print templates: the company's unified template, and for each document
- * (POS receipt, inventory receipt / delivery / transfer) either the unified
- * one or a template of its own. Saved on the server for the whole company.
+ * Two company identities: one official A4 identity inherited by every
+ * business document, and one thermal identity used only by POS receipts.
  */
 export function PrintTemplatesSettings() {
   const companyId = useDefaultCompanyId();
@@ -60,31 +68,31 @@ export function PrintTemplatesSettings() {
   const { data: templates } = useCompanyPrintTemplates(companyId);
   const saveTemplate = useSavePrintTemplate(companyId);
   const [documentType, setDocumentType] = React.useState<PrintDocumentType>('default');
-  // A document has its own template when one is saved for it.
-  const hasOwn = documentType !== 'default' && Boolean(templates?.[documentType]);
-  const [useUnified, setUseUnified] = React.useState(!hasOwn);
   const saved = React.useMemo(
-    () =>
-      documentType === 'default'
-        ? resolvePrintTemplateSettings(templates?.default, documentStarter('default'))
-        : resolveDocumentPrintSettings(templates, documentType),
+    () => {
+      const settings = resolvePrintTemplateSettings(templates?.[documentType], documentStarter(documentType));
+      return {
+        ...settings,
+        paper:
+          documentType === 'pos_receipt'
+            ? settings.paper === '58mm'
+              ? '58mm'
+              : '80mm'
+            : 'a4',
+      } as PrintTemplateSettings;
+    },
     [templates, documentType],
   );
   const [draft, setDraft] = React.useState<PrintTemplateSettings>(saved);
   const previewRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => setDraft(saved), [saved]);
-  React.useEffect(() => setUseUnified(!hasOwn), [hasOwn, documentType]);
 
   const printCompany = toPrintCompany(company);
   const sample = samplePrintDocument(documentType);
-  const editing = documentType === 'default' || !useUnified;
-  const unifiedSettings = resolvePrintTemplateSettings(templates?.default, documentStarter('default'));
-  const shown = editing ? draft : unifiedSettings;
-  const dirty =
-    documentType !== 'default' && useUnified === hasOwn
-      ? true
-      : editing && JSON.stringify(draft) !== JSON.stringify(saved);
+  const official = documentType !== 'pos_receipt';
+  const shown = draft;
+  const dirty = JSON.stringify(draft) !== JSON.stringify(saved);
 
   const patchHeader = (patch: Partial<PrintTemplateSettings['header']>) =>
     setDraft((d) => ({ ...d, header: { ...d.header, ...patch } }));
@@ -93,18 +101,16 @@ export function PrintTemplatesSettings() {
 
   const handleSave = async () => {
     if (!companyId) return;
-    const name = PRINT_DOCUMENTS.find((d) => d.id === documentType)?.nameAr ?? '';
+    const name = CONFIGURABLE_PRINT_DOCUMENTS.find((d) => d.id === documentType)?.nameAr ?? '';
     try {
       await saveTemplate.mutateAsync({
         documentType,
-        settings: documentType !== 'default' && useUnified ? null : draft,
+        settings: draft,
       });
       toast.success(
         documentType === 'default'
-          ? 'حُفظ القالب الموحّد. تطبع به كل المستندات التي ليس لها قالب خاص.'
-          : useUnified
-            ? `«${name}» يطبع الآن بالقالب الموحّد.`
-            : `حُفظ قالب «${name}».`,
+          ? 'حُفظت الهوية الرسمية. ستستخدمها كل السندات والتقارير.'
+          : `حُفظ قالب «${name}».`,
       );
     } catch {
       toast.error('تعذّر حفظ القالب — تأكد من صلاحية تعديل إعدادات الشركة.');
@@ -115,9 +121,8 @@ export function PrintTemplatesSettings() {
     <div className="space-y-4">
       <Section title="المستند">
         <div className="flex flex-wrap gap-2">
-          {PRINT_DOCUMENTS.map((d) => {
+          {CONFIGURABLE_PRINT_DOCUMENTS.map((d) => {
             const active = documentType === d.id;
-            const own = d.id !== 'default' && Boolean(templates?.[d.id]);
             return (
               <button
                 key={d.id}
@@ -130,75 +135,89 @@ export function PrintTemplatesSettings() {
                 )}
               >
                 <span className="block font-semibold">{d.nameAr}</span>
-                <span className="block text-[11px] text-muted-foreground">
-                  {d.id === 'default' ? d.descriptionAr : own ? 'قالب خاص' : 'يستخدم القالب الموحّد'}
-                </span>
+                <span className="block text-[11px] text-muted-foreground">{d.descriptionAr}</span>
               </button>
             );
           })}
         </div>
-        {documentType !== 'default' ? (
-          <div className="mt-3 flex items-center justify-between gap-2 rounded-md border border-border px-3 py-2 text-sm">
-            <span>
-              يستخدم القالب الموحّد
-              <span className="block text-xs text-muted-foreground">
-                أوقفه لتصميم قالب خاص بـ«{PRINT_DOCUMENTS.find((d) => d.id === documentType)?.nameAr}» (مثلًا ورق A4 لسندات المخازن).
-              </span>
-            </span>
-            <Switch
-              aria-label="يستخدم القالب الموحّد"
-              checked={useUnified}
-              onCheckedChange={(v) => {
-                setUseUnified(v);
-                if (!v && !hasOwn) setDraft(documentStarter(documentType));
-              }}
-            />
-          </div>
-        ) : null}
+        <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+          {documentType === 'default'
+            ? 'تُضبط مرة واحدة وتُطبّق على سندات الاستلام والصرف والتحويل والجرد والتسويات، وعلى أي مستند رسمي جديد.'
+            : 'إيصالات نقاط البيع مستقلة وتبقى على طابعة حرارية 80 أو 58 مم.'}
+        </p>
       </Section>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
-      <div className={cn('min-w-0 space-y-4', !editing && 'pointer-events-none opacity-50')} aria-disabled={!editing}>
-        <Section title="شكل القالب">
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
-            {PRINT_TEMPLATES.map((t) => {
-              const active = draft.templateId === t.id;
-              return (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => setDraft((d) => ({ ...d, templateId: t.id }))}
-                  className={cn(
-                    'group relative flex flex-col overflow-hidden rounded-lg border text-start transition',
-                    active ? 'border-primary ring-2 ring-primary/30' : 'border-border hover:border-primary/40',
-                  )}
-                  aria-pressed={active}
-                >
-                  <div className="pointer-events-none flex h-44 justify-center overflow-hidden bg-muted/40 pt-2">
-                    <div style={{ transform: 'scale(0.42)', transformOrigin: 'top center' }}>
-                      <PrintDocumentView
-                        document={sample}
-                        company={printCompany}
-                        settings={{ ...draft, templateId: t.id, paper: '80mm' }}
-                      />
-                    </div>
-                  </div>
-                  <div className="border-t border-border p-2">
-                    <div className="flex items-center gap-1 text-sm font-semibold">
-                      {active ? <Check className="h-3.5 w-3.5 text-primary" /> : null}
-                      {t.nameAr}
-                    </div>
-                    <p className="mt-0.5 text-xs leading-snug text-muted-foreground">{t.descriptionAr}</p>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </Section>
+      <div className="min-w-0 space-y-4">
+        {official ? (
+          <>
+            <Section title="مخطط الصفحة">
+              <div className="flex flex-wrap gap-2">
+                {DOCUMENT_LAYOUTS.map((layout) => (
+                  <Button
+                    key={layout.id}
+                    type="button"
+                    size="sm"
+                    variant={draft.layout === layout.id ? 'default' : 'outline'}
+                    onClick={() =>
+                      setDraft((current) => ({
+                        ...current,
+                        layout: layout.id,
+                        templateId: TEMPLATE_OF_LAYOUT[layout.id],
+                      }))
+                    }
+                  >
+                    {draft.layout === layout.id ? <Check className="h-3.5 w-3.5" /> : null}
+                    {layout.nameAr}
+                  </Button>
+                ))}
+              </div>
+            </Section>
+            <Section title="الجدول">
+              <div className="flex flex-wrap gap-2">
+                {DOCUMENT_TABLE_STYLES.map((table) => (
+                  <Button
+                    key={table.id}
+                    type="button"
+                    size="sm"
+                    variant={draft.tableStyle === table.id ? 'default' : 'outline'}
+                    onClick={() => setDraft((current) => ({ ...current, tableStyle: table.id }))}
+                  >
+                    {draft.tableStyle === table.id ? <Check className="h-3.5 w-3.5" /> : null}
+                    {table.nameAr}
+                  </Button>
+                ))}
+              </div>
+            </Section>
+            <Section title="الشعار والألوان">
+              <div className="mb-3 flex items-center gap-2">
+                <span className="h-6 w-6 rounded-full border" style={{ background: printCompany.primaryColor || '#6d4c9a' }} />
+                <span className="h-6 w-6 rounded-full border" style={{ background: printCompany.secondaryColor || '#ece8f3' }} />
+                <span className="text-xs text-muted-foreground">من البيانات الأساسية للشركة</span>
+              </div>
+              <Label>سطر التعارف تحت اسم الشركة</Label>
+              <Textarea
+                rows={2}
+                className="mt-1.5"
+                value={draft.slogan}
+                onChange={(event) => setDraft((current) => ({ ...current, slogan: event.target.value }))}
+                placeholder="مثال: حلول الأعمال العالمية"
+              />
+            </Section>
+          </>
+        ) : (
+          <Section title="الإيصال الحراري">
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              إيصال نقاط البيع ورقة صغيرة مستقلة: الشعار في الأعلى، ثم رمز المستند، ورقمه، والكاشير، والأصناف. لا يستخدم مخطط الأوراق الرسمية.
+            </p>
+          </Section>
+        )}
 
         <Section title="الورق">
           <div className="flex flex-wrap gap-2">
-            {PRINT_PAPERS.map((p) => (
+            {PRINT_PAPERS.filter((p) =>
+              documentType === 'pos_receipt' ? p.id !== 'a4' : p.id === 'a4',
+            ).map((p) => (
               <Button
                 key={p.id}
                 type="button"
@@ -302,7 +321,6 @@ export function PrintTemplatesSettings() {
             variant="outline"
             onClick={() => {
               setDraft(saved);
-              setUseUnified(!hasOwn);
             }}
             disabled={!dirty}
           >
@@ -310,7 +328,7 @@ export function PrintTemplatesSettings() {
           </Button>
         </div>
         <p className="text-xs leading-relaxed text-muted-foreground">
-          القوالب محفوظة للشركة كلها: يطبع بها كل المستخدمين على كل الأجهزة. الطباعة لا تعني امتثالًا ضريبيًا؛ الفوترة الإلكترونية تُضاف لكل دولة على حدة.
+          الهوية محفوظة للشركة كلها ويستخدمها جميع المستخدمين والأجهزة. الطباعة لا تعني امتثالًا ضريبيًا؛ الفوترة الإلكترونية تُضاف لكل دولة على حدة.
         </p>
       </aside>
       </div>

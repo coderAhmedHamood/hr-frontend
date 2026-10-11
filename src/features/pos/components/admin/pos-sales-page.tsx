@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   PAYMENT_METHOD_LABELS,
+  resolvePosInvoiceStyle,
   SALE_STATUS_LABELS,
   type PosPaymentMethod,
   type PosSale,
@@ -364,8 +365,12 @@ function SaleDialog({ sale, onClose }: { sale: PosSale | null; onClose: () => vo
       <PrintPreviewDialog
         open={printOpen}
         onOpenChange={setPrintOpen}
-        title="إعادة طباعة الإيصال"
-        document={saleToPrintable(sale, register, { copy: true })}
+        title="إعادة طباعة المستند"
+        invoiceStyle={resolvePosInvoiceStyle(register, data.settings)}
+        document={saleToPrintable(sale, register, {
+          copy: true,
+          invoiceStyle: resolvePosInvoiceStyle(register, data.settings),
+        })}
         onPrinted={() => actions?.logAudit(userName, 'receipt_reprint', sale.number ?? sale.id)}
       />
     </>

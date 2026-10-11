@@ -49,7 +49,8 @@ export const SAMPLE_STOCK_DOCUMENT: PrintableDocument = {
 };
 
 export function samplePrintDocument(documentType: string): PrintableDocument {
-  if (documentType === 'inventory_receipt') return SAMPLE_STOCK_DOCUMENT;
+  if (documentType === 'pos_receipt') return SAMPLE_PRINT_DOCUMENT;
+  if (documentType === 'default' || documentType === 'inventory_receipt') return SAMPLE_STOCK_DOCUMENT;
   if (documentType === 'inventory_delivery') {
     return {
       ...SAMPLE_STOCK_DOCUMENT,

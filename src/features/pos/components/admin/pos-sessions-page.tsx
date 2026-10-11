@@ -5,7 +5,7 @@ import { FileText, Lock } from 'lucide-react';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import type { PosSession } from '@/features/pos/domain/types';
+import { resolvePosInvoiceStyle, type PosSession } from '@/features/pos/domain/types';
 import { usePosContext } from '@/features/pos/hooks/use-pos-context';
 import { formatDateTime, formatMoney } from '@/features/pos/lib/format';
 import { sessionToPrintable } from '@/features/pos/lib/receipt';
@@ -137,6 +137,10 @@ function Sessions() {
         open={!!report}
         onOpenChange={(o) => !o && setReport(null)}
         title="تقرير الوردية"
+        invoiceStyle={resolvePosInvoiceStyle(
+          data.registers.find((r) => r.id === report?.registerId),
+          data.settings,
+        )}
         document={
           report
             ? sessionToPrintable(

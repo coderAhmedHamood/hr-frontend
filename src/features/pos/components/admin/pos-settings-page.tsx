@@ -11,9 +11,15 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/shared/utils';
-import { PRINT_TEMPLATES } from '@/features/print-templates/domain/types';
+import { PRINT_PAPERS } from '@/features/print-templates/domain/types';
 import { usePrintTemplateSettings } from '@/features/print-templates/lib/print-template-store';
-import { PAYMENT_METHOD_LABELS, type PosPaymentMethod, type PosSettings, type PosStockMode } from '@/features/pos/domain/types';
+import {
+  PAYMENT_METHOD_LABELS,
+  type PosInvoiceStyle,
+  type PosPaymentMethod,
+  type PosSettings,
+  type PosStockMode,
+} from '@/features/pos/domain/types';
 import { usePosContext } from '@/features/pos/hooks/use-pos-context';
 import { parseAmount } from '@/features/pos/lib/format';
 import { PosGate, PosPreviewNote } from '@/features/pos/components/shared/pos-shared';
@@ -98,7 +104,12 @@ function Settings() {
   const [tab, setTab] = React.useState<SettingsTab>('stock');
   const tabDirty = (keys: ReadonlyArray<keyof PosSettings>) =>
     keys.some((k) => JSON.stringify(draft[k]) !== JSON.stringify(data.settings[k]));
-  const templateName = PRINT_TEMPLATES.find((t) => t.id === template.templateId)?.nameAr;
+  const templateName = PRINT_PAPERS.find((paper) => paper.id === template.paper)?.nameAr ?? 'حراري 80 مم';
+  const chooseInvoice = async (invoiceStyle: PosInvoiceStyle) => {
+    if (!actions || !canEdit) return;
+    if (!(await actions.saveSettings({ ...data.settings, invoiceStyle }))) return;
+    toast.success(invoiceStyle === 'standard' ? 'أصبحت الفاتورة العادية هي الافتراضية.' : 'أصبح الإيصال الحراري هو الافتراضي.');
+  };
 
   const set = <K extends keyof PosSettings>(key: K, patch: Partial<PosSettings[K]>) =>
     setDraft((d) => ({ ...d, [key]: { ...(d[key] as object), ...patch } }));
@@ -312,13 +323,42 @@ function Settings() {
         </TabsContent>
 
         <TabsContent value="print" className="grid gap-4 lg:grid-cols-2">
-          <Card title="الطباعة" description="الإيصالات تُطبع بالقالب المعتمد في إعدادات الشركة.">
+          <Card
+            title="طريقة الفاتورة"
+            description="الافتراضي لكل نقطة بيع لم تختر طريقتها. نقطة بيع التجزئة تبقى حرارية، ونقطة تبيع بالجملة أو بعرض سعر تستخدم الورقة العادية."
+          >
+            <div className="grid gap-2 sm:grid-cols-2">
+              {(
+                [
+                  ['thermal', 'إيصال حراري', 'ورقة 80 أو 58 مم للكاشير.'],
+                  ['standard', 'فاتورة عادية', 'ورقة A4 بهوية الشركة، كعرض سعر أو فاتورة.'],
+                ] as const
+              ).map(([id, label, hint]) => (
+                <button
+                  key={id}
+                  type="button"
+                  disabled={!canEdit}
+                  onClick={() => void chooseInvoice(id)}
+                  className={cn(
+                    'rounded-lg border px-3 py-2 text-start text-sm',
+                    (data.settings.invoiceStyle ?? 'thermal') === id
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border',
+                  )}
+                >
+                  <span className="block font-semibold">{label}</span>
+                  <span className="mt-0.5 block text-xs text-muted-foreground">{hint}</span>
+                </button>
+              ))}
+            </div>
+          </Card>
+          <Card title="شكل الورق" description="الحراري من قالب إيصال نقاط البيع، والعادية من الهوية الرسمية للشركة.">
             <div className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm">
               <span>
-                القالب المعتمد: <b>{templateName}</b>
+                الإيصال الحراري: <b>{templateName}</b>
               </span>
               <Button asChild size="sm" variant="outline">
-                <Link href="/system/organization/pages/company">تغيير القالب</Link>
+                <Link href="/system/organization/pages/company">قوالب الشركة</Link>
               </Button>
             </div>
           </Card>

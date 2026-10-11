@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import type { PosSession } from '@/features/pos/domain/types';
+import { resolvePosInvoiceStyle, type PosSession } from '@/features/pos/domain/types';
 import { usePosContext } from '@/features/pos/hooks/use-pos-context';
 import { round2 } from '@/features/pos/lib/calc';
 import { formatMoney, parseAmount } from '@/features/pos/lib/format';
@@ -53,6 +53,7 @@ export function CloseSessionDialog({
         open
         onOpenChange={(o) => !o && setZSession(null)}
         title="تقرير إغلاق الوردية"
+        invoiceStyle={resolvePosInvoiceStyle(register, data.settings)}
         document={sessionToPrintable(closed, register, summarizeSession(data, closed))}
       />
     );

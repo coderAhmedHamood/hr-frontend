@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { branchesApi } from '@/features/hr/organization/lib/api/branches';
-import type { PosRegister } from '@/features/pos/domain/types';
+import { resolvePosInvoiceStyle, type PosInvoiceStyle, type PosRegister } from '@/features/pos/domain/types';
 import { usePosContext } from '@/features/pos/hooks/use-pos-context';
 import { readPairedDevice, writePairedDevice } from '@/features/pos/lib/pos-store';
 import { formatDateTime } from '@/features/pos/lib/format';
@@ -26,6 +26,7 @@ type Draft = {
   branchId: string | null;
   warehouseName: string;
   isActive: boolean;
+  invoiceStyle: PosInvoiceStyle | 'company';
 };
 
 const NO_BRANCH = '__none__';
@@ -64,6 +65,7 @@ function RegisterDialog({
       branchName: branch?.nameAr ?? (form.branchId ? data.registers.find((r) => r.id === form.id)?.branchName ?? null : null),
       warehouseName: form.warehouseName.trim() || null,
       isActive: form.isActive,
+      invoiceStyle: form.invoiceStyle === 'company' ? null : form.invoiceStyle,
     });
     if (!saved) return;
     toast.success('حُفظت نقطة البيع');
@@ -125,6 +127,25 @@ function RegisterDialog({
               </p>
             </div>
           ) : null}
+          <div className="space-y-1.5">
+            <Label>طريقة الفاتورة</Label>
+            <Select
+              value={form.invoiceStyle}
+              onValueChange={(value) => setForm({ ...form, invoiceStyle: value as Draft['invoiceStyle'] })}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="company">حسب إعداد نقاط البيع</SelectItem>
+                <SelectItem value="thermal">إيصال حراري</SelectItem>
+                <SelectItem value="standard">فاتورة عادية A4</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              العادية تستخدم هوية الشركة، وتناسب نقطة تبيع بعرض سعر أو فاتورة بدل الإيصال الحراري.
+            </p>
+          </div>
           <label className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm">
             نشطة
             <Switch checked={form.isActive} onCheckedChange={(v) => setForm({ ...form, isActive: v })} />
@@ -164,6 +185,7 @@ function Registers() {
       branchId: r.branchId,
       warehouseName: r.warehouseName ?? '',
       isActive: r.isActive,
+      invoiceStyle: r.invoiceStyle ?? 'company',
     });
 
   const pairHere = async (registerId: string, registerName: string) => {
@@ -185,7 +207,16 @@ function Registers() {
         {canManage ? (
           <Button
             size="sm"
-            onClick={() => setDraft({ name: '', code: `POS${data.registers.length + 1}`, branchId: null, warehouseName: '', isActive: true })}
+            onClick={() =>
+              setDraft({
+                name: '',
+                code: `POS${data.registers.length + 1}`,
+                branchId: null,
+                warehouseName: '',
+                isActive: true,
+                invoiceStyle: 'company',
+              })
+            }
           >
             <Plus className="h-4 w-4" />
             نقطة بيع جديدة
@@ -211,6 +242,8 @@ function Registers() {
                     </div>
                     <div className="mt-1 text-xs text-muted-foreground">
                       الرمز {r.code} · {r.branchName ?? 'بدون فرع'} · آخر رقم {r.nextSequence - 1}
+                      {' · '}
+                      {resolvePosInvoiceStyle(r, data.settings) === 'standard' ? 'فاتورة عادية' : 'إيصال حراري'}
                       {data.settings.stockMode === 'inventory' ? ` · المستودع: ${r.warehouseName ?? 'غير محدد'}` : ''}
                     </div>
                   </div>

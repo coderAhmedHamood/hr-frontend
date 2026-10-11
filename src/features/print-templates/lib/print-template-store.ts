@@ -5,7 +5,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/features/hr/lib/api/client';
 import {
   DEFAULT_PRINT_TEMPLATE_SETTINGS,
+  POS_RECEIPT_PRINT_TEMPLATE_SETTINGS,
   PRINT_DOCUMENTS,
+  layoutFromTemplate,
   type PrintDocumentType,
   type PrintTemplateSettings,
 } from '@/features/print-templates/domain/types';
@@ -57,14 +59,18 @@ async function fetchPrintTemplates(companyId: string): Promise<CompanyPrintTempl
   });
   const out: CompanyPrintTemplates = {};
   for (const row of rows ?? []) out[row.documentType] = row.settings;
-  // A company that set its template in this browser before: moved to the
-  // server once (as the unified template), when the user may save it.
-  if (!out.default) {
+  // The legacy browser setting was a POS receipt template. Keep it thermal
+  // instead of turning the company's official identity into a receipt.
+  if (!out.pos_receipt) {
     const legacy = readLegacy(companyId);
     if (legacy) {
       try {
-        await savePrintTemplate(companyId, 'default', resolvePrintTemplateSettings(legacy));
-        out.default = resolvePrintTemplateSettings(legacy);
+        await savePrintTemplate(
+          companyId,
+          'pos_receipt',
+          resolvePrintTemplateSettings(legacy, POS_RECEIPT_PRINT_TEMPLATE_SETTINGS),
+        );
+        out.pos_receipt = resolvePrintTemplateSettings(legacy, POS_RECEIPT_PRINT_TEMPLATE_SETTINGS);
         dropLegacy(companyId);
       } catch {
         /* not allowed to save: kept until someone who may opens the settings */
@@ -95,6 +101,9 @@ export function resolvePrintTemplateSettings(
   return {
     ...fallback,
     ...saved,
+    layout: saved.layout ?? layoutFromTemplate(saved.templateId),
+    tableStyle: saved.tableStyle ?? fallback.tableStyle,
+    slogan: saved.slogan ?? fallback.slogan,
     header: { ...fallback.header, ...saved.header },
     footer: { ...fallback.footer, ...saved.footer },
   };
@@ -115,17 +124,19 @@ export function useCompanyPrintTemplates(companyId: string | null | undefined) {
 }
 
 /**
- * What a document prints with: its own template, else the unified one, else
- * the document's built-in starting point.
+ * Official documents always use the company's unified A4 identity. POS is
+ * the sole thermal family and intentionally never inherits that identity.
  */
 export function resolveDocumentPrintSettings(
   templates: CompanyPrintTemplates | undefined,
   documentType: PrintDocumentType,
 ): PrintTemplateSettings {
-  const own = documentType === 'default' ? undefined : templates?.[documentType];
-  if (own) return resolvePrintTemplateSettings(own);
-  if (templates?.default) return resolvePrintTemplateSettings(templates.default);
-  return documentStarter(documentType);
+  if (documentType === 'pos_receipt') {
+    const receipt = resolvePrintTemplateSettings(templates?.pos_receipt, POS_RECEIPT_PRINT_TEMPLATE_SETTINGS);
+    return { ...receipt, paper: receipt.paper === '58mm' ? '58mm' : '80mm' };
+  }
+  const official = resolvePrintTemplateSettings(templates?.default, DEFAULT_PRINT_TEMPLATE_SETTINGS);
+  return { ...official, paper: 'a4' };
 }
 
 export function useDocumentPrintSettings(

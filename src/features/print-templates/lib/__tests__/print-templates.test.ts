@@ -1,5 +1,6 @@
 import {
   DEFAULT_PRINT_TEMPLATE_SETTINGS,
+  POS_RECEIPT_PRINT_TEMPLATE_SETTINGS,
   type PrintTemplateSettings,
 } from '@/features/print-templates/domain/types';
 import { resolveDocumentPrintSettings } from '@/features/print-templates/lib/print-template-store';
@@ -11,14 +12,42 @@ import type { WarehouseOperation } from '@/features/inventory/domain/types/wareh
 
 const unified: PrintTemplateSettings = { ...DEFAULT_PRINT_TEMPLATE_SETTINGS, templateId: 'modern', paper: '80mm' };
 const ownReceipt: PrintTemplateSettings = { ...DEFAULT_PRINT_TEMPLATE_SETTINGS, templateId: 'formal', paper: 'a4' };
+const posReceipt: PrintTemplateSettings = { ...POS_RECEIPT_PRINT_TEMPLATE_SETTINGS, templateId: 'compact', paper: '58mm' };
 
 describe('which template a document prints with', () => {
-  it('its own template, else the unified one, else its starting point', () => {
-    expect(resolveDocumentPrintSettings({ default: unified, inventory_receipt: ownReceipt }, 'inventory_receipt').templateId).toBe('formal');
-    expect(resolveDocumentPrintSettings({ default: unified }, 'inventory_receipt').templateId).toBe('modern');
-    // Nothing saved: inventory documents start formal on A4, POS classic on 80 mm.
-    expect(resolveDocumentPrintSettings({}, 'inventory_delivery')).toMatchObject({ templateId: 'formal', paper: 'a4' });
+  it('uses one A4 identity for every official document and ignores legacy per-document overrides', () => {
+    expect(resolveDocumentPrintSettings({ default: unified, inventory_receipt: ownReceipt }, 'inventory_receipt')).toMatchObject({
+      templateId: 'modern',
+      paper: 'a4',
+    });
+    expect(resolveDocumentPrintSettings({ default: unified }, 'inventory_delivery')).toMatchObject({
+      templateId: 'modern',
+      paper: 'a4',
+    });
+    expect(resolveDocumentPrintSettings({}, 'inventory_delivery')).toMatchObject({
+      templateId: 'formal',
+      layout: 'light',
+      tableStyle: 'bubble',
+      paper: 'a4',
+    });
+    expect(
+      resolveDocumentPrintSettings(
+        { default: { ...unified, layout: undefined as never } },
+        'inventory_transfer',
+      ).layout,
+    ).toBe('wave');
+  });
+
+  it('keeps POS thermal and independent from the official identity', () => {
     expect(resolveDocumentPrintSettings(undefined, 'pos_receipt')).toMatchObject({ templateId: 'classic', paper: '80mm' });
+    expect(resolveDocumentPrintSettings({ default: unified }, 'pos_receipt')).toMatchObject({
+      templateId: 'classic',
+      paper: '80mm',
+    });
+    expect(resolveDocumentPrintSettings({ default: unified, pos_receipt: posReceipt }, 'pos_receipt')).toMatchObject({
+      templateId: 'compact',
+      paper: '58mm',
+    });
   });
 });
 

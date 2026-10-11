@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   PAYMENT_METHOD_LABELS,
+  resolvePosInvoiceStyle,
   RETURN_CONDITION_LABELS,
   type PosPaymentMethod,
   type PosReturn,
@@ -261,7 +262,7 @@ function NewReturnDialog({ open, initialSaleId, onClose }: { open: boolean; init
 }
 
 function ReturnRow({ ret }: { ret: PosReturn }) {
-  const { actions, userName, currency, can } = usePosContext();
+  const { data, actions, userName, currency, can } = usePosContext();
   const [reference, setReference] = React.useState('');
   const [printOpen, setPrintOpen] = React.useState(false);
   const damaged = ret.lines.filter((l) => l.condition === 'damaged');
@@ -338,7 +339,16 @@ function ReturnRow({ ret }: { ret: PosReturn }) {
           قرار التالف: {ret.damagedDecision === 'scrap' ? 'إتلاف' : ret.damagedDecision === 'supplier' ? 'إرجاع للمورد' : 'إصلاح'}
         </div>
       ) : null}
-      <PrintPreviewDialog open={printOpen} onOpenChange={setPrintOpen} title="طباعة إشعار المرتجع" document={returnToPrintable(ret)} />
+      <PrintPreviewDialog
+        open={printOpen}
+        onOpenChange={setPrintOpen}
+        title="طباعة إشعار المرتجع"
+        invoiceStyle={resolvePosInvoiceStyle(
+          data.registers.find((register) => register.id === data.sales.find((sale) => sale.id === ret.saleId)?.registerId),
+          data.settings,
+        )}
+        document={returnToPrintable(ret)}
+      />
     </div>
   );
 }
