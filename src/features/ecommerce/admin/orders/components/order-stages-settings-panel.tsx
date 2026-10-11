@@ -1,11 +1,11 @@
 'use client';
 
 import * as React from 'react';
-import { AlertTriangle, ShieldCheck, Truck, UserRound } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, ShieldCheck, Truck } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { OrderHandlerSelect } from '@/features/ecommerce/admin/orders/components/order-handler-select';
 import {
   useOrderStagesSettings,
@@ -14,6 +14,7 @@ import {
 import type {
   OrderStage,
   OrderStageAutoAssign,
+  OrderStageSettingView,
   SaveOrderStagesSettingsInput,
 } from '@/features/ecommerce/admin/orders/lib/api/order-stages';
 import { cn } from '@/shared/utils';
@@ -25,58 +26,27 @@ const AUTO_ASSIGN_LABELS: Record<OrderStageAutoAssign, string> = {
 };
 
 const AUTO_ASSIGN_HINTS: Record<OrderStageAutoAssign, string> = {
-  none: 'يستلمه أي مستخدم يملك صلاحية هذه المرحلة.',
-  user: 'يُسند دائماً إلى المستخدم الذي تختاره.',
-  balanced: 'يُسند إلى من لديه أقل طلبات مفتوحة.',
+  none: 'يبقى الطلب متاحاً لكل من يملك صلاحية المرحلة.',
+  user: 'يصل دائماً إلى المستخدم الذي تختاره.',
+  balanced: 'يصل إلى من لديه أقل طلبات مفتوحة.',
 };
 
 const STAGE_HINTS: Record<OrderStage, string> = {
   pending: 'مراجعة الطلب الجديد وتأكيده.',
-  confirmed: 'بدء تجهيز الطلب المؤكد — غالباً مسؤول المخزن.',
-  processing: 'تخصيص البنود وشحنها.',
-  shipped: 'توصيل الطلب وتسليمه للعميل.',
+  confirmed: 'بدء تجهيز الطلب المؤكد، وغالباً يتولاه المخزن.',
+  processing: 'تخصيص البنود وتجهيزها للشحن.',
+  shipped: 'خروج الطلب وتسليمه للعميل.',
 };
 
 const OTHER_PERMISSIONS = [
-  ['sta.order-stages.cancel', 'إلغاء الطلبات'],
-  ['sta.order-stages.refund', 'استرداد الطلبات'],
-  ['sta.order-stages.rollback', 'إرجاع الطلب إلى مرحلة سابقة'],
-  ['sta.order-stages.assign', 'إسناد الطلبات لأي مستخدم'],
+  ['إلغاء الطلبات', 'إنهاء الطلب قبل اكتماله.'],
+  ['استرداد الطلبات', 'تسجيل استرداد مبلغ طلب مكتمل أو ملغى.'],
+  ['إرجاع الطلب إلى مرحلة سابقة', 'إعادة الطلب خطوة إلى الخلف.'],
+  ['إسناد الطلبات لأي مستخدم', 'اختيار المسؤول عن الطلب يدوياً.'],
 ] as const;
 
 type StageDraft = { autoAssign: OrderStageAutoAssign; userId: string | null };
-
-function Section({
-  index,
-  title,
-  description,
-  icon: Icon,
-  children,
-}: {
-  index: string;
-  title: string;
-  description: string;
-  icon: React.ComponentType<{ className?: string }>;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="overflow-hidden rounded-2xl border border-border/70">
-      <header className="flex items-start gap-3 border-b border-border/60 bg-muted/30 px-4 py-3.5">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-          <Icon className="h-4 w-4" />
-        </span>
-        <div className="min-w-0">
-          <h3 className="text-sm font-semibold text-foreground">
-            <span className="me-1.5 text-muted-foreground">{index}</span>
-            {title}
-          </h3>
-          <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{description}</p>
-        </div>
-      </header>
-      <div className="space-y-3 p-4">{children}</div>
-    </section>
-  );
-}
+type PanelTab = 'path' | 'access' | 'assign' | 'ship';
 
 function SwitchRow({
   title,
@@ -108,12 +78,13 @@ function SwitchRow({
 }
 
 /**
- * Order stages settings, split into who may work a stage, who receives it,
- * and when shipping is allowed.
+ * Order stages settings, one decision per tab: the path, who may work a
+ * stage, who receives it, and when shipping is allowed.
  */
 export function OrderStagesSettingsPanel({ companyId }: { companyId: string }) {
   const query = useOrderStagesSettings(companyId);
   const save = useSaveOrderStagesSettings(companyId);
+  const [tab, setTab] = React.useState<PanelTab>('path');
   const [enabled, setEnabled] = React.useState(false);
   const [assigneeOnly, setAssigneeOnly] = React.useState(true);
   const [requirePayment, setRequirePayment] = React.useState(false);
@@ -138,18 +109,23 @@ export function OrderStagesSettingsPanel({ companyId }: { companyId: string }) {
     return <p className="py-8 text-center text-sm text-muted-foreground">تعذّر تحميل الإعدادات.</p>;
   }
 
-  const missingUser = query.data.stages.some(
+  const stageRows = query.data.stages;
+  const missingUser = stageRows.some(
     (s) => stages[s.stage]?.autoAssign === 'user' && !stages[s.stage]?.userId,
   );
-  const emptyStages = query.data.stages.filter((s) => s.handlersCount === 0);
+  const emptyStages = stageRows.filter((s) => s.handlersCount === 0);
+
+  function draftOf(stage: OrderStageSettingView): StageDraft {
+    return stages[stage.stage] ?? { autoAssign: 'none', userId: null };
+  }
 
   function submit() {
     const input: SaveOrderStagesSettingsInput = {
       enabled,
       assigneeOnly,
       requirePaymentBeforeShipping: requirePayment,
-      stages: query.data!.stages.map((s) => {
-        const draft = stages[s.stage] ?? { autoAssign: 'none', userId: null };
+      stages: stageRows.map((s) => {
+        const draft = draftOf(s);
         return {
           stage: s.stage,
           autoAssign: draft.autoAssign,
@@ -161,16 +137,54 @@ export function OrderStagesSettingsPanel({ companyId }: { companyId: string }) {
   }
 
   return (
-    <div className="space-y-5">
-      <Section
-        index="١"
-        title="صلاحيات المراحل"
-        description="من يحق له نقل الطلب في كل مرحلة. الصلاحيات نفسها تُمنح من شاشة الأدوار."
-        icon={ShieldCheck}
-      >
+    <Tabs value={tab} onValueChange={(value) => setTab(value as PanelTab)} className="space-y-4">
+      <TabsList className="grid h-auto w-full grid-cols-2 gap-1 sm:grid-cols-4">
+        <TabsTrigger value="path">المسار</TabsTrigger>
+        <TabsTrigger value="access">من يعمل</TabsTrigger>
+        <TabsTrigger value="assign">من يستلم</TabsTrigger>
+        <TabsTrigger value="ship">الشحن</TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="path" className="mt-0 space-y-3">
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          الطلب يتحرك بالترتيب. كل مرحلة لها سؤالان: من يحق له العمل عليها، ومن تصله عند دخولها.
+        </p>
+        <ol className="space-y-2">
+          {stageRows.map((stage, index) => {
+            const draft = draftOf(stage);
+            return (
+              <li key={stage.stage} className="rounded-xl border border-border/70 bg-background p-3">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">
+                      <span className="me-2 text-xs text-muted-foreground">{index + 1}</span>
+                      {stage.labelAr}
+                    </p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{STAGE_HINTS[stage.stage]}</p>
+                  </div>
+                  <Badge variant={stage.handlersCount === 0 ? 'warning' : 'subtle'}>
+                    {stage.handlersCount === 0 ? 'لا مستخدمين' : `${stage.handlersCount} مستخدم`}
+                  </Badge>
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  الإسناد: {AUTO_ASSIGN_LABELS[draft.autoAssign]}
+                  {draft.autoAssign === 'user' && stage.userNameAr ? ` — ${stage.userNameAr}` : ''}
+                </p>
+              </li>
+            );
+          })}
+        </ol>
+        <div className="grid gap-2 sm:grid-cols-3">
+          <DecisionLink title="من يعمل" detail="صلاحية كل مرحلة" onClick={() => setTab('access')} />
+          <DecisionLink title="من يستلم" detail="إسناد الطلب عند دخوله" onClick={() => setTab('assign')} />
+          <DecisionLink title="الشحن" detail="شرط الدفع قبل الخروج" onClick={() => setTab('ship')} />
+        </div>
+      </TabsContent>
+
+      <TabsContent value="access" className="mt-0 space-y-3">
         <SwitchRow
           title="تفعيل التحكم بالمراحل"
-          description="عند التفعيل لا ينقل الطلب إلا من يملك صلاحية المرحلة الحالية. عند الإيقاف تكفي صلاحية تعديل الطلبات."
+          description="عند التفعيل لا ينقل الطلب إلا صاحب صلاحية مرحلته الحالية. عند الإيقاف تكفي صلاحية تعديل الطلبات."
           checked={enabled}
           onChange={setEnabled}
         />
@@ -181,12 +195,11 @@ export function OrderStagesSettingsPanel({ companyId }: { companyId: string }) {
           onChange={setAssigneeOnly}
           disabled={!enabled}
         />
-
         <ul className="divide-y divide-border/60 overflow-hidden rounded-xl border border-border/70">
-          {query.data.stages.map((stage, index) => (
-            <li key={stage.stage} className="flex flex-wrap items-center justify-between gap-3 bg-background px-3 py-3">
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-foreground">
+          {stageRows.map((stage, index) => (
+            <li key={stage.stage} className="flex items-center justify-between gap-3 bg-background px-3 py-3">
+              <div>
+                <p className="text-sm font-medium">
                   <span className="me-2 text-xs text-muted-foreground">{index + 1}</span>
                   {stage.labelAr}
                 </p>
@@ -198,92 +211,83 @@ export function OrderStagesSettingsPanel({ companyId }: { companyId: string }) {
             </li>
           ))}
         </ul>
-
         {enabled && emptyStages.length > 0 ? (
           <div className="flex items-start gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-900 dark:text-amber-200">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
             <p>
-              لا يوجد مستخدم لمرحلة {emptyStages.map((s) => `«${s.labelAr}»`).join('، ')}. الطلبات تتوقف هناك حتى
-              تُمنح الصلاحية لدور.
+              لا يوجد مستخدم لمرحلة {emptyStages.map((s) => `«${s.labelAr}»`).join('، ')}. الطلب يتوقف هناك حتى
+              تُمنح الصلاحية من شاشة الأدوار.
             </p>
           </div>
         ) : null}
-
-        <div className="rounded-xl bg-muted/30 px-3 py-2.5 text-xs leading-relaxed text-muted-foreground">
-          <p className="font-medium text-foreground">صلاحيات إضافية</p>
-          <ul className="mt-1.5 space-y-1">
-            {OTHER_PERMISSIONS.map(([, label]) => (
-              <li key={label}>{label}</li>
-            ))}
-          </ul>
-          <p className="mt-2">
-            من لا يملك «عرض طلبات المتجر» يرى الطلبات المسندة إليه وطلبات مرحلته غير المسندة فقط.
-          </p>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {OTHER_PERMISSIONS.map(([title, detail]) => (
+            <div key={title} className="rounded-xl border border-border/70 bg-muted/20 p-3">
+              <p className="text-sm font-medium">{title}</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">{detail}</p>
+            </div>
+          ))}
         </div>
-      </Section>
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          هذه الصلاحيات تُمنح من شاشة الأدوار. من لا يملك «عرض طلبات المتجر» يرى الطلبات المسندة إليه وطلبات مرحلته
+          غير المسندة فقط.
+        </p>
+      </TabsContent>
 
-      <Section
-        index="٢"
-        title="الإسناد التلقائي"
-        description="من يستلم الطلب فور دخوله المرحلة. يعمل بعد تفعيل التحكم بالمراحل."
-        icon={UserRound}
-      >
+      <TabsContent value="assign" className="mt-0 space-y-3">
         {!enabled ? (
-          <p className="text-xs text-muted-foreground">فعّل التحكم بالمراحل أولاً حتى يُطبَّق الإسناد.</p>
+          <div className="flex items-start gap-2 rounded-xl border border-border bg-muted/30 p-3 text-sm">
+            <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+            <p>الإسناد يُطبَّق بعد تفعيل التحكم بالمراحل من تبويب «من يعمل».</p>
+          </div>
         ) : null}
         <div className={cn('space-y-3', !enabled && 'pointer-events-none opacity-60')}>
-          {query.data.stages.map((stage) => {
-            const draft = stages[stage.stage] ?? {
-              autoAssign: 'none' as const,
-              userId: null,
-            };
+          {stageRows.map((stage) => {
+            const draft = draftOf(stage);
             const savedUserIneligible =
               stage.userId && stage.userEligible === false && draft.userId === stage.userId;
             return (
-              <div key={stage.stage} className="space-y-2 rounded-xl border border-border/70 bg-background p-3">
+              <div key={stage.stage} className="space-y-3 rounded-xl border border-border/70 bg-background p-3">
                 <div>
-                  <p className="text-sm font-medium text-foreground">{stage.labelAr}</p>
+                  <p className="text-sm font-semibold">{stage.labelAr}</p>
                   <p className="text-xs text-muted-foreground">{AUTO_ASSIGN_HINTS[draft.autoAssign]}</p>
                 </div>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  <Select
-                    value={draft.autoAssign}
-                    onValueChange={(value) =>
-                      setStages((current) => ({
-                        ...current,
-                        [stage.stage]: {
-                          ...draft,
-                          autoAssign: value as OrderStageAutoAssign,
-                        },
-                      }))
-                    }
-                  >
-                    <SelectTrigger aria-label={`الإسناد في مرحلة ${stage.labelAr}`}>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(Object.keys(AUTO_ASSIGN_LABELS) as OrderStageAutoAssign[]).map((key) => (
-                        <SelectItem key={key} value={key}>
-                          {AUTO_ASSIGN_LABELS[key]}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {draft.autoAssign === 'user' ? (
-                    <OrderHandlerSelect
-                      companyId={companyId}
-                      stage={stage.stage}
-                      value={draft.userId ?? ''}
-                      allowNone={false}
-                      onChange={(userId) =>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3" role="group" aria-label={`إسناد ${stage.labelAr}`}>
+                  {(Object.keys(AUTO_ASSIGN_LABELS) as OrderStageAutoAssign[]).map((key) => (
+                    <button
+                      key={key}
+                      type="button"
+                      className={cn(
+                        'rounded-lg border px-3 py-2 text-sm',
+                        draft.autoAssign === key
+                          ? 'border-primary bg-primary/10 font-semibold text-foreground'
+                          : 'border-border text-muted-foreground',
+                      )}
+                      onClick={() =>
                         setStages((current) => ({
                           ...current,
-                          [stage.stage]: { ...draft, userId },
+                          [stage.stage]: { ...draft, autoAssign: key },
                         }))
                       }
-                    />
-                  ) : null}
+                    >
+                      {AUTO_ASSIGN_LABELS[key]}
+                    </button>
+                  ))}
                 </div>
+                {draft.autoAssign === 'user' ? (
+                  <OrderHandlerSelect
+                    companyId={companyId}
+                    stage={stage.stage}
+                    value={draft.userId ?? ''}
+                    allowNone={false}
+                    onChange={(userId) =>
+                      setStages((current) => ({
+                        ...current,
+                        [stage.stage]: { ...draft, userId },
+                      }))
+                    }
+                  />
+                ) : null}
                 {savedUserIneligible ? (
                   <p className="text-xs text-amber-700 dark:text-amber-400">
                     {stage.userNameAr ?? 'المستخدم المحدد'} لم يعد يملك صلاحية هذه المرحلة.
@@ -293,27 +297,50 @@ export function OrderStagesSettingsPanel({ companyId }: { companyId: string }) {
             );
           })}
         </div>
-      </Section>
+      </TabsContent>
 
-      <Section
-        index="٣"
-        title="شروط الشحن"
-        description="متى يُسمح بنقل الطلب إلى مرحلة «تم الشحن»."
-        icon={Truck}
-      >
+      <TabsContent value="ship" className="mt-0 space-y-3">
+        <div className="flex items-start gap-2 text-sm text-muted-foreground">
+          <Truck className="mt-0.5 h-4 w-4 shrink-0" />
+          <p>هذا الشرط يخص الانتقال إلى مرحلة «تم الشحن» فقط.</p>
+        </div>
         <SwitchRow
           title="لا يُشحن الطلب المدفوع مسبقاً قبل تأكيد الدفع"
           description="التحويل البنكي والمحافظ والبطاقات تبقى حتى تصبح حالة الدفع «مدفوع». الدفع عند الاستلام لا يتأثر."
           checked={requirePayment}
           onChange={setRequirePayment}
         />
-      </Section>
+      </TabsContent>
 
       <div className="flex justify-end">
         <Button type="button" disabled={save.isPending || missingUser} onClick={submit}>
           حفظ الإعدادات
         </Button>
       </div>
-    </div>
+    </Tabs>
+  );
+}
+
+function DecisionLink({
+  title,
+  detail,
+  onClick,
+}: {
+  title: string;
+  detail: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex items-center justify-between gap-2 rounded-xl border border-border/70 bg-background px-3 py-2.5 text-start"
+    >
+      <span>
+        <span className="block text-sm font-semibold">{title}</span>
+        <span className="block text-xs text-muted-foreground">{detail}</span>
+      </span>
+      <ArrowLeft className="h-4 w-4 shrink-0 text-muted-foreground" />
+    </button>
   );
 }
