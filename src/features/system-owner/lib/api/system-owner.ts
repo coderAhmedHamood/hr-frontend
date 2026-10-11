@@ -91,6 +91,12 @@ export type SystemOwnerCompanyApplication = {
 
 /** The System Owner "company data" buttons: real starting setup, or samples to try the system. */
 export type CompanyDataKind = 'starter' | 'demo';
+export type CatalogDemoProfileCode =
+  | 'beauty'
+  | 'abayas'
+  | 'shoes'
+  | 'restaurant'
+  | 'cleaning';
 
 export type CompanyDataSetResult = {
   code: string;
@@ -99,16 +105,48 @@ export type CompanyDataSetResult = {
   /** Apps this set needs that the company has not enabled (not run). */
   missingApps: string[];
   created: number;
-  /** Already there: left as it is. */
+  /** Official rows brought back in line with the definitions. */
+  updated: number;
+  /** Already there, or a row the company edited: left as it is. */
   skipped: number;
 };
 
 export type CompanyDataRun = {
   kind: CompanyDataKind;
+  /** Set when the button is for one app. */
+  appCode: string | null;
+  profileCode: CatalogDemoProfileCode | null;
   /** false: a preview (nothing written). */
   applied: boolean;
   sets: CompanyDataSetResult[];
-  totals: { created: number; skipped: number };
+  totals: { created: number; updated: number; skipped: number };
+};
+
+export type CompanyDataCatalogSet = {
+  code: string;
+  kind: CompanyDataKind;
+  labelAr: string;
+  apps: string[];
+};
+
+export type CompanyDataCatalogApp = {
+  code: string;
+  nameAr: string;
+  enabled: boolean;
+  sets: CompanyDataCatalogSet[];
+};
+
+export type CompanyDataProfileOption = {
+  code: CatalogDemoProfileCode;
+  labelAr: string;
+  descriptionAr: string;
+};
+
+export type CompanyDataCatalog = {
+  apps: CompanyDataCatalogApp[];
+  /** Null until the first demo pack is applied. */
+  catalogProfile: CatalogDemoProfileCode | null;
+  catalogProfileOptions: CompanyDataProfileOption[];
 };
 
 export type PatchCompanyApplicationDto = {
@@ -452,19 +490,40 @@ export const systemOwnerApi = {
     );
   },
 
-  /** What the starter / demo button would create (nothing written). */
-  previewCompanyData(companyId: string, kind: CompanyDataKind) {
-    return apiRequest<CompanyDataRun>(`/system-owner/companies/${companyId}/data-sets/${kind}`, {
-      throwOnError: true,
-    });
+  /** Sets each application owns. Nothing is written. */
+  companyDataCatalog(companyId: string) {
+    return apiRequest<CompanyDataCatalog>(
+      `/system-owner/companies/${companyId}/data-catalog`,
+      { throwOnError: true },
+    );
   },
 
-  /** Creates the starter / demo data (create-only: what exists is kept). */
-  applyCompanyData(companyId: string, kind: CompanyDataKind) {
-    return apiRequest<CompanyDataRun>(`/system-owner/companies/${companyId}/data-sets/${kind}`, {
-      method: 'POST',
-      throwOnError: true,
-    });
+  /** What one app’s refresh would create or update (nothing written). */
+  previewAppCompanyData(
+    companyId: string,
+    appCode: string,
+    kind: CompanyDataKind,
+    profile?: CatalogDemoProfileCode,
+  ) {
+    const query = profile ? `?profile=${encodeURIComponent(profile)}` : '';
+    return apiRequest<CompanyDataRun>(
+      `/system-owner/companies/${companyId}/apps/${appCode}/data-sets/${kind}${query}`,
+      { throwOnError: true },
+    );
+  },
+
+  /** Creates missing official rows and updates rows still owned by system:init. */
+  applyAppCompanyData(
+    companyId: string,
+    appCode: string,
+    kind: CompanyDataKind,
+    profile?: CatalogDemoProfileCode,
+  ) {
+    const query = profile ? `?profile=${encodeURIComponent(profile)}` : '';
+    return apiRequest<CompanyDataRun>(
+      `/system-owner/companies/${companyId}/apps/${appCode}/data-sets/${kind}${query}`,
+      { method: 'POST', throwOnError: true },
+    );
   },
 
   /** @deprecated Use patchCompanyApplication */

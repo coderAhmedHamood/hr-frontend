@@ -3,7 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
@@ -38,6 +38,9 @@ import {
 } from '@/features/system-owner/hooks/use-system-owner';
 import {
   systemOwnerApi,
+  type CatalogDemoProfileCode,
+  type CompanyDataCatalogApp,
+  type CompanyDataCatalogSet,
   type CompanyDataKind,
   type CompanyDataRun,
   type SystemOwnerCompanyApplication,
@@ -275,87 +278,243 @@ function CompanyAppsTab({ companyId }: { companyId: string }) {
   );
 }
 
-const COMPANY_DATA_CARDS: Array<{
-  kind: CompanyDataKind;
-  title: string;
-  description: string;
-  action: string;
-  warning?: string;
-}> = [
-  {
-    kind: 'starter',
-    title: 'بيانات تأسيسية',
-    description:
-      'إعدادات بداية حقيقية للتطبيقات المفعّلة: المسميات الوظيفية، أنواع الإجازات والطلبات، تصنيفات جهات الاتصال، التصنيفات ووحدات القياس وخصائص المنتجات، والمستودع الرئيسي ومواقعه. آمنة لشركة عميل.',
-    action: 'إنشاء البيانات التأسيسية',
-  },
-  {
-    kind: 'demo',
-    title: 'بيانات تجريبية',
-    description:
-      'منتجات تجريبية ومتغيراتها، مستودع فرعي ومواقع تخزين، وأوامر استلام وصرف وتحويل وجرد بكمياتها، ونقاط بيع بكميات جاهزة عند تفعيل مبيعات المحل، مع عرضها في المتجر عند تفعيله. للعرض والتجربة.',
-    action: 'إنشاء البيانات التجريبية',
-    warning: 'لا تُنشئها لشركة عميل حقيقية: ستظهر المنتجات التجريبية في الكتالوج والمتجر.',
-  },
-];
+/** How this app’s default data stays tied to the others. */
+const APP_DATA_NOTE: Record<string, string> = {
+  system: 'المسميات الوظيفية إعداد مشترك للشركة.',
+  hr: 'أنواع الإجازات والطلبات إعداد رسمي للموارد البشرية.',
+  contacts:
+    'التصنيفات إعداد التشغيل. جهات الاتصال التجريبية وحساباتها عينة مستقلة (له وعليه)، وليست فواتير مخزون مرحّلة.',
+  catalog:
+    'التصنيفات والوحدات والخصائص أساس المنتجات. المنتجات التجريبية ومتغيراتها تُبنى عليها وتستخدمها المخازن والمتجر ومبيعات المحل بنفس الرموز.',
+  inventory:
+    'المستودع الرئيسي ومواقعه أساس الحركة. الأوامر التجريبية تصرف وتستلم منتجات الكتالوج بين المستودع الرئيسي والفرعي، ولا تُعاد كتابة سند موجود.',
+  'shop-sales':
+    'مواقع نقاط البيع مخزون لمبيعات المحل، والكميات على نفس منتجات الكتالوج. ليست شاشة كاشير نقاط البيع.',
+  'store-admin':
+    'فئات المتجر وعرضه يربطان المنتجات التجريبية نفسها. منتج وضعته الشركة في فئة خاصة لا يُنقل.',
+  expenses:
+    'الفئات إعداد التشغيل. العينة أشخاص وعهد ومصاريف وتسويات، ولا تُحمَّل إن وُجدت مصاريف أو عهد للشركة.',
+  pos: 'لا تُزرع سجلات. النقطة والوردية والبيع تُنشأ من شاشة الكاشير.',
+  accounting: 'لا توجد بيانات افتراضية للمحاسبة.',
+  storefront: 'واجهة المتجر تعرض ما يجهزه تطبيق المتجر.',
+  'store-stock-sync': 'يربط طلبات المتجر بالمخزون، بلا عينة خاصة.',
+};
 
 function CompanyDataTab({ companyId }: { companyId: string }) {
   const { data: apps } = useSystemOwnerCompanyApplications(companyId);
+  const catalog = useQuery({
+    queryKey: ['system-owner', 'data-catalog', companyId],
+    queryFn: () => systemOwnerApi.companyDataCatalog(companyId),
+  });
   const names = new Map((apps ?? []).map((a) => [a.code, a.nameAr]));
   const appName = (code: string) => names.get(code) || code;
+  const [selectedProfile, setSelectedProfile] =
+    React.useState<CatalogDemoProfileCode>('beauty');
+  React.useEffect(() => {
+    if (catalog.data?.catalogProfile) {
+      setSelectedProfile(catalog.data.catalogProfile);
+    }
+  }, [catalog.data?.catalogProfile]);
+  const cards = (catalog.data?.apps ?? []).filter(
+    (app) => app.sets.length > 0 || app.enabled,
+  );
+
   return (
     <div className="space-y-3">
       <p className="text-xs text-muted-foreground">
-        تُنشأ لهذه الشركة فقط، وللتطبيقات المفعّلة لها فقط. لا يتغير شيء موجود: ما أنشأته الشركة أو عدّلته يبقى
-        كما هو، لذلك يمكن الضغط مرة أخرى بعد تفعيل تطبيق جديد. اعرض المعاينة أولاً لترى ما سيُنشأ.
+        كل تطبيق له بياناته. التحديث يُكمل الناقص ويعيد السجلات التي ما زالت بيانات تهيئة إلى التعريف الرسمي.
+        ما عدّلته الشركة يبقى. سندات المخزون وقيود الحسابات والمصاريف الموجودة لا تُعاد كتابتها حتى يبقى الرصيد
+        مترابطاً. عاين أولاً.
       </p>
-      {COMPANY_DATA_CARDS.map((card) => (
-        <CompanyDataCard key={card.kind} companyId={companyId} card={card} appName={appName} />
+      {catalog.data ? (
+        <div className="space-y-2 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3">
+          <div className="space-y-1">
+            <Label htmlFor="catalog-demo-profile">نوع بيانات النشاط التجريبية</Label>
+            <p className="text-xs text-muted-foreground">
+              يحدد فئات ومنتجات الكتالوج التي ستستخدمها المخازن والمتجر ومبيعات المحل.
+              بعد أول إنشاء يثبت الاختيار لحماية السندات والكميات التاريخية.
+            </p>
+          </div>
+          <Select
+            value={selectedProfile}
+            onValueChange={(value) =>
+              setSelectedProfile(value as CatalogDemoProfileCode)
+            }
+            disabled={!!catalog.data.catalogProfile}
+          >
+            <SelectTrigger id="catalog-demo-profile" className="max-w-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {catalog.data.catalogProfileOptions.map((profile) => (
+                <SelectItem key={profile.code} value={profile.code}>
+                  {profile.labelAr}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            {
+              catalog.data.catalogProfileOptions.find(
+                (profile) => profile.code === selectedProfile,
+              )?.descriptionAr
+            }
+          </p>
+          {catalog.data.catalogProfile ? (
+            <Badge variant="success">الباقة مثبتة لهذه الشركة</Badge>
+          ) : (
+            <Badge variant="warning">لم تُنشأ باقة بعد</Badge>
+          )}
+        </div>
+      ) : null}
+      {catalog.isLoading ? (
+        <p className="text-xs text-muted-foreground">جارٍ التحميل…</p>
+      ) : null}
+      {catalog.isError ? (
+        <p className="text-sm text-destructive">تعذر تحميل بيانات التطبيقات.</p>
+      ) : null}
+      {cards.map((app) => (
+        <AppDataCard
+          key={app.code}
+          companyId={companyId}
+          app={app}
+          appName={appName}
+          profile={selectedProfile}
+        />
       ))}
     </div>
   );
 }
 
-function CompanyDataCard({
+function AppDataCard({
   companyId,
-  card,
+  app,
   appName,
+  profile,
 }: {
   companyId: string;
-  card: (typeof COMPANY_DATA_CARDS)[number];
+  app: CompanyDataCatalogApp;
   appName: (code: string) => string;
+  profile: CatalogDemoProfileCode;
+}) {
+  const starter = app.sets.filter((set) => set.kind === 'starter');
+  const demo = app.sets.filter((set) => set.kind === 'demo');
+  const note = APP_DATA_NOTE[app.code];
+  return (
+    <section className="space-y-3 rounded-xl border border-border bg-card px-4 py-3">
+      <div className="space-y-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <h3 className="text-sm font-semibold">{app.nameAr}</h3>
+          {app.enabled ? null : <Badge variant="secondary">غير مفعّل</Badge>}
+        </div>
+        {note ? <p className="text-xs text-muted-foreground">{note}</p> : null}
+      </div>
+      {starter.length > 0 ? (
+        <AppDataKind
+          companyId={companyId}
+          appCode={app.code}
+          appLabel={app.nameAr}
+          enabled={app.enabled}
+          kind="starter"
+          sets={starter}
+          appName={appName}
+          profile={profile}
+        />
+      ) : null}
+      {demo.length > 0 ? (
+        <AppDataKind
+          companyId={companyId}
+          appCode={app.code}
+          appLabel={app.nameAr}
+          enabled={app.enabled}
+          kind="demo"
+          sets={demo}
+          appName={appName}
+          profile={profile}
+        />
+      ) : null}
+      {app.sets.length === 0 ? (
+        <p className="text-xs text-muted-foreground">لا توجد بيانات افتراضية لهذا التطبيق.</p>
+      ) : null}
+    </section>
+  );
+}
+
+function AppDataKind({
+  companyId,
+  appCode,
+  appLabel,
+  enabled,
+  kind,
+  sets,
+  appName,
+  profile,
+}: {
+  companyId: string;
+  appCode: string;
+  appLabel: string;
+  enabled: boolean;
+  kind: CompanyDataKind;
+  sets: CompanyDataCatalogSet[];
+  appName: (code: string) => string;
+  profile: CatalogDemoProfileCode;
 }) {
   const [run, setRun] = React.useState<CompanyDataRun | null>(null);
   const [confirming, setConfirming] = React.useState(false);
+  const queryClient = useQueryClient();
+  const title = kind === 'starter' ? 'بيانات تأسيسية' : 'بيانات تجريبية';
   const preview = useMutation({
-    mutationFn: () => systemOwnerApi.previewCompanyData(companyId, card.kind),
+    mutationFn: () =>
+      systemOwnerApi.previewAppCompanyData(
+        companyId,
+        appCode,
+        kind,
+        kind === 'demo' ? profile : undefined,
+      ),
     onSuccess: setRun,
   });
   const apply = useMutation({
-    mutationFn: () => systemOwnerApi.applyCompanyData(companyId, card.kind),
+    mutationFn: () =>
+      systemOwnerApi.applyAppCompanyData(
+        companyId,
+        appCode,
+        kind,
+        kind === 'demo' ? profile : undefined,
+      ),
     onSuccess: (result) => {
       setRun(result);
       setConfirming(false);
+      void queryClient.invalidateQueries({
+        queryKey: ['system-owner', 'data-catalog', companyId],
+      });
+      const { created, updated } = result.totals;
       toast.success(
-        result.totals.created > 0 ? `أُنشئ ${result.totals.created} سجل` : 'لا جديد: كل البيانات موجودة مسبقاً',
+        created === 0 && updated === 0
+          ? 'لا جديد: البيانات الرسمية متوافقة، وتعديلات الشركة بقيت'
+          : `أُنشئ ${created} وحدّث ${updated}`,
       );
     },
   });
   const busy = preview.isPending || apply.isPending;
+  const locked = !enabled || busy;
 
   return (
-    <section className="space-y-3 rounded-xl border border-border bg-card px-4 py-3">
-      <div className="space-y-1">
-        <h3 className="text-sm font-semibold">{card.title}</h3>
-        <p className="text-xs text-muted-foreground">{card.description}</p>
-        {card.warning ? <p className="text-xs text-warning">{card.warning}</p> : null}
-      </div>
+    <div className="space-y-2 rounded-lg border border-border/70 px-3 py-2">
+      <p className="text-xs font-medium">{title}</p>
+      <ul className="list-disc space-y-0.5 ps-4 text-xs text-muted-foreground">
+        {sets.map((set) => (
+          <li key={set.code}>{set.labelAr}</li>
+        ))}
+      </ul>
+      {kind === 'demo' ? (
+        <p className="text-xs text-warning">للعرض والتجربة، لا لشركة عميل تعمل عليها فعلياً.</p>
+      ) : null}
       <div className="flex flex-wrap gap-2">
-        <Button variant="outline" size="sm" disabled={busy} onClick={() => preview.mutate()}>
+        <Button variant="outline" size="sm" disabled={locked} onClick={() => preview.mutate()}>
           {preview.isPending ? 'جارٍ الحساب…' : 'معاينة'}
         </Button>
-        <Button size="sm" disabled={busy} onClick={() => setConfirming(true)}>
-          {card.action}
+        <Button size="sm" disabled={locked} onClick={() => setConfirming(true)}>
+          تحديث البيانات
         </Button>
       </div>
       {run ? <CompanyDataResult run={run} appName={appName} /> : null}
@@ -363,9 +522,14 @@ function CompanyDataCard({
       <Dialog open={confirming} onOpenChange={(open) => (!apply.isPending ? setConfirming(open) : undefined)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{card.action}</DialogTitle>
+            <DialogTitle>
+              تحديث {title} — {appLabel}
+            </DialogTitle>
             <DialogDescription>
-              تُنشأ البيانات الناقصة فقط، ولا يتغير شيء موجود. {card.warning ?? ''}
+              تُستكمل السجلات الناقصة، وتُحدَّث السجلات التي ما زالت بيانات تهيئة. ما عدّلته الشركة يبقى.
+              {kind === 'demo'
+                ? ' سند أو قيد أو مصروف موجود لا يُعاد كتابته، والمنتجات تبقى على رموزها حتى يبقى الربط بين التطبيقات.'
+                : ''}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2">
@@ -373,12 +537,12 @@ function CompanyDataCard({
               إلغاء
             </Button>
             <Button disabled={apply.isPending} onClick={() => apply.mutate()}>
-              {apply.isPending ? 'جارٍ الإنشاء…' : 'إنشاء'}
+              {apply.isPending ? 'جارٍ التحديث…' : 'تحديث'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </section>
+    </div>
   );
 }
 
@@ -386,8 +550,9 @@ function CompanyDataResult({ run, appName }: { run: CompanyDataRun; appName: (co
   return (
     <div className="space-y-2">
       <p className="text-xs font-medium">
-        {run.applied ? 'النتيجة' : 'المعاينة (لم يُكتب شيء)'}: {run.applied ? 'أُنشئ' : 'سيُنشأ'} {run.totals.created}، موجود
-        مسبقاً {run.totals.skipped}
+        {run.applied ? 'النتيجة' : 'المعاينة (لم يُكتب شيء)'}: {run.applied ? 'أُنشئ' : 'سيُنشأ'}{' '}
+        {run.totals.created}، {run.applied ? 'حُدّث' : 'سيُحدَّث'} {run.totals.updated}، بقي{' '}
+        {run.totals.skipped}
       </p>
       <div className="overflow-x-auto rounded-xl border border-border/70">
         <table className="w-full text-sm">
@@ -395,7 +560,8 @@ function CompanyDataResult({ run, appName }: { run: CompanyDataRun; appName: (co
             <tr>
               <th className="px-3 py-2 text-start font-medium">البيانات</th>
               <th className="px-3 py-2 text-start font-medium">{run.applied ? 'أُنشئ' : 'سيُنشأ'}</th>
-              <th className="px-3 py-2 text-start font-medium">موجود مسبقاً</th>
+              <th className="px-3 py-2 text-start font-medium">{run.applied ? 'حُدّث' : 'سيُحدَّث'}</th>
+              <th className="px-3 py-2 text-start font-medium">بقي</th>
             </tr>
           </thead>
           <tbody>
@@ -410,6 +576,7 @@ function CompanyDataResult({ run, appName }: { run: CompanyDataRun; appName: (co
                   ) : null}
                 </td>
                 <td className="px-3 py-2 tabular-nums">{set.missingApps.length > 0 ? '—' : set.created}</td>
+                <td className="px-3 py-2 tabular-nums">{set.missingApps.length > 0 ? '—' : set.updated}</td>
                 <td className="px-3 py-2 tabular-nums">{set.missingApps.length > 0 ? '—' : set.skipped}</td>
               </tr>
             ))}
