@@ -2,10 +2,14 @@ import { PDF_PRINT_FONT_FAMILY } from '@/components/pdf/lib/pdf-print-font';
 
 export type ExportDomToPdfOptions = {
   orientation?: 'portrait' | 'landscape';
+  /** Page size: A4 (default) or a custom [width, height] in mm (e.g. a thermal roll). */
+  format?: 'a4' | [number, number];
+  /** Page margins in mm: [top, right, bottom, left]. */
+  margin?: [number, number, number, number];
 };
 
 /**
- * Client-side A4 PDF from a live DOM node (html2canvas + jsPDF via html2pdf.js).
+ * Client-side PDF from a live DOM node (html2canvas + jsPDF via html2pdf.js).
  * Call only in the browser. Tailwind/global CSS is stripped in the html2canvas clone — use inline styles on printable content.
  */
 export async function exportDomToPdf(
@@ -18,7 +22,7 @@ export async function exportDomToPdf(
 
   await html2pdf()
     .set({
-      margin: [8, 10, 8, 10],
+      margin: options?.margin ?? [8, 10, 8, 10],
       filename,
       image: { type: 'jpeg', quality: 0.98 },
       html2canvas: {
@@ -41,7 +45,7 @@ export async function exportDomToPdf(
           clonedDoc.head.appendChild(reset);
         },
       },
-      jsPDF: { unit: 'mm', format: 'a4', orientation },
+      jsPDF: { unit: 'mm', format: options?.format ?? 'a4', orientation },
       pagebreak: { mode: ['avoid-all', 'css', 'legacy'] as const },
     })
     .from(element)

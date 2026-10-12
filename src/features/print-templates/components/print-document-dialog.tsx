@@ -1,7 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import { Printer } from 'lucide-react';
+import { Download, Loader2, Printer } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -16,12 +17,13 @@ import type {
   PrintableDocument,
 } from '@/features/print-templates/domain/types';
 import { printElement } from '@/features/print-templates/lib/print-html';
+import { downloadDocumentPdf } from '@/features/print-templates/lib/print-pdf';
 import { useDocumentPrintSettings } from '@/features/print-templates/lib/print-template-store';
 import { cn } from '@/shared/utils';
 
 /**
- * Preview and print a document with the company's template for its type
- * (its own template, or the unified one). Any app can use it.
+ * Preview, print and download as PDF a document with the company's template
+ * for its type (its own template, or the unified one). Any app can use it.
  */
 export function PrintDocumentDialog({
   open,
@@ -42,6 +44,9 @@ export function PrintDocumentDialog({
 }) {
   const settings = useDocumentPrintSettings(companyId, documentType);
   const ref = React.useRef<HTMLDivElement>(null);
+  const [exporting, setExporting] = React.useState(false);
+
+  const target = () => ref.current?.firstElementChild as HTMLElement | null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -56,15 +61,36 @@ export function PrintDocumentDialog({
             ) : null}
           </div>
         </div>
-        <div className="flex justify-end gap-2">
+        <div className="flex flex-wrap justify-end gap-2">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             إغلاق
           </Button>
           <Button
             type="button"
+            variant="outline"
+            disabled={!document || exporting}
+            onClick={async () => {
+              const el = target();
+              if (!el || !document) return;
+              setExporting(true);
+              try {
+                await downloadDocumentPdf(el, document, settings.paper);
+                toast.success('تم تنزيل الملف');
+              } catch (err) {
+                toast.error(err instanceof Error ? err.message : 'تعذّر تنزيل PDF');
+              } finally {
+                setExporting(false);
+              }
+            }}
+          >
+            {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+            {exporting ? 'جارٍ التنزيل…' : 'تنزيل PDF'}
+          </Button>
+          <Button
+            type="button"
             disabled={!document}
             onClick={() => {
-              const el = ref.current?.firstElementChild as HTMLElement | null;
+              const el = target();
               if (el) printElement(el, settings.paper);
             }}
           >

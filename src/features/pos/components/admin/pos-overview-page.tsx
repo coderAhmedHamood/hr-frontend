@@ -10,7 +10,7 @@ import { posRoutes } from '@/features/pos/constants/routes';
 import { usePosContext } from '@/features/pos/hooks/use-pos-context';
 import { round2 } from '@/features/pos/lib/calc';
 import { formatDateTime, formatMoney } from '@/features/pos/lib/format';
-import { EmptyState, PosGate, PosPreviewNote, StatTile } from '@/features/pos/components/shared/pos-shared';
+import { EmptyState, PosGate, StatTile } from '@/features/pos/components/shared/pos-shared';
 
 function isToday(iso: string | null): boolean {
   if (!iso) return false;
@@ -43,7 +43,6 @@ function Overview() {
   return (
     <div className="space-y-4 sm:space-y-5">
       <SetPageTitle titleAr="نقاط البيع" iconName="ShoppingCart" />
-      <PosPreviewNote />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatTile label="مبيعات اليوم" value={formatMoney(todayTotal, currency)} hint={`${today.length} مستند`} />

@@ -27,7 +27,6 @@ import { saleToPrintable } from '@/features/pos/lib/receipt';
 import {
   EmptyState,
   PosGate,
-  PosPreviewNote,
   PrintPreviewDialog,
   SaleStatusBadge,
 } from '@/features/pos/components/shared/pos-shared';
@@ -398,7 +397,6 @@ function Sales() {
   return (
     <div className="space-y-4 sm:space-y-5">
       <SetPageTitle titleAr="مبيعات نقاط البيع" iconName="Receipt" />
-      <PosPreviewNote />
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-52 flex-1">
           <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />

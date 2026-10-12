@@ -83,6 +83,8 @@ export type WarehouseLocationListQuery = {
   /** When omitted, list locations across all warehouses. */
   warehouseId?: string;
   search?: string;
+  /** Every page (reports that look up names across all locations). */
+  all?: boolean;
   page?: number;
   limit?: number;
 };
@@ -100,7 +102,10 @@ export type WarehouseOperationKind =
   | 'physical_count'
   | 'scrap'
   | 'purchase'
-  | 'replenishment';
+  | 'replenishment'
+  | 'opening'
+  | 'customer_return'
+  | 'supplier_return';
 
 /** مسودة → جاهز → منتهي (+ ملغى) */
 export type WarehouseOperationStatus = 'draft' | 'ready' | 'done' | 'cancelled';
@@ -172,7 +177,7 @@ export type WarehouseOperationListQuery = {
   occurredAtFrom?: string;
   occurredAtTo?: string;
   search?: string;
-  /** Company-wide list for inventory reports (no warehouse/product/kind required). */
+  /** Company-wide list for inventory reports: every page, no warehouse/product/kind required. */
   all?: boolean;
   page?: number;
   limit?: number;

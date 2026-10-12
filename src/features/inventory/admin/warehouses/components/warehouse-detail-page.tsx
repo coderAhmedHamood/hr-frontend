@@ -8,7 +8,10 @@ import {
   ArrowRight,
   ClipboardList,
   Factory,
+  FileSpreadsheet,
   MapPin,
+  Redo2,
+  Undo2,
   PackageMinus,
   PackagePlus,
   RefreshCw,
@@ -48,6 +51,9 @@ const TAB_ICONS: Record<WarehouseOperationKind, React.ComponentType<{ className?
   scrap: Factory,
   purchase: ShoppingCart,
   replenishment: RefreshCw,
+  opening: FileSpreadsheet,
+  customer_return: Undo2,
+  supplier_return: Redo2,
 };
 
 export function WarehouseDetailPage() {

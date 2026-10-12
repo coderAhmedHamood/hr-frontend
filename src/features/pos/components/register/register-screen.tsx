@@ -8,6 +8,7 @@ import {
   ChevronRight,
   Clock,
   FileText,
+  LayoutGrid,
   Lock,
   MonitorSmartphone,
   MoreVertical,
@@ -79,6 +80,25 @@ function writeJson(key: string, value: unknown) {
 
 /* ── Register choice and shift opening ───────────────────────────────── */
 
+function ExitLinks() {
+  return (
+    <div className="flex items-center justify-center gap-2 border-t border-border/60 pt-3">
+      <Button asChild variant="outline" size="sm">
+        <Link href={posRoutes.overview}>
+          <ChevronRight className="h-4 w-4" />
+          نقاط البيع
+        </Link>
+      </Button>
+      <Button asChild variant="outline" size="sm">
+        <Link href="/">
+          <LayoutGrid className="h-4 w-4" />
+          التطبيقات
+        </Link>
+      </Button>
+    </div>
+  );
+}
+
 function RegisterPicker({ onPick }: { onPick: (id: string) => void }) {
   const { data } = usePosContext();
   const active = data.registers.filter((r) => r.isActive);
@@ -108,6 +128,7 @@ function RegisterPicker({ onPick }: { onPick: (id: string) => void }) {
           );
         })
       )}
+      <ExitLinks />
     </div>
   );
 }
@@ -150,6 +171,7 @@ function OpenShift({ registerId, onBack }: { registerId: string; onBack: () => v
       </Button>
       {!allowed ? <p className="text-xs text-destructive">ليس لديك صلاحية فتح وردية.</p> : null}
       <Button variant="ghost" onClick={onBack}>نقطة بيع أخرى</Button>
+      <ExitLinks />
     </div>
   );
 }
@@ -346,6 +368,7 @@ function Register() {
           <Button variant="outline" onClick={() => setCloseOpen(true)}>إغلاق ورديته (مشرف)</Button>
         ) : null}
         <Button variant="ghost" onClick={() => setRegisterId(null)}>نقطة بيع أخرى</Button>
+        <ExitLinks />
         <CloseSessionDialog session={closeOpen ? session : null} onOpenChange={setCloseOpen} />
       </div>
     );

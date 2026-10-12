@@ -10,8 +10,7 @@ import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
 import { getInventoryCompanyId } from '@/features/inventory/lib/company-id';
 import { useLocationStockList } from '@/features/inventory/admin/hooks/use-product-on-hand';
 import { useWarehouses } from '@/features/inventory/admin/warehouses/hooks/use-warehouses';
-import { useWarehouseLocations } from '@/features/inventory/admin/locations/hooks/use-warehouse-locations';
-import { useProducts } from '@/features/catalog/products/hooks/use-products';
+import { useReportProducts } from '@/features/inventory/admin/reports/hooks/use-report-products';
 import { Badge } from '@/components/ui/badge';
 import { DataTable, usePagination, type ColumnDef } from '@/components/ui/data-table';
 import { DirectoryPagedViews, DEFAULT_PAGE_SIZE } from '@/components/ui/paged-list';
@@ -49,25 +48,11 @@ export function StockOverviewReportPage() {
     companyId,
     warehouseId: warehouseId === 'all' ? undefined : warehouseId,
   });
-  const { data: productsData, isLoading: productsLoading } = useProducts({
-    companyId,
-    page: 1,
-    limit: 500,
-  });
+  const { data: productsData, isLoading: productsLoading } = useReportProducts(companyId);
   const { data: warehousesData } = useWarehouses({ companyId, limit: 100 });
-  const { data: locationsData } = useWarehouseLocations({ companyId, limit: 500 });
 
-  const products = productsData?.items ?? [];
+  const products = React.useMemo(() => productsData ?? [], [productsData]);
   const warehouses = warehousesData?.items ?? [];
-  const locations = locationsData?.items ?? [];
-
-  const internalLocationIds = React.useMemo(
-    () =>
-      new Set(
-        locations.filter((location) => location.locationType === 'internal').map((location) => location.id),
-      ),
-    [locations],
-  );
 
   const rows = React.useMemo(() => {
     const byProduct = new Map<
@@ -76,7 +61,7 @@ export function StockOverviewReportPage() {
     >();
 
     for (const row of stockRows) {
-      if (!internalLocationIds.has(row.locationId)) continue;
+      if (row.locationType !== 'internal') continue;
       let agg = byProduct.get(row.productId);
       if (!agg) {
         agg = { onHand: 0, reserved: 0, warehouses: new Set(), locations: new Set() };
@@ -93,25 +78,25 @@ export function StockOverviewReportPage() {
       const onHand = agg?.onHand ?? 0;
       const reserved = agg?.reserved ?? 0;
       const available = Math.max(0, onHand - reserved);
-      const threshold = product.inventory.lowStockThreshold ?? 0;
+      const threshold = product.lowStockThreshold;
       return {
         key: product.id,
         productId: product.id,
         productName: product.nameAr,
         sku: product.sku,
-        trackInventory: product.inventory.trackInventory,
+        trackInventory: product.trackInventory,
         onHand,
         reserved,
         available,
         warehouseCount: agg?.warehouses.size ?? 0,
         locationCount: agg?.locations.size ?? 0,
         lowStockThreshold: threshold,
-        isLow: product.inventory.trackInventory && threshold > 0 && available > 0 && available <= threshold,
+        isLow: product.trackInventory && threshold > 0 && available > 0 && available <= threshold,
       };
     });
 
     return result;
-  }, [stockRows, products, internalLocationIds]);
+  }, [stockRows, products]);
 
   const filtered = React.useMemo(() => {
     const q = search.toLowerCase();

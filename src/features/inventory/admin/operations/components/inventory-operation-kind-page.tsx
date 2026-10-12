@@ -1,5 +1,6 @@
 'use client';
 
+import type * as React from 'react';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { WarehouseOperationsPanel } from '@/features/inventory/admin/operations/components/warehouse-operations-panel';
 import { WAREHOUSE_OPERATION_KIND_META } from '@/features/inventory/domain/constants/warehouse-operation-kinds';
@@ -7,9 +8,10 @@ import type { WarehouseOperationKind } from '@/features/inventory/domain/types/w
 
 type Props = {
   kind: WarehouseOperationKind;
+  headerExtra?: React.ReactNode;
 };
 
-export function InventoryOperationKindPage({ kind }: Props) {
+export function InventoryOperationKindPage({ kind, headerExtra }: Props) {
   const meta = WAREHOUSE_OPERATION_KIND_META[kind];
 
   return (
@@ -20,7 +22,7 @@ export function InventoryOperationKindPage({ kind }: Props) {
         iconName="Package"
       />
 
-      <WarehouseOperationsPanel kind={kind} enableInventoryFilters />
+      <WarehouseOperationsPanel kind={kind} enableInventoryFilters headerExtra={headerExtra} />
     </div>
   );
 }

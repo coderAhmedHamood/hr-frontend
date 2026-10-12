@@ -36,6 +36,9 @@ const TITLES: Partial<Record<WarehouseOperationKind, string>> = {
   internal: 'سند نقل داخلي',
   adjustment: 'سند تسوية مخزون',
   physical_count: 'محضر جرد',
+  opening: 'سند رصيد افتتاحي',
+  customer_return: 'سند مرتجع عميل',
+  supplier_return: 'سند مرتجع لمورد',
 };
 
 function formatQuantity(value: number): string {

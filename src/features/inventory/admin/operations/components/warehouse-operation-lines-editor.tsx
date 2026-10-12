@@ -11,6 +11,8 @@ import {
   operationLineDraftKey,
   type OperationLineDraft,
 } from '@/features/inventory/admin/operations/lib/operation-line-draft';
+import { companyCurrencyCode } from '@/features/auth/lib/company-currency';
+import { currencySymbolAr } from '@/shared/currencies';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -352,7 +354,7 @@ export function WarehouseOperationLinesEditor({
               }
             }}
           />
-          <span className="pe-2 text-xs font-medium text-muted-foreground">ر.ي</span>
+          <span className="pe-2 text-xs font-medium text-muted-foreground">{currencySymbolAr(companyCurrencyCode())}</span>
         </div>
         {line.productId && !line.unitCost?.trim() ? (
           <p className="mt-1 text-[11px] font-medium text-amber-700 dark:text-amber-400">

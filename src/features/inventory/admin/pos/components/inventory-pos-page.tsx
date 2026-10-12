@@ -21,6 +21,7 @@ import {
   usePosStockList,
 } from '@/features/inventory/admin/pos/hooks/use-pos-stock';
 import { usePosSaleDeduct } from '@/features/inventory/admin/pos/hooks/use-pos-sale';
+import { isSaleAlreadyDeducted, useSaleDocument } from '@/features/inventory/admin/pos/hooks/use-sale-document';
 
 type CartLine = {
   key: string;
@@ -73,6 +74,10 @@ export function InventoryPosPage() {
   });
 
   const deduct = usePosSaleDeduct(companyId);
+  const saleDocument = useSaleDocument(
+    () =>
+      `POS-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Date.now().toString(36).toUpperCase()}`,
+  );
 
   const items = stockQuery.data?.items ?? [];
 
@@ -233,7 +238,7 @@ export function InventoryPosPage() {
 
   async function confirmSale() {
     if (cart.length === 0 || deduct.isPending) return;
-    const sourceDocument = `POS-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Date.now().toString(36).toUpperCase()}`;
+    const sourceDocument = saleDocument.take();
     try {
       await deduct.mutateAsync({
         sourceDocument,
@@ -245,10 +250,16 @@ export function InventoryPosPage() {
           ...(line.locationId ? { locationId: line.locationId } : {}),
         })),
       });
+      saleDocument.done();
       clearCart();
       searchRef.current?.focus();
-    } catch {
-      /* toast handled in mutation */
+    } catch (error) {
+      // Toast handled in the mutation. Already deducted: the first try went
+      // through, so this sale is finished.
+      if (isSaleAlreadyDeducted(error)) {
+        saleDocument.done();
+        clearCart();
+      }
     }
   }
 

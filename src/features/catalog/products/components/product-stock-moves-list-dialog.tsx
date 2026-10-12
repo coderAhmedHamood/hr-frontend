@@ -1,7 +1,20 @@
 'use client';
 
 import * as React from 'react';
-import { ArrowLeftRight, PackageMinus, PackagePlus, RefreshCw } from 'lucide-react';
+import {
+  ArrowLeftRight,
+  ClipboardList,
+  Factory,
+  FileSpreadsheet,
+  PackageMinus,
+  PackagePlus,
+  Redo2,
+  RefreshCw,
+  ShoppingCart,
+  SlidersHorizontal,
+  Truck,
+  Undo2,
+} from 'lucide-react';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
 import { useWarehouseOperations } from '@/features/inventory/admin/operations/hooks/use-warehouse-operations';
 import { useWarehouses } from '@/features/inventory/admin/warehouses/hooks/use-warehouses';
@@ -39,11 +52,19 @@ type Props = {
   requestKey?: number;
 };
 
-const LIST_ICONS: Partial<Record<WarehouseOperationKind, typeof PackagePlus>> = {
+const LIST_ICONS: Record<WarehouseOperationKind, typeof PackagePlus> = {
+  transfer: Truck,
   receipt: PackagePlus,
   issue: PackageMinus,
   internal: ArrowLeftRight,
+  adjustment: SlidersHorizontal,
+  physical_count: ClipboardList,
+  scrap: Factory,
+  purchase: ShoppingCart,
   replenishment: RefreshCw,
+  opening: FileSpreadsheet,
+  customer_return: Undo2,
+  supplier_return: Redo2,
 };
 
 function statusBadgeVariant(status: string): 'subtle' | 'warning' | 'success' | 'destructive' {

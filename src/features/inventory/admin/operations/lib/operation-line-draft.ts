@@ -1,3 +1,4 @@
+import { WAREHOUSE_OPERATION_KIND_META } from '@/features/inventory/domain/constants/warehouse-operation-kinds';
 import type { WarehouseOperationKind, WarehouseOperationLine } from '@/features/inventory/domain/types/warehouse';
 
 export type OperationLineDraft = {
@@ -23,7 +24,10 @@ export function supportsMultiProductLines(kind: WarehouseOperationKind): boolean
     kind === 'issue' ||
     kind === 'internal' ||
     kind === 'purchase' ||
-    kind === 'replenishment'
+    kind === 'replenishment' ||
+    kind === 'opening' ||
+    kind === 'customer_return' ||
+    kind === 'supplier_return'
   );
 }
 
@@ -32,14 +36,21 @@ export function supportsMultiProductLines(kind: WarehouseOperationKind): boolean
  * يتجاهلها في التحويل والصادر (التكلفة تُشتق من الدفعة المصدر أو محرك
  * التكلفة، وليس من إدخال العميل). استخدم stockEffect بدل مطابقة kind مباشرة
  * كي يبقى هذا متسقًا مع WAREHOUSE_OPERATION_KIND_META.
+ * مرتجع العميل وارد لكن تكلفته تكلفة البيع الأصلي (يحددها الخادم من المستند المصدر).
  */
-export function lineNeedsUnitCost(stockEffect: 'inbound' | 'outbound' | 'move' | 'transfer' | 'adjust_set'): boolean {
-  return stockEffect === 'inbound';
+export function lineNeedsUnitCost(kind: WarehouseOperationKind): boolean {
+  return WAREHOUSE_OPERATION_KIND_META[kind].stockEffect === 'inbound' && kind !== 'customer_return';
 }
 
 /** Outbound pickers: only products with on-hand at the source location. */
 export function pickerUsesSourceLocationStock(kind: WarehouseOperationKind): boolean {
-  return kind === 'transfer' || kind === 'internal' || kind === 'issue' || kind === 'scrap';
+  return (
+    kind === 'transfer' ||
+    kind === 'internal' ||
+    kind === 'issue' ||
+    kind === 'scrap' ||
+    kind === 'supplier_return'
+  );
 }
 
 export function newOperationLineDraftId(): string {

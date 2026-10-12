@@ -108,39 +108,12 @@ export const inventoryLedgerApi = {
     };
   },
 
-  async append(entries: Omit<InventoryLedgerEntry, 'id' | 'createdAt'>[]): Promise<InventoryLedgerEntry[]> {
-    const created: InventoryLedgerEntry[] = [];
-    for (const entry of entries) {
-      const dto = await apiRequest<LedgerDto>('/inventory/ledger-entries', {
-        method: 'POST',
-        body: {
-          companyId: entry.companyId,
-          operationId: entry.operationId,
-          operationLineId: entry.operationLineId,
-          locationId: entry.locationId,
-          quantityDelta: entry.quantityDelta,
-          occurredAt: entry.occurredAt,
-          operationReference: entry.operationReference,
-          kind: entry.kind,
-          productId: entry.productId,
-          productName: entry.productName,
-          variantId: entry.variantId ?? null,
-          sku: entry.sku ?? null,
-          warehouseId: entry.warehouseId,
-          counterpartLocationId: entry.counterpartLocationId ?? null,
-          counterpartWarehouseId: entry.counterpartWarehouseId ?? null,
-          sourceDocument: entry.sourceDocument ?? null,
-          partnerName: entry.partnerName ?? null,
-          notes: entry.notes ?? null,
-        },
-      });
-      created.push(mapEntry(dto));
-    }
-    return created;
-  },
-
   async listByOperation(companyId: string, operationId: string): Promise<InventoryLedgerEntry[]> {
-    const page = await this.list({ companyId, operationId, page: 1, limit: 500 });
-    return page.items;
+    const entries: InventoryLedgerEntry[] = [];
+    for (let page = 1; ; page += 1) {
+      const result = await this.list({ companyId, operationId, page, limit: 500 });
+      entries.push(...result.items);
+      if (page >= (result.pagination?.totalPages ?? 1)) return entries;
+    }
   },
 };

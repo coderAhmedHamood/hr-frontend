@@ -50,7 +50,7 @@ export function MovesAnalysisReportPage() {
     limit: 500,
   });
   const { data: warehousesData } = useWarehouses({ companyId, limit: 100 });
-  const { data: locationsData } = useWarehouseLocations({ companyId, limit: 500 });
+  const { data: locationsData } = useWarehouseLocations({ companyId, all: true, limit: 500 });
 
   const warehouses = React.useMemo(() => warehousesData?.items ?? [], [warehousesData?.items]);
   const locations = React.useMemo(() => locationsData?.items ?? [], [locationsData?.items]);

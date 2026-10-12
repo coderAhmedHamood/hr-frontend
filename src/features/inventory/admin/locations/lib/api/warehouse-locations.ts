@@ -95,19 +95,25 @@ export const warehouseLocationsApi: AdminWarehouseLocationsPort = {
     if (!query.companyId?.trim()) {
       throw new Error('companyId مطلوب لقائمة مواقع المستودع.');
     }
-    const result = await apiRequest<PaginatedResult<WarehouseLocationDto>>(
-      '/inventory/warehouse-locations',
-      {
+    const fetchPage = (page: number) =>
+      apiRequest<PaginatedResult<WarehouseLocationDto>>('/inventory/warehouse-locations', {
         query: {
           companyId: query.companyId,
           warehouseId: query.warehouseId,
           search: query.search,
-          page: query.page ?? 1,
+          page,
           limit: query.limit ?? 200,
           archiveScope: 'active',
         },
-      },
-    );
+      });
+    const result = await fetchPage(query.all ? 1 : (query.page ?? 1));
+    if (query.all) {
+      const totalPages = result.pagination?.totalPages ?? 1;
+      for (let page = 2; page <= totalPages; page += 1) {
+        const next = await fetchPage(page);
+        result.items = [...(result.items ?? []), ...(next.items ?? [])];
+      }
+    }
     return {
       items: (result.items ?? []).map(mapLocation),
       pagination: result.pagination,

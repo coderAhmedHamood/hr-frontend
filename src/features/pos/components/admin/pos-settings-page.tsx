@@ -22,7 +22,7 @@ import {
 } from '@/features/pos/domain/types';
 import { usePosContext } from '@/features/pos/hooks/use-pos-context';
 import { parseAmount } from '@/features/pos/lib/format';
-import { PosGate, PosPreviewNote } from '@/features/pos/components/shared/pos-shared';
+import { PosGate } from '@/features/pos/components/shared/pos-shared';
 import { PosMenuCategoriesCard } from '@/features/pos/components/admin/pos-menu-categories';
 
 function Card({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
@@ -127,7 +127,6 @@ function Settings() {
   return (
     <div className="space-y-4 sm:space-y-5">
       <SetPageTitle titleAr="إعدادات نقاط البيع" iconName="Settings" />
-      <PosPreviewNote />
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as SettingsTab)}>
         <TabsList className="flex h-auto w-full justify-start gap-1 rounded-xl bg-muted/60 p-1 max-md:overflow-x-auto md:flex-wrap">
@@ -151,7 +150,9 @@ function Settings() {
             description="على مستوى الشركة: كل نقاط البيع مربوطة أو لا شيء منها، فلا تبيع نقطتان البضاعة نفسها إحداهما تخصم والأخرى لا."
           >
             <div className="grid gap-3 sm:grid-cols-2">
-              {STOCK_MODES.map((m) => {
+              {/* POS sales do not post to inventory yet: the linked mode is offered
+                  only to a company already on it (it can switch back). */}
+              {STOCK_MODES.filter((m) => m.id !== 'inventory' || data.settings.stockMode === 'inventory').map((m) => {
                 const Icon = m.icon;
                 const active = data.settings.stockMode === m.id;
                 return (

@@ -2,7 +2,6 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { inventoryStockService } from '@/features/inventory/services/inventory-stock.service';
-import { warehouseLocationsApi } from '@/features/inventory/admin/locations/lib/api/warehouse-locations';
 import type {
   LocationStock,
   LocationStockListQuery,
@@ -37,13 +36,12 @@ async function fetchProductLocationStockRaw(
   companyId: string,
   productId: string,
 ): Promise<ProductLocationStockRaw> {
-  const [snapshot, stocks, locations] = await Promise.all([
+  const [snapshot, stocks] = await Promise.all([
     inventoryStockService.getProductStock(productId),
     inventoryStockService.listLocationStock({ companyId, productId }),
-    warehouseLocationsApi.getAll({ companyId, page: 1, limit: 500 }),
   ]);
   const internalLocationIds = new Set(
-    locations.items.filter((location) => location.locationType === 'internal').map((l) => l.id),
+    stocks.filter((row) => row.locationType === 'internal').map((row) => row.locationId),
   );
   return { snapshot, stocks, internalLocationIds };
 }

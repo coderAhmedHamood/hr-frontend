@@ -24,6 +24,9 @@ import {
   Settings2,
   Store,
   Bell,
+  FileSpreadsheet,
+  Undo2,
+  Redo2,
 } from 'lucide-react';
 import { inventoryAdminRoutes } from '@/features/inventory/admin/constants/routes';
 import { WAREHOUSE_OPERATION_KIND_META } from '@/features/inventory/domain/constants/warehouse-operation-kinds';
@@ -58,6 +61,9 @@ const OP_ICONS: Record<WarehouseOperationKind, LucideIcon> = {
   scrap: Factory,
   purchase: ShoppingCart,
   replenishment: RefreshCw,
+  opening: FileSpreadsheet,
+  customer_return: Undo2,
+  supplier_return: Redo2,
 };
 
 function opItem(kind: WarehouseOperationKind): InventoryAdminNavItem {
@@ -89,10 +95,13 @@ export const inventoryAdminNavGroups: InventoryAdminNavGroup[] = [
         items: [opItem('transfer'), opItem('receipt'), opItem('issue'), opItem('internal')],
       },
       {
+        items: [opItem('customer_return'), opItem('supplier_return')],
+      },
+      {
         items: [opItem('adjustment'), opItem('physical_count'), opItem('scrap')],
       },
       {
-        items: [opItem('purchase'), opItem('replenishment')],
+        items: [opItem('purchase'), opItem('replenishment'), opItem('opening')],
       },
     ],
   },
@@ -206,6 +215,9 @@ const INVENTORY_ADMIN_PATHS: string[] = [
   '/inventory/scrap',
   '/inventory/purchases',
   '/inventory/replenishment',
+  '/inventory/opening-balance',
+  '/inventory/customer-returns',
+  '/inventory/supplier-returns',
   '/inventory/locations',
   '/inventory/putaway-rules',
   '/inventory/products',

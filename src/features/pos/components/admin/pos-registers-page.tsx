@@ -17,7 +17,7 @@ import { resolvePosInvoiceStyle, type PosInvoiceStyle, type PosRegister } from '
 import { usePosContext } from '@/features/pos/hooks/use-pos-context';
 import { readPairedDevice, writePairedDevice } from '@/features/pos/lib/pos-store';
 import { formatDateTime } from '@/features/pos/lib/format';
-import { EmptyState, PosGate, PosPreviewNote } from '@/features/pos/components/shared/pos-shared';
+import { EmptyState, PosGate } from '@/features/pos/components/shared/pos-shared';
 
 type Draft = {
   id?: string;
@@ -202,7 +202,6 @@ function Registers() {
   return (
     <div className="space-y-4 sm:space-y-5">
       <SetPageTitle titleAr="نقاط البيع والأجهزة" iconName="Settings" />
-      <PosPreviewNote />
       <div className="flex justify-end">
         {canManage ? (
           <Button

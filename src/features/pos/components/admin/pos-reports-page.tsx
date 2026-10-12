@@ -1,148 +1,471 @@
 'use client';
 
 import * as React from 'react';
+import { toast } from 'sonner';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
-import { Button } from '@/components/ui/button';
+import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
+import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
+import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
+import { Badge } from '@/components/ui/badge';
+import { DataTable, usePagination, type ColumnDef } from '@/components/ui/data-table';
+import { DirectoryPagedViews, DEFAULT_PAGE_SIZE } from '@/components/ui/paged-list';
+import { EntityFilterSearchField } from '@/components/ui/entity-filter-search-field';
+import { ListFilterBar, type PeriodRange } from '@/components/ui/list-filter-bar';
+import { downloadXlsxFromAoA, type XlsxCell } from '@/shared/export/download-xlsx';
+import { cn } from '@/shared/utils';
+import {
+  ReportExportMenu,
+  ShareBar,
+} from '@/features/expenses/components/report-common';
 import { PAYMENT_METHOD_LABELS, type PosPaymentMethod } from '@/features/pos/domain/types';
 import { usePosContext } from '@/features/pos/hooks/use-pos-context';
-import { round2 } from '@/features/pos/lib/calc';
-import { formatMoney } from '@/features/pos/lib/format';
-import { PosGate, PosPreviewNote, StatTile } from '@/features/pos/components/shared/pos-shared';
+import { formatAmount, formatDateTime, formatMoney } from '@/features/pos/lib/format';
+import {
+  GROUPINGS,
+  NO_FILTERS,
+  dayOf,
+  discountedLines,
+  groupBy as groupFacts,
+  lineFacts,
+  paymentRows,
+  returnsInPeriod,
+  sortedForTime,
+  totalsOf,
+  type GroupRow,
+  type Grouping,
+  type LineFact,
+  type ReportFilters,
+} from '@/features/pos/lib/sales-report';
+import { PosGate } from '@/features/pos/components/shared/pos-shared';
 
-const PERIODS = [
-  { id: 'today', label: 'اليوم', days: 0 },
-  { id: '7', label: '7 أيام', days: 7 },
-  { id: '30', label: '30 يومًا', days: 30 },
-  { id: 'all', label: 'الكل', days: -1 },
-] as const;
+const ALL = 'all';
 
-function inPeriod(iso: string | null, days: number): boolean {
-  if (!iso) return false;
-  if (days < 0) return true;
-  const d = new Date(iso);
-  if (days === 0) return d.toDateString() === new Date().toDateString();
-  return Date.now() - d.getTime() <= days * 86_400_000;
-}
+/** What the table shows: a grouping of the sales, or one of the lists. */
+type View = Grouping | 'payments' | 'discounts' | 'returns';
 
-function Table({ title, rows }: { title: string; rows: Array<[string, string, string?]> }) {
+const VIEWS: Array<{ id: View; label: string; column: string }> = [
+  { id: 'product', label: 'حسب الصنف', column: 'الصنف' },
+  { id: 'category', label: 'حسب الفئة', column: 'الفئة' },
+  { id: 'day', label: 'حسب اليوم', column: 'اليوم' },
+  { id: 'hour', label: 'حسب الساعة', column: 'الساعة' },
+  { id: 'weekday', label: 'حسب يوم الأسبوع', column: 'يوم الأسبوع' },
+  { id: 'cashier', label: 'حسب الكاشير', column: 'الكاشير' },
+  { id: 'register', label: 'حسب نقطة البيع', column: 'نقطة البيع' },
+  { id: 'session', label: 'حسب الوردية', column: 'الوردية' },
+  { id: 'customer', label: 'حسب العميل', column: 'العميل' },
+  { id: 'invoice', label: 'الفواتير', column: 'الفاتورة' },
+  { id: 'payments', label: 'وسائل الدفع', column: 'الوسيلة' },
+  { id: 'discounts', label: 'الخصومات وتغيير الأسعار', column: 'الصنف' },
+  { id: 'returns', label: 'المرتجعات', column: 'المرتجع' },
+];
+
+const today = () => dayOf(new Date().toISOString());
+
+function Profit({ value, currency }: { value: number; currency?: string | null }) {
   return (
-    <section className="rounded-xl border border-border bg-card p-4 shadow-soft">
-      <h3 className="mb-2 text-sm font-semibold">{title}</h3>
-      {rows.length === 0 ? (
-        <p className="text-xs text-muted-foreground">لا بيانات في الفترة.</p>
-      ) : (
-        <table className="w-full text-sm">
-          <tbody>
-            {rows.map(([a, b, c]) => (
-              <tr key={a} className="border-t border-border/60 first:border-t-0">
-                <td className="py-1.5">{a}</td>
-                {c !== undefined ? <td className="py-1.5 text-muted-foreground">{c}</td> : null}
-                <td className="py-1.5 text-end tabular-nums">{b}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </section>
+    <span className={cn('tabular-nums', value > 0 ? 'text-success' : value < 0 ? 'text-destructive' : '')}>
+      {formatMoney(value, currency)}
+    </span>
   );
 }
+
+const marginText = (m: number | null) => (m == null ? '—' : `${m}%`);
 
 function Reports() {
   const { data, currency } = usePosContext();
-  const [period, setPeriod] = React.useState<(typeof PERIODS)[number]['id']>('today');
-  const days = PERIODS.find((p) => p.id === period)!.days;
+  const defaultPeriod = React.useMemo<PeriodRange>(() => ({ from: today(), to: today() }), []);
+  const [period, setPeriod] = React.useState<PeriodRange>(defaultPeriod);
+  const [view, setView] = React.useState<View>('product');
+  const [registerId, setRegisterId] = React.useState(ALL);
+  const [cashierName, setCashierName] = React.useState(ALL);
+  const [categoryId, setCategoryId] = React.useState(ALL);
+  const [paymentMethod, setPaymentMethod] = React.useState(ALL);
+  const [searchInput, setSearchInput] = React.useState('');
+  const [search, setSearch] = React.useState('');
 
-  const sales = data.sales.filter((s) => s.status === 'completed' && inPeriod(s.completedAt, days));
-  const returns = data.returns.filter((r) => inPeriod(r.createdAt, days));
-  const payments = data.sales.flatMap((s) => s.payments).filter((p) => p.status === 'succeeded' && inPeriod(p.createdAt, days));
+  React.useEffect(() => {
+    const t = setTimeout(() => setSearch(searchInput.trim()), 300);
+    return () => clearTimeout(t);
+  }, [searchInput]);
 
-  const gross = round2(sales.reduce((a, s) => a + s.totals.subtotal, 0));
-  const discount = round2(sales.reduce((a, s) => a + s.totals.discount, 0));
-  const net = round2(sales.reduce((a, s) => a + s.totals.total, 0));
-  const tax = round2(sales.reduce((a, s) => a + s.totals.tax, 0));
-  const returned = round2(returns.reduce((a, r) => a + r.refund.amount, 0));
+  const filters: ReportFilters = React.useMemo(
+    () => ({
+      from: period.from || null,
+      to: period.to || null,
+      registerId: registerId === ALL ? null : registerId,
+      cashierName: cashierName === ALL ? null : cashierName,
+      categoryId: categoryId === ALL ? null : categoryId,
+      paymentMethod: paymentMethod === ALL ? null : (paymentMethod as PosPaymentMethod),
+      product: search,
+    }),
+    [period, registerId, cashierName, categoryId, paymentMethod, search],
+  );
 
-  const byMethod = (Object.keys(PAYMENT_METHOD_LABELS) as PosPaymentMethod[]).map((m) => {
-    const inAmount = round2(payments.filter((p) => p.method === m && p.kind === 'payment').reduce((a, p) => a + p.amount, 0));
-    const refunds = round2(
-      returns.filter((r) => r.refund.method === m && r.refund.status === 'done').reduce((a, r) => a + r.refund.amount, 0) +
-        payments.filter((p) => p.method === m && p.kind === 'refund').reduce((a, p) => a + p.amount, 0),
-    );
-    return [PAYMENT_METHOD_LABELS[m], formatMoney(round2(inAmount - refunds), currency), `محصّل ${formatMoney(inAmount)} · مردود ${formatMoney(refunds)}`] as [string, string, string];
+  const facts = React.useMemo(() => lineFacts(data, filters), [data, filters]);
+  const totals = React.useMemo(() => totalsOf(facts), [facts]);
+
+  // Choices come from the period's sales, before the other filters.
+  const periodFacts = React.useMemo(
+    () => lineFacts(data, { ...NO_FILTERS, from: filters.from, to: filters.to }),
+    [data, filters.from, filters.to],
+  );
+  const cashiers = React.useMemo(
+    () => [...new Set(periodFacts.map((f) => f.cashierName))].sort((a, b) => a.localeCompare(b, 'ar')),
+    [periodFacts],
+  );
+  const categories = React.useMemo(
+    () => [...new Map(periodFacts.filter((f) => f.categoryId).map((f) => [f.categoryId!, f.categoryName])).entries()],
+    [periodFacts],
+  );
+
+  const viewMeta = VIEWS.find((v) => v.id === view)!;
+  const isGrouping = view in GROUPINGS;
+  const groupRows = React.useMemo(
+    () => (isGrouping ? sortedForTime(view as Grouping, groupFacts(facts, GROUPINGS[view as Grouping])) : []),
+    [facts, view, isGrouping],
+  );
+  const payments = React.useMemo(() => paymentRows(data, filters), [data, filters]);
+  const discounted = React.useMemo(() => discountedLines(facts), [facts]);
+  const returns = React.useMemo(() => returnsInPeriod(data, filters), [data, filters]);
+
+  const isDefaultPeriod = period.from === defaultPeriod.from && period.to === defaultPeriod.to;
+  const activeFilterCount =
+    [registerId, cashierName, categoryId, paymentMethod].filter((v) => v !== ALL).length +
+    (search ? 1 : 0) +
+    (view !== 'product' ? 1 : 0) +
+    (isDefaultPeriod ? 0 : 1);
+
+  const stamp = `${filters.from ?? 'all'}-${filters.to ?? 'all'}`;
+
+  const exportExcel = React.useCallback(async () => {
+    let sheet: XlsxCell[][];
+    if (isGrouping) {
+      sheet = [
+        [viewMeta.column, 'الفواتير', 'الكمية', 'صافي المبيعات', 'الخصم', 'المرتجع', 'الضريبة', 'التكلفة', 'الربح', 'الهامش %', 'بلا تكلفة'],
+        ...groupRows.map((r) => [
+          r.detail ? `${r.label} (${r.detail})` : r.label,
+          r.invoices,
+          r.units,
+          r.revenue,
+          r.discount,
+          r.returned,
+          r.tax,
+          r.cost,
+          r.profit,
+          r.margin,
+          r.uncostedRevenue,
+        ]),
+      ];
+    } else if (view === 'payments') {
+      sheet = [['الوسيلة', 'العمليات', 'المحصّل', 'المردود', 'الصافي'], ...payments.map((p) => [p.label, p.count, p.collected, p.refunded, p.net])];
+    } else if (view === 'discounts') {
+      sheet = [
+        ['التاريخ', 'الفاتورة', 'الصنف', 'الكاشير', 'السعر الأصلي', 'سعر البيع', 'الخصم', 'التكلفة'],
+        ...discounted.map((f) => [formatDateTime(f.date), f.saleNumber, f.productName, f.cashierName, f.sourcePrice, f.unitPrice, f.discount, f.unitCost]),
+      ];
+    } else {
+      sheet = [
+        ['التاريخ', 'رقم المرتجع', 'على الفاتورة', 'السبب', 'الأصناف', 'الطريقة', 'المبلغ', 'حالة الرد'],
+        ...returns.map((r) => [
+          formatDateTime(r.createdAt),
+          r.number,
+          r.saleNumber,
+          r.reason,
+          r.lines.map((l) => `${l.name} × ${l.quantity}`).join('، '),
+          PAYMENT_METHOD_LABELS[r.refund.method],
+          r.refund.amount,
+          r.refund.status === 'done' ? 'تم' : 'معلّق',
+        ]),
+      ];
+    }
+    if (sheet.length <= 1) {
+      toast.error('لا توجد بيانات للتصدير ضمن الفلاتر الحالية.');
+      return;
+    }
+    try {
+      await downloadXlsxFromAoA(`pos-${view}-${stamp}.xlsx`, viewMeta.label, sheet);
+      toast.success('تم تنزيل ملف Excel.');
+    } catch {
+      toast.error('تعذر تصدير التقرير.');
+    }
+  }, [isGrouping, view, viewMeta, groupRows, payments, discounted, returns, stamp]);
+
+  usePageHeaderActions(
+    () => (
+      <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
+        <FilterToggleButton activeFilterCount={activeFilterCount} />
+        <ReportExportMenu onExcel={() => void exportExcel()} />
+      </div>
+    ),
+    [activeFilterCount, exportExcel],
+  );
+
+  useEntityFilterSlot(
+    () => (
+      <ListFilterBar
+        showStatusSection={false}
+        showEmployeePicker={false}
+        periodValue={period}
+        onPeriodChange={setPeriod}
+        defaultPeriod={defaultPeriod}
+        leadingFilters={
+          <EntityFilterSearchField value={searchInput} onChange={setSearchInput} placeholder="ابحث بالصنف أو رمزه…" />
+        }
+        inlineSelects={[
+          {
+            id: 'view',
+            value: view === 'product' ? ALL : view,
+            onChange: (v) => setView(v === ALL ? 'product' : (v as View)),
+            placeholder: 'حسب الصنف',
+            options: [
+              { value: ALL, label: 'حسب الصنف' },
+              ...VIEWS.filter((v) => v.id !== 'product').map((v) => ({ value: v.id, label: v.label })),
+            ],
+          },
+          {
+            id: 'register',
+            value: registerId,
+            onChange: setRegisterId,
+            placeholder: 'كل نقاط البيع',
+            options: [{ value: ALL, label: 'كل نقاط البيع' }, ...data.registers.map((r) => ({ value: r.id, label: r.name }))],
+          },
+          {
+            id: 'cashier',
+            value: cashierName,
+            onChange: setCashierName,
+            placeholder: 'كل الكاشيرية',
+            options: [{ value: ALL, label: 'كل الكاشيرية' }, ...cashiers.map((c) => ({ value: c, label: c }))],
+          },
+          ...(categories.length > 0
+            ? [
+                {
+                  id: 'category',
+                  value: categoryId,
+                  onChange: setCategoryId,
+                  placeholder: 'كل الفئات',
+                  options: [{ value: ALL, label: 'كل الفئات' }, ...categories.map(([id, name]) => ({ value: id, label: name }))],
+                },
+              ]
+            : []),
+          {
+            id: 'payment',
+            value: paymentMethod,
+            onChange: setPaymentMethod,
+            placeholder: 'كل وسائل الدفع',
+            options: [
+              { value: ALL, label: 'كل وسائل الدفع' },
+              ...(Object.keys(PAYMENT_METHOD_LABELS) as PosPaymentMethod[]).map((m) => ({ value: m, label: PAYMENT_METHOD_LABELS[m] })),
+            ],
+          },
+        ]}
+      />
+    ),
+    [period, defaultPeriod, searchInput, view, registerId, cashierName, categoryId, paymentMethod, data.registers, cashiers, categories],
+  );
+
+  /* ── Grouped table ── */
+  const maxRevenue = Math.max(0, ...groupRows.map((r) => r.revenue));
+  const groupColumns: ColumnDef<GroupRow>[] = [
+    {
+      key: 'label',
+      title: viewMeta.column,
+      render: (r) => (
+        <div className="flex min-w-0 flex-col">
+          <span className="truncate font-medium">{r.label}</span>
+          {r.detail ? <span className="text-xs text-muted-foreground" dir="auto">{r.detail}</span> : null}
+        </div>
+      ),
+    },
+    { key: 'units', title: 'الكمية', render: (r) => <span className="tabular-nums">{formatAmount(r.units)}</span> },
+    { key: 'invoices', title: 'الفواتير', hideOnMobile: true, render: (r) => <span className="tabular-nums">{r.invoices}</span> },
+    { key: 'revenue', title: 'صافي المبيعات', render: (r) => <span className="font-semibold tabular-nums">{formatMoney(r.revenue, currency)}</span> },
+    {
+      key: 'cost',
+      title: 'التكلفة',
+      render: (r) => (r.costedRevenue > 0 ? <span className="tabular-nums">{formatAmount(r.cost)}</span> : <span className="text-muted-foreground">—</span>),
+    },
+    {
+      key: 'profit',
+      title: 'الربح',
+      render: (r) => (r.costedRevenue > 0 ? <Profit value={r.profit} /> : <span className="text-muted-foreground">—</span>),
+    },
+    { key: 'margin', title: 'الهامش', hideOnMobile: true, render: (r) => <span className="tabular-nums">{marginText(r.margin)}</span> },
+    {
+      key: 'share',
+      title: 'من المبيعات',
+      hideOnMobile: true,
+      render: (r) => <ShareBar value={r.revenue} max={maxRevenue} total={totals.revenue} />,
+    },
+  ];
+
+  const grouped = usePagination(groupRows, DEFAULT_PAGE_SIZE);
+  const discountsPage = usePagination(discounted, DEFAULT_PAGE_SIZE);
+  const returnsPage = usePagination(returns, DEFAULT_PAGE_SIZE);
+  const pagination = (p: { page: number; pageSize: number; total: number; setPage: (n: number) => void; setPageSize: (n: number) => void }) => ({
+    page: p.page,
+    pageSize: p.pageSize,
+    total: p.total,
+    totalPages: Math.max(1, Math.ceil(p.total / p.pageSize)),
+    setPage: p.setPage,
+    setPageSize: p.setPageSize,
   });
 
-  const group = <K extends string>(keyOf: (s: (typeof sales)[number]) => K) => {
-    const map = new Map<K, { total: number; count: number }>();
-    for (const s of sales) {
-      const k = keyOf(s);
-      const cur = map.get(k) ?? { total: 0, count: 0 };
-      map.set(k, { total: round2(cur.total + s.totals.total), count: cur.count + 1 });
-    }
-    return [...map.entries()]
-      .sort((a, b) => b[1].total - a[1].total)
-      .map(([k, v]) => [k, formatMoney(v.total, currency), `${v.count} مستند`] as [string, string, string]);
-  };
-
-  const items = new Map<string, { qty: number; total: number }>();
-  for (const s of sales) {
-    for (const l of s.lines) {
-      const k = l.variantName ? `${l.name} — ${l.variantName}` : l.name;
-      const cur = items.get(k) ?? { qty: 0, total: 0 };
-      items.set(k, { qty: cur.qty + l.quantity - l.returnedQuantity, total: round2(cur.total + l.total) });
-    }
-  }
-  const topItems = [...items.entries()]
-    .sort((a, b) => b[1].total - a[1].total)
-    .slice(0, 10)
-    .map(([k, v]) => [k, formatMoney(v.total, currency), `${v.qty} قطعة`] as [string, string, string]);
-
-  const differences = data.sessions
-    .filter((s) => s.status === 'closed' && inPeriod(s.closedAt, days) && (s.difference ?? 0) !== 0)
-    .map((s) => [s.cashierName, formatMoney(s.difference ?? 0, currency), s.differenceReason ?? ''] as [string, string, string]);
-
-  const open = data.sales.filter((s) => s.status === 'awaiting_payment' || s.status === 'payment_exception');
-  const damagedPending = data.returns.filter((r) => r.damagedDecision === 'pending').length;
-
   return (
-    <div className="space-y-4 sm:space-y-5">
-      <SetPageTitle titleAr="تقارير نقاط البيع" iconName="BarChart3" />
-      <PosPreviewNote />
-      <div className="flex flex-wrap gap-2">
-        {PERIODS.map((p) => (
-          <Button key={p.id} size="sm" variant={period === p.id ? 'default' : 'outline'} onClick={() => setPeriod(p.id)}>
-            {p.label}
-          </Button>
-        ))}
-      </div>
+    <div className="flex flex-col gap-5">
+      <SetPageTitle
+        titleAr="تقارير المبيعات"
+        descriptionAr="كل بيع بسعره الذي بيع به وتكلفته لحظة البيع."
+        iconName="BarChart3"
+      />
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <StatTile label="إجمالي قبل الخصم" value={formatMoney(gross, currency)} />
-        <StatTile label="الخصومات" value={formatMoney(discount, currency)} />
-        <StatTile label="صافي المبيعات" value={formatMoney(net, currency)} hint={`${sales.length} مستند`} />
-        <StatTile label="الضريبة" value={formatMoney(tax, currency)} />
-        <StatTile label="المرتجعات" value={formatMoney(returned, currency)} hint={`${returns.length} مستند`} />
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Table title="المحصّل بوسيلة الدفع (صافي بعد الرد)" rows={byMethod} />
-        <Table title="حسب الكاشير" rows={group((s) => s.cashierName)} />
-        <Table title="حسب نقطة البيع" rows={group((s) => data.registers.find((r) => r.id === s.registerId)?.name ?? '—')} />
-        <Table title="أعلى الأصناف" rows={topItems} />
-        <Table title="فروقات النقد" rows={differences} />
-        <Table
-          title="تحتاج متابعة"
-          rows={[
-            ['مبيعات بانتظار الدفع أو استثناءات', String(open.length)],
-            ['مرتجعات تالفة بانتظار قرار', String(damagedPending)],
-            ['ردود مال بانتظار التنفيذ', String(data.returns.filter((r) => r.refund.status === 'pending').length)],
+      {isGrouping ? (
+        <DirectoryPagedViews items={grouped.slice} loading={false} serverPagination={pagination(grouped)}>
+          {(rowsPage) => (
+            <DataTable
+              variant="directory"
+              columns={groupColumns}
+              data={rowsPage}
+              keyExtractor={(r) => r.key}
+              mobileCard={(r) => (
+                <div className="space-y-1.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="truncate font-medium">{r.label}</p>
+                      {r.detail ? <p className="truncate text-xs text-muted-foreground">{r.detail}</p> : null}
+                    </div>
+                    <span className="shrink-0 font-semibold tabular-nums">{formatMoney(r.revenue, currency)}</span>
+                  </div>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                    <span>الكمية {formatAmount(r.units)}</span>
+                    {r.costedRevenue > 0 ? (
+                      <>
+                        <span>
+                          التكلفة <span className="text-foreground">{formatAmount(r.cost)}</span>
+                        </span>
+                        <span>
+                          الربح <Profit value={r.profit} />
+                        </span>
+                        <span>الهامش {marginText(r.margin)}</span>
+                      </>
+                    ) : (
+                      <span>بلا تكلفة</span>
+                    )}
+                  </div>
+                </div>
+              )}
+              emptyText="لا مبيعات ضمن الفلاتر الحالية."
+            />
+          )}
+        </DirectoryPagedViews>
+      ) : view === 'payments' ? (
+        <DataTable
+          variant="directory"
+          columns={[
+            { key: 'label', title: 'الوسيلة', render: (p) => <span className="font-medium">{p.label}</span> },
+            { key: 'count', title: 'العمليات', render: (p) => <span className="tabular-nums">{p.count}</span> },
+            { key: 'collected', title: 'المحصّل', render: (p) => <span className="tabular-nums">{formatAmount(p.collected)}</span> },
+            { key: 'refunded', title: 'المردود', render: (p) => <span className="tabular-nums">{formatAmount(p.refunded)}</span> },
+            { key: 'net', title: 'الصافي', render: (p) => <span className="font-semibold tabular-nums">{formatMoney(p.net, currency)}</span> },
           ]}
+          data={payments}
+          keyExtractor={(p) => p.method}
+          emptyText="لا مدفوعات ضمن الفلاتر الحالية."
         />
-      </div>
-      <p className="text-xs text-muted-foreground">
-        الربحية لا تظهر هنا: تحتاج مصدر تكلفة موثوقًا، وهو المخازن مع تفعيل التكلفة عند ربط نقاط البيع بها.
-      </p>
+      ) : view === 'discounts' ? (
+        <DirectoryPagedViews items={discountsPage.slice} loading={false} serverPagination={pagination(discountsPage)}>
+          {(rowsPage) => (
+            <DataTable
+              variant="directory"
+              columns={discountColumns(currency)}
+              data={rowsPage}
+              keyExtractor={(f) => `${f.saleId}:${f.productKey}:${f.date}`}
+              emptyText="لا خصومات ولا أسعار معدّلة ضمن الفلاتر الحالية."
+            />
+          )}
+        </DirectoryPagedViews>
+      ) : (
+        <DirectoryPagedViews items={returnsPage.slice} loading={false} serverPagination={pagination(returnsPage)}>
+          {(rowsPage) => (
+            <DataTable
+              variant="directory"
+              columns={[
+                {
+                  key: 'number',
+                  title: 'المرتجع',
+                  render: (r) => (
+                    <div className="flex flex-col">
+                      <span className="font-medium" dir="ltr">
+                        {r.number}
+                      </span>
+                      <span className="text-xs text-muted-foreground">على {r.saleNumber}</span>
+                    </div>
+                  ),
+                },
+                { key: 'date', title: 'التاريخ', hideOnMobile: true, render: (r) => formatDateTime(r.createdAt) },
+                { key: 'reason', title: 'السبب', hideOnMobile: true, render: (r) => r.reason },
+                {
+                  key: 'lines',
+                  title: 'الأصناف',
+                  hideOnMobile: true,
+                  render: (r) => r.lines.map((l) => `${l.name} × ${l.quantity}`).join('، '),
+                },
+                {
+                  key: 'amount',
+                  title: 'المبلغ',
+                  render: (r) => <span className="font-semibold tabular-nums">{formatMoney(r.refund.amount, currency)}</span>,
+                },
+                {
+                  key: 'status',
+                  title: 'الرد',
+                  render: (r) =>
+                    r.refund.status === 'done' ? <Badge variant="success">تم</Badge> : <Badge variant="warning">معلّق</Badge>,
+                },
+              ]}
+              data={rowsPage}
+              keyExtractor={(r) => r.id}
+              emptyText="لا مرتجعات ضمن الفلاتر الحالية."
+            />
+          )}
+        </DirectoryPagedViews>
+      )}
     </div>
   );
+}
+
+function discountColumns(currency: string | null): ColumnDef<LineFact>[] {
+  return [
+    {
+      key: 'product',
+      title: 'الصنف',
+      render: (f) => (
+        <div className="flex flex-col">
+          <span className="font-medium">{f.productName}</span>
+          <span className="text-xs text-muted-foreground">
+            {f.saleNumber} · {f.cashierName}
+          </span>
+        </div>
+      ),
+    },
+    { key: 'date', title: 'التاريخ', hideOnMobile: true, render: (f) => formatDateTime(f.date) },
+    { key: 'source', title: 'السعر الأصلي', render: (f) => <span className="tabular-nums">{formatAmount(f.sourcePrice)}</span> },
+    {
+      key: 'price',
+      title: 'سعر البيع',
+      render: (f) => (
+        <span className="inline-flex items-center gap-1.5 tabular-nums">
+          {formatAmount(f.unitPrice)}
+          {f.priceOverridden ? <Badge variant="warning">معدّل</Badge> : null}
+        </span>
+      ),
+    },
+    { key: 'discount', title: 'الخصم', render: (f) => <span className="tabular-nums">{formatMoney(f.discount, currency)}</span> },
+    {
+      key: 'cost',
+      title: 'تكلفة الوحدة',
+      hideOnMobile: true,
+      render: (f) => (f.unitCost == null ? '—' : <span className="tabular-nums">{formatAmount(f.unitCost)}</span>),
+    },
+  ];
 }
 
 export function PosReportsPage() {

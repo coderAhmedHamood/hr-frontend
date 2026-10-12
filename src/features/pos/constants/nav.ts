@@ -3,6 +3,7 @@ import {
   BarChart3,
   Clock,
   LayoutDashboard,
+  LineChart,
   MonitorSmartphone,
   ReceiptText,
   Settings,
@@ -40,7 +41,10 @@ export const posNavGroups: PosNavGroup[] = [
     key: 'reports',
     labelAr: 'التقارير',
     icon: BarChart3,
-    items: [{ labelAr: 'تقارير نقاط البيع', href: posRoutes.reports, icon: BarChart3 }],
+    items: [
+      { labelAr: 'تحليل المبيعات', href: posRoutes.analytics, icon: LineChart },
+      { labelAr: 'تقارير المبيعات', href: posRoutes.reports, icon: BarChart3 },
+    ],
   },
   {
     key: 'configuration',

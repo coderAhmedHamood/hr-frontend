@@ -1,6 +1,8 @@
 'use client';
 
 import { Input } from '@/components/ui/input';
+import { companyCurrencyCode } from '@/features/auth/lib/company-currency';
+import { currencySymbolAr } from '@/shared/currencies';
 import { cn } from '@/shared/utils';
 
 type Props = {
@@ -44,7 +46,7 @@ export function OperationUnitCostInput({
           }}
         />
         <span className="pointer-events-none absolute inset-y-0 end-2 flex items-center text-[11px] text-muted-foreground">
-          ر.ي
+          {currencySymbolAr(companyCurrencyCode())}
         </span>
       </div>
       {missing ? (

@@ -26,6 +26,8 @@ import { useModuleEnablementContext } from '@/features/auth/hooks/use-system-own
 import { companyHasApp } from '@/shared/modules/registry';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
 import { usePosMenuCategories } from '@/features/pos/hooks/use-pos-menu-categories';
+import { useCompanyCurrency } from '@/features/auth/lib/company-currency';
+import { currencySymbolAr } from '@/shared/currencies';
 const NO_VALUE = '__none__';
 
 type Props = {
@@ -40,6 +42,7 @@ export function ProductGeneralTab({ control, errors, register, categories, brand
   const [showAdvanced, setShowAdvanced] = React.useState(false);
   // Cost and tracking are inventory's; compare-at price is the store's.
   const sections = useProductAppSections();
+  const currencySymbol = currencySymbolAr(useCompanyCurrency());
   const { enabledApplicationCodes } = useModuleEnablementContext();
   const posEnabled = companyHasApp('pos', { enabledApplicationCodes });
   const posCategories = usePosMenuCategories(getStorefrontCompanyId(), posEnabled);
@@ -190,7 +193,7 @@ export function ProductGeneralTab({ control, errors, register, categories, brand
                 {...register('listPrice')}
               />
               <span className="pointer-events-none absolute inset-y-0 inset-e-3 flex items-center text-xs text-muted-foreground">
-                ر.ي
+                {currencySymbol}
               </span>
             </div>
           </ProductFormField>
@@ -212,7 +215,7 @@ export function ProductGeneralTab({ control, errors, register, categories, brand
                   {...register('costPrice')}
                 />
                 <span className="pointer-events-none absolute inset-y-0 inset-e-3 flex items-center text-xs text-muted-foreground">
-                  ر.ي
+                  {currencySymbol}
                 </span>
               </div>
             </ProductFormField>
@@ -236,7 +239,7 @@ export function ProductGeneralTab({ control, errors, register, categories, brand
                   {...register('compareAtPrice')}
                 />
                 <span className="pointer-events-none absolute inset-y-0 inset-e-3 flex items-center text-xs text-muted-foreground">
-                  ر.ي
+                  {currencySymbol}
                 </span>
               </div>
             </ProductFormField>

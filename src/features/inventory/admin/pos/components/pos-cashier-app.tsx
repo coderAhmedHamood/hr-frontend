@@ -41,6 +41,7 @@ import type {
 } from '@/features/inventory/domain/types/product-stock';
 import type { WarehouseLocation } from '@/features/inventory/domain/types/warehouse';
 import { usePosSaleDeduct } from '../hooks/use-pos-sale';
+import { isSaleAlreadyDeducted, useSaleDocument } from '../hooks/use-sale-document';
 import { usePosProductStock, usePosStockList } from '../hooks/use-pos-stock';
 
 const LOCATION_SESSION_KEY = 'pos.cashier.locationId';
@@ -752,6 +753,9 @@ export function PosCashierApp() {
   }, [stockQuery.data?.items, productById, categoryId, categories]);
 
   const deduct = usePosSaleDeduct(companyId);
+  const saleDocument = useSaleDocument(
+    () => `SALE-${selectedLocation?.code ?? 'LOC'}-${Date.now()}`,
+  );
 
   const cartCount = cart.reduce((s, l) => s + l.qty, 0);
   const cartTotal = cart.reduce((s, l) => s + l.qty * l.unitPrice, 0);
@@ -944,12 +948,18 @@ export function PosCashierApp() {
           locationId,
         })),
         notes: `خصم مبيعات — موقع ${selectedLocation?.nameAr ?? locationId}`,
-        sourceDocument: `SALE-${selectedLocation?.code ?? 'LOC'}-${Date.now()}`,
+        sourceDocument: saleDocument.take(),
       });
+      saleDocument.done();
       clearCart();
       void stockQuery.refetch();
-    } catch {
-      /* toast in hook */
+    } catch (error) {
+      // Toast in hook. Already deducted: the first try went through.
+      if (isSaleAlreadyDeducted(error)) {
+        saleDocument.done();
+        clearCart();
+        void stockQuery.refetch();
+      }
     }
   };
 

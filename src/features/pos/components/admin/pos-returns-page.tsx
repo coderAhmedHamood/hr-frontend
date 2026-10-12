@@ -25,7 +25,7 @@ import { newId } from '@/features/pos/lib/pos-store';
 import { lineRefundAmount, round2 } from '@/features/pos/lib/calc';
 import { formatDateTime, formatMoney, parseAmount } from '@/features/pos/lib/format';
 import { returnToPrintable } from '@/features/pos/lib/receipt';
-import { EmptyState, PosGate, PosPreviewNote, PrintPreviewDialog } from '@/features/pos/components/shared/pos-shared';
+import { EmptyState, PosGate, PrintPreviewDialog } from '@/features/pos/components/shared/pos-shared';
 
 type LineDraft = { quantity: number; condition: PosReturnCondition };
 
@@ -362,7 +362,6 @@ function Returns() {
   return (
     <div className="space-y-4 sm:space-y-5">
       <SetPageTitle titleAr="مرتجعات نقاط البيع" iconName="Receipt" />
-      <PosPreviewNote />
       <div className="flex justify-end">
         {can('pos.return') ? (
           <Button size="sm" onClick={() => setOpen(true)}>

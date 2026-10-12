@@ -18,6 +18,8 @@ import type {
   WarehouseLocation,
   WarehouseOperationKind,
 } from '@/features/inventory/domain/types/warehouse';
+import { companyCurrencyCode } from '@/features/auth/lib/company-currency';
+import { currencySymbolAr } from '@/shared/currencies';
 import { formatDateTime } from '@/shared/utils';
 import {
   LocationRouteChips,
@@ -53,7 +55,7 @@ function movementRoute(entry: InventoryLedgerEntry) {
 
 function formatMoney(value: number | null | undefined): string {
   if (value == null || !Number.isFinite(value)) return '—';
-  return `${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ر.ي`;
+  return `${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currencySymbolAr(companyCurrencyCode())}`;
 }
 
 function localDateBoundary(date: string, endOfDay = false): string | undefined {
@@ -120,7 +122,7 @@ export function MovesLedgerReportPage({ inboundOnly = false }: { inboundOnly?: b
   // Unscoped — a cross-warehouse transfer's counterpart location can belong to
   // a warehouse other than the one selected in the filter, so the name lookup
   // needs every location, not just the filtered warehouse's.
-  const { data: locationsData } = useWarehouseLocations({ companyId, limit: 500 });
+  const { data: locationsData } = useWarehouseLocations({ companyId, all: true, limit: 500 });
 
   const warehouses = React.useMemo(() => warehousesData?.items ?? [], [warehousesData?.items]);
   const warehouseName = React.useMemo(
@@ -473,7 +475,9 @@ export function MovesLedgerReportPage({ inboundOnly = false }: { inboundOnly?: b
 
       <div className="flex flex-wrap gap-2">
         <Badge variant="subtle">قيود: {data?.summary.entries ?? total}</Badge>
-        <Badge variant="success">وارد: {data?.summary.qtyIn ?? 0}</Badge>
+        <Badge variant="success">
+          وارد: {(inboundOnly ? data?.summary.net : data?.summary.qtyIn) ?? 0}
+        </Badge>
         {inboundOnly ? (
           <Badge variant="subtle">قيمة الداخل: {formatMoney(inboundValue)}</Badge>
         ) : (

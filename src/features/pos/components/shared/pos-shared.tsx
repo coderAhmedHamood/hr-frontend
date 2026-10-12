@@ -1,7 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import { Printer } from 'lucide-react';
+import { Download, Loader2, Printer } from 'lucide-react';
+import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -9,6 +10,7 @@ import { SettingsPageEmpty } from '@/features/system/organization/pages/_shared/
 import { PrintDocumentView } from '@/features/print-templates/components/print-document-view';
 import type { PrintableDocument } from '@/features/print-templates/domain/types';
 import { printElement } from '@/features/print-templates/lib/print-html';
+import { downloadDocumentPdf } from '@/features/print-templates/lib/print-pdf';
 import { useDocumentPrintSettings } from '@/features/print-templates/lib/print-template-store';
 import { SALE_STATUS_LABELS, type PosInvoiceStyle, type PosSaleStatus } from '@/features/pos/domain/types';
 import { usePosContext, type PosPermission } from '@/features/pos/hooks/use-pos-context';
@@ -20,15 +22,6 @@ export function PosGate({ permission, children }: { permission?: PosPermission; 
   if (!enabled) return <SettingsPageEmpty message="تطبيق نقاط البيع غير مفعّل لهذه الشركة." />;
   if (permission && !can(permission)) return <SettingsPageEmpty message="ليس لديك صلاحية لهذه الصفحة." />;
   return <>{children}</>;
-}
-
-/** What POS does not do yet: its data is on the server, stock is not deducted. */
-export function PosPreviewNote() {
-  return (
-    <div className="rounded-lg border border-dashed border-warning/40 bg-warning/5 px-3 py-2 text-xs text-muted-foreground">
-      بيانات نقاط البيع محفوظة على الخادم وتظهر على كل الأجهزة. خصم المخزون من مبيعات نقاط البيع لم يُربط بعد؛ الأصناف والأسعار تُقرأ من تطبيق المنتجات.
-    </div>
-  );
 }
 
 export function SaleStatusBadge({ status }: { status: PosSaleStatus }) {
@@ -71,6 +64,7 @@ export function PrintPreviewDialog({
   const standard = useDocumentPrintSettings(companyId, 'default');
   const settings = invoiceStyle === 'standard' ? standard : thermal;
   const ref = React.useRef<HTMLDivElement>(null);
+  const [exporting, setExporting] = React.useState(false);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -85,6 +79,27 @@ export function PrintPreviewDialog({
         </div>
         <div className="flex flex-wrap justify-end gap-2">
           {footer}
+          <Button
+            type="button"
+            variant="outline"
+            disabled={!document || exporting}
+            onClick={async () => {
+              const el = ref.current?.firstElementChild as HTMLElement | null;
+              if (!el || !document) return;
+              setExporting(true);
+              try {
+                await downloadDocumentPdf(el, document, settings.paper);
+                toast.success('تم تنزيل الملف');
+              } catch (err) {
+                toast.error(err instanceof Error ? err.message : 'تعذّر تنزيل PDF');
+              } finally {
+                setExporting(false);
+              }
+            }}
+          >
+            {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+            {exporting ? 'جارٍ التنزيل…' : 'تنزيل PDF'}
+          </Button>
           <Button
             type="button"
             onClick={() => {

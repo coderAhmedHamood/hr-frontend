@@ -11,7 +11,7 @@ import { formatDateTime, formatMoney } from '@/features/pos/lib/format';
 import { sessionToPrintable } from '@/features/pos/lib/receipt';
 import { summarizeSession } from '@/features/pos/lib/session-summary';
 import { CloseSessionDialog } from '@/features/pos/components/shared/close-session-dialog';
-import { EmptyState, PosGate, PosPreviewNote, PrintPreviewDialog } from '@/features/pos/components/shared/pos-shared';
+import { EmptyState, PosGate, PrintPreviewDialog } from '@/features/pos/components/shared/pos-shared';
 
 function Sessions() {
   const { data, currency, can, userId } = usePosContext();
@@ -22,7 +22,6 @@ function Sessions() {
   return (
     <div className="space-y-4 sm:space-y-5">
       <SetPageTitle titleAr="ورديات نقاط البيع" iconName="Clock" />
-      <PosPreviewNote />
       {sessions.length === 0 ? (
         <EmptyState title="لا ورديات" description="تُفتح الوردية من شاشة الكاشير بعدّ العهدة النقدية." />
       ) : (

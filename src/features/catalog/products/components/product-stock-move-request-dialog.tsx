@@ -149,7 +149,7 @@ export function ProductStockMoveRequestDialog({
 }: Props) {
   const companyId = getStorefrontCompanyId();
   const queryClient = useQueryClient();
-  const { data: warehousesData } = useWarehouses({ companyId, limit: 100 });
+  const { data: warehousesData } = useWarehouses({ companyId, limit: 100 }, { enabled: open });
   const warehouses = warehousesData?.items ?? [];
 
   const selectableVariants = React.useMemo(() => activeVariants(variants), [variants]);

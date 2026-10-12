@@ -11,7 +11,11 @@ import { useWarehouses } from '@/features/inventory/admin/warehouses/hooks/use-w
 import { useQuery } from '@tanstack/react-query';
 import { useWarehouseOperationMutations } from '@/features/inventory/admin/operations/hooks/use-warehouse-operation-mutations';
 import { useOpenOperationProductReservations } from '@/features/inventory/admin/operations/hooks/use-open-operation-product-reservations';
-import { warehouseOperationsApi } from '@/features/inventory/admin/operations/lib/api/warehouse-operations';
+import {
+  fetchWarehouseOperationAudit,
+  warehouseOperationsApi,
+} from '@/features/inventory/admin/operations/lib/api/warehouse-operations';
+import { useCan } from '@/features/auth/hooks/use-can';
 import { warehouseOperationsQueryKeys } from '@/features/inventory/admin/hooks/query-keys';
 import { operationNeedsFullLinesFetch } from '@/features/inventory/admin/operations/lib/operation-list-line-totals';
 import { inventoryStockService } from '@/features/inventory/services/inventory-stock.service';
@@ -71,6 +75,7 @@ import {
 import {
   emptyOperationLineDraft,
   hasDuplicateOperationLineProducts,
+  lineNeedsUnitCost,
   newOperationLineDraftId,
   operationLinesToDrafts,
   supportsMultiProductLines,
@@ -86,9 +91,12 @@ import {
   filterOperationFromLocations,
   filterOperationToLocations,
 } from '@/features/inventory/admin/operations/lib/operation-location-filters';
+import { operationPartnerLabel } from '@/features/inventory/admin/operations/lib/operation-partner-label';
 import { BarcodeScannerDialog } from '@/components/shared/barcode-scanner-dialog';
 import { resolveScannedCode } from '@/features/catalog/products/lib/resolve-scanned-code';
-import { cn } from '@/shared/utils';
+import { companyCurrencyCode } from '@/features/auth/lib/company-currency';
+import { currencySymbolAr } from '@/shared/currencies';
+import { cn, formatDateTime } from '@/shared/utils';
 
 type Props = {
   open: boolean;
@@ -110,7 +118,7 @@ function lineUnitCostNumber(unitCost?: string): number | null {
 
 function formatLineMoney(value: number, decimals: number): string {
   if (!Number.isFinite(value)) return '—';
-  return `${value.toFixed(decimals)} ر.ي`;
+  return `${value.toFixed(decimals)} ${currencySymbolAr(companyCurrencyCode())}`;
 }
 
 function OperationLineVariantReadout({
@@ -300,12 +308,24 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
   const [headerToLocationId, setHeaderToLocationId] = React.useState('');
 
   const fromLocationOptions = React.useMemo(
-    () => filterOperationFromLocations(kind, locations, headerToLocationId || undefined),
-    [kind, locations, headerToLocationId],
+    () =>
+      filterOperationFromLocations(
+        kind,
+        locations,
+        headerToLocationId || undefined,
+        headerFromLocationId || undefined,
+      ),
+    [kind, locations, headerToLocationId, headerFromLocationId],
   );
   const toLocationOptions = React.useMemo(
-    () => filterOperationToLocations(kind, destinationLocations, headerFromLocationId || undefined),
-    [kind, destinationLocations, headerFromLocationId],
+    () =>
+      filterOperationToLocations(
+        kind,
+        destinationLocations,
+        headerFromLocationId || undefined,
+        headerToLocationId || undefined,
+      ),
+    [kind, destinationLocations, headerFromLocationId, headerToLocationId],
   );
 
   const [lines, setLines] = React.useState<WarehouseOperationLine[]>([]);
@@ -317,7 +337,14 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
   const [partnerName, setPartnerName] = React.useState('');
   const [sourceDocument, setSourceDocument] = React.useState('');
   const [occurredAt, setOccurredAt] = React.useState('');
+  const can = useCan();
+  const canPost = can('inv.warehouse.operations.post');
   const [status, setStatus] = React.useState<WarehouseOperationStatus>('draft');
+  const { data: audit } = useQuery({
+    queryKey: [...warehouseOperationsQueryKeys.detail(companyId, operation?.id ?? ''), 'audit', status],
+    queryFn: () => fetchWarehouseOperationAudit(operation!.id),
+    enabled: open && Boolean(companyId && operation?.id),
+  });
   const [tab, setTab] = React.useState('operations');
   /** Phones: the document fields fold away so the lines come first (open for a draft). */
   const [phoneDetailsOpen, setPhoneDetailsOpen] = React.useState(false);
@@ -630,7 +657,7 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
   const canEditProducts = editable && status === 'draft' && multiProductMode;
   const isCountLike = kind === 'physical_count' || kind === 'adjustment';
   const showDemandColumn = !isCountLike;
-  const showCostColumns = stockEffect === 'inbound';
+  const showCostColumns = lineNeedsUnitCost(kind);
   const lineColumnCount =
     5 + (showDemandColumn ? 1 : 0) + (showCostColumns ? 2 : 0) + (canEditProducts ? 1 : 0);
   const pricedLines = lines.filter((line) => line.productId?.trim());
@@ -738,7 +765,38 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
     await savePatch({ status: 'ready' }, 'تم تحديد المستند كجاهز');
   }
 
-  async function validate() {
+  /** References of the warehouse's other live opening documents. */
+  async function otherOpeningReferences(): Promise<string[]> {
+    if (!companyId || !documentOperation) return [];
+    try {
+      const result = await warehouseOperationsApi.getAll({
+        companyId,
+        warehouseId: documentOperation.warehouseId,
+        kind: 'opening',
+        limit: 100,
+      });
+      return result.items
+        .filter((op) => op.id !== documentOperation.id && op.status !== 'cancelled')
+        .map((op) => op.reference);
+    } catch {
+      return [];
+    }
+  }
+
+  async function validate(confirmedDuplicateOpening = false) {
+    if (kind === 'opening' && !confirmedDuplicateOpening) {
+      const others = await otherOpeningReferences();
+      if (others.length > 0) {
+        toast.warning(
+          `لهذا المستودع مستند رصيد افتتاحي آخر (${others.join('، ')}). تصديق هذا المستند يضيف كمياته فوق الأرصدة الحالية.`,
+          {
+            duration: 15_000,
+            action: { label: 'تصديق رغم ذلك', onClick: () => void validate(true) },
+          },
+        );
+        return;
+      }
+    }
     const isCountLike = kind === 'physical_count' || kind === 'adjustment';
     let linesToValidate = lines;
     if (multiProductMode) {
@@ -1015,13 +1073,13 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
           تحديد كجاهز
         </Button>
       ) : null}
-      {status === 'ready' ? (
+      {status === 'ready' && canPost ? (
         <Button type="button" size="sm" disabled={isSaving} onClick={() => void validate()}>
           <Check className="h-4 w-4" />
           تصديق
         </Button>
       ) : null}
-      {status === 'done' ? (
+      {status === 'done' && canPost ? (
         <Button
           type="button"
           size="sm"
@@ -1087,6 +1145,17 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
               <p className="text-xs text-muted-foreground">
                 {WAREHOUSE_OPERATION_KIND_LABELS_AR[kind]} · متابعة ومعالجة المستند
               </p>
+              {audit?.postedAt || audit?.reversedAt ? (
+                <p className="text-xs text-muted-foreground">
+                  {audit.postedAt
+                    ? `رحّله ${audit.postedByName ?? '—'} في ${formatDateTime(audit.postedAt)}`
+                    : null}
+                  {audit.postedAt && audit.reversedAt ? ' · ' : null}
+                  {audit.reversedAt
+                    ? `تراجع عنه ${audit.reversedByName ?? '—'} في ${formatDateTime(audit.reversedAt)}`
+                    : null}
+                </p>
+              ) : null}
             </div>
             <div className="hidden sm:block">
               <OperationStatusStepper status={status} />
@@ -1112,7 +1181,7 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
             <div className="space-y-3">
               <div className="space-y-1.5">
                 <Label>
-                  {kind === 'issue' ? 'الصرف إلى' : kind === 'receipt' ? 'الاستلام من' : 'الطرف'}
+                  {operationPartnerLabel(kind)}
                 </Label>
                 <PartnerSinglePicker
                   companyId={companyId}
@@ -1244,12 +1313,16 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
                 />
               </div>
               <div className="space-y-1.5">
-                <Label>المستند المصدر</Label>
+                <Label>{kind === 'customer_return' ? 'رقم مستند البيع الأصلي' : 'المستند المصدر'}</Label>
                 <Input
                   value={sourceDocument}
                   onChange={(e) => setSourceDocument(e.target.value)}
                   disabled={!editable}
-                  placeholder="مثال: تجديد المخزون يدويًا"
+                  placeholder={
+                    kind === 'customer_return'
+                      ? 'رقم فاتورة البيع أو مستند الصرف — منه تُؤخذ التكلفة'
+                      : 'مثال: تجديد المخزون يدويًا'
+                  }
                 />
               </div>
             </div>

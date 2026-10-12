@@ -124,6 +124,15 @@ export type PosSaleLine = {
   /** Line total the customer pays. */
   total: number;
   returnedQuantity: number;
+  /**
+   * Cost of one unit when sold, fixed by the server at the sale (a later
+   * purchase price never changes it). Null: no cost then; absent: older sale.
+   */
+  unitCost?: number | null;
+  costSource?: 'purchase_price' | 'inventory' | null;
+  /** The item's category when sold. */
+  categoryId?: string | null;
+  categoryName?: string | null;
 };
 
 export type PosSaleStatus = 'awaiting_payment' | 'completed' | 'cancelled' | 'payment_exception';

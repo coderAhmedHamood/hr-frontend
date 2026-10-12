@@ -59,6 +59,7 @@ import {
   pickDefaultFromLocationId,
   pickDefaultToLocationId,
 } from '@/features/inventory/admin/operations/lib/operation-location-filters';
+import { operationPartnerLabel } from '@/features/inventory/admin/operations/lib/operation-partner-label';
 import { toast } from 'sonner';
 import { cn, formatDateTime } from '@/shared/utils';
 import { OperationFormSection } from '@/features/inventory/admin/operations/components/operation-form-section';
@@ -116,9 +117,16 @@ type Props = {
   kind: WarehouseOperationKind;
   /** فلاتر المستودع/الحالة لصفحات المخزون المستقلة */
   enableInventoryFilters?: boolean;
+  /** Extra page-header actions (e.g. Excel import), app-level pages only. */
+  headerExtra?: React.ReactNode;
 };
 
-export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFilters = false }: Props) {
+export function WarehouseOperationsPanel({
+  warehouseId,
+  kind,
+  enableInventoryFilters = false,
+  headerExtra,
+}: Props) {
   const meta = WAREHOUSE_OPERATION_KIND_META[kind];
   const isCountLike = kind === 'physical_count' || kind === 'adjustment';
   const scopedToWarehouse = Boolean(warehouseId);
@@ -335,14 +343,25 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
   // Source locations always come from the source warehouse (`locations`).
   // Destination-only pool is `destLocations` — never mix them on the «from» picker.
   const fromLocations = React.useMemo(
-    () => filterOperationFromLocations(kind, locations, toLocationId || undefined),
-    [kind, locations, toLocationId],
+    () =>
+      filterOperationFromLocations(
+        kind,
+        locations,
+        toLocationId || undefined,
+        fromLocationId || undefined,
+      ),
+    [kind, locations, toLocationId, fromLocationId],
   );
 
   const toLocations = React.useMemo(() => {
     const pool = meta.needsDestWarehouse ? destLocations : locations;
-    return filterOperationToLocations(kind, pool, fromLocationId || undefined);
-  }, [kind, meta.needsDestWarehouse, destLocations, locations, fromLocationId]);
+    return filterOperationToLocations(
+      kind,
+      pool,
+      fromLocationId || undefined,
+      toLocationId || undefined,
+    );
+  }, [kind, meta.needsDestWarehouse, destLocations, locations, fromLocationId, toLocationId]);
 
   // Pre-fill system stock bin (WH/Stock), customer, or adjustment locations when empty.
   React.useEffect(() => {
@@ -418,6 +437,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
       scopedToWarehouse ? null : (
         <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
           <FilterToggleButton />
+          {headerExtra}
           <PageHeaderPrimaryButton
             icon={Plus}
             label={meta.createLabel}
@@ -428,7 +448,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
           </PageHeaderPrimaryButton>
         </div>
       ),
-    [scopedToWarehouse, meta.createLabel, companyId, allWarehouses.length],
+    [scopedToWarehouse, meta.createLabel, companyId, allWarehouses.length, headerExtra],
   );
 
   useEntityFilterSlot(
@@ -559,7 +579,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
         return;
       }
       const lines = operationLineDraftsToLines(lineDrafts, lineLocations, {
-        includeUnitCost: lineNeedsUnitCost(meta.stockEffect),
+        includeUnitCost: lineNeedsUnitCost(kind),
       });
       if (lines.length === 0) {
         toast.error('أضف صنفًا واحدًا على الأقل مع كمية أكبر من صفر.');
@@ -748,7 +768,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
       : []),
     {
       key: 'partner',
-      title: kind === 'issue' ? 'الصرف إلى' : kind === 'receipt' || kind === 'purchase' || kind === 'replenishment' ? 'الاستلام من' : 'الطرف',
+      title: operationPartnerLabel(kind),
       hideOnMobile: true,
       render: (row) => (
         <div className="flex flex-col">
@@ -811,11 +831,12 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
       key: 'actions',
       title: '',
       isActions: true,
-      render: (row) => (
-        <Button variant="ghost" size="icon" aria-label="حذف المستند" onClick={() => setToDelete(row)}>
-          <Trash2 className="h-4 w-4 text-destructive" />
-        </Button>
-      ),
+      render: (row) =>
+        row.status === 'done' ? null : (
+          <Button variant="ghost" size="icon" aria-label="حذف المستند" onClick={() => setToDelete(row)}>
+            <Trash2 className="h-4 w-4 text-destructive" />
+          </Button>
+        ),
     },
   ];
 
@@ -836,18 +857,20 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
             <Badge variant={statusBadgeVariant(row.status)}>
               {WAREHOUSE_OPERATION_STATUS_LABELS_AR[row.status]}
             </Badge>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-9 w-9"
-              aria-label="حذف المستند"
-              onClick={(event) => {
-                event.stopPropagation();
-                setToDelete(row);
-              }}
-            >
-              <Trash2 className="h-4 w-4 text-destructive" />
-            </Button>
+            {row.status === 'done' ? null : (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9"
+                aria-label="حذف المستند"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setToDelete(row);
+                }}
+              >
+                <Trash2 className="h-4 w-4 text-destructive" />
+              </Button>
+            )}
           </div>
         </div>
         {products.length > 0 ? (
@@ -1058,7 +1081,9 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
                 <Label htmlFor="op-to">
                   {kind === 'issue'
                     ? 'موقع العميل (إلى)'
-                    : meta.needsDestWarehouse
+                    : kind === 'supplier_return'
+                      ? 'موقع المورد (إلى)'
+                      : meta.needsDestWarehouse
                       ? 'موقع الاستلام (الوجهة)'
                       : meta.stockEffect === 'inbound'
                         ? 'موقع الاستلام'
@@ -1150,7 +1175,7 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
                 checksSourceStock={checksSourceStock}
                 restrictToSourceLocation={pickerUsesSourceLocationStock(kind)}
                 excludeProductIds={takenProductIdList}
-                needsUnitCost={lineNeedsUnitCost(meta.stockEffect)}
+                needsUnitCost={lineNeedsUnitCost(kind)}
                 disabled={!locationsReady}
               />
             ) : (
@@ -1370,18 +1395,31 @@ export function WarehouseOperationsPanel({ warehouseId, kind, enableInventoryFil
                       <Input id="op-date" type="datetime-local" dir="ltr" className="h-10" {...form.register('occurredAt')} />
                     </div>
                     <div className="space-y-1.5 lg:col-span-2">
-                      <Label htmlFor="op-source">المستند المصدر</Label>
-                      <Input id="op-source" className="h-10" {...form.register('sourceDocument')} placeholder="اختياري" />
+                      <Label htmlFor="op-source">
+                        {kind === 'customer_return' ? 'رقم مستند البيع الأصلي' : 'المستند المصدر'}
+                      </Label>
+                      <Input
+                        id="op-source"
+                        className="h-10"
+                        {...form.register('sourceDocument')}
+                        placeholder={
+                          kind === 'customer_return'
+                            ? 'مثال: رقم فاتورة البيع أو مستند الصرف — منه تُؤخذ التكلفة'
+                            : 'اختياري'
+                        }
+                      />
+                      {kind === 'customer_return' ? (
+                        <p className="text-xs text-muted-foreground">
+                          يرجع الصنف بتكلفة ذلك البيع نفسها، ولا يُقبل إرجاع أكثر مما بيع فيه.
+                          إن تُرك فارغاً يرجع بمتوسط تكلفة الصنف الحالي.
+                        </p>
+                      ) : null}
                     </div>
                   </div>
 
                   <div className="space-y-2 rounded-xl border border-border/80 bg-muted/10 p-3 sm:p-4">
                     <Label htmlFor="op-partner">
-                      {kind === 'issue'
-                        ? 'الصرف إلى'
-                        : kind === 'receipt' || kind === 'purchase' || kind === 'replenishment'
-                          ? 'الاستلام من'
-                          : 'الطرف'}
+                      {operationPartnerLabel(kind)}
                     </Label>
                     <Controller
                       control={form.control}

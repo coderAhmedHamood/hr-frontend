@@ -100,6 +100,27 @@ function isLockedOperationStatus(status: string | null | undefined): boolean {
   return raw === 'done' || raw === 'posted' || raw === 'validated';
 }
 
+/** Who posted / reversed the document, recorded by the server. */
+export type WarehouseOperationAudit = {
+  postedAt: string | null;
+  postedByName: string | null;
+  reversedAt: string | null;
+  reversedByName: string | null;
+};
+
+export async function fetchWarehouseOperationAudit(id: string): Promise<WarehouseOperationAudit> {
+  const dto = await apiRequest<Partial<WarehouseOperationAudit>>(
+    `/inventory/warehouse-operations/${id}`,
+    { silent: true },
+  );
+  return {
+    postedAt: dto?.postedAt ?? null,
+    postedByName: dto?.postedByName ?? null,
+    reversedAt: dto?.reversedAt ?? null,
+    reversedByName: dto?.reversedByName ?? null,
+  };
+}
+
 export type OpenProductReservation = {
   productId: string;
   operationReference: string;
@@ -127,19 +148,23 @@ async function fetchLinesByOperationId(
   operationId: string,
   companyId: string,
 ): Promise<WarehouseOperationLine[]> {
-  const result = await apiRequest<PaginatedResult<OperationLineDto>>(
-    '/inventory/warehouse-operation-lines',
-    {
-      query: {
-        companyId,
-        operationId,
-        page: 1,
-        limit: 500,
-        archiveScope: 'active',
+  const lines: WarehouseOperationLine[] = [];
+  for (let page = 1; ; page += 1) {
+    const result = await apiRequest<PaginatedResult<OperationLineDto>>(
+      '/inventory/warehouse-operation-lines',
+      {
+        query: {
+          companyId,
+          operationId,
+          page,
+          limit: 500,
+          archiveScope: 'active',
+        },
       },
-    },
-  );
-  return (result.items ?? []).map(mapLine);
+    );
+    lines.push(...(result.items ?? []).map(mapLine));
+    if (page >= (result.pagination?.totalPages ?? 1)) return lines;
+  }
 }
 
 async function createLine(operationId: string, line: WarehouseOperationLine): Promise<WarehouseOperationLine> {
@@ -244,21 +269,32 @@ export const warehouseOperationsApi: AdminWarehouseOperationsPort & {
     const linesMode =
       query.linesMode ?? (query.productId ? 'full' : 'preview');
 
-    const result = await apiRequest<PaginatedResult<OperationDto>>('/inventory/warehouse-operations', {
-      query: {
-        companyId: query.companyId,
-        warehouseId: query.warehouseId,
-        kind: query.kind,
-        status: query.status,
-        occurredAtFrom: query.occurredAtFrom,
-        occurredAtTo: query.occurredAtTo,
-        search: query.search,
-        linesMode,
-        page: query.page ?? 1,
-        limit: query.limit ?? 200,
-        archiveScope: 'active',
-      },
-    });
+    const fetchPage = (page: number) =>
+      apiRequest<PaginatedResult<OperationDto>>('/inventory/warehouse-operations', {
+        query: {
+          companyId: query.companyId,
+          warehouseId: query.warehouseId,
+          kind: query.kind,
+          status: query.status,
+          occurredAtFrom: query.occurredAtFrom,
+          occurredAtTo: query.occurredAtTo,
+          search: query.search,
+          linesMode,
+          page,
+          limit: query.limit ?? 200,
+          archiveScope: 'active',
+        },
+      });
+
+    const result = await fetchPage(query.all ? 1 : (query.page ?? 1));
+    if (query.all) {
+      // Reports aggregate over every document, not just the first page.
+      const totalPages = result.pagination?.totalPages ?? 1;
+      for (let page = 2; page <= totalPages; page += 1) {
+        const next = await fetchPage(page);
+        result.items = [...(result.items ?? []), ...(next.items ?? [])];
+      }
+    }
 
     // Lines are embedded per item by the backend (single batched query) —
     // no separate warehouse-operation-lines fetch needed for the list.

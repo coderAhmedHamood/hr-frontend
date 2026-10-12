@@ -13,6 +13,8 @@ import { DatePickerInput } from '@/components/ui/date-picker-input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/shared/utils';
 import { useProductAppSections } from '@/features/catalog/products/hooks/use-product-app-sections';
+import { useCompanyCurrency } from '@/features/auth/lib/company-currency';
+import { currencySymbolAr } from '@/shared/currencies';
 
 type Props = {
   control: Control<ProductFormInput, unknown, ProductFormValues>;
@@ -74,6 +76,7 @@ export function ProductSettingsTab({ control, errors, register }: Props) {
   // Image display and promos (new badge, deal, wholesale, discount) are the
   // store's (2.4, 2.10); stock behaviour is inventory's.
   const sections = useProductAppSections();
+  const currencySymbol = currencySymbolAr(useCompanyCurrency());
   return (
     <div className="space-y-4">
       {sections.store ? (
@@ -229,7 +232,7 @@ export function ProductSettingsTab({ control, errors, register }: Props) {
                               {...register('dealPriceAmount')}
                             />
                             <span className="pointer-events-none absolute inset-y-0 inset-e-3 flex items-center text-xs text-muted-foreground">
-                              ر.ي
+                              {currencySymbol}
                             </span>
                           </div>
                         </ProductFormField>
@@ -317,7 +320,7 @@ export function ProductSettingsTab({ control, errors, register }: Props) {
                               {...register('wholesalePriceAmount')}
                             />
                             <span className="pointer-events-none absolute inset-y-0 inset-e-3 flex items-center text-xs text-muted-foreground">
-                              ر.ي
+                              {currencySymbol}
                             </span>
                           </div>
                         </ProductFormField>
@@ -475,11 +478,6 @@ export function ProductSettingsTab({ control, errors, register }: Props) {
                   title: 'تتبع المخزون',
                   hint: 'خصم الكمية عند البيع من مخزون المستودع',
                 },
-                {
-                  name: 'allowBackorder' as const,
-                  title: 'الطلب عند النفاد',
-                  hint: 'السماح بالبيع رغم نفاد المخزون',
-                },
               ] as const
             ).map((item) => (
               <Controller
@@ -507,6 +505,9 @@ export function ProductSettingsTab({ control, errors, register }: Props) {
               />
             ))}
           </div>
+          <p className="text-xs text-muted-foreground">
+            البيع بلا رصيد (الطلب عند النفاد) غير مدعوم: لا يُصرف من المخزون أكثر من الرصيد المتاح.
+          </p>
         </ProductFormSection>
       ) : null}
     </div>

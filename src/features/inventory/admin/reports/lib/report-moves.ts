@@ -1,4 +1,5 @@
 import { WAREHOUSE_OPERATION_KIND_META } from '@/features/inventory/domain/constants/warehouse-operation-kinds';
+import { operationPartnerSide } from '@/features/inventory/admin/operations/lib/operation-partner-label';
 import type {
   WarehouseLocation,
   WarehouseOperation,
@@ -38,10 +39,10 @@ function defaultPartnerLabels(
     inWarehouse.find((location) => location.locationType === 'supplier')?.nameAr ?? 'الموردون';
   const customers =
     inWarehouse.find((location) => location.locationType === 'customer')?.nameAr ?? 'العملاء';
-  const effect = WAREHOUSE_OPERATION_KIND_META[kind]?.stockEffect;
-  if (effect === 'inbound') return { from: vendors };
-  if (effect === 'outbound') return { to: customers };
-  return {};
+  const partner = operationPartnerSide(kind);
+  if (!partner) return {};
+  const label = partner.partner === 'customers' ? customers : vendors;
+  return partner.side === 'from' ? { from: label } : { to: label };
 }
 
 function signedQty(kind: WarehouseOperationKind, qty: number): number {

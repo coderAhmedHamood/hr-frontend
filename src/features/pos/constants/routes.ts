@@ -6,6 +6,7 @@ export const posRoutes = {
   returns: '/point-of-sale/returns',
   sessions: '/point-of-sale/sessions',
   registers: '/point-of-sale/registers',
+  analytics: '/point-of-sale/analytics',
   reports: '/point-of-sale/reports',
   settings: '/point-of-sale/settings',
 } as const;

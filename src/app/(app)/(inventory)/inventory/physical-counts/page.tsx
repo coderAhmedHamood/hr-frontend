@@ -1,5 +1,5 @@
-import { InventoryOperationKindPage } from '@/features/inventory/admin/operations/components/inventory-operation-kind-page';
+import { PhysicalCountsPage } from '@/features/inventory/admin/physical-count/components/physical-counts-page';
 
 export default function Page() {
-  return <InventoryOperationKindPage kind="physical_count" />;
+  return <PhysicalCountsPage />;
 }

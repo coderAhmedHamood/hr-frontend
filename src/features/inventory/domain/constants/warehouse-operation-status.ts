@@ -24,4 +24,7 @@ export const WAREHOUSE_OPERATION_KIND_LABELS_AR: Record<WarehouseOperationKind, 
   scrap: WAREHOUSE_OPERATION_KIND_META.scrap.labelAr,
   purchase: WAREHOUSE_OPERATION_KIND_META.purchase.labelAr,
   replenishment: WAREHOUSE_OPERATION_KIND_META.replenishment.labelAr,
+  opening: WAREHOUSE_OPERATION_KIND_META.opening.labelAr,
+  customer_return: WAREHOUSE_OPERATION_KIND_META.customer_return.labelAr,
+  supplier_return: WAREHOUSE_OPERATION_KIND_META.supplier_return.labelAr,
 };
