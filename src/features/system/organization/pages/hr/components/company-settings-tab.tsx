@@ -361,6 +361,7 @@ export function CompanySettingsTab() {
             <FormField label="العملة الأساسية">
               <Select
                 value={form.currencyCode}
+                disabled={Boolean(currencyStatus.data?.blockers?.length)}
                 onValueChange={(currencyCode) => patch({ currencyCode })}
               >
                 <SelectTrigger className="h-9" aria-label="العملة الأساسية">
@@ -376,7 +377,12 @@ export function CompanySettingsTab() {
               </Select>
             </FormField>
           </div>
-          {company && form.currencyCode !== company.currencyCode ? (
+          {currencyStatus.data?.blockers?.length ? (
+            <p className="rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-xs leading-relaxed">
+              <b>العملة مقفلة:</b> {currencyStatus.data.blockers.join(' ')}
+            </p>
+          ) : null}
+          {company && form.currencyCode !== company.currencyCode && !currencyStatus.data?.blockers?.length ? (
             <p className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-xs leading-relaxed text-sky-900 dark:text-sky-200">
               عند الحفظ تصبح العملة {currencyNameAr(form.currencyCode)}، وتنتقل إليها أسعار المنتجات وعملة المتجر
               وإعدادات التطبيقات بنفس الأرقام دون تحويل.

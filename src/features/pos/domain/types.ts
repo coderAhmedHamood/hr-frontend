@@ -192,6 +192,8 @@ export type PosSale = {
   completedAt: string | null;
   cancelledAt: string | null;
   exceptionReason: string | null;
+  /** The company currency when sold (server-set); absent on older sales. */
+  currency?: string | null;
 };
 
 export type PosReturnCondition = 'resellable' | 'damaged' | 'not_received';

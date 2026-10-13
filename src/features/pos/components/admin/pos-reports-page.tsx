@@ -92,13 +92,14 @@ function Reports() {
     () => ({
       from: period.from || null,
       to: period.to || null,
+      currency,
       registerId: registerId === ALL ? null : registerId,
       cashierName: cashierName === ALL ? null : cashierName,
       categoryId: categoryId === ALL ? null : categoryId,
       paymentMethod: paymentMethod === ALL ? null : (paymentMethod as PosPaymentMethod),
       product: search,
     }),
-    [period, registerId, cashierName, categoryId, paymentMethod, search],
+    [period, registerId, cashierName, categoryId, paymentMethod, search, currency],
   );
 
   const facts = React.useMemo(() => lineFacts(data, filters), [data, filters]);

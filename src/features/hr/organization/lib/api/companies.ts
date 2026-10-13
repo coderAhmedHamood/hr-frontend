@@ -94,6 +94,8 @@ export type CompanyCurrencyStatus = {
   currency: CurrencyDefinition | null;
   hasRecords: boolean;
   usages: Array<{ app: string; labelAr: string; count: number }>;
+  /** Why the currency cannot change now (e.g. stock valued in it); empty: it can. */
+  blockers?: string[];
 };
 
 export const companiesApi = {

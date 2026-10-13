@@ -85,3 +85,24 @@ export function paidAmount(payments: Array<{ kind: string; status: string; amoun
       .reduce((a, p) => a + p.amount, 0),
   );
 }
+
+/**
+ * The tax a sale was priced with, read back from its own lines (rate, and
+ * whether totals included it), so revising an old sale keeps its tax even
+ * after the settings changed.
+ */
+export function saleTaxSettings(
+  lines: PosSaleLine[],
+  fallback: PosSettings['tax'],
+): PosSettings['tax'] {
+  const taxed = lines.find((l) => l.taxRate > 0);
+  if (!taxed) return lines.length > 0 ? { ...fallback, enabled: false, rate: 0 } : fallback;
+  const net = round2(taxed.unitPrice * taxed.quantity - taxed.discountAmount);
+  return {
+    ...fallback,
+    enabled: true,
+    rate: taxed.taxRate,
+    // Inclusive: the line total is the net; exclusive: net + tax.
+    pricesIncludeTax: Math.abs(taxed.total - net) < 0.005,
+  };
+}

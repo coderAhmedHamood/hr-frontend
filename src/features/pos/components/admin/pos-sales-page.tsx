@@ -21,7 +21,7 @@ import {
 } from '@/features/pos/domain/types';
 import { posRoutes } from '@/features/pos/constants/routes';
 import { usePosContext } from '@/features/pos/hooks/use-pos-context';
-import { paidAmount, priceLines, round2 } from '@/features/pos/lib/calc';
+import { paidAmount, priceLines, round2, saleTaxSettings } from '@/features/pos/lib/calc';
 import { formatDateTime, formatMoney, parseAmount } from '@/features/pos/lib/format';
 import { saleToPrintable } from '@/features/pos/lib/receipt';
 import {
@@ -64,7 +64,8 @@ function ResolvePanel({ sale, onDone }: { sale: PosSale; onDone: () => void }) {
   const revised = priceLines(
     sale.lines.filter((l) => (quantities[l.id] ?? 0) > 0).map((l) => ({ ...l, quantity: quantities[l.id] ?? l.quantity })),
     sale.orderDiscount,
-    data.settings.tax,
+    // The tax the sale was made with, not today's settings.
+    saleTaxSettings(sale.lines, data.settings.tax),
   );
   const revisionChanged = sale.lines.some((l) => (quantities[l.id] ?? l.quantity) !== l.quantity);
 

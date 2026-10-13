@@ -29,6 +29,11 @@ export type ReportFilters = {
   paymentMethod: PosPaymentMethod | null;
   /** Name or SKU contains. */
   product: string;
+  /**
+   * The currency reported: sales stamped with another one (before a
+   * currency change) are left out, never added to these amounts.
+   */
+  currency?: string | null;
 };
 
 export const NO_FILTERS: ReportFilters = {
@@ -108,6 +113,7 @@ function saleMatches(sale: PosSale, f: ReportFilters): boolean {
   const day = dayOf(sale.completedAt);
   if (f.from && day < f.from) return false;
   if (f.to && day > f.to) return false;
+  if (f.currency && sale.currency && sale.currency !== f.currency) return false;
   if (f.registerId && sale.registerId !== f.registerId) return false;
   if (f.cashierName && sale.cashierName !== f.cashierName) return false;
   if (

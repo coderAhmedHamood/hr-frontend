@@ -49,6 +49,8 @@ function RegisterDialog({
   });
 
   if (!form) return null;
+  // Receipts already carry this code and its sales this branch (server rule).
+  const numbered = (data.registers.find((r) => r.id === form.id)?.nextSequence ?? 1) > 1;
   const codeTaken = data.registers.some(
     (r) => r.id !== form.id && r.code.trim().toUpperCase() === form.code.trim().toUpperCase(),
   );
@@ -88,17 +90,23 @@ function RegisterDialog({
             <Input
               dir="ltr"
               value={form.code}
+              disabled={numbered}
               onChange={(e) => setForm({ ...form, code: e.target.value.replace(/\s/g, '') })}
               placeholder="POS1"
             />
             <p className="text-xs text-muted-foreground">
-              {codeTaken ? 'الرمز مستخدم في نقطة بيع أخرى.' : 'بداية رقم الإيصال الظاهر، مثل POS1-000001. فريد في الشركة.'}
+              {numbered
+                ? 'مقفل: صدرت إيصالات بهذا الرمز. لرمز آخر أنشئ نقطة جديدة.'
+                : codeTaken
+                  ? 'الرمز مستخدم في نقطة بيع أخرى.'
+                  : 'بداية رقم الإيصال الظاهر، مثل POS1-000001. فريد في الشركة، ويُقفل بعد أول إيصال.'}
             </p>
           </div>
           <div className="space-y-1.5">
             <Label>الفرع</Label>
             <Select
               value={form.branchId ?? NO_BRANCH}
+              disabled={numbered}
               onValueChange={(v) => setForm({ ...form, branchId: v === NO_BRANCH ? null : v })}
             >
               <SelectTrigger>
