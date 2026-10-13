@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Bell, Coins, Layers, Settings2 } from 'lucide-react';
+import { Bell, Coins, Info, Layers, Lock, Settings2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
@@ -24,6 +24,8 @@ import {
 } from '@/features/system/organization/pages/_shared/components/settings-page-states';
 import { useModuleEnablementContext } from '@/features/auth/hooks/use-system-owner';
 import { isModuleEnabledFor } from '@/shared/modules/registry';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import {
@@ -44,6 +46,20 @@ const SETTINGS_TABS = [
 ] as const;
 
 type SettingsTab = (typeof SETTINGS_TABS)[number]['value'];
+
+type CostingPatch = Pick<
+  UpdateInventoryCompanySettingsDto,
+  'costingStatus' | 'costingMethod' | 'costingScope'
+>;
+
+const COSTING_METHOD_LABELS: Record<string, string> = {
+  moving_average: 'المتوسط المتحرك',
+  fifo: 'FIFO — الأقدم أولًا',
+  lifo: 'LIFO — الأحدث أولًا',
+  standard: 'تكلفة معيارية',
+  specific: 'تحديد دفعة بعينها',
+  periodic_weighted_average: 'متوسط مرجّح دوري',
+};
 
 const TAB_TRIGGER_CLASS =
   'flex flex-1 items-center justify-center gap-1.5 rounded-xl px-2.5 py-2 text-xs font-medium text-muted-foreground shadow-none transition-all data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-soft sm:text-sm';
@@ -111,12 +127,7 @@ export function InventorySettingsPage() {
     }
   };
 
-  const handleCostingField = async (
-    patch: Pick<
-      UpdateInventoryCompanySettingsDto,
-      'costingStatus' | 'costingMethod' | 'costingScope'
-    >,
-  ) => {
+  const saveCosting = async (patch: CostingPatch) => {
     if (!settings || !canUpdate) return;
     try {
       await update.mutateAsync(patch);
@@ -125,6 +136,20 @@ export function InventorySettingsPage() {
       const { displayMessage } = handleApiError(err, 'settings.inventory.update');
       toast.error(displayMessage);
     }
+  };
+
+  /**
+   * Turning costing on is confirmed with the method and scope it keeps: both
+   * are fixed by the first cost movement, so the choice is made knowingly.
+   */
+  const [pendingCosting, setPendingCosting] = React.useState<CostingPatch | null>(null);
+  const handleCostingField = (patch: CostingPatch) => {
+    if (!settings || !canUpdate) return;
+    if (patch.costingStatus === 'active' && settings.costingStatus !== 'active') {
+      setPendingCosting(patch);
+      return;
+    }
+    void saveCosting(patch);
   };
 
   const handleDisplayDecimals = async (
@@ -164,6 +189,11 @@ export function InventorySettingsPage() {
   }
 
   const controlsDisabled = update.isPending || !canUpdate;
+  const costingLocked = settings.costingLocked === true;
+  // FIFO/LIFO costing takes the layers in its own order (server rule).
+  const allocationFromCosting =
+    settings.costingStatus === 'active' &&
+    (settings.costingMethod === 'fifo' || settings.costingMethod === 'lifo');
 
   return (
     <div className="flex flex-col gap-4 sm:gap-5">
@@ -245,7 +275,7 @@ export function InventorySettingsPage() {
               <Label htmlFor="batch-allocation-strategy">الاستراتيجية</Label>
               <Select
                 value={settings.batchAllocationStrategy}
-                disabled={controlsDisabled}
+                disabled={controlsDisabled || allocationFromCosting}
                 onValueChange={(value) =>
                   void handleBatchStrategy(
                     value as InventoryCompanySettings['batchAllocationStrategy'],
@@ -261,6 +291,12 @@ export function InventorySettingsPage() {
                   <SelectItem value="fefo">FEFO — الأقرب انتهاءً أولًا</SelectItem>
                 </SelectContent>
               </Select>
+              {allocationFromCosting ? (
+                <p className="text-xs text-muted-foreground">
+                  تحددها طريقة التكلفة ({COSTING_METHOD_LABELS[settings.costingMethod]}): الدفعة التي تُسحب هي التي
+                  تُحسب تكلفتها.
+                </p>
+              ) : null}
               {settings.batchAllocationStrategy === 'fefo' ? (
                 <p className="text-xs text-muted-foreground">
                   الدفعات بلا تاريخ صلاحية تُستهلك بعد المؤرخة، بترتيب FIFO.
@@ -270,7 +306,39 @@ export function InventorySettingsPage() {
           </SettingsPanel>
         </TabsContent>
 
-        <TabsContent value="costing" className="mt-0 focus-visible:outline-none">
+        <TabsContent value="costing" className="mt-0 space-y-4 focus-visible:outline-none">
+          {costingLocked ? (
+            <div className="flex items-start gap-2.5 rounded-xl border border-border bg-muted/40 p-3 text-sm">
+              <Lock className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+              <div className="space-y-0.5">
+                <p className="font-medium">
+                  طريقة التقييم مقفلة: {COSTING_METHOD_LABELS[settings.costingMethod] ?? settings.costingMethod} ·{' '}
+                  {settings.costingScope === 'warehouse' ? 'كل مستودع على حدة' : 'الشركة كاملة'}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  سُجّلت حركات تكلفة بهذه الطريقة. تغييرها الآن يغيّر قيمة المخزون وأرباح الفترات السابقة، فلا يُغيَّر من
+                  هنا؛ يتطلب إجراء انتقال مضبوط من تاريخ محدد.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-start gap-2.5 rounded-xl border border-primary/30 bg-primary/5 p-3 text-sm">
+              <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+              <div className="space-y-1">
+                <p className="font-medium">قرار يُتخذ مرة واحدة، قبل إدخال الرصيد الافتتاحي</p>
+                <ul className="list-disc space-y-0.5 ps-4 text-xs text-muted-foreground">
+                  <li>
+                    <b className="text-foreground">المتوسط المتحرك (موصى به):</b> للأصناف التي تُشترى بأسعار مختلفة؛ أرباح
+                    مستقرة وسهلة المتابعة.
+                  </li>
+                  <li>
+                    <b className="text-foreground">FIFO:</b> للبضاعة ذات الصلاحية أو التي تتقادم، أو إذا طلبه المحاسب.
+                  </li>
+                  <li>الطريقة والنطاق يُقفلان بعد أول حركة مخزون بتكلفة.</li>
+                </ul>
+              </div>
+            </div>
+          )}
           <SettingsPanel
             title="تكلفة المخزون"
             description="تؤثر على تكلفة الاستلام والصرف والتقارير — اختر طريقة ونطاقاً يناسب محاسبتك."
@@ -282,7 +350,7 @@ export function InventorySettingsPage() {
                   value={settings.costingStatus}
                   disabled={controlsDisabled}
                   onValueChange={(value) =>
-                    void handleCostingField({
+                    handleCostingField({
                       costingStatus: value as InventoryCompanySettings['costingStatus'],
                     })
                   }
@@ -301,9 +369,9 @@ export function InventorySettingsPage() {
                 <Label htmlFor="costing-method">طريقة التقييم</Label>
                 <Select
                   value={settings.costingMethod}
-                  disabled={controlsDisabled || settings.costingStatus === 'disabled'}
+                  disabled={controlsDisabled || costingLocked}
                   onValueChange={(value) =>
-                    void handleCostingField({
+                    handleCostingField({
                       costingMethod: value as InventoryCompanySettings['costingMethod'],
                     })
                   }
@@ -312,12 +380,10 @@ export function InventorySettingsPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="moving_average">متوسط متحرك</SelectItem>
-                    <SelectItem value="fifo">FIFO</SelectItem>
-                    <SelectItem value="lifo">LIFO</SelectItem>
-                    <SelectItem value="standard">تكلفة معيارية</SelectItem>
-                    <SelectItem value="specific">تحديد دفعة بعينها</SelectItem>
-                    <SelectItem value="periodic_weighted_average">متوسط مرجّح دوري</SelectItem>
+                    {/* Only the methods the server can run. */}
+                    <SelectItem value="moving_average">{COSTING_METHOD_LABELS.moving_average} (موصى به)</SelectItem>
+                    <SelectItem value="fifo">{COSTING_METHOD_LABELS.fifo}</SelectItem>
+                    <SelectItem value="lifo">{COSTING_METHOD_LABELS.lifo}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -326,9 +392,9 @@ export function InventorySettingsPage() {
                 <Label htmlFor="costing-scope">نطاق التكلفة</Label>
                 <Select
                   value={settings.costingScope}
-                  disabled={controlsDisabled || settings.costingStatus === 'disabled'}
+                  disabled={controlsDisabled || costingLocked}
                   onValueChange={(value) =>
-                    void handleCostingField({
+                    handleCostingField({
                       costingScope: value as InventoryCompanySettings['costingScope'],
                     })
                   }
@@ -343,10 +409,49 @@ export function InventorySettingsPage() {
                 </Select>
               </div>
             </div>
-            {settings.costingStatus === 'disabled' ? (
-              <p className="mt-3 text-xs text-muted-foreground">فعّل احتساب التكلفة لاختيار الطريقة والنطاق.</p>
+            {settings.costingStatus === 'disabled' && !costingLocked ? (
+              <p className="mt-3 text-xs text-muted-foreground">
+                اختر الطريقة والنطاق، ثم فعّل احتساب التكلفة — قبل إدخال الرصيد الافتتاحي حتى يدخل بتكلفته.
+              </p>
             ) : null}
           </SettingsPanel>
+
+          <Dialog open={pendingCosting !== null} onOpenChange={(open) => !open && setPendingCosting(null)}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>تفعيل احتساب التكلفة</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-3 text-sm">
+                <div className="rounded-lg border border-border bg-muted/40 p-3">
+                  <p>
+                    الطريقة: <b>{COSTING_METHOD_LABELS[settings.costingMethod] ?? settings.costingMethod}</b>
+                  </p>
+                  <p>
+                    النطاق: <b>{settings.costingScope === 'warehouse' ? 'كل مستودع على حدة' : 'الشركة كاملة'}</b>
+                  </p>
+                </div>
+                <p className="text-muted-foreground">
+                  بعد أول حركة مخزون بتكلفة <b className="text-foreground">لا يمكن تغيير الطريقة ولا النطاق</b>، لأن تغييرهما
+                  يغيّر قيمة المخزون وأرباح الفترات السابقة. تأكد من الاختيار مع المحاسب.
+                </p>
+              </div>
+              <DialogFooter className="gap-2">
+                <Button variant="outline" onClick={() => setPendingCosting(null)}>
+                  مراجعة الاختيار
+                </Button>
+                <Button
+                  disabled={update.isPending}
+                  onClick={() => {
+                    const patch = pendingCosting;
+                    setPendingCosting(null);
+                    if (patch) void saveCosting(patch);
+                  }}
+                >
+                  تأكيد وتفعيل
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </TabsContent>
 
         <TabsContent value="notifications" className="mt-0 focus-visible:outline-none">

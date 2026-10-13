@@ -17,6 +17,8 @@ export type InventoryCompanySettings = {
   costingStatus: InventoryCostingStatus;
   costingMethod: InventoryCostingMethod;
   costingScope: InventoryCostingScope;
+  /** Cost movements exist: method and scope can no longer change. */
+  costingLocked?: boolean;
   costingCurrency: string | null;
   quantityDisplayDecimals: number;
   costDisplayDecimals: number;
