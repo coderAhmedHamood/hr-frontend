@@ -17,6 +17,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ListFilterBar } from '@/components/ui/list-filter-bar';
+import { EntityFilterSearchField } from '@/components/ui/entity-filter-search-field';
 import { EmployeesRegisterPrintHtml } from '@/components/pdf/print/employees-register-print-html';
 import { downloadXlsxFromAoA, type XlsxCell } from '@/shared/export/download-xlsx';
 import {
@@ -179,7 +180,7 @@ export function useEmployeesListModel() {
   const contractStatusCounts = React.useMemo(
     () => ({
       all: totalCount,
-      active: employees.filter((e) => e.contractStatus === 'active').length,
+      active: employees.filter((e) => (e.contractStatus || 'active') === 'active').length,
       suspended: employees.filter((e) => e.contractStatus === 'suspended').length,
       ended: employees.filter((e) => e.contractStatus === 'ended').length,
     }),
@@ -315,6 +316,13 @@ export function useEmployeesListModel() {
     () => (
       <ListFilterBar
         showDateSection={false}
+        leadingFilters={(
+          <EntityFilterSearchField
+            value={search}
+            onChange={setSearch}
+            placeholder="بحث بالاسم، الرقم الوظيفي، الهوية / الإقامة…"
+          />
+        )}
         inlineSelects={[
           {
             id: 'archive',
@@ -359,7 +367,7 @@ export function useEmployeesListModel() {
       />
     ),
     [
-      archiveScope,
+      archiveScope, search,
       branchFilter, deptFilter, view, toolbarStatus, selectedEmpKey,
       contractStatusCounts.all, contractStatusCounts.active,
       contractStatusCounts.suspended, contractStatusCounts.ended,
