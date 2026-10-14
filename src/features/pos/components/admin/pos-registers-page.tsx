@@ -15,6 +15,7 @@ import { Switch } from '@/components/ui/switch';
 import { branchesApi } from '@/features/hr/organization/lib/api/branches';
 import { resolvePosInvoiceStyle, type PosInvoiceStyle, type PosRegister } from '@/features/pos/domain/types';
 import { usePosContext } from '@/features/pos/hooks/use-pos-context';
+import { usePosStockLink } from '@/features/pos/lib/pos-stock-link-api';
 import { readPairedDevice, writePairedDevice } from '@/features/pos/lib/pos-store';
 import { formatDateTime } from '@/features/pos/lib/format';
 import { EmptyState, PosGate } from '@/features/pos/components/shared/pos-shared';
@@ -24,12 +25,13 @@ type Draft = {
   name: string;
   code: string;
   branchId: string | null;
-  warehouseName: string;
+  warehouseId: string | null;
   isActive: boolean;
   invoiceStyle: PosInvoiceStyle | 'company';
 };
 
 const NO_BRANCH = '__none__';
+const NO_WAREHOUSE = '__none__';
 
 function RegisterDialog({
   draft,
@@ -47,6 +49,7 @@ function RegisterDialog({
     queryFn: () => branchesApi.getAll({ companyId: companyId!, limit: 200 }),
     enabled: !!companyId && !!draft,
   });
+  const link = usePosStockLink(companyId, !!draft);
 
   if (!form) return null;
   // Receipts already carry this code and its sales this branch (server rule).
@@ -55,6 +58,12 @@ function RegisterDialog({
     (r) => r.id !== form.id && r.code.trim().toUpperCase() === form.code.trim().toUpperCase(),
   );
   const valid = form.name.trim() && form.code.trim() && !codeTaken;
+  const warehouses = (link.data?.warehouses ?? []).filter(
+    (w) => !form.branchId || w.branchId === form.branchId,
+  );
+  const openLinkedShift = data.sessions.find(
+    (s) => s.registerId === form.id && s.status === 'open' && s.stockMode === 'inventory',
+  );
 
   const save = async () => {
     if (!actions || !valid) return;
@@ -65,7 +74,9 @@ function RegisterDialog({
       code: form.code.trim().toUpperCase(),
       branchId: form.branchId,
       branchName: branch?.nameAr ?? (form.branchId ? data.registers.find((r) => r.id === form.id)?.branchName ?? null : null),
-      warehouseName: form.warehouseName.trim() || null,
+      // The server checks the warehouse and sets its name.
+      ...(link.data?.installed ? { warehouseId: form.warehouseId } : {}),
+      warehouseName: data.registers.find((r) => r.id === form.id)?.warehouseName ?? null,
       isActive: form.isActive,
       invoiceStyle: form.invoiceStyle === 'company' ? null : form.invoiceStyle,
     });
@@ -122,16 +133,32 @@ function RegisterDialog({
               </SelectContent>
             </Select>
           </div>
-          {data.settings.stockMode === 'inventory' ? (
+          {link.data?.installed ? (
             <div className="space-y-1.5">
               <Label>مستودع البيع</Label>
-              <Input
-                value={form.warehouseName}
-                onChange={(e) => setForm({ ...form, warehouseName: e.target.value })}
-                placeholder="يُختار من مستودعات الفرع عند ربط الخلفية"
-              />
+              <Select
+                value={form.warehouseId ?? NO_WAREHOUSE}
+                disabled={!!openLinkedShift}
+                onValueChange={(v) => setForm({ ...form, warehouseId: v === NO_WAREHOUSE ? null : v })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="اختر مستودعًا" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NO_WAREHOUSE}>غير محدد</SelectItem>
+                  {warehouses.map((w) => (
+                    <SelectItem key={w.id} value={w.id}>
+                      {w.nameAr}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <p className="text-xs text-muted-foreground">
-                مستودع في فرع نقطة البيع. لا يتغير وفيها وردية مفتوحة.
+                {openLinkedShift
+                  ? 'مقفل: في النقطة وردية مفتوحة مربوطة بالمخازن.'
+                  : link.data.enabled
+                    ? 'تصرف النقطة منه عند إتمام كل بيع. من مستودعات فرع النقطة فقط.'
+                    : 'يُستخدم عند تفعيل تطبيق «ربط نقاط البيع بالمخازن». إن كان لفرع النقطة مستودع واحد يُختار تلقائيًا عند التفعيل.'}
               </p>
             </div>
           ) : null}
@@ -191,7 +218,7 @@ function Registers() {
       name: r.name,
       code: r.code,
       branchId: r.branchId,
-      warehouseName: r.warehouseName ?? '',
+      warehouseId: r.warehouseId ?? null,
       isActive: r.isActive,
       invoiceStyle: r.invoiceStyle ?? 'company',
     });
@@ -219,7 +246,7 @@ function Registers() {
                 name: '',
                 code: `POS${data.registers.length + 1}`,
                 branchId: null,
-                warehouseName: '',
+                warehouseId: null,
                 isActive: true,
                 invoiceStyle: 'company',
               })
