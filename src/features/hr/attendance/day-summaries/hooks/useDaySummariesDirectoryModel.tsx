@@ -32,6 +32,10 @@ import {
 } from '@/features/hr/attendance/lib/use-persisted-filter-state';
 import { DaySummaryColumnsPicker } from '@/features/hr/attendance/day-summaries/components/day-summary-columns-picker';
 import {
+  scopeEmployeeIdsByAssignedBranch,
+  useAssignedBranchFilter,
+} from '@/features/hr/attendance/lib/use-assigned-branch-filter';
+import {
   DEFAULT_DAY_SUMMARY_COLUMN_VISIBILITY,
   normalizeDaySummaryColumnVisibility,
   type DaySummaryColumnVisibility,
@@ -64,9 +68,20 @@ export function useDaySummariesDirectoryModel() {
     attendanceFiltersKey('day-summaries', companyId, 'selectedEmpIds'),
   );
   const { employees: pickerEmployees } = useEmployeeFilterPicker(companyId);
+  const { branchId: assignedBranchId, select: assignedBranchSelect, assignedIds } = useAssignedBranchFilter(
+    companyId,
+    'day-summaries',
+  );
+  const visiblePickerEmployees = React.useMemo(
+    () =>
+      assignedIds
+        ? pickerEmployees.filter((employee) => assignedIds.has(employee.id))
+        : pickerEmployees,
+    [assignedIds, pickerEmployees],
+  );
   const allEmployees = React.useMemo(
-    () => pickerEmployees.map((e) => ({ id: e.id, name: e.name })),
-    [pickerEmployees],
+    () => visiblePickerEmployees.map((e) => ({ id: e.id, name: e.name })),
+    [visiblePickerEmployees],
   );
   const [recomputeOpen, setRecomputeOpen] = React.useState(false);
   const pageEnterRecomputeDone = React.useRef(false);
@@ -133,11 +148,24 @@ export function useDaySummariesDirectoryModel() {
       return;
     }
 
+    if (assignedBranchId !== 'all' && assignedIds === null) {
+      setLoading(true);
+      return;
+    }
+    const scopedEmpIds = scopeEmployeeIdsByAssignedBranch(assignedIds, selectedEmpIds);
+
     setLoading(true);
     try {
       if (!pageEnterRecomputeDone.current) {
         pageEnterRecomputeDone.current = true;
         await recomputeTodayDaySummaries(companyId);
+      }
+
+      if (scopedEmpIds && scopedEmpIds.size === 0) {
+        setItems([]);
+        setTotal(0);
+        setLoading(false);
+        return;
       }
 
       const res = await attendanceDaySummariesApi.getAll({
@@ -146,7 +174,7 @@ export function useDaySummariesDirectoryModel() {
         limit,
         from,
         to,
-        ...(selectedEmpIds.size > 0 ? { employeeIds: [...selectedEmpIds] } : {}),
+        ...(scopedEmpIds ? { employeeIds: [...scopedEmpIds] } : {}),
         ...(filters.status !== 'all' ? { status: filters.status } : {}),
         ...(filters.isManualOverride === 'true' ? { isManualOverride: true } : {}),
         ...(filters.isManualOverride === 'false' ? { isManualOverride: false } : {}),
@@ -160,7 +188,7 @@ export function useDaySummariesDirectoryModel() {
     } finally {
       setLoading(false);
     }
-  }, [companyId, filters, from, limit, page, selectedEmpIds, to]);
+  }, [assignedBranchId, assignedIds, companyId, filters, from, limit, page, selectedEmpIds, to]);
 
   React.useEffect(() => {
     void load();
@@ -170,13 +198,14 @@ export function useDaySummariesDirectoryModel() {
 
   React.useEffect(() => {
     setPage(1);
-  }, [from, to, selectedEmpKey, filters.status, filters.isManualOverride, limit]);
+  }, [assignedBranchId, from, to, selectedEmpKey, filters.status, filters.isManualOverride, limit]);
 
   const patchFilters = (patch: Partial<DaySummariesFilters>) => {
     setFilters((f) => ({ ...f, ...patch }));
   };
 
   const inlineSelects = React.useMemo((): ListFilterInlineSelect[] => [
+    assignedBranchSelect,
     {
       id: 'status',
       value: filters.status,
@@ -203,10 +232,11 @@ export function useDaySummariesDirectoryModel() {
         { value: 'false', label: 'آلي فقط' },
       ],
     },
-  ], [filters.isManualOverride, filters.status]);
+  ], [assignedBranchSelect, filters.isManualOverride, filters.status]);
 
   const activeFilterCount =
     (periodFilterActive ? 1 : 0)
+    + (assignedBranchId !== 'all' ? 1 : 0)
     + (selectedEmpIds.size > 0 ? 1 : 0)
     + (filters.status !== 'all' ? 1 : 0)
     + (filters.isManualOverride !== 'all' ? 1 : 0);
@@ -243,7 +273,7 @@ export function useDaySummariesDirectoryModel() {
         onPeriodChange={onPeriodChange}
         defaultPeriod={defaultPeriod}
         onPeriodFilterClear={onPeriodFilterClear}
-        empPickerEmployees={pickerEmployees}
+        empPickerEmployees={visiblePickerEmployees}
         selectedEmpIds={selectedEmpIds}
         onSelectedEmpIdsChange={setSelectedEmpIds}
         inlineSelects={inlineSelects}
@@ -256,7 +286,7 @@ export function useDaySummariesDirectoryModel() {
       filters.status,
       filters.isManualOverride,
       selectedEmpKey,
-      pickerEmployees,
+      visiblePickerEmployees,
       inlineSelects,
       onPeriodChange,
       onPeriodFilterClear,

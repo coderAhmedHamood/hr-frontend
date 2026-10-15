@@ -95,7 +95,7 @@ export type UpdateEmployeeDto = {
   position?: string | null;
   managerId?: string | null;
   contractType?: string | null;
-  contractStatus?: string | null;
+  contractStatus?: 'active' | 'suspended' | 'ended' | null;
   startDate?: string | null;
   endDate?: string | null;
   baseSalary?: number | null;
@@ -120,6 +120,8 @@ export type EmployeeListQuery = {
   companyId?: string;
   search?: string;
   branchId?: string;
+  /** Current primary active organizational assignment only. */
+  primaryAssignment?: boolean;
   departmentId?: string;
   contractStatus?: string;
   startDateFrom?: string;

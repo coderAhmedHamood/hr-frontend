@@ -14,6 +14,7 @@ import {
   Phone,
   MapPin,
   AtSign,
+  Pause,
 } from 'lucide-react';
 import { CreateUserAttentionButton } from '@/features/hr/organization/employees/components/create-user-attention-button';
 import { EmployeeLinkUserDropdown } from '@/features/hr/organization/employees/components/employee-link-user-dropdown';
@@ -21,6 +22,7 @@ import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/shared/status-badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { formatDate, getInitials } from '@/shared/utils';
+import { EMP_CONTRACT_STATUS_LABELS, EMP_CONTRACT_STATUS_ORDER } from '@/features/hr/organization/employees/constants/employees-list';
 import { Prop, FieldGroup } from '@/features/hr/organization/employees/components/EmployeeProfilePrimitives';
 import { EmployeeProfileField, EmployeeProfileSelectField } from '@/features/hr/organization/employees/components/employee-profile-field';
 import type { EmployeeProfileModel } from '@/features/hr/organization/employees/hooks/useEmployeeProfileModel';
@@ -66,7 +68,7 @@ export function EmployeePersonalSection({ model }: { model: EmployeeProfileModel
                   {employee.name}
                 </h1>
                 <StatusBadge
-                  status={employee.contractStatus}
+                  status={draft.contractStatus}
                   className="h-5 shrink-0 gap-0.5 px-1.5 py-0 text-[10px] leading-none [&_svg]:h-2.5 [&_svg]:w-2.5"
                 />
               </div>
@@ -165,6 +167,18 @@ export function EmployeePersonalSection({ model }: { model: EmployeeProfileModel
             { value: 'male', label: 'ذكر' },
             { value: 'female', label: 'أنثى' },
           ]}
+        />
+        <EmployeeProfileSelectField
+          draft={draft}
+          editingPersonal={editingPersonal}
+          updateField={updateField}
+          icon={Pause}
+          field="contractStatus"
+          label="حالة الموظف"
+          options={EMP_CONTRACT_STATUS_ORDER.map((value) => ({
+            value,
+            label: EMP_CONTRACT_STATUS_LABELS[value],
+          }))}
         />
         <EmployeeProfileSelectField
           draft={draft}

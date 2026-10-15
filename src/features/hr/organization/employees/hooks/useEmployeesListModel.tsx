@@ -176,15 +176,31 @@ export function useEmployeesListModel() {
   // Server applies all filters, including the multi-employee picker (employeeIds)
   const filtered = pagedEmployees;
 
-  const contractStatusCounts = React.useMemo(
-    () => ({
-      all: totalCount,
-      active: employees.filter((e) => e.contractStatus === 'active').length,
-      suspended: employees.filter((e) => e.contractStatus === 'suspended').length,
-      ended: employees.filter((e) => e.contractStatus === 'ended').length,
-    }),
-    [employees, totalCount],
-  );
+  // Counts per status over every page, under the other filters (not the status itself).
+  const [contractStatusCounts, setContractStatusCounts] = React.useState({
+    all: 0,
+    active: 0,
+    suspended: 0,
+    ended: 0,
+  });
+  React.useEffect(() => {
+    if (!companyId || !perms.canRead) return;
+    let cancelled = false;
+    const base = { ...buildListQuery(1, 1), contractStatus: undefined };
+    const countOf = (contractStatus?: string) =>
+      employeesApi
+        .getAll(contractStatus ? { ...base, contractStatus } : base)
+        .then((res) => res.pagination.total)
+        .catch(() => 0);
+    void Promise.all([countOf(), ...EMP_CONTRACT_STATUS_ORDER.map((s) => countOf(s))]).then(
+      ([all, active, suspended, ended]) => {
+        if (!cancelled) setContractStatusCounts({ all, active, suspended, ended });
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [buildListQuery, companyId, perms.canRead, totalCount]);
 
   const employeesPdfRows = React.useMemo(
     () =>

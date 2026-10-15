@@ -11,6 +11,10 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ListFilterBar } from '@/components/ui/list-filter-bar';
+import {
+  scopeEmployeeIdsByAssignedBranch,
+  useAssignedBranchFilter,
+} from '@/features/hr/attendance/lib/use-assigned-branch-filter';
 import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
@@ -119,9 +123,20 @@ export function useDailyAttendanceModel() {
   const [eventsLoading, setEventsLoading] = React.useState(false);
   const [listError, setListError] = React.useState<string | null>(null);
   const { employees: pickerEmployees } = useEmployeeFilterPicker(companyId);
+  const { branchId: assignedBranchId, select: assignedBranchSelect, assignedIds } = useAssignedBranchFilter(
+    companyId,
+    'daily',
+  );
+  const visiblePickerEmployees = React.useMemo(
+    () =>
+      assignedIds
+        ? pickerEmployees.filter((employee) => assignedIds.has(employee.id))
+        : pickerEmployees,
+    [assignedIds, pickerEmployees],
+  );
   const allEmployees = React.useMemo(
-    () => pickerEmployees.map((e) => ({ id: e.id, name: e.name })),
-    [pickerEmployees],
+    () => visiblePickerEmployees.map((e) => ({ id: e.id, name: e.name })),
+    [visiblePickerEmployees],
   );
   const [companyNameAr, setCompanyNameAr] = React.useState('');
   const [companyNameEn, setCompanyNameEn] = React.useState('');
@@ -181,11 +196,13 @@ export function useDailyAttendanceModel() {
   // Changing the page or page size only ever triggers that one scoped request, same
   // as every other server-paginated directory in the app.
   const employeeDirectory = React.useMemo(() => {
-    const list = selectedEmpIds.size > 0
-      ? allEmployees.filter((e) => selectedEmpIds.has(e.id))
+    if (assignedBranchId !== 'all' && assignedIds === null) return [];
+    const scoped = scopeEmployeeIdsByAssignedBranch(assignedIds, selectedEmpIds);
+    const list = scoped
+      ? allEmployees.filter((employee) => scoped.has(employee.id))
       : allEmployees;
     return [...list].sort((a, b) => a.name.localeCompare(b.name, 'ar'));
-  }, [allEmployees, selectedEmpIds]);
+  }, [allEmployees, assignedBranchId, assignedIds, selectedEmpIds]);
 
   const {
     page,
@@ -195,7 +212,7 @@ export function useDailyAttendanceModel() {
     pageItems: pageEmployeeRows,
     total,
     totalPages,
-  } = useListPagination(employeeDirectory, [companyId, selectedEmpKey]);
+  } = useListPagination(employeeDirectory, [companyId, selectedEmpKey, assignedBranchId]);
 
   const pagination: PaginationBarState = React.useMemo(
     () => ({ page, pageSize, total, totalPages, setPage, setPageSize }),
@@ -316,15 +333,18 @@ export function useDailyAttendanceModel() {
 
   const fetchExportSummaries = React.useCallback(async () => {
     if (!companyId) return [] as AttendanceDaySummary[];
+    if (assignedBranchId !== 'all' && assignedIds === null) return [] as AttendanceDaySummary[];
+    const scopedEmpIds = scopeEmployeeIdsByAssignedBranch(assignedIds, selectedEmpIds);
+    if (scopedEmpIds && scopedEmpIds.size === 0) return [] as AttendanceDaySummary[];
     const baseQuery: Omit<DaySummaryListQuery, 'page' | 'limit'> = { from, to, companyId };
-    if (selectedEmpIds.size > 0) baseQuery.employeeIds = [...selectedEmpIds];
+    if (scopedEmpIds) baseQuery.employeeIds = [...scopedEmpIds];
     if (statusFilter !== 'all' && API_STATUS_FILTERS.has(statusFilter)) {
       baseQuery.status = statusFilter as AttendanceDayStatus;
     }
     const items = await fetchAllDaySummaries(baseQuery);
     if (statusFilter === 'all') return items;
     return items.filter((s) => resolveVisualKey(s.status) === statusFilter);
-  }, [companyId, from, to, selectedEmpIds, statusFilter]);
+  }, [assignedBranchId, assignedIds, companyId, from, selectedEmpIds, statusFilter, to]);
 
   const openPdfExport = React.useCallback(async () => {
     try {
@@ -402,6 +422,7 @@ export function useDailyAttendanceModel() {
   const isDefaultDate = filterFrom === todayPeriod.from && filterTo === todayPeriod.to;
   const activeFilterCount =
     (statusFilter !== 'all' ? 1 : 0)
+    + (assignedBranchId !== 'all' ? 1 : 0)
     + (selectedEmpIds.size > 0 ? 1 : 0)
     + (!isDefaultDate ? 1 : 0);
 
@@ -454,9 +475,10 @@ export function useDailyAttendanceModel() {
   useEntityFilterSlot(
     () => (
       <ListFilterBar
-        empPickerEmployees={pickerEmployees}
+        empPickerEmployees={visiblePickerEmployees}
         selectedEmpIds={selectedEmpIds}
         onSelectedEmpIdsChange={setSelectedEmpIds}
+        inlineSelects={[assignedBranchSelect]}
         statusFilter={statusFilter}
         onStatusFilterChange={setStatusFilter}
         statusOrder={ATT_VISUAL_STATUS_ORDER}
@@ -480,9 +502,11 @@ export function useDailyAttendanceModel() {
     ),
     [
       statusFilter,
+      assignedBranchSelect,
+      assignedBranchId,
       selectedEmpKey,
       viewMode,
-      pickerEmployees.length,
+      visiblePickerEmployees,
       dateBounds.from,
       dateBounds.to,
       todayPeriod.from,

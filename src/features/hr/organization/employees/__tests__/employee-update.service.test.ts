@@ -49,14 +49,17 @@ describe('buildPersonalEmployeeUpdatePayload', () => {
       gender: 'male',
       birthDate: '1990-01-01',
       maritalStatus: 'single',
+      contractStatus: 'active',
     });
   });
 
-  it('does not send allowance or contract fields', () => {
+  it('does not send allowance or contract type fields', () => {
     const payload = buildPersonalEmployeeUpdatePayload(baseEmployee());
     expect(payload).not.toHaveProperty('housingAllowance');
     expect(payload).not.toHaveProperty('baseSalary');
     expect(payload).not.toHaveProperty('managerId');
     expect(payload).not.toHaveProperty('role');
+    expect(payload).not.toHaveProperty('contractType');
+    expect(payload.contractStatus).toBe('active');
   });
 });
