@@ -441,9 +441,6 @@ function Register() {
   const saveLine = (patch: { quantity: number; discount: PosDiscount | null; unitPrice: number }) => {
     if (!editing) return;
     const apply = () => {
-      if (patch.unitPrice !== editing.unitPrice) {
-        actions?.logAudit(userName, 'price_override', `${editing.name}: ${editing.unitPrice} ← ${patch.unitPrice}`);
-      }
       setCart({ ...cart, lines: cart.lines.map((l) => (l.id === editing.id ? { ...l, ...patch } : l)) });
       setEditing(null);
     };

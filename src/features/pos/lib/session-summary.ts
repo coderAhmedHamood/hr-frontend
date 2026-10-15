@@ -17,10 +17,15 @@ export function summarizeSession(data: PosCompanyData, session: PosSession) {
     byMethod[p.method] = round2((byMethod[p.method] ?? 0) + p.amount);
   }
 
+  // Cash given back: returns refunded in cash, and refund payments (an
+  // exception's overpayment) — the same sum the server closes the shift with.
   const refundsCash = round2(
     data.returns
       .filter((r) => r.sessionId === session.id && r.refund.method === 'cash' && r.refund.status === 'done')
-      .reduce((a, r) => a + r.refund.amount, 0),
+      .reduce((a, r) => a + r.refund.amount, 0) +
+      payments
+        .filter((p) => p.kind === 'refund' && p.method === 'cash' && p.status === 'succeeded')
+        .reduce((a, p) => a + p.amount, 0),
   );
   const moves = data.cashMovements.filter((m) => m.sessionId === session.id);
   const cashIn = round2(moves.filter((m) => m.type === 'in').reduce((a, m) => a + m.amount, 0));

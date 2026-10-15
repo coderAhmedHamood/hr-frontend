@@ -19,32 +19,37 @@ const DOCS = ['variants', 'replenish', 'receipts', 'issues', 'internals', 'moves
   (key) => ({ key }),
 );
 const tabs = (inventory: boolean, store: boolean) =>
-  visibleProductTabs(TABS, { inventory, store }).map((t) => t.value);
+  visibleProductTabs(TABS, { inventory, store, pos: true }).map((t) => t.value);
 
 describe('product app sections (phase 2.5)', () => {
   it('follows the apps enabled for the company', () => {
     expect(productAppSectionsFor('c1', { enabledApplicationCodes: ['catalog', 'inventory'] })).toEqual({
       inventory: true,
       store: false,
+      pos: false,
     });
     expect(productAppSectionsFor('c1', { enabledApplicationCodes: ['catalog', 'store-admin'] })).toEqual({
       inventory: false,
       store: true,
+      pos: false,
     });
     expect(productAppSectionsFor('c1', { enabledApplicationCodes: ['catalog'] })).toEqual({
       inventory: false,
       store: false,
+      pos: false,
     });
+    expect(productAppSectionsFor('c1', { enabledApplicationCodes: ['catalog', 'pos'] }).pos).toBe(true);
   });
 
   it('keeps every section for pre-migration sessions and the system owner', () => {
     expect(productAppSectionsFor('c1', { enabledApplicationCodes: null })).toEqual({
       inventory: true,
       store: true,
+      pos: true,
     });
     expect(
       productAppSectionsFor('c1', { isSystemOwner: true, enabledApplicationCodes: ['catalog'] }),
-    ).toEqual({ inventory: true, store: true });
+    ).toEqual({ inventory: true, store: true, pos: true });
   });
 
   it('shows inventory and store tabs only with their app', () => {

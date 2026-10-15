@@ -1,6 +1,8 @@
 'use client';
 
 import * as React from 'react';
+import { useModuleEnablementContext } from '@/features/auth/hooks/use-system-owner';
+import { isModuleEnabledFor } from '@/shared/modules/registry';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -88,18 +90,18 @@ const DETAIL_TABS = [
   { value: 'activities', label: 'أنشطة', icon: Clock },
   { value: 'notes', label: 'ملاحظات', icon: StickyNote },
   { value: 'attachments', label: 'مرفقات', icon: Paperclip },
-  { value: 'orders', label: 'طلبات المتجر', icon: ShoppingBag },
-  { value: 'reviews', label: 'تقييمات', icon: Star },
-  { value: 'favorites', label: 'المفضلة', icon: Heart },
+  // The store's: shown only while the store is enabled for the company.
+  { value: 'orders', label: 'طلبات المتجر', icon: ShoppingBag, requiresApp: 'ecommerce' },
+  { value: 'reviews', label: 'تقييمات', icon: Star, requiresApp: 'ecommerce' },
+  { value: 'favorites', label: 'المفضلة', icon: Heart, requiresApp: 'ecommerce' },
   { value: 'related', label: 'مرتبط', icon: Network },
 ] as const;
 
 type DetailTab = (typeof DETAIL_TABS)[number]['value'];
 
-const DETAIL_TAB_VALUES = new Set<string>(DETAIL_TABS.map((tab) => tab.value));
-
-function resolveDetailTab(value: string | null): DetailTab {
-  if (value && DETAIL_TAB_VALUES.has(value)) return value as DetailTab;
+/** A hidden tab (its app disabled) linked directly falls back to the first. */
+function resolveDetailTab(value: string | null, visible: ReadonlySet<string>): DetailTab {
+  if (value && visible.has(value)) return value as DetailTab;
   return 'general';
 }
 
@@ -107,13 +109,23 @@ export function PartnerDetailPage({ partnerId }: Props) {
   const companyId = getContactsCompanyId();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const enablement = useModuleEnablementContext();
+  const storeOn = isModuleEnabledFor('ecommerce', enablement.companyId, enablement);
+  const visibleTabs = React.useMemo(
+    () => DETAIL_TABS.filter((tab) => !('requiresApp' in tab) || storeOn),
+    [storeOn],
+  );
+  const visibleValues = React.useMemo(
+    () => new Set<string>(visibleTabs.map((tab) => tab.value)),
+    [visibleTabs],
+  );
   const [activeTab, setActiveTab] = React.useState<DetailTab>(() =>
-    resolveDetailTab(searchParams.get('tab')),
+    resolveDetailTab(searchParams.get('tab'), visibleValues),
   );
 
   React.useEffect(() => {
-    setActiveTab(resolveDetailTab(searchParams.get('tab')));
-  }, [searchParams]);
+    setActiveTab(resolveDetailTab(searchParams.get('tab'), visibleValues));
+  }, [searchParams, visibleValues]);
   const { data: partner, isLoading, isError } = usePartnerFull(companyId, partnerId);
   const { data: children } = usePartnerChildren(companyId, partnerId);
   const { data: notes } = usePartnerNotes(companyId, partnerId);
@@ -309,7 +321,7 @@ export function PartnerDetailPage({ partnerId }: Props) {
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as DetailTab)} className="w-full min-w-0 space-y-5">
         <div className="sto-tabs-scroll sticky top-0 z-10 -mx-1 rounded-2xl px-1 pb-1">
           <TabsList className="sto-tabs-scroll h-auto min-w-full w-max justify-start gap-1 rounded-2xl bg-muted/70 p-1.5">
-            {DETAIL_TABS.map(({ value, label, icon: Icon }) => (
+            {visibleTabs.map(({ value, label, icon: Icon }) => (
               <TabsTrigger
                 key={value}
                 value={value}

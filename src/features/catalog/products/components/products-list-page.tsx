@@ -287,17 +287,17 @@ export function ProductsListPage() {
               })),
             ],
           }] : []),
-          {
+          ...(sections.pos ? [{
             id: 'posAvailable',
             value: filters.posAvailable ? 'true' : 'all',
-            onChange: (value) =>
+            onChange: (value: string) =>
               updateParams({ posAvailable: value === 'true' ? true : undefined, page: 1 }),
             placeholder: 'كل قنوات البيع',
             options: [
               { value: 'all', label: 'كل قنوات البيع' },
               { value: 'true', label: 'متاح لنقطة البيع' },
             ],
-          },
+          }] : []),
           {
             id: 'offer',
             value:

@@ -339,10 +339,8 @@ export async function placePublicStoreOrder(
     paymentProofUrls: input.paymentProofUrls,
     paymentProofUrl: input.paymentProofUrl,
   });
-  const idempotencyKey =
-    typeof crypto !== 'undefined' && 'randomUUID' in crypto
-      ? crypto.randomUUID()
-      : `order-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const attempt = checkoutAttemptKey(input);
+  const idempotencyKey = attempt.key;
   const postOrder = () =>
     publicStoreRequest<StoreOrderDto>('/public/store/orders', {
       method: 'POST',
@@ -402,7 +400,70 @@ export async function placePublicStoreOrder(
     return mapStorefrontOrder(dto);
   };
 
-  return toOrder(await postOrder());
+  const order = toOrder(await postOrder());
+  attempt.done();
+  return order;
+}
+
+const CHECKOUT_ATTEMPTS = 'store-checkout-attempts';
+const ATTEMPT_TTL_MS = 30 * 60_000;
+
+/** A short, stable hash of a string (FNV-1a), for a key per order content. */
+function contentHash(text: string): string {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < text.length; i += 1) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return (h >>> 0).toString(36);
+}
+
+/**
+ * One Idempotency-Key per checkout attempt: sending the same order again
+ * (after the network dropped the answer) reuses its key, so the server
+ * returns the order it already made instead of a second one. A changed cart
+ * or address is a new attempt; a placed order ends its attempt.
+ */
+function checkoutAttemptKey(input: PlaceOrderInput): { key: string; done: () => void } {
+  const fresh = () =>
+    typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `order-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const content = contentHash(
+    JSON.stringify({
+      company: input.companyId ?? null,
+      lines: input.lines,
+      address: input.address,
+      payment: [input.paymentMethod, input.paymentAccountId ?? null],
+    }),
+  );
+  let store: Record<string, { key: string; at: number }> = {};
+  try {
+    store = JSON.parse(window.sessionStorage.getItem(CHECKOUT_ATTEMPTS) ?? '{}') as typeof store;
+  } catch {
+    store = {};
+  }
+  const now = Date.now();
+  for (const [hash, entry] of Object.entries(store)) {
+    if (now - entry.at > ATTEMPT_TTL_MS) delete store[hash];
+  }
+  const key = store[content]?.key ?? fresh();
+  store[content] = { key, at: now };
+  const save = () => {
+    try {
+      window.sessionStorage.setItem(CHECKOUT_ATTEMPTS, JSON.stringify(store));
+    } catch {
+      /* private mode: the key lives for this call only */
+    }
+  };
+  save();
+  return {
+    key,
+    done: () => {
+      delete store[content];
+      save();
+    },
+  };
 }
 
 export async function fetchPublicStoreOrder(input: {

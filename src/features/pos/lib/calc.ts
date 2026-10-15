@@ -72,10 +72,21 @@ export function priceLines(
   return { lines: priced, totals };
 }
 
-/** Refund for `quantity` units of a sold line, from its snapshot. */
-export function lineRefundAmount(line: PosSaleLine, quantity: number): number {
-  if (line.quantity <= 0) return 0;
-  return round2((line.total * quantity) / line.quantity);
+/**
+ * Refund for `quantity` units of a sold line, from its snapshot: the value
+ * of what will have come back minus the value of what already did, each
+ * rounded, so the pieces add up to the line (3.33, 3.34, 3.33 of 10.00) —
+ * the server's rule.
+ */
+export function lineRefundAmount(
+  line: Pick<PosSaleLine, 'total' | 'quantity' | 'returnedQuantity'>,
+  quantity: number,
+): number {
+  if (line.quantity <= 0 || quantity <= 0) return 0;
+  const already = Math.min(line.returnedQuantity ?? 0, line.quantity);
+  const after = Math.min(already + quantity, line.quantity);
+  const valueOf = (units: number) => round2((line.total * units) / line.quantity);
+  return round2(valueOf(after) - valueOf(already));
 }
 
 export function paidAmount(payments: Array<{ kind: string; status: string; amount: number }>): number {

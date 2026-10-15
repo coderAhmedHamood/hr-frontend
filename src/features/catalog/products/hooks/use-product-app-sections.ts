@@ -15,7 +15,7 @@ import {
  * promos, stockStatus, reviews) are the store's. A section shows only when
  * its app is enabled for the active company — its API refuses otherwise.
  */
-export type ProductAppSections = { inventory: boolean; store: boolean };
+export type ProductAppSections = { inventory: boolean; store: boolean; pos: boolean };
 
 export function productAppSectionsFor(
   companyId: string | null | undefined,
@@ -24,6 +24,7 @@ export function productAppSectionsFor(
   return {
     inventory: isModuleEnabledFor('inventory', companyId, context),
     store: isModuleEnabledFor('ecommerce', companyId, context),
+    pos: isModuleEnabledFor('pos', companyId, context),
   };
 }
 

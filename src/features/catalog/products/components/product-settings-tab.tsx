@@ -440,7 +440,10 @@ export function ProductSettingsTab({ control, errors, register }: Props) {
                 hint: 'متاح في شاشة الكاشير',
               },
             ] as const
-          ).map((item) => (
+          )
+            // The register's switch shows only while POS is enabled.
+            .filter((item) => item.name !== 'posAvailable' || sections.pos)
+            .map((item) => (
             <Controller
               key={item.name}
               control={control}
