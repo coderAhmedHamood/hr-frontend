@@ -624,7 +624,7 @@ function Register() {
             locked ? (
               <div className="flex items-center justify-between gap-2">
                 <span>
-                  بيع مثبّت بانتظار الدفع{session.stockMode === 'inventory' ? '، والكمية محجوزة' : ''}. المدفوع{' '}
+                  بيع مثبّت بانتظار الدفع{openSale?.stockReserved ? '، والكمية محجوزة في المستودع' : ''}. المدفوع{' '}
                   {formatMoney(paidAmount(openSale!.payments), currency)}.
                 </span>
                 <Button size="sm" variant="ghost" className="h-7" onClick={cancelOpenSale}>

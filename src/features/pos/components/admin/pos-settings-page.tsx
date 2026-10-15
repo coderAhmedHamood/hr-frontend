@@ -19,8 +19,10 @@ import {
   type PosPaymentMethod,
   type PosSettings,
   type PosStockMode,
+  type PosStockTiming,
 } from '@/features/pos/domain/types';
 import { usePosContext } from '@/features/pos/hooks/use-pos-context';
+import { usePosStockLink } from '@/features/pos/lib/pos-stock-link-api';
 import { parseAmount } from '@/features/pos/lib/format';
 import { PosGate } from '@/features/pos/components/shared/pos-shared';
 import { PosMenuCategoriesCard } from '@/features/pos/components/admin/pos-menu-categories';
@@ -69,8 +71,21 @@ const STOCK_MODES: ReadonlyArray<{ id: PosStockMode; title: string; description:
   {
     id: 'inventory',
     title: 'مربوط بالمخازن',
-    description: 'الكمية من المخازن: حجز قبل الدفع، وصرف عند الاكتمال من مستودع نقطة البيع، وحماية حجوزات المتجر.',
+    description: 'كل نقطة تبيع من مستودعها: صرف عند إتمام البيع، ويعود المرتجع السليم إليه، وبقواعد المخازن عند نقص الكمية.',
     icon: Boxes,
+  },
+];
+
+const STOCK_TIMINGS: ReadonlyArray<{ id: PosStockTiming; title: string; description: string }> = [
+  {
+    id: 'reserve_on_commit',
+    title: 'حجز عند تثبيت السلة، وصرف عند الإتمام',
+    description: 'لا يبيع كاشير آخر آخر قطعة أثناء الدفع. الإلغاء يفك الحجز.',
+  },
+  {
+    id: 'issue_on_complete',
+    title: 'صرف عند الإتمام فقط',
+    description: 'تُفحص الكمية عند التثبيت دون حجز، وتُصرف عند الإتمام. قد يُرفض الإتمام إن بيعت الكمية من نقطة أخرى أثناء الدفع.',
   },
 ];
 
@@ -78,7 +93,7 @@ type SettingsTab = 'stock' | 'pricing' | 'payment' | 'returns' | 'shifts' | 'pri
 
 /** The tabs, and the settings each one edits (for its unsaved mark). */
 const TABS: ReadonlyArray<{ id: SettingsTab; label: string; icon: typeof Boxes; keys: ReadonlyArray<keyof PosSettings> }> = [
-  { id: 'stock', label: 'المنتجات والمخزون', icon: Boxes, keys: ['onlyPosAvailableProducts'] },
+  { id: 'stock', label: 'المنتجات والمخزون', icon: Boxes, keys: ['onlyPosAvailableProducts', 'stockTiming'] },
   { id: 'pricing', label: 'الأسعار والضريبة', icon: Percent, keys: ['tax', 'discounts'] },
   { id: 'payment', label: 'الدفع', icon: CreditCard, keys: ['paymentMethods'] },
   { id: 'returns', label: 'المرتجعات', icon: Undo2, keys: ['returns'] },
@@ -93,6 +108,8 @@ function Settings() {
   React.useEffect(() => setDraft(data.settings), [data.settings]);
 
   const canEdit = can('pos.settings.manage');
+  const link = usePosStockLink(companyId);
+  const linked = data.settings.stockMode === 'inventory';
   const openSessions = data.sessions.filter((s) => s.status === 'open').length;
   const unsettledSales = data.sales.filter(
     (s) => s.status === 'awaiting_payment' || s.status === 'payment_exception',
@@ -150,9 +167,10 @@ function Settings() {
             description="على مستوى الشركة: كل نقاط البيع مربوطة أو لا شيء منها، فلا تبيع نقطتان البضاعة نفسها إحداهما تخصم والأخرى لا."
           >
             <div className="grid gap-3 sm:grid-cols-2">
-              {/* POS sales do not post to inventory yet: the linked mode is offered
-                  only to a company already on it (it can switch back). */}
-              {STOCK_MODES.filter((m) => m.id !== 'inventory' || data.settings.stockMode === 'inventory').map((m) => {
+              {/* Linking is the «ربط نقاط البيع بالمخازن» app's switch (company apps);
+                  here a linked company can only stop new shifts before disabling it.
+                  The linked card shows only while the app is enabled (or still linked). */}
+              {STOCK_MODES.filter((m) => m.id !== 'inventory' || linked || link.bridgeOn).map((m) => {
                 const Icon = m.icon;
                 const active = data.settings.stockMode === m.id;
                 return (
@@ -160,7 +178,7 @@ function Settings() {
                     key={m.id}
                     type="button"
                     aria-pressed={active}
-                    disabled={!canEdit || active || Boolean(change)}
+                    disabled={!canEdit || active || Boolean(change) || m.id === 'inventory'}
                     onClick={() => actions?.requestStockModeChange(m.id, userName)}
                     className={cn(
                       'flex gap-3 rounded-lg border p-3 text-start transition disabled:cursor-not-allowed',
@@ -192,25 +210,71 @@ function Settings() {
                     معلّقًا» حتى تُراجع.
                   </p>
                 ) : null}
+                {change.to === 'none' && link.data?.enabled ? (
+                  <p className="font-semibold">
+                    لإتمام فك الربط: بعد إغلاق الورديات أوقف تطبيق «ربط نقاط البيع بالمخازن» من تطبيقات الشركة.
+                  </p>
+                ) : null}
                 <div className="flex flex-wrap gap-2">
-                  <Button
-                    size="sm"
-                    disabled={!canEdit || !drained}
-                    onClick={() => {
-                      actions?.confirmStockModeChange(userName);
-                    }}
-                  >
-                    تأكيد الوضع الجديد
-                  </Button>
+                  {change.to === 'none' && link.data?.enabled ? null : (
+                    <Button
+                      size="sm"
+                      disabled={!canEdit || !drained}
+                      onClick={() => {
+                        actions?.confirmStockModeChange(userName);
+                      }}
+                    >
+                      تأكيد الوضع الجديد
+                    </Button>
+                  )}
                   <Button size="sm" variant="outline" disabled={!canEdit} onClick={() => actions?.cancelStockModeChange(userName)}>
                     إلغاء التبديل
                   </Button>
                 </div>
               </div>
-            ) : data.settings.stockMode === 'inventory' ? (
+            ) : linked ? (
               <p className="text-xs text-muted-foreground">
-                يحتاج تطبيق المخازن ووسيط «نقاط البيع ↔ المخازن» في الخلفية. حدّد مستودع كل نقطة بيع في «نقاط البيع والأجهزة».
+                مربوط عبر تطبيق «ربط نقاط البيع بالمخازن». مستودع كل نقطة في{' '}
+                <Link href="/point-of-sale/registers" className="text-primary underline">
+                  نقاط البيع والأجهزة
+                </Link>
+                . لفك الربط اطلب «دون تتبع الكمية» ثم أوقف التطبيق بعد إغلاق الورديات.
               </p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                {link.data?.installed && link.inventoryOn
+                  ? 'للبيع من المخازن: فعّل تطبيق «ربط نقاط البيع بالمخازن» من تطبيقات الشركة (يحتاج المخازن، وتكون الورديات مغلقة). اختر قبلها مستودع كل نقطة في «نقاط البيع والأجهزة»؛ النقطة التي لفرعها مستودع واحد يُختار لها تلقائيًا.'
+                  : 'تبيع نقاط البيع بالمنتجات وسعر البيع والتكلفة فقط. الربط بالمخازن تطبيق مستقل غير مثبّت في هذا النظام.'}
+              </p>
+            )}
+            {link.data?.installed && link.bridgeOn ? (
+              <div className="space-y-2">
+                <Label>متى تتحرك الكمية في المخازن</Label>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {STOCK_TIMINGS.map((option) => {
+                    const active = draft.stockTiming === option.id;
+                    return (
+                      <button
+                        key={option.id}
+                        type="button"
+                        aria-pressed={active}
+                        disabled={!canEdit}
+                        onClick={() => setDraft((d) => ({ ...d, stockTiming: option.id }))}
+                        className={cn(
+                          'rounded-lg border p-3 text-start transition disabled:cursor-not-allowed',
+                          active ? 'border-primary bg-primary/5 ring-2 ring-primary/20' : 'border-border hover:border-primary/40',
+                        )}
+                      >
+                        <span className="block text-sm font-semibold">{option.title}</span>
+                        <span className="block text-xs text-muted-foreground">{option.description}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  يسري على المبيعات الجديدة. نقص الكمية يتبع قواعد المخازن: لا يُصرف أكثر من المتاح، والصنف غير المتتبَّع لا ينقص.
+                </p>
+              </div>
             ) : null}
             <Toggle
               label="الأصناف المتاحة في نقطة البيع فقط"

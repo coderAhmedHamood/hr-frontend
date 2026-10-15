@@ -4,8 +4,18 @@
  * will follow.
  */
 
-/** Company-wide stock mode: sell without tracking, or through inventory (pos-inventory bridge). */
+/**
+ * Company-wide stock mode: sell without tracking (products, sale price and
+ * cost only), or through inventory. `inventory` comes from enabling the
+ * «ربط نقاط البيع بالمخازن» app (pos-stock-sync), never by hand.
+ */
 export type PosStockMode = 'none' | 'inventory';
+
+/**
+ * When a linked sale moves stock: reserved at commit and issued at
+ * completion, or only checked at commit and issued at completion.
+ */
+export type PosStockTiming = 'reserve_on_commit' | 'issue_on_complete';
 
 export type PosPaymentMethod = 'cash' | 'card' | 'transfer';
 
@@ -20,6 +30,8 @@ export type PosSettings = {
    * mode explicitly. Null when none is under way.
    */
   stockModeChange: { to: PosStockMode; requestedAt: string; requestedBy: string } | null;
+  /** Linked to inventory only: when the stock of a sale moves. */
+  stockTiming: PosStockTiming;
   /** Only products marked "available in POS" in the catalog. */
   onlyPosAvailableProducts: boolean;
   tax: {
@@ -61,7 +73,9 @@ export type PosRegister = {
   code: string;
   branchId: string | null;
   branchName: string | null;
-  /** Inventory mode only. */
+  /** The warehouse it sells from when linked (one of its branch, checked by the server). */
+  warehouseId?: string | null;
+  /** The warehouse's name, set by the server. */
   warehouseName: string | null;
   isActive: boolean;
   /** Null follows the company POS setting. */
@@ -88,6 +102,8 @@ export type PosSession = {
   cashierName: string;
   status: PosSessionStatus;
   stockMode: PosStockMode;
+  /** The register's warehouse when the shift opened (inventory mode). */
+  warehouseId?: string | null;
   openedAt: string;
   openingFloat: number;
   closedAt: string | null;
@@ -179,7 +195,12 @@ export type PosSale = {
   sessionId: string;
   cashierName: string;
   status: PosSaleStatus;
+  /** The shift's stock mode, stamped by the server. */
   stockSource: PosStockMode;
+  /** The warehouse it sells from (inventory only). */
+  warehouseId?: string | null;
+  /** Its quantities are reserved until it completes or is cancelled. */
+  stockReserved?: boolean;
   customer: PosCustomer;
   lines: PosSaleLine[];
   orderDiscount: PosDiscount | null;
@@ -312,6 +333,7 @@ export const RETURN_CONDITION_LABELS: Record<PosReturnCondition, string> = {
 export const DEFAULT_POS_SETTINGS: PosSettings = {
   stockMode: 'none',
   stockModeChange: null,
+  stockTiming: 'reserve_on_commit',
   onlyPosAvailableProducts: false,
   tax: { enabled: false, rate: 0, pricesIncludeTax: true },
   discounts: { cashierMaxPercent: 10, supervisorApprovalAbove: true, allowPriceOverride: false },
