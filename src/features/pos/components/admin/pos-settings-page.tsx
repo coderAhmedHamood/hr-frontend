@@ -168,8 +168,9 @@ function Settings() {
           >
             <div className="grid gap-3 sm:grid-cols-2">
               {/* Linking is the «ربط نقاط البيع بالمخازن» app's switch (company apps);
-                  here a linked company can only stop new shifts before disabling it. */}
-              {STOCK_MODES.map((m) => {
+                  here a linked company can only stop new shifts before disabling it.
+                  The linked card shows only while the app is enabled (or still linked). */}
+              {STOCK_MODES.filter((m) => m.id !== 'inventory' || linked || link.bridgeOn).map((m) => {
                 const Icon = m.icon;
                 const active = data.settings.stockMode === m.id;
                 return (
@@ -241,12 +242,12 @@ function Settings() {
               </p>
             ) : (
               <p className="text-xs text-muted-foreground">
-                {link.data?.installed
+                {link.data?.installed && link.inventoryOn
                   ? 'للبيع من المخازن: فعّل تطبيق «ربط نقاط البيع بالمخازن» من تطبيقات الشركة (يحتاج المخازن، وتكون الورديات مغلقة). اختر قبلها مستودع كل نقطة في «نقاط البيع والأجهزة»؛ النقطة التي لفرعها مستودع واحد يُختار لها تلقائيًا.'
                   : 'تبيع نقاط البيع بالمنتجات وسعر البيع والتكلفة فقط. الربط بالمخازن تطبيق مستقل غير مثبّت في هذا النظام.'}
               </p>
             )}
-            {link.data?.installed ? (
+            {link.data?.installed && link.bridgeOn ? (
               <div className="space-y-2">
                 <Label>متى تتحرك الكمية في المخازن</Label>
                 <div className="grid gap-2 sm:grid-cols-2">

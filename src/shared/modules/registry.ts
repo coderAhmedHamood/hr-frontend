@@ -109,6 +109,8 @@ export function isModuleEnabledFor(
 
 /** The store-inventory bridge app (phase 3): the store sells from inventory. */
 export const STORE_STOCK_SYNC_APP_CODE = 'store-stock-sync';
+/** The point of sale–inventory link (bridge app). */
+export const POS_STOCK_SYNC_APP_CODE = 'pos-stock-sync';
 
 /**
  * True when the company itself has `appCode` enabled. Unlike

@@ -1,5 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
-import { apiRequest } from '@/shared/api/client';
+import { ApiError, apiRequest } from '@/shared/api/client';
+import { useModuleEnablementContext } from '@/features/auth/hooks/use-system-owner';
+import { companyHasApp, POS_STOCK_SYNC_APP_CODE } from '@/shared/modules/registry';
+
+const INVENTORY_APP_CODE = 'inventory';
 import type { PosStockMode, PosStockTiming } from '@/features/pos/domain/types';
 
 /** The point of sale–inventory link (pos-stock-sync bridge) as the POS screens see it. */
@@ -32,16 +36,27 @@ export async function fetchPosStockLink(companyId: string): Promise<PosStockLink
       throwOnError: true,
       silent: true,
     });
-  } catch {
-    return null;
+  } catch (error) {
+    // Any other failure is not "not installed": the screen shows it.
+    if (error instanceof ApiError && error.status === 404) return null;
+    throw error;
   }
 }
 
+/**
+ * The link as the POS screens see it. Warehouses are inventory's, so nothing
+ * is asked for (or shown) while inventory is disabled for the company;
+ * `bridgeOn` is the «ربط نقاط البيع بالمخازن» app itself.
+ */
 export function usePosStockLink(companyId: string | null | undefined, enabled = true) {
-  return useQuery({
+  const context = useModuleEnablementContext();
+  const inventoryOn = companyHasApp(INVENTORY_APP_CODE, context);
+  const bridgeOn = companyHasApp(POS_STOCK_SYNC_APP_CODE, context);
+  const query = useQuery({
     queryKey: ['pos', 'stock-link', companyId],
     queryFn: () => fetchPosStockLink(companyId!),
-    enabled: !!companyId && enabled,
+    enabled: !!companyId && enabled && inventoryOn,
     staleTime: 30_000,
   });
+  return Object.assign(query, { inventoryOn, bridgeOn });
 }
