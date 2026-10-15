@@ -448,6 +448,7 @@ export function ProductDetailPage({ productId }: Props) {
                   register={form.register}
                   categories={categoriesData?.items}
                   brands={brandsData?.items}
+                  costManaged={product?.costManaged === true}
                 />
               </TabsContent>
               <TabsContent value="attributes" className="mt-0 focus-visible:outline-none">

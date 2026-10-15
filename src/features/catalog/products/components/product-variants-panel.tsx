@@ -2,6 +2,7 @@
 
 import { companyCurrencyCode } from '@/features/auth/lib/company-currency';
 import * as React from 'react';
+import { useProduct } from '@/features/catalog/products/hooks/use-products';
 import { CheckCircle2, Loader2, Save } from 'lucide-react';
 import {
   useFieldArray,
@@ -69,6 +70,12 @@ export function ProductVariantsPanel({
 }: Props) {
   const phone = usePhoneLayout();
   const companyId = getStorefrontCompanyId();
+  // Variants whose purchase price follows inventory (costing runs on their stock).
+  const { data: savedProduct } = useProduct(companyId, productId, { enabled: Boolean(productId) });
+  const costManaged = React.useMemo(
+    () => new Set((savedProduct?.variants ?? []).filter((v) => v.costManaged).map((v) => v.id)),
+    [savedProduct],
+  );
   const attributes = useWatch({ control, name: 'attributes' }) ?? [];
   const nameAr = useWatch({ control, name: 'nameAr' }) ?? '';
   const sku = useWatch({ control, name: 'sku' }) ?? '';
@@ -383,6 +390,10 @@ export function ProductVariantsPanel({
                       step="0.01"
                       dir="rtl"
                       className="h-10 w-full"
+                      readOnly={costManaged.has(rowId)}
+                      title={
+                        costManaged.has(rowId) ? 'يُحسب تلقائيًا من المخزون حسب طريقة التكلفة' : undefined
+                      }
                       {...register(`variants.${index}.costPrice`, { valueAsNumber: true })}
                     />
                   </div>
@@ -506,6 +517,10 @@ export function ProductVariantsPanel({
                       step="0.01"
                       dir="rtl"
                       className="h-8 w-24"
+                      readOnly={costManaged.has(rowId)}
+                      title={
+                        costManaged.has(rowId) ? 'يُحسب تلقائيًا من المخزون حسب طريقة التكلفة' : undefined
+                      }
                       {...register(`variants.${index}.costPrice`, { valueAsNumber: true })}
                     />
                   </td>

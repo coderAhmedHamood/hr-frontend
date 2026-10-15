@@ -86,6 +86,8 @@ export type ProductVariant = {
   attributeLabels: Array<{ attributeNameAr: string; valueNameAr: string; colorHex?: string }>;
   salePrice: Money;
   costPrice: Money;
+  /** Costing runs on its stock: the purchase price follows inventory (read-only). */
+  costManaged?: boolean;
   quantity: number;
   stockStatus: StockStatus;
   barcode?: string;
@@ -137,6 +139,8 @@ export type Product = TenantScoped &
     price: Money;
     /** Purchase / cost price (سعر الشراء). */
     costPrice?: Money;
+    /** Costing runs on its stock: the purchase price follows inventory (read-only). */
+    costManaged?: boolean;
     compareAtPrice?: Money;
     media: MediaItem[];
     /** How this product's photos fit their storefront display box. Default: 'contain'. */

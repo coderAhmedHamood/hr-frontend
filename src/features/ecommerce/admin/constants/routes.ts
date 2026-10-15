@@ -37,6 +37,7 @@ export const ecommerceAdminRoutes = {
   reportsFulfillment: '/reports/fulfillment',
   reportsEngagement: '/reports/engagement',
   reportsLines: '/reports/lines',
+  reportsProfit: '/reports/profit',
   /** @deprecated use `reportsSales` */
   salesReports: '/reports/sales',
   /** @deprecated Use inventoryAdminRoutes */

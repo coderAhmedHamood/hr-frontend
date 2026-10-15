@@ -423,6 +423,7 @@ export function ProductFormDialog({ product, open, onOpenChange }: Props) {
                         register={form.register}
                         categories={categoriesData?.items}
                         brands={brandsData?.items}
+                        costManaged={resolvedProduct?.costManaged === true}
                       />
                     </TabsContent>
                     <TabsContent value="attributes" className="mt-0 focus-visible:outline-none">

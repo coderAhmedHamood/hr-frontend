@@ -36,9 +36,18 @@ type Props = {
   register: UseFormRegister<ProductFormInput>;
   categories: Category[] | undefined;
   brands: Brand[] | undefined;
+  /** The purchase price follows inventory (costing runs on its stock). */
+  costManaged?: boolean;
 };
 
-export function ProductGeneralTab({ control, errors, register, categories, brands }: Props) {
+export function ProductGeneralTab({
+  control,
+  errors,
+  register,
+  categories,
+  brands,
+  costManaged = false,
+}: Props) {
   const [showAdvanced, setShowAdvanced] = React.useState(false);
   // Cost and tracking are inventory's; compare-at price is the store's.
   const sections = useProductAppSections();
@@ -203,6 +212,11 @@ export function ProductGeneralTab({ control, errors, register, categories, brand
               label="سعر الشراء"
               htmlFor="product-cost-price"
               error={errors.costPrice?.message}
+              hint={
+                costManaged
+                  ? 'يُحسب تلقائيًا من المخزون حسب طريقة التكلفة. لتصحيحه عدّل مستند الاستلام أو أدخل تسوية بالسعر الصحيح.'
+                  : undefined
+              }
             >
               <div className="relative">
                 <Input
@@ -212,6 +226,8 @@ export function ProductGeneralTab({ control, errors, register, categories, brand
                   step="0.01"
                   dir="rtl"
                   className="h-11 pe-12"
+                  readOnly={costManaged}
+                  aria-readonly={costManaged}
                   {...register('costPrice')}
                 />
                 <span className="pointer-events-none absolute inset-y-0 inset-e-3 flex items-center text-xs text-muted-foreground">

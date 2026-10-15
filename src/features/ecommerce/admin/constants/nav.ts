@@ -35,6 +35,7 @@ import {
   Phone,
   Search,
   Share2,
+  CircleDollarSign,
 } from 'lucide-react';
 import {
   ecommerceAdminRoutes,
@@ -204,6 +205,7 @@ export const ecommerceAdminNavGroups: EcommerceAdminNavGroup[] = [
             match: 'exact',
           },
           { labelKey: 'reportsSales', href: ecommerceAdminRoutes.reportsSales, icon: TrendingUp },
+          { labelKey: 'reportsProfit', href: ecommerceAdminRoutes.reportsProfit, icon: CircleDollarSign },
           { labelKey: 'reportsProducts', href: ecommerceAdminRoutes.reportsProducts, icon: Package },
           { labelKey: 'reportsCustomers', href: ecommerceAdminRoutes.reportsCustomers, icon: Users },
           { labelKey: 'reportsGeo', href: ecommerceAdminRoutes.reportsGeo, icon: MapPin },

@@ -68,6 +68,7 @@ type ProductDto = {
   priceCurrency: string;
   costPriceAmount?: string | number | null;
   costPriceCurrency?: string | null;
+  costManaged?: boolean;
   compareAtPriceAmount?: string | number | null;
   compareAtPriceCurrency?: string | null;
   trackInventory: boolean;
@@ -176,6 +177,7 @@ type VariantDto = {
   salePriceCurrency: string;
   costPriceAmount: string | number;
   costPriceCurrency: string;
+  costManaged?: boolean;
   quantityCache: string | number;
   stockStatus: ProductVariant['stockStatus'];
   isActive: boolean;
@@ -275,6 +277,7 @@ function mapVariants(items: VariantDto[] | undefined): ProductVariant[] {
         amount: toNumber(dto.costPriceAmount),
         currency: dto.costPriceCurrency || storeCurrencyCode(),
       },
+      costManaged: dto.costManaged === true,
       quantity: toNumber(dto.quantityCache),
       stockStatus: dto.stockStatus,
       barcode: dto.barcode ?? undefined,
@@ -327,6 +330,7 @@ function mapFullProduct(dto: ProductFullDto): Product {
       costAmount !== undefined
         ? { amount: costAmount, currency: dto.costPriceCurrency || currency }
         : undefined,
+    costManaged: dto.costManaged === true,
     compareAtPrice:
       compareAmount !== undefined
         ? { amount: compareAmount, currency: dto.compareAtPriceCurrency || currency }
