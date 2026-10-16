@@ -45,6 +45,7 @@ export function useEmployeeFilterPicker(
             branchId: e.branchId ?? undefined,
             departmentNameAr: e.departmentNameAr ?? undefined,
             branchNameAr: e.branchNameAr ?? undefined,
+            contractStatus: e.contractStatus ?? null,
           })),
         );
       })

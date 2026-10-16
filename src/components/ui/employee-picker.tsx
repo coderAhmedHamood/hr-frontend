@@ -12,6 +12,8 @@ export type EmployeePickerOption = {
   branchId?: string;
   branchNameAr?: string;
   departmentNameAr?: string;
+  /** The employee's status (active / suspended / ended); empty = active. */
+  contractStatus?: string | null;
 };
 
 export type EmployeePickerProps = {
