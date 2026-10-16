@@ -34,6 +34,14 @@ import { RegisterExportMenu } from '@/components/pdf/register-export-menu';
 import { fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
 import { useLatestCallback } from '@/shared/hooks/use-latest-callback';
 import {
+  CREATE_PICKER_ACTIVE_ONLY,
+  employeeStatusFilterLabelAr,
+  employeeStatusQuery,
+  isEmployeeStatusFilterActive,
+  useEmployeeStatusFilter,
+} from '@/features/hr/lib/employee-status-filter';
+import { filterEmployeesByStatus } from '@/features/hr/lib/use-employee-filter-picker';
+import {
   ATTENDANCE_EVENTS_EXPORT_COLUMNS,
   attendanceEventsExportRows,
 } from '@/features/hr/attendance/events/utils/attendance-events-export';
@@ -75,6 +83,9 @@ export function useAttendanceEventsModel() {
     attendanceFiltersKey('events', companyId, 'includeVoided'),
     false,
   );
+  const [employeeStatus, setEmployeeStatus] = useEmployeeStatusFilter(
+    attendanceFiltersKey('events', companyId, 'employeeStatus'),
+  );
 
   const [createOpen, setCreateOpen] = React.useState(false);
   const [voidTarget, setVoidTarget] = React.useState<AttendanceEventResponseDto | null>(null);
@@ -102,12 +113,13 @@ export function useAttendanceEventsModel() {
       workDateFrom: from,
       workDateTo: to,
       includeVoided: includeVoided || undefined,
+      ...employeeStatusQuery(employeeStatus),
     };
     if (companyId) query.companyId = companyId;
     if (selectedEmpIds.size > 0) query.employeeIds = [...selectedEmpIds];
     if (eventTypeFilter !== 'all') query.eventType = eventTypeFilter as AttendanceEventType;
     return query;
-  }, [companyId, from, to, includeVoided, selectedEmpIds, eventTypeFilter]);
+  }, [companyId, from, to, includeVoided, selectedEmpIds, eventTypeFilter, employeeStatus]);
 
   const loadPage = React.useCallback(async (page: number, pageSize: number) => {
     if (!companyId) return { items: [] as AttendanceEventResponseDto[], total: 0 };
@@ -131,7 +143,7 @@ export function useAttendanceEventsModel() {
     reload,
   } = useServerDirectoryPagination<AttendanceEventResponseDto>(loadPage, {
     enabled: !!companyId,
-    resetDeps: [companyId, from, to, selectedEmpKey, eventTypeFilter, includeVoided],
+    resetDeps: [companyId, from, to, selectedEmpKey, eventTypeFilter, includeVoided, employeeStatus],
   });
 
   const handleVoid = React.useCallback(async (id: string, reason: string) => {
@@ -181,6 +193,7 @@ export function useAttendanceEventsModel() {
     (selectedEmpIds.size > 0 ? 1 : 0)
     + (eventTypeFilter !== 'all' ? 1 : 0)
     + (includeVoided ? 1 : 0)
+    + (isEmployeeStatusFilterActive(employeeStatus) ? 1 : 0)
     + (periodFilterActive ? 1 : 0);
 
   const inlineSelects = React.useMemo((): ListFilterInlineSelect[] => [
@@ -228,7 +241,10 @@ export function useAttendanceEventsModel() {
           fileName={`attendance-events-${from}-${to}`}
           columns={ATTENDANCE_EVENTS_EXPORT_COLUMNS}
           getRows={getExportRows}
-          subtitleLines={[`الفترة: ${from} — ${to}`]}
+          subtitleLines={[
+            `الفترة: ${from} — ${to}`,
+            `حالة الموظفين: ${employeeStatusFilterLabelAr(employeeStatus)}`,
+          ]}
           landscape
         />
         <Button variant="luxe" size="sm" className="h-8 gap-1.5 px-3 text-xs" onClick={() => setCreateOpen(true)}>
@@ -236,7 +252,7 @@ export function useAttendanceEventsModel() {
         </Button>
       </div>
     ),
-    [activeFilterCount, from, getExportRows, setCreateOpen, to],
+    [activeFilterCount, employeeStatus, from, getExportRows, setCreateOpen, to],
   );
 
   useEntityFilterSlot(
@@ -250,11 +266,14 @@ export function useAttendanceEventsModel() {
         companyId={companyId}
         selectedEmpIds={selectedEmpIds}
         onSelectedEmpIdsChange={setSelectedEmpIds}
+        employeeStatus={employeeStatus}
+        onEmployeeStatusChange={setEmployeeStatus}
         inlineSelects={inlineSelects}
       />
     ),
     [
       selectedEmpKey,
+      employeeStatus,
       eventTypeFilter,
       includeVoided,
       from,
@@ -267,9 +286,15 @@ export function useAttendanceEventsModel() {
     ],
   );
 
+  // New events are recorded for active employees only.
+  const createEmployees = React.useMemo(
+    () => filterEmployeesByStatus(employees, CREATE_PICKER_ACTIVE_ONLY),
+    [employees],
+  );
+
   return {
     events,
-    employees,
+    employees: createEmployees,
     checkpoints,
     loading,
     pagination,

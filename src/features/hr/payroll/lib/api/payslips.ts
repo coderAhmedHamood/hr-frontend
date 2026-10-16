@@ -162,6 +162,7 @@ export function parsePayslipMoney(value: string | null | undefined): number {
 export const payslipsApi = {
   list: (params?: {
     companyId?: string;
+    employeeStatus?: 'active' | 'suspended' | 'ended';
     payrollPeriodId?: string;
     employeeId?: string;
     status?: PayslipStatusDto;

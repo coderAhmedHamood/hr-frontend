@@ -22,6 +22,12 @@ import { resolveDirectoryLoadFailure } from '@/features/hr/lib/api/directory-loa
 import { fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
 import { RegisterExportMenu } from '@/components/pdf/register-export-menu';
 import { useLatestCallback } from '@/shared/hooks/use-latest-callback';
+import {
+  employeeStatusFilterLabelAr,
+  employeeStatusQuery,
+  isEmployeeStatusFilterActive,
+  useEmployeeStatusFilter,
+} from '@/features/hr/lib/employee-status-filter';
 import type { RegisterColumn } from '@/components/pdf/print/register-document';
 import { exportDate, exportDuration, exportText } from '@/features/hr/requests/lib/list-export-format';
 import { overtimeRequestsApi } from '@/features/hr/requests/lib/api/overtime-requests';
@@ -90,14 +96,15 @@ export function useOvertimeRequestsDirectoryModel() {
   const [listError, setListError] = React.useState<string | null>(null);
 
   const { employees: allEmployees, fetch: fetchEmployees } = useHREmployeeDirectoryStore();
-  const employees = React.useMemo(() => allEmployees.filter((e) => e.status === 'active'), [allEmployees]);
   React.useEffect(() => {
     if (allEmployees.length === 0) void fetchEmployees();
   }, [allEmployees.length, fetchEmployees]);
 
-  const empOptions = React.useMemo(
-    () => employees.map((e) => ({ value: e.id, label: e.nameAr })),
-    [employees],
+  // Filter picker: every employee with its status; ListFilterBar keeps the
+  // ones of the chosen employee status.
+  const empPickerEmployees = React.useMemo(
+    () => allEmployees.map((e) => ({ id: e.id, name: e.nameAr, contractStatus: e.status })),
+    [allEmployees],
   );
 
   // The catalog row backing "طلب عمل إضافي" — resolved once per company.
@@ -126,6 +133,9 @@ export function useOvertimeRequestsDirectoryModel() {
   );
   const [selectedEmpIds, setSelectedEmpIds] = usePersistedEmpIdSet(
     hrFiltersKey('requests', 'overtime-requests', companyId, 'selectedEmpIds'),
+  );
+  const [employeeStatus, setEmployeeStatus] = useEmployeeStatusFilter(
+    hrFiltersKey('requests', 'overtime-requests', companyId, 'employeeStatus'),
   );
   const [dateBounds, setDateBounds] = usePersistedFilterState(
     hrFiltersKey('requests', 'overtime-requests', companyId, 'dateBounds'),
@@ -195,7 +205,8 @@ export function useOvertimeRequestsDirectoryModel() {
     ...(dateBounds.from ? { workDateFrom: dateBounds.from } : {}),
     ...(dateBounds.to ? { workDateTo: dateBounds.to } : {}),
     ...(selectedEmpIds.size > 0 ? { employeeIds: [...selectedEmpIds] } : {}),
-  }), [companyId, statusFilter, dateBounds.from, dateBounds.to, selectedEmpIds]);
+    ...employeeStatusQuery(employeeStatus),
+  }), [companyId, statusFilter, dateBounds.from, dateBounds.to, selectedEmpIds, employeeStatus]);
 
   const loadPage = React.useCallback(async (page: number, pageSize: number) => {
     if (!companyId) return { items: [] as OvertimeRequestRecord[], total: 0 };
@@ -220,7 +231,7 @@ export function useOvertimeRequestsDirectoryModel() {
     reload: reloadList,
   } = useServerDirectoryPagination<OvertimeRequestRecord>(loadPage, {
     enabled: !!companyId,
-    resetDeps: [companyId, statusFilter, dateBounds.from, dateBounds.to, selectedEmpKey],
+    resetDeps: [companyId, statusFilter, dateBounds.from, dateBounds.to, selectedEmpKey, employeeStatus],
   });
 
   const statusCounts = React.useMemo((): Record<string, number> => {
@@ -324,25 +335,17 @@ export function useOvertimeRequestsDirectoryModel() {
   }, [actor, companyId, currentEmployeeId, reloadList]);
 
   /**
-   * Per the API description: "لا يُشترط وجود موافقين مسبقاً... عند وجود إسناد
-   * نشط تُطبَّق قواعد الموافقة على /decision؛ وإلا يُقبل القرار المباشر."
-   * i.e. when the request type has no active approval assignment linked
-   * (`x.approverStates` is null), anyone holding the `approve` permission can
-   * decide directly — it isn't gated behind being a listed approver.
+   * Only people on the active assignment can approve. A request with no
+   * approvers yet stays pending and shows no decision buttons.
    */
   const getApprovalUiState = React.useCallback(
     (x: OvertimeRequestRecord): ApprovalUiState => {
-      if (x.status !== 'pending') {
+      if (x.status !== 'pending' || !x.approverStates) {
         return { showActions: false, canAct: false, reasonAr: null };
-      }
-      if (!x.approverStates) {
-        return perms.canApprove
-          ? { showActions: true, canAct: true, reasonAr: null }
-          : { showActions: false, canAct: false, reasonAr: null };
       }
       return getRequestApprovalUiState(x.approverStates, currentEmployeeId);
     },
-    [currentEmployeeId, perms.canApprove],
+    [currentEmployeeId],
   );
 
   const canShowApprovalActions = React.useCallback(
@@ -367,7 +370,8 @@ export function useOvertimeRequestsDirectoryModel() {
   }, [deleteId, runAction]);
 
   const activeFilterCount =
-    (selectedEmpIds.size > 0 ? 1 : 0) + (statusFilter !== 'all' ? 1 : 0) + (dateBounds.from || dateBounds.to ? 1 : 0);
+    (selectedEmpIds.size > 0 ? 1 : 0) + (statusFilter !== 'all' ? 1 : 0) + (dateBounds.from || dateBounds.to ? 1 : 0)
+    + (isEmployeeStatusFilterActive(employeeStatus) ? 1 : 0);
 
   const getExportRows = useLatestCallback(async (): Promise<string[][]> => {
     if (!companyId) return [];
@@ -398,6 +402,7 @@ export function useOvertimeRequestsDirectoryModel() {
           fileName="overtime-requests"
           columns={OVERTIME_EXPORT_COLUMNS}
           getRows={getExportRows}
+          subtitleLines={[`حالة الموظفين: ${employeeStatusFilterLabelAr(employeeStatus)}`]}
           landscape
         />
         <PageHeaderPrimaryButton
@@ -409,7 +414,7 @@ export function useOvertimeRequestsDirectoryModel() {
         </PageHeaderPrimaryButton>
       </div>
     ),
-    [activeFilterCount],
+    [activeFilterCount, employeeStatus],
   );
 
   useEntityFilterSlot(
@@ -420,9 +425,11 @@ export function useOvertimeRequestsDirectoryModel() {
         onPeriodChange={setDateBounds}
         onDateBoundsChange={setDateBounds}
         companyId={companyId}
-        empPickerEmployees={empOptions.map((o) => ({ id: o.value, name: o.label }))}
+        empPickerEmployees={empPickerEmployees}
         selectedEmpIds={selectedEmpIds}
         onSelectedEmpIdsChange={setSelectedEmpIds}
+        employeeStatus={employeeStatus}
+        onEmployeeStatusChange={setEmployeeStatus}
         statusFilter={statusFilter}
         onStatusFilterChange={(v) => setStatusFilter(v as OvertimeStatusFilter)}
         statusOrder={OVERTIME_STATUS_ORDER}
@@ -439,9 +446,19 @@ export function useOvertimeRequestsDirectoryModel() {
       />
     ),
     [
-      dateBounds.from, dateBounds.to, companyId, empOptions, selectedEmpKey,
+      dateBounds.from, dateBounds.to, companyId, empPickerEmployees, selectedEmpKey, employeeStatus,
       statusFilter, statusCounts, viewMode,
     ],
+  );
+
+  // New requests: active employees only; the request's own employee stays
+  // selectable when editing.
+  const editEmployeeId = editTarget?.employeeId;
+  const empOptions = React.useMemo(
+    () => allEmployees
+      .filter((e) => e.status === 'active' || e.id === editEmployeeId)
+      .map((e) => ({ value: e.id, label: e.nameAr })),
+    [allEmployees, editEmployeeId],
   );
 
   return {

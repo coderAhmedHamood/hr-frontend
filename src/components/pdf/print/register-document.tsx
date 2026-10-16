@@ -148,6 +148,13 @@ function cellStyle(
   const noWrap = NO_WRAP.has(column.kind);
   return {
     width,
+    // Flex items default to `min-width: auto`, which keeps them at least as
+    // wide as their (unbreakable, nowrap) content no matter what `width` is
+    // set to — a long date/time then refuses to shrink and visually bleeds
+    // into the next cell instead of being clipped. `minWidth: 0` lets the
+    // explicit `width` win, so `overflow: hidden` below actually applies.
+    minWidth: 0,
+    flexShrink: 0,
     boxSizing: 'border-box',
     padding: '6px 6px',
     fontSize: REGISTER_FONT,
@@ -160,6 +167,9 @@ function cellStyle(
     whiteSpace: noWrap || header ? 'nowrap' : 'normal',
     overflowWrap: noWrap ? 'normal' : 'anywhere',
     overflow: 'hidden',
+    // A clipped nowrap value (too long for its column) shows «…» instead of
+    // silently cutting the text off mid-character with no sign of data loss.
+    textOverflow: noWrap || header ? 'ellipsis' : undefined,
     borderInlineStart:
       index === 0 ? undefined : `1px solid ${header ? '#94a3b8' : '#e2e8f0'}`,
   };

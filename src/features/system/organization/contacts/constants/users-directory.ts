@@ -47,6 +47,12 @@ export const USER_TYPE_OPTIONS = Object.entries(USER_TYPE_LABELS).map(([value, l
   label,
 }));
 
+/** Same options plus "الكل" — for the list filter dropdown, not the create/edit form. */
+export const USER_TYPE_FILTER_OPTIONS = [
+  { value: 'all', label: 'كل الأنواع' },
+  ...USER_TYPE_OPTIONS,
+];
+
 export const USER_STATUS_OPTIONS = [
   { value: 'active', label: 'نشط' },
   { value: 'inactive', label: 'غير نشط' },

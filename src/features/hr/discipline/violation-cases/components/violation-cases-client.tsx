@@ -69,6 +69,7 @@ import { useAuthStore } from '@/features/auth/lib/auth-store';
 import { useCurrentEmployee } from '@/features/hr/organization/employees/hooks/useCurrentEmployee';
 import { checkViolationApprovalAccess } from '@/features/hr/discipline/lib/violation-approval-access';
 import {
+  applyViolationApproverDecision,
   buildViolationDecisionPayload,
   getViolationApprovalUiState,
   isEmployeeInViolationApproverStates,
@@ -643,8 +644,13 @@ export function ViolationCasesClient() {
         { decidedBy: decidedByActor },
       );
       await decideCase(c.id, payload);
-      const updatedStates = payload.approverStates;
-      if (updatedStates && isViolationFullyApproved(updatedStates)) {
+      const updatedStates = applyViolationApproverDecision(
+        access.states,
+        currentEmployeeId,
+        'approve',
+        { decidedBy: decidedByActor, notes: null },
+      );
+      if (isViolationFullyApproved(updatedStates)) {
         toast.success(`تمت الموافقة النهائية على ${c.caseNumber}`);
       } else {
         toast.success('تم تسجيل موافقتك — بانتظار بقية المعتمدين');

@@ -18,6 +18,8 @@ export type ShiftAssignmentResponseDto = {
 };
 
 export type ShiftAssignmentListQuery = {
+  /** Employee status filter (empty status = active); absent = every status. */
+  employeeStatus?: 'active' | 'suspended' | 'ended';
   page?: number;
   limit?: number;
   companyId?: string;
@@ -86,6 +88,8 @@ export type GroupedByTemplateItem = {
 };
 
 export type GroupedByTemplateQuery = {
+  /** Employee status filter (empty status = active); absent = every status. */
+  employeeStatus?: 'active' | 'suspended' | 'ended';
   page?: number;
   limit?: number;
   companyId?: string;

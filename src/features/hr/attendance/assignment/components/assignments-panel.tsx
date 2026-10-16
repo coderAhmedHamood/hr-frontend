@@ -24,6 +24,13 @@ import { RegisterExportMenu } from '@/components/pdf/register-export-menu';
 import type { RegisterColumn } from '@/components/pdf/print/register-document';
 import { exportDate } from '@/features/hr/attendance/lib/attendance-export-format';
 import { useLatestCallback } from '@/shared/hooks/use-latest-callback';
+import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
+import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
+import { ListFilterBar } from '@/components/ui/list-filter-bar';
+import {
+  employeeStatusFilterLabelAr,
+  isEmployeeStatusFilterActive,
+} from '@/features/hr/lib/employee-status-filter';
 
 const ASSIGNMENT_EXPORT_COLUMNS: RegisterColumn[] = [
   { label: 'القالب', kind: 'text' },
@@ -105,7 +112,7 @@ export function AssignmentsPanel() {
     [model],
   );
 
-  const { loadAllForExport } = model;
+  const { loadAllForExport, employeeStatus, setEmployeeStatus } = model;
   const getExportRows = useLatestCallback(
     async () =>
       (await loadAllForExport()).flatMap((batch) =>
@@ -123,11 +130,13 @@ export function AssignmentsPanel() {
   usePageHeaderActions(
     () => (
       <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
+        <FilterToggleButton activeFilterCount={isEmployeeStatusFilterActive(employeeStatus) ? 1 : 0} />
         <RegisterExportMenu
           title="ربط قوالب الدوام بالموظفين"
           fileName="shift-assignments"
           columns={ASSIGNMENT_EXPORT_COLUMNS}
           getRows={getExportRows}
+          subtitleLines={[`حالة الموظفين: ${employeeStatusFilterLabelAr(employeeStatus)}`]}
         />
         <Button variant="luxe" size="sm" className="h-8 gap-1.5 px-3 text-xs" type="button" onClick={openNew}>
           <Plus className="h-3.5 w-3.5" />
@@ -135,7 +144,20 @@ export function AssignmentsPanel() {
         </Button>
       </div>
     ),
-    [getExportRows, openNew],
+    [employeeStatus, getExportRows, openNew],
+  );
+
+  useEntityFilterSlot(
+    () => (
+      <ListFilterBar
+        showDateSection={false}
+        showStatusSection={false}
+        showEmployeePicker={false}
+        employeeStatus={employeeStatus}
+        onEmployeeStatusChange={setEmployeeStatus}
+      />
+    ),
+    [employeeStatus],
   );
 
   return (

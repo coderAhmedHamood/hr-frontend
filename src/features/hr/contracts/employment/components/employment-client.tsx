@@ -69,6 +69,14 @@ import { RegisterExportMenu } from '@/components/pdf/register-export-menu';
 import type { RegisterColumn } from '@/components/pdf/print/register-document';
 import { fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
 import { useLatestCallback } from '@/shared/hooks/use-latest-callback';
+import { hrFiltersKey } from '@/features/hr/lib/use-persisted-filter-state';
+import {
+  CREATE_PICKER_ACTIVE_OR_SUSPENDED,
+  employeeMatchesStatus,
+  employeeStatusFilterLabelAr,
+  isEmployeeStatusFilterActive,
+  useEmployeeStatusFilter,
+} from '@/features/hr/lib/employee-status-filter';
 import { EmploymentContractPrintHtml } from '@/components/pdf/print/employment-contract-print-html';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
 import { getDefaultCompanyId, useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
@@ -152,10 +160,7 @@ export function EmploymentContractsClient() {
   const empLabel = (e: { nameAr: string; position?: string | null; employeeCode?: string }) =>
     `${e.nameAr}${e.position ? ` — ${e.position}` : e.employeeCode ? ` — ${e.employeeCode}` : ''}`;
 
-  const empOptions = React.useMemo(
-    () => employees.map((e) => ({ value: e.id, label: empLabel(e) })),
-    [employees],
-  );
+
   const templateOptions = React.useMemo(
     () => [
       { value: '', label: 'بدون قالب' },
@@ -204,6 +209,9 @@ export function EmploymentContractsClient() {
   const contractNumberFilter = typeof values.contractNumber === 'string' ? values.contractNumber : '';
 
   const [selectedEmpIds, setSelectedEmpIds] = React.useState<Set<string>>(new Set());
+  const [employeeStatus, setEmployeeStatus] = useEmployeeStatusFilter(
+    hrFiltersKey('contracts', 'employment', companyId, 'employeeStatus'),
+  );
 
   const selectedEmpKey = React.useMemo(() => [...selectedEmpIds].sort().join(','), [selectedEmpIds]);
 
@@ -218,8 +226,9 @@ export function EmploymentContractsClient() {
       workArrangement: workFilter,
       contractNumber: contractNumberFilter,
       employeeIds: selectedEmpIds,
+      employeeStatus,
     })
-  ), [companyId, statusFilter, kindFilter, workFilter, draftFilter, contractNumberFilter, selectedEmpIds]);
+  ), [companyId, statusFilter, kindFilter, workFilter, draftFilter, contractNumberFilter, selectedEmpIds, employeeStatus]);
 
   const loadPage = React.useCallback(async (page: number, pageSize: number) => {
     if (!companyId) return { items: [] as HRContractRecord[], total: 0 };
@@ -247,6 +256,7 @@ export function EmploymentContractsClient() {
       draftFilter,
       contractNumberFilter,
       selectedEmpKey,
+      employeeStatus,
     ],
   });
 
@@ -424,6 +434,15 @@ export function EmploymentContractsClient() {
     }));
   }, []);
 
+  // New contracts: active or suspended employees (not ended); the contract's
+  // own employee stays selectable when editing.
+  const formEmpOptions = React.useMemo(
+    () => employees
+      .filter((e) => e.id === form.employeeId || employeeMatchesStatus(e.contractStatus, CREATE_PICKER_ACTIVE_OR_SUSPENDED))
+      .map((e) => ({ value: e.id, label: empLabel(e) })),
+    [employees, form.employeeId],
+  );
+
   const copySourceEmpOptions = React.useMemo(() => {
     const ids = new Set(filtered.map(c => c.employeeId));
     return employees.filter(e => ids.has(e.id)).map(e => ({ value: e.id, label: empLabel(e) }));
@@ -500,7 +519,8 @@ export function EmploymentContractsClient() {
     + (statusFilter !== 'all' ? 1 : 0)
     + (draftFilter !== 'all' ? 1 : 0)
     + (contractNumberFilter.trim() ? 1 : 0)
-    + (selectedEmpIds.size > 0 ? 1 : 0);
+    + (selectedEmpIds.size > 0 ? 1 : 0)
+    + (isEmployeeStatusFilterActive(employeeStatus) ? 1 : 0);
 
   const getExportRows = useLatestCallback(async (): Promise<string[][]> => {
     if (!companyId) return [];
@@ -528,6 +548,7 @@ export function EmploymentContractsClient() {
           fileName="employment-contracts"
           columns={CONTRACTS_EXPORT_COLUMNS}
           getRows={getExportRows}
+          subtitleLines={[`حالة الموظفين: ${employeeStatusFilterLabelAr(employeeStatus)}`]}
           landscape
         />
         <Button variant="luxe" size="sm" className="h-8 gap-1.5 px-3 text-xs shadow-sm shrink-0" onClick={openCreate}>
@@ -536,7 +557,7 @@ export function EmploymentContractsClient() {
         </Button>
       </div>
     ),
-    [activeFilterCount, openCreate, getExportRows],
+    [activeFilterCount, employeeStatus, openCreate, getExportRows],
   );
 
   const openView = (c: HRContractRecord) => {
@@ -762,6 +783,8 @@ export function EmploymentContractsClient() {
         companyId={companyId}
         selectedEmpIds={selectedEmpIds}
         onSelectedEmpIdsChange={setSelectedEmpIds}
+        employeeStatus={employeeStatus}
+        onEmployeeStatusChange={setEmployeeStatus}
         statusFilter={statusFilter}
         onStatusFilterChange={handleStatusFilterChange}
         statusOrder={employmentStatusOrder}
@@ -773,6 +796,7 @@ export function EmploymentContractsClient() {
     ),
     [
       statusFilter,
+      employeeStatus,
       kindFilter,
       workFilter,
       draftFilter,
@@ -911,7 +935,7 @@ export function EmploymentContractsClient() {
         error={error}
         applyingTemplate={applyingTemplate}
         templateOptions={templateOptions}
-        empOptions={empOptions}
+        empOptions={formEmpOptions}
         allowanceOptions={allowanceOptions}
         activeArticles={activeArticles}
         essentialArticleIds={essentialArticleIds}

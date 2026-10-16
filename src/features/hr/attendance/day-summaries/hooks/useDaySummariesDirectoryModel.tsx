@@ -12,9 +12,12 @@ import {
 } from '@/features/hr/attendance/lib/api/attendance-day-summaries';
 import { useEmployeeFilterPicker } from '@/features/hr/lib/use-employee-filter-picker';
 import {
-  EMP_CONTRACT_STATUS_LABELS,
-  EMP_CONTRACT_STATUS_ORDER,
-} from '@/features/hr/organization/employees/constants/employees-list';
+  employeeMatchesStatus,
+  employeeStatusFilterLabelAr,
+  employeeStatusQuery,
+  isEmployeeStatusFilterActive,
+  useEmployeeStatusFilter,
+} from '@/features/hr/lib/employee-status-filter';
 import {
   DAY_SUMMARY_STATUS_LABELS,
   DAY_SUMMARY_STATUS_ORDER,
@@ -85,17 +88,15 @@ export function useDaySummariesDirectoryModel() {
     'day-summaries',
   );
   // The employees' own status: active by default, like the daily register.
-  const [employeeStatus, setEmployeeStatus] = usePersistedFilterState(
+  const [employeeStatus, setEmployeeStatus] = useEmployeeStatusFilter(
     attendanceFiltersKey('day-summaries', companyId, 'employeeStatus'),
-    'active',
   );
   const visiblePickerEmployees = React.useMemo(
     () =>
       pickerEmployees.filter(
         (employee) =>
           (!assignedIds || assignedIds.has(employee.id)) &&
-          (employeeStatus === 'all' ||
-            (employee.contractStatus?.trim().toLowerCase() || 'active') === employeeStatus),
+          employeeMatchesStatus(employee.contractStatus, employeeStatus),
       ),
     [assignedIds, pickerEmployees, employeeStatus],
   );
@@ -164,7 +165,7 @@ export function useDaySummariesDirectoryModel() {
       from,
       to,
       ...(scopedEmpIds ? { employeeIds: [...scopedEmpIds] } : {}),
-      ...(employeeStatus !== 'all' ? { employeeStatus } : {}),
+      ...employeeStatusQuery(employeeStatus),
       ...(filters.status !== 'all' ? { status: filters.status } : {}),
       ...(filters.isManualOverride === 'true' ? { isManualOverride: true } : {}),
       ...(filters.isManualOverride === 'false' ? { isManualOverride: false } : {}),
@@ -231,19 +232,6 @@ export function useDaySummariesDirectoryModel() {
   };
 
   const inlineSelects = React.useMemo((): ListFilterInlineSelect[] => [
-    {
-      id: 'employeeStatus',
-      value: employeeStatus,
-      onChange: setEmployeeStatus,
-      placeholder: 'حالة الموظف',
-      options: [
-        ...EMP_CONTRACT_STATUS_ORDER.map((value) => ({
-          value,
-          label: `الموظفون: ${EMP_CONTRACT_STATUS_LABELS[value]}`,
-        })),
-        { value: 'all', label: 'الموظفون: كل الحالات' },
-      ],
-    },
     assignedBranchSelect,
     {
       id: 'status',
@@ -271,11 +259,11 @@ export function useDaySummariesDirectoryModel() {
         { value: 'false', label: 'آلي فقط' },
       ],
     },
-  ], [assignedBranchSelect, employeeStatus, filters.isManualOverride, filters.status, setEmployeeStatus]);
+  ], [assignedBranchSelect, filters.isManualOverride, filters.status]);
 
   const activeFilterCount =
     (periodFilterActive ? 1 : 0)
-    + (employeeStatus !== 'active' ? 1 : 0)
+    + (isEmployeeStatusFilterActive(employeeStatus) ? 1 : 0)
     + (assignedBranchId !== 'all' ? 1 : 0)
     + (selectedEmpIds.size > 0 ? 1 : 0)
     + (filters.status !== 'all' ? 1 : 0)
@@ -310,7 +298,11 @@ export function useDaySummariesDirectoryModel() {
           fileName={`attendance-day-summaries-${from}-${to}`}
           columns={exportColumns}
           getRows={getExportRows}
-          subtitleLines={[`الفترة: ${from} — ${to}`]}
+          pinnedColumnCount={3}
+          subtitleLines={[
+            `الفترة: ${from} — ${to}`,
+            `حالة الموظفين: ${employeeStatusFilterLabelAr(employeeStatus)}`,
+          ]}
           landscape
         />
         <Button
@@ -327,6 +319,7 @@ export function useDaySummariesDirectoryModel() {
     ),
     [
       activeFilterCount,
+      employeeStatus,
       exportColumns,
       from,
       getExportRows,
@@ -348,11 +341,14 @@ export function useDaySummariesDirectoryModel() {
         empPickerEmployees={visiblePickerEmployees}
         selectedEmpIds={selectedEmpIds}
         onSelectedEmpIdsChange={setSelectedEmpIds}
+        employeeStatus={employeeStatus}
+        onEmployeeStatusChange={setEmployeeStatus}
         inlineSelects={inlineSelects}
       />
     ),
     [
       from,
+      employeeStatus,
       to,
       periodFilterActive,
       assignedBranchId,

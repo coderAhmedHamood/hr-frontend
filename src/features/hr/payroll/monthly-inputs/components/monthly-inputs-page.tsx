@@ -31,6 +31,7 @@ import { cn, formatMoneyDigits } from '@/shared/utils';
 import { RegisterExportMenu } from '@/components/pdf/register-export-menu';
 import type { RegisterColumn } from '@/components/pdf/print/register-document';
 import { useLatestCallback } from '@/shared/hooks/use-latest-callback';
+import { employeeStatusFilterLabelAr } from '@/features/hr/lib/employee-status-filter';
 
 const MONTHLY_INPUTS_EXPORT_COLUMNS: RegisterColumn[] = [
   { label: 'الموظف', kind: 'name', weight: 1.5 },
@@ -91,6 +92,7 @@ export function MonthlyInputsPage() {
   const {
     items, total, page, setPage, limit, setLimit, loading,
     filters, patchFilters, periodOptions, loadPeriods, selectedEmpIds, setSelectedEmpIds,
+    employeeStatus, setEmployeeStatus,
     empPickerEmployees, employeePickerLoading, loadEmployeePicker,
     activeFilterCount, clearFilters, fetchAllForExport,
   } = useMonthlyInputsDirectoryModel();
@@ -169,10 +171,12 @@ export function MonthlyInputsPage() {
         onEmployeePickerOpen={loadEmployeePicker}
         selectedEmpIds={selectedEmpIds}
         onSelectedEmpIdsChange={setSelectedEmpIds}
+        employeeStatus={employeeStatus}
+        onEmployeeStatusChange={setEmployeeStatus}
         onDateBoundsChange={() => {}}
       />
     ),
-    [inlineSelects, empPickerEmployees, employeePickerLoading, loadEmployeePicker, selectedEmpIds, setSelectedEmpIds],
+    [inlineSelects, employeeStatus, empPickerEmployees, employeePickerLoading, loadEmployeePicker, selectedEmpIds, setSelectedEmpIds],
   );
 
   const getExportRows = useLatestCallback(async (): Promise<string[][]> => {
@@ -198,11 +202,12 @@ export function MonthlyInputsPage() {
           fileName="payroll-monthly-inputs"
           columns={MONTHLY_INPUTS_EXPORT_COLUMNS}
           getRows={getExportRows}
+          subtitleLines={[`حالة الموظفين: ${employeeStatusFilterLabelAr(employeeStatus)}`]}
           landscape
         />
       </div>
     ),
-    [activeFilterCount, getExportRows],
+    [activeFilterCount, employeeStatus, getExportRows],
   );
 
   const columns = React.useMemo((): ColumnDef<MonthlyInputResponseDto>[] => [

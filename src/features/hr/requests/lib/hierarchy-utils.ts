@@ -79,11 +79,12 @@ export const HIERARCHY_ROLE_LABELS: Record<string, string> = {
 };
 
 export const STATUS_LABELS: Record<string, string> = {
-  active: 'نشط', probation: 'تحت التجربة', suspended: 'موقوف',
+  active: 'نشط', probation: 'تحت التجربة', suspended: 'موقوف', ended: 'منتهي',
 };
 
 export const STATUS_COLORS: Record<string, string> = {
   active: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
   probation: 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400',
   suspended: 'border-border bg-muted text-muted-foreground',
+  ended: 'border-destructive/30 bg-destructive/10 text-destructive',
 };

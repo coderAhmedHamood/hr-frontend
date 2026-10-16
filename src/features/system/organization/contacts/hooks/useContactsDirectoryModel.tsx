@@ -8,6 +8,7 @@ import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-con
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
 import { ListFilterBar } from '@/components/ui/list-filter-bar';
+import { EntityFilterSearchField } from '@/components/ui/entity-filter-search-field';
 import { Can } from '@/components/shared/can';
 import { usePagePermissions } from '@/features/auth/permissions';
 import { CONTACTS_PAGE_PERMISSIONS } from '@/features/system/organization/contacts/permissions';
@@ -43,6 +44,7 @@ import {
   companyLinkLabel,
   branchLinkLabel,
   USER_TYPE_LABELS as USER_TYPE_LABEL_MAP,
+  USER_TYPE_FILTER_OPTIONS,
   type UserDraftForm,
 } from '@/features/system/organization/contacts/constants/users-directory';
 
@@ -71,10 +73,33 @@ const USER_EXPORT_COLUMNS: RegisterColumn[] = [
   { label: 'الحالة', kind: 'status' },
 ];
 
+/**
+ * The account-status categories actually shown on the list's status badge —
+ * distinct from the `status` text column (used only by the create/edit form)
+ * and from `archiveScope` (soft-delete). This is what "نشط" means to the user.
+ */
+type AccountStatusFilter = 'all' | 'active' | 'cannot_signin' | 'inactive';
+
+const USER_ACCOUNT_STATUS_LABELS: Record<Exclude<AccountStatusFilter, 'all'>, string> = {
+  active: 'نشط',
+  cannot_signin: 'لا يمكن الدخول',
+  inactive: 'غير نشط',
+};
+
+const USER_ACCOUNT_STATUS_FILTER_OPTIONS = [
+  { value: 'all', label: 'كل الحالات' },
+  ...(Object.entries(USER_ACCOUNT_STATUS_LABELS) as [Exclude<AccountStatusFilter, 'all'>, string][])
+    .map(([value, label]) => ({ value, label })),
+];
+
+function userAccountStatusCategory(user: UserRecord): Exclude<AccountStatusFilter, 'all'> {
+  if (!user.isActive) return 'inactive';
+  if (!user.canSignIn) return 'cannot_signin';
+  return 'active';
+}
+
 function userStatusLabel(user: UserRecord): string {
-  if (!user.isActive) return 'غير نشط';
-  if (!user.canSignIn) return 'لا يمكن الدخول';
-  return 'نشط';
+  return USER_ACCOUNT_STATUS_LABELS[userAccountStatusCategory(user)];
 }
 
 export function useContactsDirectoryModel() {
@@ -102,6 +127,16 @@ export function useContactsDirectoryModel() {
   const [archiveScope, setArchiveScope] = React.useState<OrganizationArchiveScope>(
     ORGANIZATION_ARCHIVE_SCOPE_DEFAULT,
   );
+  const [search, setSearch] = React.useState('');
+  const [debouncedSearch, setDebouncedSearch] = React.useState('');
+  // Active accounts only by default — the dropdown lets the user widen it.
+  const [statusFilter, setStatusFilter] = React.useState<AccountStatusFilter>('active');
+  const [typeFilter, setTypeFilter] = React.useState('all');
+
+  React.useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 350);
+    return () => clearTimeout(t);
+  }, [search]);
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   const [editId, setEditId] = React.useState<string | null>(null);
   const [form, setForm] = React.useState<UserDraftForm>(EMPTY_USER_FORM);
@@ -133,10 +168,27 @@ export function useContactsDirectoryModel() {
     const res = await fetchAllPaginatedItems((page, limit) =>
       usersApi.getAll({ page, limit, ...organizationListStatusQuery(archiveScope) }),
     );
-    return defaultCompanyId
+    let items = defaultCompanyId
       ? res.items.filter((u) => userBelongsToCompany(u, defaultCompanyId))
       : res.items;
-  }, [archiveScope, defaultCompanyId]);
+
+    if (statusFilter !== 'all') {
+      items = items.filter((u) => userAccountStatusCategory(u) === statusFilter);
+    }
+    if (typeFilter !== 'all') {
+      items = items.filter((u) => (u.userType ?? '') === typeFilter);
+    }
+    const q = debouncedSearch.trim().toLowerCase();
+    if (q) {
+      items = items.filter(
+        (u) =>
+          (u.fullNameAr ?? '').toLowerCase().includes(q) ||
+          (u.fullNameEn ?? '').toLowerCase().includes(q) ||
+          u.email.toLowerCase().includes(q),
+      );
+    }
+    return items;
+  }, [archiveScope, defaultCompanyId, statusFilter, typeFilter, debouncedSearch]);
 
   const loadBulk = React.useCallback(async () => {
     setListError(null);
@@ -159,7 +211,12 @@ export function useContactsDirectoryModel() {
     reload: reloadList,
   } = useServerDirectoryPagination<UserRecord>(
     async () => ({ items: [], total: 0 }),
-    { bulkMode: true, loadBulk, enabled: !!defaultCompanyId && perms.canRead, resetDeps: [defaultCompanyId, archiveScope] },
+    {
+      bulkMode: true,
+      loadBulk,
+      enabled: !!defaultCompanyId && perms.canRead,
+      resetDeps: [defaultCompanyId, archiveScope, statusFilter, typeFilter, debouncedSearch],
+    },
   );
 
   const patchUserInList = React.useCallback((updated: UserResponseDto) => {
@@ -282,6 +339,17 @@ export function useContactsDirectoryModel() {
 
   const archiveScopeLabel =
     ORGANIZATION_ARCHIVE_SCOPE_OPTIONS.find((o) => o.value === archiveScope)?.label ?? '';
+  const statusFilterLabel =
+    USER_ACCOUNT_STATUS_FILTER_OPTIONS.find((o) => o.value === statusFilter)?.label ?? '';
+  const typeFilterLabel =
+    USER_TYPE_FILTER_OPTIONS.find((o) => o.value === typeFilter)?.label ?? '';
+
+  const usersFilterSummaryLine = React.useMemo(() => {
+    const parts = [`العرض: ${archiveScopeLabel}`, `الحالة: ${statusFilterLabel}`];
+    if (typeFilter !== 'all') parts.push(`النوع: ${typeFilterLabel}`);
+    if (search.trim()) parts.push(`بحث: ${search.trim()}`);
+    return parts.join(' · ');
+  }, [archiveScopeLabel, statusFilterLabel, typeFilter, typeFilterLabel, search]);
 
   usePageHeaderActions(
     () => (
@@ -292,7 +360,7 @@ export function useContactsDirectoryModel() {
           fileName="users"
           columns={USER_EXPORT_COLUMNS}
           getRows={getExportRows}
-          subtitleLines={[`العرض: ${archiveScopeLabel}`]}
+          subtitleLines={[usersFilterSummaryLine]}
         />
         <Can when={perms.canCreate}>
           <Button variant="luxe" size="sm" className="h-8 gap-2" onClick={openCreate}>
@@ -301,7 +369,7 @@ export function useContactsDirectoryModel() {
         </Can>
       </div>
     ),
-    [openCreate, perms.canCreate, getExportRows, archiveScopeLabel],
+    [openCreate, perms.canCreate, getExportRows, usersFilterSummaryLine],
   );
 
   useEntityFilterSlot(
@@ -311,7 +379,28 @@ export function useContactsDirectoryModel() {
         showStatusSection={false}
         showEmployeePicker={false}
         onDateBoundsChange={() => {}}
+        leadingFilters={(
+          <EntityFilterSearchField
+            value={search}
+            onChange={setSearch}
+            placeholder="بحث بالاسم أو البريد الإلكتروني…"
+          />
+        )}
         inlineSelects={[
+          {
+            id: 'status',
+            value: statusFilter,
+            onChange: (v) => setStatusFilter(v as AccountStatusFilter),
+            placeholder: 'الحالة',
+            options: USER_ACCOUNT_STATUS_FILTER_OPTIONS,
+          },
+          {
+            id: 'type',
+            value: typeFilter,
+            onChange: setTypeFilter,
+            placeholder: 'النوع',
+            options: USER_TYPE_FILTER_OPTIONS,
+          },
           {
             id: 'archive',
             value: archiveScope,
@@ -330,7 +419,7 @@ export function useContactsDirectoryModel() {
         }}
       />
     ),
-    [archiveScope, layoutView],
+    [search, statusFilter, typeFilter, archiveScope, layoutView],
   );
 
   return {

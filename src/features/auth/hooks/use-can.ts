@@ -13,6 +13,7 @@ export function useCan() {
       const branch = company.branches.find((b) => b.branchId === activeBranchId);
       if (branch?.deniedPermissions.includes(permissionCode)) return false;
       if (company.deniedPermissions.includes(permissionCode)) return false;
+      if (company.isCompanySuperuser) return true;
       return (
         branch?.permissions.includes(permissionCode) ||
         company.permissions.includes(permissionCode) ||
@@ -21,6 +22,7 @@ export function useCan() {
     }
 
     if (company.deniedPermissions.includes(permissionCode)) return false;
+    if (company.isCompanySuperuser) return true;
     return company.permissions.includes(permissionCode);
   };
 }

@@ -28,6 +28,12 @@ import { SelectWithClear } from '@/components/ui/select-with-clear';
 import { useEmployeeFilterPicker } from '@/features/hr/lib/use-employee-filter-picker';
 import { FILTER_PERMISSIONS } from '@/features/auth/permissions/filter-permissions';
 import type { EmployeePickerOption } from '@/components/ui/employee-picker';
+import {
+  EMPLOYEE_STATUS_FILTER_DEFAULT,
+  EMPLOYEE_STATUS_FILTER_OPTIONS,
+  employeeMatchesStatus,
+  normalizeEmployeeStatusFilter,
+} from '@/features/hr/lib/employee-status-filter';
 
 export type PeriodRange = { from: string; to: string };
 
@@ -114,6 +120,13 @@ export interface ListFilterBarProps {
   /** Defaults to employee read; pass `null` when the picker is not the employee directory (e.g. audit actors). */
   employeePickerRequirePermission?: string | null;
 
+  /**
+   * Opt-in employee-status filter (نشط / موقوف / منتهي / كل الحالات), default
+   * `active`. The employee picker then lists only employees of that status.
+   */
+  employeeStatus?: string;
+  onEmployeeStatusChange?: (v: string) => void;
+
   statusFilter?: string;
   onStatusFilterChange?: (v: string) => void;
   statusOrder?: readonly string[];
@@ -155,6 +168,8 @@ export const ListFilterBar = React.forwardRef<ListFilterBarHandle, ListFilterBar
       onEmployeePickerOpen,
       employeePickerLoading = false,
       employeePickerRequirePermission,
+      employeeStatus,
+      onEmployeeStatusChange,
       statusFilter = 'all',
       onStatusFilterChange = noopStatus,
       statusOrder = EMPTY_STATUS_ORDER_LIST,
@@ -187,7 +202,19 @@ export const ListFilterBar = React.forwardRef<ListFilterBarHandle, ListFilterBar
     const autoEmployeePicker = useEmployeeFilterPicker(
       skipAutoEmployeeLoad ? null : companyId,
     );
-    const resolvedEmpPickerEmployees = empPickerEmployees ?? autoEmployeePicker.employees;
+    const hasEmployeeStatusFilter = employeeStatus !== undefined && onEmployeeStatusChange != null;
+    const employeeStatusValue = normalizeEmployeeStatusFilter(employeeStatus);
+    const rawEmpPickerEmployees = empPickerEmployees ?? autoEmployeePicker.employees;
+    // Options without a known status (`contractStatus` undefined) are kept.
+    const resolvedEmpPickerEmployees = React.useMemo(
+      () =>
+        !hasEmployeeStatusFilter || employeeStatusValue === 'all'
+          ? rawEmpPickerEmployees
+          : rawEmpPickerEmployees.filter(
+            (e) => e.contractStatus === undefined || employeeMatchesStatus(e.contractStatus, employeeStatusValue),
+          ),
+      [hasEmployeeStatusFilter, employeeStatusValue, rawEmpPickerEmployees],
+    );
     const resolvedEmployeePickerLoading = employeePickerLoading || autoEmployeePicker.loading;
 
     const emptyPeriod = React.useMemo<PeriodRange>(() => ({ from: '', to: '' }), []);
@@ -293,12 +320,31 @@ export const ListFilterBar = React.forwardRef<ListFilterBarHandle, ListFilterBar
 
     const optionalDateActive = optionalDateRange && Boolean(period.from || period.to);
 
+    const resetEmployeeStatus = React.useCallback(() => {
+      onEmployeeStatusChange?.(EMPLOYEE_STATUS_FILTER_DEFAULT);
+    }, [onEmployeeStatusChange]);
+
+    const employeeStatusControl = hasEmployeeStatusFilter ? (
+      <SelectWithClear
+        value={employeeStatusValue === EMPLOYEE_STATUS_FILTER_DEFAULT ? '' : employeeStatusValue}
+        onValueChange={(v) => onEmployeeStatusChange!(v || EMPLOYEE_STATUS_FILTER_DEFAULT)}
+        onClear={resetEmployeeStatus}
+        placeholder={EMPLOYEE_STATUS_FILTER_OPTIONS[0]!.label}
+        className="w-[10.5rem] max-w-[10.5rem]"
+      >
+        {EMPLOYEE_STATUS_FILTER_OPTIONS.filter((o) => o.value !== EMPLOYEE_STATUS_FILTER_DEFAULT).map((o) => (
+          <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+        ))}
+      </SelectWithClear>
+    ) : null;
+
     const hasSecondaryFilters =
-      Boolean(inlineSelects?.length) || Boolean(beforeEmployeePicker) || showEmployeePicker;
+      hasEmployeeStatusFilter || Boolean(inlineSelects?.length) || Boolean(beforeEmployeePicker) || showEmployeePicker;
     const hasDataView = Boolean(dataView && dataView.options.length >= 2);
 
     const pickerBlock = hasSecondaryFilters ? (
       <>
+        {employeeStatusControl}
         {inlineSelects?.map((sel) => {
           const allowed = new Set(sel.options.map((o) => o.value));
           const coerced =
@@ -353,6 +399,7 @@ export const ListFilterBar = React.forwardRef<ListFilterBarHandle, ListFilterBar
       optionalDateActive ||
       internalPeriodActive ||
       (showEmployeePicker && selectedEmpIds.size > 0) ||
+      (hasEmployeeStatusFilter && employeeStatusValue !== EMPLOYEE_STATUS_FILTER_DEFAULT) ||
       (showStatusSection && statusFilter !== 'all') ||
       (inlineSelects?.some((s) => s.value !== 'all' && s.value !== '') ?? false) ||
       (moreFilters?.some((s) => s.value !== 'all' && s.value !== '') ?? false),
@@ -362,6 +409,8 @@ export const ListFilterBar = React.forwardRef<ListFilterBarHandle, ListFilterBar
         internalPeriodActive,
         showEmployeePicker,
         selectedEmpIds.size,
+        hasEmployeeStatusFilter,
+        employeeStatusValue,
         showStatusSection,
         statusFilter,
         inlineSelects,
@@ -373,6 +422,7 @@ export const ListFilterBar = React.forwardRef<ListFilterBarHandle, ListFilterBar
       onPeriodFilterClear?.();
       resetDateFilter();
       resetStatusFilter();
+      if (hasEmployeeStatusFilter) resetEmployeeStatus();
       if (showEmployeePicker) onSelectedEmpIdsChange(new Set());
       inlineSelects?.forEach((s) => s.onChange('all'));
       moreFilters?.forEach((s) => s.onChange('all'));
@@ -380,6 +430,8 @@ export const ListFilterBar = React.forwardRef<ListFilterBarHandle, ListFilterBar
       onPeriodFilterClear,
       resetDateFilter,
       resetStatusFilter,
+      hasEmployeeStatusFilter,
+      resetEmployeeStatus,
       showEmployeePicker,
       onSelectedEmpIdsChange,
       inlineSelects,

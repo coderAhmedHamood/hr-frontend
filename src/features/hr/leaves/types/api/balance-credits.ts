@@ -46,6 +46,8 @@ export type UpdateBalanceCreditRequestDto = {
 };
 
 export type BalanceCreditListQuery = {
+  /** Employee status filter (empty status = active); absent = every status. */
+  employeeStatus?: 'active' | 'suspended' | 'ended';
   page?: number;
   limit?: number;
   companyId?: string;

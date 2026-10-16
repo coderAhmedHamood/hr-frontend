@@ -17,6 +17,12 @@ import { correctionRequestsApi } from '@/features/hr/requests/lib/api/correction
 import { fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
 import { RegisterExportMenu } from '@/components/pdf/register-export-menu';
 import { useLatestCallback } from '@/shared/hooks/use-latest-callback';
+import {
+  employeeStatusFilterLabelAr,
+  employeeStatusQuery,
+  isEmployeeStatusFilterActive,
+  useEmployeeStatusFilter,
+} from '@/features/hr/lib/employee-status-filter';
 import type { RegisterColumn } from '@/components/pdf/print/register-document';
 import { exportClock, exportDate, exportDateTime, exportText } from '@/features/hr/requests/lib/list-export-format';
 import { mapCorrectionRequest } from '@/features/hr/requests/lib/attendance-correction-store';
@@ -223,6 +229,7 @@ export function AttendanceCorrectionRequestsClient() {
   const fetchDepartments = useHRConfigurationStore((s) => s.fetchDepartments);
   const employees = useHREmployeeDirectoryStore((s) => s.employees);
   const fetchEmployees = useHREmployeeDirectoryStore((s) => s.fetch);
+  // New correction requests: active employees only (not suspended / ended).
   const activeEmployees = React.useMemo(() => employees.filter((e) => e.status === 'active'), [employees]);
 
   const { approve, reject, cancel } = useAttendanceCorrectionRequestsStore();
@@ -239,6 +246,9 @@ export function AttendanceCorrectionRequestsClient() {
   );
   const [selectedEmpIds, setSelectedEmpIds] = usePersistedEmpIdSet(
     hrFiltersKey('requests', 'attendance-corrections', companyId, 'selectedEmpIds'),
+  );
+  const [employeeStatus, setEmployeeStatus] = useEmployeeStatusFilter(
+    hrFiltersKey('requests', 'attendance-corrections', companyId, 'employeeStatus'),
   );
   const [statusFilter, setStatusFilter] = usePersistedFilterState(
     hrFiltersKey('requests', 'attendance-corrections', companyId, 'statusFilter'),
@@ -305,7 +315,8 @@ export function AttendanceCorrectionRequestsClient() {
     ...(dateBounds.to ? { workDateTo: dateBounds.to } : {}),
     ...(selectedEmpIds.size > 0 ? { employeeIds: [...selectedEmpIds] } : {}),
     ...(appliedDept !== 'all' ? { departmentId: appliedDept } : {}),
-  }), [companyId, statusFilter, dateBounds.from, dateBounds.to, selectedEmpIds, appliedDept]);
+    ...employeeStatusQuery(employeeStatus),
+  }), [companyId, statusFilter, dateBounds.from, dateBounds.to, selectedEmpIds, appliedDept, employeeStatus]);
 
   const loadPage = React.useCallback(async (page: number, pageSize: number) => {
     if (!companyId) return { items: [] as AttendanceCorrectionRequest[], total: 0 };
@@ -325,7 +336,7 @@ export function AttendanceCorrectionRequestsClient() {
     reload: reloadList,
   } = useServerDirectoryPagination<AttendanceCorrectionRequest>(loadPage, {
     enabled: !!companyId,
-    resetDeps: [companyId, appliedDept, statusFilter, dateBounds.from, dateBounds.to, selectedEmpKey],
+    resetDeps: [companyId, appliedDept, statusFilter, dateBounds.from, dateBounds.to, selectedEmpKey, employeeStatus],
   });
 
   const statusCounts = React.useMemo(
@@ -416,8 +427,9 @@ export function AttendanceCorrectionRequestsClient() {
     if (selectedEmpIds.size > 0) count++;
     if (dateBounds.from || dateBounds.to) count++;
     if (statusFilter !== 'all') count++;
+    if (isEmployeeStatusFilterActive(employeeStatus)) count++;
     return count;
-  }, [appliedDept, selectedEmpIds.size, dateBounds.from, dateBounds.to, statusFilter]);
+  }, [appliedDept, selectedEmpIds.size, dateBounds.from, dateBounds.to, statusFilter, employeeStatus]);
 
   const getExportRows = useLatestCallback(async (): Promise<string[][]> => {
     if (!companyId) return [];
@@ -450,6 +462,7 @@ export function AttendanceCorrectionRequestsClient() {
           fileName="attendance-correction-requests"
           columns={EXPORT_COLUMNS}
           getRows={getExportRows}
+          subtitleLines={[`حالة الموظفين: ${employeeStatusFilterLabelAr(employeeStatus)}`]}
           landscape
         />
         <Button variant="luxe" size="sm" className="h-8 gap-1.5 px-3 text-xs shadow-sm shrink-0" onClick={openNew}>
@@ -458,7 +471,7 @@ export function AttendanceCorrectionRequestsClient() {
         </Button>
       </div>
     ),
-    [activeFilterCount],
+    [activeFilterCount, employeeStatus],
   );
 
   useEntityFilterSlot(
@@ -479,6 +492,8 @@ export function AttendanceCorrectionRequestsClient() {
         companyId={companyId}
         selectedEmpIds={selectedEmpIds}
         onSelectedEmpIdsChange={setSelectedEmpIds}
+        employeeStatus={employeeStatus}
+        onEmployeeStatusChange={setEmployeeStatus}
         statusFilter={statusFilter}
         onStatusFilterChange={setStatusFilter}
         statusOrder={STATUS_ORDER}
@@ -497,6 +512,7 @@ export function AttendanceCorrectionRequestsClient() {
     ),
     [
       appliedDept,
+      employeeStatus,
       selectedEmpIds,
       statusFilter,
       dateBounds.from,

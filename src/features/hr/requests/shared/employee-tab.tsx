@@ -29,6 +29,7 @@ const STATUS_OPTIONS: { value: HREmployeeStatus; label: string }[] = [
   { value: 'active',    label: 'نشط' },
   { value: 'probation', label: 'تحت التجربة' },
   { value: 'suspended', label: 'موقوف' },
+  { value: 'ended',     label: 'منتهي' },
 ];
 
 interface DraftForm {

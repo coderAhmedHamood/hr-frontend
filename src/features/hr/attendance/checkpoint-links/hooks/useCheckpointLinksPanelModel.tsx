@@ -14,6 +14,13 @@ import { createCheckInPointLinkBatch } from '@/features/hr/attendance/checkpoint
 import { checkInPointLinksApi, type GroupedByPointItem } from '@/features/hr/attendance/lib/api/check-in-point-links';
 import { employeesApi, type EmployeeResponseDto } from '@/features/hr/organization/employees/lib/api/employees';
 import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
+import { hrFiltersKey } from '@/features/hr/lib/use-persisted-filter-state';
+import {
+  CREATE_PICKER_ACTIVE_ONLY,
+  employeeStatusQuery,
+  useEmployeeStatusFilter,
+} from '@/features/hr/lib/employee-status-filter';
+import { filterEmployeesByStatus } from '@/features/hr/lib/use-employee-filter-picker';
 
 type CheckpointLinkBatch = {
   batchId: string;
@@ -77,12 +84,20 @@ export function useCheckpointLinksPanelModel() {
   const [editLinkActive, setEditLinkActive] = React.useState(true);
   const [unlinkTarget, setUnlinkTarget] = React.useState<{ linkId: string; employeeName: string } | null>(null);
   const [unlinking, setUnlinking] = React.useState(false);
+  const [employeeStatus, setEmployeeStatus] = useEmployeeStatusFilter(
+    hrFiltersKey('attendance', 'checkpoint-links', companyId, 'employeeStatus'),
+  );
 
   const loadPage = React.useCallback(async (page: number, pageSize: number) => {
     if (!companyId) return { items: [] as CheckpointLinkBatch[], total: 0 };
     setListError(null);
     try {
-      const res = await checkInPointLinksApi.getGroupedByPoint({ companyId, page, limit: pageSize });
+      const res = await checkInPointLinksApi.getGroupedByPoint({
+        companyId,
+        page,
+        limit: pageSize,
+        ...employeeStatusQuery(employeeStatus),
+      });
       setApiAccessDenied(false);
       return { items: res.items.map(mapGroupedToBatch), total: res.pagination.total };
     } catch (err) {
@@ -91,7 +106,7 @@ export function useCheckpointLinksPanelModel() {
       setListError(failure.listError);
       return { items: [], total: 0 };
     }
-  }, [companyId]);
+  }, [companyId, employeeStatus]);
 
   const {
     items: batches,
@@ -100,17 +115,17 @@ export function useCheckpointLinksPanelModel() {
     reload,
   } = useServerDirectoryPagination<CheckpointLinkBatch>(loadPage, {
     enabled: !!companyId,
-    resetDeps: [companyId],
+    resetDeps: [companyId, employeeStatus],
   });
 
   /** Every check-in point group (all pages) with its employee links, for export. */
   const loadAllForExport = React.useCallback(async (): Promise<CheckpointLinkBatch[]> => {
     if (!companyId) return [];
     const { items } = await fetchAllPaginatedItems((page, limit) =>
-      checkInPointLinksApi.getGroupedByPoint({ companyId, page, limit }),
+      checkInPointLinksApi.getGroupedByPoint({ companyId, page, limit, ...employeeStatusQuery(employeeStatus) }),
     );
     return items.map(mapGroupedToBatch);
-  }, [companyId]);
+  }, [companyId, employeeStatus]);
 
   React.useEffect(() => {
     if (!companyId) return;
@@ -119,7 +134,10 @@ export function useCheckpointLinksPanelModel() {
       employeesApi.getAll({ limit: 500, companyId }),
     ]).then(([pointsRes, empRes]) => {
       if (pointsRes.status === 'fulfilled') setCheckpoints(pointsRes.value.items.map(mapCheckInPointResponse));
-      if (empRes.status === 'fulfilled') setEmployees(empRes.value.items);
+      // New links are for active employees only.
+      if (empRes.status === 'fulfilled') {
+        setEmployees(filterEmployeesByStatus(empRes.value.items, CREATE_PICKER_ACTIVE_ONLY));
+      }
     });
   }, [companyId]);
 
@@ -266,6 +284,8 @@ export function useCheckpointLinksPanelModel() {
   return {
     batches,
     loadAllForExport,
+    employeeStatus,
+    setEmployeeStatus,
     checkpoints,
     employees,
     loading,

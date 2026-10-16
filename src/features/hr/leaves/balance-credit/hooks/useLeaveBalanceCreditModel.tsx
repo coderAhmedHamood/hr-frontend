@@ -41,6 +41,13 @@ import { organizationActiveListStatusQuery } from '@/features/hr/organization/li
 import { employeesApi } from '@/features/hr/organization/employees/lib/api/employees';
 import { resolveOrganizationScope } from '@/features/hr/organization/lib/api/organization-context';
 import { useLatestCallback } from '@/shared/hooks/use-latest-callback';
+import { hrFiltersKey } from '@/features/hr/lib/use-persisted-filter-state';
+import {
+  CREATE_PICKER_ACTIVE_ONLY,
+  employeeMatchesStatus,
+  employeeStatusQuery,
+  useEmployeeStatusFilter,
+} from '@/features/hr/lib/employee-status-filter';
 
 export type BalanceCreditFetchParams = {
   employeeId?: string;
@@ -82,6 +89,9 @@ export function useLeaveBalanceCreditModel() {
   const [selectedEmpIds, setSelectedEmpIds] = React.useState<Set<string>>(new Set());
   const [statusFilter, setStatusFilter] = React.useState<string>('all');
   const [dateBounds, setDateBounds] = React.useState<{ from: string; to: string }>({ from: '', to: '' });
+  const [employeeStatus, setEmployeeStatus] = useEmployeeStatusFilter(
+    hrFiltersKey('leaves', 'balance-credits', companyId, 'employeeStatus'),
+  );
 
   const [addOpen, setAddOpen] = React.useState(false);
   const [formEmployeeIds, setFormEmployeeIds] = React.useState<Set<string>>(new Set());
@@ -174,8 +184,9 @@ export function useLeaveBalanceCreditModel() {
       limit: pageSize,
       ...(selectedEmpIds.size === 1 ? { employeeId: [...selectedEmpIds][0] } : {}),
       ...(statusFilter !== 'all' ? { status: statusFilter as BalanceCreditStatus } : {}),
+      ...employeeStatusQuery(employeeStatus),
     }),
-    [companyId, selectedEmpIds, statusFilter],
+    [companyId, selectedEmpIds, statusFilter, employeeStatus],
   );
 
   const applyClientFilters = React.useCallback(
@@ -253,7 +264,7 @@ export function useLeaveBalanceCreditModel() {
     enabled: !!companyId && !metaLoading,
     bulkMode,
     loadBulk: bulkMode ? loadBulk : undefined,
-    resetDeps: [companyId, branchId, departmentId, statusFilter, selectedEmpKey, dateBounds.from, dateBounds.to],
+    resetDeps: [companyId, branchId, departmentId, statusFilter, selectedEmpKey, dateBounds.from, dateBounds.to, employeeStatus],
   });
 
   const loading = metaLoading || listLoading;
@@ -383,6 +394,12 @@ export function useLeaveBalanceCreditModel() {
     ? balancesByEmployeeType[singleFormEmployeeId]?.[leaveTypeId] ?? null
     : null;
 
+  // New balance-credit requests: active employees only.
+  const formEmployeePickerOptions = React.useMemo(
+    () => employeePickerOptions.filter((e) => employeeMatchesStatus(e.contractStatus, CREATE_PICKER_ACTIVE_ONLY)),
+    [employeePickerOptions],
+  );
+
   const selectedLeaveTypeNameAr = React.useMemo(
     () => leaveTypes.find((t) => t.id === leaveTypeId)?.nameAr ?? defaultLeaveTypeNameAr,
     [leaveTypes, leaveTypeId, defaultLeaveTypeNameAr],
@@ -413,6 +430,9 @@ export function useLeaveBalanceCreditModel() {
     deptInlineOptions,
     employeeOptions,
     employeePickerOptions,
+    formEmployeePickerOptions,
+    employeeStatus,
+    setEmployeeStatus,
     selectedEmpKey,
     statusCounts,
     addOpen,

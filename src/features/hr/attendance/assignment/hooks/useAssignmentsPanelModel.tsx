@@ -11,6 +11,8 @@ import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-comp
 import { organizationActiveListStatusQuery } from '@/features/hr/organization/lib/archive-scope';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import { toast } from 'sonner';
+import { hrFiltersKey } from '@/features/hr/lib/use-persisted-filter-state';
+import { employeeStatusQuery, useEmployeeStatusFilter } from '@/features/hr/lib/employee-status-filter';
 
 type BatchRow = {
   id: string;
@@ -76,16 +78,24 @@ export function useAssignmentsPanelModel() {
   const [editIsActive, setEditIsActive] = React.useState(true);
   const [unlinkTarget, setUnlinkTarget] = React.useState<{ assignmentId: string; employeeName: string } | null>(null);
   const [unlinking, setUnlinking] = React.useState(false);
+  const [employeeStatus, setEmployeeStatus] = useEmployeeStatusFilter(
+    hrFiltersKey('attendance', 'shift-assignments', companyId, 'employeeStatus'),
+  );
 
   const loadPage = React.useCallback(async (page: number, pageSize: number) => {
     if (!companyId) return { items: [] as Batch[], total: 0 };
     try {
-      const res = await shiftAssignmentsApi.getGroupedByTemplate({ companyId, page, limit: pageSize });
+      const res = await shiftAssignmentsApi.getGroupedByTemplate({
+        companyId,
+        page,
+        limit: pageSize,
+        ...employeeStatusQuery(employeeStatus),
+      });
       return { items: res.items.map(mapGroupedToBatch), total: res.pagination.total };
     } catch {
       return { items: [], total: 0 };
     }
-  }, [companyId]);
+  }, [companyId, employeeStatus]);
 
   const {
     items: batches,
@@ -94,17 +104,17 @@ export function useAssignmentsPanelModel() {
     reload: reloadAssignments,
   } = useServerDirectoryPagination<Batch>(loadPage, {
     enabled: !!companyId,
-    resetDeps: [companyId],
+    resetDeps: [companyId, employeeStatus],
   });
 
   /** Every template group (all pages) with its employee assignments, for export. */
   const loadAllForExport = React.useCallback(async (): Promise<Batch[]> => {
     if (!companyId) return [];
     const { items } = await fetchAllPaginatedItems((page, limit) =>
-      shiftAssignmentsApi.getGroupedByTemplate({ companyId, page, limit }),
+      shiftAssignmentsApi.getGroupedByTemplate({ companyId, page, limit, ...employeeStatusQuery(employeeStatus) }),
     );
     return items.map(mapGroupedToBatch);
-  }, [companyId]);
+  }, [companyId, employeeStatus]);
 
   React.useEffect(() => {
     if (!companyId) return;
@@ -262,6 +272,8 @@ export function useAssignmentsPanelModel() {
     loading,
     pagination,
     loadAllForExport,
+    employeeStatus,
+    setEmployeeStatus,
     shiftTemplates,
     removeAssignmentBatch,
     editBatch,

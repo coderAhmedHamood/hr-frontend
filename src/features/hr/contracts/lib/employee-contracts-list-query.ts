@@ -32,6 +32,8 @@ export const WORK_ARRANGEMENT = [
 ] as const satisfies readonly WorkArrangement[];
 
 export type EmployeeContractsListQuery = {
+  /** Employee status filter (empty status = active); absent = every status. */
+  employeeStatus?: 'active' | 'suspended' | 'ended';
   companyId?: string;
   employeeId?: string;
   /** Unique ids — serialized as comma-separated (`id1,id2`). */
@@ -66,6 +68,8 @@ export type EmployeeContractsListFilters = {
   employeeIds?: Iterable<string>;
   branchId?: string;
   contractTemplateId?: string;
+  /** Employee status; `all` / absent = every status. */
+  employeeStatus?: 'active' | 'suspended' | 'ended' | 'all';
 };
 
 /**
@@ -106,5 +110,8 @@ export function buildEmployeeContractsListQuery(
       ? { workArrangement: filters.workArrangement }
       : {}),
     ...(contractNumber ? { contractNumber } : {}),
+    ...(filters.employeeStatus && filters.employeeStatus !== 'all'
+      ? { employeeStatus: filters.employeeStatus }
+      : {}),
   };
 }

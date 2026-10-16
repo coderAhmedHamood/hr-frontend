@@ -30,6 +30,10 @@ import type { LeaveBalanceCreditRequest } from '@/features/hr/leaves/balance-cre
 import { RegisterExportMenu } from '@/components/pdf/register-export-menu';
 import type { RegisterColumn } from '@/components/pdf/print/register-document';
 import { useLatestCallback } from '@/shared/hooks/use-latest-callback';
+import {
+  employeeStatusFilterLabelAr,
+  isEmployeeStatusFilterActive,
+} from '@/features/hr/lib/employee-status-filter';
 import { exportDateTime, exportText } from '@/features/hr/requests/lib/list-export-format';
 
 const CREDIT_STATUS_ORDER: readonly string[] = ['pending', 'approved', 'rejected'];
@@ -59,7 +63,8 @@ export function LeaveBalanceCreditClient() {
   const m = useLeaveBalanceCreditModel();
   const [detailRow, setDetailRow] = React.useState<LeaveBalanceCreditRequest | null>(null);
 
-  const activeFilterCount = (m.branchId !== 'all' ? 1 : 0) + (m.departmentId !== 'all' ? 1 : 0) + (m.statusFilter !== 'all' ? 1 : 0) + (m.selectedEmpIds.size > 0 ? 1 : 0);
+  const activeFilterCount = (m.branchId !== 'all' ? 1 : 0) + (m.departmentId !== 'all' ? 1 : 0) + (m.statusFilter !== 'all' ? 1 : 0) + (m.selectedEmpIds.size > 0 ? 1 : 0)
+    + (isEmployeeStatusFilterActive(m.employeeStatus) ? 1 : 0);
 
   const getExportRows = useLatestCallback(async (): Promise<string[][]> => {
     const rows = await m.loadAllForExport();
@@ -85,6 +90,7 @@ export function LeaveBalanceCreditClient() {
           fileName="leave-balance-credits"
           columns={CREDIT_EXPORT_COLUMNS}
           getRows={getExportRows}
+          subtitleLines={[`حالة الموظفين: ${employeeStatusFilterLabelAr(m.employeeStatus)}`]}
         />
         <Button
           variant="luxe"
@@ -97,7 +103,7 @@ export function LeaveBalanceCreditClient() {
         </Button>
       </div>
     ),
-    [activeFilterCount, openAddFromHeader],
+    [activeFilterCount, m.employeeStatus, openAddFromHeader],
   );
 
   useEntityFilterSlot(
@@ -111,6 +117,8 @@ export function LeaveBalanceCreditClient() {
         empPickerEmployees={m.employeePickerOptions}
         selectedEmpIds={m.selectedEmpIds}
         onSelectedEmpIdsChange={m.setSelectedEmpIds}
+        employeeStatus={m.employeeStatus}
+        onEmployeeStatusChange={m.setEmployeeStatus}
         statusFilter={m.statusFilter}
         onStatusFilterChange={m.setStatusFilter}
         statusOrder={CREDIT_STATUS_ORDER}
@@ -124,6 +132,7 @@ export function LeaveBalanceCreditClient() {
       m.branchId,
       m.departmentId,
       m.statusFilter,
+      m.employeeStatus,
       m.selectedEmpKey,
       m.dateBounds.from,
       m.dateBounds.to,
@@ -360,7 +369,7 @@ export function LeaveBalanceCreditClient() {
                 <EmployeePicker
                   variant="form"
                   selectionMode="target"
-                  employees={m.employeePickerOptions}
+                  employees={m.formEmployeePickerOptions}
                   selected={m.formEmployeeIds}
                   onChange={m.setFormEmployeeIds}
                   loading={m.loading}

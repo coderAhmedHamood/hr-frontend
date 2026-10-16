@@ -4,6 +4,12 @@ import * as React from 'react';
 import { Plus, Banknote, Send, CalendarDays } from 'lucide-react';
 import { RegisterExportMenu } from '@/components/pdf/register-export-menu';
 import { useLatestCallback } from '@/shared/hooks/use-latest-callback';
+import {
+  employeeStatusFilterLabelAr,
+  employeeStatusQuery,
+  isEmployeeStatusFilterActive,
+  useEmployeeStatusFilter,
+} from '@/features/hr/lib/employee-status-filter';
 import type { RegisterColumn } from '@/components/pdf/print/register-document';
 import { exportDate, exportMoney, exportText } from '@/features/hr/requests/lib/list-export-format';
 import { toast } from 'sonner';
@@ -298,25 +304,21 @@ export function EmployeeAdvancesClient() {
     submitForApproval, approve, reject,
   } = useHREmployeeAdvancesStore();
   const { employees: allEmployees, fetch: fetchEmployees } = useHREmployeeDirectoryStore();
-  const employees = React.useMemo(() => allEmployees.filter(e => e.status === 'active'), [allEmployees]);
 
   React.useEffect(() => {
     if (allEmployees.length === 0) void fetchEmployees();
   }, [allEmployees.length, fetchEmployees]);
 
-  const empOptions = React.useMemo(() =>
-    employees.map(e => ({ value: e.id, label: e.nameAr })),
-    [employees],
-  );
-
+  // Filter picker: every employee with its status; ListFilterBar keeps the
+  // ones of the chosen employee status.
   const empPickerEmployees = React.useMemo(
-    () => employees.map((e) => ({ id: e.id, name: e.nameAr })),
-    [employees],
+    () => allEmployees.map((e) => ({ id: e.id, name: e.nameAr, contractStatus: e.status })),
+    [allEmployees],
   );
 
   const employeeNameLookup = React.useCallback(
-    (employeeId: string) => employees.find((e) => e.id === employeeId)?.nameAr,
-    [employees],
+    (employeeId: string) => allEmployees.find((e) => e.id === employeeId)?.nameAr,
+    [allEmployees],
   );
 
   const mapAdvanceRow = React.useCallback(
@@ -334,6 +336,9 @@ export function EmployeeAdvancesClient() {
   const [selectedEmpIds, setSelectedEmpIds] = usePersistedEmpIdSet(
     hrFiltersKey('requests', 'employee-advances', companyId, 'selectedEmpIds'),
   );
+  const [employeeStatus, setEmployeeStatus] = useEmployeeStatusFilter(
+    hrFiltersKey('requests', 'employee-advances', companyId, 'employeeStatus'),
+  );
   const [dateBounds, setDateBounds] = usePersistedFilterState(
     hrFiltersKey('requests', 'employee-advances', companyId, 'dateBounds'),
     { from: '', to: '' },
@@ -344,6 +349,15 @@ export function EmployeeAdvancesClient() {
   const [form, setForm] = React.useState<DraftForm>(EMPTY_FORM);
   const [error, setError] = React.useState<string | null>(null);
   const [saving, setSaving] = React.useState(false);
+
+  // New advances: active employees only (not suspended, not ended); the
+  // advance's own employee stays selectable when editing.
+  const empOptions = React.useMemo(() =>
+    allEmployees
+      .filter(e => e.status === 'active' || e.id === form.employeeId)
+      .map(e => ({ value: e.id, label: e.nameAr })),
+    [allEmployees, form.employeeId],
+  );
   const [confirmId, setConfirmId] = React.useState<string | null>(null);
   const [actionLoadingId, setActionLoadingId] = React.useState<string | null>(null);
   const [detailAdvance, setDetailAdvance] = React.useState<HREmployeeAdvance | null>(null);
@@ -364,7 +378,8 @@ export function EmployeeAdvancesClient() {
     ...(dateBounds.from ? { advanceDateFrom: dateBounds.from } : {}),
     ...(dateBounds.to ? { advanceDateTo: dateBounds.to } : {}),
     ...(selectedEmpIds.size === 1 ? { employeeId: [...selectedEmpIds][0] } : {}),
-  }), [companyId, statusFilter, dateBounds.from, dateBounds.to, selectedEmpIds]);
+    ...employeeStatusQuery(employeeStatus),
+  }), [companyId, statusFilter, dateBounds.from, dateBounds.to, selectedEmpIds, employeeStatus]);
 
   const sortAdvances = React.useCallback(
     (rows: HREmployeeAdvance[]) =>
@@ -418,7 +433,7 @@ export function EmployeeAdvancesClient() {
     enabled: !!companyId,
     bulkMode,
     loadBulk: bulkMode ? loadBulk : undefined,
-    resetDeps: [companyId, statusFilter, dateBounds.from, dateBounds.to, selectedEmpKey],
+    resetDeps: [companyId, statusFilter, dateBounds.from, dateBounds.to, selectedEmpKey, employeeStatus],
   });
 
   const advanceStatusCounts = React.useMemo((): Record<string, number> => {
@@ -613,7 +628,7 @@ export function EmployeeAdvancesClient() {
   const patch = (p: Partial<DraftForm>) => setForm(f => ({ ...f, ...p }));
 
   const handleEmployeeSelect = (id: string) => {
-    const emp = employees.find(e => e.id === id);
+    const emp = allEmployees.find(e => e.id === id);
     patch({ employeeId: id, employeeNameAr: emp?.nameAr ?? '' });
   };
 
@@ -663,7 +678,8 @@ export function EmployeeAdvancesClient() {
   });
 
   const activeFilterCount = (selectedEmpIds.size > 0 ? 1 : 0) + (statusFilter !== 'all' ? 1 : 0)
-    + (dateBounds.from || dateBounds.to ? 1 : 0);
+    + (dateBounds.from || dateBounds.to ? 1 : 0)
+    + (isEmployeeStatusFilterActive(employeeStatus) ? 1 : 0);
 
   const columns = React.useMemo((): ColumnDef<HREmployeeAdvance>[] => [
     {
@@ -829,6 +845,7 @@ export function EmployeeAdvancesClient() {
           fileName="employee-advances"
           columns={ADVANCE_EXPORT_COLUMNS}
           getRows={getExportRows}
+          subtitleLines={[`حالة الموظفين: ${employeeStatusFilterLabelAr(employeeStatus)}`]}
           landscape
         />
         <Button variant="luxe" size="sm" className="h-8 gap-1.5 px-3 text-xs shadow-sm shrink-0" onClick={openCreate}>
@@ -837,7 +854,7 @@ export function EmployeeAdvancesClient() {
         </Button>
       </div>
     ),
-    [activeFilterCount],
+    [activeFilterCount, employeeStatus],
   );
 
   useEntityFilterSlot(
@@ -851,6 +868,8 @@ export function EmployeeAdvancesClient() {
         empPickerEmployees={empPickerEmployees}
         selectedEmpIds={selectedEmpIds}
         onSelectedEmpIdsChange={setSelectedEmpIds}
+        employeeStatus={employeeStatus}
+        onEmployeeStatusChange={setEmployeeStatus}
         statusFilter={statusFilter}
         onStatusFilterChange={(v) => setStatusFilter(v as StatusFilter)}
         statusOrder={ADVANCE_STATUS_FILTER_ORDER}
@@ -868,6 +887,7 @@ export function EmployeeAdvancesClient() {
     ),
     [
       statusFilter,
+      employeeStatus,
       selectedEmpKey,
       empPickerEmployees,
       dateBounds.from,
