@@ -92,9 +92,11 @@ export function useEmployeesListModel() {
     'table',
   );
   const [newEmpOpen, setNewEmpOpen] = React.useState(false);
+  // Active employees by default; another status on demand. A new key: the
+  // old one stored "all" for everyone, so the new default would never show.
   const [toolbarStatus, setToolbarStatus] = usePersistedFilterState(
-    hrFiltersKey('organization', 'employees', companyId, 'toolbarStatus'),
-    'all',
+    hrFiltersKey('organization', 'employees', companyId, 'contractStatus'),
+    'active',
   );
   const [archiveScope, setArchiveScope] = usePersistedFilterState<OrganizationArchiveScope>(
     hrFiltersKey('organization', 'employees', companyId, 'archiveScope'),

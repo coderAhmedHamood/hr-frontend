@@ -11,6 +11,10 @@ import {
 } from '@/features/hr/attendance/lib/api/attendance-day-summaries';
 import { useEmployeeFilterPicker } from '@/features/hr/lib/use-employee-filter-picker';
 import {
+  EMP_CONTRACT_STATUS_LABELS,
+  EMP_CONTRACT_STATUS_ORDER,
+} from '@/features/hr/organization/employees/constants/employees-list';
+import {
   DAY_SUMMARY_STATUS_LABELS,
   DAY_SUMMARY_STATUS_ORDER,
 } from '@/features/hr/attendance/day-summaries/constants/day-summary-labels';
@@ -72,12 +76,20 @@ export function useDaySummariesDirectoryModel() {
     companyId,
     'day-summaries',
   );
+  // The employees' own status: active by default, like the daily register.
+  const [employeeStatus, setEmployeeStatus] = usePersistedFilterState(
+    attendanceFiltersKey('day-summaries', companyId, 'employeeStatus'),
+    'active',
+  );
   const visiblePickerEmployees = React.useMemo(
     () =>
-      assignedIds
-        ? pickerEmployees.filter((employee) => assignedIds.has(employee.id))
-        : pickerEmployees,
-    [assignedIds, pickerEmployees],
+      pickerEmployees.filter(
+        (employee) =>
+          (!assignedIds || assignedIds.has(employee.id)) &&
+          (employeeStatus === 'all' ||
+            (employee.contractStatus?.trim().toLowerCase() || 'active') === employeeStatus),
+      ),
+    [assignedIds, pickerEmployees, employeeStatus],
   );
   const allEmployees = React.useMemo(
     () => visiblePickerEmployees.map((e) => ({ id: e.id, name: e.name })),
@@ -175,6 +187,7 @@ export function useDaySummariesDirectoryModel() {
         from,
         to,
         ...(scopedEmpIds ? { employeeIds: [...scopedEmpIds] } : {}),
+        ...(employeeStatus !== 'all' ? { employeeStatus } : {}),
         ...(filters.status !== 'all' ? { status: filters.status } : {}),
         ...(filters.isManualOverride === 'true' ? { isManualOverride: true } : {}),
         ...(filters.isManualOverride === 'false' ? { isManualOverride: false } : {}),
@@ -188,7 +201,7 @@ export function useDaySummariesDirectoryModel() {
     } finally {
       setLoading(false);
     }
-  }, [assignedBranchId, assignedIds, companyId, filters, from, limit, page, selectedEmpIds, to]);
+  }, [assignedBranchId, assignedIds, companyId, employeeStatus, filters, from, limit, page, selectedEmpIds, to]);
 
   React.useEffect(() => {
     void load();
@@ -198,13 +211,26 @@ export function useDaySummariesDirectoryModel() {
 
   React.useEffect(() => {
     setPage(1);
-  }, [assignedBranchId, from, to, selectedEmpKey, filters.status, filters.isManualOverride, limit]);
+  }, [assignedBranchId, employeeStatus, from, to, selectedEmpKey, filters.status, filters.isManualOverride, limit]);
 
   const patchFilters = (patch: Partial<DaySummariesFilters>) => {
     setFilters((f) => ({ ...f, ...patch }));
   };
 
   const inlineSelects = React.useMemo((): ListFilterInlineSelect[] => [
+    {
+      id: 'employeeStatus',
+      value: employeeStatus,
+      onChange: setEmployeeStatus,
+      placeholder: 'حالة الموظف',
+      options: [
+        ...EMP_CONTRACT_STATUS_ORDER.map((value) => ({
+          value,
+          label: `الموظفون: ${EMP_CONTRACT_STATUS_LABELS[value]}`,
+        })),
+        { value: 'all', label: 'الموظفون: كل الحالات' },
+      ],
+    },
     assignedBranchSelect,
     {
       id: 'status',
@@ -232,10 +258,11 @@ export function useDaySummariesDirectoryModel() {
         { value: 'false', label: 'آلي فقط' },
       ],
     },
-  ], [assignedBranchSelect, filters.isManualOverride, filters.status]);
+  ], [assignedBranchSelect, employeeStatus, filters.isManualOverride, filters.status, setEmployeeStatus]);
 
   const activeFilterCount =
     (periodFilterActive ? 1 : 0)
+    + (employeeStatus !== 'active' ? 1 : 0)
     + (assignedBranchId !== 'all' ? 1 : 0)
     + (selectedEmpIds.size > 0 ? 1 : 0)
     + (filters.status !== 'all' ? 1 : 0)

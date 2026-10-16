@@ -90,6 +90,8 @@ export type DaySummaryListQuery = {
   from?: string;
   to?: string;
   isManualOverride?: boolean;
+  /** The employee's status: active (empty counts as active), suspended, ended. */
+  employeeStatus?: string;
 };
 
 export type DaySummaryByPeriodQuery = {

@@ -43,6 +43,10 @@ import { resolveDirectoryLoadFailure } from '@/features/hr/lib/api/directory-loa
 import { useEmployeeFilterPicker } from '@/features/hr/lib/use-employee-filter-picker';
 import { getDefaultCompanyId, useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 import {
+  EMP_CONTRACT_STATUS_LABELS,
+  EMP_CONTRACT_STATUS_ORDER,
+} from '@/features/hr/organization/employees/constants/employees-list';
+import {
   attendanceFiltersKey,
   usePersistedEmpIdSet,
   usePersistedFilterState,
@@ -97,6 +101,13 @@ function mapEvent(e: AttendanceEventResponseDto): AttendanceEvent {
   };
 }
 
+/** The employee's status as the employees list reads it: empty is active. */
+function employeeHasStatus(contractStatus: string | null | undefined, wanted: string): boolean {
+  if (wanted === 'all') return true;
+  const status = contractStatus?.trim().toLowerCase() || 'active';
+  return status === wanted;
+}
+
 async function fetchAllDaySummaries(
   baseQuery: Omit<DaySummaryListQuery, 'page' | 'limit'>,
 ): Promise<AttendanceDaySummary[]> {
@@ -127,12 +138,20 @@ export function useDailyAttendanceModel() {
     companyId,
     'daily',
   );
+  // The employees' own status: active by default (the register of who works
+  // now); suspended / ended on demand.
+  const [employeeStatus, setEmployeeStatus] = usePersistedFilterState(
+    attendanceFiltersKey('daily', companyId, 'employeeStatus'),
+    'active',
+  );
   const visiblePickerEmployees = React.useMemo(
     () =>
-      assignedIds
-        ? pickerEmployees.filter((employee) => assignedIds.has(employee.id))
-        : pickerEmployees,
-    [assignedIds, pickerEmployees],
+      pickerEmployees.filter(
+        (employee) =>
+          (!assignedIds || assignedIds.has(employee.id)) &&
+          employeeHasStatus(employee.contractStatus, employeeStatus),
+      ),
+    [assignedIds, pickerEmployees, employeeStatus],
   );
   const allEmployees = React.useMemo(
     () => visiblePickerEmployees.map((e) => ({ id: e.id, name: e.name })),
@@ -212,7 +231,7 @@ export function useDailyAttendanceModel() {
     pageItems: pageEmployeeRows,
     total,
     totalPages,
-  } = useListPagination(employeeDirectory, [companyId, selectedEmpKey, assignedBranchId]);
+  } = useListPagination(employeeDirectory, [companyId, selectedEmpKey, assignedBranchId, employeeStatus]);
 
   const pagination: PaginationBarState = React.useMemo(
     () => ({ page, pageSize, total, totalPages, setPage, setPageSize }),
@@ -338,13 +357,14 @@ export function useDailyAttendanceModel() {
     if (scopedEmpIds && scopedEmpIds.size === 0) return [] as AttendanceDaySummary[];
     const baseQuery: Omit<DaySummaryListQuery, 'page' | 'limit'> = { from, to, companyId };
     if (scopedEmpIds) baseQuery.employeeIds = [...scopedEmpIds];
+    if (employeeStatus !== 'all') baseQuery.employeeStatus = employeeStatus;
     if (statusFilter !== 'all' && API_STATUS_FILTERS.has(statusFilter)) {
       baseQuery.status = statusFilter as AttendanceDayStatus;
     }
     const items = await fetchAllDaySummaries(baseQuery);
     if (statusFilter === 'all') return items;
     return items.filter((s) => resolveVisualKey(s.status) === statusFilter);
-  }, [assignedBranchId, assignedIds, companyId, from, selectedEmpIds, statusFilter, to]);
+  }, [assignedBranchId, assignedIds, companyId, employeeStatus, from, selectedEmpIds, statusFilter, to]);
 
   const openPdfExport = React.useCallback(async () => {
     try {
@@ -384,10 +404,13 @@ export function useDailyAttendanceModel() {
           statusFilterLabelAr={
             statusFilter === 'all' ? 'الكل' : attendanceStatusLabels[statusFilter] ?? statusFilter
           }
+          employeeStatusLabelAr={
+            employeeStatus === 'all' ? 'الكل' : EMP_CONTRACT_STATUS_LABELS[employeeStatus] ?? employeeStatus
+          }
           rows={attendancePdfRows}
         />
       ),
-    [attendancePdfRows, from, to, selectedEmpIds.size, statusFilter, attendanceStatusLabels, companyNameAr, companyNameEn],
+    [attendancePdfRows, from, to, selectedEmpIds.size, statusFilter, employeeStatus, attendanceStatusLabels, companyNameAr, companyNameEn],
   );
 
   const attendancePdfFileName = `attendance-${from}-${to}.pdf`;
@@ -422,6 +445,7 @@ export function useDailyAttendanceModel() {
   const isDefaultDate = filterFrom === todayPeriod.from && filterTo === todayPeriod.to;
   const activeFilterCount =
     (statusFilter !== 'all' ? 1 : 0)
+    + (employeeStatus !== 'active' ? 1 : 0)
     + (assignedBranchId !== 'all' ? 1 : 0)
     + (selectedEmpIds.size > 0 ? 1 : 0)
     + (!isDefaultDate ? 1 : 0);
@@ -478,7 +502,22 @@ export function useDailyAttendanceModel() {
         empPickerEmployees={visiblePickerEmployees}
         selectedEmpIds={selectedEmpIds}
         onSelectedEmpIdsChange={setSelectedEmpIds}
-        inlineSelects={[assignedBranchSelect]}
+        inlineSelects={[
+          {
+            id: 'employeeStatus',
+            value: employeeStatus,
+            onChange: setEmployeeStatus,
+            placeholder: 'حالة الموظف',
+            options: [
+              ...EMP_CONTRACT_STATUS_ORDER.map((value) => ({
+                value,
+                label: `الموظفون: ${EMP_CONTRACT_STATUS_LABELS[value]}`,
+              })),
+              { value: 'all', label: 'الموظفون: كل الحالات' },
+            ],
+          },
+          assignedBranchSelect,
+        ]}
         statusFilter={statusFilter}
         onStatusFilterChange={setStatusFilter}
         statusOrder={ATT_VISUAL_STATUS_ORDER}
@@ -502,6 +541,7 @@ export function useDailyAttendanceModel() {
     ),
     [
       statusFilter,
+      employeeStatus,
       assignedBranchSelect,
       assignedBranchId,
       selectedEmpKey,
