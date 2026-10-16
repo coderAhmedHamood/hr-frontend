@@ -9,7 +9,6 @@ import {
 import { sanitizePdfText } from '@/components/pdf/lib/sanitize-pdf-text';
 import { isDefaultPdfLogoSrc } from '@/components/pdf/lib/pdf-company-info';
 import { useResolvedPdfLetterhead } from '@/components/pdf/hooks/use-pdf-company-letterhead';
-import { ROSE_TRADING_EST } from '@/components/pdf/lib/rose-trading-est';
 
 /** Letterhead accent — warm gold (print-safe) */
 const LETTERHEAD_GOLD = '#b8933e';
@@ -41,9 +40,10 @@ export function RoseTradingLetterheadPrint({
     logoSrc: logoSrc && !isDefaultPdfLogoSrc(logoSrc) ? logoSrc : undefined,
   });
 
-  const nameAr = sanitizePdfText(letterhead.companyNameAr || ROSE_TRADING_EST.nameAr);
-  const nameEn = sanitizePdfText(letterhead.companyNameEn || ROSE_TRADING_EST.nameEn);
-  const cr = letterhead.commercialReg.trim() || ROSE_TRADING_EST.crNumber;
+  // The printing company's own data only; an empty field is not printed.
+  const nameAr = sanitizePdfText(letterhead.companyNameAr);
+  const nameEn = sanitizePdfText(letterhead.companyNameEn);
+  const cr = letterhead.commercialReg.trim();
 
   return (
     <div style={{ marginBottom: 18, paddingBottom: 14, borderBottom: `6px double ${LETTERHEAD_GOLD}` }}>
@@ -82,19 +82,21 @@ export function RoseTradingLetterheadPrint({
           >
             {nameEn}
           </div>
-          <div
-            style={{
-              fontSize: PDF_PAGE_FONT,
-              fontWeight: 700,
-              color: '#000000',
-              marginTop: 5,
-              textAlign: 'left',
-              fontFamily: PDF_PRINT_FONT_FAMILY,
-            }}
-            dir="ltr"
-          >
-            {`C.R: ${cr}`}
-          </div>
+          {cr ? (
+            <div
+              style={{
+                fontSize: PDF_PAGE_FONT,
+                fontWeight: 700,
+                color: '#000000',
+                marginTop: 5,
+                textAlign: 'left',
+                fontFamily: PDF_PRINT_FONT_FAMILY,
+              }}
+              dir="ltr"
+            >
+              {`C.R: ${cr}`}
+            </div>
+          ) : null}
         </div>
 
         {/* Center — logo */}
@@ -145,26 +147,28 @@ export function RoseTradingLetterheadPrint({
           >
             {nameAr}
           </div>
-          <div
-            dir="rtl"
-            lang="ar"
-            style={{
-              marginTop: 5,
-              fontSize: PDF_PAGE_FONT,
-              fontWeight: 700,
-              color: '#000000',
-              fontFamily: PDF_PRINT_FONT_FAMILY,
-              width: '100%',
-              textAlign: 'right',
-              lineHeight: 1.35,
-            }}
-          >
-            <span>س.ت</span>
-            {'\u00a0'}
-            <span dir="ltr" style={{ unicodeBidi: 'embed' }}>
-              {cr}
-            </span>
-          </div>
+          {cr ? (
+            <div
+              dir="rtl"
+              lang="ar"
+              style={{
+                marginTop: 5,
+                fontSize: PDF_PAGE_FONT,
+                fontWeight: 700,
+                color: '#000000',
+                fontFamily: PDF_PRINT_FONT_FAMILY,
+                width: '100%',
+                textAlign: 'right',
+                lineHeight: 1.35,
+              }}
+            >
+              <span>س.ت</span>
+              {'\u00a0'}
+              <span dir="ltr" style={{ unicodeBidi: 'embed' }}>
+                {cr}
+              </span>
+            </div>
+          ) : null}
         </div>
       </div>
     </div>

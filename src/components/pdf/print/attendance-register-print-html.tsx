@@ -25,10 +25,40 @@ export type AttendanceRegisterPrintHtmlProps = {
   employeesFilterAll: boolean;
   employeesSelectedCount: number;
   statusFilterLabelAr: string;
+  /** The employees' own status shown (e.g. «نشط»); omitted = every status. */
+  employeeStatusLabelAr?: string;
   rows: AttendanceRegisterPrintRow[];
 };
 
 const ROWS_PER_PAGE = 24;
+
+/** Table text: one size for every row so the columns line up. */
+const CELL_FONT = 19;
+
+/**
+ * Column widths (sum 100%): the name gets the room (a 4-part Arabic name
+ * on at most two lines), the date never wraps.
+ */
+const COLS = {
+  name: '36%',
+  date: '16%',
+  status: '20%',
+  worked: '14%',
+  late: '14%',
+} as const;
+
+const cell = (width: string, align: 'right' | 'center', extra?: React.CSSProperties): React.CSSProperties => ({
+  width,
+  boxSizing: 'border-box',
+  padding: align === 'right' ? '4px 6px' : '4px 2px',
+  fontSize: CELL_FONT,
+  lineHeight: 1.35,
+  textAlign: align,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: align === 'right' ? 'flex-start' : 'center',
+  ...extra,
+});
 
 function chunk<T>(arr: T[], size: number): T[][] {
   if (arr.length === 0) return [[]];
@@ -61,6 +91,7 @@ export const AttendanceRegisterPrintHtml = React.forwardRef<
     employeesFilterAll,
     employeesSelectedCount,
     statusFilterLabelAr,
+    employeeStatusLabelAr,
     rows,
   },
   ref,
@@ -72,9 +103,16 @@ export const AttendanceRegisterPrintHtml = React.forwardRef<
 
   const pages = chunk(rows, ROWS_PER_PAGE);
 
-  const filterLine2 = employeesFilterAll
-    ? `الموظفون: جميع الموظفين ضمن البحث · الحالة: ${sanitizePdfText(statusFilterLabelAr)}`
-    : `الموظفون: ${employeesSelectedCount} موظف محدد · الحالة: ${sanitizePdfText(statusFilterLabelAr)}`;
+  const employeesPart = employeesFilterAll
+    ? 'الموظفون: جميع الموظفين ضمن البحث'
+    : `الموظفون: ${employeesSelectedCount} موظف محدد`;
+  const filterLine2 = [
+    employeesPart,
+    employeeStatusLabelAr ? `حالة الموظف: ${sanitizePdfText(employeeStatusLabelAr)}` : null,
+    `حالة الحضور: ${sanitizePdfText(statusFilterLabelAr)}`,
+  ]
+    .filter(Boolean)
+    .join(' · ');
 
   return (
     <div ref={ref} dir="rtl" lang="ar" style={{ width: '210mm', maxWidth: '100%', margin: '0 auto' }}>
@@ -109,24 +147,19 @@ export const AttendanceRegisterPrintHtml = React.forwardRef<
 
           <div style={{ display: 'flex', flexDirection: 'row', backgroundColor: '#e8f2ef', border: '1px solid #94a3b8' }}>
             {[
-              { label: 'الموظف', width: '22%', align: 'right' as const, pad: true },
-              { label: 'التاريخ', width: '14%', align: 'center' as const },
-              { label: 'الحالة', width: '36%', align: 'right' as const, pad: true },
-              { label: 'دقائق العمل', width: '14%', align: 'center' as const },
-              { label: 'التأخير', width: '14%', align: 'center' as const },
+              { label: 'الموظف', width: COLS.name, align: 'right' as const },
+              { label: 'التاريخ', width: COLS.date, align: 'center' as const },
+              { label: 'الحالة', width: COLS.status, align: 'right' as const },
+              { label: 'دقائق العمل', width: COLS.worked, align: 'center' as const },
+              { label: 'التأخير', width: COLS.late, align: 'center' as const },
             ].map((c, idx) => (
               <div
                 key={c.label}
-                style={{
-                  width: c.width,
-                  boxSizing: 'border-box',
+                style={cell(c.width, c.align, {
                   fontWeight: 700,
-                  textAlign: c.align,
-                  fontSize: 22,
-                  padding: c.pad ? '4px 4px' : '4px 2px',
+                  whiteSpace: 'nowrap',
                   borderInlineStart: idx === 0 ? undefined : '1px solid #94a3b8',
-                  wordBreak: 'break-word',
-                }}
+                })}
               >
                 {sanitizePdfText(c.label)}
               </div>
@@ -147,19 +180,19 @@ export const AttendanceRegisterPrintHtml = React.forwardRef<
                   backgroundColor: ri % 2 === 1 ? '#fafafa' : '#fff',
                 }}
               >
-                <div style={{ width: '22%', boxSizing: 'border-box', padding: '4px 4px', fontSize: 22, textAlign: 'right', wordBreak: 'break-word' }}>
+                <div style={cell(COLS.name, 'right', { overflowWrap: 'anywhere' })}>
                   {sanitizePdfText(r.employeeName)}
                 </div>
-                <div style={{ width: '14%', boxSizing: 'border-box', padding: '4px 2px', fontSize: 22, textAlign: 'center', borderInlineStart: '1px solid #e2e8f0' }}>
+                <div style={cell(COLS.date, 'center', { whiteSpace: 'nowrap', borderInlineStart: '1px solid #e2e8f0' })}>
                   <span dir="ltr">{sanitizePdfText(r.date)}</span>
                 </div>
-                <div style={{ width: '36%', boxSizing: 'border-box', padding: '4px 4px', fontSize: 22, textAlign: 'right', borderInlineStart: '1px solid #e2e8f0', wordBreak: 'break-word' }}>
+                <div style={cell(COLS.status, 'right', { borderInlineStart: '1px solid #e2e8f0' })}>
                   {sanitizePdfText(r.statusLabel)}
                 </div>
-                <div style={{ width: '14%', boxSizing: 'border-box', padding: '4px 2px', fontSize: 22, textAlign: 'center', borderInlineStart: '1px solid #e2e8f0' }}>
+                <div style={cell(COLS.worked, 'center', { whiteSpace: 'nowrap', borderInlineStart: '1px solid #e2e8f0' })}>
                   <span dir="ltr">{sanitizePdfText(r.worked)}</span>
                 </div>
-                <div style={{ width: '14%', boxSizing: 'border-box', padding: '4px 2px', fontSize: 22, textAlign: 'center', borderInlineStart: '1px solid #e2e8f0' }}>
+                <div style={cell(COLS.late, 'center', { whiteSpace: 'nowrap', borderInlineStart: '1px solid #e2e8f0' })}>
                   <span dir="ltr">{sanitizePdfText(r.late)}</span>
                 </div>
               </div>

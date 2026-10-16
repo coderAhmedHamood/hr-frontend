@@ -1,7 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import { getPdfLogoSrc } from '@/components/pdf/lib/pdf-logo-url';
+import { isDefaultPdfLogoSrc } from '@/components/pdf/lib/pdf-company-info';
+import { usePdfCompanyLetterhead } from '@/components/pdf/hooks/use-pdf-company-letterhead';
 
 type RosePdfWatermarkProps = {
   logoSrc?: string;
@@ -11,11 +12,10 @@ type RosePdfWatermarkProps = {
  * Light centered logo watermark for Rose PDF pages (print-safe, non-interactive).
  */
 export function RosePdfWatermark({ logoSrc: logoSrcProp }: RosePdfWatermarkProps) {
-  const [logoSrc, setLogoSrc] = React.useState<string | undefined>(logoSrcProp);
-  React.useEffect(() => {
-    if (logoSrcProp) setLogoSrc(logoSrcProp);
-    else setLogoSrc(getPdfLogoSrc());
-  }, [logoSrcProp]);
+  // The printing company's own logo (none → no watermark), never a fixed one.
+  const companyLogo = usePdfCompanyLetterhead().logoSrc;
+  const logoSrc =
+    logoSrcProp && !isDefaultPdfLogoSrc(logoSrcProp) ? logoSrcProp : companyLogo;
 
   if (!logoSrc) return null;
 
