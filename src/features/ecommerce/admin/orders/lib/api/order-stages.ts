@@ -8,16 +8,40 @@ export const ORDER_STAGES: readonly OrderStage[] = ['pending', 'confirmed', 'pro
 
 export type OrderStageAutoAssign = 'none' | 'user' | 'balanced';
 
+/**
+ * What a stage member sees of the stage: their orders only; plus the
+ * stage's unassigned orders (which they take); or every order of the stage.
+ */
+export type OrderStageScope = 'assigned' | 'queue' | 'all';
+
+export const ORDER_STAGE_SCOPE_LABELS: Record<OrderStageScope, string> = {
+  assigned: 'المسندة إليه فقط',
+  queue: 'المسندة إليه + غير المسندة',
+  all: 'كل طلبات المرحلة',
+};
+
+export type OrderStageMemberView = {
+  userId: string;
+  nameAr: string | null;
+  scope: OrderStageScope;
+  /** False when their roles no longer open the orders (sta.order-stages.work). */
+  canOpenOrders: boolean;
+};
+
+/** A user who may be made a stage member. */
+export type OrderStageCandidate = { id: string; nameAr: string; email: string | null };
+
 export type OrderStageSettingView = {
   stage: OrderStage;
   labelAr: string;
-  permissionCode: string;
   autoAssign: OrderStageAutoAssign;
   userId: string | null;
   userNameAr: string | null;
-  /** Whether the set user still holds the stage (null: no user set). */
+  /** Whether the set user still handles the stage (null: no user set). */
   userEligible: boolean | null;
-  /** Users holding the stage now; 0 leaves its orders stuck once stages are on. */
+  /** Who handles the stage, with their scope. */
+  members: OrderStageMemberView[];
+  /** Members who can open the orders; 0 leaves its orders stuck once stages are on. */
   handlersCount: number;
 };
 
@@ -36,6 +60,8 @@ export type SaveOrderStagesSettingsInput = {
     stage: OrderStage;
     autoAssign: OrderStageAutoAssign;
     userId?: string | null;
+    /** Replaces the stage's members (omitted: unchanged). */
+    members?: Array<{ userId: string; scope: OrderStageScope }>;
   }>;
 };
 
@@ -47,12 +73,17 @@ export type OrderStagesContext = {
   userId: string;
   canReadAll: boolean;
   canUpdate: boolean;
+  /** The stages they are a member of. */
   stages: OrderStage[];
+  /** Their scope in each of those stages. */
+  stageScopes?: Partial<Record<OrderStage, OrderStageScope>>;
+  /** May work on any stage (holds the assign permission). */
+  isSupervisor?: boolean;
   canCancel: boolean;
   canRefund: boolean;
   canRollback: boolean;
   canAssign: boolean;
-  /** May pick who handles the order (assign anyone / the next stage's handler). */
+  /** May pick the next stage's handler when moving an order (whoever may move it). */
   canChooseHandler: boolean;
 };
 
@@ -62,6 +93,8 @@ export type OrderStageHandler = {
   email: string | null;
   /** Open orders assigned to them now. */
   openOrders: number;
+  /** Their scope in the stage (null: not a member). */
+  scope?: OrderStageScope | null;
 };
 
 const base = (companyId: string) => `/store-admin/companies/${companyId}/order-stages`;
@@ -83,6 +116,11 @@ export const orderStagesApi = {
     apiRequest<OrderStagesContext>(`${base(companyId)}/context`, {
       throwOnError: true,
       silent: true,
+    }),
+
+  candidates: (companyId: string) =>
+    apiRequest<OrderStageCandidate[]>(`${base(companyId)}/candidates`, {
+      throwOnError: true,
     }),
 
   handlers: (companyId: string, stage: OrderStage) =>

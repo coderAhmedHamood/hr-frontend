@@ -14,42 +14,19 @@ import {
   getOrderFlowCurrentIndex,
   getOrderFlowNextStep,
   isOrderPipelineStatus,
-  isOrderStatusNoteRecommended,
   isPaymentSettled,
   type OrderFlowStep,
 } from '@/features/ecommerce/domain/constants/order-status';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/shared/utils';
 import {
-  HANDLER_AUTO,
-  HANDLER_KEEP,
-  HANDLER_NONE,
-  OrderHandlerSelect,
-} from '@/features/ecommerce/admin/orders/components/order-handler-select';
+  OrderMoveDialog,
+  type OrderStatusChangeExtra,
+} from '@/features/ecommerce/admin/orders/components/order-move-dialog';
 import type { OrderStagesContext } from '@/features/ecommerce/admin/orders/lib/api/order-stages';
-import {
-  ORDER_STAGE_LABELS_AR,
-  isOrderStage,
-  isPaidOnDelivery,
-  moveBlockReason,
-} from '@/features/ecommerce/admin/orders/lib/order-stage-access';
+import { moveBlockReason } from '@/features/ecommerce/admin/orders/lib/order-stage-access';
 
-/** Extra choices of a status move (order stages, delivery). */
-export type OrderStatusChangeExtra = {
-  /** Who handles the order in the stage it enters; omitted: the settings decide. */
-  assigneeId?: string | null;
-  paymentCollected?: boolean;
-};
+export type { OrderStatusChangeExtra };
 
 type Props = {
   order: Pick<Order, 'status' | 'items' | 'paymentMethod' | 'paymentStatus' | 'assignedUserId'>;
@@ -74,11 +51,6 @@ type Props = {
   onPaymentPaid: () => void;
 };
 
-type PendingTransition = {
-  status: OrderStatus;
-  noteRecommended: boolean;
-};
-
 /**
  * Horizontal sequential status bar — fulfilment + payment.
  * Transitions follow backend `ORDER_STATUS_TRANSITIONS` (no arbitrary jumps).
@@ -101,49 +73,14 @@ export function OrderStatusStepper({
   const next = getOrderFlowNextStep(order);
   const paid = isPaymentSettled(order);
   const allowed = React.useMemo(() => getAllowedOrderStatusTransitions(order), [order]);
-  const [pending, setPending] = React.useState<PendingTransition | null>(null);
-  const [note, setNote] = React.useState('');
-  const [handler, setHandler] = React.useState(HANDLER_AUTO);
-  const [collected, setCollected] = React.useState(true);
+  const [pending, setPending] = React.useState<OrderStatus | null>(null);
   const blockReason = (status: OrderStatus) => moveBlockReason(stages, order, status);
 
   function requestTransition(status: OrderStatus) {
     if (status === order.status) return;
     if (!canTransitionOrderStatus(order, status)) return;
     if (blockReason(status)) return;
-    setNote('');
-    setHandler(stages?.enabled ? HANDLER_AUTO : HANDLER_KEEP);
-    setCollected(true);
-    setPending({
-      status,
-      noteRecommended: isOrderStatusNoteRecommended(order.status, status),
-    });
-  }
-
-  // Choosing the next stage's handler is the supervisor's (others: the stage settings).
-  const pickHandler = Boolean(
-    pending && stages?.canChooseHandler && isOrderStage(pending.status),
-  );
-  const askCollected = Boolean(
-    pending?.status === 'delivered' &&
-      isPaidOnDelivery(order.paymentMethod) &&
-      order.paymentStatus !== 'paid',
-  );
-  // A paid order: the backend needs the reason and how the money goes back.
-  const noteRequired = pending?.status === 'cancelled' && order.paymentStatus === 'paid';
-
-  function confirmTransition() {
-    if (!pending) return;
-    const trimmed = note.trim();
-    if (noteRequired && !trimmed) return;
-    const extra: OrderStatusChangeExtra = {};
-    if (pickHandler && handler !== HANDLER_AUTO && handler !== HANDLER_KEEP) {
-      extra.assigneeId = handler === HANDLER_NONE ? null : handler;
-    }
-    if (askCollected && collected) extra.paymentCollected = true;
-    onOrderStatusChange(pending.status, trimmed || null, extra);
-    setPending(null);
-    setNote('');
+    setPending(status);
   }
 
   function applyStep(step: OrderFlowStep) {
@@ -335,91 +272,17 @@ export function OrderStatusStepper({
         ) : null}
       </div>
 
-      <Dialog
-        open={Boolean(pending)}
-        onOpenChange={(open) => {
-          if (!open) {
-            setPending(null);
-            setNote('');
-          }
+      <OrderMoveDialog
+        order={order}
+        companyId={companyId}
+        stages={stages}
+        target={pending}
+        onCancel={() => setPending(null)}
+        onConfirm={(status, note, extra) => {
+          onOrderStatusChange(status, note, extra);
+          setPending(null);
         }}
-      >
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>
-              {pending ? `تغيير الحالة إلى «${ORDER_STATUS_LABELS_AR[pending.status]}»` : 'تغيير الحالة'}
-            </DialogTitle>
-            <DialogDescription>
-              {pending?.noteRecommended
-                ? 'يُفضَّل إضافة ملاحظة عند التراجع أو الإلغاء/الاسترداد.'
-                : 'ملاحظة اختيارية تُسجَّل في سجل الحالة.'}
-            </DialogDescription>
-          </DialogHeader>
-          {pending && pickHandler && isOrderStage(pending.status) ? (
-            <div className="space-y-1.5">
-              <p className="text-sm font-medium text-foreground">
-                المسؤول في مرحلة «{ORDER_STAGE_LABELS_AR[pending.status]}»
-              </p>
-              <OrderHandlerSelect
-                companyId={companyId}
-                stage={pending.status}
-                value={handler}
-                onChange={setHandler}
-                leading={[
-                  stages?.enabled
-                    ? { value: HANDLER_AUTO, label: 'حسب إعدادات المرحلة' }
-                    : { value: HANDLER_KEEP, label: 'دون تغيير' },
-                ]}
-              />
-            </div>
-          ) : null}
-          {askCollected ? (
-            <label className="flex items-start gap-2 rounded-lg border border-teal-500/30 bg-teal-500/10 p-3 text-sm">
-              <Checkbox
-                checked={collected}
-                onCheckedChange={(value) => setCollected(value === true)}
-                className="mt-0.5"
-              />
-              <span>
-                تم تحصيل المبلغ من العميل عند التسليم
-                <span className="block text-xs text-muted-foreground">
-                  تُسجَّل حالة الدفع «مدفوع» مع التسليم.
-                </span>
-              </span>
-            </label>
-          ) : null}
-          <Input
-            value={note}
-            onChange={(event) => setNote(event.target.value)}
-            placeholder={
-              noteRequired
-                ? 'الطلب مدفوع — سبب الإلغاء وكيف يُعاد المبلغ (مطلوب)'
-                : 'ملاحظة الموظف (اختياري)'
-            }
-            maxLength={500}
-            aria-invalid={noteRequired && !note.trim() ? true : undefined}
-          />
-          <DialogFooter className="gap-2 sm:gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setPending(null);
-                setNote('');
-              }}
-            >
-              إلغاء
-            </Button>
-            <Button
-              type="button"
-              onClick={confirmTransition}
-              disabled={noteRequired && !note.trim()}
-            >
-              تأكيد
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      />
     </div>
   );
 }

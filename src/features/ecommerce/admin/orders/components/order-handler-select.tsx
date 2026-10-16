@@ -23,7 +23,7 @@ type Props = {
   excludeUserId?: string | null;
 };
 
-/** The staff who may handle `stage`, least loaded first, with their open orders. */
+/** The members of `stage`, least loaded first, with their open orders. */
 export function OrderHandlerSelect({
   companyId,
   stage,
@@ -49,7 +49,7 @@ export function OrderHandlerSelect({
           </SelectItem>
         ))}
         {allowNone ? (
-          <SelectItem value={HANDLER_NONE}>بدون إسناد — يستلمه أحد مستخدمي المرحلة</SelectItem>
+          <SelectItem value={HANDLER_NONE}>بدون إسناد — يستلمه أحد أعضاء المرحلة</SelectItem>
         ) : null}
         {users.map((user) => (
           <SelectItem key={user.id} value={user.id}>
@@ -59,7 +59,7 @@ export function OrderHandlerSelect({
         ))}
         {!handlers.isLoading && users.length === 0 ? (
           <div className="px-3 py-2 text-xs text-muted-foreground">
-            لا يوجد مستخدمون يملكون صلاحية هذه المرحلة
+            لا أعضاء في هذه المرحلة — أضفهم من إعدادات المراحل
           </div>
         ) : null}
       </SelectContent>

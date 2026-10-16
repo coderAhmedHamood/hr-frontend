@@ -55,8 +55,6 @@ const ASSIGNEE_FILTER_OPTIONS = [
 
 type ViewMode = 'list' | 'kanban';
 
-const KANBAN_PAGE_SIZE = 100;
-
 const STATUS_FILTER_OPTIONS: Array<{ value: 'all' | OrderStatus; label: string }> = [
   { value: 'all', label: 'كل الحالات' },
   ...(Object.keys(ORDER_STATUS_LABELS_AR) as OrderStatus[]).map((value) => ({
@@ -178,10 +176,7 @@ export function OrdersListPage() {
   const dateTo = searchParams.get('dateTo') ?? '';
   const view: ViewMode = searchParams.get('view') === 'list' ? 'list' : 'kanban';
   const page = Math.max(1, Number(searchParams.get('page')) || 1);
-  const pageSize =
-    view === 'kanban'
-      ? KANBAN_PAGE_SIZE
-      : Number(searchParams.get('pageSize')) || DEFAULT_PAGE_SIZE;
+  const pageSize = Number(searchParams.get('pageSize')) || DEFAULT_PAGE_SIZE;
   const selectedOrderId = searchParams.get('order') ?? '';
 
   const stagesContext = useOrderStagesContext(companyId).data ?? null;
@@ -306,10 +301,10 @@ export function OrdersListPage() {
     return () => clearTimeout(timeout);
   }, [searchInput]);
 
-  const { data, isLoading, isError } = useOrders({
+  // The filters both views apply (the kanban adds each column's status and pages it).
+  const filters = {
     companyId,
     search: search || undefined,
-    status: view === 'kanban' ? undefined : status,
     paymentStatus,
     paymentMethod,
     fulfilment,
@@ -318,9 +313,11 @@ export function OrdersListPage() {
     assignedTo: assignee,
     dateFrom: dateFrom || undefined,
     dateTo: dateTo || undefined,
-    page: view === 'kanban' ? 1 : page,
-    limit: pageSize,
-  });
+  };
+  const { data, isLoading, isError } = useOrders(
+    { ...filters, status, page, limit: pageSize },
+    view === 'list',
+  );
 
   const updateStatus = useUpdateOrderStatus(companyId);
   const updatePayment = useUpdateOrderPaymentStatus(companyId);
@@ -693,7 +690,8 @@ export function OrdersListPage() {
       {view === 'kanban' ? (
         <OrdersKanbanView
           companyId={companyId}
-          orders={items}
+          filters={filters}
+          stages={stagesContext}
           onOpen={(order) => updateParams({ order: order.id })}
           updatingOrderId={
             updateStatus.isPending
@@ -702,9 +700,11 @@ export function OrdersListPage() {
                 ? updatePayment.variables?.orderId
                 : null
           }
-          onStatusChange={(order, nextStatus) => {
+          onStatusChange={(order, nextStatus, note, extra) => {
             if (order.status === nextStatus) return;
-            void updateStatus.mutateAsync({ orderId: order.id, status: nextStatus });
+            void updateStatus
+              .mutateAsync({ orderId: order.id, status: nextStatus, note, ...extra })
+              .catch(() => undefined);
           }}
           onMarkPaid={(order) => {
             void updatePayment.mutateAsync({ orderId: order.id, paymentStatus: 'paid' });

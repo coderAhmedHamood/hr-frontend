@@ -9,12 +9,17 @@ import {
   OrderHandlerSelect,
 } from '@/features/ecommerce/admin/orders/components/order-handler-select';
 import { useAssignOrder } from '@/features/ecommerce/admin/orders/hooks/use-order-stages';
-import type { OrderStagesContext } from '@/features/ecommerce/admin/orders/lib/api/order-stages';
+import {
+  ORDER_STAGE_SCOPE_LABELS,
+  type OrderStage,
+  type OrderStagesContext,
+} from '@/features/ecommerce/admin/orders/lib/api/order-stages';
 import {
   ORDER_STAGE_LABELS_AR,
   canAssignAnyone,
   canTakeOrder,
   isOrderStage,
+  stageScopeOf,
 } from '@/features/ecommerce/admin/orders/lib/order-stage-access';
 import type { Order } from '@/features/ecommerce/domain/types/order';
 import { formatDisplayDateTime } from '@/shared/utils';
@@ -36,6 +41,7 @@ export function OrderAssignmentPanel({ order, companyId, stages }: Props) {
   const mine = Boolean(stages && order.assignedUserId === stages.userId);
   const mayAssign = open && canAssignAnyone(stages);
   const mayTake = open && canTakeOrder(stages, order);
+  const myScope = open && stages?.enabled ? stageScopeOf(stages, order.status as OrderStage) : null;
 
   const run = (assigneeId: string | null) =>
     void assign
@@ -48,9 +54,16 @@ export function OrderAssignmentPanel({ order, companyId, stages }: Props) {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-sm font-semibold text-foreground">المسؤول عن الطلب</h3>
         {open ? (
-          <Badge variant="outline">
-            مرحلة: {ORDER_STAGE_LABELS_AR[order.status as keyof typeof ORDER_STAGE_LABELS_AR]}
-          </Badge>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Badge variant="outline">
+              مرحلة: {ORDER_STAGE_LABELS_AR[order.status as keyof typeof ORDER_STAGE_LABELS_AR]}
+            </Badge>
+            {myScope ? (
+              <Badge variant="subtle" title="نطاق رؤيتك في هذه المرحلة (من إعدادات المراحل)">
+                نطاقك: {ORDER_STAGE_SCOPE_LABELS[myScope]}
+              </Badge>
+            ) : null}
+          </div>
         ) : null}
       </div>
 
@@ -74,7 +87,7 @@ export function OrderAssignmentPanel({ order, companyId, stages }: Props) {
           <>
             <UserRound className="h-4 w-4 text-muted-foreground" />
             <p className="flex-1 text-sm text-muted-foreground">
-              {open ? 'غير مسند — يستلمه أحد مستخدمي المرحلة' : 'لم يُسند لأحد'}
+              {open ? 'غير مسند — يستلمه أحد أعضاء المرحلة' : 'لم يُسند لأحد'}
             </p>
           </>
         )}
@@ -82,7 +95,7 @@ export function OrderAssignmentPanel({ order, companyId, stages }: Props) {
           <Button
             type="button"
             size="sm"
-            className="gap-1.5"
+            className="gap-1.5 max-sm:h-10 max-sm:w-full"
             disabled={assign.isPending}
             onClick={() => run(stages!.userId)}
           >
@@ -95,7 +108,7 @@ export function OrderAssignmentPanel({ order, companyId, stages }: Props) {
             type="button"
             size="sm"
             variant="outline"
-            className="gap-1.5"
+            className="gap-1.5 max-sm:h-10 max-sm:w-full"
             disabled={assign.isPending}
             onClick={() => run(null)}
           >
@@ -121,6 +134,7 @@ export function OrderAssignmentPanel({ order, companyId, stages }: Props) {
             type="button"
             size="sm"
             variant="secondary"
+            className="max-sm:h-10"
             disabled={!target || assign.isPending}
             onClick={() => run(target === HANDLER_NONE ? null : target)}
           >

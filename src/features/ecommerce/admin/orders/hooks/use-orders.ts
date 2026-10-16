@@ -1,4 +1,10 @@
-﻿import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+﻿import {
+  type InfiniteData,
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 import { inventoryStockService } from '@/features/inventory/services/inventory-stock.service';
 import { ordersApi } from '@/features/ecommerce/admin/orders/lib/api/orders';
 import {
@@ -23,6 +29,8 @@ import { toast } from 'sonner';
 export const ordersQueryKeys = {
   all: ['ecommerce', 'orders'] as const,
   list: (query: OrderListQuery) => [...ordersQueryKeys.all, 'list', query] as const,
+  /** One kanban column (a status), paged on scroll. */
+  stage: (query: OrderListQuery) => [...ordersQueryKeys.all, 'stage', query] as const,
   detail: (companyId: string, id: string) => [...ordersQueryKeys.all, 'detail', companyId, id] as const,
 };
 
@@ -49,17 +57,50 @@ function syncOrderInCaches(
       return { ...old, items };
     },
   );
+  queryClient.setQueriesData(
+    { queryKey: [...ordersQueryKeys.all, 'stage'] },
+    (old: InfiniteData<PaginatedResult<Order>> | undefined) => {
+      if (!old?.pages) return old;
+      return {
+        ...old,
+        pages: old.pages.map((page) => ({
+          ...page,
+          items: page.items.map((item) => (item.id === order.id ? { ...item, ...order } : item)),
+        })),
+      };
+    },
+  );
 }
 
-export function useOrders(query: OrderListQuery) {
+export function useOrders(query: OrderListQuery, enabled = true) {
   return useQuery({
     queryKey: ordersQueryKeys.list(query),
     queryFn: () => ordersApi.getAll(query),
-    enabled: Boolean(query.companyId),
+    enabled: Boolean(query.companyId && enabled),
     // Refresh on tab focus so newly placed orders show up — but only when
     // the data is actually stale (respects the global staleTime), unlike a
     // raw `window.addEventListener('focus', refetch)` which would refetch
     // unconditionally on every focus event.
+    refetchOnWindowFocus: true,
+  });
+}
+
+/** Orders shown per kanban column at first, and per "load more". */
+export const KANBAN_STAGE_PAGE_SIZE = 10;
+
+/**
+ * One kanban column: the first page of its status, then the next page each
+ * time the column is scrolled to its last card (that column only).
+ */
+export function useOrdersStageColumn(query: Omit<OrderListQuery, 'page' | 'limit'> & { status: OrderStatus }) {
+  const limit = KANBAN_STAGE_PAGE_SIZE;
+  return useInfiniteQuery({
+    queryKey: ordersQueryKeys.stage({ ...query, limit }),
+    queryFn: ({ pageParam }) => ordersApi.getAll({ ...query, limit, page: pageParam }),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage, pages) =>
+      pages.length * limit < lastPage.pagination.total ? pages.length + 1 : undefined,
+    enabled: Boolean(query.companyId),
     refetchOnWindowFocus: true,
   });
 }
