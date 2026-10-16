@@ -55,6 +55,8 @@ export type MonthlyInputListQuery = {
   companyId?: string;
   payrollPeriodId?: string;
   employeeId?: string;
+  /** Unique ids — serialized as comma-separated (`id1,id2`). */
+  employeeIds?: string[];
   inputKind?: MonthlyInputKindDto;
   direction?: MonthlyInputDirectionDto;
   sourceKind?: MonthlyInputSourceKindDto;

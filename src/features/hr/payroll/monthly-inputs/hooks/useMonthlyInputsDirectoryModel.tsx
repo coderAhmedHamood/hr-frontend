@@ -113,21 +113,21 @@ export function useMonthlyInputsDirectoryModel() {
     if (filters.payrollPeriodId !== 'all') loadPeriods();
   }, [filters.payrollPeriodId, loadPeriods]);
 
-  const employeeId = selectedEmpIds.size === 1 ? [...selectedEmpIds][0] : undefined;
+  const selectedEmpKey = React.useMemo(() => [...selectedEmpIds].sort().join(','), [selectedEmpIds]);
 
   const fetchListPage = React.useCallback((page: number, pageSize: number) => monthlyInputsApi.list({
     companyId: companyId!,
     page,
     limit: pageSize,
     ...(filters.payrollPeriodId !== 'all' ? { payrollPeriodId: filters.payrollPeriodId } : {}),
-    ...(employeeId ? { employeeId } : {}),
+    ...(selectedEmpKey ? { employeeIds: selectedEmpKey.split(',') } : {}),
     ...employeeStatusQuery(employeeStatus),
     ...(filters.inputKind !== 'all' ? { inputKind: filters.inputKind } : {}),
     ...(filters.direction !== 'all' ? { direction: filters.direction } : {}),
     ...(filters.sourceKind !== 'all' ? { sourceKind: filters.sourceKind } : {}),
     ...(filters.affectsSalary === 'true' ? { affectsSalary: true } : {}),
     ...(filters.affectsSalary === 'false' ? { affectsSalary: false } : {}),
-  }), [companyId, employeeId, employeeStatus, filters]);
+  }), [companyId, selectedEmpKey, employeeStatus, filters]);
 
   const loadPage = React.useCallback(async (page: number, pageSize: number) => {
     if (!companyId) return { items: [] as MonthlyInputResponseDto[], total: 0 };
@@ -154,7 +154,7 @@ export function useMonthlyInputsDirectoryModel() {
     reload: reloadInputs,
   } = useServerDirectoryPagination(loadPage, {
     enabled: !!companyId,
-    resetDeps: [filters, employeeId, employeeStatus],
+    resetDeps: [filters, selectedEmpKey, employeeStatus],
   });
 
   const periodOptions = React.useMemo(
