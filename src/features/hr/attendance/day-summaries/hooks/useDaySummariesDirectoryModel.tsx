@@ -283,6 +283,7 @@ export function useDaySummariesDirectoryModel() {
       from,
       to,
       periodFilterActive,
+      assignedBranchId,
       filters.status,
       filters.isManualOverride,
       selectedEmpKey,

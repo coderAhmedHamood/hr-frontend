@@ -9,6 +9,7 @@ import { useFilterPermission } from '@/features/auth/permissions/use-filter-perm
 export type EmployeePickerOption = {
   id: string;
   name: string;
+  branchId?: string;
   branchNameAr?: string;
   departmentNameAr?: string;
 };
