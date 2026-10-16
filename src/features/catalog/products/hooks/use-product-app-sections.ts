@@ -7,6 +7,7 @@ import {
   STORE_STOCK_SYNC_APP_CODE,
   type ModuleEnablementContext,
 } from '@/shared/modules/registry';
+import { PUTAWAY_RULES_ENABLED } from '@/features/inventory/admin/putaway-rules/lib/putaway-feature';
 
 /**
  * Which apps' sections the product screens show (phase 2.5). The product
@@ -77,5 +78,9 @@ export function visibleRelatedDocs<T extends { key: string }>(
   docs: readonly T[],
   sections: ProductAppSections,
 ): T[] {
-  return docs.filter((doc) => sections.inventory || !INVENTORY_DOCS.has(doc.key));
+  return docs.filter(
+    (doc) =>
+      (doc.key !== 'putaway' || PUTAWAY_RULES_ENABLED) &&
+      (sections.inventory || !INVENTORY_DOCS.has(doc.key)),
+  );
 }

@@ -47,6 +47,7 @@ import {
 import { cn } from '@/shared/utils';
 import { isMultiLangEnabled } from '@/i18n/locale-flags';
 import { useProductAppSections } from '@/features/catalog/products/hooks/use-product-app-sections';
+import { PUTAWAY_RULES_ENABLED } from '@/features/inventory/admin/putaway-rules/lib/putaway-feature';
 
 type Props = {
   category?: Category | null;
@@ -73,7 +74,7 @@ export function CategoryFormDialog({ category, categories = [], open, onOpenChan
   const { inventory: inventoryEnabled } = useProductAppSections();
   const { data: putawayData } = usePutawayRules(
     { companyId, categoryId: category?.id, limit: 1 },
-    { enabled: Boolean(inventoryEnabled && category?.id) },
+    { enabled: Boolean(PUTAWAY_RULES_ENABLED && inventoryEnabled && category?.id) },
   );
 
   const productsCount = category?.id ? (productsData?.pagination.total ?? 0) : 0;
@@ -164,7 +165,7 @@ export function CategoryFormDialog({ category, categories = [], open, onOpenChan
             </DialogTitle>
             {isEditing ? (
               <div className="flex flex-wrap gap-2" role="toolbar" aria-label="مستندات الفئة">
-                {inventoryEnabled ? (
+                {PUTAWAY_RULES_ENABLED && inventoryEnabled ? (
                   <button
                     type="button"
                     onClick={() => openRelated('putaway')}

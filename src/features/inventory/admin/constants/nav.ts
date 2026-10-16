@@ -31,6 +31,7 @@ import {
 import { inventoryAdminRoutes } from '@/features/inventory/admin/constants/routes';
 import { WAREHOUSE_OPERATION_KIND_META } from '@/features/inventory/domain/constants/warehouse-operation-kinds';
 import type { WarehouseOperationKind } from '@/features/inventory/domain/types/warehouse';
+import { PUTAWAY_RULES_ENABLED } from '@/features/inventory/admin/putaway-rules/lib/putaway-feature';
 
 export type InventoryAdminNavItem = {
   labelAr: string;
@@ -172,7 +173,10 @@ export const inventoryAdminNavGroups: InventoryAdminNavGroup[] = [
         items: [
           { labelAr: 'المستودعات', href: inventoryAdminRoutes.warehouses, icon: Warehouse },
           { labelAr: 'المواقع', href: inventoryAdminRoutes.locations, icon: MapPin },
-          { labelAr: 'قواعد التخزين', href: inventoryAdminRoutes.putawayRules, icon: MapPinned },
+          // Not applied yet (see putaway-feature): hidden until it is.
+          ...(PUTAWAY_RULES_ENABLED
+            ? [{ labelAr: 'قواعد التخزين', href: inventoryAdminRoutes.putawayRules, icon: MapPinned }]
+            : []),
         ],
       },
     ],

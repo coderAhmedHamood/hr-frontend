@@ -60,8 +60,11 @@ describe('product app sections (phase 2.5)', () => {
   });
 
   it('hides stock shortcuts without inventory', () => {
-    expect(visibleRelatedDocs(DOCS, { inventory: true, store: false })).toHaveLength(DOCS.length);
-    expect(visibleRelatedDocs(DOCS, { inventory: false, store: true }).map((d) => d.key)).toEqual([
+    // Putaway rules are hidden until something applies them (putaway-feature).
+    expect(visibleRelatedDocs(DOCS, { inventory: true, store: false, pos: false }).map((d) => d.key)).toEqual(
+      DOCS.map((d) => d.key).filter((k) => k !== 'putaway'),
+    );
+    expect(visibleRelatedDocs(DOCS, { inventory: false, store: true, pos: false }).map((d) => d.key)).toEqual([
       'variants',
     ]);
   });
