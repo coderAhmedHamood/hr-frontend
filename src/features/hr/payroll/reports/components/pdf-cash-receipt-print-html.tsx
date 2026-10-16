@@ -63,6 +63,8 @@ const font: React.CSSProperties = { fontFamily: PDF_PRINT_FONT_FAMILY };
 const DOTS = '........................................................................';
 const DOTS_SHORT = '....................................';
 const DOTS_MED = '....................';
+/** Month / year blanks: short, so a reason and its period stay on one line. */
+const DOTS_DATE = '..........';
 
 function Checkbox({ checked }: { checked?: boolean }) {
   return (
@@ -71,15 +73,18 @@ function Checkbox({ checked }: { checked?: boolean }) {
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
-        width: 12,
-        height: 12,
+        // The tick fits inside the box (a 22px tick spilled out of it), and
+        // the box sits on the middle of the first text line (20px × 1.85).
+        width: 16,
+        height: 16,
+        marginTop: 10,
         border: '1.5px solid #111',
         marginInlineStart: 8,
         marginInlineEnd: 2,
         flexShrink: 0,
         verticalAlign: 'middle',
         boxSizing: 'border-box',
-        fontSize: 22,
+        fontSize: 13,
         fontWeight: 700,
         lineHeight: 1,
       }}
@@ -96,9 +101,9 @@ function ReasonRow({ children, checked }: { children: React.ReactNode; checked?:
         display: 'flex',
         flexDirection: 'row',
         alignItems: 'flex-start',
-        fontSize: 22,
+        fontSize: 20,
         lineHeight: 1.85,
-        marginBottom: 6,
+        marginBottom: 2,
         textAlign: 'right',
         fontWeight: checked ? 700 : 400,
         ...font,
@@ -121,7 +126,7 @@ function DottedField({
 }) {
   const text = value?.trim();
   return (
-    <div style={{ fontSize: 22.5, lineHeight: 2.1, textAlign: 'right', marginBottom: 4, ...font }}>
+    <div style={{ fontSize: 20, lineHeight: 2, textAlign: 'right', marginBottom: 4, ...font }}>
       {label}{' '}
       {blank || !text ? (
         DOTS
@@ -156,7 +161,7 @@ function periodSlots(
     year != null && Number.isFinite(year) ? String(year).slice(-2) : null;
   return (
     <>
-      <Slot blank={blank} value={month} />/<Slot blank={blank} value={yearShort} dots={DOTS_MED} /> م
+      <Slot blank={blank} value={month} dots={DOTS_DATE} />/<Slot blank={blank} value={yearShort} dots={DOTS_DATE} /> م
     </>
   );
 }
@@ -181,16 +186,17 @@ function ApprovalFooter({
         display: 'grid',
         gridTemplateColumns: 'repeat(4, 1fr)',
         gap: 12,
-        marginTop: 32,
+        marginTop: 20,
         textAlign: 'center',
-        fontSize: 22,
+        fontSize: 20,
         fontWeight: 700,
         ...font,
       }}
     >
       {items.map(({ label, value }) => (
-        <div key={label}>
-          <div style={{ marginBottom: 36 }}>{label}</div>
+        // Signature lines level across columns, even when a label wraps.
+        <div key={label} style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+          <div style={{ marginBottom: 28 }}>{label}</div>
           <div style={{ borderBottom: '1px dotted #333', minHeight: 1 }}>
             {!blank && value?.trim() ? sanitizePdfText(value.trim()) : null}
           </div>
@@ -230,12 +236,12 @@ export const CashReceiptPrintHtml = React.forwardRef<HTMLDivElement, CashReceipt
           margin: '0 auto',
           boxSizing: 'border-box',
           backgroundColor: '#ffffff',
-          padding: '26px 36px 40px',
-          fontSize: 22.5,
+          padding: '0 36px 40px',
+          fontSize: 20,
           color: '#111111',
           display: 'flex',
           flexDirection: 'column',
-          minHeight: '297mm',
+          minHeight: '279mm',
           overflow: 'hidden',
           ...font,
         }}
@@ -245,6 +251,7 @@ export const CashReceiptPrintHtml = React.forwardRef<HTMLDivElement, CashReceipt
           style={{
             position: 'relative',
             zIndex: 1,
+            paddingTop: 26,
             display: 'flex',
             flexDirection: 'column',
             flex: 1,
@@ -262,26 +269,26 @@ export const CashReceiptPrintHtml = React.forwardRef<HTMLDivElement, CashReceipt
               fontWeight: 700,
               textAlign: 'center',
               marginTop: 12,
-              marginBottom: 28,
+              marginBottom: 16,
               ...font,
             }}
           >
             سند استلام نقدي
           </div>
 
-          <div style={{ fontSize: 22.5, lineHeight: 2.15, textAlign: 'right', marginBottom: 6, ...font }}>
+          <div style={{ fontSize: 20, lineHeight: 2, textAlign: 'right', marginBottom: 6, ...font }}>
             استلمت انا / <Slot blank={blank} value={fields?.recipientName} dots={DOTS} /> الموقعة أدناه
           </div>
-          <div style={{ fontSize: 22.5, lineHeight: 2.15, textAlign: 'right', marginBottom: 6, ...font }}>
+          <div style={{ fontSize: 20, lineHeight: 2, textAlign: 'right', marginBottom: 6, ...font }}>
             من مؤسسة{' '}
             <Slot
               blank={blank}
               value={fields?.institutionName || companyNameAr}
-              dots={DOTS}
+              dots={DOTS_SHORT}
             />{' '}
             ، فرع <Slot blank={blank} value={fields?.branchName} dots={DOTS_SHORT} />
           </div>
-          <div style={{ fontSize: 22.5, lineHeight: 2.15, textAlign: 'right', marginBottom: 18, ...font }}>
+          <div style={{ fontSize: 20, lineHeight: 2, textAlign: 'right', marginBottom: 8, ...font }}>
             مبلغ وقدره ( <Slot blank={blank} value={fields?.amount} dots={DOTS_SHORT} /> ريال ) كتابة (
             {blank || !fields?.amountInWords?.trim() ? (
               <span>{DOTS}</span>
@@ -293,7 +300,7 @@ export const CashReceiptPrintHtml = React.forwardRef<HTMLDivElement, CashReceipt
             )
           </div>
 
-          <div style={{ fontSize: 22.5, fontWeight: 700, textAlign: 'right', marginBottom: 12, ...font }}>
+          <div style={{ fontSize: 20, fontWeight: 700, textAlign: 'right', marginBottom: 6, ...font }}>
             وذلك مقابل :
           </div>
 
@@ -301,7 +308,7 @@ export const CashReceiptPrintHtml = React.forwardRef<HTMLDivElement, CashReceipt
             style={{
               display: 'grid',
               gridTemplateColumns: '1fr 1fr',
-              gap: '4px 28px',
+              gap: '0 28px',
               marginBottom: 8,
             }}
           >
@@ -360,10 +367,13 @@ export const CashReceiptPrintHtml = React.forwardRef<HTMLDivElement, CashReceipt
               <>
                 <div
                   style={{
-                    fontSize: 22.5,
-                    lineHeight: 2.2,
+                    fontSize: 20,
+                    lineHeight: 1.7,
                     textAlign: 'right',
                     paddingInlineStart: 22,
+                    // A dotted line as wide as the page, cut at its edge.
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
                     ...font,
                   }}
                 >
@@ -372,10 +382,13 @@ export const CashReceiptPrintHtml = React.forwardRef<HTMLDivElement, CashReceipt
                 </div>
                 <div
                   style={{
-                    fontSize: 22.5,
-                    lineHeight: 2.2,
+                    fontSize: 20,
+                    lineHeight: 1.7,
                     textAlign: 'right',
                     paddingInlineStart: 22,
+                    // A dotted line as wide as the page, cut at its edge.
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
                     ...font,
                   }}
                 >
@@ -388,18 +401,18 @@ export const CashReceiptPrintHtml = React.forwardRef<HTMLDivElement, CashReceipt
 
           <div
             style={{
-              fontSize: 22.5,
+              fontSize: 20,
               fontWeight: 700,
               textAlign: 'right',
-              marginTop: 28,
-              marginBottom: 16,
+              marginTop: 16,
+              marginBottom: 8,
               ...font,
             }}
           >
             وعلى ذلك جرى التوقيع ،،،،
           </div>
 
-          <div style={{ marginBottom: 28 }}>
+          <div style={{ marginBottom: 16 }}>
             <DottedField
               label="الاسم :"
               value={fields?.signatureName || fields?.recipientName}
@@ -411,7 +424,7 @@ export const CashReceiptPrintHtml = React.forwardRef<HTMLDivElement, CashReceipt
 
           <ApprovalFooter fields={fields} blank={blank} />
 
-          <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: 24 }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: 12 }}>
             <RoseCompanyStamp width={150} />
           </div>
         </div>

@@ -18,6 +18,9 @@ import {
 import { branchesApi, type BranchResponseDto } from '@/features/hr/organization/lib/api/branches';
 import { loadFilterOptions } from '@/features/hr/lib/load-filter-options';
 import { useServerDirectoryPagination } from '@/components/ui/paged-list';
+import { RegisterExportMenu } from '@/components/pdf/register-export-menu';
+import { useLatestCallback } from '@/shared/hooks/use-latest-callback';
+import type { RegisterColumn } from '@/components/pdf/print/register-document';
 import type { DeptTreeNode } from '@/features/hr/requests/lib/hierarchy-utils';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import { resolveDirectoryLoadFailure } from '@/features/hr/lib/api/directory-load-error';
@@ -44,6 +47,15 @@ import {
   organizationActiveListStatusQuery,
   type OrganizationArchiveScope,
 } from '@/features/hr/organization/lib/archive-scope';
+
+const DEPARTMENT_EXPORT_COLUMNS: RegisterColumn[] = [
+  { label: 'القسم', kind: 'name' },
+  { label: 'القسم الأب', kind: 'text' },
+  { label: 'الشركة', kind: 'text' },
+  { label: 'المدير', kind: 'code' },
+  { label: 'عدد الأقسام الفرعية', kind: 'number' },
+  { label: 'الوصف', kind: 'text', weight: 2 },
+];
 
 export function useDepartmentsDirectoryModel() {
   useSetPageTitle({ titleAr: 'الأقسام', descriptionAr: 'الهيكل التنظيمي وإدارة الأقسام', iconName: 'Building2' });
@@ -202,7 +214,7 @@ export function useDepartmentsDirectoryModel() {
 
   const forest = React.useMemo(() => buildDepartmentForest(departments), [departments]);
 
-  const openCreate = React.useCallback(() => {
+  const openCreate = useLatestCallback(() => {
     if (!perms.canCreate) return;
     setEditId(null);
     setDraft({
@@ -213,7 +225,7 @@ export function useDepartmentsDirectoryModel() {
     });
     setFormError(null);
     setDrawerOpen(true);
-  }, [branchFilter, defaultCompanyId, departments.length, perms.canCreate]);
+  });
 
   const openEdit = React.useCallback((dept: HRDepartmentEntity) => {
     if (!perms.canUpdate) return;
@@ -328,10 +340,41 @@ export function useDepartmentsDirectoryModel() {
     ];
   }, [departments, draft.branchId, excludeIds, parentPickerDepartments]);
 
+  // The directory is bulk-loaded for the current branch/archive filters, so the
+  // export uses the complete list in the same tree order as the grid.
+  const getExportRows = useLatestCallback((): string[][] => {
+    const byId = new Map(departments.map((d) => [d.id, d]));
+    return flattenDepartmentsTree(buildDepartmentForest(departments)).map(({ dept }) => {
+      const record = byId.get(dept.id) ?? (dept as DepartmentRecord);
+      const parent = dept.parentId ? byId.get(dept.parentId) : undefined;
+      return [
+        dept.nameAr,
+        parent?.nameAr ?? '—',
+        companyLabel(record.companyId),
+        record.managerEmployeeId ? `${record.managerEmployeeId.slice(0, 8)}…` : '—',
+        String(departments.filter((d) => d.parentId === dept.id).length),
+        record.description?.trim() || '—',
+      ];
+    });
+  });
+
+  const exportSubtitleLines = React.useMemo(() => {
+    const branch = branchSelectOptions.find((o) => o.value === branchFilter)?.label ?? 'كل الفروع';
+    const scope = ORGANIZATION_ARCHIVE_SCOPE_OPTIONS.find((o) => o.value === archiveScope)?.label ?? '';
+    return [`الفرع: ${branch} — العرض: ${scope}`];
+  }, [archiveScope, branchFilter, branchSelectOptions]);
+
   usePageHeaderActions(
     () => (
       <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
         <FilterToggleButton />
+        <RegisterExportMenu
+          title="سجل الأقسام"
+          fileName="departments"
+          columns={DEPARTMENT_EXPORT_COLUMNS}
+          getRows={getExportRows}
+          subtitleLines={exportSubtitleLines}
+        />
         <Can when={perms.canCreate}>
           <Button variant="luxe" size="sm" className="h-8 shrink-0 gap-2" onClick={openCreate}>
             <Plus className="h-4 w-4" /> قسم جديد
@@ -339,7 +382,7 @@ export function useDepartmentsDirectoryModel() {
         </Can>
       </div>
     ),
-    [openCreate, perms.canCreate],
+    [openCreate, perms.canCreate, getExportRows, exportSubtitleLines],
   );
 
   useEntityFilterSlot(

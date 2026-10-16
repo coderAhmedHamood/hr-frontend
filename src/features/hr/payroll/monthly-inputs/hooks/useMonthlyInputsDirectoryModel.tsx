@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 import { useServerDirectoryPagination } from '@/components/ui/paged-list';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
+import { fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
 import {
   monthlyInputsApi,
   type MonthlyInputDirectionDto,
@@ -104,27 +105,36 @@ export function useMonthlyInputsDirectoryModel() {
 
   const employeeId = selectedEmpIds.size === 1 ? [...selectedEmpIds][0] : undefined;
 
+  const fetchListPage = React.useCallback((page: number, pageSize: number) => monthlyInputsApi.list({
+    companyId: companyId!,
+    page,
+    limit: pageSize,
+    ...(filters.payrollPeriodId !== 'all' ? { payrollPeriodId: filters.payrollPeriodId } : {}),
+    ...(employeeId ? { employeeId } : {}),
+    ...(filters.inputKind !== 'all' ? { inputKind: filters.inputKind } : {}),
+    ...(filters.direction !== 'all' ? { direction: filters.direction } : {}),
+    ...(filters.sourceKind !== 'all' ? { sourceKind: filters.sourceKind } : {}),
+    ...(filters.affectsSalary === 'true' ? { affectsSalary: true } : {}),
+    ...(filters.affectsSalary === 'false' ? { affectsSalary: false } : {}),
+  }), [companyId, employeeId, filters]);
+
   const loadPage = React.useCallback(async (page: number, pageSize: number) => {
     if (!companyId) return { items: [] as MonthlyInputResponseDto[], total: 0 };
     try {
-      const res = await monthlyInputsApi.list({
-        companyId,
-        page,
-        limit: pageSize,
-        ...(filters.payrollPeriodId !== 'all' ? { payrollPeriodId: filters.payrollPeriodId } : {}),
-        ...(employeeId ? { employeeId } : {}),
-        ...(filters.inputKind !== 'all' ? { inputKind: filters.inputKind } : {}),
-        ...(filters.direction !== 'all' ? { direction: filters.direction } : {}),
-        ...(filters.sourceKind !== 'all' ? { sourceKind: filters.sourceKind } : {}),
-        ...(filters.affectsSalary === 'true' ? { affectsSalary: true } : {}),
-        ...(filters.affectsSalary === 'false' ? { affectsSalary: false } : {}),
-      });
+      const res = await fetchListPage(page, pageSize);
       return { items: res.items, total: res.pagination.total };
     } catch (err) {
       handleApiError(err, 'monthly-inputs.load');
       return { items: [], total: 0 };
     }
-  }, [companyId, employeeId, filters]);
+  }, [companyId, fetchListPage]);
+
+  /** Every input matching the current filters (all pages) — for export. */
+  const fetchAllForExport = React.useCallback(async (): Promise<MonthlyInputResponseDto[]> => {
+    if (!companyId) return [];
+    const { items: all } = await fetchAllPaginatedItems(fetchListPage);
+    return all;
+  }, [companyId, fetchListPage]);
 
   const {
     items,
@@ -186,6 +196,7 @@ export function useMonthlyInputsDirectoryModel() {
     loadEmployeePicker,
     activeFilterCount,
     clearFilters,
+    fetchAllForExport,
     reload: reloadInputs,
   };
 }

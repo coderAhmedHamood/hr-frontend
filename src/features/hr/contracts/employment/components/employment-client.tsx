@@ -40,7 +40,7 @@ import type { HRContractArticle } from '@/features/hr/contracts/lib/contract-art
 import type { HRAllowanceTypeRecord } from '@/features/hr/contracts/lib/allowance-types-store';
 import { useEmployees } from '@/features/hr/organization/employees/hooks/useEmployees';
 import { MoneyAmount } from '@/components/ui/sar-amount';
-import { cn, formatNumber } from '@/shared/utils';
+import { cn, formatMoneyDigits, formatNumber } from '@/shared/utils';
 import { hrContractsRoutes } from '@/features/hr/contracts/constants/routes';
 import {
   HR_CONTRACTS_MODE_PARAM,
@@ -65,6 +65,10 @@ import {
   resolveContractActions,
 } from '@/features/hr/contracts/employment/utils/contract-leave-credit';
 import { PdfPreviewExportDialog } from '@/components/pdf/pdf-preview-export-dialog';
+import { RegisterExportMenu } from '@/components/pdf/register-export-menu';
+import type { RegisterColumn } from '@/components/pdf/print/register-document';
+import { fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
+import { useLatestCallback } from '@/shared/hooks/use-latest-callback';
 import { EmploymentContractPrintHtml } from '@/components/pdf/print/employment-contract-print-html';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
 import { getDefaultCompanyId, useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
@@ -92,6 +96,17 @@ const DRAFT_FILTER_OPTIONS: { value: DraftFilter; label: string }[] = [
 const EMPTY_ALLOWANCE_TYPES: HRAllowanceTypeRecord[] = [];
 const EMPTY_ARTICLES: HRContractArticle[] = [];
 const EMPTY_EMPLOYEES: NonNullable<ReturnType<typeof useEmployees>['data']>['items'] = [];
+
+const CONTRACTS_EXPORT_COLUMNS: RegisterColumn[] = [
+  { label: 'الموظف', kind: 'name', weight: 1.6 },
+  { label: 'رقم العقد', kind: 'code' },
+  { label: 'الحالة', kind: 'status' },
+  { label: 'نوع العقد', kind: 'status' },
+  { label: 'نظام العمل', kind: 'status' },
+  { label: 'البداية', kind: 'date' },
+  { label: 'النهاية', kind: 'date' },
+  { label: 'الراتب الأساسي', kind: 'number' },
+];
 
 export function EmploymentContractsClient() {
   const router = useRouter();
@@ -487,17 +502,41 @@ export function EmploymentContractsClient() {
     + (contractNumberFilter.trim() ? 1 : 0)
     + (selectedEmpIds.size > 0 ? 1 : 0);
 
+  const getExportRows = useLatestCallback(async (): Promise<string[][]> => {
+    if (!companyId) return [];
+    const { items } = await fetchAllPaginatedItems((page, limit) =>
+      employeeContractsApi.list(buildListQuery(page, limit)),
+    );
+    return items.map(mapEmployeeContractFromApi).map((c) => [
+      c.employeeNameAr || c.employeeId,
+      c.contractNumber || '—',
+      CONTRACT_STATUS_LABELS[c.status] ?? c.status,
+      contractNatureLabel(c.contractType),
+      workArrangementLabel(c.workArrangement),
+      c.startDate || '—',
+      c.endDate || '—',
+      `${formatMoneyDigits(c.baseSalary, 0)} ${c.currency || 'SAR'}`,
+    ]);
+  });
+
   usePageHeaderActions(
     () => (
       <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
         <FilterToggleButton activeFilterCount={activeFilterCount} />
+        <RegisterExportMenu
+          title="سجل عقود العمل"
+          fileName="employment-contracts"
+          columns={CONTRACTS_EXPORT_COLUMNS}
+          getRows={getExportRows}
+          landscape
+        />
         <Button variant="luxe" size="sm" className="h-8 gap-1.5 px-3 text-xs shadow-sm shrink-0" onClick={openCreate}>
           <Plus className="h-3.5 w-3.5" />
           عقد جديد
         </Button>
       </div>
     ),
-    [activeFilterCount, openCreate],
+    [activeFilterCount, openCreate, getExportRows],
   );
 
   const openView = (c: HRContractRecord) => {

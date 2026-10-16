@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import { resolveDirectoryLoadFailure } from '@/features/hr/lib/api/directory-load-error';
-import { ensurePaginatedResult } from '@/features/hr/lib/api/client';
+import { ensurePaginatedResult, fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
 import { useServerDirectoryPagination } from '@/components/ui/paged-list';
 import type { HRDisciplinePayrollDeductionRecord } from '@/features/hr/discipline/lib/types';
 import { resolveOrganizationScope } from '@/features/hr/organization/lib/api/organization-context';
@@ -171,6 +171,14 @@ export function useDisciplinePayrollDeductionsDirectoryModel() {
   const filteredItems = items;
   const dateFilteredItems = items;
 
+  /** Every deduction matching the current filters (all pages), for export. */
+  const loadAllForExport = React.useCallback(async (): Promise<HRDisciplinePayrollDeductionRecord[]> => {
+    const { items: all } = await fetchAllPaginatedItems((page, limit) =>
+      disciplinePayrollDeductionsApi.getAll(buildDeductionsQuery(page, limit)),
+    );
+    return mapItems(all);
+  }, [buildDeductionsQuery, mapItems]);
+
   const add = React.useCallback(
     async (payload: CreateDisciplinePayrollDeductionDto) => {
       await disciplinePayrollDeductionsApi.create(payload);
@@ -205,6 +213,7 @@ export function useDisciplinePayrollDeductionsDirectoryModel() {
 
   return {
     items,
+    loadAllForExport,
     filteredItems,
     dateFilteredItems,
     sourceDeductions: items,

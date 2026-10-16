@@ -12,7 +12,7 @@ import {
   Banknote, FileSignature, BookOpen, FileSpreadsheet, UserCircle, Briefcase, UserCheck, UserPlus,
   Coins, FileStack, Receipt, KeyRound, Settings, Timer,
   LayoutTemplate, Navigation, PanelBottom, PanelTop, Image, FileText, Newspaper,
-  CircleHelp, Search, ShoppingCart, Package, FolderTree, Tag, Globe, Megaphone,
+  CircleHelp, Search, ShoppingCart, Package, FolderTree, Tag, Globe, Megaphone, Mail,
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
@@ -35,6 +35,8 @@ import { isHrOrganizationNavPath } from '@/features/hr/organization/constants/na
 import { hrOrganizationRoutes } from '@/features/hr/organization/constants/routes';
 import { hrGuidelinesRoutes } from '@/features/hr/guidelines/company-guidelines/constants/routes';
 import { systemPermissionsNavGroups, isSystemPermissionsNavPath } from '@/features/system/permissions/constants/nav';
+import { isSystemEmailNavPath } from '@/features/system/email/constants/nav';
+import { systemEmailHref } from '@/features/system/email/constants/routes';
 import {
   systemOrganizationSettingsNavItems,
   systemOrganizationStructureNavItems,
@@ -252,6 +254,13 @@ export const systemNavConfig: NavItem[] = [
         icon: item.icon,
       })),
     })),
+  },
+  {
+    key: 'system-email',
+    label: 'البريد',
+    icon: Mail,
+    href: systemEmailHref(),
+    isActive: isSystemEmailNavPath,
   },
 ];
 

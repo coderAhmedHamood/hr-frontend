@@ -20,6 +20,18 @@ import { DirectoryPagedViews } from '@/components/ui/paged-list';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { AssignmentsBatchCard } from '@/features/hr/attendance/assignment/components/assignments-batch-card';
 import { AssignmentsBatchDialog } from '@/features/hr/attendance/assignment/components/assignments-batch-dialog';
+import { RegisterExportMenu } from '@/components/pdf/register-export-menu';
+import type { RegisterColumn } from '@/components/pdf/print/register-document';
+import { exportDate } from '@/features/hr/attendance/lib/attendance-export-format';
+import { useLatestCallback } from '@/shared/hooks/use-latest-callback';
+
+const ASSIGNMENT_EXPORT_COLUMNS: RegisterColumn[] = [
+  { label: 'القالب', kind: 'text' },
+  { label: 'الموظف', kind: 'name' },
+  { label: 'الرقم الوظيفي', kind: 'code' },
+  { label: 'ساري من', kind: 'date' },
+  { label: 'الحالة', kind: 'status' },
+];
 
 type AssignmentRow = {
   id: string;
@@ -93,14 +105,37 @@ export function AssignmentsPanel() {
     [model],
   );
 
+  const { loadAllForExport } = model;
+  const getExportRows = useLatestCallback(
+    async () =>
+      (await loadAllForExport()).flatMap((batch) =>
+        batch.rows.map((row) => [
+          batch.templateName,
+          row.targetLabel,
+          row.employeeCode || '—',
+          exportDate(row.effectiveFrom),
+          row.isActive ? 'نشط' : 'غير نشط',
+        ]),
+      ),
+  );
+  const openNew = useLatestCallback(model.openNew);
+
   usePageHeaderActions(
     () => (
-      <Button variant="luxe" size="sm" className="h-8 gap-1.5 px-3 text-xs" type="button" onClick={model.openNew}>
-        <Plus className="h-3.5 w-3.5" />
-        ربط قالب جديد
-      </Button>
+      <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
+        <RegisterExportMenu
+          title="ربط قوالب الدوام بالموظفين"
+          fileName="shift-assignments"
+          columns={ASSIGNMENT_EXPORT_COLUMNS}
+          getRows={getExportRows}
+        />
+        <Button variant="luxe" size="sm" className="h-8 gap-1.5 px-3 text-xs" type="button" onClick={openNew}>
+          <Plus className="h-3.5 w-3.5" />
+          ربط قالب جديد
+        </Button>
+      </div>
     ),
-    [model.openNew],
+    [getExportRows, openNew],
   );
 
   return (

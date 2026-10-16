@@ -25,7 +25,7 @@ export const ROSE_DOCUMENT_PAGE_STYLE: React.CSSProperties = {
   margin: '0 auto',
   boxSizing: 'border-box',
   backgroundColor: '#ffffff',
-  padding: '28px 24px 44px',
+  padding: '0 24px 44px',
   fontFamily: PDF_PRINT_FONT_FAMILY,
   color: '#111',
   display: 'flex',
@@ -423,7 +423,7 @@ export function RoseDocumentInlineSignatureFooter({
               <span
                 style={{
                   marginBottom: 8,
-                  fontSize: col.lat ? 9 : 10,
+                  fontSize: col.lat ? 18 : 20,
                   color: col.lat ? '#444' : '#222',
                   textAlign: 'center',
                   ...(col.lat ? { direction: 'ltr' as const } : {}),

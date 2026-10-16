@@ -78,6 +78,7 @@ function FooterRule() {
 const PAGE_STYLE: React.CSSProperties = {
   ...pdfOfficialPageStyle,
   width: undefined,
+  paddingTop: 0,
 };
 
 function ArticleBlock({ title, body }: { title: string; body: string }) {
@@ -323,7 +324,7 @@ export const EmploymentContractPrintHtml = React.forwardRef<HTMLDivElement, Empl
       <div ref={ref} dir="rtl" lang="ar" style={{ width: '210mm', maxWidth: '100%', margin: '0 auto' }}>
         <div style={PAGE_STYLE}>
           <RosePdfWatermark logoSrc={logoSrc} />
-          <div style={{ position: 'relative', zIndex: 1 }}>
+          <div style={{ position: 'relative', zIndex: 1, paddingTop: 20 }}>
             <RoseTradingLetterheadPrint
               logoSrc={logoSrc}
               companyNameAr={company.nameAr}
@@ -381,7 +382,7 @@ export const EmploymentContractPrintHtml = React.forwardRef<HTMLDivElement, Empl
             }}
           >
             <RosePdfWatermark logoSrc={logoSrc} />
-            <div style={{ position: 'relative', zIndex: 1 }}>
+            <div style={{ position: 'relative', zIndex: 1, paddingTop: 20 }}>
               <RoseTradingLetterheadPrint
                 logoSrc={logoSrc}
                 companyNameAr={company.nameAr}

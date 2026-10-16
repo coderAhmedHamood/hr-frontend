@@ -19,6 +19,10 @@ export type CompanyResponseDto = {
   logoUrl: string | null;
   primaryColor: string | null;
   secondaryColor: string | null;
+  /** The logo as a faded background on printed pages. */
+  pdfWatermarkEnabled?: boolean;
+  /** Its visibility in percent (2–40). */
+  pdfWatermarkOpacity?: number;
   timezone: string;
   currencyCode: string;
   languageCode: string;
@@ -48,6 +52,8 @@ export type CreateCompanyDto = {
   logoUrl?: string | null;
   primaryColor?: string | null;
   secondaryColor?: string | null;
+  pdfWatermarkEnabled?: boolean;
+  pdfWatermarkOpacity?: number;
   timezone?: string;
   currencyCode?: string;
   languageCode?: string;

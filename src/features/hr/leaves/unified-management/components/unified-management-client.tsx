@@ -45,6 +45,11 @@ import {
   type ApiLeaveRequest,
 } from '@/features/hr/requests/lib/api/correction-requests';
 import type { ApiRequestType } from '@/features/hr/requests/lib/api/request-types';
+import { fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
+import { RegisterExportMenu } from '@/components/pdf/register-export-menu';
+import { useLatestCallback } from '@/shared/hooks/use-latest-callback';
+import type { RegisterColumn } from '@/components/pdf/print/register-document';
+import { exportDate, exportDateTime, exportText } from '@/features/hr/requests/lib/list-export-format';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
 import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 import { useCurrentEmployee } from '@/features/hr/organization/employees/hooks/useCurrentEmployee';
@@ -120,6 +125,18 @@ function formatIsoDate(iso?: string | null): string | null {
   if (!iso) return null;
   return iso.slice(0, 10);
 }
+
+const LEAVE_EXPORT_COLUMNS: RegisterColumn[] = [
+  { label: 'الموظف', kind: 'name' },
+  { label: 'القسم', kind: 'text' },
+  { label: 'النوع', kind: 'status' },
+  { label: 'الحالة', kind: 'status' },
+  { label: 'من', kind: 'date' },
+  { label: 'إلى', kind: 'date' },
+  { label: 'أيام', kind: 'number', weight: 0.6 },
+  { label: 'تاريخ التقديم', kind: 'date' },
+  { label: 'سبب الطلب', kind: 'text', weight: 1.6 },
+];
 
 function employeeDisplayName(l: UnifiedLeaveRecord, employees: { id: string; nameAr: string }[]): string {
   return l.employeeNameAr || employees.find((e) => e.id === l.employeeId)?.nameAr || l.employeeId;
@@ -750,10 +767,45 @@ export function UnifiedManagementClient() {
     if (addOpen) void ensureAddDialogData();
   }, [addOpen, ensureAddDialogData]);
 
+  const getExportRows = useLatestCallback(async (): Promise<string[][]> => {
+    if (!companyId) return [];
+    let leaves: UnifiedLeaveRecord[];
+    if (bulkMode) {
+      leaves = (await loadBulk()).items;
+    } else {
+      const catalogById = new Map<string, RequestApprovalAssignmentCatalogDto>();
+      const { items } = await fetchAllPaginatedItems(async (page, limit) => {
+        const res = await leaveRequestsNewApi.list(buildListQuery(page, limit));
+        for (const assignment of res.approvalAssignments) catalogById.set(assignment.id, assignment);
+        const catalog = [...catalogById.values()];
+        return { items: res.items.map((r) => mapApiLeave(r, leaveTypesRef.current, catalog)), pagination: res.pagination };
+      });
+      leaves = items;
+    }
+    return leaves.map((l) => [
+      employeeDisplayName(l, employeesList),
+      exportText(l.departmentNameAr),
+      leaveTypeDisplayLabel(l),
+      LEAVE_STATUS_LABELS[l.status] ?? l.status,
+      exportDate(l.start),
+      exportDate(l.end),
+      exportText(l.workingDays),
+      exportDateTime(l.submittedAt),
+      exportText(l.noteAr),
+    ]);
+  });
+
   usePageHeaderActions(
     () => (
       <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
         <FilterToggleButton activeFilterCount={activeFilterCount} />
+        <RegisterExportMenu
+          title="سجل طلبات الإجازات"
+          fileName="leave-requests"
+          columns={LEAVE_EXPORT_COLUMNS}
+          getRows={getExportRows}
+          landscape
+        />
         <Button
           variant="luxe"
           size="sm"

@@ -1,12 +1,7 @@
-﻿'use client';
+'use client';
 
 import * as React from 'react';
-import { PDF_PRINT_FONT_FAMILY } from '@/components/pdf/lib/pdf-print-font';
-import { sanitizePdfText } from '@/components/pdf/lib/sanitize-pdf-text';
-import { RoseTradingLetterheadPrint } from '@/components/pdf/print/rose-trading-letterhead-print';
-import { getPdfLogoSrc } from '@/components/pdf/lib/pdf-logo-url';
-import { RosePdfWatermark } from '@/components/pdf/rose-trading/rose-pdf-watermark';
-import { RoseCompanyStamp } from '@/components/pdf/rose-trading/rose-company-stamp';
+import { RegisterDocument } from '@/components/pdf/print/register-document';
 
 export type ViolationCasePrintRow = {
   caseNumber: string;
@@ -24,21 +19,6 @@ export type ViolationCasesRegisterPrintHtmlProps = {
   rows: ViolationCasePrintRow[];
 };
 
-const ROWS_PER_PAGE = 20;
-
-function chunk<T>(arr: T[], size: number): T[][] {
-  if (arr.length === 0) return [[]];
-  const out: T[][] = [];
-  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
-  return out;
-}
-
-function clip(s: string, max: number): string {
-  const t = (s ?? '').replace(/\s+/g, ' ').trim();
-  if (t.length <= max) return t;
-  return `${t.slice(0, max)}…`;
-}
-
 function isRow(r: unknown): r is ViolationCasePrintRow {
   if (r == null || typeof r !== 'object') return false;
   const o = r as Record<string, unknown>;
@@ -52,132 +32,29 @@ function isRow(r: unknown): r is ViolationCasePrintRow {
   );
 }
 
-const PAGE_STYLE: React.CSSProperties = {
-  position: 'relative',
-  overflow: 'hidden',
-  backgroundColor: '#ffffff',
-  padding: '26px 20px 48px',
-  fontFamily: PDF_PRINT_FONT_FAMILY,
-  fontSize: 22,
-  color: '#111',
-  boxSizing: 'border-box',
-};
-
+/** The violations register — the shared register layout (register-document). */
 export const ViolationCasesRegisterPrintHtml = React.forwardRef<
   HTMLDivElement,
   ViolationCasesRegisterPrintHtmlProps
 >(function ViolationCasesRegisterPrintHtml({ companyNameAr, companyNameEn, titleAr, rows }, ref) {
-  const [logoSrc, setLogoSrc] = React.useState<string | undefined>(undefined);
-  React.useEffect(() => {
-    setLogoSrc(getPdfLogoSrc());
-  }, []);
-
-  const cleanRows = React.useMemo(() => rows.filter(isRow), [rows]);
-  const pages = chunk(cleanRows, ROWS_PER_PAGE);
-
   return (
-    <div ref={ref} dir="rtl" lang="ar" style={{ width: '210mm', maxWidth: '100%', margin: '0 auto' }}>
-      {pages.map((pageRows, pi) => (
-        <div
-          key={pi}
-          style={{
-            ...PAGE_STYLE,
-            minHeight: pi < pages.length - 1 ? '297mm' : undefined,
-            marginBottom: pi < pages.length - 1 ? 16 : 0,
-            borderBottom: pi < pages.length - 1 ? '1px dashed #ddd' : undefined,
-          }}
-        >
-          <RosePdfWatermark logoSrc={logoSrc} />
-          <div style={{ position: 'relative', zIndex: 1 }}>
-          <RoseTradingLetterheadPrint
-            logoSrc={logoSrc}
-            companyNameAr={companyNameAr}
-            companyNameEn={companyNameEn}
-          />
-
-          <div style={{ fontSize: 22, fontWeight: 700, textAlign: 'center', marginBottom: 10, textDecoration: 'underline' }}>
-            {sanitizePdfText(titleAr)}
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'row', backgroundColor: '#e8f2ef', border: '1px solid #94a3b8' }}>
-            {[
-              { label: 'الرقم', width: '14%', align: 'center' as const },
-              { label: 'الموظف', width: '22%', align: 'right' as const, pad: true },
-              { label: 'نوع المخالفة', width: '20%', align: 'right' as const, pad: true },
-              { label: 'التاريخ', width: '12%', align: 'center' as const },
-              { label: 'الحالة', width: '18%', align: 'center' as const },
-            ].map((c, idx) => (
-              <div
-                key={c.label}
-                style={{
-                  width: c.width,
-                  boxSizing: 'border-box',
-                  fontWeight: 700,
-                  textAlign: c.align,
-                  fontSize: 22,
-                  padding: c.pad ? '4px 4px' : '4px 2px',
-                  borderInlineStart: idx === 0 ? undefined : '1px solid #94a3b8',
-                  wordBreak: 'break-word',
-                }}
-              >
-                {sanitizePdfText(c.label)}
-              </div>
-            ))}
-          </div>
-
-          {pageRows.length === 0 && pi === 0 ? (
-            <p style={{ marginTop: 14, textAlign: 'center', color: '#64748b' }}>لا توجد مخالفات ضمن الفلترة.</p>
-          ) : (
-            pageRows.map((r, ri) => (
-              <div
-                key={`${r.caseNumber}-${ri}`}
-                style={{
-                  border: '1px solid #e2e8f0',
-                  borderTop: 'none',
-                  backgroundColor: ri % 2 === 1 ? '#fafafa' : '#fff',
-                }}
-              >
-                <div dir="rtl" style={{ display: 'flex', flexDirection: 'row' }}>
-                  <div style={{ width: '14%', boxSizing: 'border-box', padding: '4px 2px', fontSize: 22, textAlign: 'center' }}>
-                    <span dir="ltr">{sanitizePdfText(r.caseNumber)}</span>
-                  </div>
-                  <div style={{ width: '22%', boxSizing: 'border-box', padding: '4px 4px', fontSize: 22, textAlign: 'right', borderInlineStart: '1px solid #e2e8f0', wordBreak: 'break-word' }}>
-                    {sanitizePdfText(r.employeeNameAr)}
-                  </div>
-                  <div style={{ width: '20%', boxSizing: 'border-box', padding: '4px 4px', fontSize: 22, textAlign: 'right', borderInlineStart: '1px solid #e2e8f0', wordBreak: 'break-word' }}>
-                    {sanitizePdfText(r.typeNameAr)}
-                  </div>
-                  <div style={{ width: '12%', boxSizing: 'border-box', padding: '4px 2px', fontSize: 22, textAlign: 'center', borderInlineStart: '1px solid #e2e8f0' }}>
-                    <span dir="ltr">{sanitizePdfText(r.date)}</span>
-                  </div>
-                  <div style={{ width: '18%', boxSizing: 'border-box', padding: '4px 2px', fontSize: 22, textAlign: 'center', borderInlineStart: '1px solid #e2e8f0', wordBreak: 'break-word' }}>
-                    {sanitizePdfText(r.statusAr)}
-                  </div>
-                </div>
-                {r.description ? (
-                  <div style={{ padding: '2px 4px 6px', fontSize: 22, color: '#475569', textAlign: 'right', lineHeight: 1.35 }}>
-                    {sanitizePdfText(clip(r.description, 160))}
-                  </div>
-                ) : null}
-              </div>
-            ))
-          )}
-
-          {/* Establishment stamp — final page only, so a multi-page register is stamped once. */}
-          {pi === pages.length - 1 ? (
-            <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: 20 }}>
-              <RoseCompanyStamp width={130} compact />
-            </div>
-          ) : null}
-
-          <div style={{ marginTop: 16, fontSize: 22, color: '#64748b', textAlign: 'center' }}>
-            صفحة {pi + 1} / {pages.length}
-            {cleanRows.length > 0 ? ` · إجمالي السجلات: ${cleanRows.length}` : ''}
-          </div>
-          </div>
-        </div>
-      ))}
-    </div>
+    <RegisterDocument
+      ref={ref}
+      companyNameAr={companyNameAr}
+      companyNameEn={companyNameEn}
+      titleAr={titleAr}
+      columns={[
+        // Weights ≈ px of a portrait table (676): the case number and the date never wrap.
+        { label: 'الرقم', kind: 'code', weight: 14 },
+        { label: 'الموظف', kind: 'name', weight: 14 },
+        { label: 'نوع المخالفة', kind: 'text', weight: 11.2 },
+        { label: 'التاريخ', kind: 'date', weight: 10 },
+        { label: 'الحالة', kind: 'status', weight: 7 },
+        { label: 'الوصف', kind: 'text', weight: 11.2 },
+      ]}
+      rows={rows
+        .filter(isRow)
+        .map((r) => [r.caseNumber, r.employeeNameAr, r.typeNameAr, r.date, r.statusAr, r.description])}
+    />
   );
 });
-

@@ -56,13 +56,15 @@ function Checkbox({
       <span
         aria-hidden
         style={{
-          width: 13,
-          height: 13,
+          // The tick fits inside the box (a 22px tick spilled out of it).
+          width: 16,
+          height: 16,
+          boxSizing: 'border-box',
           border: '1.5px solid #111',
           display: 'inline-flex',
           alignItems: 'center',
           justifyContent: 'center',
-          fontSize: 22,
+          fontSize: 13,
           fontWeight: 700,
           lineHeight: 1,
         }}
@@ -101,16 +103,16 @@ export const RoseDisciplineNoticePrintHtml = React.forwardRef<
         margin: '0 auto',
         boxSizing: 'border-box',
         backgroundColor: '#ffffff',
-        padding: '20px 28px 44px',
+        padding: '0 28px 44px',
         color: '#111',
-        minHeight: '297mm',
+        minHeight: '279mm',
         overflow: 'hidden',
         fontSize: 22.5,
         ...font,
       }}
     >
       <RosePdfWatermark logoSrc={logoSrc} />
-      <div style={{ position: 'relative', zIndex: 1 }}>
+      <div style={{ position: 'relative', zIndex: 1, paddingTop: 20 }}>
         <RoseTradingLetterheadPrint
           logoSrc={logoSrc}
           companyNameAr={companyNameAr}

@@ -5,7 +5,11 @@ import {
   Plus, Pencil, Trash2, AlertTriangle, Loader2, FileStack, Coins, BookOpen,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { cn, formatNumber } from '@/shared/utils';
+import { cn, formatMoneyDigits, formatNumber } from '@/shared/utils';
+import { RegisterExportMenu } from '@/components/pdf/register-export-menu';
+import type { RegisterColumn } from '@/components/pdf/print/register-document';
+import { fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
+import { useLatestCallback } from '@/shared/hooks/use-latest-callback';
 import { MoneyAmount } from '@/components/ui/sar-amount';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -40,6 +44,24 @@ function fmtSalary(amount: string | null | undefined, currency: string): React.R
   if (Number.isNaN(n)) return '—';
   return <MoneyAmount value={n} currency={currency} fractionDigits={0} />;
 }
+
+/** Plain-text twin of `fmtSalary` for export. */
+function fmtSalaryText(amount: string | null | undefined, currency: string): string {
+  if (!amount) return '—';
+  const n = parseFloat(amount);
+  if (Number.isNaN(n)) return '—';
+  return `${formatMoneyDigits(n, 0)} ${currency || 'SAR'}`;
+}
+
+const CONTRACT_TEMPLATES_EXPORT_COLUMNS: RegisterColumn[] = [
+  { label: 'الاسم', kind: 'text', weight: 1.6 },
+  { label: 'الرمز', kind: 'code' },
+  { label: 'الحالة', kind: 'status' },
+  { label: 'المدة (شهور)', kind: 'number' },
+  { label: 'الراتب المقترح', kind: 'number' },
+  { label: 'أيام التجربة', kind: 'number' },
+  { label: 'الإجازة السنوية', kind: 'number' },
+];
 
 function totalAllowances(lines: ContractTemplateDto['allowanceLines']): number {
   return (lines ?? []).reduce((sum, l) => sum + (parseFloat(l.amount) || 0), 0);
@@ -111,9 +133,34 @@ export function ContractTemplatesClient() {
     }
   };
 
+  const getExportRows = useLatestCallback(async (): Promise<string[][]> => {
+    if (!companyId) return [];
+    const { items: all } = await fetchAllPaginatedItems((page, limit) =>
+      contractTemplatesApi.list({ companyId, page, limit, ...payrollListArchiveQuery() }),
+    );
+    return [...all]
+      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.nameAr.localeCompare(b.nameAr, 'ar'))
+      .map((item) => [
+        item.nameAr,
+        item.code || '—',
+        item.isActive ? 'نشط' : 'موقوف',
+        item.durationMonths ? String(item.durationMonths) : '—',
+        fmtSalaryText(item.suggestedBaseSalary, item.currency),
+        item.defaultProbationDays != null ? `${item.defaultProbationDays} يوم` : '—',
+        item.defaultAnnualLeaveDays != null ? `${item.defaultAnnualLeaveDays} يوم` : '—',
+      ]);
+  });
+
   usePageHeaderActions(
     () => (
       <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
+        <RegisterExportMenu
+          title="سجل قوالب العقود"
+          fileName="contract-templates"
+          columns={CONTRACT_TEMPLATES_EXPORT_COLUMNS}
+          getRows={getExportRows}
+          landscape
+        />
         <Button
           variant="luxe"
           size="sm"
@@ -124,7 +171,7 @@ export function ContractTemplatesClient() {
         </Button>
       </div>
     ),
-    [],
+    [getExportRows],
   );
 
   useEntityFilterSlot(

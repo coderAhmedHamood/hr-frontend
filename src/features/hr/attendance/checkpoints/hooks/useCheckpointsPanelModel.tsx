@@ -11,6 +11,7 @@ import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import { resolveDirectoryLoadFailure } from '@/features/hr/lib/api/directory-load-error';
 import { useServerDirectoryPagination } from '@/components/ui/paged-list';
 import { checkInPointsApi } from '@/features/hr/attendance/lib/api/check-in-points';
+import { fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
 import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 import {
   ORGANIZATION_ARCHIVE_SCOPE_DEFAULT,
@@ -75,6 +76,15 @@ export function useCheckpointsPanelModel() {
     enabled: !!companyId,
     resetDeps: [companyId, archiveScope],
   });
+
+  /** Every check-in point of the current scope (all pages), for export. */
+  const loadAllForExport = React.useCallback(async (): Promise<AttendanceCheckInPoint[]> => {
+    if (!companyId) return [];
+    const { items } = await fetchAllPaginatedItems((page, limit) =>
+      checkInPointsApi.getAll({ companyId, page, limit, ...organizationListStatusQuery(archiveScope) }),
+    );
+    return items.map(mapCheckInPointResponse);
+  }, [companyId, archiveScope]);
 
   const openCreate = React.useCallback(() => {
     setDraft({
@@ -231,6 +241,7 @@ export function useCheckpointsPanelModel() {
     checkpoints,
     loading,
     pagination,
+    loadAllForExport,
     listError,
     accessDenied: apiAccessDenied,
     removeCheckpoint,

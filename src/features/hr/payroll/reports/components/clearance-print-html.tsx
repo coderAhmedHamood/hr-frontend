@@ -88,7 +88,7 @@ export const ClearancePrintHtml = React.forwardRef<HTMLDivElement, ClearancePrin
           margin: '0 auto',
           boxSizing: 'border-box',
           backgroundColor: '#ffffff',
-          padding: '26px 20px 48px',
+          padding: '0 20px 48px',
           fontFamily: PDF_PRINT_FONT_FAMILY,
           fontSize: 22,
           color: '#111111',
@@ -97,7 +97,7 @@ export const ClearancePrintHtml = React.forwardRef<HTMLDivElement, ClearancePrin
         }}
       >
         <RosePdfWatermark logoSrc={logoSrc} />
-        <div style={{ position: 'relative', zIndex: 1 }}>
+        <div style={{ position: 'relative', zIndex: 1, paddingTop: 26 }}>
         <RoseTradingLetterheadPrint
           logoSrc={logoSrc}
           companyNameAr={company.nameAr}

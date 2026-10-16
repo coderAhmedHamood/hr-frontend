@@ -42,6 +42,10 @@ import {
 } from '@/features/hr/organization/lib/archive-scope';
 import { mapApiRequestType } from '@/features/hr/requests/lib/configuration-store';
 import { TableRowActions } from '@/components/ui/table-cells';
+import { fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
+import { RegisterExportMenu } from '@/components/pdf/register-export-menu';
+import { useLatestCallback } from '@/shared/hooks/use-latest-callback';
+import type { RegisterColumn } from '@/components/pdf/print/register-document';
 
 interface DraftForm {
   requestCategory: HRRequestTypeCategory;
@@ -65,6 +69,13 @@ const CATEGORY_DROPDOWN_OPTIONS = HR_REQUEST_TYPE_CATEGORIES.map((c) => ({
 const CATEGORY_FILTER_OPTIONS = [
   { value: 'all', label: 'كل التصنيفات' },
   ...CATEGORY_DROPDOWN_OPTIONS,
+];
+
+const REQUEST_TYPE_EXPORT_COLUMNS: RegisterColumn[] = [
+  { label: 'القسم', kind: 'text' },
+  { label: 'النوع', kind: 'text', weight: 1.5 },
+  { label: 'التصنيف', kind: 'status' },
+  { label: 'الحالة', kind: 'status' },
 ];
 
 export function RequestTypesClient() {
@@ -115,12 +126,12 @@ export function RequestTypesClient() {
 
   const filtered = requestTypes;
 
-  const openCreate = React.useCallback(() => {
+  const openCreate = useLatestCallback(() => {
     setEditId(null);
     setDraft({ ...EMPTY, sortOrder: requestTypes.length + 1 });
     setError(null);
     setDrawerOpen(true);
-  }, [requestTypes.length]);
+  });
 
   const openEdit = (rt: HRRequestTypeEntity) => {
     setEditId(rt.id);
@@ -219,10 +230,39 @@ export function RequestTypesClient() {
 
   useSetPageTitle({ titleAr: 'أنواع الطلبات', descriptionAr: 'تصنيفات ونماذج طلبات الموارد البشرية', iconName: 'ListChecks' });
 
+  const getExportRows = useLatestCallback(async (): Promise<string[][]> => {
+    if (!companyId) return [];
+    const { items } = await fetchAllPaginatedItems((page, limit) =>
+      requestTypesApi.list({
+        companyId,
+        page,
+        limit,
+        ...(categoryFilter !== 'all' ? { requestCategory: categoryFilter } : {}),
+        ...organizationListStatusQuery(archiveScope),
+      }),
+    );
+    const deptNameById = new Map(departments.filter((d) => d.isActive).map((d) => [d.id, d.nameAr]));
+    return items
+      .map(mapApiRequestType)
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .map((rt) => [
+        rt.departmentId === HR_REQUEST_TYPE_ALL_DEPARTMENTS_ID ? 'جميع الأقسام' : deptNameById.get(rt.departmentId) ?? '—',
+        rt.nameAr,
+        HR_REQUEST_TYPE_CATEGORY_LABELS_AR[rt.requestCategory] ?? '—',
+        rt.isActive ? 'نشط' : 'موقوف',
+      ]);
+  });
+
   usePageHeaderActions(
     () => (
       <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
         <FilterToggleButton activeFilterCount={activeFilterCount} />
+        <RegisterExportMenu
+          title="أنواع الطلبات"
+          fileName="request-types"
+          columns={REQUEST_TYPE_EXPORT_COLUMNS}
+          getRows={getExportRows}
+        />
         <Button variant="luxe" size="sm" className="h-8 gap-2" onClick={openCreate}>
           <Plus className="h-4 w-4" /> نوع جديد
         </Button>

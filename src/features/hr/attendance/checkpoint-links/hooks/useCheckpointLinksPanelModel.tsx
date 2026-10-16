@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import { resolveDirectoryLoadFailure } from '@/features/hr/lib/api/directory-load-error';
 import { useServerDirectoryPagination } from '@/components/ui/paged-list';
+import { fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
 import type { AttendanceCheckInPoint } from '@/features/hr/attendance/lib/types';
 import { mapCheckInPointResponse } from '@/features/hr/attendance/checkpoints/services/check-in-points.service';
 import { checkInPointsApi } from '@/features/hr/attendance/lib/api/check-in-points';
@@ -101,6 +102,15 @@ export function useCheckpointLinksPanelModel() {
     enabled: !!companyId,
     resetDeps: [companyId],
   });
+
+  /** Every check-in point group (all pages) with its employee links, for export. */
+  const loadAllForExport = React.useCallback(async (): Promise<CheckpointLinkBatch[]> => {
+    if (!companyId) return [];
+    const { items } = await fetchAllPaginatedItems((page, limit) =>
+      checkInPointLinksApi.getGroupedByPoint({ companyId, page, limit }),
+    );
+    return items.map(mapGroupedToBatch);
+  }, [companyId]);
 
   React.useEffect(() => {
     if (!companyId) return;
@@ -255,6 +265,7 @@ export function useCheckpointLinksPanelModel() {
 
   return {
     batches,
+    loadAllForExport,
     checkpoints,
     employees,
     loading,

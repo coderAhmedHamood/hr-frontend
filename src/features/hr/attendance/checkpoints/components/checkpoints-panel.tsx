@@ -1,5 +1,6 @@
 'use client';
 
+import * as React from 'react';
 import { MapPin, Navigation2, Pencil, Plus, Radio, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -10,21 +11,51 @@ import { DirectoryPagedViews } from '@/components/ui/paged-list';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { EmptyStateCard } from '@/components/shared/empty-state-card';
 import { CheckpointsEditDialog } from '@/features/hr/attendance/checkpoints/components/checkpoints-edit-dialog';
+import { RegisterExportMenu } from '@/components/pdf/register-export-menu';
+import type { RegisterColumn } from '@/components/pdf/print/register-document';
+import { useLatestCallback } from '@/shared/hooks/use-latest-callback';
+
+const CHECKPOINT_EXPORT_COLUMNS: RegisterColumn[] = [
+  { label: 'الاسم', kind: 'name' },
+  { label: 'خط العرض', kind: 'number', weight: 1.5 },
+  { label: 'خط الطول', kind: 'number', weight: 1.5 },
+  { label: 'نصف القطر (م)', kind: 'number', weight: 1.3 },
+  { label: 'الحالة', kind: 'status' },
+];
 
 export function CheckpointsPanel() {
   const model = useCheckpointsPanelModel();
   const { checkpoints, pagination, loading, removeCheckpoint, selected, setSelected, openCreate, openEdit, selectedPoint } = model;
 
+  const { loadAllForExport } = model;
+  const getExportRows = useLatestCallback(
+    async () =>
+      (await loadAllForExport()).map((p) => [
+        p.nameAr,
+        p.latitude.toFixed(5),
+        p.longitude.toFixed(5),
+        String(p.radiusMeters),
+        p.isActive ? 'نشط' : 'موقوف',
+      ]),
+  );
+  const handleOpenCreate = useLatestCallback(openCreate);
+
   usePageHeaderActions(
     () => (
       <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
-        <Button variant="luxe" size="sm" className="h-8 gap-1.5 px-3 text-xs shrink-0" type="button" onClick={openCreate}>
+        <RegisterExportMenu
+          title="نقاط التسجيل"
+          fileName="attendance-checkpoints"
+          columns={CHECKPOINT_EXPORT_COLUMNS}
+          getRows={getExportRows}
+        />
+        <Button variant="luxe" size="sm" className="h-8 gap-1.5 px-3 text-xs shrink-0" type="button" onClick={handleOpenCreate}>
           <Plus className="h-3.5 w-3.5" />
           نقطة جديدة
         </Button>
       </div>
     ),
-    [openCreate],
+    [getExportRows, handleOpenCreate],
   );
 
   return (

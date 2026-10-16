@@ -1,9 +1,10 @@
 'use client';
 
 import * as React from 'react';
+import { useLatestCallback } from '@/shared/hooks/use-latest-callback';
 import {
   Trash2, CalendarDays, Edit3,
-  FileDown, FileSpreadsheet, Plus, AlertTriangle, Scale, Search,
+  FileDown, FileSpreadsheet, Plus, AlertTriangle, Scale, Search, Loader2,
 } from 'lucide-react';
 import {
   EntityActionCard,
@@ -33,7 +34,8 @@ import {
 } from '@/components/ui/shared-dialogs';
 import { useViolationCasesDirectoryModel } from '@/features/hr/discipline/violation-cases/hooks/useViolationCasesDirectoryModel';
 import type { ViolationCaseRecord } from '@/features/hr/discipline/violation-cases/hooks/useViolationCasesDirectoryModel';
-import type { ViolationRecordStatus } from '@/features/hr/discipline/lib/api/violation-records';
+import { violationRecordsApi, type ViolationRecordStatus } from '@/features/hr/discipline/lib/api/violation-records';
+import { fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
 import {
   INVESTIGATION_DEDUCTION_TYPE_LABELS,
   INVESTIGATION_RECOMMENDATION_LABELS,
@@ -411,24 +413,71 @@ export function ViolationCasesClient() {
     + (violationTypeFilter !== 'all' ? 1 : 0)
     + (dateRangeActive ? 1 : 0);
 
-  const violationPdfRows = React.useMemo(
-    () => listFiltered.map((c) => ({
-      caseNumber: c.caseNumber, employeeNameAr: c.employeeNameAr,
-      typeNameAr: c.typeNameAr, date: c.date,
-      statusAr: STATUS_LABELS[c.status], description: c.description,
-    })),
-    [listFiltered],
-  );
+  type ViolationExportRow = {
+    caseNumber: string; employeeNameAr: string; typeNameAr: string;
+    date: string; statusAr: string; description: string;
+  };
+  // Exports cover every record matching the current filters (same query as the list), not just the visible page.
+  const [violationPdfRows, setViolationPdfRows] = React.useState<ViolationExportRow[]>([]);
+  const [exporting, setExporting] = React.useState(false);
+  const exportCompanyId = hook.companyId ?? companyId;
 
-  const handleExportExcel = React.useCallback(async () => {
-    if (listFiltered.length === 0) { toast.error('لا توجد مخالفات للتصدير ضمن الفلاتر الحالية.'); return; }
+  const fetchAllForExport = React.useCallback(async (): Promise<ViolationExportRow[] | null> => {
+    setExporting(true);
+    try {
+      const empIds = [...selectedEmpIds];
+      const { items: all } = await fetchAllPaginatedItems((page, limit) =>
+        violationRecordsApi.getAll({
+          ...(exportCompanyId ? { companyId: exportCompanyId } : {}),
+          page,
+          limit,
+          ...(empIds.length > 0 ? { employeeIds: empIds } : {}),
+          ...(statusFilter !== 'all' ? { status: statusFilter } : {}),
+          ...(violationTypeFilter !== 'all' ? { violationTypeId: violationTypeFilter } : {}),
+          ...(dateBounds.from ? { violationDateFrom: dateBounds.from } : {}),
+          ...(dateBounds.to ? { violationDateTo: dateBounds.to } : {}),
+        }),
+      );
+      const empNames = new Map(employees.map((e) => [e.id, e.nameAr]));
+      const typeNames = new Map(violationTypes.map((t) => [t.id, t.nameAr]));
+      return all.map((r) => ({
+        caseNumber: r.recordNumber,
+        employeeNameAr: empNames.get(r.employeeId) ?? r.employeeId,
+        typeNameAr: r.violationType?.nameAr ?? typeNames.get(r.violationTypeId) ?? r.violationTypeId,
+        date: r.violationDate,
+        statusAr: STATUS_LABELS[r.status ?? 'pending'],
+        description: r.description,
+      }));
+    } catch (err) {
+      const { displayMessage } = handleApiError(err, 'violation-records.export');
+      toast.error(displayMessage || 'تعذّر تحميل المخالفات للتصدير.');
+      return null;
+    } finally {
+      setExporting(false);
+    }
+  }, [exportCompanyId, selectedEmpIds, statusFilter, violationTypeFilter, dateBounds.from, dateBounds.to, employees, violationTypes]);
+
+  const handleExportPdf = useLatestCallback(async () => {
+    if (exporting) return;
+    const all = await fetchAllForExport();
+    if (!all) return;
+    if (all.length === 0) { toast.error('لا توجد مخالفات للتصدير ضمن الفلاتر الحالية.'); return; }
+    setViolationPdfRows(all);
+    setPdfOpen(true);
+  });
+
+  const handleExportExcel = useLatestCallback(async () => {
+    if (exporting) return;
+    const all = await fetchAllForExport();
+    if (!all) return;
+    if (all.length === 0) { toast.error('لا توجد مخالفات للتصدير ضمن الفلاتر الحالية.'); return; }
     const rows: XlsxCell[][] = [
       ['رقم القضية', 'الموظف', 'نوع المخالفة', 'التاريخ', 'الحالة', 'الوصف'],
-      ...listFiltered.map((c) => [c.caseNumber, c.employeeNameAr, c.typeNameAr, c.date, STATUS_LABELS[c.status], c.description]),
+      ...all.map((c) => [c.caseNumber, c.employeeNameAr, c.typeNameAr, c.date, c.statusAr, c.description]),
     ];
     await downloadXlsxFromAoA('violation-cases.xlsx', 'المخالفات', rows);
     toast.success('تم تنزيل ملف Excel.');
-  }, [listFiltered]);
+  });
 
   usePageHeaderActions(
     () => (
@@ -436,24 +485,16 @@ export function ViolationCasesClient() {
         <FilterToggleButton activeFilterCount={activeFilterCount} />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button type="button" variant="outline" size="sm" className="h-8 w-8 shrink-0" aria-label="تصدير المخالفات">
-              <FileDown className="h-4 w-4" />
+            <Button type="button" variant="outline" size="sm" className="h-8 w-8 shrink-0" aria-label="تصدير المخالفات" disabled={exporting} aria-busy={exporting}>
+              {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-44">
-            <DropdownMenuItem
-              onSelect={() => {
-                if (violationPdfRows.length === 0) {
-                  toast.error('لا توجد مخالفات للتصدير ضمن الفلاتر الحالية.');
-                  return;
-                }
-                setPdfOpen(true);
-              }}
-            >
+            <DropdownMenuItem disabled={exporting} onSelect={() => void handleExportPdf()}>
               <FileDown className="h-4 w-4" />
               PDF
             </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => void handleExportExcel()}>
+            <DropdownMenuItem disabled={exporting} onSelect={() => void handleExportExcel()}>
               <FileSpreadsheet className="h-4 w-4" />
               Excel
             </DropdownMenuItem>
@@ -466,7 +507,7 @@ export function ViolationCasesClient() {
         </Button>
       </div>
     ),
-    [activeFilterCount, handleExportExcel, violationPdfRows.length],
+    [activeFilterCount, exporting, handleExportPdf, handleExportExcel],
   );
 
   const printable = React.useMemo(

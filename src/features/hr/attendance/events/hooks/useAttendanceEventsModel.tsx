@@ -30,6 +30,13 @@ import {
   usePersistedFilterState,
 } from '@/features/hr/attendance/lib/use-persisted-filter-state';
 import type { AttendanceCheckInPoint } from '@/features/hr/attendance/lib/types';
+import { RegisterExportMenu } from '@/components/pdf/register-export-menu';
+import { fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
+import { useLatestCallback } from '@/shared/hooks/use-latest-callback';
+import {
+  ATTENDANCE_EVENTS_EXPORT_COLUMNS,
+  attendanceEventsExportRows,
+} from '@/features/hr/attendance/events/utils/attendance-events-export';
 
 export type EventsFilterState = {
   from: string;
@@ -204,16 +211,32 @@ export function useAttendanceEventsModel() {
     },
   ], [eventTypeFilter, includeVoided]);
 
+  const getExportRows = useLatestCallback(async () => {
+    if (!companyId) return [];
+    const { items } = await fetchAllPaginatedItems((page, pageSize) =>
+      attendanceEventsApi.getAll(buildListQuery(page, pageSize)),
+    );
+    return attendanceEventsExportRows(items);
+  });
+
   usePageHeaderActions(
     () => (
       <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
         <FilterToggleButton activeFilterCount={activeFilterCount} />
+        <RegisterExportMenu
+          title="سجل أحداث الحضور"
+          fileName={`attendance-events-${from}-${to}`}
+          columns={ATTENDANCE_EVENTS_EXPORT_COLUMNS}
+          getRows={getExportRows}
+          subtitleLines={[`الفترة: ${from} — ${to}`]}
+          landscape
+        />
         <Button variant="luxe" size="sm" className="h-8 gap-1.5 px-3 text-xs" onClick={() => setCreateOpen(true)}>
           <Plus className="h-3.5 w-3.5" /> تسجيل حدث
         </Button>
       </div>
     ),
-    [activeFilterCount, setCreateOpen],
+    [activeFilterCount, from, getExportRows, setCreateOpen, to],
   );
 
   useEntityFilterSlot(

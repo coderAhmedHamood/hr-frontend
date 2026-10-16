@@ -25,6 +25,20 @@ import {
   useRecruitmentJobFormsMap,
   useRecruitmentJobsList,
 } from '@/features/hr/recruitment/hooks/useRecruitment';
+import { RegisterExportMenu } from '@/components/pdf/register-export-menu';
+import { useLatestCallback } from '@/shared/hooks/use-latest-callback';
+import type { RegisterColumn } from '@/components/pdf/print/register-document';
+import { getApplicantName } from '@/features/hr/recruitment/lib/ats/utils';
+import { ATS_STAGE_TABS } from '@/features/hr/recruitment/lib/ats/stage-styles';
+import { exportDateTime } from '@/features/hr/attendance/lib/attendance-export-format';
+
+const APPLICANT_EXPORT_COLUMNS: RegisterColumn[] = [
+  { label: 'الاسم', kind: 'name' },
+  { label: 'الوظيفة', kind: 'text' },
+  { label: 'المرحلة', kind: 'status' },
+  { label: 'تاريخ التقديم', kind: 'date' },
+  { label: 'التقييم', kind: 'number' },
+];
 
 export function useAtsApplicantsListModel() {
   const router = useRouter();
@@ -125,13 +139,44 @@ export function useAtsApplicantsListModel() {
     + (dateBounds.from || dateBounds.to ? 1 : 0)
     + (archiveScope !== RECRUITMENT_ARCHIVE_SCOPE_DEFAULT ? 1 : 0);
 
+  // Applicants are loaded whole for the current filters — export that same list.
+  const getExportRows = useLatestCallback((): string[][] => applicants.map((app) => {
+    const form = formById.get(app.formId);
+    const stage = ATS_STAGE_TABS.find((s) => s.key === app.pipelineStage)?.label ?? app.pipelineStage;
+    return [
+      form ? getApplicantName(app, form.fields) : 'متقدم',
+      jobs.find((j) => j.id === app.jobId)?.title ?? '—',
+      app.isArchived ? `${stage} — مؤرشف` : stage,
+      exportDateTime(app.submittedAt),
+      app.score ? String(app.score.finalScore) : 'بدون تقييم',
+    ];
+  }));
+
+  const exportSubtitleLines = React.useMemo(() => {
+    const parts = [
+      jobFilter !== 'all' ? `الوظيفة: ${jobSelectOptions.find((o) => o.value === jobFilter)?.label ?? ''}` : null,
+      stageFilter !== 'all' ? `المرحلة: ${ATS_APPLICANT_STAGE_LABELS[stageFilter]}` : null,
+      dateBounds.from || dateBounds.to ? `الفترة: ${dateBounds.from || '…'} — ${dateBounds.to || '…'}` : null,
+      `العرض: ${RECRUITMENT_ARCHIVE_SCOPE_OPTIONS.find((o) => o.value === archiveScope)?.label ?? ''}`,
+      debouncedSearch.trim() ? `بحث: ${debouncedSearch.trim()}` : null,
+    ].filter(Boolean);
+    return [parts.join(' — ')];
+  }, [archiveScope, dateBounds.from, dateBounds.to, debouncedSearch, jobFilter, jobSelectOptions, stageFilter]);
+
   usePageHeaderActions(
     () => (
       <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
         <FilterToggleButton activeFilterCount={activeFilterCount} />
+        <RegisterExportMenu
+          title="سجل المتقدمين"
+          fileName="recruitment-applicants"
+          columns={APPLICANT_EXPORT_COLUMNS}
+          getRows={getExportRows}
+          subtitleLines={exportSubtitleLines}
+        />
       </div>
     ),
-    [activeFilterCount],
+    [activeFilterCount, getExportRows, exportSubtitleLines],
   );
 
   useEntityFilterSlot(

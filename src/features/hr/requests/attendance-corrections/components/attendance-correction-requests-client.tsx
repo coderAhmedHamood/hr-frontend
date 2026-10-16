@@ -14,6 +14,11 @@ import {
 } from '@/components/ui/entity-action-card';
 import { DirectoryPagedViews, useServerDirectoryPagination } from '@/components/ui/paged-list';
 import { correctionRequestsApi } from '@/features/hr/requests/lib/api/correction-requests';
+import { fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
+import { RegisterExportMenu } from '@/components/pdf/register-export-menu';
+import { useLatestCallback } from '@/shared/hooks/use-latest-callback';
+import type { RegisterColumn } from '@/components/pdf/print/register-document';
+import { exportClock, exportDate, exportDateTime, exportText } from '@/features/hr/requests/lib/list-export-format';
 import { mapCorrectionRequest } from '@/features/hr/requests/lib/attendance-correction-store';
 import { TableDateCell, TableRowActions } from '@/components/ui/table-cells';
 import { ListFilterBar } from '@/components/ui/list-filter-bar';
@@ -89,6 +94,32 @@ const CORRECTION_STATUS_TONE: Record<AttendanceCorrectionRequest['status'], Work
   rejected: 'rejected',
   cancelled: 'muted',
 };
+
+const EXPORT_COLUMNS: RegisterColumn[] = [
+  { label: 'الموظف', kind: 'name' },
+  { label: 'القسم', kind: 'text' },
+  { label: 'نوع الطلب', kind: 'text' },
+  { label: 'الحالة السابقة', kind: 'status' },
+  { label: 'حالة الطلب', kind: 'status' },
+  { label: 'السبب', kind: 'text', weight: 1.4 },
+  { label: 'أوقات التصحيح', kind: 'text', weight: 1.4 },
+  { label: 'تاريخ التصحيح', kind: 'date' },
+  { label: 'تاريخ التقديم', kind: 'date' },
+  { label: 'ملاحظات القرار', kind: 'text' },
+];
+
+/** «قبل: 8:00 ص - 4:00 م / بعد: …» — same before/after pairs as the times cell. */
+function correctionTimesExportText(r: AttendanceCorrectionRequest): string {
+  const parts: string[] = [];
+  if (r.previousCheckIn || r.previousCheckOut) {
+    parts.push(`قبل: ${exportClock(r.previousCheckIn)} - ${exportClock(r.previousCheckOut)}`);
+  }
+  r.correctedPeriods.forEach((p, i) => {
+    const label = r.correctedPeriods.length <= 1 ? 'بعد' : `بعد ${i + 1}`;
+    parts.push(`${label}: ${exportClock(p.checkInAt)} - ${exportClock(p.checkOutAt)}`);
+  });
+  return parts.length ? parts.join(' / ') : '—';
+}
 
 function statusBadgeClass(s: AttendanceCorrectionRequest['status']) {
   if (s === 'pending') return 'bg-gold/15 text-gold border-gold/30';
@@ -388,12 +419,39 @@ export function AttendanceCorrectionRequestsClient() {
     return count;
   }, [appliedDept, selectedEmpIds.size, dateBounds.from, dateBounds.to, statusFilter]);
 
+  const getExportRows = useLatestCallback(async (): Promise<string[][]> => {
+    if (!companyId) return [];
+    const { items } = await fetchAllPaginatedItems(async (page, limit) => {
+      const res = await correctionRequestsApi.list(buildListQuery(page, limit));
+      return { items: res.items.map((r) => mapCorrectionRequest(r, res.approvalAssignments)), pagination: res.pagination };
+    });
+    return items.map((r) => [
+      exportText(r.employeeNameAr),
+      exportText(r.departmentNameAr),
+      r.subtypeNameAr ? `${r.requestTypeNameAr} — ${r.subtypeNameAr}` : exportText(r.requestTypeNameAr),
+      exportText(r.previousStatusAr),
+      attendanceCorrectionStatusLabelAr(r.status),
+      exportText(r.reasonAr),
+      correctionTimesExportText(r),
+      exportDate(r.workDate),
+      exportDateTime(r.submittedAt),
+      exportText(r.decisionNotesAr),
+    ]);
+  });
+
   useSetPageTitle({ titleAr: 'تصحيح الحضور', descriptionAr: 'طلبات تصحيح أوقات الحضور والانصراف', iconName: 'CalendarClock' });
 
   usePageHeaderActions(
     () => (
       <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
         <FilterToggleButton activeFilterCount={activeFilterCount} />
+        <RegisterExportMenu
+          title="سجل طلبات تصحيح الحضور"
+          fileName="attendance-correction-requests"
+          columns={EXPORT_COLUMNS}
+          getRows={getExportRows}
+          landscape
+        />
         <Button variant="luxe" size="sm" className="h-8 gap-1.5 px-3 text-xs shadow-sm shrink-0" onClick={openNew}>
           <Plus className="h-3.5 w-3.5" />
           طلب تصحيح حضور

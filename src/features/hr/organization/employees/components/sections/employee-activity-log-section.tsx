@@ -4,5 +4,5 @@ import { EmployeeAuditLogPanel } from '@/features/hr/organization/employees/comp
 import type { EmployeeProfileModel } from '@/features/hr/organization/employees/hooks/useEmployeeProfileModel';
 
 export function EmployeeActivityLogSection({ model }: { model: EmployeeProfileModel }) {
-  return <EmployeeAuditLogPanel audit={model} />;
+  return <EmployeeAuditLogPanel audit={model} employee={model.employee} />;
 }

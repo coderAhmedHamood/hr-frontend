@@ -97,6 +97,15 @@ export function useAssignmentsPanelModel() {
     resetDeps: [companyId],
   });
 
+  /** Every template group (all pages) with its employee assignments, for export. */
+  const loadAllForExport = React.useCallback(async (): Promise<Batch[]> => {
+    if (!companyId) return [];
+    const { items } = await fetchAllPaginatedItems((page, limit) =>
+      shiftAssignmentsApi.getGroupedByTemplate({ companyId, page, limit }),
+    );
+    return items.map(mapGroupedToBatch);
+  }, [companyId]);
+
   React.useEffect(() => {
     if (!companyId) return;
     void shiftTemplatesApi.getAll({ limit: 200, companyId, ...organizationActiveListStatusQuery() })
@@ -252,6 +261,7 @@ export function useAssignmentsPanelModel() {
     batches,
     loading,
     pagination,
+    loadAllForExport,
     shiftTemplates,
     removeAssignmentBatch,
     editBatch,

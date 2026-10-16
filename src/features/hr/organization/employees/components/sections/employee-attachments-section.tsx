@@ -36,6 +36,19 @@ import {
 } from '@/features/hr/organization/employees/lib/employee-attachments-utils';
 import type { EmployeeAttachmentDto } from '@/features/hr/organization/employees/lib/api/employee-attachments';
 import { statusPillClass } from '@/shared/status-pill-classes';
+import { RegisterExportMenu } from '@/components/pdf/register-export-menu';
+import type { RegisterColumn } from '@/components/pdf/print/register-document';
+import { exportDate } from '@/features/hr/attendance/lib/attendance-export-format';
+import { employeeExportSubtitle } from '@/features/hr/organization/employees/lib/employee-profile-export';
+
+const ATTACHMENT_EXPORT_COLUMNS: RegisterColumn[] = [
+  { label: 'الاسم', kind: 'text', weight: 2 },
+  { label: 'النوع', kind: 'text' },
+  { label: 'التصنيف', kind: 'text' },
+  { label: 'الحجم', kind: 'number' },
+  { label: 'تاريخ الرفع', kind: 'date' },
+  { label: 'الحالة', kind: 'status' },
+];
 import { cn } from '@/shared/utils';
 
 function AttachmentIcon({ item }: { item: EmployeeAttachmentDto }) {
@@ -71,7 +84,20 @@ export function EmployeeAttachmentsSection({ model }: { model: EmployeeProfileMo
     clearAttachmentFilters,
     setUploadOpen,
     setDetailAttachment,
+    fetchAllAttachments,
   } = model;
+
+  const getAttachmentExportRows = async (): Promise<string[][]> => {
+    const rows = await fetchAllAttachments();
+    return rows.map((item) => [
+      item.name,
+      employeeAttachmentDocumentTypeLabel(item.documentType),
+      employeeAttachmentUploadCategoryLabel(item.uploadCategory),
+      formatAttachmentSize(item.sizeBytes),
+      exportDate(item.createdAt),
+      item.isArchived ? 'مؤرشف' : 'نشط',
+    ]);
+  };
 
   const [searchDraft, setSearchDraft] = React.useState(search);
 
@@ -135,16 +161,31 @@ export function EmployeeAttachmentsSection({ model }: { model: EmployeeProfileMo
                 </p>
               </div>
             </div>
-            <Button
-              type="button"
-              variant="luxe"
-              size="sm"
-              className="h-9 shrink-0 gap-1.5 text-xs"
-              onClick={() => setUploadOpen(true)}
-            >
-              <Plus className="h-3.5 w-3.5" />
-              رفع مرفق
-            </Button>
+            <div className="flex shrink-0 items-center gap-2">
+              <RegisterExportMenu
+                title="سجل مرفقات الموظف"
+                fileName={`employee-attachments-${employee.employeeCode || employee.id}`}
+                columns={ATTACHMENT_EXPORT_COLUMNS}
+                getRows={getAttachmentExportRows}
+                subtitleLines={employeeExportSubtitle(
+                  employee,
+                  libraryGroup !== 'all' && `المجموعة: ${activeGroup?.label ?? libraryGroup}`,
+                  documentTypeFilter !== 'all' && `النوع: ${employeeAttachmentDocumentTypeLabel(documentTypeFilter)}`,
+                  search.trim() && `بحث: ${search.trim()}`,
+                  `العرض: ${ORGANIZATION_ARCHIVE_SCOPE_OPTIONS.find((o) => o.value === archiveScope)?.label ?? ''}`,
+                )}
+              />
+              <Button
+                type="button"
+                variant="luxe"
+                size="sm"
+                className="h-9 shrink-0 gap-1.5 text-xs"
+                onClick={() => setUploadOpen(true)}
+              >
+                <Plus className="h-3.5 w-3.5" />
+                رفع مرفق
+              </Button>
+            </div>
           </div>
 
           {attachmentsError ? (

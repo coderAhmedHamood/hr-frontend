@@ -28,6 +28,18 @@ import { usePageHeaderActions } from '@/components/layouts/page-header-actions-c
 import { ForbiddenState } from '@/components/shared/forbidden-state';
 import { EmptyStateCard } from '@/components/shared/empty-state-card';
 import { ConfirmationModal } from '@/components/ui/shared-dialogs';
+import { RegisterExportMenu } from '@/components/pdf/register-export-menu';
+import type { RegisterColumn } from '@/components/pdf/print/register-document';
+import { exportDate } from '@/features/hr/attendance/lib/attendance-export-format';
+import { useLatestCallback } from '@/shared/hooks/use-latest-callback';
+
+const CHECKPOINT_LINK_EXPORT_COLUMNS: RegisterColumn[] = [
+  { label: 'نقطة التسجيل', kind: 'text' },
+  { label: 'الموظف', kind: 'name' },
+  { label: 'الرقم الوظيفي', kind: 'code' },
+  { label: 'ساري من', kind: 'date' },
+  { label: 'الحالة', kind: 'status' },
+];
 
 type CheckpointLinkRow = {
   id: string;
@@ -101,13 +113,36 @@ export function CheckpointLinksPanel() {
     [m],
   );
 
+  const { loadAllForExport } = m;
+  const getExportRows = useLatestCallback(
+    async () =>
+      (await loadAllForExport()).flatMap((batch) =>
+        batch.rows.map((row) => [
+          batch.checkInPointName,
+          row.employeeName,
+          row.employeeCode || '—',
+          exportDate(row.effectiveFrom),
+          row.linkActive ? 'نشط' : 'غير نشط',
+        ]),
+      ),
+  );
+  const openBatchDialog = useLatestCallback(m.openBatchDialog);
+
   usePageHeaderActions(
     () => (
-      <Button variant="luxe" size="sm" className="h-8 gap-1.5 px-3 text-xs" type="button" onClick={m.openBatchDialog}>
-        <Plus className="h-3.5 w-3.5" /> ربط نقاط بموظفين
-      </Button>
+      <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
+        <RegisterExportMenu
+          title="ربط نقاط التسجيل بالموظفين"
+          fileName="checkpoint-links"
+          columns={CHECKPOINT_LINK_EXPORT_COLUMNS}
+          getRows={getExportRows}
+        />
+        <Button variant="luxe" size="sm" className="h-8 gap-1.5 px-3 text-xs" type="button" onClick={openBatchDialog}>
+          <Plus className="h-3.5 w-3.5" /> ربط نقاط بموظفين
+        </Button>
+      </div>
     ),
-    [m.openBatchDialog],
+    [getExportRows, openBatchDialog],
   );
 
   if (m.accessDenied) {

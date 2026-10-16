@@ -27,6 +27,19 @@ import {
 } from '@/features/hr/recruitment/ats/constants/ats-jobs-list';
 import { useRecruitmentApplicantsList, useRecruitmentJobsList, useRecruitmentMutations } from '@/features/hr/recruitment/hooks/useRecruitment';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
+import { RegisterExportMenu } from '@/components/pdf/register-export-menu';
+import { useLatestCallback } from '@/shared/hooks/use-latest-callback';
+import type { RegisterColumn } from '@/components/pdf/print/register-document';
+import { JOB_TYPE_AR } from '@/features/hr/recruitment/ats/constants/ats-jobs-list';
+
+const JOB_EXPORT_COLUMNS: RegisterColumn[] = [
+  { label: 'المسمى', kind: 'name' },
+  { label: 'القسم', kind: 'text' },
+  { label: 'الموقع', kind: 'text' },
+  { label: 'النوع', kind: 'status' },
+  { label: 'الحالة', kind: 'status' },
+  { label: 'عدد المتقدمين', kind: 'number' },
+];
 
 export function useAtsJobsListModel() {
   const router = useRouter();
@@ -114,10 +127,37 @@ export function useAtsJobsListModel() {
     router.push(recruitmentGlobalRoutes.createJob);
   }, [router]);
 
+  // The jobs list is loaded whole and filtered client-side — export that same list.
+  const getExportRows = useLatestCallback((): string[][] => filtered.map((job) => [
+    job.title,
+    job.department || '—',
+    job.location || '—',
+    JOB_TYPE_AR[job.type] ?? job.type,
+    [job.isActive ? 'نشطة' : 'متوقفة', job.isArchived ? 'مؤرشف' : null].filter(Boolean).join(' — '),
+    String(applicants.filter((a) => a.jobId === job.id).length),
+  ]));
+
+  const exportSubtitleLines = React.useMemo(() => {
+    const parts = [
+      `العرض: ${RECRUITMENT_ARCHIVE_SCOPE_OPTIONS.find((o) => o.value === archiveScope)?.label ?? ''}`,
+      typeFilter !== 'all' ? `النوع: ${ATS_JOB_TYPE_LABELS[typeFilter]}` : null,
+      statusFilter !== 'all' ? `الحالة: ${ATS_JOB_STATUS_LABELS[statusFilter]}` : null,
+      debouncedSearch.trim() ? `بحث: ${debouncedSearch.trim()}` : null,
+    ].filter(Boolean);
+    return [parts.join(' — ')];
+  }, [archiveScope, debouncedSearch, statusFilter, typeFilter]);
+
   usePageHeaderActions(
     () => (
       <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
         <FilterToggleButton activeFilterCount={activeFilterCount} />
+        <RegisterExportMenu
+          title="سجل الوظائف"
+          fileName="recruitment-jobs"
+          columns={JOB_EXPORT_COLUMNS}
+          getRows={getExportRows}
+          subtitleLines={exportSubtitleLines}
+        />
         <Button variant="luxe" size="sm" className="h-8 gap-2" onClick={openCreateJob}>
           <Plus className="h-4 w-4" />
           وظيفة جديدة
@@ -130,7 +170,7 @@ export function useAtsJobsListModel() {
         </Button>
       </div>
     ),
-    [activeFilterCount, openCreateJob],
+    [activeFilterCount, openCreateJob, getExportRows, exportSubtitleLines],
   );
 
   useEntityFilterSlot(

@@ -19,6 +19,9 @@ import {
 } from '@/components/ui/select';
 import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 import { fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
+import { RegisterExportMenu } from '@/components/pdf/register-export-menu';
+import type { RegisterColumn } from '@/components/pdf/print/register-document';
+import { useLatestCallback } from '@/shared/hooks/use-latest-callback';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
 import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
@@ -326,6 +329,14 @@ function EmployeeBalanceGroupCard({
   );
 }
 
+const BALANCE_EXPORT_COLUMNS: RegisterColumn[] = [
+  { label: 'الموظف', kind: 'name' },
+  { label: 'نوع الإجازة', kind: 'text' },
+  { label: 'الإجمالي', kind: 'number' },
+  { label: 'المستخدم', kind: 'number' },
+  { label: 'المتبقي', kind: 'number' },
+];
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export function AnalyticsClient() {
@@ -429,10 +440,37 @@ export function AnalyticsClient() {
 
   const activeFilterCount = selectedEmpIds.size > 0 ? 1 : 0;
 
+  const getExportRows = useLatestCallback(async (): Promise<string[][]> => {
+    if (!companyId) return [];
+    const res = await fetchAllPaginatedItems((page, limit) =>
+      leaveBalancesApi.getAll({
+        companyId,
+        page,
+        limit,
+        ...(selectedEmpIds.size === 1 ? { employeeId: [...selectedEmpIds][0] } : {}),
+      }),
+    );
+    return applyEmployeeFilter(res.items).flatMap((g) =>
+      g.leaveTypes.map((lt) => [
+        g.employeeNameAr,
+        lt.leaveTypeNameAr || '—',
+        String(lt.totalDays),
+        String(lt.usedDays),
+        String(lt.remainingDays),
+      ]),
+    );
+  });
+
   usePageHeaderActions(
     () => (
       <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
         <FilterToggleButton activeFilterCount={activeFilterCount} />
+        <RegisterExportMenu
+          title="أرصدة الإجازات"
+          fileName="leave-balances"
+          columns={BALANCE_EXPORT_COLUMNS}
+          getRows={getExportRows}
+        />
         <Button type="button" variant="luxe" size="sm" className="h-8 gap-1.5 px-3 text-xs" onClick={openCreate}>
           <Plus className="h-3.5 w-3.5" />
           إضافة رصيد

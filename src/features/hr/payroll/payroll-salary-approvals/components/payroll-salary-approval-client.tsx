@@ -68,6 +68,18 @@ import { MinimalDropdown } from '@/components/ui/shared-dialogs';
 import type { EmployeePickerOption } from '@/components/ui/employee-picker';
 import { fetchEmployeeFilterPickerOptions } from '@/features/hr/lib/use-employee-filter-picker';
 import { cn } from '@/shared/utils';
+import { RegisterExportMenu } from '@/components/pdf/register-export-menu';
+import type { RegisterColumn } from '@/components/pdf/print/register-document';
+import { useLatestCallback } from '@/shared/hooks/use-latest-callback';
+
+const PAYSLIP_EXPORT_COLUMNS: RegisterColumn[] = [
+  { label: 'الموظف', kind: 'name', weight: 1.6 },
+  { label: 'العقد', kind: 'code' },
+  { label: 'الأساسي', kind: 'number' },
+  { label: 'الإجمالي', kind: 'number' },
+  { label: 'حالة القسيمة', kind: 'status' },
+  { label: 'موافقة الموظف', kind: 'status' },
+];
 
 const PAYSLIP_STATUS_ORDER = ['all', 'draft', 'approved', 'paid'] as const;
 type StatusFilter = (typeof PAYSLIP_STATUS_ORDER)[number];
@@ -314,10 +326,46 @@ export function PayrollSalaryApprovalClient() {
     && period.isReviewCompleted
     && !['locked', 'closed', 'cancelled'].includes(period.status);
 
+  const getPayslipExportRows = useLatestCallback(async (): Promise<string[][]> => {
+    if (!companyId || !periodId) return [];
+    const items = bulkMode
+      ? (await loadBulk()).items
+      : (await fetchAllPaginatedItems((page, limit) =>
+        payslipsApi.list({
+          companyId,
+          payrollPeriodId: periodId,
+          page,
+          limit,
+          ...(statusFilter !== 'all' ? { status: statusFilter } : {}),
+          ...(selectedEmpIds.size === 1 ? { employeeId: [...selectedEmpIds][0] } : {}),
+        }),
+      )).items;
+    return items.map((row) => [
+      row.employeeNameAr,
+      row.contractNumber ?? '—',
+      money(row.baseSalary),
+      money(row.gross),
+      PAYSLIP_STATUS_LABELS[row.status] ?? row.status,
+      PAYSLIP_ACCEPTANCE_STATUS_LABELS[payslipAcceptanceStatus(row)],
+    ]);
+  });
+
+  const payslipExportSubtitle = React.useMemo(
+    () => (period ? [`الفترة: ${period.nameAr} (${period.code})`] : undefined),
+    [period],
+  );
+
   usePageHeaderActions(
     () => (
       <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
         <FilterToggleButton activeFilterCount={activeFilterCount} />
+        <RegisterExportMenu
+          title="سجل قسائم الرواتب"
+          fileName="payslips"
+          columns={PAYSLIP_EXPORT_COLUMNS}
+          getRows={getPayslipExportRows}
+          subtitleLines={payslipExportSubtitle}
+        />
         <CompensationPeriodExportActions
           periodId={periodId || null}
           employeeIdsFilter={exportEmployeeIdsFilter}
@@ -354,7 +402,7 @@ export function PayrollSalaryApprovalClient() {
         </Button>
       </div>
     ),
-    [canFinalize, busy, period?.isReviewCompleted, activeFilterCount, period, periodEmployees.length, companyId, periodId, exportEmployeeIdsFilter],
+    [canFinalize, busy, period?.isReviewCompleted, activeFilterCount, period, periodEmployees.length, companyId, periodId, exportEmployeeIdsFilter, getPayslipExportRows, payslipExportSubtitle],
   );
 
   const handleFinalize = async () => {

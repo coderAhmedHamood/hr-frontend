@@ -17,6 +17,9 @@ import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import { resolveDirectoryLoadFailure } from '@/features/hr/lib/api/directory-load-error';
 import { fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
 import { useServerDirectoryPagination } from '@/components/ui/paged-list';
+import { RegisterExportMenu } from '@/components/pdf/register-export-menu';
+import { useLatestCallback } from '@/shared/hooks/use-latest-callback';
+import type { RegisterColumn } from '@/components/pdf/print/register-document';
 import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 import { useDefaultCompany } from '@/features/hr/organization/hooks/useActiveCompany';
 import {
@@ -39,6 +42,7 @@ import {
   formatUserDate,
   companyLinkLabel,
   branchLinkLabel,
+  USER_TYPE_LABELS as USER_TYPE_LABEL_MAP,
   type UserDraftForm,
 } from '@/features/system/organization/contacts/constants/users-directory';
 
@@ -57,6 +61,20 @@ function userBelongsToCompany(user: UserRecord, companyId: string): boolean {
   // account) — surface it under every company view so an admin can find it
   // and assign it, instead of it being invisible everywhere.
   return !user.defaultCompanyId && user.companies.length === 0;
+}
+
+const USER_EXPORT_COLUMNS: RegisterColumn[] = [
+  { label: 'الاسم', kind: 'name' },
+  { label: 'البريد', kind: 'code' },
+  { label: 'النوع', kind: 'status' },
+  { label: 'الشركة', kind: 'text' },
+  { label: 'الحالة', kind: 'status' },
+];
+
+function userStatusLabel(user: UserRecord): string {
+  if (!user.isActive) return 'غير نشط';
+  if (!user.canSignIn) return 'لا يمكن الدخول';
+  return 'نشط';
 }
 
 export function useContactsDirectoryModel() {
@@ -111,16 +129,20 @@ export function useContactsDirectoryModel() {
     };
   }, [defaultCompanyId]);
 
+  const fetchScopedUsers = React.useCallback(async () => {
+    const res = await fetchAllPaginatedItems((page, limit) =>
+      usersApi.getAll({ page, limit, ...organizationListStatusQuery(archiveScope) }),
+    );
+    return defaultCompanyId
+      ? res.items.filter((u) => userBelongsToCompany(u, defaultCompanyId))
+      : res.items;
+  }, [archiveScope, defaultCompanyId]);
+
   const loadBulk = React.useCallback(async () => {
     setListError(null);
     try {
-      const res = await fetchAllPaginatedItems((page, limit) =>
-        usersApi.getAll({ page, limit, ...organizationListStatusQuery(archiveScope) }),
-      );
+      const scopedUsers = await fetchScopedUsers();
       setApiAccessDenied(false);
-      const scopedUsers = defaultCompanyId
-        ? res.items.filter((u) => userBelongsToCompany(u, defaultCompanyId))
-        : res.items;
       return { items: scopedUsers, total: scopedUsers.length };
     } catch (err) {
       const failure = resolveDirectoryLoadFailure(err, 'users.load');
@@ -128,7 +150,7 @@ export function useContactsDirectoryModel() {
       setListError(failure.listError);
       return { items: [], total: 0 };
     }
-  }, [archiveScope, defaultCompanyId]);
+  }, [fetchScopedUsers]);
 
   const {
     items: pagedUsers,
@@ -149,7 +171,7 @@ export function useContactsDirectoryModel() {
     setForm((f) => ({ ...f, ...p }));
   }, []);
 
-  const openCreate = React.useCallback(() => {
+  const openCreate = useLatestCallback(() => {
     if (!perms.canCreate) return;
     setEditId(null);
     setForm({
@@ -158,7 +180,7 @@ export function useContactsDirectoryModel() {
     });
     setError(null);
     setDrawerOpen(true);
-  }, [defaultCompanyId, perms.canCreate]);
+  });
 
   const openEdit = React.useCallback((row: UserRecord) => {
     if (!perms.canUpdate) return;
@@ -239,10 +261,39 @@ export function useContactsDirectoryModel() {
     }
   }, [confirmId, perms.canDelete, reloadList, viewRow?.id]);
 
+  const getExportRows = useLatestCallback(async (): Promise<string[][]> => {
+    const users = await fetchScopedUsers();
+    return users.map((row) => {
+      const link = row.companies.find((c) => c.isDefault) ?? row.companies[0];
+      const company = link
+        ? companyLinkLabel(link)
+        : row.defaultCompanyId
+          ? (companies.find((x) => x.id === row.defaultCompanyId)?.nameAr ?? row.defaultCompanyId.slice(0, 8))
+          : '—';
+      return [
+        row.fullNameAr ?? row.email,
+        row.email,
+        USER_TYPE_LABEL_MAP[row.userType ?? ''] ?? row.userType ?? '—',
+        company,
+        userStatusLabel(row),
+      ];
+    });
+  });
+
+  const archiveScopeLabel =
+    ORGANIZATION_ARCHIVE_SCOPE_OPTIONS.find((o) => o.value === archiveScope)?.label ?? '';
+
   usePageHeaderActions(
     () => (
       <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
         <FilterToggleButton />
+        <RegisterExportMenu
+          title="سجل المستخدمين"
+          fileName="users"
+          columns={USER_EXPORT_COLUMNS}
+          getRows={getExportRows}
+          subtitleLines={[`العرض: ${archiveScopeLabel}`]}
+        />
         <Can when={perms.canCreate}>
           <Button variant="luxe" size="sm" className="h-8 gap-2" onClick={openCreate}>
             <Plus className="h-4 w-4" /> مستخدم جديد
@@ -250,7 +301,7 @@ export function useContactsDirectoryModel() {
         </Can>
       </div>
     ),
-    [openCreate, perms.canCreate],
+    [openCreate, perms.canCreate, getExportRows, archiveScopeLabel],
   );
 
   useEntityFilterSlot(

@@ -20,6 +20,10 @@ import {
   type UpdateCompanyDto,
 } from '@/features/hr/organization/lib/api/companies';
 import { useServerDirectoryPagination } from '@/components/ui/paged-list';
+import { RegisterExportMenu } from '@/components/pdf/register-export-menu';
+import { useLatestCallback } from '@/shared/hooks/use-latest-callback';
+import type { RegisterColumn } from '@/components/pdf/print/register-document';
+import { fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
 import { slugify } from '@/features/hr/requests/lib/types';
 import { formatDisplayDateTime } from '@/shared/utils';
 import {
@@ -28,6 +32,15 @@ import {
   type CompanyDraftForm,
   type CompanyRow,
 } from '@/features/system/organization/companies/constants/companies-directory';
+
+const COMPANY_EXPORT_COLUMNS: RegisterColumn[] = [
+  { label: 'الشركة', kind: 'name' },
+  { label: 'المدينة', kind: 'text' },
+  { label: 'البريد', kind: 'code' },
+  { label: 'الهاتف', kind: 'code' },
+  { label: 'السجل التجاري', kind: 'code' },
+  { label: 'الحالة', kind: 'status' },
+];
 
 export function useCompaniesDirectoryModel() {
   useSetPageTitle({
@@ -75,13 +88,13 @@ export function useCompaniesDirectoryModel() {
     setForm((f) => ({ ...f, ...p }));
   }, []);
 
-  const openCreate = React.useCallback(() => {
+  const openCreate = useLatestCallback(() => {
     if (!perms.canCreate) return;
     setEditId(null);
     setForm(COMPANY_EMPTY_FORM);
     setError(null);
     setDrawerOpen(true);
-  }, [perms.canCreate]);
+  });
 
   const openEdit = React.useCallback((row: CompanyRow) => {
     if (!perms.canUpdate) return;
@@ -142,10 +155,28 @@ export function useCompaniesDirectoryModel() {
     [],
   );
 
+  const getExportRows = useLatestCallback(async (): Promise<string[][]> => {
+    const { items } = await fetchAllPaginatedItems((page, limit) => companiesApi.getAll({ page, limit }));
+    return (items as CompanyRow[]).map((row) => [
+      row.nameAr,
+      row.city ?? '—',
+      row.email ?? '—',
+      row.phone ?? '—',
+      row.commercialRegistrationNo ?? '—',
+      row.isActive ? 'نشط' : 'غير نشط',
+    ]);
+  });
+
   usePageHeaderActions(
     () => (
       <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
         <FilterToggleButton />
+        <RegisterExportMenu
+          title="سجل الشركات"
+          fileName="companies"
+          columns={COMPANY_EXPORT_COLUMNS}
+          getRows={getExportRows}
+        />
         <Can when={perms.canCreate}>
           <Button variant="luxe" size="sm" className="h-8 gap-2" onClick={openCreate}>
             <Plus className="h-4 w-4" /> شركة جديدة
@@ -153,7 +184,7 @@ export function useCompaniesDirectoryModel() {
         </Can>
       </div>
     ),
-    [openCreate, perms.canCreate],
+    [openCreate, perms.canCreate, getExportRows],
   );
 
   useEntityFilterSlot(

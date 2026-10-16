@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useLatestCallback } from '@/shared/hooks/use-latest-callback';
 import { FileDown, FileSpreadsheet, Plus, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -366,7 +367,7 @@ export function useDailyAttendanceModel() {
     return items.filter((s) => resolveVisualKey(s.status) === statusFilter);
   }, [assignedBranchId, assignedIds, companyId, employeeStatus, from, selectedEmpIds, statusFilter, to]);
 
-  const openPdfExport = React.useCallback(async () => {
+  const openPdfExport = useLatestCallback(async () => {
     try {
       const rows = await fetchExportSummaries();
       if (rows.length === 0) {
@@ -386,7 +387,7 @@ export function useDailyAttendanceModel() {
     } catch {
       toast.error('تعذر تحضير تصدير PDF.');
     }
-  }, [fetchExportSummaries]);
+  });
 
   const attendancePdfRows = exportPrintRows;
 
@@ -415,7 +416,7 @@ export function useDailyAttendanceModel() {
 
   const attendancePdfFileName = `attendance-${from}-${to}.pdf`;
 
-  const handleExportAttendanceExcel = React.useCallback(async () => {
+  const handleExportAttendanceExcel = useLatestCallback(async () => {
     try {
       const rows = await fetchExportSummaries();
       if (rows.length === 0) {
@@ -440,7 +441,7 @@ export function useDailyAttendanceModel() {
     } catch {
       toast.error('تعذر تصدير الحضور.');
     }
-  }, [fetchExportSummaries, from, to]);
+  });
 
   const isDefaultDate = filterFrom === todayPeriod.from && filterTo === todayPeriod.to;
   const activeFilterCount =

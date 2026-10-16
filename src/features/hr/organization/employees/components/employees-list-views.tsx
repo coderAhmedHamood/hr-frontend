@@ -131,6 +131,7 @@ export function EmployeesListViews({ model }: Props) {
         title="معاينة تصدير سجل الموظفين"
         fileName="employees-register.pdf"
         printable={employeesPrintable}
+        orientation="landscape"
       />
       <NewEmployeeDrawer open={newEmpOpen} onOpenChange={setNewEmpOpen} onCreated={reloadEmployees} />
 

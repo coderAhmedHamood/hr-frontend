@@ -17,7 +17,19 @@ export type CompanySettingsFormState = {
   logoUrl: string;
   primaryColor: string;
   secondaryColor: string;
+  pdfWatermarkEnabled: boolean;
+  pdfWatermarkOpacity: number;
 };
+
+/** Visibility levels of the logo background on printed pages (percent). */
+export const PDF_WATERMARK_LEVELS: ReadonlyArray<{ value: number; label: string }> = [
+  { value: 4, label: 'باهتة جدًا' },
+  { value: 7, label: 'خفيفة' },
+  { value: 10, label: 'متوسطة' },
+  { value: 15, label: 'واضحة' },
+  { value: 22, label: 'قوية' },
+  { value: 30, label: 'قوية جدًا' },
+];
 
 export function companyToSettingsForm(company: CompanyResponseDto): CompanySettingsFormState {
   return {
@@ -37,6 +49,8 @@ export function companyToSettingsForm(company: CompanyResponseDto): CompanySetti
     logoUrl: company.logoUrl ?? '',
     primaryColor: company.primaryColor ?? '',
     secondaryColor: company.secondaryColor ?? '',
+    pdfWatermarkEnabled: company.pdfWatermarkEnabled ?? true,
+    pdfWatermarkOpacity: company.pdfWatermarkOpacity ?? 10,
   };
 }
 
@@ -69,5 +83,7 @@ export function settingsFormToUpdateDto(form: CompanySettingsFormState): UpdateC
     logoUrl: emptyToNull(form.logoUrl),
     primaryColor: emptyToNull(form.primaryColor),
     secondaryColor: emptyToNull(form.secondaryColor),
+    pdfWatermarkEnabled: form.pdfWatermarkEnabled,
+    pdfWatermarkOpacity: form.pdfWatermarkOpacity,
   };
 }

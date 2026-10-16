@@ -1,7 +1,11 @@
 'use client';
 
 import * as React from 'react';
-import { Plus, Banknote, Download, Send, CalendarDays } from 'lucide-react';
+import { Plus, Banknote, Send, CalendarDays } from 'lucide-react';
+import { RegisterExportMenu } from '@/components/pdf/register-export-menu';
+import { useLatestCallback } from '@/shared/hooks/use-latest-callback';
+import type { RegisterColumn } from '@/components/pdf/print/register-document';
+import { exportDate, exportMoney, exportText } from '@/features/hr/requests/lib/list-export-format';
 import { toast } from 'sonner';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
@@ -211,15 +215,45 @@ function AdvanceInstallmentTableCell({ x }: { x: HREmployeeAdvance }) {
   );
 }
 
-function AdvancePaidTableCell({ x }: { x: HREmployeeAdvance }) {
-  const hasProgress =
-    x.totalRepaidAmount > 0
+function advanceHasRepaymentProgress(x: HREmployeeAdvance): boolean {
+  return x.totalRepaidAmount > 0
     || x.remainingAmount > 0
     || x.status === 'repaying'
     || x.status === 'fully_repaid'
     || x.status === 'disbursed';
+}
 
-  if (!hasProgress) return <span className="text-xs text-muted-foreground">—</span>;
+/** Plain-text twin of `AdvanceRepaymentLine` for exports. */
+function advanceInstallmentExportText(x: HREmployeeAdvance): string {
+  if (x.repaymentMode === 'by_months' && x.repaymentMonths != null && x.repaymentMonths > 0) {
+    const per = x.monthlyInstallmentAmount != null && x.monthlyInstallmentAmount > 0
+      ? x.monthlyInstallmentAmount
+      : Math.round((x.amount / x.repaymentMonths) * 100) / 100;
+    return `${x.repaymentMonths} شهر · ${exportMoney(per, x.currency)}/شهر`;
+  }
+  if (x.repaymentMode === 'by_monthly_amount' && x.monthlyInstallmentAmount != null && x.monthlyInstallmentAmount > 0) {
+    const approxMonths = Math.ceil(x.amount / x.monthlyInstallmentAmount);
+    return `${exportMoney(x.monthlyInstallmentAmount, x.currency)}/شهر · ${approxMonths} شهر`;
+  }
+  return '—';
+}
+
+const ADVANCE_EXPORT_COLUMNS: RegisterColumn[] = [
+  { label: 'الموظف', kind: 'name' },
+  { label: 'رقم السلفة', kind: 'code' },
+  { label: 'الفرع', kind: 'text' },
+  { label: 'التاريخ', kind: 'date' },
+  { label: 'المبلغ', kind: 'number' },
+  { label: 'النوع', kind: 'status' },
+  { label: 'السبب', kind: 'text', weight: 1.4 },
+  { label: 'الحالة', kind: 'status' },
+  { label: 'القسط', kind: 'text', weight: 1.3 },
+  { label: 'المسدد', kind: 'number' },
+  { label: 'المتبقي', kind: 'number' },
+];
+
+function AdvancePaidTableCell({ x }: { x: HREmployeeAdvance }) {
+  if (!advanceHasRepaymentProgress(x)) return <span className="text-xs text-muted-foreground">—</span>;
 
   return (
     <SarAmount currency={x.currency} className="whitespace-nowrap text-xs font-medium">
@@ -583,8 +617,8 @@ export function EmployeeAdvancesClient() {
     patch({ employeeId: id, employeeNameAr: emp?.nameAr ?? '' });
   };
 
-  const downloadCsv = async () => {
-    if (!companyId) return;
+  const getExportRows = useLatestCallback(async (): Promise<string[][]> => {
+    if (!companyId) return [];
     let exportRows = sorted;
     if (pagination.total > sorted.length) {
       try {
@@ -608,27 +642,25 @@ export function EmployeeAdvancesClient() {
             })();
         exportRows = res.items;
       } catch (e) {
-        handleApiError(e, 'employee-advances/export');
-        return;
+        throw new Error(handleApiError(e, 'employee-advances/export').displayMessage);
       }
     }
-    const rows = [['رقم السلفة', 'الموظف', 'المبلغ', 'نوع السلفة', 'آلية القسط', 'عدد الأشهر', 'القسط الشهري', 'التاريخ', 'الحالة', 'السبب']];
-    exportRows.forEach(x => rows.push([
-      x.advanceNumber,
-      x.employeeNameAr,
-      String(x.amount),
-      ADVANCE_KIND_LABELS[x.advanceKind],
-      REPAYMENT_MODE_LABELS[x.repaymentMode],
-      x.repaymentMonths != null ? String(x.repaymentMonths) : '',
-      x.monthlyInstallmentAmount != null ? String(x.monthlyInstallmentAmount) : '',
-      x.advanceDate,
-      ADVANCE_STATUS_LABELS[x.status],
-      advanceReasonText(x),
-    ]));
-    const csv = rows.map(r => r.join(',')).join('\n');
-    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv' }));
-    a.download = 'employee-advances.csv'; a.click();
-  };
+    return exportRows.map((x) => [
+      exportText(x.employeeNameAr),
+      exportText(x.advanceNumber),
+      exportText(x.branchNameAr),
+      exportDate(x.advanceDate),
+      exportMoney(x.amount, x.currency),
+      ADVANCE_KIND_LABELS[x.advanceKind] ?? '—',
+      exportText(advanceReasonText(x)),
+      ADVANCE_STATUS_LABELS[x.status] ?? x.status,
+      advanceInstallmentExportText(x),
+      advanceHasRepaymentProgress(x)
+        ? `${formatNumber(x.totalRepaidAmount)} / ${exportMoney(x.amount, x.currency)}`
+        : '—',
+      x.remainingAmount > 0 ? exportMoney(x.remainingAmount, x.currency) : '—',
+    ]);
+  });
 
   const activeFilterCount = (selectedEmpIds.size > 0 ? 1 : 0) + (statusFilter !== 'all' ? 1 : 0)
     + (dateBounds.from || dateBounds.to ? 1 : 0);
@@ -792,6 +824,13 @@ export function EmployeeAdvancesClient() {
     () => (
       <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
         <FilterToggleButton activeFilterCount={activeFilterCount} />
+        <RegisterExportMenu
+          title="سجل السلف"
+          fileName="employee-advances"
+          columns={ADVANCE_EXPORT_COLUMNS}
+          getRows={getExportRows}
+          landscape
+        />
         <Button variant="luxe" size="sm" className="h-8 gap-1.5 px-3 text-xs shadow-sm shrink-0" onClick={openCreate}>
           <Plus className="h-3.5 w-3.5" />
           سلفة جديدة
@@ -817,13 +856,6 @@ export function EmployeeAdvancesClient() {
         statusOrder={ADVANCE_STATUS_FILTER_ORDER}
         statusLabels={statusFilterLabels}
         statusCounts={advanceStatusCounts}
-        trailingActions={
-          pagination.total > 0 ? (
-            <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => void downloadCsv()}>
-              <Download className="h-3.5 w-3.5" />تصدير
-            </Button>
-          ) : undefined
-        }
         dataView={{
           value: viewMode,
           onChange: (v) => setViewMode(v as ViewMode),

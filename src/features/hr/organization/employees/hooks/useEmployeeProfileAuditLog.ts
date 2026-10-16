@@ -10,6 +10,7 @@ import {
 import { useServerDirectoryPagination } from '@/components/ui/paged-list';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import type { PeriodRange } from '@/components/ui/list-filter-bar';
+import { fetchAllProfilePages } from '@/features/hr/organization/employees/lib/employee-profile-export';
 
 export type AuditScopeFilter = 'all' | AuditEntityScope;
 export type AuditActionFilter = 'all' | string;
@@ -47,6 +48,23 @@ export function useEmployeeProfileAuditLog(employee: Employee, listEnabled = tru
     };
   }, [employee.id]);
 
+  const auditFilterQuery = React.useMemo(() => ({
+    ...(scopeFilter !== 'all' ? { scope: scopeFilter } : {}),
+    ...(actionFilter !== 'all' ? { action: actionFilter } : {}),
+    ...(dateRange.from ? { from: dateRange.from } : {}),
+    ...(dateRange.to ? { to: dateRange.to } : {}),
+  }), [scopeFilter, actionFilter, dateRange.from, dateRange.to]);
+
+  /** Every audit change matching the current filters (export). */
+  const fetchAllAuditChanges = React.useCallback(
+    () =>
+      fetchAllProfilePages(async (page, pageSize) => {
+        const res = await employeeProfileApi.getAudit(employee.id, { page, pageSize, ...auditFilterQuery });
+        return { items: res.changes ?? [], totalPages: res.pagination?.totalPages ?? 1 };
+      }),
+    [employee.id, auditFilterQuery],
+  );
+
   const loadAuditPage = React.useCallback(
     async (page: number, pageSize: number) => {
       setAuditError(null);
@@ -54,10 +72,7 @@ export function useEmployeeProfileAuditLog(employee: Employee, listEnabled = tru
         const res = await employeeProfileApi.getAudit(employee.id, {
           page,
           pageSize,
-          ...(scopeFilter !== 'all' ? { scope: scopeFilter } : {}),
-          ...(actionFilter !== 'all' ? { action: actionFilter } : {}),
-          ...(dateRange.from ? { from: dateRange.from } : {}),
-          ...(dateRange.to ? { to: dateRange.to } : {}),
+          ...auditFilterQuery,
         });
         setAuditCounts(res.counts ?? EMPTY_COUNTS);
         return {
@@ -70,7 +85,7 @@ export function useEmployeeProfileAuditLog(employee: Employee, listEnabled = tru
         return { items: [] as AuditChangeSummaryDto[], total: 0 };
       }
     },
-    [employee.id, scopeFilter, actionFilter, dateRange.from, dateRange.to],
+    [employee.id, auditFilterQuery],
   );
 
   const {
@@ -105,5 +120,6 @@ export function useEmployeeProfileAuditLog(employee: Employee, listEnabled = tru
     setDateRange,
     hasAuditFilters,
     reloadAudit,
+    fetchAllAuditChanges,
   };
 }

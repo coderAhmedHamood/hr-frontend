@@ -48,16 +48,16 @@ export const DisciplineLetterPrintHtml = React.forwardRef<
         margin: '0 auto',
         boxSizing: 'border-box',
         backgroundColor: '#ffffff',
-        padding: '20px 28px 44px',
+        padding: '0 28px 44px',
         color: '#111',
-        minHeight: '297mm',
+        minHeight: '279mm',
         overflow: 'hidden',
         fontFamily: PDF_PRINT_FONT_FAMILY,
         fontSize: 26,
       }}
     >
       <RosePdfWatermark logoSrc={logoSrc} />
-      <div style={{ position: 'relative', zIndex: 1 }}>
+      <div style={{ position: 'relative', zIndex: 1, paddingTop: 20 }}>
         <RoseTradingLetterheadPrint
           logoSrc={logoSrc}
           companyNameAr={companyNameAr}
@@ -86,18 +86,26 @@ export const DisciplineLetterPrintHtml = React.forwardRef<
           ))}
         </div>
 
-        {bodyAr?.trim() ? (
-          <p
-            style={{
-              marginTop: 18,
-              lineHeight: 1.9,
-              textAlign: 'justify',
-              whiteSpace: 'pre-wrap',
-            }}
-          >
-            {sanitizePdfText(bodyAr.trim())}
-          </p>
-        ) : null}
+        {/* One paragraph per line: the PDF export moves a block that crosses a
+            page end to the next page whole, so a long single block would leave
+            the rest of the page empty. */}
+        {bodyAr?.trim()
+          ? sanitizePdfText(bodyAr.trim())
+              .split(/\r?\n/)
+              .map((line, i, lines) => (
+                <p
+                  key={i}
+                  style={{
+                    margin: `${i === 0 ? 18 : 0}px 0 ${i === lines.length - 1 ? '1em' : '0'}`,
+                    lineHeight: 1.9,
+                    textAlign: 'justify',
+                    whiteSpace: 'pre-wrap',
+                  }}
+                >
+                  {line || ' '}
+                </p>
+              ))
+          : null}
       </div>
     </div>
   );

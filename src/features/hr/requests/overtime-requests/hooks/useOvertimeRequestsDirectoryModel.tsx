@@ -19,6 +19,11 @@ import {
 } from '@/features/hr/requests/overtime-requests/permissions';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import { resolveDirectoryLoadFailure } from '@/features/hr/lib/api/directory-load-error';
+import { fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
+import { RegisterExportMenu } from '@/components/pdf/register-export-menu';
+import { useLatestCallback } from '@/shared/hooks/use-latest-callback';
+import type { RegisterColumn } from '@/components/pdf/print/register-document';
+import { exportDate, exportDuration, exportText } from '@/features/hr/requests/lib/list-export-format';
 import { overtimeRequestsApi } from '@/features/hr/requests/lib/api/overtime-requests';
 import type { OvertimeRequestStatusDto } from '@/features/hr/requests/lib/api/overtime-requests';
 import { requestTypesApi, type ApiRequestType } from '@/features/hr/requests/lib/api/request-types';
@@ -54,6 +59,16 @@ export const OVERTIME_STATUS_ORDER: OvertimeRequestStatusDto[] = [
   'approved',
   'rejected',
   'cancelled',
+];
+
+const OVERTIME_EXPORT_COLUMNS: RegisterColumn[] = [
+  { label: 'الموظف', kind: 'name' },
+  { label: 'تاريخ العمل الإضافي', kind: 'date' },
+  { label: 'المدة المطلوبة', kind: 'number' },
+  { label: 'المدة المعتمدة', kind: 'number' },
+  { label: 'السبب', kind: 'text', weight: 1.6 },
+  { label: 'الحالة', kind: 'status' },
+  { label: 'ملاحظات القرار', kind: 'text', weight: 1.3 },
 ];
 
 export function useOvertimeRequestsDirectoryModel() {
@@ -354,10 +369,37 @@ export function useOvertimeRequestsDirectoryModel() {
   const activeFilterCount =
     (selectedEmpIds.size > 0 ? 1 : 0) + (statusFilter !== 'all' ? 1 : 0) + (dateBounds.from || dateBounds.to ? 1 : 0);
 
+  const getExportRows = useLatestCallback(async (): Promise<string[][]> => {
+    if (!companyId) return [];
+    const { items: all } = await fetchAllPaginatedItems(async (page, limit) => {
+      const res = await overtimeRequestsApi.list(buildListQuery(page, limit));
+      return {
+        items: res.items.map((item) => mapOvertimeRequestListItem(item, res.approvalAssignments)),
+        pagination: res.pagination,
+      };
+    });
+    return all.map((x) => [
+      exportText(x.employeeNameAr),
+      exportDate(x.workDate),
+      exportDuration(x.requestedMinutes),
+      exportDuration(x.approvedMinutes),
+      exportText(x.reasonAr),
+      OVERTIME_STATUS_LABELS[x.status] ?? x.status,
+      exportText(x.decisionNotesAr),
+    ]);
+  });
+
   usePageHeaderActions(
     () => (
       <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
         <FilterToggleButton activeFilterCount={activeFilterCount} />
+        <RegisterExportMenu
+          title="سجل طلبات العمل الإضافي"
+          fileName="overtime-requests"
+          columns={OVERTIME_EXPORT_COLUMNS}
+          getRows={getExportRows}
+          landscape
+        />
         <PageHeaderPrimaryButton
           icon={Plus}
           label="طلب عمل إضافي"

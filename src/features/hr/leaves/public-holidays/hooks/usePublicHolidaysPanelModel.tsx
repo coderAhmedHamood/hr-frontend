@@ -1,9 +1,11 @@
 'use client';
 
 import * as React from 'react';
+import { useLatestCallback } from '@/shared/hooks/use-latest-callback';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import { resolveDirectoryLoadFailure } from '@/features/hr/lib/api/directory-load-error';
 import { useServerDirectoryPagination } from '@/components/ui/paged-list';
+import { fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
 import { publicHolidaysApi } from '@/features/hr/leaves/public-holidays/lib/api/public-holidays';
 import { resolveOrganizationScope } from '@/features/hr/organization/lib/api/organization-context';
 import type { HRPublicHolidayRecord } from '@/features/hr/leaves/public-holidays/types';
@@ -65,12 +67,22 @@ export function usePublicHolidaysPanelModel() {
     total,
   } = useServerDirectoryPagination<HRPublicHolidayRecord>(loadPage);
 
-  const openCreate = React.useCallback(() => {
+  /** All public holidays (all pages) — for PDF / Excel export. */
+  const loadAllForExport = React.useCallback(async (): Promise<HRPublicHolidayRecord[]> => {
+    const scope = await resolveOrganizationScope();
+    const cid = scope.companyId ?? null;
+    const res = await fetchAllPaginatedItems((page, limit) =>
+      publicHolidaysApi.getAll(cid ? { companyId: cid, page, limit } : { page, limit }),
+    );
+    return res.items.map(mapPublicHolidayResponse).sort((a, b) => a.sortOrder - b.sortOrder);
+  }, []);
+
+  const openCreate = useLatestCallback(() => {
     setEditId(null);
     setDraft({ ...EMPTY_DRAFT, sortOrder: total + 1 });
     setError(null);
     setOpen(true);
-  }, [total]);
+  });
 
   const openEdit = React.useCallback((item: HRPublicHolidayRecord) => {
     setEditId(item.id);
@@ -166,5 +178,6 @@ export function usePublicHolidaysPanelModel() {
     patch,
     save,
     remove,
+    loadAllForExport,
   };
 }

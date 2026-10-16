@@ -40,6 +40,7 @@ import { departmentsApi } from '@/features/hr/organization/lib/api/departments';
 import { organizationActiveListStatusQuery } from '@/features/hr/organization/lib/archive-scope';
 import { employeesApi } from '@/features/hr/organization/employees/lib/api/employees';
 import { resolveOrganizationScope } from '@/features/hr/organization/lib/api/organization-context';
+import { useLatestCallback } from '@/shared/hooks/use-latest-callback';
 
 export type BalanceCreditFetchParams = {
   employeeId?: string;
@@ -234,6 +235,15 @@ export function useLeaveBalanceCreditModel() {
     }
   }, [applyClientFilters, buildListQuery, companyId, mapRows]);
 
+  /** Every request matching the current filters (all pages) — for PDF / Excel export. */
+  const loadAllForExport = useLatestCallback(async (): Promise<LeaveBalanceCreditRequest[]> => {
+    if (!companyId) return [];
+    const res = await fetchAllPaginatedItems((page, limit) =>
+      balanceCreditsApi.getAll(buildListQuery(page, limit)),
+    );
+    return applyClientFilters(mapRows(res.items)).sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+  });
+
   const {
     items: sortedRequests,
     loading: listLoading,
@@ -421,5 +431,6 @@ export function useLeaveBalanceCreditModel() {
     handleDialogSubmit,
     approveCreditRequest,
     rejectCreditRequest,
+    loadAllForExport,
   };
 }

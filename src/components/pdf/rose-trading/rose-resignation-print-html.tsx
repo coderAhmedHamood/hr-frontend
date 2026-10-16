@@ -174,7 +174,7 @@ export const RoseResignationPrintHtml = React.forwardRef<HTMLDivElement, RoseRes
           margin: '0 auto',
           boxSizing: 'border-box',
           backgroundColor: '#ffffff',
-          padding: '26px 32px 40px',
+          padding: '0 32px 40px',
           fontSize: 22.5,
           color: '#111111',
           overflow: 'hidden',
@@ -182,7 +182,7 @@ export const RoseResignationPrintHtml = React.forwardRef<HTMLDivElement, RoseRes
         }}
       >
         <RosePdfWatermark logoSrc={logoSrc} />
-        <div style={{ position: 'relative', zIndex: 1 }}>
+        <div style={{ position: 'relative', zIndex: 1, paddingTop: 26 }}>
           <RoseTradingLetterheadPrint
             logoSrc={logoSrc}
             companyNameAr={companyNameAr}
@@ -195,8 +195,8 @@ export const RoseResignationPrintHtml = React.forwardRef<HTMLDivElement, RoseRes
               marginInline: 'auto',
               border: `1.5px solid ${BORDER}`,
               padding: '8px 28px',
-              marginTop: 28,
-              marginBottom: 48,
+              marginTop: 16,
+              marginBottom: 24,
               fontSize: 26,
               fontWeight: 700,
               textAlign: 'center',
@@ -210,7 +210,7 @@ export const RoseResignationPrintHtml = React.forwardRef<HTMLDivElement, RoseRes
             style={{
               display: 'grid',
               gridTemplateColumns: '18% 32% 18% 32%',
-              marginBottom: 48,
+              marginBottom: 24,
             }}
           >
             <InfoCell
@@ -229,7 +229,7 @@ export const RoseResignationPrintHtml = React.forwardRef<HTMLDivElement, RoseRes
             إلى السيد مدير/{' '}
             <span style={{ fontWeight: 700 }}>{company}</span>
           </div>
-          <div style={{ fontSize: 22.5, textAlign: 'center', marginBottom: 48, ...font }}>
+          <div style={{ fontSize: 22.5, textAlign: 'center', marginBottom: 24, ...font }}>
             بعد التحية ،،،
           </div>
 
@@ -237,7 +237,7 @@ export const RoseResignationPrintHtml = React.forwardRef<HTMLDivElement, RoseRes
             style={{
               border: `1.5px solid ${BORDER}`,
               padding: '12px 14px 16px',
-              marginBottom: 48,
+              marginBottom: 24,
               minHeight: 120,
             }}
           >
@@ -268,7 +268,7 @@ export const RoseResignationPrintHtml = React.forwardRef<HTMLDivElement, RoseRes
               <span style={{ fontWeight: 700 }}>{sanitizePdfText(fields.effectiveDateHijri.trim())} هـ</span>
             )}
           </p>
-          <p style={{ fontSize: 22.5, lineHeight: 2, textAlign: 'right', margin: '0 0 72px', ...font }}>
+          <p style={{ fontSize: 22.5, lineHeight: 2, textAlign: 'right', margin: '0 0 36px', ...font }}>
             الموافق :{' '}
             {blank ? (
               <>&nbsp;&nbsp;/&nbsp;&nbsp;/&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;م</>
@@ -288,7 +288,7 @@ export const RoseResignationPrintHtml = React.forwardRef<HTMLDivElement, RoseRes
             <FooterRow label="التوقيع" blank />
             <FooterRow label="التاريخ" value={fields?.submissionDate} blank={blank} />
           </div>
-          <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: 24 }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: 12 }}>
             <RoseCompanyStamp width={150} />
           </div>
         </div>

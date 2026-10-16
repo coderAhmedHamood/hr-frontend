@@ -20,6 +20,7 @@ import type { ApiRequestType } from '@/features/hr/requests/lib/api/request-type
 import { getDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import { useServerDirectoryPagination } from '@/components/ui/paged-list';
+import { fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
 import { AR_LEAVE_STATUS_LABELS } from '@/shared/i18n/ar';
 
 export type EmployeeProfileLeaveTypeOption = {
@@ -116,21 +117,28 @@ export function useEmployeeProfileLeave(employee: Employee, enabled = true) {
     void reloadLeaves();
   }, [reloadLeaves]);
 
+  const leaveRequestsQuery = React.useMemo(() => ({
+    employeeId: employee.id,
+    companyId: companyId || undefined,
+    ...(leaveTypeFilter !== 'all' ? { leaveTypeId: leaveTypeFilter } : {}),
+    ...(leaveStatusFilter !== 'all' ? { status: leaveStatusFilter } : {}),
+  }), [companyId, employee.id, leaveTypeFilter, leaveStatusFilter]);
+
   const loadLeaveRequestsPage = React.useCallback(async (page: number, pageSize: number) => {
-    const scopedCompanyId = companyId || undefined;
-    const res = await leaveRequestsNewApi.list({
-      employeeId: employee.id,
-      companyId: scopedCompanyId,
-      page,
-      limit: pageSize,
-      ...(leaveTypeFilter !== 'all' ? { leaveTypeId: leaveTypeFilter } : {}),
-      ...(leaveStatusFilter !== 'all' ? { status: leaveStatusFilter } : {}),
-    });
+    const res = await leaveRequestsNewApi.list({ ...leaveRequestsQuery, page, limit: pageSize });
     return {
       items: res.items,
       total: res.pagination?.total ?? res.items.length,
     };
-  }, [companyId, employee.id, leaveTypeFilter, leaveStatusFilter]);
+  }, [leaveRequestsQuery]);
+
+  /** Every leave request matching the current filters (export). */
+  const fetchAllLeaveRequests = React.useCallback(async () => {
+    const { items } = await fetchAllPaginatedItems((page, limit) =>
+      leaveRequestsNewApi.list({ ...leaveRequestsQuery, page, limit }),
+    );
+    return items;
+  }, [leaveRequestsQuery]);
 
   const {
     items: filteredLeaveRequests,
@@ -223,6 +231,7 @@ export function useEmployeeProfileLeave(employee: Employee, enabled = true) {
     companyId,
     totalLeaveRequestCount,
     filteredLeaveRequests,
+    fetchAllLeaveRequests,
     leaveRequestsLoading,
     leaveRequestsPagination,
     hasLeaveFilters,

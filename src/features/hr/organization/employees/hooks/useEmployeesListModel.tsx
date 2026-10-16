@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Download, FileDown, FileSpreadsheet } from 'lucide-react';
+import { Plus, Download, FileDown, FileSpreadsheet, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useSetPageTitle } from '@/components/layouts/page-title-context';
 import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
@@ -31,6 +31,8 @@ import { departmentsApi, type DepartmentResponseDto } from '@/features/hr/organi
 import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 import { useActiveCompany } from '@/features/hr/organization/hooks/useActiveCompany';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
+import { fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
+import { useLatestCallback } from '@/shared/hooks/use-latest-callback';
 import { resolveDirectoryLoadFailure } from '@/features/hr/lib/api/directory-load-error';
 import { usePagePermissions } from '@/features/auth/permissions';
 import { useFilterPermission } from '@/features/auth/permissions/use-filter-permission';
@@ -189,9 +191,30 @@ export function useEmployeesListModel() {
     [employees, totalCount],
   );
 
+  // Exports cover every record matching the current filters, not just the visible page.
+  const [exportEmployees, setExportEmployees] = React.useState<EmployeeResponseDto[]>([]);
+  const [exporting, setExporting] = React.useState(false);
+
+  const fetchAllForExport = React.useCallback(async (): Promise<EmployeeResponseDto[] | null> => {
+    if (!companyId) return null;
+    setExporting(true);
+    try {
+      const { items } = await fetchAllPaginatedItems((page, limit) =>
+        employeesApi.getAll(buildListQuery(page, limit)),
+      );
+      return items;
+    } catch (err) {
+      const { displayMessage } = handleApiError(err, 'employees.export');
+      toast.error(displayMessage || 'تعذّر تحميل الموظفين للتصدير.');
+      return null;
+    } finally {
+      setExporting(false);
+    }
+  }, [buildListQuery, companyId]);
+
   const employeesPdfRows = React.useMemo(
     () =>
-      filtered.map((emp) => ({
+      exportEmployees.map((emp) => ({
         name: emp.nameAr,
         employeeCode: emp.employeeCode,
         position: emp.position ?? '—',
@@ -199,8 +222,20 @@ export function useEmployeesListModel() {
         startDate: empStartYmd(emp),
         statusAr: EMP_CONTRACT_STATUS_LABELS[emp.contractStatus ?? ''] ?? emp.contractStatus ?? '—',
       })),
-    [filtered],
+    [exportEmployees],
   );
+
+  const handleExportPdf = useLatestCallback(async () => {
+    if (exporting) return;
+    const all = await fetchAllForExport();
+    if (!all) return;
+    if (all.length === 0) {
+      toast.error('لا يوجد موظفون للتصدير ضمن الفلاتر الحالية.');
+      return;
+    }
+    setExportEmployees(all);
+    setPdfOpen(true);
+  });
 
   const employeesFilterSummary = React.useMemo(() => {
     const parts: string[] = [];
@@ -225,8 +260,11 @@ export function useEmployeesListModel() {
     }
   }, [deleteId, reloadEmployees]);
 
-  const handleExportExcel = React.useCallback(async () => {
-    if (filtered.length === 0) {
+  const handleExportExcel = useLatestCallback(async () => {
+    if (exporting) return;
+    const all = await fetchAllForExport();
+    if (!all) return;
+    if (all.length === 0) {
       toast.error('لا يوجد موظفون للتصدير ضمن الفلاتر الحالية.');
       return;
     }
@@ -234,7 +272,7 @@ export function useEmployeesListModel() {
       'الموظف', 'رقم الموظف', 'المسمى',
       'نوع العقد', 'تاريخ الالتحاق', 'حالة العقد',
     ]];
-    for (const emp of filtered) {
+    for (const emp of all) {
       rows.push([
         emp.nameAr,
         emp.employeeCode,
@@ -246,7 +284,7 @@ export function useEmployeesListModel() {
     }
     await downloadXlsxFromAoA('employees-register.xlsx', 'الموظفون', rows);
     toast.success('تم تنزيل ملف Excel.');
-  }, [filtered]);
+  });
 
   const employeesPrintable = React.useMemo(
     () =>
@@ -286,24 +324,18 @@ export function useEmployeesListModel() {
               size="sm"
               className="h-8 w-8 shrink-0"
               aria-label="تصدير سجل الموظفين"
+              disabled={exporting}
+              aria-busy={exporting}
             >
-              <Download className="h-4 w-4" />
+              {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-44">
-            <DropdownMenuItem
-              onSelect={() => {
-                if (employeesPdfRows.length === 0) {
-                  toast.error('لا يوجد موظفون للتصدير ضمن الفلاتر الحالية.');
-                  return;
-                }
-                setPdfOpen(true);
-              }}
-            >
+            <DropdownMenuItem disabled={exporting} onSelect={() => void handleExportPdf()}>
               <FileDown className="h-4 w-4" />
               PDF
             </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => void handleExportExcel()}>
+            <DropdownMenuItem disabled={exporting} onSelect={() => void handleExportExcel()}>
               <FileSpreadsheet className="h-4 w-4" />
               Excel
             </DropdownMenuItem>
@@ -311,7 +343,7 @@ export function useEmployeesListModel() {
         </DropdownMenu>
       </div>
     ),
-    [employeesPdfRows.length, handleExportExcel],
+    [exporting, handleExportPdf, handleExportExcel],
   );
 
   useEntityFilterSlot(

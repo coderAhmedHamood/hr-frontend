@@ -15,10 +15,10 @@ const PAGE_STYLE: React.CSSProperties = {
   margin: '0 auto',
   boxSizing: 'border-box',
   backgroundColor: '#ffffff',
-  padding: '28px 24px 44px',
+  padding: '0 24px 44px',
   fontFamily: PDF_PRINT_FONT_FAMILY,
   color: '#111',
-  minHeight: '297mm',
+  minHeight: '279mm',
   display: 'flex',
   flexDirection: 'column',
   overflow: 'hidden',
@@ -62,7 +62,7 @@ export const RoseResignationFormPrintHtml = React.forwardRef<HTMLDivElement, Ros
     return (
       <div ref={ref} dir="rtl" lang="ar" style={PAGE_STYLE}>
         <RosePdfWatermark logoSrc={logoSrc} />
-        <div style={{ position: 'relative', zIndex: 1 }}>
+        <div style={{ position: 'relative', zIndex: 1, paddingTop: 28 }}>
         <RoseTradingLetterheadPrint logoSrc={logoSrc} />
 
         {/* Subject box */}
@@ -229,7 +229,7 @@ export const RoseFinalSettlementFormPrintHtml = React.forwardRef<HTMLDivElement,
     return (
       <div ref={ref} dir="rtl" lang="ar" style={PAGE_STYLE}>
         <RosePdfWatermark logoSrc={logoSrc} />
-        <div style={{ position: 'relative', zIndex: 1 }}>
+        <div style={{ position: 'relative', zIndex: 1, paddingTop: 28 }}>
         <RoseTradingLetterheadPrint logoSrc={logoSrc} />
 
         {/* Body */}
@@ -380,7 +380,7 @@ export const RoseExperienceCertificatePrintHtml = React.forwardRef<HTMLDivElemen
     return (
       <div ref={ref} dir="rtl" lang="ar" style={PAGE_STYLE}>
         <RosePdfWatermark logoSrc={logoSrc} />
-        <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', flex: 1 }}>
+        <div style={{ position: 'relative', zIndex: 1, paddingTop: 28, display: 'flex', flexDirection: 'column', flex: 1 }}>
         <RoseTradingLetterheadPrint logoSrc={logoSrc} />
 
         {/* Title */}

@@ -66,18 +66,18 @@ export const RoseClearancePrintHtml = React.forwardRef<HTMLDivElement, RoseClear
           margin: '0 auto',
           boxSizing: 'border-box',
           backgroundColor: '#ffffff',
-          padding: '28px 36px 48px',
+          padding: '0 36px 48px',
           fontSize: 26,
           color: '#111111',
           display: 'flex',
           flexDirection: 'column',
-          minHeight: '297mm',
+          minHeight: '279mm',
           overflow: 'hidden',
           ...font,
         }}
       >
         <RosePdfWatermark logoSrc={logoSrc} />
-        <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', flex: 1 }}>
+        <div style={{ position: 'relative', zIndex: 1, paddingTop: 28, display: 'flex', flexDirection: 'column', flex: 1 }}>
           <RoseTradingLetterheadPrint
             logoSrc={logoSrc}
             companyNameAr={companyNameAr}
@@ -91,14 +91,14 @@ export const RoseClearancePrintHtml = React.forwardRef<HTMLDivElement, RoseClear
               textAlign: 'center',
               textDecoration: 'underline',
               marginTop: 8,
-              marginBottom: 36,
+              marginBottom: 20,
               ...font,
             }}
           >
             إخلاء طرف موظفة
           </div>
 
-          <div style={{ fontSize: 26, lineHeight: 2.4, textAlign: 'right', marginBottom: 8, ...font }}>
+          <div style={{ fontSize: 26, lineHeight: 2.1, textAlign: 'right', marginBottom: 8, ...font }}>
             <div>
               <span style={{ fontWeight: 700 }}>الموظفة</span>
               <span> : </span>
@@ -117,7 +117,7 @@ export const RoseClearancePrintHtml = React.forwardRef<HTMLDivElement, RoseClear
             </div>
           </div>
 
-          <p style={{ fontSize: 26, lineHeight: 2, textAlign: 'right', margin: '24px 0 12px', ...font }}>
+          <p style={{ fontSize: 26, lineHeight: 2, textAlign: 'right', margin: '16px 0 8px', ...font }}>
             أطلب من {company} إخلاء طرف نظراً للأسباب التالية :
           </p>
 
@@ -127,7 +127,7 @@ export const RoseClearancePrintHtml = React.forwardRef<HTMLDivElement, RoseClear
                 key={`${i}-${line}`}
                 style={{
                   fontSize: 26,
-                  lineHeight: 2.4,
+                  lineHeight: 2.1,
                   textAlign: 'right',
                   minHeight: 28,
                   ...font,
@@ -144,11 +144,11 @@ export const RoseClearancePrintHtml = React.forwardRef<HTMLDivElement, RoseClear
 
           <div
             style={{
-              marginTop: 72,
+              marginTop: 24,
               alignSelf: 'flex-start',
               textAlign: 'right',
               fontSize: 26,
-              lineHeight: 2.6,
+              lineHeight: 2,
               ...font,
             }}
           >
@@ -173,7 +173,7 @@ export const RoseClearancePrintHtml = React.forwardRef<HTMLDivElement, RoseClear
               <span> : </span>
             </div>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: 24 }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: 12 }}>
             <RoseCompanyStamp width={150} />
           </div>
         </div>

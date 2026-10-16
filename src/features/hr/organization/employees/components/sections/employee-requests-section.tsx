@@ -11,6 +11,18 @@ import type { EmployeeProfileModel } from '@/features/hr/organization/employees/
 import type { RequestStatusFilter } from '@/features/hr/organization/employees/hooks/useEmployeeProfileRequests';
 import { FilterSelect } from '@/components/ui/select-with-clear';
 import { AR_LEAVE_STATUS_LABELS } from '@/shared/i18n/ar';
+import { RegisterExportMenu } from '@/components/pdf/register-export-menu';
+import type { RegisterColumn } from '@/components/pdf/print/register-document';
+import { exportDateTime } from '@/features/hr/attendance/lib/attendance-export-format';
+import { employeeExportSubtitle } from '@/features/hr/organization/employees/lib/employee-profile-export';
+
+const REQUEST_EXPORT_COLUMNS: RegisterColumn[] = [
+  { label: 'نوع الطلب', kind: 'text' },
+  { label: 'الوصف', kind: 'text', weight: 2 },
+  { label: 'تاريخ التقديم', kind: 'date' },
+  { label: 'تاريخ القرار', kind: 'date' },
+  { label: 'الحالة', kind: 'status' },
+];
 
 const STATUS_LABELS: Record<Exclude<RequestStatusFilter, 'all'>, string> = AR_LEAVE_STATUS_LABELS;
 
@@ -33,7 +45,19 @@ export function EmployeeRequestsSection({ model }: { model: EmployeeProfileModel
     setRequestStatusFilter,
     hasRequestFilters,
     setActiveSection,
+    fetchAllRequests,
   } = model;
+
+  const getRequestExportRows = async (): Promise<string[][]> => {
+    const rows = await fetchAllRequests();
+    return rows.map((req) => [
+      [req.requestTypeNameAr || req.type, req.subtypeNameAr].filter(Boolean).join(' · '),
+      req.title?.trim() || '—',
+      exportDateTime(req.submittedAt),
+      exportDateTime(req.decidedAt),
+      STATUS_LABELS[req.status] ?? req.status,
+    ]);
+  };
 
   if (requestsLoading && employeeRequests.length === 0 && !requestsError) {
     return (
@@ -84,12 +108,24 @@ export function EmployeeRequestsSection({ model }: { model: EmployeeProfileModel
               </span>
             )}
           </h3>
-          <FilterSelect
-            value={requestStatusFilter}
-            onValueChange={(v) => setRequestStatusFilter(v as RequestStatusFilter)}
-            options={REQUEST_STATUS_OPTIONS}
-            placeholder="اختر الحالة"
-          />
+          <div className="flex flex-wrap items-center gap-2">
+            <RegisterExportMenu
+              title="سجل طلبات الموظف"
+              fileName={`employee-requests-${employee.employeeCode || employee.id}`}
+              columns={REQUEST_EXPORT_COLUMNS}
+              getRows={getRequestExportRows}
+              subtitleLines={employeeExportSubtitle(
+                employee,
+                requestStatusFilter !== 'all' && `الحالة: ${STATUS_LABELS[requestStatusFilter]}`,
+              )}
+            />
+            <FilterSelect
+              value={requestStatusFilter}
+              onValueChange={(v) => setRequestStatusFilter(v as RequestStatusFilter)}
+              options={REQUEST_STATUS_OPTIONS}
+              placeholder="اختر الحالة"
+            />
+          </div>
         </div>
 
         <div className="px-4 pb-4 pt-3">
