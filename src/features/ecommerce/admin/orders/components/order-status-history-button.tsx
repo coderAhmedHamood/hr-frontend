@@ -2,7 +2,17 @@
 
 import * as React from 'react';
 import { useQueries } from '@tanstack/react-query';
-import { History, Store, UserCheck, UserRound } from 'lucide-react';
+import {
+  Banknote,
+  History,
+  Package,
+  Paperclip,
+  StickyNote,
+  Store,
+  UserCheck,
+  UserRound,
+  type LucideIcon,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -16,7 +26,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { useOrderDetail } from '@/features/ecommerce/admin/orders/hooks/use-orders';
 import { ORDER_STATUS_LABELS_AR } from '@/features/ecommerce/domain/constants/order-status';
-import type { OrderStatusHistoryEntry } from '@/features/ecommerce/domain/types/order';
+import type { OrderHistoryKind, OrderStatusHistoryEntry } from '@/features/ecommerce/domain/types/order';
 import { usersApi } from '@/features/hr/organization/lib/api/users';
 import { cn, formatDisplayDateTime } from '@/shared/utils';
 
@@ -65,6 +75,24 @@ function useChangedByNames(userIds: string[]) {
   }, [unique, results]);
 }
 
+/** Each kind of action on the order (the status moves show their from → to). */
+const HISTORY_KIND_LABELS: Record<OrderHistoryKind, string> = {
+  status: 'الحالة',
+  assignment: 'إسناد',
+  line: 'بند',
+  note: 'ملاحظة',
+  payment: 'الدفع',
+  attachment: 'مرفق',
+};
+
+const HISTORY_KIND_ICONS: Partial<Record<OrderHistoryKind, LucideIcon>> = {
+  assignment: UserCheck,
+  line: Package,
+  note: StickyNote,
+  payment: Banknote,
+  attachment: Paperclip,
+};
+
 function StatusHistoryTimeline({
   entries,
   loading,
@@ -100,6 +128,7 @@ function StatusHistoryTimeline({
             ? 'إسناد تلقائي'
             : 'المتجر / العميل';
         const kind = entry.kind ?? 'status';
+        const KindIcon = HISTORY_KIND_ICONS[kind];
         const ActorIcon = entry.changedBy ? UserRound : Store;
 
         return (
@@ -118,8 +147,9 @@ function StatusHistoryTimeline({
                     <Badge variant="secondary">{ORDER_STATUS_LABELS_AR[entry.toStatus]}</Badge>
                   </>
                 ) : (
-                  <Badge variant="outline">
-                    {kind === 'assignment' ? 'إسناد' : kind === 'line' ? 'بند' : 'ملاحظة'}
+                  <Badge variant="outline" className="gap-1">
+                    {KindIcon ? <KindIcon className="h-3 w-3" /> : null}
+                    {HISTORY_KIND_LABELS[kind]}
                     {' · '}
                     {ORDER_STATUS_LABELS_AR[entry.toStatus]}
                   </Badge>

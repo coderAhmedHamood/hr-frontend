@@ -20,7 +20,17 @@ export const orderStagesQueryKeys = {
   context: (companyId: string) => [...orderStagesQueryKeys.all, 'context', companyId] as const,
   handlers: (companyId: string, stage: OrderStage) =>
     [...orderStagesQueryKeys.all, 'handlers', companyId, stage] as const,
+  candidates: (companyId: string) => [...orderStagesQueryKeys.all, 'candidates', companyId] as const,
 };
+
+/** Users who may be made stage members (their roles open the orders). */
+export function useOrderStageCandidates(companyId: string, enabled = true) {
+  return useQuery({
+    queryKey: orderStagesQueryKeys.candidates(companyId),
+    queryFn: () => orderStagesApi.candidates(companyId),
+    enabled: Boolean(companyId && enabled),
+  });
+}
 
 /** What the signed-in user may do on orders; null while unknown (screens then defer to the backend). */
 export function useOrderStagesContext(companyId: string) {

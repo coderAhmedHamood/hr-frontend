@@ -72,7 +72,8 @@ export type UpdateOrderStaffNoteInput = {
 /** Server-side attachment filter for admin order detail. */
 export type OrderAttachmentVisibilityFilter = 'all' | 'visible' | 'hidden';
 
-export type OrderHistoryKind = 'status' | 'assignment' | 'line' | 'note';
+/** Matches the backend `StoreOrderHistoryKind`: every action on the order leaves a row. */
+export type OrderHistoryKind = 'status' | 'assignment' | 'line' | 'note' | 'payment' | 'attachment';
 
 /** One status transition from `GET /store-admin/orders/:id` → `statusHistory`. */
 export type OrderStatusHistoryEntry = {

@@ -2,6 +2,7 @@ import type { Order, OrderStatus } from '@/features/ecommerce/domain/types/order
 import {
   ORDER_STAGES,
   type OrderStage,
+  type OrderStageScope,
   type OrderStagesContext,
 } from '@/features/ecommerce/admin/orders/lib/api/order-stages';
 
@@ -41,13 +42,25 @@ function assigneeBlocks(ctx: OrderStagesContext, order: OrderRef): boolean {
   );
 }
 
+/** The user's scope in the order's stage (null: not a member). */
+export function stageScopeOf(ctx: OrderStagesContext | null | undefined, stage: OrderStage): OrderStageScope | null {
+  if (!ctx) return null;
+  return ctx.stageScopes?.[stage] ?? (ctx.stages.includes(stage) ? 'queue' : null);
+}
+
 /** Why the user may not work on the order now (prepare, move forward); null when they may. */
 export function workBlockReason(ctx: OrderStagesContext | null | undefined, order: OrderRef): string | null {
   if (!ctx) return null;
   if (!ctx.enabled) return ctx.canUpdate ? null : 'ليست لديك صلاحية تعديل الطلبات';
   if (!isOrderStage(order.status)) return null;
-  if (!ctx.stages.includes(order.status)) {
-    return `ليست لديك صلاحية مرحلة «${ORDER_STAGE_LABELS_AR[order.status]}»`;
+  // The supervisor works on any stage and order.
+  if (!ctx.isSupervisor) {
+    const label = ORDER_STAGE_LABELS_AR[order.status];
+    const scope = stageScopeOf(ctx, order.status);
+    if (!scope) return `لست من أعضاء مرحلة «${label}» — يضيفك المشرف من إعدادات المراحل`;
+    if (scope === 'assigned' && order.assignedUserId !== ctx.userId) {
+      return `تعمل في مرحلة «${label}» على الطلبات المسندة إليك فقط`;
+    }
   }
   if (assigneeBlocks(ctx, order)) return 'الطلب مسند إلى مستخدم آخر';
   return null;
@@ -69,13 +82,20 @@ export function moveBlockReason(
   return workBlockReason(ctx, order);
 }
 
-/** May the user assign the order to anyone? */
+/**
+ * May the user assign the order to anyone, or take it off someone else?
+ * Stages on: the supervisor only; off: who may edit orders too. (Picking the
+ * next stage's handler while moving is `canChooseHandler`.)
+ */
 export function canAssignAnyone(ctx: OrderStagesContext | null | undefined): boolean {
-  return Boolean(ctx?.canChooseHandler);
+  if (!ctx) return false;
+  return ctx.enabled ? ctx.canAssign : ctx.canUpdate || ctx.canAssign;
 }
 
-/** May the user take this unassigned order (their stage)? */
+/** May the user take this unassigned order? Members who see the stage queue (queue / all). */
 export function canTakeOrder(ctx: OrderStagesContext | null | undefined, order: OrderRef): boolean {
   if (!ctx || order.assignedUserId || !isOrderStage(order.status)) return false;
-  return ctx.stages.includes(order.status) || (!ctx.enabled && ctx.canUpdate);
+  if (!ctx.enabled) return ctx.canUpdate || ctx.canAssign;
+  const scope = stageScopeOf(ctx, order.status);
+  return scope === 'queue' || scope === 'all' || ctx.canAssign;
 }

@@ -1,21 +1,24 @@
 'use client';
 
 import * as React from 'react';
-import { AlertTriangle, ArrowLeft, ShieldCheck, Truck } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, ShieldCheck, Trash2, Truck, UserPlus } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { OrderHandlerSelect } from '@/features/ecommerce/admin/orders/components/order-handler-select';
 import {
+  useOrderStageCandidates,
   useOrderStagesSettings,
   useSaveOrderStagesSettings,
 } from '@/features/ecommerce/admin/orders/hooks/use-order-stages';
-import type {
-  OrderStage,
-  OrderStageAutoAssign,
-  OrderStageSettingView,
-  SaveOrderStagesSettingsInput,
+import {
+  ORDER_STAGE_SCOPE_LABELS,
+  type OrderStage,
+  type OrderStageAutoAssign,
+  type OrderStageScope,
+  type OrderStageSettingView,
+  type SaveOrderStagesSettingsInput,
 } from '@/features/ecommerce/admin/orders/lib/api/order-stages';
 import { cn } from '@/shared/utils';
 
@@ -26,9 +29,9 @@ const AUTO_ASSIGN_LABELS: Record<OrderStageAutoAssign, string> = {
 };
 
 const AUTO_ASSIGN_HINTS: Record<OrderStageAutoAssign, string> = {
-  none: 'يبقى الطلب متاحاً لكل من يملك صلاحية المرحلة.',
-  user: 'يصل دائماً إلى المستخدم الذي تختاره.',
-  balanced: 'يصل إلى من لديه أقل طلبات مفتوحة.',
+  none: 'يبقى الطلب في طابور المرحلة، ويستلمه أحد أعضائها.',
+  user: 'يصل دائماً إلى العضو الذي تختاره.',
+  balanced: 'يصل إلى العضو الذي لديه أقل طلبات مفتوحة.',
 };
 
 const STAGE_HINTS: Record<OrderStage, string> = {
@@ -45,7 +48,14 @@ const OTHER_PERMISSIONS = [
   ['إسناد الطلبات لأي مستخدم', 'اختيار المسؤول عن الطلب يدوياً.'],
 ] as const;
 
-type StageDraft = { autoAssign: OrderStageAutoAssign; userId: string | null };
+const SCOPE_HINTS: Record<OrderStageScope, string> = {
+  assigned: 'يرى ويعمل على ما يُسند إليه فقط.',
+  queue: 'يرى ما يُسند إليه، وطابور المرحلة غير المسند فيستلم منه.',
+  all: 'يرى كل طلبات المرحلة، حتى المسندة لغيره.',
+};
+
+type MemberDraft = { userId: string; nameAr: string | null; scope: OrderStageScope; canOpenOrders: boolean };
+type StageDraft = { autoAssign: OrderStageAutoAssign; userId: string | null; members: MemberDraft[] };
 type PanelTab = 'path' | 'access' | 'assign' | 'ship';
 
 function SwitchRow({
@@ -97,7 +107,10 @@ export function OrderStagesSettingsPanel({ companyId }: { companyId: string }) {
     setRequirePayment(query.data.requirePaymentBeforeShipping);
     setStages(
       Object.fromEntries(
-        query.data.stages.map((s) => [s.stage, { autoAssign: s.autoAssign, userId: s.userId }]),
+        query.data.stages.map((s) => [
+          s.stage,
+          { autoAssign: s.autoAssign, userId: s.userId, members: s.members.map((m) => ({ ...m })) },
+        ]),
       ),
     );
   }, [query.data]);
@@ -110,14 +123,19 @@ export function OrderStagesSettingsPanel({ companyId }: { companyId: string }) {
   }
 
   const stageRows = query.data.stages;
-  const missingUser = stageRows.some(
-    (s) => stages[s.stage]?.autoAssign === 'user' && !stages[s.stage]?.userId,
-  );
-  const emptyStages = stageRows.filter((s) => s.handlersCount === 0);
-
   function draftOf(stage: OrderStageSettingView): StageDraft {
-    return stages[stage.stage] ?? { autoAssign: 'none', userId: null };
+    return stages[stage.stage] ?? { autoAssign: 'none', userId: null, members: [] };
   }
+  const missingUser = stageRows.some((s) => {
+    const draft = draftOf(s);
+    return draft.autoAssign === 'user' && (!draft.userId || !draft.members.some((m) => m.userId === draft.userId));
+  });
+  const emptyStages = stageRows.filter((s) => draftOf(s).members.filter((m) => m.canOpenOrders).length === 0);
+  const setDraft = (stage: OrderStage, patch: Partial<StageDraft>) =>
+    setStages((current) => ({
+      ...current,
+      [stage]: { ...(current[stage] ?? { autoAssign: 'none', userId: null, members: [] }), ...patch },
+    }));
 
   function submit() {
     const input: SaveOrderStagesSettingsInput = {
@@ -130,6 +148,7 @@ export function OrderStagesSettingsPanel({ companyId }: { companyId: string }) {
           stage: s.stage,
           autoAssign: draft.autoAssign,
           userId: draft.autoAssign === 'user' ? draft.userId : null,
+          members: draft.members.map((m) => ({ userId: m.userId, scope: m.scope })),
         };
       }),
     };
@@ -162,9 +181,7 @@ export function OrderStagesSettingsPanel({ companyId }: { companyId: string }) {
                     </p>
                     <p className="mt-0.5 text-xs text-muted-foreground">{STAGE_HINTS[stage.stage]}</p>
                   </div>
-                  <Badge variant={stage.handlersCount === 0 ? 'warning' : 'subtle'}>
-                    {stage.handlersCount === 0 ? 'لا مستخدمين' : `${stage.handlersCount} مستخدم`}
-                  </Badge>
+                  <MembersBadge count={draft.members.length} />
                 </div>
                 <p className="mt-2 text-xs text-muted-foreground">
                   الإسناد: {AUTO_ASSIGN_LABELS[draft.autoAssign]}
@@ -175,7 +192,7 @@ export function OrderStagesSettingsPanel({ companyId }: { companyId: string }) {
           })}
         </ol>
         <div className="grid gap-2 sm:grid-cols-3">
-          <DecisionLink title="من يعمل" detail="صلاحية كل مرحلة" onClick={() => setTab('access')} />
+          <DecisionLink title="من يعمل" detail="أعضاء كل مرحلة وما يرونه" onClick={() => setTab('access')} />
           <DecisionLink title="من يستلم" detail="إسناد الطلب عند دخوله" onClick={() => setTab('assign')} />
           <DecisionLink title="الشحن" detail="شرط الدفع قبل الخروج" onClick={() => setTab('ship')} />
         </div>
@@ -184,7 +201,7 @@ export function OrderStagesSettingsPanel({ companyId }: { companyId: string }) {
       <TabsContent value="access" className="mt-0 space-y-3">
         <SwitchRow
           title="تفعيل التحكم بالمراحل"
-          description="عند التفعيل لا ينقل الطلب إلا صاحب صلاحية مرحلته الحالية. عند الإيقاف تكفي صلاحية تعديل الطلبات."
+          description="عند التفعيل لا ينقل الطلب إلا عضو مرحلته الحالية (أو من يملك صلاحية الإسناد). عند الإيقاف تكفي صلاحية تعديل الطلبات."
           checked={enabled}
           onChange={setEnabled}
         />
@@ -195,28 +212,32 @@ export function OrderStagesSettingsPanel({ companyId }: { companyId: string }) {
           onChange={setAssigneeOnly}
           disabled={!enabled}
         />
-        <ul className="divide-y divide-border/60 overflow-hidden rounded-xl border border-border/70">
+        <div className="space-y-3">
           {stageRows.map((stage, index) => (
-            <li key={stage.stage} className="flex items-center justify-between gap-3 bg-background px-3 py-3">
-              <div>
-                <p className="text-sm font-medium">
-                  <span className="me-2 text-xs text-muted-foreground">{index + 1}</span>
-                  {stage.labelAr}
-                </p>
-                <p className="mt-0.5 text-xs text-muted-foreground">{STAGE_HINTS[stage.stage]}</p>
-              </div>
-              <Badge variant={stage.handlersCount === 0 ? 'warning' : 'subtle'}>
-                {stage.handlersCount === 0 ? 'لا مستخدمين' : `${stage.handlersCount} مستخدم`}
-              </Badge>
-            </li>
+            <StageMembersCard
+              key={stage.stage}
+              companyId={companyId}
+              index={index}
+              stage={stage}
+              members={draftOf(stage).members}
+              onChange={(members) => {
+                const draft = draftOf(stage);
+                // The rule's user leaves with them.
+                const keepsUser = members.some((m) => m.userId === draft.userId);
+                setDraft(stage.stage, {
+                  members,
+                  ...(keepsUser ? {} : { userId: null }),
+                });
+              }}
+            />
           ))}
-        </ul>
+        </div>
         {enabled && emptyStages.length > 0 ? (
           <div className="flex items-start gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-900 dark:text-amber-200">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
             <p>
-              لا يوجد مستخدم لمرحلة {emptyStages.map((s) => `«${s.labelAr}»`).join('، ')}. الطلب يتوقف هناك حتى
-              تُمنح الصلاحية من شاشة الأدوار.
+              لا أعضاء في مرحلة {emptyStages.map((s) => `«${s.labelAr}»`).join('، ')}. الطلب يتوقف هناك حتى
+              تضيف لها أعضاء.
             </p>
           </div>
         ) : null}
@@ -229,8 +250,8 @@ export function OrderStagesSettingsPanel({ companyId }: { companyId: string }) {
           ))}
         </div>
         <p className="text-xs leading-relaxed text-muted-foreground">
-          هذه الصلاحيات تُمنح من شاشة الأدوار. من لا يملك «عرض طلبات المتجر» يرى الطلبات المسندة إليه وطلبات مرحلته
-          غير المسندة فقط.
+          هذه الصلاحيات تُمنح من شاشة الأدوار، وكذلك «العمل على مراحل الطلبات» التي يحتاجها العضو ليفتح الطلبات. من
+          يملك «عرض طلبات المتجر» يرى كل الطلبات أيًا كان نطاقه.
         </p>
       </TabsContent>
 
@@ -275,22 +296,31 @@ export function OrderStagesSettingsPanel({ companyId }: { companyId: string }) {
                   ))}
                 </div>
                 {draft.autoAssign === 'user' ? (
-                  <OrderHandlerSelect
-                    companyId={companyId}
-                    stage={stage.stage}
-                    value={draft.userId ?? ''}
-                    allowNone={false}
-                    onChange={(userId) =>
-                      setStages((current) => ({
-                        ...current,
-                        [stage.stage]: { ...draft, userId },
-                      }))
-                    }
-                  />
+                  draft.members.length === 0 ? (
+                    <p className="text-xs text-amber-700 dark:text-amber-400">
+                      أضف أعضاء لهذه المرحلة من تبويب «من يعمل» أولًا.
+                    </p>
+                  ) : (
+                    <Select
+                      value={draft.userId ?? ''}
+                      onValueChange={(userId) => setDraft(stage.stage, { userId })}
+                    >
+                      <SelectTrigger aria-label={`مستخدم ${stage.labelAr}`} className="w-full">
+                        <SelectValue placeholder="اختر العضو" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {draft.members.map((m) => (
+                          <SelectItem key={m.userId} value={m.userId}>
+                            {m.nameAr ?? m.userId}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )
                 ) : null}
                 {savedUserIneligible ? (
                   <p className="text-xs text-amber-700 dark:text-amber-400">
-                    {stage.userNameAr ?? 'المستخدم المحدد'} لم يعد يملك صلاحية هذه المرحلة.
+                    {stage.userNameAr ?? 'المستخدم المحدد'} لم يعد عضوًا يفتح الطلبات في هذه المرحلة.
                   </p>
                 ) : null}
               </div>
@@ -342,5 +372,127 @@ function DecisionLink({
       </span>
       <ArrowLeft className="h-4 w-4 shrink-0 text-muted-foreground" />
     </button>
+  );
+}
+
+function MembersBadge({ count }: { count: number }) {
+  return <Badge variant={count === 0 ? 'warning' : 'subtle'}>{count === 0 ? 'لا أعضاء' : `${count} عضو`}</Badge>;
+}
+
+/**
+ * One stage's members: several users per stage (a user may be in several
+ * stages), each with what they see of it.
+ */
+function StageMembersCard({
+  companyId,
+  index,
+  stage,
+  members,
+  onChange,
+}: {
+  companyId: string;
+  index: number;
+  stage: OrderStageSettingView;
+  members: MemberDraft[];
+  onChange: (members: MemberDraft[]) => void;
+}) {
+  const candidates = useOrderStageCandidates(companyId);
+  const available = (candidates.data ?? []).filter((c) => !members.some((m) => m.userId === c.id));
+  return (
+    <div className="space-y-3 rounded-xl border border-border/70 bg-background p-3">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <p className="text-sm font-semibold">
+            <span className="me-2 text-xs text-muted-foreground">{index + 1}</span>
+            {stage.labelAr}
+          </p>
+          <p className="mt-0.5 text-xs text-muted-foreground">{STAGE_HINTS[stage.stage]}</p>
+        </div>
+        <MembersBadge count={members.length} />
+      </div>
+      {members.length > 0 ? (
+        <ul className="space-y-2">
+          {members.map((member) => (
+            <li
+              key={member.userId}
+              className="flex flex-col gap-2 rounded-lg border border-border/60 p-2 sm:flex-row sm:items-center sm:justify-between"
+            >
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium">{member.nameAr ?? member.userId}</p>
+                {!member.canOpenOrders ? (
+                  <p className="text-xs text-amber-700 dark:text-amber-400">
+                    لا يملك «العمل على مراحل الطلبات» في أدواره، فلن يفتح الطلبات.
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">{SCOPE_HINTS[member.scope]}</p>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <Select
+                  value={member.scope}
+                  onValueChange={(scope) =>
+                    onChange(
+                      members.map((m) =>
+                        m.userId === member.userId ? { ...m, scope: scope as OrderStageScope } : m,
+                      ),
+                    )
+                  }
+                >
+                  <SelectTrigger aria-label={`ما يراه ${member.nameAr ?? ''}`} className="h-9 w-full sm:w-56">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(Object.keys(ORDER_STAGE_SCOPE_LABELS) as OrderStageScope[]).map((scope) => (
+                      <SelectItem key={scope} value={scope}>
+                        {ORDER_STAGE_SCOPE_LABELS[scope]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 shrink-0"
+                  aria-label={`إزالة ${member.nameAr ?? ''} من المرحلة`}
+                  onClick={() => onChange(members.filter((m) => m.userId !== member.userId))}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-xs text-muted-foreground">لا أعضاء بعد.</p>
+      )}
+      <Select
+        value=""
+        onValueChange={(userId) => {
+          const user = available.find((c) => c.id === userId);
+          if (!user) return;
+          onChange([...members, { userId: user.id, nameAr: user.nameAr, scope: 'queue', canOpenOrders: true }]);
+        }}
+        disabled={candidates.isLoading || available.length === 0}
+      >
+        <SelectTrigger aria-label={`إضافة عضو إلى ${stage.labelAr}`} className="w-full">
+          <span className="flex items-center gap-2 text-muted-foreground">
+            <UserPlus className="h-4 w-4" />
+            {candidates.isError
+              ? 'تعذّر تحميل المستخدمين'
+              : available.length === 0 && !candidates.isLoading
+                ? 'لا مستخدمين آخرين يملكون «العمل على مراحل الطلبات»'
+                : 'إضافة عضو'}
+          </span>
+        </SelectTrigger>
+        <SelectContent>
+          {available.map((user) => (
+            <SelectItem key={user.id} value={user.id}>
+              {user.nameAr}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
   );
 }
