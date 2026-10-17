@@ -229,7 +229,7 @@ function buildEcommerceMobileNav(tNav: (key: string) => string, catalogEnabled: 
 
   const groups = catalogEnabled
     ? ecommerceAdminNavGroups
-    : ecommerceAdminNavGroups.filter((group) => group.key !== 'products' && group.key !== 'catalogSetup');
+    : ecommerceAdminNavGroups.filter((group) => group.key !== 'products');
 
   for (const group of groups) {
     const flat = flattenEcommerceNavItems(group);
@@ -422,12 +422,12 @@ function buildContactsMobileNav(): MobileNavItem[] {
   return items;
 }
 
-function buildPosMobileNav(): MobileNavItem[] {
+function buildPosMobileNav(catalogEnabled: boolean): MobileNavItem[] {
   const items: MobileNavItem[] = [
     { key: 'apps', label: 'التطبيقات', href: '/', icon: LayoutGrid },
     { key: 'overview', label: posOverviewItem.labelAr, href: posOverviewItem.href, icon: posOverviewItem.icon },
   ];
-  for (const group of posNavGroups) {
+  for (const group of posNavGroups.filter((g) => catalogEnabled || g.key !== 'products')) {
     items.push({
       key: group.key,
       label: group.labelAr,
@@ -701,7 +701,7 @@ export function Sidebar() {
     : isExpensesAppPath(pathname)
       ? buildExpensesMobileNav()
     : posEnabled && isPosAppPath(pathname)
-    ? buildPosMobileNav()
+    ? buildPosMobileNav(catalogEnabled)
     : isAccountingAppPath(pathname)
       ? buildAccountingMobileNav()
       : contactsEnabled && isContactsAppPath(pathname)

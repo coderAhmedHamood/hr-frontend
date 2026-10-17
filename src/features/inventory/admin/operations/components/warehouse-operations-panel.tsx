@@ -926,8 +926,8 @@ export function WarehouseOperationsPanel({
         >
           <DialogHeader className="max-sm:text-right">
             <DialogTitle>{meta.createLabel}</DialogTitle>
-            <DialogDescription>
-              يُنشأ المستند كمسودة ثم تُفتح شاشة التفاصيل مباشرة لإكمال الجاهز والتصديق والحفظ.
+            <DialogDescription className="sr-only">
+              يُنشأ المستند كمسودة ثم تُفتح شاشة التفاصيل.
             </DialogDescription>
           </DialogHeader>
           <form
@@ -942,10 +942,7 @@ export function WarehouseOperationsPanel({
             className="flex min-h-0 flex-1 flex-col"
           >
             <div className="min-h-0 flex-1 space-y-5 overflow-y-auto pe-1">
-              <OperationFormSection
-                title="المستودع والمواقع"
-                description="حدّد المستودع ومواقع الصرف/الاستلام قبل إضافة الأصناف."
-              >
+              <OperationFormSection>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {!scopedToWarehouse ? (
               <div className="space-y-1.5">
@@ -1152,17 +1149,10 @@ export function WarehouseOperationsPanel({
                 </div>
               </OperationFormSection>
 
-              <OperationFormSection
-                title="المنتجات والكميات"
-                description={
-                  pickerUsesSourceLocationStock(kind)
-                    ? 'تظهر فقط المنتجات التي لها رصيد في موقع الصرف المحدد.'
-                    : 'أضف الأصناف والكميات (وتكلفة الشراء عند الاستلام).'
-                }
-              >
+              <OperationFormSection>
                 {!locationsReady ? (
                   <p className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-900 dark:text-amber-200">
-                    أكمل «المستودع والمواقع» أعلاه قبل إضافة الأصناف.
+                    اختر المستودع والموقع أولاً.
                   </p>
                 ) : null}
 
@@ -1384,17 +1374,15 @@ export function WarehouseOperationsPanel({
             ) : null}
               </OperationFormSection>
 
-              <OperationFormSection
-                title="تفاصيل المستند"
-                description="التاريخ، الطرف، المستند المصدر، والملاحظات."
-              >
+              <OperationFormSection>
+                {/* One row: date · source document · party (contact, or a typed name). */}
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     <div className="space-y-1.5">
                       <Label htmlFor="op-date">التاريخ</Label>
                       <Input id="op-date" type="datetime-local" dir="ltr" className="h-10" {...form.register('occurredAt')} />
                     </div>
-                    <div className="space-y-1.5 lg:col-span-2">
+                    <div className="space-y-1.5">
                       <Label htmlFor="op-source">
                         {kind === 'customer_return' ? 'رقم مستند البيع الأصلي' : 'المستند المصدر'}
                       </Label>
@@ -1415,9 +1403,8 @@ export function WarehouseOperationsPanel({
                         </p>
                       ) : null}
                     </div>
-                  </div>
 
-                  <div className="space-y-2 rounded-xl border border-border/80 bg-muted/10 p-3 sm:p-4">
+                  <div className="space-y-1.5 sm:col-span-2 lg:col-span-1">
                     <Label htmlFor="op-partner">
                       {operationPartnerLabel(kind)}
                     </Label>
@@ -1436,18 +1423,20 @@ export function WarehouseOperationsPanel({
                         />
                       )}
                     />
-                    <Input
-                      id="op-partner-manual"
-                      {...form.register('partnerName')}
-                      placeholder="أو اكتب اسمًا يدويًا إن لم تجد جهة الاتصال"
-                      className="h-10 bg-background"
-                      disabled={Boolean(form.watch('partnerId'))}
-                    />
+                    {form.watch('partnerId') ? null : (
+                      <Input
+                        id="op-partner-manual"
+                        {...form.register('partnerName')}
+                        placeholder="أو اكتب الاسم"
+                        className="h-10 bg-background"
+                      />
+                    )}
+                  </div>
                   </div>
 
                   <div className="space-y-1.5">
                     <Label htmlFor="op-notes">ملاحظات</Label>
-                    <Textarea id="op-notes" className="min-h-[88px] resize-none" {...form.register('notes')} />
+                    <Textarea id="op-notes" className="min-h-[64px] resize-none" {...form.register('notes')} />
                   </div>
                 </div>
               </OperationFormSection>

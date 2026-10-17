@@ -351,7 +351,7 @@ function buildEcommerceNavConfig(tNav: (key: string) => string, catalogEnabled: 
 
   const groups = catalogEnabled
     ? ecommerceAdminNavGroups
-    : ecommerceAdminNavGroups.filter((group) => group.key !== 'products' && group.key !== 'catalogSetup');
+    : ecommerceAdminNavGroups.filter((group) => group.key !== 'products');
 
   for (const group of groups) {
     const flat = flattenEcommerceNavItems(group);
@@ -499,7 +499,7 @@ function buildContactsNavConfig(): NavItem[] {
 }
 
 /** نظرة عامة | العمليات | التقارير | التهيئة */
-function buildPosNavConfig(): NavItem[] {
+function buildPosNavConfig(catalogEnabled: boolean): NavItem[] {
   const items: NavItem[] = [
     {
       key: 'pos-overview',
@@ -509,7 +509,8 @@ function buildPosNavConfig(): NavItem[] {
       isActive: (pathname) => pathname === posOverviewItem.href,
     },
   ];
-  for (const group of posNavGroups) {
+  // المنتجات is the products app's: hidden when it is not enabled.
+  for (const group of posNavGroups.filter((g) => catalogEnabled || g.key !== 'products')) {
     items.push({
       key: `pos-${group.key}`,
       label: group.labelAr,
@@ -824,7 +825,7 @@ export function Topbar() {
   const contactsNavConfig = React.useMemo(() => buildContactsNavConfig(), []);
   const accountingNavConfig = React.useMemo(() => buildAccountingNavConfig(), []);
   const expensesNavConfig = React.useMemo(() => buildExpensesNavConfig(), []);
-  const posNavConfig = React.useMemo(() => buildPosNavConfig(), []);
+  const posNavConfig = React.useMemo(() => buildPosNavConfig(catalogEnabled), [catalogEnabled]);
   const activeNavConfig = inSystemOwnerApp
     ? systemOwnerNavConfig
     : inSystemApp

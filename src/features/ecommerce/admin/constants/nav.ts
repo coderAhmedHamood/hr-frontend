@@ -12,7 +12,6 @@ import {
   Settings,
   Megaphone,
   SlidersHorizontal,
-  Library,
   Image,
   Mail,
   MessageCircle,
@@ -65,7 +64,7 @@ export type EcommerceAdminNavSection = {
 };
 
 export type EcommerceAdminNavGroup = {
-  key: 'products' | 'catalogSetup' | 'storeSettings' | 'reports' | 'settings';
+  key: 'products' | 'storeSettings' | 'reports' | 'settings';
   labelKey: string;
   icon: LucideIcon;
   sections: EcommerceAdminNavSection[];
@@ -84,28 +83,20 @@ export const ecommerceAdminNavGroups: EcommerceAdminNavGroup[] = [
     key: 'products',
     labelKey: 'groups.products',
     icon: Package,
+    // Everything the products app holds, read from it (one dropdown, as in
+    // المخازن and نقاط البيع); reviews are the store's own.
     sections: [
       {
         items: [
           { labelKey: 'products', href: ecommerceAdminRoutes.products, icon: Package },
-          { labelKey: 'reviews', href: ecommerceAdminRoutes.reviews, icon: Star },
-        ],
-      },
-    ],
-  },
-  {
-    key: 'catalogSetup',
-    labelKey: 'groups.catalogSetup',
-    icon: Library,
-    sections: [
-      {
-        sectionKey: 'catalogSetup',
-        items: [
           { labelKey: 'categories', href: ecommerceAdminRoutes.categories, icon: FolderTree },
           { labelKey: 'attributes', href: ecommerceAdminRoutes.attributes, icon: SlidersHorizontal },
           { labelKey: 'brands', href: ecommerceAdminRoutes.brands, icon: Tag },
           { labelKey: 'catalogUoms', href: ecommerceAdminRoutes.catalogUoms, icon: Ruler },
         ],
+      },
+      {
+        items: [{ labelKey: 'reviews', href: ecommerceAdminRoutes.reviews, icon: Star }],
       },
     ],
   },

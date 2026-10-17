@@ -9,6 +9,12 @@ export const posRoutes = {
   analytics: '/point-of-sale/analytics',
   reports: '/point-of-sale/reports',
   settings: '/point-of-sale/settings',
+  // The products app's screens, read from it inside نقاط البيع.
+  products: '/point-of-sale/products',
+  categories: '/point-of-sale/categories',
+  attributes: '/point-of-sale/attributes',
+  brands: '/point-of-sale/brands',
+  catalogUoms: '/point-of-sale/catalog-uoms',
 } as const;
 
 export const POS_APP_CODE = 'pos' as const;

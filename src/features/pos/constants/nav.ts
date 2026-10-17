@@ -2,11 +2,16 @@ import type { LucideIcon } from 'lucide-react';
 import {
   BarChart3,
   Clock,
+  FolderTree,
   LayoutDashboard,
   LineChart,
   MonitorSmartphone,
+  Package,
   ReceiptText,
+  Ruler,
   Settings,
+  SlidersHorizontal,
+  Tag,
   Undo2,
 } from 'lucide-react';
 import { posRoutes } from '@/features/pos/constants/routes';
@@ -14,7 +19,7 @@ import { posRoutes } from '@/features/pos/constants/routes';
 export type PosNavItem = { labelAr: string; href: string; icon: LucideIcon };
 
 export type PosNavGroup = {
-  key: 'operations' | 'reports' | 'configuration';
+  key: 'operations' | 'products' | 'reports' | 'configuration';
   labelAr: string;
   icon: LucideIcon;
   items: PosNavItem[];
@@ -35,6 +40,19 @@ export const posNavGroups: PosNavGroup[] = [
       { labelAr: 'المبيعات', href: posRoutes.sales, icon: ReceiptText },
       { labelAr: 'المرتجعات', href: posRoutes.returns, icon: Undo2 },
       { labelAr: 'الورديات', href: posRoutes.sessions, icon: Clock },
+    ],
+  },
+  {
+    // The products app's screens, read from it — shown only when that app is enabled.
+    key: 'products',
+    labelAr: 'المنتجات',
+    icon: Package,
+    items: [
+      { labelAr: 'المنتجات', href: posRoutes.products, icon: Package },
+      { labelAr: 'الفئات', href: posRoutes.categories, icon: FolderTree },
+      { labelAr: 'الخصائص', href: posRoutes.attributes, icon: SlidersHorizontal },
+      { labelAr: 'العلامات', href: posRoutes.brands, icon: Tag },
+      { labelAr: 'وحدات القياس', href: posRoutes.catalogUoms, icon: Ruler },
     ],
   },
   {
