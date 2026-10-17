@@ -26,6 +26,8 @@ export type EmploymentContractPrintArticleLine = {
   titleAr: string;
   bodyAr?: string;
   bodySnippet?: string;
+  /** Print the contract's salary and allowances under this article's body. */
+  includesCompensation?: boolean;
 };
 
 export type EmploymentContractPrintAllowanceRow = {
@@ -81,7 +83,15 @@ const PAGE_STYLE: React.CSSProperties = {
   paddingTop: 0,
 };
 
-function ArticleBlock({ title, body }: { title: string; body: string }) {
+function ArticleBlock({
+  title,
+  body,
+  children,
+}: {
+  title: string;
+  body: string;
+  children?: React.ReactNode;
+}) {
   return (
     <div style={{ marginBottom: 8, pageBreakInside: 'avoid' }}>
       <div
@@ -112,6 +122,7 @@ function ArticleBlock({ title, body }: { title: string; body: string }) {
           {sanitizePdfText(body)}
         </div>
       ) : null}
+      {children}
     </div>
   );
 }
@@ -122,12 +133,15 @@ function CompensationBlock({
   allowanceRows,
   allowancesNote,
   deductionsNote,
+  inArticle = false,
 }: {
   baseSalary: string;
   currency: string;
   allowanceRows: EmploymentContractPrintAllowanceRow[];
   allowancesNote: string;
   deductionsNote: string;
+  /** Rendered under the salary article's text instead of as its own block. */
+  inArticle?: boolean;
 }) {
   const cur = sanitizePdfText(currency || 'SAR');
   const rows = allowanceRows.filter((r) => r.labelAr.trim());
@@ -138,8 +152,14 @@ function CompensationBlock({
     : '—';
 
   return (
-    <div style={{ marginTop: 16, marginBottom: 16, pageBreakInside: 'avoid' }}>
-      <div style={{ fontSize: PDF_BODY_FONT, lineHeight: PDF_LINE_HEIGHT, textAlign: 'justify' }}>
+    <div
+      style={
+        inArticle
+          ? { padding: '0 4px 6px' }
+          : { marginTop: 16, marginBottom: 16, pageBreakInside: 'avoid' }
+      }
+    >
+      <div style={{ fontSize: PDF_BODY_FONT, fontWeight: inArticle ? 700 : undefined, lineHeight: PDF_LINE_HEIGHT, textAlign: 'justify' }}>
         <p style={{ margin: '0 0 6px' }}>
           <span style={{ fontWeight: 700 }}>الراتب الأساسي:</span>{' '}
           {sanitizePdfText(baseSalary || '—')} {cur}
@@ -283,6 +303,7 @@ export const EmploymentContractPrintHtml = React.forwardRef<HTMLDivElement, Empl
         code: a.code,
         titleAr: a.titleAr,
         bodyAr: (a.bodyAr ?? a.bodySnippet ?? '').trim(),
+        includesCompensation: a.includesCompensation === true,
       })),
     }), [
       company.nameAr,
@@ -318,6 +339,21 @@ export const EmploymentContractPrintHtml = React.forwardRef<HTMLDivElement, Empl
     );
 
     const title = `عقــد عمل رقم(${sanitizePdfText(model.contractNumber)})`;
+    // Salary and allowances come from the contract, never from article text:
+    // inline through the article's tokens, under the flagged salary article,
+    // or after the articles when neither is used.
+    const compensationInArticle =
+      model.compensationInline || model.mainArticles.some((a) => a.includesCompensation);
+    const renderCompensation = (inArticle: boolean) => (
+      <CompensationBlock
+        baseSalary={baseSalary}
+        currency={currency}
+        allowanceRows={allowanceRows}
+        allowancesNote={allowancesNote}
+        deductionsNote={deductionsNote}
+        inArticle={inArticle}
+      />
+    );
     const hasAnnex = Boolean(model.annexPreambleAr.trim() || model.annexArticles.length > 0);
 
     return (
@@ -357,16 +393,12 @@ export const EmploymentContractPrintHtml = React.forwardRef<HTMLDivElement, Empl
                 key={`${a.code}-${i}`}
                 title={a.titleAr.trim() || `المادة (${i + 1})`}
                 body={a.bodyAr}
-              />
+              >
+                {a.includesCompensation ? renderCompensation(true) : null}
+              </ArticleBlock>
             ))}
 
-            <CompensationBlock
-              baseSalary={baseSalary}
-              currency={currency}
-              allowanceRows={allowanceRows}
-              allowancesNote={allowancesNote}
-              deductionsNote={deductionsNote}
-            />
+            {compensationInArticle ? null : renderCompensation(false)}
 
             <SignatureFooter employeeRoleNounAr={model.employeeRoleNounAr} />
             <FooterRule />

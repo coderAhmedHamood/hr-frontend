@@ -40,10 +40,23 @@ type DraftForm = {
   title: string;
   body: string;
   isBasic: boolean;
+  includesCompensation: boolean;
   isActive: boolean;
 };
 
-const EMPTY_FORM: DraftForm = { code: '', title: '', body: '', isBasic: false, isActive: true };
+const EMPTY_FORM: DraftForm = {
+  code: '', title: '', body: '', isBasic: false, includesCompensation: false, isActive: true,
+};
+
+/** Contract figures an article can place anywhere in its text (filled at print time). */
+const COMPENSATION_TOKENS: { token: string; label: string }[] = [
+  { token: '{{salary}}', label: 'الراتب الأساسي' },
+  { token: '{{allowancesList}}', label: 'البدلات' },
+  { token: '{{allowancesTotal}}', label: 'مجموع البدلات' },
+  { token: '{{totalSalary}}', label: 'الإجمالي شامل البدلات' },
+  { token: '{{currency}}', label: 'العملة' },
+];
+const COMPENSATION_TOKEN_RE = /\{\{(salary|baseSalary|allowancesList|allowancesTotal|totalSalary)\}\}/;
 
 function makeArticleCode() {
   return `ART-${Date.now().toString(36).toUpperCase()}`;
@@ -84,6 +97,7 @@ export function ContractArticlesClient() {
         title: a.titleAr,
         body: normalizeArticleBody(a.bodyAr ?? ''),
         isBasic: a.isBasic,
+        includesCompensation: a.includesCompensation === true,
         isActive: a.isActive,
         updatedAt: a.updatedAt,
         isArchived: a.isArchived,
@@ -124,7 +138,14 @@ export function ContractArticlesClient() {
   };
   const openEdit = (a: HRContractArticle) => {
     setEditId(a.id);
-    setForm({ code: a.code, title: a.title, body: a.body, isBasic: a.isBasic, isActive: a.isActive });
+    setForm({
+      code: a.code,
+      title: a.title,
+      body: a.body,
+      isBasic: a.isBasic,
+      includesCompensation: a.includesCompensation,
+      isActive: a.isActive,
+    });
     setError(null); setDrawerOpen(true);
   };
 
@@ -139,6 +160,7 @@ export function ContractArticlesClient() {
           titleAr: payload.title.trim(),
           bodyAr: normalizeArticleBody(payload.body),
           isBasic: payload.isBasic,
+          includesCompensation: payload.includesCompensation,
           isActive: payload.isActive,
         });
       } else {
@@ -148,6 +170,7 @@ export function ContractArticlesClient() {
           titleAr: payload.title.trim(),
           bodyAr: normalizeArticleBody(payload.body),
           isBasic: payload.isBasic,
+          includesCompensation: payload.includesCompensation,
           isActive: payload.isActive,
         });
       }
@@ -159,6 +182,19 @@ export function ContractArticlesClient() {
   };
 
   const patch = (p: Partial<DraftForm>) => setForm(f => ({ ...f, ...p }));
+
+  const bodyRef = React.useRef<HTMLTextAreaElement>(null);
+  const insertToken = (token: string) => {
+    const el = bodyRef.current;
+    const start = el?.selectionStart ?? form.body.length;
+    const end = el?.selectionEnd ?? form.body.length;
+    patch({ body: form.body.slice(0, start) + token + form.body.slice(end) });
+    requestAnimationFrame(() => {
+      el?.focus();
+      el?.setSelectionRange(start + token.length, start + token.length);
+    });
+  };
+  const bodyUsesCompensationTokens = COMPENSATION_TOKEN_RE.test(form.body);
 
   const activeFilterCount = kindFilter !== 'all' ? 1 : 0;
 
@@ -346,6 +382,11 @@ export function ContractArticlesClient() {
             {/* Body */}
             <div className="overflow-y-auto px-5 py-4 flex-1">
               <p className="text-sm text-foreground/80 whitespace-pre-wrap leading-loose">{preview.body}</p>
+              {preview.includesCompensation ? (
+                <p className="mt-3 rounded-lg border border-dashed border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+                  الراتب الأساسي والبدلات: تُقرأ من العقد تلقائياً عند الطباعة
+                </p>
+              ) : null}
             </div>
 
             {/* Footer */}
@@ -369,16 +410,49 @@ export function ContractArticlesClient() {
         </FormField>
         <FormField label="نص المادة" required span2>
           <Textarea
+            ref={bodyRef}
             value={form.body}
             onChange={e => patch({ body: e.target.value })}
             placeholder="نص البند القانوني…"
             rows={6}
           />
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            <span className="text-xs text-muted-foreground">إدراج قيمة من العقد:</span>
+            {COMPENSATION_TOKENS.map(t => (
+              <button
+                key={t.token}
+                type="button"
+                onClick={() => insertToken(t.token)}
+                className="rounded-full border border-border bg-muted/40 px-2.5 py-0.5 text-[11px] text-foreground hover:border-primary/40 hover:bg-primary/8 transition-colors"
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+          {bodyUsesCompensationTokens ? (
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              تُستبدل القيم المُدرجة في النص عند الطباعة بأرقام كل عقد، ولا تُكرَّر تحت النص.
+            </p>
+          ) : form.includesCompensation ? (
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              يُضاف تحت هذا النص عند الطباعة الراتب الأساسي والبدلات من بيانات كل عقد تلقائياً، ولا يتأثر بتعديل النص.
+            </p>
+          ) : null}
         </FormField>
         <FormField label="">
           <div className="flex items-center gap-2 pt-2">
             <Switch id="isBasic" checked={form.isBasic} onCheckedChange={v => patch({ isBasic: v })} />
             <Label htmlFor="isBasic">مادة أساسية</Label>
+          </div>
+        </FormField>
+        <FormField label="">
+          <div className="flex items-center gap-2 pt-2">
+            <Switch
+              id="includesCompensation"
+              checked={form.includesCompensation}
+              onCheckedChange={v => patch({ includesCompensation: v })}
+            />
+            <Label htmlFor="includesCompensation">تتضمن الراتب والبدلات</Label>
           </div>
         </FormField>
         <FormField label="">

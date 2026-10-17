@@ -361,6 +361,7 @@ export function EmploymentContractsClient() {
       code: a.code,
       titleAr: a.title,
       bodyAr: (a.body || '').trim(),
+      includesCompensation: a.includesCompensation,
     }));
 
     const company = getSessionCompanyDisplay(companyId);

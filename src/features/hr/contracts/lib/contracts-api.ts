@@ -38,6 +38,8 @@ export type ApiContractArticle = {
   bodyAr: string;
   bodyEn: string;
   isBasic: boolean;
+  /** Prints the contract's salary and allowances under this article. */
+  includesCompensation?: boolean;
   sortOrder: number;
   isActive: boolean;
   isArchived?: boolean;
@@ -55,6 +57,7 @@ export type CreateContractArticleDto = {
   bodyAr?: string;
   bodyEn?: string;
   isBasic?: boolean;
+  includesCompensation?: boolean;
   sortOrder?: number;
   isActive?: boolean;
   createdBy?: string;
@@ -108,6 +111,7 @@ export type ApiContractArticleRef = {
   titleAr: string;
   bodyAr?: string | null;
   isBasic?: boolean;
+  includesCompensation?: boolean;
   sortOrder: number;
 };
 

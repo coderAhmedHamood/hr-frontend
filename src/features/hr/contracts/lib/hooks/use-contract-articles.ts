@@ -11,6 +11,7 @@ function mapApiArticle(a: ApiContractArticle): HRContractArticle {
     title: a.titleAr,
     body: (a.bodyAr ?? '').replace(/\r\n/g, '\n'),
     isBasic: a.isBasic,
+    includesCompensation: a.includesCompensation === true,
     isActive: a.isActive,
     updatedAt: a.updatedAt,
   };

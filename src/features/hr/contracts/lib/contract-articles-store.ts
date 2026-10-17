@@ -10,6 +10,8 @@ export type HRContractArticle = {
   title: string;
   body: string;
   isBasic: boolean;
+  /** The printed contract shows its salary and allowances under this article. */
+  includesCompensation: boolean;
   isActive: boolean;
   updatedAt: string;
 };
@@ -25,6 +27,7 @@ function mapApiArticle(a: ApiContractArticle): HRContractArticle {
     title: a.titleAr,
     body: normalizeArticleBody(a.bodyAr ?? ''),
     isBasic: a.isBasic,
+    includesCompensation: a.includesCompensation === true,
     isActive: a.isActive,
     updatedAt: a.updatedAt,
   };
@@ -37,7 +40,7 @@ type State = {
   error: { message: string; status: number } | null;
   fetch: () => Promise<void>;
   add: (a: Omit<HRContractArticle, 'id' | 'updatedAt'>) => Promise<HRContractArticle>;
-  update: (id: string, patch: Partial<Pick<HRContractArticle, 'code' | 'title' | 'body' | 'isBasic' | 'isActive'>>) => Promise<boolean>;
+  update: (id: string, patch: Partial<Pick<HRContractArticle, 'code' | 'title' | 'body' | 'isBasic' | 'includesCompensation' | 'isActive'>>) => Promise<boolean>;
   remove: (id: string) => Promise<boolean>;
   getById: (id: string) => HRContractArticle | undefined;
 };
@@ -85,6 +88,7 @@ export const useHRContractArticlesStore = create<State>()((set, get) => ({
       titleAr: a.title.trim(),
       bodyAr: normalizeArticleBody(a.body),
       isBasic: a.isBasic,
+      includesCompensation: a.includesCompensation,
       isActive: a.isActive,
     });
     const row = mapApiArticle(created);
@@ -99,6 +103,7 @@ export const useHRContractArticlesStore = create<State>()((set, get) => ({
         titleAr: patch.title?.trim(),
         bodyAr: patch.body !== undefined ? normalizeArticleBody(patch.body) : undefined,
         isBasic: patch.isBasic,
+        includesCompensation: patch.includesCompensation,
         isActive: patch.isActive,
       });
       const row = mapApiArticle(updated);
