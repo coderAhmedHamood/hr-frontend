@@ -14,15 +14,16 @@
       "sales": "Sales",
       "reports": "Reports",
       "website": "Store settings",
-      "storeSettings": "Store settings",
-      "settings": "Website Settings"
+      "storeSettings": "Website",
+      "settings": "Store setup"
     },
     "sections": {
       "content": "Content",
       "appearance": "Appearance",
       "catalogSetup": "Master data",
       "inventorySetup": "Inventory setup",
-      "inventoryOps": "Inventory operations"
+      "inventoryOps": "Inventory operations",
+      "siteIdentity": "Identity & contact"
     },
     "settingsTabs": {
       "branding": "Branding",

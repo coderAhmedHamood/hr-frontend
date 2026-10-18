@@ -258,7 +258,8 @@ export function OrderDetailPanel({
 }: OrderDetailPanelProps) {
   const orderId = orderIdProp || orderProp?.id || null;
   const detailQuery = useOrderDetail(companyId, open ? orderId : null);
-  const order = detailQuery.data ?? orderProp;
+  // A list row has no lines / history / proof image: wait for the detail instead.
+  const order = detailQuery.data ?? (orderProp?.isSummary ? null : orderProp);
   const loading =
     loadingProp || (Boolean(open && orderId) && detailQuery.isLoading && !order);
 

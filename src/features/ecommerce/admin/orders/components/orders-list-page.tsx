@@ -6,7 +6,7 @@ import { usePageHeaderActions } from '@/components/layouts/page-header-actions-c
 import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
 import * as React from 'react';
 import { OrderDetailPanel } from '@/features/ecommerce/admin/orders/components/order-detail-panel';
-import { OrderPaymentProofThumb } from '@/features/ecommerce/admin/orders/components/order-payment-proof-thumb';
+import { OrderPaymentProofButton } from '@/features/ecommerce/admin/orders/components/order-payment-proof-button';
 import { OrderStatusHistoryButton } from '@/features/ecommerce/admin/orders/components/order-status-history-button';
 import { WhatsappPhoneAction } from '@/features/ecommerce/admin/cms/whatsapp/components/whatsapp-phone-action';
 import {
@@ -28,6 +28,7 @@ import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/stor
 import { formatPrice } from '@/features/ecommerce/shared/utils/format-price';
 import {
   getOrderPrepGuidance,
+  orderLineShipCounts,
   ORDER_STATUS_LABELS_AR,
   ORDER_TERMINAL_STATUSES,
   PAYMENT_METHOD_LABELS_AR,
@@ -125,15 +126,16 @@ const FULFILMENT_VARIANT: Record<FulfilmentState, NonNullable<BadgeProps['varian
   unfulfilled: 'outline',
 };
 
+/** From the row's line counts (the list carries no lines). */
 function orderFulfilmentState(order: Order): FulfilmentState {
-  if (order.items.length === 0) return 'unfulfilled';
-  const shippedCount = order.items.filter((line) => line.shipStatus === 'shipped').length;
-  if (shippedCount === order.items.length) return 'fulfilled';
-  if (shippedCount === 0) return 'unfulfilled';
+  const counts = orderLineShipCounts(order);
+  if (!counts || counts.lines === 0 || counts.shipped === 0) return 'unfulfilled';
+  if (counts.shipped === counts.lines) return 'fulfilled';
   return 'partial';
 }
 
 function itemCount(order: Order): number {
+  if (order.items.length === 0 && order.itemQuantity !== undefined) return order.itemQuantity;
   return order.items.reduce((sum, line) => sum + line.quantity, 0);
 }
 
@@ -368,6 +370,22 @@ export function OrdersListPage() {
         }
         periodFilterActive={Boolean(dateFrom || dateTo)}
         onPeriodFilterClear={() => updateParams({ dateFrom: '', dateTo: '', page: 1 })}
+        onClearAll={() => {
+          // One URL change for all filters (and the search box).
+          setSearchInput('');
+          updateParams({
+            q: '',
+            paymentStatus: 'all',
+            paymentMethod: 'all',
+            fulfilment: 'all',
+            source: 'all',
+            city: 'all',
+            assignee: 'all',
+            dateFrom: '',
+            dateTo: '',
+            page: 1,
+          });
+        }}
         leadingFilters={
           <EntityFilterSearchField
             value={searchInput}
@@ -551,12 +569,7 @@ export function OrdersListPage() {
                 {prep.prepLabel}
               </span>
             </div>
-            <OrderPaymentProofThumb
-              urls={order.paymentProofUrls}
-              url={order.paymentProofUrl}
-              orderNumber={order.orderNumber}
-              size="sm"
-            />
+            <OrderPaymentProofButton companyId={companyId} order={order} />
           </div>
         );
       },

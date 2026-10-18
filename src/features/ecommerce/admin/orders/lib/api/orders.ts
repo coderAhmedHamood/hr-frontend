@@ -69,7 +69,12 @@ function resolveOrderLine(
  * - cancelled / refunded: returned or released, once.
  */
 export const ordersApi = {
-  /** List page only (no per-row detail fetch). Use for partner panels / filters. */
+  /**
+   * One list request — the rows carry what the list and the kanban cards show
+   * (line / shipped counts, district, proof attached). Never fetch each row's
+   * detail here: that was one extra request per card (`getAll`, removed); the
+   * detail is fetched when an order is opened (`getById`).
+   */
   async list(query: OrderListQuery): Promise<PaginatedResult<Order>> {
     assertStoreHttp();
     const page = await fetchAdminStoreOrders(query);
@@ -77,18 +82,6 @@ export const ordersApi = {
       ...page,
       items: page.items.map(normalizeOrderPayment),
     };
-  },
-
-  async getAll(query: OrderListQuery): Promise<PaginatedResult<Order>> {
-    assertStoreHttp();
-    const page = await fetchAdminStoreOrders(query);
-    const items = await Promise.all(
-      page.items.map(async (item) => {
-        const detail = await fetchAdminStoreOrder(query.companyId, item.id);
-        return normalizeOrderPayment(detail ?? item);
-      }),
-    );
-    return { ...page, items };
   },
 
   async getById(companyId: string, id: string) {

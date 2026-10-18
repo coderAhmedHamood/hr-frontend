@@ -83,14 +83,32 @@ export function isOrderFulfilmentLocked(status: OrderStatus): boolean {
   return ORDER_FULFILMENT_LOCKED_STATUSES.includes(status);
 }
 
-export function allOrderLinesShipped(
-  order: Pick<Order, 'items'>,
-): boolean {
-  return order.items.length > 0 && order.items.every((line) => line.shipStatus === 'shipped');
+type OrderLinesRef = Pick<Order, 'items' | 'lineCount' | 'shippedLineCount'>;
+
+/**
+ * Lines and lines shipped: from the lines when loaded (detail), else from the
+ * counts a list row carries (null when neither is known).
+ */
+export function orderLineShipCounts(
+  order: OrderLinesRef,
+): { lines: number; shipped: number } | null {
+  if (order.items.length > 0) {
+    return {
+      lines: order.items.length,
+      shipped: order.items.filter((line) => line.shipStatus === 'shipped').length,
+    };
+  }
+  if (order.lineCount === undefined) return null;
+  return { lines: order.lineCount, shipped: order.shippedLineCount ?? 0 };
+}
+
+export function allOrderLinesShipped(order: OrderLinesRef): boolean {
+  const counts = orderLineShipCounts(order);
+  return Boolean(counts && counts.lines > 0 && counts.shipped === counts.lines);
 }
 
 export function getAllowedOrderStatusTransitions(
-  order: Pick<Order, 'status' | 'items' | 'paymentMethod' | 'paymentStatus'>,
+  order: Pick<Order, 'status' | 'items' | 'lineCount' | 'shippedLineCount' | 'paymentMethod' | 'paymentStatus'>,
 ): OrderStatus[] {
   const allowed = ORDER_STATUS_TRANSITIONS[order.status] ?? [];
   return allowed.filter((next) => {
@@ -100,7 +118,7 @@ export function getAllowedOrderStatusTransitions(
 }
 
 export function canTransitionOrderStatus(
-  order: Pick<Order, 'status' | 'items' | 'paymentMethod' | 'paymentStatus'>,
+  order: Pick<Order, 'status' | 'items' | 'lineCount' | 'shippedLineCount' | 'paymentMethod' | 'paymentStatus'>,
   nextStatus: OrderStatus,
 ): boolean {
   if (order.status === nextStatus) return false;
@@ -192,14 +210,19 @@ export type OrderPrepGuidance = {
 
 /** Payment + prep guidance so reviewers know whether to prepare the order. */
 export function getOrderPrepGuidance(
-  order: Pick<Order, 'paymentMethod' | 'paymentStatus' | 'paymentProofUrl' | 'paymentProofUrls'>,
+  order: Pick<
+    Order,
+    'paymentMethod' | 'paymentStatus' | 'paymentProofUrl' | 'paymentProofUrls' | 'hasPaymentProof'
+  >,
 ): OrderPrepGuidance {
   const paymentMethod = resolveOrderPaymentMethod(order);
   const paid = isPaymentSettled(order);
   const methodLabel = PAYMENT_METHOD_LABELS_AR[paymentMethod];
   const statusLabel = PAYMENT_STATUS_LABELS_AR[order.paymentStatus ?? 'pending'];
   const hasProof = Boolean(
-    order.paymentProofUrls?.some((url) => url?.trim()) || order.paymentProofUrl?.trim(),
+    order.hasPaymentProof ||
+      order.paymentProofUrls?.some((url) => url?.trim()) ||
+      order.paymentProofUrl?.trim(),
   );
 
   if (paymentMethod === 'card') {

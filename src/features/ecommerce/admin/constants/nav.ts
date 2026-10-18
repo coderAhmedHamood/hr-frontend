@@ -12,6 +12,7 @@ import {
   Settings,
   Megaphone,
   SlidersHorizontal,
+  Globe,
   Image,
   Mail,
   MessageCircle,
@@ -54,12 +55,12 @@ export type EcommerceAdminNavItem = {
    * Optional mid-column section label (under `ecommerceAdmin.nav.sections.*`)
    * rendered above this item — keeps related links in the same dropdown column.
    */
-  precedingSectionKey?: 'content' | 'appearance' | 'catalogSetup';
+  precedingSectionKey?: 'siteIdentity' | 'content' | 'appearance' | 'catalogSetup';
 };
 
 export type EcommerceAdminNavSection = {
   /** Optional section label key under `ecommerceAdmin.nav.sections.*` */
-  sectionKey?: 'content' | 'appearance' | 'catalogSetup';
+  sectionKey?: 'siteIdentity' | 'content' | 'appearance' | 'catalogSetup';
   items: EcommerceAdminNavItem[];
 };
 
@@ -101,11 +102,23 @@ export const ecommerceAdminNavGroups: EcommerceAdminNavGroup[] = [
     ],
   },
   {
+    // الموقع: what customers see — identity, look, home page and content.
     key: 'storeSettings',
     labelKey: 'groups.storeSettings',
-    icon: Settings,
+    icon: Globe,
     sections: [
       {
+        sectionKey: 'siteIdentity',
+        items: [
+          { labelKey: 'settingsTabs.branding', href: ecommerceSettingsHref('branding'), icon: Palette },
+          { labelKey: 'settingsTabs.colors', href: ecommerceSettingsHref('colors'), icon: Paintbrush },
+          { labelKey: 'settingsTabs.contact', href: ecommerceSettingsHref('contact'), icon: Phone },
+          { labelKey: 'settingsTabs.social', href: ecommerceSettingsHref('social'), icon: Share2 },
+          { labelKey: 'settingsTabs.seo', href: ecommerceSettingsHref('seo'), icon: Search },
+        ],
+      },
+      {
+        sectionKey: 'appearance',
         items: [
           { labelKey: 'banners', href: ecommerceAdminRoutes.banners, icon: Image },
           { labelKey: 'homepageSections', href: ecommerceAdminRoutes.storeSettings, icon: LayoutTemplate },
@@ -113,7 +126,6 @@ export const ecommerceAdminNavGroups: EcommerceAdminNavGroup[] = [
             labelKey: 'appearanceAnnouncement',
             href: ecommerceNavigationHref('announcement'),
             icon: Megaphone,
-            precedingSectionKey: 'appearance',
           },
           {
             labelKey: 'footer',
@@ -141,48 +153,6 @@ export const ecommerceAdminNavGroups: EcommerceAdminNavGroup[] = [
     ],
   },
   {
-    key: 'settings',
-    labelKey: 'groups.settings',
-    icon: Settings,
-    sections: [
-      {
-        items: [
-          { labelKey: 'settingsTabs.branding', href: ecommerceSettingsHref('branding'), icon: Palette },
-          { labelKey: 'settingsTabs.colors', href: ecommerceSettingsHref('colors'), icon: Paintbrush },
-          { labelKey: 'settingsTabs.contact', href: ecommerceSettingsHref('contact'), icon: Phone },
-          { labelKey: 'settingsTabs.social', href: ecommerceSettingsHref('social'), icon: Share2 },
-          { labelKey: 'settingsTabs.locations', href: ecommerceSettingsHref('locations'), icon: MapPinned },
-          {
-            labelKey: 'settingsTabs.deliveryRates',
-            href: ecommerceSettingsHref('deliveryRates'),
-            icon: Banknote,
-          },
-          {
-            labelKey: 'settingsTabs.paymentAccounts',
-            href: ecommerceSettingsHref('paymentAccounts'),
-            icon: CreditCard,
-          },
-          {
-            labelKey: 'settingsTabs.stockSync',
-            href: ecommerceSettingsHref('stockSync'),
-            icon: ArrowLeftRight,
-          },
-          {
-            labelKey: 'settingsTabs.orderStages',
-            href: ecommerceSettingsHref('orderStages'),
-            icon: Workflow,
-          },
-          { labelKey: 'settingsTabs.seo', href: ecommerceSettingsHref('seo'), icon: Search },
-          {
-            labelKey: 'settingsTabs.notificationSettings',
-            href: ecommerceAdminRoutes.notificationSettings,
-            icon: Bell,
-          },
-        ],
-      },
-    ],
-  },
-  {
     key: 'reports',
     labelKey: 'groups.reports',
     icon: BarChart3,
@@ -204,6 +174,44 @@ export const ecommerceAdminNavGroups: EcommerceAdminNavGroup[] = [
           { labelKey: 'reportsFulfillment', href: ecommerceAdminRoutes.reportsFulfillment, icon: Truck },
           { labelKey: 'reportsEngagement', href: ecommerceAdminRoutes.reportsEngagement, icon: MessageSquare },
           { labelKey: 'reportsLines', href: ecommerceAdminRoutes.reportsLines, icon: List },
+        ],
+      },
+    ],
+  },
+  {
+    // تهيئة المتجر: how orders run — delivery, payment, stock, stages, notifications.
+    key: 'settings',
+    labelKey: 'groups.settings',
+    icon: Settings,
+    sections: [
+      {
+        items: [
+          { labelKey: 'settingsTabs.locations', href: ecommerceSettingsHref('locations'), icon: MapPinned },
+          {
+            labelKey: 'settingsTabs.deliveryRates',
+            href: ecommerceSettingsHref('deliveryRates'),
+            icon: Banknote,
+          },
+          {
+            labelKey: 'settingsTabs.paymentAccounts',
+            href: ecommerceSettingsHref('paymentAccounts'),
+            icon: CreditCard,
+          },
+          {
+            labelKey: 'settingsTabs.stockSync',
+            href: ecommerceSettingsHref('stockSync'),
+            icon: ArrowLeftRight,
+          },
+          {
+            labelKey: 'settingsTabs.orderStages',
+            href: ecommerceSettingsHref('orderStages'),
+            icon: Workflow,
+          },
+          {
+            labelKey: 'settingsTabs.notificationSettings',
+            href: ecommerceAdminRoutes.notificationSettings,
+            icon: Bell,
+          },
         ],
       },
     ],

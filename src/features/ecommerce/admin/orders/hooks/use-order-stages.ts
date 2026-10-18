@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
-import { ordersQueryKeys } from '@/features/ecommerce/admin/orders/hooks/use-orders';
+import { applyOrderMutation } from '@/features/ecommerce/admin/orders/hooks/use-orders';
 import {
   orderStagesApi,
   type OrderStage,
@@ -84,8 +84,8 @@ function useOrderMutation<V>(
   return useMutation({
     mutationFn: fn,
     onSuccess: async (order) => {
-      queryClient.setQueryData(ordersQueryKeys.detail(companyId, order.id), order);
-      await queryClient.invalidateQueries({ queryKey: ordersQueryKeys.all });
+      // The order updated in place; only its kanban column and the list pages refetch.
+      await applyOrderMutation(queryClient, companyId, order);
       await queryClient.invalidateQueries({
         queryKey: orderStagesQueryKeys.all,
       });

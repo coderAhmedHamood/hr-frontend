@@ -178,6 +178,17 @@ export type Order = TenantScoped & {
   statusHistory?: OrderStatusHistoryEntry[];
   /** Files attached to the order (customer + staff). Present on detail responses. */
   attachments?: StoreOrderAttachment[];
+  /**
+   * A row of the orders list, not the full detail: `items` is empty and the
+   * counts below stand for it (the detail is fetched when the order is opened).
+   */
+  isSummary?: boolean;
+  /** List rows: number of lines / lines shipped / pieces ordered. */
+  lineCount?: number;
+  shippedLineCount?: number;
+  itemQuantity?: number;
+  /** List rows: a payment proof is attached (its image comes with the detail). */
+  hasPaymentProof?: boolean;
 };
 
 export type OrderFulfilmentFilter = 'fulfilled' | 'partial' | 'unfulfilled';

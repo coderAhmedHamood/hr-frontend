@@ -139,9 +139,19 @@ type StoreOrderListItemDto = {
   currencyCode: string;
   totalAmount: string;
   lineCount: number;
+  /** Older servers omit the fields below (then the counts are unknown). */
+  shippedLineCount?: number;
+  itemQuantity?: number;
+  hasPaymentProof?: boolean;
+  paymentAccountId?: string | null;
+  partnerId?: string | null;
+  source?: Order['source'];
+  shipPhone?: string;
+  shipDistrict?: string;
   assignedUserId?: string | null;
   assignedUserName?: string | null;
   createdAt: string;
+  updatedAt?: string;
 };
 
 function mapLine(dto: StoreOrderLineDto): OrderLineItem {
@@ -252,26 +262,39 @@ function mapAdminOrder(dto: StoreOrderDto): Order {
   };
 }
 
+/**
+ * A list row (no lines, no history, no proof image): `isSummary` with the
+ * line counts instead — the detail is fetched when the order is opened.
+ */
 function mapListItem(dto: StoreOrderListItemDto, companyId: string): Order {
   const currency = dto.currencyCode || companyCurrencyCode(companyId);
   return {
     id: dto.id,
     companyId,
     orderNumber: dto.orderNumber,
-    customerId: `guest:${dto.phone ?? dto.orderNumber}`,
+    customerId: dto.partnerId ?? `guest:${dto.shipPhone ?? dto.phone ?? dto.orderNumber}`,
     customerNameAr: dto.customerNameAr,
     city: dto.shipCity,
+    region: dto.shipDistrict,
+    shippingDistrict: dto.shipDistrict,
     status: dto.status,
     items: [],
+    isSummary: true,
+    lineCount: dto.lineCount,
+    shippedLineCount: dto.shippedLineCount,
+    itemQuantity: dto.itemQuantity,
+    hasPaymentProof: dto.hasPaymentProof,
     totalAmount: { amount: fromDecimalString(dto.totalAmount), currency },
     createdAt: dto.createdAt,
-    updatedAt: dto.createdAt,
-    phone: dto.phone ?? undefined,
+    updatedAt: dto.updatedAt ?? dto.createdAt,
+    phone: dto.phone ?? dto.shipPhone ?? undefined,
+    shipPhone: dto.shipPhone,
     paymentMethod: dto.paymentMethod,
     paymentStatus: dto.paymentStatus,
+    paymentAccountId: dto.paymentAccountId ?? null,
     assignedUserId: dto.assignedUserId ?? null,
     assignedUserName: dto.assignedUserName ?? null,
-    source: 'storefront',
+    source: dto.source ?? 'storefront',
   };
 }
 
@@ -534,6 +557,10 @@ export async function fetchAdminStoreOrders(
       search: query.search,
       partnerId: query.partnerId,
       assignedTo: query.assignedTo,
+      fulfilment: query.fulfilment,
+      source: query.source,
+      dateFrom: query.dateFrom,
+      dateTo: query.dateTo,
     },
   });
   const safe = ensurePaginatedResult(page);

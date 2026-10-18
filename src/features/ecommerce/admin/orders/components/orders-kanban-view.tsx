@@ -17,7 +17,7 @@ import {
   OrderMoveDialog,
   type OrderStatusChangeExtra,
 } from '@/features/ecommerce/admin/orders/components/order-move-dialog';
-import { OrderPaymentProofThumb } from '@/features/ecommerce/admin/orders/components/order-payment-proof-thumb';
+import { OrderPaymentProofButton } from '@/features/ecommerce/admin/orders/components/order-payment-proof-button';
 import { OrderStatusHistoryButton } from '@/features/ecommerce/admin/orders/components/order-status-history-button';
 import { useOrdersStageColumn } from '@/features/ecommerce/admin/orders/hooks/use-orders';
 import type { OrderStagesContext } from '@/features/ecommerce/admin/orders/lib/api/order-stages';
@@ -392,14 +392,9 @@ function KanbanCard({
       </div>
 
       <div className="mt-2 space-y-2">
-        {order.paymentProofUrls?.length || order.paymentProofUrl ? (
+        {order.hasPaymentProof || order.paymentProofUrls?.length || order.paymentProofUrl ? (
           <div className="flex justify-end">
-            <OrderPaymentProofThumb
-              urls={order.paymentProofUrls}
-              url={order.paymentProofUrl}
-              orderNumber={order.orderNumber}
-              size="sm"
-            />
+            <OrderPaymentProofButton companyId={companyId} order={order} />
           </div>
         ) : null}
 

@@ -14,15 +14,16 @@
       "sales": "المبيعات",
       "reports": "التقارير",
       "website": "إعدادات المتجر",
-      "storeSettings": "إعدادات المتجر",
-      "settings": "إعدادات الموقع"
+      "storeSettings": "الموقع",
+      "settings": "تهيئة المتجر"
     },
     "sections": {
       "content": "المحتوى",
       "appearance": "المظهر",
       "catalogSetup": "بيانات أساسية",
       "inventorySetup": "تهيئة المخزون",
-      "inventoryOps": "عمليات المخزون"
+      "inventoryOps": "عمليات المخزون",
+      "siteIdentity": "الهوية والتواصل"
     },
     "settingsTabs": {
       "branding": "الهوية",

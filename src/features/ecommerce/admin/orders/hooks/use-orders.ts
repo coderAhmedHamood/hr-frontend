@@ -23,6 +23,7 @@ import type {
   UpdateStoreOrderAttachmentInput,
 } from '@/features/ecommerce/domain/types/order';
 import type { PaginatedResult } from '@/features/ecommerce/domain/types/common';
+import { resolvePaymentProofUrls } from '@/features/ecommerce/domain/lib/payment-proofs';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import { toast } from 'sonner';
 
@@ -40,6 +41,22 @@ export const stockAvailabilityQueryKeys = {
     [...stockAvailabilityQueryKeys.all, companyId, productId, variantId] as const,
 };
 
+/** A list row as the full order (from a mutation) now reads: its counts follow the lines. */
+function asListRow(row: Order, order: Order): Order {
+  if (!row.isSummary) return { ...row, ...order };
+  const proofs = resolvePaymentProofUrls(order);
+  return {
+    ...row,
+    ...order,
+    isSummary: true,
+    lineCount: order.items.length,
+    shippedLineCount: order.items.filter((line) => line.shipStatus === 'shipped').length,
+    itemQuantity: order.items.reduce((sum, line) => sum + line.quantity, 0),
+    hasPaymentProof: proofs.length > 0,
+  };
+}
+
+/** Puts the order a mutation returned in every cache that shows it (no refetch). */
 function syncOrderInCaches(
   queryClient: ReturnType<typeof useQueryClient>,
   companyId: string,
@@ -53,7 +70,7 @@ function syncOrderInCaches(
       const index = old.items.findIndex((item) => item.id === order.id);
       if (index < 0) return old;
       const items = old.items.slice();
-      items[index] = { ...items[index], ...order };
+      items[index] = asListRow(items[index]!, order);
       return { ...old, items };
     },
   );
@@ -65,20 +82,92 @@ function syncOrderInCaches(
         ...old,
         pages: old.pages.map((page) => ({
           ...page,
-          items: page.items.map((item) => (item.id === order.id ? { ...item, ...order } : item)),
+          items: page.items.map((item) => (item.id === order.id ? asListRow(item, order) : item)),
         })),
       };
     },
   );
 }
 
+/**
+ * After a change to one order: refetch only the lists that may now show it
+ * differently — the kanban columns of the statuses it left / entered and the
+ * list pages (refetched when shown) — not every column, nor every order's
+ * detail. The order itself is already updated from the response.
+ */
+export function invalidateOrderLists(
+  queryClient: ReturnType<typeof useQueryClient>,
+  statuses: Array<OrderStatus | null | undefined>,
+) {
+  const touched = new Set(statuses.filter(Boolean));
+  return queryClient.invalidateQueries({
+    predicate: (query) => {
+      const [scope, feature, kind, params] = query.queryKey as [
+        unknown,
+        unknown,
+        unknown,
+        { status?: OrderStatus } | undefined,
+      ];
+      if (scope !== ordersQueryKeys.all[0] || feature !== ordersQueryKeys.all[1]) return false;
+      if (kind === 'list') return true;
+      if (kind === 'stage') return Boolean(params?.status && touched.has(params.status));
+      return false;
+    },
+  });
+}
+
+/** The status an order had in the caches before a mutation (its kanban column). */
+function cachedOrderStatus(
+  queryClient: ReturnType<typeof useQueryClient>,
+  companyId: string,
+  orderId: string,
+): OrderStatus | null {
+  const detail = queryClient.getQueryData<Order | null>(ordersQueryKeys.detail(companyId, orderId));
+  if (detail?.status) return detail.status;
+  for (const [, data] of queryClient.getQueriesData<InfiniteData<PaginatedResult<Order>>>({
+    queryKey: [...ordersQueryKeys.all, 'stage'],
+  })) {
+    for (const page of data?.pages ?? []) {
+      const row = page.items.find((item) => item.id === orderId);
+      if (row) return row.status;
+    }
+  }
+  for (const [, data] of queryClient.getQueriesData<PaginatedResult<Order>>({
+    queryKey: [...ordersQueryKeys.all, 'list'],
+  })) {
+    const row = data?.items?.find((item) => item.id === orderId);
+    if (row) return row.status;
+  }
+  return null;
+}
+
+/**
+ * Applies a mutation's returned order: caches updated in place, then only the
+ * lists of its previous and new status are refetched.
+ */
+export async function applyOrderMutation(
+  queryClient: ReturnType<typeof useQueryClient>,
+  companyId: string,
+  order: Order,
+) {
+  // Read before the caches take the new order: the column it is leaving.
+  const previousStatus = cachedOrderStatus(queryClient, companyId, order.id);
+  syncOrderInCaches(queryClient, companyId, order);
+  await invalidateOrderLists(queryClient, [previousStatus, order.status]);
+}
+
+/** Orders refresh after this long (and on tab focus once stale). */
+const ORDERS_STALE_MS = 30_000;
+
 export function useOrders(query: OrderListQuery, enabled = true) {
   return useQuery({
     queryKey: ordersQueryKeys.list(query),
-    queryFn: () => ordersApi.getAll(query),
+    // The list rows only (lines / shipped counts included) — no per-order detail.
+    queryFn: () => ordersApi.list(query),
     enabled: Boolean(query.companyId && enabled),
+    staleTime: ORDERS_STALE_MS,
     // Refresh on tab focus so newly placed orders show up — but only when
-    // the data is actually stale (respects the global staleTime), unlike a
+    // the data is actually stale (respects the staleTime), unlike a
     // raw `window.addEventListener('focus', refetch)` which would refetch
     // unconditionally on every focus event.
     refetchOnWindowFocus: true,
@@ -96,23 +185,20 @@ export function useOrdersStageColumn(query: Omit<OrderListQuery, 'page' | 'limit
   const limit = KANBAN_STAGE_PAGE_SIZE;
   return useInfiniteQuery({
     queryKey: ordersQueryKeys.stage({ ...query, limit }),
-    queryFn: ({ pageParam }) => ordersApi.getAll({ ...query, limit, page: pageParam }),
+    // One list request per page of the column — the cards need no order detail.
+    queryFn: ({ pageParam }) => ordersApi.list({ ...query, limit, page: pageParam }),
     initialPageParam: 1,
     getNextPageParam: (lastPage, pages) =>
       pages.length * limit < lastPage.pagination.total ? pages.length + 1 : undefined,
     enabled: Boolean(query.companyId),
+    staleTime: ORDERS_STALE_MS,
     refetchOnWindowFocus: true,
   });
 }
 
-/** Lightweight list (no detail N+1) — partner profile / filtered summaries. */
+/** The orders list rows — partner profile / filtered summaries (same cache as `useOrders`). */
 export function useOrdersList(query: OrderListQuery, enabled = true) {
-  return useQuery({
-    queryKey: [...ordersQueryKeys.list(query), 'summary'] as const,
-    queryFn: () => ordersApi.list(query),
-    enabled: Boolean(query.companyId && enabled),
-    refetchOnWindowFocus: true,
-  });
+  return useOrders(query, enabled);
 }
 
 export function useOrderDetail(companyId: string, orderId: string | null) {
@@ -166,8 +252,7 @@ export function useUpdateOrderStatus(companyId: string) {
         ...(paymentCollected ? { paymentCollected } : {}),
       }),
     onSuccess: async (order, variables) => {
-      syncOrderInCaches(queryClient, companyId, order);
-      await queryClient.invalidateQueries({ queryKey: ordersQueryKeys.all });
+      await applyOrderMutation(queryClient, companyId, order);
       await queryClient.invalidateQueries({ predicate: (query) => query.queryKey.includes('location-stock') });
       if (variables.status === 'cancelled' || variables.status === 'refunded') {
         toast.success('تم تحديث الحالة — المخزون يُرجع تلقائياً إن سبق خصمه');
@@ -195,8 +280,7 @@ export function useUpdateOrderPaymentStatus(companyId: string) {
       paymentStatus: 'pending' | 'paid' | 'failed' | 'refunded';
     }) => ordersApi.updatePaymentStatus(companyId, orderId, { paymentStatus }),
     onSuccess: async (order) => {
-      syncOrderInCaches(queryClient, companyId, order);
-      await queryClient.invalidateQueries({ queryKey: ordersQueryKeys.all });
+      await applyOrderMutation(queryClient, companyId, order);
       toast.success('تم تحديث حالة الدفع');
     },
     onError: (err) => {
@@ -208,9 +292,8 @@ export function useUpdateOrderPaymentStatus(companyId: string) {
 export function useOrderFulfillmentMutations(companyId: string) {
   const queryClient = useQueryClient();
 
-  const invalidate = async (order?: Order) => {
-    if (order) syncOrderInCaches(queryClient, companyId, order);
-    await queryClient.invalidateQueries({ queryKey: ordersQueryKeys.all });
+  const invalidate = async (order: Order) => {
+    await applyOrderMutation(queryClient, companyId, order);
     await queryClient.invalidateQueries({ queryKey: stockAvailabilityQueryKeys.all });
   };
 
@@ -265,10 +348,7 @@ export function useOrderFulfillmentMutations(companyId: string) {
 export function useOrderAttachmentMutations(companyId: string) {
   const queryClient = useQueryClient();
 
-  const invalidate = async (order: Order) => {
-    syncOrderInCaches(queryClient, companyId, order);
-    await queryClient.invalidateQueries({ queryKey: ordersQueryKeys.all });
-  };
+  const invalidate = (order: Order) => applyOrderMutation(queryClient, companyId, order);
 
   const add = useMutation({
     mutationFn: ({
@@ -341,8 +421,7 @@ export function useResolveOrderStockSource(companyId: string) {
       note?: string;
     }) => resolveAdminOrderStockSource(orderId, { source, note }),
     onSuccess: async (order) => {
-      syncOrderInCaches(queryClient, companyId, order);
-      await queryClient.invalidateQueries({ queryKey: ordersQueryKeys.all });
+      await applyOrderMutation(queryClient, companyId, order);
       toast.success('تم تحديد مصدر المخزون للطلب');
     },
     onError: (error) => {
@@ -365,8 +444,7 @@ export function useReceiveOrderReturn(companyId: string) {
       notes?: string;
     }) => receiveAdminOrderReturn(orderId, { lines, notes }),
     onSuccess: async (order) => {
-      syncOrderInCaches(queryClient, companyId, order);
-      await queryClient.invalidateQueries({ queryKey: ordersQueryKeys.all });
+      await applyOrderMutation(queryClient, companyId, order);
       toast.success('تم تأكيد استلام المرتجع وإعادة الكمية الصالحة للمخزون');
     },
     onError: (error) => {
@@ -387,8 +465,7 @@ export function useUpdateOrderStaffNote(companyId: string) {
       input: UpdateOrderStaffNoteInput;
     }) => ordersApi.updateStaffNote(companyId, orderId, input),
     onSuccess: async (order, variables) => {
-      syncOrderInCaches(queryClient, companyId, order);
-      await queryClient.invalidateQueries({ queryKey: ordersQueryKeys.all });
+      await applyOrderMutation(queryClient, companyId, order);
       const cleared =
         variables.input.staffNote !== undefined &&
         (variables.input.staffNote ?? '').trim().length === 0;

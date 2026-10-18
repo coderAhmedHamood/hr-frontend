@@ -136,6 +136,12 @@ export interface ListFilterBarProps {
   leadingFilters?: React.ReactNode;
   periodFilterActive?: boolean;
   onPeriodFilterClear?: () => void;
+  /**
+   * «مسح الكل» in one step. Pages that keep their filters in the URL must
+   * pass it: clearing each filter by its own onChange replaces the URL once
+   * per filter from the same old copy, so the last one undoes the others.
+   */
+  onClearAll?: () => void;
   beforeEmployeePicker?: React.ReactNode;
 
   inlineSelects?: readonly ListFilterInlineSelect[];
@@ -172,6 +178,7 @@ export const ListFilterBar = React.forwardRef<ListFilterBarHandle, ListFilterBar
       leadingFilters,
       periodFilterActive = false,
       onPeriodFilterClear,
+      onClearAll,
       beforeEmployeePicker,
       inlineSelects,
       moreFilters,
@@ -366,6 +373,13 @@ export const ListFilterBar = React.forwardRef<ListFilterBarHandle, ListFilterBar
     );
 
     const clearAllFilters = React.useCallback(() => {
+      if (onClearAll) {
+        resetDateFilter();
+        resetStatusFilter();
+        if (showEmployeePicker) onSelectedEmpIdsChange(new Set());
+        onClearAll();
+        return;
+      }
       onPeriodFilterClear?.();
       resetDateFilter();
       resetStatusFilter();
@@ -373,6 +387,7 @@ export const ListFilterBar = React.forwardRef<ListFilterBarHandle, ListFilterBar
       inlineSelects?.forEach((s) => s.onChange('all'));
       moreFilters?.forEach((s) => s.onChange('all'));
     }, [
+      onClearAll,
       onPeriodFilterClear,
       resetDateFilter,
       resetStatusFilter,
