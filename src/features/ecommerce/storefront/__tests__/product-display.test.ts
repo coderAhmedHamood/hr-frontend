@@ -1,5 +1,6 @@
 import {
   buildProductDisplay,
+  getOrderQuantityMax,
   getWarehouseOnHand,
   hasProductDeal,
   resolvePurchaseStockStatus,
@@ -105,7 +106,7 @@ describe('hasProductDeal', () => {
 });
 
 describe('getWarehouseOnHand', () => {
-  it('falls back to product qty when variants exist but none are stocked', () => {
+  it('never falls back to the product qty: a variant with 0 shows 0 (product 50)', () => {
     const variant = {
       id: 'v1',
       combinationKey: 's',
@@ -119,11 +120,46 @@ describe('getWarehouseOnHand', () => {
       isActive: true,
     };
     const product = makeProduct({
-      inventory: { quantity: 210, trackInventory: true, lowStockThreshold: 10, allowBackorder: false },
+      inventory: { quantity: 50, trackInventory: true, lowStockThreshold: 10, allowBackorder: false },
       variants: [variant],
     });
-    expect(getWarehouseOnHand(product, variant)).toBe(210);
+    expect(getWarehouseOnHand(product, variant)).toBe(0);
+    expect(resolvePurchaseStockStatus(product, variant)).toBe('out_of_stock');
+    expect(getOrderQuantityMax(product, variant)).toBe(0);
+    // The product sold as itself keeps its own 50.
+    expect(getWarehouseOnHand(product, null)).toBe(50);
+  });
+
+  it('an uncounted variant sells without a limit', () => {
+    const variant = {
+      id: 'v1',
+      combinationKey: 's',
+      sku: 'SKU-1-S',
+      nameAr: 'صغير',
+      attributeValueIds: ['a1'],
+      attributeLabels: [{ attributeNameAr: 'حجم', valueNameAr: 'صغير' }],
+      price: { amount: 65, currency: 'YER' as const },
+      quantity: 0,
+      stockTracked: false,
+      stockStatus: 'in_stock' as const,
+      isActive: true,
+    };
+    const product = makeProduct({ variants: [variant] });
+    expect(getWarehouseOnHand(product, variant)).toBeNull();
     expect(resolvePurchaseStockStatus(product, variant)).toBe('in_stock');
+    expect(getOrderQuantityMax(product, variant)).toBe(99);
+  });
+
+  it('the status follows the number when counted', () => {
+    const counted = makeProduct({
+      stockStatus: 'out_of_stock',
+      inventory: { quantity: 3, trackInventory: true, lowStockThreshold: 5, allowBackorder: false },
+    });
+    expect(resolvePurchaseStockStatus(counted)).toBe('in_stock');
+    const empty = makeProduct({
+      inventory: { quantity: 0, trackInventory: true, lowStockThreshold: 5, allowBackorder: false },
+    });
+    expect(resolvePurchaseStockStatus(empty)).toBe('out_of_stock');
   });
 
   it('uses zero for an unstocked variant when siblings have stock', () => {

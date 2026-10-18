@@ -15,6 +15,8 @@ export const STORE_FRONTEND_ENDPOINT_MAP = {
       'GET /public/inventory/categories/by-slug/:slug',
       'GET /public/inventory/brands',
       'GET /public/inventory/brands/by-slug/:slug',
+      // What the store can sell now (store quantities, or its warehouse when linked).
+      'GET /public/store/products/availability',
     ],
   },
   publicStore: {

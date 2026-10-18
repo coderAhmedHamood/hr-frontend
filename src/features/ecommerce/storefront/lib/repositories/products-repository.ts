@@ -16,8 +16,6 @@ import { storeCurrencyCode } from '@/features/ecommerce/domain/constants/store-c
 import { resolveStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
 import { productsApi } from '@/features/catalog/products/lib/api/products';
 import { toNumber, toOptionalNumber } from '@/features/inventory/lib/api/numbers';
-import { mapProductStockDto, type ProductStockDto } from '@/features/inventory/admin/stock/lib/api/inventory-stock-api';
-import type { ProductStockSnapshot } from '@/features/inventory/domain/types/product-stock';
 
 type PublicAttrValueDto = {
   id: string;
@@ -538,42 +536,77 @@ async function withCatalogGraph(
   }
 }
 
-function applyProductStockOverlay(
+/**
+ * `GET /public/store/products/availability` — what the store can sell now, read as orders
+ * are checked: the store's own quantities when it is not linked to inventory, else only the
+ * store's warehouse minus its reservations.
+ */
+type StoreAvailabilityDto = {
+  productId: string;
+  source: 'store' | 'warehouse';
+  /** The product sold as itself is counted. */
+  tracked: boolean;
+  allowBackorder: boolean;
+  /** The product sold as itself. */
+  available: number;
+  variants: Array<{ variantId: string; tracked: boolean; available: number }>;
+  fullyTracked: boolean;
+  totalAvailable: number;
+  inStock: boolean;
+};
+
+/**
+ * Applies the store's availability: the product's own quantity, each variant's own quantity
+ * (no fallback to the product's), and a status that follows the numbers when counted.
+ */
+function applyStoreAvailability(
   product: StorefrontProduct,
-  snapshot: ProductStockSnapshot,
+  availability: StoreAvailabilityDto,
 ): StorefrontProduct {
-  if (!snapshot.trackInventory) return product;
-
-  if (snapshot.displayLevel === 'variant' && product.variants.length > 0) {
-    const variants = product.variants.map((variant) => {
-      const row = snapshot.variants.find((item) => item.variantId === variant.id);
-      if (!row) return variant;
-      return { ...variant, quantity: row.available };
-    });
-    const quantity = variants.reduce((sum, variant) => sum + variant.quantity, 0);
-    return {
-      ...product,
-      inventory: { ...product.inventory, quantity: quantity > 0 ? quantity : snapshot.available },
-      variants,
-    };
+  const byVariant = new Map(availability.variants.map((row) => [row.variantId, row]));
+  const variants = product.variants.map((variant) => {
+    const row = byVariant.get(variant.id);
+    // Not sellable now (e.g. inactive): counted, nothing left.
+    if (!row) return { ...variant, quantity: 0, stockTracked: true };
+    return { ...variant, quantity: row.available, stockTracked: row.tracked };
+  });
+  let stockStatus = product.stockStatus;
+  if (stockStatus !== 'discontinued') {
+    if (!availability.inStock) stockStatus = 'out_of_stock';
+    else if (stockStatus === 'out_of_stock' && availability.totalAvailable > 0) stockStatus = 'in_stock';
   }
-
   return {
     ...product,
-    inventory: { ...product.inventory, quantity: snapshot.available },
+    stockStatus,
+    inventory: {
+      ...product.inventory,
+      trackInventory: availability.tracked,
+      allowBackorder: availability.allowBackorder,
+      quantity: availability.available,
+    },
+    variants,
   };
 }
 
-async function withPublicLiveStock(
+/** One request for all the products (cart, wishlist, sections). */
+async function withStoreAvailability(
   companyId: string,
-  product: StorefrontProduct,
-): Promise<StorefrontProduct> {
-  const dto = await publicProductRequest<ProductStockDto>(
-    `/public/inventory/products/${encodeURIComponent(product.id)}/stock`,
-    { companyId },
-  );
-  if (!dto?.productId) return product;
-  return applyProductStockOverlay(product, mapProductStockDto(dto));
+  products: StorefrontProduct[],
+): Promise<StorefrontProduct[]> {
+  if (products.length === 0) return products;
+  const byId = new Map<string, StoreAvailabilityDto>();
+  const ids = [...new Set(products.map((product) => product.id))];
+  for (let i = 0; i < ids.length; i += 100) {
+    const rows = await publicProductRequest<StoreAvailabilityDto[]>(
+      '/public/store/products/availability',
+      { companyId, productIds: ids.slice(i, i + 100).join(',') },
+    );
+    for (const row of Array.isArray(rows) ? rows : []) byId.set(row.productId, row);
+  }
+  return products.map((product) => {
+    const availability = byId.get(product.id);
+    return availability ? applyStoreAvailability(product, availability) : product;
+  });
 }
 
 function listQueryParams(query: StorefrontProductListQuery, companyId: string) {
@@ -630,7 +663,8 @@ export const storefrontProductsRepository: StorefrontProductsPort = {
     );
     if (!dto?.id || dto.status !== 'active') return null;
     const product = await withCatalogGraph(resolvedCompanyId, mapPublicProduct(dto), locale);
-    return withPublicLiveStock(resolvedCompanyId, product);
+    const [withStock] = await withStoreAvailability(resolvedCompanyId, [product]);
+    return withStock;
   },
 
   async getById(companyId: string, id: string, locale: StorefrontLocale): Promise<StorefrontProduct | null> {
@@ -644,7 +678,8 @@ export const storefrontProductsRepository: StorefrontProductsPort = {
     const dto = result?.items?.[0];
     if (!dto?.id || dto.status !== 'active') return null;
     const product = await withCatalogGraph(resolvedCompanyId, mapPublicProduct(dto), locale);
-    return withPublicLiveStock(resolvedCompanyId, product);
+    const [withStock] = await withStoreAvailability(resolvedCompanyId, [product]);
+    return withStock;
   },
 
   async getByIds(companyId: string, ids: string[], locale: StorefrontLocale): Promise<StorefrontProduct[]> {
@@ -664,12 +699,13 @@ export const storefrontProductsRepository: StorefrontProductsPort = {
     const byId = new Map(
       rows.filter((dto): dto is PublicProductDto => Boolean(dto?.id)).map((dto) => [dto.id, dto]),
     );
-    return Promise.all(
+    const products = await Promise.all(
       ids
         .map((id) => byId.get(id))
         .filter((dto): dto is PublicProductDto => Boolean(dto))
         .map((dto) => withCatalogGraph(resolvedCompanyId, mapPublicProduct(dto), locale)),
     );
+    return withStoreAvailability(resolvedCompanyId, products);
   },
 };
 

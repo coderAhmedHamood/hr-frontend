@@ -56,7 +56,8 @@ export type EmployeeResponseDto = {
 };
 
 export type CreateEmployeeDto = {
-  employeeCode: string;
+  /** Omitted: the server assigns the next number, starting at 1. */
+  employeeCode?: string;
   nameAr: string;
   nameEn?: string | null;
   email?: string | null;

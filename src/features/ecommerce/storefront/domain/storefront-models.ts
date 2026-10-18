@@ -78,7 +78,10 @@ export type StorefrontProduct = {
     attributeValueIds: string[];
     attributeLabels: Array<{ attributeNameAr: string; valueNameAr: string; colorHex?: string }>;
     price: Money;
+    /** What the store can sell of this variant now (its own, never the product's). */
     quantity: number;
+    /** false: not counted (sells without a limit); absent: follows the product. */
+    stockTracked?: boolean;
     stockStatus: StockStatus;
     isActive: boolean;
   }>;

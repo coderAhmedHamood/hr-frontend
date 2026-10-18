@@ -111,29 +111,24 @@ export type StorefrontVariant = StorefrontProduct['variants'][number];
 
 const SOFT_MAX_QTY = 99;
 
+/** Not counted: the product (or this variant) sells without a quantity limit. */
+function isUntracked(product: StorefrontProduct, variant?: StorefrontVariant | null): boolean {
+  if (!product.inventory.trackInventory) return true;
+  return Boolean(variant && variant.stockTracked === false);
+}
+
 /**
- * Real on-hand units when inventory is tracked; `null` when not tracked.
- *
- * When variants exist but none have allocated qty yet, stock usually still lives on the
- * product (template). Fall back to product quantity so the store matches admin totals
- * (e.g. product quantityCache 210 while every variant is still 0).
+ * Units the store can sell now (store availability: the store's own quantity, or its
+ * warehouse when linked); `null` when not counted. A variant shows only its own quantity —
+ * never the product's (the product's own quantity is for selling it as itself).
  */
 export function getWarehouseOnHand(
   product: StorefrontProduct,
   variant?: StorefrontVariant | null,
 ): number | null {
-  if (!product.inventory.trackInventory) return null;
-  if (!variant) {
-    return Math.max(0, Math.floor(product.inventory.quantity));
-  }
-  if (variant.quantity > 0) {
-    return Math.max(0, Math.floor(variant.quantity));
-  }
-  const anyVariantStocked = product.variants.some((row) => row.quantity > 0);
-  if (!anyVariantStocked) {
-    return Math.max(0, Math.floor(product.inventory.quantity));
-  }
-  return 0;
+  if (isUntracked(product, variant)) return null;
+  const quantity = variant ? variant.quantity : product.inventory.quantity;
+  return Math.max(0, Math.floor(quantity));
 }
 
 /** Hide warehouse count when not tracking, or when backorders are allowed. */
@@ -159,7 +154,7 @@ export function getOrderQuantityMax(
   product: StorefrontProduct,
   variant?: StorefrontVariant | null,
 ): number {
-  if (!product.inventory.trackInventory) return SOFT_MAX_QTY;
+  if (isUntracked(product, variant)) return SOFT_MAX_QTY;
   if (product.inventory.allowBackorder) return SOFT_MAX_QTY;
   return Math.min(SOFT_MAX_QTY, getWarehouseOnHand(product, variant) ?? 0);
 }
@@ -169,14 +164,17 @@ export function getAvailableOrderQuantity(
   product: StorefrontProduct,
   variant?: StorefrontVariant | null,
 ): number | null {
-  if (!product.inventory.trackInventory) return null;
+  if (isUntracked(product, variant)) return null;
   if (product.inventory.allowBackorder) return getOrderQuantityMax(product, variant);
   return getWarehouseOnHand(product, variant);
 }
 
 export type PurchaseStockStatus = StorefrontProduct['stockStatus'];
 
-/** Align displayed status with warehouse + backorder rules. */
+/**
+ * Displayed status. When counted it follows the number shown: «غير متوفر» exactly when
+ * nothing is left (and no backorder), «متوفر» when something is.
+ */
 export function resolvePurchaseStockStatus(
   product: StorefrontProduct,
   variant?: StorefrontVariant | null,
@@ -184,7 +182,7 @@ export function resolvePurchaseStockStatus(
   const raw = variant?.stockStatus ?? product.stockStatus;
   if (raw === 'discontinued') return 'discontinued';
 
-  if (!product.inventory.trackInventory) {
+  if (isUntracked(product, variant)) {
     return raw === 'preorder' ? 'preorder' : raw === 'out_of_stock' ? 'out_of_stock' : 'in_stock';
   }
 
@@ -195,8 +193,7 @@ export function resolvePurchaseStockStatus(
   }
 
   if (raw === 'preorder') return 'preorder';
-  if (onHand <= 0) return 'out_of_stock';
-  return raw === 'out_of_stock' ? 'out_of_stock' : 'in_stock';
+  return onHand > 0 ? 'in_stock' : 'out_of_stock';
 }
 
 export function canOrderQuantity(
@@ -205,7 +202,7 @@ export function canOrderQuantity(
 ): boolean {
   const status = resolvePurchaseStockStatus(product, variant);
   if (status === 'discontinued') return false;
-  if (!product.inventory.trackInventory) {
+  if (isUntracked(product, variant)) {
     return status === 'in_stock' || status === 'preorder';
   }
   if (product.inventory.allowBackorder) return true;

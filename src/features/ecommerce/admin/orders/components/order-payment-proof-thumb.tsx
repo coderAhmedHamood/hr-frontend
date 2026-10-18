@@ -12,6 +12,7 @@ import {
   dialogShellHeaderClass,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { ZoomableImage } from '@/components/ui/zoomable-image';
 import { cn } from '@/shared/utils';
 import { resolvePaymentProofUrls } from '@/features/ecommerce/domain/lib/payment-proofs';
 
@@ -79,7 +80,7 @@ export function OrderPaymentProofThumb({
       </button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className={cn(dialogShellContentClass, 'max-w-lg sm:max-w-lg')}>
+        <DialogContent className={cn(dialogShellContentClass, 'max-w-xl sm:max-w-xl')}>
           <div className={dialogShellHeaderClass}>
             <DialogTitle>{count > 1 ? 'إيصالات الدفع' : 'إيصال الدفع'}</DialogTitle>
             <DialogDescription>
@@ -88,14 +89,11 @@ export function OrderPaymentProofThumb({
             </DialogDescription>
           </div>
           <div className={cn(dialogShellBodyClass, 'space-y-3')}>
-            <div className="overflow-hidden rounded-xl border border-border bg-muted/30">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={primary}
-                alt={`إيصال الدفع ${activeIndex + 1}`}
-                className="mx-auto max-h-[70vh] w-full object-contain"
-              />
-            </div>
+            <ZoomableImage
+              src={primary}
+              alt={`إيصال الدفع ${activeIndex + 1}`}
+              downloadFileName={`${orderNumber ? `${orderNumber}-` : ''}payment-proof-${activeIndex + 1}.jpg`}
+            />
             {count > 1 ? (
               <div className="flex flex-wrap gap-2">
                 {proofUrls.map((item, index) => (

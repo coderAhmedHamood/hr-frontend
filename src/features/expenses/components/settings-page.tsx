@@ -14,6 +14,10 @@ import type { ExpensesSettings } from '../domain/types';
 import { AmountInput, Field, LoadingBlock, PartyChecklist, Section, useRunCommand } from './common';
 import { todayIso, useCurrency, useExpensesData, useExpensesPermissions } from './expenses-provider';
 
+function GroupLabel({ children }: { children: string }) {
+  return <h2 className="px-1 pt-2 text-sm font-semibold text-foreground">{children}</h2>;
+}
+
 function OptionalAmount({ label, hint, value, onChange }: { label: string; hint?: string; value: Minor | null; onChange: (v: Minor | null) => void }) {
   const currency = useCurrency();
   const [text, setText] = React.useState(value != null ? minorToInput(value, currency.decimals) : '');
@@ -50,50 +54,63 @@ export function SettingsPage() {
   };
   return (
     <div className="space-y-4">
-      <SetPageTitle titleAr="الإعدادات والسياسات" descriptionAr="مستوى الواجهة والاعتماد وحدود الصرف والبيانات" iconName="Settings" />
+      <SetPageTitle titleAr="الإعدادات والسياسات" descriptionAr="إعدادات المصروفات والعهد، ثم سياسات الصرف" iconName="Settings" />
       {disabled ? <p className="rounded-xl bg-muted px-3 py-2 text-xs text-muted-foreground">للعرض فقط: تعديل الإعدادات يحتاج صلاحية exp.settings.update.</p> : null}
+
+      <GroupLabel>الإعدادات</GroupLabel>
 
       <Section title="مستوى الواجهة" description="يغيّر الوظائف الظاهرة فقط — لا يغيّر الحسابات ولا يحذف بيانات.">
         <div className="grid gap-2 sm:grid-cols-2">
           {(['simple', 'advanced'] as const).map((mode) => (
             <button key={mode} type="button" disabled={disabled} onClick={() => patch({ mode })} className={cn('rounded-xl border p-3 text-start transition-colors', s.mode === mode ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted')}>
               <p className="text-sm font-semibold">{mode === 'simple' ? 'بسيط' : 'متقدم'}</p>
-              <p className="mt-0.5 text-xs text-muted-foreground">{mode === 'simple' ? 'للأفراد والمنشآت الصغيرة: مصروفات وعهد وتقسيم وتسويات.' : 'يُظهر مراكز التكلفة وتوزيع التكلفة والسياسات والاعتمادات بالتفصيل.'}</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">{mode === 'simple' ? 'للأفراد والمنشآت الصغيرة: مصروفات وعهد وتقسيم وتسويات.' : 'يُظهر مراكز التكلفة وتوزيع التكلفة بالتفصيل.'}</p>
             </button>
           ))}
         </div>
       </Section>
 
-      <Section title="الاعتماد" description="العمليات تؤثر على الأرصدة بعد اعتمادها؛ المعلق يظهر منفصلاً.">
+      <Section title="العملة" description="عملة الشركة الأساسية من إعدادات الشركة؛ تُحفظ العملة على كل مصروف وعهد وتسوية. تعدد العملات والتحويل مؤجل.">
+        <div className="text-sm">العملة المستخدمة: <Badge variant="outline">{currency.code}</Badge> <span className="text-xs text-muted-foreground">(من إعدادات الشركة)</span></div>
+        {other.length > 0 ? <p className="mt-2 text-xs text-warning">توجد عمليات بعملات أخرى ({other.join('، ')}) لا تظهر في الأرصدة الحالية.</p> : null}
+      </Section>
+
+      <Section title="الاعتماد" description="ينطبق على المصروفات والعهد والسلف والتسويات. الرصيد يتغير بعد الاعتماد، والمعلّق يظهر منفصلاً.">
         <div className="flex items-center justify-between gap-3 py-1">
-          <div><p className="text-sm font-medium">يتطلب اعتماداً</p><p className="text-xs text-muted-foreground">عند الإيقاف تُعتمد العمليات عند حفظها.</p></div>
+          <div><p className="text-sm font-medium">يتطلب اعتماداً</p><p className="text-xs text-muted-foreground">عند الإيقاف تُعتمد العملية عند حفظها.</p></div>
           <Switch checked={s.requireApproval} disabled={disabled} onCheckedChange={(v) => patch({ requireApproval: v })} />
         </div>
         {s.requireApproval ? (
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            <OptionalAmount label="اعتماد تلقائي لما دون" value={s.autoApproveBelow} onChange={(v) => !disabled && patch({ autoApproveBelow: v })} />
+            <OptionalAmount label="اعتماد تلقائي لما دون" hint="تحت هذا المبلغ تُعتمد المصروفات والعهد والسلف والتسويات مباشرة." value={s.autoApproveBelow} onChange={(v) => !disabled && patch({ autoApproveBelow: v })} />
             <Field label="المعتمِدون" hint="من مستخدمي الشركة. بلا اختيار: كل من يملك صلاحية الاعتماد. لا يعتمد أحد عملية سجّلها بنفسه."><PartyChecklist value={s.approverIds} limitTo={live.filter((p) => p.userId).map((p) => p.id)} onChange={(ids) => !disabled && patch({ approverIds: ids })} /></Field>
           </div>
         ) : null}
       </Section>
 
-      {s.mode === 'advanced' ? (
-        <Section title="السياسات وحدود الصرف" description="حدود الفئات تُضبط من صفحة الفئات.">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <OptionalAmount label="يلزم مرفق للمبالغ فوق" value={s.requireAttachmentAbove} onChange={(v) => !disabled && patch({ requireAttachmentAbove: v })} />
-            <OptionalAmount label="الحد الشهري لمصروفات الشخص" value={s.monthlyLimitPerPerson} onChange={(v) => !disabled && patch({ monthlyLimitPerPerson: v })} />
-          </div>
-          <div className="mt-3 flex items-center justify-between gap-3">
-            <div><p className="text-sm font-medium">منع الإرسال عند مخالفة السياسة</p><p className="text-xs text-muted-foreground">عند الإيقاف تظهر تنبيهات فقط.</p></div>
-            <Switch checked={s.blockOnPolicyViolation} disabled={disabled} onCheckedChange={(v) => patch({ blockOnPolicyViolation: v })} />
-          </div>
-        </Section>
-      ) : null}
+      <GroupLabel>سياسات المصروفات</GroupLabel>
 
-      <Section title="العملة" description="عملة الشركة الأساسية من إعدادات الشركة؛ تُحفظ العملة على كل عملية. تعدد العملات والتحويل مؤجل.">
-        <div className="text-sm">العملة المستخدمة: <Badge variant="outline">{currency.code}</Badge> <span className="text-xs text-muted-foreground">(من إعدادات الشركة)</span></div>
-        {other.length > 0 ? <p className="mt-2 text-xs text-warning">توجد عمليات بعملات أخرى ({other.join('، ')}) لا تظهر في الأرصدة الحالية.</p> : null}
+      <Section title="حدود الصرف" description="تخص المصروفات. حد الفئة الواحدة يُضبط من صفحة الفئات.">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <OptionalAmount label="يلزم مرفق للمبالغ فوق" value={s.requireAttachmentAbove} onChange={(v) => !disabled && patch({ requireAttachmentAbove: v })} />
+          <OptionalAmount label="الحد الشهري لمصروفات الشخص" value={s.monthlyLimitPerPerson} onChange={(v) => !disabled && patch({ monthlyLimitPerPerson: v })} />
+        </div>
+        <div className="mt-3 flex items-center justify-between gap-3 border-t border-border pt-3">
+          <div><p className="text-sm font-medium">منع الإرسال عند مخالفة السياسة</p><p className="text-xs text-muted-foreground">عند الإيقاف تظهر تنبيهات فقط ولا يُمنع حفظ المصروف.</p></div>
+          <Switch checked={s.blockOnPolicyViolation} disabled={disabled} onCheckedChange={(v) => patch({ blockOnPolicyViolation: v })} />
+        </div>
       </Section>
+
+      <GroupLabel>العهد والسلف</GroupLabel>
+
+      <Section title="ما ينطبق على العهد" description="لا حدود صرف منفصلة للعهد؛ تتبع الاعتماد أعلاه.">
+        <ul className="list-inside list-disc space-y-1 text-sm text-muted-foreground">
+          <li>صرف العهد وتسويتها والسلف تُعتمد بنفس «يتطلب اعتماداً» وحد الاعتماد التلقائي.</li>
+          <li>إلزام المرفق والحد الشهري ومنع الإرسال تخص المصروفات فقط.</li>
+        </ul>
+      </Section>
+
+      <GroupLabel>البيانات</GroupLabel>
 
       <Section title="المشاركون" description="مستخدمو الشركة وجهات اتصالها الداخلية (للقراءة فقط)، والأشخاص التجريبيون إن حُمّلت البيانات التجريبية.">
         <ul className="space-y-1 text-sm">
@@ -102,7 +119,7 @@ export function SettingsPage() {
         </ul>
       </Section>
 
-      <Section title="البيانات" description="محفوظة في خادم الشركة ومشتركة بين مستخدميها وأجهزتهم. البيانات التجريبية يحمّلها مالك النظام من «بيانات الشركة».">
+      <Section title="التصدير" description="محفوظة في خادم الشركة ومشتركة بين مستخدميها وأجهزتهم. البيانات التجريبية يحمّلها مالك النظام من «بيانات الشركة».">
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={download}><Download className="me-1.5 h-4 w-4" />تصدير JSON</Button>
         </div>

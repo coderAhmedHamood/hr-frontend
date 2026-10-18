@@ -211,7 +211,6 @@ export function NewEmployeeDrawer({ open, onOpenChange, onCreated }: Props) {
     const selectedJobTitle = jobTitles.find((j) => j.id === form.jobTitleId);
     try {
       await employeesApi.create({
-        employeeCode: `EMP-${Date.now()}`,
         nameAr: form.nameAr.trim(),
         email: form.email.trim() || null,
         phone: form.phone.trim() || null,

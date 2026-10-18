@@ -4,7 +4,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus } from 'lucide-react';
+import { Eye, EyeOff, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { Badge } from '@/components/ui/badge';
@@ -759,12 +759,14 @@ function CompanyUsersTab({ companyId }: { companyId: string }) {
   const [email, setEmail] = React.useState('');
   const [fullNameAr, setFullNameAr] = React.useState('');
   const [password, setPassword] = React.useState('');
+  const [showPassword, setShowPassword] = React.useState(false);
   const [assignSuperuser, setAssignSuperuser] = React.useState(true);
 
   function resetForm() {
     setEmail('');
     setFullNameAr('');
     setPassword('');
+    setShowPassword(false);
     setAssignSuperuser(true);
   }
 
@@ -852,14 +854,26 @@ function CompanyUsersTab({ companyId }: { companyId: string }) {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="so-user-password">كلمة المرور</Label>
-              <Input
-                id="so-user-password"
-                type="password"
-                dir="ltr"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Str0ngP@ssw0rd!"
-              />
+              <div className="relative" dir="ltr">
+                <Input
+                  id="so-user-password"
+                  type={showPassword ? 'text' : 'password'}
+                  dir="ltr"
+                  className="pe-10"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Str0ngP@ssw0rd!"
+                  autoComplete="new-password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((value) => !value)}
+                  className="absolute end-2 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
+                  aria-label={showPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
             </div>
             <label className="flex items-center justify-between gap-3 rounded-xl border border-border px-3 py-2">
               <span className="min-w-0">

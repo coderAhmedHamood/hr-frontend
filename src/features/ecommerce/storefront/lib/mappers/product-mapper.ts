@@ -96,13 +96,9 @@ export function mapStorefrontProduct(product: Product, locale: StorefrontLocale)
       };
     });
 
-  const variantQtySum = mappedVariants.reduce((sum, variant) => sum + variant.quantity, 0);
-  // Stock often stays on the template until posted per variant — keep product qty when
-  // variants exist but none have been allocated yet.
-  const inventoryQuantity =
-    mappedVariants.length > 0 && variantQtySum > 0
-      ? variantQtySum
-      : product.inventory.quantity;
+  // The product's own quantity stays its own: variants never borrow it (and it never
+  // borrows theirs). The store's availability overlay sets both on the product page.
+  const inventoryQuantity = product.inventory.quantity;
   const hasInStockVariant = mappedVariants.some((variant) => variant.stockStatus === 'in_stock');
   const stockStatus =
     mappedVariants.length > 0
