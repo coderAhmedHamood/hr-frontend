@@ -16,6 +16,7 @@ import type { CreateStoreOrderAttachmentInput,
   UpdateStoreOrderAttachmentInput,
   OrderReturnReceipt,
   OrderStockSource,
+  OrderStockReservation,
 } from '@/features/ecommerce/domain/types/order';
 import type {
   PlaceOrderInput,
@@ -97,6 +98,7 @@ type StoreOrderDto = {
   staffNoteVisibleToCustomer?: boolean | null;
   stockSource?: OrderStockSource | null;
   stockSourceNote?: string | null;
+  stockReservation?: OrderStockReservation | null;
   returnReceipt?: OrderReturnReceipt | null;
   shipLat?: number | null;
   shipLng?: number | null;
@@ -241,6 +243,7 @@ function mapAdminOrder(dto: StoreOrderDto): Order {
     staffNoteVisibleToCustomer: dto.staffNoteVisibleToCustomer ?? false,
     stockSource: dto.stockSource ?? null,
     stockSourceNote: dto.stockSourceNote ?? null,
+    stockReservation: dto.stockReservation ?? null,
     returnReceipt: dto.returnReceipt ?? null,
     paymentMethod: dto.paymentMethod,
     paymentStatus: dto.paymentStatus,

@@ -94,6 +94,8 @@ export type OrderStatusHistoryEntry = {
 
 export type OrderStockSource = 'local' | 'inventory' | 'none' | 'unresolved';
 
+export type OrderStockReservation = 'awaiting' | 'short' | 'reserved' | 'released' | 'issued';
+
 export type OrderReturnReceipt = {
   lines: Array<{ lineId: string; sellableQuantity: number; damagedQuantity: number }>;
   notes: string | null;
@@ -131,6 +133,12 @@ export type Order = TenantScoped & {
    */
   stockSource?: OrderStockSource | null;
   stockSourceNote?: string | null;
+  /**
+   * Inventory orders (admin only): reserved once paid (cash on delivery:
+   * once confirmed). `short`: paid but the stock is short — the order does
+   * not move on until stock is there or it is cancelled and refunded.
+   */
+  stockReservation?: OrderStockReservation | null;
   /** The confirmed receipt of the returned goods (once). */
   returnReceipt?: OrderReturnReceipt | null;
   paymentMethod?:

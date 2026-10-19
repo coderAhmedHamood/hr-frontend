@@ -1,14 +1,17 @@
 'use client';
 
 import * as React from 'react';
-import { Banknote, CreditCard, Truck, User } from 'lucide-react';
+import { Banknote, CreditCard, StickyNote, User } from 'lucide-react';
 import { WhatsappPhoneAction } from '@/features/ecommerce/admin/cms/whatsapp/components/whatsapp-phone-action';
 import { OrderAttachmentsPanel } from '@/features/ecommerce/admin/orders/components/order-attachments-panel';
 import { OrderStaffNotePanel } from '@/features/ecommerce/admin/orders/components/order-staff-note-panel';
 import { OrderStockPanel } from '@/features/ecommerce/admin/orders/components/order-stock-panel';
 import { OrderLineShipPanel } from '@/features/ecommerce/admin/orders/components/order-line-ship-panel';
 import { OrderPaymentProofThumb } from '@/features/ecommerce/admin/orders/components/order-payment-proof-thumb';
-import { OrderStatusHistoryButton } from '@/features/ecommerce/admin/orders/components/order-status-history-button';
+import {
+  OrderStatusHistoryButton,
+  StatusHistoryTimeline,
+} from '@/features/ecommerce/admin/orders/components/order-status-history-button';
 import {
   OrderStatusStepper,
   type OrderStatusChangeExtra,
@@ -27,6 +30,7 @@ import { formatPrice } from '@/features/ecommerce/shared/utils/format-price';
 import {
   getOrderPrepGuidance,
   isPaymentSettled,
+  isPrepaidPaymentMethod,
   canTransitionOrderStatus,
   ORDER_LINE_SHIP_STATUS_LABELS_AR,
   ORDER_STATUS_LABELS_AR,
@@ -84,21 +88,81 @@ function formatDateTime(iso: string) {
   return formatDisplayDateTime(iso);
 }
 
+type DetailTab = 'handle' | 'summary' | 'delivery' | 'stock' | 'notes' | 'attachments';
+
+const DETAIL_TAB_LABELS: Record<DetailTab, string> = {
+  handle: 'المعالجة',
+  summary: 'الملخص',
+  delivery: 'التوصيل والتواصل',
+  stock: 'المخزون',
+  notes: 'الملاحظات',
+  attachments: 'المرفقات',
+};
+
+/**
+ * The stock tab has something to do: an open order without a clear stock
+ * source, or returned goods to receive (same rules as OrderStockPanel), or a
+ * receipt to read.
+ */
+function orderStockTabRelevant(order: Order): boolean {
+  const source = order.stockSource ?? null;
+  if (order.returnReceipt) return true;
+  if (
+    (source === null || source === 'unresolved') &&
+    ['pending', 'confirmed', 'processing'].includes(order.status)
+  ) {
+    return true;
+  }
+  if (source !== 'inventory' && source !== 'local') return false;
+  return (
+    ['shipped', 'delivered', 'refunded'].includes(order.status) ||
+    (order.status === 'cancelled' && source === 'inventory')
+  );
+}
+
+/**
+ * Every tab, always — ordered by what the stage needs, the first one opening
+ * by default. Nothing is hidden; the stage only decides the order.
+ */
+function orderDetailTabs(order: Order): DetailTab[] {
+  const stockFirst = orderStockTabRelevant(order);
+  switch (order.status) {
+    case 'pending':
+      return ['handle', 'delivery', 'attachments', 'notes', 'stock'];
+    case 'confirmed':
+    case 'processing':
+      return stockFirst
+        ? ['handle', 'stock', 'delivery', 'notes', 'attachments']
+        : ['handle', 'delivery', 'notes', 'attachments', 'stock'];
+    case 'shipped':
+      return ['delivery', 'handle', 'attachments', 'notes', 'stock'];
+    default:
+      return ['summary', 'stock', 'delivery', 'attachments', 'notes'];
+  }
+}
+
+function isDetailTab(value: string | null | undefined): value is DetailTab {
+  return Boolean(value && value in DETAIL_TAB_LABELS);
+}
+
 const ITEMS_PAGE_SIZE = 8;
 
 function OrderItemsPanel({
   order,
   companyId,
   stages,
+  readOnly = false,
 }: {
   order: Order;
   companyId: string;
   stages: OrderStagesContext | null;
+  /** Lines shown without preparation (a new order, a closed one). */
+  readOnly?: boolean;
 }) {
   const [search, setSearch] = React.useState('');
   const [statusFilter, setStatusFilter] = React.useState<'all' | 'pending' | 'shipped'>('all');
   const [visibleCount, setVisibleCount] = React.useState(ITEMS_PAGE_SIZE);
-  const updateStatus = useUpdateOrderStatus(companyId);
+  const fulfilment = orderFulfilmentState(order);
 
   const shippedCount = order.items.filter((line) => line.shipStatus === 'shipped').length;
   const assignedCount = order.items.filter((line) => line.shipStatus === 'assigned').length;
@@ -124,7 +188,10 @@ function OrderItemsPanel({
     <div>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div className="min-w-0 space-y-1.5">
-          <h3 className="text-sm font-semibold text-foreground">منتجات الطلب</h3>
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-sm font-semibold text-foreground">منتجات الطلب</h3>
+            <Badge variant={FULFILMENT_VARIANT[fulfilment]}>{FULFILMENT_LABELS[fulfilment]}</Badge>
+          </div>
           <div className="flex flex-wrap items-center gap-1.5">
             <Badge variant="success" className="tabular-nums">
               {shippedCount} {ORDER_LINE_SHIP_STATUS_LABELS_AR.shipped}
@@ -174,25 +241,12 @@ function OrderItemsPanel({
         ) : null}
       </div>
 
-      {canPromoteOrder ? (
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-teal-500/30 bg-teal-500/10 px-3 py-2.5">
-          <p className="text-sm text-teal-900 dark:text-teal-200">
-            كل الأصناف شُحنت — حالة الطلب ما زالت «{ORDER_STATUS_LABELS_AR[order.status]}».
-          </p>
-          <Button
-            type="button"
-            size="sm"
-            disabled={updateStatus.isPending}
-            onClick={() =>
-              void updateStatus.mutateAsync({
-                orderId: order.id,
-                status: 'shipped',
-              })
-            }
-          >
-            تحديث الطلب إلى: تم الشحن
-          </Button>
-        </div>
+      {/* The move itself is the «تم الشحن» step of the path (handler, note). */}
+      {canPromoteOrder && !readOnly ? (
+        <p className="mb-3 rounded-xl border border-teal-500/30 bg-teal-500/10 px-3 py-2.5 text-sm text-teal-900 dark:text-teal-200">
+          كل الأصناف شُحنت — حالة الطلب ما زالت «{ORDER_STATUS_LABELS_AR[order.status]}». انقله إلى
+          «تم الشحن» من مسار الطلب.
+        </p>
       ) : null}
 
       {manyItems ? (
@@ -215,6 +269,7 @@ function OrderItemsPanel({
             orderId={order.id}
             orderStatus={order.status}
             line={line}
+            readOnly={readOnly}
           />
         ))}
         {filteredItems.length === 0 ? (
@@ -246,6 +301,8 @@ type OrderDetailPanelProps = {
   onOpenChange: (open: boolean) => void;
   /** When true, dialog shows a loading shell while order detail is fetched. */
   loading?: boolean;
+  /** Tab asked for by a link (`?tab=`); the stage's default when hidden. */
+  initialTab?: string | null;
 };
 
 export function OrderDetailPanel({
@@ -255,6 +312,7 @@ export function OrderDetailPanel({
   open,
   onOpenChange,
   loading: loadingProp = false,
+  initialTab = null,
 }: OrderDetailPanelProps) {
   const orderId = orderIdProp || orderProp?.id || null;
   const detailQuery = useOrderDetail(companyId, open ? orderId : null);
@@ -274,14 +332,34 @@ export function OrderDetailPanel({
     order?.paymentProofUrls?.some((url) => url?.trim()) || order?.paymentProofUrl?.trim(),
   );
   const phone = order?.phone?.trim() || null;
-  const shipLine = order
-    ? [order.city, order.shippingDistrict ?? order.region].filter(Boolean).join(' — ')
-    : '';
+  const customerNote = order?.customerNote?.trim() || null;
+  // No payment is recorded on a cancelled or refunded order (server rule).
   const needsPaymentConfirm = Boolean(
-    order && !isPaymentSettled(order) && (!stages || stages.canUpdate),
+    order &&
+      !isPaymentSettled(order) &&
+      order.status !== 'cancelled' &&
+      order.status !== 'refunded' &&
+      order.paymentStatus !== 'refunded' &&
+      (!stages || stages.canUpdate),
   );
-  const fulfilment = order ? orderFulfilmentState(order) : null;
   const PaymentIcon = isCard ? CreditCard : Banknote;
+
+  // The tabs this stage needs; a hidden or unknown tab falls back to the default.
+  const tabs = order ? orderDetailTabs(order) : [];
+  const [pickedTab, setPickedTab] = React.useState<{ orderId: string; tab: DetailTab } | null>(
+    null,
+  );
+  const wantedTab =
+    pickedTab && pickedTab.orderId === order?.id
+      ? pickedTab.tab
+      : isDetailTab(initialTab)
+        ? initialTab
+        : null;
+  const activeTab: DetailTab | undefined =
+    wantedTab && tabs.includes(wantedTab) ? wantedTab : tabs[0];
+  const pickTab = (tab: DetailTab) => {
+    if (order) setPickedTab({ orderId: order.id, tab });
+  };
 
   async function markPaid() {
     if (!order) return;
@@ -354,101 +432,41 @@ export function OrderDetailPanel({
                 </div>
               </div>
 
-              <div className="rounded-xl border border-border/70 bg-muted/25 px-3 py-2.5">
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-                  <p className="inline-flex items-center gap-1.5 text-sm font-bold text-foreground">
-                    <User className="h-3.5 w-3.5 text-muted-foreground" />
-                    {order.customerNameAr}
-                  </p>
-                  {phone ? (
-                    <WhatsappPhoneAction
-                      phone={phone}
-                      customerName={order.customerNameAr}
-                      orderId={order.id}
-                      className="rounded-md bg-primary/10 px-2 py-0.5 text-sm font-bold hover:bg-primary/15"
-                    />
-                  ) : (
-                    <span className="text-xs text-muted-foreground">لا يوجد جوال</span>
-                  )}
-                  {shipLine ? (
-                    <span className="inline-flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
-                      <Truck className="h-3.5 w-3.5 shrink-0" />
-                      <span className="truncate">
-                        {shipLine}
-                        {order.shippingStreet ? ` · ${order.shippingStreet}` : ''}
-                      </span>
-                    </span>
-                  ) : null}
-                </div>
-                {order.customerNote ? (
-                  <p className="mt-1.5 text-xs text-muted-foreground">
-                    ملاحظة العميل: {order.customerNote}
-                  </p>
-                ) : null}
-                {order.shippingNotes ? (
-                  <p className="mt-1.5 text-xs text-muted-foreground">
-                    ملاحظة الشحن: {order.shippingNotes}
-                  </p>
-                ) : null}
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2">
-                <span
-                  className={cn(
-                    'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold',
-                    isCard
-                      ? 'border-sky-500/30 bg-sky-500/10 text-sky-900 dark:text-sky-200'
-                      : 'border-teal-500/30 bg-teal-500/10 text-teal-900 dark:text-teal-200',
-                  )}
-                >
-                  <PaymentIcon className="h-3.5 w-3.5" />
-                  {PAYMENT_METHOD_LABELS_AR[paymentMethod]}
-                </span>
-                {order.paymentAccountSnapshot?.nameAr ? (
-                  <Badge variant="subtle" className="text-muted-foreground max-sm:hidden">
-                    {order.paymentAccountSnapshot.nameAr}
-                    {order.paymentAccountSnapshot.mobile
-                      ? ` · ${order.paymentAccountSnapshot.mobile}`
-                      : ''}
-                  </Badge>
-                ) : null}
-                <Badge variant={PAYMENT_STATUS_VARIANT[order.paymentStatus ?? 'pending']}>
-                  {PAYMENT_STATUS_LABELS_AR[order.paymentStatus ?? 'pending']}
-                </Badge>
-                {fulfilment ? (
-                  <Badge variant={FULFILMENT_VARIANT[fulfilment]}>{FULFILMENT_LABELS[fulfilment]}</Badge>
-                ) : null}
-                <span
-                  className={cn(
-                    'text-xs font-medium',
-                    prep.canPrepare
-                      ? 'text-teal-700 dark:text-teal-400'
-                      : 'text-amber-700 dark:text-amber-400',
-                  )}
-                >
-                  {prep.prepLabel}
-                </span>
-                {hasProof ? (
-                  <OrderPaymentProofThumb
-                    urls={order.paymentProofUrls}
-                    url={order.paymentProofUrl}
-                    orderNumber={order.orderNumber}
-                    size="sm"
-                    className="ms-auto"
+              {/* Who the order is for; the address and notes are in «التوصيل والتواصل». */}
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border border-border/70 bg-muted/25 px-3 py-2">
+                <p className="inline-flex items-center gap-1.5 text-sm font-bold text-foreground">
+                  <User className="h-3.5 w-3.5 text-muted-foreground" />
+                  {order.customerNameAr}
+                </p>
+                {phone ? (
+                  <WhatsappPhoneAction
+                    phone={phone}
+                    customerName={order.customerNameAr}
+                    orderId={order.id}
+                    className="rounded-md bg-primary/10 px-2 py-0.5 text-sm font-bold hover:bg-primary/15"
                   />
-                ) : null}
-                {needsPaymentConfirm ? (
-                  <Button
+                ) : (
+                  <span className="text-xs text-muted-foreground">لا يوجد جوال</span>
+                )}
+                {customerNote && tabs.includes('delivery') ? (
+                  <button
                     type="button"
-                    size="sm"
-                    className={cn(!hasProof && 'ms-auto', 'max-sm:h-11 max-sm:w-full')}
-                    disabled={flowBusy}
-                    onClick={() => void markPaid()}
+                    onClick={() => pickTab('delivery')}
+                    title={`ملاحظة العميل: ${customerNote}`}
+                    aria-label="ملاحظة العميل — في التوصيل والتواصل"
+                    className="ms-auto inline-flex h-7 w-7 items-center justify-center rounded-md text-amber-600 transition-colors hover:bg-amber-500/10 dark:text-amber-400"
                   >
-                    تأكيد التحصيل
-                  </Button>
+                    <StickyNote className="h-4 w-4" />
+                  </button>
                 ) : null}
               </div>
+              {order.stockReservation === 'short' &&
+              ['pending', 'confirmed', 'processing'].includes(order.status) ? (
+                <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-900 dark:text-amber-200">
+                  تم تأكيد الدفع لكن الكمية غير متوفرة حالياً — الطلب لا يتقدم حتى تتوفر الكمية أو
+                  يُلغى ويُسترد.
+                </p>
+              ) : null}
             </div>
           ) : !loading ? (
             <>
@@ -474,7 +492,6 @@ export function OrderDetailPanel({
                 order={order}
                 companyId={companyId}
                 stages={stages}
-                hidePaymentConfirm
                 mobileActionSlot={mobileActionSlot}
                 disabled={flowBusy}
                 onOrderStatusChange={(nextStatus, note, extra) => {
@@ -483,73 +500,196 @@ export function OrderDetailPanel({
                 onPaymentPaid={() => {
                   void markPaid();
                 }}
+                renderPaymentActions={(close) => (
+                  <>
+                    {!prep.paid && order.status !== 'cancelled' && order.status !== 'refunded' ? (
+                      <p className="text-xs leading-relaxed text-muted-foreground">{prep.prepHint}</p>
+                    ) : null}
+                    {hasProof || needsPaymentConfirm ? (
+                      <div className="flex flex-wrap items-center gap-2 border-t border-border/60 pt-3">
+                        {hasProof ? (
+                          <OrderPaymentProofThumb
+                            urls={order.paymentProofUrls}
+                            url={order.paymentProofUrl}
+                            orderNumber={order.orderNumber}
+                            size="sm"
+                          />
+                        ) : null}
+                        {needsPaymentConfirm ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            className="ms-auto max-sm:h-10"
+                            disabled={flowBusy}
+                            onClick={() => {
+                              void markPaid()
+                                .then(close)
+                                .catch(() => undefined);
+                            }}
+                          >
+                            {isPrepaidPaymentMethod(paymentMethod) ? 'تأكيد الدفع' : 'تأكيد التحصيل'}
+                          </Button>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </>
+                )}
               />
 
-              {/* Tabs keep the order readable: what is needed to handle it
-                  first, the rest one tap away. */}
-              <Tabs defaultValue="handle" className="space-y-3">
+              {/* Only the tabs this stage needs; the first one opens. */}
+              <Tabs
+                value={activeTab}
+                onValueChange={(value) => {
+                  if (isDetailTab(value)) pickTab(value);
+                }}
+                className="space-y-3"
+              >
                 <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 rounded-xl bg-muted/60 p-1 max-sm:flex-nowrap max-sm:overflow-x-auto">
-                  {(
-                    [
-                      ['handle', 'المعالجة', 0],
-                      ['delivery', 'التوصيل والتواصل', 0],
-                      ['stock', 'المخزون', 0],
-                      ['notes', 'الملاحظات', order.staffNote?.trim() ? 1 : 0],
-                      ['attachments', 'المرفقات', order.attachments?.length ?? 0],
-                    ] as const
-                  ).map(([value, label, count]) => (
-                    <TabsTrigger
-                      key={value}
-                      value={value}
-                      className="flex-1 gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm data-[state=active]:bg-card data-[state=active]:shadow-sm max-sm:flex-none max-sm:py-2"
-                    >
-                      {label}
-                      {count > 0 ? (
-                        <span className="rounded-full bg-primary/15 px-1.5 text-[11px] font-semibold text-primary">
-                          {count}
-                        </span>
-                      ) : null}
-                    </TabsTrigger>
-                  ))}
+                  {tabs.map((value) => {
+                    const count =
+                      value === 'notes'
+                        ? order.staffNote?.trim()
+                          ? 1
+                          : 0
+                        : value === 'attachments'
+                          ? (order.attachments?.length ?? 0)
+                          : 0;
+                    return (
+                      <TabsTrigger
+                        key={value}
+                        value={value}
+                        className="flex-1 gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm data-[state=active]:bg-card data-[state=active]:shadow-sm max-sm:flex-none max-sm:py-2"
+                      >
+                        {DETAIL_TAB_LABELS[value]}
+                        {count > 0 ? (
+                          <span className="rounded-full bg-primary/15 px-1.5 text-[11px] font-semibold text-primary">
+                            {count}
+                          </span>
+                        ) : null}
+                      </TabsTrigger>
+                    );
+                  })}
                 </TabsList>
 
-                <TabsContent value="handle" className="mt-0 space-y-4">
-                  <section className="rounded-2xl border border-border bg-card p-4">
-                    <OrderAssignmentPanel order={order} companyId={companyId} stages={stages} />
-                  </section>
-                  <section className="rounded-2xl border border-border bg-card p-4">
-                    <OrderItemsPanel order={order} companyId={companyId} stages={stages} />
-                  </section>
-                </TabsContent>
+                {tabs.includes('handle') ? (
+                  <TabsContent value="handle" className="mt-0 space-y-4">
+                    <section className="rounded-2xl border border-border bg-card p-4">
+                      <OrderAssignmentPanel order={order} companyId={companyId} stages={stages} />
+                    </section>
+                    <section className="rounded-2xl border border-border bg-card p-4">
+                      <OrderItemsPanel
+                        order={order}
+                        companyId={companyId}
+                        stages={stages}
+                        readOnly={order.status === 'pending'}
+                      />
+                    </section>
+                  </TabsContent>
+                ) : null}
 
-                <TabsContent value="delivery" className="mt-0">
-                  <section className="rounded-2xl border border-border bg-card p-4">
-                    <OrderDeliveryPanel order={order} companyId={companyId} stages={stages} />
-                  </section>
-                </TabsContent>
+                {tabs.includes('summary') ? (
+                  <TabsContent value="summary" className="mt-0 space-y-4">
+                    <section className="rounded-2xl border border-border bg-card p-4">
+                      <OrderItemsPanel order={order} companyId={companyId} stages={stages} readOnly />
+                    </section>
+                    <section className="space-y-2 rounded-2xl border border-border bg-card p-4">
+                      <h3 className="text-sm font-semibold text-foreground">الدفع</h3>
+                      <div className="flex flex-wrap items-center gap-2 text-sm">
+                        <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
+                          <PaymentIcon className="h-4 w-4 text-muted-foreground" />
+                          {PAYMENT_METHOD_LABELS_AR[paymentMethod]}
+                        </span>
+                        {order.paymentAccountSnapshot?.nameAr ? (
+                          <span className="text-xs text-muted-foreground">
+                            {order.paymentAccountSnapshot.nameAr}
+                            {order.paymentAccountSnapshot.mobile
+                              ? ` · ${order.paymentAccountSnapshot.mobile}`
+                              : ''}
+                          </span>
+                        ) : null}
+                        <Badge variant={PAYMENT_STATUS_VARIANT[order.paymentStatus ?? 'pending']}>
+                          {PAYMENT_STATUS_LABELS_AR[order.paymentStatus ?? 'pending']}
+                        </Badge>
+                        {hasProof ? (
+                          <OrderPaymentProofThumb
+                            urls={order.paymentProofUrls}
+                            url={order.paymentProofUrl}
+                            orderNumber={order.orderNumber}
+                            size="sm"
+                            className="ms-auto"
+                          />
+                        ) : null}
+                      </div>
+                    </section>
+                    <section className="space-y-3 rounded-2xl border border-border bg-card p-4">
+                      <h3 className="text-sm font-semibold text-foreground">سجل الطلب</h3>
+                      <StatusHistoryTimeline entries={order.statusHistory ?? []} />
+                    </section>
+                  </TabsContent>
+                ) : null}
 
-                <TabsContent value="stock" className="mt-0">
-                  <section className="rounded-2xl border border-border bg-card p-4">
-                    <OrderStockPanel order={order} companyId={companyId} />
-                  </section>
-                </TabsContent>
+                {tabs.includes('delivery') ? (
+                  <TabsContent value="delivery" className="mt-0 space-y-4">
+                    {customerNote || order.shippingNotes?.trim() ? (
+                      <section className="space-y-1.5 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4">
+                        {customerNote ? (
+                          <p className="text-sm text-foreground">
+                            <span className="font-semibold text-amber-800 dark:text-amber-300">
+                              ملاحظة العميل:{' '}
+                            </span>
+                            {customerNote}
+                          </p>
+                        ) : null}
+                        {order.shippingNotes?.trim() ? (
+                          <p className="text-sm text-foreground">
+                            <span className="font-semibold text-amber-800 dark:text-amber-300">
+                              ملاحظة العنوان:{' '}
+                            </span>
+                            {order.shippingNotes.trim()}
+                          </p>
+                        ) : null}
+                      </section>
+                    ) : null}
+                    {/* Shipped orders have no «المعالجة» tab: the courier is picked here. */}
+                    {!tabs.includes('handle') && order.status === 'shipped' ? (
+                      <section className="rounded-2xl border border-border bg-card p-4">
+                        <OrderAssignmentPanel order={order} companyId={companyId} stages={stages} />
+                      </section>
+                    ) : null}
+                    <section className="rounded-2xl border border-border bg-card p-4">
+                      <OrderDeliveryPanel order={order} companyId={companyId} stages={stages} />
+                    </section>
+                  </TabsContent>
+                ) : null}
 
-                <TabsContent value="notes" className="mt-0">
-                  <section className="rounded-2xl border border-border bg-card p-4">
-                    <OrderStaffNotePanel order={order} companyId={companyId} />
-                  </section>
-                </TabsContent>
+                {tabs.includes('stock') ? (
+                  <TabsContent value="stock" className="mt-0">
+                    <section className="rounded-2xl border border-border bg-card p-4">
+                      <OrderStockPanel order={order} companyId={companyId} />
+                    </section>
+                  </TabsContent>
+                ) : null}
 
-                <TabsContent value="attachments" className="mt-0">
-                  <section className="rounded-2xl border border-border bg-card p-4">
-                    <OrderAttachmentsPanel order={order} companyId={companyId} />
-                  </section>
-                </TabsContent>
+                {tabs.includes('notes') ? (
+                  <TabsContent value="notes" className="mt-0">
+                    <section className="rounded-2xl border border-border bg-card p-4">
+                      <OrderStaffNotePanel order={order} companyId={companyId} />
+                    </section>
+                  </TabsContent>
+                ) : null}
+
+                {tabs.includes('attachments') ? (
+                  <TabsContent value="attachments" className="mt-0">
+                    <section className="rounded-2xl border border-border bg-card p-4">
+                      <OrderAttachmentsPanel order={order} companyId={companyId} />
+                    </section>
+                  </TabsContent>
+                ) : null}
               </Tabs>
             </div>
           ) : null}
         </div>
-        {/* Phones: the next-stage button sits here, in a bar of its own. */}
+        {/* Phones: the next step sits here as one chip, in a bar of its own. */}
         <div
           ref={setMobileActionSlot}
           className="sticky bottom-0 z-10 border-t border-border bg-background/95 px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur empty:hidden sm:hidden"

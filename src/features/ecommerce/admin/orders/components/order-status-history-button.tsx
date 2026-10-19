@@ -93,7 +93,7 @@ const HISTORY_KIND_ICONS: Partial<Record<OrderHistoryKind, LucideIcon>> = {
   attachment: Paperclip,
 };
 
-function StatusHistoryTimeline({
+export function StatusHistoryTimeline({
   entries,
   loading,
 }: {

@@ -5,10 +5,13 @@ import { createPortal } from 'react-dom';
 import { Banknote, Check, ChevronLeft, CreditCard } from 'lucide-react';
 import type { Order, OrderStatus } from '@/features/ecommerce/domain/types/order';
 import {
+  ORDER_STATUS_COLORS,
   ORDER_STATUS_LABELS_AR,
   ORDER_TERMINAL_STATUSES,
   PAYMENT_METHOD_LABELS_AR,
+  PAYMENT_STATUS_LABELS_AR,
   buildOrderFlowSteps,
+  canAdvanceOrderStatus,
   canTransitionOrderStatus,
   getAllowedOrderStatusTransitions,
   getOrderFlowCurrentIndex,
@@ -18,6 +21,7 @@ import {
   type OrderFlowStep,
 } from '@/features/ecommerce/domain/constants/order-status';
 import { Button } from '@/components/ui/button';
+import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover';
 import { cn } from '@/shared/utils';
 import {
   OrderMoveDialog,
@@ -29,20 +33,27 @@ import { moveBlockReason } from '@/features/ecommerce/admin/orders/lib/order-sta
 export type { OrderStatusChangeExtra };
 
 type Props = {
-  order: Pick<Order, 'status' | 'items' | 'paymentMethod' | 'paymentStatus' | 'assignedUserId'>;
+  order: Pick<
+    Order,
+    'status' | 'items' | 'paymentMethod' | 'paymentStatus' | 'assignedUserId' | 'paymentAccountSnapshot'
+  >;
   companyId: string;
   /** Order stages: what the user may do (null: unknown, the backend decides). */
   stages?: OrderStagesContext | null;
   disabled?: boolean;
-  /** Slimmer header — payment context lives outside the stepper. */
+  /** Tighter padding. */
   compact?: boolean;
   /**
-   * Phones: where the «التالي» button goes (a bar at the bottom of the
-   * dialog, within thumb reach); it stays in place on larger screens.
+   * Phones: where the next step goes as one tappable chip (a bar at the
+   * bottom of the dialog, within thumb reach).
    */
   mobileActionSlot?: HTMLElement | null;
-  /** Hide footer “تأكيد التحصيل” when a primary CTA exists above. */
-  hidePaymentConfirm?: boolean;
+  /**
+   * The payment step's actions (proof, confirm payment), shown in a small
+   * panel when the payment step is tapped. Without it, tapping the payment
+   * step confirms the payment directly.
+   */
+  renderPaymentActions?: (close: () => void) => React.ReactNode;
   onOrderStatusChange: (
     status: OrderStatus,
     note?: string | null,
@@ -52,8 +63,9 @@ type Props = {
 };
 
 /**
- * Horizontal sequential status bar — fulfilment + payment.
- * Transitions follow backend `ORDER_STATUS_TRANSITIONS` (no arbitrary jumps).
+ * Horizontal sequential status bar — fulfilment + payment. Tapping a step
+ * moves the order to it (through the move dialog); a step that may not be
+ * reached says why. Transitions follow backend `ORDER_STATUS_TRANSITIONS`.
  */
 export function OrderStatusStepper({
   order,
@@ -61,7 +73,7 @@ export function OrderStatusStepper({
   stages = null,
   disabled,
   compact = false,
-  hidePaymentConfirm = false,
+  renderPaymentActions,
   mobileActionSlot = null,
   onOrderStatusChange,
   onPaymentPaid,
@@ -83,80 +95,101 @@ export function OrderStatusStepper({
     setPending(status);
   }
 
+  const [paymentOpen, setPaymentOpen] = React.useState(false);
+  // Why the tapped step may not be reached (phones show no hover title).
+  const [hint, setHint] = React.useState<string | null>(null);
+  const rootRef = React.useRef<HTMLDivElement>(null);
+
+  /** Why a move to `status` is refused (null: allowed or the current step). */
+  function stepBlockReason(status: OrderStatus): string | null {
+    if (status === order.status) return null;
+    const stageBlock = blockReason(status);
+    if (stageBlock) return stageBlock;
+    if (canTransitionOrderStatus(order, status)) return null;
+    if (!canAdvanceOrderStatus(order, status)) return 'أكّد الدفع أولاً — هذا الطلب مدفوع مسبقاً';
+    if (status === 'shipped') return 'يلزم شحن كل الأصناف ثم الانتقال من «قيد التجهيز»';
+    return 'انتقال غير مسموح من الحالة الحالية';
+  }
+
   function applyStep(step: OrderFlowStep) {
     if (step.kind === 'payment') {
+      setHint(null);
+      if (renderPaymentActions) {
+        setPaymentOpen(true);
+        return;
+      }
       if (paid) return;
       onPaymentPaid();
       return;
     }
+    const reason = stepBlockReason(step.status);
+    setHint(reason);
+    if (reason) return;
     requestTransition(step.status);
   }
 
-  function applyNext() {
-    if (!next || next.kind !== 'order') {
-      if (next) applyStep(next);
-      return;
-    }
-    if (!canTransitionOrderStatus(order, next.status)) return;
-    applyStep(next);
-  }
-
-  const methodLabel = PAYMENT_METHOD_LABELS_AR[paymentMethod];
   const PaymentIcon = paymentMethod === 'card' ? CreditCard : Banknote;
-  const nextStageBlock = next?.kind === 'order' ? blockReason(next.status) : null;
-  const nextBlocked =
-    Boolean(next) &&
-    next?.kind === 'order' &&
-    (!canTransitionOrderStatus(order, next.status) || Boolean(nextStageBlock));
+  const paymentStateLabel = PAYMENT_STATUS_LABELS_AR[order.paymentStatus ?? 'pending'];
+  const account = order.paymentAccountSnapshot ?? null;
   const terminalTargets = ORDER_TERMINAL_STATUSES.filter((terminal) =>
     allowed.includes(terminal),
   );
 
-  const renderNext = (className?: string) =>
-    next ? (
-            <Button
+  // Phones: the next step as one chip at the bottom of the dialog.
+  const nextReason = next?.kind === 'order' ? stepBlockReason(next.status) : null;
+  const mobileNext =
+    next && inPipeline && mobileActionSlot
+      ? createPortal(
+          <div className="flex items-center gap-2">
+            <button
               type="button"
-              size="sm"
-              disabled={disabled || nextBlocked}
-              className={cn('gap-1', className)}
-              title={
-                nextStageBlock ??
-                (nextBlocked && next.kind === 'order' && next.status === 'shipped'
-                  ? 'يلزم شحن كل أصناف الطلب أولاً'
-                  : undefined)
-              }
-              onClick={applyNext}
+              disabled={disabled || Boolean(nextReason)}
+              onClick={() => {
+                if (next.kind === 'payment') {
+                  rootRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+                }
+                applyStep(next);
+              }}
+              className={cn(
+                'inline-flex h-11 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full border px-4 text-sm font-semibold transition-opacity disabled:opacity-60',
+                next.kind === 'order'
+                  ? ORDER_STATUS_COLORS[next.status].badge
+                  : 'border-amber-500/35 bg-amber-500/10 text-amber-800 dark:text-amber-300',
+              )}
             >
-              التالي: {next.label}
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-    ) : null;
+              {next.kind === 'payment' ? <PaymentIcon className="h-4 w-4 shrink-0" /> : null}
+              <span className="truncate">
+                {next.kind === 'order' ? `نقل إلى: ${next.label}` : `${next.label} · ${paymentStateLabel}`}
+              </span>
+              <ChevronLeft className="h-4 w-4 shrink-0" />
+            </button>
+            {nextReason ? (
+              <p className="max-w-[45%] text-[11px] leading-snug text-muted-foreground">{nextReason}</p>
+            ) : null}
+          </div>,
+          mobileActionSlot,
+        )
+      : null;
 
   return (
-    <div className={cn('space-y-4 rounded-xl border border-border/80 bg-card', compact ? 'p-3' : 'p-4')}>
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="space-y-0.5">
-          <p className="text-sm font-semibold text-foreground">
-            {compact ? 'تحديث الحالة' : 'مسار الطلب'}
-          </p>
-          {!compact ? (
-            <>
-              <p className="inline-flex items-center gap-1.5 pt-1 text-xs font-medium text-foreground">
-                <PaymentIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                نوع الدفع: {methodLabel}
-                <span className="text-muted-foreground">·</span>
-                {paid ? 'تم التحصيل' : 'لم يُحصَّل بعد'}
-              </p>
-            </>
-          ) : (
-            <p className="text-xs text-muted-foreground">الخطوات المتاحة فقط حسب قواعد الانتقال</p>
-          )}
-        </div>
-        {next && inPipeline ? renderNext(mobileActionSlot ? 'max-sm:hidden' : undefined) : null}
-        {next && inPipeline && mobileActionSlot
-          ? createPortal(renderNext('h-12 w-full text-base sm:hidden'), mobileActionSlot)
-          : null}
-      </div>
+    <div
+      ref={rootRef}
+      className={cn('space-y-3 rounded-xl border border-border/80 bg-card', compact ? 'p-3' : 'p-4')}
+    >
+      {mobileNext}
+      {!inPipeline ? (
+        <p className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          <span
+            className={cn(
+              'rounded-full border px-2.5 py-0.5 text-xs font-semibold',
+              ORDER_STATUS_COLORS[order.status].badge,
+            )}
+          >
+            {ORDER_STATUS_LABELS_AR[order.status]}
+          </span>
+          الطلب خارج مسار التجهيز — لا انتقال منه.
+        </p>
+      ) : null}
 
       <ol className="flex items-start gap-0 overflow-x-auto pb-1">
         {steps.map((step, index) => {
@@ -164,12 +197,54 @@ export function OrderStatusStepper({
           const active = inPipeline && currentIndex === index;
           const upcoming = !inPipeline || currentIndex < index;
           const isLast = index === steps.length - 1;
-          const stageBlock =
-            step.kind === 'order' && step.status !== order.status ? blockReason(step.status) : null;
-          const blocked =
-            step.kind === 'order' &&
-            step.status !== order.status &&
-            (!canTransitionOrderStatus(order, step.status) || Boolean(stageBlock));
+          const isPayment = step.kind === 'payment';
+          const reason = step.kind === 'order' ? stepBlockReason(step.status) : null;
+          const blocked = Boolean(reason);
+          const colors = step.kind === 'order' ? ORDER_STATUS_COLORS[step.status] : null;
+          const lineColor = colors ? colors.strip : paid ? 'bg-green-500' : 'bg-amber-500';
+          // The current order step is no move; the payment step always opens its panel.
+          const inert =
+            disabled || (active && !isPayment) || (isPayment && !renderPaymentActions && paid);
+
+          const stepButton = (
+            <button
+              type="button"
+              disabled={inert}
+              aria-disabled={blocked || undefined}
+              aria-current={active ? 'step' : undefined}
+              aria-label={step.label}
+              title={
+                reason ??
+                (isPayment
+                  ? `${step.label} · ${paymentStateLabel}`
+                  : active
+                    ? 'الخطوة الحالية'
+                    : `نقل إلى: ${step.label}`)
+              }
+              onClick={() => applyStep(step)}
+              className={cn(
+                'flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-xs font-semibold transition-colors sm:h-9 sm:w-9',
+                isPayment && !done && !active && 'border-dashed',
+                done && (colors ? colors.solid : 'border-green-600 bg-green-600 text-white'),
+                active &&
+                  (colors
+                    ? colors.soft
+                    : 'border-amber-500 bg-amber-500/15 text-amber-700 ring-2 ring-amber-500/25 dark:text-amber-300'),
+                upcoming && 'border-border bg-background text-muted-foreground hover:border-primary/40',
+                active && !isPayment && 'cursor-default',
+                blocked && 'cursor-not-allowed opacity-60',
+                disabled && 'opacity-60',
+              )}
+            >
+              {done ? (
+                <Check className="h-4 w-4" />
+              ) : isPayment ? (
+                <PaymentIcon className="h-3.5 w-3.5" />
+              ) : (
+                index + 1
+              )}
+            </button>
+          );
 
           return (
             // Phones: every step fits the width (no steps hidden off-screen).
@@ -178,53 +253,45 @@ export function OrderStatusStepper({
                 <div className="flex w-full items-center">
                   {index > 0 ? (
                     <div
-                      className={cn('h-0.5 flex-1 rounded-full', done || active ? 'bg-primary' : 'bg-border')}
+                      className={cn('h-0.5 flex-1 rounded-full', done || active ? lineColor : 'bg-border')}
                       aria-hidden
                     />
                   ) : (
                     <div className="flex-1" aria-hidden />
                   )}
-                  <button
-                    type="button"
-                    disabled={disabled || blocked || active}
-                    aria-current={active ? 'step' : undefined}
-                    aria-label={step.label}
-                    title={
-                      stageBlock
-                        ? stageBlock
-                        : blocked
-                        ? step.kind === 'order' && step.status === 'shipped'
-                          ? 'يلزم شحن كل الأصناف ثم الانتقال من «قيد التجهيز»'
-                          : 'انتقال غير مسموح من الحالة الحالية'
-                        : active
-                          ? 'الخطوة الحالية'
-                          : step.label
-                    }
-                    onClick={() => applyStep(step)}
-                    className={cn(
-                      'flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-xs font-semibold transition-colors sm:h-9 sm:w-9',
-                      step.kind === 'payment' && !done && !active && 'border-dashed',
-                      done && 'border-primary bg-primary text-primary-foreground',
-                      active &&
-                        (step.kind === 'payment'
-                          ? 'border-amber-500 bg-amber-500/15 text-amber-700 ring-2 ring-amber-500/25 dark:text-amber-400'
-                          : 'border-primary bg-primary/15 text-primary ring-2 ring-primary/25'),
-                      upcoming && 'border-border bg-background text-muted-foreground hover:border-primary/40',
-                      active && 'cursor-default',
-                      (disabled || blocked) && 'cursor-not-allowed opacity-60',
-                    )}
-                  >
-                    {done ? (
-                      <Check className="h-4 w-4" />
-                    ) : step.kind === 'payment' ? (
-                      <PaymentIcon className="h-3.5 w-3.5" />
-                    ) : (
-                      index + 1
-                    )}
-                  </button>
+                  {isPayment && renderPaymentActions ? (
+                    <Popover open={paymentOpen} onOpenChange={setPaymentOpen}>
+                      <PopoverAnchor asChild>{stepButton}</PopoverAnchor>
+                      <PopoverContent align="center" className="w-72 max-w-[calc(100vw-2rem)] space-y-3 p-3">
+                        <div className="space-y-1">
+                          <p className="inline-flex items-center gap-1.5 text-sm font-semibold text-foreground">
+                            <PaymentIcon className="h-4 w-4 text-muted-foreground" />
+                            {PAYMENT_METHOD_LABELS_AR[paymentMethod]}
+                          </p>
+                          {account?.nameAr ? (
+                            <p className="text-xs text-muted-foreground">
+                              {account.nameAr}
+                              {account.mobile ? ` · ${account.mobile}` : ''}
+                            </p>
+                          ) : null}
+                          <p
+                            className={cn(
+                              'text-xs font-semibold',
+                              paid ? 'text-green-700 dark:text-green-300' : 'text-amber-700 dark:text-amber-300',
+                            )}
+                          >
+                            {paymentStateLabel}
+                          </p>
+                        </div>
+                        {renderPaymentActions(() => setPaymentOpen(false))}
+                      </PopoverContent>
+                    </Popover>
+                  ) : (
+                    stepButton
+                  )}
                   {!isLast ? (
                     <div
-                      className={cn('h-0.5 flex-1 rounded-full', done ? 'bg-primary' : 'bg-border')}
+                      className={cn('h-0.5 flex-1 rounded-full', done ? lineColor : 'bg-border')}
                       aria-hidden
                     />
                   ) : (
@@ -235,9 +302,9 @@ export function OrderStatusStepper({
                   className={cn(
                     'max-w-full text-center text-[10.5px] font-medium leading-tight sm:max-w-[5.5rem] sm:text-xs',
                     active
-                      ? step.kind === 'payment'
-                        ? 'text-amber-700 dark:text-amber-400'
-                        : 'text-primary'
+                      ? colors
+                        ? colors.text
+                        : 'text-amber-700 dark:text-amber-300'
                       : done
                         ? 'text-foreground'
                         : 'text-muted-foreground',
@@ -245,32 +312,53 @@ export function OrderStatusStepper({
                 >
                   {step.label}
                 </span>
+                {isPayment ? (
+                  <span className="flex max-w-full flex-col items-center text-center text-[10px] leading-tight sm:max-w-[5.5rem] sm:text-[11px]">
+                    <span
+                      className={cn(
+                        'font-semibold',
+                        paid ? 'text-green-700 dark:text-green-300' : 'text-amber-700 dark:text-amber-300',
+                      )}
+                    >
+                      {paymentStateLabel}
+                    </span>
+                    {account?.nameAr ? (
+                      <span className="max-w-full truncate text-muted-foreground max-sm:hidden">
+                        {account.nameAr}
+                      </span>
+                    ) : null}
+                  </span>
+                ) : null}
               </div>
             </li>
           );
         })}
       </ol>
 
-      <div className="flex flex-wrap gap-2 border-t border-border/60 pt-3">
-        {terminalTargets.map((terminal) => (
-          <Button
-            key={terminal}
-            type="button"
-            size="sm"
-            variant={order.status === terminal ? 'destructive' : 'outline'}
-            disabled={disabled || order.status === terminal || Boolean(blockReason(terminal))}
-            title={blockReason(terminal) ?? undefined}
-            onClick={() => requestTransition(terminal)}
-          >
-            {ORDER_STATUS_LABELS_AR[terminal]}
-          </Button>
-        ))}
-        {inPipeline && !paid && !hidePaymentConfirm ? (
-          <Button type="button" size="sm" variant="secondary" disabled={disabled} onClick={onPaymentPaid}>
-            تأكيد التحصيل ({methodLabel})
-          </Button>
-        ) : null}
-      </div>
+      {hint ? (
+        <p role="status" className="rounded-lg bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+          {hint}
+        </p>
+      ) : null}
+
+      {terminalTargets.length > 0 ? (
+        <div className="flex flex-wrap justify-end gap-1.5">
+          {terminalTargets.map((terminal) => (
+            <Button
+              key={terminal}
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="h-8 px-2.5 text-xs text-muted-foreground hover:text-destructive"
+              disabled={disabled || Boolean(blockReason(terminal))}
+              title={blockReason(terminal) ?? undefined}
+              onClick={() => requestTransition(terminal)}
+            >
+              {terminal === 'cancelled' ? 'إلغاء الطلب' : 'استرداد الطلب'}
+            </Button>
+          ))}
+        </div>
+      ) : null}
 
       <OrderMoveDialog
         order={order}

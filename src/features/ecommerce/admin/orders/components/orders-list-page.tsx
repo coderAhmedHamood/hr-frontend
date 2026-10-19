@@ -29,8 +29,8 @@ import { formatPrice } from '@/features/ecommerce/shared/utils/format-price';
 import {
   getOrderPrepGuidance,
   orderLineShipCounts,
+  ORDER_STATUS_COLORS,
   ORDER_STATUS_LABELS_AR,
-  ORDER_TERMINAL_STATUSES,
   PAYMENT_METHOD_LABELS_AR,
   PAYMENT_STATUS_LABELS_AR,
   resolveOrderPaymentMethod,
@@ -511,7 +511,7 @@ export function OrdersListPage() {
       key: 'status',
       title: 'الحالة',
       render: (order) => (
-        <Badge variant={ORDER_TERMINAL_STATUSES.includes(order.status) ? 'destructive' : 'subtle'}>
+        <Badge variant="outline" className={ORDER_STATUS_COLORS[order.status].badge}>
           {ORDER_STATUS_LABELS_AR[order.status]}
         </Badge>
       ),
@@ -643,10 +643,7 @@ export function OrdersListPage() {
             </p>
             <p className="text-xs text-muted-foreground">{formatShortDate(order.createdAt)}</p>
           </div>
-          <Badge
-            variant={ORDER_TERMINAL_STATUSES.includes(order.status) ? 'destructive' : 'subtle'}
-            className="shrink-0"
-          >
+          <Badge variant="outline" className={cn('shrink-0', ORDER_STATUS_COLORS[order.status].badge)}>
             {ORDER_STATUS_LABELS_AR[order.status]}
           </Badge>
         </div>
@@ -761,6 +758,7 @@ export function OrdersListPage() {
         orderId={selectedOrderId || null}
         companyId={companyId}
         open={Boolean(selectedOrderId)}
+        initialTab={searchParams.get('tab')}
         onOpenChange={(open) => {
           if (!open) updateParams({ order: null });
         }}

@@ -6,6 +6,7 @@ import { WhatsappPhoneAction } from '@/features/ecommerce/admin/cms/whatsapp/com
 import type { Order, OrderListQuery, OrderStatus } from '@/features/ecommerce/domain/types/order';
 import {
   ORDER_KANBAN_STATUSES,
+  ORDER_STATUS_COLORS,
   ORDER_STATUS_LABELS_AR,
   canTransitionOrderStatus,
   getOrderFlowNextStep,
@@ -110,11 +111,19 @@ export function OrdersKanbanView({ companyId, filters, stages = null, onStatusCh
                     : 'border-border bg-card text-foreground',
                 )}
               >
-                <span className="min-w-0 truncate">{ORDER_STATUS_LABELS_AR[status]}</span>
+                <span className="inline-flex min-w-0 items-center gap-1.5">
+                  <span
+                    className={cn('h-2 w-2 shrink-0 rounded-full', ORDER_STATUS_COLORS[status].strip)}
+                    aria-hidden
+                  />
+                  <span className="truncate">{ORDER_STATUS_LABELS_AR[status]}</span>
+                </span>
                 <span
                   className={cn(
-                    'shrink-0 rounded-full px-1.5 text-[11px] tabular-nums',
-                    active ? 'bg-primary-foreground/20' : 'bg-muted text-muted-foreground',
+                    'shrink-0 rounded-full border px-1.5 text-[11px] tabular-nums',
+                    active
+                      ? 'border-transparent bg-primary-foreground/20'
+                      : ORDER_STATUS_COLORS[status].badge,
                   )}
                 >
                   {totals[status] ?? '…'}
@@ -143,10 +152,16 @@ export function OrdersKanbanView({ companyId, filters, stages = null, onStatusCh
   return (
     <div className="sto-kanban">
       {ORDER_KANBAN_STATUSES.map((status) => (
-        <div key={status} className="sto-kanban-col rounded-2xl border border-border bg-muted/20">
+        <div key={status} className="sto-kanban-col overflow-hidden rounded-2xl border border-border bg-muted/20">
+          <div className={cn('h-1 shrink-0', ORDER_STATUS_COLORS[status].strip)} aria-hidden />
           <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2.5">
             <h3 className="text-sm font-semibold text-foreground">{ORDER_STATUS_LABELS_AR[status]}</h3>
-            <span className="rounded-full bg-background px-2 py-0.5 text-xs tabular-nums text-muted-foreground">
+            <span
+              className={cn(
+                'rounded-full border px-2 py-0.5 text-xs font-semibold tabular-nums',
+                ORDER_STATUS_COLORS[status].badge,
+              )}
+            >
               {totals[status] ?? '…'}
             </span>
           </div>

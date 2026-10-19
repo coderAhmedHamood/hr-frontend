@@ -26,6 +26,7 @@ import { WebsiteColorsPanel } from '@/features/ecommerce/admin/cms/settings/comp
 import { DeliveryRatesPanel } from '@/features/ecommerce/admin/delivery-rates/components/delivery-rates-panel';
 import { StockSyncPanel } from '@/features/ecommerce/admin/stock/components/stock-sync-panel';
 import { PaymentAccountsPanel } from '@/features/ecommerce/admin/payment-accounts/components/payment-accounts-panel';
+import { CashOnDeliverySetting } from '@/features/ecommerce/admin/payment-accounts/components/cash-on-delivery-setting';
 import GeoLocationsPage from '@/features/system/organization/geo/components/geo-locations-page';
 
 import { SetPageTitle } from '@/components/layouts/set-page-title';
@@ -495,6 +496,9 @@ export function WebsiteSettingsPage() {
 
           <TabsContent value="paymentAccounts" className="mt-4">
             <SettingsPanel>
+              <div className="mb-4">
+                <CashOnDeliverySetting companyId={companyId} />
+              </div>
               <PaymentAccountsPanel
                 companyId={companyId}
                 currencyCode={draft.currency}

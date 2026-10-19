@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { CalendarClock, MessageSquarePlus, Pencil } from 'lucide-react';
+import { CalendarClock, MessageSquarePlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -19,6 +19,7 @@ import {
   useAddOrderNote,
   useUpdateOrderDelivery,
 } from '@/features/ecommerce/admin/orders/hooks/use-order-stages';
+import { StatusHistoryTimeline } from '@/features/ecommerce/admin/orders/components/order-status-history-button';
 import type { OrderStagesContext } from '@/features/ecommerce/admin/orders/lib/api/order-stages';
 import { isOrderStage } from '@/features/ecommerce/admin/orders/lib/order-stage-access';
 import type { Order, UpdateOrderDeliveryInput } from '@/features/ecommerce/domain/types/order';
@@ -53,7 +54,11 @@ export function OrderDeliveryPanel({ order, companyId, stages }: Props) {
   const [note, setNote] = React.useState('');
   const [editOpen, setEditOpen] = React.useState(false);
   const allowed = mayWork(stages, order);
-  const open = isOrderStage(order.status);
+  // Oldest → newest from the server; show newest delivery note first.
+  const deliveryNotes = React.useMemo(
+    () => [...(order.statusHistory ?? [])].filter((entry) => entry.kind === 'note').reverse(),
+    [order.statusHistory],
+  );
 
   async function submitNote(text: string) {
     const trimmed = text.trim();
@@ -70,18 +75,6 @@ export function OrderDeliveryPanel({ order, companyId, stages }: Props) {
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-sm font-semibold text-foreground">التوصيل</h3>
-        {allowed && open ? (
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="gap-1.5"
-            onClick={() => setEditOpen(true)}
-          >
-            <Pencil className="h-3.5 w-3.5" />
-            تعديل بيانات التوصيل
-          </Button>
-        ) : null}
       </div>
 
       <dl className="grid grid-cols-1 gap-x-4 gap-y-2 text-sm sm:grid-cols-2">
@@ -153,6 +146,11 @@ export function OrderDeliveryPanel({ order, companyId, stages }: Props) {
               إضافة
             </Button>
           </div>
+          {deliveryNotes.length > 0 ? (
+            <div className="border-t border-dashed border-border pt-2">
+              <StatusHistoryTimeline entries={deliveryNotes} />
+            </div>
+          ) : null}
         </div>
       ) : null}
 

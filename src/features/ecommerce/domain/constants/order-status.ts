@@ -11,6 +11,79 @@ export const ORDER_STATUS_LABELS_AR: Record<OrderStatus, string> = {
   refunded: 'مسترد',
 };
 
+/** Tailwind classes of one status colour (light and dark). */
+export type OrderStatusColor = {
+  /** Status pill / count badge (list, kanban, stepper chip). */
+  badge: string;
+  /** Thin strip or dot (kanban column top). */
+  strip: string;
+  /** Stepper: a step already passed (filled). */
+  solid: string;
+  /** Stepper: the current step (soft fill + ring). */
+  soft: string;
+  /** Text in the status colour (step label). */
+  text: string;
+};
+
+/**
+ * One colour per status, the same in the stepper, the kanban and the list:
+ * new = amber (needs attention), confirmed = blue (accepted, queued),
+ * processing = violet (work in progress), shipped = sky (on the way),
+ * delivered = green (done), cancelled = slate (stopped), refunded = rose
+ * (money returned).
+ */
+export const ORDER_STATUS_COLORS: Record<OrderStatus, OrderStatusColor> = {
+  pending: {
+    badge: 'border-amber-500/35 bg-amber-500/10 text-amber-800 dark:text-amber-300',
+    strip: 'bg-amber-500',
+    solid: 'border-amber-500 bg-amber-500 text-amber-950',
+    soft: 'border-amber-500 bg-amber-500/15 text-amber-700 ring-2 ring-amber-500/25 dark:text-amber-300',
+    text: 'text-amber-700 dark:text-amber-300',
+  },
+  confirmed: {
+    badge: 'border-blue-500/35 bg-blue-500/10 text-blue-800 dark:text-blue-300',
+    strip: 'bg-blue-500',
+    solid: 'border-blue-600 bg-blue-600 text-white',
+    soft: 'border-blue-500 bg-blue-500/15 text-blue-700 ring-2 ring-blue-500/25 dark:text-blue-300',
+    text: 'text-blue-700 dark:text-blue-300',
+  },
+  processing: {
+    badge: 'border-violet-500/35 bg-violet-500/10 text-violet-800 dark:text-violet-300',
+    strip: 'bg-violet-500',
+    solid: 'border-violet-600 bg-violet-600 text-white',
+    soft: 'border-violet-500 bg-violet-500/15 text-violet-700 ring-2 ring-violet-500/25 dark:text-violet-300',
+    text: 'text-violet-700 dark:text-violet-300',
+  },
+  shipped: {
+    badge: 'border-sky-500/35 bg-sky-500/10 text-sky-800 dark:text-sky-300',
+    strip: 'bg-sky-500',
+    solid: 'border-sky-500 bg-sky-500 text-sky-950',
+    soft: 'border-sky-500 bg-sky-500/15 text-sky-700 ring-2 ring-sky-500/25 dark:text-sky-300',
+    text: 'text-sky-700 dark:text-sky-300',
+  },
+  delivered: {
+    badge: 'border-green-500/35 bg-green-500/10 text-green-800 dark:text-green-300',
+    strip: 'bg-green-500',
+    solid: 'border-green-600 bg-green-600 text-white',
+    soft: 'border-green-500 bg-green-500/15 text-green-700 ring-2 ring-green-500/25 dark:text-green-300',
+    text: 'text-green-700 dark:text-green-300',
+  },
+  cancelled: {
+    badge: 'border-slate-500/35 bg-slate-500/10 text-slate-700 dark:text-slate-300',
+    strip: 'bg-slate-400',
+    solid: 'border-slate-500 bg-slate-500 text-white',
+    soft: 'border-slate-500 bg-slate-500/15 text-slate-700 ring-2 ring-slate-500/25 dark:text-slate-300',
+    text: 'text-slate-600 dark:text-slate-300',
+  },
+  refunded: {
+    badge: 'border-rose-500/35 bg-rose-500/10 text-rose-800 dark:text-rose-300',
+    strip: 'bg-rose-500',
+    solid: 'border-rose-600 bg-rose-600 text-white',
+    soft: 'border-rose-500 bg-rose-500/15 text-rose-700 ring-2 ring-rose-500/25 dark:text-rose-300',
+    text: 'text-rose-700 dark:text-rose-300',
+  },
+};
+
 /** Line-level fulfilment (`lines[].shipStatus`) — independent of order `status`. */
 export const ORDER_LINE_SHIP_STATUS_LABELS_AR: Record<OrderLineShipStatus, string> = {
   unassigned: 'لم يُجهَّز',
@@ -142,9 +215,21 @@ export type OrderFlowStep =
   | { id: string; kind: 'payment'; label: string };
 
 /**
+ * Paid before delivery (bank, network, wallet, card, other): the payment is
+ * confirmed before the order is (server rule). Only cash on delivery / cash
+ * are collected at delivery.
+ */
+export function isPrepaidPaymentMethod(
+  paymentMethod: Order['paymentMethod'] | null | undefined,
+): boolean {
+  const method = paymentMethod ?? 'cash_on_delivery';
+  return method !== 'cash_on_delivery' && method !== 'cash';
+}
+
+/**
  * Sequential path including payment — position depends on method:
- * - شبكة (card): الدفع قبل التأكيد
- * - كاش عند الاستلام: الدفع آخر مرحلة بعد التسليم
+ * - مدفوع مسبقاً (تحويل، شبكة، محفظة، بطاقة، أخرى): الدفع قبل التأكيد
+ * - كاش عند الاستلام / نقدي: الدفع آخر مرحلة بعد التسليم
  */
 export function buildOrderFlowSteps(
   paymentMethod: Order['paymentMethod'] = 'cash_on_delivery',
@@ -160,13 +245,12 @@ export function buildOrderFlowSteps(
   const paymentStep = (): OrderFlowStep => ({
     id: 'payment',
     kind: 'payment',
-    label:
-      paymentMethod === 'card'
-        ? `الدفع — ${PAYMENT_METHOD_LABELS_AR.card}`
-        : `الدفع — ${PAYMENT_METHOD_LABELS_AR.cash_on_delivery}`,
+    label: isPrepaidPaymentMethod(paymentMethod)
+      ? `الدفع — ${PAYMENT_METHOD_LABELS_AR[paymentMethod ?? 'cash_on_delivery']}`
+      : 'الدفع — التحصيل عند التسليم',
   });
 
-  if (paymentMethod === 'card') {
+  if (isPrepaidPaymentMethod(paymentMethod)) {
     return [
       ...orderSteps(['pending']),
       paymentStep(),
@@ -225,7 +309,7 @@ export function getOrderPrepGuidance(
       order.paymentProofUrl?.trim(),
   );
 
-  if (paymentMethod === 'card') {
+  if (isPrepaidPaymentMethod(paymentMethod)) {
     return {
       paymentMethod,
       paid,
@@ -235,13 +319,13 @@ export function getOrderPrepGuidance(
       prepLabel: paid
         ? 'جاهز للتجهيز'
         : hasProof
-          ? 'راجع إيصال الشبكة'
-          : 'انتظر دفع الشبكة',
+          ? 'راجع إثبات الدفع'
+          : 'بانتظار تأكيد الدفع',
       prepHint: paid
-        ? 'تم الدفع بالشبكة — يمكن تجهيز الطلب وشحنه.'
+        ? `تم الدفع (${methodLabel}) — يمكن تجهيز الطلب وشحنه.`
         : hasProof
-          ? 'أرفق العميل صورة التحويل — راجع الإيصال ثم أكّد التحصيل قبل التجهيز.'
-          : 'الدفع بالشبكة لم يُؤكَّد بعد — لا تجهّز الطلب قبل التحصيل.',
+          ? `أرفق العميل إثبات الدفع (${methodLabel}) — راجعه ثم أكّد الدفع قبل تأكيد الطلب.`
+          : `الدفع (${methodLabel}) لم يُؤكَّد بعد — لا يُؤكَّد الطلب ولا يُجهَّز قبل تأكيد الدفع.`,
     };
   }
 
@@ -312,14 +396,15 @@ export function nextOrderPipelineStatus(status: OrderStatus): OrderStatus | null
 }
 
 /**
- * Card orders must be paid before moving past pending.
+ * Prepaid orders (every method but cash on delivery / cash) must be paid
+ * before moving past pending — the server refuses it too.
  * Combine with `canTransitionOrderStatus` for full backend-aligned checks.
  */
 export function canAdvanceOrderStatus(
   order: Pick<Order, 'paymentMethod' | 'paymentStatus'>,
   nextStatus: OrderStatus,
 ): boolean {
-  if (resolveOrderPaymentMethod(order) !== 'card') return true;
+  if (!isPrepaidPaymentMethod(resolveOrderPaymentMethod(order))) return true;
   if (isPaymentSettled(order)) return true;
   const nextIdx = orderPipelineIndex(nextStatus);
   // Allow staying on / returning to pending while unpaid; cancel always ok if transition allows

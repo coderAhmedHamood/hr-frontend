@@ -1,8 +1,11 @@
 import {
   allOrderLinesShipped,
+  buildOrderFlowSteps,
+  canAdvanceOrderStatus,
   canTransitionOrderStatus,
   getOrderPrepGuidance,
   orderLineShipCounts,
+  PAYMENT_METHOD_LABELS_AR,
 } from '@/features/ecommerce/domain/constants/order-status';
 import type { Order, OrderLineItem } from '@/features/ecommerce/domain/types/order';
 
@@ -66,9 +69,34 @@ describe('list row line counts', () => {
     expect(allOrderLinesShipped(row())).toBe(false);
   });
 
-  it('a card order with a proof attached (image not loaded) reads "review the receipt"', () => {
+  it('a prepaid order with a proof attached (image not loaded) reads "review the proof"', () => {
     const guidance = getOrderPrepGuidance(row({ paymentMethod: 'card', hasPaymentProof: true }));
-    expect(guidance.prepLabel).toBe('راجع إيصال الشبكة');
-    expect(getOrderPrepGuidance(row({ paymentMethod: 'card' })).prepLabel).toBe('انتظر دفع الشبكة');
+    expect(guidance.prepLabel).toBe('راجع إثبات الدفع');
+    expect(getOrderPrepGuidance(row({ paymentMethod: 'card' })).prepLabel).toBe('بانتظار تأكيد الدفع');
+  });
+
+  it('bank, network, wallet and other are prepaid: payment before confirmation', () => {
+    for (const paymentMethod of ['bank', 'network', 'wallet', 'other'] as const) {
+      const guidance = getOrderPrepGuidance(row({ paymentMethod }));
+      expect(guidance.canPrepare).toBe(false);
+      expect(guidance.prepLabel).toBe('بانتظار تأكيد الدفع');
+      const steps = buildOrderFlowSteps(paymentMethod);
+      expect(steps[1]).toEqual({
+        id: 'payment',
+        kind: 'payment',
+        label: `الدفع — ${PAYMENT_METHOD_LABELS_AR[paymentMethod]}`,
+      });
+      expect(canAdvanceOrderStatus({ paymentMethod, paymentStatus: 'pending' }, 'confirmed')).toBe(
+        false,
+      );
+      expect(canAdvanceOrderStatus({ paymentMethod, paymentStatus: 'paid' }, 'confirmed')).toBe(true);
+    }
+    for (const paymentMethod of ['cash_on_delivery', 'cash'] as const) {
+      const steps = buildOrderFlowSteps(paymentMethod);
+      expect(steps[steps.length - 1]?.label).toBe('الدفع — التحصيل عند التسليم');
+      expect(canAdvanceOrderStatus({ paymentMethod, paymentStatus: 'pending' }, 'confirmed')).toBe(
+        true,
+      );
+    }
   });
 });

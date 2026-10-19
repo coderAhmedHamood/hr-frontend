@@ -7,7 +7,11 @@ import {
   useReceiveOrderReturn,
   useResolveOrderStockSource,
 } from '@/features/ecommerce/admin/orders/hooks/use-orders';
-import type { Order, OrderStockSource } from '@/features/ecommerce/domain/types/order';
+import type {
+  Order,
+  OrderStockReservation,
+  OrderStockSource,
+} from '@/features/ecommerce/domain/types/order';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/shared/utils';
@@ -19,6 +23,16 @@ const SOURCE_LABEL: Record<OrderStockSource, string> = {
   inventory: 'المخازن',
   none: 'بلا أثر مخزني',
   unresolved: 'غير محدد — يحتاج مراجعة',
+};
+
+/** Inventory orders: reserved once paid (cash on delivery: once confirmed). */
+const RESERVATION_LABEL: Record<OrderStockReservation, string> = {
+  awaiting: 'لم تُحجز الكمية بعد — تُحجز عند تأكيد الدفع (الدفع عند الاستلام: عند تأكيد الطلب)',
+  short:
+    'تم تأكيد الدفع لكن الكمية غير متوفرة حالياً — الطلب لا يتقدم حتى تتوفر الكمية أو يُلغى ويُسترد',
+  reserved: 'الكمية محجوزة في مستودع المتجر',
+  released: 'أُعيدت الكمية المحجوزة',
+  issued: 'صُرفت الكمية من المستودع',
 };
 
 const OPEN = new Set(['pending', 'confirmed', 'processing']);
@@ -49,6 +63,16 @@ export function OrderStockPanel({ order, companyId }: { order: Order; companyId:
           {SOURCE_LABEL[source ?? 'unresolved']}
         </span>
       </div>
+      {source === 'inventory' && order.stockReservation ? (
+        <p
+          className={cn(
+            'text-xs',
+            order.stockReservation === 'short' ? 'font-medium text-warning' : 'text-muted-foreground',
+          )}
+        >
+          {RESERVATION_LABEL[order.stockReservation]}
+        </p>
+      ) : null}
       {order.stockSourceNote && !unresolved ? (
         <p className="text-xs text-muted-foreground">{order.stockSourceNote}</p>
       ) : null}

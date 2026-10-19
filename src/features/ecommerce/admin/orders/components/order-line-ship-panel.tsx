@@ -41,6 +41,8 @@ type Props = {
   /** Parent order status — locks fulfilment when shipped/delivered/cancelled/refunded. */
   orderStatus: Order['status'];
   line: OrderLineItem;
+  /** Shown without preparation (a new order: prepared once it is confirmed). */
+  readOnly?: boolean;
 };
 
 const SHIP_STATUS_BADGE_VARIANT: Record<OrderLineShipStatus, NonNullable<BadgeProps['variant']>> = {
@@ -62,11 +64,11 @@ function toDraftRows(line: OrderLineItem): DraftRow[] {
   }));
 }
 
-export function OrderLineShipPanel({ companyId, orderId, orderStatus, line }: Props) {
+export function OrderLineShipPanel({ companyId, orderId, orderStatus, line, readOnly = false }: Props) {
   const [open, setOpen] = React.useState(false);
   const [staffNote, setStaffNote] = React.useState('');
   const isShipped = line.shipStatus === 'shipped';
-  const fulfilmentLocked = isOrderFulfilmentLocked(orderStatus) || isShipped;
+  const fulfilmentLocked = readOnly || isOrderFulfilmentLocked(orderStatus) || isShipped;
   const lockedWarehouseId = line.allocations[0]?.warehouseId ?? '';
   // Without the store-stock-sync bridge the store sells from its own quantity
   // (phase 3): no warehouse preparation, the line is just marked shipped.
@@ -392,7 +394,9 @@ export function OrderLineShipPanel({ companyId, orderId, orderStatus, line }: Pr
           <p className="text-xs text-muted-foreground">
             {isShipped
               ? 'الصنف مشحون — لا يمكن إعادة تجهيزه أو تغيير حالته.'
-              : 'الطلب مقفول (مشحون/مسلم/ملغي/مسترد) — لا يمكن تعديل التخصيص أو حالة الأصناف.'}
+              : orderStatus === 'pending'
+                ? 'طلب جديد — يبدأ تجهيز الأصناف بعد تأكيد الطلب.'
+                : 'الطلب مقفول (مشحون/مسلم/ملغي/مسترد) — لا يمكن تعديل التخصيص أو حالة الأصناف.'}
           </p>
           <Button type="button" size="sm" variant="ghost" onClick={() => setOpen(false)}>
             إغلاق
