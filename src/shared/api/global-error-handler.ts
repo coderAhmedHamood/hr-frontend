@@ -19,6 +19,7 @@ import {
 } from '@/features/hr/requests/attendance-corrections/lib/correction-request-errors';
 import { translateRequestApprovalMessage } from '@/features/hr/requests/lib/request-approval-errors';
 import { reportError } from '@/shared/errors/report-error';
+import { abandonStaffSession } from '@/features/auth/lib/session-refresh';
 import {
   currentLoginHref,
   shouldRedirectOnUnauthorized,
@@ -139,10 +140,16 @@ export function handleApiError(
   const authContext = isAuthApiContext(context);
   const suppressRedirect = Boolean(options?.suppressRedirect);
 
-  if (status === 401 && typeof window !== 'undefined' && !suppressRedirect) {
+  if (
+    status === 401 &&
+    typeof window !== 'undefined' &&
+    !suppressRedirect &&
+    !error.sessionAlive
+  ) {
     // Storefront pages handle their own session; bouncing them to a login
     // page would fight their partner session and loop.
     if (shouldRedirectOnUnauthorized()) {
+      abandonStaffSession();
       window.location.replace(currentLoginHref());
     }
   } else {

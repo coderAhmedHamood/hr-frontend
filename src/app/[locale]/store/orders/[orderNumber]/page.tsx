@@ -39,5 +39,5 @@ export default async function Page({ params, searchParams }: Props) {
     accessToken,
   });
   if (!order) notFound();
-  return <StoreOrderTrackingPage order={order} />;
+  return <StoreOrderTrackingPage order={order} phone={phoneValue} />;
 }

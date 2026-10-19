@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { useTranslations } from 'next-intl';
 import { formatPrice as formatMoney } from '@/features/ecommerce/shared/utils/format-price';
@@ -7,7 +8,6 @@ import {
   Check,
   Clock3,
   FileText,
-  MapPin,
   Package,
   PackageCheck,
   Paperclip,
@@ -20,6 +20,7 @@ import {
   isImageMime,
 } from '@/features/ecommerce/domain/lib/order-attachments';
 import { StoreBreadcrumbs } from '@/features/ecommerce/storefront/components/store-breadcrumbs';
+import { CustomerDeliveryAddress } from '@/features/ecommerce/storefront/components/orders/customer-delivery-address';
 import { OrderDeliveredReviews } from '@/features/ecommerce/storefront/components/orders/order-delivered-reviews';
 import type {
   StorefrontCustomerOrder,
@@ -31,6 +32,7 @@ import { resolveUploadUrl } from '@/shared/resolve-upload-url';
 
 type Props = {
   order: StorefrontCustomerOrder;
+  phone?: string | null;
 };
 
 const TRACKING_STEPS: Array<{
@@ -50,8 +52,12 @@ function trackingIndex(status: StorefrontOrderStatus): number {
   return index === -1 ? 0 : index;
 }
 
-export function StoreOrderTrackingPage({ order }: Props) {
+export function StoreOrderTrackingPage({ order: initialOrder, phone }: Props) {
   const t = useTranslations('storefront');
+  const [order, setOrder] = useState(initialOrder);
+  useEffect(() => {
+    setOrder(initialOrder);
+  }, [initialOrder]);
   const currentIdx = trackingIndex(order.status);
   const currency = order.total.currency;
   const progressPercent =
@@ -152,6 +158,18 @@ export function StoreOrderTrackingPage({ order }: Props) {
         </div>
       </section>
 
+      {order.staffNote ? (
+        <section className="rounded-3xl border border-primary/20 bg-primary/[0.04] p-5 shadow-soft sm:p-6">
+          <div className="mb-3 flex items-center gap-2">
+            <StickyNote className="h-4 w-4 text-primary" />
+            <h2 className="font-arabic-display text-base font-semibold">{t('orders.storeNote')}</h2>
+          </div>
+          <p className="whitespace-pre-wrap text-sm text-foreground" dir="auto">
+            {order.staffNote}
+          </p>
+        </section>
+      ) : null}
+
       <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
         <section className="rounded-3xl border border-border bg-card p-5 shadow-soft sm:p-6">
           <div className="mb-4 flex items-center gap-2">
@@ -201,32 +219,7 @@ export function StoreOrderTrackingPage({ order }: Props) {
         </section>
 
         <div className="space-y-6">
-          <section className="rounded-3xl border border-border bg-card p-5 shadow-soft sm:p-6">
-            <div className="mb-3 flex items-center gap-2">
-              <MapPin className="h-4 w-4 text-primary" />
-              <h2 className="font-semibold">{t('orders.shippingAddress')}</h2>
-            </div>
-            <div className="space-y-1 text-sm">
-              <p className="font-medium text-foreground">{order.address.fullName}</p>
-              <p className="text-muted-foreground" dir="ltr">
-                {order.address.phone}
-              </p>
-              <p className="text-muted-foreground">
-                {order.address.city} · {order.address.district}
-              </p>
-              <p className="text-muted-foreground">{order.address.street}</p>
-              {order.address.notes ? (
-                <p className="mt-2 rounded-xl bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-                  {order.address.notes}
-                </p>
-              ) : null}
-              {order.customerNote ? (
-                <p className="mt-2 rounded-xl bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-                  {order.customerNote}
-                </p>
-              ) : null}
-            </div>
-          </section>
+          <CustomerDeliveryAddress order={order} phone={phone} onUpdated={setOrder} />
 
           <section className="rounded-3xl border border-border bg-card p-5 shadow-soft sm:p-6">
             <div className="mb-3 flex items-center gap-2">
@@ -261,20 +254,6 @@ export function StoreOrderTrackingPage({ order }: Props) {
           </section>
         </div>
       </div>
-
-      {order.staffNote ? (
-        <section className="rounded-3xl border border-primary/20 bg-primary/[0.04] p-5 shadow-soft sm:p-6">
-          <div className="mb-3 flex items-center gap-2">
-            <StickyNote className="h-4 w-4 text-primary" />
-            <h2 className="font-arabic-display text-base font-semibold">
-              {t('orders.storeNote')}
-            </h2>
-          </div>
-          <p className="whitespace-pre-wrap text-sm text-foreground" dir="auto">
-            {order.staffNote}
-          </p>
-        </section>
-      ) : null}
 
       {visibleAttachments.length > 0 ? (
         <section className="rounded-3xl border border-border bg-card p-5 shadow-soft sm:p-6">

@@ -1,7 +1,13 @@
 'use client';
 
 import * as React from 'react';
-import { Banknote, CreditCard, Loader2, MapPin, RotateCcw } from 'lucide-react';
+import { Banknote, CreditCard, Loader2, MapPin, MoreHorizontal, NotebookPen, RotateCcw } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { WhatsappPhoneAction } from '@/features/ecommerce/admin/cms/whatsapp/components/whatsapp-phone-action';
 import type { Order, OrderListQuery, OrderStatus } from '@/features/ecommerce/domain/types/order';
 import {
@@ -16,13 +22,18 @@ import {
 } from '@/features/ecommerce/domain/constants/order-status';
 import {
   OrderMoveDialog,
+  orderMoveNeedsInput,
   type OrderStatusChangeExtra,
 } from '@/features/ecommerce/admin/orders/components/order-move-dialog';
 import { OrderPaymentProofButton } from '@/features/ecommerce/admin/orders/components/order-payment-proof-button';
 import { OrderStatusHistoryButton } from '@/features/ecommerce/admin/orders/components/order-status-history-button';
 import { useOrdersStageColumn } from '@/features/ecommerce/admin/orders/hooks/use-orders';
 import type { OrderStagesContext } from '@/features/ecommerce/admin/orders/lib/api/order-stages';
-import { moveBlockReason } from '@/features/ecommerce/admin/orders/lib/order-stage-access';
+import {
+  isViewOnlyOrder,
+  moveBlockReason,
+  visibleOrderStatuses,
+} from '@/features/ecommerce/admin/orders/lib/order-stage-access';
 import { formatPrice } from '@/features/ecommerce/shared/utils/format-price';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -37,6 +48,8 @@ type Props = {
   filters: OrdersKanbanFilters;
   /** Order stages: what the user may do (null: unknown, the backend decides). */
   stages?: OrderStagesContext | null;
+  /** The stages context is still loading (columns wait for it). */
+  stagesPending?: boolean;
   onOpen: (order: Order) => void;
   onStatusChange?: (
     order: Order,
@@ -49,15 +62,26 @@ type Props = {
 };
 
 type CardActions = Pick<Props, 'companyId' | 'stages' | 'onOpen' | 'onMarkPaid' | 'updatingOrderId'> & {
-  onMove?: (order: Order, status: OrderStatus) => void;
+  onMove?: (order: Order, status: OrderStatus, withDialog?: boolean) => void;
 };
 
 /**
  * Orders by stage. Each column loads its first orders, then the next ones
  * when its last card scrolls into view (that column only).
  */
-export function OrdersKanbanView({ companyId, filters, stages = null, onStatusChange, ...rest }: Props) {
+export function OrdersKanbanView({
+  companyId,
+  filters,
+  stages = null,
+  stagesPending = false,
+  onStatusChange,
+  ...rest
+}: Props) {
   const phoneLayout = usePhoneLayout();
+  // Stage users see the columns of the stages granted to them only; none
+  // while that is still loading (no flash of hidden columns).
+  const columns =
+    visibleOrderStatuses(stages, ORDER_KANBAN_STATUSES) ?? (stagesPending ? [] : ORDER_KANBAN_STATUSES);
   const [totals, setTotals] = React.useState<Partial<Record<OrderStatus, number>>>({});
   const reportTotal = React.useCallback((status: OrderStatus, total: number) => {
     setTotals((old) => (old[status] === total ? old : { ...old, [status]: total }));
@@ -66,15 +90,22 @@ export function OrdersKanbanView({ companyId, filters, stages = null, onStatusCh
   // Phones show one stage at a time (the first with orders until one is picked).
   const [pickedStage, setPickedStage] = React.useState<OrderStatus | null>(null);
   const stage =
-    pickedStage ??
-    ORDER_KANBAN_STATUSES.find((status) => (totals[status] ?? 0) > 0) ??
-    ORDER_KANBAN_STATUSES[0]!;
+    (pickedStage && columns.includes(pickedStage) ? pickedStage : null) ??
+    columns.find((status) => (totals[status] ?? 0) > 0) ??
+    columns[0] ??
+    null;
 
   const actions: CardActions = {
     companyId,
     stages,
     ...rest,
-    onMove: onStatusChange ? (order, status) => setMoving({ order, status }) : undefined,
+    // One tap unless the move needs input (or «⋯» asked for a note / handler).
+    onMove: onStatusChange
+      ? (order, status, withDialog = false) => {
+          if (withDialog || orderMoveNeedsInput(order, status)) setMoving({ order, status });
+          else onStatusChange(order, status, null, {});
+        }
+      : undefined,
   };
 
   const dialog = moving ? (
@@ -95,8 +126,9 @@ export function OrdersKanbanView({ companyId, filters, stages = null, onStatusCh
     return (
       <div className="space-y-3">
         <div className="grid grid-cols-3 gap-1.5" role="tablist" aria-label="مراحل الطلبات">
-          {ORDER_KANBAN_STATUSES.map((status) => {
+          {columns.map((status) => {
             const active = status === stage;
+            const tone = ORDER_STATUS_COLORS[status];
             return (
               <button
                 key={status}
@@ -106,9 +138,7 @@ export function OrdersKanbanView({ companyId, filters, stages = null, onStatusCh
                 onClick={() => setPickedStage(status)}
                 className={cn(
                   'flex min-h-11 items-center justify-between gap-1 rounded-xl border px-2.5 py-1.5 text-start text-xs font-medium transition-colors',
-                  active
-                    ? 'border-primary bg-primary text-primary-foreground'
-                    : 'border-border bg-card text-foreground',
+                  active ? cn(tone.badge, 'shadow-soft') : 'border-border bg-card text-foreground',
                 )}
               >
                 <span className="inline-flex min-w-0 items-center gap-1.5">
@@ -121,9 +151,7 @@ export function OrdersKanbanView({ companyId, filters, stages = null, onStatusCh
                 <span
                   className={cn(
                     'shrink-0 rounded-full border px-1.5 text-[11px] tabular-nums',
-                    active
-                      ? 'border-transparent bg-primary-foreground/20'
-                      : ORDER_STATUS_COLORS[status].badge,
+                    tone.badge,
                   )}
                 >
                   {totals[status] ?? '…'}
@@ -133,7 +161,7 @@ export function OrdersKanbanView({ companyId, filters, stages = null, onStatusCh
           })}
         </div>
         {/* Every column stays mounted (for the tab counts); only the picked one shows. */}
-        {ORDER_KANBAN_STATUSES.map((status) => (
+        {columns.map((status) => (
           <div key={status} role="tabpanel" hidden={status !== stage}>
             <StageColumn
               status={status}
@@ -151,11 +179,19 @@ export function OrdersKanbanView({ companyId, filters, stages = null, onStatusCh
 
   return (
     <div className="sto-kanban">
-      {ORDER_KANBAN_STATUSES.map((status) => (
-        <div key={status} className="sto-kanban-col overflow-hidden rounded-2xl border border-border bg-muted/20">
-          <div className={cn('h-1 shrink-0', ORDER_STATUS_COLORS[status].strip)} aria-hidden />
-          <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2.5">
-            <h3 className="text-sm font-semibold text-foreground">{ORDER_STATUS_LABELS_AR[status]}</h3>
+      {columns.map((status) => (
+        <div
+          key={status}
+          className={cn(
+            'sto-kanban-col overflow-hidden rounded-2xl border shadow-soft',
+            ORDER_STATUS_COLORS[status].well,
+          )}
+        >
+          <div className={cn('h-1.5 shrink-0', ORDER_STATUS_COLORS[status].strip)} aria-hidden />
+          <div className="flex items-center justify-between gap-2 border-b border-border/70 px-3 py-2.5">
+            <h3 className={cn('text-sm font-semibold', ORDER_STATUS_COLORS[status].text)}>
+              {ORDER_STATUS_LABELS_AR[status]}
+            </h3>
             <span
               className={cn(
                 'rounded-full border px-2 py-0.5 text-xs font-semibold tabular-nums',
@@ -288,22 +324,23 @@ function KanbanCard({
   const flowNext = getOrderFlowNextStep(order);
   const prep = getOrderPrepGuidance(order);
   const needsPayment = flowNext?.kind === 'payment' && !isPaymentSettled(order);
-  const canMove = Boolean(next) && onMove && !needsPayment && canTransitionOrderStatus(order, next!);
+  // A stage the user only views: no move or payment buttons on its cards.
+  const viewOnly = isViewOnlyOrder(stages, order);
+  const canMove = Boolean(next) && onMove && !viewOnly && !needsPayment && canTransitionOrderStatus(order, next!);
   // The backend decides; this only shows why a move would be refused.
   const moveBlock = canMove ? moveBlockReason(stages, order, next!) : null;
   const isCard = prep.paymentMethod === 'card';
   const PaymentIcon = isCard ? CreditCard : Banknote;
   const phone = order.phone?.trim() || null;
+  const tone = ORDER_STATUS_COLORS[order.status];
+  const nextTone = next ? ORDER_STATUS_COLORS[next] : null;
 
   return (
     <article
       className={cn(
-        'rounded-xl border border-border bg-card p-3 shadow-soft',
-        'border-s-[3px] transition-shadow hover:shadow-elevated',
-        isCard ? 'border-s-sky-600 hover:border-sky-600/50' : 'border-s-teal-600 hover:border-teal-600/50',
-        !prep.canPrepare && 'border-amber-500/45',
-        isCard && !prep.canPrepare && 'bg-sky-500/[0.04]',
-        !isCard && 'bg-teal-500/[0.03]',
+        'rounded-xl border p-3 shadow-soft',
+        'border-s-[3px] transition-shadow duration-200 hover:shadow-elevated',
+        tone.card,
       )}
     >
       <div
@@ -370,35 +407,23 @@ function KanbanCard({
 
         <div
           className={cn(
-            'mt-2 rounded-lg border px-2 py-1.5',
-            prep.canPrepare
-              ? isCard
-                ? 'border-sky-500/30 bg-sky-500/10'
-                : 'border-teal-500/30 bg-teal-500/10'
-              : 'border-amber-500/30 bg-amber-500/10',
+            'mt-2 rounded-lg px-2 py-1.5',
+            prep.canPrepare ? 'bg-background/70' : 'bg-amber-500/10',
           )}
         >
           <p
             className={cn(
               'inline-flex items-center gap-1.5 text-[11px] font-semibold',
-              prep.canPrepare
-                ? isCard
-                  ? 'text-sky-900 dark:text-sky-300'
-                  : 'text-teal-900 dark:text-teal-300'
-                : 'text-amber-800 dark:text-amber-300',
+              prep.canPrepare ? 'text-foreground' : 'text-amber-800 dark:text-amber-300',
             )}
           >
-            <PaymentIcon className="h-3.5 w-3.5 shrink-0" />
+            <PaymentIcon className="h-3.5 w-3.5 shrink-0 opacity-70" />
             {prep.methodLabel}
           </p>
           <p
             className={cn(
               'mt-0.5 text-[11px] leading-snug',
-              prep.canPrepare
-                ? isCard
-                  ? 'text-sky-800/90 dark:text-sky-400/90'
-                  : 'text-teal-800/90 dark:text-teal-400/90'
-                : 'text-amber-700/90 dark:text-amber-400/90',
+              prep.canPrepare ? 'text-muted-foreground' : 'text-amber-800/90 dark:text-amber-300/90',
             )}
           >
             {prep.prepLabel}
@@ -413,12 +438,12 @@ function KanbanCard({
           </div>
         ) : null}
 
-        {needsPayment && onMarkPaid ? (
+        {needsPayment && onMarkPaid && !viewOnly ? (
           <Button
             type="button"
             size="sm"
             variant="secondary"
-            className="w-full max-sm:h-10"
+            className={cn('w-full max-sm:h-10', tone.badge)}
             disabled={updatingOrderId === order.id}
             onClick={() => onMarkPaid(order)}
           >
@@ -428,17 +453,41 @@ function KanbanCard({
 
         {canMove ? (
           <>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="w-full max-sm:h-10"
-              disabled={updatingOrderId === order.id || Boolean(moveBlock)}
-              title={moveBlock ?? undefined}
-              onClick={() => onMove?.(order, next!)}
-            >
-              نقل إلى: {ORDER_STATUS_LABELS_AR[next!]}
-            </Button>
+            <div className="flex items-center gap-1">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className={cn('min-w-0 flex-1 max-sm:h-10', nextTone?.badge)}
+                disabled={updatingOrderId === order.id || Boolean(moveBlock)}
+                title={moveBlock ?? undefined}
+                onClick={() => onMove?.(order, next!)}
+              >
+                <span className="truncate">نقل إلى: {ORDER_STATUS_LABELS_AR[next!]}</span>
+              </Button>
+              {!moveBlock ? (
+                <DropdownMenu modal={false}>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8 shrink-0 text-muted-foreground max-sm:h-10 max-sm:w-10"
+                      disabled={updatingOrderId === order.id}
+                      aria-label="خيارات النقل"
+                    >
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onSelect={() => onMove?.(order, next!, true)}>
+                      <NotebookPen className="h-4 w-4" />
+                      نقل مع ملاحظة أو اختيار المسؤول…
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : null}
+            </div>
             {moveBlock ? <p className="text-[11px] leading-snug text-muted-foreground">{moveBlock}</p> : null}
           </>
         ) : null}

@@ -68,7 +68,15 @@ export function useSaveOrderStagesSettings(companyId: string) {
       await queryClient.invalidateQueries({
         queryKey: orderStagesQueryKeys.all,
       });
-      toast.success('تم حفظ إعدادات مراحل الطلبات');
+      toast.success('تم حفظ صلاحيات مراحل الطلبات');
+      const released = settings.released ?? [];
+      if (released.length > 0) {
+        toast.info(
+          `عادت إلى قائمة المرحلة: ${released
+            .map((r) => `${r.orders} من ${r.nameAr ?? 'مستخدم'} في «${r.labelAr}»`)
+            .join('، ')}`,
+        );
+      }
     },
     onError: (err) => handleApiError(err, 'ecommerce.orderStages.save'),
   });

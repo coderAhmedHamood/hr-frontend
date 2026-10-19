@@ -387,5 +387,5 @@ export function StoreOrderTrackingPageCsr({
   if (loading) return <StoreCsrLoading />;
   if (error === 'NOT_FOUND') notFound();
   if (error || !data) return <StoreCsrError message={error ?? undefined} />;
-  return <StoreOrderTrackingPage order={data} />;
+  return <StoreOrderTrackingPage order={data} phone={phone} />;
 }

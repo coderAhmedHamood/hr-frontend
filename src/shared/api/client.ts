@@ -19,6 +19,11 @@ import { isApiErrorEnvelope, isApiSuccessEnvelope } from '@/shared/api/types';
 import { reportError } from '@/shared/errors/report-error';
 import { toast } from 'sonner';
 import {
+  abandonStaffSession,
+  refreshAccessSession,
+  shouldRenewSessionForPath,
+} from '@/features/auth/lib/session-refresh';
+import {
   currentLoginHref,
   shouldRedirectOnUnauthorized,
 } from '@/shared/navigation/login-redirect';
@@ -78,6 +83,11 @@ export class ApiError {
   envelope: ApiErrorEnvelope | null;
   /** True when the client already surfaced this failure in a toast. */
   toastShown?: boolean;
+  /**
+   * The staff session was renewed, but this call still failed. Do not send
+   * the browser to the login page — the token is still good.
+   */
+  sessionAlive?: boolean;
 
   constructor(envelope: ApiErrorEnvelope | null, status: number, payload?: unknown) {
     this.message = envelope?.message ?? `HTTP ${status}`;
@@ -125,6 +135,8 @@ type RequestOptions = {
   throwOnError?: boolean;
   /** Skip the global error toast (caller handles UX). Still throws when throwOnError. */
   silent?: boolean;
+  /** Internal: the call was already replayed after a session refresh. */
+  sessionRetried?: boolean;
 };
 
 function unwrapEnvelope<T>(payload: unknown): T {
@@ -176,6 +188,16 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   }
 
   if (!response.ok) {
+    if (
+      response.status === 401 &&
+      !options.sessionRetried &&
+      shouldRenewSessionForPath(path)
+    ) {
+      const renewed = await refreshAccessSession();
+      if (renewed) {
+        return apiRequest<T>(path, { ...options, sessionRetried: true });
+      }
+    }
     return handleApiResponseFailure(
       buildApiErrorEnvelope(payload, response),
       response.status,
@@ -183,6 +205,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
       method,
       throwOnError,
       silent,
+      options.sessionRetried === true,
     );
   }
 
@@ -196,9 +219,10 @@ function handleApiResponseFailure<T>(
   method: RequestOptions['method'],
   throwOnError = false,
   silent = false,
+  sessionAlive = false,
 ): T {
   if (!silent) {
-    notifyApiFailure(envelope, status);
+    notifyApiFailure(envelope, status, sessionAlive);
   }
 
   // Reads: toast only — return an empty paginated shell so list loaders never crash.
@@ -208,6 +232,7 @@ function handleApiResponseFailure<T>(
 
   const error = new ApiError(envelope, status, payload);
   error.toastShown = !silent && typeof window !== 'undefined';
+  error.sessionAlive = sessionAlive;
   throw error;
 }
 
@@ -244,7 +269,11 @@ function translateFailureMessage(message: string): string {
   return translateStoreStockMessage(message) ?? message;
 }
 
-function notifyApiFailure(envelope: ApiErrorEnvelope, status: number): void {
+function notifyApiFailure(
+  envelope: ApiErrorEnvelope,
+  status: number,
+  sessionAlive = false,
+): void {
   const deviceAuthMessage = translateDeviceAuthErrorCode(extractApiErrorCode(envelope));
   const displayMessage =
     deviceAuthMessage ??
@@ -262,9 +291,11 @@ function notifyApiFailure(envelope: ApiErrorEnvelope, status: number): void {
   if (typeof window === 'undefined') return;
 
   if (status === 401) {
+    // A renewed session whose single call still failed is not a logout.
     // Storefront pages handle their own session; bouncing them to a login
     // page would fight their partner session and loop.
-    if (shouldRedirectOnUnauthorized()) {
+    if (!sessionAlive && shouldRedirectOnUnauthorized()) {
+      abandonStaffSession();
       window.location.replace(currentLoginHref());
     }
     return;
@@ -274,7 +305,12 @@ function notifyApiFailure(envelope: ApiErrorEnvelope, status: number): void {
 }
 
 /** Multipart upload (do not set Content-Type — browser sets boundary). */
-export async function apiFormRequest<T>(path: string, formData: FormData, signal?: AbortSignal): Promise<T> {
+export async function apiFormRequest<T>(
+  path: string,
+  formData: FormData,
+  signal?: AbortSignal,
+  sessionRetried = false,
+): Promise<T> {
   const headers: Record<string, string> = {};
   const token = await resolveAccessToken();
   if (token) {
@@ -297,11 +333,20 @@ export async function apiFormRequest<T>(path: string, formData: FormData, signal
   }
 
   if (!response.ok) {
+    if (response.status === 401 && !sessionRetried && shouldRenewSessionForPath(path)) {
+      const renewed = await refreshAccessSession();
+      if (renewed) {
+        return apiFormRequest<T>(path, formData, signal, true);
+      }
+    }
     return handleApiResponseFailure(
       buildApiErrorEnvelope(payload, response),
       response.status,
       payload,
       'POST',
+      false,
+      false,
+      sessionRetried,
     );
   }
 

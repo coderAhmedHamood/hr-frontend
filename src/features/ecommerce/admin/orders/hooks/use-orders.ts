@@ -25,6 +25,11 @@ import type {
 import type { PaginatedResult } from '@/features/ecommerce/domain/types/common';
 import { resolvePaymentProofUrls } from '@/features/ecommerce/domain/lib/payment-proofs';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
+import {
+  ORDER_STATUS_LABELS_AR,
+  ORDER_STATUS_TRANSITIONS,
+  orderPipelineIndex,
+} from '@/features/ecommerce/domain/constants/order-status';
 import { toast } from 'sonner';
 
 export const ordersQueryKeys = {
@@ -244,6 +249,8 @@ export function useUpdateOrderStatus(companyId: string) {
       assigneeId?: string | null;
       /** Delivering a cash-on-delivery order: the amount was collected. */
       paymentCollected?: boolean;
+      /** The status before the move: a forward move offers «تراجع» back to it. */
+      from?: OrderStatus;
     }) =>
       ordersApi.updateStatus(companyId, orderId, {
         status,
@@ -259,7 +266,31 @@ export function useUpdateOrderStatus(companyId: string) {
       } else if (variables.status === 'shipped') {
         toast.success('تم الشحن وخصم المخزون');
       } else {
-        toast.success('تم تحديث حالة الطلب — ستظهر للعميل في صفحة التتبع');
+        const back = variables.from;
+        const undoable = Boolean(
+          back &&
+            orderPipelineIndex(back) >= 0 &&
+            orderPipelineIndex(back) < orderPipelineIndex(order.status) &&
+            ORDER_STATUS_TRANSITIONS[order.status]?.includes(back),
+        );
+        toast.success(
+          `نُقل إلى «${ORDER_STATUS_LABELS_AR[order.status]}»`,
+          undoable && back
+            ? {
+                action: {
+                  label: 'تراجع',
+                  onClick: () =>
+                    void ordersApi
+                      .updateStatus(companyId, order.id, { status: back, note: null })
+                      .then(async (reverted) => {
+                        await applyOrderMutation(queryClient, companyId, reverted);
+                        toast.success(`أُعيد إلى «${ORDER_STATUS_LABELS_AR[back]}»`);
+                      })
+                      .catch((err) => handleApiError(err, 'ecommerce.orders.updateStatus')),
+                },
+              }
+            : undefined,
+        );
       }
     },
     onError: (err) => {

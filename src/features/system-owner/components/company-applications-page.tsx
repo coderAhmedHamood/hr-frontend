@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Clock, Eye, EyeOff, Lock } from 'lucide-react';
+import { Ban, Clock, Eye, EyeOff, Lock } from 'lucide-react';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -78,11 +78,22 @@ function MarketplaceTile({
   const externalUrl = resolveApplicationExternalUrl(launcherApp);
   const href = externalUrl ?? resolveApplicationLaunchPath(launcherApp);
   const tileClass = resolveApplicationTileClass(launcherApp, index);
-  const canOpen = app.activationState === 'enabled' || app.activationState === 'always_on';
+  // Stopped by the platform owner for every company: the company's choice is
+  // kept (still "enabled" here) but the app does not run until started again.
+  const platformStopped = !app.platformActive;
+  const canOpen =
+    !platformStopped && (app.activationState === 'enabled' || app.activationState === 'always_on');
   const isPending = app.activationState === 'pending';
   const isLocked = !canOpen;
 
-  const overlay = isPending ? (
+  const overlay = platformStopped ? (
+    <span
+      className="absolute -end-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground"
+      title="موقوف على مستوى المنصة"
+    >
+      <Ban className="h-3 w-3" />
+    </span>
+  ) : isPending ? (
     <span className="absolute -end-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-warning text-warning-foreground">
       <Clock className="h-3 w-3" />
     </span>
@@ -92,7 +103,9 @@ function MarketplaceTile({
     </span>
   ) : null;
 
-  const caption = canOpen
+  const caption = platformStopped
+    ? 'موقوف على مستوى المنصة'
+    : canOpen
     ? undefined
     : isPending
       ? 'بانتظار الموافقة'

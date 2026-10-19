@@ -214,8 +214,8 @@ function WarehouseSetting({
     <section className="space-y-2">
       <h3 className="text-sm font-semibold">مستودع المتجر</h3>
       <p className="text-xs text-muted-foreground">
-        مستودع واحد يخدم المتجر: منه الحجز والتجهيز والصرف والتوفر المعروض. لا يتغير وفيه حجوزات مفتوحة.
-        {s.enabled ? '' : ' اختره قبل تفعيل الربط (إن كان للشركة أكثر من مستودع).'}
+        مستودع واحد يخدم المتجر: منه الحجز والتجهيز والصرف والتوفر المعروض. لا يُختار تلقائياً، ولا يتغير وفيه حجوزات مفتوحة.
+        {s.enabled ? '' : ' احفظه هنا قبل تفعيل الربط، وإلا يبقى المتجر على كميته الخاصة.'}
       </p>
       <div className="flex flex-wrap items-center gap-2">
         <Select value={value} onValueChange={setValue} disabled={!canUpdate || save.isPending}>
@@ -362,7 +362,7 @@ function EnablePreview({ preview, loading }: { preview: StockSyncPreview | undef
         <div className="space-y-2 rounded-xl border border-warning/30 bg-warning/10 px-3.5 py-2.5 text-xs text-warning">
           <p className="font-semibold">لا يمكن التفعيل الآن:</p>
           {blockers.includes('no_warehouse') ? (
-            <p>مستودع المتجر غير محدد: اختره أعلاه (للشركة أكثر من مستودع أو لا مستودع لها).</p>
+            <p>مستودع المتجر غير محدد: اختره أعلاه واحفظه. لا يُؤخذ مستودع تلقائياً.</p>
           ) : null}
           {blockers.includes('open_local_orders') ? (
             <div className="space-y-1.5">

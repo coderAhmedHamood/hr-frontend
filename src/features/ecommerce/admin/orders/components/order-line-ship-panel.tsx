@@ -15,12 +15,18 @@ import {
 import { productsApi } from '@/features/catalog/products/lib/api/products';
 import { formatPrice } from '@/features/ecommerce/shared/utils/format-price';
 import { ORDER_LINE_SHIP_STATUS_LABELS_AR } from '@/features/ecommerce/domain/constants/order-status';
-import type { Order, OrderLineItem, OrderLineShipStatus } from '@/features/ecommerce/domain/types/order';
+import type {
+  Order,
+  OrderLineItem,
+  OrderLineShipStatus,
+  OrderStockSource,
+} from '@/features/ecommerce/domain/types/order';
 import { isOrderFulfilmentLocked } from '@/features/ecommerce/domain/constants/order-status';
 import { inventoryStockService } from '@/features/inventory/services/inventory-stock.service';
-import { useAuthStore } from '@/features/auth/lib/auth-store';
-import { findCompanyAccess } from '@/features/auth/types/access-profile';
-import { companyHasApp, STORE_STOCK_SYNC_APP_CODE } from '@/shared/modules/registry';
+import {
+  orderLinePrepNote,
+  resolveOrderLinePrepMode,
+} from '@/features/ecommerce/admin/orders/lib/order-line-prep-mode';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge, type BadgeProps } from '@/components/ui/badge';
@@ -40,6 +46,10 @@ type Props = {
   orderId: string;
   /** Parent order status — locks fulfilment when shipped/delivered/cancelled/refunded. */
   orderStatus: Order['status'];
+  /** The order's stock source (fixed when placed) decides how lines are prepared. */
+  stockSource: OrderStockSource | null | undefined;
+  /** Inventory orders: the store warehouse the order is reserved in. */
+  stockWarehouseId?: string | null;
   line: OrderLineItem;
   /** Shown without preparation (a new order: prepared once it is confirmed). */
   readOnly?: boolean;
@@ -64,19 +74,27 @@ function toDraftRows(line: OrderLineItem): DraftRow[] {
   }));
 }
 
-export function OrderLineShipPanel({ companyId, orderId, orderStatus, line, readOnly = false }: Props) {
+export function OrderLineShipPanel({
+  companyId,
+  orderId,
+  orderStatus,
+  stockSource,
+  stockWarehouseId,
+  line,
+  readOnly = false,
+}: Props) {
   const [open, setOpen] = React.useState(false);
   const [staffNote, setStaffNote] = React.useState('');
   const isShipped = line.shipStatus === 'shipped';
   const fulfilmentLocked = readOnly || isOrderFulfilmentLocked(orderStatus) || isShipped;
-  const lockedWarehouseId = line.allocations[0]?.warehouseId ?? '';
-  // Without the store-stock-sync bridge the store sells from its own quantity
-  // (phase 3): no warehouse preparation, the line is just marked shipped.
-  const accessProfile = useAuthStore((s) => s.accessProfile);
-  const sellsFromInventory = companyHasApp(STORE_STOCK_SYNC_APP_CODE, {
-    enabledApplicationCodes:
-      findCompanyAccess(accessProfile, companyId)?.enabledApplicationCodes ?? null,
-  });
+  // Decided by the order (its source is fixed when placed), not by today's
+  // link setting: an order placed while the store was not linked keeps
+  // selling from the store's own quantity, and the other way round.
+  const prepMode = resolveOrderLinePrepMode(stockSource);
+  const sellsFromInventory = prepMode === 'inventory';
+  // Inventory orders are reserved in the store warehouse: prepared from it only.
+  const lockedWarehouseId =
+    line.allocations[0]?.warehouseId || (sellsFromInventory ? stockWarehouseId : '') || '';
   const needsStockContext = (open || isShipped) && sellsFromInventory;
 
   const { data: product } = useQuery({
@@ -85,7 +103,13 @@ export function OrderLineShipPanel({ companyId, orderId, orderStatus, line, read
     enabled: needsStockContext && Boolean(companyId && line.productId),
     staleTime: 60_000,
   });
-  const trackInventory = sellsFromInventory && (product?.inventory.trackInventory ?? true);
+  // Tracking is the product's setting (inventory reads the product row): a
+  // variant always follows its product — a variant row with no value of its
+  // own never turns tracking off.
+  const productTracksInventory = product?.inventory.trackInventory ?? true;
+  const trackInventory = sellsFromInventory && productTracksInventory;
+  const prepNote = orderLinePrepNote(prepMode, productTracksInventory);
+  const sourceUnresolved = prepMode === 'unresolved';
   const lineVariantId = line.variantId ?? null;
 
   const { data: availability = [], isLoading } = useProductStockAvailability(
@@ -263,6 +287,10 @@ export function OrderLineShipPanel({ companyId, orderId, orderStatus, line, read
       toast.error('لا يمكن تغيير حالة تجهيز الصنف بعد القفل.');
       return;
     }
+    if (sourceUnresolved) {
+      toast.error('اختر مصدر مخزون الطلب أولاً من تبويب «المخزون».');
+      return;
+    }
     const note = staffNote.trim() || null;
     if (trackInventory) {
       if (!validation.ok && line.shipStatus !== 'assigned' && line.shipStatus !== 'partial') {
@@ -311,6 +339,7 @@ export function OrderLineShipPanel({ companyId, orderId, orderStatus, line, read
   const shippedFromLabels = React.useMemo(() => {
     if (!isShipped) return [];
     if (line.allocations.length === 0) {
+      if (prepMode === 'local') return ['كمية المتجر'];
       return [trackInventory ? '—' : 'بدون خصم مخزون'];
     }
     return line.allocations.map((allocation) => {
@@ -318,7 +347,7 @@ export function OrderLineShipPanel({ companyId, orderId, orderStatus, line, read
       const warehouseName = match?.warehouseNameAr ?? 'مستودع';
       return `${warehouseName} (${allocation.quantity})`;
     });
-  }, [availability, isShipped, line.allocations, trackInventory]);
+  }, [availability, isShipped, line.allocations, prepMode, trackInventory]);
 
   const lineTotal = {
     amount: line.unitPrice.amount * line.quantity,
@@ -410,9 +439,16 @@ export function OrderLineShipPanel({ companyId, orderId, orderStatus, line, read
             توزيع {line.productNameAr} ({line.quantity} قطعة)
           </p>
 
-          {!trackInventory ? (
-            <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
-              تتبع المخزون معطّل لهذا المنتج — لا يُخصم من المستودع.
+          {prepNote ? (
+            <div
+              className={cn(
+                'rounded-lg border px-3 py-2 text-sm',
+                sourceUnresolved
+                  ? 'border-warning/30 bg-warning/10 text-foreground'
+                  : 'border-border bg-muted/30 text-muted-foreground',
+              )}
+            >
+              {prepNote}
             </div>
           ) : (
             <p className="text-xs text-muted-foreground">
@@ -592,7 +628,7 @@ export function OrderLineShipPanel({ companyId, orderId, orderStatus, line, read
               type="button"
               size="sm"
               variant="secondary"
-              disabled={isSaving || (!validation.ok && !canShipWithoutAlloc)}
+              disabled={sourceUnresolved || isSaving || (!validation.ok && !canShipWithoutAlloc)}
               onClick={() => void onShip()}
             >
               تم الشحن للصنف

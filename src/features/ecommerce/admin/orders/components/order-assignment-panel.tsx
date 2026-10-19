@@ -19,6 +19,7 @@ import {
   canAssignAnyone,
   canTakeOrder,
   isOrderStage,
+  isViewOnlyOrder,
   stageScopeOf,
 } from '@/features/ecommerce/admin/orders/lib/order-stage-access';
 import type { Order } from '@/features/ecommerce/domain/types/order';
@@ -61,6 +62,10 @@ export function OrderAssignmentPanel({ order, companyId, stages }: Props) {
             {myScope ? (
               <Badge variant="subtle" title="نطاق رؤيتك في هذه المرحلة (من إعدادات المراحل)">
                 نطاقك: {ORDER_STAGE_SCOPE_LABELS[myScope]}
+              </Badge>
+            ) : isViewOnlyOrder(stages, order) ? (
+              <Badge variant="subtle" title="صلاحيتك في هذه المرحلة من إعدادات مراحل الطلبات">
+                عرض فقط
               </Badge>
             ) : null}
           </div>

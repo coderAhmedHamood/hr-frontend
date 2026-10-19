@@ -185,7 +185,19 @@ function CompanyAppsTab({ companyId }: { companyId: string }) {
                     مخفي من المشغّل
                   </Badge>
                 ) : null}
+                {!app.platformActive ? (
+                  <Badge variant="destructive" className="text-[10px]">
+                    موقوف على مستوى المنصة
+                  </Badge>
+                ) : null}
               </div>
+              {!app.platformActive ? (
+                <p className="text-xs text-warning">
+                  {app.isEnabled
+                    ? 'مفعّل لهذه الشركة لكنه لا يعمل: التطبيق موقوف لكل الشركات. يبقى هذا الاختيار محفوظاً ويعمل عند تشغيله من «تطبيقات المنصة».'
+                    : 'التطبيق موقوف لكل الشركات — تفعيله هنا يُحفظ ولا يعمل حتى يُشغَّل من «تطبيقات المنصة».'}
+                </p>
+              ) : null}
               <p className="text-xs text-muted-foreground" dir="ltr">
                 {app.code}
               </p>

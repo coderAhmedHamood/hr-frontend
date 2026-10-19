@@ -4,7 +4,7 @@ import * as React from 'react';
 import { Banknote, CreditCard, StickyNote, User } from 'lucide-react';
 import { WhatsappPhoneAction } from '@/features/ecommerce/admin/cms/whatsapp/components/whatsapp-phone-action';
 import { OrderAttachmentsPanel } from '@/features/ecommerce/admin/orders/components/order-attachments-panel';
-import { OrderStaffNotePanel } from '@/features/ecommerce/admin/orders/components/order-staff-note-panel';
+import { OrderContactPanel } from '@/features/ecommerce/admin/orders/components/order-contact-panel';
 import { OrderStockPanel } from '@/features/ecommerce/admin/orders/components/order-stock-panel';
 import { OrderLineShipPanel } from '@/features/ecommerce/admin/orders/components/order-line-ship-panel';
 import { OrderPaymentProofThumb } from '@/features/ecommerce/admin/orders/components/order-payment-proof-thumb';
@@ -17,10 +17,10 @@ import {
   type OrderStatusChangeExtra,
 } from '@/features/ecommerce/admin/orders/components/order-status-stepper';
 import { OrderAssignmentPanel } from '@/features/ecommerce/admin/orders/components/order-assignment-panel';
-import { OrderDeliveryPanel } from '@/features/ecommerce/admin/orders/components/order-delivery-panel';
+import { orderTrailNotes } from '@/features/ecommerce/admin/orders/components/order-delivery-panel';
 import { useOrderStagesContext } from '@/features/ecommerce/admin/orders/hooks/use-order-stages';
 import type { OrderStagesContext } from '@/features/ecommerce/admin/orders/lib/api/order-stages';
-import { moveBlockReason } from '@/features/ecommerce/admin/orders/lib/order-stage-access';
+import { isViewOnlyOrder, moveBlockReason } from '@/features/ecommerce/admin/orders/lib/order-stage-access';
 import {
   useOrderDetail,
   useUpdateOrderPaymentStatus,
@@ -88,15 +88,20 @@ function formatDateTime(iso: string) {
   return formatDisplayDateTime(iso);
 }
 
-type DetailTab = 'handle' | 'summary' | 'delivery' | 'stock' | 'notes' | 'attachments';
+type DetailTab = 'handle' | 'summary' | 'contact' | 'stock' | 'attachments';
 
 const DETAIL_TAB_LABELS: Record<DetailTab, string> = {
   handle: 'المعالجة',
   summary: 'الملخص',
-  delivery: 'التوصيل والتواصل',
+  contact: 'العنوان والتواصل',
   stock: 'المخزون',
-  notes: 'الملاحظات',
   attachments: 'المرفقات',
+};
+
+/** Links from before the delivery and notes tabs were merged. */
+const LEGACY_DETAIL_TABS: Record<string, DetailTab> = {
+  delivery: 'contact',
+  notes: 'contact',
 };
 
 /**
@@ -128,21 +133,26 @@ function orderDetailTabs(order: Order): DetailTab[] {
   const stockFirst = orderStockTabRelevant(order);
   switch (order.status) {
     case 'pending':
-      return ['handle', 'delivery', 'attachments', 'notes', 'stock'];
+      return ['handle', 'contact', 'attachments', 'stock'];
     case 'confirmed':
     case 'processing':
       return stockFirst
-        ? ['handle', 'stock', 'delivery', 'notes', 'attachments']
-        : ['handle', 'delivery', 'notes', 'attachments', 'stock'];
+        ? ['handle', 'stock', 'contact', 'attachments']
+        : ['handle', 'contact', 'attachments', 'stock'];
     case 'shipped':
-      return ['delivery', 'handle', 'attachments', 'notes', 'stock'];
+      return ['contact', 'handle', 'attachments', 'stock'];
     default:
-      return ['summary', 'stock', 'delivery', 'attachments', 'notes'];
+      return ['summary', 'stock', 'contact', 'attachments'];
   }
 }
 
 function isDetailTab(value: string | null | undefined): value is DetailTab {
   return Boolean(value && value in DETAIL_TAB_LABELS);
+}
+
+function toDetailTab(value: string | null | undefined): DetailTab | null {
+  if (isDetailTab(value)) return value;
+  return (value && LEGACY_DETAIL_TABS[value]) || null;
 }
 
 const ITEMS_PAGE_SIZE = 8;
@@ -268,6 +278,8 @@ function OrderItemsPanel({
             companyId={companyId}
             orderId={order.id}
             orderStatus={order.status}
+            stockSource={order.stockSource}
+            stockWarehouseId={order.stockWarehouseId}
             line={line}
             readOnly={readOnly}
           />
@@ -352,9 +364,7 @@ export function OrderDetailPanel({
   const wantedTab =
     pickedTab && pickedTab.orderId === order?.id
       ? pickedTab.tab
-      : isDetailTab(initialTab)
-        ? initialTab
-        : null;
+      : toDetailTab(initialTab);
   const activeTab: DetailTab | undefined =
     wantedTab && tabs.includes(wantedTab) ? wantedTab : tabs[0];
   const pickTab = (tab: DetailTab) => {
@@ -375,7 +385,13 @@ export function OrderDetailPanel({
   ) {
     if (!order || order.status === nextStatus) return;
     if (!canTransitionOrderStatus(order, nextStatus)) return;
-    await updateStatus.mutateAsync({ orderId: order.id, status: nextStatus, note, ...extra });
+    await updateStatus.mutateAsync({
+      orderId: order.id,
+      status: nextStatus,
+      note,
+      ...extra,
+      from: order.status,
+    });
   }
 
   return (
@@ -432,8 +448,8 @@ export function OrderDetailPanel({
                 </div>
               </div>
 
-              {/* Who the order is for; the address and notes are in «التوصيل والتواصل». */}
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border border-border/70 bg-muted/25 px-3 py-2">
+              {/* Who the order is for; the address and notes are in «العنوان والتواصل». */}
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                 <p className="inline-flex items-center gap-1.5 text-sm font-bold text-foreground">
                   <User className="h-3.5 w-3.5 text-muted-foreground" />
                   {order.customerNameAr}
@@ -448,12 +464,12 @@ export function OrderDetailPanel({
                 ) : (
                   <span className="text-xs text-muted-foreground">لا يوجد جوال</span>
                 )}
-                {customerNote && tabs.includes('delivery') ? (
+                {customerNote && tabs.includes('contact') ? (
                   <button
                     type="button"
-                    onClick={() => pickTab('delivery')}
+                    onClick={() => pickTab('contact')}
                     title={`ملاحظة العميل: ${customerNote}`}
-                    aria-label="ملاحظة العميل — في التوصيل والتواصل"
+                    aria-label="ملاحظة العميل — في العنوان والتواصل"
                     className="ms-auto inline-flex h-7 w-7 items-center justify-center rounded-md text-amber-600 transition-colors hover:bg-amber-500/10 dark:text-amber-400"
                   >
                     <StickyNote className="h-4 w-4" />
@@ -547,10 +563,10 @@ export function OrderDetailPanel({
                 <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 rounded-xl bg-muted/60 p-1 max-sm:flex-nowrap max-sm:overflow-x-auto">
                   {tabs.map((value) => {
                     const count =
-                      value === 'notes'
-                        ? order.staffNote?.trim()
-                          ? 1
-                          : 0
+                      value === 'contact'
+                        ? (customerNote ? 1 : 0) +
+                          (order.staffNote?.trim() ? 1 : 0) +
+                          orderTrailNotes(order).length
                         : value === 'attachments'
                           ? (order.attachments?.length ?? 0)
                           : 0;
@@ -581,7 +597,7 @@ export function OrderDetailPanel({
                         order={order}
                         companyId={companyId}
                         stages={stages}
-                        readOnly={order.status === 'pending'}
+                        readOnly={order.status === 'pending' || isViewOnlyOrder(stages, order)}
                       />
                     </section>
                   </TabsContent>
@@ -628,37 +644,15 @@ export function OrderDetailPanel({
                   </TabsContent>
                 ) : null}
 
-                {tabs.includes('delivery') ? (
-                  <TabsContent value="delivery" className="mt-0 space-y-4">
-                    {customerNote || order.shippingNotes?.trim() ? (
-                      <section className="space-y-1.5 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4">
-                        {customerNote ? (
-                          <p className="text-sm text-foreground">
-                            <span className="font-semibold text-amber-800 dark:text-amber-300">
-                              ملاحظة العميل:{' '}
-                            </span>
-                            {customerNote}
-                          </p>
-                        ) : null}
-                        {order.shippingNotes?.trim() ? (
-                          <p className="text-sm text-foreground">
-                            <span className="font-semibold text-amber-800 dark:text-amber-300">
-                              ملاحظة العنوان:{' '}
-                            </span>
-                            {order.shippingNotes.trim()}
-                          </p>
-                        ) : null}
-                      </section>
-                    ) : null}
+                {tabs.includes('contact') ? (
+                  <TabsContent value="contact" className="mt-0 space-y-4">
                     {/* Shipped orders have no «المعالجة» tab: the courier is picked here. */}
                     {!tabs.includes('handle') && order.status === 'shipped' ? (
                       <section className="rounded-2xl border border-border bg-card p-4">
                         <OrderAssignmentPanel order={order} companyId={companyId} stages={stages} />
                       </section>
                     ) : null}
-                    <section className="rounded-2xl border border-border bg-card p-4">
-                      <OrderDeliveryPanel order={order} companyId={companyId} stages={stages} />
-                    </section>
+                    <OrderContactPanel order={order} companyId={companyId} stages={stages} />
                   </TabsContent>
                 ) : null}
 
@@ -666,14 +660,6 @@ export function OrderDetailPanel({
                   <TabsContent value="stock" className="mt-0">
                     <section className="rounded-2xl border border-border bg-card p-4">
                       <OrderStockPanel order={order} companyId={companyId} />
-                    </section>
-                  </TabsContent>
-                ) : null}
-
-                {tabs.includes('notes') ? (
-                  <TabsContent value="notes" className="mt-0">
-                    <section className="rounded-2xl border border-border bg-card p-4">
-                      <OrderStaffNotePanel order={order} companyId={companyId} />
                     </section>
                   </TabsContent>
                 ) : null}

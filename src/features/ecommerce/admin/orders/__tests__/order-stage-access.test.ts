@@ -2,8 +2,11 @@ import type { OrderStagesContext } from '@/features/ecommerce/admin/orders/lib/a
 import {
   canAssignAnyone,
   canTakeOrder,
+  isViewOnlyOrder,
   moveBlockReason,
+  orderMoveNeedsInput,
   stageScopeOf,
+  visibleOrderStatuses,
   workBlockReason,
 } from '@/features/ecommerce/admin/orders/lib/order-stage-access';
 
@@ -14,7 +17,6 @@ function ctx(over: Partial<OrderStagesContext> = {}): OrderStagesContext {
   return {
     enabled: true,
     assigneeOnly: false,
-    requirePaymentBeforeShipping: false,
     userId: ME,
     canReadAll: false,
     canUpdate: false,
@@ -33,7 +35,7 @@ function ctx(over: Partial<OrderStagesContext> = {}): OrderStagesContext {
 describe('order-stage-access (the screens mirror the backend rules)', () => {
   it('a non-member is told to ask the supervisor', () => {
     const c = ctx({ stages: ['pending'], stageScopes: { pending: 'all' } });
-    expect(workBlockReason(c, { status: 'confirmed', assignedUserId: null })).toMatch(/لست من أعضاء/);
+    expect(workBlockReason(c, { status: 'confirmed', assignedUserId: null })).toMatch(/ليست لديك صلاحية على مرحلة/);
     expect(workBlockReason(c, { status: 'pending', assignedUserId: null })).toBeNull();
   });
 
@@ -91,5 +93,46 @@ describe('order-stage-access (the screens mirror the backend rules)', () => {
     const c = ctx({ stages: ['pending'], stageScopes: undefined });
     expect(stageScopeOf(c, 'pending')).toBe('queue');
     expect(stageScopeOf(c, 'shipped')).toBeNull();
+  });
+
+  it('a view-only stage shows its orders but blocks moves, taking and editing', () => {
+    const c = ctx({ stages: ['pending'], stageScopes: { pending: 'queue' }, viewStages: ['processing'] });
+    const order = { status: 'processing' as const, assignedUserId: null };
+    expect(isViewOnlyOrder(c, order)).toBe(true);
+    expect(workBlockReason(c, order)).toMatch(/عرض فقط/);
+    expect(moveBlockReason(c, order, 'shipped')).toMatch(/عرض فقط/);
+    expect(canTakeOrder(c, order)).toBe(false);
+    expect(isViewOnlyOrder(c, { status: 'pending', assignedUserId: null })).toBe(false);
+    // Who edits every order is never view-only.
+    expect(isViewOnlyOrder({ ...c, canUpdate: true }, order)).toBe(false);
+  });
+
+  it('a stage user sees the columns of the stages granted only; who reads all sees all', () => {
+    const all = ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled'] as const;
+    const c = ctx({ stages: ['confirmed', 'pending'], viewStages: ['shipped'] });
+    expect(visibleOrderStatuses(c, all)).toEqual(['pending', 'confirmed', 'shipped']);
+    expect(visibleOrderStatuses({ ...c, canReadAll: true }, all)).toEqual([...all]);
+    expect(visibleOrderStatuses({ ...c, enabled: false }, all)).toEqual([...all]);
+    expect(visibleOrderStatuses(null, all)).toBeNull();
+  });
+});
+
+describe('orderMoveNeedsInput (one tap unless input is needed)', () => {
+  const cod = { paymentMethod: 'cash_on_delivery' as const, paymentStatus: 'pending' as const };
+  it('forward and back moves go in one tap', () => {
+    expect(orderMoveNeedsInput({ status: 'pending', ...cod }, 'confirmed')).toBe(false);
+    expect(orderMoveNeedsInput({ status: 'processing', ...cod }, 'confirmed')).toBe(false);
+    expect(orderMoveNeedsInput({ status: 'processing', ...cod }, 'shipped')).toBe(false);
+  });
+  it('cancel and refund always ask', () => {
+    expect(orderMoveNeedsInput({ status: 'pending', ...cod }, 'cancelled')).toBe(true);
+    expect(orderMoveNeedsInput({ status: 'delivered', ...cod, paymentStatus: 'paid' }, 'refunded')).toBe(true);
+  });
+  it('delivering cash on delivery asks only while not collected', () => {
+    expect(orderMoveNeedsInput({ status: 'shipped', ...cod }, 'delivered')).toBe(true);
+    expect(orderMoveNeedsInput({ status: 'shipped', ...cod, paymentStatus: 'paid' }, 'delivered')).toBe(false);
+    expect(
+      orderMoveNeedsInput({ status: 'shipped', paymentMethod: 'bank', paymentStatus: 'paid' }, 'delivered'),
+    ).toBe(false);
   });
 });

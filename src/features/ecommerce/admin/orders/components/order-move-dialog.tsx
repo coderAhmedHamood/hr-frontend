@@ -27,7 +27,8 @@ import type { OrderStagesContext } from '@/features/ecommerce/admin/orders/lib/a
 import {
   ORDER_STAGE_LABELS_AR,
   isOrderStage,
-  isPaidOnDelivery,
+  moveAsksCollected,
+  orderMoveNeedsInput,
 } from '@/features/ecommerce/admin/orders/lib/order-stage-access';
 
 /** Extra choices of a status move (order stages, delivery). */
@@ -36,6 +37,8 @@ export type OrderStatusChangeExtra = {
   assigneeId?: string | null;
   paymentCollected?: boolean;
 };
+
+export { orderMoveNeedsInput };
 
 type Props = {
   order: Pick<Order, 'status' | 'paymentMethod' | 'paymentStatus'>;
@@ -77,9 +80,7 @@ function MoveForm({
 
   // Whoever may move the order picks the next stage's handler (the backend checks the pick).
   const pickHandler = Boolean(stages?.canChooseHandler && isOrderStage(target));
-  const askCollected = Boolean(
-    target === 'delivered' && isPaidOnDelivery(order.paymentMethod) && order.paymentStatus !== 'paid',
-  );
+  const askCollected = moveAsksCollected(order, target);
   // A paid order: the backend needs the reason and how the money goes back.
   const noteRequired = target === 'cancelled' && order.paymentStatus === 'paid';
   const noteRecommended = isOrderStatusNoteRecommended(order.status, target);
@@ -98,11 +99,13 @@ function MoveForm({
   return (
     <>
       <DialogHeader>
-        <DialogTitle>{`تغيير الحالة إلى «${ORDER_STATUS_LABELS_AR[target]}»`}</DialogTitle>
+        <DialogTitle>{`نقل إلى «${ORDER_STATUS_LABELS_AR[target]}»`}</DialogTitle>
         <DialogDescription>
-          {noteRecommended
-            ? 'يُفضَّل إضافة ملاحظة عند التراجع أو الإلغاء/الاسترداد.'
-            : 'ملاحظة اختيارية تُسجَّل في سجل الطلب.'}
+          {noteRequired
+            ? 'الطلب مدفوع — اكتب سبب الإلغاء.'
+            : noteRecommended
+              ? 'يُفضَّل ذكر السبب.'
+              : 'الملاحظة تُسجَّل في سجل الطلب.'}
         </DialogDescription>
       </DialogHeader>
       {pickHandler && isOrderStage(target) ? (

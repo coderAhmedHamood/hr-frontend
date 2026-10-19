@@ -46,6 +46,7 @@ import { DirectoryPagedViews, DEFAULT_PAGE_SIZE } from '@/components/ui/paged-li
 import { Button } from '@/components/ui/button';
 import { cn, formatDisplayDate } from '@/shared/utils';
 import { useOrderStagesContext } from '@/features/ecommerce/admin/orders/hooks/use-order-stages';
+import { visibleOrderStatuses } from '@/features/ecommerce/admin/orders/lib/order-stage-access';
 
 /** Order stages: whose orders (URL `assignee`). */
 const ASSIGNEE_FILTER_OPTIONS = [
@@ -181,7 +182,13 @@ export function OrdersListPage() {
   const pageSize = Number(searchParams.get('pageSize')) || DEFAULT_PAGE_SIZE;
   const selectedOrderId = searchParams.get('order') ?? '';
 
-  const stagesContext = useOrderStagesContext(companyId).data ?? null;
+  const stagesQuery = useOrderStagesContext(companyId);
+  const stagesContext = stagesQuery.data ?? null;
+  // Stage users see only the stages granted to them (order stages settings).
+  const visibleStatuses = visibleOrderStatuses(stagesContext, Object.keys(ORDER_STATUS_LABELS_AR) as OrderStatus[]);
+  const statusFilterOptions = visibleStatuses
+    ? STATUS_FILTER_OPTIONS.filter((o) => o.value === 'all' || visibleStatuses.includes(o.value))
+    : STATUS_FILTER_OPTIONS;
   const geoCitiesQuery = useGeoCities(
     {
       companyId,
@@ -401,7 +408,7 @@ export function OrdersListPage() {
                   value: status ?? 'all',
                   onChange: (value: string) => updateParams({ status: value, page: 1 }),
                   placeholder: 'كل الحالات',
-                  options: STATUS_FILTER_OPTIONS,
+                  options: statusFilterOptions,
                 },
               ]
             : []),
@@ -702,6 +709,7 @@ export function OrdersListPage() {
           companyId={companyId}
           filters={filters}
           stages={stagesContext}
+          stagesPending={stagesQuery.isPending}
           onOpen={(order) => updateParams({ order: order.id })}
           updatingOrderId={
             updateStatus.isPending
@@ -713,7 +721,7 @@ export function OrdersListPage() {
           onStatusChange={(order, nextStatus, note, extra) => {
             if (order.status === nextStatus) return;
             void updateStatus
-              .mutateAsync({ orderId: order.id, status: nextStatus, note, ...extra })
+              .mutateAsync({ orderId: order.id, status: nextStatus, note, ...extra, from: order.status })
               .catch(() => undefined);
           }}
           onMarkPaid={(order) => {

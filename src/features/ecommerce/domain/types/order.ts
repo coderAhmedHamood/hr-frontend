@@ -133,6 +133,8 @@ export type Order = TenantScoped & {
    */
   stockSource?: OrderStockSource | null;
   stockSourceNote?: string | null;
+  /** Inventory orders: the store warehouse the order is reserved in (prepared from it only). */
+  stockWarehouseId?: string | null;
   /**
    * Inventory orders (admin only): reserved once paid (cash on delivery:
    * once confirmed). `short`: paid but the stock is short — the order does

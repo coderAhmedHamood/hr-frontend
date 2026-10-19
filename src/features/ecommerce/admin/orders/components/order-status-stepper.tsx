@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { createPortal } from 'react-dom';
-import { Banknote, Check, ChevronLeft, CreditCard } from 'lucide-react';
+import { Banknote, Check, ChevronLeft, CreditCard, MoreHorizontal, NotebookPen } from 'lucide-react';
 import type { Order, OrderStatus } from '@/features/ecommerce/domain/types/order';
 import {
   ORDER_STATUS_COLORS,
@@ -22,13 +22,20 @@ import {
 } from '@/features/ecommerce/domain/constants/order-status';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { cn } from '@/shared/utils';
 import {
   OrderMoveDialog,
+  orderMoveNeedsInput,
   type OrderStatusChangeExtra,
 } from '@/features/ecommerce/admin/orders/components/order-move-dialog';
 import type { OrderStagesContext } from '@/features/ecommerce/admin/orders/lib/api/order-stages';
-import { moveBlockReason } from '@/features/ecommerce/admin/orders/lib/order-stage-access';
+import { isViewOnlyOrder, moveBlockReason } from '@/features/ecommerce/admin/orders/lib/order-stage-access';
 
 export type { OrderStatusChangeExtra };
 
@@ -64,8 +71,10 @@ type Props = {
 
 /**
  * Horizontal sequential status bar — fulfilment + payment. Tapping a step
- * moves the order to it (through the move dialog); a step that may not be
- * reached says why. Transitions follow backend `ORDER_STATUS_TRANSITIONS`.
+ * moves the order to it in one tap (a dialog only when input is needed:
+ * cancel, refund, cash collected on delivery); «⋯» moves with a note or a
+ * chosen handler. A step that may not be reached says why. Transitions
+ * follow backend `ORDER_STATUS_TRANSITIONS`.
  */
 export function OrderStatusStepper({
   order,
@@ -88,11 +97,16 @@ export function OrderStatusStepper({
   const [pending, setPending] = React.useState<OrderStatus | null>(null);
   const blockReason = (status: OrderStatus) => moveBlockReason(stages, order, status);
 
-  function requestTransition(status: OrderStatus) {
+  function requestTransition(status: OrderStatus, withDialog = false) {
     if (status === order.status) return;
     if (!canTransitionOrderStatus(order, status)) return;
     if (blockReason(status)) return;
-    setPending(status);
+    if (withDialog || orderMoveNeedsInput(order, status)) {
+      setPending(status);
+      return;
+    }
+    // One tap: the stage settings pick the handler.
+    onOrderStatusChange(status, null, {});
   }
 
   const [paymentOpen, setPaymentOpen] = React.useState(false);
@@ -134,11 +148,21 @@ export function OrderStatusStepper({
   const terminalTargets = ORDER_TERMINAL_STATUSES.filter((terminal) =>
     allowed.includes(terminal),
   );
+  // «⋯»: the next step with a note or a chosen handler.
+  const detailedNext =
+    next?.kind === 'order' &&
+    inPipeline &&
+    !isViewOnlyOrder(stages, order) &&
+    canTransitionOrderStatus(order, next.status) &&
+    !blockReason(next.status)
+      ? next.status
+      : null;
+  const cornerActions = terminalTargets.length > 0 || Boolean(detailedNext);
 
   // Phones: the next step as one chip at the bottom of the dialog.
   const nextReason = next?.kind === 'order' ? stepBlockReason(next.status) : null;
   const mobileNext =
-    next && inPipeline && mobileActionSlot
+    next && inPipeline && mobileActionSlot && !isViewOnlyOrder(stages, order)
       ? createPortal(
           <div className="flex items-center gap-2">
             <button
@@ -174,7 +198,7 @@ export function OrderStatusStepper({
   return (
     <div
       ref={rootRef}
-      className={cn('space-y-3 rounded-xl border border-border/80 bg-card', compact ? 'p-3' : 'p-4')}
+      className={cn('relative space-y-2 rounded-xl border border-border/80 bg-card', compact ? 'p-2.5' : 'p-3', cornerActions && 'pt-8')}
     >
       {mobileNext}
       {!inPipeline ? (
@@ -341,15 +365,16 @@ export function OrderStatusStepper({
         </p>
       ) : null}
 
-      {terminalTargets.length > 0 ? (
-        <div className="flex flex-wrap justify-end gap-1.5">
+      {cornerActions ? (
+        // Top corner of the box, not a row of its own.
+        <div className="absolute end-2 top-1.5 flex items-center gap-1">
           {terminalTargets.map((terminal) => (
             <Button
               key={terminal}
               type="button"
               size="sm"
               variant="ghost"
-              className="h-8 px-2.5 text-xs text-muted-foreground hover:text-destructive"
+              className="h-6 px-2 text-[11px] text-muted-foreground hover:text-destructive"
               disabled={disabled || Boolean(blockReason(terminal))}
               title={blockReason(terminal) ?? undefined}
               onClick={() => requestTransition(terminal)}
@@ -357,6 +382,28 @@ export function OrderStatusStepper({
               {terminal === 'cancelled' ? 'إلغاء الطلب' : 'استرداد الطلب'}
             </Button>
           ))}
+          {detailedNext ? (
+            <DropdownMenu modal={false}>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  className="h-6 w-6 text-muted-foreground"
+                  disabled={disabled}
+                  aria-label="خيارات النقل"
+                >
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onSelect={() => requestTransition(detailedNext, true)}>
+                  <NotebookPen className="h-4 w-4" />
+                  {`نقل إلى «${ORDER_STATUS_LABELS_AR[detailedNext]}» مع ملاحظة أو اختيار المسؤول…`}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : null}
         </div>
       ) : null}
 

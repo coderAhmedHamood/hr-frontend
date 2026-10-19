@@ -283,6 +283,12 @@ export const systemOwnerNavConfig: NavItem[] = [
     href: systemOwnerRoutes.requests,
     icon: Inbox,
   },
+  {
+    key: 'system-owner-applications',
+    label: 'تطبيقات المنصة',
+    href: systemOwnerRoutes.applications,
+    icon: LayoutGrid,
+  },
 ];
 
 export const systemNavConfig: NavItem[] = [

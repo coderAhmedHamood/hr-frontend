@@ -23,14 +23,17 @@ export type OrderStatusColor = {
   soft: string;
   /** Text in the status colour (step label). */
   text: string;
+  /** Kanban column well: a quiet field of the same hue. */
+  well: string;
+  /** Kanban card: wash, border, and the leading edge. */
+  card: string;
 };
 
 /**
- * One colour per status, the same in the stepper, the kanban and the list:
- * new = amber (needs attention), confirmed = blue (accepted, queued),
- * processing = violet (work in progress), shipped = sky (on the way),
- * delivered = green (done), cancelled = slate (stopped), refunded = rose
- * (money returned).
+ * One colour per status, the same in the stepper, the kanban and the list.
+ * Neighbouring stages sit far apart on the wheel so a pale wash still reads:
+ * new = amber, confirmed = blue, processing = fuchsia, shipped = orange,
+ * delivered = green, cancelled = slate, refunded = rose.
  */
 export const ORDER_STATUS_COLORS: Record<OrderStatus, OrderStatusColor> = {
   pending: {
@@ -38,35 +41,45 @@ export const ORDER_STATUS_COLORS: Record<OrderStatus, OrderStatusColor> = {
     strip: 'bg-amber-500',
     solid: 'border-amber-500 bg-amber-500 text-amber-950',
     soft: 'border-amber-500 bg-amber-500/15 text-amber-700 ring-2 ring-amber-500/25 dark:text-amber-300',
-    text: 'text-amber-700 dark:text-amber-300',
+    text: 'text-amber-800 dark:text-amber-300',
+    well: 'border-border bg-muted/25',
+    card: 'border-border bg-card border-s-amber-500 dark:border-s-amber-400',
   },
   confirmed: {
     badge: 'border-blue-500/35 bg-blue-500/10 text-blue-800 dark:text-blue-300',
-    strip: 'bg-blue-500',
+    strip: 'bg-blue-600',
     solid: 'border-blue-600 bg-blue-600 text-white',
     soft: 'border-blue-500 bg-blue-500/15 text-blue-700 ring-2 ring-blue-500/25 dark:text-blue-300',
-    text: 'text-blue-700 dark:text-blue-300',
+    text: 'text-blue-800 dark:text-blue-300',
+    well: 'border-border bg-muted/25',
+    card: 'border-border bg-card border-s-blue-600 dark:border-s-blue-400',
   },
   processing: {
-    badge: 'border-violet-500/35 bg-violet-500/10 text-violet-800 dark:text-violet-300',
-    strip: 'bg-violet-500',
-    solid: 'border-violet-600 bg-violet-600 text-white',
-    soft: 'border-violet-500 bg-violet-500/15 text-violet-700 ring-2 ring-violet-500/25 dark:text-violet-300',
-    text: 'text-violet-700 dark:text-violet-300',
+    badge: 'border-fuchsia-500/35 bg-fuchsia-500/10 text-fuchsia-800 dark:text-fuchsia-300',
+    strip: 'bg-fuchsia-600',
+    solid: 'border-fuchsia-600 bg-fuchsia-600 text-white',
+    soft: 'border-fuchsia-500 bg-fuchsia-500/15 text-fuchsia-800 ring-2 ring-fuchsia-500/25 dark:text-fuchsia-300',
+    text: 'text-fuchsia-800 dark:text-fuchsia-300',
+    well: 'border-border bg-muted/25',
+    card: 'border-border bg-card border-s-fuchsia-600 dark:border-s-fuchsia-400',
   },
   shipped: {
-    badge: 'border-sky-500/35 bg-sky-500/10 text-sky-800 dark:text-sky-300',
-    strip: 'bg-sky-500',
-    solid: 'border-sky-500 bg-sky-500 text-sky-950',
-    soft: 'border-sky-500 bg-sky-500/15 text-sky-700 ring-2 ring-sky-500/25 dark:text-sky-300',
-    text: 'text-sky-700 dark:text-sky-300',
+    badge: 'border-orange-500/35 bg-orange-500/10 text-orange-800 dark:text-orange-300',
+    strip: 'bg-orange-500',
+    solid: 'border-orange-500 bg-orange-500 text-orange-950',
+    soft: 'border-orange-500 bg-orange-500/15 text-orange-800 ring-2 ring-orange-500/25 dark:text-orange-300',
+    text: 'text-orange-800 dark:text-orange-300',
+    well: 'border-border bg-muted/25',
+    card: 'border-border bg-card border-s-orange-500 dark:border-s-orange-400',
   },
   delivered: {
-    badge: 'border-green-500/35 bg-green-500/10 text-green-800 dark:text-green-300',
-    strip: 'bg-green-500',
+    badge: 'border-green-600/35 bg-green-600/10 text-green-800 dark:text-green-300',
+    strip: 'bg-green-600',
     solid: 'border-green-600 bg-green-600 text-white',
-    soft: 'border-green-500 bg-green-500/15 text-green-700 ring-2 ring-green-500/25 dark:text-green-300',
-    text: 'text-green-700 dark:text-green-300',
+    soft: 'border-green-600 bg-green-600/15 text-green-800 ring-2 ring-green-600/25 dark:text-green-300',
+    text: 'text-green-800 dark:text-green-300',
+    well: 'border-border bg-muted/25',
+    card: 'border-border bg-card border-s-green-600 dark:border-s-green-500',
   },
   cancelled: {
     badge: 'border-slate-500/35 bg-slate-500/10 text-slate-700 dark:text-slate-300',
@@ -74,13 +87,17 @@ export const ORDER_STATUS_COLORS: Record<OrderStatus, OrderStatusColor> = {
     solid: 'border-slate-500 bg-slate-500 text-white',
     soft: 'border-slate-500 bg-slate-500/15 text-slate-700 ring-2 ring-slate-500/25 dark:text-slate-300',
     text: 'text-slate-600 dark:text-slate-300',
+    well: 'border-border bg-muted/25',
+    card: 'border-border bg-card border-s-slate-400 dark:border-s-slate-500',
   },
   refunded: {
     badge: 'border-rose-500/35 bg-rose-500/10 text-rose-800 dark:text-rose-300',
-    strip: 'bg-rose-500',
+    strip: 'bg-rose-400',
     solid: 'border-rose-600 bg-rose-600 text-white',
     soft: 'border-rose-500 bg-rose-500/15 text-rose-700 ring-2 ring-rose-500/25 dark:text-rose-300',
     text: 'text-rose-700 dark:text-rose-300',
+    well: 'border-border bg-muted/25',
+    card: 'border-border bg-card border-s-rose-500 dark:border-s-rose-400',
   },
 };
 

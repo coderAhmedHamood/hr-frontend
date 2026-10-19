@@ -98,6 +98,7 @@ type StoreOrderDto = {
   staffNoteVisibleToCustomer?: boolean | null;
   stockSource?: OrderStockSource | null;
   stockSourceNote?: string | null;
+  stockWarehouseId?: string | null;
   stockReservation?: OrderStockReservation | null;
   returnReceipt?: OrderReturnReceipt | null;
   shipLat?: number | null;
@@ -243,6 +244,7 @@ function mapAdminOrder(dto: StoreOrderDto): Order {
     staffNoteVisibleToCustomer: dto.staffNoteVisibleToCustomer ?? false,
     stockSource: dto.stockSource ?? null,
     stockSourceNote: dto.stockSourceNote ?? null,
+    stockWarehouseId: dto.stockWarehouseId ?? null,
     stockReservation: dto.stockReservation ?? null,
     returnReceipt: dto.returnReceipt ?? null,
     paymentMethod: dto.paymentMethod,
@@ -509,6 +511,40 @@ export async function fetchPublicStoreOrder(input: {
       nullOn404: true,
     },
   ).then((dto) => (dto ? mapStorefrontOrder(dto) : null));
+}
+
+/** The customer corrects the delivery address. Only before the order ships. */
+export async function updatePublicStoreOrderAddress(input: {
+  companyId: string;
+  orderNumber: string;
+  phone?: string | null;
+  partnerToken?: string | null;
+  shipFullName: string;
+  shipPhone: string;
+  shipDistrict: string;
+  shipStreet: string;
+  shipNotes: string | null;
+}): Promise<StorefrontCustomerOrder> {
+  const dto = await publicStoreRequest<StoreOrderDto>(
+    `/public/store/orders/${encodeURIComponent(input.orderNumber)}/address`,
+    {
+      method: 'PATCH',
+      query: {
+        companyId: resolveStorefrontCompanyId(input.companyId),
+        phone: input.phone?.trim() || undefined,
+      },
+      token: input.partnerToken,
+      body: {
+        shipFullName: input.shipFullName,
+        shipPhone: input.shipPhone,
+        shipDistrict: input.shipDistrict,
+        shipStreet: input.shipStreet,
+        shipNotes: input.shipNotes,
+      },
+    },
+  );
+  if (!dto) throw new Error('ORDER_NOT_FOUND');
+  return mapStorefrontOrder(dto);
 }
 
 /** GET /public/store/orders — partner Bearer required (typ=partner). */

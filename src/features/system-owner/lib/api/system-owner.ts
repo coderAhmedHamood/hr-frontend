@@ -80,6 +80,11 @@ export type SystemOwnerCompanyApplication = {
   isEnabled: boolean;
   isVisible: boolean;
   isAlwaysEnabled: boolean;
+  /**
+   * Platform status. False: stopped for every company by the platform owner —
+   * `isEnabled` is kept (the company's choice) but has no effect meanwhile.
+   */
+  platformActive: boolean;
   notes?: string | null;
   /** App codes this app needs (manifest). */
   dependsOn: string[];
@@ -201,6 +206,8 @@ export type CompanyAppCatalogItem = {
   sortOrder: number;
   isEnabled: boolean;
   isAlwaysEnabled: boolean;
+  /** Platform status. False: stopped for every company — enabling has no effect meanwhile. */
+  platformActive: boolean;
   isVisible: boolean;
   includeInMarketplace: boolean;
   canSetVisibility: boolean;
@@ -312,6 +319,7 @@ function mapCompanyApplication(raw: Record<string, unknown>): SystemOwnerCompany
     isEnabled: readIsEnabled(raw),
     isVisible: readIsVisible(raw),
     isAlwaysEnabled: readIsAlwaysEnabled(raw),
+    platformActive: raw.platformActive !== false,
     notes: (raw.notes as string | null | undefined) ?? null,
     dependsOn: readCodes(raw.dependsOn),
     missingDependencies: readCodes(raw.missingDependencies),
@@ -376,6 +384,7 @@ function mapCatalogItem(raw: Record<string, unknown>): CompanyAppCatalogItem {
     sortOrder: typeof raw.sortOrder === 'number' ? raw.sortOrder : 0,
     isEnabled: raw.isEnabled === true || activationState === 'enabled' || activationState === 'always_on',
     isAlwaysEnabled: raw.isAlwaysEnabled === true || activationState === 'always_on',
+    platformActive: raw.platformActive !== false,
     isVisible: readIsVisible(raw),
     includeInMarketplace: raw.includeInMarketplace !== false,
     canSetVisibility: raw.canSetVisibility === true,
@@ -448,7 +457,54 @@ function mapActivationRequest(raw: Record<string, unknown>): AppActivationReques
   };
 }
 
+/** A platform application with its platform status (system owner console). */
+export type PlatformApplication = {
+  id: string;
+  code: string;
+  nameAr: string;
+  nameEn?: string | null;
+  description?: string | null;
+  icon?: string | null;
+  sortOrder: number;
+  isActive: boolean;
+  /** The platform itself (system, company apps, owner console): never stopped. */
+  isCore: boolean;
+  isPlatformOnly: boolean;
+  /** Companies that have it enabled — all of them lose it while it is stopped. */
+  enabledCompanyCount: number;
+};
+
+function mapPlatformApplication(raw: Record<string, unknown>): PlatformApplication {
+  return {
+    id: String(raw.id ?? ''),
+    code: String(raw.code ?? ''),
+    nameAr: String(raw.nameAr ?? raw.code ?? ''),
+    nameEn: (raw.nameEn as string | null | undefined) ?? null,
+    description: (raw.description as string | null | undefined) ?? null,
+    icon: (raw.icon as string | null | undefined) ?? null,
+    sortOrder: typeof raw.sortOrder === 'number' ? raw.sortOrder : 0,
+    isActive: raw.isActive === true || raw.status === 'active',
+    isCore: raw.isCore === true,
+    isPlatformOnly: raw.isPlatformOnly === true,
+    enabledCompanyCount: Number(raw.enabledCompanyCount ?? 0) || 0,
+  };
+}
+
 export const systemOwnerApi = {
+  listPlatformApplications() {
+    return apiRequest<unknown>('/system-owner/applications').then((res) =>
+      asItems<Record<string, unknown>>(res).map(mapPlatformApplication),
+    );
+  },
+
+  /** Starts or stops the app for the whole platform (every company). */
+  setPlatformApplicationActive(applicationId: string, isActive: boolean) {
+    return apiRequest<unknown>(`/applications/${applicationId}`, {
+      method: 'PATCH',
+      body: { isActive },
+    });
+  },
+
   listCompanies(query?: { page?: number; limit?: number; search?: string }) {
     return apiRequest<PaginatedResult<SystemOwnerCompany> | SystemOwnerCompany[]>(
       '/system-owner/companies',

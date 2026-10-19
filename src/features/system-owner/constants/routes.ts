@@ -8,6 +8,8 @@ export const systemOwnerRoutes = {
   companies: `${SYSTEM_OWNER_BASE}/companies`,
   companyDetail: (companyId: string) => `${SYSTEM_OWNER_BASE}/companies/${companyId}`,
   requests: `${SYSTEM_OWNER_BASE}/requests`,
+  /** Platform status of every application (started / stopped for all companies). */
+  applications: `${SYSTEM_OWNER_BASE}/applications`,
 } as const;
 
 export function isSystemOwnerAppPath(pathname: string): boolean {

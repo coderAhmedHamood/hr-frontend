@@ -6,6 +6,7 @@ import { useAccessProfile } from '@/features/auth/hooks/use-access-profile';
 import { useAuthSession } from '@/features/auth/hooks/use-auth-session';
 import { hasAccessTokenCookie } from '@/features/auth/lib/auth-cookie';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
+import { startSessionKeepAlive } from '@/features/auth/lib/session-refresh';
 import { currentLoginHref } from '@/shared/navigation/login-redirect';
 
 function AuthShellFrame({ children }: { children: ReactNode }) {
@@ -34,6 +35,11 @@ export function AuthenticatedShell({ children }: { children: ReactNode }) {
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
+    return startSessionKeepAlive();
+  }, [mounted]);
 
   useEffect(() => {
     if (!mounted || user || hasAccessTokenCookie() || sessionLoading) return;

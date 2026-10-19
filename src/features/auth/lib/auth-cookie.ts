@@ -64,3 +64,44 @@ export function clearAccessTokenCookie(): void {
 export function hasAccessTokenCookie(): boolean {
   return !!getAccessTokenFromCookie();
 }
+
+export type AccessTokenTimes = {
+  /** Milliseconds since epoch, from the JWT `exp` claim. */
+  expMs: number;
+  /** Milliseconds since epoch, from the JWT `iat` claim. Falls back to `expMs`. */
+  iatMs: number;
+};
+
+/** Reads `exp` / `iat` from the cookie JWT. Does not verify the signature. */
+export function readAccessTokenTimes(): AccessTokenTimes | null {
+  const token = getAccessTokenFromCookie();
+  if (!token) return null;
+  const part = token.split('.')[1];
+  if (!part) return null;
+  try {
+    const base64 = part.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=');
+    const json = JSON.parse(atob(padded)) as { exp?: unknown; iat?: unknown };
+    if (typeof json.exp !== 'number' || !Number.isFinite(json.exp)) return null;
+    const expMs = json.exp * 1000;
+    const iatMs =
+      typeof json.iat === 'number' && Number.isFinite(json.iat) ? json.iat * 1000 : expMs;
+    return { expMs, iatMs };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * True when the current token should be renewed before it expires.
+ * The lead is 10 minutes, but never more than half the token's own lifetime,
+ * so a short-lived token is not refreshed in a loop.
+ */
+export function accessTokenRefreshDue(now = Date.now()): boolean {
+  const times = readAccessTokenTimes();
+  if (!times) return false;
+  const lifetime = Math.max(0, times.expMs - times.iatMs);
+  const half = Math.floor(lifetime / 2);
+  const lead = Math.min(10 * 60 * 1000, Math.max(60_000, half));
+  return times.expMs - now <= lead;
+}
