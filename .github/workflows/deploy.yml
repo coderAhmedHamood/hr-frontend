@@ -69,32 +69,56 @@ jobs:
           echo "image=${REGISTRY}/${owner}/${IMAGE_BASENAME}" >> "$GITHUB_OUTPUT"
           echo "sha_short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
 
+      # public.ecr.aws answers 429 when many GitHub runners pull the same
+      # Node base image. Retry only that refusal; a real build error stops.
       - name: Build and push image
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          push: true
-          # v6+ enables provenance by default, which breaks cache-to type=gha.
-          provenance: false
-          build-args: |
-            NEXT_PUBLIC_API_URL=${{ env.NEXT_PUBLIC_API_URL }}
-            BACKEND_URL=${{ env.BACKEND_URL }}
-            NEXT_PUBLIC_SITE_URL=${{ env.NEXT_PUBLIC_SITE_URL }}
-            NEXT_PUBLIC_ENV=${{ env.NEXT_PUBLIC_ENV }}
-            NEXT_PUBLIC_STOREFRONT_COMPANY_ID=${{ env.NEXT_PUBLIC_STOREFRONT_COMPANY_ID }}
-            NEXT_PUBLIC_APP_NAME=${{ vars.NEXT_PUBLIC_APP_NAME }}
-            NEXT_PUBLIC_HERE_API_KEY=${{ secrets.NEXT_PUBLIC_HERE_API_KEY }}
-            NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY }}
-            NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID=${{ vars.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID || secrets.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID }}
-          tags: |
-            ${{ steps.vars.outputs.image }}:latest
-            ${{ steps.vars.outputs.image }}:${{ steps.vars.outputs.sha_short }}
-          # يربط الحزمة بالمستودع صراحةً — لازم لأن اسمها لا يطابق اسم الريبو،
-          # وبدونه لا يملك GITHUB_TOKEN صلاحية سحبها عند النشر.
-          labels: |
-            org.opencontainers.image.source=https://github.com/${{ github.repository }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+        env:
+          IMAGE: ${{ steps.vars.outputs.image }}
+          SHA: ${{ steps.vars.outputs.sha_short }}
+          NEXT_PUBLIC_APP_NAME: ${{ vars.NEXT_PUBLIC_APP_NAME }}
+          NEXT_PUBLIC_HERE_API_KEY: ${{ secrets.NEXT_PUBLIC_HERE_API_KEY }}
+          NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY }}
+          NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID: ${{ vars.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID || secrets.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID }}
+        run: |
+          set -uo pipefail
+          log=$(mktemp)
+          build() {
+            docker buildx build \
+              --push \
+              --provenance=false \
+              --cache-from type=gha \
+              --cache-to type=gha,mode=max \
+              --label "org.opencontainers.image.source=https://github.com/${{ github.repository }}" \
+              --build-arg NEXT_PUBLIC_API_URL \
+              --build-arg BACKEND_URL \
+              --build-arg NEXT_PUBLIC_SITE_URL \
+              --build-arg NEXT_PUBLIC_ENV \
+              --build-arg NEXT_PUBLIC_STOREFRONT_COMPANY_ID \
+              --build-arg NEXT_PUBLIC_APP_NAME \
+              --build-arg NEXT_PUBLIC_HERE_API_KEY \
+              --build-arg NEXT_PUBLIC_GOOGLE_MAPS_API_KEY \
+              --build-arg NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID \
+              -t "${IMAGE}:latest" \
+              -t "${IMAGE}:${SHA}" \
+              . 2>&1 | tee "$log"
+          }
+          attempt=1
+          while true; do
+            set +e
+            build
+            code=${PIPESTATUS[0]}
+            set -e
+            if [ "$code" -eq 0 ]; then
+              exit 0
+            fi
+            if ! grep -q '429 Too Many Requests' "$log" || [ "$attempt" -ge 4 ]; then
+              exit "$code"
+            fi
+            wait=$((attempt * 40))
+            echo "Base image registry returned 429. Waiting ${wait}s before attempt $((attempt + 1))..."
+            sleep "$wait"
+            attempt=$((attempt + 1))
+          done
 
   deploy:
     name: Deploy on VPS via SSH
