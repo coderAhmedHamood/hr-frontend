@@ -189,7 +189,11 @@ const resolveCategoryGrid: SectionDataResolver<'category-grid'> = async (ctx, se
   return { ...section, data: { categories } };
 };
 
-const resolveProductCarousel: SectionDataResolver<'product-carousel'> = async (ctx, section, seen?: Set<string>) => {
+async function loadProductCarousel(
+  ctx: SectionResolverContext,
+  section: Extract<NormalizedSection, { type: 'product-carousel' }>,
+  seen?: Set<string>,
+) {
   const products = await resolveProducts(ctx, section.dataSource, seen);
   const viewAllHref = await resolveSectionViewAllHref(
     ctx.companyId,
@@ -198,9 +202,13 @@ const resolveProductCarousel: SectionDataResolver<'product-carousel'> = async (c
     section.content.viewAllHref,
   );
   return { ...section, data: { products, viewAllHref } };
-};
+}
 
-const resolveFlashSale: SectionDataResolver<'flash-sale'> = async (ctx, section, seen?: Set<string>) => {
+async function loadFlashSale(
+  ctx: SectionResolverContext,
+  section: Extract<NormalizedSection, { type: 'flash-sale' }>,
+  seen?: Set<string>,
+) {
   const products = await resolveProducts(ctx, section.dataSource, seen);
   const viewAllHref = await resolveSectionViewAllHref(
     ctx.companyId,
@@ -209,7 +217,13 @@ const resolveFlashSale: SectionDataResolver<'flash-sale'> = async (ctx, section,
     section.content.viewAllHref,
   );
   return { ...section, data: { products, viewAllHref } };
-};
+}
+
+const resolveProductCarousel: SectionDataResolver<'product-carousel'> = (ctx, section) =>
+  loadProductCarousel(ctx, section);
+
+const resolveFlashSale: SectionDataResolver<'flash-sale'> = (ctx, section) =>
+  loadFlashSale(ctx, section);
 
 const resolveFeaturesGrid: SectionDataResolver<'features-grid'> = async (ctx, section) => ({
   ...section,
@@ -277,7 +291,7 @@ export async function resolvePageSections(
     const section = page.sections[index]!;
     if (section.type === 'product-carousel') {
       try {
-        resolved[index] = await resolveProductCarousel(ctx, section, seen);
+        resolved[index] = await loadProductCarousel(ctx, section, seen);
       } catch (error) {
         rememberFailure(section.id, error);
         resolved[index] = null;
@@ -286,7 +300,7 @@ export async function resolvePageSections(
     }
     if (section.type === 'flash-sale') {
       try {
-        resolved[index] = await resolveFlashSale(ctx, section, seen);
+        resolved[index] = await loadFlashSale(ctx, section, seen);
       } catch (error) {
         rememberFailure(section.id, error);
         resolved[index] = null;
