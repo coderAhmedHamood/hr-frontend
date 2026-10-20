@@ -179,6 +179,10 @@ export type Product = TenantScoped &
     wholesaleUntil?: string | null;
     isDiscounted?: boolean;
     discountPercent?: number | null;
+    /** An amount off the selling price (instead of a percent). */
+    discountAmount?: number | null;
+    /** A percent or amount offer also shown in «تخفيضات اليوم». */
+    inTodayDeals?: boolean;
     discountUntil?: string | null;
     /** Computed by backend for display/filter “active now”. */
     isNewProductActive?: boolean;

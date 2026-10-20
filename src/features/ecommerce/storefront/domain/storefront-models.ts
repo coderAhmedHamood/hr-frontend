@@ -119,6 +119,17 @@ export type StorefrontNavItem = {
   href: `/store${string}` | '/store';
 };
 
+export const REGULAR_PRODUCTS_HREF = '/store/products?regular=1' as const;
+
+/** Ordinary products stay reachable even when the CMS nav only lists specials. */
+export function withRegularProductsTab<T extends StorefrontNavItem>(
+  links: T[],
+  label: string,
+): T[] {
+  if (links.some((item) => item.href.includes('regular=1'))) return links;
+  return [{ label, href: REGULAR_PRODUCTS_HREF } as T, ...links];
+}
+
 export type StorefrontCompanyConfig = {
   id: string;
   name: string;

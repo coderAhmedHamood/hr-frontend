@@ -95,6 +95,9 @@ type ProductDto = {
   wholesaleUntil?: string | null;
   isDiscounted?: boolean;
   discountPercent?: string | number | null;
+  /** An amount off the selling price (instead of a percent). */
+  discountAmount?: string | number | null;
+  inTodayDeals?: boolean;
   discountUntil?: string | null;
   isNewProductActive?: boolean;
   isTodayDealActive?: boolean;
@@ -374,6 +377,8 @@ function mapFullProduct(dto: ProductFullDto): Product {
     wholesaleUntil: dto.wholesaleUntil ?? null,
     isDiscounted: Boolean(dto.isDiscounted),
     discountPercent: toOptionalNumber(dto.discountPercent) ?? null,
+    discountAmount: toOptionalNumber(dto.discountAmount) ?? null,
+    inTodayDeals: Boolean(dto.inTodayDeals),
     discountUntil: dto.discountUntil ?? null,
     isNewProductActive: Boolean(dto.isNewProductActive),
     isTodayDealActive: Boolean(dto.isTodayDealActive),
@@ -468,9 +473,13 @@ function toHeaderBody(input: CreateProductInput | UpdateProductInput, mode: 'cre
   if (input.isDiscounted !== undefined) {
     body.isDiscounted = input.isDiscounted;
     body.discountPercent = input.isDiscounted ? (input.discountPercent ?? null) : null;
+    body.discountAmount = input.isDiscounted ? (input.discountAmount ?? null) : null;
+    body.inTodayDeals = input.isDiscounted ? input.inTodayDeals === true : false;
     body.discountUntil = input.isDiscounted ? (input.discountUntil ?? null) : null;
   } else {
     if (input.discountPercent !== undefined) body.discountPercent = input.discountPercent ?? null;
+    if (input.discountAmount !== undefined) body.discountAmount = input.discountAmount ?? null;
+    if (input.inTodayDeals !== undefined) body.inTodayDeals = input.inTodayDeals;
     if (input.discountUntil !== undefined) body.discountUntil = input.discountUntil ?? null;
   }
   if (input.tags !== undefined) body.tags = input.tags ?? null;

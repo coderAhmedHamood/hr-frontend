@@ -28,6 +28,7 @@ function productsHeading(
   t: ReturnType<typeof useTranslations<'storefront'>>,
   flags: ParsedStoreProductFlags,
 ): string {
+  if (flags.isRegular) return t('home.regularProducts');
   if (flags.isNewProduct) return t('home.latestProducts');
   if (flags.isTodayDeal) return t('home.dealsToday');
   if (flags.isWholesale) return t('wholesale.title');

@@ -20,6 +20,14 @@ function resolveQuerySortParam(dataSource: QueryDataSource): string | null {
 }
 
 function resolveQueryFlagsPath(dataSource: QueryDataSource): StorePath | null {
+  if (
+    dataSource.isNewProduct === false &&
+    dataSource.isTodayDeal === false &&
+    dataSource.isWholesale === false &&
+    dataSource.isDiscounted === false
+  ) {
+    return productsQueryPath('regular=1');
+  }
   if (dataSource.isTodayDeal === true) return '/store/offers';
   if (dataSource.isWholesale === true) return '/store/wholesale';
   if (dataSource.isDiscounted === true) return productsQueryPath('isDiscounted=1');

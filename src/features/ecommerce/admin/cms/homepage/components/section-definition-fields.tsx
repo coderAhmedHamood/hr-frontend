@@ -135,6 +135,41 @@ function DataSourceEditor({
     return locale === 'en' ? entry.en : entry.ar;
   }
 
+  const query = value?.kind === 'query' ? value : null;
+  const regularProductsOnly = Boolean(
+    query &&
+      query.isNewProduct === false &&
+      query.isTodayDeal === false &&
+      query.isWholesale === false &&
+      query.isDiscounted === false,
+  );
+
+  function setRegularProductsOnly(checked: boolean) {
+    if (!query) return;
+    onChange({
+      ...query,
+      isNewProduct: checked ? false : null,
+      isTodayDeal: checked ? false : null,
+      isWholesale: checked ? false : null,
+      isDiscounted: checked ? false : null,
+    });
+  }
+
+  function setPromoFlag(
+    key: 'isNewProduct' | 'isTodayDeal' | 'isWholesale' | 'isDiscounted',
+    checked: boolean,
+  ) {
+    if (!query) return;
+    onChange({
+      ...query,
+      isNewProduct: query.isNewProduct === false ? null : (query.isNewProduct ?? null),
+      isTodayDeal: query.isTodayDeal === false ? null : (query.isTodayDeal ?? null),
+      isWholesale: query.isWholesale === false ? null : (query.isWholesale ?? null),
+      isDiscounted: query.isDiscounted === false ? null : (query.isDiscounted ?? null),
+      [key]: checked ? true : null,
+    });
+  }
+
   return (
     <div className="space-y-3 rounded-xl border border-border bg-muted/10 p-3">
       <div className="space-y-1.5">
@@ -307,16 +342,20 @@ function DataSourceEditor({
             />
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
+            <label className="flex items-center gap-2 text-sm sm:col-span-2">
+              <input
+                type="checkbox"
+                checked={regularProductsOnly}
+                onChange={(event) => setRegularProductsOnly(event.target.checked)}
+              />
+              {locale === 'en' ? 'Regular products only' : 'منتجات عادية فقط'}
+            </label>
             <label className="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
                 checked={value.isNewProduct === true}
-                onChange={(event) =>
-                  onChange({
-                    ...value,
-                    isNewProduct: event.target.checked ? true : null,
-                  })
-                }
+                disabled={regularProductsOnly}
+                onChange={(event) => setPromoFlag('isNewProduct', event.target.checked)}
               />
               {locale === 'en' ? 'New products only' : 'منتجات حديثة فقط'}
             </label>
@@ -324,12 +363,8 @@ function DataSourceEditor({
               <input
                 type="checkbox"
                 checked={value.isTodayDeal === true}
-                onChange={(event) =>
-                  onChange({
-                    ...value,
-                    isTodayDeal: event.target.checked ? true : null,
-                  })
-                }
+                disabled={regularProductsOnly}
+                onChange={(event) => setPromoFlag('isTodayDeal', event.target.checked)}
               />
               {locale === 'en' ? 'Today’s deals only' : 'تخفيضات اليوم فقط'}
             </label>
@@ -337,12 +372,8 @@ function DataSourceEditor({
               <input
                 type="checkbox"
                 checked={value.isWholesale === true}
-                onChange={(event) =>
-                  onChange({
-                    ...value,
-                    isWholesale: event.target.checked ? true : null,
-                  })
-                }
+                disabled={regularProductsOnly}
+                onChange={(event) => setPromoFlag('isWholesale', event.target.checked)}
               />
               {locale === 'en' ? 'Wholesale only' : 'أسعار جملة فقط'}
             </label>
@@ -350,12 +381,8 @@ function DataSourceEditor({
               <input
                 type="checkbox"
                 checked={value.isDiscounted === true}
-                onChange={(event) =>
-                  onChange({
-                    ...value,
-                    isDiscounted: event.target.checked ? true : null,
-                  })
-                }
+                disabled={regularProductsOnly}
+                onChange={(event) => setPromoFlag('isDiscounted', event.target.checked)}
               />
               {locale === 'en' ? 'Discounted only' : 'خصومات فقط'}
             </label>

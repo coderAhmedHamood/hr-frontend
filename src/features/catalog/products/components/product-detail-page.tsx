@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
-import { ArrowRight, Boxes, Layers, Package, Plus, Ruler, Save, Settings, Star, Trash2, Warehouse } from 'lucide-react';
+import { ArrowRight, Boxes, ImageIcon, Layers, Package, Plus, Ruler, Save, Settings, Star, Trash2, Warehouse } from 'lucide-react';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
@@ -32,6 +32,7 @@ import {
 } from '@/features/catalog/products/lib/product-form-errors';
 import { ProductDetailHero } from '@/features/catalog/products/components/product-detail-hero';
 import { ProductRelatedDocsSidebar } from '@/features/catalog/products/components/product-related-docs-sidebar';
+import { ProductImageTab } from '@/features/catalog/products/components/product-image-tab';
 import { ProductGeneralTab } from '@/features/catalog/products/components/product-general-tab';
 import { ProductAttributesTab } from '@/features/catalog/products/components/product-attributes-tab';
 import { ProductInventoryTab } from '@/features/catalog/products/components/product-inventory-tab';
@@ -64,6 +65,7 @@ type MoveRequestKind = WarehouseOperationKind;
 
 const DETAIL_TABS = [
   { value: 'general', label: 'عام', icon: Package },
+  { value: 'image', label: 'عرض الصورة', icon: ImageIcon },
   { value: 'attributes', label: 'خصائص', icon: Layers },
   { value: 'availability', label: 'توفر', icon: Warehouse },
   { value: 'batches', label: 'الدفعات', icon: Boxes },
@@ -98,6 +100,7 @@ const TAB_FIELDS: Record<DetailTab, string[]> = {
     'description',
     'tagsInput',
   ],
+  image: ['imageDisplayFit', 'imageDisplayAspectRatio'],
   attributes: ['attributes', 'variants'],
   availability: ['stockStatus', 'stockQuantity', 'lowStockThreshold'],
   batches: [],
@@ -115,6 +118,8 @@ const TAB_FIELDS: Record<DetailTab, string[]> = {
     'wholesaleUntil',
     'isDiscounted',
     'discountPercent',
+    'discountAmount',
+    'inTodayDeals',
     'discountUntil',
     'saleOk',
     'purchaseOk',
@@ -450,6 +455,9 @@ export function ProductDetailPage({ productId }: Props) {
                   brands={brandsData?.items}
                   costManaged={product?.costManaged === true}
                 />
+              </TabsContent>
+              <TabsContent value="image" className="mt-0 focus-visible:outline-none">
+                <ProductImageTab control={form.control} />
               </TabsContent>
               <TabsContent value="attributes" className="mt-0 focus-visible:outline-none">
                 <ProductAttributesTab

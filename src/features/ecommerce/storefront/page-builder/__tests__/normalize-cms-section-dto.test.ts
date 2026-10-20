@@ -33,6 +33,36 @@ describe('normalizeCmsSectionDto', () => {
       visibility: { mobile: true, tablet: true, desktop: true },
     });
   });
+
+  it('keeps false promo flags so regular products stay excluded', () => {
+    const section = normalizeCmsSectionDto({
+      id: 'a5d95204-d0a4-48a5-8a0e-1ed61853dfe3',
+      sectionType: 'product-carousel',
+      status: 'published',
+      enabled: true,
+      sortOrder: 6,
+      revision: 2,
+      content: { titleAr: 'المنتجات العادية', titleEn: 'Regular products' },
+      settings: { limit: 12 },
+      style: {},
+      dataSourceKind: 'query',
+      dataSource: {
+        limit: 12,
+        isNewProduct: false,
+        isTodayDeal: false,
+        isWholesale: false,
+        isDiscounted: false,
+      },
+      updatedAt: '2026-08-14T21:17:52.667Z',
+    });
+
+    expect(section.dataSource).toMatchObject({
+      isNewProduct: false,
+      isTodayDeal: false,
+      isWholesale: false,
+      isDiscounted: false,
+    });
+  });
 });
 
 describe('mapStorefrontPage with normalized seed sections', () => {

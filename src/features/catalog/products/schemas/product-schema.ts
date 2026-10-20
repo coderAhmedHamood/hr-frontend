@@ -208,6 +208,17 @@ export const productFormSchema = z
       },
       z.number().min(0).max(100).optional(),
     ),
+    /** An amount off the selling price (instead of a percent). */
+    discountAmount: z.preprocess(
+      (value) => {
+        if (value === '' || value === null || value === undefined) return undefined;
+        const n = Number(value);
+        return Number.isFinite(n) ? n : undefined;
+      },
+      z.number().min(0).optional(),
+    ),
+    /** A percent or amount offer also shown in «تخفيضات اليوم». */
+    inTodayDeals: z.boolean(),
     discountUntil: z.string().optional(),
     attributes: z.array(attributeSchema),
     variants: z.array(variantSchema),
@@ -294,11 +305,22 @@ export const productFormSchema = z
       }
     }
     if (values.isDiscounted) {
-      const percent = Number(values.discountPercent);
-      if (!Number.isFinite(percent) || percent < 0 || percent > 100) {
+      // A percent of the selling price, or an amount off it — one of them.
+      const percent = Number(values.discountPercent ?? 0);
+      const amount = Number(values.discountAmount ?? 0);
+      if (amount > 0) {
+        const price = Number(values.listPrice);
+        if (Number.isFinite(price) && price > 0 && amount >= price) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'مبلغ الخصم يجب أن يكون أقل من سعر البيع.',
+            path: ['discountAmount'],
+          });
+        }
+      } else if (!(percent > 0 && percent < 100)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: 'أدخل نسبة الخصم بين 0 و 100.',
+          message: 'أدخل نسبة الخصم (أكبر من 0 وأقل من 100).',
           path: ['discountPercent'],
         });
       }
@@ -373,6 +395,8 @@ export const PRODUCT_FORM_DEFAULT_VALUES: ProductFormInput = {
   wholesaleUntil: '',
   isDiscounted: false,
   discountPercent: undefined,
+  discountAmount: undefined,
+  inTodayDeals: false,
   discountUntil: '',
   attributes: [],
   variants: [],

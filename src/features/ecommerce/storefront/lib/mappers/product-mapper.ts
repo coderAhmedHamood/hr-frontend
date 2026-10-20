@@ -43,45 +43,52 @@ export function mapStorefrontProduct(product: Product, locale: StorefrontLocale)
       ? product.dealPrice
       : null;
   const dealActive = Boolean(dealPrice && dealPrice.amount < (cheapest?.salePrice ?? product.price).amount);
-  const discountActive =
-    Boolean(product.isDiscountActive) &&
-    product.discountPercent != null &&
-    product.discountPercent > 0 &&
-    product.discountPercent < 100;
-  const discountedBase =
-    discountActive && product.discountPercent
-      ? {
-          amount: Math.max(
-            0,
-            Math.round(basePrice.amount * (1 - product.discountPercent / 100) * 100) / 100,
-          ),
-          currency: basePrice.currency,
-        }
+  // A percent of the selling price, or an amount off it (as the order charges).
+  const percentOff =
+    product.discountPercent != null && product.discountPercent > 0 && product.discountPercent < 100
+      ? product.discountPercent
+      : 0;
+  const amountOff = product.discountAmount != null && product.discountAmount > 0 ? product.discountAmount : 0;
+  const discountActive = Boolean(product.isDiscountActive) && (percentOff > 0 || amountOff > 0);
+  const discountOf = (price: { amount: number; currency: string }) => {
+    if (!discountActive) return null;
+    if (percentOff > 0) {
+      return {
+        amount: Math.max(0, Math.round(price.amount * (1 - percentOff / 100) * 100) / 100),
+        currency: price.currency,
+      };
+    }
+    return amountOff < price.amount
+      ? { amount: Math.round((price.amount - amountOff) * 100) / 100, currency: price.currency }
+      : null;
+  };
+  const discountedBase = discountOf(basePrice);
+  // Wholesale is the price the customer pays only when no deal or discount is on.
+  const otherOfferOn =
+    Boolean(product.isTodayDealActive && product.dealPrice && product.dealPrice.amount > 0) ||
+    discountActive;
+  const wholesaleCandidate =
+    !otherOfferOn &&
+    product.isWholesaleActive &&
+    product.wholesalePrice &&
+    product.wholesalePrice.amount > 0 &&
+    product.wholesalePrice.amount < basePrice.amount
+      ? product.wholesalePrice
       : null;
   const displayPrice =
     dealActive && product.dealPrice
       ? product.dealPrice
-      : (discountedBase ?? basePrice);
+      : (discountedBase ?? wholesaleCandidate ?? basePrice);
   const compareAtPrice =
     dealActive && product.dealPrice
       ? basePrice
-      : discountedBase
+      : discountedBase || wholesaleCandidate
         ? basePrice
         : (product.compareAtPrice ?? null);
   const mappedVariants = (product.variants ?? [])
     .filter((variant) => variant.isActive)
     .map((variant) => {
-      const variantDiscounted =
-        discountActive && product.discountPercent
-          ? {
-              amount: Math.max(
-                0,
-                Math.round(variant.salePrice.amount * (1 - product.discountPercent / 100) * 100) /
-                  100,
-              ),
-              currency: variant.salePrice.currency,
-            }
-          : null;
+      const variantDiscounted = discountOf(variant.salePrice);
       return {
         id: variant.id,
         combinationKey: variant.combinationKey,
@@ -95,7 +102,11 @@ export function mapStorefrontProduct(product: Product, locale: StorefrontLocale)
         price:
           dealPrice && dealPrice.amount < variant.salePrice.amount
             ? dealPrice
-            : (variantDiscounted ?? variant.salePrice),
+            : variantDiscounted
+              ? variantDiscounted
+              : wholesaleCandidate && wholesaleCandidate.amount < variant.salePrice.amount
+                ? wholesaleCandidate
+                : variant.salePrice,
         quantity: variant.quantity,
         stockStatus: variant.stockStatus,
         isActive: variant.isActive,

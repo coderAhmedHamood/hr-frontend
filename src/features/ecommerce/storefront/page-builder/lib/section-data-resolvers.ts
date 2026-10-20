@@ -16,73 +16,97 @@ import { storefrontProductsRepository } from '@/features/ecommerce/storefront/li
 import type { StorefrontLocale } from '@/i18n/routing';
 import { resolveSectionViewAllHref } from '@/features/ecommerce/storefront/lib/resolve-data-source-view-all-href';
 import { resolveStorefrontImageSrc } from '@/features/ecommerce/storefront/lib/resolve-storefront-image-src';
+import { HOMEPAGE_RAIL_MAX_PAGES, pickRailProducts } from '@/features/ecommerce/storefront/page-builder/lib/homepage-rails';
+import type { StorefrontProduct } from '@/features/ecommerce/storefront/domain/storefront-models';
 
 export type SectionResolverContext = {
   companyId: string;
   locale: StorefrontLocale;
 };
 
-async function resolveProducts(ctx: SectionResolverContext, dataSource: DataSourceConfig) {
+/** `true` keeps the promo, `false` excludes it, omitted means no filter. */
+function promoFlag(value: boolean | null | undefined): boolean | undefined {
+  if (value === true) return true;
+  if (value === false) return false;
+  return undefined;
+}
+
+function listQueryFor(
+  ctx: SectionResolverContext,
+  dataSource: DataSourceConfig,
+  page: number,
+) {
   const { companyId, locale } = ctx;
-
-  if (dataSource.kind === 'manual') {
-    return storefrontProductsRepository.getByIds(companyId, dataSource.entityIds, locale);
-  }
-
   if (dataSource.kind === 'tag') {
-    const result = await storefrontProductsRepository.list({
-      companyId,
-      locale,
-      tag: dataSource.tag,
-      limit: dataSource.limit,
-      page: 1,
-    });
-    return result.items;
+    return { companyId, locale, tag: dataSource.tag, limit: dataSource.limit, page };
   }
-
+  if (dataSource.kind === 'category') {
+    return { companyId, locale, categoryId: dataSource.categoryId, limit: dataSource.limit, page };
+  }
+  if (dataSource.kind === 'recommendation') {
+    return { companyId, locale, limit: dataSource.limit, page, sort: 'createdAt' as const, sortDirection: 'desc' as const };
+  }
   if (dataSource.kind === 'query') {
-    const sort = dataSource.sort === 'sales' ? 'createdAt' : dataSource.sort;
-    const result = await storefrontProductsRepository.list({
+    return {
       companyId,
       locale,
       limit: dataSource.limit,
-      page: 1,
-      sort,
+      page,
+      sort: dataSource.sort === 'sales' ? ('createdAt' as const) : dataSource.sort,
       sortDirection: dataSource.sortDirection,
       categoryId: dataSource.categoryId ?? undefined,
       tag: dataSource.tag ?? undefined,
-      isNewProduct: dataSource.isNewProduct === true ? true : undefined,
-      isTodayDeal: dataSource.isTodayDeal === true ? true : undefined,
-      isWholesale: dataSource.isWholesale === true ? true : undefined,
-      isDiscounted: dataSource.isDiscounted === true ? true : undefined,
-    });
+      isNewProduct: promoFlag(dataSource.isNewProduct),
+      isTodayDeal: promoFlag(dataSource.isTodayDeal),
+      isWholesale: promoFlag(dataSource.isWholesale),
+      isDiscounted: promoFlag(dataSource.isDiscounted),
+    };
+  }
+  return null;
+}
+
+async function resolveProducts(
+  ctx: SectionResolverContext,
+  dataSource: DataSourceConfig,
+  seen?: Set<string>,
+): Promise<StorefrontProduct[]> {
+  const { companyId, locale } = ctx;
+
+  if (dataSource.kind === 'manual') {
+    const products = await storefrontProductsRepository.getByIds(companyId, dataSource.entityIds, locale);
+    // A hand-picked rail stays as arranged. Later rails may repeat one of
+    // these products when they cannot fill themselves without it.
+    if (seen) for (const product of products) seen.add(product.id);
+    return products;
+  }
+
+  const firstQuery = listQueryFor(ctx, dataSource, 1);
+  if (!firstQuery) return [];
+  if (!seen) {
+    const result = await storefrontProductsRepository.list(firstQuery);
     return result.items;
   }
 
-  if (dataSource.kind === 'category') {
-    const result = await storefrontProductsRepository.list({
-      companyId,
-      locale,
-      categoryId: dataSource.categoryId,
-      limit: dataSource.limit,
-      page: 1,
-    });
-    return result.items;
+  const pool: StorefrontProduct[] = [];
+  const poolIds = new Set<string>();
+  let freshCount = 0;
+  let page = 1;
+  while (freshCount < dataSource.limit && page <= HOMEPAGE_RAIL_MAX_PAGES) {
+    const query = page === 1 ? firstQuery : listQueryFor(ctx, dataSource, page);
+    if (!query) break;
+    const result = await storefrontProductsRepository.list(query);
+    for (const product of result.items) {
+      if (poolIds.has(product.id)) continue;
+      poolIds.add(product.id);
+      pool.push(product);
+      if (!seen.has(product.id)) freshCount += 1;
+    }
+    if (result.items.length === 0 || page >= result.pagination.totalPages) break;
+    page += 1;
   }
-
-  if (dataSource.kind === 'recommendation') {
-    const result = await storefrontProductsRepository.list({
-      companyId,
-      locale,
-      limit: dataSource.limit,
-      page: 1,
-      sort: 'createdAt',
-      sortDirection: 'desc',
-    });
-    return result.items;
-  }
-
-  return [];
+  const picked = pickRailProducts(pool, seen, dataSource.limit);
+  for (const product of picked) seen.add(product.id);
+  return picked;
 }
 
 async function resolveCategories(ctx: SectionResolverContext, dataSource: DataSourceConfig) {
@@ -165,8 +189,8 @@ const resolveCategoryGrid: SectionDataResolver<'category-grid'> = async (ctx, se
   return { ...section, data: { categories } };
 };
 
-const resolveProductCarousel: SectionDataResolver<'product-carousel'> = async (ctx, section) => {
-  const products = await resolveProducts(ctx, section.dataSource);
+const resolveProductCarousel: SectionDataResolver<'product-carousel'> = async (ctx, section, seen?: Set<string>) => {
+  const products = await resolveProducts(ctx, section.dataSource, seen);
   const viewAllHref = await resolveSectionViewAllHref(
     ctx.companyId,
     ctx.locale,
@@ -176,8 +200,8 @@ const resolveProductCarousel: SectionDataResolver<'product-carousel'> = async (c
   return { ...section, data: { products, viewAllHref } };
 };
 
-const resolveFlashSale: SectionDataResolver<'flash-sale'> = async (ctx, section) => {
-  const products = await resolveProducts(ctx, section.dataSource);
+const resolveFlashSale: SectionDataResolver<'flash-sale'> = async (ctx, section, seen?: Set<string>) => {
+  const products = await resolveProducts(ctx, section.dataSource, seen);
   const viewAllHref = await resolveSectionViewAllHref(
     ctx.companyId,
     ctx.locale,
@@ -233,22 +257,54 @@ export async function resolveSection(
   return resolver(ctx, section as Extract<NormalizedSection, { type: typeof section.type }>);
 }
 
+function rememberFailure(sectionId: string, error: unknown) {
+  if (process.env.NODE_ENV === 'development') {
+    console.error(`[page-builder] Failed to resolve section ${sectionId}`, error);
+  }
+}
+
 export async function resolvePageSections(
   ctx: SectionResolverContext,
   page: StorefrontPage,
 ): Promise<ResolvedSection[]> {
-  const results = await Promise.all(
-    page.sections.map(async (section) => {
-      try {
-        return await resolveSection(ctx, section);
-      } catch (error) {
-        if (process.env.NODE_ENV === 'development') {
-          console.error(`[page-builder] Failed to resolve section ${section.id}`, error);
-        }
-        return null;
-      }
-    }),
-  );
+  // Product rails run in page order and share the products already shown,
+  // so one product does not fill وصل حديثاً and تخفيضات اليوم and أسعار الجملة.
+  const seen = new Set<string>();
+  const resolved: Array<ResolvedSection | null> = new Array(page.sections.length);
+  const others: Array<Promise<void>> = [];
 
-  return results.filter((section): section is ResolvedSection => section !== null);
+  for (let index = 0; index < page.sections.length; index += 1) {
+    const section = page.sections[index]!;
+    if (section.type === 'product-carousel') {
+      try {
+        resolved[index] = await resolveProductCarousel(ctx, section, seen);
+      } catch (error) {
+        rememberFailure(section.id, error);
+        resolved[index] = null;
+      }
+      continue;
+    }
+    if (section.type === 'flash-sale') {
+      try {
+        resolved[index] = await resolveFlashSale(ctx, section, seen);
+      } catch (error) {
+        rememberFailure(section.id, error);
+        resolved[index] = null;
+      }
+      continue;
+    }
+    others.push(
+      resolveSection(ctx, section)
+        .then((result) => {
+          resolved[index] = result;
+        })
+        .catch((error: unknown) => {
+          rememberFailure(section.id, error);
+          resolved[index] = null;
+        }),
+    );
+  }
+
+  await Promise.all(others);
+  return resolved.filter((section): section is ResolvedSection => section !== null);
 }

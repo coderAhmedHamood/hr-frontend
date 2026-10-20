@@ -4,10 +4,11 @@ import * as React from 'react';
 import { createPortal } from 'react-dom';
 import { Heart, Menu, Search, ShoppingCart, User, X } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
-import type {
-  StorefrontBrand,
-  StorefrontCategory,
-  StorefrontCompanyConfig,
+import {
+  withRegularProductsTab,
+  type StorefrontBrand,
+  type StorefrontCategory,
+  type StorefrontCompanyConfig,
 } from '@/features/ecommerce/storefront/domain/storefront-models';
 import { StoreLocaleSwitcher } from '@/features/ecommerce/storefront/components/store-locale-switcher';
 import { StoreCategoryNavBar, StoreMobileCategoryNav } from '@/features/ecommerce/storefront/components/store-mega-menu';
@@ -281,7 +282,7 @@ export function StoreHeaderInteractive({ config, categories, brands, logo }: Sto
         <StoreCategoryNavBar
           categories={categories}
           brands={brands}
-          promoLinks={
+          promoLinks={withRegularProductsTab(
             config.secondaryNavigation.length > 0
               ? config.secondaryNavigation
               : [
@@ -291,8 +292,9 @@ export function StoreHeaderInteractive({ config, categories, brands, logo }: Sto
                   ...(config.storePages.wholesale
                     ? [{ label: t('nav.wholesale'), href: '/store/wholesale' as const }]
                     : []),
-                ]
-          }
+                ],
+            t('nav.regularProducts'),
+          )}
         />
       </div>
 

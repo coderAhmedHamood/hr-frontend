@@ -12,6 +12,10 @@ export type PublicShippingQuote = {
   currencyCode: string;
   rateId: string | null;
   matchedScope: 'city' | 'district' | null;
+  /** City rate after free delivery. Null when the city has no rate. */
+  cityAmount?: string | null;
+  /** District rate after free delivery. Null when the district has no rate of its own. */
+  districtAmount?: string | null;
 };
 
 export async function fetchPublicShippingQuote(input: {

@@ -34,6 +34,7 @@ import {
   visibleProductTabs,
   visibleRelatedDocs,
 } from '@/features/catalog/products/hooks/use-product-app-sections';
+import { ProductImageTab } from '@/features/catalog/products/components/product-image-tab';
 import { ProductUnitsTab } from '@/features/catalog/products/components/product-units-tab';
 import { ProductSettingsTab } from '@/features/catalog/products/components/product-settings-tab';
 import { ProductStockMoveRequestDialog } from '@/features/catalog/products/components/product-stock-move-request-dialog';
@@ -45,7 +46,7 @@ import type { ProductRelatedDocKey } from '@/features/catalog/products/component
 import { productMoveRequestListRestore } from '@/features/catalog/products/lib/product-move-request-flow';
 import type { Product } from '@/features/ecommerce/domain/types/product';
 import type { WarehouseOperationKind } from '@/features/inventory/domain/types/warehouse';
-import { Layers, Package, Ruler, Settings, Warehouse } from 'lucide-react';
+import { ImageIcon, Layers, Package, Ruler, Settings, Warehouse } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -77,6 +78,7 @@ function ensureSlug(values: ProductFormValues): ProductFormValues {
 
 const FORM_TABS = [
   { value: 'general', label: 'عام', icon: Package },
+  { value: 'image', label: 'عرض الصورة', icon: ImageIcon },
   { value: 'attributes', label: 'خصائص', icon: Layers },
   { value: 'availability', label: 'توفر', icon: Warehouse },
   { value: 'units', label: 'وحدات', icon: Ruler },
@@ -101,6 +103,7 @@ const FORM_TAB_FIELDS: Record<FormTab, string[]> = {
     'listPrice',
     'costPrice',
   ],
+  image: ['imageDisplayFit', 'imageDisplayAspectRatio'],
   attributes: ['attributes', 'variants'],
   availability: ['stockStatus', 'stockQuantity', 'lowStockThreshold'],
   units: ['uomLines'],
@@ -111,6 +114,8 @@ const FORM_TAB_FIELDS: Record<FormTab, string[]> = {
     'wholesalePriceAmount',
     'isDiscounted',
     'discountPercent',
+    'discountAmount',
+    'inTodayDeals',
   ],
 };
 
@@ -425,6 +430,9 @@ export function ProductFormDialog({ product, open, onOpenChange }: Props) {
                         brands={brandsData?.items}
                         costManaged={resolvedProduct?.costManaged === true}
                       />
+                    </TabsContent>
+                    <TabsContent value="image" className="mt-0 focus-visible:outline-none">
+                      <ProductImageTab control={form.control} />
                     </TabsContent>
                     <TabsContent value="attributes" className="mt-0 focus-visible:outline-none">
                       <ProductAttributesTab

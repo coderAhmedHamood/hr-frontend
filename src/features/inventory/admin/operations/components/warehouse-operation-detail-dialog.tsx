@@ -833,6 +833,16 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
     }
   }
 
+  /** Ready → draft: to add, remove or change products before readying again. */
+  async function backToDraft() {
+    await savePatch({ status: 'draft' }, 'أُعيد المستند إلى مسودة');
+  }
+
+  /** A cancelled document never moved stock: it can be reopened as a draft. */
+  async function reopenOperation() {
+    await savePatch({ status: 'draft' }, 'أُعيد فتح المستند كمسودة');
+  }
+
   async function cancelOperation() {
     if (status === 'done' || documentOperation?.status === 'done') {
       toast.error('لا يمكن إلغاء مستند منتهٍ. استخدم التراجع عن التصديق أولاً.');
@@ -1034,7 +1044,9 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
   }
 
   function lineCostField(line: WarehouseOperationLine, view: ReturnType<typeof lineView>) {
-    return canEditProducts ? (
+    // The purchase cost stays editable until posting (draft and ready): a
+    // ready document without it could not be validated otherwise.
+    return editable ? (
       <OperationUnitCostInput
         value={line.unitCost ?? ''}
         disabled={isSaving || !line.productId}
@@ -1077,6 +1089,30 @@ export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }
         <Button type="button" size="sm" disabled={isSaving} onClick={() => void validate()}>
           <Check className="h-4 w-4" />
           تصديق
+        </Button>
+      ) : null}
+      {status === 'ready' ? (
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={isSaving}
+          onClick={() => void backToDraft()}
+        >
+          <Undo2 className="h-4 w-4" />
+          إرجاع إلى مسودة
+        </Button>
+      ) : null}
+      {status === 'cancelled' && kind !== 'physical_count' ? (
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={isSaving}
+          onClick={() => void reopenOperation()}
+        >
+          <Undo2 className="h-4 w-4" />
+          إعادة فتح
         </Button>
       ) : null}
       {status === 'done' && canPost ? (

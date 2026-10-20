@@ -103,6 +103,8 @@ type PublicProductDto = {
   wholesaleUntil?: string | null;
   isDiscounted?: boolean;
   discountPercent?: string | number | null;
+  discountAmount?: string | number | null;
+  inTodayDeals?: boolean;
   discountUntil?: string | null;
   isNewProductActive?: boolean;
   isTodayDealActive?: boolean;
@@ -457,6 +459,9 @@ function mapPublicProduct(dto: PublicProductDto): Product {
     isDiscounted: Boolean(dto.isDiscounted),
     discountPercent:
       dto.discountPercent != null && dto.discountPercent !== '' ? toNumber(dto.discountPercent) : null,
+    discountAmount:
+      dto.discountAmount != null && dto.discountAmount !== '' ? toNumber(dto.discountAmount) : null,
+    inTodayDeals: Boolean(dto.inTodayDeals),
     discountUntil: dto.discountUntil ?? null,
     isNewProductActive: Boolean(dto.isNewProductActive),
     isTodayDealActive: Boolean(dto.isTodayDealActive),
@@ -609,6 +614,12 @@ async function withStoreAvailability(
   });
 }
 
+function flagQuery(value: boolean | undefined): boolean | undefined {
+  if (value === true) return true;
+  if (value === false) return false;
+  return undefined;
+}
+
 function listQueryParams(query: StorefrontProductListQuery, companyId: string) {
   const sort = query.sort === 'stock' ? 'quantity' : query.sort;
 
@@ -618,10 +629,10 @@ function listQueryParams(query: StorefrontProductListQuery, companyId: string) {
     categoryId: query.categoryId,
     brandId: query.brandId,
     tags: query.tag,
-    isNewProduct: query.isNewProduct === true ? true : undefined,
-    isTodayDeal: query.isTodayDeal === true ? true : undefined,
-    isWholesale: query.isWholesale === true ? true : undefined,
-    isDiscounted: query.isDiscounted === true ? true : undefined,
+    isNewProduct: flagQuery(query.isNewProduct),
+    isTodayDeal: flagQuery(query.isTodayDeal),
+    isWholesale: flagQuery(query.isWholesale),
+    isDiscounted: flagQuery(query.isDiscounted),
     sort,
     sortDirection: query.sortDirection,
     page: query.page ?? 1,

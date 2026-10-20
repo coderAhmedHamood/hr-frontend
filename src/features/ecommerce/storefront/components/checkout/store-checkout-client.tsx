@@ -502,20 +502,41 @@ export function StoreCheckoutClient({ currency: storeCurrency, country }: Checko
   });
 
   const shippingKnown = Boolean(address.cityId) && !shippingQuoteQuery.isLoading;
+  // No matching city or district rate. A rate of 0 is real free delivery.
+  const shippingUnset = shippingKnown && shippingQuoteQuery.data?.rateId == null;
   const shipping = {
-    amount: shippingKnown ? Number(shippingQuoteQuery.data?.amount ?? 0) : 0,
+    amount: shippingKnown && !shippingUnset ? Number(shippingQuoteQuery.data?.amount ?? 0) : 0,
     currency: shippingQuoteQuery.data?.currencyCode ?? currency,
   };
   const total = subtotal + shipping.amount;
-  // Delivery is its own amount on the order (not a product line), shown
-  // wherever the total is.
-  const shippingLabel = !address.cityId
-    ? t('checkout.shippingPending')
-    : shippingQuoteQuery.isLoading
-      ? t('common.loading')
-      : shipping.amount === 0
-        ? t('checkout.freeShipping')
-        : formatPrice(shipping.amount);
+  const feeText = (amount: number) =>
+    amount === 0 ? t('checkout.freeShipping') : formatPrice(amount);
+  const shippingPlaceLabel = (place: string) => {
+    const name = place.trim();
+    return name ? t('checkout.shippingForPlace', { place: name }) : t('checkout.shipping');
+  };
+  const quotedCity = shippingQuoteQuery.data?.cityAmount;
+  const quotedDistrict = shippingQuoteQuery.data?.districtAmount;
+  const cityFee = quotedCity != null && quotedCity !== '' ? Number(quotedCity) : null;
+  const districtFee = quotedDistrict != null && quotedDistrict !== '' ? Number(quotedDistrict) : null;
+  // One line. A district rate replaces the city rate; it is not shown beside it.
+  const chargedFee = address.districtId && districtFee != null ? districtFee : cityFee;
+  const chargedPlace = address.districtId && districtFee != null ? address.district : address.city;
+  const shippingRows: Array<{ key: string; label: string; value: string; prompt?: boolean }> =
+    !address.cityId
+      ? [{ key: 'pending', label: t('checkout.shipping'), value: t('checkout.shippingPending'), prompt: true }]
+      : shippingQuoteQuery.isLoading
+        ? [{ key: 'loading', label: t('checkout.shipping'), value: t('common.loading') }]
+        : shippingUnset || chargedFee == null
+          ? [{ key: 'unset', label: t('checkout.shipping'), value: t('checkout.shippingUnset'), prompt: true }]
+          : [{ key: 'fee', label: shippingPlaceLabel(chargedPlace), value: feeText(chargedFee) }];
+  const shownShippingRows =
+    shippingRows.length > 0
+      ? shippingRows
+      : [{ key: 'unset', label: t('checkout.shipping'), value: t('checkout.shippingUnset'), prompt: true }];
+  const shippingLabel = shownShippingRows
+    .map((row) => (row.prompt ? row.value : `${row.label}: ${row.value}`))
+    .join(' · ');
   // Free delivery from an items amount: say so, or how much is missing.
   const freeAbove = Number(shippingQuoteQuery.data?.freeAboveAmount ?? NaN);
   const freeDeliveryNote = !shippingKnown || !Number.isFinite(freeAbove)
@@ -614,6 +635,10 @@ export function StoreCheckoutClient({ currency: storeCurrency, country }: Checko
         return;
       }
       if (!validateAddress()) return;
+      if (shippingUnset) {
+        toast.error(t('checkout.shippingUnset'));
+        return;
+      }
       void verifyOrder('address', address).then((ok) => {
         if (ok) setStep('payment');
       });
@@ -646,6 +671,11 @@ export function StoreCheckoutClient({ currency: storeCurrency, country }: Checko
       return;
     }
     if (!validateAddress()) {
+      setStep('address');
+      return;
+    }
+    if (shippingUnset) {
+      toast.error(t('checkout.shippingUnset'));
       setStep('address');
       return;
     }
@@ -1410,15 +1440,19 @@ export function StoreCheckoutClient({ currency: storeCurrency, country }: Checko
                   </dt>
                   <dd className="font-medium tabular-nums text-foreground">{formatPrice(subtotal)}</dd>
                 </div>
-                <div className="flex justify-between gap-3">
-                  <dt className="text-muted-foreground">{t('checkout.shipping')}</dt>
-                  <dd className="font-medium tabular-nums text-foreground">{shippingLabel}</dd>
-                </div>
-                {freeDeliveryNote ? (
-                  <p className="-mt-1 text-[11px] font-medium text-emerald-700 dark:text-emerald-400">
-                    {freeDeliveryNote}
-                  </p>
-                ) : null}
+                {shownShippingRows.map((row) =>
+                  row.prompt ? (
+                    <p key={row.key} className="text-xs leading-relaxed text-muted-foreground">
+                      {row.value}
+                    </p>
+                  ) : (
+                    <div key={row.key} className="flex justify-between gap-3">
+                      <dt className="text-muted-foreground">{row.label}</dt>
+                      <dd className="font-medium tabular-nums text-foreground">{row.value}</dd>
+                    </div>
+                  ),
+                )}
+                {freeDeliveryNote ? <FreeDeliveryNotice text={freeDeliveryNote} /> : null}
                 <div className="flex justify-between gap-3 border-t border-border pt-2">
                   <dt className="font-semibold text-foreground">{t('cart.total')}</dt>
                   <dd className="text-base font-bold tabular-nums text-foreground">{formatPrice(total)}</dd>
@@ -1542,7 +1576,7 @@ export function StoreCheckoutClient({ currency: storeCurrency, country }: Checko
               type="button"
               className="min-w-36 rounded-xl"
               onClick={goNext}
-              disabled={(step === 'address' && addressesLoading) || verifying || cartCheck.blocked}
+              disabled={(step === 'address' && (addressesLoading || shippingUnset)) || verifying || cartCheck.blocked}
             >
               {t('checkout.continue')}
             </Button>
@@ -1619,15 +1653,19 @@ export function StoreCheckoutClient({ currency: storeCurrency, country }: Checko
                 <dt className="text-muted-foreground">{t('cart.subtotal')}</dt>
                 <dd className="font-medium tabular-nums text-foreground">{formatPrice(subtotal)}</dd>
               </div>
-              <div className="flex justify-between gap-3">
-                <dt className="text-muted-foreground">{t('checkout.shipping')}</dt>
-                <dd className="font-medium tabular-nums text-foreground">{shippingLabel}</dd>
-              </div>
-              {freeDeliveryNote ? (
-                <p className="-mt-1 text-[11px] font-medium text-emerald-700 dark:text-emerald-400">
-                  {freeDeliveryNote}
-                </p>
-              ) : null}
+              {shownShippingRows.map((row) =>
+                row.prompt ? (
+                  <p key={row.key} className="text-xs leading-relaxed text-muted-foreground">
+                    {row.value}
+                  </p>
+                ) : (
+                  <div key={row.key} className="flex justify-between gap-3">
+                    <dt className="text-muted-foreground">{row.label}</dt>
+                    <dd className="font-medium tabular-nums text-foreground">{row.value}</dd>
+                  </div>
+                ),
+              )}
+              {freeDeliveryNote ? <FreeDeliveryNotice text={freeDeliveryNote} /> : null}
               <div className="flex justify-between gap-3 border-t border-border pt-3">
                 <dt className="font-semibold text-foreground">{t('cart.total')}</dt>
                 <dd className="text-base font-bold tabular-nums text-foreground">{formatPrice(total)}</dd>
@@ -1667,7 +1705,7 @@ export function StoreCheckoutClient({ currency: storeCurrency, country }: Checko
               type="button"
               className="flex-1 rounded-xl"
               onClick={goNext}
-              disabled={(step === 'address' && addressesLoading) || verifying || cartCheck.blocked}
+              disabled={(step === 'address' && (addressesLoading || shippingUnset)) || verifying || cartCheck.blocked}
             >
               {t('checkout.continue')}
             </Button>
@@ -1684,6 +1722,14 @@ export function StoreCheckoutClient({ currency: storeCurrency, country }: Checko
         </div>
       </div>
     </div>
+  );
+}
+
+function FreeDeliveryNotice({ text }: { text: string }) {
+  return (
+    <p className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs font-medium leading-relaxed text-emerald-800 dark:text-emerald-200">
+      {text}
+    </p>
   );
 }
 

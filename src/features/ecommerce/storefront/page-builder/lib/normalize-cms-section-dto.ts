@@ -47,6 +47,13 @@ function readLocalizedField(
   return null;
 }
 
+/** `true` keeps the promo, `false` excludes it, anything else means no filter. */
+function promoFlagValue(value: unknown): boolean | null {
+  if (value === true) return true;
+  if (value === false) return false;
+  return null;
+}
+
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -161,10 +168,10 @@ function normalizeDataSource(
           ? dataSource.categoryId
           : null,
       tag: typeof dataSource.tag === 'string' ? dataSource.tag : null,
-      isNewProduct: dataSource.isNewProduct === true ? true : null,
-      isTodayDeal: dataSource.isTodayDeal === true ? true : null,
-      isWholesale: dataSource.isWholesale === true ? true : null,
-      isDiscounted: dataSource.isDiscounted === true ? true : null,
+      isNewProduct: promoFlagValue(dataSource.isNewProduct),
+      isTodayDeal: promoFlagValue(dataSource.isTodayDeal),
+      isWholesale: promoFlagValue(dataSource.isWholesale),
+      isDiscounted: promoFlagValue(dataSource.isDiscounted),
     };
   }
 

@@ -120,7 +120,7 @@ export function ProductsBrowsePageCsr({
       );
       return { config, categories, productsResult };
     },
-    [categorySlug, tag, sort, flags.isNewProduct, flags.isTodayDeal, flags.isWholesale, flags.isDiscounted],
+    [categorySlug, tag, sort, flags.isNewProduct, flags.isTodayDeal, flags.isWholesale, flags.isDiscounted, flags.isRegular],
   );
 
   if (loading) return <StoreCsrLoading />;

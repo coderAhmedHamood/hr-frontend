@@ -7,6 +7,7 @@ import { Can } from '@/components/shared/can';
 import { InlineFilterToggleButton } from '@/components/shared/inline-filter-toggle-button';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { DataTable, type ColumnDef } from '@/components/ui/data-table';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
@@ -105,7 +106,8 @@ export function DeliveryRatesPanel({ companyId, currencyCode, onHeaderExtrasChan
   const [countryFilter, setCountryFilter] = React.useState<string>('all');
   const [scopeFilter, setScopeFilter] = React.useState<'all' | DeliveryRateScopeType>('all');
   const [search, setSearch] = React.useState('');
-  const [filtersOpen, setFiltersOpen] = React.useState(false);
+  const [filtersOpen, setFiltersOpen] = React.useState(true);
+  const [discountFilter, setDiscountFilter] = React.useState<'all' | 'with' | 'without'>('all');
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [editTarget, setEditTarget] = React.useState<StoreDeliveryRate | null>(null);
   const [form, setForm] = React.useState<FormState>(EMPTY_FORM);
@@ -248,17 +250,138 @@ export function DeliveryRatesPanel({ companyId, currencyCode, onHeaderExtrasChan
   const canUpdate = can(DELIVERY_RATES_PERMISSIONS.update);
   const canDelete = can(DELIVERY_RATES_PERMISSIONS.delete);
 
-  const ratesPagination = useListPagination(ratesQuery.data?.items ?? [], [
+  const reportRows = React.useMemo(() => {
+    const items = ratesQuery.data?.items ?? [];
+    if (discountFilter === 'with') return items.filter((row) => row.freeAboveAmount != null);
+    if (discountFilter === 'without') return items.filter((row) => row.freeAboveAmount == null);
+    return items;
+  }, [ratesQuery.data?.items, discountFilter]);
+  const withDiscountCount = (ratesQuery.data?.items ?? []).filter(
+    (row) => row.freeAboveAmount != null,
+  ).length;
+
+  const ratesPagination = useListPagination(reportRows, [
     countryFilter,
     scopeFilter,
     archiveScope,
     search,
+    discountFilter,
   ]);
   const activeFilterCount =
     (countryFilter !== 'all' ? 1 : 0) +
     (scopeFilter !== 'all' ? 1 : 0) +
     (archiveScope !== 'active' ? 1 : 0) +
+    (discountFilter !== 'all' ? 1 : 0) +
     (search.trim() ? 1 : 0);
+
+  const columns: ColumnDef<StoreDeliveryRate>[] = [
+      {
+        key: 'name',
+        title: 'الاسم',
+        render: (row) => <span className="font-medium text-foreground">{row.name}</span>,
+      },
+      {
+        key: 'scope',
+        title: 'النطاق',
+        render: (row) => (
+          <Badge variant="subtle">{row.scopeType === 'city' ? 'مدن' : 'أحياء'}</Badge>
+        ),
+      },
+      {
+        key: 'places',
+        title: 'المدن أو الأحياء',
+        render: (row) => (
+          <span className="text-xs text-muted-foreground">
+            {row.scopeType === 'city'
+              ? row.cities.map((city) => city.nameAr).join('، ') || '—'
+              : row.districts.map((district) => district.nameAr).join('، ') || '—'}
+          </span>
+        ),
+      },
+      {
+        key: 'country',
+        title: 'الدولة',
+        hideOnMobile: true,
+        render: (row) => countryNameById.get(row.countryId) ?? '—',
+      },
+      {
+        key: 'amount',
+        title: 'سعر التوصيل',
+        render: (row) => (
+          <span className="tabular-nums">
+            {formatAmount(row.amount)} {row.currencyCode}
+          </span>
+        ),
+      },
+      {
+        key: 'discount',
+        title: 'خصم التوصيل',
+        render: (row) =>
+          row.freeAboveAmount != null ? (
+            <span className="font-medium text-emerald-700 dark:text-emerald-400">
+              مجاني من {formatAmount(row.freeAboveAmount)} {row.currencyCode}
+            </span>
+          ) : (
+            <span className="text-muted-foreground">بلا خصم</span>
+          ),
+      },
+      {
+        key: 'status',
+        title: 'الحالة',
+        render: (row) =>
+          row.isArchived ? (
+            <Badge variant="subtle">مؤرشف</Badge>
+          ) : row.isActive ? (
+            <Badge variant="subtle">نشط</Badge>
+          ) : (
+            <Badge variant="subtle" className="text-amber-700 dark:text-amber-400">
+              غير نشط
+            </Badge>
+          ),
+      },
+      {
+        key: 'actions',
+        title: '',
+        isActions: true,
+        isInteractive: true,
+        sticky: 'end',
+        render: (row) => (
+          <div className="flex items-center justify-end gap-1">
+            {canUpdate && !row.isArchived ? (
+              <Button type="button" variant="ghost" size="sm" onClick={() => openEdit(row)}>
+                <Pencil className="h-4 w-4" />
+              </Button>
+            ) : null}
+            {row.isArchived && canUpdate ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                title="استرجاع"
+                onClick={() => {
+                  if (window.confirm('استرجاع سعر التوصيل من الأرشيف؟')) restoreRate.mutate(row.id);
+                }}
+              >
+                <RotateCcw className="h-4 w-4" />
+              </Button>
+            ) : null}
+            {canDelete && !row.isArchived ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-destructive hover:text-destructive"
+                onClick={() => {
+                  if (window.confirm('أرشفة سعر التوصيل؟')) deleteRate.mutate(row.id);
+                }}
+              >
+                <Archive className="h-4 w-4" />
+              </Button>
+            ) : null}
+          </div>
+        ),
+      },
+    ];
 
   useHeaderExtrasBridge(
     onHeaderExtrasChange,
@@ -344,6 +467,22 @@ export function DeliveryRatesPanel({ companyId, currencyCode, onHeaderExtrasChan
                 </SelectContent>
               </Select>
             </div>
+            <div className="space-y-1.5">
+              <Label>خصم التوصيل</Label>
+              <Select
+                value={discountFilter}
+                onValueChange={(value) => setDiscountFilter(value as 'all' | 'with' | 'without')}
+              >
+                <SelectTrigger className="h-10 w-44 rounded-lg bg-card">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">الكل</SelectItem>
+                  <SelectItem value="with">له خصم من مبلغ</SelectItem>
+                  <SelectItem value="without">بلا خصم</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <div className="min-w-[10rem] flex-1 space-y-1.5">
               <Label>بحث</Label>
               <Input
@@ -380,82 +519,20 @@ export function DeliveryRatesPanel({ companyId, currencyCode, onHeaderExtrasChan
           </div>
         ) : (
           <>
-          <ul className="space-y-2">
-            {ratesPagination.pageItems.map((row) => (
-              <li
-                key={row.id}
-                className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card px-3 py-2.5"
-              >
-                <div className="min-w-0 basis-full sm:basis-0 sm:flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-sm font-medium text-foreground">{row.name}</p>
-                    <Badge variant="subtle">
-                      {row.scopeType === 'city' ? 'مدن' : 'أحياء'}
-                    </Badge>
-                    {row.isArchived ? (
-                      <Badge variant="subtle" className="text-muted-foreground">
-                        مؤرشف
-                      </Badge>
-                    ) : !row.isActive ? (
-                      <Badge variant="subtle" className="text-amber-700 dark:text-amber-400">
-                        غير نشط
-                      </Badge>
-                    ) : null}
-                  </div>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    {countryNameById.get(row.countryId) ?? row.countryId.slice(0, 8)}
-                    {' · '}
-                    {formatAmount(row.amount)} {row.currencyCode}
-                    {row.freeAboveAmount != null ? (
-                      <span className="ms-1 font-medium text-emerald-700 dark:text-emerald-400">
-                        · مجاني من {formatAmount(row.freeAboveAmount)} {row.currencyCode}
-                      </span>
-                    ) : null}
-                  </p>
-                  <p className="mt-0.5 text-[11px] text-muted-foreground">
-                    {row.scopeType === 'city'
-                      ? row.cities.map((c) => c.nameAr).join('، ') || 'بدون مدن'
-                      : row.districts.map((d) => d.nameAr).join('، ') || 'بدون أحياء'}
-                  </p>
-                </div>
-                <div className="ms-auto flex items-center gap-1">
-                  {canUpdate && !row.isArchived ? (
-                    <Button type="button" variant="ghost" size="sm" onClick={() => openEdit(row)}>
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                  ) : null}
-                  {row.isArchived && canUpdate ? (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      title="استرجاع"
-                      onClick={() => {
-                        if (window.confirm('استرجاع سعر التوصيل من الأرشيف؟')) {
-                          restoreRate.mutate(row.id);
-                        }
-                      }}
-                    >
-                      <RotateCcw className="h-4 w-4" />
-                    </Button>
-                  ) : null}
-                  {canDelete && !row.isArchived ? (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="text-destructive hover:text-destructive"
-                      onClick={() => {
-                        if (window.confirm('أرشفة سعر التوصيل؟')) deleteRate.mutate(row.id);
-                      }}
-                    >
-                      <Archive className="h-4 w-4" />
-                    </Button>
-                  ) : null}
-                </div>
-              </li>
-            ))}
-          </ul>
+          <p className="text-xs text-muted-foreground">
+            {ratesPagination.total} سعرًا في هذا التقرير
+            {discountFilter === 'all' && withDiscountCount > 0
+              ? ` · ${withDiscountCount} منها لها توصيل مجاني من مبلغ`
+              : ''}
+          </p>
+          <DataTable
+            variant="directory"
+            columns={columns}
+            data={ratesPagination.pageItems}
+            keyExtractor={(row) => row.id}
+            emptyText="لا توجد أسعار ضمن هذا الفلتر."
+            alwaysShowTable
+          />
           {paginationBar({
             page: ratesPagination.page,
             pageSize: ratesPagination.pageSize,

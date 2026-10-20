@@ -208,6 +208,8 @@ export function productToFormValues(product: Product): ProductFormInput {
     wholesaleUntil: isoToYmd(product.wholesaleUntil),
     isDiscounted: product.isDiscounted ?? false,
     discountPercent: product.discountPercent ?? undefined,
+    discountAmount: product.discountAmount ?? undefined,
+    inTodayDeals: product.inTodayDeals ?? false,
     discountUntil: isoToYmd(product.discountUntil),
     attributes: (product.attributes ?? []).map((attribute) => ({
       ...attribute,
@@ -326,7 +328,8 @@ export function formValuesToCreateInput(
       values.isTodayDeal && values.dealPriceAmount != null
         ? { amount: values.dealPriceAmount, currency }
         : undefined,
-    dealDays: values.isTodayDeal && values.dealDays != null ? values.dealDays : null,
+    // One end date per offer: the days field is gone.
+    dealDays: null,
     dealUntil: values.isTodayDeal ? ymdToIso(values.dealUntil) : null,
     isWholesale: values.isWholesale,
     wholesalePrice:
@@ -337,6 +340,9 @@ export function formValuesToCreateInput(
     isDiscounted: values.isDiscounted,
     discountPercent:
       values.isDiscounted && values.discountPercent != null ? values.discountPercent : null,
+    discountAmount:
+      values.isDiscounted && values.discountAmount != null ? values.discountAmount : null,
+    inTodayDeals: values.isDiscounted && values.inTodayDeals,
     discountUntil: values.isDiscounted ? ymdToIso(values.discountUntil) : null,
     attributes: values.attributes,
     variants: synced,

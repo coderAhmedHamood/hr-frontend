@@ -15,9 +15,13 @@ export type StoreProductListSearchParams = {
   isTodayDeal?: string;
   isWholesale?: string;
   isDiscounted?: string;
+  regular?: string;
 };
 
-export type ParsedStoreProductFlags = Partial<Record<StoreProductFlagKey, true>>;
+export type ParsedStoreProductFlags = Partial<Record<StoreProductFlagKey, true>> & {
+  /** No new, deal, wholesale, or discount flag. */
+  isRegular?: true;
+};
 
 const FLAG_KEYS: StoreProductFlagKey[] = [
   'isNewProduct',
@@ -34,15 +38,13 @@ export function isTruthySearchFlag(value: string | undefined | null): boolean {
 }
 
 export function parseStoreProductFlags(
-  search: Pick<
-    StoreProductListSearchParams,
-    StoreProductFlagKey
-  >,
+  search: Pick<StoreProductListSearchParams, StoreProductFlagKey | 'regular'>,
 ): ParsedStoreProductFlags {
   const flags: ParsedStoreProductFlags = {};
   for (const key of FLAG_KEYS) {
     if (isTruthySearchFlag(search[key])) flags[key] = true;
   }
+  if (isTruthySearchFlag(search.regular)) flags.isRegular = true;
   return flags;
 }
 
@@ -85,10 +87,10 @@ export function resolveStoreProductsListQuery({
     tag,
     inStockOnly: true,
     includeQuantity: true,
-    isNewProduct: flags.isNewProduct,
-    isTodayDeal: flags.isTodayDeal,
-    isWholesale: flags.isWholesale,
-    isDiscounted: flags.isDiscounted,
+    isNewProduct: flags.isRegular ? false : flags.isNewProduct,
+    isTodayDeal: flags.isRegular ? false : flags.isTodayDeal,
+    isWholesale: flags.isRegular ? false : flags.isWholesale,
+    isDiscounted: flags.isRegular ? false : flags.isDiscounted,
   };
 
   if (sort === 'newest') {

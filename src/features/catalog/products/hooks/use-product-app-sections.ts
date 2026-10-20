@@ -56,6 +56,7 @@ export function useStoreSellsLocally(): boolean {
 
 /** Product form tabs owned by one app (other tabs are the catalog's). */
 const TAB_APP: Record<string, keyof ProductAppSections> = {
+  image: 'store',
   batches: 'inventory',
   reviews: 'store',
 };

@@ -1,9 +1,10 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import type {
-  StorefrontCategory,
-  StorefrontCompanyConfig,
+import {
+  withRegularProductsTab,
+  type StorefrontCategory,
+  type StorefrontCompanyConfig,
 } from '@/features/ecommerce/storefront/domain/storefront-models';
 import { buildCategoryTree } from '@/features/ecommerce/storefront/utils/category-tree';
 import { useTranslations } from 'next-intl';
@@ -34,10 +35,10 @@ export function StorePlpSidebar({
     ...(showWholesale ? [{ label: t('wholesale.title'), href: '/store/wholesale' as const }] : []),
     { label: t('discounts.title'), href: '/store/products?isDiscounted=1' as const },
   ];
-  const shortcuts =
-    secondaryNavigation && secondaryNavigation.length > 0
-      ? secondaryNavigation
-      : promoLinks;
+  const shortcuts = withRegularProductsTab(
+    secondaryNavigation && secondaryNavigation.length > 0 ? secondaryNavigation : promoLinks,
+    t('nav.regularProducts'),
+  );
 
   return (
     <aside className="hidden w-56 shrink-0 lg:block">

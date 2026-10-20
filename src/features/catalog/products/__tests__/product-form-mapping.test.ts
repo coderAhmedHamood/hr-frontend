@@ -301,6 +301,23 @@ describe('formValuesToCreateInput', () => {
     expect(input.dealPrice).toBeUndefined();
     expect(input.dealUntil).toBeNull();
   });
+
+  it('sends «يظهر في تخفيضات اليوم» with a percent or amount offer, and clears it without one', () => {
+    const company = '76e5bc4f-5adb-434d-a886-bcff05a9680b';
+    const marked = formValuesToCreateInput(
+      { ...BASE_VALUES, isDiscounted: true, discountAmount: 20, inTodayDeals: true } as ProductFormValues,
+      company,
+    );
+    expect(marked.discountAmount).toBe(20);
+    expect(marked.inTodayDeals).toBe(true);
+    const off = formValuesToCreateInput(
+      { ...BASE_VALUES, isDiscounted: false, inTodayDeals: true } as ProductFormValues,
+      company,
+    );
+    expect(off.inTodayDeals).toBe(false);
+    expect(productToFormValues({ ...BASE_PRODUCT, isDiscounted: true, discountPercent: 10, inTodayDeals: true }).inTodayDeals).toBe(true);
+    expect(productToFormValues(BASE_PRODUCT).inTodayDeals).toBe(false);
+  });
 });
 
 describe('productToFormValues — promo end dates', () => {

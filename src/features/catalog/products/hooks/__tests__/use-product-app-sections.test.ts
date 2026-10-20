@@ -8,6 +8,7 @@ import { isModuleEnabledFor } from '@/shared/modules/registry';
 
 const TABS = [
   { value: 'general' },
+  { value: 'image' },
   { value: 'attributes' },
   { value: 'availability' },
   { value: 'batches' },
@@ -55,7 +56,7 @@ describe('product app sections (phase 2.5)', () => {
   it('shows inventory and store tabs only with their app', () => {
     expect(tabs(true, true)).toEqual(TABS.map((t) => t.value));
     expect(tabs(true, false)).toEqual(['general', 'attributes', 'availability', 'batches', 'units', 'settings']);
-    expect(tabs(false, true)).toEqual(['general', 'attributes', 'availability', 'units', 'reviews', 'settings']);
+    expect(tabs(false, true)).toEqual(['general', 'image', 'attributes', 'availability', 'units', 'reviews', 'settings']);
     expect(tabs(false, false)).toEqual(['general', 'attributes', 'units', 'settings']);
   });
 

@@ -72,6 +72,29 @@ describe('storefront price of «تخفيضات اليوم» (same rule as the or
     expect(shown.variants.map((v) => v.price.amount)).toEqual([20, 25, 25]);
   });
 
+  it('wholesale 70 with no other offer: the customer sees and can buy 70, struck from 100', () => {
+    const shown = mapStorefrontProduct(
+      product({ isWholesaleActive: true, wholesalePrice: money(70) }),
+      'ar',
+    );
+    expect(shown.price.amount).toBe(70);
+    expect(shown.compareAtPrice?.amount).toBe(100);
+  });
+
+  it('a deal of 80 wins over wholesale 60: the customer pays 80', () => {
+    const shown = mapStorefrontProduct(
+      product({
+        isTodayDealActive: true,
+        dealPrice: money(80),
+        isWholesaleActive: true,
+        wholesalePrice: money(60),
+      }),
+      'ar',
+    );
+    expect(shown.price.amount).toBe(80);
+    expect(shown.compareAtPrice?.amount).toBe(100);
+  });
+
   it('variants 30 / 35 with a 10% discount: 27 / 31.5', () => {
     const shown = mapStorefrontProduct(
       product({
