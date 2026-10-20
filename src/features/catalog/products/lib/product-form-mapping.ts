@@ -47,18 +47,35 @@ function optionalPositive(value: number | undefined): number | undefined {
   return value;
 }
 
-/** ISO datetime → YYYY-MM-DD for date pickers. */
-function isoToYmd(iso: string | null | undefined): string {
-  if (!iso) return '';
-  const match = /^(\d{4}-\d{2}-\d{2})/.exec(iso);
-  return match?.[1] ?? '';
+/** Local calendar day (YYYY-MM-DD) of a date. */
+export function localYmd(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
-/** YYYY-MM-DD → ISO midnight UTC, or null when empty (no expiry). */
+/**
+ * Stored end (an instant) → the day it falls on, for date pickers. The server
+ * keeps a day as its last moment in the store's timezone, so the local day
+ * is read (not the UTC prefix, which can be the day before or after).
+ */
+function isoToYmd(iso: string | null | undefined): string {
+  if (!iso) return '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  return localYmd(date);
+}
+
+/**
+ * Picked day → sent as the day itself (YYYY-MM-DD): the server ends it at the
+ * end of that day in the store's timezone. Null when empty (no expiry).
+ */
 function ymdToIso(ymd: string | null | undefined): string | null {
   const trimmed = ymd?.trim();
   if (!trimmed) return null;
-  return `${trimmed}T00:00:00.000Z`;
+  return trimmed;
 }
 
 /** Select "none" / empty → null so the API never receives "" or placeholders. */

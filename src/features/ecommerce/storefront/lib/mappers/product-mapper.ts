@@ -36,7 +36,13 @@ export function mapStorefrontProduct(product: Product, locale: StorefrontLocale)
   const name = resolveName(product, locale);
   const cheapest = cheapestActiveVariant(product.variants ?? []);
   const basePrice = cheapest?.salePrice ?? product.price;
-  const dealActive = Boolean(product.isTodayDealActive && product.dealPrice);
+  // Same rule as the order (store-orders resolveUnitPrice): an active deal
+  // replaces a price only when cheaper — per variant too.
+  const dealPrice =
+    product.isTodayDealActive && product.dealPrice && product.dealPrice.amount > 0
+      ? product.dealPrice
+      : null;
+  const dealActive = Boolean(dealPrice && dealPrice.amount < (cheapest?.salePrice ?? product.price).amount);
   const discountActive =
     Boolean(product.isDiscountActive) &&
     product.discountPercent != null &&
@@ -87,8 +93,8 @@ export function mapStorefrontProduct(product: Product, locale: StorefrontLocale)
         attributeValueIds: variant.attributeValueIds,
         attributeLabels: variant.attributeLabels,
         price:
-          dealActive && product.dealPrice
-            ? product.dealPrice
+          dealPrice && dealPrice.amount < variant.salePrice.amount
+            ? dealPrice
             : (variantDiscounted ?? variant.salePrice),
         quantity: variant.quantity,
         stockStatus: variant.stockStatus,

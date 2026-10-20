@@ -146,12 +146,29 @@ export function ProductsListPage() {
     return () => clearTimeout(timeout);
   }, [searchInput]);
 
-  const query: ProductListQuery = { companyId, search: search || undefined, page, limit: pageSize, ...filters };
+  // Stock columns/filters are inventory's; stockStatus and the promo offers
+  // («منتج حديث», «تخفيضات اليوم», …) are the store's.
+  const sections = useProductAppSections();
+  const query: ProductListQuery = {
+    companyId,
+    search: search || undefined,
+    page,
+    limit: pageSize,
+    ...filters,
+    // A link to a hidden store filter falls back to the full list.
+    ...(sections.store
+      ? {}
+      : {
+          stockStatus: undefined,
+          isNewProduct: undefined,
+          isTodayDeal: undefined,
+          isWholesale: undefined,
+          isDiscounted: undefined,
+        }),
+  };
   const { data, isLoading, isError } = useProducts(query);
   const { data: categoriesData } = useCategories({ companyId, limit: 100 });
   const { data: brandsData } = useBrands({ companyId, limit: 100 });
-  // Stock columns/filters are inventory's; stockStatus is the store's.
-  const sections = useProductAppSections();
   const { data: warehousesData } = useWarehouses(
     { companyId, limit: 200 },
     { enabled: sections.inventory },
@@ -298,7 +315,7 @@ export function ProductsListPage() {
               { value: 'true', label: 'متاح لنقطة البيع' },
             ],
           }] : []),
-          {
+          ...(sections.store ? [{
             id: 'offer',
             value:
               filters.isNewProduct
@@ -310,7 +327,7 @@ export function ProductsListPage() {
                     : filters.isDiscounted
                       ? 'isDiscounted'
                       : 'all',
-            onChange: (value) =>
+            onChange: (value: string) =>
               updateParams({
                 isNewProduct: value === 'isNewProduct' ? true : undefined,
                 isTodayDeal: value === 'isTodayDeal' ? true : undefined,
@@ -326,7 +343,7 @@ export function ProductsListPage() {
               { value: 'isWholesale', label: 'أسعار جملة' },
               { value: 'isDiscounted', label: 'خصومات' },
             ],
-          },
+          }] : []),
           {
             id: 'sort',
             value: filters.sort ?? 'all',
@@ -367,7 +384,7 @@ export function ProductsListPage() {
             <div className="flex flex-col gap-1">
               <span className="font-medium text-foreground">{product.nameAr}</span>
               <span className="text-xs text-muted-foreground">SKU: {product.sku}</span>
-              <div className="flex flex-wrap gap-1">
+              {sections.store ? <div className="flex flex-wrap gap-1">
                 {product.isNewProductActive ? (
                   <Badge variant="subtle">حديث</Badge>
                 ) : null}
@@ -382,7 +399,7 @@ export function ProductsListPage() {
                     خصم{product.discountPercent != null ? ` ${product.discountPercent}%` : ''}
                   </Badge>
                 ) : null}
-              </div>
+              </div> : null}
             </div>
           </div>
         );
@@ -393,7 +410,7 @@ export function ProductsListPage() {
       title: 'السعر',
       render: (product) => (
         <div className="flex flex-col gap-0.5">
-          {product.isTodayDealActive && product.dealPrice ? (
+          {sections.store && product.isTodayDealActive && product.dealPrice ? (
             <>
               <span className="font-medium tabular-nums text-primary">
                 {formatPrice(product.dealPrice)}
@@ -405,7 +422,7 @@ export function ProductsListPage() {
           ) : (
             <span className="font-medium tabular-nums">{formatPrice(product.price)}</span>
           )}
-          {product.isWholesaleActive && product.wholesalePrice ? (
+          {sections.store && product.isWholesaleActive && product.wholesalePrice ? (
             <span className="text-xs text-muted-foreground tabular-nums">
               جملة: {formatPrice(product.wholesalePrice)}
             </span>
@@ -469,10 +486,11 @@ export function ProductsListPage() {
 
   function renderMobileCard(product: Product) {
     const primaryImage = product.media.find((m) => m.isPrimary) ?? product.media[0];
-    const offerBadges = [
+    // Promo badges are the store's: none while it is not enabled.
+    const offerBadges = (sections.store ? [
       product.isNewProductActive ? { key: 'new', variant: 'subtle' as const, label: 'حديث' } : null,
       product.isTodayDealActive ? { key: 'deal', variant: 'warning' as const, label: 'تخفيض اليوم' } : null,
-      product.isWholesale ? { key: 'wholesale', variant: 'outline' as const, label: 'جملة' } : null,
+      product.isWholesaleActive ? { key: 'wholesale', variant: 'outline' as const, label: 'جملة' } : null,
       product.isDiscountActive
         ? {
             key: 'discount',
@@ -480,7 +498,7 @@ export function ProductsListPage() {
             label: `خصم${product.discountPercent != null ? ` ${product.discountPercent}%` : ''}`,
           }
         : null,
-    ].filter(Boolean) as Array<{ key: string; variant: BadgeProps['variant']; label: string }>;
+    ] : []).filter(Boolean) as Array<{ key: string; variant: BadgeProps['variant']; label: string }>;
 
     return (
       <div className="space-y-2.5">

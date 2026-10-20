@@ -480,7 +480,12 @@ export function ProductDetailPage({ productId }: Props) {
                 <ProductReviewsTab companyId={companyId} productId={product.id} />
               </TabsContent>
               <TabsContent value="settings" className="mt-0 focus-visible:outline-none">
-                <ProductSettingsTab control={form.control} errors={form.formState.errors} register={form.register} />
+                <ProductSettingsTab
+                  control={form.control}
+                  errors={form.formState.errors}
+                  register={form.register}
+                  setValue={form.setValue}
+                />
               </TabsContent>
             </Tabs>
           </div>

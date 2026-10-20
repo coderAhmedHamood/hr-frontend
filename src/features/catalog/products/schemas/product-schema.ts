@@ -267,11 +267,18 @@ export const productFormSchema = z
       });
     }
     if (values.isTodayDeal) {
-      const dealPrice = Number(values.dealPriceAmount);
-      if (!Number.isFinite(dealPrice) || dealPrice < 0) {
+      const dealPrice =
+        values.dealPriceAmount === undefined ? Number.NaN : Number(values.dealPriceAmount);
+      if (!Number.isFinite(dealPrice) || dealPrice <= 0) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: 'أدخل سعر التخفيض عند تفعيل تخفيضات اليوم.',
+          message: 'أدخل سعر التخفيض (أكبر من صفر) عند تفعيل تخفيضات اليوم.',
+          path: ['dealPriceAmount'],
+        });
+      } else if (dealPrice >= values.listPrice) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'سعر التخفيض يجب أن يكون أقل من سعر البيع الأساسي.',
           path: ['dealPriceAmount'],
         });
       }

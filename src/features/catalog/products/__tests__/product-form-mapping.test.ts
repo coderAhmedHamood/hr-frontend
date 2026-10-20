@@ -1,5 +1,9 @@
 import { formValuesToCreateInput, productToFormValues } from '@/features/catalog/products/lib/product-form-mapping';
-import { createDefaultUomLines } from '@/features/catalog/products/schemas/product-schema';
+import {
+  createDefaultUomLines,
+  PRODUCT_FORM_DEFAULT_VALUES,
+  productFormSchema,
+} from '@/features/catalog/products/schemas/product-schema';
 import type { Product } from '@/features/ecommerce/domain/types/product';
 import type { ProductFormValues } from '@/features/catalog/products/schemas/product-schema';
 
@@ -269,5 +273,63 @@ describe('formValuesToCreateInput', () => {
     expect(input.nameEn).toBeUndefined();
     expect(input.description).toBeUndefined();
     expect(input.seo).toEqual({});
+  });
+
+  it('sends «منتج حديث» / «تخفيضات اليوم» end dates as days (the server ends them at the end of the store day)', () => {
+    const input = formValuesToCreateInput(
+      {
+        ...BASE_VALUES,
+        listPrice: 100,
+        isNewProduct: true,
+        newUntil: '2026-10-25',
+        isTodayDeal: true,
+        dealPriceAmount: 80,
+        dealUntil: '2026-10-21',
+      } as ProductFormValues,
+      '76e5bc4f-5adb-434d-a886-bcff05a9680b',
+    );
+    expect(input.newUntil).toBe('2026-10-25');
+    expect(input.dealUntil).toBe('2026-10-21');
+    expect(input.dealPrice).toEqual({ amount: 80, currency: 'YER' });
+  });
+
+  it('clears the deal when it is off', () => {
+    const input = formValuesToCreateInput(
+      { ...BASE_VALUES, isTodayDeal: false, dealPriceAmount: 80, dealUntil: '2026-10-21' } as ProductFormValues,
+      '76e5bc4f-5adb-434d-a886-bcff05a9680b',
+    );
+    expect(input.dealPrice).toBeUndefined();
+    expect(input.dealUntil).toBeNull();
+  });
+});
+
+describe('productToFormValues — promo end dates', () => {
+  it('reloads a stored end (last moment of the store day) as that local day', () => {
+    // The end of 21 Oct as a local instant, whatever the test machine's zone.
+    const end = new Date(2026, 9, 21, 23, 59, 59, 999).toISOString();
+    const values = productToFormValues({ ...BASE_PRODUCT, isTodayDeal: true, dealUntil: end, newUntil: end });
+    expect(values.dealUntil).toBe('2026-10-21');
+    expect(values.newUntil).toBe('2026-10-21');
+  });
+});
+
+describe('productFormSchema — «تخفيضات اليوم» price', () => {
+  const parse = (dealPriceAmount: unknown) =>
+    productFormSchema.safeParse({
+      ...PRODUCT_FORM_DEFAULT_VALUES,
+      nameAr: 'منتج',
+      listPrice: 100,
+      isTodayDeal: true,
+      dealPriceAmount,
+    });
+  const dealError = (result: ReturnType<typeof parse>) =>
+    result.success ? undefined : result.error.issues.find((issue) => issue.path[0] === 'dealPriceAmount');
+
+  it('accepts a deal price above zero and below the base price', () => {
+    expect(dealError(parse(80))).toBeUndefined();
+  });
+
+  it.each([[120], [100], [0], ['']])('refuses %p', (value) => {
+    expect(dealError(parse(value))).toBeDefined();
   });
 });

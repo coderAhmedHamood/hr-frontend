@@ -457,6 +457,7 @@ export function ProductFormDialog({ product, open, onOpenChange }: Props) {
                         control={form.control}
                         errors={form.formState.errors}
                         register={form.register}
+                        setValue={form.setValue}
                       />
                     </TabsContent>
                   </Tabs>

@@ -56,16 +56,17 @@ export function ProductDetailHero({ control, register, setValue, nameError, curr
   const isDiscounted = useWatch({ control, name: 'isDiscounted' });
   const discountPercent = useWatch({ control, name: 'discountPercent' }) as number | undefined;
 
-  const offerBadges = [
+  // Promo badges and the deal price are the store's.
+  const offerBadges = (sections.store ? [
     isNewProduct ? { key: 'new', variant: 'subtle' as const, label: 'حديث' } : null,
     isTodayDeal ? { key: 'deal', variant: 'warning' as const, label: 'تخفيض اليوم' } : null,
     isWholesale ? { key: 'wholesale', variant: 'outline' as const, label: 'جملة' } : null,
     isDiscounted
       ? { key: 'discount', variant: 'destructive' as const, label: `خصم${discountPercent ? ` ${discountPercent}%` : ''}` }
       : null,
-  ].filter(Boolean) as Array<{ key: string; variant: BadgeProps['variant']; label: string }>;
+  ] : []).filter(Boolean) as Array<{ key: string; variant: BadgeProps['variant']; label: string }>;
 
-  const hasDealPrice = isTodayDeal && dealPriceAmount != null && dealPriceAmount > 0;
+  const hasDealPrice = sections.store && isTodayDeal && dealPriceAmount != null && dealPriceAmount > 0;
 
   return (
     <section className="relative overflow-hidden rounded-3xl border border-border/70 bg-card">

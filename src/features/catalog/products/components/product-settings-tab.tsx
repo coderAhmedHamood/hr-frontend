@@ -1,6 +1,14 @@
 'use client';
 
-import { Controller, useWatch, type Control, type FieldErrors, type UseFormRegister } from 'react-hook-form';
+import type { ChangeEvent } from 'react';
+import {
+  Controller,
+  useWatch,
+  type Control,
+  type FieldErrors,
+  type UseFormRegister,
+  type UseFormSetValue,
+} from 'react-hook-form';
 import type { ProductFormInput, ProductFormValues } from '@/features/catalog/products/schemas/product-schema';
 import {
   ProductFormField,
@@ -15,12 +23,21 @@ import { cn } from '@/shared/utils';
 import { useProductAppSections } from '@/features/catalog/products/hooks/use-product-app-sections';
 import { useCompanyCurrency } from '@/features/auth/lib/company-currency';
 import { currencySymbolAr } from '@/shared/currencies';
+import { localYmd } from '@/features/catalog/products/lib/product-form-mapping';
 
 type Props = {
   control: Control<ProductFormInput, unknown, ProductFormValues>;
   errors: FieldErrors<ProductFormInput>;
   register: UseFormRegister<ProductFormInput>;
+  setValue: UseFormSetValue<ProductFormInput>;
 };
+
+/** Today + N days as a local day (YYYY-MM-DD): the deal's end date. */
+function dayAfter(days: number): string {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  return localYmd(date);
+}
 
 const ASPECT_RATIO_OPTIONS = [
   { value: 'square', label: 'مربع', hint: '1:1 — الأنسب لمعظم المنتجات' },
@@ -72,7 +89,7 @@ function ProductImageDisplayPreview({ control }: { control: Control<ProductFormI
   );
 }
 
-export function ProductSettingsTab({ control, errors, register }: Props) {
+export function ProductSettingsTab({ control, errors, register, setValue }: Props) {
   // Image display and promos (new badge, deal, wholesale, discount) are the
   // store's (2.4, 2.10); stock behaviour is inventory's.
   const sections = useProductAppSections();
@@ -239,7 +256,7 @@ export function ProductSettingsTab({ control, errors, register }: Props) {
                         <ProductFormField
                           label="مدة التخفيض (أيام)"
                           htmlFor="product-deal-days"
-                          hint="اختياري — يُحسب تاريخ النهاية تلقائيًا"
+                          hint="اختياري — يملأ تاريخ النهاية تلقائيًا"
                         >
                           <Input
                             id="product-deal-days"
@@ -249,13 +266,22 @@ export function ProductSettingsTab({ control, errors, register }: Props) {
                             dir="rtl"
                             placeholder="اختياري"
                             className="h-11"
-                            {...register('dealDays')}
+                            {...register('dealDays', {
+                              // The end date is what the store applies: the days
+                              // fill it (today counts as day 0), visible and editable.
+                              onChange: (event: ChangeEvent<HTMLInputElement>) => {
+                                const days = Number(event.target.value);
+                                if (Number.isInteger(days) && days >= 1) {
+                                  setValue('dealUntil', dayAfter(days), { shouldDirty: true });
+                                }
+                              },
+                            })}
                           />
                         </ProductFormField>
                         <ProductFormField
                           label="ينتهي في"
                           htmlFor="product-deal-until"
-                          hint="اختياري — فارغ = بدون انتهاء"
+                          hint="اختياري — يشمل اليوم كاملًا · فارغ = بدون انتهاء"
                         >
                           <Controller
                             control={control}
