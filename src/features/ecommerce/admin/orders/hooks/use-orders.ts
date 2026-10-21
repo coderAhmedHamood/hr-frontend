@@ -25,6 +25,7 @@ import type {
 import type { PaginatedResult } from '@/features/ecommerce/domain/types/common';
 import { resolvePaymentProofUrls } from '@/features/ecommerce/domain/lib/payment-proofs';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
+import { ApiError } from '@/shared/api/client';
 import {
   ORDER_STATUS_LABELS_AR,
   ORDER_STATUS_TRANSITIONS,
@@ -438,6 +439,23 @@ export function useOrderAttachmentMutations(companyId: string) {
   return { add, update, remove };
 }
 
+function stockSourceChoiceError(error: unknown): string | null {
+  if (!(error instanceof ApiError) || !error.envelope?.error || typeof error.envelope.error !== 'object') {
+    return null;
+  }
+  const body = error.envelope.error as { code?: string };
+  if (body.code === 'STORE_ORDER_NOT_LOCAL') {
+    return 'المتجر يبيع من المخازن الآن، فلا تُخصم كمية المتجر. لإغلاق طلب قديم دون حركة مخزون: اكتب ملاحظة ثم اضغط «بلا أثر مخزني».';
+  }
+  if (body.code === 'STORE_STOCK_SHORT') {
+    return 'الكمية غير موجودة في مستودع المتجر. أدخل الرصيد ثم أعد «المخازن»، أو اكتب ملاحظة واضغط «بلا أثر مخزني».';
+  }
+  if (body.code === 'STORE_INVENTORY_BRIDGE_DISABLED') {
+    return 'الربط مع المخازن غير مفعّل، فلا يُحجز من المستودع. استخدم «كمية المتجر» أو «بلا أثر مخزني».';
+  }
+  return null;
+}
+
 /** Older (unresolved) order: choose its stock source (phase 4). */
 export function useResolveOrderStockSource(companyId: string) {
   const queryClient = useQueryClient();
@@ -456,6 +474,11 @@ export function useResolveOrderStockSource(companyId: string) {
       toast.success('تم تحديد مصدر المخزون للطلب');
     },
     onError: (error) => {
+      const text = stockSourceChoiceError(error);
+      if (text) {
+        toast.error(text);
+        return;
+      }
       handleApiError(error, 'ecommerce.orders.stock-source');
     },
   });

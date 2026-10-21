@@ -102,9 +102,19 @@ function ResolveSource({
   canManage: boolean;
 }) {
   const mutation = useResolveOrderStockSource(companyId);
+  const noteRef = React.useRef<HTMLInputElement>(null);
   const [note, setNote] = React.useState('');
+  const [noteMissing, setNoteMissing] = React.useState(false);
   const run = (source: 'inventory' | 'local' | 'none') =>
     mutation.mutate({ orderId: order.id, source, note: note.trim() || undefined });
+  const chooseNone = () => {
+    if (note.trim().length === 0) {
+      setNoteMissing(true);
+      noteRef.current?.focus();
+      return;
+    }
+    run('none');
+  };
 
   return (
     <div className="space-y-2 rounded-xl border border-warning/30 bg-warning/5 p-3">
@@ -116,13 +126,24 @@ function ResolveSource({
         <li>كمية المتجر: تُخصم الآن من كمية المتجر الخاصة.</li>
         <li>بلا أثر مخزني: يُشحن دون حركة مخزون، مع ملاحظة إلزامية.</li>
       </ul>
+      <p className="text-xs font-medium text-foreground">
+        لإغلاق الطلب دون خصم مخزون: اكتب ملاحظة ثم اضغط «بلا أثر مخزني».
+      </p>
       <Input
+        ref={noteRef}
         value={note}
-        onChange={(event) => setNote(event.target.value)}
-        placeholder="ملاحظة (إلزامية لخيار «بلا أثر مخزني»)"
+        onChange={(event) => {
+          setNote(event.target.value);
+          if (event.target.value.trim()) setNoteMissing(false);
+        }}
+        placeholder="مثال: طلب قديم قبل الربط، البضاعة خرجت سابقاً"
         className="h-9 text-sm"
         disabled={!canManage || mutation.isPending}
+        aria-invalid={noteMissing}
       />
+      {noteMissing ? (
+        <p className="text-xs font-medium text-destructive">اكتب الملاحظة أولاً، ثم اضغط الزر.</p>
+      ) : null}
       <div className="flex flex-wrap gap-2">
         <Button size="sm" disabled={!canManage || mutation.isPending} onClick={() => run('inventory')}>
           المخازن
@@ -137,9 +158,9 @@ function ResolveSource({
         </Button>
         <Button
           size="sm"
-          variant="ghost"
-          disabled={!canManage || mutation.isPending || note.trim().length === 0}
-          onClick={() => run('none')}
+          variant="outline"
+          disabled={!canManage || mutation.isPending}
+          onClick={chooseNone}
         >
           بلا أثر مخزني
         </Button>
