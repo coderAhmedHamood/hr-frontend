@@ -88,6 +88,12 @@ export function StoreCartClient() {
 
   return (
     <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
+      {cartCheck.storeIssues.length > 0 ? (
+        <p className="flex items-start gap-1.5 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-800 dark:bg-red-950 dark:text-red-200 lg:col-span-2">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+          {cartCheck.storeIssues[0]?.message}
+        </p>
+      ) : null}
       <ul className="flex flex-col gap-4">
         {cartLines.map(({ line, product, unitPrice, compareAt, discountPercent, maxQty, lineName, variant }) => {
           const display = buildProductDisplay(product);

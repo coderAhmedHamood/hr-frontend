@@ -28,11 +28,14 @@ export function useStoreCartCheck() {
     staleTime: 15_000,
   });
   const issues = query.data?.issues ?? [];
+  const lineIssues = issues.filter((issue) => issue.productId);
+  const storeIssues = issues.filter((issue) => !issue.productId);
   return {
     issues,
-    /** The problem on one cart line, if any. */
+    storeIssues,
+    /** The problem on one cart line, if any — never a store-wide stock switch. */
     issueFor(productId: string, variantId?: string | null): StoreOrderCheckIssue | undefined {
-      return issues.find(
+      return lineIssues.find(
         (issue) =>
           issue.productId === productId &&
           (issue.variantId == null || issue.variantId === (variantId ?? null)),
