@@ -51,11 +51,24 @@ const OPTIONAL: Partial<Record<DaySummaryOptionalColumnKey, ExportColumn>> = {
 };
 
 /** The exported columns: the pinned ones plus the data columns visible in the column picker. */
-export function daySummaryExportColumns(visibility: DaySummaryColumnVisibility): ExportColumn[] {
+export function daySummaryExportColumns(
+  visibility: DaySummaryColumnVisibility,
+  opts?: { branchByEmployeeId?: Map<string, string> },
+): ExportColumn[] {
   const optional = DAY_SUMMARY_COLUMN_OPTIONS.filter((o) => visibility[o.key])
     .map((o) => OPTIONAL[o.key])
     .filter((c): c is ExportColumn => c != null);
-  return [...PINNED, ...optional];
+  const branchColumn: ExportColumn | null = opts?.branchByEmployeeId
+    ? {
+        label: 'الفرع',
+        kind: 'text',
+        weight: 1.8,
+        value: (r) => opts.branchByEmployeeId!.get(r.employeeId)?.trim() || '—',
+      }
+    : null;
+  return branchColumn
+    ? [PINNED[0]!, branchColumn, ...PINNED.slice(1), ...optional]
+    : [...PINNED, ...optional];
 }
 
 export function daySummaryExportRow(columns: ExportColumn[], row: DaySummaryResponseDto): string[] {

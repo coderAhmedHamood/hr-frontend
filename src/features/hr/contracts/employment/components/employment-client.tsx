@@ -964,6 +964,7 @@ export function EmploymentContractsClient() {
         title="معاينة — عقد العمل الحالي في النموذج"
         fileName={`employment-contract-${(form.contractNumber || 'draft').replace(/[^\w\-]+/g, '_')}.pdf`}
         printable={contractPrintable}
+        pageBreaks="flow"
         emptyMessage="تعذر إعداد المعاينة — تحقق من بيانات النموذج."
       />
 

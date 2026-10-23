@@ -83,10 +83,18 @@ export function useDaySummariesDirectoryModel() {
     attendanceFiltersKey('day-summaries', companyId, 'selectedEmpIds'),
   );
   const { employees: pickerEmployees } = useEmployeeFilterPicker(companyId);
-  const { branchId: assignedBranchId, select: assignedBranchSelect, assignedIds } = useAssignedBranchFilter(
+  const {
+    branchId: assignedBranchId,
+    select: assignedBranchSelect,
+    assignedIds,
+    selectedBranchNameAr,
+    branchByEmployeeId,
+    resolveBranchByEmployeeId,
+  } = useAssignedBranchFilter(
     companyId,
     'day-summaries',
   );
+  const includeBranchColumn = assignedBranchId === 'all';
   // The employees' own status: active by default, like the daily register.
   const [employeeStatus, setEmployeeStatus] = useEmployeeStatusFilter(
     attendanceFiltersKey('day-summaries', companyId, 'employeeStatus'),
@@ -270,8 +278,12 @@ export function useDaySummariesDirectoryModel() {
     + (filters.isManualOverride !== 'all' ? 1 : 0);
 
   const exportColumns = React.useMemo(
-    () => daySummaryExportColumns(normalizedColumnVisibility),
-    [normalizedColumnVisibility],
+    () =>
+      daySummaryExportColumns(
+        normalizedColumnVisibility,
+        includeBranchColumn ? { branchByEmployeeId } : undefined,
+      ),
+    [branchByEmployeeId, includeBranchColumn, normalizedColumnVisibility],
   );
 
   const getExportRows = useLatestCallback(async () => {
@@ -281,7 +293,13 @@ export function useDaySummariesDirectoryModel() {
     const { items: all } = await fetchAllPaginatedItems((p, l) =>
       attendanceDaySummariesApi.getAll({ ...query, page: p, limit: l }),
     );
-    return all.map((row) => daySummaryExportRow(exportColumns, row));
+    const branchMap = includeBranchColumn
+      ? await resolveBranchByEmployeeId()
+      : undefined;
+    const columns = branchMap
+      ? daySummaryExportColumns(normalizedColumnVisibility, { branchByEmployeeId: branchMap })
+      : exportColumns;
+    return all.map((row) => daySummaryExportRow(columns, row));
   });
 
   usePageHeaderActions(
@@ -298,11 +316,16 @@ export function useDaySummariesDirectoryModel() {
           fileName={`attendance-day-summaries-${from}-${to}`}
           columns={exportColumns}
           getRows={getExportRows}
-          pinnedColumnCount={3}
+          pinnedColumnCount={includeBranchColumn ? 4 : 3}
           subtitleLines={[
             `الفترة: ${from} — ${to}`,
             `حالة الموظفين: ${employeeStatusFilterLabelAr(employeeStatus)}`,
-          ]}
+            selectedBranchNameAr
+              ? `الفرع: ${selectedBranchNameAr}`
+              : includeBranchColumn
+                ? 'الفرع: كل الفروع'
+                : null,
+          ].filter((line): line is string => Boolean(line))}
           landscape
         />
         <Button
@@ -322,6 +345,8 @@ export function useDaySummariesDirectoryModel() {
       employeeStatus,
       exportColumns,
       from,
+      includeBranchColumn,
+      selectedBranchNameAr,
       getExportRows,
       normalizedColumnVisibility,
       resetColumnVisibility,

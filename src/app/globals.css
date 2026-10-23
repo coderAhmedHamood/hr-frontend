@@ -1,5 +1,8 @@
 @import 'tailwindcss';
 @config '../../tailwind.config.js';
+/* Do not scan compiled output: leftover arbitrary padding classes there
+   make Turbopack emit invalid CSS for env(safe-area-inset-*). */
+@source not '../../.next';
 
 @theme {
   --color-gold: hsl(39 45% 54%);

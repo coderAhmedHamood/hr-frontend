@@ -132,10 +132,17 @@ export function useDailyAttendanceModel() {
   const [eventsLoading, setEventsLoading] = React.useState(false);
   const [listError, setListError] = React.useState<string | null>(null);
   const { employees: pickerEmployees } = useEmployeeFilterPicker(companyId);
-  const { branchId: assignedBranchId, select: assignedBranchSelect, assignedIds } = useAssignedBranchFilter(
+  const {
+    branchId: assignedBranchId,
+    select: assignedBranchSelect,
+    assignedIds,
+    selectedBranchNameAr,
+    resolveBranchByEmployeeId,
+  } = useAssignedBranchFilter(
     companyId,
     'daily',
   );
+  const includeBranchColumn = assignedBranchId === 'all';
   // The employees' own status: active by default (the register of who works
   // now); suspended / ended on demand.
   const [employeeStatus, setEmployeeStatus] = useEmployeeStatusFilter(
@@ -179,7 +186,7 @@ export function useDailyAttendanceModel() {
   );
   const [pdfOpen, setPdfOpen] = React.useState(false);
   const [exportPrintRows, setExportPrintRows] = React.useState<
-    { employeeName: string; date: string; statusLabel: string; worked: string; late: string }[]
+    { employeeName: string; date: string; statusLabel: string; worked: string; late: string; branchName?: string }[]
   >([]);
   const [recomputeOpen, setRecomputeOpen] = React.useState(false);
   const [registerOpen, setRegisterOpen] = React.useState(false);
@@ -370,6 +377,9 @@ export function useDailyAttendanceModel() {
         toast.error('لا توجد سجلات للتصدير ضمن الفلاتر الحالية.');
         return;
       }
+      const branchMap = includeBranchColumn
+        ? await resolveBranchByEmployeeId()
+        : new Map<string, string>();
       setExportPrintRows(
         rows.map((s) => ({
           employeeName: s.employeeName,
@@ -377,6 +387,7 @@ export function useDailyAttendanceModel() {
           statusLabel: STATUS[resolveVisualKey(s.status)].label,
           worked: minutesToHHMM(s.workedMinutes),
           late: minutesToHHMM(s.lateMinutes),
+          branchName: branchMap.get(s.employeeId) ?? '—',
         })),
       );
       setPdfOpen(true);
@@ -402,10 +413,12 @@ export function useDailyAttendanceModel() {
             statusFilter === 'all' ? 'الكل' : attendanceStatusLabels[statusFilter] ?? statusFilter
           }
           employeeStatusLabelAr={employeeStatusFilterLabelAr(employeeStatus)}
+          branchFilterNameAr={selectedBranchNameAr}
+          includeBranchColumn={includeBranchColumn}
           rows={attendancePdfRows}
         />
       ),
-    [attendancePdfRows, from, to, selectedEmpIds.size, statusFilter, employeeStatus, attendanceStatusLabels, companyNameAr, companyNameEn],
+    [attendancePdfRows, from, to, selectedEmpIds.size, statusFilter, employeeStatus, attendanceStatusLabels, companyNameAr, companyNameEn, selectedBranchNameAr, includeBranchColumn],
   );
 
   const attendancePdfFileName = `attendance-${from}-${to}.pdf`;
@@ -417,18 +430,36 @@ export function useDailyAttendanceModel() {
         toast.error('لا توجد سجلات للتصدير ضمن الفلاتر الحالية.');
         return;
       }
+      const branchMap = includeBranchColumn
+        ? await resolveBranchByEmployeeId()
+        : new Map<string, string>();
       const sheet: XlsxCell[][] = [
-        ['الموظف', 'معرف الموظف', 'اليوم', 'الحالة', 'دقائق العمل', 'دقائق التأخير'],
+        includeBranchColumn
+          ? ['الموظف', 'الفرع', 'معرف الموظف', 'اليوم', 'الحالة', 'دقائق العمل', 'دقائق التأخير']
+          : ['الموظف', 'معرف الموظف', 'اليوم', 'الحالة', 'دقائق العمل', 'دقائق التأخير'],
       ];
       for (const s of rows) {
-        sheet.push([
-          s.employeeName,
-          s.employeeId,
-          s.date,
-          STATUS[resolveVisualKey(s.status)].label,
-          s.workedMinutes,
-          s.lateMinutes,
-        ]);
+        const branch = branchMap.get(s.employeeId) ?? '—';
+        sheet.push(
+          includeBranchColumn
+            ? [
+                s.employeeName,
+                selectedBranchNameAr ?? branch,
+                s.employeeId,
+                s.date,
+                STATUS[resolveVisualKey(s.status)].label,
+                s.workedMinutes,
+                s.lateMinutes,
+              ]
+            : [
+                s.employeeName,
+                s.employeeId,
+                s.date,
+                STATUS[resolveVisualKey(s.status)].label,
+                s.workedMinutes,
+                s.lateMinutes,
+              ],
+        );
       }
       await downloadXlsxFromAoA(`attendance-${from}-${to}.xlsx`, 'الحضور', sheet);
       toast.success('تم تنزيل ملف Excel.');

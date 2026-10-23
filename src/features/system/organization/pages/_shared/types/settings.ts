@@ -43,6 +43,12 @@ export interface HrCompanySettings {
   notifyAdvanceRequestApproved: boolean;
   notifyCorrectionRequestApproved: boolean;
   notifyRequestApprovalAssignmentCreated: boolean;
+  /** «طلب بانتظار موافقتك» to the approvers (leave, overtime, correction, advance). */
+  notifyRequestPendingApproval: boolean;
+  notifyOvertimeRequestApproved: boolean;
+  /** The same request notifications also by email. */
+  emailRequestPendingApproval: boolean;
+  emailRequestDecided: boolean;
   notifyContractSentForApproval: boolean;
   notifyEmployeeAssignedToCompany: boolean;
   notifyEmployeeAssignedToBranch: boolean;

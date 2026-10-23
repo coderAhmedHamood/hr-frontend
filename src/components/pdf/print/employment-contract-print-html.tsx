@@ -92,36 +92,50 @@ function ArticleBlock({
   body: string;
   children?: React.ReactNode;
 }) {
+  // An article may run over to the next page — a contract has no gaps — but
+  // its title never stays alone at a page's foot (kept with the first
+  // paragraph), and no paragraph is cut through a line.
+  const paragraphs = sanitizePdfText(body)
+    .split(/\n+/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+  const paragraphStyle: React.CSSProperties = {
+    padding: '0 4px',
+    marginBottom: 4,
+    fontSize: PDF_BODY_FONT,
+    fontWeight: 700,
+    lineHeight: 1.85,
+    textAlign: 'justify',
+    wordBreak: 'break-word',
+    pageBreakInside: 'avoid',
+  };
+  const titleBar = (
+    <div
+      style={{
+        backgroundColor: ARTICLE_BAR_BG,
+        color: ARTICLE_BAR_FG,
+        padding: '8px 12px',
+        marginBottom: 8,
+        fontSize: PDF_SECTION_FONT,
+        fontWeight: 700,
+        textAlign: 'center',
+        lineHeight: 1.5,
+      }}
+    >
+      {sanitizePdfText(title)}
+    </div>
+  );
   return (
-    <div style={{ marginBottom: 8, pageBreakInside: 'avoid' }}>
-      <div
-        style={{
-          backgroundColor: ARTICLE_BAR_BG,
-          color: ARTICLE_BAR_FG,
-          padding: '8px 12px',
-          fontSize: PDF_SECTION_FONT,
-          fontWeight: 700,
-          textAlign: 'center',
-          lineHeight: 1.5,
-        }}
-      >
-        {sanitizePdfText(title)}
+    <div style={{ marginBottom: 8 }}>
+      <div style={{ pageBreakInside: 'avoid' }}>
+        {titleBar}
+        {paragraphs[0] ? <div style={paragraphStyle}>{paragraphs[0]}</div> : null}
       </div>
-      {body.trim() ? (
-        <div
-          style={{
-            padding: '8px 4px 6px',
-            fontSize: PDF_BODY_FONT,
-            fontWeight: 700,
-            lineHeight: 1.85,
-            textAlign: 'justify',
-            whiteSpace: 'pre-wrap',
-            wordBreak: 'break-word',
-          }}
-        >
-          {sanitizePdfText(body)}
+      {paragraphs.slice(1).map((p, i) => (
+        <div key={i} style={paragraphStyle}>
+          {p}
         </div>
-      ) : null}
+      ))}
       {children}
     </div>
   );

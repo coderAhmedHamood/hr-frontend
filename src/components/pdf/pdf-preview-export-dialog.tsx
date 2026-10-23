@@ -21,6 +21,8 @@ type PdfPreviewExportDialogProps = {
   emptyMessage?: string;
   /** PDF page orientation (default portrait). */
   orientation?: ExportDomToPdfOptions['orientation'];
+  /** Page breaks (see exportDomToPdf): `flow` for long documents like contracts. */
+  pageBreaks?: ExportDomToPdfOptions['pageBreaks'];
   /** Extra control shown beside the title (e.g. a print-fields picker). */
   headerExtra?: React.ReactNode;
 };
@@ -33,6 +35,7 @@ export function PdfPreviewExportDialog({
   printable,
   emptyMessage = 'لا توجد بيانات للتصدير ضمن الفلاتر الحالية.',
   orientation = 'portrait',
+  pageBreaks,
   headerExtra,
 }: PdfPreviewExportDialogProps) {
   const printableRef = React.useRef<HTMLDivElement>(null);
@@ -53,14 +56,14 @@ export function PdfPreviewExportDialog({
     }
     setDomExporting(true);
     try {
-      await exportDomToPdf(el, fileName, { orientation });
+      await exportDomToPdf(el, fileName, { orientation, pageBreaks });
       toast.success('تم تنزيل الملف');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'فشل تصدير PDF');
     } finally {
       setDomExporting(false);
     }
-  }, [fileName, orientation]);
+  }, [fileName, orientation, pageBreaks]);
 
   const showPrintable = Boolean(open && printable && printableNode);
   const isLandscape = orientation === 'landscape';

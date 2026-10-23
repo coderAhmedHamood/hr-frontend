@@ -2,6 +2,14 @@ import { PDF_PRINT_FONT_FAMILY } from '@/components/pdf/lib/pdf-print-font';
 
 export type ExportDomToPdfOptions = {
   orientation?: 'portrait' | 'landscape';
+  /**
+   * Page breaks: `avoid-all` (default) never splits any element — fine for
+   * short blocks, but a long block jumps whole to the next page and leaves a
+   * gap. `flow` lets blocks split and keeps whole only what is marked
+   * `page-break-inside: avoid` (paragraphs, a title with its first lines) —
+   * for long documents such as contracts, which must have no gaps.
+   */
+  pageBreaks?: 'avoid-all' | 'flow';
 };
 
 /**
@@ -108,7 +116,10 @@ export async function exportDomToPdf(
           },
         },
         jsPDF: { unit: 'mm', format: 'a4', orientation },
-        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] as const },
+        pagebreak:
+          options?.pageBreaks === 'flow'
+            ? { mode: ['css', 'legacy'] as const }
+            : { mode: ['avoid-all', 'css', 'legacy'] as const },
       })
       .from(pinPdfLayoutDefaults(element))
       .toCanvas()

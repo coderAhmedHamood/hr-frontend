@@ -104,7 +104,16 @@ export const HR_NOTIFICATION_GROUPS: NotificationToggleGroup[] = [
       { key: 'notifyLeaveRequestApproved', label: 'اعتماد طلب إجازة' },
       { key: 'notifyAdvanceRequestApproved', label: 'اعتماد طلب سلفة' },
       { key: 'notifyCorrectionRequestApproved', label: 'اعتماد تصحيح حضور' },
+      { key: 'notifyOvertimeRequestApproved', label: 'اعتماد طلب عمل إضافي' },
+      { key: 'notifyRequestPendingApproval', label: 'طلب بانتظار الموافقة (للموافقين)' },
       { key: 'notifyRequestApprovalAssignmentCreated', label: 'إسناد موافقة طلب' },
+    ],
+  },
+  {
+    label: 'إشعارات الطلبات بالبريد',
+    items: [
+      { key: 'emailRequestPendingApproval', label: 'نفس إشعار الموافقين بالبريد' },
+      { key: 'emailRequestDecided', label: 'نفس إشعار صاحب الطلب بالبريد (اعتماد أو رفض)' },
     ],
   },
   {
