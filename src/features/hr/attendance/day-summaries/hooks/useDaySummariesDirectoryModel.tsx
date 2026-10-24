@@ -7,13 +7,17 @@ import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import {
   attendanceDaySummariesApi,
   type AttendanceDayStatus,
+  type DaySummaryListQuery,
   type DaySummaryResponseDto,
 } from '@/features/hr/attendance/lib/api/attendance-day-summaries';
 import { useEmployeeFilterPicker } from '@/features/hr/lib/use-employee-filter-picker';
 import {
-  EMP_CONTRACT_STATUS_LABELS,
-  EMP_CONTRACT_STATUS_ORDER,
-} from '@/features/hr/organization/employees/constants/employees-list';
+  employeeMatchesStatus,
+  employeeStatusFilterLabelAr,
+  employeeStatusQuery,
+  isEmployeeStatusFilterActive,
+  useEmployeeStatusFilter,
+} from '@/features/hr/lib/employee-status-filter';
 import {
   DAY_SUMMARY_STATUS_LABELS,
   DAY_SUMMARY_STATUS_ORDER,
@@ -28,6 +32,13 @@ import { ListFilterBar, type ListFilterInlineSelect } from '@/components/ui/list
 import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
+import { RegisterExportMenu } from '@/components/pdf/register-export-menu';
+import { fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
+import { useLatestCallback } from '@/shared/hooks/use-latest-callback';
+import {
+  daySummaryExportColumns,
+  daySummaryExportRow,
+} from '@/features/hr/attendance/day-summaries/utils/day-summary-export';
 import { recomputeTodayDaySummaries } from '@/features/hr/attendance/lib/api/recompute-today-day-summaries';
 import {
   attendanceFiltersKey,
@@ -72,22 +83,28 @@ export function useDaySummariesDirectoryModel() {
     attendanceFiltersKey('day-summaries', companyId, 'selectedEmpIds'),
   );
   const { employees: pickerEmployees } = useEmployeeFilterPicker(companyId);
-  const { branchId: assignedBranchId, select: assignedBranchSelect, assignedIds } = useAssignedBranchFilter(
+  const {
+    branchId: assignedBranchId,
+    select: assignedBranchSelect,
+    assignedIds,
+    selectedBranchNameAr,
+    branchByEmployeeId,
+    resolveBranchByEmployeeId,
+  } = useAssignedBranchFilter(
     companyId,
     'day-summaries',
   );
+  const includeBranchColumn = assignedBranchId === 'all';
   // The employees' own status: active by default, like the daily register.
-  const [employeeStatus, setEmployeeStatus] = usePersistedFilterState(
+  const [employeeStatus, setEmployeeStatus] = useEmployeeStatusFilter(
     attendanceFiltersKey('day-summaries', companyId, 'employeeStatus'),
-    'active',
   );
   const visiblePickerEmployees = React.useMemo(
     () =>
       pickerEmployees.filter(
         (employee) =>
           (!assignedIds || assignedIds.has(employee.id)) &&
-          (employeeStatus === 'all' ||
-            (employee.contractStatus?.trim().toLowerCase() || 'active') === employeeStatus),
+          employeeMatchesStatus(employee.contractStatus, employeeStatus),
       ),
     [assignedIds, pickerEmployees, employeeStatus],
   );
@@ -146,6 +163,23 @@ export function useDaySummariesDirectoryModel() {
 
   const periodFilterActive = isPeriodFilterActive({ from, to }, defaultPeriod);
 
+  /** The list query of the current filters (no paging); null when it matches nothing. */
+  const buildListQuery = React.useCallback((): DaySummaryListQuery | null => {
+    if (!companyId || !from || !to || from > to) return null;
+    const scopedEmpIds = scopeEmployeeIdsByAssignedBranch(assignedIds, selectedEmpIds);
+    if (scopedEmpIds && scopedEmpIds.size === 0) return null;
+    return {
+      companyId,
+      from,
+      to,
+      ...(scopedEmpIds ? { employeeIds: [...scopedEmpIds] } : {}),
+      ...employeeStatusQuery(employeeStatus),
+      ...(filters.status !== 'all' ? { status: filters.status } : {}),
+      ...(filters.isManualOverride === 'true' ? { isManualOverride: true } : {}),
+      ...(filters.isManualOverride === 'false' ? { isManualOverride: false } : {}),
+    };
+  }, [assignedIds, companyId, employeeStatus, filters, from, selectedEmpIds, to]);
+
   const load = React.useCallback(async () => {
     if (!companyId) {
       setItems([]);
@@ -164,8 +198,6 @@ export function useDaySummariesDirectoryModel() {
       setLoading(true);
       return;
     }
-    const scopedEmpIds = scopeEmployeeIdsByAssignedBranch(assignedIds, selectedEmpIds);
-
     setLoading(true);
     try {
       if (!pageEnterRecomputeDone.current) {
@@ -173,25 +205,15 @@ export function useDaySummariesDirectoryModel() {
         await recomputeTodayDaySummaries(companyId);
       }
 
-      if (scopedEmpIds && scopedEmpIds.size === 0) {
+      const query = buildListQuery();
+      if (!query) {
         setItems([]);
         setTotal(0);
         setLoading(false);
         return;
       }
 
-      const res = await attendanceDaySummariesApi.getAll({
-        companyId,
-        page,
-        limit,
-        from,
-        to,
-        ...(scopedEmpIds ? { employeeIds: [...scopedEmpIds] } : {}),
-        ...(employeeStatus !== 'all' ? { employeeStatus } : {}),
-        ...(filters.status !== 'all' ? { status: filters.status } : {}),
-        ...(filters.isManualOverride === 'true' ? { isManualOverride: true } : {}),
-        ...(filters.isManualOverride === 'false' ? { isManualOverride: false } : {}),
-      });
+      const res = await attendanceDaySummariesApi.getAll({ ...query, page, limit });
       setItems(res.items);
       setTotal(res.pagination.total);
     } catch (err) {
@@ -201,7 +223,7 @@ export function useDaySummariesDirectoryModel() {
     } finally {
       setLoading(false);
     }
-  }, [assignedBranchId, assignedIds, companyId, employeeStatus, filters, from, limit, page, selectedEmpIds, to]);
+  }, [assignedBranchId, assignedIds, buildListQuery, companyId, from, limit, page, to]);
 
   React.useEffect(() => {
     void load();
@@ -218,19 +240,6 @@ export function useDaySummariesDirectoryModel() {
   };
 
   const inlineSelects = React.useMemo((): ListFilterInlineSelect[] => [
-    {
-      id: 'employeeStatus',
-      value: employeeStatus,
-      onChange: setEmployeeStatus,
-      placeholder: 'حالة الموظف',
-      options: [
-        ...EMP_CONTRACT_STATUS_ORDER.map((value) => ({
-          value,
-          label: `الموظفون: ${EMP_CONTRACT_STATUS_LABELS[value]}`,
-        })),
-        { value: 'all', label: 'الموظفون: كل الحالات' },
-      ],
-    },
     assignedBranchSelect,
     {
       id: 'status',
@@ -258,15 +267,40 @@ export function useDaySummariesDirectoryModel() {
         { value: 'false', label: 'آلي فقط' },
       ],
     },
-  ], [assignedBranchSelect, employeeStatus, filters.isManualOverride, filters.status, setEmployeeStatus]);
+  ], [assignedBranchSelect, filters.isManualOverride, filters.status]);
 
   const activeFilterCount =
     (periodFilterActive ? 1 : 0)
-    + (employeeStatus !== 'active' ? 1 : 0)
+    + (isEmployeeStatusFilterActive(employeeStatus) ? 1 : 0)
     + (assignedBranchId !== 'all' ? 1 : 0)
     + (selectedEmpIds.size > 0 ? 1 : 0)
     + (filters.status !== 'all' ? 1 : 0)
     + (filters.isManualOverride !== 'all' ? 1 : 0);
+
+  const exportColumns = React.useMemo(
+    () =>
+      daySummaryExportColumns(
+        normalizedColumnVisibility,
+        includeBranchColumn ? { branchByEmployeeId } : undefined,
+      ),
+    [branchByEmployeeId, includeBranchColumn, normalizedColumnVisibility],
+  );
+
+  const getExportRows = useLatestCallback(async () => {
+    if (assignedBranchId !== 'all' && assignedIds === null) return [];
+    const query = buildListQuery();
+    if (!query) return [];
+    const { items: all } = await fetchAllPaginatedItems((p, l) =>
+      attendanceDaySummariesApi.getAll({ ...query, page: p, limit: l }),
+    );
+    const branchMap = includeBranchColumn
+      ? await resolveBranchByEmployeeId()
+      : undefined;
+    const columns = branchMap
+      ? daySummaryExportColumns(normalizedColumnVisibility, { branchByEmployeeId: branchMap })
+      : exportColumns;
+    return all.map((row) => daySummaryExportRow(columns, row));
+  });
 
   usePageHeaderActions(
     () => (
@@ -277,6 +311,23 @@ export function useDaySummariesDirectoryModel() {
           onReset={resetColumnVisibility}
         />
         <FilterToggleButton activeFilterCount={activeFilterCount} />
+        <RegisterExportMenu
+          title="كشف الحضور"
+          fileName={`attendance-day-summaries-${from}-${to}`}
+          columns={exportColumns}
+          getRows={getExportRows}
+          pinnedColumnCount={includeBranchColumn ? 4 : 3}
+          subtitleLines={[
+            `الفترة: ${from} — ${to}`,
+            `حالة الموظفين: ${employeeStatusFilterLabelAr(employeeStatus)}`,
+            selectedBranchNameAr
+              ? `الفرع: ${selectedBranchNameAr}`
+              : includeBranchColumn
+                ? 'الفرع: كل الفروع'
+                : null,
+          ].filter((line): line is string => Boolean(line))}
+          landscape
+        />
         <Button
           type="button"
           variant="outline"
@@ -289,7 +340,19 @@ export function useDaySummariesDirectoryModel() {
         </Button>
       </div>
     ),
-    [activeFilterCount, normalizedColumnVisibility, resetColumnVisibility, toggleColumnVisibility],
+    [
+      activeFilterCount,
+      employeeStatus,
+      exportColumns,
+      from,
+      includeBranchColumn,
+      selectedBranchNameAr,
+      getExportRows,
+      normalizedColumnVisibility,
+      resetColumnVisibility,
+      to,
+      toggleColumnVisibility,
+    ],
   );
 
   useEntityFilterSlot(
@@ -303,11 +366,14 @@ export function useDaySummariesDirectoryModel() {
         empPickerEmployees={visiblePickerEmployees}
         selectedEmpIds={selectedEmpIds}
         onSelectedEmpIdsChange={setSelectedEmpIds}
+        employeeStatus={employeeStatus}
+        onEmployeeStatusChange={setEmployeeStatus}
         inlineSelects={inlineSelects}
       />
     ),
     [
       from,
+      employeeStatus,
       to,
       periodFilterActive,
       assignedBranchId,

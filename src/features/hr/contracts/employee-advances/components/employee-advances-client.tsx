@@ -3,7 +3,17 @@
 import { companyCurrencyCode } from '@/features/auth/lib/company-currency';
 import { currencyNameAr } from '@/shared/currencies';
 import * as React from 'react';
-import { Plus, Banknote, Download, Send, CalendarDays } from 'lucide-react';
+import { Plus, Banknote, Send, CalendarDays } from 'lucide-react';
+import { RegisterExportMenu } from '@/components/pdf/register-export-menu';
+import { useLatestCallback } from '@/shared/hooks/use-latest-callback';
+import {
+  employeeStatusFilterLabelAr,
+  employeeStatusQuery,
+  isEmployeeStatusFilterActive,
+  useEmployeeStatusFilter,
+} from '@/features/hr/lib/employee-status-filter';
+import type { RegisterColumn } from '@/components/pdf/print/register-document';
+import { exportDate, exportMoney, exportText } from '@/features/hr/requests/lib/list-export-format';
 import { toast } from 'sonner';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
@@ -217,15 +227,45 @@ function AdvanceInstallmentTableCell({ x }: { x: HREmployeeAdvance }) {
   );
 }
 
-function AdvancePaidTableCell({ x }: { x: HREmployeeAdvance }) {
-  const hasProgress =
-    x.totalRepaidAmount > 0
+function advanceHasRepaymentProgress(x: HREmployeeAdvance): boolean {
+  return x.totalRepaidAmount > 0
     || x.remainingAmount > 0
     || x.status === 'repaying'
     || x.status === 'fully_repaid'
     || x.status === 'disbursed';
+}
 
-  if (!hasProgress) return <span className="text-xs text-muted-foreground">—</span>;
+/** Plain-text twin of `AdvanceRepaymentLine` for exports. */
+function advanceInstallmentExportText(x: HREmployeeAdvance): string {
+  if (x.repaymentMode === 'by_months' && x.repaymentMonths != null && x.repaymentMonths > 0) {
+    const per = x.monthlyInstallmentAmount != null && x.monthlyInstallmentAmount > 0
+      ? x.monthlyInstallmentAmount
+      : Math.round((x.amount / x.repaymentMonths) * 100) / 100;
+    return `${x.repaymentMonths} شهر · ${exportMoney(per, x.currency)}/شهر`;
+  }
+  if (x.repaymentMode === 'by_monthly_amount' && x.monthlyInstallmentAmount != null && x.monthlyInstallmentAmount > 0) {
+    const approxMonths = Math.ceil(x.amount / x.monthlyInstallmentAmount);
+    return `${exportMoney(x.monthlyInstallmentAmount, x.currency)}/شهر · ${approxMonths} شهر`;
+  }
+  return '—';
+}
+
+const ADVANCE_EXPORT_COLUMNS: RegisterColumn[] = [
+  { label: 'الموظف', kind: 'name' },
+  { label: 'رقم السلفة', kind: 'code' },
+  { label: 'الفرع', kind: 'text' },
+  { label: 'التاريخ', kind: 'date' },
+  { label: 'المبلغ', kind: 'number' },
+  { label: 'النوع', kind: 'status' },
+  { label: 'السبب', kind: 'text', weight: 1.4 },
+  { label: 'الحالة', kind: 'status' },
+  { label: 'القسط', kind: 'text', weight: 1.3 },
+  { label: 'المسدد', kind: 'number' },
+  { label: 'المتبقي', kind: 'number' },
+];
+
+function AdvancePaidTableCell({ x }: { x: HREmployeeAdvance }) {
+  if (!advanceHasRepaymentProgress(x)) return <span className="text-xs text-muted-foreground">—</span>;
 
   return (
     <SarAmount currency={x.currency} className="whitespace-nowrap text-xs font-medium">
@@ -270,25 +310,21 @@ export function EmployeeAdvancesClient() {
     submitForApproval, approve, reject,
   } = useHREmployeeAdvancesStore();
   const { employees: allEmployees, fetch: fetchEmployees } = useHREmployeeDirectoryStore();
-  const employees = React.useMemo(() => allEmployees.filter(e => e.status === 'active'), [allEmployees]);
 
   React.useEffect(() => {
     if (allEmployees.length === 0) void fetchEmployees();
   }, [allEmployees.length, fetchEmployees]);
 
-  const empOptions = React.useMemo(() =>
-    employees.map(e => ({ value: e.id, label: e.nameAr })),
-    [employees],
-  );
-
+  // Filter picker: every employee with its status; ListFilterBar keeps the
+  // ones of the chosen employee status.
   const empPickerEmployees = React.useMemo(
-    () => employees.map((e) => ({ id: e.id, name: e.nameAr })),
-    [employees],
+    () => allEmployees.map((e) => ({ id: e.id, name: e.nameAr, contractStatus: e.status })),
+    [allEmployees],
   );
 
   const employeeNameLookup = React.useCallback(
-    (employeeId: string) => employees.find((e) => e.id === employeeId)?.nameAr,
-    [employees],
+    (employeeId: string) => allEmployees.find((e) => e.id === employeeId)?.nameAr,
+    [allEmployees],
   );
 
   const mapAdvanceRow = React.useCallback(
@@ -306,6 +342,9 @@ export function EmployeeAdvancesClient() {
   const [selectedEmpIds, setSelectedEmpIds] = usePersistedEmpIdSet(
     hrFiltersKey('requests', 'employee-advances', companyId, 'selectedEmpIds'),
   );
+  const [employeeStatus, setEmployeeStatus] = useEmployeeStatusFilter(
+    hrFiltersKey('requests', 'employee-advances', companyId, 'employeeStatus'),
+  );
   const [dateBounds, setDateBounds] = usePersistedFilterState(
     hrFiltersKey('requests', 'employee-advances', companyId, 'dateBounds'),
     { from: '', to: '' },
@@ -316,6 +355,15 @@ export function EmployeeAdvancesClient() {
   const [form, setForm] = React.useState<DraftForm>(EMPTY_FORM);
   const [error, setError] = React.useState<string | null>(null);
   const [saving, setSaving] = React.useState(false);
+
+  // New advances: active employees only (not suspended, not ended); the
+  // advance's own employee stays selectable when editing.
+  const empOptions = React.useMemo(() =>
+    allEmployees
+      .filter(e => e.status === 'active' || e.id === form.employeeId)
+      .map(e => ({ value: e.id, label: e.nameAr })),
+    [allEmployees, form.employeeId],
+  );
   const [confirmId, setConfirmId] = React.useState<string | null>(null);
   const [actionLoadingId, setActionLoadingId] = React.useState<string | null>(null);
   const [detailAdvance, setDetailAdvance] = React.useState<HREmployeeAdvance | null>(null);
@@ -336,7 +384,8 @@ export function EmployeeAdvancesClient() {
     ...(dateBounds.from ? { advanceDateFrom: dateBounds.from } : {}),
     ...(dateBounds.to ? { advanceDateTo: dateBounds.to } : {}),
     ...(selectedEmpIds.size === 1 ? { employeeId: [...selectedEmpIds][0] } : {}),
-  }), [companyId, statusFilter, dateBounds.from, dateBounds.to, selectedEmpIds]);
+    ...employeeStatusQuery(employeeStatus),
+  }), [companyId, statusFilter, dateBounds.from, dateBounds.to, selectedEmpIds, employeeStatus]);
 
   const sortAdvances = React.useCallback(
     (rows: HREmployeeAdvance[]) =>
@@ -390,7 +439,7 @@ export function EmployeeAdvancesClient() {
     enabled: !!companyId,
     bulkMode,
     loadBulk: bulkMode ? loadBulk : undefined,
-    resetDeps: [companyId, statusFilter, dateBounds.from, dateBounds.to, selectedEmpKey],
+    resetDeps: [companyId, statusFilter, dateBounds.from, dateBounds.to, selectedEmpKey, employeeStatus],
   });
 
   const advanceStatusCounts = React.useMemo((): Record<string, number> => {
@@ -585,12 +634,12 @@ export function EmployeeAdvancesClient() {
   const patch = (p: Partial<DraftForm>) => setForm(f => ({ ...f, ...p }));
 
   const handleEmployeeSelect = (id: string) => {
-    const emp = employees.find(e => e.id === id);
+    const emp = allEmployees.find(e => e.id === id);
     patch({ employeeId: id, employeeNameAr: emp?.nameAr ?? '' });
   };
 
-  const downloadCsv = async () => {
-    if (!companyId) return;
+  const getExportRows = useLatestCallback(async (): Promise<string[][]> => {
+    if (!companyId) return [];
     let exportRows = sorted;
     if (pagination.total > sorted.length) {
       try {
@@ -614,30 +663,29 @@ export function EmployeeAdvancesClient() {
             })();
         exportRows = res.items;
       } catch (e) {
-        handleApiError(e, 'employee-advances/export');
-        return;
+        throw new Error(handleApiError(e, 'employee-advances/export').displayMessage);
       }
     }
-    const rows = [['رقم السلفة', 'الموظف', 'المبلغ', 'نوع السلفة', 'آلية القسط', 'عدد الأشهر', 'القسط الشهري', 'التاريخ', 'الحالة', 'السبب']];
-    exportRows.forEach(x => rows.push([
-      x.advanceNumber,
-      x.employeeNameAr,
-      String(x.amount),
-      ADVANCE_KIND_LABELS[x.advanceKind],
-      REPAYMENT_MODE_LABELS[x.repaymentMode],
-      x.repaymentMonths != null ? String(x.repaymentMonths) : '',
-      x.monthlyInstallmentAmount != null ? String(x.monthlyInstallmentAmount) : '',
-      x.advanceDate,
-      ADVANCE_STATUS_LABELS[x.status],
-      advanceReasonText(x),
-    ]));
-    const csv = rows.map(r => r.join(',')).join('\n');
-    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv' }));
-    a.download = 'employee-advances.csv'; a.click();
-  };
+    return exportRows.map((x) => [
+      exportText(x.employeeNameAr),
+      exportText(x.advanceNumber),
+      exportText(x.branchNameAr),
+      exportDate(x.advanceDate),
+      exportMoney(x.amount, x.currency),
+      ADVANCE_KIND_LABELS[x.advanceKind] ?? '—',
+      exportText(advanceReasonText(x)),
+      ADVANCE_STATUS_LABELS[x.status] ?? x.status,
+      advanceInstallmentExportText(x),
+      advanceHasRepaymentProgress(x)
+        ? `${formatNumber(x.totalRepaidAmount)} / ${exportMoney(x.amount, x.currency)}`
+        : '—',
+      x.remainingAmount > 0 ? exportMoney(x.remainingAmount, x.currency) : '—',
+    ]);
+  });
 
   const activeFilterCount = (selectedEmpIds.size > 0 ? 1 : 0) + (statusFilter !== 'all' ? 1 : 0)
-    + (dateBounds.from || dateBounds.to ? 1 : 0);
+    + (dateBounds.from || dateBounds.to ? 1 : 0)
+    + (isEmployeeStatusFilterActive(employeeStatus) ? 1 : 0);
 
   const columns = React.useMemo((): ColumnDef<HREmployeeAdvance>[] => [
     {
@@ -798,13 +846,21 @@ export function EmployeeAdvancesClient() {
     () => (
       <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
         <FilterToggleButton activeFilterCount={activeFilterCount} />
+        <RegisterExportMenu
+          title="سجل السلف"
+          fileName="employee-advances"
+          columns={ADVANCE_EXPORT_COLUMNS}
+          getRows={getExportRows}
+          subtitleLines={[`حالة الموظفين: ${employeeStatusFilterLabelAr(employeeStatus)}`]}
+          landscape
+        />
         <Button variant="luxe" size="sm" className="h-8 gap-1.5 px-3 text-xs shadow-sm shrink-0" onClick={openCreate}>
           <Plus className="h-3.5 w-3.5" />
           سلفة جديدة
         </Button>
       </div>
     ),
-    [activeFilterCount],
+    [activeFilterCount, employeeStatus],
   );
 
   useEntityFilterSlot(
@@ -818,18 +874,13 @@ export function EmployeeAdvancesClient() {
         empPickerEmployees={empPickerEmployees}
         selectedEmpIds={selectedEmpIds}
         onSelectedEmpIdsChange={setSelectedEmpIds}
+        employeeStatus={employeeStatus}
+        onEmployeeStatusChange={setEmployeeStatus}
         statusFilter={statusFilter}
         onStatusFilterChange={(v) => setStatusFilter(v as StatusFilter)}
         statusOrder={ADVANCE_STATUS_FILTER_ORDER}
         statusLabels={statusFilterLabels}
         statusCounts={advanceStatusCounts}
-        trailingActions={
-          pagination.total > 0 ? (
-            <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => void downloadCsv()}>
-              <Download className="h-3.5 w-3.5" />تصدير
-            </Button>
-          ) : undefined
-        }
         dataView={{
           value: viewMode,
           onChange: (v) => setViewMode(v as ViewMode),
@@ -842,6 +893,7 @@ export function EmployeeAdvancesClient() {
     ),
     [
       statusFilter,
+      employeeStatus,
       selectedEmpKey,
       empPickerEmployees,
       dateBounds.from,

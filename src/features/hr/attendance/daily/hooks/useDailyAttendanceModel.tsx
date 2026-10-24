@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useLatestCallback } from '@/shared/hooks/use-latest-callback';
 import { FileDown, FileSpreadsheet, Plus, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -43,9 +44,12 @@ import { resolveDirectoryLoadFailure } from '@/features/hr/lib/api/directory-loa
 import { useEmployeeFilterPicker } from '@/features/hr/lib/use-employee-filter-picker';
 import { getDefaultCompanyId, useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 import {
-  EMP_CONTRACT_STATUS_LABELS,
-  EMP_CONTRACT_STATUS_ORDER,
-} from '@/features/hr/organization/employees/constants/employees-list';
+  employeeMatchesStatus,
+  employeeStatusFilterLabelAr,
+  employeeStatusQuery,
+  isEmployeeStatusFilterActive,
+  useEmployeeStatusFilter,
+} from '@/features/hr/lib/employee-status-filter';
 import {
   attendanceFiltersKey,
   usePersistedEmpIdSet,
@@ -101,12 +105,6 @@ function mapEvent(e: AttendanceEventResponseDto): AttendanceEvent {
   };
 }
 
-/** The employee's status as the employees list reads it: empty is active. */
-function employeeHasStatus(contractStatus: string | null | undefined, wanted: string): boolean {
-  if (wanted === 'all') return true;
-  const status = contractStatus?.trim().toLowerCase() || 'active';
-  return status === wanted;
-}
 
 async function fetchAllDaySummaries(
   baseQuery: Omit<DaySummaryListQuery, 'page' | 'limit'>,
@@ -134,22 +132,28 @@ export function useDailyAttendanceModel() {
   const [eventsLoading, setEventsLoading] = React.useState(false);
   const [listError, setListError] = React.useState<string | null>(null);
   const { employees: pickerEmployees } = useEmployeeFilterPicker(companyId);
-  const { branchId: assignedBranchId, select: assignedBranchSelect, assignedIds } = useAssignedBranchFilter(
+  const {
+    branchId: assignedBranchId,
+    select: assignedBranchSelect,
+    assignedIds,
+    selectedBranchNameAr,
+    resolveBranchByEmployeeId,
+  } = useAssignedBranchFilter(
     companyId,
     'daily',
   );
+  const includeBranchColumn = assignedBranchId === 'all';
   // The employees' own status: active by default (the register of who works
   // now); suspended / ended on demand.
-  const [employeeStatus, setEmployeeStatus] = usePersistedFilterState(
+  const [employeeStatus, setEmployeeStatus] = useEmployeeStatusFilter(
     attendanceFiltersKey('daily', companyId, 'employeeStatus'),
-    'active',
   );
   const visiblePickerEmployees = React.useMemo(
     () =>
       pickerEmployees.filter(
         (employee) =>
           (!assignedIds || assignedIds.has(employee.id)) &&
-          employeeHasStatus(employee.contractStatus, employeeStatus),
+          employeeMatchesStatus(employee.contractStatus, employeeStatus),
       ),
     [assignedIds, pickerEmployees, employeeStatus],
   );
@@ -182,7 +186,7 @@ export function useDailyAttendanceModel() {
   );
   const [pdfOpen, setPdfOpen] = React.useState(false);
   const [exportPrintRows, setExportPrintRows] = React.useState<
-    { employeeName: string; date: string; statusLabel: string; worked: string; late: string }[]
+    { employeeName: string; date: string; statusLabel: string; worked: string; late: string; branchName?: string }[]
   >([]);
   const [recomputeOpen, setRecomputeOpen] = React.useState(false);
   const [registerOpen, setRegisterOpen] = React.useState(false);
@@ -357,7 +361,7 @@ export function useDailyAttendanceModel() {
     if (scopedEmpIds && scopedEmpIds.size === 0) return [] as AttendanceDaySummary[];
     const baseQuery: Omit<DaySummaryListQuery, 'page' | 'limit'> = { from, to, companyId };
     if (scopedEmpIds) baseQuery.employeeIds = [...scopedEmpIds];
-    if (employeeStatus !== 'all') baseQuery.employeeStatus = employeeStatus;
+    Object.assign(baseQuery, employeeStatusQuery(employeeStatus));
     if (statusFilter !== 'all' && API_STATUS_FILTERS.has(statusFilter)) {
       baseQuery.status = statusFilter as AttendanceDayStatus;
     }
@@ -366,13 +370,16 @@ export function useDailyAttendanceModel() {
     return items.filter((s) => resolveVisualKey(s.status) === statusFilter);
   }, [assignedBranchId, assignedIds, companyId, employeeStatus, from, selectedEmpIds, statusFilter, to]);
 
-  const openPdfExport = React.useCallback(async () => {
+  const openPdfExport = useLatestCallback(async () => {
     try {
       const rows = await fetchExportSummaries();
       if (rows.length === 0) {
         toast.error('لا توجد سجلات للتصدير ضمن الفلاتر الحالية.');
         return;
       }
+      const branchMap = includeBranchColumn
+        ? await resolveBranchByEmployeeId()
+        : new Map<string, string>();
       setExportPrintRows(
         rows.map((s) => ({
           employeeName: s.employeeName,
@@ -380,13 +387,14 @@ export function useDailyAttendanceModel() {
           statusLabel: STATUS[resolveVisualKey(s.status)].label,
           worked: minutesToHHMM(s.workedMinutes),
           late: minutesToHHMM(s.lateMinutes),
+          branchName: branchMap.get(s.employeeId) ?? '—',
         })),
       );
       setPdfOpen(true);
     } catch {
       toast.error('تعذر تحضير تصدير PDF.');
     }
-  }, [fetchExportSummaries]);
+  });
 
   const attendancePdfRows = exportPrintRows;
 
@@ -404,48 +412,66 @@ export function useDailyAttendanceModel() {
           statusFilterLabelAr={
             statusFilter === 'all' ? 'الكل' : attendanceStatusLabels[statusFilter] ?? statusFilter
           }
-          employeeStatusLabelAr={
-            employeeStatus === 'all' ? 'الكل' : EMP_CONTRACT_STATUS_LABELS[employeeStatus] ?? employeeStatus
-          }
+          employeeStatusLabelAr={employeeStatusFilterLabelAr(employeeStatus)}
+          branchFilterNameAr={selectedBranchNameAr}
+          includeBranchColumn={includeBranchColumn}
           rows={attendancePdfRows}
         />
       ),
-    [attendancePdfRows, from, to, selectedEmpIds.size, statusFilter, employeeStatus, attendanceStatusLabels, companyNameAr, companyNameEn],
+    [attendancePdfRows, from, to, selectedEmpIds.size, statusFilter, employeeStatus, attendanceStatusLabels, companyNameAr, companyNameEn, selectedBranchNameAr, includeBranchColumn],
   );
 
   const attendancePdfFileName = `attendance-${from}-${to}.pdf`;
 
-  const handleExportAttendanceExcel = React.useCallback(async () => {
+  const handleExportAttendanceExcel = useLatestCallback(async () => {
     try {
       const rows = await fetchExportSummaries();
       if (rows.length === 0) {
         toast.error('لا توجد سجلات للتصدير ضمن الفلاتر الحالية.');
         return;
       }
+      const branchMap = includeBranchColumn
+        ? await resolveBranchByEmployeeId()
+        : new Map<string, string>();
       const sheet: XlsxCell[][] = [
-        ['الموظف', 'معرف الموظف', 'اليوم', 'الحالة', 'دقائق العمل', 'دقائق التأخير'],
+        includeBranchColumn
+          ? ['الموظف', 'الفرع', 'معرف الموظف', 'اليوم', 'الحالة', 'دقائق العمل', 'دقائق التأخير']
+          : ['الموظف', 'معرف الموظف', 'اليوم', 'الحالة', 'دقائق العمل', 'دقائق التأخير'],
       ];
       for (const s of rows) {
-        sheet.push([
-          s.employeeName,
-          s.employeeId,
-          s.date,
-          STATUS[resolveVisualKey(s.status)].label,
-          s.workedMinutes,
-          s.lateMinutes,
-        ]);
+        const branch = branchMap.get(s.employeeId) ?? '—';
+        sheet.push(
+          includeBranchColumn
+            ? [
+                s.employeeName,
+                selectedBranchNameAr ?? branch,
+                s.employeeId,
+                s.date,
+                STATUS[resolveVisualKey(s.status)].label,
+                s.workedMinutes,
+                s.lateMinutes,
+              ]
+            : [
+                s.employeeName,
+                s.employeeId,
+                s.date,
+                STATUS[resolveVisualKey(s.status)].label,
+                s.workedMinutes,
+                s.lateMinutes,
+              ],
+        );
       }
       await downloadXlsxFromAoA(`attendance-${from}-${to}.xlsx`, 'الحضور', sheet);
       toast.success('تم تنزيل ملف Excel.');
     } catch {
       toast.error('تعذر تصدير الحضور.');
     }
-  }, [fetchExportSummaries, from, to]);
+  });
 
   const isDefaultDate = filterFrom === todayPeriod.from && filterTo === todayPeriod.to;
   const activeFilterCount =
     (statusFilter !== 'all' ? 1 : 0)
-    + (employeeStatus !== 'active' ? 1 : 0)
+    + (isEmployeeStatusFilterActive(employeeStatus) ? 1 : 0)
     + (assignedBranchId !== 'all' ? 1 : 0)
     + (selectedEmpIds.size > 0 ? 1 : 0)
     + (!isDefaultDate ? 1 : 0);
@@ -502,22 +528,9 @@ export function useDailyAttendanceModel() {
         empPickerEmployees={visiblePickerEmployees}
         selectedEmpIds={selectedEmpIds}
         onSelectedEmpIdsChange={setSelectedEmpIds}
-        inlineSelects={[
-          {
-            id: 'employeeStatus',
-            value: employeeStatus,
-            onChange: setEmployeeStatus,
-            placeholder: 'حالة الموظف',
-            options: [
-              ...EMP_CONTRACT_STATUS_ORDER.map((value) => ({
-                value,
-                label: `الموظفون: ${EMP_CONTRACT_STATUS_LABELS[value]}`,
-              })),
-              { value: 'all', label: 'الموظفون: كل الحالات' },
-            ],
-          },
-          assignedBranchSelect,
-        ]}
+        employeeStatus={employeeStatus}
+        onEmployeeStatusChange={setEmployeeStatus}
+        inlineSelects={[assignedBranchSelect]}
         statusFilter={statusFilter}
         onStatusFilterChange={setStatusFilter}
         statusOrder={ATT_VISUAL_STATUS_ORDER}

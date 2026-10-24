@@ -45,6 +45,19 @@ import {
   type ApiLeaveRequest,
 } from '@/features/hr/requests/lib/api/correction-requests';
 import type { ApiRequestType } from '@/features/hr/requests/lib/api/request-types';
+import { fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
+import { RegisterExportMenu } from '@/components/pdf/register-export-menu';
+import { useLatestCallback } from '@/shared/hooks/use-latest-callback';
+import {
+  CREATE_PICKER_ACTIVE_ONLY,
+  employeeMatchesStatus,
+  employeeStatusFilterLabelAr,
+  employeeStatusQuery,
+  isEmployeeStatusFilterActive,
+  useEmployeeStatusFilter,
+} from '@/features/hr/lib/employee-status-filter';
+import type { RegisterColumn } from '@/components/pdf/print/register-document';
+import { exportDate, exportDateTime, exportText } from '@/features/hr/requests/lib/list-export-format';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
 import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 import { useCurrentEmployee } from '@/features/hr/organization/employees/hooks/useCurrentEmployee';
@@ -120,6 +133,18 @@ function formatIsoDate(iso?: string | null): string | null {
   if (!iso) return null;
   return iso.slice(0, 10);
 }
+
+const LEAVE_EXPORT_COLUMNS: RegisterColumn[] = [
+  { label: 'الموظف', kind: 'name' },
+  { label: 'القسم', kind: 'text' },
+  { label: 'النوع', kind: 'status' },
+  { label: 'الحالة', kind: 'status' },
+  { label: 'من', kind: 'date' },
+  { label: 'إلى', kind: 'date' },
+  { label: 'أيام', kind: 'number', weight: 0.6 },
+  { label: 'تاريخ التقديم', kind: 'date' },
+  { label: 'سبب الطلب', kind: 'text', weight: 1.6 },
+];
 
 function employeeDisplayName(l: UnifiedLeaveRecord, employees: { id: string; nameAr: string }[]): string {
   return l.employeeNameAr || employees.find((e) => e.id === l.employeeId)?.nameAr || l.employeeId;
@@ -541,6 +566,9 @@ export function UnifiedManagementClient() {
   const [selectedEmpIds, setSelectedEmpIds] = usePersistedEmpIdSet(
     hrFiltersKey('requests', 'unified-management', companyId, 'selectedEmpIds'),
   );
+  const [employeeStatus, setEmployeeStatus] = useEmployeeStatusFilter(
+    hrFiltersKey('requests', 'unified-management', companyId, 'employeeStatus'),
+  );
   const [statusFilter, setStatusFilter] = usePersistedFilterState(
     hrFiltersKey('requests', 'unified-management', companyId, 'statusFilter'),
     'all',
@@ -589,7 +617,8 @@ export function UnifiedManagementClient() {
     ...(selectedEmpIds.size === 1 ? { employeeId: [...selectedEmpIds][0] } : {}),
     ...(dateBounds.from ? { dateFrom: dateBounds.from } : {}),
     ...(dateBounds.to ? { dateTo: dateBounds.to } : {}),
-  }), [companyId, statusFilter, leaveType, selectedEmpIds, dateBounds.from, dateBounds.to]);
+    ...employeeStatusQuery(employeeStatus),
+  }), [companyId, statusFilter, leaveType, selectedEmpIds, dateBounds.from, dateBounds.to, employeeStatus]);
 
   const applyClientFilters = React.useCallback((items: UnifiedLeaveRecord[]) => {
     const empPick = [...selectedEmpIds];
@@ -660,7 +689,7 @@ export function UnifiedManagementClient() {
     enabled: !!companyId,
     bulkMode,
     loadBulk: bulkMode ? loadBulk : undefined,
-    resetDeps: [companyId, branchId, departmentId, leaveType, approvalStageFilter, statusFilter, selectedEmpKey, dateBounds.from, dateBounds.to],
+    resetDeps: [companyId, branchId, departmentId, leaveType, approvalStageFilter, statusFilter, selectedEmpKey, dateBounds.from, dateBounds.to, employeeStatus],
   });
 
   const statusCounts = React.useMemo(() => ({
@@ -739,7 +768,18 @@ export function UnifiedManagementClient() {
     (branchId !== 'all' ? 1 : 0) + (departmentId !== 'all' ? 1 : 0) +
     (leaveType !== 'all' ? 1 : 0) + (approvalStageFilter !== 'all' ? 1 : 0) +
     (statusFilter !== 'all' ? 1 : 0) + (selectedEmpIds.size > 0 ? 1 : 0) +
-    (dateBounds.from !== '' ? 1 : 0);
+    (dateBounds.from !== '' ? 1 : 0) +
+    (isEmployeeStatusFilterActive(employeeStatus) ? 1 : 0);
+
+  // New leave requests: active employees only; the leave's own employee stays
+  // selectable when editing.
+  const editLeaveEmployeeId = editLeave?.employeeId;
+  const addDialogEmployees = React.useMemo(
+    () => employeesList.filter(
+      (e) => e.id === editLeaveEmployeeId || employeeMatchesStatus(e.contractStatus, CREATE_PICKER_ACTIVE_ONLY),
+    ),
+    [employeesList, editLeaveEmployeeId],
+  );
 
   const onAddClick = React.useCallback(() => {
     setEditLeave(null);
@@ -750,10 +790,46 @@ export function UnifiedManagementClient() {
     if (addOpen) void ensureAddDialogData();
   }, [addOpen, ensureAddDialogData]);
 
+  const getExportRows = useLatestCallback(async (): Promise<string[][]> => {
+    if (!companyId) return [];
+    let leaves: UnifiedLeaveRecord[];
+    if (bulkMode) {
+      leaves = (await loadBulk()).items;
+    } else {
+      const catalogById = new Map<string, RequestApprovalAssignmentCatalogDto>();
+      const { items } = await fetchAllPaginatedItems(async (page, limit) => {
+        const res = await leaveRequestsNewApi.list(buildListQuery(page, limit));
+        for (const assignment of res.approvalAssignments) catalogById.set(assignment.id, assignment);
+        const catalog = [...catalogById.values()];
+        return { items: res.items.map((r) => mapApiLeave(r, leaveTypesRef.current, catalog)), pagination: res.pagination };
+      });
+      leaves = items;
+    }
+    return leaves.map((l) => [
+      employeeDisplayName(l, employeesList),
+      exportText(l.departmentNameAr),
+      leaveTypeDisplayLabel(l),
+      LEAVE_STATUS_LABELS[l.status] ?? l.status,
+      exportDate(l.start),
+      exportDate(l.end),
+      exportText(l.workingDays),
+      exportDateTime(l.submittedAt),
+      exportText(l.noteAr),
+    ]);
+  });
+
   usePageHeaderActions(
     () => (
       <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
         <FilterToggleButton activeFilterCount={activeFilterCount} />
+        <RegisterExportMenu
+          title="سجل طلبات الإجازات"
+          fileName="leave-requests"
+          columns={LEAVE_EXPORT_COLUMNS}
+          getRows={getExportRows}
+          subtitleLines={[`حالة الموظفين: ${employeeStatusFilterLabelAr(employeeStatus)}`]}
+          landscape
+        />
         <Button
           variant="luxe"
           size="sm"
@@ -765,7 +841,7 @@ export function UnifiedManagementClient() {
         </Button>
       </div>
     ),
-    [activeFilterCount],
+    [activeFilterCount, employeeStatus],
   );
 
   useEntityFilterSlot(
@@ -778,6 +854,8 @@ export function UnifiedManagementClient() {
         companyId={companyId}
         selectedEmpIds={selectedEmpIds}
         onSelectedEmpIdsChange={setSelectedEmpIds}
+        employeeStatus={employeeStatus}
+        onEmployeeStatusChange={setEmployeeStatus}
         statusFilter={statusFilter}
         onStatusFilterChange={setStatusFilter}
         statusOrder={LEAVE_STATUS_TOOLBAR_ORDER}
@@ -796,7 +874,7 @@ export function UnifiedManagementClient() {
     ),
     [
       branchId, departmentId, leaveType, approvalStageFilter,
-      statusFilter, selectedEmpKey,
+      statusFilter, selectedEmpKey, employeeStatus,
       dateBounds.from, dateBounds.to,
       statusCounts.all, statusCounts.pending, statusCounts.approved, statusCounts.rejected, statusCounts.cancelled,
       view, companyId, inlineSelects,
@@ -810,7 +888,7 @@ export function UnifiedManagementClient() {
         items={filtered}
         serverPagination={pagination}
         loading={listLoading}
-        resetDeps={[view, filters.branchId, filters.departmentId, filters.status, filters.type, filters.approvalStage, selectedEmpKey, dateBounds.from, dateBounds.to]}
+        resetDeps={[view, filters.branchId, filters.departmentId, filters.status, filters.type, filters.approvalStage, selectedEmpKey, dateBounds.from, dateBounds.to, employeeStatus]}
       >
         {(pageItems) => (
           view === 'table'
@@ -833,7 +911,7 @@ export function UnifiedManagementClient() {
       <AddLeaveDialog
         open={addOpen}
         editLeave={editLeave}
-        employees={employeesList}
+        employees={addDialogEmployees}
         branches={branches}
         leaveTypes={leaveTypes}
         leaveRequestTypes={leaveRequestTypes}

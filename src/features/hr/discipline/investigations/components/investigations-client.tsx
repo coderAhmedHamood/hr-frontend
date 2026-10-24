@@ -1,7 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import { Trash2, CalendarDays, FileDown, FileSpreadsheet, Plus, ClipboardCheck } from 'lucide-react';
+import { useLatestCallback } from '@/shared/hooks/use-latest-callback';
+import { Trash2, CalendarDays, FileDown, FileSpreadsheet, Plus, ClipboardCheck, Loader2 } from 'lucide-react';
 import {
   EntityActionCard,
   EntityActionCardChip,
@@ -13,6 +14,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DatePickerInput } from '@/components/ui/date-picker-input';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
+import { fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
+import {
+  disciplineInvestigationsApi,
+  type InvestigationResultDto,
+  type InvestigationRecommendationDto,
+} from '@/features/hr/discipline/lib/api/discipline-investigations';
+import { mapDisciplineInvestigationResponse } from '@/features/hr/discipline/investigations/services/discipline-investigations.service';
 import { ForbiddenState } from '@/components/shared/forbidden-state';
 import {
   ConfirmationModal, HRSettingsFormDrawer, FormField,
@@ -181,18 +189,60 @@ export function InvestigationsClient() {
     },
   ], [recommendationFilter]);
 
-  const investigationsPdfRows = React.useMemo(
-    () =>
-      listFiltered.map((inv) => [
-        inv.caseNumber,
-        inv.employeeNameAr,
-        inv.investigatorName,
-        inv.date,
-        INVESTIGATION_RESULT_LABELS[inv.result],
-        inv.recommendation,
-      ]),
-    [listFiltered],
-  );
+  // Exports cover every investigation matching the current filters (same query as the list), not just the visible page.
+  const [investigationsPdfRows, setInvestigationsPdfRows] = React.useState<string[][]>([]);
+  const [exporting, setExporting] = React.useState(false);
+
+  const fetchAllForExport = React.useCallback(async (): Promise<string[][] | null> => {
+    if (!m.companyId) { toast.error('تعذّر تحديد الشركة للتصدير.'); return null; }
+    const exportCompanyId = m.companyId;
+    setExporting(true);
+    try {
+      const empIds = [...selectedEmpIds];
+      const { items: all } = await fetchAllPaginatedItems((page, limit) =>
+        disciplineInvestigationsApi.getAll({
+          companyId: exportCompanyId,
+          page,
+          limit,
+          ...(empIds.length > 0 ? { subjectEmployeeIds: empIds } : {}),
+          ...(resultFilter !== 'all' ? { result: resultFilter as InvestigationResultDto } : {}),
+          ...(recommendationFilter !== 'all' ? { recommendation: recommendationFilter as InvestigationRecommendationDto } : {}),
+          ...(dateBounds.from ? { dateFrom: dateBounds.from } : {}),
+          ...(dateBounds.to ? { dateTo: dateBounds.to } : {}),
+        }),
+      );
+      const empNames = Object.fromEntries(m.employees.map((e) => [e.id, e.nameAr]));
+      return all.map((raw) => {
+        const inv = mapDisciplineInvestigationResponse(raw, empNames);
+        return [
+          inv.caseNumber,
+          inv.employeeNameAr,
+          inv.investigatorName,
+          inv.date,
+          INVESTIGATION_RESULT_LABELS[inv.result],
+          inv.recommendation,
+        ];
+      });
+    } catch (err) {
+      const { displayMessage } = handleApiError(err, 'discipline-investigations.export');
+      toast.error(displayMessage || 'تعذّر تحميل التحقيقات للتصدير.');
+      return null;
+    } finally {
+      setExporting(false);
+    }
+  }, [m.companyId, m.employees, selectedEmpIds, resultFilter, recommendationFilter, dateBounds.from, dateBounds.to]);
+
+  const handleExportInvestigationsPdf = useLatestCallback(async () => {
+    if (exporting) return;
+    const all = await fetchAllForExport();
+    if (!all) return;
+    if (all.length === 0) {
+      toast.error('لا توجد تحقيقات للتصدير ضمن الفلاتر الحالية.');
+      return;
+    }
+    setInvestigationsPdfRows(all);
+    setPdfOpen(true);
+  });
 
   const printable = React.useMemo(
     () =>
@@ -241,26 +291,19 @@ export function InvestigationsClient() {
     [detailRow, m.company],
   );
 
-  const handleExportInvestigationsExcel = React.useCallback(async () => {
-    if (listFiltered.length === 0) {
+  const handleExportInvestigationsExcel = useLatestCallback(async () => {
+    if (exporting) return;
+    const all = await fetchAllForExport();
+    if (!all) return;
+    if (all.length === 0) {
       toast.error('لا توجد تحقيقات للتصدير ضمن الفلاتر الحالية.');
       return;
     }
     const header: XlsxCell[] = ['رقم القضية', 'الموظف', 'المحقق', 'التاريخ', 'النتيجة', 'التوصية'];
-    const rows: XlsxCell[][] = [
-      header,
-      ...listFiltered.map((inv) => [
-        inv.caseNumber,
-        inv.employeeNameAr,
-        inv.investigatorName,
-        inv.date,
-        INVESTIGATION_RESULT_LABELS[inv.result],
-        inv.recommendation,
-      ]),
-    ];
+    const rows: XlsxCell[][] = [header, ...all];
     await downloadXlsxFromAoA('discipline-investigations.xlsx', 'التحقيقات', rows);
     toast.success('تم تنزيل ملف Excel.');
-  }, [listFiltered]);
+  });
 
   usePageHeaderActions(
     () => (
@@ -268,24 +311,16 @@ export function InvestigationsClient() {
         <FilterToggleButton activeFilterCount={activeFilterCount} />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button type="button" variant="outline" size="sm" className="h-8 w-8 shrink-0" aria-label="تصدير التحقيقات">
-              <FileDown className="h-4 w-4" />
+            <Button type="button" variant="outline" size="sm" className="h-8 w-8 shrink-0" aria-label="تصدير التحقيقات" disabled={exporting} aria-busy={exporting}>
+              {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-44">
-            <DropdownMenuItem
-              onSelect={() => {
-                if (investigationsPdfRows.length === 0) {
-                  toast.error('لا توجد تحقيقات للتصدير ضمن الفلاتر الحالية.');
-                  return;
-                }
-                setPdfOpen(true);
-              }}
-            >
+            <DropdownMenuItem disabled={exporting} onSelect={() => void handleExportInvestigationsPdf()}>
               <FileDown className="h-4 w-4" />
               PDF
             </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => void handleExportInvestigationsExcel()}>
+            <DropdownMenuItem disabled={exporting} onSelect={() => void handleExportInvestigationsExcel()}>
               <FileSpreadsheet className="h-4 w-4" />
               Excel
             </DropdownMenuItem>
@@ -298,7 +333,7 @@ export function InvestigationsClient() {
         </Button>
       </div>
     ),
-    [activeFilterCount, handleExportInvestigationsExcel, investigationsPdfRows.length],
+    [activeFilterCount, exporting, handleExportInvestigationsPdf, handleExportInvestigationsExcel],
   );
 
   const setOpen = (patch: Partial<OpenDraftForm>) => setOpenDraft((d) => ({ ...d, ...patch }));
@@ -547,6 +582,7 @@ export function InvestigationsClient() {
         title="معاينة تصدير التحقيقات"
         fileName="discipline-investigations.pdf"
         printable={printable}
+        orientation="landscape"
       />
       <PdfPreviewExportDialog
         open={letterOpen}

@@ -391,11 +391,12 @@ export function ApprovalAssignmentClient() {
       <ConfirmationModal
         open={!!deleteId}
         onOpenChange={(v) => !v && setDeleteId(null)}
-        title="حذف الإسناد"
+        title="أرشفة الإسناد"
+        description="الإسناد يُؤرشف ولا يُحذف. الطلبات المعلّقة تبقى حتى يُسنَد معتمدون فعّالون."
         onConfirm={async () => {
           if (!deleteId) return;
-          try { await deleteTemplate(deleteId); toast.success('تم الحذف'); }
-          catch { toast.error('فشل الحذف'); }
+          try { await deleteTemplate(deleteId); toast.success('تمت الأرشفة'); }
+          catch { toast.error('فشلت الأرشفة'); }
           finally { setDeleteId(null); }
         }}
       />

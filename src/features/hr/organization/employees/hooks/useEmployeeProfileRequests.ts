@@ -8,6 +8,7 @@ import {
 } from '@/features/hr/organization/employees/lib/api/employee-profile';
 import { useServerDirectoryPagination } from '@/components/ui/paged-list';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
+import { fetchAllProfilePages } from '@/features/hr/organization/employees/lib/employee-profile-export';
 
 export type RequestStatusFilter = 'all' | WorkflowRequestSummaryDto['status'];
 
@@ -130,6 +131,24 @@ export function useEmployeeProfileRequests(employee: Employee, listEnabled = tru
     }
   }, [employee.id, requestStatusFilter]);
 
+  /** Every request matching the current status filter (export). */
+  const fetchAllRequests = React.useCallback(
+    () =>
+      fetchAllProfilePages(async (page, pageSize) => {
+        const res = await employeeProfileApi.getRequests(employee.id, {
+          page,
+          pageSize,
+          ...(requestStatusFilter !== 'all' ? { status: requestStatusFilter } : {}),
+        });
+        return {
+          items: mapSubmittedRequests(employee.id, res.submittedRequests, requestStatusFilter),
+          // The endpoint currently returns every request in one response.
+          totalPages: res.pagination?.totalPages ?? 1,
+        };
+      }),
+    [employee.id, requestStatusFilter],
+  );
+
   const {
     items: employeeRequests,
     loading: requestsLoading,
@@ -148,6 +167,7 @@ export function useEmployeeProfileRequests(employee: Employee, listEnabled = tru
     requestsLoading,
     requestsPagination,
     requestsTotal,
+    fetchAllRequests,
     requestsCounts,
     requestsError,
     requestStatusFilter,

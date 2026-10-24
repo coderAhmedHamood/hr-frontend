@@ -26,6 +26,8 @@ export type EmploymentContractPrintArticleLine = {
   titleAr: string;
   bodyAr?: string;
   bodySnippet?: string;
+  /** Print the contract's salary and allowances under this article's body. */
+  includesCompensation?: boolean;
 };
 
 export type EmploymentContractPrintAllowanceRow = {
@@ -78,39 +80,63 @@ function FooterRule() {
 const PAGE_STYLE: React.CSSProperties = {
   ...pdfOfficialPageStyle,
   width: undefined,
+  paddingTop: 0,
 };
 
-function ArticleBlock({ title, body }: { title: string; body: string }) {
+function ArticleBlock({
+  title,
+  body,
+  children,
+}: {
+  title: string;
+  body: string;
+  children?: React.ReactNode;
+}) {
+  // An article may run over to the next page — a contract has no gaps — but
+  // its title never stays alone at a page's foot (kept with the first
+  // paragraph), and no paragraph is cut through a line.
+  const paragraphs = sanitizePdfText(body)
+    .split(/\n+/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+  const paragraphStyle: React.CSSProperties = {
+    padding: '0 4px',
+    marginBottom: 4,
+    fontSize: PDF_BODY_FONT,
+    fontWeight: 700,
+    lineHeight: 1.85,
+    textAlign: 'justify',
+    wordBreak: 'break-word',
+    pageBreakInside: 'avoid',
+  };
+  const titleBar = (
+    <div
+      style={{
+        backgroundColor: ARTICLE_BAR_BG,
+        color: ARTICLE_BAR_FG,
+        padding: '8px 12px',
+        marginBottom: 8,
+        fontSize: PDF_SECTION_FONT,
+        fontWeight: 700,
+        textAlign: 'center',
+        lineHeight: 1.5,
+      }}
+    >
+      {sanitizePdfText(title)}
+    </div>
+  );
   return (
-    <div style={{ marginBottom: 8, pageBreakInside: 'avoid' }}>
-      <div
-        style={{
-          backgroundColor: ARTICLE_BAR_BG,
-          color: ARTICLE_BAR_FG,
-          padding: '8px 12px',
-          fontSize: PDF_SECTION_FONT,
-          fontWeight: 700,
-          textAlign: 'center',
-          lineHeight: 1.5,
-        }}
-      >
-        {sanitizePdfText(title)}
+    <div style={{ marginBottom: 8 }}>
+      <div style={{ pageBreakInside: 'avoid' }}>
+        {titleBar}
+        {paragraphs[0] ? <div style={paragraphStyle}>{paragraphs[0]}</div> : null}
       </div>
-      {body.trim() ? (
-        <div
-          style={{
-            padding: '8px 4px 6px',
-            fontSize: PDF_BODY_FONT,
-            fontWeight: 700,
-            lineHeight: 1.85,
-            textAlign: 'justify',
-            whiteSpace: 'pre-wrap',
-            wordBreak: 'break-word',
-          }}
-        >
-          {sanitizePdfText(body)}
+      {paragraphs.slice(1).map((p, i) => (
+        <div key={i} style={paragraphStyle}>
+          {p}
         </div>
-      ) : null}
+      ))}
+      {children}
     </div>
   );
 }
@@ -121,12 +147,15 @@ function CompensationBlock({
   allowanceRows,
   allowancesNote,
   deductionsNote,
+  inArticle = false,
 }: {
   baseSalary: string;
   currency: string;
   allowanceRows: EmploymentContractPrintAllowanceRow[];
   allowancesNote: string;
   deductionsNote: string;
+  /** Rendered under the salary article's text instead of as its own block. */
+  inArticle?: boolean;
 }) {
   const cur = sanitizePdfText(currency || 'SAR');
   const rows = allowanceRows.filter((r) => r.labelAr.trim());
@@ -137,8 +166,14 @@ function CompensationBlock({
     : '—';
 
   return (
-    <div style={{ marginTop: 16, marginBottom: 16, pageBreakInside: 'avoid' }}>
-      <div style={{ fontSize: PDF_BODY_FONT, lineHeight: PDF_LINE_HEIGHT, textAlign: 'justify' }}>
+    <div
+      style={
+        inArticle
+          ? { padding: '0 4px 6px' }
+          : { marginTop: 16, marginBottom: 16, pageBreakInside: 'avoid' }
+      }
+    >
+      <div style={{ fontSize: PDF_BODY_FONT, fontWeight: inArticle ? 700 : undefined, lineHeight: PDF_LINE_HEIGHT, textAlign: 'justify' }}>
         <p style={{ margin: '0 0 6px' }}>
           <span style={{ fontWeight: 700 }}>الراتب الأساسي:</span>{' '}
           {sanitizePdfText(baseSalary || '—')} {cur}
@@ -282,6 +317,7 @@ export const EmploymentContractPrintHtml = React.forwardRef<HTMLDivElement, Empl
         code: a.code,
         titleAr: a.titleAr,
         bodyAr: (a.bodyAr ?? a.bodySnippet ?? '').trim(),
+        includesCompensation: a.includesCompensation === true,
       })),
     }), [
       company.nameAr,
@@ -317,13 +353,28 @@ export const EmploymentContractPrintHtml = React.forwardRef<HTMLDivElement, Empl
     );
 
     const title = `عقــد عمل رقم(${sanitizePdfText(model.contractNumber)})`;
+    // Salary and allowances come from the contract, never from article text:
+    // inline through the article's tokens, under the flagged salary article,
+    // or after the articles when neither is used.
+    const compensationInArticle =
+      model.compensationInline || model.mainArticles.some((a) => a.includesCompensation);
+    const renderCompensation = (inArticle: boolean) => (
+      <CompensationBlock
+        baseSalary={baseSalary}
+        currency={currency}
+        allowanceRows={allowanceRows}
+        allowancesNote={allowancesNote}
+        deductionsNote={deductionsNote}
+        inArticle={inArticle}
+      />
+    );
     const hasAnnex = Boolean(model.annexPreambleAr.trim() || model.annexArticles.length > 0);
 
     return (
       <div ref={ref} dir="rtl" lang="ar" style={{ width: '210mm', maxWidth: '100%', margin: '0 auto' }}>
         <div style={PAGE_STYLE}>
           <RosePdfWatermark logoSrc={logoSrc} />
-          <div style={{ position: 'relative', zIndex: 1 }}>
+          <div style={{ position: 'relative', zIndex: 1, paddingTop: 20 }}>
             <RoseTradingLetterheadPrint
               logoSrc={logoSrc}
               companyNameAr={company.nameAr}
@@ -356,16 +407,12 @@ export const EmploymentContractPrintHtml = React.forwardRef<HTMLDivElement, Empl
                 key={`${a.code}-${i}`}
                 title={a.titleAr.trim() || `المادة (${i + 1})`}
                 body={a.bodyAr}
-              />
+              >
+                {a.includesCompensation ? renderCompensation(true) : null}
+              </ArticleBlock>
             ))}
 
-            <CompensationBlock
-              baseSalary={baseSalary}
-              currency={currency}
-              allowanceRows={allowanceRows}
-              allowancesNote={allowancesNote}
-              deductionsNote={deductionsNote}
-            />
+            {compensationInArticle ? null : renderCompensation(false)}
 
             <SignatureFooter employeeRoleNounAr={model.employeeRoleNounAr} />
             <FooterRule />
@@ -381,7 +428,7 @@ export const EmploymentContractPrintHtml = React.forwardRef<HTMLDivElement, Empl
             }}
           >
             <RosePdfWatermark logoSrc={logoSrc} />
-            <div style={{ position: 'relative', zIndex: 1 }}>
+            <div style={{ position: 'relative', zIndex: 1, paddingTop: 20 }}>
               <RoseTradingLetterheadPrint
                 logoSrc={logoSrc}
                 companyNameAr={company.nameAr}

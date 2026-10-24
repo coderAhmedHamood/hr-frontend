@@ -32,7 +32,10 @@ export interface DisciplineFilterToolbarProps {
   /** Loads the standard employee picker when `empPickerEmployees` is omitted. */
   companyId?: string | null;
   /** Override picker options (e.g. audit log actors). */
-  empPickerEmployees?: { id: string; name: string }[];
+  empPickerEmployees?: { id: string; name: string; contractStatus?: string | null }[];
+  /** Opt-in employee-status filter (default `active`); see `ListFilterBar`. */
+  employeeStatus?: string;
+  onEmployeeStatusChange?: (v: string) => void;
   selectedEmpIds: Set<string>;
   onSelectedEmpIdsChange: (s: Set<string>) => void;
 
@@ -69,6 +72,8 @@ export const DisciplineFilterToolbar = React.forwardRef<
     primaryActionIcon,
     companyId,
     empPickerEmployees,
+    employeeStatus,
+    onEmployeeStatusChange,
     selectedEmpIds,
     onSelectedEmpIdsChange,
     statusFilter = 'all',
@@ -93,6 +98,8 @@ export const DisciplineFilterToolbar = React.forwardRef<
       ref={ref}
       companyId={companyId}
       empPickerEmployees={empPickerEmployees}
+      employeeStatus={employeeStatus}
+      onEmployeeStatusChange={onEmployeeStatusChange}
       selectedEmpIds={selectedEmpIds}
       onSelectedEmpIdsChange={onSelectedEmpIdsChange}
       statusFilter={statusFilter}

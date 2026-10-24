@@ -12,6 +12,8 @@ import {
   durationBetweenIso,
   formatIsoTimeAr,
 } from '@/features/hr/attendance/components/attendance-punch-pair';
+import type { RegisterColumn } from '@/components/pdf/print/register-document';
+import { exportDate } from '@/features/hr/attendance/lib/attendance-export-format';
 
 type Props = {
   employeeEvents: AttendanceEventResponseDto[];
@@ -40,6 +42,40 @@ function buildDayGroups(employeeEvents: AttendanceEventResponseDto[]): [string, 
     if (evt.eventType === 'break_end') g.breakEnd = evt;
   }
   return [...grouped.entries()];
+}
+
+export const ATTENDANCE_DAY_EXPORT_COLUMNS: RegisterColumn[] = [
+  { label: 'التاريخ', kind: 'date' },
+  { label: 'الدخول', kind: 'number' },
+  { label: 'الخروج', kind: 'number' },
+  { label: 'المدة', kind: 'number' },
+  { label: 'الاستراحة', kind: 'number' },
+  { label: 'الموقع', kind: 'text' },
+  { label: 'ملاحظات', kind: 'text', weight: 1.6 },
+];
+
+function punchCell(evt: AttendanceEventResponseDto | undefined): string {
+  if (!evt) return '—';
+  const time = formatIsoTimeAr(evt.occurredAt);
+  const source = evt.source ? ATTENDANCE_SOURCE_LABEL[evt.source] ?? evt.source : null;
+  return source ? `${time} (${source})` : time;
+}
+
+/** One row per work day, as the panel lists them (newest first). */
+export function attendanceDayExportRows(employeeEvents: AttendanceEventResponseDto[]): string[][] {
+  return buildDayGroups(employeeEvents).map(([date, g]) => {
+    const statusHint = g.checkIn && !g.checkOut ? 'لم يُسجّل خروج' : !g.checkIn && g.checkOut ? 'لم يُسجّل دخول' : null;
+    const notes = [statusHint, g.checkIn?.notes, g.checkOut?.notes].filter(Boolean).join(' · ');
+    return [
+      exportDate(date),
+      punchCell(g.checkIn),
+      punchCell(g.checkOut),
+      durationBetweenIso(g.checkIn?.occurredAt, g.checkOut?.occurredAt) ?? '—',
+      durationBetweenIso(g.breakStart?.occurredAt, g.breakEnd?.occurredAt) ?? '—',
+      g.checkIn?.checkInPointNameAr ?? g.checkOut?.checkInPointNameAr ?? '—',
+      notes || '—',
+    ];
+  });
 }
 
 function AttendanceDayRow({ date, g }: { date: string; g: DayGroup }) {

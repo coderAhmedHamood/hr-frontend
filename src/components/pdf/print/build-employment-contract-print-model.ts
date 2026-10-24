@@ -7,6 +7,15 @@ export type EmploymentContractPrintArticleInput = {
   code: string;
   titleAr: string;
   bodyAr: string;
+  /** Print the contract's salary and allowances under this article's body. */
+  includesCompensation?: boolean;
+};
+
+type BuiltContractArticle = {
+  code: string;
+  titleAr: string;
+  bodyAr: string;
+  includesCompensation: boolean;
 };
 
 export type EmploymentContractPrintModelInput = {
@@ -135,6 +144,19 @@ function formatAllowancesProse(
     .join('، ');
 }
 
+function parseAmount(value: string | null | undefined): number {
+  const n = Number(String(value ?? '').replace(/,/g, '').trim());
+  return Number.isFinite(n) ? n : 0;
+}
+
+function formatAmount(value: number): string {
+  return value.toLocaleString('en-US', { maximumFractionDigits: 2 });
+}
+
+/** Contract figures an article can place anywhere in its text. */
+export const CONTRACT_COMPENSATION_TOKEN_RE =
+  /\{\{(salary|baseSalary|allowancesList|allowancesTotal|totalSalary)\}\}/;
+
 function tokenOrDash(value: string | null | undefined): string {
   const t = value?.trim();
   return t ? t : '—';
@@ -166,6 +188,9 @@ export function buildEmploymentContractPrintTokens(
 ): Record<string, string> {
   const gender = input.employeeGender === 'male' ? 'male' : 'female';
   const currency = input.currency || 'SAR';
+  const allowancesTotal = (input.allowanceRows ?? [])
+    .filter((r) => r.labelAr.trim())
+    .reduce((sum, r) => sum + parseAmount(r.amount), 0);
   const natureRaw = input.natureLabelAr?.trim() || '';
   const nature = natureRaw
     ? (natureRaw.includes('عقد') ? natureRaw : `عقد ${natureRaw}`)
@@ -186,10 +211,12 @@ export function buildEmploymentContractPrintTokens(
     city: tokenOrDash(input.workCityAr || input.branchNameAr),
     companyName: tokenOrDash(input.companyNameAr),
     'company.nameAr': tokenOrDash(input.companyNameAr),
-    salary: tokenOrDash(input.baseSalary),
-    baseSalary: tokenOrDash(input.baseSalary),
+    salary: input.baseSalary?.trim() ? formatAmount(parseAmount(input.baseSalary)) : '—',
+    baseSalary: input.baseSalary?.trim() ? formatAmount(parseAmount(input.baseSalary)) : '—',
     currency,
     allowancesList: formatAllowancesProse(input.allowanceRows, currency),
+    allowancesTotal: formatAmount(allowancesTotal),
+    totalSalary: formatAmount(parseAmount(input.baseSalary) + allowancesTotal),
     allowancesNote: input.allowancesNote?.trim() || '',
     deductionsNote: input.deductionsNote?.trim() || '',
     probationDays: optionalNumberToken(input.probationDays),
@@ -225,9 +252,16 @@ export type BuiltEmploymentContractPrintModel = {
   annualLeaveDaysLabel: string;
   baseSalary: string;
   currency: string;
-  mainArticles: { code: string; titleAr: string; bodyAr: string }[];
+  /**
+   * At most one main article has `includesCompensation`: the first flagged one,
+   * and none when an article already places the figures through its text
+   * tokens ({{salary}}, {{allowancesList}}, {{totalSalary}}…).
+   */
+  mainArticles: BuiltContractArticle[];
+  /** Salary and allowances already appear inside an article's text. */
+  compensationInline: boolean;
   annexPreambleAr: string;
-  annexArticles: { code: string; titleAr: string; bodyAr: string }[];
+  annexArticles: BuiltContractArticle[];
   employeeTitleAr: string;
   employeeRoleNounAr: string;
   employerRepresentativeName: string;
@@ -242,14 +276,19 @@ export function buildEmploymentContractPrintModel(
   const employeeRoleNounAr = g.e_noun;
 
   const tokens = buildEmploymentContractPrintTokens(input);
-  const mapArticle = (a: EmploymentContractPrintArticleInput) => ({
+  const mapArticle = (a: EmploymentContractPrintArticleInput): BuiltContractArticle => ({
     code: a.code,
     titleAr: interpolateContractArticleText(a.titleAr, tokens),
     bodyAr: interpolateContractArticleText(a.bodyAr, tokens),
+    includesCompensation: false,
   });
 
-  const mainArticles: { code: string; titleAr: string; bodyAr: string }[] = [];
-  const annexArticles: { code: string; titleAr: string; bodyAr: string }[] = [];
+  const mainArticles: BuiltContractArticle[] = [];
+  const annexArticles: BuiltContractArticle[] = [];
+  const compensationInline = (input.articles ?? []).some(
+    (a) => !isAnnexPreamble(a) && !isAnnexArticle(a) && CONTRACT_COMPENSATION_TOKEN_RE.test(a.bodyAr),
+  );
+  let compensationPlaced = compensationInline;
   let annexPreambleAr = '';
 
   for (const a of input.articles ?? []) {
@@ -262,6 +301,10 @@ export function buildEmploymentContractPrintModel(
     if (isAnnexArticle(a)) {
       annexArticles.push(mapped);
     } else {
+      if (a.includesCompensation && !compensationPlaced) {
+        mapped.includesCompensation = true;
+        compensationPlaced = true;
+      }
       mainArticles.push(mapped);
     }
   }
@@ -325,6 +368,7 @@ export function buildEmploymentContractPrintModel(
     baseSalary: input.baseSalary,
     currency: input.currency,
     mainArticles,
+    compensationInline,
     annexPreambleAr,
     annexArticles,
     employeeTitleAr,

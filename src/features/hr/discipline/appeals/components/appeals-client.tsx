@@ -1,7 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import { Trash2, CalendarDays, FileDown, FileSpreadsheet, Plus, CheckCircle2, XCircle, Clock, Ban, Pencil } from 'lucide-react';
+import { useLatestCallback } from '@/shared/hooks/use-latest-callback';
+import { Trash2, CalendarDays, FileDown, FileSpreadsheet, Plus, CheckCircle2, XCircle, Clock, Ban, Pencil, Loader2 } from 'lucide-react';
 import {
   EntityActionCard,
   EntityActionCardChip,
@@ -24,6 +25,8 @@ import {
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
+import { fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
+import { disciplineAppealsApi, type AppealStatusDto } from '@/features/hr/discipline/lib/api/discipline-appeals';
 import { ForbiddenState } from '@/components/shared/forbidden-state';
 import { useDisciplineAppealsDirectoryModel, type AppealRecord } from '@/features/hr/discipline/appeals/hooks/useDisciplineAppealsDirectoryModel';
 import {
@@ -146,20 +149,68 @@ export function AppealsClient() {
   const dateRangeActive = dateMeta.hasRestriction;
   const activeFilterCount = (selectedEmpIds.size > 0 ? 1 : 0) + (statusFilter !== 'all' ? 1 : 0) + (dateRangeActive ? 1 : 0);
 
-  const appealsPdfRows = React.useMemo(
-    () => listFiltered.map((a) => [a.caseNumber, a.employeeNameAr, a.date, APPEAL_CHANNEL_LABELS[a.channel], APPEAL_STATUS_LABELS[a.status], a.grounds]),
-    [listFiltered],
-  );
+  // Exports cover every appeal matching the current filters (same query as the list), not just the visible page.
+  const [appealsPdfRows, setAppealsPdfRows] = React.useState<string[][]>([]);
+  const [exporting, setExporting] = React.useState(false);
 
-  const handleExportAppealsExcel = React.useCallback(async () => {
-    if (listFiltered.length === 0) { toast.error('لا توجد تظلمات للتصدير ضمن الفلاتر الحالية.'); return; }
+  const fetchAllForExport = React.useCallback(async (): Promise<string[][] | null> => {
+    setExporting(true);
+    try {
+      const empIds = [...selectedEmpIds];
+      const { items: all } = await fetchAllPaginatedItems((page, limit) =>
+        disciplineAppealsApi.getAll({
+          ...(companyId ? { companyId } : {}),
+          page,
+          limit,
+          ...(empIds.length > 0 ? { subjectEmployeeIds: empIds } : {}),
+          ...(statusFilter !== 'all' ? { status: statusFilter as AppealStatusDto } : {}),
+          ...(dateBounds.from ? { dateFrom: dateBounds.from } : {}),
+          ...(dateBounds.to ? { dateTo: dateBounds.to } : {}),
+        }),
+      );
+      const empNames = new Map(employees.map((e) => [e.id, e.nameAr]));
+      return all.map((a) => {
+        const channel = (a.channel ?? 'system') as keyof typeof APPEAL_CHANNEL_LABELS;
+        const status = a.status as keyof typeof APPEAL_STATUS_LABELS;
+        return [
+          a.linkedViolationRecordNumber,
+          empNames.get(a.subjectEmployeeId) ?? a.subjectEmployeeId,
+          a.appealDate,
+          APPEAL_CHANNEL_LABELS[channel] ?? String(channel),
+          APPEAL_STATUS_LABELS[status] ?? String(status),
+          a.groundsAr,
+        ];
+      });
+    } catch (err) {
+      const { displayMessage } = handleApiError(err, 'discipline-appeals.export');
+      toast.error(displayMessage || 'تعذّر تحميل التظلمات للتصدير.');
+      return null;
+    } finally {
+      setExporting(false);
+    }
+  }, [companyId, selectedEmpIds, statusFilter, dateBounds.from, dateBounds.to, employees]);
+
+  const handleExportAppealsPdf = useLatestCallback(async () => {
+    if (exporting) return;
+    const all = await fetchAllForExport();
+    if (!all) return;
+    if (all.length === 0) { toast.error('لا توجد تظلمات للتصدير ضمن الفلاتر الحالية.'); return; }
+    setAppealsPdfRows(all);
+    setPdfOpen(true);
+  });
+
+  const handleExportAppealsExcel = useLatestCallback(async () => {
+    if (exporting) return;
+    const all = await fetchAllForExport();
+    if (!all) return;
+    if (all.length === 0) { toast.error('لا توجد تظلمات للتصدير ضمن الفلاتر الحالية.'); return; }
     const rows: XlsxCell[][] = [
       ['رقم القضية', 'الموظف', 'التاريخ', 'القناة', 'الحالة', 'أسباب التظلم'],
-      ...listFiltered.map((a) => [a.caseNumber, a.employeeNameAr, a.date, APPEAL_CHANNEL_LABELS[a.channel], APPEAL_STATUS_LABELS[a.status], a.grounds]),
+      ...all,
     ];
     await downloadXlsxFromAoA('discipline-appeals.xlsx', 'التظلمات', rows);
     toast.success('تم تنزيل ملف Excel.');
-  }, [listFiltered]);
+  });
 
   usePageHeaderActions(
     () => (
@@ -167,24 +218,16 @@ export function AppealsClient() {
         <FilterToggleButton activeFilterCount={activeFilterCount} />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button type="button" variant="outline" size="sm" className="h-8 w-8 shrink-0" aria-label="تصدير التظلمات">
-              <FileDown className="h-4 w-4" />
+            <Button type="button" variant="outline" size="sm" className="h-8 w-8 shrink-0" aria-label="تصدير التظلمات" disabled={exporting} aria-busy={exporting}>
+              {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-44">
-            <DropdownMenuItem
-              onSelect={() => {
-                if (appealsPdfRows.length === 0) {
-                  toast.error('لا توجد تظلمات للتصدير ضمن الفلاتر الحالية.');
-                  return;
-                }
-                setPdfOpen(true);
-              }}
-            >
+            <DropdownMenuItem disabled={exporting} onSelect={() => void handleExportAppealsPdf()}>
               <FileDown className="h-4 w-4" />
               PDF
             </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => void handleExportAppealsExcel()}>
+            <DropdownMenuItem disabled={exporting} onSelect={() => void handleExportAppealsExcel()}>
               <FileSpreadsheet className="h-4 w-4" />
               Excel
             </DropdownMenuItem>
@@ -197,7 +240,7 @@ export function AppealsClient() {
         </Button>
       </div>
     ),
-    [activeFilterCount, handleExportAppealsExcel, appealsPdfRows.length],
+    [activeFilterCount, exporting, handleExportAppealsPdf, handleExportAppealsExcel],
   );
 
   const printable = React.useMemo(
@@ -513,7 +556,7 @@ export function AppealsClient() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
-      <PdfPreviewExportDialog open={pdfOpen} onOpenChange={setPdfOpen} title="معاينة تصدير التظلمات" fileName="discipline-appeals.pdf" printable={printable} />
+      <PdfPreviewExportDialog open={pdfOpen} onOpenChange={setPdfOpen} title="معاينة تصدير التظلمات" fileName="discipline-appeals.pdf" printable={printable} orientation="landscape" />
       <PdfPreviewExportDialog
         open={letterOpen}
         onOpenChange={setLetterOpen}

@@ -20,6 +20,8 @@ import { useDefaultCompany } from '@/features/hr/organization/hooks/useActiveCom
 import { PdfPreviewExportDialog } from '@/components/pdf/pdf-preview-export-dialog';
 import { PdfPreviewDownloadButton } from '@/components/pdf/pdf-preview-download-button';
 import { DisciplineCircularPrintHtml } from '@/components/pdf/print/discipline-circular-print-html';
+import { RegisterExportMenu } from '@/components/pdf/register-export-menu';
+import type { RegisterColumn } from '@/components/pdf/print/register-document';
 import {
   ConfirmationModal, HRSettingsFormDrawer, FormField,
   EmptyState,
@@ -45,8 +47,16 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, dialogF
 import { DataTable, type ColumnDef } from '@/components/ui/data-table';
 import { TableDateCell, TableRowActions } from '@/components/ui/table-cells';
 import { DisciplineListViewport, DisciplinePaginatedList } from '@/features/hr/discipline/components/discipline-paginated-list';
+import { useLatestCallback } from '@/shared/hooks/use-latest-callback';
 
 type AudienceFilter = 'all' | HRDisciplineCircularAudience;
+
+const CIRCULAR_EXPORT_COLUMNS: RegisterColumn[] = [
+  { label: 'العنوان', kind: 'text' },
+  { label: 'النطاق', kind: 'text', weight: 2 },
+  { label: 'التاريخ', kind: 'date' },
+  { label: 'النص', kind: 'text', weight: 4 },
+];
 
 interface DraftForm {
   titleAr: string;
@@ -130,10 +140,27 @@ export function CircularsClient() {
 
   const activeFilterCount = (q.trim() ? 1 : 0) + (selectedEmpIds.size > 0 ? 1 : 0) + (audienceFilter !== 'all' ? 1 : 0) + (dateMeta.hasRestriction ? 1 : 0);
 
+  const { loadAllForExport } = m;
+  const getExportRows = useLatestCallback(
+    async () =>
+      (await loadAllForExport()).map((c) => [
+        c.titleAr || '—',
+        c.audienceSummaryAr || '—',
+        c.date ? c.date.slice(0, 10) : '—',
+        c.bodyAr || '—',
+      ]),
+  );
+
   usePageHeaderActions(
     () => (
       <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
         <FilterToggleButton activeFilterCount={activeFilterCount} />
+        <RegisterExportMenu
+          title="سجل التعاميم"
+          fileName="discipline-circulars"
+          columns={CIRCULAR_EXPORT_COLUMNS}
+          getRows={getExportRows}
+        />
         <Button variant="luxe" size="sm" className="h-8 gap-1.5 px-3 text-xs shadow-sm shrink-0"
           onClick={() => { setDraft({ ...EMPTY, date: new Date().toISOString().slice(0, 10), executeSend: false }); setFormError(null); setDrawerOpen(true); }}>
           <Plus className="h-3.5 w-3.5" />
@@ -141,7 +168,7 @@ export function CircularsClient() {
         </Button>
       </div>
     ),
-    [activeFilterCount],
+    [activeFilterCount, getExportRows],
   );
 
   useEntityFilterSlot(

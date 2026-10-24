@@ -10,6 +10,19 @@ import { EmployeeProfilePagedList } from '@/features/hr/organization/employees/c
 import type { EmployeeProfileModel } from '@/features/hr/organization/employees/hooks/useEmployeeProfileModel';
 import type { EmployeeLeaveBalanceCard } from '@/features/hr/organization/employees/hooks/useEmployeeProfileLeave';
 import { FilterSelect } from '@/components/ui/select-with-clear';
+import { RegisterExportMenu } from '@/components/pdf/register-export-menu';
+import type { RegisterColumn } from '@/components/pdf/print/register-document';
+import { exportDate } from '@/features/hr/attendance/lib/attendance-export-format';
+import { employeeExportSubtitle } from '@/features/hr/organization/employees/lib/employee-profile-export';
+
+const LEAVE_REQUEST_EXPORT_COLUMNS: RegisterColumn[] = [
+  { label: 'نوع الإجازة', kind: 'text' },
+  { label: 'السبب', kind: 'text', weight: 2 },
+  { label: 'من', kind: 'date' },
+  { label: 'إلى', kind: 'date' },
+  { label: 'الأيام', kind: 'number' },
+  { label: 'الحالة', kind: 'status' },
+];
 
 function CompactLeaveBalance({
   card,
@@ -79,7 +92,26 @@ export function EmployeeLeavesSection({ model }: { model: EmployeeProfileModel }
     leaveTypeFilterOptions,
     leaveStatusFilterOptions,
     leaveStatusLabels,
+    fetchAllLeaveRequests,
   } = model;
+
+  const getLeaveExportRows = async (): Promise<string[][]> => {
+    const rows = await fetchAllLeaveRequests();
+    return rows.map((req) => [
+      req.leaveTypeNameAr || 'طلب إجازة',
+      req.reasonAr?.trim() || '—',
+      exportDate(req.startDate),
+      exportDate(req.endDate),
+      req.workingDays != null ? String(req.workingDays) : '—',
+      leaveStatusLabels[req.status] ?? req.status,
+    ]);
+  };
+
+  const leaveExportSubtitle = employeeExportSubtitle(
+    employee,
+    leaveTypeFilter !== 'all' && `نوع الإجازة: ${leaveTypeFilterOptions.find((o) => o.value === leaveTypeFilter)?.label ?? ''}`,
+    leaveStatusFilter !== 'all' && `الحالة: ${leaveStatusFilterOptions.find((o) => o.value === leaveStatusFilter)?.label ?? ''}`,
+  );
 
   if (leavesLoading) {
     return (
@@ -151,6 +183,13 @@ export function EmployeeLeavesSection({ model }: { model: EmployeeProfileModel }
             )}
           </h3>
           <div className="flex flex-wrap gap-2">
+            <RegisterExportMenu
+              title="سجل طلبات الإجازة"
+              fileName={`employee-leaves-${employee.employeeCode || employee.id}`}
+              columns={LEAVE_REQUEST_EXPORT_COLUMNS}
+              getRows={getLeaveExportRows}
+              subtitleLines={leaveExportSubtitle}
+            />
             <FilterSelect
               value={leaveTypeFilter}
               onValueChange={(v) => setLeaveTypeFilter(v as typeof leaveTypeFilter)}

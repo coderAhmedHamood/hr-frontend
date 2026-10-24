@@ -42,6 +42,8 @@ export type UpdateCheckInPointLinkDto = Omit<
 >;
 
 export type CheckInPointLinkListQuery = {
+  /** Employee status filter (empty status = active); absent = every status. */
+  employeeStatus?: 'active' | 'suspended' | 'ended';
   page?: number;
   limit?: number;
   companyId?: string;
@@ -78,6 +80,8 @@ export type GroupedByPointItem = {
 };
 
 export type GroupedByPointQuery = {
+  /** Employee status filter (empty status = active); absent = every status. */
+  employeeStatus?: 'active' | 'suspended' | 'ended';
   page?: number;
   limit?: number;
   companyId?: string;

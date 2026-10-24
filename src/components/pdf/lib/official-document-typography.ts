@@ -29,7 +29,7 @@ export const pdfOfficialPageStyle: CSSProperties = {
   fontWeight: 700,
   color: '#000000',
   boxSizing: 'border-box',
-  minHeight: '297mm',
+  minHeight: '279mm',
 };
 
 export const pdfOfficialBodyStyle: CSSProperties = {

@@ -1,4 +1,4 @@
-export type HREmployeeStatus = 'active' | 'probation' | 'suspended';
+export type HREmployeeStatus = 'active' | 'probation' | 'suspended' | 'ended';
 
 export type HREmployeeHierarchyRole = 'ceo' | 'executive' | 'gm' | 'dept_head' | 'supervisor' | 'staff';
 

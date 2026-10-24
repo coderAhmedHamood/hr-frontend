@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import { resolveDirectoryLoadFailure } from '@/features/hr/lib/api/directory-load-error';
-import { ensurePaginatedResult } from '@/features/hr/lib/api/client';
+import { ensurePaginatedResult, fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
 import { useServerDirectoryPagination } from '@/components/ui/paged-list';
 import type { HRDisciplineCircularAudience, HRDisciplineCircularRecord } from '@/features/hr/discipline/lib/types';
 import {
@@ -159,6 +159,18 @@ export function useDisciplineCircularsDirectoryModel() {
 
   reloadRef.current = reload;
 
+  /** Every circular matching the current filters (all pages), for export. */
+  const loadAllForExport = React.useCallback(async (): Promise<HRDisciplineCircularRecord[]> => {
+    // Branch/department names feed the audience summary.
+    await loadFilterDirectory();
+    const { items: all } = await fetchAllPaginatedItems((page, limit) =>
+      disciplineCircularsApi.getAll(buildListQuery(page, limit)),
+    );
+    return all.map((c: DisciplineCircularResponseDto) =>
+      mapDisciplineCircularResponse(c, nameLookupRef.current),
+    );
+  }, [buildListQuery, loadFilterDirectory]);
+
   // Server applies all list filters now; kept as aliases for existing consumers.
   const filteredItems = items;
   const dateFilteredItems = items;
@@ -190,6 +202,7 @@ export function useDisciplineCircularsDirectoryModel() {
 
   return {
     items,
+    loadAllForExport,
     filteredItems,
     dateFilteredItems,
     searchFilteredItems,

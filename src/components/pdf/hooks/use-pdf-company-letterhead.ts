@@ -26,6 +26,8 @@ export function usePdfCompanyLetterhead(): PdfCompanyLetterhead {
         nameEn: company.nameEn,
         commercialRegistrationNo: company.commercialRegistrationNo,
         logoUrl: company.logoUrl,
+        pdfWatermarkEnabled: company.pdfWatermarkEnabled,
+        pdfWatermarkOpacity: company.pdfWatermarkOpacity,
       });
     }
 
@@ -55,6 +57,8 @@ export function useResolvedPdfLetterhead(overrides?: PdfLetterheadOverrides): Pd
     companyNameEn: overrides?.companyNameEn?.trim() || defaults.companyNameEn,
     commercialReg: overrides?.commercialReg?.trim() || defaults.commercialReg,
     logoSrc: overrides?.logoSrc ?? defaults.logoSrc,
+    watermarkEnabled: defaults.watermarkEnabled,
+    watermarkOpacity: defaults.watermarkOpacity,
   }), [defaults, overrides]);
 }
 

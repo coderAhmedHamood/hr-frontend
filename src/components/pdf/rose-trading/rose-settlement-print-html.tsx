@@ -39,11 +39,21 @@ function Blank({ med }: { med?: boolean }) {
 function Value({ text, blank, med }: { text?: string; blank?: boolean; med?: boolean }) {
   if (blank || !text?.trim()) return <Blank med={med} />;
   return (
-    <span style={{ fontWeight: 700, paddingInline: 8, marginInline: 2, whiteSpace: 'pre' }}>
+    <span style={{ fontWeight: 700, paddingInline: 8, marginInline: 2, whiteSpace: 'pre-wrap' }}>
       {`  ${sanitizePdfText(text.trim())}  `}
     </span>
   );
 }
+
+const BODY_LINE: React.CSSProperties = {
+  margin: '0 0 4px',
+  width: '100%',
+  // Each paper line fits one printed line (at 26px every line wrapped).
+  fontSize: 21.5,
+  lineHeight: 2.35,
+  textAlign: 'right',
+  ...font,
+};
 
 function DateBlank() {
   return <span>&nbsp;&nbsp;/&nbsp;&nbsp;/&nbsp;&nbsp;&nbsp;&nbsp;</span>;
@@ -82,12 +92,12 @@ export const RoseSettlementPrintHtml = React.forwardRef<HTMLDivElement, RoseSett
           margin: '0 auto',
           boxSizing: 'border-box',
           backgroundColor: '#ffffff',
-          padding: '26px 40px 40px',
+          padding: '0 40px 40px',
           fontSize: 26,
           color: '#111111',
           display: 'flex',
           flexDirection: 'column',
-          minHeight: '297mm',
+          minHeight: '279mm',
           overflow: 'hidden',
           ...font,
         }}
@@ -97,6 +107,7 @@ export const RoseSettlementPrintHtml = React.forwardRef<HTMLDivElement, RoseSett
           style={{
             position: 'relative',
             zIndex: 1,
+            paddingTop: 26,
             display: 'flex',
             flexDirection: 'column',
             flex: 1,
@@ -115,23 +126,23 @@ export const RoseSettlementPrintHtml = React.forwardRef<HTMLDivElement, RoseSett
             textAlign: 'center',
             textDecoration: 'underline',
             marginTop: 16,
-            marginBottom: 36,
+            marginBottom: 20,
             ...font,
           }}
         >
           مخالصة موظفات
         </div>
 
-        {/* Body — full width, no border box */}
-        <div style={{ width: '100%', fontSize: 26, lineHeight: 2.35, textAlign: 'right', ...font }}>
-          <p style={{ margin: '0 0 4px', width: '100%' }}>
+        {/* Body — full width, no border box. Paragraphs only, no wrapper box: the
+            PDF export moves a box that crosses a page end to the next page whole. */}
+          <p style={BODY_LINE}>
             اقر أنا / <Value text={fields?.employeeName} blank={blank} /> ،{' '}
             <Value text={fields?.nationality} blank={blank} med /> الجنسية
           </p>
-          <p style={{ margin: '0 0 4px', width: '100%' }}>
+          <p style={BODY_LINE}>
             بموجب بطاقة أحوال رقم ( <Value text={fields?.nationalId} blank={blank} med /> ) الموقعة أدناه بأنه إعتباراً من
           </p>
-          <p style={{ margin: '0 0 4px', width: '100%' }}>
+          <p style={BODY_LINE}>
             تاريخ :{' '}
             {blank ? (
               <>
@@ -160,27 +171,26 @@ export const RoseSettlementPrintHtml = React.forwardRef<HTMLDivElement, RoseSett
             )}
             ، قد وصلني جميع الأموال
           </p>
-          <p style={{ margin: '0 0 4px', width: '100%' }}>
+          <p style={BODY_LINE}>
             والمبالغ المستحقة لي وكافة حقوقي على مختلف أنواعها وحتى إنهاء فترة خدمتي .
           </p>
-          <p style={{ margin: '0 0 4px', width: '100%' }}>
+          <p style={BODY_LINE}>
             وتبعاً لذلك فإنني ابرئ ذمة{' '}
             <span style={{ fontWeight: 700 }}>{company}</span>
             {' '}إبراءاً شاملاً عاماً لا رجوع منه مطلقاً لأي
           </p>
-          <p style={{ margin: '0 0 4px', width: '100%' }}>
+          <p style={BODY_LINE}>
             حق أو مطالبة حالية أو مستقبلية ومن أي نوع أو شكل كان .
           </p>
-          <p style={{ margin: '0 0 4px', width: '100%' }}>
+          <p style={BODY_LINE}>
             وبذلك فإننا نبرئ ذمة الموظفة المذكورة أعلاه إبراءاً شاملاً عاماً لا رجوع منه مطلقاً لأي حق
           </p>
-          <p style={{ margin: '0 0 4px', width: '100%' }}>
+          <p style={BODY_LINE}>
             أو مطالبة حالية أو مستقبلية ومن أي نوع أو شكل كان .
           </p>
-        </div>
 
         {/* Signature — full width dotted lines (fills left side too) */}
-        <div style={{ width: '100%', marginTop: 56 }}>
+        <div style={{ width: '100%', marginTop: 28 }}>
           {[
             { label: 'الاسم', value: blank ? null : fields?.employeeName },
             { label: 'التوقيع', value: null },
@@ -200,7 +210,7 @@ export const RoseSettlementPrintHtml = React.forwardRef<HTMLDivElement, RoseSett
                 width: '100%',
                 gap: 16,
                 marginBottom: 18,
-                fontSize: 26,
+                fontSize: 22.5,
                 ...font,
               }}
             >
@@ -213,6 +223,10 @@ export const RoseSettlementPrintHtml = React.forwardRef<HTMLDivElement, RoseSett
                 <span
                   style={{
                     flex: 1,
+                    // Fills the line and is cut at the page edge (no spill-over).
+                    minWidth: 0,
+                    overflow: 'hidden',
+                    whiteSpace: 'nowrap',
                     letterSpacing: 3,
                     color: '#333',
                     textAlign: 'right',

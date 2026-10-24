@@ -16,6 +16,11 @@ import type {
   AuditEntityScope,
 } from '@/features/hr/organization/employees/lib/api/employee-profile';
 import type { useEmployeeProfileAuditLog } from '@/features/hr/organization/employees/hooks/useEmployeeProfileAuditLog';
+import type { Employee } from '@/features/hr/organization/employees/types';
+import { RegisterExportMenu } from '@/components/pdf/register-export-menu';
+import type { RegisterColumn } from '@/components/pdf/print/register-document';
+import { exportDateTime } from '@/features/hr/attendance/lib/attendance-export-format';
+import { employeeExportSubtitle } from '@/features/hr/organization/employees/lib/employee-profile-export';
 
 const AUDIT_SCOPE_LABELS: Record<AuditEntityScope, string> = {
   employee: 'بيانات الموظف',
@@ -84,9 +89,29 @@ function formatValueSnapshot(
   return text.length > 200 ? `${text.slice(0, 200)}…` : text;
 }
 
-type Props = { audit: AuditLogModel };
+const AUDIT_EXPORT_COLUMNS: RegisterColumn[] = [
+  { label: 'التاريخ والوقت', kind: 'date' },
+  { label: 'الفاعل', kind: 'name' },
+  { label: 'الإجراء', kind: 'status' },
+  { label: 'النطاق', kind: 'status' },
+  { label: 'الكيان', kind: 'text', weight: 1.6 },
+  { label: 'الحقول المتغيرة', kind: 'text', weight: 1.6 },
+];
 
-export function EmployeeAuditLogPanel({ audit }: Props) {
+function auditExportRow(row: AuditChangeSummaryDto): string[] {
+  return [
+    exportDateTime(row.occurredAt),
+    row.actorName?.trim() || row.actorEmail?.trim() || 'النظام',
+    actionLabel(row),
+    AUDIT_SCOPE_LABELS[row.scope] ?? row.scope,
+    row.entityDisplayName?.trim() || row.description?.trim() || '—',
+    row.changedFields.length > 0 ? row.changedFields.join(', ') : '—',
+  ];
+}
+
+type Props = { audit: AuditLogModel; employee?: Pick<Employee, 'id' | 'name' | 'employeeCode'> };
+
+export function EmployeeAuditLogPanel({ audit, employee }: Props) {
   const {
     auditChanges,
     auditLoading,
@@ -98,7 +123,22 @@ export function EmployeeAuditLogPanel({ audit }: Props) {
     setActionFilter,
     dateRange,
     setDateRange,
+    fetchAllAuditChanges,
   } = audit;
+
+  const getExportRows = React.useCallback(
+    async () => (await fetchAllAuditChanges()).map(auditExportRow),
+    [fetchAllAuditChanges],
+  );
+
+  const exportSubtitleLines = [
+    ...(employee ? employeeExportSubtitle(employee) : []),
+    ...(dateRange.from || dateRange.to ? [`الفترة: ${dateRange.from || '…'} — ${dateRange.to || '…'}`] : []),
+    ...(scopeFilter !== 'all' ? [`النطاق: ${AUDIT_SCOPE_LABELS[scopeFilter] ?? scopeFilter}`] : []),
+    ...(actionFilter !== 'all'
+      ? [`الإجراء: ${ACTION_FILTER_OPTIONS.find((o) => o.value === actionFilter)?.label ?? actionFilter}`]
+      : []),
+  ];
 
   const columns = React.useMemo((): ColumnDef<AuditChangeSummaryDto>[] => [
     {
@@ -202,6 +242,13 @@ export function EmployeeAuditLogPanel({ audit }: Props) {
               </p>
             </div>
           </div>
+          <RegisterExportMenu
+            title="سجل التغييرات"
+            fileName={`employee-audit-log-${employee?.employeeCode || employee?.id || 'export'}`}
+            columns={AUDIT_EXPORT_COLUMNS}
+            getRows={getExportRows}
+            subtitleLines={exportSubtitleLines}
+          />
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

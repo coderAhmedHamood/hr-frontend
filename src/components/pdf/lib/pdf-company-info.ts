@@ -6,6 +6,10 @@ export type PdfCompanyLetterhead = {
   companyNameEn: string;
   commercialReg: string;
   logoSrc: string | undefined;
+  /** The logo as a faded background on every page (company setting). */
+  watermarkEnabled: boolean;
+  /** Its opacity, 0–1 (from the company's percent). */
+  watermarkOpacity: number;
 };
 
 export type PdfCompanySource = {
@@ -13,6 +17,8 @@ export type PdfCompanySource = {
   nameEn?: string | null;
   commercialRegistrationNo?: string | null;
   logoUrl?: string | null;
+  pdfWatermarkEnabled?: boolean | null;
+  pdfWatermarkOpacity?: number | null;
 };
 
 export function isDefaultPdfLogoSrc(src?: string | null): boolean {
@@ -51,5 +57,7 @@ export function buildPdfCompanyLetterhead(source?: PdfCompanySource | null): Pdf
     companyNameEn: source?.nameEn?.trim() || '',
     commercialReg: source?.commercialRegistrationNo?.trim() || '',
     logoSrc: resolvePdfLogoSrc(source?.logoUrl),
+    watermarkEnabled: source?.pdfWatermarkEnabled ?? true,
+    watermarkOpacity: Math.min(Math.max(source?.pdfWatermarkOpacity ?? 10, 2), 40) / 100,
   };
 }

@@ -16,13 +16,37 @@ import { ForbiddenState } from '@/components/shared/forbidden-state';
 import { DirectoryPagedViews } from '@/components/ui/paged-list';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { cn } from '@/shared/utils';
+import { RegisterExportMenu } from '@/components/pdf/register-export-menu';
+import type { RegisterColumn } from '@/components/pdf/print/register-document';
+import { useLatestCallback } from '@/shared/hooks/use-latest-callback';
+
+const LEAVE_TYPE_EXPORT_COLUMNS: RegisterColumn[] = [
+  { label: 'الاسم', kind: 'text', weight: 1.6 },
+  { label: 'الحالة', kind: 'status' },
+  { label: 'أقصى أيام للطلب', kind: 'number' },
+];
 
 export function LeaveTypesPanel() {
   const m = useLeaveTypesPanelModel();
 
+  const getExportRows = useLatestCallback(async (): Promise<string[][]> => {
+    const items = await m.loadAllForExport();
+    return items.map((item) => [
+      item.nameAr || '—',
+      item.isActive ? 'نشط' : 'موقوف',
+      item.maxDaysPerRequest !== null ? `${item.maxDaysPerRequest} أيام` : '—',
+    ]);
+  });
+
   usePageHeaderActions(
     () => (
       <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
+        <RegisterExportMenu
+          title="أنواع الإجازات"
+          fileName="leave-types"
+          columns={LEAVE_TYPE_EXPORT_COLUMNS}
+          getRows={getExportRows}
+        />
         <Button variant="luxe" size="sm" className="h-8 gap-1.5 px-3 text-xs" onClick={m.openCreate} disabled={m.loading}>
           <Plus className="h-3.5 w-3.5" />
           إضافة نوع إجازة

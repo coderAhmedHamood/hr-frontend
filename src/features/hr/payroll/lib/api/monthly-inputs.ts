@@ -48,11 +48,15 @@ export type MonthlyInputResponseDto = {
 };
 
 export type MonthlyInputListQuery = {
+  /** Employee status filter (empty status = active); absent = every status. */
+  employeeStatus?: 'active' | 'suspended' | 'ended';
   page?: number;
   limit?: number;
   companyId?: string;
   payrollPeriodId?: string;
   employeeId?: string;
+  /** Unique ids — serialized as comma-separated (`id1,id2`). */
+  employeeIds?: string[];
   inputKind?: MonthlyInputKindDto;
   direction?: MonthlyInputDirectionDto;
   sourceKind?: MonthlyInputSourceKindDto;

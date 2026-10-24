@@ -48,8 +48,20 @@ import { useDefaultCompany } from '@/features/hr/organization/hooks/useActiveCom
 import { PdfPreviewExportDialog } from '@/components/pdf/pdf-preview-export-dialog';
 import { PdfPreviewDownloadButton } from '@/components/pdf/pdf-preview-download-button';
 import { DisciplineLetterPrintHtml } from '@/components/pdf/print/discipline-letter-print-html';
+import { RegisterExportMenu } from '@/components/pdf/register-export-menu';
+import type { RegisterColumn } from '@/components/pdf/print/register-document';
+import { useLatestCallback } from '@/shared/hooks/use-latest-callback';
 
 const DEDUCTION_STATUS_ORDER: readonly HRDeductionStatus[] = ['ready', 'posted', 'calculated', 'cancelled'];
+
+const DEDUCTION_EXPORT_COLUMNS: RegisterColumn[] = [
+  { label: 'القضية', kind: 'code' },
+  { label: 'الموظف', kind: 'name' },
+  { label: 'النوع', kind: 'text' },
+  { label: 'الشهر', kind: 'date' },
+  { label: 'الحالة', kind: 'status' },
+  { label: 'المبلغ', kind: 'number', weight: 1.3 },
+];
 
 type KindFilter = 'all' | Exclude<HRViolationDeductionKind, 'none'>;
 
@@ -137,9 +149,32 @@ export function DeductionsClient() {
 
   const activeFilterCount = (selectedEmpIds.size > 0 ? 1 : 0) + (statusFilter !== 'all' ? 1 : 0) + (kindFilter !== 'all' ? 1 : 0) + (dateMeta.hasRestriction ? 1 : 0);
 
+  const { loadAllForExport } = m;
+  const getExportRows = useLatestCallback(
+    async () =>
+      (await loadAllForExport()).map((d) => [
+        d.caseNumber,
+        d.employeeNameAr,
+        DEDUCTION_KIND_LABELS[d.deductionKind],
+        d.month,
+        DEDUCTION_STATUS_LABELS[d.status],
+        formatNumber(d.amount),
+      ]),
+  );
+
   usePageHeaderActions(
-    () => <FilterToggleButton activeFilterCount={activeFilterCount} />,
-    [activeFilterCount],
+    () => (
+      <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
+        <FilterToggleButton activeFilterCount={activeFilterCount} />
+        <RegisterExportMenu
+          title="سجل الاستقطاعات"
+          fileName="discipline-deductions"
+          columns={DEDUCTION_EXPORT_COLUMNS}
+          getRows={getExportRows}
+        />
+      </div>
+    ),
+    [activeFilterCount, getExportRows],
   );
 
   const handleSendToPayroll = React.useCallback(

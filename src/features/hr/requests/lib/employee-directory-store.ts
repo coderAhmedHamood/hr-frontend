@@ -16,9 +16,11 @@ import type { HREmployeeDirectoryRow, HREmployeeStatus } from '@/features/hr/req
 // ─── Mapper ───────────────────────────────────────────────────────────────────
 
 function mapApi(e: EmployeeResponseDto): HREmployeeDirectoryRow {
+  // Same reading as the employees list: empty / unknown = active.
+  const raw = e.contractStatus?.trim().toLowerCase();
   const status: HREmployeeStatus =
-    e.contractStatus === 'active' ? 'active' :
-    e.contractStatus === 'suspended' ? 'suspended' : 'active';
+    raw === 'suspended' ? 'suspended' :
+    raw === 'ended' ? 'ended' : 'active';
   return {
     id: e.id,
     bridgeId: e.employeeCode,

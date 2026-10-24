@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import { resolveDirectoryLoadFailure } from '@/features/hr/lib/api/directory-load-error';
 import { useServerDirectoryPagination } from '@/components/ui/paged-list';
+import { fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
 import { violationTypesApi } from '@/features/hr/discipline/lib/api/violation-types';
 import { resolveOrganizationScope } from '@/features/hr/organization/lib/api/organization-context';
 import type { HRViolationDeductionKind, HRViolationTypeRecord } from '@/features/hr/discipline/lib/types';
@@ -77,6 +78,16 @@ export function useViolationTypesDirectoryModel() {
     pagination,
     reload,
   } = useServerDirectoryPagination<HRViolationTypeRecord>(loadPage);
+
+  /** Every violation type of the company (all pages), for export. */
+  const loadAllForExport = React.useCallback(async (): Promise<HRViolationTypeRecord[]> => {
+    const scope = await resolveOrganizationScope();
+    const cid = scope.companyId ?? null;
+    const { items } = await fetchAllPaginatedItems((page, limit) =>
+      violationTypesApi.getAll(cid ? { companyId: cid, page, limit } : { page, limit }),
+    );
+    return items.map(mapViolationTypeResponse);
+  }, []);
 
   const openCreate = React.useCallback(() => {
     setDraft(EMPTY);
@@ -175,6 +186,7 @@ export function useViolationTypesDirectoryModel() {
 
   return {
     types: pagedTypes,
+    loadAllForExport,
     loading,
     pagination,
     listError,

@@ -86,8 +86,10 @@ function Bullet({
 function BodyBlocks({ blocks }: { blocks: CircularBodyBlock[] }) {
   if (blocks.length === 0) return null;
 
+  // No wrapper box: the PDF export moves any box shorter than a page that
+  // crosses a page end to the next page whole, which would leave page 1 empty.
   return (
-    <div style={{ marginBottom: 16 }}>
+    <>
       {blocks.map((block, i) => {
         const key = `${block.type}-${i}`;
         if (block.type === 'section') {
@@ -146,7 +148,8 @@ function BodyBlocks({ blocks }: { blocks: CircularBodyBlock[] }) {
           </p>
         );
       })}
-    </div>
+      <div style={{ height: 16 }} />
+    </>
   );
 }
 
@@ -200,12 +203,13 @@ export const OfficialCircularPrintHtml = React.forwardRef<
         boxSizing: 'border-box',
         backgroundColor: '#ffffff',
         padding: PDF_PAGE_PADDING,
+        paddingTop: 0,
         fontSize: PDF_PAGE_FONT,
         fontWeight: 700,
         color: '#000000',
         display: 'flex',
         flexDirection: 'column',
-        minHeight: '297mm',
+        minHeight: '279mm',
         overflow: 'hidden',
         ...pdfOfficialFont,
       }}
@@ -215,6 +219,7 @@ export const OfficialCircularPrintHtml = React.forwardRef<
         style={{
           position: 'relative',
           zIndex: 1,
+          paddingTop: 20,
           display: 'flex',
           flexDirection: 'column',
           flex: 1,

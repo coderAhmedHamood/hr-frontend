@@ -47,7 +47,7 @@ export const RoseDocumentTemplatePrintHtml = React.forwardRef<
   return (
     <div ref={ref} dir={root.dir} lang={root.lang} style={ROSE_DOCUMENT_PAGE_STYLE}>
       <RosePdfWatermark logoSrc={logoSrc} />
-      <div style={{ position: 'relative', zIndex: 1 }}>
+      <div style={{ position: 'relative', zIndex: 1, paddingTop: 28 }}>
         <RoseTradingLetterheadPrint
           logoSrc={logoSrc}
           companyNameAr={companyNameAr}

@@ -27,6 +27,10 @@ import { COMPANY_GUIDELINES_PAGE_PERMISSIONS } from '@/features/hr/guidelines/co
 import { DataTable, type ColumnDef } from '@/components/ui/data-table';
 import { DirectoryPagedViews, useServerDirectoryPagination } from '@/components/ui/paged-list';
 import { TableRowActions } from '@/components/ui/table-cells';
+import { RegisterExportMenu } from '@/components/pdf/register-export-menu';
+import { useLatestCallback } from '@/shared/hooks/use-latest-callback';
+import type { RegisterColumn } from '@/components/pdf/print/register-document';
+import { fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
 import { cn } from '@/shared/utils';
 import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
@@ -65,6 +69,14 @@ const PUBLISH_FILTER_OPTIONS = [
   { value: 'all', label: 'الكل' },
   { value: 'published', label: 'منشور' },
   { value: 'draft', label: 'مسودة' },
+];
+
+const GUIDELINE_EXPORT_COLUMNS: RegisterColumn[] = [
+  { label: 'العنوان', kind: 'text', weight: 3 },
+  { label: 'عدد النقاط', kind: 'number' },
+  { label: 'منشور', kind: 'status' },
+  { label: 'الترتيب', kind: 'number' },
+  { label: 'الحالة', kind: 'status' },
 ];
 
 function PublishBadge({ isPublished }: { isPublished: boolean }) {
@@ -136,12 +148,12 @@ export function CompanyGuidelinesClient() {
     resetDeps: [companyId, archiveScope, publishFilter],
   });
 
-  const openCreate = React.useCallback(() => {
+  const openCreate = useLatestCallback(() => {
     setEditId(null);
     setDraft({ ...EMPTY, sortOrder: guidelines.length });
     setError(null);
     setDrawerOpen(true);
-  }, [guidelines.length]);
+  });
 
   const openEdit = React.useCallback((g: CompanyGuidelineDto) => {
     setEditId(g.id);
@@ -337,10 +349,45 @@ export function CompanyGuidelinesClient() {
     iconName: 'Megaphone',
   });
 
+  const getExportRows = useLatestCallback(async (): Promise<string[][]> => {
+    if (!companyId) return [];
+    const { items } = await fetchAllPaginatedItems((page, limit) =>
+      companyGuidelinesApi.list({
+        companyId,
+        page,
+        limit,
+        ...(publishFilter !== 'all' ? { isPublished: publishFilter === 'published' } : {}),
+        ...organizationListArchiveQuery(archiveScope),
+      }),
+    );
+    return [...items]
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .map((g) => [
+        g.titleAr,
+        String(g.points.length),
+        g.isPublished ? 'نعم' : 'لا',
+        String(g.sortOrder),
+        g.isArchived ? 'مؤرشف' : g.isPublished ? 'منشور' : 'مسودة',
+      ]);
+  });
+
+  const exportSubtitleLines = React.useMemo(() => {
+    const publish = PUBLISH_FILTER_OPTIONS.find((o) => o.value === publishFilter)?.label ?? '';
+    const scope = ORGANIZATION_ARCHIVE_SCOPE_OPTIONS.find((o) => o.value === archiveScope)?.label ?? '';
+    return [`حالة النشر: ${publish} — العرض: ${scope}`];
+  }, [archiveScope, publishFilter]);
+
   usePageHeaderActions(
     () => (
       <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
         <FilterToggleButton activeFilterCount={activeFilterCount} />
+        <RegisterExportMenu
+          title="سجل إرشادات الشركة"
+          fileName="company-guidelines"
+          columns={GUIDELINE_EXPORT_COLUMNS}
+          getRows={getExportRows}
+          subtitleLines={exportSubtitleLines}
+        />
         <Can when={perms.canCreate}>
           <PageHeaderPrimaryButton icon={Plus} label="إرشاد جديد" onClick={openCreate}>
             إرشاد جديد
@@ -348,7 +395,7 @@ export function CompanyGuidelinesClient() {
         </Can>
       </div>
     ),
-    [activeFilterCount, openCreate, perms.canCreate],
+    [activeFilterCount, openCreate, perms.canCreate, getExportRows, exportSubtitleLines],
   );
 
   useEntityFilterSlot(

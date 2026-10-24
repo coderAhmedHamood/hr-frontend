@@ -6,6 +6,7 @@ import { sanitizePdfText } from '@/components/pdf/lib/sanitize-pdf-text';
 import { formatDisplayDate } from '@/shared/utils';
 import { RoseTradingLetterheadPrint } from '@/components/pdf/print/rose-trading-letterhead-print';
 import { getPdfLogoSrc } from '@/components/pdf/lib/pdf-logo-url';
+import { RegisterTable } from '@/components/pdf/print/register-document';
 import { RosePdfWatermark } from '@/components/pdf/rose-trading/rose-pdf-watermark';
 import { RoseCompanyStamp } from '@/components/pdf/rose-trading/rose-company-stamp';
 
@@ -33,7 +34,7 @@ const PAGE_STYLE: React.CSSProperties = {
   position: 'relative',
   overflow: 'hidden',
   backgroundColor: '#ffffff',
-  padding: '26px 20px 48px',
+  padding: '0 20px 48px',
   fontFamily: PDF_PRINT_FONT_FAMILY,
   fontSize: 22,
   color: '#111',
@@ -60,9 +61,9 @@ export const LeavesAnalyticsPrintHtml = React.forwardRef<HTMLDivElement, LeavesA
 
     return (
       <div ref={ref} dir="rtl" lang="ar" style={{ width: '210mm', maxWidth: '100%', margin: '0 auto' }}>
-        <div style={{ ...PAGE_STYLE, minHeight: '297mm' }}>
+        <div style={{ ...PAGE_STYLE, minHeight: '279mm' }}>
           <RosePdfWatermark logoSrc={logoSrc} />
-          <div style={{ position: 'relative', zIndex: 1 }}>
+          <div style={{ position: 'relative', zIndex: 1, paddingTop: 26 }}>
           <RoseTradingLetterheadPrint
             logoSrc={logoSrc}
             companyNameAr={companyNameAr}
@@ -103,123 +104,32 @@ export const LeavesAnalyticsPrintHtml = React.forwardRef<HTMLDivElement, LeavesA
           </div>
 
           <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 8, color: '#1f2937' }}>طلبات الإجازات المصفّاة</div>
-          <div style={{ border: '1px solid #cbd5e1' }}>
-            <div style={{ display: 'flex', flexDirection: 'row', backgroundColor: '#e8f2ef', borderBottom: '1px solid #cbd5e1' }}>
-              {[
-                { label: 'الموظف', w: '28%', align: 'right' as const },
-                { label: 'من', w: '14%', align: 'center' as const },
-                { label: 'إلى', w: '14%', align: 'center' as const },
-                { label: 'النوع', w: '16%', align: 'right' as const },
-                { label: 'الحالة', w: '18%', align: 'right' as const },
-                { label: 'أيام', w: '10%', align: 'center' as const },
-              ].map((h, i) => (
-                <div
-                  key={h.label}
-                  style={{
-                    width: h.w,
-                    padding: '6px 6px',
-                    fontSize: 22,
-                    fontWeight: 700,
-                    textAlign: h.align,
-                    borderInlineStart: i === 0 ? undefined : '1px solid #cbd5e1',
-                    boxSizing: 'border-box',
-                  }}
-                >
-                  {sanitizePdfText(h.label)}
-                </div>
-              ))}
-            </div>
-
-            {leaveRows.length === 0 ? (
-              <div style={{ padding: 10, textAlign: 'center', color: '#64748b' }}>لا توجد طلبات إجازة ضمن الفلترة.</div>
-            ) : (
-              leaveRows.map((l, idx) => (
-                <div
-                  key={`${l.employeeNameAr}-${l.start}-${idx}`}
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'row',
-                    borderTop: idx === 0 ? undefined : '1px solid #e2e8f0',
-                    backgroundColor: idx % 2 === 1 ? '#fafafa' : '#fff',
-                  }}
-                >
-                  <div style={{ width: '28%', padding: '6px 6px', fontSize: 22, textAlign: 'right', boxSizing: 'border-box', wordBreak: 'break-word' }}>
-                    {sanitizePdfText(l.employeeNameAr)}
-                  </div>
-                  <div style={{ width: '14%', padding: '6px 6px', fontSize: 22, textAlign: 'center', boxSizing: 'border-box', borderInlineStart: '1px solid #e2e8f0' }}>
-                    <span dir="ltr">{sanitizePdfText(l.start)}</span>
-                  </div>
-                  <div style={{ width: '14%', padding: '6px 6px', fontSize: 22, textAlign: 'center', boxSizing: 'border-box', borderInlineStart: '1px solid #e2e8f0' }}>
-                    <span dir="ltr">{sanitizePdfText(l.end)}</span>
-                  </div>
-                  <div style={{ width: '16%', padding: '6px 6px', fontSize: 22, textAlign: 'right', boxSizing: 'border-box', borderInlineStart: '1px solid #e2e8f0', wordBreak: 'break-word' }}>
-                    {sanitizePdfText(l.typeAr)}
-                  </div>
-                  <div style={{ width: '18%', padding: '6px 6px', fontSize: 22, textAlign: 'right', boxSizing: 'border-box', borderInlineStart: '1px solid #e2e8f0', wordBreak: 'break-word' }}>
-                    {sanitizePdfText(l.statusAr)}
-                  </div>
-                  <div style={{ width: '10%', padding: '6px 6px', fontSize: 22, textAlign: 'center', boxSizing: 'border-box', borderInlineStart: '1px solid #e2e8f0' }}>
-                    <span dir="ltr">{sanitizePdfText(String(l.workingDays))}</span>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
+          {/* The shared register table: one font size, dates and numbers on one line. */}
+          <RegisterTable
+            columns={[
+              { label: 'الموظف', kind: 'name' },
+              { label: 'من', kind: 'date' },
+              { label: 'إلى', kind: 'date' },
+              { label: 'النوع', kind: 'status' },
+              { label: 'الحالة', kind: 'status' },
+              { label: 'أيام', kind: 'number', weight: 0.8 },
+            ]}
+            rows={leaveRows.map((l) => [l.employeeNameAr, l.start, l.end, l.typeAr, l.statusAr, String(l.workingDays)])}
+            emptyText="لا توجد طلبات إجازة ضمن الفلترة."
+          />
 
           <div style={{ fontSize: 22, fontWeight: 700, marginTop: 16, marginBottom: 8, color: '#1f2937' }}>أرصدة الموظفين</div>
-          <div style={{ border: '1px solid #cbd5e1' }}>
-            <div style={{ display: 'flex', flexDirection: 'row', backgroundColor: '#e8f2ef', borderBottom: '1px solid #cbd5e1' }}>
-              {[
-                { label: 'الموظف', w: '44%', align: 'right' as const },
-                { label: 'الفرع', w: '26%', align: 'right' as const },
-                { label: 'سنوية', w: '15%', align: 'center' as const },
-                { label: 'مرضية', w: '15%', align: 'center' as const },
-              ].map((h, i) => (
-                <div
-                  key={h.label}
-                  style={{
-                    width: h.w,
-                    padding: '6px 6px',
-                    fontSize: 22,
-                    fontWeight: 700,
-                    textAlign: h.align,
-                    borderInlineStart: i === 0 ? undefined : '1px solid #cbd5e1',
-                    boxSizing: 'border-box',
-                  }}
-                >
-                  {sanitizePdfText(h.label)}
-                </div>
-              ))}
-            </div>
-            {employeeRows.length === 0 ? (
-              <div style={{ padding: 10, textAlign: 'center', color: '#64748b' }}>لا توجد بيانات أرصدة.</div>
-            ) : (
-              employeeRows.map((e, idx) => (
-                <div
-                  key={`${e.nameAr}-${idx}`}
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'row',
-                    borderTop: idx === 0 ? undefined : '1px solid #e2e8f0',
-                    backgroundColor: idx % 2 === 1 ? '#fafafa' : '#fff',
-                  }}
-                >
-                  <div style={{ width: '44%', padding: '6px 6px', fontSize: 22, textAlign: 'right', boxSizing: 'border-box', wordBreak: 'break-word' }}>
-                    {sanitizePdfText(e.nameAr)}
-                  </div>
-                  <div style={{ width: '26%', padding: '6px 6px', fontSize: 22, textAlign: 'right', boxSizing: 'border-box', borderInlineStart: '1px solid #e2e8f0', wordBreak: 'break-word' }}>
-                    {sanitizePdfText(e.branch)}
-                  </div>
-                  <div style={{ width: '15%', padding: '6px 6px', fontSize: 22, textAlign: 'center', boxSizing: 'border-box', borderInlineStart: '1px solid #e2e8f0' }}>
-                    <span dir="ltr">{sanitizePdfText(e.annual)}</span>
-                  </div>
-                  <div style={{ width: '15%', padding: '6px 6px', fontSize: 22, textAlign: 'center', boxSizing: 'border-box', borderInlineStart: '1px solid #e2e8f0' }}>
-                    <span dir="ltr">{sanitizePdfText(e.sick)}</span>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
+          {/* The shared register table: one font size, dates and numbers on one line. */}
+          <RegisterTable
+            columns={[
+              { label: 'الموظف', kind: 'name' },
+              { label: 'الفرع', kind: 'text' },
+              { label: 'سنوية', kind: 'number' },
+              { label: 'مرضية', kind: 'number' },
+            ]}
+            rows={employeeRows.map((e) => [e.nameAr, e.branch, e.annual, e.sick])}
+            emptyText="لا توجد بيانات أرصدة."
+          />
 
           {/* Establishment stamp — «ختم المنشأة». */}
           <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: 20 }}>

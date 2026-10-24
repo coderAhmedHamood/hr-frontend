@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { companiesApi, type CountryProfile } from '@/features/hr/organization/lib/api/companies';
 import { ACCESS_PROFILE_KEY } from '@/features/auth/hooks/use-access-profile';
 import { CURRENCIES, currencyNameAr } from '@/shared/currencies';
@@ -18,6 +19,7 @@ import { uploadsApi } from '@/features/hr/lib/api/uploads';
 import {
   companyToSettingsForm,
   isValidHexColor,
+  PDF_WATERMARK_LEVELS,
   settingsFormToUpdateDto,
   type CompanySettingsFormState,
 } from '@/features/system/organization/pages/hr/constants/company-settings-form';
@@ -283,6 +285,62 @@ export function CompanySettingsTab() {
               defaultHex="#f2ede6"
             />
           </div>
+        </div>
+
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground">خلفية الشعار في المستندات المطبوعة</p>
+              <p className="text-[11px] leading-relaxed text-muted-foreground">
+                شعار الشركة خلفيةً باهتة في كل صفحة من التقارير والمستندات المطبوعة.
+              </p>
+            </div>
+            <Switch
+              checked={form.pdfWatermarkEnabled}
+              onCheckedChange={(pdfWatermarkEnabled) => patch({ pdfWatermarkEnabled })}
+              aria-label="إظهار الشعار خلفية في المستندات"
+            />
+          </div>
+          {form.pdfWatermarkEnabled ? (
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="درجة ظهور الخلفية">
+                {PDF_WATERMARK_LEVELS.map((level) => {
+                  const active = form.pdfWatermarkOpacity === level.value;
+                  return (
+                    <button
+                      key={level.value}
+                      type="button"
+                      role="radio"
+                      aria-checked={active}
+                      onClick={() => patch({ pdfWatermarkOpacity: level.value })}
+                      className={cn(
+                        'rounded-lg border px-3 py-1.5 text-xs transition',
+                        active
+                          ? 'border-primary bg-primary/10 font-semibold text-primary'
+                          : 'border-border hover:border-primary/40',
+                      )}
+                    >
+                      {level.label}
+                    </button>
+                  );
+                })}
+              </div>
+              {/* What a printed page will look like at this level. */}
+              <div className="relative flex h-24 w-20 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-white shadow-sm">
+                {form.logoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={resolveUploadUrl(form.logoUrl)}
+                    alt=""
+                    className="w-3/4 object-contain"
+                    style={{ opacity: form.pdfWatermarkOpacity / 100 }}
+                  />
+                ) : (
+                  <span className="px-1 text-center text-[10px] text-muted-foreground">ارفع الشعار أولًا</span>
+                )}
+              </div>
+            </div>
+          ) : null}
         </div>
 
         <div className="space-y-3">

@@ -17,6 +17,7 @@ import {
 import { EMPLOYEE_ATTACHMENT_LIBRARY_GROUPS } from '@/features/hr/organization/employees/constants/employee-attachment-document-types';
 import { useServerDirectoryPagination } from '@/components/ui/paged-list';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
+import { fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
 
 export function useEmployeeProfileAttachments(employee: Employee, listEnabled = true) {
   const companyId = useDefaultCompanyId() ?? '';
@@ -53,6 +54,33 @@ export function useEmployeeProfileAttachments(employee: Employee, listEnabled = 
     return () => { cancelled = true; };
   }, [companyId, employee.id]);
 
+  const attachmentsQuery = React.useMemo(() => {
+    const group = EMPLOYEE_ATTACHMENT_LIBRARY_GROUPS.find((g) => g.id === libraryGroup);
+    const groupTypes = group && group.id !== 'all' ? [...group.types] : [];
+    return {
+      companyId,
+      employeeId: employee.id,
+      ...organizationListArchiveQuery(archiveScope),
+      ...(documentTypeFilter !== 'all'
+        ? { documentType: documentTypeFilter }
+        : groupTypes.length > 0
+          ? { documentTypes: groupTypes.join(',') }
+          : {}),
+      ...(search.trim() ? { search: search.trim() } : {}),
+      sortBy: 'createdAt',
+      sortDir: 'DESC' as const,
+    };
+  }, [archiveScope, companyId, documentTypeFilter, employee.id, libraryGroup, search]);
+
+  /** Every attachment matching the current library filters (export). */
+  const fetchAllAttachments = React.useCallback(async () => {
+    if (!employee.id || !companyId) return [] as EmployeeAttachmentDto[];
+    const { items } = await fetchAllPaginatedItems((page, limit) =>
+      employeeAttachmentsApi.getAll({ ...attachmentsQuery, page, limit }),
+    );
+    return items;
+  }, [attachmentsQuery, companyId, employee.id]);
+
   const loadAttachmentsPage = React.useCallback(async (page: number, pageSize: number) => {
     if (!employee.id || !companyId) {
       return { items: [] as EmployeeAttachmentDto[], total: 0 };
@@ -60,23 +88,10 @@ export function useEmployeeProfileAttachments(employee: Employee, listEnabled = 
 
     setAttachmentsError(null);
     try {
-      const group = EMPLOYEE_ATTACHMENT_LIBRARY_GROUPS.find((g) => g.id === libraryGroup);
-      const groupTypes = group && group.id !== 'all' ? [...group.types] : [];
-
       const res = await employeeAttachmentsApi.getAll({
-        companyId,
-        employeeId: employee.id,
+        ...attachmentsQuery,
         page,
         limit: pageSize,
-        ...organizationListArchiveQuery(archiveScope),
-        ...(documentTypeFilter !== 'all'
-          ? { documentType: documentTypeFilter }
-          : groupTypes.length > 0
-            ? { documentTypes: groupTypes.join(',') }
-            : {}),
-        ...(search.trim() ? { search: search.trim() } : {}),
-        sortBy: 'createdAt',
-        sortDir: 'DESC',
       });
       // Keep sidebar badge as unfiltered active-archive total; list total lives on pagination.
       const isUnfilteredLibrary =
@@ -93,7 +108,7 @@ export function useEmployeeProfileAttachments(employee: Employee, listEnabled = 
       setAttachmentsError(displayMessage);
       return { items: [] as EmployeeAttachmentDto[], total: 0 };
     }
-  }, [archiveScope, companyId, documentTypeFilter, employee.id, libraryGroup, search]);
+  }, [archiveScope, attachmentsQuery, companyId, documentTypeFilter, employee.id, libraryGroup, search]);
 
   const {
     items: employeeAttachments,
@@ -159,5 +174,6 @@ export function useEmployeeProfileAttachments(employee: Employee, listEnabled = 
     setDetailAttachment,
     uploadAttachment,
     reloadAttachments,
+    fetchAllAttachments,
   };
 }

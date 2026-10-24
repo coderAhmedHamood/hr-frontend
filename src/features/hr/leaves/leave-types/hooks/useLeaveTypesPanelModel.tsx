@@ -1,10 +1,12 @@
 'use client';
 
 import * as React from 'react';
+import { useLatestCallback } from '@/shared/hooks/use-latest-callback';
 import { toast } from 'sonner';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import { resolveDirectoryLoadFailure } from '@/features/hr/lib/api/directory-load-error';
 import { useServerDirectoryPagination } from '@/components/ui/paged-list';
+import { fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
 import { leaveTypesApi } from '@/features/hr/leaves/leave-types/lib/api/leave-types';
 import { resolveOrganizationScope } from '@/features/hr/organization/lib/api/organization-context';
 import type { HRLeaveTypeRecord } from '@/features/hr/leaves/leave-types/types';
@@ -86,12 +88,25 @@ export function useLeaveTypesPanelModel() {
     resetDeps: [archiveScope],
   });
 
-  const openCreate = React.useCallback(() => {
+  /** All leave types in the current archive scope (all pages) — for PDF / Excel export. */
+  const loadAllForExport = React.useCallback(async (): Promise<HRLeaveTypeRecord[]> => {
+    const scope = await resolveOrganizationScope();
+    const cid = scope.companyId ?? null;
+    const res = await fetchAllPaginatedItems((page, limit) =>
+      leaveTypesApi.getAll({
+        ...(cid ? { companyId: cid, page, limit } : { page, limit }),
+        ...organizationListStatusQuery(archiveScope),
+      }),
+    );
+    return res.items.map(mapLeaveTypeResponse).sort((a, b) => a.sortOrder - b.sortOrder);
+  }, [archiveScope]);
+
+  const openCreate = useLatestCallback(() => {
     setEditId(null);
     setDraft({ ...EMPTY_DRAFT, sortOrder: items.length + 1 });
     setError(null);
     setOpen(true);
-  }, [items.length]);
+  });
 
   const openEdit = React.useCallback((item: HRLeaveTypeRecord) => {
     setEditId(item.id);
@@ -225,5 +240,6 @@ export function useLeaveTypesPanelModel() {
     editingIsOfficial,
     archiveScope,
     setArchiveScope,
+    loadAllForExport,
   };
 }

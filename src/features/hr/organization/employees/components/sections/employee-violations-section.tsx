@@ -19,7 +19,11 @@ import { DisciplineLetterPrintHtml } from '@/components/pdf/print/discipline-let
 import { useDefaultCompany } from '@/features/hr/organization/hooks/useActiveCompany';
 import { AR_VIOLATION_RECORD_STATUS_LABELS } from '@/shared/i18n/ar';
 import { MoneyAmount } from '@/components/ui/sar-amount';
-import { formatDate, cn } from '@/shared/utils';
+import { formatDate, formatNumber, cn } from '@/shared/utils';
+import { RegisterExportMenu } from '@/components/pdf/register-export-menu';
+import type { RegisterColumn } from '@/components/pdf/print/register-document';
+import { exportDate } from '@/features/hr/attendance/lib/attendance-export-format';
+import { employeeExportSubtitle } from '@/features/hr/organization/employees/lib/employee-profile-export';
 import { Empty } from '@/features/hr/organization/employees/components/EmployeeProfilePrimitives';
 import { EmployeeProfilePagedList } from '@/features/hr/organization/employees/components/employee-profile-paged-list';
 import type { EmployeeProfileModel } from '@/features/hr/organization/employees/hooks/useEmployeeProfileModel';
@@ -39,11 +43,25 @@ function deductionLabel(value: number, kind: 'amount' | 'hours' | 'day'): React.
   return `${value} ${unit}`;
 }
 
+const VIOLATION_EXPORT_COLUMNS: RegisterColumn[] = [
+  { label: 'رقم المحضر', kind: 'code' },
+  { label: 'نوع المخالفة', kind: 'text' },
+  { label: 'التاريخ', kind: 'date' },
+  { label: 'الوصف', kind: 'text', weight: 2 },
+  { label: 'الخصم', kind: 'number' },
+  { label: 'الحالة', kind: 'status' },
+];
+
+function deductionText(value: number, kind: 'amount' | 'hours' | 'day'): string {
+  if (kind === 'amount') return formatNumber(value);
+  return `${value} ${kind === 'day' ? 'يوم' : 'ساعة'}`;
+}
+
 const RESULT_LABELS: Record<string, string> = { proven: 'ثابتة', not_proven: 'غير ثابتة' };
 const RECOMMENDATION_LABELS: Record<string, string> = { warning: 'إنذار', deduction: 'خصم' };
 
 export function EmployeeViolationsSection({ model }: { model: EmployeeProfileModel }) {
-  const { employee, employeeViolations, violationsLoading, violationsPagination, violationsTotal } = model;
+  const { employee, employeeViolations, violationsLoading, violationsPagination, violationsTotal, fetchAllViolations } = model;
   const [expanded, setExpanded] = React.useState<Set<string>>(new Set());
   const [printId, setPrintId] = React.useState<string | null>(null);
   const { data: defaultCompany } = useDefaultCompany();
@@ -68,6 +86,18 @@ export function EmployeeViolationsSection({ model }: { model: EmployeeProfileMod
       ].filter(Boolean).join('\n\n')}
     />
   ) : null;
+
+  const getViolationExportRows = async (): Promise<string[][]> => {
+    const rows = await fetchAllViolations();
+    return rows.map((v) => [
+      v.recordNumber || '—',
+      v.typeNameAr,
+      exportDate(v.date),
+      v.description?.trim() || '—',
+      v.typeHasDeduction ? deductionText(v.typeDeductionValue, v.typeDeductionKind) : '—',
+      (STATUS_META[v.status] ?? STATUS_META.pending!).label,
+    ]);
+  };
 
   const toggle = (id: string) =>
     setExpanded((prev) => {
@@ -112,6 +142,13 @@ export function EmployeeViolationsSection({ model }: { model: EmployeeProfileMod
               ({violationsTotal})
             </span>
           </h3>
+          <RegisterExportMenu
+            title="سجل مخالفات الموظف"
+            fileName={`employee-violations-${employee.employeeCode || employee.id}`}
+            columns={VIOLATION_EXPORT_COLUMNS}
+            getRows={getViolationExportRows}
+            subtitleLines={employeeExportSubtitle(employee)}
+          />
         </div>
 
         <div className="px-4 pb-4 pt-3">

@@ -51,6 +51,12 @@ export const USER_STATUS_OPTIONS = USER_STATUS_FORM_OPTIONS;
 
 export { userTypeLabelAr, userStatusLabelAr };
 
+/** Same options plus "الكل" — for the list filter dropdown, not the create/edit form. */
+export const USER_TYPE_FILTER_OPTIONS = [
+  { value: 'all', label: 'كل الأنواع' },
+  ...USER_TYPE_OPTIONS,
+];
+
 export function userToDraftForm(user: UserResponseDto): UserDraftForm {
   const userType =
     user.userType && (USER_TYPE_LABELS_AR as Record<string, string>)[user.userType]

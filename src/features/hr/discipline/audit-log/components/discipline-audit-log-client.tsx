@@ -1,7 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import { FileDown, Rows3, Table2 } from 'lucide-react';
+import { useLatestCallback } from '@/shared/hooks/use-latest-callback';
+import { FileDown, FileSpreadsheet, Loader2, Rows3, Table2 } from 'lucide-react';
 import {
   EntityActionCard,
   EntityActionCardChip,
@@ -24,6 +25,8 @@ import {
 } from '@/features/hr/discipline/lib/discipline-audit-log';
 import { PdfPreviewExportDialog } from '@/components/pdf/pdf-preview-export-dialog';
 import { DisciplineAuditLogPrintHtml } from '@/components/pdf/print/discipline-audit-log-print-html';
+import { downloadXlsxFromAoA, type XlsxCell } from '@/shared/export/download-xlsx';
+import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import {
   ListFilterBar,
   type ListFilterBarHandle,
@@ -107,6 +110,7 @@ export function DisciplineAuditLogClient() {
     pagination,
     setListFilters,
     loadActorDirectory,
+    fetchAllEntries,
   } = m;
   const { data: defaultCompany } = useDefaultCompany();
   const companyNameAr = defaultCompany?.nameAr ?? '';
@@ -183,17 +187,56 @@ export function DisciplineAuditLogClient() {
     },
   ], [catFilter]);
 
-  const pdfRows = React.useMemo(
-    () => listFiltered.map((e) => ({
-      occurredAtDisplay: formatOccurred(e.occurredAt),
-      actorNameAr: e.actorNameAr,
-      categoryAr: AUDIT_CATEGORY_LABELS_AR[e.category],
-      actionAr: AUDIT_ACTION_LABELS_AR[e.actionType],
-      recordRefAr: e.recordRefAr,
-      statusAfterAr: e.recordStatusAfterAr,
-    })),
-    [listFiltered],
-  );
+  type AuditExportRow = {
+    occurredAtDisplay: string; actorNameAr: string; categoryAr: string;
+    actionAr: string; recordRefAr: string; statusAfterAr: string;
+  };
+  // Exports cover every entry matching the current filters (all pages), not just the visible page.
+  const [pdfRows, setPdfRows] = React.useState<AuditExportRow[]>([]);
+  const [exporting, setExporting] = React.useState(false);
+
+  const fetchAllForExport = React.useCallback(async (): Promise<AuditExportRow[] | null> => {
+    setExporting(true);
+    try {
+      const all = await fetchAllEntries();
+      return all.map((e) => ({
+        occurredAtDisplay: formatOccurred(e.occurredAt),
+        actorNameAr: e.actorNameAr,
+        categoryAr: AUDIT_CATEGORY_LABELS_AR[e.category],
+        actionAr: AUDIT_ACTION_LABELS_AR[e.actionType],
+        recordRefAr: e.recordRefAr,
+        statusAfterAr: e.recordStatusAfterAr,
+      }));
+    } catch (err) {
+      const { displayMessage } = handleApiError(err, 'audit-logs.export');
+      toast.error(displayMessage || 'تعذّر تحميل سجل العمليات للتصدير.');
+      return null;
+    } finally {
+      setExporting(false);
+    }
+  }, [fetchAllEntries]);
+
+  const handleExportPdf = useLatestCallback(async () => {
+    if (exporting) return;
+    const all = await fetchAllForExport();
+    if (!all) return;
+    if (all.length === 0) { toast.error('لا توجد عمليات للتصدير ضمن الفلاتر الحالية.'); return; }
+    setPdfRows(all);
+    setPdfOpen(true);
+  });
+
+  const handleExportExcel = useLatestCallback(async () => {
+    if (exporting) return;
+    const all = await fetchAllForExport();
+    if (!all) return;
+    if (all.length === 0) { toast.error('لا توجد عمليات للتصدير ضمن الفلاتر الحالية.'); return; }
+    const rows: XlsxCell[][] = [
+      ['التاريخ والوقت', 'المُعدّل', 'الفئة', 'العملية', 'المرجع', 'الحالة بعد العملية'],
+      ...all.map((r) => [r.occurredAtDisplay, r.actorNameAr, r.categoryAr, r.actionAr, r.recordRefAr, r.statusAfterAr]),
+    ];
+    await downloadXlsxFromAoA('discipline-audit-log.xlsx', 'سجل العمليات', rows);
+    toast.success('تم تنزيل ملف Excel.');
+  });
 
   const printable = React.useMemo(
     () => pdfRows.length === 0 ? null : (
@@ -213,28 +256,24 @@ export function DisciplineAuditLogClient() {
         <FilterToggleButton activeFilterCount={activeFilterCount} />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button type="button" variant="outline" size="sm" className="h-8 w-8 shrink-0" aria-label="تصدير سجل العمليات">
-              <FileDown className="h-4 w-4" />
+            <Button type="button" variant="outline" size="sm" className="h-8 w-8 shrink-0" aria-label="تصدير سجل العمليات" disabled={exporting} aria-busy={exporting}>
+              {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-44">
-            <DropdownMenuItem
-              onSelect={() => {
-                if (pdfRows.length === 0) {
-                  toast.error('لا توجد عمليات للتصدير ضمن الفلاتر الحالية.');
-                  return;
-                }
-                setPdfOpen(true);
-              }}
-            >
+            <DropdownMenuItem disabled={exporting} onSelect={() => void handleExportPdf()}>
               <FileDown className="h-4 w-4" />
               PDF
+            </DropdownMenuItem>
+            <DropdownMenuItem disabled={exporting} onSelect={() => void handleExportExcel()}>
+              <FileSpreadsheet className="h-4 w-4" />
+              Excel
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
     ),
-    [activeFilterCount, pdfRows.length],
+    [activeFilterCount, exporting, handleExportPdf, handleExportExcel],
   );
 
   useEntityFilterSlot(

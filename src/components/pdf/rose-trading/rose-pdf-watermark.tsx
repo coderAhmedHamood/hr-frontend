@@ -13,11 +13,13 @@ type RosePdfWatermarkProps = {
  */
 export function RosePdfWatermark({ logoSrc: logoSrcProp }: RosePdfWatermarkProps) {
   // The printing company's own logo (none → no watermark), never a fixed one.
-  const companyLogo = usePdfCompanyLetterhead().logoSrc;
+  const company = usePdfCompanyLetterhead();
+  const companyLogo = company.logoSrc;
   const logoSrc =
     logoSrcProp && !isDefaultPdfLogoSrc(logoSrcProp) ? logoSrcProp : companyLogo;
 
-  if (!logoSrc) return null;
+  // Off in the company settings, or no logo: no background.
+  if (!logoSrc || !company.watermarkEnabled) return null;
 
   return (
     <div
@@ -42,7 +44,7 @@ export function RosePdfWatermark({ logoSrc: logoSrcProp }: RosePdfWatermarkProps
           maxWidth: 460,
           height: 'auto',
           objectFit: 'contain',
-          opacity: 0.1,
+          opacity: company.watermarkOpacity,
           filter: 'grayscale(15%) sepia(45%) brightness(1.35) contrast(0.9)',
         }}
       />

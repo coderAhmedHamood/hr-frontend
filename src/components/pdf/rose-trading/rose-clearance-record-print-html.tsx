@@ -120,18 +120,18 @@ export const RoseClearanceRecordPrintHtml = React.forwardRef<
           margin: '0 auto',
           boxSizing: 'border-box',
           backgroundColor: C.bg,
-          padding: '28px 24px 44px',
+          padding: '0 24px 44px',
           fontSize: 22,
           color: '#1e293b',
           display: 'flex',
           flexDirection: 'column',
-          minHeight: '297mm',
+          minHeight: '279mm',
           fontFamily: PDF_PRINT_FONT_FAMILY,
           overflow: 'hidden',
         }}
       >
         <RosePdfWatermark logoSrc={logoSrc} />
-        <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', flex: 1 }}>
+        <div style={{ position: 'relative', zIndex: 1, paddingTop: 28, display: 'flex', flexDirection: 'column', flex: 1 }}>
         <RoseTradingLetterheadPrint logoSrc={logoSrc} companyNameAr={ar} companyNameEn={en} />
         <div
           style={{

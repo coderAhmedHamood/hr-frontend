@@ -41,8 +41,20 @@ import {
   type OrganizationArchiveScope,
 } from '@/features/hr/organization/lib/archive-scope';
 import { cn } from '@/shared/utils';
+import { RegisterExportMenu } from '@/components/pdf/register-export-menu';
+import type { RegisterColumn } from '@/components/pdf/print/register-document';
+import { useLatestCallback } from '@/shared/hooks/use-latest-callback';
 
 type StatusFilter = 'all' | HRPayrollPeriodStatus;
+
+const PERIODS_EXPORT_COLUMNS: RegisterColumn[] = [
+  { label: 'الرمز', kind: 'code' },
+  { label: 'الاسم', kind: 'text', weight: 1.6 },
+  { label: 'الحالة', kind: 'status' },
+  { label: 'من', kind: 'date' },
+  { label: 'إلى', kind: 'date' },
+  { label: 'المراجعة', kind: 'status' },
+];
 
 const EMPTY_DRAFT: HRPayrollPeriodDraft = {
   code: '', nameAr: '', nameEn: '',
@@ -186,17 +198,36 @@ export function PayrollPeriodsClient() {
 
   const activeFilterCount = (statusFilter !== 'all' ? 1 : 0) + (dateBounds.from || dateBounds.to ? 1 : 0);
 
+  /** All pages with the same status/archive/date filters (loadBulk handles an empty date range too). */
+  const getExportRows = useLatestCallback(async (): Promise<string[][]> => {
+    const { items } = await loadBulk();
+    return items.map((p) => [
+      p.code || '—',
+      p.nameAr,
+      PERIOD_STATUS_LABELS[p.status] ?? p.status,
+      p.periodStart || '—',
+      p.periodEnd || '—',
+      p.isReviewCompleted ? REVIEW_COMPLETED_LABEL : REVIEW_STAGE_LABELS[p.reviewStage],
+    ]);
+  });
+
   usePageHeaderActions(
     () => (
       <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
         <FilterToggleButton activeFilterCount={activeFilterCount} />
+        <RegisterExportMenu
+          title="سجل فترات الراتب"
+          fileName="payroll-periods"
+          columns={PERIODS_EXPORT_COLUMNS}
+          getRows={getExportRows}
+        />
         <Button variant="luxe" size="sm" className="h-8 gap-1.5 px-3 text-xs shadow-sm shrink-0" onClick={openCreate}>
           <Plus className="h-3.5 w-3.5" />
           فترة جديدة
         </Button>
       </div>
     ),
-    [activeFilterCount, openCreate],
+    [activeFilterCount, openCreate, getExportRows],
   );
   const openEdit   = (id: string) => {
     const p = filtered.find(x => x.id === id);

@@ -25,23 +25,27 @@ import { useAttendanceEventsModel } from '@/features/hr/attendance/events/hooks/
 import { DirectoryPagedViews } from '@/components/ui/paged-list';
 import { DataTable, type ColumnDef } from '@/components/ui/data-table';
 import { attendanceEventsApi, type AttendanceEventResponseDto, type AttendanceEventType } from '@/features/hr/attendance/lib/api/attendance-events';
+import {
+  ATTENDANCE_EVENT_SOURCE_LABELS,
+  ATTENDANCE_EVENT_TYPE_LABELS,
+} from '@/features/hr/attendance/events/utils/attendance-events-export';
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
 const EVENT_TYPE_META: Record<AttendanceEventType, { label: string; icon: React.ElementType; color: string; dot: string }> = {
-  check_in:    { label: 'دخول',           icon: LogIn,   color: STATUS_PILL.approved, dot: statusDotClass('approved') },
-  check_out:   { label: 'خروج',           icon: LogOut,  color: STATUS_PILL.info,     dot: statusDotClass('info') },
-  break_start: { label: 'بداية استراحة',  icon: Coffee,  color: STATUS_PILL.gold,     dot: statusDotClass('gold') },
-  break_end:   { label: 'نهاية استراحة',  icon: Coffee,  color: STATUS_PILL.warning, dot: statusDotClass('warning') },
+  check_in:    { label: ATTENDANCE_EVENT_TYPE_LABELS.check_in,    icon: LogIn,   color: STATUS_PILL.approved, dot: statusDotClass('approved') },
+  check_out:   { label: ATTENDANCE_EVENT_TYPE_LABELS.check_out,   icon: LogOut,  color: STATUS_PILL.info,     dot: statusDotClass('info') },
+  break_start: { label: ATTENDANCE_EVENT_TYPE_LABELS.break_start, icon: Coffee,  color: STATUS_PILL.gold,     dot: statusDotClass('gold') },
+  break_end:   { label: ATTENDANCE_EVENT_TYPE_LABELS.break_end,   icon: Coffee,  color: STATUS_PILL.warning, dot: statusDotClass('warning') },
 };
 
 const SOURCE_META: Record<string, { label: string; icon: React.ElementType }> = {
-  mobile_app:  { label: 'تطبيق الجوال', icon: Smartphone },
-  web_portal:  { label: 'بوابة الويب',  icon: Globe      },
-  kiosk:       { label: 'كشك',          icon: Monitor    },
-  manual_hr:   { label: 'يدوي — HR',    icon: Pencil     },
-  biometric:   { label: 'بصمة',         icon: Fingerprint},
-  system:      { label: 'النظام',       icon: Bot        },
+  mobile_app:  { label: ATTENDANCE_EVENT_SOURCE_LABELS.mobile_app, icon: Smartphone },
+  web_portal:  { label: ATTENDANCE_EVENT_SOURCE_LABELS.web_portal, icon: Globe      },
+  kiosk:       { label: ATTENDANCE_EVENT_SOURCE_LABELS.kiosk,      icon: Monitor    },
+  manual_hr:   { label: ATTENDANCE_EVENT_SOURCE_LABELS.manual_hr,  icon: Pencil     },
+  biometric:   { label: ATTENDANCE_EVENT_SOURCE_LABELS.biometric,  icon: Fingerprint},
+  system:      { label: ATTENDANCE_EVENT_SOURCE_LABELS.system,     icon: Bot        },
 };
 
 function fmtTime(iso: string) {

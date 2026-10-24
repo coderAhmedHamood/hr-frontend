@@ -83,14 +83,9 @@ export function buildViolationDecisionPayload(
   decision: 'approve' | 'reject',
   options: { notes?: string | null; decidedBy?: string | null },
 ): DecideViolationRecordDto {
-  const updatedStates = applyViolationApproverDecision(states, employeeId, decision, {
-    decidedBy: options.decidedBy ?? null,
-    notes: options.notes?.trim() || null,
-  });
-
+  void states;
   return {
     decision,
-    approverStates: updatedStates,
     approverEmployeeId: employeeId,
     notes: options.notes?.trim() || null,
     decidedBy: options.decidedBy ?? null,

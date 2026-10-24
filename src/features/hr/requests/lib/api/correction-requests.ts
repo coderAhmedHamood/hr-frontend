@@ -17,6 +17,7 @@ export const correctionRequestsApi = {
     companyId?: string;
     employeeId?: string;
     employeeIds?: string[];
+    employeeStatus?: 'active' | 'suspended' | 'ended';
     departmentId?: string;
     requestTypeId?: string;
     status?: string;
@@ -66,6 +67,7 @@ export const leaveRequestsNewApi = {
     requestTypeId?: string;
     leaveTypeId?: string;
     status?: string;
+    employeeStatus?: 'active' | 'suspended' | 'ended';
     dateFrom?: string;
     dateTo?: string;
     page?: number;

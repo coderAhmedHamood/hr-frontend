@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 import { useServerDirectoryPagination } from '@/components/ui/paged-list';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
+import { fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
 import {
   monthlyInputsApi,
   type MonthlyInputDirectionDto,
@@ -16,6 +17,13 @@ import { payrollPeriodsApi, type PayrollPeriodResponseDto } from '@/features/hr/
 import { formatPayrollPeriodLabel } from '@/features/hr/payroll/monthly-inputs/constants/monthly-input-labels';
 import { fetchEmployeeFilterPickerOptions } from '@/features/hr/lib/use-employee-filter-picker';
 import type { EmployeePickerOption } from '@/components/ui/employee-picker';
+import { hrFiltersKey } from '@/features/hr/lib/use-persisted-filter-state';
+import {
+  EMPLOYEE_STATUS_FILTER_DEFAULT,
+  employeeStatusQuery,
+  isEmployeeStatusFilterActive,
+  useEmployeeStatusFilter,
+} from '@/features/hr/lib/employee-status-filter';
 
 const periodsCatalogCache = new Map<string, PayrollPeriodResponseDto[]>();
 let periodsCatalogInflight: { companyId: string; promise: Promise<PayrollPeriodResponseDto[]> } | null = null;
@@ -55,6 +63,9 @@ export function useMonthlyInputsDirectoryModel() {
   const [periods, setPeriods] = React.useState<PayrollPeriodResponseDto[]>([]);
   const periodsFetchStarted = React.useRef(false);
   const [selectedEmpIds, setSelectedEmpIds] = React.useState<Set<string>>(new Set());
+  const [employeeStatus, setEmployeeStatus] = useEmployeeStatusFilter(
+    hrFiltersKey('payroll', 'monthly-inputs', companyId, 'employeeStatus'),
+  );
 
   const [empPickerEmployees, setEmpPickerEmployees] = React.useState<EmployeePickerOption[]>([]);
   const [employeePickerLoading, setEmployeePickerLoading] = React.useState(false);
@@ -102,29 +113,39 @@ export function useMonthlyInputsDirectoryModel() {
     if (filters.payrollPeriodId !== 'all') loadPeriods();
   }, [filters.payrollPeriodId, loadPeriods]);
 
-  const employeeId = selectedEmpIds.size === 1 ? [...selectedEmpIds][0] : undefined;
+  const selectedEmpKey = React.useMemo(() => [...selectedEmpIds].sort().join(','), [selectedEmpIds]);
+
+  const fetchListPage = React.useCallback((page: number, pageSize: number) => monthlyInputsApi.list({
+    companyId: companyId!,
+    page,
+    limit: pageSize,
+    ...(filters.payrollPeriodId !== 'all' ? { payrollPeriodId: filters.payrollPeriodId } : {}),
+    ...(selectedEmpKey ? { employeeIds: selectedEmpKey.split(',') } : {}),
+    ...employeeStatusQuery(employeeStatus),
+    ...(filters.inputKind !== 'all' ? { inputKind: filters.inputKind } : {}),
+    ...(filters.direction !== 'all' ? { direction: filters.direction } : {}),
+    ...(filters.sourceKind !== 'all' ? { sourceKind: filters.sourceKind } : {}),
+    ...(filters.affectsSalary === 'true' ? { affectsSalary: true } : {}),
+    ...(filters.affectsSalary === 'false' ? { affectsSalary: false } : {}),
+  }), [companyId, selectedEmpKey, employeeStatus, filters]);
 
   const loadPage = React.useCallback(async (page: number, pageSize: number) => {
     if (!companyId) return { items: [] as MonthlyInputResponseDto[], total: 0 };
     try {
-      const res = await monthlyInputsApi.list({
-        companyId,
-        page,
-        limit: pageSize,
-        ...(filters.payrollPeriodId !== 'all' ? { payrollPeriodId: filters.payrollPeriodId } : {}),
-        ...(employeeId ? { employeeId } : {}),
-        ...(filters.inputKind !== 'all' ? { inputKind: filters.inputKind } : {}),
-        ...(filters.direction !== 'all' ? { direction: filters.direction } : {}),
-        ...(filters.sourceKind !== 'all' ? { sourceKind: filters.sourceKind } : {}),
-        ...(filters.affectsSalary === 'true' ? { affectsSalary: true } : {}),
-        ...(filters.affectsSalary === 'false' ? { affectsSalary: false } : {}),
-      });
+      const res = await fetchListPage(page, pageSize);
       return { items: res.items, total: res.pagination.total };
     } catch (err) {
       handleApiError(err, 'monthly-inputs.load');
       return { items: [], total: 0 };
     }
-  }, [companyId, employeeId, filters]);
+  }, [companyId, fetchListPage]);
+
+  /** Every input matching the current filters (all pages) — for export. */
+  const fetchAllForExport = React.useCallback(async (): Promise<MonthlyInputResponseDto[]> => {
+    if (!companyId) return [];
+    const { items: all } = await fetchAllPaginatedItems(fetchListPage);
+    return all;
+  }, [companyId, fetchListPage]);
 
   const {
     items,
@@ -133,7 +154,7 @@ export function useMonthlyInputsDirectoryModel() {
     reload: reloadInputs,
   } = useServerDirectoryPagination(loadPage, {
     enabled: !!companyId,
-    resetDeps: [filters, employeeId],
+    resetDeps: [filters, selectedEmpKey, employeeStatus],
   });
 
   const periodOptions = React.useMemo(
@@ -154,7 +175,8 @@ export function useMonthlyInputsDirectoryModel() {
     (filters.direction !== 'all' ? 1 : 0) +
     (filters.sourceKind !== 'all' ? 1 : 0) +
     (filters.affectsSalary !== 'all' ? 1 : 0) +
-    (selectedEmpIds.size > 0 ? 1 : 0);
+    (selectedEmpIds.size > 0 ? 1 : 0) +
+    (isEmployeeStatusFilterActive(employeeStatus) ? 1 : 0);
 
   const clearFilters = React.useCallback(() => {
     setFilters({
@@ -165,7 +187,8 @@ export function useMonthlyInputsDirectoryModel() {
       affectsSalary: 'all',
     });
     setSelectedEmpIds(new Set());
-  }, []);
+    setEmployeeStatus(EMPLOYEE_STATUS_FILTER_DEFAULT);
+  }, [setEmployeeStatus]);
 
   return {
     items,
@@ -181,11 +204,14 @@ export function useMonthlyInputsDirectoryModel() {
     loadPeriods,
     selectedEmpIds,
     setSelectedEmpIds,
+    employeeStatus,
+    setEmployeeStatus,
     empPickerEmployees,
     employeePickerLoading,
     loadEmployeePicker,
     activeFilterCount,
     clearFilters,
+    fetchAllForExport,
     reload: reloadInputs,
   };
 }

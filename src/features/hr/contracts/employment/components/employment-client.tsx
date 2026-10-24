@@ -40,7 +40,7 @@ import type { HRContractArticle } from '@/features/hr/contracts/lib/contract-art
 import type { HRAllowanceTypeRecord } from '@/features/hr/contracts/lib/allowance-types-store';
 import { useEmployees } from '@/features/hr/organization/employees/hooks/useEmployees';
 import { MoneyAmount } from '@/components/ui/sar-amount';
-import { cn, formatNumber } from '@/shared/utils';
+import { cn, formatMoneyDigits, formatNumber } from '@/shared/utils';
 import { hrContractsRoutes } from '@/features/hr/contracts/constants/routes';
 import {
   HR_CONTRACTS_MODE_PARAM,
@@ -65,6 +65,18 @@ import {
   resolveContractActions,
 } from '@/features/hr/contracts/employment/utils/contract-leave-credit';
 import { PdfPreviewExportDialog } from '@/components/pdf/pdf-preview-export-dialog';
+import { RegisterExportMenu } from '@/components/pdf/register-export-menu';
+import type { RegisterColumn } from '@/components/pdf/print/register-document';
+import { fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
+import { useLatestCallback } from '@/shared/hooks/use-latest-callback';
+import { hrFiltersKey } from '@/features/hr/lib/use-persisted-filter-state';
+import {
+  CREATE_PICKER_ACTIVE_OR_SUSPENDED,
+  employeeMatchesStatus,
+  employeeStatusFilterLabelAr,
+  isEmployeeStatusFilterActive,
+  useEmployeeStatusFilter,
+} from '@/features/hr/lib/employee-status-filter';
 import { EmploymentContractPrintHtml } from '@/components/pdf/print/employment-contract-print-html';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
 import { getDefaultCompanyId, useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
@@ -92,6 +104,17 @@ const DRAFT_FILTER_OPTIONS: { value: DraftFilter; label: string }[] = [
 const EMPTY_ALLOWANCE_TYPES: HRAllowanceTypeRecord[] = [];
 const EMPTY_ARTICLES: HRContractArticle[] = [];
 const EMPTY_EMPLOYEES: NonNullable<ReturnType<typeof useEmployees>['data']>['items'] = [];
+
+const CONTRACTS_EXPORT_COLUMNS: RegisterColumn[] = [
+  { label: 'الموظف', kind: 'name', weight: 1.6 },
+  { label: 'رقم العقد', kind: 'code' },
+  { label: 'الحالة', kind: 'status' },
+  { label: 'نوع العقد', kind: 'status' },
+  { label: 'نظام العمل', kind: 'status' },
+  { label: 'البداية', kind: 'date' },
+  { label: 'النهاية', kind: 'date' },
+  { label: 'الراتب الأساسي', kind: 'number' },
+];
 
 export function EmploymentContractsClient() {
   const router = useRouter();
@@ -137,10 +160,7 @@ export function EmploymentContractsClient() {
   const empLabel = (e: { nameAr: string; position?: string | null; employeeCode?: string }) =>
     `${e.nameAr}${e.position ? ` — ${e.position}` : e.employeeCode ? ` — ${e.employeeCode}` : ''}`;
 
-  const empOptions = React.useMemo(
-    () => employees.map((e) => ({ value: e.id, label: empLabel(e) })),
-    [employees],
-  );
+
   const templateOptions = React.useMemo(
     () => [
       { value: '', label: 'بدون قالب' },
@@ -189,6 +209,9 @@ export function EmploymentContractsClient() {
   const contractNumberFilter = typeof values.contractNumber === 'string' ? values.contractNumber : '';
 
   const [selectedEmpIds, setSelectedEmpIds] = React.useState<Set<string>>(new Set());
+  const [employeeStatus, setEmployeeStatus] = useEmployeeStatusFilter(
+    hrFiltersKey('contracts', 'employment', companyId, 'employeeStatus'),
+  );
 
   const selectedEmpKey = React.useMemo(() => [...selectedEmpIds].sort().join(','), [selectedEmpIds]);
 
@@ -203,8 +226,9 @@ export function EmploymentContractsClient() {
       workArrangement: workFilter,
       contractNumber: contractNumberFilter,
       employeeIds: selectedEmpIds,
+      employeeStatus,
     })
-  ), [companyId, statusFilter, kindFilter, workFilter, draftFilter, contractNumberFilter, selectedEmpIds]);
+  ), [companyId, statusFilter, kindFilter, workFilter, draftFilter, contractNumberFilter, selectedEmpIds, employeeStatus]);
 
   const loadPage = React.useCallback(async (page: number, pageSize: number) => {
     if (!companyId) return { items: [] as HRContractRecord[], total: 0 };
@@ -232,6 +256,7 @@ export function EmploymentContractsClient() {
       draftFilter,
       contractNumberFilter,
       selectedEmpKey,
+      employeeStatus,
     ],
   });
 
@@ -336,6 +361,7 @@ export function EmploymentContractsClient() {
       code: a.code,
       titleAr: a.title,
       bodyAr: (a.body || '').trim(),
+      includesCompensation: a.includesCompensation,
     }));
 
     const company = getSessionCompanyDisplay(companyId);
@@ -408,6 +434,15 @@ export function EmploymentContractsClient() {
         : [record, ...s.contracts],
     }));
   }, []);
+
+  // New contracts: active or suspended employees (not ended); the contract's
+  // own employee stays selectable when editing.
+  const formEmpOptions = React.useMemo(
+    () => employees
+      .filter((e) => e.id === form.employeeId || employeeMatchesStatus(e.contractStatus, CREATE_PICKER_ACTIVE_OR_SUSPENDED))
+      .map((e) => ({ value: e.id, label: empLabel(e) })),
+    [employees, form.employeeId],
+  );
 
   const copySourceEmpOptions = React.useMemo(() => {
     const ids = new Set(filtered.map(c => c.employeeId));
@@ -485,19 +520,45 @@ export function EmploymentContractsClient() {
     + (statusFilter !== 'all' ? 1 : 0)
     + (draftFilter !== 'all' ? 1 : 0)
     + (contractNumberFilter.trim() ? 1 : 0)
-    + (selectedEmpIds.size > 0 ? 1 : 0);
+    + (selectedEmpIds.size > 0 ? 1 : 0)
+    + (isEmployeeStatusFilterActive(employeeStatus) ? 1 : 0);
+
+  const getExportRows = useLatestCallback(async (): Promise<string[][]> => {
+    if (!companyId) return [];
+    const { items } = await fetchAllPaginatedItems((page, limit) =>
+      employeeContractsApi.list(buildListQuery(page, limit)),
+    );
+    return items.map(mapEmployeeContractFromApi).map((c) => [
+      c.employeeNameAr || c.employeeId,
+      c.contractNumber || '—',
+      CONTRACT_STATUS_LABELS[c.status] ?? c.status,
+      contractNatureLabel(c.contractType),
+      workArrangementLabel(c.workArrangement),
+      c.startDate || '—',
+      c.endDate || '—',
+      `${formatMoneyDigits(c.baseSalary, 0)} ${c.currency || 'SAR'}`,
+    ]);
+  });
 
   usePageHeaderActions(
     () => (
       <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
         <FilterToggleButton activeFilterCount={activeFilterCount} />
+        <RegisterExportMenu
+          title="سجل عقود العمل"
+          fileName="employment-contracts"
+          columns={CONTRACTS_EXPORT_COLUMNS}
+          getRows={getExportRows}
+          subtitleLines={[`حالة الموظفين: ${employeeStatusFilterLabelAr(employeeStatus)}`]}
+          landscape
+        />
         <Button variant="luxe" size="sm" className="h-8 gap-1.5 px-3 text-xs shadow-sm shrink-0" onClick={openCreate}>
           <Plus className="h-3.5 w-3.5" />
           عقد جديد
         </Button>
       </div>
     ),
-    [activeFilterCount, openCreate],
+    [activeFilterCount, employeeStatus, openCreate, getExportRows],
   );
 
   const openView = (c: HRContractRecord) => {
@@ -723,6 +784,8 @@ export function EmploymentContractsClient() {
         companyId={companyId}
         selectedEmpIds={selectedEmpIds}
         onSelectedEmpIdsChange={setSelectedEmpIds}
+        employeeStatus={employeeStatus}
+        onEmployeeStatusChange={setEmployeeStatus}
         statusFilter={statusFilter}
         onStatusFilterChange={handleStatusFilterChange}
         statusOrder={employmentStatusOrder}
@@ -734,6 +797,7 @@ export function EmploymentContractsClient() {
     ),
     [
       statusFilter,
+      employeeStatus,
       kindFilter,
       workFilter,
       draftFilter,
@@ -872,7 +936,7 @@ export function EmploymentContractsClient() {
         error={error}
         applyingTemplate={applyingTemplate}
         templateOptions={templateOptions}
-        empOptions={empOptions}
+        empOptions={formEmpOptions}
         allowanceOptions={allowanceOptions}
         activeArticles={activeArticles}
         essentialArticleIds={essentialArticleIds}
@@ -900,6 +964,7 @@ export function EmploymentContractsClient() {
         title="معاينة — عقد العمل الحالي في النموذج"
         fileName={`employment-contract-${(form.contractNumber || 'draft').replace(/[^\w\-]+/g, '_')}.pdf`}
         printable={contractPrintable}
+        pageBreaks="flow"
         emptyMessage="تعذر إعداد المعاينة — تحقق من بيانات النموذج."
       />
 

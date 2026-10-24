@@ -27,7 +27,22 @@ import {
 import { MoneyAmount } from '@/components/ui/sar-amount';
 import { useMonthlyInputsDirectoryModel } from '@/features/hr/payroll/monthly-inputs/hooks/useMonthlyInputsDirectoryModel';
 import { TableDateCell } from '@/components/ui/table-cells';
-import { cn } from '@/shared/utils';
+import { cn, formatMoneyDigits } from '@/shared/utils';
+import { RegisterExportMenu } from '@/components/pdf/register-export-menu';
+import type { RegisterColumn } from '@/components/pdf/print/register-document';
+import { useLatestCallback } from '@/shared/hooks/use-latest-callback';
+import { employeeStatusFilterLabelAr } from '@/features/hr/lib/employee-status-filter';
+
+const MONTHLY_INPUTS_EXPORT_COLUMNS: RegisterColumn[] = [
+  { label: 'الموظف', kind: 'name', weight: 1.5 },
+  { label: 'الفترة', kind: 'status' },
+  { label: 'نوع المدخل', kind: 'status' },
+  { label: 'الاتجاه', kind: 'status' },
+  { label: 'المبلغ', kind: 'number' },
+  { label: 'المصدر', kind: 'status' },
+  { label: 'يؤثر على الراتب', kind: 'status' },
+  { label: 'ملاحظة', kind: 'text', weight: 1.6 },
+];
 
 function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -77,8 +92,9 @@ export function MonthlyInputsPage() {
   const {
     items, total, page, setPage, limit, setLimit, loading,
     filters, patchFilters, periodOptions, loadPeriods, selectedEmpIds, setSelectedEmpIds,
+    employeeStatus, setEmployeeStatus,
     empPickerEmployees, employeePickerLoading, loadEmployeePicker,
-    activeFilterCount, clearFilters,
+    activeFilterCount, clearFilters, fetchAllForExport,
   } = useMonthlyInputsDirectoryModel();
 
   const [detailRow, setDetailRow] = React.useState<MonthlyInputResponseDto | null>(null);
@@ -155,15 +171,43 @@ export function MonthlyInputsPage() {
         onEmployeePickerOpen={loadEmployeePicker}
         selectedEmpIds={selectedEmpIds}
         onSelectedEmpIdsChange={setSelectedEmpIds}
+        employeeStatus={employeeStatus}
+        onEmployeeStatusChange={setEmployeeStatus}
         onDateBoundsChange={() => {}}
       />
     ),
-    [inlineSelects, empPickerEmployees, employeePickerLoading, loadEmployeePicker, selectedEmpIds, setSelectedEmpIds],
+    [inlineSelects, employeeStatus, empPickerEmployees, employeePickerLoading, loadEmployeePicker, selectedEmpIds, setSelectedEmpIds],
   );
 
+  const getExportRows = useLatestCallback(async (): Promise<string[][]> => {
+    const all = await fetchAllForExport();
+    return all.map((row) => [
+      row.employeeNameAr ?? '—',
+      formatPayrollPeriodLabel(row.periodYear, row.periodMonth),
+      MONTHLY_INPUT_KIND_LABELS[row.inputKind] ?? row.inputKind,
+      MONTHLY_INPUT_DIRECTION_LABELS[row.direction] ?? row.direction,
+      `${formatMoneyDigits(row.amount, 2)} ${row.currency || 'SAR'}`,
+      row.sourceKind ? (MONTHLY_INPUT_SOURCE_KIND_LABELS[row.sourceKind] ?? row.sourceKind) : '—',
+      row.affectsSalary ? 'نعم' : 'لا',
+      row.note ?? '—',
+    ]);
+  });
+
   usePageHeaderActions(
-    () => <FilterToggleButton activeFilterCount={activeFilterCount} />,
-    [activeFilterCount],
+    () => (
+      <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
+        <FilterToggleButton activeFilterCount={activeFilterCount} />
+        <RegisterExportMenu
+          title="سجل مدخلات الرواتب الشهرية"
+          fileName="payroll-monthly-inputs"
+          columns={MONTHLY_INPUTS_EXPORT_COLUMNS}
+          getRows={getExportRows}
+          subtitleLines={[`حالة الموظفين: ${employeeStatusFilterLabelAr(employeeStatus)}`]}
+          landscape
+        />
+      </div>
+    ),
+    [activeFilterCount, employeeStatus, getExportRows],
   );
 
   const columns = React.useMemo((): ColumnDef<MonthlyInputResponseDto>[] => [

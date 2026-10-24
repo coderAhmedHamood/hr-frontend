@@ -21,6 +21,10 @@ type PdfPreviewExportDialogProps = {
   emptyMessage?: string;
   /** PDF page orientation (default portrait). */
   orientation?: ExportDomToPdfOptions['orientation'];
+  /** Page breaks (see exportDomToPdf): `flow` for long documents like contracts. */
+  pageBreaks?: ExportDomToPdfOptions['pageBreaks'];
+  /** Extra control shown beside the title (e.g. a print-fields picker). */
+  headerExtra?: React.ReactNode;
 };
 
 export function PdfPreviewExportDialog({
@@ -31,6 +35,8 @@ export function PdfPreviewExportDialog({
   printable,
   emptyMessage = 'لا توجد بيانات للتصدير ضمن الفلاتر الحالية.',
   orientation = 'portrait',
+  pageBreaks,
+  headerExtra,
 }: PdfPreviewExportDialogProps) {
   const printableRef = React.useRef<HTMLDivElement>(null);
   const [domExporting, setDomExporting] = React.useState(false);
@@ -50,14 +56,14 @@ export function PdfPreviewExportDialog({
     }
     setDomExporting(true);
     try {
-      await exportDomToPdf(el, fileName, { orientation });
+      await exportDomToPdf(el, fileName, { orientation, pageBreaks });
       toast.success('تم تنزيل الملف');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'فشل تصدير PDF');
     } finally {
       setDomExporting(false);
     }
-  }, [fileName, orientation]);
+  }, [fileName, orientation, pageBreaks]);
 
   const showPrintable = Boolean(open && printable && printableNode);
   const isLandscape = orientation === 'landscape';
@@ -72,13 +78,18 @@ export function PdfPreviewExportDialog({
         }
       >
         <DialogHeader className="border-b border-border px-6 py-4 text-right">
-          <DialogTitle className="font-display text-lg">{title}</DialogTitle>
-          <DialogDescription className="sr-only">
-            معاينة المستند ثم التحميل بصيغة PDF من المتصفح.
-          </DialogDescription>
-          <p className="text-xs text-muted-foreground" aria-hidden>
-            معاينة المستند ثم التحميل بصيغة PDF
-          </p>
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <DialogTitle className="font-display text-lg">{title}</DialogTitle>
+              <DialogDescription className="sr-only">
+                معاينة المستند ثم التحميل بصيغة PDF من المتصفح.
+              </DialogDescription>
+              <p className="text-xs text-muted-foreground" aria-hidden>
+                معاينة المستند ثم التحميل بصيغة PDF
+              </p>
+            </div>
+            {showPrintable && headerExtra ? <div className="shrink-0">{headerExtra}</div> : null}
+          </div>
         </DialogHeader>
 
         <div className="min-h-[420px] flex-1 overflow-hidden bg-muted/20">

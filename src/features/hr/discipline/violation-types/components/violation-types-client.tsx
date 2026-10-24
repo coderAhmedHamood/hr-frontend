@@ -1,5 +1,6 @@
 'use client';
 
+import * as React from 'react';
 import { Plus, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
 import {
   EntityActionCard,
@@ -19,21 +20,55 @@ import { DisciplineListViewport, DisciplinePaginatedList } from '@/features/hr/d
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import type { HRViolationDeductionKind } from '@/features/hr/discipline/lib/types';
 import { DEDUCTION_KIND_LABELS } from '@/features/hr/discipline/lib/types';
-import { cn } from '@/shared/utils';
+import { cn, formatNumber } from '@/shared/utils';
+import { RegisterExportMenu } from '@/components/pdf/register-export-menu';
+import type { RegisterColumn } from '@/components/pdf/print/register-document';
+import { useLatestCallback } from '@/shared/hooks/use-latest-callback';
 
 const DEDUCTION_KIND_OPTIONS = (Object.entries(DEDUCTION_KIND_LABELS) as [HRViolationDeductionKind, string][]).map(([v, l]) => ({ value: v, label: l }));
+
+const VIOLATION_TYPE_EXPORT_COLUMNS: RegisterColumn[] = [
+  { label: 'الاسم', kind: 'name' },
+  { label: 'الحالة', kind: 'status' },
+  { label: 'نوع الاستقطاع', kind: 'text' },
+  { label: 'قيمة الاستقطاع', kind: 'number', weight: 1.4 },
+  { label: 'يتطلب إنذار', kind: 'status' },
+  { label: 'يتطلب تحقيق', kind: 'status' },
+];
 
 export function ViolationTypesClient() {
   const m = useViolationTypesDirectoryModel();
 
+  const { loadAllForExport } = m;
+  const getExportRows = useLatestCallback(
+    async () =>
+      (await loadAllForExport()).map((t) => [
+        t.nameAr || '—',
+        t.isActive ? 'نشط' : 'غير نشط',
+        t.hasDeduction ? DEDUCTION_KIND_LABELS[t.deductionKind] : '—',
+        t.hasDeduction ? formatNumber(t.deductionValue) : '—',
+        t.needsWarning ? 'نعم' : 'لا',
+        t.needsInvestigation ? 'نعم' : 'لا',
+      ]),
+  );
+  const openCreate = useLatestCallback(m.openCreate);
+
   usePageHeaderActions(
     () => (
-      <Button variant="luxe" size="sm" className="h-8 gap-1.5 px-3 text-xs shadow-sm shrink-0" onClick={m.openCreate} disabled={m.loading}>
-        <Plus className="h-3.5 w-3.5" />
-        إضافة نوع
-      </Button>
+      <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
+        <RegisterExportMenu
+          title="أنواع المخالفات"
+          fileName="violation-types"
+          columns={VIOLATION_TYPE_EXPORT_COLUMNS}
+          getRows={getExportRows}
+        />
+        <Button variant="luxe" size="sm" className="h-8 gap-1.5 px-3 text-xs shadow-sm shrink-0" onClick={openCreate} disabled={m.loading}>
+          <Plus className="h-3.5 w-3.5" />
+          إضافة نوع
+        </Button>
+      </div>
     ),
-    [m.loading, m.openCreate],
+    [getExportRows, m.loading, openCreate],
   );
 
   if (m.accessDenied) {

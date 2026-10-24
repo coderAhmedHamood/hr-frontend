@@ -28,6 +28,10 @@ export type CompanyResponseDto = {
   storefrontDisplayFont: string | null;
   storefrontBodyFontUrl: string | null;
   storefrontDisplayFontUrl: string | null;
+  /** The logo as a faded background on printed pages. */
+  pdfWatermarkEnabled?: boolean;
+  /** Its visibility in percent (2–40). */
+  pdfWatermarkOpacity?: number;
   timezone: string;
   currencyCode: string;
   languageCode: string;
@@ -64,6 +68,8 @@ export type CreateCompanyDto = {
   storefrontDisplayFont?: string | null;
   storefrontBodyFontUrl?: string | null;
   storefrontDisplayFontUrl?: string | null;
+  pdfWatermarkEnabled?: boolean;
+  pdfWatermarkOpacity?: number;
   timezone?: string;
   currencyCode?: string;
   languageCode?: string;

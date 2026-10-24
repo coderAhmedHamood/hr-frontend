@@ -24,6 +24,10 @@ import {
   type OrganizationArchiveScope,
 } from '@/features/hr/organization/lib/archive-scope';
 import { useServerDirectoryPagination } from '@/components/ui/paged-list';
+import { RegisterExportMenu } from '@/components/pdf/register-export-menu';
+import { useLatestCallback } from '@/shared/hooks/use-latest-callback';
+import type { RegisterColumn } from '@/components/pdf/print/register-document';
+import { fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
 import {
   createJobTitle,
   deleteJobTitle,
@@ -35,6 +39,13 @@ import {
   JOB_TITLE_EMPTY_FORM,
   type JobTitleDraftForm,
 } from '@/features/system/organization/job-titles/constants/job-titles-directory';
+
+const JOB_TITLE_EXPORT_COLUMNS: RegisterColumn[] = [
+  { label: 'الشركة', kind: 'text' },
+  { label: 'المسمى الوظيفي', kind: 'name' },
+  { label: 'الوصف', kind: 'text', weight: 2 },
+  { label: 'الحالة', kind: 'status' },
+];
 
 export function useJobTitlesDirectoryModel() {
   useSetPageTitle({
@@ -122,7 +133,7 @@ export function useJobTitlesDirectoryModel() {
     setForm((f) => ({ ...f, ...p }));
   }, []);
 
-  const openCreate = React.useCallback(() => {
+  const openCreate = useLatestCallback(() => {
     if (!perms.canCreate) return;
     setEditId(null);
     setForm({
@@ -131,7 +142,7 @@ export function useJobTitlesDirectoryModel() {
     });
     setError(null);
     setDrawerOpen(true);
-  }, [defaultCompanyId, perms.canCreate]);
+  });
 
   const openEdit = React.useCallback((row: JobTitleTemplateRecord) => {
     if (!perms.canUpdate) return;
@@ -204,10 +215,38 @@ export function useJobTitlesDirectoryModel() {
     }
   }, [confirmId, perms.canDelete, reloadList]);
 
+  const getExportRows = useLatestCallback(async (): Promise<string[][]> => {
+    if (!defaultCompanyId) return [];
+    const { items } = await fetchAllPaginatedItems((page, limit) =>
+      jobTitlesApi.getAll({
+        companyId: defaultCompanyId,
+        page,
+        limit,
+        ...organizationListStatusQuery(archiveScope),
+      }),
+    );
+    return items.map((row) => [
+      companyLabel(row.companyId),
+      row.nameAr,
+      row.description?.trim() || '—',
+      row.isActive ? 'نشط' : 'غير نشط',
+    ]);
+  });
+
+  const archiveScopeLabel =
+    ORGANIZATION_ARCHIVE_SCOPE_OPTIONS.find((o) => o.value === archiveScope)?.label ?? '';
+
   usePageHeaderActions(
     () => (
       <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
         <FilterToggleButton />
+        <RegisterExportMenu
+          title="سجل المسميات الوظيفية"
+          fileName="job-titles"
+          columns={JOB_TITLE_EXPORT_COLUMNS}
+          getRows={getExportRows}
+          subtitleLines={[`العرض: ${archiveScopeLabel}`]}
+        />
         <Can when={perms.canCreate}>
           <Button variant="luxe" size="sm" className="h-8 gap-2" onClick={openCreate}>
             <Plus className="h-4 w-4" /> قالب جديد
@@ -215,7 +254,7 @@ export function useJobTitlesDirectoryModel() {
         </Can>
       </div>
     ),
-    [openCreate, perms.canCreate],
+    [openCreate, perms.canCreate, getExportRows, archiveScopeLabel],
   );
 
   useEntityFilterSlot(

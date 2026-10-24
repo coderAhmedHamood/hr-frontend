@@ -47,7 +47,8 @@ function Value({ text, blank }: { text?: string; blank?: boolean }) {
         paddingInline: 10,
         marginInline: 4,
         display: 'inline',
-        whiteSpace: 'pre',
+        // Keeps the padding spaces but still wraps a long value.
+        whiteSpace: 'pre-wrap',
       }}
     >
       {`  ${sanitizePdfText(text.trim())}  `}
@@ -74,7 +75,7 @@ export const RoseExperiencePrintHtml = React.forwardRef<HTMLDivElement, RoseExpe
     const dateLabel = blank ? (
       <Blank />
     ) : (
-      <span style={{ fontWeight: 700, paddingInline: 10, marginInlineStart: 6, whiteSpace: 'pre' }}>
+      <span style={{ fontWeight: 700, paddingInline: 10, marginInlineStart: 6, whiteSpace: 'pre-wrap' }}>
         {`  ${sanitizePdfText(fields.certificateDate || formatGregorianDateAr(new Date().toISOString().slice(0, 10)))}  `}
       </span>
     );
@@ -90,12 +91,12 @@ export const RoseExperiencePrintHtml = React.forwardRef<HTMLDivElement, RoseExpe
           margin: '0 auto',
           boxSizing: 'border-box',
           backgroundColor: '#ffffff',
-          padding: '26px 40px 48px',
+          padding: '0 40px 48px',
           fontSize: 26,
           color: '#111111',
           display: 'flex',
           flexDirection: 'column',
-          minHeight: '297mm',
+          minHeight: '279mm',
           overflow: 'hidden',
           ...font,
         }}
@@ -105,6 +106,7 @@ export const RoseExperiencePrintHtml = React.forwardRef<HTMLDivElement, RoseExpe
           style={{
             position: 'relative',
             zIndex: 1,
+            paddingTop: 26,
             display: 'flex',
             flexDirection: 'column',
             flex: 1,
@@ -121,8 +123,8 @@ export const RoseExperiencePrintHtml = React.forwardRef<HTMLDivElement, RoseExpe
           style={{
             alignSelf: 'flex-end',
             fontSize: 22.5,
-            marginTop: 18,
-            marginBottom: 28,
+            marginTop: 10,
+            marginBottom: 16,
             textAlign: 'right',
             ...font,
           }}
@@ -137,7 +139,7 @@ export const RoseExperiencePrintHtml = React.forwardRef<HTMLDivElement, RoseExpe
             textAlign: 'center',
             textDecoration: 'underline',
             lineHeight: 1.7,
-            marginBottom: 36,
+            marginBottom: 20,
             ...font,
           }}
         >
@@ -150,7 +152,7 @@ export const RoseExperiencePrintHtml = React.forwardRef<HTMLDivElement, RoseExpe
             fontSize: 26,
             lineHeight: 2.35,
             textAlign: 'right',
-            margin: '0 0 22px',
+            margin: '0 0 12px',
             ...font,
           }}
         >
@@ -164,11 +166,11 @@ export const RoseExperiencePrintHtml = React.forwardRef<HTMLDivElement, RoseExpe
         <p style={{ fontSize: 26, lineHeight: 2.2, textAlign: 'right', margin: '0 0 10px', ...font }}>
           خلال فترة عمله معنا، وجدنا أنه:
         </p>
-        <p style={{ fontSize: 26, lineHeight: 2.2, textAlign: 'right', margin: '0 0 22px', ...font }}>
+        <p style={{ fontSize: 26, lineHeight: 2.2, textAlign: 'right', margin: '0 0 12px', ...font }}>
           {PERFORMANCE_TEXT}
         </p>
 
-        <p style={{ fontSize: 26, lineHeight: 2.2, textAlign: 'right', margin: '0 0 48px', ...font }}>
+        <p style={{ fontSize: 26, lineHeight: 2.2, textAlign: 'right', margin: '0 0 8px', ...font }}>
           نتمنى له الأفضل في ما سيأتي في حياته المهنية،،،
         </p>
 
@@ -178,7 +180,7 @@ export const RoseExperiencePrintHtml = React.forwardRef<HTMLDivElement, RoseExpe
             alignSelf: 'flex-end',
             textAlign: 'center',
             marginTop: 'auto',
-            paddingTop: 24,
+            paddingTop: 4,
             minWidth: 160,
           }}
         >

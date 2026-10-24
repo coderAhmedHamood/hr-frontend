@@ -146,7 +146,7 @@ export type AdvanceInstallmentsPreviewResponseDto = {
 };
 
 export const employeeAdvancesApi = {
-  list: (params?: { companyId?: string; employeeId?: string; status?: string; advanceDateFrom?: string; advanceDateTo?: string; page?: number; limit?: number }) =>
+  list: (params?: { companyId?: string; employeeId?: string; status?: string; employeeStatus?: 'active' | 'suspended' | 'ended'; advanceDateFrom?: string; advanceDateTo?: string; page?: number; limit?: number }) =>
     apiRequest<EmployeeAdvanceListResponseDto>('/payroll/employee-advances', { query: params }),
   get: (id: string) =>
     apiRequest<EmployeeAdvanceResponseDto>(`/payroll/employee-advances/${id}`),

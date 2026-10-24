@@ -15,7 +15,13 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/shared/utils';
 import { DateRangeFilterTrigger } from '@/components/ui/date-range-filter-trigger';
 import { EmployeeAttendanceDialogs } from '@/features/hr/organization/employees/components/dialogs/EmployeeAttendanceDialogs';
-import { EmployeeAttendanceRecentEvents } from '@/features/hr/organization/employees/components/sections/employee-attendance-recent-events';
+import {
+  ATTENDANCE_DAY_EXPORT_COLUMNS,
+  EmployeeAttendanceRecentEvents,
+  attendanceDayExportRows,
+} from '@/features/hr/organization/employees/components/sections/employee-attendance-recent-events';
+import { RegisterExportMenu } from '@/components/pdf/register-export-menu';
+import { employeeExportSubtitle } from '@/features/hr/organization/employees/lib/employee-profile-export';
 import type { EmployeeProfileModel } from '@/features/hr/organization/employees/hooks/useEmployeeProfileModel';
 
 export function EmployeeAttendanceSection({ model }: { model: EmployeeProfileModel }) {
@@ -183,6 +189,14 @@ export function EmployeeAttendanceSection({ model }: { model: EmployeeProfileMod
             <DateRangeFilterTrigger
               value={dateBounds}
               onChange={setAttendanceDateBounds}
+            />
+            <RegisterExportMenu
+              title="سجل حركات الحضور"
+              fileName={`employee-attendance-${employee.employeeCode || employee.id}-${effectiveRange.from}-${effectiveRange.to}`}
+              columns={ATTENDANCE_DAY_EXPORT_COLUMNS}
+              getRows={() => attendanceDayExportRows(employeeEvents)}
+              subtitleLines={employeeExportSubtitle(employee, `الفترة: ${effectiveRange.from} — ${effectiveRange.to}`)}
+              landscape
             />
           </div>
         </div>

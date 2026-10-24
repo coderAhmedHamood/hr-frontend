@@ -12,7 +12,7 @@ import {
   ListChecks, ShieldCheck, LayoutList, CirclePlus, CalendarClock,
   ChevronDown, X, LifeBuoy, FileSpreadsheet, FileSignature,
   UserCircle, Briefcase, UserPlus, Bell, Send, Inbox,   KeyRound, Banknote, Timer, Settings,
-  Megaphone,
+  Megaphone, Mail,
 } from 'lucide-react';
 import { cn } from '@/shared/utils';
 import { isHrAppPath, isSystemAppPath, isSystemOwnerAppPath, isEcommerceAppPath, isInventoryAppPath, isCatalogAppPath, isContactsAppPath, isAccountingAppPath, isExpensesAppPath, isPosAppPath } from '@/shared/app-paths';
@@ -30,6 +30,7 @@ import { hrOrganizationRoutes } from '@/features/hr/organization/constants/route
 import { hrOrganizationSettingsNavItems } from '@/features/hr/organization/constants/nav';
 import { hrGuidelinesRoutes } from '@/features/hr/guidelines/company-guidelines/constants/routes';
 import { systemPermissionsNavGroups } from '@/features/system/permissions/constants/nav';
+import { systemEmailHref } from '@/features/system/email/constants/routes';
 import {
   systemOrganizationSettingsNavItems,
   systemOrganizationStructureNavItems,
@@ -212,6 +213,12 @@ const systemMobileNav: MobileNavItem[] = [
         icon: item.icon,
       })),
     ),
+  },
+  {
+    key: 'email',
+    label: 'البريد',
+    href: systemEmailHref(),
+    icon: Mail,
   },
 ];
 

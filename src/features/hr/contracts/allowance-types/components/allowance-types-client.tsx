@@ -7,7 +7,11 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { MoneyAmount } from '@/components/ui/sar-amount';
-import { cn, formatNumber } from '@/shared/utils';
+import { cn, formatMoneyDigits, formatNumber } from '@/shared/utils';
+import { RegisterExportMenu } from '@/components/pdf/register-export-menu';
+import type { RegisterColumn } from '@/components/pdf/print/register-document';
+import { fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
+import { useLatestCallback } from '@/shared/hooks/use-latest-callback';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -64,6 +68,24 @@ function fmtAmount(item: AllowanceTypeDto): React.ReactNode {
   }
   return '—';
 }
+
+/** Plain-text twin of `fmtAmount` for export. */
+function fmtAmountText(item: AllowanceTypeDto): string {
+  if (item.calculationType === 'fixed_amount' && item.typicalAmount) {
+    return `${formatMoneyDigits(item.typicalAmount, 0)} ${item.currency || 'SAR'}`;
+  }
+  if (item.calculationType === 'percent_of_basic' && item.typicalPercent) {
+    return `${parseFloat(item.typicalPercent)}%`;
+  }
+  return '—';
+}
+
+const ALLOWANCE_TYPES_EXPORT_COLUMNS: RegisterColumn[] = [
+  { label: 'الاسم', kind: 'text', weight: 1.6 },
+  { label: 'طريقة الاحتساب', kind: 'status' },
+  { label: 'المبلغ', kind: 'number' },
+  { label: 'الحالة', kind: 'status' },
+];
 
 // ── form types ────────────────────────────────────────────────────────────────
 
@@ -363,6 +385,19 @@ export function AllowanceTypesClient() {
     }
   };
 
+  const getExportRows = useLatestCallback(async (): Promise<string[][]> => {
+    if (!companyId) return [];
+    const { items: all } = await fetchAllPaginatedItems((page, limit) =>
+      allowanceTypesApi.getAll({ companyId, page, limit, ...payrollListArchiveQuery() }),
+    );
+    return all.map((item) => [
+      item.nameAr,
+      CALC_TYPE_LABEL[item.calculationType] ?? item.calculationType,
+      fmtAmountText(item),
+      item.isActive ? 'نشط' : 'موقوف',
+    ]);
+  });
+
   const openEdit = (item: AllowanceTypeDto) => { setEditItem(item); setFormOpen(true); };
   const openAdd = () => { setEditItem(null); setFormOpen(true); };
 
@@ -454,12 +489,18 @@ export function AllowanceTypesClient() {
             <List className="h-3.5 w-3.5" />
           </button>
         </div>
+        <RegisterExportMenu
+          title="سجل أنواع البدلات"
+          fileName="allowance-types"
+          columns={ALLOWANCE_TYPES_EXPORT_COLUMNS}
+          getRows={getExportRows}
+        />
         <Button variant="luxe" size="sm" className="h-8 gap-1.5 px-3 text-xs" onClick={openAdd}>
           <Plus className="h-3.5 w-3.5" /> نوع بدل جديد
         </Button>
       </div>
     ),
-    [viewMode],
+    [viewMode, getExportRows],
   );
 
   useEntityFilterSlot(

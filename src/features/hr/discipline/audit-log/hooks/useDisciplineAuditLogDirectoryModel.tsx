@@ -4,6 +4,7 @@ import * as React from 'react';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import { resolveDirectoryLoadFailure } from '@/features/hr/lib/api/directory-load-error';
 import { useServerDirectoryPagination } from '@/components/ui/paged-list';
+import { fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
 import { resolveOrganizationScope } from '@/features/hr/organization/lib/api/organization-context';
 import { auditLogsApi, type AuditLogResponseDto } from '@/features/hr/discipline/lib/api/audit-logs';
 import type { HRDisciplineAuditCategory, HRDisciplineAuditAction } from '@/features/hr/discipline/lib/discipline-audit-log';
@@ -224,6 +225,18 @@ export function useDisciplineAuditLogDirectoryModel() {
     }
   }, [mergeActorPickerEntries]);
 
+  /** Every entry matching the current list filters (all pages) — used by PDF/Excel export. */
+  const fetchAllEntries = React.useCallback(async (): Promise<AuditLogEntry[]> => {
+    if (companyIdRef.current === undefined) {
+      const scope = await resolveOrganizationScope();
+      companyIdRef.current = scope.companyId ?? undefined;
+    }
+    const { items: all } = await fetchAllPaginatedItems((page, limit) =>
+      auditLogsApi.getAll(buildListQuery(page, limit)),
+    );
+    return all.map(dtoToEntry);
+  }, [buildListQuery]);
+
   // Server applies all list filters now; kept as aliases for existing consumers.
   const filteredItems = items;
   const dateFilteredItems = items;
@@ -244,6 +257,7 @@ export function useDisciplineAuditLogDirectoryModel() {
     listFilters,
     setListFilters,
     loadActorDirectory,
+    fetchAllEntries,
     reload,
   };
 }

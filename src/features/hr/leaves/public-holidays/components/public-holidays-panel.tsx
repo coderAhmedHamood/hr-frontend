@@ -18,6 +18,9 @@ import { ForbiddenState } from '@/components/shared/forbidden-state';
 import { DirectoryPagedViews } from '@/components/ui/paged-list';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { cn, formatDisplayDate } from '@/shared/utils';
+import { RegisterExportMenu } from '@/components/pdf/register-export-menu';
+import type { RegisterColumn } from '@/components/pdf/print/register-document';
+import { useLatestCallback } from '@/shared/hooks/use-latest-callback';
 
 function formatMonthDay(mmdd: string): string {
   const m = /^(\d{2})-(\d{2})$/.exec(mmdd.trim());
@@ -25,15 +28,43 @@ function formatMonthDay(mmdd: string): string {
   return `${m[1]}/${m[2]}`;
 }
 
+const HOLIDAY_EXPORT_COLUMNS: RegisterColumn[] = [
+  { label: 'الاسم', kind: 'text', weight: 1.6 },
+  { label: 'التاريخ', kind: 'date' },
+  { label: 'التكرار', kind: 'status' },
+  { label: 'الحالة', kind: 'status' },
+];
+
 export function PublicHolidaysPanel() {
   const m = usePublicHolidaysPanelModel();
 
+  const getExportRows = useLatestCallback(async (): Promise<string[][]> => {
+    const items = await m.loadAllForExport();
+    return items.map((item) => {
+      const [mm, dd] = item.date.split('-');
+      return [
+        item.nameAr || '—',
+        mm && dd ? `${mm}/${dd}` : formatMonthDay(item.date),
+        item.recurring ? 'يتكرر سنوياً' : 'مرة واحدة',
+        item.isActive ? 'نشط' : 'موقوف',
+      ];
+    });
+  });
+
   usePageHeaderActions(
     () => (
-      <Button variant="luxe" size="sm" className="h-8 gap-1.5 px-3 text-xs" onClick={m.openCreate} disabled={m.loading}>
-        <Plus className="h-3.5 w-3.5" />
-        إضافة عطلة رسمية
-      </Button>
+      <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
+        <RegisterExportMenu
+          title="العطل الرسمية"
+          fileName="public-holidays"
+          columns={HOLIDAY_EXPORT_COLUMNS}
+          getRows={getExportRows}
+        />
+        <Button variant="luxe" size="sm" className="h-8 gap-1.5 px-3 text-xs" onClick={m.openCreate} disabled={m.loading}>
+          <Plus className="h-3.5 w-3.5" />
+          إضافة عطلة رسمية
+        </Button>
+      </div>
     ),
     [m.openCreate, m.loading],
   );

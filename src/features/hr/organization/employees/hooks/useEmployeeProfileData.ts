@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { useEmployeeProfileAttendance } from '@/features/hr/organization/employees/hooks/useEmployeeProfileAttendance';
 import { useServerDirectoryPagination } from '@/components/ui/paged-list';
+import { fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
 import { violationRecordsApi, type ViolationRecordResponseDto } from '@/features/hr/discipline/lib/api/violation-records';
 import { employeeContractsApi } from '@/features/hr/contracts/lib/contracts-api';
 import { mapEmployeeContractFromApi, type HRContractRecord } from '@/features/hr/contracts/lib/contracts-store';
@@ -93,6 +94,19 @@ export function useEmployeeProfileData(
       items: res.items,
       total: res.pagination?.total ?? res.items.length,
     };
+  }, [employee.id, companyId]);
+
+  /** Every violation record of this employee (export). */
+  const fetchAllViolations = React.useCallback(async () => {
+    const { items } = await fetchAllPaginatedItems((page, limit) =>
+      violationRecordsApi.getAll({
+        employeeId: employee.id,
+        companyId: companyId ?? undefined,
+        page,
+        limit,
+      }),
+    );
+    return (items as ViolationRecordResponseDto[]).map(mapViolationRecord);
   }, [employee.id, companyId]);
 
   const {
@@ -251,6 +265,7 @@ export function useEmployeeProfileData(
     violationsPagination,
     violationsTotal,
     employeeViolations,
+    fetchAllViolations,
     employeeContracts,
     employeePayslipSeries,
     payslipCounts,

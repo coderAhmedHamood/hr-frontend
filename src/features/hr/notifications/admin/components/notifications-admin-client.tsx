@@ -1,12 +1,15 @@
 'use client';
 
 import * as React from 'react';
+import { useLatestCallback } from '@/shared/hooks/use-latest-callback';
 import {
   Bell,
   CheckCircle2,
   Circle,
   Clock,
   FileDown,
+  FileSpreadsheet,
+  Loader2,
   Mail,
   Plus,
   Trash2,
@@ -42,6 +45,8 @@ import { DirectoryPageGate } from '@/components/shared/directory-page-gate';
 import { FILTER_PERMISSIONS } from '@/features/auth/permissions/filter-permissions';
 import { cn, formatDisplayDateTime } from '@/shared/utils';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
+import { fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
+import { downloadXlsxFromAoA, type XlsxCell } from '@/shared/export/download-xlsx';
 import {
   ConfirmationModal,
   EmptyState,
@@ -59,6 +64,7 @@ import {
   NOTIFICATION_CATEGORY_FILTER_ORDER,
   NOTIFICATION_CATEGORY_LABELS,
   NOTIFICATION_SEVERITY_LABELS,
+  mapSentNotification,
   type HRAdminNotificationRecord,
 } from '@/features/hr/notifications/admin/constants/notification-labels';
 import {
@@ -195,16 +201,90 @@ export function NotificationsAdminClient() {
     );
   }, [letterRecord, companyNameAr, companyNameEn]);
 
+  // Exports cover every notification matching the current filters (all pages), not just the visible page.
+  const { companyId, filters, dateBounds } = m;
+  const [exportNotifications, setExportNotifications] = React.useState<HRAdminNotificationRecord[]>([]);
+  const [exporting, setExporting] = React.useState(false);
+
+  const fetchAllForExport = React.useCallback(async (): Promise<HRAdminNotificationRecord[] | null> => {
+    setExporting(true);
+    try {
+      const { items } = await fetchAllPaginatedItems((page, limit) =>
+        notificationsApi.list({
+          page,
+          limit,
+          ...(companyId ? { companyId } : {}),
+          ...(filters.category !== 'all' ? { category: filters.category } : {}),
+          ...(filters.severity !== 'all' ? { severity: filters.severity } : {}),
+          ...(dateBounds.from ? { from: dateBounds.from } : {}),
+          ...(dateBounds.to ? { to: dateBounds.to } : {}),
+          ...(filters.excludeExpired ? { excludeExpired: true } : {}),
+          ...(filters.sourceKind.trim() ? { sourceKind: filters.sourceKind.trim() } : {}),
+          ...(filters.sourceTable.trim() ? { sourceTable: filters.sourceTable.trim() } : {}),
+          ...(filters.sourceId.trim() ? { sourceId: filters.sourceId.trim() } : {}),
+        }),
+      );
+      return items.map((row) => {
+        const snapshot = row.audienceSnapshot;
+        const summaryAr = snapshot && typeof snapshot.summaryAr === 'string' && snapshot.summaryAr
+          ? snapshot.summaryAr
+          : (NOTIFICATION_AUDIENCE_LABELS[row.audienceKind] ?? row.audienceKind);
+        return mapSentNotification(row, summaryAr);
+      });
+    } catch (err) {
+      const { displayMessage } = handleApiError(err, 'notifications-admin.export');
+      toast.error(displayMessage || 'تعذّر تحميل الإشعارات للتصدير.');
+      return null;
+    } finally {
+      setExporting(false);
+    }
+  }, [companyId, filters, dateBounds]);
+
+  const handleExportPdf = useLatestCallback(async () => {
+    if (exporting) return;
+    const all = await fetchAllForExport();
+    if (!all) return;
+    if (all.length === 0) {
+      toast.error('لا توجد إشعارات للتصدير ضمن الفلاتر الحالية.');
+      return;
+    }
+    setExportNotifications(all);
+    setPdfOpen(true);
+  });
+
+  const handleExportExcel = useLatestCallback(async () => {
+    if (exporting) return;
+    const all = await fetchAllForExport();
+    if (!all) return;
+    if (all.length === 0) {
+      toast.error('لا توجد إشعارات للتصدير ضمن الفلاتر الحالية.');
+      return;
+    }
+    const rows: XlsxCell[][] = [
+      ['العنوان', 'التصنيف', 'العدد', 'المقروء', 'تاريخ الإرسال', 'المصدر'],
+      ...all.map((n) => [
+        n.titleAr,
+        NOTIFICATION_CATEGORY_LABELS[n.category] ?? n.category,
+        n.recipientCount ?? 0,
+        n.readCount ?? 0,
+        formatDisplayDateTime(n.createdAt),
+        n.sourceKind ?? '—',
+      ]),
+    ];
+    await downloadXlsxFromAoA('notifications-register.xlsx', 'الإشعارات', rows);
+    toast.success('تم تنزيل ملف Excel.');
+  });
+
   const notificationsPdfRows = React.useMemo(
     () =>
-      m.notifications.map((n) => ({
+      exportNotifications.map((n) => ({
         dateYmd: n.createdAt.slice(0, 10),
         titleAr: n.titleAr,
         recipientNameAr: n.audienceSummaryAr,
         readAr: `${n.readCount ?? 0}/${n.recipientCount ?? 0}`,
         inboxAr: String(n.recipientCount ?? 0),
       })),
-    [m.notifications],
+    [exportNotifications],
   );
 
   const notificationsPrintable = React.useMemo(
@@ -317,22 +397,20 @@ export function NotificationsAdminClient() {
               size="sm"
               className="h-8 w-8 shrink-0"
               aria-label="تصدير الإشعارات"
+              disabled={exporting}
+              aria-busy={exporting}
             >
-              <FileDown className="h-4 w-4" />
+              {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-44">
-            <DropdownMenuItem
-              onSelect={() => {
-                if (notificationsPdfRows.length === 0) {
-                  toast.error('لا توجد إشعارات للتصدير ضمن الفلاتر الحالية.');
-                  return;
-                }
-                setPdfOpen(true);
-              }}
-            >
+            <DropdownMenuItem disabled={exporting} onSelect={() => void handleExportPdf()}>
               <FileDown className="h-4 w-4" />
               PDF
+            </DropdownMenuItem>
+            <DropdownMenuItem disabled={exporting} onSelect={() => void handleExportExcel()}>
+              <FileSpreadsheet className="h-4 w-4" />
+              Excel
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -352,7 +430,7 @@ export function NotificationsAdminClient() {
         </Button>
       </div>
     ),
-    [m.activeFilterCount, notificationsPdfRows.length],
+    [m.activeFilterCount, exporting, handleExportPdf, handleExportExcel],
   );
 
   const columns = React.useMemo((): ColumnDef<HRAdminNotificationRecord>[] => [

@@ -34,6 +34,13 @@ import {
 } from '@/features/hr/organization/lib/archive-scope';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { DirectoryPagedViews, useServerDirectoryPagination } from '@/components/ui/paged-list';
+import { RegisterExportMenu } from '@/components/pdf/register-export-menu';
+import { fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
+import { useLatestCallback } from '@/shared/hooks/use-latest-callback';
+import {
+  SHIFT_TEMPLATE_EXPORT_COLUMNS,
+  shiftTemplateExportRow,
+} from '@/features/hr/attendance/templates/utils/shift-template-export';
 
 function dtoToLocal(dto: ShiftTemplateResponseDto): ShiftTemplate {
   return {
@@ -219,15 +226,30 @@ export function ShiftTemplatesPanel() {
     }
   };
 
+  const getExportRows = useLatestCallback(async () => {
+    if (!companyId) return [];
+    const { items } = await fetchAllPaginatedItems((page, limit) =>
+      shiftTemplatesApi.getAll({ companyId, page, limit, ...organizationListStatusQuery(archiveScope) }),
+    );
+    return items.map(dtoToLocal).map(shiftTemplateExportRow);
+  });
+  const handleOpenCreate = useLatestCallback(openCreate);
+
   usePageHeaderActions(
     () => (
       <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
-        <Button variant="luxe" size="sm" className="h-8 gap-1.5 px-3 text-xs shrink-0" type="button" onClick={openCreate}>
+        <RegisterExportMenu
+          title="قوالب الدوام"
+          fileName="shift-templates"
+          columns={SHIFT_TEMPLATE_EXPORT_COLUMNS}
+          getRows={getExportRows}
+        />
+        <Button variant="luxe" size="sm" className="h-8 gap-1.5 px-3 text-xs shrink-0" type="button" onClick={handleOpenCreate}>
           <Plus className="h-3.5 w-3.5" /> قالب جديد
         </Button>
       </div>
     ),
-    [openCreate],
+    [getExportRows, handleOpenCreate],
   );
 
   return (
