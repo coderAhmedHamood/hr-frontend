@@ -110,6 +110,17 @@ export const HR_NOTIFICATION_GROUPS: NotificationToggleGroup[] = [
     ],
   },
   {
+    label: 'إشعارات الجوال',
+    items: [
+      {
+        key: 'pushEnabled',
+        label: 'إرسال الإشعارات إلى جوال الموظف',
+        description:
+          'يصل الإشعار نفسه إلى جوال الموظف من تطبيق الموظفين. عند الإيقاف يبقى الإشعار داخل التطبيق كما هو.',
+      },
+    ],
+  },
+  {
     label: 'إشعارات الطلبات بالبريد',
     items: [
       { key: 'emailRequestPendingApproval', label: 'نفس إشعار الموافقين بالبريد' },

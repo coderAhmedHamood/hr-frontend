@@ -49,6 +49,8 @@ export interface HrCompanySettings {
   /** The same request notifications also by email. */
   emailRequestPendingApproval: boolean;
   emailRequestDecided: boolean;
+  /** Every in-app notification also as a push to the employee's phone. */
+  pushEnabled: boolean;
   notifyContractSentForApproval: boolean;
   notifyEmployeeAssignedToCompany: boolean;
   notifyEmployeeAssignedToBranch: boolean;
