@@ -79,6 +79,7 @@ import {
 } from '@/features/hr/lib/employee-status-filter';
 import { EmploymentContractPrintHtml } from '@/components/pdf/print/employment-contract-print-html';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
+import { companyCurrencyCode } from '@/features/auth/lib/company-currency';
 import { getDefaultCompanyId, useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 import { getSessionCompanyDisplay } from '@/features/hr/organization/lib/session-company-display';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
@@ -536,7 +537,7 @@ export function EmploymentContractsClient() {
       workArrangementLabel(c.workArrangement),
       c.startDate || '—',
       c.endDate || '—',
-      `${formatMoneyDigits(c.baseSalary, 0)} ${c.currency || 'SAR'}`,
+      `${formatMoneyDigits(c.baseSalary, 0)} ${c.currency || companyCurrencyCode()}`,
     ]);
   });
 

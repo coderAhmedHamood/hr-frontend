@@ -241,7 +241,7 @@ function mapPublicVariants(items: PublicVariantDto[] | undefined): ProductVarian
     const links = dto.attributeLinks ?? [];
     const attributeValueIds =
       dto.attributeValueIds ?? links.map((link) => link.productAttributeValueId);
-    const currency = 'YER';
+    const currency = storeCurrencyCode();
     return {
       id: dto.id,
       combinationKey: dto.combinationKey,

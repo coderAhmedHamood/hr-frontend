@@ -13,6 +13,7 @@ import { useServerDirectoryPagination } from '@/components/ui/paged-list';
 import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 import { useCurrentEmployee } from '@/features/hr/organization/employees/hooks/useCurrentEmployee';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
+import { companyTimezoneOffsetMinutes } from '@/features/auth/lib/company-timezone';
 import { usePagePermissions } from '@/features/auth/permissions';
 import {
   OVERTIME_REQUESTS_PAGE_PERMISSIONS,
@@ -177,7 +178,7 @@ export function useOvertimeRequestsDirectoryModel() {
         employeeId: breakdownSource.employeeId,
         workDate: breakdownSource.workDate,
         companyId: companyId ?? undefined,
-        timezoneOffsetMinutes: 180,
+        timezoneOffsetMinutes: companyTimezoneOffsetMinutes(companyId),
       })
       .then((res) => {
         if (cancelled) return;

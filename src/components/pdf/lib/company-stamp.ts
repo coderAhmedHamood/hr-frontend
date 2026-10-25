@@ -1,4 +1,4 @@
-/** Default establishment stamp under `public/` — mirrors the backend documents asset. */
+/** @deprecated Bundled stamp — documents now use the company's `stampUrl`. */
 export const COMPANY_STAMP_PUBLIC_PATH = '/company-stamp.png';
 
 /** Arabic caption printed under the stamp slot — mirrors `COMPANY_STAMP_LABEL_AR`. */

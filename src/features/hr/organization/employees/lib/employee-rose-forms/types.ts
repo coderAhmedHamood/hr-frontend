@@ -78,7 +78,8 @@ export interface RoseEmployeeFormBucket {
   experiences: RoseExperienceRecord[];
 }
 
-export const ROSE_TRADING_COMPANY_AR_DEFAULT = 'مؤسسة روز للتجارة';
+/** Empty on purpose — print uses the active company name from settings. */
+export const ROSE_TRADING_COMPANY_AR_DEFAULT = '';
 
 export const ROSE_FORM_TAB_LABELS: Record<RoseTradingFormTab, string> = {
   resignation: 'نموذج استقالة',

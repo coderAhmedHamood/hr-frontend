@@ -26,6 +26,10 @@ export function usePdfCompanyLetterhead(): PdfCompanyLetterhead {
         nameEn: company.nameEn,
         commercialRegistrationNo: company.commercialRegistrationNo,
         logoUrl: company.logoUrl,
+        stampUrl: company.stampUrl,
+        primaryColor: company.primaryColor,
+        representativeTitleAr: company.representativeTitleAr,
+        representativeNameAr: company.representativeNameAr,
         pdfWatermarkEnabled: company.pdfWatermarkEnabled,
         pdfWatermarkOpacity: company.pdfWatermarkOpacity,
       });
@@ -37,6 +41,10 @@ export function usePdfCompanyLetterhead(): PdfCompanyLetterhead {
         nameEn: sessionCompany.companyNameEn,
         commercialRegistrationNo: sessionCompany.companyCommercialRegistrationNo,
         logoUrl: sessionCompany.companyLogoUrl,
+        stampUrl: sessionCompany.companyStampUrl,
+        primaryColor: sessionCompany.companyPrimaryColor,
+        representativeTitleAr: sessionCompany.companyRepresentativeTitleAr,
+        representativeNameAr: sessionCompany.companyRepresentativeNameAr,
       });
     }
 
@@ -57,6 +65,10 @@ export function useResolvedPdfLetterhead(overrides?: PdfLetterheadOverrides): Pd
     companyNameEn: overrides?.companyNameEn?.trim() || defaults.companyNameEn,
     commercialReg: overrides?.commercialReg?.trim() || defaults.commercialReg,
     logoSrc: overrides?.logoSrc ?? defaults.logoSrc,
+    stampSrc: overrides?.stampSrc ?? defaults.stampSrc,
+    accentColor: overrides?.accentColor ?? defaults.accentColor,
+    representativeTitleAr: overrides?.representativeTitleAr ?? defaults.representativeTitleAr,
+    representativeNameAr: overrides?.representativeNameAr ?? defaults.representativeNameAr,
     watermarkEnabled: defaults.watermarkEnabled,
     watermarkOpacity: defaults.watermarkOpacity,
   }), [defaults, overrides]);

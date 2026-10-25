@@ -1,13 +1,11 @@
 'use client';
 
 import * as React from 'react';
-import {
-  COMPANY_STAMP_LABEL_AR,
-  getCompanyStampSrc,
-} from '@/components/pdf/lib/company-stamp';
+import { COMPANY_STAMP_LABEL_AR } from '@/components/pdf/lib/company-stamp';
+import { usePdfCompanyLetterhead } from '@/components/pdf/hooks/use-pdf-company-letterhead';
 
 export type RoseCompanyStampProps = {
-  /** Override the stamp image; defaults to the bundled establishment stamp. */
+  /** Override the stamp image; defaults to the company's uploaded stamp. */
   stampSrc?: string;
   /** Deprecated compatibility prop; no caption is rendered. */
   labelAr?: string | null;
@@ -33,11 +31,8 @@ export function RoseCompanyStamp({
   compact = false,
   align = 'center',
 }: RoseCompanyStampProps) {
-  const [stampSrc, setStampSrc] = React.useState<string | undefined>(stampSrcProp);
-  React.useEffect(() => {
-    if (stampSrcProp) setStampSrc(stampSrcProp);
-    else setStampSrc(getCompanyStampSrc());
-  }, [stampSrcProp]);
+  const letterhead = usePdfCompanyLetterhead();
+  const stampSrc = stampSrcProp || letterhead.stampSrc;
 
   return (
     <div

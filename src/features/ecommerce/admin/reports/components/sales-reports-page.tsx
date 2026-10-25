@@ -507,9 +507,9 @@ export function StoreReportsPage({ section = 'overview' }: { section?: ReportTab
             <div className="space-y-5">
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
                 <KpiCard
-                  label="الإيراد"
+                  label="الإيراد (مبيعات مؤكدة)"
                   value={money(summary.data?.revenueTotal, currency)}
-                  hint={`${summary.data?.revenueOrdersCount ?? 0} طلب للإيراد`}
+                  hint={`${summary.data?.revenueOrdersCount ?? 0} طلب مدفوع أو محصّل`}
                   icon={TrendingUp}
                   loading={summary.isLoading}
                 />
@@ -528,9 +528,15 @@ export function StoreReportsPage({ section = 'overview' }: { section?: ReportTab
                   loading={summary.isLoading}
                 />
                 <KpiCard
-                  label="محصّل"
-                  value={money(summary.data?.paidAmount, currency)}
-                  hint={`${summary.data?.paidOrdersCount ?? 0} مدفوع`}
+                  label="قيمة كل الطلبات"
+                  value={money(summary.data?.bookedTotal, currency)}
+                  hint={`${summary.data?.bookedOrdersCount ?? 0} طلب · لم يُحصّل بعد ${money(
+                    Math.max(
+                      0,
+                      Number(summary.data?.bookedTotal ?? 0) - Number(summary.data?.revenueTotal ?? 0),
+                    ),
+                    currency,
+                  )}`}
                   icon={Wallet}
                   loading={summary.isLoading}
                 />

@@ -20,6 +20,9 @@ export type CompanyResponseDto = {
   address: string | null;
   postalCode: string | null;
   logoUrl: string | null;
+  stampUrl?: string | null;
+  representativeTitleAr?: string | null;
+  representativeNameAr?: string | null;
   primaryColor: string | null;
   secondaryColor: string | null;
   storefrontPrimaryColor: string | null;
@@ -60,6 +63,9 @@ export type CreateCompanyDto = {
   address?: string | null;
   postalCode?: string | null;
   logoUrl?: string | null;
+  stampUrl?: string | null;
+  representativeTitleAr?: string | null;
+  representativeNameAr?: string | null;
   primaryColor?: string | null;
   secondaryColor?: string | null;
   storefrontPrimaryColor?: string | null;

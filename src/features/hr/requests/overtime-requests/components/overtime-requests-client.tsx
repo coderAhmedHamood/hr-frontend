@@ -13,6 +13,7 @@ import {
   attendanceEventsApi,
   type DailyBreakdownResponseDto,
 } from '@/features/hr/attendance/lib/api/attendance-events';
+import { companyTimezoneOffsetMinutes } from '@/features/auth/lib/company-timezone';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
 import {
@@ -198,7 +199,7 @@ export function OvertimeRequestsClient() {
         employeeId: form.employeeId,
         workDate: form.workDate,
         companyId: m.companyId ?? undefined,
-        timezoneOffsetMinutes: 180,
+        timezoneOffsetMinutes: companyTimezoneOffsetMinutes(m.companyId),
       })
       .then((res) => {
         if (cancelled) return;

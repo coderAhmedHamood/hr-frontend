@@ -22,6 +22,7 @@ import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-con
 import { ListFilterBar } from '@/components/ui/list-filter-bar';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
+import { companyCurrencyCode } from '@/features/auth/lib/company-currency';
 import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 import { contractTemplatesApi } from '@/features/hr/contracts/contract-templates/lib/api/contract-templates';
 import type { ContractTemplateDto } from '@/features/hr/contracts/contract-templates/types/contract-template';
@@ -50,7 +51,7 @@ function fmtSalaryText(amount: string | null | undefined, currency: string): str
   if (!amount) return '—';
   const n = parseFloat(amount);
   if (Number.isNaN(n)) return '—';
-  return `${formatMoneyDigits(n, 0)} ${currency || 'SAR'}`;
+  return `${formatMoneyDigits(n, 0)} ${currency || companyCurrencyCode()}`;
 }
 
 const CONTRACT_TEMPLATES_EXPORT_COLUMNS: RegisterColumn[] = [

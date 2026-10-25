@@ -39,6 +39,7 @@ import {
 } from '@/features/ecommerce/admin/payment-accounts/lib/api/public-payment-accounts-api';
 import type { PaymentAccountType } from '@/features/ecommerce/admin/payment-accounts/lib/api/payment-accounts-api';
 import { placeStorefrontOrder } from '@/features/ecommerce/storefront/lib/checkout-actions';
+import { checkoutAttemptKey } from '@/features/ecommerce/storefront/lib/checkout-attempt-key';
 import { PartnerAuthApiError } from '@/features/ecommerce/storefront/domain/partner-auth';
 import {
   createPartnerAddress,
@@ -687,7 +688,15 @@ export function StoreCheckoutClient({ currency: storeCurrency, country }: Checko
         return;
       }
       const orderAddress = orderAddressOf(address);
+      // Same cart, address and payment → same key: a resend after a lost
+      // answer (or from another tab) returns the order already placed.
+      const attempt = checkoutAttemptKey({
+        lines: cartLines.map(({ line }) => [line.productId, line.variantId ?? null, line.quantity]),
+        address: orderAddress,
+        payment: [paymentMethod, paymentAccountId || null],
+      });
       const result = await placeStorefrontOrder({
+        idempotencyKey: attempt.key,
         locale,
         address: orderAddress,
         paymentMethod,
@@ -737,6 +746,7 @@ export function StoreCheckoutClient({ currency: storeCurrency, country }: Checko
         return;
       }
       const order = result.order;
+      attempt.done();
       clearCart();
       toast.custom(
         () => (

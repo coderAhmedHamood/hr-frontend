@@ -103,6 +103,8 @@ export type PlaceOrderInput = {
   attachments?: CreateStoreOrderAttachmentInput[];
   /** Partner Bearer when the customer is logged in. */
   accessToken?: string | null;
+  /** Made in the browser per checkout attempt (see checkout-attempt-key). */
+  idempotencyKey?: string | null;
   lines: CheckoutLineInput[];
 };
 

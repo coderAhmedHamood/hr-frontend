@@ -1,5 +1,6 @@
 /** Plain-text formatters for list exports (PDF / Excel) of requests & leaves screens. */
 
+import { companyCurrencyCode } from '@/features/auth/lib/company-currency';
 import { formatNumber } from '@/shared/utils';
 
 function pad2(n: number): string {
@@ -62,5 +63,5 @@ export function exportDuration(minutes: number | null | undefined): string {
 /** Amount with its currency code, digits as the UI shows them (`formatNumber`): `1,500 SAR`. */
 export function exportMoney(value: number | null | undefined, currency?: string | null): string {
   if (value == null || !Number.isFinite(value)) return '—';
-  return `${formatNumber(value)} ${currency?.trim().toUpperCase() || 'SAR'}`;
+  return `${formatNumber(value)} ${currency?.trim().toUpperCase() || companyCurrencyCode()}`;
 }

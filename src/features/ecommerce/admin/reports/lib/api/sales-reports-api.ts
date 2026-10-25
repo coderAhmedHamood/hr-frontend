@@ -46,6 +46,9 @@ export type SalesSummary = {
   merchandiseTotal: string;
   shippingTotal: string;
   averageOrderValue: string;
+  /** Orders asked for, paid or not (cancelled, refunded and failed out). */
+  bookedOrdersCount: number;
+  bookedTotal: string;
   paidOrdersCount: number;
   paidAmount: string;
   pendingOrdersCount: number;

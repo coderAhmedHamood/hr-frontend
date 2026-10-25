@@ -58,7 +58,10 @@ export function translateStoreStockMessage(rawMessage: string): string | null {
   if (lower.includes('return of this order was already received') || lower.includes('already returned its quantity')) {
     return 'تم تأكيد استلام مرتجع هذا الطلب سابقاً.';
   }
-  if (lower.includes('nothing issued for this order')) {
+  if (
+    lower.includes('nothing issued for this order') ||
+    lower.includes("nothing left this order's stock")
+  ) {
     return 'لا توجد كمية صُرفت لهذا الطلب يمكن إرجاعها (لم يُشحن، أو أُرجعت سابقاً).';
   }
   if (lower.includes('approved opening')) {

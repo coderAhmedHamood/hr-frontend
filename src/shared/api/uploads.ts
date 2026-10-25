@@ -1,6 +1,6 @@
 import { apiFormRequest } from '@/shared/api/client';
 
-export type UploadCategory = 'image' | 'pdf' | 'document' | 'other' | 'products';
+export type UploadCategory = 'image' | 'pdf' | 'document' | 'other' | 'products' | 'signatures';
 
 export type UploadResponseDto = {
   category: UploadCategory;

@@ -20,6 +20,8 @@ import {
   buildEmploymentContractPrintModel,
   type EmploymentContractPrintModelInput,
 } from '@/components/pdf/print/build-employment-contract-print-model';
+import { DEFAULT_LETTERHEAD_ACCENT } from '@/components/pdf/lib/pdf-company-info';
+import { usePdfCompanyLetterhead } from '@/components/pdf/hooks/use-pdf-company-letterhead';
 
 export type EmploymentContractPrintArticleLine = {
   code: string;
@@ -67,12 +69,12 @@ export type EmploymentContractPrintHtmlProps = {
 
 const ARTICLE_BAR_BG = '#e8e8e8';
 const ARTICLE_BAR_FG = '#000000';
-const LETTERHEAD_GOLD = '#b8933e';
 
 function FooterRule() {
+  const { accentColor } = usePdfCompanyLetterhead();
   return (
     <div
-      style={{ marginTop: 24, borderTop: `6px double ${LETTERHEAD_GOLD}` }}
+      style={{ marginTop: 24, borderTop: `6px double ${accentColor || DEFAULT_LETTERHEAD_ACCENT}` }}
     />
   );
 }
@@ -282,6 +284,7 @@ export const EmploymentContractPrintHtml = React.forwardRef<HTMLDivElement, Empl
       articles,
     } = props;
 
+    const letterhead = usePdfCompanyLetterhead();
     const [logoSrc, setLogoSrc] = React.useState<string | undefined>(logoSrcProp);
     React.useEffect(() => {
       if (logoSrcProp) setLogoSrc(logoSrcProp);
@@ -289,10 +292,12 @@ export const EmploymentContractPrintHtml = React.forwardRef<HTMLDivElement, Empl
     }, [logoSrcProp]);
 
     const modelInput = React.useMemo((): EmploymentContractPrintModelInput => ({
-      companyNameAr: company.nameAr,
-      companyNameEn: company.nameEn,
-      employerRepresentativeName: employerRepresentativeName?.trim() || null,
-      employerRepresentativeTitle: employerRepresentativeTitle?.trim() || null,
+      companyNameAr: company.nameAr || letterhead.companyNameAr,
+      companyNameEn: company.nameEn || letterhead.companyNameEn,
+      employerRepresentativeName:
+        employerRepresentativeName?.trim() || letterhead.representativeNameAr || null,
+      employerRepresentativeTitle:
+        employerRepresentativeTitle?.trim() || letterhead.representativeTitleAr || null,
       employeeNameAr,
       employeeGender,
       nationalId,
@@ -320,6 +325,10 @@ export const EmploymentContractPrintHtml = React.forwardRef<HTMLDivElement, Empl
         includesCompensation: a.includesCompensation === true,
       })),
     }), [
+      letterhead.companyNameAr,
+      letterhead.companyNameEn,
+      letterhead.representativeNameAr,
+      letterhead.representativeTitleAr,
       company.nameAr,
       company.nameEn,
       employerRepresentativeName,

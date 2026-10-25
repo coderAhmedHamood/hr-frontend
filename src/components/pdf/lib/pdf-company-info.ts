@@ -1,11 +1,17 @@
 import { getPdfLogoSrc, PDF_LOGO_PUBLIC_PATH } from '@/components/pdf/lib/pdf-logo-url';
 import { resolveUploadUrl } from '@/shared/resolve-upload-url';
 
+export const DEFAULT_LETTERHEAD_ACCENT = '#1f2937';
+
 export type PdfCompanyLetterhead = {
   companyNameAr: string;
   companyNameEn: string;
   commercialReg: string;
   logoSrc: string | undefined;
+  stampSrc: string | undefined;
+  accentColor: string;
+  representativeTitleAr: string;
+  representativeNameAr: string;
   /** The logo as a faded background on every page (company setting). */
   watermarkEnabled: boolean;
   /** Its opacity, 0–1 (from the company's percent). */
@@ -17,6 +23,10 @@ export type PdfCompanySource = {
   nameEn?: string | null;
   commercialRegistrationNo?: string | null;
   logoUrl?: string | null;
+  stampUrl?: string | null;
+  primaryColor?: string | null;
+  representativeTitleAr?: string | null;
+  representativeNameAr?: string | null;
   pdfWatermarkEnabled?: boolean | null;
   pdfWatermarkOpacity?: number | null;
 };
@@ -51,12 +61,23 @@ export function resolvePdfLogoSrc(rawLogoUrl?: string | null): string | undefine
  * commercial registration and logo — never another establishment's. A
  * missing field stays empty (and is not printed).
  */
+const HEX_COLOR = /^#[0-9A-Fa-f]{6}$/;
+
+function letterheadAccent(value?: string | null): string {
+  const trimmed = value?.trim() ?? '';
+  return HEX_COLOR.test(trimmed) ? trimmed : DEFAULT_LETTERHEAD_ACCENT;
+}
+
 export function buildPdfCompanyLetterhead(source?: PdfCompanySource | null): PdfCompanyLetterhead {
   return {
     companyNameAr: source?.nameAr?.trim() || '',
     companyNameEn: source?.nameEn?.trim() || '',
     commercialReg: source?.commercialRegistrationNo?.trim() || '',
     logoSrc: resolvePdfLogoSrc(source?.logoUrl),
+    stampSrc: resolvePdfLogoSrc(source?.stampUrl),
+    accentColor: letterheadAccent(source?.primaryColor),
+    representativeTitleAr: source?.representativeTitleAr?.trim() || '',
+    representativeNameAr: source?.representativeNameAr?.trim() || '',
     watermarkEnabled: source?.pdfWatermarkEnabled ?? true,
     watermarkOpacity: Math.min(Math.max(source?.pdfWatermarkOpacity ?? 10, 2), 40) / 100,
   };

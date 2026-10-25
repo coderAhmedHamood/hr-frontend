@@ -29,6 +29,7 @@ import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-con
 import { ListFilterBar } from '@/components/ui/list-filter-bar';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
+import { companyCurrencyCode } from '@/features/auth/lib/company-currency';
 import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 import { allowanceTypesApi,
   type AllowanceTypeDto,
@@ -72,7 +73,7 @@ function fmtAmount(item: AllowanceTypeDto): React.ReactNode {
 /** Plain-text twin of `fmtAmount` for export. */
 function fmtAmountText(item: AllowanceTypeDto): string {
   if (item.calculationType === 'fixed_amount' && item.typicalAmount) {
-    return `${formatMoneyDigits(item.typicalAmount, 0)} ${item.currency || 'SAR'}`;
+    return `${formatMoneyDigits(item.typicalAmount, 0)} ${item.currency || companyCurrencyCode()}`;
   }
   if (item.calculationType === 'percent_of_basic' && item.typicalPercent) {
     return `${parseFloat(item.typicalPercent)}%`;

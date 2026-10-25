@@ -7,11 +7,8 @@ import {
   PDF_SECTION_FONT,
 } from '@/components/pdf/lib/official-document-typography';
 import { sanitizePdfText } from '@/components/pdf/lib/sanitize-pdf-text';
-import { isDefaultPdfLogoSrc } from '@/components/pdf/lib/pdf-company-info';
+import { DEFAULT_LETTERHEAD_ACCENT, isDefaultPdfLogoSrc } from '@/components/pdf/lib/pdf-company-info';
 import { useResolvedPdfLetterhead } from '@/components/pdf/hooks/use-pdf-company-letterhead';
-
-/** Letterhead accent — warm gold (print-safe) */
-const LETTERHEAD_GOLD = '#b8933e';
 
 export type RoseTradingLetterheadPrintProps = {
   logoSrc?: string;
@@ -44,9 +41,10 @@ export function RoseTradingLetterheadPrint({
   const nameAr = sanitizePdfText(letterhead.companyNameAr);
   const nameEn = sanitizePdfText(letterhead.companyNameEn);
   const cr = letterhead.commercialReg.trim();
+  const accent = letterhead.accentColor || DEFAULT_LETTERHEAD_ACCENT;
 
   return (
-    <div style={{ marginBottom: 18, paddingBottom: 14, borderBottom: `6px double ${LETTERHEAD_GOLD}` }}>
+    <div style={{ marginBottom: 18, paddingBottom: 14, borderBottom: `6px double ${accent}` }}>
       <div
         dir="ltr"
         style={{
@@ -72,7 +70,7 @@ export function RoseTradingLetterheadPrint({
             style={{
               fontSize: PDF_SECTION_FONT,
               fontWeight: 700,
-              color: LETTERHEAD_GOLD,
+              color: accent,
               letterSpacing: 0.6,
               textTransform: 'uppercase',
               textAlign: 'left',
@@ -138,7 +136,7 @@ export function RoseTradingLetterheadPrint({
             style={{
               fontSize: PDF_SECTION_FONT,
               fontWeight: 700,
-              color: LETTERHEAD_GOLD,
+              color: accent,
               textAlign: 'right',
               lineHeight: 1.3,
               fontFamily: PDF_PRINT_FONT_FAMILY,

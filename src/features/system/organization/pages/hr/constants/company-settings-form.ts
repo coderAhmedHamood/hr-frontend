@@ -18,6 +18,10 @@ export type CompanySettingsFormState = {
   address: string;
   postalCode: string;
   logoUrl: string;
+  stampUrl: string;
+  representativeTitleAr: string;
+  representativeNameAr: string;
+  timezone: string;
   primaryColor: string;
   secondaryColor: string;
   pdfWatermarkEnabled: boolean;
@@ -52,6 +56,10 @@ export function companyToSettingsForm(company: CompanyResponseDto): CompanySetti
     address: company.address ?? '',
     postalCode: company.postalCode ?? '',
     logoUrl: company.logoUrl ?? '',
+    stampUrl: company.stampUrl ?? '',
+    representativeTitleAr: company.representativeTitleAr ?? '',
+    representativeNameAr: company.representativeNameAr ?? '',
+    timezone: company.timezone || 'Asia/Riyadh',
     primaryColor: company.primaryColor ?? '',
     secondaryColor: company.secondaryColor ?? '',
     pdfWatermarkEnabled: company.pdfWatermarkEnabled ?? true,
@@ -92,6 +100,10 @@ export function settingsFormToUpdateDto(
     address: emptyToNull(form.address),
     postalCode: emptyToNull(form.postalCode),
     logoUrl: emptyToNull(form.logoUrl),
+    stampUrl: emptyToNull(form.stampUrl),
+    representativeTitleAr: emptyToNull(form.representativeTitleAr),
+    representativeNameAr: emptyToNull(form.representativeNameAr),
+    timezone: form.timezone.trim() || 'Asia/Riyadh',
     primaryColor: emptyToNull(form.primaryColor),
     secondaryColor: emptyToNull(form.secondaryColor),
     pdfWatermarkEnabled: form.pdfWatermarkEnabled,

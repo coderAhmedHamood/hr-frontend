@@ -245,7 +245,7 @@ export type RoseResignationRecordPrintHtmlProps = {
 
 export const RoseResignationRecordPrintHtml = React.forwardRef<HTMLDivElement, RoseResignationRecordPrintHtmlProps>(
   function RoseResignationRecordPrintHtml(
-    { companyNameAr = ROSE_TRADING_COMPANY_AR_DEFAULT, companyNameEn = 'Rose Trading Est.', emp, row },
+    { companyNameAr = ROSE_TRADING_COMPANY_AR_DEFAULT, companyNameEn = '', emp, row },
     ref,
   ) {
     const [logoSrc, setLogoSrc] = React.useState<string | undefined>();
@@ -416,7 +416,7 @@ export type RoseSettlementRecordPrintHtmlProps = {
 
 export const RoseSettlementRecordPrintHtml = React.forwardRef<HTMLDivElement, RoseSettlementRecordPrintHtmlProps>(
   function RoseSettlementRecordPrintHtml(
-    { companyNameAr = ROSE_TRADING_COMPANY_AR_DEFAULT, companyNameEn = 'Rose Trading Est.', emp, row },
+    { companyNameAr = ROSE_TRADING_COMPANY_AR_DEFAULT, companyNameEn = '', emp, row },
     ref,
   ) {
     const defaultDecl = sanitizePdfText(
@@ -488,7 +488,7 @@ export type RoseExperienceRecordPrintHtmlProps = {
 
 export const RoseExperienceRecordPrintHtml = React.forwardRef<HTMLDivElement, RoseExperienceRecordPrintHtmlProps>(
   function RoseExperienceRecordPrintHtml(
-    { companyNameAr = ROSE_TRADING_COMPANY_AR_DEFAULT, companyNameEn = 'Rose Trading Est.', emp, row },
+    { companyNameAr = ROSE_TRADING_COMPANY_AR_DEFAULT, companyNameEn = '', emp, row },
     ref,
   ) {
     const jobTitle = row.jobTitleAr?.trim() ? row.jobTitleAr : emp.positionAr;

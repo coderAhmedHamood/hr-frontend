@@ -12,6 +12,7 @@ import { Switch } from '@/components/ui/switch';
 import { companiesApi, type CountryProfile } from '@/features/hr/organization/lib/api/companies';
 import { ACCESS_PROFILE_KEY } from '@/features/auth/hooks/use-access-profile';
 import { CURRENCIES, currencyNameAr } from '@/shared/currencies';
+import { COMPANY_TIMEZONES } from '@/shared/timezone-offset';
 import { resolveUploadUrl, uploadResponseToStoredPath } from '@/shared/resolve-upload-url';
 import { cn } from '@/shared/utils';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
@@ -112,7 +113,9 @@ export function CompanySettingsTab() {
   });
   const [form, setForm] = React.useState<CompanySettingsFormState | null>(null);
   const [uploadingLogo, setUploadingLogo] = React.useState(false);
+  const [uploadingStamp, setUploadingStamp] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const stampInputRef = React.useRef<HTMLInputElement>(null);
 
   React.useEffect(() => {
     if (company) setForm(companyToSettingsForm(company));
@@ -145,6 +148,29 @@ export function CompanySettingsTab() {
     }
   };
 
+  const handleStampPick = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('يرجى اختيار ملف صورة للختم');
+      return;
+    }
+
+    setUploadingStamp(true);
+    try {
+      const uploaded = await uploadsApi.upload('signatures', file);
+      patch({ stampUrl: uploadResponseToStoredPath(uploaded) });
+      toast.success('تم رفع ختم المنشأة');
+    } catch (err) {
+      const { displayMessage } = handleApiError(err, 'uploads.signatures');
+      toast.error(displayMessage);
+    } finally {
+      setUploadingStamp(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!form) return;
     if (!form.nameAr.trim()) {
@@ -164,9 +190,8 @@ export function CompanySettingsTab() {
       const currencyChanged = Boolean(company && form.currencyCode !== company.currencyCode);
       await update.mutateAsync(settingsFormToUpdateDto(form, company ?? undefined));
       toast.success('تم حفظ بيانات الشركة');
+      await queryClient.invalidateQueries({ queryKey: ACCESS_PROFILE_KEY });
       if (currencyChanged) {
-        // Every screen reads the base currency from the access profile.
-        await queryClient.invalidateQueries({ queryKey: ACCESS_PROFILE_KEY });
         await queryClient.invalidateQueries({ queryKey: ['companies', 'currency-status'] });
       }
     } catch (err) {
@@ -194,7 +219,7 @@ export function CompanySettingsTab() {
           <div>
             <h3 className="font-display text-sm font-semibold sm:text-base">إعدادات الشركة</h3>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              عدّل بيانات الشركة الأساسية، التواصل، العنوان، والشعار.
+              عدّل بيانات الشركة الأساسية، التواصل، العنوان، الشعار، والختم، وممثل العقود.
             </p>
           </div>
         </div>
@@ -251,6 +276,58 @@ export function CompanySettingsTab() {
         </div>
 
         <div className="space-y-3">
+          <p className="text-xs font-semibold text-muted-foreground">ختم المنشأة</p>
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            يظهر على العقود والإيصالات والتعاميم. إن لم يُرفع يظهر خط منقط للتوقيع اليدوي.
+          </p>
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-xl border border-border bg-muted/20">
+              {form.stampUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={resolveUploadUrl(form.stampUrl)} alt="ختم المنشأة" className="h-full w-full object-contain" />
+              ) : (
+                <Building2 className="h-8 w-8 text-muted-foreground/40" />
+              )}
+            </div>
+            <div className="space-y-2">
+              <input
+                ref={stampInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => void handleStampPick(e)}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                disabled={uploadingStamp}
+                onClick={() => stampInputRef.current?.click()}
+              >
+                {uploadingStamp ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <ImagePlus className="h-3.5 w-3.5" />
+                )}
+                {uploadingStamp ? 'جاري الرفع…' : 'رفع ختم'}
+              </Button>
+              {form.stampUrl ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 text-xs text-muted-foreground"
+                  onClick={() => patch({ stampUrl: '' })}
+                >
+                  إزالة الختم
+                </Button>
+              ) : null}
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-xs font-semibold text-muted-foreground">ألوان الهوية</p>
             <Button
@@ -269,7 +346,8 @@ export function CompanySettingsTab() {
             </Button>
           </div>
           <p className="text-[11px] leading-relaxed text-muted-foreground">
-            عند التفريغ تُستخدم ألوان النظام العامة (بما في ذلك الوضع الداكن). عدّل الألوان ثم احفظ لتخصيص هوية الشركة.
+            عند التفريغ تُستخدم ألوان النظام العامة (بما في ذلك الوضع الداكن). اللون الأساسي يُستخدم أيضاً في ترويسة
+            المستندات المطبوعة.
           </p>
           <div className="grid gap-3 sm:grid-cols-2">
             <ColorField
@@ -362,6 +440,22 @@ export function CompanySettingsTab() {
             </FormField>
             <FormField label="الرقم الضريبي">
               <Input dir="ltr" value={form.taxNumber} onChange={(e) => patch({ taxNumber: e.target.value })} className="h-9" />
+            </FormField>
+            <FormField label="لقب ممثل المنشأة في العقود">
+              <Input
+                value={form.representativeTitleAr}
+                onChange={(e) => patch({ representativeTitleAr: e.target.value })}
+                className="h-9"
+                placeholder="السيد / السيدة"
+              />
+            </FormField>
+            <FormField label="اسم ممثل المنشأة في العقود">
+              <Input
+                value={form.representativeNameAr}
+                onChange={(e) => patch({ representativeNameAr: e.target.value })}
+                className="h-9"
+                placeholder="الاسم كما يظهر في العقد"
+              />
             </FormField>
           </div>
         </div>
@@ -456,6 +550,32 @@ export function CompanySettingsTab() {
         </div>
 
         <div className="space-y-3">
+          <p className="text-xs font-semibold text-muted-foreground">المنطقة الزمنية</p>
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            يُحسب عليها يوم الحضور والعمل الإضافي. غيّرها قبل بدء تسجيل الحضور.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <FormField label="المنطقة الزمنية">
+              <Select value={form.timezone} onValueChange={(timezone) => patch({ timezone })}>
+                <SelectTrigger className="h-9" aria-label="المنطقة الزمنية">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(COMPANY_TIMEZONES.some((z) => z.value === form.timezone)
+                    ? COMPANY_TIMEZONES
+                    : [{ value: form.timezone, label: form.timezone }, ...COMPANY_TIMEZONES]
+                  ).map((z) => (
+                    <SelectItem key={z.value} value={z.value}>
+                      {z.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FormField>
+          </div>
+        </div>
+
+        <div className="space-y-3">
           <p className="text-xs font-semibold text-muted-foreground">العنوان</p>
           <div className="grid gap-3 sm:grid-cols-2">
             <FormField label="دولة العنوان">
@@ -482,7 +602,7 @@ export function CompanySettingsTab() {
           variant="luxe"
           className="gap-2"
           onClick={() => void handleSave()}
-          disabled={update.isPending || uploadingLogo}
+          disabled={update.isPending || uploadingLogo || uploadingStamp}
         >
           {update.isPending ? (
             <>

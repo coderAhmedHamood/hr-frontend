@@ -27,6 +27,7 @@ import {
 import { MoneyAmount } from '@/components/ui/sar-amount';
 import { useMonthlyInputsDirectoryModel } from '@/features/hr/payroll/monthly-inputs/hooks/useMonthlyInputsDirectoryModel';
 import { TableDateCell } from '@/components/ui/table-cells';
+import { companyCurrencyCode } from '@/features/auth/lib/company-currency';
 import { cn, formatMoneyDigits } from '@/shared/utils';
 import { RegisterExportMenu } from '@/components/pdf/register-export-menu';
 import type { RegisterColumn } from '@/components/pdf/print/register-document';
@@ -186,7 +187,7 @@ export function MonthlyInputsPage() {
       formatPayrollPeriodLabel(row.periodYear, row.periodMonth),
       MONTHLY_INPUT_KIND_LABELS[row.inputKind] ?? row.inputKind,
       MONTHLY_INPUT_DIRECTION_LABELS[row.direction] ?? row.direction,
-      `${formatMoneyDigits(row.amount, 2)} ${row.currency || 'SAR'}`,
+      `${formatMoneyDigits(row.amount, 2)} ${row.currency || companyCurrencyCode()}`,
       row.sourceKind ? (MONTHLY_INPUT_SOURCE_KIND_LABELS[row.sourceKind] ?? row.sourceKind) : '—',
       row.affectsSalary ? 'نعم' : 'لا',
       row.note ?? '—',
