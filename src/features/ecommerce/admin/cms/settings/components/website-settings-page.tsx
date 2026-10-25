@@ -43,6 +43,7 @@ import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { currencyNameAr } from '@/shared/currencies';
 import { OrderStagesSettingsPanel } from '@/features/ecommerce/admin/orders/components/order-stages-settings-panel';
 import { cn } from '@/shared/utils';
+import { APP, useCompanyApps, type AppRequirement, type CompanyApps } from '@/shared/modules/company-apps';
 
 type SettingsTabValue =
   | 'branding'
@@ -69,11 +70,18 @@ const SETTINGS_TAB_VALUES: readonly SettingsTabValue[] = [
   'seo',
 ];
 
-function resolveSettingsTab(raw: string | null): SettingsTabValue {
+/** Tabs that are another app's part (same requirement as their nav item). */
+const SETTINGS_TAB_APPS: Partial<Record<SettingsTabValue, AppRequirement>> = {
+  stockSync: { requiresApp: APP.inventory },
+};
+
+function resolveSettingsTab(raw: string | null, apps: CompanyApps): SettingsTabValue {
   if (raw === 'checkout') return 'paymentAccounts';
-  return (SETTINGS_TAB_VALUES as readonly string[]).includes(raw ?? '')
+  const value = (SETTINGS_TAB_VALUES as readonly string[]).includes(raw ?? '')
     ? (raw as SettingsTabValue)
     : 'branding';
+  // A link to a hidden tab falls back quietly.
+  return apps.meets(SETTINGS_TAB_APPS[value]) ? value : 'branding';
 }
 
 const SETTINGS_QUERY_KEY = ['ecommerce-cms', 'company', 'settings'] as const;
@@ -166,14 +174,15 @@ export function WebsiteSettingsPage() {
 
   const [draft, setDraft] = React.useState<CompanyConfigRecord | null>(null);
   const [dirty, setDirty] = React.useState(false);
+  const apps = useCompanyApps();
   const [tab, setTab] = React.useState<SettingsTabValue>(() =>
-    resolveSettingsTab(searchParams.get('tab')),
+    resolveSettingsTab(searchParams.get('tab'), apps),
   );
   const [tabHeaderExtras, setTabHeaderExtras] = React.useState<React.ReactNode>(null);
 
   React.useEffect(() => {
-    setTab(resolveSettingsTab(searchParams.get('tab')));
-  }, [searchParams]);
+    setTab(resolveSettingsTab(searchParams.get('tab'), apps));
+  }, [searchParams, apps]);
 
   React.useEffect(() => {
     if (data) {

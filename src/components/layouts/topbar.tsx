@@ -52,6 +52,7 @@ import {
   ecommerceAdminNavGroups,
   ecommerceAdminOverviewItem,
   flattenEcommerceNavItems,
+  visibleEcommerceNavGroups,
 } from '@/features/ecommerce/admin/constants/nav';
 import {
   inventoryAdminNavGroups,
@@ -88,6 +89,7 @@ import {
   isPosAppPath,
 } from '@/shared/app-paths';
 import { isModuleEnabledFor } from '@/shared/modules/registry';
+import { APP, useCompanyApps, type CompanyApps } from '@/shared/modules/company-apps';
 import { systemOwnerRoutes } from '@/features/system-owner/constants/routes';
 
 /* ── Icon registry ────────────────────────────────────────────────────── */
@@ -353,7 +355,11 @@ export const systemNavConfig: NavItem[] = [
 /**
  * Overview link + Website dropdown + business-domain dropdowns (skip empty domains).
  */
-function buildEcommerceNavConfig(tNav: (key: string) => string, catalogEnabled: boolean): NavItem[] {
+function buildEcommerceNavConfig(
+  tNav: (key: string) => string,
+  catalogEnabled: boolean,
+  apps: CompanyApps,
+): NavItem[] {
   const items: NavItem[] = [
     {
       key: 'ecommerce-overview',
@@ -364,9 +370,12 @@ function buildEcommerceNavConfig(tNav: (key: string) => string, catalogEnabled: 
     },
   ];
 
-  const groups = catalogEnabled
-    ? ecommerceAdminNavGroups
-    : ecommerceAdminNavGroups.filter((group) => group.key !== 'products');
+  const groups = visibleEcommerceNavGroups(
+    catalogEnabled
+      ? ecommerceAdminNavGroups
+      : ecommerceAdminNavGroups.filter((group) => group.key !== 'products'),
+    apps,
+  );
 
   for (const group of groups) {
     const flat = flattenEcommerceNavItems(group);
@@ -813,6 +822,7 @@ export function Topbar() {
   const inSystemApp = isSystemAppPath(pathname);
   const inSystemOwnerApp = isSystemOwnerAppPath(pathname);
   const { companyId: activeCompanyId, ...moduleContext } = useModuleEnablementContext();
+  const companyApps = useCompanyApps();
   const ecommerceEnabled = isModuleEnabledFor('ecommerce', activeCompanyId, moduleContext);
   const inventoryEnabled = isModuleEnabledFor('inventory', activeCompanyId, moduleContext);
   const catalogEnabled = isModuleEnabledFor('catalog', activeCompanyId, moduleContext);
@@ -828,10 +838,11 @@ export function Topbar() {
   const inAppShell = inHrApp || inSystemApp || inSystemOwnerApp || inEcommerceApp || inInventoryApp || inCatalogApp || inContactsApp || inAccountingApp || inExpensesApp || inPosApp;
   const tEcommerceNav = useTranslations('ecommerceAdmin.nav');
   const ecommerceNavConfig = React.useMemo(
-    () => buildEcommerceNavConfig((key) => tEcommerceNav(key as 'overview'), catalogEnabled),
-    [tEcommerceNav, catalogEnabled],
+    () => buildEcommerceNavConfig((key) => tEcommerceNav(key as 'overview'), catalogEnabled, companyApps),
+    [tEcommerceNav, catalogEnabled, companyApps],
   );
-  const shopSalesEnabled = isModuleEnabledFor('shopSales', activeCompanyId, moduleContext);
+  // Another app inside inventory: follows the company's apps, not the viewer.
+  const shopSalesEnabled = companyApps.isEnabled(APP.shopSales);
   const inventoryNavConfig = React.useMemo(
     () => buildInventoryNavConfig(catalogEnabled, shopSalesEnabled),
     [catalogEnabled, shopSalesEnabled],

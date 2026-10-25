@@ -1,8 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import { useModuleEnablementContext } from '@/features/auth/hooks/use-system-owner';
-import { isModuleEnabledFor } from '@/shared/modules/registry';
+import { APP, useCompanyApps } from '@/shared/modules/company-apps';
+import { PartnerInventoryOperationsPanel } from '@/features/contacts/admin/partners/components/partner-inventory-operations-panel';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -16,7 +16,7 @@ import {
   Heart,
   Mail,
   MapPin,
-  Network,
+  Warehouse,
   Paperclip,
   Pencil,
   Phone,
@@ -91,10 +91,11 @@ const DETAIL_TABS = [
   { value: 'notes', label: 'ملاحظات', icon: StickyNote },
   { value: 'attachments', label: 'مرفقات', icon: Paperclip },
   // The store's: shown only while the store is enabled for the company.
-  { value: 'orders', label: 'طلبات المتجر', icon: ShoppingBag, requiresApp: 'ecommerce' },
-  { value: 'reviews', label: 'تقييمات', icon: Star, requiresApp: 'ecommerce' },
-  { value: 'favorites', label: 'المفضلة', icon: Heart, requiresApp: 'ecommerce' },
-  { value: 'related', label: 'مرتبط', icon: Network },
+  { value: 'orders', label: 'طلبات المتجر', icon: ShoppingBag, requiresApp: APP.storeAdmin },
+  { value: 'reviews', label: 'تقييمات', icon: Star, requiresApp: APP.storeAdmin },
+  { value: 'favorites', label: 'المفضلة', icon: Heart, requiresApp: APP.storeAdmin },
+  // Inventory's: the contact's receipts, issues and returns.
+  { value: 'inventory', label: 'حركات المخزون', icon: Warehouse, requiresApp: APP.inventory },
 ] as const;
 
 type DetailTab = (typeof DETAIL_TABS)[number]['value'];
@@ -109,12 +110,8 @@ export function PartnerDetailPage({ partnerId }: Props) {
   const companyId = getContactsCompanyId();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const enablement = useModuleEnablementContext();
-  const storeOn = isModuleEnabledFor('ecommerce', enablement.companyId, enablement);
-  const visibleTabs = React.useMemo(
-    () => DETAIL_TABS.filter((tab) => !('requiresApp' in tab) || storeOn),
-    [storeOn],
-  );
+  const apps = useCompanyApps();
+  const visibleTabs = React.useMemo(() => apps.filter(DETAIL_TABS), [apps]);
   const visibleValues = React.useMemo(
     () => new Set<string>(visibleTabs.map((tab) => tab.value)),
     [visibleTabs],
@@ -1008,27 +1005,8 @@ export function PartnerDetailPage({ partnerId }: Props) {
           )}
         </TabsContent>
 
-        <TabsContent value="related" className="mt-0 space-y-4">
-          <Panel title="سجلات مرتبطة" description="روابط مستقبلية مع وحدات النظام الأخرى.">
-            <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {[
-                { label: 'المشتريات', hint: 'أوامر الشراء' },
-                { label: 'المخزون', hint: 'عمليات المستودع' },
-                { label: 'المحاسبة', hint: 'فواتير وقيود' },
-                { label: 'الموارد البشرية', hint: 'سجل الموظف إن وُجد' },
-                { label: 'التذاكر / المشاريع', hint: 'Helpdesk & Projects' },
-              ].map((item) => (
-                <div
-                  key={item.label}
-                  className="rounded-2xl border border-border/70 bg-gradient-to-br from-muted/40 to-background p-4"
-                >
-                  <p className="font-medium text-foreground">{item.label}</p>
-                  <p className="mt-1 text-sm text-muted-foreground">{item.hint}</p>
-                  <p className="mt-3 text-xs text-muted-foreground/80">سيظهر العدّاد بعد ربط الوحدات.</p>
-                </div>
-              ))}
-            </div>
-          </Panel>
+        <TabsContent value="inventory" className="mt-0 space-y-4">
+          <PartnerInventoryOperationsPanel companyId={companyId} partnerId={partnerId} />
         </TabsContent>
       </Tabs>
 

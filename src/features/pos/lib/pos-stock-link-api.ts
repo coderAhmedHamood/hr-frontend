@@ -1,9 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { ApiError, apiRequest } from '@/shared/api/client';
-import { useModuleEnablementContext } from '@/features/auth/hooks/use-system-owner';
-import { companyHasApp, POS_STOCK_SYNC_APP_CODE } from '@/shared/modules/registry';
+import { APP, useCompanyApps } from '@/shared/modules/company-apps';
 
-const INVENTORY_APP_CODE = 'inventory';
 import type { PosStockMode, PosStockTiming } from '@/features/pos/domain/types';
 
 /** The point of sale–inventory link (pos-stock-sync bridge) as the POS screens see it. */
@@ -49,9 +47,9 @@ export async function fetchPosStockLink(companyId: string): Promise<PosStockLink
  * `bridgeOn` is the «ربط نقاط البيع بالمخازن» app itself.
  */
 export function usePosStockLink(companyId: string | null | undefined, enabled = true) {
-  const context = useModuleEnablementContext();
-  const inventoryOn = companyHasApp(INVENTORY_APP_CODE, context);
-  const bridgeOn = companyHasApp(POS_STOCK_SYNC_APP_CODE, context);
+  const apps = useCompanyApps();
+  const inventoryOn = apps.isEnabled(APP.inventory);
+  const bridgeOn = apps.isEnabled(APP.posStockSync);
   const query = useQuery({
     queryKey: ['pos', 'stock-link', companyId],
     queryFn: () => fetchPosStockLink(companyId!),

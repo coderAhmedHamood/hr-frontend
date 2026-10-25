@@ -1,73 +1,38 @@
 import {
-  productAppSectionsFor,
-  storeSellsLocallyFor,
-  visibleProductTabs,
+  PRODUCT_INVENTORY_DOCS,
+  productAppSectionsFrom,
+  storeSellsLocallyFrom,
   visibleRelatedDocs,
 } from '@/features/catalog/products/hooks/use-product-app-sections';
+import { companyAppsFrom } from '@/shared/modules/company-apps';
 import { isModuleEnabledFor } from '@/shared/modules/registry';
 
-const TABS = [
-  { value: 'general' },
-  { value: 'image' },
-  { value: 'attributes' },
-  { value: 'availability' },
-  { value: 'batches' },
-  { value: 'units' },
-  { value: 'reviews' },
-  { value: 'settings' },
-] as const;
-const DOCS = ['variants', 'replenish', 'receipts', 'issues', 'internals', 'moves', 'putaway'].map(
-  (key) => ({ key }),
-);
-const tabs = (inventory: boolean, store: boolean) =>
-  visibleProductTabs(TABS, { inventory, store, pos: true }).map((t) => t.value);
+const sections = (codes: string[] | null) => productAppSectionsFrom(companyAppsFrom(codes));
+const DOCS = [{ key: 'variants' }, ...PRODUCT_INVENTORY_DOCS];
+const docs = (codes: string[] | null) =>
+  visibleRelatedDocs(DOCS, companyAppsFrom(codes)).map((d) => d.key);
 
 describe('product app sections (phase 2.5)', () => {
-  it('follows the apps enabled for the company', () => {
-    expect(productAppSectionsFor('c1', { enabledApplicationCodes: ['catalog', 'inventory'] })).toEqual({
-      inventory: true,
-      store: false,
-      pos: false,
-    });
-    expect(productAppSectionsFor('c1', { enabledApplicationCodes: ['catalog', 'store-admin'] })).toEqual({
-      inventory: false,
-      store: true,
-      pos: false,
-    });
-    expect(productAppSectionsFor('c1', { enabledApplicationCodes: ['catalog'] })).toEqual({
-      inventory: false,
-      store: false,
-      pos: false,
-    });
-    expect(productAppSectionsFor('c1', { enabledApplicationCodes: ['catalog', 'pos'] }).pos).toBe(true);
+  it('follows the apps the company itself has enabled', () => {
+    expect(sections(['catalog', 'inventory'])).toEqual({ inventory: true, store: false, pos: false });
+    expect(sections(['catalog', 'store-admin'])).toEqual({ inventory: false, store: true, pos: false });
+    expect(sections(['catalog'])).toEqual({ inventory: false, store: false, pos: false });
+    expect(sections(['catalog', 'pos']).pos).toBe(true);
   });
 
-  it('keeps every section for pre-migration sessions and the system owner', () => {
-    expect(productAppSectionsFor('c1', { enabledApplicationCodes: null })).toEqual({
-      inventory: true,
-      store: true,
-      pos: true,
-    });
-    expect(
-      productAppSectionsFor('c1', { isSystemOwner: true, enabledApplicationCodes: ['catalog'] }),
-    ).toEqual({ inventory: true, store: true, pos: true });
-  });
-
-  it('shows inventory and store tabs only with their app', () => {
-    expect(tabs(true, true)).toEqual(TABS.map((t) => t.value));
-    expect(tabs(true, false)).toEqual(['general', 'attributes', 'availability', 'batches', 'units', 'settings']);
-    expect(tabs(false, true)).toEqual(['general', 'image', 'attributes', 'availability', 'units', 'reviews', 'settings']);
-    expect(tabs(false, false)).toEqual(['general', 'attributes', 'units', 'settings']);
+  // 2026-10-25: inventory parts showed on a product of a company without
+  // inventory (System Owner bypass) and every one of them answered 403.
+  it('shows no other app’s section until the company’s apps are known', () => {
+    expect(sections(null)).toEqual({ inventory: false, store: false, pos: false });
   });
 
   it('hides stock shortcuts without inventory', () => {
     // Putaway rules are hidden until something applies them (putaway-feature).
-    expect(visibleRelatedDocs(DOCS, { inventory: true, store: false, pos: false }).map((d) => d.key)).toEqual(
+    expect(docs(['catalog', 'inventory'])).toEqual(
       DOCS.map((d) => d.key).filter((k) => k !== 'putaway'),
     );
-    expect(visibleRelatedDocs(DOCS, { inventory: false, store: true, pos: false }).map((d) => d.key)).toEqual([
-      'variants',
-    ]);
+    expect(docs(['catalog', 'store-admin'])).toEqual(['variants']);
+    expect(docs(null)).toEqual(['variants']);
   });
 
   it('registers the catalog app', () => {
@@ -78,16 +43,12 @@ describe('product app sections (phase 2.5)', () => {
 
 describe('store sells from its own quantity (phase 3)', () => {
   it('only when the store is enabled and the inventory bridge is not', () => {
-    const local = (codes: string[] | null, isSystemOwner = false) =>
-      storeSellsLocallyFor('c1', { enabledApplicationCodes: codes, isSystemOwner });
+    const local = (codes: string[] | null) => storeSellsLocallyFrom(companyAppsFrom(codes));
     expect(local(['catalog', 'store-admin'])).toBe(true);
     expect(local(['catalog', 'store-admin', 'inventory'])).toBe(true);
     expect(local(['catalog', 'store-admin', 'inventory', 'store-stock-sync'])).toBe(false);
     expect(local(['catalog', 'inventory'])).toBe(false);
-    // The viewer being System Owner does not change how the company sells.
-    expect(local(['catalog', 'store-admin'], true)).toBe(true);
-    expect(local(['catalog', 'inventory'], true)).toBe(false);
-    // Pre-migration sessions keep the old behaviour (selling from inventory).
+    // Not known yet: neither way is shown.
     expect(local(null)).toBe(false);
   });
 });

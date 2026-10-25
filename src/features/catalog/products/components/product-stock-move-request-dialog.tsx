@@ -165,11 +165,16 @@ export function ProductStockMoveRequestDialog({
   const [saving, setSaving] = React.useState(false);
   const [availableByLineKey, setAvailableByLineKey] = React.useState<Record<string, number>>({});
 
-  const { data: locationsData } = useWarehouseLocations({
-    companyId,
-    warehouseId: warehouseId || undefined,
-    limit: 500,
-  });
+  // Mounted on every product page: ask inventory only while it is open (it
+  // opens from the inventory shortcuts, shown only with inventory enabled).
+  const { data: locationsData } = useWarehouseLocations(
+    {
+      companyId,
+      warehouseId: warehouseId || undefined,
+      limit: 500,
+    },
+    { enabled: open },
+  );
   const locations = React.useMemo(
     () =>
       (locationsData?.items ?? []).filter(

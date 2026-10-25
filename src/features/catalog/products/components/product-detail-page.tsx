@@ -52,10 +52,11 @@ import type { ProductRelatedDocKey } from '@/features/catalog/products/component
 import { productMoveRequestListRestore } from '@/features/catalog/products/lib/product-move-request-flow';
 import { useProductsBasePath } from '@/features/catalog/products/lib/products-navigation';
 import {
-  useProductAppSections,
-  visibleProductTabs,
+  PRODUCT_INVENTORY_DOCS,
+  productAppSectionsFrom,
   visibleRelatedDocs,
 } from '@/features/catalog/products/hooks/use-product-app-sections';
+import { APP, useCompanyApps, type AppRequirement } from '@/shared/modules/company-apps';
 import type { WarehouseOperationKind } from '@/features/inventory/domain/types/warehouse';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -63,18 +64,33 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 type Props = { productId: string };
 type MoveRequestKind = WarehouseOperationKind;
 
-const DETAIL_TABS = [
-  { value: 'general', label: 'عام', icon: Package },
-  { value: 'image', label: 'عرض الصورة', icon: ImageIcon },
-  { value: 'attributes', label: 'خصائص', icon: Layers },
-  { value: 'availability', label: 'توفر', icon: Warehouse },
-  { value: 'batches', label: 'الدفعات', icon: Boxes },
-  { value: 'units', label: 'وحدات', icon: Ruler },
-  { value: 'reviews', label: 'تقييمات', icon: Star },
-  { value: 'settings', label: 'الإعدادات', icon: Settings },
-] as const;
+type DetailTab =
+  | 'general'
+  | 'image'
+  | 'attributes'
+  | 'availability'
+  | 'batches'
+  | 'units'
+  | 'reviews'
+  | 'settings';
 
-type DetailTab = (typeof DETAIL_TABS)[number]['value'];
+const DETAIL_TABS: ReadonlyArray<
+  { value: DetailTab; label: string; icon: typeof Package } & AppRequirement
+> = [
+  { value: 'general', label: 'عام', icon: Package },
+  { value: 'image', label: 'عرض الصورة', icon: ImageIcon, requiresApp: APP.storeAdmin },
+  { value: 'attributes', label: 'خصائص', icon: Layers },
+  {
+    value: 'availability',
+    label: 'توفر',
+    icon: Warehouse,
+    requiresAnyApp: [APP.inventory, APP.storeAdmin],
+  },
+  { value: 'batches', label: 'الدفعات', icon: Boxes, requiresApp: APP.inventory },
+  { value: 'units', label: 'وحدات', icon: Ruler },
+  { value: 'reviews', label: 'تقييمات', icon: Star, requiresApp: APP.storeAdmin },
+  { value: 'settings', label: 'الإعدادات', icon: Settings },
+];
 
 /** Maps top-level form fields to the tab that renders them, so a validation error can jump the user there. */
 const TAB_FIELDS: Record<DetailTab, string[]> = {
@@ -150,10 +166,13 @@ export function ProductDetailPage({ productId }: Props) {
     isError: isProductError,
   } = useProduct(companyId, productId);
   const { update, remove } = useProductMutations();
-  const sections = useProductAppSections();
-  const visibleTabs = visibleProductTabs(DETAIL_TABS, sections);
+  const apps = useCompanyApps();
+  const sections = productAppSectionsFrom(apps);
+  const visibleTabs = apps.filter(DETAIL_TABS);
 
-  const [activeTab, setActiveTab] = React.useState<DetailTab>('general');
+  const [selectedTab, setActiveTab] = React.useState<DetailTab>('general');
+  // A tab of an app that is (or becomes) disabled falls back quietly.
+  const activeTab = visibleTabs.some((tab) => tab.value === selectedTab) ? selectedTab : 'general';
   const [activeRelatedDoc, setActiveRelatedDoc] = React.useState<ProductRelatedDocKey | null>(null);
   const [moveRequestKind, setMoveRequestKind] = React.useState<MoveRequestKind | null>(null);
   const [movesListKind, setMovesListKind] = React.useState<MoveRequestKind | null>(null);
@@ -376,21 +395,8 @@ export function ProductDetailPage({ productId }: Props) {
       count: variantsCount,
       hint: variantsCount > 0 ? 'عرض وتحرير أسعار وكميات المتغيرات' : 'أضف خصائص تُنشئ متغيرات لظهورها هنا',
     },
-    {
-      key: 'replenish' as const,
-      label: 'تجديد المخزون',
-      hint: 'طلبات تجديد المخزون وحالاتها — أنشئ طلبًا ثم صدّقه من المستودع',
-    },
-    { key: 'receipts' as const, label: 'استلام مخزون', hint: 'طلبات الاستلام الخاصة بهذا المنتج' },
-    { key: 'issues' as const, label: 'صرف مخزون', hint: 'طلبات الصرف الخاصة بهذا المنتج' },
-    {
-      key: 'internals' as const,
-      label: 'نقل المواقع',
-      hint: 'نقل بين مواقع داخل نفس المستودع (ليس بين مستودعات)',
-    },
-    { key: 'moves' as const, label: 'سجل الحركات', hint: 'كل حركات المخزون المرتبطة بهذا المنتج' },
-    { key: 'putaway' as const, label: 'قواعد التخزين', hint: 'فتح قائمة قواعد التخزين لهذا المنتج' },
-  ], sections);
+    ...PRODUCT_INVENTORY_DOCS,
+  ], apps);
 
   return (
     <div className="flex flex-col gap-5">

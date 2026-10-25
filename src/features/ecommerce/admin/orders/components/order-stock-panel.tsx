@@ -15,6 +15,7 @@ import type {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/shared/utils';
+import { APP, useCompanyApps } from '@/shared/modules/company-apps';
 
 const STOCK_UPDATE_PERMISSION = 'sta.stock.update';
 
@@ -102,6 +103,8 @@ function ResolveSource({
   canManage: boolean;
 }) {
   const mutation = useResolveOrderStockSource(companyId);
+  // Selling from inventory is the store–inventory bridge's.
+  const bridgeOn = useCompanyApps().isEnabled(APP.storeStockSync);
   const noteRef = React.useRef<HTMLInputElement>(null);
   const [note, setNote] = React.useState('');
   const [noteMissing, setNoteMissing] = React.useState(false);
@@ -145,9 +148,11 @@ function ResolveSource({
         <p className="text-xs font-medium text-destructive">اكتب الملاحظة أولاً، ثم اضغط الزر.</p>
       ) : null}
       <div className="flex flex-wrap gap-2">
-        <Button size="sm" disabled={!canManage || mutation.isPending} onClick={() => run('inventory')}>
-          المخازن
-        </Button>
+        {bridgeOn ? (
+          <Button size="sm" disabled={!canManage || mutation.isPending} onClick={() => run('inventory')}>
+            المخازن
+          </Button>
+        ) : null}
         <Button
           size="sm"
           variant="outline"

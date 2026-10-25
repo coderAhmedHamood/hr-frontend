@@ -276,6 +276,7 @@ export const warehouseOperationsApi: AdminWarehouseOperationsPort & {
           warehouseId: query.warehouseId,
           kind: query.kind,
           status: query.status,
+          partnerId: query.partnerId,
           occurredAtFrom: query.occurredAtFrom,
           occurredAtTo: query.occurredAtTo,
           search: query.search,

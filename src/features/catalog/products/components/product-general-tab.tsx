@@ -22,8 +22,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { SearchableDropdown } from '@/components/ui/shared-dialogs';
 import { cn } from '@/shared/utils';
 import { useProductAppSections } from '@/features/catalog/products/hooks/use-product-app-sections';
-import { useModuleEnablementContext } from '@/features/auth/hooks/use-system-owner';
-import { companyHasApp } from '@/shared/modules/registry';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
 import { usePosMenuCategories } from '@/features/pos/hooks/use-pos-menu-categories';
 import { useCompanyCurrency } from '@/features/auth/lib/company-currency';
@@ -52,8 +50,7 @@ export function ProductGeneralTab({
   // Cost and tracking are inventory's; compare-at price is the store's.
   const sections = useProductAppSections();
   const currencySymbol = currencySymbolAr(useCompanyCurrency());
-  const { enabledApplicationCodes } = useModuleEnablementContext();
-  const posEnabled = companyHasApp('pos', { enabledApplicationCodes });
+  const posEnabled = sections.pos;
   const posCategories = usePosMenuCategories(getStorefrontCompanyId(), posEnabled);
 
   return (

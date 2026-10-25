@@ -3,6 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
+import { APP, useCompanyApps } from '@/shared/modules/company-apps';
 import { toast } from 'sonner';
 import {
   Check,
@@ -646,14 +647,17 @@ export function PosCashierApp() {
 
   const selectedLocation = locations.find((l) => l.id === locationId) ?? null;
   // The online store shows one warehouse: deductions elsewhere do not change it.
+  // Only when the store sells from inventory (the store–inventory bridge).
+  const storeSellsFromInventory = useCompanyApps().isEnabled(APP.storeStockSync);
   const { data: storeWarehouse } = useQuery({
     queryKey: ['inventory', 'pos', 'store-warehouse', companyId],
     queryFn: () => fetchStoreWarehouse(companyId),
-    enabled: Boolean(companyId),
+    enabled: Boolean(companyId) && storeSellsFromInventory,
     retry: false,
     staleTime: 60_000,
   });
   const outsideStoreWarehouse = Boolean(
+    storeSellsFromInventory &&
     storeWarehouse?.enabled &&
       storeWarehouse.warehouseId &&
       selectedLocation &&

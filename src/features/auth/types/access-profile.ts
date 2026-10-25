@@ -46,8 +46,17 @@ export type CompanyAccess = {
   branches: BranchAccess[];
   /** True when this user is a company Superuser (not System Owner). */
   isCompanySuperuser?: boolean;
-  /** Application codes enabled for this company, e.g. ["system", "inventory"]. */
+  /**
+   * Application codes this viewer may use in the company, e.g. ["system", "inventory"].
+   * For the System Owner: every active app of the platform.
+   */
   enabledApplicationCodes?: string[];
+  /**
+   * Applications the company itself has enabled, whoever the viewer is (no
+   * System Owner superset). Decides whether one app's parts show inside
+   * another — read it through `useCompanyApps`, never directly.
+   */
+  companyApplicationCodes?: string[];
 };
 
 export type AccessProfile = {

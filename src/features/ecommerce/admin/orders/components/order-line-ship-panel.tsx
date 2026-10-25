@@ -32,6 +32,7 @@ import { Input } from '@/components/ui/input';
 import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/shared/utils';
+import { APP, useCompanyApps } from '@/shared/modules/company-apps';
 import { toast } from 'sonner';
 
 type DraftRow = {
@@ -95,7 +96,10 @@ export function OrderLineShipPanel({
   // Inventory orders are reserved in the store warehouse: prepared from it only.
   const lockedWarehouseId =
     line.allocations[0]?.warehouseId || (sellsFromInventory ? stockWarehouseId : '') || '';
-  const needsStockContext = (open || isShipped) && sellsFromInventory;
+  // Stock figures are inventory's: not asked for once it is disabled (a
+  // shipped inventory order stays readable from its own lines).
+  const inventoryOn = useCompanyApps().isEnabled(APP.inventory);
+  const needsStockContext = (open || isShipped) && sellsFromInventory && inventoryOn;
 
   const { data: product } = useQuery({
     queryKey: ['ecommerce', 'products', 'track-inventory', companyId, line.productId],

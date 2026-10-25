@@ -40,6 +40,7 @@ import {
   ecommerceAdminNavGroups,
   ecommerceAdminOverviewItem,
   flattenEcommerceNavItems,
+  visibleEcommerceNavGroups,
 } from '@/features/ecommerce/admin/constants/nav';
 import { catalogNavItems } from '@/features/catalog/constants/nav';
 import {
@@ -59,6 +60,7 @@ import {
 } from '@/features/accounting/constants/nav';
 import { expensesNavGroups, expensesOverviewItem } from '@/features/expenses/constants/nav';
 import { isModuleEnabledFor } from '@/shared/modules/registry';
+import { APP, useCompanyApps, type CompanyApps } from '@/shared/modules/company-apps';
 import { useModuleEnablementContext } from '@/features/auth/hooks/use-system-owner';
 
 type MobileNavChild =
@@ -222,7 +224,11 @@ const systemMobileNav: MobileNavItem[] = [
   },
 ];
 
-function buildEcommerceMobileNav(tNav: (key: string) => string, catalogEnabled: boolean): MobileNavItem[] {
+function buildEcommerceMobileNav(
+  tNav: (key: string) => string,
+  catalogEnabled: boolean,
+  apps: CompanyApps,
+): MobileNavItem[] {
   const items: MobileNavItem[] = [
     { key: 'apps', label: tNav('appsHome'), href: '/', icon: LayoutGrid },
     {
@@ -234,9 +240,12 @@ function buildEcommerceMobileNav(tNav: (key: string) => string, catalogEnabled: 
     },
   ];
 
-  const groups = catalogEnabled
-    ? ecommerceAdminNavGroups
-    : ecommerceAdminNavGroups.filter((group) => group.key !== 'products');
+  const groups = visibleEcommerceNavGroups(
+    catalogEnabled
+      ? ecommerceAdminNavGroups
+      : ecommerceAdminNavGroups.filter((group) => group.key !== 'products'),
+    apps,
+  );
 
   for (const group of groups) {
     const flat = flattenEcommerceNavItems(group);
@@ -642,7 +651,9 @@ export function Sidebar() {
   const ecommerceEnabled = isModuleEnabledFor('ecommerce', activeCompanyId, moduleContext);
   const inventoryEnabled = isModuleEnabledFor('inventory', activeCompanyId, moduleContext);
   const catalogEnabled = isModuleEnabledFor('catalog', activeCompanyId, moduleContext);
-  const shopSalesEnabled = isModuleEnabledFor('shopSales', activeCompanyId, moduleContext);
+  const companyApps = useCompanyApps();
+  // Another app inside inventory: follows the company's apps, not the viewer.
+  const shopSalesEnabled = companyApps.isEnabled(APP.shopSales);
   const contactsEnabled = isModuleEnabledFor('contacts', activeCompanyId, moduleContext);
   const posEnabled = isModuleEnabledFor('pos', activeCompanyId, moduleContext);
   const tNav = useTranslations('ecommerceAdmin.nav');
@@ -718,7 +729,7 @@ export function Sidebar() {
           : catalogEnabled && isCatalogAppPath(pathname)
             ? buildCatalogMobileNav()
             : ecommerceEnabled && isEcommerceAppPath(pathname)
-            ? buildEcommerceMobileNav((key) => tNav(key as 'overview'), catalogEnabled)
+            ? buildEcommerceMobileNav((key) => tNav(key as 'overview'), catalogEnabled, companyApps)
             : mobileNav;
 
   // System / Inventory get the native-app-style bottom sheet (paired with their

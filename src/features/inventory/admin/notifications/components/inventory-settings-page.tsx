@@ -24,6 +24,7 @@ import {
 } from '@/features/system/organization/pages/_shared/components/settings-page-states';
 import { useModuleEnablementContext } from '@/features/auth/hooks/use-system-owner';
 import { isModuleEnabledFor } from '@/shared/modules/registry';
+import { useCompanyApps } from '@/shared/modules/company-apps';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
@@ -93,6 +94,7 @@ export function InventorySettingsPage() {
   const [activeTab, setActiveTab] = React.useState<SettingsTab>('general');
 
   const activeCompanyId = useAuthStore((s) => s.activeCompanyId);
+  const companyApps = useCompanyApps();
   const { companyId: moduleCompanyId, ...moduleContext } = useModuleEnablementContext();
   const inventoryEnabled = isModuleEnabledFor(
     'inventory',
@@ -457,7 +459,7 @@ export function InventorySettingsPage() {
         <TabsContent value="notifications" className="mt-0 focus-visible:outline-none">
           <NotificationTogglesCard
             title="إشعارات المخازن"
-            groups={INVENTORY_NOTIFICATION_GROUPS}
+            groups={companyApps.filter(INVENTORY_NOTIFICATION_GROUPS)}
             values={settings as Pick<InventoryCompanySettings, InventoryNotificationKey>}
             disabled={controlsDisabled}
             masterDisabled={!settings.notificationsEnabled}

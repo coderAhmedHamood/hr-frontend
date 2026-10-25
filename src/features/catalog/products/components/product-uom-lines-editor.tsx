@@ -11,7 +11,7 @@ import {
 import { useCatalogUoms } from '@/features/catalog/catalog-uoms/hooks/use-catalog-uoms';
 import type { CatalogUom } from '@/features/catalog/catalog-uoms/lib/api/catalog-uoms';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
-import { inventoryAdminRoutes } from '@/features/inventory/admin/constants/routes';
+import { useCatalogUomsHref } from '@/features/catalog/products/lib/products-navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -51,6 +51,7 @@ const TEMPLATE_SPECS: Array<{ match: string[]; relativeQuantity: number; isRefer
 ];
 
 export function ProductUomLinesEditor({ control, errors, setValue, fieldPath, compact }: Props) {
+  const uomsHref = useCatalogUomsHref();
   const companyId = getStorefrontCompanyId();
   const { data: catalogData } = useCatalogUoms({ companyId, ensureDefaults: true, limit: 200 });
   const catalogItems = React.useMemo(
@@ -153,7 +154,7 @@ export function ProductUomLinesEditor({ control, errors, setValue, fieldPath, co
             ⭐ = الوحدة المرجعية (1). «كمية نسبية» = عدد وحدات المرجع داخل هذا الطرد.
           </p>
           <Button type="button" variant="outline" size="sm" className="gap-1.5" asChild>
-            <Link href={inventoryAdminRoutes.catalogUoms} target="_blank">
+            <Link href={uomsHref} target="_blank">
               <ExternalLink className="h-3.5 w-3.5" />
               إدارة الكتالوج
             </Link>
@@ -324,7 +325,7 @@ export function ProductUomLinesEditor({ control, errors, setValue, fieldPath, co
             {catalogItems.length === 0
               ? 'لا توجد وحدات في الكتالوج بعد.'
               : 'كل وحدات الكتالوج مربوطة بهذا المنتج.'}{' '}
-            <Link href={inventoryAdminRoutes.catalogUoms} className="text-primary underline-offset-2 hover:underline">
+            <Link href={uomsHref} className="text-primary underline-offset-2 hover:underline">
               أضِف وحدة في الكتالوج
             </Link>
           </p>

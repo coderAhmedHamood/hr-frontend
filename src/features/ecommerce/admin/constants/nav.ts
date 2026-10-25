@@ -37,6 +37,7 @@ import {
   Share2,
   CircleDollarSign,
 } from 'lucide-react';
+import { APP, type AppRequirement, type CompanyApps } from '@/shared/modules/company-apps';
 import {
   ecommerceAdminRoutes,
   ecommerceContentHref,
@@ -44,7 +45,7 @@ import {
   ecommerceSettingsHref,
 } from '@/features/ecommerce/admin/constants/routes';
 
-export type EcommerceAdminNavItem = {
+export type EcommerceAdminNavItem = AppRequirement & {
   /** next-intl key under `ecommerceAdmin.nav.*` */
   labelKey: string;
   href: string;
@@ -201,6 +202,9 @@ export const ecommerceAdminNavGroups: EcommerceAdminNavGroup[] = [
             labelKey: 'settingsTabs.stockSync',
             href: ecommerceSettingsHref('stockSync'),
             icon: ArrowLeftRight,
+            // The store–inventory link: chosen and previewed before the
+            // bridge is enabled, so it follows inventory (the bridge needs it).
+            requiresApp: APP.inventory,
           },
           {
             labelKey: 'settingsTabs.orderStages',
@@ -229,6 +233,21 @@ const ECOMMERCE_ADMIN_PATHS: string[] = [
 
 export function isEcommerceAdminNavPath(pathname: string): boolean {
   return ECOMMERCE_ADMIN_PATHS.some((base) => pathname === base || pathname.startsWith(`${base}/`));
+}
+
+/** The groups with only the items whose app is enabled (empty ones dropped). */
+export function visibleEcommerceNavGroups(
+  groups: readonly EcommerceAdminNavGroup[],
+  apps: CompanyApps,
+): EcommerceAdminNavGroup[] {
+  return groups
+    .map((group) => ({
+      ...group,
+      sections: group.sections
+        .map((section) => ({ ...section, items: apps.filter(section.items) }))
+        .filter((section) => section.items.length > 0),
+    }))
+    .filter((group) => group.sections.length > 0);
 }
 
 export function flattenEcommerceNavItems(group: EcommerceAdminNavGroup): EcommerceAdminNavItem[] {

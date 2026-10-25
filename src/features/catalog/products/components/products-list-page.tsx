@@ -41,7 +41,8 @@ import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { DataTable, type ColumnDef } from '@/components/ui/data-table';
 import { DirectoryPagedViews, DEFAULT_PAGE_SIZE } from '@/components/ui/paged-list';
 import { resolveUploadUrl } from '@/shared/resolve-upload-url';
-import { useProductAppSections } from '@/features/catalog/products/hooks/use-product-app-sections';
+import { productAppSectionsFrom } from '@/features/catalog/products/hooks/use-product-app-sections';
+import { APP, useCompanyApps, type AppRequirement } from '@/shared/modules/company-apps';
 
 const FILTER_KEYS = [
   'categoryId',
@@ -71,10 +72,10 @@ const STOCK_BADGE_VARIANT: Record<StockStatus, 'success' | 'destructive' | 'warn
   discontinued: 'outline',
 };
 
-const SORT_OPTIONS: { value: NonNullable<ProductListQuery['sort']>; labelAr: string }[] = [
+const SORT_OPTIONS: ({ value: NonNullable<ProductListQuery['sort']>; labelAr: string } & AppRequirement)[] = [
   { value: 'name', labelAr: 'الاسم' },
   { value: 'price', labelAr: 'السعر' },
-  { value: 'stock', labelAr: 'الكمية' },
+  { value: 'stock', labelAr: 'الكمية', requiresApp: APP.inventory },
   { value: 'createdAt', labelAr: 'تاريخ الإضافة' },
   { value: 'updatedAt', labelAr: 'آخر تحديث' },
 ];
@@ -148,7 +149,8 @@ export function ProductsListPage() {
 
   // Stock columns/filters are inventory's; stockStatus and the promo offers
   // («منتج حديث», «تخفيضات اليوم», …) are the store's.
-  const sections = useProductAppSections();
+  const apps = useCompanyApps();
+  const sections = productAppSectionsFrom(apps);
   const query: ProductListQuery = {
     companyId,
     search: search || undefined,
@@ -165,6 +167,10 @@ export function ProductsListPage() {
           isWholesale: undefined,
           isDiscounted: undefined,
         }),
+    // Same for the inventory and point-of-sale filters.
+    ...(sections.inventory ? {} : { warehouseId: undefined }),
+    ...(sections.inventory || filters.sort !== 'stock' ? {} : { sort: undefined }),
+    ...(sections.pos ? {} : { posAvailable: undefined }),
   };
   const { data, isLoading, isError } = useProducts(query);
   const { data: categoriesData } = useCategories({ companyId, limit: 100 });
@@ -356,7 +362,7 @@ export function ProductsListPage() {
             placeholder: 'الترتيب الافتراضي',
             options: [
               { value: 'all', label: 'الترتيب الافتراضي' },
-              ...SORT_OPTIONS.map((option) => ({ value: option.value, label: option.labelAr })),
+              ...apps.filter(SORT_OPTIONS).map((option) => ({ value: option.value, label: option.labelAr })),
             ],
           },
         ]}
@@ -534,22 +540,28 @@ export function ProductsListPage() {
             <p className="text-[11px] text-muted-foreground">السعر</p>
             <p className="font-medium tabular-nums text-foreground">{formatPrice(product.price)}</p>
           </div>
-          <div>
-            <p className="text-[11px] text-muted-foreground">تكلفة الكاتالوج</p>
-            <p className="font-medium tabular-nums text-emerald-700 dark:text-emerald-400">
-              {product.costPrice ? formatPrice(product.costPrice) : '—'}
-            </p>
-          </div>
-          <div className="text-end">
-            <p className="text-[11px] text-muted-foreground">الكمية</p>
-            <p className="font-medium tabular-nums text-foreground">{product.inventory.quantity}</p>
-          </div>
+          {sections.inventory ? (
+            <>
+              <div>
+                <p className="text-[11px] text-muted-foreground">تكلفة الكاتالوج</p>
+                <p className="font-medium tabular-nums text-emerald-700 dark:text-emerald-400">
+                  {product.costPrice ? formatPrice(product.costPrice) : '—'}
+                </p>
+              </div>
+              <div className="text-end">
+                <p className="text-[11px] text-muted-foreground">الكمية</p>
+                <p className="font-medium tabular-nums text-foreground">{product.inventory.quantity}</p>
+              </div>
+            </>
+          ) : null}
         </div>
 
         <div className="flex flex-wrap items-center gap-1.5">
-          <Badge variant={STOCK_BADGE_VARIANT[product.stockStatus]}>
-            {STOCK_STATUS_LABELS_AR[product.stockStatus]}
-          </Badge>
+          {sections.store ? (
+            <Badge variant={STOCK_BADGE_VARIANT[product.stockStatus]}>
+              {STOCK_STATUS_LABELS_AR[product.stockStatus]}
+            </Badge>
+          ) : null}
           <Badge variant={STATUS_BADGE_VARIANT[product.status]}>{PRODUCT_STATUS_LABELS_AR[product.status]}</Badge>
         </div>
 

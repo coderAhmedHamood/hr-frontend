@@ -174,6 +174,8 @@ export type WarehouseOperationListQuery = {
   kind?: WarehouseOperationKind;
   status?: WarehouseOperationStatus;
   productId?: string;
+  /** The linked contact (supplier, customer, …). */
+  partnerId?: string;
   occurredAtFrom?: string;
   occurredAtTo?: string;
   search?: string;

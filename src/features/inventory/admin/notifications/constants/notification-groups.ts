@@ -1,3 +1,4 @@
+import { APP, type AppRequirement } from '@/shared/modules/company-apps';
 import type { InventoryCompanySettings } from '@/features/inventory/admin/notifications/lib/api/inventory-settings';
 import type {
   NotificationToggleGroup,
@@ -21,7 +22,7 @@ export type InventoryNotificationKey = Exclude<
   | 'updatedBy'
 >;
 
-export const INVENTORY_NOTIFICATION_GROUPS: NotificationToggleGroup[] = [
+export const INVENTORY_NOTIFICATION_GROUPS: Array<NotificationToggleGroup & AppRequirement> = [
   {
     label: 'عام',
     items: [
@@ -58,6 +59,8 @@ export const INVENTORY_NOTIFICATION_GROUPS: NotificationToggleGroup[] = [
   },
   {
     label: 'خصم البيع',
+    // Deductions come from the shop-sales app.
+    requiresApp: APP.shopSales,
     items: [
       {
         key: 'notifySaleStockDeducted',

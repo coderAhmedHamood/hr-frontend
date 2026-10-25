@@ -94,8 +94,9 @@
 ## 7. خاص بالواجهة
 
 - **إظهار ما يخص تطبيقًا اختياريًا** حسب تفعيله للشركة الحالية، لا حسب نجاح طلب أو وجود مسار:
-  - `companyHasApp('<code>', { enabledApplicationCodes })` من `src/shared/modules/registry.ts`، مع `useModuleEnablementContext()`.
-  - أو `isModuleEnabledFor`، كما في `sidebar.tsx` و`product-general-tab.tsx`.
+  - `useCompanyApps()` من `src/shared/modules/company-apps.ts`، والعنصر يعلن تطبيقه في تعريفه (`requiresApp: APP.inventory`) ويُرشَّح بـ `apps.filter(items)`. أمثلة: `product-detail-page.tsx` و`partner-detail-page.tsx` و`ecommerce/admin/constants/nav.ts`.
+  - مصدره تطبيقات الشركة نفسها (`companyApplicationCodes`)، بلا استثناء لمالك النظام، ولا يظهر شيء قبل معرفتها.
+  - `isModuleEnabledFor` لهيكل التطبيق نفسه فقط (قوائمه لمن يدخله)، لا لعنصر من تطبيق آخر.
 - **الطلب الذي يفشل:**
   - يُعرض خطأً قابلًا لإعادة المحاولة.
   - لا يُحوَّل إلى «غير مفعّل» أو «غير موجود».

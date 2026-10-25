@@ -3,9 +3,8 @@
 import * as React from 'react';
 import { useCan } from '@/features/auth/hooks/use-can';
 import { useAuthStore } from '@/features/auth/lib/auth-store';
-import { useModuleEnablementContext } from '@/features/auth/hooks/use-system-owner';
 import { useCurrentEmployee } from '@/features/hr/organization/employees/hooks/useCurrentEmployee';
-import { isModuleEnabledFor } from '@/shared/modules/registry';
+import { APP, useCompanyApps } from '@/shared/modules/company-apps';
 
 export type UnifiedNotificationTabId = 'hr' | 'inventory' | 'store' | 'contacts';
 
@@ -26,15 +25,17 @@ export function useUnifiedNotificationTabs(): {
 } {
   const can = useCan();
   const userId = useAuthStore((s) => s.user?.id ?? s.accessProfile?.userId ?? '');
-  const { companyId: activeCompanyId, ...moduleContext } = useModuleEnablementContext();
-  const hrEnabled = isModuleEnabledFor('hr', activeCompanyId, moduleContext);
+  // The bell shows the apps the company has enabled (not the System Owner's
+  // whole platform): each tab's notifications come from its app's API.
+  const apps = useCompanyApps();
+  const hrEnabled = apps.isEnabled(APP.hr);
   // Apps are separate: the HR employee is looked up only for the HR tab, when
   // HR is on for the company and the user may read employees.
   const { data: currentEmployee } = useCurrentEmployee(hrEnabled && can('hr.employees.read'));
   const employeeId = currentEmployee?.id ?? '';
-  const inventoryEnabled = isModuleEnabledFor('inventory', activeCompanyId, moduleContext);
-  const storeEnabled = isModuleEnabledFor('ecommerce', activeCompanyId, moduleContext);
-  const contactsEnabled = isModuleEnabledFor('contacts', activeCompanyId, moduleContext);
+  const inventoryEnabled = apps.isEnabled(APP.inventory);
+  const storeEnabled = apps.isEnabled(APP.storeAdmin);
+  const contactsEnabled = apps.isEnabled(APP.contacts);
 
   const tabs = React.useMemo(() => {
     const result: UnifiedNotificationTab[] = [];

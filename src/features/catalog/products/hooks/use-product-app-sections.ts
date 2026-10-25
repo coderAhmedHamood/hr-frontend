@@ -1,12 +1,11 @@
 'use client';
 
-import { useModuleEnablementContext } from '@/features/auth/hooks/use-system-owner';
 import {
-  companyHasApp,
-  isModuleEnabledFor,
-  STORE_STOCK_SYNC_APP_CODE,
-  type ModuleEnablementContext,
-} from '@/shared/modules/registry';
+  APP,
+  useCompanyApps,
+  type AppRequirement,
+  type CompanyApps,
+} from '@/shared/modules/company-apps';
 import { PUTAWAY_RULES_ENABLED } from '@/features/inventory/admin/putaway-rules/lib/putaway-feature';
 
 /**
@@ -14,74 +13,82 @@ import { PUTAWAY_RULES_ENABLED } from '@/features/inventory/admin/putaway-rules/
  * itself is the catalog's; stock fields (warehouse, cost, tracking, quantity,
  * batches, stock moves) are inventory's and listing fields (compare-at price,
  * promos, stockStatus, reviews) are the store's. A section shows only when
- * its app is enabled for the active company — its API refuses otherwise.
+ * its app is enabled for the company (`useCompanyApps`: the company's own
+ * apps, whoever views, nothing until they are known) — its API refuses otherwise.
+ *
+ * Tabs and related documents declare their app on their definition
+ * (`requiresApp` / `requiresAnyApp`) and are filtered with `apps.filter`.
  */
 export type ProductAppSections = { inventory: boolean; store: boolean; pos: boolean };
 
-export function productAppSectionsFor(
-  companyId: string | null | undefined,
-  context: ModuleEnablementContext,
-): ProductAppSections {
+export function productAppSectionsFrom(apps: CompanyApps): ProductAppSections {
   return {
-    inventory: isModuleEnabledFor('inventory', companyId, context),
-    store: isModuleEnabledFor('ecommerce', companyId, context),
-    pos: isModuleEnabledFor('pos', companyId, context),
+    inventory: apps.isEnabled(APP.inventory),
+    store: apps.isEnabled(APP.storeAdmin),
+    pos: apps.isEnabled(APP.pos),
   };
 }
 
 export function useProductAppSections(): ProductAppSections {
-  const { companyId, ...context } = useModuleEnablementContext();
-  return productAppSectionsFor(companyId, context);
+  return productAppSectionsFrom(useCompanyApps());
 }
 
 /**
  * Phase 3: the company sells from the store's own quantity — the store is
  * enabled and the store-stock-sync bridge (selling from inventory) is not.
- * Uses the company's apps, with no System Owner bypass.
  */
-export function storeSellsLocallyFor(
-  companyId: string | null | undefined,
-  context: ModuleEnablementContext,
-): boolean {
-  return (
-    isModuleEnabledFor('ecommerce', companyId, { ...context, isSystemOwner: false }) &&
-    !companyHasApp(STORE_STOCK_SYNC_APP_CODE, context)
-  );
+export function storeSellsLocallyFrom(apps: CompanyApps): boolean {
+  return apps.isEnabled(APP.storeAdmin) && !apps.isEnabled(APP.storeStockSync);
 }
 
 export function useStoreSellsLocally(): boolean {
-  const { companyId, ...context } = useModuleEnablementContext();
-  return storeSellsLocallyFor(companyId, context);
+  return storeSellsLocallyFrom(useCompanyApps());
 }
 
-/** Product form tabs owned by one app (other tabs are the catalog's). */
-const TAB_APP: Record<string, keyof ProductAppSections> = {
-  image: 'store',
-  batches: 'inventory',
-  reviews: 'store',
-};
+/** Product shortcuts that open inventory screens (after «متغيرات المنتج»). */
+export const PRODUCT_INVENTORY_DOCS = [
+  {
+    key: 'replenish',
+    label: 'تجديد المخزون',
+    hint: 'طلبات تجديد المخزون وحالاتها — أنشئ طلبًا ثم صدّقه من المستودع',
+    requiresApp: APP.inventory,
+  },
+  {
+    key: 'receipts',
+    label: 'استلام مخزون',
+    hint: 'طلبات الاستلام الخاصة بهذا المنتج',
+    requiresApp: APP.inventory,
+  },
+  {
+    key: 'issues',
+    label: 'صرف مخزون',
+    hint: 'طلبات الصرف الخاصة بهذا المنتج',
+    requiresApp: APP.inventory,
+  },
+  {
+    key: 'internals',
+    label: 'نقل المواقع',
+    hint: 'نقل بين مواقع داخل نفس المستودع (ليس بين مستودعات)',
+    requiresApp: APP.inventory,
+  },
+  {
+    key: 'moves',
+    label: 'سجل الحركات',
+    hint: 'كل حركات المخزون المرتبطة بهذا المنتج',
+    requiresApp: APP.inventory,
+  },
+  {
+    key: 'putaway',
+    label: 'قواعد التخزين',
+    hint: 'فتح قائمة قواعد التخزين لهذا المنتج',
+    requiresApp: APP.inventory,
+  },
+] as const satisfies ReadonlyArray<{ key: string; label: string; hint: string } & AppRequirement>;
 
-export function visibleProductTabs<T extends { value: string }>(
-  tabs: readonly T[],
-  sections: ProductAppSections,
-): T[] {
-  return tabs.filter((tab) => {
-    if (tab.value === 'availability') return sections.inventory || sections.store;
-    const app = TAB_APP[tab.value];
-    return app ? sections[app] : true;
-  });
-}
-
-/** Related-document shortcuts that open inventory screens. */
-const INVENTORY_DOCS = new Set(['replenish', 'receipts', 'issues', 'internals', 'moves', 'putaway']);
-
+/** Related documents shown on a product, minus the ones switched off. */
 export function visibleRelatedDocs<T extends { key: string }>(
   docs: readonly T[],
-  sections: ProductAppSections,
+  apps: CompanyApps,
 ): T[] {
-  return docs.filter(
-    (doc) =>
-      (doc.key !== 'putaway' || PUTAWAY_RULES_ENABLED) &&
-      (sections.inventory || !INVENTORY_DOCS.has(doc.key)),
-  );
+  return apps.filter(docs).filter((doc) => doc.key !== 'putaway' || PUTAWAY_RULES_ENABLED);
 }

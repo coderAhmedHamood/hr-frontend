@@ -273,7 +273,8 @@ export function ProductVariantsPanel({
             {statusBadge}
           </div>
           <p className="text-xs text-muted-foreground">
-            عدّل الأسعار ثم اضغط «إضافة المتغيرات» لحفظها في قاعدة البيانات. الكمية من مخزون المستودع بعد التصديق.
+            عدّل الأسعار ثم اضغط «إضافة المتغيرات» لحفظها في قاعدة البيانات.
+            {sections.inventory ? ' الكمية من مخزون المستودع بعد التصديق.' : null}
           </p>
         </div>
         <Button
@@ -381,6 +382,7 @@ export function ProductVariantsPanel({
                       {...register(`variants.${index}.salePrice`, { valueAsNumber: true })}
                     />
                   </div>
+                  {sections.inventory ? (
                   <div className="space-y-1">
                     <p className="text-xs text-muted-foreground">التكلفة</p>
                     <Input
@@ -397,12 +399,17 @@ export function ProductVariantsPanel({
                       {...register(`variants.${index}.costPrice`, { valueAsNumber: true })}
                     />
                   </div>
+                  ) : null}
                 </div>
                 <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-                  <span>
-                    <span className="text-xs text-muted-foreground">الكمية (من المستودع) </span>
-                    <span className="font-semibold tabular-nums">{onHandQty}</span>
-                  </span>
+                  {sections.inventory ? (
+                    <span>
+                      <span className="text-xs text-muted-foreground">الكمية (من المستودع) </span>
+                      <span className="font-semibold tabular-nums">{onHandQty}</span>
+                    </span>
+                  ) : (
+                    <span />
+                  )}
                   {rowPersisted ? (
                     <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 dark:text-emerald-400">
                       <CheckCircle2 className="h-3.5 w-3.5" />
@@ -436,8 +443,12 @@ export function ProductVariantsPanel({
               <th className="px-3 py-2.5 text-start font-medium">الخصائص</th>
               <th className="px-3 py-2.5 text-start font-medium">الباركود</th>
               <th className="px-3 py-2.5 text-start font-medium">سعر البيع</th>
-              <th className="px-3 py-2.5 text-start font-medium">التكلفة</th>
-              <th className="px-3 py-2.5 text-start font-medium">الكمية</th>
+              {sections.inventory ? (
+                <>
+                  <th className="px-3 py-2.5 text-start font-medium">التكلفة</th>
+                  <th className="px-3 py-2.5 text-start font-medium">الكمية</th>
+                </>
+              ) : null}
               <th className="px-3 py-2.5 text-start font-medium">الحالة</th>
               <th className="px-3 py-2.5 text-start font-medium">مفعّل</th>
             </tr>
@@ -510,6 +521,8 @@ export function ProductVariantsPanel({
                       {...register(`variants.${index}.salePrice`, { valueAsNumber: true })}
                     />
                   </td>
+                  {sections.inventory ? (
+                  <>
                   <td className="px-3 py-2.5 align-middle">
                     <Input
                       type="number"
@@ -539,6 +552,8 @@ export function ProductVariantsPanel({
                       title="من مخزون المستودع"
                     />
                   </td>
+                  </>
+                  ) : null}
                   <td className="px-3 py-2.5 align-middle">
                     {rowPersisted ? (
                       <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 dark:text-emerald-400">

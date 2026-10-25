@@ -1,5 +1,7 @@
 'use client';
 
+import { APP, useCompanyApps } from '@/shared/modules/company-apps';
+
 import * as React from 'react';
 import { Banknote, CreditCard, StickyNote, User } from 'lucide-react';
 import { WhatsappPhoneAction } from '@/features/ecommerce/admin/cms/whatsapp/components/whatsapp-phone-action';
@@ -126,11 +128,18 @@ function orderStockTabRelevant(order: Order): boolean {
 }
 
 /**
- * Every tab, always — ordered by what the stage needs, the first one opening
- * by default. Nothing is hidden; the stage only decides the order.
+ * Every tab — ordered by what the stage needs, the first one opening by
+ * default. The stock tab is left out only when it has nothing for this order
+ * and the store does not sell from inventory (bridge off): it would show
+ * inventory's words with nothing to do.
  */
-function orderDetailTabs(order: Order): DetailTab[] {
+function orderDetailTabs(order: Order, bridgeOn: boolean): DetailTab[] {
   const stockFirst = orderStockTabRelevant(order);
+  const tabs = orderDetailTabsByStage(order, stockFirst);
+  return stockFirst || bridgeOn ? tabs : tabs.filter((tab) => tab !== 'stock');
+}
+
+function orderDetailTabsByStage(order: Order, stockFirst: boolean): DetailTab[] {
   switch (order.status) {
     case 'pending':
       return ['handle', 'contact', 'attachments', 'stock'];
@@ -357,7 +366,8 @@ export function OrderDetailPanel({
   const PaymentIcon = isCard ? CreditCard : Banknote;
 
   // The tabs this stage needs; a hidden or unknown tab falls back to the default.
-  const tabs = order ? orderDetailTabs(order) : [];
+  const bridgeOn = useCompanyApps().isEnabled(APP.storeStockSync);
+  const tabs = order ? orderDetailTabs(order, bridgeOn) : [];
   const [pickedTab, setPickedTab] = React.useState<{ orderId: string; tab: DetailTab } | null>(
     null,
   );

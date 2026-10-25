@@ -1,3 +1,4 @@
+import { APP, type AppRequirement } from '@/shared/modules/company-apps';
 /**
  * Company print templates (approved 2026-10-09): how printed documents look.
  * Each company has a unified template, and any document type may have its
@@ -141,7 +142,7 @@ export const POS_RECEIPT_PRINT_TEMPLATE_SETTINGS: PrintTemplateSettings = {
   },
 };
 
-export const PRINT_DOCUMENTS: ReadonlyArray<{
+export const PRINT_DOCUMENTS: ReadonlyArray<AppRequirement & {
   id: PrintDocumentType;
   nameAr: string;
   descriptionAr: string;
@@ -159,6 +160,7 @@ export const PRINT_DOCUMENTS: ReadonlyArray<{
     nameAr: 'إيصال نقاط البيع',
     descriptionAr: 'قالب حراري مستقل للبيع والمرتجع من شاشة الكاشير.',
     starter: POS_RECEIPT_PRINT_TEMPLATE_SETTINGS,
+    requiresApp: APP.pos,
   },
   {
     id: 'inventory_receipt',

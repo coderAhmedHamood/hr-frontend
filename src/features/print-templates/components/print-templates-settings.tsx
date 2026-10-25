@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/shared/utils';
 import { useActiveCompany } from '@/features/hr/organization/hooks/useActiveCompany';
 import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
+import { useCompanyApps } from '@/shared/modules/company-apps';
 import { PrintDocumentView } from '@/features/print-templates/components/print-document-view';
 import {
   CONFIGURABLE_PRINT_DOCUMENTS,
@@ -67,7 +68,12 @@ export function PrintTemplatesSettings() {
   const { data: company } = useActiveCompany();
   const { data: templates } = useCompanyPrintTemplates(companyId);
   const saveTemplate = useSavePrintTemplate(companyId);
-  const [documentType, setDocumentType] = React.useState<PrintDocumentType>('default');
+  const [pickedDocumentType, setDocumentType] = React.useState<PrintDocumentType>('default');
+  // Documents of a disabled app (the POS receipt) are not shown.
+  const documents = useCompanyApps().filter(CONFIGURABLE_PRINT_DOCUMENTS);
+  const documentType = documents.some((d) => d.id === pickedDocumentType)
+    ? pickedDocumentType
+    : 'default';
   const saved = React.useMemo(
     () => {
       const settings = resolvePrintTemplateSettings(templates?.[documentType], documentStarter(documentType));
@@ -101,7 +107,7 @@ export function PrintTemplatesSettings() {
 
   const handleSave = async () => {
     if (!companyId) return;
-    const name = CONFIGURABLE_PRINT_DOCUMENTS.find((d) => d.id === documentType)?.nameAr ?? '';
+    const name = documents.find((d) => d.id === documentType)?.nameAr ?? '';
     try {
       await saveTemplate.mutateAsync({
         documentType,
@@ -121,7 +127,7 @@ export function PrintTemplatesSettings() {
     <div className="space-y-4">
       <Section title="المستند">
         <div className="flex flex-wrap gap-2">
-          {CONFIGURABLE_PRINT_DOCUMENTS.map((d) => {
+          {documents.map((d) => {
             const active = documentType === d.id;
             return (
               <button

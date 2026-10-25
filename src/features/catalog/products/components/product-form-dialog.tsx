@@ -30,10 +30,11 @@ import { ProductGeneralTab } from '@/features/catalog/products/components/produc
 import { ProductAttributesTab } from '@/features/catalog/products/components/product-attributes-tab';
 import { ProductInventoryTab } from '@/features/catalog/products/components/product-inventory-tab';
 import {
-  useProductAppSections,
-  visibleProductTabs,
+  PRODUCT_INVENTORY_DOCS,
+  productAppSectionsFrom,
   visibleRelatedDocs,
 } from '@/features/catalog/products/hooks/use-product-app-sections';
+import { APP, useCompanyApps, type AppRequirement } from '@/shared/modules/company-apps';
 import { ProductImageTab } from '@/features/catalog/products/components/product-image-tab';
 import { ProductUnitsTab } from '@/features/catalog/products/components/product-units-tab';
 import { ProductSettingsTab } from '@/features/catalog/products/components/product-settings-tab';
@@ -78,12 +79,17 @@ function ensureSlug(values: ProductFormValues): ProductFormValues {
 
 const FORM_TABS = [
   { value: 'general', label: 'عام', icon: Package },
-  { value: 'image', label: 'عرض الصورة', icon: ImageIcon },
+  { value: 'image', label: 'عرض الصورة', icon: ImageIcon, requiresApp: APP.storeAdmin },
   { value: 'attributes', label: 'خصائص', icon: Layers },
-  { value: 'availability', label: 'توفر', icon: Warehouse },
+  {
+    value: 'availability',
+    label: 'توفر',
+    icon: Warehouse,
+    requiresAnyApp: [APP.inventory, APP.storeAdmin],
+  },
   { value: 'units', label: 'وحدات', icon: Ruler },
   { value: 'settings', label: 'الإعدادات', icon: Settings },
-] as const;
+] as const satisfies ReadonlyArray<{ value: string; label: string; icon: unknown } & AppRequirement>;
 
 const TAB_TRIGGER_CLASS =
   'flex flex-1 items-center justify-center gap-1.5 rounded-xl px-2.5 py-2 text-xs font-medium text-muted-foreground shadow-none transition-all data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-soft sm:text-sm';
@@ -133,7 +139,7 @@ export function ProductFormDialog({ product, open, onOpenChange }: Props) {
   /** List rows omit attributes/variants; edit must wait for GET …/full. */
   const resolvedProduct = isEditing ? (fullProduct ?? null) : null;
   const isSaving = create.isPending || update.isPending;
-  const [activeTab, setActiveTab] = React.useState<FormTab>('general');
+  const [selectedTab, setActiveTab] = React.useState<FormTab>('general');
   const [activeRelatedDoc, setActiveRelatedDoc] = React.useState<ProductRelatedDocKey | null>(null);
   const [moveRequestKind, setMoveRequestKind] = React.useState<MoveRequestKind | null>(null);
   const [movesListKind, setMovesListKind] = React.useState<MoveRequestKind | null>(null);
@@ -158,8 +164,11 @@ export function ProductFormDialog({ product, open, onOpenChange }: Props) {
     if (restore.movesListKind) setMovesListKind(restore.movesListKind);
   }
 
-  const sections = useProductAppSections();
-  const visibleTabs = visibleProductTabs(FORM_TABS, sections);
+  const apps = useCompanyApps();
+  const sections = productAppSectionsFrom(apps);
+  const visibleTabs = apps.filter(FORM_TABS);
+  // A tab of an app that is (or becomes) disabled falls back quietly.
+  const activeTab = visibleTabs.some((tab) => tab.value === selectedTab) ? selectedTab : 'general';
 
   const form = useForm<ProductFormInput, unknown, ProductFormValues>({
     resolver: zodResolver(productFormSchema),
@@ -359,39 +368,12 @@ export function ProductFormDialog({ product, open, onOpenChange }: Props) {
                             ? 'عرض وتحرير أسعار وكميات المتغيرات'
                             : 'أضف خصائص تُنشئ متغيرات لظهورها هنا',
                       },
-                      {
-                        key: 'replenish',
-                        label: 'تجديد المخزون',
-                        hint: 'طلبات تجديد المخزون وحالاتها — أنشئ طلبًا ثم صدّقه من المستودع',
-                      },
-                      {
-                        key: 'receipts',
-                        label: 'استلام مخزون',
-                        hint: 'طلبات الاستلام الخاصة بهذا المنتج',
-                      },
-                      {
-                        key: 'issues',
-                        label: 'صرف مخزون',
-                        hint: 'طلبات الصرف الخاصة بهذا المنتج',
-                      },
-                      {
-                        key: 'internals',
-                        label: 'نقل المواقع',
-                        hint: 'نقل بين مواقع داخل نفس المستودع (ليس بين مستودعات)',
-                      },
-                      {
-                        key: 'moves',
-                        label: 'سجل الحركات',
-                        hint: 'كل حركات المخزون المرتبطة بهذا المنتج',
-                      },
-                      {
-                        key: 'putaway',
-                        label: 'قواعد التخزين',
-                        hint: product?.id
-                          ? 'فتح قائمة قواعد التخزين لهذا المنتج'
-                          : 'احفظ المنتج أولًا لإضافة قواعد التخزين',
-                      },
-                    ], sections)}
+                      ...PRODUCT_INVENTORY_DOCS.map((doc) =>
+                        doc.key === 'putaway' && !product?.id
+                          ? { ...doc, hint: 'احفظ المنتج أولًا لإضافة قواعد التخزين' }
+                          : doc,
+                      ),
+                    ], apps)}
                   />
 
                   <Tabs

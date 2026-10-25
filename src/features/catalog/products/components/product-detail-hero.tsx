@@ -146,7 +146,7 @@ export function ProductDetailHero({ control, register, setValue, nameError, curr
               {status === 'archived' ? (
                 <Badge variant={STATUS_BADGE_VARIANT[status]}>{PRODUCT_STATUS_LABELS_AR[status]}</Badge>
               ) : null}
-              {stockStatus ? (
+              {sections.store && stockStatus ? (
                 <Badge variant={STOCK_BADGE_VARIANT[stockStatus]}>{STOCK_STATUS_LABELS_AR[stockStatus]}</Badge>
               ) : null}
               {offerBadges.map((badge) => (
