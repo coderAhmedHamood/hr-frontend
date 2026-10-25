@@ -44,6 +44,11 @@ function HeroSlideFrame({
 
   if (!desktopSrc && !mobileSrc) return null;
 
+  const imageClass = cn(
+    slide.fit === 'contain' ? 'object-contain' : 'object-cover',
+    slide.position === 'top' ? 'object-top' : slide.position === 'bottom' ? 'object-bottom' : 'object-center',
+  );
+
   const frame = (
     <div
       className={cn(
@@ -59,7 +64,7 @@ function HeroSlideFrame({
           fill
           unoptimized
           priority={isPriority}
-          className={cn('object-cover', desktopSrc && desktopSrc !== mobileSrc && 'md:hidden')}
+          className={cn(imageClass, desktopSrc && desktopSrc !== mobileSrc && 'md:hidden')}
           sizes="(min-width: 1024px) 1400px, 100vw"
         />
       ) : null}
@@ -70,7 +75,7 @@ function HeroSlideFrame({
           fill
           unoptimized
           priority={isPriority}
-          className={cn('object-cover', mobileSrc && mobileSrc !== desktopSrc && 'hidden md:block')}
+          className={cn(imageClass, mobileSrc && mobileSrc !== desktopSrc && 'hidden md:block')}
           sizes="(min-width: 1024px) 1400px, 100vw"
         />
       ) : null}

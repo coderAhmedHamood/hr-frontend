@@ -11,7 +11,6 @@ import {
   Pencil,
   Play,
   Plus,
-  Save,
   Trash2,
 } from 'lucide-react';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
@@ -31,12 +30,23 @@ import { createSectionFromDefinition } from '@/features/ecommerce/admin/cms/home
 import { ImagePicker } from '@/features/ecommerce/admin/cms/homepage/components/section-entity-pickers';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
-import { PageHeaderPrimaryButton } from '@/components/layouts/page-header-primary-button';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import type {
+  HeroCarouselLayout,
+  HeroSlideFit,
+  HeroSlidePosition,
+} from '@/features/ecommerce/storefront/page-builder/domain/layout-types';
 import { DataTable, type ColumnDef } from '@/components/ui/data-table';
 import {
   Dialog,
@@ -49,6 +59,45 @@ import {
 const DEFAULT_INTERVAL_MS = 5000;
 const MIN_INTERVAL_MS = 1000;
 const MAX_INTERVAL_MS = 30_000;
+const DEFAULT_HEIGHT_RATIO = '21/7';
+
+/** Width/height of the carousel frame on desktop. */
+const HEIGHT_RATIOS = [
+  { value: '4/1', labelKey: 'ratio4x1' },
+  { value: '21/7', labelKey: 'ratio3x1' },
+  { value: '5/2', labelKey: 'ratio5x2' },
+  { value: '2/1', labelKey: 'ratio2x1' },
+  { value: '16/9', labelKey: 'ratio16x9' },
+] as const;
+
+function ChoiceSelect<T extends string>({
+  id,
+  value,
+  options,
+  disabled,
+  onChange,
+}: {
+  id?: string;
+  value: T;
+  options: ReadonlyArray<{ value: T; label: string }>;
+  disabled?: boolean;
+  onChange: (value: T) => void;
+}) {
+  return (
+    <Select value={value} disabled={disabled} onValueChange={(next) => onChange(next as T)}>
+      <SelectTrigger id={id}>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {options.map((option) => (
+          <SelectItem key={option.value} value={option.value}>
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
 
 function clampIntervalMs(value: number | null | undefined): number {
   if (!Number.isFinite(value)) return DEFAULT_INTERVAL_MS;
@@ -85,10 +134,16 @@ function createEmptySlide(): HeroCarouselSlideRecord {
 
 function normalizeSlide(slide: HeroCarouselSlideRecord): HeroCarouselSlideRecord {
   const titleAr = slide.title?.ar?.trim() ?? '';
+  const mobileImageUrl = slide.mobileImageUrl?.trim();
   return {
     id: slide.id,
     imageUrl: slide.imageUrl,
     enabled: isSlideEnabled(slide),
+    ...(mobileImageUrl ? { mobileImageUrl } : {}),
+    ...(slide.fit ? { fit: slide.fit } : {}),
+    ...(slide.position ? { position: slide.position } : {}),
+    ...(slide.alt ? { alt: slide.alt } : {}),
+    ...(slide.href ? { href: slide.href } : {}),
     title: titleAr ? { ar: titleAr, en: slide.title?.en?.trim() || titleAr } : undefined,
   };
 }
@@ -104,6 +159,8 @@ function toPreviewSlides(slides: HeroCarouselSlideRecord[]): StorefrontHeroSlide
         id: slide.id,
         imageUrl,
         mobileImageUrl,
+        fit: slide.fit,
+        position: slide.position,
         title,
         alt: title || 'Banner',
         href: slide.href ?? null,
@@ -138,8 +195,11 @@ export function HeroCarouselPage() {
     if (!data) return;
     // Never clobber in-progress edits when a background query updates.
     if (dirty) return;
-    const hadHero = data.sections.some((section) => section.type === 'hero-carousel');
-    const { page, hero } = findOrCreateHero(structuredClone(data));
+    loadFrom(data);
+  }, [data, dirty]);
+
+  function loadFrom(record: PageRecord) {
+    const { page, hero } = findOrCreateHero(structuredClone(record));
     setDraft(page);
     setHeroDraft({
       ...hero,
@@ -148,8 +208,7 @@ export function HeroCarouselPage() {
         slides: hero.content.slides.map(normalizeSlide),
       },
     });
-    setDirty(!hadHero);
-  }, [data, dirty]);
+  }
 
   const slides = heroDraft?.content.slides ?? [];
   const previewSlides = toPreviewSlides(slides);
@@ -190,25 +249,26 @@ export function HeroCarouselPage() {
           <Plus className="h-3.5 w-3.5" />
           <span className="hidden sm:inline">{t('addSlide')}</span>
         </Button>
-        <PageHeaderPrimaryButton
-          icon={Save}
-          label={save.isPending ? tCommon('status.saving') : tCommon('actions.save')}
-          disabled={!draft || !heroDraft || save.isPending || !dirty}
-          onClick={() => void persist()}
-        />
       </div>
     ),
-    [draft, heroDraft, dirty, save.isPending, previewSlides.length, t, tHome, tCommon],
+    [heroDraft, previewSlides.length, t, tHome],
   );
 
-  function updateHero(next: HeroCarouselSectionRecord) {
+  /** Every change goes to the store right away: there is no separate save. */
+  function commitHero(next: HeroCarouselSectionRecord) {
     setHeroDraft(next);
     setDirty(true);
+    void persistWithHero(next);
   }
 
   function updateSlides(nextSlides: HeroCarouselSlideRecord[]) {
     if (!heroDraft) return;
-    updateHero({ ...heroDraft, content: { ...heroDraft.content, slides: nextSlides } });
+    commitHero({ ...heroDraft, content: { ...heroDraft.content, slides: nextSlides } });
+  }
+
+  function updateStyle(patch: Partial<HeroCarouselSectionRecord['style']>) {
+    if (!heroDraft) return;
+    commitHero({ ...heroDraft, style: { ...heroDraft.style, ...patch } });
   }
 
   function setSlideEnabled(index: number, enabled: boolean) {
@@ -241,18 +301,12 @@ export function HeroCarouselPage() {
         : slides.map((slide, index) => (index === form.index ? nextSlide : slide));
     if (!heroDraft || !draft) return;
 
-    const now = new Date().toISOString();
-    const nextHero: HeroCarouselSectionRecord = {
+    setForm(null);
+    commitHero({
       ...heroDraft,
       content: { ...heroDraft.content, slides: nextSlides },
-      updatedAt: now,
-    };
-    setHeroDraft(nextHero);
-    setForm(null);
-    setDirty(true);
-
-    // Persist immediately — dialog "حفظ" should write to the store API, not only local draft.
-    void persistWithHero(nextHero);
+      updatedAt: new Date().toISOString(),
+    });
   }
 
   async function persistWithHero(nextHeroInput: HeroCarouselSectionRecord) {
@@ -285,24 +339,13 @@ export function HeroCarouselPage() {
     };
     try {
       const saved = await save.mutateAsync(nextPage);
-      const { page, hero } = findOrCreateHero(structuredClone(saved));
-      setDraft(page);
-      setHeroDraft({
-        ...hero,
-        content: {
-          ...hero.content,
-          slides: hero.content.slides.map(normalizeSlide),
-        },
-      });
-      setDirty(false);
+      loadFrom(saved);
     } catch {
-      // Error toast is handled by the mutation.
+      // Error toast is handled by the mutation; show what the store has.
+      if (data) loadFrom(data);
+    } finally {
+      setDirty(false);
     }
-  }
-
-  async function persist() {
-    if (!heroDraft) return;
-    await persistWithHero(heroDraft);
   }
 
   const columns: ColumnDef<HeroCarouselSlideRecord>[] = [
@@ -313,7 +356,7 @@ export function HeroCarouselPage() {
         slide.imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={slide.imageUrl}
+            src={resolveStorefrontImageSrc(slide.imageUrl) ?? ''}
             alt=""
             className={`h-12 w-20 rounded-md border border-border object-cover ${
               isSlideEnabled(slide) ? '' : 'opacity-45'
@@ -348,6 +391,7 @@ export function HeroCarouselPage() {
           <div className="flex items-center gap-2">
             <Switch
               checked={enabled}
+              disabled={save.isPending}
               onCheckedChange={(next) => setSlideEnabled(index, next)}
               aria-label={enabled ? tHome('enabled') : tHome('disabled')}
             />
@@ -370,7 +414,7 @@ export function HeroCarouselPage() {
               size="icon"
               variant="ghost"
               className="h-8 w-8"
-              disabled={index <= 0}
+              disabled={index <= 0 || save.isPending}
               onClick={() => moveSlide(index, -1)}
               aria-label={tHome('moveUp')}
             >
@@ -382,7 +426,7 @@ export function HeroCarouselPage() {
               size="icon"
               variant="ghost"
               className="h-8 w-8"
-              disabled={index < 0 || index >= slides.length - 1}
+              disabled={index < 0 || index >= slides.length - 1 || save.isPending}
               onClick={() => moveSlide(index, 1)}
               aria-label={tHome('moveDown')}
             >
@@ -434,11 +478,9 @@ export function HeroCarouselPage() {
     <div className="flex flex-col gap-5">
       <SetPageTitle titleAr={t('title')} descriptionAr={t('description')} iconName="Image" />
 
-      {dirty ? (
-        <div className="flex items-center gap-2 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
-          {tHome('unsavedHint')}
-        </div>
-      ) : null}
+      <p className="text-xs text-muted-foreground">
+        {save.isPending ? tCommon('status.saving') : t('savedHint')}
+      </p>
 
       {isError ? (
         <Card>
@@ -480,17 +522,58 @@ export function HeroCarouselPage() {
                 setDirty(true);
               }}
               onBlur={() => {
-                setHeroDraft({
+                const intervalMs = clampIntervalMs(heroDraft.settings.intervalMs);
+                const savedMs = data?.sections.find((section) => section.id === heroDraft.id)
+                  ?.settings as { intervalMs?: number } | undefined;
+                if (savedMs?.intervalMs === intervalMs) {
+                  setHeroDraft({ ...heroDraft, settings: { ...heroDraft.settings, intervalMs } });
+                  setDirty(false);
+                  return;
+                }
+                commitHero({
                   ...heroDraft,
-                  settings: {
-                    ...heroDraft.settings,
-                    autoplay: true,
-                    intervalMs: clampIntervalMs(heroDraft.settings.intervalMs),
-                  },
+                  settings: { ...heroDraft.settings, autoplay: true, intervalMs },
                 });
               }}
             />
             <p className="text-[11px] text-muted-foreground">{t('intervalMsHint')}</p>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {heroDraft ? (
+        <Card>
+          <CardContent className="grid gap-4 py-4 sm:grid-cols-2">
+            <div className="grid gap-2">
+              <Label htmlFor="hero-height-ratio">{t('heightRatio')}</Label>
+              <ChoiceSelect
+                id="hero-height-ratio"
+                value={heroDraft.style.height || DEFAULT_HEIGHT_RATIO}
+                disabled={save.isPending}
+                options={[
+                  ...HEIGHT_RATIOS.map((ratio) => ({ value: ratio.value as string, label: t(ratio.labelKey) })),
+                  // A ratio set elsewhere stays selectable instead of showing blank.
+                  ...(HEIGHT_RATIOS.some((ratio) => ratio.value === (heroDraft.style.height || DEFAULT_HEIGHT_RATIO))
+                    ? []
+                    : [{ value: heroDraft.style.height, label: heroDraft.style.height }]),
+                ]}
+                onChange={(height) => updateStyle({ height })}
+              />
+              <p className="text-[11px] text-muted-foreground">{t('heightRatioHint')}</p>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="hero-layout">{t('layoutLabel')}</Label>
+              <ChoiceSelect<HeroCarouselLayout>
+                id="hero-layout"
+                value={heroDraft.style.layout}
+                disabled={save.isPending}
+                options={[
+                  { value: 'contained', label: t('layoutContained') },
+                  { value: 'full-bleed', label: t('layoutFullBleed') },
+                ]}
+                onChange={(layout) => updateStyle({ layout })}
+              />
+            </div>
           </CardContent>
         </Card>
       ) : null}
@@ -531,6 +614,48 @@ export function HeroCarouselPage() {
                     })
                   }
                 />
+              </div>
+              <div className="space-y-1.5">
+                <Label>{t('mobileImage')}</Label>
+                <ImagePicker
+                  value={form.draft.mobileImageUrl}
+                  onChange={(mobileImageUrl) =>
+                    setForm({
+                      ...form,
+                      draft: { ...form.draft, mobileImageUrl: mobileImageUrl ?? undefined },
+                    })
+                  }
+                />
+                <p className="text-[11px] text-muted-foreground">{t('mobileImageHint')}</p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="hero-slide-fit">{t('imageFit')}</Label>
+                  <ChoiceSelect<HeroSlideFit>
+                    id="hero-slide-fit"
+                    value={form.draft.fit ?? 'cover'}
+                    options={[
+                      { value: 'cover', label: t('fitCover') },
+                      { value: 'contain', label: t('fitContain') },
+                    ]}
+                    onChange={(fit) => setForm({ ...form, draft: { ...form.draft, fit } })}
+                  />
+                </div>
+                {(form.draft.fit ?? 'cover') === 'cover' ? (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="hero-slide-position">{t('imagePosition')}</Label>
+                    <ChoiceSelect<HeroSlidePosition>
+                      id="hero-slide-position"
+                      value={form.draft.position ?? 'center'}
+                      options={[
+                        { value: 'top', label: t('positionTop') },
+                        { value: 'center', label: t('positionCenter') },
+                        { value: 'bottom', label: t('positionBottom') },
+                      ]}
+                      onChange={(position) => setForm({ ...form, draft: { ...form.draft, position } })}
+                    />
+                  </div>
+                ) : null}
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="hero-slide-description">{t('columnDescription')}</Label>

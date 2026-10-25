@@ -3,6 +3,14 @@
 export const HERO_CAROUSEL_LAYOUTS = ['full-bleed', 'contained'] as const;
 export type HeroCarouselLayout = (typeof HERO_CAROUSEL_LAYOUTS)[number];
 
+/** How a slide's image fills its frame: crop to fill, or show it whole. */
+export const HERO_SLIDE_FITS = ['cover', 'contain'] as const;
+export type HeroSlideFit = (typeof HERO_SLIDE_FITS)[number];
+
+/** The part of a cropped slide image that stays visible. */
+export const HERO_SLIDE_POSITIONS = ['top', 'center', 'bottom'] as const;
+export type HeroSlidePosition = (typeof HERO_SLIDE_POSITIONS)[number];
+
 export const CATEGORY_GRID_LAYOUTS = ['circles', 'cards', 'list'] as const;
 export type CategoryGridLayout = (typeof CATEGORY_GRID_LAYOUTS)[number];
 

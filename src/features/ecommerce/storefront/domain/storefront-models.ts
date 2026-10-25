@@ -6,6 +6,10 @@ import type {
 import type { LegalPageSlug } from '@/features/ecommerce/storefront/domain/content';
 import type { StoreCountry } from '@/features/ecommerce/domain/constants/store-country';
 import type { StorefrontTypography } from '@/features/ecommerce/storefront/lib/storefront-fonts';
+import type {
+  HeroSlideFit,
+  HeroSlidePosition,
+} from '@/features/ecommerce/storefront/page-builder/domain/layout-types';
 
 export type StorefrontHomepageFeature = {
   id: string;
@@ -191,6 +195,8 @@ export type StorefrontHeroSlide = {
   id: string;
   imageUrl: string;
   mobileImageUrl: string | null;
+  fit?: HeroSlideFit;
+  position?: HeroSlidePosition;
   title: string;
   alt: string;
   href: `/store${string}` | null;

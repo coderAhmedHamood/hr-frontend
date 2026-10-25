@@ -6,8 +6,11 @@ import {
   FEATURES_GRID_LAYOUTS,
   FLASH_SALE_LAYOUTS,
   HERO_CAROUSEL_LAYOUTS,
+  HERO_SLIDE_FITS,
+  HERO_SLIDE_POSITIONS,
   PRODUCT_CAROUSEL_LAYOUTS,
 } from '@/features/ecommerce/storefront/page-builder/domain/layout-types';
+import { isImageSrc } from '@/features/ecommerce/storefront/page-builder/lib/image-src';
 
 export const localizableStringSchema = z.object({
   ar: z.string(),
@@ -92,6 +95,8 @@ export const localizedHeadingSchema = z.object({
 
 const storePathSchema = z.string().regex(/^\/store/);
 
+const imageSrcSchema = z.string().refine(isImageSrc, 'Invalid image URL');
+
 export const heroCarouselSectionSchema = sectionMetadataSchema.extend({
   type: z.literal('hero-carousel'),
   content: localizedHeadingSchema.extend({
@@ -99,9 +104,11 @@ export const heroCarouselSectionSchema = sectionMetadataSchema.extend({
       .array(
         z.object({
           id: z.string().uuid(),
-          imageUrl: z.string().url(),
+          imageUrl: imageSrcSchema,
           enabled: z.boolean().optional(),
-          mobileImageUrl: z.string().url().optional(),
+          mobileImageUrl: imageSrcSchema.optional(),
+          fit: z.enum(HERO_SLIDE_FITS).optional(),
+          position: z.enum(HERO_SLIDE_POSITIONS).optional(),
           title: localizableStringSchema.optional(),
           alt: localizableStringSchema.optional(),
           href: storePathSchema.optional(),
@@ -220,8 +227,8 @@ export const brandSliderSectionSchema = sectionMetadataSchema.extend({
 export const bannerSectionSchema = sectionMetadataSchema.extend({
   type: z.literal('banner'),
   content: z.object({
-    imageUrl: z.string().url(),
-    mobileImageUrl: z.string().url().nullable(),
+    imageUrl: imageSrcSchema,
+    mobileImageUrl: imageSrcSchema.nullable(),
     alt: localizableStringSchema,
     href: storePathSchema,
     target: z.enum(['_self', '_blank']),

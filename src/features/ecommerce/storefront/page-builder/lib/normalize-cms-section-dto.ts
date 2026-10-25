@@ -3,6 +3,15 @@ import type { DataSourceConfig, DataSourceKind } from '@/features/ecommerce/stor
 import type { SectionRecord, SectionType } from '@/features/ecommerce/storefront/page-builder/domain/section-types';
 import { getSectionDefinition } from '@/features/ecommerce/storefront/page-builder/lib/section-definition-registry';
 import { withDefaultSectionVisibility } from '@/features/ecommerce/storefront/page-builder/domain/section-style';
+import {
+  HERO_SLIDE_FITS,
+  HERO_SLIDE_POSITIONS,
+} from '@/features/ecommerce/storefront/page-builder/domain/layout-types';
+import { isImageSrc } from '@/features/ecommerce/storefront/page-builder/lib/image-src';
+
+function oneOf<T extends string>(values: readonly T[], value: unknown): T | undefined {
+  return values.find((item) => item === value);
+}
 
 type CmsSectionDtoInput = {
   id: string;
@@ -57,15 +66,6 @@ function promoFlagValue(value: unknown): boolean | null {
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-function isHttpUrl(value: string): boolean {
-  try {
-    const url = new URL(value);
-    return url.protocol === 'http:' || url.protocol === 'https:';
-  } catch {
-    return false;
-  }
-}
-
 function normalizeSectionContent(type: SectionType, content: Record<string, unknown>): Record<string, unknown> {
   const defaults = (getSectionDefinition(type).defaultConfiguration.content ?? {}) as Record<string, unknown>;
   const next: Record<string, unknown> = { ...defaults, ...content };
@@ -88,12 +88,14 @@ function normalizeSectionContent(type: SectionType, content: Record<string, unkn
       if (!slide || typeof slide !== 'object') return [];
       const record = slide as Record<string, unknown>;
       const imageUrl = typeof record.imageUrl === 'string' ? record.imageUrl : '';
-      if (!isHttpUrl(imageUrl)) return [];
+      if (!isImageSrc(imageUrl)) return [];
       const slideTitle = readLocalizedField(record, 'title');
       const mobileImageUrl =
-        typeof record.mobileImageUrl === 'string' && isHttpUrl(record.mobileImageUrl)
+        typeof record.mobileImageUrl === 'string' && isImageSrc(record.mobileImageUrl)
           ? record.mobileImageUrl
           : undefined;
+      const fit = oneOf(HERO_SLIDE_FITS, record.fit);
+      const position = oneOf(HERO_SLIDE_POSITIONS, record.position);
       const href =
         typeof record.href === 'string' && record.href.startsWith('/store') ? record.href : undefined;
       return [
@@ -102,6 +104,8 @@ function normalizeSectionContent(type: SectionType, content: Record<string, unkn
           id: typeof record.id === 'string' && UUID_RE.test(record.id) ? record.id : crypto.randomUUID(),
           imageUrl,
           mobileImageUrl,
+          fit,
+          position,
           href,
           enabled: record.enabled ?? true,
           ...(slideTitle ? { title: slideTitle } : {}),

@@ -15,6 +15,8 @@ import type {
   FeaturesGridLayout,
   FlashSaleLayout,
   HeroCarouselLayout,
+  HeroSlideFit,
+  HeroSlidePosition,
   ProductCarouselLayout,
 } from '@/features/ecommerce/storefront/page-builder/domain/layout-types';
 import type { SectionStyleBase } from '@/features/ecommerce/storefront/page-builder/domain/section-style';
@@ -44,6 +46,10 @@ export type HeroCarouselSlideRecord = {
   /** Defaults to true when omitted (legacy slides). */
   enabled?: boolean;
   mobileImageUrl?: string;
+  /** Defaults to `cover`. */
+  fit?: HeroSlideFit;
+  /** Defaults to `center`. */
+  position?: HeroSlidePosition;
   title?: LocalizableString;
   alt?: LocalizableString;
   href?: `/store${string}`;

@@ -146,6 +146,8 @@ export function mapHeroSlides(
         id: slide.id,
         imageUrl,
         mobileImageUrl,
+        fit: slide.fit,
+        position: slide.position,
         title,
         alt,
         href: slide.href ?? null,
