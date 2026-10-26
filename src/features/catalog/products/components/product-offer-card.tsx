@@ -18,7 +18,6 @@ import { DatePickerInput } from '@/components/ui/date-picker-input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/shared/utils';
 import { localYmd } from '@/features/catalog/products/lib/product-form-mapping';
-import { useProductAppSections } from '@/features/catalog/products/hooks/use-product-app-sections';
 
 /**
  * One offer per product (approved 2026-10-20): a fixed price, a percent of
@@ -72,10 +71,7 @@ export function ProductOfferCard({ control, errors, register, setValue, currency
   const percent = useWatch({ control, name: 'discountPercent' });
   const amount = useWatch({ control, name: 'discountAmount' });
   const listPrice = num(useWatch({ control, name: 'listPrice' }));
-  // The purchase cost is inventory's: no loss warning without it.
-  const { inventory } = useProductAppSections();
-  const watchedCost = num(useWatch({ control, name: 'costPrice' }));
-  const costPrice = inventory ? watchedCost : 0;
+  const costPrice = num(useWatch({ control, name: 'costPrice' }));
   const dealUntil = useWatch({ control, name: 'dealUntil' });
   const discountUntil = useWatch({ control, name: 'discountUntil' });
 

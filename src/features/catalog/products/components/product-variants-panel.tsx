@@ -382,7 +382,6 @@ export function ProductVariantsPanel({
                       {...register(`variants.${index}.salePrice`, { valueAsNumber: true })}
                     />
                   </div>
-                  {sections.inventory ? (
                   <div className="space-y-1">
                     <p className="text-xs text-muted-foreground">التكلفة</p>
                     <Input
@@ -399,7 +398,6 @@ export function ProductVariantsPanel({
                       {...register(`variants.${index}.costPrice`, { valueAsNumber: true })}
                     />
                   </div>
-                  ) : null}
                 </div>
                 <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
                   {sections.inventory ? (
@@ -443,11 +441,9 @@ export function ProductVariantsPanel({
               <th className="px-3 py-2.5 text-start font-medium">الخصائص</th>
               <th className="px-3 py-2.5 text-start font-medium">الباركود</th>
               <th className="px-3 py-2.5 text-start font-medium">سعر البيع</th>
+              <th className="px-3 py-2.5 text-start font-medium">التكلفة</th>
               {sections.inventory ? (
-                <>
-                  <th className="px-3 py-2.5 text-start font-medium">التكلفة</th>
-                  <th className="px-3 py-2.5 text-start font-medium">الكمية</th>
-                </>
+                <th className="px-3 py-2.5 text-start font-medium">الكمية</th>
               ) : null}
               <th className="px-3 py-2.5 text-start font-medium">الحالة</th>
               <th className="px-3 py-2.5 text-start font-medium">مفعّل</th>
@@ -521,8 +517,6 @@ export function ProductVariantsPanel({
                       {...register(`variants.${index}.salePrice`, { valueAsNumber: true })}
                     />
                   </td>
-                  {sections.inventory ? (
-                  <>
                   <td className="px-3 py-2.5 align-middle">
                     <Input
                       type="number"
@@ -537,6 +531,7 @@ export function ProductVariantsPanel({
                       {...register(`variants.${index}.costPrice`, { valueAsNumber: true })}
                     />
                   </td>
+                  {sections.inventory ? (
                   <td className="px-3 py-2.5 align-middle">
                     <Input
                       type="number"
@@ -552,7 +547,6 @@ export function ProductVariantsPanel({
                       title="من مخزون المستودع"
                     />
                   </td>
-                  </>
                   ) : null}
                   <td className="px-3 py-2.5 align-middle">
                     {rowPersisted ? (

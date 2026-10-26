@@ -204,15 +204,18 @@ export function ProductGeneralTab({
             </div>
           </ProductFormField>
 
-          {sections.inventory ? (
-            <ProductFormField
+          {/* The card's purchase price: what the store and POS take as the cost
+              of each sale (profit). Typed by hand unless inventory costs it. */}
+          <ProductFormField
               label="سعر الشراء"
               htmlFor="product-cost-price"
               error={errors.costPrice?.message}
               hint={
                 costManaged
                   ? 'يُحسب تلقائيًا من المخزون حسب طريقة التكلفة. لتصحيحه عدّل مستند الاستلام أو أدخل تسوية بالسعر الصحيح.'
-                  : undefined
+                  : sections.inventory
+                    ? undefined
+                    : 'تكلفة الوحدة التي تُحسب منها أرباح المتجر ونقاط البيع.'
               }
             >
               <div className="relative">
@@ -232,7 +235,6 @@ export function ProductGeneralTab({
                 </span>
               </div>
             </ProductFormField>
-          ) : null}
 
           {sections.store ? (
             <ProductFormField

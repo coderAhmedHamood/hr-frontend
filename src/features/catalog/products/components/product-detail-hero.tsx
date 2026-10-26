@@ -176,16 +176,14 @@ export function ProductDetailHero({ control, register, setValue, nameError, curr
               )
             }
           />
-          {/* Cost and quantity are inventory's. */}
+          {/* The purchase price is the card's; the quantity is inventory's. */}
+          <ProductStatTile
+            className="w-fit min-w-24 shrink-0"
+            label="تكلفة الكاتالوج"
+            value={costPrice ? formatPrice({ amount: costPrice, currency }) : '—'}
+          />
           {sections.inventory ? (
-            <>
-              <ProductStatTile
-                className="w-fit min-w-24 shrink-0"
-                label="تكلفة الكاتالوج"
-                value={costPrice ? formatPrice({ amount: costPrice, currency }) : '—'}
-              />
-              <ProductStatTile className="w-fit min-w-24 shrink-0" label="الكمية" value={stockQuantity} />
-            </>
+            <ProductStatTile className="w-fit min-w-24 shrink-0" label="الكمية" value={stockQuantity} />
           ) : null}
         </div>
       </div>

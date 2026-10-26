@@ -266,7 +266,7 @@ export function StoreProfitReportPage() {
     <div className="flex flex-col gap-5">
       <SetPageTitle
         titleAr="أرباح المبيعات"
-        descriptionAr="كل طلب بسعره الذي بيع به وتكلفته لحظة الطلب. التكلفة من سعر الشراء الذي يتبع المخزون."
+        descriptionAr="كل طلب بسعره الذي بيع به وتكلفته لحظة الطلب. التكلفة من سعر الشراء في بطاقة المنتج (يحسبه المخزون عند تفعيل احتساب التكلفة، وإلا يُدخل يدويًا)."
         iconName="TrendingUp"
       />
 

@@ -486,7 +486,7 @@ export function ProductsListPage() {
 
   const columns = allColumns.filter(
     (column) =>
-      (sections.inventory || !['costPrice', 'quantity'].includes(column.key)) &&
+      (sections.inventory || column.key !== 'quantity') &&
       (sections.store || column.key !== 'stockStatus'),
   );
 
@@ -540,19 +540,17 @@ export function ProductsListPage() {
             <p className="text-[11px] text-muted-foreground">السعر</p>
             <p className="font-medium tabular-nums text-foreground">{formatPrice(product.price)}</p>
           </div>
+          <div>
+            <p className="text-[11px] text-muted-foreground">تكلفة الكاتالوج</p>
+            <p className="font-medium tabular-nums text-emerald-700 dark:text-emerald-400">
+              {product.costPrice ? formatPrice(product.costPrice) : '—'}
+            </p>
+          </div>
           {sections.inventory ? (
-            <>
-              <div>
-                <p className="text-[11px] text-muted-foreground">تكلفة الكاتالوج</p>
-                <p className="font-medium tabular-nums text-emerald-700 dark:text-emerald-400">
-                  {product.costPrice ? formatPrice(product.costPrice) : '—'}
-                </p>
-              </div>
-              <div className="text-end">
-                <p className="text-[11px] text-muted-foreground">الكمية</p>
-                <p className="font-medium tabular-nums text-foreground">{product.inventory.quantity}</p>
-              </div>
-            </>
+            <div className="text-end">
+              <p className="text-[11px] text-muted-foreground">الكمية</p>
+              <p className="font-medium tabular-nums text-foreground">{product.inventory.quantity}</p>
+            </div>
           ) : null}
         </div>
 
