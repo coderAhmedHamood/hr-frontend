@@ -404,12 +404,44 @@
 }
 
 @media (max-width: 767px) {
+  .storefront-announcement-marquee,
+  .storefront-announcement-marquee--static,
   .storefront-announcement-marquee--mobile {
-    padding-inline-end: 2.75rem;
+    overflow: hidden;
+    mask-image: linear-gradient(
+      to right,
+      transparent,
+      #000 1.5rem,
+      #000 calc(100% - 2.75rem),
+      transparent
+    );
   }
 
+  .storefront-announcement-marquee__track,
+  .storefront-announcement-marquee--static .storefront-announcement-marquee__track,
   .storefront-announcement-marquee--mobile .storefront-announcement-marquee__track {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: flex-start;
+    width: max-content;
     gap: 2rem;
+    padding-inline: 0;
+    direction: ltr;
+    animation: storefront-announcement-marquee
+      var(--announcement-marquee-duration, 28000ms) linear infinite;
+    will-change: transform;
+  }
+
+  .storefront-announcement-marquee__item,
+  .storefront-announcement-marquee--static .storefront-announcement-marquee__item {
+    flex: 0 0 auto;
+    width: auto;
+    white-space: nowrap;
+  }
+
+  .storefront-announcement-marquee__sep {
+    display: inline;
   }
 }
 
@@ -425,6 +457,25 @@
 
   .storefront-announcement-marquee__sep {
     display: none;
+  }
+}
+
+/* Phones keep one moving line. Reduced motion must not stack the messages. */
+@media (max-width: 767px) and (prefers-reduced-motion: reduce) {
+  .storefront-announcement-marquee__track,
+  .storefront-announcement-marquee--static .storefront-announcement-marquee__track {
+    display: flex;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    width: max-content;
+    gap: 2rem;
+    padding-inline: 0;
+    animation: storefront-announcement-marquee
+      var(--announcement-marquee-duration, 28000ms) linear infinite;
+  }
+
+  .storefront-announcement-marquee__sep {
+    display: inline;
   }
 }
 

@@ -527,6 +527,11 @@
     "storyTitle": "Our story & values",
     "storyHint": "These sections are managed from the CMS dashboard."
   },
+  "links": {
+    "store": "Online store",
+    "phone": "Call",
+    "email": "Email"
+  },
   "contact": {
     "title": "Contact us",
     "formTitle": "Send a message",

@@ -27,6 +27,7 @@ import { isEmailShape } from '@/features/ecommerce/storefront/components/forms/s
 import { useStoreMobileError } from '@/features/ecommerce/storefront/components/forms/store-mobile-input';
 import { suggestEmail } from '@/shared/lib/email-typos';
 import { FAVICON_MAX_EDGE, STORE_LOGO_MAX_EDGE } from '@/shared/shrink-image-file';
+import { FieldLinksQrCard } from '@/features/ecommerce/admin/cms/settings/components/field-links-qr-card';
 import { WebsiteColorsPanel } from '@/features/ecommerce/admin/cms/settings/components/website-colors-panel';
 import { DeliveryRatesPanel } from '@/features/ecommerce/admin/delivery-rates/components/delivery-rates-panel';
 import { StockSyncPanel } from '@/features/ecommerce/admin/stock/components/stock-sync-panel';
@@ -38,15 +39,14 @@ import GeoLocationsPage from '@/features/system/organization/geo/components/geo-
 import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { PageHeaderPrimaryButton } from '@/components/layouts/page-header-primary-button';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { OrderStagesSettingsPanel } from '@/features/ecommerce/admin/orders/components/order-stages-settings-panel';
 import { cn } from '@/shared/utils';
+import { STOREFRONT_SOCIAL_ICONS } from '@/features/ecommerce/storefront/components/store-social-icons';
 import { APP, useCompanyApps, type AppRequirement, type CompanyApps } from '@/shared/modules/company-apps';
 
 type SettingsTabValue =
@@ -57,8 +57,7 @@ type SettingsTabValue =
   | 'deliveryRates'
   | 'paymentAccounts'
   | 'stockSync'
-  | 'orderStages'
-  | 'seo';
+  | 'orderStages';
 
 const SETTINGS_TAB_VALUES: readonly SettingsTabValue[] = [
   'branding',
@@ -69,7 +68,6 @@ const SETTINGS_TAB_VALUES: readonly SettingsTabValue[] = [
   'paymentAccounts',
   'stockSync',
   'orderStages',
-  'seo',
 ];
 
 /** Tabs that are another app's part (same requirement as their nav item). */
@@ -80,6 +78,7 @@ const SETTINGS_TAB_APPS: Partial<Record<SettingsTabValue, AppRequirement>> = {
 function resolveSettingsTab(raw: string | null, apps: CompanyApps): SettingsTabValue {
   if (raw === 'checkout') return 'paymentAccounts';
   if (raw === 'social') return 'contact';
+  if (raw === 'seo') return 'branding';
   const value = (SETTINGS_TAB_VALUES as readonly string[]).includes(raw ?? '')
     ? (raw as SettingsTabValue)
     : 'branding';
@@ -91,6 +90,8 @@ const SETTINGS_QUERY_KEY = ['ecommerce-cms', 'company', 'settings'] as const;
 
 const FIELD =
   'h-11 min-h-11 w-full min-w-0 max-w-full rounded-xl border-input bg-background px-3.5 text-sm';
+const COMPACT_FIELD =
+  'h-10 w-full min-w-0 max-w-full rounded-lg border-input bg-background px-3 text-sm';
 
 function isWebUrl(value: string): boolean {
   try {
@@ -116,13 +117,6 @@ function fieldKeyFromServerMessage(message: string): string | null {
   if (message.includes('storeName')) return 'name';
   if (message.includes('footerCommercialRegistration')) return 'commercialRegistration';
   return null;
-}
-
-function parseKeywords(raw: string): string[] {
-  return raw
-    .split(/[,،\n]/)
-    .map((keyword) => keyword.trim())
-    .filter(Boolean);
 }
 
 function SettingsPanel({
@@ -173,7 +167,6 @@ export function WebsiteSettingsPage() {
   const companyId = getStorefrontCompanyId();
   const searchParams = useSearchParams();
   const t = useTranslations('ecommerceAdmin.settings');
-  const tSeo = useTranslations('ecommerceAdmin.seo');
   const tHome = useTranslations('ecommerceAdmin.homepage');
   const tCommon = useTranslations('common');
   const mobileError = useStoreMobileError();
@@ -344,28 +337,18 @@ export function WebsiteSettingsPage() {
     return errors;
   }
 
-  function patchSeo(
-    path: 'homeTitle' | 'homeDescription' | 'productsTitle' | 'productsDescription',
-    value: string,
-  ) {
-    if (!draft) return;
-    updateDraft({
-      ...draft,
-      seo: {
-        ...draft.seo,
-        [path]: { ar: value, en: value },
-      },
-    });
-  }
-
   function patchSocial(network: CompanySocialNetwork, patch: { url?: string; enabled?: boolean }) {
     if (!draft) return;
     const current = draft.social[network] ?? { url: '', enabled: false };
     const nextUrl = patch.url ?? current.url;
+    const hadUrl = Boolean(current.url.trim());
+    const hasUrl = Boolean(nextUrl.trim());
     const nextEnabled =
       patch.enabled !== undefined
         ? patch.enabled
-        : current.enabled;
+        : hadUrl === hasUrl
+          ? current.enabled
+          : hasUrl;
     updateDraft({
       ...draft,
       social: {
@@ -378,10 +361,6 @@ export function WebsiteSettingsPage() {
       },
     });
   }
-
-  const keywordsText = (draft?.seo.keywords ?? []).join('، ');
-  const previewTitle = draft?.seo.homeTitle.ar.trim() || tSeo('previewTitleEmpty');
-  const previewDescription = draft?.seo.homeDescription.ar.trim() || tSeo('previewDescriptionEmpty');
 
   const activeTabMeta: { title: string; description: string } = (() => {
     switch (tab) {
@@ -401,8 +380,6 @@ export function WebsiteSettingsPage() {
         return { title: t('tabs.stockSync'), description: t('stockSyncHint') };
       case 'orderStages':
         return { title: t('tabs.orderStages'), description: t('orderStagesHint') };
-      case 'seo':
-        return { title: t('tabs.seo'), description: tSeo('formHint') };
     }
   })();
 
@@ -481,12 +458,13 @@ export function WebsiteSettingsPage() {
 
           <TabsContent value="contact" className="mt-4">
             <SettingsPanel>
-              <div className="grid gap-5 sm:grid-cols-2">
+              {/* Short values in one row; only the address is long (2026-10-27). */}
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_14rem]">
                 <Field label={t('phone')} error={fieldErrors.phone}>
                   <Input
                     dir="ltr"
                     inputMode="tel"
-                    className={cn(FIELD, 'text-right', fieldErrors.phone && 'border-destructive')}
+                    className={cn(COMPACT_FIELD, 'text-right', fieldErrors.phone && 'border-destructive')}
                     aria-invalid={Boolean(fieldErrors.phone)}
                     value={draft.contact.phone ?? ''}
                     onChange={(event) => {
@@ -502,7 +480,7 @@ export function WebsiteSettingsPage() {
                   <Input
                     dir="ltr"
                     type="email"
-                    className={cn(FIELD, 'text-right', fieldErrors.email && 'border-destructive')}
+                    className={cn(COMPACT_FIELD, 'text-right', fieldErrors.email && 'border-destructive')}
                     aria-invalid={Boolean(fieldErrors.email)}
                     value={draft.contact.email ?? ''}
                     onChange={(event) => {
@@ -514,29 +492,16 @@ export function WebsiteSettingsPage() {
                     }}
                   />
                 </Field>
-                <Field label={t('address')} error={fieldErrors.address} className="sm:col-span-2">
+                <Field label={t('commercialRegistration')} error={fieldErrors.commercialRegistration}>
                   <Input
-                    className={cn(FIELD, fieldErrors.address && 'border-destructive')}
-                    aria-invalid={Boolean(fieldErrors.address)}
-                    value={draft.contact.address ?? ''}
-                    onChange={(event) => {
-                      dropError('address');
-                      updateDraft({
-                        ...draft,
-                        contact: { ...draft.contact, address: event.target.value },
-                      });
-                    }}
-                  />
-                </Field>
-                <Field
-                  label={t('commercialRegistration')}
-                  hint={t('commercialRegistrationHint')}
-                  error={fieldErrors.commercialRegistration}
-                  className="sm:col-span-2"
-                >
-                  <Input
-                    className={cn(FIELD, fieldErrors.commercialRegistration && 'border-destructive')}
+                    dir="ltr"
+                    className={cn(
+                      COMPACT_FIELD,
+                      'text-right',
+                      fieldErrors.commercialRegistration && 'border-destructive',
+                    )}
                     aria-invalid={Boolean(fieldErrors.commercialRegistration)}
+                    title={t('commercialRegistrationHint')}
                     value={draft.footer.commercialRegistration ?? ''}
                     onChange={(event) => {
                       dropError('commercialRegistration');
@@ -550,49 +515,72 @@ export function WebsiteSettingsPage() {
                     }}
                   />
                 </Field>
+                <Field label={t('address')} error={fieldErrors.address} className="sm:col-span-2 lg:col-span-3">
+                  <Input
+                    className={cn(COMPACT_FIELD, fieldErrors.address && 'border-destructive')}
+                    aria-invalid={Boolean(fieldErrors.address)}
+                    value={draft.contact.address ?? ''}
+                    onChange={(event) => {
+                      dropError('address');
+                      updateDraft({
+                        ...draft,
+                        contact: { ...draft.contact, address: event.target.value },
+                      });
+                    }}
+                  />
+                </Field>
               </div>
-              <div className="mt-8 space-y-3 border-t border-border/60 pt-6">
-                <div>
-                  <p className="text-sm font-medium text-foreground">{t('social')}</p>
-                  <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">{t('socialHint')}</p>
-                </div>
-                {COMPANY_SOCIAL_NETWORKS.map((network) => {
-                  const entry = draft.social[network] ?? { url: '', enabled: false };
-                  return (
-                    <div
-                      key={network}
-                      className="sto-social-row rounded-2xl border border-border/60 bg-muted/15 p-4"
-                    >
-                      <Field label={t(network)} error={fieldErrors[`social.${network}`]}>
-                        <Input
-                          dir="ltr"
-                          className={cn(
-                            FIELD,
-                            'font-mono',
-                            fieldErrors[`social.${network}`] && 'border-destructive',
-                          )}
-                          aria-invalid={Boolean(fieldErrors[`social.${network}`])}
-                          placeholder={t('socialUrlPlaceholder')}
-                          value={entry.url}
-                          onChange={(event) => {
-                            dropError(`social.${network}`);
-                            patchSocial(network, { url: event.target.value });
-                          }}
-                        />
-                      </Field>
-                      <div className="flex items-center justify-between gap-3 rounded-xl border border-border/50 bg-card px-3 py-2.5 sm:min-w-40">
-                        <span className="text-xs text-muted-foreground">
-                          {entry.enabled ? t('socialEnabled') : t('socialDisabled')}
-                        </span>
-                        <Switch
-                          checked={entry.enabled}
-                          onCheckedChange={(enabled) => patchSocial(network, { enabled })}
-                        />
+
+              {/* One line per network: its icon, the link, a switch. A link shows it. */}
+              <div className="mt-6 border-t border-border/60 pt-5">
+                <p className="mb-3 text-sm font-medium text-foreground">{t('social')}</p>
+                <div className="divide-y divide-border/60 rounded-xl border border-border/60">
+                  {COMPANY_SOCIAL_NETWORKS.map((network) => {
+                    const entry = draft.social[network] ?? { url: '', enabled: false };
+                    const Icon = STOREFRONT_SOCIAL_ICONS[network];
+                    const error = fieldErrors[`social.${network}`];
+                    return (
+                      <div key={network} className="px-3 py-2">
+                        <div className="flex items-center gap-3">
+                          <span
+                            className={cn(
+                              'flex w-28 shrink-0 items-center gap-2 text-sm',
+                              entry.enabled ? 'text-foreground' : 'text-muted-foreground',
+                            )}
+                          >
+                            {Icon ? <Icon className="h-4 w-4 shrink-0" /> : null}
+                            <span className="truncate">{t(network)}</span>
+                          </span>
+                          <Input
+                            dir="ltr"
+                            className={cn(
+                              'h-9 min-w-0 flex-1 rounded-lg border-input bg-background px-3 text-sm',
+                              error && 'border-destructive',
+                            )}
+                            aria-label={t(network)}
+                            aria-invalid={Boolean(error)}
+                            placeholder={t('socialUrlPlaceholder')}
+                            value={entry.url}
+                            onChange={(event) => {
+                              dropError(`social.${network}`);
+                              patchSocial(network, { url: event.target.value });
+                            }}
+                          />
+                          <Switch
+                            checked={entry.enabled}
+                            disabled={!entry.url.trim()}
+                            aria-label={entry.enabled ? t('socialEnabled') : t('socialDisabled')}
+                            title={entry.enabled ? t('socialEnabled') : t('socialDisabled')}
+                            onCheckedChange={(enabled) => patchSocial(network, { enabled })}
+                          />
+                        </div>
+                        {error ? <p className="mt-1 text-xs text-destructive">{error}</p> : null}
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
+              <FieldLinksQrCard />
             </SettingsPanel>
           </TabsContent>
 
@@ -640,127 +628,6 @@ export function WebsiteSettingsPage() {
             <SettingsPanel>
               <OrderStagesSettingsPanel companyId={companyId} />
             </SettingsPanel>
-          </TabsContent>
-
-          <TabsContent value="seo" className="mt-4">
-            <div className="sto-settings-split">
-              <SettingsPanel>
-                <div className="grid gap-5">
-                  <div className="space-y-4 rounded-2xl border border-border/60 bg-muted/10 p-4">
-                    <Badge variant="subtle">{tSeo('sectionHome')}</Badge>
-                    <Field label={tSeo('homeTitle')} hint={tSeo('homeTitleHint')}>
-                      <Input
-                        className={FIELD}
-                        value={draft.seo.homeTitle.ar}
-                        maxLength={70}
-                        onChange={(event) => patchSeo('homeTitle', event.target.value)}
-                      />
-                    </Field>
-                    <Field label={tSeo('homeDescription')} hint={tSeo('homeDescriptionHint')}>
-                      <Textarea
-                        rows={3}
-                        className="rounded-xl"
-                        value={draft.seo.homeDescription.ar}
-                        maxLength={170}
-                        onChange={(event) => patchSeo('homeDescription', event.target.value)}
-                      />
-                    </Field>
-                  </div>
-
-                  <div className="space-y-4 rounded-2xl border border-border/60 bg-muted/10 p-4">
-                    <Badge variant="subtle">{tSeo('sectionKeywords')}</Badge>
-                    <Field label={tSeo('keywords')} hint={tSeo('keywordsHint')}>
-                      <Textarea
-                        rows={3}
-                        className="rounded-xl"
-                        value={keywordsText}
-                        placeholder={tSeo('keywordsPlaceholder')}
-                        onChange={(event) =>
-                          updateDraft({
-                            ...draft,
-                            seo: {
-                              ...draft.seo,
-                              keywords: parseKeywords(event.target.value),
-                            },
-                          })
-                        }
-                      />
-                    </Field>
-                    {(draft.seo.keywords ?? []).length > 0 ? (
-                      <div className="flex flex-wrap gap-1.5">
-                        {(draft.seo.keywords ?? []).map((keyword) => (
-                          <Badge key={keyword} variant="subtle">
-                            {keyword}
-                          </Badge>
-                        ))}
-                      </div>
-                    ) : null}
-                  </div>
-
-                  <div className="space-y-4 rounded-2xl border border-border/60 bg-muted/10 p-4">
-                    <Badge variant="subtle">{tSeo('sectionProducts')}</Badge>
-                    <Field label={tSeo('productsTitle')} hint={tSeo('productsTitleHint')}>
-                      <Input
-                        className={FIELD}
-                        value={draft.seo.productsTitle.ar}
-                        maxLength={70}
-                        onChange={(event) => patchSeo('productsTitle', event.target.value)}
-                      />
-                    </Field>
-                    <Field label={tSeo('productsDescription')} hint={tSeo('productsDescriptionHint')}>
-                      <Textarea
-                        rows={3}
-                        className="rounded-xl"
-                        value={draft.seo.productsDescription.ar}
-                        maxLength={170}
-                        onChange={(event) => patchSeo('productsDescription', event.target.value)}
-                      />
-                    </Field>
-                  </div>
-
-                  <div className="space-y-4 rounded-2xl border border-border/60 bg-muted/10 p-4">
-                    <Badge variant="subtle">{tSeo('sectionShare')}</Badge>
-                    <Field label={tSeo('defaultOgImage')} hint={tSeo('defaultOgImageHint')}>
-                      <ImagePicker
-                        value={draft.seo.defaultOgImage}
-                        onChange={(defaultOgImage) =>
-                          updateDraft({
-                            ...draft,
-                            seo: {
-                              ...draft.seo,
-                              defaultOgImage: defaultOgImage ?? undefined,
-                            },
-                          })
-                        }
-                      />
-                    </Field>
-                  </div>
-                </div>
-              </SettingsPanel>
-
-              <aside className="h-fit rounded-2xl border border-border/70 bg-card lg:sticky lg:top-4">
-                <header className="border-b border-border/60 px-5 py-4">
-                  <h3 className="text-sm font-semibold text-foreground">{tSeo('previewTitle')}</h3>
-                  <p className="mt-1 text-xs text-muted-foreground">{tSeo('previewHint')}</p>
-                </header>
-                <div className="space-y-4 p-5">
-                  <div className="rounded-xl border border-border bg-background p-4 shadow-soft">
-                    <p className="truncate text-base font-medium text-[#1a0dab]">{previewTitle}</p>
-                    <p className="mt-1 truncate text-xs text-[#006621]" dir="ltr">
-                      example.com/store
-                    </p>
-                    <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-muted-foreground">
-                      {previewDescription}
-                    </p>
-                  </div>
-                  <ul className="space-y-2 text-xs leading-relaxed text-muted-foreground">
-                    <li>{tSeo('previewNoteTitle')}</li>
-                    <li>{tSeo('previewNoteDescription')}</li>
-                    <li>{tSeo('previewNoteKeywords')}</li>
-                  </ul>
-                </div>
-              </aside>
-            </div>
           </TabsContent>
         </Tabs>
       ) : null}

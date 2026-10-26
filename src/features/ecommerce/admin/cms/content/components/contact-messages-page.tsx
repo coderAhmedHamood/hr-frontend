@@ -205,14 +205,14 @@ export function ContactMessagesPage() {
   return (
     <div className="flex flex-col gap-5">
       <SetPageTitle
-        titleAr="رسائل التواصل"
-        descriptionAr="رسائل نموذج التواصل من واجهة المتجر — شكاوى ومقترحات العملاء"
+        titleAr="الشكاوى والمقترحات"
+        descriptionAr="شكاوى ومقترحات العملاء الواردة من المتجر."
         iconName="Mail"
       />
 
       {isError ? (
         <div className="rounded-xl border border-destructive/30 bg-card p-4 text-sm">
-          <p className="text-destructive">تعذر تحميل الرسائل.</p>
+          <p className="text-destructive">تعذر تحميل الشكاوى والمقترحات.</p>
           <button type="button" className="mt-2 text-primary underline" onClick={() => refetch()}>
             إعادة المحاولة
           </button>
@@ -225,7 +225,7 @@ export function ContactMessagesPage() {
           data={data?.items ?? []}
           keyExtractor={(row) => row.id}
           loading={isLoading}
-          emptyText={hasActiveFilters ? 'لا توجد رسائل مطابقة للفلاتر.' : 'لا توجد رسائل بعد.'}
+          emptyText={hasActiveFilters ? 'لا توجد نتائج مطابقة للفلاتر.' : 'لا توجد شكاوى أو مقترحات بعد.'}
           onRowClick={(row) => setViewing(row)}
           mobileCard={(row) => (
             <div className="flex flex-col gap-2">

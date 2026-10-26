@@ -63,8 +63,7 @@ export type EcommerceSettingsTab =
   | 'deliveryRates'
   | 'paymentAccounts'
   | 'stockSync'
-  | 'orderStages'
-  | 'seo';
+  | 'orderStages';
 
 export function ecommerceContentHref(tab: EcommerceContentTab = 'pages'): string {
   return `${ecommerceAdminRoutes.content}?tab=${tab}`;

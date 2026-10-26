@@ -3,7 +3,9 @@
 import type { CSSProperties, ReactNode } from 'react';
 import { Toaster } from 'sonner';
 import { JsonLd } from '@/features/ecommerce/storefront/components/json-ld';
-import { StoreChromeGate, isCheckoutPath } from '@/features/ecommerce/storefront/components/store-chrome-gate';
+import { StoreChromeGate, isCheckoutPath, isStoreLinksPath } from '@/features/ecommerce/storefront/components/store-chrome-gate';
+import { usePathname } from '@/i18n/navigation';
+import { cn } from '@/shared/utils';
 import { StoreFooter } from '@/features/ecommerce/storefront/components/store-footer';
 import { StoreHeader } from '@/features/ecommerce/storefront/components/store-header';
 import { StoreMobileTabBar } from '@/features/ecommerce/storefront/components/store-mobile-tab-bar';
@@ -45,6 +47,8 @@ export function StorefrontShellChrome({
   organizationJsonLd,
   children,
 }: Props) {
+  const pathname = usePathname();
+  const linksLanding = isStoreLinksPath(pathname);
   const dir = isRtlLocale(locale) ? 'rtl' : 'ltr';
   const skipToContent = locale === 'en' ? 'Skip to content' : 'تخطي إلى المحتوى';
 
@@ -134,19 +138,28 @@ export function StorefrontShellChrome({
       >
         {skipToContent}
       </a>
-      <StoreHeader config={config} categories={categories} brands={brands} />
+      <StoreChromeGate match={isStoreLinksPath}>
+        <StoreHeader config={config} categories={categories} brands={brands} />
+      </StoreChromeGate>
       <main
         id="store-main"
-        className="store-main-safe-pb mx-auto w-full max-w-[1400px] flex-1 overflow-x-clip px-4 py-4 sm:px-6 sm:py-6"
+        className={cn(
+          'mx-auto w-full flex-1 overflow-x-clip',
+          linksLanding
+            ? 'max-w-lg px-4 py-8'
+            : 'store-main-safe-pb max-w-[1400px] px-4 py-4 sm:px-6 sm:py-6',
+        )}
       >
         {children}
       </main>
-      <StoreChromeGate match={isCheckoutPath}>
+      <StoreChromeGate match={(path) => isCheckoutPath(path) || isStoreLinksPath(path)}>
         <div className="store-footer-safe-pb">
           <StoreFooter config={config} />
         </div>
       </StoreChromeGate>
-      <StoreMobileTabBar />
+      <StoreChromeGate match={isStoreLinksPath}>
+        <StoreMobileTabBar />
+      </StoreChromeGate>
     </div>
   );
 }

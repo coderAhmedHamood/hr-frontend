@@ -12,6 +12,11 @@ export function storefrontPublicHomeHref(): string {
   return isMultiLangEnabled ? '/ar/store' : '/store';
 }
 
+/** Public field page: store link first, then the contact channels. */
+export function storefrontPublicLinksHref(): string {
+  return `${storefrontPublicHomeHref()}/links`;
+}
+
 /** Builds a locale-prefixed storefront path (e.g. `/ar/store/products`). */
 export function localizedStorePath(locale: StorefrontLocale, href: StoreHref): string {
   return getPathname({ locale, href });

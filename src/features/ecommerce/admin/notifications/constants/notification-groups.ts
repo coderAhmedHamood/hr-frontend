@@ -41,9 +41,9 @@ export const STORE_NOTIFICATION_GROUPS: NotificationToggleGroup[] = [
     items: [{ key: 'notifyPaymentUpdated', label: 'تحديث حالة الدفع' }] as NotificationToggleItem[],
   },
   {
-    label: 'رسائل التواصل',
+    label: 'الشكاوى والمقترحات',
     items: [
-      { key: 'notifyContactMessageReceived', label: 'رسالة تواصل جديدة' },
+      { key: 'notifyContactMessageReceived', label: 'شكوى أو مقترح جديد' },
     ] as NotificationToggleItem[],
   },
 ];

@@ -7,7 +7,7 @@ export const STORE_SOURCE_KIND_LABELS: Record<string, string> = {
   store_order_cancelled: 'إلغاء طلب',
   store_order_refunded: 'استرداد طلب',
   store_payment_updated: 'تحديث دفع',
-  store_contact_message_received: 'رسالة تواصل',
+  store_contact_message_received: 'شكوى أو مقترح',
 };
 
 export const STORE_SEVERITY_DOT_CLASS: Record<string, string> = {

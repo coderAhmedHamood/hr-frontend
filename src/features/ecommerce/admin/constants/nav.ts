@@ -32,7 +32,6 @@ import {
   Paintbrush,
   Palette,
   Phone,
-  Search,
   CircleDollarSign,
 } from 'lucide-react';
 import { APP, type AppRequirement, type CompanyApps } from '@/shared/modules/company-apps';
@@ -112,7 +111,6 @@ export const ecommerceAdminNavGroups: EcommerceAdminNavGroup[] = [
           { labelKey: 'settingsTabs.branding', href: ecommerceSettingsHref('branding'), icon: Palette },
           { labelKey: 'settingsTabs.colors', href: ecommerceSettingsHref('colors'), icon: Paintbrush },
           { labelKey: 'settingsTabs.contact', href: ecommerceSettingsHref('contact'), icon: Phone },
-          { labelKey: 'settingsTabs.seo', href: ecommerceSettingsHref('seo'), icon: Search },
         ],
       },
       {

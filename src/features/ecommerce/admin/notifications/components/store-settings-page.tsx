@@ -82,13 +82,13 @@ export function StoreSettingsPage() {
           eyebrow="المتجر"
           icon={BellRing}
           companyName={company.nameAr}
-          description="تحكم في إشعارات الطلبات، الدفع، ورسائل التواصل — منفصلة عن إعدادات هوية المتجر."
+          description="تحكم في إشعارات الطلبات، الدفع، والشكاوى والمقترحات — منفصلة عن إعدادات هوية المتجر."
         />
       ) : null}
 
       <NotificationTogglesCard
         title="إشعارات المتجر"
-        description="إعدادات مستقلة عن الموارد البشرية — تُطبَّق على أحداث الطلبات ورسائل التواصل فقط."
+        description="إعدادات مستقلة عن الموارد البشرية — تُطبَّق على أحداث الطلبات والشكاوى والمقترحات فقط."
         groups={STORE_NOTIFICATION_GROUPS}
         values={settings as Pick<StoreCompanySettings, StoreNotificationKey>}
         disabled={update.isPending || !canUpdate}

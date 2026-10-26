@@ -18,3 +18,8 @@ export function StoreChromeGate({
 export function isCheckoutPath(pathname: string): boolean {
   return pathname.includes('/store/checkout') || pathname.endsWith('/checkout');
 }
+
+/** Field QR landing: logo and contact links, without the shop header or tab bar. */
+export function isStoreLinksPath(pathname: string): boolean {
+  return pathname === '/store/links' || pathname.endsWith('/store/links');
+}

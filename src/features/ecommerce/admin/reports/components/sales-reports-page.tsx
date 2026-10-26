@@ -897,7 +897,7 @@ export function StoreReportsPage({ section = 'overview' }: { section?: ReportTab
               )}
               <div className="flex flex-wrap gap-2">
                 <Button asChild size="sm" variant="outline">
-                  <Link href={ecommerceAdminRoutes.contactMessages}>رسائل التواصل</Link>
+                  <Link href={ecommerceAdminRoutes.contactMessages}>الشكاوى والمقترحات</Link>
                 </Button>
                 <Button asChild size="sm" variant="outline">
                   <Link href={ecommerceAdminRoutes.reviews}>مراجعة التقييمات</Link>
@@ -1146,7 +1146,7 @@ function OverviewTab({
             icon={Package}
           />
           <AlertCard
-            label="رسائل الفترة"
+            label="شكاوى ومقترحات الفترة"
             value={alerts.contactMessagesInPeriodCount}
             href={ecommerceAdminRoutes.contactMessages}
             icon={MessageSquare}
