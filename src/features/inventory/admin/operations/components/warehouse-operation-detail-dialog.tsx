@@ -215,7 +215,7 @@ function OperationStatusStepper({ status }: { status: WarehouseOperationStatus }
 
 export function WarehouseOperationDetailDialog({ open, onOpenChange, operation }: Props) {
   const companyId = getInventoryCompanyId();
-  const { data: inventorySettings } = useInventoryCompanySettings();
+  const { data: inventorySettings } = useInventoryCompanySettings({ enabled: open });
   const costDisplayDecimals = inventorySettings?.costDisplayDecimals ?? 2;
   const kind = operation?.kind ?? 'receipt';
   const { update, undo } = useWarehouseOperationMutations(operation?.warehouseId ?? '', kind);
