@@ -28,6 +28,7 @@ export function usePdfCompanyLetterhead(): PdfCompanyLetterhead {
         logoUrl: company.logoUrl,
         pdfWatermarkEnabled: company.pdfWatermarkEnabled,
         pdfWatermarkOpacity: company.pdfWatermarkOpacity,
+        pdfContractFontScale: company.pdfContractFontScale,
       });
     }
 
@@ -59,6 +60,7 @@ export function useResolvedPdfLetterhead(overrides?: PdfLetterheadOverrides): Pd
     logoSrc: overrides?.logoSrc ?? defaults.logoSrc,
     watermarkEnabled: defaults.watermarkEnabled,
     watermarkOpacity: defaults.watermarkOpacity,
+    contractFontScale: defaults.contractFontScale,
   }), [defaults, overrides]);
 }
 

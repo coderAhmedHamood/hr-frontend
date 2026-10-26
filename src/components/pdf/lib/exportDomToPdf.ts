@@ -74,9 +74,93 @@ export function trimBlankLastPage(canvas: HTMLCanvasElement, pageRatio: number):
   return out;
 }
 
+/** Marks a part printed at the top of every PDF page (e.g. a letterhead). */
+export const PDF_RUNNING_HEADER_ATTR = 'data-pdf-running-header';
+/** Marks a part printed at the bottom of every PDF page (e.g. a gold rule). */
+export const PDF_RUNNING_FOOTER_ATTR = 'data-pdf-running-footer';
+
+/** Page margins (mm): top, left, bottom, right. */
+const PAGE_MARGIN_MM: [number, number, number, number] = [8, 10, 8, 10];
+
+/** jsPDF as html2pdf hands it over (`get('pdf')`). */
+type Html2PdfJsPdf = {
+  internal: { getNumberOfPages(): number; pageSize: { getWidth(): number; getHeight(): number } };
+  setPage(page: number): void;
+  addImage(data: string, format: string, x: number, y: number, w: number, h: number): void;
+};
+
+type RunningPart = { image: string; heightMm: number };
+
+function html2canvasOptions() {
+  return {
+    scale: 2,
+    useCORS: true,
+    logging: false,
+    backgroundColor: '#ffffff',
+    onclone: (clonedDoc: Document) => {
+      clonedDoc.querySelectorAll('link[rel="stylesheet"], style').forEach((n) => n.remove());
+      clonedDoc.documentElement.setAttribute('style', 'color-scheme: light');
+      clonedDoc.documentElement.className = '';
+      clonedDoc.body.className = '';
+      clonedDoc.body.setAttribute(
+        'style',
+        `background:#fff;margin:0;padding:0;font-family:${PDF_PRINT_FONT_FAMILY};font-weight:700;color:#000`,
+      );
+      const reset = clonedDoc.createElement('style');
+      reset.textContent =
+        '*,*::before,*::after{box-sizing:border-box}' + 'img{max-width:100%;height:auto}';
+      clonedDoc.head.appendChild(reset);
+    },
+  };
+}
+
+/**
+ * Draws one running part (letterhead / footer rule) on its own, at the width
+ * it has in the document: the side paddings of its ancestors are kept, so it
+ * lines up with the content on every page.
+ */
+async function renderRunningPart(
+  html2pdf: Awaited<typeof import('html2pdf.js')>,
+  root: HTMLElement,
+  part: HTMLElement,
+  orientation: 'portrait' | 'landscape',
+): Promise<RunningPart> {
+  let padLeft = 0;
+  let padRight = 0;
+  for (let node = part.parentElement; node && node !== root.parentElement; node = node.parentElement) {
+    const cs = getComputedStyle(node);
+    padLeft += parseFloat(cs.paddingLeft) || 0;
+    padRight += parseFloat(cs.paddingRight) || 0;
+  }
+  const wrapper = document.createElement('div');
+  wrapper.dir = root.dir || 'rtl';
+  wrapper.style.paddingLeft = `${padLeft}px`;
+  wrapper.style.paddingRight = `${padRight}px`;
+  wrapper.appendChild(part.cloneNode(true));
+  const [, left, , right] = PAGE_MARGIN_MM;
+  const canvas: HTMLCanvasElement = await html2pdf()
+    .set({
+      margin: [0, left, 0, right],
+      html2canvas: html2canvasOptions(),
+      jsPDF: { unit: 'mm', format: 'a4', orientation },
+    })
+    .from(pinPdfLayoutDefaults(wrapper))
+    .toCanvas()
+    .get('canvas');
+  const pageWidthMm = orientation === 'landscape' ? 297 : 210;
+  const widthMm = pageWidthMm - left - right;
+  return {
+    image: canvas.toDataURL('image/png'),
+    heightMm: canvas.width > 0 ? (canvas.height / canvas.width) * widthMm : 0,
+  };
+}
+
 /**
  * Client-side A4 PDF from a live DOM node (html2canvas + jsPDF via html2pdf.js).
  * Call only in the browser. Tailwind/global CSS is stripped in the html2canvas clone — use inline styles on printable content.
+ *
+ * Parts marked with `PDF_RUNNING_HEADER_ATTR` / `PDF_RUNNING_FOOTER_ATTR` are
+ * taken out of the flow and printed at the top / bottom of every page instead.
  */
 export async function exportDomToPdf(
   element: HTMLElement,
@@ -90,41 +174,49 @@ export async function exportDomToPdf(
   metricsFix.textContent = PDF_EXPORT_METRICS_CSS;
   document.head.appendChild(metricsFix);
   try {
+    const headerEl = element.querySelector<HTMLElement>(`[${PDF_RUNNING_HEADER_ATTR}]`);
+    const footerEl = element.querySelector<HTMLElement>(`[${PDF_RUNNING_FOOTER_ATTR}]`);
+    const header = headerEl ? await renderRunningPart(html2pdf, element, headerEl, orientation) : null;
+    const footer = footerEl ? await renderRunningPart(html2pdf, element, footerEl, orientation) : null;
+
+    const content = pinPdfLayoutDefaults(element);
+    if (header || footer) {
+      content
+        .querySelectorAll(`[${PDF_RUNNING_HEADER_ATTR}], [${PDF_RUNNING_FOOTER_ATTR}]`)
+        .forEach((n) => n.remove());
+    }
+
+    const [top, left, bottom, right] = PAGE_MARGIN_MM;
     await html2pdf()
       .set({
-        margin: [8, 10, 8, 10],
+        margin: [top + (header?.heightMm ?? 0), left, bottom + (footer?.heightMm ?? 0), right],
         filename,
         image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: {
-          scale: 2,
-          useCORS: true,
-          logging: false,
-          backgroundColor: '#ffffff',
-          onclone: (clonedDoc: Document) => {
-            clonedDoc.querySelectorAll('link[rel="stylesheet"], style').forEach((n) => n.remove());
-            clonedDoc.documentElement.setAttribute('style', 'color-scheme: light');
-            clonedDoc.documentElement.className = '';
-            clonedDoc.body.className = '';
-            clonedDoc.body.setAttribute(
-              'style',
-              `background:#fff;margin:0;padding:0;font-family:${PDF_PRINT_FONT_FAMILY};font-weight:700;color:#000`,
-            );
-            const reset = clonedDoc.createElement('style');
-            reset.textContent =
-              '*,*::before,*::after{box-sizing:border-box}' + 'img{max-width:100%;height:auto}';
-            clonedDoc.head.appendChild(reset);
-          },
-        },
+        html2canvas: html2canvasOptions(),
         jsPDF: { unit: 'mm', format: 'a4', orientation },
         pagebreak:
           options?.pageBreaks === 'flow'
             ? { mode: ['css', 'legacy'] as const }
             : { mode: ['avoid-all', 'css', 'legacy'] as const },
       })
-      .from(pinPdfLayoutDefaults(element))
+      .from(content)
       .toCanvas()
       .then(function (this: Html2PdfWorkerProps) {
         this.prop.canvas = trimBlankLastPage(this.prop.canvas, this.prop.pageSize.inner.ratio);
+      })
+      .toPdf()
+      .get('pdf')
+      .then((pdf: Html2PdfJsPdf) => {
+        if (!header && !footer) return;
+        const width = pdf.internal.pageSize.getWidth() - left - right;
+        const height = pdf.internal.pageSize.getHeight();
+        for (let page = 1; page <= pdf.internal.getNumberOfPages(); page += 1) {
+          pdf.setPage(page);
+          if (header) pdf.addImage(header.image, 'PNG', left, top, width, header.heightMm);
+          if (footer) {
+            pdf.addImage(footer.image, 'PNG', left, height - bottom - footer.heightMm, width, footer.heightMm);
+          }
+        }
       })
       .save();
   } finally {

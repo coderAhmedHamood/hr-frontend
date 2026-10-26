@@ -14,6 +14,7 @@ import { uploadsApi } from '@/features/hr/lib/api/uploads';
 import {
   companyToSettingsForm,
   isValidHexColor,
+  PDF_CONTRACT_FONT_SCALES,
   PDF_WATERMARK_LEVELS,
   settingsFormToUpdateDto,
   type CompanySettingsFormState,
@@ -304,6 +305,37 @@ export function CompanySettingsTab() {
               </div>
             </div>
           ) : null}
+        </div>
+
+        <div className="space-y-3">
+          <div>
+            <p className="text-xs font-semibold text-muted-foreground">حجم خط عقد العمل</p>
+            <p className="text-[11px] leading-relaxed text-muted-foreground">
+              حجم نص بنود العقد في ملف PDF؛ الخط الأصغر يجمع بنودًا أكثر في الصفحة الواحدة.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="حجم خط عقد العمل">
+            {PDF_CONTRACT_FONT_SCALES.map((size) => {
+              const active = form.pdfContractFontScale === size.value;
+              return (
+                <button
+                  key={size.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  onClick={() => patch({ pdfContractFontScale: size.value })}
+                  className={cn(
+                    'rounded-lg border px-3 py-1.5 text-xs transition',
+                    active
+                      ? 'border-primary bg-primary/10 font-semibold text-primary'
+                      : 'border-border hover:border-primary/40',
+                  )}
+                >
+                  {size.label} ({size.value}%)
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         <div className="space-y-3">

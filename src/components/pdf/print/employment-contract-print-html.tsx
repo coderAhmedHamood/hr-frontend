@@ -12,6 +12,11 @@ import {
   pdfOfficialPageStyle,
 } from '@/components/pdf/lib/official-document-typography';
 import { sanitizePdfText } from '@/components/pdf/lib/sanitize-pdf-text';
+import {
+  PDF_RUNNING_FOOTER_ATTR,
+  PDF_RUNNING_HEADER_ATTR,
+} from '@/components/pdf/lib/exportDomToPdf';
+import { usePdfCompanyLetterhead } from '@/components/pdf/hooks/use-pdf-company-letterhead';
 import { RoseTradingLetterheadPrint } from '@/components/pdf/print/rose-trading-letterhead-print';
 import { getPdfLogoSrc } from '@/components/pdf/lib/pdf-logo-url';
 import { RosePdfWatermark } from '@/components/pdf/rose-trading/rose-pdf-watermark';
@@ -69,11 +74,22 @@ const ARTICLE_BAR_BG = '#e8e8e8';
 const ARTICLE_BAR_FG = '#000000';
 const LETTERHEAD_GOLD = '#b8933e';
 
+/** Contract text size (company setting), as a factor of the standard size. */
+const FontScaleContext = React.createContext(1);
+
+function useScaledFont(size: number): number {
+  return size * React.useContext(FontScaleContext);
+}
+
+/** Gold rule — printed at the bottom of every PDF page. */
 function FooterRule() {
   return (
     <div
-      style={{ marginTop: 24, borderTop: `6px double ${LETTERHEAD_GOLD}` }}
-    />
+      {...{ [PDF_RUNNING_FOOTER_ATTR]: '' }}
+      style={{ paddingTop: 24 }}
+    >
+      <div style={{ borderTop: `6px double ${LETTERHEAD_GOLD}` }} />
+    </div>
   );
 }
 
@@ -92,6 +108,8 @@ function ArticleBlock({
   body: string;
   children?: React.ReactNode;
 }) {
+  const sectionFont = useScaledFont(PDF_SECTION_FONT);
+  const bodyFont = useScaledFont(PDF_BODY_FONT);
   // An article may run over to the next page — a contract has no gaps — but
   // its title never stays alone at a page's foot (kept with the first
   // paragraph), and no paragraph is cut through a line.
@@ -102,7 +120,7 @@ function ArticleBlock({
   const paragraphStyle: React.CSSProperties = {
     padding: '0 4px',
     marginBottom: 4,
-    fontSize: PDF_BODY_FONT,
+    fontSize: bodyFont,
     fontWeight: 700,
     lineHeight: 1.85,
     textAlign: 'justify',
@@ -116,7 +134,7 @@ function ArticleBlock({
         color: ARTICLE_BAR_FG,
         padding: '8px 12px',
         marginBottom: 8,
-        fontSize: PDF_SECTION_FONT,
+        fontSize: sectionFont,
         fontWeight: 700,
         textAlign: 'center',
         lineHeight: 1.5,
@@ -157,6 +175,7 @@ function CompensationBlock({
   /** Rendered under the salary article's text instead of as its own block. */
   inArticle?: boolean;
 }) {
+  const bodyFont = useScaledFont(PDF_BODY_FONT);
   const cur = sanitizePdfText(currency || 'SAR');
   const rows = allowanceRows.filter((r) => r.labelAr.trim());
   const allowancesParagraph = rows.length > 0
@@ -173,7 +192,7 @@ function CompensationBlock({
           : { marginTop: 16, marginBottom: 16, pageBreakInside: 'avoid' }
       }
     >
-      <div style={{ fontSize: PDF_BODY_FONT, fontWeight: inArticle ? 700 : undefined, lineHeight: PDF_LINE_HEIGHT, textAlign: 'justify' }}>
+      <div style={{ fontSize: bodyFont, fontWeight: inArticle ? 700 : undefined, lineHeight: PDF_LINE_HEIGHT, textAlign: 'justify' }}>
         <p style={{ margin: '0 0 6px' }}>
           <span style={{ fontWeight: 700 }}>الراتب الأساسي:</span>{' '}
           {sanitizePdfText(baseSalary || '—')} {cur}
@@ -200,6 +219,7 @@ function CompensationBlock({
 }
 
 function SignatureFooter({ employeeRoleNounAr }: { employeeRoleNounAr: string }) {
+  const pageFont = useScaledFont(PDF_PAGE_FONT);
   return (
     <div
       style={{
@@ -211,11 +231,11 @@ function SignatureFooter({ employeeRoleNounAr }: { employeeRoleNounAr: string })
         pageBreakInside: 'avoid',
       }}
     >
-      <div style={{ flex: 1, textAlign: 'center', fontSize: PDF_PAGE_FONT, fontWeight: 700 }}>
+      <div style={{ flex: 1, textAlign: 'center', fontSize: pageFont, fontWeight: 700 }}>
         الطرف الأول /صاحب العمل
         <RoseCompanyStamp width={130} compact />
       </div>
-      <div style={{ flex: 1, textAlign: 'center', fontSize: PDF_PAGE_FONT, fontWeight: 700 }}>
+      <div style={{ flex: 1, textAlign: 'center', fontSize: pageFont, fontWeight: 700 }}>
         الطرف الثاني / {sanitizePdfText(employeeRoleNounAr)}
         <div style={{ width: 160, height: 1, backgroundColor: '#000', margin: '30px auto 0' }} />
       </div>
@@ -232,15 +252,16 @@ function PartiesBlock({
   party1: string;
   party2: string;
 }) {
+  const bodyFont = useScaledFont(PDF_BODY_FONT);
   return (
     <div style={{ marginBottom: 14 }}>
-      <div style={{ fontSize: PDF_BODY_FONT, lineHeight: 1.85, textAlign: 'right', marginBottom: 6 }}>
+      <div style={{ fontSize: bodyFont, lineHeight: 1.85, textAlign: 'right', marginBottom: 6 }}>
         {sanitizePdfText(lead)}
       </div>
-      <div style={{ fontSize: PDF_BODY_FONT, lineHeight: PDF_LINE_HEIGHT, textAlign: 'justify', marginBottom: 4 }}>
+      <div style={{ fontSize: bodyFont, lineHeight: PDF_LINE_HEIGHT, textAlign: 'justify', marginBottom: 4 }}>
         {sanitizePdfText(party1)}
       </div>
-      <div style={{ fontSize: PDF_BODY_FONT, lineHeight: PDF_LINE_HEIGHT, textAlign: 'justify' }}>
+      <div style={{ fontSize: bodyFont, lineHeight: PDF_LINE_HEIGHT, textAlign: 'justify' }}>
         {sanitizePdfText(party2)}
       </div>
     </div>
@@ -281,6 +302,9 @@ export const EmploymentContractPrintHtml = React.forwardRef<HTMLDivElement, Empl
       allowanceRows,
       articles,
     } = props;
+
+    const fontScale = usePdfCompanyLetterhead().contractFontScale;
+    const pageFont = PDF_PAGE_FONT * fontScale;
 
     const [logoSrc, setLogoSrc] = React.useState<string | undefined>(logoSrcProp);
     React.useEffect(() => {
@@ -371,20 +395,23 @@ export const EmploymentContractPrintHtml = React.forwardRef<HTMLDivElement, Empl
     const hasAnnex = Boolean(model.annexPreambleAr.trim() || model.annexArticles.length > 0);
 
     return (
+      <FontScaleContext.Provider value={fontScale}>
       <div ref={ref} dir="rtl" lang="ar" style={{ width: '210mm', maxWidth: '100%', margin: '0 auto' }}>
         <div style={PAGE_STYLE}>
           <RosePdfWatermark logoSrc={logoSrc} />
           <div style={{ position: 'relative', zIndex: 1, paddingTop: 20 }}>
-            <RoseTradingLetterheadPrint
-              logoSrc={logoSrc}
-              companyNameAr={company.nameAr}
-              companyNameEn={company.nameEn ?? undefined}
-            />
+            <div {...{ [PDF_RUNNING_HEADER_ATTR]: '' }}>
+              <RoseTradingLetterheadPrint
+                logoSrc={logoSrc}
+                companyNameAr={company.nameAr}
+                companyNameEn={company.nameEn ?? undefined}
+              />
+            </div>
 
             <div
               style={{
                 backgroundColor: ARTICLE_BAR_BG,
-                fontSize: PDF_TITLE_FONT,
+                fontSize: PDF_TITLE_FONT * fontScale,
                 fontWeight: 700,
                 textAlign: 'center',
                 marginTop: 4,
@@ -429,16 +456,18 @@ export const EmploymentContractPrintHtml = React.forwardRef<HTMLDivElement, Empl
           >
             <RosePdfWatermark logoSrc={logoSrc} />
             <div style={{ position: 'relative', zIndex: 1, paddingTop: 20 }}>
-              <RoseTradingLetterheadPrint
-                logoSrc={logoSrc}
-                companyNameAr={company.nameAr}
-                companyNameEn={company.nameEn ?? undefined}
-              />
+              <div {...{ [PDF_RUNNING_HEADER_ATTR]: '' }}>
+                <RoseTradingLetterheadPrint
+                  logoSrc={logoSrc}
+                  companyNameAr={company.nameAr}
+                  companyNameEn={company.nameEn ?? undefined}
+                />
+              </div>
 
               <div
                 style={{
                   backgroundColor: ARTICLE_BAR_BG,
-                  fontSize: PDF_RECIPIENTS_FONT,
+                  fontSize: PDF_RECIPIENTS_FONT * fontScale,
                   fontWeight: 700,
                   textAlign: 'center',
                   marginTop: 4,
@@ -478,11 +507,11 @@ export const EmploymentContractPrintHtml = React.forwardRef<HTMLDivElement, Empl
                   pageBreakInside: 'avoid',
                 }}
               >
-                <div style={{ flex: 1, textAlign: 'center', fontSize: PDF_PAGE_FONT, fontWeight: 700 }}>
+                <div style={{ flex: 1, textAlign: 'center', fontSize: pageFont, fontWeight: 700 }}>
                   الطرف الأول (صاحب العمل)
                   <RoseCompanyStamp width={130} compact />
                 </div>
-                <div style={{ flex: 1, textAlign: 'center', fontSize: PDF_PAGE_FONT, fontWeight: 700 }}>
+                <div style={{ flex: 1, textAlign: 'center', fontSize: pageFont, fontWeight: 700 }}>
                   الطرف الثاني ({sanitizePdfText(model.employeeRoleNounAr)})
                 </div>
               </div>
@@ -491,6 +520,7 @@ export const EmploymentContractPrintHtml = React.forwardRef<HTMLDivElement, Empl
           </div>
         ) : null}
       </div>
+      </FontScaleContext.Provider>
     );
   },
 );
