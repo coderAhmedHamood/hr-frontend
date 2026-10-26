@@ -74,6 +74,33 @@ export function trimBlankLastPage(canvas: HTMLCanvasElement, pageRatio: number):
   return out;
 }
 
+/** The API through this site's own origin (rewrite in next.config.mjs). */
+const API_PROXY_PREFIX = '/api-backend';
+
+/**
+ * html2canvas only draws images the page may read. An upload served from the
+ * API's own host (in production `https://api.jgr.sa`) shows on screen, but
+ * without CORS headers it is dropped from the PDF — the logo went missing.
+ * Uploads are loaded through the same-origin proxy instead.
+ */
+export function proxyCrossOriginUploads(root: HTMLElement): HTMLElement {
+  root.querySelectorAll('img').forEach((img) => {
+    const raw = img.getAttribute('src');
+    if (!raw || raw.startsWith('data:')) return;
+    let url: URL;
+    try {
+      url = new URL(raw, window.location.href);
+    } catch {
+      return;
+    }
+    if (url.origin === window.location.origin) return;
+    const at = url.pathname.indexOf('/uploads/');
+    if (at < 0) return;
+    img.setAttribute('src', `${API_PROXY_PREFIX}${url.pathname.slice(at)}${url.search}`);
+  });
+  return root;
+}
+
 /** Marks a part printed at the top of every PDF page (e.g. a letterhead). */
 export const PDF_RUNNING_HEADER_ATTR = 'data-pdf-running-header';
 /** Marks a part printed at the bottom of every PDF page (e.g. a gold rule). */
@@ -144,7 +171,7 @@ async function renderRunningPart(
       html2canvas: html2canvasOptions(),
       jsPDF: { unit: 'mm', format: 'a4', orientation },
     })
-    .from(pinPdfLayoutDefaults(wrapper))
+    .from(proxyCrossOriginUploads(pinPdfLayoutDefaults(wrapper)))
     .toCanvas()
     .get('canvas');
   const pageWidthMm = orientation === 'landscape' ? 297 : 210;
@@ -179,7 +206,7 @@ export async function exportDomToPdf(
     const header = headerEl ? await renderRunningPart(html2pdf, element, headerEl, orientation) : null;
     const footer = footerEl ? await renderRunningPart(html2pdf, element, footerEl, orientation) : null;
 
-    const content = pinPdfLayoutDefaults(element);
+    const content = proxyCrossOriginUploads(pinPdfLayoutDefaults(element));
     if (header || footer) {
       content
         .querySelectorAll(`[${PDF_RUNNING_HEADER_ATTR}], [${PDF_RUNNING_FOOTER_ATTR}]`)
