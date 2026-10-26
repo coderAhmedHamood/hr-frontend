@@ -33,6 +33,7 @@ type CategoryDto = {
   logisticsPackageReservation?: CategoryPackageReservation | null;
   createdAt: string;
   updatedAt: string;
+  productCount?: number;
 };
 
 function mapCategory(dto: CategoryDto): Category {
@@ -64,6 +65,7 @@ function mapCategory(dto: CategoryDto): Category {
     },
     displayOrder: dto.displayOrder,
     isActive: dto.isActive,
+    productCount: dto.productCount,
     logistics: {
       routesNote: dto.logisticsRoutesNote ?? undefined,
       removalStrategy: dto.logisticsRemovalStrategy ?? undefined,

@@ -63,6 +63,11 @@ function newValueClientKey() {
   return `pval-${Math.random().toString(36).slice(2, 9)}`;
 }
 
+/**
+ * A catalog attribute linked to the product with no value yet: the values
+ * dialog opens right away and the user picks the ones this product has
+ * (2026-10-26: a shop with hundreds of colours picks a few, not removes the rest).
+ */
 function catalogToLine(attribute: CatalogAttribute): ProductAttributeLine {
   return {
     id: newLineId(),
@@ -70,20 +75,7 @@ function catalogToLine(attribute: CatalogAttribute): ProductAttributeLine {
     nameAr: attribute.nameAr,
     displayType: attribute.displayType,
     createVariant: attribute.createVariant,
-    values: dedupeAttributeValues(
-      attribute.values.map((raw) => {
-        const value = normalizeAttributeValue(raw, attribute.displayType);
-        return {
-          id: newValueClientKey(),
-          catalogAttributeValueId: value.id,
-          nameAr: value.nameAr,
-          freeText: value.freeText,
-          defaultExtraPrice: value.defaultExtraPrice,
-          colorHex: value.colorHex,
-          imageUrl: value.imageUrl,
-        };
-      }),
-    ),
+    values: [],
   };
 }
 
@@ -133,6 +125,9 @@ export function ProductAttributesTab({ control, errors, register, setValue, getV
   const [pickerOpen, setPickerOpen] = React.useState(false);
   const [pickerSearch, setPickerSearch] = React.useState('');
   const [configureIndex, setConfigureIndex] = React.useState<number | null>(null);
+  /** The line was just added from the picker: cancelling its values removes it. */
+  const [configureIsNew, setConfigureIsNew] = React.useState(false);
+  const [valueSearch, setValueSearch] = React.useState('');
   const [dragIndex, setDragIndex] = React.useState<number | null>(null);
 
   const configureLine = configureIndex !== null ? watched[configureIndex] : null;
@@ -175,6 +170,7 @@ export function ProductAttributesTab({ control, errors, register, setValue, getV
     setAddValueOpen(false);
     setAddValueName('');
     setAddValueColor('');
+    setValueSearch('');
     initializedForIndexRef.current = configureIndex;
   }, [configureIndex, configureLine, configureCatalog]);
 
@@ -198,10 +194,21 @@ export function ProductAttributesTab({ control, errors, register, setValue, getV
     append(catalogToLine(attribute));
     setPickerOpen(false);
     setPickerSearch('');
+    // Straight to its values: nothing is selected until the user picks.
+    setConfigureIsNew(true);
+    setConfigureIndex(fields.length);
   }
 
   function openConfigure(index: number) {
+    setConfigureIsNew(false);
     setConfigureIndex(index);
+  }
+
+  /** Cancel: a line added from the picker with no value applied is removed. */
+  function closeConfigure() {
+    if (configureIsNew && configureIndex !== null) remove(configureIndex);
+    setConfigureIsNew(false);
+    setConfigureIndex(null);
   }
 
   function saveConfigure() {
@@ -254,6 +261,7 @@ export function ProductAttributesTab({ control, errors, register, setValue, getV
         ...configureLine,
         values: dedupeAttributeValues(nextValues),
       });
+      setConfigureIsNew(false);
       setConfigureIndex(null);
       return;
     }
@@ -264,6 +272,7 @@ export function ProductAttributesTab({ control, errors, register, setValue, getV
     );
     if (nextValues.length === 0) return;
     update(configureIndex, { ...configureLine, values: nextValues });
+    setConfigureIsNew(false);
     setConfigureIndex(null);
   }
 
@@ -325,6 +334,17 @@ export function ProductAttributesTab({ control, errors, register, setValue, getV
       setRestoringValueId(null);
     }
   }
+
+  const configureValues = (configureCatalog?.values ?? configureLine?.values ?? []) as Array<{
+    id: string;
+    nameAr: string;
+    isArchived?: boolean;
+  }>;
+  const selectableValues = configureValues.filter((value) => !value.isArchived);
+  const valueTerm = valueSearch.trim().toLowerCase();
+  const visibleValues = valueTerm
+    ? configureValues.filter((value) => value.nameAr.toLowerCase().includes(valueTerm))
+    : configureValues;
 
   return (
     <div className="space-y-4">
@@ -480,7 +500,7 @@ export function ProductAttributesTab({ control, errors, register, setValue, getV
       <Dialog
         open={configureIndex !== null}
         onOpenChange={(open) => {
-          if (!open) setConfigureIndex(null);
+          if (!open) closeConfigure();
         }}
       >
         <DialogContent
@@ -491,16 +511,54 @@ export function ProductAttributesTab({ control, errors, register, setValue, getV
         >
           <div className={dialogShellHeaderClass}>
             <DialogTitle className="text-base font-semibold">
-              تهيئة {configureLine?.nameAr ?? 'الخاصية'}
+              {configureIsNew ? 'اختر قيم' : 'تهيئة'} {configureLine?.nameAr ?? 'الخاصية'}
             </DialogTitle>
           </div>
           <div className={cn(dialogShellBodyClass, 'space-y-3')}>
             <p className="text-xs text-muted-foreground">
-              اختر القيم التي تظهر على هذا المنتج. يمكنك تعديل القيم الأساسية من صفحة الخصائص.
+              اختر القيم التي يتوفر بها هذا المنتج فقط. يمكنك تعديل القيم الأساسية من صفحة الخصائص.
             </p>
+            {configureValues.length > 8 ? (
+              <div className="relative">
+                <Search className="pointer-events-none absolute inset-y-0 right-3 my-auto h-4 w-4 text-muted-foreground" />
+                <Input
+                  value={valueSearch}
+                  onChange={(event) => setValueSearch(event.target.value)}
+                  placeholder="ابحث في القيم…"
+                  className="h-9 pe-9"
+                />
+              </div>
+            ) : null}
+            <div className="flex items-center justify-between gap-2 text-xs">
+              <span className="text-muted-foreground">
+                المحدد: {selectedValueIds.size} من {selectableValues.length}
+              </span>
+              <span className="flex items-center gap-3">
+                <button
+                  type="button"
+                  className="font-medium text-primary hover:underline"
+                  onClick={() =>
+                    setSelectedValueIds((prev) => {
+                      const next = new Set(prev);
+                      for (const value of visibleValues) if (!value.isArchived) next.add(value.id);
+                      return next;
+                    })
+                  }
+                >
+                  {valueSearch.trim() ? 'تحديد النتائج' : 'تحديد الكل'}
+                </button>
+                <button
+                  type="button"
+                  className="text-muted-foreground hover:text-foreground hover:underline"
+                  onClick={() => setSelectedValueIds(new Set())}
+                >
+                  إلغاء التحديد
+                </button>
+              </span>
+            </div>
             <div className="flex flex-wrap gap-2">
               {(
-                (configureCatalog?.values ?? configureLine?.values ?? []) as Array<{
+                visibleValues as Array<{
                   id: string;
                   nameAr: string;
                   freeText?: string;
@@ -650,7 +708,7 @@ export function ProductAttributesTab({ control, errors, register, setValue, getV
             <Button type="button" onClick={saveConfigure} disabled={selectedValueIds.size === 0}>
               تطبيق
             </Button>
-            <Button type="button" variant="outline" onClick={() => setConfigureIndex(null)}>
+            <Button type="button" variant="outline" onClick={closeConfigure}>
               إلغاء
             </Button>
           </DialogFooter>

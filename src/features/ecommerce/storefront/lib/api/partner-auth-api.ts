@@ -159,8 +159,8 @@ export async function registerPartner(
     body: JSON.stringify({
       companyId: input.companyId || getStorefrontCompanyId(),
       name: input.name.trim(),
-      email: input.email.trim().toLowerCase(),
-      mobile: input.mobile.trim(),
+      email: input.email?.trim().toLowerCase() || null,
+      mobile: input.mobile?.trim() || null,
       password: input.password,
       accountKind: input.accountKind ?? 'customer',
       branchId: input.branchId ?? null,
@@ -203,11 +203,27 @@ export async function updatePartnerProfile(
     token,
     body: JSON.stringify({
       name: input.name.trim(),
-      email: input.email.trim().toLowerCase(),
-      mobile: input.mobile.trim(),
+      email: input.email.trim().toLowerCase() || null,
+      mobile: input.mobile.trim() || null,
     }),
   });
   return mapSessionPayload(dto);
+}
+
+/** POST /public/partners/auth/forgot-password — same answer with or without an account. */
+export async function requestPartnerPasswordReset(email: string): Promise<{ message: string }> {
+  return partnerAuthFetch<{ message: string }>('/public/partners/auth/forgot-password', {
+    method: 'POST',
+    body: JSON.stringify({ companyId: getStorefrontCompanyId(), email: email.trim().toLowerCase() }),
+  });
+}
+
+/** POST /public/partners/auth/reset-password — the emailed link's token, once. */
+export async function resetPartnerPassword(token: string, password: string): Promise<{ message: string }> {
+  return partnerAuthFetch<{ message: string }>('/public/partners/auth/reset-password', {
+    method: 'POST',
+    body: JSON.stringify({ companyId: getStorefrontCompanyId(), token: token.trim(), password }),
+  });
 }
 
 /** POST /public/partners/auth/logout — invalidates tokenVersion */

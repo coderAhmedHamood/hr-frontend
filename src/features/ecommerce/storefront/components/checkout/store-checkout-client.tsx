@@ -71,7 +71,14 @@ import type { CreateStoreOrderAttachmentInput } from '@/features/ecommerce/domai
 import { Button } from '@/components/ui/button';
 import type { StoreCountry } from '@/features/ecommerce/domain/constants/store-country';
 import { parseStoreMobile } from '@/features/ecommerce/domain/store-mobile';
-import { useStoreMobileError } from '@/features/ecommerce/storefront/components/forms/store-mobile-input';
+import {
+  StoreMobileInput,
+  useStoreMobileError,
+} from '@/features/ecommerce/storefront/components/forms/store-mobile-input';
+import {
+  readCheckoutGuest,
+  writeCheckoutGuest,
+} from '@/features/ecommerce/storefront/lib/checkout-guest';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -184,6 +191,13 @@ export function StoreCheckoutClient({ currency: storeCurrency, country }: Checko
   }, [allPaymentAccountsQuery.data]);
 
   const [step, setStep] = React.useState<StepId>('address');
+  // «عابر سبيل» (2026-10-26): one order without an account, by mobile; the
+  // store reaches the customer on that number. This tab only.
+  const [guest, setGuestState] = React.useState(() => readCheckoutGuest());
+  const setGuest = (value: boolean) => {
+    writeCheckoutGuest(value);
+    setGuestState(value);
+  };
   const [address, setAddress] = React.useState<CheckoutAddressInput>(() => ({
     fullName: '',
     phone: '',
@@ -288,9 +302,9 @@ export function StoreCheckoutClient({ currency: storeCurrency, country }: Checko
 
   React.useEffect(() => {
     if (!authReady) return;
-    if (accessToken) return;
+    if (accessToken || guest) return;
     router.replace(storeLoginHref('/store/checkout'));
-  }, [authReady, accessToken, router]);
+  }, [authReady, accessToken, guest, router]);
 
   React.useEffect(() => {
     if (!customer) return;
@@ -371,6 +385,26 @@ export function StoreCheckoutClient({ currency: storeCurrency, country }: Checko
       lat: row.latitude != null ? Number(row.latitude) : undefined,
       lng: row.longitude != null ? Number(row.longitude) : undefined,
       mapAddress: undefined,
+    };
+  }
+
+  /** A typed (not saved) address: the guest's. */
+  function formToAddress(
+    form: StoreAddressFormState,
+    prev: CheckoutAddressInput,
+  ): CheckoutAddressInput {
+    return {
+      ...prev,
+      countryId: form.countryId,
+      cityId: form.cityId,
+      districtId: form.districtId,
+      city: form.city.trim(),
+      district: form.district.trim(),
+      street: [form.street.trim(), form.building.trim()].filter(Boolean).join('، '),
+      notes: form.notes.trim(),
+      lat: form.latitude ?? undefined,
+      lng: form.longitude ?? undefined,
+      mapAddress: form.mapAddress || undefined,
     };
   }
 
@@ -586,10 +620,10 @@ export function StoreCheckoutClient({ currency: storeCurrency, country }: Checko
     }
   }
 
-  function validateAddress(): boolean {
+  function validateAddress(base: CheckoutAddressInput = address): boolean {
     const errors: Partial<Record<keyof CheckoutAddressInput, string>> = {};
-    const fullName = (customer?.name?.trim() || address.fullName).trim();
-    const rawPhone = (customer?.phone?.trim() || address.phone).trim();
+    const fullName = (customer?.name?.trim() || base.fullName).trim();
+    const rawPhone = (customer?.phone?.trim() || base.phone).trim();
     if (!fullName) errors.fullName = t('checkout.errors.required');
     // One form of the number (+967…), the same rule as sign-up and the API.
     const parsedPhone = parseStoreMobile(rawPhone, country);
@@ -597,18 +631,18 @@ export function StoreCheckoutClient({ currency: storeCurrency, country }: Checko
     if (!parsedPhone.ok) {
       errors.phone = mobileError(parsedPhone, country) ?? t('checkout.errors.phone');
     }
-    if (!address.countryId || !address.cityId || !address.city.trim()) {
+    if (!base.countryId || !base.cityId || !base.city.trim()) {
       errors.city =
         geoCountriesFetched && geoCountries.length === 0
           ? t('checkout.errors.geoUnavailable')
           : t('checkout.errors.cityRequired');
     }
-    if (!address.districtId || !address.district.trim()) {
+    if (!base.districtId || !base.district.trim()) {
       errors.district = t('checkout.errors.required');
     }
-    if (!address.street.trim()) errors.street = t('checkout.errors.required');
+    if (!base.street.trim()) errors.street = t('checkout.errors.required');
     // Keep payload in sync with the logged-in profile (fields are hidden in the UI).
-    if (fullName !== address.fullName || phone !== address.phone) {
+    if (fullName !== base.fullName || phone !== base.phone) {
       setAddress((prev) => ({ ...prev, fullName, phone }));
     }
     setAddressErrors(errors);
@@ -619,6 +653,19 @@ export function StoreCheckoutClient({ currency: storeCurrency, country }: Checko
     if (step === 'address') {
       if (cartCheck.blocked) {
         toast.error(cartCheck.issues[0]?.message ?? t('cart.fixLinesFirst'));
+        return;
+      }
+      if (!accessToken && guest) {
+        const typed = formToAddress(newAddress, address);
+        setAddress(typed);
+        if (!validateAddress(typed)) return;
+        if (shippingUnset) {
+          toast.error(t('checkout.shippingUnset'));
+          return;
+        }
+        void verifyOrder('address', typed).then((ok) => {
+          if (ok) setStep('payment');
+        });
         return;
       }
       if (addingAddress) {
@@ -666,7 +713,7 @@ export function StoreCheckoutClient({ currency: storeCurrency, country }: Checko
   }
 
   async function submitOrder() {
-    if (!accessToken) {
+    if (!accessToken && !guest) {
       toast.error(t('checkout.loginRequiredToast'));
       router.replace(storeLoginHref('/store/checkout'));
       return;
@@ -748,6 +795,7 @@ export function StoreCheckoutClient({ currency: storeCurrency, country }: Checko
       const order = result.order;
       attempt.done();
       clearCart();
+      if (guest) setGuest(false);
       toast.custom(
         () => (
           <div
@@ -772,13 +820,14 @@ export function StoreCheckoutClient({ currency: storeCurrency, country }: Checko
     }
   }
 
-  if (!authReady || !accessToken) {
+  if (!authReady || (!accessToken && !guest)) {
     return (
       <StoreEmptyState
         icon={ShieldCheck}
         title={t('checkout.loginRequiredTitle')}
         description={t('checkout.loginRequiredDescription')}
       >
+        <div className="flex flex-col items-center gap-3">
         <div className="flex flex-col items-center gap-2 sm:flex-row">
           <Button asChild>
             <Link href={storeLoginHref('/store/checkout')} prefetch={false}>
@@ -790,6 +839,13 @@ export function StoreCheckoutClient({ currency: storeCurrency, country }: Checko
               {t('checkout.registerRequiredAction')}
             </Link>
           </Button>
+        </div>
+        <div className="max-w-sm space-y-2 rounded-xl border border-dashed border-border px-4 py-3 text-center">
+          <Button type="button" variant="ghost" className="h-auto px-2 py-1 text-sm font-medium" onClick={() => setGuest(true)}>
+            {t('checkout.guest.action')}
+          </Button>
+          <p className="text-xs leading-relaxed text-muted-foreground">{t('checkout.guest.warning')}</p>
+        </div>
         </div>
       </StoreEmptyState>
     );
@@ -940,7 +996,47 @@ export function StoreCheckoutClient({ currency: storeCurrency, country }: Checko
               ) : null}
             </header>
             <div className="grid min-w-0 gap-4 p-4 sm:grid-cols-2 sm:gap-x-4 sm:p-6">
-              {addressesLoading ? (
+              {!accessToken && guest ? (
+                <div className="space-y-4 sm:col-span-2">
+                  <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-xs leading-relaxed text-amber-900 dark:text-amber-200">
+                    <p className="font-semibold">{t('checkout.guest.bannerTitle')}</p>
+                    <p className="mt-0.5">{t('checkout.guest.warning')}</p>
+                    <button
+                      type="button"
+                      className="mt-1 font-medium underline underline-offset-2"
+                      onClick={() => setGuest(false)}
+                    >
+                      {t('checkout.guest.signInInstead')}
+                    </button>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Field label={t('checkout.guest.name')}>
+                      <Input
+                        value={address.fullName}
+                        onChange={(e) => setAddress((prev) => ({ ...prev, fullName: e.target.value }))}
+                        autoComplete="name"
+                        className="h-11 rounded-xl"
+                      />
+                    </Field>
+                    <Field label={t('checkout.guest.mobile')}>
+                      <StoreMobileInput
+                        id="checkout-guest-mobile"
+                        value={address.phone}
+                        onChange={(value) => setAddress((prev) => ({ ...prev, phone: value }))}
+                        country={country}
+                        showError={Boolean(addressErrors.phone)}
+                        required
+                      />
+                    </Field>
+                  </div>
+                  <StoreAddressFields
+                    form={newAddress}
+                    setForm={setNewAddress}
+                    idPrefix="checkout-guest-addr"
+                    showDefault={false}
+                  />
+                </div>
+              ) : addressesLoading ? (
                 <div className="h-14 animate-pulse rounded-xl bg-muted/50 sm:col-span-2" />
               ) : addressesError ? (
                 <button

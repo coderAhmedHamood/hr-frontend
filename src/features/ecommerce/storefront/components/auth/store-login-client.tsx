@@ -19,6 +19,15 @@ import {
 } from '@/features/ecommerce/storefront/lib/store-auth-return';
 import { useStoreCountry } from '@/features/ecommerce/storefront/hooks/use-store-country';
 import { StoreAuthShell } from '@/features/ecommerce/storefront/components/auth/store-auth-shell';
+import {
+  StoreAuthMethodToggle,
+  type StoreAuthMethod,
+} from '@/features/ecommerce/storefront/components/auth/store-auth-method-toggle';
+import {
+  StoreMobileInput,
+  useStoreMobileError,
+} from '@/features/ecommerce/storefront/components/forms/store-mobile-input';
+import { parseStoreMobile } from '@/features/ecommerce/domain/store-mobile';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -34,12 +43,14 @@ export function StoreLoginClient() {
   const authenticated = useIsStorefrontAuthenticated();
   const setSession = useStorefrontCustomerUi((s) => s.setSession);
 
+  const [method, setMethod] = React.useState<StoreAuthMethod>('mobile');
   const [identifier, setIdentifier] = React.useState('');
   const [password, setPassword] = React.useState('');
   const [showPassword, setShowPassword] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
   const hydrated = useStorefrontAuthReady();
   const country = useStoreCountry();
+  const mobileError = useStoreMobileError();
 
   React.useEffect(() => {
     if (hydrated && authenticated) {
@@ -54,10 +65,21 @@ export function StoreLoginClient() {
       return;
     }
 
+    let loginId = identifier.trim();
+    if (method === 'mobile') {
+      // One form of the number (+967…), as sign-up stored it.
+      const parsed = parseStoreMobile(loginId, country);
+      if (!parsed.ok) {
+        toast.error(mobileError(parsed, country));
+        return;
+      }
+      loginId = parsed.e164;
+    }
+
     setSubmitting(true);
     try {
       const session = await loginPartner({
-        identifier: identifier.trim(),
+        identifier: loginId,
         password,
         companyId: getStorefrontCompanyId(),
       });
@@ -116,19 +138,38 @@ export function StoreLoginClient() {
       }
     >
       <form className="space-y-4" onSubmit={(e) => void onSubmit(e)}>
+        <StoreAuthMethodToggle
+          value={method}
+          onChange={(next) => {
+            setMethod(next);
+            setIdentifier('');
+          }}
+        />
         <div className="space-y-1.5">
-          <Label htmlFor="store-login-identifier">{t('login.identifier')}</Label>
-          <Input
-            id="store-login-identifier"
-            dir="ltr"
-            value={identifier}
-            onChange={(e) => setIdentifier(e.target.value)}
-            autoComplete="username"
-            placeholder={t('login.identifierPlaceholder', {
-              example: `0${country.mobileExample ?? ''}`,
-            })}
-            required
-          />
+          <Label htmlFor="store-login-identifier">
+            {method === 'email' ? t('register.email') : t('register.mobile')}
+          </Label>
+          {method === 'email' ? (
+            <Input
+              id="store-login-identifier"
+              type="email"
+              dir="ltr"
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
+              autoComplete="email"
+              placeholder="name@example.com"
+              required
+            />
+          ) : (
+            <StoreMobileInput
+              id="store-login-identifier"
+              value={identifier}
+              onChange={setIdentifier}
+              country={country}
+              showError={false}
+              required
+            />
+          )}
         </div>
 
         <div className="space-y-1.5">

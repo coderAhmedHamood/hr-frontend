@@ -22,6 +22,7 @@ import { cn } from '@/shared/utils';
 import { toast } from 'sonner';
 import { uploadsApi } from '@/features/hr/lib/api/uploads';
 import { resolveUploadUrl, uploadResponseToStoredPath } from '@/shared/resolve-upload-url';
+import { isSvgFile, shrinkImageFile } from '@/shared/shrink-image-file';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 
 function matchesSearch(haystack: string, query: string): boolean {
@@ -344,10 +345,13 @@ export function ImagePicker({
   value,
   onChange,
   clearable = true,
+  maxEdge,
 }: {
   value: string | null | undefined;
   onChange: (url: string | null) => void;
   clearable?: boolean;
+  /** When set, the stored file is resized so logos and icons stay small. */
+  maxEdge?: number;
 }) {
   const companyId = getStorefrontCompanyId();
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -361,17 +365,48 @@ export function ImagePicker({
 
   const previewSrc = value ? resolveUploadUrl(value) : '';
 
+  async function storeImage(file: File) {
+    const prepared = maxEdge ? await shrinkImageFile(file, maxEdge) : file;
+    const uploaded = await uploadsApi.upload('image', prepared);
+    onChange(uploadResponseToStoredPath(uploaded));
+  }
+
   async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     event.target.value = '';
-    if (!file || !file.type.startsWith('image/')) return;
+    if (!file || (!file.type.startsWith('image/') && !isSvgFile(file))) return;
     setUploading(true);
     try {
-      const uploaded = await uploadsApi.upload('image', file);
-      onChange(uploadResponseToStoredPath(uploaded));
+      await storeImage(file);
     } catch (error) {
       handleApiError(error);
       toast.error('تعذر رفع الصورة');
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function handleLibraryPick(url: string) {
+    if (!maxEdge) {
+      onChange(url);
+      setOpen(false);
+      return;
+    }
+    setUploading(true);
+    try {
+      const response = await fetch(resolveUploadUrl(url));
+      if (!response.ok) throw new Error('image fetch failed');
+      const blob = await response.blob();
+      const svg =
+        blob.type === 'image/svg+xml' || url.split('?')[0].toLowerCase().endsWith('.svg');
+      const file = new File([blob], svg ? 'logo.svg' : 'image.webp', {
+        type: svg ? 'image/svg+xml' : blob.type || 'image/png',
+      });
+      await storeImage(file);
+      setOpen(false);
+    } catch (error) {
+      handleApiError(error);
+      toast.error('تعذر تصغير الصورة');
     } finally {
       setUploading(false);
     }
@@ -410,7 +445,7 @@ export function ImagePicker({
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*"
+          accept="image/*,.svg,image/svg+xml"
           className="hidden"
           onChange={(e) => void handleFileChange(e)}
         />
@@ -436,17 +471,18 @@ export function ImagePicker({
                 <button
                   key={image.id}
                   type="button"
-                  onClick={() => {
-                    onChange(image.url);
-                    setOpen(false);
-                  }}
+                  onClick={() => void handleLibraryPick(image.url)}
                   className={cn(
-                    'relative overflow-hidden rounded-lg border-2 transition-colors',
+                    'relative aspect-square overflow-hidden rounded-lg border-2 transition-colors',
                     image.url === value ? 'border-primary' : 'border-transparent hover:border-primary/40',
                   )}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={image.url} alt={image.alt ?? ''} className="aspect-square w-full object-cover" />
+                  <img
+                    src={resolveUploadUrl(image.url)}
+                    alt={image.alt ?? ''}
+                    className="h-full w-full object-cover"
+                  />
                   {image.url === value ? (
                     <span className="absolute inset-0 flex items-center justify-center bg-primary/20">
                       <Check className="h-4 w-4 text-primary" />

@@ -21,7 +21,12 @@ import {
   type CompanySocialNetwork,
 } from '@/features/ecommerce/storefront/domain/company-config';
 import { DEFAULT_STOREFRONT_TYPOGRAPHY } from '@/features/ecommerce/storefront/lib/storefront-fonts';
+import { parseStoreMobile } from '@/features/ecommerce/domain/store-mobile';
 import { ImagePicker } from '@/features/ecommerce/admin/cms/homepage/components/section-entity-pickers';
+import { isEmailShape } from '@/features/ecommerce/storefront/components/forms/store-email-input';
+import { useStoreMobileError } from '@/features/ecommerce/storefront/components/forms/store-mobile-input';
+import { suggestEmail } from '@/shared/lib/email-typos';
+import { FAVICON_MAX_EDGE, STORE_LOGO_MAX_EDGE } from '@/shared/shrink-image-file';
 import { WebsiteColorsPanel } from '@/features/ecommerce/admin/cms/settings/components/website-colors-panel';
 import { DeliveryRatesPanel } from '@/features/ecommerce/admin/delivery-rates/components/delivery-rates-panel';
 import { StockSyncPanel } from '@/features/ecommerce/admin/stock/components/stock-sync-panel';
@@ -40,7 +45,6 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
-import { currencyNameAr } from '@/shared/currencies';
 import { OrderStagesSettingsPanel } from '@/features/ecommerce/admin/orders/components/order-stages-settings-panel';
 import { cn } from '@/shared/utils';
 import { APP, useCompanyApps, type AppRequirement, type CompanyApps } from '@/shared/modules/company-apps';
@@ -49,7 +53,6 @@ type SettingsTabValue =
   | 'branding'
   | 'colors'
   | 'contact'
-  | 'social'
   | 'locations'
   | 'deliveryRates'
   | 'paymentAccounts'
@@ -61,7 +64,6 @@ const SETTINGS_TAB_VALUES: readonly SettingsTabValue[] = [
   'branding',
   'colors',
   'contact',
-  'social',
   'locations',
   'deliveryRates',
   'paymentAccounts',
@@ -77,6 +79,7 @@ const SETTINGS_TAB_APPS: Partial<Record<SettingsTabValue, AppRequirement>> = {
 
 function resolveSettingsTab(raw: string | null, apps: CompanyApps): SettingsTabValue {
   if (raw === 'checkout') return 'paymentAccounts';
+  if (raw === 'social') return 'contact';
   const value = (SETTINGS_TAB_VALUES as readonly string[]).includes(raw ?? '')
     ? (raw as SettingsTabValue)
     : 'branding';
@@ -88,6 +91,32 @@ const SETTINGS_QUERY_KEY = ['ecommerce-cms', 'company', 'settings'] as const;
 
 const FIELD =
   'h-11 min-h-11 w-full min-w-0 max-w-full rounded-xl border-input bg-background px-3.5 text-sm';
+
+function isWebUrl(value: string): boolean {
+  try {
+    const protocol = new URL(value).protocol;
+    return protocol === 'http:' || protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+function tabForField(key: string): SettingsTabValue {
+  if (key === 'name') return 'branding';
+  return 'contact';
+}
+
+function fieldKeyFromServerMessage(message: string): string | null {
+  if (/contactEmail|البريد الإلكتروني|هل تقصد|Did you mean/i.test(message)) return 'email';
+  if (/contactPhone|جوال|رقم الهاتف/.test(message)) return 'phone';
+  for (const network of COMPANY_SOCIAL_NETWORKS) {
+    if (message.includes(network)) return `social.${network}`;
+  }
+  if (message.includes('contactAddress')) return 'address';
+  if (message.includes('storeName')) return 'name';
+  if (message.includes('footerCommercialRegistration')) return 'commercialRegistration';
+  return null;
+}
 
 function parseKeywords(raw: string): string[] {
   return raw
@@ -115,11 +144,13 @@ function SettingsPanel({
 function Field({
   label,
   hint,
+  error,
   children,
   className,
 }: {
   label: string;
   hint?: string;
+  error?: string;
   children: React.ReactNode;
   className?: string;
 }) {
@@ -127,7 +158,13 @@ function Field({
     <div className={cn('space-y-2', className)}>
       <Label className="text-sm font-medium text-foreground">{label}</Label>
       {children}
-      {hint ? <p className="text-[11px] leading-relaxed text-muted-foreground">{hint}</p> : null}
+      {error ? (
+        <p role="alert" className="text-[11px] leading-relaxed text-destructive">
+          {error}
+        </p>
+      ) : hint ? (
+        <p className="text-[11px] leading-relaxed text-muted-foreground">{hint}</p>
+      ) : null}
     </div>
   );
 }
@@ -139,7 +176,9 @@ export function WebsiteSettingsPage() {
   const tSeo = useTranslations('ecommerceAdmin.seo');
   const tHome = useTranslations('ecommerceAdmin.homepage');
   const tCommon = useTranslations('common');
+  const mobileError = useStoreMobileError();
   const queryClient = useQueryClient();
+  const [fieldErrors, setFieldErrors] = React.useState<Record<string, string>>({});
 
   const {
     data,
@@ -217,9 +256,22 @@ export function WebsiteSettingsPage() {
         seo: { ...company.seo, keywords: company.seo.keywords ?? [] },
       });
       setDirty(false);
+      setFieldErrors({});
       toast.success(t('saveSuccess'));
     },
-    onError: () => toast.error(t('saveError')),
+    onError: (error) => {
+      const message =
+        error instanceof Error && error.message.trim() ? error.message : t('saveError');
+      const key = fieldKeyFromServerMessage(message);
+      if (!key) {
+        toast.error(message);
+        return;
+      }
+      setFieldErrors({
+        [key]: key.startsWith('social.') ? t('socialUrlInvalid') : message,
+      });
+      setTab(tabForField(key));
+    },
   });
 
   usePageHeaderActions(
@@ -231,7 +283,15 @@ export function WebsiteSettingsPage() {
           label={save.isPending ? tCommon('status.saving') : tCommon('actions.save')}
           disabled={!draft || save.isPending || !dirty}
           onClick={() => {
-            if (draft) void save.mutateAsync(draft);
+            if (!draft) return;
+            const errors = collectFieldErrors(draft);
+            setFieldErrors(errors);
+            const first = Object.keys(errors)[0];
+            if (first) {
+              setTab(tabForField(first));
+              return;
+            }
+            void save.mutateAsync(draft);
           }}
         />
       </div>
@@ -242,6 +302,46 @@ export function WebsiteSettingsPage() {
   function updateDraft(next: CompanyConfigRecord) {
     setDraft(next);
     setDirty(true);
+  }
+
+  function dropError(key: string) {
+    setFieldErrors((prev) => {
+      if (!prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  }
+
+  function collectFieldErrors(record: CompanyConfigRecord): Record<string, string> {
+    const errors: Record<string, string> = {};
+    const phone = record.contact.phone?.trim() ?? '';
+    if (phone) {
+      const message = mobileError(parseStoreMobile(phone, record.country), record.country);
+      if (message) errors.phone = message;
+    }
+    const email = record.contact.email?.trim() ?? '';
+    if (email.length > 255) {
+      errors.email = t('tooLong', { max: 255 });
+    } else if (email && !isEmailShape(email)) {
+      errors.email = t('emailInvalid');
+    } else if (email) {
+      const suggestion = suggestEmail(email.toLowerCase());
+      if (suggestion) errors.email = t('emailTypo', { suggestion });
+    }
+    if (record.name.ar.trim().length > 255) {
+      errors.name = t('tooLong', { max: 255 });
+    }
+    const registration = record.footer.commercialRegistration?.trim() ?? '';
+    if (registration.length > 120) {
+      errors.commercialRegistration = t('tooLong', { max: 120 });
+    }
+    for (const network of COMPANY_SOCIAL_NETWORKS) {
+      const url = record.social[network]?.url?.trim() ?? '';
+      if (!url) continue;
+      if (url.length > 500 || !isWebUrl(url)) errors[`social.${network}`] = t('socialUrlInvalid');
+    }
+    return errors;
   }
 
   function patchSeo(
@@ -291,8 +391,6 @@ export function WebsiteSettingsPage() {
         return { title: t('tabs.colors'), description: t('colorsHint') };
       case 'contact':
         return { title: t('tabs.contact'), description: t('contactHint') };
-      case 'social':
-        return { title: t('tabs.social'), description: t('socialHint') };
       case 'locations':
         return { title: t('tabs.locations'), description: t('locationsHint') };
       case 'deliveryRates':
@@ -343,12 +441,14 @@ export function WebsiteSettingsPage() {
           <TabsContent value="branding" className="mt-4">
             <SettingsPanel>
               <div className="grid gap-5 sm:grid-cols-2">
-                <Field label={t('name')} className="sm:col-span-2">
+                <Field label={t('name')} error={fieldErrors.name} className="sm:col-span-2">
                   <Input
-                    className={FIELD}
+                    className={cn(FIELD, fieldErrors.name && 'border-destructive')}
+                    aria-invalid={Boolean(fieldErrors.name)}
                     value={draft.name.ar}
                     onChange={(event) => {
                       const value = event.target.value;
+                      dropError('name');
                       updateDraft({ ...draft, name: { ar: value, en: value } });
                     }}
                   />
@@ -356,21 +456,15 @@ export function WebsiteSettingsPage() {
                 <Field label={t('logo')} hint={t('logoHint')}>
                   <ImagePicker
                     value={draft.logoUrl}
+                    maxEdge={STORE_LOGO_MAX_EDGE}
                     onChange={(logoUrl) => updateDraft({ ...draft, logoUrl })}
                   />
                 </Field>
                 <Field label={t('favicon')} hint={t('faviconHint')}>
                   <ImagePicker
                     value={draft.faviconUrl}
+                    maxEdge={FAVICON_MAX_EDGE}
                     onChange={(faviconUrl) => updateDraft({ ...draft, faviconUrl })}
-                  />
-                </Field>
-                <Field label={t('currency')} hint={t('currencyHint')} className="sm:col-span-2">
-                  <Input
-                    className={FIELD}
-                    value={`${currencyNameAr(draft.currency)} (${draft.currency})`}
-                    readOnly
-                    aria-readonly
                   />
                 </Field>
               </div>
@@ -388,70 +482,80 @@ export function WebsiteSettingsPage() {
           <TabsContent value="contact" className="mt-4">
             <SettingsPanel>
               <div className="grid gap-5 sm:grid-cols-2">
-                <Field label={t('phone')}>
+                <Field label={t('phone')} error={fieldErrors.phone}>
                   <Input
                     dir="ltr"
-                    className={cn(FIELD, 'text-right')}
+                    inputMode="tel"
+                    className={cn(FIELD, 'text-right', fieldErrors.phone && 'border-destructive')}
+                    aria-invalid={Boolean(fieldErrors.phone)}
                     value={draft.contact.phone ?? ''}
-                    onChange={(event) =>
+                    onChange={(event) => {
+                      dropError('phone');
                       updateDraft({
                         ...draft,
                         contact: { ...draft.contact, phone: event.target.value },
-                      })
-                    }
+                      });
+                    }}
                   />
                 </Field>
-                <Field label={t('email')}>
+                <Field label={t('email')} error={fieldErrors.email}>
                   <Input
                     dir="ltr"
-                    className={cn(FIELD, 'text-right')}
+                    type="email"
+                    className={cn(FIELD, 'text-right', fieldErrors.email && 'border-destructive')}
+                    aria-invalid={Boolean(fieldErrors.email)}
                     value={draft.contact.email ?? ''}
-                    onChange={(event) =>
+                    onChange={(event) => {
+                      dropError('email');
                       updateDraft({
                         ...draft,
                         contact: { ...draft.contact, email: event.target.value },
-                      })
-                    }
+                      });
+                    }}
                   />
                 </Field>
-                <Field label={t('address')} className="sm:col-span-2">
+                <Field label={t('address')} error={fieldErrors.address} className="sm:col-span-2">
                   <Input
-                    className={FIELD}
+                    className={cn(FIELD, fieldErrors.address && 'border-destructive')}
+                    aria-invalid={Boolean(fieldErrors.address)}
                     value={draft.contact.address ?? ''}
-                    onChange={(event) =>
+                    onChange={(event) => {
+                      dropError('address');
                       updateDraft({
                         ...draft,
                         contact: { ...draft.contact, address: event.target.value },
-                      })
-                    }
+                      });
+                    }}
                   />
                 </Field>
                 <Field
                   label={t('commercialRegistration')}
                   hint={t('commercialRegistrationHint')}
+                  error={fieldErrors.commercialRegistration}
                   className="sm:col-span-2"
                 >
                   <Input
-                    className={FIELD}
+                    className={cn(FIELD, fieldErrors.commercialRegistration && 'border-destructive')}
+                    aria-invalid={Boolean(fieldErrors.commercialRegistration)}
                     value={draft.footer.commercialRegistration ?? ''}
-                    onChange={(event) =>
+                    onChange={(event) => {
+                      dropError('commercialRegistration');
                       updateDraft({
                         ...draft,
                         footer: {
                           ...draft.footer,
                           commercialRegistration: event.target.value || undefined,
                         },
-                      })
-                    }
+                      });
+                    }}
                   />
                 </Field>
               </div>
-            </SettingsPanel>
-          </TabsContent>
-
-          <TabsContent value="social" className="mt-4">
-            <SettingsPanel>
-              <div className="space-y-3">
+              <div className="mt-8 space-y-3 border-t border-border/60 pt-6">
+                <div>
+                  <p className="text-sm font-medium text-foreground">{t('social')}</p>
+                  <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">{t('socialHint')}</p>
+                </div>
                 {COMPANY_SOCIAL_NETWORKS.map((network) => {
                   const entry = draft.social[network] ?? { url: '', enabled: false };
                   return (
@@ -459,13 +563,21 @@ export function WebsiteSettingsPage() {
                       key={network}
                       className="sto-social-row rounded-2xl border border-border/60 bg-muted/15 p-4"
                     >
-                      <Field label={t(network)}>
+                      <Field label={t(network)} error={fieldErrors[`social.${network}`]}>
                         <Input
                           dir="ltr"
-                          className={cn(FIELD, 'font-mono')}
+                          className={cn(
+                            FIELD,
+                            'font-mono',
+                            fieldErrors[`social.${network}`] && 'border-destructive',
+                          )}
+                          aria-invalid={Boolean(fieldErrors[`social.${network}`])}
                           placeholder={t('socialUrlPlaceholder')}
                           value={entry.url}
-                          onChange={(event) => patchSocial(network, { url: event.target.value })}
+                          onChange={(event) => {
+                            dropError(`social.${network}`);
+                            patchSocial(network, { url: event.target.value });
+                          }}
                         />
                       </Field>
                       <div className="flex items-center justify-between gap-3 rounded-xl border border-border/50 bg-card px-3 py-2.5 sm:min-w-40">

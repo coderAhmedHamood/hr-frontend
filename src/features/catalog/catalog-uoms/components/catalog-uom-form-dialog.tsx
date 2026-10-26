@@ -15,7 +15,8 @@ import {
   formValuesToCreatePayload,
   formValuesToUpdatePayload,
 } from '@/features/catalog/catalog-uoms/lib/catalog-uom-form-mapping';
-import type { CatalogUom } from '@/features/catalog/catalog-uoms/lib/api/catalog-uoms';
+import type { CatalogUom, CatalogUomMeasure } from '@/features/catalog/catalog-uoms/lib/api/catalog-uoms';
+import { UOM_MEASURES, categoryForMeasure } from '@/features/catalog/catalog-uoms/lib/uom-measures';
 import { PACKAGING_TYPE_OPTIONS } from '@/features/catalog/products/schemas/product-schema';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -91,6 +92,35 @@ export function CatalogUomFormDialog({ uom, open, onOpenChange }: Props) {
             {form.formState.errors.nameAr ? (
               <p className="text-xs text-destructive">{form.formState.errors.nameAr.message}</p>
             ) : null}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="uom-measure">نوع القياس</Label>
+            <Controller
+              control={form.control}
+              name="measure"
+              render={({ field }) => (
+                <Select
+                  value={field.value}
+                  onValueChange={(value) => {
+                    field.onChange(value);
+                    // Counted or measured follows what the unit measures.
+                    form.setValue('category', categoryForMeasure(value as CatalogUomMeasure));
+                  }}
+                >
+                  <SelectTrigger id="uom-measure">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {UOM_MEASURES.map((measure) => (
+                      <SelectItem key={measure.value} value={measure.value}>
+                        {measure.labelAr} ({measure.hintAr})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

@@ -15,7 +15,6 @@ import {
   Globe,
   Image,
   Mail,
-  MessageCircle,
   Star,
   PanelBottom,
   Bell,
@@ -34,7 +33,6 @@ import {
   Palette,
   Phone,
   Search,
-  Share2,
   CircleDollarSign,
 } from 'lucide-react';
 import { APP, type AppRequirement, type CompanyApps } from '@/shared/modules/company-apps';
@@ -114,7 +112,6 @@ export const ecommerceAdminNavGroups: EcommerceAdminNavGroup[] = [
           { labelKey: 'settingsTabs.branding', href: ecommerceSettingsHref('branding'), icon: Palette },
           { labelKey: 'settingsTabs.colors', href: ecommerceSettingsHref('colors'), icon: Paintbrush },
           { labelKey: 'settingsTabs.contact', href: ecommerceSettingsHref('contact'), icon: Phone },
-          { labelKey: 'settingsTabs.social', href: ecommerceSettingsHref('social'), icon: Share2 },
           { labelKey: 'settingsTabs.seo', href: ecommerceSettingsHref('seo'), icon: Search },
         ],
       },
@@ -143,11 +140,6 @@ export const ecommerceAdminNavGroups: EcommerceAdminNavGroup[] = [
             labelKey: 'contactMessages',
             href: ecommerceAdminRoutes.contactMessages,
             icon: Mail,
-          },
-          {
-            labelKey: 'whatsapp',
-            href: ecommerceAdminRoutes.whatsapp,
-            icon: MessageCircle,
           },
         ],
       },

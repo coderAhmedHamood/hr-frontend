@@ -110,19 +110,26 @@ export function StoreAccountClient() {
   async function saveProfile(event: React.FormEvent) {
     event.preventDefault();
     setSubmitted(true);
-    if (!editName.trim() || !editPhone.trim() || !editEmail.trim()) {
+    // A name, and the email or the mobile (one at least, as at sign-up).
+    if (!editName.trim() || (!editPhone.trim() && !editEmail.trim())) {
       toast.error(t('register.errors.emailMobileRequired'));
       return;
     }
-    const emailIssue = storeEmailBlocker(editEmail);
-    if (emailIssue) {
-      toast.error(t(`fields.email.${emailIssue}`));
-      return;
+    if (editEmail.trim()) {
+      const emailIssue = storeEmailBlocker(editEmail);
+      if (emailIssue) {
+        toast.error(t(`fields.email.${emailIssue}`));
+        return;
+      }
     }
-    const parsedMobile = parseStoreMobile(editPhone, country);
-    if (!parsedMobile.ok) {
-      toast.error(mobileError(parsedMobile, country));
-      return;
+    let mobileE164 = '';
+    if (editPhone.trim()) {
+      const parsedMobile = parseStoreMobile(editPhone, country);
+      if (!parsedMobile.ok) {
+        toast.error(mobileError(parsedMobile, country));
+        return;
+      }
+      mobileE164 = parsedMobile.e164;
     }
     if (!accessToken) {
       toast.error(t('account.profileSaveFailed'));
@@ -133,7 +140,7 @@ export function StoreAccountClient() {
       const session = await updatePartnerProfile(accessToken, {
         name: editName,
         email: editEmail.trim().toLowerCase(),
-        mobile: parsedMobile.e164,
+        mobile: mobileE164,
       });
       setSession(session);
       setEditOpen(false);
@@ -185,6 +192,15 @@ export function StoreAccountClient() {
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 pb-4">
+      {!customer.email ? (
+        <button
+          type="button"
+          onClick={() => setEditOpen(true)}
+          className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-start text-xs leading-relaxed text-amber-900 dark:text-amber-200"
+        >
+          {t('account.addEmailHint')}
+        </button>
+      ) : null}
       <section className="rounded-2xl border border-border bg-card p-4 shadow-soft sm:p-5">
         <div className="flex items-center gap-3">
           <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-primary text-lg font-bold text-primary-foreground">
@@ -281,8 +297,7 @@ export function StoreAccountClient() {
                 value={editPhone}
                 onChange={setEditPhone}
                 country={country}
-                showError={submitted}
-                required
+                showError={submitted && Boolean(editPhone.trim())}
               />
             </div>
             <div className="space-y-1.5">
@@ -291,9 +306,11 @@ export function StoreAccountClient() {
                 id="edit-email"
                 value={editEmail}
                 onChange={setEditEmail}
-                showError={submitted}
-                required
+                showError={submitted && Boolean(editEmail.trim())}
               />
+              {!editEmail.trim() ? (
+                <p className="text-[11px] leading-relaxed text-muted-foreground">{t('account.addEmailHint')}</p>
+              ) : null}
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setEditOpen(false)} disabled={saving}>

@@ -28,6 +28,10 @@ import {
   storeEmailBlocker,
 } from '@/features/ecommerce/storefront/components/forms/store-email-input';
 import { StoreAuthShell } from '@/features/ecommerce/storefront/components/auth/store-auth-shell';
+import {
+  StoreAuthMethodToggle,
+  type StoreAuthMethod,
+} from '@/features/ecommerce/storefront/components/auth/store-auth-method-toggle';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -43,6 +47,7 @@ export function StoreRegisterClient() {
   const authenticated = useIsStorefrontAuthenticated();
   const setSession = useStorefrontCustomerUi((s) => s.setSession);
 
+  const [method, setMethod] = React.useState<StoreAuthMethod>('mobile');
   const [name, setName] = React.useState('');
   const [email, setEmail] = React.useState('');
   const [mobile, setMobile] = React.useState('');
@@ -68,19 +73,24 @@ export function StoreRegisterClient() {
       toast.error(t('register.errors.nameMin'));
       return;
     }
-    if (!email.trim() || !mobile.trim()) {
-      toast.error(t('register.errors.emailMobileRequired'));
-      return;
-    }
-    const emailIssue = storeEmailBlocker(email);
-    if (emailIssue) {
-      toast.error(t(`fields.email.${emailIssue}`));
-      return;
-    }
-    const parsedMobile = parseStoreMobile(mobile, country);
-    if (!parsedMobile.ok) {
-      toast.error(mobileError(parsedMobile, country));
-      return;
+    let mobileE164: string | null = null;
+    if (method === 'email') {
+      if (!email.trim()) {
+        toast.error(t('register.errors.emailRequired'));
+        return;
+      }
+      const emailIssue = storeEmailBlocker(email);
+      if (emailIssue) {
+        toast.error(t(`fields.email.${emailIssue}`));
+        return;
+      }
+    } else {
+      const parsedMobile = parseStoreMobile(mobile, country);
+      if (!parsedMobile.ok) {
+        toast.error(mobileError(parsedMobile, country));
+        return;
+      }
+      mobileE164 = parsedMobile.e164;
     }
     if (password.length < 6) {
       toast.error(t('register.errors.passwordMin'));
@@ -92,8 +102,8 @@ export function StoreRegisterClient() {
       const session = await registerPartner({
         companyId: getStorefrontCompanyId(),
         name: name.trim(),
-        email: email.trim().toLowerCase(),
-        mobile: parsedMobile.e164,
+        email: method === 'email' ? email.trim().toLowerCase() : null,
+        mobile: method === 'mobile' ? mobileE164 : null,
         password,
         accountKind: 'customer',
       });
@@ -146,27 +156,34 @@ export function StoreRegisterClient() {
             minLength={2}
           />
         </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="store-register-email">{t('register.email')}</Label>
-          <StoreEmailInput
-            id="store-register-email"
-            value={email}
-            onChange={setEmail}
-            showError={submitted}
-            required
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="store-register-mobile">{t('register.mobile')}</Label>
-          <StoreMobileInput
-            id="store-register-mobile"
-            value={mobile}
-            onChange={setMobile}
-            country={country}
-            showError={submitted}
-            required
-          />
-        </div>
+        <StoreAuthMethodToggle value={method} onChange={setMethod} />
+        {method === 'email' ? (
+          <div className="space-y-1.5">
+            <Label htmlFor="store-register-email">{t('register.email')}</Label>
+            <StoreEmailInput
+              id="store-register-email"
+              value={email}
+              onChange={setEmail}
+              showError={submitted}
+              required
+            />
+          </div>
+        ) : (
+          <div className="space-y-1.5">
+            <Label htmlFor="store-register-mobile">{t('register.mobile')}</Label>
+            <StoreMobileInput
+              id="store-register-mobile"
+              value={mobile}
+              onChange={setMobile}
+              country={country}
+              showError={submitted}
+              required
+            />
+            <p className="text-[11px] leading-relaxed text-muted-foreground">
+              {t('register.mobileOnlyHint')}
+            </p>
+          </div>
+        )}
         <div className="space-y-1.5">
           <Label htmlFor="store-register-password">{t('register.passwordNew')}</Label>
           <div className="relative" dir="ltr">

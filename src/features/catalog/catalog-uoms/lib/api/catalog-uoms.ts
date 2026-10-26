@@ -2,6 +2,8 @@ import { apiRequest, type PaginatedResult } from '@/features/hr/lib/api/client';
 import { resolveStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
 
 export type CatalogUomCategory = 'countable' | 'bulk';
+/** What the unit measures: groups the units when picking one. */
+export type CatalogUomMeasure = 'count' | 'packaging' | 'weight' | 'volume' | 'length';
 
 export type CatalogUom = {
   id: string;
@@ -12,6 +14,7 @@ export type CatalogUom = {
   uneceCode?: string | null;
   packagingType: 'unit' | 'pack' | 'box' | 'pallet' | 'other';
   category: CatalogUomCategory;
+  measure: CatalogUomMeasure;
   displayOrder: number;
   isActive: boolean;
 };
@@ -53,6 +56,7 @@ export async function createCatalogUom(input: {
   nameEn?: string | null;
   packagingType?: CatalogUom['packagingType'];
   category?: CatalogUomCategory;
+  measure?: CatalogUomMeasure;
 }): Promise<CatalogUom> {
   const dto = await apiRequest<CatalogUomDto>('/inventory/catalog-uoms', {
     method: 'POST',
@@ -62,7 +66,9 @@ export async function createCatalogUom(input: {
       nameAr: input.nameAr,
       nameEn: input.nameEn ?? null,
       packagingType: input.packagingType ?? 'unit',
-      category: input.category ?? 'countable',
+      measure: input.measure ?? 'count',
+      // Omitted: the server takes it from the measure.
+      ...(input.category ? { category: input.category } : {}),
     },
   });
   return mapCatalogUom(dto);
@@ -77,6 +83,7 @@ export async function updateCatalogUom(
     uneceCode: string | null;
     packagingType: CatalogUom['packagingType'];
     category: CatalogUomCategory;
+    measure: CatalogUomMeasure;
     displayOrder: number;
     isActive: boolean;
   }>,

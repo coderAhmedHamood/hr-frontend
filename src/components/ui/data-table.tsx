@@ -43,12 +43,17 @@ interface DataTableProps<T> {
   alwaysShowTable?: boolean;
   /** Keep the column header row visible when there are no rows. */
   keepHeaderWhenEmpty?: boolean;
+  /**
+   * Rows scroll inside the table (at most the screen's height) so the column
+   * headers stay in view; off by default (the page scrolls as before).
+   */
+  stickyHeader?: boolean;
 }
 
 export function DataTable<T>({
   columns, data, keyExtractor, loading, emptyText = 'لا توجد بيانات',
   mobileCard, onRowClick, className, variant = 'default',
-  tableClassName, alwaysShowTable = false, keepHeaderWhenEmpty = false,
+  tableClassName, alwaysShowTable = false, keepHeaderWhenEmpty = false, stickyHeader = false,
 }: DataTableProps<T>) {
   const isDirectory = variant === 'directory';
 
@@ -86,6 +91,7 @@ export function DataTable<T>({
     <div
       className={cn(
         'overflow-x-auto rounded-xl border border-border bg-card shadow-soft',
+        stickyHeader && 'max-h-[calc(100dvh-16rem)] overflow-y-auto',
         alwaysShowTable ? 'min-w-0' : 'hidden min-w-0 md:block',
       )}
     >

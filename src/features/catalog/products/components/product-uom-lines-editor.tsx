@@ -9,12 +9,13 @@ import {
   type ProductFormValues,
 } from '@/features/catalog/products/schemas/product-schema';
 import { useCatalogUoms } from '@/features/catalog/catalog-uoms/hooks/use-catalog-uoms';
+import { UomSelectItems } from '@/features/catalog/catalog-uoms/lib/uom-measures';
 import type { CatalogUom } from '@/features/catalog/catalog-uoms/lib/api/catalog-uoms';
 import { getStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
 import { useCatalogUomsHref } from '@/features/catalog/products/lib/products-navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/shared/utils';
 
 type UomFieldPath = 'uomLines' | `variants.${number}.uomLines`;
@@ -227,11 +228,7 @@ export function ProductUomLinesEditor({ control, errors, setValue, fieldPath, co
                           <SelectValue placeholder="اختر وحدة" />
                         </SelectTrigger>
                         <SelectContent>
-                          {catalogItems.map((item) => (
-                            <SelectItem key={item.id} value={item.id}>
-                              {item.nameAr}
-                            </SelectItem>
-                          ))}
+                          <UomSelectItems items={catalogItems} />
                         </SelectContent>
                       </Select>
                       );
@@ -313,11 +310,7 @@ export function ProductUomLinesEditor({ control, errors, setValue, fieldPath, co
               <SelectValue placeholder="إضافة وحدة من الكتالوج…" />
             </SelectTrigger>
             <SelectContent>
-              {availableCatalogItems.map((item) => (
-                <SelectItem key={item.id} value={item.id}>
-                  {item.nameAr}
-                </SelectItem>
-              ))}
+              <UomSelectItems items={availableCatalogItems} />
             </SelectContent>
           </Select>
         ) : (

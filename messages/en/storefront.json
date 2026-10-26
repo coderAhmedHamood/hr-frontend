@@ -264,7 +264,15 @@
     "checkFailed": "Could not check the order now — try again.",
     "itemsAmount": "Items ({count})",
     "freeDeliveryReached": "Free delivery: your order reached {amount}",
-    "freeDeliveryMissing": "Add {amount} more for free delivery"
+    "freeDeliveryMissing": "Add {amount} more for free delivery",
+    "guest": {
+      "action": "Continue as a guest",
+      "warning": "A one-time order without an account: we contact you on your mobile about this order only; you will not follow it or see your orders later from an account.",
+      "bannerTitle": "You are ordering as a guest",
+      "signInInstead": "Sign in or create an account instead",
+      "name": "Name",
+      "mobile": "Mobile number"
+    }
   },
   "orders": {
     "myOrdersTitle": "My orders",
@@ -378,18 +386,25 @@
       "nameMin": "Name must be at least 2 characters",
       "emailMobileRequired": "Email and mobile number are both required",
       "passwordMin": "Password must be at least 6 characters",
-      "generic": "Could not create account. Please try again."
+      "generic": "Could not create account. Please try again.",
+      "emailRequired": "Enter your email."
     },
     "passwordNew": "Create a store password",
     "passwordPlaceholder": "New store password",
-    "signInCta": "Sign in"
+    "signInCta": "Sign in",
+    "mobileOnlyHint": "Without an email a forgotten password cannot be recovered. You can add your email later from your account."
   },
   "forgotPassword": {
     "title": "Forgot password",
     "eyebrow": "Customer portal",
-    "description": "Password recovery is not available in the customer portal yet.",
-    "hint": "This feature will be enabled later via the API.",
-    "backToLogin": "Back to sign in"
+    "description": "Enter the email of your account and we will send you a link to set a new password.",
+    "backToLogin": "Back to sign in",
+    "emailRequired": "Enter your email.",
+    "mobileOnlyNote": "Recovery is by email only. If your account has a mobile number and no email, contact the store.",
+    "submit": "Send recovery link",
+    "sending": "Sending…",
+    "failed": "Could not send the request, try again.",
+    "checkSpam": "No email within a few minutes? Check your spam folder."
   },
   "account": {
     "title": "My account",
@@ -459,7 +474,8 @@
       "deleteFailed": "Could not delete address",
       "defaultSet": "Default address updated",
       "loadFailed": "Could not load addresses"
-    }
+    },
+    "addEmailHint": "Add your email so you can recover your password if you forget it."
   },
   "wishlist": {
     "title": "Wishlist",
@@ -641,5 +657,21 @@
       "invalid": "Enter a valid email like name@gmail.com",
       "typo": "Check your email — the part after @ looks mistyped."
     }
+  },
+  "authMethod": {
+    "aria": "Sign-in method",
+    "mobile": "Mobile number",
+    "email": "Email"
+  },
+  "resetPassword": {
+    "title": "Set a new password",
+    "description": "Choose a new password. The link works once.",
+    "confirm": "Confirm password",
+    "mismatch": "Passwords do not match.",
+    "submit": "Save password",
+    "saving": "Saving…",
+    "failed": "Could not set the password.",
+    "invalidLink": "The link is incomplete. Open it as received by email, or request a new one.",
+    "newLink": "Request a new link"
   }
 }

@@ -24,6 +24,8 @@ export type Category = TenantScoped &
     seo: SeoFields;
     displayOrder: number;
     isActive: boolean;
+    /** Products directly in it (not archived), counted by the server; lists only. */
+    productCount?: number;
     /**
      * Legacy optional payload. Inventory policy is configured via putaway rules /
      * locations — not edited on the category form.

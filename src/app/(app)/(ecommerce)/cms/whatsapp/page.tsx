@@ -1,10 +1,7 @@
-import { Suspense } from 'react';
-import { WhatsappPage } from '@/features/ecommerce/admin/cms/whatsapp/components/whatsapp-page';
+import { redirect } from 'next/navigation';
+import { ecommerceAdminRoutes } from '@/features/ecommerce/admin/constants/routes';
 
+/** WhatsApp opens from the order. This address used to be a settings screen. */
 export default function Page() {
-  return (
-    <Suspense fallback={<div className="h-64 animate-pulse rounded-2xl bg-muted/40" />}>
-      <WhatsappPage />
-    </Suspense>
-  );
+  redirect(ecommerceAdminRoutes.orders);
 }

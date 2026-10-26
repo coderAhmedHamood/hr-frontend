@@ -7,6 +7,7 @@ export const catalogUomFormSchema = z.object({
   uneceCode: z.string().trim().optional(),
   packagingType: z.enum(['unit', 'pack', 'box', 'pallet', 'other']),
   category: z.enum(['countable', 'bulk']),
+  measure: z.enum(['count', 'packaging', 'weight', 'volume', 'length']),
   displayOrder: z.number().int().min(0),
   isActive: z.boolean(),
 });
@@ -20,6 +21,7 @@ export const CATALOG_UOM_FORM_DEFAULT_VALUES: CatalogUomFormValues = {
   uneceCode: '',
   packagingType: 'unit',
   category: 'countable',
+  measure: 'count',
   displayOrder: 0,
   isActive: true,
 };

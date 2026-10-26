@@ -14,6 +14,7 @@ import { ACCESS_PROFILE_KEY } from '@/features/auth/hooks/use-access-profile';
 import { CURRENCIES, currencyNameAr } from '@/shared/currencies';
 import { COMPANY_TIMEZONES } from '@/shared/timezone-offset';
 import { resolveUploadUrl, uploadResponseToStoredPath } from '@/shared/resolve-upload-url';
+import { COMPANY_LOGO_MAX_EDGE, isSvgFile, shrinkImageFile } from '@/shared/shrink-image-file';
 import { cn } from '@/shared/utils';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import { uploadsApi } from '@/features/hr/lib/api/uploads';
@@ -130,14 +131,15 @@ export function CompanySettingsTab() {
     event.target.value = '';
     if (!file) return;
 
-    if (!file.type.startsWith('image/')) {
+    if (!file.type.startsWith('image/') && !isSvgFile(file)) {
       toast.error('يرجى اختيار ملف صورة');
       return;
     }
 
     setUploadingLogo(true);
     try {
-      const uploaded = await uploadsApi.upload('image', file);
+      const prepared = await shrinkImageFile(file, COMPANY_LOGO_MAX_EDGE);
+      const uploaded = await uploadsApi.upload('image', prepared);
       patch({ logoUrl: uploadResponseToStoredPath(uploaded) });
       toast.success('تم رفع الشعار');
     } catch (err) {
@@ -228,6 +230,9 @@ export function CompanySettingsTab() {
       <div className="space-y-6 p-4 sm:p-5">
         <div className="space-y-3">
           <p className="text-xs font-semibold text-muted-foreground">الشعار</p>
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            الصور النقطية تُصغَّر تلقائياً. شعار SVG مقبول ويبقى رسماً متجهاً (حد 256 ك.ب). يظهر في الترويسة وفي تبويب المتصفح.
+          </p>
           <div className="flex flex-wrap items-center gap-4">
             <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-xl border border-border bg-muted/20">
               {form.logoUrl ? (
@@ -241,7 +246,7 @@ export function CompanySettingsTab() {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*"
+                accept="image/*,.svg,image/svg+xml"
                 className="hidden"
                 onChange={(e) => void handleLogoPick(e)}
               />

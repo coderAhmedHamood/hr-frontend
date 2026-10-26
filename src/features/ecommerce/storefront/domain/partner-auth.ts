@@ -36,8 +36,9 @@ export type PartnerAuthSessionPayload = {
 export type PartnerRegisterInput = {
   companyId: string;
   name: string;
-  email: string;
-  mobile: string;
+  /** This or `mobile` (at least one); only the email can recover a password. */
+  email?: string | null;
+  mobile?: string | null;
   password: string;
   accountKind?: PartnerAccountKind;
   branchId?: string | null;

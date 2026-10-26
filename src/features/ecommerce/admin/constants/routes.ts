@@ -15,7 +15,6 @@ export const ecommerceAdminRoutes = {
   banners: '/cms/banners',
   content: '/cms/content',
   contactMessages: '/cms/contact-messages',
-  whatsapp: '/cms/whatsapp',
   settings: '/cms/settings',
   /** إعدادات إشعارات المتجر — منفصلة عن `/cms/settings` (هوية/SEO). */
   notificationSettings: '/notification-settings',
@@ -60,7 +59,6 @@ export type EcommerceSettingsTab =
   | 'branding'
   | 'colors'
   | 'contact'
-  | 'social'
   | 'locations'
   | 'deliveryRates'
   | 'paymentAccounts'

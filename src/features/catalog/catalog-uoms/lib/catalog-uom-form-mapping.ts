@@ -9,6 +9,7 @@ export function catalogUomToFormValues(row: CatalogUom): CatalogUomFormValues {
     uneceCode: row.uneceCode ?? '',
     packagingType: row.packagingType,
     category: row.category,
+    measure: row.measure ?? 'count',
     displayOrder: row.displayOrder,
     isActive: row.isActive,
   };
@@ -23,6 +24,7 @@ export function formValuesToCreatePayload(values: CatalogUomFormValues, companyI
     uneceCode: values.uneceCode?.trim() || null,
     packagingType: values.packagingType,
     category: values.category,
+    measure: values.measure,
   };
 }
 
@@ -34,6 +36,7 @@ export function formValuesToUpdatePayload(values: CatalogUomFormValues) {
     uneceCode: values.uneceCode?.trim() || null,
     packagingType: values.packagingType,
     category: values.category,
+    measure: values.measure,
     displayOrder: values.displayOrder,
     isActive: values.isActive,
   };

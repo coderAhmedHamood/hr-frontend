@@ -85,7 +85,10 @@ function ChoiceSelect<T extends string>({
 }) {
   return (
     <Select value={value} disabled={disabled} onValueChange={(next) => onChange(next as T)}>
-      <SelectTrigger id={id}>
+      <SelectTrigger
+        id={id}
+        className="h-auto min-h-11 whitespace-normal py-2 [&>span]:line-clamp-none [&>span]:whitespace-normal"
+      >
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
@@ -188,6 +191,8 @@ export function HeroCarouselPage() {
   const [heroDraft, setHeroDraft] = React.useState<HeroCarouselSectionRecord | null>(null);
   const [dirty, setDirty] = React.useState(false);
   const [form, setForm] = React.useState<SlideFormState | null>(null);
+  const [formError, setFormError] = React.useState<string | null>(null);
+  const saveSeq = React.useRef(0);
   const [toDeleteIndex, setToDeleteIndex] = React.useState<number | null>(null);
   const [previewOpen, setPreviewOpen] = React.useState(false);
 
@@ -258,7 +263,7 @@ export function HeroCarouselPage() {
   function commitHero(next: HeroCarouselSectionRecord) {
     setHeroDraft(next);
     setDirty(true);
-    void persistWithHero(next);
+    void persistWithHero(next).catch(() => undefined);
   }
 
   function updateSlides(nextSlides: HeroCarouselSlideRecord[]) {
@@ -291,26 +296,37 @@ export function HeroCarouselPage() {
     updateSlides(next);
   }
 
-  function saveSlideForm() {
-    if (!form) return;
+  async function saveSlideForm() {
+    if (!form || !heroDraft || !draft) return;
     const nextSlide = normalizeSlide(form.draft);
-    if (!nextSlide.imageUrl.trim()) return;
+    if (!nextSlide.imageUrl.trim()) {
+      setFormError(t('imageRequired'));
+      return;
+    }
     const nextSlides =
       form.index === null
         ? [...slides, nextSlide]
         : slides.map((slide, index) => (index === form.index ? nextSlide : slide));
-    if (!heroDraft || !draft) return;
-
-    setForm(null);
-    commitHero({
+    const nextHero: HeroCarouselSectionRecord = {
       ...heroDraft,
       content: { ...heroDraft.content, slides: nextSlides },
       updatedAt: new Date().toISOString(),
-    });
+    };
+    setHeroDraft(nextHero);
+    setDirty(true);
+    setFormError(null);
+    try {
+      await persistWithHero(nextHero);
+      setForm(null);
+    } catch (error) {
+      const message = error instanceof Error && error.message.trim() ? error.message : t('saveSlideError');
+      setFormError(message);
+    }
   }
 
   async function persistWithHero(nextHeroInput: HeroCarouselSectionRecord) {
     if (!draft) return;
+    const seq = ++saveSeq.current;
     const now = new Date().toISOString();
     const nextHero: SectionRecord = {
       ...nextHeroInput,
@@ -339,12 +355,14 @@ export function HeroCarouselPage() {
     };
     try {
       const saved = await save.mutateAsync(nextPage);
+      if (seq !== saveSeq.current) return;
       loadFrom(saved);
-    } catch {
-      // Error toast is handled by the mutation; show what the store has.
+    } catch (error) {
+      if (seq !== saveSeq.current) return;
       if (data) loadFrom(data);
+      throw error;
     } finally {
-      setDirty(false);
+      if (seq === saveSeq.current) setDirty(false);
     }
   }
 
@@ -591,28 +609,35 @@ export function HeroCarouselPage() {
       <Dialog
         open={Boolean(form?.open)}
         onOpenChange={(open) => {
-          if (!open) setForm(null);
+          if (!open && !save.isPending) {
+            setForm(null);
+            setFormError(null);
+          }
         }}
       >
-        <DialogContent className="max-w-md">
-          <DialogHeader>
+        <DialogContent
+          className="max-w-lg gap-0 overflow-hidden p-0"
+          onFocusOutside={(event) => event.preventDefault()}
+        >
+          <DialogHeader className="px-6 pt-6">
             <DialogTitle>
               {form?.index === null ? t('addSlide') : t('editSlide')}
             </DialogTitle>
           </DialogHeader>
 
           {form ? (
-            <div className="space-y-4 py-1">
+            <div className="max-h-[min(70dvh,36rem)] space-y-4 overflow-y-auto px-6 py-4">
               <div className="space-y-1.5">
                 <Label>{t('columnImage')}</Label>
                 <ImagePicker
                   value={form.draft.imageUrl}
-                  onChange={(imageUrl) =>
+                  onChange={(imageUrl) => {
+                    setFormError(null);
                     setForm({
                       ...form,
                       draft: { ...form.draft, imageUrl: imageUrl ?? '' },
-                    })
-                  }
+                    });
+                  }}
                 />
               </div>
               <div className="space-y-1.5">
@@ -628,7 +653,7 @@ export function HeroCarouselPage() {
                 />
                 <p className="text-[11px] text-muted-foreground">{t('mobileImageHint')}</p>
               </div>
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-3">
                 <div className="space-y-1.5">
                   <Label htmlFor="hero-slide-fit">{t('imageFit')}</Label>
                   <ChoiceSelect<HeroSlideFit>
@@ -692,10 +717,15 @@ export function HeroCarouselPage() {
                   }
                 />
               </div>
+              {formError ? (
+                <p role="alert" className="text-xs leading-relaxed text-destructive">
+                  {formError}
+                </p>
+              ) : null}
             </div>
           ) : null}
 
-          <DialogFooter className="gap-2">
+          <DialogFooter className="border-t border-border px-6 py-4">
             <Button type="button" variant="outline" onClick={() => setForm(null)}>
               {tCommon('actions.cancel')}
             </Button>
@@ -758,7 +788,7 @@ export function HeroCarouselPage() {
                 setHeroDraft(nextHero);
                 setToDeleteIndex(null);
                 setDirty(true);
-                void persistWithHero(nextHero);
+                void persistWithHero(nextHero).catch(() => undefined);
               }}
             >
               {tCommon('actions.delete')}
