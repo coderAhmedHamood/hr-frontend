@@ -7,13 +7,17 @@ import {
   type DaySummaryOptionalColumnKey,
 } from '@/features/hr/attendance/day-summaries/constants/day-summary-column-config';
 import {
+  DAY_SUMMARY_SUMMED_METRICS,
+  formatDayCounts,
   formatDaySummaryMetric,
+  formatMinutesTotal,
   getDaySummaryMetricMinutes,
   type DaySummaryDailyMetricKey,
 } from '@/features/hr/attendance/day-summaries/utils/day-summary-display';
+import type { RegisterExportColumn } from '@/components/pdf/lib/register-export-rows';
 import { exportDate, exportDateTime } from '@/features/hr/attendance/lib/attendance-export-format';
 
-type ExportColumn = RegisterColumn & { value: (row: DaySummaryResponseDto) => string };
+type ExportColumn = RegisterExportColumn<DaySummaryResponseDto>;
 
 /** A metric as the table shows it: «—» when empty/zero, else HH:MM. */
 function metric(key: DaySummaryDailyMetricKey, emptyWhenZero = true) {
@@ -26,7 +30,12 @@ function metric(key: DaySummaryDailyMetricKey, emptyWhenZero = true) {
 const PINNED: ExportColumn[] = [
   { label: 'الموظف', kind: 'name', value: (r) => r.employeeNameAr ?? '—' },
   { label: 'اليوم', kind: 'date', value: (r) => exportDate(r.workDate) },
-  { label: 'الحالة', kind: 'status', value: (r) => daySummaryStatusLabel(r.status) },
+  {
+    label: 'الحالة',
+    kind: 'status',
+    value: (r) => daySummaryStatusLabel(r.status),
+    total: (t) => formatDayCounts(t.sums),
+  },
 ];
 
 /** Optional data columns (the «تسوية» action column is not exported). */
@@ -49,6 +58,12 @@ const OPTIONAL: Partial<Record<DaySummaryOptionalColumnKey, ExportColumn>> = {
     value: (r) => (r.overtimePayrollAllowed ? 'مسموح' : '—'),
   },
 };
+
+// Summed metrics print their group / grand totals.
+DAY_SUMMARY_SUMMED_METRICS.forEach((key) => {
+  const col = OPTIONAL[key as DaySummaryOptionalColumnKey];
+  if (col) col.total = (t) => formatMinutesTotal(t.sums[key]);
+});
 
 /** The exported columns: the pinned ones plus the data columns visible in the column picker. */
 export function daySummaryExportColumns(

@@ -134,6 +134,8 @@ export type AttendanceEventResponseDto = {
   voidedAt: string | null;
   recordedBy: string | null;
   createdAt: string;
+  /** With `groupBy`: the key of the row's group (as in `/groups`). */
+  groupKey?: string | null;
 };
 
 export type AttendanceEventListQuery = {
@@ -150,6 +152,14 @@ export type AttendanceEventListQuery = {
   source?: AttendanceEventSource;
   checkInPointId?: string;
   includeVoided?: boolean;
+  /** Employee's primary assignment branch / department. */
+  branchId?: string;
+  departmentId?: string;
+  sortBy?: string;
+  sortDir?: 'asc' | 'desc';
+  /** Group field (`/groups`), or with `groupValue` the rows of one group. */
+  groupBy?: string;
+  groupValue?: string;
 };
 
 export type CreateAttendanceEventDto = {

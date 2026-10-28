@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { usePersistedStateRestore } from '@/shared/hooks/use-persisted-state-restore';
 
 export function readPersistedJson<T>(key: string): T | null {
   if (typeof window === 'undefined') return null;
@@ -58,6 +59,10 @@ export function usePersistedFilterState<T>(
     setValue(stored ?? defaultRef.current);
   }, [key]);
 
+  usePersistedStateRestore(() => {
+    if (key) setValue(readPersistedJson<T>(key) ?? defaultRef.current);
+  });
+
   React.useEffect(() => {
     if (!key) return;
     writePersistedJson(key, value);
@@ -80,6 +85,10 @@ export function usePersistedEmpIdSet(
     const stored = readPersistedJson<string[]>(key);
     setSelectedEmpIds(new Set(stored ?? []));
   }, [key]);
+
+  usePersistedStateRestore(() => {
+    if (key) setSelectedEmpIds(new Set(readPersistedJson<string[]>(key) ?? []));
+  });
 
   React.useEffect(() => {
     if (!key) return;

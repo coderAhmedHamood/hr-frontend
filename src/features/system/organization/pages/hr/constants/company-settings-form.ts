@@ -26,6 +26,7 @@ export type CompanySettingsFormState = {
   secondaryColor: string;
   pdfWatermarkEnabled: boolean;
   pdfWatermarkOpacity: number;
+  pdfContractFontScale: number;
 };
 
 /** Visibility levels of the logo background on printed pages (percent). */
@@ -36,6 +37,15 @@ export const PDF_WATERMARK_LEVELS: ReadonlyArray<{ value: number; label: string 
   { value: 15, label: 'واضحة' },
   { value: 22, label: 'قوية' },
   { value: 30, label: 'قوية جدًا' },
+];
+
+/** Text sizes of the employment-contract PDF (percent of the standard size). */
+export const PDF_CONTRACT_FONT_SCALES: ReadonlyArray<{ value: number; label: string }> = [
+  { value: 75, label: 'صغير جدًا' },
+  { value: 85, label: 'صغير' },
+  { value: 100, label: 'عادي' },
+  { value: 110, label: 'كبير' },
+  { value: 120, label: 'كبير جدًا' },
 ];
 
 export function companyToSettingsForm(company: CompanyResponseDto): CompanySettingsFormState {
@@ -64,6 +74,7 @@ export function companyToSettingsForm(company: CompanyResponseDto): CompanySetti
     secondaryColor: company.secondaryColor ?? '',
     pdfWatermarkEnabled: company.pdfWatermarkEnabled ?? true,
     pdfWatermarkOpacity: company.pdfWatermarkOpacity ?? 10,
+    pdfContractFontScale: company.pdfContractFontScale ?? 100,
   };
 }
 
@@ -108,5 +119,6 @@ export function settingsFormToUpdateDto(
     secondaryColor: emptyToNull(form.secondaryColor),
     pdfWatermarkEnabled: form.pdfWatermarkEnabled,
     pdfWatermarkOpacity: form.pdfWatermarkOpacity,
+    pdfContractFontScale: form.pdfContractFontScale,
   };
 }

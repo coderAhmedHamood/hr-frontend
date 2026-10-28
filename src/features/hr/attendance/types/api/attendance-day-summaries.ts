@@ -78,6 +78,8 @@ export type DaySummaryResponseDto = {
   updatedAt: string;
   createdBy: string | null;
   updatedBy: string | null;
+  /** With `groupBy`: the key of the row's group (as in `/groups`). */
+  groupKey?: string | null;
 };
 
 export type DaySummaryListQuery = {
@@ -92,6 +94,14 @@ export type DaySummaryListQuery = {
   isManualOverride?: boolean;
   /** The employee's status: active (empty counts as active), suspended, ended. */
   employeeStatus?: string;
+  /** Employee's primary assignment branch / department. */
+  branchId?: string;
+  departmentId?: string;
+  sortBy?: string;
+  sortDir?: 'asc' | 'desc';
+  /** Group field (`/groups`), or with `groupValue` the rows of one group. */
+  groupBy?: string;
+  groupValue?: string;
 };
 
 export type DaySummaryByPeriodQuery = {

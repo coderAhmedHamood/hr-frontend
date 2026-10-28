@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { cn } from '@/shared/utils';
+import { APP_TITLE } from '@/shared/app-title';
 
 export type LogoProps = {
   className?: string;
@@ -11,7 +12,7 @@ export type LogoProps = {
   alt?: string;
 };
 
-export function Logo({ className, size = 40, src, alt = 'Rose HR' }: LogoProps) {
+export function Logo({ className, size = 40, src, alt = APP_TITLE }: LogoProps) {
   const [mounted, setMounted] = React.useState(false);
   const [failed, setFailed] = React.useState(false);
 

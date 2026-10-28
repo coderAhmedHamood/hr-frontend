@@ -4,6 +4,7 @@ import {
   LOGIN_BRANDING_STORAGE_KEY,
 } from '@/shared/constants/branding';
 import { publicConfig } from '@/shared/config';
+import { APP_TITLE } from '@/shared/app-title';
 
 const AUTH_STORAGE_KEY = 'rose-hr-auth';
 const API_BASE = publicConfig.apiUrl.replace(/\/$/, '');
@@ -13,6 +14,7 @@ const API_BASE = publicConfig.apiUrl.replace(/\/$/, '');
  * 1. Precomputed CSS vars (fast path)
  * 2. Session / login branding hex → inline HSL conversion (migration + refresh)
  * 3. Company logo → favicon (session / login branding)
+ * 4. Company name → tab title, when the page shows the app's default title
  */
 export const COMPANY_THEME_BOOT_SCRIPT = `(function(){
 function normHex(v){if(!v||typeof v!=='string')return null;v=v.trim().toLowerCase();return/^#[0-9a-f]{6}$/.test(v)?v:null;}
@@ -25,6 +27,8 @@ function applyHex(root,primary,secondary){var vars={},p=normHex(primary),s=normH
 function pickDefaultCompany(profile){var cid=profile.defaultCompanyId,company=null,i;for(i=0;i<profile.companies.length;i++){if(profile.companies[i].companyId===cid){company=profile.companies[i];break;}}return company||profile.companies[0]||null;}
 function pickColors(){var primary=null,secondary=null;try{var authRaw=localStorage.getItem(${JSON.stringify(AUTH_STORAGE_KEY)});if(authRaw){var auth=JSON.parse(authRaw),profile=auth.state&&auth.state.accessProfile;if(profile&&profile.companies&&profile.companies.length){var company=pickDefaultCompany(profile);if(company){primary=company.companyPrimaryColor;secondary=company.companySecondaryColor;}}}}catch(e){}if(!primary&&!secondary){try{var br=localStorage.getItem(${JSON.stringify(LOGIN_BRANDING_STORAGE_KEY)});if(br){var b=JSON.parse(br);primary=b.companyPrimaryColor;secondary=b.companySecondaryColor;}}catch(e){}}return{primary:primary,secondary:secondary};}
 function pickLogoUrl(){var logo=null;try{var authRaw=localStorage.getItem(${JSON.stringify(AUTH_STORAGE_KEY)});if(authRaw){var auth=JSON.parse(authRaw),profile=auth.state&&auth.state.accessProfile;if(profile&&profile.companies&&profile.companies.length){var company=pickDefaultCompany(profile);if(company&&company.companyLogoUrl)logo=company.companyLogoUrl.trim();}}}catch(e){}if(!logo){try{var br=localStorage.getItem(${JSON.stringify(LOGIN_BRANDING_STORAGE_KEY)});if(br){var b=JSON.parse(br);if(b.companyLogoUrl)logo=b.companyLogoUrl.trim();}}catch(e){}}return logo;}
+function pickCompanyName(){var name=null;try{var authRaw=localStorage.getItem(${JSON.stringify(AUTH_STORAGE_KEY)});if(authRaw){var auth=JSON.parse(authRaw),profile=auth.state&&auth.state.accessProfile;if(profile&&profile.companies&&profile.companies.length){var company=pickDefaultCompany(profile);if(company&&company.companyNameAr)name=company.companyNameAr.trim();}}}catch(e){}if(!name){try{var br=localStorage.getItem(${JSON.stringify(LOGIN_BRANDING_STORAGE_KEY)});if(br){var b=JSON.parse(br);if(b.companyNameAr)name=b.companyNameAr.trim();}}catch(e){}}return name||null;}
+function runTitle(){var name=pickCompanyName();if(name&&document.title===${JSON.stringify(APP_TITLE)})document.title=name;}
 function getApiBase(){var configured=${JSON.stringify(API_BASE)};var host=window.location.hostname;var isLocal=host==='localhost'||host==='127.0.0.1'||host==='::1';if(isLocal)return configured;try{var apiHost=new URL(configured,window.location.origin).hostname;var isLocalApi=apiHost==='localhost'||apiHost==='127.0.0.1'||apiHost==='::1';if(isLocalApi)return '/api-backend';}catch(e){}return configured;}
 function resolveLogoUrl(url){if(!url)return null;if(url.indexOf('/api-backend/')===0)return url;var uploadPath=null;if(url.indexOf('/uploads/')===0)uploadPath=url;else if(url.indexOf('uploads/')===0)uploadPath='/'+url;else{var idx=url.indexOf('/uploads/');if(idx>=0)uploadPath=url.slice(idx);}if(uploadPath){var apiBase=getApiBase();if(apiBase.charAt(apiBase.length-1)==='/')apiBase=apiBase.slice(0,-1);return apiBase+uploadPath;}return url;}
 function setFavicon(href){if(!href)return;var next=href+(href.indexOf('?')>=0?'&':'?')+'v='+encodeURIComponent(href);document.querySelectorAll("link[rel='icon'], link[rel='shortcut icon'], link[rel='apple-touch-icon']").forEach(function(link){if(link.getAttribute('data-dynamic-favicon')==='true'){link.href=next;return;}link.parentNode&&link.parentNode.removeChild(link);});var link=document.querySelector("link[data-dynamic-favicon='true']");if(!link){link=document.createElement('link');link.rel='icon';link.setAttribute('data-dynamic-favicon','true');document.head.appendChild(link);}link.href=next;}
@@ -34,6 +38,6 @@ try{
   var raw=localStorage.getItem(${JSON.stringify(COMPANY_THEME_VARS_STORAGE_KEY)});
   if(raw){var vars=JSON.parse(raw);applyVars(root,vars);}else{var colors=pickColors();if(colors.primary||colors.secondary){applyHex(root,colors.primary,colors.secondary);}}
   runFavicon();
-  if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',runFavicon);}else{setTimeout(runFavicon,0);}
+  if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',function(){runFavicon();runTitle();});}else{setTimeout(function(){runFavicon();runTitle();},0);}
 }catch(e){}
 })();`;

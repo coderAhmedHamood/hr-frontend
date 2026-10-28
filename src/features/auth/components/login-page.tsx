@@ -36,6 +36,7 @@ import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 import { publicConfig } from '@/shared/config';
 import { resolvePostLoginDestination } from '@/features/auth/lib/resolve-home-console-path';
 import { toast } from 'sonner';
+import { APP_TITLE } from '@/shared/app-title';
 
 const schema = z.object({
   email: z.string().email('بريد إلكتروني غير صالح'),
@@ -96,8 +97,9 @@ export function LoginPage() {
     };
   }, [setValue]);
 
-  const appTitle = publicConfig.appName.trim() || 'نظام الموارد البشرية';
-  const { logoUrl, logoAlt } = useLoginPageBranding();
+  const appTitle = APP_TITLE;
+  const { logoUrl, logoAlt, companyNameAr } = useLoginPageBranding();
+  const welcomeTitle = hydrated ? (companyNameAr || appTitle) : appTitle;
   const draftEmail = watch('email');
 
   const onSubmit = async (values: FormValues) => {

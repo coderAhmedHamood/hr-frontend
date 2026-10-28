@@ -12,7 +12,11 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { PdfPreviewExportDialog } from '@/components/pdf/pdf-preview-export-dialog';
-import { RegisterDocument, type RegisterColumn } from '@/components/pdf/print/register-document';
+import {
+  RegisterDocument,
+  type RegisterColumn,
+  type RegisterRow,
+} from '@/components/pdf/print/register-document';
 import { downloadXlsxFromAoA } from '@/shared/export/download-xlsx';
 import { cn } from '@/shared/utils';
 
@@ -117,9 +121,11 @@ export type RegisterExportMenuProps = {
   columns: RegisterColumn[];
   /**
    * The rows to export, one string per column — every record matching the
-   * current filters, not only the visible page. May fetch (all pages).
+   * current filters, not only the visible page. May fetch (all pages). A
+   * grouped list also returns its group headings, subtotals and grand total
+   * (see `registerExportRows`).
    */
-  getRows: () => string[][] | Promise<string[][]>;
+  getRows: () => RegisterRow[] | Promise<RegisterRow[]>;
   /** Lines under the title in the PDF (period, filters…). */
   subtitleLines?: string[];
   landscape?: boolean;
@@ -148,7 +154,7 @@ export function RegisterExportMenu({
   pinnedColumnCount = 1,
 }: RegisterExportMenuProps) {
   const [busy, setBusy] = React.useState(false);
-  const [pdfRows, setPdfRows] = React.useState<string[][] | null>(null);
+  const [pdfRows, setPdfRows] = React.useState<RegisterRow[] | null>(null);
 
   // Persisted per register title, so the user's choice of fields survives
   // reopening the export dialog (and reloading the page).
@@ -187,7 +193,7 @@ export function RegisterExportMenu({
     [columns, pdfColumnIndexes],
   );
 
-  const loadRows = React.useCallback(async (): Promise<string[][] | null> => {
+  const loadRows = React.useCallback(async (): Promise<RegisterRow[] | null> => {
     setBusy(true);
     try {
       const rows = await getRows();
@@ -212,7 +218,10 @@ export function RegisterExportMenu({
   const exportExcel = React.useCallback(async () => {
     const rows = await loadRows();
     if (!rows) return;
-    await downloadXlsxFromAoA(`${fileName}.xlsx`, title, [columns.map((c) => c.label), ...rows]);
+    await downloadXlsxFromAoA(`${fileName}.xlsx`, title, [
+      columns.map((c) => c.label),
+      ...rows.map((row) => (Array.isArray(row) ? row : row.kind === 'group' ? [row.title] : row.cells)),
+    ]);
     toast.success('تم تنزيل ملف Excel.');
   }, [loadRows, fileName, title, columns]);
 
@@ -223,7 +232,11 @@ export function RegisterExportMenu({
           titleAr={title}
           subtitleLines={subtitleLines}
           columns={pdfColumns}
-          rows={pdfRows.map((row) => pdfColumnIndexes.map((i) => row[i]))}
+          rows={pdfRows.map((row): RegisterRow => {
+            if (Array.isArray(row)) return pdfColumnIndexes.map((i) => row[i]);
+            if (row.kind === 'group') return row;
+            return { kind: row.kind, cells: pdfColumnIndexes.map((i) => row.cells[i]) };
+          })}
           landscape={landscape}
         />
       ) : null,

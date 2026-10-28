@@ -41,6 +41,10 @@ const baseModel = {
   getBranch: jest.fn().mockReturnValue({ nameAr: 'الفرع الرئيسي' }),
   getDepartment: jest.fn().mockReturnValue({ nameAr: 'الموارد البشرية' }),
   reloadEmployees: jest.fn(),
+  sort: { sort: null, toggle: jest.fn(), setSort: jest.fn(), sortKey: '', options: [], label: null },
+  group: { groupBy: null },
+  grouped: null,
+  columnVisibility: { isVisible: () => true },
 };
 
 jest.mock(

@@ -37,10 +37,9 @@ function timeCell(iso: string): string {
   return parts ? `${parts.hours}:${parts.minutes}${parts.period}` : '—';
 }
 
-/** Rows as the panel shows them: newest work day first (the panel groups by day). */
+/** Rows in the server's order — the same order (and sort) the panel shows. */
 export function attendanceEventsExportRows(events: AttendanceEventResponseDto[]): string[][] {
-  return [...events]
-    .sort((a, b) => b.workDate.localeCompare(a.workDate))
+  return events
     .map((e) => [
       e.isVoided ? `${e.employeeNameAr} (ملغى)` : e.employeeNameAr,
       exportDate(e.workDate),

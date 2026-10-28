@@ -19,6 +19,8 @@ import { usePublicRecruitmentJobsList } from '@/features/hr/recruitment/hooks/us
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
 
 import { JOB_TYPE_AR } from '@/features/hr/recruitment/ats/constants/ats-jobs-list';
+import { useLoginPageBranding } from '@/features/auth/hooks/use-default-company-branding';
+import { APP_TITLE } from '@/shared/app-title';
 
 export function PublicCareersClient() {
   const [search, setSearch] = React.useState('');
@@ -154,14 +156,22 @@ export function PublicCareersClient() {
 }
 
 export function PublicCareersShell({ children }: { children: React.ReactNode }) {
+  // The company's name when this device knows it (a signed-in or past session);
+  // a public visitor sees the deployment's name. Read after mount — the server
+  // has no access to the device's storage.
+  const { companyNameAr } = useLoginPageBranding();
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => setMounted(true), []);
+  const name = (mounted && companyNameAr) || APP_TITLE;
+
   return (
     <div className="min-h-screen bg-muted/30">
       <header className="border-b border-border/60 bg-background/80 backdrop-blur-sm sticky top-0 z-40">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
           <Link href="/careers" className="flex items-center gap-2.5">
-            <Image src="/logo.webp" alt="روز" width={32} height={32} className="rounded-lg" />
+            <Image src="/logo.webp" alt={name} width={32} height={32} className="rounded-lg" />
             <div className="leading-tight">
-              <p className="text-sm font-semibold">روز</p>
+              <p className="text-sm font-semibold">{name}</p>
               <p className="text-[10px] text-muted-foreground">التوظيف</p>
             </div>
           </Link>
@@ -175,7 +185,7 @@ export function PublicCareersShell({ children }: { children: React.ReactNode }) 
 
       <footer className="border-t border-border/60 bg-background/60">
         <div className="mx-auto max-w-5xl px-4 py-6 text-center text-xs text-muted-foreground sm:px-6">
-          بوابة التوظيف — روز لإدارة الموارد البشرية
+          بوابة التوظيف — {name}
         </div>
       </footer>
     </div>

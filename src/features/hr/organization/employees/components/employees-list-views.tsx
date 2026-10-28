@@ -23,6 +23,7 @@ import { ForbiddenState } from '@/components/shared/forbidden-state';
 import { EmptyState } from '@/components/ui/shared-dialogs';
 import { DirectoryPagedViews } from '@/components/ui/paged-list';
 import { getInitials } from '@/shared/utils';
+import { GroupedDataTable } from '@/components/ui/grouped-data-table';
 import type { EmployeesListModel } from '@/features/hr/organization/employees/hooks/useEmployeesListModel';
 import { hrOrganizationRoutes } from '@/features/hr/organization/constants/routes';
 
@@ -37,9 +38,11 @@ export function EmployeesListViews({ model }: Props) {
     deleteId, setDeleteId, handleDelete,
   } = model;
 
-  const columns = React.useMemo((): ColumnDef<FilteredRow>[] => [
+  const isColumnVisible = model.columnVisibility.isVisible;
+  const columns = React.useMemo((): ColumnDef<FilteredRow>[] => ([
     {
       key: 'employee',
+      sortKey: 'name',
       title: 'الموظف',
       render: (emp) => (
         <div className="flex items-center gap-3">
@@ -58,17 +61,20 @@ export function EmployeesListViews({ model }: Props) {
     },
     {
       key: 'position',
+      sortKey: 'position',
       title: 'المسمى',
       className: 'text-muted-foreground',
       render: (emp) => emp.position ?? '—',
     },
     {
       key: 'contractType',
+      sortKey: 'contractType',
       title: 'نوع العقد',
       render: (emp) => <ContractTypeLabel type={emp.contractType ?? ''} />,
     },
     {
       key: 'contractStatus',
+      sortKey: 'contractStatus',
       title: 'حالة العقد',
       render: (emp) => (
         <StatusBadge status={emp.contractStatus ?? 'active'} className="text-[11px]" />
@@ -76,6 +82,7 @@ export function EmployeesListViews({ model }: Props) {
     },
     {
       key: 'startDate',
+      sortKey: 'startDate',
       title: 'تاريخ الالتحاق',
       className: 'text-muted-foreground',
       render: (emp) => <TableDateCell value={emp.startDate} />,
@@ -99,7 +106,7 @@ export function EmployeesListViews({ model }: Props) {
         />
       ),
     },
-  ], [setDeleteId]);
+  ] satisfies ColumnDef<FilteredRow>[]).filter((col) => isColumnVisible(col.key)), [setDeleteId, isColumnVisible]);
 
   if (accessDenied) {
     return <ForbiddenState />;
@@ -145,7 +152,19 @@ export function EmployeesListViews({ model }: Props) {
         onConfirm={handleDelete}
       />
 
-      {!loading && filtered.length === 0 ? (
+      {model.group.groupBy ? (
+        <GroupedDataTable
+          columns={columns}
+          group={model.group}
+          list={model.grouped}
+          keyExtractor={(emp) => emp.id}
+          onRowClick={(emp) => router.push(hrOrganizationRoutes.employee(emp.id))}
+          sort={model.sort.sort}
+          onSort={model.sort.toggle}
+          emptyText="لا توجد نتائج — جرّب تعديل الفلاتر"
+          className="min-h-0 flex-1"
+        />
+      ) : !loading && filtered.length === 0 ? (
         <EmptyState title="لا توجد نتائج — جرّب تعديل الفلاتر" />
       ) : (
         <DirectoryPagedViews
@@ -161,6 +180,8 @@ export function EmployeesListViews({ model }: Props) {
           data={pageItems}
           keyExtractor={(emp) => emp.id}
           onRowClick={(emp) => router.push(hrOrganizationRoutes.employee(emp.id))}
+          sort={model.sort.sort}
+          onSort={model.sort.toggle}
         />
       ) : (
         <DirectoryGrid>

@@ -21,9 +21,10 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ForbiddenState } from '@/components/shared/forbidden-state';
 import { EmptyStateCard } from '@/components/shared/empty-state-card';
-import { useAttendanceEventsModel } from '@/features/hr/attendance/events/hooks/useAttendanceEventsModel';
+import { eventsSortKeepsDayGroups, useAttendanceEventsModel } from '@/features/hr/attendance/events/hooks/useAttendanceEventsModel';
 import { DirectoryPagedViews } from '@/components/ui/paged-list';
 import { DataTable, type ColumnDef } from '@/components/ui/data-table';
+import { GroupedDataTable } from '@/components/ui/grouped-data-table';
 import { attendanceEventsApi, type AttendanceEventResponseDto, type AttendanceEventType } from '@/features/hr/attendance/lib/api/attendance-events';
 import {
   ATTENDANCE_EVENT_SOURCE_LABELS,
@@ -179,11 +180,19 @@ function CreateEventDialog({
   );
 }
 
-function useEventColumns(onDetail: (e: AttendanceEventResponseDto) => void) {
+function useEventColumns(onDetail: (e: AttendanceEventResponseDto) => void, withDayColumn: boolean) {
   return React.useMemo((): ColumnDef<AttendanceEventResponseDto>[] => [
+    ...(withDayColumn ? [{
+      key: 'day',
+      title: 'اليوم',
+      sortKey: 'workDate',
+      className: 'font-mono text-xs tabular-nums whitespace-nowrap',
+      render: (event: AttendanceEventResponseDto) => <span dir="ltr">{event.workDate}</span>,
+    }] : []),
     {
       key: 'employee',
       title: 'الموظف',
+      sortKey: 'employeeName',
       render: (event) => (
         <div className={cn('flex items-center gap-2', event.isVoided && 'opacity-60')}>
           <span className="font-medium">{event.employeeNameAr}</span>
@@ -194,6 +203,7 @@ function useEventColumns(onDetail: (e: AttendanceEventResponseDto) => void) {
     {
       key: 'type',
       title: 'نوع الحدث',
+      sortKey: 'eventType',
       render: (event) => {
         const meta = EVENT_TYPE_META[event.eventType];
         const Icon = meta.icon;
@@ -208,12 +218,14 @@ function useEventColumns(onDetail: (e: AttendanceEventResponseDto) => void) {
     {
       key: 'time',
       title: 'الوقت',
+      sortKey: 'occurredAt',
       className: 'font-mono text-xs tabular-nums whitespace-nowrap',
       render: (event) => <span dir="ltr">{fmtTime(event.occurredAt)}</span>,
     },
     {
       key: 'source',
       title: 'المصدر',
+      sortKey: 'source',
       hideOnMobile: true,
       className: 'text-xs text-muted-foreground',
       render: (event) => {
@@ -230,6 +242,7 @@ function useEventColumns(onDetail: (e: AttendanceEventResponseDto) => void) {
     {
       key: 'checkpoint',
       title: 'نقطة التسجيل',
+      sortKey: 'checkInPoint',
       hideOnMobile: true,
       className: 'text-xs text-muted-foreground',
       render: (event) => event.checkInPointNameAr ? (
@@ -269,7 +282,7 @@ function useEventColumns(onDetail: (e: AttendanceEventResponseDto) => void) {
         </Button>
       ),
     },
-  ], [onDetail]);
+  ], [onDetail, withDayColumn]);
 }
 
 // ── detail dialog ──────────────────────────────────────────────────────────────
@@ -325,8 +338,22 @@ export function AttendanceEventsPanel() {
   const openDetail = React.useCallback((event: AttendanceEventResponseDto) => {
     m.setDetailTarget(event);
   }, [m.setDetailTarget]);
-  const columns = useEventColumns(openDetail);
+  const groupByDay = eventsSortKeepsDayGroups(m.sort.sort?.key);
+  const isColumnVisible = m.columnVisibility.isVisible;
+  const dayColumns = useEventColumns(openDetail, !groupByDay);
+  // Grouped by a chosen field, every row shows its day.
+  const allGroupedColumns = useEventColumns(openDetail, true);
+  const columns = React.useMemo(
+    () => dayColumns.filter((c) => isColumnVisible(c.key)),
+    [dayColumns, isColumnVisible],
+  );
+  const groupedColumns = React.useMemo(
+    () => allGroupedColumns.filter((c) => isColumnVisible(c.key)),
+    [allGroupedColumns, isColumnVisible],
+  );
 
+  // Days in the server's order (newest first by default, or as sorted), so
+  // the screen reads like the exported register.
   const groupEvents = React.useCallback((events: AttendanceEventResponseDto[]) => {
     const map = new Map<string, AttendanceEventResponseDto[]>();
     for (const e of events) {
@@ -334,7 +361,7 @@ export function AttendanceEventsPanel() {
       if (!map.has(k)) map.set(k, []);
       map.get(k)!.push(e);
     }
-    return [...map.entries()].sort(([a], [b]) => b.localeCompare(a));
+    return [...map.entries()];
   }, []);
 
   if (m.accessDenied) {
@@ -345,6 +372,18 @@ export function AttendanceEventsPanel() {
     <div className="flex min-h-0 flex-1 flex-col gap-4">
       {m.listError ? (
         <EmptyStateCard icon={AlertTriangle} title="تعذر التحميل" description={m.listError} />
+      ) : m.group.groupBy ? (
+        <GroupedDataTable
+          columns={groupedColumns}
+          group={m.group}
+          list={m.grouped}
+          keyExtractor={(e) => e.id}
+          onRowClick={openDetail}
+          sort={m.sort.sort}
+          onSort={m.sort.toggle}
+          emptyText="لا توجد أحداث ضمن الفلاتر الحالية"
+          className="min-h-0 flex-1"
+        />
       ) : (
         <DirectoryPagedViews
           items={m.events}
@@ -363,7 +402,19 @@ export function AttendanceEventsPanel() {
             </EmptyStateCard>
           )}
         >
-          {(pageItems) => (
+          {(pageItems) => !groupByDay ? (
+            <DataTable
+              variant="directory"
+              alwaysShowTable
+              tableClassName="min-w-[820px]"
+              columns={columns}
+              data={pageItems}
+              keyExtractor={(e) => e.id}
+              onRowClick={openDetail}
+              sort={m.sort.sort}
+              onSort={m.sort.toggle}
+            />
+          ) : (
             <div className="space-y-4">
               {groupEvents(pageItems).map(([date, dayEvents]) => (
                 <div key={date} className="overflow-hidden rounded-xl border border-border bg-card shadow-soft">
@@ -395,6 +446,8 @@ export function AttendanceEventsPanel() {
                     keyExtractor={(e) => e.id}
                     className="rounded-none border-0 shadow-none"
                     onRowClick={openDetail}
+                    sort={m.sort.sort}
+                    onSort={m.sort.toggle}
                   />
                 </div>
               ))}

@@ -28,6 +28,20 @@ export type RegisterColumn = {
   weight?: number;
 };
 
+/**
+ * A row of the register: the cells of one record, or — in a grouped
+ * register — a group's heading, its subtotal, or the grand total.
+ */
+export type RegisterRow =
+  | string[]
+  | { kind: 'group'; title: string }
+  | { kind: 'subtotal' | 'total'; cells: string[] };
+
+/** True for a record's own row (not a group heading or a total). */
+export function isRegisterDataRow(row: RegisterRow): row is string[] {
+  return Array.isArray(row);
+}
+
 export type RegisterDocumentProps = {
   companyNameAr?: string;
   companyNameEn?: string;
@@ -35,7 +49,7 @@ export type RegisterDocumentProps = {
   /** Lines under the title (period, filters…); text, or an element (e.g. dates kept left-to-right). */
   subtitleLines?: React.ReactNode[];
   columns: RegisterColumn[];
-  rows: string[][];
+  rows: RegisterRow[];
   landscape?: boolean;
   rowsPerPage?: number;
   emptyText?: string;
@@ -68,7 +82,12 @@ const CELL_PAD = 6;
 const LINE_PX = REGISTER_FONT * 1.4;
 
 /** Estimated height of a row: the most lines any of its wrapping cells takes. */
-function rowHeightPx(row: string[], columns: RegisterColumn[], tablePx: number): number {
+function rowHeightPx(row: RegisterRow, columns: RegisterColumn[], tablePx: number): number {
+  if (!Array.isArray(row) && row.kind === 'group') {
+    const perLine = Math.max(8, Math.floor(tablePx / (REGISTER_FONT * 0.45)));
+    return Math.ceil(row.title.length / perLine) * LINE_PX + 2 * CELL_PAD + 1;
+  }
+  if (!Array.isArray(row)) return rowHeightPx(row.cells, columns, tablePx);
   const weights = columns.map((c) => c.weight ?? DEFAULT_WEIGHT[c.kind]);
   const total = weights.reduce((a, b) => a + b, 0) || 1;
   let lines = 1;
@@ -89,11 +108,11 @@ function rowHeightPx(row: string[], columns: RegisterColumn[], tablePx: number):
  * lines and column header; the last page also keeps room for the stamp.
  */
 function paginateByHeight(
-  rows: string[][],
+  rows: RegisterRow[],
   columns: RegisterColumn[],
   landscape: boolean,
   subtitleCount: number,
-): string[][][] {
+): RegisterRow[][] {
   if (rows.length === 0) return [[]];
   const pageMm = landscape ? 192 : 279;
   const widthMm = landscape ? 277 : 190;
@@ -104,11 +123,15 @@ function paginateByHeight(
   const stampPx = 150;
 
   const heights = rows.map((r) => rowHeightPx(r, columns, tablePx));
-  const pages: string[][][] = [[]];
+  const pages: RegisterRow[][] = [[]];
   const used: number[] = [0];
   rows.forEach((row, i) => {
     const p = pages.length - 1;
-    if (pages[p].length > 0 && used[p] + heights[i] > budget) {
+    // A group heading keeps its first row with it (never alone at a page's foot).
+    const needed = !Array.isArray(row) && row.kind === 'group'
+      ? heights[i] + (heights[i + 1] ?? 0)
+      : heights[i];
+    if (pages[p].length > 0 && used[p] + needed > budget) {
       pages.push([]);
       used.push(0);
     }
@@ -118,11 +141,11 @@ function paginateByHeight(
   // No room left for the stamp: move the last page's tail to a page of its own.
   const last = pages.length - 1;
   if (used[last] + stampPx > budget && pages[last].length > 1) {
-    const tail: string[][] = [];
+    const tail: RegisterRow[] = [];
     let h = used[last];
     let idx = rows.length - 1;
     while (pages[last].length > 1 && h + stampPx > budget) {
-      tail.unshift(pages[last].pop() as string[]);
+      tail.unshift(pages[last].pop() as RegisterRow);
       h -= heights[idx];
       idx -= 1;
     }
@@ -182,7 +205,7 @@ export function RegisterTable({
   emptyText = 'لا توجد بيانات ضمن الفلترة.',
 }: {
   columns: RegisterColumn[];
-  rows: string[][];
+  rows: RegisterRow[];
   emptyText?: string;
 }) {
   const widths = registerColumnWidths(columns);
@@ -208,29 +231,61 @@ export function RegisterTable({
           {emptyText}
         </p>
       ) : (
-        rows.map((row, ri) => (
-          <div
-            key={`r-${ri}`}
-            style={{
-              display: 'flex',
-              flexDirection: 'row',
-              border: '1px solid #e2e8f0',
-              borderTop: 'none',
-              backgroundColor: ri % 2 === 1 ? 'rgba(15, 23, 42, 0.03)' : 'transparent',
-              pageBreakInside: 'avoid',
-              breakInside: 'avoid',
-            }}
-          >
-            {columns.map((c, ci) => {
-              const value = sanitizePdfText((row[ci] ?? '').replace(/\s+/g, ' ').trim() || '—');
-              return (
-                <div key={`c-${ci}`} style={cellStyle(c, widths[ci], ci, false)}>
-                  {NO_WRAP.has(c.kind) ? <span dir="ltr">{value}</span> : value}
-                </div>
-              );
-            })}
-          </div>
-        ))
+        rows.map((row, ri) => {
+          if (!Array.isArray(row) && row.kind === 'group') {
+            return (
+              <div
+                key={`r-${ri}`}
+                style={{
+                  border: '1px solid #94a3b8',
+                  borderTop: 'none',
+                  backgroundColor: 'rgba(15, 118, 110, 0.10)',
+                  padding: '6px 8px',
+                  fontSize: REGISTER_FONT,
+                  fontWeight: 700,
+                  lineHeight: 1.4,
+                  textAlign: 'right',
+                  pageBreakInside: 'avoid',
+                  breakInside: 'avoid',
+                }}
+              >
+                {sanitizePdfText(row.title)}
+              </div>
+            );
+          }
+          const cells = Array.isArray(row) ? row : row.cells;
+          const special = Array.isArray(row) ? null : row.kind;
+          return (
+            <div
+              key={`r-${ri}`}
+              style={{
+                display: 'flex',
+                flexDirection: 'row',
+                border: special ? '1px solid #94a3b8' : '1px solid #e2e8f0',
+                borderTop: special === 'total' ? '2px solid #334155' : 'none',
+                backgroundColor: special === 'total'
+                  ? 'rgba(15, 23, 42, 0.10)'
+                  : special === 'subtotal'
+                    ? 'rgba(15, 23, 42, 0.05)'
+                    : ri % 2 === 1 ? 'rgba(15, 23, 42, 0.03)' : 'transparent',
+                fontWeight: special ? 700 : undefined,
+                pageBreakInside: 'avoid',
+                breakInside: 'avoid',
+              }}
+            >
+              {columns.map((c, ci) => {
+                const raw = (cells[ci] ?? '').replace(/\s+/g, ' ').trim();
+                const value = sanitizePdfText(raw || (special ? '' : '—'));
+                const style = cellStyle(c, widths[ci], ci, false);
+                return (
+                  <div key={`c-${ci}`} style={special ? { ...style, fontWeight: 700 } : style}>
+                    {NO_WRAP.has(c.kind) ? <span dir="ltr">{value}</span> : value}
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })
       )}
     </div>
   );
@@ -263,6 +318,7 @@ export const RegisterDocument = React.forwardRef<HTMLDivElement, RegisterDocumen
     // printable height (281 / 194 mm, a hair less to stay inside). Every page
     // then holds its own centred logo background.
     const pageHeight = landscape ? '192mm' : '279mm';
+    const recordCount = rows.filter(isRegisterDataRow).length;
 
     return (
       <div ref={ref} dir="rtl" lang="ar" style={{ width: pageWidth, maxWidth: '100%', margin: '0 auto' }}>
@@ -326,7 +382,7 @@ export const RegisterDocument = React.forwardRef<HTMLDivElement, RegisterDocumen
 
               <div style={{ marginTop: 16, fontSize: REGISTER_FONT - 2, color: '#64748b', textAlign: 'center' }}>
                 صفحة {pi + 1} / {pages.length}
-                {rows.length > 0 ? ` · إجمالي السجلات: ${rows.length}` : ''}
+                {recordCount > 0 ? ` · إجمالي السجلات: ${recordCount}` : ''}
               </div>
             </div>
           </div>

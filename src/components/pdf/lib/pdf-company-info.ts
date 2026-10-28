@@ -16,6 +16,8 @@ export type PdfCompanyLetterhead = {
   watermarkEnabled: boolean;
   /** Its opacity, 0–1 (from the company's percent). */
   watermarkOpacity: number;
+  /** Employment-contract text size, as a factor (company setting, 0.7–1.3). */
+  contractFontScale: number;
 };
 
 export type PdfCompanySource = {
@@ -29,6 +31,7 @@ export type PdfCompanySource = {
   representativeNameAr?: string | null;
   pdfWatermarkEnabled?: boolean | null;
   pdfWatermarkOpacity?: number | null;
+  pdfContractFontScale?: number | null;
 };
 
 export function isDefaultPdfLogoSrc(src?: string | null): boolean {
@@ -80,5 +83,6 @@ export function buildPdfCompanyLetterhead(source?: PdfCompanySource | null): Pdf
     representativeNameAr: source?.representativeNameAr?.trim() || '',
     watermarkEnabled: source?.pdfWatermarkEnabled ?? true,
     watermarkOpacity: Math.min(Math.max(source?.pdfWatermarkOpacity ?? 10, 2), 40) / 100,
+    contractFontScale: Math.min(Math.max(source?.pdfContractFontScale ?? 100, 70), 130) / 100,
   };
 }

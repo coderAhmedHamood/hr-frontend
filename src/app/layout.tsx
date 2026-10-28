@@ -4,6 +4,8 @@ import { IBM_Plex_Sans_Arabic, Rubik } from 'next/font/google';
 import './globals.css';
 import { Providers } from '@/components/layouts/providers';
 import { ThemeBootScript } from '@/components/layouts/theme-boot-script';
+import { CompanyDocumentTitle } from '@/components/layouts/company-document-title';
+import { APP_TITLE } from '@/shared/app-title';
 
 const bodyFont = IBM_Plex_Sans_Arabic({
   subsets: ['arabic', 'latin'],
@@ -20,7 +22,8 @@ const displayFont = Rubik({
 });
 
 export const metadata: Metadata = {
-  title: 'روز | منصة الموارد البشرية الذكية',
+  // Replaced in the browser by the company's name from its settings (CompanyDocumentTitle).
+  title: APP_TITLE,
   description: 'نظام متكامل لإدارة الموارد البشرية — موظفين، حضور، رواتب، تقارير',
 };
 
@@ -32,7 +35,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         suppressHydrationWarning
       >
         <ThemeBootScript />
-        <Providers>{children}</Providers>
+        <Providers>
+          <CompanyDocumentTitle />
+          {children}
+        </Providers>
       </body>
     </html>
   );

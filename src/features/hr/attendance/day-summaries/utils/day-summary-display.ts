@@ -75,3 +75,32 @@ export function formatDaySummaryMetric(
   if (minutes <= 0) return null;
   return minutesToHHMM(minutes);
 }
+
+/** A summed duration as H:MM (hours not wrapped at 24 — «125:30»); «—» for zero. */
+export function formatMinutesTotal(minutes: number | undefined): string {
+  const m = Math.max(0, Math.round(minutes ?? 0));
+  if (m === 0) return '—';
+  return `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}`;
+}
+
+/** Day-summary metrics summed by the list's `/groups` (same names as the metrics). */
+export const DAY_SUMMARY_SUMMED_METRICS: readonly DaySummaryDailyMetricKey[] = [
+  'expected',
+  'total',
+  'insidePeriods',
+  'late',
+  'earlyLeave',
+  'earlyArrival',
+  'shortage',
+  'overtime',
+];
+
+/** «غياب 2 · تأخر 5 · إجازة 1» — the day counts of a group, for the status column. */
+export function formatDayCounts(sums: Record<string, number>): string {
+  const parts = [
+    sums.absentDays ? `غياب ${sums.absentDays}` : null,
+    sums.lateDays ? `تأخر ${sums.lateDays}` : null,
+    sums.leaveDays ? `إجازة ${sums.leaveDays}` : null,
+  ].filter(Boolean);
+  return parts.length > 0 ? parts.join(' · ') : '—';
+}

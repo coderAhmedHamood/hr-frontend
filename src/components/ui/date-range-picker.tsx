@@ -14,6 +14,67 @@ import {
 } from '@/components/ui/dialog';
 import { cn, formatDisplayDate } from '@/shared/utils';
 
+// ─── presets ──────────────────────────────────────────────────────────────────
+
+function ymd(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function shiftDays(d: Date, days: number): Date {
+  const out = new Date(d);
+  out.setDate(out.getDate() + days);
+  return out;
+}
+
+/** Common periods, one tap each. Weeks run Sunday to Saturday (as the grouping by week). */
+export const DATE_RANGE_PRESETS: { key: string; label: string; range: () => DateRangeValue }[] = [
+  { key: 'today', label: 'اليوم', range: () => { const t = ymd(new Date()); return { from: t, to: t }; } },
+  {
+    key: 'yesterday',
+    label: 'أمس',
+    range: () => { const y = ymd(shiftDays(new Date(), -1)); return { from: y, to: y }; },
+  },
+  {
+    key: 'thisWeek',
+    label: 'هذا الأسبوع',
+    range: () => {
+      const now = new Date();
+      const sun = shiftDays(now, -now.getDay());
+      return { from: ymd(sun), to: ymd(shiftDays(sun, 6)) };
+    },
+  },
+  {
+    key: 'lastWeek',
+    label: 'الأسبوع الماضي',
+    range: () => {
+      const now = new Date();
+      const sun = shiftDays(now, -now.getDay() - 7);
+      return { from: ymd(sun), to: ymd(shiftDays(sun, 6)) };
+    },
+  },
+  {
+    key: 'thisMonth',
+    label: 'هذا الشهر',
+    range: () => {
+      const n = new Date();
+      return { from: ymd(new Date(n.getFullYear(), n.getMonth(), 1)), to: ymd(new Date(n.getFullYear(), n.getMonth() + 1, 0)) };
+    },
+  },
+  {
+    key: 'lastMonth',
+    label: 'الشهر الماضي',
+    range: () => {
+      const n = new Date();
+      return { from: ymd(new Date(n.getFullYear(), n.getMonth() - 1, 1)), to: ymd(new Date(n.getFullYear(), n.getMonth(), 0)) };
+    },
+  },
+  {
+    key: 'thisYear',
+    label: 'هذه السنة',
+    range: () => { const y = new Date().getFullYear(); return { from: `${y}-01-01`, to: `${y}-12-31` }; },
+  },
+];
+
 // ─── types ────────────────────────────────────────────────────────────────────
 
 export type DateRangeValue = { from: string; to: string };
@@ -210,6 +271,9 @@ export function DateRangePicker({
 
   const handleCancel = () => onOpenChange(false);
 
+  // Presets ignore the picker's limits, so they are offered only without any.
+  const showPresets = !maxDays && !restrictToConsecutive && !disablePastDates;
+
   const handleOpenChange = (next: boolean) => {
     if (!next) {
       setTempStart(value.from || null);
@@ -363,6 +427,32 @@ export function DateRangePicker({
               label="شهر"
             />
           </div>
+          {showPresets ? (
+            <div className="mt-2.5 flex flex-wrap gap-1.5">
+              {DATE_RANGE_PRESETS.map((preset) => {
+                const range = preset.range();
+                const active = value.from === range.from && value.to === range.to;
+                return (
+                  <button
+                    key={preset.key}
+                    type="button"
+                    onClick={() => {
+                      onApply(range, 'range');
+                      onOpenChange(false);
+                    }}
+                    className={cn(
+                      'rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors',
+                      active
+                        ? 'border-primary/50 bg-primary/10 text-primary'
+                        : 'border-border bg-background text-muted-foreground hover:bg-muted/50 hover:text-foreground',
+                    )}
+                  >
+                    {preset.label}
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
         </div>
 
         {/* ══ Range tab ══ */}
