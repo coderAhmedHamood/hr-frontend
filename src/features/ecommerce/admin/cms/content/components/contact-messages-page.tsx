@@ -18,8 +18,55 @@ import { Button } from '@/components/ui/button';
 import { ListFilterBar } from '@/components/ui/list-filter-bar';
 import { EntityFilterSearchField } from '@/components/ui/entity-filter-search-field';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody } from '@/components/ui/dialog';
+import { GroupedDataTable } from '@/components/ui/grouped-data-table';
+import { ListColumnsPicker, useColumnVisibility, type ListColumnOption } from '@/components/ui/list-columns-picker';
+import {
+  dateListGroupOptions,
+  ListGroupMenu,
+  listGroupQuery,
+  useGroupedList,
+  useListGroup,
+  type ListGroupOption,
+} from '@/components/ui/list-group';
+import { ListSavedViews, listStateKeys } from '@/components/ui/list-saved-views';
+import { ListSortMenu, listSortQuery, useListSort, type ListSortOption } from '@/components/ui/list-sort';
+import { RegisterExportMenu } from '@/components/pdf/register-export-menu';
+import {
+  registerExportRows,
+  visibleExportColumns,
+  type RegisterExportColumn,
+} from '@/components/pdf/lib/register-export-rows';
+import { fetchAllPaginatedItems } from '@/shared/api/client';
+import { formatDateTime } from '@/shared/utils';
+import { hrFiltersKey, usePersistedFilterState } from '@/features/hr/lib/use-persisted-filter-state';
+import {
+  fetchAdminContactMessageGroups,
+  fetchAdminContactMessages,
+} from '@/features/ecommerce/shared/lib/api/store-content-api';
 
 const PAGE_SIZE = 20;
+
+/** Server keys (list-screens skill). */
+const MESSAGES_SORT_OPTIONS: readonly ListSortOption[] = [
+  { key: 'createdAt', label: 'التاريخ' },
+  { key: 'name', label: 'الاسم' },
+  { key: 'type', label: 'النوع' },
+];
+
+const MESSAGES_GROUP_OPTIONS: readonly ListGroupOption[] = [
+  { key: 'type', label: 'النوع', formatKey: (k) => TYPE_LABEL[k as StoreContactMessageType] ?? k },
+  ...dateListGroupOptions(),
+];
+
+const MESSAGES_COLUMN_OPTIONS: readonly ListColumnOption[] = [{ key: 'message', label: 'الرسالة' }];
+
+const MESSAGES_EXPORT_COLUMNS: RegisterExportColumn<StoreContactMessageDto>[] = [
+  { label: 'الاسم', kind: 'name', value: (m) => m.name },
+  { label: 'التواصل', kind: 'code', value: (m) => [m.email, m.phone].filter(Boolean).join(' · ') },
+  { label: 'النوع', kind: 'status', value: (m) => TYPE_LABEL[m.type] ?? m.type },
+  { key: 'message', label: 'الرسالة', kind: 'text', value: (m) => m.message },
+  { label: 'التاريخ', kind: 'date', value: (m) => formatDateTime(m.createdAt) },
+];
 
 const TYPE_LABEL: Record<StoreContactMessageType, string> = {
   complaint: 'شكوى',
@@ -48,11 +95,20 @@ export function ContactMessagesPage() {
   const searchParams = useSearchParams();
   const highlightId = searchParams.get('highlight')?.trim() ?? '';
   const [page, setPage] = React.useState(1);
-  const [type, setType] = React.useState<'all' | StoreContactMessageType>('all');
+  // Filters, sort, grouping and columns: kept per user and company.
+  const filterKey = (field: string) => hrFiltersKey('store', 'contact-messages', companyId, field);
+  const [type, setType] = usePersistedFilterState<'all' | StoreContactMessageType>(filterKey('type'), 'all');
   const [searchInput, setSearchInput] = React.useState('');
   const [search, setSearch] = React.useState('');
-  const [dateFrom, setDateFrom] = React.useState('');
-  const [dateTo, setDateTo] = React.useState('');
+  const [dateFrom, setDateFrom] = usePersistedFilterState(filterKey('dateFrom'), '');
+  const [dateTo, setDateTo] = usePersistedFilterState(filterKey('dateTo'), '');
+  const stateKeys = listStateKeys('store', 'contact-messages', companyId);
+  const sort = useListSort(stateKeys.sort, MESSAGES_SORT_OPTIONS);
+  const group = useListGroup(stateKeys.group, MESSAGES_GROUP_OPTIONS);
+  const groupBy = group.groupBy;
+  const columnVisibility = useColumnVisibility(filterKey('hiddenColumns'), MESSAGES_COLUMN_OPTIONS);
+  const sortQuery = listSortQuery(sort.sort);
+  React.useEffect(() => setPage(1), [sort.sortKey]);
   const [viewing, setViewing] = React.useState<StoreContactMessageDto | null>(null);
 
   React.useEffect(() => {
@@ -63,19 +119,65 @@ export function ContactMessagesPage() {
     return () => clearTimeout(timeout);
   }, [searchInput]);
 
-  const query = {
-    page,
-    limit: PAGE_SIZE,
+  const filters = {
     type: type === 'all' ? undefined : type,
     search: search || undefined,
     dateFrom: dateFrom || undefined,
     dateTo: dateTo || undefined,
   };
+  const query = { ...filters, ...sortQuery, page, limit: PAGE_SIZE };
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['cms', 'contact-messages', companyId, query],
     queryFn: () => listCmsContactMessages(companyId, query),
+    enabled: !groupBy,
   });
+  const grouped = useGroupedList<StoreContactMessageDto>({
+    enabled: Boolean(companyId) && Boolean(groupBy),
+    groupBy,
+    resetKey: JSON.stringify({ ...filters, ...sortQuery }),
+    fetchGroups: () => fetchAdminContactMessageGroups(companyId, { ...filters, ...listGroupQuery(groupBy) }),
+    fetchGroupRows: (groupValue, p, l) =>
+      fetchAdminContactMessages(companyId, {
+        ...filters,
+        ...sortQuery,
+        ...listGroupQuery(groupBy),
+        groupValue,
+        page: p,
+        limit: l,
+      }),
+  });
+
+  const exportColumns = visibleExportColumns(MESSAGES_EXPORT_COLUMNS, columnVisibility.isVisible);
+  const filterSummary = [
+    search ? `بحث: ${search}` : null,
+    type !== 'all' ? `النوع: ${TYPE_LABEL[type]}` : null,
+    dateFrom || dateTo ? `الفترة: ${dateFrom || '…'} — ${dateTo || '…'}` : null,
+    sort.label,
+    group.label,
+  ].filter((line): line is string => Boolean(line));
+
+  /** Every filtered message (all pages) in the screen's order, grouped like the screen. */
+  const getExportRows = async () => {
+    const all = { ...filters, ...sortQuery, ...listGroupQuery(groupBy) };
+    const [{ items }, summary] = await Promise.all([
+      fetchAllPaginatedItems((p, l) => fetchAdminContactMessages(companyId, { ...all, page: p, limit: l })),
+      groupBy ? fetchAdminContactMessageGroups(companyId, all) : Promise.resolve(null),
+    ]);
+    return registerExportRows({
+      columns: exportColumns,
+      rows: items,
+      grouping:
+        groupBy && group.option && summary
+          ? {
+              fieldLabel: group.option.label,
+              groups: group.sortGroups(summary.groups),
+              labelOf: group.labelOf,
+              groupKeyOf: (message) => message.groupKey,
+            }
+          : undefined,
+    });
+  };
 
   const highlightHandledRef = React.useRef<string | null>(null);
 
@@ -116,10 +218,34 @@ export function ContactMessagesPage() {
   usePageHeaderActions(
     () => (
       <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
-        <FilterToggleButton />
+        <FilterToggleButton activeFilterCount={(type !== 'all' ? 1 : 0) + (dateFrom || dateTo ? 1 : 0)} />
+        <ListColumnsPicker model={columnVisibility} />
+        <ListSortMenu model={sort} />
+        <ListGroupMenu model={group} />
+        <ListSavedViews storageKey={stateKeys.views} prefixes={stateKeys.prefixes} />
+        <RegisterExportMenu
+          title="سجل الشكاوى والمقترحات"
+          fileName="contact-messages"
+          columns={exportColumns}
+          getRows={getExportRows}
+          subtitleLines={filterSummary}
+          landscape
+          emptyMessage="لا توجد رسائل للتصدير ضمن الفلاتر الحالية."
+        />
       </div>
     ),
-    [],
+    [
+      type,
+      dateFrom,
+      dateTo,
+      search,
+      sort.sortKey,
+      sort.label,
+      group.groupKey,
+      group.label,
+      columnVisibility.hiddenKey,
+      stateKeys.views,
+    ],
   );
 
   useEntityFilterSlot(
@@ -163,10 +289,11 @@ export function ContactMessagesPage() {
     [dateFrom, dateTo, searchInput, type],
   );
 
-  const columns: ColumnDef<StoreContactMessageDto>[] = [
+  const allColumns: ColumnDef<StoreContactMessageDto>[] = [
     {
       key: 'name',
       title: 'الاسم',
+      sortKey: 'name',
       render: (row) => (
         <div>
           <p className="font-medium text-foreground">{row.name}</p>
@@ -179,6 +306,7 @@ export function ContactMessagesPage() {
     {
       key: 'type',
       title: 'النوع',
+      sortKey: 'type',
       render: (row) => <TypeBadge type={row.type} />,
     },
     {
@@ -192,9 +320,11 @@ export function ContactMessagesPage() {
     {
       key: 'createdAt',
       title: 'التاريخ',
+      sortKey: 'createdAt',
       render: (row) => <DisplayDate value={row.createdAt} mode="datetime" />,
     },
   ];
+  const columns = allColumns.filter((col) => columnVisibility.isVisible(col.key));
 
   const pagination = data?.pagination;
   const total = pagination?.total ?? 0;
@@ -217,11 +347,24 @@ export function ContactMessagesPage() {
             إعادة المحاولة
           </button>
         </div>
+      ) : groupBy ? (
+        <GroupedDataTable
+          columns={columns}
+          group={group}
+          list={grouped}
+          keyExtractor={(row) => row.id}
+          onRowClick={(row) => setViewing(row)}
+          sort={sort.sort}
+          onSort={sort.toggle}
+          emptyText="لا توجد نتائج مطابقة للفلاتر."
+        />
       ) : (
         <DataTable
           variant="directory"
           className="sto-table-host"
           columns={columns}
+          sort={sort.sort}
+          onSort={sort.toggle}
           data={data?.items ?? []}
           keyExtractor={(row) => row.id}
           loading={isLoading}

@@ -8,6 +8,7 @@ import type {
   StorefrontContentBundle,
 } from '@/features/ecommerce/storefront/domain/content';
 import { resolveStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
+import type { ListGroupsResult } from '@/components/ui/list-group';
 import {
   isStoreHttpEnabled,
   publicStoreRequest,
@@ -349,6 +350,8 @@ export type StoreContactMessageDto = {
   message: string;
   type: StoreContactMessageType;
   createdAt: string;
+  /** With `groupBy`: the message's group key. */
+  groupKey?: string | null;
 };
 
 export type AdminContactMessagesQuery = {
@@ -358,7 +361,23 @@ export type AdminContactMessagesQuery = {
   search?: string;
   dateFrom?: string;
   dateTo?: string;
+  /** Server sort key: createdAt, name, type. */
+  sortBy?: string;
+  sortDir?: 'asc' | 'desc';
+  /** Server group field: type, day, week, month; with `groupValue`, one group. */
+  groupBy?: string;
+  groupValue?: string;
 };
+
+function contactMessageFilterQuery(query?: AdminContactMessagesQuery) {
+  return {
+    type: query?.type,
+    search: query?.search || undefined,
+    dateFrom: query?.dateFrom || undefined,
+    dateTo: query?.dateTo || undefined,
+    groupBy: query?.groupBy,
+  };
+}
 
 /** Admin inbox — `GET /store-admin/companies/:companyId/contact-messages` */
 export async function fetchAdminContactMessages(
@@ -372,12 +391,24 @@ export async function fetchAdminContactMessages(
   }>(`/store-admin/companies/${id}/contact-messages`, {
     throwOnError: true,
     query: {
+      ...contactMessageFilterQuery(query),
       page: query?.page ?? 1,
       limit: query?.limit ?? 50,
-      type: query?.type,
-      search: query?.search || undefined,
-      dateFrom: query?.dateFrom || undefined,
-      dateTo: query?.dateTo || undefined,
+      sortBy: query?.sortBy,
+      sortDir: query?.sortDir,
+      groupValue: query?.groupValue,
     },
+  });
+}
+
+/** Message counts per group (type, day…) and overall. */
+export async function fetchAdminContactMessageGroups(
+  companyId: string,
+  query?: AdminContactMessagesQuery,
+): Promise<ListGroupsResult> {
+  const id = resolveStorefrontCompanyId(companyId);
+  return apiRequest<ListGroupsResult>(`/store-admin/companies/${id}/contact-messages/groups`, {
+    throwOnError: true,
+    query: contactMessageFilterQuery(query),
   });
 }

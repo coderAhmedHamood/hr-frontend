@@ -21,6 +21,25 @@ import { Badge } from '@/components/ui/badge';
 import { DataTable, type ColumnDef } from '@/components/ui/data-table';
 import { DirectoryPagedViews, DEFAULT_PAGE_SIZE } from '@/components/ui/paged-list';
 import { isMultiLangEnabled } from '@/i18n/locale-flags';
+import { ListSavedViews, listStateKeys } from '@/components/ui/list-saved-views';
+import { ListSortMenu, listSortQuery, useListSort, type ListSortOption } from '@/components/ui/list-sort';
+import { RegisterExportMenu } from '@/components/pdf/register-export-menu';
+import type { RegisterExportColumn } from '@/components/pdf/lib/register-export-rows';
+import { fetchAllPaginatedItems } from '@/shared/api/client';
+import { brandsApi } from '@/features/catalog/brands/lib/api/brands';
+
+/** Server keys (list-screens skill); default: the display order. */
+const BRANDS_SORT_OPTIONS: readonly ListSortOption[] = [
+  { key: 'name', label: 'الاسم' },
+  { key: 'displayOrder', label: 'ترتيب العرض' },
+  { key: 'createdAt', label: 'تاريخ الإضافة' },
+];
+
+const BRANDS_EXPORT_COLUMNS: RegisterExportColumn<Brand>[] = [
+  { label: 'العلامة التجارية', kind: 'name', value: (b) => b.nameAr },
+  { label: 'الوصف', kind: 'text', value: (b) => b.description ?? '' },
+  { label: 'الحالة', kind: 'status', value: (b) => (b.isActive ? 'مفعّل' : 'معطّل') },
+];
 
 export function BrandsListPage() {
   const companyId = getStorefrontCompanyId();
@@ -66,7 +85,28 @@ export function BrandsListPage() {
     return () => clearTimeout(timeout);
   }, [searchInput]);
 
-  const { data, isLoading, isError } = useBrands({ companyId, search: search || undefined, page, limit: pageSize });
+  // Sort kept per user and company; saved views keep it with the search-free list.
+  const stateKeys = listStateKeys('catalog', 'brands', companyId);
+  const sort = useListSort(stateKeys.sort, BRANDS_SORT_OPTIONS);
+  const sortQuery = listSortQuery(sort.sort);
+  const { data, isLoading, isError } = useBrands({
+    companyId,
+    search: search || undefined,
+    page,
+    limit: pageSize,
+    ...sortQuery,
+  });
+
+  /** Every filtered brand (all pages) in the screen's order. */
+  const getExportRows = async () => {
+    const { items } = await fetchAllPaginatedItems((p, l) =>
+      brandsApi.getAll({ companyId, search: search || undefined, ...sortQuery, page: p, limit: l }),
+    );
+    return items.map((brand) => BRANDS_EXPORT_COLUMNS.map((column) => column.value(brand)));
+  };
+  const filterSummary = [search ? `بحث: ${search}` : null, sort.label].filter(
+    (line): line is string => Boolean(line),
+  );
   const { remove } = useBrandMutations();
 
   const [formState, setFormState] = React.useState<{ open: boolean; brand: Brand | null }>({
@@ -87,15 +127,25 @@ export function BrandsListPage() {
     () => (
       <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
         <FilterToggleButton />
+        <ListSortMenu model={sort} />
+        <ListSavedViews storageKey={stateKeys.views} prefixes={stateKeys.prefixes} />
         <PageHeaderPrimaryButton
           icon={Plus}
           label="إضافة علامة تجارية"
           disabled={!companyId}
           onClick={openCreateDialog}
         />
+        <RegisterExportMenu
+          title="سجل العلامات التجارية"
+          fileName="brands"
+          columns={BRANDS_EXPORT_COLUMNS}
+          getRows={getExportRows}
+          subtitleLines={filterSummary}
+          emptyMessage="لا توجد علامات تجارية للتصدير."
+        />
       </div>
     ),
-    [companyId],
+    [companyId, sort.sortKey, sort.label, search, stateKeys.views],
   );
 
   useEntityFilterSlot(
@@ -116,6 +166,7 @@ export function BrandsListPage() {
     {
       key: 'brand',
       title: 'العلامة التجارية',
+      sortKey: 'name',
       render: (brand) => (
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted">
@@ -198,6 +249,8 @@ export function BrandsListPage() {
             keyExtractor={(brand) => brand.id}
             loading={isLoading}
             emptyText="لا توجد علامات تجارية بعد."
+            sort={sort.sort}
+            onSort={sort.toggle}
             mobileCard={(brand) => (
               <div className="flex flex-col gap-2.5">
                 <div className="flex items-center gap-3">

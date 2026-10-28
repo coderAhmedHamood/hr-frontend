@@ -1,10 +1,15 @@
 import { apiRequest, ensurePaginatedResult, type PaginatedResult } from '@/features/hr/lib/api/client';
+import type { ListGroupsResult } from '@/components/ui/list-group';
 
 export type ProductReviewStatus = 'pending' | 'approved' | 'rejected';
 
 export type InventoryProductReview = {
   id: string;
   productId: string;
+  /** The product's name (older servers omit it). */
+  productNameAr?: string;
+  /** With `groupBy`: the review's group key. */
+  groupKey?: string | null;
   companyId: string;
   partnerId: string | null;
   rating: number;
@@ -34,7 +39,29 @@ export type ProductReviewListQuery = {
   ratingMax?: number;
   archiveScope?: 'active' | 'archived' | 'all';
   search?: string;
+  /** Server sort key (`REVIEWS_SORT`): createdAt, rating, status, product. */
+  sortBy?: string;
+  sortDir?: 'asc' | 'desc';
+  /** Server group field (`REVIEWS_GROUP`); with `groupValue`, one group's reviews. */
+  groupBy?: string;
+  groupValue?: string;
 };
+
+/** The list's filters as query parameters (the list and its groups). */
+function reviewFilterQuery(query: ProductReviewListQuery) {
+  return {
+    companyId: query.companyId || undefined,
+    productId: query.productId || undefined,
+    partnerId: query.partnerId || undefined,
+    status: query.status && query.status !== 'all' ? query.status : undefined,
+    rating: query.rating,
+    ratingMin: query.ratingMin,
+    ratingMax: query.ratingMax,
+    archiveScope: query.archiveScope ?? 'active',
+    search: query.search?.trim() || undefined,
+    groupBy: query.groupBy,
+  };
+}
 
 export type CreateProductReviewInput = {
   productId: string;
@@ -57,22 +84,25 @@ export const productReviewsApi = {
       '/inventory/product-reviews',
       {
         query: {
+          ...reviewFilterQuery(query),
           page: query.page ?? 1,
           limit: query.limit ?? 50,
-          companyId: query.companyId || undefined,
-          productId: query.productId || undefined,
-          partnerId: query.partnerId || undefined,
-          status: query.status && query.status !== 'all' ? query.status : undefined,
-          rating: query.rating,
-          ratingMin: query.ratingMin,
-          ratingMax: query.ratingMax,
-          archiveScope: query.archiveScope ?? 'active',
-          search: query.search?.trim() || undefined,
+          sortBy: query.sortBy,
+          sortDir: query.sortDir,
+          groupValue: query.groupValue,
         },
         throwOnError: true,
       },
     );
     return ensurePaginatedResult(result);
+  },
+
+  /** Review counts and stars sums (the average) per group, and overall. */
+  groups(query: ProductReviewListQuery): Promise<ListGroupsResult> {
+    return apiRequest<ListGroupsResult>('/inventory/product-reviews/groups', {
+      query: reviewFilterQuery(query),
+      throwOnError: true,
+    });
   },
 
   async getById(id: string): Promise<InventoryProductReview | null> {

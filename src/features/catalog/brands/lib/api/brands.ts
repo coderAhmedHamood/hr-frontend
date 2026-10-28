@@ -112,6 +112,8 @@ export const brandsApi: AdminBrandsPort = {
         page: query.page ?? 1,
         limit: query.limit ?? 200,
         archiveScope: 'active',
+        sortBy: query.sortBy,
+        sortDir: query.sortDir,
       },
     });
     return {

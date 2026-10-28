@@ -18,6 +18,9 @@ export type BrandListQuery = {
   search?: string;
   page?: number;
   limit?: number;
+  /** Server sort key: name, displayOrder, createdAt (default: the display order). */
+  sortBy?: string;
+  sortDir?: 'asc' | 'desc';
 };
 
 export type CreateBrandInput = Omit<Brand, 'id' | 'createdAt' | 'updatedAt'>;

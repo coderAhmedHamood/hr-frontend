@@ -118,6 +118,8 @@ export type ProductImageAspectRatio = 'square' | '4/3' | '3/4';
 export type Product = TenantScoped &
   Slugged & {
     id: string;
+    /** With `groupBy`: the product's group key. */
+    groupKey?: string | null;
     sku: string;
     nameAr: string;
     nameEn?: string;
@@ -223,8 +225,11 @@ export type ProductListQuery = {
   isTodayDeal?: boolean;
   isWholesale?: boolean;
   isDiscounted?: boolean;
-  sort?: 'name' | 'price' | 'stock' | 'createdAt' | 'updatedAt';
+  sort?: 'name' | 'price' | 'stock' | 'sku' | 'createdAt' | 'updatedAt';
   sortDirection?: 'asc' | 'desc';
+  /** Server group field (category, brand, status); with `groupValue`, one group's products. */
+  groupBy?: string;
+  groupValue?: string;
   page?: number;
   limit?: number;
 };

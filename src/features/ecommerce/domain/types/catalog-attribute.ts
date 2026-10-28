@@ -56,6 +56,9 @@ export type CatalogAttributeListQuery = {
   limit?: number;
   /** Scope for the VALUES nested under each attribute (default 'active'). */
   valueArchiveScope?: 'active' | 'archived' | 'all';
+  /** Server sort key: name, displayType, createdAt (default: the name). */
+  sortBy?: string;
+  sortDir?: 'asc' | 'desc';
 };
 
 export type CreateCatalogAttributeInput = Omit<CatalogAttribute, 'id' | 'createdAt' | 'updatedAt'>;

@@ -20,8 +20,42 @@ import type { AdminProductsPort } from '@/features/ecommerce/domain/ports/catalo
 import { storeCurrencyCode, isStoreCurrency } from '@/features/ecommerce/domain/constants/store-currency';
 import { UUID_RE, isPersistedId } from '@/features/catalog/products/lib/id-utils';
 import { PRODUCT_VARIANT_CUSTOM_UOM_ENABLED } from '@/features/catalog/products/constants/product-feature-flags';
+import type { ListGroupsResult } from '@/components/ui/list-group';
 
 export { isPersistedId };
+
+/** The list's filters as query parameters (the list and its groups). */
+function productFilterQuery(query: ProductListQuery, companyId: string) {
+  return {
+    companyId,
+    search: query.search,
+    categoryId: query.categoryId,
+    brandId: query.brandId,
+    status: query.status,
+    stockStatus: query.stockStatus,
+    warehouseId: query.warehouseId,
+    locationId: query.locationId,
+    posAvailable: query.posAvailable === true ? true : undefined,
+    tags: query.tag,
+    priceAmountMin: query.minPrice,
+    priceAmountMax: query.maxPrice,
+    isNewProduct: query.isNewProduct === true ? true : undefined,
+    isTodayDeal: query.isTodayDeal === true ? true : undefined,
+    isWholesale: query.isWholesale === true ? true : undefined,
+    isDiscounted: query.isDiscounted === true ? true : undefined,
+    archiveScope: query.status === 'archived' ? 'archived' : 'active',
+    groupBy: query.groupBy,
+  };
+}
+
+/** Product counts of the filtered list, per `groupBy` group and overall. */
+export async function fetchProductGroups(query: ProductListQuery): Promise<ListGroupsResult> {
+  const companyId = resolveStorefrontCompanyId(query.companyId);
+  return apiRequest<ListGroupsResult>('/inventory/products/groups', {
+    throwOnError: true,
+    query: productFilterQuery(query, companyId),
+  });
+}
 
 /**
  * Per-value variant usage counts for a persisted attribute line, keyed by
@@ -671,37 +705,29 @@ async function fetchMediaByCompany(companyId: string): Promise<Map<string, Media
 export const productsApi: AdminProductsPort = {
   async getAll(query: ProductListQuery) {
     const companyId = resolveStorefrontCompanyId(query.companyId);
-    const result = await apiRequest<PaginatedResult<ProductDto>>('/inventory/products', {
-      query: {
-        companyId,
-        search: query.search,
-        categoryId: query.categoryId,
-        brandId: query.brandId,
-        status: query.status,
-        stockStatus: query.stockStatus,
-        warehouseId: query.warehouseId,
-        locationId: query.locationId,
-        posAvailable: query.posAvailable === true ? true : undefined,
-        liveQuantity: query.liveQuantity === true ? true : undefined,
-        tags: query.tag,
-        priceAmountMin: query.minPrice,
-        priceAmountMax: query.maxPrice,
-        isNewProduct: query.isNewProduct === true ? true : undefined,
-        isTodayDeal: query.isTodayDeal === true ? true : undefined,
-        isWholesale: query.isWholesale === true ? true : undefined,
-        isDiscounted: query.isDiscounted === true ? true : undefined,
-        sort: query.sort === 'stock' ? 'quantity' : query.sort,
-        sortDirection: query.sortDirection,
-        page: query.page ?? 1,
-        limit: query.limit ?? 200,
-        archiveScope: query.status === 'archived' ? 'archived' : 'active',
+    const result = await apiRequest<PaginatedResult<ProductDto & { groupKey?: string | null }>>(
+      '/inventory/products',
+      {
+        query: {
+          ...productFilterQuery(query, companyId),
+          liveQuantity: query.liveQuantity === true ? true : undefined,
+          sort: query.sort === 'stock' ? 'quantity' : query.sort,
+          sortDirection: query.sortDirection,
+          groupValue: query.groupValue,
+          page: query.page ?? 1,
+          limit: query.limit ?? 200,
+        },
       },
-    });
+    );
 
     const mediaByProduct = await fetchMediaByCompany(companyId);
     const items = (result.items ?? []).map((dto) => {
       const media = mediaByProduct.get(dto.id) ?? [];
-      const mapped = mapFullProduct({ ...dto, media, attributes: [], variants: [], uomLines: [] });
+      const mapped: Product = {
+        ...mapFullProduct({ ...dto, media, attributes: [], variants: [], uomLines: [] }),
+        // With `groupBy`: the product's group (an export places it under it).
+        ...(dto.groupKey !== undefined ? { groupKey: dto.groupKey } : {}),
+      };
       if (isStoreCurrency(mapped.price.currency)) return mapped;
       return {
         ...mapped,

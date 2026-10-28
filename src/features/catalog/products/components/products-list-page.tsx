@@ -46,6 +46,43 @@ import { productAppSectionsFrom } from '@/features/catalog/products/hooks/use-pr
 import { APP, useCompanyApps, type AppRequirement } from '@/shared/modules/company-apps';
 import { ecommerceAdminRoutes } from '@/features/ecommerce/admin/constants/routes';
 import { useCan } from '@/features/auth/hooks/use-can';
+import {
+  PRODUCTS_COLUMN_OPTIONS,
+  PRODUCTS_GROUP_OPTIONS,
+  PRODUCTS_SORT_OPTIONS,
+  productsExportColumns,
+} from '@/features/catalog/products/lib/products-list-options';
+import { fetchProductGroups, productsApi } from '@/features/catalog/products/lib/api/products';
+import { GroupedDataTable } from '@/components/ui/grouped-data-table';
+import { ListColumnsPicker, useColumnVisibility } from '@/components/ui/list-columns-picker';
+import { ListGroupMenu, listGroupQuery, useGroupedList, useListGroup } from '@/components/ui/list-group';
+import { ListSavedViews, listStateKeys } from '@/components/ui/list-saved-views';
+import { ListSortMenu, useListSort } from '@/components/ui/list-sort';
+import { RegisterExportMenu } from '@/components/pdf/register-export-menu';
+import { registerExportRows, visibleExportColumns } from '@/components/pdf/lib/register-export-rows';
+import { fetchAllPaginatedItems } from '@/shared/api/client';
+import {
+  hrFiltersKey,
+  readPersistedJson,
+  writePersistedJson,
+} from '@/features/hr/lib/use-persisted-filter-state';
+import { usePersistedStateRestore } from '@/shared/hooks/use-persisted-state-restore';
+
+/** The filters kept in the URL and saved per user and company (the sort has its own menu). */
+const SAVED_FILTER_KEYS = [
+  'q',
+  'categoryId',
+  'brandId',
+  'status',
+  'stockStatus',
+  'isNewProduct',
+  'isTodayDeal',
+  'isWholesale',
+  'isDiscounted',
+  'warehouseId',
+  'posAvailable',
+] as const;
+type SavedFilters = Partial<Record<(typeof SAVED_FILTER_KEYS)[number], string>>;
 
 const FILTER_KEYS = [
   'categoryId',
@@ -74,14 +111,6 @@ const STOCK_BADGE_VARIANT: Record<StockStatus, 'success' | 'destructive' | 'warn
   preorder: 'warning',
   discontinued: 'outline',
 };
-
-const SORT_OPTIONS: ({ value: NonNullable<ProductListQuery['sort']>; labelAr: string } & AppRequirement)[] = [
-  { value: 'name', labelAr: 'الاسم' },
-  { value: 'price', labelAr: 'السعر' },
-  { value: 'stock', labelAr: 'الكمية', requiresApp: APP.inventory },
-  { value: 'createdAt', labelAr: 'تاريخ الإضافة' },
-  { value: 'updatedAt', labelAr: 'آخر تحديث' },
-];
 
 export function ProductsListPage() {
   const companyId = getStorefrontCompanyId();
@@ -154,6 +183,69 @@ export function ProductsListPage() {
   // («منتج حديث», «تخفيضات اليوم», …) are the store's.
   const apps = useCompanyApps();
   const sections = productAppSectionsFrom(apps);
+
+  // Sort, grouping and columns: kept per user and company (list-screens
+  // skill). The state keeps every option; the menus show the enabled apps'.
+  const stateKeys = listStateKeys('catalog', 'products', companyId);
+  const sortModel = useListSort(stateKeys.sort, PRODUCTS_SORT_OPTIONS);
+  const sortMenuModel = { ...sortModel, options: apps.filter(PRODUCTS_SORT_OPTIONS) };
+  const group = useListGroup(stateKeys.group, PRODUCTS_GROUP_OPTIONS);
+  const groupBy = group.groupBy;
+  const columnVisibility = useColumnVisibility(
+    hrFiltersKey('catalog', 'products', companyId, 'hiddenColumns'),
+    apps.filter(PRODUCTS_COLUMN_OPTIONS),
+  );
+  // «الكمية» is inventory's: without it the list keeps its default order.
+  const activeSort =
+    sortModel.sort && (sortModel.sort.key !== 'stock' || sections.inventory) ? sortModel.sort : null;
+  const sortQuery: Pick<ProductListQuery, 'sort' | 'sortDirection'> = activeSort
+    ? { sort: activeSort.key as ProductListQuery['sort'], sortDirection: activeSort.dir }
+    : {};
+
+  // The URL's filters are saved for this user and company: opening the
+  // screen without any brings the last ones back, and a saved view restores
+  // them (it writes the saved copy, then asks every list to re-read).
+  const filtersKey = hrFiltersKey('catalog', 'products', companyId, 'filters');
+  const currentFiltersJson = JSON.stringify(
+    Object.fromEntries(SAVED_FILTER_KEYS.map((key) => [key, searchParams.get(key) ?? ''])),
+  );
+  const applySavedFilters = (saved: SavedFilters | null) => {
+    setSearchInput(saved?.q ?? '');
+    updateParams({
+      q: saved?.q ?? '',
+      page: 1,
+      categoryId: saved?.categoryId || undefined,
+      brandId: saved?.brandId || undefined,
+      status: (saved?.status || undefined) as ProductFilters['status'],
+      stockStatus: (saved?.stockStatus || undefined) as ProductFilters['stockStatus'],
+      isNewProduct: saved?.isNewProduct === 'true' ? true : undefined,
+      isTodayDeal: saved?.isTodayDeal === 'true' ? true : undefined,
+      isWholesale: saved?.isWholesale === 'true' ? true : undefined,
+      isDiscounted: saved?.isDiscounted === 'true' ? true : undefined,
+      warehouseId: saved?.warehouseId || undefined,
+      posAvailable: saved?.posAvailable === 'true' ? true : undefined,
+    });
+  };
+  const applySavedFiltersRef = React.useRef(applySavedFilters);
+  applySavedFiltersRef.current = applySavedFilters;
+  const filtersRestored = React.useRef(false);
+  React.useEffect(() => {
+    if (!filtersKey) return;
+    const current = JSON.parse(currentFiltersJson) as SavedFilters;
+    if (!filtersRestored.current) {
+      filtersRestored.current = true;
+      const saved = readPersistedJson<SavedFilters>(filtersKey);
+      if (!Object.values(current).some(Boolean) && saved && Object.values(saved).some(Boolean)) {
+        applySavedFiltersRef.current(saved);
+        return;
+      }
+    }
+    writePersistedJson(filtersKey, current);
+  }, [filtersKey, currentFiltersJson]);
+  usePersistedStateRestore(() => {
+    if (filtersKey) applySavedFiltersRef.current(readPersistedJson<SavedFilters>(filtersKey));
+  });
+
   const query: ProductListQuery = {
     companyId,
     search: search || undefined,
@@ -172,10 +264,24 @@ export function ProductsListPage() {
         }),
     // Same for the inventory and point-of-sale filters.
     ...(sections.inventory ? {} : { warehouseId: undefined }),
-    ...(sections.inventory || filters.sort !== 'stock' ? {} : { sort: undefined }),
     ...(sections.pos ? {} : { posAvailable: undefined }),
+    // The order is the «ترتيب» menu's (an old `?sort=` link is ignored).
+    sort: undefined,
+    sortDirection: undefined,
+    ...sortQuery,
   };
-  const { data, isLoading, isError } = useProducts(query);
+  const { data, isLoading, isError } = useProducts(query, { enabled: !groupBy });
+
+  // Grouped: the groups (counts) and the products of the open ones.
+  const { page: _page, limit: _limit, ...listFilters } = query;
+  const grouped = useGroupedList<Product>({
+    enabled: Boolean(companyId) && Boolean(groupBy),
+    groupBy,
+    resetKey: JSON.stringify(listFilters),
+    fetchGroups: () => fetchProductGroups({ ...listFilters, ...listGroupQuery(groupBy) }),
+    fetchGroupRows: (groupValue, p, l) =>
+      productsApi.getAll({ ...listFilters, ...listGroupQuery(groupBy), groupValue, page: p, limit: l }),
+  });
   const { data: categoriesData } = useCategories({ companyId, limit: 100 });
   const { data: brandsData } = useBrands({ companyId, limit: 100 });
   const { data: warehousesData } = useWarehouses(
@@ -230,6 +336,49 @@ export function ProductsListPage() {
     }
   }
 
+  const brandNameById = new Map((brandsData?.items ?? []).map((brand) => [brand.id, brand.nameAr]));
+  const exportColumns = visibleExportColumns(
+    apps.filter(
+      productsExportColumns({
+        category: (id) => (id ? (categoryByIdMap.get(id)?.nameAr ?? '') : ''),
+        brand: (id) => (id ? (brandNameById.get(id) ?? '') : ''),
+      }),
+    ),
+    columnVisibility.isVisible,
+  );
+  const filterSummary = [
+    search ? `بحث: ${search}` : null,
+    filters.categoryId ? `التصنيف: ${categoryByIdMap.get(filters.categoryId)?.nameAr ?? ''}` : null,
+    filters.brandId ? `العلامة: ${brandNameById.get(filters.brandId) ?? ''}` : null,
+    filters.status ? `الحالة: ${PRODUCT_STATUS_LABELS_AR[filters.status]}` : null,
+    sections.store && filters.stockStatus ? `التوفر: ${STOCK_STATUS_LABELS_AR[filters.stockStatus]}` : null,
+    sortModel.label,
+    group.label,
+  ].filter((line): line is string => Boolean(line));
+  const activeFilterCount = SAVED_FILTER_KEYS.filter((key) => key !== 'q' && searchParams.get(key)).length;
+
+  /** Every filtered product (all pages) in the screen's order, grouped like the screen. */
+  const getExportRows = async () => {
+    const { page: _p, limit: _l, ...exportQuery } = { ...query, ...listGroupQuery(groupBy) };
+    const [{ items: all }, summary] = await Promise.all([
+      fetchAllPaginatedItems((p, l) => productsApi.getAll({ ...exportQuery, page: p, limit: l })),
+      groupBy ? fetchProductGroups(exportQuery) : Promise.resolve(null),
+    ]);
+    return registerExportRows({
+      columns: exportColumns,
+      rows: all,
+      grouping:
+        groupBy && group.option && summary
+          ? {
+              fieldLabel: group.option.label,
+              groups: group.sortGroups(summary.groups),
+              labelOf: group.labelOf,
+              groupKeyOf: (product) => product.groupKey,
+            }
+          : undefined,
+    });
+  };
+
   usePageHeaderActions(
     () => (
       <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
@@ -253,11 +402,37 @@ export function ProductsListPage() {
             <span className="hidden sm:inline">استيراد</span>
           </Link>
         ) : null}
-        <FilterToggleButton />
+        <FilterToggleButton activeFilterCount={activeFilterCount} />
+        <ListColumnsPicker model={columnVisibility} />
+        <ListSortMenu model={sortMenuModel} />
+        <ListGroupMenu model={group} />
+        <ListSavedViews storageKey={stateKeys.views} prefixes={stateKeys.prefixes} />
         <PageHeaderPrimaryButton icon={Plus} label="إضافة منتج" disabled={!companyId} onClick={openCreateDialog} />
+        <RegisterExportMenu
+          title="سجل المنتجات"
+          fileName="products"
+          columns={exportColumns}
+          getRows={getExportRows}
+          subtitleLines={filterSummary}
+          landscape
+          pinnedColumnCount={2}
+          emptyMessage="لا توجد منتجات للتصدير ضمن الفلاتر الحالية."
+        />
       </div>
     ),
-    [companyId, canImport],
+    [
+      companyId,
+      canImport,
+      activeFilterCount,
+      sortModel.sortKey,
+      sortMenuModel.options.length,
+      group.groupKey,
+      group.label,
+      columnVisibility.hiddenKey,
+      currentFiltersJson,
+      exportColumns.length,
+      stateKeys.views,
+    ],
   );
 
   useEntityFilterSlot(
@@ -369,21 +544,6 @@ export function ProductsListPage() {
               { value: 'isDiscounted', label: 'خصومات' },
             ],
           }] : []),
-          {
-            id: 'sort',
-            value: filters.sort ?? 'all',
-            onChange: (value) =>
-              updateParams({
-                sort: value === 'all' ? undefined : (value as ProductFilters['sort']),
-                sortDirection: filters.sortDirection ?? 'asc',
-                page: 1,
-              }),
-            placeholder: 'الترتيب الافتراضي',
-            options: [
-              { value: 'all', label: 'الترتيب الافتراضي' },
-              ...apps.filter(SORT_OPTIONS).map((option) => ({ value: option.value, label: option.labelAr })),
-            ],
-          },
         ]}
       />
     ),
@@ -394,6 +554,7 @@ export function ProductsListPage() {
     {
       key: 'product',
       title: 'المنتج',
+      sortKey: 'name',
       render: (product) => {
         const primaryImage = product.media.find((m) => m.isPrimary) ?? product.media[0];
         return (
@@ -433,6 +594,7 @@ export function ProductsListPage() {
     {
       key: 'price',
       title: 'السعر',
+      sortKey: 'price',
       render: (product) => (
         <div className="flex flex-col gap-0.5">
           {sections.store && product.isTodayDealActive && product.dealPrice ? (
@@ -471,6 +633,7 @@ export function ProductsListPage() {
     {
       key: 'quantity',
       title: 'الكمية',
+      sortKey: 'stock',
       hideOnMobile: true,
       render: (product) => <span className="tabular-nums">{product.inventory.quantity}</span>,
     },
@@ -506,7 +669,8 @@ export function ProductsListPage() {
   const columns = allColumns.filter(
     (column) =>
       (sections.inventory || column.key !== 'quantity') &&
-      (sections.store || column.key !== 'stockStatus'),
+      (sections.store || column.key !== 'stockStatus') &&
+      columnVisibility.isVisible(column.key),
   );
 
   function renderMobileCard(product: Product) {
@@ -613,6 +777,18 @@ export function ProductsListPage() {
 
       {isError ? <p className="text-sm text-destructive">تعذر تحميل المنتجات.</p> : null}
 
+      {groupBy ? (
+        <GroupedDataTable
+          columns={columns}
+          group={group}
+          list={grouped}
+          keyExtractor={(product) => product.id}
+          onRowClick={goToProductDetail}
+          sort={activeSort}
+          onSort={sortModel.toggle}
+          emptyText="لا توجد منتجات مطابقة — جرّب تعديل الفلاتر"
+        />
+      ) : (
       <DirectoryPagedViews
         items={data?.items ?? []}
         loading={isLoading}
@@ -640,9 +816,12 @@ export function ProductsListPage() {
             emptyText="لا توجد منتجات بعد."
             onRowClick={goToProductDetail}
             mobileCard={renderMobileCard}
+            sort={activeSort}
+            onSort={sortModel.toggle}
           />
         )}
       </DirectoryPagedViews>
+      )}
 
       <ProductFormDialog open={createOpen} product={null} onOpenChange={setCreateOpen} />
       <DeleteProductDialog

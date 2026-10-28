@@ -34,6 +34,27 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { ListSavedViews, listStateKeys } from '@/components/ui/list-saved-views';
+import { ListSortMenu, listSortQuery, useListSort, type ListSortOption } from '@/components/ui/list-sort';
+import { RegisterExportMenu } from '@/components/pdf/register-export-menu';
+import type { RegisterColumn } from '@/components/pdf/print/register-document';
+import { fetchAllPaginatedItems } from '@/shared/api/client';
+import { catalogAttributesApi } from '@/features/catalog/attributes/lib/api/catalog-attributes';
+
+/** Server keys (list-screens skill); default: the name. */
+const ATTRIBUTES_SORT_OPTIONS: readonly ListSortOption[] = [
+  { key: 'name', label: 'الاسم' },
+  { key: 'displayType', label: 'نوع العرض' },
+  { key: 'createdAt', label: 'تاريخ الإضافة' },
+];
+
+const ATTRIBUTES_EXPORT_COLUMNS: RegisterColumn[] = [
+  { label: 'الخاصية', kind: 'name' },
+  { label: 'نوع العرض', kind: 'status' },
+  { label: 'إنشاء المتغيِّر', kind: 'text' },
+  { label: 'القيم', kind: 'text', weight: 3 },
+  { label: 'الحالة', kind: 'status' },
+];
 
 export function AttributesListPage() {
   const companyId = getStorefrontCompanyId();
@@ -78,11 +99,16 @@ export function AttributesListPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchInput]);
 
+  // Sort kept per user and company.
+  const stateKeys = listStateKeys('catalog', 'attributes', companyId);
+  const sort = useListSort(stateKeys.sort, ATTRIBUTES_SORT_OPTIONS);
+  const sortQuery = listSortQuery(sort.sort);
   const { data, isLoading, isError } = useCatalogAttributes({
     companyId,
     search: search || undefined,
     page,
     limit: pageSize,
+    ...sortQuery,
   });
   const { remove } = useCatalogAttributeMutations();
 
@@ -92,19 +118,47 @@ export function AttributesListPage() {
     VARIANT_CREATION_OPTIONS.find((option) => option.value === normalizeVariantCreationMode(value))
       ?.labelAr ?? value;
 
+  /** Every filtered attribute (all pages) in the screen's order, with its values. */
+  const getExportRows = async () => {
+    const { items } = await fetchAllPaginatedItems((p, l) =>
+      catalogAttributesApi.getAll({ companyId, search: search || undefined, ...sortQuery, page: p, limit: l }),
+    );
+    return items.map((row) => [
+      row.nameAr,
+      displayLabel(row.displayType),
+      variantLabel(row.createVariant),
+      row.values.map((value) => value.nameAr).join('، '),
+      row.isActive ? 'مفعّلة' : 'موقوف',
+    ]);
+  };
+  const filterSummary = [search ? `بحث: ${search}` : null, sort.label].filter(
+    (line): line is string => Boolean(line),
+  );
+
   usePageHeaderActions(
     () => (
       <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
         <FilterToggleButton />
+        <ListSortMenu model={sort} />
+        <ListSavedViews storageKey={stateKeys.views} prefixes={stateKeys.prefixes} />
         <PageHeaderPrimaryButton
           icon={Plus}
           label="جديد"
           disabled={!companyId}
           onClick={() => setFormState({ open: true, attribute: null })}
         />
+        <RegisterExportMenu
+          title="سجل الخصائص"
+          fileName="attributes"
+          columns={ATTRIBUTES_EXPORT_COLUMNS}
+          getRows={getExportRows}
+          subtitleLines={filterSummary}
+          landscape
+          emptyMessage="لا توجد خصائص للتصدير."
+        />
       </div>
     ),
-    [companyId],
+    [companyId, sort.sortKey, sort.label, search, stateKeys.views],
   );
 
   useEntityFilterSlot(
@@ -125,6 +179,7 @@ export function AttributesListPage() {
     {
       key: 'name',
       title: 'الخاصية',
+      sortKey: 'name',
       render: (row) => (
         <button
           type="button"
@@ -138,6 +193,7 @@ export function AttributesListPage() {
     {
       key: 'display',
       title: 'نوع العرض',
+      sortKey: 'displayType',
       render: (row) => <Badge variant="subtle">{displayLabel(row.displayType)}</Badge>,
     },
     {
@@ -215,6 +271,8 @@ export function AttributesListPage() {
             keyExtractor={(row) => row.id}
             loading={isLoading}
             emptyText="لا توجد خصائص بعد. أضف خاصية لاستخدامها في المنتجات."
+            sort={sort.sort}
+            onSort={sort.toggle}
             mobileCard={(row) => (
               <div className="flex flex-col gap-2.5">
                 <div className="flex items-start justify-between gap-3">

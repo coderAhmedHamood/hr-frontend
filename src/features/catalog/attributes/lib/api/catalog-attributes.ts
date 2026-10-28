@@ -181,6 +181,8 @@ export const catalogAttributesApi = {
         page: query.page ?? 1,
         limit: query.limit ?? 200,
         archiveScope: 'active',
+        sortBy: query.sortBy,
+        sortDir: query.sortDir,
       },
     });
     const items = await Promise.all(
