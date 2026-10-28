@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 import type { Employee } from '@/features/hr/organization/employees/types';
 import { todayIsoDate } from '@/features/hr/organization/employees/lib/rose-document-templates/format-document-dates';
 import { useActiveCompany } from '@/features/hr/organization/hooks/useActiveCompany';
+import { useDefaultCompanyBranding } from '@/features/auth/hooks/use-default-company-branding';
 
 export type CreateSettlementInput = {
   referenceNo: string;
@@ -67,6 +68,8 @@ export function EmployeeSettlementCreateDialog({
   onSubmit,
 }: Props) {
   const { data: activeCompany } = useActiveCompany();
+  // The company's name from its settings: the full record, else the session's copy.
+  const { companyNameAr: sessionCompanyNameAr } = useDefaultCompanyBranding();
   const [form, setForm] = React.useState<FormState>(defaultForm);
 
   React.useEffect(() => {
@@ -92,7 +95,7 @@ export function EmployeeSettlementCreateDialog({
       employeeName: employee.name?.trim() || '—',
       nationality: employee.nationality?.trim() || '—',
       nationalId: employee.nationalId?.trim() || '—',
-      companyNameAr: activeCompany?.nameAr?.trim() || 'مؤسسة روز للتجارة',
+      companyNameAr: activeCompany?.nameAr?.trim() || sessionCompanyNameAr || '—',
     });
 
     if (result !== false && result !== null) onOpenChange(false);

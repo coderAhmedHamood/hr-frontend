@@ -5,6 +5,8 @@ import './globals.css';
 import { Providers } from '@/components/layouts/providers';
 import { THEME_STORAGE_KEY } from '@/shared/constants/theme';
 import { COMPANY_THEME_BOOT_SCRIPT } from '@/shared/company-theme-boot-script';
+import { CompanyDocumentTitle } from '@/components/layouts/company-document-title';
+import { APP_TITLE } from '@/shared/app-title';
 
 const THEME_MODE_BOOT_SCRIPT = `(function(){try{var raw=localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)});if(!raw)return;var parsed=JSON.parse(raw);var mode=parsed.state&&parsed.state.mode;var resolved=mode==='system'?(window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'):mode;if(resolved==='dark')document.documentElement.classList.add('dark');}catch(e){}})();`;
 
@@ -25,7 +27,8 @@ const displayFont = Rubik({
 });
 
 export const metadata: Metadata = {
-  title: 'روز | منصة الموارد البشرية الذكية',
+  // Replaced in the browser by the company's name from its settings (CompanyDocumentTitle).
+  title: APP_TITLE,
   description: 'نظام متكامل لإدارة الموارد البشرية — موظفين، حضور، رواتب، تقارير',
 };
 
@@ -45,7 +48,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         className={`${bodyFont.variable} ${displayFont.variable} font-sans antialiased`}
         suppressHydrationWarning
       >
-        <Providers>{children}</Providers>
+        <Providers>
+          <CompanyDocumentTitle />
+          {children}
+        </Providers>
       </body>
     </html>
   );

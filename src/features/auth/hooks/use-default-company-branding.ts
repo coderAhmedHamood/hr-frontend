@@ -8,6 +8,7 @@ import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-comp
 import { normalizeHexColor, persistCompanyThemeCssVars } from '@/shared/company-theme';
 import { LOGIN_BRANDING_STORAGE_KEY } from '@/shared/constants/branding';
 import { resolveUploadUrl } from '@/shared/resolve-upload-url';
+import { APP_TITLE } from '@/shared/app-title';
 
 type StoredLoginBranding = {
   companyLogoUrl: string | null;
@@ -37,7 +38,7 @@ function brandingFromCompany(company: CompanyBrandingSource) {
   const rawLogo = company?.companyLogoUrl?.trim() || null;
   return {
     logoUrl: rawLogo ? resolveUploadUrl(rawLogo) : null,
-    logoAlt: company?.companyNameAr?.trim() || company?.companyNameEn?.trim() || 'Rose HR',
+    logoAlt: company?.companyNameAr?.trim() || company?.companyNameEn?.trim() || APP_TITLE,
     companyNameAr: company?.companyNameAr?.trim() || null,
     companyNameEn: company?.companyNameEn?.trim() || null,
     companyCommercialRegistrationNo: company?.companyCommercialRegistrationNo?.trim() || null,

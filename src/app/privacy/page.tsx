@@ -1,10 +1,11 @@
 import type { Metadata } from 'next';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { APP_TITLE } from '@/shared/app-title';
 
 export const metadata: Metadata = {
-  title: 'سياسة الخصوصية | روز',
+  title: `سياسة الخصوصية | ${APP_TITLE}`,
   description:
-    'سياسة الخصوصية لمنصة روز للموارد البشرية — كيف نجمع بياناتك ونستخدمها ونحميها.',
+    `سياسة الخصوصية لمنصة ${APP_TITLE} — كيف نجمع بياناتك ونستخدمها ونحميها.`,
 };
 
 const LAST_UPDATED = '18 سبتمبر 2026';
@@ -38,7 +39,7 @@ export default function PrivacyPolicyPage() {
     <main className="mx-auto max-w-3xl px-4 py-12 sm:py-16">
       <header className="mb-10 space-y-2 text-center">
         <p className="text-sm font-medium text-primary">
-          روز للموارد البشرية — منصة الموارد البشرية للمنشآت
+          {APP_TITLE} — منصة الموارد البشرية للمنشآت
         </p>
         <h1 className="text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
           سياسة الخصوصية
@@ -53,7 +54,7 @@ export default function PrivacyPolicyPage() {
         <CardContent className="space-y-8 pt-0">
           <Section title="من نحن">
             <p>
-              &quot;روز للموارد البشرية&quot; (&quot;التطبيق&quot;) هو واجهة الموظف في منصة برمجية
+              &quot;{APP_TITLE}&quot; (&quot;التطبيق&quot;) هو واجهة الموظف في منصة برمجية
               لإدارة الموارد البشرية، تقدّمها روز التجارية بنظام الاشتراك للمنشآت. تشترك في
               المنصة منشآت مستقلة على اختلاف أحجامها وقطاعاتها، ولكل منشأة مشتركة بيئة منفصلة
               تمامًا ببياناتها ومستخدميها وسياساتها وفروعها.
