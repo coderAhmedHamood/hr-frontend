@@ -30,6 +30,24 @@ import { branchesApi, type BranchResponseDto } from '@/features/hr/organization/
 import { departmentsApi, type DepartmentResponseDto } from '@/features/hr/organization/lib/api/departments';
 import { jobTitlesApi, type JobTitleResponseDto } from '@/features/hr/organization/lib/api/jobTitles';
 import { ListSortMenu, listSortQuery, useListSort, type ListSortOption } from '@/components/ui/list-sort';
+import {
+  dateListGroupOptions,
+  ListGroupMenu,
+  listGroupQuery,
+  ORG_LIST_GROUP_OPTIONS,
+  useGroupedList,
+  useListGroup,
+  type ListGroupOption,
+} from '@/components/ui/list-group';
+import { ListSavedViews, listStateKeys } from '@/components/ui/list-saved-views';
+import {
+  registerExportRows,
+  visibleExportColumns,
+  type RegisterExportColumn,
+} from '@/components/pdf/lib/register-export-rows';
+import { ListColumnsPicker, useColumnVisibility, type ListColumnOption } from '@/components/ui/list-columns-picker';
+import type { RegisterRow } from '@/components/pdf/print/register-document';
+import { EMPLOYEES_REGISTER_COLUMNS } from '@/components/pdf/print/employees-register-print-html';
 import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 import { useActiveCompany } from '@/features/hr/organization/hooks/useActiveCompany';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
@@ -73,6 +91,55 @@ export const EMPLOYEES_SORT_OPTIONS: readonly ListSortOption[] = [
   { key: 'startDate', label: 'تاريخ الالتحاق' },
 ];
 
+const GENDER_AR: Record<string, string> = { male: 'ذكر', female: 'أنثى' };
+const MONTH_GROUP = dateListGroupOptions().find((o) => o.key === 'month')!;
+
+/** Fields the employees list can be grouped by (server `groupBy` keys). */
+export const EMPLOYEES_GROUP_OPTIONS: readonly ListGroupOption[] = [
+  ...ORG_LIST_GROUP_OPTIONS,
+  { key: 'contractType', label: 'نوع العقد', formatKey: (k) => CONTRACT_TYPE_AR[k] ?? k, emptyLabel: 'غير محدد' },
+  { key: 'contractStatus', label: 'حالة العقد', formatKey: (k) => EMP_CONTRACT_STATUS_LABELS[k] ?? k },
+  { key: 'nationality', label: 'الجنسية', emptyLabel: 'غير محددة' },
+  { key: 'gender', label: 'الجنس', formatKey: (k) => GENDER_AR[k.toLowerCase()] ?? k, emptyLabel: 'غير محدد' },
+  {
+    key: 'startMonth',
+    label: 'شهر الالتحاق',
+    orderByKey: true,
+    formatKey: MONTH_GROUP.formatKey,
+    emptyLabel: 'بدون تاريخ',
+  },
+  { key: 'startYear', label: 'سنة الالتحاق', orderByKey: true, emptyLabel: 'بدون تاريخ' },
+];
+
+/** Columns the user may hide (the employee and the actions always show). */
+export const EMPLOYEES_COLUMN_OPTIONS: readonly ListColumnOption[] = [
+  { key: 'position', label: 'المسمى' },
+  { key: 'contractType', label: 'نوع العقد' },
+  { key: 'contractStatus', label: 'حالة العقد' },
+  { key: 'startDate', label: 'تاريخ الالتحاق' },
+  { key: 'nationality', label: 'الجنسية' },
+];
+
+/** The screen column each register column mirrors (the name and code always print). */
+const EXPORT_COLUMN_KEYS = [undefined, undefined, 'position', 'contractType', 'startDate', 'contractStatus'];
+
+/** The register's cells for an employee (PDF and Excel). */
+const EMPLOYEE_EXPORT_COLUMNS: RegisterExportColumn<EmployeeResponseDto>[] = EMPLOYEES_REGISTER_COLUMNS.map(
+  (col, i) => ({
+    ...col,
+    key: EXPORT_COLUMN_KEYS[i],
+    value: (emp: EmployeeResponseDto) =>
+      [
+        emp.nameAr,
+        emp.employeeCode,
+        emp.position ?? '—',
+        CONTRACT_TYPE_AR[emp.contractType ?? ''] ?? emp.contractType ?? '—',
+        empStartYmd(emp),
+        EMP_CONTRACT_STATUS_LABELS[emp.contractStatus ?? ''] ?? emp.contractStatus ?? '—',
+      ][i],
+  }),
+);
+
 const EMPTY_STATUS_COUNTS = { all: 0, active: 0, suspended: 0, ended: 0 };
 
 export function useEmployeesListModel() {
@@ -114,9 +181,17 @@ export function useEmployeesListModel() {
     hrFiltersKey('organization', 'employees', companyId, 'startDateBounds'),
     { from: '', to: '' },
   );
-  const sort = useListSort(
-    companyId ? `hr-sort:organization:employees:${companyId}` : null,
-    EMPLOYEES_SORT_OPTIONS,
+  const stateKeys = listStateKeys('organization', 'employees', companyId);
+  const sort = useListSort(stateKeys.sort, EMPLOYEES_SORT_OPTIONS);
+  const group = useListGroup(stateKeys.group, EMPLOYEES_GROUP_OPTIONS);
+  const groupBy = group.groupBy;
+  const columnVisibility = useColumnVisibility(
+    hrFiltersKey('organization', 'employees', companyId, 'hiddenColumns'),
+    EMPLOYEES_COLUMN_OPTIONS,
+  );
+  const exportColumns = React.useMemo(
+    () => visibleExportColumns(EMPLOYEE_EXPORT_COLUMNS, columnVisibility.isVisible),
+    [columnVisibility.isVisible],
   );
   const [search, setSearch] = React.useState('');
   const [debouncedSearch, setDebouncedSearch] = React.useState('');
@@ -227,12 +302,32 @@ export function useEmployeesListModel() {
     pagination,
     reload: reloadEmployees,
   } = useServerDirectoryPagination<EmployeeResponseDto>(loadPage, {
-    enabled: !!companyId && perms.canRead,
+    // Grouped, the rows load per group (useGroupedList), not as pages.
+    enabled: !!companyId && perms.canRead && !groupBy,
     resetDeps: [
       companyId, branchFilter, deptFilter, toolbarStatus, archiveScope, debouncedSearch, selectedEmpKey, view,
       contractTypeFilter, jobTitleFilter, startDateBounds.from, startDateBounds.to, sort.sortKey,
     ],
   });
+
+  const groupsQuery = React.useCallback(() => {
+    const { page: _p, limit: _l, sortBy: _sb, sortDir: _sd, ...filters } = buildListQuery(1, 1) ?? {};
+    return { ...filters, ...listGroupQuery(groupBy) };
+  }, [buildListQuery, groupBy]);
+
+  const grouped = useGroupedList<EmployeeResponseDto>({
+    enabled: !!companyId && perms.canRead && !!groupBy,
+    groupBy,
+    resetKey: JSON.stringify(buildListQuery(1, 1)),
+    fetchGroups: () => employeesApi.groups(groupsQuery()),
+    fetchGroupRows: (groupValue, p, l) =>
+      employeesApi.getAll({ ...buildListQuery(p, l), ...listGroupQuery(groupBy), groupValue }),
+  });
+
+  const reloadList = React.useCallback(async () => {
+    if (groupBy) await grouped.reload();
+    else await reloadEmployees();
+  }, [groupBy, grouped, reloadEmployees]);
 
   const getBranch = React.useCallback(
     (id: string | null | undefined) => branches.find((b) => b.id === id),
@@ -248,18 +343,32 @@ export function useEmployeesListModel() {
 
   const contractStatusCounts = statusCounts;
 
-  // Exports cover every record matching the current filters, not just the visible page.
-  const [exportEmployees, setExportEmployees] = React.useState<EmployeeResponseDto[]>([]);
+  // Exports cover every record matching the current filters, not just the
+  // visible page — grouped like the screen when it is grouped.
+  const [exportRows, setExportRows] = React.useState<RegisterRow[]>([]);
   const [exporting, setExporting] = React.useState(false);
 
-  const fetchAllForExport = React.useCallback(async (): Promise<EmployeeResponseDto[] | null> => {
+  const fetchAllForExport = useLatestCallback(async (): Promise<RegisterRow[] | null> => {
     if (!companyId) return null;
     setExporting(true);
     try {
       const { items } = await fetchAllPaginatedItems((page, limit) =>
-        employeesApi.getAll(buildListQuery(page, limit)),
+        employeesApi.getAll({ ...buildListQuery(page, limit), ...listGroupQuery(groupBy) }),
       );
-      return items;
+      if (!groupBy || !group.option || items.length === 0) {
+        return items.map((emp) => exportColumns.map((c) => c.value(emp)));
+      }
+      const summary = await employeesApi.groups(groupsQuery());
+      return registerExportRows({
+        columns: exportColumns,
+        rows: items,
+        grouping: {
+          fieldLabel: group.option.label,
+          groups: group.sortGroups(summary.groups),
+          labelOf: group.labelOf,
+          groupKeyOf: (emp) => emp.groupKey,
+        },
+      });
     } catch (err) {
       const { displayMessage } = handleApiError(err, 'employees.export');
       toast.error(displayMessage || 'تعذّر تحميل الموظفين للتصدير.');
@@ -267,20 +376,7 @@ export function useEmployeesListModel() {
     } finally {
       setExporting(false);
     }
-  }, [buildListQuery, companyId]);
-
-  const employeesPdfRows = React.useMemo(
-    () =>
-      exportEmployees.map((emp) => ({
-        name: emp.nameAr,
-        employeeCode: emp.employeeCode,
-        position: emp.position ?? '—',
-        contractType: CONTRACT_TYPE_AR[emp.contractType ?? ''] ?? emp.contractType ?? '—',
-        startDate: empStartYmd(emp),
-        statusAr: EMP_CONTRACT_STATUS_LABELS[emp.contractStatus ?? ''] ?? emp.contractStatus ?? '—',
-      })),
-    [exportEmployees],
-  );
+  });
 
   const handleExportPdf = useLatestCallback(async () => {
     if (exporting) return;
@@ -290,7 +386,7 @@ export function useEmployeesListModel() {
       toast.error('لا يوجد موظفون للتصدير ضمن الفلاتر الحالية.');
       return;
     }
-    setExportEmployees(all);
+    setExportRows(all);
     setPdfOpen(true);
   });
 
@@ -307,10 +403,12 @@ export function useEmployeesListModel() {
     parts.push(selectedEmpIds.size === 0 ? 'الموظفون: الكل (ضمن الفلاتر)' : `الموظفون: ${selectedEmpIds.size} محدد من القائمة`);
     parts.push(`حالة العقد: ${toolbarStatus === 'all' ? 'الكل' : (EMP_CONTRACT_STATUS_LABELS[toolbarStatus] ?? toolbarStatus)}`);
     if (sort.label) parts.push(sort.label);
+    if (group.label) parts.push(group.label);
     return parts.join(' · ');
   }, [
     branchFilter, deptFilter, search, selectedEmpIds.size, toolbarStatus, branches, departments,
     jobTitleFilter, jobTitles, contractTypeFilter, startDateBounds.from, startDateBounds.to, sort.label,
+    group.label,
   ]);
 
   const handleDelete = React.useCallback(async () => {
@@ -318,13 +416,13 @@ export function useEmployeesListModel() {
     try {
       await employeesApi.remove(deleteId);
       setDeleteId(null);
-      await reloadEmployees();
+      await reloadList();
       toast.success('تم حذف الموظف');
     } catch (err) {
       const { displayMessage } = handleApiError(err, 'employees.delete');
       toast.error(displayMessage);
     }
-  }, [deleteId, reloadEmployees]);
+  }, [deleteId, reloadList]);
 
   const handleExportExcel = useLatestCallback(async () => {
     if (exporting) return;
@@ -334,19 +432,9 @@ export function useEmployeesListModel() {
       toast.error('لا يوجد موظفون للتصدير ضمن الفلاتر الحالية.');
       return;
     }
-    const rows: XlsxCell[][] = [[
-      'الموظف', 'رقم الموظف', 'المسمى',
-      'نوع العقد', 'تاريخ الالتحاق', 'حالة العقد',
-    ]];
-    for (const emp of all) {
-      rows.push([
-        emp.nameAr,
-        emp.employeeCode,
-        emp.position ?? '—',
-        CONTRACT_TYPE_AR[emp.contractType ?? ''] ?? emp.contractType ?? '—',
-        empStartYmd(emp),
-        EMP_CONTRACT_STATUS_LABELS[emp.contractStatus ?? ''] ?? emp.contractStatus ?? '—',
-      ]);
+    const rows: XlsxCell[][] = [exportColumns.map((c) => c.label)];
+    for (const row of all) {
+      rows.push(Array.isArray(row) ? row : row.kind === 'group' ? [row.title] : row.cells);
     }
     await downloadXlsxFromAoA('employees-register.xlsx', 'الموظفون', rows);
     toast.success('تم تنزيل ملف Excel.');
@@ -354,16 +442,17 @@ export function useEmployeesListModel() {
 
   const employeesPrintable = React.useMemo(
     () =>
-      employeesPdfRows.length === 0 ? null : (
+      exportRows.length === 0 ? null : (
         <EmployeesRegisterPrintHtml
           companyNameAr={activeCompany?.nameAr ?? 'الشركة'}
           companyNameEn={activeCompany?.nameEn ?? ''}
           titleAr="سجل الموظفين"
           filterSummary={employeesFilterSummary}
-          rows={employeesPdfRows}
+          columns={exportColumns}
+          rows={exportRows}
         />
       ),
-    [employeesPdfRows, employeesFilterSummary, activeCompany],
+    [exportRows, exportColumns, employeesFilterSummary, activeCompany],
   );
 
   const branchSelectOptions = React.useMemo(
@@ -398,7 +487,10 @@ export function useEmployeesListModel() {
     () => (
       <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
         <FilterToggleButton activeFilterCount={activeFilterCount} />
+        <ListColumnsPicker model={columnVisibility} />
         <ListSortMenu model={sort} />
+        <ListGroupMenu model={group} />
+        <ListSavedViews storageKey={stateKeys.views} prefixes={stateKeys.prefixes} />
         <PageHeaderPrimaryButton icon={Plus} label="موظف جديد" onClick={() => setNewEmpOpen(true)}>
           موظف جديد
         </PageHeaderPrimaryButton>
@@ -429,7 +521,10 @@ export function useEmployeesListModel() {
         </DropdownMenu>
       </div>
     ),
-    [exporting, handleExportPdf, handleExportExcel, sort.sortKey, activeFilterCount],
+    [
+      exporting, handleExportPdf, handleExportExcel, sort.sortKey, activeFilterCount,
+      group.groupKey, JSON.stringify(group.group?.order), stateKeys.views, columnVisibility.hiddenKey,
+    ],
   );
 
   useEntityFilterSlot(
@@ -532,8 +627,11 @@ export function useEmployeesListModel() {
     employeesPrintable,
     getBranch,
     getDepartment,
-    reloadEmployees,
+    reloadEmployees: reloadList,
     sort,
+    group,
+    grouped,
+    columnVisibility,
     deleteId,
     setDeleteId,
     handleDelete,

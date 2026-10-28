@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/dialog';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { DataTable } from '@/components/ui/data-table';
+import { GroupedDataTable } from '@/components/ui/grouped-data-table';
 import { PagedListViewport, PaginatedListShell } from '@/components/ui/paged-list';
 import { TableDateCell } from '@/components/ui/table-cells';
 import { EmptyState } from '@/components/ui/shared-dialogs';
@@ -183,7 +184,20 @@ export function DaySummariesPage() {
         iconName="CalendarRange"
       />
 
-      {!model.loading && model.items.length === 0 ? (
+      {model.group.groupBy ? (
+        <PagedListViewport>
+          <GroupedDataTable
+            columns={columns}
+            group={model.group}
+            list={model.grouped}
+            keyExtractor={(row) => row.id}
+            onRowClick={(row) => setDetailRow(row)}
+            sort={model.sort.sort}
+            onSort={model.sort.toggle}
+            emptyText="لا توجد ملخصات ضمن الفلاتر الحالية"
+          />
+        </PagedListViewport>
+      ) : !model.loading && model.items.length === 0 ? (
         <EmptyState
           icon={CalendarRange}
           title="لا توجد ملخصات"
@@ -210,6 +224,7 @@ export function DaySummariesPage() {
               onRowClick={(row) => setDetailRow(row)}
               sort={model.sort.sort}
               onSort={model.sort.toggle}
+              totals={model.grouped.summary?.total}
             />
           </PaginatedListShell>
         </PagedListViewport>

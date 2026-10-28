@@ -6,6 +6,7 @@ import { cn } from '@/shared/utils';
 import { paginationItemCount } from '@/components/ui/sticky-pagination';
 import { Button } from '@/components/ui/button';
 import { SortIndicator, type ListSortState } from '@/components/ui/list-sort';
+import type { ListTotals } from '@/components/ui/list-group';
 
 /* ── Column definition ───────────────────────────────────────────────── */
 export interface ColumnDef<T> {
@@ -19,7 +20,96 @@ export interface ColumnDef<T> {
   isInteractive?: boolean;
   /** The server `sortBy` key; makes the header clickable when the table has `onSort`. */
   sortKey?: string;
+  /**
+   * The column's total over a set of rows (a group, or every filtered row),
+   * from the counts and sums of the list's `/groups`. Shown in group
+   * headings and the totals row.
+   */
+  total?(totals: ListTotals): React.ReactNode;
   render(row: T, index: number): React.ReactNode;
+}
+
+/** «الإجمالي (كل السجلات)» row under a table: each column's `total`. */
+export function TableTotalsRow<T>({
+  columns,
+  totals,
+  label = 'الإجمالي',
+}: {
+  columns: ColumnDef<T>[];
+  totals: ListTotals;
+  label?: string;
+}) {
+  return (
+    <tr className="border-t-2 border-border bg-muted/60 font-semibold">
+      {columns.map((col, i) => (
+        <td key={col.key} className={cn('px-4 py-3 text-sm', col.className)}>
+          {i === 0 ? (
+            <span className="whitespace-nowrap">
+              {label}
+              <span className="ms-1.5 text-xs font-normal text-muted-foreground">
+                ({totals.count.toLocaleString('en-US')} سجل)
+              </span>
+            </span>
+          ) : col.total ? col.total(totals) : null}
+        </td>
+      ))}
+    </tr>
+  );
+}
+
+/** A table's header row: titles, and sort arrows on sortable columns. */
+export function DataTableHead<T>({
+  columns,
+  variant = 'default',
+  sort,
+  onSort,
+}: {
+  columns: ColumnDef<T>[];
+  variant?: 'default' | 'directory';
+  sort?: ListSortState;
+  onSort?(key: string): void;
+}) {
+  const isDirectory = variant === 'directory';
+  const headerRowClass = isDirectory
+    ? 'border-b border-border text-xs font-semibold text-muted-foreground'
+    : 'border-b border-border/60';
+
+  const headerCellClass = isDirectory
+    ? 'sticky top-0 z-10 whitespace-nowrap bg-muted px-4 py-3 text-start border-b border-border'
+    : 'sticky top-0 z-10 bg-card px-4 py-3 text-right text-[11px] font-bold uppercase tracking-[0.06em] text-muted-foreground/70 border-b border-border whitespace-nowrap';
+
+  return (
+    <thead>
+      <tr className={headerRowClass}>
+        {columns.map(col => {
+          const sortable = Boolean(col.sortKey && onSort);
+          const active = sortable && sort?.key === col.sortKey;
+          return (
+            <th
+              key={col.key}
+              className={cn(headerCellClass, col.headerClassName)}
+              aria-sort={active ? (sort!.dir === 'asc' ? 'ascending' : 'descending') : undefined}
+            >
+              {sortable ? (
+                <button
+                  type="button"
+                  onClick={() => onSort!(col.sortKey!)}
+                  className={cn(
+                    'inline-flex items-center gap-1 rounded transition-colors hover:text-foreground',
+                    active && 'text-foreground',
+                  )}
+                  title="ترتيب"
+                >
+                  {col.title}
+                  <SortIndicator active={active} dir={sort?.dir} />
+                </button>
+              ) : col.title}
+            </th>
+          );
+        })}
+      </tr>
+    </thead>
+  );
 }
 
 /* ── DataTable ───────────────────────────────────────────────────────── */
@@ -41,12 +131,17 @@ interface DataTableProps<T> {
   sort?: ListSortState;
   /** Header click on a column with `sortKey` (usually `useListSort().toggle`). */
   onSort?(key: string): void;
+  /**
+   * Totals over every filtered row (not only this page), shown as the last
+   * row of the table when any column has a `total`.
+   */
+  totals?: ListTotals | null;
 }
 
 export function DataTable<T>({
   columns, data, keyExtractor, loading, emptyText = 'لا توجد بيانات',
   mobileCard, onRowClick, className, variant = 'default',
-  tableClassName, alwaysShowTable = false, sort, onSort,
+  tableClassName, alwaysShowTable = false, sort, onSort, totals,
 }: DataTableProps<T>) {
   const isDirectory = variant === 'directory';
 
@@ -68,14 +163,6 @@ export function DataTable<T>({
     );
   }
 
-  const headerRowClass = isDirectory
-    ? 'border-b border-border text-xs font-semibold text-muted-foreground'
-    : 'border-b border-border/60';
-
-  const headerCellClass = isDirectory
-    ? 'sticky top-0 z-10 whitespace-nowrap bg-muted px-4 py-3 text-start border-b border-border'
-    : 'sticky top-0 z-10 bg-card px-4 py-3 text-right text-[11px] font-bold uppercase tracking-[0.06em] text-muted-foreground/70 border-b border-border whitespace-nowrap';
-
   const bodyRowClass = isDirectory
     ? cn('border-b border-border/60', onRowClick && 'group cursor-pointer hover:bg-muted/25')
     : cn('group transition-colors hover:bg-muted/20', onRowClick && 'cursor-pointer');
@@ -83,36 +170,7 @@ export function DataTable<T>({
   const tableShell = (
     <div className={cn(alwaysShowTable ? 'min-w-0' : 'hidden min-w-0 md:block')}>
       <table className={cn('w-full text-sm', tableClassName)}>
-        <thead>
-          <tr className={headerRowClass}>
-            {columns.map(col => {
-              const sortable = Boolean(col.sortKey && onSort);
-              const active = sortable && sort?.key === col.sortKey;
-              return (
-                <th
-                  key={col.key}
-                  className={cn(headerCellClass, col.headerClassName)}
-                  aria-sort={active ? (sort!.dir === 'asc' ? 'ascending' : 'descending') : undefined}
-                >
-                  {sortable ? (
-                    <button
-                      type="button"
-                      onClick={() => onSort!(col.sortKey!)}
-                      className={cn(
-                        'inline-flex items-center gap-1 rounded transition-colors hover:text-foreground',
-                        active && 'text-foreground',
-                      )}
-                      title="ترتيب"
-                    >
-                      {col.title}
-                      <SortIndicator active={active} dir={sort?.dir} />
-                    </button>
-                  ) : col.title}
-                </th>
-              );
-            })}
-          </tr>
-        </thead>
+        <DataTableHead columns={columns} variant={variant} sort={sort} onSort={onSort} />
         <tbody className={isDirectory ? undefined : 'divide-y divide-border/40'}>
           {data.map((row, i) => (
             <tr
@@ -140,6 +198,11 @@ export function DataTable<T>({
             </tr>
           ))}
         </tbody>
+        {totals && columns.some((c) => c.total) ? (
+          <tfoot>
+            <TableTotalsRow columns={columns} totals={totals} label="الإجمالي (كل الصفحات)" />
+          </tfoot>
+        ) : null}
       </table>
     </div>
   );

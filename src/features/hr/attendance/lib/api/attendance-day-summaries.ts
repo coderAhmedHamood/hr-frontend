@@ -1,4 +1,5 @@
 import { apiRequest, type PaginatedResult } from '@/features/hr/lib/api/client';
+import type { ListGroupsResult } from '@/components/ui/list-group';
 import type {
   AttendanceDayStatus,
   DaySummaryByPeriodQuery,
@@ -34,6 +35,10 @@ export type {
 export const attendanceDaySummariesApi = {
   getAll(query?: DaySummaryListQuery) {
     return apiRequest<PaginatedResult<DaySummaryResponseDto>>('/attendance/day-summaries', { query });
+  },
+  /** Counts and minute totals of the filtered list, per `groupBy` group and overall. */
+  groups(query?: Omit<DaySummaryListQuery, 'page' | 'limit' | 'sortBy' | 'sortDir' | 'groupValue'>) {
+    return apiRequest<ListGroupsResult>('/attendance/day-summaries/groups', { query });
   },
   getById(id: string) {
     return apiRequest<DaySummaryResponseDto>(`/attendance/day-summaries/${id}`);

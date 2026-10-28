@@ -18,6 +18,13 @@ import { DaySummaryMetricCell } from '@/features/hr/attendance/day-summaries/com
 import { DaySummaryOvertimePayrollToggle } from '@/features/hr/attendance/day-summaries/components/day-summary-overtime-payroll-toggle';
 import { DaySummarySettleButton } from '@/features/hr/attendance/day-summaries/components/day-summary-settle-button';
 import { cn } from '@/shared/utils';
+import {
+  DAY_SUMMARY_SUMMED_METRICS,
+  formatDayCounts,
+  formatMinutesTotal,
+} from '@/features/hr/attendance/day-summaries/utils/day-summary-display';
+
+const SUMMED = new Set<string>(DAY_SUMMARY_SUMMED_METRICS);
 
 /** Columns the server can sort by → their `sortBy` key (see DAY_SUMMARIES_SORT_OPTIONS). */
 const SORT_KEY_BY_COLUMN: Partial<Record<string, string>> = {
@@ -181,6 +188,11 @@ export function useDaySummaryTableColumns({
       {
         key: 'status',
         title: 'الحالة',
+        total: (t) => (
+          <span className="whitespace-nowrap text-xs font-medium text-muted-foreground">
+            {formatDayCounts(t.sums)}
+          </span>
+        ),
         render: (row) => (
           <Badge
             variant="outline"
@@ -201,7 +213,15 @@ export function useDaySummaryTableColumns({
 
     return [...pinned, ...visibleOptional].map((col) => {
       const sortKey = SORT_KEY_BY_COLUMN[col.key];
-      return sortKey ? { ...col, sortKey } : col;
+      // Summed metrics show their group / grand totals (from the list's `/groups`).
+      const total: ColumnDef<DaySummaryResponseDto>['total'] = SUMMED.has(col.key)
+        ? (t) => (
+            <span className="tabular-nums" dir="ltr">
+              {formatMinutesTotal(t.sums[col.key])}
+            </span>
+          )
+        : col.total;
+      return { ...col, ...(sortKey ? { sortKey } : {}), ...(total ? { total } : {}) };
     });
   }, [onOvertimePayrollToggle, onRequestSettle, overtimePayrollBusyId, visibility]);
 }

@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/shared/utils';
+import { usePersistedStateRestore } from '@/shared/hooks/use-persisted-state-restore';
 
 export type SortDir = 'asc' | 'desc';
 
@@ -79,6 +80,8 @@ export function useListSort(storageKey: string | null, options: readonly ListSor
   React.useEffect(() => {
     setSortState(readSort(storageKey, optionsRef.current));
   }, [storageKey]);
+
+  usePersistedStateRestore(() => setSortState(readSort(storageKey, optionsRef.current)));
 
   const setSort = React.useCallback((next: ListSortState) => {
     setSortState(next);

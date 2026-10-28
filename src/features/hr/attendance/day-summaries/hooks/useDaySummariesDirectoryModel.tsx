@@ -21,6 +21,7 @@ import {
 import {
   DAY_SUMMARY_STATUS_LABELS,
   DAY_SUMMARY_STATUS_ORDER,
+  daySummaryStatusLabel,
 } from '@/features/hr/attendance/day-summaries/constants/day-summary-labels';
 import {
   currentYearMonth,
@@ -29,6 +30,18 @@ import {
 import { isPeriodFilterActive, normalizePeriodRange } from '@/features/hr/discipline/lib/discipline-date-filter';
 import { Button } from '@/components/ui/button';
 import { ListSortMenu, listSortQuery, useListSort, type ListSortOption } from '@/components/ui/list-sort';
+import {
+  dateListGroupOptions,
+  ListGroupMenu,
+  listGroupQuery,
+  ORG_LIST_GROUP_OPTIONS,
+  useGroupedList,
+  useListGroup,
+  type ListGroupMeasure,
+  type ListGroupOption,
+} from '@/components/ui/list-group';
+import { ListSavedViews, listStateKeys } from '@/components/ui/list-saved-views';
+import { registerExportRows } from '@/components/pdf/lib/register-export-rows';
 import { useOrgFilter } from '@/features/hr/lib/use-org-filter';
 import { ListFilterBar, type ListFilterInlineSelect } from '@/components/ui/list-filter-bar';
 import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
@@ -39,7 +52,6 @@ import { fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
 import { useLatestCallback } from '@/shared/hooks/use-latest-callback';
 import {
   daySummaryExportColumns,
-  daySummaryExportRow,
 } from '@/features/hr/attendance/day-summaries/utils/day-summary-export';
 import { recomputeTodayDaySummaries } from '@/features/hr/attendance/lib/api/recompute-today-day-summaries';
 import {
@@ -71,6 +83,28 @@ export const DAY_SUMMARIES_SORT_OPTIONS: readonly ListSortOption[] = [
   { key: 'workedMinutes', label: 'ساعات العمل' },
   { key: 'overtimeMinutes', label: 'الإضافي' },
   { key: 'shortageMinutes', label: 'النقص' },
+];
+
+/** Fields the day-summaries list can be grouped by (server `groupBy` keys). */
+export const DAY_SUMMARIES_GROUP_OPTIONS: readonly ListGroupOption[] = [
+  { key: 'employee', label: 'الموظف' },
+  ...ORG_LIST_GROUP_OPTIONS,
+  {
+    key: 'status',
+    label: 'الحالة',
+    formatKey: (k) => daySummaryStatusLabel(k as AttendanceDayStatus),
+  },
+  ...dateListGroupOptions(),
+];
+
+/** Group totals the groups can be ordered by. */
+export const DAY_SUMMARIES_GROUP_MEASURES: readonly ListGroupMeasure[] = [
+  { key: 'late', label: 'مجموع التأخير' },
+  { key: 'shortage', label: 'مجموع النقص' },
+  { key: 'overtime', label: 'مجموع الإضافي' },
+  { key: 'total', label: 'مجموع ساعات العمل' },
+  { key: 'absentDays', label: 'أيام الغياب' },
+  { key: 'lateDays', label: 'أيام التأخر' },
 ];
 
 export type DaySummariesFilters = {
@@ -112,10 +146,10 @@ export function useDaySummariesDirectoryModel() {
   );
   const includeBranchColumn = assignedBranchId === 'all';
   const org = useOrgFilter('attendance', 'day-summaries', companyId, { branch: false });
-  const sort = useListSort(
-    companyId ? `hr-sort:attendance:day-summaries:${companyId}` : null,
-    DAY_SUMMARIES_SORT_OPTIONS,
-  );
+  const stateKeys = listStateKeys('attendance', 'day-summaries', companyId);
+  const sort = useListSort(stateKeys.sort, DAY_SUMMARIES_SORT_OPTIONS);
+  const group = useListGroup(stateKeys.group, DAY_SUMMARIES_GROUP_OPTIONS, DAY_SUMMARIES_GROUP_MEASURES);
+  const groupBy = group.groupBy;
   // The employees' own status: active by default, like the daily register.
   const [employeeStatus, setEmployeeStatus] = useEmployeeStatusFilter(
     attendanceFiltersKey('day-summaries', companyId, 'employeeStatus'),
@@ -226,7 +260,8 @@ export function useDaySummariesDirectoryModel() {
       }
 
       const query = buildListQuery();
-      if (!query) {
+      // Grouped, the rows load per group (useGroupedList), not as pages.
+      if (!query || groupBy) {
         setItems([]);
         setTotal(0);
         setLoading(false);
@@ -243,11 +278,35 @@ export function useDaySummariesDirectoryModel() {
     } finally {
       setLoading(false);
     }
-  }, [buildListQuery, companyId, from, limit, page, to]);
+  }, [buildListQuery, companyId, from, groupBy, limit, page, to]);
 
   React.useEffect(() => {
     void load();
   }, [load]);
+
+  const listQuery = buildListQuery();
+  // The groups (counts, subtotals, grand total) over every filtered row; when
+  // not grouped, only the grand total for the table's totals row.
+  const grouped = useGroupedList({
+    enabled: listQuery != null,
+    groupBy,
+    resetKey: JSON.stringify(listQuery),
+    fetchGroups: async () => {
+      const query = buildListQuery();
+      if (!query) throw new Error('no query');
+      await recomputeTodayDaySummaries(companyId);
+      const { sortBy: _sortBy, sortDir: _sortDir, ...filters } = query;
+      return attendanceDaySummariesApi.groups({ ...filters, ...listGroupQuery(groupBy) });
+    },
+    fetchGroupRows: (groupValue, p, l) =>
+      attendanceDaySummariesApi.getAll({
+        ...(buildListQuery() ?? {}),
+        ...listGroupQuery(groupBy),
+        groupValue,
+        page: p,
+        limit: l,
+      }),
+  });
 
   const selectedEmpKey = React.useMemo(() => [...selectedEmpIds].sort().join(','), [selectedEmpIds]);
 
@@ -330,25 +389,44 @@ export function useDaySummariesDirectoryModel() {
     if (filters.isManualOverride === 'true') lines.push('التعديل: يدوي فقط');
     if (filters.isManualOverride === 'false') lines.push('التعديل: آلي فقط');
     if (sort.label) lines.push(sort.label);
+    if (group.label) lines.push(group.label);
     return lines;
   }, [
     from, to, employeeStatus, selectedBranchNameAr, includeBranchColumn, org.summaryLines,
-    selectedEmpIds, pickerEmployees, filters.status, filters.isManualOverride, sort.label,
+    selectedEmpIds, pickerEmployees, filters.status, filters.isManualOverride, sort.label, group.label,
   ]);
 
+  // Every filtered row (all pages) in the screen's order — grouped like the
+  // screen, with each group's subtotals and the grand total.
   const getExportRows = useLatestCallback(async () => {
     const query = buildListQuery();
     if (!query) return [];
-    const { items: all } = await fetchAllPaginatedItems((p, l) =>
-      attendanceDaySummariesApi.getAll({ ...query, page: p, limit: l }),
-    );
+    const { sortBy: _sortBy, sortDir: _sortDir, ...filters } = query;
+    const [{ items: all }, summary] = await Promise.all([
+      fetchAllPaginatedItems((p, l) =>
+        attendanceDaySummariesApi.getAll({ ...query, ...listGroupQuery(groupBy), page: p, limit: l }),
+      ),
+      attendanceDaySummariesApi.groups({ ...filters, ...listGroupQuery(groupBy) }),
+    ]);
     const branchMap = includeBranchColumn
       ? await resolveBranchByEmployeeId()
       : undefined;
     const columns = branchMap
       ? daySummaryExportColumns(normalizedColumnVisibility, { branchByEmployeeId: branchMap })
       : exportColumns;
-    return all.map((row) => daySummaryExportRow(columns, row));
+    return registerExportRows({
+      columns,
+      rows: all,
+      total: summary.total,
+      grouping: groupBy && group.option
+        ? {
+            fieldLabel: group.option.label,
+            groups: group.sortGroups(summary.groups),
+            labelOf: group.labelOf,
+            groupKeyOf: (row) => row.groupKey,
+          }
+        : undefined,
+    });
   });
 
   usePageHeaderActions(
@@ -361,6 +439,8 @@ export function useDaySummariesDirectoryModel() {
         />
         <FilterToggleButton activeFilterCount={activeFilterCount} />
         <ListSortMenu model={sort} />
+        <ListGroupMenu model={group} />
+        <ListSavedViews storageKey={stateKeys.views} prefixes={stateKeys.prefixes} />
         <RegisterExportMenu
           title="كشف الحضور"
           fileName={`attendance-day-summaries-${from}-${to}`}
@@ -389,6 +469,9 @@ export function useDaySummariesDirectoryModel() {
       from,
       includeBranchColumn,
       sort.sortKey,
+      group.groupKey,
+      JSON.stringify(group.group?.order),
+      stateKeys.views,
       getExportRows,
       normalizedColumnVisibility,
       resetColumnVisibility,
@@ -443,8 +526,13 @@ export function useDaySummariesDirectoryModel() {
     allEmployees,
     recomputeOpen,
     setRecomputeOpen,
-    reload: load,
+    reload: async () => {
+      await load();
+      await grouped.reload();
+    },
     columnVisibility: normalizedColumnVisibility,
     sort,
+    group,
+    grouped,
   };
 }

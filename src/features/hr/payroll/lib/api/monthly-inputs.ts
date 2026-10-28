@@ -1,4 +1,5 @@
 import { apiRequest, type PaginatedResult } from '@/features/hr/lib/api/client';
+import type { ListGroupsResult } from '@/components/ui/list-group';
 
 export type MonthlyInputKindDto =
   | 'bonus'
@@ -45,6 +46,8 @@ export type MonthlyInputResponseDto = {
   updatedAt: string;
   createdBy: string | null;
   updatedBy: string | null;
+  /** With `groupBy`: the key of the row's group (as in `/groups`). */
+  groupKey?: string | null;
 };
 
 export type MonthlyInputListQuery = {
@@ -68,6 +71,9 @@ export type MonthlyInputListQuery = {
   departmentId?: string;
   sortBy?: string;
   sortDir?: 'asc' | 'desc';
+  /** Group field (`/groups`), or with `groupValue` the rows of one group. */
+  groupBy?: string;
+  groupValue?: string;
 };
 
 export type MonthlyInputKindSummaryEmployeeDto = {
@@ -115,6 +121,9 @@ export const monthlyInputsApi = {
     apiRequest<PaginatedResult<MonthlyInputResponseDto>>('/payroll/monthly-inputs', {
       query: params,
     }),
+  /** Counts and amounts of the filtered list, per `groupBy` group and overall. */
+  groups: (params?: Omit<MonthlyInputListQuery, 'page' | 'limit' | 'sortBy' | 'sortDir' | 'groupValue'>) =>
+    apiRequest<ListGroupsResult>('/payroll/monthly-inputs/groups', { query: params }),
   get: (id: string) =>
     apiRequest<MonthlyInputResponseDto>(`/payroll/monthly-inputs/${id}`),
   create: (body: CreateMonthlyInputDto) =>

@@ -24,6 +24,7 @@ import { EmptyStateCard } from '@/components/shared/empty-state-card';
 import { eventsSortKeepsDayGroups, useAttendanceEventsModel } from '@/features/hr/attendance/events/hooks/useAttendanceEventsModel';
 import { DirectoryPagedViews } from '@/components/ui/paged-list';
 import { DataTable, type ColumnDef } from '@/components/ui/data-table';
+import { GroupedDataTable } from '@/components/ui/grouped-data-table';
 import { attendanceEventsApi, type AttendanceEventResponseDto, type AttendanceEventType } from '@/features/hr/attendance/lib/api/attendance-events';
 import {
   ATTENDANCE_EVENT_SOURCE_LABELS,
@@ -338,7 +339,18 @@ export function AttendanceEventsPanel() {
     m.setDetailTarget(event);
   }, [m.setDetailTarget]);
   const groupByDay = eventsSortKeepsDayGroups(m.sort.sort?.key);
-  const columns = useEventColumns(openDetail, !groupByDay);
+  const isColumnVisible = m.columnVisibility.isVisible;
+  const dayColumns = useEventColumns(openDetail, !groupByDay);
+  // Grouped by a chosen field, every row shows its day.
+  const allGroupedColumns = useEventColumns(openDetail, true);
+  const columns = React.useMemo(
+    () => dayColumns.filter((c) => isColumnVisible(c.key)),
+    [dayColumns, isColumnVisible],
+  );
+  const groupedColumns = React.useMemo(
+    () => allGroupedColumns.filter((c) => isColumnVisible(c.key)),
+    [allGroupedColumns, isColumnVisible],
+  );
 
   // Days in the server's order (newest first by default, or as sorted), so
   // the screen reads like the exported register.
@@ -360,6 +372,18 @@ export function AttendanceEventsPanel() {
     <div className="flex min-h-0 flex-1 flex-col gap-4">
       {m.listError ? (
         <EmptyStateCard icon={AlertTriangle} title="تعذر التحميل" description={m.listError} />
+      ) : m.group.groupBy ? (
+        <GroupedDataTable
+          columns={groupedColumns}
+          group={m.group}
+          list={m.grouped}
+          keyExtractor={(e) => e.id}
+          onRowClick={openDetail}
+          sort={m.sort.sort}
+          onSort={m.sort.toggle}
+          emptyText="لا توجد أحداث ضمن الفلاتر الحالية"
+          className="min-h-0 flex-1"
+        />
       ) : (
         <DirectoryPagedViews
           items={m.events}

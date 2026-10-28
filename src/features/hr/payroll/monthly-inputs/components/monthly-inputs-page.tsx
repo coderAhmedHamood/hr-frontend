@@ -10,6 +10,15 @@ import {
 import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
 import { ListSortMenu } from '@/components/ui/list-sort';
+import { ListGroupMenu, type ListTotals } from '@/components/ui/list-group';
+import { ListSavedViews } from '@/components/ui/list-saved-views';
+import { GroupedDataTable } from '@/components/ui/grouped-data-table';
+import {
+  registerExportRows,
+  visibleExportColumns,
+  type RegisterExportColumn,
+} from '@/components/pdf/lib/register-export-rows';
+import { ListColumnsPicker } from '@/components/ui/list-columns-picker';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
 import { ListFilterBar, type ListFilterInlineSelect } from '@/components/ui/list-filter-bar';
@@ -30,19 +39,51 @@ import { useMonthlyInputsDirectoryModel } from '@/features/hr/payroll/monthly-in
 import { TableDateCell } from '@/components/ui/table-cells';
 import { cn, formatMoneyDigits } from '@/shared/utils';
 import { RegisterExportMenu } from '@/components/pdf/register-export-menu';
-import type { RegisterColumn } from '@/components/pdf/print/register-document';
 import { useLatestCallback } from '@/shared/hooks/use-latest-callback';
 import { employeeStatusFilterLabelAr } from '@/features/hr/lib/employee-status-filter';
 
-const MONTHLY_INPUTS_EXPORT_COLUMNS: RegisterColumn[] = [
-  { label: 'الموظف', kind: 'name', weight: 1.5 },
-  { label: 'الفترة', kind: 'status' },
-  { label: 'نوع المدخل', kind: 'status' },
-  { label: 'الاتجاه', kind: 'status' },
-  { label: 'المبلغ', kind: 'number' },
-  { label: 'المصدر', kind: 'status' },
-  { label: 'يؤثر على الراتب', kind: 'status' },
-  { label: 'ملاحظة', kind: 'text', weight: 1.6 },
+/**
+ * A group's / the list's amounts: one direction → its sum; both → additions,
+ * deductions and the net. Never a sum across two currencies.
+ */
+function formatInputsTotal(t: ListTotals): string {
+  const { additions = 0, deductions = 0, net = 0, currencies = 0 } = t.sums;
+  if (currencies > 1) return 'عملات متعددة — لا تُجمع';
+  const fmt = (v: number) => formatMoneyDigits(v, 2);
+  if (additions > 0 && deductions > 0) {
+    return `إضافات ${fmt(additions)} · خصومات ${fmt(deductions)} · الصافي ${fmt(net)}`;
+  }
+  if (additions === 0 && deductions === 0) return '—';
+  return fmt(additions > 0 ? additions : deductions);
+}
+
+const MONTHLY_INPUTS_EXPORT_COLUMNS: RegisterExportColumn<MonthlyInputResponseDto>[] = [
+  { label: 'الموظف', kind: 'name', weight: 1.5, value: (row) => row.employeeNameAr ?? '—' },
+  { key: 'period', label: 'الفترة', kind: 'status', value: (row) => formatPayrollPeriodLabel(row.periodYear, row.periodMonth) },
+  {
+    key: 'kind', label: 'نوع المدخل',
+    kind: 'status',
+    value: (row) => MONTHLY_INPUT_KIND_LABELS[row.inputKind] ?? row.inputKind,
+  },
+  {
+    key: 'direction', label: 'الاتجاه',
+    kind: 'status',
+    value: (row) => MONTHLY_INPUT_DIRECTION_LABELS[row.direction] ?? row.direction,
+  },
+  {
+    key: 'amount', label: 'المبلغ',
+    kind: 'text',
+    weight: 1.6,
+    value: (row) => `${formatMoneyDigits(row.amount, 2)} ${row.currency || 'SAR'}`,
+    total: formatInputsTotal,
+  },
+  {
+    key: 'source', label: 'المصدر',
+    kind: 'status',
+    value: (row) => (row.sourceKind ? (MONTHLY_INPUT_SOURCE_KIND_LABELS[row.sourceKind] ?? row.sourceKind) : '—'),
+  },
+  { key: 'affects', label: 'يؤثر على الراتب', kind: 'status', value: (row) => (row.affectsSalary ? 'نعم' : 'لا') },
+  { key: 'note', label: 'ملاحظة', kind: 'text', weight: 1.6, value: (row) => row.note ?? '—' },
 ];
 
 function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
@@ -95,8 +136,14 @@ export function MonthlyInputsPage() {
     filters, patchFilters, periodOptions, loadPeriods, selectedEmpIds, setSelectedEmpIds,
     employeeStatus, setEmployeeStatus,
     empPickerEmployees, employeePickerLoading, loadEmployeePicker,
-    activeFilterCount, clearFilters, fetchAllForExport, org, sort,
+    activeFilterCount, clearFilters, fetchAllForExport, org, sort, group, grouped, stateKeys,
+    columnVisibility,
   } = useMonthlyInputsDirectoryModel();
+  const isColumnVisible = columnVisibility.isVisible;
+  const exportColumns = React.useMemo(
+    () => visibleExportColumns(MONTHLY_INPUTS_EXPORT_COLUMNS, columnVisibility.isVisible),
+    [columnVisibility.isVisible],
+  );
 
   const [detailRow, setDetailRow] = React.useState<MonthlyInputResponseDto | null>(null);
 
@@ -182,8 +229,12 @@ export function MonthlyInputsPage() {
     }
     if (filters.affectsSalary !== 'all') lines.push(`يؤثر على الراتب: ${filters.affectsSalary === 'true' ? 'نعم' : 'لا'}`);
     if (sort.label) lines.push(sort.label);
+    if (group.label) lines.push(group.label);
     return lines;
-  }, [employeeStatus, filters, periodOptions, org.summaryLines, selectedEmpIds, empPickerEmployees, sort.label]);
+  }, [
+    employeeStatus, filters, periodOptions, org.summaryLines, selectedEmpIds, empPickerEmployees, sort.label,
+    group.label,
+  ]);
 
   useEntityFilterSlot(
     () => (
@@ -204,39 +255,51 @@ export function MonthlyInputsPage() {
     [inlineSelects, employeeStatus, empPickerEmployees, employeePickerLoading, loadEmployeePicker, selectedEmpIds, setSelectedEmpIds],
   );
 
-  const getExportRows = useLatestCallback(async (): Promise<string[][]> => {
-    const all = await fetchAllForExport();
-    return all.map((row) => [
-      row.employeeNameAr ?? '—',
-      formatPayrollPeriodLabel(row.periodYear, row.periodMonth),
-      MONTHLY_INPUT_KIND_LABELS[row.inputKind] ?? row.inputKind,
-      MONTHLY_INPUT_DIRECTION_LABELS[row.direction] ?? row.direction,
-      `${formatMoneyDigits(row.amount, 2)} ${row.currency || 'SAR'}`,
-      row.sourceKind ? (MONTHLY_INPUT_SOURCE_KIND_LABELS[row.sourceKind] ?? row.sourceKind) : '—',
-      row.affectsSalary ? 'نعم' : 'لا',
-      row.note ?? '—',
-    ]);
+  // Every filtered input (all pages) in the screen's order, grouped like the
+  // screen, with each group's amounts and the grand total.
+  const getExportRows = useLatestCallback(async () => {
+    const data = await fetchAllForExport();
+    if (!data) return [];
+    return registerExportRows({
+      columns: exportColumns,
+      rows: data.items,
+      total: data.summary.total,
+      grouping: group.groupBy && group.option
+        ? {
+            fieldLabel: group.option.label,
+            groups: group.sortGroups(data.summary.groups),
+            labelOf: group.labelOf,
+            groupKeyOf: (row) => row.groupKey,
+          }
+        : undefined,
+    });
   });
 
   usePageHeaderActions(
     () => (
       <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
         <FilterToggleButton activeFilterCount={activeFilterCount} />
+        <ListColumnsPicker model={columnVisibility} />
         <ListSortMenu model={sort} />
+        <ListGroupMenu model={group} />
+        <ListSavedViews storageKey={stateKeys.views} prefixes={stateKeys.prefixes} />
         <RegisterExportMenu
           title="سجل مدخلات الرواتب الشهرية"
           fileName="payroll-monthly-inputs"
-          columns={MONTHLY_INPUTS_EXPORT_COLUMNS}
+          columns={exportColumns}
           getRows={getExportRows}
           subtitleLines={exportSubtitleLines}
           landscape
         />
       </div>
     ),
-    [activeFilterCount, exportSubtitleLines, getExportRows, sort.sortKey],
+    [
+      activeFilterCount, exportSubtitleLines, getExportRows, sort.sortKey,
+      group.groupKey, JSON.stringify(group.group?.order), stateKeys.views, columnVisibility.hiddenKey,
+    ],
   );
 
-  const columns = React.useMemo((): ColumnDef<MonthlyInputResponseDto>[] => [
+  const columns = React.useMemo((): ColumnDef<MonthlyInputResponseDto>[] => ([
     {
       key: 'employee',
       sortKey: 'employeeName',
@@ -280,6 +343,7 @@ export function MonthlyInputsPage() {
       key: 'amount',
       sortKey: 'amount',
       title: 'المبلغ',
+      total: (t) => <span className="text-xs font-semibold">{formatInputsTotal(t)}</span>,
       render: (row) => (
         <MoneyAmount value={row.amount} currency={row.currency} className="font-mono" />
       ),
@@ -313,7 +377,7 @@ export function MonthlyInputsPage() {
         <span className="  text-muted-foreground text-xs">{row.note ?? '—'}</span>
       ),
     },
-  ], []);
+  ] satisfies ColumnDef<MonthlyInputResponseDto>[]).filter((col) => isColumnVisible(col.key)), [isColumnVisible]);
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -331,7 +395,20 @@ export function MonthlyInputsPage() {
         </div>
       )}
 
-      {!loading && items.length === 0 ? (
+      {group.groupBy ? (
+        <PagedListViewport>
+          <GroupedDataTable
+            columns={columns}
+            group={group}
+            list={grouped}
+            keyExtractor={(row) => row.id}
+            onRowClick={(row) => setDetailRow(row)}
+            sort={sort.sort}
+            onSort={sort.toggle}
+            emptyText="لا توجد مدخلات ضمن الفلاتر الحالية"
+          />
+        </PagedListViewport>
+      ) : !loading && items.length === 0 ? (
         <EmptyState
           icon={Receipt}
           title="لا توجد مدخلات"
@@ -357,6 +434,7 @@ export function MonthlyInputsPage() {
               onRowClick={(row) => setDetailRow(row)}
               sort={sort.sort}
               onSort={sort.toggle}
+              totals={grouped.summary?.total}
             />
           </PaginatedListShell>
         </PagedListViewport>
