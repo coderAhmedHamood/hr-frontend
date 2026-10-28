@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/dialog';
 import { SetPageTitle } from '@/components/layouts/set-page-title';
 import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
+import { ListSortMenu } from '@/components/ui/list-sort';
 import { usePageHeaderActions } from '@/components/layouts/page-header-actions-context';
 import { useEntityFilterSlot } from '@/components/layouts/entity-filter-slot-context';
 import { ListFilterBar, type ListFilterInlineSelect } from '@/components/ui/list-filter-bar';
@@ -94,7 +95,7 @@ export function MonthlyInputsPage() {
     filters, patchFilters, periodOptions, loadPeriods, selectedEmpIds, setSelectedEmpIds,
     employeeStatus, setEmployeeStatus,
     empPickerEmployees, employeePickerLoading, loadEmployeePicker,
-    activeFilterCount, clearFilters, fetchAllForExport,
+    activeFilterCount, clearFilters, fetchAllForExport, org, sort,
   } = useMonthlyInputsDirectoryModel();
 
   const [detailRow, setDetailRow] = React.useState<MonthlyInputResponseDto | null>(null);
@@ -158,7 +159,31 @@ export function MonthlyInputsPage() {
         { value: 'false', label: 'لا' },
       ],
     },
-  ], [filters, patchFilters, periodOptions, loadPeriods]);
+    ...org.inlineSelects,
+  ], [filters, patchFilters, periodOptions, loadPeriods, org.inlineSelects]);
+
+  // Every active filter and the order, printed under the register's title.
+  const exportSubtitleLines = React.useMemo(() => {
+    const lines = [`حالة الموظفين: ${employeeStatusFilterLabelAr(employeeStatus)}`];
+    if (filters.payrollPeriodId !== 'all') {
+      lines.push(`الفترة: ${periodOptions.find((p) => p.value === filters.payrollPeriodId)?.label ?? '—'}`);
+    }
+    lines.push(...org.summaryLines);
+    if (selectedEmpIds.size > 0) {
+      const names = empPickerEmployees.filter((e) => selectedEmpIds.has(e.id)).map((e) => e.name);
+      lines.push(names.length > 0 && names.length <= 5
+        ? `الموظفون: ${names.join('، ')}`
+        : `الموظفون: ${selectedEmpIds.size} موظف محدد`);
+    }
+    if (filters.inputKind !== 'all') lines.push(`نوع المدخل: ${MONTHLY_INPUT_KIND_LABELS[filters.inputKind] ?? filters.inputKind}`);
+    if (filters.direction !== 'all') lines.push(`الاتجاه: ${MONTHLY_INPUT_DIRECTION_LABELS[filters.direction] ?? filters.direction}`);
+    if (filters.sourceKind !== 'all') {
+      lines.push(`المصدر: ${MONTHLY_INPUT_SOURCE_KIND_LABELS[filters.sourceKind] ?? filters.sourceKind}`);
+    }
+    if (filters.affectsSalary !== 'all') lines.push(`يؤثر على الراتب: ${filters.affectsSalary === 'true' ? 'نعم' : 'لا'}`);
+    if (sort.label) lines.push(sort.label);
+    return lines;
+  }, [employeeStatus, filters, periodOptions, org.summaryLines, selectedEmpIds, empPickerEmployees, sort.label]);
 
   useEntityFilterSlot(
     () => (
@@ -197,22 +222,24 @@ export function MonthlyInputsPage() {
     () => (
       <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
         <FilterToggleButton activeFilterCount={activeFilterCount} />
+        <ListSortMenu model={sort} />
         <RegisterExportMenu
           title="سجل مدخلات الرواتب الشهرية"
           fileName="payroll-monthly-inputs"
           columns={MONTHLY_INPUTS_EXPORT_COLUMNS}
           getRows={getExportRows}
-          subtitleLines={[`حالة الموظفين: ${employeeStatusFilterLabelAr(employeeStatus)}`]}
+          subtitleLines={exportSubtitleLines}
           landscape
         />
       </div>
     ),
-    [activeFilterCount, employeeStatus, getExportRows],
+    [activeFilterCount, exportSubtitleLines, getExportRows, sort.sortKey],
   );
 
   const columns = React.useMemo((): ColumnDef<MonthlyInputResponseDto>[] => [
     {
       key: 'employee',
+      sortKey: 'employeeName',
       title: 'الموظف',
       render: (row) => (
         <span className="font-medium">{row.employeeNameAr ?? '—'}</span>
@@ -220,17 +247,20 @@ export function MonthlyInputsPage() {
     },
     {
       key: 'period',
+      sortKey: 'period',
       title: 'الفترة',
       hideOnMobile: true,
       render: (row) => formatPayrollPeriodLabel(row.periodYear, row.periodMonth),
     },
     {
       key: 'kind',
+      sortKey: 'inputKind',
       title: 'نوع المدخل',
       render: (row) => MONTHLY_INPUT_KIND_LABELS[row.inputKind] ?? row.inputKind,
     },
     {
       key: 'direction',
+      sortKey: 'direction',
       title: 'الاتجاه',
       render: (row) => (
         <Badge
@@ -248,6 +278,7 @@ export function MonthlyInputsPage() {
     },
     {
       key: 'amount',
+      sortKey: 'amount',
       title: 'المبلغ',
       render: (row) => (
         <MoneyAmount value={row.amount} currency={row.currency} className="font-mono" />
@@ -255,6 +286,7 @@ export function MonthlyInputsPage() {
     },
     {
       key: 'source',
+      sortKey: 'sourceKind',
       title: 'المصدر',
       hideOnMobile: true,
       render: (row) => row.sourceKind
@@ -263,6 +295,7 @@ export function MonthlyInputsPage() {
     },
     {
       key: 'affects',
+      sortKey: 'affectsSalary',
       title: 'يؤثر على الراتب',
       hideOnMobile: true,
       render: (row) => (
@@ -322,6 +355,8 @@ export function MonthlyInputsPage() {
               keyExtractor={(row) => row.id}
               loading={loading}
               onRowClick={(row) => setDetailRow(row)}
+              sort={sort.sort}
+              onSort={sort.toggle}
             />
           </PaginatedListShell>
         </PagedListViewport>

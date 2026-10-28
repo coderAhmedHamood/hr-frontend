@@ -4,6 +4,7 @@ import * as React from 'react';
 import type { ListFilterInlineSelect } from '@/components/ui/list-filter-bar';
 import { branchesApi } from '@/features/hr/organization/lib/api/branches';
 import { employeesApi } from '@/features/hr/organization/employees/lib/api/employees';
+import { fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
 import { organizationActiveListArchiveQuery } from '@/features/hr/organization/lib/archive-scope';
 import {
   attendanceFiltersKey,
@@ -11,6 +12,14 @@ import {
 } from '@/features/hr/attendance/lib/use-persisted-filter-state';
 
 export type AssignedBranchRef = { id: string; nameAr: string };
+
+/** Every employee whose primary assignment is in the branch — all pages, no cap. */
+async function fetchBranchEmployeeIds(companyId: string, branchId: string): Promise<string[]> {
+  const { items } = await fetchAllPaginatedItems((page, limit) =>
+    employeesApi.getAll({ companyId, branchId, primaryAssignment: true, page, limit }),
+  );
+  return items.map((employee) => employee.id);
+}
 
 /** The employee list API does not return a branch name; this map is built from الإسناد. */
 export function buildAssignedBranchByEmployeeId(
@@ -31,18 +40,10 @@ export async function fetchAssignedBranchByEmployeeId(
 ): Promise<Map<string, string>> {
   if (branches.length === 0) return new Map();
   const groups = await Promise.all(
-    branches.map(async (branch) => {
-      const res = await employeesApi.getAll({
-        companyId,
-        branchId: branch.id,
-        primaryAssignment: true,
-        limit: 500,
-      });
-      return {
-        branchNameAr: branch.nameAr,
-        employeeIds: res.items.map((employee) => employee.id),
-      };
-    }),
+    branches.map(async (branch) => ({
+      branchNameAr: branch.nameAr,
+      employeeIds: await fetchBranchEmployeeIds(companyId, branch.id),
+    })),
   );
   return buildAssignedBranchByEmployeeId(groups);
 }
@@ -73,10 +74,9 @@ export function useAssignedBranchFilter(
     }
     let cancelled = false;
     setAssignedIds(null);
-    void employeesApi
-      .getAll({ companyId, branchId, primaryAssignment: true, limit: 500 })
-      .then((res) => {
-        if (!cancelled) setAssignedIds(new Set(res.items.map((employee) => employee.id)));
+    void fetchBranchEmployeeIds(companyId, branchId)
+      .then((ids) => {
+        if (!cancelled) setAssignedIds(new Set(ids));
       })
       .catch(() => {
         if (!cancelled) setAssignedIds(new Set());

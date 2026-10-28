@@ -150,6 +150,11 @@ export type AttendanceEventListQuery = {
   source?: AttendanceEventSource;
   checkInPointId?: string;
   includeVoided?: boolean;
+  /** Employee's primary assignment branch / department. */
+  branchId?: string;
+  departmentId?: string;
+  sortBy?: string;
+  sortDir?: 'asc' | 'desc';
 };
 
 export type CreateAttendanceEventDto = {

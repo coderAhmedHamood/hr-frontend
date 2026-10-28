@@ -28,6 +28,8 @@ import {
 import { employeesApi, type EmployeeResponseDto } from '@/features/hr/organization/employees/lib/api/employees';
 import { branchesApi, type BranchResponseDto } from '@/features/hr/organization/lib/api/branches';
 import { departmentsApi, type DepartmentResponseDto } from '@/features/hr/organization/lib/api/departments';
+import { jobTitlesApi, type JobTitleResponseDto } from '@/features/hr/organization/lib/api/jobTitles';
+import { ListSortMenu, listSortQuery, useListSort, type ListSortOption } from '@/components/ui/list-sort';
 import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 import { useActiveCompany } from '@/features/hr/organization/hooks/useActiveCompany';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
@@ -61,6 +63,18 @@ function empStartYmd(e: EmployeeResponseDto): string {
   try { return new Date(s).toISOString().slice(0, 10); } catch { return ''; }
 }
 
+/** Fields the employees list can be sorted by (server `sortBy` keys). */
+export const EMPLOYEES_SORT_OPTIONS: readonly ListSortOption[] = [
+  { key: 'name', label: 'الاسم' },
+  { key: 'employeeCode', label: 'الرقم الوظيفي' },
+  { key: 'position', label: 'المسمى' },
+  { key: 'contractType', label: 'نوع العقد' },
+  { key: 'contractStatus', label: 'حالة العقد' },
+  { key: 'startDate', label: 'تاريخ الالتحاق' },
+];
+
+const EMPTY_STATUS_COUNTS = { all: 0, active: 0, suspended: 0, ended: 0 };
+
 export function useEmployeesListModel() {
   useSetPageTitle({ titleAr: 'الموظفين', descriptionAr: 'سجل وإدارة بيانات الموظفين', iconName: 'Users' });
   const router = useRouter();
@@ -76,8 +90,9 @@ export function useEmployeesListModel() {
   const [employees, setEmployees] = React.useState<EmployeeResponseDto[]>([]);
   const [branches, setBranches] = React.useState<BranchResponseDto[]>([]);
   const [departments, setDepartments] = React.useState<DepartmentResponseDto[]>([]);
+  const [jobTitles, setJobTitles] = React.useState<JobTitleResponseDto[]>([]);
   const [listError, setListError] = React.useState<string | null>(null);
-  const [totalCount, setTotalCount] = React.useState(0);
+  const [statusCounts, setStatusCounts] = React.useState(EMPTY_STATUS_COUNTS);
 
   const [branchFilter, setBranchFilter] = usePersistedFilterState(
     hrFiltersKey('organization', 'employees', companyId, 'branchFilter'),
@@ -86,6 +101,22 @@ export function useEmployeesListModel() {
   const [deptFilter, setDeptFilter] = usePersistedFilterState(
     hrFiltersKey('organization', 'employees', companyId, 'deptFilter'),
     'all',
+  );
+  const [contractTypeFilter, setContractTypeFilter] = usePersistedFilterState(
+    hrFiltersKey('organization', 'employees', companyId, 'contractType'),
+    'all',
+  );
+  const [jobTitleFilter, setJobTitleFilter] = usePersistedFilterState(
+    hrFiltersKey('organization', 'employees', companyId, 'jobTitle'),
+    'all',
+  );
+  const [startDateBounds, setStartDateBounds] = usePersistedFilterState(
+    hrFiltersKey('organization', 'employees', companyId, 'startDateBounds'),
+    { from: '', to: '' },
+  );
+  const sort = useListSort(
+    companyId ? `hr-sort:organization:employees:${companyId}` : null,
+    EMPLOYEES_SORT_OPTIONS,
   );
   const [search, setSearch] = React.useState('');
   const [debouncedSearch, setDebouncedSearch] = React.useState('');
@@ -122,25 +153,57 @@ export function useEmployeesListModel() {
     void Promise.allSettled([
       branchesApi.getAll({ limit: 200, companyId, ...organizationActiveListArchiveQuery() }),
       departmentsApi.getAll({ limit: 200, companyId, ...organizationActiveListArchiveQuery() }),
-    ]).then(([branchesRes, deptsRes]) => {
+      jobTitlesApi.getAll({ limit: 200, companyId, ...organizationActiveListArchiveQuery() }),
+    ]).then(([branchesRes, deptsRes, jobTitlesRes]) => {
       if (branchesRes.status === 'fulfilled') setBranches(branchesRes.value.items);
       if (deptsRes.status === 'fulfilled') setDepartments(deptsRes.value.items);
+      if (jobTitlesRes.status === 'fulfilled') setJobTitles(jobTitlesRes.value.items);
     });
   }, [companyId]);
 
   const selectedEmpKey = React.useMemo(() => [...selectedEmpIds].sort().join(','), [selectedEmpIds]);
 
-  const buildListQuery = React.useCallback((page: number, pageSize: number): Parameters<typeof employeesApi.getAll>[0] => ({
-    page,
-    limit: pageSize,
+  // Every filter except the status — the status counts are taken under these.
+  const baseQuery = React.useMemo(() => ({
     companyId: companyId!,
     ...(branchFilter !== 'all' ? { branchId: branchFilter } : {}),
     ...(deptFilter !== 'all' ? { departmentId: deptFilter } : {}),
-    ...(toolbarStatus !== 'all' ? { contractStatus: toolbarStatus } : {}),
+    ...(contractTypeFilter !== 'all' ? { contractType: contractTypeFilter } : {}),
+    ...(jobTitleFilter !== 'all' ? { jobTitleId: jobTitleFilter } : {}),
+    ...(startDateBounds.from ? { startDateFrom: startDateBounds.from } : {}),
+    ...(startDateBounds.to ? { startDateTo: startDateBounds.to } : {}),
     ...(debouncedSearch.trim() ? { search: debouncedSearch.trim() } : {}),
     ...(selectedEmpIds.size > 0 ? { employeeIds: [...selectedEmpIds] } : {}),
     ...organizationListArchiveQuery(archiveScope),
-  }), [companyId, branchFilter, deptFilter, toolbarStatus, debouncedSearch, archiveScope, selectedEmpIds]);
+  }), [
+    companyId, branchFilter, deptFilter, contractTypeFilter, jobTitleFilter,
+    startDateBounds.from, startDateBounds.to, debouncedSearch, archiveScope, selectedEmpIds,
+  ]);
+
+  const buildListQuery = React.useCallback((page: number, pageSize: number): Parameters<typeof employeesApi.getAll>[0] => ({
+    page,
+    limit: pageSize,
+    ...baseQuery,
+    ...(toolbarStatus !== 'all' ? { contractStatus: toolbarStatus } : {}),
+    ...listSortQuery(sort.sort),
+  }), [baseQuery, toolbarStatus, sort.sort]);
+
+  // Counts for the status tabs come from the server, over every page — not
+  // from the page on screen.
+  React.useEffect(() => {
+    if (!companyId || !perms.canRead) return;
+    let cancelled = false;
+    employeesApi.getStatusCounts(baseQuery)
+      .then((counts) => {
+        if (!cancelled) setStatusCounts(counts);
+      })
+      .catch(() => {
+        if (!cancelled) setStatusCounts(EMPTY_STATUS_COUNTS);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [baseQuery, companyId, perms.canRead]);
 
   const loadPage = React.useCallback(async (page: number, pageSize: number) => {
     if (!companyId) return { items: [] as EmployeeResponseDto[], total: 0 };
@@ -148,7 +211,6 @@ export function useEmployeesListModel() {
     try {
       const res = await employeesApi.getAll(buildListQuery(page, pageSize));
       setEmployees(res.items);
-      setTotalCount(res.pagination.total);
       setApiAccessDenied(false);
       return { items: res.items, total: res.pagination.total };
     } catch (err) {
@@ -166,7 +228,10 @@ export function useEmployeesListModel() {
     reload: reloadEmployees,
   } = useServerDirectoryPagination<EmployeeResponseDto>(loadPage, {
     enabled: !!companyId && perms.canRead,
-    resetDeps: [companyId, branchFilter, deptFilter, toolbarStatus, archiveScope, debouncedSearch, selectedEmpKey, view],
+    resetDeps: [
+      companyId, branchFilter, deptFilter, toolbarStatus, archiveScope, debouncedSearch, selectedEmpKey, view,
+      contractTypeFilter, jobTitleFilter, startDateBounds.from, startDateBounds.to, sort.sortKey,
+    ],
   });
 
   const getBranch = React.useCallback(
@@ -181,15 +246,7 @@ export function useEmployeesListModel() {
   // Server applies all filters, including the multi-employee picker (employeeIds)
   const filtered = pagedEmployees;
 
-  const contractStatusCounts = React.useMemo(
-    () => ({
-      all: totalCount,
-      active: employees.filter((e) => (e.contractStatus || 'active') === 'active').length,
-      suspended: employees.filter((e) => e.contractStatus === 'suspended').length,
-      ended: employees.filter((e) => e.contractStatus === 'ended').length,
-    }),
-    [employees, totalCount],
-  );
+  const contractStatusCounts = statusCounts;
 
   // Exports cover every record matching the current filters, not just the visible page.
   const [exportEmployees, setExportEmployees] = React.useState<EmployeeResponseDto[]>([]);
@@ -241,11 +298,20 @@ export function useEmployeesListModel() {
     const parts: string[] = [];
     if (branchFilter !== 'all') parts.push(`فرع: ${branches.find((b) => b.id === branchFilter)?.nameAr ?? branchFilter}`);
     if (deptFilter !== 'all') parts.push(`قسم: ${departments.find((d) => d.id === deptFilter)?.nameAr ?? deptFilter}`);
+    if (jobTitleFilter !== 'all') parts.push(`المسمى: ${jobTitles.find((j) => j.id === jobTitleFilter)?.nameAr ?? jobTitleFilter}`);
+    if (contractTypeFilter !== 'all') parts.push(`نوع العقد: ${CONTRACT_TYPE_AR[contractTypeFilter] ?? contractTypeFilter}`);
+    if (startDateBounds.from || startDateBounds.to) {
+      parts.push(`الالتحاق: ${startDateBounds.from || '…'} — ${startDateBounds.to || '…'}`);
+    }
     if (search.trim()) parts.push(`بحث: ${search.trim()}`);
     parts.push(selectedEmpIds.size === 0 ? 'الموظفون: الكل (ضمن الفلاتر)' : `الموظفون: ${selectedEmpIds.size} محدد من القائمة`);
     parts.push(`حالة العقد: ${toolbarStatus === 'all' ? 'الكل' : (EMP_CONTRACT_STATUS_LABELS[toolbarStatus] ?? toolbarStatus)}`);
+    if (sort.label) parts.push(sort.label);
     return parts.join(' · ');
-  }, [branchFilter, deptFilter, search, selectedEmpIds.size, toolbarStatus, branches, departments]);
+  }, [
+    branchFilter, deptFilter, search, selectedEmpIds.size, toolbarStatus, branches, departments,
+    jobTitleFilter, jobTitles, contractTypeFilter, startDateBounds.from, startDateBounds.to, sort.label,
+  ]);
 
   const handleDelete = React.useCallback(async () => {
     if (!deleteId) return;
@@ -308,11 +374,31 @@ export function useEmployeesListModel() {
     () => [{ value: 'all', label: 'كل الأقسام' }, ...departments.map((d) => ({ value: d.id, label: d.nameAr }))],
     [departments],
   );
+  const jobTitleSelectOptions = React.useMemo(
+    () => [{ value: 'all', label: 'كل المسميات' }, ...jobTitles.map((j) => ({ value: j.id, label: j.nameAr }))],
+    [jobTitles],
+  );
+  const contractTypeSelectOptions = React.useMemo(
+    () => [
+      { value: 'all', label: 'كل أنواع العقود' },
+      ...Object.entries(CONTRACT_TYPE_AR).map(([value, label]) => ({ value, label })),
+    ],
+    [],
+  );
+  // The status has its own tabs; everything else in the panel is counted.
+  const activeFilterCount =
+    (branchFilter !== 'all' ? 1 : 0)
+    + (deptFilter !== 'all' ? 1 : 0)
+    + (selectedEmpIds.size > 0 ? 1 : 0)
+    + (contractTypeFilter !== 'all' ? 1 : 0)
+    + (jobTitleFilter !== 'all' ? 1 : 0)
+    + (startDateBounds.from || startDateBounds.to ? 1 : 0);
 
   usePageHeaderActions(
     () => (
       <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
-        <FilterToggleButton />
+        <FilterToggleButton activeFilterCount={activeFilterCount} />
+        <ListSortMenu model={sort} />
         <PageHeaderPrimaryButton icon={Plus} label="موظف جديد" onClick={() => setNewEmpOpen(true)}>
           موظف جديد
         </PageHeaderPrimaryButton>
@@ -343,13 +429,16 @@ export function useEmployeesListModel() {
         </DropdownMenu>
       </div>
     ),
-    [exporting, handleExportPdf, handleExportExcel],
+    [exporting, handleExportPdf, handleExportExcel, sort.sortKey, activeFilterCount],
   );
 
   useEntityFilterSlot(
     () => (
       <ListFilterBar
-        showDateSection={false}
+        optionalDateRange
+        periodValue={startDateBounds}
+        onPeriodChange={setStartDateBounds}
+        onDateBoundsChange={setStartDateBounds}
         leadingFilters={(
           <EntityFilterSearchField
             value={search}
@@ -381,6 +470,20 @@ export function useEmployeesListModel() {
             placeholder: 'القسم',
             options: deptSelectOptions,
           },
+          ...(jobTitles.length > 0 ? [{
+            id: 'jobTitle',
+            value: jobTitleFilter,
+            onChange: setJobTitleFilter,
+            placeholder: 'المسمى الوظيفي',
+            options: jobTitleSelectOptions,
+          }] : []),
+          {
+            id: 'contractType',
+            value: contractTypeFilter,
+            onChange: setContractTypeFilter,
+            placeholder: 'نوع العقد',
+            options: contractTypeSelectOptions,
+          },
         ]}
         companyId={companyId}
         selectedEmpIds={selectedEmpIds}
@@ -406,6 +509,8 @@ export function useEmployeesListModel() {
       contractStatusCounts.all, contractStatusCounts.active,
       contractStatusCounts.suspended, contractStatusCounts.ended,
       companyId, branchSelectOptions, deptSelectOptions,
+      jobTitles.length, jobTitleFilter, jobTitleSelectOptions, contractTypeFilter, contractTypeSelectOptions,
+      startDateBounds.from, startDateBounds.to,
       branchFilterAccess.allowed, deptFilterAccess.allowed,
     ],
   );
@@ -428,6 +533,7 @@ export function useEmployeesListModel() {
     getBranch,
     getDepartment,
     reloadEmployees,
+    sort,
     deleteId,
     setDeleteId,
     handleDelete,

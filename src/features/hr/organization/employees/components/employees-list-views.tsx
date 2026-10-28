@@ -40,6 +40,7 @@ export function EmployeesListViews({ model }: Props) {
   const columns = React.useMemo((): ColumnDef<FilteredRow>[] => [
     {
       key: 'employee',
+      sortKey: 'name',
       title: 'الموظف',
       render: (emp) => (
         <div className="flex items-center gap-3">
@@ -58,17 +59,20 @@ export function EmployeesListViews({ model }: Props) {
     },
     {
       key: 'position',
+      sortKey: 'position',
       title: 'المسمى',
       className: 'text-muted-foreground',
       render: (emp) => emp.position ?? '—',
     },
     {
       key: 'contractType',
+      sortKey: 'contractType',
       title: 'نوع العقد',
       render: (emp) => <ContractTypeLabel type={emp.contractType ?? ''} />,
     },
     {
       key: 'contractStatus',
+      sortKey: 'contractStatus',
       title: 'حالة العقد',
       render: (emp) => (
         <StatusBadge status={emp.contractStatus ?? 'active'} className="text-[11px]" />
@@ -76,6 +80,7 @@ export function EmployeesListViews({ model }: Props) {
     },
     {
       key: 'startDate',
+      sortKey: 'startDate',
       title: 'تاريخ الالتحاق',
       className: 'text-muted-foreground',
       render: (emp) => <TableDateCell value={emp.startDate} />,
@@ -161,6 +166,8 @@ export function EmployeesListViews({ model }: Props) {
           data={pageItems}
           keyExtractor={(emp) => emp.id}
           onRowClick={(emp) => router.push(hrOrganizationRoutes.employee(emp.id))}
+          sort={model.sort.sort}
+          onSort={model.sort.toggle}
         />
       ) : (
         <DirectoryGrid>

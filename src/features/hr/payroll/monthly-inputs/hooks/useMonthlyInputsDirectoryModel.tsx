@@ -5,6 +5,8 @@ import { useSearchParams } from 'next/navigation';
 import { useDefaultCompanyId } from '@/features/hr/organization/lib/default-company-id';
 import { useServerDirectoryPagination } from '@/components/ui/paged-list';
 import { handleApiError } from '@/features/hr/lib/api/global-error-handler';
+import { listSortQuery, useListSort, type ListSortOption } from '@/components/ui/list-sort';
+import { useOrgFilter } from '@/features/hr/lib/use-org-filter';
 import { fetchAllPaginatedItems } from '@/features/hr/lib/api/client';
 import {
   monthlyInputsApi,
@@ -56,6 +58,19 @@ export type MonthlyInputsFilters = {
   affectsSalary: 'all' | 'true' | 'false';
 };
 
+/** Fields the monthly-inputs list can be sorted by (server `sortBy` keys). */
+export const MONTHLY_INPUTS_SORT_OPTIONS: readonly ListSortOption[] = [
+  { key: 'period', label: 'الفترة' },
+  { key: 'employeeName', label: 'الموظف' },
+  { key: 'employeeCode', label: 'رقم الموظف' },
+  { key: 'inputKind', label: 'نوع المدخل' },
+  { key: 'direction', label: 'الاتجاه' },
+  { key: 'amount', label: 'المبلغ' },
+  { key: 'sourceKind', label: 'المصدر' },
+  { key: 'affectsSalary', label: 'يؤثر على الراتب' },
+  { key: 'createdAt', label: 'تاريخ الإنشاء' },
+];
+
 export function useMonthlyInputsDirectoryModel() {
   const searchParams = useSearchParams();
   const companyId = useDefaultCompanyId();
@@ -65,6 +80,12 @@ export function useMonthlyInputsDirectoryModel() {
   const [selectedEmpIds, setSelectedEmpIds] = React.useState<Set<string>>(new Set());
   const [employeeStatus, setEmployeeStatus] = useEmployeeStatusFilter(
     hrFiltersKey('payroll', 'monthly-inputs', companyId, 'employeeStatus'),
+  );
+
+  const org = useOrgFilter('payroll', 'monthly-inputs', companyId);
+  const sort = useListSort(
+    companyId ? `hr-sort:payroll:monthly-inputs:${companyId}` : null,
+    MONTHLY_INPUTS_SORT_OPTIONS,
   );
 
   const [empPickerEmployees, setEmpPickerEmployees] = React.useState<EmployeePickerOption[]>([]);
@@ -127,7 +148,9 @@ export function useMonthlyInputsDirectoryModel() {
     ...(filters.sourceKind !== 'all' ? { sourceKind: filters.sourceKind } : {}),
     ...(filters.affectsSalary === 'true' ? { affectsSalary: true } : {}),
     ...(filters.affectsSalary === 'false' ? { affectsSalary: false } : {}),
-  }), [companyId, selectedEmpKey, employeeStatus, filters]);
+    ...org.query,
+    ...listSortQuery(sort.sort),
+  }), [companyId, selectedEmpKey, employeeStatus, filters, org.query, sort.sort]);
 
   const loadPage = React.useCallback(async (page: number, pageSize: number) => {
     if (!companyId) return { items: [] as MonthlyInputResponseDto[], total: 0 };
@@ -154,7 +177,7 @@ export function useMonthlyInputsDirectoryModel() {
     reload: reloadInputs,
   } = useServerDirectoryPagination(loadPage, {
     enabled: !!companyId,
-    resetDeps: [filters, selectedEmpKey, employeeStatus],
+    resetDeps: [filters, selectedEmpKey, employeeStatus, org.resetKey, sort.sortKey],
   });
 
   const periodOptions = React.useMemo(
@@ -176,7 +199,8 @@ export function useMonthlyInputsDirectoryModel() {
     (filters.sourceKind !== 'all' ? 1 : 0) +
     (filters.affectsSalary !== 'all' ? 1 : 0) +
     (selectedEmpIds.size > 0 ? 1 : 0) +
-    (isEmployeeStatusFilterActive(employeeStatus) ? 1 : 0);
+    (isEmployeeStatusFilterActive(employeeStatus) ? 1 : 0) +
+    org.activeCount;
 
   const clearFilters = React.useCallback(() => {
     setFilters({
@@ -213,5 +237,7 @@ export function useMonthlyInputsDirectoryModel() {
     clearFilters,
     fetchAllForExport,
     reload: reloadInputs,
+    org,
+    sort,
   };
 }

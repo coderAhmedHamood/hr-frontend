@@ -23,6 +23,8 @@ import { usePageHeaderActions } from '@/components/layouts/page-header-actions-c
 import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
 import { ListFilterBar, type ListFilterInlineSelect } from '@/components/ui/list-filter-bar';
 import { Button } from '@/components/ui/button';
+import { ListSortMenu, listSortQuery, useListSort, type ListSortOption } from '@/components/ui/list-sort';
+import { useOrgFilter } from '@/features/hr/lib/use-org-filter';
 import { isPeriodFilterActive, normalizePeriodRange, todayYMD } from '@/features/hr/discipline/lib/discipline-date-filter';
 import {
   attendanceFiltersKey,
@@ -42,9 +44,27 @@ import {
 } from '@/features/hr/lib/employee-status-filter';
 import { filterEmployeesByStatus } from '@/features/hr/lib/use-employee-filter-picker';
 import {
+  ATTENDANCE_EVENT_SOURCE_LABELS,
+  ATTENDANCE_EVENT_TYPE_LABELS,
   ATTENDANCE_EVENTS_EXPORT_COLUMNS,
   attendanceEventsExportRows,
 } from '@/features/hr/attendance/events/utils/attendance-events-export';
+
+/** Fields the events list can be sorted by (server `sortBy` keys). */
+export const ATTENDANCE_EVENTS_SORT_OPTIONS: readonly ListSortOption[] = [
+  { key: 'occurredAt', label: 'الوقت' },
+  { key: 'workDate', label: 'اليوم' },
+  { key: 'employeeName', label: 'الموظف' },
+  { key: 'employeeCode', label: 'رقم الموظف' },
+  { key: 'eventType', label: 'نوع الحدث' },
+  { key: 'source', label: 'المصدر' },
+  { key: 'checkInPoint', label: 'نقطة التسجيل' },
+];
+
+/** Sorting by day or time keeps the list grouped by day. */
+export function eventsSortKeepsDayGroups(sortKey: string | undefined): boolean {
+  return !sortKey || sortKey === 'occurredAt' || sortKey === 'workDate';
+}
 
 export type EventsFilterState = {
   from: string;
@@ -86,6 +106,19 @@ export function useAttendanceEventsModel() {
   const [employeeStatus, setEmployeeStatus] = useEmployeeStatusFilter(
     attendanceFiltersKey('events', companyId, 'employeeStatus'),
   );
+  const [sourceFilter, setSourceFilter] = usePersistedFilterState(
+    attendanceFiltersKey('events', companyId, 'sourceFilter'),
+    'all',
+  );
+  const [checkpointFilter, setCheckpointFilter] = usePersistedFilterState(
+    attendanceFiltersKey('events', companyId, 'checkpointFilter'),
+    'all',
+  );
+  const org = useOrgFilter('attendance', 'events', companyId);
+  const sort = useListSort(
+    companyId ? `hr-sort:attendance:events:${companyId}` : null,
+    ATTENDANCE_EVENTS_SORT_OPTIONS,
+  );
 
   const [createOpen, setCreateOpen] = React.useState(false);
   const [voidTarget, setVoidTarget] = React.useState<AttendanceEventResponseDto | null>(null);
@@ -118,8 +151,14 @@ export function useAttendanceEventsModel() {
     if (companyId) query.companyId = companyId;
     if (selectedEmpIds.size > 0) query.employeeIds = [...selectedEmpIds];
     if (eventTypeFilter !== 'all') query.eventType = eventTypeFilter as AttendanceEventType;
+    if (sourceFilter !== 'all') query.source = sourceFilter as AttendanceEventListQuery['source'];
+    if (checkpointFilter !== 'all') query.checkInPointId = checkpointFilter;
+    Object.assign(query, org.query, listSortQuery(sort.sort));
     return query;
-  }, [companyId, from, to, includeVoided, selectedEmpIds, eventTypeFilter, employeeStatus]);
+  }, [
+    companyId, from, to, includeVoided, selectedEmpIds, eventTypeFilter, employeeStatus,
+    sourceFilter, checkpointFilter, org.query, sort.sort,
+  ]);
 
   const loadPage = React.useCallback(async (page: number, pageSize: number) => {
     if (!companyId) return { items: [] as AttendanceEventResponseDto[], total: 0 };
@@ -143,7 +182,10 @@ export function useAttendanceEventsModel() {
     reload,
   } = useServerDirectoryPagination<AttendanceEventResponseDto>(loadPage, {
     enabled: !!companyId,
-    resetDeps: [companyId, from, to, selectedEmpKey, eventTypeFilter, includeVoided, employeeStatus],
+    resetDeps: [
+      companyId, from, to, selectedEmpKey, eventTypeFilter, includeVoided, employeeStatus,
+      sourceFilter, checkpointFilter, org.resetKey, sort.sortKey,
+    ],
   });
 
   const handleVoid = React.useCallback(async (id: string, reason: string) => {
@@ -194,7 +236,10 @@ export function useAttendanceEventsModel() {
     + (eventTypeFilter !== 'all' ? 1 : 0)
     + (includeVoided ? 1 : 0)
     + (isEmployeeStatusFilterActive(employeeStatus) ? 1 : 0)
-    + (periodFilterActive ? 1 : 0);
+    + (periodFilterActive ? 1 : 0)
+    + (sourceFilter !== 'all' ? 1 : 0)
+    + (checkpointFilter !== 'all' ? 1 : 0)
+    + org.activeCount;
 
   const inlineSelects = React.useMemo((): ListFilterInlineSelect[] => [
     {
@@ -222,7 +267,58 @@ export function useAttendanceEventsModel() {
         { value: 'true', label: 'تضمين الملغاة' },
       ],
     },
-  ], [eventTypeFilter, includeVoided]);
+    {
+      id: 'source',
+      value: sourceFilter,
+      onChange: setSourceFilter,
+      placeholder: 'المصدر',
+      className: 'w-[9rem]',
+      options: [
+        { value: 'all', label: 'كل المصادر' },
+        ...Object.entries(ATTENDANCE_EVENT_SOURCE_LABELS).map(([value, label]) => ({ value, label })),
+      ],
+    },
+    ...(checkpoints.length > 0 ? [{
+      id: 'checkpoint',
+      value: checkpointFilter,
+      onChange: setCheckpointFilter,
+      placeholder: 'نقطة التسجيل',
+      className: 'w-[10rem]',
+      options: [
+        { value: 'all', label: 'كل النقاط' },
+        ...checkpoints.map((cp) => ({ value: cp.id, label: cp.nameAr })),
+      ],
+    }] : []),
+    ...org.inlineSelects,
+  ], [eventTypeFilter, includeVoided, sourceFilter, checkpointFilter, checkpoints, org.inlineSelects]);
+
+  // Every active filter and the order, printed under the register's title.
+  const exportSubtitleLines = React.useMemo(() => {
+    const lines = [
+      `الفترة: ${from} — ${to}`,
+      `حالة الموظفين: ${employeeStatusFilterLabelAr(employeeStatus)}`,
+    ];
+    if (selectedEmpIds.size > 0) {
+      const names = employees.filter((e) => selectedEmpIds.has(e.id)).map((e) => e.nameAr);
+      lines.push(names.length > 0 && names.length <= 5
+        ? `الموظفون: ${names.join('، ')}`
+        : `الموظفون: ${selectedEmpIds.size} موظف محدد`);
+    }
+    lines.push(...org.summaryLines);
+    if (eventTypeFilter !== 'all') {
+      lines.push(`نوع الحدث: ${ATTENDANCE_EVENT_TYPE_LABELS[eventTypeFilter as AttendanceEventType] ?? eventTypeFilter}`);
+    }
+    if (sourceFilter !== 'all') lines.push(`المصدر: ${ATTENDANCE_EVENT_SOURCE_LABELS[sourceFilter] ?? sourceFilter}`);
+    if (checkpointFilter !== 'all') {
+      lines.push(`نقطة التسجيل: ${checkpoints.find((cp) => cp.id === checkpointFilter)?.nameAr ?? '—'}`);
+    }
+    if (includeVoided) lines.push('يشمل الأحداث الملغاة');
+    if (sort.label) lines.push(sort.label);
+    return lines;
+  }, [
+    from, to, employeeStatus, selectedEmpIds, employees, org.summaryLines, eventTypeFilter,
+    sourceFilter, checkpointFilter, checkpoints, includeVoided, sort.label,
+  ]);
 
   const getExportRows = useLatestCallback(async () => {
     if (!companyId) return [];
@@ -236,15 +332,13 @@ export function useAttendanceEventsModel() {
     () => (
       <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
         <FilterToggleButton activeFilterCount={activeFilterCount} />
+        <ListSortMenu model={sort} />
         <RegisterExportMenu
           title="سجل أحداث الحضور"
           fileName={`attendance-events-${from}-${to}`}
           columns={ATTENDANCE_EVENTS_EXPORT_COLUMNS}
           getRows={getExportRows}
-          subtitleLines={[
-            `الفترة: ${from} — ${to}`,
-            `حالة الموظفين: ${employeeStatusFilterLabelAr(employeeStatus)}`,
-          ]}
+          subtitleLines={exportSubtitleLines}
           landscape
         />
         <Button variant="luxe" size="sm" className="h-8 gap-1.5 px-3 text-xs" onClick={() => setCreateOpen(true)}>
@@ -252,7 +346,7 @@ export function useAttendanceEventsModel() {
         </Button>
       </div>
     ),
-    [activeFilterCount, employeeStatus, from, getExportRows, setCreateOpen, to],
+    [activeFilterCount, exportSubtitleLines, from, getExportRows, setCreateOpen, to, sort.sortKey],
   );
 
   useEntityFilterSlot(
@@ -311,6 +405,7 @@ export function useAttendanceEventsModel() {
     setDetailTarget,
     includeVoided,
     setIncludeVoided,
+    sort,
     handleVoid,
     handleCreate,
     reload,

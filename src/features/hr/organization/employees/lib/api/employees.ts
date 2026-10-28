@@ -128,7 +128,14 @@ export type EmployeeListQuery = {
   startDateTo?: string;
   archiveScope?: OrganizationArchiveScope;
   employeeIds?: string[];
+  contractType?: string;
+  jobTitleId?: string;
+  sortBy?: string;
+  sortDir?: 'asc' | 'desc';
 };
+
+/** Employees per status under the same filters (the status itself aside). */
+export type EmployeeStatusCounts = { all: number; active: number; suspended: number; ended: number };
 
 export type CreateEmployeeUserAccountDto = {
   employeeCode: string;
@@ -140,6 +147,9 @@ export type CreateEmployeeUserAccountDto = {
 export const employeesApi = {
   getAll(query?: EmployeeListQuery) {
     return apiRequest<PaginatedResult<EmployeeResponseDto>>('/hr/employees', { query });
+  },
+  getStatusCounts(query?: Omit<EmployeeListQuery, 'page' | 'limit' | 'contractStatus' | 'sortBy' | 'sortDir'>) {
+    return apiRequest<EmployeeStatusCounts>('/hr/employees/status-counts', { query });
   },
   getById(id: string) {
     return apiRequest<EmployeeResponseDto>(`/hr/employees/${id}`);

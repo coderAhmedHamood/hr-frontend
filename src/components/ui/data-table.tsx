@@ -5,6 +5,7 @@ import { ChevronRight, ChevronLeft } from 'lucide-react';
 import { cn } from '@/shared/utils';
 import { paginationItemCount } from '@/components/ui/sticky-pagination';
 import { Button } from '@/components/ui/button';
+import { SortIndicator, type ListSortState } from '@/components/ui/list-sort';
 
 /* ── Column definition ───────────────────────────────────────────────── */
 export interface ColumnDef<T> {
@@ -16,6 +17,8 @@ export interface ColumnDef<T> {
   isActions?: boolean;
   /** Prevent row click when interacting with cell content (dropdowns, inputs). */
   isInteractive?: boolean;
+  /** The server `sortBy` key; makes the header clickable when the table has `onSort`. */
+  sortKey?: string;
   render(row: T, index: number): React.ReactNode;
 }
 
@@ -34,12 +37,16 @@ interface DataTableProps<T> {
   tableClassName?: string;
   /** Always render the table (horizontal scroll on small screens) instead of mobile cards. */
   alwaysShowTable?: boolean;
+  /** Current order (from `useListSort`), shown as arrows on sortable headers. */
+  sort?: ListSortState;
+  /** Header click on a column with `sortKey` (usually `useListSort().toggle`). */
+  onSort?(key: string): void;
 }
 
 export function DataTable<T>({
   columns, data, keyExtractor, loading, emptyText = 'لا توجد بيانات',
   mobileCard, onRowClick, className, variant = 'default',
-  tableClassName, alwaysShowTable = false,
+  tableClassName, alwaysShowTable = false, sort, onSort,
 }: DataTableProps<T>) {
   const isDirectory = variant === 'directory';
 
@@ -78,14 +85,32 @@ export function DataTable<T>({
       <table className={cn('w-full text-sm', tableClassName)}>
         <thead>
           <tr className={headerRowClass}>
-            {columns.map(col => (
-              <th
-                key={col.key}
-                className={cn(headerCellClass, col.headerClassName)}
-              >
-                {col.title}
-              </th>
-            ))}
+            {columns.map(col => {
+              const sortable = Boolean(col.sortKey && onSort);
+              const active = sortable && sort?.key === col.sortKey;
+              return (
+                <th
+                  key={col.key}
+                  className={cn(headerCellClass, col.headerClassName)}
+                  aria-sort={active ? (sort!.dir === 'asc' ? 'ascending' : 'descending') : undefined}
+                >
+                  {sortable ? (
+                    <button
+                      type="button"
+                      onClick={() => onSort!(col.sortKey!)}
+                      className={cn(
+                        'inline-flex items-center gap-1 rounded transition-colors hover:text-foreground',
+                        active && 'text-foreground',
+                      )}
+                      title="ترتيب"
+                    >
+                      {col.title}
+                      <SortIndicator active={active} dir={sort?.dir} />
+                    </button>
+                  ) : col.title}
+                </th>
+              );
+            })}
           </tr>
         </thead>
         <tbody className={isDirectory ? undefined : 'divide-y divide-border/40'}>

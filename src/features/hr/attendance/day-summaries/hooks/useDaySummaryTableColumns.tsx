@@ -19,6 +19,20 @@ import { DaySummaryOvertimePayrollToggle } from '@/features/hr/attendance/day-su
 import { DaySummarySettleButton } from '@/features/hr/attendance/day-summaries/components/day-summary-settle-button';
 import { cn } from '@/shared/utils';
 
+/** Columns the server can sort by → their `sortBy` key (see DAY_SUMMARIES_SORT_OPTIONS). */
+const SORT_KEY_BY_COLUMN: Partial<Record<string, string>> = {
+  employee: 'employeeName',
+  workDate: 'workDate',
+  status: 'status',
+  checkIn: 'actualCheckInAt',
+  checkOut: 'actualCheckOutAt',
+  total: 'workedMinutes',
+  late: 'lateMinutes',
+  earlyLeave: 'earlyLeaveMinutes',
+  shortage: 'shortageMinutes',
+  overtime: 'overtimeMinutes',
+};
+
 type UseDaySummaryTableColumnsParams = {
   visibility: DaySummaryColumnVisibility;
   overtimePayrollBusyId: string | null;
@@ -185,6 +199,9 @@ export function useDaySummaryTableColumns({
       .filter((option) => visibility[option.key])
       .map((option) => optionalColumns[option.key]);
 
-    return [...pinned, ...visibleOptional];
+    return [...pinned, ...visibleOptional].map((col) => {
+      const sortKey = SORT_KEY_BY_COLUMN[col.key];
+      return sortKey ? { ...col, sortKey } : col;
+    });
   }, [onOvertimePayrollToggle, onRequestSettle, overtimePayrollBusyId, visibility]);
 }

@@ -208,6 +208,8 @@ export function DaySummariesPage() {
               loading={model.loading}
               alwaysShowTable
               onRowClick={(row) => setDetailRow(row)}
+              sort={model.sort.sort}
+              onSort={model.sort.toggle}
             />
           </PaginatedListShell>
         </PagedListViewport>

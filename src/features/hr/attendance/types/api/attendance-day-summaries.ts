@@ -92,6 +92,11 @@ export type DaySummaryListQuery = {
   isManualOverride?: boolean;
   /** The employee's status: active (empty counts as active), suspended, ended. */
   employeeStatus?: string;
+  /** Employee's primary assignment branch / department. */
+  branchId?: string;
+  departmentId?: string;
+  sortBy?: string;
+  sortDir?: 'asc' | 'desc';
 };
 
 export type DaySummaryByPeriodQuery = {

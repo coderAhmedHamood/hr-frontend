@@ -63,6 +63,11 @@ export type MonthlyInputListQuery = {
   sourceTable?: string;
   sourceId?: string;
   affectsSalary?: boolean;
+  /** Employee's primary assignment branch / department. */
+  branchId?: string;
+  departmentId?: string;
+  sortBy?: string;
+  sortDir?: 'asc' | 'desc';
 };
 
 export type MonthlyInputKindSummaryEmployeeDto = {
