@@ -7,7 +7,8 @@ import { FilterToggleButton } from '@/components/layouts/filter-toggle-button';
 import { PageHeaderPrimaryButton } from '@/components/layouts/page-header-primary-button';
 import * as React from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { Pencil, Plus, ScanBarcode, Trash2, Package } from 'lucide-react';
+import Link from 'next/link';
+import { FileSpreadsheet, Pencil, Plus, ScanBarcode, Trash2, Package } from 'lucide-react';
 import { toast } from 'sonner';
 import { BarcodeScannerDialog } from '@/components/shared/barcode-scanner-dialog';
 import { resolveScannedCode } from '@/features/catalog/products/lib/resolve-scanned-code';
@@ -43,6 +44,8 @@ import { DirectoryPagedViews, DEFAULT_PAGE_SIZE } from '@/components/ui/paged-li
 import { resolveUploadUrl } from '@/shared/resolve-upload-url';
 import { productAppSectionsFrom } from '@/features/catalog/products/hooks/use-product-app-sections';
 import { APP, useCompanyApps, type AppRequirement } from '@/shared/modules/company-apps';
+import { ecommerceAdminRoutes } from '@/features/ecommerce/admin/constants/routes';
+import { useCan } from '@/features/auth/hooks/use-can';
 
 const FILTER_KEYS = [
   'categoryId',
@@ -206,6 +209,12 @@ export function ProductsListPage() {
   }, [categoriesData, categoryByIdMap]);
 
   const [scanOpen, setScanOpen] = React.useState(false);
+  const can = useCan();
+  // The import is the store's (store admin); the other apps' product lists do not offer it.
+  const canImport =
+    productsBasePath === ecommerceAdminRoutes.products &&
+    can('catalog.products.create') &&
+    can('catalog.products.update');
 
   /** Scan a product's barcode / SKU and open it (its stock per location is there). */
   async function openScannedProduct(code: string) {
@@ -234,11 +243,21 @@ export function ProductsListPage() {
           <ScanBarcode className="h-3.5 w-3.5 shrink-0" />
           <span className="hidden sm:inline">مسح</span>
         </button>
+        {canImport ? (
+          <Link
+            href={ecommerceAdminRoutes.productsImport}
+            aria-label="استيراد المنتجات"
+            className="flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-border bg-muted/40 px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground sm:px-3"
+          >
+            <FileSpreadsheet className="h-3.5 w-3.5 shrink-0" />
+            <span className="hidden sm:inline">استيراد</span>
+          </Link>
+        ) : null}
         <FilterToggleButton />
         <PageHeaderPrimaryButton icon={Plus} label="إضافة منتج" disabled={!companyId} onClick={openCreateDialog} />
       </div>
     ),
-    [companyId],
+    [companyId, canImport],
   );
 
   useEntityFilterSlot(

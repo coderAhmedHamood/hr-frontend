@@ -20,6 +20,7 @@ export const ecommerceAdminRoutes = {
   notificationSettings: '/notification-settings',
   products: '/products',
   productDetail: (id: string) => `/products/${id}`,
+  productsImport: '/products/import',
   categories: '/categories',
   attributes: '/attributes',
   brands: '/brands',
