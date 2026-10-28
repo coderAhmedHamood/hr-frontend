@@ -19,6 +19,7 @@ import {
   deleteAdminStoreOrderAttachment,
   updateAdminStoreOrderAttachment,
   fetchAdminStoreOrder,
+  fetchAdminStoreOrderGroups,
   fetchAdminStoreOrders,
   saveAdminStoreLineAllocations,
   shipAdminStoreLine,
@@ -82,6 +83,12 @@ export const ordersApi = {
       ...page,
       items: page.items.map(normalizeOrderPayment),
     };
+  },
+
+  /** Counts and amounts per group of the filtered orders, and overall. */
+  groups(query: OrderListQuery) {
+    assertStoreHttp();
+    return fetchAdminStoreOrderGroups(query);
   },
 
   async getById(companyId: string, id: string) {

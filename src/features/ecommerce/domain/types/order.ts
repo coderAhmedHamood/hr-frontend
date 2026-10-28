@@ -105,6 +105,8 @@ export type OrderReturnReceipt = {
 
 export type Order = TenantScoped & {
   id: string;
+  /** With `groupBy`: the order's group key. */
+  groupKey?: string | null;
   orderNumber: string;
   customerId: string;
   customerNameAr: string;
@@ -230,6 +232,12 @@ export type OrderListQuery = {
   dateTo?: string;
   page?: number;
   limit?: number;
+  /** Server sort key (`STORE_ORDERS_SORT` in the backend). */
+  sortBy?: string;
+  sortDir?: 'asc' | 'desc';
+  /** Server group field; with `groupValue`, one group's orders only. */
+  groupBy?: string;
+  groupValue?: string;
 };
 
 export type UpdateOrderStatusInput = {

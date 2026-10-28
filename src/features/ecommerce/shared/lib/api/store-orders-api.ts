@@ -23,6 +23,7 @@ import type {
   StorefrontCustomerOrder,
 } from '@/features/ecommerce/storefront/domain/checkout';
 import { resolveStorefrontCompanyId } from '@/features/ecommerce/storefront/lib/storefront-company';
+import type { ListGroupsResult } from '@/components/ui/list-group';
 import {
   fromDecimalString,
   isStoreHttpEnabled,
@@ -155,6 +156,7 @@ type StoreOrderListItemDto = {
   assignedUserName?: string | null;
   createdAt: string;
   updatedAt?: string;
+  groupKey?: string | null;
 };
 
 function mapLine(dto: StoreOrderLineDto): OrderLineItem {
@@ -300,6 +302,7 @@ function mapListItem(dto: StoreOrderListItemDto, companyId: string): Order {
     assignedUserId: dto.assignedUserId ?? null,
     assignedUserName: dto.assignedUserName ?? null,
     source: dto.source ?? 'storefront',
+    ...(dto.groupKey !== undefined ? { groupKey: dto.groupKey } : {}),
   };
 }
 
@@ -519,6 +522,35 @@ export async function fetchPartnerStoreOrders(input: {
   };
 }
 
+/** The list's filters as query parameters (the list and its groups). */
+function orderFilterQuery(query: OrderListQuery, companyId: string) {
+  return {
+    companyId,
+    status: query.status,
+    paymentStatus: query.paymentStatus,
+    paymentMethod: query.paymentMethod,
+    paymentAccountId: query.paymentAccountId,
+    city: query.city,
+    search: query.search,
+    partnerId: query.partnerId,
+    assignedTo: query.assignedTo,
+    fulfilment: query.fulfilment,
+    source: query.source,
+    dateFrom: query.dateFrom,
+    dateTo: query.dateTo,
+    groupBy: query.groupBy,
+  };
+}
+
+/** Counts and amounts of the filtered orders, per `groupBy` group and overall. */
+export async function fetchAdminStoreOrderGroups(query: OrderListQuery): Promise<ListGroupsResult> {
+  const companyId = resolveStorefrontCompanyId(query.companyId);
+  return apiRequest<ListGroupsResult>('/store-admin/orders/groups', {
+    throwOnError: true,
+    query: orderFilterQuery(query, companyId),
+  });
+}
+
 export async function fetchAdminStoreOrders(
   query: OrderListQuery,
 ): Promise<PaginatedResult<Order>> {
@@ -526,21 +558,12 @@ export async function fetchAdminStoreOrders(
   const page = await apiRequest<PaginatedResult<StoreOrderListItemDto>>('/store-admin/orders', {
     throwOnError: true,
     query: {
-      companyId,
+      ...orderFilterQuery(query, companyId),
       page: query.page ?? 1,
       limit: query.limit ?? 50,
-      status: query.status,
-      paymentStatus: query.paymentStatus,
-      paymentMethod: query.paymentMethod,
-      paymentAccountId: query.paymentAccountId,
-      city: query.city,
-      search: query.search,
-      partnerId: query.partnerId,
-      assignedTo: query.assignedTo,
-      fulfilment: query.fulfilment,
-      source: query.source,
-      dateFrom: query.dateFrom,
-      dateTo: query.dateTo,
+      sortBy: query.sortBy,
+      sortDir: query.sortDir,
+      groupValue: query.groupValue,
     },
   });
   const safe = ensurePaginatedResult(page);
