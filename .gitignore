@@ -40,10 +40,13 @@ Thumbs.db
 *.swo
 .idea/
 .vscode/
-.claude/
+# Personal Claude settings stay local; the team skills are shared.
+.claude/*
+!.claude/skills/
 
-# Cursor
-.cursor/
+# Cursor: personal settings stay local; the team rules are shared.
+.cursor/*
+!.cursor/rules/
 
 # TypeScript (optional cache)
 *.pem

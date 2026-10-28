@@ -1,0 +1,14 @@
+---
+description: الطباعة والتصدير بهوية الشركة — أي PDF أو Excel أو سجل أو خطاب أو عقد أو إيصال أو فاتورة. Print, export, PDF, Excel, letterhead, company identity.
+globs: src/**/*.tsx,src/**/*.ts
+alwaysApply: false
+---
+
+# الطباعة والتصدير بهوية الشركة (إلزامي)
+
+المرجع الكامل: @.claude/skills/branded-printing/SKILL.md (اقرأه قبل أي زر طباعة أو تصدير أو مكوّن طباعة).
+
+ملخص ما لا يُخالف:
+- الهوية من `usePdfCompanyLetterhead()` فقط (الاسم، السجل، الشعار، الختم، اللون، العلامة المائية). لا اسم ولا شعار ولا عملة ثابتة. الحقل الفارغ لا يُطبع.
+- السجل يتبع الشاشة: كل الصفوف المفلترة بترتيبها وتجميعها (`registerExportRows`)، دون الأعمدة المخفية (`visibleExportColumns`)، مع ملخص الفلاتر والترتيب والتجميع تحت العنوان. الـ PDF والـ Excel بالصفوف نفسها.
+- مكوّن الطباعة بأنماط مضمّنة فقط، بخط `PDF_PRINT_FONT_FAMILY`، ومعاينة في `PdfPreviewExportDialog` ثم `exportDomToPdf`. الترويسة والتذييل على كل صفحة بـ `PDF_RUNNING_HEADER_ATTR` و`PDF_RUNNING_FOOTER_ATTR`.

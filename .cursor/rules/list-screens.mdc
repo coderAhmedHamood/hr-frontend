@@ -1,0 +1,16 @@
+---
+description: شاشات القوائم (أي جدول أو سجل أو قائمة سجلات في أي تطبيق) — الفلاتر والترتيب والتجميع والأعمدة والعروض المحفوظة والإجماليات والتصدير الذي يتبع الشاشة. List screens, filters, sort, group by, DataTable.
+globs: src/**/*.tsx,src/**/*.ts
+alwaysApply: false
+---
+
+# شاشات القوائم (إلزامي)
+
+المرجع الكامل: @.claude/skills/list-screens/SKILL.md (اقرأه قبل بناء أو تعديل أي شاشة قائمة).
+
+ملخص ما لا يُخالف:
+- كل شاشة قائمة: فلاتر محفوظة (`usePersistedFilterState` + `hrFiltersKey`)، ترتيب من الخادم (`useListSort` + `ListSortMenu` + `sortKey`)، تجميع حين توجد حقول له (`useListGroup` + `ListGroupMenu` + `useGroupedList` + `GroupedDataTable`)، أعمدة اختيارية (`useColumnVisibility` + `ListColumnsPicker`)، عروض محفوظة (`listStateKeys` + `ListSavedViews`)، صف إجمالي لكل الصفحات، وتصدير PDF/Excel يتبع الشاشة.
+- الترتيب والتجميع والإجماليات من الخادم دائماً، لا من الصفحة الظاهرة. المفاتيح = مفاتيح الخادم حرفياً.
+- التخزين مقيّد بالشركة. لا عملة ثابتة (`companyCurrencyCode()`)، ولا جمع لعملتين.
+- عنصر من تطبيق آخر: `requiresApp` و`useCompanyApps()` (AGENTS.md القسم 1).
+- المرجع المطبّق: `src/features/hr/organization/employees/hooks/useEmployeesListModel.tsx`.
