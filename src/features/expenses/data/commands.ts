@@ -7,7 +7,23 @@ import type { ExpenseDraft } from '../domain/commands';
 import type { AnyTxn, Category, CostCenter, ExpenseGroup, ExpensesSettings, PartyId, Settlement } from '../domain/types';
 import type { Minor } from '../domain/money';
 
-export type ExpensesCommand =
+/**
+ * `requestId` (operations that create a record): the new record's id, so the
+ * same operation sent again — a retry after a lost answer, a second tab —
+ * runs once on the server. The store adds one when it is missing.
+ */
+export type ExpensesCommand = ExpensesCommandBody & { requestId?: string };
+
+/** Operations that create a record and accept a `requestId`. */
+export const IDEMPOTENT_COMMANDS: ReadonlySet<ExpensesCommand['type']> = new Set([
+  'saveExpense',
+  'openCustody',
+  'addCustodyMove',
+  'addAdvance',
+  'addSettlement',
+]);
+
+type ExpensesCommandBody =
   | { type: 'saveExpense'; draft: ExpenseDraft; submit: boolean }
   | { type: 'submit'; kind: AnyTxn['kind']; id: string }
   | { type: 'decide'; kind: AnyTxn['kind']; id: string; decision: 'approved' | 'rejected'; note?: string | null }

@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { cn } from '@/shared/utils';
+import { cn, randomUUID } from '@/shared/utils';
 import { useExpensesStore } from '../data/store';
 import { checkFile, uploadReceipt } from '../data/attachments';
 import type { ExpenseDraft } from '../domain/commands';
@@ -46,6 +46,9 @@ export function ExpenseFormDialog({
   const actorId = useExpensesStore((s) => s.actorId);
   const companyId = useExpensesStore((s) => s.companyId);
   const exec = useExpensesStore((s) => s.exec);
+  // One new expense per dialog opening: saving again after a lost answer
+  // sends the same requestId, so the server records it once.
+  const requestId = React.useRef(randomUUID());
   const busy = useExpensesStore((s) => s.busy);
   const [uploading, setUploading] = React.useState(false);
   const advanced = data?.settings.mode === 'advanced';
@@ -74,6 +77,7 @@ export function ExpenseFormDialog({
 
   React.useEffect(() => {
     if (!open || !data) return;
+    requestId.current = randomUUID();
     if (editing) {
       setAmountText(minorToInput(editing.amount, currency.decimals));
       setAmount(editing.amount);
@@ -222,7 +226,12 @@ export function ExpenseFormDialog({
       return;
     }
     try {
-      const result = await exec<{ id: string; status: Expense['status'] }>({ type: 'saveExpense', draft, submit });
+      const result = await exec<{ id: string; status: Expense['status'] }>({
+        type: 'saveExpense',
+        draft,
+        submit,
+        requestId: draft.id ? undefined : requestId.current,
+      });
       toast.success(result.status === 'draft' ? 'حُفظ مسودة' : result.status === 'approved' ? 'سُجّل المصروف واعتُمد' : 'أُرسل للاعتماد');
       onOpenChange(false);
       const saved = useExpensesStore.getState().data?.expenses.find((e) => e.id === result.id);

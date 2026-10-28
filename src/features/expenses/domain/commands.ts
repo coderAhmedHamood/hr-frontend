@@ -137,6 +137,17 @@ export function voidTxn(data: ExpensesData, kind: AnyTxn['kind'], id: string, re
   if (!txn) throw new CommandError('العملية غير موجودة');
   if (!canVoid(txn)) throw new CommandError('لا يمكن إلغاء هذه العملية');
   if (!reason.trim()) throw new CommandError('اكتب سبب الإلغاء');
+  // A closed custody's balance is settled; voiding one of its records would
+  // leave money in it that no move can take out any more.
+  const custodyIds =
+    txn.kind === 'custody_move'
+      ? [txn.custodyId]
+      : txn.kind === 'expense'
+        ? txn.payments.flatMap((p) => (p.custodyId ? [p.custodyId] : []))
+        : [];
+  if (data.custodies.some((c) => custodyIds.includes(c.id) && c.status === 'closed')) {
+    throw new CommandError('العهدة مقفلة: لا تُلغى عملياتها بعد التسوية');
+  }
   if (txn.kind === 'custody_move' && txn.status === 'approved' && txn.type !== 'return') {
     const balance = computeLedger(data, txn.currency).custodies.get(txn.custodyId);
     if (balance && balance.actual - txn.amount < 0) {
