@@ -175,6 +175,7 @@ export const inventoryAdminNavGroups: InventoryAdminNavGroup[] = [
         items: [
           { labelAr: 'المستودعات', href: inventoryAdminRoutes.warehouses, icon: Warehouse },
           { labelAr: 'المواقع', href: inventoryAdminRoutes.locations, icon: MapPin },
+          { labelAr: 'استيراد البيانات', href: inventoryAdminRoutes.setupImport, icon: FileSpreadsheet },
           // Not applied yet (see putaway-feature): hidden until it is.
           ...(PUTAWAY_RULES_ENABLED
             ? [{ labelAr: 'قواعد التخزين', href: inventoryAdminRoutes.putawayRules, icon: MapPinned }]

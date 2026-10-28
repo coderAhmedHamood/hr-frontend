@@ -48,6 +48,8 @@ export type StoreImportPreview = {
     variantsCreated: number;
     variantsUpdated: number;
     categoriesCreated: string[];
+    /** Older servers omit it. */
+    brandsCreated?: string[];
     quantitiesSet: number;
   };
   errors: number;
@@ -61,6 +63,8 @@ export type StoreImportOptions = {
   /** Per sheet: file header → field key ('' = do not import). */
   mapping?: Partial<Record<StoreImportSheetKey, Record<string, string>>>;
   publish?: boolean;
+  /** Create and link missing categories and brands (default), or refuse them. */
+  createMissing?: boolean;
 };
 
 const base = (companyId: string) => `/store-admin/companies/${resolveStorefrontCompanyId(companyId)}/import`;

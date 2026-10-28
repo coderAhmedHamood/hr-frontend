@@ -38,4 +38,6 @@ export const inventoryAdminRoutes = {
   brands: '/inventory/brands',
   catalogUoms: '/inventory/catalog-uoms',
   settings: '/inventory/settings',
+  /** One file: warehouses, locations, units, categories, products, opening balance. */
+  setupImport: '/inventory/import',
 } as const;

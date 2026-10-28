@@ -98,6 +98,32 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { GroupedDataTable } from '@/components/ui/grouped-data-table';
+import { ListColumnsPicker, useColumnVisibility } from '@/components/ui/list-columns-picker';
+import { ListGroupMenu, listGroupQuery, useGroupedList, useListGroup } from '@/components/ui/list-group';
+import { ListSavedViews, listStateKeys } from '@/components/ui/list-saved-views';
+import { ListSortMenu, listSortQuery, useListSort } from '@/components/ui/list-sort';
+import { RegisterExportMenu } from '@/components/pdf/register-export-menu';
+import { registerExportRows, visibleExportColumns } from '@/components/pdf/lib/register-export-rows';
+import { fetchAllPaginatedItems } from '@/shared/api/client';
+import { hrFiltersKey, usePersistedFilterState } from '@/features/hr/lib/use-persisted-filter-state';
+import {
+  fetchWarehouseOperationGroups,
+  warehouseOperationsApi,
+} from '@/features/inventory/admin/operations/lib/api/warehouse-operations';
+import {
+  OPERATIONS_COLUMN_OPTIONS,
+  operationsExportColumns,
+  operationsGroupOptions,
+  operationsSortOptions,
+} from '@/features/inventory/admin/operations/lib/operations-list-options';
+
+/** The start (or end) of a local calendar day as an ISO instant. */
+function localDayBoundary(date: string, endOfDay = false): string | undefined {
+  if (!date) return undefined;
+  const value = new Date(`${date}T${endOfDay ? '23:59:59.999' : '00:00:00.000'}`);
+  return Number.isNaN(value.getTime()) ? undefined : value.toISOString();
+}
 
 function statusBadgeVariant(
   status: WarehouseOperationStatus,
@@ -136,8 +162,27 @@ export function WarehouseOperationsPanel({
   const [search, setSearch] = React.useState('');
   const [page, setPage] = React.useState(1);
   const [pageSize, setPageSize] = React.useState(DEFAULT_PAGE_SIZE);
-  const [filterWarehouseId, setFilterWarehouseId] = React.useState<string>('all');
-  const [filterStatus, setFilterStatus] = React.useState<WarehouseOperationStatus | 'all'>('all');
+  // The standalone pages keep their filters, sort, grouping and columns per
+  // user, company and kind (list-screens skill); a warehouse's tab does not.
+  const listPage = `operations-${kind}`;
+  const filterKey = (field: string) =>
+    scopedToWarehouse ? null : hrFiltersKey('inventory', listPage, companyId, field);
+  const [filterWarehouseId, setFilterWarehouseId] = usePersistedFilterState<string>(filterKey('warehouse'), 'all');
+  const [filterStatus, setFilterStatus] = usePersistedFilterState<WarehouseOperationStatus | 'all'>(
+    filterKey('status'),
+    'all',
+  );
+  const [period, setPeriod] = usePersistedFilterState(filterKey('period'), { from: '', to: '' });
+  const partnerLabel = operationPartnerLabel(kind);
+  const stateKeys = listStateKeys('inventory', listPage, scopedToWarehouse ? null : companyId);
+  const sort = useListSort(stateKeys.sort, operationsSortOptions(partnerLabel));
+  const group = useListGroup(
+    stateKeys.group,
+    operationsGroupOptions({ partnerLabel, hasDestination: meta.needsDestWarehouse || kind === 'transfer' }),
+  );
+  const groupBy = scopedToWarehouse ? null : group.groupBy;
+  const columnVisibility = useColumnVisibility(filterKey('hiddenColumns'), OPERATIONS_COLUMN_OPTIONS);
+  const sortQuery = listSortQuery(sort.sort);
   const [open, setOpen] = React.useState(false);
   const [singleScanOpen, setSingleScanOpen] = React.useState(false);
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
@@ -170,7 +215,7 @@ export function WarehouseOperationsPanel({
 
   React.useEffect(() => {
     setPage(1);
-  }, [filterWarehouseId, filterStatus, kind, warehouseId]);
+  }, [filterWarehouseId, filterStatus, kind, warehouseId, period.from, period.to, sort.sortKey]);
 
   const listWarehouseId = scopedToWarehouse
     ? warehouseId
@@ -178,14 +223,28 @@ export function WarehouseOperationsPanel({
       ? filterWarehouseId
       : undefined;
 
-  const { data, isLoading, isError } = useWarehouseOperations({
+  const listFilters = {
     companyId,
     warehouseId: listWarehouseId,
     kind,
     status: filterStatus !== 'all' ? filterStatus : undefined,
     search: search || undefined,
-    page,
-    limit: pageSize,
+    // A day is the user's whole day (its local start and end), as the moves report reads it.
+    occurredAtFrom: localDayBoundary(period.from),
+    occurredAtTo: localDayBoundary(period.to, true),
+  };
+  const { data, isLoading, isError } = useWarehouseOperations(
+    { ...listFilters, ...sortQuery, page, limit: pageSize },
+    { enabled: !groupBy },
+  );
+  // Grouped: the groups (counts) and the documents of the open ones.
+  const grouped = useGroupedList<WarehouseOperation>({
+    enabled: Boolean(companyId) && Boolean(groupBy),
+    groupBy,
+    resetKey: JSON.stringify({ ...listFilters, ...sortQuery }),
+    fetchGroups: () => fetchWarehouseOperationGroups({ ...listFilters, ...listGroupQuery(groupBy) }),
+    fetchGroupRows: (groupValue, p, l) =>
+      warehouseOperationsApi.getAll({ ...listFilters, ...sortQuery, ...listGroupQuery(groupBy), groupValue, page: p, limit: l }),
   });
   const needsWarehouseDirectory =
     showFilters || open || Boolean(selectedId) || meta.needsDestWarehouse || kind === 'transfer';
@@ -432,11 +491,55 @@ export function WarehouseOperationsPanel({
   // Standalone inventory pages (kind pages) get the shared topbar add-button + collapsible
   // filter bar pattern; the warehouse-detail embedded tab keeps its original inline toolbar
   // untouched so this change stays scoped to the standalone pages only.
+  const exportColumns = visibleExportColumns(
+    operationsExportColumns({
+      partnerLabel,
+      warehouseName: (id) => (id ? (warehouseNameById.get(id) ?? '') : ''),
+    }),
+    columnVisibility.isVisible,
+  );
+  const filterSummary = [
+    search ? `بحث: ${search}` : null,
+    filterWarehouseId !== 'all' ? `المستودع: ${warehouseNameById.get(filterWarehouseId) ?? ''}` : null,
+    filterStatus !== 'all' ? `الحالة: ${WAREHOUSE_OPERATION_STATUS_LABELS_AR[filterStatus]}` : null,
+    period.from || period.to ? `الفترة: ${period.from || '…'} — ${period.to || '…'}` : null,
+    sort.label,
+    group.label,
+  ].filter((line): line is string => Boolean(line));
+  const activeFilterCount =
+    (filterWarehouseId !== 'all' ? 1 : 0) + (filterStatus !== 'all' ? 1 : 0) + (period.from || period.to ? 1 : 0);
+
+  /** Every filtered document (all pages) in the screen's order, grouped like the screen. */
+  const getExportRows = async () => {
+    const query = { ...listFilters, ...sortQuery, ...listGroupQuery(groupBy) };
+    const [{ items: all }, summary] = await Promise.all([
+      fetchAllPaginatedItems((p, l) => warehouseOperationsApi.getAll({ ...query, page: p, limit: l })),
+      groupBy ? fetchWarehouseOperationGroups(query) : Promise.resolve(null),
+    ]);
+    return registerExportRows({
+      columns: exportColumns,
+      rows: all,
+      grouping:
+        groupBy && group.option && summary
+          ? {
+              fieldLabel: group.option.label,
+              groups: group.sortGroups(summary.groups),
+              labelOf: group.labelOf,
+              groupKeyOf: (operation) => operation.groupKey,
+            }
+          : undefined,
+    });
+  };
+
   usePageHeaderActions(
     () =>
       scopedToWarehouse ? null : (
         <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
-          <FilterToggleButton />
+          <FilterToggleButton activeFilterCount={activeFilterCount} />
+          <ListColumnsPicker model={columnVisibility} />
+          <ListSortMenu model={sort} />
+          <ListGroupMenu model={group} />
+          <ListSavedViews storageKey={stateKeys.views} prefixes={stateKeys.prefixes} />
           {headerExtra}
           <PageHeaderPrimaryButton
             icon={Plus}
@@ -446,23 +549,58 @@ export function WarehouseOperationsPanel({
           >
             {meta.createLabel}
           </PageHeaderPrimaryButton>
+          <RegisterExportMenu
+            title={`سجل ${meta.title}`}
+            fileName={`inventory-${kind}`}
+            columns={exportColumns}
+            getRows={getExportRows}
+            subtitleLines={filterSummary}
+            landscape
+            emptyMessage={`لا توجد ${meta.title} للتصدير ضمن الفلاتر الحالية.`}
+          />
         </div>
       ),
-    [scopedToWarehouse, meta.createLabel, companyId, allWarehouses.length, headerExtra],
+    [
+      scopedToWarehouse,
+      meta.createLabel,
+      meta.title,
+      companyId,
+      allWarehouses.length,
+      headerExtra,
+      activeFilterCount,
+      sort.sortKey,
+      sort.label,
+      group.groupKey,
+      group.label,
+      columnVisibility.hiddenKey,
+      JSON.stringify(listFilters),
+      stateKeys.views,
+    ],
   );
 
   useEntityFilterSlot(
     () =>
       scopedToWarehouse ? null : (
         <ListFilterBar
-          showDateSection={false}
+          showDateSection
+          optionalDateRange
+          periodValue={period}
+          onPeriodChange={(range) => setPeriod({ from: range.from, to: range.to })}
+          periodFilterActive={Boolean(period.from || period.to)}
+          onPeriodFilterClear={() => setPeriod({ from: '', to: '' })}
+          onClearAll={() => {
+            setSearchInput('');
+            setFilterWarehouseId('all');
+            setFilterStatus('all');
+            setPeriod({ from: '', to: '' });
+          }}
           showStatusSection={false}
           showEmployeePicker={false}
           leadingFilters={
             <EntityFilterSearchField
               value={searchInput}
               onChange={setSearchInput}
-              placeholder="ابحث بالمرجع أو المنتج…"
+              placeholder="ابحث بالمرجع أو المنتج أو الجهة…"
             />
           }
           inlineSelects={[
@@ -492,7 +630,7 @@ export function WarehouseOperationsPanel({
           ]}
         />
       ),
-    [scopedToWarehouse, searchInput, filterWarehouseId, filterStatus, allWarehouses],
+    [scopedToWarehouse, searchInput, filterWarehouseId, filterStatus, allWarehouses, period.from, period.to],
   );
 
   React.useEffect(() => {
@@ -738,6 +876,7 @@ export function WarehouseOperationsPanel({
     {
       key: 'reference',
       title: 'المرجع',
+      sortKey: 'occurredAt',
       render: (row) => (
         <div className="flex flex-col">
           <span className="font-medium" dir="ltr">
@@ -754,6 +893,7 @@ export function WarehouseOperationsPanel({
           {
             key: 'warehouse',
             title: meta.needsDestWarehouse ? 'المستودعات' : 'المستودع',
+            sortKey: 'warehouse',
             render: (row: WarehouseOperation) =>
               row.destinationWarehouseId && row.destinationWarehouseId !== row.warehouseId ? (
                 <WarehouseRouteChips
@@ -769,6 +909,7 @@ export function WarehouseOperationsPanel({
     {
       key: 'partner',
       title: operationPartnerLabel(kind),
+      sortKey: 'partner',
       hideOnMobile: true,
       render: (row) => (
         <div className="flex flex-col">
@@ -821,6 +962,7 @@ export function WarehouseOperationsPanel({
     {
       key: 'status',
       title: 'الحالة',
+      sortKey: 'status',
       render: (row) => (
         <Badge variant={statusBadgeVariant(row.status)}>
           {WAREHOUSE_OPERATION_STATUS_LABELS_AR[row.status]}
@@ -839,6 +981,10 @@ export function WarehouseOperationsPanel({
         ),
     },
   ];
+
+  const visibleColumns = scopedToWarehouse
+    ? columns
+    : columns.filter((column) => columnVisibility.isVisible(column.key));
 
   /** Phones: reference, date and status on top, then what moved and where (one tap opens it). */
   const operationMobileCard = (row: WarehouseOperation) => {
@@ -1573,35 +1719,50 @@ export function WarehouseOperationsPanel({
     <div className="flex flex-col gap-4">
       {isError ? <p className="text-sm text-destructive">تعذر تحميل {meta.title}.</p> : null}
 
-      <DirectoryPagedViews
-        items={items}
-        loading={isLoading}
-        serverPagination={{
-          page,
-          pageSize,
-          total,
-          totalPages: Math.max(1, Math.ceil(total / pageSize)),
-          setPage,
-          setPageSize: (size) => {
-            setPageSize(size);
-            setPage(1);
-          },
-        }}
-      >
-        {(pageItems) => (
-          <DataTable
-            variant="directory"
-            className="inv-table-host"
-            columns={columns}
-            data={pageItems}
-            keyExtractor={(row) => row.id}
-            loading={isLoading}
-            emptyText={meta.empty}
-            onRowClick={(row) => setSelectedId(row.id)}
-            mobileCard={operationMobileCard}
-          />
-        )}
-      </DirectoryPagedViews>
+      {groupBy ? (
+        <GroupedDataTable
+          columns={visibleColumns}
+          group={group}
+          list={grouped}
+          keyExtractor={(row) => row.id}
+          onRowClick={(row) => setSelectedId(row.id)}
+          sort={sort.sort}
+          onSort={sort.toggle}
+          emptyText={meta.empty}
+        />
+      ) : (
+        <DirectoryPagedViews
+          items={items}
+          loading={isLoading}
+          serverPagination={{
+            page,
+            pageSize,
+            total,
+            totalPages: Math.max(1, Math.ceil(total / pageSize)),
+            setPage,
+            setPageSize: (size) => {
+              setPageSize(size);
+              setPage(1);
+            },
+          }}
+        >
+          {(pageItems) => (
+            <DataTable
+              variant="directory"
+              className="inv-table-host"
+              columns={visibleColumns}
+              data={pageItems}
+              keyExtractor={(row) => row.id}
+              loading={isLoading}
+              emptyText={meta.empty}
+              onRowClick={(row) => setSelectedId(row.id)}
+              mobileCard={operationMobileCard}
+              sort={sort.sort}
+              onSort={sort.toggle}
+            />
+          )}
+        </DirectoryPagedViews>
+      )}
 
       {dialogs}
     </div>

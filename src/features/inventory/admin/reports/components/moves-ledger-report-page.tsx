@@ -32,6 +32,24 @@ import { DirectoryPagedViews, DEFAULT_PAGE_SIZE } from '@/components/ui/paged-li
 import { ListFilterBar } from '@/components/ui/list-filter-bar';
 import { EntityFilterSearchField } from '@/components/ui/entity-filter-search-field';
 import { DateRangeFilterTrigger, type DateRangeFilterValue } from '@/components/ui/date-range-filter-trigger';
+import { GroupedDataTable } from '@/components/ui/grouped-data-table';
+import { ListColumnsPicker, useColumnVisibility } from '@/components/ui/list-columns-picker';
+import { ListGroupMenu, listGroupQuery, useGroupedList, useListGroup } from '@/components/ui/list-group';
+import { ListSavedViews, listStateKeys } from '@/components/ui/list-saved-views';
+import { ListSortMenu, listSortQuery, useListSort } from '@/components/ui/list-sort';
+import { RegisterExportMenu } from '@/components/pdf/register-export-menu';
+import { registerExportRows, visibleExportColumns } from '@/components/pdf/lib/register-export-rows';
+import { fetchAllPaginatedItems } from '@/shared/api/client';
+import { hrFiltersKey, usePersistedFilterState } from '@/features/hr/lib/use-persisted-filter-state';
+import { inventoryLedgerApi } from '@/features/inventory/admin/operations/lib/api/inventory-ledger';
+import {
+  LEDGER_COLUMN_OPTIONS,
+  LEDGER_GROUP_MEASURES,
+  LEDGER_GROUP_OPTIONS,
+  LEDGER_SORT_OPTIONS,
+  ledgerExportColumns,
+  ledgerTotalsLabel,
+} from '@/features/inventory/admin/reports/lib/ledger-list-options';
 
 /**
  * Each ledger row holds its own side of the movement; the counterpart is the
@@ -83,10 +101,24 @@ export function MovesLedgerReportPage({ inboundOnly = false }: { inboundOnly?: b
   const [search, setSearch] = React.useState('');
   const [page, setPage] = React.useState(1);
   const [pageSize, setPageSize] = React.useState(DEFAULT_PAGE_SIZE);
-  const [warehouseId, setWarehouseId] = React.useState('all');
-  const [locationId, setLocationId] = React.useState('all');
-  const [kind, setKind] = React.useState<'all' | WarehouseOperationKind>('all');
-  const [dateRange, setDateRange] = React.useState<DateRangeFilterValue>({ from: '', to: '' });
+  // Filters, sort, grouping and columns: kept per user and company, and per
+  // report (the moves log and the inbound report keep their own).
+  const listPage = inboundOnly ? 'inbound' : 'moves';
+  const filterKey = (field: string) => hrFiltersKey('inventory', listPage, companyId, field);
+  const [warehouseId, setWarehouseId] = usePersistedFilterState(filterKey('warehouse'), 'all');
+  const [locationId, setLocationId] = usePersistedFilterState(filterKey('location'), 'all');
+  const [kind, setKind] = usePersistedFilterState<'all' | WarehouseOperationKind>(filterKey('kind'), 'all');
+  const [dateRange, setDateRange] = usePersistedFilterState<DateRangeFilterValue>(filterKey('period'), {
+    from: '',
+    to: '',
+  });
+  const stateKeys = listStateKeys('inventory', listPage, companyId);
+  const sort = useListSort(stateKeys.sort, LEDGER_SORT_OPTIONS);
+  const group = useListGroup(stateKeys.group, LEDGER_GROUP_OPTIONS, LEDGER_GROUP_MEASURES);
+  // The inbound report has its own per-item summary; it is not grouped.
+  const groupBy = inboundOnly ? null : group.groupBy;
+  const columnVisibility = useColumnVisibility(filterKey('hiddenColumns'), LEDGER_COLUMN_OPTIONS);
+  const sortQuery = listSortQuery(sort.sort);
 
   React.useEffect(() => {
     const t = setTimeout(() => {
@@ -98,25 +130,40 @@ export function MovesLedgerReportPage({ inboundOnly = false }: { inboundOnly?: b
 
   React.useEffect(() => {
     setPage(1);
-  }, [warehouseId, locationId, kind, dateRange]);
+  }, [warehouseId, locationId, kind, dateRange, sort.sortKey]);
 
-  // A location belongs to one warehouse — clear it if it no longer matches
-  // the selected warehouse instead of silently filtering on a stale id.
+  // A location belongs to one warehouse — clear it when the user picks
+  // another warehouse (not on the first render: the saved pair stays).
+  const lastWarehouseRef = React.useRef(warehouseId);
   React.useEffect(() => {
+    if (lastWarehouseRef.current === warehouseId) return;
+    lastWarehouseRef.current = warehouseId;
     setLocationId('all');
-  }, [warehouseId]);
+  }, [warehouseId, setLocationId]);
 
-  const { data, isLoading, isError } = useInventoryLedger({
+  const ledgerFilters = {
     companyId,
     warehouseId: warehouseId === 'all' ? undefined : warehouseId,
     locationId: locationId === 'all' ? undefined : locationId,
     kind: kind === 'all' ? undefined : kind,
-    flow: inboundOnly && kind === 'all' ? 'inbound' : undefined,
+    flow: inboundOnly && kind === 'all' ? ('inbound' as const) : undefined,
     occurredAtFrom: localDateBoundary(dateRange.from),
     occurredAtTo: localDateBoundary(dateRange.to, true),
     search: search || undefined,
-    page,
-    limit: pageSize,
+  };
+  const { data, isLoading, isError } = useInventoryLedger(
+    { ...ledgerFilters, ...sortQuery, page, limit: pageSize },
+    { enabled: !groupBy },
+  );
+  // Grouped: the groups (count, in / out / net) and the movements of the open
+  // ones; flat: the grand total over every page (the totals row).
+  const grouped = useGroupedList<InventoryLedgerEntry>({
+    enabled: Boolean(companyId) && !inboundOnly,
+    groupBy,
+    resetKey: JSON.stringify({ ...ledgerFilters, ...sortQuery }),
+    fetchGroups: () => inventoryLedgerApi.groups({ ...ledgerFilters, ...listGroupQuery(groupBy) }),
+    fetchGroupRows: (groupValue, p, l) =>
+      inventoryLedgerApi.list({ ...ledgerFilters, ...sortQuery, ...listGroupQuery(groupBy), groupValue, page: p, limit: l }),
   });
   const { data: warehousesData } = useWarehouses({ companyId, limit: 100 });
   // Unscoped — a cross-warehouse transfer's counterpart location can belong to
@@ -158,7 +205,84 @@ export function MovesLedgerReportPage({ inboundOnly = false }: { inboundOnly?: b
   const productSummary = data?.productSummary ?? [];
   const inboundValue = productSummary.reduce((sum, row) => sum + row.totalValue, 0);
 
-  usePageHeaderActions(() => <FilterToggleButton />, []);
+  const exportColumns = visibleExportColumns(
+    ledgerExportColumns({
+      warehouse: (id) => (id ? (warehouseName.get(id) ?? '') : ''),
+      location: (id) => (id ? locationName(id) : ''),
+    }),
+    columnVisibility.isVisible,
+  );
+  const filterSummary = [
+    search ? `بحث: ${search}` : null,
+    warehouseId !== 'all' ? `المستودع: ${warehouseName.get(warehouseId) ?? ''}` : null,
+    locationId !== 'all' ? `الموقع: ${locationName(locationId)}` : null,
+    kind !== 'all' ? `النوع: ${WAREHOUSE_OPERATION_KIND_META[kind].labelAr}` : null,
+    dateRange.from || dateRange.to ? `الفترة: ${dateRange.from || '…'} — ${dateRange.to || '…'}` : null,
+    sort.label,
+    groupBy ? group.label : null,
+  ].filter((line): line is string => Boolean(line));
+  const activeFilterCount =
+    (warehouseId !== 'all' ? 1 : 0) +
+    (locationId !== 'all' ? 1 : 0) +
+    (kind !== 'all' ? 1 : 0) +
+    (dateRange.from || dateRange.to ? 1 : 0);
+
+  /** Every filtered movement (all pages) in the screen's order, grouped like the screen. */
+  const getExportRows = async () => {
+    const query = { ...ledgerFilters, ...sortQuery, ...listGroupQuery(groupBy) };
+    const [{ items: all }, summary] = await Promise.all([
+      fetchAllPaginatedItems((p, l) => inventoryLedgerApi.list({ ...query, page: p, limit: l })),
+      inventoryLedgerApi.groups(query),
+    ]);
+    return registerExportRows({
+      columns: exportColumns,
+      rows: all,
+      total: summary.total,
+      grouping:
+        groupBy && group.option
+          ? {
+              fieldLabel: group.option.label,
+              groups: group.sortGroups(summary.groups),
+              labelOf: group.labelOf,
+              groupKeyOf: (entry) => entry.groupKey,
+            }
+          : undefined,
+    });
+  };
+
+  usePageHeaderActions(
+    () => (
+      <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
+        <FilterToggleButton activeFilterCount={activeFilterCount} />
+        <ListColumnsPicker model={columnVisibility} />
+        <ListSortMenu model={sort} />
+        {inboundOnly ? null : <ListGroupMenu model={group} />}
+        <ListSavedViews storageKey={stateKeys.views} prefixes={stateKeys.prefixes} />
+        <RegisterExportMenu
+          title={inboundOnly ? 'سجل وارد الأصناف' : 'سجل الحركات'}
+          fileName={inboundOnly ? 'inventory-inbound' : 'inventory-moves'}
+          columns={exportColumns}
+          getRows={getExportRows}
+          subtitleLines={filterSummary}
+          landscape
+          pinnedColumnCount={1}
+          emptyMessage="لا توجد حركات للتصدير ضمن الفلاتر الحالية."
+        />
+      </div>
+    ),
+    [
+      inboundOnly,
+      activeFilterCount,
+      sort.sortKey,
+      sort.label,
+      group.groupKey,
+      group.label,
+      columnVisibility.hiddenKey,
+      JSON.stringify(ledgerFilters),
+      exportColumns.length,
+      stateKeys.views,
+    ],
+  );
 
   useEntityFilterSlot(
     () => (
@@ -247,6 +371,7 @@ export function MovesLedgerReportPage({ inboundOnly = false }: { inboundOnly?: b
     {
       key: 'date',
       title: 'التاريخ',
+      sortKey: 'occurredAt',
       sticky: 'start',
       render: (row) => (
         <span className="text-sm whitespace-nowrap">
@@ -257,6 +382,7 @@ export function MovesLedgerReportPage({ inboundOnly = false }: { inboundOnly?: b
     {
       key: 'reference',
       title: 'المرجع',
+      sortKey: 'reference',
       render: (row) => (
         <div className="flex flex-col">
           <span className="font-medium" dir="ltr">
@@ -271,6 +397,7 @@ export function MovesLedgerReportPage({ inboundOnly = false }: { inboundOnly?: b
     {
       key: 'warehouse',
       title: 'المستودع',
+      sortKey: 'warehouse',
       render: (row) => {
         const route = movementRoute(row);
         return route.crossWarehouse ? (
@@ -286,6 +413,7 @@ export function MovesLedgerReportPage({ inboundOnly = false }: { inboundOnly?: b
     {
       key: 'product',
       title: 'المنتج',
+      sortKey: 'product',
       render: (row) => (
         <div className="flex flex-col">
           <span className="font-medium">{row.productName}</span>
@@ -312,6 +440,8 @@ export function MovesLedgerReportPage({ inboundOnly = false }: { inboundOnly?: b
     {
       key: 'delta',
       title: inboundOnly ? 'الكمية الداخلة' : 'التغيير',
+      sortKey: 'quantity',
+      total: (totals) => <span className="text-xs font-semibold tabular-nums">{ledgerTotalsLabel(totals)}</span>,
       render: (row) => (
         <span
           className={
@@ -356,6 +486,8 @@ export function MovesLedgerReportPage({ inboundOnly = false }: { inboundOnly?: b
       ),
     },
   ];
+
+  const visibleColumns = columns.filter((column) => columnVisibility.isVisible(column.key));
 
   /** Phones: what moved and by how much first, then the document, when and where. */
   const ledgerMobileCard = (row: InventoryLedgerEntry) => {
@@ -544,6 +676,17 @@ export function MovesLedgerReportPage({ inboundOnly = false }: { inboundOnly?: b
           />
         </section>
       ) : (
+      groupBy ? (
+        <GroupedDataTable
+          columns={visibleColumns}
+          group={group}
+          list={grouped}
+          keyExtractor={(row) => row.id}
+          sort={sort.sort}
+          onSort={sort.toggle}
+          emptyText="لا توجد حركات ضمن الفلاتر الحالية."
+        />
+      ) : (
       <DirectoryPagedViews
         items={rows}
         loading={isLoading}
@@ -564,15 +707,19 @@ export function MovesLedgerReportPage({ inboundOnly = false }: { inboundOnly?: b
             variant="directory"
             keepHeaderWhenEmpty
             className="inv-table-host"
-            columns={columns}
+            columns={visibleColumns}
             mobileCard={ledgerMobileCard}
             data={rowsPage}
             keyExtractor={(row) => row.id}
             loading={isLoading}
             emptyText="لا توجد قيود بعد — صدّق مستندًا لتسجيل أول حركة."
+            sort={sort.sort}
+            onSort={sort.toggle}
+            totals={grouped.summary?.total}
           />
         )}
       </DirectoryPagedViews>
+      )
       )}
     </div>
   );

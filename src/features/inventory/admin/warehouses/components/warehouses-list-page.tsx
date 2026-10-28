@@ -22,6 +22,12 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DataTable, type ColumnDef } from '@/components/ui/data-table';
 import { DirectoryPagedViews, DEFAULT_PAGE_SIZE } from '@/components/ui/paged-list';
+import { ListSavedViews, listStateKeys } from '@/components/ui/list-saved-views';
+import { ListSortMenu, listSortQuery, useListSort, type ListSortOption } from '@/components/ui/list-sort';
+import { RegisterExportMenu } from '@/components/pdf/register-export-menu';
+import type { RegisterExportColumn } from '@/components/pdf/lib/register-export-rows';
+import { fetchAllPaginatedItems } from '@/shared/api/client';
+import { warehousesApi } from '@/features/inventory/admin/warehouses/lib/api/warehouses';
 import {
   Select,
   SelectContent,
@@ -38,6 +44,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+
+/** Server keys (list-screens skill); by default the code. */
+const WAREHOUSES_SORT_OPTIONS: readonly ListSortOption[] = [
+  { key: 'code', label: 'الرمز' },
+  { key: 'name', label: 'الاسم' },
+  { key: 'createdAt', label: 'تاريخ الإضافة' },
+];
 
 export function WarehousesListPage() {
   const router = useRouter();
@@ -123,13 +136,38 @@ export function WarehousesListPage() {
     return () => clearTimeout(timeout);
   }, [searchInput]);
 
-  const { data, isLoading, isError, error } = useWarehouses({
-    companyId,
-    branchId: branchFilter || undefined,
-    search: search || undefined,
-    page,
-    limit: pageSize,
-  });
+  const branchNameById = React.useMemo(() => {
+    const map = new Map((company?.branches ?? []).map((b) => [b.branchId, getBranchAccessLabel(b)]));
+    return (id?: string | null) => {
+      if (id == null) return 'مركزي';
+      return map.get(id) ?? id.slice(0, 8);
+    };
+  }, [company?.branches]);
+
+  // Sort kept per user and company (list-screens skill).
+  const stateKeys = listStateKeys('inventory', 'warehouses', companyId);
+  const sort = useListSort(stateKeys.sort, WAREHOUSES_SORT_OPTIONS);
+  const sortQuery = listSortQuery(sort.sort);
+  const listQuery = { companyId, branchId: branchFilter || undefined, search: search || undefined, ...sortQuery };
+  const { data, isLoading, isError, error } = useWarehouses({ ...listQuery, page, limit: pageSize });
+
+  const exportColumns: RegisterExportColumn<WarehouseEntity>[] = [
+    { label: 'الرمز', kind: 'code', value: (w) => w.code },
+    { label: 'المستودع', kind: 'name', value: (w) => w.nameAr },
+    { label: 'الفرع', kind: 'text', value: (w) => branchNameById(w.branchId) },
+    { label: 'العنوان', kind: 'text', value: (w) => w.address ?? '' },
+    { label: 'الحالة', kind: 'status', value: (w) => (w.status === 'active' ? 'نشط' : 'غير نشط') },
+  ];
+  /** Every filtered warehouse (all pages) in the screen's order. */
+  const getExportRows = async () => {
+    const { items } = await fetchAllPaginatedItems((p, l) => warehousesApi.getAll({ ...listQuery, page: p, limit: l }));
+    return items.map((warehouse) => exportColumns.map((column) => column.value(warehouse)));
+  };
+  const filterSummary = [
+    search ? `بحث: ${search}` : null,
+    branchFilter ? `الفرع: ${branchNameById(branchFilter)}` : null,
+    sort.label,
+  ].filter((line): line is string => Boolean(line));
   const { remove } = useWarehouseMutations();
 
   const canCreate = Boolean(companyId) && (hasAllBranchAccess || branchOptions.length > 0);
@@ -137,7 +175,9 @@ export function WarehousesListPage() {
   usePageHeaderActions(
     () => (
       <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
-        <FilterToggleButton />
+        <FilterToggleButton activeFilterCount={branchFilter ? 1 : 0} />
+        <ListSortMenu model={sort} />
+        <ListSavedViews storageKey={stateKeys.views} prefixes={stateKeys.prefixes} />
         <PageHeaderPrimaryButton
           icon={Plus}
           label="إضافة مستودع"
@@ -146,9 +186,17 @@ export function WarehousesListPage() {
         >
           إضافة مستودع
         </PageHeaderPrimaryButton>
+        <RegisterExportMenu
+          title="سجل المستودعات"
+          fileName="warehouses"
+          columns={exportColumns}
+          getRows={getExportRows}
+          subtitleLines={filterSummary}
+          emptyMessage="لا توجد مستودعات للتصدير."
+        />
       </div>
     ),
-    [canCreate],
+    [canCreate, branchFilter, search, sort.sortKey, sort.label, stateKeys.views],
   );
 
   useEntityFilterSlot(
@@ -191,14 +239,6 @@ export function WarehousesListPage() {
     [searchInput, branchFilter, branchOptions, hasAllBranchAccess],
   );
 
-  const branchNameById = React.useMemo(() => {
-    const map = new Map((company?.branches ?? []).map((b) => [b.branchId, getBranchAccessLabel(b)]));
-    return (id?: string | null) => {
-      if (id == null) return 'مركزي';
-      return map.get(id) ?? id.slice(0, 8);
-    };
-  }, [company?.branches]);
-
   const listErrorMessage =
     error instanceof ApiError && error.status === 403
       ? 'لا تملك صلاحية على هذا الفرع.'
@@ -210,6 +250,7 @@ export function WarehousesListPage() {
     {
       key: 'warehouse',
       title: 'المستودع',
+      sortKey: 'name',
       render: (row) => (
         <button
           type="button"
@@ -307,6 +348,8 @@ export function WarehousesListPage() {
             variant="directory"
             className="inv-table-host"
             columns={columns}
+            sort={sort.sort}
+            onSort={sort.toggle}
             data={rowsPage}
             keyExtractor={(row) => row.id}
             loading={isLoading}

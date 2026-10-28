@@ -10,10 +10,10 @@ export const inventoryLedgerQueryKeys = {
     [...inventoryLedgerQueryKeys.root(query.companyId), 'list', query] as const,
 };
 
-export function useInventoryLedger(query: InventoryLedgerListQuery) {
+export function useInventoryLedger(query: InventoryLedgerListQuery, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: inventoryLedgerQueryKeys.list(query),
     queryFn: () => inventoryLedgerApi.list(query),
-    enabled: Boolean(query.companyId),
+    enabled: Boolean(query.companyId) && (options?.enabled ?? true),
   });
 }

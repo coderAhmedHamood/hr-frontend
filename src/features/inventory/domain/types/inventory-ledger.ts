@@ -8,6 +8,8 @@ import type { WarehouseOperationKind } from '@/features/inventory/domain/types/w
  */
 export type InventoryLedgerEntry = TenantScoped & {
   id: string;
+  /** With `groupBy`: the movement's group key. */
+  groupKey?: string | null;
   occurredAt: string;
   operationId: string;
   operationLineId: string;
@@ -66,4 +68,10 @@ export type InventoryLedgerListQuery = {
   search?: string;
   page?: number;
   limit?: number;
+  /** Server sort key (`LEDGER_SORT`): occurredAt, product, quantity, reference, warehouse, kind. */
+  sortBy?: string;
+  sortDir?: 'asc' | 'desc';
+  /** Server group field (`LEDGER_GROUP`); with `groupValue`, one group's movements. */
+  groupBy?: string;
+  groupValue?: string;
 };

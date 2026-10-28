@@ -1,4 +1,5 @@
 import { apiRequest, type PaginatedResult } from '@/features/hr/lib/api/client';
+import type { ListGroupsResult } from '@/components/ui/list-group';
 import { toNumber } from '@/features/inventory/lib/api/numbers';
 import type {
   InboundProductValueSummary,
@@ -34,6 +35,7 @@ type LedgerListDto = PaginatedResult<LedgerDto> & {
 function mapEntry(dto: LedgerDto): InventoryLedgerEntry {
   return {
     id: dto.id,
+    ...(dto.groupKey !== undefined ? { groupKey: dto.groupKey } : {}),
     companyId: dto.companyId,
     occurredAt: dto.occurredAt,
     operationId: dto.operationId,
@@ -78,6 +80,10 @@ export const inventoryLedgerApi = {
         search: query.search,
         page: query.page ?? 1,
         limit: query.limit ?? 200,
+        sortBy: query.sortBy,
+        sortDir: query.sortDir,
+        groupBy: query.groupBy,
+        groupValue: query.groupValue,
       },
     });
     const summary: InventoryLedgerSummary = {
@@ -106,6 +112,25 @@ export const inventoryLedgerApi = {
         }),
       ),
     };
+  },
+
+  /** Movement counts and quantities in / out / net per group, and overall. */
+  groups(query: InventoryLedgerListQuery): Promise<ListGroupsResult> {
+    return apiRequest<ListGroupsResult>('/inventory/ledger-entries/groups', {
+      throwOnError: true,
+      query: {
+        companyId: query.companyId,
+        warehouseId: query.warehouseId,
+        productId: query.productId,
+        locationId: query.locationId,
+        kind: query.kind,
+        flow: query.flow,
+        occurredAtFrom: query.occurredAtFrom,
+        occurredAtTo: query.occurredAtTo,
+        search: query.search,
+        groupBy: query.groupBy,
+      },
+    });
   },
 
   async listByOperation(companyId: string, operationId: string): Promise<InventoryLedgerEntry[]> {

@@ -1,4 +1,5 @@
 import { apiRequest, type PaginatedResult } from '@/features/hr/lib/api/client';
+import type { ListGroupsResult } from '@/components/ui/list-group';
 import { toNumber } from '@/features/inventory/lib/api/numbers';
 import type {
   CreateWarehouseOperationInput,
@@ -92,6 +93,7 @@ function mapOperation(dto: OperationDto, lines: WarehouseOperationLine[]): Wareh
     linesPartial: dto.linesPartial,
     createdAt: dto.createdAt,
     updatedAt: dto.updatedAt,
+    ...(dto.groupKey !== undefined ? { groupKey: dto.groupKey } : {}),
   };
 }
 
@@ -257,6 +259,25 @@ function isLineUnchanged(prev: WarehouseOperationLine, next: WarehouseOperationL
   );
 }
 
+/** Document counts of the filtered operations, per `groupBy` group and overall. */
+export function fetchWarehouseOperationGroups(query: WarehouseOperationListQuery): Promise<ListGroupsResult> {
+  return apiRequest<ListGroupsResult>('/inventory/warehouse-operations/groups', {
+    throwOnError: true,
+    query: {
+      companyId: query.companyId,
+      warehouseId: query.warehouseId,
+      kind: query.kind,
+      status: query.status,
+      partnerId: query.partnerId,
+      occurredAtFrom: query.occurredAtFrom,
+      occurredAtTo: query.occurredAtTo,
+      search: query.search,
+      archiveScope: 'active',
+      groupBy: query.groupBy,
+    },
+  });
+}
+
 export const warehouseOperationsApi: AdminWarehouseOperationsPort & {
   getOpenProductReservations: typeof fetchOpenProductReservations;
 } = {
@@ -284,6 +305,10 @@ export const warehouseOperationsApi: AdminWarehouseOperationsPort & {
           page,
           limit: query.limit ?? 200,
           archiveScope: 'active',
+          sortBy: query.sortBy,
+          sortDir: query.sortDir,
+          groupBy: query.groupBy,
+          groupValue: query.groupValue,
         },
       });
 

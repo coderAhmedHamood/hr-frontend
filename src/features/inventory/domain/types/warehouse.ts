@@ -44,6 +44,9 @@ export type WarehouseListQuery = {
   search?: string;
   page?: number;
   limit?: number;
+  /** Server sort key: code (default), name, createdAt. */
+  sortBy?: string;
+  sortDir?: 'asc' | 'desc';
 };
 
 export type CreateWarehouseInput = Omit<Warehouse, 'id' | 'createdAt' | 'updatedAt'>;
@@ -140,6 +143,8 @@ export type WarehouseOperationLine = {
 
 export type WarehouseOperation = TenantScoped & {
   id: string;
+  /** With `groupBy`: the document's group key. */
+  groupKey?: string | null;
   warehouseId: string;
   kind: WarehouseOperationKind;
   reference: string;
@@ -185,6 +190,12 @@ export type WarehouseOperationListQuery = {
   limit?: number;
   /** Default preview on list — use full for reports / product-scoped lists. */
   linesMode?: WarehouseOperationLinesMode;
+  /** Server sort key (`OPERATIONS_SORT`): occurredAt, reference, partner, status, warehouse, createdAt. */
+  sortBy?: string;
+  sortDir?: 'asc' | 'desc';
+  /** Server group field (`OPERATIONS_GROUP`); with `groupValue`, one group's documents. */
+  groupBy?: string;
+  groupValue?: string;
 };
 
 /** Server assigns `reference` (e.g. REC-12) — never send on create/update. */

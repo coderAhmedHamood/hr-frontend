@@ -47,6 +47,10 @@ export function StoreImportPage() {
   const [csvSheet, setCsvSheet] = React.useState<StoreImportSheetKey>('products');
   const [mapping, setMapping] = React.useState<StoreImportOptions['mapping']>({});
   const [publish, setPublish] = React.useState(false);
+  // Categories and brands the system lacks: created and linked, or refused.
+  const [createMissing, setCreateMissing] = React.useState(true);
+  const createMissingRef = React.useRef(createMissing);
+  createMissingRef.current = createMissing;
   const [preview, setPreview] = React.useState<StoreImportPreview | null>(null);
   const [busy, setBusy] = React.useState<'preview' | 'commit' | null>(null);
   const [done, setDone] = React.useState<StoreImportPreview | null>(null);
@@ -56,13 +60,19 @@ export function StoreImportPage() {
   const isCsv = Boolean(file && /\.csv$/i.test(file.name));
 
   const runPreview = React.useCallback(
-    async (next: { file: File; mapping?: StoreImportOptions['mapping']; sheet?: StoreImportSheetKey }) => {
+    async (next: {
+      file: File;
+      mapping?: StoreImportOptions['mapping'];
+      sheet?: StoreImportSheetKey;
+      createMissing?: boolean;
+    }) => {
       setBusy('preview');
       setDone(null);
       try {
         const result = await storeImportApi.preview(companyId, next.file, {
           mapping: next.mapping,
           sheet: /\.csv$/i.test(next.file.name) ? next.sheet : undefined,
+          createMissing: next.createMissing ?? createMissingRef.current,
         });
         setPreview(result);
         setMapping(Object.fromEntries(result.sheets.map((s) => [s.key, mappingOf(s)])));
@@ -103,6 +113,7 @@ export function StoreImportPage() {
       const result = await storeImportApi.commit(companyId, file, {
         mapping,
         publish,
+        createMissing,
         sheet: isCsv ? csvSheet : undefined,
       });
       setDone(result);
@@ -271,9 +282,33 @@ export function StoreImportPage() {
                 <Count label="متغيرات جديدة" value={preview.counts.variantsCreated} />
                 <Count label="متغيرات تُحدَّث" value={preview.counts.variantsUpdated} />
               </div>
+              <label className="flex items-start gap-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-sm">
+                <Checkbox
+                  className="mt-0.5"
+                  checked={createMissing}
+                  disabled={busy !== null}
+                  onCheckedChange={(v) => {
+                    const next = v === true;
+                    setCreateMissing(next);
+                    if (file) void runPreview({ file, mapping, sheet: csvSheet, createMissing: next });
+                  }}
+                />
+                <span>
+                  إنشاء ما لا يوجد وربطه
+                  <span className="block text-xs text-muted-foreground">
+                    التصنيفات والعلامات التجارية المكتوبة في الملف وغير الموجودة في النظام تُنشأ وتُربط بالمنتجات.
+                    إن ألغيته صارت أخطاء تُصحَّح في الملف، ولا يُنشأ شيء جديد.
+                  </span>
+                </span>
+              </label>
               {preview.counts.categoriesCreated.length ? (
                 <p className="text-sm text-muted-foreground">
                   تصنيفات ستُنشأ: {preview.counts.categoriesCreated.join('، ')}
+                </p>
+              ) : null}
+              {preview.counts.brandsCreated?.length ? (
+                <p className="text-sm text-muted-foreground">
+                  علامات تجارية ستُنشأ: {preview.counts.brandsCreated.join('، ')}
                 </p>
               ) : null}
               {preview.counts.quantitiesSet ? (
@@ -453,7 +488,7 @@ function ImportDone({ result }: { result: StoreImportPreview }) {
         </p>
         <p className="text-sm text-muted-foreground">
           {c.productsCreated} منتج جديد، {c.productsUpdated} محدَّث، {c.variantsCreated} متغير جديد، {c.variantsUpdated}{' '}
-          متغير محدَّث{c.categoriesCreated.length ? `، ${c.categoriesCreated.length} تصنيف جديد` : ''}.
+          متغير محدَّث{c.categoriesCreated.length ? `، ${c.categoriesCreated.length} تصنيف جديد` : ''}{c.brandsCreated?.length ? `، ${c.brandsCreated.length} علامة تجارية جديدة` : ''}.
         </p>
         <Link href={ecommerceAdminRoutes.products} className="text-sm text-primary underline-offset-4 hover:underline">
           الذهاب إلى المنتجات

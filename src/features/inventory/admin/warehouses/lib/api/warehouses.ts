@@ -77,6 +77,8 @@ export const warehousesApi: AdminWarehousesPort = {
         search: query.search,
         page: query.page ?? 1,
         limit: query.limit ?? 200,
+        sortBy: query.sortBy,
+        sortDir: query.sortDir,
         archiveScope: 'active',
       },
     });
